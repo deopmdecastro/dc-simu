@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: 'Segoe UI', Inter, system-ui, sans-serif;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #3a4150; border-radius: 4px; }
+::-webkit-scrollbar-track { background: #1a1f28; }
+
+/* impede seleção de texto ao arrastar componentes no editor */
+svg text { user-select: none; }
