@@ -11,7 +11,8 @@
  * tempo. Cada miniatura é desenhada, capturada como dataURL e o resultado
  * fica em cache — depois disso não existe nenhum WebGL "vivo" por item.
  */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { getLogo3DImages } from '../schematic/logo3DImage'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -324,7 +325,17 @@ export function getComponentThumbnail(type: ComponentType): string {
 
 /** Miniatura 3D real de um componente da biblioteca (renderizada uma vez, depois é apenas uma imagem). */
 export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?: number }) {
-  const src = useMemo(() => getComponentThumbnail(type), [type])
+  const [logoSrc, setLogoSrc] = useState<string | null>(null)
+  const fallback = useMemo(() => getComponentThumbnail(type), [type])
+  useEffect(() => {
+    if (type !== 'plcSiemensLogo1224RC') return
+    let active = true
+    getLogo3DImages().then(({ off }) => { if (active) setLogoSrc(off) }).catch(() => {
+      // O renderizador procedural mantém a biblioteca utilizável sem o GLB.
+    })
+    return () => { active = false }
+  }, [type])
+  const src = type === 'plcSiemensLogo1224RC' ? logoSrc ?? fallback : fallback
   if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken" />
   return (
     <img
