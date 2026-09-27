@@ -9,7 +9,8 @@ import { computeContinuity, isCoilPowered, probe, sourceTerminalIds } from '../s
 import { computePhaseLabels, motorDirectionFromPhases } from '../src/electrical/phases'
 import { runScan } from '../src/ladder/ladderEngine'
 import type { CounterTable, AddressTable, TimerTable } from '../src/ladder/ladderEngine'
-import { terminalByLabel } from '../src/electrical/factory'
+import { createComponent, terminalByLabel } from '../src/electrical/factory'
+import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
 
 let failures = 0
@@ -311,6 +312,20 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const connected = { ...partial, toTerminalId: isolated.id, toPoint: undefined }
   const connectedResult = computeContinuity(components, [...wires, connected], sourceTerminalIds(components))
   check('duas pontas ligadas podem conduzir', connectedResult.energizedTerminals.has(isolated.id) && connectedResult.energizedWires.has('free-wire'))
+}
+
+/* Bornes do LOGO! coincidem com os parafusos do GLB, também em projetos antigos. */
+{
+  const logo = createComponent('plcSiemensLogo1224RC')
+  const l = logoTerminalLocal(logo, terminalByLabel(logo, 'L+')!)
+  const i8 = logoTerminalLocal(logo, terminalByLabel(logo, 'I8')!)
+  const q1 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q1')!)
+  const q4 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q4')!)
+  check('bornes superiores do LOGO! estão sobre o modelo', l.y > 0 && l.y < logo.h * 0.2 && i8.x > l.x && i8.x < logo.w * 0.8)
+  check('saídas do LOGO! estão sobre os contactos inferiores', q1.y > logo.h * 0.8 && q4.x > q1.x && q4.x < logo.w * 0.8)
+  const edited = { ...terminalByLabel(logo, 'Q1')!, x: 0.3, y: 0.7 }
+  const moved = logoTerminalLocal(logo, edited)
+  check('posição personalizada de borne é respeitada', Math.abs(moved.x - logo.w * 0.3) < 0.01 && Math.abs(moved.y - logo.h * 0.7) < 0.01)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

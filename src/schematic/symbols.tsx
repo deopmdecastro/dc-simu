@@ -1,5 +1,6 @@
 import type { ElectricalComponent, Terminal, TerminalType } from '../types'
 import { useSimStore } from '../store/useSimStore'
+import { logoTerminalLocal } from './logoTerminalGeometry'
 
 /** Cores de cabo do editor (com contraste calibrado para o modo claro). */
 export const WIRE_COLORS: Record<string, string> = {
@@ -173,8 +174,7 @@ export function TerminalGlyph({
 
 /** Posição absoluta de um borne no canvas, respeitando rotação e espelhamento. */
 export function terminalPos(c: ElectricalComponent, t: Terminal): { x: number; y: number } {
-  const localX = t.x * c.w
-  const localY = t.y * c.h
+  const { x: localX, y: localY } = logoTerminalLocal(c, t)
   const cx = c.w / 2
   const cy = c.h / 2
   const mx = c.mirrored ? c.w - localX : localX
@@ -665,13 +665,11 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
 
 /** Bornes e pontos de ligação idênticos para símbolos e modelos 3D. */
 export function ComponentTerminals({ c }: { c: ElectricalComponent }) {
-  const { w, h } = c
   return (
     <g>
       {/* bornes clicáveis */}
       {c.terminals.map((t) => {
-        const px = t.x * w
-        const py = t.y * h
+        const { x: px, y: py } = logoTerminalLocal(c, t)
         return (
           <g key={t.id}>
             <TerminalGlyph x={px} y={py} type={t.terminalType} color={t.color} energized={t.energized} r={4.5} />
