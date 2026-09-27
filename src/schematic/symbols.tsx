@@ -658,6 +658,16 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
   return (
     <g>
       {body()}
+      <ComponentTerminals c={c} />
+    </g>
+  )
+}
+
+/** Bornes e pontos de ligação idênticos para símbolos e modelos 3D. */
+export function ComponentTerminals({ c }: { c: ElectricalComponent }) {
+  const { w, h } = c
+  return (
+    <g>
       {/* bornes clicáveis */}
       {c.terminals.map((t) => {
         const px = t.x * w

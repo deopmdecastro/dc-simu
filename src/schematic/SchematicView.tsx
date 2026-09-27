@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
-import { SymbolGlyph, WIRE_COLORS, terminalPos } from './symbols'
+import { SymbolGlyph, ComponentTerminals, WIRE_COLORS, terminalPos } from './symbols'
 import { IconProbe, IconHelp } from '../ui/icons'
 import { SCENARIOS } from '../simulation/scenarios'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
+import { getLogo3DImages } from './logo3DImage'
 
 const CANVAS_W = 2000
 const CANVAS_H = 1400
@@ -256,6 +257,14 @@ function insertWaypoint(a: Pt, b: Pt, waypoints: Pt[], p: Pt): Pt[] {
 
 /** Editor de esquema completo: malha, arraste, seleção, cabos, bornes, sonda. */
 export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
+  const [logoImages, setLogoImages] = useState<{ off: string; on: string } | null>(null)
+  const hasLogo = useSimStore((s) => s.components.some((c) => c.type === 'plcSiemensLogo1224RC'))
+  useEffect(() => {
+    if (!hasLogo) return
+    let active = true
+    getLogo3DImages().then((images) => { if (active) setLogoImages(images) }).catch((error) => console.warn('Modelo LOGO! indisponível; símbolo de reserva em uso', error))
+    return () => { active = false }
+  }, [hasLogo])
   const components = useSimStore((s) => s.components)
   const showEmptyWelcome = useSimStore((s) => s.showEmptyWelcome)
   const wires = useSimStore((s) => s.wires)
@@ -832,7 +841,29 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? 'move' : 'inherit', opacity: c.locked ? 0.85 : 1 }}
       >
         {selected && <rect x={-6} y={-6} width={c.w + 12} height={c.h + 12} rx={6} fill="none" stroke="#2655e5" strokeWidth={1.5} strokeDasharray="5 3" />}
-        <SymbolGlyph c={c} selected={selected} />
+        {c.type === 'plcSiemensLogo1224RC' && logoImages ? (
+          <>
+            <image x={0} y={0} width={c.w} height={c.h} href={c.terminals.find((t) => t.label === 'L+')?.energized ? logoImages.on : logoImages.off} preserveAspectRatio="xMidYMid meet" />
+            {/* Alvos de seleção e bornes mantêm-se nas coordenadas reais do esquema. */}
+            <rect x={0} y={0} width={c.w} height={c.h} fill="transparent" />
+            <ComponentTerminals c={c} />
+            {/* Zonas dos botões do modelo: continuam operacionais na vista frontal. */}
+            {(['up', 'down', 'left', 'right', 'ESC', 'OK'] as const).map((button) => {
+              const imageW = Math.min(c.w, c.h * 560 / 720)
+              const imageH = Math.min(c.h, c.w * 720 / 560)
+              const x0 = (c.w - imageW) / 2
+              const y0 = (c.h - imageH) / 2
+              const coords = { up: [0.8, 0.45], down: [0.8, 0.63], left: [0.68, 0.54], right: [0.92, 0.54], ESC: [0.72, 0.72], OK: [0.88, 0.72] }
+              const [bx, by] = coords[button]
+              return <rect key={button} x={x0 + (bx - 0.055) * imageW} y={y0 + (by - 0.035) * imageH} width={imageW * 0.11} height={imageH * 0.07} rx={3} fill={c.state.pressedButton === button ? '#38bdf8' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
+                onMouseDown={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { pressedButton: button }) }}
+                onMouseUp={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
+                onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.pressedButton === button) useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
+                onDoubleClick={(e) => e.stopPropagation()}><title>{button}</title></rect>
+            })}
+            <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+          </>
+        ) : <SymbolGlyph c={c} selected={selected} />}
         {c.locked && <text x={c.w - 12} y={12} fontSize={10} fill="#b45309">🔒</text>}
       </g>
     )
