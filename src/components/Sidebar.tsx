@@ -4,6 +4,8 @@ import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../types'
 import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
 import LabelLibrary from './LabelLibrary'
+import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
+import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown } from '../ui/icons'
 
@@ -167,20 +169,29 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                       <button
                         key={it.type}
                         onClick={() => add(it.type)}
-                        onDoubleClick={() => addImmediate(it.type)}
                         draggable
                         onDragStart={(e) => {
-                          useSimStore.getState().setPlacingType(null)
+                          const st = useSimStore.getState()
+                          st.setPlacingType(null)
+                          st.setDragType(it.type)
+                          e.dataTransfer.setData('application/x-dcsimu-component', it.type)
                           e.dataTransfer.setData('text/plain', it.type)
                           e.dataTransfer.effectAllowed = 'copy'
+                          // etiqueta compacta a seguir o cursor; no esquema aparece o fantasma real
+                          const chip = document.createElement('div')
+                          chip.textContent = `+ ${it.name}`
+                          chip.style.cssText = 'position:fixed;top:-100px;left:-100px;padding:3px 8px;border-radius:999px;background:#2655e5;color:#fff;font:600 11px Inter,system-ui,sans-serif;white-space:nowrap'
+                          document.body.appendChild(chip)
+                          e.dataTransfer.setDragImage(chip, -12, -12)
+                          window.setTimeout(() => chip.remove(), 0)
                         }}
-                        onDragEnd={() => {}}
+                        onDragEnd={() => useSimStore.getState().setDragType(null)}
                            className={`group text-left px-2 py-1.5 rounded-[5px] border transition-colors cursor-grab active:cursor-grabbing ${
                              placingType === it.type
                                ? 'border-brand-400 bg-brand-50 shadow-xs ring-1 ring-brand-200'
                                : 'border-transparent hover:border-line hover:bg-brand-50 hover:shadow-xs active:bg-brand-100/70'
                            }`}
-                           title={`Clique: posicionar ${it.name} com o mouse · duplo clique: inserir já · arrastar: largar no esquema`}
+                           title={`${it.name} — clique ou arraste: o componente segue o cursor (pré-visualização) e é largado onde soltar/clicar`}
                            aria-label={`Adicionar ${it.name}. Clique para posicionar com o mouse ou arraste para o esquema.`}
                       >
                           <span className="flex items-center gap-2">
@@ -201,10 +212,10 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
               )
             })}
              <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
-               <b className="text-ink-500">Clique</b> num item e posicione com o mouse (Shift+clique posiciona vários; Esc cancela),
-               <b className="text-ink-500"> arraste</b> até uma posição exata ou <b className="text-ink-500">duplo clique</b> para inserir de imediato.
-               Depois arraste, gire (R), duplique (D) ou apague (Del).
-            </p>
+               <b className="text-ink-500">Clique ou arraste</b> um item: o componente aparece em pré-visualização no esquema
+               e fica onde <b className="text-ink-500">soltar/clicar</b> (encaixa na malha). Shift+clique posiciona vários · Esc cancela.
+               Também pode arrastar botões, sensores e contatores para uma network Ladder.
+             </p>
           </div>
         </>
       )}
@@ -413,7 +424,11 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                     <button
                       key={name}
                       title={name}
-                      onClick={() => useSimStore.getState().updateWire(selectedWire.id, { color: name as WireColor })}
+                      onClick={() => {
+                        const st = useSimStore.getState()
+                        st.commitHistory()
+                        st.updateWire(selectedWire.id, { color: name as WireColor })
+                      }}
                       className={`h-[22px] w-[22px] rounded-full border-2 transition-transform hover:scale-110 ${
                         selectedWire.color === name ? 'border-brand-600 ring-2 ring-brand-200 scale-110' : 'border-white shadow-[0_0_0_1px_rgba(0,0,0,0.15)]'
                       }`}
@@ -438,20 +453,38 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 </div>
                 <div>
                   <label className={label}>Tipo / função</label>
-                  <select className="dc-select" value={selectedWire.kind} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { kind: e.target.value as any })}>
+                  <select className="dc-select" value={selectedWire.kind} onChange={(e) => {
+                    const kind = e.target.value as keyof typeof WIRE_KIND_COLOR
+                    const st = useSimStore.getState()
+                    st.commitHistory()
+                    // cor normalizada pela função (IEC 60204-1) — pode ser alterada depois na paleta
+                    st.updateWire(selectedWire.id, { kind, color: WIRE_KIND_COLOR[kind] })
+                  }}>
                     {Object.entries(WIRE_KIND_LABEL).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
                     ))}
                   </select>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <label className={label}>Condutor</label>
-                  <select className="dc-select" value={selectedWire.flexibility} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { flexibility: e.target.value as any })}>
-                    <option value="flexible">Flexível (multifilar)</option>
-                    <option value="rigid">Rígido (sólido)</option>
-                  </select>
-                  <div className="text-[9px] text-ink-400 mt-0.5 leading-snug">
-                    {selectedWire.flexibility === 'flexible' ? 'Curvas suaves e cantos arredondados.' : 'Segmentos retos com dobras vivas (traço duplo).'}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {([['flexible', 'Flexível', 'multifilar · curvas suaves'], ['rigid', 'Rígido', 'fio sólido · dobras a 90°']] as const).map(([id, name, hint]) => (
+                      <button
+                        key={id}
+                        onClick={() => {
+                          const st = useSimStore.getState()
+                          st.commitHistory()
+                          st.updateWire(selectedWire.id, { flexibility: id })
+                        }}
+                        className={`flex flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left transition-colors ${
+                          selectedWire.flexibility === id ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200' : 'border-line bg-white hover:border-line-strong hover:bg-slate-50'
+                        }`}
+                      >
+                        <ConductorIcon flexible={id === 'flexible'} color={WIRE_COLORS[selectedWire.color]} />
+                        <span className="text-[11px] font-semibold text-ink-900">{name}</span>
+                        <span className="text-[9px] text-ink-400 leading-tight">{hint}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div>
@@ -526,34 +559,34 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
 
               <div className="dc-card p-2 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className={label + ' !mb-0'}>Terminais do cabo</label>
-                  <span className="text-[9px] text-ink-400">tipo físico</span>
+                  <label className={label + ' !mb-0'}>Terminal do cabo</label>
+                  <span className="text-[9px] text-ink-400">aplicado às duas pontas</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="min-w-0">
-                    <span className="block text-[9px] text-ink-400 mb-1 truncate">Origem · {wireFromTerminal?.label ?? '—'}</span>
-                    <select
-                      className="dc-select"
-                      value={wireFromTerminal?.terminalType ?? 'screw'}
-                      disabled={!wireFromTerminal}
-                      onChange={(e) => wireFromTerminal && useSimStore.getState().updateTerminal(wireFromTerminal.id, { terminalType: e.target.value as TerminalType })}
-                    >
-                      {Object.entries(TERMINAL_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                  </label>
-                  <label className="min-w-0">
-                    <span className="block text-[9px] text-ink-400 mb-1 truncate">Destino · {wireToTerminal?.label ?? '—'}</span>
-                    <select
-                      className="dc-select"
-                      value={wireToTerminal?.terminalType ?? 'screw'}
-                      disabled={!wireToTerminal}
-                      onChange={(e) => wireToTerminal && useSimStore.getState().updateTerminal(wireToTerminal.id, { terminalType: e.target.value as TerminalType })}
-                    >
-                      {Object.entries(TERMINAL_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                  </label>
+                <div className="grid grid-cols-2 gap-1">
+                  {WIRE_END_OPTIONS.map((o) => {
+                    const active = (selectedWire.endType ?? 'none') === o.id
+                    return (
+                      <button
+                        key={o.id}
+                        title={o.hint}
+                        onClick={() => {
+                          const st = useSimStore.getState()
+                          st.commitHistory()
+                          st.updateWire(selectedWire.id, { endType: o.id })
+                        }}
+                        className={`flex items-center gap-1.5 rounded-[5px] border px-1.5 py-1 text-left text-[10.5px] transition-colors ${
+                          active ? 'border-brand-500 bg-brand-50 text-brand-700 font-semibold' : 'border-line bg-white text-ink-700 hover:border-line-strong hover:bg-slate-50'
+                        }`}
+                      >
+                        <WireEndIcon type={o.id} color={WIRE_COLORS[selectedWire.color]} size={30} />
+                        <span className="truncate">{o.label}</span>
+                      </button>
+                    )
+                  })}
                 </div>
-                <p className="text-[10px] text-ink-400 leading-relaxed">O terminal pertence ao borne da ponta selecionada e fica visível no esquema.</p>
+                <p className="text-[10px] text-ink-400 leading-relaxed">
+                  Ligado a {wireFromTerminal?.label ?? '—'} → {wireToTerminal?.label ?? '—'}. O terminal é desenhado nas pontas do cabo no esquema.
+                </p>
               </div>
 
               <label className="flex items-center gap-2">

@@ -1473,8 +1473,9 @@ input[type='color'] {
   .ladder-palette-item:hover { background: var(--ladder-blue-soft); }
   .ladder-palette-icon {
     display: inline-flex;
-    width: 25px;
-    height: 25px;
+    width: 38px;
+    height: 26px;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
     border-radius: 4px;
@@ -1526,3 +1527,143 @@ input[type='color'] {
     outline-offset: 1px;
   }
 }
+
+/* ===================================================================== v2.2 */
+@layer components {
+  /* ---------- toolbar: segmentos sem bordas duplicadas */
+  .dc-seg > .dc-tool-btn {
+    border-width: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .dc-seg > * + .dc-tool-btn { border-left-width: 1px; }
+  .dc-seg > .dc-tool-active { box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12); }
+  .tb-sep {
+    @apply shrink-0 w-px h-5 bg-line mx-1;
+  }
+  .tb-label {
+    @apply shrink-0 text-[9px] font-bold uppercase tracking-[0.1em] text-ink-300 select-none mr-0.5;
+  }
+  .tb-menu {
+    @apply absolute z-50 mt-1 min-w-[190px] rounded-md border border-line bg-white p-1 shadow-lg;
+  }
+  .tb-menu-item {
+    @apply flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-left text-xs text-ink-700 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-700;
+  }
+  .tb-menu-item kbd {
+    @apply ml-auto text-[10px] font-mono text-ink-300;
+  }
+  .tb-swatch {
+    @apply h-[18px] w-[18px] rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.18)] transition-transform hover:scale-110;
+  }
+  .tb-swatch.is-active {
+    @apply ring-2 ring-brand-500 ring-offset-1 scale-110;
+  }
+
+  /* ---------- network Ladder (SVG, grelha 20px) */
+  .ladder-rung-card.is-active {
+    border-color: #94b6fa;
+  }
+  .ladder-rung-body {
+    padding: 0 !important;
+    background: #fbfcfe;
+  }
+  .lnet-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: #fbfcfe;
+  }
+  .lnet {
+    position: relative;
+    outline: none;
+    user-select: none;
+  }
+  .lnet:focus-visible {
+    box-shadow: inset 0 0 0 2px rgba(47, 111, 228, 0.35);
+  }
+  .lnet.is-drop {
+    background: rgba(47, 111, 228, 0.03);
+  }
+  .lnet-hit {
+    position: absolute;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.12s;
+  }
+  .lnet-hit:hover {
+    background: rgba(47, 111, 228, 0.07);
+    box-shadow: inset 0 0 0 1px rgba(47, 111, 228, 0.25);
+  }
+  .lnet-hit[draggable='true'] {
+    cursor: grab;
+  }
+  .lnet-hit[draggable='true']:active {
+    cursor: grabbing;
+  }
+  .lnet-branch-rm {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid #f3c1c1;
+    background: #fff;
+    color: #dc2626;
+    font-size: 11px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .lnet:hover .lnet-branch-rm {
+    opacity: 1;
+  }
+  .lnet-strip {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 8px;
+    border-bottom: 1px solid #eef2f7;
+    background: #fff;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .lnet-strip-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+    min-width: 34px;
+    padding: 0 4px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #33415c;
+    cursor: grab;
+    flex-shrink: 0;
+    transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+  }
+  .lnet-strip-btn:hover {
+    border-color: #c8d7f6;
+    background: #eef4ff;
+    color: #2655e5;
+  }
+  .lnet-strip-btn:active {
+    cursor: grabbing;
+  }
+  .lnet-strip-btn:nth-child(5),
+  .lnet-strip-btn:nth-child(9) {
+    margin-left: 6px;
+  }
+
+  /* ---------- fantasma do componente arrastado */
+  .dc-ghost-label {
+    font-size: 11px;
+    font-weight: 600;
+    fill: #2655e5;
+  }
+}
+
+@keyframes dc-flow { to { stroke-dashoffset: -28; } }
+.dc-flow { animation: dc-flow 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .dc-flow { animation: none; } }

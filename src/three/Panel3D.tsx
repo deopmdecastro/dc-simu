@@ -328,11 +328,27 @@ function Wires3D({ positions }: { positions: Record<string, THREE.Vector3> }) {
         const a = posOf(w.fromTerminalId)
         const b = posOf(w.toTerminalId)
         if (!a || !b) return null
-        const col = w.energized ? '#facc15' : colorOf(w.color)
-        const width = w.gauge.startsWith('0.') ? 1 : w.gauge.startsWith('1') ? 1.4 : w.gauge.startsWith('2.5') ? 2 : 2.6
+        // a cor real do cabo é sempre mantida; energia = brilho âmbar por trás
+        const col = colorOf(w.color)
+        const width = w.gauge.startsWith('0.') ? 1.4 : w.gauge.startsWith('1') ? 1.8 : w.gauge.startsWith('2.5') ? 2.4 : 3
         const drop = -0.55
-        const pts: Array<[number, number, number]> = w.route === 'direct' ? [a, b] : [a, [a[0], a[1] + drop, a[2]], [b[0], a[1] + drop, b[2]], b]
-        return <Line key={w.id} points={pts} color={col} lineWidth={w.energized ? width + 0.8 : width} dashed={w.flexibility === 'rigid'} />
+        let pts: Array<[number, number, number]>
+        if (w.route === 'direct') pts = [a, b]
+        else if (w.flexibility === 'flexible') {
+          // flexível: catenária suave (curva)
+          const mid: [number, number, number] = [(a[0] + b[0]) / 2, Math.min(a[1], b[1]) + drop * 1.3, (a[2] + b[2]) / 2]
+          const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(...a), new THREE.Vector3(...mid), new THREE.Vector3(...b)])
+          pts = curve.getPoints(24).map((v) => [v.x, v.y, v.z] as [number, number, number])
+        } else {
+          // rígido: dobras a 90°
+          pts = [a, [a[0], a[1] + drop, a[2]], [b[0], a[1] + drop, b[2]], b]
+        }
+        return (
+          <group key={w.id}>
+            {w.energized && <Line points={pts} color="#fbbf24" lineWidth={width + 4} transparent opacity={0.45} />}
+            <Line points={pts} color={col} lineWidth={width} />
+          </group>
+        )
       })}
     </group>
   )

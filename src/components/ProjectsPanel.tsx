@@ -101,7 +101,7 @@ export default function ProjectsPanel() {
         <span className="truncate">{currentProjectName ? `${currentProjectName}${dirty ? ' •' : ''}` : 'Projetos'}</span>
       </button>
       {open && (
-        <div className="absolute z-30 right-0 mt-1.5 w-80 max-h-96 overflow-y-auto bg-surface-panel border border-line rounded-md shadow-lg p-2.5 text-xs">
+        <div className="absolute z-50 left-0 mt-1.5 w-80 max-h-96 overflow-y-auto bg-surface-panel border border-line rounded-md shadow-lg p-2.5 text-xs">
           <div className="dc-panel-title mb-1.5">Guardar neste navegador</div>
           <div className="flex gap-1 mb-3">
             <input

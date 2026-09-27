@@ -8,6 +8,7 @@ import type {
   LadderDataType,
   Wire,
   WireColor,
+  WireDefaults,
   EditorTool,
   GridSettings,
   SimMode,
@@ -94,6 +95,12 @@ interface Store extends CircuitState {
    * cursor no esquema; clique posiciona, Esc cancela). */
   placingType: ComponentType | null
   setPlacingType: (t: ComponentType | null) => void
+  /** Componente a ser arrastado da biblioteca (HTML5 drag) — usado para o fantasma no esquema */
+  dragType: ComponentType | null
+  setDragType: (t: ComponentType | null) => void
+  /** Preferências aplicadas aos novos cabos (ferramenta Cabo) */
+  wireDefaults: WireDefaults
+  setWireDefaults: (patch: Partial<WireDefaults>) => void
   addComponent: (type: ComponentType, x: number, y: number) => string
   duplicateComponents: (ids: string[]) => void
   updateComponent: (id: string, patch: Partial<ElectricalComponent>) => void
@@ -385,6 +392,16 @@ function runOneTick(state: Store, dtMs: number) {
   state.sim.scanCount += 1
 }
 
+/** Cor sugerida por função do cabo (usada na cor automática). */
+export const WIRE_KIND_COLOR: Record<Wire['kind'], WireColor> = {
+  power: 'black',
+  control: 'red',
+  signal: 'orange',
+  neutral: 'lightblue',
+  earth: 'green-yellow',
+  bus: 'violet',
+}
+
 export const useSimStore = create<Store>((set, get) => ({
   components: [],
   wires: [],
@@ -552,6 +569,10 @@ export const useSimStore = create<Store>((set, get) => ({
 
   placingType: null,
   setPlacingType: (t) => set({ placingType: t, tool: t ? 'select' : get().tool }),
+  dragType: null,
+  setDragType: (t) => set({ dragType: t }),
+  wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'flexible', endType: 'ferrule' },
+  setWireDefaults: (patch) => set((s) => ({ wireDefaults: { ...s.wireDefaults, ...patch } })),
 
   addComponent: (type, x, y) => {
     get().commitHistory()
@@ -681,7 +702,7 @@ export const useSimStore = create<Store>((set, get) => ({
     get().step()
   },
 
-  addWire: (fromTerminalId, toTerminalId, color = 'black') => {
+  addWire: (fromTerminalId, toTerminalId, color) => {
     if (fromTerminalId === toTerminalId) return
     const exists = get().wires.some(
       (w) =>
@@ -690,14 +711,16 @@ export const useSimStore = create<Store>((set, get) => ({
     )
     if (exists) return
     get().commitHistory()
+    const defs = get().wireDefaults
     const wire: Wire = {
       id: nanoid(8),
       fromTerminalId,
       toTerminalId,
-      color,
-      gauge: '1.5mm²',
-      kind: /A1|A2/.test('') ? 'control' : 'control',
-      flexibility: 'flexible',
+      color: color ?? defs.color,
+      gauge: defs.gauge,
+      kind: 'control',
+      flexibility: defs.flexibility,
+      endType: defs.endType,
       route: 'orthogonal',
       bend: 0.5,
       curveOffset: 0,
@@ -718,6 +741,9 @@ export const useSimStore = create<Store>((set, get) => ({
     if (a?.kind === 'neutral' || b?.kind === 'neutral') wire.kind = 'neutral'
     if (a?.kind === 'earth' || b?.kind === 'earth') wire.kind = 'earth'
     if (a?.kind === 'io' || b?.kind === 'io') wire.kind = 'signal'
+    // cor automática pela função (IEC 60204-1): força preto, comando vermelho,
+    // neutro azul-claro, PE verde-amarelo, sinal laranja, bus violeta
+    if (!color && defs.autoColor) wire.color = WIRE_KIND_COLOR[wire.kind]
 
     set((s) => ({ wires: [...s.wires, wire], selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo ${wire.number} criado (${a?.comp.ref ?? '?'} → ${b?.comp.ref ?? '?'}).`)
@@ -1021,7 +1047,7 @@ export const useSimStore = create<Store>((set, get) => ({
   renameRung: (rungId, name) => set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? { ...r, name } : r)) } })),
 
   updateRung: (rungId, updater) => {
-    set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? updater(r) : r)) } }))
+    set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? updater(r) : r)) }, dirty: true }))
     get().step()
   },
 

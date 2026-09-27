@@ -222,6 +222,23 @@ export type WireFlexibility = 'rigid' | 'flexible'
 
 export type WireRoute = 'orthogonal' | 'direct' | 'arc' | 'manhattan'
 
+/**
+ * Terminação aplicada às pontas do cabo (uma única opção para as duas pontas):
+ * ponteira tubular, ponteira dupla, olhal, forquilha, pino, faston, estanhado
+ * ou ponta nua.
+ */
+export type WireEndType = 'none' | 'ferrule' | 'ferruleDouble' | 'ring' | 'fork' | 'pin' | 'faston' | 'tinned'
+
+/** Valores usados ao desenhar novos cabos (ferramenta Cabo). */
+export interface WireDefaults {
+  /** true = cor automática pela função do cabo (força, neutro, PE…) */
+  autoColor: boolean
+  color: WireColor
+  gauge: string
+  flexibility: WireFlexibility
+  endType: WireEndType
+}
+
 export interface Wire {
   id: string
   fromTerminalId: string
@@ -247,6 +264,8 @@ export interface Wire {
    * suaves. Duplo clique num ponto remove-o.
    */
   waypoints?: Array<{ x: number; y: number }>
+  /** Terminação das pontas do cabo (ponteira, olhal, forquilha…) */
+  endType?: WireEndType
   /** Número do fio / identificador de chicote */
   number?: string
   label?: string

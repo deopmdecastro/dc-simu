@@ -159,7 +159,7 @@ export default function App() {
 
       {/* ============================================== barra de estado */}
       <footer className="shrink-0 flex items-center gap-2 px-3 h-[26px] border-t border-line bg-surface-rail text-[11px] text-ink-500 select-none">
-        <span className="text-ink-400 font-semibold tracking-wide">DC-SIMU <span className="font-normal">v2</span></span>
+        <span className="text-ink-400 font-semibold tracking-wide">DC-SIMU <span className="font-normal">v2.2</span></span>
         <span className="h-3.5 w-px bg-line" />
         <span className="truncate max-w-[280px]" title="Ctrl+S guarda · Ctrl+Shift+O reabre a lista de projetos guardados neste navegador">
           {currentProjectName ? (

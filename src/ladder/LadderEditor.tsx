@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
 import type { LadderContact, LadderRung, LadderContactType, LadderCoilType, LadderCoilEl, ComponentType } from '../types'
+import NetworkDiagram, { type RungSelection } from './NetworkDiagram'
+import { COMPONENT_TO_LADDER, LADDER_MIME, applyKind, isContactKind, setLadderDrag, type DropTarget, type PaletteKind } from './ladderDnd'
 import {
   IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder, IconCompare, IconMath, IconMove,
@@ -17,15 +19,6 @@ import {
 const TAG_DATALIST_ID = 'ladder-tag-addresses'
 
 const CONTACT_LABEL: Record<LadderContactType, string> = { NO: 'NA', NC: 'NF', RISING: '↑B', FALLING: '↓B' }
-
-type RungSelection =
-  | { type: 'insert' }
-  | { type: 'contact'; branchId: string; elementId: string }
-  | { type: 'coil'; coilId: string }
-  | { type: 'timer' }
-  | { type: 'counter' }
-  | { type: 'function' }
-  | null
 
 function TagAddressDatalist() {
   const tags = useSimStore((s) => s.tags)
@@ -138,20 +131,25 @@ function BlockButton({
 
 /* --------------------------------------------------------------- editor row */
 
-function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
-  const table = useSimStore((s) => s.runtime.table)
+/** Barra única de elementos por network: clique insere · arraste para posicionar. */
+const STRIP: Array<{ kind: PaletteKind; title: string }> = [
+  { kind: 'NO', title: 'Contato NA (normalmente aberto)' },
+  { kind: 'NC', title: 'Contato NF (normalmente fechado)' },
+  { kind: 'RISING', title: 'Contato de borda de subida (P)' },
+  { kind: 'FALLING', title: 'Contato de borda de descida (N)' },
+  { kind: 'BRANCH', title: 'Abrir ramo paralelo (OR)' },
+  { kind: 'COIL', title: 'Bobina de saída' },
+  { kind: 'SET', title: 'Bobina SET (retentiva)' },
+  { kind: 'RESET', title: 'Bobina RESET' },
+  { kind: 'TON', title: 'Temporizador TON' },
+  { kind: 'CTU', title: 'Contador CTU' },
+]
+
+function RungRow({ rung, index, minWidth = 640, active = false }: { rung: LadderRung; index: number; minWidth?: number; active?: boolean }) {
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
-  const grid = useSimStore((s) => s.grid)
   const { deleteRung, duplicateRung, moveRung, renameRung, updateRung } = useSimStore()
-  const [newAddress, setNewAddress] = useState('I1')
-  const [newType, setNewType] = useState<LadderContactType>('NO')
-  const [branchIndex, setBranchIndex] = useState(0)
-  const [coilAddress, setCoilAddress] = useState('Q1')
-  const [coilType, setCoilType] = useState<LadderCoilType>('COIL')
   const [selection, setSelection] = useState<RungSelection>(null)
-  const [dragBranchId, setDragBranchId] = useState<string | null>(null)
-  const [coilDragOver, setCoilDragOver] = useState(false)
   /** network recolhida (só o cabeçalho visível) — como no TIA Portal */
   const [collapsed, setCollapsed] = useState(false)
 
@@ -181,103 +179,53 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
   const updateCounter = (patch: Partial<NonNullable<LadderRung['counter']>>) =>
     updateRung(rung.id, (r) => (r.counter ? { ...r, counter: { ...r.counter, ...patch } } : r))
 
-  const addContact = () => {
-    const elementId = `${rung.id}-c${Date.now()}${Math.random().toString(36).slice(2, 5)}`
-    updateRung(rung.id, (r) => {
-      const branches = r.branches.length ? [...r.branches] : [{ id: r.id + '-b0', elements: [] }]
-      const idx = Math.min(branchIndex, branches.length - 1)
-      branches[idx] = {
-        ...branches[idx],
-        elements: [...branches[idx].elements, { kind: 'contact', id: elementId, address: newAddress.toUpperCase(), contactType: newType }],
-      }
-      return { ...r, branches }
-    })
-    setSelection({ type: 'contact', branchId: rung.branches[Math.min(branchIndex, Math.max(0, rung.branches.length - 1))]?.id ?? `${rung.id}-b0`, elementId })
-  }
-
-  const addBranch = () => {
-    updateRung(rung.id, (r) => ({ ...r, branches: [...r.branches, { id: `${rung.id}-b${Date.now()}`, elements: [] }] }))
-    setBranchIndex(rung.branches.length)
-  }
-
   const removeElement = (branchId: string, elementId: string) => {
     updateRung(rung.id, (r) => ({
       ...r,
       branches: r.branches.map((b) => (b.id === branchId ? { ...b, elements: b.elements.filter((e) => e.id !== elementId) } : b)),
     }))
-    if (selection?.type === 'contact' && selection.elementId === elementId) setSelection({ type: 'insert' })
-  }
-
-  const toggleContactType = (branchId: string, elementId: string) =>
-    updateRung(rung.id, (r) => ({
-      ...r,
-      branches: r.branches.map((b) =>
-        b.id === branchId
-          ? { ...b, elements: b.elements.map((e) => (e.id === elementId ? { ...e, contactType: (['NO', 'NC', 'RISING', 'FALLING'] as LadderContactType[])[((['NO', 'NC', 'RISING', 'FALLING'] as LadderContactType[]).indexOf(e.contactType) + 1) % 4] } : e)) }
-          : b,
-      ),
-    }))
-
-  const addCoil = () => {
-    const coilId = `${rung.id}-k${Date.now()}`
-    updateRung(rung.id, (r) => ({ ...r, coils: [...r.coils, { kind: 'coil', id: coilId, address: coilAddress.toUpperCase(), coilType }] }))
-    setSelection({ type: 'coil', coilId })
+    setSelection(null)
   }
 
   const removeCoil = (id: string) => {
     updateRung(rung.id, (r) => ({ ...r, coils: r.coils.filter((c) => c.id !== id) }))
-    if (selection?.type === 'coil' && selection.coilId === id) setSelection({ type: 'insert' })
+    setSelection(null)
   }
 
-  const cycleCoil = (id: string) =>
-    updateRung(rung.id, (r) => ({
-      ...r,
-      coils: r.coils.map((c) => (c.id === id ? { ...c, coilType: (['COIL', 'SET', 'RESET'] as LadderCoilType[])[((['COIL', 'SET', 'RESET'] as LadderCoilType[]).indexOf(c.coilType) + 1) % 3] } : c)),
-    }))
-
-  const setTimer = (kind: 'TON' | 'TOF' | 'TP' | 'STAR_DELTA' | 'none') => {
+  const setTimer = (kind: 'none') => {
     if (kind === 'none') updateRung(rung.id, (r) => ({ ...r, timer: undefined }))
-    else updateRung(rung.id, (r) => ({ ...r, timer: { kind: 'timer', id: r.timer?.id ?? `${rung.id}-t`, address: r.timer?.address ?? 'T1', timerType: kind, presetMs: r.timer?.presetMs ?? 3000, preset2Ms: r.timer?.preset2Ms ?? 50 } }))
-    setSelection(kind === 'none' ? { type: 'insert' } : { type: 'timer' })
+    setSelection(null)
   }
 
-  const setCounter = (kind: 'CTU' | 'CTD' | 'none') => {
+  const setCounter = (kind: 'none') => {
     if (kind === 'none') updateRung(rung.id, (r) => ({ ...r, counter: undefined }))
-    else updateRung(rung.id, (r) => ({ ...r, counter: { kind: 'counter', id: r.counter?.id ?? `${rung.id}-c`, address: r.counter?.address ?? 'C1', counterType: kind, preset: r.counter?.preset ?? 5, resetAddress: r.counter?.resetAddress ?? 'M9' } }))
-    setSelection(kind === 'none' ? { type: 'insert' } : { type: 'counter' })
+    setSelection(null)
   }
 
-  /** Solta um elemento arrastado da paleta diretamente num ramo desta network
-   *  (contato) ou no banco de bobinas — reforça o "carregar e soltar" do editor. */
-  const dropContactOnBranch = (branchId: string, kind: PaletteKind) => {
-    if (kind === 'NO' || kind === 'NC' || kind === 'RISING' || kind === 'FALLING') {
-      const elementId = `${rung.id}-c${Date.now()}${Math.random().toString(36).slice(2, 5)}`
-      updateRung(rung.id, (r) => ({
-        ...r,
-        branches: r.branches.map((b) => (b.id === branchId ? { ...b, elements: [...b.elements, { kind: 'contact', id: elementId, address: 'I1', contactType: kind }] } : b)),
-      }))
-      setSelection({ type: 'contact', branchId, elementId })
-    } else {
-      dropOnCoilBank(kind)
+  /** Clique num item da barra: insere na network (após o contato selecionado, se houver). */
+  const insert = (kind: PaletteKind) => {
+    let target: DropTarget = { kind: 'output' }
+    if (isContactKind(kind)) {
+      target = { kind: 'branch', branchIndex: 0, index: rung.branches[0]?.elements.length ?? 0 }
+      if (selection?.type === 'contact') {
+        const bi = rung.branches.findIndex((b) => b.id === selection.branchId)
+        const idx = rung.branches[bi]?.elements.findIndex((e) => e.id === selection.elementId) ?? -1
+        if (bi >= 0 && idx >= 0) target = { kind: 'branch', branchIndex: bi, index: idx + 1 }
+      }
     }
-  }
-
-  const dropOnCoilBank = (kind: PaletteKind) => {
-    if (kind === 'COIL' || kind === 'SET' || kind === 'RESET') {
-      const coilId = `${rung.id}-k${Date.now()}`
-      updateRung(rung.id, (r) => ({ ...r, coils: [...r.coils, { kind: 'coil', id: coilId, address: 'Q1', coilType: kind }] }))
-      setSelection({ type: 'coil', coilId })
-    } else if (kind === 'TON' || kind === 'TOF' || kind === 'TP') {
-      setTimer(kind)
-    } else if (kind === 'CTU' || kind === 'CTD') {
-      setCounter(kind)
-    }
+    let created: RungSelection = null
+    updateRung(rung.id, (r) => {
+      const res = applyKind(r, kind, target)
+      created = (res.created as RungSelection) ?? null
+      return res.rung
+    })
+    if (created) setSelection(created)
   }
 
   const smallBtn = 'dc-btn !h-[22px] !px-1.5 !text-[10px]'
   const tiny = 'dc-input !h-[22px] !text-[10px] !w-auto'
   return (
-    <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''}`}>
+    <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''} ${active ? 'is-active' : ''}`}>
       {/* cabeçalho da network — estilo TIA Portal: "Network n: título" */}
       <div className="ladder-rung-header" onDoubleClick={() => setCollapsed((v) => !v)}>
         <button
@@ -299,14 +247,13 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
         />
         <span className={`ladder-rung-live ${powered && running ? 'is-on' : ''}`}>
           <i />
-          {powered && running ? 'energizado' : 'aberto'}
+          {powered && running ? 'RLO = 1' : 'RLO = 0'}
         </span>
         <label className="flex items-center gap-1 text-[10px] text-ink-400 cursor-pointer" title="Network habilitada para execução" onDoubleClick={(e) => e.stopPropagation()}>
           <input type="checkbox" checked={rung.enabled} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, enabled: e.target.checked }))} />
-          ativo
+          ativa
         </label>
         <div className="flex gap-0.5" onDoubleClick={(e) => e.stopPropagation()}>
-          <button className={smallBtn} title="Adicionar/configurar elementos" onClick={() => setSelection(selection?.type === 'insert' ? null : { type: 'insert' })}><IconPlus size={10} /></button>
           <button className={smallBtn} title="Mover para cima" onClick={() => moveRung(rung.id, -1)}>↑</button>
           <button className={smallBtn} title="Mover para baixo" onClick={() => moveRung(rung.id, 1)}>↓</button>
           <button className={smallBtn} title="Duplicar network" onClick={() => duplicateRung(rung.id)}><IconCopy size={10} /></button>
@@ -326,133 +273,33 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
 
       {collapsed ? null : (
       <>
-      {/* diagrama */}
-      <div className="ladder-rung-body">
-        <div
-          className={`ladder-diagram-scroll ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : 'grid-dots') : 'grid-off'}`}
-          style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
-        >
-        <div className="ladder-diagram">
-          {/* barramento L+ */}
-          <div className="ladder-rail ladder-rail-left">
-            <span className="ladder-rail-label">L+</span>
-            <div className={`ladder-rail-bar ${powered && running ? 'is-powered' : ''}`} />
-          </div>
-
-          {/* ramos */}
-          <div className="ladder-branch-stack">
-            {rung.branches.length > 1 && (
-              <>
-                <div className={`ladder-branch-join is-start ${powered && running ? 'is-powered' : ''}`} />
-                <div className={`ladder-branch-join is-end ${powered && running ? 'is-powered' : ''}`} />
-              </>
-            )}
-            {rung.branches.map((b, bi) => (
-              <div
-                key={b.id}
-                className={`ladder-branch-row ${dragBranchId === b.id ? 'drag-over' : ''}`}
-                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
-                onDragEnter={() => setDragBranchId(b.id)}
-                onDragLeave={() => setDragBranchId((cur) => (cur === b.id ? null : cur))}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  setDragBranchId(null)
-                  const compType = e.dataTransfer.getData('text/plain') as ComponentType
-                  const kind = COMPONENT_TO_LADDER[compType]
-                  if (kind) dropContactOnBranch(b.id, kind)
-                }}
-              >
-                <div className={`ladder-wire is-stub ${powered && running ? 'is-powered' : ''}`} />
-                {b.elements.map((el) => (
-                  <div key={el.id} className="ladder-inline-element">
-                    <button
-                      title="Clique para configurar · duplo clique alterna o tipo"
-                      onClick={() => setSelection({ type: 'contact', branchId: b.id, elementId: el.id })}
-                      onDoubleClick={() => toggleContactType(b.id, el.id)}
-                      className="ladder-symbol-button"
-                    >
-                      <ContactSymbol el={el} table={table} selected={selection?.type === 'contact' && selection.elementId === el.id} />
-                    </button>
-                    <div
-                      className="ladder-wire is-fill"
-                      style={{ borderTopColor: powered && running ? '#16a34a' : '#2655e5' }}
-                    />
-                  </div>
-                ))}
-                {!b.elements.length && <div className="ladder-wire is-empty" title="Ramo vazio — arraste um elemento da paleta para aqui" />}
-                {rung.branches.length > 1 && (
-                  <button className="ladder-branch-remove" title="Remover ramo" onClick={() => updateRung(rung.id, (r) => ({ ...r, branches: r.branches.filter((bb) => bb.id !== b.id) }))}>
-                    <IconDelete size={9} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* temporizador / contador — bloco compacto, parâmetros só no clique */}
-          {(rung.timer || rung.counter) && (
-            <>
-              <div className={`ladder-wire is-link ${powered && running ? 'is-powered' : ''}`} />
-              <div className="ladder-instruction-blocks">
-                {rung.timer && (
-                  <BlockButton
-                    label={rung.timer.timerType}
-                    address={rung.timer.address}
-                    detail={rung.timer.timerType === 'STAR_DELTA' ? `${rung.timer.presetMs}/${rung.timer.preset2Ms ?? 50} ms` : `${rung.timer.presetMs} ms`}
-                    powered={!!table[rung.timer.address]}
-                    selected={selection?.type === 'timer'}
-                    onSelect={() => setSelection(selection?.type === 'timer' ? null : { type: 'timer' })}
-                    onRemove={() => setTimer('none')}
-                  />
-                )}
-                {rung.counter && (
-                  <BlockButton
-                    label={rung.counter.counterType}
-                    address={rung.counter.address}
-                    detail={`PV ${rung.counter.preset}`}
-                    powered={!!table[rung.counter.address]}
-                    selected={selection?.type === 'counter'}
-                    onSelect={() => setSelection(selection?.type === 'counter' ? null : { type: 'counter' })}
-                    onRemove={() => setCounter('none')}
-                  />
-                )}
-              </div>
-            </>
-          )}
-
-          <div className={`ladder-wire is-link ${powered && running ? 'is-powered' : ''}`} />
-          {/* saídas + barramento L− */}
-          <div
-            className={`ladder-coil-bank ${coilDragOver ? 'drag-over' : ''}`}
-            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
-            onDragEnter={() => setCoilDragOver(true)}
-            onDragLeave={() => setCoilDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault()
-              setCoilDragOver(false)
-              const compType = e.dataTransfer.getData('text/plain') as ComponentType
-              const kind = COMPONENT_TO_LADDER[compType]
-              if (kind) dropOnCoilBank(kind)
+      {/* barra única de elementos: clique insere · arraste para a posição exata */}
+      <div className="lnet-strip" role="toolbar" aria-label="Elementos da network">
+        {STRIP.map((it) => (
+          <button
+            key={it.kind}
+            className="lnet-strip-btn"
+            title={`${it.title} — clique insere · arraste para posicionar`}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData(LADDER_MIME, it.kind)
+              e.dataTransfer.setData('text/plain', `ladder:${it.kind}`)
+              e.dataTransfer.effectAllowed = 'copy'
+              setLadderDrag({ kind: it.kind })
             }}
+            onDragEnd={() => setLadderDrag(null)}
+            onClick={() => insert(it.kind)}
           >
-            {rung.coils.map((c) => (
-              <CoilButton
-                key={c.id}
-                coil={c}
-                powered={!!table[c.address]}
-                selected={selection?.type === 'coil' && selection.coilId === c.id}
-                onCycle={() => cycleCoil(c.id)}
-                onRemove={() => removeCoil(c.id)}
-                onSelect={() => setSelection(selection?.type === 'coil' && selection.coilId === c.id ? null : { type: 'coil', coilId: c.id })}
-              />
-            ))}
-            {!rung.coils.length && <span className="text-[10px] text-ink-300">sem bobina</span>}
-          </div>
-          <div className="ladder-rail ladder-rail-right">
-            <div className={`ladder-rail-bar ${powered && running ? 'is-powered' : ''}`} />
-            <span className="ladder-rail-label">L−</span>
-          </div>
-        </div>
+            <LadderGlyph kind={it.kind} />
+          </button>
+        ))}
+        <span className="ml-auto text-[9.5px] text-ink-400 hidden md:inline">clique insere · arraste para posicionar · Del remove</span>
+      </div>
+
+      {/* diagrama — grelha padrão de 20px */}
+      <div className="ladder-rung-body">
+        <div className="lnet-scroll">
+          <NetworkDiagram rung={rung} selection={selection} onSelect={setSelection} minWidth={minWidth} />
         </div>
       </div>
 
@@ -535,34 +382,6 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
         </div>
       )}
 
-      {/* inserção */}
-      <div className="ladder-insert-bar">
-        <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={newAddress} onChange={(e) => setNewAddress(e.target.value.toUpperCase())} placeholder="I1" />
-        <select className={tiny} value={newType} onChange={(e) => setNewType(e.target.value as LadderContactType)}>
-          <option value="NO">NA</option>
-          <option value="NC">NF</option>
-          <option value="RISING">Subida</option>
-          <option value="FALLING">Descida</option>
-        </select>
-        <select className={tiny} value={branchIndex} onChange={(e) => setBranchIndex(Number(e.target.value))}>
-          {rung.branches.map((_, i) => (
-            <option key={i} value={i}>ramo {i + 1}</option>
-          ))}
-        </select>
-        <button className={smallBtn} onClick={addContact}><IconContact size={10} /> contato</button>
-        <button className={smallBtn} onClick={addBranch}><IconBranch size={10} /> ramo (OR)</button>
-        <span className="h-3 w-px bg-line" />
-        <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={coilAddress} onChange={(e) => setCoilAddress(e.target.value.toUpperCase())} placeholder="Q1" />
-        <select className={tiny} value={coilType} onChange={(e) => setCoilType(e.target.value as LadderCoilType)}>
-          <option value="COIL">COIL</option>
-          <option value="SET">SET</option>
-          <option value="RESET">RESET</option>
-        </select>
-        <button className={smallBtn} onClick={addCoil}><IconCoil size={10} /> bobina</button>
-        <span className="h-3 w-px bg-line" />
-        <button className={smallBtn} onClick={() => setTimer(rung.timer?.timerType ?? 'TON')}><IconTimer size={10} /> {rung.timer ? 'editar temp.' : 'temporizador'}</button>
-        <button className={smallBtn} onClick={() => setCounter(rung.counter?.counterType ?? 'CTU')}><IconCounter size={10} /> {rung.counter ? 'editar cont.' : 'contador'}</button>
-      </div>
       </>
       )}
     </div>
@@ -722,27 +541,8 @@ function CompactLadderEditor() {
   const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
 
   const quickAdd = (kind: PaletteKind) => {
-    const rungId = rungs.length ? rungs[0].id : addRung()
-    updateRung(rungId, (r) => {
-      if (kind === 'NO' || kind === 'NC' || kind === 'RISING' || kind === 'FALLING') {
-        const branch = r.branches[0] ?? { id: `${r.id}-b0`, elements: [] }
-        const branches = r.branches.length ? r.branches : [branch]
-        return {
-          ...r,
-          branches: branches.map((b, index) => index === 0 ? { ...b, elements: [...b.elements, { kind: 'contact', id: `${r.id}-q${Date.now()}`, address: 'I1', contactType: kind }] } : b),
-        }
-      }
-      if (kind === 'COIL' || kind === 'SET' || kind === 'RESET') {
-        return { ...r, coils: [...r.coils, { kind: 'coil', id: `${r.id}-q${Date.now()}`, address: 'Q1', coilType: kind }] }
-      }
-      if (kind === 'TON' || kind === 'TOF' || kind === 'TP') {
-        return { ...r, timer: { kind: 'timer', id: r.timer?.id ?? `${r.id}-timer`, address: r.timer?.address ?? 'T1', timerType: kind, presetMs: r.timer?.presetMs ?? 3000, preset2Ms: r.timer?.preset2Ms ?? 50 } }
-      }
-      if (kind === 'CTU' || kind === 'CTD') {
-        return { ...r, counter: { kind: 'counter', id: r.counter?.id ?? `${r.id}-counter`, address: r.counter?.address ?? 'C1', counterType: kind, preset: r.counter?.preset ?? 5, resetAddress: r.counter?.resetAddress ?? 'M9' } }
-      }
-      return { ...r, comment: `${kind} disponível no editor` }
-    })
+    const rungId = rungs.length ? rungs[rungs.length - 1].id : addRung()
+    updateRung(rungId, (r) => applyKind(r, kind).rung)
     setTab('program')
   }
 
@@ -798,8 +598,9 @@ function CompactLadderEditor() {
           onDrop={(e) => {
             e.preventDefault()
             setDragOver(false)
-            const compType = e.dataTransfer.getData('text/plain') as ComponentType
-            const kind = COMPONENT_TO_LADDER[compType]
+            setLadderDrag(null)
+            const k = e.dataTransfer.getData(LADDER_MIME) as PaletteKind
+            const kind = k || COMPONENT_TO_LADDER[e.dataTransfer.getData('text/plain') as ComponentType]
             if (kind) quickAdd(kind)
           }}
         >
@@ -811,7 +612,7 @@ function CompactLadderEditor() {
           </div>
           <div className="compact-ladder-scale" style={{ zoom: ladderZoom }}>
             {rungs.map((r, i) => (
-              <RungRow key={r.id} rung={r} index={i} />
+              <RungRow key={r.id} rung={r} index={i} minWidth={380} />
             ))}
             {rungs.length === 0 && <LadderEmptyState compact onCreate={addRung} />}
           </div>
@@ -834,17 +635,6 @@ function CompactLadderEditor() {
       )}
     </div>
   )
-}
-
-type PaletteKind = LadderContactType | LadderCoilType | 'TON' | 'TOF' | 'TP' | 'CTU' | 'CTD' | 'MOVE' | 'COMPARE' | 'ADD' | 'SUB'
-
-const COMPONENT_TO_LADDER: Partial<Record<ComponentType, PaletteKind>> = {
-  buttonNO: 'NO', buttonNC: 'NC', selector2: 'NO', selector3: 'NO', keySwitch: 'NO',
-  footSwitch: 'NO', emergencyButton: 'NO', limitSwitch: 'NO', proximitySensor: 'NO',
-  photoSensor: 'NO', pressureSwitch: 'NO', floatSwitch: 'NO', thermostat: 'NO',
-  motor1ph: 'COIL', motor3ph: 'COIL', contactor: 'COIL',
-  auxRelay: 'COIL', timerRelayTON: 'TON', timerRelayTOF: 'TOF', timerRelayStarDelta: 'TON',
-  counterRelay: 'CTU', safetyRelay: 'COIL',
 }
 
 const PALETTE_GROUPS: Array<{
@@ -894,14 +684,56 @@ const PALETTE_GROUPS: Array<{
   },
 ]
 
+/** Mini-símbolo IEC de cada elemento (paleta e barra da network). */
+export function LadderGlyph({ kind, size = 26 }: { kind: PaletteKind; size?: number }) {
+  const h = Math.round(size * 0.62)
+  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'square' as const }
+  const text = (t: string) => (
+    <text x="20" y="16" fontSize="9" fontWeight="700" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">{t}</text>
+  )
+  let body: JSX.Element
+  if (isContactKind(kind)) {
+    body = (
+      <g {...common}>
+        <path d="M0 12H14M26 12H40M14 4V20M26 4V20" />
+        {kind === 'NC' && <path d="M11 20L29 4" />}
+        {kind === 'RISING' && text('P')}
+        {kind === 'FALLING' && text('N')}
+      </g>
+    )
+  } else if (kind === 'COIL' || kind === 'SET' || kind === 'RESET') {
+    body = (
+      <g {...common}>
+        <path d="M0 12H12M28 12H40M15 4Q9 12 15 20M25 4Q31 12 25 20" />
+        {kind !== 'COIL' && text(kind === 'SET' ? 'S' : 'R')}
+      </g>
+    )
+  } else if (kind === 'BRANCH') {
+    body = (
+      <g {...common}>
+        <path d="M0 6H40M4 6V19H36V6" />
+        <circle cx="4" cy="6" r="1.6" fill="currentColor" />
+        <circle cx="36" cy="6" r="1.6" fill="currentColor" />
+      </g>
+    )
+  } else {
+    body = (
+      <g>
+        <rect x="6" y="2" width="28" height="20" rx="1.5" fill="none" stroke="currentColor" strokeWidth={1.5} />
+        <path d="M0 12H6M34 12H40" stroke="currentColor" strokeWidth={1.5} />
+        <text x="20" y="15.5" fontSize="8" fontWeight="800" textAnchor="middle" fill="currentColor" fontFamily="ui-monospace, monospace">{kind === 'COMPARE' ? 'CMP' : kind}</text>
+      </g>
+    )
+  }
+  return (
+    <svg width={size} height={h} viewBox="0 0 40 24" aria-hidden className="shrink-0">
+      {body}
+    </svg>
+  )
+}
+
 function PaletteIcon({ type }: { type: PaletteKind }) {
-  if (type === 'NO' || type === 'NC' || type === 'RISING' || type === 'FALLING') return <IconContact size={17} />
-  if (type === 'COIL' || type === 'SET' || type === 'RESET') return <IconCoil size={17} />
-  if (type === 'TON' || type === 'TOF' || type === 'TP') return <IconTimer size={17} />
-  if (type === 'CTU' || type === 'CTD') return <IconCounter size={17} />
-  if (type === 'MOVE') return <IconMove size={17} />
-  if (type === 'COMPARE') return <IconCompare size={17} />
-  return <IconMath size={17} />
+  return <LadderGlyph kind={type} size={30} />
 }
 
 function LadderNavRail() {
@@ -919,7 +751,7 @@ function LadderNavRail() {
           <span>{label}</span>
         </button>
       ))}
-      <span className="mt-auto text-[9px] text-brand-200/80">v2.0</span>
+      <span className="mt-auto text-[9px] text-brand-200/80">v2.2</span>
     </aside>
   )
 }
@@ -930,22 +762,24 @@ function ProjectTreePane({
   onToggle,
   onSelect,
   onClose,
+  onQuickAdd,
 }: {
   activeNode: ProjectNodeId
   expanded: Set<ProjectNodeId>
   onToggle: (id: ProjectNodeId) => void
   onSelect: (id: ProjectNodeId) => void
   onClose: () => void
+  onQuickAdd: (kind: PaletteKind) => void
 }) {
-  const toolTiles: Array<{ label: string; Icon: typeof IconContact }> = [
-    { label: 'Contato', Icon: IconContact },
-    { label: 'Bobina', Icon: IconCoil },
-    { label: 'Temporizadores', Icon: IconTimer },
-    { label: 'Contadores', Icon: IconCounter },
-    { label: 'Move', Icon: IconMove },
-    { label: 'Comparadores', Icon: IconCompare },
-    { label: 'Matemáticas', Icon: IconMath },
-    { label: 'Funções', Icon: IconFunction },
+  const toolTiles: Array<{ label: string; kind: PaletteKind }> = [
+    { label: 'Contato', kind: 'NO' },
+    { label: 'Bobina', kind: 'COIL' },
+    { label: 'Temporizador', kind: 'TON' },
+    { label: 'Contador', kind: 'CTU' },
+    { label: 'Ramo OR', kind: 'BRANCH' },
+    { label: 'Move', kind: 'MOVE' },
+    { label: 'Comparador', kind: 'COMPARE' },
+    { label: 'Matemática', kind: 'ADD' },
   ]
 
   const renderNode = (node: ProjectTreeItem, depth = 0) => {
@@ -999,11 +833,25 @@ function ProjectTreePane({
       </div>
       <div className="ladder-tools-heading">Ferramentas</div>
       <div className="ladder-tools-grid">
-        {toolTiles.map(({ label, Icon }) => (
-          <div className="ladder-tool-tile" key={label}>
-            <Icon size={18} />
+        {toolTiles.map(({ label, kind }) => (
+          <button
+            type="button"
+            className="ladder-tool-tile"
+            key={label}
+            onClick={() => onQuickAdd(kind)}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData(LADDER_MIME, kind)
+              e.dataTransfer.setData('text/plain', `ladder:${kind}`)
+              e.dataTransfer.effectAllowed = 'copy'
+              setLadderDrag({ kind })
+            }}
+            onDragEnd={() => setLadderDrag(null)}
+            title={`${label} — clique insere · arraste para uma network`}
+          >
+            <LadderGlyph kind={kind} size={30} />
             <span>{label}</span>
-          </div>
+          </button>
         ))}
       </div>
     </aside>
@@ -1124,10 +972,16 @@ function EmptyFolderMessage({ text }: { text: string }) {
 
 function FunctionBlockView({ id }: { id: Extract<ProjectNodeId, 'fc1' | 'fc2'> }) {
   const isFc1 = id === 'fc1'
-  const grid = useSimStore((s) => s.grid)
-  const demoTable: Record<string, boolean> = {}
-  const demoContact: LadderContact = { kind: 'contact', id: 'fc-demo-contact', address: isFc1 ? 'M1' : 'I3', contactType: 'NO' }
-  const demoCoil: LadderCoilEl = { kind: 'coil', id: 'fc-demo-coil', address: isFc1 ? 'M10' : 'M20', coilType: 'COIL' }
+  const demo: LadderRung = {
+    id: `demo-${id}`,
+    name: isFc1 ? 'Permissivos de segurança' : 'Sinalização de diagnóstico',
+    enabled: true,
+    branches: [
+      { id: 'b0', elements: [{ kind: 'contact', id: 'c0', address: isFc1 ? 'M1' : 'I3', contactType: 'NO' }, { kind: 'contact', id: 'c1', address: isFc1 ? 'I2' : 'M4', contactType: 'NC' }] },
+      ...(isFc1 ? [{ id: 'b1', elements: [{ kind: 'contact' as const, id: 'c2', address: 'M2', contactType: 'NO' as const }] }] : []),
+    ],
+    coils: [{ kind: 'coil', id: 'k0', address: isFc1 ? 'M10' : 'M20', coilType: 'COIL' }],
+  }
   return (
     <div className="ladder-folder-view">
       <FolderViewHeader
@@ -1136,50 +990,19 @@ function FunctionBlockView({ id }: { id: Extract<ProjectNodeId, 'fc1' | 'fc2'> }
         subtitle={isFc1 ? 'Função auxiliar para permissivos e segurança.' : 'Função auxiliar para diagnósticos e sinalização.'}
       />
       <div className="ladder-fc-canvas">
-        <div className="ladder-fc-network">
-          <div className="ladder-fc-network-title">Network 1</div>
-          {/* mesmo motor visual das networks do OB1 — mesma grelha, mesmos símbolos */}
-          <div
-            className={`ladder-diagram-scroll ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : 'grid-dots') : 'grid-off'}`}
-            style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
-          >
-            <div className="ladder-diagram pointer-events-none">
-              <div className="ladder-rail ladder-rail-left">
-                <span className="ladder-rail-label">L+</span>
-                <div className="ladder-rail-bar" />
-              </div>
-              <div className="ladder-branch-stack">
-                <div className="ladder-branch-row">
-                  <div className="ladder-wire is-stub" />
-                  <div className="ladder-inline-element">
-                    <span className="ladder-symbol-button"><ContactSymbol el={demoContact} table={demoTable} /></span>
-                    <div className="ladder-wire is-fill" />
-                  </div>
-                </div>
-              </div>
-              <div className="ladder-wire is-link" />
-              <div className="ladder-instruction-blocks">
-                <BlockButton
-                  label={isFc1 ? 'MOVE' : 'COMPARE'}
-                  address=""
-                  detail={isFc1 ? 'IN → OUT' : 'IN1 == IN2'}
-                  powered={false}
-                  onSelect={() => {}}
-                  onRemove={() => {}}
-                />
-              </div>
-              <div className="ladder-wire is-link" />
-              <div className="ladder-coil-bank">
-                <CoilButton coil={demoCoil} powered={false} onCycle={() => {}} onRemove={() => {}} />
-              </div>
-              <div className="ladder-rail ladder-rail-right">
-                <div className="ladder-rail-bar" />
-                <span className="ladder-rail-label">L−</span>
-              </div>
+        <div className="ladder-rung-card">
+          <div className="ladder-rung-header">
+            <span className="ladder-network-no">Network 1:</span>
+            <span className="text-[11px] text-ink-700 font-medium">{demo.name}</span>
+          </div>
+          {/* mesmo motor visual e mesma grelha das networks do OB1 */}
+          <div className="ladder-rung-body">
+            <div className="lnet-scroll">
+              <NetworkDiagram rung={demo} readonly minWidth={640} />
             </div>
           </div>
         </div>
-        <p className="ladder-fc-note">Bloco aberto pela árvore do projeto. A edição avançada de FCs pode reutilizar o mesmo motor de networks do OB1.</p>
+        <p className="ladder-fc-note">Bloco aberto pela árvore do projeto (só leitura). Usa o mesmo motor de networks e a mesma grelha de 20px do OB1.</p>
       </div>
     </div>
   )
@@ -1237,26 +1060,15 @@ function FullLadderEditor() {
     setProgramTab('program')
     const rungId = activeId ?? addRung()
     setActiveRungId(rungId)
-    updateRung(rungId, (r) => {
-      if (kind === 'NO' || kind === 'NC' || kind === 'RISING' || kind === 'FALLING') {
-        const branch = r.branches[0] ?? { id: `${r.id}-b0`, elements: [] }
-        const branches = r.branches.length ? r.branches : [branch]
-        return {
-          ...r,
-          branches: branches.map((b, index) => index === 0 ? { ...b, elements: [...b.elements, { kind: 'contact', id: `${r.id}-quick-${Date.now()}`, address: 'I1', contactType: kind }] } : b),
-        }
-      }
-      if (kind === 'COIL' || kind === 'SET' || kind === 'RESET') {
-        return { ...r, coils: [...r.coils, { kind: 'coil', id: `${r.id}-quick-${Date.now()}`, address: 'Q1', coilType: kind }] }
-      }
-      if (kind === 'TON' || kind === 'TOF' || kind === 'TP') {
-        return { ...r, timer: { kind: 'timer', id: r.timer?.id ?? `${r.id}-timer`, address: r.timer?.address ?? 'T1', timerType: kind, presetMs: r.timer?.presetMs ?? 3000, preset2Ms: r.timer?.preset2Ms ?? 50 } }
-      }
-      if (kind === 'CTU' || kind === 'CTD') {
-        return { ...r, counter: { kind: 'counter', id: r.counter?.id ?? `${r.id}-counter`, address: r.counter?.address ?? 'C1', counterType: kind, preset: r.counter?.preset ?? 5, resetAddress: r.counter?.resetAddress ?? 'M9' } }
-      }
-      return { ...r, comment: `${kind} disponível no editor` }
-    })
+    updateRung(rungId, (r) => applyKind(r, kind).rung)
+  }
+
+  /** Fallback: largar fora de qualquer network (área vazia) → network ativa. */
+  const dropKindFromEvent = (e: React.DragEvent): PaletteKind | null => {
+    const k = e.dataTransfer.getData(LADDER_MIME) as PaletteKind
+    if (k) return k
+    const compType = e.dataTransfer.getData('text/plain') as ComponentType
+    return COMPONENT_TO_LADDER[compType] ?? null
   }
 
   const visibleGroups = PALETTE_GROUPS.map((group) => ({
@@ -1274,6 +1086,7 @@ function FullLadderEditor() {
           onToggle={toggleNode}
           onSelect={selectProjectNode}
           onClose={() => setShowProjectPane(false)}
+          onQuickAdd={quickAdd}
         />
       ) : (
         <button className="ladder-collapsed-pane-button" onClick={() => setShowProjectPane(true)} title="Mostrar projeto">
@@ -1342,15 +1155,15 @@ function FullLadderEditor() {
             onDrop={(e) => {
               e.preventDefault()
               setDragOver(false)
-              const compType = e.dataTransfer.getData('text/plain') as ComponentType
-              const kind = COMPONENT_TO_LADDER[compType]
+              setLadderDrag(null)
+              const kind = dropKindFromEvent(e)
               if (kind) quickAdd(kind)
             }}
           >
             <div className="ladder-networks-scale" style={{ zoom: ladderZoom }}>
               {rungs.map((r, i) => (
-                <div key={r.id} className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`} onClick={() => setActiveRungId(r.id)}>
-                  <RungRow rung={r} index={i} />
+                <div key={r.id} className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`} onMouseDownCapture={() => setActiveRungId(r.id)}>
+                  <RungRow rung={r} index={i} active={activeId === r.id} minWidth={720} />
                 </div>
               ))}
               {!rungs.length && <LadderEmptyState onCreate={addRung} />}
@@ -1387,7 +1200,20 @@ function FullLadderEditor() {
             <section className="ladder-palette-group" key={group.title}>
               <div className="ladder-palette-group-title"><IconChevronDown size={12} /> {group.title} <span>⌃</span></div>
               {group.items.map((item) => (
-                <button className="ladder-palette-item" key={item.kind} onClick={() => quickAdd(item.kind)} title={`Inserir ${item.label} na network selecionada`}>
+                <button
+                  className="ladder-palette-item"
+                  key={item.kind}
+                  onClick={() => quickAdd(item.kind)}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(LADDER_MIME, item.kind)
+                    e.dataTransfer.setData('text/plain', `ladder:${item.kind}`)
+                    e.dataTransfer.effectAllowed = 'copy'
+                    setLadderDrag({ kind: item.kind })
+                  }}
+                  onDragEnd={() => setLadderDrag(null)}
+                  title={`${item.label} — clique insere na network ativa · arraste para a posição exata`}
+                >
                   <span className="ladder-palette-icon"><PaletteIcon type={item.kind} /></span>
                   <span><strong>{item.label}</strong><small>{item.detail}</small></span>
                 </button>

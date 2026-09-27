@@ -9,6 +9,27 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v2.2
+
+**Top bar reorganizada**
+- Linha 1: marca · arquivo (Novo/Abrir/Salvar/BOM em grupo segmentado + Projetos) · vistas centradas (atalhos F1–F4) · simulação (Run/Pause/Stop/Passo/Reset, modo, velocidade) e estado do PLC.
+- Linha 2 contextual à vista: histórico, ferramentas de edição, opções do **novo cabo** (quando a ferramenta Cabo está ativa), menu **Organizar** (alinhar/distribuir/cabos), malha/zoom, cenário e caixa-preta. Botões sem bordas duplicadas e sem etiquetas redundantes.
+
+**Adicionar componentes — uma única forma**
+- Clique **ou** arraste um item da biblioteca: o esquema mostra o **fantasma real do símbolo** encaixado na malha; solte/clique para posicionar (centrado no cursor).
+- Botões, sensores, contatores e temporizadores da biblioteca também podem ser largados diretamente numa network Ladder.
+
+**Editor Ladder estilo TIA Portal (grelha padronizada de 20px)**
+- Networks desenhadas em SVG numa grelha fixa: barramento esquerdo, ramos OR, blocos TON/TOF/TP/CTU/CTD com pinos (IN/PT/Q/ET, CU/R/PV/Q/CV) e bobinas alinhadas à direita.
+- Monitorização online como no TIA: verde contínuo = fluxo de corrente, azul tracejado = sem fluxo, valores ET/CV ao vivo.
+- Barra única de elementos por network (clique insere · arraste para a posição exata), paleta e mosaicos de ferramentas arrastáveis, contatos arrastáveis para reordenar/mover entre ramos e networks, `Del` remove o elemento selecionado, marcador `<??.?>` para bobina em falta.
+
+**Cabos**
+- Duplo clique em qualquer ponto do cabo (área de clique alargada) adiciona um ponto de curva arrastável; duplo clique no ponto remove-o.
+- **Rígido** = dobras vivas a 90° pelos pontos, brilho contínuo no centro; **flexível** = curva suave (spline) com textura multifilar.
+- A cor escolhida é sempre visível (energia passa a ser um brilho por baixo + fluxo animado, também no 3D). Cor automática pela função do cabo (IEC 60204-1) ou cor fixa para novos cabos.
+- **Terminal do cabo** (opção única para as duas pontas): ponteira, ponteira dupla, olhal, forquilha, pino, faston, estanhado ou nu — desenhado nas pontas no esquema.
+
 ## Novidades — v2.1
 
 - **Toolbar reorganizada**: grupos visuais com etiqueta (Cenário · Ferramentas · Organizar ·
