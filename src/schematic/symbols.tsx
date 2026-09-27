@@ -1,4 +1,5 @@
 import type { ElectricalComponent, Terminal, TerminalType } from '../types'
+import { useSimStore } from '../store/useSimStore'
 
 /** Cores de cabo do editor. */
 export const WIRE_COLORS: Record<string, string> = {
@@ -469,6 +470,110 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
               ))}
             </g>
             {label(6, 12 + 6, c.ref, 10, '#93c5fd')}
+          </g>
+        )
+      }
+      // ----------------------------------------- Siemens LOGO! 12/24RC (detalhado)
+      case 'plcSiemensLogo1224RC': {
+        const lPlus = c.terminals.find((t) => t.label === 'L+')
+        const on = !!lPlus?.energized
+        const pressed = c.state.pressedButton as string | undefined
+        const pressBtn = (name: string) => (e: React.MouseEvent) => {
+          e.stopPropagation()
+          useSimStore.getState().setComponentState(c.id, { pressedButton: name })
+        }
+        const releaseBtn = (e: React.MouseEvent) => {
+          e.stopPropagation()
+          if (c.state.pressedButton) useSimStore.getState().setComponentState(c.id, { pressedButton: null })
+        }
+        const arrowFill = (name: string) => (pressed === name ? '#e4e4e7' : '#71717a')
+        const keyFill = (name: string) => (pressed === name ? '#38bdf8' : '#1d4ed8')
+        const diTerms = c.terminals.filter((t) => t.label === 'L+' || t.label === 'M' || t.label.startsWith('I'))
+        const doTerms = c.terminals.filter((t) => t.label.startsWith('Q'))
+        return (
+          <g>
+            {/* invólucro plástico */}
+            <rect x={1} y={1} width={w - 2} height={h - 2} rx={6} fill="#3f3f46" stroke={s} strokeWidth={selected ? 2 : 1.4} />
+
+            {/* tira superior — bornes de entrada (DI) */}
+            <rect x={5} y={2} width={w - 10} height={26} rx={3} fill="#18181b" stroke="#52525b" />
+            {diTerms.map((t) => (
+              <text key={t.id} x={t.x * w} y={20} fontSize={7.5} fill="#e4e4e7" fontFamily="ui-monospace, monospace" textAnchor="middle">
+                {t.label}
+              </text>
+            ))}
+            {label(8, 40, 'DC12/24V', 7.5, '#a1a1aa')}
+            {label(w * 0.4, 40, 'Input 8xDC (I7,I8 0..10V)', 6.5, '#a1a1aa')}
+
+            {/* logótipo + ecrã */}
+            <text x={10} y={64} fontSize={13} fontStyle="italic" fill="#d4d4d8" fontFamily="ui-sans-serif, sans-serif">
+              SIEMENS
+            </text>
+            <rect x={10} y={72} width={94} height={54} rx={2} fill={on ? '#22c55e' : '#14532d'} stroke="#0b1220" />
+            {on && (
+              <rect x={10} y={72} width={94} height={54} rx={2} fill="none" stroke="#4ade80" opacity={0.5} strokeWidth={2} />
+            )}
+            {label(16, 100, on ? 'RUN' : '···', 11, on ? '#052e16' : '#166534')}
+            {label(10, 140, 'LOGO! 12/24RC', 10, '#e4e4e7')}
+            {label(10, h - 52, '6ED1 052-1MD00-0BA2', 6, '#71717a')}
+
+            {/* cluster de navegação: setas + ESC/OK (clicáveis) */}
+            <g style={{ cursor: 'pointer' }}>
+              <polygon
+                points={`${w - 58},${86} ${w - 50},${72} ${w - 42},${86}`}
+                fill={arrowFill('up')}
+                onMouseDown={pressBtn('up')}
+                onMouseUp={releaseBtn}
+                onMouseLeave={releaseBtn}
+              />
+              <polygon
+                points={`${w - 58},${104} ${w - 50},${118} ${w - 42},${104}`}
+                fill={arrowFill('down')}
+                onMouseDown={pressBtn('down')}
+                onMouseUp={releaseBtn}
+                onMouseLeave={releaseBtn}
+              />
+              <polygon
+                points={`${w - 70},${95} ${w - 84},${87} ${w - 84},${103}`}
+                fill={arrowFill('left')}
+                onMouseDown={pressBtn('left')}
+                onMouseUp={releaseBtn}
+                onMouseLeave={releaseBtn}
+              />
+              <polygon
+                points={`${w - 30},${95} ${w - 16},${87} ${w - 16},${103}`}
+                fill={arrowFill('right')}
+                onMouseDown={pressBtn('right')}
+                onMouseUp={releaseBtn}
+                onMouseLeave={releaseBtn}
+              />
+              <circle cx={w - 50} cy={95} r={9} fill="#27272a" stroke="#52525b" />
+            </g>
+            <g style={{ cursor: 'pointer' }}>
+              <rect x={w - 96} y={128} width={30} height={16} rx={3} fill={keyFill('esc')} onMouseDown={pressBtn('esc')} onMouseUp={releaseBtn} onMouseLeave={releaseBtn} />
+              <text x={w - 81} y={139} fontSize={8} fill="#e0f2fe" textAnchor="middle">ESC</text>
+              <rect x={w - 58} y={128} width={30} height={16} rx={3} fill={keyFill('ok')} onMouseDown={pressBtn('ok')} onMouseUp={releaseBtn} onMouseLeave={releaseBtn} />
+              <text x={w - 43} y={139} fontSize={8} fill="#e0f2fe" textAnchor="middle">OK</text>
+            </g>
+
+            {/* tira inferior — bornes de saída (DO, relé) */}
+            <rect x={5} y={h - 28} width={w - 10} height={26} rx={3} fill="#18181b" stroke="#52525b" />
+            {label(8, h - 32, 'Output 4xRelay/10A', 7, '#a1a1aa')}
+            {doTerms.map((t) => (
+              <g key={t.id}>
+                <path
+                  d={`M ${t.x * w - 7} ${h - 24} L ${t.x * w - 7} ${h - 18} L ${t.x * w + 7} ${h - 12}`}
+                  fill="none"
+                  stroke={t.energized ? '#facc15' : '#52525b'}
+                  strokeWidth={1.3}
+                />
+                <text x={t.x * w} y={h - 12} fontSize={8} fill="#fde68a" fontFamily="ui-monospace, monospace" textAnchor="middle">
+                  {t.label}
+                </text>
+              </g>
+            ))}
+
+            {label(6, h - 4, c.ref, 9, '#93c5fd')}
           </g>
         )
       }

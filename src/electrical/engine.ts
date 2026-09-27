@@ -219,8 +219,9 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
 
     // ---- CLP: a saída Q é ponte da alimentação L enquanto o programa a energiza ----
     case 'plcLogo':
-    case 'plcCompact': {
-      const supply = la('L')
+    case 'plcCompact':
+    case 'plcSiemensLogo1224RC': {
+      const supply = la('L') ?? la('L+')
       if (supply && c.state.outputs) {
         for (const q of Object.keys(c.state.outputs)) {
           if (c.state.outputs[q]) pair(supply, la(q))

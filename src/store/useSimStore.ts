@@ -257,7 +257,7 @@ function runOneTick(state: Store, dtMs: number) {
   const pass1 = computeContinuity(components, wires, srcs)
 
   // 2) Lê as entradas físicas do CLP a partir do resultado real da continuidade
-  const plc = components.find((c) => c.type === 'plcLogo' || c.type === 'plcCompact')
+  const plc = components.find((c) => c.type === 'plcLogo' || c.type === 'plcCompact' || c.type === 'plcSiemensLogo1224RC')
   if (plc) {
     for (const t of plc.terminals) {
       if (t.label.startsWith('I')) state.runtime.table[t.label] = pass1.energizedTerminals.has(t.id)

@@ -78,6 +78,7 @@ export type ComponentType =
   // --- Controladores ----------------------------------------------------
   | 'plcLogo'
   | 'plcCompact'
+  | 'plcSiemensLogo1224RC'
   | 'hmi'
   // --- Bornes, barras e fontes -----------------------------------------
   | 'terminalBlock'

@@ -115,6 +115,26 @@ function relayTerminals(extraContacts: number): TerminalTemplate[] {
   return list
 }
 
+/**
+ * Bornes do Siemens LOGO! 12/24RC (8 entradas digitais DC + 4 saídas a relé),
+ * seguindo a disposição real do dispositivo: tira superior L+/M/I1..I8 e tira
+ * inferior Q1..Q4. Todos os bornes são do tipo parafuso, como no equipamento
+ * físico.
+ */
+function plcLogoRCTerminals(): TerminalTemplate[] {
+  const top = ['L+', 'M', 'I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7', 'I8']
+  const list: TerminalTemplate[] = top.map((lbl, i) =>
+    T(lbl, lbl === 'L+' ? 'power-in' : lbl === 'M' ? 'neutral' : 'io', 0.06 + i * (0.88 / (top.length - 1)), 0, {
+      terminalType: 'screw',
+      color: lbl === 'L+' ? '#f59e0b' : lbl === 'M' ? '#3b82f6' : '#a855f7',
+    }),
+  )
+  ;['Q1', 'Q2', 'Q3', 'Q4'].forEach((lbl, i) => {
+    list.push(T(lbl, 'io', 0.16 + i * 0.24, 1, { terminalType: 'screw', color: '#f59e0b' }))
+  })
+  return list
+}
+
 function plcTerminals(inputs: number, outputs: number): TerminalTemplate[] {
   const list: TerminalTemplate[] = [
     T('L', 'power-in', 0.04, 0.5, { color: '#f59e0b' }),
@@ -421,6 +441,11 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     category: 'controller', paletteName: 'LOGO! / CLP compacto 8I/4Q', group: 'Controladores', tag: 'PLC', w: 190, h: 150,
     terminals: plcTerminals(8, 4),
     defaultState: { inputs: {}, outputs: { Q1: false, Q2: false, Q3: false, Q4: false }, memories: {} },
+  },
+  plcSiemensLogo1224RC: {
+    category: 'controller', paletteName: 'Siemens LOGO! 12/24RC (8DI/4DQ)', group: 'Controladores', tag: 'PLC', w: 280, h: 190,
+    terminals: plcLogoRCTerminals(),
+    defaultState: { inputs: {}, outputs: { Q1: false, Q2: false, Q3: false, Q4: false }, memories: {}, pressedButton: null },
   },
   plcCompact: {
     category: 'controller', paletteName: 'CLP modular 12I/8Q', group: 'Controladores', tag: 'PLC', w: 240, h: 160,
