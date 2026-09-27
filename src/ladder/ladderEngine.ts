@@ -13,7 +13,7 @@
 import type { LadderProgram, LadderRung, LadderBranch, LadderContact } from '../types'
 
 export type AddressTable = Record<string, boolean>
-export interface TimerValue { elapsedMs: number; presetMs: number; done: boolean; running: boolean; transitionMs?: number; starDone?: boolean; deltaDone?: boolean }
+export interface TimerValue { elapsedMs: number; presetMs: number; done: boolean; running: boolean; prevInput?: boolean; transitionMs?: number; starDone?: boolean; deltaDone?: boolean }
 export type TimerTable = Record<string, TimerValue>
 export interface CounterValue { count: number; preset: number; done: boolean; prevPulse: boolean }
 export type CounterTable = Record<string, CounterValue>
@@ -108,24 +108,25 @@ export function runScan(
           break
         }
         case 'TP': {
-          if (powered && !tv.running && !tv.done && tv.elapsedMs === 0) {
+          // Pulso não-rearmável: só uma nova borda de subida após o fim
+          // do pulso pode iniciar outro ciclo.
+          const rising = powered && !tv.prevInput
+          tv.prevInput = powered
+          if (rising && !tv.running) {
             tv.running = true
+            tv.elapsedMs = 0
           }
           if (tv.running) {
-            tv.elapsedMs = Math.min(tv.presetMs, tv.elapsedMs + dtMs)
-            tv.done = tv.elapsedMs > 0
-            if (tv.elapsedMs >= tv.presetMs) {
-              tv.running = false
-              tv.done = false
-              tv.elapsedMs = 0
-            }
-          }
+            tv.elapsedMs = Math.min(tv.presetMs, tv.elapsedMs + Math.max(0, dtMs))
+            tv.done = tv.elapsedMs < tv.presetMs
+            if (!tv.done) tv.running = false
+          } else tv.done = false
           break
         }
         case 'STAR_DELTA': {
           const trans = rung.timer.preset2Ms ?? 50
           if (powered) {
-            tv.elapsedMs = Math.min(tv.presetMs, tv.elapsedMs + dtMs)
+            tv.elapsedMs = Math.min(tv.presetMs + trans, tv.elapsedMs + Math.max(0, dtMs))
             tv.starDone = tv.elapsedMs >= tv.presetMs
             tv.deltaDone = tv.starDone && tv.elapsedMs >= tv.presetMs + trans
             tv.done = tv.starDone

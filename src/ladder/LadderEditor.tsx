@@ -673,15 +673,7 @@ const PALETTE_GROUPS: Array<{
       { kind: 'CTD', label: 'CTD', detail: 'Contador DOWN', icon: 'counter' },
     ],
   },
-  {
-    title: 'Funções',
-    items: [
-      { kind: 'MOVE', label: 'MOVE', detail: 'Transferência', icon: 'move' },
-      { kind: 'ADD', label: 'ADD', detail: 'Soma', icon: 'math' },
-      { kind: 'SUB', label: 'SUB', detail: 'Subtração', icon: 'math' },
-      { kind: 'COMPARE', label: 'Comparador', detail: 'Maior / menor / igual', icon: 'compare' },
-    ],
-  },
+
 ]
 
 /** Mini-símbolo IEC de cada elemento (paleta e barra da network). */
@@ -777,9 +769,6 @@ function ProjectTreePane({
     { label: 'Temporizador', kind: 'TON' },
     { label: 'Contador', kind: 'CTU' },
     { label: 'Ramo OR', kind: 'BRANCH' },
-    { label: 'Move', kind: 'MOVE' },
-    { label: 'Comparador', kind: 'COMPARE' },
-    { label: 'Matemática', kind: 'ADD' },
   ]
 
   const renderNode = (node: ProjectTreeItem, depth = 0) => {
@@ -1011,6 +1000,8 @@ function FunctionBlockView({ id }: { id: Extract<ProjectNodeId, 'fc1' | 'fc2'> }
 function FullLadderEditor() {
   const rungs = useSimStore((s) => s.ladder.rungs)
   const table = useSimStore((s) => s.runtime.table)
+  const timers = useSimStore((s) => s.runtime.timers)
+  const counters = useSimStore((s) => s.runtime.counters)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
   const blackBox = useSimStore((s) => s.sim.blackBox)
@@ -1023,6 +1014,7 @@ function FullLadderEditor() {
   const history = useSimStore((s) => s.history)
   const future = useSimStore((s) => s.future)
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
+  const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters'>('io')
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
   const [filter, setFilter] = useState('')
   const [ladderZoom, setLadderZoom] = useState(1)
@@ -1171,14 +1163,17 @@ function FullLadderEditor() {
           </div>
         )}
         <div className="ladder-bottom-panel">
-          <div className="ladder-bottom-tabs">
-            <span className="is-active">Entradas/Saídas</span><span>Memórias</span><span>Temporizadores</span><span>Contadores</span>
+          <div className="ladder-bottom-tabs" role="tablist" aria-label="Estado do PLC">
+            {([['io', 'Entradas/Saídas'], ['memory', 'Memórias'], ['timers', 'Temporizadores'], ['counters', 'Contadores']] as const).map(([id, label]) => (
+              <button key={id} role="tab" aria-selected={statusTab === id} className={statusTab === id ? 'is-active' : ''} onClick={() => setStatusTab(id)}>{label}</button>
+            ))}
           </div>
-          <div className="ladder-status-grid">
-            <NetworkStatus table={table} prefix="I" label="Entradas" />
-            <NetworkStatus table={table} prefix="Q" label="Saídas" />
-            <NetworkStatus table={table} prefix="M" label="Memórias" />
-            <div className="ladder-project-status"><span>Estado do Projeto</span><strong><i /> {running ? 'Simulação ativa' : 'Pronto'}</strong><small>CPU: 315-2 PN/DP · Tempo de varredura: 12 ms</small></div>
+          <div className="ladder-status-grid" role="tabpanel">
+            {statusTab === 'io' && <><NetworkStatus table={table} prefix="I" label="Entradas" /><NetworkStatus table={table} prefix="Q" label="Saídas" /></>}
+            {statusTab === 'memory' && <NetworkStatus table={table} prefix="M" label="Memórias" />}
+            {statusTab === 'timers' && <div className="ladder-project-status"><span>Temporizadores</span>{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => <small key={address}>{address}: {t.elapsedMs} / {t.presetMs} ms · {t.done ? 'ativo' : 'inativo'}</small>) : <small>Nenhum temporizador executado.</small>}</div>}
+            {statusTab === 'counters' && <div className="ladder-project-status"><span>Contadores</span>{Object.entries(counters).length ? Object.entries(counters).map(([address, c]) => <small key={address}>{address}: {c.count} / {c.preset} · {c.done ? 'atingido' : 'em contagem'}</small>) : <small>Nenhum contador executado.</small>}</div>}
+            <div className="ladder-project-status"><span>Estado do Projeto</span><strong><i /> {running ? 'Simulação ativa' : 'Pronto'}</strong></div>
           </div>
         </div>
       </main>

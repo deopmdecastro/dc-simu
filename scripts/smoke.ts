@@ -222,5 +222,33 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('contador CTU registra 3 pulsos do sensor', c1?.count === 3, `count=${c1?.count}`)
 }
 
+/* Regressões dos temporizadores: pulso não rearma com entrada mantida;
+ * estrela-triângulo deve respeitar o tempo morto entre as saídas. */
+{
+  const base = { id: 'r1', name: 'Timers', enabled: true, branches: [{ id: 'b1', elements: [{ kind: 'contact' as const, id: 'e1', address: 'I1', contactType: 'NO' as const }] }], coils: [] }
+  const tp = { rungs: [{ ...base, timer: { kind: 'timer' as const, id: 't1', address: 'T1', timerType: 'TP' as const, presetMs: 300 } }] }
+  const table: AddressTable = { I1: true }
+  const timers: TimerTable = {}
+  const counters: CounterTable = {}
+  runScan(tp, table, timers, counters, 100)
+  check('TP liga após borda de subida', table.T1 === true)
+  runScan(tp, table, timers, counters, 200)
+  check('TP termina no tempo pré-definido', table.T1 === false)
+  runScan(tp, table, timers, counters, 100)
+  check('TP não rearma com entrada mantida', table.T1 === false)
+  table.I1 = false
+  runScan(tp, table, timers, counters, 100)
+  table.I1 = true
+  runScan(tp, table, timers, counters, 100)
+  check('TP rearma após nova borda', table.T1 === true)
+
+  const sd = { rungs: [{ ...base, timer: { kind: 'timer' as const, id: 't1', address: 'T2', timerType: 'STAR_DELTA' as const, presetMs: 300, preset2Ms: 100 } }] }
+  const sdTimers: TimerTable = {}
+  runScan(sd, table, sdTimers, counters, 300)
+  check('estrela-triângulo respeita intervalo de transição', sdTimers.T2.starDone === true && sdTimers.T2.deltaDone === false)
+  runScan(sd, table, sdTimers, counters, 100)
+  check('estrela-triângulo ativa delta após intervalo', sdTimers.T2.deltaDone === true)
+}
+
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)
