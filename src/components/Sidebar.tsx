@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../types'
@@ -10,6 +10,13 @@ import { ComponentThumb } from '../three/componentThumbnails'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects } from '../ui/icons'
 
 const label = 'dc-field-label'
+const STATE_LABELS: Record<string, string> = {
+  closed: 'Fechado', tripped: 'Disparado', poles: 'Polos', curve: 'Curva', inA: 'Corrente nominal (A)',
+  energized: 'Energizado', pressed: 'Premido', running: 'Em funcionamento', presetMs: 'Tempo definido (ms)',
+  elapsedMs: 'Tempo decorrido (ms)', triggered: 'Ativado', on: 'Ligado', enabled: 'Ativo',
+}
+const stateLabel = (key: string) => STATE_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2')
+
 
 /**
  * Controles de camada (ordem de empilhamento) — funcionam tanto para
@@ -81,6 +88,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   const selectedWireId = useSimStore((s) => s.selectedWireId)
   const selectedTerminalId = useSimStore((s) => s.selectedTerminalId)
   const [tab, setTab] = useState<'library' | 'inspector'>('library')
+  const inspectorRef = useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(paletteGroups().map((g) => g.group).filter((g) => !['protection', 'command'].includes(g))))
   const [favorites, setFavorites] = useState<ComponentType[]>(() => {
@@ -115,6 +123,8 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
       setTab('inspector')
     }
   }, [selectedIds.length, selectedWireId, selectedTerminalId])
+
+  useEffect(() => { if (inspectorRef.current) inspectorRef.current.scrollTop = 0 }, [selectedIds[0], selectedWireId, selectedTerminalId])
 
   const groups = useMemo(() => paletteGroups(), [])
   const selectedComponent = components.find((c) => c.id === selectedIds[0])
@@ -199,7 +209,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
       )}
 
       {tab === 'inspector' && (
-        <div className="flex-1 overflow-y-auto p-3 text-xs text-ink-700 space-y-3 min-h-0">
+        <div ref={inspectorRef} className="dc-inspector-scroll flex-1 overflow-y-auto p-3 text-xs text-ink-700 space-y-3 min-h-0">
           {!selectedComponent && !selectedWire && !selectedTerminal && (
             <div className="h-full flex items-center justify-center">
               <p className="text-ink-400 leading-relaxed text-center max-w-[220px]">
@@ -210,11 +220,14 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
 
           {/* ------------------------------------------------ componente */}
           {selectedComponent && (
-            <section className="space-y-2.5">
-              <header className="flex items-center justify-between sticky top-0 bg-surface-panel py-1 z-10 border-b border-line">
-                <span className="font-semibold text-ink-900">{selectedComponent.ref}</span>
-                <span className="dc-chip font-mono">{selectedComponent.type}</span>
+            <section key={selectedComponent.id} className="dc-inspector-component">
+              <header className="dc-inspector-hero">
+                <div className="dc-inspector-hero-thumb"><ComponentThumb type={selectedComponent.type} size={42} /></div>
+                <div className="min-w-0 flex-1"><strong className="block text-sm text-ink-900 truncate">{selectedComponent.ref || 'Sem referência'}</strong><span className="block text-[10px] text-ink-500 truncate">{selectedComponent.label}</span></div>
+                <span className={`dc-inspector-indicator ${selectedComponent.state.energized ? 'is-on' : ''}`} title={selectedComponent.state.energized ? 'Energizado' : 'Desligado'} />
               </header>
+              <div className="text-[10px] font-mono text-ink-400 px-1 truncate">{selectedComponent.type} · {selectedComponent.terminals.length} bornes{selectedComponent.locked ? ' · bloqueado' : ''}</div>
+              <details className="dc-inspector-group" open><summary>Identificação</summary><div className="dc-inspector-group-body">
 
               <div>
                 <label className={label}>TAG / referência</label>
@@ -224,6 +237,8 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 <label className={label}>Descrição</label>
                 <input className="dc-input" value={selectedComponent.label} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { label: e.target.value })} />
               </div>
+              </div></details>
+              <details className="dc-inspector-group" open><summary>Posição e aparência</summary><div className="dc-inspector-group-body">
               <LayerButtons />
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -278,17 +293,21 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   <IconLock size={12} /> {selectedComponent.locked ? 'Desbloquear' : 'Bloquear'}
                 </button>
                 <button className="dc-btn" onClick={() => useSimStore.getState().duplicateComponents([selectedComponent.id])}><IconCopy size={12} /> Duplicar</button>
-                <button className="dc-btn-danger dc-btn" onClick={() => useSimStore.getState().deleteComponents([selectedComponent.id])}><IconDelete size={12} /> Eliminar</button>
+                <button className="dc-btn-danger dc-btn" onClick={() => {
+                  const linked = wires.filter((wire) => selectedComponent.terminals.some((terminal) => wire.fromTerminalId === terminal.id || wire.toTerminalId === terminal.id)).length
+                  if (linked && !window.confirm(`Eliminar ${selectedComponent.ref} e ${linked} cabo(s) ligado(s)?`)) return
+                  useSimStore.getState().deleteComponents([selectedComponent.id])
+                }}><IconDelete size={12} /> Eliminar</button>
               </div>
 
+              </div></details>
               {/* estado rápido conforme o tipo */}
-              <div className="space-y-1">
-                <label className={label}>Estado / parametrização</label>
+              <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body space-y-1">
                 {Object.entries(selectedComponent.state).map(([k, v]) => {
                   if (typeof v === 'boolean') {
                     return (
                       <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
-                        <span className="text-ink-500">{k}</span>
+                        <span className="text-ink-500" title={k}>{stateLabel(k)}</span>
                         <input
                           type="checkbox"
                           checked={v}
@@ -300,7 +319,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   if (typeof v === 'number') {
                     return (
                       <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5">
-                        <span className="text-ink-500">{k}</span>
+                        <span className="text-ink-500" title={k}>{stateLabel(k)}</span>
                         <input
                           type="number"
                           className="dc-input !w-24 text-right"
@@ -313,27 +332,27 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   if (typeof v === 'string') {
                     return (
                       <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5">
-                        <span className="text-ink-500">{k}</span>
+                        <span className="text-ink-500" title={k}>{stateLabel(k)}</span>
                         <input className="dc-input !w-28" value={v} onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: e.target.value })} />
                       </label>
                     )
                   }
                   return null
                 })}
-              </div>
-
+              </div></details>
               {/* bornes */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className={label}>Bornes ({selectedComponent.terminals.length})</label>
+              <details className="dc-inspector-group" open><summary>Bornes <span className="dc-inspector-count">{selectedComponent.terminals.length}</span></summary><div className="dc-inspector-group-body">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] text-ink-400">Ligação e identificação</span>
                   <button className="dc-btn !h-5 !px-1.5 !text-[10px]" onClick={() => useSimStore.getState().addTerminal(selectedComponent.id)}><IconPlus size={10} /> borne</button>
                 </div>
                 <div className="flex flex-col gap-1">
                   {selectedComponent.terminals.map((t) => (
-                    <div key={t.id} className={`rounded-[5px] border px-2 py-1.5 transition-colors ${t.energized ? 'border-emerald-300 bg-state-runbg/60' : 'border-line bg-white'}`}>
+                    <div key={t.id} className={`dc-inspector-terminal rounded-[7px] border px-2 py-2 transition-colors ${t.energized ? 'border-emerald-300 bg-state-runbg/60' : 'border-line bg-white'}`}>
                       <div className="flex items-center gap-1">
                         <input
                           className="dc-input !w-14 font-mono"
+                          aria-label={`Nome do borne ${t.label}`}
                           value={t.label}
                           onChange={(e) => useSimStore.getState().updateTerminal(t.id, { label: e.target.value })}
                         />
@@ -343,6 +362,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                         />
                         <select
                           className="dc-select flex-1"
+                          aria-label={`Função do borne ${t.label}`}
                           value={t.kind}
                           onChange={(e) => useSimStore.getState().updateTerminal(t.id, { kind: e.target.value as TerminalKind })}
                         >
@@ -358,29 +378,31 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                           value={t.color}
                           onChange={(e) => useSimStore.getState().updateTerminal(t.id, { color: e.target.value })}
                         />
-                        <button className="dc-icon-btn !text-state-error !border-transparent hover:!bg-state-errorbg" title="Remover borne" onClick={() => useSimStore.getState().deleteTerminal(t.id)}>✕</button>
+                        <button className="dc-icon-btn !text-state-error !border-transparent hover:!bg-state-errorbg" title="Remover borne" onClick={() => {
+                          const linked = wires.filter((wire) => wire.fromTerminalId === t.id || wire.toTerminalId === t.id).length
+                          if (linked && !window.confirm(`Remover o borne ${t.label} e ${linked} cabo(s) ligado(s)?`)) return
+                          useSimStore.getState().deleteTerminal(t.id)
+                        }}>✕</button>
                       </div>
-                      <div className="flex items-center gap-1 mt-1">
-                        <span className="text-[9px] text-ink-400">tipo</span>
-                        <select
-                          className="dc-select flex-1 !h-[22px] !text-[10px]"
+                      <div className="dc-inspector-terminal-details">
+                        <label><span>Tipo</span><select
+                          className="dc-select !h-[24px] !text-[10px]"
+                          aria-label={`Tipo físico do borne ${t.label}`}
                           value={t.terminalType}
                           onChange={(e) => useSimStore.getState().updateTerminal(t.id, { terminalType: e.target.value as TerminalType })}
                         >
                           {Object.entries(TERMINAL_TYPE_LABEL).map(([k, v]) => (
                             <option key={k} value={k}>{v}</option>
                           ))}
-                        </select>
-                        <span className="text-[9px] text-ink-400">x</span>
-                        <input type="number" step="0.05" min="0" max="1" className="dc-input !w-12 !h-[22px] !text-[10px]" value={t.x} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { x: Number(e.target.value) })} />
-                        <span className="text-[9px] text-ink-400">y</span>
-                        <input type="number" step="0.05" min="0" max="1" className="dc-input !w-12 !h-[22px] !text-[10px]" value={t.y} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { y: Number(e.target.value) })} />
-                        <span className={`text-[9px] font-mono font-bold ${t.energized ? 'text-state-run' : 'text-ink-300'}`}>{t.energized ? 'LIVE' : '—'}</span>
+                        </select></label>
+                        <label><span>X</span><input type="number" step="0.05" min="0" max="1" className="dc-input !h-[24px] !text-[10px]" value={t.x} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { x: Number(e.target.value) })} /></label>
+                        <label><span>Y</span><input type="number" step="0.05" min="0" max="1" className="dc-input !h-[24px] !text-[10px]" value={t.y} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { y: Number(e.target.value) })} /></label>
                       </div>
+                      <span className={`dc-inspector-terminal-status ${t.energized ? 'is-on' : ''}`}>{t.energized ? '● Energizado' : '○ Sem tensão'}</span>
                     </div>
                   ))}
                 </div>
-              </div>
+              </div></details>
             </section>
           )}
 
