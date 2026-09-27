@@ -1,12 +1,13 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { MODEL_PATHS } from '../three/modelPaths'
 
 /** Vista frontal produzida diretamente do GLB usado no Painel 3D (não é um SVG). */
 let imagePromise: Promise<{ off: string; on: string }> | undefined
 
 export function getLogo3DImages() {
   if (imagePromise) return imagePromise
-  imagePromise = new GLTFLoader().loadAsync('/models/logo-siemens-1224rc.glb').then(({ scene: source }) => {
+  imagePromise = new GLTFLoader().loadAsync(MODEL_PATHS.plcSiemensLogo1224RC).then(({ scene: source }) => {
     const canvas = document.createElement('canvas')
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true })
     renderer.setSize(560, 720, false)

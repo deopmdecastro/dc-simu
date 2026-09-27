@@ -1,19 +1,41 @@
-# Modelos 3D reais dos componentes
+# Ficheiros 3D dos componentes
 
-Coloque aqui os ficheiros `.glb`/`.gltf` exportados a partir do CAD (SolidWorks,
-etc.). O código em `src/three/Panel3D.tsx` já está preparado para carregar
-estes ficheiros via `useGLTF`, com o desenho procedural (caixas) apenas como
-reserva automática caso o ficheiro não exista ou falhe a carregar.
+Cada pasta corresponde a uma categoria da Biblioteca. Use ficheiros **`.glb`**
+(preferencial: geometria, materiais e texturas num só ficheiro) ou `.gltf`
+(com os recursos associados na mesma pasta). Nomes curtos, sem espaços nem
+acentos, por exemplo `disjuntor-2p.glb`.
 
-## Siemens LOGO! 12/24RC
+| Categoria da Biblioteca | Pasta |
+|---|---|
+| Proteção | `protecao/` |
+| Comando | `comando/` |
+| Contatores | `contactores/` |
+| Relés | `reles/` |
+| Controladores | `controladores/` |
+| Motores | `motores/` |
+| Acionamentos | `acionamentos/` |
+| Sensores | `sensores/` |
+| Sinalização | `sinalizacao/` |
+| Bornes e barras | `bornes-e-barras/` |
+| Fontes | `fontes/` |
 
-- Ficheiro: `public/models/logo-siemens-1224rc.glb` (já incluído no repositório).
-- O código em `src/three/Panel3D.tsx` normaliza automaticamente o modelo ao
-  carregar: aplica a rotação de eixo (o export do SolidWorks vem com Z para
-  cima; o three.js usa Y para cima), escala-o para uma altura consistente
-  com os restantes aparelhos de calha, e recentra-o (base assente no plano
-  da calha DIN). Não é necessário ajustar nada manualmente ao substituir
-  este ficheiro por uma versão mais recente do mesmo componente.
-- O ecrã acende/apaga consoante a alimentação (`L+`): é identificado
-  automaticamente pela cor do material original (verde puro), que no
-  modelo fornecido é usada apenas nessa peça.
+## Modelo já disponível
+
+`controladores/logo-siemens-1224rc.glb` é o modelo Siemens LOGO! 12/24RC.
+É usado no Painel 3D, na imagem frontal do Esquema e na miniatura da
+Biblioteca. A URL pública correspondente é
+`/models/controladores/logo-siemens-1224rc.glb`; os três usos partilham o
+caminho definido em `src/three/modelPaths.ts`.
+
+O modelo é ajustado à orientação e escala da cena pelo código. O ecrã é
+identificado pelo material verde e reage à alimentação no borne L+.
+
+**Adicionar um ficheiro à pasta não o ativa automaticamente.** Para usar um
+novo modelo num componente, associe a sua URL em `src/three/modelPaths.ts`
+e configure o respetivo carregamento/renderização no Painel 3D e, se
+pretendido, no Esquema ou na Biblioteca. O modelo procedural existente
+continua a servir de reserva. A pasta `public/` é servida na raiz: não inclua
+`public` na URL usada no código.
+
+As pastas vazias contêm apenas `.gitkeep`, para que existam no Git; substitua
+esse marcador por modelos reais quando estiverem disponíveis.

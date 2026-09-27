@@ -8,6 +8,7 @@ import { SCENARIOS } from '../simulation/scenarios'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType } from '../types'
 import * as THREE from 'three'
+import { MODEL_PATHS } from './modelPaths'
 
 const SLOT_WIDTH = 0.72
 const RAIL_Y = 0.4
@@ -107,7 +108,7 @@ function Contactor3D({ c, x }: { c: ElectricalComponent; x: number }) {
 }
 
 /* ---------- Siemens LOGO! 12/24RC — modelo 3D real (GLTF/GLB) ---------- */
-const LOGO_1224RC_MODEL_URL = '/models/logo-siemens-1224rc.glb'
+const LOGO_1224RC_MODEL_URL = MODEL_PATHS.plcSiemensLogo1224RC
 // O export do SolidWorks vem com Z para cima; o three.js usa Y para cima.
 // Confirmado por análise da geometria (posição dos parafusos dos bornes de
 // entrada/saída e do ecrã): rodar +90° em torno de X coloca o topo real do
