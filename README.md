@@ -82,6 +82,14 @@ terra, barramento L1/L2/L3, barramento de neutro, barra de terra), Fontes (trans
 - Bobinas **COIL / SET / RESET**; temporizadores **TON, TOF, TP e estrela-triângulo** com preset e
   tempo de transição; **contadores CTU/CTD** com preset e endereço de reset.
 - Estado energizado de cada rung, contato e bobina em tempo real.
+- **Tabela de Tags** (aba dedicada, inspirada na organização do TIA Portal): uma tabela por área de
+  memória — Entradas (I), Saídas (Q), Memórias (M), Temporizadores (T), Contadores (C) — cada linha
+  com **Nome simbólico, Endereço, Tipo de dados (Bool/Time/Int/Real) e Comentário**. Botão
+  **"Detectar do programa"** cria automaticamente uma tag para todo endereço já usado no programa
+  Ladder que ainda não tenha nome. Os nomes aparecem por baixo do endereço nos contatos/bobinas do
+  editor e junto aos bits no Monitor, e os campos de endereço sugerem (autocompletar) os endereços já
+  nomeados — o endereço continua a ser a referência real usada pelo motor de varredura; a tag é só
+  documentação/organização.
 
 ### Cenários prontos
 1. **Partida direta com selo** — STOP (I1) + START (I2), selo por M1 → Q1 → KM1 → motor.
@@ -143,9 +151,12 @@ src/
                     rotação do motor a partir da sequência real de fases.
   ladder/
     ladderEngine.ts Varredura completa: contatos NO/NC/subida/descida, ramos OR, séries AND,
-                    COIL/SET/RESET, TON/TOF/TP/estrela-triângulo e contadores CTU/CTD.
+                    COIL/SET/RESET, TON/TOF/TP/estrela-triângulo, contadores CTU/CTD, e utilidades
+                    da Tabela de Tags (deteção de endereços usados, tipo de dados padrão).
     LadderEditor.tsx Editor visual completo com inserção de contatos, ramos, bobinas, timers e
-                    contadores, e estado energizado em tempo real.
+                    contadores, estado energizado em tempo real, e abas Programa/Tabela de Tags.
+    TagTable.tsx    Tabela de Tags (Nome/Endereço/Tipo/Comentário) por área de memória (I/Q/M/T/C),
+                    inspirada na organização do TIA Portal.
   schematic/
     symbols.tsx     Biblioteca de símbolos SVG (um por tipo), cores de cabo, rótulos de borne.
     SchematicView.tsx Editor de esquema: malha, arraste, seleção, marquise, zoom/pan, cabos,

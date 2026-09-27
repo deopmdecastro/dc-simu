@@ -1,16 +1,20 @@
 import { useSimStore } from '../store/useSimStore'
 
-function Bit({ label: name, value, onToggle }: { label: string; value: boolean; onToggle?: () => void }) {
+function Bit({ label: name, tagName, value, onToggle }: { label: string; tagName?: string | null; value: boolean; onToggle?: () => void }) {
   return (
     <button
       onClick={onToggle}
       disabled={!onToggle}
-      className={`flex items-center justify-between px-2 py-1 rounded font-mono text-xs border text-left ${
+      title={tagName ?? undefined}
+      className={`flex flex-col px-2 py-1 rounded font-mono text-xs border text-left ${
         value ? 'border-emerald-500 bg-emerald-950/40 text-emerald-300' : 'border-neutral-700 text-neutral-400'
       } ${onToggle ? 'hover:border-cyan-500' : ''}`}
     >
-      <span>{name}</span>
-      <span>{value ? 'ON' : 'OFF'}</span>
+      <div className="flex items-center justify-between w-full">
+        <span>{name}</span>
+        <span>{value ? 'ON' : 'OFF'}</span>
+      </div>
+      {tagName && <span className="text-[9px] leading-none mt-0.5 text-neutral-500 truncate">{tagName}</span>}
     </button>
   )
 }
@@ -25,6 +29,12 @@ export default function MonitorPanel() {
   const faults = useSimStore((s) => s.sim.faults)
   const components = useSimStore((s) => s.components)
   const setFaults = useSimStore((s) => s.setFaults)
+  const tags = useSimStore((s) => s.tags)
+
+  const tagNameFor = (address: string) => {
+    const t = tags.find((tt) => tt.address === address)
+    return t && t.name !== t.address ? t.name : null
+  }
 
   const group = (prefix: string) =>
     Object.keys(table)
@@ -43,7 +53,7 @@ export default function MonitorPanel() {
           <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Entradas físicas</h3>
           <div className="grid grid-cols-2 gap-1">
             {group('I').map((k) => (
-              <Bit key={k} label={k} value={table[k]} />
+              <Bit key={k} label={k} tagName={tagNameFor(k)} value={table[k]} />
             ))}
           </div>
         </div>
@@ -51,7 +61,7 @@ export default function MonitorPanel() {
           <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Saídas do CLP</h3>
           <div className="grid grid-cols-2 gap-1">
             {group('Q').map((k) => (
-              <Bit key={k} label={k} value={table[k]} />
+              <Bit key={k} label={k} tagName={tagNameFor(k)} value={table[k]} />
             ))}
           </div>
         </div>
@@ -59,7 +69,7 @@ export default function MonitorPanel() {
           <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-1">Memórias (clique p/ forçar)</h3>
           <div className="grid grid-cols-2 gap-1">
             {group('M').map((k) => (
-              <Bit key={k} label={k} value={table[k]} onToggle={() => toggleBit(k)} />
+              <Bit key={k} label={k} tagName={tagNameFor(k)} value={table[k]} onToggle={() => toggleBit(k)} />
             ))}
           </div>
         </div>

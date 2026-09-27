@@ -206,3 +206,36 @@ export function nextAddress(prefix: 'I' | 'Q' | 'M' | 'T' | 'C', table: AddressT
     .filter((n) => !Number.isNaN(n))
   return `${prefix}${(nums.length ? Math.max(...nums) : 0) + 1}`
 }
+
+/** Tipo de dados padrão sugerido para cada família de endereço (TIA-like). */
+export function defaultDataTypeFor(address: string): 'Bool' | 'Time' | 'Int' {
+  const prefix = address.trim().toUpperCase()[0]
+  if (prefix === 'T') return 'Time'
+  if (prefix === 'C') return 'Int'
+  return 'Bool'
+}
+
+/**
+ * Varre o programa Ladder inteiro (contatos, bobinas, temporizadores e
+ * contadores, incluindo o endereço de reset) e devolve, ordenado, o conjunto
+ * de todos os endereços absolutos referenciados — usado para gerar/atualizar
+ * automaticamente a Tabela de Tags a partir do programa já escrito.
+ */
+export function collectUsedAddresses(program: LadderProgram): string[] {
+  const set = new Set<string>()
+  for (const rung of program.rungs) {
+    for (const branch of rung.branches) {
+      for (const el of branch.elements) set.add(el.address.toUpperCase())
+    }
+    for (const coil of rung.coils) set.add(coil.address.toUpperCase())
+    if (rung.timer) set.add(rung.timer.address.toUpperCase())
+    if (rung.counter) {
+      set.add(rung.counter.address.toUpperCase())
+      if (rung.counter.resetAddress) set.add(rung.counter.resetAddress.toUpperCase())
+    }
+  }
+  return [...set].sort((a, b) => {
+    if (a[0] !== b[0]) return a[0].localeCompare(b[0])
+    return Number(a.slice(1)) - Number(b.slice(1))
+  })
+}

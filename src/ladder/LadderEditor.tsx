@@ -1,19 +1,65 @@
 import { useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import TagTable from './TagTable'
 import type { LadderContact, LadderRung, LadderContactType, LadderCoilType } from '../types'
 
 /* ------------------------------------------------------------------ helpers */
 
 const CONTACT_SYMBOL: Record<LadderContactType, string> = { NO: '| |', NC: '|/|', RISING: '|P|', FALLING: '|N|' }
 
+/** id do <datalist> com os endereços já nomeados na Tabela de Tags, usado
+ *  para sugerir endereços (com autocompletar) em todos os campos de endereço
+ *  do editor — tal como o TIA Portal sugere tags existentes ao digitar. */
+const TAG_DATALIST_ID = 'ladder-tag-addresses'
+
+function TagAddressDatalist() {
+  const tags = useSimStore((s) => s.tags)
+  return (
+    <datalist id={TAG_DATALIST_ID}>
+      {tags.map((t) => (
+        <option key={t.id} value={t.address}>
+          {t.name !== t.address ? t.name : ''}
+        </option>
+      ))}
+    </datalist>
+  )
+}
+
+/** Nome simbólico da tag associada a um endereço, se existir e for diferente
+ *  do próprio endereço (senão não haveria nada de útil a mostrar). */
+function useTagName(address: string): string | null {
+  const tag = useSimStore((s) => s.tags.find((t) => t.address === address.toUpperCase()))
+  return tag && tag.name && tag.name !== tag.address ? tag.name : null
+}
+
 function ContactSymbol({ el, table }: { el: LadderContact; table: Record<string, boolean> }) {
   const raw = !!table[el.address]
   const powered = el.contactType === 'NC' ? !raw : el.contactType === 'RISING' || el.contactType === 'FALLING' ? raw : raw
+  const tagName = useTagName(el.address)
   return (
-    <div className={`flex flex-col items-center px-1 select-none ${powered ? 'text-emerald-400' : 'text-neutral-500'}`}>
+    <div className={`flex flex-col items-center px-1 select-none ${powered ? 'text-emerald-400' : 'text-neutral-500'}`} title={tagName ?? undefined}>
       <div className="text-[10px] leading-none mb-0.5">{el.address}</div>
       <div className={`font-mono text-base leading-none border-y-2 px-1 ${powered ? 'border-emerald-400' : 'border-neutral-600'}`}>{CONTACT_SYMBOL[el.contactType]}</div>
+      {tagName && <div className="text-[9px] leading-none mt-0.5 text-neutral-400 max-w-[56px] truncate">{tagName}</div>}
     </div>
+  )
+}
+
+function CoilButton({ coil, powered, onCycle, onRemove }: { coil: import('../types').LadderCoilEl; powered: boolean; onCycle: () => void; onRemove: () => void }) {
+  const tagName = useTagName(coil.address)
+  return (
+    <button
+      onClick={onCycle}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onRemove()
+      }}
+      title={`Clique alterna COIL → SET → RESET · botão direito remove${tagName ? ` · ${tagName}` : ''}`}
+      className={`flex flex-col items-center px-2 py-1 rounded font-mono text-xs border-2 ${powered ? 'border-amber-400 text-amber-300 bg-amber-950/40' : 'border-neutral-600 text-neutral-500'}`}
+    >
+      <span>( {coil.address} ) {coil.coilType !== 'COIL' ? coil.coilType : ''}</span>
+      {tagName && <span className="text-[9px] leading-none mt-0.5 text-neutral-400 max-w-[70px] truncate">{tagName}</span>}
+    </button>
   )
 }
 
@@ -115,6 +161,7 @@ function RungRow({ rung }: { rung: LadderRung }) {
                 </button>
                 <input
                   className="w-12 bg-transparent text-[10px] text-neutral-300 outline-none border-b border-dashed border-neutral-700"
+                  list={TAG_DATALIST_ID}
                   value={el.address}
                   onChange={(e) =>
                     updateRung(rung.id, (r) => ({
@@ -135,18 +182,7 @@ function RungRow({ rung }: { rung: LadderRung }) {
         <div className="flex items-center gap-2 pt-2 border-t border-neutral-800 flex-wrap">
           <span className="text-neutral-600 text-xs">saída →</span>
           {rung.coils.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => cycleCoil(c.id)}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                removeCoil(c.id)
-              }}
-              title="Clique alterna COIL → SET → RESET · botão direito remove"
-              className={`px-2 py-1 rounded font-mono text-xs border-2 ${table[c.address] ? 'border-amber-400 text-amber-300 bg-amber-950/40' : 'border-neutral-600 text-neutral-500'}`}
-            >
-              ( {c.address} ) {c.coilType !== 'COIL' ? c.coilType : ''}
-            </button>
+            <CoilButton key={c.id} coil={c} powered={!!table[c.address]} onCycle={() => cycleCoil(c.id)} onRemove={() => removeCoil(c.id)} />
           ))}
           {!rung.coils.length && <span className="text-[10px] text-neutral-600">sem bobina</span>}
         </div>
@@ -163,7 +199,7 @@ function RungRow({ rung }: { rung: LadderRung }) {
           </select>
           {rung.timer && (
             <>
-              <input className={`${tiny} w-12`} value={rung.timer.address} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, address: e.target.value.toUpperCase() } }))} />
+              <input className={`${tiny} w-12`} list={TAG_DATALIST_ID} value={rung.timer.address} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, address: e.target.value.toUpperCase() } }))} />
               <span>preset</span>
               <input type="number" className={`${tiny} w-16`} value={rung.timer.presetMs} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, presetMs: Number(e.target.value) } }))} />
               <span>ms</span>
@@ -188,18 +224,18 @@ function RungRow({ rung }: { rung: LadderRung }) {
           </select>
           {rung.counter && (
             <>
-              <input className={`${tiny} w-12`} value={rung.counter.address} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, address: e.target.value.toUpperCase() } }))} />
+              <input className={`${tiny} w-12`} list={TAG_DATALIST_ID} value={rung.counter.address} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, address: e.target.value.toUpperCase() } }))} />
               <span>preset</span>
               <input type="number" className={`${tiny} w-14`} value={rung.counter.preset} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, preset: Number(e.target.value) } }))} />
               <span>reset</span>
-              <input className={`${tiny} w-12`} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, resetAddress: e.target.value.toUpperCase() } }))} />
+              <input className={`${tiny} w-12`} list={TAG_DATALIST_ID} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, resetAddress: e.target.value.toUpperCase() } }))} />
             </>
           )}
         </div>
 
         {/* inserir contato / bobina / ramo */}
         <div className="flex items-center gap-1 flex-wrap pt-2 border-t border-neutral-800">
-          <input className={`${tiny} w-14`} value={newAddress} onChange={(e) => setNewAddress(e.target.value.toUpperCase())} placeholder="I1" />
+          <input className={`${tiny} w-14`} list={TAG_DATALIST_ID} value={newAddress} onChange={(e) => setNewAddress(e.target.value.toUpperCase())} placeholder="I1" />
           <select className={tiny} value={newType} onChange={(e) => setNewType(e.target.value as LadderContactType)}>
             <option value="NO">NA</option>
             <option value="NC">NF</option>
@@ -213,7 +249,7 @@ function RungRow({ rung }: { rung: LadderRung }) {
           </select>
           <button className={smallBtn} onClick={addContact}>+ contato</button>
           <button className={smallBtn} onClick={addBranch}>+ ramo (OR)</button>
-          <input className={`${tiny} w-14`} value={coilAddress} onChange={(e) => setCoilAddress(e.target.value.toUpperCase())} placeholder="Q1" />
+          <input className={`${tiny} w-14`} list={TAG_DATALIST_ID} value={coilAddress} onChange={(e) => setCoilAddress(e.target.value.toUpperCase())} placeholder="Q1" />
           <select className={tiny} value={coilType} onChange={(e) => setCoilType(e.target.value as LadderCoilType)}>
             <option value="COIL">COIL</option>
             <option value="SET">SET</option>
@@ -228,11 +264,14 @@ function RungRow({ rung }: { rung: LadderRung }) {
 
 /* -------------------------------------------------------------------- editor */
 
+type LadderTab = 'program' | 'tags'
+
 export default function LadderEditor() {
   const rungs = useSimStore((s) => s.ladder.rungs)
   const addRung = useSimStore((s) => s.addRung)
   const table = useSimStore((s) => s.runtime.table)
   const blackBox = useSimStore((s) => s.sim.blackBox)
+  const [tab, setTab] = useState<LadderTab>('program')
 
   const bits = (p: string) =>
     Object.keys(table)
@@ -241,14 +280,31 @@ export default function LadderEditor() {
       .map((k) => `${k}=${table[k] ? 1 : 0}`)
       .join('  ')
 
+  const tabBtn = (t: LadderTab, text: string) => (
+    <button
+      onClick={() => setTab(t)}
+      className={`text-xs px-2 py-1 rounded-t border-b-2 ${tab === t ? 'text-neutral-100 border-blue-500' : 'text-neutral-500 border-transparent hover:text-neutral-300'}`}
+    >
+      {text}
+    </button>
+  )
+
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-800 bg-neutral-900">
-        <span className="text-sm font-semibold text-neutral-200 tracking-wide">LADDER {blackBox ? '(modo caixa-preta)' : ''}</span>
-        <button onClick={addRung} className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-white">+ Rung</button>
+      <TagAddressDatalist />
+      <div className="flex items-center justify-between px-3 pt-2 border-b border-neutral-800 bg-neutral-900">
+        <div className="flex items-end gap-1">
+          {tabBtn('program', 'Programa')}
+          {tabBtn('tags', 'Tabela de Tags')}
+        </div>
+        {tab === 'program' && (
+          <button onClick={addRung} className="text-xs px-2 py-1 mb-1 bg-blue-600 hover:bg-blue-500 rounded text-white">+ Rung</button>
+        )}
       </div>
 
-      {blackBox ? (
+      {tab === 'tags' ? (
+        <TagTable />
+      ) : blackBox ? (
         <div className="flex-1 flex items-center justify-center p-6 text-center text-xs text-neutral-500 leading-relaxed">
           Modo caixa-preta ativo: o programa Ladder está oculto para o operador. Use o Monitor e a Sonda para deduzir a lógica.
         </div>
@@ -261,11 +317,13 @@ export default function LadderEditor() {
         </div>
       )}
 
-      <div className="border-t border-neutral-800 p-2 text-[10px] text-neutral-500 font-mono leading-relaxed">
-        <div>{bits('I')}</div>
-        <div>{bits('Q')}</div>
-        <div>{bits('M')}</div>
-      </div>
+      {tab === 'program' && (
+        <div className="border-t border-neutral-800 p-2 text-[10px] text-neutral-500 font-mono leading-relaxed">
+          <div>{bits('I')}</div>
+          <div>{bits('Q')}</div>
+          <div>{bits('M')}</div>
+        </div>
+      )}
     </div>
   )
 }

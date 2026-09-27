@@ -325,6 +325,24 @@ export interface LadderProgram {
 }
 
 // ---------------------------------------------------------------------------
+// Tabela de Tags (variáveis) — inspirada na organização do TIA Portal:
+// uma tabela por área de memória (Entradas, Saídas, Memórias, Temporizadores,
+// Contadores), cada linha com Nome, Endereço, Tipo de dados e Comentário.
+// ---------------------------------------------------------------------------
+
+export type LadderDataType = 'Bool' | 'Time' | 'Int' | 'Real'
+
+export interface LadderTag {
+  id: string
+  /** Endereço absoluto ao qual esta tag se refere: I1, Q1, M1, T1, C1… */
+  address: string
+  /** Nome simbólico dado pelo usuário: "Botao_Start", "Motor_M1"… */
+  name: string
+  dataType: LadderDataType
+  comment?: string
+}
+
+// ---------------------------------------------------------------------------
 // Simulação
 // ---------------------------------------------------------------------------
 
@@ -405,6 +423,7 @@ export interface CircuitState {
   components: ElectricalComponent[]
   wires: Wire[]
   ladder: LadderProgram
+  tags: LadderTag[]
   sim: SimulationState
   activeScenario: string
   selectedComponentIds: string[]

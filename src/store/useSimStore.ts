@@ -4,6 +4,8 @@ import type {
   CircuitState,
   ElectricalComponent,
   LadderRung,
+  LadderTag,
+  LadderDataType,
   Wire,
   WireColor,
   EditorTool,
@@ -17,7 +19,7 @@ import type {
 } from '../types'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
-import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTable, nextAddress } from '../ladder/ladderEngine'
+import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTable, nextAddress, collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario, SCENARIOS } from '../simulation/scenarios'
@@ -145,6 +147,15 @@ interface Store extends CircuitState {
   moveRung: (rungId: string, dir: -1 | 1) => void
   renameRung: (rungId: string, name: string) => void
   updateRung: (rungId: string, updater: (r: LadderRung) => LadderRung) => void
+
+  // --- tabela de tags (variáveis) ---
+  /** Cria uma nova tag no próximo endereço livre da família indicada. */
+  addTag: (prefix: 'I' | 'Q' | 'M' | 'T' | 'C') => void
+  updateTag: (id: string, patch: Partial<Omit<LadderTag, 'id'>>) => void
+  removeTag: (id: string) => void
+  /** Varre o programa Ladder e cria uma tag (nome = endereço) para cada
+   *  endereço já usado no programa que ainda não tenha uma tag. */
+  autoDetectTags: () => void
 
   // --- arquivo ---
   saveJSON: () => string
@@ -374,6 +385,7 @@ export const useSimStore = create<Store>((set, get) => ({
   components: [],
   wires: [],
   ladder: { rungs: [] },
+  tags: [],
   sim: {
     runState: 'stopped',
     mode: 'realtime',
@@ -413,6 +425,7 @@ export const useSimStore = create<Store>((set, get) => ({
       components: scenario.components,
       wires: scenario.wires,
       ladder: scenario.ladder,
+      tags: [],
       activeScenario: scenario.id,
       selectedComponentIds: [],
       selectedWireId: null,
@@ -431,6 +444,7 @@ export const useSimStore = create<Store>((set, get) => ({
       },
       dirty: false,
     })
+    get().autoDetectTags()
     get().step()
   },
 
@@ -1002,6 +1016,40 @@ export const useSimStore = create<Store>((set, get) => ({
     get().step()
   },
 
+  // ------------------------------------------------------------- tabela de tags
+  addTag: (prefix) => {
+    const addr = nextAddress(prefix, get().runtime.table)
+    set((s) => ({
+      tags: [...s.tags, { id: nanoid(6), address: addr, name: addr, dataType: defaultDataTypeFor(addr) as LadderDataType, comment: '' }],
+      dirty: true,
+    }))
+  },
+
+  updateTag: (id, patch) => {
+    set((s) => ({
+      tags: s.tags.map((t) => (t.id === id ? { ...t, ...patch, ...(patch.address ? { address: patch.address.toUpperCase() } : {}) } : t)),
+      dirty: true,
+    }))
+  },
+
+  removeTag: (id) => set((s) => ({ tags: s.tags.filter((t) => t.id !== id), dirty: true })),
+
+  autoDetectTags: () => {
+    set((s) => {
+      const known = new Set(s.tags.map((t) => t.address))
+      const used = collectUsedAddresses(s.ladder).filter((a) => !known.has(a))
+      if (!used.length) return s
+      const added: LadderTag[] = used.map((address) => ({
+        id: nanoid(6),
+        address,
+        name: address,
+        dataType: defaultDataTypeFor(address) as LadderDataType,
+        comment: '',
+      }))
+      return { tags: [...s.tags, ...added] }
+    })
+  },
+
   // ------------------------------------------------------------------ arquivo
   saveJSON: () => {
     const s = get()
@@ -1013,6 +1061,7 @@ export const useSimStore = create<Store>((set, get) => ({
         components: s.components,
         wires: s.wires,
         ladder: s.ladder,
+        tags: s.tags,
         grid: s.grid,
         activeScenario: s.activeScenario,
         scenarios: SCENARIOS.map((x) => ({ id: x.id, name: x.name })),
@@ -1030,6 +1079,7 @@ export const useSimStore = create<Store>((set, get) => ({
         components: parsed.components ?? [],
         wires: parsed.wires ?? [],
         ladder: parsed.ladder ?? { rungs: [] },
+        tags: parsed.tags ?? [],
         grid: parsed.grid ?? get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',
         runtime: EMPTY_RUNTIME(),
@@ -1053,6 +1103,7 @@ export const useSimStore = create<Store>((set, get) => ({
       components: [],
       wires: [],
       ladder: { rungs: [] },
+      tags: [],
       activeScenario: 'custom',
       runtime: EMPTY_RUNTIME(),
       selectedComponentIds: [],
