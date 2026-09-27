@@ -1698,3 +1698,8 @@ input[type='color'] {
 .ladder-section-card { display:flex; flex-direction:column; gap:6px; background:white; padding:10px; border:1px solid #dce4ef; border-radius:6px; }
 .ladder-section-card small { color:#64748b; }
 .ladder-setting { display:flex; align-items:center; justify-content:space-between; max-width:470px; padding:12px; background:white; border-bottom:1px solid #dce4ef; gap:20px; }
+
+/* Página própria GRAFCET: mantém o editor lateral compacto no Esquema. */
+.grafcet-full .grafcet-header, .grafcet-full .grafcet-help, .grafcet-full .grafcet-footer { padding-left:max(24px,calc((100% - 900px)/2)); padding-right:max(24px,calc((100% - 900px)/2)); }
+.grafcet-full .grafcet-list { width:100%; padding:28px max(24px,calc((100% - 720px)/2)); }
+.grafcet-full .grafcet-step { min-height:112px; }

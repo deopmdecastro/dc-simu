@@ -247,3 +247,5 @@ A vista **Esquema** (e Painel 3D) mostra à direita o editor GRAFCET, enquanto a
 ### Navegação lateral do Ladder
 
 Os botões Projeto, Biblioteca, Dispositivos, Diagnóstico e Configurações abrem vistas próprias. A Biblioteca insere apenas elementos Ladder suportados e lista equivalências dos componentes do esquema; Dispositivos permite localizar componentes já existentes; Diagnóstico apresenta problemas, bits e eventos do scan; Configurações permite alterar malha e velocidade. Para editar fisicamente um dispositivo, selecione-o em Dispositivos e volte à vista Esquema.
+
+A barra de vistas inclui agora **GRAFCET (F5)**, que abre o mesmo programa do editor lateral numa página dedicada; no Esquema continua disponível o editor compacto. O favicon SVG é servido localmente em `/favicon.svg`.

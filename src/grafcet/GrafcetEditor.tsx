@@ -3,7 +3,7 @@ import { validBit } from './engine'
 import type { GrafcetStep } from './engine'
 
 /** Editor compacto para o esquema. A ordem vertical define o destino da transição. */
-export default function GrafcetEditor() {
+export default function GrafcetEditor({ full = false }: { full?: boolean }) {
   const program = useSimStore((s) => s.grafcet)
   const runtime = useSimStore((s) => s.grafcetRuntime)
   const table = useSimStore((s) => s.runtime.table)
@@ -20,7 +20,7 @@ export default function GrafcetEditor() {
     ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
     setGrafcet({ steps: reordered })
   }
-  return <div className="grafcet-editor">
+  return <div className={`grafcet-editor ${full ? 'grafcet-full' : ''}`}>
     <header className="grafcet-header"><div><strong>GRAFCET</strong><small>Sequência de etapas · esquema</small></div><button className="dc-btn-primary dc-btn" onClick={add}>+ Etapa</button></header>
     <p className="grafcet-help">A transição de cada etapa conduz à seguinte; a última volta à primeira. Condição: I1, M1, Q1, !I1 ou 1 (sempre). Ação: Q1 ou M1.</p>
     <div className="grafcet-list">

@@ -98,7 +98,7 @@ export default function App() {
     <div className="h-screen w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
       <Toolbar mode={mode} setMode={setMode} />
       <div className="flex-1 flex min-h-0">
-        {mode !== 'ladder' && (
+        {mode !== 'ladder' && mode !== 'grafcet' && (
           <>
             <Sidebar width={panelSizes.sidebar} />
             <div
@@ -115,10 +115,11 @@ export default function App() {
         <div className="flex-1 min-w-0 flex flex-col">
           {mode === 'schematic' && <SchematicView />}
           {mode === 'ladder' && <LadderEditor />}
+          {mode === 'grafcet' && <GrafcetEditor full />}
           {mode === 'panel3d' && <Panel3D />}
           {mode === 'monitor' && <MonitorPanel />}
         </div>
-        {mode !== 'monitor' && mode !== 'ladder' && (
+        {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && (
           <div
             className={`${showLadder ? 'min-w-[320px]' : 'w-9'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder ? { width: panelSizes.ladder } : undefined}
@@ -145,7 +146,7 @@ export default function App() {
             )}
           </div>
         )}
-        {mode !== 'monitor' && showLadder && (
+        {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && showLadder && (
           <div
             className="dc-resize-handle dc-resize-handle-left"
             onPointerDown={(e) => {
