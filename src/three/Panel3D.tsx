@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Text, Line } from '@react-three/drei'
+import { OrbitControls, Text, Line, Html } from '@react-three/drei'
 import { useRef, useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { terminalPos } from '../schematic/symbols'
@@ -427,23 +427,28 @@ export default function Panel3D() {
         <Wires3D positions={positions} />
 
         <OrbitControls minDistance={2} maxDistance={18} makeDefault />
-      </Canvas>
 
-       <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
-         {showHints && (
-           <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
-             <div>arraste = mover · scroll = aproximar/afastar</div>
-             <div>clique em botoeiras e sensores para acionar</div>
-           </div>
-         )}
-         <button
-           onClick={toggleHints}
-           className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
-           title={showHints ? 'Esconder dicas' : 'Mostrar dicas'}
-         >
-           <IconHelp size={13} />
-         </button>
-       </div>
+        <Html
+          transform={false}
+          style={{ position: 'absolute', left: '10px', bottom: '10px', pointerEvents: 'auto', zIndex: 10 }}
+        >
+          <div className="flex flex-col items-start gap-1.5">
+            {showHints && (
+              <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
+                <div>arraste = mover · scroll = aproximar/afastar</div>
+                <div>clique em botoeiras e sensores para acionar</div>
+              </div>
+            )}
+            <button
+              onClick={toggleHints}
+              className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
+              title={showHints ? 'Esconder dicas' : 'Mostrar dicas'}
+            >
+              <IconHelp size={13} />
+            </button>
+          </div>
+        </Html>
+      </Canvas>
     </div>
   )
 }
