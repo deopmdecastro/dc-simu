@@ -1,8 +1,13 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
 import type { LadderContact, LadderRung, LadderContactType, LadderCoilType } from '../types'
-import { IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy, IconZoomIn, IconZoomOut, IconSchematic, IconLadder, IconCompare, IconMath, IconMove, IconFunction, IconUndo, IconRedo, IconChevronDown, IconChevronRight, IconShield } from '../ui/icons'
+import {
+  IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy,
+  IconZoomIn, IconZoomOut, IconSchematic, IconLadder, IconCompare, IconMath, IconMove,
+  IconFunction, IconUndo, IconRedo, IconChevronDown, IconChevronRight, IconShield,
+  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube,
+} from '../ui/icons'
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -340,6 +345,83 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
 /* -------------------------------------------------------------------- editor */
 
 type LadderTab = 'program' | 'tags'
+type ProjectNodeId =
+  | 'plc'
+  | 'programBlocks'
+  | 'main'
+  | 'fc1'
+  | 'fc2'
+  | 'dataBlocks'
+  | 'technologyObjects'
+  | 'externalSources'
+  | 'plcVariables'
+  | 'watchTables'
+  | 'backups'
+  | 'documentation'
+
+interface ProjectTreeItem {
+  id: ProjectNodeId
+  label: string
+  detail?: string
+  icon: 'plc' | 'folder' | 'block' | 'data' | 'source' | 'tags' | 'watch' | 'backup' | 'doc'
+  children?: ProjectTreeItem[]
+}
+
+const PROJECT_TREE: ProjectTreeItem = {
+  id: 'plc',
+  label: 'PLC_1',
+  detail: 'CPU 315-2 PN/DP',
+  icon: 'plc',
+  children: [
+    {
+      id: 'programBlocks',
+      label: 'Blocos de programa',
+      icon: 'folder',
+      children: [
+        { id: 'main', label: 'Main [OB1]', icon: 'block' },
+        { id: 'fc1', label: 'FC1 [FC1]', icon: 'block' },
+        { id: 'fc2', label: 'FC2 [FC2]', icon: 'block' },
+      ],
+    },
+    { id: 'dataBlocks', label: 'Blocos de dados', icon: 'data' },
+    { id: 'technologyObjects', label: 'Objetos tecnológicos', icon: 'folder' },
+    { id: 'externalSources', label: 'Fontes externas', icon: 'source' },
+    { id: 'plcVariables', label: 'Variáveis PLC', icon: 'tags' },
+    { id: 'watchTables', label: 'Tabelas de observação', icon: 'watch' },
+    { id: 'backups', label: 'Backups', icon: 'backup' },
+    { id: 'documentation', label: 'Documentação', icon: 'doc' },
+  ],
+}
+
+const NODE_TITLES: Record<ProjectNodeId, string> = {
+  plc: 'PLC_1',
+  programBlocks: 'Blocos de programa',
+  main: 'Main [OB1]',
+  fc1: 'FC1 [FC1]',
+  fc2: 'FC2 [FC2]',
+  dataBlocks: 'Blocos de dados',
+  technologyObjects: 'Objetos tecnológicos',
+  externalSources: 'Fontes externas',
+  plcVariables: 'Variáveis PLC',
+  watchTables: 'Tabelas de observação',
+  backups: 'Backups',
+  documentation: 'Documentação',
+}
+
+const BLOCK_NODE_IDS = new Set<ProjectNodeId>(['main', 'fc1', 'fc2'])
+
+function TreeGlyph({ icon }: { icon: ProjectTreeItem['icon'] }) {
+  const cls = `tree-glyph tree-glyph-${icon}`
+  if (icon === 'block') return <IconLadder size={12} className={cls} />
+  if (icon === 'data') return <IconGrid size={12} className={cls} />
+  if (icon === 'tags') return <IconTag size={12} className={cls} />
+  if (icon === 'watch') return <IconMonitor size={12} className={cls} />
+  if (icon === 'backup') return <IconSave size={12} className={cls} />
+  if (icon === 'doc') return <IconFile size={12} className={cls} />
+  if (icon === 'source') return <IconOpen size={12} className={cls} />
+  if (icon === 'plc') return <IconCube size={12} className={cls} />
+  return <IconProjects size={12} className={cls} />
+}
 
 function programCounts(rungs: LadderRung[]) {
   return rungs.reduce(
@@ -551,12 +633,24 @@ function LadderNavRail() {
           <span>{label}</span>
         </button>
       ))}
-      <span className="mt-auto text-[9px] text-indigo-300/70">v2.0</span>
+      <span className="mt-auto text-[9px] text-brand-200/80">v2.0</span>
     </aside>
   )
 }
 
-function ProjectTreePane({ onClose }: { onClose: () => void }) {
+function ProjectTreePane({
+  activeNode,
+  expanded,
+  onToggle,
+  onSelect,
+  onClose,
+}: {
+  activeNode: ProjectNodeId
+  expanded: Set<ProjectNodeId>
+  onToggle: (id: ProjectNodeId) => void
+  onSelect: (id: ProjectNodeId) => void
+  onClose: () => void
+}) {
   const toolTiles: Array<{ label: string; Icon: typeof IconContact }> = [
     { label: 'Contato', Icon: IconContact },
     { label: 'Bobina', Icon: IconCoil },
@@ -567,6 +661,47 @@ function ProjectTreePane({ onClose }: { onClose: () => void }) {
     { label: 'Matemáticas', Icon: IconMath },
     { label: 'Funções', Icon: IconFunction },
   ]
+
+  const renderNode = (node: ProjectTreeItem, depth = 0) => {
+    const hasChildren = !!node.children?.length
+    const isExpandableFolder = hasChildren || !BLOCK_NODE_IDS.has(node.id)
+    const isOpen = expanded.has(node.id)
+    const isActive = activeNode === node.id
+    return (
+      <div key={node.id}>
+        <button
+          type="button"
+          className={`tree-row tree-depth-${Math.min(depth, 2)} ${isActive ? 'tree-selected' : ''}`}
+          onClick={() => {
+            if (isExpandableFolder) onToggle(node.id)
+            onSelect(node.id)
+          }}
+          title={node.detail ? `${node.label} (${node.detail})` : node.label}
+        >
+          <span className="tree-chevron">
+            {isExpandableFolder ? (isOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />) : <span />}
+          </span>
+          <TreeGlyph icon={node.icon} />
+          <span className="tree-label">{node.label}</span>
+          {node.detail && <small>({node.detail})</small>}
+        </button>
+        {hasChildren && isOpen && node.children!.map((child) => renderNode(child, depth + 1))}
+        {!hasChildren && isExpandableFolder && isOpen && (
+          <div className={`tree-hint tree-depth-${Math.min(depth + 1, 2)}`}>
+            {node.id === 'dataBlocks' && 'DB1_Config, DB2_Processo'}
+            {node.id === 'technologyObjects' && 'TO_Encoder, TO_Safety'}
+            {node.id === 'externalSources' && 'SCL/STL reservados'}
+            {node.id === 'plcVariables' && 'Tags I, Q, M, T e C'}
+            {node.id === 'watchTables' && 'Tabela online I/O/M'}
+            {node.id === 'backups' && 'Historico local do editor'}
+            {node.id === 'documentation' && 'Notas, mapa e diagnostico'}
+            {node.id === 'plc' && 'CPU, blocos e tabelas'}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <aside className="ladder-project-pane">
       <div className="ladder-pane-heading">
@@ -574,14 +709,7 @@ function ProjectTreePane({ onClose }: { onClose: () => void }) {
         <button className="ladder-ghost-button" title="Recolher projeto" onClick={onClose}>×</button>
       </div>
       <div className="ladder-project-tree">
-        <div className="tree-row tree-root"><IconChevronDown size={12} /> <span className="tree-folder">▣</span> PLC_1 <small>(CPU 315-2 PN/DP)</small></div>
-        <div className="tree-row tree-indent"><IconChevronDown size={12} /> <span className="tree-folder">▤</span> Blocos de programa</div>
-        <div className="tree-row tree-indent-2 tree-selected"><span className="tree-leaf">▣</span> Main [OB1]</div>
-        <div className="tree-row tree-indent-2"><span className="tree-leaf tree-green">▣</span> FC1 [FC1]</div>
-        <div className="tree-row tree-indent-2"><span className="tree-leaf tree-green">▣</span> FC2 [FC2]</div>
-        {['Blocos de dados', 'Fontes externas', 'Variáveis PLC', 'Tabelas de observação', 'Backups', 'Documentação'].map((item) => (
-          <div className="tree-row tree-indent" key={item}><IconChevronRight size={12} /> <span className="tree-folder">▤</span> {item}</div>
-        ))}
+        {renderNode(PROJECT_TREE)}
       </div>
       <div className="ladder-tools-heading">Ferramentas</div>
       <div className="ladder-tools-grid">
@@ -603,11 +731,134 @@ function NetworkStatus({ table, prefix, label }: { table: Record<string, boolean
       <div className="ladder-status-title">{label}</div>
       {entries.length ? entries.map((key) => (
         <div className="ladder-status-row" key={key}>
-          <span className="font-mono text-indigo-700">{key}</span>
+          <span className="font-mono text-brand-700">{key}</span>
           <span className="truncate text-slate-500">{prefix === 'I' ? (key === 'I1' ? 'Botão Start' : key === 'I2' ? 'Botão Stop' : 'Sensor') : prefix === 'Q' ? (key === 'Q1' ? 'Contator' : 'Motor') : 'Memória'}</span>
           <span className={`ladder-status-dot ${table[key] ? 'is-on' : ''}`} />
         </div>
       )) : <span className="text-[10px] text-slate-400">—</span>}
+    </div>
+  )
+}
+
+function ProjectDataView({ activeNode, table }: { activeNode: ProjectNodeId; table: Record<string, boolean> }) {
+  const tags = useSimStore((s) => s.tags)
+  const events = useSimStore((s) => s.sim.events)
+  const timers = useSimStore((s) => s.runtime.timers)
+  const counters = useSimStore((s) => s.runtime.counters)
+  const rows = Object.keys(table).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
+  if (activeNode === 'plcVariables') return <TagTable />
+
+  if (activeNode === 'watchTables') {
+    return (
+      <div className="ladder-folder-view">
+        <FolderViewHeader icon={<IconMonitor size={16} />} title="Tabela de observação" subtitle="Bits e blocos monitorados no último scan." />
+        <div className="ladder-data-grid">
+          {rows.map((key) => (
+            <div className="ladder-data-row" key={key}>
+              <strong>{key}</strong>
+              <span>{table[key] ? '1 / TRUE' : '0 / FALSE'}</span>
+              <i className={table[key] ? 'is-on' : ''} />
+            </div>
+          ))}
+          {!rows.length && <EmptyFolderMessage text="Nenhuma variável disponível para observar." />}
+        </div>
+      </div>
+    )
+  }
+
+  if (activeNode === 'dataBlocks') {
+    return (
+      <div className="ladder-folder-view">
+        <FolderViewHeader icon={<IconGrid size={16} />} title="Blocos de dados" subtitle="Área reservada para DBs de receitas, estados e parametrização." />
+        <div className="ladder-db-card">
+          <strong>DB1_Config</strong>
+          <span>Estrutura pronta para parâmetros do simulador</span>
+          <div className="ladder-db-table">
+            <div><b>StartDelayMs</b><span>3000</span></div>
+            <div><b>MotorNominalA</b><span>6.0</span></div>
+            <div><b>AutoReset</b><span>false</span></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (activeNode === 'backups') {
+    return (
+      <div className="ladder-folder-view">
+        <FolderViewHeader icon={<IconSave size={16} />} title="Backups" subtitle="Histórico local do editor e pontos de recuperação." />
+        <div className="ladder-data-grid">
+          <div className="ladder-data-row"><strong>Histórico undo</strong><span>{useSimStore.getState().history.length} ponto(s)</span><i className="is-on" /></div>
+          <div className="ladder-data-row"><strong>Histórico redo</strong><span>{useSimStore.getState().future.length} ponto(s)</span><i /></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (activeNode === 'documentation') {
+    return (
+      <div className="ladder-folder-view">
+        <FolderViewHeader icon={<IconFile size={16} />} title="Documentação" subtitle="Resumo automático do projeto aberto." />
+        <div className="ladder-doc-lines">
+          <p>Projeto: PLC_1 / Main [OB1]</p>
+          <p>Tags cadastradas: {tags.length}</p>
+          <p>Temporizadores ativos: {Object.keys(timers).length}</p>
+          <p>Contadores ativos: {Object.keys(counters).length}</p>
+          <p>Eventos registrados: {events.length}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const title = NODE_TITLES[activeNode]
+  return (
+    <div className="ladder-folder-view">
+      <FolderViewHeader icon={<IconProjects size={16} />} title={title} subtitle="Pasta do projeto aberta." />
+      <EmptyFolderMessage text="Conteúdo pronto para novas entidades do projeto." />
+    </div>
+  )
+}
+
+function FolderViewHeader({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle: string }) {
+  return (
+    <header className="ladder-folder-header">
+      <span>{icon}</span>
+      <div>
+        <strong>{title}</strong>
+        <small>{subtitle}</small>
+      </div>
+    </header>
+  )
+}
+
+function EmptyFolderMessage({ text }: { text: string }) {
+  return <div className="ladder-folder-empty">{text}</div>
+}
+
+function FunctionBlockView({ id }: { id: Extract<ProjectNodeId, 'fc1' | 'fc2'> }) {
+  const isFc1 = id === 'fc1'
+  return (
+    <div className="ladder-folder-view">
+      <FolderViewHeader
+        icon={<IconFunction size={16} />}
+        title={NODE_TITLES[id]}
+        subtitle={isFc1 ? 'Função auxiliar para permissivos e segurança.' : 'Função auxiliar para diagnósticos e sinalização.'}
+      />
+      <div className="ladder-fc-canvas">
+        <div className="ladder-fc-network">
+          <div className="ladder-fc-network-title">Network 1</div>
+          <div className="ladder-fc-line">
+            <span className="ladder-fc-rail" />
+            <span className="ladder-fc-contact">{isFc1 ? 'M1' : 'I3'}</span>
+            <span className="ladder-fc-wire" />
+            <span className="ladder-fc-block">{isFc1 ? 'MOVE' : 'COMPARE'}</span>
+            <span className="ladder-fc-wire" />
+            <span className="ladder-fc-coil">{isFc1 ? 'M10' : 'M20'}</span>
+          </div>
+        </div>
+        <p className="ladder-fc-note">Bloco aberto pela árvore do projeto. A edição avançada de FCs pode reutilizar o mesmo motor de networks do OB1.</p>
+      </div>
     </div>
   )
 }
@@ -630,12 +881,35 @@ function FullLadderEditor() {
   const [ladderZoom, setLadderZoom] = useState(1)
   const [showProjectPane, setShowProjectPane] = useState(true)
   const [showPalette, setShowPalette] = useState(true)
+  const [activeProjectNode, setActiveProjectNode] = useState<ProjectNodeId>('main')
+  const [expandedNodes, setExpandedNodes] = useState<Set<ProjectNodeId>>(() => new Set(['plc', 'programBlocks']))
 
   const activeId = activeRungId && rungs.some((r) => r.id === activeRungId) ? activeRungId : rungs[0]?.id
   const counts = programCounts(rungs)
   const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
+  const isMainOpen = activeProjectNode === 'main'
+  const isFcOpen = activeProjectNode === 'fc1' || activeProjectNode === 'fc2'
+  const isProgramView = isMainOpen || isFcOpen
+  const activeTitle = NODE_TITLES[activeProjectNode]
+
+  const toggleNode = (id: ProjectNodeId) => {
+    setExpandedNodes((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const selectProjectNode = (id: ProjectNodeId) => {
+    setActiveProjectNode(id)
+    if (id === 'plcVariables') setProgramTab('tags')
+    else setProgramTab('program')
+  }
 
   const quickAdd = (kind: PaletteKind) => {
+    setActiveProjectNode('main')
+    setProgramTab('program')
     const rungId = activeId ?? addRung()
     setActiveRungId(rungId)
     updateRung(rungId, (r) => {
@@ -669,7 +943,13 @@ function FullLadderEditor() {
     <div className="ladder-workspace">
       <LadderNavRail />
       {showProjectPane ? (
-        <ProjectTreePane onClose={() => setShowProjectPane(false)} />
+        <ProjectTreePane
+          activeNode={activeProjectNode}
+          expanded={expandedNodes}
+          onToggle={toggleNode}
+          onSelect={selectProjectNode}
+          onClose={() => setShowProjectPane(false)}
+        />
       ) : (
         <button className="ladder-collapsed-pane-button" onClick={() => setShowProjectPane(true)} title="Mostrar projeto">
           Projeto
@@ -677,8 +957,10 @@ function FullLadderEditor() {
       )}
       <main className="ladder-main-pane">
         <div className="ladder-project-tabs">
-          <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}><IconSchematic size={13} /> Main [OB1] <span>×</span></button>
-          <button className={`ladder-project-tab ${programTab === 'tags' ? 'is-active' : ''}`} onClick={() => setProgramTab('tags')}>Tabela de Tags</button>
+          <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}>
+            {isFcOpen ? <IconFunction size={13} /> : <IconSchematic size={13} />} {activeTitle} <span>×</span>
+          </button>
+          <button className={`ladder-project-tab ${programTab === 'tags' ? 'is-active' : ''}`} onClick={() => { setProgramTab('tags'); setActiveProjectNode('plcVariables') }}>Tabela de Tags</button>
           <span className="ml-auto flex items-center gap-2 text-[10px] text-slate-400">
             <span className={`ladder-connection-dot ${running ? 'is-live' : ''}`} /> {running ? 'Simulação ativa' : 'Parado'}
           </span>
@@ -692,10 +974,10 @@ function FullLadderEditor() {
           <button className="ladder-toolbar-button" onClick={() => setLadderZoom(1)} title="Zoom 100%">100</button>
           <button className="ladder-toolbar-button" onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} title="Aumentar zoom"><IconZoomIn size={14} /></button>
           <span className="ladder-toolbar-separator" />
-          <span className="text-[10px] text-slate-400">Programa Ladder</span>
-          <button onClick={addRung} className="ladder-primary-button ml-auto"><IconPlus size={12} /> Nova network</button>
+          <span className="text-[10px] text-slate-400">{isProgramView ? 'Programa Ladder' : activeTitle}</span>
+          {isMainOpen && <button onClick={addRung} className="ladder-primary-button ml-auto"><IconPlus size={12} /> Nova network</button>}
         </div>
-        {programTab === 'program' && (
+        {programTab === 'program' && isMainOpen && (
           <div className="ladder-program-summary">
             <LadderMetric label="Networks" value={rungs.length} />
             <LadderMetric label="Energizadas" value={running ? poweredCount : 0} tone={running && poweredCount ? 'run' : 'neutral'} />
@@ -710,8 +992,12 @@ function FullLadderEditor() {
         )}
         {programTab === 'tags' ? (
           <div className="ladder-tags-view"><TagTable /></div>
-        ) : blackBox ? (
+        ) : blackBox && isMainOpen ? (
           <BlackBoxState />
+        ) : isFcOpen ? (
+          <FunctionBlockView id={activeProjectNode as Extract<ProjectNodeId, 'fc1' | 'fc2'>} />
+        ) : !isMainOpen ? (
+          <ProjectDataView activeNode={activeProjectNode} table={table} />
         ) : (
           <div className="ladder-networks">
             <div className="ladder-networks-scale" style={{ zoom: ladderZoom }}>

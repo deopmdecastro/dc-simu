@@ -319,26 +319,30 @@ export const IconCopy = (p: IconProps) => (
 /* --------------------------------------------- tipos de componente Ladder */
 export const IconContact = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M2 12h5M17 12h5" />
-    <path d="M7 5.5 17 12 7 18.5z" />
+    <path d="M2 12h6M16 12h6" />
+    <path d="M8 5v14M16 5v14" />
   </Svg>
 )
 export const IconCoil = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M2 12h3M19 12h3" />
-    <path d="M5 12a3.5 3.5 0 0 1 0-0.1M5 12a3.5 3.5 0 0 0 7 0 3.5 3.5 0 0 0 7 0" />
+    <path d="M2 12h4M18 12h4" />
+    <path d="M9 5c-2 2-3 4.3-3 7s1 5 3 7" />
+    <path d="M15 5c2 2 3 4.3 3 7s-1 5-3 7" />
   </Svg>
 )
 export const IconTimer = (p: IconProps) => (
   <Svg {...p}>
-    <circle cx="12" cy="13" r="8" />
-    <path d="M12 13V8.5M9.5 2h5M12 2v3" />
+    <rect x="4" y="5" width="16" height="14" rx="1.5" />
+    <path d="M8 12h8M8 15h4M9.5 2h5M12 2v3" />
+    <path d="M12 9v3l2 1.5" />
   </Svg>
 )
 export const IconCounter = (p: IconProps) => (
   <Svg {...p}>
     <rect x="3" y="6" width="18" height="13" rx="1.5" />
-    <path d="M7 3v3M12 3v3M17 3v3M7.5 15l3-6 1.5 4.5L15 10l1.5 5" />
+    <path d="M7 3v3M12 3v3M17 3v3" />
+    <path d="M7 11h10M7 15h10" />
+    <path d="M10 9v8M14 9v8" />
   </Svg>
 )
 export const IconBranch = (p: IconProps) => (
