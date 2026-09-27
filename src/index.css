@@ -1833,3 +1833,29 @@ button:disabled { cursor:not-allowed; }
 .grafcet-transition-row > button:not(:first-child) { width:24px; height:28px; color:#2563eb; border-radius:4px; }
 .grafcet-transition-row > button:hover:not(:disabled) { background:#e0ebff; }
 .grafcet-transition-row > button:disabled { opacity:.3; }
+
+/* Biblioteca de componentes do editor GRAFCET (independente do visualizador). */
+.grafcet-toolbox { flex:0 0 230px; width:230px; min-height:0; display:flex; flex-direction:column; border-right:1px solid #dce4ef; background:#fff; color:#334155; }
+.grafcet-toolbox-head { display:flex; align-items:center; justify-content:space-between; padding:15px 13px 12px; border-bottom:1px solid #e5eaf3; }
+.grafcet-toolbox-head strong { display:block; color:#1d4ed8; font-size:12px; }
+.grafcet-toolbox-head small { display:block; margin-top:2px; font-size:10px; color:#64748b; }
+.grafcet-toolbox-head button { width:24px; height:24px; border-radius:5px; color:#64748b; font-size:19px; }
+.grafcet-toolbox-head button:hover { background:#eff6ff; color:#1d4ed8; }
+.grafcet-toolbox-search { position:relative; padding:10px; }
+.grafcet-toolbox-search input { padding-right:25px; }
+.grafcet-toolbox-search button { position:absolute; right:17px; top:15px; font-size:16px; color:#64748b; }
+.grafcet-toolbox-list { flex:1; min-height:0; overflow:auto; padding:0 9px 12px; }
+.grafcet-toolbox-list section { margin:9px 0 17px; }
+.grafcet-toolbox-list h3 { padding:3px 6px 6px; font-size:10px; text-transform:uppercase; font-weight:700; letter-spacing:.08em; color:#8490a4; }
+.grafcet-toolbox-item { width:100%; display:flex; gap:9px; align-items:center; text-align:left; padding:8px; margin:2px 0; border:1px solid transparent; border-radius:8px; cursor:grab; }
+.grafcet-toolbox-item:hover:not(:disabled) { background:#eff6ff; border-color:#c7dafa; }
+.grafcet-toolbox-item:active:not(:disabled) { cursor:grabbing; }
+.grafcet-toolbox-item:disabled { opacity:.42; cursor:not-allowed; }
+.grafcet-toolbox-item strong { display:block; font-size:11px; color:#25344c; }
+.grafcet-toolbox-item small { display:block; color:#77869b; font-size:9px; line-height:1.4; margin-top:2px; }
+.grafcet-toolbox-icon { flex:none; width:33px; height:33px; display:grid; place-items:center; border:1px solid #cbdaf5; border-radius:7px; background:#f3f7ff; color:#2455d8; font:700 19px ui-monospace,monospace; }
+.grafcet-toolbox-tip { border-top:1px solid #e5eaf3; padding:12px; color:#64748b; font-size:10px; line-height:1.5; background:#f8fafd; }
+.grafcet-toolbox-restore { flex:none; width:33px; writing-mode:vertical-rl; padding:12px 6px; background:#fff; border-right:1px solid #dce4ef; color:#2455d8; font-size:11px; font-weight:650; }
+.grafcet-canvas.is-palette-drop { outline:2px dashed #2563eb; outline-offset:-5px; background-color:#f0f6ff; }
+@media(max-width:1050px) { .grafcet-toolbox { flex-basis:195px; width:195px; } .grafcet-full .grafcet-properties { width:300px; } }
+@media(max-width:800px) { .grafcet-toolbox { width:100%; flex:0 0 auto; max-height:190px; border-right:0; border-bottom:1px solid #dce4ef; } .grafcet-toolbox-list { display:flex; overflow:auto; gap:14px; padding:0 10px; } .grafcet-toolbox-list section { flex:none; width:190px; margin:0; } .grafcet-toolbox-tip { display:none; } .grafcet-toolbox-restore { writing-mode:horizontal-tb; width:auto; padding:6px 12px; } }

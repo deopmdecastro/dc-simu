@@ -5,6 +5,24 @@ import type { GrafcetStep, GrafcetTransition, GrafcetProgram } from './engine'
 
 const id = () => crypto.randomUUID()
 
+type PaletteItem = 'initial' | 'step' | 'transition' | 'action' | 'conditional' | 'fork' | 'join'
+const GRAFCET_MIME = 'application/x-dcsimu-grafcet'
+const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: string; name: string; detail: string }> }> = [
+  { group: 'Etapas e ligações', items: [
+    { kind: 'initial', icon: '◎', name: 'Etapa inicial', detail: 'Ponto de partida da sequência' },
+    { kind: 'step', icon: '□', name: 'Etapa ligada', detail: 'Nova etapa após a selecionada' },
+    { kind: 'transition', icon: '─', name: 'Transição', detail: 'Condição entre duas etapas' },
+  ] },
+  { group: 'Ações', items: [
+    { kind: 'action', icon: '▤', name: 'Ação', detail: 'Saída Q ou memória M' },
+    { kind: 'conditional', icon: '◇', name: 'Ação condicionada', detail: 'Saída ativa sob condição' },
+  ] },
+  { group: 'Ramos simultâneos', items: [
+    { kind: 'fork', icon: '⑂', name: 'Divergência AND', detail: 'Uma etapa → dois ramos' },
+    { kind: 'join', icon: '⑃', name: 'Convergência AND', detail: 'Dois ramos → uma etapa' },
+  ] },
+]
+
 /** GRAFCET com transições explícitas, divergência e convergência AND.
  * A ordem das transições define a prioridade quando partilham uma origem. */
 export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: boolean; onOpenEditor?: () => void }) {
@@ -15,6 +33,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const running = useSimStore((s) => s.sim.runState === 'running')
   const [selected, setSelected] = useState<string | null>(() => full ? program.steps[0]?.id ?? null : null)
   const [tab, setTab] = useState<'steps' | 'transitions'>('steps')
+  const [showPalette, setShowPalette] = useState(true)
+  const [paletteFilter, setPaletteFilter] = useState('')
+  const [dropActive, setDropActive] = useState(false)
   const steps = program.steps
   const transitions = transitionsOf(program)
   const save = (patch: Partial<GrafcetProgram>) => setGrafcet({ ...program, transitions, ...patch })
@@ -72,6 +93,55 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
     save({ transitions: reordered })
   }
+  const addInitial = () => {
+    const newStep: GrafcetStep = { id: id(), name: `Etapa ${steps.length}`, initial: true, action: '', condition: 'I1', actions: [] }
+    save({ steps: [...steps, newStep] })
+    setSelected(newStep.id)
+    setTab('steps')
+  }
+  const addAction = (conditional: boolean) => {
+    const target = selectedStep ?? steps[steps.length - 1]
+    if (!target) return
+    const used = new Set(steps.flatMap((step) => [step.action, ...(step.actions ?? []).map((action) => action.address)]))
+    let n = 1
+    while (used.has(`Q${n}`)) n++
+    updateStep(target.id, { actions: [...(target.actions ?? []), { id: id(), address: `Q${n}`, condition: conditional ? 'I1' : '1' }] })
+    setSelected(target.id)
+    setTab('steps')
+  }
+  const addFork = () => {
+    const source = selectedStep ?? steps[steps.length - 1]
+    if (!source) return
+    const left: GrafcetStep = { id: id(), name: `Ramo A`, initial: false, action: '', condition: 'I1', actions: [] }
+    const right: GrafcetStep = { id: id(), name: `Ramo B`, initial: false, action: '', condition: 'I1', actions: [] }
+    save({ steps: [...steps, left, right], transitions: [...transitions, { id: id(), from: [source.id], to: [left.id, right.id], condition: 'I1' }] })
+    setSelected(left.id)
+    setTab('steps')
+  }
+  const addJoin = () => {
+    if (steps.length < 2) return
+    const primary = selectedStep ?? steps[steps.length - 1]
+    const fork = transitions.find((transition) => transition.to.length >= 2 && transition.to.includes(primary.id))
+    const otherId = fork?.to.find((v) => v !== primary.id && steps.some((step) => step.id === v))
+      ?? [...steps].reverse().find((step) => step.id !== primary.id)?.id
+    if (!otherId) return
+    const next: GrafcetStep = { id: id(), name: `Após convergência`, initial: false, action: '', condition: 'I1', actions: [] }
+    save({ steps: [...steps, next], transitions: [...transitions, { id: id(), from: [primary.id, otherId], to: [next.id], condition: 'I1' }] })
+    setSelected(next.id)
+    setTab('steps')
+  }
+  const usePalette = (kind: PaletteItem) => {
+    if (kind === 'initial') addInitial()
+    else if (kind === 'step') addConnectedStep()
+    else if (kind === 'transition') addTransition()
+    else if (kind === 'action') addAction(false)
+    else if (kind === 'conditional') addAction(true)
+    else if (kind === 'fork') addFork()
+    else addJoin()
+  }
+  const paletteDisabled = (kind: PaletteItem) =>
+    (kind === 'transition' || kind === 'join') ? steps.length < 2 :
+    (kind === 'action' || kind === 'conditional' || kind === 'fork') ? steps.length === 0 : false
   const choose = (ids: string[], stepId: string) => ids.includes(stepId) ? ids.filter((x) => x !== stepId) : [...ids, stepId]
   const selectedStep = steps.find((s) => s.id === selected)
   const selectedTransition = transitions.find((t) => t.id === selected)
@@ -125,7 +195,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   return <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
     <header className="grafcet-header"><div><strong>GRAFCET</strong><small>{steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas</small></div>{full ? <div className="grafcet-header-actions"><button className="dc-btn" onClick={addStep}>+ Etapa solta</button><button className="dc-btn-primary dc-btn" onClick={addConnectedStep}>+ Etapa ligada</button><button className="dc-btn" disabled={steps.length < 2} onClick={addTransition}>+ Transição</button></div> : <button className="dc-btn-primary dc-btn" onClick={onOpenEditor}>Abrir editor ↗</button>}</header>
     <div className="grafcet-designer-body">
-      <div ref={viewportRef} className="grafcet-canvas" aria-label="Diagrama GRAFCET" onWheel={onPreviewWheel} onPointerDown={onPreviewDown} onPointerMove={onPreviewMove} onPointerUp={onPreviewUp} onPointerCancel={onPreviewUp}>
+      {full && (showPalette ? <aside className="grafcet-toolbox" aria-label="Ferramentas GRAFCET">
+        <div className="grafcet-toolbox-head"><div><strong>Componentes</strong><small>Para construir a sequência</small></div><button title="Recolher ferramentas" aria-label="Recolher ferramentas" onClick={() => setShowPalette(false)}>‹</button></div>
+        <div className="grafcet-toolbox-search"><input className="dc-input" value={paletteFilter} onChange={(e) => setPaletteFilter(e.target.value)} placeholder="Pesquisar componentes…" aria-label="Pesquisar componentes GRAFCET" />{paletteFilter && <button onClick={() => setPaletteFilter('')} title="Limpar pesquisa">×</button>}</div>
+        <div className="grafcet-toolbox-list">{PALETTE.map((group) => {
+          const items = group.items.filter((item) => `${item.name} ${item.detail}`.toLocaleLowerCase('pt-PT').includes(paletteFilter.toLocaleLowerCase('pt-PT')))
+          return items.length ? <section key={group.group}><h3>{group.group}</h3>{items.map((item) => <button key={item.kind} disabled={paletteDisabled(item.kind)} onClick={() => usePalette(item.kind)} draggable={!paletteDisabled(item.kind)} onDragStart={(e) => { e.dataTransfer.setData(GRAFCET_MIME, item.kind); e.dataTransfer.effectAllowed = 'copy' }} className="grafcet-toolbox-item" title={`${item.name}: clique ou arraste para o diagrama`}><span className="grafcet-toolbox-icon">{item.icon}</span><span><strong>{item.name}</strong><small>{item.detail}</small></span></button>)}</section> : null
+        })}</div>
+        <p className="grafcet-toolbox-tip">Selecione uma etapa e clique ou arraste um componente. Depois configure-o no painel Propriedades.</p>
+      </aside> : <button className="grafcet-toolbox-restore" onClick={() => setShowPalette(true)} title="Mostrar componentes">› Ferramentas</button>)}
+      <div ref={viewportRef} className={`grafcet-canvas ${dropActive ? 'is-palette-drop' : ''}`} aria-label="Diagrama GRAFCET" onDragOver={full ? (e) => { if (e.dataTransfer.types.includes(GRAFCET_MIME)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDropActive(true) } } : undefined} onDragLeave={full ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropActive(false) } : undefined} onDrop={full ? (e) => { e.preventDefault(); setDropActive(false); const kind = e.dataTransfer.getData(GRAFCET_MIME) as PaletteItem; if (PALETTE.some((g) => g.items.some((item) => item.kind === kind)) && !paletteDisabled(kind)) usePalette(kind) } : undefined} onWheel={onPreviewWheel} onPointerDown={onPreviewDown} onPointerMove={onPreviewMove} onPointerUp={onPreviewUp} onPointerCancel={onPreviewUp}>
         {!!steps.length && <div className="grafcet-viewport-tools" onPointerDown={(e) => e.stopPropagation()}><button title="Reduzir zoom" aria-label="Reduzir zoom" onClick={() => zoomAt(scale / 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}>−</button><span>{Math.round(scale * 100)}%</span><button title="Aumentar zoom" aria-label="Aumentar zoom" onClick={() => zoomAt(scale * 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}>+</button><button onClick={resetView} title="Ajustar diagrama à largura">Ajustar</button></div>}
         {!steps.length && <div className="grafcet-empty"><strong>Ainda não há etapas</strong><p>{full ? 'Crie a primeira etapa para iniciar a sequência.' : 'Abra o editor para criar a primeira etapa.'}</p>{full && <div className="grafcet-empty-actions"><button className="dc-btn-primary dc-btn" onClick={addStep}>Criar etapa inicial</button><button className="dc-btn" onClick={loadExample}>Abrir exemplo de 3 etapas</button></div>}</div>}
         {!!steps.length && <div className="grafcet-pan-layer" style={{ width, height, transform: `translate(${position.x}px, ${position.y}px) scale(${scale})` }}><svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Etapas, ações e transições do GRAFCET">
