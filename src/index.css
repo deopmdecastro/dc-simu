@@ -559,8 +559,10 @@ input[type='color'] {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-    background-color: #f8fafd;
-    background-image: radial-gradient(circle, #ccd5e3 1px, transparent 1px);
+    background-color: #ffffff;
+    background-image: 
+      linear-gradient(90deg, rgba(204, 213, 227, 0.5) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(204, 213, 227, 0.5) 1px, transparent 1px);
     background-size: 20px 20px;
   }
   .compact-ladder-canvas.grid-off { background-image: none; }

@@ -173,37 +173,37 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
         <span className="tb-sep" />
 
         {/* arquivo — ações frequentes com ícone, restante no menu */}
-        <div className="flex items-center gap-1 shrink-0">
-          <div className="dc-seg" role="toolbar" aria-label="Arquivo">
-            <button onClick={createNewProject} className={segBtn(false)} title="Novo projeto em branco">
-              <IconFile size={13} /> <span className="hidden xl:inline">Novo</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-0.5 bg-surface-sunken border border-line rounded-lg p-1">
+            <button onClick={createNewProject} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Novo projeto em branco">
+              <IconFile size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Novo</span>
             </button>
-            <button onClick={() => fileRef.current?.click()} className={segBtn(false)} title="Abrir projeto (.json)">
-              <IconOpen size={13} /> <span className="hidden xl:inline">Abrir</span>
+            <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Abrir projeto (.json)">
+              <IconOpen size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Abrir</span>
             </button>
-            <button onClick={download} className={segBtn(false)} title="Salvar projeto em arquivo JSON">
-              <IconSave size={13} /> <span className="hidden xl:inline">Salvar</span>
-              {dirty && <span className="h-1.5 w-1.5 rounded-full bg-state-pause" title="Alterações por guardar" />}
+            <button onClick={download} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 relative" title="Salvar projeto em arquivo JSON">
+              <IconSave size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Salvar</span>
+              {dirty && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-state-pause" title="Alterações por guardar" />}
             </button>
-            <button onClick={downloadBOM} disabled={!components.length} className={segBtn(false)} title="Exportar lista de materiais (CSV)">
-              <IconDownload size={13} /> <span className="hidden xl:inline">BOM</span>
+            <ProjectsPanel />
+            <button onClick={downloadBOM} disabled={!components.length} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 disabled:opacity-50 disabled:hover:bg-transparent" title="Exportar lista de materiais (CSV)">
+              <IconDownload size={14} /> <span className="hidden xl:inline text-[11px] font-medium">BOM</span>
             </button>
           </div>
           <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={upload} />
-          <ProjectsPanel />
         </div>
 
         {/* vistas — centralizadas */}
         <div className="flex-1 flex justify-center min-w-0">
-          <div className="dc-seg !rounded-[8px] p-0.5 gap-0.5 !bg-surface-sunken/70 !border-line-soft" role="tablist" aria-label="Vistas">
+          <div className="flex items-center rounded-lg p-1 gap-1 bg-surface-sunken border border-line shadow-inner" role="tablist" aria-label="Vistas">
             {VIEWS.map(({ id, label, icon: Icon, key }) => (
               <button
                 key={id}
                 role="tab"
                 aria-selected={mode === id}
                 onClick={() => setMode(id)}
-                className={`inline-flex items-center gap-1.5 h-[28px] px-3 rounded-[6px] text-xs font-semibold transition-colors !border-0 ${
-                  mode === id ? 'bg-white text-brand-700 shadow-sm ring-1 ring-line' : 'text-ink-500 hover:text-ink-900 hover:bg-white/60'
+                className={`inline-flex items-center gap-1.5 h-[30px] px-4 rounded-[6px] text-xs font-semibold transition-all ${
+                  mode === id ? 'bg-brand-600 text-white shadow-md' : 'text-ink-500 hover:text-ink-900 hover:bg-white'
                 }`}
                 title={`${label} [${key}]`}
               >

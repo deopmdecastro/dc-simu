@@ -513,7 +513,7 @@ export default function SchematicView() {
   const onCanvasDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setDropPos(null)
-    const compType = (e.dataTransfer.getData('application/x-dcsimu-component') || e.dataTransfer.getData('text/plain')) as ComponentType
+    const compType = (e.dataTransfer.getData('application/dc-simu-component') || e.dataTransfer.getData('application/x-dcsimu-component') || e.dataTransfer.getData('text/plain')) as ComponentType
     useSimStore.getState().setDragType(null)
     setCursorPos(null)
     if (!compType || compType.includes(':')) return
@@ -646,10 +646,10 @@ export default function SchematicView() {
         <path d={d} fill="none" stroke={col} strokeWidth={width} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
         {flexible ? (
           // flexível (multifilar): textura de fios entrançados
-          <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.5} strokeWidth={Math.max(0.7, width * 0.38)} strokeDasharray="1.2 2.6" strokeLinecap="round" pointerEvents="none" />
+          <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.15} strokeWidth={Math.max(0.7, width * 0.38)} strokeDasharray="1.2 2.6" strokeLinecap="round" pointerEvents="none" />
         ) : (
           // rígido (fio sólido): brilho contínuo no centro da alma
-          <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={Math.max(0.6, width * 0.26)} strokeLinecap="butt" strokeLinejoin="miter" pointerEvents="none" />
+          <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={Math.max(0.6, width * 0.26)} strokeLinecap="butt" strokeLinejoin="miter" pointerEvents="none" />
         )}
         {w.energized && <path d={d} fill="none" stroke="#fde047" strokeWidth={Math.max(1, width * 0.45)} strokeDasharray="4 10" className="dc-flow" strokeLinecap="round" pointerEvents="none" />}
         {/* área de clique larga (clique seleciona · duplo clique adiciona ponto de curva) */}
