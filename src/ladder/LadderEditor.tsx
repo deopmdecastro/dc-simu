@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
-import type { LadderContact, LadderRung, LadderContactType, LadderCoilType } from '../types'
+import type { LadderContact, LadderRung, LadderContactType, LadderCoilType, LadderCoilEl } from '../types'
 import {
   IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder, IconCompare, IconMath, IconMove,
@@ -17,6 +17,15 @@ import {
 const TAG_DATALIST_ID = 'ladder-tag-addresses'
 
 const CONTACT_LABEL: Record<LadderContactType, string> = { NO: 'NA', NC: 'NF', RISING: '↑B', FALLING: '↓B' }
+
+type RungSelection =
+  | { type: 'insert' }
+  | { type: 'contact'; branchId: string; elementId: string }
+  | { type: 'coil'; coilId: string }
+  | { type: 'timer' }
+  | { type: 'counter' }
+  | { type: 'function' }
+  | null
 
 function TagAddressDatalist() {
   const tags = useSimStore((s) => s.tags)
@@ -42,46 +51,45 @@ function useTagName(address: string): string | null {
  * Contato Ladder desenhado graficamente (barras verticais estilo IEC 61131),
  * com estados nítidos: energizado (verde) / inativo (cinza).
  */
-function ContactSymbol({ el, table }: { el: LadderContact; table: Record<string, boolean> }) {
+function ContactSymbol({ el, table, selected = false }: { el: LadderContact; table: Record<string, boolean>; selected?: boolean }) {
   const raw = !!table[el.address]
   const powered = el.contactType === 'NC' ? !raw : raw
   const tagName = useTagName(el.address)
-  const col = powered ? '#16a34a' : '#94a3b8'
   const slash = el.contactType === 'NC'
   const edge = el.contactType === 'RISING' || el.contactType === 'FALLING'
   return (
-    <div className="flex flex-col items-center select-none w-[46px]" title={tagName ?? undefined}>
-      <div className={`text-[9px] font-mono leading-none mb-0.5 font-semibold ${powered ? 'text-emerald-700' : 'text-ink-400'}`}>{el.address}</div>
-      <svg width="34" height="26" viewBox="0 0 34 26" aria-hidden>
-        <line x1="0" y1="13" x2="9" y2="13" stroke={col} strokeWidth="2" />
-        <line x1="25" y1="13" x2="34" y2="13" stroke={col} strokeWidth="2" />
-        <line x1="9" y1="2.5" x2="9" y2="23.5" stroke={col} strokeWidth="2.4" />
-        <line x1="25" y1="2.5" x2="25" y2="23.5" stroke={col} strokeWidth="2.4" />
-        {slash && <line x1="5" y1="22" x2="29" y2="4" stroke={col} strokeWidth="2" />}
+    <div className={`ladder-contact-symbol ${powered ? 'is-powered' : ''} ${selected ? 'is-selected' : ''}`} title={tagName ?? undefined}>
+      <div className="ladder-symbol-address">{el.address}</div>
+      <svg width="54" height="30" viewBox="0 0 54 30" aria-hidden>
+        <line x1="0" y1="15" x2="15" y2="15" />
+        <line x1="39" y1="15" x2="54" y2="15" />
+        <line x1="18" y1="5" x2="18" y2="25" />
+        <line x1="36" y1="5" x2="36" y2="25" />
+        {slash && <line x1="14" y1="25" x2="40" y2="5" />}
         {edge && (
-          <text x="17" y="17.5" fontSize="10" fontWeight="700" fill={col} textAnchor="middle" fontFamily="ui-monospace, monospace">
+          <text x="27" y="18.5" fontSize="10" fontWeight="700" textAnchor="middle" fontFamily="ui-monospace, monospace">
             {el.contactType === 'RISING' ? 'P' : 'N'}
           </text>
         )}
       </svg>
-      <div className={`text-[8px] leading-none mt-0.5 font-semibold ${powered ? 'text-emerald-700' : 'text-ink-300'}`}>{CONTACT_LABEL[el.contactType]}</div>
-      {tagName && <div className="text-[8px] leading-none mt-0.5 text-ink-400 max-w-[56px] truncate">{tagName}</div>}
+      <div className="ladder-symbol-kind">{CONTACT_LABEL[el.contactType]}</div>
+      {tagName && <div className="ladder-symbol-tag">{tagName}</div>}
     </div>
   )
 }
 
 /** Bobina desenhada como ( endereço ) com o tipo (SET/RESET) indicado. */
-function CoilButton({ coil, powered, onCycle, onRemove }: { coil: import('../types').LadderCoilEl; powered: boolean; onCycle: () => void; onRemove: () => void }) {
+function CoilButton({ coil, powered, selected = false, onCycle, onRemove, onSelect }: { coil: LadderCoilEl; powered: boolean; selected?: boolean; onCycle: () => void; onRemove: () => void; onSelect?: () => void }) {
   const tagName = useTagName(coil.address)
   return (
     <button
-      onClick={onCycle}
+      onClick={onSelect ?? onCycle}
       onContextMenu={(e) => {
         e.preventDefault()
         onRemove()
       }}
       title={`Clique alterna COIL → SET → RESET · botão direito remove${tagName ? ` · ${tagName}` : ''}`}
-      className={`flex items-center gap-1.5 px-2 py-1 rounded-[5px] font-mono text-[11px] font-semibold border-2 transition-colors ${
+      className={`ladder-coil-symbol ${selected ? 'is-selected' : ''} flex items-center gap-1.5 px-2 py-1 rounded-[5px] font-mono text-[11px] font-semibold border-2 transition-colors ${
         powered ? 'border-state-run text-emerald-800 bg-state-runbg' : 'border-line-strong text-ink-400 bg-white'
       }`}
     >
@@ -90,6 +98,40 @@ function CoilButton({ coil, powered, onCycle, onRemove }: { coil: import('../typ
       {coil.coilType !== 'COIL' && <span className="text-[8px] font-bold px-1 rounded bg-ink-900/5">{coil.coilType}</span>}
       <span className="text-[13px] leading-none">)</span>
       {tagName && <span className="text-[8px] font-normal text-ink-400 max-w-[70px] truncate">{tagName}</span>}
+    </button>
+  )
+}
+
+function BlockButton({
+  label,
+  address,
+  detail,
+  powered,
+  selected = false,
+  onSelect,
+  onRemove,
+}: {
+  label: string
+  address: string
+  detail: string
+  powered: boolean
+  selected?: boolean
+  onSelect: () => void
+  onRemove: () => void
+}) {
+  return (
+    <button
+      className={`ladder-block-symbol ${powered ? 'is-powered' : ''} ${selected ? 'is-selected' : ''}`}
+      onClick={onSelect}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onRemove()
+      }}
+      title="Clique para configurar · botão direito remove"
+    >
+      <span className="ladder-symbol-address">{address}</span>
+      <strong>{label}</strong>
+      <small>{detail}</small>
     </button>
   )
 }
@@ -106,19 +148,46 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
   const [branchIndex, setBranchIndex] = useState(0)
   const [coilAddress, setCoilAddress] = useState('Q1')
   const [coilType, setCoilType] = useState<LadderCoilType>('COIL')
+  const [selection, setSelection] = useState<RungSelection>(null)
 
   const powered = !!rungPowered[rung.id]
+  const selectedContact =
+    selection?.type === 'contact'
+      ? rung.branches.find((b) => b.id === selection.branchId)?.elements.find((el) => el.id === selection.elementId)
+      : null
+  const selectedCoil = selection?.type === 'coil' ? rung.coils.find((c) => c.id === selection.coilId) : null
+  const selectedAddress = selectedContact?.address ?? selectedCoil?.address ?? rung.timer?.address ?? rung.counter?.address ?? ''
+  const selectedTagName = useTagName(selectedAddress)
+
+  const updateContact = (branchId: string, elementId: string, patch: Partial<LadderContact>) =>
+    updateRung(rung.id, (r) => ({
+      ...r,
+      branches: r.branches.map((b) =>
+        b.id === branchId ? { ...b, elements: b.elements.map((e) => (e.id === elementId ? { ...e, ...patch } : e)) } : b,
+      ),
+    }))
+
+  const updateCoil = (coilId: string, patch: Partial<LadderCoilEl>) =>
+    updateRung(rung.id, (r) => ({ ...r, coils: r.coils.map((c) => (c.id === coilId ? { ...c, ...patch } : c)) }))
+
+  const updateTimer = (patch: Partial<NonNullable<LadderRung['timer']>>) =>
+    updateRung(rung.id, (r) => (r.timer ? { ...r, timer: { ...r.timer, ...patch } } : r))
+
+  const updateCounter = (patch: Partial<NonNullable<LadderRung['counter']>>) =>
+    updateRung(rung.id, (r) => (r.counter ? { ...r, counter: { ...r.counter, ...patch } } : r))
 
   const addContact = () => {
+    const elementId = `${rung.id}-c${Date.now()}${Math.random().toString(36).slice(2, 5)}`
     updateRung(rung.id, (r) => {
       const branches = r.branches.length ? [...r.branches] : [{ id: r.id + '-b0', elements: [] }]
       const idx = Math.min(branchIndex, branches.length - 1)
       branches[idx] = {
         ...branches[idx],
-        elements: [...branches[idx].elements, { kind: 'contact', id: `${rung.id}-c${Date.now()}${Math.random().toString(36).slice(2, 5)}`, address: newAddress.toUpperCase(), contactType: newType }],
+        elements: [...branches[idx].elements, { kind: 'contact', id: elementId, address: newAddress.toUpperCase(), contactType: newType }],
       }
       return { ...r, branches }
     })
+    setSelection({ type: 'contact', branchId: rung.branches[Math.min(branchIndex, Math.max(0, rung.branches.length - 1))]?.id ?? `${rung.id}-b0`, elementId })
   }
 
   const addBranch = () => {
@@ -126,11 +195,13 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
     setBranchIndex(rung.branches.length)
   }
 
-  const removeElement = (branchId: string, elementId: string) =>
+  const removeElement = (branchId: string, elementId: string) => {
     updateRung(rung.id, (r) => ({
       ...r,
       branches: r.branches.map((b) => (b.id === branchId ? { ...b, elements: b.elements.filter((e) => e.id !== elementId) } : b)),
     }))
+    if (selection?.type === 'contact' && selection.elementId === elementId) setSelection({ type: 'insert' })
+  }
 
   const toggleContactType = (branchId: string, elementId: string) =>
     updateRung(rung.id, (r) => ({
@@ -142,10 +213,16 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
       ),
     }))
 
-  const addCoil = () =>
-    updateRung(rung.id, (r) => ({ ...r, coils: [...r.coils, { kind: 'coil', id: `${rung.id}-k${Date.now()}`, address: coilAddress.toUpperCase(), coilType }] }))
+  const addCoil = () => {
+    const coilId = `${rung.id}-k${Date.now()}`
+    updateRung(rung.id, (r) => ({ ...r, coils: [...r.coils, { kind: 'coil', id: coilId, address: coilAddress.toUpperCase(), coilType }] }))
+    setSelection({ type: 'coil', coilId })
+  }
 
-  const removeCoil = (id: string) => updateRung(rung.id, (r) => ({ ...r, coils: r.coils.filter((c) => c.id !== id) }))
+  const removeCoil = (id: string) => {
+    updateRung(rung.id, (r) => ({ ...r, coils: r.coils.filter((c) => c.id !== id) }))
+    if (selection?.type === 'coil' && selection.coilId === id) setSelection({ type: 'insert' })
+  }
 
   const cycleCoil = (id: string) =>
     updateRung(rung.id, (r) => ({
@@ -156,15 +233,125 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
   const setTimer = (kind: 'TON' | 'TOF' | 'TP' | 'STAR_DELTA' | 'none') => {
     if (kind === 'none') updateRung(rung.id, (r) => ({ ...r, timer: undefined }))
     else updateRung(rung.id, (r) => ({ ...r, timer: { kind: 'timer', id: r.timer?.id ?? `${rung.id}-t`, address: r.timer?.address ?? 'T1', timerType: kind, presetMs: r.timer?.presetMs ?? 3000, preset2Ms: r.timer?.preset2Ms ?? 50 } }))
+    setSelection(kind === 'none' ? { type: 'insert' } : { type: 'timer' })
   }
 
   const setCounter = (kind: 'CTU' | 'CTD' | 'none') => {
     if (kind === 'none') updateRung(rung.id, (r) => ({ ...r, counter: undefined }))
     else updateRung(rung.id, (r) => ({ ...r, counter: { kind: 'counter', id: r.counter?.id ?? `${rung.id}-c`, address: r.counter?.address ?? 'C1', counterType: kind, preset: r.counter?.preset ?? 5, resetAddress: r.counter?.resetAddress ?? 'M9' } }))
+    setSelection(kind === 'none' ? { type: 'insert' } : { type: 'counter' })
   }
 
   const smallBtn = 'dc-btn !h-[22px] !px-1.5 !text-[10px]'
   const tiny = 'dc-input !h-[22px] !text-[10px] !w-auto'
+  const propertyPanel = (() => {
+    if (!selection) return null
+
+    if (selection.type === 'contact' && selectedContact) {
+      return (
+        <div className="ladder-property-panel">
+          <strong><IconContact size={13} /> Contato</strong>
+          <label>Endereço <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={selectedContact.address} onChange={(e) => updateContact(selection.branchId, selection.elementId, { address: e.target.value.toUpperCase() })} /></label>
+          <label>Tipo
+            <select className={tiny} value={selectedContact.contactType} onChange={(e) => updateContact(selection.branchId, selection.elementId, { contactType: e.target.value as LadderContactType })}>
+              <option value="NO">NA</option>
+              <option value="NC">NF</option>
+              <option value="RISING">Borda subida</option>
+              <option value="FALLING">Borda descida</option>
+            </select>
+          </label>
+          <label>Comentário <input className={`${tiny} !w-40`} value={selectedContact.comment ?? ''} onChange={(e) => updateContact(selection.branchId, selection.elementId, { comment: e.target.value })} /></label>
+          {selectedTagName && <span className="ladder-property-tag">Tag: {selectedTagName}</span>}
+          <button className={`${smallBtn} !text-state-error`} onClick={() => removeElement(selection.branchId, selection.elementId)}><IconDelete size={10} /> remover</button>
+        </div>
+      )
+    }
+
+    if (selection.type === 'coil' && selectedCoil) {
+      return (
+        <div className="ladder-property-panel">
+          <strong><IconCoil size={13} /> Bobina</strong>
+          <label>Endereço <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={selectedCoil.address} onChange={(e) => updateCoil(selection.coilId, { address: e.target.value.toUpperCase() })} /></label>
+          <label>Tipo
+            <select className={tiny} value={selectedCoil.coilType} onChange={(e) => updateCoil(selection.coilId, { coilType: e.target.value as LadderCoilType })}>
+              <option value="COIL">COIL</option>
+              <option value="SET">SET</option>
+              <option value="RESET">RESET</option>
+            </select>
+          </label>
+          <label>Comentário <input className={`${tiny} !w-40`} value={selectedCoil.comment ?? ''} onChange={(e) => updateCoil(selection.coilId, { comment: e.target.value })} /></label>
+          {selectedTagName && <span className="ladder-property-tag">Tag: {selectedTagName}</span>}
+          <button className={`${smallBtn} !text-state-error`} onClick={() => removeCoil(selection.coilId)}><IconDelete size={10} /> remover</button>
+        </div>
+      )
+    }
+
+    if (selection.type === 'timer' && rung.timer) {
+      return (
+        <div className="ladder-property-panel">
+          <strong><IconTimer size={13} /> Temporizador</strong>
+          <label>Tipo
+            <select className={tiny} value={rung.timer.timerType} onChange={(e) => updateTimer({ timerType: e.target.value as NonNullable<LadderRung['timer']>['timerType'] })}>
+              <option value="TON">TON</option>
+              <option value="TOF">TOF</option>
+              <option value="TP">TP</option>
+              <option value="STAR_DELTA">Estrela-triângulo</option>
+            </select>
+          </label>
+          <label>Endereço <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={rung.timer.address} onChange={(e) => updateTimer({ address: e.target.value.toUpperCase() })} /></label>
+          <label>Preset <input type="number" className={`${tiny} !w-20`} value={rung.timer.presetMs} onChange={(e) => updateTimer({ presetMs: Number(e.target.value) })} /> ms</label>
+          {rung.timer.timerType === 'STAR_DELTA' && <label>Transição <input type="number" className={`${tiny} !w-16`} value={rung.timer.preset2Ms ?? 50} onChange={(e) => updateTimer({ preset2Ms: Number(e.target.value) })} /> ms</label>}
+          <button className={`${smallBtn} !text-state-error`} onClick={() => setTimer('none')}><IconDelete size={10} /> remover</button>
+        </div>
+      )
+    }
+
+    if (selection.type === 'counter' && rung.counter) {
+      return (
+        <div className="ladder-property-panel">
+          <strong><IconCounter size={13} /> Contador</strong>
+          <label>Tipo
+            <select className={tiny} value={rung.counter.counterType} onChange={(e) => updateCounter({ counterType: e.target.value as NonNullable<LadderRung['counter']>['counterType'] })}>
+              <option value="CTU">CTU</option>
+              <option value="CTD">CTD</option>
+            </select>
+          </label>
+          <label>Endereço <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.address} onChange={(e) => updateCounter({ address: e.target.value.toUpperCase() })} /></label>
+          <label>Preset <input type="number" className={`${tiny} !w-16`} value={rung.counter.preset} onChange={(e) => updateCounter({ preset: Number(e.target.value) })} /></label>
+          <label>Reset <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateCounter({ resetAddress: e.target.value.toUpperCase() })} /></label>
+          <button className={`${smallBtn} !text-state-error`} onClick={() => setCounter('none')}><IconDelete size={10} /> remover</button>
+        </div>
+      )
+    }
+
+    return (
+      <div className="ladder-property-panel">
+        <strong><IconPlus size={13} /> Adicionar</strong>
+        <label>Contato <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={newAddress} onChange={(e) => setNewAddress(e.target.value.toUpperCase())} /></label>
+        <select className={tiny} value={newType} onChange={(e) => setNewType(e.target.value as LadderContactType)}>
+          <option value="NO">NA</option>
+          <option value="NC">NF</option>
+          <option value="RISING">Subida</option>
+          <option value="FALLING">Descida</option>
+        </select>
+        <select className={tiny} value={branchIndex} onChange={(e) => setBranchIndex(Number(e.target.value))}>
+          {rung.branches.map((_, i) => <option key={i} value={i}>ramo {i + 1}</option>)}
+        </select>
+        <button className={smallBtn} onClick={addContact}><IconContact size={10} /> contato</button>
+        <button className={smallBtn} onClick={addBranch}><IconBranch size={10} /> ramo</button>
+        <span className="ladder-property-separator" />
+        <label>Bobina <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={coilAddress} onChange={(e) => setCoilAddress(e.target.value.toUpperCase())} /></label>
+        <select className={tiny} value={coilType} onChange={(e) => setCoilType(e.target.value as LadderCoilType)}>
+          <option value="COIL">COIL</option>
+          <option value="SET">SET</option>
+          <option value="RESET">RESET</option>
+        </select>
+        <button className={smallBtn} onClick={addCoil}><IconCoil size={10} /> bobina</button>
+        <button className={smallBtn} onClick={() => setTimer(rung.timer?.timerType ?? 'TON')}><IconTimer size={10} /> timer</button>
+        <button className={smallBtn} onClick={() => setCounter(rung.counter?.counterType ?? 'CTU')}><IconCounter size={10} /> contador</button>
+      </div>
+    )
+  })()
 
   return (
     <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''}`}>
@@ -192,6 +379,7 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
           ativo
         </label>
         <div className="flex gap-0.5">
+          <button className={smallBtn} title="Adicionar/configurar elementos" onClick={() => setSelection(selection?.type === 'insert' ? null : { type: 'insert' })}><IconPlus size={10} /></button>
           <button className={smallBtn} title="Mover para cima" onClick={() => moveRung(rung.id, -1)}>↑</button>
           <button className={smallBtn} title="Mover para baixo" onClick={() => moveRung(rung.id, 1)}>↓</button>
           <button className={smallBtn} title="Duplicar rung" onClick={() => duplicateRung(rung.id)}><IconCopy size={10} /></button>
@@ -213,17 +401,19 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
           </div>
 
           {/* ramos */}
-          <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+          <div className="ladder-branch-stack">
             {rung.branches.map((b, bi) => (
               <div key={b.id} className="ladder-branch-row">
-                <div
-                  className="h-0 w-3 shrink-0"
-                  style={{ borderTop: `${powered && running ? '2px solid #16a34a' : '2px solid #94a3b8'}` }}
-                />
+                <div className={`ladder-wire is-stub ${powered && running ? 'is-powered' : ''}`} />
                 {b.elements.map((el) => (
-                  <div key={el.id} className="flex items-center">
-                    <button title="Clique alterna NA → NF → borda de subida → borda de descida" onClick={() => toggleContactType(b.id, el.id)} className="rounded hover:bg-slate-100">
-                      <ContactSymbol el={el} table={table} />
+                  <div key={el.id} className="ladder-inline-element">
+                    <button
+                      title="Clique para configurar · duplo clique alterna o tipo"
+                      onClick={() => setSelection({ type: 'contact', branchId: b.id, elementId: el.id })}
+                      onDoubleClick={() => toggleContactType(b.id, el.id)}
+                      className="ladder-symbol-button"
+                    >
+                      <ContactSymbol el={el} table={table} selected={selection?.type === 'contact' && selection.elementId === el.id} />
                     </button>
                     <input
                       className="w-12 bg-transparent text-[10px] text-ink-700 outline-none border-b border-dashed border-line-strong focus:border-brand-500 focus:bg-brand-50 font-mono text-center"
@@ -239,7 +429,7 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
                     <button className="text-ink-300 hover:text-state-error text-[10px] px-0.5" title="Remover contato" onClick={() => removeElement(b.id, el.id)}>✕</button>
                     <div
                       className="h-0 flex-1 min-w-2"
-                      style={{ borderTop: `${powered && running ? '2px solid #16a34a' : '2px solid #94a3b8'}` }}
+                      style={{ borderTop: `${powered && running ? '2px solid #16a34a' : '2px solid #2655e5'}` }}
                     />
                   </div>
                 ))}
