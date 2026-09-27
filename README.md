@@ -319,3 +319,26 @@ I7/I8 são tratados aqui apenas como entradas **digitais**. Esta implementação
 não pretende reproduzir as funções analógicas, o teclado/menu completo, as
 expansões, limites temporais/eléctricos ou os recursos específicos de uma
 versão 0BA2: o PDF 0BA4 não prova esses pormenores para o modelo CAD.
+
+### Fonte Proauto / DRAN120-24B (preparação sem modelo CAD)
+
+A categoria **Fontes** contém «Fonte Proauto / DRAN120-24B · 24V 5A», criada
+com base na ficha da série **Chinfa DRAN120** enviada pelo utilizador (variante
+24B indicada pelo utilizador). A ficha pode ser vista/descarregada no Inspetor,
+com o aviso de que a equivalência da marca Proauto com Chinfa não está
+confirmada. A pinagem da ficha (pág. 4) é: pinos 1–2 RDY (contacto normalmente
+aberto), 3–4 V+, 5–6 V−, 7 terra funcional/PE, 8 L, 9 N. A variante B tem
+conector removível e a versão 24 V fornece nominalmente **5 A / 120 W**.
+
+A simulação binária requer L e N ligados a potenciais de entrada distintos no
+Esquema. Com ambos ligados, as duas saídas V+ e as duas V− são comuns entre
+si, a saída DC fica disponível e RDY fecha. Sem alimentação, RDY abre e V+
+deixa de ser fonte. A entrada AC é isolada da saída DC; PE não é uma ponte
+elétrica para nenhum dos polos. A simulação **não** mede 115/230 VAC, tensão
+DC, corrente, sobrecarga, ripple, temperatura ou tempos de subida e, por
+isso, não verifica os limites de segurança da ficha.
+
+O ficheiro `Fonte Proauto.glb` referido não veio nos anexos nem existe em
+`public/models/fontes/`. Até ser enviado, o Esquema e o Painel 3D usam
+representações **provisórias**; as posições visuais dos nove bornes terão de
+ser afinadas à geometria real do GLB assim que este for anexado.

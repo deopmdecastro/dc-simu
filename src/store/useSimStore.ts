@@ -20,6 +20,7 @@ import type {
   ProbeResult,
 } from '../types'
 import { logoElectricalInputs } from '../electrical/logoPower'
+import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
 import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTable, nextAddress, collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
@@ -274,6 +275,13 @@ function buildScenario(id: string) {
 
 function runOneTick(state: Store, dtMs: number) {
   const { components, wires, ladder, sim } = state
+  // Atualizar fontes AC→DC antes de calcular as fontes do grafo neste scan.
+  for (const c of components) if (c.type === 'powerSupplyProauto24B') {
+    c.state.powered = proautoInputPowered(c, components, wires)
+    // RDY é o contacto normalmente aberto que confirma a saída DC pronta.
+    // O motor é binário: não modela a banda de tensão nem atrasos reais.
+    c.state.powerReady = c.state.powered
+  }
   const srcs = sourceTerminalIds(components, sim.faults)
 
   // 1) Primeira passagem — apenas chaves físicas (botões, disjuntores, sensores)

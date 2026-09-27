@@ -200,6 +200,18 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
   )
 }
 
+/** Caixa procedural de reserva; o GLB Proauto ainda não foi disponibilizado. */
+function PowerSupply3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  const powered = c.type === 'powerSupplyProauto24B' ? !!c.state.powered : !!c.state.on
+  return <group position={[x, RAIL_Y + 0.48, 0]}>
+    <mesh castShadow><boxGeometry args={[0.85, 0.96, 0.48]} /><meshStandardMaterial color="#46515c" metalness={0.25} /></mesh>
+    <mesh position={[0, 0.04, 0.25]}><boxGeometry args={[0.68, 0.65, 0.015]} /><meshStandardMaterial color="#d9e0e4" /></mesh>
+    <mesh position={[0.22, -0.14, 0.27]}><sphereGeometry args={[0.045, 12, 12]} /><meshStandardMaterial color={powered ? '#16a34a' : '#64748b'} emissive={powered ? '#16a34a' : '#000000'} emissiveIntensity={powered ? 0.8 : 0} /></mesh>
+    <Label text={c.type === 'powerSupplyProauto24B' ? '24V / 5A' : '24V'} position={[0, 0.1, 0.27]} size={0.1} />
+    <Label text={c.ref} position={[0, 0.56, 0.22]} color="#e2e8f0" />
+  </group>
+}
+
 function PLCBox3D({ c, x }: { c: ElectricalComponent; x: number }) {
   return (
     <group position={[x, RAIL_Y + 0.46, 0]}>
@@ -490,7 +502,7 @@ export default function Panel3D() {
     })
   }
 
-  const railTypes = ['breaker', 'motorBreaker', 'residualBreaker', 'fuse', 'surgeProtector', 'thermalRelay', 'contactor', 'auxRelay', 'timerRelay', 'timerRelayStarDelta', 'counterRelay', 'safetyRelay', 'plcLogo', 'plcCompact', 'plcSiemensLogo1224RC', 'vfd', 'softStarter', 'transformer', 'powerSupply', 'terminalBlock', 'terminalPE', 'busbarPhase', 'busbarNeutral', 'earthBar', 'fuseHolder', 'auxContactBlock']
+  const railTypes = ['breaker', 'motorBreaker', 'residualBreaker', 'fuse', 'surgeProtector', 'thermalRelay', 'contactor', 'auxRelay', 'timerRelay', 'timerRelayStarDelta', 'counterRelay', 'safetyRelay', 'plcLogo', 'plcCompact', 'plcSiemensLogo1224RC', 'vfd', 'softStarter', 'transformer', 'powerSupply', 'powerSupplyProauto24B', 'terminalBlock', 'terminalPE', 'busbarPhase', 'busbarNeutral', 'earthBar', 'fuseHolder', 'auxContactBlock']
 
   const { positions, railWidth } = useMemo(() => {
     const rail = components.filter((c) => railTypes.some((t) => c.type.startsWith(t)))
@@ -546,6 +558,7 @@ export default function Panel3D() {
           const x = positions[c.id].x
           if (c.type === 'thermalRelay') return <ThermalRelay3D key={c.id} c={c} x={x} />
           if (c.type.startsWith('contactor')) return <Contactor3D key={c.id} c={c} x={x} />
+          if (c.type === 'powerSupply' || c.type === 'powerSupplyProauto24B') return <PowerSupply3D key={c.id} c={c} x={x} />
           if (c.type.startsWith('plc')) return <PLC3D key={c.id} c={c} x={x} />
           if (c.type === 'vfd' || c.type === 'softStarter') return <Drive3D key={c.id} c={c} x={x} />
           return <Breaker3D key={c.id} c={c} x={x} />

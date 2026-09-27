@@ -231,6 +231,12 @@ function buildTerminal(g: THREE.Group, type: string) {
 }
 
 function buildPower(g: THREE.Group, type: string) {
+  if (type === 'powerSupplyProauto24B') {
+    box(g, 0.62, 0.95, 0.42, '#485561')
+    box(g, 0.49, 0.61, 0.025, '#dce3e7', 0, 0.03, 0.23)
+    cyl(g, 0.045, 0.045, 0.03, GREEN, 0.16, -0.14, 0.26, { emissive: GREEN, emissiveIntensity: 0.5 })
+    return
+  }
   if (type === 'analogAmmeter') {
     cyl(g, 0.32, 0.32, 0.08, CASING_DARK, 0, 0, 0, {}, 28)
     cyl(g, 0.26, 0.26, 0.09, WHITE, 0, 0, 0.01, {}, 28)

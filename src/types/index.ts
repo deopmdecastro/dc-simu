@@ -88,6 +88,7 @@ export type ComponentType =
   | 'earthBar'
   | 'transformer'
   | 'powerSupply'
+  | 'powerSupplyProauto24B'
   | 'analogAmmeter'
 
 /**

@@ -8,7 +8,8 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
   const input = useRef<HTMLInputElement>(null)
-  const builtin = type === 'plcSiemensLogo1224RC' ? '/datasheets/logo-manual-0ba4-en.pdf' : null
+  const builtin = type === 'plcSiemensLogo1224RC' ? '/datasheets/logo-manual-0ba4-en.pdf' : type === 'powerSupplyProauto24B' ? '/datasheets/chinfa-dran120-series.pdf' : null
+  const builtinName = type === 'powerSupplyProauto24B' ? 'Ficha Chinfa DRAN120-24B (série).pdf' : 'LOGO-manual-0BA4-en.pdf'
   useEffect(() => {
     let active = true
     setBusy(true)
@@ -51,10 +52,10 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
     <div className="dc-inspector-group-body">
       <p className="text-[10px] text-ink-500 leading-relaxed">PDFs pessoais associados ao tipo de componente ficam apenas neste navegador. Manuais incluídos na aplicação são identificados à parte.</p>
       {builtin && <div className="rounded border border-amber-200 bg-amber-50 p-2 text-[10px] leading-relaxed text-amber-900">
-        <strong>Manual Siemens LOGO! 0BA4 (inglês).</strong> O modelo 3D mostra 0BA2; este documento descreve uma versão posterior e não confirma funções exclusivas do 0BA2.
+        {type === 'powerSupplyProauto24B' ? <><strong>Ficha Chinfa DRAN120, variante 24B.</strong> O PDF descreve a série Chinfa; a equivalência com a marca «Proauto» ainda não foi confirmada pelo modelo/etiqueta.</> : <><strong>Manual Siemens LOGO! 0BA4 (inglês).</strong> O modelo 3D mostra 0BA2; este documento descreve uma versão posterior e não confirma funções exclusivas do 0BA2.</>}
         <div className="flex flex-wrap gap-1 mt-2">
           <a className="dc-btn" href={builtin} target="_blank" rel="noopener noreferrer">Ver manual ↗</a>
-          <a className="dc-btn" href={builtin} download="LOGO-manual-0BA4-en.pdf">↓ Descarregar</a>
+          <a className="dc-btn" href={builtin} download={builtinName}>↓ Descarregar</a>
         </div>
       </div> }
       {busy && <span className="text-ink-400">A carregar…</span>}
