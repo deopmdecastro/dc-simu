@@ -104,64 +104,66 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
     <div className="shrink-0 bg-surface-rail border-b border-line shadow-xs">
       {/* ================================================== linha 1 — arquivo + vistas + estado */}
       <div className="flex items-center gap-2 px-3 h-[42px]">
-        {/* marca */}
-        <div className="flex items-center gap-2 pr-1 select-none">
-          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
-            <rect x="1" y="1" width="22" height="22" rx="5" fill="#2655e5" />
-            <path d="M13.5 4.5 7 13.5h4l-1.5 6 6.5-9h-4z" fill="#fff" />
-          </svg>
-          <div className="leading-none">
-            <div className="text-[13px] font-bold tracking-tight text-ink-900">
-              DC<span className="text-brand-600">-</span>SIMU
-            </div>
-            <div className="text-[8.5px] font-semibold uppercase tracking-[0.14em] text-ink-400 mt-0.5">
-              comandos elétricos
+        <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto toolbar-scroll">
+          {/* marca */}
+          <div className="flex items-center gap-2 pr-1 shrink-0 select-none">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden className="shrink-0">
+              <rect x="1" y="1" width="22" height="22" rx="5" fill="#2655e5" />
+              <path d="M13.5 4.5 7 13.5h4l-1.5 6 6.5-9h-4z" fill="#fff" />
+            </svg>
+            <div className="leading-none whitespace-nowrap">
+              <div className="text-[13px] font-bold tracking-tight text-ink-900">
+                DC<span className="text-brand-600">-</span>SIMU
+              </div>
+              <div className="text-[8.5px] font-semibold uppercase tracking-[0.14em] text-ink-400 mt-0.5">
+                comandos elétricos
+              </div>
             </div>
           </div>
+
+          <div className="h-5 w-px bg-line shrink-0" />
+
+          {/* vistas */}
+          <div className="dc-seg" role="tablist" aria-label="Vistas">
+            {(['schematic', 'ladder', 'panel3d', 'monitor'] as ViewMode[]).map((m) => {
+              const Icon = m === 'schematic' ? IconSchematic : m === 'ladder' ? IconLadder : m === 'panel3d' ? IconCube : IconMonitor
+              const lbl = m === 'schematic' ? 'Esquema' : m === 'ladder' ? 'Ladder' : m === 'panel3d' ? 'Painel 3D' : 'Monitor'
+              return (
+                <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={segBtn(mode === m)} title={lbl}>
+                  <Icon size={13} />
+                  {lbl}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* arquivo */}
+          <button onClick={createNewProject} className={btn} title="Novo projeto em branco">
+            <IconFile size={13} /> Novo
+          </button>
+          <button onClick={download} className={btn} title="Salvar projeto em arquivo JSON">
+            <IconSave size={13} /> Salvar
+          </button>
+          <button onClick={() => fileRef.current?.click()} className={btn} title="Abrir projeto a partir de um arquivo JSON">
+            <IconOpen size={13} /> Abrir
+          </button>
+          <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={upload} />
+          <ProjectsPanel />
         </div>
 
-        <div className="h-5 w-px bg-line" />
-
-        {/* vistas */}
-        <div className="dc-seg" role="tablist" aria-label="Vistas">
-          {(['schematic', 'ladder', 'panel3d', 'monitor'] as ViewMode[]).map((m) => {
-            const Icon = m === 'schematic' ? IconSchematic : m === 'ladder' ? IconLadder : m === 'panel3d' ? IconCube : IconMonitor
-            const lbl = m === 'schematic' ? 'Esquema' : m === 'ladder' ? 'Ladder' : m === 'panel3d' ? 'Painel 3D' : 'Monitor'
-            return (
-              <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={segBtn(mode === m)} title={lbl}>
-                <Icon size={13} />
-                {lbl}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* arquivo */}
-        <button onClick={createNewProject} className={btn} title="Novo projeto em branco">
-          <IconFile size={13} /> Novo
-        </button>
-        <button onClick={download} className={btn} title="Salvar projeto em arquivo JSON">
-          <IconSave size={13} /> Salvar
-        </button>
-        <button onClick={() => fileRef.current?.click()} className={btn} title="Abrir projeto a partir de um arquivo JSON">
-          <IconOpen size={13} /> Abrir
-        </button>
-        <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={upload} />
-        <ProjectsPanel />
-
-        {/* estado do PLC — sempre visível, canto direito */}
-        <div className="ml-auto flex items-center gap-2">
-          {sim.runState === 'running' && <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" /></span>}
+        {/* estado do PLC — sempre visível, canto direito, nunca encolhe nem sai da vista */}
+        <div className="shrink-0 flex items-center gap-2 pl-2">
+          {sim.runState === 'running' && <span className="relative flex h-2 w-2 shrink-0"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" /></span>}
           <span
-            className={`inline-flex items-center gap-1.5 h-[22px] px-2.5 rounded-[4px] font-mono text-[11px] font-bold tracking-[0.08em] text-white ${runBadge.cls}`}
+            className={`inline-flex items-center gap-1.5 h-[22px] px-2.5 rounded-[4px] font-mono text-[11px] font-bold tracking-[0.08em] text-white whitespace-nowrap ${runBadge.cls}`}
             title={`Estado do simulador: ${runBadge.text}`}
           >
             {runBadge.text}
           </span>
-          <span className="font-mono text-[11px] text-ink-500" title="Ciclos de varredura executados">
+          <span className="font-mono text-[11px] text-ink-500 whitespace-nowrap" title="Ciclos de varredura executados">
             scan <span className="text-ink-900 font-semibold">#{sim.scanCount}</span>
           </span>
-          <span className="font-mono text-[11px] text-ink-500" title="Componentes no projeto">
+          <span className="font-mono text-[11px] text-ink-500 whitespace-nowrap" title="Componentes no projeto">
             {components.length} <span className="text-ink-400">comp.</span>
           </span>
         </div>

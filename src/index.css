@@ -95,7 +95,7 @@ input[type='color'] {
 
   /* botões */
   .dc-btn {
-    @apply inline-flex items-center justify-center gap-1.5 h-[26px] px-2.5 rounded-[5px] border border-line bg-white text-xs font-medium text-ink-700 shadow-xs whitespace-nowrap transition-colors select-none;
+    @apply inline-flex shrink-0 items-center justify-center gap-1.5 h-[26px] px-2.5 rounded-[5px] border border-line bg-white text-xs font-medium text-ink-700 shadow-xs whitespace-nowrap transition-colors select-none;
   }
   .dc-btn:hover:not(:disabled) {
     @apply bg-slate-50 border-line-strong text-ink-900;
@@ -128,12 +128,12 @@ input[type='color'] {
     @apply bg-state-errorbg border-state-error/60 text-state-error;
   }
   .dc-icon-btn {
-    @apply dc-btn w-[26px] px-0;
+    @apply dc-btn w-[26px] shrink-0 px-0;
   }
 
   /* botão de ferramenta (segmentado da toolbar) */
   .dc-tool-btn {
-    @apply inline-flex items-center gap-1.5 h-[26px] px-2.5 text-xs font-medium text-ink-500 bg-white border border-line rounded-[5px] shadow-xs transition-colors select-none;
+    @apply inline-flex shrink-0 items-center gap-1.5 h-[26px] px-2.5 text-xs font-medium text-ink-500 bg-white border border-line rounded-[5px] shadow-xs whitespace-nowrap transition-colors select-none;
   }
   .dc-tool-btn:hover:not(:disabled):not(.dc-tool-active) {
     @apply bg-slate-100 border-line-strong text-ink-900;
@@ -147,7 +147,7 @@ input[type='color'] {
 
   /* grupo segmentado (toolbar / abas) */
   .dc-seg {
-    @apply inline-flex items-stretch rounded-[6px] border border-line bg-white shadow-xs overflow-hidden;
+    @apply inline-flex shrink-0 items-stretch rounded-[6px] border border-line bg-white shadow-xs overflow-hidden;
   }
   .dc-seg > * + * {
     @apply border-l border-line-soft;
@@ -155,7 +155,7 @@ input[type='color'] {
 
   /* abas */
   .dc-tab {
-    @apply relative h-[30px] px-3 text-xs font-medium text-ink-500 transition-colors;
+    @apply relative shrink-0 h-[30px] px-3 text-xs font-medium whitespace-nowrap text-ink-500 transition-colors;
   }
   .dc-tab:hover {
     @apply text-ink-900 bg-slate-100/70;
