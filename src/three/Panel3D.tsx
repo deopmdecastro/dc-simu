@@ -109,7 +109,11 @@ function Contactor3D({ c, x }: { c: ElectricalComponent; x: number }) {
 /* ---------- Siemens LOGO! 12/24RC — modelo 3D real (GLTF/GLB) ---------- */
 const LOGO_1224RC_MODEL_URL = '/models/logo-siemens-1224rc.glb'
 // O export do SolidWorks vem com Z para cima; o three.js usa Y para cima.
-const LOGO_1224RC_ROTATION: [number, number, number] = [-Math.PI / 2, 0, 0]
+// Confirmado por análise da geometria (posição dos parafusos dos bornes de
+// entrada/saída e do ecrã): rodar +90° em torno de X coloca o topo real do
+// aparelho para cima, a base para baixo, e a frente (ecrã à esquerda,
+// ESC/OK/setas à direita) virada para a câmara — sem inverter nada.
+const LOGO_1224RC_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0]
 // Altura alvo (unidades da cena), semelhante à dos outros aparelhos de calha (disjuntores ~0.7-0.9).
 const LOGO_1224RC_TARGET_HEIGHT = 0.9
 
@@ -159,17 +163,20 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
 
   useEffect(() => {
     // ecrã aceso/apagado consoante a alimentação (L+): identifica a peça do
-    // ecrã pela cor do material original (verde puro), usada só nessa peça.
+    // ecrã pela cor do material original (verde puro — confirmado pela
+    // análise da geometria: é a única peça com essa cor, pequena e situada
+    // à superfície da face frontal) ou, em alternativa, pelo nome da malha.
     model.traverse((obj) => {
       const mesh = obj as THREE.Mesh
       if (!mesh.isMesh) return
+      const nameHint = mesh.name.toLowerCase()
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
       for (const mat of mats) {
         const std = mat as THREE.MeshStandardMaterial
-        const isScreenMaterial =
-          std?.color && std.color.g > 0.85 && std.color.r < 0.15 && std.color.b < 0.15
-        const nameHint = mesh.name.toLowerCase()
-        if (isScreenMaterial || nameHint.includes('screen') || nameHint.includes('display')) {
+        if (!std || !('emissive' in std)) continue
+        const isScreenMaterial = std.color && std.color.g > 0.85 && std.color.r < 0.15 && std.color.b < 0.15
+        const isScreenName = nameHint.includes('screen') || nameHint.includes('display') || nameHint.includes('ecra')
+        if (isScreenMaterial || isScreenName) {
           std.emissive = new THREE.Color(on ? '#22c55e' : '#052e16')
           std.emissiveIntensity = on ? 1.1 : 0.15
         }
