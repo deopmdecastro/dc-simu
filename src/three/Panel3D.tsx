@@ -107,13 +107,11 @@ function Contactor3D({ c, x }: { c: ElectricalComponent; x: number }) {
 }
 
 /* ---------- Siemens LOGO! 12/24RC — modelo 3D real (GLTF/GLB) ---------- */
-// Ficheiro esperado (não incluído no repositório, exportar do SolidWorks
-// como .glb/.gltf e colocar em public/models/):
 const LOGO_1224RC_MODEL_URL = '/models/logo-siemens-1224rc.glb'
-// Ajustar escala/rotação/offset consoante as unidades e orientação do export.
-const LOGO_1224RC_SCALE = 1
-const LOGO_1224RC_ROTATION: [number, number, number] = [0, 0, 0]
-const LOGO_1224RC_OFFSET: [number, number, number] = [0, 0, 0]
+// O export do SolidWorks vem com Z para cima; o three.js usa Y para cima.
+const LOGO_1224RC_ROTATION: [number, number, number] = [-Math.PI / 2, 0, 0]
+// Altura alvo (unidades da cena), semelhante à dos outros aparelhos de calha (disjuntores ~0.7-0.9).
+const LOGO_1224RC_TARGET_HEIGHT = 0.9
 
 class Model3DErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
   constructor(props: { fallback: ReactNode; children: ReactNode }) {
@@ -133,30 +131,56 @@ class Model3DErrorBoundary extends Component<{ fallback: ReactNode; children: Re
 
 function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) {
   const { scene } = useGLTF(LOGO_1224RC_MODEL_URL)
-  const model = useMemo(() => scene.clone(true), [scene])
+
+  // Normaliza o modelo uma única vez: aplica a rotação de eixo, escala para
+  // a altura alvo e recentra-o (x/z no centro, base em y=0), para que
+  // qualquer modelo exportado do CAD encaixe automaticamente no cenário
+  // sem coordenadas fixas manuais.
+  const model = useMemo(() => {
+    const obj = scene.clone(true)
+    obj.rotation.set(...LOGO_1224RC_ROTATION)
+    obj.updateMatrixWorld(true)
+
+    const rawBox = new THREE.Box3().setFromObject(obj)
+    const rawHeight = rawBox.max.y - rawBox.min.y
+    const scale = rawHeight > 0 ? LOGO_1224RC_TARGET_HEIGHT / rawHeight : 1
+    obj.scale.setScalar(scale)
+    obj.updateMatrixWorld(true)
+
+    const box = new THREE.Box3().setFromObject(obj)
+    const center = box.getCenter(new THREE.Vector3())
+    obj.position.set(-center.x, -box.min.y, -center.z)
+
+    return obj
+  }, [scene])
+
   const lPlus = c.terminals.find((t) => t.label === 'L+')
   const on = !!lPlus?.energized
 
   useEffect(() => {
-    // ecrã aceso/apagado consoante alimentação — procura a malha do ecrã pelo nome
+    // ecrã aceso/apagado consoante a alimentação (L+): identifica a peça do
+    // ecrã pela cor do material original (verde puro), usada só nessa peça.
     model.traverse((obj) => {
       const mesh = obj as THREE.Mesh
       if (!mesh.isMesh) return
-      const name = mesh.name.toLowerCase()
-      if (name.includes('screen') || name.includes('display') || name.includes('ecra')) {
-        const mat = mesh.material as THREE.MeshStandardMaterial
-        if (mat && 'emissive' in mat) {
-          mat.emissive = new THREE.Color(on ? '#22c55e' : '#052e16')
-          mat.emissiveIntensity = on ? 1.1 : 0.15
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      for (const mat of mats) {
+        const std = mat as THREE.MeshStandardMaterial
+        const isScreenMaterial =
+          std?.color && std.color.g > 0.85 && std.color.r < 0.15 && std.color.b < 0.15
+        const nameHint = mesh.name.toLowerCase()
+        if (isScreenMaterial || nameHint.includes('screen') || nameHint.includes('display')) {
+          std.emissive = new THREE.Color(on ? '#22c55e' : '#052e16')
+          std.emissiveIntensity = on ? 1.1 : 0.15
         }
       }
     })
   }, [model, on])
 
   return (
-    <group position={[x + LOGO_1224RC_OFFSET[0], RAIL_Y + 0.46 + LOGO_1224RC_OFFSET[1], LOGO_1224RC_OFFSET[2]]}>
-      <primitive object={model} scale={LOGO_1224RC_SCALE} rotation={LOGO_1224RC_ROTATION} castShadow receiveShadow />
-      <Label text={c.ref} position={[0, 0.62, 0.22]} color="#e2e8f0" />
+    <group position={[x, RAIL_Y, 0]}>
+      <primitive object={model} castShadow receiveShadow />
+      <Label text={c.ref} position={[0, LOGO_1224RC_TARGET_HEIGHT + 0.14, 0.22]} color="#e2e8f0" />
     </group>
   )
 }
