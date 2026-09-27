@@ -146,7 +146,7 @@ export default function App() {
                 >
                   ▸
                 </button>
-                <GrafcetEditor />
+                <GrafcetEditor onOpenEditor={() => setMode('grafcet')} />
               </>
             ) : (
               <button

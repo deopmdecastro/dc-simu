@@ -1757,3 +1757,12 @@ button:disabled { cursor:not-allowed; }
 .dc-editor-empty h2 { font-size:20px; font-weight:700; margin:8px 0; color:#1e293b; }
 .dc-editor-empty p { color:#64748b; line-height:1.6; font-size:12px; }
 .dc-empty-kicker { font-size:10px; font-weight:800; letter-spacing:.15em; color:#1d4ed8; }
+
+/* O painel lateral é um visualizador; só a página GRAFCET contém comandos de edição. */
+.grafcet-preview .grafcet-designer-body { display:block; overflow:auto; }
+.grafcet-preview .grafcet-canvas { min-height:100%; padding:18px 10px; overflow-x:hidden; }
+.grafcet-preview .grafcet-canvas svg { width:100%; height:auto; max-width:560px; }
+.grafcet-preview .grafcet-header { gap:8px; }
+.grafcet-preview .grafcet-header .dc-btn { white-space:nowrap; }
+.grafcet-preview-status { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; padding:9px 12px; border-top:1px solid #dce4ef; background:#fff; font-size:10px; color:#64748b; }
+.grafcet-preview-status .is-running { color:#15803d; font-weight:700; }

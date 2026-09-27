@@ -7,7 +7,7 @@ const id = () => crypto.randomUUID()
 
 /** GRAFCET com transições explícitas, divergência e convergência AND.
  * A ordem das transições define a prioridade quando partilham uma origem. */
-export default function GrafcetEditor({ full = false }: { full?: boolean }) {
+export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: boolean; onOpenEditor?: () => void }) {
   const program = useSimStore((s) => s.grafcet)
   const runtime = useSimStore((s) => s.grafcetRuntime)
   const table = useSimStore((s) => s.runtime.table)
@@ -48,11 +48,11 @@ export default function GrafcetEditor({ full = false }: { full?: boolean }) {
   const stepY = (stepId: string) => 70 + steps.findIndex((s) => s.id === stepId) * 154
   const width = full ? 760 : 560
   const height = Math.max(260, steps.length * 154 + 65)
-  return <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : ''}`}>
-    <header className="grafcet-header"><div><strong>GRAFCET</strong><small>{steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas</small></div><div className="flex gap-1"><button className="dc-btn" onClick={addStep}>+ Etapa</button><button className="dc-btn-primary dc-btn" disabled={steps.length < 2} onClick={addTransition}>+ Transição</button></div></header>
+  return <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
+    <header className="grafcet-header"><div><strong>GRAFCET</strong><small>{steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas</small></div>{full ? <div className="flex gap-1"><button className="dc-btn" onClick={addStep}>+ Etapa</button><button className="dc-btn-primary dc-btn" disabled={steps.length < 2} onClick={addTransition}>+ Transição</button></div> : <button className="dc-btn-primary dc-btn" onClick={onOpenEditor}>Abrir editor ↗</button>}</header>
     <div className="grafcet-designer-body">
       <div className="grafcet-canvas" aria-label="Diagrama GRAFCET">
-        {!steps.length && <div className="grafcet-empty">Crie uma etapa inicial e depois adicione transições para construir o GRAFCET.</div>}
+        {!steps.length && <div className="grafcet-empty">Ainda não há GRAFCET neste projeto. {full ? 'Crie uma etapa inicial para começar.' : 'Abra o editor para criar a primeira etapa.'}</div>}
         {!!steps.length && <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Etapas, ações e transições do GRAFCET">
           <defs><marker id="grafcet-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6" fill="none" stroke="#526883" /></marker></defs>
           {transitions.flatMap((t, ti) => {
@@ -63,7 +63,7 @@ export default function GrafcetEditor({ full = false }: { full?: boolean }) {
             // Transições de retorno são colocadas à esquerda; outras à direita.
             const returning = Math.min(...targets.map(stepY)) <= Math.max(...sources.map(stepY))
             const tx = returning ? 65 - ti % 3 * 16 : 290 + ti % 3 * 27
-            return <g key={t.id} onClick={() => { setSelected(t.id); setTab('transitions') }} className="grafcet-graph-link" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') { setSelected(t.id); setTab('transitions') } }}>
+            return <g key={t.id} onClick={full ? () => { setSelected(t.id); setTab('transitions') } : undefined} className={full ? 'grafcet-graph-link' : ''} role={full ? 'button' : undefined} tabIndex={full ? 0 : undefined} onKeyDown={full ? (e) => { if (e.key === 'Enter') { setSelected(t.id); setTab('transitions') } } : undefined}>
               {sources.map((v) => <path key={`f-${v}`} d={`M 182 ${stepY(v) + 27} H ${tx} V ${ty}`} fill="none" stroke="#526883" strokeWidth="2" />)}
               {targets.map((v) => <path key={`t-${v}`} d={`M ${tx} ${ty} V ${stepY(v)} H 119`} fill="none" stroke="#526883" strokeWidth="2" markerEnd="url(#grafcet-arrow)" />)}
               <path d={`M ${tx - 11} ${ty} h 22`} stroke={selected === t.id ? '#2563eb' : '#263d59'} strokeWidth="4" />
@@ -71,7 +71,7 @@ export default function GrafcetEditor({ full = false }: { full?: boolean }) {
               {(sources.length > 1 || targets.length > 1) && <text x={tx - 24} y={ty - 9} fill="#c2410c" fontSize="10">AND</text>}
             </g>
           })}
-          {steps.map((step, index) => <g key={step.id} className="grafcet-graph-node" role="button" tabIndex={0} onClick={() => { setSelected(step.id); setTab('steps') }} onKeyDown={(e) => { if (e.key === 'Enter') { setSelected(step.id); setTab('steps') } }}>
+          {steps.map((step, index) => <g key={step.id} className={full ? 'grafcet-graph-node' : ''} role={full ? 'button' : undefined} tabIndex={full ? 0 : undefined} onClick={full ? () => { setSelected(step.id); setTab('steps') } : undefined} onKeyDown={full ? (e) => { if (e.key === 'Enter') { setSelected(step.id); setTab('steps') } } : undefined}>
             <rect x="119" y={stepY(step.id)} width="64" height="54" fill={runtime.active.includes(step.id) ? '#dcfce7' : 'white'} stroke={selected === step.id ? '#2563eb' : runtime.active.includes(step.id) ? '#16a34a' : '#263d59'} strokeWidth="2.5" />
             {step.initial && <rect x="124" y={stepY(step.id) + 5} width="54" height="44" fill="none" stroke="#263d59" strokeWidth="1.5" />}
             <text x="151" y={stepY(step.id) + 34} textAnchor="middle" fill="#1e293b" fontWeight="700" fontSize="17">{index}</text>
@@ -80,7 +80,7 @@ export default function GrafcetEditor({ full = false }: { full?: boolean }) {
           </g>)}
         </svg>}
       </div>
-      <aside className="grafcet-properties">
+      {full && <aside className="grafcet-properties">
         <div className="grafcet-tabs"><button className={tab === 'steps' ? 'is-active' : ''} onClick={() => { setTab('steps'); setSelected(null) }}>Etapas</button><button className={tab === 'transitions' ? 'is-active' : ''} onClick={() => { setTab('transitions'); setSelected(null) }}>Transições</button></div>
         {tab === 'steps' && <>
           <div className="grafcet-entity-list">{steps.map((s, i) => <button key={s.id} className={selected === s.id ? 'is-active' : ''} onClick={() => setSelected(s.id)}>{s.initial ? '◎' : '□'} {i} — {s.name} {runtime.active.includes(s.id) ? '●' : ''}</button>)}</div>
@@ -106,7 +106,8 @@ export default function GrafcetEditor({ full = false }: { full?: boolean }) {
           </div>}
         </>}
         <div className="grafcet-hint">{running ? '● Simulação ativa' : '○ Parado'} · Bits de saída: {Object.entries(table).filter(([k, v]) => /^[QM]/.test(k) && v).map(([k]) => k).join(', ') || 'nenhum'}</div>
-      </aside>
+      </aside>}
     </div>
+    {!full && <div className="grafcet-preview-status" role="status"><span className={running ? 'is-running' : ''}>● {running ? 'Simulação ativa' : 'Parado'}</span><span>{runtime.active.length ? `Etapas ativas: ${runtime.active.map((v) => steps.findIndex((step) => step.id === v)).join(', ')}` : 'Nenhuma etapa ativa'}</span></div>}
   </div>
 }
