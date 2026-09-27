@@ -90,6 +90,10 @@ interface Store extends CircuitState {
 
   // --- edição (editor completo) ---
   setTool: (t: EditorTool) => void
+  /** Tipo de componente em modo "posicionar com o mouse" (fantasma segue o
+   * cursor no esquema; clique posiciona, Esc cancela). */
+  placingType: ComponentType | null
+  setPlacingType: (t: ComponentType | null) => void
   addComponent: (type: ComponentType, x: number, y: number) => string
   duplicateComponents: (ids: string[]) => void
   updateComponent: (id: string, patch: Partial<ElectricalComponent>) => void
@@ -546,6 +550,9 @@ export const useSimStore = create<Store>((set, get) => ({
   // ------------------------------------------------------------------ edição
   setTool: (t) => set({ tool: t, selectedWireId: t === 'select' ? get().selectedWireId : null, selectedTerminalId: null }),
 
+  placingType: null,
+  setPlacingType: (t) => set({ placingType: t, tool: t ? 'select' : get().tool }),
+
   addComponent: (type, x, y) => {
     get().commitHistory()
     const comp = createComponent(type, undefined, undefined, get().components.length, x, y)
@@ -774,7 +781,7 @@ export const useSimStore = create<Store>((set, get) => ({
         // senão usa 0.5 (dobra central); mantém roteamento ortogonal/manhattan conforme
         // a orientação predominante do cabo para evitar diagonais cruzadas.
         const bend = n === 1 ? 0.5 : 0.2 + (0.6 * i) / (n - 1)
-        patches[entry.id] = { bend, route: entry.horizontal ? 'orthogonal' : 'manhattan', curveOffset: 0 }
+        patches[entry.id] = { bend, route: entry.horizontal ? 'orthogonal' : 'manhattan', curveOffset: 0, waypoints: undefined }
       })
     }
     set((s) => ({

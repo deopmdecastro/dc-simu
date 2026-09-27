@@ -183,6 +183,17 @@ input[type='color'] {
     @apply shrink-0 text-[9px] font-bold uppercase tracking-[0.08em] text-ink-400;
   }
 
+  /* grupo da toolbar: moldura leve com etiqueta minúscula centrada por baixo */
+  .tb-group {
+    @apply shrink-0 flex flex-col items-stretch rounded-[7px] border border-line-soft bg-white/55 px-1.5 pt-1 pb-0.5;
+  }
+  .tb-group-row {
+    @apply flex items-center gap-1;
+  }
+  .tb-group-label {
+    @apply mt-0.5 text-center text-[8px] font-bold uppercase tracking-[0.12em] text-ink-300 select-none leading-none;
+  }
+
   .toolbar-scroll {
     scrollbar-width: thin;
   }
@@ -619,13 +630,63 @@ input[type='color'] {
   }
   .ladder-rung-header {
     display: flex;
-    min-height: 33px;
+    min-height: 30px;
     align-items: center;
-    gap: 8px;
-    padding: 0 8px;
-    border-bottom: 1px solid #dfe6ef;
-    background: linear-gradient(180deg, #fbfcfe 0%, #f2f5f9 100%);
+    gap: 7px;
+    padding: 0 8px 0 4px;
+    border-bottom: 1px solid #d5dde8;
+    /* cabeçalho de network no estilo TIA Portal: faixa cinza-aço */
+    background: linear-gradient(180deg, #edf1f7 0%, #dfe6ef 100%);
   }
+  .ladder-rung-card.is-collapsed .ladder-rung-header { border-bottom: none; }
+  .ladder-collapse-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border-radius: 3px;
+    color: #5b6b84;
+    transition: background-color .12s, color .12s;
+  }
+  .ladder-collapse-btn:hover { background: rgba(38,85,229,.1); color: #2655e5; }
+  .ladder-network-no {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 800;
+    color: #33415c;
+    white-space: nowrap;
+    letter-spacing: .01em;
+  }
+  .ladder-network-no.is-on { color: #15803d; }
+  .ladder-network-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: transparent;
+    outline: none;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #24314a;
+    padding: 2px 4px;
+  }
+  .ladder-network-title:hover { background: rgba(255,255,255,.55); }
+  .ladder-network-title:focus { background: #fff; box-shadow: inset 0 0 0 1px #94b6fa; }
+  .ladder-network-title::placeholder { color: #93a1b7; font-weight: 500; }
+  .ladder-network-comment {
+    display: block;
+    width: 100%;
+    padding: 3px 12px;
+    border-bottom: 1px solid #eef2f7;
+    background: #fbfcfe;
+    outline: none;
+    font-size: 10px;
+    font-style: italic;
+    color: #64748b;
+  }
+  .ladder-network-comment:focus { background: #fff; }
+  .ladder-network-comment::placeholder { color: #a9b4c6; }
   .ladder-rung-live {
     display: inline-flex;
     align-items: center;
@@ -678,9 +739,11 @@ input[type='color'] {
   }
   .ladder-diagram-scroll.grid-off { background-image: none; }
   .ladder-diagram {
+    --ladder-cell: 104px; /* passo padronizado da grelha de elementos */
     display: flex;
     min-width: 455px;
     align-items: stretch;
+    padding: 4px 0;
   }
   .ladder-rail {
     display: flex;
@@ -693,8 +756,8 @@ input[type='color'] {
     flex: 1 1 auto;
     width: 3px;
     margin: 3px 0;
-    border-radius: 2px;
-    background: #45536b;
+    border-radius: 1px;
+    background: #2b3648; /* barramento escuro, como as power rails do TIA */
   }
   .ladder-rail-bar.is-powered { background: #16a34a; }
   .ladder-rail-label {
@@ -775,6 +838,10 @@ input[type='color'] {
   .ladder-inline-element {
     display: flex;
     align-items: center;
+    /* célula padronizada (grelha fixa por elemento, como no TIA Portal):
+       o símbolo fica à esquerda e o fio elástico completa o passo da célula */
+    flex: 0 0 auto;
+    min-width: var(--ladder-cell, 104px);
   }
   .ladder-property-panel {
     display: flex;

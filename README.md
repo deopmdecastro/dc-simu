@@ -9,6 +9,25 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v2.1
+
+- **Toolbar reorganizada**: grupos visuais com etiqueta (Cenário · Ferramentas · Organizar ·
+  Simulação · Vista · Treino), linha de arquivo/vistas/estado separada e botões consistentes.
+- **Posicionar componentes com o mouse**: clique num item da biblioteca e o componente segue o
+  cursor (fantasma) — clique posiciona, `Shift+clique` posiciona vários, `Esc` cancela.
+  Arrastar da biblioteca para o esquema e duplo clique (inserção imediata) continuam a funcionar.
+- **Editor Ladder estilo TIA Portal**: cabeçalho "Network n: título" com faixa cinza-aço,
+  networks recolhíveis (chevron ou duplo clique no cabeçalho), linha de comentário por network e
+  grelha de células padronizada (passo fixo por elemento) com barramentos escuros.
+- **Cabos**:
+  - **Duplo clique no cabo adiciona um ponto de curva** (waypoint) arrastável; duplo clique no
+    ponto remove; vários pontos por cabo; botão "Limpar pontos de curva" no inspetor.
+  - **Rígido vs flexível de verdade**: condutor rígido desenha segmentos retos com dobras vivas e
+    traço duplo (alma sólida); flexível desenha curvas suaves com cantos arredondados.
+  - **Seletor de cor com amostras reais** no inspetor — a cor é aplicada imediatamente no esquema.
+  - Ao editar o cabo também se escolhe o **tipo de terminal** físico de cada ponta (anel, garfo,
+    pino, faston, tubular…).
+
 ## Como rodar
 
 ```bash

@@ -240,6 +240,13 @@ export interface Wire {
    * Arrastável diretamente no esquema.
    */
   curveOffset?: number
+  /**
+   * Pontos de passagem (curva) adicionados pelo usuário com duplo clique no
+   * cabo. Cada ponto é arrastável; com condutor rígido o cabo passa em
+   * segmentos retos pelos pontos, com condutor flexível passa em curvas
+   * suaves. Duplo clique num ponto remove-o.
+   */
+  waypoints?: Array<{ x: number; y: number }>
   /** Número do fio / identificador de chicote */
   number?: string
   label?: string

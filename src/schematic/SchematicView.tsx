@@ -10,14 +10,55 @@ const CANVAS_H = 1400
 
 type Pt = { x: number; y: number }
 
+/** Polilinha com cantos retos (condutor rígido — fio sólido). */
+function sharpPath(pts: Pt[]) {
+  return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ')
+}
+
+/**
+ * Polilinha com cantos arredondados / curva suave (condutor flexível —
+ * multifilar). Os pontos intermédios funcionam como pontos de controle e a
+ * curva passa suavemente perto deles.
+ */
+function smoothPath(pts: Pt[], radius = 16) {
+  if (pts.length <= 2) return sharpPath(pts)
+  let d = `M ${pts[0].x},${pts[0].y}`
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = pts[i]
+    const prev = pts[i - 1]
+    const next = pts[i + 1]
+    const d1 = Math.hypot(p.x - prev.x, p.y - prev.y) || 1
+    const d2 = Math.hypot(next.x - p.x, next.y - p.y) || 1
+    const r1 = Math.min(radius, d1 / 2)
+    const r2 = Math.min(radius, d2 / 2)
+    const inX = p.x - ((p.x - prev.x) / d1) * r1
+    const inY = p.y - ((p.y - prev.y) / d1) * r1
+    const outX = p.x + ((next.x - p.x) / d2) * r2
+    const outY = p.y + ((next.y - p.y) / d2) * r2
+    d += ` L ${inX},${inY} Q ${p.x},${p.y} ${outX},${outY}`
+  }
+  const last = pts[pts.length - 1]
+  d += ` L ${last.x},${last.y}`
+  return d
+}
+
 /**
  * Calcula o caminho SVG de um cabo conforme seu roteamento e devolve também a
  * posição do "manípulo" arrastável (ponto de dobra para ortogonal/manhattan,
  * ponto de controle da curva de Bézier para o roteamento curvo).
+ *
+ * Se o cabo tiver pontos de curva (waypoints, adicionados com duplo clique),
+ * eles têm prioridade: o cabo passa por todos — em segmentos retos quando o
+ * condutor é rígido, em curvas suaves quando é flexível.
  */
-function wireGeometry(a: Pt, b: Pt, route: string, bend: number, curveOffset: number) {
+function wireGeometry(a: Pt, b: Pt, route: string, bend: number, curveOffset: number, waypoints: Pt[] | undefined, flexible: boolean) {
+  const noHandle = null as (Pt & { mode: 'bend' | 'curve' }) | null
+  if (waypoints && waypoints.length > 0) {
+    const pts = [a, ...waypoints, b]
+    return { d: flexible ? smoothPath(pts, 22) : sharpPath(pts), handle: noHandle }
+  }
   if (route === 'direct') {
-    return { d: `M ${a.x},${a.y} L ${b.x},${b.y}`, handle: null as (Pt & { mode: 'bend' | 'curve' }) | null }
+    return { d: `M ${a.x},${a.y} L ${b.x},${b.y}`, handle: noHandle }
   }
   if (route === 'arc') {
     const mx = a.x + (b.x - a.x) * bend
@@ -33,11 +74,41 @@ function wireGeometry(a: Pt, b: Pt, route: string, bend: number, curveOffset: nu
   }
   const mx = a.x + (b.x - a.x) * bend
   const my = a.y + (b.y - a.y) * bend
-  if (route === 'orthogonal') {
-    return { d: `M ${a.x},${a.y} L ${mx},${a.y} L ${mx},${b.y} L ${b.x},${b.y}`, handle: { x: mx, y: (a.y + b.y) / 2, mode: 'bend' as const } }
+  const pts: Pt[] =
+    route === 'orthogonal'
+      ? [a, { x: mx, y: a.y }, { x: mx, y: b.y }, b]
+      : [a, { x: a.x, y: my }, { x: b.x, y: my }, b]
+  const handle =
+    route === 'orthogonal'
+      ? { x: mx, y: (a.y + b.y) / 2, mode: 'bend' as const }
+      : { x: (a.x + b.x) / 2, y: my, mode: 'bend' as const }
+  // flexível: cantos suavemente arredondados · rígido: dobras vivas a 90°
+  return { d: flexible ? smoothPath(pts) : sharpPath(pts), handle }
+}
+
+/** Insere um ponto na posição correta da sequência (segmento mais próximo). */
+function insertWaypoint(a: Pt, b: Pt, waypoints: Pt[], p: Pt): Pt[] {
+  const pts = [a, ...waypoints, b]
+  let best = 0
+  let bestDist = Infinity
+  for (let i = 0; i < pts.length - 1; i++) {
+    const s = pts[i]
+    const e = pts[i + 1]
+    const dx = e.x - s.x
+    const dy = e.y - s.y
+    const lenSq = dx * dx + dy * dy || 1
+    const t = Math.max(0, Math.min(1, ((p.x - s.x) * dx + (p.y - s.y) * dy) / lenSq))
+    const qx = s.x + dx * t
+    const qy = s.y + dy * t
+    const dist = Math.hypot(p.x - qx, p.y - qy)
+    if (dist < bestDist) {
+      bestDist = dist
+      best = i
+    }
   }
-  // manhattan
-  return { d: `M ${a.x},${a.y} L ${a.x},${my} L ${b.x},${my} L ${b.x},${b.y}`, handle: { x: (a.x + b.x) / 2, y: my, mode: 'bend' as const } }
+  const next = [...waypoints]
+  next.splice(best, 0, p)
+  return next
 }
 
 /** Editor de esquema completo: malha, arraste, seleção, cabos, bornes, sonda. */
@@ -53,6 +124,8 @@ export default function SchematicView() {
   const panX = useSimStore((s) => s.panX)
   const panY = useSimStore((s) => s.panY)
   const probeResult = useSimStore((s) => s.probeResult)
+  const placingType = useSimStore((s) => s.placingType)
+  const setPlacingType = useSimStore((s) => s.setPlacingType)
 
   const {
     selectComponents,
@@ -87,8 +160,8 @@ export default function SchematicView() {
   const [hoverTerminal, setHoverTerminal] = useState<string | null>(null)
   /** cadeia de bornes selecionados com shift+clique (ligação inteligente) */
   const [chain, setChain] = useState<string[]>([])
-  /** arraste do ponto de dobra/curva de um cabo diretamente no esquema */
-  const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' } | null>(null)
+  /** arraste do ponto de dobra/curva/waypoint de um cabo diretamente no esquema */
+  const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' | 'waypoint'; index?: number } | null>(null)
   const [dropPos, setDropPos] = useState<{ x: number; y: number } | null>(null)
   const [cursorPos, setCursorPos] = useState<Pt | null>(null)
   const [showHints, setShowHints] = useState(() => {
@@ -156,6 +229,7 @@ export default function SchematicView() {
         setChain([])
         selectComponents([])
         clearProbe()
+        useSimStore.getState().setPlacingType(null)
       } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         useSimStore.getState().undo()
@@ -215,6 +289,21 @@ export default function SchematicView() {
 
   // --------------------------------------------------------------- mouse
   const onBackgroundDown = (e: React.MouseEvent) => {
+    // modo "posicionar componente": clique esquerdo posiciona (Shift = vários),
+    // clique direito ou Esc cancela
+    if (placingType) {
+      if (e.button === 2) {
+        e.preventDefault()
+        setPlacingType(null)
+        return
+      }
+      if (e.button === 0) {
+        const p = toCanvas(e.clientX, e.clientY)
+        useSimStore.getState().addComponent(placingType, snap(p.x - 40), snap(p.y - 40))
+        if (!e.shiftKey) setPlacingType(null)
+        return
+      }
+    }
     if (e.button === 1 || tool === 'pan' || e.altKey) {
       setPanning({ sx: e.clientX, sy: e.clientY, px: panX, py: panY })
       return
@@ -246,6 +335,12 @@ export default function SchematicView() {
       const w = wires.find((x) => x.id === wireDrag.wireId)
       const a = w && terminalIndex.get(w.fromTerminalId)
       const b = w && terminalIndex.get(w.toTerminalId)
+      if (w && wireDrag.mode === 'waypoint' && wireDrag.index !== undefined) {
+        const next = [...(w.waypoints ?? [])]
+        next[wireDrag.index] = { x: snap(p.x), y: snap(p.y) }
+        updateWire(w.id, { waypoints: next })
+        return
+      }
       if (w && a && b) {
         const dx = b.x - a.x
         const dy = b.y - a.y
@@ -274,7 +369,7 @@ export default function SchematicView() {
       }
     }
     if (marquee) setMarquee({ ...marquee, x1: p.x, y1: p.y })
-    if (tool === 'wire' && wireFrom) setCursorPos(p)
+    if ((tool === 'wire' && wireFrom) || placingType) setCursorPos(p)
   }
 
   const onMouseUp = () => {
@@ -400,45 +495,43 @@ export default function SchematicView() {
     const a = terminalIndex.get(w.fromTerminalId)
     const b = terminalIndex.get(w.toTerminalId)
     if (!a || !b) return null
-    const base = WIRE_COLORS[w.color] ?? '#94a3b8'
-    const col = base
+    const col = WIRE_COLORS[w.color] ?? '#94a3b8'
+    const flexible = w.flexibility === 'flexible'
     const selected = selectedWireId === w.id
-    const { d, handle } = wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0)
-    const width = w.gauge.startsWith('0.') ? 1.2 : w.gauge.startsWith('1') ? 1.6 : w.gauge.startsWith('2.5') ? 2.2 : 2.8
+    const { d, handle } = wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0, w.waypoints, flexible)
+    const width = w.gauge.startsWith('0.') ? 1.4 : w.gauge.startsWith('1') ? 1.8 : w.gauge.startsWith('2.5') ? 2.4 : 3
     return (
       <g key={w.id}>
-        {selected && <path d={d} fill="none" stroke="#2655e5" strokeWidth={width + 5} opacity={0.22} strokeLinecap="round" />}
+        {selected && <path d={d} fill="none" stroke="#2655e5" strokeWidth={width + 6} opacity={0.2} strokeLinecap="round" />}
+        {/* condutor rígido: traço duplo (alma sólida) · flexível: traço único arredondado */}
+        {!flexible && (
+          <path d={d} fill="none" stroke={col} strokeWidth={width + 2.4} opacity={0.32} strokeLinecap="butt" strokeLinejoin="miter" pointerEvents="none" />
+        )}
         <path
           d={d}
           fill="none"
           stroke={col}
           strokeWidth={w.energized ? width + 1 : width}
-          strokeDasharray={w.flexibility === 'flexible' ? undefined : '6 3'}
-          opacity={w.energized ? 1 : 0.82}
-          strokeLinecap="round"
+          opacity={w.energized ? 1 : 0.88}
+          strokeLinecap={flexible ? 'round' : 'square'}
+          strokeLinejoin={flexible ? 'round' : 'miter'}
           onMouseDown={(e) => {
             e.stopPropagation()
             selectWire(w.id)
           }}
           onDoubleClick={(e) => {
+            // duplo clique no cabo = adiciona um ponto de curva arrastável
             e.stopPropagation()
             const point = toCanvas(e.clientX, e.clientY)
-            const dx = b.x - a.x
-            const dy = b.y - a.y
-            const lenSq = dx * dx + dy * dy || 1
-            const t = Math.max(0.08, Math.min(0.92, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lenSq))
-            const len = Math.sqrt(lenSq)
-            const nx = -dy / len
-            const ny = dx / len
-            const px = a.x + dx * t
-            const py = a.y + dy * t
-            const offset = (point.x - px) * nx + (point.y - py) * ny
+            const p = { x: snap(point.x), y: snap(point.y) }
             commitHistory()
-            updateWire(w.id, { route: 'arc', bend: t, curveOffset: Math.round(offset) })
+            updateWire(w.id, { waypoints: insertWaypoint(a, b, w.waypoints ?? [], p) })
             selectWire(w.id)
           }}
           style={{ cursor: 'pointer' }}
-        />
+        >
+          <title>{`Cabo ${w.number ?? ''} ${w.gauge} · ${flexible ? 'flexível' : 'rígido'} · duplo clique adiciona ponto de curva`}</title>
+        </path>
         {w.energized && (
           <path
             d={d}
@@ -452,6 +545,33 @@ export default function SchematicView() {
         )}
         <circle cx={a.x} cy={a.y} r={2.5} fill={col} />
         <circle cx={b.x} cy={b.y} r={2.5} fill={col} />
+        {/* pontos de curva do cabo — visíveis quando selecionado */}
+        {selected &&
+          (w.waypoints ?? []).map((wp, i) => (
+            <circle
+              key={`${w.id}-wp-${i}`}
+              cx={wp.x}
+              cy={wp.y}
+              r={5.5}
+              fill="#ffffff"
+              stroke={col}
+              strokeWidth={2.5}
+              style={{ cursor: 'grab' }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                setWireDrag({ wireId: w.id, mode: 'waypoint', index: i })
+              }}
+              onDoubleClick={(e) => {
+                // duplo clique no ponto = remove
+                e.stopPropagation()
+                commitHistory()
+                const next = (w.waypoints ?? []).filter((_, j) => j !== i)
+                updateWire(w.id, { waypoints: next.length ? next : undefined })
+              }}
+            >
+              <title>Arraste para mover · duplo clique remove o ponto</title>
+            </circle>
+          ))}
         {selected && handle && (
           <circle
             cx={handle.x}
@@ -616,8 +736,43 @@ export default function SchematicView() {
                <circle cx={dropPos.x} cy={dropPos.y} r={3} fill="#2655e5" />
              </g>
            )}
+
+           {/* fantasma do componente em modo de posicionamento */}
+           {placingType && cursorPos && (
+             <g style={{ pointerEvents: 'none' }} opacity={0.75}>
+               <rect
+                 x={snap(cursorPos.x - 40)}
+                 y={snap(cursorPos.y - 40)}
+                 width={80}
+                 height={80}
+                 rx={6}
+                 fill="#2655e5"
+                 opacity={0.08}
+                 stroke="#2655e5"
+                 strokeWidth={1.5}
+                 strokeDasharray="6 3"
+               />
+               <line x1={snap(cursorPos.x) - 10} y1={snap(cursorPos.y)} x2={snap(cursorPos.x) + 10} y2={snap(cursorPos.y)} stroke="#2655e5" strokeWidth={1} />
+               <line x1={snap(cursorPos.x)} y1={snap(cursorPos.y) - 10} x2={snap(cursorPos.x)} y2={snap(cursorPos.y) + 10} stroke="#2655e5" strokeWidth={1} />
+               <text x={snap(cursorPos.x - 40)} y={snap(cursorPos.y - 40) - 6} fontSize={11} fontWeight={600} fill="#2655e5">
+                 {placingType}
+               </text>
+             </g>
+           )}
          </g>
       </svg>
+
+      {/* banner do modo de posicionamento */}
+      {placingType && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-2 flex items-center gap-2 text-[11px] rounded-md border border-brand-300 bg-white px-3 py-1.5 text-ink-900 shadow-md z-10">
+          <span className="text-brand-700 font-semibold">Posicionar componente:</span>
+          <span className="font-mono">{placingType}</span>
+          <span className="text-ink-400">clique para largar · Shift+clique = vários · Esc cancela</span>
+          <button className="px-2 py-0.5 rounded bg-white border border-line text-ink-700 hover:bg-slate-50" onClick={() => setPlacingType(null)}>
+            Cancelar
+          </button>
+        </div>
+      )}
 
       {components.length === 0 && wires.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -718,7 +873,9 @@ export default function SchematicView() {
         {showHints && (
           <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
             <div>arraste = mover · shift+clique = multi-seleção</div>
-            <div>clique no cabo = editar · duplo no borne = alternar</div>
+            <div>biblioteca: clique = posicionar com o mouse · arrastar = largar direto</div>
+            <div>clique no cabo = editar · duplo clique no cabo = adicionar ponto de curva</div>
+            <div>duplo clique num ponto de curva = remover · duplo no borne = alternar</div>
             <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>
             <div>ferramenta Cabo: botão direito ou Esc = cancelar cabo em curso</div>
             <div>cabo selecionado: arraste o ponto ciano = dobrar/curvar</div>

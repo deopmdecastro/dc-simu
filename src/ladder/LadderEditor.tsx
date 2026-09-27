@@ -152,6 +152,8 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
   const [selection, setSelection] = useState<RungSelection>(null)
   const [dragBranchId, setDragBranchId] = useState<string | null>(null)
   const [coilDragOver, setCoilDragOver] = useState(false)
+  /** network recolhida (só o cabeçalho visível) — como no TIA Portal */
+  const [collapsed, setCollapsed] = useState(false)
 
   const powered = !!rungPowered[rung.id]
   const selectedContact =
@@ -275,39 +277,55 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
   const smallBtn = 'dc-btn !h-[22px] !px-1.5 !text-[10px]'
   const tiny = 'dc-input !h-[22px] !text-[10px] !w-auto'
   return (
-    <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''}`}>
-      {/* cabeçalho do rung */}
-      <div className="ladder-rung-header">
-        <span
-          className={`inline-flex items-center justify-center h-4 min-w-[20px] px-1 rounded-[3px] font-mono text-[10px] font-bold ${
-            powered && running ? 'bg-state-run text-white' : 'bg-surface-sunken text-ink-500 border border-line'
-          }`}
-          title="Número do rung"
+    <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''}`}>
+      {/* cabeçalho da network — estilo TIA Portal: "Network n: título" */}
+      <div className="ladder-rung-header" onDoubleClick={() => setCollapsed((v) => !v)}>
+        <button
+          className="ladder-collapse-btn"
+          title={collapsed ? 'Expandir network' : 'Recolher network'}
+          onClick={() => setCollapsed((v) => !v)}
         >
-          {index + 1}
+          {collapsed ? <IconChevronRight size={11} /> : <IconChevronDown size={11} />}
+        </button>
+        <span className={`ladder-network-no ${powered && running ? 'is-on' : ''}`} title="Número da network">
+          Network {index + 1}:
         </span>
         <input
-          className="bg-transparent outline-none text-[11px] font-medium text-ink-900 flex-1 min-w-0 focus:bg-brand-50 focus:px-1 rounded"
+          className="ladder-network-title"
           value={rung.name}
+          placeholder="Título da network…"
           onChange={(e) => renameRung(rung.id, e.target.value)}
+          onDoubleClick={(e) => e.stopPropagation()}
         />
         <span className={`ladder-rung-live ${powered && running ? 'is-on' : ''}`}>
           <i />
           {powered && running ? 'energizado' : 'aberto'}
         </span>
-        <label className="flex items-center gap-1 text-[10px] text-ink-400 cursor-pointer" title="Rung habilitado para execução">
+        <label className="flex items-center gap-1 text-[10px] text-ink-400 cursor-pointer" title="Network habilitada para execução" onDoubleClick={(e) => e.stopPropagation()}>
           <input type="checkbox" checked={rung.enabled} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, enabled: e.target.checked }))} />
           ativo
         </label>
-        <div className="flex gap-0.5">
+        <div className="flex gap-0.5" onDoubleClick={(e) => e.stopPropagation()}>
           <button className={smallBtn} title="Adicionar/configurar elementos" onClick={() => setSelection(selection?.type === 'insert' ? null : { type: 'insert' })}><IconPlus size={10} /></button>
           <button className={smallBtn} title="Mover para cima" onClick={() => moveRung(rung.id, -1)}>↑</button>
           <button className={smallBtn} title="Mover para baixo" onClick={() => moveRung(rung.id, 1)}>↓</button>
-          <button className={smallBtn} title="Duplicar rung" onClick={() => duplicateRung(rung.id)}><IconCopy size={10} /></button>
-          <button className={`${smallBtn} !text-state-error`} title="Excluir rung" onClick={() => deleteRung(rung.id)}><IconDelete size={10} /></button>
+          <button className={smallBtn} title="Duplicar network" onClick={() => duplicateRung(rung.id)}><IconCopy size={10} /></button>
+          <button className={`${smallBtn} !text-state-error`} title="Excluir network" onClick={() => deleteRung(rung.id)}><IconDelete size={10} /></button>
         </div>
       </div>
 
+      {/* comentário da network — linha cinza itálica, como no TIA Portal */}
+      {!collapsed && (
+        <input
+          className="ladder-network-comment"
+          value={rung.comment ?? ''}
+          placeholder="Comentário…"
+          onChange={(e) => updateRung(rung.id, (r) => ({ ...r, comment: e.target.value }))}
+        />
+      )}
+
+      {collapsed ? null : (
+      <>
       {/* diagrama */}
       <div className="ladder-rung-body">
         <div
@@ -545,6 +563,8 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
         <button className={smallBtn} onClick={() => setTimer(rung.timer?.timerType ?? 'TON')}><IconTimer size={10} /> {rung.timer ? 'editar temp.' : 'temporizador'}</button>
         <button className={smallBtn} onClick={() => setCounter(rung.counter?.counterType ?? 'CTU')}><IconCounter size={10} /> {rung.counter ? 'editar cont.' : 'contador'}</button>
       </div>
+      </>
+      )}
     </div>
   )
 }

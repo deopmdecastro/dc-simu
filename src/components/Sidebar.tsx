@@ -93,8 +93,19 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   const selectedTerminal = components.flatMap((c) => c.terminals).find((t) => t.id === selectedTerminalId)
   const terminalOwner = selectedTerminal ? components.find((c) => c.id === selectedTerminal.componentId) : undefined
 
+  const placingType = useSimStore((s) => s.placingType)
+
+  /** Clique = modo "posicionar com o mouse" (fantasma segue o cursor no
+   *  esquema). Clique novamente no mesmo item cancela. */
   const add = (type: ComponentType) => {
     const st = useSimStore.getState()
+    st.setPlacingType(st.placingType === type ? null : type)
+  }
+
+  /** Duplo clique = insere imediatamente na próxima posição livre. */
+  const addImmediate = (type: ComponentType) => {
+    const st = useSimStore.getState()
+    st.setPlacingType(null)
     const n = st.components.length
     st.addComponent(type, 80 + (n % 6) * 160, 90 + Math.floor(n / 6) * 150)
     setTab('inspector')
@@ -156,15 +167,21 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                       <button
                         key={it.type}
                         onClick={() => add(it.type)}
+                        onDoubleClick={() => addImmediate(it.type)}
                         draggable
                         onDragStart={(e) => {
+                          useSimStore.getState().setPlacingType(null)
                           e.dataTransfer.setData('text/plain', it.type)
                           e.dataTransfer.effectAllowed = 'copy'
                         }}
                         onDragEnd={() => {}}
-                           className="group text-left px-2 py-1.5 rounded-[5px] border border-transparent hover:border-line hover:bg-brand-50 hover:shadow-xs active:bg-brand-100/70 transition-colors cursor-grab active:cursor-grabbing"
-                           title={`Clique para adicionar ${it.name}; arraste para posicionar no esquema`}
-                           aria-label={`Adicionar ${it.name}. Também pode arrastar para o esquema.`}
+                           className={`group text-left px-2 py-1.5 rounded-[5px] border transition-colors cursor-grab active:cursor-grabbing ${
+                             placingType === it.type
+                               ? 'border-brand-400 bg-brand-50 shadow-xs ring-1 ring-brand-200'
+                               : 'border-transparent hover:border-line hover:bg-brand-50 hover:shadow-xs active:bg-brand-100/70'
+                           }`}
+                           title={`Clique: posicionar ${it.name} com o mouse · duplo clique: inserir já · arrastar: largar no esquema`}
+                           aria-label={`Adicionar ${it.name}. Clique para posicionar com o mouse ou arraste para o esquema.`}
                       >
                           <span className="flex items-center gap-2">
                             <ComponentThumb type={it.type} size={26} />
@@ -184,8 +201,9 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
               )
             })}
              <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
-               Clique para inserir no centro da área de trabalho ou arraste o item até uma posição exata. Depois arraste, gire (R),
-               duplique (D) ou apague (Del). Bornes também podem ser adicionados e reconfigurados no Inspetor.
+               <b className="text-ink-500">Clique</b> num item e posicione com o mouse (Shift+clique posiciona vários; Esc cancela),
+               <b className="text-ink-500"> arraste</b> até uma posição exata ou <b className="text-ink-500">duplo clique</b> para inserir de imediato.
+               Depois arraste, gire (R), duplique (D) ou apague (Del).
             </p>
           </div>
         </>
@@ -388,15 +406,28 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
 
               <LayerButtons />
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={label}>Cor</label>
-                  <select className="dc-select" value={selectedWire.color} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { color: e.target.value as WireColor })}>
-                    {Object.keys(WIRE_COLORS).map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+              <div>
+                <label className={label}>Cor do cabo</label>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(WIRE_COLORS).map(([name, hex]) => (
+                    <button
+                      key={name}
+                      title={name}
+                      onClick={() => useSimStore.getState().updateWire(selectedWire.id, { color: name as WireColor })}
+                      className={`h-[22px] w-[22px] rounded-full border-2 transition-transform hover:scale-110 ${
+                        selectedWire.color === name ? 'border-brand-600 ring-2 ring-brand-200 scale-110' : 'border-white shadow-[0_0_0_1px_rgba(0,0,0,0.15)]'
+                      }`}
+                      style={{ background: hex }}
+                    />
+                  ))}
                 </div>
+                <div className="text-[10px] text-ink-400 mt-1">
+                  Atual: <span className="font-mono font-semibold" style={{ color: WIRE_COLORS[selectedWire.color] }}>{selectedWire.color}</span>
+                  {' '}— a cor é aplicada de imediato no esquema.
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={label}>Seção</label>
                   <select className="dc-select" value={selectedWire.gauge} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { gauge: e.target.value })}>
@@ -419,6 +450,9 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                     <option value="flexible">Flexível (multifilar)</option>
                     <option value="rigid">Rígido (sólido)</option>
                   </select>
+                  <div className="text-[9px] text-ink-400 mt-0.5 leading-snug">
+                    {selectedWire.flexibility === 'flexible' ? 'Curvas suaves e cantos arredondados.' : 'Segmentos retos com dobras vivas (traço duplo).'}
+                  </div>
                 </div>
                 <div>
                   <label className={label}>Roteamento</label>
@@ -433,6 +467,18 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   <label className={label}>Dobra {selectedWire.bend.toFixed(2)}</label>
                   <input type="range" min={0} max={1} step={0.05} className="w-full" value={selectedWire.bend} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { bend: Number(e.target.value) })} />
                 </div>
+                {(selectedWire.waypoints?.length ?? 0) > 0 && (
+                  <div>
+                    <label className={label}>Pontos de curva ({selectedWire.waypoints!.length})</label>
+                    <button
+                      className="dc-btn w-full"
+                      title="Remove todos os pontos de curva adicionados com duplo clique"
+                      onClick={() => useSimStore.getState().updateWire(selectedWire.id, { waypoints: undefined })}
+                    >
+                      Limpar pontos de curva
+                    </button>
+                  </div>
+                )}
                 {selectedWire.route === 'arc' && (
                   <div>
                     <label className={label}>Curvatura {(selectedWire.curveOffset ?? 0).toFixed(0)}px</label>
