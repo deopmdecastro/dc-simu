@@ -680,11 +680,31 @@ input[type='color'] {
     min-width: 455px;
     align-items: stretch;
   }
+  .ladder-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 22px;
+    flex-shrink: 0;
+  }
+  .ladder-rail-bar {
+    flex: 1 1 auto;
+    width: 3px;
+    margin: 3px 0;
+    border-radius: 2px;
+    background: #45536b;
+  }
+  .ladder-rail-bar.is-powered { background: #16a34a; }
+  .ladder-rail-label {
+    font-family: ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 800;
+    color: #7c8aa0;
+  }
   .ladder-branch-row {
     display: flex;
     min-height: 46px;
     align-items: center;
-    gap: 2px;
     flex-wrap: nowrap;
     border-radius: 4px;
     transition: background-color .12s, box-shadow .12s;
@@ -699,10 +719,36 @@ input[type='color'] {
     border-radius: 4px;
   }
   .ladder-branch-stack {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 2px;
   }
+  .ladder-branch-join {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    width: 2px;
+    background: #2655e5;
+    z-index: 1;
+  }
+  .ladder-branch-join.is-start { left: 0; }
+  .ladder-branch-join.is-end { right: 0; }
+  .ladder-branch-join.is-powered { background: #16a34a; }
+  .ladder-branch-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin-left: 2px;
+    border-radius: 3px;
+    color: #b7c0d1;
+    opacity: 0;
+    transition: opacity .12s, color .12s, background-color .12s;
+  }
+  .ladder-branch-row:hover .ladder-branch-remove { opacity: 1; }
+  .ladder-branch-remove:hover { color: #d64545; background: #fbe9e9; }
   .ladder-wire {
     width: 14px;
     height: 0;
@@ -710,6 +756,13 @@ input[type='color'] {
     border-top: 2px solid #2655e5;
   }
   .ladder-wire.is-powered { border-top-color: #16a34a; }
+  .ladder-wire.is-fill { width: auto; flex: 1 1 auto; min-width: 8px; }
+  .ladder-wire.is-link { width: 14px; }
+  .ladder-wire.is-empty {
+    flex: 1 1 auto;
+    min-width: 40px;
+    border-top: 2px dashed #c7cfdd;
+  }
   .ladder-symbol-button {
     display: inline-flex;
     background: transparent;
@@ -720,7 +773,6 @@ input[type='color'] {
   .ladder-inline-element {
     display: flex;
     align-items: center;
-    gap: 2px;
   }
   .ladder-property-panel {
     display: flex;
@@ -769,12 +821,11 @@ input[type='color'] {
   }
   .ladder-coil-bank {
     display: flex;
-    min-width: 116px;
+    min-width: 100px;
     flex-direction: column;
     justify-content: center;
     gap: 5px;
-    padding: 0 12px;
-    border-left: 1px dashed #d9e0ea;
+    padding: 0 10px;
   }
   .ladder-coil-symbol { min-height: 28px; }
   /* ------------------------------------------------ símbolos IEC 61131 ---- */
@@ -884,7 +935,6 @@ input[type='color'] {
     justify-content: center;
     gap: 6px;
     padding: 0 10px;
-    border-left: 1px dashed #d9e0ea;
   }
   /* painel contextual — só surge quando um bloco de timer/contador é clicado */
   .ladder-block-popover {

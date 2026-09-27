@@ -316,16 +316,19 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
         >
         <div className="ladder-diagram">
           {/* barramento L+ */}
-          <div className="flex flex-col items-center w-7 shrink-0">
-            <span className="font-mono text-[9px] font-bold text-ink-400">L+</span>
-            <div className="flex-1 w-[3px] bg-ink-500 rounded-full my-0.5" />
-            {rung.branches.map((b) => (
-              <div key={b.id + '-rail'} className="w-4 border-t-2 border-ink-500 -mt-[2px]" />
-            ))}
+          <div className="ladder-rail ladder-rail-left">
+            <span className="ladder-rail-label">L+</span>
+            <div className={`ladder-rail-bar ${powered && running ? 'is-powered' : ''}`} />
           </div>
 
           {/* ramos */}
           <div className="ladder-branch-stack">
+            {rung.branches.length > 1 && (
+              <>
+                <div className={`ladder-branch-join is-start ${powered && running ? 'is-powered' : ''}`} />
+                <div className={`ladder-branch-join is-end ${powered && running ? 'is-powered' : ''}`} />
+              </>
+            )}
             {rung.branches.map((b, bi) => (
               <div
                 key={b.id}
@@ -352,28 +355,16 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
                     >
                       <ContactSymbol el={el} table={table} selected={selection?.type === 'contact' && selection.elementId === el.id} />
                     </button>
-                    <input
-                      className="w-12 bg-transparent text-[10px] text-ink-700 outline-none border-b border-dashed border-line-strong focus:border-brand-500 focus:bg-brand-50 font-mono text-center"
-                      list={TAG_DATALIST_ID}
-                      value={el.address}
-                      onChange={(e) =>
-                        updateRung(rung.id, (r) => ({
-                          ...r,
-                          branches: r.branches.map((bb) => (bb.id === b.id ? { ...bb, elements: bb.elements.map((ee) => (ee.id === el.id ? { ...ee, address: e.target.value.toUpperCase() } : ee)) } : bb)),
-                        }))
-                      }
-                    />
-                    <button className="text-ink-300 hover:text-state-error text-[10px] px-0.5" title="Remover contato" onClick={() => removeElement(b.id, el.id)}>✕</button>
                     <div
-                      className="h-0 flex-1 min-w-2"
-                      style={{ borderTop: `${powered && running ? '2px solid #16a34a' : '2px solid #2655e5'}` }}
+                      className="ladder-wire is-fill"
+                      style={{ borderTopColor: powered && running ? '#16a34a' : '#2655e5' }}
                     />
                   </div>
                 ))}
-                {!b.elements.length && <span className="text-[10px] text-ink-300 px-2">ramo vazio</span>}
+                {!b.elements.length && <div className="ladder-wire is-empty" title="Ramo vazio — arraste um elemento da paleta para aqui" />}
                 {rung.branches.length > 1 && (
-                  <button className="text-[9px] text-ink-300 hover:text-state-error px-1" title="Remover ramo" onClick={() => updateRung(rung.id, (r) => ({ ...r, branches: r.branches.filter((bb) => bb.id !== b.id) }))}>
-                    − ramo
+                  <button className="ladder-branch-remove" title="Remover ramo" onClick={() => updateRung(rung.id, (r) => ({ ...r, branches: r.branches.filter((bb) => bb.id !== b.id) }))}>
+                    <IconDelete size={9} />
                   </button>
                 )}
               </div>
@@ -382,32 +373,36 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
 
           {/* temporizador / contador — bloco compacto, parâmetros só no clique */}
           {(rung.timer || rung.counter) && (
-            <div className="ladder-instruction-blocks">
-              {rung.timer && (
-                <BlockButton
-                  label={rung.timer.timerType}
-                  address={rung.timer.address}
-                  detail={rung.timer.timerType === 'STAR_DELTA' ? `${rung.timer.presetMs}/${rung.timer.preset2Ms ?? 50} ms` : `${rung.timer.presetMs} ms`}
-                  powered={!!table[rung.timer.address]}
-                  selected={selection?.type === 'timer'}
-                  onSelect={() => setSelection(selection?.type === 'timer' ? null : { type: 'timer' })}
-                  onRemove={() => setTimer('none')}
-                />
-              )}
-              {rung.counter && (
-                <BlockButton
-                  label={rung.counter.counterType}
-                  address={rung.counter.address}
-                  detail={`PV ${rung.counter.preset}`}
-                  powered={!!table[rung.counter.address]}
-                  selected={selection?.type === 'counter'}
-                  onSelect={() => setSelection(selection?.type === 'counter' ? null : { type: 'counter' })}
-                  onRemove={() => setCounter('none')}
-                />
-              )}
-            </div>
+            <>
+              <div className={`ladder-wire is-link ${powered && running ? 'is-powered' : ''}`} />
+              <div className="ladder-instruction-blocks">
+                {rung.timer && (
+                  <BlockButton
+                    label={rung.timer.timerType}
+                    address={rung.timer.address}
+                    detail={rung.timer.timerType === 'STAR_DELTA' ? `${rung.timer.presetMs}/${rung.timer.preset2Ms ?? 50} ms` : `${rung.timer.presetMs} ms`}
+                    powered={!!table[rung.timer.address]}
+                    selected={selection?.type === 'timer'}
+                    onSelect={() => setSelection(selection?.type === 'timer' ? null : { type: 'timer' })}
+                    onRemove={() => setTimer('none')}
+                  />
+                )}
+                {rung.counter && (
+                  <BlockButton
+                    label={rung.counter.counterType}
+                    address={rung.counter.address}
+                    detail={`PV ${rung.counter.preset}`}
+                    powered={!!table[rung.counter.address]}
+                    selected={selection?.type === 'counter'}
+                    onSelect={() => setSelection(selection?.type === 'counter' ? null : { type: 'counter' })}
+                    onRemove={() => setCounter('none')}
+                  />
+                )}
+              </div>
+            </>
           )}
 
+          <div className={`ladder-wire is-link ${powered && running ? 'is-powered' : ''}`} />
           {/* saídas + barramento L− */}
           <div
             className={`ladder-coil-bank ${coilDragOver ? 'drag-over' : ''}`}
@@ -435,9 +430,9 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
             ))}
             {!rung.coils.length && <span className="text-[10px] text-ink-300">sem bobina</span>}
           </div>
-          <div className="flex flex-col items-center w-7 shrink-0">
-            <div className="flex-1 w-[3px] bg-ink-500 rounded-full my-0.5" />
-            <span className="font-mono text-[9px] font-bold text-ink-400">L−</span>
+          <div className="ladder-rail ladder-rail-right">
+            <div className={`ladder-rail-bar ${powered && running ? 'is-powered' : ''}`} />
+            <span className="ladder-rail-label">L−</span>
           </div>
         </div>
         </div>
