@@ -1,4 +1,4 @@
-import { scanGrafcet, emptyGrafcetRuntime, evalCondition } from '../src/grafcet/engine'
+import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
  * Não depende do React: exercita o motor de continuidade, o motor Ladder, o
@@ -271,6 +271,28 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   state = scanGrafcet({ steps: [] }, state, table)
   check('GRAFCET limpa saídas de programa removido', table.Q1 === false && table.M1 === false)
   check('condição inválida não dispara', !evalCondition('MOVE', table))
+}
+
+/* Divergência/convergência AND, ações condicionadas e expressões compostas. */
+{
+  const steps = ['s0', 's1', 's2', 's3'].map((id, i) => ({ id, name: id, initial: i === 0, action: '', condition: '0', actions: i === 1 ? [{ id: 'a', address: 'Q1', condition: 'I2 & !I3' }] : [] }))
+  const program = { steps, transitions: [
+    { id: 'fork', from: ['s0'], to: ['s1', 's2'], condition: 'I1 & !M1' },
+    { id: 'join', from: ['s1', 's2'], to: ['s3'], condition: 'I4 | M1' },
+    { id: 'return', from: ['s3'], to: ['s0'], condition: '1' },
+  ] }
+  const table: AddressTable = { I1: true, I2: true, I3: false, I4: false, M1: false }
+  let runtime = scanGrafcet(program, emptyGrafcetRuntime(), table)
+  check('divergência AND ativa duas etapas', runtime.active.includes('s1') && runtime.active.includes('s2') && table.Q1)
+  table.I3 = true
+  runtime = scanGrafcet(program, runtime, table)
+  check('ação condicionada desliga sem sair da etapa', !table.Q1 && runtime.active.length === 2)
+  table.I4 = true
+  runtime = scanGrafcet(program, runtime, table)
+  check('convergência AND espera e consome ambas as origens', runtime.active.length === 1 && runtime.active[0] === 's3')
+  runtime = scanGrafcet(program, runtime, table)
+  check('retorno no scan seguinte (sem cascata)', runtime.active.length === 1 && runtime.active[0] === 's0')
+  check('expressões rejeitam sintaxe incorreta', !validCondition('I1 && I2') && !validCondition('I1 | (I2') && validCondition('(I1 & !I2) | M1'))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

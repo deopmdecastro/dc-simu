@@ -1,48 +1,112 @@
+import { useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
-import { validBit } from './engine'
-import type { GrafcetStep } from './engine'
+import { transitionsOf, validBit, validCondition } from './engine'
+import type { GrafcetStep, GrafcetTransition, GrafcetProgram } from './engine'
 
-/** Editor compacto para o esquema. A ordem vertical define o destino da transição. */
+const id = () => crypto.randomUUID()
+
+/** GRAFCET com transições explícitas, divergência e convergência AND.
+ * A ordem das transições define a prioridade quando partilham uma origem. */
 export default function GrafcetEditor({ full = false }: { full?: boolean }) {
   const program = useSimStore((s) => s.grafcet)
   const runtime = useSimStore((s) => s.grafcetRuntime)
   const table = useSimStore((s) => s.runtime.table)
   const setGrafcet = useSimStore((s) => s.setGrafcet)
   const running = useSimStore((s) => s.sim.runState === 'running')
+  const [selected, setSelected] = useState<string | null>(null)
+  const [tab, setTab] = useState<'steps' | 'transitions'>('steps')
   const steps = program.steps
-  const edit = (id: string, patch: Partial<GrafcetStep>) => setGrafcet({ steps: steps.map((step) => step.id === id ? { ...step, ...patch } : step) })
-  const add = () => setGrafcet({ steps: [...steps, { id: crypto.randomUUID(), name: `Etapa ${steps.length}`, initial: steps.length === 0, action: '', condition: 'I1' }] })
-  const remove = (id: string) => setGrafcet({ steps: steps.filter((step) => step.id !== id) })
-  const move = (index: number, delta: number) => {
-    const target = index + delta
-    if (target < 0 || target >= steps.length) return
-    const reordered = [...steps]
-    ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
-    setGrafcet({ steps: reordered })
+  const transitions = transitionsOf(program)
+  const save = (patch: Partial<GrafcetProgram>) => setGrafcet({ ...program, transitions, ...patch })
+  const updateStep = (stepId: string, patch: Partial<GrafcetStep>) => save({ steps: steps.map((s) => s.id === stepId ? { ...s, ...patch } : s) })
+  const updateTransition = (transitionId: string, patch: Partial<GrafcetTransition>) => save({ transitions: transitions.map((t) => t.id === transitionId ? { ...t, ...patch } : t) })
+  const addStep = () => {
+    const newStep: GrafcetStep = { id: id(), name: `Etapa ${steps.length}`, initial: steps.length === 0, action: '', condition: 'I1', actions: [] }
+    save({ steps: [...steps, newStep] })
+    setSelected(newStep.id)
+    setTab('steps')
   }
-  return <div className={`grafcet-editor ${full ? 'grafcet-full' : ''}`}>
-    <header className="grafcet-header"><div><strong>GRAFCET</strong><small>Sequência de etapas · esquema</small></div><button className="dc-btn-primary dc-btn" onClick={add}>+ Etapa</button></header>
-    <p className="grafcet-help">A transição de cada etapa conduz à seguinte; a última volta à primeira. Condição: I1, M1, Q1, !I1 ou 1 (sempre). Ação: Q1 ou M1.</p>
-    <div className="grafcet-list">
-      {!steps.length && <div className="grafcet-empty">Ainda não há etapas. Clique em «+ Etapa» para criar uma sequência.</div>}
-      {steps.map((step, index) => {
-        const active = runtime.active.includes(step.id)
-        const condition = step.condition.trim().toUpperCase()
-        const action = step.action.trim().toUpperCase()
-        const validCondition = condition === '1' || validBit(condition.replace(/^!/, ''))
-        return <div key={step.id} className="grafcet-sequence">
-          <div className={`grafcet-step ${active ? 'is-active' : ''}`}>
-            <div className="grafcet-step-label"><button title="Definir como etapa inicial" aria-label="Etapa inicial" onClick={() => setGrafcet({ steps: steps.map((s) => ({ ...s, initial: s.id === step.id })) })}>{step.initial ? '◎' : '○'}</button><strong>{index}</strong><span>{active ? '● Ativa' : 'Etapa'}</span></div>
-            <input className="dc-input" aria-label={`Nome da etapa ${index}`} value={step.name} onChange={(e) => edit(step.id, { name: e.target.value })} />
-            <label>Ação (Q/M)<input className="dc-input" aria-label={`Ação da etapa ${index}`} value={step.action} placeholder="Q1" onChange={(e) => edit(step.id, { action: e.target.value.toUpperCase() })} /></label>
-            {action && !/^[QM]\d{1,2}$/.test(action) && <small className="grafcet-error">Ação inválida: use Q1 ou M1.</small>}
-            {action && validBit(action) && <small>{action} = {table[action] ? '1' : '0'}</small>}
-            <div className="grafcet-actions"><button title="Subir etapa" disabled={index === 0} onClick={() => move(index, -1)}>↑</button><button title="Descer etapa" disabled={index === steps.length - 1} onClick={() => move(index, 1)}>↓</button><button title="Eliminar etapa" onClick={() => remove(step.id)}>Eliminar</button></div>
-          </div>
-          <div className="grafcet-transition"><span className="grafcet-line" /><span className="grafcet-bar" /><label>Transição → {index === steps.length - 1 ? 'início' : `etapa ${index + 1}`}<input className="dc-input" aria-label={`Condição da transição ${index}`} value={step.condition} placeholder="I1" onChange={(e) => edit(step.id, { condition: e.target.value.toUpperCase() })} /></label>{!validCondition && <small className="grafcet-error">Condição inválida</small>}</div>
-        </div>
-      })}
+  const removeStep = (stepId: string) => {
+    save({ steps: steps.filter((s) => s.id !== stepId), transitions: transitions.filter((t) => !t.from.includes(stepId) && !t.to.includes(stepId)) })
+    setSelected(null)
+  }
+  const addTransition = () => {
+    if (steps.length < 2) return
+    const t = { id: id(), from: [steps[0].id], to: [steps[1].id], condition: 'I1' }
+    save({ transitions: [...transitions, t] })
+    setSelected(t.id)
+    setTab('transitions')
+  }
+  const choose = (ids: string[], stepId: string) => ids.includes(stepId) ? ids.filter((x) => x !== stepId) : [...ids, stepId]
+  const selectedStep = steps.find((s) => s.id === selected)
+  const selectedTransition = transitions.find((t) => t.id === selected)
+  const actionsOf = (step: GrafcetStep) => [
+    ...(step.action ? [{ id: `legacy-${step.id}`, address: step.action, condition: '1' }] : []),
+    ...(step.actions ?? []),
+  ]
+  // Cada etapa ocupa uma linha no diagrama. Arestas explicitam bifurcações e junções.
+  const stepY = (stepId: string) => 70 + steps.findIndex((s) => s.id === stepId) * 154
+  const width = full ? 760 : 560
+  const height = Math.max(260, steps.length * 154 + 65)
+  return <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : ''}`}>
+    <header className="grafcet-header"><div><strong>GRAFCET</strong><small>{steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas</small></div><div className="flex gap-1"><button className="dc-btn" onClick={addStep}>+ Etapa</button><button className="dc-btn-primary dc-btn" disabled={steps.length < 2} onClick={addTransition}>+ Transição</button></div></header>
+    <div className="grafcet-designer-body">
+      <div className="grafcet-canvas" aria-label="Diagrama GRAFCET">
+        {!steps.length && <div className="grafcet-empty">Crie uma etapa inicial e depois adicione transições para construir o GRAFCET.</div>}
+        {!!steps.length && <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Etapas, ações e transições do GRAFCET">
+          <defs><marker id="grafcet-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6" fill="none" stroke="#526883" /></marker></defs>
+          {transitions.flatMap((t, ti) => {
+            const sources = t.from.filter((v) => steps.some((s) => s.id === v))
+            const targets = t.to.filter((v) => steps.some((s) => s.id === v))
+            if (!sources.length || !targets.length) return []
+            const ty = Math.max(42, Math.min(height - 45, (sources.reduce((sum, v) => sum + stepY(v), 0) / sources.length + targets.reduce((sum, v) => sum + stepY(v), 0) / targets.length) / 2))
+            // Transições de retorno são colocadas à esquerda; outras à direita.
+            const returning = Math.min(...targets.map(stepY)) <= Math.max(...sources.map(stepY))
+            const tx = returning ? 65 - ti % 3 * 16 : 290 + ti % 3 * 27
+            return <g key={t.id} onClick={() => { setSelected(t.id); setTab('transitions') }} className="grafcet-graph-link" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') { setSelected(t.id); setTab('transitions') } }}>
+              {sources.map((v) => <path key={`f-${v}`} d={`M 182 ${stepY(v) + 27} H ${tx} V ${ty}`} fill="none" stroke="#526883" strokeWidth="2" />)}
+              {targets.map((v) => <path key={`t-${v}`} d={`M ${tx} ${ty} V ${stepY(v)} H 119`} fill="none" stroke="#526883" strokeWidth="2" markerEnd="url(#grafcet-arrow)" />)}
+              <path d={`M ${tx - 11} ${ty} h 22`} stroke={selected === t.id ? '#2563eb' : '#263d59'} strokeWidth="4" />
+              <text x={tx + 17} y={ty - 4} fill="#1d4ed8" fontSize="12" fontWeight="600">{t.condition}</text>
+              {(sources.length > 1 || targets.length > 1) && <text x={tx - 24} y={ty - 9} fill="#c2410c" fontSize="10">AND</text>}
+            </g>
+          })}
+          {steps.map((step, index) => <g key={step.id} className="grafcet-graph-node" role="button" tabIndex={0} onClick={() => { setSelected(step.id); setTab('steps') }} onKeyDown={(e) => { if (e.key === 'Enter') { setSelected(step.id); setTab('steps') } }}>
+            <rect x="119" y={stepY(step.id)} width="64" height="54" fill={runtime.active.includes(step.id) ? '#dcfce7' : 'white'} stroke={selected === step.id ? '#2563eb' : runtime.active.includes(step.id) ? '#16a34a' : '#263d59'} strokeWidth="2.5" />
+            {step.initial && <rect x="124" y={stepY(step.id) + 5} width="54" height="44" fill="none" stroke="#263d59" strokeWidth="1.5" />}
+            <text x="151" y={stepY(step.id) + 34} textAnchor="middle" fill="#1e293b" fontWeight="700" fontSize="17">{index}</text>
+            <text x="196" y={stepY(step.id) + 17} fill="#334155" fontSize="12">{step.name.slice(0, 25)}</text>
+            {actionsOf(step).map((action, ai) => <g key={action.id}><path d={`M 183 ${stepY(step.id) + 27} H 335`} stroke="#263d59" strokeWidth="1.5" /><rect x="335" y={stepY(step.id) + ai * 31} width="126" height="27" fill="white" stroke="#263d59" strokeWidth="1.5" /><text x="345" y={stepY(step.id) + 18 + ai * 31} fontSize="11">{action.address}{action.condition !== '1' ? ` [${action.condition}]` : ''}</text></g>)}
+          </g>)}
+        </svg>}
+      </div>
+      <aside className="grafcet-properties">
+        <div className="grafcet-tabs"><button className={tab === 'steps' ? 'is-active' : ''} onClick={() => { setTab('steps'); setSelected(null) }}>Etapas</button><button className={tab === 'transitions' ? 'is-active' : ''} onClick={() => { setTab('transitions'); setSelected(null) }}>Transições</button></div>
+        {tab === 'steps' && <>
+          <div className="grafcet-entity-list">{steps.map((s, i) => <button key={s.id} className={selected === s.id ? 'is-active' : ''} onClick={() => setSelected(s.id)}>{s.initial ? '◎' : '□'} {i} — {s.name} {runtime.active.includes(s.id) ? '●' : ''}</button>)}</div>
+          {selectedStep && <div className="grafcet-form">
+            <h3>Etapa {steps.indexOf(selectedStep)} {selectedStep.initial ? '· inicial' : ''}</h3>
+            <label>Nome<input className="dc-input" value={selectedStep.name} onChange={(e) => updateStep(selectedStep.id, { name: e.target.value })} /></label>
+            <label className="grafcet-inline"><input type="checkbox" checked={selectedStep.initial} onChange={(e) => updateStep(selectedStep.id, { initial: e.target.checked })} /> Etapa inicial</label>
+            <h3>Ações contínuas</h3>
+            {actionsOf(selectedStep).map((a) => <div className="grafcet-action-row" key={a.id}><input className="dc-input" aria-label="Endereço da ação" placeholder="Q1" value={a.address} onChange={(e) => a.id.startsWith('legacy-') ? updateStep(selectedStep.id, { action: e.target.value.toUpperCase() }) : updateStep(selectedStep.id, { actions: (selectedStep.actions ?? []).map((v) => v.id === a.id ? { ...v, address: e.target.value.toUpperCase() } : v) })} /><input className="dc-input" aria-label="Condição da ação" placeholder="1" value={a.condition} onChange={(e) => updateStep(selectedStep.id, { actions: [...(selectedStep.actions ?? []).filter((v) => v.id !== a.id), { id: a.id, address: a.address, condition: e.target.value.toUpperCase() }], action: a.id.startsWith('legacy-') ? '' : selectedStep.action })} /><button title="Remover ação" onClick={() => updateStep(selectedStep.id, a.id.startsWith('legacy-') ? { action: '' } : { actions: (selectedStep.actions ?? []).filter((v) => v.id !== a.id) })}>×</button>{a.address && !/^[QM]\d{1,2}$/.test(a.address) && <small className="grafcet-error">Use Q1 ou M1</small>}{!validCondition(a.condition) && <small className="grafcet-error">Condição inválida</small>}</div>)}
+            <button className="dc-btn" onClick={() => updateStep(selectedStep.id, { actions: [...(selectedStep.actions ?? []), { id: id(), address: '', condition: '1' }] })}>+ Ação</button>
+            <button className="dc-btn grafcet-danger" onClick={() => removeStep(selectedStep.id)}>Eliminar etapa</button>
+          </div>}
+        </>}
+        {tab === 'transitions' && <>
+          <p className="grafcet-hint">Uma origem → vários destinos cria divergência AND. Várias origens → um destino cria convergência AND. Prioridade pela ordem da lista.</p>
+          <div className="grafcet-entity-list">{transitions.map((t, i) => <button key={t.id} className={selected === t.id ? 'is-active' : ''} onClick={() => setSelected(t.id)}>T{i + 1}: {t.from.map((v) => steps.findIndex((s) => s.id === v)).join('+')} → {t.to.map((v) => steps.findIndex((s) => s.id === v)).join('+')}</button>)}</div>
+          {selectedTransition && <div className="grafcet-form"><h3>Transição T{transitions.indexOf(selectedTransition) + 1}</h3>
+            <label>Condição (I1 &amp; !I2 | M1)<input className="dc-input" value={selectedTransition.condition} onChange={(e) => updateTransition(selectedTransition.id, { condition: e.target.value.toUpperCase() })} /></label>
+            {!validCondition(selectedTransition.condition) && <small className="grafcet-error">Expressão inválida: use I/Q/M, !, &amp;, | e parênteses.</small>}
+            {(['from', 'to'] as const).map((field) => <fieldset key={field}><legend>{field === 'from' ? 'Origens (todas ativas)' : 'Destinos (ativados juntos)'}</legend>{steps.map((s, i) => <label className="grafcet-inline" key={s.id}><input type="checkbox" checked={selectedTransition[field].includes(s.id)} onChange={() => updateTransition(selectedTransition.id, { [field]: choose(selectedTransition[field], s.id) })} /> {i} · {s.name}</label>)}</fieldset>)}
+            {(!selectedTransition.from.length || !selectedTransition.to.length) && <small className="grafcet-error">Escolha pelo menos uma origem e um destino.</small>}
+            <button className="dc-btn grafcet-danger" onClick={() => { save({ transitions: transitions.filter((t) => t.id !== selectedTransition.id) }); setSelected(null) }}>Eliminar transição</button>
+          </div>}
+        </>}
+        <div className="grafcet-hint">{running ? '● Simulação ativa' : '○ Parado'} · Bits de saída: {Object.entries(table).filter(([k, v]) => /^[QM]/.test(k) && v).map(([k]) => k).join(', ') || 'nenhum'}</div>
+      </aside>
     </div>
-    <footer className="grafcet-footer">{running ? 'Simulação ativa' : 'Pré-visualização'} · {runtime.active.length} etapa(s) ativa(s) · ações Q/M do GRAFCET prevalecem sobre Ladder no mesmo endereço.</footer>
   </div>
 }
