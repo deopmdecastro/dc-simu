@@ -218,9 +218,16 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
     }
 
     // ---- CLP: a saída Q é ponte da alimentação L enquanto o programa a energiza ----
-    case 'plcLogo':
-    case 'plcCompact':
     case 'plcSiemensLogo1224RC': {
+      // As 4 saídas são contactos secos: cada Q liga APENAS os seus dois
+      // parafusos quando o programa ativa o relé, sem ponte para L+.
+      for (const q of Object.keys(c.state.outputs ?? {})) {
+        if (c.state.outputs[q]) pair(la(q), la(`${q}.2`))
+      }
+      break
+    }
+    case 'plcLogo':
+    case 'plcCompact': {
       const supply = la('L') ?? la('L+')
       if (supply && c.state.outputs) {
         for (const q of Object.keys(c.state.outputs)) {

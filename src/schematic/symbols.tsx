@@ -489,7 +489,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
         const arrowFill = (name: string) => (pressed === name ? '#e4e4e7' : '#71717a')
         const keyFill = (name: string) => (pressed === name ? '#38bdf8' : '#1d4ed8')
         const diTerms = c.terminals.filter((t) => t.label === 'L+' || t.label === 'M' || t.label.startsWith('I'))
-        const doTerms = c.terminals.filter((t) => t.label.startsWith('Q'))
+        const doTerms = c.terminals.filter((t) => /^Q[1-4]$/.test(t.label))
         return (
           <g>
             {/* invólucro plástico */}

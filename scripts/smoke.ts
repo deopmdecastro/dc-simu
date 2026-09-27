@@ -5,11 +5,11 @@ import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition } from 
  * motor de fases e a sonda exatamente como o store faz a cada ciclo.
  */
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario } from '../src/simulation/scenarios'
-import { computeContinuity, isCoilPowered, probe, sourceTerminalIds } from '../src/electrical/engine'
+import { computeContinuity, internalBridges, isCoilPowered, probe, sourceTerminalIds } from '../src/electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../src/electrical/phases'
 import { runScan } from '../src/ladder/ladderEngine'
 import type { CounterTable, AddressTable, TimerTable } from '../src/ladder/ladderEngine'
-import { createComponent, terminalByLabel } from '../src/electrical/factory'
+import { createComponent, terminalByLabel, upgradeLogoTerminals } from '../src/electrical/factory'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
 
@@ -317,12 +317,19 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* Bornes do LOGO! coincidem com os parafusos do GLB, também em projetos antigos. */
 {
   const logo = createComponent('plcSiemensLogo1224RC')
+  check('LOGO! tem 18 parafusos/bornes', logo.terminals.length === 18)
+  const legacy = { ...logo, terminals: logo.terminals.filter((t) => !t.label.endsWith('.2')) }
+  check('projetos antigos recebem os segundos contactos sem duplicar', upgradeLogoTerminals(legacy).terminals.length === 18 && upgradeLogoTerminals(logo).terminals.length === 18)
+  const switched = { ...logo, state: { ...logo.state, outputs: { Q1: true, Q2: false, Q3: false, Q4: false } } }
+  const bridges = internalBridges(switched)
+  check('relé Q1 liga somente os seus dois parafusos, não L+', bridges.length === 1 && bridges[0].includes(terminalByLabel(logo, 'Q1')!.id) && bridges[0].includes(terminalByLabel(logo, 'Q1.2')!.id))
   const l = logoTerminalLocal(logo, terminalByLabel(logo, 'L+')!)
   const i8 = logoTerminalLocal(logo, terminalByLabel(logo, 'I8')!)
   const q1 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q1')!)
   const q4 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q4')!)
+  const q4Second = logoTerminalLocal(logo, terminalByLabel(logo, 'Q4.2')!)
   check('bornes superiores do LOGO! estão sobre o modelo', l.y > 0 && l.y < logo.h * 0.2 && i8.x > l.x && i8.x < logo.w * 0.8)
-  check('saídas do LOGO! estão sobre os contactos inferiores', q1.y > logo.h * 0.8 && q4.x > q1.x && q4.x < logo.w * 0.8)
+  check('saídas do LOGO! estão sobre os contactos inferiores', q1.y > logo.h * 0.8 && q4.x > q1.x && q4Second.x > q4.x && q4Second.x < logo.w * 0.8)
   const edited = { ...terminalByLabel(logo, 'Q1')!, x: 0.3, y: 0.7 }
   const moved = logoTerminalLocal(logo, edited)
   check('posição personalizada de borne é respeitada', Math.abs(moved.x - logo.w * 0.3) < 0.01 && Math.abs(moved.y - logo.h * 0.7) < 0.01)

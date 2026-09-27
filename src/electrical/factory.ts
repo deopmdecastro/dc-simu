@@ -118,7 +118,8 @@ function relayTerminals(extraContacts: number): TerminalTemplate[] {
 /**
  * Bornes do Siemens LOGO! 12/24RC (8 entradas digitais DC + 4 saídas a relé),
  * seguindo a disposição real do dispositivo: tira superior L+/M/I1..I8 e tira
- * inferior Q1..Q4. Todos os bornes são do tipo parafuso, como no equipamento
+ * inferior com dois parafusos independentes para cada relé Q1..Q4 (18 no total).
+ * Todos os bornes são do tipo parafuso, como no equipamento
  * físico.
  */
 function plcLogoRCTerminals(): TerminalTemplate[] {
@@ -131,6 +132,7 @@ function plcLogoRCTerminals(): TerminalTemplate[] {
   )
   ;['Q1', 'Q2', 'Q3', 'Q4'].forEach((lbl, i) => {
     list.push(T(lbl, 'io', 0.16 + i * 0.24, 1, { terminalType: 'screw', color: '#f59e0b' }))
+    list.push(T(`${lbl}.2`, 'io', 0.21 + i * 0.24, 1, { terminalType: 'screw', color: '#f59e0b' }))
   })
   return list
 }
@@ -594,6 +596,17 @@ export function createTerminal(componentId: string, label: string, kind: Termina
     y,
     energized: false,
   }
+}
+
+/** Adiciona os 4 segundos contactos a projetos guardados com a versão de 14 bornes. */
+export function upgradeLogoTerminals(c: ElectricalComponent): ElectricalComponent {
+  if (c.type !== 'plcSiemensLogo1224RC' || c.terminals.some((t) => /^Q[1-4]\.2$/.test(t.label))) return c
+  const extra = [1, 2, 3, 4].flatMap((i) => {
+    const old = c.terminals.find((t) => t.label === `Q${i}`)
+    if (!old) return []
+    return [{ ...old, id: `${c.id}-Q${i}.2`, label: `Q${i}.2`, x: 0.21 + (i - 1) * 0.24, y: 1, energized: false }]
+  })
+  return extra.length ? { ...c, terminals: [...c.terminals, ...extra] } : c
 }
 
 export function terminalByLabel(c: ElectricalComponent, label: string): Terminal | undefined {

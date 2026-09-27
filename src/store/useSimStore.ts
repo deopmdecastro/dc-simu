@@ -25,7 +25,7 @@ import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTa
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario, SCENARIOS } from '../simulation/scenarios'
-import { createComponent, createTerminal, nextRef, terminalByLabel } from '../electrical/factory'
+import { createComponent, createTerminal, nextRef, terminalByLabel, upgradeLogoTerminals } from '../electrical/factory'
 import { terminalPos } from '../schematic/symbols'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 
@@ -1159,7 +1159,7 @@ export const useSimStore = create<Store>((set, get) => ({
       const parsed = JSON.parse(json)
       get().stop()
       set({
-        components: parsed.components ?? [],
+        components: (parsed.components ?? []).map(upgradeLogoTerminals),
         showEmptyWelcome: false,
         wires: parsed.wires ?? [],
         ladder: parsed.ladder ?? { rungs: [] },
