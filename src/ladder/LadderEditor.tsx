@@ -244,115 +244,6 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
 
   const smallBtn = 'dc-btn !h-[22px] !px-1.5 !text-[10px]'
   const tiny = 'dc-input !h-[22px] !text-[10px] !w-auto'
-  const propertyPanel = (() => {
-    if (!selection) return null
-
-    if (selection.type === 'contact' && selectedContact) {
-      return (
-        <div className="ladder-property-panel">
-          <strong><IconContact size={13} /> Contato</strong>
-          <label>Endereço <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={selectedContact.address} onChange={(e) => updateContact(selection.branchId, selection.elementId, { address: e.target.value.toUpperCase() })} /></label>
-          <label>Tipo
-            <select className={tiny} value={selectedContact.contactType} onChange={(e) => updateContact(selection.branchId, selection.elementId, { contactType: e.target.value as LadderContactType })}>
-              <option value="NO">NA</option>
-              <option value="NC">NF</option>
-              <option value="RISING">Borda subida</option>
-              <option value="FALLING">Borda descida</option>
-            </select>
-          </label>
-          <label>Comentário <input className={`${tiny} !w-40`} value={selectedContact.comment ?? ''} onChange={(e) => updateContact(selection.branchId, selection.elementId, { comment: e.target.value })} /></label>
-          {selectedTagName && <span className="ladder-property-tag">Tag: {selectedTagName}</span>}
-          <button className={`${smallBtn} !text-state-error`} onClick={() => removeElement(selection.branchId, selection.elementId)}><IconDelete size={10} /> remover</button>
-        </div>
-      )
-    }
-
-    if (selection.type === 'coil' && selectedCoil) {
-      return (
-        <div className="ladder-property-panel">
-          <strong><IconCoil size={13} /> Bobina</strong>
-          <label>Endereço <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={selectedCoil.address} onChange={(e) => updateCoil(selection.coilId, { address: e.target.value.toUpperCase() })} /></label>
-          <label>Tipo
-            <select className={tiny} value={selectedCoil.coilType} onChange={(e) => updateCoil(selection.coilId, { coilType: e.target.value as LadderCoilType })}>
-              <option value="COIL">COIL</option>
-              <option value="SET">SET</option>
-              <option value="RESET">RESET</option>
-            </select>
-          </label>
-          <label>Comentário <input className={`${tiny} !w-40`} value={selectedCoil.comment ?? ''} onChange={(e) => updateCoil(selection.coilId, { comment: e.target.value })} /></label>
-          {selectedTagName && <span className="ladder-property-tag">Tag: {selectedTagName}</span>}
-          <button className={`${smallBtn} !text-state-error`} onClick={() => removeCoil(selection.coilId)}><IconDelete size={10} /> remover</button>
-        </div>
-      )
-    }
-
-    if (selection.type === 'timer' && rung.timer) {
-      return (
-        <div className="ladder-property-panel">
-          <strong><IconTimer size={13} /> Temporizador</strong>
-          <label>Tipo
-            <select className={tiny} value={rung.timer.timerType} onChange={(e) => updateTimer({ timerType: e.target.value as NonNullable<LadderRung['timer']>['timerType'] })}>
-              <option value="TON">TON</option>
-              <option value="TOF">TOF</option>
-              <option value="TP">TP</option>
-              <option value="STAR_DELTA">Estrela-triângulo</option>
-            </select>
-          </label>
-          <label>Endereço <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={rung.timer.address} onChange={(e) => updateTimer({ address: e.target.value.toUpperCase() })} /></label>
-          <label>Preset <input type="number" className={`${tiny} !w-20`} value={rung.timer.presetMs} onChange={(e) => updateTimer({ presetMs: Number(e.target.value) })} /> ms</label>
-          {rung.timer.timerType === 'STAR_DELTA' && <label>Transição <input type="number" className={`${tiny} !w-16`} value={rung.timer.preset2Ms ?? 50} onChange={(e) => updateTimer({ preset2Ms: Number(e.target.value) })} /> ms</label>}
-          <button className={`${smallBtn} !text-state-error`} onClick={() => setTimer('none')}><IconDelete size={10} /> remover</button>
-        </div>
-      )
-    }
-
-    if (selection.type === 'counter' && rung.counter) {
-      return (
-        <div className="ladder-property-panel">
-          <strong><IconCounter size={13} /> Contador</strong>
-          <label>Tipo
-            <select className={tiny} value={rung.counter.counterType} onChange={(e) => updateCounter({ counterType: e.target.value as NonNullable<LadderRung['counter']>['counterType'] })}>
-              <option value="CTU">CTU</option>
-              <option value="CTD">CTD</option>
-            </select>
-          </label>
-          <label>Endereço <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.address} onChange={(e) => updateCounter({ address: e.target.value.toUpperCase() })} /></label>
-          <label>Preset <input type="number" className={`${tiny} !w-16`} value={rung.counter.preset} onChange={(e) => updateCounter({ preset: Number(e.target.value) })} /></label>
-          <label>Reset <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateCounter({ resetAddress: e.target.value.toUpperCase() })} /></label>
-          <button className={`${smallBtn} !text-state-error`} onClick={() => setCounter('none')}><IconDelete size={10} /> remover</button>
-        </div>
-      )
-    }
-
-    return (
-      <div className="ladder-property-panel">
-        <strong><IconPlus size={13} /> Adicionar</strong>
-        <label>Contato <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={newAddress} onChange={(e) => setNewAddress(e.target.value.toUpperCase())} /></label>
-        <select className={tiny} value={newType} onChange={(e) => setNewType(e.target.value as LadderContactType)}>
-          <option value="NO">NA</option>
-          <option value="NC">NF</option>
-          <option value="RISING">Subida</option>
-          <option value="FALLING">Descida</option>
-        </select>
-        <select className={tiny} value={branchIndex} onChange={(e) => setBranchIndex(Number(e.target.value))}>
-          {rung.branches.map((_, i) => <option key={i} value={i}>ramo {i + 1}</option>)}
-        </select>
-        <button className={smallBtn} onClick={addContact}><IconContact size={10} /> contato</button>
-        <button className={smallBtn} onClick={addBranch}><IconBranch size={10} /> ramo</button>
-        <span className="ladder-property-separator" />
-        <label>Bobina <input className={`${tiny} !w-16 font-mono`} list={TAG_DATALIST_ID} value={coilAddress} onChange={(e) => setCoilAddress(e.target.value.toUpperCase())} /></label>
-        <select className={tiny} value={coilType} onChange={(e) => setCoilType(e.target.value as LadderCoilType)}>
-          <option value="COIL">COIL</option>
-          <option value="SET">SET</option>
-          <option value="RESET">RESET</option>
-        </select>
-        <button className={smallBtn} onClick={addCoil}><IconCoil size={10} /> bobina</button>
-        <button className={smallBtn} onClick={() => setTimer(rung.timer?.timerType ?? 'TON')}><IconTimer size={10} /> timer</button>
-        <button className={smallBtn} onClick={() => setCounter(rung.counter?.counterType ?? 'CTU')}><IconCounter size={10} /> contador</button>
-      </div>
-    )
-  })()
-
   return (
     <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''}`}>
       {/* cabeçalho do rung */}
@@ -443,6 +334,34 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
             ))}
           </div>
 
+          {/* temporizador / contador — bloco compacto, parâmetros só no clique */}
+          {(rung.timer || rung.counter) && (
+            <div className="ladder-instruction-blocks">
+              {rung.timer && (
+                <BlockButton
+                  label={rung.timer.timerType}
+                  address={rung.timer.address}
+                  detail={rung.timer.timerType === 'STAR_DELTA' ? `${rung.timer.presetMs}/${rung.timer.preset2Ms ?? 50} ms` : `${rung.timer.presetMs} ms`}
+                  powered={!!table[rung.timer.address]}
+                  selected={selection?.type === 'timer'}
+                  onSelect={() => setSelection(selection?.type === 'timer' ? null : { type: 'timer' })}
+                  onRemove={() => setTimer('none')}
+                />
+              )}
+              {rung.counter && (
+                <BlockButton
+                  label={rung.counter.counterType}
+                  address={rung.counter.address}
+                  detail={`PV ${rung.counter.preset}`}
+                  powered={!!table[rung.counter.address]}
+                  selected={selection?.type === 'counter'}
+                  onSelect={() => setSelection(selection?.type === 'counter' ? null : { type: 'counter' })}
+                  onRemove={() => setCounter('none')}
+                />
+              )}
+            </div>
+          )}
+
           {/* saídas + barramento L− */}
           <div className="ladder-coil-bank">
             {rung.coils.map((c) => (
@@ -458,50 +377,47 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
         </div>
       </div>
 
-      {/* parâmetros */}
-      <div className="ladder-rung-params">
-        <span className="flex items-center gap-1 dc-chip !h-[18px]"><IconTimer size={9} /> Temp.</span>
-        <select className={tiny} value={rung.timer?.timerType ?? 'none'} onChange={(e) => setTimer(e.target.value as any)}>
-          <option value="none">—</option>
-          <option value="TON">TON</option>
-          <option value="TOF">TOF</option>
-          <option value="TP">TP</option>
-          <option value="STAR_DELTA">Estrela-Triângulo</option>
-        </select>
-        {rung.timer && (
-          <>
-            <input className={`${tiny} !w-12 font-mono`} list={TAG_DATALIST_ID} value={rung.timer.address} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, address: e.target.value.toUpperCase() } }))} />
-            <span>preset</span>
-            <input type="number" className={`${tiny} !w-16`} value={rung.timer.presetMs} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, presetMs: Number(e.target.value) } }))} />
-            <span>ms</span>
-            {rung.timer.timerType === 'STAR_DELTA' && (
-              <>
-                <span>transição</span>
-                <input type="number" className={`${tiny} !w-14`} value={rung.timer.preset2Ms ?? 50} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, preset2Ms: Number(e.target.value) } }))} />
-                <span>ms</span>
-              </>
-            )}
-          </>
-        )}
-
-        <span className="h-3 w-px bg-line" />
-
-        <span className="flex items-center gap-1 dc-chip !h-[18px]"><IconCounter size={9} /> Cont.</span>
-        <select className={tiny} value={rung.counter?.counterType ?? 'none'} onChange={(e) => setCounter(e.target.value as any)}>
-          <option value="none">—</option>
-          <option value="CTU">CTU (crescente)</option>
-          <option value="CTD">CTD (decrescente)</option>
-        </select>
-        {rung.counter && (
-          <>
-            <input className={`${tiny} !w-12 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.address} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, address: e.target.value.toUpperCase() } }))} />
-            <span>preset</span>
-            <input type="number" className={`${tiny} !w-14`} value={rung.counter.preset} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, preset: Number(e.target.value) } }))} />
-            <span>reset</span>
-            <input className={`${tiny} !w-12 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, resetAddress: e.target.value.toUpperCase() } }))} />
-          </>
-        )}
-      </div>
+      {/* painel contextual — só aparece ao clicar num bloco de temporizador/contador */}
+      {selection?.type === 'timer' && rung.timer && (
+        <div className="ladder-block-popover">
+          <div className="ladder-popover-head">
+            <strong><IconTimer size={12} /> Temporizador {rung.timer.address}</strong>
+            <button className="ladder-ghost-button" onClick={() => setSelection(null)} title="Fechar">×</button>
+          </div>
+          <label>Tipo
+            <select className={tiny} value={rung.timer.timerType} onChange={(e) => updateTimer({ timerType: e.target.value as NonNullable<LadderRung['timer']>['timerType'] })}>
+              <option value="TON">TON</option>
+              <option value="TOF">TOF</option>
+              <option value="TP">TP</option>
+              <option value="STAR_DELTA">Estrela-Triângulo</option>
+            </select>
+          </label>
+          <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.timer.address} onChange={(e) => updateTimer({ address: e.target.value.toUpperCase() })} /></label>
+          <label>Preset <input type="number" className={`${tiny} !w-20`} value={rung.timer.presetMs} onChange={(e) => updateTimer({ presetMs: Number(e.target.value) })} /> ms</label>
+          {rung.timer.timerType === 'STAR_DELTA' && (
+            <label>Transição <input type="number" className={`${tiny} !w-16`} value={rung.timer.preset2Ms ?? 50} onChange={(e) => updateTimer({ preset2Ms: Number(e.target.value) })} /> ms</label>
+          )}
+          <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => setTimer('none')}><IconDelete size={10} /> remover</button>
+        </div>
+      )}
+      {selection?.type === 'counter' && rung.counter && (
+        <div className="ladder-block-popover">
+          <div className="ladder-popover-head">
+            <strong><IconCounter size={12} /> Contador {rung.counter.address}</strong>
+            <button className="ladder-ghost-button" onClick={() => setSelection(null)} title="Fechar">×</button>
+          </div>
+          <label>Tipo
+            <select className={tiny} value={rung.counter.counterType} onChange={(e) => updateCounter({ counterType: e.target.value as NonNullable<LadderRung['counter']>['counterType'] })}>
+              <option value="CTU">CTU (crescente)</option>
+              <option value="CTD">CTD (decrescente)</option>
+            </select>
+          </label>
+          <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.address} onChange={(e) => updateCounter({ address: e.target.value.toUpperCase() })} /></label>
+          <label>Preset <input type="number" className={`${tiny} !w-16`} value={rung.counter.preset} onChange={(e) => updateCounter({ preset: Number(e.target.value) })} /></label>
+          <label>Reset <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateCounter({ resetAddress: e.target.value.toUpperCase() })} /></label>
+          <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => setCounter('none')}><IconDelete size={10} /> remover</button>
+        </div>
+      )}
 
       {/* inserção */}
       <div className="ladder-insert-bar">
@@ -527,6 +443,9 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
           <option value="RESET">RESET</option>
         </select>
         <button className={smallBtn} onClick={addCoil}><IconCoil size={10} /> bobina</button>
+        <span className="h-3 w-px bg-line" />
+        <button className={smallBtn} onClick={() => setTimer(rung.timer?.timerType ?? 'TON')}><IconTimer size={10} /> {rung.timer ? 'editar temp.' : 'temporizador'}</button>
+        <button className={smallBtn} onClick={() => setCounter(rung.counter?.counterType ?? 'CTU')}><IconCounter size={10} /> {rung.counter ? 'editar cont.' : 'contador'}</button>
       </div>
     </div>
   )

@@ -844,20 +844,63 @@ input[type='color'] {
     border-color: #94b6fa;
     box-shadow: 0 0 0 2px #dbe6ff;
   }
-  .ladder-rung-params,
   .ladder-insert-bar {
     display: flex;
     align-items: center;
     gap: 7px;
     flex-wrap: wrap;
-    padding: 0 12px 8px;
     color: #64748b;
     font-size: 10px;
-  }
-  .ladder-insert-bar {
     padding: 7px 12px;
     border-top: 1px solid #e2e8f0;
     background: #f8fafc;
+  }
+  /* -------------------------------------- blocos de instrução (timer/contador) */
+  .ladder-instruction-blocks {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 10px;
+    border-left: 1px dashed #d9e0ea;
+  }
+  /* painel contextual — só surge quando um bloco de timer/contador é clicado */
+  .ladder-block-popover {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 9px;
+    margin: 0 12px 10px;
+    padding: 9px 11px;
+    border: 1px solid var(--ladder-blue-line);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(38,85,229,.12), 0 1px 2px rgba(31,43,74,.06);
+    color: #45536b;
+    font-size: 10px;
+    animation: ladder-popover-in .12s ease-out;
+  }
+  @keyframes ladder-popover-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .ladder-block-popover label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .ladder-popover-head {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .ladder-popover-head strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--ladder-blue-dark);
+    font-size: 11px;
   }
   .ladder-networks {
     flex: 1 1 auto;
