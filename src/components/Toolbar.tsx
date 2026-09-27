@@ -343,7 +343,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
                 <ConductorIcon flexible size={30} color={wireDefaults.flexibility === 'flexible' ? '#fff' : '#475569'} />
                 <span className="hidden xl:inline">Flexível</span>
               </button>
-              <button className={`${segBtn(wireDefaults.flexibility === 'rigid')} !px-1.5`} onClick={() => setWireDefaults({ flexibility: 'rigid' })} title="Condutor rígido (fio sólido) — dobras a 90°">
+              <button className={`${segBtn(wireDefaults.flexibility === 'rigid')} !px-1.5`} onClick={() => setWireDefaults({ flexibility: 'rigid' })} title="Condutor rígido (fio sólido) — troços ortogonais com cantos arredondados">
                 <ConductorIcon flexible={false} size={30} color={wireDefaults.flexibility === 'rigid' ? '#fff' : '#475569'} />
                 <span className="hidden xl:inline">Rígido</span>
               </button>

@@ -11,9 +11,36 @@ const CANVAS_H = 1400
 
 type Pt = { x: number; y: number }
 
-/** Polilinha com cantos retos (condutor rígido — fio sólido). */
+/** Segmentos retos para a ligação direta (sem cotovelos). */
 function sharpPath(pts: Pt[]) {
   return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ')
+}
+
+/**
+ * Raio visual dos cotovelos ortogonais. Limita-se a metade de cada segmento
+ * adjacente para nunca ultrapassar um borne ou um ponto de controlo próximo.
+ */
+const WIRE_CORNER_RADIUS = 12
+
+function roundedPath(pts: Pt[], radius = WIRE_CORNER_RADIUS) {
+  // Segmentos de comprimento zero podem aparecer quando os bornes estão alinhados.
+  const unique = pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 0.01)
+  if (unique.length <= 2) return sharpPath(unique)
+  let d = `M ${unique[0].x},${unique[0].y}`
+  for (let i = 1; i < unique.length - 1; i++) {
+    const prev = unique[i - 1], p = unique[i], next = unique[i + 1]
+    const d1 = Math.hypot(p.x - prev.x, p.y - prev.y)
+    const d2 = Math.hypot(next.x - p.x, next.y - p.y)
+    const cross = (p.x - prev.x) * (next.y - p.y) - (p.y - prev.y) * (next.x - p.x)
+    // Pontos colineares não são curvas: evita um desvio desnecessário.
+    if (Math.abs(cross) < 0.001 * d1 * d2) { d += ` L ${p.x},${p.y}`; continue }
+    const r = Math.min(radius, d1 / 2, d2 / 2)
+    const enter = { x: p.x - (p.x - prev.x) * r / d1, y: p.y - (p.y - prev.y) * r / d1 }
+    const leave = { x: p.x + (next.x - p.x) * r / d2, y: p.y + (next.y - p.y) * r / d2 }
+    d += ` L ${enter.x},${enter.y} Q ${p.x},${p.y} ${leave.x},${leave.y}`
+  }
+  const last = unique[unique.length - 1]
+  return d + ` L ${last.x},${last.y}`
 }
 
 /**
@@ -80,7 +107,7 @@ function splinePath(pts: Pt[]) {
  * terminais das pontas).
  *
  * Se o cabo tiver pontos de curva (waypoints, adicionados com duplo clique),
- * eles têm prioridade: condutor rígido → segmentos retos com dobras a 90°;
+ * eles têm prioridade: condutor rígido → segmentos ortogonais com cotovelos arredondados;
  * condutor flexível → curva suave que passa por todos os pontos.
  */
 function wireGeometry(a: Pt, b: Pt, route: string, bend: number, curveOffset: number, waypoints: Pt[] | undefined, flexible: boolean) {
@@ -89,7 +116,7 @@ function wireGeometry(a: Pt, b: Pt, route: string, bend: number, curveOffset: nu
     const raw = [a, ...waypoints, b]
     if (flexible) return { d: splinePath(raw), handle: noHandle, pts: raw }
     const pts = orthoPts(raw)
-    return { d: sharpPath(pts), handle: noHandle, pts }
+    return { d: roundedPath(pts), handle: noHandle, pts }
   }
   if (route === 'direct') {
     return { d: `M ${a.x},${a.y} L ${b.x},${b.y}`, handle: noHandle, pts: [a, b] }
@@ -116,8 +143,8 @@ function wireGeometry(a: Pt, b: Pt, route: string, bend: number, curveOffset: nu
     route === 'orthogonal'
       ? { x: mx, y: (a.y + b.y) / 2, mode: 'bend' as const }
       : { x: (a.x + b.x) / 2, y: my, mode: 'bend' as const }
-  // flexível: cantos suavemente arredondados · rígido: dobras vivas a 90°
-  return { d: flexible ? smoothPath(pts, 18) : sharpPath(pts), handle, pts }
+  // flexível: curva mais larga · rígido: troços ortogonais com raio discreto
+  return { d: flexible ? smoothPath(pts, 18) : roundedPath(pts), handle, pts }
 }
 
 /** Direção unitária (terminal → interior do cabo) a partir da lista de pontos. */
@@ -1048,7 +1075,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
             <div>duplo clique num ponto de curva = remover · duplo no borne = alternar</div>
             <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>
             <div>ferramenta Cabo: clique no vazio = ponta livre · botão direito ou Esc cancela</div>
-            <div>rígido = dobras a 90° pelos pontos · flexível = curva suave · arraste os pontos</div>
+            <div>rígido = troços ortogonais com cantos arredondados · flexível = curva suave · arraste os pontos</div>
             <div>Ctrl+] avança · Ctrl+[ recua · Ctrl+Shift+]/[ frente/trás</div>
             <div>R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>
           </div>

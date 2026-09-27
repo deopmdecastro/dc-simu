@@ -470,7 +470,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 <div className="col-span-2">
                   <label className={label}>Condutor</label>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {([['flexible', 'Flexível', 'multifilar · curvas suaves'], ['rigid', 'Rígido', 'fio sólido · dobras a 90°']] as const).map(([id, name, hint]) => (
+                    {([['flexible', 'Flexível', 'multifilar · curvas suaves'], ['rigid', 'Rígido', 'fio sólido · cantos arredondados']] as const).map(([id, name, hint]) => (
                       <button
                         key={id}
                         onClick={() => {
