@@ -16,7 +16,8 @@ import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
 
-const SIZE = 96
+// Renderizar a 128 px preserva a nitidez das miniaturas de 44 px em ecrãs HiDPI.
+const SIZE = 128
 
 const CASING = '#d7dbe0'
 const CASING_DARK = '#2b2e34'

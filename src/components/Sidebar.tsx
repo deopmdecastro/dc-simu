@@ -179,50 +179,44 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   {!isCollapsed && (
                     <div className="flex flex-col gap-0.5">
                     {g.items.map((it) => (
-                      <button
-                        key={it.type}
-                        onClick={() => add(it.type)}
-                        onDoubleClick={() => addImmediate(it.type)}
-                        draggable
-                        onDragStart={(e) => {
-                          const st = useSimStore.getState()
-                          st.setPlacingType(null)
-                          st.setDragType(it.type)
-                          e.dataTransfer.setData('application/x-dcsimu-component', it.type)
-                          e.dataTransfer.setData('text/plain', it.type)
-                          e.dataTransfer.effectAllowed = 'copy'
-                          // etiqueta compacta a seguir o cursor; no esquema aparece o fantasma real
-                          const chip = document.createElement('div')
-                          chip.textContent = `+ ${it.name}`
-                          chip.style.cssText = 'position:fixed;top:-100px;left:-100px;padding:3px 8px;border-radius:999px;background:#2655e5;color:#fff;font:600 11px Inter,system-ui,sans-serif;white-space:nowrap'
-                          document.body.appendChild(chip)
-                          e.dataTransfer.setDragImage(chip, -12, -12)
-                          window.setTimeout(() => chip.remove(), 0)
-                        }}
-                        onDragEnd={() => useSimStore.getState().setDragType(null)}
-                           className={`group text-left px-2 py-1.5 rounded-[5px] border transition-colors cursor-grab active:cursor-grabbing ${
-                             placingType === it.type
-                               ? 'border-brand-400 bg-brand-50 shadow-xs ring-1 ring-brand-200'
-                               : 'border-transparent hover:border-line hover:bg-brand-50 hover:shadow-xs active:bg-brand-100/70'
-                           }`}
-                           title={`${it.name} — clique ou arraste: o componente segue o cursor (pré-visualização) e é largado onde soltar/clicar`}
-                           aria-label={`Adicionar ${it.name}. Clique para posicionar com o mouse ou arraste para o esquema.`}
-                      >
-                          <span className="flex items-center gap-2">
-                            <ComponentThumb type={it.type} size={26} />
-                            <span className="min-w-0 flex-1">
-                              <span className="flex items-center justify-between gap-2">
-                                <span className="text-xs font-medium text-ink-900">{it.name}</span>
-                                <span className="flex items-center gap-1">
-                                  <span role="button" tabIndex={0} aria-label={`${favorites.includes(it.type) ? 'Remover' : 'Adicionar'} ${it.name} ${favorites.includes(it.type) ? 'dos' : 'aos'} favoritos`} title="Favorito" className={`text-[15px] ${favorites.includes(it.type) ? 'text-amber-500' : 'text-ink-300'}`} onClick={(e) => { e.stopPropagation(); toggleFavorite(it.type) }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggleFavorite(it.type) } }}>{favorites.includes(it.type) ? '★' : '☆'}</span>
-                                  <IconPlus size={11} className="shrink-0 text-ink-300 group-hover:text-brand-600" />
-                                </span>
-                              </span>
-                              <span className="block text-[9px] text-ink-400 font-mono">{it.type}</span>
-                            </span>
-                          </span>
+                      <div key={it.type} className={`dc-library-item ${placingType === it.type ? 'is-placing' : ''}`}>
+                        <button
+                          type="button"
+                          className="dc-library-item-main"
+                          onClick={() => add(it.type)}
+                          onDoubleClick={() => addImmediate(it.type)}
+                          draggable
+                          onDragStart={(e) => {
+                            const st = useSimStore.getState()
+                            st.setPlacingType(null)
+                            st.setDragType(it.type)
+                            e.dataTransfer.setData('application/x-dcsimu-component', it.type)
+                            e.dataTransfer.setData('text/plain', it.type)
+                            e.dataTransfer.effectAllowed = 'copy'
+                            const chip = document.createElement('div')
+                            chip.textContent = `+ ${it.name}`
+                            chip.style.cssText = 'position:fixed;top:-100px;left:-100px;padding:3px 8px;border-radius:999px;background:#2655e5;color:#fff;font:600 11px Inter,system-ui,sans-serif;white-space:nowrap'
+                            document.body.appendChild(chip)
+                            e.dataTransfer.setDragImage(chip, -12, -12)
+                            window.setTimeout(() => chip.remove(), 0)
+                          }}
+                          onDragEnd={() => useSimStore.getState().setDragType(null)}
+                          title={`${it.name} — clique para posicionar · arraste para o esquema · duplo clique para inserir imediatamente`}
+                          aria-label={`Posicionar ${it.name} no esquema`}
+                        >
+                          <span className="dc-library-thumb"><ComponentThumb type={it.type} size={44} /></span>
+                          <span className="dc-library-item-info"><strong>{it.name}</strong><small>{it.type}</small></span>
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          className={`dc-library-favorite ${favorites.includes(it.type) ? 'is-favorite' : ''}`}
+                          onClick={() => toggleFavorite(it.type)}
+                          aria-pressed={favorites.includes(it.type)}
+                          aria-label={`${favorites.includes(it.type) ? 'Remover' : 'Adicionar'} ${it.name} ${favorites.includes(it.type) ? 'dos' : 'aos'} favoritos`}
+                          title={favorites.includes(it.type) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                        >{favorites.includes(it.type) ? '★' : '☆'}</button>
+                      </div>
+                    ))}
                     </div>
                   )}
                 </div>
