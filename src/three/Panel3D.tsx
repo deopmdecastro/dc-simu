@@ -4,7 +4,7 @@ import { useRef, useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { terminalPos } from '../schematic/symbols'
 import { IconHelp } from '../ui/icons'
-import type { ElectricalComponent } from '../types'
+import type { ElectricalComponent, ComponentType } from '../types'
 import * as THREE from 'three'
 
 const SLOT_WIDTH = 0.72
@@ -344,6 +344,8 @@ export default function Panel3D() {
   const components = useSimStore((s) => s.components)
   const pressButton = useSimStore((s) => s.pressButton)
   const setComponentState = useSimStore((s) => s.setComponentState)
+  const addComponent = useSimStore((s) => s.addComponent)
+  const selectComponents = useSimStore((s) => s.selectComponents)
 
   const [showHints, setShowHints] = useState(() => {
     try {
@@ -392,8 +394,21 @@ export default function Panel3D() {
 
   const motor = components.find((c) => c.type === 'motor3ph')
 
-  return (
-    <div className="w-full h-full bg-gradient-to-b from-[#e6ebf3] via-[#f3f5f9] to-[#ccd5e2]">
+   return (
+     <div
+       className="w-full h-full bg-gradient-to-b from-[#e6ebf3] via-[#f3f5f9] to-[#ccd5e2]"
+       onDragOver={(e) => {
+         e.preventDefault()
+         e.dataTransfer.dropEffect = 'copy'
+       }}
+       onDrop={(e) => {
+         e.preventDefault()
+         const compType = e.dataTransfer.getData('text/plain') as ComponentType
+         if (!compType) return
+         selectComponents([])
+         addComponent(compType, 0, 0)
+       }}
+     >
       <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
@@ -430,9 +445,9 @@ export default function Panel3D() {
 
         <Html
           transform={false}
-          style={{ position: 'absolute', left: '10px', bottom: '10px', pointerEvents: 'auto', zIndex: 10 }}
+          style={{ pointerEvents: 'auto', zIndex: 10 }}
         >
-          <div className="flex flex-col items-start gap-1.5">
+          <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5">
             {showHints && (
               <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
                 <div>arraste = mover · scroll = aproximar/afastar</div>

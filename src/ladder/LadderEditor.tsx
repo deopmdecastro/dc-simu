@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
-import type { LadderContact, LadderRung, LadderContactType, LadderCoilType, LadderCoilEl } from '../types'
+import type { LadderContact, LadderRung, LadderContactType, LadderCoilType, LadderCoilEl, ComponentType } from '../types'
 import {
   IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder, IconCompare, IconMath, IconMove,
@@ -671,6 +671,7 @@ function BlackBoxState({ compact = false }: { compact?: boolean }) {
 function CompactLadderEditor() {
   const rungs = useSimStore((s) => s.ladder.rungs)
   const addRung = useSimStore((s) => s.addRung)
+  const updateRung = useSimStore((s) => s.updateRung)
   const table = useSimStore((s) => s.runtime.table)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
@@ -679,8 +680,34 @@ function CompactLadderEditor() {
   const setGrid = useSimStore((s) => s.setGrid)
   const [tab, setTab] = useState<LadderTab>('program')
   const [ladderZoom, setLadderZoom] = useState(1)
+  const [dragOver, setDragOver] = useState(false)
   const counts = programCounts(rungs)
   const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
+
+  const quickAdd = (kind: PaletteKind) => {
+    const rungId = rungs.length ? rungs[0].id : addRung()
+    updateRung(rungId, (r) => {
+      if (kind === 'NO' || kind === 'NC' || kind === 'RISING' || kind === 'FALLING') {
+        const branch = r.branches[0] ?? { id: `${r.id}-b0`, elements: [] }
+        const branches = r.branches.length ? r.branches : [branch]
+        return {
+          ...r,
+          branches: branches.map((b, index) => index === 0 ? { ...b, elements: [...b.elements, { kind: 'contact', id: `${r.id}-q${Date.now()}`, address: 'I1', contactType: kind }] } : b),
+        }
+      }
+      if (kind === 'COIL' || kind === 'SET' || kind === 'RESET') {
+        return { ...r, coils: [...r.coils, { kind: 'coil', id: `${r.id}-q${Date.now()}`, address: 'Q1', coilType: kind }] }
+      }
+      if (kind === 'TON' || kind === 'TOF' || kind === 'TP') {
+        return { ...r, timer: { kind: 'timer', id: r.timer?.id ?? `${r.id}-timer`, address: r.timer?.address ?? 'T1', timerType: kind, presetMs: r.timer?.presetMs ?? 3000, preset2Ms: r.timer?.preset2Ms ?? 50 } }
+      }
+      if (kind === 'CTU' || kind === 'CTD') {
+        return { ...r, counter: { kind: 'counter', id: r.counter?.id ?? `${r.id}-counter`, address: r.counter?.address ?? 'C1', counterType: kind, preset: r.counter?.preset ?? 5, resetAddress: r.counter?.resetAddress ?? 'M9' } }
+      }
+      return { ...r, comment: `${kind} disponível no editor` }
+    })
+    setTab('program')
+  }
 
   const bits = (p: string) =>
     Object.keys(table)
@@ -726,8 +753,18 @@ function CompactLadderEditor() {
         <BlackBoxState compact />
       ) : (
         <div
-          className={`compact-ladder-canvas ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'}`}
+          className={`compact-ladder-canvas ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'} drop-zone ${dragOver ? 'drag-over' : ''}`}
           style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
+          onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
+          onDragEnter={() => setDragOver(true)}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragOver(false)
+            const compType = e.dataTransfer.getData('text/plain') as ComponentType
+            const kind = COMPONENT_TO_LADDER[compType]
+            if (kind) quickAdd(kind)
+          }}
         >
           <div className="compact-ladder-summary">
             <LadderMetric label="Networks" value={rungs.length} />
@@ -763,6 +800,15 @@ function CompactLadderEditor() {
 }
 
 type PaletteKind = LadderContactType | LadderCoilType | 'TON' | 'TOF' | 'TP' | 'CTU' | 'CTD' | 'MOVE' | 'COMPARE' | 'ADD' | 'SUB'
+
+const COMPONENT_TO_LADDER: Partial<Record<ComponentType, PaletteKind>> = {
+  buttonNO: 'NO', buttonNC: 'NC', selector2: 'NO', selector3: 'NO', keySwitch: 'NO',
+  footSwitch: 'NO', emergencyButton: 'NO', limitSwitch: 'NO', proximitySensor: 'NO',
+  photoSensor: 'NO', pressureSwitch: 'NO', floatSwitch: 'NO', thermostat: 'NO',
+  motor1ph: 'COIL', motor3ph: 'COIL', contactor: 'COIL',
+  auxRelay: 'COIL', timerRelayTON: 'TON', timerRelayTOF: 'TOF', timerRelayStarDelta: 'TON',
+  counterRelay: 'CTU', safetyRelay: 'COIL',
+}
 
 const PALETTE_GROUPS: Array<{
   title: string
@@ -1088,6 +1134,7 @@ function FullLadderEditor() {
   const [showPalette, setShowPalette] = useState(true)
   const [activeProjectNode, setActiveProjectNode] = useState<ProjectNodeId>('main')
   const [expandedNodes, setExpandedNodes] = useState<Set<ProjectNodeId>>(() => new Set(['plc', 'programBlocks']))
+  const [dragOver, setDragOver] = useState(false)
 
   const activeId = activeRungId && rungs.some((r) => r.id === activeRungId) ? activeRungId : rungs[0]?.id
   const counts = programCounts(rungs)
@@ -1212,10 +1259,20 @@ function FullLadderEditor() {
           <FunctionBlockView id={activeProjectNode as Extract<ProjectNodeId, 'fc1' | 'fc2'>} />
         ) : !isMainOpen ? (
           <ProjectDataView activeNode={activeProjectNode} table={table} />
-        ) : (
+          ) : (
           <div
-            className={`ladder-networks ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'}`}
+            className={`ladder-networks ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'} drop-zone ${dragOver ? 'drag-over' : ''}`}
             style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
+            onDragEnter={() => setDragOver(true)}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragOver(false)
+              const compType = e.dataTransfer.getData('text/plain') as ComponentType
+              const kind = COMPONENT_TO_LADDER[compType]
+              if (kind) quickAdd(kind)
+            }}
           >
             <div className="ladder-networks-scale" style={{ zoom: ladderZoom }}>
               {rungs.map((r, i) => (
