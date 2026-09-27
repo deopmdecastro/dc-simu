@@ -16,6 +16,12 @@ body {
   overscroll-behavior: none;
 }
 
+body.is-resizing,
+body.is-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 /* impede seleção de texto ao arrastar componentes no editor */
 svg text {
   user-select: none;
@@ -171,6 +177,33 @@ input[type='color'] {
   }
   .dc-panel-title {
     @apply text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-400;
+  }
+
+  .toolbar-section-label {
+    @apply shrink-0 text-[9px] font-bold uppercase tracking-[0.08em] text-ink-400;
+  }
+
+  .toolbar-scroll {
+    scrollbar-width: thin;
+  }
+
+  .dc-resize-handle {
+    @apply relative z-20 shrink-0 w-1 cursor-col-resize bg-transparent transition-colors;
+  }
+  .dc-resize-handle::after {
+    content: '';
+    @apply absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-line;
+  }
+  .dc-resize-handle:hover,
+  .dc-resize-handle:active {
+    @apply bg-brand-100;
+  }
+  .dc-resize-handle:hover::after,
+  .dc-resize-handle:active::after {
+    @apply bg-brand-500;
+  }
+  .dc-resize-handle-left {
+    @apply order-2;
   }
 
   /* foco visível consistente para navegação por teclado */

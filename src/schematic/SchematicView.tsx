@@ -363,7 +363,7 @@ export default function SchematicView() {
     const b = terminalIndex.get(w.toTerminalId)
     if (!a || !b) return null
     const base = WIRE_COLORS[w.color] ?? '#94a3b8'
-    const col = w.energized ? '#f59e0b' : base
+    const col = base
     const selected = selectedWireId === w.id
     const { d, handle } = wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0)
     const width = w.gauge.startsWith('0.') ? 1.2 : w.gauge.startsWith('1') ? 1.6 : w.gauge.startsWith('2.5') ? 2.2 : 2.8
@@ -376,14 +376,42 @@ export default function SchematicView() {
           stroke={col}
           strokeWidth={w.energized ? width + 1 : width}
           strokeDasharray={w.flexibility === 'flexible' ? undefined : '6 3'}
-          opacity={w.energized ? 1 : 0.72}
+          opacity={w.energized ? 1 : 0.82}
           strokeLinecap="round"
           onMouseDown={(e) => {
             e.stopPropagation()
             selectWire(w.id)
           }}
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            const point = toCanvas(e.clientX, e.clientY)
+            const dx = b.x - a.x
+            const dy = b.y - a.y
+            const lenSq = dx * dx + dy * dy || 1
+            const t = Math.max(0.08, Math.min(0.92, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lenSq))
+            const len = Math.sqrt(lenSq)
+            const nx = -dy / len
+            const ny = dx / len
+            const px = a.x + dx * t
+            const py = a.y + dy * t
+            const offset = (point.x - px) * nx + (point.y - py) * ny
+            commitHistory()
+            updateWire(w.id, { route: 'arc', bend: t, curveOffset: Math.round(offset) })
+            selectWire(w.id)
+          }}
           style={{ cursor: 'pointer' }}
         />
+        {w.energized && (
+          <path
+            d={d}
+            fill="none"
+            stroke="#f59e0b"
+            strokeWidth={width + 4}
+            opacity={0.18}
+            strokeLinecap="round"
+            pointerEvents="none"
+          />
+        )}
         <circle cx={a.x} cy={a.y} r={2.5} fill={col} />
         <circle cx={b.x} cy={b.y} r={2.5} fill={col} />
         {selected && handle && (

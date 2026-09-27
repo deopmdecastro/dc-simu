@@ -60,7 +60,7 @@ function LayerButtons() {
  * Painel esquerdo: biblioteca de componentes (clique adiciona ao esquema) e
  * inspetor completo do que está selecionado (componente, borne ou cabo).
  */
-export default function Sidebar() {
+export default function Sidebar({ width = 300 }: { width?: number }) {
   const components = useSimStore((s) => s.components)
   const wires = useSimStore((s) => s.wires)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
@@ -87,6 +87,8 @@ export default function Sidebar() {
   const groups = useMemo(() => paletteGroups(), [])
   const selectedComponent = components.find((c) => c.id === selectedIds[0])
   const selectedWire = wires.find((w) => w.id === selectedWireId)
+  const wireFromTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.fromTerminalId) : undefined
+  const wireToTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.toTerminalId) : undefined
   const selectedTerminal = components.flatMap((c) => c.terminals).find((t) => t.id === selectedTerminalId)
   const terminalOwner = selectedTerminal ? components.find((c) => c.id === selectedTerminal.componentId) : undefined
 
@@ -106,7 +108,7 @@ export default function Sidebar() {
   }, [groups, filter])
 
   return (
-    <div className="w-[300px] shrink-0 border-r border-line bg-surface-panel flex flex-col h-full min-h-0">
+    <div className="shrink-0 border-r border-line bg-surface-panel flex flex-col h-full min-h-0" style={{ width }}>
       {/* abas */}
       <div className="flex items-end border-b border-line bg-surface-rail px-1 pt-1">
         <button onClick={() => setTab('library')} className={`dc-tab ${tab === 'library' ? 'dc-tab-active' : ''}`}>
@@ -159,8 +161,9 @@ export default function Sidebar() {
                           e.dataTransfer.effectAllowed = 'copy'
                         }}
                         onDragEnd={() => {}}
-                        className="group text-left px-2 py-1.5 rounded-[5px] border border-transparent hover:border-line hover:bg-brand-50 hover:shadow-xs active:bg-brand-100/70 transition-colors"
-                        title={`Adicionar ${it.name} ao esquema`}
+                           className="group text-left px-2 py-1.5 rounded-[5px] border border-transparent hover:border-line hover:bg-brand-50 hover:shadow-xs active:bg-brand-100/70 transition-colors cursor-grab active:cursor-grabbing"
+                           title={`Clique para adicionar ${it.name}; arraste para posicionar no esquema`}
+                           aria-label={`Adicionar ${it.name}. Também pode arrastar para o esquema.`}
                       >
                           <span className="flex items-center justify-between gap-2">
                             <span className="text-xs font-medium text-ink-900">{it.name}</span>
@@ -174,9 +177,9 @@ export default function Sidebar() {
                 </div>
               )
             })}
-            <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
-              Clique para inserir no esquema. Depois arraste, gire (R), duplique (D) ou apague (Del). Bornes também podem ser
-              adicionados e reconfigurados no Inspetor.
+             <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
+               Clique para inserir no centro da área de trabalho ou arraste o item até uma posição exata. Depois arraste, gire (R),
+               duplique (D) ou apague (Del). Bornes também podem ser adicionados e reconfigurados no Inspetor.
             </p>
           </div>
         </>
@@ -467,6 +470,38 @@ export default function Sidebar() {
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="dc-card p-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className={label + ' !mb-0'}>Terminais do cabo</label>
+                  <span className="text-[9px] text-ink-400">tipo físico</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="min-w-0">
+                    <span className="block text-[9px] text-ink-400 mb-1 truncate">Origem · {wireFromTerminal?.label ?? '—'}</span>
+                    <select
+                      className="dc-select"
+                      value={wireFromTerminal?.terminalType ?? 'screw'}
+                      disabled={!wireFromTerminal}
+                      onChange={(e) => wireFromTerminal && useSimStore.getState().updateTerminal(wireFromTerminal.id, { terminalType: e.target.value as TerminalType })}
+                    >
+                      {Object.entries(TERMINAL_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </label>
+                  <label className="min-w-0">
+                    <span className="block text-[9px] text-ink-400 mb-1 truncate">Destino · {wireToTerminal?.label ?? '—'}</span>
+                    <select
+                      className="dc-select"
+                      value={wireToTerminal?.terminalType ?? 'screw'}
+                      disabled={!wireToTerminal}
+                      onChange={(e) => wireToTerminal && useSimStore.getState().updateTerminal(wireToTerminal.id, { terminalType: e.target.value as TerminalType })}
+                    >
+                      {Object.entries(TERMINAL_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <p className="text-[10px] text-ink-400 leading-relaxed">O terminal pertence ao borne da ponta selecionada e fica visível no esquema.</p>
               </div>
 
               <label className="flex items-center gap-2">

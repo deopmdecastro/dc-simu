@@ -157,8 +157,9 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
       </div>
 
       {/* ================================================== linha 2 — ferramentas */}
-      <div className="flex items-center gap-1.5 px-3 pb-1.5 flex-wrap">
+      <div className="flex items-center gap-1.5 px-3 pb-1.5 overflow-x-auto flex-nowrap toolbar-scroll">
         {/* projeto / cenário */}
+        <span className="toolbar-section-label">Projeto</span>
         <select
           value={activeScenario}
           onChange={(e) => loadScenario(e.target.value)}
@@ -175,6 +176,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
         <div className="h-5 w-px bg-line" />
 
         {/* ferramentas de edição */}
+        <span className="toolbar-section-label">Edição</span>
         <div className="dc-seg" role="toolbar" aria-label="Ferramentas de edição">
           {TOOLS.map((t) => {
             const Icon = t.icon
@@ -246,6 +248,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
         <div className="h-5 w-px bg-line" />
 
         {/* simulação */}
+        <span className="toolbar-section-label">Simulação</span>
         <div className="dc-seg" role="toolbar" aria-label="Controle de simulação">
           <button onClick={play} disabled={sim.runState === 'running'} className={`${segBtn(false)} !text-state-run`} title="Iniciar simulação">
             <IconPlay size={13} /> Iniciar
@@ -284,6 +287,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
         <div className="h-5 w-px bg-line" />
 
         {/* malha / zoom */}
+        <span className="toolbar-section-label">Vista</span>
         <button
           onClick={() => setGrid({ enabled: !grid.enabled })}
           className={`${btn} ${grid.enabled ? '!border-brand-300 !bg-brand-50 !text-brand-700' : ''}`}

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
 import type { LadderContact, LadderRung, LadderContactType, LadderCoilType } from '../types'
-import { IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy } from '../ui/icons'
+import { IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy, IconZoomIn, IconZoomOut } from '../ui/icons'
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -345,6 +345,7 @@ export default function LadderEditor() {
   const table = useSimStore((s) => s.runtime.table)
   const blackBox = useSimStore((s) => s.sim.blackBox)
   const [tab, setTab] = useState<LadderTab>('program')
+  const [ladderZoom, setLadderZoom] = useState(1)
 
   const bits = (p: string) =>
     Object.keys(table)
@@ -367,11 +368,12 @@ export default function LadderEditor() {
           {tabBtn('program', 'Programa')}
           {tabBtn('tags', 'Tabela de Tags')}
         </div>
-        {tab === 'program' && (
-          <button onClick={addRung} className="dc-btn-primary dc-btn !h-6 !text-[11px]">
-            <IconPlus size={11} /> Rung
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          {tab === 'program' && <span className="text-[9px] font-mono text-ink-400 mr-1">{Math.round(ladderZoom * 100)}%</span>}
+          {tab === 'program' && <button onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Reduzir escala do Ladder"><IconZoomOut size={11} /></button>}
+          {tab === 'program' && <button onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Aumentar escala do Ladder"><IconZoomIn size={11} /></button>}
+          {tab === 'program' && <button onClick={addRung} className="dc-btn-primary dc-btn !h-6 !text-[11px] ml-1"><IconPlus size={11} /> Rung</button>}
+        </div>
       </div>
 
       {tab === 'tags' ? (
@@ -384,18 +386,20 @@ export default function LadderEditor() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto p-2.5 min-h-0">
-          {rungs.map((r, i) => (
-            <RungRow key={r.id} rung={r} index={i} />
-          ))}
-          {rungs.length === 0 && (
-            <div className="text-center text-ink-400 text-xs mt-10">
-              Nenhum rung no programa.
-              <button onClick={addRung} className="dc-btn-primary dc-btn mx-auto mt-3">
-                <IconPlus size={11} /> Criar o primeiro rung
-              </button>
-            </div>
-          )}
+        <div className="flex-1 overflow-auto min-h-0 bg-[#f7f9fc]">
+          <div className="p-2.5 min-w-[520px]" style={{ zoom: ladderZoom }}>
+            {rungs.map((r, i) => (
+              <RungRow key={r.id} rung={r} index={i} />
+            ))}
+            {rungs.length === 0 && (
+              <div className="text-center text-ink-400 text-xs mt-10">
+                Nenhum rung no programa.
+                <button onClick={addRung} className="dc-btn-primary dc-btn mx-auto mt-3">
+                  <IconPlus size={11} /> Criar o primeiro rung
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

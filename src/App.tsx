@@ -13,6 +13,8 @@ const AUTOSAVE_INTERVAL_MS = 15_000
 export default function App() {
   const [mode, setMode] = useState<ViewMode>('schematic')
   const [showLadder, setShowLadder] = useState(true)
+  const [panelSizes, setPanelSizes] = useState({ sidebar: 300, ladder: 440 })
+  const [resizing, setResizing] = useState<{ target: 'sidebar' | 'ladder'; startX: number; startSize: number } | null>(null)
   const stop = useSimStore((s) => s.stop)
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const scanCount = useSimStore((s) => s.sim.scanCount)
@@ -20,6 +22,27 @@ export default function App() {
   const faults = useSimStore((s) => s.sim.faults)
   const currentProjectName = useSimStore((s) => s.currentProjectName)
   const dirty = useSimStore((s) => s.dirty)
+
+  useEffect(() => {
+    if (!resizing) return
+    const onMove = (e: PointerEvent) => {
+      const delta = e.clientX - resizing.startX
+      if (resizing.target === 'sidebar') {
+        setPanelSizes((current) => ({ ...current, sidebar: Math.min(460, Math.max(220, resizing.startSize + delta)) }))
+      } else {
+        setPanelSizes((current) => ({ ...current, ladder: Math.min(720, Math.max(320, resizing.startSize - delta)) }))
+      }
+    }
+    const onUp = () => setResizing(null)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    document.body.classList.add('is-resizing')
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      document.body.classList.remove('is-resizing')
+    }
+  }, [resizing])
 
   // ------------------------------------------------------------- arranque
   useEffect(() => {
@@ -77,7 +100,16 @@ export default function App() {
     <div className="h-screen w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
       <Toolbar mode={mode} setMode={setMode} />
       <div className="flex-1 flex min-h-0">
-        <Sidebar />
+        <Sidebar width={panelSizes.sidebar} />
+        <div
+          className="dc-resize-handle"
+          onPointerDown={(e) => {
+            e.preventDefault()
+            setResizing({ target: 'sidebar', startX: e.clientX, startSize: panelSizes.sidebar })
+          }}
+          title="Arraste para redimensionar a biblioteca"
+          aria-label="Redimensionar biblioteca"
+        />
         <div className="flex-1 min-w-0 flex flex-col">
           {mode === 'schematic' && <SchematicView />}
           {mode === 'panel3d' && <Panel3D />}
@@ -85,7 +117,8 @@ export default function App() {
         </div>
         {mode !== 'monitor' && (
           <div
-            className={`${showLadder ? 'w-[440px] min-w-[300px]' : 'w-9'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
+            className={`${showLadder ? 'min-w-[320px]' : 'w-9'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
+            style={showLadder ? { width: panelSizes.ladder } : undefined}
           >
             {showLadder ? (
               <>
@@ -108,6 +141,17 @@ export default function App() {
               </button>
             )}
           </div>
+        )}
+        {mode !== 'monitor' && showLadder && (
+          <div
+            className="dc-resize-handle dc-resize-handle-left"
+            onPointerDown={(e) => {
+              e.preventDefault()
+              setResizing({ target: 'ladder', startX: e.clientX, startSize: panelSizes.ladder })
+            }}
+            title="Arraste para redimensionar o editor Ladder"
+            aria-label="Redimensionar editor Ladder"
+          />
         )}
       </div>
 
