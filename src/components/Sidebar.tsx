@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../types'
@@ -77,6 +77,12 @@ export default function Sidebar() {
       return next
     })
   }
+
+  useEffect(() => {
+    if (selectedIds.length > 0 || selectedWireId || selectedTerminalId) {
+      setTab('inspector')
+    }
+  }, [selectedIds.length, selectedWireId, selectedTerminalId])
 
   const groups = useMemo(() => paletteGroups(), [])
   const selectedComponent = components.find((c) => c.id === selectedIds[0])
