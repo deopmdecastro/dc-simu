@@ -1,8 +1,9 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Text, Line } from '@react-three/drei'
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { terminalPos } from '../schematic/symbols'
+import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent } from '../types'
 import * as THREE from 'three'
 
@@ -344,6 +345,24 @@ export default function Panel3D() {
   const pressButton = useSimStore((s) => s.pressButton)
   const setComponentState = useSimStore((s) => s.setComponentState)
 
+  const [showHints, setShowHints] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dc-simu:showHints')
+      return saved === null ? true : saved === '1'
+    } catch {
+      return true
+    }
+  })
+  const toggleHints = () => {
+    setShowHints((v) => {
+      const next = !v
+      try {
+        localStorage.setItem('dc-simu:showHints', next ? '1' : '0')
+      } catch {}
+      return next
+    })
+  }
+
   const railTypes = ['breaker', 'motorBreaker', 'residualBreaker', 'fuse', 'surgeProtector', 'thermalRelay', 'contactor', 'auxRelay', 'timerRelay', 'timerRelayStarDelta', 'counterRelay', 'safetyRelay', 'plcLogo', 'plcCompact', 'plcSiemensLogo1224RC', 'vfd', 'softStarter', 'transformer', 'powerSupply', 'terminalBlock', 'terminalPE', 'busbarPhase', 'busbarNeutral', 'earthBar', 'fuseHolder', 'auxContactBlock']
 
   const { positions, railWidth } = useMemo(() => {
@@ -410,9 +429,21 @@ export default function Panel3D() {
         <OrbitControls minDistance={2} maxDistance={18} makeDefault />
       </Canvas>
 
-      <div className="absolute left-2 top-2 text-[11px] text-ink-500 bg-white/90 border border-line shadow-xs rounded-md px-2 py-1">
-        Arraste para girar · scroll para aproximar · clique em botoeiras e sensores para acionar
-      </div>
+       <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
+         {showHints && (
+           <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
+             <div>arraste = mover · scroll = aproximar/afastar</div>
+             <div>clique em botoeiras e sensores para acionar</div>
+           </div>
+         )}
+         <button
+           onClick={toggleHints}
+           className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
+           title={showHints ? 'Esconder dicas' : 'Mostrar dicas'}
+         >
+           <IconHelp size={13} />
+         </button>
+       </div>
     </div>
   )
 }
