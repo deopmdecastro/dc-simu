@@ -269,3 +269,7 @@ Durante o desenho de um fio, **Shift+clique no espaço vazio** acrescenta pontos
 A biblioteca do Esquema apresenta agora miniaturas maiores (44 px, renderizadas em 128 px para ecrãs de alta densidade), com cartões mais legíveis. O botão de favoritos é independente da ação de colocar/arrastar componentes, melhorando o uso com rato, toque e teclado.
 
 O estado do Esquema (ferramenta, malha, zoom e contagem de elementos) passou de três caixas sobrepostas a um HUD compacto. Ao recolher a Biblioteca, o HUD desloca-se para não tapar o botão que a reabre e reduz informação secundária em áreas estreitas.
+
+### Navegação e criação no editor GRAFCET
+
+Na página GRAFCET, o diagrama abre ampliado e centrado; pode ser deslocado por arraste e ampliado com a roda do rato ou com `−`/`+`. O botão «Ajustar» repõe a vista. «+ Etapa ligada» cria uma etapa e uma transição a partir da etapa selecionada (ou da última, se nenhuma estiver selecionada); «+ Etapa solta» cria uma etapa independente. Um projeto vazio oferece um exemplo de três etapas. As transições podem ser reordenadas com as setas para ajustar a prioridade de avaliação. Um retorno da etapa para ela mesma é desenhado como um circuito de retorno legível, em vez de cruzar a etapa.

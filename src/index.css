@@ -1807,3 +1807,29 @@ button:disabled { cursor:not-allowed; }
 .schematic-stage { container-type:inline-size; }
 @container (max-width:510px) { .schematic-hud span:last-child,.schematic-hud span:nth-last-child(2) { display:none; } }
 @container (max-width:330px) { .schematic-hud span[title^="Malha"],.schematic-hud span:nth-child(2) { display:none; } }
+
+/* Página de edição GRAFCET: canvas navegável, diagrama centrado e propriedades claras. */
+.grafcet-full .grafcet-header { padding:14px 24px; gap:18px; flex-wrap:wrap; background:#fff; box-shadow:0 2px 10px #1e293b0d; }
+.grafcet-full .grafcet-header strong { font-size:17px; }
+.grafcet-full .grafcet-header-actions { display:flex; flex-wrap:wrap; gap:7px; }
+.grafcet-full .grafcet-canvas { position:relative; overflow:hidden; padding:0; cursor:grab; touch-action:none; }
+.grafcet-full .grafcet-canvas:active { cursor:grabbing; }
+.grafcet-full .grafcet-pan-layer { position:absolute; left:0; top:0; transform-origin:top left; will-change:transform; }
+.grafcet-full .grafcet-pan-layer svg { width:760px; max-width:none; margin:0; }
+.grafcet-full .grafcet-properties { width:min(370px,35vw); padding:18px; gap:14px; }
+.grafcet-full .grafcet-viewport-tools { top:16px; right:16px; }
+.grafcet-full .grafcet-form { padding-top:14px; gap:14px; }
+.grafcet-full .grafcet-form h3 { font-size:13px; }
+.grafcet-full .grafcet-entity-list button { padding:10px; border:1px solid transparent; }
+.grafcet-full .grafcet-entity-list button.is-active { border-color:#93b4fa; }
+.grafcet-full .grafcet-empty { position:absolute; left:50%; top:45%; transform:translate(-50%,-50%); width:min(440px,90%); padding:36px; border:1px dashed #b7c9ea; background:#ffffffed; border-radius:14px; box-shadow:0 12px 35px #1e3a5f18; text-align:center; }
+.grafcet-full .grafcet-empty strong { display:block; color:#1d4ed8; font-size:17px; }
+.grafcet-full .grafcet-empty p { color:#64748b; margin:10px 0 18px; }
+@media(max-width:800px) { .grafcet-full .grafcet-properties { width:100%; max-height:45%; } }
+.grafcet-empty-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; }
+.grafcet-transition-row { display:flex; align-items:center; border:1px solid transparent; border-radius:6px; background:#f4f7fc; }
+.grafcet-transition-row.is-active { border-color:#93b4fa; background:#dbeafe; }
+.grafcet-transition-row > button:first-child { flex:1; min-width:0; text-align:left; padding:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.grafcet-transition-row > button:not(:first-child) { width:24px; height:28px; color:#2563eb; border-radius:4px; }
+.grafcet-transition-row > button:hover:not(:disabled) { background:#e0ebff; }
+.grafcet-transition-row > button:disabled { opacity:.3; }
