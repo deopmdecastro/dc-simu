@@ -230,6 +230,7 @@ function insertWaypoint(a: Pt, b: Pt, waypoints: Pt[], p: Pt): Pt[] {
 /** Editor de esquema completo: malha, arraste, seleção, cabos, bornes, sonda. */
 export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
   const components = useSimStore((s) => s.components)
+  const showEmptyWelcome = useSimStore((s) => s.showEmptyWelcome)
   const wires = useSimStore((s) => s.wires)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const selectedWireId = useSimStore((s) => s.selectedWireId)
@@ -933,7 +934,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         </div>
       )}
 
-      {components.length === 0 && wires.length === 0 && tool !== 'wire' && (
+      {showEmptyWelcome && components.length === 0 && wires.length === 0 && tool !== 'wire' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-[520px] max-w-[calc(100%-32px)] rounded-md border border-line bg-white/95 p-4 text-center shadow-md backdrop-blur-sm pointer-events-auto">
             <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-brand-200 bg-brand-50 text-brand-700">
@@ -941,8 +942,15 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
             </div>
             <h2 className="text-sm font-bold text-ink-900">Comece por um circuito real</h2>
             <p className="mx-auto mt-1 max-w-[390px] text-xs leading-relaxed text-ink-500">
-              Carregue um cenário industrial pronto ou solte os primeiros dispositivos no esquema.
+              Escolha um cenário de treino, adicione dispositivos ou abra um projeto totalmente vazio.
             </p>
+            <button className="dc-btn-primary dc-btn mx-auto mt-4 !h-9 !px-4" onClick={() => {
+              const st = useSimStore.getState()
+              if (st.dirty && !window.confirm('Criar um projeto vazio e descartar alterações não guardadas?')) return
+              st.newProject()
+              st.dismissEmptyWelcome()
+            }}>＋ Começar projeto novo vazio</button>
+            <div className="mt-3 text-[10px] uppercase tracking-wider text-ink-400">ou escolha um ponto de partida</div>
             <div className="mt-3 grid grid-cols-2 gap-1.5 text-left">
               {SCENARIOS.map((scenario) => (
                 <button

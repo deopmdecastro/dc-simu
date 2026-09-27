@@ -46,6 +46,8 @@ interface RuntimeExtras {
 
 interface Store extends CircuitState {
   runtime: RuntimeExtras
+  showEmptyWelcome: boolean
+  dismissEmptyWelcome: () => void
   grafcet: GrafcetProgram
   grafcetRuntime: GrafcetRuntime
   setGrafcet: (program: GrafcetProgram) => void
@@ -443,6 +445,8 @@ export const useSimStore = create<Store>((set, get) => ({
   panY: 0,
   dirty: false,
   runtime: EMPTY_RUNTIME(),
+  showEmptyWelcome: true,
+  dismissEmptyWelcome: () => set({ showEmptyWelcome: false }),
   fcBlocks: { fc1: [], fc2: [] },
   grafcet: emptyGrafcet(),
   grafcetRuntime: emptyGrafcetRuntime(),
@@ -462,6 +466,7 @@ export const useSimStore = create<Store>((set, get) => ({
     get().stop()
     set({
       components: scenario.components,
+      showEmptyWelcome: false,
       wires: scenario.wires,
       ladder: scenario.ladder,
       grafcet: emptyGrafcet(),
@@ -1155,6 +1160,7 @@ export const useSimStore = create<Store>((set, get) => ({
       get().stop()
       set({
         components: parsed.components ?? [],
+        showEmptyWelcome: false,
         wires: parsed.wires ?? [],
         ladder: parsed.ladder ?? { rungs: [] },
         fcBlocks: { fc1: parsed.fcBlocks?.fc1 ?? [], fc2: parsed.fcBlocks?.fc2 ?? [] },
@@ -1183,6 +1189,7 @@ export const useSimStore = create<Store>((set, get) => ({
     set({
       components: [],
       wires: [],
+      showEmptyWelcome: true,
       ladder: { rungs: [] },
       fcBlocks: { fc1: [], fc2: [] },
       grafcet: emptyGrafcet(),
