@@ -235,16 +235,6 @@ input[type='color'] {
     background: linear-gradient(180deg, #1f3388 0%, #2655e5 58%, #1e42d3 100%);
     color: #eaf0fe;
   }
-  .ladder-brand-mark {
-    padding: 2px 3px 15px;
-    color: #fff;
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: -0.04em;
-  }
-  .ladder-brand-mark span {
-    color: #c0d4fc;
-  }
   .ladder-nav-item {
     display: flex;
     flex-direction: column;

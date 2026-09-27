@@ -824,7 +824,6 @@ function PaletteIcon({ type }: { type: PaletteKind }) {
 function LadderNavRail() {
   return (
     <aside className="ladder-nav-rail">
-      <div className="ladder-brand-mark">DC<span>•</span></div>
       {[
         ['▣', 'Projeto', true],
         ['▤', 'Biblioteca', false],
