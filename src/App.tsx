@@ -6,7 +6,7 @@ import SchematicView from './schematic/SchematicView'
 import MonitorPanel from './components/MonitorPanel'
 import Panel3D from './three/Panel3D'
 import { useSimStore } from './store/useSimStore'
-import { getLastOpenedProjectName, listProjects, loadAutosave, saveAutosave } from './utils/persistence'
+import { saveAutosave } from './utils/persistence'
 
 const AUTOSAVE_INTERVAL_MS = 15_000
 
@@ -47,24 +47,9 @@ export default function App() {
   // ------------------------------------------------------------- arranque
   useEffect(() => {
     const st = useSimStore.getState()
-    const lastName = getLastOpenedProjectName()
-    const stillExists = lastName && listProjects().some((p) => p.name === lastName)
-    if (lastName && stillExists) {
-      st.loadProjectByName(lastName)
-    } else {
-      const auto = loadAutosave()
-      if (auto) {
-        st.loadJSON(auto.json)
-        st.pushEvent('info', `Projeto recuperado automaticamente (guardado ${new Date(auto.savedAt).toLocaleString('pt-PT')}).`)
-      } else {
-        st.loadScenario('direct-start')
-      }
-    }
-    // roda a simulação automaticamente: as botoeiras já respondem na hora
-    setTimeout(() => useSimStore.getState().play(), 60)
+    st.newProject()
     return () => stop()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    }, [])
 
   // ------------------------------------------------------------- autosave
   useEffect(() => {
