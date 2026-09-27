@@ -1859,3 +1859,31 @@ button:disabled { cursor:not-allowed; }
 .grafcet-canvas.is-palette-drop { outline:2px dashed #2563eb; outline-offset:-5px; background-color:#f0f6ff; }
 @media(max-width:1050px) { .grafcet-toolbox { flex-basis:195px; width:195px; } .grafcet-full .grafcet-properties { width:300px; } }
 @media(max-width:800px) { .grafcet-toolbox { width:100%; flex:0 0 auto; max-height:190px; border-right:0; border-bottom:1px solid #dce4ef; } .grafcet-toolbox-list { display:flex; overflow:auto; gap:14px; padding:0 10px; } .grafcet-toolbox-list section { flex:none; width:190px; margin:0; } .grafcet-toolbox-tip { display:none; } .grafcet-toolbox-restore { writing-mode:horizontal-tb; width:auto; padding:6px 12px; } }
+
+/* Biblioteca tipo galeria: pastas expansíveis, miniaturas e recentes reais. */
+.dc-library-scroll { scrollbar-width:thin; }
+.dc-library-section { padding:9px 0 13px; border-bottom:1px solid #e1e8f2; margin-bottom:12px; }
+.dc-library-section-title { display:flex; align-items:center; justify-content:space-between; padding:0 3px 7px; font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#69788f; }
+.dc-library-section-title span { font-weight:500; color:#94a3b8; }
+.dc-library-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(82px,1fr)); gap:5px; padding:7px 5px 10px; }
+.dc-library-recent { display:flex; gap:6px; overflow-x:auto; padding:2px 3px 8px; scrollbar-width:thin; }
+.dc-library-recent .dc-library-tile { flex:0 0 86px; }
+.dc-library-folder { border:1px solid #dfe7f2; border-radius:11px; background:#f8fafc; margin-bottom:8px; overflow:hidden; }
+.dc-library-folder-head { width:100%; display:flex; align-items:center; gap:8px; min-height:36px; padding:7px 10px; background:#eef2f8; text-align:left; }
+.dc-library-folder-head:hover { background:#e8effb; }
+.dc-library-folder-head strong { flex:1; text-transform:uppercase; font-size:10px; font-weight:750; letter-spacing:.045em; color:#25344c; }
+.dc-library-folder-icon { display:flex; color:#e39a13; }
+.dc-library-folder-count { font-size:10px; color:#64748b; }
+.dc-library-folder-chevron { color:#64748b; transition:transform .18s; }
+.dc-library-folder-chevron.is-open { transform:rotate(180deg); }
+.dc-library-tile { position:relative; min-width:0; border:1px solid transparent; border-radius:8px; transition:background .15s,border-color .15s,box-shadow .15s; }
+.dc-library-tile:hover,.dc-library-tile:focus-within { background:#fff; border-color:#c8d8f1; box-shadow:0 2px 7px #263d5917; }
+.dc-library-tile.is-placing { border-color:#7ba5f9; background:#e9f1ff; box-shadow:0 0 0 2px #cfe0ff; }
+.dc-library-tile-main { width:100%; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px; padding:5px 2px 4px; cursor:grab; }
+.dc-library-tile-main:active { cursor:grabbing; }
+.dc-library-tile-image { width:66px; height:66px; flex:none; display:grid; place-items:center; border:1px solid #dce5f2; border-radius:6px; background:white; }
+.dc-library-tile-image img { border:0; background:transparent; }
+.dc-library-tile-name { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:1px 2px; text-align:center; font-size:10px; line-height:1.3; color:#334155; }
+.dc-library-tile-favorite { position:absolute; top:3px; right:3px; width:21px; height:21px; display:grid; place-items:center; border-radius:4px; background:#ffffffd9; color:#94a3b8; font-size:14px; box-shadow:0 0 0 1px #dce5f2; }
+.dc-library-tile-favorite:hover { color:#b45309; background:#fff7ed; }
+.dc-library-tile-favorite.is-favorite { color:#f59e0b; }

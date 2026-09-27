@@ -7,35 +7,9 @@ import LabelLibrary from './LabelLibrary'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects } from '../ui/icons'
 
 const label = 'dc-field-label'
-
-/* Ícone representativo por categoria da biblioteca (mesma família de traço). */
-import {
-  IconShield, IconContact, IconCoil, IconTimer, IconCounter, IconBranch,
-  IconCube, IconMonitor, IconFile, IconWire, IconGrid,
-} from '../ui/icons'
-const GROUP_ICON: Record<string, (p: { size?: number; className?: string }) => JSX.Element> = {
-  protection: IconShield,
-  command: IconContact,
-  contactor: IconCoil,
-  relay: IconCoil,
-  controller: IconMonitor,
-  drive: IconToolsProxy,
-  motor: IconCube,
-  power: IconFile,
-  signaling: IconGrid,
-  sensor: IconProbeProxy,
-  terminal: IconBranch,
-}
-
-function IconToolsProxy(p: { size?: number; className?: string }) {
-  return <IconRotate {...p} />
-}
-function IconProbeProxy(p: { size?: number; className?: string }) {
-  return <IconTag {...p} />
-}
 
 /**
  * Controles de camada (ordem de empilhamento) — funcionam tanto para
@@ -59,6 +33,43 @@ function LayerButtons() {
   )
 }
 
+/** Cartão reutilizado nas categorias, favoritos e histórico recente. */
+function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavorite, onRecent }: {
+  type: ComponentType; name: string; favorite: boolean; placing: boolean
+  onPick: () => void; onQuickAdd: () => void; onFavorite: () => void; onRecent: () => void
+}) {
+  return <div className={`dc-library-tile ${placing ? 'is-placing' : ''}`}>
+    <button
+      type="button"
+      className="dc-library-tile-main"
+      title={`${name} — clique para posicionar · duplo clique para inserir · arraste para o esquema`}
+      aria-label={`Posicionar ${name} no esquema`}
+      onClick={() => { onRecent(); onPick() }}
+      onDoubleClick={() => { onRecent(); onQuickAdd() }}
+      draggable
+      onDragStart={(e) => {
+        const st = useSimStore.getState()
+        st.setPlacingType(null)
+        st.setDragType(type)
+        e.dataTransfer.setData('application/x-dcsimu-component', type)
+        e.dataTransfer.setData('text/plain', type)
+        e.dataTransfer.effectAllowed = 'copy'
+        const chip = document.createElement('div')
+        chip.textContent = `+ ${name}`
+        chip.style.cssText = 'position:fixed;top:-100px;left:-100px;padding:3px 8px;border-radius:999px;background:#2655e5;color:#fff;font:600 11px Inter,system-ui,sans-serif;white-space:nowrap'
+        document.body.appendChild(chip)
+        e.dataTransfer.setDragImage(chip, -12, -12)
+        window.setTimeout(() => chip.remove(), 0)
+      }}
+      onDragEnd={(e) => { if (e.dataTransfer.dropEffect !== 'none') onRecent(); useSimStore.getState().setDragType(null) }}
+    >
+      <span className="dc-library-tile-image"><ComponentThumb type={type} size={58} /></span>
+      <span className="dc-library-tile-name">{name}</span>
+    </button>
+    <button type="button" className={`dc-library-tile-favorite ${favorite ? 'is-favorite' : ''}`} onClick={onFavorite} aria-pressed={favorite} aria-label={`${favorite ? 'Remover' : 'Adicionar'} ${name} ${favorite ? 'dos' : 'aos'} favoritos`} title={favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}>{favorite ? '★' : '☆'}</button>
+  </div>
+}
+
 /**
  * Painel esquerdo: biblioteca de componentes (clique adiciona ao esquema) e
  * inspetor completo do que está selecionado (componente, borne ou cabo).
@@ -75,6 +86,15 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   const [favorites, setFavorites] = useState<ComponentType[]>(() => {
     try { return JSON.parse(localStorage.getItem('dcsimu:library:favorites') ?? '[]') as ComponentType[] }
     catch { return [] }
+  })
+  const [recent, setRecent] = useState<ComponentType[]>(() => {
+    try { return (JSON.parse(localStorage.getItem('dcsimu:library:recent') ?? '[]') as ComponentType[]).filter((type) => !!TEMPLATES[type]).slice(0, 8) }
+    catch { return [] }
+  })
+  const markRecent = (type: ComponentType) => setRecent((current) => {
+    const next = [type, ...current.filter((item) => item !== type)].slice(0, 8)
+    try { localStorage.setItem('dcsimu:library:recent', JSON.stringify(next)) } catch { /* armazenamento indisponível */ }
+    return next
   })
   const toggleFavorite = (type: ComponentType) => setFavorites((current) => {
     const next = current.includes(type) ? current.filter((t) => t !== type) : [...current, type]
@@ -156,71 +176,18 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
             <span className="flex gap-2"><button onClick={() => setCollapsedGroups(new Set())}>Expandir</button><button onClick={() => setCollapsedGroups(new Set(groups.map((g) => g.group)))}>Recolher</button></span>
           </div>
           {placingType && <div className="p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center"><span className="flex-1">A posicionar: {TEMPLATES[placingType]?.paletteName ?? placingType}</span><button className="dc-btn !h-6" onClick={() => useSimStore.getState().setPlacingType(null)}>Cancelar</button></div>}
-          <div className="flex-1 overflow-y-auto p-2 min-h-0">
-            {favorites.length > 0 && !filter && <div className="mb-3"><strong className="dc-panel-title">★ Favoritos</strong><div className="flex flex-wrap gap-1 mt-1">{favorites.filter((type) => TEMPLATES[type]).map((type) => <button key={type} className="dc-btn !text-[10px]" onClick={() => add(type)} title={`Posicionar ${TEMPLATES[type].paletteName}`}>★ {TEMPLATES[type].paletteName}</button>)}</div></div>}
+          <div className="flex-1 overflow-y-auto p-2 min-h-0 dc-library-scroll">
+            {recent.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">◴ Recentes <span>{recent.length}</span></div><div className="dc-library-recent">{recent.map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => add(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
+            {favorites.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">★ Favoritos <span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => add(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
             {!filtered.length && <div className="p-4 text-center text-xs text-ink-400">Nenhum componente encontrado. Experimente outro termo ou limpe a pesquisa.</div>}
             {filtered.map((g) => {
-              const GIcon = GROUP_ICON[g.group] ?? IconFile
               const isCollapsed = !filter.trim() && collapsedGroups.has(g.group)
-              return (
-                <div key={g.group} className="mb-3">
-                  <button
-                    type="button"
-                    aria-expanded={!isCollapsed}
-                    onClick={() => toggleGroup(g.group)}
-                    className="w-full flex items-center gap-1.5 mb-1 px-1 py-1.5 rounded hover:bg-brand-50 text-left"
-                    title={`${isCollapsed ? 'Expandir' : 'Recolher'} ${g.group}`}
-                  >
-                    <GIcon size={12} className="text-ink-400" />
-                    <span className="dc-panel-title">{g.group}</span>
-                    <span className="text-[9px] text-ink-400">{g.items.length}</span>
-                    <IconChevronDown size={12} className={`ml-auto text-ink-400 transition-transform ${isCollapsed ? '' : 'rotate-180'}`} />
-                  </button>
-                  {!isCollapsed && (
-                    <div className="flex flex-col gap-0.5">
-                    {g.items.map((it) => (
-                      <div key={it.type} className={`dc-library-item ${placingType === it.type ? 'is-placing' : ''}`}>
-                        <button
-                          type="button"
-                          className="dc-library-item-main"
-                          onClick={() => add(it.type)}
-                          onDoubleClick={() => addImmediate(it.type)}
-                          draggable
-                          onDragStart={(e) => {
-                            const st = useSimStore.getState()
-                            st.setPlacingType(null)
-                            st.setDragType(it.type)
-                            e.dataTransfer.setData('application/x-dcsimu-component', it.type)
-                            e.dataTransfer.setData('text/plain', it.type)
-                            e.dataTransfer.effectAllowed = 'copy'
-                            const chip = document.createElement('div')
-                            chip.textContent = `+ ${it.name}`
-                            chip.style.cssText = 'position:fixed;top:-100px;left:-100px;padding:3px 8px;border-radius:999px;background:#2655e5;color:#fff;font:600 11px Inter,system-ui,sans-serif;white-space:nowrap'
-                            document.body.appendChild(chip)
-                            e.dataTransfer.setDragImage(chip, -12, -12)
-                            window.setTimeout(() => chip.remove(), 0)
-                          }}
-                          onDragEnd={() => useSimStore.getState().setDragType(null)}
-                          title={`${it.name} — clique para posicionar · arraste para o esquema · duplo clique para inserir imediatamente`}
-                          aria-label={`Posicionar ${it.name} no esquema`}
-                        >
-                          <span className="dc-library-thumb"><ComponentThumb type={it.type} size={44} /></span>
-                          <span className="dc-library-item-info"><strong>{it.name}</strong><small>{it.type}</small></span>
-                        </button>
-                        <button
-                          type="button"
-                          className={`dc-library-favorite ${favorites.includes(it.type) ? 'is-favorite' : ''}`}
-                          onClick={() => toggleFavorite(it.type)}
-                          aria-pressed={favorites.includes(it.type)}
-                          aria-label={`${favorites.includes(it.type) ? 'Remover' : 'Adicionar'} ${it.name} ${favorites.includes(it.type) ? 'dos' : 'aos'} favoritos`}
-                          title={favorites.includes(it.type) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                        >{favorites.includes(it.type) ? '★' : '☆'}</button>
-                      </div>
-                    ))}
-                    </div>
-                  )}
-                </div>
-              )
+              return <section className="dc-library-folder" key={g.group}>
+                <button type="button" aria-expanded={!isCollapsed} className="dc-library-folder-head" onClick={() => toggleGroup(g.group)} title={`${isCollapsed ? 'Expandir' : 'Recolher'} ${g.group}`}>
+                  <span className="dc-library-folder-icon"><IconProjects size={16} /></span><strong>{g.group}</strong><span className="dc-library-folder-count">{g.items.length}</span><IconChevronDown size={13} className={`dc-library-folder-chevron ${isCollapsed ? '' : 'is-open'}`} />
+                </button>
+                {!isCollapsed && <div className="dc-library-grid">{g.items.map((it) => <LibraryTile key={it.type} type={it.type} name={it.name} favorite={favorites.includes(it.type)} placing={placingType === it.type} onPick={() => add(it.type)} onQuickAdd={() => addImmediate(it.type)} onFavorite={() => toggleFavorite(it.type)} onRecent={() => markRecent(it.type)} />)}</div>}
+              </section>
             })}
              <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
                <b className="text-ink-500">Clique ou arraste</b> um item: o componente aparece em pré-visualização no esquema
