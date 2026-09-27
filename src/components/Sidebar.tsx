@@ -4,6 +4,7 @@ import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../types'
 import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
 import LabelLibrary from './LabelLibrary'
+import { ComponentThumb } from '../three/componentThumbnails'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown } from '../ui/icons'
 
 const label = 'dc-field-label'
@@ -165,11 +166,16 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                            title={`Clique para adicionar ${it.name}; arraste para posicionar no esquema`}
                            aria-label={`Adicionar ${it.name}. Também pode arrastar para o esquema.`}
                       >
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-medium text-ink-900">{it.name}</span>
-                            <IconPlus size={11} className="text-ink-300 group-hover:text-brand-600" />
+                          <span className="flex items-center gap-2">
+                            <ComponentThumb type={it.type} size={26} />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-medium text-ink-900">{it.name}</span>
+                                <IconPlus size={11} className="shrink-0 text-ink-300 group-hover:text-brand-600" />
+                              </span>
+                              <span className="block text-[9px] text-ink-400 font-mono">{it.type}</span>
+                            </span>
                           </span>
-                          <span className="block text-[9px] text-ink-400 font-mono">{it.type}</span>
                         </button>
                       ))}
                     </div>
