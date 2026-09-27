@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { LadderContact, LadderRung } from '../types'
 import {
@@ -55,6 +55,15 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const updateRung = useSimStore((s) => s.updateRung)
   const [drop, setDrop] = useState<DropTarget | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const [availableWidth, setAvailableWidth] = useState(minWidth)
+  useEffect(() => {
+    const parent = wrapRef.current?.parentElement
+    if (!parent) return
+    const observer = new ResizeObserver(() => setAvailableWidth(parent.clientWidth))
+    observer.observe(parent)
+    setAvailableWidth(parent.clientWidth)
+    return () => observer.disconnect()
+  }, [])
 
   const online = simRunning && !readonly
   const tagName = (addr: string) => {
@@ -88,7 +97,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const branchesBottom = TOP + (branches.length + extraRow) * ROW_H
   const H = Math.max(branchesBottom, oy) + 10
   const minCoil = OJ + (hasBox ? 80 + BOX_W + 100 : 120)
-  const W = Math.ceil(Math.max(minWidth, minCoil + 60) / LADDER_GRID) * LADDER_GRID
+  const W = Math.ceil(Math.max(minWidth, availableWidth, minCoil + 60) / LADDER_GRID) * LADDER_GRID
   const coilCX = W - 60
 
   // ------------------------------------------------------------- estado

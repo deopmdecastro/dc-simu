@@ -45,6 +45,8 @@ interface RuntimeExtras {
 
 interface Store extends CircuitState {
   runtime: RuntimeExtras
+  fcBlocks: Record<'fc1' | 'fc2', LadderRung[]>
+  updateFc: (id: 'fc1' | 'fc2', rungs: LadderRung[]) => void
   history: Snapshot[]
   future: Snapshot[]
   probeResult: ProbeResult | null
@@ -430,6 +432,8 @@ export const useSimStore = create<Store>((set, get) => ({
   panY: 0,
   dirty: false,
   runtime: EMPTY_RUNTIME(),
+  fcBlocks: { fc1: [], fc2: [] },
+  updateFc: (id, rungs) => set((state) => ({ fcBlocks: { ...state.fcBlocks, [id]: rungs }, dirty: true })),
   history: [],
   future: [],
   probeResult: null,
@@ -1096,6 +1100,7 @@ export const useSimStore = create<Store>((set, get) => ({
         components: s.components,
         wires: s.wires,
         ladder: s.ladder,
+        fcBlocks: s.fcBlocks,
         tags: s.tags,
         grid: s.grid,
         activeScenario: s.activeScenario,
@@ -1114,6 +1119,7 @@ export const useSimStore = create<Store>((set, get) => ({
         components: parsed.components ?? [],
         wires: parsed.wires ?? [],
         ladder: parsed.ladder ?? { rungs: [] },
+        fcBlocks: { fc1: parsed.fcBlocks?.fc1 ?? [], fc2: parsed.fcBlocks?.fc2 ?? [] },
         tags: parsed.tags ?? [],
         grid: parsed.grid ? { ...parsed.grid, background: '#f8fafd' } : get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',
@@ -1138,6 +1144,7 @@ export const useSimStore = create<Store>((set, get) => ({
       components: [],
       wires: [],
       ladder: { rungs: [] },
+      fcBlocks: { fc1: [], fc2: [] },
       tags: [],
       activeScenario: 'custom',
       runtime: EMPTY_RUNTIME(),

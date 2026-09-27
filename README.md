@@ -232,3 +232,10 @@ Tailwind CSS, SVG para o esquema e o editor Ladder.
 - Roteamento de cabos em canaleta/trilha no 3D com anti-colisão e numeração automática de bornes.
 - Persistência em backend (sincronização entre dispositivos) e compartilhamento de projetos por link — hoje a persistência é local, no navegador (ver "Guardar o projeto").
 - Modo multiusuário / avaliação (professor propõe falha, aluno diagnostica).
+
+### Edição Ladder (estado atual)
+
+- A network ajusta a largura do diagrama ao espaço disponível (mantendo scroll horizontal quando necessário).
+- Ao selecionar contactos, bobinas, temporizadores ou contadores é possível alterar o endereço e o nome simbólico da tag no painel contextual.
+- FC1 e FC2 permitem criar/eliminar networks e editar contactos, ramos e bobinas; são guardados no JSON do projeto. **Os FC não são chamados pelo OB1 nem executados automaticamente**: copie a lógica relevante para o OB1 para a simular.
+- Os blocos MOVE, ADD, SUB e COMPARE ainda não fazem parte do modelo de execução Ladder; não aparecem na paleta até terem semântica e testes completos.

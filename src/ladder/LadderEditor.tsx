@@ -161,6 +161,16 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
   const selectedCoil = selection?.type === 'coil' ? rung.coils.find((c) => c.id === selection.coilId) : null
   const selectedAddress = selectedContact?.address ?? selectedCoil?.address ?? rung.timer?.address ?? rung.counter?.address ?? ''
   const selectedTagName = useTagName(selectedAddress)
+  const tags = useSimStore((s) => s.tags)
+  const setTagName = (address: string, name: string) => {
+    const normalized = address.trim().toUpperCase()
+    if (!normalized) return
+    const existing = tags.find((t) => t.address === normalized)
+    if (existing) useSimStore.getState().updateTag(existing.id, { name })
+    else if (name.trim()) useSimStore.setState((s) => ({
+      tags: [...s.tags, { id: crypto.randomUUID(), address: normalized, name, dataType: normalized.startsWith('T') ? 'Time' : normalized.startsWith('C') ? 'Int' : 'Bool', comment: '' }], dirty: true,
+    }))
+  }
 
   const updateContact = (branchId: string, elementId: string, patch: Partial<LadderContact>) =>
     updateRung(rung.id, (r) => ({
@@ -311,6 +321,7 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
             <button className="ladder-ghost-button" onClick={() => setSelection(null)} title="Fechar">×</button>
           </div>
           <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={selectedContact.address} onChange={(e) => updateContact(selection.branchId, selection.elementId, { address: e.target.value.toUpperCase() })} /></label>
+          <label>Nome da tag <input className={`${tiny} !w-36`} value={tags.find((t) => t.address === selectedContact.address)?.name ?? ''} placeholder="Nome simbólico" onChange={(e) => setTagName(selectedContact.address, e.target.value)} /></label>
           <label>Tipo
             <select className={tiny} value={selectedContact.contactType} onChange={(e) => updateContact(selection.branchId, selection.elementId, { contactType: e.target.value as LadderContactType })}>
               <option value="NO">NA</option>
@@ -330,6 +341,7 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
             <button className="ladder-ghost-button" onClick={() => setSelection(null)} title="Fechar">×</button>
           </div>
           <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={selectedCoil.address} onChange={(e) => updateCoil(selectedCoil.id, { address: e.target.value.toUpperCase() })} /></label>
+          <label>Nome da tag <input className={`${tiny} !w-36`} value={tags.find((t) => t.address === selectedCoil.address)?.name ?? ''} placeholder="Nome simbólico" onChange={(e) => setTagName(selectedCoil.address, e.target.value)} /></label>
           <label>Tipo
             <select className={tiny} value={selectedCoil.coilType} onChange={(e) => updateCoil(selectedCoil.id, { coilType: e.target.value as LadderCoilType })}>
               <option value="COIL">COIL</option>
@@ -356,6 +368,7 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
             </select>
           </label>
           <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.timer.address} onChange={(e) => updateTimer({ address: e.target.value.toUpperCase() })} /></label>
+          <label>Nome da tag <input className={`${tiny} !w-36`} value={tags.find((t) => t.address === rung.timer!.address)?.name ?? ''} placeholder="Nome simbólico" onChange={(e) => setTagName(rung.timer!.address, e.target.value)} /></label>
           <label>Preset <input type="number" className={`${tiny} !w-20`} value={rung.timer.presetMs} onChange={(e) => updateTimer({ presetMs: Number(e.target.value) })} /> ms</label>
           {rung.timer.timerType === 'STAR_DELTA' && (
             <label>Transição <input type="number" className={`${tiny} !w-16`} value={rung.timer.preset2Ms ?? 50} onChange={(e) => updateTimer({ preset2Ms: Number(e.target.value) })} /> ms</label>
@@ -376,6 +389,7 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
             </select>
           </label>
           <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.address} onChange={(e) => updateCounter({ address: e.target.value.toUpperCase() })} /></label>
+          <label>Nome da tag <input className={`${tiny} !w-36`} value={tags.find((t) => t.address === rung.counter!.address)?.name ?? ''} placeholder="Nome simbólico" onChange={(e) => setTagName(rung.counter!.address, e.target.value)} /></label>
           <label>Preset <input type="number" className={`${tiny} !w-16`} value={rung.counter.preset} onChange={(e) => updateCounter({ preset: Number(e.target.value) })} /></label>
           <label>Reset <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateCounter({ resetAddress: e.target.value.toUpperCase() })} /></label>
           <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => setCounter('none')}><IconDelete size={10} /> remover</button>
@@ -960,39 +974,41 @@ function EmptyFolderMessage({ text }: { text: string }) {
 }
 
 function FunctionBlockView({ id }: { id: Extract<ProjectNodeId, 'fc1' | 'fc2'> }) {
-  const isFc1 = id === 'fc1'
-  const demo: LadderRung = {
-    id: `demo-${id}`,
-    name: isFc1 ? 'Permissivos de segurança' : 'Sinalização de diagnóstico',
-    enabled: true,
-    branches: [
-      { id: 'b0', elements: [{ kind: 'contact', id: 'c0', address: isFc1 ? 'M1' : 'I3', contactType: 'NO' }, { kind: 'contact', id: 'c1', address: isFc1 ? 'I2' : 'M4', contactType: 'NC' }] },
-      ...(isFc1 ? [{ id: 'b1', elements: [{ kind: 'contact' as const, id: 'c2', address: 'M2', contactType: 'NO' as const }] }] : []),
-    ],
-    coils: [{ kind: 'coil', id: 'k0', address: isFc1 ? 'M10' : 'M20', coilType: 'COIL' }],
-  }
+  const rungs = useSimStore((s) => s.fcBlocks[id])
+  const updateFc = useSimStore((s) => s.updateFc)
+  const modify = (index: number, fn: (r: LadderRung) => LadderRung) => updateFc(id, rungs.map((r, i) => i === index ? fn(r) : r))
+  const add = () => updateFc(id, [...rungs, { id: crypto.randomUUID(), name: `Network ${rungs.length + 1}`, enabled: true, branches: [{ id: crypto.randomUUID(), elements: [] }], coils: [] }])
   return (
     <div className="ladder-folder-view">
-      <FolderViewHeader
-        icon={<IconFunction size={16} />}
-        title={NODE_TITLES[id]}
-        subtitle={isFc1 ? 'Função auxiliar para permissivos e segurança.' : 'Função auxiliar para diagnósticos e sinalização.'}
-      />
-      <div className="ladder-fc-canvas">
-        <div className="ladder-rung-card">
-          <div className="ladder-rung-header">
-            <span className="ladder-network-no">Network 1:</span>
-            <span className="text-[11px] text-ink-700 font-medium">{demo.name}</span>
-          </div>
-          {/* mesmo motor visual e mesma grelha das networks do OB1 */}
-          <div className="ladder-rung-body">
-            <div className="lnet-scroll">
-              <NetworkDiagram rung={demo} readonly minWidth={640} />
-            </div>
-          </div>
+      <FolderViewHeader icon={<IconFunction size={16} />} title={NODE_TITLES[id]} subtitle="Bloco editável, guardado com o projeto. Não é executado automaticamente: integre a lógica no OB1 para a simular." />
+      <button className="dc-btn-primary dc-btn self-start my-2" onClick={add}><IconPlus size={12} /> Nova network</button>
+      {!rungs.length && <p className="text-xs text-ink-400">Bloco vazio. Crie uma network para começar.</p>}
+      {rungs.map((r, i) => <div className="ladder-rung-card" key={r.id}>
+        <div className="ladder-rung-header"><strong>Network {i + 1}</strong>
+          <input className="dc-input flex-1" aria-label="Nome da network" value={r.name} onChange={(e) => modify(i, (v) => ({ ...v, name: e.target.value }))} />
+          <button className="dc-btn" onClick={() => updateFc(id, rungs.filter((x) => x.id !== r.id))} title="Eliminar network"><IconDelete size={12} /></button>
         </div>
-        <p className="ladder-fc-note">Bloco aberto pela árvore do projeto (só leitura). Usa o mesmo motor de networks e a mesma grelha de 20px do OB1.</p>
-      </div>
+        <div className="ladder-rung-body"><div className="lnet-scroll"><NetworkDiagram rung={r} readonly minWidth={640} /></div></div>
+        <div className="p-2 flex flex-wrap gap-2 items-center text-xs">
+          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'NO', { kind: 'branch', branchIndex: 0, index: v.branches[0]?.elements.length ?? 0 }).rung)}>+ Contato NA</button>
+          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'NC', { kind: 'branch', branchIndex: 0, index: v.branches[0]?.elements.length ?? 0 }).rung)}>+ Contato NF</button>
+          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'BRANCH').rung)}>+ Ramo OR</button>
+          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'COIL').rung)}>+ Bobina</button>
+          {r.branches.map((branch, bi) => <div key={branch.id} className="flex flex-wrap items-center gap-1 border rounded p-1">
+            <span>Ramo {bi + 1}</span>
+            {branch.elements.map((el) => <span key={el.id} className="inline-flex gap-1 items-center">
+              <select aria-label="Tipo de contacto" value={el.contactType} onChange={(e) => modify(i, (v) => ({ ...v, branches: v.branches.map((b) => b.id === branch.id ? { ...b, elements: b.elements.map((x) => x.id === el.id ? { ...x, contactType: e.target.value as LadderContactType } : x) } : b) }))}><option>NO</option><option>NC</option><option>RISING</option><option>FALLING</option></select>
+              <input className="dc-input !w-14" aria-label="Endereço do contacto" value={el.address} onChange={(e) => modify(i, (v) => ({ ...v, branches: v.branches.map((b) => b.id === branch.id ? { ...b, elements: b.elements.map((x) => x.id === el.id ? { ...x, address: e.target.value.toUpperCase() } : x) } : b) }))} />
+              <button title="Remover contacto" onClick={() => modify(i, (v) => ({ ...v, branches: v.branches.map((b) => b.id === branch.id ? { ...b, elements: b.elements.filter((x) => x.id !== el.id) } : b) }))}>×</button>
+            </span>)}
+            {bi > 0 && <button title="Eliminar ramo" onClick={() => modify(i, (v) => ({ ...v, branches: v.branches.filter((b) => b.id !== branch.id) }))}>×</button>}
+          </div>)}
+          {r.coils.map((coil) => <span key={coil.id} className="inline-flex gap-1 items-center border rounded p-1">Bobina
+            <input className="dc-input !w-14" aria-label="Endereço da bobina" value={coil.address} onChange={(e) => modify(i, (v) => ({ ...v, coils: v.coils.map((c) => c.id === coil.id ? { ...c, address: e.target.value.toUpperCase() } : c) }))} />
+            <button title="Remover bobina" onClick={() => modify(i, (v) => ({ ...v, coils: v.coils.filter((c) => c.id !== coil.id) }))}>×</button>
+          </span>)}
+        </div>
+      </div>)}
     </div>
   )
 }
