@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, WIRE_COLORS, terminalPos } from './symbols'
 import { IconProbe } from '../ui/icons'
-import type { ElectricalComponent } from '../types'
+import type { ElectricalComponent, ComponentType } from '../types'
 
 const CANVAS_W = 2000
 const CANVAS_H = 1400
@@ -88,6 +88,7 @@ export default function SchematicView() {
   const [chain, setChain] = useState<string[]>([])
   /** arraste do ponto de dobra/curva de um cabo diretamente no esquema */
   const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' } | null>(null)
+  const [dropPos, setDropPos] = useState<{ x: number; y: number } | null>(null)
 
   const terminalIndex = useMemo(() => {
     const map = new Map<string, { c: ElectricalComponent; x: number; y: number; label: string; color: string; energized: boolean }>()
@@ -262,6 +263,18 @@ export default function SchematicView() {
     setPanning(null)
   }
 
+  const onCanvasDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDropPos(null)
+    const compType = e.dataTransfer.getData('text/plain') as ComponentType
+    if (!compType) return
+    const p = toCanvas(e.clientX, e.clientY)
+    selectWire(null)
+    selectTerminal(null)
+    selectComponents([])
+    useSimStore.getState().addComponent(compType, snap(p.x), snap(p.y))
+  }
+
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault()
     const factor = e.deltaY < 0 ? 1.1 : 0.9
@@ -420,13 +433,21 @@ export default function SchematicView() {
         ref={svgRef}
         className="w-full h-full"
         style={{ cursor: tool === 'select' ? 'default' : tool === 'wire' ? 'crosshair' : tool === 'pan' ? 'grab' : 'pointer' }}
-        onMouseDown={onBackgroundDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
-        onWheel={onWheel}
-        onContextMenu={(e) => e.preventDefault()}
-      >
+         onMouseDown={onBackgroundDown}
+         onMouseMove={onMouseMove}
+         onMouseUp={onMouseUp}
+         onMouseLeave={onMouseUp}
+         onWheel={onWheel}
+         onContextMenu={(e) => e.preventDefault()}
+         onDragOver={(e) => {
+           e.preventDefault()
+           e.dataTransfer.dropEffect = 'copy'
+           const p = toCanvas(e.clientX, e.clientY)
+           setDropPos({ x: snap(p.x), y: snap(p.y) })
+         }}
+         onDragLeave={() => setDropPos(null)}
+         onDrop={onCanvasDrop}
+       >
         <defs>
           <pattern id="dc-grid-dots" width={grid.size} height={grid.size} patternUnits="userSpaceOnUse">
             <circle cx={1} cy={1} r={1} fill="#ccd5e3" />
@@ -502,11 +523,19 @@ export default function SchematicView() {
               height={Math.abs(marquee.y1 - marquee.y0)}
               fill="#2655e5"
               opacity={0.08}
-              stroke="#2655e5"
-              strokeWidth={1.5}
-            />
-          )}
-        </g>
+           stroke="#2655e5"
+               strokeWidth={1.5}
+             />
+           )}
+
+           {/* indicador de largagem (arrastado da paleta) */}
+           {dropPos && (
+             <g>
+               <rect x={dropPos.x - 12} y={dropPos.y - 12} width={24} height={24} fill="#2655e5" opacity={0.1} stroke="#2655e5" strokeWidth={1} strokeDasharray="4 2" rx={3} />
+               <circle cx={dropPos.x} cy={dropPos.y} r={3} fill="#2655e5" />
+             </g>
+           )}
+         </g>
       </svg>
 
       {/* legenda / estado */}

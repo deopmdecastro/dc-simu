@@ -149,13 +149,19 @@ export default function Sidebar() {
                   </div>
                   {!isCollapsed && (
                     <div className="flex flex-col gap-0.5">
-                      {g.items.map((it) => (
-                        <button
-                          key={it.type}
-                          onClick={() => add(it.type)}
-                          className="group text-left px-2 py-1.5 rounded-[5px] border border-transparent hover:border-line hover:bg-brand-50 hover:shadow-xs active:bg-brand-100/70 transition-colors"
-                          title={`Adicionar ${it.name} ao esquema`}
-                        >
+                    {g.items.map((it) => (
+                      <button
+                        key={it.type}
+                        onClick={() => add(it.type)}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', it.type)
+                          e.dataTransfer.effectAllowed = 'copy'
+                        }}
+                        onDragEnd={() => {}}
+                        className="group text-left px-2 py-1.5 rounded-[5px] border border-transparent hover:border-line hover:bg-brand-50 hover:shadow-xs active:bg-brand-100/70 transition-colors"
+                        title={`Adicionar ${it.name} ao esquema`}
+                      >
                           <span className="flex items-center justify-between gap-2">
                             <span className="text-xs font-medium text-ink-900">{it.name}</span>
                             <IconPlus size={11} className="text-ink-300 group-hover:text-brand-600" />
