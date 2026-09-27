@@ -228,10 +228,9 @@ input[type='color'] {
     min-height: 0;
     height: 100%;
     overflow: hidden;
-    background:
-      linear-gradient(90deg, rgba(38,85,229,.035) 1px, transparent 1px) 0 0 / 24px 24px,
-      linear-gradient(180deg, rgba(38,85,229,.035) 1px, transparent 1px) 0 0 / 24px 24px,
-      #f7f9fc;
+    background-color: #f7f9fc;
+    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
+    background-size: 20px 20px;
     color: #25324a;
     font-size: 12px;
   }
@@ -559,17 +558,13 @@ input[type='color'] {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-    background-color: #ffffff;
-    background-image: 
-      linear-gradient(90deg, rgba(204, 213, 227, 0.5) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(204, 213, 227, 0.5) 1px, transparent 1px);
+    background-color: #f8fafd;
+    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
     background-size: 20px 20px;
   }
   .compact-ladder-canvas.grid-off { background-image: none; }
   .compact-ladder-canvas.grid-lines {
-    background-image:
-      linear-gradient(90deg, #e4eaf2 1px, transparent 1px),
-      linear-gradient(180deg, #e4eaf2 1px, transparent 1px);
+    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
   }
   .compact-ladder-scale {
     min-width: 520px;
@@ -735,9 +730,7 @@ input[type='color'] {
     background-image: radial-gradient(circle at 1px 1px, #ccd5e3 1px, transparent 1px);
   }
   .ladder-diagram-scroll.grid-lines {
-    background-image:
-      linear-gradient(90deg, #e4eaf2 1px, transparent 1px),
-      linear-gradient(180deg, #e4eaf2 1px, transparent 1px);
+    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
   }
   .ladder-diagram-scroll.grid-off { background-image: none; }
   .ladder-diagram {
@@ -1064,9 +1057,7 @@ input[type='color'] {
     outline-color: #2655e5;
   }
   .ladder-networks.grid-lines {
-    background-image:
-      linear-gradient(90deg, #e4eaf2 1px, transparent 1px),
-      linear-gradient(180deg, #e4eaf2 1px, transparent 1px);
+    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
   }
   .ladder-networks-scale {
     min-width: 560px;
@@ -1166,10 +1157,9 @@ input[type='color'] {
     min-height: 0;
     overflow: auto;
     padding: 14px;
-    background:
-      linear-gradient(90deg, rgba(38,85,229,.035) 1px, transparent 1px) 0 0 / 18px 18px,
-      linear-gradient(180deg, rgba(38,85,229,.035) 1px, transparent 1px) 0 0 / 18px 18px,
-      #f7f9fc;
+    background-color: #f7f9fc;
+    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
+    background-size: 20px 20px;
   }
   .ladder-folder-header {
     display: flex;
