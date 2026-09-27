@@ -71,7 +71,16 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   const selectedTerminalId = useSimStore((s) => s.selectedTerminalId)
   const [tab, setTab] = useState<'library' | 'inspector'>('library')
   const [filter, setFilter] = useState('')
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(paletteGroups().map((g) => g.group).filter((g) => !['protection', 'command'].includes(g))))
+  const [favorites, setFavorites] = useState<ComponentType[]>(() => {
+    try { return JSON.parse(localStorage.getItem('dcsimu:library:favorites') ?? '[]') as ComponentType[] }
+    catch { return [] }
+  })
+  const toggleFavorite = (type: ComponentType) => setFavorites((current) => {
+    const next = current.includes(type) ? current.filter((t) => t !== type) : [...current, type]
+    try { localStorage.setItem('dcsimu:library:favorites', JSON.stringify(next)) } catch { /* storage indisponível */ }
+    return next
+  })
   const toggleGroup = (group: string) => {
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
@@ -115,9 +124,9 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
 
   const filtered = useMemo(() => {
     if (!filter.trim()) return groups
-    const f = filter.toLowerCase()
+    const f = filter.trim().toLocaleLowerCase('pt-PT')
     return groups
-      .map((g) => ({ ...g, items: g.items.filter((i) => i.name.toLowerCase().includes(f) || i.type.toLowerCase().includes(f)) }))
+      .map((g) => ({ ...g, items: g.items.filter((i) => i.name.toLocaleLowerCase('pt-PT').includes(f) || i.type.toLowerCase().includes(f) || g.group.toLocaleLowerCase('pt-PT').includes(f)) }))
       .filter((g) => g.items.length)
   }, [groups, filter])
 
@@ -137,38 +146,43 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
         <>
           <div className="p-2 border-b border-line">
             <div className="relative">
-              <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Pesquisar componente…" className="dc-input !pl-7" />
+              <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Pesquisar nome, tipo ou categoria…" aria-label="Pesquisar componentes" className="dc-input !pl-7 !pr-7" />
+              {filter && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-500" title="Limpar pesquisa" onClick={() => setFilter('')}>×</button>}
               <IconSearch size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none" />
             </div>
           </div>
+          <div className="flex items-center justify-between px-2 py-1 border-b border-line text-[10px] text-ink-500">
+            <span>{filtered.reduce((n, g) => n + g.items.length, 0)} componentes {filter ? 'encontrados' : 'disponíveis'}</span>
+            <span className="flex gap-2"><button onClick={() => setCollapsedGroups(new Set())}>Expandir</button><button onClick={() => setCollapsedGroups(new Set(groups.map((g) => g.group)))}>Recolher</button></span>
+          </div>
+          {placingType && <div className="p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center"><span className="flex-1">A posicionar: {TEMPLATES[placingType]?.paletteName ?? placingType}</span><button className="dc-btn !h-6" onClick={() => useSimStore.getState().setPlacingType(null)}>Cancelar</button></div>}
           <div className="flex-1 overflow-y-auto p-2 min-h-0">
+            {favorites.length > 0 && !filter && <div className="mb-3"><strong className="dc-panel-title">★ Favoritos</strong><div className="flex flex-wrap gap-1 mt-1">{favorites.filter((type) => TEMPLATES[type]).map((type) => <button key={type} className="dc-btn !text-[10px]" onClick={() => add(type)} title={`Posicionar ${TEMPLATES[type].paletteName}`}>★ {TEMPLATES[type].paletteName}</button>)}</div></div>}
+            {!filtered.length && <div className="p-4 text-center text-xs text-ink-400">Nenhum componente encontrado. Experimente outro termo ou limpe a pesquisa.</div>}
             {filtered.map((g) => {
               const GIcon = GROUP_ICON[g.group] ?? IconFile
-              const isCollapsed = collapsedGroups.has(g.group)
+              const isCollapsed = !filter.trim() && collapsedGroups.has(g.group)
               return (
                 <div key={g.group} className="mb-3">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <GIcon size={11} className="text-ink-400" />
+                  <button
+                    type="button"
+                    aria-expanded={!isCollapsed}
+                    onClick={() => toggleGroup(g.group)}
+                    className="w-full flex items-center gap-1.5 mb-1 px-1 py-1.5 rounded hover:bg-brand-50 text-left"
+                    title={`${isCollapsed ? 'Expandir' : 'Recolher'} ${g.group}`}
+                  >
+                    <GIcon size={12} className="text-ink-400" />
                     <span className="dc-panel-title">{g.group}</span>
-                    <span className="text-[9px] text-ink-300">{g.items.length}</span>
-                    <button
-                      onClick={() => toggleGroup(g.group)}
-                      className="dc-icon-btn !h-5 !w-5 !p-0.5 ml-auto"
-                      title={isCollapsed ? 'Expandir categoria' : 'Colapsar categoria'}
-                    >
-                      <IconChevronDown
-                        size={10}
-                        className={`text-ink-400 transition-transform ${isCollapsed ? 'rotate-0' : 'rotate-180'}`}
-                      />
-                    </button>
-                    <span className="flex-1 border-t border-line-soft" />
-                  </div>
+                    <span className="text-[9px] text-ink-400">{g.items.length}</span>
+                    <IconChevronDown size={12} className={`ml-auto text-ink-400 transition-transform ${isCollapsed ? '' : 'rotate-180'}`} />
+                  </button>
                   {!isCollapsed && (
                     <div className="flex flex-col gap-0.5">
                     {g.items.map((it) => (
                       <button
                         key={it.type}
                         onClick={() => add(it.type)}
+                        onDoubleClick={() => addImmediate(it.type)}
                         draggable
                         onDragStart={(e) => {
                           const st = useSimStore.getState()
@@ -199,7 +213,10 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                             <span className="min-w-0 flex-1">
                               <span className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-medium text-ink-900">{it.name}</span>
-                                <IconPlus size={11} className="shrink-0 text-ink-300 group-hover:text-brand-600" />
+                                <span className="flex items-center gap-1">
+                                  <span role="button" tabIndex={0} aria-label={`${favorites.includes(it.type) ? 'Remover' : 'Adicionar'} ${it.name} ${favorites.includes(it.type) ? 'dos' : 'aos'} favoritos`} title="Favorito" className={`text-[15px] ${favorites.includes(it.type) ? 'text-amber-500' : 'text-ink-300'}`} onClick={(e) => { e.stopPropagation(); toggleFavorite(it.type) }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggleFavorite(it.type) } }}>{favorites.includes(it.type) ? '★' : '☆'}</span>
+                                  <IconPlus size={11} className="shrink-0 text-ink-300 group-hover:text-brand-600" />
+                                </span>
                               </span>
                               <span className="block text-[9px] text-ink-400 font-mono">{it.type}</span>
                             </span>
@@ -213,7 +230,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
             })}
              <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
                <b className="text-ink-500">Clique ou arraste</b> um item: o componente aparece em pré-visualização no esquema
-               e fica onde <b className="text-ink-500">soltar/clicar</b> (encaixa na malha). Shift+clique posiciona vários · Esc cancela.
+               e fica onde <b className="text-ink-500">soltar/clicar</b> (encaixa na malha). Duplo clique insere já no esquema · Shift+clique posiciona vários · Esc cancela.
                Também pode arrastar botões, sensores e contatores para uma network Ladder.
              </p>
           </div>
