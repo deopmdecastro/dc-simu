@@ -97,6 +97,8 @@ interface Store extends CircuitState {
 
   // --- edição (editor completo) ---
   setTool: (t: EditorTool) => void
+  gridDragEnabled: boolean
+  setGridDragEnabled: (enabled: boolean) => void
   /** Tipo de componente em modo "posicionar com o mouse" (fantasma segue o
    * cursor no esquema; clique posiciona, Esc cancela). */
   placingType: ComponentType | null
@@ -584,7 +586,9 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   // ------------------------------------------------------------------ edição
-  setTool: (t) => set({ tool: t, selectedWireId: t === 'select' ? get().selectedWireId : null, selectedTerminalId: null }),
+  setTool: (t) => set({ tool: t, gridDragEnabled: false, selectedWireId: t === 'select' ? get().selectedWireId : null, selectedTerminalId: null }),
+  gridDragEnabled: false,
+  setGridDragEnabled: (enabled) => set({ gridDragEnabled: enabled }),
 
   placingType: null,
   setPlacingType: (t) => set({ placingType: t, tool: t ? 'select' : get().tool }),

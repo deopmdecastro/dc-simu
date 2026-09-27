@@ -84,6 +84,13 @@ export const IconErase = (p: IconProps) => (
     <path d="M9 20h11" />
   </Svg>
 )
+/** Mão aberta: arrastar toda a malha do esquema sem alterar a ferramenta de edição. */
+export const IconHand = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 13V5a1.5 1.5 0 0 1 3 0v5-6a1.5 1.5 0 0 1 3 0v6-4a1.5 1.5 0 0 1 3 0v5-2a1.5 1.5 0 0 1 3 0v5c0 4-2.5 7-6.5 7h-3c-2 0-3.2-1.2-4.2-2.7L3.5 14a1.5 1.5 0 0 1 2.2-2z" />
+  </Svg>
+)
+
 export const IconPan = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 2v20M2 12h20" />

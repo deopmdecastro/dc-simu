@@ -235,6 +235,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const selectedWireId = useSimStore((s) => s.selectedWireId)
   const selectedTerminalId = useSimStore((s) => s.selectedTerminalId)
   const tool = useSimStore((s) => s.tool)
+  const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const grid = useSimStore((s) => s.grid)
   const zoom = useSimStore((s) => s.zoom)
   const panX = useSimStore((s) => s.panX)
@@ -320,8 +321,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   }, [components])
 
   useEffect(() => {
-    if (tool !== 'wire') { setChain([]); setWireFrom(null); setFreeStart(null); setDraftPoints([]) }
-  }, [tool])
+    if (tool !== 'wire' || gridDragEnabled) { setChain([]); setWireFrom(null); setFreeStart(null); setDraftPoints([]) }
+  }, [tool, gridDragEnabled])
 
   const snap = (v: number) => (grid.snap ? Math.round(v / grid.size) * grid.size : v)
 
@@ -348,6 +349,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       } else if (e.key.toLowerCase() === 'd' && selectedIds.length) {
         duplicateComponents(selectedIds)
       } else if (e.key === 'Escape') {
+        useSimStore.getState().setGridDragEnabled(false)
         setWireFrom(null)
         setFreeStart(null)
         setDraftPoints([])
@@ -414,6 +416,10 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
   // --------------------------------------------------------------- mouse
   const onBackgroundDown = (e: React.MouseEvent) => {
+    if (gridDragEnabled) {
+      if (e.button === 0 || e.button === 1) setPanning({ sx: e.clientX, sy: e.clientY, px: panX, py: panY })
+      return
+    }
     // modo "posicionar componente": clique esquerdo posiciona (Shift = vários),
     // clique direito ou Esc cancela
     if (placingType) {
@@ -809,7 +815,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       <svg
         ref={svgRef}
         className="w-full h-full"
-        style={{ cursor: tool === 'select' ? 'default' : tool === 'wire' ? 'crosshair' : tool === 'pan' ? 'grab' : 'pointer' }}
+        style={{ cursor: gridDragEnabled ? (panning ? 'grabbing' : 'grab') : tool === 'select' ? 'default' : tool === 'wire' ? 'crosshair' : tool === 'pan' ? 'grab' : 'pointer' }}
          onMouseDown={onBackgroundDown}
          onMouseMove={onMouseMove}
          onMouseUp={onMouseUp}
@@ -884,6 +890,9 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
               )
             }),
           )}
+
+          {/* Camada de arrasto: cobre componentes e bornes, sem alterar a seleção. */}
+          {gridDragEnabled && <rect x={-CANVAS_W} y={-CANVAS_H} width={CANVAS_W * 3} height={CANVAS_H * 3} fill="transparent" pointerEvents="all" />}
 
           {/* marquee */}
           {marquee && (
@@ -969,7 +978,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
       {/* Estado do editor num único HUD compacto. Não se sobrepõe ao botão Biblioteca. */}
       <div className={`schematic-hud ${libraryCollapsed ? 'is-library-collapsed' : ''}`} role="status" aria-label="Estado do editor de esquema">
-        <span className="schematic-hud-tool"><i /> {tool === 'select' ? 'Selecionar' : tool === 'wire' ? 'Desenhar fio' : tool === 'probe' ? 'Sonda' : tool === 'erase' ? 'Apagar' : 'Mover vista'}</span>
+        <span className="schematic-hud-tool"><i /> {gridDragEnabled ? 'Arrastar malha' : tool === 'select' ? 'Selecionar' : tool === 'wire' ? 'Desenhar fio' : tool === 'probe' ? 'Sonda' : tool === 'erase' ? 'Apagar' : 'Mover vista'}</span>
         <span className="schematic-hud-separator" />
         <span title={`Malha ${grid.enabled ? `${grid.size}px, encaixe ${grid.snap ? 'ativo' : 'inativo'}` : 'desligada'}`}>▦ {grid.enabled ? `${grid.size}px${grid.snap ? ' · ímã' : ''}` : 'off'}</span>
         <span className="schematic-hud-separator" />
@@ -1017,7 +1026,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         </div>
       )}
 
-      {tool === 'wire' && <div className="absolute right-3 top-3 z-10 dc-wire-guide">
+      {tool === 'wire' && !gridDragEnabled && <div className="absolute right-3 top-3 z-10 dc-wire-guide">
         <strong>Desenhar fio</strong><span>{wireFrom || freeStart ? 'Clique para terminar · Shift+clique no vazio adiciona uma dobra.' : 'Clique num borne ou no espaço vazio para começar.'}</span>
         <small>Shift+clique adiciona pontos durante o desenho · duplo clique num fio pronto adiciona um ponto · Esc cancela.</small>
         {(wireFrom || freeStart) && <button className="dc-btn" onClick={() => { setWireFrom(null); setFreeStart(null); setDraftPoints([]) }}>Cancelar</button>}

@@ -273,3 +273,5 @@ O estado do Esquema (ferramenta, malha, zoom e contagem de elementos) passou de 
 ### Navegação e criação no editor GRAFCET
 
 Na página GRAFCET, o diagrama abre ampliado e centrado; pode ser deslocado por arraste e ampliado com a roda do rato ou com `−`/`+`. O botão «Ajustar» repõe a vista. «+ Etapa ligada» cria uma etapa e uma transição a partir da etapa selecionada (ou da última, se nenhuma estiver selecionada); «+ Etapa solta» cria uma etapa independente. Um projeto vazio oferece um exemplo de três etapas. As transições podem ser reordenadas com as setas para ajustar a prioridade de avaliação. Um retorno da etapa para ela mesma é desenhado como um circuito de retorno legível, em vez de cruzar a etapa.
+
+Na barra de ferramentas do **Esquema**, «Arrastar malha» (ícone de mão) é um modo independente da ferramenta de edição: ao ativá-lo, arraste em qualquer ponto do canvas — mesmo por cima de componentes, fios ou bornes — para deslocar a vista inteira sem mudar a seleção nem mover componentes. Clique novamente no botão, escolha outra ferramenta ou prima Esc para sair. «Mover vista» continua disponível como ferramenta de edição separada.

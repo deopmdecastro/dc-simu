@@ -9,7 +9,7 @@ import {
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
-  IconStop, IconStep, IconReset, IconGrid, IconMagnet, IconZoomIn, IconZoomOut,
+  IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown,
 } from '../ui/icons'
 
@@ -92,7 +92,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
     step, saveJSON, loadJSON, newProject, tool, setTool, grid, setGrid, zoom, setZoom,
     components, undo, redo, history, future, organizeWires, wires, selectedComponentIds,
     alignSelection, distributeSelection, autoNumberWires, setCurrentProjectName,
-    dirty, wireDefaults, setWireDefaults,
+    dirty, wireDefaults, setWireDefaults, gridDragEnabled, setGridDragEnabled,
   } = useSimStore()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -305,6 +305,13 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
                 )
               })}
             </div>
+            {mode === 'schematic' && <button
+              type="button"
+              className={`dc-tool-btn !gap-1.5 ${gridDragEnabled ? 'dc-tool-active' : ''}`}
+              aria-pressed={gridDragEnabled}
+              onClick={() => setGridDragEnabled(!gridDragEnabled)}
+              title="Arrastar a malha e os componentes como uma vista, sem alterar a ferramenta selecionada. Clique outra vez para sair."
+            ><IconHand size={15} /><span>Arrastar malha</span></button>}
           </>
         )}
 
