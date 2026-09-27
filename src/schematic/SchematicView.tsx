@@ -228,7 +228,7 @@ function insertWaypoint(a: Pt, b: Pt, waypoints: Pt[], p: Pt): Pt[] {
 }
 
 /** Editor de esquema completo: malha, arraste, seleção, cabos, bornes, sonda. */
-export default function SchematicView() {
+export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
   const components = useSimStore((s) => s.components)
   const wires = useSimStore((s) => s.wires)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
@@ -805,7 +805,7 @@ export default function SchematicView() {
   }
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-[#f8fafd]">
+    <div className="schematic-stage w-full h-full relative overflow-hidden bg-[#f8fafd]">
       <svg
         ref={svgRef}
         className="w-full h-full"
@@ -967,17 +967,15 @@ export default function SchematicView() {
         </div>
       )}
 
-      {/* legenda / estado */}
-      <div className="absolute left-2 top-2 flex flex-col gap-1 text-[11px] text-ink-500 pointer-events-none">
-        <div className="px-2 py-1 rounded-md bg-white/92 border border-line shadow-xs backdrop-blur-sm">
-          Ferramenta: <span className="text-brand-600 font-semibold">{tool === 'select' ? 'Selecionar/Arrastar' : tool === 'wire' ? 'Desenhar cabo' : tool === 'probe' ? 'Sonda (continuidade)' : tool === 'erase' ? 'Apagar' : 'Panorâmica'}</span>
-        </div>
-        <div className="px-2 py-1 rounded-md bg-white/92 border border-line shadow-xs">
-          Malha {grid.enabled ? `${grid.size}px ${grid.snap ? '(ímã)' : ''}` : 'desligada'} · Zoom {(zoom * 100).toFixed(0)}%
-        </div>
-        <div className="px-2 py-1 rounded-md bg-white/92 border border-line shadow-xs">
-          {components.length} componentes · {wires.length} cabos
-        </div>
+      {/* Estado do editor num único HUD compacto. Não se sobrepõe ao botão Biblioteca. */}
+      <div className={`schematic-hud ${libraryCollapsed ? 'is-library-collapsed' : ''}`} role="status" aria-label="Estado do editor de esquema">
+        <span className="schematic-hud-tool"><i /> {tool === 'select' ? 'Selecionar' : tool === 'wire' ? 'Desenhar fio' : tool === 'probe' ? 'Sonda' : tool === 'erase' ? 'Apagar' : 'Mover vista'}</span>
+        <span className="schematic-hud-separator" />
+        <span title={`Malha ${grid.enabled ? `${grid.size}px, encaixe ${grid.snap ? 'ativo' : 'inativo'}` : 'desligada'}`}>▦ {grid.enabled ? `${grid.size}px${grid.snap ? ' · ímã' : ''}` : 'off'}</span>
+        <span className="schematic-hud-separator" />
+        <span title="Zoom do esquema">⌕ {Math.round(zoom * 100)}%</span>
+        <span className="schematic-hud-separator" />
+        <span title="Quantidade de componentes e cabos no projeto">{components.length} comp. · {wires.length} fios</span>
       </div>
 
       {/* ligação inteligente: cadeia de bornes acumulada por shift+clique */}

@@ -1796,3 +1796,14 @@ button:disabled { cursor:not-allowed; }
 .dc-library-favorite { flex:none; width:30px; height:34px; display:grid; place-items:center; border-radius:6px; color:#94a3b8; font-size:19px; }
 .dc-library-favorite:hover { color:#b45309; background:#fff7ed; }
 .dc-library-favorite.is-favorite { color:#f59e0b; }
+
+/* HUD do esquema: leitura rápida sem três caixas a bloquear o canvas. */
+.schematic-hud { position:absolute; z-index:8; top:10px; left:10px; display:flex; align-items:center; gap:7px; max-width:calc(100% - 20px); min-height:28px; padding:4px 9px; border:1px solid #d5e1f0; border-radius:9px; background:#fffffff0; backdrop-filter:blur(8px); box-shadow:0 3px 12px #243b6318; color:#50617a; font-size:10px; white-space:nowrap; pointer-events:none; }
+.schematic-hud.is-library-collapsed { top:52px; }
+.schematic-hud-tool { display:inline-flex; align-items:center; gap:5px; color:#1d4ed8; font-weight:700; }
+.schematic-hud-tool i { width:6px; height:6px; border-radius:50%; background:#2563eb; }
+.schematic-hud-separator { height:13px; border-left:1px solid #d5e1f0; }
+@media(max-width:700px) { .schematic-hud { gap:5px; font-size:9px; padding:4px 6px; } .schematic-hud span:last-child { display:none; } }
+.schematic-stage { container-type:inline-size; }
+@container (max-width:510px) { .schematic-hud span:last-child,.schematic-hud span:nth-last-child(2) { display:none; } }
+@container (max-width:330px) { .schematic-hud span[title^="Malha"],.schematic-hud span:nth-child(2) { display:none; } }

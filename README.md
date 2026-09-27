@@ -267,3 +267,5 @@ Na ferramenta **Cabo**, clique no espaço vazio para definir uma ponta livre e c
 Durante o desenho de um fio, **Shift+clique no espaço vazio** acrescenta pontos de passagem antes de concluir a ligação. Clique normal no espaço vazio ou num borne termina o fio; a pré-visualização mostra os pontos já acrescentados. Depois de criado, uma ponta livre selecionada pode ser arrastada até um borne para concluir a ligação elétrica. Para mudar a cor de um borne, selecione-o no Esquema e use o seletor de cor ou as cores rápidas no Inspetor (independente da cor do fio); também é possível mudar a cor de cada borne na ficha do componente.
 
 A biblioteca do Esquema apresenta agora miniaturas maiores (44 px, renderizadas em 128 px para ecrãs de alta densidade), com cartões mais legíveis. O botão de favoritos é independente da ação de colocar/arrastar componentes, melhorando o uso com rato, toque e teclado.
+
+O estado do Esquema (ferramenta, malha, zoom e contagem de elementos) passou de três caixas sobrepostas a um HUD compacto. Ao recolher a Biblioteca, o HUD desloca-se para não tapar o botão que a reabre e reduz informação secundária em áreas estreitas.
