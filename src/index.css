@@ -664,17 +664,18 @@ input[type='color'] {
     overflow-y: hidden;
     padding-bottom: 2px;
     border-radius: 5px;
+    background-color: #f8fafd;
     transition: background-color .12s;
   }
   .ladder-diagram-scroll.grid-dots {
-    background-image: radial-gradient(circle, #dde4ef 1px, transparent 1px);
+    background-image: radial-gradient(circle, #ccd5e3 1px, transparent 1px);
   }
   .ladder-diagram-scroll.grid-lines {
     background-image:
-      linear-gradient(90deg, #e9edf4 1px, transparent 1px),
-      linear-gradient(180deg, #e9edf4 1px, transparent 1px);
+      linear-gradient(90deg, #e4eaf2 1px, transparent 1px),
+      linear-gradient(180deg, #e4eaf2 1px, transparent 1px);
   }
-  .ladder-diagram-scroll.grid-off { background-image: none; }
+  .ladder-diagram-scroll.grid-off { background-image: none; background-color: transparent; }
   .ladder-diagram {
     display: flex;
     min-width: 455px;
