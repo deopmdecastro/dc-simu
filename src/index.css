@@ -663,7 +663,18 @@ input[type='color'] {
     overflow-x: auto;
     overflow-y: hidden;
     padding-bottom: 2px;
+    border-radius: 5px;
+    transition: background-color .12s;
   }
+  .ladder-diagram-scroll.grid-dots {
+    background-image: radial-gradient(circle, #dde4ef 1px, transparent 1px);
+  }
+  .ladder-diagram-scroll.grid-lines {
+    background-image:
+      linear-gradient(90deg, #e9edf4 1px, transparent 1px),
+      linear-gradient(180deg, #e9edf4 1px, transparent 1px);
+  }
+  .ladder-diagram-scroll.grid-off { background-image: none; }
   .ladder-diagram {
     display: flex;
     min-width: 455px;
@@ -675,6 +686,17 @@ input[type='color'] {
     align-items: center;
     gap: 2px;
     flex-wrap: nowrap;
+    border-radius: 4px;
+    transition: background-color .12s, box-shadow .12s;
+  }
+  .ladder-branch-row.drag-over {
+    background: rgba(38,85,229,.08);
+    box-shadow: inset 0 0 0 1px rgba(38,85,229,.45);
+  }
+  .ladder-coil-bank.drag-over {
+    background: rgba(38,85,229,.08);
+    box-shadow: inset 0 0 0 1px rgba(38,85,229,.45);
+    border-radius: 4px;
   }
   .ladder-branch-stack {
     display: flex;

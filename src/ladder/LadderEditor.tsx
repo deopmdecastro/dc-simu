@@ -142,6 +142,7 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
   const table = useSimStore((s) => s.runtime.table)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
+  const grid = useSimStore((s) => s.grid)
   const { deleteRung, duplicateRung, moveRung, renameRung, updateRung } = useSimStore()
   const [newAddress, setNewAddress] = useState('I1')
   const [newType, setNewType] = useState<LadderContactType>('NO')
@@ -149,6 +150,8 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
   const [coilAddress, setCoilAddress] = useState('Q1')
   const [coilType, setCoilType] = useState<LadderCoilType>('COIL')
   const [selection, setSelection] = useState<RungSelection>(null)
+  const [dragBranchId, setDragBranchId] = useState<string | null>(null)
+  const [coilDragOver, setCoilDragOver] = useState(false)
 
   const powered = !!rungPowered[rung.id]
   const selectedContact =
@@ -242,6 +245,33 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
     setSelection(kind === 'none' ? { type: 'insert' } : { type: 'counter' })
   }
 
+  /** Solta um elemento arrastado da paleta diretamente num ramo desta network
+   *  (contato) ou no banco de bobinas — reforça o "carregar e soltar" do editor. */
+  const dropContactOnBranch = (branchId: string, kind: PaletteKind) => {
+    if (kind === 'NO' || kind === 'NC' || kind === 'RISING' || kind === 'FALLING') {
+      const elementId = `${rung.id}-c${Date.now()}${Math.random().toString(36).slice(2, 5)}`
+      updateRung(rung.id, (r) => ({
+        ...r,
+        branches: r.branches.map((b) => (b.id === branchId ? { ...b, elements: [...b.elements, { kind: 'contact', id: elementId, address: 'I1', contactType: kind }] } : b)),
+      }))
+      setSelection({ type: 'contact', branchId, elementId })
+    } else {
+      dropOnCoilBank(kind)
+    }
+  }
+
+  const dropOnCoilBank = (kind: PaletteKind) => {
+    if (kind === 'COIL' || kind === 'SET' || kind === 'RESET') {
+      const coilId = `${rung.id}-k${Date.now()}`
+      updateRung(rung.id, (r) => ({ ...r, coils: [...r.coils, { kind: 'coil', id: coilId, address: 'Q1', coilType: kind }] }))
+      setSelection({ type: 'coil', coilId })
+    } else if (kind === 'TON' || kind === 'TOF' || kind === 'TP') {
+      setTimer(kind)
+    } else if (kind === 'CTU' || kind === 'CTD') {
+      setCounter(kind)
+    }
+  }
+
   const smallBtn = 'dc-btn !h-[22px] !px-1.5 !text-[10px]'
   const tiny = 'dc-input !h-[22px] !text-[10px] !w-auto'
   return (
@@ -280,7 +310,10 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
 
       {/* diagrama */}
       <div className="ladder-rung-body">
-        <div className="ladder-diagram-scroll">
+        <div
+          className={`ladder-diagram-scroll ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : 'grid-dots') : 'grid-off'}`}
+          style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
+        >
         <div className="ladder-diagram">
           {/* barramento L+ */}
           <div className="flex flex-col items-center w-7 shrink-0">
@@ -294,7 +327,20 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
           {/* ramos */}
           <div className="ladder-branch-stack">
             {rung.branches.map((b, bi) => (
-              <div key={b.id} className="ladder-branch-row">
+              <div
+                key={b.id}
+                className={`ladder-branch-row ${dragBranchId === b.id ? 'drag-over' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
+                onDragEnter={() => setDragBranchId(b.id)}
+                onDragLeave={() => setDragBranchId((cur) => (cur === b.id ? null : cur))}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setDragBranchId(null)
+                  const compType = e.dataTransfer.getData('text/plain') as ComponentType
+                  const kind = COMPONENT_TO_LADDER[compType]
+                  if (kind) dropContactOnBranch(b.id, kind)
+                }}
+              >
                 <div className={`ladder-wire is-stub ${powered && running ? 'is-powered' : ''}`} />
                 {b.elements.map((el) => (
                   <div key={el.id} className="ladder-inline-element">
@@ -363,9 +409,29 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
           )}
 
           {/* saídas + barramento L− */}
-          <div className="ladder-coil-bank">
+          <div
+            className={`ladder-coil-bank ${coilDragOver ? 'drag-over' : ''}`}
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
+            onDragEnter={() => setCoilDragOver(true)}
+            onDragLeave={() => setCoilDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setCoilDragOver(false)
+              const compType = e.dataTransfer.getData('text/plain') as ComponentType
+              const kind = COMPONENT_TO_LADDER[compType]
+              if (kind) dropOnCoilBank(kind)
+            }}
+          >
             {rung.coils.map((c) => (
-              <CoilButton key={c.id} coil={c} powered={!!table[c.address]} onCycle={() => cycleCoil(c.id)} onRemove={() => removeCoil(c.id)} />
+              <CoilButton
+                key={c.id}
+                coil={c}
+                powered={!!table[c.address]}
+                selected={selection?.type === 'coil' && selection.coilId === c.id}
+                onCycle={() => cycleCoil(c.id)}
+                onRemove={() => removeCoil(c.id)}
+                onSelect={() => setSelection(selection?.type === 'coil' && selection.coilId === c.id ? null : { type: 'coil', coilId: c.id })}
+              />
             ))}
             {!rung.coils.length && <span className="text-[10px] text-ink-300">sem bobina</span>}
           </div>
@@ -377,7 +443,44 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
         </div>
       </div>
 
-      {/* painel contextual — só aparece ao clicar num bloco de temporizador/contador */}
+      {/* painel contextual — configurações feitas ao clicar num elemento */}
+      {selection?.type === 'contact' && selectedContact && (
+        <div className="ladder-block-popover">
+          <div className="ladder-popover-head">
+            <strong><IconContact size={12} /> Contato {selectedContact.address}</strong>
+            <button className="ladder-ghost-button" onClick={() => setSelection(null)} title="Fechar">×</button>
+          </div>
+          <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={selectedContact.address} onChange={(e) => updateContact(selection.branchId, selection.elementId, { address: e.target.value.toUpperCase() })} /></label>
+          <label>Tipo
+            <select className={tiny} value={selectedContact.contactType} onChange={(e) => updateContact(selection.branchId, selection.elementId, { contactType: e.target.value as LadderContactType })}>
+              <option value="NO">NA</option>
+              <option value="NC">NF</option>
+              <option value="RISING">Subida</option>
+              <option value="FALLING">Descida</option>
+            </select>
+          </label>
+          {selectedTagName && <span className="text-[10px] text-ink-400">{selectedTagName}</span>}
+          <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => removeElement(selection.branchId, selection.elementId)}><IconDelete size={10} /> remover</button>
+        </div>
+      )}
+      {selection?.type === 'coil' && selectedCoil && (
+        <div className="ladder-block-popover">
+          <div className="ladder-popover-head">
+            <strong><IconCoil size={12} /> Bobina {selectedCoil.address}</strong>
+            <button className="ladder-ghost-button" onClick={() => setSelection(null)} title="Fechar">×</button>
+          </div>
+          <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={selectedCoil.address} onChange={(e) => updateCoil(selectedCoil.id, { address: e.target.value.toUpperCase() })} /></label>
+          <label>Tipo
+            <select className={tiny} value={selectedCoil.coilType} onChange={(e) => updateCoil(selectedCoil.id, { coilType: e.target.value as LadderCoilType })}>
+              <option value="COIL">COIL</option>
+              <option value="SET">SET</option>
+              <option value="RESET">RESET</option>
+            </select>
+          </label>
+          {selectedTagName && <span className="text-[10px] text-ink-400">{selectedTagName}</span>}
+          <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => removeCoil(selectedCoil.id)}><IconDelete size={10} /> remover</button>
+        </div>
+      )}
       {selection?.type === 'timer' && rung.timer && (
         <div className="ladder-block-popover">
           <div className="ladder-popover-head">
