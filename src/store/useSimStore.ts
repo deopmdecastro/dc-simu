@@ -19,6 +19,7 @@ import type {
   Terminal,
   ProbeResult,
 } from '../types'
+import { logoElectricalInputs } from '../electrical/logoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
 import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTable, nextAddress, collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
@@ -280,9 +281,15 @@ function runOneTick(state: Store, dtMs: number) {
 
   // 2) Lê as entradas físicas do CLP a partir do resultado real da continuidade
   const plc = components.find((c) => c.type === 'plcLogo' || c.type === 'plcCompact' || c.type === 'plcSiemensLogo1224RC')
+  let logoPowered = true
   if (plc) {
+    const logo = plc.type === 'plcSiemensLogo1224RC' ? logoElectricalInputs(plc, components, wires) : null
+    logoPowered = logo?.powered ?? true
+    if (logo) plc.state.powered = logoPowered
     for (const t of plc.terminals) {
-      if (t.label.startsWith('I')) state.runtime.table[t.label] = pass1.energizedTerminals.has(t.id)
+      if (/^I[1-8]$/.test(t.label)) state.runtime.table[t.label] = logo
+        ? logoPowered && logo.positive.has(t.id)
+        : pass1.energizedTerminals.has(t.id)
     }
   }
 
@@ -296,7 +303,7 @@ function runOneTick(state: Store, dtMs: number) {
 
   // 4) Devolve as saídas Q ao CLP para que sua ponte interna ative
   if (plc) {
-    for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = !!scan.table[key]
+    for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = logoPowered && !!scan.table[key]
   }
 
   // 5) Segunda passagem — agora com as saídas do CLP ativas

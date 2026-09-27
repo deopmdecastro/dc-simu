@@ -11,6 +11,7 @@ import { runScan } from '../src/ladder/ladderEngine'
 import type { CounterTable, AddressTable, TimerTable } from '../src/ladder/ladderEngine'
 import { createComponent, terminalByLabel, upgradeLogoTerminals } from '../src/electrical/factory'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
+import { logoElectricalInputs } from '../src/electrical/logoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
 
 let failures = 0
@@ -320,9 +321,23 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('LOGO! tem 19 parafusos/bornes visíveis', logo.terminals.length === 19)
   const legacy = { ...logo, terminals: logo.terminals.filter((t) => !t.label.endsWith('.2') && t.label !== 'X1') }
   check('projetos antigos recebem os segundos contactos sem duplicar', upgradeLogoTerminals(legacy).terminals.length === 19 && upgradeLogoTerminals(logo).terminals.length === 19 && upgradeLogoTerminals({ ...logo, terminals: logo.terminals.filter((t) => t.label !== 'X1') }).terminals.length === 19)
-  const switched = { ...logo, state: { ...logo.state, outputs: { Q1: true, Q2: false, Q3: false, Q4: false } } }
+  const switched = { ...logo, state: { ...logo.state, powered: true, outputs: { Q1: true, Q2: false, Q3: false, Q4: false } } }
   const bridges = internalBridges(switched)
   check('relé Q1 liga somente os seus dois parafusos, não L+', bridges.length === 1 && bridges[0].includes(terminalByLabel(logo, 'Q1')!.id) && bridges[0].includes(terminalByLabel(logo, 'Q1.2')!.id))
+  check('sem alimentação o relé não fecha', internalBridges({ ...switched, state: { ...switched.state, powered: false } }).length === 0)
+  const ps = createComponent('powerSupply')
+  const lPlus = terminalByLabel(logo, 'L+')!
+  const m = terminalByLabel(logo, 'M')!
+  const wire = (a: string, b: string): Wire => ({
+    id: `${a}-${b}`, fromTerminalId: a, toTerminalId: b, color: 'red', gauge: '1.5mm²', kind: 'power', route: 'direct', bend: 0.5,
+    flexibility: 'rigid', energized: false, number: 1, z: 0,
+  }) as Wire
+  const plusWire = wire(terminalByLabel(ps, '+V')!.id, lPlus.id)
+  const minusWire = wire(terminalByLabel(ps, '-V')!.id, m.id)
+  check('L+ isolado não alimenta o LOGO!', !logoElectricalInputs(logo, [ps, logo], [plusWire]).powered)
+  check('L+ e M alimentados permitem executar o LOGO!', logoElectricalInputs(logo, [ps, logo], [plusWire, minusWire]).powered)
+  const inputWire = wire(terminalByLabel(ps, '+V')!.id, terminalByLabel(logo, 'I1')!.id)
+  check('I1 lê 1 apenas na rede positiva', logoElectricalInputs(logo, [ps, logo], [plusWire, minusWire, inputWire]).positive.has(terminalByLabel(logo, 'I1')!.id))
   const l = logoTerminalLocal(logo, terminalByLabel(logo, 'L+')!)
   const i8 = logoTerminalLocal(logo, terminalByLabel(logo, 'I8')!)
   const q1 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q1')!)

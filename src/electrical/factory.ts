@@ -449,7 +449,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   plcSiemensLogo1224RC: {
     category: 'controller', paletteName: 'Siemens LOGO! 12/24RC (8DI/4DQ)', group: 'Controladores', tag: 'PLC', w: 280, h: 190,
     terminals: plcLogoRCTerminals(),
-    defaultState: { inputs: {}, outputs: { Q1: false, Q2: false, Q3: false, Q4: false }, memories: {}, pressedButton: null },
+    defaultState: { powered: false, inputs: {}, outputs: { Q1: false, Q2: false, Q3: false, Q4: false }, memories: {}, pressedButton: null },
   },
   plcCompact: {
     category: 'controller', paletteName: 'CLP modular 12I/8Q', group: 'Controladores', tag: 'PLC', w: 240, h: 160,

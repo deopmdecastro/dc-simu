@@ -843,7 +843,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         {selected && <rect x={-6} y={-6} width={c.w + 12} height={c.h + 12} rx={6} fill="none" stroke="#2655e5" strokeWidth={1.5} strokeDasharray="5 3" />}
         {c.type === 'plcSiemensLogo1224RC' && logoImages ? (
           <>
-            <image x={0} y={0} width={c.w} height={c.h} href={c.terminals.find((t) => t.label === 'L+')?.energized ? logoImages.on : logoImages.off} preserveAspectRatio="xMidYMid meet" />
+            <image x={0} y={0} width={c.w} height={c.h} href={c.state.powered ? logoImages.on : logoImages.off} preserveAspectRatio="xMidYMid meet" />
             {/* Alvos de seleção e bornes mantêm-se nas coordenadas reais do esquema. */}
             <rect x={0} y={0} width={c.w} height={c.h} fill="transparent" />
             <ComponentTerminals c={c} />

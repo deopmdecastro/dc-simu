@@ -143,6 +143,13 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
   // sem coordenadas fixas manuais.
   const model = useMemo(() => {
     const obj = scene.clone(true)
+    // scene.clone(true) conserva referências aos materiais do cache GLTF;
+    // isolá-los evita que o ecrã de um PLC modifique os demais modelos.
+    obj.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((mat) => mat.clone()) : mesh.material.clone()
+    })
     obj.rotation.set(...LOGO_1224RC_ROTATION)
     obj.updateMatrixWorld(true)
 
@@ -159,8 +166,7 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
     return obj
   }, [scene])
 
-  const lPlus = c.terminals.find((t) => t.label === 'L+')
-  const on = !!lPlus?.energized
+  const on = !!c.state.powered
 
   useEffect(() => {
     // ecrã aceso/apagado consoante a alimentação (L+): identifica a peça do
@@ -178,6 +184,7 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
         const isScreenMaterial = std.color && std.color.g > 0.85 && std.color.r < 0.15 && std.color.b < 0.15
         const isScreenName = nameHint.includes('screen') || nameHint.includes('display') || nameHint.includes('ecra')
         if (isScreenMaterial || isScreenName) {
+          std.color = new THREE.Color(on ? '#22c55e' : '#173b24')
           std.emissive = new THREE.Color(on ? '#22c55e' : '#052e16')
           std.emissiveIntensity = on ? 1.1 : 0.15
         }

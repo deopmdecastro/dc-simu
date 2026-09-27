@@ -8,6 +8,7 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
   const input = useRef<HTMLInputElement>(null)
+  const builtin = type === 'plcSiemensLogo1224RC' ? '/datasheets/logo-manual-0ba4-en.pdf' : null
   useEffect(() => {
     let active = true
     setBusy(true)
@@ -46,9 +47,16 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
     finally { setBusy(false); if (input.current) input.current.value = '' }
   }
 
-  return <details className="dc-inspector-group"><summary>Ficha técnica {entry && <span className="dc-inspector-count">PDF</span>}</summary>
+  return <details className="dc-inspector-group"><summary>Ficha técnica {(entry || builtin) && <span className="dc-inspector-count">PDF</span>}</summary>
     <div className="dc-inspector-group-body">
-      <p className="text-[10px] text-ink-500 leading-relaxed">PDF associado a este tipo de componente, guardado apenas neste navegador. Não é incluído no ficheiro do projeto.</p>
+      <p className="text-[10px] text-ink-500 leading-relaxed">PDFs pessoais associados ao tipo de componente ficam apenas neste navegador. Manuais incluídos na aplicação são identificados à parte.</p>
+      {builtin && <div className="rounded border border-amber-200 bg-amber-50 p-2 text-[10px] leading-relaxed text-amber-900">
+        <strong>Manual Siemens LOGO! 0BA4 (inglês).</strong> O modelo 3D mostra 0BA2; este documento descreve uma versão posterior e não confirma funções exclusivas do 0BA2.
+        <div className="flex flex-wrap gap-1 mt-2">
+          <a className="dc-btn" href={builtin} target="_blank" rel="noopener noreferrer">Ver manual ↗</a>
+          <a className="dc-btn" href={builtin} download="LOGO-manual-0BA4-en.pdf">↓ Descarregar</a>
+        </div>
+      </div> }
       {busy && <span className="text-ink-400">A carregar…</span>}
       {error && <p role="alert" className="text-state-error text-[10px]">{error}</p>}
       {entry && <>
@@ -67,7 +75,7 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
         {entry ? 'Substituir PDF' : 'Adicionar PDF'}
         <input ref={input} type="file" accept="application/pdf,.pdf" className="sr-only" disabled={busy} onChange={(e) => { void upload(e.target.files?.[0]) }} />
       </label>
-      {type === 'plcSiemensLogo1224RC' && !entry && <p className="text-[10px] text-ink-500">Carregue a ficha da versão 0BA2 correspondente ao modelo 3D. O manual 0BA4 não é associado automaticamente.</p>}
+      {builtin && !entry && <p className="text-[10px] text-ink-500">Se tiver o manual específico da versão 0BA2, adicione-o como PDF pessoal.</p>}
     </div>
   </details>
 }

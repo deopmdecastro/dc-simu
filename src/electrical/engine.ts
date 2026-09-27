@@ -222,7 +222,7 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
       // As 4 saídas são contactos secos: cada Q liga APENAS os seus dois
       // parafusos quando o programa ativa o relé, sem ponte para L+.
       for (const q of Object.keys(c.state.outputs ?? {})) {
-        if (c.state.outputs[q]) pair(la(q), la(`${q}.2`))
+        if (c.state.powered !== false && c.state.outputs[q]) pair(la(q), la(`${q}.2`))
       }
       break
     }

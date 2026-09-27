@@ -284,7 +284,7 @@ A Biblioteca do Esquema foi reorganizada como galeria de miniaturas em pastas ex
 
 O Inspetor de componentes foi reorganizado com um resumo fixo do dispositivo, secções recolhíveis de identificação, posição, estado e bornes. Ao selecionar outro componente ou cabo, o painel volta ao início em vez de conservar uma posição de scroll antiga. Os parâmetros mais comuns têm rótulos em português e os bornes mostram tipo, posição e estado com mais espaço. A eliminação de um componente ou borne com cabos ligados pede confirmação.
 
-O Siemens LOGO! 12/24RC no Esquema apresenta uma vista frontal renderizada em WebGL a partir do mesmo ficheiro GLB do Painel 3D, preservando os materiais e cores originais, em vez do corpo desenhado em SVG. A imagem (ligado/desligado conforme L+) é gerada uma vez e reutilizada; os bornes do esquema mantêm a posição, identificação, estado, ligação de cabos e seleção. Em caso de falha no carregamento do modelo, o símbolo anterior serve como reserva.
+O Siemens LOGO! 12/24RC no Esquema apresenta uma vista frontal renderizada em WebGL a partir do mesmo ficheiro GLB do Painel 3D, preservando os materiais e cores originais, em vez do corpo desenhado em SVG. A imagem (ligado/desligado conforme alimentação L+/M) é gerada uma vez e reutilizada; os bornes do esquema mantêm a posição, identificação, estado, ligação de cabos e seleção. Em caso de falha no carregamento do modelo, o símbolo anterior serve como reserva.
 
 O LOGO! 12/24RC tem 19 bornes correspondentes aos parafusos visíveis do modelo: L+, M, I1–I8, um parafuso superior sem legenda identificado internamente como X1 (sem lógica automática) e dois pontos por cada saída Q1–Q4 (`Q1`/`Q1.2`, etc.). As saídas de relé são contactos secos: ao ativar Q1, apenas os seus dois pontos ficam unidos; L+ não é ligado automaticamente à saída. Projetos anteriores com 14 ou 18 bornes recebem os pontos em falta quando são abertos, preservando os identificadores e cabos existentes.
 
@@ -298,6 +298,24 @@ neste navegador; não entra nos ficheiros JSON do projeto nem é publicada no
 Git. Aceita PDFs até 25 MB. Pode associar um PDF diferente a cada tipo da
 Biblioteca.
 
-O manual `Logo_pt.pdf` enviado descreve a série **0BA4**, mas o modelo CAD
-existente indica **0BA2**. Por isso, aguardamos a ficha 0BA2 antes de alterar
-a lógica do PLC ou associar automaticamente um documento a esse tipo.
+O manual inglês enviado (`Logo_e.pdf`) também descreve a série **0BA4**
+(página 4), ao passo que o modelo CAD mostra **0BA2**. Está disponível no
+Inspetor como **manual 0BA4**, com aviso de versão e botões próprios para ver
+ou descarregar. Os PDFs pessoais (incluindo um eventual 0BA2) continuam
+independentes e são guardados apenas no navegador.
+
+### Simulação básica do Siemens LOGO! 12/24RC
+
+Comportamentos comuns documentados pelo manual 0BA4 (páginas 17, 40 e 43):
+L+ e M devem estar ligados, respetivamente, à saída positiva e ao retorno
+negativo de uma fonte DC (ou à rede positiva/barramento de neutro do editor).
+Sem ambos, a simulação põe as entradas I1–I8 e as saídas Q1–Q4 a zero,
+os relés ficam abertos e o ecrã apaga. Com alimentação, I1–I8 leem o estado
+binário da rede positiva e o programa Ladder/GRAFCET controla os quatro
+contactos secos independentes Q1–Q4. Cada contacto liga apenas os dois
+parafusos desse relé, sem transferir automaticamente L+.
+
+I7/I8 são tratados aqui apenas como entradas **digitais**. Esta implementação
+não pretende reproduzir as funções analógicas, o teclado/menu completo, as
+expansões, limites temporais/eléctricos ou os recursos específicos de uma
+versão 0BA2: o PDF 0BA4 não prova esses pormenores para o modelo CAD.
