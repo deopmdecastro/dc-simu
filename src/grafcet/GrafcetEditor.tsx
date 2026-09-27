@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { transitionsOf, validBit, validCondition } from './engine'
 import type { GrafcetStep, GrafcetTransition, GrafcetProgram } from './engine'
@@ -48,12 +48,52 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const stepY = (stepId: string) => 70 + steps.findIndex((s) => s.id === stepId) * 154
   const width = full ? 760 : 560
   const height = Math.max(260, steps.length * 154 + 65)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
+  const [viewport, setViewport] = useState({ width: 440, height: 500 })
+  const [zoom, setZoom] = useState<number | null>(null)
+  const [pan, setPan] = useState<{ x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (full || !viewportRef.current) return
+    const node = viewportRef.current
+    const observer = new ResizeObserver(() => setViewport({ width: node.clientWidth, height: node.clientHeight }))
+    observer.observe(node)
+    setViewport({ width: node.clientWidth, height: node.clientHeight })
+    return () => observer.disconnect()
+  }, [full])
+  const fit = Math.min(1, Math.max(0.25, (viewport.width - 28) / width))
+  const scale = zoom ?? fit
+  const position = pan ?? { x: (viewport.width - width * scale) / 2, y: 22 }
+  const clamp = (n: number) => Math.max(0.25, Math.min(2.5, n))
+  const zoomAt = (value: number, point: { x: number; y: number }) => {
+    const next = clamp(value)
+    setPan({ x: point.x - (point.x - position.x) * next / scale, y: point.y - (point.y - position.y) * next / scale })
+    setZoom(next)
+  }
+  const onPreviewWheel = (e: WheelEvent<HTMLDivElement>) => {
+    if (!steps.length) return
+    e.preventDefault()
+    const rect = e.currentTarget.getBoundingClientRect()
+    zoomAt(scale * (e.deltaY < 0 ? 1.12 : 1 / 1.12), { x: e.clientX - rect.left, y: e.clientY - rect.top })
+  }
+  const onPreviewDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (!steps.length || e.button !== 0 || (e.target as HTMLElement).closest('button')) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { x: e.clientX, y: e.clientY, px: position.x, py: position.y }
+  }
+  const onPreviewMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return
+    setPan({ x: dragRef.current.px + e.clientX - dragRef.current.x, y: dragRef.current.py + e.clientY - dragRef.current.y })
+  }
+  const onPreviewUp = () => { dragRef.current = null }
+  const resetView = () => { setZoom(null); setPan(null) }
   return <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
     <header className="grafcet-header"><div><strong>GRAFCET</strong><small>{steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas</small></div>{full ? <div className="flex gap-1"><button className="dc-btn" onClick={addStep}>+ Etapa</button><button className="dc-btn-primary dc-btn" disabled={steps.length < 2} onClick={addTransition}>+ Transição</button></div> : <button className="dc-btn-primary dc-btn" onClick={onOpenEditor}>Abrir editor ↗</button>}</header>
     <div className="grafcet-designer-body">
-      <div className="grafcet-canvas" aria-label="Diagrama GRAFCET">
+      <div ref={full ? undefined : viewportRef} className="grafcet-canvas" aria-label="Diagrama GRAFCET" onWheel={full ? undefined : onPreviewWheel} onPointerDown={full ? undefined : onPreviewDown} onPointerMove={full ? undefined : onPreviewMove} onPointerUp={full ? undefined : onPreviewUp} onPointerCancel={full ? undefined : onPreviewUp}>
+        {!full && !!steps.length && <div className="grafcet-viewport-tools" onPointerDown={(e) => e.stopPropagation()}><button title="Reduzir zoom" aria-label="Reduzir zoom" onClick={() => zoomAt(scale / 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}>−</button><span>{Math.round(scale * 100)}%</span><button title="Aumentar zoom" aria-label="Aumentar zoom" onClick={() => zoomAt(scale * 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}>+</button><button onClick={resetView} title="Ajustar diagrama à largura">Ajustar</button></div>}
         {!steps.length && <div className="grafcet-empty">Ainda não há GRAFCET neste projeto. {full ? 'Crie uma etapa inicial para começar.' : 'Abra o editor para criar a primeira etapa.'}</div>}
-        {!!steps.length && <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Etapas, ações e transições do GRAFCET">
+        {!!steps.length && <div className={full ? undefined : 'grafcet-pan-layer'} style={full ? undefined : { width, height, transform: `translate(${position.x}px, ${position.y}px) scale(${scale})` }}><svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Etapas, ações e transições do GRAFCET">
           <defs><marker id="grafcet-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6" fill="none" stroke="#526883" /></marker></defs>
           {transitions.flatMap((t, ti) => {
             const sources = t.from.filter((v) => steps.some((s) => s.id === v))
@@ -78,7 +118,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             <text x="196" y={stepY(step.id) + 17} fill="#334155" fontSize="12">{step.name.slice(0, 25)}</text>
             {actionsOf(step).map((action, ai) => <g key={action.id}><path d={`M 183 ${stepY(step.id) + 27} H 335`} stroke="#263d59" strokeWidth="1.5" /><rect x="335" y={stepY(step.id) + ai * 31} width="126" height="27" fill="white" stroke="#263d59" strokeWidth="1.5" /><text x="345" y={stepY(step.id) + 18 + ai * 31} fontSize="11">{action.address}{action.condition !== '1' ? ` [${action.condition}]` : ''}</text></g>)}
           </g>)}
-        </svg>}
+        </svg></div>}
       </div>
       {full && <aside className="grafcet-properties">
         <div className="grafcet-tabs"><button className={tab === 'steps' ? 'is-active' : ''} onClick={() => { setTab('steps'); setSelected(null) }}>Etapas</button><button className={tab === 'transitions' ? 'is-active' : ''} onClick={() => { setTab('transitions'); setSelected(null) }}>Transições</button></div>
@@ -108,6 +148,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         <div className="grafcet-hint">{running ? '● Simulação ativa' : '○ Parado'} · Bits de saída: {Object.entries(table).filter(([k, v]) => /^[QM]/.test(k) && v).map(([k]) => k).join(', ') || 'nenhum'}</div>
       </aside>}
     </div>
-    {!full && <div className="grafcet-preview-status" role="status"><span className={running ? 'is-running' : ''}>● {running ? 'Simulação ativa' : 'Parado'}</span><span>{runtime.active.length ? `Etapas ativas: ${runtime.active.map((v) => steps.findIndex((step) => step.id === v)).join(', ')}` : 'Nenhuma etapa ativa'}</span></div>}
+    {!full && <div className="grafcet-preview-status" role="status"><span className={running ? 'is-running' : ''}>● {running ? 'Simulação ativa' : 'Parado'}</span><span>{runtime.active.length ? `Etapas ativas: ${runtime.active.map((v) => steps.findIndex((step) => step.id === v)).join(', ')}` : 'Nenhuma etapa ativa'}</span><span>Arraste para navegar · roda para ampliar</span></div>}
   </div>
 }

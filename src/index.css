@@ -1766,3 +1766,15 @@ button:disabled { cursor:not-allowed; }
 .grafcet-preview .grafcet-header .dc-btn { white-space:nowrap; }
 .grafcet-preview-status { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; padding:9px 12px; border-top:1px solid #dce4ef; background:#fff; font-size:10px; color:#64748b; }
 .grafcet-preview-status .is-running { color:#15803d; font-weight:700; }
+
+/* Pan/zoom do visualizador: os controlos ficam fixos, só o diagrama se move. */
+.grafcet-preview .grafcet-canvas { position:relative; padding:0; overflow:hidden; min-height:0; cursor:grab; touch-action:none; }
+.grafcet-preview .grafcet-canvas:active { cursor:grabbing; }
+.grafcet-preview .grafcet-pan-layer { position:absolute; left:0; top:0; transform-origin:top left; will-change:transform; }
+.grafcet-preview .grafcet-pan-layer svg { width:560px; height:auto; max-width:none; margin:0; }
+.grafcet-viewport-tools { position:absolute; top:10px; right:10px; z-index:3; display:flex; align-items:center; gap:3px; border:1px solid #d5e0f2; border-radius:8px; padding:3px; background:#fff; box-shadow:0 3px 12px #1e3a5f1c; cursor:default; }
+.grafcet-viewport-tools button { min-width:24px; height:24px; padding:0 5px; border-radius:5px; font-weight:650; color:#1d4ed8; }
+.grafcet-viewport-tools button:hover { background:#eff6ff; }
+.grafcet-viewport-tools span { min-width:34px; text-align:center; font-size:10px; color:#475569; }
+.grafcet-preview .grafcet-designer-body { display:flex; overflow:hidden; }
+.grafcet-preview .grafcet-canvas { flex:1; height:100%; }
