@@ -165,6 +165,9 @@ export interface ElectricalComponentBase {
   mirrored?: boolean
   /** Bloqueado contra arraste acidental */
   locked?: boolean
+  /** Ordem de empilhamento no esquema (maior = mais à frente). Cabos e
+   *  componentes compartilham o mesmo espaço de camadas. */
+  z?: number
   /** Caixa de bornes/cor do corpo do componente no editor */
   bodyColor?: string
   terminals: Terminal[]
@@ -241,6 +244,9 @@ export interface Wire {
   label?: string
   lengthMm?: number
   energized: boolean
+  /** Ordem de empilhamento no esquema (maior = mais à frente). Cabos e
+   *  componentes compartilham o mesmo espaço de camadas. */
+  z?: number
 }
 
 // ---------------------------------------------------------------------------

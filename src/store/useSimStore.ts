@@ -94,6 +94,12 @@ interface Store extends CircuitState {
   /** Reorganiza automaticamente o roteamento/dobra dos cabos (todos, ou apenas os
    * indicados) para reduzir sobreposição — agrupa cabos por canal e distribui a dobra. */
   organizeWires: (wireIds?: string[]) => void
+
+  // --- camadas (ordem de empilhamento: componentes + cabos) ---
+  bringSelectionToFront: () => void
+  sendSelectionToBack: () => void
+  bringSelectionForward: () => void
+  sendSelectionBackward: () => void
   runProbe: () => void
   clearProbe: () => void
 
@@ -119,6 +125,70 @@ interface Store extends CircuitState {
   saveJSON: () => string
   loadJSON: (json: string) => void
   newProject: () => void
+}
+
+type DrawKey = { kind: 'c' | 'w'; id: string }
+
+/** Ordem de empilhamento atual (cabos + componentes), do fundo para a frente,
+ * usando o campo `z` (padrão 0) com a ordem de inserção original como
+ * critério de desempate — mesma lógica usada pelo SchematicView ao desenhar. */
+function currentDrawOrder(components: ElectricalComponent[], wires: Wire[]): DrawKey[] {
+  const entries: (DrawKey & { z: number; idx: number })[] = []
+  wires.forEach((w, i) => entries.push({ kind: 'w', id: w.id, z: w.z ?? 0, idx: i }))
+  components.forEach((c, i) => entries.push({ kind: 'c', id: c.id, z: c.z ?? 0, idx: i + wires.length }))
+  entries.sort((a, b) => a.z - b.z || a.idx - b.idx)
+  return entries.map(({ kind, id }) => ({ kind, id }))
+}
+
+/** Grava de volta a ordem (0..n-1) como o novo `z` de cada item. */
+function applyDrawOrder(order: DrawKey[], components: ElectricalComponent[], wires: Wire[]) {
+  const zByKey = new Map<string, number>()
+  order.forEach((k, i) => zByKey.set(`${k.kind}:${k.id}`, i))
+  return {
+    components: components.map((c) => ({ ...c, z: zByKey.get(`c:${c.id}`) ?? c.z ?? 0 })),
+    wires: wires.map((w) => ({ ...w, z: zByKey.get(`w:${w.id}`) ?? w.z ?? 0 })),
+  }
+}
+
+/** Move os componentes/cabos selecionados para frente/trás (uma camada ou até o topo/fundo). */
+function reorderSelection(
+  get: () => Store,
+  set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
+  mode: 'front' | 'back' | 'forward' | 'backward',
+) {
+  const { components, wires, selectedComponentIds, selectedWireId } = get()
+  const selKeys = new Set<string>([...selectedComponentIds.map((id) => `c:${id}`), ...(selectedWireId ? [`w:${selectedWireId}`] : [])])
+  if (!selKeys.size) return
+  const isSel = (k: DrawKey) => selKeys.has(`${k.kind}:${k.id}`)
+  let order = currentDrawOrder(components, wires)
+
+  if (mode === 'front') {
+    const rest = order.filter((k) => !isSel(k))
+    const sel = order.filter(isSel)
+    order = [...rest, ...sel]
+  } else if (mode === 'back') {
+    const rest = order.filter((k) => !isSel(k))
+    const sel = order.filter(isSel)
+    order = [...sel, ...rest]
+  } else if (mode === 'forward') {
+    // varre de trás para frente movendo cada item selecionado uma posição à frente,
+    // sem ultrapassar outro item selecionado (o bloco selecionado avança junto).
+    for (let i = order.length - 2; i >= 0; i--) {
+      if (isSel(order[i]) && !isSel(order[i + 1])) {
+        ;[order[i], order[i + 1]] = [order[i + 1], order[i]]
+      }
+    }
+  } else {
+    for (let i = 1; i < order.length; i++) {
+      if (isSel(order[i]) && !isSel(order[i - 1])) {
+        ;[order[i - 1], order[i]] = [order[i], order[i - 1]]
+      }
+    }
+  }
+
+  get().commitHistory()
+  const patch = applyDrawOrder(order, components, wires)
+  set({ ...patch, dirty: true })
 }
 
 const EMPTY_RUNTIME = (): RuntimeExtras => ({
@@ -672,6 +742,12 @@ export const useSimStore = create<Store>((set, get) => ({
     }))
     get().pushEvent('info', `Cabos organizados automaticamente (${Object.keys(patches).length}).`)
   },
+
+  // ------------------------------------------------------------ camadas
+  bringSelectionToFront: () => reorderSelection(get, set, 'front'),
+  sendSelectionToBack: () => reorderSelection(get, set, 'back'),
+  bringSelectionForward: () => reorderSelection(get, set, 'forward'),
+  sendSelectionBackward: () => reorderSelection(get, set, 'backward'),
 
   deleteSelection: () => {
     const { selectedComponentIds, selectedWireId, selectedTerminalId } = get()

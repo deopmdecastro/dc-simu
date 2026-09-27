@@ -71,6 +71,10 @@ export default function SchematicView() {
     connectChain,
     organizeWires,
     updateWire,
+    bringSelectionToFront,
+    sendSelectionToBack,
+    bringSelectionForward,
+    sendSelectionBackward,
   } = useSimStore()
 
   const svgRef = useRef<SVGSVGElement>(null)
@@ -134,13 +138,21 @@ export default function SchematicView() {
       } else if (e.ctrlKey && e.key.toLowerCase() === 'y') {
         e.preventDefault()
         useSimStore.getState().redo()
+      } else if (e.ctrlKey && e.key === ']') {
+        e.preventDefault()
+        if (e.shiftKey) bringSelectionToFront()
+        else bringSelectionForward()
+      } else if (e.ctrlKey && e.key === '[') {
+        e.preventDefault()
+        if (e.shiftKey) sendSelectionToBack()
+        else sendSelectionBackward()
       } else if (e.key === '1') useSimStore.getState().setTool('select')
       else if (e.key === '2') useSimStore.getState().setTool('wire')
       else if (e.key === '3') useSimStore.getState().setTool('probe')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, deleteSelection, rotateComponent, duplicateComponents, selectComponents, clearProbe])
+  }, [selectedIds, deleteSelection, rotateComponent, duplicateComponents, selectComponents, clearProbe, bringSelectionToFront, sendSelectionToBack, bringSelectionForward, sendSelectionBackward])
 
   // --------------------------------------------------------------- mouse
   const onBackgroundDown = (e: React.MouseEvent) => {
@@ -283,6 +295,89 @@ export default function SchematicView() {
 
   const pendingFrom = wireFrom ? terminalIndex.get(wireFrom) : null
 
+  // ---------------------------------------------------------- ordem (camadas)
+  // Cabos e componentes compartilham o mesmo espaço de empilhamento (campo `z`,
+  // padrão 0); em caso de empate mantém a ordem original (cabos, depois
+  // componentes) para reproduzir o comportamento clássico quando ninguém
+  // nunca mexeu na ordem.
+  type DrawEntry = { kind: 'wire'; wire: (typeof wires)[number] } | { kind: 'component'; comp: ElectricalComponent }
+  const drawOrder = useMemo(() => {
+    const entries: (DrawEntry & { z: number; idx: number })[] = []
+    wires.forEach((w, i) => entries.push({ kind: 'wire', wire: w, z: w.z ?? 0, idx: i }))
+    components.forEach((c, i) => entries.push({ kind: 'component', comp: c, z: c.z ?? 0, idx: i + wires.length }))
+    entries.sort((a, b) => a.z - b.z || a.idx - b.idx)
+    return entries
+  }, [wires, components])
+
+  const renderWireEl = (w: (typeof wires)[number]) => {
+    const a = terminalIndex.get(w.fromTerminalId)
+    const b = terminalIndex.get(w.toTerminalId)
+    if (!a || !b) return null
+    const base = WIRE_COLORS[w.color] ?? '#94a3b8'
+    const col = w.energized ? '#facc15' : base
+    const selected = selectedWireId === w.id
+    const { d, handle } = wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0)
+    const width = w.gauge.startsWith('0.') ? 1.2 : w.gauge.startsWith('1') ? 1.6 : w.gauge.startsWith('2.5') ? 2.2 : 2.8
+    return (
+      <g key={w.id}>
+        {selected && <path d={d} fill="none" stroke="#22d3ee" strokeWidth={width + 5} opacity={0.35} strokeLinecap="round" />}
+        <path
+          d={d}
+          fill="none"
+          stroke={col}
+          strokeWidth={w.energized ? width + 1 : width}
+          strokeDasharray={w.flexibility === 'flexible' ? undefined : '6 3'}
+          opacity={w.energized ? 1 : 0.72}
+          strokeLinecap="round"
+          onMouseDown={(e) => {
+            e.stopPropagation()
+            selectWire(w.id)
+          }}
+          style={{ cursor: 'pointer' }}
+        />
+        <circle cx={a.x} cy={a.y} r={2.5} fill={col} />
+        <circle cx={b.x} cy={b.y} r={2.5} fill={col} />
+        {selected && handle && (
+          <circle
+            cx={handle.x}
+            cy={handle.y}
+            r={6}
+            fill="#0b1220"
+            stroke="#22d3ee"
+            strokeWidth={2}
+            style={{ cursor: handle.mode === 'curve' ? 'grab' : 'ew-resize' }}
+            onMouseDown={(e) => {
+              e.stopPropagation()
+              setWireDrag({ wireId: w.id, mode: handle.mode })
+            }}
+          >
+            <title>Arraste para {handle.mode === 'curve' ? 'curvar' : 'dobrar'} o cabo</title>
+          </circle>
+        )}
+      </g>
+    )
+  }
+
+  const renderComponentEl = (c: ElectricalComponent) => {
+    const selected = selectedIds.includes(c.id)
+    return (
+      <g
+        key={c.id}
+        transform={`translate(${c.schematicX},${c.schematicY}) rotate(${c.rotation},${c.w / 2},${c.h / 2}) ${c.mirrored ? `translate(${c.w},0) scale(-1,1)` : ''}`}
+        onMouseDown={(e) => startDrag(e, c)}
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          toggleField(c, true)
+        }}
+        style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? 'move' : 'inherit', opacity: c.locked ? 0.85 : 1 }}
+      >
+        {selected && <rect x={-6} y={-6} width={c.w + 12} height={c.h + 12} rx={6} fill="none" stroke="#22d3ee" strokeWidth={1.5} strokeDasharray="5 3" />}
+        <SymbolGlyph c={c} selected={selected} />
+        {c.locked && <text x={c.w - 12} y={12} fontSize={10} fill="#facc15">🔒</text>}
+      </g>
+    )
+  }
+
   return (
     <div className="w-full h-full relative overflow-hidden bg-neutral-950">
       <svg
@@ -309,55 +404,8 @@ export default function SchematicView() {
         <g transform={`translate(${panX},${panY}) scale(${zoom})`}>
           {grid.enabled && <rect x={-CANVAS_W} y={-CANVAS_H} width={CANVAS_W * 3} height={CANVAS_H * 3} fill={grid.style === 'dots' ? 'url(#dc-grid-dots)' : 'url(#dc-grid-lines)'} />}
 
-          {/* -------------------------------------------------- cabos */}
-          {wires.map((w) => {
-            const a = terminalIndex.get(w.fromTerminalId)
-            const b = terminalIndex.get(w.toTerminalId)
-            if (!a || !b) return null
-            const base = WIRE_COLORS[w.color] ?? '#94a3b8'
-            const col = w.energized ? '#facc15' : base
-            const selected = selectedWireId === w.id
-            const { d, handle } = wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0)
-            const width = w.gauge.startsWith('0.') ? 1.2 : w.gauge.startsWith('1') ? 1.6 : w.gauge.startsWith('2.5') ? 2.2 : 2.8
-            return (
-              <g key={w.id}>
-                {selected && <path d={d} fill="none" stroke="#22d3ee" strokeWidth={width + 5} opacity={0.35} strokeLinecap="round" />}
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={col}
-                  strokeWidth={w.energized ? width + 1 : width}
-                  strokeDasharray={w.flexibility === 'flexible' ? undefined : '6 3'}
-                  opacity={w.energized ? 1 : 0.72}
-                  strokeLinecap="round"
-                  onMouseDown={(e) => {
-                    e.stopPropagation()
-                    selectWire(w.id)
-                  }}
-                  style={{ cursor: 'pointer' }}
-                />
-                <circle cx={a.x} cy={a.y} r={2.5} fill={col} />
-                <circle cx={b.x} cy={b.y} r={2.5} fill={col} />
-                {selected && handle && (
-                  <circle
-                    cx={handle.x}
-                    cy={handle.y}
-                    r={6}
-                    fill="#0b1220"
-                    stroke="#22d3ee"
-                    strokeWidth={2}
-                    style={{ cursor: handle.mode === 'curve' ? 'grab' : 'ew-resize' }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation()
-                      setWireDrag({ wireId: w.id, mode: handle.mode })
-                    }}
-                  >
-                    <title>Arraste para {handle.mode === 'curve' ? 'curvar' : 'dobrar'} o cabo</title>
-                  </circle>
-                )}
-              </g>
-            )
-          })}
+          {/* -------------------------------------------------- cabos + componentes, na ordem de empilhamento (z) */}
+          {drawOrder.map((entry) => (entry.kind === 'wire' ? renderWireEl(entry.wire) : renderComponentEl(entry.comp)))}
 
           {/* cabo em construção */}
           {pendingFrom && hoverTerminal && terminalIndex.get(hoverTerminal) && (
@@ -371,27 +419,6 @@ export default function SchematicView() {
               strokeDasharray="4 3"
             />
           )}
-
-          {/* -------------------------------------------------- componentes */}
-          {components.map((c) => {
-            const selected = selectedIds.includes(c.id)
-            return (
-              <g
-                key={c.id}
-                transform={`translate(${c.schematicX},${c.schematicY}) rotate(${c.rotation},${c.w / 2},${c.h / 2}) ${c.mirrored ? `translate(${c.w},0) scale(-1,1)` : ''}`}
-                onMouseDown={(e) => startDrag(e, c)}
-                onDoubleClick={(e) => {
-                  e.stopPropagation()
-                  toggleField(c, true)
-                }}
-                style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? 'move' : 'inherit', opacity: c.locked ? 0.85 : 1 }}
-              >
-                {selected && <rect x={-6} y={-6} width={c.w + 12} height={c.h + 12} rx={6} fill="none" stroke="#22d3ee" strokeWidth={1.5} strokeDasharray="5 3" />}
-                <SymbolGlyph c={c} selected={selected} />
-                {c.locked && <text x={c.w - 12} y={12} fontSize={10} fill="#facc15">🔒</text>}
-              </g>
-            )
-          })}
 
           {/* alvos clicáveis dos bornes (acima de tudo) */}
           {components.map((c) =>
@@ -502,6 +529,7 @@ export default function SchematicView() {
         <div>clique no cabo = editar · duplo no borne = alternar</div>
         <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>
         <div>cabo selecionado: arraste o ponto ciano = dobrar/curvar</div>
+        <div>Ctrl+] avança · Ctrl+[ recua · Ctrl+Shift+]/[ frente/trás</div>
         <div>R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>
       </div>
     </div>

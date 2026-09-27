@@ -8,6 +8,25 @@ const input = 'w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py
 const label = 'text-[10px] uppercase tracking-wide text-neutral-500 mb-0.5 block'
 
 /**
+ * Controles de camada (ordem de empilhamento) — funcionam tanto para
+ * componentes quanto para cabos, já que ambos compartilham o mesmo `z`.
+ */
+function LayerButtons() {
+  const btn = 'flex-1 text-[11px] px-1.5 py-1 rounded bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-200'
+  return (
+    <div>
+      <label className={label}>Camada (frente / trás)</label>
+      <div className="flex gap-1">
+        <button className={btn} title="Trazer para frente" onClick={() => useSimStore.getState().bringSelectionToFront()}>⤒ Frente</button>
+        <button className={btn} title="Avançar uma camada" onClick={() => useSimStore.getState().bringSelectionForward()}>↑ Avançar</button>
+        <button className={btn} title="Recuar uma camada" onClick={() => useSimStore.getState().sendSelectionBackward()}>↓ Recuar</button>
+        <button className={btn} title="Enviar para trás" onClick={() => useSimStore.getState().sendSelectionToBack()}>⤓ Trás</button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Painel esquerdo: biblioteca de componentes (clique adiciona ao esquema) e
  * inspetor completo do que está selecionado (componente, borne ou cabo).
  */
@@ -108,6 +127,7 @@ export default function Sidebar() {
                 <label className={label}>Descrição</label>
                 <input className={input} value={selectedComponent.label} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { label: e.target.value })} />
               </div>
+              <LayerButtons />
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={label}>X</label>
@@ -268,6 +288,8 @@ export default function Sidebar() {
                 <span className="font-semibold text-white">Cabo {selectedWire.number ?? selectedWire.id}</span>
                 <span className={`text-[10px] ${selectedWire.energized ? 'text-yellow-300' : 'text-neutral-500'}`}>{selectedWire.energized ? 'ENERGIZADO' : 'sem tensão'}</span>
               </header>
+
+              <LayerButtons />
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
