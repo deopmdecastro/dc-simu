@@ -8,7 +8,7 @@ import {
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconMagnet, IconZoomIn, IconZoomOut,
-  IconSchematic, IconCube, IconMonitor, IconDownload, IconLock,
+  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock,
 } from '../ui/icons'
 
 type AlignEdge = 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY'
@@ -22,7 +22,7 @@ const ALIGN_BUTTONS: Array<{ edge: AlignEdge; icon: typeof IconAlignLeft; hint: 
   { edge: 'bottom', icon: IconAlignBottom, hint: 'Alinhar embaixo' },
 ]
 
-export type ViewMode = 'schematic' | 'panel3d' | 'monitor'
+export type ViewMode = 'schematic' | 'ladder' | 'panel3d' | 'monitor'
 
 const TOOLS: Array<{ id: EditorTool; label: string; icon: typeof IconCursor; hint: string; key: string }> = [
   { id: 'select', label: 'Selecionar', icon: IconCursor, hint: 'Selecionar / arrastar componentes', key: '1' },
@@ -113,9 +113,9 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
 
         {/* vistas */}
         <div className="dc-seg" role="tablist" aria-label="Vistas">
-          {(['schematic', 'panel3d', 'monitor'] as ViewMode[]).map((m) => {
-            const Icon = m === 'schematic' ? IconSchematic : m === 'panel3d' ? IconCube : IconMonitor
-            const lbl = m === 'schematic' ? 'Esquema' : m === 'panel3d' ? 'Painel 3D' : 'Monitor'
+          {(['schematic', 'ladder', 'panel3d', 'monitor'] as ViewMode[]).map((m) => {
+            const Icon = m === 'schematic' ? IconSchematic : m === 'ladder' ? IconLadder : m === 'panel3d' ? IconCube : IconMonitor
+            const lbl = m === 'schematic' ? 'Esquema' : m === 'ladder' ? 'Ladder' : m === 'panel3d' ? 'Painel 3D' : 'Monitor'
             return (
               <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={segBtn(mode === m)} title={lbl}>
                 <Icon size={13} />

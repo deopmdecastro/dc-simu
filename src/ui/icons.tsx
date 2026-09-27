@@ -217,6 +217,13 @@ export const IconSchematic = (p: IconProps) => (
     <path d="M8 12h3M11 12a2.5 2.5 0 1 1 5 0M14 12h2" />
   </Svg>
 )
+export const IconLadder = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 3v18M20 3v18" />
+    <path d="M4 8h5M15 8h5M4 16h5M15 16h5" />
+    <path d="M9 6v4M15 6v4M9 14v4M15 14v4" />
+  </Svg>
+)
 export const IconCube = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 2.5 21 7v10l-9 4.5L3 17V7z" />
@@ -338,5 +345,25 @@ export const IconBranch = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 12h5M4 20h5M4 4h5" />
     <path d="M9 4c4 0 3 8 7 8-4 0-3 8-7 8" />
+  </Svg>
+)
+export const IconCompare = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 7h14M5 17h14M8 4l-3 3 3 3M16 14l3 3-3 3" />
+  </Svg>
+)
+export const IconMove = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" />
+  </Svg>
+)
+export const IconMath = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 7h14M5 17h14M8 4v6M16 14v6" />
+  </Svg>
+)
+export const IconFunction = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 4h10M7 20h10M9 4c6 3 6 13 0 16M15 4c-6 3-6 13 0 16" />
   </Svg>
 )

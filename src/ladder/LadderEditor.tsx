@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
 import type { LadderContact, LadderRung, LadderContactType, LadderCoilType } from '../types'
-import { IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy, IconZoomIn, IconZoomOut } from '../ui/icons'
+import { IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy, IconZoomIn, IconZoomOut, IconSchematic, IconLadder, IconCompare, IconMath, IconMove, IconFunction, IconUndo, IconRedo, IconChevronDown, IconChevronRight } from '../ui/icons'
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -339,7 +339,7 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
 
 type LadderTab = 'program' | 'tags'
 
-export default function LadderEditor() {
+function CompactLadderEditor() {
   const rungs = useSimStore((s) => s.ladder.rungs)
   const addRung = useSimStore((s) => s.addRung)
   const table = useSimStore((s) => s.runtime.table)
@@ -419,4 +419,268 @@ export default function LadderEditor() {
       )}
     </div>
   )
+}
+
+type PaletteKind = LadderContactType | LadderCoilType | 'TON' | 'TOF' | 'TP' | 'CTU' | 'CTD' | 'MOVE' | 'COMPARE' | 'ADD' | 'SUB'
+
+const PALETTE_GROUPS: Array<{
+  title: string
+  items: Array<{ kind: PaletteKind; label: string; detail: string; icon: 'contact' | 'coil' | 'timer' | 'counter' | 'move' | 'compare' | 'math' | 'function' }>
+}> = [
+  {
+    title: 'Contatos',
+    items: [
+      { kind: 'NO', label: 'NA', detail: 'Normal Aberto', icon: 'contact' },
+      { kind: 'NC', label: 'NF', detail: 'Normal Fechado', icon: 'contact' },
+      { kind: 'RISING', label: 'Borda de Subida', detail: 'Pulso positivo', icon: 'contact' },
+      { kind: 'FALLING', label: 'Borda de Descida', detail: 'Pulso negativo', icon: 'contact' },
+    ],
+  },
+  {
+    title: 'Bobinas',
+    items: [
+      { kind: 'COIL', label: 'Bobina', detail: 'Saída normal', icon: 'coil' },
+      { kind: 'SET', label: 'Bobina Set', detail: 'Retentiva', icon: 'coil' },
+      { kind: 'RESET', label: 'Bobina Reset', detail: 'Retentiva', icon: 'coil' },
+    ],
+  },
+  {
+    title: 'Temporizadores',
+    items: [
+      { kind: 'TON', label: 'TON', detail: 'Atraso na ligação', icon: 'timer' },
+      { kind: 'TOF', label: 'TOF', detail: 'Atraso na desligação', icon: 'timer' },
+      { kind: 'TP', label: 'TP', detail: 'Pulso', icon: 'timer' },
+    ],
+  },
+  {
+    title: 'Contadores',
+    items: [
+      { kind: 'CTU', label: 'CTU', detail: 'Contador UP', icon: 'counter' },
+      { kind: 'CTD', label: 'CTD', detail: 'Contador DOWN', icon: 'counter' },
+    ],
+  },
+  {
+    title: 'Funções',
+    items: [
+      { kind: 'MOVE', label: 'MOVE', detail: 'Transferência', icon: 'move' },
+      { kind: 'ADD', label: 'ADD', detail: 'Soma', icon: 'math' },
+      { kind: 'SUB', label: 'SUB', detail: 'Subtração', icon: 'math' },
+      { kind: 'COMPARE', label: 'Comparador', detail: 'Maior / menor / igual', icon: 'compare' },
+    ],
+  },
+]
+
+function PaletteIcon({ type }: { type: PaletteKind }) {
+  if (type === 'NO' || type === 'NC' || type === 'RISING' || type === 'FALLING') return <IconContact size={17} />
+  if (type === 'COIL' || type === 'SET' || type === 'RESET') return <IconCoil size={17} />
+  if (type === 'TON' || type === 'TOF' || type === 'TP') return <IconTimer size={17} />
+  if (type === 'CTU' || type === 'CTD') return <IconCounter size={17} />
+  if (type === 'MOVE') return <IconMove size={17} />
+  if (type === 'COMPARE') return <IconCompare size={17} />
+  return <IconMath size={17} />
+}
+
+function LadderNavRail() {
+  return (
+    <aside className="ladder-nav-rail">
+      <div className="ladder-brand-mark">DC<span>•</span></div>
+      {[
+        ['▣', 'Projeto', true],
+        ['▤', 'Biblioteca', false],
+        ['◈', 'Dispositivos', false],
+        ['⌁', 'Diagnóstico', false],
+        ['⚙', 'Configurações', false],
+      ].map(([icon, label, active]) => (
+        <button key={String(label)} className={`ladder-nav-item ${active ? 'is-active' : ''}`} title={String(label)}>
+          <span className="ladder-nav-icon">{icon}</span>
+          <span>{label}</span>
+        </button>
+      ))}
+      <span className="mt-auto text-[9px] text-indigo-300/70">v2.0</span>
+    </aside>
+  )
+}
+
+function ProjectTreePane() {
+  const toolTiles: Array<{ label: string; Icon: typeof IconContact }> = [
+    { label: 'Contato', Icon: IconContact },
+    { label: 'Bobina', Icon: IconCoil },
+    { label: 'Temporizadores', Icon: IconTimer },
+    { label: 'Contadores', Icon: IconCounter },
+    { label: 'Move', Icon: IconMove },
+    { label: 'Comparadores', Icon: IconCompare },
+    { label: 'Matemáticas', Icon: IconMath },
+    { label: 'Funções', Icon: IconFunction },
+  ]
+  return (
+    <aside className="ladder-project-pane">
+      <div className="ladder-pane-heading">
+        <span>Projeto</span>
+        <button className="ladder-ghost-button" title="Fechar projeto">×</button>
+      </div>
+      <div className="ladder-project-tree">
+        <div className="tree-row tree-root"><IconChevronDown size={12} /> <span className="tree-folder">▣</span> PLC_1 <small>(CPU 315-2 PN/DP)</small></div>
+        <div className="tree-row tree-indent"><IconChevronDown size={12} /> <span className="tree-folder">▤</span> Blocos de programa</div>
+        <div className="tree-row tree-indent-2 tree-selected"><span className="tree-leaf">▣</span> Main [OB1]</div>
+        <div className="tree-row tree-indent-2"><span className="tree-leaf tree-green">▣</span> FC1 [FC1]</div>
+        <div className="tree-row tree-indent-2"><span className="tree-leaf tree-green">▣</span> FC2 [FC2]</div>
+        {['Blocos de dados', 'Fontes externas', 'Variáveis PLC', 'Tabelas de observação', 'Backups', 'Documentação'].map((item) => (
+          <div className="tree-row tree-indent" key={item}><IconChevronRight size={12} /> <span className="tree-folder">▤</span> {item}</div>
+        ))}
+      </div>
+      <div className="ladder-tools-heading">Ferramentas</div>
+      <div className="ladder-tools-grid">
+        {toolTiles.map(({ label, Icon }) => (
+          <div className="ladder-tool-tile" key={label}>
+            <Icon size={18} />
+            <span>{label}</span>
+          </div>
+        ))}
+      </div>
+    </aside>
+  )
+}
+
+function NetworkStatus({ table, prefix, label }: { table: Record<string, boolean>; prefix: string; label: string }) {
+  const entries = Object.keys(table).filter((key) => key.startsWith(prefix)).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))).slice(0, 8)
+  return (
+    <div className="ladder-status-group">
+      <div className="ladder-status-title">{label}</div>
+      {entries.length ? entries.map((key) => (
+        <div className="ladder-status-row" key={key}>
+          <span className="font-mono text-indigo-700">{key}</span>
+          <span className="truncate text-slate-500">{prefix === 'I' ? (key === 'I1' ? 'Botão Start' : key === 'I2' ? 'Botão Stop' : 'Sensor') : prefix === 'Q' ? (key === 'Q1' ? 'Contator' : 'Motor') : 'Memória'}</span>
+          <span className={`ladder-status-dot ${table[key] ? 'is-on' : ''}`} />
+        </div>
+      )) : <span className="text-[10px] text-slate-400">—</span>}
+    </div>
+  )
+}
+
+function FullLadderEditor() {
+  const rungs = useSimStore((s) => s.ladder.rungs)
+  const table = useSimStore((s) => s.runtime.table)
+  const running = useSimStore((s) => s.sim.runState === 'running')
+  const addRung = useSimStore((s) => s.addRung)
+  const updateRung = useSimStore((s) => s.updateRung)
+  const [activeRungId, setActiveRungId] = useState<string | null>(null)
+  const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
+  const [filter, setFilter] = useState('')
+
+  const activeId = activeRungId && rungs.some((r) => r.id === activeRungId) ? activeRungId : rungs[0]?.id
+
+  const quickAdd = (kind: PaletteKind) => {
+    const rungId = activeId
+    if (!rungId) {
+      addRung()
+      return
+    }
+    updateRung(rungId, (r) => {
+      if (kind === 'NO' || kind === 'NC' || kind === 'RISING' || kind === 'FALLING') {
+        const branch = r.branches[0] ?? { id: `${r.id}-b0`, elements: [] }
+        const branches = r.branches.length ? r.branches : [branch]
+        return {
+          ...r,
+          branches: branches.map((b, index) => index === 0 ? { ...b, elements: [...b.elements, { kind: 'contact', id: `${r.id}-quick-${Date.now()}`, address: 'I1', contactType: kind }] } : b),
+        }
+      }
+      if (kind === 'COIL' || kind === 'SET' || kind === 'RESET') {
+        return { ...r, coils: [...r.coils, { kind: 'coil', id: `${r.id}-quick-${Date.now()}`, address: 'Q1', coilType: kind }] }
+      }
+      if (kind === 'TON' || kind === 'TOF' || kind === 'TP') {
+        return { ...r, timer: { kind: 'timer', id: r.timer?.id ?? `${r.id}-timer`, address: r.timer?.address ?? 'T1', timerType: kind, presetMs: r.timer?.presetMs ?? 3000, preset2Ms: r.timer?.preset2Ms ?? 50 } }
+      }
+      if (kind === 'CTU' || kind === 'CTD') {
+        return { ...r, counter: { kind: 'counter', id: r.counter?.id ?? `${r.id}-counter`, address: r.counter?.address ?? 'C1', counterType: kind, preset: r.counter?.preset ?? 5, resetAddress: r.counter?.resetAddress ?? 'M9' } }
+      }
+      return { ...r, comment: `${kind} disponível no editor` }
+    })
+  }
+
+  const visibleGroups = PALETTE_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !filter.trim() || `${item.label} ${item.detail}`.toLowerCase().includes(filter.toLowerCase())),
+  })).filter((group) => group.items.length)
+
+  return (
+    <div className="ladder-workspace">
+      <LadderNavRail />
+      <ProjectTreePane />
+      <main className="ladder-main-pane">
+        <div className="ladder-project-tabs">
+          <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}><IconSchematic size={13} /> Main [OB1] <span>×</span></button>
+          <button className={`ladder-project-tab ${programTab === 'tags' ? 'is-active' : ''}`} onClick={() => setProgramTab('tags')}>Tabela de Tags</button>
+          <span className="ml-auto flex items-center gap-2 text-[10px] text-slate-400">
+            <span className={`ladder-connection-dot ${running ? 'is-live' : ''}`} /> {running ? 'Simulação ativa' : 'Parado'}
+          </span>
+        </div>
+        <div className="ladder-editor-toolbar">
+          <button className="ladder-toolbar-button"><IconUndo size={14} /></button>
+          <button className="ladder-toolbar-button"><IconRedo size={14} /></button>
+          <span className="ladder-toolbar-separator" />
+          <span className="ladder-zoom-label">⌕ 100%</span>
+          <button className="ladder-toolbar-button">⌗</button>
+          <button className="ladder-toolbar-button">⊞</button>
+          <button className="ladder-toolbar-button">↪</button>
+          <span className="ladder-toolbar-separator" />
+          <span className="text-[10px] text-slate-400">Programa Ladder</span>
+          <button onClick={addRung} className="ladder-primary-button ml-auto"><IconPlus size={12} /> Nova network</button>
+        </div>
+        {programTab === 'tags' ? (
+          <div className="ladder-tags-view"><TagTable /></div>
+        ) : (
+          <div className="ladder-networks">
+            {rungs.map((r, i) => (
+              <div key={r.id} className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`} onClick={() => setActiveRungId(r.id)}>
+                <RungRow rung={r} index={i} />
+              </div>
+            ))}
+            {!rungs.length && (
+              <div className="ladder-empty-state">
+                <IconLadder size={30} />
+                <strong>Nenhuma network no programa</strong>
+                <span>Adicione uma network e insira contatos, bobinas ou temporizadores.</span>
+                <button onClick={addRung} className="ladder-primary-button"><IconPlus size={12} /> Criar primeira network</button>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="ladder-bottom-panel">
+          <div className="ladder-bottom-tabs">
+            <span className="is-active">Entradas/Saídas</span><span>Memórias</span><span>Temporizadores</span><span>Contadores</span>
+          </div>
+          <div className="ladder-status-grid">
+            <NetworkStatus table={table} prefix="I" label="Entradas" />
+            <NetworkStatus table={table} prefix="Q" label="Saídas" />
+            <NetworkStatus table={table} prefix="M" label="Memórias" />
+            <div className="ladder-project-status"><span>Estado do Projeto</span><strong><i /> {running ? 'Simulação ativa' : 'Pronto'}</strong><small>CPU: 315-2 PN/DP · Tempo de varredura: 12 ms</small></div>
+          </div>
+        </div>
+      </main>
+      <aside className="ladder-palette">
+        <div className="ladder-palette-header"><strong>Contatos / Elementos</strong><span>›</span></div>
+        <div className="relative mb-2">
+          <input className="ladder-palette-search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Buscar elemento..." />
+          <span className="ladder-search-icon">⌕</span>
+        </div>
+        <div className="ladder-palette-scroll">
+          {visibleGroups.map((group) => (
+            <section className="ladder-palette-group" key={group.title}>
+              <div className="ladder-palette-group-title"><IconChevronDown size={12} /> {group.title} <span>⌃</span></div>
+              {group.items.map((item) => (
+                <button className="ladder-palette-item" key={item.kind} onClick={() => quickAdd(item.kind)} title={`Inserir ${item.label} na network selecionada`}>
+                  <span className="ladder-palette-icon"><PaletteIcon type={item.kind} /></span>
+                  <span><strong>{item.label}</strong><small>{item.detail}</small></span>
+                </button>
+              ))}
+            </section>
+          ))}
+        </div>
+      </aside>
+    </div>
+  )
+}
+
+export default function LadderEditor({ compact = false }: { compact?: boolean }) {
+  return compact ? <CompactLadderEditor /> : <FullLadderEditor />
 }

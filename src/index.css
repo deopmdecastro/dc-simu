@@ -206,6 +206,435 @@ input[type='color'] {
     @apply order-2;
   }
 
+  /* ------------------------------------------------------ editor Ladder TIA */
+  .ladder-workspace {
+    display: flex;
+    min-width: 980px;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #f7f9fc;
+    color: #25324a;
+    font-size: 12px;
+  }
+  .ladder-nav-rail {
+    width: 76px;
+    flex: 0 0 76px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
+    padding: 12px 7px 10px;
+    background: linear-gradient(180deg, #3020a0 0%, #3927bd 56%, #2e1d91 100%);
+    color: #e8e7ff;
+  }
+  .ladder-brand-mark {
+    padding: 2px 3px 15px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+  }
+  .ladder-brand-mark span {
+    color: #9da7ff;
+  }
+  .ladder-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-height: 47px;
+    padding: 6px 2px;
+    border: 0;
+    border-radius: 7px;
+    color: #d8d6ff;
+    font-size: 9px;
+    cursor: pointer;
+    background: transparent;
+    transition: background .15s, color .15s;
+  }
+  .ladder-nav-item:hover,
+  .ladder-nav-item.is-active {
+    background: rgba(255,255,255,.16);
+    color: #fff;
+  }
+  .ladder-nav-icon {
+    font-size: 17px;
+    line-height: 1;
+  }
+  .ladder-project-pane {
+    width: 220px;
+    flex: 0 0 220px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #d9e0ea;
+    background: #fff;
+  }
+  .ladder-pane-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 40px;
+    padding: 0 11px;
+    border-bottom: 1px solid #e5eaf1;
+    color: #293651;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .ladder-ghost-button {
+    border: 0;
+    color: #9aa6ba;
+    background: transparent;
+    cursor: pointer;
+    font-size: 15px;
+  }
+  .ladder-project-tree {
+    flex: 0 0 305px;
+    overflow: hidden;
+    padding: 11px 7px 8px;
+    border-bottom: 1px solid #e5eaf1;
+  }
+  .tree-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 24px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    color: #44516a;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .tree-row small {
+    color: #8e9bb0;
+    font-size: 8px;
+  }
+  .tree-indent { padding-left: 18px; }
+  .tree-indent-2 { padding-left: 39px; }
+  .tree-selected {
+    color: #3425bd;
+    background: #eeeaff;
+    font-weight: 700;
+  }
+  .tree-folder { color: #5b51cf; }
+  .tree-leaf { color: #5149c8; }
+  .tree-green { color: #24a474; }
+  .ladder-tools-heading {
+    padding: 11px 11px 7px;
+    color: #5f6e84;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .ladder-tools-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    padding: 0 8px 10px;
+    overflow: auto;
+  }
+  .ladder-tool-tile {
+    display: flex;
+    min-height: 60px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 1px solid #e1e6ef;
+    border-radius: 6px;
+    color: #4c3dca;
+    background: #fff;
+    font-size: 9px;
+    cursor: pointer;
+  }
+  .ladder-tool-tile:hover {
+    border-color: #aaa0ef;
+    background: #f4f1ff;
+  }
+  .ladder-tool-tile span { color: #536179; }
+  .ladder-main-pane {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    background: #f7f9fc;
+  }
+  .ladder-project-tabs {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    padding: 0 10px;
+    border-bottom: 1px solid #dce3ec;
+    background: #fff;
+  }
+  .ladder-project-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 14px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: #66748a;
+    background: transparent;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .ladder-project-tab.is-active {
+    border-bottom-color: #4338ca;
+    color: #27216f;
+    font-weight: 700;
+  }
+  .ladder-project-tab span { color: #9ba7ba; }
+  .ladder-editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 39px;
+    padding: 0 11px;
+    border-bottom: 1px solid #e0e6ef;
+    background: #fff;
+  }
+  .ladder-toolbar-button {
+    display: inline-flex;
+    width: 25px;
+    height: 25px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #617089;
+    background: transparent;
+    cursor: pointer;
+  }
+  .ladder-toolbar-button:hover {
+    border-color: #d8def0;
+    color: #3f32bd;
+    background: #f2f0ff;
+  }
+  .ladder-toolbar-separator {
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+    background: #e0e5ed;
+  }
+  .ladder-zoom-label {
+    min-width: 55px;
+    color: #4b596e;
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+    text-align: center;
+  }
+  .ladder-primary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 9px;
+    border: 1px solid #4338ca;
+    border-radius: 5px;
+    color: #fff;
+    background: #4f46d8;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .ladder-primary-button:hover { background: #3e35bd; }
+  .ladder-networks {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 10px;
+  }
+  .ladder-network-wrap {
+    margin-bottom: 9px;
+    border-radius: 7px;
+    outline: 2px solid transparent;
+    outline-offset: 1px;
+  }
+  .ladder-network-wrap.is-selected { outline-color: #b8b2f7; }
+  .ladder-network-wrap > div {
+    margin-bottom: 0;
+    border-color: #dfe5ee;
+    box-shadow: 0 1px 2px rgba(31,43,74,.05);
+  }
+  .ladder-empty-state {
+    display: flex;
+    min-height: 280px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #8c99ac;
+    text-align: center;
+  }
+  .ladder-empty-state svg { color: #6c5ce7; }
+  .ladder-empty-state strong { color: #536179; font-size: 13px; }
+  .ladder-empty-state span { max-width: 290px; font-size: 10px; }
+  .ladder-bottom-panel {
+    flex: 0 0 145px;
+    overflow: hidden;
+    border-top: 1px solid #dce3ec;
+    background: #fff;
+  }
+  .ladder-bottom-tabs {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    height: 31px;
+    padding: 0 12px;
+    border-bottom: 1px solid #e6eaf0;
+    color: #7b899d;
+    font-size: 10px;
+  }
+  .ladder-bottom-tabs span { height: 31px; padding-top: 10px; }
+  .ladder-bottom-tabs .is-active { border-bottom: 2px solid #4f46d8; color: #4338ca; font-weight: 700; }
+  .ladder-status-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(120px, 1fr)) 1.35fr;
+    gap: 12px;
+    padding: 8px 12px;
+  }
+  .ladder-status-title {
+    margin-bottom: 4px;
+    color: #7b899d;
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .ladder-status-row {
+    display: grid;
+    grid-template-columns: 30px 1fr 8px;
+    align-items: center;
+    gap: 5px;
+    height: 16px;
+    color: #59677c;
+    font-size: 9px;
+  }
+  .ladder-status-dot {
+    width: 7px;
+    height: 7px;
+    border: 1px solid #cbd3df;
+    border-radius: 50%;
+    background: #eef2f7;
+  }
+  .ladder-status-dot.is-on { border-color: #36b978; background: #23b76d; box-shadow: 0 0 0 2px #dff7e9; }
+  .ladder-project-status {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-left: 11px;
+    border-left: 1px solid #e5eaf1;
+    color: #6f7d92;
+    font-size: 9px;
+  }
+  .ladder-project-status strong { color: #1caa69; font-size: 10px; }
+  .ladder-project-status strong i {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 4px;
+    border-radius: 50%;
+    background: #24b775;
+  }
+  .ladder-project-status small { color: #9aa6b7; font-size: 8px; }
+  .ladder-palette {
+    width: 245px;
+    flex: 0 0 245px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0 10px;
+    border-left: 1px solid #d9e0ea;
+    background: #fff;
+  }
+  .ladder-palette-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 40px;
+    color: #27334d;
+    font-size: 12px;
+  }
+  .ladder-palette-header span { color: #9aa6b8; font-size: 18px; }
+  .ladder-palette-search {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px 0 27px;
+    border: 1px solid #dbe2ec;
+    border-radius: 5px;
+    outline: none;
+    color: #36445d;
+    font-size: 10px;
+  }
+  .ladder-palette-search:focus { border-color: #7669e4; box-shadow: 0 0 0 3px rgba(91,79,219,.12); }
+  .ladder-search-icon {
+    position: absolute;
+    top: 7px;
+    left: 9px;
+    color: #a2adbd;
+    font-size: 14px;
+  }
+  .ladder-palette-scroll { flex: 1; overflow: auto; padding-bottom: 10px; }
+  .ladder-palette-group {
+    margin-bottom: 10px;
+    border: 1px solid #e1e6ef;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .ladder-palette-group-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 27px;
+    padding: 0 8px;
+    color: #65738a;
+    background: #f8f9fc;
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .ladder-palette-group-title span { margin-left: auto; color: #9da8b8; }
+  .ladder-palette-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 8px;
+    min-height: 39px;
+    padding: 5px 8px;
+    border: 0;
+    border-top: 1px solid #edf0f5;
+    color: #4c3dca;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+  }
+  .ladder-palette-item:hover { background: #f4f1ff; }
+  .ladder-palette-icon {
+    display: inline-flex;
+    width: 25px;
+    height: 25px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: #5546d1;
+    background: #f0edff;
+  }
+  .ladder-palette-item strong,
+  .ladder-palette-item small { display: block; }
+  .ladder-palette-item strong { color: #36425a; font-size: 10px; }
+  .ladder-palette-item small { margin-top: 2px; color: #8995a7; font-size: 8px; }
+  .ladder-tags-view { flex: 1; min-height: 0; overflow: auto; background: #fff; }
+  .ladder-connection-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border: 1px solid #f0b44c;
+    border-radius: 50%;
+    background: #f8c76a;
+  }
+  .ladder-connection-dot.is-live { border-color: #2cae72; background: #25bb77; box-shadow: 0 0 0 2px #dcf7e8; }
+
   /* foco visível consistente para navegação por teclado */
   [tabindex]:focus-visible,
   button:focus-visible,

@@ -100,22 +100,27 @@ export default function App() {
     <div className="h-screen w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
       <Toolbar mode={mode} setMode={setMode} />
       <div className="flex-1 flex min-h-0">
-        <Sidebar width={panelSizes.sidebar} />
-        <div
-          className="dc-resize-handle"
-          onPointerDown={(e) => {
-            e.preventDefault()
-            setResizing({ target: 'sidebar', startX: e.clientX, startSize: panelSizes.sidebar })
-          }}
-          title="Arraste para redimensionar a biblioteca"
-          aria-label="Redimensionar biblioteca"
-        />
+        {mode !== 'ladder' && (
+          <>
+            <Sidebar width={panelSizes.sidebar} />
+            <div
+              className="dc-resize-handle"
+              onPointerDown={(e) => {
+                e.preventDefault()
+                setResizing({ target: 'sidebar', startX: e.clientX, startSize: panelSizes.sidebar })
+              }}
+              title="Arraste para redimensionar a biblioteca"
+              aria-label="Redimensionar biblioteca"
+            />
+          </>
+        )}
         <div className="flex-1 min-w-0 flex flex-col">
           {mode === 'schematic' && <SchematicView />}
+          {mode === 'ladder' && <LadderEditor />}
           {mode === 'panel3d' && <Panel3D />}
           {mode === 'monitor' && <MonitorPanel />}
         </div>
-        {mode !== 'monitor' && (
+        {mode !== 'monitor' && mode !== 'ladder' && (
           <div
             className={`${showLadder ? 'min-w-[320px]' : 'w-9'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder ? { width: panelSizes.ladder } : undefined}
@@ -129,7 +134,7 @@ export default function App() {
                 >
                   ▸
                 </button>
-                <LadderEditor />
+                <LadderEditor compact />
               </>
             ) : (
               <button
