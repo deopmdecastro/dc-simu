@@ -6,7 +6,7 @@ import SchematicView from './schematic/SchematicView'
 import MonitorPanel from './components/MonitorPanel'
 import Panel3D from './three/Panel3D'
 import { useSimStore } from './store/useSimStore'
-import { saveAutosave } from './utils/persistence'
+import { getLastOpenedProjectName, loadAutosave, saveAutosave } from './utils/persistence'
 
 const AUTOSAVE_INTERVAL_MS = 15_000
 
@@ -47,9 +47,21 @@ export default function App() {
   // ------------------------------------------------------------- arranque
   useEffect(() => {
     const st = useSimStore.getState()
+    const lastOpened = getLastOpenedProjectName()
+    if (lastOpened && st.loadProjectByName(lastOpened)) {
+      return () => stop()
+    }
+
+    const autosave = loadAutosave()
+    if (autosave?.json) {
+      st.loadJSON(autosave.json)
+      st.pushEvent('info', `Autosave de ${new Date(autosave.savedAt).toLocaleString('pt-PT')} restaurado.`)
+      return () => stop()
+    }
+
     st.newProject()
     return () => stop()
-    }, [])
+  }, [])
 
   // ------------------------------------------------------------- autosave
   useEffect(() => {

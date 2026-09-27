@@ -141,7 +141,7 @@ interface Store extends CircuitState {
   commitHistory: () => void
 
   // --- ladder ---
-  addRung: () => void
+  addRung: () => string
   deleteRung: (rungId: string) => void
   duplicateRung: (rungId: string) => void
   moveRung: (rungId: string, dir: -1 | 1) => void
@@ -971,11 +971,13 @@ export const useSimStore = create<Store>((set, get) => ({
   // ------------------------------------------------------------------- ladder
   addRung: () => {
     get().commitHistory()
+    const rungId = nanoid(6)
     set((s) => ({
-      ladder: { rungs: [...s.ladder.rungs, { id: nanoid(6), name: `Rung ${s.ladder.rungs.length + 1}`, branches: [{ id: nanoid(6), elements: [] }], coils: [], enabled: true }] },
+      ladder: { rungs: [...s.ladder.rungs, { id: rungId, name: `Rung ${s.ladder.rungs.length + 1}`, branches: [{ id: nanoid(6), elements: [] }], coils: [], enabled: true }] },
       dirty: true,
     }))
     get().step()
+    return rungId
   },
 
   deleteRung: (rungId) => {

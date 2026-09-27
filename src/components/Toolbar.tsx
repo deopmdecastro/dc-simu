@@ -43,8 +43,14 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
     step, saveJSON, loadJSON, newProject, tool, setTool, grid, setGrid, zoom, setZoom,
     components, undo, redo, history, future, organizeWires, wires, selectedComponentIds,
     alignSelection, distributeSelection, autoNumberWires, setCurrentProjectName,
+    dirty,
   } = useSimStore()
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const createNewProject = () => {
+    if (dirty && !window.confirm('Criar um novo projeto e descartar alterações não guardadas?')) return
+    newProject()
+  }
 
   const downloadBOM = () => {
     const rows = buildBOM(components)
@@ -71,10 +77,15 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
   const upload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (dirty && !window.confirm('Abrir este arquivo e descartar alterações não guardadas?')) {
+      e.target.value = ''
+      return
+    }
     const reader = new FileReader()
     reader.onload = () => {
       loadJSON(String(reader.result))
       setCurrentProjectName(null)
+      e.target.value = ''
     }
     reader.readAsText(file)
   }
@@ -126,7 +137,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
         </div>
 
         {/* arquivo */}
-        <button onClick={newProject} className={btn} title="Novo projeto em branco">
+        <button onClick={createNewProject} className={btn} title="Novo projeto em branco">
           <IconFile size={13} /> Novo
         </button>
         <button onClick={download} className={btn} title="Salvar projeto em arquivo JSON">

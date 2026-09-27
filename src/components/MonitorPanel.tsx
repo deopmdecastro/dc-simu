@@ -1,5 +1,6 @@
 import { useSimStore } from '../store/useSimStore'
 import { IconPlay, IconTimer, IconShield, IconSearch } from '../ui/icons'
+import { SCENARIOS } from '../simulation/scenarios'
 
 function Bit({ label: name, tagName, value, onToggle }: { label: string; tagName?: string | null; value: boolean; onToggle?: () => void }) {
   return (
@@ -53,36 +54,70 @@ export default function MonitorPanel() {
       .filter((k) => k.startsWith(prefix) && !k.startsWith('I0'))
       .sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
 
+  const inputs = group('I')
+  const outputs = group('Q')
+  const memories = group('M')
+
   const toggleBit = (k: string) => {
     // bits M são de memória interna: permitem forçar leitura/escrita para teste
-    if (k.startsWith('M')) useSimStore.getState().runtime.table[k] = !table[k]
+    if (!k.startsWith('M')) return
+    const st = useSimStore.getState()
+    useSimStore.setState({
+      runtime: {
+        ...st.runtime,
+        table: { ...st.runtime.table, [k]: !st.runtime.table[k] },
+      },
+    })
   }
 
   return (
     <div className="p-4 flex flex-col gap-5 overflow-y-auto h-full bg-surface-app min-h-0">
+      {components.length === 0 && (
+        <section className="rounded-md border border-line bg-white p-4 shadow-xs">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-ink-900">Monitor pronto para simular</h2>
+              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-500">
+                Carregue um cenário para ver entradas, saídas, temporizadores, contadores e diagnósticos em tempo real.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {SCENARIOS.slice(0, 3).map((scenario) => (
+                <button key={scenario.id} className="dc-btn" onClick={() => useSimStore.getState().loadScenario(scenario.id)}>
+                  {scenario.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div>
           <SectionTitle>Entradas físicas</SectionTitle>
           <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-1.5">
-            {group('I').map((k) => (
+            {inputs.map((k) => (
               <Bit key={k} label={k} tagName={tagNameFor(k)} value={table[k]} />
             ))}
+            {!inputs.length && <div className="col-span-full text-xs text-ink-400">Nenhuma entrada disponível.</div>}
           </div>
         </div>
         <div>
           <SectionTitle>Saídas do CLP</SectionTitle>
           <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-1.5">
-            {group('Q').map((k) => (
+            {outputs.map((k) => (
               <Bit key={k} label={k} tagName={tagNameFor(k)} value={table[k]} />
             ))}
+            {!outputs.length && <div className="col-span-full text-xs text-ink-400">Nenhuma saída disponível.</div>}
           </div>
         </div>
         <div>
           <SectionTitle>Memórias (clique p/ forçar)</SectionTitle>
           <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-1.5">
-            {group('M').map((k) => (
+            {memories.map((k) => (
               <Bit key={k} label={k} tagName={tagNameFor(k)} value={table[k]} onToggle={() => toggleBit(k)} />
             ))}
+            {!memories.length && <div className="col-span-full text-xs text-ink-400">Nenhuma memória disponível.</div>}
           </div>
         </div>
         <div>

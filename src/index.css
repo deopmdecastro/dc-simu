@@ -209,11 +209,14 @@ input[type='color'] {
   /* ------------------------------------------------------ editor Ladder TIA */
   .ladder-workspace {
     display: flex;
-    min-width: 980px;
+    min-width: 0;
     min-height: 0;
     height: 100%;
     overflow: hidden;
-    background: #f7f9fc;
+    background:
+      linear-gradient(90deg, rgba(38,85,229,.035) 1px, transparent 1px) 0 0 / 24px 24px,
+      linear-gradient(180deg, rgba(38,85,229,.035) 1px, transparent 1px) 0 0 / 24px 24px,
+      #f7f9fc;
     color: #25324a;
     font-size: 12px;
   }
@@ -288,6 +291,31 @@ input[type='color'] {
     background: transparent;
     cursor: pointer;
     font-size: 15px;
+  }
+  .ladder-ghost-button:hover {
+    color: #3f32bd;
+  }
+  .ladder-collapsed-pane-button {
+    flex: 0 0 34px;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    border: 0;
+    border-right: 1px solid #d9e0ea;
+    color: #66748a;
+    background: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .ladder-collapsed-pane-button:hover {
+    color: #3f32bd;
+    background: #f4f1ff;
+  }
+  .ladder-collapsed-pane-button.is-right {
+    border-right: 0;
+    border-left: 1px solid #d9e0ea;
   }
   .ladder-project-tree {
     flex: 0 0 305px;
@@ -398,10 +426,11 @@ input[type='color'] {
   }
   .ladder-toolbar-button {
     display: inline-flex;
-    width: 25px;
+    min-width: 25px;
     height: 25px;
     align-items: center;
     justify-content: center;
+    padding: 0 5px;
     border: 1px solid transparent;
     border-radius: 4px;
     color: #617089;
@@ -412,6 +441,15 @@ input[type='color'] {
     border-color: #d8def0;
     color: #3f32bd;
     background: #f2f0ff;
+  }
+  .ladder-toolbar-button:disabled {
+    cursor: not-allowed;
+    opacity: .35;
+  }
+  .ladder-toolbar-button:disabled:hover {
+    border-color: transparent;
+    color: #617089;
+    background: transparent;
   }
   .ladder-toolbar-separator {
     width: 1px;
@@ -442,11 +480,189 @@ input[type='color'] {
     cursor: pointer;
   }
   .ladder-primary-button:hover { background: #3e35bd; }
+  .ladder-program-summary,
+  .compact-ladder-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+    gap: 7px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e0e6ef;
+    background: linear-gradient(180deg, #fbfcfe 0%, #f4f7fb 100%);
+  }
+  .compact-ladder-summary {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    grid-template-columns: repeat(auto-fit, minmax(66px, 1fr));
+    padding: 7px;
+  }
+  .compact-ladder-editor {
+    display: flex;
+    min-height: 0;
+    height: 100%;
+    flex-direction: column;
+    background: #fff;
+  }
+  .compact-ladder-canvas {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    background: #f7f9fc;
+  }
+  .compact-ladder-scale {
+    min-width: 520px;
+    padding: 10px;
+  }
+  .ladder-metric,
+  .ladder-live-bus {
+    min-width: 0;
+    border: 1px solid #e1e7f0;
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(31,43,74,.04);
+  }
+  .ladder-metric span,
+  .ladder-live-bus span {
+    display: block;
+    color: #7c8aa0;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .ladder-metric strong,
+  .ladder-live-bus strong {
+    display: block;
+    margin-top: 2px;
+    color: #24314a;
+    font-family: ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.05;
+  }
+  .ladder-metric.is-run {
+    border-color: #bfead0;
+    background: #f0fbf5;
+  }
+  .ladder-metric.is-run strong { color: #159052; }
+  .ladder-metric.is-warn {
+    border-color: #f5d497;
+    background: #fff9ec;
+  }
+  .ladder-metric.is-warn strong { color: #b26708; }
+  .ladder-live-bus {
+    border-color: #cbd8fb;
+    background: #f2f6ff;
+  }
+  .ladder-live-bus strong { color: #2553d7; }
+  .ladder-rung-card {
+    margin-bottom: 10px;
+    overflow: hidden;
+    border: 1px solid #dfe5ee;
+    border-radius: 7px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(31,43,74,.05);
+    transition: border-color .16s, box-shadow .16s, transform .16s;
+  }
+  .ladder-rung-card.is-powered {
+    border-color: #5bc486;
+    box-shadow: 0 0 0 1px rgba(22,163,74,.22), 0 6px 16px rgba(22,163,74,.08);
+  }
+  .ladder-rung-header {
+    display: flex;
+    min-height: 33px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    border-bottom: 1px solid #dfe6ef;
+    background: linear-gradient(180deg, #fbfcfe 0%, #f2f5f9 100%);
+  }
+  .ladder-rung-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 18px;
+    padding: 0 6px;
+    border: 1px solid #d7dee9;
+    border-radius: 4px;
+    color: #758399;
+    background: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .ladder-rung-live i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #aab4c2;
+  }
+  .ladder-rung-live.is-on {
+    border-color: #bce8cf;
+    color: #137a47;
+    background: #eefaf3;
+  }
+  .ladder-rung-live.is-on i {
+    background: #16a34a;
+    box-shadow: 0 0 0 2px #dff7e9;
+  }
+  .ladder-rung-body {
+    padding: 11px 12px 8px;
+    background:
+      linear-gradient(90deg, rgba(148,163,184,.14) 1px, transparent 1px) 0 0 / 18px 18px,
+      linear-gradient(180deg, rgba(148,163,184,.14) 1px, transparent 1px) 0 0 / 18px 18px,
+      #fff;
+  }
+  .ladder-diagram-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 2px;
+  }
+  .ladder-diagram {
+    display: flex;
+    min-width: 455px;
+    align-items: stretch;
+  }
+  .ladder-branch-row {
+    display: flex;
+    min-height: 46px;
+    align-items: center;
+    gap: 2px;
+    flex-wrap: nowrap;
+  }
+  .ladder-coil-bank {
+    display: flex;
+    min-width: 116px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 12px;
+    border-left: 1px dashed #d9e0ea;
+  }
+  .ladder-rung-params,
+  .ladder-insert-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    padding: 0 12px 8px;
+    color: #64748b;
+    font-size: 10px;
+  }
+  .ladder-insert-bar {
+    padding: 7px 12px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
   .ladder-networks {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
     padding: 10px;
+  }
+  .ladder-networks-scale {
+    min-width: 560px;
+    transform-origin: top left;
   }
   .ladder-network-wrap {
     margin-bottom: 9px;
@@ -462,17 +678,81 @@ input[type='color'] {
   }
   .ladder-empty-state {
     display: flex;
-    min-height: 280px;
+    min-height: 285px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    color: #8c99ac;
+    gap: 10px;
+    margin: 8px auto;
+    padding: 24px;
+    border: 1px dashed #c9d4e2;
+    border-radius: 8px;
+    color: #718096;
+    background:
+      linear-gradient(135deg, rgba(38,85,229,.06) 0%, transparent 32%),
+      #fff;
     text-align: center;
   }
-  .ladder-empty-state svg { color: #6c5ce7; }
-  .ladder-empty-state strong { color: #536179; font-size: 13px; }
-  .ladder-empty-state span { max-width: 290px; font-size: 10px; }
+  .ladder-empty-state.is-compact {
+    min-height: 220px;
+    margin: 10px;
+    padding: 18px 14px;
+  }
+  .ladder-empty-icon {
+    display: inline-flex;
+    width: 46px;
+    height: 46px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d8e1ed;
+    border-radius: 8px;
+    color: #2553d7;
+    background: #f2f6ff;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.75);
+  }
+  .ladder-empty-state svg { color: #2553d7; }
+  .ladder-empty-state strong { color: #334057; font-size: 14px; }
+  .ladder-empty-state span { max-width: 340px; font-size: 10px; line-height: 1.45; }
+  .ladder-empty-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 2px;
+  }
+  .ladder-empty-scenarios {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .ladder-empty-scenarios span {
+    width: auto;
+    padding: 4px 7px;
+    border: 1px solid #dde5ef;
+    border-radius: 5px;
+    color: #5d6a80;
+    background: #f8fafc;
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .ladder-blackbox-state {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 24px;
+    color: #66748a;
+    text-align: center;
+    background:
+      linear-gradient(135deg, rgba(15,23,42,.04) 0%, transparent 35%),
+      #f8fafc;
+  }
+  .ladder-blackbox-state.is-compact { padding: 18px; }
+  .ladder-blackbox-state strong { color: #303c52; font-size: 13px; }
+  .ladder-blackbox-state span { max-width: 315px; font-size: 11px; line-height: 1.55; }
   .ladder-bottom-panel {
     flex: 0 0 145px;
     overflow: hidden;
@@ -557,6 +837,13 @@ input[type='color'] {
     color: #27334d;
     font-size: 12px;
   }
+  .ladder-palette-header small {
+    display: block;
+    margin-top: 2px;
+    color: #8995a7;
+    font-size: 8px;
+    font-weight: 700;
+  }
   .ladder-palette-header span { color: #9aa6b8; font-size: 18px; }
   .ladder-palette-search {
     width: 100%;
@@ -624,6 +911,28 @@ input[type='color'] {
   .ladder-palette-item small { display: block; }
   .ladder-palette-item strong { color: #36425a; font-size: 10px; }
   .ladder-palette-item small { margin-top: 2px; color: #8995a7; font-size: 8px; }
+  .ladder-palette-empty {
+    display: flex;
+    min-height: 118px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 1px dashed #d5deea;
+    border-radius: 7px;
+    color: #8793a7;
+    background: #fbfcfe;
+    text-align: center;
+  }
+  .ladder-palette-empty strong {
+    color: #44516a;
+    font-size: 10px;
+  }
+  .ladder-palette-empty span {
+    max-width: 150px;
+    font-size: 9px;
+    line-height: 1.35;
+  }
   .ladder-tags-view { flex: 1; min-height: 0; overflow: auto; background: #fff; }
   .ladder-connection-dot {
     display: inline-block;

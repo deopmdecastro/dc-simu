@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, WIRE_COLORS, terminalPos } from './symbols'
 import { IconProbe } from '../ui/icons'
+import { SCENARIOS } from '../simulation/scenarios'
 import type { ElectricalComponent, ComponentType } from '../types'
 
 const CANVAS_W = 2000
@@ -565,6 +566,49 @@ export default function SchematicView() {
            )}
          </g>
       </svg>
+
+      {components.length === 0 && wires.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-[520px] max-w-[calc(100%-32px)] rounded-md border border-line bg-white/95 p-4 text-center shadow-md backdrop-blur-sm pointer-events-auto">
+            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-brand-200 bg-brand-50 text-brand-700">
+              DC
+            </div>
+            <h2 className="text-sm font-bold text-ink-900">Comece por um circuito real</h2>
+            <p className="mx-auto mt-1 max-w-[390px] text-xs leading-relaxed text-ink-500">
+              Carregue um cenário industrial pronto ou solte os primeiros dispositivos no esquema.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-1.5 text-left">
+              {SCENARIOS.map((scenario) => (
+                <button
+                  key={scenario.id}
+                  className="dc-btn !h-auto !justify-start !px-2 !py-2 text-left"
+                  onClick={() => useSimStore.getState().loadScenario(scenario.id)}
+                >
+                  <span className="truncate">{scenario.name}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+              {(
+                [
+                  ['plcLogo', 'CLP'],
+                  ['buttonNO', 'Botão NA'],
+                  ['contactor', 'Contator'],
+                  ['motor3ph', 'Motor 3~'],
+                ] as Array<[ComponentType, string]>
+              ).map(([type, text], index) => (
+                <button
+                  key={type}
+                  className="dc-btn-primary dc-btn"
+                  onClick={() => useSimStore.getState().addComponent(type, 220 + index * 150, 220)}
+                >
+                  + {text}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* legenda / estado */}
       <div className="absolute left-2 top-2 flex flex-col gap-1 text-[11px] text-ink-500 pointer-events-none">

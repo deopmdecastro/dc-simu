@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
 import type { LadderContact, LadderRung, LadderContactType, LadderCoilType } from '../types'
-import { IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy, IconZoomIn, IconZoomOut, IconSchematic, IconLadder, IconCompare, IconMath, IconMove, IconFunction, IconUndo, IconRedo, IconChevronDown, IconChevronRight } from '../ui/icons'
+import { IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy, IconZoomIn, IconZoomOut, IconSchematic, IconLadder, IconCompare, IconMath, IconMove, IconFunction, IconUndo, IconRedo, IconChevronDown, IconChevronRight, IconShield } from '../ui/icons'
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -162,13 +162,9 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
   const tiny = 'dc-input !h-[22px] !text-[10px] !w-auto'
 
   return (
-    <div
-      className={`rounded-md border mb-2.5 bg-white overflow-hidden transition-shadow ${
-        powered && running ? 'border-emerald-400 shadow-[0_0_0_1px_rgba(22,163,74,.25)]' : 'border-line shadow-xs'
-      }`}
-    >
+    <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''}`}>
       {/* cabeçalho do rung */}
-      <div className="flex items-center gap-2 px-2 h-8 bg-surface-rail border-b border-line">
+      <div className="ladder-rung-header">
         <span
           className={`inline-flex items-center justify-center h-4 min-w-[20px] px-1 rounded-[3px] font-mono text-[10px] font-bold ${
             powered && running ? 'bg-state-run text-white' : 'bg-surface-sunken text-ink-500 border border-line'
@@ -182,6 +178,10 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
           value={rung.name}
           onChange={(e) => renameRung(rung.id, e.target.value)}
         />
+        <span className={`ladder-rung-live ${powered && running ? 'is-on' : ''}`}>
+          <i />
+          {powered && running ? 'energizado' : 'aberto'}
+        </span>
         <label className="flex items-center gap-1 text-[10px] text-ink-400 cursor-pointer" title="Rung habilitado para execução">
           <input type="checkbox" checked={rung.enabled} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, enabled: e.target.checked }))} />
           ativo
@@ -195,8 +195,9 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
       </div>
 
       {/* diagrama */}
-      <div className="px-3 pt-3 pb-2">
-        <div className="flex items-stretch">
+      <div className="ladder-rung-body">
+        <div className="ladder-diagram-scroll">
+        <div className="ladder-diagram">
           {/* barramento L+ */}
           <div className="flex flex-col items-center w-7 shrink-0">
             <span className="font-mono text-[9px] font-bold text-ink-400">L+</span>
@@ -209,7 +210,7 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
           {/* ramos */}
           <div className="flex-1 flex flex-col gap-1.5 min-w-0">
             {rung.branches.map((b, bi) => (
-              <div key={b.id} className="flex items-center gap-0.5 flex-wrap">
+              <div key={b.id} className="ladder-branch-row">
                 <div
                   className="h-0 w-3 shrink-0"
                   style={{ borderTop: `${powered && running ? '2px solid #16a34a' : '2px solid #94a3b8'}` }}
@@ -248,7 +249,7 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
           </div>
 
           {/* saídas + barramento L− */}
-          <div className="flex flex-col justify-center px-3 gap-1 border-l border-dashed border-line-soft">
+          <div className="ladder-coil-bank">
             {rung.coils.map((c) => (
               <CoilButton key={c.id} coil={c} powered={!!table[c.address]} onCycle={() => cycleCoil(c.id)} onRemove={() => removeCoil(c.id)} />
             ))}
@@ -259,10 +260,11 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
             <span className="font-mono text-[9px] font-bold text-ink-400">L−</span>
           </div>
         </div>
+        </div>
       </div>
 
       {/* parâmetros */}
-      <div className="flex items-center gap-2 flex-wrap px-3 pb-2 text-[10px] text-ink-500">
+      <div className="ladder-rung-params">
         <span className="flex items-center gap-1 dc-chip !h-[18px]"><IconTimer size={9} /> Temp.</span>
         <select className={tiny} value={rung.timer?.timerType ?? 'none'} onChange={(e) => setTimer(e.target.value as any)}>
           <option value="none">—</option>
@@ -307,7 +309,7 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
       </div>
 
       {/* inserção */}
-      <div className="flex items-center gap-1 flex-wrap px-3 py-1.5 border-t border-line-soft bg-surface-rail/70">
+      <div className="ladder-insert-bar">
         <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={newAddress} onChange={(e) => setNewAddress(e.target.value.toUpperCase())} placeholder="I1" />
         <select className={tiny} value={newType} onChange={(e) => setNewType(e.target.value as LadderContactType)}>
           <option value="NO">NA</option>
@@ -339,13 +341,72 @@ function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
 
 type LadderTab = 'program' | 'tags'
 
+function programCounts(rungs: LadderRung[]) {
+  return rungs.reduce(
+    (acc, rung) => ({
+      contacts: acc.contacts + rung.branches.reduce((sum, branch) => sum + branch.elements.length, 0),
+      coils: acc.coils + rung.coils.length,
+      timers: acc.timers + (rung.timer ? 1 : 0),
+      counters: acc.counters + (rung.counter ? 1 : 0),
+    }),
+    { contacts: 0, coils: 0, timers: 0, counters: 0 },
+  )
+}
+
+function onCount(table: Record<string, boolean>, prefix: string) {
+  return Object.keys(table).filter((key) => key.startsWith(prefix) && table[key]).length
+}
+
+function LadderMetric({ label, value, tone = 'neutral' }: { label: string; value: string | number; tone?: 'neutral' | 'run' | 'warn' }) {
+  return (
+    <div className={`ladder-metric is-${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
+function LadderEmptyState({ compact = false, onCreate }: { compact?: boolean; onCreate: () => void }) {
+  return (
+    <div className={`ladder-empty-state ${compact ? 'is-compact' : ''}`}>
+      <div className="ladder-empty-icon"><IconLadder size={compact ? 24 : 30} /></div>
+      <strong>Nenhuma network no programa</strong>
+      <span>Comece com uma network básica ou carregue um cenário de treino para ver a lógica Ladder sincronizada.</span>
+      <div className="ladder-empty-actions">
+        <button onClick={onCreate} className="ladder-primary-button"><IconPlus size={12} /> Criar primeira network</button>
+      </div>
+      {!compact && (
+        <div className="ladder-empty-scenarios" aria-label="Sugestões de arranque">
+          <span>Partida direta</span>
+          <span>Reversão</span>
+          <span>Temporizador TON</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BlackBoxState({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className={`ladder-blackbox-state ${compact ? 'is-compact' : ''}`}>
+      <div className="ladder-empty-icon"><IconShield size={compact ? 22 : 28} /></div>
+      <strong>Programa oculto</strong>
+      <span>Modo caixa-preta ativo. Observe entradas, saídas e sondas para deduzir a lógica do circuito.</span>
+    </div>
+  )
+}
+
 function CompactLadderEditor() {
   const rungs = useSimStore((s) => s.ladder.rungs)
   const addRung = useSimStore((s) => s.addRung)
   const table = useSimStore((s) => s.runtime.table)
+  const rungPowered = useSimStore((s) => s.runtime.rungPowered)
+  const running = useSimStore((s) => s.sim.runState === 'running')
   const blackBox = useSimStore((s) => s.sim.blackBox)
   const [tab, setTab] = useState<LadderTab>('program')
   const [ladderZoom, setLadderZoom] = useState(1)
+  const counts = programCounts(rungs)
+  const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
 
   const bits = (p: string) =>
     Object.keys(table)
@@ -361,7 +422,7 @@ function CompactLadderEditor() {
   )
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-surface-panel">
+    <div className="compact-ladder-editor">
       <TagAddressDatalist />
       <div className="flex items-center justify-between pr-2 border-b border-line bg-surface-rail">
         <div className="flex items-center">
@@ -379,26 +440,20 @@ function CompactLadderEditor() {
       {tab === 'tags' ? (
         <TagTable />
       ) : blackBox ? (
-        <div className="flex-1 flex items-center justify-center p-6 text-center text-xs text-ink-500 leading-relaxed">
-          <div className="max-w-[260px] space-y-2">
-            <div className="mx-auto w-10 h-10 rounded-full bg-surface-sunken border border-line flex items-center justify-center text-ink-400 font-bold">■</div>
-            Modo caixa-preta ativo: o programa Ladder está oculto para o operador. Use o Monitor e a Sonda para deduzir a lógica.
-          </div>
-        </div>
+        <BlackBoxState compact />
       ) : (
-        <div className="flex-1 overflow-auto min-h-0 bg-[#f7f9fc]">
-          <div className="p-2.5 min-w-[520px]" style={{ zoom: ladderZoom }}>
+        <div className="compact-ladder-canvas">
+          <div className="compact-ladder-summary">
+            <LadderMetric label="Networks" value={rungs.length} />
+            <LadderMetric label="Energ." value={running ? poweredCount : 0} tone={running && poweredCount ? 'run' : 'neutral'} />
+            <LadderMetric label="I/Q ON" value={`${onCount(table, 'I')}/${onCount(table, 'Q')}`} tone={running ? 'run' : 'neutral'} />
+            <LadderMetric label="Blocos" value={counts.timers + counts.counters} tone={counts.timers + counts.counters ? 'warn' : 'neutral'} />
+          </div>
+          <div className="compact-ladder-scale" style={{ zoom: ladderZoom }}>
             {rungs.map((r, i) => (
               <RungRow key={r.id} rung={r} index={i} />
             ))}
-            {rungs.length === 0 && (
-              <div className="text-center text-ink-400 text-xs mt-10">
-                Nenhum rung no programa.
-                <button onClick={addRung} className="dc-btn-primary dc-btn mx-auto mt-3">
-                  <IconPlus size={11} /> Criar o primeiro rung
-                </button>
-              </div>
-            )}
+            {rungs.length === 0 && <LadderEmptyState compact onCreate={addRung} />}
           </div>
         </div>
       )}
@@ -501,7 +556,7 @@ function LadderNavRail() {
   )
 }
 
-function ProjectTreePane() {
+function ProjectTreePane({ onClose }: { onClose: () => void }) {
   const toolTiles: Array<{ label: string; Icon: typeof IconContact }> = [
     { label: 'Contato', Icon: IconContact },
     { label: 'Bobina', Icon: IconCoil },
@@ -516,7 +571,7 @@ function ProjectTreePane() {
     <aside className="ladder-project-pane">
       <div className="ladder-pane-heading">
         <span>Projeto</span>
-        <button className="ladder-ghost-button" title="Fechar projeto">×</button>
+        <button className="ladder-ghost-button" title="Recolher projeto" onClick={onClose}>×</button>
       </div>
       <div className="ladder-project-tree">
         <div className="tree-row tree-root"><IconChevronDown size={12} /> <span className="tree-folder">▣</span> PLC_1 <small>(CPU 315-2 PN/DP)</small></div>
@@ -560,21 +615,29 @@ function NetworkStatus({ table, prefix, label }: { table: Record<string, boolean
 function FullLadderEditor() {
   const rungs = useSimStore((s) => s.ladder.rungs)
   const table = useSimStore((s) => s.runtime.table)
+  const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
+  const blackBox = useSimStore((s) => s.sim.blackBox)
   const addRung = useSimStore((s) => s.addRung)
   const updateRung = useSimStore((s) => s.updateRung)
+  const undo = useSimStore((s) => s.undo)
+  const redo = useSimStore((s) => s.redo)
+  const history = useSimStore((s) => s.history)
+  const future = useSimStore((s) => s.future)
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
   const [filter, setFilter] = useState('')
+  const [ladderZoom, setLadderZoom] = useState(1)
+  const [showProjectPane, setShowProjectPane] = useState(true)
+  const [showPalette, setShowPalette] = useState(true)
 
   const activeId = activeRungId && rungs.some((r) => r.id === activeRungId) ? activeRungId : rungs[0]?.id
+  const counts = programCounts(rungs)
+  const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
 
   const quickAdd = (kind: PaletteKind) => {
-    const rungId = activeId
-    if (!rungId) {
-      addRung()
-      return
-    }
+    const rungId = activeId ?? addRung()
+    setActiveRungId(rungId)
     updateRung(rungId, (r) => {
       if (kind === 'NO' || kind === 'NC' || kind === 'RISING' || kind === 'FALLING') {
         const branch = r.branches[0] ?? { id: `${r.id}-b0`, elements: [] }
@@ -605,7 +668,13 @@ function FullLadderEditor() {
   return (
     <div className="ladder-workspace">
       <LadderNavRail />
-      <ProjectTreePane />
+      {showProjectPane ? (
+        <ProjectTreePane onClose={() => setShowProjectPane(false)} />
+      ) : (
+        <button className="ladder-collapsed-pane-button" onClick={() => setShowProjectPane(true)} title="Mostrar projeto">
+          Projeto
+        </button>
+      )}
       <main className="ladder-main-pane">
         <div className="ladder-project-tabs">
           <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}><IconSchematic size={13} /> Main [OB1] <span>×</span></button>
@@ -615,34 +684,44 @@ function FullLadderEditor() {
           </span>
         </div>
         <div className="ladder-editor-toolbar">
-          <button className="ladder-toolbar-button"><IconUndo size={14} /></button>
-          <button className="ladder-toolbar-button"><IconRedo size={14} /></button>
+          <button className="ladder-toolbar-button" onClick={undo} disabled={!history.length} title="Desfazer"><IconUndo size={14} /></button>
+          <button className="ladder-toolbar-button" onClick={redo} disabled={!future.length} title="Refazer"><IconRedo size={14} /></button>
           <span className="ladder-toolbar-separator" />
-          <span className="ladder-zoom-label">⌕ 100%</span>
-          <button className="ladder-toolbar-button">⌗</button>
-          <button className="ladder-toolbar-button">⊞</button>
-          <button className="ladder-toolbar-button">↪</button>
+          <span className="ladder-zoom-label">⌕ {Math.round(ladderZoom * 100)}%</span>
+          <button className="ladder-toolbar-button" onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} title="Reduzir zoom"><IconZoomOut size={14} /></button>
+          <button className="ladder-toolbar-button" onClick={() => setLadderZoom(1)} title="Zoom 100%">100</button>
+          <button className="ladder-toolbar-button" onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} title="Aumentar zoom"><IconZoomIn size={14} /></button>
           <span className="ladder-toolbar-separator" />
           <span className="text-[10px] text-slate-400">Programa Ladder</span>
           <button onClick={addRung} className="ladder-primary-button ml-auto"><IconPlus size={12} /> Nova network</button>
         </div>
+        {programTab === 'program' && (
+          <div className="ladder-program-summary">
+            <LadderMetric label="Networks" value={rungs.length} />
+            <LadderMetric label="Energizadas" value={running ? poweredCount : 0} tone={running && poweredCount ? 'run' : 'neutral'} />
+            <LadderMetric label="Contatos" value={counts.contacts} />
+            <LadderMetric label="Bobinas" value={counts.coils} />
+            <LadderMetric label="Timers/Counters" value={`${counts.timers}/${counts.counters}`} tone={counts.timers + counts.counters ? 'warn' : 'neutral'} />
+            <div className="ladder-live-bus">
+              <span>Bus I/Q/M</span>
+              <strong>{onCount(table, 'I')} / {onCount(table, 'Q')} / {onCount(table, 'M')}</strong>
+            </div>
+          </div>
+        )}
         {programTab === 'tags' ? (
           <div className="ladder-tags-view"><TagTable /></div>
+        ) : blackBox ? (
+          <BlackBoxState />
         ) : (
           <div className="ladder-networks">
-            {rungs.map((r, i) => (
-              <div key={r.id} className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`} onClick={() => setActiveRungId(r.id)}>
-                <RungRow rung={r} index={i} />
-              </div>
-            ))}
-            {!rungs.length && (
-              <div className="ladder-empty-state">
-                <IconLadder size={30} />
-                <strong>Nenhuma network no programa</strong>
-                <span>Adicione uma network e insira contatos, bobinas ou temporizadores.</span>
-                <button onClick={addRung} className="ladder-primary-button"><IconPlus size={12} /> Criar primeira network</button>
-              </div>
-            )}
+            <div className="ladder-networks-scale" style={{ zoom: ladderZoom }}>
+              {rungs.map((r, i) => (
+                <div key={r.id} className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`} onClick={() => setActiveRungId(r.id)}>
+                  <RungRow rung={r} index={i} />
+                </div>
+              ))}
+              {!rungs.length && <LadderEmptyState onCreate={addRung} />}
+            </div>
           </div>
         )}
         <div className="ladder-bottom-panel">
@@ -657,8 +736,15 @@ function FullLadderEditor() {
           </div>
         </div>
       </main>
+      {showPalette ? (
       <aside className="ladder-palette">
-        <div className="ladder-palette-header"><strong>Contatos / Elementos</strong><span>›</span></div>
+        <div className="ladder-palette-header">
+          <div>
+            <strong>Elementos Ladder</strong>
+            <small>Network ativa: {activeId ? rungs.findIndex((r) => r.id === activeId) + 1 : '—'}</small>
+          </div>
+          <button className="ladder-ghost-button" onClick={() => setShowPalette(false)} title="Recolher elementos">›</button>
+        </div>
         <div className="relative mb-2">
           <input className="ladder-palette-search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Buscar elemento..." />
           <span className="ladder-search-icon">⌕</span>
@@ -675,8 +761,20 @@ function FullLadderEditor() {
               ))}
             </section>
           ))}
+          {!visibleGroups.length && (
+            <div className="ladder-palette-empty">
+              <IconFunction size={18} />
+              <strong>Nenhum elemento encontrado</strong>
+              <span>Revise o termo de busca ou limpe o filtro.</span>
+            </div>
+          )}
         </div>
       </aside>
+      ) : (
+        <button className="ladder-collapsed-pane-button is-right" onClick={() => setShowPalette(true)} title="Mostrar elementos">
+          Elementos
+        </button>
+      )}
     </div>
   )
 }

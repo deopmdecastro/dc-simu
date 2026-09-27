@@ -78,6 +78,7 @@ export default function ProjectsPanel() {
   }
 
   const load = (n: string) => {
+    if (dirty && n !== currentProjectName && !window.confirm(`Abrir "${n}" e descartar alterações não guardadas?`)) return
     useSimStore.getState().loadProjectByName(n)
     setOpen(false)
   }
