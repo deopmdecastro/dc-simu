@@ -4,7 +4,7 @@ import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../types'
 import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
 import LabelLibrary from './LabelLibrary'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown } from '../ui/icons'
 
 const label = 'dc-field-label'
 
@@ -68,6 +68,15 @@ export default function Sidebar() {
   const selectedTerminalId = useSimStore((s) => s.selectedTerminalId)
   const [tab, setTab] = useState<'library' | 'inspector'>('library')
   const [filter, setFilter] = useState('')
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const toggleGroup = (group: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(group)) next.delete(group)
+      else next.add(group)
+      return next
+    })
+  }
 
   const groups = useMemo(() => paletteGroups(), [])
   const selectedComponent = components.find((c) => c.id === selectedIds[0])
@@ -113,30 +122,43 @@ export default function Sidebar() {
           <div className="flex-1 overflow-y-auto p-2 min-h-0">
             {filtered.map((g) => {
               const GIcon = GROUP_ICON[g.group] ?? IconFile
+              const isCollapsed = collapsedGroups.has(g.group)
               return (
                 <div key={g.group} className="mb-3">
                   <div className="flex items-center gap-1.5 mb-1">
                     <GIcon size={11} className="text-ink-400" />
                     <span className="dc-panel-title">{g.group}</span>
                     <span className="text-[9px] text-ink-300">{g.items.length}</span>
+                    <button
+                      onClick={() => toggleGroup(g.group)}
+                      className="dc-icon-btn !h-5 !w-5 !p-0.5 ml-auto"
+                      title={isCollapsed ? 'Expandir categoria' : 'Colapsar categoria'}
+                    >
+                      <IconChevronDown
+                        size={10}
+                        className={`text-ink-400 transition-transform ${isCollapsed ? 'rotate-0' : 'rotate-180'}`}
+                      />
+                    </button>
                     <span className="flex-1 border-t border-line-soft" />
                   </div>
-                  <div className="flex flex-col gap-0.5">
-                    {g.items.map((it) => (
-                      <button
-                        key={it.type}
-                        onClick={() => add(it.type)}
-                        className="group text-left px-2 py-1.5 rounded-[5px] border border-transparent hover:border-line hover:bg-brand-50 hover:shadow-xs active:bg-brand-100/70 transition-colors"
-                        title={`Adicionar ${it.name} ao esquema`}
-                      >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-medium text-ink-900">{it.name}</span>
-                          <IconPlus size={11} className="text-ink-300 group-hover:text-brand-600" />
-                        </span>
-                        <span className="block text-[9px] text-ink-400 font-mono">{it.type}</span>
-                      </button>
-                    ))}
-                  </div>
+                  {!isCollapsed && (
+                    <div className="flex flex-col gap-0.5">
+                      {g.items.map((it) => (
+                        <button
+                          key={it.type}
+                          onClick={() => add(it.type)}
+                          className="group text-left px-2 py-1.5 rounded-[5px] border border-transparent hover:border-line hover:bg-brand-50 hover:shadow-xs active:bg-brand-100/70 transition-colors"
+                          title={`Adicionar ${it.name} ao esquema`}
+                        >
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-ink-900">{it.name}</span>
+                            <IconPlus size={11} className="text-ink-300 group-hover:text-brand-600" />
+                          </span>
+                          <span className="block text-[9px] text-ink-400 font-mono">{it.type}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}
