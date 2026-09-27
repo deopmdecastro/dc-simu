@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
 import { nanoid } from 'nanoid'
 import type {
   CircuitState,
@@ -45,6 +46,9 @@ interface RuntimeExtras {
 
 interface Store extends CircuitState {
   runtime: RuntimeExtras
+  grafcet: GrafcetProgram
+  grafcetRuntime: GrafcetRuntime
+  setGrafcet: (program: GrafcetProgram) => void
   fcBlocks: Record<'fc1' | 'fc2', LadderRung[]>
   updateFc: (id: 'fc1' | 'fc2', rungs: LadderRung[]) => void
   history: Snapshot[]
@@ -281,6 +285,10 @@ function runOneTick(state: Store, dtMs: number) {
   const scan = runScan(ladder, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs)
   state.runtime.rungPowered = scan.rungPowered
 
+  // 3b) GRAFCET do esquema: executa após OB1; ações Q/M do GRAFCET
+  // têm precedência sobre bobinas Ladder no mesmo endereço.
+  state.grafcetRuntime = scanGrafcet(state.grafcet, state.grafcetRuntime, state.runtime.table)
+
   // 4) Devolve as saídas Q ao CLP para que sua ponte interna ative
   if (plc) {
     for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = !!scan.table[key]
@@ -433,6 +441,9 @@ export const useSimStore = create<Store>((set, get) => ({
   dirty: false,
   runtime: EMPTY_RUNTIME(),
   fcBlocks: { fc1: [], fc2: [] },
+  grafcet: emptyGrafcet(),
+  grafcetRuntime: emptyGrafcetRuntime(),
+  setGrafcet: (program) => set({ grafcet: program, dirty: true }),
   updateFc: (id, rungs) => set((state) => ({ fcBlocks: { ...state.fcBlocks, [id]: rungs }, dirty: true })),
   history: [],
   future: [],
@@ -450,6 +461,8 @@ export const useSimStore = create<Store>((set, get) => ({
       components: scenario.components,
       wires: scenario.wires,
       ladder: scenario.ladder,
+      grafcet: emptyGrafcet(),
+      grafcetRuntime: emptyGrafcetRuntime(),
       tags: [],
       activeScenario: scenario.id,
       selectedComponentIds: [],
@@ -476,6 +489,7 @@ export const useSimStore = create<Store>((set, get) => ({
   play: () => {
     const existing = get()._intervalId
     if (existing) return
+    if (get().sim.runState === 'stopped') set({ grafcetRuntime: emptyGrafcetRuntime() })
     const interval = get().sim.mode === 'turbo' ? 30 : 100
     const iv = window.setInterval(() => {
       const st = get()
@@ -1101,6 +1115,7 @@ export const useSimStore = create<Store>((set, get) => ({
         wires: s.wires,
         ladder: s.ladder,
         fcBlocks: s.fcBlocks,
+        grafcet: s.grafcet,
         tags: s.tags,
         grid: s.grid,
         activeScenario: s.activeScenario,
@@ -1120,6 +1135,8 @@ export const useSimStore = create<Store>((set, get) => ({
         wires: parsed.wires ?? [],
         ladder: parsed.ladder ?? { rungs: [] },
         fcBlocks: { fc1: parsed.fcBlocks?.fc1 ?? [], fc2: parsed.fcBlocks?.fc2 ?? [] },
+        grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
+        grafcetRuntime: emptyGrafcetRuntime(),
         tags: parsed.tags ?? [],
         grid: parsed.grid ? { ...parsed.grid, background: '#f8fafd' } : get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',
@@ -1145,6 +1162,8 @@ export const useSimStore = create<Store>((set, get) => ({
       wires: [],
       ladder: { rungs: [] },
       fcBlocks: { fc1: [], fc2: [] },
+      grafcet: emptyGrafcet(),
+      grafcetRuntime: emptyGrafcetRuntime(),
       tags: [],
       activeScenario: 'custom',
       runtime: EMPTY_RUNTIME(),
@@ -1266,6 +1285,7 @@ function pushRuntime(set: (partial: Partial<Store>) => void, st: Store) {
     components: [...st.components],
     wires: [...st.wires],
     runtime: { ...st.runtime },
+    grafcetRuntime: { ...st.grafcetRuntime },
     sim: { ...st.sim },
   })
 }

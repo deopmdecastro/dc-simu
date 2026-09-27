@@ -1,3 +1,4 @@
+import { scanGrafcet, emptyGrafcetRuntime, evalCondition } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
  * Não depende do React: exercita o motor de continuidade, o motor Ladder, o
@@ -248,6 +249,28 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('estrela-triângulo respeita intervalo de transição', sdTimers.T2.starDone === true && sdTimers.T2.deltaDone === false)
   runScan(sd, table, sdTimers, counters, 100)
   check('estrela-triângulo ativa delta após intervalo', sdTimers.T2.deltaDone === true)
+}
+
+/* GRAFCET: transições síncronas, ações e endereços abandonados. */
+{
+  const program = { steps: [
+    { id: 's0', name: 'Espera', initial: true, action: 'Q1', condition: 'I1' },
+    { id: 's1', name: 'Trabalho', initial: false, action: 'M1', condition: '!I1' },
+  ] }
+  const table: AddressTable = { I1: false }
+  let state = scanGrafcet(program, emptyGrafcetRuntime(), table)
+  check('GRAFCET ativa etapa inicial e respetiva ação', state.active.includes('s0') && table.Q1 === true && table.M1 === false)
+  table.I1 = true
+  state = scanGrafcet(program, state, table)
+  check('GRAFCET avança uma etapa por scan e atualiza saídas', state.active.includes('s1') && !state.active.includes('s0') && table.Q1 === false && table.M1 === true)
+  state = scanGrafcet(program, state, table)
+  check('GRAFCET não regressa antes da transição', state.active.includes('s1'))
+  table.I1 = false
+  state = scanGrafcet(program, state, table)
+  check('GRAFCET regressa ao início com transição negada', state.active.includes('s0') && table.Q1 === true)
+  state = scanGrafcet({ steps: [] }, state, table)
+  check('GRAFCET limpa saídas de programa removido', table.Q1 === false && table.M1 === false)
+  check('condição inválida não dispara', !evalCondition('MOVE', table))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

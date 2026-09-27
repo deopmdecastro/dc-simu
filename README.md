@@ -239,3 +239,7 @@ Tailwind CSS, SVG para o esquema e o editor Ladder.
 - Ao selecionar contactos, bobinas, temporizadores ou contadores é possível alterar o endereço e o nome simbólico da tag no painel contextual.
 - FC1 e FC2 permitem criar/eliminar networks e editar contactos, ramos e bobinas; são guardados no JSON do projeto. **Os FC não são chamados pelo OB1 nem executados automaticamente**: copie a lógica relevante para o OB1 para a simular.
 - Os blocos MOVE, ADD, SUB e COMPARE ainda não fazem parte do modelo de execução Ladder; não aparecem na paleta até terem semântica e testes completos.
+
+### GRAFCET no esquema
+
+A vista **Esquema** (e Painel 3D) mostra à direita o editor GRAFCET, enquanto a página **Ladder** continua independente. Crie etapas, altere a ordem com as setas, escolha a etapa inicial, dê nome e configure a ação (`Q1` ou `M1`) e a condição de transição (`I1`, `M1`, `Q1`, `!I1` ou `1`). As transições ligam cada etapa à seguinte, e a última regressa à primeira. O programa é incluído no JSON, autosave e projetos locais. No scan, o Ladder corre primeiro e as ações do GRAFCET têm precedência sobre o mesmo endereço Q/M; evite atribuir a mesma saída aos dois editores. Este editor cobre sequências lineares (sem divergências/convergências simultâneas).

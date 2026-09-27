@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Toolbar, { type ViewMode } from './components/Toolbar'
 import Sidebar from './components/Sidebar'
 import LadderEditor from './ladder/LadderEditor'
+import GrafcetEditor from './grafcet/GrafcetEditor'
 import SchematicView from './schematic/SchematicView'
 import MonitorPanel from './components/MonitorPanel'
 import Panel3D from './three/Panel3D'
@@ -127,19 +128,19 @@ export default function App() {
                 <button
                   onClick={() => setShowLadder(false)}
                   className="dc-tab self-end !h-7 !px-2 text-ink-400"
-                  title="Recolher o editor Ladder"
+                  title="Recolher o editor GRAFCET"
                 >
                   ▸
                 </button>
-                <LadderEditor compact />
+                <GrafcetEditor />
               </>
             ) : (
               <button
                 onClick={() => setShowLadder(true)}
                 className="w-full h-full dc-tab text-ink-400"
-                title="Mostrar o editor Ladder"
+                title="Mostrar o editor GRAFCET"
               >
-                ◂ Ladder
+                ◂ GRAFCET
               </button>
             )}
           </div>
@@ -151,8 +152,8 @@ export default function App() {
               e.preventDefault()
               setResizing({ target: 'ladder', startX: e.clientX, startSize: panelSizes.ladder })
             }}
-            title="Arraste para redimensionar o editor Ladder"
-            aria-label="Redimensionar editor Ladder"
+            title="Arraste para redimensionar o editor GRAFCET"
+            aria-label="Redimensionar editor GRAFCET"
           />
         )}
       </div>
