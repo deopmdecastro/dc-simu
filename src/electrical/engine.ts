@@ -198,7 +198,7 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
     }
 
     // ---- fontes ----
-    case 'powerSupplyProauto24B': {
+    case 'powerSupplyProauto24A': {
       // Saída isolada da entrada AC; os dois V+ e os dois V− são paralelos.
       pair(la('+V1'), la('+V2'))
       pair(la('-V1'), la('-V2'))
@@ -280,7 +280,7 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
     }
     // fontes locais
     if (c.type === 'powerSupply' && c.state.on) push('+V')
-    if (c.type === 'powerSupplyProauto24B' && c.state.powered && c.state.on) { push('+V1'); push('+V2') }
+    if (c.type === 'powerSupplyProauto24A' && c.state.powered && c.state.on) { push('+V1'); push('+V2') }
     if (c.type === 'transformer' && !c.state.failed) push('S1')
   }
   return ids

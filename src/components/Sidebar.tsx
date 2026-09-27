@@ -93,11 +93,11 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   const [filter, setFilter] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(paletteGroups().map((g) => g.group).filter((g) => !['protection', 'command'].includes(g))))
   const [favorites, setFavorites] = useState<ComponentType[]>(() => {
-    try { return JSON.parse(localStorage.getItem('dcsimu:library:favorites') ?? '[]') as ComponentType[] }
+    try { return (JSON.parse(localStorage.getItem('dcsimu:library:favorites') ?? '[]') as ComponentType[]).map((type) => (type as string) === 'powerSupplyProauto24B' ? 'powerSupplyProauto24A' : type) }
     catch { return [] }
   })
   const [recent, setRecent] = useState<ComponentType[]>(() => {
-    try { return (JSON.parse(localStorage.getItem('dcsimu:library:recent') ?? '[]') as ComponentType[]).filter((type) => !!TEMPLATES[type]).slice(0, 8) }
+    try { return (JSON.parse(localStorage.getItem('dcsimu:library:recent') ?? '[]') as ComponentType[]).map((type) => (type as string) === 'powerSupplyProauto24B' ? 'powerSupplyProauto24A' : type).filter((type) => !!TEMPLATES[type]).slice(0, 8) }
     catch { return [] }
   })
   const markRecent = (type: ComponentType) => setRecent((current) => {
@@ -313,8 +313,8 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                         <input
                           type="checkbox"
                           checked={v}
-                          disabled={(selectedComponent.type === 'plcSiemensLogo1224RC' || selectedComponent.type === 'powerSupplyProauto24B') && (k === 'powered' || k === 'powerReady')}
-                          title={selectedComponent.type === 'plcSiemensLogo1224RC' && k === 'powered' ? 'Derivado das ligações L+ e M' : selectedComponent.type === 'powerSupplyProauto24B' && (k === 'powered' || k === 'powerReady') ? 'Derivado das ligações AC L e N' : undefined}
+                          disabled={(selectedComponent.type === 'plcSiemensLogo1224RC' || selectedComponent.type === 'powerSupplyProauto24A') && (k === 'powered' || k === 'powerReady')}
+                          title={selectedComponent.type === 'plcSiemensLogo1224RC' && k === 'powered' ? 'Derivado das ligações L+ e M' : selectedComponent.type === 'powerSupplyProauto24A' && (k === 'powered' || k === 'powerReady') ? 'Derivado das ligações AC L e N' : undefined}
                           onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: e.target.checked })}
                         />
                       </label>

@@ -320,25 +320,29 @@ não pretende reproduzir as funções analógicas, o teclado/menu completo, as
 expansões, limites temporais/eléctricos ou os recursos específicos de uma
 versão 0BA2: o PDF 0BA4 não prova esses pormenores para o modelo CAD.
 
-### Fonte Proauto / DRAN120-24B (preparação sem modelo CAD)
+### Fonte Proauto / DRAN120-24A (parafusos)
 
-A categoria **Fontes** contém «Fonte Proauto / DRAN120-24B · 24V 5A», criada
-com base na ficha da série **Chinfa DRAN120** enviada pelo utilizador (variante
-24B indicada pelo utilizador). A ficha pode ser vista/descarregada no Inspetor,
-com o aviso de que a equivalência da marca Proauto com Chinfa não está
-confirmada. A pinagem da ficha (pág. 4) é: pinos 1–2 RDY (contacto normalmente
-aberto), 3–4 V+, 5–6 V−, 7 terra funcional/PE, 8 L, 9 N. A variante B tem
-conector removível e a versão 24 V fornece nominalmente **5 A / 120 W**.
+A fonte de **24 V DC / 5 A / 120 W** usa o modelo real
+`public/models/fontes/fonte-proauto-dran120-24a.glb` obtido após o `git pull`.
+O mesmo GLB é carregado no **Painel 3D**, renderizado numa vista frontal do
+**Esquema** e usado na miniatura da **Biblioteca/Inspetor**. O objeto é
+apresentado sem rodar: o export já tem Y para cima e +Z na face da frente.
+Se o GLB não carregar, permanece disponível a representação provisória.
 
-A simulação binária requer L e N ligados a potenciais de entrada distintos no
-Esquema. Com ambos ligados, as duas saídas V+ e as duas V− são comuns entre
-si, a saída DC fica disponível e RDY fecha. Sem alimentação, RDY abre e V+
-deixa de ser fonte. A entrada AC é isolada da saída DC; PE não é uma ponte
-elétrica para nenhum dos polos. A simulação **não** mede 115/230 VAC, tensão
-DC, corrente, sobrecarga, ripple, temperatura ou tempos de subida e, por
-isso, não verifica os limites de segurança da ficha.
+A ficha Chinfa **DRAN120**, incluída no Inspetor, descreve ambas as variantes:
+**A = terminais de parafuso** (a do GLB); **B = conector removível**. A
+correspondência entre a marca «Proauto» e o fabricante/modelo da ficha deve
+ser confirmada na etiqueta física. Segundo as páginas 3–4, na vista frontal,
+os seis bornes superiores da esquerda para a direita são **V−2, V−1, V+2,
+V+1, RDY2, RDY1** (pinos 6→1). Em baixo: **PE, L, N** (pinos 7→9).
+Os nove pontos de ligação do Esquema foram alinhados com os parafusos do GLB;
+a posição pode ainda ser ajustada manualmente no Inspetor. Projetos criados
+com o tipo provisório `powerSupplyProauto24B` passam a 24A ao abrir, mantendo
+IDs dos bornes e ligações dos cabos.
 
-O ficheiro `Fonte Proauto.glb` referido não veio nos anexos nem existe em
-`public/models/fontes/`. Até ser enviado, o Esquema e o Painel 3D usam
-representações **provisórias**; as posições visuais dos nove bornes terão de
-ser afinadas à geometria real do GLB assim que este for anexado.
+A simulação binária exige L e N ligados a potenciais de entrada distintos.
+Quando a fonte funciona, V+1/V+2 partilham o polo positivo e V−1/V−2 o
+retorno; RDY fecha. Quando não funciona, V+ deixa de ser fonte e RDY abre.
+A entrada AC é isolada da saída DC; PE não serve de ponte elétrica para os
+polos. Não se modelam nem se verificam 115/230 VAC reais, tensão/corrente de
+saída, proteção contra sobrecarga, temperatura, ripple ou tempos de subida.

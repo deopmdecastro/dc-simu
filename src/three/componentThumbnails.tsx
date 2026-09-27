@@ -13,6 +13,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { getLogo3DImages } from '../schematic/logo3DImage'
+import { getProauto3DImage } from '../schematic/proauto3DImage'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -231,7 +232,7 @@ function buildTerminal(g: THREE.Group, type: string) {
 }
 
 function buildPower(g: THREE.Group, type: string) {
-  if (type === 'powerSupplyProauto24B') {
+  if (type === 'powerSupplyProauto24A') {
     box(g, 0.62, 0.95, 0.42, '#485561')
     box(g, 0.49, 0.61, 0.025, '#dce3e7', 0, 0.03, 0.23)
     cyl(g, 0.045, 0.045, 0.03, GREEN, 0.16, -0.14, 0.26, { emissive: GREEN, emissiveIntensity: 0.5 })
@@ -332,6 +333,7 @@ export function getComponentThumbnail(type: ComponentType): string {
 /** Miniatura 3D real de um componente da biblioteca (renderizada uma vez, depois é apenas uma imagem). */
 export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?: number }) {
   const [logoSrc, setLogoSrc] = useState<string | null>(null)
+  const [proautoSrc, setProautoSrc] = useState<string | null>(null)
   const fallback = useMemo(() => getComponentThumbnail(type), [type])
   useEffect(() => {
     if (type !== 'plcSiemensLogo1224RC') return
@@ -341,7 +343,13 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
     })
     return () => { active = false }
   }, [type])
-  const src = type === 'plcSiemensLogo1224RC' ? logoSrc ?? fallback : fallback
+  useEffect(() => {
+    if (type !== 'powerSupplyProauto24A') return
+    let active = true
+    getProauto3DImage().then((image) => { if (active) setProautoSrc(image) }).catch(() => { /* reserva procedural */ })
+    return () => { active = false }
+  }, [type])
+  const src = type === 'plcSiemensLogo1224RC' ? logoSrc ?? fallback : type === 'powerSupplyProauto24A' ? proautoSrc ?? fallback : fallback
   if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken" />
   return (
     <img

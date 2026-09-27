@@ -9,7 +9,7 @@ export function logoElectricalInputs(plc: ElectricalComponent, components: Elect
   })
   const negativeRoots = components.flatMap((c) => {
     if (c.type === 'powerSupply' && c.state.on) return c.terminals.filter((t) => t.label === '-V').map((t) => t.id)
-    if (c.type === 'powerSupplyProauto24B' && c.state.powered) return c.terminals.filter((t) => t.label === '-V1' || t.label === '-V2').map((t) => t.id)
+    if (c.type === 'powerSupplyProauto24A' && c.state.powered) return c.terminals.filter((t) => t.label === '-V1' || t.label === '-V2').map((t) => t.id)
     if (c.type === 'busbarNeutral' && c.state.source !== false) return c.terminals.map((t) => t.id)
     return []
   })

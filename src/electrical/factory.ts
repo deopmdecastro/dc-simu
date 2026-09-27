@@ -523,20 +523,20 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     defaultState: { primaryV: 380, secondaryV: 24, va: 100, failed: false },
   },
-  powerSupplyProauto24B: {
-    category: 'power', paletteName: 'Fonte Proauto / DRAN120-24B · 24V 5A', group: 'Fontes', tag: 'PS', w: 145, h: 170,
-    // Datasheet DRAN120 série, p. 4: 1–2 RDY; 3–4 V+; 5–6 V−; 7 PE; 8 L; 9 N.
-    // Posição visual provisória até receber o ficheiro GLB para alinhar os pinos.
+  powerSupplyProauto24A: {
+    category: 'power', paletteName: 'Fonte Proauto / DRAN120-24A · 24V 5A', group: 'Fontes', tag: 'PS', w: 145, h: 170,
+    // Vista frontal A: pinos 6..1 da esquerda para a direita no topo
+    // (V−, V−, V+, V+, RDY, RDY); PE, L, N em baixo — ficha p. 3–4.
     terminals: [
-      T('RDY1', 'aux-no', 0.18, 0, { terminalType: 'plug' }),
-      T('RDY2', 'aux-no', 0.38, 0, { terminalType: 'plug' }),
-      T('+V1', 'power-out', 0.64, 0, { terminalType: 'plug', color: '#ef4444' }),
-      T('+V2', 'power-out', 0.84, 0, { terminalType: 'plug', color: '#ef4444' }),
-      T('-V1', 'neutral', 0.18, 1, { terminalType: 'plug', color: '#3b82f6' }),
-      T('-V2', 'neutral', 0.38, 1, { terminalType: 'plug', color: '#3b82f6' }),
-      T('PE', 'earth', 0.55, 1, { terminalType: 'plug', color: '#84cc16' }),
-      T('L', 'power-in', 0.72, 1, { terminalType: 'plug', color: '#92400e' }),
-      T('N', 'neutral', 0.89, 1, { terminalType: 'plug', color: '#3b82f6' }),
+      T('-V2', 'neutral', 0.18, 0, { terminalType: 'screw', color: '#3b82f6' }),
+      T('-V1', 'neutral', 0.31, 0, { terminalType: 'screw', color: '#3b82f6' }),
+      T('+V2', 'power-out', 0.44, 0, { terminalType: 'screw', color: '#ef4444' }),
+      T('+V1', 'power-out', 0.57, 0, { terminalType: 'screw', color: '#ef4444' }),
+      T('RDY2', 'aux-no', 0.70, 0, { terminalType: 'screw' }),
+      T('RDY1', 'aux-no', 0.83, 0, { terminalType: 'screw' }),
+      T('PE', 'earth', 0.30, 1, { terminalType: 'screw', color: '#84cc16' }),
+      T('L', 'power-in', 0.50, 1, { terminalType: 'screw', color: '#92400e' }),
+      T('N', 'neutral', 0.70, 1, { terminalType: 'screw', color: '#3b82f6' }),
     ],
     defaultState: { powered: false, on: true, outV: 24, amp: 5, watt: 120, powerReady: false },
   },
@@ -633,6 +633,28 @@ export function upgradeLogoTerminals(c: ElectricalComponent): ElectricalComponen
     extra.push({ id: `${c.id}-X1`, componentId: c.id, label: 'X1', kind: 'io', terminalType: 'screw', color: '#94a3b8', x: 0.98, y: 0, energized: false })
   }
   return extra.length ? { ...c, terminals: [...c.terminals, ...extra] } : c
+}
+
+/** Migra a fonte 24B provisória para a variante de parafuso 24A sem perder cabos. */
+export function upgradeProauto24A(c: ElectricalComponent): ElectricalComponent {
+  if ((c.type as string) !== 'powerSupplyProauto24B') return c
+  const oldPos: Record<string, [number, number]> = {
+    RDY1: [0.18, 0], RDY2: [0.38, 0], '+V1': [0.64, 0], '+V2': [0.84, 0],
+    '-V1': [0.18, 1], '-V2': [0.38, 1], PE: [0.55, 1], L: [0.72, 1], N: [0.89, 1],
+  }
+  const defaultPos = new Map(TEMPLATES.powerSupplyProauto24A.terminals.map((t) => [t.label, t]))
+  return {
+    ...c,
+    type: 'powerSupplyProauto24A',
+    label: c.label.replace('24B', '24A'),
+    terminals: c.terminals.map((t) => {
+      const old = oldPos[t.label], next = defaultPos.get(t.label)
+      return { ...t, terminalType: 'screw',
+        x: old && next && Math.abs(t.x - old[0]) < 0.002 && Math.abs(t.y - old[1]) < 0.002 ? next.x : t.x,
+        y: old && next && Math.abs(t.x - old[0]) < 0.002 && Math.abs(t.y - old[1]) < 0.002 ? next.y : t.y,
+      }
+    }),
+  }
 }
 
 export function terminalByLabel(c: ElectricalComponent, label: string): Terminal | undefined {

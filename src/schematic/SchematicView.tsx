@@ -6,6 +6,7 @@ import { SCENARIOS } from '../simulation/scenarios'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
+import { getProauto3DImage } from './proauto3DImage'
 
 const CANVAS_W = 2000
 const CANVAS_H = 1400
@@ -258,6 +259,14 @@ function insertWaypoint(a: Pt, b: Pt, waypoints: Pt[], p: Pt): Pt[] {
 /** Editor de esquema completo: malha, arraste, seleção, cabos, bornes, sonda. */
 export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
   const [logoImages, setLogoImages] = useState<{ off: string; on: string } | null>(null)
+  const [proautoImage, setProautoImage] = useState<string | null>(null)
+  const hasProauto = useSimStore((s) => s.components.some((c) => c.type === 'powerSupplyProauto24A'))
+  useEffect(() => {
+    if (!hasProauto) return
+    let active = true
+    getProauto3DImage().then((image) => { if (active) setProautoImage(image) }).catch((error) => console.warn('Modelo da fonte indisponível', error))
+    return () => { active = false }
+  }, [hasProauto])
   const hasLogo = useSimStore((s) => s.components.some((c) => c.type === 'plcSiemensLogo1224RC'))
   useEffect(() => {
     if (!hasLogo) return
@@ -841,7 +850,14 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? 'move' : 'inherit', opacity: c.locked ? 0.85 : 1 }}
       >
         {selected && <rect x={-6} y={-6} width={c.w + 12} height={c.h + 12} rx={6} fill="none" stroke="#2655e5" strokeWidth={1.5} strokeDasharray="5 3" />}
-        {c.type === 'plcSiemensLogo1224RC' && logoImages ? (
+        {c.type === 'powerSupplyProauto24A' && proautoImage ? (
+          <>
+            <image x={0} y={0} width={c.w} height={c.h} href={proautoImage} preserveAspectRatio="xMidYMid meet" />
+            <rect x={0} y={0} width={c.w} height={c.h} fill="transparent" />
+            <ComponentTerminals c={c} />
+            <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+          </>
+        ) : c.type === 'plcSiemensLogo1224RC' && logoImages ? (
           <>
             <image x={0} y={0} width={c.w} height={c.h} href={c.state.powered ? logoImages.on : logoImages.off} preserveAspectRatio="xMidYMid meet" />
             {/* Alvos de seleção e bornes mantêm-se nas coordenadas reais do esquema. */}

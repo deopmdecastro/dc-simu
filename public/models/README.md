@@ -19,7 +19,7 @@ acentos, por exemplo `disjuntor-2p.glb`.
 | Bornes e barras | `bornes-e-barras/` |
 | Fontes | `fontes/` |
 
-## Modelo já disponível
+## Modelos disponíveis
 
 `controladores/logo-siemens-1224rc.glb` é o modelo Siemens LOGO! 12/24RC.
 É usado no Painel 3D, na imagem frontal do Esquema e na miniatura da
@@ -29,6 +29,11 @@ caminho definido em `src/three/modelPaths.ts`.
 
 O modelo é ajustado à orientação e escala da cena pelo código. O ecrã é
 identificado pelo material verde e reage à alimentação no borne L+.
+
+`fontes/fonte-proauto-dran120-24a.glb` é a fonte com terminais de parafuso:
+usada no Painel 3D, Esquema e miniatura. A URL pública é
+`/models/fontes/fonte-proauto-dran120-24a.glb`. Os seus pontos de ligação
+no Esquema são definidos em `src/schematic/proautoTerminalGeometry.ts`.
 
 **Adicionar um ficheiro à pasta não o ativa automaticamente.** Para usar um
 novo modelo num componente, associe a sua URL em `src/three/modelPaths.ts`

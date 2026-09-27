@@ -9,8 +9,9 @@ import { computeContinuity, internalBridges, isCoilPowered, probe, sourceTermina
 import { computePhaseLabels, motorDirectionFromPhases } from '../src/electrical/phases'
 import { runScan } from '../src/ladder/ladderEngine'
 import type { CounterTable, AddressTable, TimerTable } from '../src/ladder/ladderEngine'
-import { createComponent, terminalByLabel, upgradeLogoTerminals } from '../src/electrical/factory'
+import { createComponent, terminalByLabel, upgradeLogoTerminals, upgradeProauto24A } from '../src/electrical/factory'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
+import { proautoTerminalLocal } from '../src/schematic/proautoTerminalGeometry'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
@@ -363,9 +364,9 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('posição personalizada de borne é respeitada', Math.abs(moved.x - logo.w * 0.3) < 0.01 && Math.abs(moved.y - logo.h * 0.7) < 0.01)
 }
 
-/* Fonte DRAN120-24B: pinagem, alimentação AC e saída isolada. */
+/* Fonte DRAN120-24A: pinagem, alimentação AC e saída isolada. */
 {
-  const ps = createComponent('powerSupplyProauto24B')
+  const ps = createComponent('powerSupplyProauto24A')
   const phase = createComponent('busbarPhase')
   const neutral = createComponent('busbarNeutral')
   const link = (id: string, a: string, b: string): Wire => ({
@@ -374,7 +375,21 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   }) as Wire
   const l = link('ac-l', terminalByLabel(phase, 'L1')!.id, terminalByLabel(ps, 'L')!.id)
   const n = link('ac-n', terminalByLabel(neutral, 'N1')!.id, terminalByLabel(ps, 'N')!.id)
-  check('DRAN120-24B tem 9 pinos conforme a ficha', ps.terminals.length === 9 && ['RDY1','RDY2','+V1','+V2','-V1','-V2','PE','L','N'].every((label) => !!terminalByLabel(ps, label)))
+  check('DRAN120-24A tem 9 pinos conforme a ficha', ps.terminals.length === 9 && ['RDY1','RDY2','+V1','+V2','-V1','-V2','PE','L','N'].every((label) => !!terminalByLabel(ps, label)))
+  check('modelo 24A usa bornes de parafuso', ps.terminals.every((t) => t.terminalType === 'screw'))
+  const top = ['-V2', '-V1', '+V2', '+V1', 'RDY2', 'RDY1'].map((label) => proautoTerminalLocal(ps, terminalByLabel(ps, label)!))
+  const bottom = ['PE', 'L', 'N'].map((label) => proautoTerminalLocal(ps, terminalByLabel(ps, label)!))
+  check('seis parafusos em cima, três em baixo e alinhados por ordem da ficha',
+    top.every((p, i) => p.y < ps.h * 0.2 && (i === 0 || p.x > top[i-1].x)) &&
+    bottom.every((p, i) => p.y > ps.h * 0.8 && (i === 0 || p.x > bottom[i-1].x)))
+  const moved = proautoTerminalLocal(ps, { ...terminalByLabel(ps, 'L')!, x: 0.9, y: 0.8 })
+  check('posição personalizada da fonte é respeitada', Math.abs(moved.x - ps.w * 0.9) < 0.01 && Math.abs(moved.y - ps.h * 0.8) < 0.01)
+  const old = { ...ps, type: 'powerSupplyProauto24B' as any,
+    terminals: ps.terminals.map((t) => ({ ...t, terminalType: 'plug' as const,
+      x: ({ RDY1: .18, RDY2: .38, '+V1': .64, '+V2': .84, '-V1': .18, '-V2': .38, PE: .55, L: .72, N: .89 } as Record<string, number>)[t.label],
+      y: ['RDY1','RDY2','+V1','+V2'].includes(t.label) ? 0 : 1 })) }
+  const migrated = upgradeProauto24A(old)
+  check('projetos 24B migram sem trocar IDs dos fios', migrated.type === 'powerSupplyProauto24A' && migrated.terminals.every((t,i) => t.id === old.terminals[i].id && t.terminalType === 'screw') && proautoTerminalLocal(migrated, terminalByLabel(migrated,'RDY1')!).y < migrated.h * .2)
   check('sem fase ou neutro a fonte não arranca', !proautoInputPowered(ps, [ps, phase, neutral], []) && !proautoInputPowered(ps, [ps, phase, neutral], [l]))
   check('L e N em redes distintas alimentam a fonte', proautoInputPowered(ps, [ps, phase, neutral], [l, n]))
   const on = { ...ps, state: { ...ps.state, powered: true, powerReady: true } }

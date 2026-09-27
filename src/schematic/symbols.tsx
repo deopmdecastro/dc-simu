@@ -1,6 +1,7 @@
 import type { ElectricalComponent, Terminal, TerminalType } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { logoTerminalLocal } from './logoTerminalGeometry'
+import { proautoTerminalLocal } from './proautoTerminalGeometry'
 
 /** Cores de cabo do editor (com contraste calibrado para o modo claro). */
 export const WIRE_COLORS: Record<string, string> = {
@@ -174,7 +175,7 @@ export function TerminalGlyph({
 
 /** Posição absoluta de um borne no canvas, respeitando rotação e espelhamento. */
 export function terminalPos(c: ElectricalComponent, t: Terminal): { x: number; y: number } {
-  const { x: localX, y: localY } = logoTerminalLocal(c, t)
+  const { x: localX, y: localY } = c.type === 'powerSupplyProauto24A' ? proautoTerminalLocal(c, t) : logoTerminalLocal(c, t)
   const cx = c.w / 2
   const cy = c.h / 2
   const mx = c.mirrored ? c.w - localX : localX
@@ -624,13 +625,13 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           </g>
         )
       }
-      case 'powerSupplyProauto24B': {
+      case 'powerSupplyProauto24A': {
         const powered = !!c.state.powered
         return <g>
           <rect x={3} y={4} width={w - 6} height={h - 8} rx={5} fill="#3d4650" stroke={s} strokeWidth={1.5} />
           <rect x={10} y={22} width={w - 20} height={h - 44} rx={3} fill="#d7dde2" />
           <text x={w / 2} y={h * 0.39} fontSize={12} textAnchor="middle" fill="#243040" fontWeight="bold">PROAUTO</text>
-          <text x={w / 2} y={h * 0.5} fontSize={9} textAnchor="middle" fill="#334155">DRAN120-24B</text>
+          <text x={w / 2} y={h * 0.5} fontSize={9} textAnchor="middle" fill="#334155">DRAN120-24A</text>
           <text x={w / 2} y={h * 0.61} fontSize={12} textAnchor="middle" fill="#0f172a">24 V DC · 5 A</text>
           <circle cx={w / 2} cy={h * 0.7} r={4} fill={powered ? '#22c55e' : '#64748b'} />
           {label(6, 13, c.ref, 10, '#e2e8f0')}
@@ -681,7 +682,7 @@ export function ComponentTerminals({ c }: { c: ElectricalComponent }) {
     <g>
       {/* bornes clicáveis */}
       {c.terminals.map((t) => {
-        const { x: px, y: py } = logoTerminalLocal(c, t)
+        const { x: px, y: py } = c.type === 'powerSupplyProauto24A' ? proautoTerminalLocal(c, t) : logoTerminalLocal(c, t)
         return (
           <g key={t.id}>
             <TerminalGlyph x={px} y={py} type={t.terminalType} color={t.color} energized={t.energized} r={4.5} />

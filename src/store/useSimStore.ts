@@ -27,7 +27,7 @@ import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTa
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario, SCENARIOS } from '../simulation/scenarios'
-import { createComponent, createTerminal, nextRef, terminalByLabel, upgradeLogoTerminals } from '../electrical/factory'
+import { createComponent, createTerminal, nextRef, terminalByLabel, upgradeLogoTerminals, upgradeProauto24A } from '../electrical/factory'
 import { terminalPos } from '../schematic/symbols'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 
@@ -276,7 +276,7 @@ function buildScenario(id: string) {
 function runOneTick(state: Store, dtMs: number) {
   const { components, wires, ladder, sim } = state
   // Atualizar fontes AC→DC antes de calcular as fontes do grafo neste scan.
-  for (const c of components) if (c.type === 'powerSupplyProauto24B') {
+  for (const c of components) if (c.type === 'powerSupplyProauto24A') {
     c.state.powered = proautoInputPowered(c, components, wires)
     // RDY é o contacto normalmente aberto que confirma a saída DC pronta.
     // O motor é binário: não modela a banda de tensão nem atrasos reais.
@@ -1174,7 +1174,7 @@ export const useSimStore = create<Store>((set, get) => ({
       const parsed = JSON.parse(json)
       get().stop()
       set({
-        components: (parsed.components ?? []).map(upgradeLogoTerminals),
+        components: (parsed.components ?? []).map(upgradeLogoTerminals).map(upgradeProauto24A),
         showEmptyWelcome: false,
         wires: parsed.wires ?? [],
         ladder: parsed.ladder ?? { rungs: [] },
