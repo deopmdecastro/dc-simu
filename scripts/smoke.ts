@@ -330,6 +330,17 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const q4Second = logoTerminalLocal(logo, terminalByLabel(logo, 'Q4.2')!)
   check('bornes superiores do LOGO! estão sobre o modelo', l.y > 0 && l.y < logo.h * 0.2 && i8.x > l.x && i8.x < logo.w * 0.8)
   check('saídas do LOGO! estão sobre os contactos inferiores', q1.y > logo.h * 0.8 && q4.x > q1.x && q4Second.x > q4.x && q4Second.x < logo.w * 0.8)
+  // A imagem PNG original mede 560×720; estes alvos foram aferidos visualmente
+  // sobre os centros dos parafusos da captura, sem depender do zoom do esquema.
+  const fullImage = { ...logo, w: 560, h: 720 }
+  const topScrew = logoTerminalLocal(fullImage, terminalByLabel(logo, 'L+')!)
+  const lastTop = logoTerminalLocal(fullImage, terminalByLabel(logo, 'I8')!)
+  const firstBottom = logoTerminalLocal(fullImage, terminalByLabel(logo, 'Q1')!)
+  const lastBottom = logoTerminalLocal(fullImage, terminalByLabel(logo, 'Q4.2')!)
+  check('alinhamento fino dos parafusos do PNG real',
+    Math.abs(topScrew.x - 86) < 2 && Math.abs(lastTop.x - 413) < 2 &&
+    Math.abs(topScrew.y - 73) < 2 && Math.abs(firstBottom.x - 100) < 2 &&
+    Math.abs(lastBottom.x - 454) < 2 && Math.abs(lastBottom.y - 629) < 2)
   const edited = { ...terminalByLabel(logo, 'Q1')!, x: 0.3, y: 0.7 }
   const moved = logoTerminalLocal(logo, edited)
   check('posição personalizada de borne é respeitada', Math.abs(moved.x - logo.w * 0.3) < 0.01 && Math.abs(moved.y - logo.h * 0.7) < 0.01)

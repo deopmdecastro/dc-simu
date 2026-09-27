@@ -23,9 +23,10 @@ export function logoTerminalLocal(c: ElectricalComponent, t: Terminal): { x: num
   const imageH = Math.min(c.h, c.w * 720 / 560)
   const left = (c.w - imageW) / 2
   const topY = (c.h - imageH) / 2
-  // Parafusos visíveis: L+/M/I1..I8 na tira superior; Q1..Q4 com dois pontos
-  // por contacto de relé na tira inferior. Coordenadas relativas ao PNG.
+  // Centros medidos no PNG 560×720: os alvos devem coincidir com a cabeça
+  // dos parafusos, não com a etiqueta impressa nem com a borda do aparelho.
+  // A primeira/última saída não têm a mesma margem que os bornes centrais.
   return isTopDefault
-    ? { x: left + imageW * (0.174 + topIndex * 0.612 / 9), y: topY + imageH * 0.132 }
-    : { x: left + imageW * (0.229 + bottomIndex * 0.177 + (secondScrew ? 0.030 : -0.030)), y: topY + imageH * 0.851 }
+    ? { x: left + imageW * (0.154 + topIndex * 0.584 / 9), y: topY + imageH * 0.101 }
+    : { x: left + imageW * (0.178 + bottomIndex * 0.189 + (secondScrew ? 0.065 : 0)), y: topY + imageH * 0.873 }
 }
