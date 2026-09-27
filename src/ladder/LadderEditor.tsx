@@ -743,26 +743,6 @@ function PaletteIcon({ type }: { type: PaletteKind }) {
   return <LadderGlyph kind={type} size={30} />
 }
 
-function LadderNavRail({ section, onSelect }: { section: LadderSection; onSelect: (value: LadderSection) => void }) {
-  return (
-    <aside className="ladder-nav-rail">
-      {[
-        ['▣', 'Projeto'],
-        ['▤', 'Biblioteca'],
-        ['◈', 'Dispositivos'],
-        ['⌁', 'Diagnóstico'],
-        ['⚙', 'Configurações'],
-      ].map(([icon, label]) => (
-        <button key={label} onClick={() => onSelect(label as LadderSection)} aria-current={section === label ? 'page' : undefined} className={`ladder-nav-item ${section === label ? 'is-active' : ''}`} title={label}>
-          <span className="ladder-nav-icon">{icon}</span>
-          <span>{label}</span>
-        </button>
-      ))}
-      <span className="mt-auto text-[9px] text-brand-200/80">v2.2</span>
-    </aside>
-  )
-}
-
 function ProjectTreePane({
   activeNode,
   expanded,
@@ -1014,7 +994,7 @@ function FunctionBlockView({ id }: { id: Extract<ProjectNodeId, 'fc1' | 'fc2'> }
   )
 }
 
-function FullLadderEditor() {
+function FullLadderEditor({ section, setSection }: { section: LadderSection; setSection: (value: LadderSection) => void }) {
   const rungs = useSimStore((s) => s.ladder.rungs)
   const table = useSimStore((s) => s.runtime.table)
   const timers = useSimStore((s) => s.runtime.timers)
@@ -1030,7 +1010,6 @@ function FullLadderEditor() {
   const redo = useSimStore((s) => s.redo)
   const history = useSimStore((s) => s.history)
   const future = useSimStore((s) => s.future)
-  const [section, setSection] = useState<LadderSection>('Projeto')
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
   const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters'>('io')
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
@@ -1088,7 +1067,6 @@ function FullLadderEditor() {
 
   return (
     <div className="ladder-workspace">
-      <LadderNavRail section={section} onSelect={setSection} />
       {section === 'Projeto' && (showProjectPane ? (
         <ProjectTreePane
           activeNode={activeProjectNode}
@@ -1253,6 +1231,6 @@ function FullLadderEditor() {
   )
 }
 
-export default function LadderEditor({ compact = false }: { compact?: boolean }) {
-  return compact ? <CompactLadderEditor /> : <FullLadderEditor />
+export default function LadderEditor({ compact = false, section = 'Projeto', setSection = () => {} }: { compact?: boolean; section?: LadderSection; setSection?: (value: LadderSection) => void }) {
+  return compact ? <CompactLadderEditor /> : <FullLadderEditor section={section} setSection={setSection} />
 }

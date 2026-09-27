@@ -234,41 +234,6 @@ input[type='color'] {
     color: #25324a;
     font-size: 12px;
   }
-  .ladder-nav-rail {
-    width: 76px;
-    flex: 0 0 76px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 5px;
-    padding: 12px 7px 10px;
-    background: linear-gradient(180deg, #1f3388 0%, #2655e5 58%, #1e42d3 100%);
-    color: #eaf0fe;
-  }
-  .ladder-nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    min-height: 47px;
-    padding: 6px 2px;
-    border: 0;
-    border-radius: 7px;
-    color: #dce7fd;
-    font-size: 9px;
-    cursor: pointer;
-    background: transparent;
-    transition: background .15s, color .15s;
-  }
-  .ladder-nav-item:hover,
-  .ladder-nav-item.is-active {
-    background: rgba(255,255,255,.16);
-    color: #fff;
-  }
-  .ladder-nav-icon {
-    font-size: 17px;
-    line-height: 1;
-  }
   .ladder-project-pane {
     width: 220px;
     flex: 0 0 220px;
@@ -1751,7 +1716,7 @@ button:disabled { cursor:not-allowed; }
 .dc-btn:hover:not(:disabled),.dc-tool-btn:hover:not(:disabled) { transform:translateY(-1px); }
 .dc-card,.ladder-rung-card,.grafcet-step { box-shadow:0 2px 9px #243b6310; }
 @media(max-width:1100px) { .dc-toolbar-main { flex-wrap:wrap; gap:4px 10px; padding-top:6px; padding-bottom:6px; } .dc-views-container { order:3; flex-basis:100%; justify-content:flex-start; } }
-@media(max-width:700px) { .dc-workspace > div[style] { max-width:42vw; } .grafcet-header { flex-wrap:wrap; gap:7px; } .ladder-nav-rail { width:60px; flex-basis:60px; } }
+@media(max-width:700px) { .dc-workspace > div[style] { max-width:42vw; } .grafcet-header { flex-wrap:wrap; gap:7px; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms !important; scroll-behavior:auto !important; transition-duration:.01ms !important; } }
 .dc-editor-empty { width:min(460px,calc(100% - 32px)); padding:28px; text-align:center; border:1px solid #d7e2f3; background:#ffffffef; backdrop-filter:blur(10px); border-radius:16px; box-shadow:0 18px 50px #243a5c20; }
 .dc-editor-empty h2 { font-size:20px; font-weight:700; margin:8px 0; color:#1e293b; }

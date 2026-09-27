@@ -346,3 +346,9 @@ retorno; RDY fecha. Quando não funciona, V+ deixa de ser fonte e RDY abre.
 A entrada AC é isolada da saída DC; PE não serve de ponte elétrica para os
 polos. Não se modelam nem se verificam 115/230 VAC reais, tensão/corrente de
 saída, proteção contra sobrecarga, temperatura, ripple ou tempos de subida.
+
+No editor **Ladder**, o menu vertical azul foi removido. As cinco secções
+(Projeto, Biblioteca, Dispositivos, Diagnóstico e Configurações) aparecem agora
+como botões com ícones na barra de ferramentas branca superior, à direita de
+Desfazer/Refazer. A secção selecionada mantém-se ao alternar entre vistas, e
+inserir um elemento pela Biblioteca volta à vista Projeto.

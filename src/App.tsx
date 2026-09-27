@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Toolbar, { type ViewMode } from './components/Toolbar'
 import Sidebar from './components/Sidebar'
 import LadderEditor from './ladder/LadderEditor'
+import type { LadderSection } from './ladder/LadderSections'
 import GrafcetEditor from './grafcet/GrafcetEditor'
 import SchematicView from './schematic/SchematicView'
 import MonitorPanel from './components/MonitorPanel'
@@ -13,6 +14,7 @@ const AUTOSAVE_INTERVAL_MS = 15_000
 
 export default function App() {
   const [mode, setMode] = useState<ViewMode>('schematic')
+  const [ladderSection, setLadderSection] = useState<LadderSection>('Projeto')
   const [showLadder, setShowLadder] = useState(true)
   const [showLibrary, setShowLibrary] = useState(true)
   const [panelSizes, setPanelSizes] = useState(() => {
@@ -105,7 +107,7 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
-      <Toolbar mode={mode} setMode={setMode} />
+      <Toolbar mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection} />
       <div className="flex-1 flex min-h-0 dc-workspace">
         {(mode === 'schematic' || mode === 'panel3d') && showLibrary && (
           <>
@@ -127,7 +129,7 @@ export default function App() {
         <div className="flex-1 min-w-0 flex flex-col relative">
           {(mode === 'schematic' || mode === 'panel3d') && !showLibrary && <button className="dc-dock-open is-left" onClick={() => setShowLibrary(true)} title="Mostrar biblioteca e inspetor">▤ Biblioteca</button>}
           {mode === 'schematic' && <SchematicView libraryCollapsed={!showLibrary} />}
-          {mode === 'ladder' && <LadderEditor />}
+          {mode === 'ladder' && <LadderEditor section={ladderSection} setSection={setLadderSection} />}
           {mode === 'grafcet' && <GrafcetEditor full />}
           {mode === 'panel3d' && <Panel3D />}
           {mode === 'monitor' && <MonitorPanel />}

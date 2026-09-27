@@ -5,12 +5,13 @@ import { buildBOM, bomToCSV } from '../utils/bom'
 import { GAUGES, WIRE_COLORS } from '../schematic/symbols'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import ProjectsPanel from './ProjectsPanel'
+import type { LadderSection } from '../ladder/LadderSections'
 import {
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
-  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown,
+  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield,
 } from '../ui/icons'
 
 type AlignEdge = 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY'
@@ -86,7 +87,7 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
   )
 }
 
-export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m: ViewMode) => void }) {
+export default function Toolbar({ mode, setMode, ladderSection, setLadderSection }: { mode: ViewMode; setMode: (m: ViewMode) => void; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void }) {
   const {
     activeScenario, loadScenario, sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
     step, saveJSON, loadJSON, newProject, tool, setTool, grid, setGrid, zoom, setZoom,
@@ -289,6 +290,23 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
             <IconRedo size={13} />
           </button>
         </div>
+
+        {mode === 'ladder' && <>
+          <span className="tb-sep" />
+          <nav className="dc-seg" aria-label="Secções do editor Ladder">
+            {([
+              ['Projeto', IconProjects], ['Biblioteca', IconTag], ['Dispositivos', IconCube],
+              ['Diagnóstico', IconShield], ['Configurações', IconGrid],
+            ] as const).map(([name, Icon]) => (
+              <button key={name} type="button" onClick={() => setLadderSection(name)}
+                className={`dc-tool-btn !gap-1.5 ${ladderSection === name ? 'dc-tool-active' : ''}`}
+                aria-current={ladderSection === name ? 'page' : undefined}
+                title={name} aria-label={`Ladder: ${name}`}>
+                <Icon size={14} /><span className="hidden lg:inline">{name}</span>
+              </button>
+            ))}
+          </nav>
+        </>}
 
         {isCanvas && (
           <>
