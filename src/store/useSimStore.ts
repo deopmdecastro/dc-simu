@@ -94,6 +94,13 @@ interface Store extends CircuitState {
   /** Reorganiza automaticamente o roteamento/dobra dos cabos (todos, ou apenas os
    * indicados) para reduzir sobreposição — agrupa cabos por canal e distribui a dobra. */
   organizeWires: (wireIds?: string[]) => void
+  /** Numera os cabos automaticamente. 'missing' numera só os sem identificação
+   * (continuando a sequência existente); 'all' renumera tudo de W1 em diante. */
+  autoNumberWires: (mode?: 'missing' | 'all') => void
+
+  // --- alinhamento / distribuição (2+ componentes selecionados) ---
+  alignSelection: (edge: 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY') => void
+  distributeSelection: (axis: 'horizontal' | 'vertical') => void
 
   // --- camadas (ordem de empilhamento: componentes + cabos) ---
   bringSelectionToFront: () => void
@@ -741,6 +748,118 @@ export const useSimStore = create<Store>((set, get) => ({
       dirty: true,
     }))
     get().pushEvent('info', `Cabos organizados automaticamente (${Object.keys(patches).length}).`)
+  },
+
+  autoNumberWires: (mode = 'missing') => {
+    if (!get().wires.length) return
+    get().commitHistory()
+    set((s) => {
+      let n = 0
+      if (mode === 'missing') {
+        const used = s.wires
+          .map((w) => (w.number ? /^W(\d+)$/.exec(w.number) : null))
+          .filter((m): m is RegExpExecArray => !!m)
+          .map((m) => Number(m[1]))
+        n = used.length ? Math.max(...used) : 0
+      }
+      return {
+        wires: s.wires.map((w) => {
+          if (mode === 'missing' && w.number) return w
+          n += 1
+          return { ...w, number: `W${n}` }
+        }),
+        dirty: true,
+      }
+    })
+    get().pushEvent(
+      'info',
+      mode === 'all' ? `Todos os cabos renumerados (W1…W${get().wires.length}).` : 'Cabos sem identificação foram numerados automaticamente.',
+    )
+  },
+
+  // ------------------------------------------------------- alinhar / distribuir
+  alignSelection: (edge) => {
+    const { selectedComponentIds, components } = get()
+    const sel = components.filter((c) => selectedComponentIds.includes(c.id))
+    if (sel.length < 2) return
+    get().commitHistory()
+
+    let target: number
+    switch (edge) {
+      case 'left':
+        target = Math.min(...sel.map((c) => c.schematicX))
+        break
+      case 'right':
+        target = Math.max(...sel.map((c) => c.schematicX + c.w))
+        break
+      case 'top':
+        target = Math.min(...sel.map((c) => c.schematicY))
+        break
+      case 'bottom':
+        target = Math.max(...sel.map((c) => c.schematicY + c.h))
+        break
+      case 'centerX':
+        target = sel.reduce((a, c) => a + c.schematicX + c.w / 2, 0) / sel.length
+        break
+      case 'centerY':
+      default:
+        target = sel.reduce((a, c) => a + c.schematicY + c.h / 2, 0) / sel.length
+        break
+    }
+
+    const ids = new Set(selectedComponentIds)
+    set((s) => ({
+      components: s.components.map((c) => {
+        if (!ids.has(c.id)) return c
+        switch (edge) {
+          case 'left':
+            return { ...c, schematicX: target }
+          case 'right':
+            return { ...c, schematicX: target - c.w }
+          case 'top':
+            return { ...c, schematicY: target }
+          case 'bottom':
+            return { ...c, schematicY: target - c.h }
+          case 'centerX':
+            return { ...c, schematicX: target - c.w / 2 }
+          case 'centerY':
+          default:
+            return { ...c, schematicY: target - c.h / 2 }
+        }
+      }),
+      dirty: true,
+    }))
+    get().step()
+  },
+
+  distributeSelection: (axis) => {
+    const { selectedComponentIds, components } = get()
+    const sel = components.filter((c) => selectedComponentIds.includes(c.id))
+    if (sel.length < 3) return
+    get().commitHistory()
+
+    const posKey = axis === 'horizontal' ? 'schematicX' : 'schematicY'
+    const sizeKey = axis === 'horizontal' ? 'w' : 'h'
+    const sorted = [...sel].sort((a, b) => a[posKey] - b[posKey])
+    const first = sorted[0]
+    const last = sorted[sorted.length - 1]
+    const span = last[posKey] + last[sizeKey] - first[posKey]
+    const totalSize = sorted.reduce((a, c) => a + c[sizeKey], 0)
+    const gap = (span - totalSize) / (sorted.length - 1)
+
+    const patch = new Map<string, number>()
+    let cursor = first[posKey]
+    for (const c of sorted) {
+      patch.set(c.id, cursor)
+      cursor += c[sizeKey] + gap
+    }
+
+    set((s) => ({
+      components: s.components.map((c) => (patch.has(c.id) ? { ...c, [posKey]: patch.get(c.id)! } : c)),
+      dirty: true,
+    }))
+    get().pushEvent('info', `Distribuição ${axis === 'horizontal' ? 'horizontal' : 'vertical'} aplicada a ${sorted.length} componentes.`)
+    get().step()
   },
 
   // ------------------------------------------------------------ camadas

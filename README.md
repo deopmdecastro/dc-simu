@@ -95,6 +95,22 @@ Intertravamento violado, motor sem térmico, térmico disparado, bobina sem alim
 borne de força desconectado, curto entre fases, motor sem condutor de proteção (PE), componentes
 sobrepostos no esquema e faixa do térmico incompatível com a corrente nominal do motor.
 
+### Alinhamento e distribuição
+Com 2+ componentes selecionados: alinhar à esquerda/direita/topo/base e centralizar
+horizontal/verticalmente. Com 3+ selecionados: distribuir espaçamento igual na horizontal
+ou na vertical (útil para organizar trilhos DIN e filas de bornes rapidamente).
+
+### Biblioteca de etiquetas padrão (IEC 60445 / 60947)
+Botão 📋 no rótulo do borne e na identificação/etiqueta do cabo: catálogo de rótulos
+normalizados (L1/L2/L3/PE, A1/A2, 13-14, U1/V1/W1, 95-96-97-98, DI/DO…) organizados por
+categoria, para inserir com um clique em vez de digitar.
+
+### Numeração automática de cabos e BOM
+- **Numerar cabos**: atribui `Wn` a todos os cabos sem identificação, continuando a
+  sequência já usada no projeto.
+- **Exportar BOM (CSV)**: lista de materiais agrupada por tipo de componente (com TAGs) e
+  um resumo de cabos (quantidade, metragem total e por seção).
+
 ### Arquivo
 Salvar / abrir projeto em JSON e criar projeto em branco.
 
@@ -128,11 +144,16 @@ src/
   store/useSimStore.ts  Zustand — ÚNICA representação do circuito. Cada ciclo faz três passagens de
                     continuidade (lê entradas → executa Ladder → aplica saídas) e mantém histórico
                     para desfazer/refazer.
-  components/       Toolbar (ferramentas, malha, zoom, modos, vistas), Sidebar (biblioteca +
-                    inspetor), MonitorPanel (I/Q/M, timers, contadores, medições, falhas, eventos).
+  components/       Toolbar (ferramentas, malha, zoom, modos, vistas, alinhar/distribuir,
+                    numerar cabos, BOM), Sidebar (biblioteca + inspetor), LabelLibrary
+                    (catálogo de rótulos IEC), MonitorPanel (I/Q/M, timers, contadores,
+                    medições, falhas, eventos).
+  electrical/
+    standardLabels.ts  Catálogo de rótulos normalizados (IEC 60445/60947) por categoria.
   utils/
     errorDetection.ts  Regras de diagnóstico.
     measurements.ts    Medições virtuais calculadas do estado real.
+    bom.ts             Lista de materiais (agrupamento por tipo + resumo de cabos) e CSV.
 scripts/smoke.ts    Testes de fumaça dos motores (npm run test).
 ```
 
@@ -142,6 +163,5 @@ Tailwind CSS, SVG para o esquema e o editor Ladder.
 
 ## Próximos passos naturais
 - Roteamento de cabos em canaleta/trilha no 3D com anti-colisão e numeração automática de bornes.
-- Numerador automático de fios e lista de materiais (BOM) exportável.
 - Persistência em backend e compartilhamento de projetos por link.
 - Modo multiusuário / avaliação (professor propõe falha, aluno diagnostica).

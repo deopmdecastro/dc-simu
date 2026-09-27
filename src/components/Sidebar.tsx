@@ -3,6 +3,7 @@ import { useSimStore } from '../store/useSimStore'
 import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../types'
 import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
+import LabelLibrary from './LabelLibrary'
 
 const input = 'w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-[11px] text-neutral-100 outline-none focus:border-cyan-500'
 const label = 'text-[10px] uppercase tracking-wide text-neutral-500 mb-0.5 block'
@@ -240,6 +241,10 @@ export default function Sidebar() {
                           value={t.label}
                           onChange={(e) => useSimStore.getState().updateTerminal(t.id, { label: e.target.value })}
                         />
+                        <LabelLibrary
+                          title="Escolher rótulo padrão IEC para este borne"
+                          onPick={(l) => useSimStore.getState().updateTerminal(t.id, { label: l })}
+                        />
                         <select
                           className="flex-1 bg-neutral-900 border border-neutral-700 rounded px-1 py-0.5"
                           value={t.kind}
@@ -353,11 +358,31 @@ export default function Sidebar() {
                 )}
                 <div>
                   <label className={label}>Identificação</label>
-                  <input className={input} value={selectedWire.number ?? ''} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { number: e.target.value })} />
+                  <div className="flex items-center gap-1">
+                    <input
+                      className={input}
+                      value={selectedWire.number ?? ''}
+                      onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { number: e.target.value })}
+                    />
+                    <LabelLibrary
+                      title="Escolher rótulo padrão IEC para a identificação do cabo"
+                      onPick={(l) => useSimStore.getState().updateWire(selectedWire.id, { number: l })}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className={label}>Etiqueta</label>
-                  <input className={input} value={selectedWire.label ?? ''} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { label: e.target.value })} />
+                  <div className="flex items-center gap-1">
+                    <input
+                      className={input}
+                      value={selectedWire.label ?? ''}
+                      onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { label: e.target.value })}
+                    />
+                    <LabelLibrary
+                      title="Escolher rótulo padrão IEC para a etiqueta do cabo"
+                      onPick={(l) => useSimStore.getState().updateWire(selectedWire.id, { label: l })}
+                    />
+                  </div>
                 </div>
               </div>
 

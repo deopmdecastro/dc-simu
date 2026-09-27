@@ -1,6 +1,18 @@
 import { useRef } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { EditorTool } from '../types'
+import { buildBOM, bomToCSV } from '../utils/bom'
+
+type AlignEdge = 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY'
+
+const ALIGN_BUTTONS: Array<{ edge: AlignEdge; icon: string; hint: string }> = [
+  { edge: 'left', icon: '⊢', hint: 'Alinhar à esquerda' },
+  { edge: 'centerX', icon: '┃', hint: 'Centralizar horizontalmente' },
+  { edge: 'right', icon: '⊣', hint: 'Alinhar à direita' },
+  { edge: 'top', icon: '⊤', hint: 'Alinhar ao topo' },
+  { edge: 'centerY', icon: '━', hint: 'Centralizar verticalmente' },
+  { edge: 'bottom', icon: '⊥', hint: 'Alinhar embaixo' },
+]
 
 export type ViewMode = 'schematic' | 'panel3d' | 'monitor'
 
@@ -41,8 +53,24 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
     toggleBlackBox,
     organizeWires,
     wires,
+    selectedComponentIds,
+    alignSelection,
+    distributeSelection,
+    autoNumberWires,
   } = useSimStore()
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const downloadBOM = () => {
+    const rows = buildBOM(components)
+    const csv = bomToCSV(rows, wires)
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `dc-simu-${activeScenario}-bom.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   const download = () => {
     const blob = new Blob([saveJSON()], { type: 'application/json' })
@@ -111,6 +139,47 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
         title="Reorganiza automaticamente o roteamento de todos os cabos, distribuindo as dobras para evitar sobreposição"
       >
         🧭 Organizar cabos
+      </button>
+      <button
+        onClick={() => autoNumberWires('missing')}
+        disabled={!wires.length}
+        className={btn}
+        title="Numera automaticamente os cabos que ainda não têm identificação (Wn), continuando a sequência existente"
+      >
+        🔢 Numerar cabos
+      </button>
+
+      <div className="w-px h-5 bg-neutral-700" />
+
+      {/* ------- alinhar / distribuir (2+ componentes selecionados) ------- */}
+      <div className="flex items-center bg-neutral-800 rounded overflow-hidden border border-neutral-700" title="Selecione 2 ou mais componentes para alinhar">
+        {ALIGN_BUTTONS.map((a) => (
+          <button
+            key={a.edge}
+            onClick={() => alignSelection(a.edge)}
+            disabled={selectedComponentIds.length < 2}
+            title={a.hint}
+            className="text-xs w-6 py-1 text-neutral-300 hover:text-white hover:bg-neutral-700 disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            {a.icon}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={() => distributeSelection('horizontal')}
+        disabled={selectedComponentIds.length < 3}
+        className={btn}
+        title="Distribuir espaçamento horizontal igual (3+ componentes selecionados)"
+      >
+        ⋯↔
+      </button>
+      <button
+        onClick={() => distributeSelection('vertical')}
+        disabled={selectedComponentIds.length < 3}
+        className={btn}
+        title="Distribuir espaçamento vertical igual (3+ componentes selecionados)"
+      >
+        ⋮↕
       </button>
 
       <div className="w-px h-5 bg-neutral-700" />
@@ -224,6 +293,9 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
         <button onClick={download} className={btn}>Salvar JSON</button>
         <button onClick={() => fileRef.current?.click()} className={btn}>Abrir JSON</button>
         <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={upload} />
+        <button onClick={downloadBOM} disabled={!components.length} className={btn} title="Exporta a lista de materiais (componentes + resumo de cabos) em CSV">
+          📑 BOM (CSV)
+        </button>
       </div>
     </div>
   )
