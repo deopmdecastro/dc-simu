@@ -149,10 +149,45 @@ export default function SchematicView() {
       } else if (e.key === '1') useSimStore.getState().setTool('select')
       else if (e.key === '2') useSimStore.getState().setTool('wire')
       else if (e.key === '3') useSimStore.getState().setTool('probe')
+      else if (e.ctrlKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        selectComponents(components.map((c) => c.id))
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'c') {
+        useSimStore.getState().copySelection()
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'v') {
+        e.preventDefault()
+        useSimStore.getState().pasteClipboard()
+      } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') && selectedIds.length) {
+        // move o(s) componente(s) selecionado(s): 1px, ou o passo da malha com Shift
+        e.preventDefault()
+        const step = e.shiftKey ? grid.size : 1
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+        const ids = new Set(selectedIds)
+        commitHistory()
+        useSimStore.setState((s) => ({
+          components: s.components.map((c) => (ids.has(c.id) ? { ...c, schematicX: c.schematicX + dx, schematicY: c.schematicY + dy } : c)),
+          dirty: true,
+        }))
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [selectedIds, deleteSelection, rotateComponent, duplicateComponents, selectComponents, clearProbe, bringSelectionToFront, sendSelectionToBack, bringSelectionForward, sendSelectionBackward])
+  }, [
+    selectedIds,
+    deleteSelection,
+    rotateComponent,
+    duplicateComponents,
+    selectComponents,
+    clearProbe,
+    bringSelectionToFront,
+    sendSelectionToBack,
+    bringSelectionForward,
+    sendSelectionBackward,
+    components,
+    grid,
+    commitHistory,
+  ])
 
   // --------------------------------------------------------------- mouse
   const onBackgroundDown = (e: React.MouseEvent) => {

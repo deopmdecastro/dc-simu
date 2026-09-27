@@ -23,6 +23,7 @@ import { buildMeasurements } from '../utils/measurements'
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario, SCENARIOS } from '../simulation/scenarios'
 import { createComponent, createTerminal, nextRef, terminalByLabel } from '../electrical/factory'
 import { terminalPos } from '../schematic/symbols'
+import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 
 export interface Snapshot {
   components: ElectricalComponent[]
@@ -47,6 +48,23 @@ interface Store extends CircuitState {
   /** primeiro ponto fixado da sonda (o segundo clique conclui a medição) */
   probeA: string | null
   clipboard: Snapshot | null
+  /** Nome do projeto guardado no navegador atualmente aberto (null = projeto
+   *  sem nome / carregado de arquivo / cenário pronto — ainda não guardado). */
+  currentProjectName: string | null
+  setCurrentProjectName: (name: string | null) => void
+  /** Guarda o projeto atual no navegador (localStorage) sob este nome, criando
+   *  ou sobrescrevendo. Usado pelo Ctrl+S e pelo painel "Projetos". */
+  saveProjectAs: (name: string) => boolean
+  /** Reabre um projeto guardado anteriormente no navegador. */
+  loadProjectByName: (name: string) => boolean
+  /** Elimina um projeto guardado no navegador. */
+  deleteProjectByName: (name: string) => void
+  /** Copia os componentes selecionados (e os cabos entre eles) para a área de
+   *  transferência interna (Ctrl+C). */
+  copySelection: () => void
+  /** Cola o conteúdo copiado, gerando novos ids e mantendo os cabos internos
+   *  entre os componentes colados (Ctrl+V). */
+  pasteClipboard: () => void
 
   // --- ciclo de simulação ---
   loadScenario: (id: string) => void
@@ -384,6 +402,7 @@ export const useSimStore = create<Store>((set, get) => ({
   probeResult: null,
   probeA: null,
   clipboard: null,
+  currentProjectName: null,
   _intervalId: null,
 
   // ---------------------------------------------------------------- simulação
@@ -402,6 +421,7 @@ export const useSimStore = create<Store>((set, get) => ({
       history: [],
       future: [],
       probeResult: null,
+      currentProjectName: null,
       sim: {
         ...get().sim,
         runState: 'stopped',
@@ -1040,8 +1060,111 @@ export const useSimStore = create<Store>((set, get) => ({
       history: [],
       future: [],
       dirty: false,
+      currentProjectName: null,
     })
     get().pushEvent('info', 'Novo projeto em branco criado.')
+  },
+
+  // ----------------------------------------------------- projetos (navegador)
+  setCurrentProjectName: (name) => set({ currentProjectName: name }),
+
+  saveProjectAs: (name) => {
+    const trimmed = name.trim()
+    if (!trimmed) return false
+    const json = get().saveJSON()
+    const ok = saveProject(trimmed, json)
+    if (ok) {
+      setLastOpened(trimmed)
+      set({ currentProjectName: trimmed, dirty: false })
+      get().pushEvent('info', `Projeto "${trimmed}" guardado neste navegador.`)
+    } else {
+      get().pushEvent('error', 'Não foi possível guardar: armazenamento do navegador indisponível ou cheio.')
+    }
+    return ok
+  },
+
+  loadProjectByName: (name) => {
+    const json = loadProject(name)
+    if (!json) {
+      get().pushEvent('error', `Projeto "${name}" não encontrado neste navegador.`)
+      return false
+    }
+    get().loadJSON(json)
+    setLastOpened(name)
+    set({ currentProjectName: name })
+    get().pushEvent('info', `Projeto "${name}" reaberto.`)
+    return true
+  },
+
+  deleteProjectByName: (name) => {
+    deleteProject(name)
+    if (get().currentProjectName === name) set({ currentProjectName: null })
+    get().pushEvent('info', `Projeto "${name}" eliminado deste navegador.`)
+  },
+
+  // ------------------------------------------------------- copiar / colar
+  copySelection: () => {
+    const { components, wires, selectedComponentIds } = get()
+    if (!selectedComponentIds.length) return
+    const selSet = new Set(selectedComponentIds)
+    const comps = components.filter((c) => selSet.has(c.id))
+    if (!comps.length) return
+    const terminalIds = new Set(comps.flatMap((c) => c.terminals.map((t) => t.id)))
+    const relevantWires = wires.filter((w) => terminalIds.has(w.fromTerminalId) && terminalIds.has(w.toTerminalId))
+    set({
+      clipboard: {
+        components: JSON.parse(JSON.stringify(comps)),
+        wires: JSON.parse(JSON.stringify(relevantWires)),
+        ladder: [],
+      },
+    })
+    get().pushEvent('info', `${comps.length} componente(s) copiado(s)${relevantWires.length ? ` (+ ${relevantWires.length} cabo(s) internos)` : ''}.`)
+  },
+
+  pasteClipboard: () => {
+    const clip = get().clipboard
+    if (!clip || !clip.components.length) return
+    get().commitHistory()
+
+    const terminalMap = new Map<string, string>()
+    const newComponents: ElectricalComponent[] = []
+    for (const src of clip.components) {
+      const newId = nanoid(8)
+      const newTerminals: Terminal[] = src.terminals.map((t) => {
+        const newTid = nanoid(8)
+        terminalMap.set(t.id, newTid)
+        return { ...t, id: newTid, componentId: newId, energized: false }
+      })
+      const clone: ElectricalComponent = {
+        ...JSON.parse(JSON.stringify(src)),
+        id: newId,
+        schematicX: src.schematicX + 40,
+        schematicY: src.schematicY + 40,
+        terminals: newTerminals,
+        ref: nextRef([...get().components, ...newComponents], src.type),
+        z: undefined,
+      }
+      newComponents.push(clone)
+    }
+    const newWires: Wire[] = clip.wires
+      .filter((w) => terminalMap.has(w.fromTerminalId) && terminalMap.has(w.toTerminalId))
+      .map((w) => ({
+        ...JSON.parse(JSON.stringify(w)),
+        id: nanoid(8),
+        fromTerminalId: terminalMap.get(w.fromTerminalId)!,
+        toTerminalId: terminalMap.get(w.toTerminalId)!,
+        energized: false,
+      }))
+
+    set((s) => ({
+      components: [...s.components, ...newComponents],
+      wires: [...s.wires, ...newWires],
+      selectedComponentIds: newComponents.map((c) => c.id),
+      selectedWireId: null,
+      dirty: true,
+    }))
+    get().pushEvent('info', `Colado(s) ${newComponents.length} componente(s)${newWires.length ? ` e ${newWires.length} cabo(s)` : ''}.`)
+    get().step()
   },
 }))
 

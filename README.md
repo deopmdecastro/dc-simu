@@ -28,7 +28,9 @@ npm run preview    # serve o build
   corpo, bloqueio contra arraste acidental, duplicar e **eliminar**.
 - **Zoom** e **panorâmica** (scroll, Ctrl+scroll, tecla Alt, botão do meio).
 - **Desfazer / refazer** (Ctrl+Z / Ctrl+Y) com pilha de histórico.
-- Atalhos: `R` gira, `D` duplica, `Del` apaga, `1/2/3` troca de ferramenta, `Esc` cancela.
+- Atalhos: `R` gira, `D` duplica, `Del` apaga, `1/2/3` troca de ferramenta, `Esc` cancela,
+  `Ctrl+A` seleciona tudo, `Ctrl+C` / `Ctrl+V` copia/cola (mantém os cabos internos entre os
+  componentes colados), setas move 1px (`Shift`+seta move o passo da malha).
 
 ### Cabos (edição completa)
 - Ferramenta de **desenho de cabo**: clique no borne de origem, clique no borne de destino.
@@ -111,6 +113,18 @@ categoria, para inserir com um clique em vez de digitar.
 - **Exportar BOM (CSV)**: lista de materiais agrupada por tipo de componente (com TAGs) e
   um resumo de cabos (quantidade, metragem total e por seção).
 
+### Guardar o projeto (navegador + arquivo)
+- **`Ctrl+S`**: guarda no navegador (localStorage). Se o projeto ainda não tem nome, abre o
+  painel "💾 Projetos" para o nomear; depois disso, `Ctrl+S` sobrescreve silenciosamente.
+- **`Ctrl+Shift+O`** ou botão **💾 Projetos**: lista os projetos guardados neste navegador,
+  com data/hora, para reabrir ou eliminar.
+- **Autosave**: a cada 15 s (e ao fechar a aba) com alterações pendentes, guarda uma cópia de
+  segurança silenciosa. Ao reabrir a aplicação, recarrega automaticamente o último projeto
+  guardado (ou o autosave, se nada foi guardado por nome) — não é preciso reimportar nada.
+- Isto é armazenamento **local, neste navegador/computador** — não sincroniza entre
+  dispositivos (isso exigiria um backend; ver "Próximos passos naturais"). Para levar o
+  projeto a outro computador, continua a existir o **Salvar JSON / Abrir JSON** (arquivo).
+
 ### Arquivo
 Salvar / abrir projeto em JSON e criar projeto em branco.
 
@@ -146,14 +160,16 @@ src/
                     para desfazer/refazer.
   components/       Toolbar (ferramentas, malha, zoom, modos, vistas, alinhar/distribuir,
                     numerar cabos, BOM), Sidebar (biblioteca + inspetor), LabelLibrary
-                    (catálogo de rótulos IEC), MonitorPanel (I/Q/M, timers, contadores,
-                    medições, falhas, eventos).
+                    (catálogo de rótulos IEC), ProjectsPanel (guardar/reabrir projetos no
+                    navegador), MonitorPanel (I/Q/M, timers, contadores, medições, falhas,
+                    eventos).
   electrical/
     standardLabels.ts  Catálogo de rótulos normalizados (IEC 60445/60947) por categoria.
   utils/
     errorDetection.ts  Regras de diagnóstico.
     measurements.ts    Medições virtuais calculadas do estado real.
     bom.ts             Lista de materiais (agrupamento por tipo + resumo de cabos) e CSV.
+    persistence.ts     Guardar/reabrir projetos e autosave via localStorage.
 scripts/smoke.ts    Testes de fumaça dos motores (npm run test).
 ```
 
@@ -163,5 +179,5 @@ Tailwind CSS, SVG para o esquema e o editor Ladder.
 
 ## Próximos passos naturais
 - Roteamento de cabos em canaleta/trilha no 3D com anti-colisão e numeração automática de bornes.
-- Persistência em backend e compartilhamento de projetos por link.
+- Persistência em backend (sincronização entre dispositivos) e compartilhamento de projetos por link — hoje a persistência é local, no navegador (ver "Guardar o projeto").
 - Modo multiusuário / avaliação (professor propõe falha, aluno diagnostica).

@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { EditorTool } from '../types'
 import { buildBOM, bomToCSV } from '../utils/bom'
+import ProjectsPanel from './ProjectsPanel'
 
 type AlignEdge = 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY'
 
@@ -57,6 +58,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
     alignSelection,
     distributeSelection,
     autoNumberWires,
+    setCurrentProjectName,
   } = useSimStore()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -86,7 +88,10 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => loadJSON(String(reader.result))
+    reader.onload = () => {
+      loadJSON(String(reader.result))
+      setCurrentProjectName(null)
+    }
     reader.readAsText(file)
   }
 
@@ -296,6 +301,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
         <button onClick={downloadBOM} disabled={!components.length} className={btn} title="Exporta a lista de materiais (componentes + resumo de cabos) em CSV">
           📑 BOM (CSV)
         </button>
+        <ProjectsPanel />
       </div>
     </div>
   )
