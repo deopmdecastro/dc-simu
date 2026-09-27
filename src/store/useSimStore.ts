@@ -978,7 +978,7 @@ export const useSimStore = create<Store>((set, get) => ({
   clearProbe: () => set({ probeResult: null, probeA: null }),
 
   // -------------------------------------------------------------------- vista
-  setGrid: (patch) => set((s) => ({ grid: { ...s.grid, ...patch } })),
+  setGrid: (patch) => set((s) => ({ grid: { ...s.grid, ...patch }, dirty: true })),
   setZoom: (z) => set({ zoom: Math.min(3, Math.max(0.25, z)) }),
   setPan: (x, y) => set({ panX: x, panY: y }),
 

@@ -1686,3 +1686,15 @@ input[type='color'] {
 .grafcet-transition input { width:80px; }
 .grafcet-error { color:#b02a36; z-index:1; background:#fff; }
 .grafcet-footer { background:white; padding:9px; border-top:1px solid #dce4ef; color:#62728a; line-height:1.4; }
+
+.ladder-section-view { flex:1; overflow:auto; padding:20px 28px; background:#f8fafd; color:#334155; font-size:12px; }
+.ladder-section-view h2 { font-size:20px; font-weight:700; color:#1d4ed8; margin-bottom:8px; }
+.ladder-section-view h3 { font-weight:700; font-size:14px; margin:22px 0 8px; }
+.ladder-section-view > p { margin-bottom:12px; }
+.ladder-section-view > .dc-input { width:min(100%,400px); margin-bottom:14px; }
+.ladder-section-view details { margin:12px 0; border:1px solid #dce4ef; border-radius:6px; background:white; padding:10px; }
+.ladder-section-view summary { cursor:pointer; font-weight:600; }
+.ladder-section-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:9px; margin:10px 0; }
+.ladder-section-card { display:flex; flex-direction:column; gap:6px; background:white; padding:10px; border:1px solid #dce4ef; border-radius:6px; }
+.ladder-section-card small { color:#64748b; }
+.ladder-setting { display:flex; align-items:center; justify-content:space-between; max-width:470px; padding:12px; background:white; border-bottom:1px solid #dce4ef; gap:20px; }

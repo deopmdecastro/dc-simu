@@ -243,3 +243,7 @@ Tailwind CSS, SVG para o esquema e o editor Ladder.
 ### GRAFCET no esquema
 
 A vista **Esquema** (e Painel 3D) mostra à direita o editor GRAFCET, enquanto a página **Ladder** continua independente. Crie etapas, altere a ordem com as setas, escolha a etapa inicial, dê nome e configure a ação (`Q1` ou `M1`) e a condição de transição (`I1`, `M1`, `Q1`, `!I1` ou `1`). As transições ligam cada etapa à seguinte, e a última regressa à primeira. O programa é incluído no JSON, autosave e projetos locais. No scan, o Ladder corre primeiro e as ações do GRAFCET têm precedência sobre o mesmo endereço Q/M; evite atribuir a mesma saída aos dois editores. Este editor cobre sequências lineares (sem divergências/convergências simultâneas).
+
+### Navegação lateral do Ladder
+
+Os botões Projeto, Biblioteca, Dispositivos, Diagnóstico e Configurações abrem vistas próprias. A Biblioteca insere apenas elementos Ladder suportados e lista equivalências dos componentes do esquema; Dispositivos permite localizar componentes já existentes; Diagnóstico apresenta problemas, bits e eventos do scan; Configurações permite alterar malha e velocidade. Para editar fisicamente um dispositivo, selecione-o em Dispositivos e volte à vista Esquema.

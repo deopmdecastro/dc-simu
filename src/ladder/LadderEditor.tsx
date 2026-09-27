@@ -1,3 +1,4 @@
+import LadderSections, { type LadderSection } from './LadderSections'
 import { useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
@@ -742,17 +743,17 @@ function PaletteIcon({ type }: { type: PaletteKind }) {
   return <LadderGlyph kind={type} size={30} />
 }
 
-function LadderNavRail() {
+function LadderNavRail({ section, onSelect }: { section: LadderSection; onSelect: (value: LadderSection) => void }) {
   return (
     <aside className="ladder-nav-rail">
       {[
-        ['▣', 'Projeto', true],
-        ['▤', 'Biblioteca', false],
-        ['◈', 'Dispositivos', false],
-        ['⌁', 'Diagnóstico', false],
-        ['⚙', 'Configurações', false],
-      ].map(([icon, label, active]) => (
-        <button key={String(label)} className={`ladder-nav-item ${active ? 'is-active' : ''}`} title={String(label)}>
+        ['▣', 'Projeto'],
+        ['▤', 'Biblioteca'],
+        ['◈', 'Dispositivos'],
+        ['⌁', 'Diagnóstico'],
+        ['⚙', 'Configurações'],
+      ].map(([icon, label]) => (
+        <button key={label} onClick={() => onSelect(label as LadderSection)} aria-current={section === label ? 'page' : undefined} className={`ladder-nav-item ${section === label ? 'is-active' : ''}`} title={label}>
           <span className="ladder-nav-icon">{icon}</span>
           <span>{label}</span>
         </button>
@@ -1029,6 +1030,7 @@ function FullLadderEditor() {
   const redo = useSimStore((s) => s.redo)
   const history = useSimStore((s) => s.history)
   const future = useSimStore((s) => s.future)
+  const [section, setSection] = useState<LadderSection>('Projeto')
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
   const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters'>('io')
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
@@ -1086,8 +1088,8 @@ function FullLadderEditor() {
 
   return (
     <div className="ladder-workspace">
-      <LadderNavRail />
-      {showProjectPane ? (
+      <LadderNavRail section={section} onSelect={setSection} />
+      {section === 'Projeto' && (showProjectPane ? (
         <ProjectTreePane
           activeNode={activeProjectNode}
           expanded={expandedNodes}
@@ -1100,8 +1102,9 @@ function FullLadderEditor() {
         <button className="ladder-collapsed-pane-button" onClick={() => setShowProjectPane(true)} title="Mostrar projeto">
           Projeto
         </button>
-      )}
+      ))}
       <main className="ladder-main-pane">
+        {section !== 'Projeto' ? <LadderSections section={section} onAdd={(kind) => { quickAdd(kind); setSection('Projeto') }} /> : <>
         <div className="ladder-project-tabs">
           <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}>
             {isFcOpen ? <IconFunction size={13} /> : <IconSchematic size={13} />} {activeTitle} <span>×</span>
@@ -1192,8 +1195,9 @@ function FullLadderEditor() {
             <div className="ladder-project-status"><span>Estado do Projeto</span><strong><i /> {running ? 'Simulação ativa' : 'Pronto'}</strong></div>
           </div>
         </div>
+        </>}
       </main>
-      {showPalette ? (
+      {section === 'Projeto' && (showPalette ? (
       <aside className="ladder-palette">
         <div className="ladder-palette-header">
           <div>
@@ -1244,7 +1248,7 @@ function FullLadderEditor() {
         <button className="ladder-collapsed-pane-button is-right" onClick={() => setShowPalette(true)} title="Mostrar elementos">
           Elementos
         </button>
-      )}
+      ))}
     </div>
   )
 }
