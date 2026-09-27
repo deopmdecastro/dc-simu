@@ -665,6 +665,7 @@ input[type='color'] {
     padding-bottom: 2px;
     border-radius: 5px;
     background-color: #f8fafd;
+    background-size: 20px 20px;
     transition: background-color .12s;
   }
   .ladder-diagram-scroll.grid-dots {
@@ -675,7 +676,7 @@ input[type='color'] {
       linear-gradient(90deg, #e4eaf2 1px, transparent 1px),
       linear-gradient(180deg, #e4eaf2 1px, transparent 1px);
   }
-  .ladder-diagram-scroll.grid-off { background-image: none; background-color: transparent; }
+  .ladder-diagram-scroll.grid-off { background-image: none; }
   .ladder-diagram {
     display: flex;
     min-width: 455px;
