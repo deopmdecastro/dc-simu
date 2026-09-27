@@ -4,6 +4,7 @@ import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../types'
 import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
 import LabelLibrary from './LabelLibrary'
+import DatasheetPanel from './DatasheetPanel'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
@@ -238,6 +239,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 <input className="dc-input" value={selectedComponent.label} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { label: e.target.value })} />
               </div>
               </div></details>
+              <DatasheetPanel type={selectedComponent.type} />
               <details className="dc-inspector-group" open><summary>Posição e aparência</summary><div className="dc-inspector-group-body">
               <LayerButtons />
               <div className="grid grid-cols-2 gap-2">

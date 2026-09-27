@@ -287,3 +287,17 @@ O Inspetor de componentes foi reorganizado com um resumo fixo do dispositivo, se
 O Siemens LOGO! 12/24RC no Esquema apresenta uma vista frontal renderizada em WebGL a partir do mesmo ficheiro GLB do Painel 3D, preservando os materiais e cores originais, em vez do corpo desenhado em SVG. A imagem (ligado/desligado conforme L+) é gerada uma vez e reutilizada; os bornes do esquema mantêm a posição, identificação, estado, ligação de cabos e seleção. Em caso de falha no carregamento do modelo, o símbolo anterior serve como reserva.
 
 O LOGO! 12/24RC tem 19 bornes correspondentes aos parafusos visíveis do modelo: L+, M, I1–I8, um parafuso superior sem legenda identificado internamente como X1 (sem lógica automática) e dois pontos por cada saída Q1–Q4 (`Q1`/`Q1.2`, etc.). As saídas de relé são contactos secos: ao ativar Q1, apenas os seus dois pontos ficam unidos; L+ não é ligado automaticamente à saída. Projetos anteriores com 14 ou 18 bornes recebem os pontos em falta quando são abertos, preservando os identificadores e cabos existentes.
+
+### Fichas técnicas no Inspetor
+
+Selecione um componente no Esquema e abra **Ficha técnica** no Inspetor para
+adicionar um PDF, visualizá-lo num novo separador, descarregá-lo, substituí-lo
+ou removê-lo. A ficha é associada ao **tipo** de componente (todos os
+exemplares desse tipo partilham o mesmo PDF) e é guardada em IndexedDB apenas
+neste navegador; não entra nos ficheiros JSON do projeto nem é publicada no
+Git. Aceita PDFs até 25 MB. Pode associar um PDF diferente a cada tipo da
+Biblioteca.
+
+O manual `Logo_pt.pdf` enviado descreve a série **0BA4**, mas o modelo CAD
+existente indica **0BA2**. Por isso, aguardamos a ficha 0BA2 antes de alterar
+a lógica do PLC ou associar automaticamente um documento a esse tipo.
