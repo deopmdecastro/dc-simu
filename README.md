@@ -251,3 +251,7 @@ Os botões Projeto, Biblioteca, Dispositivos, Diagnóstico e Configurações abr
 A barra de vistas inclui agora **GRAFCET (F5)**, que abre o mesmo programa do editor lateral numa página dedicada; no Esquema continua disponível o editor compacto. O favicon SVG é servido localmente em `/favicon.svg`.
 
 A biblioteca do Esquema suporta pesquisa por nome, tipo ou categoria, favoritos locais, expansão/recolha de categorias, duplo clique para inserção imediata e indicação/cancelamento do componente em posicionamento.
+
+### Afinação de UI/UX (editores)
+
+A barra principal ajusta-se a ecrãs mais estreitos e aceita `Ctrl+1` a `Ctrl+5` para navegar pelas cinco vistas (fora de campos de texto). A Biblioteca/Inspetor pode ser recolhida e reaberta nas vistas Esquema e Painel 3D; as larguras ajustadas são recordadas neste navegador. O Monitor aproveita agora a largura completa, sem barra lateral do esquema. O Painel 3D vazio sugere cenários para começar. Foram adicionados focos visíveis para navegação por teclado, espaços e estados visuais mais consistentes, e respeito pela preferência de movimento reduzido. Os controlos continuam compactos onde o espaço do editor é limitado.

@@ -14,7 +14,16 @@ const AUTOSAVE_INTERVAL_MS = 15_000
 export default function App() {
   const [mode, setMode] = useState<ViewMode>('schematic')
   const [showLadder, setShowLadder] = useState(true)
-  const [panelSizes, setPanelSizes] = useState({ sidebar: 300, ladder: 440 })
+  const [showLibrary, setShowLibrary] = useState(true)
+  const [panelSizes, setPanelSizes] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('dcsimu:workspace:panels') ?? '{}')
+      return { sidebar: Math.min(460, Math.max(220, Number(saved.sidebar) || 300)), ladder: Math.min(720, Math.max(320, Number(saved.ladder) || 440)) }
+    } catch { return { sidebar: 300, ladder: 440 } }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('dcsimu:workspace:panels', JSON.stringify(panelSizes)) } catch { /* navegação privada */ }
+  }, [panelSizes])
   const [resizing, setResizing] = useState<{ target: 'sidebar' | 'ladder'; startX: number; startSize: number } | null>(null)
   const stop = useSimStore((s) => s.stop)
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
@@ -97,10 +106,13 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
       <Toolbar mode={mode} setMode={setMode} />
-      <div className="flex-1 flex min-h-0">
-        {mode !== 'ladder' && mode !== 'grafcet' && (
+      <div className="flex-1 flex min-h-0 dc-workspace">
+        {(mode === 'schematic' || mode === 'panel3d') && showLibrary && (
           <>
-            <Sidebar width={panelSizes.sidebar} />
+            <div className="relative shrink-0 flex flex-col" style={{ width: panelSizes.sidebar }}>
+              <Sidebar width={panelSizes.sidebar} />
+              <button className="dc-dock-close" onClick={() => setShowLibrary(false)} title="Recolher biblioteca e inspetor" aria-label="Recolher biblioteca e inspetor">◂</button>
+            </div>
             <div
               className="dc-resize-handle"
               onPointerDown={(e) => {
@@ -112,7 +124,8 @@ export default function App() {
             />
           </>
         )}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col relative">
+          {(mode === 'schematic' || mode === 'panel3d') && !showLibrary && <button className="dc-dock-open is-left" onClick={() => setShowLibrary(true)} title="Mostrar biblioteca e inspetor">▤ Biblioteca</button>}
           {mode === 'schematic' && <SchematicView />}
           {mode === 'ladder' && <LadderEditor />}
           {mode === 'grafcet' && <GrafcetEditor full />}
@@ -128,7 +141,7 @@ export default function App() {
               <>
                 <button
                   onClick={() => setShowLadder(false)}
-                  className="dc-tab self-end !h-7 !px-2 text-ink-400"
+                  className="dc-dock-collapse"
                   title="Recolher o editor GRAFCET"
                 >
                   ▸
@@ -138,7 +151,7 @@ export default function App() {
             ) : (
               <button
                 onClick={() => setShowLadder(true)}
-                className="w-full h-full dc-tab text-ink-400"
+                className="dc-dock-open is-right"
                 title="Mostrar o editor GRAFCET"
               >
                 ◂ GRAFCET

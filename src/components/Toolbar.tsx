@@ -99,6 +99,12 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
   // atalhos F1–F5 para as vistas
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-5]$/.test(e.key)) {
+        if ((e.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
+        e.preventDefault()
+        setMode(VIEWS[Number(e.key) - 1].id)
+        return
+      }
       const idx = ['F1', 'F2', 'F5', 'F3', 'F4'].indexOf(e.key)
       if (idx >= 0) {
         e.preventDefault()
@@ -157,7 +163,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
   return (
     <div className="shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20">
       {/* ============================ linha 1 — marca · arquivo · vistas · simulação */}
-      <div className="flex items-center gap-2 px-3 h-[46px] border-b border-line-soft">
+      <div className="flex items-center gap-2 px-3 min-h-[50px] border-b border-line-soft dc-toolbar-main">
         <div className="flex items-center gap-2 pr-1 shrink-0 select-none">
           <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden className="shrink-0">
             <rect x="1" y="1" width="22" height="22" rx="5" fill="#2655e5" />
@@ -195,7 +201,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
         </div>
 
         {/* vistas — centralizadas */}
-        <div className="flex-1 flex justify-center min-w-0">
+        <div className="flex-1 flex justify-center min-w-0 dc-views-container">
           <div className="flex items-center rounded-lg p-1 gap-1 bg-surface-sunken border border-line shadow-inner" role="tablist" aria-label="Vistas">
             {VIEWS.map(({ id, label, icon: Icon, key }) => (
               <button
@@ -206,7 +212,7 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
                 className={`inline-flex items-center gap-1.5 h-[30px] px-4 rounded-[6px] text-xs font-semibold transition-all ${
                   mode === id ? 'bg-brand-600 text-white shadow-md' : 'text-ink-500 hover:text-ink-900 hover:bg-white'
                 }`}
-                title={`${label} [${key}]`}
+                title={`${label} [${key} · Ctrl+${VIEWS.findIndex((v) => v.id === id) + 1}]`}
               >
                 <Icon size={14} />
                 <span className="hidden md:inline">{label}</span>

@@ -3,6 +3,7 @@ import { OrbitControls, Text, Line } from '@react-three/drei'
 import { useRef, useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { terminalPos } from '../schematic/symbols'
+import { SCENARIOS } from '../simulation/scenarios'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType } from '../types'
 import * as THREE from 'three'
@@ -459,6 +460,15 @@ export default function Panel3D() {
 
         <OrbitControls minDistance={2} maxDistance={18} makeDefault />
       </Canvas>
+
+      {!components.length && <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+        <div className="dc-editor-empty pointer-events-auto">
+          <span className="dc-empty-kicker">PAINEL 3D</span>
+          <h2>Prepare o seu painel</h2>
+          <p>Carregue um cenário para explorar os componentes em 3D ou adicione-os através da biblioteca.</p>
+          <div className="flex flex-wrap justify-center gap-2 mt-4">{SCENARIOS.slice(0, 3).map((scenario) => <button className="dc-btn" key={scenario.id} onClick={() => useSimStore.getState().loadScenario(scenario.id)}>{scenario.name}</button>)}</div>
+        </div>
+      </div>}
 
       {/* overlay HTML normal (fora do Canvas) — evita que o drei <Html> projete o botão para o centro do ecrã */}
       <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
