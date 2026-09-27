@@ -1104,6 +1104,10 @@ function EmptyFolderMessage({ text }: { text: string }) {
 
 function FunctionBlockView({ id }: { id: Extract<ProjectNodeId, 'fc1' | 'fc2'> }) {
   const isFc1 = id === 'fc1'
+  const grid = useSimStore((s) => s.grid)
+  const demoTable: Record<string, boolean> = {}
+  const demoContact: LadderContact = { kind: 'contact', id: 'fc-demo-contact', address: isFc1 ? 'M1' : 'I3', contactType: 'NO' }
+  const demoCoil: LadderCoilEl = { kind: 'coil', id: 'fc-demo-coil', address: isFc1 ? 'M10' : 'M20', coilType: 'COIL' }
   return (
     <div className="ladder-folder-view">
       <FolderViewHeader
@@ -1114,13 +1118,45 @@ function FunctionBlockView({ id }: { id: Extract<ProjectNodeId, 'fc1' | 'fc2'> }
       <div className="ladder-fc-canvas">
         <div className="ladder-fc-network">
           <div className="ladder-fc-network-title">Network 1</div>
-          <div className="ladder-fc-line">
-            <span className="ladder-fc-rail" />
-            <span className="ladder-fc-contact">{isFc1 ? 'M1' : 'I3'}</span>
-            <span className="ladder-fc-wire" />
-            <span className="ladder-fc-block">{isFc1 ? 'MOVE' : 'COMPARE'}</span>
-            <span className="ladder-fc-wire" />
-            <span className="ladder-fc-coil">{isFc1 ? 'M10' : 'M20'}</span>
+          {/* mesmo motor visual das networks do OB1 — mesma grelha, mesmos símbolos */}
+          <div
+            className={`ladder-diagram-scroll ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : 'grid-dots') : 'grid-off'}`}
+            style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
+          >
+            <div className="ladder-diagram pointer-events-none">
+              <div className="ladder-rail ladder-rail-left">
+                <span className="ladder-rail-label">L+</span>
+                <div className="ladder-rail-bar" />
+              </div>
+              <div className="ladder-branch-stack">
+                <div className="ladder-branch-row">
+                  <div className="ladder-wire is-stub" />
+                  <div className="ladder-inline-element">
+                    <span className="ladder-symbol-button"><ContactSymbol el={demoContact} table={demoTable} /></span>
+                    <div className="ladder-wire is-fill" />
+                  </div>
+                </div>
+              </div>
+              <div className="ladder-wire is-link" />
+              <div className="ladder-instruction-blocks">
+                <BlockButton
+                  label={isFc1 ? 'MOVE' : 'COMPARE'}
+                  address=""
+                  detail={isFc1 ? 'IN → OUT' : 'IN1 == IN2'}
+                  powered={false}
+                  onSelect={() => {}}
+                  onRemove={() => {}}
+                />
+              </div>
+              <div className="ladder-wire is-link" />
+              <div className="ladder-coil-bank">
+                <CoilButton coil={demoCoil} powered={false} onCycle={() => {}} onRemove={() => {}} />
+              </div>
+              <div className="ladder-rail ladder-rail-right">
+                <div className="ladder-rail-bar" />
+                <span className="ladder-rail-label">L−</span>
+              </div>
+            </div>
           </div>
         </div>
         <p className="ladder-fc-note">Bloco aberto pela árvore do projeto. A edição avançada de FCs pode reutilizar o mesmo motor de networks do OB1.</p>

@@ -1253,56 +1253,6 @@ input[type='color'] {
     font-size: 10px;
     font-weight: 800;
   }
-  .ladder-fc-line {
-    display: flex;
-    min-width: 620px;
-    align-items: center;
-    gap: 0;
-    padding: 28px 18px;
-    background:
-      radial-gradient(circle, #d5def0 1px, transparent 1.2px) 0 0 / 16px 16px,
-      #fff;
-  }
-  .ladder-fc-rail {
-    width: 3px;
-    height: 70px;
-    border-radius: 2px;
-    background: var(--ladder-blue);
-  }
-  .ladder-fc-wire {
-    flex: 1;
-    height: 2px;
-    background: var(--ladder-blue);
-  }
-  .ladder-fc-contact,
-  .ladder-fc-block,
-  .ladder-fc-coil {
-    display: inline-flex;
-    height: 34px;
-    min-width: 58px;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid var(--ladder-blue);
-    color: var(--ladder-blue-dark);
-    background: #fff;
-    font-family: ui-monospace, monospace;
-    font-size: 11px;
-    font-weight: 800;
-  }
-  .ladder-fc-contact {
-    border-top: 0;
-    border-bottom: 0;
-  }
-  .ladder-fc-block {
-    min-width: 74px;
-    border-radius: 4px;
-    background: var(--ladder-blue-soft);
-  }
-  .ladder-fc-coil {
-    border-left-color: transparent;
-    border-right-color: transparent;
-    border-radius: 50%;
-  }
   .ladder-fc-note {
     margin-top: 10px;
     color: #718096;
