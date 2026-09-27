@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { listProjects, type ProjectMeta } from '../utils/persistence'
+import { IconProjects, IconSave } from '../ui/icons'
 
 function formatDate(iso: string) {
   try {
@@ -93,16 +94,15 @@ export default function ProjectsPanel() {
         type="button"
         onClick={() => setOpen((o) => !o)}
         title="Guardar / reabrir projetos guardados neste navegador — Ctrl+S guarda, Ctrl+Shift+O abre esta lista"
-        className={`text-xs px-2 py-1 rounded border max-w-[160px] truncate ${
-          currentProjectName ? 'border-cyan-600 text-cyan-300 bg-cyan-950/30' : 'border-neutral-700 bg-neutral-800 text-neutral-200'
-        } hover:bg-neutral-700`}
+        className={`dc-btn max-w-[170px] ${currentProjectName ? '!border-brand-300 !bg-brand-50 !text-brand-700' : ''} ${open ? '!border-brand-400 !bg-brand-100' : ''}`}
       >
-        💾 {currentProjectName ? `${currentProjectName}${dirty ? ' •' : ''}` : 'Projetos'}
+        <IconProjects size={13} />
+        <span className="truncate">{currentProjectName ? `${currentProjectName}${dirty ? ' •' : ''}` : 'Projetos'}</span>
       </button>
       {open && (
-        <div className="absolute z-30 right-0 mt-1 w-72 max-h-96 overflow-y-auto bg-neutral-900 border border-neutral-700 rounded shadow-xl p-2 text-xs">
-          <div className="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Guardar neste navegador</div>
-          <div className="flex gap-1 mb-2">
+        <div className="absolute z-30 right-0 mt-1.5 w-80 max-h-96 overflow-y-auto bg-surface-panel border border-line rounded-md shadow-lg p-2.5 text-xs">
+          <div className="dc-panel-title mb-1.5">Guardar neste navegador</div>
+          <div className="flex gap-1 mb-3">
             <input
               ref={nameInputRef}
               value={name}
@@ -111,40 +111,40 @@ export default function ProjectsPanel() {
                 if (e.key === 'Enter') save()
               }}
               placeholder="nome do projeto…"
-              className="flex-1 bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-[11px] text-neutral-100 outline-none focus:border-cyan-500"
+              className="dc-input flex-1"
             />
-            <button onClick={save} disabled={!name.trim()} className="px-2 py-1 rounded bg-cyan-700 hover:bg-cyan-600 disabled:opacity-40 text-white">
-              Guardar
+            <button onClick={save} disabled={!name.trim()} className="dc-btn-primary dc-btn">
+              <IconSave size={12} /> Guardar
             </button>
           </div>
 
-          <div className="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">Projetos guardados ({projects.length})</div>
-          {!projects.length && <p className="text-neutral-600 text-[10px] mb-1">Nenhum projeto guardado ainda neste navegador.</p>}
+          <div className="dc-panel-title mb-1.5">Projetos guardados ({projects.length})</div>
+          {!projects.length && <p className="text-ink-400 text-[10px] mb-1">Nenhum projeto guardado ainda neste navegador.</p>}
           <div className="flex flex-col gap-1">
             {projects.map((p) => (
               <div
                 key={p.name}
-                className={`flex items-center gap-1 rounded border px-1.5 py-1 ${
-                  p.name === currentProjectName ? 'border-cyan-700 bg-cyan-950/30' : 'border-neutral-700 bg-neutral-800/60'
+                className={`flex items-center gap-1 rounded-[5px] border px-1.5 py-1 ${
+                  p.name === currentProjectName ? 'border-brand-300 bg-brand-50' : 'border-line bg-white'
                 }`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="truncate text-neutral-200">{p.name}</div>
-                  <div className="text-[9px] text-neutral-500">{formatDate(p.savedAt)}</div>
+                  <div className="truncate text-ink-900 font-medium">{p.name}</div>
+                  <div className="text-[9px] text-ink-400">{formatDate(p.savedAt)}</div>
                 </div>
-                <button onClick={() => load(p.name)} className="px-1.5 py-0.5 rounded bg-neutral-700 hover:bg-neutral-600 text-neutral-100" title="Reabrir este projeto">
+                <button onClick={() => load(p.name)} className="dc-btn !h-5 !px-1.5 !text-[10px]" title="Reabrir este projeto">
                   Abrir
                 </button>
-                <button onClick={() => remove(p.name)} className="text-red-400 hover:text-red-300 px-1" title="Eliminar">
+                <button onClick={() => remove(p.name)} className="dc-icon-btn !w-5 !h-5 !border-transparent !text-ink-300 hover:!text-state-error hover:!bg-state-errorbg" title="Eliminar">
                   ✕
                 </button>
               </div>
             ))}
           </div>
 
-          <p className="text-[9px] text-neutral-600 mt-2 leading-relaxed">
+          <p className="text-[9px] text-ink-400 mt-2.5 leading-relaxed border-t border-line-soft pt-2">
             Guardado localmente neste navegador — sobrevive a fechar a aba ou reiniciar o computador, mas não passa
-            para outro dispositivo. Para levar o projeto a outro computador, usa "Salvar JSON" / "Abrir JSON".
+            para outro dispositivo. Para levar o projeto a outro computador, usa "Salvar" / "Abrir" (JSON) na toolbar.
           </p>
         </div>
       )}

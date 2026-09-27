@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, WIRE_COLORS, terminalPos } from './symbols'
+import { IconProbe } from '../ui/icons'
 import type { ElectricalComponent } from '../types'
 
 const CANVAS_W = 2000
@@ -349,13 +350,13 @@ export default function SchematicView() {
     const b = terminalIndex.get(w.toTerminalId)
     if (!a || !b) return null
     const base = WIRE_COLORS[w.color] ?? '#94a3b8'
-    const col = w.energized ? '#facc15' : base
+    const col = w.energized ? '#f59e0b' : base
     const selected = selectedWireId === w.id
     const { d, handle } = wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0)
     const width = w.gauge.startsWith('0.') ? 1.2 : w.gauge.startsWith('1') ? 1.6 : w.gauge.startsWith('2.5') ? 2.2 : 2.8
     return (
       <g key={w.id}>
-        {selected && <path d={d} fill="none" stroke="#22d3ee" strokeWidth={width + 5} opacity={0.35} strokeLinecap="round" />}
+        {selected && <path d={d} fill="none" stroke="#2655e5" strokeWidth={width + 5} opacity={0.22} strokeLinecap="round" />}
         <path
           d={d}
           fill="none"
@@ -377,8 +378,8 @@ export default function SchematicView() {
             cx={handle.x}
             cy={handle.y}
             r={6}
-            fill="#0b1220"
-            stroke="#22d3ee"
+            fill="#ffffff"
+            stroke="#2655e5"
             strokeWidth={2}
             style={{ cursor: handle.mode === 'curve' ? 'grab' : 'ew-resize' }}
             onMouseDown={(e) => {
@@ -406,15 +407,15 @@ export default function SchematicView() {
         }}
         style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? 'move' : 'inherit', opacity: c.locked ? 0.85 : 1 }}
       >
-        {selected && <rect x={-6} y={-6} width={c.w + 12} height={c.h + 12} rx={6} fill="none" stroke="#22d3ee" strokeWidth={1.5} strokeDasharray="5 3" />}
+        {selected && <rect x={-6} y={-6} width={c.w + 12} height={c.h + 12} rx={6} fill="none" stroke="#2655e5" strokeWidth={1.5} strokeDasharray="5 3" />}
         <SymbolGlyph c={c} selected={selected} />
-        {c.locked && <text x={c.w - 12} y={12} fontSize={10} fill="#facc15">🔒</text>}
+        {c.locked && <text x={c.w - 12} y={12} fontSize={10} fill="#b45309">🔒</text>}
       </g>
     )
   }
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-neutral-950">
+    <div className="w-full h-full relative overflow-hidden bg-[#f8fafd]">
       <svg
         ref={svgRef}
         className="w-full h-full"
@@ -428,10 +429,10 @@ export default function SchematicView() {
       >
         <defs>
           <pattern id="dc-grid-dots" width={grid.size} height={grid.size} patternUnits="userSpaceOnUse">
-            <circle cx={1} cy={1} r={1} fill="#243044" />
+            <circle cx={1} cy={1} r={1} fill="#ccd5e3" />
           </pattern>
           <pattern id="dc-grid-lines" width={grid.size} height={grid.size} patternUnits="userSpaceOnUse">
-            <path d={`M ${grid.size} 0 L 0 0 0 ${grid.size}`} fill="none" stroke="#1b2432" strokeWidth={1} />
+            <path d={`M ${grid.size} 0 L 0 0 0 ${grid.size}`} fill="none" stroke="#e4eaf2" strokeWidth={1} />
           </pattern>
         </defs>
 
@@ -449,7 +450,7 @@ export default function SchematicView() {
               y1={pendingFrom.y}
               x2={terminalIndex.get(hoverTerminal)!.x}
               y2={terminalIndex.get(hoverTerminal)!.y}
-              stroke="#22d3ee"
+              stroke="#2655e5"
               strokeWidth={2}
               strokeDasharray="4 3"
             />
@@ -469,7 +470,7 @@ export default function SchematicView() {
                     cy={p.y}
                     r={7}
                     fill="transparent"
-                    stroke={chainIdx >= 0 ? '#a3e635' : isFrom ? '#22d3ee' : isSel ? '#f472b6' : 'transparent'}
+                    stroke={chainIdx >= 0 ? '#65a30d' : isFrom ? '#2655e5' : isSel ? '#db2777' : 'transparent'}
                     strokeWidth={2}
                     style={{ cursor: tool === 'select' ? 'pointer' : 'crosshair' }}
                     onMouseDown={(e) => onTerminalDown(e, t.id)}
@@ -483,7 +484,7 @@ export default function SchematicView() {
                     <title>{`${c.ref}.${t.label} — ${t.energized ? 'ENERGIZADO' : 'sem tensão'}`}</title>
                   </circle>
                   {chainIdx >= 0 && (
-                    <text x={p.x + 9} y={p.y - 9} fontSize={10} fontWeight="bold" fill="#a3e635" style={{ pointerEvents: 'none' }}>
+                    <text x={p.x + 9} y={p.y - 9} fontSize={10} fontWeight="bold" fill="#65a30d" style={{ pointerEvents: 'none' }}>
                       {chainIdx + 1}
                     </text>
                   )}
@@ -499,34 +500,35 @@ export default function SchematicView() {
               y={Math.min(marquee.y0, marquee.y1)}
               width={Math.abs(marquee.x1 - marquee.x0)}
               height={Math.abs(marquee.y1 - marquee.y0)}
-              fill="#22d3ee"
-              opacity={0.12}
-              stroke="#22d3ee"
+              fill="#2655e5"
+              opacity={0.08}
+              stroke="#2655e5"
+              strokeWidth={1.5}
             />
           )}
         </g>
       </svg>
 
       {/* legenda / estado */}
-      <div className="absolute left-2 top-2 flex flex-col gap-1 text-[11px] text-neutral-400 pointer-events-none">
-        <div className="px-2 py-1 rounded bg-neutral-900/80 border border-neutral-800">
-          Ferramenta: <span className="text-cyan-300">{tool === 'select' ? 'Selecionar/Arrastar' : tool === 'wire' ? 'Desenhar cabo' : tool === 'probe' ? 'Sonda (continuidade)' : tool === 'erase' ? 'Apagar' : 'Panorâmica'}</span>
+      <div className="absolute left-2 top-2 flex flex-col gap-1 text-[11px] text-ink-500 pointer-events-none">
+        <div className="px-2 py-1 rounded-md bg-white/92 border border-line shadow-xs backdrop-blur-sm">
+          Ferramenta: <span className="text-brand-600 font-semibold">{tool === 'select' ? 'Selecionar/Arrastar' : tool === 'wire' ? 'Desenhar cabo' : tool === 'probe' ? 'Sonda (continuidade)' : tool === 'erase' ? 'Apagar' : 'Panorâmica'}</span>
         </div>
-        <div className="px-2 py-1 rounded bg-neutral-900/80 border border-neutral-800">
-          Malha {grid.enabled ? `${grid.size}px ${grid.snap ? '(imã)' : ''}` : 'desligada'} · Zoom {(zoom * 100).toFixed(0)}%
+        <div className="px-2 py-1 rounded-md bg-white/92 border border-line shadow-xs">
+          Malha {grid.enabled ? `${grid.size}px ${grid.snap ? '(ímã)' : ''}` : 'desligada'} · Zoom {(zoom * 100).toFixed(0)}%
         </div>
-        <div className="px-2 py-1 rounded bg-neutral-900/80 border border-neutral-800">
+        <div className="px-2 py-1 rounded-md bg-white/92 border border-line shadow-xs">
           {components.length} componentes · {wires.length} cabos
         </div>
       </div>
 
       {/* ligação inteligente: cadeia de bornes acumulada por shift+clique */}
       {tool === 'wire' && chain.length > 0 && (
-        <div className="absolute left-1/2 -translate-x-1/2 top-2 flex items-center gap-2 text-[11px] rounded-lg border border-lime-600 bg-neutral-900/95 px-3 py-1.5 text-neutral-200 shadow-lg">
-          <span className="text-lime-400 font-semibold">Ligação inteligente:</span>
+        <div className="absolute left-1/2 -translate-x-1/2 top-2 flex items-center gap-2 text-[11px] rounded-md border border-lime-500 bg-white px-3 py-1.5 text-ink-900 shadow-md">
+          <span className="text-lime-700 font-semibold">Ligação inteligente:</span>
           <span>{chain.length} borne(s) selecionado(s)</span>
           <button
-            className="px-2 py-0.5 rounded bg-lime-700 hover:bg-lime-600 text-white disabled:opacity-40"
+            className="px-2 py-0.5 rounded bg-lime-600 hover:bg-lime-700 text-white disabled:opacity-40"
             disabled={chain.length < 2}
             onClick={() => {
               connectChain(chain)
@@ -535,15 +537,15 @@ export default function SchematicView() {
           >
             Conectar em cadeia
           </button>
-          <button className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700" onClick={() => setChain([])}>
+          <button className="px-2 py-0.5 rounded bg-white border border-line text-ink-700 hover:bg-slate-50" onClick={() => setChain([])}>
             Limpar
           </button>
         </div>
       )}
 
       {probeResult && (
-        <div className="absolute right-3 bottom-3 w-72 text-[11px] rounded-lg border border-cyan-700 bg-neutral-900/95 p-3 text-neutral-200">
-          <div className="font-semibold text-cyan-300 mb-1">Medição da sonda</div>
+        <div className="absolute right-3 bottom-3 w-72 text-[11px] rounded-md border border-brand-300 bg-white shadow-md p-3 text-ink-900">
+          <div className="font-semibold text-brand-700 mb-1 flex items-center gap-1.5"><IconProbe size={12} /> Medição da sonda</div>
           {probeResult.b ? (
             <>
               <div className="font-mono">{terminalIndex.get(probeResult.a!)?.label ?? probeResult.a} ↔ {terminalIndex.get(probeResult.b!)?.label ?? probeResult.b}</div>
@@ -555,11 +557,11 @@ export default function SchematicView() {
           ) : (
             <div className="text-neutral-400">{probeResult.note}</div>
           )}
-          <button onClick={clearProbe} className="mt-2 px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700">limpar</button>
+          <button onClick={clearProbe} className="mt-2 px-2 py-0.5 rounded border border-line bg-white hover:bg-slate-50 text-ink-700">limpar</button>
         </div>
       )}
 
-      <div className="absolute right-3 top-2 text-[10px] text-neutral-500 text-right leading-relaxed">
+      <div className="absolute right-3 top-2 text-[10px] text-ink-400 text-right leading-relaxed rounded-md bg-white/92 border border-line shadow-xs px-2 py-1.5">
         <div>arraste = mover · shift+clique = multi-seleção</div>
         <div>clique no cabo = editar · duplo no borne = alternar</div>
         <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>

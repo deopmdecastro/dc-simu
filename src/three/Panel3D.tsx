@@ -374,12 +374,12 @@ export default function Panel3D() {
   const motor = components.find((c) => c.type === 'motor3ph')
 
   return (
-    <div className="w-full h-full bg-gradient-to-b from-neutral-800 via-neutral-850 to-neutral-900">
+    <div className="w-full h-full bg-gradient-to-b from-[#e6ebf3] via-[#f3f5f9] to-[#ccd5e2]">
       <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
-        <gridHelper args={[16, 32, '#334155', '#1f2937']} position={[0, -2.6, 0]} />
+        <gridHelper args={[16, 32, '#c3cdda', '#dfe5ee']} position={[0, -2.6, 0]} />
 
         <DinRail width={railWidth} />
 
@@ -410,7 +410,7 @@ export default function Panel3D() {
         <OrbitControls minDistance={2} maxDistance={18} makeDefault />
       </Canvas>
 
-      <div className="absolute left-2 top-2 text-[11px] text-neutral-400 bg-neutral-900/80 border border-neutral-800 rounded px-2 py-1">
+      <div className="absolute left-2 top-2 text-[11px] text-ink-500 bg-white/90 border border-line shadow-xs rounded-md px-2 py-1">
         Arraste para girar · scroll para aproximar · clique em botoeiras e sensores para acionar
       </div>
     </div>

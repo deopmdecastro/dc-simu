@@ -1,5 +1,6 @@
 import { useSimStore } from '../store/useSimStore'
 import type { LadderDataType, LadderTag } from '../types'
+import { IconPlus } from '../ui/icons'
 
 /* ------------------------------------------------------------------------ *
  * Tabela de Tags — inspirada na organização do TIA Portal: uma tabela por
@@ -23,10 +24,10 @@ const DATA_TYPES: LadderDataType[] = ['Bool', 'Time', 'Int', 'Real']
 function TagRow({ tag }: { tag: LadderTag }) {
   const updateTag = useSimStore((s) => s.updateTag)
   const removeTag = useSimStore((s) => s.removeTag)
-  const cell = 'bg-transparent outline-none text-neutral-200 w-full px-1 py-0.5'
+  const cell = 'bg-transparent outline-none text-ink-900 w-full px-1 py-0.5 rounded focus:bg-brand-50'
 
   return (
-    <tr className="border-t border-neutral-800 hover:bg-neutral-900/60">
+    <tr className="border-t border-line-soft hover:bg-brand-50/40">
       <td className="min-w-[120px]">
         <input className={cell} value={tag.name} onChange={(e) => updateTag(tag.id, { name: e.target.value })} placeholder="Nome simbólico" />
       </td>
@@ -44,7 +45,7 @@ function TagRow({ tag }: { tag: LadderTag }) {
         <input className={cell} value={tag.comment ?? ''} onChange={(e) => updateTag(tag.id, { comment: e.target.value })} placeholder="Comentário" />
       </td>
       <td className="w-6 text-center">
-        <button className="text-red-500/70 hover:text-red-400 text-xs" title="Remover tag" onClick={() => removeTag(tag.id)}>
+        <button className="text-ink-300 hover:text-state-error text-xs" title="Remover tag" onClick={() => removeTag(tag.id)}>
           ✕
         </button>
       </td>
@@ -58,14 +59,14 @@ export default function TagTable() {
   const autoDetectTags = useSimStore((s) => s.autoDetectTags)
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] text-neutral-500 leading-relaxed max-w-[300px]">
+    <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4 min-h-0 bg-surface-panel">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] text-ink-500 leading-relaxed">
           Dê nomes simbólicos aos endereços usados no programa — o endereço (I1, Q1, M1…) continua a
           ser a referência real; a tag é só documentação, como no TIA Portal.
         </p>
         <button
-          className="text-[10px] px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 shrink-0"
+          className="dc-btn shrink-0"
           title="Cria uma tag (nome = endereço) para todo endereço já usado no programa que ainda não tenha uma"
           onClick={autoDetectTags}
         >
@@ -76,23 +77,23 @@ export default function TagTable() {
       {SECTIONS.map(({ prefix, title, hint }) => {
         const rows = tags.filter((t) => t.address.toUpperCase().startsWith(prefix)).sort((a, b) => Number(a.address.slice(1)) - Number(b.address.slice(1)) || 0)
         return (
-          <div key={prefix} className="border border-neutral-800 rounded-md overflow-hidden">
-            <div className="flex items-center justify-between px-2 py-1 bg-neutral-900 border-b border-neutral-800">
+          <div key={prefix} className="border border-line rounded-md overflow-hidden bg-white shadow-xs">
+            <div className="flex items-center justify-between px-2 py-1.5 bg-surface-rail border-b border-line">
               <div>
-                <span className="text-xs font-semibold text-neutral-200">{title}</span>
-                <span className="text-[10px] text-neutral-500 ml-2">{hint}</span>
+                <span className="text-xs font-semibold text-ink-900">{title}</span>
+                <span className="text-[10px] text-ink-400 ml-2">{hint}</span>
               </div>
-              <button className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300" onClick={() => addTag(prefix)}>
-                + tag
+              <button className="dc-btn !h-5 !px-1.5 !text-[10px]" onClick={() => addTag(prefix)}>
+                <IconPlus size={10} /> tag
               </button>
             </div>
             <table className="w-full text-[11px]">
               <thead>
-                <tr className="text-neutral-500 text-left">
-                  <th className="font-normal px-1 py-0.5">Nome</th>
-                  <th className="font-normal px-1 py-0.5">Endereço</th>
-                  <th className="font-normal px-1 py-0.5">Tipo</th>
-                  <th className="font-normal px-1 py-0.5">Comentário</th>
+                <tr className="text-ink-400 text-left bg-white">
+                  <th className="font-medium px-1 py-0.5">Nome</th>
+                  <th className="font-medium px-1 py-0.5">Endereço</th>
+                  <th className="font-medium px-1 py-0.5">Tipo</th>
+                  <th className="font-medium px-1 py-0.5">Comentário</th>
                   <th className="w-6" />
                 </tr>
               </thead>
@@ -102,7 +103,7 @@ export default function TagTable() {
                 ))}
                 {!rows.length && (
                   <tr>
-                    <td colSpan={5} className="text-neutral-600 px-1 py-1 text-[10px]">
+                    <td colSpan={5} className="text-ink-300 px-1 py-1 text-[10px]">
                       Nenhuma tag nesta área.
                     </td>
                   </tr>

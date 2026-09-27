@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { STANDARD_LABEL_CATEGORIES } from '../electrical/standardLabels'
+import { IconTag } from '../ui/icons'
 
 /**
  * Botão + popover com a biblioteca de etiquetas padronizadas (IEC 60445/60947).
@@ -34,26 +35,26 @@ export default function LabelLibrary({ onPick, title = 'Biblioteca de etiquetas 
         type="button"
         onClick={() => setOpen((o) => !o)}
         title={title}
-        className="text-[10px] px-1.5 py-1 rounded border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+        className="dc-icon-btn !w-6 !h-[22px] !text-ink-400"
       >
-        📋
+        <IconTag size={11} />
       </button>
       {open && (
-        <div className="absolute z-30 right-0 mt-1 w-64 max-h-80 overflow-y-auto bg-neutral-900 border border-neutral-700 rounded shadow-xl p-2">
-          <div className="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">{title}</div>
+        <div className="absolute z-30 right-0 mt-1.5 w-64 max-h-80 overflow-y-auto bg-surface-panel border border-line rounded-md shadow-lg p-2">
+          <div className="dc-panel-title mb-1">{title}</div>
           <input
             autoFocus
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="filtrar…"
-            className="w-full bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-[11px] text-neutral-100 outline-none focus:border-cyan-500 mb-2"
+            className="dc-input mb-2"
           />
-          {categories.length === 0 && <p className="text-[10px] text-neutral-600">Nenhuma etiqueta encontrada.</p>}
+          {categories.length === 0 && <p className="text-[10px] text-ink-400">Nenhuma etiqueta encontrada.</p>}
           {categories.map((c) => (
             <div key={c.id} className="mb-2">
-              <div className="text-[9px] text-neutral-500 flex items-baseline gap-1">
-                <span className="text-neutral-400">{c.name}</span>
-                {c.standard && <span className="text-neutral-600">({c.standard})</span>}
+              <div className="text-[9px] text-ink-400 flex items-baseline gap-1">
+                <span className="text-ink-700 font-medium">{c.name}</span>
+                {c.standard && <span className="text-ink-300">({c.standard})</span>}
               </div>
               <div className="flex flex-wrap gap-1 mt-1">
                 {c.labels.map((l) => (
@@ -66,10 +67,9 @@ export default function LabelLibrary({ onPick, title = 'Biblioteca de etiquetas 
                       setFilter('')
                     }}
                     title={`Usar "${l}"`}
-                    className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-cyan-900/60 hover:border-cyan-600 border border-neutral-700 text-neutral-200 font-mono"
+                    className="text-[10px] px-1.5 py-0.5 rounded border border-line bg-white hover:border-brand-400 hover:bg-brand-50 text-ink-900 font-mono"
                   >
                     {l}
-                    <span className="text-amber-500 text-[8px]">🔒</span>
                   </button>
                 ))}
               </div>

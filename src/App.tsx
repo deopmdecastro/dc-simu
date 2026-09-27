@@ -16,6 +16,8 @@ export default function App() {
   const stop = useSimStore((s) => s.stop)
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const scanCount = useSimStore((s) => s.sim.scanCount)
+  const runState = useSimStore((s) => s.sim.runState)
+  const faults = useSimStore((s) => s.sim.faults)
   const currentProjectName = useSimStore((s) => s.currentProjectName)
   const dirty = useSimStore((s) => s.dirty)
 
@@ -60,9 +62,19 @@ export default function App() {
 
   const errors = diagnostics.filter((d) => d.level === 'error').length
   const warnings = diagnostics.filter((d) => d.level === 'warning').length
+  const hasErrorState = errors > 0 || Object.values(faults ?? {}).some(Boolean)
+
+  // estados do PLC — STOP → READY → RUN → PAUSE → ERROR
+  const state = hasErrorState
+    ? { label: 'ERROR', cls: 'bg-state-error text-white', dot: 'bg-white' }
+    : runState === 'running'
+      ? { label: 'RUN', cls: 'bg-state-run text-white', dot: 'bg-white' }
+      : runState === 'paused'
+        ? { label: 'PAUSE', cls: 'bg-state-pause text-white', dot: 'bg-white' }
+        : { label: 'STOP', cls: 'bg-state-stop text-white', dot: 'bg-white' }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-neutral-950 text-neutral-100">
+    <div className="h-screen w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
       <Toolbar mode={mode} setMode={setMode} />
       <div className="flex-1 flex min-h-0">
         <Sidebar />
@@ -72,33 +84,61 @@ export default function App() {
           {mode === 'monitor' && <MonitorPanel />}
         </div>
         {mode !== 'monitor' && (
-          <div className={`${showLadder ? 'w-[460px]' : 'w-9'} shrink-0 border-l border-neutral-800 bg-neutral-950 transition-all`}>
+          <div
+            className={`${showLadder ? 'w-[440px] min-w-[300px]' : 'w-9'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
+          >
             {showLadder ? (
-              <div className="h-full flex flex-col">
-                <button onClick={() => setShowLadder(false)} className="text-[10px] text-neutral-500 hover:text-white py-1 border-b border-neutral-800">
-                  recolher ladder ▸
+              <>
+                <button
+                  onClick={() => setShowLadder(false)}
+                  className="dc-tab self-end !h-7 !px-2 text-ink-400"
+                  title="Recolher o editor Ladder"
+                >
+                  ▸
                 </button>
                 <LadderEditor />
-              </div>
+              </>
             ) : (
-              <button onClick={() => setShowLadder(true)} className="w-full h-full text-[10px] text-neutral-500 hover:text-white" title="Mostrar ladder">
-                ◂
+              <button
+                onClick={() => setShowLadder(true)}
+                className="w-full h-full dc-tab text-ink-400"
+                title="Mostrar o editor Ladder"
+              >
+                ◂ Ladder
               </button>
             )}
           </div>
         )}
       </div>
-      <footer className="flex items-center gap-3 px-3 py-1 border-t border-neutral-800 bg-neutral-900 text-[11px] text-neutral-500">
-        <span>DC-Simu v2 — simulador de comandos elétricos industriais</span>
-        <span className="text-neutral-700">|</span>
-        <span title="Ctrl+S guarda · Ctrl+Shift+O reabre a lista de projetos guardados neste navegador">
-          {currentProjectName ? `Projeto: ${currentProjectName}` : 'Projeto sem nome'}
-          {dirty ? ' · alterações não guardadas' : ''}
+
+      {/* ============================================== barra de estado */}
+      <footer className="shrink-0 flex items-center gap-2 px-3 h-[26px] border-t border-line bg-surface-rail text-[11px] text-ink-500 select-none">
+        <span className="text-ink-400 font-semibold tracking-wide">DC-SIMU <span className="font-normal">v2</span></span>
+        <span className="h-3.5 w-px bg-line" />
+        <span className="truncate max-w-[280px]" title="Ctrl+S guarda · Ctrl+Shift+O reabre a lista de projetos guardados neste navegador">
+          {currentProjectName ? (
+            <>
+              <span className="text-ink-400">Projeto:</span> <span className="text-ink-900 font-medium">{currentProjectName}</span>
+              {dirty && <span className="ml-1 text-state-pause" title="Alterações ainda não guardadas">•</span>}
+            </>
+          ) : (
+            <span className="text-ink-400">Projeto sem nome</span>
+          )}
         </span>
-        <span className="text-neutral-700">|</span>
-        <span className={errors ? 'text-red-400' : 'text-neutral-500'}>{errors} erro(s)</span>
-        <span className={warnings ? 'text-amber-400' : 'text-neutral-500'}>{warnings} aviso(s)</span>
-        <span className="ml-auto font-mono">scan #{scanCount}</span>
+        <span className="h-3.5 w-px bg-line" />
+        <button
+          className={`inline-flex items-center gap-1.5 h-[18px] px-2 rounded-[4px] font-mono text-[10px] font-bold tracking-[0.08em] ${state.cls}`}
+          title={`Estado do PLC: ${state.label}${hasErrorState ? ' — existem erros/falhas ativos' : ''}`}
+        >
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${state.dot}`} />
+          {state.label}
+        </button>
+        <span className="ml-1">
+          <span className={errors ? 'text-state-error font-semibold' : 'text-ink-400'}>{errors} erro(s)</span>
+          <span className="text-ink-300"> · </span>
+          <span className={warnings ? 'text-state-pause font-semibold' : 'text-ink-400'}>{warnings} aviso(s)</span>
+        </span>
+        <span className="ml-auto font-mono tabular-nums text-ink-500">scan #{scanCount}</span>
       </footer>
     </div>
   )

@@ -1,16 +1,16 @@
 import type { ElectricalComponent, Terminal, TerminalType } from '../types'
 import { useSimStore } from '../store/useSimStore'
 
-/** Cores de cabo do editor. */
+/** Cores de cabo do editor (com contraste calibrado para o modo claro). */
 export const WIRE_COLORS: Record<string, string> = {
   red: '#ef4444',
   blue: '#3b82f6',
   'green-yellow': '#84cc16',
-  black: '#9ca3af',
+  black: '#334155',
   orange: '#f59e0b',
   grey: '#94a3b8',
   brown: '#92400e',
-  white: '#f8fafc',
+  white: '#b6c2d4',
   pink: '#ec4899',
   violet: '#8b5cf6',
   green: '#22c55e',
@@ -82,7 +82,7 @@ export function TerminalGlyph({
   energized: boolean
   r?: number
 }) {
-  const fill = energized ? '#facc15' : color
+  const fill = energized ? '#f59e0b' : color
   const metal = '#cbd5e1'
   const dark = '#0b1220'
   const scale = r / 6
@@ -187,7 +187,7 @@ export function terminalPos(c: ElectricalComponent, t: Terminal): { x: number; y
   return { x: c.schematicX + cx + rx, y: c.schematicY + cy + ry }
 }
 
-const stroke = (selected: boolean, energized: boolean) => (selected ? '#22d3ee' : energized ? '#facc15' : '#cbd5e1')
+const stroke = (selected: boolean, energized: boolean) => (selected ? '#2655e5' : energized ? '#d97706' : '#64748b')
 
 /** Desenha um símbolo no sistema local do componente (0,0 → w,h). */
 export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected: boolean }) {

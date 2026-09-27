@@ -2,15 +2,182 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root {
+/* ------------------------------------------------------------------ base */
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
-  font-family: 'Segoe UI', Inter, system-ui, sans-serif;
 }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #3a4150; border-radius: 4px; }
-::-webkit-scrollbar-track { background: #1a1f28; }
+body {
+  @apply bg-surface-app text-ink-900 font-sans antialiased;
+  font-size: 13px;
+  overscroll-behavior: none;
+}
 
 /* impede seleção de texto ao arrastar componentes no editor */
-svg text { user-select: none; }
+svg text {
+  user-select: none;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: #2655e5;
+  width: 13px;
+  height: 13px;
+}
+
+input[type='range'] {
+  accent-color: #2655e5;
+}
+
+input[type='color'] {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------- scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300 border-2 border-solid border-transparent bg-clip-padding;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ----------------------------------------------- componentes DC-SIMU UI */
+@layer components {
+  /* campos */
+  .dc-input {
+    @apply w-full h-[26px] px-2 rounded-[5px] border border-line bg-white text-xs text-ink-900 outline-none transition-colors placeholder:text-ink-300;
+  }
+  .dc-input:hover {
+    @apply border-line-strong;
+  }
+  .dc-input:focus {
+    @apply border-brand-500 shadow-focus;
+  }
+  .dc-input:disabled {
+    @apply bg-surface-sunken text-ink-disabled cursor-not-allowed;
+  }
+  .dc-select {
+    @apply dc-input cursor-pointer;
+  }
+  .dc-field-label {
+    @apply block text-[10px] font-semibold uppercase tracking-[0.07em] text-ink-400 mb-1;
+  }
+
+  /* botões */
+  .dc-btn {
+    @apply inline-flex items-center justify-center gap-1.5 h-[26px] px-2.5 rounded-[5px] border border-line bg-white text-xs font-medium text-ink-700 shadow-xs whitespace-nowrap transition-colors select-none;
+  }
+  .dc-btn:hover:not(:disabled) {
+    @apply bg-slate-50 border-line-strong text-ink-900;
+  }
+  .dc-btn:active:not(:disabled) {
+    @apply bg-surface-sunken shadow-none;
+  }
+  .dc-btn:disabled {
+    @apply opacity-45 cursor-not-allowed shadow-none;
+  }
+  .dc-btn-primary {
+    @apply bg-brand-600 border-brand-700 text-white shadow-xs;
+  }
+  .dc-btn-primary:hover:not(:disabled) {
+    @apply bg-brand-500 border-brand-600 text-white;
+  }
+  .dc-btn-primary:active:not(:disabled) {
+    @apply bg-brand-700;
+  }
+  .dc-btn-success {
+    @apply bg-state-run border-state-run text-white;
+  }
+  .dc-btn-success:hover:not(:disabled) {
+    @apply bg-emerald-600 border-emerald-700 text-white;
+  }
+  .dc-btn-danger {
+    @apply text-state-error border-state-error/40 bg-white;
+  }
+  .dc-btn-danger:hover:not(:disabled) {
+    @apply bg-state-errorbg border-state-error/60 text-state-error;
+  }
+  .dc-icon-btn {
+    @apply dc-btn w-[26px] px-0;
+  }
+
+  /* botão de ferramenta (segmentado da toolbar) */
+  .dc-tool-btn {
+    @apply inline-flex items-center gap-1.5 h-[26px] px-2.5 text-xs font-medium text-ink-500 transition-colors select-none;
+  }
+  .dc-tool-btn:hover:not(:disabled):not(.dc-tool-active) {
+    @apply bg-slate-100 text-ink-900;
+  }
+  .dc-tool-btn:disabled {
+    @apply opacity-40 cursor-not-allowed;
+  }
+  .dc-tool-active {
+    @apply bg-brand-600 text-white;
+  }
+
+  /* grupo segmentado (toolbar / abas) */
+  .dc-seg {
+    @apply inline-flex items-stretch rounded-[6px] border border-line bg-white shadow-xs overflow-hidden;
+  }
+  .dc-seg > * + * {
+    @apply border-l border-line-soft;
+  }
+
+  /* abas */
+  .dc-tab {
+    @apply relative h-[30px] px-3 text-xs font-medium text-ink-500 transition-colors;
+  }
+  .dc-tab:hover {
+    @apply text-ink-900 bg-slate-100/70;
+  }
+  .dc-tab-active {
+    @apply text-brand-700;
+  }
+  .dc-tab-active::after {
+    content: '';
+    @apply absolute inset-x-0 bottom-0 h-[2px] bg-brand-600;
+  }
+
+  /* chips e cartões */
+  .dc-chip {
+    @apply inline-flex items-center gap-1 h-[20px] px-2 rounded-full border border-line bg-white text-[10px] font-semibold tracking-wide text-ink-500;
+  }
+  .dc-card {
+    @apply bg-white border border-line rounded-md shadow-xs;
+  }
+  .dc-panel-title {
+    @apply text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-400;
+  }
+
+  /* foco visível consistente para navegação por teclado */
+  [tabindex]:focus-visible,
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid rgba(38, 85, 229, 0.55);
+    outline-offset: 1px;
+  }
+}

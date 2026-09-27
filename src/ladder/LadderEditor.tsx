@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
 import type { LadderContact, LadderRung, LadderContactType, LadderCoilType } from '../types'
+import { IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy } from '../ui/icons'
 
 /* ------------------------------------------------------------------ helpers */
-
-const CONTACT_SYMBOL: Record<LadderContactType, string> = { NO: '| |', NC: '|/|', RISING: '|P|', FALLING: '|N|' }
 
 /** id do <datalist> com os endereços já nomeados na Tabela de Tags, usado
  *  para sugerir endereços (com autocompletar) em todos os campos de endereço
  *  do editor — tal como o TIA Portal sugere tags existentes ao digitar. */
 const TAG_DATALIST_ID = 'ladder-tag-addresses'
+
+const CONTACT_LABEL: Record<LadderContactType, string> = { NO: 'NA', NC: 'NF', RISING: '↑B', FALLING: '↓B' }
 
 function TagAddressDatalist() {
   const tags = useSimStore((s) => s.tags)
@@ -32,19 +33,39 @@ function useTagName(address: string): string | null {
   return tag && tag.name && tag.name !== tag.address ? tag.name : null
 }
 
+/**
+ * Contato Ladder desenhado graficamente (barras verticais estilo IEC 61131),
+ * com estados nítidos: energizado (verde) / inativo (cinza).
+ */
 function ContactSymbol({ el, table }: { el: LadderContact; table: Record<string, boolean> }) {
   const raw = !!table[el.address]
-  const powered = el.contactType === 'NC' ? !raw : el.contactType === 'RISING' || el.contactType === 'FALLING' ? raw : raw
+  const powered = el.contactType === 'NC' ? !raw : raw
   const tagName = useTagName(el.address)
+  const col = powered ? '#16a34a' : '#94a3b8'
+  const slash = el.contactType === 'NC'
+  const edge = el.contactType === 'RISING' || el.contactType === 'FALLING'
   return (
-    <div className={`flex flex-col items-center px-1 select-none ${powered ? 'text-emerald-400' : 'text-neutral-500'}`} title={tagName ?? undefined}>
-      <div className="text-[10px] leading-none mb-0.5">{el.address}</div>
-      <div className={`font-mono text-base leading-none border-y-2 px-1 ${powered ? 'border-emerald-400' : 'border-neutral-600'}`}>{CONTACT_SYMBOL[el.contactType]}</div>
-      {tagName && <div className="text-[9px] leading-none mt-0.5 text-neutral-400 max-w-[56px] truncate">{tagName}</div>}
+    <div className="flex flex-col items-center select-none w-[46px]" title={tagName ?? undefined}>
+      <div className={`text-[9px] font-mono leading-none mb-0.5 font-semibold ${powered ? 'text-emerald-700' : 'text-ink-400'}`}>{el.address}</div>
+      <svg width="34" height="26" viewBox="0 0 34 26" aria-hidden>
+        <line x1="0" y1="13" x2="9" y2="13" stroke={col} strokeWidth="2" />
+        <line x1="25" y1="13" x2="34" y2="13" stroke={col} strokeWidth="2" />
+        <line x1="9" y1="2.5" x2="9" y2="23.5" stroke={col} strokeWidth="2.4" />
+        <line x1="25" y1="2.5" x2="25" y2="23.5" stroke={col} strokeWidth="2.4" />
+        {slash && <line x1="5" y1="22" x2="29" y2="4" stroke={col} strokeWidth="2" />}
+        {edge && (
+          <text x="17" y="17.5" fontSize="10" fontWeight="700" fill={col} textAnchor="middle" fontFamily="ui-monospace, monospace">
+            {el.contactType === 'RISING' ? 'P' : 'N'}
+          </text>
+        )}
+      </svg>
+      <div className={`text-[8px] leading-none mt-0.5 font-semibold ${powered ? 'text-emerald-700' : 'text-ink-300'}`}>{CONTACT_LABEL[el.contactType]}</div>
+      {tagName && <div className="text-[8px] leading-none mt-0.5 text-ink-400 max-w-[56px] truncate">{tagName}</div>}
     </div>
   )
 }
 
+/** Bobina desenhada como ( endereço ) com o tipo (SET/RESET) indicado. */
 function CoilButton({ coil, powered, onCycle, onRemove }: { coil: import('../types').LadderCoilEl; powered: boolean; onCycle: () => void; onRemove: () => void }) {
   const tagName = useTagName(coil.address)
   return (
@@ -55,19 +76,25 @@ function CoilButton({ coil, powered, onCycle, onRemove }: { coil: import('../typ
         onRemove()
       }}
       title={`Clique alterna COIL → SET → RESET · botão direito remove${tagName ? ` · ${tagName}` : ''}`}
-      className={`flex flex-col items-center px-2 py-1 rounded font-mono text-xs border-2 ${powered ? 'border-amber-400 text-amber-300 bg-amber-950/40' : 'border-neutral-600 text-neutral-500'}`}
+      className={`flex items-center gap-1.5 px-2 py-1 rounded-[5px] font-mono text-[11px] font-semibold border-2 transition-colors ${
+        powered ? 'border-state-run text-emerald-800 bg-state-runbg' : 'border-line-strong text-ink-400 bg-white'
+      }`}
     >
-      <span>( {coil.address} ) {coil.coilType !== 'COIL' ? coil.coilType : ''}</span>
-      {tagName && <span className="text-[9px] leading-none mt-0.5 text-neutral-400 max-w-[70px] truncate">{tagName}</span>}
+      <span className="text-[13px] leading-none">(</span>
+      <span>{coil.address}</span>
+      {coil.coilType !== 'COIL' && <span className="text-[8px] font-bold px-1 rounded bg-ink-900/5">{coil.coilType}</span>}
+      <span className="text-[13px] leading-none">)</span>
+      {tagName && <span className="text-[8px] font-normal text-ink-400 max-w-[70px] truncate">{tagName}</span>}
     </button>
   )
 }
 
 /* --------------------------------------------------------------- editor row */
 
-function RungRow({ rung }: { rung: LadderRung }) {
+function RungRow({ rung, index }: { rung: LadderRung; index: number }) {
   const table = useSimStore((s) => s.runtime.table)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
+  const running = useSimStore((s) => s.sim.runState === 'running')
   const { deleteRung, duplicateRung, moveRung, renameRung, updateRung } = useSimStore()
   const [newAddress, setNewAddress] = useState('I1')
   const [newType, setNewType] = useState<LadderContactType>('NO')
@@ -131,132 +158,178 @@ function RungRow({ rung }: { rung: LadderRung }) {
     else updateRung(rung.id, (r) => ({ ...r, counter: { kind: 'counter', id: r.counter?.id ?? `${rung.id}-c`, address: r.counter?.address ?? 'C1', counterType: kind, preset: r.counter?.preset ?? 5, resetAddress: r.counter?.resetAddress ?? 'M9' } }))
   }
 
-  const smallBtn = 'text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300'
-  const tiny = 'bg-neutral-800 border border-neutral-700 rounded px-1 py-0.5 text-[10px] text-neutral-200'
+  const smallBtn = 'dc-btn !h-[22px] !px-1.5 !text-[10px]'
+  const tiny = 'dc-input !h-[22px] !text-[10px] !w-auto'
 
   return (
-    <div className={`border rounded-md mb-3 ${powered ? 'border-emerald-500 bg-emerald-950/20' : 'border-neutral-700 bg-neutral-900'}`}>
-      <div className="flex items-center justify-between px-2 py-1 text-xs text-neutral-300 border-b border-neutral-700 gap-2">
-        <input className="bg-transparent outline-none font-medium text-neutral-200 flex-1 min-w-0" value={rung.name} onChange={(e) => renameRung(rung.id, e.target.value)} />
-        <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+    <div
+      className={`rounded-md border mb-2.5 bg-white overflow-hidden transition-shadow ${
+        powered && running ? 'border-emerald-400 shadow-[0_0_0_1px_rgba(22,163,74,.25)]' : 'border-line shadow-xs'
+      }`}
+    >
+      {/* cabeçalho do rung */}
+      <div className="flex items-center gap-2 px-2 h-8 bg-surface-rail border-b border-line">
+        <span
+          className={`inline-flex items-center justify-center h-4 min-w-[20px] px-1 rounded-[3px] font-mono text-[10px] font-bold ${
+            powered && running ? 'bg-state-run text-white' : 'bg-surface-sunken text-ink-500 border border-line'
+          }`}
+          title="Número do rung"
+        >
+          {index + 1}
+        </span>
+        <input
+          className="bg-transparent outline-none text-[11px] font-medium text-ink-900 flex-1 min-w-0 focus:bg-brand-50 focus:px-1 rounded"
+          value={rung.name}
+          onChange={(e) => renameRung(rung.id, e.target.value)}
+        />
+        <label className="flex items-center gap-1 text-[10px] text-ink-400 cursor-pointer" title="Rung habilitado para execução">
           <input type="checkbox" checked={rung.enabled} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, enabled: e.target.checked }))} />
           ativo
         </label>
-        <div className="flex gap-1">
+        <div className="flex gap-0.5">
           <button className={smallBtn} title="Mover para cima" onClick={() => moveRung(rung.id, -1)}>↑</button>
           <button className={smallBtn} title="Mover para baixo" onClick={() => moveRung(rung.id, 1)}>↓</button>
-          <button className={smallBtn} title="Duplicar rung" onClick={() => duplicateRung(rung.id)}>⧉</button>
-          <button className={`${smallBtn} text-red-400`} title="Excluir rung" onClick={() => deleteRung(rung.id)}>✕</button>
+          <button className={smallBtn} title="Duplicar rung" onClick={() => duplicateRung(rung.id)}><IconCopy size={10} /></button>
+          <button className={`${smallBtn} !text-state-error`} title="Excluir rung" onClick={() => deleteRung(rung.id)}><IconDelete size={10} /></button>
         </div>
       </div>
 
-      <div className="p-2 flex flex-col gap-2">
-        {rung.branches.map((b) => (
-          <div key={b.id} className="flex items-center gap-1 flex-wrap">
-            <span className="text-neutral-600 text-xs">├─</span>
-            {b.elements.map((el) => (
-              <div key={el.id} className="flex items-center">
-                <button title="Clique alterna NO → NC → subida → descida" onClick={() => toggleContactType(b.id, el.id)}>
-                  <ContactSymbol el={el} table={table} />
-                </button>
-                <input
-                  className="w-12 bg-transparent text-[10px] text-neutral-300 outline-none border-b border-dashed border-neutral-700"
-                  list={TAG_DATALIST_ID}
-                  value={el.address}
-                  onChange={(e) =>
-                    updateRung(rung.id, (r) => ({
-                      ...r,
-                      branches: r.branches.map((bb) => (bb.id === b.id ? { ...bb, elements: bb.elements.map((ee) => (ee.id === el.id ? { ...ee, address: e.target.value.toUpperCase() } : ee)) } : bb)),
-                    }))
-                  }
+      {/* diagrama */}
+      <div className="px-3 pt-3 pb-2">
+        <div className="flex items-stretch">
+          {/* barramento L+ */}
+          <div className="flex flex-col items-center w-7 shrink-0">
+            <span className="font-mono text-[9px] font-bold text-ink-400">L+</span>
+            <div className="flex-1 w-[3px] bg-ink-500 rounded-full my-0.5" />
+            {rung.branches.map((b) => (
+              <div key={b.id + '-rail'} className="w-4 border-t-2 border-ink-500 -mt-[2px]" />
+            ))}
+          </div>
+
+          {/* ramos */}
+          <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+            {rung.branches.map((b, bi) => (
+              <div key={b.id} className="flex items-center gap-0.5 flex-wrap">
+                <div
+                  className="h-0 w-3 shrink-0"
+                  style={{ borderTop: `${powered && running ? '2px solid #16a34a' : '2px solid #94a3b8'}` }}
                 />
-                <button className="text-red-500/70 hover:text-red-400 text-[10px] px-0.5" onClick={() => removeElement(b.id, el.id)}>✕</button>
+                {b.elements.map((el) => (
+                  <div key={el.id} className="flex items-center">
+                    <button title="Clique alterna NA → NF → borda de subida → borda de descida" onClick={() => toggleContactType(b.id, el.id)} className="rounded hover:bg-slate-100">
+                      <ContactSymbol el={el} table={table} />
+                    </button>
+                    <input
+                      className="w-12 bg-transparent text-[10px] text-ink-700 outline-none border-b border-dashed border-line-strong focus:border-brand-500 focus:bg-brand-50 font-mono text-center"
+                      list={TAG_DATALIST_ID}
+                      value={el.address}
+                      onChange={(e) =>
+                        updateRung(rung.id, (r) => ({
+                          ...r,
+                          branches: r.branches.map((bb) => (bb.id === b.id ? { ...bb, elements: bb.elements.map((ee) => (ee.id === el.id ? { ...ee, address: e.target.value.toUpperCase() } : ee)) } : bb)),
+                        }))
+                      }
+                    />
+                    <button className="text-ink-300 hover:text-state-error text-[10px] px-0.5" title="Remover contato" onClick={() => removeElement(b.id, el.id)}>✕</button>
+                    <div
+                      className="h-0 flex-1 min-w-2"
+                      style={{ borderTop: `${powered && running ? '2px solid #16a34a' : '2px solid #94a3b8'}` }}
+                    />
+                  </div>
+                ))}
+                {!b.elements.length && <span className="text-[10px] text-ink-300 px-2">ramo vazio</span>}
+                {rung.branches.length > 1 && (
+                  <button className="text-[9px] text-ink-300 hover:text-state-error px-1" title="Remover ramo" onClick={() => updateRung(rung.id, (r) => ({ ...r, branches: r.branches.filter((bb) => bb.id !== b.id) }))}>
+                    − ramo
+                  </button>
+                )}
               </div>
             ))}
-            <span className="flex-1 border-t border-dashed border-neutral-700 mx-1" style={{ minWidth: 16 }} />
-            <button className={`${smallBtn} text-red-400/70`} title="Remover ramo" onClick={() => updateRung(rung.id, (r) => ({ ...r, branches: r.branches.filter((bb) => bb.id !== b.id) }))}>− ramo</button>
           </div>
-        ))}
 
-        {/* saída */}
-        <div className="flex items-center gap-2 pt-2 border-t border-neutral-800 flex-wrap">
-          <span className="text-neutral-600 text-xs">saída →</span>
-          {rung.coils.map((c) => (
-            <CoilButton key={c.id} coil={c} powered={!!table[c.address]} onCycle={() => cycleCoil(c.id)} onRemove={() => removeCoil(c.id)} />
-          ))}
-          {!rung.coils.length && <span className="text-[10px] text-neutral-600">sem bobina</span>}
-        </div>
-
-        {/* temporizador */}
-        <div className="flex items-center gap-2 flex-wrap text-[10px] text-neutral-400">
-          <span>Temporizador</span>
-          <select className={tiny} value={rung.timer?.timerType ?? 'none'} onChange={(e) => setTimer(e.target.value as any)}>
-            <option value="none">—</option>
-            <option value="TON">TON</option>
-            <option value="TOF">TOF</option>
-            <option value="TP">TP</option>
-            <option value="STAR_DELTA">Estrela-Triângulo</option>
-          </select>
-          {rung.timer && (
-            <>
-              <input className={`${tiny} w-12`} list={TAG_DATALIST_ID} value={rung.timer.address} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, address: e.target.value.toUpperCase() } }))} />
-              <span>preset</span>
-              <input type="number" className={`${tiny} w-16`} value={rung.timer.presetMs} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, presetMs: Number(e.target.value) } }))} />
-              <span>ms</span>
-              {rung.timer.timerType === 'STAR_DELTA' && (
-                <>
-                  <span>transição</span>
-                  <input type="number" className={`${tiny} w-14`} value={rung.timer.preset2Ms ?? 50} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, preset2Ms: Number(e.target.value) } }))} />
-                  <span>ms</span>
-                </>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* contador */}
-        <div className="flex items-center gap-2 flex-wrap text-[10px] text-neutral-400">
-          <span>Contador</span>
-          <select className={tiny} value={rung.counter?.counterType ?? 'none'} onChange={(e) => setCounter(e.target.value as any)}>
-            <option value="none">—</option>
-            <option value="CTU">CTU (crescente)</option>
-            <option value="CTD">CTD (decrescente)</option>
-          </select>
-          {rung.counter && (
-            <>
-              <input className={`${tiny} w-12`} list={TAG_DATALIST_ID} value={rung.counter.address} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, address: e.target.value.toUpperCase() } }))} />
-              <span>preset</span>
-              <input type="number" className={`${tiny} w-14`} value={rung.counter.preset} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, preset: Number(e.target.value) } }))} />
-              <span>reset</span>
-              <input className={`${tiny} w-12`} list={TAG_DATALIST_ID} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, resetAddress: e.target.value.toUpperCase() } }))} />
-            </>
-          )}
-        </div>
-
-        {/* inserir contato / bobina / ramo */}
-        <div className="flex items-center gap-1 flex-wrap pt-2 border-t border-neutral-800">
-          <input className={`${tiny} w-14`} list={TAG_DATALIST_ID} value={newAddress} onChange={(e) => setNewAddress(e.target.value.toUpperCase())} placeholder="I1" />
-          <select className={tiny} value={newType} onChange={(e) => setNewType(e.target.value as LadderContactType)}>
-            <option value="NO">NA</option>
-            <option value="NC">NF</option>
-            <option value="RISING">Subida</option>
-            <option value="FALLING">Descida</option>
-          </select>
-          <select className={tiny} value={branchIndex} onChange={(e) => setBranchIndex(Number(e.target.value))}>
-            {rung.branches.map((_, i) => (
-              <option key={i} value={i}>ramo {i + 1}</option>
+          {/* saídas + barramento L− */}
+          <div className="flex flex-col justify-center px-3 gap-1 border-l border-dashed border-line-soft">
+            {rung.coils.map((c) => (
+              <CoilButton key={c.id} coil={c} powered={!!table[c.address]} onCycle={() => cycleCoil(c.id)} onRemove={() => removeCoil(c.id)} />
             ))}
-          </select>
-          <button className={smallBtn} onClick={addContact}>+ contato</button>
-          <button className={smallBtn} onClick={addBranch}>+ ramo (OR)</button>
-          <input className={`${tiny} w-14`} list={TAG_DATALIST_ID} value={coilAddress} onChange={(e) => setCoilAddress(e.target.value.toUpperCase())} placeholder="Q1" />
-          <select className={tiny} value={coilType} onChange={(e) => setCoilType(e.target.value as LadderCoilType)}>
-            <option value="COIL">COIL</option>
-            <option value="SET">SET</option>
-            <option value="RESET">RESET</option>
-          </select>
-          <button className={smallBtn} onClick={addCoil}>+ bobina</button>
+            {!rung.coils.length && <span className="text-[10px] text-ink-300">sem bobina</span>}
+          </div>
+          <div className="flex flex-col items-center w-7 shrink-0">
+            <div className="flex-1 w-[3px] bg-ink-500 rounded-full my-0.5" />
+            <span className="font-mono text-[9px] font-bold text-ink-400">L−</span>
+          </div>
         </div>
+      </div>
+
+      {/* parâmetros */}
+      <div className="flex items-center gap-2 flex-wrap px-3 pb-2 text-[10px] text-ink-500">
+        <span className="flex items-center gap-1 dc-chip !h-[18px]"><IconTimer size={9} /> Temp.</span>
+        <select className={tiny} value={rung.timer?.timerType ?? 'none'} onChange={(e) => setTimer(e.target.value as any)}>
+          <option value="none">—</option>
+          <option value="TON">TON</option>
+          <option value="TOF">TOF</option>
+          <option value="TP">TP</option>
+          <option value="STAR_DELTA">Estrela-Triângulo</option>
+        </select>
+        {rung.timer && (
+          <>
+            <input className={`${tiny} !w-12 font-mono`} list={TAG_DATALIST_ID} value={rung.timer.address} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, address: e.target.value.toUpperCase() } }))} />
+            <span>preset</span>
+            <input type="number" className={`${tiny} !w-16`} value={rung.timer.presetMs} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, presetMs: Number(e.target.value) } }))} />
+            <span>ms</span>
+            {rung.timer.timerType === 'STAR_DELTA' && (
+              <>
+                <span>transição</span>
+                <input type="number" className={`${tiny} !w-14`} value={rung.timer.preset2Ms ?? 50} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, timer: { ...r.timer!, preset2Ms: Number(e.target.value) } }))} />
+                <span>ms</span>
+              </>
+            )}
+          </>
+        )}
+
+        <span className="h-3 w-px bg-line" />
+
+        <span className="flex items-center gap-1 dc-chip !h-[18px]"><IconCounter size={9} /> Cont.</span>
+        <select className={tiny} value={rung.counter?.counterType ?? 'none'} onChange={(e) => setCounter(e.target.value as any)}>
+          <option value="none">—</option>
+          <option value="CTU">CTU (crescente)</option>
+          <option value="CTD">CTD (decrescente)</option>
+        </select>
+        {rung.counter && (
+          <>
+            <input className={`${tiny} !w-12 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.address} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, address: e.target.value.toUpperCase() } }))} />
+            <span>preset</span>
+            <input type="number" className={`${tiny} !w-14`} value={rung.counter.preset} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, preset: Number(e.target.value) } }))} />
+            <span>reset</span>
+            <input className={`${tiny} !w-12 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, counter: { ...r.counter!, resetAddress: e.target.value.toUpperCase() } }))} />
+          </>
+        )}
+      </div>
+
+      {/* inserção */}
+      <div className="flex items-center gap-1 flex-wrap px-3 py-1.5 border-t border-line-soft bg-surface-rail/70">
+        <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={newAddress} onChange={(e) => setNewAddress(e.target.value.toUpperCase())} placeholder="I1" />
+        <select className={tiny} value={newType} onChange={(e) => setNewType(e.target.value as LadderContactType)}>
+          <option value="NO">NA</option>
+          <option value="NC">NF</option>
+          <option value="RISING">Subida</option>
+          <option value="FALLING">Descida</option>
+        </select>
+        <select className={tiny} value={branchIndex} onChange={(e) => setBranchIndex(Number(e.target.value))}>
+          {rung.branches.map((_, i) => (
+            <option key={i} value={i}>ramo {i + 1}</option>
+          ))}
+        </select>
+        <button className={smallBtn} onClick={addContact}><IconContact size={10} /> contato</button>
+        <button className={smallBtn} onClick={addBranch}><IconBranch size={10} /> ramo (OR)</button>
+        <span className="h-3 w-px bg-line" />
+        <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={coilAddress} onChange={(e) => setCoilAddress(e.target.value.toUpperCase())} placeholder="Q1" />
+        <select className={tiny} value={coilType} onChange={(e) => setCoilType(e.target.value as LadderCoilType)}>
+          <option value="COIL">COIL</option>
+          <option value="SET">SET</option>
+          <option value="RESET">RESET</option>
+        </select>
+        <button className={smallBtn} onClick={addCoil}><IconCoil size={10} /> bobina</button>
       </div>
     </div>
   )
@@ -281,47 +354,63 @@ export default function LadderEditor() {
       .join('  ')
 
   const tabBtn = (t: LadderTab, text: string) => (
-    <button
-      onClick={() => setTab(t)}
-      className={`text-xs px-2 py-1 rounded-t border-b-2 ${tab === t ? 'text-neutral-100 border-blue-500' : 'text-neutral-500 border-transparent hover:text-neutral-300'}`}
-    >
+    <button onClick={() => setTab(t)} className={`dc-tab ${tab === t ? 'dc-tab-active' : ''}`}>
       {text}
     </button>
   )
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0 bg-surface-panel">
       <TagAddressDatalist />
-      <div className="flex items-center justify-between px-3 pt-2 border-b border-neutral-800 bg-neutral-900">
-        <div className="flex items-end gap-1">
+      <div className="flex items-center justify-between pr-2 border-b border-line bg-surface-rail">
+        <div className="flex items-center">
           {tabBtn('program', 'Programa')}
           {tabBtn('tags', 'Tabela de Tags')}
         </div>
         {tab === 'program' && (
-          <button onClick={addRung} className="text-xs px-2 py-1 mb-1 bg-blue-600 hover:bg-blue-500 rounded text-white">+ Rung</button>
+          <button onClick={addRung} className="dc-btn-primary dc-btn !h-6 !text-[11px]">
+            <IconPlus size={11} /> Rung
+          </button>
         )}
       </div>
 
       {tab === 'tags' ? (
         <TagTable />
       ) : blackBox ? (
-        <div className="flex-1 flex items-center justify-center p-6 text-center text-xs text-neutral-500 leading-relaxed">
-          Modo caixa-preta ativo: o programa Ladder está oculto para o operador. Use o Monitor e a Sonda para deduzir a lógica.
+        <div className="flex-1 flex items-center justify-center p-6 text-center text-xs text-ink-500 leading-relaxed">
+          <div className="max-w-[260px] space-y-2">
+            <div className="mx-auto w-10 h-10 rounded-full bg-surface-sunken border border-line flex items-center justify-center text-ink-400 font-bold">■</div>
+            Modo caixa-preta ativo: o programa Ladder está oculto para o operador. Use o Monitor e a Sonda para deduzir a lógica.
+          </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto p-3">
-          {rungs.map((r) => (
-            <RungRow key={r.id} rung={r} />
+        <div className="flex-1 overflow-y-auto p-2.5 min-h-0">
+          {rungs.map((r, i) => (
+            <RungRow key={r.id} rung={r} index={i} />
           ))}
-          {rungs.length === 0 && <div className="text-neutral-500 text-sm">Nenhum rung. Clique em “+ Rung” para começar.</div>}
+          {rungs.length === 0 && (
+            <div className="text-center text-ink-400 text-xs mt-10">
+              Nenhum rung no programa.
+              <button onClick={addRung} className="dc-btn-primary dc-btn mx-auto mt-3">
+                <IconPlus size={11} /> Criar o primeiro rung
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {tab === 'program' && (
-        <div className="border-t border-neutral-800 p-2 text-[10px] text-neutral-500 font-mono leading-relaxed">
-          <div>{bits('I')}</div>
-          <div>{bits('Q')}</div>
-          <div>{bits('M')}</div>
+        <div className="border-t border-line px-2.5 py-1.5 bg-surface-sunken/60 font-mono text-[10px] leading-relaxed text-ink-500 space-y-0.5">
+          {[
+            ['I', 'Entradas'],
+            ['Q', 'Saídas'],
+            ['M', 'Memórias'],
+          ].map(([p, nome]) => (
+            <div key={p} className="flex gap-2">
+              <span className="w-14 shrink-0 text-ink-400 font-sans font-semibold">{nome}</span>
+              <span className="truncate" title={bits(p)}>{bits(p) || '—'}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
