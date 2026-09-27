@@ -122,6 +122,7 @@ interface Store extends CircuitState {
   updateTerminal: (terminalId: string, patch: Partial<Terminal>) => void
   deleteTerminal: (terminalId: string) => void
   addWire: (fromTerminalId: string, toTerminalId: string, color?: WireColor) => void
+  addFreeWire: (from: { terminalId?: string; point?: { x: number; y: number } }, to: { terminalId?: string; point?: { x: number; y: number } }) => void
   updateWire: (id: string, patch: Partial<Wire>) => void
   deleteWire: (id: string) => void
   deleteSelection: () => void
@@ -765,6 +766,23 @@ export const useSimStore = create<Store>((set, get) => ({
 
     set((s) => ({ wires: [...s.wires, wire], selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo ${wire.number} criado (${a?.comp.ref ?? '?'} → ${b?.comp.ref ?? '?'}).`)
+    get().step()
+  },
+
+  addFreeWire: (from, to) => {
+    if ((!from.point && !from.terminalId) || (!to.point && !to.terminalId)) return
+    if (from.point && to.point && Math.hypot(from.point.x - to.point.x, from.point.y - to.point.y) < 5) return
+    const defs = get().wireDefaults
+    get().commitHistory()
+    const wire: Wire = {
+      id: nanoid(8), fromTerminalId: from.terminalId ?? '', toTerminalId: to.terminalId ?? '',
+      fromPoint: from.point, toPoint: to.point,
+      color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
+      endType: defs.endType, route: 'direct', bend: 0.5, curveOffset: 0,
+      number: `W${get().wires.length + 1}`, energized: false,
+    }
+    set((state) => ({ wires: [...state.wires, wire], selectedWireId: wire.id, dirty: true }))
+    get().pushEvent('info', `Cabo livre ${wire.number} criado (sem continuidade elétrica até ligar ambas as pontas).`)
     get().step()
   },
 

@@ -55,7 +55,7 @@ export function detectDiagnostics(
   // 5. Cabos órfãos (borne inexistente)
   const terminalIds = new Set(components.flatMap((c) => c.terminals.map((t) => t.id)))
   wires.forEach((w) => {
-    if (!terminalIds.has(w.fromTerminalId) || !terminalIds.has(w.toTerminalId)) {
+    if ((!w.fromPoint && !terminalIds.has(w.fromTerminalId)) || (!w.toPoint && !terminalIds.has(w.toTerminalId))) {
       diags.push({ id: id(), level: 'error', message: `ERRO: cabo ${w.number ?? w.id} sem destino válido.` })
     }
   })

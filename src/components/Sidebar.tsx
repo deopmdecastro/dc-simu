@@ -602,7 +602,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   })}
                 </div>
                 <p className="text-[10px] text-ink-400 leading-relaxed">
-                  Ligado a {wireFromTerminal?.label ?? '—'} → {wireToTerminal?.label ?? '—'}. O terminal é desenhado nas pontas do cabo no esquema.
+                  De {wireFromTerminal?.label ?? (selectedWire.fromPoint ? 'ponta livre' : '—')} → {wireToTerminal?.label ?? (selectedWire.toPoint ? 'ponta livre' : '—')}. {selectedWire.fromPoint || selectedWire.toPoint ? 'Uma ponta livre pode ser arrastada no esquema; só há continuidade elétrica quando ambas as pontas estão ligadas a bornes.' : 'A terminação é desenhada nas pontas do cabo.'}
                 </p>
               </div>
 

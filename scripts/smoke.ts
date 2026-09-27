@@ -295,5 +295,15 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('expressões rejeitam sintaxe incorreta', !validCondition('I1 && I2') && !validCondition('I1 | (I2') && validCondition('(I1 & !I2) | M1'))
 }
 
+/* Cabo livre não cria uma ligação fantasma entre bornes de outros componentes. */
+{
+  const { components, wires } = buildDirectStartScenario()
+  const full = computeContinuity(components, wires, sourceTerminalIds(components))
+  const template = wires[0]
+  const free = { ...template, id: 'free-wire', fromTerminalId: '', toTerminalId: '', fromPoint: { x: 100, y: 200 }, toPoint: { x: 300, y: 200 }, energized: false }
+  const withFree = computeContinuity(components, [...wires, free], sourceTerminalIds(components))
+  check('cabo livre não altera continuidade do circuito', full.energizedTerminals.size === withFree.energizedTerminals.size && !withFree.energizedWires.has('free-wire'))
+}
+
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)

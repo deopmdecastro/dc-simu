@@ -259,3 +259,7 @@ A barra principal ajusta-se a ecrãs mais estreitos e aceita `Ctrl+1` a `Ctrl+5`
 O painel GRAFCET ao lado do Esquema/Painel 3D funciona agora **apenas como visualizador**: diagrama adaptado à largura do painel e estado da simulação, sem propriedades ou controlos de edição. O botão «Abrir editor» leva à página GRAFCET (F5), onde se criam e editam etapas, ações e transições. Ambos partilham o mesmo programa do projeto.
 
 No visualizador lateral GRAFCET, arraste o diagrama para o deslocar e use a roda do rato ou os botões `−`/`+` para ajustar o zoom. «Ajustar» repõe a vista à largura do painel. Estes controlos afetam apenas a visualização; a edição continua na página GRAFCET.
+
+### Fios e pontas livres
+
+Na ferramenta **Cabo**, clique no espaço vazio para definir uma ponta livre e clique novamente no vazio ou num borne para terminar. Também é possível começar num borne e terminar no vazio; cabo entre dois bornes continua disponível. Esc ou botão direito cancela o desenho. Pontas livres têm marcação circular, podem ser arrastadas depois de selecionar o cabo e são incluídas no JSON do projeto. Um cabo com ponta livre é **apenas gráfico**: não conduz eletricidade nem transmite fases enquanto não estiver ligado a ambos os bornes. Duplo clique no traçado do cabo adiciona um ponto de curva; arraste-o para mudar o percurso ou faça duplo clique no ponto para o remover.

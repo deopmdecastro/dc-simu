@@ -254,6 +254,7 @@ export default function SchematicView() {
     moveComponent,
     commitHistory,
     addWire,
+    addFreeWire,
     pressButton,
     toggleTerminal,
     deleteSelection,
@@ -275,13 +276,14 @@ export default function SchematicView() {
   const svgRef = useRef<SVGSVGElement>(null)
   const [drag, setDrag] = useState<{ ids: string[]; startX: number; startY: number; orig: Record<string, { x: number; y: number }> } | null>(null)
   const [wireFrom, setWireFrom] = useState<string | null>(null)
+  const [freeStart, setFreeStart] = useState<Pt | null>(null)
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const [panning, setPanning] = useState<{ sx: number; sy: number; px: number; py: number } | null>(null)
   const [hoverTerminal, setHoverTerminal] = useState<string | null>(null)
   /** cadeia de bornes selecionados com shift+clique (ligação inteligente) */
   const [chain, setChain] = useState<string[]>([])
   /** arraste do ponto de dobra/curva/waypoint de um cabo diretamente no esquema */
-  const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' | 'waypoint'; index?: number } | null>(null)
+  const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' | 'waypoint' | 'fromPoint' | 'toPoint'; index?: number } | null>(null)
   const [dropPos, setDropPos] = useState<{ x: number; y: number } | null>(null)
   const [cursorPos, setCursorPos] = useState<Pt | null>(null)
   const [showHints, setShowHints] = useState(() => {
@@ -317,7 +319,7 @@ export default function SchematicView() {
   }, [components])
 
   useEffect(() => {
-    if (tool !== 'wire') setChain([])
+    if (tool !== 'wire') { setChain([]); setWireFrom(null); setFreeStart(null) }
   }, [tool])
 
   const snap = (v: number) => (grid.snap ? Math.round(v / grid.size) * grid.size : v)
@@ -346,6 +348,7 @@ export default function SchematicView() {
         duplicateComponents(selectedIds)
       } else if (e.key === 'Escape') {
         setWireFrom(null)
+        setFreeStart(null)
         setChain([])
         selectComponents([])
         clearProbe()
@@ -429,11 +432,12 @@ export default function SchematicView() {
       setPanning({ sx: e.clientX, sy: e.clientY, px: panX, py: panY })
       return
     }
-    if (e.button === 2 && tool === 'wire' && wireFrom) {
+    if (e.button === 2 && tool === 'wire' && (wireFrom || freeStart)) {
       // botão direito durante o desenho de cabo: cancela o cabo pendente
       // (o mesmo que Escape), sem fechar o menu de contexto do browser.
       e.preventDefault()
       setWireFrom(null)
+      setFreeStart(null)
       setChain([])
       return
     }
@@ -442,7 +446,18 @@ export default function SchematicView() {
       setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y })
       if (!e.shiftKey) selectComponents([])
     }
-    if (tool === 'wire' && e.button !== 2) setWireFrom(null)
+    if (tool === 'wire' && e.button === 0) {
+      const p = toCanvas(e.clientX, e.clientY)
+      const point = { x: snap(p.x), y: snap(p.y) }
+      if (wireFrom) {
+        addFreeWire({ terminalId: wireFrom }, { point })
+        setWireFrom(null)
+      } else if (freeStart) {
+        addFreeWire({ point: freeStart }, { point })
+        setFreeStart(null)
+      } else setFreeStart(point)
+      setCursorPos(point)
+    }
     if (tool === 'probe') clearProbe()
   }
 
@@ -454,6 +469,10 @@ export default function SchematicView() {
     const p = toCanvas(e.clientX, e.clientY)
     if (wireDrag) {
       const w = wires.find((x) => x.id === wireDrag.wireId)
+      if (w && (wireDrag.mode === 'fromPoint' || wireDrag.mode === 'toPoint')) {
+        updateWire(w.id, { [wireDrag.mode]: { x: snap(p.x), y: snap(p.y) } })
+        return
+      }
       const a = w && terminalIndex.get(w.fromTerminalId)
       const b = w && terminalIndex.get(w.toTerminalId)
       if (w && wireDrag.mode === 'waypoint' && wireDrag.index !== undefined) {
@@ -490,11 +509,11 @@ export default function SchematicView() {
       }
     }
     if (marquee) setMarquee({ ...marquee, x1: p.x, y1: p.y })
-    if ((tool === 'wire' && wireFrom) || placingType) setCursorPos(p)
+    if ((tool === 'wire' && (wireFrom || freeStart)) || placingType) setCursorPos(p)
   }
 
   const onMouseUp = () => {
-    if (wireDrag) commitHistory()
+    if (wireDrag && wireDrag.mode !== 'fromPoint' && wireDrag.mode !== 'toPoint') commitHistory()
     setWireDrag(null)
     if (drag) commitHistory()
     if (marquee) {
@@ -567,6 +586,7 @@ export default function SchematicView() {
         // botão direito num borne: cancela o cabo em curso (equivalente ao Escape)
         e.preventDefault()
         setWireFrom(null)
+        setFreeStart(null)
         setChain([])
         return
       }
@@ -577,7 +597,10 @@ export default function SchematicView() {
         setChain((c) => (c.includes(terminalId) ? c.filter((id) => id !== terminalId) : [...c, terminalId]))
         return
       }
-      if (!wireFrom) {
+      if (freeStart) {
+        addFreeWire({ point: freeStart }, { terminalId })
+        setFreeStart(null)
+      } else if (!wireFrom) {
         setWireFrom(terminalId)
       } else if (wireFrom !== terminalId) {
         addWire(wireFrom, terminalId)
@@ -599,7 +622,7 @@ export default function SchematicView() {
     selectTerminal(terminalId)
   }
 
-  const pendingFrom = wireFrom ? terminalIndex.get(wireFrom) : null
+  const pendingFrom = wireFrom ? terminalIndex.get(wireFrom) : freeStart
 
   // ---------------------------------------------------------- ordem (camadas)
   // Cabos e componentes compartilham o mesmo espaço de empilhamento (campo `z`,
@@ -616,8 +639,8 @@ export default function SchematicView() {
   }, [wires, components])
 
   const renderWireEl = (w: (typeof wires)[number]) => {
-    const a = terminalIndex.get(w.fromTerminalId)
-    const b = terminalIndex.get(w.toTerminalId)
+    const a = w.fromPoint ?? terminalIndex.get(w.fromTerminalId)
+    const b = w.toPoint ?? terminalIndex.get(w.toTerminalId)
     if (!a || !b) return null
     const col = WIRE_COLORS[w.color] ?? '#94a3b8'
     const flexible = w.flexibility === 'flexible'
@@ -676,8 +699,20 @@ export default function SchematicView() {
         </path>
         <WireEnd p={a} dir={endDir(pts, true)} type={endType} color={col} />
         <WireEnd p={b} dir={endDir(pts, false)} type={endType} color={col} />
-        {endType === 'none' && <circle cx={a.x} cy={a.y} r={2.5} fill={col} pointerEvents="none" />}
-        {endType === 'none' && <circle cx={b.x} cy={b.y} r={2.5} fill={col} pointerEvents="none" />}
+        {endType === 'none' && !w.fromPoint && <circle cx={a.x} cy={a.y} r={2.5} fill={col} pointerEvents="none" />}
+        {w.fromPoint && !selected && <circle cx={a.x} cy={a.y} r={5} fill="white" stroke={col} strokeWidth={2} pointerEvents="none" />}
+        {endType === 'none' && !w.toPoint && <circle cx={b.x} cy={b.y} r={2.5} fill={col} pointerEvents="none" />}
+        {w.toPoint && !selected && <circle cx={b.x} cy={b.y} r={5} fill="white" stroke={col} strokeWidth={2} pointerEvents="none" />}
+        {/* pontas livres arrastáveis — não representam uma ligação elétrica */}
+        {selected && (['fromPoint', 'toPoint'] as const).map((side) => {
+          const point = w[side]
+          if (!point) return null
+          return <circle key={`${w.id}-${side}`} cx={point.x} cy={point.y} r={7} fill="white" stroke="#2563eb" strokeWidth={2.5} style={{ cursor: 'grab' }} onMouseDown={(e) => {
+            e.stopPropagation()
+            commitHistory()
+            setWireDrag({ wireId: w.id, mode: side })
+          }}><title>Arraste para mover a ponta livre (sem continuidade elétrica)</title></circle>
+        })}
         {/* pontos de curva do cabo — visíveis quando selecionado */}
         {selected &&
           (w.waypoints ?? []).map((wp, i) => (
@@ -794,6 +829,7 @@ export default function SchematicView() {
               stroke={hoverTerminal !== wireFrom ? '#16a34a' : '#2655e5'}
               strokeWidth={2}
               strokeDasharray="4 3"
+              pointerEvents="none"
             />
           )}
           {pendingFrom && !hoverTerminal && cursorPos && (
@@ -816,7 +852,7 @@ export default function SchematicView() {
               const isFrom = wireFrom === t.id
               const isSel = selectedTerminalId === t.id
               const chainIdx = chain.indexOf(t.id)
-              const isDrawTarget = tool === 'wire' && !!wireFrom && wireFrom !== t.id && hoverTerminal === t.id
+              const isDrawTarget = tool === 'wire' && (!!wireFrom || !!freeStart) && wireFrom !== t.id && hoverTerminal === t.id
               return (
                 <g key={`${t.id}-hit`}>
                   {isDrawTarget && <circle cx={p.x} cy={p.y} r={9} fill="#dcfce7" stroke="#16a34a" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />}
@@ -888,7 +924,7 @@ export default function SchematicView() {
         </div>
       )}
 
-      {components.length === 0 && wires.length === 0 && (
+      {components.length === 0 && wires.length === 0 && tool !== 'wire' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-[520px] max-w-[calc(100%-32px)] rounded-md border border-line bg-white/95 p-4 text-center shadow-md backdrop-blur-sm pointer-events-auto">
             <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-brand-200 bg-brand-50 text-brand-700">
@@ -983,6 +1019,11 @@ export default function SchematicView() {
         </div>
       )}
 
+      {tool === 'wire' && <div className="absolute right-3 top-3 z-10 dc-wire-guide">
+        <strong>Desenhar fio</strong><span>{wireFrom || freeStart ? 'Clique noutro borne ou no espaço vazio para terminar.' : 'Clique num borne ou no espaço vazio para começar.'}</span>
+        <small>Duplo clique num fio existente adiciona um ponto de curva · Esc cancela.</small>
+        {(wireFrom || freeStart) && <button className="dc-btn" onClick={() => { setWireFrom(null); setFreeStart(null) }}>Cancelar</button>}
+      </div>}
       <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
         {showHints && (
           <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
@@ -991,7 +1032,7 @@ export default function SchematicView() {
             <div>clique no cabo = editar (cor, condutor, terminal) · duplo clique = ponto de curva</div>
             <div>duplo clique num ponto de curva = remover · duplo no borne = alternar</div>
             <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>
-            <div>ferramenta Cabo: botão direito ou Esc = cancelar cabo em curso</div>
+            <div>ferramenta Cabo: clique no vazio = ponta livre · botão direito ou Esc cancela</div>
             <div>rígido = dobras a 90° pelos pontos · flexível = curva suave · arraste os pontos</div>
             <div>Ctrl+] avança · Ctrl+[ recua · Ctrl+Shift+]/[ frente/trás</div>
             <div>R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>

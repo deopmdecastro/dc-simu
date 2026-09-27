@@ -243,6 +243,9 @@ export interface Wire {
   id: string
   fromTerminalId: string
   toTerminalId: string
+  /** Ponta livre desenhada no esquema (sem borne); não conduz corrente até ser ligada. */
+  fromPoint?: { x: number; y: number }
+  toPoint?: { x: number; y: number }
   color: WireColor
   /** Seção transversal, ex.: "1.5mm²" */
   gauge: string

@@ -1778,3 +1778,6 @@ button:disabled { cursor:not-allowed; }
 .grafcet-viewport-tools span { min-width:34px; text-align:center; font-size:10px; color:#475569; }
 .grafcet-preview .grafcet-designer-body { display:flex; overflow:hidden; }
 .grafcet-preview .grafcet-canvas { flex:1; height:100%; }
+.dc-wire-guide { display:flex; flex-direction:column; align-items:flex-start; gap:4px; width:min(285px,45%); padding:10px 12px; border:1px solid #c5d6f7; border-radius:9px; background:#ffffffeb; box-shadow:0 5px 20px #1e3a5f20; backdrop-filter:blur(8px); color:#334155; font-size:11px; }
+.dc-wire-guide strong { color:#1d4ed8; font-size:12px; }
+.dc-wire-guide small { color:#64748b; line-height:1.4; }

@@ -283,7 +283,7 @@ function buildGraph(components: ElectricalComponent[], wires: Wire[]): Graph {
     adjacency.get(a)!.push(b)
     adjacency.get(b)!.push(a)
   }
-  for (const w of wires) addEdge(w.fromTerminalId, w.toTerminalId)
+  for (const w of wires) if (w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) addEdge(w.fromTerminalId, w.toTerminalId)
   for (const c of components) for (const [a, b] of internalBridges(c)) addEdge(a, b)
   return { adjacency }
 }
