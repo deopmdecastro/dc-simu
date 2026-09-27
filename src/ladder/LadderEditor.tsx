@@ -675,6 +675,8 @@ function CompactLadderEditor() {
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
   const blackBox = useSimStore((s) => s.sim.blackBox)
+  const grid = useSimStore((s) => s.grid)
+  const setGrid = useSimStore((s) => s.setGrid)
   const [tab, setTab] = useState<LadderTab>('program')
   const [ladderZoom, setLadderZoom] = useState(1)
   const counts = programCounts(rungs)
@@ -702,6 +704,15 @@ function CompactLadderEditor() {
           {tabBtn('tags', 'Tabela de Tags')}
         </div>
         <div className="flex items-center gap-1">
+          {tab === 'program' && (
+            <button
+              onClick={() => setGrid({ enabled: !grid.enabled })}
+              className={`dc-icon-btn !h-6 !w-6 ${grid.enabled ? '!text-brand-600' : ''}`}
+              title={`Malha ${grid.enabled ? 'ligada' : 'desligada'} (${grid.size}px) · clique para ${grid.enabled ? 'esconder' : 'mostrar'}`}
+            >
+              <IconGrid size={11} />
+            </button>
+          )}
           {tab === 'program' && <span className="text-[9px] font-mono text-ink-400 mr-1">{Math.round(ladderZoom * 100)}%</span>}
           {tab === 'program' && <button onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Reduzir escala do Ladder"><IconZoomOut size={11} /></button>}
           {tab === 'program' && <button onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Aumentar escala do Ladder"><IconZoomIn size={11} /></button>}
@@ -714,7 +725,10 @@ function CompactLadderEditor() {
       ) : blackBox ? (
         <BlackBoxState compact />
       ) : (
-        <div className="compact-ladder-canvas">
+        <div
+          className={`compact-ladder-canvas ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'}`}
+          style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
+        >
           <div className="compact-ladder-summary">
             <LadderMetric label="Networks" value={rungs.length} />
             <LadderMetric label="Energ." value={running ? poweredCount : 0} tone={running && poweredCount ? 'run' : 'neutral'} />
@@ -1059,6 +1073,8 @@ function FullLadderEditor() {
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
   const blackBox = useSimStore((s) => s.sim.blackBox)
+  const grid = useSimStore((s) => s.grid)
+  const setGrid = useSimStore((s) => s.setGrid)
   const addRung = useSimStore((s) => s.addRung)
   const updateRung = useSimStore((s) => s.updateRung)
   const undo = useSimStore((s) => s.undo)
@@ -1164,6 +1180,15 @@ function FullLadderEditor() {
           <button className="ladder-toolbar-button" onClick={() => setLadderZoom(1)} title="Zoom 100%">100</button>
           <button className="ladder-toolbar-button" onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} title="Aumentar zoom"><IconZoomIn size={14} /></button>
           <span className="ladder-toolbar-separator" />
+          <button
+            className={`ladder-toolbar-button ${grid.enabled ? 'is-active' : ''}`}
+            onClick={() => setGrid({ enabled: !grid.enabled })}
+            title={`Malha ${grid.enabled ? 'ligada' : 'desligada'} · clique para ${grid.enabled ? 'esconder' : 'mostrar'}`}
+          >
+            <IconGrid size={14} />
+          </button>
+          <span className="ladder-zoom-label">Malha {grid.enabled ? `${grid.size}px` : 'off'}</span>
+          <span className="ladder-toolbar-separator" />
           <span className="text-[10px] text-slate-400">{isProgramView ? 'Programa Ladder' : activeTitle}</span>
           {isMainOpen && <button onClick={addRung} className="ladder-primary-button ml-auto"><IconPlus size={12} /> Nova network</button>}
         </div>
@@ -1189,7 +1214,10 @@ function FullLadderEditor() {
         ) : !isMainOpen ? (
           <ProjectDataView activeNode={activeProjectNode} table={table} />
         ) : (
-          <div className="ladder-networks">
+          <div
+            className={`ladder-networks ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'}`}
+            style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
+          >
             <div className="ladder-networks-scale" style={{ zoom: ladderZoom }}>
               {rungs.map((r, i) => (
                 <div key={r.id} className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`} onClick={() => setActiveRungId(r.id)}>

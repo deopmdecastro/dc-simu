@@ -497,6 +497,11 @@ input[type='color'] {
     color: #617089;
     background: transparent;
   }
+  .ladder-toolbar-button.is-active {
+    border-color: var(--ladder-blue-line);
+    color: var(--ladder-blue);
+    background: var(--ladder-blue-soft);
+  }
   .ladder-toolbar-separator {
     width: 1px;
     height: 18px;
@@ -553,7 +558,15 @@ input[type='color'] {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-    background: #f7f9fc;
+    background-color: #f8fafd;
+    background-image: radial-gradient(circle, #ccd5e3 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .compact-ladder-canvas.grid-off { background-image: none; }
+  .compact-ladder-canvas.grid-lines {
+    background-image:
+      linear-gradient(90deg, #e4eaf2 1px, transparent 1px),
+      linear-gradient(180deg, #e4eaf2 1px, transparent 1px);
   }
   .compact-ladder-scale {
     min-width: 520px;
@@ -654,10 +667,7 @@ input[type='color'] {
   }
   .ladder-rung-body {
     padding: 11px 12px 8px;
-    background:
-      linear-gradient(90deg, rgba(148,163,184,.14) 1px, transparent 1px) 0 0 / 18px 18px,
-      linear-gradient(180deg, rgba(148,163,184,.14) 1px, transparent 1px) 0 0 / 18px 18px,
-      #fff;
+    background: #fff;
   }
   .ladder-diagram-scroll {
     overflow-x: auto;
@@ -676,6 +686,75 @@ input[type='color'] {
     gap: 2px;
     flex-wrap: nowrap;
   }
+  .ladder-branch-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ladder-wire {
+    width: 14px;
+    height: 0;
+    flex-shrink: 0;
+    border-top: 2px solid #2655e5;
+  }
+  .ladder-wire.is-powered { border-top-color: #16a34a; }
+  .ladder-symbol-button {
+    display: inline-flex;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .ladder-inline-element {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .ladder-property-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #45536b;
+    font-size: 10px;
+  }
+  .ladder-property-panel strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #24314a;
+    font-size: 11px;
+    margin-right: 2px;
+  }
+  .ladder-property-panel label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .ladder-property-separator {
+    display: inline-block;
+    width: 1px;
+    align-self: stretch;
+    background: #dbe2ee;
+    margin: 0 2px;
+  }
+  .ladder-property-tag {
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #eef3ff;
+    color: var(--ladder-blue);
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .ladder-status-group {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+  }
   .ladder-coil-bank {
     display: flex;
     min-width: 116px;
@@ -684,6 +763,96 @@ input[type='color'] {
     gap: 5px;
     padding: 0 12px;
     border-left: 1px dashed #d9e0ea;
+  }
+  .ladder-coil-symbol { min-height: 28px; }
+  /* ------------------------------------------------ símbolos IEC 61131 ---- */
+  .ladder-contact-symbol {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding: 2px 4px 1px;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+    transition: background .12s, border-color .12s;
+  }
+  .ladder-contact-symbol:hover { background: #f2f6ff; }
+  .ladder-contact-symbol .ladder-symbol-address {
+    font-family: ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: #45536b;
+    line-height: 1.1;
+  }
+  .ladder-contact-symbol svg line {
+    stroke: #45536b;
+    stroke-width: 2;
+    stroke-linecap: square;
+  }
+  .ladder-contact-symbol svg text { fill: #45536b; }
+  .ladder-contact-symbol .ladder-symbol-kind {
+    font-size: 8px;
+    font-weight: 700;
+    color: #8896ab;
+    letter-spacing: .03em;
+    line-height: 1.1;
+  }
+  .ladder-contact-symbol .ladder-symbol-tag {
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 8px;
+    color: #9aa6b8;
+    line-height: 1.2;
+  }
+  .ladder-contact-symbol.is-powered svg line,
+  .ladder-contact-symbol.is-powered svg text { stroke: #16a34a; fill: #16a34a; }
+  .ladder-contact-symbol.is-powered .ladder-symbol-address { color: #15803d; }
+  .ladder-contact-symbol.is-selected {
+    border-color: #94b6fa;
+    background: #eef3ff;
+  }
+  .ladder-block-symbol {
+    display: flex;
+    min-width: 74px;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 5px 8px;
+    border: 1.5px solid #c7cfdd;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color .12s, background .12s;
+  }
+  .ladder-block-symbol:hover { border-color: #94b6fa; }
+  .ladder-block-symbol .ladder-symbol-address {
+    font-family: ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: #45536b;
+  }
+  .ladder-block-symbol strong {
+    font-size: 11px;
+    font-weight: 800;
+    color: #24314a;
+    letter-spacing: .02em;
+  }
+  .ladder-block-symbol small {
+    font-size: 8px;
+    color: #8896ab;
+  }
+  .ladder-block-symbol.is-powered {
+    border-color: #5bc486;
+    background: #f0fbf5;
+  }
+  .ladder-block-symbol.is-powered strong { color: #159052; }
+  .ladder-block-symbol.is-selected {
+    border-color: #94b6fa;
+    box-shadow: 0 0 0 2px #dbe6ff;
   }
   .ladder-rung-params,
   .ladder-insert-bar {
@@ -705,6 +874,15 @@ input[type='color'] {
     min-height: 0;
     overflow: auto;
     padding: 10px;
+    background-color: #f8fafd;
+    background-image: radial-gradient(circle, #ccd5e3 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .ladder-networks.grid-off { background-image: none; }
+  .ladder-networks.grid-lines {
+    background-image:
+      linear-gradient(90deg, #e4eaf2 1px, transparent 1px),
+      linear-gradient(180deg, #e4eaf2 1px, transparent 1px);
   }
   .ladder-networks-scale {
     min-width: 560px;

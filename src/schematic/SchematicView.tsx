@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, WIRE_COLORS, terminalPos } from './symbols'
-import { IconProbe } from '../ui/icons'
+import { IconProbe, IconHelp } from '../ui/icons'
 import { SCENARIOS } from '../simulation/scenarios'
 import type { ElectricalComponent, ComponentType } from '../types'
 
@@ -90,6 +90,27 @@ export default function SchematicView() {
   /** arraste do ponto de dobra/curva de um cabo diretamente no esquema */
   const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' } | null>(null)
   const [dropPos, setDropPos] = useState<{ x: number; y: number } | null>(null)
+  const [cursorPos, setCursorPos] = useState<Pt | null>(null)
+  const [showHints, setShowHints] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dc-simu:showHints')
+      return saved === null ? true : saved === '1'
+    } catch {
+      return true
+    }
+  })
+
+  const toggleHints = () => {
+    setShowHints((v) => {
+      const next = !v
+      try {
+        localStorage.setItem('dc-simu:showHints', next ? '1' : '0')
+      } catch {
+        /* localStorage indisponível (modo privado, etc.) — ignora */
+      }
+      return next
+    })
+  }
 
   const terminalIndex = useMemo(() => {
     const map = new Map<string, { c: ElectricalComponent; x: number; y: number; label: string; color: string; energized: boolean }>()
@@ -198,12 +219,20 @@ export default function SchematicView() {
       setPanning({ sx: e.clientX, sy: e.clientY, px: panX, py: panY })
       return
     }
+    if (e.button === 2 && tool === 'wire' && wireFrom) {
+      // botão direito durante o desenho de cabo: cancela o cabo pendente
+      // (o mesmo que Escape), sem fechar o menu de contexto do browser.
+      e.preventDefault()
+      setWireFrom(null)
+      setChain([])
+      return
+    }
     if (tool === 'select') {
       const p = toCanvas(e.clientX, e.clientY)
       setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y })
       if (!e.shiftKey) selectComponents([])
     }
-    if (tool === 'wire') setWireFrom(null)
+    if (tool === 'wire' && e.button !== 2) setWireFrom(null)
     if (tool === 'probe') clearProbe()
   }
 
@@ -245,6 +274,7 @@ export default function SchematicView() {
       }
     }
     if (marquee) setMarquee({ ...marquee, x1: p.x, y1: p.y })
+    if (tool === 'wire' && wireFrom) setCursorPos(p)
   }
 
   const onMouseUp = () => {
@@ -314,6 +344,13 @@ export default function SchematicView() {
   const onTerminalDown = (e: React.MouseEvent, terminalId: string) => {
     e.stopPropagation()
     if (tool === 'wire') {
+      if (e.button === 2) {
+        // botão direito num borne: cancela o cabo em curso (equivalente ao Escape)
+        e.preventDefault()
+        setWireFrom(null)
+        setChain([])
+        return
+      }
       // Shift+clique acumula bornes numa cadeia para ligação inteligente:
       // ao confirmar, todos são interligados em sequência e o roteamento já
       // sai organizado (sem sobreposição).
@@ -500,9 +537,21 @@ export default function SchematicView() {
               y1={pendingFrom.y}
               x2={terminalIndex.get(hoverTerminal)!.x}
               y2={terminalIndex.get(hoverTerminal)!.y}
-              stroke="#2655e5"
+              stroke={hoverTerminal !== wireFrom ? '#16a34a' : '#2655e5'}
               strokeWidth={2}
               strokeDasharray="4 3"
+            />
+          )}
+          {pendingFrom && !hoverTerminal && cursorPos && (
+            <line
+              x1={pendingFrom.x}
+              y1={pendingFrom.y}
+              x2={cursorPos.x}
+              y2={cursorPos.y}
+              stroke="#94a8c9"
+              strokeWidth={1.5}
+              strokeDasharray="3 3"
+              style={{ pointerEvents: 'none' }}
             />
           )}
 
@@ -513,17 +562,20 @@ export default function SchematicView() {
               const isFrom = wireFrom === t.id
               const isSel = selectedTerminalId === t.id
               const chainIdx = chain.indexOf(t.id)
+              const isDrawTarget = tool === 'wire' && !!wireFrom && wireFrom !== t.id && hoverTerminal === t.id
               return (
                 <g key={`${t.id}-hit`}>
+                  {isDrawTarget && <circle cx={p.x} cy={p.y} r={9} fill="#dcfce7" stroke="#16a34a" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />}
                   <circle
                     cx={p.x}
                     cy={p.y}
                     r={7}
                     fill="transparent"
-                    stroke={chainIdx >= 0 ? '#65a30d' : isFrom ? '#2655e5' : isSel ? '#db2777' : 'transparent'}
+                    stroke={chainIdx >= 0 ? '#65a30d' : isFrom ? '#2655e5' : isDrawTarget ? '#16a34a' : isSel ? '#db2777' : 'transparent'}
                     strokeWidth={2}
                     style={{ cursor: tool === 'select' ? 'pointer' : 'crosshair' }}
                     onMouseDown={(e) => onTerminalDown(e, t.id)}
+                    onContextMenu={(e) => e.preventDefault()}
                     onMouseEnter={() => setHoverTerminal(t.id)}
                     onMouseLeave={() => setHoverTerminal(null)}
                     onDoubleClick={(e) => {
@@ -662,13 +714,25 @@ export default function SchematicView() {
         </div>
       )}
 
-      <div className="absolute right-3 top-2 text-[10px] text-ink-400 text-right leading-relaxed rounded-md bg-white/92 border border-line shadow-xs px-2 py-1.5">
-        <div>arraste = mover · shift+clique = multi-seleção</div>
-        <div>clique no cabo = editar · duplo no borne = alternar</div>
-        <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>
-        <div>cabo selecionado: arraste o ponto ciano = dobrar/curvar</div>
-        <div>Ctrl+] avança · Ctrl+[ recua · Ctrl+Shift+]/[ frente/trás</div>
-        <div>R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>
+      <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
+        {showHints && (
+          <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
+            <div>arraste = mover · shift+clique = multi-seleção</div>
+            <div>clique no cabo = editar · duplo no borne = alternar</div>
+            <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>
+            <div>ferramenta Cabo: botão direito ou Esc = cancelar cabo em curso</div>
+            <div>cabo selecionado: arraste o ponto ciano = dobrar/curvar</div>
+            <div>Ctrl+] avança · Ctrl+[ recua · Ctrl+Shift+]/[ frente/trás</div>
+            <div>R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>
+          </div>
+        )}
+        <button
+          onClick={toggleHints}
+          className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
+          title={showHints ? 'Esconder dicas' : 'Mostrar dicas'}
+        >
+          <IconHelp size={13} />
+        </button>
       </div>
     </div>
   )

@@ -65,6 +65,13 @@ export const IconWire = (p: IconProps) => (
     <path d="M7 16.2C9.5 13 14.5 11 17 7.8" />
   </Svg>
 )
+export const IconHelp = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.2 9.3a2.8 2.8 0 0 1 5.5.7c0 1.9-2.5 2-2.7 3.6" />
+    <circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none" />
+  </Svg>
+)
 export const IconProbe = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 3v6a6 6 0 0 0 12 0V3" />
