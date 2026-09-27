@@ -391,6 +391,8 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                         </select>
                         <input
                           type="color"
+                          aria-label={`Cor do borne ${t.label}`}
+                          title={`Cor do borne ${t.label}`}
                           className="w-7 h-[22px] rounded border border-line cursor-pointer"
                           value={t.color}
                           onChange={(e) => useSimStore.getState().updateTerminal(t.id, { color: e.target.value })}
@@ -602,7 +604,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   })}
                 </div>
                 <p className="text-[10px] text-ink-400 leading-relaxed">
-                  De {wireFromTerminal?.label ?? (selectedWire.fromPoint ? 'ponta livre' : '—')} → {wireToTerminal?.label ?? (selectedWire.toPoint ? 'ponta livre' : '—')}. {selectedWire.fromPoint || selectedWire.toPoint ? 'Uma ponta livre pode ser arrastada no esquema; só há continuidade elétrica quando ambas as pontas estão ligadas a bornes.' : 'A terminação é desenhada nas pontas do cabo.'}
+                  De {wireFromTerminal?.label ?? (selectedWire.fromPoint ? 'ponta livre' : '—')} → {wireToTerminal?.label ?? (selectedWire.toPoint ? 'ponta livre' : '—')}. {selectedWire.fromPoint || selectedWire.toPoint ? 'Arraste uma ponta livre até um borne para a ligar. Só há continuidade elétrica quando ambas as pontas estiverem ligadas.' : 'A terminação é desenhada nas pontas do cabo.'}
                 </p>
               </div>
 
@@ -633,6 +635,17 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
               <p className="text-ink-500">
                 Nº de cabos ligados: {wires.filter((w) => w.fromTerminalId === selectedTerminal.id || w.toTerminalId === selectedTerminal.id).length}
               </p>
+              <div className="rounded-lg border border-line bg-white p-2 space-y-2">
+                <label className={label} htmlFor="terminal-color">Cor deste borne</label>
+                <div className="flex items-center gap-2">
+                  <input id="terminal-color" type="color" className="w-9 h-8 cursor-pointer rounded border border-line" value={selectedTerminal.color} onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { color: e.target.value })} />
+                  <span className="font-mono text-[11px]">{selectedTerminal.color}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5" aria-label="Cores rápidas dos bornes">
+                  {['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#0f172a', '#ffffff'].map((color) => <button key={color} type="button" aria-label={`Aplicar cor ${color}`} title={color} onClick={() => useSimStore.getState().updateTerminal(selectedTerminal.id, { color })} className={`w-6 h-6 rounded-full border-2 ${selectedTerminal.color.toLowerCase() === color ? 'border-brand-600 ring-2 ring-brand-200' : 'border-slate-300'}`} style={{ backgroundColor: color }} />)}
+                </div>
+                <p className="text-[10px] text-ink-400">Altera apenas a identificação visual do borne, não a cor do fio nem a continuidade elétrica.</p>
+              </div>
               <button className="dc-btn-primary dc-btn" onClick={() => useSimStore.getState().selectComponents([terminalOwner.id])}>
                 Abrir componente
               </button>

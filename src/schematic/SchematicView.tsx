@@ -277,6 +277,7 @@ export default function SchematicView() {
   const [drag, setDrag] = useState<{ ids: string[]; startX: number; startY: number; orig: Record<string, { x: number; y: number }> } | null>(null)
   const [wireFrom, setWireFrom] = useState<string | null>(null)
   const [freeStart, setFreeStart] = useState<Pt | null>(null)
+  const [draftPoints, setDraftPoints] = useState<Pt[]>([])
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const [panning, setPanning] = useState<{ sx: number; sy: number; px: number; py: number } | null>(null)
   const [hoverTerminal, setHoverTerminal] = useState<string | null>(null)
@@ -319,7 +320,7 @@ export default function SchematicView() {
   }, [components])
 
   useEffect(() => {
-    if (tool !== 'wire') { setChain([]); setWireFrom(null); setFreeStart(null) }
+    if (tool !== 'wire') { setChain([]); setWireFrom(null); setFreeStart(null); setDraftPoints([]) }
   }, [tool])
 
   const snap = (v: number) => (grid.snap ? Math.round(v / grid.size) * grid.size : v)
@@ -349,6 +350,7 @@ export default function SchematicView() {
       } else if (e.key === 'Escape') {
         setWireFrom(null)
         setFreeStart(null)
+        setDraftPoints([])
         setChain([])
         selectComponents([])
         clearProbe()
@@ -438,6 +440,7 @@ export default function SchematicView() {
       e.preventDefault()
       setWireFrom(null)
       setFreeStart(null)
+      setDraftPoints([])
       setChain([])
       return
     }
@@ -449,12 +452,16 @@ export default function SchematicView() {
     if (tool === 'wire' && e.button === 0) {
       const p = toCanvas(e.clientX, e.clientY)
       const point = { x: snap(p.x), y: snap(p.y) }
-      if (wireFrom) {
-        addFreeWire({ terminalId: wireFrom }, { point })
+      if ((wireFrom || freeStart) && e.shiftKey) {
+        setDraftPoints((points) => [...points, point])
+      } else if (wireFrom) {
+        addFreeWire({ terminalId: wireFrom }, { point }, draftPoints)
         setWireFrom(null)
+        setDraftPoints([])
       } else if (freeStart) {
-        addFreeWire({ point: freeStart }, { point })
+        addFreeWire({ point: freeStart }, { point }, draftPoints)
         setFreeStart(null)
+        setDraftPoints([])
       } else setFreeStart(point)
       setCursorPos(point)
     }
@@ -512,7 +519,20 @@ export default function SchematicView() {
     if ((tool === 'wire' && (wireFrom || freeStart)) || placingType) setCursorPos(p)
   }
 
-  const onMouseUp = () => {
+  const onMouseUp = (e?: React.MouseEvent) => {
+    if (wireDrag && (wireDrag.mode === 'fromPoint' || wireDrag.mode === 'toPoint') && e) {
+      const w = wires.find((item) => item.id === wireDrag.wireId)
+      const p = toCanvas(e.clientX, e.clientY)
+      const target = [...terminalIndex.entries()].find(([tid, t]) =>
+        tid !== (wireDrag.mode === 'fromPoint' ? w?.toTerminalId : w?.fromTerminalId) &&
+        Math.hypot(t.x - p.x, t.y - p.y) <= 13 / zoom,
+      )
+      if (w && target) {
+        const isFrom = wireDrag.mode === 'fromPoint'
+        updateWire(w.id, isFrom ? { fromTerminalId: target[0], fromPoint: undefined } : { toTerminalId: target[0], toPoint: undefined })
+        useSimStore.getState().step()
+      }
+    }
     if (wireDrag && wireDrag.mode !== 'fromPoint' && wireDrag.mode !== 'toPoint') commitHistory()
     setWireDrag(null)
     if (drag) commitHistory()
@@ -587,6 +607,7 @@ export default function SchematicView() {
         e.preventDefault()
         setWireFrom(null)
         setFreeStart(null)
+        setDraftPoints([])
         setChain([])
         return
       }
@@ -598,13 +619,15 @@ export default function SchematicView() {
         return
       }
       if (freeStart) {
-        addFreeWire({ point: freeStart }, { terminalId })
+        addFreeWire({ point: freeStart }, { terminalId }, draftPoints)
         setFreeStart(null)
+        setDraftPoints([])
       } else if (!wireFrom) {
         setWireFrom(terminalId)
       } else if (wireFrom !== terminalId) {
-        addWire(wireFrom, terminalId)
+        addWire(wireFrom, terminalId, undefined, draftPoints)
         setWireFrom(terminalId)
+        setDraftPoints([])
       }
       return
     }
@@ -711,7 +734,7 @@ export default function SchematicView() {
             e.stopPropagation()
             commitHistory()
             setWireDrag({ wireId: w.id, mode: side })
-          }}><title>Arraste para mover a ponta livre (sem continuidade elétrica)</title></circle>
+          }}><title>Arraste para mover a ponta livre; largue sobre um borne para a ligar</title></circle>
         })}
         {/* pontos de curva do cabo — visíveis quando selecionado */}
         {selected &&
@@ -820,31 +843,8 @@ export default function SchematicView() {
           {drawOrder.map((entry) => (entry.kind === 'wire' ? renderWireEl(entry.wire) : renderComponentEl(entry.comp)))}
 
           {/* cabo em construção */}
-          {pendingFrom && hoverTerminal && terminalIndex.get(hoverTerminal) && (
-            <line
-              x1={pendingFrom.x}
-              y1={pendingFrom.y}
-              x2={terminalIndex.get(hoverTerminal)!.x}
-              y2={terminalIndex.get(hoverTerminal)!.y}
-              stroke={hoverTerminal !== wireFrom ? '#16a34a' : '#2655e5'}
-              strokeWidth={2}
-              strokeDasharray="4 3"
-              pointerEvents="none"
-            />
-          )}
-          {pendingFrom && !hoverTerminal && cursorPos && (
-            <line
-              x1={pendingFrom.x}
-              y1={pendingFrom.y}
-              x2={cursorPos.x}
-              y2={cursorPos.y}
-              stroke="#94a8c9"
-              strokeWidth={1.5}
-              strokeDasharray="3 3"
-              style={{ pointerEvents: 'none' }}
-            />
-          )}
-
+          {pendingFrom && draftPoints.map((point, i) => <circle key={`draft-${i}`} cx={point.x} cy={point.y} r={4} fill="white" stroke="#2563eb" strokeWidth={2} pointerEvents="none" />)}
+          {pendingFrom && cursorPos && <path d={sharpPath([pendingFrom, ...draftPoints, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : cursorPos])} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
           {/* alvos clicáveis dos bornes (acima de tudo) */}
           {components.map((c) =>
             c.terminals.map((t) => {
@@ -1020,9 +1020,9 @@ export default function SchematicView() {
       )}
 
       {tool === 'wire' && <div className="absolute right-3 top-3 z-10 dc-wire-guide">
-        <strong>Desenhar fio</strong><span>{wireFrom || freeStart ? 'Clique noutro borne ou no espaço vazio para terminar.' : 'Clique num borne ou no espaço vazio para começar.'}</span>
-        <small>Duplo clique num fio existente adiciona um ponto de curva · Esc cancela.</small>
-        {(wireFrom || freeStart) && <button className="dc-btn" onClick={() => { setWireFrom(null); setFreeStart(null) }}>Cancelar</button>}
+        <strong>Desenhar fio</strong><span>{wireFrom || freeStart ? 'Clique para terminar · Shift+clique no vazio adiciona uma dobra.' : 'Clique num borne ou no espaço vazio para começar.'}</span>
+        <small>Shift+clique adiciona pontos durante o desenho · duplo clique num fio pronto adiciona um ponto · Esc cancela.</small>
+        {(wireFrom || freeStart) && <button className="dc-btn" onClick={() => { setWireFrom(null); setFreeStart(null); setDraftPoints([]) }}>Cancelar</button>}
       </div>}
       <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
         {showHints && (

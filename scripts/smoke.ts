@@ -303,6 +303,14 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const free = { ...template, id: 'free-wire', fromTerminalId: '', toTerminalId: '', fromPoint: { x: 100, y: 200 }, toPoint: { x: 300, y: 200 }, energized: false }
   const withFree = computeContinuity(components, [...wires, free], sourceTerminalIds(components))
   check('cabo livre não altera continuidade do circuito', full.energizedTerminals.size === withFree.energizedTerminals.size && !withFree.energizedWires.has('free-wire'))
+  const source = components.flatMap((c) => c.terminals).find((t) => full.energizedTerminals.has(t.id))!
+  const isolated = components.flatMap((c) => c.terminals).find((t) => !full.energizedTerminals.has(t.id))!
+  const partial = { ...free, fromTerminalId: source.id, fromPoint: undefined }
+  const partialResult = computeContinuity(components, [...wires, partial], sourceTerminalIds(components))
+  check('ponta ligada e ponta livre ainda não conduzem', !partialResult.energizedWires.has('free-wire'))
+  const connected = { ...partial, toTerminalId: isolated.id, toPoint: undefined }
+  const connectedResult = computeContinuity(components, [...wires, connected], sourceTerminalIds(components))
+  check('duas pontas ligadas podem conduzir', connectedResult.energizedTerminals.has(isolated.id) && connectedResult.energizedWires.has('free-wire'))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

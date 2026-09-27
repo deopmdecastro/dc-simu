@@ -121,8 +121,8 @@ interface Store extends CircuitState {
   addTerminal: (componentId: string) => void
   updateTerminal: (terminalId: string, patch: Partial<Terminal>) => void
   deleteTerminal: (terminalId: string) => void
-  addWire: (fromTerminalId: string, toTerminalId: string, color?: WireColor) => void
-  addFreeWire: (from: { terminalId?: string; point?: { x: number; y: number } }, to: { terminalId?: string; point?: { x: number; y: number } }) => void
+  addWire: (fromTerminalId: string, toTerminalId: string, color?: WireColor, waypoints?: Array<{ x: number; y: number }>) => void
+  addFreeWire: (from: { terminalId?: string; point?: { x: number; y: number } }, to: { terminalId?: string; point?: { x: number; y: number } }, waypoints?: Array<{ x: number; y: number }>) => void
   updateWire: (id: string, patch: Partial<Wire>) => void
   deleteWire: (id: string) => void
   deleteSelection: () => void
@@ -685,7 +685,7 @@ export const useSimStore = create<Store>((set, get) => ({
     })),
 
   selectWire: (id) => set({ selectedWireId: id, selectedComponentIds: [], selectedTerminalId: null }),
-  selectTerminal: (id) => set({ selectedTerminalId: id, selectedWireId: null }),
+  selectTerminal: (id) => set({ selectedTerminalId: id, selectedWireId: null, selectedComponentIds: [] }),
 
   addTerminal: (componentId) => {
     get().commitHistory()
@@ -721,7 +721,7 @@ export const useSimStore = create<Store>((set, get) => ({
     get().step()
   },
 
-  addWire: (fromTerminalId, toTerminalId, color) => {
+  addWire: (fromTerminalId, toTerminalId, color, waypoints) => {
     if (fromTerminalId === toTerminalId) return
     const exists = get().wires.some(
       (w) =>
@@ -735,6 +735,7 @@ export const useSimStore = create<Store>((set, get) => ({
       id: nanoid(8),
       fromTerminalId,
       toTerminalId,
+      waypoints,
       color: color ?? defs.color,
       gauge: defs.gauge,
       kind: 'control',
@@ -769,14 +770,14 @@ export const useSimStore = create<Store>((set, get) => ({
     get().step()
   },
 
-  addFreeWire: (from, to) => {
+  addFreeWire: (from, to, waypoints) => {
     if ((!from.point && !from.terminalId) || (!to.point && !to.terminalId)) return
     if (from.point && to.point && Math.hypot(from.point.x - to.point.x, from.point.y - to.point.y) < 5) return
     const defs = get().wireDefaults
     get().commitHistory()
     const wire: Wire = {
       id: nanoid(8), fromTerminalId: from.terminalId ?? '', toTerminalId: to.terminalId ?? '',
-      fromPoint: from.point, toPoint: to.point,
+      fromPoint: from.point, toPoint: to.point, waypoints,
       color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
       endType: defs.endType, route: 'direct', bend: 0.5, curveOffset: 0,
       number: `W${get().wires.length + 1}`, energized: false,
