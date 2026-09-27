@@ -1,6 +1,7 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Text, Line } from '@react-three/drei'
-import { useRef, useMemo, useState } from 'react'
+import { OrbitControls, Text, Line, useGLTF } from '@react-three/drei'
+import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
+import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { terminalPos } from '../schematic/symbols'
 import { SCENARIOS } from '../simulation/scenarios'
@@ -105,7 +106,62 @@ function Contactor3D({ c, x }: { c: ElectricalComponent; x: number }) {
   )
 }
 
-function PLC3D({ c, x }: { c: ElectricalComponent; x: number }) {
+/* ---------- Siemens LOGO! 12/24RC — modelo 3D real (GLTF/GLB) ---------- */
+// Ficheiro esperado (não incluído no repositório, exportar do SolidWorks
+// como .glb/.gltf e colocar em public/models/):
+const LOGO_1224RC_MODEL_URL = '/models/logo-siemens-1224rc.glb'
+// Ajustar escala/rotação/offset consoante as unidades e orientação do export.
+const LOGO_1224RC_SCALE = 1
+const LOGO_1224RC_ROTATION: [number, number, number] = [0, 0, 0]
+const LOGO_1224RC_OFFSET: [number, number, number] = [0, 0, 0]
+
+class Model3DErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { fallback: ReactNode; children: ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  componentDidCatch() {
+    // modelo em falta/inválido — usa o desenho procedural como reserva
+  }
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children
+  }
+}
+
+function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) {
+  const { scene } = useGLTF(LOGO_1224RC_MODEL_URL)
+  const model = useMemo(() => scene.clone(true), [scene])
+  const lPlus = c.terminals.find((t) => t.label === 'L+')
+  const on = !!lPlus?.energized
+
+  useEffect(() => {
+    // ecrã aceso/apagado consoante alimentação — procura a malha do ecrã pelo nome
+    model.traverse((obj) => {
+      const mesh = obj as THREE.Mesh
+      if (!mesh.isMesh) return
+      const name = mesh.name.toLowerCase()
+      if (name.includes('screen') || name.includes('display') || name.includes('ecra')) {
+        const mat = mesh.material as THREE.MeshStandardMaterial
+        if (mat && 'emissive' in mat) {
+          mat.emissive = new THREE.Color(on ? '#22c55e' : '#052e16')
+          mat.emissiveIntensity = on ? 1.1 : 0.15
+        }
+      }
+    })
+  }, [model, on])
+
+  return (
+    <group position={[x + LOGO_1224RC_OFFSET[0], RAIL_Y + 0.46 + LOGO_1224RC_OFFSET[1], LOGO_1224RC_OFFSET[2]]}>
+      <primitive object={model} scale={LOGO_1224RC_SCALE} rotation={LOGO_1224RC_ROTATION} castShadow receiveShadow />
+      <Label text={c.ref} position={[0, 0.62, 0.22]} color="#e2e8f0" />
+    </group>
+  )
+}
+
+function PLCBox3D({ c, x }: { c: ElectricalComponent; x: number }) {
   return (
     <group position={[x, RAIL_Y + 0.46, 0]}>
       <mesh castShadow>
@@ -137,6 +193,19 @@ function PLC3D({ c, x }: { c: ElectricalComponent; x: number }) {
       <Label text={c.ref} position={[0, 0.58, 0.22]} color="#e2e8f0" />
     </group>
   )
+}
+
+function PLC3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  if (c.type === 'plcSiemensLogo1224RC') {
+    return (
+      <Model3DErrorBoundary fallback={<PLCBox3D c={c} x={x} />}>
+        <Suspense fallback={<PLCBox3D c={c} x={x} />}>
+          <LogoSiemens1224RCMesh c={c} x={x} />
+        </Suspense>
+      </Model3DErrorBoundary>
+    )
+  }
+  return <PLCBox3D c={c} x={x} />
 }
 
 function Drive3D({ c, x }: { c: ElectricalComponent; x: number }) {
