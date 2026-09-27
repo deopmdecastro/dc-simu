@@ -1,4 +1,4 @@
-import type { ElectricalComponent, Terminal } from '../types'
+import type { ElectricalComponent, Terminal, TerminalType } from '../types'
 
 /** Cores de cabo do editor. */
 export const WIRE_COLORS: Record<string, string> = {
@@ -45,9 +45,129 @@ export const TERMINAL_KIND_LABEL: Record<string, string> = {
 export const TERMINAL_TYPE_LABEL: Record<string, string> = {
   screw: 'Parafuso',
   spring: 'Mola / push-in',
-  faston: 'Faston',
-  ring: 'Olhal',
   plug: 'Plug',
+  faston: 'Faston',
+  fastonMale: 'Faston macho',
+  fastonFemale: 'Faston fêmea',
+  ring: 'Anel / Olhal',
+  fork: 'Garfo / Forquilha',
+  pin: 'Pino / Agulha',
+  conical: 'Cônico',
+  claw: 'Garra',
+  tubular: 'Tubular',
+  bar: 'Barra',
+}
+
+/**
+ * Desenha o terminal de cabo no estilo dos conectores reais (anel, garfo,
+ * pino, cônico, garra, tubular, faston macho/fêmea, barra) mais os tipos de
+ * fixação do borne (parafuso, mola, plug). A cor do corpo/isolamento
+ * (`color`) é sempre editável pelo usuário no inspetor; a parte metálica
+ * exposta é desenhada em tom prateado fixo. `r` é o raio "de referência"
+ * (mesma escala usada antes para o círculo simples do borne).
+ */
+export function TerminalGlyph({
+  x,
+  y,
+  type,
+  color,
+  energized,
+  r = 6,
+}: {
+  x: number
+  y: number
+  type: TerminalType
+  color: string
+  energized: boolean
+  r?: number
+}) {
+  const fill = energized ? '#facc15' : color
+  const metal = '#cbd5e1'
+  const dark = '#0b1220'
+  const scale = r / 6
+  const wrap = (children: React.ReactNode) => (
+    <g transform={`translate(${x},${y}) scale(${scale})`}>{children}</g>
+  )
+  switch (type) {
+    case 'ring':
+      return wrap(
+        <>
+          <circle r={7} fill={fill} stroke={dark} strokeWidth={1} />
+          <circle r={3} fill={dark} />
+        </>,
+      )
+    case 'fork':
+      return wrap(
+        <>
+          <rect x={-5} y={-7} width={10} height={8} rx={2} fill={fill} stroke={dark} strokeWidth={1} />
+          <path d="M -4 1 L -4 8 L -1.4 8 L -1.4 3.5 L 1.4 3.5 L 1.4 8 L 4 8 L 4 1 Z" fill={metal} stroke={dark} strokeWidth={0.8} />
+        </>,
+      )
+    case 'pin':
+      return wrap(
+        <>
+          <rect x={-4} y={-7} width={8} height={7} rx={2} fill={fill} stroke={dark} strokeWidth={1} />
+          <rect x={-1.3} y={0} width={2.6} height={9} fill={metal} stroke={dark} strokeWidth={0.6} />
+        </>,
+      )
+    case 'conical':
+      return wrap(<path d="M -5 -6 L 5 -6 L 1.6 8 L -1.6 8 Z" fill={fill} stroke={dark} strokeWidth={1} />)
+    case 'claw':
+      return wrap(
+        <>
+          <path d="M -4 -7 L 4 -7 L 4 -2 L -4 -2 Z" fill={fill} stroke={dark} strokeWidth={1} />
+          <path d="M -3.5 -2 L -3.5 6 L -1 6 L -1 0.5 L 1 0.5 L 1 6 L 3.5 6 L 3.5 -2 Z" fill={metal} stroke={dark} strokeWidth={0.7} />
+        </>,
+      )
+    case 'tubular':
+      return wrap(
+        <>
+          <rect x={-2.6} y={-8} width={5.2} height={6} fill={fill} stroke={dark} strokeWidth={0.8} />
+          <rect x={-2} y={-2} width={4} height={9} rx={1} fill={metal} stroke={dark} strokeWidth={0.8} />
+        </>,
+      )
+    case 'fastonFemale':
+      return wrap(
+        <>
+          <rect x={-5} y={-3} width={10} height={8} rx={1.5} fill={fill} stroke={dark} strokeWidth={1} />
+          <rect x={-2.4} y={-5.5} width={4.8} height={3} fill={metal} stroke={dark} strokeWidth={0.6} />
+        </>,
+      )
+    case 'fastonMale':
+      return wrap(
+        <>
+          <rect x={-5} y={0} width={10} height={7} rx={1.5} fill={fill} stroke={dark} strokeWidth={1} />
+          <rect x={-1.6} y={-7} width={3.2} height={8} fill={metal} stroke={dark} strokeWidth={0.6} />
+        </>,
+      )
+    case 'bar':
+      return wrap(
+        <>
+          <rect x={-9} y={-3} width={18} height={6} rx={1} fill={fill} stroke={dark} strokeWidth={1} />
+          <circle cx={-5} cy={0} r={1.2} fill={dark} />
+          <circle cx={5} cy={0} r={1.2} fill={dark} />
+        </>,
+      )
+    case 'screw':
+      return wrap(
+        <>
+          <circle r={6} fill={metal} stroke={dark} strokeWidth={1} />
+          <rect x={-3.5} y={-0.6} width={7} height={1.2} fill={dark} />
+          <circle r={2} fill={fill} opacity={0.9} />
+        </>,
+      )
+    case 'spring':
+      return wrap(<rect x={-5} y={-5} width={10} height={10} rx={2} fill={fill} stroke={dark} strokeWidth={1} />)
+    case 'faston':
+    case 'plug':
+    default:
+      return wrap(
+        <>
+          <circle r={6} fill={fill} stroke={dark} strokeWidth={1} />
+          <circle r={2.4} fill={metal} />
+        </>,
+      )
+  }
 }
 
 /** Posição absoluta de um borne no canvas, respeitando rotação e espelhamento. */
@@ -377,7 +497,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
               const x = ((i + 1) * w) / (count + 1)
               return (
                 <g key={t.id}>
-                  <circle cx={x} cy={h / 2} r={6} fill={t.energized ? '#facc15' : t.color} stroke="#0b1220" />
+                  <TerminalGlyph x={x} y={h / 2} type={t.terminalType} color={t.color} energized={t.energized} r={6} />
                   <text x={x - 8} y={h / 2 + 20} fontSize={8} fill="#94a3b8">{t.label}</text>
                 </g>
               )
@@ -439,7 +559,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
         const py = t.y * h
         return (
           <g key={t.id}>
-            <circle cx={px} cy={py} r={4} fill={t.energized ? '#facc15' : t.color} stroke="#0b1220" strokeWidth={1.2} />
+            <TerminalGlyph x={px} y={py} type={t.terminalType} color={t.color} energized={t.energized} r={4.5} />
             <circle cx={px} cy={py} r={7} fill="transparent" className="dc-terminal-hit" />
           </g>
         )

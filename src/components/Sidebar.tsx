@@ -314,6 +314,21 @@ export default function Sidebar() {
                   <label className={label}>Dobra {selectedWire.bend.toFixed(2)}</label>
                   <input type="range" min={0} max={1} step={0.05} className="w-full" value={selectedWire.bend} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { bend: Number(e.target.value) })} />
                 </div>
+                {selectedWire.route === 'arc' && (
+                  <div>
+                    <label className={label}>Curvatura {(selectedWire.curveOffset ?? 0).toFixed(0)}px</label>
+                    <input
+                      type="range"
+                      min={-150}
+                      max={150}
+                      step={5}
+                      className="w-full"
+                      value={selectedWire.curveOffset ?? 0}
+                      onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { curveOffset: Number(e.target.value) })}
+                    />
+                    <div className="text-[10px] text-neutral-500 mt-0.5">Dica: com o cabo selecionado, também dá para arrastar o ponto ciano direto no esquema.</div>
+                  </div>
+                )}
                 <div>
                   <label className={label}>Identificação</label>
                   <input className={input} value={selectedWire.number ?? ''} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { number: e.target.value })} />

@@ -6,6 +6,38 @@ import type { ElectricalComponent } from '../types'
 const CANVAS_W = 2000
 const CANVAS_H = 1400
 
+type Pt = { x: number; y: number }
+
+/**
+ * Calcula o caminho SVG de um cabo conforme seu roteamento e devolve também a
+ * posição do "manípulo" arrastável (ponto de dobra para ortogonal/manhattan,
+ * ponto de controle da curva de Bézier para o roteamento curvo).
+ */
+function wireGeometry(a: Pt, b: Pt, route: string, bend: number, curveOffset: number) {
+  if (route === 'direct') {
+    return { d: `M ${a.x},${a.y} L ${b.x},${b.y}`, handle: null as (Pt & { mode: 'bend' | 'curve' }) | null }
+  }
+  if (route === 'arc') {
+    const mx = a.x + (b.x - a.x) * bend
+    const my = a.y + (b.y - a.y) * bend
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const len = Math.hypot(dx, dy) || 1
+    const nx = -dy / len
+    const ny = dx / len
+    const cx = mx + nx * curveOffset
+    const cy = my + ny * curveOffset
+    return { d: `M ${a.x},${a.y} Q ${cx},${cy} ${b.x},${b.y}`, handle: { x: cx, y: cy, mode: 'curve' as const } }
+  }
+  const mx = a.x + (b.x - a.x) * bend
+  const my = a.y + (b.y - a.y) * bend
+  if (route === 'orthogonal') {
+    return { d: `M ${a.x},${a.y} L ${mx},${a.y} L ${mx},${b.y} L ${b.x},${b.y}`, handle: { x: mx, y: (a.y + b.y) / 2, mode: 'bend' as const } }
+  }
+  // manhattan
+  return { d: `M ${a.x},${a.y} L ${a.x},${my} L ${b.x},${my} L ${b.x},${b.y}`, handle: { x: (a.x + b.x) / 2, y: my, mode: 'bend' as const } }
+}
+
 /** Editor de esquema completo: malha, arraste, seleção, cabos, bornes, sonda. */
 export default function SchematicView() {
   const components = useSimStore((s) => s.components)
@@ -36,6 +68,9 @@ export default function SchematicView() {
     setPan,
     runProbe,
     clearProbe,
+    connectChain,
+    organizeWires,
+    updateWire,
   } = useSimStore()
 
   const svgRef = useRef<SVGSVGElement>(null)
@@ -44,6 +79,10 @@ export default function SchematicView() {
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const [panning, setPanning] = useState<{ sx: number; sy: number; px: number; py: number } | null>(null)
   const [hoverTerminal, setHoverTerminal] = useState<string | null>(null)
+  /** cadeia de bornes selecionados com shift+clique (ligação inteligente) */
+  const [chain, setChain] = useState<string[]>([])
+  /** arraste do ponto de dobra/curva de um cabo diretamente no esquema */
+  const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' } | null>(null)
 
   const terminalIndex = useMemo(() => {
     const map = new Map<string, { c: ElectricalComponent; x: number; y: number; label: string; color: string; energized: boolean }>()
@@ -55,6 +94,10 @@ export default function SchematicView() {
     }
     return map
   }, [components])
+
+  useEffect(() => {
+    if (tool !== 'wire') setChain([])
+  }, [tool])
 
   const snap = (v: number) => (grid.snap ? Math.round(v / grid.size) * grid.size : v)
 
@@ -82,6 +125,7 @@ export default function SchematicView() {
         duplicateComponents(selectedIds)
       } else if (e.key === 'Escape') {
         setWireFrom(null)
+        setChain([])
         selectComponents([])
         clearProbe()
       } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
@@ -119,6 +163,29 @@ export default function SchematicView() {
       return
     }
     const p = toCanvas(e.clientX, e.clientY)
+    if (wireDrag) {
+      const w = wires.find((x) => x.id === wireDrag.wireId)
+      const a = w && terminalIndex.get(w.fromTerminalId)
+      const b = w && terminalIndex.get(w.toTerminalId)
+      if (w && a && b) {
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const lenSq = dx * dx + dy * dy || 1
+        const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq))
+        if (wireDrag.mode === 'bend') {
+          updateWire(w.id, { bend: t })
+        } else {
+          const len = Math.sqrt(lenSq)
+          const nx = -dy / len
+          const ny = dx / len
+          const px = a.x + dx * t
+          const py = a.y + dy * t
+          const offset = (p.x - px) * nx + (p.y - py) * ny
+          updateWire(w.id, { bend: t, curveOffset: offset })
+        }
+      }
+      return
+    }
     if (drag) {
       const dx = p.x - drag.startX
       const dy = p.y - drag.startY
@@ -131,6 +198,8 @@ export default function SchematicView() {
   }
 
   const onMouseUp = () => {
+    if (wireDrag) commitHistory()
+    setWireDrag(null)
     if (drag) commitHistory()
     if (marquee) {
       const x0 = Math.min(marquee.x0, marquee.x1)
@@ -183,6 +252,13 @@ export default function SchematicView() {
   const onTerminalDown = (e: React.MouseEvent, terminalId: string) => {
     e.stopPropagation()
     if (tool === 'wire') {
+      // Shift+clique acumula bornes numa cadeia para ligação inteligente:
+      // ao confirmar, todos são interligados em sequência e o roteamento já
+      // sai organizado (sem sobreposição).
+      if (e.shiftKey) {
+        setChain((c) => (c.includes(terminalId) ? c.filter((id) => id !== terminalId) : [...c, terminalId]))
+        return
+      }
       if (!wireFrom) {
         setWireFrom(terminalId)
       } else if (wireFrom !== terminalId) {
@@ -241,25 +317,13 @@ export default function SchematicView() {
             const base = WIRE_COLORS[w.color] ?? '#94a3b8'
             const col = w.energized ? '#facc15' : base
             const selected = selectedWireId === w.id
-            const t = w.bend
-            let pts: string
-            if (w.route === 'direct') pts = `${a.x},${a.y} ${b.x},${b.y}`
-            else if (w.route === 'arc') {
-              const mx = (a.x + b.x) / 2
-              const my = (a.y + b.y) / 2 - Math.abs(b.x - a.x) * 0.2
-              pts = `${a.x},${a.y} ${mx},${my} ${b.x},${b.y}`
-            } else {
-              const mx = a.x + (b.x - a.x) * t
-              const my = a.y + (b.y - a.y) * t
-              if (w.route === 'orthogonal') pts = `${a.x},${a.y} ${mx},${a.y} ${mx},${b.y} ${b.x},${b.y}`
-              else pts = `${a.x},${a.y} ${a.x},${my} ${b.x},${my} ${b.x},${b.y}`
-            }
+            const { d, handle } = wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0)
             const width = w.gauge.startsWith('0.') ? 1.2 : w.gauge.startsWith('1') ? 1.6 : w.gauge.startsWith('2.5') ? 2.2 : 2.8
             return (
               <g key={w.id}>
-                {selected && <polyline points={pts} fill="none" stroke="#22d3ee" strokeWidth={width + 5} opacity={0.35} strokeLinecap="round" />}
-                <polyline
-                  points={pts}
+                {selected && <path d={d} fill="none" stroke="#22d3ee" strokeWidth={width + 5} opacity={0.35} strokeLinecap="round" />}
+                <path
+                  d={d}
                   fill="none"
                   stroke={col}
                   strokeWidth={w.energized ? width + 1 : width}
@@ -274,6 +338,23 @@ export default function SchematicView() {
                 />
                 <circle cx={a.x} cy={a.y} r={2.5} fill={col} />
                 <circle cx={b.x} cy={b.y} r={2.5} fill={col} />
+                {selected && handle && (
+                  <circle
+                    cx={handle.x}
+                    cy={handle.y}
+                    r={6}
+                    fill="#0b1220"
+                    stroke="#22d3ee"
+                    strokeWidth={2}
+                    style={{ cursor: handle.mode === 'curve' ? 'grab' : 'ew-resize' }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation()
+                      setWireDrag({ wireId: w.id, mode: handle.mode })
+                    }}
+                  >
+                    <title>Arraste para {handle.mode === 'curve' ? 'curvar' : 'dobrar'} o cabo</title>
+                  </circle>
+                )}
               </g>
             )
           })}
@@ -318,26 +399,33 @@ export default function SchematicView() {
               const p = terminalPos(c, t)
               const isFrom = wireFrom === t.id
               const isSel = selectedTerminalId === t.id
+              const chainIdx = chain.indexOf(t.id)
               return (
-                <circle
-                  key={`${t.id}-hit`}
-                  cx={p.x}
-                  cy={p.y}
-                  r={7}
-                  fill="transparent"
-                  stroke={isFrom ? '#22d3ee' : isSel ? '#f472b6' : 'transparent'}
-                  strokeWidth={2}
-                  style={{ cursor: tool === 'select' ? 'pointer' : 'crosshair' }}
-                  onMouseDown={(e) => onTerminalDown(e, t.id)}
-                  onMouseEnter={() => setHoverTerminal(t.id)}
-                  onMouseLeave={() => setHoverTerminal(null)}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation()
-                    toggleTerminal(t.id)
-                  }}
-                >
-                  <title>{`${c.ref}.${t.label} — ${t.energized ? 'ENERGIZADO' : 'sem tensão'}`}</title>
-                </circle>
+                <g key={`${t.id}-hit`}>
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={7}
+                    fill="transparent"
+                    stroke={chainIdx >= 0 ? '#a3e635' : isFrom ? '#22d3ee' : isSel ? '#f472b6' : 'transparent'}
+                    strokeWidth={2}
+                    style={{ cursor: tool === 'select' ? 'pointer' : 'crosshair' }}
+                    onMouseDown={(e) => onTerminalDown(e, t.id)}
+                    onMouseEnter={() => setHoverTerminal(t.id)}
+                    onMouseLeave={() => setHoverTerminal(null)}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation()
+                      toggleTerminal(t.id)
+                    }}
+                  >
+                    <title>{`${c.ref}.${t.label} — ${t.energized ? 'ENERGIZADO' : 'sem tensão'}`}</title>
+                  </circle>
+                  {chainIdx >= 0 && (
+                    <text x={p.x + 9} y={p.y - 9} fontSize={10} fontWeight="bold" fill="#a3e635" style={{ pointerEvents: 'none' }}>
+                      {chainIdx + 1}
+                    </text>
+                  )}
+                </g>
               )
             }),
           )}
@@ -370,6 +458,27 @@ export default function SchematicView() {
         </div>
       </div>
 
+      {/* ligação inteligente: cadeia de bornes acumulada por shift+clique */}
+      {tool === 'wire' && chain.length > 0 && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-2 flex items-center gap-2 text-[11px] rounded-lg border border-lime-600 bg-neutral-900/95 px-3 py-1.5 text-neutral-200 shadow-lg">
+          <span className="text-lime-400 font-semibold">Ligação inteligente:</span>
+          <span>{chain.length} borne(s) selecionado(s)</span>
+          <button
+            className="px-2 py-0.5 rounded bg-lime-700 hover:bg-lime-600 text-white disabled:opacity-40"
+            disabled={chain.length < 2}
+            onClick={() => {
+              connectChain(chain)
+              setChain([])
+            }}
+          >
+            Conectar em cadeia
+          </button>
+          <button className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700" onClick={() => setChain([])}>
+            Limpar
+          </button>
+        </div>
+      )}
+
       {probeResult && (
         <div className="absolute right-3 bottom-3 w-72 text-[11px] rounded-lg border border-cyan-700 bg-neutral-900/95 p-3 text-neutral-200">
           <div className="font-semibold text-cyan-300 mb-1">Medição da sonda</div>
@@ -391,6 +500,8 @@ export default function SchematicView() {
       <div className="absolute right-3 top-2 text-[10px] text-neutral-500 text-right leading-relaxed">
         <div>arraste = mover · shift+clique = multi-seleção</div>
         <div>clique no cabo = editar · duplo no borne = alternar</div>
+        <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>
+        <div>cabo selecionado: arraste o ponto ciano = dobrar/curvar</div>
         <div>R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>
       </div>
     </div>

@@ -89,8 +89,26 @@ export type ComponentType =
   | 'powerSupply'
   | 'analogAmmeter'
 
-/** Tipos físicos de conexão do borne (parafuso, mola/push-in, faston, olhal, plug). */
-export type TerminalType = 'screw' | 'spring' | 'faston' | 'ring' | 'plug'
+/**
+ * Tipos físicos de terminal/conexão do borne — inclui os terminais de cabo
+ * mais comuns (anel/olhal, garfo, pino, cônico, garra, tubular, faston
+ * macho/fêmea, barra) além dos tipos de fixação do próprio borne
+ * (parafuso, mola/push-in, plug). Todos têm cor editável no inspetor.
+ */
+export type TerminalType =
+  | 'screw'
+  | 'spring'
+  | 'plug'
+  | 'faston'
+  | 'fastonMale'
+  | 'fastonFemale'
+  | 'ring'
+  | 'fork'
+  | 'pin'
+  | 'conical'
+  | 'claw'
+  | 'tubular'
+  | 'bar'
 
 export type TerminalKind =
   | 'power-in'
@@ -212,6 +230,12 @@ export interface Wire {
   route: WireRoute
   /** 0..1 — deslocamento do ponto de dobra (arrastável no editor) */
   bend: number
+  /**
+   * Deslocamento perpendicular (px) do ponto de controle da curva —
+   * usado quando route === 'arc' para dar a "barriga" da curva.
+   * Arrastável diretamente no esquema.
+   */
+  curveOffset?: number
   /** Número do fio / identificador de chicote */
   number?: string
   label?: string

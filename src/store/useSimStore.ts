@@ -22,6 +22,7 @@ import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario, SCENARIOS } from '../simulation/scenarios'
 import { createComponent, createTerminal, nextRef, terminalByLabel } from '../electrical/factory'
+import { terminalPos } from '../schematic/symbols'
 
 export interface Snapshot {
   components: ElectricalComponent[]
@@ -87,6 +88,12 @@ interface Store extends CircuitState {
   updateWire: (id: string, patch: Partial<Wire>) => void
   deleteWire: (id: string) => void
   deleteSelection: () => void
+  /** Liga em cadeia (t1→t2→t3…) uma lista de bornes selecionados, criando os cabos e
+   * já organizando o roteamento entre eles para não se sobreporem. */
+  connectChain: (terminalIds: string[]) => void
+  /** Reorganiza automaticamente o roteamento/dobra dos cabos (todos, ou apenas os
+   * indicados) para reduzir sobreposição — agrupa cabos por canal e distribui a dobra. */
+  organizeWires: (wireIds?: string[]) => void
   runProbe: () => void
   clearProbe: () => void
 
@@ -575,6 +582,7 @@ export const useSimStore = create<Store>((set, get) => ({
       flexibility: 'flexible',
       route: 'orthogonal',
       bend: 0.5,
+      curveOffset: 0,
       number: `W${get().wires.length + 1}`,
       energized: false,
     }
@@ -606,6 +614,63 @@ export const useSimStore = create<Store>((set, get) => ({
     get().commitHistory()
     set((s) => ({ wires: s.wires.filter((w) => w.id !== id), selectedWireId: null, dirty: true }))
     get().step()
+  },
+
+  connectChain: (terminalIds) => {
+    const ids = terminalIds.filter((id, i) => terminalIds.indexOf(id) === i)
+    if (ids.length < 2) return
+    const before = new Set(get().wires.map((w) => w.id))
+    for (let i = 0; i < ids.length - 1; i++) {
+      get().addWire(ids[i], ids[i + 1])
+    }
+    const created = get().wires.filter((w) => !before.has(w.id)).map((w) => w.id)
+    if (created.length) get().organizeWires(created)
+    get().pushEvent('info', `Ligação inteligente: ${ids.length} bornes conectados em cadeia (${created.length} cabo(s)).`)
+  },
+
+  organizeWires: (wireIds) => {
+    get().commitHistory()
+    const { components, wires } = get()
+    const posOf = (tid: string) => {
+      for (const c of components) {
+        const t = c.terminals.find((x) => x.id === tid)
+        if (t) return terminalPos(c, t)
+      }
+      return null
+    }
+    const target = wireIds && wireIds.length ? wires.filter((w) => wireIds.includes(w.id)) : wires
+    // agrupa cabos que compartilham o mesmo "canal" (mesma faixa horizontal/vertical
+    // aproximada entre os pontos médios) para distribuir a dobra e evitar sobreposição.
+    const groups = new Map<string, { id: string; horizontal: boolean }[]>()
+    for (const w of target) {
+      const a = posOf(w.fromTerminalId)
+      const b = posOf(w.toTerminalId)
+      if (!a || !b) continue
+      const dx = Math.abs(b.x - a.x)
+      const dy = Math.abs(b.y - a.y)
+      const horizontal = dx >= dy
+      const channel = horizontal ? Math.round((a.y + b.y) / 2 / 24) : Math.round((a.x + b.x) / 2 / 24)
+      const key = `${horizontal ? 'h' : 'v'}:${channel}`
+      const arr = groups.get(key) ?? []
+      arr.push({ id: w.id, horizontal })
+      groups.set(key, arr)
+    }
+    const patches: Record<string, Partial<Wire>> = {}
+    for (const arr of groups.values()) {
+      const n = arr.length
+      arr.forEach((entry, i) => {
+        // espalha as dobras entre 0.2 e 0.8 quando há mais de um cabo no mesmo canal,
+        // senão usa 0.5 (dobra central); mantém roteamento ortogonal/manhattan conforme
+        // a orientação predominante do cabo para evitar diagonais cruzadas.
+        const bend = n === 1 ? 0.5 : 0.2 + (0.6 * i) / (n - 1)
+        patches[entry.id] = { bend, route: entry.horizontal ? 'orthogonal' : 'manhattan', curveOffset: 0 }
+      })
+    }
+    set((s) => ({
+      wires: s.wires.map((w) => (patches[w.id] ? { ...w, ...patches[w.id] } : w)),
+      dirty: true,
+    }))
+    get().pushEvent('info', `Cabos organizados automaticamente (${Object.keys(patches).length}).`)
   },
 
   deleteSelection: () => {

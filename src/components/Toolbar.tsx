@@ -39,6 +39,8 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
     history,
     future,
     toggleBlackBox,
+    organizeWires,
+    wires,
   } = useSimStore()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -102,6 +104,14 @@ export default function Toolbar({ mode, setMode }: { mode: ViewMode; setMode: (m
 
       <button onClick={undo} disabled={!history.length} className={btn} title="Desfazer (Ctrl+Z)">↶</button>
       <button onClick={redo} disabled={!future.length} className={btn} title="Refazer (Ctrl+Y)">↷</button>
+      <button
+        onClick={() => organizeWires()}
+        disabled={!wires.length}
+        className={btn}
+        title="Reorganiza automaticamente o roteamento de todos os cabos, distribuindo as dobras para evitar sobreposição"
+      >
+        🧭 Organizar cabos
+      </button>
 
       <div className="w-px h-5 bg-neutral-700" />
 
