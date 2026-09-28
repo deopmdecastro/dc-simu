@@ -394,3 +394,10 @@ modelo. Os botões de camadas movem o traçado do cabo relativamente aos
 componentes sem alterar as camadas independentes das suas pontas. Ao reabrir projetos,
 pontas livres antigas ocultas na região dos bornes destes modelos podem ser
 recuperadas automaticamente para a ligação exata ao parafuso.
+
+O inspetor de um borne permite editar diretamente o seu **nome de apresentação**,
+a função, o tipo físico, a cor e (em opções avançadas) a posição. O nome não
+altera o código elétrico impresso, usado pelo PLC/fonte e pela simulação. A
+secção **Ligações** mostra cada cabo realmente ligado e o borne de destino
+(componente e nome) ou indica uma ponta livre; é possível abrir o cabo ou o
+borne de destino com um clique.

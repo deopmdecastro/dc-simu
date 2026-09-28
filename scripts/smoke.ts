@@ -14,6 +14,7 @@ import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
 import { proautoTerminalLocal } from '../src/schematic/proautoTerminalGeometry'
 import { connectNearWireEnds, nearestTerminal, nearestModelTerminal } from '../src/schematic/terminalSnap'
 import { terminalPos } from '../src/schematic/symbols'
+import { terminalConnections } from '../src/schematic/terminalConnections'
 import { useSimStore } from '../src/store/useSimStore'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
@@ -443,6 +444,22 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const saved = useSimStore.getState().saveJSON()
   const loaded = JSON.parse(saved).wires[0] as Wire
   check('tipos e camadas independentes persistem no projeto', loaded.fromEndType === 'ring' && loaded.toEndType === 'pin' && loaded.fromEndLayer === 'front' && loaded.toEndLayer === 'back')
+}
+
+/* Inspetor de borne: destinos reais e ponta livre, nome sem trocar a chave. */
+{
+  const plc = createComponent('plcSiemensLogo1224RC')
+  const ps = createComponent('powerSupplyProauto24A', undefined, undefined, 0, 300, 0)
+  const input = terminalByLabel(plc, 'L+')!
+  input.displayName = 'Alimentação PLC'
+  const output = terminalByLabel(ps, '+V1')!
+  const base = { color: 'red', gauge: '1.5mm²', kind: 'power', route: 'orthogonal', bend: .5, flexibility: 'rigid', energized: false } as Wire
+  const joined: Wire = { ...base, id: 'to-ps', fromTerminalId: input.id, toTerminalId: output.id }
+  const open: Wire = { ...base, id: 'open-end', fromTerminalId: input.id, toTerminalId: '', toPoint: { x: 480, y: 40 } }
+  const ghost: Wire = { ...base, id: 'free-near', fromTerminalId: input.id, fromPoint: { x: 80, y: 30 }, toTerminalId: output.id }
+  const connected = terminalConnections(input.id, [plc, ps], [joined, open, ghost])
+  check('inspector lista destino e ponta livre sem contar ponto desligado', connected.length === 2 && connected[0].owner?.id === ps.id && connected[0].terminal?.id === output.id && connected[1].loose)
+  check('nome de apresentação não altera o identificador físico do PLC', input.label === 'L+' && input.displayName === 'Alimentação PLC')
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

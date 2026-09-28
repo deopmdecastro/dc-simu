@@ -131,6 +131,8 @@ export interface Terminal {
   componentId: string
   /** Rótulo impresso no dispositivo real: "A1", "13", "1L1", "U1"… */
   label: string
+  /** Nome de apresentação editável, sem mudar o código elétrico do borne. */
+  displayName?: string
   /** Função lógica usada pelo motor de continuidade */
   kind: TerminalKind
   /** Tipo físico do borne (editável no inspetor) */

@@ -363,7 +363,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     for (const c of components) {
       for (const t of c.terminals) {
         const p = terminalPos(c, t)
-        map.set(t.id, { c, x: p.x, y: p.y, label: `${c.ref}.${t.label}`, color: t.color, energized: t.energized })
+        map.set(t.id, { c, x: p.x, y: p.y, label: `${c.ref}.${t.displayName || t.label}`, color: t.color, energized: t.energized })
       }
     }
     return map
@@ -1061,7 +1061,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
                       toggleTerminal(t.id)
                     }}
                   >
-                    <title>{`${c.ref}.${t.label} — ${t.energized ? 'ENERGIZADO' : 'sem tensão'}`}</title>
+                    <title>{`${c.ref}.${t.displayName || t.label} (${t.label}) — ${t.energized ? 'ENERGIZADO' : 'sem tensão'}`}</title>
                   </circle>
                   {chainIdx >= 0 && (
                     <text x={p.x + 9} y={p.y - 9} fontSize={10} fontWeight="bold" fill="#65a30d" style={{ pointerEvents: 'none' }}>

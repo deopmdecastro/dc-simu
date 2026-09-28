@@ -5,6 +5,7 @@ import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../ty
 import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
 import LabelLibrary from './LabelLibrary'
 import DatasheetPanel from './DatasheetPanel'
+import { terminalConnections } from '../schematic/terminalConnections'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
@@ -134,6 +135,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   const wireToTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.toTerminalId) : undefined
   const selectedTerminal = components.flatMap((c) => c.terminals).find((t) => t.id === selectedTerminalId)
   const terminalOwner = selectedTerminal ? components.find((c) => c.id === selectedTerminal.componentId) : undefined
+  const connections = selectedTerminal ? terminalConnections(selectedTerminal.id, components, wires) : []
 
   const placingType = useSimStore((s) => s.placingType)
 
@@ -616,16 +618,43 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
 
           {/* ---------------------------------------------------- borne */}
           {selectedTerminal && terminalOwner && !selectedComponent && (
-            <section className="space-y-2">
-              <header className="font-semibold text-ink-900 border-b border-line pb-1">Borne {terminalOwner.ref}.{selectedTerminal.label}</header>
-              <p className="text-ink-500">
-                Função: {TERMINAL_KIND_LABEL[selectedTerminal.kind]} · Tipo: {TERMINAL_TYPE_LABEL[selectedTerminal.terminalType]} ·{' '}
-                <span className={selectedTerminal.energized ? 'text-state-run font-semibold' : 'text-ink-400'}>{selectedTerminal.energized ? 'energizado' : 'sem tensão'}</span>
-              </p>
-              <p className="text-ink-500">
-                Nº de cabos ligados: {wires.filter((w) => w.fromTerminalId === selectedTerminal.id || w.toTerminalId === selectedTerminal.id).length}
-              </p>
-              <div className="rounded-lg border border-line bg-white p-2 space-y-2">
+            <section className="space-y-3">
+              <header className="border-b border-line pb-2">
+                <div className="font-semibold text-ink-900">{terminalOwner.ref} · {selectedTerminal.displayName || selectedTerminal.label}</div>
+                <div className="text-[10px] text-ink-400 mt-0.5">Borne físico {selectedTerminal.label} · {selectedTerminal.energized ? '● Energizado' : '○ Sem tensão'}</div>
+              </header>
+              <div className="dc-card p-2.5 space-y-2">
+                <div>
+                  <label className={label} htmlFor="terminal-name">Nome do borne</label>
+                  <input id="terminal-name" className="dc-input" value={selectedTerminal.displayName ?? ''} placeholder={selectedTerminal.label}
+                    onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { displayName: e.target.value })} />
+                  <p className="text-[10px] text-ink-400 mt-1">Nome visível no inspetor; o código elétrico {selectedTerminal.label} mantém-se para não alterar a simulação.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className={label} htmlFor="terminal-kind">Função elétrica</label>
+                    <select id="terminal-kind" className="dc-select" value={selectedTerminal.kind}
+                      onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { kind: e.target.value as TerminalKind })}>
+                      {Object.entries(TERMINAL_KIND_LABEL).map(([kind, name]) => <option key={kind} value={kind}>{name}</option>)}
+                    </select></div>
+                  <div><label className={label} htmlFor="terminal-type">Tipo físico</label>
+                    <select id="terminal-type" className="dc-select" value={selectedTerminal.terminalType}
+                      onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { terminalType: e.target.value as TerminalType })}>
+                      {Object.entries(TERMINAL_TYPE_LABEL).map(([type, name]) => <option key={type} value={type}>{name}</option>)}
+                    </select></div>
+                </div>
+              </div>
+              <details className="dc-inspector-group">
+                <summary>Posição no componente (avançado)</summary>
+                <div className="dc-inspector-group-body grid grid-cols-2 gap-2">
+                  {(['x', 'y'] as const).map((axis) => <div key={axis}>
+                    <label className={label} htmlFor={`terminal-${axis}`}>{axis.toUpperCase()} (0–1)</label>
+                    <input id={`terminal-${axis}`} type="number" min="0" max="1" step="0.01" className="dc-input" value={selectedTerminal[axis]}
+                      onChange={(e) => { const value = Number(e.target.value); if (Number.isFinite(value)) useSimStore.getState().updateTerminal(selectedTerminal.id, { [axis]: Math.min(1, Math.max(0, value)) }) }} />
+                  </div>)}
+                  <p className="col-span-2 text-[10px] text-ink-400">Alterar a posição pode afastar este borne do parafuso físico no modelo 3D.</p>
+                </div>
+              </details>
+              <div className="dc-card p-2.5 space-y-2">
                 <label className={label} htmlFor="terminal-color">Cor deste borne</label>
                 <div className="flex items-center gap-2">
                   <input id="terminal-color" type="color" className="w-9 h-8 cursor-pointer rounded border border-line" value={selectedTerminal.color} onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { color: e.target.value })} />
@@ -634,11 +663,19 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 <div className="flex flex-wrap gap-1.5" aria-label="Cores rápidas dos bornes">
                   {['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#0f172a', '#ffffff'].map((color) => <button key={color} type="button" aria-label={`Aplicar cor ${color}`} title={color} onClick={() => useSimStore.getState().updateTerminal(selectedTerminal.id, { color })} className={`w-6 h-6 rounded-full border-2 ${selectedTerminal.color.toLowerCase() === color ? 'border-brand-600 ring-2 ring-brand-200' : 'border-slate-300'}`} style={{ backgroundColor: color }} />)}
                 </div>
-                <p className="text-[10px] text-ink-400">Altera apenas a identificação visual do borne, não a cor do fio nem a continuidade elétrica.</p>
+                <p className="text-[10px] text-ink-400">Identificação visual; não altera a cor do cabo nem a continuidade elétrica.</p>
               </div>
-              <button className="dc-btn-primary dc-btn" onClick={() => useSimStore.getState().selectComponents([terminalOwner.id])}>
-                Abrir componente
-              </button>
+              <div className="dc-card p-2.5 space-y-2">
+                <div className="flex justify-between items-center"><span className={label + ' !mb-0'}>Ligações</span><span className="text-[10px] text-ink-400">{connections.length} cabo(s)</span></div>
+                {connections.length ? connections.map(({ wire, owner, terminal, loose }) => <div key={wire.id} className="rounded border border-line bg-white p-2 space-y-1">
+                  <div className="flex justify-between items-center gap-2">
+                    <button type="button" className="font-semibold text-brand-600 hover:underline text-left" onClick={() => useSimStore.getState().selectWire(wire.id)}>{wire.number || 'Cabo'} · {wire.color} · {wire.gauge}</button>
+                    <span className={`text-[10px] shrink-0 ${loose ? 'text-amber-700' : 'text-emerald-700'}`}>{loose ? 'Ponta livre' : 'Ligado'}</span>
+                  </div>
+                  <div className="text-[11px] text-ink-600">{owner && terminal ? <>Vai para <button type="button" className="text-brand-600 hover:underline font-medium" onClick={() => useSimStore.getState().selectTerminal(terminal.id)}>{owner.ref}.{terminal.displayName || terminal.label}</button> <span className="text-ink-400">({terminal.label})</span></> : 'Outra ponta livre — sem ligação a um borne'}</div>
+                </div>) : <p className="text-[11px] text-ink-400">Ainda não há cabos ligados a este borne.</p>}
+              </div>
+              <button className="dc-btn-primary dc-btn" onClick={() => useSimStore.getState().selectComponents([terminalOwner.id])}>Abrir componente</button>
             </section>
           )}
         </div>
