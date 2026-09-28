@@ -30,12 +30,16 @@ import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario
 import { createComponent, createTerminal, nextRef, terminalByLabel, upgradeLogoTerminals, upgradeProauto24A } from '../electrical/factory'
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
+import { blankPlcProgram, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 
 export interface Snapshot {
   components: ElectricalComponent[]
   wires: Wire[]
   ladder: LadderRung[]
+  fcBlocks?: { fc1: LadderRung[]; fc2: LadderRung[] }
+  plcPrograms?: Record<string, PlcProgram>
+  activePlcId?: string | null
 }
 
 interface RuntimeExtras {
@@ -43,6 +47,7 @@ interface RuntimeExtras {
   timers: TimerTable
   counters: CounterTable
   rungPowered: Record<string, boolean>
+  plcRuntime: Record<string, { table: AddressTable; timers: TimerTable; counters: CounterTable; rungPowered: Record<string, boolean> }>
   energizedTerminals: Set<string>
   energizedWires: Set<string>
 }
@@ -55,6 +60,9 @@ interface Store extends CircuitState {
   grafcetRuntime: GrafcetRuntime
   setGrafcet: (program: GrafcetProgram) => void
   fcBlocks: Record<'fc1' | 'fc2', LadderRung[]>
+  activePlcId: string | null
+  plcPrograms: Record<string, PlcProgram>
+  setActivePlc: (id: string) => void
   updateFc: (id: 'fc1' | 'fc2', rungs: LadderRung[]) => void
   history: Snapshot[]
   future: Snapshot[]
@@ -252,11 +260,20 @@ function reorderSelection(
   set({ ...patch, dirty: true })
 }
 
+function snapshot(state: Store): Snapshot {
+  return JSON.parse(JSON.stringify({
+    components: state.components, wires: state.wires, ladder: state.ladder.rungs,
+    fcBlocks: state.fcBlocks, activePlcId: state.activePlcId,
+    plcPrograms: programsForSave(state.plcPrograms, state.activePlcId, state.ladder.rungs, state.fcBlocks),
+  })) as Snapshot
+}
+
 const EMPTY_RUNTIME = (): RuntimeExtras => ({
   table: emptyTable(8, 4),
   timers: {},
   counters: {},
   rungPowered: {},
+  plcRuntime: {},
   energizedTerminals: new Set(),
   energizedWires: new Set(),
 })
@@ -288,32 +305,40 @@ function runOneTick(state: Store, dtMs: number) {
   // 1) Primeira passagem — apenas chaves físicas (botões, disjuntores, sensores)
   const pass1 = computeContinuity(components, wires, srcs)
 
-  // 2) Lê as entradas físicas do CLP a partir do resultado real da continuidade
-  const plc = components.find((c) => c.type === 'plcLogo' || c.type === 'plcCompact' || c.type === 'plcSiemensLogo1224RC')
-  let logoPowered = true
-  if (plc) {
+  // 2–4) Cada PLC lê os seus bornes, executa o seu OB1 e escreve as suas
+  // saídas num espaço I/Q/M/T/C independente. O programa ativo é só a vista.
+  const plcs = components.filter(isProgrammablePlc)
+  const selectedId = plcs.some((p) => p.id === state.activePlcId) ? state.activePlcId : plcs[0]?.id
+  if (!plcs.length) {
+    const scan = runScan(ladder, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs)
+    state.runtime.rungPowered = scan.rungPowered
+  }
+  for (const plc of plcs) {
+    const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(8, 4), timers: {}, counters: {}, rungPowered: {} }
+    const table = prior.table
     const logo = plc.type === 'plcSiemensLogo1224RC' ? logoElectricalInputs(plc, components, wires) : null
-    logoPowered = logo?.powered ?? true
-    if (logo) plc.state.powered = logoPowered
+    const powered = logo?.powered ?? true
+    if (logo) plc.state.powered = powered
     for (const t of plc.terminals) {
-      if (/^I[1-8]$/.test(t.label)) state.runtime.table[t.label] = logo
-        ? logoPowered && logo.positive.has(t.id)
+      if (/^I[1-8]$/.test(t.label)) table[t.label] = logo
+        ? powered && logo.positive.has(t.id)
         : pass1.energizedTerminals.has(t.id)
     }
+    const program = plc.id === state.activePlcId ? ladder.rungs
+      : state.plcPrograms[plc.id]?.rungs ?? (state.activePlcId === null && plc.id === plcs[0].id ? ladder.rungs : [])
+    const scan = runScan({ rungs: program }, table, prior.timers, prior.counters, dtMs)
+    state.runtime.plcRuntime[plc.id] = { ...prior, rungPowered: scan.rungPowered }
+    for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = powered && !!scan.table[key]
   }
-
-  // 3) Varredura Ladder
-  const scan = runScan(ladder, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs)
-  state.runtime.rungPowered = scan.rungPowered
-
-  // 3b) GRAFCET do esquema: executa após OB1; ações Q/M do GRAFCET
-  // têm precedência sobre bobinas Ladder no mesmo endereço.
+  if (selectedId) {
+    const active = state.runtime.plcRuntime[selectedId]
+    state.runtime.table = active.table
+    state.runtime.timers = active.timers
+    state.runtime.counters = active.counters
+    state.runtime.rungPowered = active.rungPowered
+  }
+  // GRAFCET global mantém o comportamento anterior sobre a vista ativa.
   state.grafcetRuntime = scanGrafcet(state.grafcet, state.grafcetRuntime, state.runtime.table)
-
-  // 4) Devolve as saídas Q ao CLP para que sua ponte interna ative
-  if (plc) {
-    for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = logoPowered && !!scan.table[key]
-  }
 
   // 5) Segunda passagem — agora com as saídas do CLP ativas
   const pass2 = computeContinuity(components, wires, srcs)
@@ -464,10 +489,27 @@ export const useSimStore = create<Store>((set, get) => ({
   showEmptyWelcome: true,
   dismissEmptyWelcome: () => set({ showEmptyWelcome: false }),
   fcBlocks: { fc1: [], fc2: [] },
+  activePlcId: null,
+  plcPrograms: {},
+  setActivePlc: (id) => {
+    const state = get()
+    if (!state.components.some((c) => c.id === id && isProgrammablePlc(c)) || state.activePlcId === id) return
+    const programs = programsForSave(state.plcPrograms, state.activePlcId, state.ladder.rungs, state.fcBlocks)
+    const prior = programs[id] ?? (state.activePlcId === null && Object.keys(programs).length === 0
+      ? { rungs: state.ladder.rungs, fc1: state.fcBlocks.fc1, fc2: state.fcBlocks.fc2 } : blankPlcProgram())
+    const nextRuntime = state.runtime.plcRuntime[id]
+    set({ activePlcId: id, plcPrograms: programs, ladder: { rungs: prior.rungs }, fcBlocks: { fc1: prior.fc1, fc2: prior.fc2 },
+      runtime: { ...state.runtime, table: nextRuntime?.table ?? emptyTable(8, 4), timers: nextRuntime?.timers ?? {}, counters: nextRuntime?.counters ?? {}, rungPowered: nextRuntime?.rungPowered ?? {} },
+      history: [], future: [], dirty: true })
+    get().step()
+  },
   grafcet: emptyGrafcet(),
   grafcetRuntime: emptyGrafcetRuntime(),
   setGrafcet: (program) => set({ grafcet: program, dirty: true }),
-  updateFc: (id, rungs) => set((state) => ({ fcBlocks: { ...state.fcBlocks, [id]: rungs }, dirty: true })),
+  updateFc: (id, rungs) => {
+    get().commitHistory()
+    set((state) => ({ fcBlocks: { ...state.fcBlocks, [id]: rungs }, dirty: true }))
+  },
   history: [],
   future: [],
   probeResult: null,
@@ -485,6 +527,9 @@ export const useSimStore = create<Store>((set, get) => ({
       showEmptyWelcome: false,
       wires: scenario.wires,
       ladder: scenario.ladder,
+      activePlcId: scenario.components.find(isProgrammablePlc)?.id ?? null,
+      plcPrograms: {},
+      fcBlocks: { fc1: [], fc2: [] },
       grafcet: emptyGrafcet(),
       grafcetRuntime: emptyGrafcetRuntime(),
       tags: [],
@@ -697,7 +742,15 @@ export const useSimStore = create<Store>((set, get) => ({
       const remaining = s.components.filter((c) => !ids.includes(c.id))
       const deadTerminals = new Set(s.components.filter((c) => ids.includes(c.id)).flatMap((c) => c.terminals.map((t) => t.id)))
       const wires = s.wires.filter((w) => !deadTerminals.has(w.fromTerminalId) && !deadTerminals.has(w.toTerminalId))
-      return { components: remaining, wires, selectedComponentIds: [], dirty: true }
+      const living = remaining.filter(isProgrammablePlc)
+      const programs = programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks)
+      const keptPrograms = Object.fromEntries(Object.entries(programs).filter(([id]) => living.some((p) => p.id === id)))
+      const nextId = living.some((p) => p.id === s.activePlcId) ? s.activePlcId : living[0]?.id ?? null
+      const nextProgram = nextId && nextId !== s.activePlcId ? keptPrograms[nextId] ?? blankPlcProgram() : null
+      return { components: remaining, wires, selectedComponentIds: [], dirty: true,
+        activePlcId: nextId, plcPrograms: keptPrograms,
+        ...(nextProgram ? { ladder: { rungs: nextProgram.rungs }, fcBlocks: { fc1: nextProgram.fc1, fc2: nextProgram.fc2 }, history: [], future: [] } : {}),
+      }
     })
     get().step()
   },
@@ -1033,7 +1086,7 @@ export const useSimStore = create<Store>((set, get) => ({
   commitHistory: () => {
     const s = get()
     set({
-      history: [...s.history.slice(-49), { components: JSON.parse(JSON.stringify(s.components)), wires: JSON.parse(JSON.stringify(s.wires)), ladder: JSON.parse(JSON.stringify(s.ladder.rungs)) }],
+      history: [...s.history.slice(-49), snapshot(s)],
       future: [],
     })
   },
@@ -1046,8 +1099,11 @@ export const useSimStore = create<Store>((set, get) => ({
       components: prev.components,
       wires: prev.wires,
       ladder: { rungs: prev.ladder },
+      fcBlocks: prev.fcBlocks ?? s.fcBlocks,
+      plcPrograms: prev.plcPrograms ?? s.plcPrograms,
+      activePlcId: prev.activePlcId !== undefined ? prev.activePlcId : s.activePlcId,
       history: s.history.slice(0, -1),
-      future: [...s.future, { components: JSON.parse(JSON.stringify(s.components)), wires: JSON.parse(JSON.stringify(s.wires)), ladder: JSON.parse(JSON.stringify(s.ladder.rungs)) }],
+      future: [...s.future, snapshot(s)],
     })
     get().step()
   },
@@ -1060,8 +1116,11 @@ export const useSimStore = create<Store>((set, get) => ({
       components: next.components,
       wires: next.wires,
       ladder: { rungs: next.ladder },
+      fcBlocks: next.fcBlocks ?? s.fcBlocks,
+      plcPrograms: next.plcPrograms ?? s.plcPrograms,
+      activePlcId: next.activePlcId !== undefined ? next.activePlcId : s.activePlcId,
       future: s.future.slice(0, -1),
-      history: [...s.history, { components: JSON.parse(JSON.stringify(s.components)), wires: JSON.parse(JSON.stringify(s.wires)), ladder: JSON.parse(JSON.stringify(s.ladder.rungs)) }],
+      history: [...s.history, snapshot(s)],
     })
     get().step()
   },
@@ -1156,12 +1215,14 @@ export const useSimStore = create<Store>((set, get) => ({
     return JSON.stringify(
       {
         app: 'dc-simu',
-        version: 2,
+        version: 3,
         savedAt: new Date().toISOString(),
         components: s.components,
         wires: s.wires,
         ladder: s.ladder,
         fcBlocks: s.fcBlocks,
+        activePlcId: s.activePlcId,
+        plcPrograms: programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks),
         grafcet: s.grafcet,
         tags: s.tags,
         grid: s.grid,
@@ -1180,12 +1241,18 @@ export const useSimStore = create<Store>((set, get) => ({
       const loadedComponents = (parsed.components ?? []).map(upgradeLogoTerminals).map(upgradeProauto24A) as ElectricalComponent[]
       const loadedWires = (parsed.wires ?? []) as Wire[]
       const alignedWires = connectNearWireEnds(loadedComponents, loadedWires)
+      const plcIds = loadedComponents.filter(isProgrammablePlc).map((c) => c.id)
+      const loadedActiveId = plcIds.includes(parsed.activePlcId) ? parsed.activePlcId : plcIds[0] ?? null
+      const programs = (parsed.plcPrograms ?? {}) as Record<string, PlcProgram>
+      const activeProgram = loadedActiveId && programs[loadedActiveId]
       set({
         components: loadedComponents,
         showEmptyWelcome: false,
         wires: alignedWires,
-        ladder: parsed.ladder ?? { rungs: [] },
-        fcBlocks: { fc1: parsed.fcBlocks?.fc1 ?? [], fc2: parsed.fcBlocks?.fc2 ?? [] },
+        ladder: { rungs: activeProgram?.rungs ?? parsed.ladder?.rungs ?? [] },
+        fcBlocks: { fc1: activeProgram?.fc1 ?? parsed.fcBlocks?.fc1 ?? [], fc2: activeProgram?.fc2 ?? parsed.fcBlocks?.fc2 ?? [] },
+        activePlcId: loadedActiveId,
+        plcPrograms: programs,
         grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
         grafcetRuntime: emptyGrafcetRuntime(),
         tags: parsed.tags ?? [],
@@ -1214,6 +1281,8 @@ export const useSimStore = create<Store>((set, get) => ({
       showEmptyWelcome: true,
       ladder: { rungs: [] },
       fcBlocks: { fc1: [], fc2: [] },
+      activePlcId: null,
+      plcPrograms: {},
       grafcet: emptyGrafcet(),
       grafcetRuntime: emptyGrafcetRuntime(),
       tags: [],

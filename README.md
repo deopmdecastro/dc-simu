@@ -407,3 +407,18 @@ ponta inicial e final podem diferir entre si e da cor do condutor. Sem cor
 personalizada, a ponteira segue a cor do borne a que está ligada (ou usa
 cinzento neutro se a ponta estiver livre). **Repor** volta a seguir a cor do
 borne. A cor do borne é editável separadamente no seu próprio inspetor.
+
+### Seletor do PLC a programar
+
+Na vista **Ladder**, a barra acima das abas do programa lista apenas os PLCs
+adicionados ao Esquema (pela referência e modelo). O PLC escolhido tem
+**OB1 e FC1/FC2 próprios**, guardados por ID do componente no projeto; ao
+alternar, o editor apresenta o programa e a tabela de execução desse PLC. Os
+OB1 de todos os PLCs são varridos separadamente, com entradas, saídas,
+memórias, temporizadores e contadores independentes, mesmo quando usam os
+mesmos endereços (`I1`, `Q1` etc.). As FCs mantêm o comportamento atual do
+editor (não são chamadas automaticamente pelo OB1). A tabela de tags e o
+GRAFCET continuam globais ao projeto. Sem PLC no Esquema, fica disponível o
+programa geral existente; projetos anteriores com um único programa são
+atribuídos ao primeiro PLC ao abrir. Guardar em JSON preserva os programas e
+o PLC selecionado.

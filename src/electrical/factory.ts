@@ -597,7 +597,9 @@ export function createComponent(
     locked: false,
     bodyColor: undefined,
     terminals,
-    state: { ...tpl.defaultState, ...stateOverride },
+    // Cada PLC precisa das suas próprias tabelas I/Q/M; o spread superficial
+    // partilhava `outputs` entre instâncias do mesmo modelo.
+    state: { ...structuredClone(tpl.defaultState), ...stateOverride },
     faults: [],
   }
 }

@@ -17,6 +17,8 @@ import { terminalPos } from '../src/schematic/symbols'
 import { terminalConnections } from '../src/schematic/terminalConnections'
 import { wireEndColor } from '../src/schematic/wireEndColor'
 import { wireGeometryForWire } from '../src/schematic/wireGeometry'
+import { isProgrammablePlc } from '../src/ladder/plcPrograms'
+import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
@@ -482,6 +484,37 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('cantos ortogonais substituem curva suave', rigid.d.includes(' Q ') && !rigid.d.includes(' C '))
   const withoutWaypoints = wireGeometryForWire({ ...base, waypoints: [], flexibility: 'rigid' }, a, b)
   check('classificação não muda traçado sem pontos', withoutWaypoints.d === wireGeometryForWire({ ...base, waypoints: [], flexibility: 'flexible' }, a, b).d)
+}
+
+/* Cada PLC tem OB1, FC e tabela de saídas próprios, mesmo com Q1 comum. */
+{
+  const first = createComponent('plcCompact')
+  const second = createComponent('plcCompact', undefined, undefined, 0, 300, 0)
+  const on: LadderRung = { id: 'plc-a-on', name: 'Liga Q1', enabled: true, branches: [{ id: 'b', elements: [] }], coils: [{ kind: 'coil', id: 'q', address: 'Q1', coilType: 'COIL' }] }
+  const off: LadderRung = { id: 'plc-b-off', name: 'Desliga Q1', enabled: false, branches: [{ id: 'b2', elements: [] }], coils: [{ kind: 'coil', id: 'q2', address: 'Q1', coilType: 'COIL' }] }
+  useSimStore.setState({ components: [first, second], wires: [], ladder: { rungs: [on] },
+    activePlcId: first.id, plcPrograms: {}, fcBlocks: { fc1: [on], fc2: [] }, history: [], future: [] })
+  const store = useSimStore.getState()
+  check('só PLCs entram no seletor', [first, second].every(isProgrammablePlc) && !isProgrammablePlc(createComponent('contactor')))
+  store.setActivePlc(second.id)
+  check('novo PLC abre OB1 e FC vazios sem clonar programa', !useSimStore.getState().ladder.rungs.length && !useSimStore.getState().fcBlocks.fc1.length)
+  useSimStore.setState({ ladder: { rungs: [off] } })
+  store.step()
+  check('programas distintos executam saídas Q1 independentes', !!useSimStore.getState().components[0].state.outputs.Q1 && !useSimStore.getState().components[1].state.outputs.Q1)
+  store.setActivePlc(first.id)
+  check('voltar ao PLC restaura OB1 e FC originais', useSimStore.getState().ladder.rungs[0]?.id === on.id && useSimStore.getState().fcBlocks.fc1[0]?.id === on.id)
+  const parsed = JSON.parse(store.saveJSON())
+  check('projeto guarda programas distintos por id estável de PLC', parsed.plcPrograms[first.id].rungs[0].id === on.id && parsed.plcPrograms[second.id].rungs[0].id === off.id)
+  store.loadJSON(JSON.stringify(parsed))
+  check('reabrir projeto restaura PLC ativo e programas', useSimStore.getState().activePlcId === first.id && useSimStore.getState().plcPrograms[second.id].rungs[0].id === off.id)
+  const legacy = { ...parsed, version: 2, activePlcId: undefined, plcPrograms: undefined, ladder: { rungs: [on] } }
+  store.loadJSON(JSON.stringify(legacy))
+  check('projeto antigo atribui programa ao primeiro PLC', useSimStore.getState().activePlcId === first.id && useSimStore.getState().ladder.rungs[0]?.id === on.id)
+  store.setActivePlc(second.id)
+  check('segundo PLC de projeto antigo inicia programa vazio', useSimStore.getState().ladder.rungs.length === 0)
+  store.deleteComponents([second.id])
+  check('ao eliminar PLC ativo volta ao programa do PLC restante', useSimStore.getState().activePlcId === first.id && useSimStore.getState().ladder.rungs[0]?.id === on.id)
+
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

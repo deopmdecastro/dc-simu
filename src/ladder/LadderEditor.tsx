@@ -1,8 +1,9 @@
 import LadderSections, { type LadderSection } from './LadderSections'
-import { useState, type ReactNode } from 'react'
+import { isProgrammablePlc } from './plcPrograms'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
-import type { LadderContact, LadderRung, LadderContactType, LadderCoilType, LadderCoilEl, ComponentType } from '../types'
+import type { LadderContact, LadderRung, LadderContactType, LadderCoilType, LadderCoilEl, ComponentType, ElectricalComponent } from '../types'
 import NetworkDiagram, { type RungSelection } from './NetworkDiagram'
 import { COMPONENT_TO_LADDER, LADDER_MIME, applyKind, isContactKind, setLadderDrag, type DropTarget, type PaletteKind } from './ladderDnd'
 import {
@@ -750,7 +751,9 @@ function ProjectTreePane({
   onSelect,
   onClose,
   onQuickAdd,
+  activePlc,
 }: {
+  activePlc?: ElectricalComponent
   activeNode: ProjectNodeId
   expanded: Set<ProjectNodeId>
   onToggle: (id: ProjectNodeId) => void
@@ -813,7 +816,7 @@ function ProjectTreePane({
         <button className="ladder-ghost-button" title="Recolher projeto" onClick={onClose}>×</button>
       </div>
       <div className="ladder-project-tree">
-        {renderNode(PROJECT_TREE)}
+        {renderNode({ ...PROJECT_TREE, label: activePlc?.ref ?? 'Programa geral', detail: activePlc?.label ?? 'Sem PLC no esquema' })}
       </div>
       <div className="ladder-tools-heading">Ferramentas</div>
       <div className="ladder-tools-grid">
@@ -995,6 +998,14 @@ function FunctionBlockView({ id }: { id: Extract<ProjectNodeId, 'fc1' | 'fc2'> }
 }
 
 function FullLadderEditor({ section, setSection }: { section: LadderSection; setSection: (value: LadderSection) => void }) {
+  const components = useSimStore((s) => s.components)
+  const plcs = components.filter(isProgrammablePlc)
+  const activePlcId = useSimStore((s) => s.activePlcId)
+  const setActivePlc = useSimStore((s) => s.setActivePlc)
+  const plcIds = plcs.map((c) => c.id).join('|')
+  useEffect(() => {
+    if (plcs.length && !plcs.some((c) => c.id === activePlcId)) setActivePlc(plcs[0].id)
+  }, [plcIds, activePlcId, setActivePlc])
   const rungs = useSimStore((s) => s.ladder.rungs)
   const table = useSimStore((s) => s.runtime.table)
   const timers = useSimStore((s) => s.runtime.timers)
@@ -1027,7 +1038,8 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   const isMainOpen = activeProjectNode === 'main'
   const isFcOpen = activeProjectNode === 'fc1' || activeProjectNode === 'fc2'
   const isProgramView = isMainOpen || isFcOpen
-  const activeTitle = NODE_TITLES[activeProjectNode]
+  const activePlc = plcs.find((c) => c.id === activePlcId)
+  const activeTitle = activeProjectNode === 'plc' ? activePlc?.ref ?? 'Programa geral' : NODE_TITLES[activeProjectNode]
 
   const toggleNode = (id: ProjectNodeId) => {
     setExpandedNodes((current) => {
@@ -1075,6 +1087,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           onSelect={selectProjectNode}
           onClose={() => setShowProjectPane(false)}
           onQuickAdd={quickAdd}
+          activePlc={activePlc}
         />
       ) : (
         <button className="ladder-collapsed-pane-button" onClick={() => setShowProjectPane(true)} title="Mostrar projeto">
@@ -1082,6 +1095,15 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
         </button>
       ))}
       <main className="ladder-main-pane">
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-line bg-white text-[11px] shrink-0">
+          <label htmlFor="ladder-target-plc" className="font-semibold text-ink-600 whitespace-nowrap">PLC a programar</label>
+          <select id="ladder-target-plc" className="dc-select !w-auto max-w-[280px]" value={plcs.some((c) => c.id === activePlcId) ? activePlcId! : ''}
+            disabled={!plcs.length} onChange={(e) => setActivePlc(e.target.value)}>
+            {!plcs.length && <option value="">Sem PLC no esquema · programa geral</option>}
+            {plcs.map((c) => <option key={c.id} value={c.id}>{c.ref} · {c.label || c.type}</option>)}
+          </select>
+          <span className="truncate text-ink-400">{plcs.length > 1 ? `${plcs.length} PLCs · programa independente por dispositivo` : plcs.length ? 'Programa deste PLC' : 'Adicione um PLC no Esquema'}</span>
+        </div>
         {section !== 'Projeto' ? <LadderSections section={section} onAdd={(kind) => { quickAdd(kind); setSection('Projeto') }} /> : <>
         <div className="ladder-project-tabs">
           <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}>
