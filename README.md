@@ -366,3 +366,21 @@ não apenas visualmente próximo; o ponto de ligação acompanha movimentos,
 rotação e redimensionamento do componente. Ao abrir projetos anteriores,
 pontas livres guardadas a até 12 unidades de um borne são alinhadas e ligadas
 automaticamente, preservando a outra extremidade do cabo.
+
+### Instalar como aplicação (PWA)
+
+Disponível em computadores, Android e iOS a partir de um endereço **HTTPS**
+(ou `localhost` em desenvolvimento). No Chrome/Edge/Android use **Instalar app**;
+no iOS abra no **Safari → Partilhar → Adicionar ao ecrã principal**. A app
+abre em janela própria, tem ícones e funciona offline após o primeiro acesso
+online; modelos 3D e manuais incluídos no pacote ficam em cache. O primeiro
+carregamento e atualizações exigem internet. Não é um executável nativo nem
+uma extensão; a publicação na App Store/Play Store exigiria empacotamento e
+assinatura adicionais. Os projetos persistem **localmente por dispositivo**:
+exporte o projeto para criar uma cópia de segurança ou o transferir.
+
+A ampliação da **página** por gesto é desativada para manter a interface estável;
+o zoom continua disponível nos editores (pinça no Esquema e Painel 3D, botões
+de zoom no GRAFCET, Ctrl+roda e botões no Esquema). Em ecrãs pequenos, a
+biblioteca e a pré-visualização GRAFCET iniciam recolhidas e abrem sobre a
+área de trabalho.

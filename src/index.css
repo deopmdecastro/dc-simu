@@ -8,6 +8,7 @@ body,
 #root {
   height: 100%;
   margin: 0;
+  touch-action: pan-x pan-y;
 }
 
 body {
@@ -1877,3 +1878,19 @@ button:disabled { cursor:not-allowed; }
 .dc-inspector-terminal-status { display:block; margin-top:5px; color:#94a3b8; font-size:9px; }
 .dc-inspector-terminal-status.is-on { color:#15803d; font-weight:700; }
 .dc-inspector-hero { top:0; }
+
+/* Gestos de zoom reservados aos editores; a interface não amplia com pinça. */
+.schematic-stage svg, .grafcet-canvas, .panel3d-stage canvas { touch-action: none; }
+
+/* OrbitControls recebe os gestos diretamente na área 3D. */
+canvas[data-engine="three.js r169"] { touch-action: none; }
+
+@media (max-width: 799px) {
+  .dc-toolbar-main { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; min-height: 48px; scrollbar-width: thin; }
+  .dc-views-container { order: initial; flex-basis: auto; flex-shrink: 0; }
+  .dc-workspace .dc-resize-handle { display: none; }
+  .dc-workspace .mobile-library-panel { position: absolute; z-index: 22; top: 0; bottom: 0; left: 0; width: min(90vw, 360px) !important; background: white; box-shadow: 5px 0 20px #14234a30; }
+  .dc-workspace .mobile-grafcet-panel { position: absolute; z-index: 21; top: 0; bottom: 0; right: 0; width: min(90vw, 360px) !important; min-width: 0; box-shadow: -5px 0 20px #14234a30; }
+  .dc-workspace .mobile-grafcet-panel.mobile-grafcet-closed { width: 36px !important; box-shadow: none; }
+  footer > span:nth-child(2), footer > span:nth-child(3), footer > span:nth-child(4) { display: none; }
+}

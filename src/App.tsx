@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import InstallApp from './components/InstallApp'
 import Toolbar, { type ViewMode } from './components/Toolbar'
 import Sidebar from './components/Sidebar'
 import LadderEditor from './ladder/LadderEditor'
@@ -15,8 +16,8 @@ const AUTOSAVE_INTERVAL_MS = 15_000
 export default function App() {
   const [mode, setMode] = useState<ViewMode>('schematic')
   const [ladderSection, setLadderSection] = useState<LadderSection>('Projeto')
-  const [showLadder, setShowLadder] = useState(true)
-  const [showLibrary, setShowLibrary] = useState(true)
+  const [showLadder, setShowLadder] = useState(() => window.innerWidth >= 800)
+  const [showLibrary, setShowLibrary] = useState(() => window.innerWidth >= 800)
   const [panelSizes, setPanelSizes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('dcsimu:workspace:panels') ?? '{}')
@@ -108,10 +109,10 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
       <Toolbar mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection} />
-      <div className="flex-1 flex min-h-0 dc-workspace">
+      <div className="flex-1 flex min-h-0 dc-workspace relative">
         {(mode === 'schematic' || mode === 'panel3d') && showLibrary && (
           <>
-            <div className="relative shrink-0 flex flex-col" style={{ width: panelSizes.sidebar }}>
+            <div className="mobile-library-panel relative shrink-0 flex flex-col" style={{ width: panelSizes.sidebar }}>
               <Sidebar width={panelSizes.sidebar} />
               <button className="dc-dock-close" onClick={() => setShowLibrary(false)} title="Recolher biblioteca e inspetor" aria-label="Recolher biblioteca e inspetor">◂</button>
             </div>
@@ -136,7 +137,7 @@ export default function App() {
         </div>
         {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && (
           <div
-            className={`${showLadder ? 'min-w-[320px]' : 'w-9'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
+            className={`${showLadder ? 'min-w-[320px]' : 'w-9'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder ? { width: panelSizes.ladder } : undefined}
           >
             {showLadder ? (
@@ -202,6 +203,7 @@ export default function App() {
           <span className={warnings ? 'text-state-pause font-semibold' : 'text-ink-400'}>{warnings} aviso(s)</span>
         </span>
         <span className="ml-auto font-mono tabular-nums text-ink-500">scan #{scanCount}</span>
+        <InstallApp />
       </footer>
     </div>
   )

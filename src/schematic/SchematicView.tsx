@@ -322,6 +322,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   } = useSimStore()
 
   const svgRef = useRef<SVGSVGElement>(null)
+  const pinchRef = useRef<{ distance: number; zoom: number; worldX: number; worldY: number } | null>(null)
   const [drag, setDrag] = useState<{ ids: string[]; startX: number; startY: number; orig: Record<string, { x: number; y: number }> } | null>(null)
   const [wireFrom, setWireFrom] = useState<string | null>(null)
   const [freeStart, setFreeStart] = useState<Pt | null>(null)
@@ -379,8 +380,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     if (!svg) return { x: 0, y: 0 }
     const rect = svg.getBoundingClientRect()
     return {
-      x: (clientX - rect.left) / zoom - panX,
-      y: (clientY - rect.top) / zoom - panY,
+      x: (clientX - rect.left - panX) / zoom,
+      y: (clientY - rect.top - panY) / zoom,
     }
   }
 
@@ -536,7 +537,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
   const onMouseMove = (e: React.MouseEvent) => {
     if (panning) {
-      setPan(panning.px + (e.clientX - panning.sx) / zoom, panning.py + (e.clientY - panning.sy) / zoom)
+      setPan(panning.px + e.clientX - panning.sx, panning.py + e.clientY - panning.sy)
       return
     }
     const p = toCanvas(e.clientX, e.clientY)
@@ -612,6 +613,26 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     setPanning(null)
   }
 
+  const onTouchStart = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.touches.length !== 2) return
+    e.preventDefault()
+    const [a, b] = [e.touches[0], e.touches[1]]
+    const centerX = (a.clientX + b.clientX) / 2
+    const centerY = (a.clientY + b.clientY) / 2
+    const world = toCanvas(centerX, centerY)
+    pinchRef.current = { distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), zoom, worldX: world.x, worldY: world.y }
+  }
+  const onTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.touches.length !== 2 || !pinchRef.current || !svgRef.current) return
+    e.preventDefault()
+    const [a, b] = [e.touches[0], e.touches[1]]
+    const original = pinchRef.current
+    const nextZoom = Math.min(3, Math.max(0.25, original.zoom * Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) / Math.max(1, original.distance)))
+    const rect = svgRef.current.getBoundingClientRect()
+    setZoom(nextZoom)
+    setPan((a.clientX + b.clientX) / 2 - rect.left - original.worldX * nextZoom, (a.clientY + b.clientY) / 2 - rect.top - original.worldY * nextZoom)
+  }
+
   const onCanvasDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setDropPos(null)
@@ -631,7 +652,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     e.preventDefault()
     const factor = e.deltaY < 0 ? 1.1 : 0.9
     if (e.ctrlKey) setZoom(zoom * factor)
-    else setPan(panX - e.deltaX / zoom, panY - e.deltaY / zoom)
+    else setPan(panX - e.deltaX, panY - e.deltaY)
   }
 
   const startDrag = (e: React.MouseEvent, c: ElectricalComponent) => {
@@ -920,6 +941,9 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
          onMouseUp={onMouseUp}
          onMouseLeave={onMouseUp}
          onWheel={onWheel}
+         onTouchStart={onTouchStart}
+         onTouchMove={onTouchMove}
+         onTouchEnd={(e) => { if (e.touches.length < 2) pinchRef.current = null }}
          onContextMenu={(e) => e.preventDefault()}
          onDragOver={(e) => {
            e.preventDefault()
