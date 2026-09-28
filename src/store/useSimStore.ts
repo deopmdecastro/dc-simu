@@ -614,7 +614,7 @@ export const useSimStore = create<Store>((set, get) => ({
   setPlacingType: (t) => set({ placingType: t, tool: t ? 'select' : get().tool }),
   dragType: null,
   setDragType: (t) => set({ dragType: t }),
-  wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'flexible', endType: 'ferrule' },
+  wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'rigid', endType: 'ferrule' },
   setWireDefaults: (patch) => set((s) => ({ wireDefaults: { ...s.wireDefaults, ...patch } })),
 
   addComponent: (type, x, y) => {
@@ -803,7 +803,7 @@ export const useSimStore = create<Store>((set, get) => ({
       id: nanoid(8), fromTerminalId: from.terminalId ?? '', toTerminalId: to.terminalId ?? '',
       fromPoint: from.point, toPoint: to.point, waypoints,
       color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
-      endType: defs.endType, route: 'direct', bend: 0.5, curveOffset: 0,
+      endType: defs.endType, route: 'orthogonal', bend: 0.5, curveOffset: 0,
       number: `W${get().wires.length + 1}`, energized: false,
     }
     set((state) => ({ wires: [...state.wires, wire], selectedWireId: wire.id, dirty: true }))

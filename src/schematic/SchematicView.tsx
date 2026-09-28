@@ -324,6 +324,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const [drag, setDrag] = useState<{ ids: string[]; startX: number; startY: number; orig: Record<string, { x: number; y: number }> } | null>(null)
   const [wireFrom, setWireFrom] = useState<string | null>(null)
   const [freeStart, setFreeStart] = useState<Pt | null>(null)
+  const [activeWireId, setActiveWireId] = useState<string | null>(null)
   const [draftPoints, setDraftPoints] = useState<Pt[]>([])
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const [panning, setPanning] = useState<{ sx: number; sy: number; px: number; py: number } | null>(null)
@@ -367,7 +368,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   }, [components])
 
   useEffect(() => {
-    if (tool !== 'wire' || gridDragEnabled) { setChain([]); setWireFrom(null); setFreeStart(null); setDraftPoints([]) }
+    if (tool !== 'wire' || gridDragEnabled) { setChain([]); setWireFrom(null); setFreeStart(null); setDraftPoints([]); setActiveWireId(null) }
   }, [tool, gridDragEnabled])
 
   const snap = (v: number) => (grid.snap ? Math.round(v / grid.size) * grid.size : v)
@@ -385,6 +386,18 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   // ---------------------------------------------------------------- teclado
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setWireFrom(null)
+        setFreeStart(null)
+        setDraftPoints([])
+        setActiveWireId(null)
+        setChain([])
+        useSimStore.getState().setGridDragEnabled(false)
+        useSimStore.getState().setPlacingType(null)
+        selectComponents([])
+        clearProbe()
+        return
+      }
       const target = e.target as HTMLElement
       if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -394,15 +407,6 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         rotateComponent(selectedIds[0])
       } else if (e.key.toLowerCase() === 'd' && selectedIds.length) {
         duplicateComponents(selectedIds)
-      } else if (e.key === 'Escape') {
-        useSimStore.getState().setGridDragEnabled(false)
-        setWireFrom(null)
-        setFreeStart(null)
-        setDraftPoints([])
-        setChain([])
-        selectComponents([])
-        clearProbe()
-        useSimStore.getState().setPlacingType(null)
       } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         useSimStore.getState().undo()
@@ -486,16 +490,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       setPanning({ sx: e.clientX, sy: e.clientY, px: panX, py: panY })
       return
     }
-    if (e.button === 2 && tool === 'wire' && (wireFrom || freeStart)) {
-      // botão direito durante o desenho de cabo: cancela o cabo pendente
-      // (o mesmo que Escape), sem fechar o menu de contexto do browser.
-      e.preventDefault()
-      setWireFrom(null)
-      setFreeStart(null)
-      setDraftPoints([])
-      setChain([])
-      return
-    }
+    if (e.button === 2 && tool === 'wire') return
     if (tool === 'select') {
       const p = toCanvas(e.clientX, e.clientY)
       setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y })
@@ -504,16 +499,30 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     if (tool === 'wire' && e.button === 0) {
       const p = toCanvas(e.clientX, e.clientY)
       const point = { x: snap(p.x), y: snap(p.y) }
-      if ((wireFrom || freeStart) && e.shiftKey) {
-        setDraftPoints((points) => [...points, point])
-      } else if (wireFrom) {
-        addFreeWire({ terminalId: wireFrom }, { point }, draftPoints)
-        setWireFrom(null)
-        setDraftPoints([])
-      } else if (freeStart) {
-        addFreeWire({ point: freeStart }, { point }, draftPoints)
-        setFreeStart(null)
-        setDraftPoints([])
+      if (wireFrom || freeStart) {
+        // Cada clique prolonga o mesmo cabo; Esc apenas termina o traçado.
+        // A extremidade anterior torna-se waypoint, mantendo um único cabo
+        // e a continuidade elétrica quando a outra ponta chegar a um borne.
+        if (activeWireId && freeStart) {
+          const current = useSimStore.getState().wires.find((w) => w.id === activeWireId)
+          if (current && Math.hypot(freeStart.x - point.x, freeStart.y - point.y) >= 5) {
+            commitHistory()
+            updateWire(activeWireId, { toPoint: point, waypoints: [...(current.waypoints ?? []), ...draftPoints, freeStart] })
+            setFreeStart(point)
+            setDraftPoints([])
+          }
+        } else if (wireFrom) {
+          addFreeWire({ terminalId: wireFrom }, { point }, draftPoints)
+          setActiveWireId(useSimStore.getState().wires.slice(-1)[0]?.id ?? null)
+          setWireFrom(null)
+          setFreeStart(point)
+          setDraftPoints([])
+        } else if (freeStart && Math.hypot(freeStart.x - point.x, freeStart.y - point.y) >= 5) {
+          addFreeWire({ point: freeStart }, { point }, draftPoints)
+          setActiveWireId(useSimStore.getState().wires.slice(-1)[0]?.id ?? null)
+          setFreeStart(point)
+          setDraftPoints([])
+        }
       } else setFreeStart(point)
       setCursorPos(point)
     }
@@ -654,15 +663,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const onTerminalDown = (e: React.MouseEvent, terminalId: string) => {
     e.stopPropagation()
     if (tool === 'wire') {
-      if (e.button === 2) {
-        // botão direito num borne: cancela o cabo em curso (equivalente ao Escape)
-        e.preventDefault()
-        setWireFrom(null)
-        setFreeStart(null)
-        setDraftPoints([])
-        setChain([])
-        return
-      }
+      if (e.button !== 0) return
       // Shift+clique acumula bornes numa cadeia para ligação inteligente:
       // ao confirmar, todos são interligados em sequência e o roteamento já
       // sai organizado (sem sobreposição).
@@ -671,8 +672,16 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         return
       }
       if (freeStart) {
-        addFreeWire({ point: freeStart }, { terminalId }, draftPoints)
+        if (activeWireId) {
+          const current = useSimStore.getState().wires.find((w) => w.id === activeWireId)
+          if (current) {
+            commitHistory()
+            updateWire(activeWireId, { toTerminalId: terminalId, toPoint: undefined, waypoints: [...(current.waypoints ?? []), ...draftPoints] })
+          }
+        } else addFreeWire({ point: freeStart }, { terminalId }, draftPoints)
+        setActiveWireId(null)
         setFreeStart(null)
+        setWireFrom(terminalId)
         setDraftPoints([])
       } else if (!wireFrom) {
         setWireFrom(terminalId)
@@ -772,6 +781,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         >
           <title>{`Cabo ${w.number ?? ''} · ${w.gauge} · ${flexible ? 'flexível' : 'rígido'} · ${w.color} — clique = editar · duplo clique = adicionar ponto de curva`}</title>
         </path>
+        <circle cx={a.x} cy={a.y} r={3.4} fill="white" stroke={col} strokeWidth={1.5} pointerEvents="none" />
+        <circle cx={b.x} cy={b.y} r={3.4} fill="white" stroke={col} strokeWidth={1.5} pointerEvents="none" />
         <WireEnd p={a} dir={endDir(pts, true)} type={endType} color={col} />
         <WireEnd p={b} dir={endDir(pts, false)} type={endType} color={col} />
         {endType === 'none' && !w.fromPoint && <circle cx={a.x} cy={a.y} r={2.5} fill={col} pointerEvents="none" />}
@@ -836,8 +847,19 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     )
   }
 
+  const modelBounds = (c: ElectricalComponent) => {
+    const imgW = Math.min(c.w, c.h * 560 / 720)
+    const imgH = Math.min(c.h, c.w * 720 / 560)
+    const isLogo = c.type === 'plcSiemensLogo1224RC'
+    const bodyW = imgW * (isLogo ? 0.87 : 0.59)
+    const bodyH = imgH * 0.91
+    return { x: (c.w - bodyW) / 2, y: (c.h - bodyH) / 2, w: bodyW, h: bodyH }
+  }
+
   const renderComponentEl = (c: ElectricalComponent) => {
     const selected = selectedIds.includes(c.id)
+    const model = (c.type === 'plcSiemensLogo1224RC' && logoImages) || (c.type === 'powerSupplyProauto24A' && proautoImage)
+    const bounds = model ? modelBounds(c) : { x: 0, y: 0, w: c.w, h: c.h }
     return (
       <g
         key={c.id}
@@ -849,19 +871,19 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         }}
         style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? 'move' : 'inherit', opacity: c.locked ? 0.85 : 1 }}
       >
-        {selected && <rect x={-6} y={-6} width={c.w + 12} height={c.h + 12} rx={6} fill="none" stroke="#2655e5" strokeWidth={1.5} strokeDasharray="5 3" />}
+        {selected && <rect x={bounds.x - 4} y={bounds.y - 4} width={bounds.w + 8} height={bounds.h + 8} rx={6} fill="none" stroke="#2655e5" strokeWidth={1.5} strokeDasharray="5 3" />}
         {c.type === 'powerSupplyProauto24A' && proautoImage ? (
           <>
-            <image x={0} y={0} width={c.w} height={c.h} href={proautoImage} preserveAspectRatio="xMidYMid meet" />
-            <rect x={0} y={0} width={c.w} height={c.h} fill="transparent" />
+            <image x={0} y={0} width={c.w} height={c.h} href={proautoImage} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
             <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
         ) : c.type === 'plcSiemensLogo1224RC' && logoImages ? (
           <>
-            <image x={0} y={0} width={c.w} height={c.h} href={c.state.powered ? logoImages.on : logoImages.off} preserveAspectRatio="xMidYMid meet" />
+            <image x={0} y={0} width={c.w} height={c.h} href={c.state.powered ? logoImages.on : logoImages.off} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             {/* Alvos de seleção e bornes mantêm-se nas coordenadas reais do esquema. */}
-            <rect x={0} y={0} width={c.w} height={c.h} fill="transparent" />
+            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
             {/* Zonas dos botões do modelo: continuam operacionais na vista frontal. */}
             {(['up', 'down', 'left', 'right', 'ESC', 'OK'] as const).map((button) => {
@@ -925,7 +947,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
           {/* cabo em construção */}
           {pendingFrom && draftPoints.map((point, i) => <circle key={`draft-${i}`} cx={point.x} cy={point.y} r={4} fill="white" stroke="#2563eb" strokeWidth={2} pointerEvents="none" />)}
-          {pendingFrom && cursorPos && <path d={sharpPath([pendingFrom, ...draftPoints, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : cursorPos])} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
+          {pendingFrom && cursorPos && <path d={wireGeometry(pendingFrom, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : cursorPos, 'orthogonal', 0.5, 0, draftPoints, false).d} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
           {/* alvos clicáveis dos bornes (acima de tudo) */}
           {components.map((c) =>
             c.terminals.map((t) => {
@@ -1109,9 +1131,9 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       )}
 
       {tool === 'wire' && !gridDragEnabled && <div className="absolute right-3 top-3 z-10 dc-wire-guide">
-        <strong>Desenhar fio</strong><span>{wireFrom || freeStart ? 'Clique para terminar · Shift+clique no vazio adiciona uma dobra.' : 'Clique num borne ou no espaço vazio para começar.'}</span>
-        <small>Shift+clique adiciona pontos durante o desenho · duplo clique num fio pronto adiciona um ponto · Esc cancela.</small>
-        {(wireFrom || freeStart) && <button className="dc-btn" onClick={() => { setWireFrom(null); setFreeStart(null); setDraftPoints([]) }}>Cancelar</button>}
+        <strong>Desenhar fio</strong><span>{wireFrom || freeStart ? 'Clique para continuar a desenhar; Esc termina. Clique num borne para ligar a ponta.' : 'Clique num borne ou no espaço vazio para começar.'}</span>
+        <small>Cada clique prolonga o cabo rígido · bornes ligam a ponta · Esc termina o desenho.</small>
+
       </div>}
       <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
         {showHints && (
