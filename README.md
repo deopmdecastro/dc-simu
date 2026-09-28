@@ -482,3 +482,22 @@ dashboard e guarde o conteúdo importado no servidor.
 Para desenvolvimento local: `npm ci`, `npm start` (API na porta 3000) e
 `npm run dev` (Vite com proxy `/api`). Defina `DATA_DIR` para escolher o
 caminho persistente da base SQLite.
+
+### Administrador inicial de teste
+
+Copie `.env.example` para `.env`, substitua **ambas** as variáveis por um
+email e uma senha forte e execute `docker compose up --build -d`. No primeiro
+arranque, `ADMIN_EMAIL` e `ADMIN_PASSWORD` criam uma conta com papel `admin`.
+A senha **não** é versionada nem exibida. Se o email já pertencer a uma conta
+normal, o serviço recusa iniciar em vez de a promover silenciosamente. Nos
+arranques seguintes a senha existente não é redefinida pelas variáveis; guarde
+a senha em segurança. Depois de criar a conta pode retirar `ADMIN_PASSWORD`
+do ambiente, desde que retire também `ADMIN_EMAIL` (ambas vazias).
+
+Após iniciar sessão, a opção **Administração** permite ver contas e projetos,
+e apagar contas normais ou projetos (operações permanentes). Apagar uma conta
+apaga também os projetos de que é proprietária; administradores não podem ser
+apagados pela interface. A conta admin continua sujeita às permissões normais
+no editor: o painel administrativo **não** permite abrir ou alterar o conteúdo
+dos projetos de outros utilizadores. Use esta conta apenas para testes e
+administração, nunca distribua a palavra-passe de administração.

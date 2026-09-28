@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import App from './App'
 import { useSimStore } from './store/useSimStore'
 
-type User = { id: string; name: string; email: string }
+type User = { id: string; name: string; email: string; role: 'admin' | 'user' }
 type Project = { id: string; name: string; revision: number; owner: string; role: 'owner' | 'editor'; updated_at: string }
 type Invite = { id: string; project: string; sender: string }
 type Open = { id: string; name: string; revision: number }
@@ -15,7 +15,7 @@ async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
 export default function Account() {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
-  const [page, setPage] = useState<'landing' | 'login' | 'register' | 'dashboard' | 'editor'>('landing')
+  const [page, setPage] = useState<'landing' | 'login' | 'register' | 'dashboard' | 'editor' | 'admin'>('landing')
   const [projects, setProjects] = useState<Project[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
   const [open, setOpen] = useState<Open | null>(null)
@@ -71,11 +71,30 @@ export default function Account() {
   if(!ready)return <div className="account-shell">A carregar DC-SIMU…</div>
   if(page==='editor' && open)return <><div className="account-bar"><span>{user?.name} · {open.name}</span><span>{message}</span><button onClick={()=>void save()}>Guardar no servidor</button><button onClick={()=>void leave()}>Projetos</button></div><div style={{height:'calc(100vh - 38px)'}}><App onBack={()=>void leave()} onSave={()=>void save()}/></div></>
   return <main className="account-shell">
-    <header className="account-header"><b>◈ DC-SIMU</b><nav>{user ? <><span>{user.name}</span><button onClick={()=>void logout()}>Sair</button></> : <><button onClick={()=>setPage('login')}>Entrar</button><button className="account-primary" onClick={()=>setPage('register')}>Criar conta</button></>}</nav></header>
+    <header className="account-header"><b>◈ DC-SIMU</b><nav>{user ? <><span>{user.name}</span>{user.role==='admin'&&<button onClick={()=>setPage('admin')}>Administração</button>}<button onClick={()=>void logout()}>Sair</button></> : <><button onClick={()=>setPage('login')}>Entrar</button><button className="account-primary" onClick={()=>setPage('register')}>Criar conta</button></>}</nav></header>
     {message && <div className="account-alert" role="alert">{message}<button onClick={()=>setMessage('')}>×</button></div>}
     {page==='landing' && <section className="account-hero"><div className="account-pill">DESENHE · PROGRAME · SIMULE</div><h1>Da ideia ao painel.<br/><em>Num só espaço.</em></h1><p>Crie esquemas elétricos, programe em Ladder, visualize o painel em 3D e partilhe projetos com a sua equipa.</p><button className="account-primary" onClick={()=>setPage('register')}>Começar gratuitamente →</button><button onClick={()=>setPage('login')}>Já tenho conta</button><div className="account-features"><article><strong>01 / ESQUEMA</strong><h3>Desenhe ligações reais</h3><p>Componentes, bornes, cabos e simulação elétrica.</p></article><article><strong>02 / LÓGICA</strong><h3>Do Ladder à execução</h3><p>Programe PLCs e acompanhe o scan em tempo real.</p></article><article><strong>03 / EQUIPA</strong><h3>Colabore num projeto</h3><p>Convide editores por email e trabalhe no mesmo projeto.</p></article></div></section>}
     {(page==='login'||page==='register')&&<section className="account-card"><span className="account-pill">A SUA ÁREA DE TRABALHO</span><h1>{page==='register'?'Criar conta':'Bem-vindo de volta'}</h1><p>Os seus projetos ficam guardados no servidor.</p><form onSubmit={authenticate}>{page==='register'&&<label>Nome<input required minLength={2} autoComplete="name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>}<label>Email<input required type="email" autoComplete="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label><label>Palavra-passe<input required minLength={page==='register'?10:1} type="password" autoComplete={page==='register'?'new-password':'current-password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/></label><button className="account-primary" disabled={busy}>{busy?'Aguarde…':page==='register'?'Criar conta':'Entrar'}</button></form><p>{page==='register'?'Já tem conta?':'Ainda não tem conta?'} <button onClick={()=>{setMessage('');setPage(page==='register'?'login':'register')}}>{page==='register'?'Entrar':'Registar'}</button></p></section>}
+    {page==='admin'&&user?.role==='admin'&&<AdminPanel onBack={()=>setPage('dashboard')}/>}
     {page==='dashboard'&&<section className="account-dashboard"><span className="account-pill">ÁREA DE PROJETOS</span><h1>Os seus projetos<span>.</span></h1><p>Olá, {user?.name}. Continue um projeto ou comece algo novo.</p><button className="account-primary" onClick={()=>void create()}>＋ Novo projeto</button>{invites.length>0&&<div className="account-invites"><h2>Convites pendentes</h2>{invites.map(i=><div key={i.id}><b>{i.project}</b> · convite de {i.sender} <button onClick={()=>void reply(i.id,'accept')}>Aceitar</button><button onClick={()=>void reply(i.id,'reject')}>Recusar</button></div>)}</div>}<div className="account-grid">{projects.map(p=><article key={p.id}><span className="account-pill">{p.role==='owner'?'PROPRIETÁRIO':'EDITOR'}</span><h2>{p.name}</h2><p>Por {p.owner} · {new Date(p.updated_at).toLocaleDateString('pt-PT')}</p><div><button className="account-primary" onClick={()=>void load(p.id)}>Abrir →</button>{p.role==='owner'&&<><button onClick={()=>void invite(p.id)}>Convidar</button><button onClick={()=>setInviteFor(inviteFor===p.id?null:p.id)}>Membros</button><button onClick={()=>void remove(p)}>Eliminar</button></>}</div>{inviteFor===p.id&&<Members id={p.id}/>}</article>)}{!projects.length&&<div className="account-empty">Ainda não há projetos. Crie o primeiro para começar.</div>}</div></section>}
   </main>
 }
 function Members({id}:{id:string}) {const [members,setMembers]=useState<{name:string;email:string}[]>([]);useEffect(()=>{api<{members:{name:string;email:string}[]}>('/projects/'+id+'/members').then(r=>setMembers(r.members)).catch(()=>{})},[id]);return <small>Editores: {members.length?members.map(m=>`${m.name} (${m.email})`).join(', '):'nenhum'}</small>}
+
+type AdminUser = User & { projects: number }
+type AdminProject = { id: string; name: string; owner: string; updated_at: string }
+function AdminPanel({onBack}:{onBack:()=>void}) {
+  const [users,setUsers]=useState<AdminUser[]>([])
+  const [projects,setProjects]=useState<AdminProject[]>([])
+  const [error,setError]=useState('')
+  const reload=useCallback(async()=>{try{const [u,p]=await Promise.all([api<AdminUser[]>('/admin/users'),api<AdminProject[]>('/admin/projects')]);setUsers(u);setProjects(p);setError('')}catch(e){setError(e instanceof Error?e.message:'Falha na administração')}},[])
+  useEffect(()=>{void reload()},[reload])
+  async function remove(type:'users'|'projects',id:string,label:string){
+    if(!confirm(`Eliminar permanentemente ${label}? Esta ação não pode ser anulada.`))return
+    try{await api(`/admin/${type}/${id}`,'DELETE');await reload()}catch(e){setError(e instanceof Error?e.message:'Falha ao eliminar')}
+  }
+  return <section className="account-dashboard account-admin"><button onClick={onBack}>← Projetos</button><span className="account-pill">ACESSO RESTRITO</span><h1>Administração<span>.</span></h1><p>Gestão global de contas e projetos. Eliminar uma conta remove também os projetos de que é proprietária.</p>{error&&<p role="alert">{error}</p>}
+    <h2>Utilizadores · {users.length}</h2><div className="account-admin-list">{users.map(u=><div key={u.id}><span><strong>{u.name}</strong> · {u.email} · {u.role} · {u.projects} projeto(s)</span>{u.role!=='admin'&&<button onClick={()=>void remove('users',u.id,`a conta ${u.email} e os seus projetos`)}>Eliminar conta</button>}</div>)}</div>
+    <h2>Projetos · {projects.length}</h2><div className="account-admin-list">{projects.map(p=><div key={p.id}><span><strong>{p.name}</strong> · {p.owner}</span><button onClick={()=>void remove('projects',p.id,`o projeto ${p.name}`)}>Eliminar projeto</button></div>)}</div>
+  </section>
+}

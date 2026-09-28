@@ -21,6 +21,19 @@ const id = () => randomBytes(16).toString('hex')
 const hash = s => createHash('sha256').update(s).digest('hex')
 const pwd = p => { const salt = randomBytes(16).toString('hex'); return salt + ':' + scryptSync(p, salt, 64).toString('hex') }
 const verify = (p, saved) => { const [salt, expected] = saved.split(':'); return timingSafeEqual(scryptSync(p, salt, 64), Buffer.from(expected, 'hex')) }
+// Migração não destrutiva das bases existentes.
+if (!db.prepare("PRAGMA table_info(users)").all().some(column => column.name === 'role')) db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
+const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
+const adminPassword = process.env.ADMIN_PASSWORD || ''
+if (adminEmail || adminPassword) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail) || adminPassword.length < 12) throw new Error('ADMIN_EMAIL e ADMIN_PASSWORD (mín. 12 caracteres) são obrigatórios para criar o administrador')
+  const existing = db.prepare('SELECT id,role FROM users WHERE email=?').get(adminEmail)
+  if (existing && existing.role !== 'admin') throw new Error('ADMIN_EMAIL já pertence a um utilizador normal. Escolha outro email; não há promoção automática.')
+  if (!existing) {
+    db.prepare('INSERT INTO users(id,email,name,password,role) VALUES (?,?,?,?,?)').run(id(),adminEmail,'Admin',pwd(adminPassword),'admin')
+    console.log('Conta administrativa inicial criada.')
+  }
+}
 const fail = (res, code, message) => res.status(code).json({ error: message })
 const cookie = req => (req.headers.cookie || '').split(';').map(s => s.trim()).find(s => s.startsWith('dc_session='))?.slice(11)
 app.use('/api', (req, res, next) => {
@@ -30,10 +43,11 @@ app.use('/api', (req, res, next) => {
     if (origin && origin !== process.env.PUBLIC_ORIGIN && (() => { try { return new URL(origin).host !== req.get('host') } catch { return true } })()) return fail(res, 403, 'Origem inválida')
   }
   const token = cookie(req)
-  req.user = token ? db.prepare('SELECT users.id,users.email,users.name FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>?').get(hash(token), Date.now()) : null
+  req.user = token ? db.prepare('SELECT users.id,users.email,users.name,users.role FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>?').get(hash(token), Date.now()) : null
   next()
 })
 const auth = (req,res,next) => req.user ? next() : fail(res,401,'Inicie sessão')
+const admin = (req,res,next) => req.user.role === 'admin' ? next() : fail(res,403,'Acesso reservado ao administrador')
 const project = (req,res,next) => {
   const p = db.prepare(`SELECT p.*, CASE WHEN p.owner_id=? THEN 'owner' ELSE 'editor' END role FROM projects p WHERE p.id=? AND (p.owner_id=? OR EXISTS (SELECT 1 FROM members m WHERE m.project_id=p.id AND m.user_id=?))`).get(req.user.id,req.params.id,req.user.id,req.user.id)
   if (!p) return fail(res,404,'Projeto não encontrado ou sem acesso')
@@ -42,7 +56,7 @@ const project = (req,res,next) => {
 app.post('/api/register',(req,res) => {
   const email=String(req.body.email||'').trim().toLowerCase(), name=String(req.body.name||'').trim(), password=String(req.body.password||'')
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || name.length<2 || name.length>100 || password.length<10 || password.length>256) return fail(res,400,'Nome, email e palavra-passe de pelo menos 10 caracteres obrigatórios')
-  try { db.prepare('INSERT INTO users VALUES (?,?,?,?)').run(id(),email,name,pwd(password)); return login(email,password,req,res) } catch { return fail(res,409,'Email já registado') }
+  try { db.prepare('INSERT INTO users(id,email,name,password) VALUES (?,?,?,?)').run(id(),email,name,pwd(password)); return login(email,password,req,res) } catch { return fail(res,409,'Email já registado') }
 })
 function login(email,password,req,res) {
   const user=db.prepare('SELECT * FROM users WHERE email=?').get(email)
@@ -50,7 +64,7 @@ function login(email,password,req,res) {
   const token=randomBytes(32).toString('hex')
   db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(hash(token),user.id,Date.now()+30*86400000)
   res.setHeader('Set-Cookie',`dc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${req.secure || req.get('x-forwarded-proto') === 'https' ? '; Secure' : ''}`)
-  res.json({user:{id:user.id,name:user.name,email:user.email}})
+  res.json({user:{id:user.id,name:user.name,email:user.email,role:user.role}})
 }
 app.post('/api/login',(req,res)=>login(String(req.body.email||'').trim().toLowerCase(),String(req.body.password||''),req,res))
 app.get('/api/me',auth,(req,res)=>res.json({user:req.user}))
@@ -88,6 +102,28 @@ app.post('/api/invitations/:id/:action',auth,(req,res)=>{
  if(!inv)return fail(res,404,'Convite não encontrado')
  if(!['accept','reject'].includes(req.params.action))return fail(res,400,'Ação inválida')
  db.transaction(()=>{if(req.params.action==='accept')db.prepare('INSERT OR IGNORE INTO members VALUES (?,?)').run(inv.project_id,req.user.id);db.prepare('DELETE FROM invitations WHERE id=?').run(inv.id)})()
+ res.json({ok:true})
+})
+// Rotas administrativas separadas das rotas normais de projeto: o papel
+// admin não contorna implicitamente as permissões de leitura/escrita do editor.
+app.get('/api/admin/users',auth,admin,(req,res)=>res.json(db.prepare(`SELECT u.id,u.email,u.name,u.role,(SELECT count(*) FROM projects p WHERE p.owner_id=u.id) projects FROM users u ORDER BY u.email`).all()))
+app.get('/api/admin/projects',auth,admin,(req,res)=>res.json(db.prepare('SELECT p.id,p.name,p.updated_at,u.email owner FROM projects p JOIN users u ON u.id=p.owner_id ORDER BY p.updated_at DESC').all()))
+app.delete('/api/admin/projects/:id',auth,admin,(req,res)=>{
+ const result=db.prepare('DELETE FROM projects WHERE id=?').run(req.params.id)
+ if(!result.changes)return fail(res,404,'Projeto não encontrado')
+ res.json({ok:true})
+})
+app.delete('/api/admin/users/:id',auth,admin,(req,res)=>{
+ const target=db.prepare('SELECT id,role FROM users WHERE id=?').get(req.params.id)
+ if(!target)return fail(res,404,'Utilizador não encontrado')
+ if(target.role==='admin')return fail(res,403,'Não é permitido apagar administradores')
+ db.transaction(()=>{
+   db.prepare('DELETE FROM invitations WHERE sender_id=? OR user_id=?').run(target.id,target.id)
+   db.prepare('DELETE FROM projects WHERE owner_id=?').run(target.id)
+   db.prepare('DELETE FROM members WHERE user_id=?').run(target.id)
+   db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.id)
+   db.prepare('DELETE FROM users WHERE id=?').run(target.id)
+ })()
  res.json({ok:true})
 })
 app.use('/api',(req,res)=>fail(res,404,'Endpoint não encontrado'))
