@@ -1995,31 +1995,11 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
 .dc-showcase-tools button:hover{border-color:var(--b);color:var(--b)}
 .dc-showcase-tools button i{width:7px;height:7px;border-radius:50%;background:#c3cbd8}
 .dc-showcase-tools button i.on{background:#16a34a;box-shadow:0 0 0 3px #16a34a26}
-.dc-showcase-side{display:flex;flex-direction:column;gap:12px;width:290px;flex-shrink:0}
-.dc-showcase-tabs{display:grid;gap:6px}
-.dc-showcase-tabs button{display:flex;flex-direction:column;gap:2px;padding:9px 11px;border:1px solid var(--bd);border-radius:10px;background:#fff;text-align:left;cursor:pointer}
-.dc-showcase-tabs button b{font-size:9px;letter-spacing:.12em;color:#6a7fa6}
-.dc-showcase-tabs button span{font-size:12px;font-weight:700;color:var(--navy)}
-.dc-showcase-tabs button.is-active{border-color:var(--b);background:var(--bl);box-shadow:0 6px 16px #2655e51f}
-.dc-showcase-tabs button.is-active b{color:var(--b)}
-.dc-showcase-specs{display:grid;gap:7px;margin:0;padding:12px;border:1px solid var(--bd);border-radius:10px;background:#fff}
-.dc-showcase-specs dt{font-size:9px;font-weight:800;letter-spacing:.1em;color:#8a9bbd;text-transform:uppercase}
-.dc-showcase-specs dd{margin:1px 0 0;font-size:12px;font-weight:600;color:var(--navy)}
-.dc-showcase-link{font-size:12px;font-weight:700;color:var(--b);text-decoration:none}
-.dc-showcase-link:hover{text-decoration:underline}
-.dc-hero-live{margin-top:28px}
 .dc-win-showcase{display:block;height:100%}
-.lp-pane.lp-p3d .dc-showcase .dc-showcase-stage{height:100%;min-height:0;border:0;border-radius:0}
-.lp-pane.lp-p3d .dc-showcase-badge{left:10px;bottom:10px;padding:7px 10px}
-.lp-pane.lp-p3d .dc-showcase-badge strong{font-size:12px}
-.lp-pane.lp-p3d .dc-showcase-tools{right:9px;top:9px}
 .lp-credits{max-width:1360px;margin:auto;padding:0 clamp(18px,4vw,56px) 72px;color:var(--tx)}
 .lp-credits h2{margin:0 0 10px;font-size:20px;color:var(--navy)}
 .lp-credits p{max-width:780px;margin:0 0 14px;font-size:12px;line-height:1.75}
-.lp-credits ul{display:flex;flex-wrap:wrap;gap:10px;margin:0;padding:0;list-style:none}
-.lp-credits a{display:inline-block;padding:8px 12px;border:1px solid var(--bd);border-radius:8px;background:#fff;font-size:12px;font-weight:700;color:var(--b);text-decoration:none}
-.lp-credits a:hover{border-color:var(--b)}
-@media(max-width:1050px){.dc-showcase{flex-direction:column}.dc-showcase-side{width:auto}.dc-showcase:not(.is-compact) .dc-showcase-stage{min-height:330px}}
+
 
 /* Painel de projetos */
 .account-shell:has(.pd-page){background:#f5f8fa;color:#1c3447}
@@ -2034,3 +2014,9 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
 .pd-invites{margin:-15px 0 42px;border:1px solid #b5d9d6;background:#f2fbf8;border-radius:12px;padding:20px}.pd-invite-heading{display:flex;gap:10px;align-items:center;margin-bottom:13px;color:#1b5a62}.pd-invite-heading>span{font-size:22px}.pd-invite-heading b,.pd-invite-heading small{display:block}.pd-invite-heading small{color:#658a8b;font-size:11px;margin-top:3px}.pd-invite-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #d4ebe5}.pd-invite-row b,.pd-invite-row span{display:block;font-size:12px}.pd-invite-row span{color:#728e91;margin-top:4px}.account-shell .pd-invite-row button{font-size:11px}.account-shell .pd-invite-row .pd-accept{background:#196e79;color:white}.account-shell .pd-invite-row .pd-accept:hover{background:#11525d}
 .pd-overlay{position:fixed;inset:0;background:#102b3ca8;display:grid;place-items:center;z-index:100;padding:20px}.pd-dialog{position:relative;background:white;width:min(100%,460px);border-radius:16px;padding:32px;box-shadow:0 25px 60px #061d3260}.account-shell .pd-dialog-close{position:absolute;right:14px;top:10px;color:#8da2ac;font-size:24px;font-weight:400}.pd-dialog-icon{width:44px;height:44px;display:grid;place-items:center;background:#e5f3f3;color:#247b86;border-radius:10px;font-size:24px}.pd-dialog h2{font-size:24px;letter-spacing:-.04em;margin:18px 0 8px}.pd-dialog p{font-size:13px;color:#758b98;line-height:1.55;margin-bottom:24px}.pd-dialog form label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#27475b}.pd-dialog form input{width:100%;border:1px solid #cbdde5;border-radius:8px;padding:12px;font-size:14px;outline:0;color:#203f52}.pd-dialog form input:focus{border-color:#3188a3;box-shadow:0 0 0 3px #3188a327}.pd-dialog form small{color:#8498a3;font-size:11px;line-height:1.5;display:block;margin-top:9px}.pd-dialog-error{font-size:12px;color:#a33745;background:#fff0f1;border-radius:7px;padding:10px;margin-top:15px}.pd-dialog-actions{display:flex;justify-content:flex-end;align-items:center;gap:9px;margin-top:26px}.pd-dialog-actions button{font-size:12px}.account-shell .pd-create:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:900px){.pd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pd-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.pd-page{padding:25px 17px 42px}.pd-breadcrumb{margin-bottom:29px}.pd-head{display:block;margin-bottom:28px}.pd-head h1{font-size:40px}.pd-head p{font-size:13px;line-height:1.5}.pd-head .pd-create{margin-top:22px;width:100%}.pd-summary{gap:8px;margin-bottom:35px}.pd-summary>div{gap:9px;padding:12px}.pd-summary-icon{width:32px;height:32px;flex-basis:32px;font-size:18px}.pd-summary strong{font-size:19px}.pd-summary small{font-size:10px}.pd-toolbar{align-items:stretch;flex-direction:column;gap:8px}.pd-tabs{justify-content:space-between;gap:4px}.pd-search{margin-bottom:11px}.pd-search input{width:100%}.pd-grid{grid-template-columns:1fr}.pd-invite-row{align-items:flex-start;flex-direction:column}.pd-dialog{padding:25px}}
+
+.lp-pane.lp-schem .dc-showcase,.lp-pane.lp-schem .dc-showcase-stage{height:100%;min-height:0;border:0;border-radius:0}
+.lp-pane.lp-schem{display:flex;flex-direction:column}.lp-pane.lp-schem .dc-win-showcase{flex:1;min-height:260px}
+.lp-win:not(.full) .lp-pane.lp-schem .dc-win-showcase{min-height:300px}.lp-win.full .lp-pane.lp-schem .dc-win-showcase{min-height:420px}
+.lp-pane.lp-schem .dc-showcase-badge{left:10px;bottom:10px;padding:8px 11px}.lp-pane.lp-schem .dc-showcase-badge strong{font-size:12px}
+@media(max-width:700px){.lp-pane.lp-schem .dc-showcase-badge small{display:none}.lp-pane.lp-schem .dc-win-showcase{min-height:240px}}
