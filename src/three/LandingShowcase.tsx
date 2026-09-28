@@ -20,12 +20,13 @@ interface DeviceSpec {
   modelUrl: string
   rotation: [number, number, number]
   targetHeight: number
+  flipDepth?: boolean
 }
 
 const DEVICES: DeviceSpec[] = [
   { id: 'psu', label: 'Fonte 24 V', modelUrl: MODEL_PATHS.powerSupplyProauto24A, rotation: [0, 0, 0], targetHeight: 1.25 },
   { id: 'logo', label: 'PLC LOGO!', modelUrl: MODEL_PATHS.plcSiemensLogo1224RC, rotation: [Math.PI / 2, 0, 0], targetHeight: 1.3 },
-  { id: 'km', label: 'KM1', modelUrl: MODEL_PATHS.wegContactorCWC09, rotation: [Math.PI / 2, 0, 0], targetHeight: 1.2 },
+  { id: 'km', label: 'KM1', modelUrl: MODEL_PATHS.wegContactorCWC09, rotation: [0, 0, 0], targetHeight: 1.2, flipDepth: true },
 ]
 
 class ShowcaseErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
@@ -56,7 +57,9 @@ function useFittedModel(spec: DeviceSpec) {
     obj.updateMatrixWorld(true)
     const raw = new THREE.Box3().setFromObject(obj)
     const rawHeight = raw.max.y - raw.min.y
-    obj.scale.setScalar(rawHeight > 0 ? spec.targetHeight / rawHeight : 1)
+    const scale = rawHeight > 0 ? spec.targetHeight / rawHeight : 1
+    obj.scale.setScalar(scale)
+    if (spec.flipDepth) obj.scale.z *= -1
     obj.updateMatrixWorld(true)
     const box = new THREE.Box3().setFromObject(obj)
     const center = box.getCenter(new THREE.Vector3())

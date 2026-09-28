@@ -15,6 +15,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { getLogo3DImages } from '../schematic/logo3DImage'
 import { getProauto3DImage } from '../schematic/proauto3DImage'
 import { getWeg3DImage } from '../schematic/weg3DImage'
+import { getProtection3DImage } from '../schematic/protection3DImage'
+import { getProtectionModelSpec } from './modelPaths'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -336,6 +338,7 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
   const [logoSrc, setLogoSrc] = useState<string | null>(null)
   const [proautoSrc, setProautoSrc] = useState<string | null>(null)
   const [wegSrc, setWegSrc] = useState<string | null>(null)
+  const [protectionSrc, setProtectionSrc] = useState<string | null>(null)
   const fallback = useMemo(() => getComponentThumbnail(type), [type])
   useEffect(() => {
     if (type !== 'plcSiemensLogo1224RC') return
@@ -357,10 +360,17 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
     getWeg3DImage().then((image) => { if (active) setWegSrc(image) }).catch(() => { /* reserva procedural */ })
     return () => { active = false }
   }, [type])
+  useEffect(() => {
+    if (!getProtectionModelSpec(type)) return
+    let active = true
+    getProtection3DImage(type).then((image) => { if (active) setProtectionSrc(image) }).catch(() => { /* reserva procedural */ })
+    return () => { active = false }
+  }, [type])
   const src = type === 'plcSiemensLogo1224RC' ? logoSrc ?? fallback
     : type === 'powerSupplyProauto24A' ? proautoSrc ?? fallback
       : type === 'contactorWegCWC09' ? wegSrc ?? fallback
-        : fallback
+        : getProtectionModelSpec(type) ? protectionSrc ?? fallback
+          : fallback
   if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken" />
   return (
     <img

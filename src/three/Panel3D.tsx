@@ -8,7 +8,7 @@ import { SCENARIOS } from '../simulation/scenarios'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType } from '../types'
 import * as THREE from 'three'
-import { MODEL_PATHS } from './modelPaths'
+import { getProtectionModelSpec, MODEL_PATHS } from './modelPaths'
 
 const SLOT_WIDTH = 0.72
 const RAIL_Y = 0.4
@@ -222,10 +222,9 @@ function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
 }
 
 /**
- * Contator WEG CWC07/CWC09 10E — modelo CAD real do fabricante. Ao contrário
- * do LOGO!, este export já vem em Y-up com a frente virada para +Z (bornes de
- * linha em cima, bornes de carga e janelas de carga em baixo), por isso
- * normaliza-se apenas escala e centragem, sem rotação de eixo.
+ * Contator WEG CWC07/CWC09 10E — modelo CAD real do fabricante. O GLB está
+ * em Y-up, mas a face frontal está voltada para -Z. Refletimos só a profundidade
+ * para apresentar a frente à câmara (+Z), mantendo os bornes na mesma ordem.
  */
 function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const { scene } = useGLTF(MODEL_PATHS.wegContactorCWC09)
@@ -240,7 +239,8 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     obj.updateMatrixWorld(true)
     const bounds = new THREE.Box3().setFromObject(obj)
     const height = bounds.max.y - bounds.min.y
-    obj.scale.setScalar(height > 0 ? 1.0 / height : 1)
+    const scale = height > 0 ? 0.92 / height : 1
+    obj.scale.set(scale, scale, -scale)
     obj.updateMatrixWorld(true)
     const box = new THREE.Box3().setFromObject(obj)
     const center = box.getCenter(new THREE.Vector3())
@@ -254,6 +254,34 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
         contorno e a etiqueta muda de cor, como no restante painel. */}
     {en && <pointLight color="#22c55e" intensity={0.22} distance={1.3} position={[0, 0.5, 0.35]} />}
     <Label text={c.ref} position={[0, 1.08, 0.24]} color={en ? '#4ade80' : '#e2e8f0'} />
+  </group>
+}
+
+/** Disjuntores 1P/2P com o modelo CAD correspondente; mantém o corpo procedural como reserva. */
+function ProtectionBreakerReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  const spec = getProtectionModelSpec(c.type)!
+  const { scene } = useGLTF(spec.path)
+  const model = useMemo(() => {
+    const obj = scene.clone(true)
+    obj.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => material.clone()) : mesh.material.clone()
+    })
+    obj.rotation.set(...spec.rotation)
+    obj.updateMatrixWorld(true)
+    const raw = new THREE.Box3().setFromObject(obj)
+    const height = raw.max.y - raw.min.y
+    obj.scale.setScalar(height > 0 ? 0.78 / height : 1)
+    obj.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(obj)
+    const center = box.getCenter(new THREE.Vector3())
+    obj.position.set(-center.x, -box.min.y, -center.z)
+    return obj
+  }, [scene, spec])
+  return <group position={[x, RAIL_Y, 0]}>
+    <primitive object={model} castShadow receiveShadow />
+    <Label text={c.ref} position={[0, 0.86, 0.22]} color="#e2e8f0" />
   </group>
 }
 
@@ -614,6 +642,7 @@ export default function Panel3D() {
         {railComponents.map((c) => {
           const x = positions[c.id].x
           if (c.type === 'thermalRelay') return <ThermalRelay3D key={c.id} c={c} x={x} />
+          if (getProtectionModelSpec(c.type)) return <Model3DErrorBoundary key={c.id} fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={<Breaker3D c={c} x={x} />}><ProtectionBreakerReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           if (c.type === 'contactorWegCWC09') return <Model3DErrorBoundary key={c.id} fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           if (c.type.startsWith('contactor')) return <Contactor3D key={c.id} c={c} x={x} />
           if (c.type === 'powerSupplyProauto24A') return <Model3DErrorBoundary key={c.id} fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>

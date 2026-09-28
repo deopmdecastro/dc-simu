@@ -24,7 +24,8 @@ export default defineConfig({
     },
     workbox: {
       globPatterns: ['**/*.{js,css,html,svg,png,webp,glb,pdf}'],
-      maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      // O modelo WEG msr127tp é maior que 5 MiB; mantê-lo em cache evita falha no build PWA.
+      maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       navigateFallback: 'index.html',
     },
   })],

@@ -58,6 +58,7 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
           <a className="dc-btn" href={builtin} download={builtinName}>↓ Descarregar</a>
         </div>
       </div> }
+      {!builtin && !entry && !busy && <p className="rounded border border-line-soft bg-surface-sunken/60 p-2 text-[10px] leading-relaxed text-ink-500">Sem datasheet disponível no momento. As informações operacionais do componente continuam disponíveis no inspetor; poderá adicionar a ficha em PDF quando estiver disponível.</p>}
       {busy && <span className="text-ink-400">A carregar…</span>}
       {error && <p role="alert" className="text-state-error text-[10px]">{error}</p>}
       {entry && <>

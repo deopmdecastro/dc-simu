@@ -2064,3 +2064,37 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
 .lp [id]{scroll-margin-top:80px}
 @media(max-width:1050px){.lp-stats{grid-template-columns:repeat(2,1fr)}.lp-feats{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:700px){.lp-stats{grid-template-columns:1fr 1fr;padding-top:36px;gap:10px}.lp-stats>div{padding:16px}.lp-feats{grid-template-columns:1fr}.lp-steps{grid-template-columns:1fr;gap:28px}.lp-steps:before{left:26px;right:auto;top:20px;bottom:20px;width:2px;height:auto;background:repeating-linear-gradient(180deg,#9db8f5 0 8px,transparent 8px 16px)}.lp-steps li{padding:0 0 0 76px}.lp-step-n{position:absolute;left:0;top:0}.lp-steps h3{margin-top:4px}.lp-how{padding-left:20px;padding-right:20px}.lp-end-cta{margin-top:24px}.lp-foot-links{margin-left:0;width:100%;order:3;flex-wrap:wrap;gap:14px 22px}}
+
+/* Acabamento uniforme da landing page e da área de projetos */
+.account-shell:has(.lp) { color: var(--navy); }
+.lp .lp-tag { border-color: #dbe4f4; background: #fff; }
+.lp-faq-list details:hover { border-color: #c0d4fc; }
+.lp-cats span { cursor: default; }
+.pd-page { color: var(--navy); }
+.pd-breadcrumb, .pd-head p, .pd-summary small, .pd-search, .pd-card-meta,
+.pd-members, .pd-members small, .pd-invite-heading small, .pd-invite-row span,
+.pd-dialog p, .pd-dialog form small, .pd-empty p { color: #64748b; }
+.pd-summary>div, .pd-card, .pd-empty { box-shadow: 0 4px 18px #12214f0a; }
+.pd-summary>div:hover, .pd-card:hover { border-color: #c0d4fc; }
+.account-shell .pd-tabs button:focus-visible,
+.account-shell .pd-create:focus-visible,
+.account-shell .pd-open:focus-visible,
+.account-shell .pd-share:focus-visible,
+.account-shell .pd-menu button:focus-visible,
+.account-shell .pd-dialog button:focus-visible { outline: 2px solid #2655e5; outline-offset: 2px; }
+.pd-search input:focus-visible { outline: none; }
+.pd-dialog { border: 1px solid #dbe4f4; }
+@media(max-width:760px) {
+  .pd-summary { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .pd-page { padding-top: 24px; }
+}
+@media(max-width:420px) {
+  .lp-stats { grid-template-columns: 1fr; }
+  .pd-summary>div { padding: 10px; }
+  .pd-summary small { line-height: 1.25; }
+  .pd-dialog-actions { align-items: stretch; flex-direction: column-reverse; }
+  .pd-dialog-actions button { min-height: 42px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .pd-card, .lp-feats article, .lp-cats span { transition: none; }
+}

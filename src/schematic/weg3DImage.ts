@@ -4,10 +4,9 @@ import { MODEL_PATHS } from '../three/modelPaths'
 
 /**
  * PNG frontal do contator WEG, gerado a partir do mesmo GLB usado no Painel 3D
- * (não é um SVG). O export CAD já vem em Y-up com a face frontal virada para
- * +Z — confirmado pela análise da geometria (bornes de linha em cima, bornes de
- * carga e janelas de carga em baixo) —, por isso não se aplica rotação de eixo,
- * ao contrário do LOGO!.
+ * (não é um SVG). O export CAD já vem em Y-up, mas a face frontal está virada
+ * para -Z. A profundidade é refletida para mostrar a frente à câmara (+Z), sem
+ * inverter a ordem horizontal dos bornes.
  */
 let imagePromise: Promise<string> | undefined
 
@@ -28,6 +27,8 @@ export function getWeg3DImage(): Promise<string> {
       fill.position.set(-4, 2, -2)
       scene.add(fill)
       const model = source.clone(true)
+      // O corpo está em Y-up; refletir apenas Z vira a face frontal (-Z) para a câmara.
+      model.scale.z = -1
       model.updateMatrixWorld(true)
       const box = new THREE.Box3().setFromObject(model)
       const center = box.getCenter(new THREE.Vector3())
