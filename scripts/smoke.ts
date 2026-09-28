@@ -16,6 +16,7 @@ import { connectNearWireEnds, nearestTerminal, nearestModelTerminal } from '../s
 import { terminalPos } from '../src/schematic/symbols'
 import { terminalConnections } from '../src/schematic/terminalConnections'
 import { wireEndColor } from '../src/schematic/wireEndColor'
+import { wireGeometryForWire } from '../src/schematic/wireGeometry'
 import { useSimStore } from '../src/store/useSimStore'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
@@ -469,6 +470,18 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('cores das ponteiras independem da cor do cabo e entre si', wireEndColor(cable, 'from', '#112233') === '#00ff00' && wireEndColor(cable, 'to', '#112233') === '#ff00ff')
   const follow = { ...cable, fromEndColor: undefined, toEndColor: undefined }
   check('ponteira não personalizada segue o borne e não o condutor', wireEndColor(follow, 'from', '#112233') === '#112233' && wireEndColor(follow, 'to') === '#64748b')
+}
+
+/* Tipo físico não altera nem percurso, nem cantos, nem waypoints no esquema. */
+{
+  const a = { x: 10, y: 80 }, b = { x: 200, y: 95 }
+  const base = { route: 'orthogonal', bend: 0.45, curveOffset: 0, waypoints: [{ x: 75, y: 20 }, { x: 160, y: 20 }] } as Wire
+  const rigid = wireGeometryForWire({ ...base, flexibility: 'rigid' }, a, b)
+  const flexible = wireGeometryForWire({ ...base, flexibility: 'flexible' }, a, b)
+  check('rígido e flexível exibem caminho e pontos idênticos', rigid.d === flexible.d && JSON.stringify(rigid.pts) === JSON.stringify(flexible.pts))
+  check('cantos ortogonais substituem curva suave', rigid.d.includes(' Q ') && !rigid.d.includes(' C '))
+  const withoutWaypoints = wireGeometryForWire({ ...base, waypoints: [], flexibility: 'rigid' }, a, b)
+  check('classificação não muda traçado sem pontos', withoutWaypoints.d === wireGeometryForWire({ ...base, waypoints: [], flexibility: 'flexible' }, a, b).d)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

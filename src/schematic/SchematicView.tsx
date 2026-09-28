@@ -9,147 +9,10 @@ import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
+import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
 
 const CANVAS_W = 2000
 const CANVAS_H = 1400
-
-type Pt = { x: number; y: number }
-
-/** Segmentos retos para a ligação direta (sem cotovelos). */
-function sharpPath(pts: Pt[]) {
-  return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ')
-}
-
-/**
- * Raio visual dos cotovelos ortogonais. Limita-se a metade de cada segmento
- * adjacente para nunca ultrapassar um borne ou um ponto de controlo próximo.
- */
-const WIRE_CORNER_RADIUS = 12
-
-function roundedPath(pts: Pt[], radius = WIRE_CORNER_RADIUS) {
-  // Segmentos de comprimento zero podem aparecer quando os bornes estão alinhados.
-  const unique = pts.filter((p, i) => i === 0 || Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) > 0.01)
-  if (unique.length <= 2) return sharpPath(unique)
-  let d = `M ${unique[0].x},${unique[0].y}`
-  for (let i = 1; i < unique.length - 1; i++) {
-    const prev = unique[i - 1], p = unique[i], next = unique[i + 1]
-    const d1 = Math.hypot(p.x - prev.x, p.y - prev.y)
-    const d2 = Math.hypot(next.x - p.x, next.y - p.y)
-    const cross = (p.x - prev.x) * (next.y - p.y) - (p.y - prev.y) * (next.x - p.x)
-    // Pontos colineares não são curvas: evita um desvio desnecessário.
-    if (Math.abs(cross) < 0.001 * d1 * d2) { d += ` L ${p.x},${p.y}`; continue }
-    const r = Math.min(radius, d1 / 2, d2 / 2)
-    const enter = { x: p.x - (p.x - prev.x) * r / d1, y: p.y - (p.y - prev.y) * r / d1 }
-    const leave = { x: p.x + (next.x - p.x) * r / d2, y: p.y + (next.y - p.y) * r / d2 }
-    d += ` L ${enter.x},${enter.y} Q ${p.x},${p.y} ${leave.x},${leave.y}`
-  }
-  const last = unique[unique.length - 1]
-  return d + ` L ${last.x},${last.y}`
-}
-
-/**
- * Polilinha com cantos arredondados / curva suave (condutor flexível —
- * multifilar). Os pontos intermédios funcionam como pontos de controle e a
- * curva passa suavemente perto deles.
- */
-function smoothPath(pts: Pt[], radius = 16) {
-  if (pts.length <= 2) return sharpPath(pts)
-  let d = `M ${pts[0].x},${pts[0].y}`
-  for (let i = 1; i < pts.length - 1; i++) {
-    const p = pts[i]
-    const prev = pts[i - 1]
-    const next = pts[i + 1]
-    const d1 = Math.hypot(p.x - prev.x, p.y - prev.y) || 1
-    const d2 = Math.hypot(next.x - p.x, next.y - p.y) || 1
-    const r1 = Math.min(radius, d1 / 2)
-    const r2 = Math.min(radius, d2 / 2)
-    const inX = p.x - ((p.x - prev.x) / d1) * r1
-    const inY = p.y - ((p.y - prev.y) / d1) * r1
-    const outX = p.x + ((next.x - p.x) / d2) * r2
-    const outY = p.y + ((next.y - p.y) / d2) * r2
-    d += ` L ${inX},${inY} Q ${p.x},${p.y} ${outX},${outY}`
-  }
-  const last = pts[pts.length - 1]
-  d += ` L ${last.x},${last.y}`
-  return d
-}
-
-/** Condutor rígido: entre pontos não alinhados insere um cotovelo a 90°. */
-function orthoPts(pts: Pt[]): Pt[] {
-  const out: Pt[] = [pts[0]]
-  for (let i = 1; i < pts.length; i++) {
-    const p = out[out.length - 1]
-    const q = pts[i]
-    if (Math.abs(p.x - q.x) > 0.5 && Math.abs(p.y - q.y) > 0.5) {
-      // alterna horizontal-primeiro / vertical-primeiro para seguir o traçado natural
-      out.push(i % 2 === 1 ? { x: q.x, y: p.y } : { x: p.x, y: q.y })
-    }
-    out.push(q)
-  }
-  return out
-}
-
-/** Condutor flexível: spline Catmull-Rom que passa por todos os pontos. */
-function splinePath(pts: Pt[]) {
-  if (pts.length < 3) return sharpPath(pts)
-  let d = `M ${pts[0].x},${pts[0].y}`
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i]
-    const p1 = pts[i]
-    const p2 = pts[i + 1]
-    const p3 = pts[i + 2] ?? p2
-    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 }
-    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 }
-    d += ` C ${c1.x},${c1.y} ${c2.x},${c2.y} ${p2.x},${p2.y}`
-  }
-  return d
-}
-
-/**
- * Calcula o caminho SVG de um cabo conforme seu roteamento e devolve também a
- * posição do "manípulo" arrastável e os pontos de controle (para orientar os
- * terminais das pontas).
- *
- * Se o cabo tiver pontos de curva (waypoints, adicionados com duplo clique),
- * eles têm prioridade: condutor rígido → segmentos ortogonais com cotovelos arredondados;
- * condutor flexível → curva suave que passa por todos os pontos.
- */
-function wireGeometry(a: Pt, b: Pt, route: string, bend: number, curveOffset: number, waypoints: Pt[] | undefined, flexible: boolean) {
-  const noHandle = null as (Pt & { mode: 'bend' | 'curve' }) | null
-  if (waypoints && waypoints.length > 0) {
-    const raw = [a, ...waypoints, b]
-    if (flexible) return { d: splinePath(raw), handle: noHandle, pts: raw }
-    const pts = orthoPts(raw)
-    return { d: roundedPath(pts), handle: noHandle, pts }
-  }
-  if (route === 'direct') {
-    return { d: `M ${a.x},${a.y} L ${b.x},${b.y}`, handle: noHandle, pts: [a, b] }
-  }
-  if (route === 'arc') {
-    const mx = a.x + (b.x - a.x) * bend
-    const my = a.y + (b.y - a.y) * bend
-    const dx = b.x - a.x
-    const dy = b.y - a.y
-    const len = Math.hypot(dx, dy) || 1
-    const nx = -dy / len
-    const ny = dx / len
-    const cx = mx + nx * curveOffset
-    const cy = my + ny * curveOffset
-    return { d: `M ${a.x},${a.y} Q ${cx},${cy} ${b.x},${b.y}`, handle: { x: cx, y: cy, mode: 'curve' as const }, pts: [a, { x: cx, y: cy }, b] }
-  }
-  const mx = a.x + (b.x - a.x) * bend
-  const my = a.y + (b.y - a.y) * bend
-  const pts: Pt[] =
-    route === 'orthogonal'
-      ? [a, { x: mx, y: a.y }, { x: mx, y: b.y }, b]
-      : [a, { x: a.x, y: my }, { x: b.x, y: my }, b]
-  const handle =
-    route === 'orthogonal'
-      ? { x: mx, y: (a.y + b.y) / 2, mode: 'bend' as const }
-      : { x: (a.x + b.x) / 2, y: my, mode: 'bend' as const }
-  // flexível: curva mais larga · rígido: troços ortogonais com raio discreto
-  return { d: flexible ? smoothPath(pts, 18) : roundedPath(pts), handle, pts }
-}
 
 /** Direção unitária (terminal → interior do cabo) a partir da lista de pontos. */
 function endDir(pts: Pt[], atStart: boolean): Pt {
@@ -776,7 +639,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     const fromLead = w.fromPoint ? null : modelLead(w.fromTerminalId)
     const toLead = w.toPoint ? null : modelLead(w.toTerminalId)
     const points = [...(fromLead ? [fromLead] : []), ...(w.waypoints ?? []), ...(toLead ? [toLead] : [])]
-    const geometry = wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0, points.length ? points : undefined, w.flexibility === 'flexible')
+    const geometry = wireGeometryForWire(w, a, b, points.length ? points : undefined)
     return { a, b, fromLead, toLead, geometry }
   }
 
@@ -789,8 +652,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     const selected = selectedWireId === w.id
     const { d, handle } = display.geometry
     const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
-    const cap = flexible ? 'round' : 'square'
-    const join = flexible ? 'round' : 'miter'
+    const cap = 'square'
+    const join = 'miter'
     const addPoint = (e: React.MouseEvent) => {
       // duplo clique no cabo = adiciona um ponto de curva arrastável
       e.stopPropagation()
@@ -808,13 +671,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         {/* contorno escuro fino: dá leitura a cores claras (branco, amarelo, azul-claro) */}
         <path d={d} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
         <path d={d} fill="none" stroke={col} strokeWidth={width} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
-        {flexible ? (
-          // flexível (multifilar): textura de fios entrançados
-          <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.15} strokeWidth={Math.max(0.7, width * 0.38)} strokeDasharray="1.2 2.6" strokeLinecap="round" pointerEvents="none" />
-        ) : (
-          // rígido (fio sólido): brilho contínuo no centro da alma
-          <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={Math.max(0.6, width * 0.26)} strokeLinecap="butt" strokeLinejoin="miter" pointerEvents="none" />
-        )}
+        {/* O acabamento do fio é igual para rígido e flexível. */}
+        <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={Math.max(0.6, width * 0.26)} strokeLinecap="butt" strokeLinejoin="miter" pointerEvents="none" />
         {w.energized && <path d={d} fill="none" stroke="#fde047" strokeWidth={Math.max(1, width * 0.45)} strokeDasharray="4 10" className="dc-flow" strokeLinecap="round" pointerEvents="none" />}
         {/* área de clique larga (clique seleciona · duplo clique adiciona ponto de curva) */}
         <path
@@ -1036,7 +894,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
           {/* cabo em construção */}
           {pendingFrom && draftPoints.map((point, i) => <circle key={`draft-${i}`} cx={point.x} cy={point.y} r={4} fill="white" stroke="#2563eb" strokeWidth={2} pointerEvents="none" />)}
-          {pendingFrom && cursorPos && <path d={wireGeometry(pendingFrom, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : nearestTerminal(components, cursorPos, 16 / zoom, wireFrom ?? undefined)?.point ?? nearestModelTerminal(components, cursorPos, wireFrom ?? undefined, Math.min(24, 28 / zoom))?.point ?? cursorPos, 'orthogonal', 0.5, 0, draftPoints, false).d} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
+          {pendingFrom && cursorPos && <path d={wireGeometry(pendingFrom, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : nearestTerminal(components, cursorPos, 16 / zoom, wireFrom ?? undefined)?.point ?? nearestModelTerminal(components, cursorPos, wireFrom ?? undefined, Math.min(24, 28 / zoom))?.point ?? cursorPos, 'orthogonal', 0.5, 0, draftPoints).d} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
           {/* alvos clicáveis dos bornes (acima de tudo) */}
           {components.map((c) =>
             c.terminals.map((t) => {
@@ -1232,8 +1090,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
             <div>clique no cabo = editar (cor, condutor, terminal) · duplo clique = ponto de curva</div>
             <div>duplo clique num ponto de curva = remover · duplo no borne = alternar</div>
             <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>
-            <div>ferramenta Cabo: clique no vazio = ponta livre · botão direito ou Esc cancela</div>
-            <div>rígido = troços ortogonais com cantos arredondados · flexível = curva suave · arraste os pontos</div>
+            <div>ferramenta Cabo: clique prolonga · Esc termina e conserva o traçado</div>
+            <div>rígido e flexível têm o mesmo percurso ortogonal · arraste os pontos para ajustar</div>
             <div>Ctrl+] avança · Ctrl+[ recua · Ctrl+Shift+]/[ frente/trás</div>
             <div>R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>
           </div>

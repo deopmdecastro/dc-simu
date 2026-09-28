@@ -26,7 +26,7 @@ U1/V1/W1.
 
 **Cabos**
 - Duplo clique em qualquer ponto do cabo (área de clique alargada) adiciona um ponto de curva arrastável; duplo clique no ponto remove-o.
-- **Rígido** = dobras vivas a 90° pelos pontos, brilho contínuo no centro; **flexível** = curva suave (spline) com textura multifilar.
+- **Rígido e flexível** têm a mesma representação ortogonal com cotovelos arredondados; a diferença é a classificação do condutor, preservada no projeto e na lista de materiais.
 - A cor escolhida é sempre visível (energia passa a ser um brilho por baixo + fluxo animado, também no 3D). Cor automática pela função do cabo (IEC 60204-1) ou cor fixa para novos cabos.
 - **Terminal do cabo** (opção única para as duas pontas): ponteira, ponteira dupla, olhal, forquilha, pino, faston, estanhado ou nu — desenhado nas pontas no esquema.
 
@@ -43,8 +43,8 @@ U1/V1/W1.
 - **Cabos**:
   - **Duplo clique no cabo adiciona um ponto de curva** (waypoint) arrastável; duplo clique no
     ponto remove; vários pontos por cabo; botão "Limpar pontos de curva" no inspetor.
-  - **Rígido vs flexível de verdade**: condutor rígido desenha segmentos retos com dobras vivas e
-    traço duplo (alma sólida); flexível desenha curvas suaves com cantos arredondados.
+  - **Rígido e flexível**: classificação física distinta do condutor, mas traçado visual idêntico
+    no esquema, com segmentos ortogonais e cantos discretamente arredondados.
   - **Seletor de cor com amostras reais** no inspetor — a cor é aplicada imediatamente no esquema.
   - Ao editar o cabo também se escolhe o **tipo de terminal** físico de cada ponta (anel, garfo,
     pino, faston, tubular…).
@@ -79,8 +79,8 @@ npm run preview    # serve o build
 - **Seção transversal**: 0,5 / 0,75 / 1 / 1,5 / 2,5 / 4 / 6 / 10 / 16 mm² — a espessura desenhada
   acompanha a seção.
 - **Tipo / função**: força, comando, sinal, neutro, terra (PE), barramento.
-- **Condutor rígido ou flexível** (flexível = traço contínuo; rígido = traço segmentado, indicando
-  condutor sólido).
+- **Condutor rígido ou flexível**: escolha do tipo de cabo, sem alterar o percurso
+  ou o acabamento do fio desenhado.
 - **Roteamento**: ortogonal, manhattan (vertical), curvo, direto — mais o controle do **ponto de
   dobra** (0…100 %).
 - **Identificação** (nº do fio/etiqueta) e **metragem** em mm.
