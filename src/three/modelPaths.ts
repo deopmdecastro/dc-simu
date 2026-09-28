@@ -8,6 +8,8 @@ export const MODEL_PATHS = {
   wegContactorCWC09: '/models/contactores/weg-cwc07-10e.glb',
   /** Botão de emergência Metaltex P20AKR, cabeça cogumelo com retorno por giro. */
   emergencyButtonP20AKR: '/models/comando/P20AKR-1.glb',
+  /** Disjuntor eletrônico Phoenix Contact EC 1 12DC/1A S-R (3000760). */
+  phoenixEcb3000760: '/models/protecao/phoenix-ec1-12dc-1a-s-r.glb',
 } as const
 
 export type ProtectionModelSpec = {
@@ -16,11 +18,13 @@ export type ProtectionModelSpec = {
   rotation: [number, number, number]
 }
 
-/** Modelos CAD confirmados: Q2A5 é 1P; «DISJUNTOR 2» corresponde ao modelo de 2 polos. */
+/** Modelos CAD confirmados: disjuntores 1P/2P e Phoenix Contact 3000760. */
 const PROTECTION_MODELS: Partial<Record<ComponentType, ProtectionModelSpec>> = {
   // Estes dois ficheiros foram exportados com Z para cima e a frente em -Y.
   breaker1p: { path: '/models/protecao/Q2A5.glb', rotation: [-Math.PI / 2, 0, 0] },
   breaker2p: { path: '/models/protecao/DISJUNTOR%202.glb', rotation: [-Math.PI / 2, 0, 0] },
+  // O GLB Phoenix tem Y para cima, frente em +Z e dimensões do dispositivo (mm).
+  phoenixEcb3000760: { path: MODEL_PATHS.phoenixEcb3000760, rotation: [0, 0, 0] },
 }
 
 export function getProtectionModelSpec(type: ComponentType): ProtectionModelSpec | undefined {

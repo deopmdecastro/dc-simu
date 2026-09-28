@@ -694,7 +694,7 @@ export default function Panel3D() {
         {railComponents.map((c) => {
           const x = positions[c.id].x
           if (c.type === 'thermalRelay') return <ThermalRelay3D key={c.id} c={c} x={x} />
-          if (c.type === 'phoenixEcb3000760') return <PhoenixEcb3D key={c.id} c={c} x={x} />
+          if (c.type === 'phoenixEcb3000760') return <Model3DErrorBoundary key={c.id} fallback={<PhoenixEcb3D c={c} x={x} />}><Suspense fallback={<PhoenixEcb3D c={c} x={x} />}><ProtectionBreakerReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           if (getProtectionModelSpec(c.type)) return <Model3DErrorBoundary key={c.id} fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={<Breaker3D c={c} x={x} />}><ProtectionBreakerReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           if (c.type === 'contactorWegCWC09') return <Model3DErrorBoundary key={c.id} fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           if (c.type.startsWith('contactor')) return <Contactor3D key={c.id} c={c} x={x} />

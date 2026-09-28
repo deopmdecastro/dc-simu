@@ -24,7 +24,7 @@ import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
-import { getCommandModelSpec } from '../src/three/modelPaths'
+import { getCommandModelSpec, getProtectionModelSpec } from '../src/three/modelPaths'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
@@ -644,7 +644,9 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const ecb = createComponent('phoenixEcb3000760')
   const labels = ecb.terminals.map((terminal) => terminal.label)
   const bridges = internalBridges(ecb)
+  const cad = getProtectionModelSpec('phoenixEcb3000760')
   check('Phoenix 3000760 cria Line+, LOAD+, 0V, RESET e STATUS', ['Line+', 'LOAD+', '0V', 'RESET', 'STATUS'].every((label) => labels.includes(label)))
+  check('Phoenix 3000760 usa o GLB oficial com orientação vertical', cad?.path === '/models/protecao/phoenix-ec1-12dc-1a-s-r.glb' && cad.rotation.every((angle) => angle === 0))
   check('Phoenix 3000760 encaminha apenas Line+ para LOAD+ quando fechado', bridges.length === 1 && bridges[0][0] === `${ecb.id}-Line+` && bridges[0][1] === `${ecb.id}-LOAD+`)
   const tripped = createComponent('phoenixEcb3000760', undefined, undefined, 0, 0, 0, { tripped: true })
   check('Phoenix 3000760 interrompe a passagem quando disparado', internalBridges(tripped).length === 0)
