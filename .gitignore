@@ -8,3 +8,7 @@ dist
 data
 
 .env
+
+# SolidWorks temporary lock files
+~$*
+**/~$*
