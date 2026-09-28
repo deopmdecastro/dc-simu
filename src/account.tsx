@@ -89,6 +89,7 @@ function Logo({dark,size=30}:{dark?:boolean;size?:number}) {
 function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwitch,onHome}:{mode:'login'|'register';form:{name:string;email:string;password:string};setForm:(f:{name:string;email:string;password:string})=>void;busy:boolean;message:string;clearMessage:()=>void;onSubmit:(e:React.FormEvent)=>void;onSwitch:()=>void;onHome:()=>void}) {
   const [show,setShow]=useState(false)
   const reg=mode==='register'
+  const canFocus=typeof window!=='undefined'&&window.matchMedia('(hover:hover)').matches
   const len=form.password.length
   const strength=len===0?0:len<10?1:len<14?2:3
   const labels=['','Curta — mínimo 10 caracteres','Boa','Forte']
@@ -99,15 +100,15 @@ function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwit
         <ul><li><i>⌁</i>Esquema elétrico com bornes e cabos</li><li><i>▤</i>Ladder com simulação do scan do PLC</li><li><i>▧</i>Painel 3D sincronizado com o projeto</li><li><i>↗</i>Projetos partilhados com a equipa</li></ul></div>
       <div className="auth-status"><span><i/>RUN</span>Os seus projetos ficam guardados no servidor.</div></aside>
     <section className="auth-main"><div className="auth-panel">
-      <div className="auth-mobile-logo"><button onClick={onHome} aria-label="Voltar ao início"><Logo/></button></div>
+      <div className="auth-mobile-logo"><button className="auth-mlogo" onClick={onHome} aria-label="Voltar ao início"><Logo/></button><button className="auth-mback" onClick={onHome}>← Início</button></div>
       <button className="auth-back" onClick={onHome}>← Voltar ao início</button>
       <span className="lp-tag">A SUA ÁREA DE TRABALHO</span>
       <h1>{reg?'Criar conta':'Bem-vindo de volta'}</h1>
       <p className="auth-sub">{reg?'Gratuito. Comece o primeiro projeto em menos de um minuto.':'Entre para continuar os seus projetos.'}</p>
       {message&&<div className="auth-error" role="alert"><span>{message}</span><button onClick={clearMessage} aria-label="Fechar aviso">×</button></div>}
       <form onSubmit={onSubmit} noValidate={false}>
-        {reg&&<label>Nome<input required minLength={2} autoFocus autoComplete="name" placeholder="O seu nome" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>}
-        <label>Email<input required type="email" autoFocus={!reg} autoComplete="email" placeholder="nome@empresa.com" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label>
+        {reg&&<label>Nome<input required minLength={2} autoFocus={canFocus} autoComplete="name" placeholder="O seu nome" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>}
+        <label>Email<input required type="email" autoFocus={canFocus&&!reg} autoComplete="email" placeholder="nome@empresa.com" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label>
         <label>Palavra-passe<div className="auth-pw"><input required minLength={reg?10:1} type={show?'text':'password'} autoComplete={reg?'new-password':'current-password'} placeholder={reg?'Mínimo 10 caracteres':'A sua palavra-passe'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/><button type="button" onClick={()=>setShow(!show)} aria-pressed={show}>{show?'Ocultar':'Mostrar'}</button></div></label>
         {reg&&<div className="auth-meter" aria-live="polite"><div className={'s'+strength}><i/><i/><i/></div><small>{labels[strength]||'Use pelo menos 10 caracteres'}</small></div>}
         <button className="lp-btn auth-submit" disabled={busy}>{busy?'Aguarde…':reg?'Criar conta':'Entrar'} {!busy&&<span aria-hidden>→</span>}</button>
@@ -171,8 +172,8 @@ function Landing({onRegister,onLogin}:{onRegister:()=>void;onLogin:()=>void}) {
   const [menu,setMenu]=useState(false)
   return <div className="landing lp">
     <nav className="lp-nav"><div className="lp-nav-in"><Logo/>
-      <div className={'lp-links'+(menu?' open':'')} onClick={()=>setMenu(false)}><a href="#funcionalidades">Funcionalidades</a><a href="#simulador">Simulador</a><a href="#recursos">Recursos</a><a href="#sobre">Sobre</a></div>
-      <div className="lp-nav-cta"><button className="lp-ghost" onClick={onLogin}>Entrar</button><button className="lp-btn sm" onClick={onRegister}>Criar projeto grátis</button><button className="lp-burger" aria-label="Menu" aria-expanded={menu} onClick={()=>setMenu(!menu)}><i/><i/><i/></button></div></div></nav>
+      <div className={'lp-links'+(menu?' open':'')} onClick={()=>setMenu(false)}><a href="#funcionalidades">Funcionalidades</a><a href="#simulador">Simulador</a><a href="#recursos">Recursos</a><a href="#sobre">Sobre</a><button className="lp-menu-login" onClick={onLogin}>Entrar</button></div>
+      <div className="lp-nav-cta"><button className="lp-ghost" onClick={onLogin}>Entrar</button><button className="lp-btn sm" onClick={onRegister}><span className="lp-long">Criar projeto grátis</span><span className="lp-short">Criar conta</span></button><button className="lp-burger" aria-label="Menu" aria-expanded={menu} onClick={()=>setMenu(!menu)}><i/><i/><i/></button></div></div></nav>
     <section className="lp-hero"><div className="lp-hero-copy">
       <span className="lp-pill"><i/>O SEU LABORATÓRIO DE AUTOMAÇÃO</span>
       <h1>Projete o circuito.<br/><em>Veja-o ganhar vida.</em></h1>

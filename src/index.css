@@ -1960,3 +1960,21 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
 @media(max-width:1050px){.lp-burger{display:flex}.lp-links{display:none!important}.lp-links.open{display:flex!important;flex-direction:column;position:absolute;left:0;right:0;top:100%;background:#fff;border-bottom:1px solid var(--bd);padding:10px 20px 18px;gap:0;box-shadow:0 14px 24px #12214f14}.lp-links.open a{padding:14px 0;border-bottom:1px solid #eef2fa;font-size:15px}.lp-nav-in{gap:14px}}
 @media(max-width:900px){.auth{grid-template-columns:1fr}.auth-side{display:none}.auth-main{padding:20px 16px;align-items:flex-start;background:#f5f8fd}.auth-mobile-logo{display:block}.auth-panel{padding:26px 22px;margin-top:8px}.auth-panel h1{font-size:26px}}
 @media(max-width:700px){.lp-nav-cta .lp-btn.sm{padding:9px 12px;font-size:12px}}
+
+/* ---- v3: corrige conflito com .account-shell button + refinamentos mobile ---- */
+.account-shell .lp-btn{background:#2655e5;color:#fff;border-radius:10px;padding:15px 22px;font-weight:700;box-shadow:0 8px 18px #2655e533}.account-shell .lp-btn:hover{background:#12214f}.account-shell .lp-btn.sm{padding:10px 16px;box-shadow:none}.account-shell .lp-btn.light{background:#fff;color:#12214f;box-shadow:none}.account-shell .lp-btn.light:hover{background:#eef4ff}.account-shell .lp-btn:disabled{opacity:.6}
+.account-shell .lp-outline{background:#fff;color:#12214f;border:1px solid #c0d4fc;border-radius:10px;padding:14px 20px}.account-shell .lp-outline:hover{background:#eef4ff;border-color:#2655e5}
+.account-shell .lp-ghost{color:#12214f;padding:10px 12px}.account-shell .lp-burger{background:#fff;border:1px solid #dbe4f4;padding:0;border-radius:10px}.account-shell .lp-burger:hover{background:#eef4ff}
+.lp-short,.lp-menu-login{display:none}
+.account-shell .auth button{border-radius:8px}.account-shell .auth .dc-logo{text-align:left}.dc-logo-t{text-align:left}
+.account-shell .auth-back,.account-shell .auth-mback{padding:0;background:none;color:#6a7fa6;font-size:12px}.account-shell .auth-back:hover,.account-shell .auth-mback:hover{background:none;color:#2655e5}
+.account-shell .auth-back{display:block;margin-bottom:22px}.auth-panel .lp-tag{display:block}
+.account-shell .auth-mlogo{padding:0;background:none}.account-shell .auth-mlogo:hover{background:none}.auth-mobile-logo{align-items:center;justify-content:space-between}
+.account-shell .auth-pw button{position:absolute;right:6px;top:6px;height:34px;padding:0 12px;background:#eef4ff;color:#2655e5;font-size:12px;border-radius:7px}.account-shell .auth-pw button:hover{background:#dce7fd}
+.account-shell .auth-switch button{padding:0;background:none;color:#2655e5}.account-shell .auth-switch button:hover{background:none;text-decoration:underline}.account-shell .auth-error button{padding:0 4px;background:none;color:inherit}
+.account-shell .auth-logo{padding:0;background:none}.account-shell .auth-logo:hover{background:none}
+.auth-panel input{font-weight:500}.auth-panel input::placeholder{font-weight:400}
+.account-shell .lp-links a{color:#4a5b80}
+@media(max-width:1050px){.lp-menu-login{display:block}.account-shell .lp-links.open .lp-menu-login{margin-top:14px;background:#eef4ff;color:#2655e5;border-radius:10px;padding:14px;font-size:15px}.lp-nav-cta .lp-ghost{display:none}}
+@media(max-width:900px){.account-shell .auth-back{display:none}.auth-mobile-logo{display:flex;margin-bottom:26px}.auth-panel{border-radius:16px;padding:24px 20px 28px}.auth-panel input{font-size:16px;height:50px}.account-shell .auth-submit{padding:16px;font-size:16px;border-radius:10px}.auth-panel h1{margin-top:8px}.auth-sub{margin-bottom:20px}.auth-main{background-image:none}}
+@media(max-width:700px){.lp-long{display:none}.lp-short{display:inline}.account-shell .lp-btn.sm{padding:10px 14px;font-size:13px}.lp-hero h1{font-size:clamp(32px,8.8vw,46px);letter-spacing:-.045em;margin:20px 0 16px}.lp-hero-copy>p{font-size:16px;line-height:1.6}.lp-hero{padding:32px 20px 24px;gap:28px}.lp-actions{margin:24px 0 22px;gap:8px}.account-shell .lp-actions .lp-btn{justify-content:center;padding:16px}.account-shell .lp-actions .lp-outline{padding:15px;text-align:center}.lp-hero-vis{padding:0 0 12px}.lp-checks{font-size:13px}}
