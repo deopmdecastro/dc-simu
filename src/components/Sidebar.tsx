@@ -564,34 +564,37 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
               </div>
 
               <div className="dc-card p-2 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className={label + ' !mb-0'}>Terminal do cabo</label>
-                  <span className="text-[9px] text-ink-400">aplicado às duas pontas</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1">
-                  {WIRE_END_OPTIONS.map((o) => {
-                    const active = (selectedWire.endType ?? 'none') === o.id
-                    return (
-                      <button
-                        key={o.id}
-                        title={o.hint}
-                        onClick={() => {
-                          const st = useSimStore.getState()
-                          st.commitHistory()
-                          st.updateWire(selectedWire.id, { endType: o.id })
-                        }}
-                        className={`flex items-center gap-1.5 rounded-[5px] border px-1.5 py-1 text-left text-[10.5px] transition-colors ${
-                          active ? 'border-brand-500 bg-brand-50 text-brand-700 font-semibold' : 'border-line bg-white text-ink-700 hover:border-line-strong hover:bg-slate-50'
-                        }`}
-                      >
-                        <WireEndIcon type={o.id} color={WIRE_COLORS[selectedWire.color]} size={30} />
-                        <span className="truncate">{o.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
+                <label className={label + ' !mb-0'}>Terminais do cabo (independentes)</label>
+                {(['from', 'to'] as const).map((side) => {
+                  const typeKey = side === 'from' ? 'fromEndType' : 'toEndType'
+                  const layerKey = side === 'from' ? 'fromEndLayer' : 'toEndLayer'
+                  const chosen = selectedWire[typeKey] ?? selectedWire.endType ?? 'none'
+                  const layer = selectedWire[layerKey] ?? 'back'
+                  const title = side === 'from' ? `Ponta inicial · ${wireFromTerminal?.label ?? (selectedWire.fromPoint ? 'livre' : '—')}` : `Ponta final · ${wireToTerminal?.label ?? (selectedWire.toPoint ? 'livre' : '—')}`
+                  return <div key={side} className="rounded border border-line p-1.5 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold">{title}</span>
+                      <div className="flex shrink-0 rounded border border-line overflow-hidden" role="group" aria-label={`Camada da ${title}`}>
+                        {(['back', 'front'] as const).map((value) => <button key={value} type="button"
+                          title={value === 'back' ? 'Terminal atrás dos componentes' : 'Terminal à frente dos componentes'}
+                          aria-pressed={layer === value}
+                          className={`px-1.5 py-0.5 text-[10px] ${layer === value ? 'bg-brand-600 text-white' : 'bg-white text-ink-600'}`}
+                          onClick={() => { const st = useSimStore.getState(); st.commitHistory(); st.updateWire(selectedWire.id, { [layerKey]: value }) }}>
+                          {value === 'back' ? 'Atrás' : 'À frente'}
+                        </button>)}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
+                      {WIRE_END_OPTIONS.map((o) => <button key={o.id} type="button" title={o.hint} aria-pressed={chosen === o.id}
+                        onClick={() => { const st = useSimStore.getState(); st.commitHistory(); st.updateWire(selectedWire.id, { [typeKey]: o.id }) }}
+                        className={`flex items-center gap-1.5 rounded-[5px] border px-1.5 py-1 text-left text-[10.5px] transition-colors ${chosen === o.id ? 'border-brand-500 bg-brand-50 text-brand-700 font-semibold' : 'border-line bg-white text-ink-700 hover:border-line-strong hover:bg-slate-50'}`}>
+                        <WireEndIcon type={o.id} color={WIRE_COLORS[selectedWire.color]} size={30} /><span className="truncate">{o.label}</span>
+                      </button>)}
+                    </div>
+                  </div>
+                })}
                 <p className="text-[10px] text-ink-400 leading-relaxed">
-                  De {wireFromTerminal?.label ?? (selectedWire.fromPoint ? 'ponta livre' : '—')} → {wireToTerminal?.label ?? (selectedWire.toPoint ? 'ponta livre' : '—')}. {selectedWire.fromPoint || selectedWire.toPoint ? 'Arraste uma ponta livre até um borne para a ligar. Só há continuidade elétrica quando ambas as pontas estiverem ligadas.' : 'A terminação é desenhada nas pontas do cabo.'}
+                  A camada do cabo controla o traçado; a camada de cada terminal controla a respetiva ponteira. {selectedWire.fromPoint || selectedWire.toPoint ? 'Arraste uma ponta livre até um borne para a ligar. Só há continuidade elétrica quando ambas as pontas estiverem ligadas.' : ''}
                 </p>
               </div>
 

@@ -14,6 +14,7 @@ import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
 import { proautoTerminalLocal } from '../src/schematic/proautoTerminalGeometry'
 import { connectNearWireEnds, nearestTerminal, nearestModelTerminal } from '../src/schematic/terminalSnap'
 import { terminalPos } from '../src/schematic/symbols'
+import { useSimStore } from '../src/store/useSimStore'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
@@ -422,6 +423,26 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const repaired = connectNearWireEnds([plc, ps], [{ ...cable, fromPoint: olderPoint }])[0]
   check('ponta antes escondida pela fotografia do PLC encaixa no parafuso', repaired.fromTerminalId === screw.id && !repaired.fromPoint)
   check('encaixe alargado só atua dentro do corpo do modelo', nearestModelTerminal([plc], { x: center.x - 300, y: center.y }, undefined, 28) === null)
+}
+
+/* Ordem de camadas: mover cabo e componente com os mesmos botões. */
+{
+  const plc = createComponent('plcSiemensLogo1224RC')
+  const ps = createComponent('powerSupplyProauto24A', undefined, undefined, 0, 300, 0)
+  const wire = { id: 'layer-wire', fromTerminalId: plc.terminals[0].id, toTerminalId: ps.terminals[0].id,
+    color: 'black', gauge: '1.5mm²', kind: 'control', route: 'orthogonal', bend: .5,
+    flexibility: 'rigid', energized: false, endType: 'ferrule', fromEndType: 'ring', toEndType: 'pin',
+    fromEndLayer: 'front', toEndLayer: 'back',
+  } as Wire
+  useSimStore.setState({ components: [plc, ps], wires: [wire], selectedComponentIds: [], selectedWireId: wire.id, history: [], future: [] })
+  const store = useSimStore.getState()
+  store.bringSelectionToFront()
+  check('frente move traçado do cabo à frente dos componentes', (useSimStore.getState().wires[0].z ?? 0) > Math.max(...useSimStore.getState().components.map((c) => c.z ?? 0)))
+  store.sendSelectionToBack()
+  check('trás move traçado do cabo atrás dos componentes', (useSimStore.getState().wires[0].z ?? 0) < Math.min(...useSimStore.getState().components.map((c) => c.z ?? 0)))
+  const saved = useSimStore.getState().saveJSON()
+  const loaded = JSON.parse(saved).wires[0] as Wire
+  check('tipos e camadas independentes persistem no projeto', loaded.fromEndType === 'ring' && loaded.toEndType === 'pin' && loaded.fromEndLayer === 'front' && loaded.toEndLayer === 'back')
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

@@ -786,9 +786,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     const col = WIRE_COLORS[w.color] ?? '#94a3b8'
     const flexible = w.flexibility === 'flexible'
     const selected = selectedWireId === w.id
-    const { d, handle, pts } = display.geometry
+    const { d, handle } = display.geometry
     const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
-    const endType: WireEndType = w.endType ?? 'none'
     const cap = flexible ? 'round' : 'square'
     const join = flexible ? 'round' : 'miter'
     const addPoint = (e: React.MouseEvent) => {
@@ -840,11 +839,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         </path>
         <circle cx={a.x} cy={a.y} r={3.4} fill="white" stroke={col} strokeWidth={1.5} pointerEvents="none" />
         <circle cx={b.x} cy={b.y} r={3.4} fill="white" stroke={col} strokeWidth={1.5} pointerEvents="none" />
-        <WireEnd p={a} dir={endDir(pts, true)} type={endType} color={col} />
-        <WireEnd p={b} dir={endDir(pts, false)} type={endType} color={col} />
-        {endType === 'none' && !w.fromPoint && <circle cx={a.x} cy={a.y} r={2.5} fill={col} pointerEvents="none" />}
         {w.fromPoint && !selected && <circle cx={a.x} cy={a.y} r={5} fill="white" stroke={col} strokeWidth={2} pointerEvents="none" />}
-        {endType === 'none' && !w.toPoint && <circle cx={b.x} cy={b.y} r={2.5} fill={col} pointerEvents="none" />}
         {w.toPoint && !selected && <circle cx={b.x} cy={b.y} r={5} fill="white" stroke={col} strokeWidth={2} pointerEvents="none" />}
         {/* pontas livres arrastáveis — não representam uma ligação elétrica */}
         {selected && (['fromPoint', 'toPoint'] as const).map((side) => {
@@ -912,6 +907,29 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     const bodyH = imgH * 0.91
     return { x: (c.w - bodyW) / 2, y: (c.h - bodyH) / 2, w: bodyW, h: bodyH }
   }
+
+  const renderWireEnds = (layer: 'back' | 'front') => wires.flatMap((w) => {
+    const display = wireDisplay(w)
+    if (!display) return []
+    const color = WIRE_COLORS[w.color] ?? '#94a3b8'
+    const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
+    return (['from', 'to'] as const).map((side) => {
+      const endLayer = (side === 'from' ? w.fromEndLayer : w.toEndLayer) ?? 'back'
+      if (endLayer !== layer) return null
+      const point = side === 'from' ? display.a : display.b
+      const lead = side === 'from' ? display.fromLead : display.toLead
+      const type = (side === 'from' ? w.fromEndType : w.toEndType) ?? w.endType ?? 'none'
+      const dir = endDir(display.geometry.pts, side === 'from')
+      return <g key={`${w.id}-${side}-${layer}`} pointerEvents="none">
+        {layer === 'front' && lead && <>
+          <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} />
+          <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke={color} strokeWidth={width} />
+        </>}
+        <WireEnd p={point} dir={dir} type={type} color={color} />
+        {type === 'none' && <circle cx={point.x} cy={point.y} r={2.7} fill={color} stroke="white" strokeWidth={0.8} />}
+      </g>
+    })
+  })
 
   const renderComponentEl = (c: ElectricalComponent) => {
     const selected = selectedIds.includes(c.id)
@@ -1002,29 +1020,15 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         <g transform={`translate(${panX},${panY}) scale(${zoom})`}>
           {grid.enabled && <rect x={-CANVAS_W} y={-CANVAS_H} width={CANVAS_W * 3} height={CANVAS_H * 3} fill={grid.style === 'dots' ? 'url(#dc-grid-dots)' : 'url(#dc-grid-lines)'} />}
 
-          {/* -------------------------------------------------- cabos + componentes, na ordem de empilhamento (z) */}
+          {/* Pontas de trás: atrás de todos os componentes, independentemente
+              da camada do corpo do cabo. */}
+          {renderWireEnds('back')}
+
+          {/* Cabos e componentes partilham a mesma ordem z. */}
           {drawOrder.map((entry) => (entry.kind === 'wire' ? renderWireEl(entry.wire) : renderComponentEl(entry.comp)))}
 
-          {/* Ligação e ponteira desenhadas por cima do modelo 3D: nunca ficam
-              escondidas atrás da fotografia do parafuso. */}
-          {wires.map((w) => {
-            const display = wireDisplay(w)
-            if (!display) return null
-            const color = WIRE_COLORS[w.color] ?? '#94a3b8'
-            const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
-            return (['from', 'to'] as const).map((side) => {
-              const point = side === 'from' ? display.a : display.b
-              const lead = side === 'from' ? display.fromLead : display.toLead
-              if (!lead) return null
-              const dir = endDir(display.geometry.pts, side === 'from')
-              return <g key={`${w.id}-${side}-connector`} pointerEvents="none">
-                <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} />
-                <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke={color} strokeWidth={width} />
-                <WireEnd p={point} dir={dir} type={w.endType ?? 'none'} color={color} />
-                <circle cx={point.x} cy={point.y} r={2.7} fill={color} stroke="white" strokeWidth={0.8} />
-              </g>
-            })
-          })}
+          {/* Pontas da frente: apenas as escolhidas no inspetor. */}
+          {renderWireEnds('front')}
 
           {/* cabo em construção */}
           {pendingFrom && draftPoints.map((point, i) => <circle key={`draft-${i}`} cx={point.x} cy={point.y} r={4} fill="white" stroke="#2563eb" strokeWidth={2} pointerEvents="none" />)}

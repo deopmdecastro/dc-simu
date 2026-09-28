@@ -766,6 +766,8 @@ export const useSimStore = create<Store>((set, get) => ({
       kind: 'control',
       flexibility: defs.flexibility,
       endType: defs.endType,
+      fromEndType: defs.endType, toEndType: defs.endType,
+      fromEndLayer: 'back', toEndLayer: 'back',
       route: 'orthogonal',
       bend: 0.5,
       curveOffset: 0,
@@ -804,7 +806,8 @@ export const useSimStore = create<Store>((set, get) => ({
       id: nanoid(8), fromTerminalId: from.terminalId ?? '', toTerminalId: to.terminalId ?? '',
       fromPoint: from.point, toPoint: to.point, waypoints,
       color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
-      endType: defs.endType, route: 'orthogonal', bend: 0.5, curveOffset: 0,
+      endType: defs.endType, fromEndType: defs.endType, toEndType: defs.endType,
+      fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0,
       number: `W${get().wires.length + 1}`, energized: false,
     }
     set((state) => ({ wires: [...state.wires, wire], selectedWireId: wire.id, dirty: true }))

@@ -224,7 +224,7 @@ export type WireFlexibility = 'rigid' | 'flexible'
 export type WireRoute = 'orthogonal' | 'direct' | 'arc' | 'manhattan'
 
 /**
- * Terminação aplicada às pontas do cabo (uma única opção para as duas pontas):
+ * Terminação aplicada a cada ponta do cabo:
  * ponteira tubular, ponteira dupla, olhal, forquilha, pino, faston, estanhado
  * ou ponta nua.
  */
@@ -270,6 +270,12 @@ export interface Wire {
   waypoints?: Array<{ x: number; y: number }>
   /** Terminação das pontas do cabo (ponteira, olhal, forquilha…) */
   endType?: WireEndType
+  /** Opções independentes de cada extremidade; endType é o fallback legado. */
+  fromEndType?: WireEndType
+  toEndType?: WireEndType
+  /** Por omissão, a ponteira fica atrás do corpo do componente. */
+  fromEndLayer?: 'back' | 'front'
+  toEndLayer?: 'back' | 'front'
   /** Número do fio / identificador de chicote */
   number?: string
   label?: string
