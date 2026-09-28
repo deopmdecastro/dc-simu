@@ -6,6 +6,8 @@ export const MODEL_PATHS = {
   plcSiemensLogo1224RC: '/models/controladores/logo-siemens-1224rc.glb',
   /** Contator WEG CWC07/CWC09 10E — modelo CAD real do fabricante. */
   wegContactorCWC09: '/models/contactores/weg-cwc07-10e.glb',
+  /** Botão de emergência Metaltex P20AKR, cabeça cogumelo com retorno por giro. */
+  emergencyButtonP20AKR: '/models/comando/P20AKR-1.glb',
 } as const
 
 export type ProtectionModelSpec = {
@@ -23,4 +25,19 @@ const PROTECTION_MODELS: Partial<Record<ComponentType, ProtectionModelSpec>> = {
 
 export function getProtectionModelSpec(type: ComponentType): ProtectionModelSpec | undefined {
   return PROTECTION_MODELS[type]
+}
+
+export type CommandModelSpec = {
+  path: string
+  /** O eixo Z do CAD é o eixo do cogumelo; a face está voltada para +Z. */
+  rotation: [number, number, number]
+}
+
+const COMMAND_MODELS: Partial<Record<ComponentType, CommandModelSpec>> = {
+  // A vista frontal do CAD foi verificada: o cogumelo já fica voltado para +Z.
+  emergencyButton: { path: MODEL_PATHS.emergencyButtonP20AKR, rotation: [0, 0, 0] },
+}
+
+export function getCommandModelSpec(type: ComponentType): CommandModelSpec | undefined {
+  return COMMAND_MODELS[type]
 }

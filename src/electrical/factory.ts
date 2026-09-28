@@ -232,7 +232,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { pressed: false, momentary: true, color: '#ef4444' },
   },
   emergencyButton: {
-    category: 'command', paletteName: 'Botão de emergência (cogumelo)', group: 'Comando', tag: 'S', w: 80, h: 80,
+    category: 'command', paletteName: 'Botão de emergência Metaltex P20AKR · 1NF', group: 'Comando', tag: 'S', w: 80, h: 80,
     terminals: [T('21', 'aux-nc', 0.15, 0.5), T('22', 'aux-nc', 0.85, 0.5)],
     defaultState: { pressed: false, latched: true, color: '#dc2626' },
   },

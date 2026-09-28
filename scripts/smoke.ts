@@ -24,6 +24,7 @@ import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
+import { getCommandModelSpec } from '../src/three/modelPaths'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
@@ -628,6 +629,14 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const current = useSimStore.getState()
   check('DB BOOL alimenta contacto sem cruzar valores entre PLCs', !!current.components[0].state.outputs.Q1 && !current.components[1].state.outputs.Q1)
   check('MOVE INT escreve apenas DB do PLC onde o rung está ativo', current.runtime.plcRuntime[a.id].db['DB1.COUNT'].value === 12 && current.runtime.plcRuntime[b.id].db['DB1.COUNT'].value === 0)
+}
+
+/* Botão de emergência CAD Metaltex: conserva a ligação 1NF existente. */
+{
+  const emergency = createComponent('emergencyButton')
+  const cad = getCommandModelSpec('emergencyButton')
+  check('Botão de emergência usa o CAD Metaltex P20AKR', cad?.path === '/models/comando/P20AKR-1.glb' && cad.rotation[1] === 0)
+  check('Botão de emergência CAD mantém os dois bornes NF 21/22', emergency.terminals.some((t) => t.label === '21' && t.kind === 'aux-nc') && emergency.terminals.some((t) => t.label === '22' && t.kind === 'aux-nc'))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

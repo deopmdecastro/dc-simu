@@ -8,7 +8,7 @@ import { SCENARIOS } from '../simulation/scenarios'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType } from '../types'
 import * as THREE from 'three'
-import { getProtectionModelSpec, MODEL_PATHS } from './modelPaths'
+import { getCommandModelSpec, getProtectionModelSpec, MODEL_PATHS } from './modelPaths'
 
 const SLOT_WIDTH = 0.72
 const RAIL_Y = 0.4
@@ -282,6 +282,44 @@ function ProtectionBreakerReal3D({ c, x }: { c: ElectricalComponent; x: number }
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
     <Label text={c.ref} position={[0, 0.86, 0.22]} color="#e2e8f0" />
+  </group>
+}
+
+/** Botão de emergência Metaltex com modelo CAD real e acionamento equivalente ao modelo procedural. */
+function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: number; onPress: (pressed: boolean) => void }) {
+  const spec = getCommandModelSpec(c.type)!
+  const { scene } = useGLTF(spec.path)
+  const model = useMemo(() => {
+    const obj = scene.clone(true)
+    obj.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => material.clone()) : mesh.material.clone()
+    })
+    obj.rotation.set(...spec.rotation)
+    obj.updateMatrixWorld(true)
+    const bounds = new THREE.Box3().setFromObject(obj)
+    const size = bounds.getSize(new THREE.Vector3())
+    // O diâmetro de montagem do botão é ~22 mm; enquadra-o à mesma escala
+    // visual dos restantes botões do painel, sem distorcer o CAD.
+    const diameter = Math.max(size.x, size.y)
+    obj.scale.setScalar(diameter > 0 ? 0.38 / diameter : 1)
+    obj.updateMatrixWorld(true)
+    const fitted = new THREE.Box3().setFromObject(obj)
+    obj.position.sub(fitted.getCenter(new THREE.Vector3()))
+    return obj
+  }, [scene, spec])
+  const pressed = !!c.state.pressed
+  return <group
+    position={[x, RAIL_Y + 1.05, 0.4]}
+    onPointerDown={(event) => { event.stopPropagation(); onPress(true) }}
+    onPointerUp={(event) => { event.stopPropagation(); onPress(false) }}
+    onPointerOut={() => { if (pressed) onPress(false) }}
+  >
+    <group position={[0, 0, pressed ? -0.025 : 0]}>
+      <primitive object={model} castShadow receiveShadow />
+    </group>
+    <Label text={c.ref} position={[0, 0.28, 0.08]} />
   </group>
 }
 
@@ -657,6 +695,7 @@ export default function Panel3D() {
           if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') return <Lamp3D key={c.id} c={c} x={x} />
           if (c.type === 'towerLight') return <TowerLight3D key={c.id} c={c} x={x} />
           if (c.type === 'motor3ph') return <Motor3D key={c.id} c={c} />
+          if (c.type === 'emergencyButton' && getCommandModelSpec(c.type)) return <Model3DErrorBoundary key={c.id} fallback={<PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />}><Suspense fallback={<PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />}><EmergencyButtonReal3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} /></Suspense></Model3DErrorBoundary>
           if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(c.type)) {
             return <Sensor3D key={c.id} c={c} x={x} onToggle={() => setComponentState(c.id, { triggered: !c.state.triggered })} />
           }
