@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import App from './App'
+import LandingShowcase from './three/LandingShowcase'
 import { useSimStore } from './store/useSimStore'
 
 type User = { id: string; name: string; email: string; role: 'admin' | 'user' }
@@ -156,8 +157,7 @@ function SimWindow({full}:{full?:boolean}) {
       <div className="lp-side">
         <div className="lp-pane lp-ladder"><div className="lp-pane-h">LADDER<em>REDE 1</em></div>
           <svg viewBox="0 0 220 90" aria-hidden="true"><g stroke="#12214f" strokeWidth="2" fill="none"><path d="M10 8 V82"/><path d="M210 8 V82"/><path d="M10 26 H70 M92 26 H130 M152 26 H210"/><path d="M10 64 H70 M92 64 H130 M152 64 H210"/></g><g stroke="#2655e5" strokeWidth="2" fill="none"><path d="M70 16 V36 M92 16 V36"/><path d="M70 54 V74 M92 54 V74"/><circle cx="141" cy="26" r="10"/></g><path d="M10 26 H70 M92 26 H130" stroke="#16a34a" strokeWidth="2.5"/><g fontFamily="system-ui" fontSize="7" fill="#6a7fa6"><text x="66" y="12">I0.0</text><text x="66" y="50">Q0.0</text><text x="129" y="14">Q0.0</text></g></svg></div>
-        <div className="lp-pane lp-p3d"><div className="lp-pane-h">PAINEL 3D</div>
-          <svg viewBox="0 0 220 110" aria-hidden="true"><path d="M50 30 L110 12 L170 30 L170 86 L110 104 L50 86 Z" fill="#dbe4f4" stroke="#8fa3c7"/><path d="M50 30 L110 48 L170 30 M110 48 V104" fill="none" stroke="#8fa3c7"/><path d="M50 30 L110 48 V104 L50 86 Z" fill="#c4d2ec"/><g fill="#12214f"><rect x="66" y="46" width="14" height="9" transform="skewY(18)"/><rect x="86" y="52" width="14" height="9" transform="skewY(18)" fill="#2655e5"/></g><circle cx="140" cy="52" r="3" fill="#16a34a"/><rect x="128" y="62" width="30" height="16" fill="#12214f" transform="skewY(-18) translate(0 40)" opacity=".85"/></svg></div>
+        <div className="lp-pane lp-p3d"><div className="lp-pane-h">PAINEL 3D · MODELO REAL<em>WEG CWC09</em></div><LandingShowcase compact caption={false} deviceKey="weg" className="dc-win-showcase" /></div>
       </div>
     </div>
     <div className="lp-win-foot"><span><i/>SIMULAÇÃO ATIVA</span><span className="lp-mon">Monitor · I0.0 ▮ &nbsp; Q0.0 ▮ &nbsp; KM1 ▮</span><span>3 componentes · 5 ligações</span></div>
@@ -175,6 +175,8 @@ function Landing({onRegister,onLogin}:{onRegister:()=>void;onLogin:()=>void}) {
       <div className={'lp-links'+(menu?' open':'')} onClick={()=>setMenu(false)}><a href="#funcionalidades">Funcionalidades</a><a href="#simulador">Simulador</a><a href="#recursos">Recursos</a><a href="#sobre">Sobre</a><button className="lp-menu-login" onClick={onLogin}>Entrar</button></div>
       <div className="lp-nav-cta"><button className="lp-ghost" onClick={onLogin}>Entrar</button><button className="lp-btn sm" onClick={onRegister}><span className="lp-long">Criar projeto grátis</span><span className="lp-short">Criar conta</span></button><button className="lp-burger" aria-label="Menu" aria-expanded={menu} onClick={()=>setMenu(!menu)}><i/><i/><i/></button></div></div></nav>
     <section className="lp-hero"><div className="lp-hero-copy">
+      {/* componente 3D real (WebGL) — o mesmo CAD do fabricante que o Painel 3D usa no editor */}
+      <LandingShowcase compact caption={false} className="dc-hero-live" />
       <span className="lp-pill"><i/>O SEU LABORATÓRIO DE AUTOMAÇÃO</span>
       <h1>Projete o circuito.<br/><em>Veja-o ganhar vida.</em></h1>
       <p>Do primeiro fio ao scan do PLC: crie esquemas, programe em Ladder e visualize o seu painel em 3D. Tudo ligado, no mesmo projeto.</p>
@@ -183,10 +185,21 @@ function Landing({onRegister,onLogin}:{onRegister:()=>void;onLogin:()=>void}) {
       <div className="lp-hero-vis"><SimWindow/><div className="lp-chip c1">⚡ <div><b>Simulação em tempo real</b><small>Do borne à lógica do PLC</small></div></div><div className="lp-chip c2">▧ <div><b>Mais que um simulador.</b><small>Um ambiente completo.</small></div></div></div>
     </section>
     <div className="lp-views" id="recursos"><span>UM PROJETO, VÁRIAS VISTAS</span><b>Esquema elétrico</b><i/><b>Ladder</b><i/><b>GRAFCET</b><i/><b>Painel 3D</b><i/><b>Monitorização</b></div>
+    <section className="lp-sec" id="equipamentos"><div className="lp-head"><div><span className="lp-tag">EQUIPAMENTOS REAIS</span><h2>Os aparelhos do simulador<br/>em 3D verdadeiro.</h2></div><p>Modelos CAD dos próprios fabricantes — contator WEG, controlador LOGO! e fonte DRAN120 — prontos para rodar, aproximar e alimentar. Não são desenhos estáticos: é o mesmo modelo que o Painel 3D usa dentro do editor.</p></div>
+      <LandingShowcase /></section>
     <section className="lp-sec" id="funcionalidades"><div className="lp-head"><div><span className="lp-tag">PENSADO PARA QUEM CONSTRÓI</span><h2>Menos ferramentas separadas.<br/>Mais tempo a criar.</h2></div><p>Uma experiência de ponta a ponta para desenhar, testar e partilhar os seus sistemas de automação.</p></div>
       <div className="lp-feats">{items.map(f=><article key={f.k}><div className="lp-ic">{f.i}</div><span>{f.k}</span><h3>{f.t}</h3><p>{f.p}</p></article>)}</div></section>
     <section className="lp-sec lp-sim" id="simulador"><div className="lp-head"><div><span className="lp-tag">O SIMULADOR</span><h2>Esquema, Ladder e Painel 3D<br/>numa única área de trabalho.</h2></div><p>Componentes PLC, ligações elétricas e Monitor em tempo real, com o estado RUN sempre visível.</p></div><SimWindow full/></section>
     <section className="lp-end" id="sobre"><div><span className="lp-tag light">PRONTO PARA COMEÇAR?</span><h2>O próximo circuito começa aqui.</h2><p>Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.</p></div><button className="lp-btn light" onClick={onRegister}>Criar conta <span aria-hidden>↗</span></button></section>
+    <section className="lp-credits" id="creditos">
+      <h2>Equipamentos e fontes técnicas</h2>
+      <p>O modelo CAD disponível do contator é o CWC07 10E da família WEG CWC; a ficha integrada descreve o código CWC09 · 12679840 (bobina 42 V 50 Hz / 48 V 60 Hz, Ie AC-3 9 A), que é a referência elétrica deste componente. Os modelos CAD e as fichas técnicas pertencem aos respetivos fabricantes e são usados aqui como referência técnica e didática.</p>
+      <ul>
+        <li><a href="/datasheets/weg-cwc09-12679840.pdf" target="_blank" rel="noreferrer">Ficha WEG CWC09 · 12679840 (PDF) ↗</a></li>
+        <li><a href="/datasheets/logo-manual-0ba4-en.pdf" target="_blank" rel="noreferrer">Manual Siemens LOGO! 0BA4 (PDF) ↗</a></li>
+        <li><a href="/datasheets/chinfa-dran120-series.pdf" target="_blank" rel="noreferrer">Ficha Chinfa DRAN120 (PDF) ↗</a></li>
+      </ul>
+    </section>
     <footer className="lp-foot"><Logo dark size={26}/><span>Esquema. Lógica. Simulação.</span><small>© {new Date().getFullYear()} DC-SIMU</small></footer>
   </div>
 }

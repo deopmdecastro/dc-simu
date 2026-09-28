@@ -9,6 +9,26 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v2.3
+
+**Contator WEG CWC09 no simulador (modelo CAD real)**
+- Novo componente **Contator WEG CWC09 · 9 A (3NA + 1NA)** na biblioteca, com os bornes serigrafados
+  do aparelho: `1L1/2T1`, `3L2/4T2`, `5L3/6T3`, auxiliar `13/14`, fechado `21/22` e bobina `A1/A2`.
+- O **Painel 3D** e o **esquema** desenham o GLB real do fabricante (CWC07 10E, mesma família), sem
+  rotação de eixo artificial: o export já vem em Y-up com a frente em +Z.
+- Cada instância tem os seus próprios parafusos clicáveis (encaixe alargado junto ao corpo), com o
+  mesmo padrão já usado pelo LOGO! e pela fonte Proauto.
+- **Ficha técnica integrada** do código 12679840 (Ie AC-3 9 A, Ie AC-1 20 A, Ue 690 V, Uimp 4 kV,
+  10 M manobras, bobina 42 V 50 Hz / 48 V 60 Hz) no inspetor do componente.
+
+**Landing page com os equipamentos reais em 3D**
+- Os desenhos SVG de equipamentos deram lugar a uma **vitrine WebGL** com os três modelos CAD
+  verdadeiros (LOGO! 12/24RC, contator WEG e fonte DRAN120): rodar, aproximar, ligar/desligar a
+  alimentação e ler a ficha de cada aparelho — os modelos carregam em `Suspense`, com alternativa
+  procedural (`ErrorBoundary`) e sem bloquear a página.
+- A segunda linha da página inicial mostra os modelos reais sobre calha DIN, com as fontes técnicas
+  (PDF) e a nota de propriedade dos fabricantes.
+
 ## Novidades — v2.2
 
 **Top bar reorganizada**

@@ -2,6 +2,7 @@ import type { ElectricalComponent, Terminal, TerminalType } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { logoTerminalLocal } from './logoTerminalGeometry'
 import { proautoTerminalLocal } from './proautoTerminalGeometry'
+import { wegTerminalLocal } from './wegTerminalGeometry'
 
 /** Cores de cabo do editor (com contraste calibrado para o modo claro). */
 export const WIRE_COLORS: Record<string, string> = {
@@ -175,7 +176,11 @@ export function TerminalGlyph({
 
 /** Posição absoluta de um borne no canvas, respeitando rotação e espelhamento. */
 export function terminalPos(c: ElectricalComponent, t: Terminal): { x: number; y: number } {
-  const { x: localX, y: localY } = c.type === 'powerSupplyProauto24A' ? proautoTerminalLocal(c, t) : logoTerminalLocal(c, t)
+  const { x: localX, y: localY } = c.type === 'contactorWegCWC09'
+    ? wegTerminalLocal(c, t)
+    : c.type === 'powerSupplyProauto24A'
+      ? proautoTerminalLocal(c, t)
+      : logoTerminalLocal(c, t)
   const cx = c.w / 2
   const cy = c.h / 2
   const mx = c.mirrored ? c.w - localX : localX
@@ -326,6 +331,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       }
 
       // ------------------------------------------------------------ contatores
+      case 'contactorWegCWC09':
       case 'contactor':
       case 'contactor4p': {
         const poles = c.terminals.filter((t) => t.kind === 'power-in').length
@@ -682,7 +688,11 @@ export function ComponentTerminals({ c }: { c: ElectricalComponent }) {
     <g>
       {/* bornes clicáveis */}
       {c.terminals.map((t) => {
-        const { x: px, y: py } = c.type === 'powerSupplyProauto24A' ? proautoTerminalLocal(c, t) : logoTerminalLocal(c, t)
+        const { x: px, y: py } = c.type === 'contactorWegCWC09'
+          ? wegTerminalLocal(c, t)
+          : c.type === 'powerSupplyProauto24A'
+            ? proautoTerminalLocal(c, t)
+            : logoTerminalLocal(c, t)
         return (
           <g key={t.id}>
             <TerminalGlyph x={px} y={py} type={t.terminalType} color={t.color} energized={t.energized} r={4.5} />

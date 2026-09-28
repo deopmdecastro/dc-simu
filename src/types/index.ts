@@ -55,6 +55,7 @@ export type ComponentType =
   | 'contactor'
   | 'contactor4p'
   | 'auxContactBlock'
+  | 'contactorWegCWC09'
   // --- Relés ------------------------------------------------------------
   | 'auxRelay'
   | 'auxRelay4'

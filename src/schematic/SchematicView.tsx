@@ -7,6 +7,7 @@ import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
+import { getWeg3DImage } from './weg3DImage'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
@@ -125,6 +126,7 @@ function insertWaypoint(a: Pt, b: Pt, waypoints: Pt[], p: Pt): Pt[] {
 export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
   const [logoImages, setLogoImages] = useState<{ off: string; on: string } | null>(null)
   const [proautoImage, setProautoImage] = useState<string | null>(null)
+  const [wegImage, setWegImage] = useState<string | null>(null)
   const hasProauto = useSimStore((s) => s.components.some((c) => c.type === 'powerSupplyProauto24A'))
   useEffect(() => {
     if (!hasProauto) return
@@ -132,6 +134,13 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     getProauto3DImage().then((image) => { if (active) setProautoImage(image) }).catch((error) => console.warn('Modelo da fonte indisponível', error))
     return () => { active = false }
   }, [hasProauto])
+  const hasWegContactor = useSimStore((s) => s.components.some((c) => c.type === 'contactorWegCWC09'))
+  useEffect(() => {
+    if (!hasWegContactor) return
+    let active = true
+    getWeg3DImage().then((image) => { if (active) setWegImage(image) }).catch((error) => console.warn('Modelo do contator WEG indisponível; símbolo de reserva em uso', error))
+    return () => { active = false }
+  }, [hasWegContactor])
   const hasLogo = useSimStore((s) => s.components.some((c) => c.type === 'plcSiemensLogo1224RC'))
   useEffect(() => {
     if (!hasLogo) return
@@ -620,7 +629,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   // o troço visível pare desalinhado na borda da imagem.
   const modelLead = (terminalId: string): Pt | null => {
     const t = terminalIndex.get(terminalId)
-    if (!t || !['plcSiemensLogo1224RC', 'powerSupplyProauto24A'].includes(t.c.type)) return null
+    if (!t || !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(t.c.type)) return null
     const c = t.c
     const bounds = modelBounds(c)
     const rotated = Math.abs(c.rotation % 180) === 90
@@ -756,9 +765,13 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const modelBounds = (c: ElectricalComponent) => {
     const imgW = Math.min(c.w, c.h * 560 / 720)
     const imgH = Math.min(c.h, c.w * 720 / 560)
-    const isLogo = c.type === 'plcSiemensLogo1224RC'
-    const bodyW = imgW * (isLogo ? 0.87 : 0.59)
-    const bodyH = imgH * 0.91
+    // Proporção da caixa real de cada CAD dentro da imagem gerada (o LOGO! é
+    // estreito, a fonte Proauto é alta e o contator WEG é praticamente um cubo).
+    const factor = c.type === 'plcSiemensLogo1224RC' ? { w: 0.87, h: 0.91 }
+      : c.type === 'contactorWegCWC09' ? { w: 0.94, h: 0.92 }
+        : { w: 0.59, h: 0.91 }
+    const bodyW = imgW * factor.w
+    const bodyH = imgH * factor.h
     return { x: (c.w - bodyW) / 2, y: (c.h - bodyH) / 2, w: bodyW, h: bodyH }
   }
 
@@ -790,7 +803,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
   const renderComponentEl = (c: ElectricalComponent) => {
     const selected = selectedIds.includes(c.id)
-    const model = (c.type === 'plcSiemensLogo1224RC' && logoImages) || (c.type === 'powerSupplyProauto24A' && proautoImage)
+    const model = (c.type === 'plcSiemensLogo1224RC' && logoImages) || (c.type === 'powerSupplyProauto24A' && proautoImage) || (c.type === 'contactorWegCWC09' && wegImage)
     const bounds = model ? modelBounds(c) : { x: 0, y: 0, w: c.w, h: c.h }
     return (
       <g
@@ -804,7 +817,15 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? 'move' : 'inherit', opacity: c.locked ? 0.85 : 1 }}
       >
         {selected && <rect x={bounds.x - 4} y={bounds.y - 4} width={bounds.w + 8} height={bounds.h + 8} rx={6} fill="none" stroke="#2655e5" strokeWidth={1.5} strokeDasharray="5 3" />}
-        {c.type === 'powerSupplyProauto24A' && proautoImage ? (
+        {c.type === 'contactorWegCWC09' && wegImage ? (
+          <>
+            {/* vista frontal do mesmo GLB usado no Painel 3D — não é um SVG */}
+            <image x={0} y={0} width={c.w} height={c.h} href={wegImage} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
+            <ComponentTerminals c={c} />
+            <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+          </>
+        ) : c.type === 'powerSupplyProauto24A' && proautoImage ? (
           <>
             <image x={0} y={0} width={c.w} height={c.h} href={proautoImage} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />

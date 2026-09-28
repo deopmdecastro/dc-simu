@@ -34,6 +34,7 @@ const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   thermalRelay: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
   contactor: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
   contactor4p: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3'], ['7', '8']],
+  contactorWegCWC09: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
 }
 
 function t(c: ElectricalComponent, label: string) {
@@ -125,7 +126,8 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
 
     // ---- contatores ----
     case 'contactor':
-    case 'contactor4p': {
+    case 'contactor4p':
+    case 'contactorWegCWC09': {
       const en = !!c.state.energized
       if (en) {
         for (const [a, b] of POLE_PAIRS[c.type] ?? []) pair(la(a), la(b))

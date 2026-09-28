@@ -1978,3 +1978,45 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
 @media(max-width:1050px){.lp-menu-login{display:block}.account-shell .lp-links.open .lp-menu-login{margin-top:14px;background:#eef4ff;color:#2655e5;border-radius:10px;padding:14px;font-size:15px}.lp-nav-cta .lp-ghost{display:none}}
 @media(max-width:900px){.account-shell .auth-back{display:none}.auth-mobile-logo{display:flex;margin-bottom:26px}.auth-panel{border-radius:16px;padding:24px 20px 28px}.auth-panel input{font-size:16px;height:50px}.account-shell .auth-submit{padding:16px;font-size:16px;border-radius:10px}.auth-panel h1{margin-top:8px}.auth-sub{margin-bottom:20px}.auth-main{background-image:none}}
 @media(max-width:700px){.lp-long{display:none}.lp-short{display:inline}.account-shell .lp-btn.sm{padding:10px 14px;font-size:13px}.lp-hero h1{font-size:clamp(32px,8.8vw,46px);letter-spacing:-.045em;margin:20px 0 16px}.lp-hero-copy>p{font-size:16px;line-height:1.6}.lp-hero{padding:32px 20px 24px;gap:28px}.lp-actions{margin:24px 0 22px;gap:8px}.account-shell .lp-actions .lp-btn{justify-content:center;padding:16px}.account-shell .lp-actions .lp-outline{padding:15px;text-align:center}.lp-hero-vis{padding:0 0 12px}.lp-checks{font-size:13px}}
+
+/* ================= vitrine 3D real dos equipamentos (landing page) ================= */
+.dc-showcase{display:flex;gap:18px;align-items:stretch}
+.dc-showcase-stage{position:relative;flex:1;min-width:0;border:1px solid var(--bd);border-radius:13px;overflow:hidden;background:radial-gradient(120% 120% at 30% 0%,#ffffff,#e9eff8 62%,#d9e3f1)}
+.dc-showcase-stage canvas{display:block;width:100%!important;height:100%!important;touch-action:none}
+.dc-showcase.is-compact .dc-showcase-stage{height:200px}
+.dc-showcase:not(.is-compact) .dc-showcase-stage{min-height:440px}
+.dc-showcase-fallback{display:grid;place-items:center;height:100%;padding:20px;text-align:center;font-size:12px;color:#64748b}
+.dc-showcase-badge{position:absolute;left:14px;bottom:12px;display:flex;flex-direction:column;gap:2px;max-width:min(76%,330px);padding:10px 13px;border:1px solid var(--bd);border-radius:10px;background:#ffffffd9;backdrop-filter:blur(6px)}
+.dc-showcase-brand{font-size:9px;font-weight:800;letter-spacing:.14em;color:var(--b)}
+.dc-showcase-badge strong{font-size:14px;letter-spacing:-.02em;color:var(--navy)}
+.dc-showcase-badge small{font-size:10px;line-height:1.45;color:#6a7fa6}
+.dc-showcase-tools{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px}
+.dc-showcase-tools button{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--bd);border-radius:999px;background:#ffffffe6;color:var(--navy);font-family:inherit;font-size:10px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s}
+.dc-showcase-tools button:hover{border-color:var(--b);color:var(--b)}
+.dc-showcase-tools button i{width:7px;height:7px;border-radius:50%;background:#c3cbd8}
+.dc-showcase-tools button i.on{background:#16a34a;box-shadow:0 0 0 3px #16a34a26}
+.dc-showcase-side{display:flex;flex-direction:column;gap:12px;width:290px;flex-shrink:0}
+.dc-showcase-tabs{display:grid;gap:6px}
+.dc-showcase-tabs button{display:flex;flex-direction:column;gap:2px;padding:9px 11px;border:1px solid var(--bd);border-radius:10px;background:#fff;text-align:left;cursor:pointer}
+.dc-showcase-tabs button b{font-size:9px;letter-spacing:.12em;color:#6a7fa6}
+.dc-showcase-tabs button span{font-size:12px;font-weight:700;color:var(--navy)}
+.dc-showcase-tabs button.is-active{border-color:var(--b);background:var(--bl);box-shadow:0 6px 16px #2655e51f}
+.dc-showcase-tabs button.is-active b{color:var(--b)}
+.dc-showcase-specs{display:grid;gap:7px;margin:0;padding:12px;border:1px solid var(--bd);border-radius:10px;background:#fff}
+.dc-showcase-specs dt{font-size:9px;font-weight:800;letter-spacing:.1em;color:#8a9bbd;text-transform:uppercase}
+.dc-showcase-specs dd{margin:1px 0 0;font-size:12px;font-weight:600;color:var(--navy)}
+.dc-showcase-link{font-size:12px;font-weight:700;color:var(--b);text-decoration:none}
+.dc-showcase-link:hover{text-decoration:underline}
+.dc-hero-live{margin-top:28px}
+.dc-win-showcase{display:block;height:100%}
+.lp-pane.lp-p3d .dc-showcase .dc-showcase-stage{height:100%;min-height:0;border:0;border-radius:0}
+.lp-pane.lp-p3d .dc-showcase-badge{left:10px;bottom:10px;padding:7px 10px}
+.lp-pane.lp-p3d .dc-showcase-badge strong{font-size:12px}
+.lp-pane.lp-p3d .dc-showcase-tools{right:9px;top:9px}
+.lp-credits{max-width:1360px;margin:auto;padding:0 clamp(18px,4vw,56px) 72px;color:var(--tx)}
+.lp-credits h2{margin:0 0 10px;font-size:20px;color:var(--navy)}
+.lp-credits p{max-width:780px;margin:0 0 14px;font-size:12px;line-height:1.75}
+.lp-credits ul{display:flex;flex-wrap:wrap;gap:10px;margin:0;padding:0;list-style:none}
+.lp-credits a{display:inline-block;padding:8px 12px;border:1px solid var(--bd);border-radius:8px;background:#fff;font-size:12px;font-weight:700;color:var(--b);text-decoration:none}
+.lp-credits a:hover{border-color:var(--b)}
+@media(max-width:1050px){.dc-showcase{flex-direction:column}.dc-showcase-side{width:auto}.dc-showcase:not(.is-compact) .dc-showcase-stage{min-height:330px}}

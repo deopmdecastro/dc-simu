@@ -302,6 +302,28 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   },
 
   // ---------------- Contatores ----------------
+  // Contator WEG da familia CWC (tripolar, 3 NA + 1 NA auxiliar). Os bornes
+  // seguem a serigrafia real do aparelho: 1L1/2T1, 3L2/4T2, 5L3/6T3 nas tres
+  // colunas de forca, 13/14 no contato auxiliar, 21/22 no contato fechado
+  // (o CWC07/CWC09 10E tem ambos) e a bobina em A1/A2.
+  contactorWegCWC09: {
+    category: 'contactor', paletteName: 'Contator WEG CWC09 · 9 A (3NA + 1NA)', group: 'Contatores', tag: 'KM', w: 150, h: 150,
+    terminals: [
+      T('1L1', 'power-in', 0.20, 0, { terminalType: 'screw', color: '#ef4444' }),
+      T('3L2', 'power-in', 0.36, 0, { terminalType: 'screw', color: '#f8fafc' }),
+      T('5L3', 'power-in', 0.52, 0, { terminalType: 'screw', color: '#1d4ed8' }),
+      T('13', 'aux-no', 0.68, 0, { terminalType: 'screw', color: '#22c55e' }),
+      T('14', 'aux-no', 0.84, 0, { terminalType: 'screw', color: '#22c55e' }),
+      T('2T1', 'power-out', 0.20, 1, { terminalType: 'screw', color: '#ef4444' }),
+      T('4T2', 'power-out', 0.36, 1, { terminalType: 'screw', color: '#f8fafc' }),
+      T('6T3', 'power-out', 0.52, 1, { terminalType: 'screw', color: '#1d4ed8' }),
+      T('21', 'aux-nc', 0.68, 1, { terminalType: 'screw', color: '#eab308' }),
+      T('22', 'aux-nc', 0.84, 1, { terminalType: 'screw', color: '#eab308' }),
+      T('A1', 'coil-plus', 0.06, 0.18, { terminalType: 'screw', color: '#f59e0b' }),
+      T('A2', 'coil-minus', 0.06, 0.82, { terminalType: 'screw', color: '#38bdf8' }),
+    ],
+    defaultState: { energized: false, interlockWith: null, poles: 3, ie: 9, code: '12679840', coil: '42 V 50 Hz / 48 V 60 Hz' },
+  },
   contactor: {
     category: 'contactor', paletteName: 'Contator tripolar (KM)', group: 'Contatores', tag: 'KM', w: 130, h: 120,
     terminals: contactorTerminals(3),

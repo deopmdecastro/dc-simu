@@ -221,6 +221,42 @@ function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   </group>
 }
 
+/**
+ * Contator WEG CWC07/CWC09 10E — modelo CAD real do fabricante. Ao contrário
+ * do LOGO!, este export já vem em Y-up com a frente virada para +Z (bornes de
+ * linha em cima, bornes de carga e janelas de carga em baixo), por isso
+ * normaliza-se apenas escala e centragem, sem rotação de eixo.
+ */
+function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  const { scene } = useGLTF(MODEL_PATHS.wegContactorCWC09)
+  const model = useMemo(() => {
+    const obj = scene.clone(true)
+    // Materiais clonados: o estado de um contator nunca deve alterar os outros modelos.
+    obj.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((mat) => mat.clone()) : mesh.material.clone()
+    })
+    obj.updateMatrixWorld(true)
+    const bounds = new THREE.Box3().setFromObject(obj)
+    const height = bounds.max.y - bounds.min.y
+    obj.scale.setScalar(height > 0 ? 1.0 / height : 1)
+    obj.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(obj)
+    const center = box.getCenter(new THREE.Vector3())
+    obj.position.set(-center.x, -box.min.y, -center.z)
+    return obj
+  }, [scene])
+  const en = !!c.state.energized
+  return <group position={[x, RAIL_Y, 0]}>
+    <primitive object={model} castShadow receiveShadow />
+    {/* Sem partes móveis separadas no CAD: a bobina energizada acende o
+        contorno e a etiqueta muda de cor, como no restante painel. */}
+    {en && <pointLight color="#22c55e" intensity={0.22} distance={1.3} position={[0, 0.5, 0.35]} />}
+    <Label text={c.ref} position={[0, 1.08, 0.24]} color={en ? '#4ade80' : '#e2e8f0'} />
+  </group>
+}
+
 /** Caixa procedural de reserva; o GLB Proauto ainda não foi disponibilizado. */
 function PowerSupply3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const powered = c.type === 'powerSupplyProauto24A' ? !!c.state.powered : !!c.state.on
@@ -529,7 +565,7 @@ export default function Panel3D() {
     const rail = components.filter((c) => railTypes.some((t) => c.type.startsWith(t)))
     const pos: Record<string, THREE.Vector3> = {}
     let cursor = 0
-    const widths = rail.map((c) => (c.type.startsWith('plc') ? 1.6 : c.type === 'busbarPhase' ? 1.8 : c.type.startsWith('busbar') || c.type === 'earthBar' ? 1.4 : 0.72 + c.terminals.filter((t) => t.kind === 'power-in').length * 0.06))
+    const widths = rail.map((c) => (c.type.startsWith('plc') ? 1.6 : c.type === 'contactorWegCWC09' ? 1.15 : c.type === 'busbarPhase' ? 1.8 : c.type.startsWith('busbar') || c.type === 'earthBar' ? 1.4 : 0.72 + c.terminals.filter((t) => t.kind === 'power-in').length * 0.06))
     const total = widths.reduce((a, b) => a + b + 0.14, 0)
     cursor = -total / 2
     rail.forEach((c, i) => {
@@ -578,6 +614,7 @@ export default function Panel3D() {
         {railComponents.map((c) => {
           const x = positions[c.id].x
           if (c.type === 'thermalRelay') return <ThermalRelay3D key={c.id} c={c} x={x} />
+          if (c.type === 'contactorWegCWC09') return <Model3DErrorBoundary key={c.id} fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           if (c.type.startsWith('contactor')) return <Contactor3D key={c.id} c={c} x={x} />
           if (c.type === 'powerSupplyProauto24A') return <Model3DErrorBoundary key={c.id} fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           if (c.type === 'powerSupply') return <PowerSupply3D key={c.id} c={c} x={x} />
