@@ -7,7 +7,7 @@ import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
-import { nearestTerminal } from './terminalSnap'
+import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 
 const CANVAS_W = 2000
 const CANVAS_H = 1400
@@ -503,6 +503,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       // Testar proximidade ANTES de encaixar à malha: o parafuso pode estar
       // entre pontos de grelha e nunca deve ser aproximado a 20px.
       const close = nearestTerminal(components, p, 16 / zoom, wireFrom ?? undefined)
+        ?? nearestModelTerminal(components, p, wireFrom ?? undefined, Math.min(24, 28 / zoom))
       if (close) { onTerminalDown(e, close.id); setCursorPos(close.point); return }
       const point = { x: snap(p.x), y: snap(p.y) }
       if (wireFrom || freeStart) {
@@ -745,14 +746,47 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     return entries
   }, [wires, components])
 
-  const renderWireEl = (w: (typeof wires)[number]) => {
+  // Nos modelos reais o centro do parafuso fica dentro da fotografia.
+  // Sair perpendicularmente do corpo antes do primeiro cotovelo evita que
+  // o troço visível pare desalinhado na borda da imagem.
+  const modelLead = (terminalId: string): Pt | null => {
+    const t = terminalIndex.get(terminalId)
+    if (!t || !['plcSiemensLogo1224RC', 'powerSupplyProauto24A'].includes(t.c.type)) return null
+    const c = t.c
+    const bounds = modelBounds(c)
+    const rotated = Math.abs(c.rotation % 180) === 90
+    const cx = c.schematicX + c.w / 2
+    const cy = c.schematicY + c.h / 2
+    const halfW = (rotated ? bounds.h : bounds.w) / 2
+    const halfH = (rotated ? bounds.w : bounds.h) / 2
+    const distances = [
+      { distance: Math.abs(t.y - (cy - halfH)), point: { x: t.x, y: cy - halfH - 8 } },
+      { distance: Math.abs(t.y - (cy + halfH)), point: { x: t.x, y: cy + halfH + 8 } },
+      { distance: Math.abs(t.x - (cx - halfW)), point: { x: cx - halfW - 8, y: t.y } },
+      { distance: Math.abs(t.x - (cx + halfW)), point: { x: cx + halfW + 8, y: t.y } },
+    ]
+    return distances.reduce((best, item) => item.distance < best.distance ? item : best).point
+  }
+
+  const wireDisplay = (w: (typeof wires)[number]) => {
     const a = w.fromPoint ?? terminalIndex.get(w.fromTerminalId)
     const b = w.toPoint ?? terminalIndex.get(w.toTerminalId)
     if (!a || !b) return null
+    const fromLead = w.fromPoint ? null : modelLead(w.fromTerminalId)
+    const toLead = w.toPoint ? null : modelLead(w.toTerminalId)
+    const points = [...(fromLead ? [fromLead] : []), ...(w.waypoints ?? []), ...(toLead ? [toLead] : [])]
+    const geometry = wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0, points.length ? points : undefined, w.flexibility === 'flexible')
+    return { a, b, fromLead, toLead, geometry }
+  }
+
+  const renderWireEl = (w: (typeof wires)[number]) => {
+    const display = wireDisplay(w)
+    if (!display) return null
+    const { a, b } = display
     const col = WIRE_COLORS[w.color] ?? '#94a3b8'
     const flexible = w.flexibility === 'flexible'
     const selected = selectedWireId === w.id
-    const { d, handle, pts } = wireGeometry(a, b, w.route, w.bend, w.curveOffset ?? 0, w.waypoints, flexible)
+    const { d, handle, pts } = display.geometry
     const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
     const endType: WireEndType = w.endType ?? 'none'
     const cap = flexible ? 'round' : 'square'
@@ -971,9 +1005,30 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
           {/* -------------------------------------------------- cabos + componentes, na ordem de empilhamento (z) */}
           {drawOrder.map((entry) => (entry.kind === 'wire' ? renderWireEl(entry.wire) : renderComponentEl(entry.comp)))}
 
+          {/* Ligação e ponteira desenhadas por cima do modelo 3D: nunca ficam
+              escondidas atrás da fotografia do parafuso. */}
+          {wires.map((w) => {
+            const display = wireDisplay(w)
+            if (!display) return null
+            const color = WIRE_COLORS[w.color] ?? '#94a3b8'
+            const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
+            return (['from', 'to'] as const).map((side) => {
+              const point = side === 'from' ? display.a : display.b
+              const lead = side === 'from' ? display.fromLead : display.toLead
+              if (!lead) return null
+              const dir = endDir(display.geometry.pts, side === 'from')
+              return <g key={`${w.id}-${side}-connector`} pointerEvents="none">
+                <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} />
+                <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke={color} strokeWidth={width} />
+                <WireEnd p={point} dir={dir} type={w.endType ?? 'none'} color={color} />
+                <circle cx={point.x} cy={point.y} r={2.7} fill={color} stroke="white" strokeWidth={0.8} />
+              </g>
+            })
+          })}
+
           {/* cabo em construção */}
           {pendingFrom && draftPoints.map((point, i) => <circle key={`draft-${i}`} cx={point.x} cy={point.y} r={4} fill="white" stroke="#2563eb" strokeWidth={2} pointerEvents="none" />)}
-          {pendingFrom && cursorPos && <path d={wireGeometry(pendingFrom, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : nearestTerminal(components, cursorPos, 16 / zoom, wireFrom ?? undefined)?.point ?? cursorPos, 'orthogonal', 0.5, 0, draftPoints, false).d} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
+          {pendingFrom && cursorPos && <path d={wireGeometry(pendingFrom, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : nearestTerminal(components, cursorPos, 16 / zoom, wireFrom ?? undefined)?.point ?? nearestModelTerminal(components, cursorPos, wireFrom ?? undefined, Math.min(24, 28 / zoom))?.point ?? cursorPos, 'orthogonal', 0.5, 0, draftPoints, false).d} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
           {/* alvos clicáveis dos bornes (acima de tudo) */}
           {components.map((c) =>
             c.terminals.map((t) => {

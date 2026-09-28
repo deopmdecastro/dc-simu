@@ -384,3 +384,10 @@ o zoom continua disponível nos editores (pinça no Esquema e Painel 3D, botões
 de zoom no GRAFCET, Ctrl+roda e botões no Esquema). Em ecrãs pequenos, a
 biblioteca e a pré-visualização GRAFCET iniciam recolhidas e abrem sobre a
 área de trabalho.
+
+Nos bornes dos modelos fotográficos (LOGO! e fonte), o cabo sai
+perpendicularmente do parafuso até fora da carcaça antes de dobrar. A ponta,
+o terminal crimpado escolhido e o troço junto ao parafuso são desenhados por
+cima do modelo para não desaparecerem atrás da imagem. Ao reabrir projetos,
+pontas livres antigas ocultas na região dos bornes destes modelos podem ser
+recuperadas automaticamente para a ligação exata ao parafuso.
