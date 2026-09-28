@@ -4,7 +4,6 @@ import type { EditorTool, WireColor, WireEndType } from '../types'
 import { buildBOM, bomToCSV } from '../utils/bom'
 import { GAUGES, WIRE_COLORS } from '../schematic/symbols'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
-import ProjectsPanel from './ProjectsPanel'
 import type { LadderSection } from '../ladder/LadderSections'
 import {
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
@@ -87,10 +86,10 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
   )
 }
 
-export default function Toolbar({ mode, setMode, ladderSection, setLadderSection }: { mode: ViewMode; setMode: (m: ViewMode) => void; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void }) {
+export default function Toolbar({ mode, setMode, ladderSection, setLadderSection, onBack, onSave }: { mode: ViewMode; setMode: (m: ViewMode) => void; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onSave: () => void }) {
   const {
     activeScenario, loadScenario, sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
-    step, saveJSON, loadJSON, newProject, tool, setTool, grid, setGrid, zoom, setZoom,
+    step, saveJSON, loadJSON, tool, setTool, grid, setGrid, zoom, setZoom,
     components, undo, redo, history, future, organizeWires, wires, selectedComponentIds,
     alignSelection, distributeSelection, autoNumberWires, setCurrentProjectName,
     dirty, wireDefaults, setWireDefaults, gridDragEnabled, setGridDragEnabled,
@@ -116,10 +115,7 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
     return () => window.removeEventListener('keydown', onKey)
   }, [setMode])
 
-  const createNewProject = () => {
-    if (dirty && !window.confirm('Criar um novo projeto e descartar alterações não guardadas?')) return
-    newProject()
-  }
+  const createNewProject = onBack
 
   const saveBlob = (content: string, type: string, name: string) => {
     const blob = new Blob([content], { type })
@@ -193,7 +189,8 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
               <IconSave size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Salvar</span>
               {dirty && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-state-pause" title="Alterações por guardar" />}
             </button>
-            <ProjectsPanel />
+            <button className="dc-btn" onClick={onBack}>Projetos</button>
+            <button className="dc-btn" onClick={onSave}>Guardar na conta</button>
             <button onClick={downloadBOM} disabled={!components.length} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 disabled:opacity-50 disabled:hover:bg-transparent" title="Exportar lista de materiais (CSV)">
               <IconDownload size={14} /> <span className="hidden xl:inline text-[11px] font-medium">BOM</span>
             </button>

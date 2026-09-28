@@ -455,3 +455,30 @@ BOOL/INT/REAL e acessos `DB1.Variavel`; não inclui estruturas, instâncias,
 endereçamento industrial completo nem interfaces de parâmetros FC.
 **SCL/STL completos continuam por implementar**; os ficheiros de fonte são
 apenas guardados e editáveis, nunca executados silenciosamente.
+
+## Contas e projetos partilhados (Docker)
+
+Execute `docker compose up --build -d` e abra `http://localhost:3000`.
+O serviço inclui landing page, registo, login e dashboard. A API usa SQLite
+num **volume Docker** (`dcsimu_data`): não elimine o volume sem backup. As
+palavras-passe são derivadas com scrypt; sessões usam cookies HttpOnly. Cada
+projeto pertence a uma conta; só o proprietário o pode eliminar e convidar
+outros utilizadores. Os convites são enviados **dentro da aplicação** ao
+email de uma conta já registada. O convidado aceita no seu dashboard e passa
+a editor. Não são enviados emails SMTP. O guardado é explícito pelo botão
+«Guardar no servidor» (ou Ctrl+S); o aviso de alterações não guardadas aparece
+ao sair pelo botão Projetos. O controlo de revisão impede sobrescrever uma
+alteração feita por outro editor: é necessário voltar a abrir o projeto.
+Não há edição simultânea em tempo real nem autosave no servidor. A API verifica
+acesso a cada leitura e escrita. Para produção, use HTTPS, backups regulares
+do volume e configure um proxy reverso; a app não substitui uma solução de
+identidade empresarial (não há recuperação de password/verificação de email).
+
+Os projetos antigos guardados exclusivamente no navegador **não são migrados
+automaticamente** para nenhuma conta. Exporte-os em JSON na versão anterior
+e importe o ficheiro no editor da conta nova; crie primeiro um projeto no
+dashboard e guarde o conteúdo importado no servidor.
+
+Para desenvolvimento local: `npm ci`, `npm start` (API na porta 3000) e
+`npm run dev` (Vite com proxy `/api`). Defina `DATA_DIR` para escolher o
+caminho persistente da base SQLite.

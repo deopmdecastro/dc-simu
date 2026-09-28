@@ -9,11 +9,8 @@ import SchematicView from './schematic/SchematicView'
 import MonitorPanel from './components/MonitorPanel'
 import Panel3D from './three/Panel3D'
 import { useSimStore } from './store/useSimStore'
-import { getLastOpenedProjectName, loadAutosave, saveAutosave } from './utils/persistence'
 
-const AUTOSAVE_INTERVAL_MS = 15_000
-
-export default function App() {
+export default function App({ onBack, onSave }: { onBack: () => void; onSave: () => void }) {
   const [mode, setMode] = useState<ViewMode>('schematic')
   const [ladderSection, setLadderSection] = useState<LadderSection>('Projeto')
   const [showLadder, setShowLadder] = useState(() => window.innerWidth >= 800)
@@ -28,7 +25,6 @@ export default function App() {
     try { localStorage.setItem('dcsimu:workspace:panels', JSON.stringify(panelSizes)) } catch { /* navegação privada */ }
   }, [panelSizes])
   const [resizing, setResizing] = useState<{ target: 'sidebar' | 'ladder'; startX: number; startSize: number } | null>(null)
-  const stop = useSimStore((s) => s.stop)
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const scanCount = useSimStore((s) => s.sim.scanCount)
   const runState = useSimStore((s) => s.sim.runState)
@@ -57,42 +53,6 @@ export default function App() {
     }
   }, [resizing])
 
-  // ------------------------------------------------------------- arranque
-  useEffect(() => {
-    const st = useSimStore.getState()
-    const lastOpened = getLastOpenedProjectName()
-    if (lastOpened && st.loadProjectByName(lastOpened)) {
-      return () => stop()
-    }
-
-    const autosave = loadAutosave()
-    if (autosave?.json) {
-      st.loadJSON(autosave.json)
-      st.pushEvent('info', `Autosave de ${new Date(autosave.savedAt).toLocaleString('pt-PT')} restaurado.`)
-      return () => stop()
-    }
-
-    st.newProject()
-    return () => stop()
-  }, [])
-
-  // ------------------------------------------------------------- autosave
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      const st = useSimStore.getState()
-      if (st.dirty) saveAutosave(st.saveJSON())
-    }, AUTOSAVE_INTERVAL_MS)
-    const onUnload = () => {
-      const st = useSimStore.getState()
-      if (st.dirty) saveAutosave(st.saveJSON())
-    }
-    window.addEventListener('beforeunload', onUnload)
-    return () => {
-      window.clearInterval(id)
-      window.removeEventListener('beforeunload', onUnload)
-    }
-  }, [])
-
   const errors = diagnostics.filter((d) => d.level === 'error').length
   const warnings = diagnostics.filter((d) => d.level === 'warning').length
   const hasErrorState = errors > 0 || Object.values(faults ?? {}).some(Boolean)
@@ -107,8 +67,8 @@ export default function App() {
         : { label: 'STOP', cls: 'bg-state-stop text-white', dot: 'bg-white' }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
-      <Toolbar mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection} />
+    <div className="h-full w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
+      <Toolbar onBack={onBack} onSave={onSave} mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection} />
       <div className="flex-1 flex min-h-0 dc-workspace relative">
         {(mode === 'schematic' || mode === 'panel3d') && showLibrary && (
           <>
