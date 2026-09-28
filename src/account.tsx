@@ -24,7 +24,6 @@ export default function Account() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '' })
-  const [inviteFor, setInviteFor] = useState<string | null>(null)
   const refresh = useCallback(async () => {
     const [p, i] = await Promise.all([api<Project[]>('/projects'), api<Invite[]>('/invitations')]); setProjects(p); setInvites(i)
   }, [])
@@ -34,9 +33,10 @@ export default function Account() {
     e.preventDefault(); setBusy(true);setMessage('')
     try { const r = await api<{user:User}>(page === 'register' ? '/register' : '/login','POST',form);setUser(r.user);setPage('dashboard');setForm({name:'',email:'',password:''});await refresh() } catch(e) {error(e)} finally {setBusy(false)}
   }
-  async function create() {
-    const name = prompt('Nome do novo projeto:')?.trim(); if(!name)return
-    try { useSimStore.getState().newProject(); const r=await api<Open>('/projects','POST',{name,content:JSON.parse(useSimStore.getState().saveJSON())});await load(r.id) } catch(e){error(e)}
+  async function create(name: string) {
+    useSimStore.getState().newProject()
+    const r=await api<Open>('/projects','POST',{name,content:JSON.parse(useSimStore.getState().saveJSON())})
+    await load(r.id)
   }
   async function load(id: string) {
     setMessage('')
@@ -50,9 +50,9 @@ export default function Account() {
     if(useSimStore.getState().dirty && !confirm('Existem alterações não guardadas. Voltar aos projetos?'))return
     useSimStore.getState().stop();openRef.current=null;setOpen(null);setPage('dashboard');setMessage('');refresh().catch(error)
   }
-  async function invite(id:string) {
-    const email=prompt('Email da pessoa convidada (já registada):')?.trim();if(!email)return
-    try { await api(`/projects/${id}/invitations`,'POST',{email});setMessage('Convite enviado dentro da aplicação.')}catch(e){error(e)}
+  async function invite(id:string,email:string) {
+    await api(`/projects/${id}/invitations`,'POST',{email})
+    setMessage('Convite enviado dentro da aplicação.')
   }
   async function reply(id:string,action:'accept'|'reject') {
     try {await api(`/invitations/${id}/${action}`,'POST');await refresh()}catch(e){error(e)}
@@ -77,7 +77,8 @@ export default function Account() {
     {page==='landing' && <Landing onRegister={()=>setPage('register')} onLogin={()=>setPage('login')}/>}
     {(page==='login'||page==='register')&&<AuthScreen mode={page} form={form} setForm={setForm} busy={busy} message={message} clearMessage={()=>setMessage('')} onSubmit={authenticate} onSwitch={()=>{setMessage('');setPage(page==='register'?'login':'register')}} onHome={()=>{setMessage('');setPage('landing')}}/>}
     {page==='admin'&&user?.role==='admin'&&<AdminPanel onBack={()=>setPage('dashboard')}/>}
-    {page==='dashboard'&&<section className="account-dashboard"><span className="account-pill">ÁREA DE PROJETOS</span><h1>Os seus projetos<span>.</span></h1><p>Olá, {user?.name}. Continue um projeto ou comece algo novo.</p><button className="account-primary" onClick={()=>void create()}>＋ Novo projeto</button>{invites.length>0&&<div className="account-invites"><h2>Convites pendentes</h2>{invites.map(i=><div key={i.id}><b>{i.project}</b> · convite de {i.sender} <button onClick={()=>void reply(i.id,'accept')}>Aceitar</button><button onClick={()=>void reply(i.id,'reject')}>Recusar</button></div>)}</div>}<div className="account-grid">{projects.map(p=><article key={p.id}><span className="account-pill">{p.role==='owner'?'PROPRIETÁRIO':'EDITOR'}</span><h2>{p.name}</h2><p>Por {p.owner} · {new Date(p.updated_at).toLocaleDateString('pt-PT')}</p><div><button className="account-primary" onClick={()=>void load(p.id)}>Abrir →</button>{p.role==='owner'&&<><button onClick={()=>void invite(p.id)}>Convidar</button><button onClick={()=>setInviteFor(inviteFor===p.id?null:p.id)}>Membros</button><button onClick={()=>void remove(p)}>Eliminar</button></>}</div>{inviteFor===p.id&&<Members id={p.id}/>}</article>)}{!projects.length&&<div className="account-empty">Ainda não há projetos. Crie o primeiro para começar.</div>}</div></section>}
+    {page==='dashboard'&&<Dashboard user={user} projects={projects} invites={invites} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove}/>}
+
   </main>
 }
 function Logo({dark,size=30}:{dark?:boolean;size?:number}) {
@@ -119,7 +120,62 @@ function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwit
   </div>
 }
 
-function Members({id}:{id:string}) {const [members,setMembers]=useState<{name:string;email:string}[]>([]);useEffect(()=>{api<{members:{name:string;email:string}[]}>('/projects/'+id+'/members').then(r=>setMembers(r.members)).catch(()=>{})},[id]);return <small>Editores: {members.length?members.map(m=>`${m.name} (${m.email})`).join(', '):'nenhum'}</small>}
+function ProjectArtwork({variant=0}:{variant?:number}) {
+  return <svg className="pd-art" viewBox="0 0 360 135" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs><pattern id={`pd-grid-${variant}`} width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="#b6d1e1"/></pattern></defs>
+    <rect width="360" height="135" fill={variant%2?'#e8f1f5':'#eaf3f7'}/><rect width="360" height="135" fill={`url(#pd-grid-${variant})`}/>
+    <g fill="none" stroke="#77a8bf" strokeWidth="2"><path d="M42 66H108V46H155"/><path d="M207 46H251V74H309"/><path d="M108 66V106H155"/><path d="M207 106H251V74"/></g>
+    <g fill="#fff" stroke="#8ab1c2" strokeWidth="1.5"><rect x="30" y="40" width="55" height="51" rx="5"/><rect x="155" y="27" width="52" height="96" rx="5"/><rect x="309" y="48" width="43" height="52" rx="5"/></g>
+    <g fill="#dbe9ed"><rect x="37" y="47" width="41" height="13" rx="2"/><rect x="162" y="34" width="38" height="14" rx="2"/><rect x="316" y="55" width="29" height="11" rx="2"/></g>
+    <g fontSize="6" fontFamily="sans-serif" fontWeight="bold" fill="#315e75"><text x="41" y="56">24V DC</text><text x="169" y="44">PLC</text><text x="318" y="63">KM1</text></g>
+    <rect x="164" y="56" width="34" height="20" rx="2" fill="#2a526b"/><text x="170" y="70" fontSize="7" fontFamily="monospace" fill="#a6e8c8">RUN</text>
+    <g fill="#39aa87" stroke="white" strokeWidth="1.3"><circle cx="85" cy="66" r="3.5"/><circle cx="155" cy="46" r="3.5"/><circle cx="155" cy="106" r="3.5"/><circle cx="207" cy="46" r="3.5"/><circle cx="207" cy="106" r="3.5"/><circle cx="309" cy="74" r="3.5"/></g>
+  </svg>
+}
+
+function Members({id}:{id:string}) {
+  const [members,setMembers]=useState<{name:string;email:string}[]>([])
+  const [error,setError]=useState('')
+  useEffect(()=>{api<{members:{name:string;email:string}[]}>('/projects/'+id+'/members').then(r=>setMembers(r.members)).catch(e=>setError(e instanceof Error?e.message:'Erro ao carregar'))},[id])
+  return <div className="pd-members">{error|| (members.length ? members.map(m=><div key={m.email}><span className="pd-avatar">{m.name.charAt(0).toUpperCase()}</span><span><b>{m.name}</b><small>{m.email}</small></span></div>) : 'Ainda não há editores neste projeto.')}</div>
+}
+
+function Dashboard({user,projects,invites,onCreate,onOpen,onInvite,onReply,onDelete}:{user:User|null;projects:Project[];invites:Invite[];onCreate:(name:string)=>Promise<void>;onOpen:(id:string)=>Promise<void>;onInvite:(id:string,email:string)=>Promise<void>;onReply:(id:string,action:'accept'|'reject')=>Promise<void>;onDelete:(p:Project)=>Promise<void>}) {
+  const [query,setQuery]=useState('')
+  const [filter,setFilter]=useState<'all'|'owner'|'editor'>('all')
+  const [modal,setModal]=useState<{type:'create'|'invite';project?:Project}|null>(null)
+  const [value,setValue]=useState('')
+  const [saving,setSaving]=useState(false)
+  const [notice,setNotice]=useState('')
+  const [expanded,setExpanded]=useState<string|null>(null)
+  const [menu,setMenu]=useState<string|null>(null)
+  const visible=projects.filter(p=>(filter==='all'||p.role===filter)&&p.name.toLocaleLowerCase('pt-PT').includes(query.trim().toLocaleLowerCase('pt-PT')))
+  const owned=projects.filter(p=>p.role==='owner').length
+  const openModal=(type:'create'|'invite',project?:Project)=>{setModal({type,project});setValue('');setNotice('');setMenu(null)}
+  async function submit(e:React.FormEvent) {
+    e.preventDefault();const text=value.trim();if(!text||saving)return
+    setSaving(true);setNotice('')
+    try {if(modal?.type==='create')await onCreate(text);else if(modal?.project)await onInvite(modal.project.id,text);setModal(null);setValue('')}
+    catch(e){setNotice(e instanceof Error?e.message:'Não foi possível concluir a operação.')}
+    finally{setSaving(false)}
+  }
+  useEffect(()=>{if(!modal)return;const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!saving)setModal(null)};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[modal,saving])
+  return <section className="pd-page"><div className="pd-inner">
+    <div className="pd-breadcrumb"><span className="pd-breadcrumb-icon">▦</span> Espaço de trabalho <span>/</span> Projetos</div>
+    <div className="pd-head"><div><span className="pd-overline"><i/> O SEU ESPAÇO DE TRABALHO</span><h1>Os seus projetos<span>.</span></h1><p>Bem-vindo de volta, <strong>{user?.name}</strong>. Continue de onde ficou ou dê vida a uma nova ideia.</p></div><button className="pd-create" onClick={()=>openModal('create')}><span>＋</span> Novo projeto</button></div>
+    <div className="pd-summary" aria-label="Resumo dos projetos"><div><span className="pd-summary-icon">▦</span><span><strong>{projects.length}</strong><small>Projetos acessíveis</small></span></div><div><span className="pd-summary-icon">◇</span><span><strong>{owned}</strong><small>Da sua autoria</small></span></div><div><span className="pd-summary-icon">↗</span><span><strong>{projects.length-owned}</strong><small>Partilhados consigo</small></span></div><div><span className="pd-summary-icon">✉</span><span><strong>{invites.length}</strong><small>Convites pendentes</small></span></div></div>
+    {invites.length>0&&<div className="pd-invites"><div className="pd-invite-heading"><span>✉</span><div><b>Convites para colaborar</b><small>Outros utilizadores querem trabalhar consigo.</small></div></div>{invites.map(i=><div className="pd-invite-row" key={i.id}><div><b>{i.project}</b><span>Convite de {i.sender}</span></div><div><button onClick={()=>void onReply(i.id,'reject')}>Recusar</button><button className="pd-accept" onClick={()=>void onReply(i.id,'accept')}>Aceitar convite →</button></div></div>)}</div>}
+    <div className="pd-list-head"><div><span className="pd-overline">BIBLIOTECA DE PROJETOS</span><h2>Projetos <span>{projects.length}</span></h2></div></div>
+    <div className="pd-toolbar"><div className="pd-tabs" role="group" aria-label="Filtrar projetos">{([['all','Todos'],['owner','Os meus'],['editor','Partilhados']] as const).map(([key,label])=><button key={key} className={filter===key?'selected':''} aria-pressed={filter===key} onClick={()=>setFilter(key)}>{label}</button>)}</div><label className="pd-search"><span aria-hidden>⌕</span><span className="sr-only">Pesquisar projetos</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Pesquisar projeto..." type="search"/></label></div>
+    <div className="pd-grid">{visible.map((p,index)=><article className="pd-card" key={p.id}><div className="pd-card-art"><ProjectArtwork variant={index}/><span className="pd-card-kind">{p.role==='owner'?'◇ Meu projeto':'↗ Partilhado'}</span></div><div className="pd-card-body"><div className="pd-card-top"><span className="pd-role">{p.role==='owner'?'PROPRIETÁRIO':'EDITOR'}</span>{p.role==='owner'&&<div className="pd-menu-wrap"><button className="pd-more" title={`Opções de ${p.name}`} aria-label={`Opções de ${p.name}`} aria-expanded={menu===p.id} onClick={()=>setMenu(menu===p.id?null:p.id)}>···</button>{menu===p.id&&<div className="pd-menu"><button onClick={()=>openModal('invite',p)}>↗ Convidar editor</button><button onClick={()=>{setExpanded(expanded===p.id?null:p.id);setMenu(null)}}>♙ Ver membros</button><button className="danger" onClick={()=>{setMenu(null);void onDelete(p)}}>✕ Eliminar projeto</button></div>}</div>}</div><h3>{p.name}</h3><div className="pd-card-meta"><span>por {p.owner}</span><span>·</span><span>Atualizado em {new Date(p.updated_at).toLocaleDateString('pt-PT')}</span></div><div className="pd-card-actions"><button className="pd-open" onClick={()=>void onOpen(p.id)}>Abrir projeto <span>↗</span></button>{p.role==='owner'&&<button className="pd-share" onClick={()=>openModal('invite',p)} title="Convidar editor" aria-label={`Convidar editor para ${p.name}`}>↗</button>}</div>{expanded===p.id&&<Members id={p.id}/>}</div></article>)}
+      {projects.length>0&&visible.length===0&&<div className="pd-empty pd-no-results"><div className="pd-empty-icon">⌕</div><h3>Nenhum projeto encontrado</h3><p>Experimente outro termo ou escolha um filtro diferente.</p><button onClick={()=>{setQuery('');setFilter('all')}}>Limpar filtros</button></div>}
+      {projects.length===0&&<div className="pd-empty"><div className="pd-empty-icon">▦</div><h3>O seu próximo projeto começa aqui.</h3><p>Crie um projeto para começar a montar, programar e simular.</p><button className="pd-create" onClick={()=>openModal('create')}>＋ Criar primeiro projeto</button></div>}
+    </div>
+    <div className="pd-footnote"><span>◇ DC-SIMU</span> · Esquema, lógica e simulação no mesmo lugar.</div>
+  </div>
+  {modal&&<div className="pd-overlay" onMouseDown={e=>{if(e.target===e.currentTarget&&!saving)setModal(null)}}><div className="pd-dialog" role="dialog" aria-modal="true" aria-labelledby="pd-dialog-title"><button className="pd-dialog-close" aria-label="Fechar" onClick={()=>setModal(null)} disabled={saving}>×</button><div className="pd-dialog-icon">{modal.type==='create'?'▦':'↗'}</div><h2 id="pd-dialog-title">{modal.type==='create'?'Criar novo projeto':'Convidar editor'}</h2><p>{modal.type==='create'?'Dê um nome ao projeto. Poderá editar o esquema assim que o criar.':<>Convide um utilizador já registado para editar <strong>{modal.project?.name}</strong>.</>}</p><form onSubmit={e=>void submit(e)}><label>{modal.type==='create'?'Nome do projeto':'Email do utilizador'}<input autoFocus required maxLength={modal.type==='create'?120:254} type={modal.type==='invite'?'email':'text'} value={value} placeholder={modal.type==='create'?'Ex.: Quadro de comando — Linha A':'nome@empresa.com'} onChange={e=>setValue(e.target.value)}/></label>{modal.type==='invite'&&<small>O convite aparece no painel da pessoa convidada. Não enviamos email.</small>}{notice&&<div className="pd-dialog-error" role="alert">{notice}</div>}<div className="pd-dialog-actions"><button type="button" disabled={saving} onClick={()=>setModal(null)}>Cancelar</button><button type="submit" className="pd-create" disabled={!value.trim()||saving}>{saving?'Aguarde…':modal.type==='create'?'Criar projeto':'Enviar convite →'}</button></div></form></div></div>}
+  </section>
+}
 
 type AdminUser = User & { projects: number }
 type AdminProject = { id: string; name: string; owner: string; updated_at: string }
