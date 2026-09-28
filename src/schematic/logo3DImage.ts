@@ -50,6 +50,7 @@ export function getLogo3DImages() {
     })
     const capture = (powered: boolean) => {
       screenMats.forEach((mat) => {
+        mat.color.set(powered ? '#22c55e' : '#173b24')
         mat.emissive.set(powered ? '#22c55e' : '#052e16')
         mat.emissiveIntensity = powered ? 1.1 : 0.15
       })

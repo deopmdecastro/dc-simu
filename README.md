@@ -284,6 +284,61 @@ A Biblioteca do Esquema foi reorganizada como galeria de miniaturas em pastas ex
 
 O Inspetor de componentes foi reorganizado com um resumo fixo do dispositivo, secções recolhíveis de identificação, posição, estado e bornes. Ao selecionar outro componente ou cabo, o painel volta ao início em vez de conservar uma posição de scroll antiga. Os parâmetros mais comuns têm rótulos em português e os bornes mostram tipo, posição e estado com mais espaço. A eliminação de um componente ou borne com cabos ligados pede confirmação.
 
-O Siemens LOGO! 12/24RC no Esquema apresenta uma vista frontal renderizada em WebGL a partir do mesmo ficheiro GLB do Painel 3D, preservando os materiais e cores originais, em vez do corpo desenhado em SVG. A imagem (ligado/desligado conforme L+) é gerada uma vez e reutilizada; os bornes do esquema mantêm a posição, identificação, estado, ligação de cabos e seleção. Em caso de falha no carregamento do modelo, o símbolo anterior serve como reserva.
+O Siemens LOGO! 12/24RC no Esquema apresenta uma vista frontal renderizada em WebGL a partir do mesmo ficheiro GLB do Painel 3D, preservando os materiais e cores originais, em vez do corpo desenhado em SVG. A imagem (ligado/desligado conforme alimentação L+/M) é gerada uma vez e reutilizada; os bornes do esquema mantêm a posição, identificação, estado, ligação de cabos e seleção. Em caso de falha no carregamento do modelo, o símbolo anterior serve como reserva.
 
 O LOGO! 12/24RC tem 19 bornes correspondentes aos parafusos visíveis do modelo: L+, M, I1–I8, um parafuso superior sem legenda identificado internamente como X1 (sem lógica automática) e dois pontos por cada saída Q1–Q4 (`Q1`/`Q1.2`, etc.). As saídas de relé são contactos secos: ao ativar Q1, apenas os seus dois pontos ficam unidos; L+ não é ligado automaticamente à saída. Projetos anteriores com 14 ou 18 bornes recebem os pontos em falta quando são abertos, preservando os identificadores e cabos existentes.
+
+### Fichas técnicas no Inspetor
+
+Selecione um componente no Esquema e abra **Ficha técnica** no Inspetor para
+adicionar um PDF, visualizá-lo num novo separador, descarregá-lo, substituí-lo
+ou removê-lo. A ficha é associada ao **tipo** de componente (todos os
+exemplares desse tipo partilham o mesmo PDF) e é guardada em IndexedDB apenas
+neste navegador; não entra nos ficheiros JSON do projeto nem é publicada no
+Git. Aceita PDFs até 25 MB. Pode associar um PDF diferente a cada tipo da
+Biblioteca.
+
+O manual inglês enviado (`Logo_e.pdf`) também descreve a série **0BA4**
+(página 4), ao passo que o modelo CAD mostra **0BA2**. Está disponível no
+Inspetor como **manual 0BA4**, com aviso de versão e botões próprios para ver
+ou descarregar. Os PDFs pessoais (incluindo um eventual 0BA2) continuam
+independentes e são guardados apenas no navegador.
+
+### Simulação básica do Siemens LOGO! 12/24RC
+
+Comportamentos comuns documentados pelo manual 0BA4 (páginas 17, 40 e 43):
+L+ e M devem estar ligados, respetivamente, à saída positiva e ao retorno
+negativo de uma fonte DC (ou à rede positiva/barramento de neutro do editor).
+Sem ambos, a simulação põe as entradas I1–I8 e as saídas Q1–Q4 a zero,
+os relés ficam abertos e o ecrã apaga. Com alimentação, I1–I8 leem o estado
+binário da rede positiva e o programa Ladder/GRAFCET controla os quatro
+contactos secos independentes Q1–Q4. Cada contacto liga apenas os dois
+parafusos desse relé, sem transferir automaticamente L+.
+
+I7/I8 são tratados aqui apenas como entradas **digitais**. Esta implementação
+não pretende reproduzir as funções analógicas, o teclado/menu completo, as
+expansões, limites temporais/eléctricos ou os recursos específicos de uma
+versão 0BA2: o PDF 0BA4 não prova esses pormenores para o modelo CAD.
+
+### Fonte Proauto / DRAN120-24B (preparação sem modelo CAD)
+
+A categoria **Fontes** contém «Fonte Proauto / DRAN120-24B · 24V 5A», criada
+com base na ficha da série **Chinfa DRAN120** enviada pelo utilizador (variante
+24B indicada pelo utilizador). A ficha pode ser vista/descarregada no Inspetor,
+com o aviso de que a equivalência da marca Proauto com Chinfa não está
+confirmada. A pinagem da ficha (pág. 4) é: pinos 1–2 RDY (contacto normalmente
+aberto), 3–4 V+, 5–6 V−, 7 terra funcional/PE, 8 L, 9 N. A variante B tem
+conector removível e a versão 24 V fornece nominalmente **5 A / 120 W**.
+
+A simulação binária requer L e N ligados a potenciais de entrada distintos no
+Esquema. Com ambos ligados, as duas saídas V+ e as duas V− são comuns entre
+si, a saída DC fica disponível e RDY fecha. Sem alimentação, RDY abre e V+
+deixa de ser fonte. A entrada AC é isolada da saída DC; PE não é uma ponte
+elétrica para nenhum dos polos. A simulação **não** mede 115/230 VAC, tensão
+DC, corrente, sobrecarga, ripple, temperatura ou tempos de subida e, por
+isso, não verifica os limites de segurança da ficha.
+
+O ficheiro `Fonte Proauto.glb` referido não veio nos anexos nem existe em
+`public/models/fontes/`. Até ser enviado, o Esquema e o Painel 3D usam
+representações **provisórias**; as posições visuais dos nove bornes terão de
+ser afinadas à geometria real do GLB assim que este for anexado.

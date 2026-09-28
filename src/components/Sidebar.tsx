@@ -4,6 +4,7 @@ import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../types'
 import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
 import LabelLibrary from './LabelLibrary'
+import DatasheetPanel from './DatasheetPanel'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
@@ -12,7 +13,7 @@ import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconD
 const label = 'dc-field-label'
 const STATE_LABELS: Record<string, string> = {
   closed: 'Fechado', tripped: 'Disparado', poles: 'Polos', curve: 'Curva', inA: 'Corrente nominal (A)',
-  energized: 'Energizado', pressed: 'Premido', running: 'Em funcionamento', presetMs: 'Tempo definido (ms)',
+  powered: 'Alimentado', powerReady: 'Saída pronta (RDY)', watt: 'Potência (W)', energized: 'Energizado', pressed: 'Premido', running: 'Em funcionamento', presetMs: 'Tempo definido (ms)',
   elapsedMs: 'Tempo decorrido (ms)', triggered: 'Ativado', on: 'Ligado', enabled: 'Ativo',
 }
 const stateLabel = (key: string) => STATE_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -238,6 +239,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 <input className="dc-input" value={selectedComponent.label} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { label: e.target.value })} />
               </div>
               </div></details>
+              <DatasheetPanel type={selectedComponent.type} />
               <details className="dc-inspector-group" open><summary>Posição e aparência</summary><div className="dc-inspector-group-body">
               <LayerButtons />
               <div className="grid grid-cols-2 gap-2">
@@ -311,6 +313,8 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                         <input
                           type="checkbox"
                           checked={v}
+                          disabled={(selectedComponent.type === 'plcSiemensLogo1224RC' || selectedComponent.type === 'powerSupplyProauto24B') && (k === 'powered' || k === 'powerReady')}
+                          title={selectedComponent.type === 'plcSiemensLogo1224RC' && k === 'powered' ? 'Derivado das ligações L+ e M' : selectedComponent.type === 'powerSupplyProauto24B' && (k === 'powered' || k === 'powerReady') ? 'Derivado das ligações AC L e N' : undefined}
                           onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: e.target.checked })}
                         />
                       </label>

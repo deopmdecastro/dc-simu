@@ -11,6 +11,8 @@ import { runScan } from '../src/ladder/ladderEngine'
 import type { CounterTable, AddressTable, TimerTable } from '../src/ladder/ladderEngine'
 import { createComponent, terminalByLabel, upgradeLogoTerminals } from '../src/electrical/factory'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
+import { logoElectricalInputs } from '../src/electrical/logoPower'
+import { proautoInputPowered } from '../src/electrical/proautoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
 
 let failures = 0
@@ -320,9 +322,23 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('LOGO! tem 19 parafusos/bornes visíveis', logo.terminals.length === 19)
   const legacy = { ...logo, terminals: logo.terminals.filter((t) => !t.label.endsWith('.2') && t.label !== 'X1') }
   check('projetos antigos recebem os segundos contactos sem duplicar', upgradeLogoTerminals(legacy).terminals.length === 19 && upgradeLogoTerminals(logo).terminals.length === 19 && upgradeLogoTerminals({ ...logo, terminals: logo.terminals.filter((t) => t.label !== 'X1') }).terminals.length === 19)
-  const switched = { ...logo, state: { ...logo.state, outputs: { Q1: true, Q2: false, Q3: false, Q4: false } } }
+  const switched = { ...logo, state: { ...logo.state, powered: true, outputs: { Q1: true, Q2: false, Q3: false, Q4: false } } }
   const bridges = internalBridges(switched)
   check('relé Q1 liga somente os seus dois parafusos, não L+', bridges.length === 1 && bridges[0].includes(terminalByLabel(logo, 'Q1')!.id) && bridges[0].includes(terminalByLabel(logo, 'Q1.2')!.id))
+  check('sem alimentação o relé não fecha', internalBridges({ ...switched, state: { ...switched.state, powered: false } }).length === 0)
+  const ps = createComponent('powerSupply')
+  const lPlus = terminalByLabel(logo, 'L+')!
+  const m = terminalByLabel(logo, 'M')!
+  const wire = (a: string, b: string): Wire => ({
+    id: `${a}-${b}`, fromTerminalId: a, toTerminalId: b, color: 'red', gauge: '1.5mm²', kind: 'power', route: 'direct', bend: 0.5,
+    flexibility: 'rigid', energized: false, number: 1, z: 0,
+  }) as Wire
+  const plusWire = wire(terminalByLabel(ps, '+V')!.id, lPlus.id)
+  const minusWire = wire(terminalByLabel(ps, '-V')!.id, m.id)
+  check('L+ isolado não alimenta o LOGO!', !logoElectricalInputs(logo, [ps, logo], [plusWire]).powered)
+  check('L+ e M alimentados permitem executar o LOGO!', logoElectricalInputs(logo, [ps, logo], [plusWire, minusWire]).powered)
+  const inputWire = wire(terminalByLabel(ps, '+V')!.id, terminalByLabel(logo, 'I1')!.id)
+  check('I1 lê 1 apenas na rede positiva', logoElectricalInputs(logo, [ps, logo], [plusWire, minusWire, inputWire]).positive.has(terminalByLabel(logo, 'I1')!.id))
   const l = logoTerminalLocal(logo, terminalByLabel(logo, 'L+')!)
   const i8 = logoTerminalLocal(logo, terminalByLabel(logo, 'I8')!)
   const q1 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q1')!)
@@ -345,6 +361,26 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const edited = { ...terminalByLabel(logo, 'Q1')!, x: 0.3, y: 0.7 }
   const moved = logoTerminalLocal(logo, edited)
   check('posição personalizada de borne é respeitada', Math.abs(moved.x - logo.w * 0.3) < 0.01 && Math.abs(moved.y - logo.h * 0.7) < 0.01)
+}
+
+/* Fonte DRAN120-24B: pinagem, alimentação AC e saída isolada. */
+{
+  const ps = createComponent('powerSupplyProauto24B')
+  const phase = createComponent('busbarPhase')
+  const neutral = createComponent('busbarNeutral')
+  const link = (id: string, a: string, b: string): Wire => ({
+    id, fromTerminalId: a, toTerminalId: b, color: 'red', gauge: '1.5mm²',
+    kind: 'power', route: 'direct', bend: 0.5, flexibility: 'rigid', energized: false, number: 1, z: 0,
+  }) as Wire
+  const l = link('ac-l', terminalByLabel(phase, 'L1')!.id, terminalByLabel(ps, 'L')!.id)
+  const n = link('ac-n', terminalByLabel(neutral, 'N1')!.id, terminalByLabel(ps, 'N')!.id)
+  check('DRAN120-24B tem 9 pinos conforme a ficha', ps.terminals.length === 9 && ['RDY1','RDY2','+V1','+V2','-V1','-V2','PE','L','N'].every((label) => !!terminalByLabel(ps, label)))
+  check('sem fase ou neutro a fonte não arranca', !proautoInputPowered(ps, [ps, phase, neutral], []) && !proautoInputPowered(ps, [ps, phase, neutral], [l]))
+  check('L e N em redes distintas alimentam a fonte', proautoInputPowered(ps, [ps, phase, neutral], [l, n]))
+  const on = { ...ps, state: { ...ps.state, powered: true, powerReady: true } }
+  const bridges = internalBridges(on)
+  check('saídas duplas e RDY fazem ponte sem AC→DC', bridges.length === 3 && bridges.some((pair) => pair.includes(terminalByLabel(ps, 'RDY1')!.id) && pair.includes(terminalByLabel(ps, 'RDY2')!.id)) && !bridges.some((pair) => pair.includes(terminalByLabel(ps, 'L')!.id)))
+  check('V+ é fonte apenas com a fonte ligada', !sourceTerminalIds([ps]).includes(terminalByLabel(ps, '+V1')!.id) && sourceTerminalIds([on]).includes(terminalByLabel(ps, '+V1')!.id))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

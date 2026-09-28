@@ -198,6 +198,13 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
     }
 
     // ---- fontes ----
+    case 'powerSupplyProauto24B': {
+      // Saída isolada da entrada AC; os dois V+ e os dois V− são paralelos.
+      pair(la('+V1'), la('+V2'))
+      pair(la('-V1'), la('-V2'))
+      if (c.state.powered && c.state.powerReady) pair(la('RDY1'), la('RDY2'))
+      break
+    }
     case 'powerSupply': {
       if (c.state.on) pair(la('L'), la('+V'))
       break
@@ -222,7 +229,7 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
       // As 4 saídas são contactos secos: cada Q liga APENAS os seus dois
       // parafusos quando o programa ativa o relé, sem ponte para L+.
       for (const q of Object.keys(c.state.outputs ?? {})) {
-        if (c.state.outputs[q]) pair(la(q), la(`${q}.2`))
+        if (c.state.powered !== false && c.state.outputs[q]) pair(la(q), la(`${q}.2`))
       }
       break
     }
@@ -273,6 +280,7 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
     }
     // fontes locais
     if (c.type === 'powerSupply' && c.state.on) push('+V')
+    if (c.type === 'powerSupplyProauto24B' && c.state.powered && c.state.on) { push('+V1'); push('+V2') }
     if (c.type === 'transformer' && !c.state.failed) push('S1')
   }
   return ids

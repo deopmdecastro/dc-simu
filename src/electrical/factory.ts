@@ -449,7 +449,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   plcSiemensLogo1224RC: {
     category: 'controller', paletteName: 'Siemens LOGO! 12/24RC (8DI/4DQ)', group: 'Controladores', tag: 'PLC', w: 280, h: 190,
     terminals: plcLogoRCTerminals(),
-    defaultState: { inputs: {}, outputs: { Q1: false, Q2: false, Q3: false, Q4: false }, memories: {}, pressedButton: null },
+    defaultState: { powered: false, inputs: {}, outputs: { Q1: false, Q2: false, Q3: false, Q4: false }, memories: {}, pressedButton: null },
   },
   plcCompact: {
     category: 'controller', paletteName: 'CLP modular 12I/8Q', group: 'Controladores', tag: 'PLC', w: 240, h: 160,
@@ -522,6 +522,23 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('PE', 'earth', 0.85, 0.5),
     ],
     defaultState: { primaryV: 380, secondaryV: 24, va: 100, failed: false },
+  },
+  powerSupplyProauto24B: {
+    category: 'power', paletteName: 'Fonte Proauto / DRAN120-24B · 24V 5A', group: 'Fontes', tag: 'PS', w: 145, h: 170,
+    // Datasheet DRAN120 série, p. 4: 1–2 RDY; 3–4 V+; 5–6 V−; 7 PE; 8 L; 9 N.
+    // Posição visual provisória até receber o ficheiro GLB para alinhar os pinos.
+    terminals: [
+      T('RDY1', 'aux-no', 0.18, 0, { terminalType: 'plug' }),
+      T('RDY2', 'aux-no', 0.38, 0, { terminalType: 'plug' }),
+      T('+V1', 'power-out', 0.64, 0, { terminalType: 'plug', color: '#ef4444' }),
+      T('+V2', 'power-out', 0.84, 0, { terminalType: 'plug', color: '#ef4444' }),
+      T('-V1', 'neutral', 0.18, 1, { terminalType: 'plug', color: '#3b82f6' }),
+      T('-V2', 'neutral', 0.38, 1, { terminalType: 'plug', color: '#3b82f6' }),
+      T('PE', 'earth', 0.55, 1, { terminalType: 'plug', color: '#84cc16' }),
+      T('L', 'power-in', 0.72, 1, { terminalType: 'plug', color: '#92400e' }),
+      T('N', 'neutral', 0.89, 1, { terminalType: 'plug', color: '#3b82f6' }),
+    ],
+    defaultState: { powered: false, on: true, outV: 24, amp: 5, watt: 120, powerReady: false },
   },
   powerSupply: {
     category: 'power', paletteName: 'Fonte chaveada 24Vdc', group: 'Fontes', tag: 'PS', w: 120, h: 130,
