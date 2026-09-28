@@ -12,6 +12,8 @@ import type { CounterTable, AddressTable, TimerTable } from '../src/ladder/ladde
 import { createComponent, terminalByLabel, upgradeLogoTerminals, upgradeProauto24A } from '../src/electrical/factory'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
 import { proautoTerminalLocal } from '../src/schematic/proautoTerminalGeometry'
+import { connectNearWireEnds, nearestTerminal } from '../src/schematic/terminalSnap'
+import { terminalPos } from '../src/schematic/symbols'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
@@ -396,6 +398,26 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const bridges = internalBridges(on)
   check('saídas duplas e RDY fazem ponte sem AC→DC', bridges.length === 3 && bridges.some((pair) => pair.includes(terminalByLabel(ps, 'RDY1')!.id) && pair.includes(terminalByLabel(ps, 'RDY2')!.id)) && !bridges.some((pair) => pair.includes(terminalByLabel(ps, 'L')!.id)))
   check('V+ é fonte apenas com a fonte ligada', !sourceTerminalIds([ps]).includes(terminalByLabel(ps, '+V1')!.id) && sourceTerminalIds([on]).includes(terminalByLabel(ps, '+V1')!.id))
+}
+
+/* Encaixe exato sem arredondar o conector à malha (caso da captura). */
+{
+  const plc = createComponent('plcSiemensLogo1224RC')
+  const screw = terminalByLabel(plc, 'L+')!
+  const center = terminalPos(plc, screw)
+  const near = { x: center.x - 9, y: center.y + 4 }
+  const target = nearestTerminal([plc], near, 16)
+  check('clique próximo encaixa no centro real do borne', target?.id === screw.id && target.point.x === center.x && target.point.y === center.y)
+  check('clique fora do alcance não encaixa', nearestTerminal([plc], { x: center.x - 30, y: center.y - 30 }, 16) === null)
+  const ps = createComponent('powerSupplyProauto24A', undefined, undefined, 0, 300, 0)
+  const output = terminalByLabel(ps, '+V1')!
+  const cable = {
+    id: 'old-near-screw', fromTerminalId: '', toTerminalId: output.id,
+    fromPoint: near, color: 'red', gauge: '1.5mm²', kind: 'power',
+    route: 'orthogonal', bend: .5, flexibility: 'rigid', energized: false,
+  } as Wire
+  const aligned = connectNearWireEnds([plc, ps], [cable])[0]
+  check('cabo antigo próximo encaixa e preserva a ligação da outra ponta', aligned.fromTerminalId === screw.id && !aligned.fromPoint && aligned.toTerminalId === output.id)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

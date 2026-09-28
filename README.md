@@ -358,3 +358,11 @@ componente, em vez da área transparente da imagem. Novos cabos usam por
 omissão condutor **rígido**, com percurso ortogonal e cantos arredondados, e
 as duas extremidades têm marcação visível. A opção flexível continua disponível
 na barra de ferramentas.
+
+Ao desenhar ou reposicionar um cabo no **Esquema**, um clique/largada a até
+16 px (no ecrã) de um borne encaixa na posição exata do conector, antes do
+arredondamento à malha. O fio fica realmente ligado ao identificador do borne,
+não apenas visualmente próximo; o ponto de ligação acompanha movimentos,
+rotação e redimensionamento do componente. Ao abrir projetos anteriores,
+pontas livres guardadas a até 12 unidades de um borne são alinhadas e ligadas
+automaticamente, preservando a outra extremidade do cabo.

@@ -29,6 +29,7 @@ import { buildMeasurements } from '../utils/measurements'
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario, SCENARIOS } from '../simulation/scenarios'
 import { createComponent, createTerminal, nextRef, terminalByLabel, upgradeLogoTerminals, upgradeProauto24A } from '../electrical/factory'
 import { terminalPos } from '../schematic/symbols'
+import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 
 export interface Snapshot {
@@ -1173,10 +1174,13 @@ export const useSimStore = create<Store>((set, get) => ({
     try {
       const parsed = JSON.parse(json)
       get().stop()
+      const loadedComponents = (parsed.components ?? []).map(upgradeLogoTerminals).map(upgradeProauto24A) as ElectricalComponent[]
+      const loadedWires = (parsed.wires ?? []) as Wire[]
+      const alignedWires = connectNearWireEnds(loadedComponents, loadedWires)
       set({
-        components: (parsed.components ?? []).map(upgradeLogoTerminals).map(upgradeProauto24A),
+        components: loadedComponents,
         showEmptyWelcome: false,
-        wires: parsed.wires ?? [],
+        wires: alignedWires,
         ladder: parsed.ladder ?? { rungs: [] },
         fcBlocks: { fc1: parsed.fcBlocks?.fc1 ?? [], fc2: parsed.fcBlocks?.fc2 ?? [] },
         grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
@@ -1189,7 +1193,7 @@ export const useSimStore = create<Store>((set, get) => ({
         selectedWireId: null,
         history: [],
         future: [],
-        dirty: false,
+        dirty: alignedWires.some((wire, i) => wire !== loadedWires[i]),
       })
       get().pushEvent('info', 'Projeto carregado de arquivo JSON.')
       get().step()

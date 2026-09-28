@@ -7,6 +7,7 @@ import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
+import { nearestTerminal } from './terminalSnap'
 
 const CANVAS_W = 2000
 const CANVAS_H = 1400
@@ -498,6 +499,10 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     }
     if (tool === 'wire' && e.button === 0) {
       const p = toCanvas(e.clientX, e.clientY)
+      // Testar proximidade ANTES de encaixar à malha: o parafuso pode estar
+      // entre pontos de grelha e nunca deve ser aproximado a 20px.
+      const close = nearestTerminal(components, p, 16 / zoom, wireFrom ?? undefined)
+      if (close) { onTerminalDown(e, close.id); setCursorPos(close.point); return }
       const point = { x: snap(p.x), y: snap(p.y) }
       if (wireFrom || freeStart) {
         // Cada clique prolonga o mesmo cabo; Esc apenas termina o traçado.
@@ -584,13 +589,10 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     if (wireDrag && (wireDrag.mode === 'fromPoint' || wireDrag.mode === 'toPoint') && e) {
       const w = wires.find((item) => item.id === wireDrag.wireId)
       const p = toCanvas(e.clientX, e.clientY)
-      const target = [...terminalIndex.entries()].find(([tid, t]) =>
-        tid !== (wireDrag.mode === 'fromPoint' ? w?.toTerminalId : w?.fromTerminalId) &&
-        Math.hypot(t.x - p.x, t.y - p.y) <= 13 / zoom,
-      )
+      const target = nearestTerminal(components, p, 16 / zoom, wireDrag.mode === 'fromPoint' ? w?.toTerminalId : w?.fromTerminalId)
       if (w && target) {
         const isFrom = wireDrag.mode === 'fromPoint'
-        updateWire(w.id, isFrom ? { fromTerminalId: target[0], fromPoint: undefined } : { toTerminalId: target[0], toPoint: undefined })
+        updateWire(w.id, isFrom ? { fromTerminalId: target.id, fromPoint: undefined } : { toTerminalId: target.id, toPoint: undefined })
         useSimStore.getState().step()
       }
     }
@@ -769,7 +771,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
           strokeLinejoin="round"
           style={{ cursor: 'pointer' }}
           onMouseDown={(e) => {
-            if (tool === 'pan' || e.button !== 0) return
+            if (tool === 'pan' || e.button !== 0 || tool === 'wire') return
             e.stopPropagation()
             if (tool === 'erase') {
               useSimStore.getState().deleteWire(w.id)
@@ -947,7 +949,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
           {/* cabo em construção */}
           {pendingFrom && draftPoints.map((point, i) => <circle key={`draft-${i}`} cx={point.x} cy={point.y} r={4} fill="white" stroke="#2563eb" strokeWidth={2} pointerEvents="none" />)}
-          {pendingFrom && cursorPos && <path d={wireGeometry(pendingFrom, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : cursorPos, 'orthogonal', 0.5, 0, draftPoints, false).d} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
+          {pendingFrom && cursorPos && <path d={wireGeometry(pendingFrom, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : nearestTerminal(components, cursorPos, 16 / zoom, wireFrom ?? undefined)?.point ?? cursorPos, 'orthogonal', 0.5, 0, draftPoints, false).d} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
           {/* alvos clicáveis dos bornes (acima de tudo) */}
           {components.map((c) =>
             c.terminals.map((t) => {
