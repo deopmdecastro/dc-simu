@@ -8,6 +8,8 @@ import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario
 import { computeContinuity, internalBridges, isCoilPowered, probe, sourceTerminalIds } from '../src/electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../src/electrical/phases'
 import { runScan } from '../src/ladder/ladderEngine'
+import { applyKind } from '../src/ladder/ladderDnd'
+import { parseDataBlocks, moveValue } from '../src/ladder/dataBlocks'
 import type { CounterTable, AddressTable, TimerTable } from '../src/ladder/ladderEngine'
 import { createComponent, terminalByLabel, upgradeLogoTerminals, upgradeProauto24A } from '../src/electrical/factory'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
@@ -554,6 +556,78 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   st.deleteComponents([logo.id])
   check('remoção de PLC limpa só ficheiros desse PLC', !!useSimStore.getState().projectFiles[compact.id] && !useSimStore.getState().projectFiles[logo.id])
 
+}
+
+/* MOVE de paleta não é o gesto de reposicionar um contacto. */
+{
+  const rung: LadderRung = { id: 'move-bool', name: 'MOVE', enabled: true, branches: [{ id: 'b', elements: [] }], coils: [] }
+  const created = applyKind(rung, 'MOVE').rung
+  check('MOVE cria operação editável em vez de comentário não suportado', created.move?.source === 'I1' && created.move.target === 'M1')
+  const table = { I1: true, M1: false, Q1: false }
+  runScan({ rungs: [created] }, table, {}, {}, 100)
+  check('MOVE copia entrada ligada para memória no scan', table.M1)
+  const disabled = { ...created, enabled: false, move: { source: 'I1', target: 'Q1' } }
+  runScan({ rungs: [disabled] }, table, {}, {}, 100)
+  check('MOVE desativado não escreve saídas', !table.Q1)
+  const readOnly = { ...created, move: { source: '1', target: 'I1' } }
+  table.I1 = false
+  runScan({ rungs: [readOnly] }, table, {}, {}, 100)
+  check('MOVE não altera endereços físicos de entrada', !table.I1)
+}
+
+/* Remapeamento conserva o mesmo cabo e a mesma cor, alterando apenas o ID. */
+{
+  const plc = createComponent('plcCompact')
+  const ps = createComponent('powerSupplyProauto24A', undefined, undefined, 0, 300, 0)
+  const cable: Wire = { id: 'rewire-same-id', fromTerminalId: plc.terminals[2].id, toTerminalId: ps.terminals[0].id,
+    color: 'orange', gauge: '2.5mm²', kind: 'control', flexibility: 'rigid', route: 'orthogonal', bend: .5, energized: false }
+  useSimStore.setState({ components: [plc, ps], wires: [cable] })
+  useSimStore.getState().updateWire(cable.id, { fromTerminalId: plc.terminals[3].id, fromPoint: undefined })
+  const after = useSimStore.getState().wires[0]
+  check('arrastar ponta conserva cabo e liga novo borne', after.id === cable.id && after.fromTerminalId === plc.terminals[3].id && after.color === 'orange' && after.gauge === '2.5mm²')
+}
+
+/* FCs guardadas no PLC executam apenas quando chamadas de uma network. */
+{
+  const main: LadderRung = { id: 'main-call', name: 'OB1', enabled: true, branches: [{ id: 'always', elements: [] }], coils: [], call: { targetId: 'fc1' } }
+  const fc: LadderRung = { id: 'fc-output', name: 'FC1', enabled: true, branches: [{ id: 'always-fc', elements: [] }], coils: [{ kind: 'coil', id: 'coil-fc', address: 'Q2', coilType: 'COIL' }] }
+  const table = { Q2: false }
+  runScan({ rungs: [main] }, table, {}, {}, 100, { fc1: [fc] })
+  check('CALL FC executa bloco referenciado no mesmo PLC', table.Q2)
+  table.Q2 = false
+  runScan({ rungs: [{ ...main, enabled: false }] }, table, {}, {}, 100, { fc1: [fc] })
+  check('FC não executa sem RLO na chamada', !table.Q2)
+  runScan({ rungs: [main] }, table, {}, {}, 100, { fc1: [{ ...fc, call: { targetId: 'fc1' } }] })
+  check('CALL recursivo protegido sem bloquear saída do FC', table.Q2)
+}
+
+/* DBs BOOL/INT/REAL são dados persistidos com validação, não SCL executável. */
+{
+  const files = [{ id: 'db-1', folder: 'dataBlocks', name: 'DB1', content: JSON.stringify({ enabled: { type: 'BOOL', value: true }, count: { type: 'INT', value: 3 }, rate: { type: 'REAL', value: 2.5 } }), createdAt: '' }] as import('../src/ladder/projectFiles').ProjectFile[]
+  const { values, errors } = parseDataBlocks(files)
+  check('DB JSON tipado compila três variáveis válidas', !errors.length && values['DB1.ENABLED'].value === true && values['DB1.COUNT'].type === 'INT' && values['DB1.RATE'].type === 'REAL')
+  const table = { I1: false, M1: false, Q1: false }
+  check('MOVE tipado copia DB BOOL para saída', moveValue('DB1.enabled', 'Q1', table, values) && table.Q1)
+  check('MOVE copia literal INT para DB INT', moveValue('12', 'DB1.count', table, values) && values['DB1.COUNT'].value === 12)
+  check('MOVE recusa número em saída BOOL', !moveValue('DB1.rate', 'Q1', table, values) && table.Q1)
+  check('MOVE BOOL aceita 0/1 sem reescrever entrada I1', moveValue('1', 'M1', table, values) && table.M1 && !moveValue('1', 'I1', table, values))
+  check('DB rejeita tipo inválido sem avaliar código', parseDataBlocks([{ ...files[0], content: '{"x":{"type":"SCRIPT","value":"alert(1)"}}' }]).errors.length === 1)
+}
+
+/* Integração DB por PLC com Ladder real e MOVE INT; sem avaliar texto. */
+{
+  const a = createComponent('plcCompact')
+  const b = createComponent('plcCompact', undefined, undefined, 0, 320, 0)
+  const program: LadderRung = { id: 'db-rung', name: 'DB', enabled: true,
+    branches: [{ id: 'db-branch', elements: [{ kind: 'contact', id: 'db-contact', address: 'DB1.ENABLED', contactType: 'NO' }] }],
+    coils: [{ kind: 'coil', id: 'db-q1', address: 'Q1', coilType: 'COIL' }], move: { source: '12', target: 'DB1.COUNT' } }
+  const file = (enabled: boolean) => ({ id: `db-${enabled}`, folder: 'dataBlocks' as const, name: 'DB1', createdAt: '', content: JSON.stringify({ enabled: { type: 'BOOL', value: enabled }, count: { type: 'INT', value: 0 } }) })
+  useSimStore.setState({ components: [a,b], wires: [], activePlcId: a.id, ladder: { rungs: [program] }, plcPrograms: { [b.id]: { rungs: [program], fc1: [], fc2: [] } },
+    projectFiles: { [a.id]: [file(true)], [b.id]: [file(false)] }, runtime: { ...useSimStore.getState().runtime, plcRuntime: {} } })
+  useSimStore.getState().step()
+  const current = useSimStore.getState()
+  check('DB BOOL alimenta contacto sem cruzar valores entre PLCs', !!current.components[0].state.outputs.Q1 && !current.components[1].state.outputs.Q1)
+  check('MOVE INT escreve apenas DB do PLC onde o rung está ativo', current.runtime.plcRuntime[a.id].db['DB1.COUNT'].value === 12 && current.runtime.plcRuntime[b.id].db['DB1.COUNT'].value === 0)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

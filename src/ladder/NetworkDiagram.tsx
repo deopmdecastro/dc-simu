@@ -11,6 +11,8 @@ export type RungSelection =
   | { type: 'contact'; branchId: string; elementId: string }
   | { type: 'coil'; coilId: string }
   | { type: 'timer' }
+  | { type: 'move' }
+  | { type: 'call' }
   | { type: 'counter' }
   | null
 
@@ -46,6 +48,7 @@ interface Props {
 
 export default function NetworkDiagram({ rung, selection = null, onSelect = () => {}, readonly = false, minWidth = 640 }: Props) {
   const table = useSimStore((s) => s.runtime.table)
+  const db = useSimStore((s) => s.runtime.db)
   const timers = useSimStore((s) => s.runtime.timers)
   const counters = useSimStore((s) => s.runtime.counters)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
@@ -78,18 +81,22 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const contactsEnd = RAIL_X + nCols * COL_W
   const OJ = contactsEnd + 40 // junção das saídas (paralelo)
   const boxX = OJ + 80
-  const hasBox = !!(rung.timer || rung.counter)
+  const hasBox = !!(rung.timer || rung.counter || rung.move || rung.call)
   const cyOf = (row: number) => TOP + row * ROW_H + CY_OFF
 
   type Out =
     | { type: 'timer'; cy: number }
     | { type: 'counter'; cy: number }
+    | { type: 'move'; cy: number }
+    | { type: 'call'; cy: number }
     | { type: 'coil'; cy: number; coil: LadderRung['coils'][number] }
     | { type: 'placeholder'; cy: number }
   const outputs: Out[] = []
   let oy = TOP
   if (rung.timer) { outputs.push({ type: 'timer', cy: oy + CY_OFF }); oy += BOX_SLOT }
   if (rung.counter) { outputs.push({ type: 'counter', cy: oy + CY_OFF }); oy += BOX_SLOT }
+  if (rung.move) { outputs.push({ type: 'move', cy: oy + CY_OFF }); oy += ROW_H }
+  if (rung.call) { outputs.push({ type: 'call', cy: oy + CY_OFF }); oy += ROW_H }
   rung.coils.forEach((coil) => { outputs.push({ type: 'coil', cy: oy + CY_OFF, coil }); oy += ROW_H })
   if (!rung.coils.length && !hasBox) { outputs.push({ type: 'placeholder', cy: oy + CY_OFF }); oy += ROW_H }
 
@@ -101,10 +108,8 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const coilCX = W - 60
 
   // ------------------------------------------------------------- estado
-  const pass = (el: LadderContact) => {
-    const v = !!table[el.address]
-    return el.contactType === 'NC' ? !v : v
-  }
+  const rawContact = (el: LadderContact) => db[el.address.toUpperCase()]?.type === 'BOOL' ? db[el.address.toUpperCase()].value === true : !!table[el.address]
+  const pass = (el: LadderContact) => el.contactType === 'NC' ? !rawContact(el) : rawContact(el)
   const rungOut = online && !!rungPowered[rung.id]
   const col = (p: boolean) => (!online ? C_OFF : p ? C_ON : C_IDLE)
   const dash = (p: boolean) => (online && !p ? '5 4' : undefined)
@@ -118,15 +123,15 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     const r = wrapRef.current!.getBoundingClientRect()
     return { x: ((e.clientX - r.left) * W) / r.width, y: ((e.clientY - r.top) * H) / r.height }
   }
-  const draggedKind = (): PaletteKind | 'MOVE' | null => {
+  const draggedKind = (): PaletteKind | 'REORDER_CONTACT' | null => {
     const d = getLadderDrag()
-    if (d) return 'move' in d ? 'MOVE' : d.kind
+    if (d) return 'move' in d ? 'REORDER_CONTACT' : d.kind
     const t = useSimStore.getState().dragType
     return t ? COMPONENT_TO_LADDER[t] ?? null : null
   }
-  const targetFor = (kind: PaletteKind | 'MOVE', p: { x: number; y: number }): DropTarget => {
+  const targetFor = (kind: PaletteKind | 'REORDER_CONTACT', p: { x: number; y: number }): DropTarget => {
     if (kind === 'BRANCH') return { kind: 'newBranch' }
-    if (kind === 'MOVE' || isContactKind(kind)) {
+    if (kind === 'REORDER_CONTACT' || isContactKind(kind)) {
       const row = Math.floor((p.y - TOP) / ROW_H)
       if (row >= branches.length) return { kind: 'newBranch' }
       const bi = Math.max(0, row)
@@ -142,7 +147,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     if (!kind) return
     e.preventDefault()
     e.stopPropagation()
-    e.dataTransfer.dropEffect = kind === 'MOVE' ? 'move' : 'copy'
+    e.dataTransfer.dropEffect = kind === 'REORDER_CONTACT' ? 'move' : 'copy'
     const t = targetFor(kind, localPt(e))
     if (JSON.stringify(t) !== JSON.stringify(drop)) setDrop(t)
   }
@@ -159,7 +164,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     e.preventDefault()
     e.stopPropagation()
     const st = useSimStore.getState()
-    if (kind === 'MOVE') {
+    if (kind === 'REORDER_CONTACT') {
       let payload: MovePayload | null = null
       try { payload = JSON.parse(e.dataTransfer.getData(LADDER_MOVE_MIME)) } catch { payload = null }
       const d = getLadderDrag()
@@ -236,6 +241,8 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     else if (selection?.type === 'coil') removeCoil(selection.coilId)
     else if (selection?.type === 'timer') updateRung(rung.id, (r) => ({ ...r, timer: undefined }))
     else if (selection?.type === 'counter') updateRung(rung.id, (r) => ({ ...r, counter: undefined }))
+    else if (selection?.type === 'move') updateRung(rung.id, (r) => ({ ...r, move: undefined }))
+    else if (selection?.type === 'call') updateRung(rung.id, (r) => ({ ...r, call: undefined }))
     else return
     e.preventDefault()
     e.stopPropagation()
@@ -287,7 +294,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           {(el.contactType === 'RISING' || el.contactType === 'FALLING') && label(cx, cy + 4, el.contactType === 'RISING' ? 'P' : 'N', { bold: true, size: 11 })}
           {label(cx, cy - 20, `%${el.address}`, { bold: true })}
           {name && label(cx, cy - 33, `"${name}"`, { grey: true, size: 9 })}
-          {online && label(cx + 16, cy + 24, table[el.address] ? '1' : '0', { anchor: 'start', size: 9, grey: !table[el.address] })}
+          {online && label(cx + 16, cy + 24, rawContact(el) ? '1' : '0', { anchor: 'start', size: 9, grey: !rawContact(el) })}
         </g>,
       )
       if (!readonly)
@@ -415,6 +422,33 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             title="Contador — clique para configurar · Del/botão direito remove"
           />,
         )
+    } else if (o.type === 'call' && rung.call) {
+      const top = cy - 25
+      svg.push(<g key="call-block">{wire(OJ, cy, boxX, cy, rungOut)}
+        <rect x={boxX} y={top} width={BOX_W} height={50} rx={4} fill="#fff" stroke={rungOut ? C_ON : '#5b6b84'} strokeWidth={1.5} />
+        {label(boxX + BOX_W / 2, cy - 5, 'CALL', { bold: true, size: 11 })}
+        {label(boxX + BOX_W / 2, cy + 12, rung.call.targetId, { size: 9 })}
+        {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
+      </g>)
+      if (!readonly) hits.push(<div key="call-hit" className="lnet-hit" style={{ left: boxX, top, width: BOX_W, height: 50 }}
+        onClick={(e) => { e.stopPropagation(); onSelect({ type: 'call' }) }}
+        onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, call: undefined })) }}
+        title="CALL FC — clique para escolher o bloco · botão direito remove" />)
+    } else if (o.type === 'move' && rung.move) {
+      const m = rung.move
+      const top = cy - 30
+      svg.push(<g key="move-block">
+        {wire(OJ, cy, boxX, cy, rungOut)}
+        <rect x={boxX} y={top} width={BOX_W} height={60} rx={4} fill="#fff" stroke={rungOut ? C_ON : '#5b6b84'} strokeWidth={1.5} />
+        {label(boxX + BOX_W / 2, top + 16, 'MOVE', { bold: true, size: 11 })}
+        {label(boxX + 7, cy + 10, `IN: ${m.source}`, { anchor: 'start', size: 9 })}
+        {label(boxX + BOX_W - 7, cy + 10, `OUT: ${m.target}`, { anchor: 'end', size: 9 })}
+        {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
+      </g>)
+      if (!readonly) hits.push(<div key="move-hit" className="lnet-hit" style={{ left: boxX, top, width: BOX_W, height: 60 }}
+        onClick={(e) => { e.stopPropagation(); onSelect({ type: 'move' }) }}
+        onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, move: undefined })) }}
+        title="MOVE BOOL — clique para configurar · botão direito remove" />)
     } else if (o.type === 'coil') {
       const c = o.coil
       const on = online && !!table[c.address]

@@ -358,6 +358,10 @@ export interface LadderRung {
   coils: LadderCoilEl[]
   timer?: LadderTimer
   counter?: LadderCounter
+  /** MOVE BOOL: copia origem para destino quando a network está ativa. */
+  move?: { source: string; target: string }
+  /** Chamada explícita de um FC do mesmo PLC. */
+  call?: { targetId: string }
   enabled: boolean
   comment?: string
 }

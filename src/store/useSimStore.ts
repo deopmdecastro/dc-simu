@@ -33,6 +33,7 @@ import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
 import type { ProjectFile, ProjectFolder } from '../ladder/projectFiles'
 import { plcIoCapacity } from '../ladder/plcIo'
+import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 
 export interface Snapshot {
@@ -49,7 +50,8 @@ interface RuntimeExtras {
   timers: TimerTable
   counters: CounterTable
   rungPowered: Record<string, boolean>
-  plcRuntime: Record<string, { table: AddressTable; timers: TimerTable; counters: CounterTable; rungPowered: Record<string, boolean> }>
+  db: DbTable
+  plcRuntime: Record<string, { table: AddressTable; timers: TimerTable; counters: CounterTable; rungPowered: Record<string, boolean>; db: DbTable }>
   energizedTerminals: Set<string>
   energizedWires: Set<string>
 }
@@ -281,6 +283,7 @@ const EMPTY_RUNTIME = (): RuntimeExtras => ({
   timers: {},
   counters: {},
   rungPowered: {},
+  db: {},
   plcRuntime: {},
   energizedTerminals: new Set(),
   energizedWires: new Set(),
@@ -322,7 +325,7 @@ function runOneTick(state: Store, dtMs: number) {
     state.runtime.rungPowered = scan.rungPowered
   }
   for (const plc of plcs) {
-    const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(plcIoCapacity(plc).inputs, plcIoCapacity(plc).outputs), timers: {}, counters: {}, rungPowered: {} }
+    const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(plcIoCapacity(plc).inputs, plcIoCapacity(plc).outputs), timers: {}, counters: {}, rungPowered: {}, db: {} }
     const table = prior.table
     const logo = plc.type === 'plcSiemensLogo1224RC' ? logoElectricalInputs(plc, components, wires) : null
     const powered = logo?.powered ?? true
@@ -334,7 +337,14 @@ function runOneTick(state: Store, dtMs: number) {
     }
     const program = plc.id === state.activePlcId ? ladder.rungs
       : state.plcPrograms[plc.id]?.rungs ?? (state.activePlcId === null && plc.id === plcs[0].id ? ladder.rungs : [])
-    const scan = runScan({ rungs: program }, table, prior.timers, prior.counters, dtMs)
+    const fc = plc.id === state.activePlcId ? state.fcBlocks : state.plcPrograms[plc.id]
+    const functions: Record<string, LadderRung[]> = {
+      fc1: fc?.fc1 ?? [], fc2: fc?.fc2 ?? [],
+      ...(state.projectFiles[plc.id] ?? []).filter((file) => file.folder === 'programBlocks').reduce((map, file) => ({ ...map, [file.id]: file.rungs ?? [] }), {}),
+    }
+    const declared = parseDataBlocks(state.projectFiles[plc.id] ?? []).values
+    prior.db = { ...declared, ...Object.fromEntries(Object.entries(prior.db).filter(([key]) => key in declared)) }
+    const scan = runScan({ rungs: program }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db)
     state.runtime.plcRuntime[plc.id] = { ...prior, rungPowered: scan.rungPowered }
     for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = powered && !!scan.table[key]
   }
@@ -344,6 +354,7 @@ function runOneTick(state: Store, dtMs: number) {
     state.runtime.timers = active.timers
     state.runtime.counters = active.counters
     state.runtime.rungPowered = active.rungPowered
+    state.runtime.db = active.db
   }
   // GRAFCET global mantém o comportamento anterior sobre a vista ativa.
   state.grafcetRuntime = scanGrafcet(state.grafcet, state.grafcetRuntime, state.runtime.table)
@@ -535,7 +546,7 @@ export const useSimStore = create<Store>((set, get) => ({
     const nextRuntime = state.runtime.plcRuntime[id]
     const plcTags = { ...state.plcTags, ...(state.activePlcId ? { [state.activePlcId]: state.tags } : {}) }
     set({ activePlcId: id, plcPrograms: programs, plcTags, tags: plcTags[id] ?? (state.activePlcId === null && Object.keys(plcTags).length === 0 ? state.tags : []), ladder: { rungs: prior.rungs }, fcBlocks: { fc1: prior.fc1, fc2: prior.fc2 },
-      runtime: { ...state.runtime, table: nextRuntime?.table ?? emptyTable(8, 4), timers: nextRuntime?.timers ?? {}, counters: nextRuntime?.counters ?? {}, rungPowered: nextRuntime?.rungPowered ?? {} },
+      runtime: { ...state.runtime, table: nextRuntime?.table ?? emptyTable(8, 4), timers: nextRuntime?.timers ?? {}, counters: nextRuntime?.counters ?? {}, rungPowered: nextRuntime?.rungPowered ?? {}, db: nextRuntime?.db ?? {} },
       history: [], future: [], dirty: true })
     get().step()
   },

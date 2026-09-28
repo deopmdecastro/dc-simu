@@ -237,8 +237,8 @@ Tailwind CSS, SVG para o esquema e o editor Ladder.
 
 - A network ajusta a largura do diagrama ao espaço disponível (mantendo scroll horizontal quando necessário).
 - Ao selecionar contactos, bobinas, temporizadores ou contadores é possível alterar o endereço e o nome simbólico da tag no painel contextual.
-- FC1 e FC2 permitem criar/eliminar networks e editar contactos, ramos e bobinas; são guardados no JSON do projeto. **Os FC não são chamados pelo OB1 nem executados automaticamente**: copie a lógica relevante para o OB1 para a simular.
-- Os blocos MOVE, ADD, SUB e COMPARE ainda não fazem parte do modelo de execução Ladder; não aparecem na paleta até terem semântica e testes completos.
+- FC1/FC2 e FCs criadas pelo utilizador guardam networks por PLC. Não executam automaticamente: insira **CALL FC** numa network do OB1 (ou de outra FC), que só chama o bloco quando o RLO é verdadeiro. Recursão é bloqueada. Ainda não há interface tipada IN/OUT/IN_OUT.
+- **MOVE** copia BOOL entre I/Q/M e variáveis DB BOOL; também aceita literais INT/REAL para DBs tipados. I físicas são só de leitura. ADD, SUB e COMPARE continuam sem semântica no motor.
 
 ### GRAFCET no esquema
 
@@ -417,7 +417,7 @@ alternar, o editor apresenta o programa e a tabela de execução desse PLC. Os
 OB1 de todos os PLCs são varridos separadamente, com entradas, saídas,
 memórias, temporizadores e contadores independentes, mesmo quando usam os
 mesmos endereços (`I1`, `Q1` etc.). As FCs mantêm o comportamento atual do
-editor (não são chamadas automaticamente pelo OB1). As tags passaram a ser específicas de cada PLC; o GRAFCET continua global
+editor (só são executadas quando chamadas explicitamente por CALL FC). As tags passaram a ser específicas de cada PLC; o GRAFCET continua global
 ao projeto. Sem PLC no Esquema, fica disponível o
 programa geral existente; projetos anteriores com um único programa são
 atribuídos ao primeiro PLC ao abrir. Guardar em JSON preserva os programas e
@@ -428,13 +428,13 @@ o PLC selecionado.
 As oito pastas da árvore do PLC selecionado permitem criar itens com o botão
 **＋** (e também pelo botão **Criar** dentro da pasta), abrir, renomear e
 eliminar ficheiros. Os blocos de programa criados incluem networks Ladder
-editáveis, mas, como as FC1/FC2 existentes, não são chamados automaticamente
-pelo OB1. Variáveis PLC mantém uma tabela de tags própria para cada PLC; os
+editáveis. Nenhum FC executa sozinho; use CALL FC no OB1 para o invocar. Variáveis PLC mantém uma tabela de tags própria para cada PLC; os
 ficheiros de observação aceitam endereços I/Q/M/T/C por linha e mostram o
 valor do último scan. Backups guardam uma cópia JSON restaurável do projeto.
-Documentação, fontes externas, objetos tecnológicos e blocos de dados são
-ficheiros de texto persistentes; **fontes e DBs não são compilados nem
-executados** pelo motor. Tudo fica no JSON do projeto, separado por PLC.
+Documentação, fontes externas e objetos tecnológicos são ficheiros de texto
+persistentes. Os DBs aceitam JSON com variáveis BOOL/INT/REAL, usam
+`NomeDB.NomeVariável` e são consumidos por MOVE e contactos BOOL. **Fontes
+SCL/STL continuam sem compilador nem execução**. Tudo fica no JSON do projeto, separado por PLC.
 
 A tabela inferior **Entradas/Saídas** é construída a partir de todos os
 bornes I e Q reais do PLC selecionado (também os sem fio), em vez dos nomes
@@ -442,3 +442,16 @@ fictícios «Botão Start», «Motor» etc. Mostra o nome da tag ou do borne,
 conexões de cabo quando existentes e estado do scan. Por exemplo, um PLC
 modular 12I/8Q mostra I1–I12 e Q1–Q8; o LOGO! mostra 8I/4Q. Memórias,
 temporizadores e contadores mostram apenas valores/endereço usados de facto.
+
+### Reencaixe do cabo e execução parcial de blocos
+
+Selecionar o cabo no Esquema revela manípulos nas duas pontas (mesmo quando
+já ligadas). Arrastar e largar uma ponta noutro borne muda só essa ligação,
+sem apagar o cabo ou as suas propriedades; largar no vazio deixa a ponta
+livre. O condutor é desenhado até ao centro do parafuso, cuja cabeça permanece
+à frente da inserção. No Ladder, **MOVE** e **CALL FC** têm símbolos, edição
+e testes de execução. O suporte atual de DB é um formato JSON tipado com
+BOOL/INT/REAL e acessos `DB1.Variavel`; não inclui estruturas, instâncias,
+endereçamento industrial completo nem interfaces de parâmetros FC.
+**SCL/STL completos continuam por implementar**; os ficheiros de fonte são
+apenas guardados e editáveis, nunca executados silenciosamente.

@@ -10,6 +10,7 @@ export type PaletteKind =
   | 'CTU'
   | 'CTD'
   | 'MOVE'
+  | 'CALL'
   | 'COMPARE'
   | 'ADD'
   | 'SUB'
@@ -72,6 +73,8 @@ export type DropTarget =
  * Devolve a network atualizada e o id do elemento criado (para selecionar).
  */
 export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarget = { kind: 'output' }): { rung: LadderRung; created?: { type: 'contact'; branchId: string; elementId: string } | { type: 'coil'; coilId: string } | { type: 'timer' } | { type: 'counter' } } {
+  if (kind === 'CALL') return { rung: { ...rung, call: rung.call ?? { targetId: 'fc1' } } }
+  if (kind === 'MOVE') return { rung: { ...rung, move: rung.move ?? { source: 'I1', target: 'M1' } } }
   if (kind === 'BRANCH') {
     return { rung: { ...rung, branches: [...rung.branches, { id: uid(`${rung.id}-b`), elements: [] }] } }
   }

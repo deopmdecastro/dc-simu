@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
-import { SymbolGlyph, ComponentTerminals, WIRE_COLORS, terminalPos } from './symbols'
+import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalPos } from './symbols'
 import { IconProbe, IconHelp } from '../ui/icons'
 import { SCENARIOS } from '../simulation/scenarios'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
@@ -198,7 +198,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   /** cadeia de bornes selecionados com shift+clique (ligação inteligente) */
   const [chain, setChain] = useState<string[]>([])
   /** arraste do ponto de dobra/curva/waypoint de um cabo diretamente no esquema */
-  const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' | 'waypoint' | 'fromPoint' | 'toPoint'; index?: number } | null>(null)
+  const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' | 'waypoint' | 'fromPoint' | 'toPoint'; index?: number; originalTerminalId?: string; start?: Pt } | null>(null)
   const [dropPos, setDropPos] = useState<{ x: number; y: number } | null>(null)
   const [cursorPos, setCursorPos] = useState<Pt | null>(null)
   const [showHints, setShowHints] = useState(() => {
@@ -409,6 +409,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     if (wireDrag) {
       const w = wires.find((x) => x.id === wireDrag.wireId)
       if (w && (wireDrag.mode === 'fromPoint' || wireDrag.mode === 'toPoint')) {
+        if (wireDrag.start && Math.hypot(p.x - wireDrag.start.x, p.y - wireDrag.start.y) < 3 / zoom) return
         updateWire(w.id, { [wireDrag.mode]: { x: snap(p.x), y: snap(p.y) } })
         return
       }
@@ -453,13 +454,17 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
   const onMouseUp = (e?: React.MouseEvent) => {
     if (wireDrag && (wireDrag.mode === 'fromPoint' || wireDrag.mode === 'toPoint') && e) {
-      const w = wires.find((item) => item.id === wireDrag.wireId)
+      const w = useSimStore.getState().wires.find((item) => item.id === wireDrag.wireId)
       const p = toCanvas(e.clientX, e.clientY)
       const target = nearestTerminal(components, p, 16 / zoom, wireDrag.mode === 'fromPoint' ? w?.toTerminalId : w?.fromTerminalId)
+        ?? nearestModelTerminal(components, p, wireDrag.mode === 'fromPoint' ? w?.toTerminalId : w?.fromTerminalId, Math.min(24, 28 / zoom))
       if (w && target) {
         const isFrom = wireDrag.mode === 'fromPoint'
         updateWire(w.id, isFrom ? { fromTerminalId: target.id, fromPoint: undefined } : { toTerminalId: target.id, toPoint: undefined })
         useSimStore.getState().step()
+      } else if (w && wireDrag.originalTerminalId && wireDrag.start && Math.hypot(p.x - wireDrag.start.x, p.y - wireDrag.start.y) < 3 / zoom) {
+        // Um clique sem deslocação não desliga o borne.
+        updateWire(w.id, wireDrag.mode === 'fromPoint' ? { fromTerminalId: wireDrag.originalTerminalId, fromPoint: undefined } : { toTerminalId: wireDrag.originalTerminalId, toPoint: undefined })
       }
     }
     if (wireDrag && wireDrag.mode !== 'fromPoint' && wireDrag.mode !== 'toPoint') commitHistory()
@@ -700,16 +705,6 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         <circle cx={b.x} cy={b.y} r={3.4} fill="white" stroke={col} strokeWidth={1.5} pointerEvents="none" />
         {w.fromPoint && !selected && <circle cx={a.x} cy={a.y} r={5} fill="white" stroke={col} strokeWidth={2} pointerEvents="none" />}
         {w.toPoint && !selected && <circle cx={b.x} cy={b.y} r={5} fill="white" stroke={col} strokeWidth={2} pointerEvents="none" />}
-        {/* pontas livres arrastáveis — não representam uma ligação elétrica */}
-        {selected && (['fromPoint', 'toPoint'] as const).map((side) => {
-          const point = w[side]
-          if (!point) return null
-          return <circle key={`${w.id}-${side}`} cx={point.x} cy={point.y} r={7} fill="white" stroke="#2563eb" strokeWidth={2.5} style={{ cursor: 'grab' }} onMouseDown={(e) => {
-            e.stopPropagation()
-            commitHistory()
-            setWireDrag({ wireId: w.id, mode: side })
-          }}><title>Arraste para mover a ponta livre; largue sobre um borne para a ligar</title></circle>
-        })}
         {/* pontos de curva do cabo — visíveis quando selecionado */}
         {selected &&
           (w.waypoints ?? []).map((wp, i) => (
@@ -889,6 +884,23 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
           {/* Cabos e componentes partilham a mesma ordem z. */}
           {drawOrder.map((entry) => (entry.kind === 'wire' ? renderWireEl(entry.wire) : renderComponentEl(entry.comp)))}
 
+          {/* O fio entra até ao centro do parafuso; a cabeça do borne fica
+              desenhada sobre o condutor, mesmo quando a ponteira está atrás. */}
+          {wires.flatMap((w) => {
+            const d = wireDisplay(w)
+            if (!d) return []
+            return (['from', 'to'] as const).map((side) => {
+              const lead = side === 'from' ? d.fromLead : d.toLead
+              const point = side === 'from' ? d.a : d.b
+              if (!lead) return null
+              return <path key={`${w.id}-${side}-insert`} d={`M ${lead.x},${lead.y} L ${point.x},${point.y}`}
+                fill="none" stroke={WIRE_COLORS[w.color] ?? '#94a3b8'} strokeWidth={Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)} pointerEvents="none" />
+            })
+          })}
+          {components.flatMap((c) => c.terminals.filter((t) => wires.some((w) => (!w.fromPoint && w.fromTerminalId === t.id) || (!w.toPoint && w.toTerminalId === t.id))).map((t) => {
+            const p = terminalPos(c, t)
+            return <g key={`connected-${t.id}`} pointerEvents="none"><TerminalGlyph x={p.x} y={p.y} type={t.terminalType} color={t.color} energized={t.energized} r={4.5} /></g>
+          }))}
           {/* Pontas da frente: apenas as escolhidas no inspetor. */}
           {renderWireEnds('front')}
 
@@ -934,6 +946,23 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
               )
             }),
           )}
+
+          {/* Arrastar uma ponta já ligada para outro borne mantém o mesmo cabo. */}
+          {tool === 'select' && selectedWireId && (() => {
+            const w = wires.find((item) => item.id === selectedWireId)
+            if (!w) return null
+            return (['from', 'to'] as const).map((side) => {
+              const point = side === 'from' ? (w.fromPoint ?? terminalIndex.get(w.fromTerminalId)) : (w.toPoint ?? terminalIndex.get(w.toTerminalId))
+              if (!point) return null
+              return <circle key={`${w.id}-${side}-drag`} cx={point.x} cy={point.y} r={9} fill="white" fillOpacity={0.01} stroke="#2563eb" strokeWidth={1.5}
+                style={{ cursor: 'grab' }} onMouseDown={(e) => {
+                  if (e.button !== 0) return
+                  e.stopPropagation()
+                  commitHistory()
+                  setWireDrag({ wireId: w.id, mode: side === 'from' ? 'fromPoint' : 'toPoint', start: { x: point.x, y: point.y }, originalTerminalId: side === 'from' ? (!w.fromPoint ? w.fromTerminalId : undefined) : (!w.toPoint ? w.toTerminalId : undefined) })
+                }}><title>Arraste esta ponta para outro borne sem apagar o cabo</title></circle>
+            })
+          })()}
 
           {/* Camada de arrasto: cobre componentes e bornes, sem alterar a seleção. */}
           {gridDragEnabled && <rect x={-CANVAS_W} y={-CANVAS_H} width={CANVAS_W * 3} height={CANVAS_H * 3} fill="transparent" pointerEvents="all" />}

@@ -10,6 +10,7 @@
 //   contadores CTU (crescente), CTD (decrescente) com preset e reset
 // ============================================================================
 
+import { moveValue, type DbTable } from './dataBlocks'
 import type { LadderProgram, LadderRung, LadderBranch, LadderContact } from '../types'
 
 export type AddressTable = Record<string, boolean>
@@ -18,8 +19,9 @@ export type TimerTable = Record<string, TimerValue>
 export interface CounterValue { count: number; preset: number; done: boolean; prevPulse: boolean }
 export type CounterTable = Record<string, CounterValue>
 
-function evalContact(el: LadderContact, table: AddressTable): boolean {
-  const v = !!table[el.address]
+function evalContact(el: LadderContact, table: AddressTable, db: DbTable): boolean {
+  const key = el.address.toUpperCase()
+  const v = db[key]?.type === 'BOOL' ? db[key].value === true : !!table[key]
   switch (el.contactType) {
     case 'NO':
       return v
@@ -38,18 +40,18 @@ function evalContact(el: LadderContact, table: AddressTable): boolean {
   }
 }
 
-function evalBranch(branch: LadderBranch, table: AddressTable): boolean {
-  return branch.elements.every((el) => evalContact(el, table))
+function evalBranch(branch: LadderBranch, table: AddressTable, db: DbTable): boolean {
+  return branch.elements.every((el) => evalContact(el, table, db))
 }
 
-function evalRung(rung: LadderRung, table: AddressTable): boolean {
+function evalRung(rung: LadderRung, table: AddressTable, db: DbTable): boolean {
   // um rung sem contatos (branches vazias) é considerado "sempre verdadeiro"
   // apenas quando explicitamente montado assim pelo usuário com 1 branch vazia
   if (!rung.enabled) return false
   if (rung.branches.length === 0) return false
   const anyEmpty = rung.branches.some((b) => b.elements.length === 0)
   if (anyEmpty) return true
-  return rung.branches.some((b) => evalBranch(b, table))
+  return rung.branches.some((b) => evalBranch(b, table, db))
 }
 
 export interface ScanResult {
@@ -66,11 +68,14 @@ export function runScan(
   timers: TimerTable,
   counters: CounterTable,
   dtMs: number,
+  functions: Record<string, LadderRung[]> = {},
+  stack: string[] = [],
+  db: DbTable = {},
 ): ScanResult {
   const rungPowered: Record<string, boolean> = {}
 
   for (const rung of program.rungs) {
-    const powered = evalRung(rung, table)
+    const powered = evalRung(rung, table, db)
     rungPowered[rung.id] = powered
 
     // ---------------- temporizador do rung ----------------
@@ -178,6 +183,13 @@ export function runScan(
           break
       }
     }
+    if (rung.move && powered) moveValue(rung.move.source, rung.move.target, table, db)
+    if (rung.call && powered) {
+      const id = rung.call.targetId
+      // Impede ciclos A→B→A e chamadas recursivas descontroladas.
+      if (functions[id] && !stack.includes(id) && stack.length < 16)
+        runScan({ rungs: functions[id] }, table, timers, counters, dtMs, functions, [...stack, id], db)
+    }
   }
 
   return { table, rungPowered, timers, counters }
@@ -229,6 +241,7 @@ export function collectUsedAddresses(program: LadderProgram): string[] {
       for (const el of branch.elements) set.add(el.address.toUpperCase())
     }
     for (const coil of rung.coils) set.add(coil.address.toUpperCase())
+    if (rung.move) { set.add(rung.move.source.toUpperCase()); set.add(rung.move.target.toUpperCase()) }
     if (rung.timer) set.add(rung.timer.address.toUpperCase())
     if (rung.counter) {
       set.add(rung.counter.address.toUpperCase())

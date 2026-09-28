@@ -2,6 +2,7 @@ import LadderSections, { type LadderSection } from './LadderSections'
 import { isProgrammablePlc } from './plcPrograms'
 import { PROJECT_FOLDERS, type ProjectFile, type ProjectFolder } from './projectFiles'
 import { plcIoRows } from './plcIo'
+import { parseDataBlocks } from './dataBlocks'
 import { collectUsedAddresses } from './ladderEngine'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -50,7 +51,8 @@ function useTagName(address: string): string | null {
  * com estados nítidos: energizado (verde) / inativo (cinza).
  */
 function ContactSymbol({ el, table, selected = false }: { el: LadderContact; table: Record<string, boolean>; selected?: boolean }) {
-  const raw = !!table[el.address]
+  const db = useSimStore((s) => s.runtime.db)
+  const raw = db[el.address.toUpperCase()]?.type === 'BOOL' ? db[el.address.toUpperCase()].value === true : !!table[el.address]
   const powered = el.contactType === 'NC' ? !raw : raw
   const tagName = useTagName(el.address)
   const slash = el.contactType === 'NC'
@@ -148,6 +150,8 @@ const STRIP: Array<{ kind: PaletteKind; title: string }> = [
   { kind: 'RESET', title: 'Bobina RESET' },
   { kind: 'TON', title: 'Temporizador TON' },
   { kind: 'CTU', title: 'Contador CTU' },
+  { kind: 'MOVE', title: 'MOVE BOOL (copiar bit se a network estiver ativa)' },
+  { kind: 'CALL', title: 'Chamar FC explicitamente no OB1' },
 ]
 
 function RungRow({ rung, index, minWidth = 640, active = false }: { rung: LadderRung; index: number; minWidth?: number; active?: boolean }) {
@@ -164,6 +168,8 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
       ? rung.branches.find((b) => b.id === selection.branchId)?.elements.find((el) => el.id === selection.elementId)
       : null
   const selectedCoil = selection?.type === 'coil' ? rung.coils.find((c) => c.id === selection.coilId) : null
+  const plcId = useSimStore((st) => st.activePlcId)
+  const fcFiles = useSimStore((st) => st.projectFiles[plcId ?? '_general'] ?? [])
   const selectedAddress = selectedContact?.address ?? selectedCoil?.address ?? rung.timer?.address ?? rung.counter?.address ?? ''
   const selectedTagName = useTagName(selectedAddress)
   const tags = useSimStore((s) => s.tags)
@@ -358,6 +364,22 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
           <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => removeCoil(selectedCoil.id)}><IconDelete size={10} /> remover</button>
         </div>
       )}
+      {selection?.type === 'call' && rung.call && <div className="ladder-block-popover">
+        <div className="ladder-popover-head"><strong>CALL FC</strong><button className="ladder-ghost-button" onClick={() => setSelection(null)}>×</button></div>
+        <label>Bloco <select className={tiny} value={rung.call.targetId} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, call: { targetId: e.target.value } }))}>
+          <option value="fc1">FC1</option><option value="fc2">FC2</option>
+          {fcFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}
+        </select></label>
+        <span className="text-[10px] text-ink-400">Executado só quando RLO = 1; chamadas recursivas são bloqueadas.</span>
+        <button className={`${smallBtn} !text-state-error`} onClick={() => updateRung(rung.id, (r) => ({ ...r, call: undefined }))}><IconDelete size={10} /> remover</button>
+      </div>}
+      {selection?.type === 'move' && rung.move && <div className="ladder-block-popover">
+        <div className="ladder-popover-head"><strong>MOVE BOOL</strong><button className="ladder-ghost-button" onClick={() => setSelection(null)}>×</button></div>
+        <label>IN <input className={`${tiny} !w-20 font-mono`} list={TAG_DATALIST_ID} value={rung.move.source} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, move: { ...r.move!, source: e.target.value.toUpperCase() } }))} /></label>
+        <label>OUT <input className={`${tiny} !w-20 font-mono`} list={TAG_DATALIST_ID} value={rung.move.target} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, move: { ...r.move!, target: e.target.value.toUpperCase() } }))} /></label>
+        <span className="text-[10px] text-ink-400">I/Q/M, TRUE/FALSE ou DB.var → Q/M ou DB.var (BOOL/INT/REAL). Só se RLO = 1.</span>
+        <button className={`${smallBtn} !text-state-error`} onClick={() => updateRung(rung.id, (r) => ({ ...r, move: undefined }))}><IconDelete size={10} /> remover</button>
+      </div>}
       {selection?.type === 'timer' && rung.timer && (
         <div className="ladder-block-popover">
           <div className="ladder-popover-head">
@@ -687,6 +709,10 @@ const PALETTE_GROUPS: Array<{
     ],
   },
   {
+    title: 'Operações',
+    items: [{ kind: 'MOVE', label: 'MOVE', detail: 'BOOL/INT/REAL via DB', icon: 'move' }, { kind: 'CALL', label: 'CALL FC', detail: 'Invocar bloco', icon: 'function' }],
+  },
+  {
     title: 'Contadores',
     items: [
       { kind: 'CTU', label: 'CTU', detail: 'Contador UP', icon: 'counter' },
@@ -775,6 +801,8 @@ function ProjectTreePane({
     { label: 'Temporizador', kind: 'TON' },
     { label: 'Contador', kind: 'CTU' },
     { label: 'Ramo OR', kind: 'BRANCH' },
+    { label: 'MOVE', kind: 'MOVE' },
+    { label: 'CALL FC', kind: 'CALL' },
   ]
 
   const projectTree: ProjectTreeItem = { ...PROJECT_TREE, children: PROJECT_TREE.children?.map((folder) => ({ ...folder,
@@ -879,7 +907,7 @@ function ProjectDataView({ activeNode, files, onCreate, onOpen }: {
   if (!folder) return <div className="ladder-folder-view"><FolderViewHeader icon={<IconCube size={16} />} title="Projeto" subtitle="Escolha uma pasta para criar ficheiros." /></div>
   const description: Record<ProjectFolder, string> = {
     programBlocks: 'Blocos Ladder editáveis. Só OB1 é executado automaticamente.',
-    dataBlocks: 'Dados e parâmetros do projeto (documentação; ainda sem DB runtime).',
+    dataBlocks: 'Variáveis BOOL/INT/REAL em JSON, acessíveis por MOVE e contactos BOOL.',
     technologyObjects: 'Configuração e documentação de objetos tecnológicos.',
     externalSources: 'Fontes de texto editáveis; não são compiladas nem executadas.',
     plcVariables: 'Tags do PLC selecionado e ficheiros de documentação.',
@@ -902,6 +930,7 @@ function ProjectDataView({ activeNode, files, onCreate, onOpen }: {
 function ProjectFileView({ file, table, onDelete }: { file: ProjectFile; table: Record<string, boolean>; onDelete: () => void }) {
   const update = useSimStore((s) => s.updateProjectFile)
   const restore = useSimStore((s) => s.restoreProjectBackup)
+  const db = useSimStore((s) => s.runtime.db)
   const addresses = file.folder === 'watchTables' ? file.content.split(/[\s,;]+/).map((v) => v.trim().toUpperCase()).filter(Boolean) : []
   return <div className="ladder-folder-view gap-3">
     <FolderViewHeader icon={<IconFile size={16} />} title={file.name} subtitle={`${NODE_TITLES[file.folder]} · criado em ${new Date(file.createdAt).toLocaleString('pt-PT')}`} />
@@ -915,9 +944,13 @@ function ProjectFileView({ file, table, onDelete }: { file: ProjectFile; table: 
     </> : <>
       <label htmlFor="ladder-file-content" className="text-xs font-semibold">{file.folder === 'watchTables' ? 'Endereços a observar (um por linha)' : 'Conteúdo do ficheiro'}</label>
       <textarea id="ladder-file-content" className="dc-input !h-44 !p-2 font-mono text-xs resize-y" value={file.content} onChange={(e) => update(file.id, { content: e.target.value })} placeholder={file.folder === 'watchTables' ? 'I1\nQ1\nM1' : 'Escreva aqui…'} />
-      {file.folder === 'watchTables' && <div className="ladder-data-grid">{addresses.map((address, i) => <div key={`${address}-${i}`} className="ladder-data-row"><strong>{address}</strong><span>{address in table ? table[address] ? '1 / TRUE' : '0 / FALSE' : 'Sem endereço no PLC selecionado'}</span><i className={table[address] ? 'is-on' : ''} /></div>)}</div>}
+      {file.folder === 'watchTables' && <div className="ladder-data-grid">{addresses.map((address, i) => <div key={`${address}-${i}`} className="ladder-data-row"><strong>{address}</strong><span>{address in table ? table[address] ? '1 / TRUE' : '0 / FALSE' : db[address] ? `${db[address].type}: ${String(db[address].value)}` : 'Sem endereço no PLC selecionado'}</span><i className={table[address] ? 'is-on' : ''} /></div>)}</div>}
       {file.folder === 'externalSources' && <p className="text-xs text-amber-700">Texto guardado no projeto; compilação SCL/STL ainda não disponível.</p>}
-      {file.folder === 'dataBlocks' && <p className="text-xs text-amber-700">Dados guardados no projeto; acesso por endereços DB no motor ainda não disponível.</p>}
+      {file.folder === 'dataBlocks' && <>
+        <p className="text-xs text-ink-500">JSON tipado: {`{"Enable":{"type":"BOOL","value":true},"Count":{"type":"INT","value":0},"Speed":{"type":"REAL","value":1.5}}`}. Use MOVE com <strong>{file.name}.Enable</strong> ou <strong>{file.name}.Count</strong>. INT/REAL ainda não têm interface FC.</p>
+        {parseDataBlocks([file]).errors.map((error) => <p key={error} className="text-xs text-red-700" role="alert">{error}</p>)}
+        <div className="ladder-data-grid">{Object.entries(db).filter(([key]) => key.startsWith(`${file.name}.`.toUpperCase())).map(([key, entry]) => <div className="ladder-data-row" key={key}><strong>{key}</strong><span>{entry.type}: {String(entry.value)}</span></div>)}</div>
+      </>}
     </>}
   </div>
 }
@@ -965,6 +998,14 @@ function FunctionBlockView({ id }: { id: 'fc1' | 'fc2' | `file:${string}` }) {
           <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'NC', { kind: 'branch', branchIndex: 0, index: v.branches[0]?.elements.length ?? 0 }).rung)}>+ Contato NF</button>
           <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'BRANCH').rung)}>+ Ramo OR</button>
           <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'COIL').rung)}>+ Bobina</button>
+          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'MOVE').rung)}>+ MOVE</button>
+          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'CALL').rung)}>+ CALL FC</button>
+          {r.move && <div className="flex gap-1 items-center"><strong>MOVE</strong><input className="dc-input !w-24" aria-label="MOVE origem" value={r.move.source} onChange={(e) => modify(i, (v) => ({ ...v, move: { ...v.move!, source: e.target.value.toUpperCase() } }))} />→<input className="dc-input !w-24" aria-label="MOVE destino" value={r.move.target} onChange={(e) => modify(i, (v) => ({ ...v, move: { ...v.move!, target: e.target.value.toUpperCase() } }))} /><button type="button" onClick={() => modify(i, (v) => ({ ...v, move: undefined }))}>×</button></div>}
+          {r.call && <div className="flex gap-1 items-center"><strong>CALL</strong><select className="dc-select !w-auto" value={r.call.targetId} onChange={(e) => modify(i, (v) => ({ ...v, call: { targetId: e.target.value } }))}>
+            <option value="fc1">FC1</option><option value="fc2">FC2</option>
+            {useSimStore.getState().projectFiles[activePlcId ?? '_general']?.filter((item) => item.folder === 'programBlocks').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select><button type="button" onClick={() => modify(i, (v) => ({ ...v, call: undefined }))}>×</button></div>}
+
           {r.branches.map((branch, bi) => <div key={branch.id} className="flex flex-wrap items-center gap-1 border rounded p-1">
             <span>Ramo {bi + 1}</span>
             {branch.elements.map((el) => <span key={el.id} className="inline-flex gap-1 items-center">
