@@ -1996,9 +1996,6 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
 .dc-showcase-tools button i{width:7px;height:7px;border-radius:50%;background:#c3cbd8}
 .dc-showcase-tools button i.on{background:#16a34a;box-shadow:0 0 0 3px #16a34a26}
 .dc-win-showcase{display:block;height:100%}
-.lp-credits{max-width:1360px;margin:auto;padding:0 clamp(18px,4vw,56px) 72px;color:var(--tx)}
-.lp-credits h2{margin:0 0 10px;font-size:20px;color:var(--navy)}
-.lp-credits p{max-width:780px;margin:0 0 14px;font-size:12px;line-height:1.75}
 
 
 /* Painel de projetos */

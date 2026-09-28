@@ -234,10 +234,6 @@ function Landing({onRegister,onLogin}:{onRegister:()=>void;onLogin:()=>void}) {
       <div className="lp-feats">{items.map(f=><article key={f.k}><div className="lp-ic">{f.i}</div><span>{f.k}</span><h3>{f.t}</h3><p>{f.p}</p></article>)}</div></section>
     <section className="lp-sec lp-sim" id="simulador"><div className="lp-head"><div><span className="lp-tag">O SIMULADOR</span><h2>Esquema, Ladder e Painel 3D<br/>numa única área de trabalho.</h2></div><p>Componentes PLC, ligações elétricas e Monitor em tempo real, com o estado RUN sempre visível.</p></div><SimWindow full/></section>
     <section className="lp-end" id="sobre"><div><span className="lp-tag light">PRONTO PARA COMEÇAR?</span><h2>O próximo circuito começa aqui.</h2><p>Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.</p></div><button className="lp-btn light" onClick={onRegister}>Criar conta <span aria-hidden>↗</span></button></section>
-    <section className="lp-credits" id="creditos">
-      <h2>Equipamentos e créditos</h2>
-      <p>O modelo CAD disponível do contator é o CWC07 10E da família WEG CWC; a referência elétrica deste componente é o código CWC09 · 12679840. Os modelos CAD pertencem aos respetivos fabricantes e são usados aqui como referência técnica e didática.</p>
-    </section>
     <footer className="lp-foot"><Logo dark size={26}/><span>Esquema. Lógica. Simulação.</span><small>© {new Date().getFullYear()} DC-SIMU</small></footer>
   </div>
 }
