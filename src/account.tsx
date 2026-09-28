@@ -122,14 +122,14 @@ function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwit
 
 function ProjectArtwork({variant=0}:{variant?:number}) {
   return <svg className="pd-art" viewBox="0 0 360 135" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <defs><pattern id={`pd-grid-${variant}`} width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="#b6d1e1"/></pattern></defs>
-    <rect width="360" height="135" fill={variant%2?'#e8f1f5':'#eaf3f7'}/><rect width="360" height="135" fill={`url(#pd-grid-${variant})`}/>
-    <g fill="none" stroke="#77a8bf" strokeWidth="2"><path d="M42 66H108V46H155"/><path d="M207 46H251V74H309"/><path d="M108 66V106H155"/><path d="M207 106H251V74"/></g>
-    <g fill="#fff" stroke="#8ab1c2" strokeWidth="1.5"><rect x="30" y="40" width="55" height="51" rx="5"/><rect x="155" y="27" width="52" height="96" rx="5"/><rect x="309" y="48" width="43" height="52" rx="5"/></g>
-    <g fill="#dbe9ed"><rect x="37" y="47" width="41" height="13" rx="2"/><rect x="162" y="34" width="38" height="14" rx="2"/><rect x="316" y="55" width="29" height="11" rx="2"/></g>
-    <g fontSize="6" fontFamily="sans-serif" fontWeight="bold" fill="#315e75"><text x="41" y="56">24V DC</text><text x="169" y="44">PLC</text><text x="318" y="63">KM1</text></g>
-    <rect x="164" y="56" width="34" height="20" rx="2" fill="#2a526b"/><text x="170" y="70" fontSize="7" fontFamily="monospace" fill="#a6e8c8">RUN</text>
-    <g fill="#39aa87" stroke="white" strokeWidth="1.3"><circle cx="85" cy="66" r="3.5"/><circle cx="155" cy="46" r="3.5"/><circle cx="155" cy="106" r="3.5"/><circle cx="207" cy="46" r="3.5"/><circle cx="207" cy="106" r="3.5"/><circle cx="309" cy="74" r="3.5"/></g>
+    <defs><pattern id={`pd-grid-${variant}`} width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="#b1c1e6"/></pattern></defs>
+    <rect width="360" height="135" fill={variant%2?'#e6ebf7':'#e9edf8'}/><rect width="360" height="135" fill={`url(#pd-grid-${variant})`}/>
+    <g fill="none" stroke="#6d89c9" strokeWidth="2"><path d="M42 66H108V46H155"/><path d="M207 46H251V74H309"/><path d="M108 66V106H155"/><path d="M207 106H251V74"/></g>
+    <g fill="#fff" stroke="#7e96ce" strokeWidth="1.5"><rect x="30" y="40" width="55" height="51" rx="5"/><rect x="155" y="27" width="52" height="96" rx="5"/><rect x="309" y="48" width="43" height="52" rx="5"/></g>
+    <g fill="#d8dff0"><rect x="37" y="47" width="41" height="13" rx="2"/><rect x="162" y="34" width="38" height="14" rx="2"/><rect x="316" y="55" width="29" height="11" rx="2"/></g>
+    <g fontSize="6" fontFamily="sans-serif" fontWeight="bold" fill="#1c3d8a"><text x="41" y="56">24V DC</text><text x="169" y="44">PLC</text><text x="318" y="63">KM1</text></g>
+    <rect x="164" y="56" width="34" height="20" rx="2" fill="#172f7e"/><text x="170" y="70" fontSize="7" fontFamily="monospace" fill="#a6e8c8">RUN</text>
+    <g fill="#3c6ff0" stroke="white" strokeWidth="1.3"><circle cx="85" cy="66" r="3.5"/><circle cx="155" cy="46" r="3.5"/><circle cx="155" cy="106" r="3.5"/><circle cx="207" cy="46" r="3.5"/><circle cx="207" cy="106" r="3.5"/><circle cx="309" cy="74" r="3.5"/></g>
   </svg>
 }
 
