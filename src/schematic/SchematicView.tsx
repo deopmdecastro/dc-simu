@@ -8,6 +8,7 @@ import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
 import { getWeg3DImage } from './weg3DImage'
+import { getProtection3DImage } from './protection3DImage'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
@@ -127,6 +128,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const [logoImages, setLogoImages] = useState<{ off: string; on: string } | null>(null)
   const [proautoImage, setProautoImage] = useState<string | null>(null)
   const [wegImage, setWegImage] = useState<string | null>(null)
+  const [phoenixImage, setPhoenixImage] = useState<string | null>(null)
   const hasProauto = useSimStore((s) => s.components.some((c) => c.type === 'powerSupplyProauto24A'))
   useEffect(() => {
     if (!hasProauto) return
@@ -141,6 +143,13 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     getWeg3DImage().then((image) => { if (active) setWegImage(image) }).catch((error) => console.warn('Modelo do contator WEG indisponível; símbolo de reserva em uso', error))
     return () => { active = false }
   }, [hasWegContactor])
+  const hasPhoenixEcb = useSimStore((s) => s.components.some((c) => c.type === 'phoenixEcb3000760'))
+  useEffect(() => {
+    if (!hasPhoenixEcb) return
+    let active = true
+    getProtection3DImage('phoenixEcb3000760').then((image) => { if (active) setPhoenixImage(image) }).catch((error) => console.warn('Modelo Phoenix indisponível no esquema; símbolo de reserva em uso', error))
+    return () => { active = false }
+  }, [hasPhoenixEcb])
   const hasLogo = useSimStore((s) => s.components.some((c) => c.type === 'plcSiemensLogo1224RC'))
   useEffect(() => {
     if (!hasLogo) return
@@ -629,7 +638,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   // o troço visível pare desalinhado na borda da imagem.
   const modelLead = (terminalId: string): Pt | null => {
     const t = terminalIndex.get(terminalId)
-    if (!t || !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(t.c.type)) return null
+    if (!t || !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09', 'phoenixEcb3000760'].includes(t.c.type)) return null
     const c = t.c
     const bounds = modelBounds(c)
     const rotated = Math.abs(c.rotation % 180) === 90
@@ -803,7 +812,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
   const renderComponentEl = (c: ElectricalComponent) => {
     const selected = selectedIds.includes(c.id)
-    const model = (c.type === 'plcSiemensLogo1224RC' && logoImages) || (c.type === 'powerSupplyProauto24A' && proautoImage) || (c.type === 'contactorWegCWC09' && wegImage)
+    const model = (c.type === 'plcSiemensLogo1224RC' && logoImages) || (c.type === 'powerSupplyProauto24A' && proautoImage) || (c.type === 'contactorWegCWC09' && wegImage) || (c.type === 'phoenixEcb3000760' && phoenixImage)
     const bounds = model ? modelBounds(c) : { x: 0, y: 0, w: c.w, h: c.h }
     return (
       <g
@@ -852,6 +861,14 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
                 onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.pressedButton === button) useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>{button}</title></rect>
             })}
+            <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+          </>
+        ) : c.type === 'phoenixEcb3000760' && phoenixImage ? (
+          <>
+            {/* Vista 3D renderizada do mesmo GLB CAD utilizado no Painel 3D. */}
+            <image x={0} y={0} width={c.w} height={c.h} href={phoenixImage} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
+            <ComponentTerminals c={c} />
             <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
         ) : <SymbolGlyph c={c} selected={selected} />}
