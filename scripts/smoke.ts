@@ -317,9 +317,9 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* Bornes do LOGO! coincidem com os parafusos do GLB, também em projetos antigos. */
 {
   const logo = createComponent('plcSiemensLogo1224RC')
-  check('LOGO! tem 18 parafusos/bornes', logo.terminals.length === 18)
-  const legacy = { ...logo, terminals: logo.terminals.filter((t) => !t.label.endsWith('.2')) }
-  check('projetos antigos recebem os segundos contactos sem duplicar', upgradeLogoTerminals(legacy).terminals.length === 18 && upgradeLogoTerminals(logo).terminals.length === 18)
+  check('LOGO! tem 19 parafusos/bornes visíveis', logo.terminals.length === 19)
+  const legacy = { ...logo, terminals: logo.terminals.filter((t) => !t.label.endsWith('.2') && t.label !== 'X1') }
+  check('projetos antigos recebem os segundos contactos sem duplicar', upgradeLogoTerminals(legacy).terminals.length === 19 && upgradeLogoTerminals(logo).terminals.length === 19 && upgradeLogoTerminals({ ...logo, terminals: logo.terminals.filter((t) => t.label !== 'X1') }).terminals.length === 19)
   const switched = { ...logo, state: { ...logo.state, outputs: { Q1: true, Q2: false, Q3: false, Q4: false } } }
   const bridges = internalBridges(switched)
   check('relé Q1 liga somente os seus dois parafusos, não L+', bridges.length === 1 && bridges[0].includes(terminalByLabel(logo, 'Q1')!.id) && bridges[0].includes(terminalByLabel(logo, 'Q1.2')!.id))
@@ -335,10 +335,11 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const fullImage = { ...logo, w: 560, h: 720 }
   const topScrew = logoTerminalLocal(fullImage, terminalByLabel(logo, 'L+')!)
   const lastTop = logoTerminalLocal(fullImage, terminalByLabel(logo, 'I8')!)
+  const extraTop = logoTerminalLocal(fullImage, terminalByLabel(logo, 'X1')!)
   const firstBottom = logoTerminalLocal(fullImage, terminalByLabel(logo, 'Q1')!)
   const lastBottom = logoTerminalLocal(fullImage, terminalByLabel(logo, 'Q4.2')!)
   check('alinhamento fino dos parafusos do PNG real',
-    Math.abs(topScrew.x - 86) < 2 && Math.abs(lastTop.x - 413) < 2 &&
+    Math.abs(topScrew.x - 86) < 2 && Math.abs(lastTop.x - 413) < 2 && Math.abs(extraTop.x - 450) < 2 &&
     Math.abs(topScrew.y - 73) < 2 && Math.abs(firstBottom.x - 100) < 2 &&
     Math.abs(lastBottom.x - 454) < 2 && Math.abs(lastBottom.y - 629) < 2)
   const edited = { ...terminalByLabel(logo, 'Q1')!, x: 0.3, y: 0.7 }
