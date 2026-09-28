@@ -31,6 +31,8 @@ import { createComponent, createTerminal, nextRef, terminalByLabel, upgradeLogoT
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
+import type { ProjectFile, ProjectFolder } from '../ladder/projectFiles'
+import { plcIoCapacity } from '../ladder/plcIo'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 
 export interface Snapshot {
@@ -62,6 +64,12 @@ interface Store extends CircuitState {
   fcBlocks: Record<'fc1' | 'fc2', LadderRung[]>
   activePlcId: string | null
   plcPrograms: Record<string, PlcProgram>
+  plcTags: Record<string, LadderTag[]>
+  projectFiles: Record<string, ProjectFile[]>
+  addProjectFile: (folder: ProjectFolder, name: string) => string | null
+  updateProjectFile: (id: string, patch: Partial<Pick<ProjectFile, 'name' | 'content' | 'rungs'>>) => void
+  deleteProjectFile: (id: string) => void
+  restoreProjectBackup: (id: string) => boolean
   setActivePlc: (id: string) => void
   updateFc: (id: 'fc1' | 'fc2', rungs: LadderRung[]) => void
   history: Snapshot[]
@@ -314,13 +322,13 @@ function runOneTick(state: Store, dtMs: number) {
     state.runtime.rungPowered = scan.rungPowered
   }
   for (const plc of plcs) {
-    const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(8, 4), timers: {}, counters: {}, rungPowered: {} }
+    const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(plcIoCapacity(plc).inputs, plcIoCapacity(plc).outputs), timers: {}, counters: {}, rungPowered: {} }
     const table = prior.table
     const logo = plc.type === 'plcSiemensLogo1224RC' ? logoElectricalInputs(plc, components, wires) : null
     const powered = logo?.powered ?? true
     if (logo) plc.state.powered = powered
     for (const t of plc.terminals) {
-      if (/^I[1-8]$/.test(t.label)) table[t.label] = logo
+      if (/^I\d+$/.test(t.label)) table[t.label] = logo
         ? powered && logo.positive.has(t.id)
         : pass1.energizedTerminals.has(t.id)
     }
@@ -491,6 +499,33 @@ export const useSimStore = create<Store>((set, get) => ({
   fcBlocks: { fc1: [], fc2: [] },
   activePlcId: null,
   plcPrograms: {},
+  plcTags: {},
+  projectFiles: {},
+  addProjectFile: (folder, name) => {
+    const plcId = get().activePlcId ?? '_general'
+    const trimmed = name.trim()
+    if (!trimmed) return null
+    const id = nanoid(10)
+    const file: ProjectFile = { id, folder, name: trimmed, createdAt: new Date().toISOString(),
+      content: folder === 'backups' ? get().saveJSON() : '', ...(folder === 'programBlocks' ? { rungs: [] } : {}) }
+    set((s) => ({ projectFiles: { ...s.projectFiles, [plcId]: [...(s.projectFiles[plcId] ?? []), file] }, dirty: true }))
+    return id
+  },
+  updateProjectFile: (id, patch) => {
+    const plcId = get().activePlcId ?? '_general'
+    set((s) => ({ projectFiles: { ...s.projectFiles, [plcId]: (s.projectFiles[plcId] ?? []).map((f) => f.id === id ? { ...f, ...patch, name: patch.name !== undefined ? patch.name.trimStart() : f.name } : f) }, dirty: true }))
+  },
+  deleteProjectFile: (id) => {
+    const plcId = get().activePlcId ?? '_general'
+    set((s) => ({ projectFiles: { ...s.projectFiles, [plcId]: (s.projectFiles[plcId] ?? []).filter((f) => f.id !== id) }, dirty: true }))
+  },
+  restoreProjectBackup: (id) => {
+    const plcId = get().activePlcId ?? '_general'
+    const file = get().projectFiles[plcId]?.find((f) => f.id === id && f.folder === 'backups')
+    if (!file) return false
+    get().loadJSON(file.content)
+    return true
+  },
   setActivePlc: (id) => {
     const state = get()
     if (!state.components.some((c) => c.id === id && isProgrammablePlc(c)) || state.activePlcId === id) return
@@ -498,7 +533,8 @@ export const useSimStore = create<Store>((set, get) => ({
     const prior = programs[id] ?? (state.activePlcId === null && Object.keys(programs).length === 0
       ? { rungs: state.ladder.rungs, fc1: state.fcBlocks.fc1, fc2: state.fcBlocks.fc2 } : blankPlcProgram())
     const nextRuntime = state.runtime.plcRuntime[id]
-    set({ activePlcId: id, plcPrograms: programs, ladder: { rungs: prior.rungs }, fcBlocks: { fc1: prior.fc1, fc2: prior.fc2 },
+    const plcTags = { ...state.plcTags, ...(state.activePlcId ? { [state.activePlcId]: state.tags } : {}) }
+    set({ activePlcId: id, plcPrograms: programs, plcTags, tags: plcTags[id] ?? (state.activePlcId === null && Object.keys(plcTags).length === 0 ? state.tags : []), ladder: { rungs: prior.rungs }, fcBlocks: { fc1: prior.fc1, fc2: prior.fc2 },
       runtime: { ...state.runtime, table: nextRuntime?.table ?? emptyTable(8, 4), timers: nextRuntime?.timers ?? {}, counters: nextRuntime?.counters ?? {}, rungPowered: nextRuntime?.rungPowered ?? {} },
       history: [], future: [], dirty: true })
     get().step()
@@ -529,6 +565,8 @@ export const useSimStore = create<Store>((set, get) => ({
       ladder: scenario.ladder,
       activePlcId: scenario.components.find(isProgrammablePlc)?.id ?? null,
       plcPrograms: {},
+      plcTags: {},
+      projectFiles: {},
       fcBlocks: { fc1: [], fc2: [] },
       grafcet: emptyGrafcet(),
       grafcetRuntime: emptyGrafcetRuntime(),
@@ -745,11 +783,14 @@ export const useSimStore = create<Store>((set, get) => ({
       const living = remaining.filter(isProgrammablePlc)
       const programs = programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks)
       const keptPrograms = Object.fromEntries(Object.entries(programs).filter(([id]) => living.some((p) => p.id === id)))
+      const tags = { ...s.plcTags, ...(s.activePlcId ? { [s.activePlcId]: s.tags } : {}) }
+      const keptTags = Object.fromEntries(Object.entries(tags).filter(([id]) => living.some((p) => p.id === id)))
       const nextId = living.some((p) => p.id === s.activePlcId) ? s.activePlcId : living[0]?.id ?? null
       const nextProgram = nextId && nextId !== s.activePlcId ? keptPrograms[nextId] ?? blankPlcProgram() : null
       return { components: remaining, wires, selectedComponentIds: [], dirty: true,
-        activePlcId: nextId, plcPrograms: keptPrograms,
-        ...(nextProgram ? { ladder: { rungs: nextProgram.rungs }, fcBlocks: { fc1: nextProgram.fc1, fc2: nextProgram.fc2 }, history: [], future: [] } : {}),
+        activePlcId: nextId, plcPrograms: keptPrograms, plcTags: keptTags,
+        projectFiles: Object.fromEntries(Object.entries(s.projectFiles).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),
+        ...(nextProgram ? { tags: keptTags[nextId!] ?? [], ladder: { rungs: nextProgram.rungs }, fcBlocks: { fc1: nextProgram.fc1, fc2: nextProgram.fc2 }, history: [], future: [] } : {}),
       }
     })
     get().step()
@@ -1223,6 +1264,8 @@ export const useSimStore = create<Store>((set, get) => ({
         fcBlocks: s.fcBlocks,
         activePlcId: s.activePlcId,
         plcPrograms: programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks),
+        plcTags: { ...s.plcTags, ...(s.activePlcId ? { [s.activePlcId]: s.tags } : {}) },
+        projectFiles: s.projectFiles,
         grafcet: s.grafcet,
         tags: s.tags,
         grid: s.grid,
@@ -1253,9 +1296,11 @@ export const useSimStore = create<Store>((set, get) => ({
         fcBlocks: { fc1: activeProgram?.fc1 ?? parsed.fcBlocks?.fc1 ?? [], fc2: activeProgram?.fc2 ?? parsed.fcBlocks?.fc2 ?? [] },
         activePlcId: loadedActiveId,
         plcPrograms: programs,
+        plcTags: parsed.plcTags ?? {},
+        projectFiles: parsed.projectFiles ?? {},
         grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
         grafcetRuntime: emptyGrafcetRuntime(),
-        tags: parsed.tags ?? [],
+        tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
         grid: parsed.grid ? { ...parsed.grid, background: '#f8fafd' } : get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',
         runtime: EMPTY_RUNTIME(),

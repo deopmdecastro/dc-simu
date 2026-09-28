@@ -293,9 +293,14 @@ input[type='color'] {
     padding: 11px 7px 8px;
     border-bottom: 1px solid #e5eaf1;
   }
+  .tree-row-wrap { display: flex; align-items: center; width: 100%; min-width: 0; }
+  .tree-create-file { flex: none; color: #2655e5; font-size: 14px; padding: 1px 6px; border-radius: 4px; }
+  .tree-create-file:hover { background: #eff6ff; }
   .tree-row {
     display: flex;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+    width: auto;
     align-items: center;
     gap: 4px;
     min-height: 24px;
@@ -313,6 +318,8 @@ input[type='color'] {
     color: var(--ladder-blue-dark);
     background: #f5f8ff;
   }
+  .tree-row .tree-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .tree-row small { overflow: hidden; text-overflow: ellipsis; }
   .tree-row small {
     color: #8e9bb0;
     font-size: 8px;

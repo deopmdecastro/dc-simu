@@ -1,5 +1,8 @@
 import LadderSections, { type LadderSection } from './LadderSections'
 import { isProgrammablePlc } from './plcPrograms'
+import { PROJECT_FOLDERS, type ProjectFile, type ProjectFolder } from './projectFiles'
+import { plcIoRows } from './plcIo'
+import { collectUsedAddresses } from './ladderEngine'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
@@ -420,6 +423,7 @@ type ProjectNodeId =
   | 'watchTables'
   | 'backups'
   | 'documentation'
+  | `file:${string}`
 
 interface ProjectTreeItem {
   id: ProjectNodeId
@@ -431,8 +435,8 @@ interface ProjectTreeItem {
 
 const PROJECT_TREE: ProjectTreeItem = {
   id: 'plc',
-  label: 'PLC_1',
-  detail: 'CPU 315-2 PN/DP',
+  label: 'Programa geral',
+  detail: 'Sem PLC no esquema',
   icon: 'plc',
   children: [
     {
@@ -455,8 +459,8 @@ const PROJECT_TREE: ProjectTreeItem = {
   ],
 }
 
-const NODE_TITLES: Record<ProjectNodeId, string> = {
-  plc: 'PLC_1',
+const NODE_TITLES: Record<Exclude<ProjectNodeId, `file:${string}`>, string> = {
+  plc: 'Programa geral',
   programBlocks: 'Blocos de programa',
   main: 'Main [OB1]',
   fc1: 'FC1 [FC1]',
@@ -752,7 +756,11 @@ function ProjectTreePane({
   onClose,
   onQuickAdd,
   activePlc,
+  files,
+  onCreateFile,
 }: {
+  files: ProjectFile[]
+  onCreateFile: (folder: ProjectFolder) => void
   activePlc?: ElectricalComponent
   activeNode: ProjectNodeId
   expanded: Set<ProjectNodeId>
@@ -769,13 +777,17 @@ function ProjectTreePane({
     { label: 'Ramo OR', kind: 'BRANCH' },
   ]
 
+  const projectTree: ProjectTreeItem = { ...PROJECT_TREE, children: PROJECT_TREE.children?.map((folder) => ({ ...folder,
+    children: PROJECT_FOLDERS.includes(folder.id as ProjectFolder) ? [ ...(folder.children ?? []), ...files.filter((f) => f.folder === folder.id).map((f) => ({ id: `file:${f.id}` as ProjectNodeId, label: f.name, icon: (f.folder === 'programBlocks' ? 'block' : f.folder === 'backups' ? 'backup' : 'doc') as ProjectTreeItem['icon'] })) ] : folder.children,
+  })) }
   const renderNode = (node: ProjectTreeItem, depth = 0) => {
     const hasChildren = !!node.children?.length
-    const isExpandableFolder = hasChildren || !BLOCK_NODE_IDS.has(node.id)
+    const isExpandableFolder = !node.id.startsWith('file:') && (hasChildren || !BLOCK_NODE_IDS.has(node.id))
     const isOpen = expanded.has(node.id)
     const isActive = activeNode === node.id
     return (
       <div key={node.id}>
+        <div className="tree-row-wrap">
         <button
           type="button"
           className={`tree-row tree-depth-${Math.min(depth, 2)} ${isActive ? 'tree-selected' : ''}`}
@@ -792,19 +804,10 @@ function ProjectTreePane({
           <span className="tree-label">{node.label}</span>
           {node.detail && <small>({node.detail})</small>}
         </button>
+        {PROJECT_FOLDERS.includes(node.id as ProjectFolder) && <button type="button" className="tree-create-file" title={`Criar em ${node.label}`} aria-label={`Criar em ${node.label}`} onClick={() => onCreateFile(node.id as ProjectFolder)}>＋</button>}
+        </div>
         {hasChildren && isOpen && node.children!.map((child) => renderNode(child, depth + 1))}
-        {!hasChildren && isExpandableFolder && isOpen && (
-          <div className={`tree-hint tree-depth-${Math.min(depth + 1, 2)}`}>
-            {node.id === 'dataBlocks' && 'DB1_Config, DB2_Processo'}
-            {node.id === 'technologyObjects' && 'TO_Encoder, TO_Safety'}
-            {node.id === 'externalSources' && 'SCL/STL reservados'}
-            {node.id === 'plcVariables' && 'Tags I, Q, M, T e C'}
-            {node.id === 'watchTables' && 'Tabela online I/O/M'}
-            {node.id === 'backups' && 'Historico local do editor'}
-            {node.id === 'documentation' && 'Notas, mapa e diagnostico'}
-            {node.id === 'plc' && 'CPU, blocos e tabelas'}
-          </div>
-        )}
+        {!hasChildren && isExpandableFolder && isOpen && <div className="tree-hint tree-depth-2">Pasta vazia · use ＋ para criar</div>}
       </div>
     )
   }
@@ -816,7 +819,7 @@ function ProjectTreePane({
         <button className="ladder-ghost-button" title="Recolher projeto" onClick={onClose}>×</button>
       </div>
       <div className="ladder-project-tree">
-        {renderNode({ ...PROJECT_TREE, label: activePlc?.ref ?? 'Programa geral', detail: activePlc?.label ?? 'Sem PLC no esquema' })}
+        {renderNode({ ...projectTree, label: activePlc?.ref ?? 'Programa geral', detail: activePlc?.label ?? 'Sem PLC no esquema' })}
       </div>
       <div className="ladder-tools-heading">Ferramentas</div>
       <div className="ladder-tools-grid">
@@ -845,100 +848,78 @@ function ProjectTreePane({
   )
 }
 
-function NetworkStatus({ table, prefix, label }: { table: Record<string, boolean>; prefix: string; label: string }) {
-  const entries = Object.keys(table).filter((key) => key.startsWith(prefix)).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))).slice(0, 8)
-  return (
-    <div className="ladder-status-group">
-      <div className="ladder-status-title">{label}</div>
-      {entries.length ? entries.map((key) => (
-        <div className="ladder-status-row" key={key}>
-          <span className="font-mono text-brand-700">{key}</span>
-          <span className="truncate text-slate-500">{prefix === 'I' ? (key === 'I1' ? 'Botão Start' : key === 'I2' ? 'Botão Stop' : 'Sensor') : prefix === 'Q' ? (key === 'Q1' ? 'Contator' : 'Motor') : 'Memória'}</span>
-          <span className={`ladder-status-dot ${table[key] ? 'is-on' : ''}`} />
-        </div>
-      )) : <span className="text-[10px] text-slate-400">—</span>}
-    </div>
-  )
+function NetworkStatus({ table, prefix, label, plc, wires, components, tags, rungs }: {
+  table: Record<string, boolean>; prefix: 'I' | 'Q' | 'M'; label: string; plc?: ElectricalComponent;
+  wires: import('../types').Wire[]; components: ElectricalComponent[]; tags: import('../types').LadderTag[]; rungs: LadderRung[]
+}) {
+  const physical = prefix !== 'M' ? plcIoRows(plc, prefix, table, wires, components, tags) : []
+  const memory = prefix === 'M' ? [...new Set([
+    ...collectUsedAddresses({ rungs }).filter((a) => /^M\d+$/.test(a)),
+    ...tags.map((t) => t.address).filter((a) => /^M\d+$/i.test(a)),
+    ...Object.keys(table).filter((a) => /^M\d+$/.test(a) && table[a]),
+  ])].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))) : []
+  return <div className="ladder-status-group">
+    <div className="ladder-status-title">{label}{plc && prefix !== 'M' ? ` · ${plc.ref} (${physical.length})` : ''}</div>
+    {prefix !== 'M' ? physical.map((row) => <div className="ladder-status-row" key={row.address} title={row.destinations.join(' · ') || 'Sem cabo ligado'}>
+      <span className="font-mono text-brand-700">{row.address}</span>
+      <span className="truncate text-slate-500">{row.name || (row.destinations.length ? row.destinations.join(', ') : 'Sem ligação')}</span>
+      <span className={`ladder-status-dot ${row.on ? 'is-on' : ''}`} title={row.on ? 'Ativo' : 'Inativo'} />
+    </div>) : memory.map((address) => <div className="ladder-status-row" key={address}>
+      <span className="font-mono text-brand-700">{address}</span><span className="truncate text-slate-500">{tags.find((t) => t.address === address)?.name || 'Memória'}</span>
+      <span className={`ladder-status-dot ${table[address] ? 'is-on' : ''}`} />
+    </div>)}
+    {!(prefix === 'M' ? memory.length : physical.length) && <span className="text-[10px] text-slate-400">{prefix === 'M' ? 'Nenhuma memória usada neste programa.' : 'Este PLC não tem bornes desta categoria.'}</span>}
+  </div>
 }
 
-function ProjectDataView({ activeNode, table }: { activeNode: ProjectNodeId; table: Record<string, boolean> }) {
-  const tags = useSimStore((s) => s.tags)
-  const events = useSimStore((s) => s.sim.events)
-  const timers = useSimStore((s) => s.runtime.timers)
-  const counters = useSimStore((s) => s.runtime.counters)
-  const rows = Object.keys(table).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-
-  if (activeNode === 'plcVariables') return <TagTable />
-
-  if (activeNode === 'watchTables') {
-    return (
-      <div className="ladder-folder-view">
-        <FolderViewHeader icon={<IconMonitor size={16} />} title="Tabela de observação" subtitle="Bits e blocos monitorados no último scan." />
-        <div className="ladder-data-grid">
-          {rows.map((key) => (
-            <div className="ladder-data-row" key={key}>
-              <strong>{key}</strong>
-              <span>{table[key] ? '1 / TRUE' : '0 / FALSE'}</span>
-              <i className={table[key] ? 'is-on' : ''} />
-            </div>
-          ))}
-          {!rows.length && <EmptyFolderMessage text="Nenhuma variável disponível para observar." />}
-        </div>
-      </div>
-    )
+function ProjectDataView({ activeNode, files, onCreate, onOpen }: {
+  activeNode: ProjectNodeId; files: ProjectFile[]; onCreate: (folder: ProjectFolder) => void; onOpen: (id: string) => void
+}) {
+  const folder = PROJECT_FOLDERS.includes(activeNode as ProjectFolder) ? activeNode as ProjectFolder : null
+  if (!folder) return <div className="ladder-folder-view"><FolderViewHeader icon={<IconCube size={16} />} title="Projeto" subtitle="Escolha uma pasta para criar ficheiros." /></div>
+  const description: Record<ProjectFolder, string> = {
+    programBlocks: 'Blocos Ladder editáveis. Só OB1 é executado automaticamente.',
+    dataBlocks: 'Dados e parâmetros do projeto (documentação; ainda sem DB runtime).',
+    technologyObjects: 'Configuração e documentação de objetos tecnológicos.',
+    externalSources: 'Fontes de texto editáveis; não são compiladas nem executadas.',
+    plcVariables: 'Tags do PLC selecionado e ficheiros de documentação.',
+    watchTables: 'Endereços I/Q/M/T/C observados ao vivo: um endereço por linha.',
+    backups: 'Cópias JSON do projeto guardadas neste dispositivo.',
+    documentation: 'Notas e documentação do PLC selecionado.',
   }
-
-  if (activeNode === 'dataBlocks') {
-    return (
-      <div className="ladder-folder-view">
-        <FolderViewHeader icon={<IconGrid size={16} />} title="Blocos de dados" subtitle="Área reservada para DBs de receitas, estados e parametrização." />
-        <div className="ladder-db-card">
-          <strong>DB1_Config</strong>
-          <span>Estrutura pronta para parâmetros do simulador</span>
-          <div className="ladder-db-table">
-            <div><b>StartDelayMs</b><span>3000</span></div>
-            <div><b>MotorNominalA</b><span>6.0</span></div>
-            <div><b>AutoReset</b><span>false</span></div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (activeNode === 'backups') {
-    return (
-      <div className="ladder-folder-view">
-        <FolderViewHeader icon={<IconSave size={16} />} title="Backups" subtitle="Histórico local do editor e pontos de recuperação." />
-        <div className="ladder-data-grid">
-          <div className="ladder-data-row"><strong>Histórico undo</strong><span>{useSimStore.getState().history.length} ponto(s)</span><i className="is-on" /></div>
-          <div className="ladder-data-row"><strong>Histórico redo</strong><span>{useSimStore.getState().future.length} ponto(s)</span><i /></div>
-        </div>
-      </div>
-    )
-  }
-
-  if (activeNode === 'documentation') {
-    return (
-      <div className="ladder-folder-view">
-        <FolderViewHeader icon={<IconFile size={16} />} title="Documentação" subtitle="Resumo automático do projeto aberto." />
-        <div className="ladder-doc-lines">
-          <p>Projeto: PLC_1 / Main [OB1]</p>
-          <p>Tags cadastradas: {tags.length}</p>
-          <p>Temporizadores ativos: {Object.keys(timers).length}</p>
-          <p>Contadores ativos: {Object.keys(counters).length}</p>
-          <p>Eventos registrados: {events.length}</p>
-        </div>
-      </div>
-    )
-  }
-
-  const title = NODE_TITLES[activeNode]
-  return (
-    <div className="ladder-folder-view">
-      <FolderViewHeader icon={<IconProjects size={16} />} title={title} subtitle="Pasta do projeto aberta." />
-      <EmptyFolderMessage text="Conteúdo pronto para novas entidades do projeto." />
+  const matching = files.filter((f) => f.folder === folder)
+  return <div className="ladder-folder-view">
+    <FolderViewHeader icon={<IconProjects size={16} />} title={NODE_TITLES[folder]} subtitle={description[folder]} />
+    <button type="button" className="dc-btn-primary dc-btn self-start" onClick={() => onCreate(folder)}><IconPlus size={12} /> Criar {folder === 'backups' ? 'backup' : folder === 'programBlocks' ? 'bloco' : 'ficheiro'}</button>
+    <div className="ladder-data-grid">
+      {matching.map((file) => <button type="button" key={file.id} className="ladder-data-row text-left hover:bg-brand-50" onClick={() => onOpen(file.id)}><strong>{file.name}</strong><span>{new Date(file.createdAt).toLocaleString('pt-PT')}</span></button>)}
+      {!matching.length && <EmptyFolderMessage text="Pasta vazia. Crie o primeiro ficheiro." />}
     </div>
-  )
+    {folder === 'plcVariables' && <div className="min-h-[260px] flex flex-col"><TagTable /></div>}
+  </div>
+}
+
+function ProjectFileView({ file, table, onDelete }: { file: ProjectFile; table: Record<string, boolean>; onDelete: () => void }) {
+  const update = useSimStore((s) => s.updateProjectFile)
+  const restore = useSimStore((s) => s.restoreProjectBackup)
+  const addresses = file.folder === 'watchTables' ? file.content.split(/[\s,;]+/).map((v) => v.trim().toUpperCase()).filter(Boolean) : []
+  return <div className="ladder-folder-view gap-3">
+    <FolderViewHeader icon={<IconFile size={16} />} title={file.name} subtitle={`${NODE_TITLES[file.folder]} · criado em ${new Date(file.createdAt).toLocaleString('pt-PT')}`} />
+    <div className="flex gap-2 items-center"><label htmlFor="ladder-file-name" className="text-xs font-semibold">Nome</label>
+      <input id="ladder-file-name" className="dc-input max-w-xs" value={file.name} onChange={(e) => update(file.id, { name: e.target.value })} />
+      <button type="button" className="dc-btn-danger dc-btn ml-auto" onClick={onDelete}><IconDelete size={12} /> Eliminar</button>
+    </div>
+    {file.folder === 'backups' ? <>
+      <p className="text-xs text-ink-500">Cópia do projeto no momento da criação. A restauração substitui o projeto atual; exporte o atual antes, se necessário.</p>
+      <button type="button" className="dc-btn-primary dc-btn self-start" onClick={() => { if (window.confirm(`Restaurar o backup «${file.name}»? O projeto atual será substituído.`)) restore(file.id) }}>Restaurar backup</button>
+    </> : <>
+      <label htmlFor="ladder-file-content" className="text-xs font-semibold">{file.folder === 'watchTables' ? 'Endereços a observar (um por linha)' : 'Conteúdo do ficheiro'}</label>
+      <textarea id="ladder-file-content" className="dc-input !h-44 !p-2 font-mono text-xs resize-y" value={file.content} onChange={(e) => update(file.id, { content: e.target.value })} placeholder={file.folder === 'watchTables' ? 'I1\nQ1\nM1' : 'Escreva aqui…'} />
+      {file.folder === 'watchTables' && <div className="ladder-data-grid">{addresses.map((address, i) => <div key={`${address}-${i}`} className="ladder-data-row"><strong>{address}</strong><span>{address in table ? table[address] ? '1 / TRUE' : '0 / FALSE' : 'Sem endereço no PLC selecionado'}</span><i className={table[address] ? 'is-on' : ''} /></div>)}</div>}
+      {file.folder === 'externalSources' && <p className="text-xs text-amber-700">Texto guardado no projeto; compilação SCL/STL ainda não disponível.</p>}
+      {file.folder === 'dataBlocks' && <p className="text-xs text-amber-700">Dados guardados no projeto; acesso por endereços DB no motor ainda não disponível.</p>}
+    </>}
+  </div>
 }
 
 function FolderViewHeader({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle: string }) {
@@ -957,14 +938,20 @@ function EmptyFolderMessage({ text }: { text: string }) {
   return <div className="ladder-folder-empty">{text}</div>
 }
 
-function FunctionBlockView({ id }: { id: Extract<ProjectNodeId, 'fc1' | 'fc2'> }) {
-  const rungs = useSimStore((s) => s.fcBlocks[id])
-  const updateFc = useSimStore((s) => s.updateFc)
+function FunctionBlockView({ id }: { id: 'fc1' | 'fc2' | `file:${string}` }) {
+  const activePlcId = useSimStore((s) => s.activePlcId)
+  const file = useSimStore((s) => s.projectFiles[activePlcId ?? '_general']?.find((f) => `file:${f.id}` === id))
+  const fcBlocks = useSimStore((s) => s.fcBlocks)
+  const rungs = id.startsWith('file:') ? file?.rungs ?? [] : fcBlocks[id as 'fc1' | 'fc2']
+  const updateFc = (key: typeof id, next: LadderRung[]) => {
+    if (key.startsWith('file:')) useSimStore.getState().updateProjectFile(key.slice(5), { rungs: next })
+    else useSimStore.getState().updateFc(key as 'fc1' | 'fc2', next)
+  }
   const modify = (index: number, fn: (r: LadderRung) => LadderRung) => updateFc(id, rungs.map((r, i) => i === index ? fn(r) : r))
   const add = () => updateFc(id, [...rungs, { id: crypto.randomUUID(), name: `Network ${rungs.length + 1}`, enabled: true, branches: [{ id: crypto.randomUUID(), elements: [] }], coils: [] }])
   return (
     <div className="ladder-folder-view">
-      <FolderViewHeader icon={<IconFunction size={16} />} title={NODE_TITLES[id]} subtitle="Bloco editável, guardado com o projeto. Não é executado automaticamente: integre a lógica no OB1 para a simular." />
+      <FolderViewHeader icon={<IconFunction size={16} />} title={id.startsWith('file:') ? file?.name ?? 'Bloco eliminado' : NODE_TITLES[id as 'fc1' | 'fc2']} subtitle="Bloco editável, guardado com o projeto. Não é executado automaticamente: integre a lógica no OB1 para a simular." />
       <button className="dc-btn-primary dc-btn self-start my-2" onClick={add}><IconPlus size={12} /> Nova network</button>
       {!rungs.length && <p className="text-xs text-ink-400">Bloco vazio. Crie uma network para começar.</p>}
       {rungs.map((r, i) => <div className="ladder-rung-card" key={r.id}>
@@ -1007,6 +994,8 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
     if (plcs.length && !plcs.some((c) => c.id === activePlcId)) setActivePlc(plcs[0].id)
   }, [plcIds, activePlcId, setActivePlc])
   const rungs = useSimStore((s) => s.ladder.rungs)
+  const wires = useSimStore((s) => s.wires)
+  const tags = useSimStore((s) => s.tags)
   const table = useSimStore((s) => s.runtime.table)
   const timers = useSimStore((s) => s.runtime.timers)
   const counters = useSimStore((s) => s.runtime.counters)
@@ -1029,17 +1018,33 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   const [showProjectPane, setShowProjectPane] = useState(true)
   const [showPalette, setShowPalette] = useState(true)
   const [activeProjectNode, setActiveProjectNode] = useState<ProjectNodeId>('main')
+  useEffect(() => { setActiveProjectNode('main'); setProgramTab('program') }, [activePlcId])
   const [expandedNodes, setExpandedNodes] = useState<Set<ProjectNodeId>>(() => new Set(['plc', 'programBlocks']))
   const [dragOver, setDragOver] = useState(false)
 
   const activeId = activeRungId && rungs.some((r) => r.id === activeRungId) ? activeRungId : rungs[0]?.id
   const counts = programCounts(rungs)
   const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
+  const files = useSimStore((s) => s.projectFiles[activePlcId ?? '_general'] ?? [])
   const isMainOpen = activeProjectNode === 'main'
-  const isFcOpen = activeProjectNode === 'fc1' || activeProjectNode === 'fc2'
+  const isFcOpen = activeProjectNode === 'fc1' || activeProjectNode === 'fc2' || (activeProjectNode.startsWith('file:') && files.some((f) => `file:${f.id}` === activeProjectNode && f.folder === 'programBlocks'))
   const isProgramView = isMainOpen || isFcOpen
   const activePlc = plcs.find((c) => c.id === activePlcId)
-  const activeTitle = activeProjectNode === 'plc' ? activePlc?.ref ?? 'Programa geral' : NODE_TITLES[activeProjectNode]
+  const selectedFile = activeProjectNode.startsWith('file:') ? files.find((f) => f.id === activeProjectNode.slice(5)) : undefined
+  const activeTitle = selectedFile?.name ?? (activeProjectNode === 'plc' ? activePlc?.ref ?? 'Programa geral' : NODE_TITLES[activeProjectNode as Exclude<ProjectNodeId, `file:${string}`>])
+
+  const createFile = (folder: ProjectFolder) => {
+    const suggested = folder === 'programBlocks' ? 'FC' : folder === 'dataBlocks' ? 'DB' : folder === 'watchTables' ? 'Observação' : folder === 'backups' ? 'Backup' : 'Novo ficheiro'
+    const name = window.prompt('Nome do novo item:', `${suggested} ${(files.filter((f) => f.folder === folder).length + 1)}`)?.trim()
+    if (!name) return
+    const id = useSimStore.getState().addProjectFile(folder, name)
+    if (id) { setProgramTab('program'); setActiveProjectNode(`file:${id}`); setExpandedNodes((prev) => new Set([...prev, folder])) }
+  }
+  const deleteFile = (file: ProjectFile) => {
+    if (!window.confirm(`Eliminar «${file.name}»?`)) return
+    useSimStore.getState().deleteProjectFile(file.id)
+    setActiveProjectNode(file.folder)
+  }
 
   const toggleNode = (id: ProjectNodeId) => {
     setExpandedNodes((current) => {
@@ -1052,8 +1057,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
 
   const selectProjectNode = (id: ProjectNodeId) => {
     setActiveProjectNode(id)
-    if (id === 'plcVariables') setProgramTab('tags')
-    else setProgramTab('program')
+    setProgramTab('program')
   }
 
   const quickAdd = (kind: PaletteKind) => {
@@ -1088,6 +1092,8 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           onClose={() => setShowProjectPane(false)}
           onQuickAdd={quickAdd}
           activePlc={activePlc}
+          files={files}
+          onCreateFile={createFile}
         />
       ) : (
         <button className="ladder-collapsed-pane-button" onClick={() => setShowProjectPane(true)} title="Mostrar projeto">
@@ -1153,9 +1159,11 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
         ) : blackBox && isMainOpen ? (
           <BlackBoxState />
         ) : isFcOpen ? (
-          <FunctionBlockView id={activeProjectNode as Extract<ProjectNodeId, 'fc1' | 'fc2'>} />
+          <FunctionBlockView id={activeProjectNode as 'fc1' | 'fc2' | `file:${string}`} />
+        ) : selectedFile ? (
+          <ProjectFileView file={selectedFile} table={table} onDelete={() => deleteFile(selectedFile)} />
         ) : !isMainOpen ? (
-          <ProjectDataView activeNode={activeProjectNode} table={table} />
+          <ProjectDataView activeNode={activeProjectNode} files={files} onCreate={createFile} onOpen={(id) => setActiveProjectNode(`file:${id}`)} />
           ) : (
           <div
             className={`ladder-networks ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'} drop-zone ${dragOver ? 'drag-over' : ''}`}
@@ -1188,8 +1196,8 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
             ))}
           </div>
           <div className="ladder-status-grid" role="tabpanel">
-            {statusTab === 'io' && <><NetworkStatus table={table} prefix="I" label="Entradas" /><NetworkStatus table={table} prefix="Q" label="Saídas" /></>}
-            {statusTab === 'memory' && <NetworkStatus table={table} prefix="M" label="Memórias" />}
+            {statusTab === 'io' && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
+            {statusTab === 'memory' && <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />}
             {statusTab === 'timers' && <div className="ladder-project-status"><span>Temporizadores</span>{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => <small key={address}>{address}: {t.elapsedMs} / {t.presetMs} ms · {t.done ? 'ativo' : 'inativo'}</small>) : <small>Nenhum temporizador executado.</small>}</div>}
             {statusTab === 'counters' && <div className="ladder-project-status"><span>Contadores</span>{Object.entries(counters).length ? Object.entries(counters).map(([address, c]) => <small key={address}>{address}: {c.count} / {c.preset} · {c.done ? 'atingido' : 'em contagem'}</small>) : <small>Nenhum contador executado.</small>}</div>}
             <div className="ladder-project-status"><span>Estado do Projeto</span><strong><i /> {running ? 'Simulação ativa' : 'Pronto'}</strong></div>

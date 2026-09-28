@@ -417,8 +417,28 @@ alternar, o editor apresenta o programa e a tabela de execução desse PLC. Os
 OB1 de todos os PLCs são varridos separadamente, com entradas, saídas,
 memórias, temporizadores e contadores independentes, mesmo quando usam os
 mesmos endereços (`I1`, `Q1` etc.). As FCs mantêm o comportamento atual do
-editor (não são chamadas automaticamente pelo OB1). A tabela de tags e o
-GRAFCET continuam globais ao projeto. Sem PLC no Esquema, fica disponível o
+editor (não são chamadas automaticamente pelo OB1). As tags passaram a ser específicas de cada PLC; o GRAFCET continua global
+ao projeto. Sem PLC no Esquema, fica disponível o
 programa geral existente; projetos anteriores com um único programa são
 atribuídos ao primeiro PLC ao abrir. Guardar em JSON preserva os programas e
 o PLC selecionado.
+
+### Árvore de ficheiros Ladder e tabela I/O dinâmica
+
+As oito pastas da árvore do PLC selecionado permitem criar itens com o botão
+**＋** (e também pelo botão **Criar** dentro da pasta), abrir, renomear e
+eliminar ficheiros. Os blocos de programa criados incluem networks Ladder
+editáveis, mas, como as FC1/FC2 existentes, não são chamados automaticamente
+pelo OB1. Variáveis PLC mantém uma tabela de tags própria para cada PLC; os
+ficheiros de observação aceitam endereços I/Q/M/T/C por linha e mostram o
+valor do último scan. Backups guardam uma cópia JSON restaurável do projeto.
+Documentação, fontes externas, objetos tecnológicos e blocos de dados são
+ficheiros de texto persistentes; **fontes e DBs não são compilados nem
+executados** pelo motor. Tudo fica no JSON do projeto, separado por PLC.
+
+A tabela inferior **Entradas/Saídas** é construída a partir de todos os
+bornes I e Q reais do PLC selecionado (também os sem fio), em vez dos nomes
+fictícios «Botão Start», «Motor» etc. Mostra o nome da tag ou do borne,
+conexões de cabo quando existentes e estado do scan. Por exemplo, um PLC
+modular 12I/8Q mostra I1–I12 e Q1–Q8; o LOGO! mostra 8I/4Q. Memórias,
+temporizadores e contadores mostram apenas valores/endereço usados de facto.

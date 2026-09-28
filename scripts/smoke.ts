@@ -18,6 +18,8 @@ import { terminalConnections } from '../src/schematic/terminalConnections'
 import { wireEndColor } from '../src/schematic/wireEndColor'
 import { wireGeometryForWire } from '../src/schematic/wireGeometry'
 import { isProgrammablePlc } from '../src/ladder/plcPrograms'
+import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
+import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
@@ -514,6 +516,43 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('segundo PLC de projeto antigo inicia programa vazio', useSimStore.getState().ladder.rungs.length === 0)
   store.deleteComponents([second.id])
   check('ao eliminar PLC ativo volta ao programa do PLC restante', useSimStore.getState().activePlcId === first.id && useSimStore.getState().ladder.rungs[0]?.id === on.id)
+
+}
+
+/* Arquivos da árvore e I/O da tabela são derivados do PLC real selecionado. */
+{
+  const compact = createComponent('plcCompact')
+  const logo = createComponent('plcSiemensLogo1224RC', undefined, undefined, 0, 300, 0)
+  const source = createComponent('powerSupplyProauto24A', undefined, undefined, 0, 600, 0)
+  const i1 = terminalByLabel(compact, 'I1')!
+  const out = terminalByLabel(source, '+V1')!
+  const cable = { id: 'real-link', fromTerminalId: out.id, toTerminalId: i1.id, color: 'red', gauge: '1.5mm²', kind: 'power', route: 'orthogonal', bend: .5, flexibility: 'rigid', energized: false } as Wire
+  const inputRows = plcIoRows(compact, 'I', { I1: true }, [cable], [compact, source], [])
+  check('CLP modular mostra 12 entradas reais, nome e destino do fio', inputRows.length === 12 && inputRows[0].on && inputRows[0].destinations.includes(`${source.ref}.${out.label}`))
+  check('LOGO mostra 8 entradas e 4 saídas agrupando parafusos duplos', plcIoRows(logo, 'I', {}, [], [logo], []).length === 8 && plcIoRows(logo, 'Q', {}, [], [logo], []).length === 4)
+  check('capacidade derivada dos bornes do PLC e não do padrão fixo 8/4', plcIoCapacity(compact).inputs === 12 && plcIoCapacity(compact).outputs === 8)
+  useSimStore.setState({ components: [compact, logo, source], activePlcId: compact.id, plcPrograms: {}, plcTags: {}, projectFiles: {}, tags: [] })
+  const st = useSimStore.getState()
+  const ids = PROJECT_FOLDERS.map((folder) => st.addProjectFile(folder, `Novo ${folder}`))
+  check('criação real nas oito pastas do PLC', ids.every(Boolean) && useSimStore.getState().projectFiles[compact.id].length === 8)
+  st.updateProjectFile(ids[0]!, { name: 'FC Motor', rungs: [{ id: 'fc-motor', name: 'Teste', enabled: true, branches: [{ id: 'b', elements: [] }], coils: [] }] })
+  st.updateProjectFile(ids[5]!, { content: 'I1\nQ8' })
+  st.addTag('I'); st.updateTag(useSimStore.getState().tags[0].id, { name: 'Partida', address: 'I1' })
+  st.setActivePlc(logo.id)
+  check('ficheiros e tags ficam no PLC de origem', !useSimStore.getState().tags.length && !useSimStore.getState().projectFiles[logo.id])
+  st.setActivePlc(compact.id)
+  const exported = JSON.parse(st.saveJSON())
+  check('nomes, networks, tabelas e tags são guardados', exported.projectFiles[compact.id][0].rungs[0].id === 'fc-motor' && exported.projectFiles[compact.id][5].content === 'I1\nQ8' && exported.plcTags[compact.id][0].name === 'Partida')
+  st.loadJSON(JSON.stringify(exported))
+  check('reabrir repõe ficheiros e tags do PLC', useSimStore.getState().projectFiles[compact.id].length === 8 && useSimStore.getState().tags[0].name === 'Partida')
+  st.deleteProjectFile(ids[1]!)
+  check('eliminar ficheiro remove apenas item selecionado', useSimStore.getState().projectFiles[compact.id].length === 7)
+  const backupId = st.addProjectFile('backups', 'Antes da mudança')!
+  const tagId = useSimStore.getState().tags[0].id
+  st.updateTag(tagId, { name: 'Mudança posterior' })
+  check('backup restaura tags e ficheiros do momento da criação', st.restoreProjectBackup(backupId) && useSimStore.getState().tags[0].name === 'Partida' && !useSimStore.getState().projectFiles[compact.id].some((f) => f.id === backupId))
+  st.deleteComponents([logo.id])
+  check('remoção de PLC limpa só ficheiros desse PLC', !!useSimStore.getState().projectFiles[compact.id] && !useSimStore.getState().projectFiles[logo.id])
 
 }
 
