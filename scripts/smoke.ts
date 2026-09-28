@@ -15,6 +15,7 @@ import { proautoTerminalLocal } from '../src/schematic/proautoTerminalGeometry'
 import { connectNearWireEnds, nearestTerminal, nearestModelTerminal } from '../src/schematic/terminalSnap'
 import { terminalPos } from '../src/schematic/symbols'
 import { terminalConnections } from '../src/schematic/terminalConnections'
+import { wireEndColor } from '../src/schematic/wireEndColor'
 import { useSimStore } from '../src/store/useSimStore'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
@@ -460,6 +461,14 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const connected = terminalConnections(input.id, [plc, ps], [joined, open, ghost])
   check('inspector lista destino e ponta livre sem contar ponto desligado', connected.length === 2 && connected[0].owner?.id === ps.id && connected[0].terminal?.id === output.id && connected[1].loose)
   check('nome de apresentação não altera o identificador físico do PLC', input.label === 'L+' && input.displayName === 'Alimentação PLC')
+}
+
+/* Cada ponteira pode diferir do condutor e da outra extremidade. */
+{
+  const cable = { color: 'red', fromEndColor: '#00ff00', toEndColor: '#ff00ff' } as Wire
+  check('cores das ponteiras independem da cor do cabo e entre si', wireEndColor(cable, 'from', '#112233') === '#00ff00' && wireEndColor(cable, 'to', '#112233') === '#ff00ff')
+  const follow = { ...cable, fromEndColor: undefined, toEndColor: undefined }
+  check('ponteira não personalizada segue o borne e não o condutor', wireEndColor(follow, 'from', '#112233') === '#112233' && wireEndColor(follow, 'to') === '#64748b')
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

@@ -8,6 +8,7 @@ import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
+import { wireEndColor } from './wireEndColor'
 
 const CANVAS_W = 2000
 const CANVAS_H = 1400
@@ -920,13 +921,16 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       const lead = side === 'from' ? display.fromLead : display.toLead
       const type = (side === 'from' ? w.fromEndType : w.toEndType) ?? w.endType ?? 'none'
       const dir = endDir(display.geometry.pts, side === 'from')
+      const attached = side === 'from' ? !w.fromPoint : !w.toPoint
+      const terminalColor = attached ? terminalIndex.get(side === 'from' ? w.fromTerminalId : w.toTerminalId)?.color : undefined
+      const endColor = wireEndColor(w, side, terminalColor)
       return <g key={`${w.id}-${side}-${layer}`} pointerEvents="none">
         {layer === 'front' && lead && <>
           <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} />
           <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke={color} strokeWidth={width} />
         </>}
-        <WireEnd p={point} dir={dir} type={type} color={color} />
-        {type === 'none' && <circle cx={point.x} cy={point.y} r={2.7} fill={color} stroke="white" strokeWidth={0.8} />}
+        <WireEnd p={point} dir={dir} type={type} color={endColor} />
+        {type === 'none' && <circle cx={point.x} cy={point.y} r={2.7} fill={endColor} stroke="white" strokeWidth={0.8} />}
       </g>
     })
   })

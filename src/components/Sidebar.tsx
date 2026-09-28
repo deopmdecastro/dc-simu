@@ -6,6 +6,7 @@ import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIN
 import LabelLibrary from './LabelLibrary'
 import DatasheetPanel from './DatasheetPanel'
 import { terminalConnections } from '../schematic/terminalConnections'
+import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
@@ -570,6 +571,9 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 {(['from', 'to'] as const).map((side) => {
                   const typeKey = side === 'from' ? 'fromEndType' : 'toEndType'
                   const layerKey = side === 'from' ? 'fromEndLayer' : 'toEndLayer'
+                  const colorKey = side === 'from' ? 'fromEndColor' : 'toEndColor'
+                  const linkedTerminal = side === 'from' ? (!selectedWire.fromPoint ? wireFromTerminal : undefined) : (!selectedWire.toPoint ? wireToTerminal : undefined)
+                  const endColor = wireEndColor(selectedWire, side, linkedTerminal?.color)
                   const chosen = selectedWire[typeKey] ?? selectedWire.endType ?? 'none'
                   const layer = selectedWire[layerKey] ?? 'back'
                   const title = side === 'from' ? `Ponta inicial · ${wireFromTerminal?.label ?? (selectedWire.fromPoint ? 'livre' : '—')}` : `Ponta final · ${wireToTerminal?.label ?? (selectedWire.toPoint ? 'livre' : '—')}`
@@ -586,17 +590,24 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                         </button>)}
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 text-[10px] text-ink-500">
+                      <label htmlFor={`wire-${side}-end-color`} className="shrink-0">Cor da ponteira</label>
+                      <input id={`wire-${side}-end-color`} type="color" className="w-9 h-7 rounded border border-line cursor-pointer" value={endColor}
+                        onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { [colorKey]: e.target.value })} />
+                      <span className="font-mono">{endColor}</span>
+                      {selectedWire[colorKey] && <button type="button" className="ml-auto text-brand-600 hover:underline" title="Voltar a seguir a cor do borne" onClick={() => useSimStore.getState().updateWire(selectedWire.id, { [colorKey]: undefined })}>Repor</button>}
+                    </div>
                     <div className="grid grid-cols-2 gap-1">
                       {WIRE_END_OPTIONS.map((o) => <button key={o.id} type="button" title={o.hint} aria-pressed={chosen === o.id}
                         onClick={() => { const st = useSimStore.getState(); st.commitHistory(); st.updateWire(selectedWire.id, { [typeKey]: o.id }) }}
                         className={`flex items-center gap-1.5 rounded-[5px] border px-1.5 py-1 text-left text-[10.5px] transition-colors ${chosen === o.id ? 'border-brand-500 bg-brand-50 text-brand-700 font-semibold' : 'border-line bg-white text-ink-700 hover:border-line-strong hover:bg-slate-50'}`}>
-                        <WireEndIcon type={o.id} color={WIRE_COLORS[selectedWire.color]} size={30} /><span className="truncate">{o.label}</span>
+                        <WireEndIcon type={o.id} color={endColor} size={30} /><span className="truncate">{o.label}</span>
                       </button>)}
                     </div>
                   </div>
                 })}
                 <p className="text-[10px] text-ink-400 leading-relaxed">
-                  A camada do cabo controla o traçado; a camada de cada terminal controla a respetiva ponteira. {selectedWire.fromPoint || selectedWire.toPoint ? 'Arraste uma ponta livre até um borne para a ligar. Só há continuidade elétrica quando ambas as pontas estiverem ligadas.' : ''}
+                  A cor e camada do cabo controlam o fio; cada ponteira tem cor e camada próprias. Sem personalização, a ponteira segue a cor do borne ligado. {selectedWire.fromPoint || selectedWire.toPoint ? 'Arraste uma ponta livre até um borne para a ligar. Só há continuidade elétrica quando ambas as pontas estiverem ligadas.' : ''}
                 </p>
               </div>
 

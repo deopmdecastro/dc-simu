@@ -401,3 +401,9 @@ altera o código elétrico impresso, usado pelo PLC/fonte e pela simulação. A
 secção **Ligações** mostra cada cabo realmente ligado e o borne de destino
 (componente e nome) ou indica uma ponta livre; é possível abrir o cabo ou o
 borne de destino com um clique.
+
+Cada **ponteira do cabo** também tem a sua própria cor no inspetor do fio:
+ponta inicial e final podem diferir entre si e da cor do condutor. Sem cor
+personalizada, a ponteira segue a cor do borne a que está ligada (ou usa
+cinzento neutro se a ponta estiver livre). **Repor** volta a seguir a cor do
+borne. A cor do borne é editável separadamente no seu próprio inspetor.

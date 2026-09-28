@@ -275,6 +275,9 @@ export interface Wire {
   /** Opções independentes de cada extremidade; endType é o fallback legado. */
   fromEndType?: WireEndType
   toEndType?: WireEndType
+  /** Cor da ponteira por ponta; sem valor segue o borne (ou cinzento se livre). */
+  fromEndColor?: string
+  toEndColor?: string
   /** Por omissão, a ponteira fica atrás do corpo do componente. */
   fromEndLayer?: 'back' | 'front'
   toEndLayer?: 'back' | 'front'
