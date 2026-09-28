@@ -32,6 +32,7 @@ export type ComponentType =
   | 'breaker4p'
   | 'motorBreaker'
   | 'residualBreaker'
+  | 'phoenixEcb3000760'
   | 'fuse'
   | 'fuseHolder'
   | 'surgeProtector'

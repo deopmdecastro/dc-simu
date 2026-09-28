@@ -69,6 +69,20 @@ function Breaker3D({ c, x }: { c: ElectricalComponent; x: number }) {
   )
 }
 
+function PhoenixEcb3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  const closed = !!c.state.closed && !c.state.tripped
+  const body = c.state.tripped ? '#26282b' : '#17191b'
+  return <group position={[x, RAIL_Y + 0.48, 0]}>
+    <mesh castShadow><boxGeometry args={[0.39, 0.94, 0.38]} /><meshStandardMaterial color={body} roughness={0.62} /></mesh>
+    <mesh position={[0, 0.04, 0.197]}><boxGeometry args={[0.31, 0.66, 0.018]} /><meshStandardMaterial color="#34383b" roughness={0.7} /></mesh>
+    <mesh position={[0, 0.18, 0.211]}><boxGeometry args={[0.23, 0.13, 0.012]} /><meshStandardMaterial color={closed ? '#166534' : c.state.tripped ? '#991b1b' : '#50565b'} emissive={closed ? '#16a34a' : c.state.tripped ? '#ef4444' : '#000000'} emissiveIntensity={closed || c.state.tripped ? 0.35 : 0} /></mesh>
+    {[0.34, -0.36].map((y) => <mesh key={y} position={[0, y, 0.22]}><cylinderGeometry args={[0.045, 0.045, 0.025, 12]} /><meshStandardMaterial color="#b3b7ba" metalness={0.72} roughness={0.28} /></mesh>)}
+    <Label text="EC-E" position={[0, 0.02, 0.22]} color="#f1f3f4" size={0.075} />
+    <Label text="1A · 12V DC" position={[0, -0.13, 0.22]} color="#d1d5d8" size={0.047} />
+    <Label text={c.ref} position={[0, 0.55, 0.22]} color="#e2e8f0" size={0.075} />
+  </group>
+}
+
 function ThermalRelay3D({ c, x }: { c: ElectricalComponent; x: number }) {
   return (
     <group position={[x, RAIL_Y + 0.34, 0]}>
@@ -680,6 +694,7 @@ export default function Panel3D() {
         {railComponents.map((c) => {
           const x = positions[c.id].x
           if (c.type === 'thermalRelay') return <ThermalRelay3D key={c.id} c={c} x={x} />
+          if (c.type === 'phoenixEcb3000760') return <PhoenixEcb3D key={c.id} c={c} x={x} />
           if (getProtectionModelSpec(c.type)) return <Model3DErrorBoundary key={c.id} fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={<Breaker3D c={c} x={x} />}><ProtectionBreakerReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           if (c.type === 'contactorWegCWC09') return <Model3DErrorBoundary key={c.id} fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           if (c.type.startsWith('contactor')) return <Contactor3D key={c.id} c={c} x={x} />

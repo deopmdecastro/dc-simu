@@ -94,6 +94,14 @@ function cyl(g: THREE.Group, rTop: number, rBot: number, h: number, color: strin
 /* ------------------------------------------------------------------ formas por categoria */
 
 function buildProtection(g: THREE.Group, type: string, st: any) {
+  if (type === 'phoenixEcb3000760') {
+    box(g, 0.42, 0.96, 0.38, '#17191b')
+    box(g, 0.32, 0.68, 0.02, '#34383b', 0, 0.02, 0.205)
+    box(g, 0.2, 0.13, 0.025, '#166534', 0, 0.19, 0.225, { emissive: '#22c55e', emissiveIntensity: 0.25 })
+    box(g, 0.23, 0.035, 0.025, '#e5e7eb', 0, -0.1, 0.225)
+    for (const y of [-0.38, 0.38]) cyl(g, 0.045, 0.045, 0.035, METAL, 0, y, 0.22, { metalness: 0.75, roughness: 0.25 }, 12)
+    return
+  }
   if (type.startsWith('fuse')) {
     cyl(g, 0.16, 0.16, 0.55, type === 'fuseHolder' ? CASING : METAL, 0, 0.12, 0, { metalness: type === 'fuseHolder' ? 0.1 : 0.6, roughness: 0.3 })
     box(g, 0.4, 0.12, 0.3, CASING_DARK, 0, -0.3, 0)

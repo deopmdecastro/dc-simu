@@ -177,6 +177,18 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     defaultState: { closed: true, tripped: false, poles: 4, curve: 'C', inA: 25 },
   },
+  phoenixEcb3000760: {
+    category: 'protection', paletteName: 'Phoenix Contact EC 1 12DC/1A S-R · 3000760', group: 'Proteção', tag: 'QF', w: 76, h: 128,
+    // Terminais funcionais conforme ficha; a disposição é esquemática, não uma reprodução dos bornes físicos.
+    terminals: [
+      T('Line+', 'power-in', 0.2, 0, { terminalType: 'screw' }),
+      T('LOAD+', 'power-out', 0.2, 1, { terminalType: 'screw' }),
+      T('0V', 'neutral', 0.8, 1, { terminalType: 'screw' }),
+      T('RESET', 'io', 0.8, 0.25, { terminalType: 'screw' }),
+      T('STATUS', 'io', 0.8, 0.62, { terminalType: 'screw' }),
+    ],
+    defaultState: { closed: true, tripped: false },
+  },
   motorBreaker: {
     category: 'protection', paletteName: 'Disjuntor-motor', group: 'Proteção', tag: 'QM', w: 120, h: 120,
     terminals: poles3(),

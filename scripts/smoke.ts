@@ -639,5 +639,18 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('Botão de emergência CAD mantém os dois bornes NF 21/22', emergency.terminals.some((t) => t.label === '21' && t.kind === 'aux-nc') && emergency.terminals.some((t) => t.label === '22' && t.kind === 'aux-nc'))
 }
 
+/* Phoenix Contact EC 1 12DC/1A S-R: valores e ligações confirmados na ficha. */
+{
+  const ecb = createComponent('phoenixEcb3000760')
+  const labels = ecb.terminals.map((terminal) => terminal.label)
+  const bridges = internalBridges(ecb)
+  check('Phoenix 3000760 cria Line+, LOAD+, 0V, RESET e STATUS', ['Line+', 'LOAD+', '0V', 'RESET', 'STATUS'].every((label) => labels.includes(label)))
+  check('Phoenix 3000760 encaminha apenas Line+ para LOAD+ quando fechado', bridges.length === 1 && bridges[0][0] === `${ecb.id}-Line+` && bridges[0][1] === `${ecb.id}-LOAD+`)
+  const tripped = createComponent('phoenixEcb3000760', undefined, undefined, 0, 0, 0, { tripped: true })
+  check('Phoenix 3000760 interrompe a passagem quando disparado', internalBridges(tripped).length === 0)
+  const open = createComponent('phoenixEcb3000760', undefined, undefined, 0, 0, 0, { closed: false })
+  check('Phoenix 3000760 interrompe a passagem quando aberto', internalBridges(open).length === 0)
+}
+
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)

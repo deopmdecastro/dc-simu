@@ -62,6 +62,13 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
       }
       break
     }
+    case 'phoenixEcb3000760': {
+      // O catálogo confirma Line+ / LOAD+ / 0V e os sinais Reset/Status.
+      // A condutividade em série representa o disjuntor fechado; temporização,
+      // limiar de disparo e lógica elétrica do Status não são especificados aqui.
+      if (c.state.closed && !c.state.tripped) pair(la('Line+'), la('LOAD+'))
+      break
+    }
     case 'fuse':
     case 'fuseHolder': {
       if (!c.state.blown) pair(la('IN') ?? la('1'), la('OUT') ?? la('2'))
