@@ -213,27 +213,54 @@ function SimWindow({full}:{full?:boolean}) {
 
 function Landing({onRegister,onLogin}:{onRegister:()=>void;onLogin:()=>void}) {
   const items=[
-    {k:'01 / LIGAR',t:'Monte o seu esquema',p:'Organize componentes, bornes e cabos num espaço de trabalho visual.',i:'⌁'},
-    {k:'02 / PROGRAMAR',t:'Programe e simule',p:'Crie lógica Ladder e acompanhe o comportamento do PLC durante o scan.',i:'▤'},
-    {k:'03 / PARTILHAR',t:'Trabalhe em conjunto',p:'Convide editores para o projeto e continue o trabalho em equipa.',i:'↗'}]
+    {k:'01 / ESQUEMA',t:'Monte o seu esquema',p:'Organize componentes, bornes e cabos num espaço de trabalho visual, com deteção de erros de ligação.',i:'⌁'},
+    {k:'02 / LADDER',t:'Programe e simule',p:'Crie lógica Ladder e acompanhe o comportamento do PLC durante o scan, rede a rede.',i:'▤'},
+    {k:'03 / GRAFCET',t:'Desenhe sequências',p:'Modele etapas e transições em GRAFCET e valide a sequência antes de a levar para o painel.',i:'◇'},
+    {k:'04 / PAINEL 3D',t:'Veja o painel real',p:'Equipamentos com modelos CAD reais, dispostos em 3D e sincronizados com o esquema.',i:'▧'},
+    {k:'05 / MONITOR',t:'Observe em tempo real',p:'Entradas, saídas e contactores visíveis durante a simulação, com o estado RUN sempre à vista.',i:'◉'},
+    {k:'06 / PARTILHAR',t:'Trabalhe em conjunto',p:'Convide editores para o projeto e continue o trabalho em equipa, em qualquer dispositivo.',i:'↗'}]
+  const steps=[
+    {n:'1',t:'Crie o projeto',p:'Registe-se e comece com um projeto vazio ou com um cenário pronto a explorar.'},
+    {n:'2',t:'Ligue e programe',p:'Arraste componentes da Biblioteca, ligue os bornes e escreva a lógica em Ladder ou GRAFCET.'},
+    {n:'3',t:'Simule e partilhe',p:'Execute, meça, corrija erros e convide a equipa para rever o mesmo projeto.'}]
+  const cats=['Proteção','Comando','Contactores','Relés','Controladores','Motores','Acionamentos','Sensores','Sinalização','Bornes e barras','Fontes']
+  const faqs=[
+    {q:'Preciso de instalar alguma coisa?',a:'Não. O DC-SIMU corre no navegador e pode ser instalado como aplicação (PWA) no computador ou no telemóvel.'},
+    {q:'Posso trabalhar com outras pessoas no mesmo projeto?',a:'Sim. O proprietário pode convidar editores, que passam a ver o projeto na sua área de trabalho.'},
+    {q:'Que tipo de circuitos posso simular?',a:'Comandos elétricos industriais: contactores, relés, proteções, fontes, motores e PLC, com lógica em Ladder e sequências em GRAFCET.'},
+    {q:'O painel 3D usa equipamentos reais?',a:'Sim, os equipamentos disponíveis usam modelos CAD reais, e o painel mantém-se sincronizado com o esquema.'}]
   const [menu,setMenu]=useState(false)
+  useEffect(()=>{
+    const els=Array.from(document.querySelectorAll<HTMLElement>('.lp [data-rv]'))
+    if(!('IntersectionObserver' in window)||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return
+    const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('rv-in');io.unobserve(e.target)}}),{threshold:.12,rootMargin:'0px 0px -40px 0px'})
+    els.forEach(el=>{el.classList.add('rv-init');io.observe(el)})
+    return()=>io.disconnect()
+  },[])
   return <div className="landing lp">
     <nav className="lp-nav"><div className="lp-nav-in"><Logo/>
-      <div className={'lp-links'+(menu?' open':'')} onClick={()=>setMenu(false)}><a href="#funcionalidades">Funcionalidades</a><a href="#simulador">Simulador</a><a href="#recursos">Recursos</a><a href="#sobre">Sobre</a><button className="lp-menu-login" onClick={onLogin}>Entrar</button></div>
+      <div className={'lp-links'+(menu?' open':'')} onClick={()=>setMenu(false)}><a href="#funcionalidades">Funcionalidades</a><a href="#como-funciona">Como funciona</a><a href="#simulador">Simulador</a><a href="#biblioteca">Biblioteca</a><a href="#faq">FAQ</a><button className="lp-menu-login" onClick={onLogin}>Entrar</button></div>
       <div className="lp-nav-cta"><button className="lp-ghost" onClick={onLogin}>Entrar</button><button className="lp-btn sm" onClick={onRegister}><span className="lp-long">Criar projeto grátis</span><span className="lp-short">Criar conta</span></button><button className="lp-burger" aria-label="Menu" aria-expanded={menu} onClick={()=>setMenu(!menu)}><i/><i/><i/></button></div></div></nav>
     <section className="lp-hero"><div className="lp-hero-copy">
       <span className="lp-pill"><i/>O SEU LABORATÓRIO DE AUTOMAÇÃO</span>
       <h1>Projete o circuito.<br/><em>Veja-o ganhar vida.</em></h1>
       <p>Do primeiro fio ao scan do PLC: crie esquemas, programe em Ladder e visualize o seu painel em 3D. Tudo ligado, no mesmo projeto.</p>
       <div className="lp-actions"><button className="lp-btn" onClick={onRegister}>Criar projeto grátis <span aria-hidden>↗</span></button><button className="lp-outline" onClick={onLogin}>Entrar na minha conta <span aria-hidden>→</span></button></div>
-      <ul className="lp-checks"><li>Esquema, Ladder e painel 3D sincronizados</li><li>Projetos partilhados com a equipa</li></ul></div>
+      <ul className="lp-checks"><li>Esquema, Ladder e painel 3D sincronizados</li><li>Corre no navegador, sem instalação</li><li>Projetos partilhados com a equipa</li></ul></div>
       <div className="lp-hero-vis"><SimWindow/><div className="lp-chip c1">⚡ <div><b>Simulação em tempo real</b><small>Do borne à lógica do PLC</small></div></div><div className="lp-chip c2">▧ <div><b>Mais que um simulador.</b><small>Um ambiente completo.</small></div></div></div>
     </section>
     <div className="lp-views" id="recursos"><span>UM PROJETO, VÁRIAS VISTAS</span><b>Esquema elétrico</b><i/><b>Ladder</b><i/><b>GRAFCET</b><i/><b>Painel 3D</b><i/><b>Monitorização</b></div>
-    <section className="lp-sec" id="funcionalidades"><div className="lp-head"><div><span className="lp-tag">PENSADO PARA QUEM CONSTRÓI</span><h2>Menos ferramentas separadas.<br/>Mais tempo a criar.</h2></div><p>Uma experiência de ponta a ponta para desenhar, testar e partilhar os seus sistemas de automação.</p></div>
-      <div className="lp-feats">{items.map(f=><article key={f.k}><div className="lp-ic">{f.i}</div><span>{f.k}</span><h3>{f.t}</h3><p>{f.p}</p></article>)}</div></section>
-    <section className="lp-sec lp-sim" id="simulador"><div className="lp-head"><div><span className="lp-tag">O SIMULADOR</span><h2>Esquema, Ladder e Painel 3D<br/>numa única área de trabalho.</h2></div><p>Componentes PLC, ligações elétricas e Monitor em tempo real, com o estado RUN sempre visível.</p></div><SimWindow full/></section>
-    <section className="lp-end" id="sobre"><div><span className="lp-tag light">PRONTO PARA COMEÇAR?</span><h2>O próximo circuito começa aqui.</h2><p>Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.</p></div><button className="lp-btn light" onClick={onRegister}>Criar conta <span aria-hidden>↗</span></button></section>
-    <footer className="lp-foot"><Logo dark size={26}/><span>Esquema. Lógica. Simulação.</span><small>© {new Date().getFullYear()} DC-SIMU</small></footer>
+    <section className="lp-stats" aria-label="Em números"><div><b>5</b><span>vistas sincronizadas</span></div><div><b>{cats.length}</b><span>categorias na Biblioteca</span></div><div><b>3D</b><span>modelos CAD reais</span></div><div><b>PWA</b><span>instalável em qualquer ecrã</span></div></section>
+    <section className="lp-sec" id="funcionalidades"><div className="lp-head" data-rv><div><span className="lp-tag">PENSADO PARA QUEM CONSTRÓI</span><h2>Menos ferramentas separadas.<br/>Mais tempo a criar.</h2></div><p>Uma experiência de ponta a ponta para desenhar, testar e partilhar os seus sistemas de automação.</p></div>
+      <div className="lp-feats">{items.map((f,i)=><article key={f.k} data-rv style={{transitionDelay:`${(i%3)*70}ms`}}><div className="lp-ic">{f.i}</div><span>{f.k}</span><h3>{f.t}</h3><p>{f.p}</p></article>)}</div></section>
+    <section className="lp-sec lp-how" id="como-funciona"><div className="lp-head" data-rv><div><span className="lp-tag">COMO FUNCIONA</span><h2>Da ideia à simulação<br/>em três passos.</h2></div><p>Sem configurações demoradas: abra, ligue e execute.</p></div>
+      <ol className="lp-steps">{steps.map((st,i)=><li key={st.n} data-rv style={{transitionDelay:`${i*90}ms`}}><span className="lp-step-n">{st.n}</span><h3>{st.t}</h3><p>{st.p}</p></li>)}</ol></section>
+    <section className="lp-sec lp-sim" id="simulador"><div className="lp-head" data-rv><div><span className="lp-tag">O SIMULADOR</span><h2>Esquema, Ladder e Painel 3D<br/>numa única área de trabalho.</h2></div><p>Componentes PLC, ligações elétricas e Monitor em tempo real, com o estado RUN sempre visível.</p></div><div data-rv><SimWindow full/></div></section>
+    <section className="lp-sec lp-lib" id="biblioteca"><div className="lp-head" data-rv><div><span className="lp-tag">BIBLIOTECA</span><h2>Os componentes que<br/>encontra num quadro real.</h2></div><p>Organizados por categoria, com datasheets e modelos 3D para os equipamentos disponíveis.</p></div>
+      <div className="lp-cats" data-rv>{cats.map(c=><span key={c}>{c}</span>)}</div></section>
+    <section className="lp-sec lp-faq" id="faq"><div className="lp-head" data-rv><div><span className="lp-tag">PERGUNTAS FREQUENTES</span><h2>Tudo o que precisa<br/>de saber para começar.</h2></div></div>
+      <div className="lp-faq-list" data-rv>{faqs.map(f=><details key={f.q}><summary>{f.q}</summary><p>{f.a}</p></details>)}</div></section>
+    <section className="lp-end" id="sobre"><div><span className="lp-tag light">PRONTO PARA COMEÇAR?</span><h2>O próximo circuito começa aqui.</h2><p>Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.</p></div><div className="lp-end-cta"><button className="lp-btn light" onClick={onRegister}>Criar conta <span aria-hidden>↗</span></button><button className="lp-end-login" onClick={onLogin}>Já tenho conta</button></div></section>
+    <footer className="lp-foot"><Logo dark size={26}/><span>Esquema. Lógica. Simulação.</span><nav className="lp-foot-links" aria-label="Rodapé"><a href="#funcionalidades">Funcionalidades</a><a href="#como-funciona">Como funciona</a><a href="#biblioteca">Biblioteca</a><a href="#faq">FAQ</a></nav><small>© {new Date().getFullYear()} DC-SIMU</small></footer>
   </div>
 }
