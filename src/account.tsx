@@ -71,14 +71,52 @@ export default function Account() {
   if(!ready)return <div className="account-shell">A carregar DC-SIMU…</div>
   if(page==='editor' && open)return <><div className="account-bar"><span>{user?.name} · {open.name}</span><span>{message}</span><button onClick={()=>void save()}>Guardar no servidor</button><button onClick={()=>void leave()}>Projetos</button></div><div style={{height:'calc(100vh - 38px)'}}><App onBack={()=>void leave()} onSave={()=>void save()}/></div></>
   return <main className="account-shell">
-    <header className="account-header"><b>◈ DC-SIMU</b><nav>{user ? <><span>{user.name}</span>{user.role==='admin'&&<button onClick={()=>setPage('admin')}>Administração</button>}<button onClick={()=>void logout()}>Sair</button></> : <><button onClick={()=>setPage('login')}>Entrar</button><button className="account-primary" onClick={()=>setPage('register')}>Criar conta</button></>}</nav></header>
-    {message && <div className="account-alert" role="alert">{message}<button onClick={()=>setMessage('')}>×</button></div>}
+    <header className="account-header"><Logo size={26}/><nav>{user ? <><span>{user.name}</span>{user.role==='admin'&&<button onClick={()=>setPage('admin')}>Administração</button>}<button onClick={()=>void logout()}>Sair</button></> : <><button onClick={()=>setPage('login')}>Entrar</button><button className="account-primary" onClick={()=>setPage('register')}>Criar conta</button></>}</nav></header>
+    {message && page!=='login' && page!=='register' && <div className="account-alert" role="alert">{message}<button onClick={()=>setMessage('')}>×</button></div>}
     {page==='landing' && <Landing onRegister={()=>setPage('register')} onLogin={()=>setPage('login')}/>}
-    {(page==='login'||page==='register')&&<section className="account-card"><span className="account-pill">A SUA ÁREA DE TRABALHO</span><h1>{page==='register'?'Criar conta':'Bem-vindo de volta'}</h1><p>Os seus projetos ficam guardados no servidor.</p><form onSubmit={authenticate}>{page==='register'&&<label>Nome<input required minLength={2} autoComplete="name" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>}<label>Email<input required type="email" autoComplete="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label><label>Palavra-passe<input required minLength={page==='register'?10:1} type="password" autoComplete={page==='register'?'new-password':'current-password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/></label><button className="account-primary" disabled={busy}>{busy?'Aguarde…':page==='register'?'Criar conta':'Entrar'}</button></form><p>{page==='register'?'Já tem conta?':'Ainda não tem conta?'} <button onClick={()=>{setMessage('');setPage(page==='register'?'login':'register')}}>{page==='register'?'Entrar':'Registar'}</button></p></section>}
+    {(page==='login'||page==='register')&&<AuthScreen mode={page} form={form} setForm={setForm} busy={busy} message={message} clearMessage={()=>setMessage('')} onSubmit={authenticate} onSwitch={()=>{setMessage('');setPage(page==='register'?'login':'register')}} onHome={()=>{setMessage('');setPage('landing')}}/>}
     {page==='admin'&&user?.role==='admin'&&<AdminPanel onBack={()=>setPage('dashboard')}/>}
     {page==='dashboard'&&<section className="account-dashboard"><span className="account-pill">ÁREA DE PROJETOS</span><h1>Os seus projetos<span>.</span></h1><p>Olá, {user?.name}. Continue um projeto ou comece algo novo.</p><button className="account-primary" onClick={()=>void create()}>＋ Novo projeto</button>{invites.length>0&&<div className="account-invites"><h2>Convites pendentes</h2>{invites.map(i=><div key={i.id}><b>{i.project}</b> · convite de {i.sender} <button onClick={()=>void reply(i.id,'accept')}>Aceitar</button><button onClick={()=>void reply(i.id,'reject')}>Recusar</button></div>)}</div>}<div className="account-grid">{projects.map(p=><article key={p.id}><span className="account-pill">{p.role==='owner'?'PROPRIETÁRIO':'EDITOR'}</span><h2>{p.name}</h2><p>Por {p.owner} · {new Date(p.updated_at).toLocaleDateString('pt-PT')}</p><div><button className="account-primary" onClick={()=>void load(p.id)}>Abrir →</button>{p.role==='owner'&&<><button onClick={()=>void invite(p.id)}>Convidar</button><button onClick={()=>setInviteFor(inviteFor===p.id?null:p.id)}>Membros</button><button onClick={()=>void remove(p)}>Eliminar</button></>}</div>{inviteFor===p.id&&<Members id={p.id}/>}</article>)}{!projects.length&&<div className="account-empty">Ainda não há projetos. Crie o primeiro para começar.</div>}</div></section>}
   </main>
 }
+function Logo({dark,size=30}:{dark?:boolean;size?:number}) {
+  return <span className={'dc-logo'+(dark?' dark':'')}>
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden><rect x="1" y="1" width="22" height="22" rx="5" fill="#2655e5"/><path d="M13.5 4.5 7 13.5h4l-1.5 6 6.5-9h-4z" fill="#fff"/></svg>
+    <span className="dc-logo-t"><b>DC<i>-</i>SIMU</b><small>comandos elétricos</small></span>
+  </span>
+}
+
+function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwitch,onHome}:{mode:'login'|'register';form:{name:string;email:string;password:string};setForm:(f:{name:string;email:string;password:string})=>void;busy:boolean;message:string;clearMessage:()=>void;onSubmit:(e:React.FormEvent)=>void;onSwitch:()=>void;onHome:()=>void}) {
+  const [show,setShow]=useState(false)
+  const reg=mode==='register'
+  const len=form.password.length
+  const strength=len===0?0:len<10?1:len<14?2:3
+  const labels=['','Curta — mínimo 10 caracteres','Boa','Forte']
+  return <div className="auth">
+    <aside className="auth-side"><button className="auth-logo" onClick={onHome} aria-label="Voltar ao início"><Logo dark/></button>
+      <div className="auth-pitch"><h2>{reg?<>O próximo circuito<br/>começa aqui.</>:<>Projete o circuito.<br/>Veja-o ganhar vida.</>}</h2>
+        <p>{reg?'Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.':'Retome o esquema, a lógica Ladder e o painel 3D exatamente onde os deixou.'}</p>
+        <ul><li><i>⌁</i>Esquema elétrico com bornes e cabos</li><li><i>▤</i>Ladder com simulação do scan do PLC</li><li><i>▧</i>Painel 3D sincronizado com o projeto</li><li><i>↗</i>Projetos partilhados com a equipa</li></ul></div>
+      <div className="auth-status"><span><i/>RUN</span>Os seus projetos ficam guardados no servidor.</div></aside>
+    <section className="auth-main"><div className="auth-panel">
+      <div className="auth-mobile-logo"><button onClick={onHome} aria-label="Voltar ao início"><Logo/></button></div>
+      <button className="auth-back" onClick={onHome}>← Voltar ao início</button>
+      <span className="lp-tag">A SUA ÁREA DE TRABALHO</span>
+      <h1>{reg?'Criar conta':'Bem-vindo de volta'}</h1>
+      <p className="auth-sub">{reg?'Gratuito. Comece o primeiro projeto em menos de um minuto.':'Entre para continuar os seus projetos.'}</p>
+      {message&&<div className="auth-error" role="alert"><span>{message}</span><button onClick={clearMessage} aria-label="Fechar aviso">×</button></div>}
+      <form onSubmit={onSubmit} noValidate={false}>
+        {reg&&<label>Nome<input required minLength={2} autoFocus autoComplete="name" placeholder="O seu nome" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>}
+        <label>Email<input required type="email" autoFocus={!reg} autoComplete="email" placeholder="nome@empresa.com" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label>
+        <label>Palavra-passe<div className="auth-pw"><input required minLength={reg?10:1} type={show?'text':'password'} autoComplete={reg?'new-password':'current-password'} placeholder={reg?'Mínimo 10 caracteres':'A sua palavra-passe'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/><button type="button" onClick={()=>setShow(!show)} aria-pressed={show}>{show?'Ocultar':'Mostrar'}</button></div></label>
+        {reg&&<div className="auth-meter" aria-live="polite"><div className={'s'+strength}><i/><i/><i/></div><small>{labels[strength]||'Use pelo menos 10 caracteres'}</small></div>}
+        <button className="lp-btn auth-submit" disabled={busy}>{busy?'Aguarde…':reg?'Criar conta':'Entrar'} {!busy&&<span aria-hidden>→</span>}</button>
+      </form>
+      <p className="auth-switch">{reg?'Já tem conta?':'Ainda não tem conta?'} <button onClick={onSwitch}>{reg?'Entrar':'Criar conta grátis'}</button></p>
+    </div></section>
+  </div>
+}
+
 function Members({id}:{id:string}) {const [members,setMembers]=useState<{name:string;email:string}[]>([]);useEffect(()=>{api<{members:{name:string;email:string}[]}>('/projects/'+id+'/members').then(r=>setMembers(r.members)).catch(()=>{})},[id]);return <small>Editores: {members.length?members.map(m=>`${m.name} (${m.email})`).join(', '):'nenhum'}</small>}
 
 type AdminUser = User & { projects: number }
@@ -101,7 +139,7 @@ function AdminPanel({onBack}:{onBack:()=>void}) {
 
 function SimWindow({full}:{full?:boolean}) {
   return <div className={'lp-win'+(full?' full':'')} role="img" aria-label="Pré-visualização do editor DC-SIMU: esquema, Ladder, Painel 3D e Monitor">
-    <div className="lp-win-top"><b>◇ DC-SIMU</b><small>/ PROJETO MOTOR 01</small><span className="lp-run"><i/>RUN</span></div>
+    <div className="lp-win-top"><Logo dark size={22}/><small>/ PROJETO MOTOR 01</small><span className="lp-run"><i/>RUN</span></div>
     <div className="lp-win-tabs"><span className="on">Esquema</span><span>Ladder</span><span>Painel 3D</span><span>Monitor</span></div>
     <div className="lp-win-body">
       <div className="lp-pane lp-schem"><div className="lp-pane-h">CIRCUITO DE COMANDO<em>ESQUEMA · 01</em></div>
@@ -130,10 +168,11 @@ function Landing({onRegister,onLogin}:{onRegister:()=>void;onLogin:()=>void}) {
     {k:'01 / LIGAR',t:'Monte o seu esquema',p:'Organize componentes, bornes e cabos num espaço de trabalho visual.',i:'⌁'},
     {k:'02 / PROGRAMAR',t:'Programe e simule',p:'Crie lógica Ladder e acompanhe o comportamento do PLC durante o scan.',i:'▤'},
     {k:'03 / PARTILHAR',t:'Trabalhe em conjunto',p:'Convide editores para o projeto e continue o trabalho em equipa.',i:'↗'}]
+  const [menu,setMenu]=useState(false)
   return <div className="landing lp">
-    <nav className="lp-nav"><div className="lp-nav-in"><strong className="lp-logo">◇ DC-SIMU</strong>
-      <div className="lp-links"><a href="#funcionalidades">Funcionalidades</a><a href="#simulador">Simulador</a><a href="#recursos">Recursos</a><a href="#sobre">Sobre</a></div>
-      <div className="lp-nav-cta"><button className="lp-ghost" onClick={onLogin}>Entrar</button><button className="lp-btn sm" onClick={onRegister}>Criar projeto grátis</button></div></div></nav>
+    <nav className="lp-nav"><div className="lp-nav-in"><Logo/>
+      <div className={'lp-links'+(menu?' open':'')} onClick={()=>setMenu(false)}><a href="#funcionalidades">Funcionalidades</a><a href="#simulador">Simulador</a><a href="#recursos">Recursos</a><a href="#sobre">Sobre</a></div>
+      <div className="lp-nav-cta"><button className="lp-ghost" onClick={onLogin}>Entrar</button><button className="lp-btn sm" onClick={onRegister}>Criar projeto grátis</button><button className="lp-burger" aria-label="Menu" aria-expanded={menu} onClick={()=>setMenu(!menu)}><i/><i/><i/></button></div></div></nav>
     <section className="lp-hero"><div className="lp-hero-copy">
       <span className="lp-pill"><i/>O SEU LABORATÓRIO DE AUTOMAÇÃO</span>
       <h1>Projete o circuito.<br/><em>Veja-o ganhar vida.</em></h1>
@@ -147,6 +186,6 @@ function Landing({onRegister,onLogin}:{onRegister:()=>void;onLogin:()=>void}) {
       <div className="lp-feats">{items.map(f=><article key={f.k}><div className="lp-ic">{f.i}</div><span>{f.k}</span><h3>{f.t}</h3><p>{f.p}</p></article>)}</div></section>
     <section className="lp-sec lp-sim" id="simulador"><div className="lp-head"><div><span className="lp-tag">O SIMULADOR</span><h2>Esquema, Ladder e Painel 3D<br/>numa única área de trabalho.</h2></div><p>Componentes PLC, ligações elétricas e Monitor em tempo real, com o estado RUN sempre visível.</p></div><SimWindow full/></section>
     <section className="lp-end" id="sobre"><div><span className="lp-tag light">PRONTO PARA COMEÇAR?</span><h2>O próximo circuito começa aqui.</h2><p>Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.</p></div><button className="lp-btn light" onClick={onRegister}>Criar conta <span aria-hidden>↗</span></button></section>
-    <footer className="lp-foot"><strong>◇ DC-SIMU</strong><span>Esquema. Lógica. Simulação.</span><small>© {new Date().getFullYear()} DC-SIMU</small></footer>
+    <footer className="lp-foot"><Logo dark size={26}/><span>Esquema. Lógica. Simulação.</span><small>© {new Date().getFullYear()} DC-SIMU</small></footer>
   </div>
 }
