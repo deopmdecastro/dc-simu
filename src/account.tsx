@@ -99,40 +99,54 @@ function AdminPanel({onBack}:{onBack:()=>void}) {
   </section>
 }
 
+function SimWindow({full}:{full?:boolean}) {
+  return <div className={'lp-win'+(full?' full':'')} role="img" aria-label="Pré-visualização do editor DC-SIMU: esquema, Ladder, Painel 3D e Monitor">
+    <div className="lp-win-top"><b>◇ DC-SIMU</b><small>/ PROJETO MOTOR 01</small><span className="lp-run"><i/>RUN</span></div>
+    <div className="lp-win-tabs"><span className="on">Esquema</span><span>Ladder</span><span>Painel 3D</span><span>Monitor</span></div>
+    <div className="lp-win-body">
+      <div className="lp-pane lp-schem"><div className="lp-pane-h">CIRCUITO DE COMANDO<em>ESQUEMA · 01</em></div>
+        <svg viewBox="0 0 400 230" aria-hidden="true"><defs><pattern id="lpg" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#c9d5ea"/></pattern></defs><rect width="400" height="230" fill="url(#lpg)"/>
+          <g fill="none" stroke="#2655e5" strokeWidth="2" strokeLinejoin="round"><path d="M98 60 H140 V72 H170"/><path d="M226 72 H262 V56 H300"/><path d="M98 96 H124 V132 H170"/><path d="M226 132 H268 V150 H300"/><path d="M124 132 V196 H300"/></g>
+          <path d="M300 56 V196" stroke="#16a34a" strokeWidth="2" fill="none"/>
+          <g fill="#fff" stroke="#8fa3c7" strokeWidth="1.5"><rect x="26" y="40" width="72" height="72" rx="5"/><rect x="170" y="50" width="56" height="102" rx="5"/><rect x="300" y="34" width="76" height="180" rx="5"/></g>
+          <g fill="#12214f" fontFamily="system-ui" fontWeight="700" fontSize="9"><text x="36" y="60">24V POWER</text><text x="180" y="68">KM1</text><text x="310" y="52">PLC · LOGO!</text></g>
+          <g fill="#6a7fa6" fontFamily="system-ui" fontSize="8"><text x="36" y="100">DRAN120-24B</text><text x="180" y="92">A1</text><text x="180" y="136">A2</text><text x="310" y="90">I1 I2 I3 I4</text><text x="310" y="170">Q1 Q2 Q3 Q4</text></g>
+          <g fill="#3c6ff0" stroke="#fff" strokeWidth="1.5"><circle cx="98" cy="60" r="4"/><circle cx="98" cy="96" r="4"/><circle cx="170" cy="72" r="4"/><circle cx="226" cy="72" r="4"/><circle cx="170" cy="132" r="4"/><circle cx="226" cy="132" r="4"/><circle cx="300" cy="56" r="4"/><circle cx="300" cy="150" r="4"/></g>
+          <rect x="322" y="104" width="34" height="28" rx="3" fill="#12214f"/><text x="327" y="122" fontFamily="monospace" fontSize="9" fill="#5be08e">RUN</text>
+        </svg></div>
+      <div className="lp-side">
+        <div className="lp-pane lp-ladder"><div className="lp-pane-h">LADDER<em>REDE 1</em></div>
+          <svg viewBox="0 0 220 90" aria-hidden="true"><g stroke="#12214f" strokeWidth="2" fill="none"><path d="M10 8 V82"/><path d="M210 8 V82"/><path d="M10 26 H70 M92 26 H130 M152 26 H210"/><path d="M10 64 H70 M92 64 H130 M152 64 H210"/></g><g stroke="#2655e5" strokeWidth="2" fill="none"><path d="M70 16 V36 M92 16 V36"/><path d="M70 54 V74 M92 54 V74"/><circle cx="141" cy="26" r="10"/></g><path d="M10 26 H70 M92 26 H130" stroke="#16a34a" strokeWidth="2.5"/><g fontFamily="system-ui" fontSize="7" fill="#6a7fa6"><text x="66" y="12">I0.0</text><text x="66" y="50">Q0.0</text><text x="129" y="14">Q0.0</text></g></svg></div>
+        <div className="lp-pane lp-p3d"><div className="lp-pane-h">PAINEL 3D</div>
+          <svg viewBox="0 0 220 110" aria-hidden="true"><path d="M50 30 L110 12 L170 30 L170 86 L110 104 L50 86 Z" fill="#dbe4f4" stroke="#8fa3c7"/><path d="M50 30 L110 48 L170 30 M110 48 V104" fill="none" stroke="#8fa3c7"/><path d="M50 30 L110 48 V104 L50 86 Z" fill="#c4d2ec"/><g fill="#12214f"><rect x="66" y="46" width="14" height="9" transform="skewY(18)"/><rect x="86" y="52" width="14" height="9" transform="skewY(18)" fill="#2655e5"/></g><circle cx="140" cy="52" r="3" fill="#16a34a"/><rect x="128" y="62" width="30" height="16" fill="#12214f" transform="skewY(-18) translate(0 40)" opacity=".85"/></svg></div>
+      </div>
+    </div>
+    <div className="lp-win-foot"><span><i/>SIMULAÇÃO ATIVA</span><span className="lp-mon">Monitor · I0.0 ▮ &nbsp; Q0.0 ▮ &nbsp; KM1 ▮</span><span>3 componentes · 5 ligações</span></div>
+  </div>
+}
+
 function Landing({onRegister,onLogin}:{onRegister:()=>void;onLogin:()=>void}) {
-  return <div className="landing">
-    <section className="landing-hero">
-      <div className="landing-copy">
-        <div className="landing-eyebrow"><span className="landing-pulse"/> O SEU LABORATÓRIO DE AUTOMAÇÃO</div>
-        <h1>Projete o circuito.<br/><span>Veja-o ganhar vida.</span></h1>
-        <p>Do primeiro fio ao scan do PLC: crie esquemas, programe em Ladder e visualize o seu painel em 3D. Tudo ligado, no mesmo projeto.</p>
-        <div className="landing-actions"><button className="account-primary" onClick={onRegister}>Criar projeto grátis <span aria-hidden>↗</span></button><button className="landing-secondary" onClick={onLogin}>Entrar na minha conta <span aria-hidden>→</span></button></div>
-        <div className="landing-trust"><span className="landing-trust-dot">✓</span> Esquema, Ladder e painel 3D sincronizados <span className="landing-trust-line"/> <span className="landing-trust-dot">✓</span> Projetos partilhados com a equipa</div>
-      </div>
-      <div className="landing-visual" aria-label="Pré-visualização ilustrativa do editor de esquema DC-SIMU" role="img">
-        <div className="landing-window">
-          <div className="landing-window-top"><div className="landing-window-brand"><span>◇</span> DC-SIMU <small>/ PROJETO MOTOR 01</small></div><div className="landing-window-controls"><i/><i/><i/></div></div>
-          <div className="landing-window-tools"><span className="active">⌁ &nbsp; Esquema</span><span>▤ &nbsp; Ladder</span><span>▧ &nbsp; Painel 3D</span><span>◉ &nbsp; Monitor</span><b>● &nbsp; RUN</b></div>
-          <div className="landing-window-body"><aside><small>BIBLIOTECA</small><div>▣ <span>Controladores</span></div><div>◫ <span>Proteções</span></div><div>▤ <span>Contactores</span></div><div>⊕ <span>Botões e sinais</span></div><div>⌁ <span>Fontes</span></div><small className="landing-layers">CAMADAS</small><div>◉ <span>Componentes</span></div><div>◉ <span>Cabos</span></div></aside>
-            <div className="landing-canvas"><div className="landing-canvas-title">CIRCUITO DE COMANDO <span>ESQUEMA · 01</span></div><svg viewBox="0 0 620 370" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-              <defs><pattern id="landgrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#d4e0e8"/></pattern><marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6" fill="#24ad8b"/></marker></defs><rect width="620" height="370" fill="url(#landgrid)"/>
-              <g fill="none" stroke="#3f779d" strokeWidth="2.5" strokeLinejoin="round"><path d="M148 96 H218 V115 H269"/><path d="M350 115 H406 V85 H474"/><path d="M148 149 H200 V208 H269"/><path d="M350 208 H410 V232 H474"/><path d="M200 208 V287 H474"/><path d="M474 85 V287" stroke="#2da886"/></g>
-              <g fill="#fff" stroke="#748da1" strokeWidth="2"><rect x="34" y="64" width="114" height="112" rx="7"/><rect x="269" y="79" width="81" height="157" rx="7"/><rect x="474" y="56" width="112" height="251" rx="7"/></g>
-              <g fill="#edf4f8"><rect x="43" y="74" width="96" height="30" rx="3"/><rect x="278" y="89" width="63" height="30" rx="3"/><rect x="483" y="67" width="94" height="35" rx="3"/></g>
-              <g fill="#193e59" fontFamily="system-ui" fontWeight="700" fontSize="11"><text x="56" y="94">24V POWER</text><text x="283" y="109">KM1</text><text x="500" y="88">PLC · LOGO!</text></g>
-              <g fill="#5d778e" fontFamily="system-ui" fontSize="10"><text x="47" y="129">DRAN120-24B</text><text x="282" y="145">A1</text><text x="282" y="211">A2</text><text x="492" y="137">I1   I2   I3   I4</text><text x="492" y="260">Q1   Q2   Q3   Q4</text></g>
-              <g fill="#28a787" stroke="#fff" strokeWidth="2"><circle cx="148" cy="96" r="6"/><circle cx="148" cy="149" r="6"/><circle cx="269" cy="115" r="6"/><circle cx="269" cy="208" r="6"/><circle cx="350" cy="115" r="6"/><circle cx="350" cy="208" r="6"/><circle cx="474" cy="85" r="6"/><circle cx="474" cy="232" r="6"/><circle cx="474" cy="287" r="6"/></g><rect x="502" y="158" width="53" height="48" rx="4" fill="#143c56"/><text x="509" y="187" fontFamily="monospace" fill="#91e2ba" fontSize="12">RUN ✓</text>
-              <rect x="204" y="270" width="126" height="27" rx="13" fill="#dbf5eb"/><circle cx="221" cy="283" r="4" fill="#24a87c"/><text x="233" y="287" fontFamily="system-ui" fill="#147053" fontSize="10" fontWeight="700">Circuito ativo</text>
-            </svg><div className="landing-canvas-status"><span>● &nbsp; SIMULAÇÃO ATIVA</span><span>3 componentes &nbsp; · &nbsp; 5 ligações</span></div></div>
-          </div>
-        </div>
-        <div className="landing-float landing-float-top"><span>⚡</span><div><strong>Simulação em tempo real</strong><small>Do borne à lógica do PLC</small></div></div>
-        <div className="landing-float landing-float-bottom"><span>▧</span><div><strong>Uma única área de trabalho</strong><small>Esquema · Ladder · Painel 3D</small></div></div>
-      </div>
+  const items=[
+    {k:'01 / LIGAR',t:'Monte o seu esquema',p:'Organize componentes, bornes e cabos num espaço de trabalho visual.',i:'⌁'},
+    {k:'02 / PROGRAMAR',t:'Programe e simule',p:'Crie lógica Ladder e acompanhe o comportamento do PLC durante o scan.',i:'▤'},
+    {k:'03 / PARTILHAR',t:'Trabalhe em conjunto',p:'Convide editores para o projeto e continue o trabalho em equipa.',i:'↗'}]
+  return <div className="landing lp">
+    <nav className="lp-nav"><div className="lp-nav-in"><strong className="lp-logo">◇ DC-SIMU</strong>
+      <div className="lp-links"><a href="#funcionalidades">Funcionalidades</a><a href="#simulador">Simulador</a><a href="#recursos">Recursos</a><a href="#sobre">Sobre</a></div>
+      <div className="lp-nav-cta"><button className="lp-ghost" onClick={onLogin}>Entrar</button><button className="lp-btn sm" onClick={onRegister}>Criar projeto grátis</button></div></div></nav>
+    <section className="lp-hero"><div className="lp-hero-copy">
+      <span className="lp-pill"><i/>O SEU LABORATÓRIO DE AUTOMAÇÃO</span>
+      <h1>Projete o circuito.<br/><em>Veja-o ganhar vida.</em></h1>
+      <p>Do primeiro fio ao scan do PLC: crie esquemas, programe em Ladder e visualize o seu painel em 3D. Tudo ligado, no mesmo projeto.</p>
+      <div className="lp-actions"><button className="lp-btn" onClick={onRegister}>Criar projeto grátis <span aria-hidden>↗</span></button><button className="lp-outline" onClick={onLogin}>Entrar na minha conta <span aria-hidden>→</span></button></div>
+      <ul className="lp-checks"><li>Esquema, Ladder e painel 3D sincronizados</li><li>Projetos partilhados com a equipa</li></ul></div>
+      <div className="lp-hero-vis"><SimWindow/><div className="lp-chip c1">⚡ <div><b>Simulação em tempo real</b><small>Do borne à lógica do PLC</small></div></div><div className="lp-chip c2">▧ <div><b>Mais que um simulador.</b><small>Um ambiente completo.</small></div></div></div>
     </section>
-    <div className="landing-ribbon"><span>UM PROJETO, VÁRIAS VISTAS</span><b>Esquema elétrico</b><i/> <b>Ladder</b><i/> <b>GRAFCET</b><i/> <b>Painel 3D</b><i/> <b>Monitorização</b></div>
-    <section className="landing-below"><div className="landing-section-heading"><div><span className="account-pill">PENSADO PARA QUEM CONSTRÓI</span><h2>Menos ferramentas separadas.<br/>Mais tempo a criar.</h2></div><p>Uma experiência de ponta a ponta para desenhar, testar e partilhar os seus sistemas de automação.</p></div><div className="landing-benefits"><article><span className="landing-icon">⌁</span><span>01 / LIGAR</span><h3>Monte o seu esquema</h3><p>Organize componentes, bornes e cabos num espaço de trabalho visual.</p></article><article><span className="landing-icon">▤</span><span>02 / PROGRAMAR</span><h3>Programe e simule</h3><p>Crie lógica Ladder e acompanhe o comportamento do PLC durante o scan.</p></article><article><span className="landing-icon">↗</span><span>03 / PARTILHAR</span><h3>Trabalhe em conjunto</h3><p>Convide editores para o projeto e continue o trabalho em equipa.</p></article></div></section>
-    <section className="landing-end"><div><span className="account-pill">PRONTO PARA COMEÇAR?</span><h2>O próximo circuito começa aqui.</h2><p>Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.</p></div><button className="account-primary" onClick={onRegister}>Criar conta <span aria-hidden>↗</span></button></section>
-    <footer className="landing-footer"><strong>◇ DC-SIMU</strong><span>Esquema. Lógica. Simulação.</span><small>© {new Date().getFullYear()} DC-SIMU</small></footer>
+    <div className="lp-views" id="recursos"><span>UM PROJETO, VÁRIAS VISTAS</span><b>Esquema elétrico</b><i/><b>Ladder</b><i/><b>GRAFCET</b><i/><b>Painel 3D</b><i/><b>Monitorização</b></div>
+    <section className="lp-sec" id="funcionalidades"><div className="lp-head"><div><span className="lp-tag">PENSADO PARA QUEM CONSTRÓI</span><h2>Menos ferramentas separadas.<br/>Mais tempo a criar.</h2></div><p>Uma experiência de ponta a ponta para desenhar, testar e partilhar os seus sistemas de automação.</p></div>
+      <div className="lp-feats">{items.map(f=><article key={f.k}><div className="lp-ic">{f.i}</div><span>{f.k}</span><h3>{f.t}</h3><p>{f.p}</p></article>)}</div></section>
+    <section className="lp-sec lp-sim" id="simulador"><div className="lp-head"><div><span className="lp-tag">O SIMULADOR</span><h2>Esquema, Ladder e Painel 3D<br/>numa única área de trabalho.</h2></div><p>Componentes PLC, ligações elétricas e Monitor em tempo real, com o estado RUN sempre visível.</p></div><SimWindow full/></section>
+    <section className="lp-end" id="sobre"><div><span className="lp-tag light">PRONTO PARA COMEÇAR?</span><h2>O próximo circuito começa aqui.</h2><p>Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.</p></div><button className="lp-btn light" onClick={onRegister}>Criar conta <span aria-hidden>↗</span></button></section>
+    <footer className="lp-foot"><strong>◇ DC-SIMU</strong><span>Esquema. Lógica. Simulação.</span><small>© {new Date().getFullYear()} DC-SIMU</small></footer>
   </div>
 }
