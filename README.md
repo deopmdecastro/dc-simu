@@ -76,9 +76,9 @@ nem o conteúdo.
   DRAN120): é possível rodar, aproximar e ligar/desligar a alimentação; os modelos carregam em
   `Suspense`, protegidos por `ErrorBoundary`, sem bloquear a página.
 - A galeria pública mostra exclusivamente os **15 tipos que já possuem GLB real integrado**. Cada
-  cartão apresenta o selo **(3D)** e um turntable em rotação gerado do mesmo ficheiro usado no
-  Esquema e Painel 3D, sem equipamentos procedurais ou cartões ainda indisponíveis. As frames são
-  criadas sob demanda e o contexto WebGL temporário é libertado para preservar desempenho no móvel.
+  cartão apresenta o selo **(3D)** e começa estático; o utilizador gira o turntable horizontalmente
+  com rato, dedo ou setas do teclado. As frames vêm do mesmo ficheiro usado no Esquema e Painel 3D,
+  são criadas sob demanda e libertam o contexto WebGL temporário para preservar desempenho no móvel.
 - A demonstração Ladder reutiliza a linguagem visual do editor do simulador: árvore de projeto,
   separadores OB/FC, toolbar, métricas de scan, cabeçalho de Network, RLO e fluxo energizado IEC 61131-3.
 

@@ -11,7 +11,7 @@
  * tempo. Cada miniatura é desenhada, capturada como dataURL e o resultado
  * fica em cache — depois disso não existe nenhum WebGL "vivo" por item.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { getLogo3DImages } from '../schematic/logo3DImage'
 import { getProauto3DImage } from '../schematic/proauto3DImage'
 import { getWeg3DImage } from '../schematic/weg3DImage'
@@ -402,15 +402,16 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
   )
 }
 
-/** Turntable animado gerado exclusivamente a partir do GLB real. */
-export function RotatingComponentThumb({ type, size = 112 }: { type: ComponentType; size?: number }) {
+/**
+ * Turntable GLB estático até o utilizador o navegar. Arrastar na horizontal
+ * com rato ou dedo escolhe o ângulo; as setas permitem a mesma ação via teclado.
+ */
+export function InteractiveComponentThumb({ type, size = 112 }: { type: ComponentType; size?: number }) {
   const [frames, setFrames] = useState<string[]>([])
   const [frame, setFrame] = useState(0)
   const [failed, setFailed] = useState(false)
-  const reduceMotion = useMemo(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-    [],
-  )
+  const [dragging, setDragging] = useState(false)
+  const drag = useRef<{ pointerId: number; startX: number; startFrame: number } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -423,25 +424,55 @@ export function RotatingComponentThumb({ type, size = 112 }: { type: ComponentTy
     return () => { active = false }
   }, [type])
 
-  useEffect(() => {
-    if (reduceMotion || frames.length < 2) return
-    const timer = window.setInterval(() => setFrame((index) => (index + 1) % frames.length), 145)
-    return () => window.clearInterval(timer)
-  }, [frames, reduceMotion])
+  const normalizedFrame = (index: number) => frames.length ? (index % frames.length + frames.length) % frames.length : 0
+  const finishDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (drag.current?.pointerId !== event.pointerId) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    drag.current = null
+    setDragging(false)
+  }
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    setFrame((index) => normalizedFrame(index + (event.key === 'ArrowLeft' ? -1 : 1)))
+  }
 
   if (failed) return <div className="dc-real-glb-loading is-error" style={{ width: size, height: size }} aria-label="Não foi possível apresentar o modelo 3D" />
   const src = frames[frame]
   if (!src) return <div className="dc-real-glb-loading" style={{ width: size, height: size }} aria-hidden="true" />
   return (
-    <img
-      src={src}
-      width={size}
-      height={size}
-      alt=""
-      aria-hidden="true"
-      draggable={false}
-      className="dc-turntable-thumb"
-      style={{ width: size, height: size, objectFit: 'contain' }}
-    />
+    <div
+      className={`dc-turntable-control ${dragging ? 'is-dragging' : ''}`}
+      style={{ width: size, height: size }}
+      role="img"
+      tabIndex={0}
+      aria-label="Modelo 3D. Arraste horizontalmente para girar; use também as setas esquerda e direita."
+      title="Arraste para girar o modelo 3D"
+      onKeyDown={onKeyDown}
+      onPointerDown={(event) => {
+        if (frames.length < 2) return
+        drag.current = { pointerId: event.pointerId, startX: event.clientX, startFrame: frame }
+        event.currentTarget.setPointerCapture(event.pointerId)
+        setDragging(true)
+      }}
+      onPointerMove={(event) => {
+        const current = drag.current
+        if (!current || current.pointerId !== event.pointerId) return
+        const step = Math.round((event.clientX - current.startX) / 11)
+        setFrame(normalizedFrame(current.startFrame - step))
+      }}
+      onPointerUp={finishDrag}
+      onPointerCancel={finishDrag}
+    >
+      <img
+        src={src}
+        width={size}
+        height={size}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        className="dc-turntable-thumb"
+      />
+    </div>
   )
 }

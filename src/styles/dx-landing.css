@@ -903,8 +903,38 @@ html:has(.dx-landing) {
 .dx-lib-thumb .dc-real-glb-loading.is-error::after {
   content: '3D indisponível';
 }
+.dx-lib-thumb .dc-turntable-control {
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  cursor: grab;
+  outline: none;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.dx-lib-thumb .dc-turntable-control.is-dragging {
+  cursor: grabbing;
+}
+.dx-lib-thumb .dc-turntable-control:focus-visible {
+  box-shadow: 0 0 0 2px var(--dx-brand-line), 0 0 0 4px rgba(38, 85, 229, .12);
+}
 .dx-lib-thumb .dc-turntable-thumb {
+  pointer-events: none;
   will-change: transform;
+}
+.dx-lib-rotate-hint {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  padding: 3px 7px;
+  border: 1px solid rgba(203, 213, 225, .9);
+  border-radius: 999px;
+  color: var(--dx-ink-3);
+  background: rgba(255, 255, 255, .88);
+  font-size: 9px;
+  font-weight: 650;
+  pointer-events: none;
 }
 .dx-lib-3d {
   position: absolute;

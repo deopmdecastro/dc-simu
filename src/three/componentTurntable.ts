@@ -16,8 +16,8 @@ const nextPaint = () => new Promise<void>((resolve) => {
  * Renderiza um turntable real a partir do GLB do componente.
  *
  * As frames são produzidas uma única vez por tipo, usando um contexto WebGL
- * temporário que é libertado no fim. A landing anima imagens WebP leves em vez
- * de manter um Canvas/WebGL por cartão — importante sobretudo no Safari móvel.
+ * temporário que é libertado no fim. A landing navega entre imagens WebP leves
+ * em vez de manter um Canvas/WebGL por cartão — importante no Safari móvel.
  */
 export function getComponentTurntableFrames(type: ComponentType): Promise<string[]> {
   const cached = frameCache.get(type)

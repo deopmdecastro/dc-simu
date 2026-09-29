@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState, type CSSProperties } from 'react'
 import Logo, { LogoMark } from '../ui/Brand'
-import { RotatingComponentThumb } from '../three/componentThumbnails'
+import { InteractiveComponentThumb } from '../three/componentThumbnails'
 import { hasComponent3DModel } from '../three/modelPaths'
 import type { ComponentType } from '../types'
 import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight, IconChevronDown, IconZoomIn, IconZoomOut, IconUndo, IconRedo } from '../ui/icons'
@@ -101,7 +101,7 @@ function LandingGlbThumb({ type }: { type: ComponentType }) {
   }, [])
   return (
     <div ref={ref} className="dx-lib-model-slot">
-      {visible ? <RotatingComponentThumb type={type} size={112} /> : <div className="dc-real-glb-loading" aria-hidden />}
+      {visible ? <InteractiveComponentThumb type={type} size={112} /> : <div className="dc-real-glb-loading" aria-hidden />}
     </div>
   )
 }
@@ -579,7 +579,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           <div className="dx-head" data-rv>
             <span className="dx-over">Biblioteca com CAD validado</span>
             <h2>Apenas equipamentos que já têm modelo GLB real.</h2>
-            <p>Explore os 15 componentes atualmente integrados. Cada modelo gira em 3D a partir do mesmo ficheiro GLB usado no Esquema e no Painel 3D — sem miniaturas genéricas.</p>
+            <p>Explore os 15 componentes atualmente integrados. Cada modelo começa estático: arraste com o rato ou com o dedo para o girar em 3D, usando o mesmo GLB do Esquema e do Painel 3D.</p>
           </div>
           <div className="dx-lib-toolbar" data-rv>
             <div className="dx-lib-filters">
@@ -599,6 +599,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
                 <div className="dx-lib-thumb">
                   <LandingGlbThumb type={c.type} />
                   <span className="dx-lib-3d">(3D)</span>
+                  <span className="dx-lib-rotate-hint" aria-hidden="true">↔ Arraste para girar</span>
                 </div>
                 <div className="dx-lib-body">
                   <b>{c.n}</b>
