@@ -480,7 +480,7 @@ export default function Dashboard({
             <p>
               {modal.type === 'create'
                 ? 'Dê um nome ao quadro. Poderá adicionar componentes assim que o projeto abrir.'
-                : `Convide um utilizador registado para editar «${modal.project?.name}».`}
+                : `Convide a outra conta autorizada para editar «${modal.project?.name}».`}
             </p>
             <form onSubmit={(e) => void submit(e)}>
               <label className="dx-field">

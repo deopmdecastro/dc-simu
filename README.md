@@ -9,6 +9,21 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v4.7 (atualização automática e acesso local fechado)
+
+- Cada build recebe o identificador do commit Git e publica `version.json` sem cache. A aplicação
+  verifica-o ao abrir, ao regressar ao separador, ao recuperar a rede e periodicamente.
+- O service worker é registado em toda a aplicação. Ao encontrar uma versão nova, guarda primeiro
+  qualquer projeto alterado, ativa o novo worker e recarrega sem pedir confirmação. O Workbox remove
+  automaticamente precaches antigos; HTML, `sw.js`, manifesto e versão têm headers de revalidação.
+- O registo público foi removido. Apenas as contas fixas **Admin** (`admin@dcsimu.local`) e **User**
+  (`user@dcsimu.local`) podem autenticar, com papéis `admin` e `user` respetivamente.
+- Em deploy estático, sessão, projetos, revisões, convites e administração funcionam no próprio
+  navegador, sem `/api`. Quando a API Docker existe, o mesmo frontend mantém os projetos SQLite.
+  As palavras-passe nunca são guardadas na sessão local; apenas um identificador de conta é mantido.
+- Autenticação inteiramente cliente é controlo de acesso local, não substitui identidade segura num
+  ambiente hostil: o código e os dados do navegador continuam inspecionáveis pelo dono do dispositivo.
+
 ## Novidades — v4.6 (sinaleiro LED AD22-22DS)
 
 - Novo componente **Sinaleiro LED AD22-22DS · 24 V AC/DC**, com o GLB real no catálogo,
@@ -588,48 +603,48 @@ endereçamento industrial completo nem interfaces de parâmetros FC.
 **SCL/STL completos continuam por implementar**; os ficheiros de fonte são
 apenas guardados e editáveis, nunca executados silenciosamente.
 
-## Contas e projetos partilhados (Docker)
+## Contas fixas e persistência sem servidor
 
-Execute `docker compose up --build -d` e abra `http://localhost:3000`.
-O serviço inclui landing page, registo, login e dashboard. A API usa SQLite
-num **volume Docker** (`dcsimu_data`): não elimine o volume sem backup. As
-palavras-passe são derivadas com scrypt; sessões usam cookies HttpOnly. Cada
-projeto pertence a uma conta; só o proprietário o pode eliminar e convidar
-outros utilizadores. Os convites são enviados **dentro da aplicação** ao
-email de uma conta já registada. O convidado aceita no seu dashboard e passa
-a editor. Não são enviados emails SMTP. O guardado é explícito pelo botão
-«Guardar no servidor» (ou Ctrl+S); o aviso de alterações não guardadas aparece
-ao sair pelo botão Projetos. O controlo de revisão impede sobrescrever uma
-alteração feita por outro editor: é necessário voltar a abrir o projeto.
-Não há edição simultânea em tempo real nem autosave no servidor. A API verifica
-acesso a cada leitura e escrita. Para produção, use HTTPS, backups regulares
-do volume e configure um proxy reverso; a app não substitui uma solução de
-identidade empresarial (não há recuperação de password/verificação de email).
+O registo está desativado. Só existem estas identidades:
 
-Os projetos antigos guardados exclusivamente no navegador **não são migrados
-automaticamente** para nenhuma conta. Exporte-os em JSON na versão anterior
-e importe o ficheiro no editor da conta nova; crie primeiro um projeto no
-dashboard e guarde o conteúdo importado no servidor.
+- `admin@dcsimu.local` — papel `admin`;
+- `user@dcsimu.local` — papel `user`.
+
+As palavras-passe fixas são as definidas para a instalação. Num deploy estático
+como o Vercel, a validação ocorre no cliente e a sessão guarda apenas o ID da
+conta no `localStorage`; nenhum token nem palavra-passe é persistido. Projetos,
+revisões, convites entre as duas contas e a lista administrativa ficam também
+no navegador. O logout remove o marcador da sessão, mas não apaga projetos.
+Os projetos da ferramenta local antiga continuam nas respetivas chaves e no
+menu **Projetos** do editor; a atualização não os elimina nem reescreve.
+
+Este modo permite trabalhar sem servidor, mas não é autenticação forte contra
+o dono do dispositivo: uma aplicação estática e o seu armazenamento podem ser
+inspecionados. Para dados sensíveis, use um fornecedor de identidade e uma API
+autorizada no servidor.
+
+## API opcional e projetos partilhados (Docker)
+
+Execute `docker compose up --build -d` e abra `http://localhost:3000`. Quando a
+API está disponível, o frontend usa automaticamente SQLite no volume
+`dcsimu_data`, preservando os projetos partilhados entre dispositivos. Sem a
+API, muda para a persistência local descrita acima. Não elimine o volume sem
+backup.
+
+O servidor cria/redefine no arranque apenas as mesmas contas Admin e User,
+deriva as palavras-passe com scrypt e mantém sessões em cookies HttpOnly.
+`POST /api/register` devolve sempre 403, sessões antigas de outras contas são
+invalidadas e nenhuma terceira identidade pode iniciar sessão. Contas antigas
+e os respetivos projetos não são apagados da base, evitando destruição de
+dados, mas ficam impedidos de autenticar.
+
+Cada projeto pertence a uma conta; só o proprietário o pode eliminar e convidar
+a outra conta. O convidado aceita no dashboard e passa a editor. O controlo de
+revisão impede sobrescrever alterações feitas noutro separador ou dispositivo.
+Não há edição simultânea em tempo real nem envio de email SMTP.
 
 Para desenvolvimento local: `npm ci`, `npm start` (API na porta 3000) e
 `npm run dev` (Vite com proxy `/api`). Defina `DATA_DIR` para escolher o
-caminho persistente da base SQLite.
-
-### Administrador inicial de teste
-
-Copie `.env.example` para `.env`, substitua **ambas** as variáveis por um
-email e uma senha forte e execute `docker compose up --build -d`. No primeiro
-arranque, `ADMIN_EMAIL` e `ADMIN_PASSWORD` criam uma conta com papel `admin`.
-A senha **não** é versionada nem exibida. Se o email já pertencer a uma conta
-normal, o serviço recusa iniciar em vez de a promover silenciosamente. Nos
-arranques seguintes a senha existente não é redefinida pelas variáveis; guarde
-a senha em segurança. Depois de criar a conta pode retirar `ADMIN_PASSWORD`
-do ambiente, desde que retire também `ADMIN_EMAIL` (ambas vazias).
-
-Após iniciar sessão, a opção **Administração** permite ver contas e projetos,
-e apagar contas normais ou projetos (operações permanentes). Apagar uma conta
-apaga também os projetos de que é proprietária; administradores não podem ser
-apagados pela interface. A conta admin continua sujeita às permissões normais
-no editor: o painel administrativo **não** permite abrir ou alterar o conteúdo
-dos projetos de outros utilizadores. Use esta conta apenas para testes e
-administração, nunca distribua a palavra-passe de administração.
+caminho persistente da base SQLite e `PUBLIC_ORIGIN` quando usar um proxy.
+A opção **Administração** consulta as duas contas fixas e permite eliminar
+projetos; nenhuma das contas pode ser criada ou eliminada pela interface.

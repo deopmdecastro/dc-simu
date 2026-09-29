@@ -28,6 +28,7 @@ import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getPro
 import { COMPONENT_VIEW_PRESETS, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
+import { fixedAccountEmails, localApi, verifyFixedCredentials } from '../src/auth/localBackend'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
 
 let failures = 0
@@ -780,6 +781,39 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.getState().redo()
   check('Refazer reaplica a alteração GRAFCET', useSimStore.getState().grafcet.steps.some((step) => step.id === extra.id))
   useSimStore.setState({ grafcet: previous, history: [], future: [] })
+}
+
+/* A autenticação estática aceita exatamente as duas identidades aprovadas. */
+{
+  const emails = fixedAccountEmails()
+  const admin = await verifyFixedCredentials('ADMIN@DCSIMU.LOCAL', 'AdminDcsimu2026!')
+  const user = await verifyFixedCredentials('user@dcsimu.local', 'UserDcsimu2026!')
+  const wrongPassword = await verifyFixedCredentials('admin@dcsimu.local', 'senha-incorreta')
+  const unknown = await verifyFixedCredentials('outra@dcsimu.local', 'AdminDcsimu2026!')
+  check('allowlist local contém exatamente Admin e User', emails.length === 2
+    && emails.includes('admin@dcsimu.local') && emails.includes('user@dcsimu.local'))
+  check('credenciais fixas atribuem os papéis corretos', admin?.role === 'admin' && user?.role === 'user')
+  check('senha incorreta e terceira conta nunca autenticam', wrongPassword === null && unknown === null)
+
+  const memory = new Map<string, string>()
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => { memory.set(key, String(value)) },
+    removeItem: (key: string) => { memory.delete(key) },
+  } })
+  const loggedIn = await localApi<{ user: { role: string } }>('/login', 'POST', { email: 'user@dcsimu.local', password: 'UserDcsimu2026!' })
+  const created = await localApi<{ id: string; revision: number }>('/projects', 'POST', { name: 'Projeto local', content: { test: 1 } })
+  const saved = await localApi<{ revision: number }>(`/projects/${created.id}`, 'PUT', { revision: created.revision, content: { test: 2 } })
+  const reopened = await localApi<{ content: { test: number } }>(`/projects/${created.id}`)
+  await localApi('/logout', 'POST')
+  let sessionClosed = false
+  try { await localApi('/me') } catch { sessionClosed = true }
+  check('sessão local persiste a identidade e logout encerra o acesso', loggedIn.user.role === 'user' && sessionClosed)
+  check('backend sem servidor cria, revê e reabre projetos', saved.revision === 1 && reopened.content.test === 2)
+  let registrationBlocked = false
+  try { await localApi('/register', 'POST', { email: 'outra@dcsimu.local' }) } catch { registrationBlocked = true }
+  check('backend local mantém o registo desativado', registrationBlocked)
+  delete (globalThis as { localStorage?: Storage }).localStorage
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

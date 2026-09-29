@@ -54,7 +54,7 @@ const FEATURES = [
   { i: IconLadder, t: 'Ladder + GRAFCET', p: 'Programe a lógica de comando e acompanhe o scan do PLC network a network, em tempo real.' },
   { i: IconPlay, t: 'Simulação de comandos', p: 'Contactores, relés, proteções e motores reagem como no quadro real — antes de comprar material.' },
   { i: IconFile, t: 'Documentação automática', p: 'BOM, etiquetas normalizadas e datasheets dos equipamentos gerados a partir do próprio projeto.' },
-  { i: IconProjects, t: 'Projetos partilhados', p: 'Convide editores e mantenha o mesmo projeto acessível a toda a equipa, em qualquer ecrã.' },
+  { i: IconProjects, t: 'Projetos locais', p: 'Guarde no navegador e partilhe a edição entre as duas contas autorizadas neste dispositivo.' },
 ]
 
 const WHO = [
@@ -420,7 +420,7 @@ function EditorAnatomy() {
 }
 /* ================================================================ página */
 
-export default function Landing({ onRegister, onLogin }: { onRegister: () => void; onLogin: () => void }) {
+export default function Landing({ onAccess, onLogin }: { onAccess: () => void; onLogin: () => void }) {
   const [menu, setMenu] = useState(false)
   const [cat, setCat] = useState('Todos')
   const [swapped, setSwapped] = useState(false)
@@ -488,8 +488,8 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
             <button className="dx-btn dx-btn-ghost dx-btn-sm" onClick={onLogin}>
               Entrar
             </button>
-            <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={onRegister}>
-              Começar <span className="dx-long">gratuitamente</span>
+            <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={onAccess}>
+              Abrir <span className="dx-long">simulador</span>
             </button>
             <button className="dx-burger" aria-label={menu ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menu} onClick={() => setMenu(!menu)}>
               <i />
@@ -509,8 +509,8 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
               <button className="dx-btn dx-btn-secondary" onClick={onLogin}>
                 Entrar
               </button>
-              <button className="dx-btn dx-btn-primary" onClick={onRegister}>
-                Começar
+              <button className="dx-btn dx-btn-primary" onClick={onAccess}>
+                Abrir simulador
               </button>
             </div>
           </div>
@@ -527,8 +527,8 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
             </h1>
             <p>Monte o quadro em 3D com modelos CAD reais, desenhe o esquema, programe a lógica e simule o comando — tudo no mesmo projeto.</p>
             <div className="dx-hero-actions">
-              <button className="dx-btn dx-btn-primary dx-btn-lg" onClick={onRegister}>
-                Começar gratuitamente
+              <button className="dx-btn dx-btn-primary dx-btn-lg" onClick={onAccess}>
+                Entrar no simulador
                 <IconArrowRight size={16} className="dx-arrow" />
               </button>
               <a className="dx-btn dx-btn-secondary dx-btn-lg" href="#produto">
@@ -796,15 +796,15 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
         <div className="dx-wrap dx-cta-in">
           <div>
             <h2>O próximo quadro começa aqui.</h2>
-            <p>Crie a conta e monte o primeiro quadro em 3D em menos de um minuto. Gratuito, sem instalação.</p>
+            <p>Entre com uma conta autorizada e monte o seu quadro em 3D. Funciona sem servidor e sem instalação.</p>
           </div>
           <div className="dx-cta-actions">
-            <button className="dx-btn dx-btn-white dx-btn-lg" onClick={onRegister}>
-              Começar gratuitamente
+            <button className="dx-btn dx-btn-white dx-btn-lg" onClick={onAccess}>
+              Entrar no simulador
               <IconArrowRight size={16} className="dx-arrow" />
             </button>
             <button className="dx-btn dx-btn-outline-white dx-btn-lg" onClick={onLogin}>
-              Já tenho conta
+              Entrar
             </button>
           </div>
         </div>

@@ -23,17 +23,21 @@ const pwd = p => { const salt = randomBytes(16).toString('hex'); return salt + '
 const verify = (p, saved) => { const [salt, expected] = saved.split(':'); return timingSafeEqual(scryptSync(p, salt, 64), Buffer.from(expected, 'hex')) }
 // Migração não destrutiva das bases existentes.
 if (!db.prepare("PRAGMA table_info(users)").all().some(column => column.name === 'role')) db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
-const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
-const adminPassword = process.env.ADMIN_PASSWORD || ''
-if (adminEmail || adminPassword) {
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail) || adminPassword.length < 12) throw new Error('ADMIN_EMAIL e ADMIN_PASSWORD (mín. 12 caracteres) são obrigatórios para criar o administrador')
-  const existing = db.prepare('SELECT id,role FROM users WHERE email=?').get(adminEmail)
-  if (existing && existing.role !== 'admin') throw new Error('ADMIN_EMAIL já pertence a um utilizador normal. Escolha outro email; não há promoção automática.')
-  if (!existing) {
-    db.prepare('INSERT INTO users(id,email,name,password,role) VALUES (?,?,?,?,?)').run(id(),adminEmail,'Admin',pwd(adminPassword),'admin')
-    console.log('Conta administrativa inicial criada.')
+const fixedAccounts = [
+  { email: 'admin@dcsimu.local', name: 'Admin', password: 'AdminDcsimu2026!', role: 'admin' },
+  { email: 'user@dcsimu.local', name: 'User', password: 'UserDcsimu2026!', role: 'user' },
+]
+const fixedEmails = new Set(fixedAccounts.map(account => account.email))
+const seedFixedAccounts = db.transaction(() => {
+  for (const account of fixedAccounts) {
+    const existing = db.prepare('SELECT id FROM users WHERE email=?').get(account.email)
+    if (existing) db.prepare('UPDATE users SET name=?,password=?,role=? WHERE id=?').run(account.name,pwd(account.password),account.role,existing.id)
+    else db.prepare('INSERT INTO users(id,email,name,password,role) VALUES (?,?,?,?,?)').run(id(),account.email,account.name,pwd(account.password),account.role)
   }
-}
+  // Sessões antigas não podem contornar a nova lista fechada de acesso.
+  db.prepare('DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email NOT IN (?,?))').run(...fixedAccounts.map(account => account.email))
+})
+seedFixedAccounts()
 const fail = (res, code, message) => res.status(code).json({ error: message })
 const cookie = req => (req.headers.cookie || '').split(';').map(s => s.trim()).find(s => s.startsWith('dc_session='))?.slice(11)
 app.use('/api', (req, res, next) => {
@@ -43,7 +47,8 @@ app.use('/api', (req, res, next) => {
     if (origin && origin !== process.env.PUBLIC_ORIGIN && (() => { try { return new URL(origin).host !== req.get('host') } catch { return true } })()) return fail(res, 403, 'Origem inválida')
   }
   const token = cookie(req)
-  req.user = token ? db.prepare('SELECT users.id,users.email,users.name,users.role FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>?').get(hash(token), Date.now()) : null
+  const sessionUser = token ? db.prepare('SELECT users.id,users.email,users.name,users.role FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>?').get(hash(token), Date.now()) : null
+  req.user = sessionUser && fixedEmails.has(sessionUser.email) ? sessionUser : null
   next()
 })
 const auth = (req,res,next) => req.user ? next() : fail(res,401,'Inicie sessão')
@@ -53,12 +58,9 @@ const project = (req,res,next) => {
   if (!p) return fail(res,404,'Projeto não encontrado ou sem acesso')
   req.project=p; next()
 }
-app.post('/api/register',(req,res) => {
-  const email=String(req.body.email||'').trim().toLowerCase(), name=String(req.body.name||'').trim(), password=String(req.body.password||'')
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || name.length<2 || name.length>100 || password.length<10 || password.length>256) return fail(res,400,'Nome, email e palavra-passe de pelo menos 10 caracteres obrigatórios')
-  try { db.prepare('INSERT INTO users(id,email,name,password) VALUES (?,?,?,?)').run(id(),email,name,pwd(password)); return login(email,password,req,res) } catch { return fail(res,409,'Email já registado') }
-})
+app.post('/api/register',(_req,res) => fail(res,403,'O registo está desativado. Utilize uma das duas contas autorizadas.'))
 function login(email,password,req,res) {
+  if (!fixedEmails.has(email)) return fail(res,401,'Credenciais inválidas')
   const user=db.prepare('SELECT * FROM users WHERE email=?').get(email)
   if (!user || !verify(password,user.password)) return fail(res,401,'Credenciais inválidas')
   const token=randomBytes(32).toString('hex')
@@ -90,8 +92,10 @@ app.delete('/api/projects/:id',auth,project,(req,res)=>{if(req.project.role!=='o
 app.get('/api/projects/:id/members',auth,project,(req,res)=>res.json({members:db.prepare('SELECT u.name,u.email FROM members m JOIN users u ON u.id=m.user_id WHERE m.project_id=?').all(req.project.id)}))
 app.post('/api/projects/:id/invitations',auth,project,(req,res)=>{
  if(req.project.role!=='owner')return fail(res,403,'Apenas o proprietário pode convidar')
- const u=db.prepare('SELECT id FROM users WHERE email=?').get(String(req.body.email||'').trim().toLowerCase())
- if(!u)return fail(res,404,'O utilizador precisa criar conta antes do convite')
+ const targetEmail=String(req.body.email||'').trim().toLowerCase()
+ if(!fixedEmails.has(targetEmail))return fail(res,404,'Só é possível convidar uma das duas contas autorizadas')
+ const u=db.prepare('SELECT id FROM users WHERE email=?').get(targetEmail)
+ if(!u)return fail(res,404,'Conta autorizada não encontrada')
  if(u.id===req.user.id)return fail(res,400,'Já é proprietário')
  if(db.prepare('SELECT 1 FROM members WHERE project_id=? AND user_id=?').get(req.project.id,u.id))return fail(res,409,'Utilizador já é membro')
  try {db.prepare('INSERT INTO invitations VALUES (?,?,?,?,?)').run(id(),req.project.id,u.id,req.user.id,new Date().toISOString());res.status(201).json({ok:true})}catch{return fail(res,409,'Convite já pendente')}
@@ -106,7 +110,7 @@ app.post('/api/invitations/:id/:action',auth,(req,res)=>{
 })
 // Rotas administrativas separadas das rotas normais de projeto: o papel
 // admin não contorna implicitamente as permissões de leitura/escrita do editor.
-app.get('/api/admin/users',auth,admin,(req,res)=>res.json(db.prepare(`SELECT u.id,u.email,u.name,u.role,(SELECT count(*) FROM projects p WHERE p.owner_id=u.id) projects FROM users u ORDER BY u.email`).all()))
+app.get('/api/admin/users',auth,admin,(req,res)=>res.json(db.prepare(`SELECT u.id,u.email,u.name,u.role,(SELECT count(*) FROM projects p WHERE p.owner_id=u.id) projects FROM users u WHERE u.email IN (?,?) ORDER BY u.email`).all(...fixedAccounts.map(account => account.email))))
 app.get('/api/admin/projects',auth,admin,(req,res)=>res.json(db.prepare('SELECT p.id,p.name,p.updated_at,u.email owner FROM projects p JOIN users u ON u.id=p.owner_id ORDER BY p.updated_at DESC').all()))
 app.delete('/api/admin/projects/:id',auth,admin,(req,res)=>{
  const result=db.prepare('DELETE FROM projects WHERE id=?').run(req.params.id)
@@ -114,18 +118,16 @@ app.delete('/api/admin/projects/:id',auth,admin,(req,res)=>{
  res.json({ok:true})
 })
 app.delete('/api/admin/users/:id',auth,admin,(req,res)=>{
- const target=db.prepare('SELECT id,role FROM users WHERE id=?').get(req.params.id)
+ const target=db.prepare('SELECT id,email FROM users WHERE id=?').get(req.params.id)
  if(!target)return fail(res,404,'Utilizador não encontrado')
- if(target.role==='admin')return fail(res,403,'Não é permitido apagar administradores')
- db.transaction(()=>{
-   db.prepare('DELETE FROM invitations WHERE sender_id=? OR user_id=?').run(target.id,target.id)
-   db.prepare('DELETE FROM projects WHERE owner_id=?').run(target.id)
-   db.prepare('DELETE FROM members WHERE user_id=?').run(target.id)
-   db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.id)
-   db.prepare('DELETE FROM users WHERE id=?').run(target.id)
- })()
- res.json({ok:true})
+ if(fixedEmails.has(target.email))return fail(res,403,'As duas contas fixas não podem ser eliminadas')
+ return fail(res,403,'A eliminação de contas está desativada')
 })
 app.use('/api',(req,res)=>fail(res,404,'Endpoint não encontrado'))
-const root=resolve('dist');app.use(express.static(root));app.get('/{*path}',(req,res)=>res.sendFile(resolve(root,'index.html')))
+const root=resolve('dist')
+app.use(express.static(root,{setHeaders:(res,file)=>{
+ if(/(?:index\.html|sw\.js|version\.json)$/.test(file))res.setHeader('Cache-Control','no-cache, no-store, must-revalidate')
+ else if(file.includes('/assets/'))res.setHeader('Cache-Control','public, max-age=31536000, immutable')
+}}))
+app.get('/{*path}',(_req,res)=>{res.setHeader('Cache-Control','no-cache, no-store, must-revalidate');res.sendFile(resolve(root,'index.html'))})
 app.listen(Number(process.env.PORT||3000),'0.0.0.0',()=>console.log('DC-SIMU API ready'))

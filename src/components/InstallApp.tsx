@@ -1,7 +1,4 @@
 import { useEffect, useState } from 'react'
-import { registerSW } from 'virtual:pwa-register'
-import { saveAutosave } from '../utils/persistence'
-import { useSimStore } from '../store/useSimStore'
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
 
@@ -14,13 +11,6 @@ export default function InstallApp() {
     const onInstalled = () => { setStandalone(true); setPrompt(null); setOpen(false) }
     window.addEventListener('beforeinstallprompt', onPrompt)
     window.addEventListener('appinstalled', onInstalled)
-    const update = registerSW({ onNeedRefresh() {
-      if (window.confirm('Há uma nova versão do DC-SIMU. Guardar o projeto e atualizar agora?')) {
-        const state = useSimStore.getState()
-        if (state.dirty) saveAutosave(state.saveJSON())
-        void update(true)
-      }
-    } })
     return () => { window.removeEventListener('beforeinstallprompt', onPrompt); window.removeEventListener('appinstalled', onInstalled) }
   }, [])
   if (standalone) return null
