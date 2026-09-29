@@ -25,7 +25,9 @@ import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
 import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
-import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
+import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, getDefaultComponent3DPresentation, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
+import { component3DDimensions, component3DScaleOf, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from '../src/three/terminal3D'
+import * as THREE from 'three'
 import { automaticTerminalViewPositions, componentTerminalLocal, projectedComponentBounds } from '../src/schematic/componentTerminalViews'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
@@ -785,13 +787,33 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('rastreio automático projeta o borne quando a vista roda', Math.abs(frontTerminal.x - sideTerminal.x) > 0.1 || Math.abs(frontTerminal.y - sideTerminal.y) > 0.1)
   check('limites projetados nunca cortam o footprint original', isoBounds.w >= component.w && isoBounds.h >= component.h)
   check('rastreio automático cria uma sugestão para cada borne', Object.keys(automaticTerminalViewPositions(component, COMPONENT_VIEW_PRESETS.isometric)).length === component.terminals.length)
+  const physicalDimensions = component3DDimensions(component)
+  const physicalScale = component3DScaleOf(component)
+  const physicalPoint = terminalLocal3D(component, terminal)
+  const physicalRoundTrip = terminalPositionFromLocal3D(component, physicalPoint)
+  check('geometria física 3D partilhada converte e recupera coordenadas normalizadas', physicalDimensions.x > 0 && physicalDimensions.y > 0 && physicalDimensions.z > 0
+    && physicalScale.x === 1 && physicalScale.y === 1 && physicalScale.z === 1
+    && Math.abs(physicalRoundTrip.x - (terminal.position3D?.x ?? terminal.x)) < 1e-9
+    && Math.abs(physicalRoundTrip.y - (terminal.position3D?.y ?? 1 - terminal.y)) < 1e-9)
+  const endpointComponent = { ...component, viewOrientation: { x: 0, y: 90, z: 0 }, view3DScale: { x: 2, y: 0.5, z: 1.5 } }
+  const endpoint = terminalWorld3D(endpointComponent, terminal, new THREE.Vector3(3, 4, 5))
+  check('endpoint físico do cabo acompanha escala, rotação e pivô da instância', Math.abs(endpoint.x - (3 + physicalDimensions.z * 0.75)) < 1e-9
+    && Math.abs(endpoint.y - (4 + physicalDimensions.y * 0.5)) < 1e-9 && Math.abs(endpoint.z - 5) < 1e-9)
 
   const before = useSimStore.getState().components
-  useSimStore.setState({ components: [...before, component] })
+  const beforeWires = useSimStore.getState().wires
+  const physicalPeer = createComponent('breakerWegMdwC10')
+  const preservedWire: Wire = { id: 'smoke-3d-editor-wire', fromTerminalId: terminal.id, toTerminalId: physicalPeer.terminals[0].id, color: 'black', gauge: '1.5mm²', kind: 'control', flexibility: 'flexible', route: 'direct', bend: 0.5, energized: false }
+  useSimStore.setState({ components: [...before, component, physicalPeer], wires: [...beforeWires, preservedWire] })
   useSimStore.getState().openViewOrientationEditor(component.id)
   useSimStore.getState().setViewOrientationDraft({ x: 15, y: 35, z: -10 })
   useSimStore.getState().autoPlaceViewTerminals()
   useSimStore.getState().setViewTerminalPosition(terminal.id, { x: 0.23, y: 0.31 })
+  useSimStore.getState().setViewTerminalDefinition(terminal.id, { label: 'L1-EDIT', kind: 'spring', color: '#123456' })
+  useSimStore.getState().setViewTerminalDefinition(terminal.id, { position3D: { x: 0.2, y: 0.8, z: 0.95 } })
+  useSimStore.getState().setView3DScale({ x: 1.25, y: 0.75, z: 1.5 })
+  useSimStore.getState().setView3DRenderMode('xray')
+  useSimStore.getState().setView3DBodyColor('#1d4ed8')
   useSimStore.getState().applyViewOrientationEditor(false)
   const oriented = useSimStore.getState().components.find((item) => item.id === component.id)
   const customViewKey = componentTerminalViewKey({ x: 15, y: 35, z: -10 })
@@ -799,17 +821,41 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     && before.every((item, index) => useSimStore.getState().components[index].id === item.id && useSimStore.getState().components[index].viewOrientation === item.viewOrientation))
   check('posição manual do borne é guardada apenas na vista ativa', oriented?.terminalViewPositions?.[customViewKey]?.[terminal.id]?.x === 0.23
     && oriented.terminalViewPositions[customViewKey][terminal.id].y === 0.31)
+  const editedTerminal = oriented?.terminals.find((item) => item.id === terminal.id)
+  check('definição física do borne preserva identidade elétrica estável', editedTerminal?.id === terminal.id && editedTerminal.componentId === component.id
+    && editedTerminal.label === 'L1-EDIT' && editedTerminal.kind === 'spring' && editedTerminal.color === '#123456'
+    && editedTerminal.position3D?.x === 0.2 && editedTerminal.position3D.y === 0.8 && editedTerminal.position3D.z === 0.95)
+  check('escala, render e cor são persistidos sem alterar o estado funcional', oriented?.view3DScale?.x === 1.25 && oriented.view3DScale.y === 0.75
+    && oriented.view3DScale.z === 1.5 && oriented.view3DRenderMode === 'xray' && oriented.bodyColor === '#1d4ed8'
+    && oriented.state === component.state)
+  check('editar o componente preserva cabos e referências aos IDs dos bornes', useSimStore.getState().wires.some((wire) => wire.id === preservedWire.id
+    && wire.fromTerminalId === terminal.id && wire.toTerminalId === physicalPeer.terminals[0].id))
   const saved = JSON.parse(useSimStore.getState().saveJSON())
   const savedOriented = saved.components.find((item: ElectricalComponent) => item.id === component.id)
-  check('orientação e mapa de bornes persistem no JSON do projeto', savedOriented?.viewOrientation?.y === 35
-    && savedOriented?.terminalViewPositions?.[customViewKey]?.[terminal.id]?.y === 0.31)
+  check('orientação, mapa, físico e aparência persistem no JSON do projeto', savedOriented?.viewOrientation?.y === 35
+    && savedOriented?.terminalViewPositions?.[customViewKey]?.[terminal.id]?.y === 0.31
+    && savedOriented?.terminals.find((item: ElectricalComponent['terminals'][number]) => item.id === terminal.id)?.position3D?.z === 0.95
+    && savedOriented?.view3DScale?.z === 1.5 && savedOriented?.view3DRenderMode === 'xray' && savedOriented?.bodyColor === '#1d4ed8')
   useSimStore.getState().openViewOrientationEditor(component.id)
   useSimStore.getState().setViewOrientationDraft(COMPONENT_VIEW_PRESETS.top)
   useSimStore.getState().setViewTerminalPosition(terminal.id, { x: 0.9, y: 0.9 })
+  useSimStore.getState().setViewTerminalDefinition(terminal.id, { position3D: { x: 1, y: 0, z: 0 } })
+  useSimStore.getState().setView3DScale({ x: 4, y: 4, z: 4 })
+  useSimStore.getState().setView3DRenderMode('wireframe')
+  useSimStore.getState().setView3DBodyColor('#ef4444')
   useSimStore.getState().cancelViewOrientationEditor()
   const cancelled = useSimStore.getState().components.find((item) => item.id === component.id)
-  check('Cancelar descarta orientação e bornes do rascunho', cancelled?.viewOrientation?.y === 35 && !cancelled?.terminalViewPositions?.top)
-  useSimStore.setState({ components: before, viewOrientationEditor: null })
+  check('Cancelar descarta orientação, bornes e aparência do rascunho', cancelled?.viewOrientation?.y === 35 && !cancelled?.terminalViewPositions?.top
+    && cancelled?.terminals.find((item) => item.id === terminal.id)?.position3D?.z === 0.95
+    && cancelled?.view3DScale?.x === 1.25 && cancelled?.view3DRenderMode === 'xray' && cancelled?.bodyColor === '#1d4ed8')
+  const idsBeforeDuplicate = new Set(useSimStore.getState().components.map((item) => item.id))
+  useSimStore.getState().duplicateComponents([component.id])
+  const duplicate = useSimStore.getState().components.find((item) => !idsBeforeDuplicate.has(item.id))
+  check('duplicação copia físico e aparência mas cria identidades elétricas novas', duplicate?.view3DScale?.x === 1.25
+    && duplicate?.view3DRenderMode === 'xray' && duplicate?.bodyColor === '#1d4ed8'
+    && duplicate.terminals[0]?.position3D?.z === cancelled?.terminals[0]?.position3D?.z
+    && duplicate.terminals.every((item, index) => item.id !== cancelled?.terminals[index]?.id && item.componentId === duplicate.id))
+  useSimStore.setState({ components: before, wires: beforeWires, viewOrientationEditor: null })
 }
 
 /* Padrões de tipo usam a ordem estável dos bornes, sem alterar instâncias existentes. */
@@ -828,12 +874,21 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.getState().openViewOrientationEditor(source.id)
   useSimStore.getState().setViewOrientationDraft(COMPONENT_VIEW_PRESETS.right)
   useSimStore.getState().setViewTerminalPosition(terminal.id, { x: 0.18, y: 0.27 })
+  useSimStore.getState().setView3DScale({ x: 0.8, y: 1.1, z: 1.3 })
+  useSimStore.getState().setView3DRenderMode('wireframe')
+  useSimStore.getState().setView3DBodyColor('#0f766e')
   useSimStore.getState().applyViewOrientationEditor(true)
   const future = createComponent('breakerWegMdwC10')
   const futurePoint = componentTerminalLocal(future, future.terminals[0])
-  check('padrão do tipo aplica orientação e bornes apenas a futuras instâncias', componentTerminalViewKey(future.viewOrientation) === 'right'
+  check('padrão do tipo aplica orientação, bornes e aparência apenas a futuras instâncias', componentTerminalViewKey(future.viewOrientation) === 'right'
     && Math.abs(futurePoint.x / future.w - 0.18) < 1e-9 && Math.abs(futurePoint.y / future.h - 0.27) < 1e-9
-    && isOriginalComponentOrientation(useSimStore.getState().components.find((item) => item.id === existingPeer.id)?.viewOrientation))
+    && future.view3DScale?.x === 0.8 && future.view3DScale.y === 1.1 && future.view3DScale.z === 1.3
+    && future.view3DRenderMode === 'wireframe' && future.bodyColor === '#0f766e'
+    && isOriginalComponentOrientation(useSimStore.getState().components.find((item) => item.id === existingPeer.id)?.viewOrientation)
+    && useSimStore.getState().components.find((item) => item.id === existingPeer.id)?.view3DScale?.x === 1)
+  const savedPresentation = getDefaultComponent3DPresentation('breakerWegMdwC10')
+  check('padrão físico do tipo é normalizado e persistente', savedPresentation.scale.x === 0.8 && savedPresentation.scale.z === 1.3
+    && savedPresentation.renderMode === 'wireframe' && savedPresentation.bodyColor === '#0f766e')
   useSimStore.setState({ components: before, viewOrientationEditor: null })
   delete (globalThis as { localStorage?: Storage }).localStorage
 }

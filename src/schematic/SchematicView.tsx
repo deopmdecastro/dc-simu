@@ -316,6 +316,10 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     ...component,
     viewOrientation: viewOrientationEditor.draft,
     terminalViewPositions: viewOrientationEditor.terminalViewPositions,
+    terminals: viewOrientationEditor.terminals,
+    view3DScale: viewOrientationEditor.scale3D,
+    view3DRenderMode: viewOrientationEditor.renderMode3D,
+    bodyColor: viewOrientationEditor.bodyColor3D,
   } : component), [components, viewOrientationEditor])
 
   const terminalIndex = useMemo(() => {

@@ -20,7 +20,7 @@ import type {
   TerminalKind,
   TerminalType,
 } from '../types'
-import { getDefaultComponentOrientation, getDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
+import { getDefaultComponent3DPresentation, getDefaultComponentOrientation, getDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
 import { getSchematicPhysicalFootprint } from '../three/modelPaths'
 
 export interface TerminalTemplate {
@@ -721,6 +721,7 @@ export function createComponent(
     y: t.y,
     energized: false,
   }))
+  const presentation3D = getDefaultComponent3DPresentation(type)
   return {
     id: compId,
     type,
@@ -735,9 +736,11 @@ export function createComponent(
     rotation: 0,
     viewOrientation: getDefaultComponentOrientation(type),
     terminalViewPositions: getDefaultComponentTerminalViewPositions(type),
+    view3DScale: presentation3D.scale,
+    view3DRenderMode: presentation3D.renderMode,
     mirrored: false,
     locked: false,
-    bodyColor: undefined,
+    bodyColor: presentation3D.bodyColor,
     terminals,
     // Cada PLC precisa das suas próprias tabelas I/Q/M; o spread superficial
     // partilhava `outputs` entre instâncias do mesmo modelo.

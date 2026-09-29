@@ -14,6 +14,7 @@ import {
 import { logoTerminalLocal } from './logoTerminalGeometry'
 import { proautoTerminalLocal } from './proautoTerminalGeometry'
 import { wegTerminalLocal } from './wegTerminalGeometry'
+import { terminal3DPositionOf } from '../three/terminal3D'
 
 type Point3 = { x: number; y: number; z: number }
 
@@ -81,9 +82,14 @@ export function projectedTerminalLocal(
   orientation = componentOrientationOf(component),
 ): { x: number; y: number } {
   const base = baseTerminalLocal(component, terminal)
-  if (isOriginalComponentOrientation(orientation)) return base
+  if (isOriginalComponentOrientation(orientation) && !terminal.position3D) return base
   const geometry = projectedGeometry(component, orientation)
-  const point = rotate({
+  const defined3D = terminal.position3D ? terminal3DPositionOf(terminal) : null
+  const point = rotate(defined3D ? {
+    x: (defined3D.x - 0.5) * geometry.width,
+    y: (defined3D.y - 0.5) * geometry.height,
+    z: (defined3D.z - 0.5) * geometry.depth,
+  } : {
     x: base.x - geometry.width / 2,
     y: geometry.height / 2 - base.y,
     z: geometry.depth / 2,

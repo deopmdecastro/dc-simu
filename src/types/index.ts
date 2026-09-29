@@ -151,6 +151,9 @@ export interface Terminal {
   /** Posição no footprint local do componente (0..1) */
   x: number
   y: number
+  /** Posição física normalizada no volume 3D do componente.
+   * X = esquerda/direita, Y = baixo/cima, Z = trás/frente (0..1). */
+  position3D?: { x: number; y: number; z: number }
   /** Fixado pelo usuário — impede reposicionamento automático */
   pinned?: boolean
   /** Está energizado neste ciclo de varredura (derivado) */
@@ -159,6 +162,15 @@ export interface Terminal {
 
 export interface ComponentViewOrientation {
   /** Rotação visual adicional em graus, sem alterar lógica, bornes ou modelo de origem. */
+  x: number
+  y: number
+  z: number
+}
+
+export type Component3DRenderMode = 'solid' | 'wireframe' | 'xray'
+
+export interface Component3DScale {
+  /** Escala visual por eixo. 1 mantém as dimensões físicas do GLB. */
   x: number
   y: number
   z: number
@@ -195,6 +207,10 @@ export interface ElectricalComponentBase {
   viewOrientation?: ComponentViewOrientation
   /** Ajustes visuais dos bornes por vista 3D. As ligações continuam referenciadas pelo id. */
   terminalViewPositions?: ComponentTerminalViewPositions
+  /** Escala visual individual no Painel 3D; não altera o GLB de origem. */
+  view3DScale?: Component3DScale
+  /** Apresentação individual do modelo no Painel 3D. */
+  view3DRenderMode?: Component3DRenderMode
   /** Espelhamento horizontal */
   mirrored?: boolean
   /** Bloqueado contra arraste acidental */

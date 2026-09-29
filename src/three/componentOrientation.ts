@@ -1,8 +1,9 @@
-import type { ComponentTerminalViewPositions, ComponentType, ComponentViewOrientation, ElectricalComponent } from '../types'
+import type { Component3DRenderMode, Component3DScale, ComponentTerminalViewPositions, ComponentType, ComponentViewOrientation, ElectricalComponent } from '../types'
 
 export const ZERO_COMPONENT_ORIENTATION: ComponentViewOrientation = Object.freeze({ x: 0, y: 0, z: 0 })
 export const COMPONENT_VIEW_DEFAULTS_KEY = 'dc-simu:component-view-defaults:v1'
 export const COMPONENT_TERMINAL_VIEW_DEFAULTS_KEY = 'dc-simu:component-terminal-view-defaults:v1'
+export const COMPONENT_3D_PRESENTATION_DEFAULTS_KEY = 'dc-simu:component-3d-presentation-defaults:v1'
 
 export type ComponentViewPreset = 'isometric' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'original'
 
@@ -121,5 +122,43 @@ export function saveDefaultComponentTerminalViewPositions(type: ComponentType, v
     localStorage.setItem(COMPONENT_TERMINAL_VIEW_DEFAULTS_KEY, JSON.stringify(current))
   } catch {
     // O projeto continua funcional mesmo se o armazenamento estiver bloqueado.
+  }
+}
+
+export type Component3DPresentation = { scale: Component3DScale; renderMode: Component3DRenderMode; bodyColor?: string }
+
+function cleanPresentation(value: Partial<Component3DPresentation> | undefined): Component3DPresentation {
+  const finiteScale = (axis: keyof Component3DScale) => typeof value?.scale?.[axis] === 'number' && Number.isFinite(value.scale[axis])
+    ? Math.max(0.25, Math.min(4, value.scale[axis]))
+    : 1
+  return {
+    scale: { x: finiteScale('x'), y: finiteScale('y'), z: finiteScale('z') },
+    renderMode: value?.renderMode === 'wireframe' || value?.renderMode === 'xray' ? value.renderMode : 'solid',
+    ...(typeof value?.bodyColor === 'string' && /^#[0-9a-f]{6}$/i.test(value.bodyColor) ? { bodyColor: value.bodyColor } : {}),
+  }
+}
+
+function readPresentationDefaults(): Partial<Record<ComponentType, Component3DPresentation>> {
+  if (typeof localStorage === 'undefined') return {}
+  try {
+    const parsed = JSON.parse(localStorage.getItem(COMPONENT_3D_PRESENTATION_DEFAULTS_KEY) ?? '{}') as Record<string, Partial<Component3DPresentation>>
+    return Object.fromEntries(Object.entries(parsed).map(([type, presentation]) => [type, cleanPresentation(presentation)])) as Partial<Record<ComponentType, Component3DPresentation>>
+  } catch {
+    return {}
+  }
+}
+
+export function getDefaultComponent3DPresentation(type: ComponentType): Component3DPresentation {
+  return structuredClone(readPresentationDefaults()[type] ?? cleanPresentation(undefined))
+}
+
+export function saveDefaultComponent3DPresentation(type: ComponentType, value: Component3DPresentation): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const current = readPresentationDefaults()
+    current[type] = cleanPresentation(value)
+    localStorage.setItem(COMPONENT_3D_PRESENTATION_DEFAULTS_KEY, JSON.stringify(current))
+  } catch {
+    // Mantém o editor funcional quando o armazenamento local está bloqueado.
   }
 }

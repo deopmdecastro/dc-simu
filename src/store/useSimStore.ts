@@ -17,6 +17,8 @@ import type {
   FaultState,
   ComponentType,
   ComponentViewOrientation,
+  Component3DRenderMode,
+  Component3DScale,
   ComponentTerminalViewPosition,
   ComponentTerminalViewPositions,
   Terminal,
@@ -39,8 +41,9 @@ import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 import { hasComponent3DModel } from '../three/modelPaths'
-import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOrientation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
+import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
 import { automaticTerminalViewPositions } from '../schematic/componentTerminalViews'
+import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosition, terminal3DPositionOf } from '../three/terminal3D'
 
 export interface Snapshot {
   components: ElectricalComponent[]
@@ -152,10 +155,20 @@ interface Store extends CircuitState {
     componentId: string
     draft: ComponentViewOrientation
     terminalViewPositions: ComponentTerminalViewPositions
+    terminals: Terminal[]
+    activeTerminalId: string | null
+    scale3D: Component3DScale
+    renderMode3D: Component3DRenderMode
+    bodyColor3D?: string
   } | null
   openViewOrientationEditor: (componentId: string) => void
   setViewOrientationDraft: (orientation: ComponentViewOrientation) => void
   setViewTerminalPosition: (terminalId: string, position: ComponentTerminalViewPosition) => void
+  setViewTerminalDefinition: (terminalId: string, patch: Partial<Terminal>) => void
+  setViewActiveTerminal: (terminalId: string | null) => void
+  setView3DScale: (scale: Component3DScale) => void
+  setView3DRenderMode: (mode: Component3DRenderMode) => void
+  setView3DBodyColor: (color?: string) => void
   autoPlaceViewTerminals: () => void
   cancelViewOrientationEditor: () => void
   applyViewOrientationEditor: (saveAsDefault: boolean) => void
@@ -812,6 +825,11 @@ export const useSimStore = create<Store>((set, get) => ({
         componentId,
         draft: componentOrientationOf(component),
         terminalViewPositions: structuredClone(component.terminalViewPositions ?? {}),
+        terminals: structuredClone(component.terminals),
+        activeTerminalId: component.terminals[0]?.id ?? null,
+        scale3D: component3DScaleOf(component),
+        renderMode3D: component.view3DRenderMode ?? 'solid',
+        bodyColor3D: component.bodyColor,
       },
       selectedComponentIds: [componentId],
       selectedWireId: null,
@@ -828,6 +846,7 @@ export const useSimStore = create<Store>((set, get) => ({
     return {
       viewOrientationEditor: {
         ...editor,
+        activeTerminalId: terminalId,
         terminalViewPositions: {
           ...editor.terminalViewPositions,
           [viewKey]: {
@@ -838,6 +857,44 @@ export const useSimStore = create<Store>((set, get) => ({
       },
     }
   }),
+  setViewTerminalDefinition: (terminalId, patch) => set((state) => {
+    const editor = state.viewOrientationEditor
+    if (!editor) return {}
+    return {
+      viewOrientationEditor: {
+        ...editor,
+        activeTerminalId: terminalId,
+        terminals: editor.terminals.map((terminal) => {
+          if (terminal.id !== terminalId) return terminal
+          const next = {
+            ...terminal,
+            ...patch,
+            id: terminal.id,
+            componentId: terminal.componentId,
+            energized: terminal.energized,
+          }
+          if (Object.prototype.hasOwnProperty.call(patch, 'position3D')) {
+            next.position3D = patch.position3D
+              ? normalizeTerminal3DPosition(patch.position3D, terminal3DPositionOf(terminal))
+              : undefined
+          }
+          return next
+        }),
+      },
+    }
+  }),
+  setViewActiveTerminal: (terminalId) => set((state) => state.viewOrientationEditor ? {
+    viewOrientationEditor: { ...state.viewOrientationEditor, activeTerminalId: terminalId },
+  } : {}),
+  setView3DScale: (scale) => set((state) => state.viewOrientationEditor ? {
+    viewOrientationEditor: { ...state.viewOrientationEditor, scale3D: normalizeComponent3DScale(scale) },
+  } : {}),
+  setView3DRenderMode: (mode) => set((state) => state.viewOrientationEditor ? {
+    viewOrientationEditor: { ...state.viewOrientationEditor, renderMode3D: mode === 'wireframe' || mode === 'xray' ? mode : 'solid' },
+  } : {}),
+  setView3DBodyColor: (color) => set((state) => state.viewOrientationEditor ? {
+    viewOrientationEditor: { ...state.viewOrientationEditor, bodyColor3D: color && /^#[0-9a-f]{6}$/i.test(color) ? color : undefined },
+  } : {}),
   autoPlaceViewTerminals: () => set((state) => {
     const editor = state.viewOrientationEditor
     if (!editor) return {}
@@ -849,7 +906,7 @@ export const useSimStore = create<Store>((set, get) => ({
         ...editor,
         terminalViewPositions: {
           ...editor.terminalViewPositions,
-          [viewKey]: automaticTerminalViewPositions(component, editor.draft),
+          [viewKey]: automaticTerminalViewPositions({ ...component, terminals: editor.terminals }, editor.draft),
         },
       },
     }
@@ -862,6 +919,10 @@ export const useSimStore = create<Store>((set, get) => ({
     if (!component) { set({ viewOrientationEditor: null }); return }
     const orientation = normalizeComponentOrientation(editor.draft)
     const terminalViewPositions = structuredClone(editor.terminalViewPositions)
+    const terminalDrafts = structuredClone(editor.terminals)
+    const scale3D = normalizeComponent3DScale(editor.scale3D)
+    const renderMode3D = editor.renderMode3D
+    const bodyColor3D = editor.bodyColor3D
     get().commitHistory()
     if (saveAsDefault) {
       saveDefaultComponentOrientation(component.type, orientation)
@@ -873,9 +934,21 @@ export const useSimStore = create<Store>((set, get) => ({
         })),
       ]))
       saveDefaultComponentTerminalViewPositions(component.type, reusablePositions)
+      saveDefaultComponent3DPresentation(component.type, { scale: scale3D, renderMode: renderMode3D, bodyColor: bodyColor3D })
     }
     set((state) => ({
-      components: state.components.map((item) => item.id === component.id ? { ...item, viewOrientation: orientation, terminalViewPositions } : item),
+      components: state.components.map((item) => item.id === component.id ? {
+        ...item,
+        viewOrientation: orientation,
+        terminalViewPositions,
+        view3DScale: scale3D,
+        view3DRenderMode: renderMode3D,
+        bodyColor: bodyColor3D,
+        terminals: item.terminals.map((terminal) => {
+          const draft = terminalDrafts.find((candidate) => candidate.id === terminal.id)
+          return draft ? { ...draft, id: terminal.id, componentId: terminal.componentId, energized: terminal.energized } : terminal
+        }),
+      } : item),
       viewOrientationEditor: null,
       dirty: true,
     }))
@@ -930,9 +1003,26 @@ export const useSimStore = create<Store>((set, get) => ({
             return [index === undefined ? terminalId : `index:${index}`, { ...position }]
           })),
         ]))
+        clone.terminals = clone.terminals.map((terminal, index) => {
+          const source = src.terminals[index]
+          return source ? {
+            ...terminal,
+            label: source.label,
+            displayName: source.displayName,
+            kind: source.kind,
+            terminalType: source.terminalType,
+            color: source.color,
+            x: source.x,
+            y: source.y,
+            position3D: source.position3D ? { ...source.position3D } : undefined,
+            pinned: source.pinned,
+          } : terminal
+        })
         clone.w = src.w
         clone.h = src.h
         clone.bodyColor = src.bodyColor
+        clone.view3DScale = component3DScaleOf(src)
+        clone.view3DRenderMode = src.view3DRenderMode ?? 'solid'
         clones.push(clone)
       }
       return { components: [...s.components, ...clones], selectedComponentIds: clones.map((c) => c.id), dirty: true }

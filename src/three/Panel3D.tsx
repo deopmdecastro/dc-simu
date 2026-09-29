@@ -1,15 +1,15 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Text, Line, useGLTF } from '@react-three/drei'
+import { OrbitControls, Text, Line, TransformControls, useGLTF } from '@react-three/drei'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
-import { terminalPos } from '../schematic/symbols'
 import { SCENARIOS } from '../simulation/scenarios'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType } from '../types'
 import * as THREE from 'three'
 import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel } from './modelPaths'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
+import { component3DScaleOf, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
 
 const SLOT_WIDTH = 0.72
@@ -134,17 +134,85 @@ const LOGO_1224RC_MODEL_URL = LOGO_1224RC_SPEC.path
 const LOGO_1224RC_ROTATION = LOGO_1224RC_SPEC.rotation
 const LOGO_1224RC_TARGET_HEIGHT = LOGO_1224RC_SPEC.targetHeight
 
-function OrientedInstance({ c, pivot, orientation, selected, onSelect, children }: {
+function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['view3DRenderMode'], bodyColor?: string) {
+  if (!group) return
+  group.traverse((node) => {
+    const mesh = node as THREE.Mesh
+    if (!mesh.isMesh) return
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    materials.forEach((material) => {
+      const visual = material as THREE.Material & { wireframe?: boolean; opacity: number; transparent: boolean; depthWrite: boolean }
+      const colorMaterial = visual as typeof visual & { color?: THREE.Color }
+      if (!visual.userData.dcSimuPresentationBase) visual.userData.dcSimuPresentationBase = {
+        wireframe: !!visual.wireframe,
+        opacity: visual.opacity,
+        transparent: visual.transparent,
+        depthWrite: visual.depthWrite,
+        color: colorMaterial.color?.getHexString(),
+      }
+      const base = visual.userData.dcSimuPresentationBase as { wireframe: boolean; opacity: number; transparent: boolean; depthWrite: boolean; color?: string }
+      visual.wireframe = mode === 'wireframe' ? true : base.wireframe
+      visual.opacity = mode === 'xray' ? Math.min(0.34, base.opacity) : base.opacity
+      visual.transparent = mode === 'xray' ? true : base.transparent
+      visual.depthWrite = mode === 'xray' ? false : base.depthWrite
+      if (colorMaterial.color && base.color) {
+        colorMaterial.color.set(`#${base.color}`)
+        if (bodyColor) colorMaterial.color.lerp(new THREE.Color(bodyColor), 0.34)
+      }
+      visual.needsUpdate = true
+    })
+  })
+}
+
+function EditableTerminal3D({ component, terminal, active }: { component: ElectricalComponent; terminal: ElectricalComponent['terminals'][number]; active: boolean }) {
+  const handle = useRef<THREE.Group>(null)
+  const setActive = useSimStore((state) => state.setViewActiveTerminal)
+  const setDefinition = useSimStore((state) => state.setViewTerminalDefinition)
+  const position = terminalLocal3D(component, terminal)
+  const marker = <group
+    ref={handle}
+    position={position}
+    onClick={(event) => { event.stopPropagation(); setActive(terminal.id) }}
+  >
+    <mesh>
+      <sphereGeometry args={[active ? 0.055 : 0.042, 18, 18]} />
+      <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : '#000000'} emissiveIntensity={active ? 0.7 : 0} metalness={0.2} roughness={0.35} depthTest={false} />
+    </mesh>
+    <Text position={[0, 0.085, 0]} fontSize={0.06} color={active ? '#0e7490' : '#1e293b'} anchorX="center" anchorY="bottom" depthOffset={-2}>{terminal.label}</Text>
+  </group>
+  if (!active) return marker
+  return <TransformControls
+    mode="translate"
+    size={0.62}
+    translationSnap={0.01}
+    onObjectChange={() => {
+      if (!handle.current) return
+      setDefinition(terminal.id, { position3D: terminalPositionFromLocal3D(component, handle.current.position) })
+    }}
+  >{marker}</TransformControls>
+}
+
+function OrientedInstance({ c, pivot, orientation, selected, editingTerminals, onSelect, children }: {
   c: ElectricalComponent
   pivot: [number, number, number]
   orientation: ElectricalComponent['viewOrientation']
   selected: boolean
+  editingTerminals: boolean
   onSelect: () => void
   children: ReactNode
 }) {
+  const modelRef = useRef<THREE.Group>(null)
+  const activeTerminalId = useSimStore((state) => state.viewOrientationEditor?.activeTerminalId)
   const rotation = orientationRadians(orientation)
+  const scale = component3DScaleOf(c)
+  const renderMode = c.view3DRenderMode ?? 'solid'
+  useEffect(() => applyRenderMode(modelRef.current, renderMode, c.bodyColor), [renderMode, c.bodyColor, children])
+  useFrame(() => { if (renderMode !== 'solid' || c.bodyColor) applyRenderMode(modelRef.current, renderMode, c.bodyColor) })
   return <group position={pivot} rotation={rotation} onClick={(event) => { event.stopPropagation(); onSelect() }}>
-    <group position={[-pivot[0], -pivot[1], -pivot[2]]}>{children}</group>
+    <group scale={[scale.x, scale.y, scale.z]}>
+      <group ref={modelRef} position={[-pivot[0], -pivot[1], -pivot[2]]}>{children}</group>
+      {editingTerminals && c.terminals.map((terminal) => <EditableTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === activeTerminalId} />)}
+    </group>
     {selected && <mesh position={[0, -0.43, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <ringGeometry args={[0.42, 0.48, 32]} />
       <meshBasicMaterial color="#2f6fe4" transparent opacity={0.8} side={THREE.DoubleSide} />
@@ -240,6 +308,11 @@ function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
     const obj = scene.clone(true)
+    obj.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => material.clone()) : mesh.material.clone()
+    })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
     const bounds = new THREE.Box3().setFromObject(obj)
@@ -700,9 +773,16 @@ function MotorSewDrn80Mk4B3Real3D({ c, x }: { c: ElectricalComponent; x: number 
 
 /* ------------------------------------------------------------------ cabos 3D */
 
-function Wires3D({ positions, offRailX }: { positions: Record<string, THREE.Vector3>; offRailX: Record<string, number> }) {
+function Wires3D({ pivots }: { pivots: Record<string, THREE.Vector3> }) {
   const wires = useSimStore((s) => s.wires)
-  const components = useSimStore((s) => s.components)
+  const storedComponents = useSimStore((s) => s.components)
+  const editor = useSimStore((s) => s.viewOrientationEditor)
+  const components = useMemo(() => storedComponents.map((component) => editor?.componentId === component.id ? {
+    ...component,
+    viewOrientation: editor.draft,
+    terminals: editor.terminals,
+    view3DScale: editor.scale3D,
+  } : component), [storedComponents, editor])
 
   const colorOf = (c: string) => {
     const map: Record<string, string> = {
@@ -724,26 +804,13 @@ function Wires3D({ positions, offRailX }: { positions: Record<string, THREE.Vect
   }
 
   const posOf = (terminalId: string): [number, number, number] | null => {
-    for (const c of components) {
-      const t = c.terminals.find((x) => x.id === terminalId)
-      if (!t) continue
-      const base = positions[c.id]
-      if (!base) {
-        const x = offRailX[c.id] ?? c.schematicX / 300 - 2.6
-        if (c.type === 'pilotLightAd22') {
-          // Dois parafusos na traseira do corpo de montagem de 22 mm.
-          return [x + (t.label === 'X1' ? -0.11 : 0.11), RAIL_Y + 1.05, 0.05]
-        }
-        if (c.type === 'motor3ph' || c.type === 'motor1ph') {
-          // Caixa de terminais sobre o motor; PE fica junto à carcaça/base.
-          if (t.kind === 'earth') return [x, PANEL_FLOOR_Y + 0.1, 0.92]
-          return [x + (t.x - 0.5) * 0.5, PANEL_FLOOR_Y + 1.02, 1.02]
-        }
-        // Botões, sinaleiros e sensores usam a mesma régua frontal da cena.
-        return [x, RAIL_Y + 0.6, 0.4]
-      }
-      const p = terminalPos(c, t)
-      return [base.x, base.y + (t.kind === 'power-in' || t.kind === 'coil-plus' ? 0.32 : -0.32), t.y < 0.5 ? 0.28 : -0.05]
+    for (const component of components) {
+      const terminal = component.terminals.find((candidate) => candidate.id === terminalId)
+      if (!terminal) continue
+      const pivot = pivots[component.id]
+      if (!pivot) return null
+      const world = terminalWorld3D(component, terminal, pivot)
+      return [world.x, world.y, world.z]
     }
     return null
   }
@@ -786,9 +853,20 @@ type PanelCameraView = 'fit' | 'front' | 'top' | 'isometric' | 'focus'
 type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number] }
 
 /** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
-function PanelCameraRig({ command, railWidth }: { command: PanelCameraCommand; railWidth: number }) {
+function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void }) {
   const { camera, size } = useThree()
   const controlsRef = useRef<any>(null)
+  const report = () => {
+    const controls = controlsRef.current
+    if (!controls) return
+    const offset = camera.position.clone().sub(controls.target)
+    const distance = Math.max(0.001, offset.length())
+    onStats({
+      yaw: THREE.MathUtils.radToDeg(Math.atan2(offset.x, offset.z)),
+      pitch: THREE.MathUtils.radToDeg(Math.asin(offset.y / distance)),
+      zoom: Math.round(Math.max(25, Math.min(400, 620 / distance))),
+    })
+  }
   useEffect(() => {
     const controls = controlsRef.current
     if (!controls) return
@@ -815,21 +893,43 @@ function PanelCameraRig({ command, railWidth }: { command: PanelCameraCommand; r
     camera.lookAt(target)
     camera.updateProjectionMatrix()
     controls.update()
+    report()
   }, [camera, command, railWidth, size.height, size.width])
-  return <OrbitControls ref={controlsRef} minDistance={1.2} maxDistance={24} enableDamping dampingFactor={0.08} makeDefault />
+  return <OrbitControls ref={controlsRef} minDistance={1.2} maxDistance={24} enableDamping dampingFactor={0.08} makeDefault onChange={report} />
 }
 
 export default function Panel3D() {
-  const components = useSimStore((s) => s.components)
+  const storedComponents = useSimStore((s) => s.components)
   const pressButton = useSimStore((s) => s.pressButton)
   const setComponentState = useSimStore((s) => s.setComponentState)
   const addComponent = useSimStore((s) => s.addComponent)
   const selectComponents = useSimStore((s) => s.selectComponents)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const viewOrientationEditor = useSimStore((s) => s.viewOrientationEditor)
+  const components = useMemo(() => storedComponents.map((component) => viewOrientationEditor?.componentId === component.id ? {
+    ...component,
+    viewOrientation: viewOrientationEditor.draft,
+    terminalViewPositions: viewOrientationEditor.terminalViewPositions,
+    terminals: viewOrientationEditor.terminals,
+    view3DScale: viewOrientationEditor.scale3D,
+    view3DRenderMode: viewOrientationEditor.renderMode3D,
+    bodyColor: viewOrientationEditor.bodyColor3D,
+  } : component), [storedComponents, viewOrientationEditor])
   const [cameraCommand, setCameraCommand] = useState<PanelCameraCommand>({ id: 0, view: 'isometric', target: [0, 0.35, 0] })
   const [showGrid, setShowGrid] = useState(() => {
     try { return localStorage.getItem('dc-simu:panel3d:grid') !== '0' } catch { return true }
+  })
+  const [backgroundMode, setBackgroundMode] = useState<'technical' | 'white' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem('dc-simu:panel3d:background')
+      return saved === 'white' || saved === 'dark' ? saved : 'technical'
+    } catch { return 'technical' }
+  })
+  const [cameraStats, setCameraStats] = useState({ yaw: 0, pitch: 0, zoom: 100 })
+  const cycleBackground = () => setBackgroundMode((current) => {
+    const next = current === 'technical' ? 'white' : current === 'white' ? 'dark' : 'technical'
+    try { localStorage.setItem('dc-simu:panel3d:background', next) } catch {}
+    return next
   })
   const moveCamera = (view: PanelCameraView, target: [number, number, number] = [0, 0.35, 0]) =>
     setCameraCommand((current) => ({ id: current.id + 1, view, target }))
@@ -914,6 +1014,7 @@ export default function Panel3D() {
       pivot={pivot}
       orientation={orientationFor(component)}
       selected={selectedIds.includes(component.id)}
+      editingTerminals={viewOrientationEditor?.componentId === component.id}
       onSelect={() => selectComponents([component.id])}
     >{content}</OrientedInstance>
   )
@@ -925,6 +1026,13 @@ export default function Panel3D() {
     if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [x, RAIL_Y + 0.9, 0.3]
     return [x, RAIL_Y + 1.05, 0.4]
   }
+  const panelPivots: Record<string, THREE.Vector3> = Object.fromEntries(components.map((component) => {
+    const railPosition = positions[component.id]
+    const pivot = railPosition
+      ? new THREE.Vector3(railPosition.x, railPosition.y, 0)
+      : new THREE.Vector3(...frontPivot(component, front[component.id] ?? 0))
+    return [component.id, pivot]
+  }))
   const selectedComponent = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
   const selectedTarget: [number, number, number] | null = selectedComponent
     ? positions[selectedComponent.id]
@@ -934,6 +1042,13 @@ export default function Panel3D() {
   const focusSelection = () => {
     if (selectedTarget) moveCamera('focus', selectedTarget)
   }
+  const selectedDimensions = selectedComponent ? getComponentModelSpec(selectedComponent.type)?.physicalSizeMm : undefined
+  const stageBackground = backgroundMode === 'white'
+    ? 'bg-white'
+    : backgroundMode === 'dark'
+      ? 'bg-gradient-to-b from-[#111827] via-[#1f2937] to-[#0f172a]'
+      : 'bg-gradient-to-b from-[#e6ebf3] via-[#f3f5f9] to-[#ccd5e2]'
+  const sceneBackground = backgroundMode === 'white' ? '#ffffff' : backgroundMode === 'dark' ? '#111827' : '#e9eef5'
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -950,7 +1065,7 @@ export default function Panel3D() {
 
    return (
      <div
-       className="panel3d-stage relative w-full h-full bg-gradient-to-b from-[#e6ebf3] via-[#f3f5f9] to-[#ccd5e2]"
+       className={`panel3d-stage relative w-full h-full ${stageBackground}`}
        onDragOver={(e) => {
          e.preventDefault()
          e.dataTransfer.dropEffect = 'copy'
@@ -971,8 +1086,15 @@ export default function Panel3D() {
         <button type="button" onClick={() => moveCamera('isometric')} title="Vista isométrica">ISO</button>
         <button type="button" onClick={focusSelection} disabled={!selectedTarget} title="Focar o componente selecionado (F)">Focar</button>
         <button type="button" className={showGrid ? 'is-active' : ''} aria-pressed={showGrid} onClick={toggleGrid} title="Mostrar ou ocultar a grelha (G)">Grelha</button>
+        <button type="button" onClick={cycleBackground} title="Alternar fundo técnico, branco e escuro">Fundo: {backgroundMode === 'technical' ? 'Técnico' : backgroundMode === 'white' ? 'Branco' : 'Escuro'}</button>
       </div>
+      {selectedComponent && <div className="panel3d-model-badge">
+        <span><i />MODELO 3D</span><strong>{selectedComponent.ref} · {selectedComponent.label}</strong>
+        {selectedDimensions && <small>{selectedDimensions.width} × {selectedDimensions.height} × {selectedDimensions.depth} mm</small>}
+        <small>Escala {Math.round(component3DScaleOf(selectedComponent).x * 100)}·{Math.round(component3DScaleOf(selectedComponent).y * 100)}·{Math.round(component3DScaleOf(selectedComponent).z * 100)}% · {selectedComponent.view3DRenderMode === 'wireframe' ? 'Arame' : selectedComponent.view3DRenderMode === 'xray' ? 'Raio-X' : 'Sólido'}</small>
+      </div>}
       <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => selectComponents([])}>
+        <color attach="background" args={[sceneBackground]} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
@@ -1020,10 +1142,20 @@ export default function Panel3D() {
           else content = <PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />
           return wrapOriented(c, frontPivot(c, x), content)
         })}
-        <Wires3D positions={positions} offRailX={front} />
+        <Wires3D pivots={panelPivots} />
 
-        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} />
+        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} />
       </Canvas>
+
+      <div className="panel3d-axis-hud" aria-label="Orientação da câmara 3D">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="30" cy="34" r="3" fill="#334155" />
+          <path d="M30 34 L55 34" stroke="#ef4444" strokeWidth="3" /><path d="M55 34 l-7 -4 v8 z" fill="#ef4444" /><text x="56" y="30" fill="#ef4444">X</text>
+          <path d="M30 34 L30 8" stroke="#22c55e" strokeWidth="3" /><path d="M30 8 l-4 7 h8 z" fill="#22c55e" /><text x="35" y="10" fill="#16a34a">Y</text>
+          <path d="M30 34 L13 51" stroke="#3b82f6" strokeWidth="3" /><path d="M13 51 l3 -8 5 5 z" fill="#3b82f6" /><text x="5" y="59" fill="#2563eb">Z</text>
+        </svg>
+        <div><span>Yaw <strong>{cameraStats.yaw.toFixed(1)}°</strong></span><span>Pitch <strong>{cameraStats.pitch.toFixed(1)}°</strong></span><span>Zoom <strong>{cameraStats.zoom}%</strong></span></div>
+      </div>
 
       {!components.length && <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
         <div className="dc-editor-empty pointer-events-auto">
