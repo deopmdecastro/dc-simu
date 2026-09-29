@@ -348,12 +348,14 @@ export function getComponentThumbnail(type: ComponentType): string {
 }
 
 /** Miniatura 3D real de um componente da biblioteca (renderizada uma vez, depois é apenas uma imagem). */
-export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?: number }) {
+export function ComponentThumb({ type, size = 26, realOnly = false }: { type: ComponentType; size?: number; realOnly?: boolean }) {
   const [logoSrc, setLogoSrc] = useState<string | null>(null)
   const [proautoSrc, setProautoSrc] = useState<string | null>(null)
   const [wegSrc, setWegSrc] = useState<string | null>(null)
   const [cadSrc, setCadSrc] = useState<string | null>(null)
-  const fallback = useMemo(() => getComponentThumbnail(type), [type])
+  // Na landing, nunca substituir um CAD por uma forma procedural: permanece
+  // um placeholder enquanto o GLB real é carregado.
+  const fallback = useMemo(() => realOnly ? '' : getComponentThumbnail(type), [type, realOnly])
   useEffect(() => {
     if (type !== 'plcSiemensLogo1224RC') return
     let active = true
@@ -386,7 +388,7 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
       : type === 'contactorWegCWC09' ? wegSrc ?? fallback
         : getComponentModelSpec(type) ? cadSrc ?? fallback
           : fallback
-  if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken" />
+  if (!src) return <div style={{ width: size, height: size }} className={`shrink-0 rounded-[4px] bg-surface-sunken ${realOnly ? 'dc-real-glb-loading' : ''}`} aria-hidden="true" />
   return (
     <img
       src={src}

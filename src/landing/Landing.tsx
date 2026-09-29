@@ -1,26 +1,41 @@
 import { Suspense, lazy, useEffect, useRef, useState, type CSSProperties } from 'react'
 import Logo, { LogoMark } from '../ui/Brand'
-import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight } from '../ui/icons'
+import { ComponentThumb } from '../three/componentThumbnails'
+import { hasComponent3DModel } from '../three/modelPaths'
+import type { ComponentType } from '../types'
+import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight, IconChevronDown, IconZoomIn, IconZoomOut, IconUndo, IconRedo } from '../ui/icons'
 
 /** Viewport 3D real do produto — carregado só quando entra em vista (performance). */
 const LandingShowcase = lazy(() => import('../three/LandingShowcase'))
 
 /* ============================================================ conteúdo */
 
-type Sym = 'breaker' | 'contactor' | 'relay' | 'estop' | 'terminals' | 'plc' | 'psu' | 'lamp'
+type LandingLibraryItem = { type: ComponentType; n: string; m: string; c: string }
 
-const LIBRARY: { s: Sym; n: string; m: string; c: string }[] = [
-  { s: 'breaker', n: 'Disjuntor modular 2P', m: 'Curva C · 6–32 A', c: 'Proteção' },
-  { s: 'contactor', n: 'Contator WEG CWC09', m: '9 A · 3NA+1NF · 24 V DC', c: 'Contactores' },
-  { s: 'relay', n: 'Relé auxiliar Phoenix', m: '4 contactos · 24 V DC', c: 'Relés' },
-  { s: 'estop', n: 'Botão de emergência', m: 'Metaltex P20 · ⌀22 mm', c: 'Comando' },
-  { s: 'terminals', n: 'Bornes e barras', m: 'Fase · Neutro · PE', c: 'Ligações' },
-  { s: 'plc', n: 'PLC LOGO! 12/24 RC', m: 'Siemens · 8E/4S', c: 'Controladores' },
-  { s: 'psu', n: 'Fonte DRAN120-24A', m: 'Proauto · 24 V · 5 A', c: 'Fontes' },
-  { s: 'lamp', n: 'Sinalizador LED ⌀22', m: '24 V · verde / vermelho', c: 'Sinalização' },
-]
+/**
+ * A vitrine pública é deliberadamente limitada aos equipamentos que já têm
+ * um GLB real integrado. O filtro final impede que um tipo sem CAD reapareça
+ * por engano se a tabela for alterada no futuro.
+ */
+const LIBRARY: LandingLibraryItem[] = ([
+  { type: 'breaker1p', n: 'Disjuntor modular 1P', m: 'Curva C · 16 A', c: 'Proteção' },
+  { type: 'breaker2p', n: 'Disjuntor modular 2P', m: 'Curva C · 16 A', c: 'Proteção' },
+  { type: 'breakerWegMdwC10', n: 'Disjuntor WEG MDW-C10', m: '1P · 10 A · curva C', c: 'Proteção' },
+  { type: 'phoenixEcb3000760', n: 'Phoenix Contact EC 1', m: '12 V DC · 1 A · 3000760', c: 'Proteção' },
+  { type: 'dualPushButtonNpb22D11', n: 'Botoeira NHD NPB22-D11', m: 'START/STOP · 1NA + 1NF', c: 'Comando' },
+  { type: 'emergencyButton', n: 'Emergência Metaltex P20AKR', m: 'Cogumelo · rearme por giro · 1NF', c: 'Comando' },
+  { type: 'emergencyButtonKeyP20ACR', n: 'Emergência Metaltex P20ACR', m: 'Rearme por chave · 1NF', c: 'Comando' },
+  { type: 'contactorWegCWC09', n: 'Contator WEG CWC09', m: '9 A · 3NA + 1NA', c: 'Contactores' },
+  { type: 'safetyRelay', n: 'Guardmaster MSR127TP', m: 'Allen-Bradley · relé de segurança', c: 'Relés' },
+  { type: 'plcSiemensLogo1224RC', n: 'Siemens LOGO! 12/24RC', m: '8 entradas · 4 saídas a relé', c: 'Controladores' },
+  { type: 'plcLsXbmDn32s', n: 'LS Electric XBM-DN32S', m: '16DI · 16DO transistor NPN', c: 'Controladores' },
+  { type: 'siemensTsAdapterIeBasic', n: 'SIMATIC TS Adapter IE Basic', m: 'Siemens · TeleService Ethernet', c: 'Controladores' },
+  { type: 'terminalPhoenixPti6', n: 'Borne Phoenix Contact PTI 6', m: 'Push-in · 6 mm² · 41 A', c: 'Bornes' },
+  { type: 'terminalPE', n: 'Borne de terra PE', m: 'Verde/amarelo · calha DIN', c: 'Bornes' },
+  { type: 'powerSupplyProauto24A', n: 'Fonte Proauto DRAN120-24A', m: '24 V DC · 5 A · 120 W', c: 'Fontes' },
+] satisfies LandingLibraryItem[]).filter((item) => hasComponent3DModel(item.type))
 
-const CATEGORIES = ['Todos', 'Proteção', 'Contactores', 'Relés', 'Comando', 'Controladores', 'Fontes', 'Ligações', 'Sinalização']
+const CATEGORIES = ['Todos', 'Proteção', 'Comando', 'Contactores', 'Relés', 'Controladores', 'Bornes', 'Fontes']
 
 const FLOW: [string, string][] = [
   ['Escolher componente', 'Pesquise por nome, fabricante ou categoria.'],
@@ -70,87 +85,26 @@ const stagger = (i: number) => ({ ['--i' as string]: i }) as CSSProperties
 
 /* ====================================================== símbolos técnicos */
 
-/** Vistas frontais em traço (estilo blueprint) dos equipamentos da biblioteca. */
-function LibSymbol({ s, size = 56 }: { s: Sym; size?: number }) {
-  const common = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
-  const soft = { fill: 'currentColor', fillOpacity: 0.14, stroke: 'none' }
+/** Só descarrega/renderiza o GLB quando o respetivo cartão se aproxima do viewport. */
+function LandingGlbThumb({ type }: { type: ComponentType }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const node = ref.current
+    if (!node) return
+    if (!('IntersectionObserver' in window)) return setVisible(true)
+    const io = new IntersectionObserver((entries) => {
+      if (!entries[0]?.isIntersecting) return
+      setVisible(true)
+      io.disconnect()
+    }, { rootMargin: '240px' })
+    io.observe(node)
+    return () => io.disconnect()
+  }, [])
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
-      {s === 'breaker' && (
-        <g {...common}>
-          <rect x="17" y="6" width="14" height="36" rx="1.5" />
-          <path d="M17 12h14M17 36h14" />
-          <rect x="21" y="17" width="6" height="14" rx="1" {...soft} />
-          <rect x="21" y="17" width="6" height="14" rx="1" />
-          <path d="M24 10v4M24 34v4" />
-        </g>
-      )}
-      {s === 'contactor' && (
-        <g {...common}>
-          <rect x="10" y="10" width="28" height="28" rx="2" />
-          <rect x="14" y="14" width="20" height="7" rx="1" {...soft} />
-          <rect x="14" y="14" width="20" height="7" rx="1" />
-          <path d="M15 30h4M22 30h4M29 30h4M15 34h4M22 34h4M29 34h4" />
-          <path d="M14 6v4M34 6v4" />
-          <path d="M10 42h28" strokeDasharray="3 3" />
-        </g>
-      )}
-      {s === 'relay' && (
-        <g {...common}>
-          <rect x="14" y="12" width="20" height="26" rx="1.5" />
-          <circle cx="24" cy="21" r="4.5" {...soft} />
-          <circle cx="24" cy="21" r="4.5" />
-          <path d="M19 31h2.5M23 31h2.5M27 31h2.5" />
-          <path d="M17 8v4M31 8v4" />
-        </g>
-      )}
-      {s === 'estop' && (
-        <g {...common}>
-          <circle cx="24" cy="22" r="9" />
-          <circle cx="24" cy="22" r="13" strokeDasharray="2.5 3" />
-          <path d="M14 38h20" {...common} />
-          <path d="M17 38v-5M31 38v-5" />
-          <rect x="18" y="14" width="12" height="5" rx="2.5" {...soft} />
-        </g>
-      )}
-      {s === 'terminals' && (
-        <g {...common}>
-          <rect x="8" y="18" width="9" height="14" rx="1" />
-          <rect x="19.5" y="18" width="9" height="14" rx="1" {...soft} />
-          <rect x="19.5" y="18" width="9" height="14" rx="1" />
-          <rect x="31" y="18" width="9" height="14" rx="1" />
-          <path d="M6 12h36" strokeDasharray="3 3" />
-          <path d="M12.5 24v3M24 24v3M35.5 24v3" />
-        </g>
-      )}
-      {s === 'plc' && (
-        <g {...common}>
-          <rect x="7" y="10" width="34" height="24" rx="2" />
-          <rect x="12" y="15" width="13" height="8" rx="1" {...soft} />
-          <rect x="12" y="15" width="13" height="8" rx="1" />
-          <path d="M30 16h6M30 20h6M12 28h24" />
-          <path d="M12 34v4M20 34v4M28 34v4M36 34v4" />
-        </g>
-      )}
-      {s === 'psu' && (
-        <g {...common}>
-          <rect x="11" y="8" width="26" height="30" rx="2" />
-          <path d="M16 15h16M16 19h16M16 23h16" />
-          <circle cx="24" cy="30" r="2.5" {...soft} />
-          <circle cx="24" cy="30" r="2.5" />
-          <path d="M18 42h12" strokeDasharray="3 3" />
-        </g>
-      )}
-      {s === 'lamp' && (
-        <g {...common}>
-          <circle cx="24" cy="20" r="7" {...soft} />
-          <circle cx="24" cy="20" r="7" />
-          <path d="M20 13.5a7 7 0 0 1 8 0" />
-          <path d="M19 31h10v5a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2z" />
-          <path d="M24 4v4M33 8l-2 3M39 20h-4M15 8l2 3" strokeDasharray="2.5 3" />
-        </g>
-      )}
-    </svg>
+    <div ref={ref} className="dx-lib-model-slot">
+      {visible ? <ComponentThumb type={type} size={112} realOnly /> : <div className="dc-real-glb-loading" aria-hidden />}
+    </div>
   )
 }
 
@@ -236,88 +190,151 @@ function HeroViewport() {
   )
 }
 
-/** Anatomia da interface — maquete do editor (barra + biblioteca + esquema + propriedades). */
+/** Network estática desenhada com a mesma gramática visual do editor Ladder real. */
+function LandingLadderNetwork() {
+  return (
+    <svg className="dx-ladder-network-svg" viewBox="0 0 600 190" role="img" aria-label="Network Ladder de marcha e selo com a saída KM1 energizada">
+      <defs>
+        <pattern id="dx-ladder-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="1" fill="#d2dbea" />
+        </pattern>
+      </defs>
+      <rect width="600" height="190" fill="#f8fafd" />
+      <rect width="600" height="190" fill="url(#dx-ladder-grid)" />
+
+      {/* rail, alimentação e derivações — mesmas cores do NetworkDiagram */}
+      <g fill="none" stroke="#16a34a" strokeWidth="2.6" strokeLinecap="square">
+        <path d="M24 22v146" />
+        <path d="M24 72h64M112 72h64M200 72h64M264 72h234" />
+        <path d="M138 72v70h38M200 142h64v-70" />
+      </g>
+      <path className="dx-ladder-current" d="M24 72h474" fill="none" stroke="#d9fbe7" strokeWidth="2.6" strokeLinecap="round" />
+
+      {/* STOP NF */}
+      <g fill="none" stroke="#16a34a" strokeWidth="2">
+        <line x1="88" y1="58" x2="88" y2="86" />
+        <line x1="112" y1="58" x2="112" y2="86" />
+        <line x1="84" y1="86" x2="116" y2="56" />
+      </g>
+      {/* START NA e contacto de selo */}
+      <g fill="none" stroke="#16a34a" strokeWidth="2">
+        <line x1="176" y1="58" x2="176" y2="86" />
+        <line x1="200" y1="58" x2="200" y2="86" />
+        <line x1="176" y1="128" x2="176" y2="156" />
+        <line x1="200" y1="128" x2="200" y2="156" />
+      </g>
+
+      {/* bobina */}
+      <g fill="none" stroke="#16a34a" strokeWidth="2.4">
+        <path d="M498 52c-18 8-18 32 0 40" />
+        <path d="M540 52c18 8 18 32 0 40" />
+      </g>
+      <rect x="488" y="46" width="62" height="52" rx="4" fill="#16a34a" fillOpacity=".08" stroke="#5bc486" strokeWidth="1" />
+
+      <g fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" textAnchor="middle">
+        <g fill="#1f2a3d" fontSize="11" fontWeight="700">
+          <text x="100" y="43">%I1</text>
+          <text x="188" y="43">%I2</text>
+          <text x="188" y="118">%Q1</text>
+          <text x="519" y="42">%Q1</text>
+        </g>
+        <g fill="#6f7d92" fontSize="9">
+          <text x="100" y="31">"STOP"</text>
+          <text x="188" y="31">"START"</text>
+          <text x="188" y="106">"SELO"</text>
+          <text x="519" y="110">"KM1"</text>
+        </g>
+        <text x="519" y="77" fill="#137a47" fontSize="11" fontWeight="800">KM1</text>
+        <text x="570" y="76" fill="#15803d" fontSize="9" textAnchor="end">1</text>
+      </g>
+    </svg>
+  )
+}
+
+/** Pré-visualização fiel da vista Ladder do simulador, reutilizando as classes reais do editor. */
 function EditorAnatomy() {
   return (
-    <div className="dx-window dx-anatomy">
+    <div className="dx-window dx-ladder-demo">
       <div className="dx-window-bar">
-        <span className="dx-window-dots" aria-hidden>
-          <i />
-          <i />
-          <i />
-        </span>
+        <LogoMark size={18} />
+        <span className="dx-window-path">/programa/OB1 — Comando do motor</span>
         <div className="dx-window-tabs">
-          <span className="on">Esquema</span>
-          <span>Ladder</span>
+          <span>Esquema</span>
+          <span className="on">Ladder</span>
           <span>Painel 3D</span>
         </div>
       </div>
-      <div className="dx-anatomy-body">
-        <div className="dx-anatomy-rail" aria-hidden>
-          <b className="on" />
-          <b />
-          <b />
-          <b />
-          <b />
-          <b />
-        </div>
-        <div className="dx-anatomy-view" aria-hidden>
-          <svg viewBox="0 0 460 300" preserveAspectRatio="xMidYMid meet">
-            <defs>
-              <pattern id="dx-dot" width="20" height="20" patternUnits="userSpaceOnUse">
-                <circle cx="1" cy="1" r="1" fill="#d3dbe5" />
-              </pattern>
-            </defs>
-            <rect width="460" height="300" fill="url(#dx-dot)" />
-            {/* barramento + rede ladder simplificada */}
-            <g fill="none" stroke="#94a3b8" strokeWidth="1.6">
-              <path d="M60 40v222" strokeWidth="2.4" />
-              <path d="M60 70h120" />
-              <path d="M60 150h240" />
-              <path d="M60 230h120" />
-            </g>
-            {/* contactos */}
-            <g fill="none" stroke="#3d4b5e" strokeWidth="1.6">
-              <path d="M92 62v16M106 62v16M92 70h6m8 0h6" />
-              <path d="M144 142v16M158 142v16M144 150h6m8 0h6" />
-              <path d="M196 142v16M210 142v16M196 150h6m8 0h6" />
-            </g>
-            {/* bobina energizada */}
-            <g fill="#eef4ff" stroke="#2655e5" strokeWidth="2">
-              <circle className="dx-coil" cx="286" cy="150" r="11" />
-            </g>
-            <path d="M60 150h215" stroke="#2655e5" strokeWidth="2" fill="none" />
-            <path className="dx-flow" d="M60 150h215" stroke="#ffffff" strokeOpacity=".9" strokeWidth="2" strokeLinecap="round" fill="none" />
-            <g fill="none" stroke="#94a3b8" strokeWidth="1.6">
-              <circle cx="222" cy="70" r="11" />
-              <circle cx="222" cy="230" r="11" />
-            </g>
-            {/* etiquetas */}
-            <g fontFamily="Inter, sans-serif" fontSize="10" fontWeight="600" fill="#64748b">
-              <text x="90" y="52">E0.0</text>
-              <text x="280" y="132">Q0.1</text>
-              <text x="60" y="272">NW 1 — Marcha</text>
-              <text x="60" y="286" fontWeight="500" fill="#8b98a9">Scan 4 ms</text>
-            </g>
-            {/* seleção */}
-            <rect x="138" y="136" width="26" height="28" rx="2" fill="#2655e5" fillOpacity=".08" stroke="#2655e5" strokeWidth="1.4" strokeDasharray="4 3" />
-          </svg>
-        </div>
-        <div className="dx-anatomy-props" aria-hidden>
-          <b style={{ width: '60%' }} />
-          <span />
-          <span />
-          <span />
-          <b style={{ width: '45%' }} />
-          <span />
-          <span />
-        </div>
+
+      <div className="dx-ladder-demo-body ladder-workspace">
+        <aside className="ladder-project-pane" aria-label="Árvore do projeto Ladder">
+          <div className="ladder-pane-heading"><span>Árvore do projeto</span><span>×</span></div>
+          <div className="ladder-project-tree">
+            <div className="tree-row tree-depth-0 tree-folder"><IconChevronDown size={11} /><IconProjects size={12} className="tree-glyph" /><span className="tree-label">CLP Siemens LOGO!</span></div>
+            <div className="tree-row tree-depth-1 tree-folder"><IconChevronDown size={11} /><IconLadder size={12} className="tree-glyph tree-glyph-block" /><span className="tree-label">Blocos do programa</span></div>
+            <div className="tree-row tree-depth-2 tree-selected"><IconFile size={12} className="tree-glyph tree-glyph-block" /><span className="tree-label">OB1</span><small>principal</small></div>
+            <div className="tree-row tree-depth-2"><IconFile size={12} className="tree-glyph tree-glyph-block" /><span className="tree-label">FC1</span><small>motor</small></div>
+            <div className="tree-row tree-depth-1"><IconFile size={12} className="tree-glyph tree-glyph-data" /><span className="tree-label">Tabela de tags</span></div>
+          </div>
+          <div className="ladder-tools-heading">ELEMENTOS</div>
+          <div className="dx-ladder-elements" aria-hidden="true">
+            <span>—| |—<small>Contato NA</small></span>
+            <span>—|/|—<small>Contato NF</small></span>
+            <span>—( )—<small>Bobina</small></span>
+            <span>[ TON ]<small>Temporizador</small></span>
+          </div>
+        </aside>
+
+        <main className="ladder-main-pane">
+          <div className="ladder-project-tabs">
+            <span className="ladder-project-tab is-active"><IconLadder size={12} /> OB1 <span>×</span></span>
+            <span className="ladder-project-tab">FC1 <span>×</span></span>
+          </div>
+          <div className="ladder-editor-toolbar" aria-hidden="true">
+            <span className="ladder-toolbar-button"><IconUndo size={12} /></span>
+            <span className="ladder-toolbar-button"><IconRedo size={12} /></span>
+            <i className="ladder-toolbar-separator" />
+            <span className="ladder-toolbar-button"><IconZoomOut size={12} /></span>
+            <span className="ladder-zoom-label">100%</span>
+            <span className="ladder-toolbar-button"><IconZoomIn size={12} /></span>
+            <i className="ladder-toolbar-separator" />
+            <span className="ladder-primary-button"><IconPlay size={11} /> RUN</span>
+          </div>
+          <div className="ladder-program-summary">
+            <div className="ladder-metric is-run"><span>Estado</span><strong>RUN</strong></div>
+            <div className="ladder-metric"><span>Networks</span><strong>02</strong></div>
+            <div className="ladder-metric"><span>Scan</span><strong>4 ms</strong></div>
+            <div className="ladder-live-bus"><span>PLC ativo</span><strong>LOGO! 12/24RC</strong></div>
+          </div>
+          <div className="ladder-networks grid-lines">
+            <div className="dx-ladder-demo-scale">
+              <div className="ladder-rung-card is-powered">
+                <div className="ladder-rung-header">
+                  <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
+                  <span className="ladder-network-no is-on">Network 1:</span>
+                  <span className="ladder-network-title">Partida direta com selo</span>
+                  <span className="ladder-rung-live is-on"><i />RLO = 1</span>
+                </div>
+                <div className="ladder-network-comment">STOP + START + retenção de KM1</div>
+                <div className="ladder-rung-body">
+                  <div className="ladder-diagram-scroll"><LandingLadderNetwork /></div>
+                </div>
+              </div>
+              <div className="ladder-rung-card dx-ladder-secondary">
+                <div className="ladder-rung-header">
+                  <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
+                  <span className="ladder-network-no">Network 2:</span>
+                  <span className="ladder-network-title">Sinalização de estado</span>
+                  <span className="ladder-rung-live"><i />RLO = 0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
       <div className="dx-window-foot">
-        <span>Selecionar</span>
-        <span>Snap 1 mm</span>
-        <span>Malha 20 px</span>
-        <span className="end">Zoom 100%</span>
+        <b><i aria-hidden /> PLC em RUN</b>
+        <span>Network 1 energizada</span>
+        <span className="end">IEC 61131-3 · scan 4 ms</span>
       </div>
     </div>
   )
@@ -454,12 +471,12 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
         <div className="dx-wrap">
           <span className="lbl">Na biblioteca</span>
           <span>Proteção</span>
+          <span>Comando</span>
           <span>Contactores</span>
-          <span>Relés</span>
+          <span>Relés de segurança</span>
           <span>Bornes</span>
-          <span>PLC</span>
+          <span>Controladores</span>
           <span>Fontes</span>
-          <span>Sinalização</span>
         </div>
       </div>
 
@@ -516,9 +533,9 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
       <section className="dx-section dx-section-alt" id="editor">
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
-            <span className="dx-over">O estúdio completo</span>
-            <h2>Esquema, Ladder e painel 3D sobre o mesmo modelo.</h2>
-            <p>O esquema elétrico, a lógica Ladder e o painel 3D leem e escrevem o mesmo ficheiro — o que edita num sítio aparece instantaneamente nos outros.</p>
+            <span className="dx-over">O editor Ladder real</span>
+            <h2>Na landing, a mesma interface Ladder do simulador.</h2>
+            <p>A pré-visualização reproduz a árvore do projeto, as networks IEC 61131-3, o estado RLO e o fluxo energizado com a mesma linguagem visual usada no editor — ligada ao Esquema e ao Painel 3D.</p>
           </div>
           <div className="dx-studio-grid">
             <div data-rv>
@@ -562,9 +579,9 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
       <section className="dx-section" id="biblioteca">
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
-            <span className="dx-over">Biblioteca de componentes</span>
-            <h2>Os equipamentos que encontra num quadro real.</h2>
-            <p>Pesquise, filtre por categoria e arraste para o quadro. Cada componente traz fabricante, modelo, dimensões e pré-visualização 3D.</p>
+            <span className="dx-over">Biblioteca com CAD validado</span>
+            <h2>Apenas equipamentos que já têm modelo GLB real.</h2>
+            <p>Explore os 15 componentes atualmente integrados. Cada imagem é renderizada diretamente do mesmo ficheiro GLB usado no Esquema e no Painel 3D — sem miniaturas genéricas.</p>
           </div>
           <div className="dx-lib-toolbar" data-rv>
             <div className="dx-lib-filters">
@@ -580,10 +597,10 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           </div>
           <div className={'dx-lib-grid' + (swapped ? ' is-swap' : '')} data-rv>
             {visibleLib.map((c, i) => (
-              <article className="dx-lib-card" key={cat + c.n} style={stagger(i)}>
-                <div className="dx-lib-thumb" aria-hidden>
-                  <LibSymbol s={c.s} />
-                  <span className="dx-lib-3d">3D</span>
+              <article className="dx-lib-card" key={cat + c.type} style={stagger(i)}>
+                <div className="dx-lib-thumb">
+                  <LandingGlbThumb type={c.type} />
+                  <span className="dx-lib-3d">GLB real</span>
                 </div>
                 <div className="dx-lib-body">
                   <b>{c.n}</b>

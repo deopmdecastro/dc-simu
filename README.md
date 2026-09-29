@@ -72,12 +72,14 @@ nem o conteúdo.
   10 M manobras, bobina 42 V 50 Hz / 48 V 60 Hz) no inspetor do componente.
 
 **Landing page com os equipamentos reais em 3D**
-- Os desenhos SVG de equipamentos deram lugar a uma **vitrine WebGL** com os três modelos CAD
-  verdadeiros (LOGO! 12/24RC, contator WEG e fonte DRAN120): rodar, aproximar, ligar/desligar a
-  alimentação e ler a ficha de cada aparelho — os modelos carregam em `Suspense`, com alternativa
-  procedural (`ErrorBoundary`) e sem bloquear a página.
-- A segunda linha da página inicial mostra os modelos reais sobre calha DIN, com as fontes técnicas
-  (PDF) e a nota de propriedade dos fabricantes.
+- A vitrine WebGL principal usa os três modelos CAD verdadeiros (LOGO! 12/24RC, contator WEG e fonte
+  DRAN120): é possível rodar, aproximar e ligar/desligar a alimentação; os modelos carregam em
+  `Suspense`, protegidos por `ErrorBoundary`, sem bloquear a página.
+- A galeria pública mostra exclusivamente os **15 tipos que já possuem GLB real integrado**. As
+  miniaturas são renderizadas dos mesmos ficheiros usados no Esquema e Painel 3D, sem equipamentos
+  procedurais ou cartões de componentes ainda indisponíveis.
+- A demonstração Ladder reutiliza a linguagem visual do editor do simulador: árvore de projeto,
+  separadores OB/FC, toolbar, métricas de scan, cabeçalho de Network, RLO e fluxo energizado IEC 61131-3.
 
 ## Novidades — v2.2
 

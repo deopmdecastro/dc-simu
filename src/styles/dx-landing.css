@@ -617,93 +617,172 @@ html:has(.dx-landing) {
   }
 }
 
-/* maquete do editor */
-.dx-anatomy-body {
+/* pré-visualização Ladder — reutiliza a linguagem visual do editor real */
+.dx-studio-grid {
+  grid-template-columns: minmax(0, 7fr) minmax(280px, 4fr);
+}
+.dx-ladder-demo {
+  --ladder-blue: #1f55e0;
+  --ladder-blue-dark: #1f38ab;
+  --ladder-blue-soft: #eef4ff;
+  --ladder-blue-line: #c0d4fc;
+}
+.dx-ladder-demo-body {
+  height: 430px;
+  min-height: 0;
+}
+.dx-ladder-demo .ladder-project-pane {
+  width: 168px;
+  flex-basis: 168px;
+}
+.dx-ladder-demo .ladder-project-tree {
+  flex: 0 0 auto;
+  padding: 8px 5px;
+}
+.dx-ladder-demo .ladder-pane-heading {
+  height: 34px;
+  font-size: 10px;
+}
+.dx-ladder-demo .tree-row {
+  min-height: 22px;
+  font-size: 9px;
+}
+.dx-ladder-demo .tree-row small {
+  margin-left: auto;
+}
+.dx-ladder-demo .ladder-tools-heading {
+  padding: 9px 8px 6px;
+  font-size: 9px;
+}
+.dx-ladder-elements {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 132px;
-  height: 320px;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 0 6px 8px;
 }
-.dx-anatomy-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 8px;
-  background: var(--dx-surface-2);
-  border-right: 1px solid var(--dx-line);
-}
-.dx-anatomy-rail b {
-  height: 28px;
-  border-radius: 6px;
-  background: var(--dx-bg-sunken);
-}
-.dx-anatomy-rail b.on {
-  background: var(--dx-brand);
-}
-.dx-anatomy-view {
+.dx-ladder-elements > span {
   min-width: 0;
-  background: var(--dx-surface);
+  display: flex;
+  min-height: 52px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid #e1e6ef;
+  border-radius: 5px;
+  color: #1f55e0;
+  background: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
 }
-.dx-anatomy-view svg {
+.dx-ladder-elements small {
+  color: #64748b;
+  font-family: var(--dx-font);
+  font-size: 7px;
+  font-weight: 600;
+  text-align: center;
+}
+.dx-ladder-demo .ladder-project-tabs {
+  height: 34px;
+  min-height: 34px;
+}
+.dx-ladder-demo .ladder-project-tab {
+  height: 34px;
+  font-size: 9px;
+}
+.dx-ladder-demo .ladder-editor-toolbar {
+  height: 34px;
+  min-height: 34px;
+}
+.dx-ladder-demo .ladder-toolbar-button,
+.dx-ladder-demo .ladder-primary-button {
+  pointer-events: none;
+}
+.dx-ladder-demo .ladder-program-summary {
+  grid-template-columns: repeat(4, minmax(64px, 1fr));
+  gap: 5px;
+  padding: 6px 8px;
+}
+.dx-ladder-demo .ladder-metric,
+.dx-ladder-demo .ladder-live-bus {
+  padding: 5px 6px;
+}
+.dx-ladder-demo .ladder-metric strong,
+.dx-ladder-demo .ladder-live-bus strong {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dx-ladder-demo .ladder-networks {
+  overflow: hidden;
+  padding: 8px;
+}
+.dx-ladder-demo-scale {
+  min-width: 0;
+}
+.dx-ladder-demo .ladder-rung-card {
+  margin-bottom: 7px;
+}
+.dx-ladder-demo .ladder-rung-header {
+  gap: 5px;
+  min-height: 28px;
+}
+.dx-ladder-demo .ladder-network-title {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dx-ladder-demo .ladder-network-comment {
+  padding-block: 3px;
+  font-size: 8px;
+}
+.dx-ladder-demo .ladder-rung-body {
+  padding: 5px;
+}
+.dx-ladder-network-svg {
   display: block;
   width: 100%;
-  height: 100%;
+  min-width: 0;
+  height: auto;
+  aspect-ratio: 600 / 190;
 }
-.dx-anatomy-props {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 12px;
-  background: var(--dx-surface-2);
-  border-left: 1px solid var(--dx-line);
+.dx-ladder-secondary {
+  opacity: .88;
 }
-.dx-anatomy-props b {
-  display: block;
-  height: 8px;
-  border-radius: 4px;
-  background: var(--dx-line-strong);
+.dx-ladder-current {
+  stroke-dasharray: 5 12;
+  animation: dx-ladder-current 900ms linear infinite;
 }
-.dx-anatomy-props span {
-  display: block;
-  height: 24px;
-  border-radius: 6px;
-  background: var(--dx-surface);
-  border: 1px solid var(--dx-line);
+@keyframes dx-ladder-current {
+  to { stroke-dashoffset: -17; }
 }
-/* corrente a percorrer o condutor (só depois de revelado) */
-@keyframes dx-flow {
-  to {
-    stroke-dashoffset: -14;
+@media (max-width: 960px) {
+  .dx-studio-grid {
+    grid-template-columns: 1fr;
   }
-}
-@keyframes dx-coil {
-  0%,
-  100% {
-    transform: scale(1);
+  .dx-ladder-demo-body {
+    height: 450px;
   }
-  50% {
-    transform: scale(1.16);
-  }
-}
-.dx-flow {
-  stroke-dasharray: 4 10;
-}
-.dx-rv-in .dx-flow {
-  animation: dx-flow 900ms linear infinite;
-}
-.dx-coil {
-  transform-box: fill-box;
-  transform-origin: center;
-}
-.dx-rv-in .dx-coil {
-  animation: dx-coil 2.4s ease-in-out infinite;
 }
 @media (max-width: 620px) {
-  .dx-anatomy-body {
-    grid-template-columns: 36px minmax(0, 1fr);
-    height: 260px;
+  .dx-ladder-demo-body {
+    height: 365px;
   }
-  .dx-anatomy-props {
+  .dx-ladder-demo .ladder-project-pane {
     display: none;
+  }
+  .dx-ladder-demo .ladder-program-summary {
+    grid-template-columns: repeat(2, minmax(64px, 1fr));
+  }
+  .dx-ladder-demo .ladder-live-bus {
+    display: none;
+  }
+  .dx-ladder-demo .ladder-network-no,
+  .dx-ladder-demo .ladder-rung-live {
+    font-size: 8px;
   }
 }
 
@@ -785,13 +864,41 @@ html:has(.dx-landing) {
   color: var(--dx-brand);
   background: var(--dx-brand-soft);
 }
-.dx-lib-thumb svg {
-  width: 64px;
-  height: 64px;
-  transition: transform 420ms var(--dx-ease-out);
+.dx-lib-model-slot {
+  display: grid;
+  width: 112px;
+  height: 112px;
+  place-items: center;
 }
-.dx-lib-card:hover .dx-lib-thumb svg {
-  transform: scale(1.08);
+.dx-lib-thumb img {
+  width: 112px !important;
+  height: 112px !important;
+  border: 0 !important;
+  background: transparent !important;
+  filter: drop-shadow(0 9px 9px rgba(31, 43, 74, .14));
+  transition: transform 420ms var(--dx-ease-out), filter 420ms var(--dx-ease-out);
+}
+.dx-lib-card:hover .dx-lib-thumb img {
+  transform: scale(1.06) translateY(-2px);
+  filter: drop-shadow(0 12px 11px rgba(31, 43, 74, .2));
+}
+.dx-lib-thumb .dc-real-glb-loading {
+  position: relative;
+  width: 112px !important;
+  height: 94px !important;
+  overflow: hidden;
+  border: 1px solid var(--dx-line-soft);
+  background: linear-gradient(120deg, #eef2f7 20%, #f8fafc 45%, #e8edf5 70%) 200% 0 / 200% 100% !important;
+  animation: dx-sheen 1.6s linear infinite;
+}
+.dx-lib-thumb .dc-real-glb-loading::after {
+  content: 'A carregar GLB';
+  position: absolute;
+  inset: auto 0 10px;
+  color: var(--dx-ink-4);
+  font-family: var(--dx-mono);
+  font-size: 9px;
+  text-align: center;
 }
 .dx-lib-3d {
   position: absolute;
