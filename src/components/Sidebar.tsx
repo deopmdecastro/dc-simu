@@ -66,7 +66,7 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
         e.dataTransfer.effectAllowed = 'copy'
         const chip = document.createElement('div')
         chip.textContent = `+ ${name}`
-        chip.style.cssText = 'position:fixed;top:-100px;left:-100px;padding:3px 8px;border-radius:999px;background:#2655e5;color:#fff;font:600 11px Inter,system-ui,sans-serif;white-space:nowrap'
+        chip.style.cssText = 'position:fixed;top:-100px;left:-100px;padding:3px 8px;border-radius:999px;background:#2f6bff;color:#fff;font:600 11px Inter,system-ui,sans-serif;white-space:nowrap'
         document.body.appendChild(chip)
         e.dataTransfer.setDragImage(chip, -12, -12)
         window.setTimeout(() => chip.remove(), 0)

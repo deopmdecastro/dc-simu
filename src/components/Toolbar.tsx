@@ -163,7 +163,7 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
       <div className="flex items-center gap-2 px-3 min-h-[50px] border-b border-line-soft dc-toolbar-main">
         <div className="flex items-center gap-2 pr-1 shrink-0 select-none">
           <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden className="shrink-0">
-            <rect x="1" y="1" width="22" height="22" rx="5" fill="#2655e5" />
+            <rect x="1" y="1" width="22" height="22" rx="5" fill="#2f6bff" />
             <path d="M13.5 4.5 7 13.5h4l-1.5 6 6.5-9h-4z" fill="#fff" />
           </svg>
           <div className="leading-none whitespace-nowrap hidden sm:block">

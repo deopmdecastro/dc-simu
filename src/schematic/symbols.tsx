@@ -193,7 +193,7 @@ export function terminalPos(c: ElectricalComponent, t: Terminal): { x: number; y
   return { x: c.schematicX + cx + rx, y: c.schematicY + cy + ry }
 }
 
-const stroke = (selected: boolean, energized: boolean) => (selected ? '#2655e5' : energized ? '#d97706' : '#64748b')
+const stroke = (selected: boolean, energized: boolean) => (selected ? '#2f6bff' : energized ? '#d97706' : '#64748b')
 
 /** Desenha um símbolo no sistema local do componente (0,0 → w,h). */
 export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected: boolean }) {
