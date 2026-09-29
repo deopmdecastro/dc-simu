@@ -26,7 +26,8 @@ const TOP = 10
 const CY_OFF = 50 // linha de corrente dentro da linha → y = 60, 140, 220…
 const RAIL_X = 20
 const BOX_W = 120
-const BOX_SLOT = 120
+const BOX_SLOT = 100 // blocos (TON/CTU/MOVE): caixa de 70–80px + etiqueta
+const OUT_H = 60 // bobinas / CALL: mais compacto que os ramos de contactos (ROW_H)
 
 const C_OFF = '#1f2a3d' // offline (sem simulação)
 const C_ON = '#16a34a' // fluxo de corrente
@@ -97,9 +98,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   let oy = TOP
   if (rung.timer) { outputs.push({ type: 'timer', cy: oy + CY_OFF }); oy += BOX_SLOT }
   if (rung.counter) { outputs.push({ type: 'counter', cy: oy + CY_OFF }); oy += BOX_SLOT }
-  if (rung.move) { outputs.push({ type: 'move', cy: oy + CY_OFF }); oy += ROW_H }
-  if (rung.call) { outputs.push({ type: 'call', cy: oy + CY_OFF }); oy += ROW_H }
-  rung.coils.forEach((coil) => { outputs.push({ type: 'coil', cy: oy + CY_OFF, coil }); oy += ROW_H })
+  if (rung.move) { outputs.push({ type: 'move', cy: oy + CY_OFF }); oy += BOX_SLOT }
+  if (rung.call) { outputs.push({ type: 'call', cy: oy + CY_OFF }); oy += OUT_H + 20 }
+  rung.coils.forEach((coil) => { outputs.push({ type: 'coil', cy: oy + CY_OFF, coil }); oy += OUT_H })
   if (!rung.coils.length && !hasBox) { outputs.push({ type: 'placeholder', cy: oy + CY_OFF }); oy += ROW_H }
 
   const extraRow = drop?.kind === 'newBranch' ? 1 : 0
@@ -417,33 +418,46 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         )
     } else if (o.type === 'call' && rung.call) {
       const top = cy - 25
-      svg.push(<g key="call-block">{wire(OJ, cy, boxX, cy, rungOut)}
+      const isSel = selection?.type === 'call'
+      svg.push(<g key="call-block">{isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 66, 'call-sel')}{wire(OJ, cy, boxX, cy, rungOut)}
         <rect x={boxX} y={top} width={BOX_W} height={50} rx={4} fill="#fff" stroke={rungOut ? C_ON : '#5b6b84'} strokeWidth={1.5} />
         {label(boxX + BOX_W / 2, cy - 5, 'CALL', { bold: true, size: 11 })}
         {label(boxX + BOX_W / 2, cy + 12, rung.call.targetId, { size: 9 })}
         {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
       </g>)
-      if (!readonly) hits.push(<div key="call-hit" className="lnet-hit" style={{ left: boxX, top, width: BOX_W, height: 50 }}
-        onClick={(e) => { e.stopPropagation(); onSelect({ type: 'call' }) }}
+      if (!readonly) hits.push(<div key="call-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 66 }}
+        onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'call' }) }}
         onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'call' }) }}
         onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, call: undefined })) }}
         title="CALL FC — clique: edição rápida · duplo clique: escolher bloco · botão direito remove" />)
     } else if (o.type === 'move' && rung.move) {
       const m = rung.move
-      const top = cy - 30
+      const top = cy - 40
+      const isSel = selection?.type === 'move'
+      const operand = (v: string) => (/^[IQM]\d+(\.\d+)?$/i.test(v.trim()) ? `%${v.trim().toUpperCase()}` : v)
+      const edge = rungOut ? C_ON : '#5b6b84'
+      // TIA Portal: EN/ENO na linha de corrente; IN/OUT1 uma linha abaixo, operandos fora da caixa
       svg.push(<g key="move-block">
+        {isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 86, 'move-sel')}
         {wire(OJ, cy, boxX, cy, rungOut)}
-        <rect x={boxX} y={top} width={BOX_W} height={60} rx={4} fill="#fff" stroke={rungOut ? C_ON : '#5b6b84'} strokeWidth={1.5} />
-        {label(boxX + BOX_W / 2, top + 16, 'MOVE', { bold: true, size: 11 })}
-        {label(boxX + 7, cy + 10, `IN: ${m.source}`, { anchor: 'start', size: 9 })}
-        {label(boxX + BOX_W - 7, cy + 10, `OUT: ${m.target}`, { anchor: 'end', size: 9 })}
+        <rect x={boxX} y={top} width={BOX_W} height={70} fill="#fff" stroke={edge} strokeWidth={1.3} />
+        <rect x={boxX} y={top} width={BOX_W} height={30} fill="#eef3fb" />
+        {label(boxX + BOX_W / 2, top + 19, 'MOVE', { bold: true, size: 11 })}
+        {label(boxX + 6, cy + 3, 'EN', { anchor: 'start', size: 9 })}
+        {label(boxX + 6, cy + 19, 'IN', { anchor: 'start', size: 9 })}
+        {label(boxX + BOX_W - 6, cy + 3, 'ENO', { anchor: 'end', size: 9 })}
+        {label(boxX + BOX_W - 6, cy + 19, 'OUT1', { anchor: 'end', size: 9 })}
+        <line x1={boxX - 14} y1={cy + 16} x2={boxX} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
+        {label(boxX - 16, cy + 19, operand(m.source) || '…', { anchor: 'end', size: 9, grey: true })}
         {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
+        <line x1={boxX + BOX_W} y1={cy + 16} x2={boxX + BOX_W + 14} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
+        {label(boxX + BOX_W + 18, cy + 19, operand(m.target) || '…', { anchor: 'start', size: 9, grey: true })}
       </g>)
-      if (!readonly) hits.push(<div key="move-hit" className="lnet-hit" style={{ left: boxX, top, width: BOX_W, height: 60 }}
-        onClick={(e) => { e.stopPropagation(); onSelect({ type: 'move' }) }}
+      if (!readonly) hits.push(<div key="move-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 86 }}
+        onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'move' }) }}
         onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'move' }) }}
         onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, move: undefined })) }}
-        title="MOVE — clique: edição rápida · duplo clique: origem e destino · botão direito remove" />)
+        title="MOVE — duplo clique: origem e destino · Del/botão direito remove" />)
     } else if (o.type === 'coil') {
       const c = o.coil
       const on = online && !!table[c.address]

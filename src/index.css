@@ -2364,3 +2364,19 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
 .ladder-network-wrap.is-selected { outline-color:transparent; }
 .ladder-rung-card { transition:border-color .14s, box-shadow .14s; }
 .ladder-rung-card:not(.is-active):hover { border-color:#b9cbef; box-shadow:0 2px 8px rgba(31,43,74,.08); }
+
+/* ---------- v3: cabeçalho fixo, moldura discreta, hover suave */
+.ladder-rung-card { overflow:clip; }               /* 'clip' não cria contentor de scroll → o sticky funciona */
+.ladder-rung-header { position:sticky; top:0; z-index:4; box-shadow:0 1px 0 #d5dde8; }
+.ladder-rung-card.is-collapsed .ladder-rung-header { box-shadow:none; }
+
+.ladder-rung-card.is-active { border-color:#9db8f0; box-shadow:0 1px 3px rgba(31,43,74,.08); }
+.ladder-rung-card:not(.is-active):hover { border-color:#c3cfe4; box-shadow:0 1px 3px rgba(31,43,74,.08); }
+
+.lnet-hit { border-radius:6px; }
+.lnet-hit:hover { background:rgba(47,111,228,.07); box-shadow:inset 0 0 0 1px rgba(47,111,228,.28); }
+.lnet-hit:active { background:rgba(47,111,228,.12); }
+.lnet-sel { filter:none; }
+
+/* largada: tinta suave em vez da moldura tracejada */
+.drop-zone.drag-over { outline-color:transparent; background-color:rgba(31,85,224,.035); box-shadow:inset 0 0 0 1px rgba(31,85,224,.25); }

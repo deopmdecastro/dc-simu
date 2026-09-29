@@ -936,6 +936,13 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   const [expandedNodes, setExpandedNodes] = useState<Set<ProjectNodeId>>(() => new Set(['plc', 'programBlocks']))
   const [dragOver, setDragOver] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  // o onDrop das networks faz stopPropagation: sem isto a moldura de largada ficava presa
+  useEffect(() => {
+    const reset = () => setDragOver(false)
+    window.addEventListener('drop', reset, true)
+    window.addEventListener('dragend', reset, true)
+    return () => { window.removeEventListener('drop', reset, true); window.removeEventListener('dragend', reset, true) }
+  }, [])
   const [showStatus, setShowStatus] = useState(() => {
     try { return localStorage.getItem('dcsimu:ladder:status-open') !== '0' } catch { return true }
   })
@@ -1255,7 +1262,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
             style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
             onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
             onDragEnter={() => setDragOver(true)}
-            onDragLeave={() => setDragOver(false)}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(false) }}
             onDrop={(e) => {
               e.preventDefault()
               setDragOver(false)
