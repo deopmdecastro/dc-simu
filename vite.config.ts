@@ -57,6 +57,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ['/sw-migration.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,webp,glb,pdf}'],
         // O modelo Allen-Bradley MSR127TP é maior que 5 MiB; mantê-lo em cache evita falha no build PWA.
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
