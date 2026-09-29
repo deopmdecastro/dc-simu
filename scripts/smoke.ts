@@ -711,6 +711,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
   check('todos os componentes disponíveis expõem GLB para o turntable da landing', availableTypes.every((type) => getComponentGlbSpec(type)?.path.toLowerCase().endsWith('.glb')))
+  const directStart3DTypes = ['powerSupplyProauto24A', 'plcSiemensLogo1224RC', 'dualPushButtonNpb22D11', 'contactorWegCWC09', 'motor3ph'] as const
+  check('demonstração de partida direta 3D usa cinco componentes com GLB real', directStart3DTypes.every((type) => hasComponent3DModel(type) && !!getComponentGlbSpec(type)))
 
   const beforeBlockedAdd = useSimStore.getState().components.length
   const blockedId = useSimStore.getState().addComponent('motor1ph', 0, 0)

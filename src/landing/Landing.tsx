@@ -182,8 +182,8 @@ function HeroViewport() {
         <b>
           <i aria-hidden /> Simulação ativa
         </b>
-        <span>Fonte 24 V → LOGO! → KM1</span>
-        <span className="end">3 equipamentos · 4 ligações</span>
+        <span>START/STOP → LOGO! → KM1 → Motor M1</span>
+        <span className="end">5 equipamentos reais · 9 ligações</span>
       </div>
     </div>
   )
@@ -293,6 +293,7 @@ function EditorAnatomy() {
   const [plcRunning, setPlcRunning] = useState(false)
   const [motorOn, setMotorOn] = useState(false)
   const [zoom, setZoom] = useState(100)
+  const [view, setView] = useState<'ladder' | 'panel3d'>('ladder')
   const powered = plcRunning && motorOn
 
   const runPlc = () => setPlcRunning(true)
@@ -311,14 +312,13 @@ function EditorAnatomy() {
       <div className="dx-window-bar">
         <LogoMark size={18} />
         <span className="dx-window-path">/programa/OB1 — Comando do motor</span>
-        <div className="dx-window-tabs">
-          <span>Esquema</span>
-          <span className="on">Ladder</span>
-          <span>Painel 3D</span>
+        <div className="dx-window-tabs is-switcher" role="tablist" aria-label="Vista da demonstração">
+          <button type="button" role="tab" aria-selected={view === 'ladder'} className={view === 'ladder' ? 'on' : ''} onClick={() => setView('ladder')}>Ladder</button>
+          <button type="button" role="tab" aria-selected={view === 'panel3d'} className={view === 'panel3d' ? 'on' : ''} onClick={() => setView('panel3d')}>Painel 3D</button>
         </div>
       </div>
 
-      <div className="dx-ladder-demo-body ladder-workspace">
+      {view === 'ladder' ? <div className="dx-ladder-demo-body ladder-workspace">
         <aside className="ladder-project-pane" aria-label="Árvore do projeto Ladder">
           <div className="ladder-pane-heading"><span>Árvore do projeto</span><span>×</span></div>
           <div className="ladder-project-tree">
@@ -396,10 +396,22 @@ function EditorAnatomy() {
             </div>
           </div>
         </main>
-      </div>
+      </div> : <div className="dx-ladder-panel3d" role="tabpanel" aria-label="Partida direta no Painel 3D">
+        <Suspense fallback={<div className="dx-stage-skeleton" role="status">A carregar componentes reais…</div>}>
+          <LandingShowcase
+            compact
+            plcRunning={plcRunning}
+            motorOn={motorOn}
+            onRunPlc={runPlc}
+            onStopPlc={stopPlc}
+            onStartMotor={startMotor}
+            onStopMotor={stopMotor}
+          />
+        </Suspense>
+      </div>}
       <div className={`dx-window-foot${plcRunning ? ' is-running' : ' is-stopped'}`} aria-live="polite">
         <b><i aria-hidden /> PLC em {plcRunning ? 'RUN' : 'STOP'}</b>
-        <span>{powered ? 'KM1 e H1 energizados' : 'Saídas desenergizadas'}</span>
+        <span>{powered ? (view === 'panel3d' ? 'KM1 ligado · motor M1 em rotação' : 'KM1 e H1 energizados') : 'Saídas desenergizadas'}</span>
         <span className="end">IEC 61131-3 · {plcRunning ? 'scan 4 ms' : 'CPU parada'}</span>
       </div>
     </div>
@@ -601,7 +613,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           <div className="dx-head" data-rv>
             <span className="dx-over">Demonstração Ladder interativa</span>
             <h2>Execute uma partida direta sem sair desta página.</h2>
-            <p>Clique em RUN, depois em START e acompanhe o selo de KM1 e a sinalização H1 nas duas networks. Use STOP para desligar e os controlos −/+ para testar o zoom.</p>
+            <p>Clique em RUN e START, depois alterne entre Ladder e Painel 3D: o LOGO! Siemens, a botoeira START/STOP, KM1 e o motor SEW partilham o mesmo estado. Use STOP para desligar.</p>
           </div>
           <div className="dx-studio-grid">
             <div data-rv>

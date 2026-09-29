@@ -21,6 +21,9 @@ U1/V1/W1.
   de fases, sentido de rotação, medições e projetos antigos permanecem compatíveis.
 - O motor foi desbloqueado na Biblioteca e incluído na galeria pública `(3D)`; o motor monofásico
   continua bloqueado até existir um GLB próprio.
+- A demonstração pública de partida direta pode alternar entre **Ladder** e **Painel 3D** sem perder
+  o estado. A cena usa os GLB reais da fonte, LOGO! Siemens, botoeira NHD START/STOP, contator WEG
+  e motor SEW; RUN, START e STOP atualizam simultaneamente a lógica, os cabos, KM1 e a rotação.
 
 ## Novidades — v4.4 (refinamentos dos editores)
 

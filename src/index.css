@@ -1958,9 +1958,19 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
   cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease;
 }
 .dc-showcase-tools button:hover { border-color: #c0d4fc; background: #eef4ff; color: #1e42d3; }
+.dc-showcase-tools button:disabled { cursor: not-allowed; opacity: .46; filter: grayscale(.55); }
+.dc-showcase-tools button small { font: 700 8px ui-monospace, monospace; opacity: .82; }
+.dc-showcase-tools button.is-start:not(:disabled) { border-color: #15803d; color: #fff; background: #16a34a; }
+.dc-showcase-tools button.is-stop:not(:disabled) { border-color: #b91c1c; color: #fff; background: #dc2626; }
+.dc-showcase-tools button.is-start:not(:disabled):hover { background: #15803d; }
+.dc-showcase-tools button.is-stop:not(:disabled):hover { background: #b91c1c; }
 .dc-showcase-tools button i { width: 7px; height: 7px; border-radius: 50%; background: #aab4c2; }
 .dc-showcase-tools button i.on { background: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, .2); }
-@media (max-width: 620px) { .dc-showcase-badge { max-width: 100%; left: 12px; bottom: 10px; } }
+@media (max-width: 620px) {
+  .dc-showcase-badge { max-width: 70%; left: 12px; bottom: 10px; }
+  .dc-showcase-tools { right: 8px; top: 8px; gap: 4px; }
+  .dc-showcase-tools button { padding: 5px 8px; font-size: 10px; }
+}
 
 /* ---------------------------------------------------------------------------
    Editor — foco visível, microinterações e alvos táteis (acessibilidade)
