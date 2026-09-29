@@ -2337,3 +2337,19 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
 .ls-tiles { display:flex; gap:10px; margin:4px 0 8px; } .ls-tiles div { flex:1; padding:10px; border-radius:9px; background:#f5f7fb; } .ls-tiles strong { display:block; font-size:20px; font-weight:800; color:#1b2540; } .ls-tiles span { font-size:10px; color:#6b7a93; text-transform:uppercase; font-weight:700; letter-spacing:.05em; }
 .ls-shortcuts-panel .ls-search { margin:4px 0 12px; width:100%; }
 .ls-shortcuts-panel .lk-groups { grid-template-columns:1fr; }
+
+/* ---------- painel de estado (E/S, memórias, timers): esconder + scroll */
+.ladder-bottom-panel { display:flex; flex-direction:column; flex:0 0 170px; min-height:0; overflow:hidden; transition:flex-basis .18s ease; }
+.ladder-bottom-panel.is-collapsed { flex-basis:32px; }
+.ladder-bottom-tabs { flex-shrink:0; }
+.ladder-bottom-tabs > button:not(.ladder-bottom-toggle) { height:31px; border-bottom:2px solid transparent; color:inherit; font-size:10px; }
+.ladder-bottom-tabs > button:not(.ladder-bottom-toggle):hover { color:var(--ladder-blue); }
+.ladder-bottom-tabs > button.is-active { border-bottom-color:var(--ladder-blue); color:var(--ladder-blue); font-weight:700; }
+.ladder-bottom-toggle { display:inline-flex; align-items:center; gap:4px; margin-left:auto; height:22px; padding:0 8px; border-radius:5px; color:#617089; font-size:10px; font-weight:600; }
+.ladder-bottom-toggle:hover { background:var(--ladder-blue-soft); color:var(--ladder-blue); }
+.ladder-bottom-toggle svg { transition:transform .15s; } .ladder-bottom-toggle svg.is-flipped { transform:rotate(180deg); }
+.ladder-status-grid { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; align-items:start; scrollbar-gutter:stable; overscroll-behavior:contain; }
+.ladder-status-group { min-width:0; }
+.ladder-status-title { position:sticky; top:-8px; z-index:1; margin:-8px 0 4px; padding:8px 0 4px; background:#fff; }
+.ladder-project-status { position:sticky; top:0; align-self:start; }
+@media (prefers-reduced-motion: reduce) { .ladder-bottom-panel { transition:none; } }

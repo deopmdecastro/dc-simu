@@ -986,6 +986,12 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   const [expandedNodes, setExpandedNodes] = useState<Set<ProjectNodeId>>(() => new Set(['plc', 'programBlocks']))
   const [dragOver, setDragOver] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [showStatus, setShowStatus] = useState(() => {
+    try { return localStorage.getItem('dcsimu:ladder:status-open') !== '0' } catch { return true }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('dcsimu:ladder:status-open', showStatus ? '1' : '0') } catch { /* navegação privada */ }
+  }, [showStatus])
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
@@ -1069,6 +1075,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
       // ---- os restantes só fazem sentido no programa Ladder principal
       if (section !== 'Projeto') return
       if (mod && lower === 'b') { event.preventDefault(); setShowPalette((v) => !v); return }
+      if (mod && lower === 'j') { event.preventDefault(); setShowStatus((v) => !v); return }
       if (mod && lower === 'f') { event.preventDefault(); setShowPalette(true); requestAnimationFrame(() => searchRef.current?.focus()); return }
       if (!mod && !event.altKey && key === '/') { event.preventDefault(); setShowPalette(true); requestAnimationFrame(() => searchRef.current?.focus()); return }
       if (!mod && !event.altKey && key === '?') { event.preventDefault(); setHelpOpen(true); return }
@@ -1321,19 +1328,27 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
             </div>
           </div>
         )}
-        <div className="ladder-bottom-panel">
+        <div className={`ladder-bottom-panel ${showStatus ? '' : 'is-collapsed'}`}>
           <div className="ladder-bottom-tabs" role="tablist" aria-label="Estado do PLC">
             {([['io', 'Entradas/Saídas'], ['memory', 'Memórias'], ['timers', 'Temporizadores'], ['counters', 'Contadores']] as const).map(([id, label]) => (
-              <button key={id} role="tab" aria-selected={statusTab === id} className={statusTab === id ? 'is-active' : ''} onClick={() => setStatusTab(id)}>{label}</button>
+              <button key={id} role="tab" aria-selected={statusTab === id} className={statusTab === id ? 'is-active' : ''} onClick={() => { setStatusTab(id); setShowStatus(true) }}>{label}</button>
             ))}
+            <button
+              className="ladder-bottom-toggle"
+              onClick={() => setShowStatus((v) => !v)}
+              aria-expanded={showStatus}
+              title={`${showStatus ? 'Esconder' : 'Mostrar'} painel de estado (Ctrl+J)`}
+            >
+              <IconChevronDown size={12} className={showStatus ? '' : 'is-flipped'} /> {showStatus ? 'Esconder' : 'Mostrar'}
+            </button>
           </div>
-          <div className="ladder-status-grid" role="tabpanel">
+          {showStatus && <div className="ladder-status-grid" role="tabpanel">
             {statusTab === 'io' && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
             {statusTab === 'memory' && <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />}
             {statusTab === 'timers' && <div className="ladder-project-status"><span>Temporizadores</span>{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => <small key={address}>{address}: {t.elapsedMs} / {t.presetMs} ms · {t.done ? 'ativo' : 'inativo'}</small>) : <small>Nenhum temporizador executado.</small>}</div>}
             {statusTab === 'counters' && <div className="ladder-project-status"><span>Contadores</span>{Object.entries(counters).length ? Object.entries(counters).map(([address, c]) => <small key={address}>{address}: {c.count} / {c.preset} · {c.done ? 'atingido' : 'em contagem'}</small>) : <small>Nenhum contador executado.</small>}</div>}
             <div className="ladder-project-status"><span>Estado do Projeto</span><strong><i /> {running ? 'Simulação ativa' : 'Pronto'}</strong></div>
-          </div>
+          </div>}
         </div>
         </>}
       </main>
