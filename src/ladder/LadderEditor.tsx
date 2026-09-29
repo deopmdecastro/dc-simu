@@ -4,7 +4,7 @@ import { PROJECT_FOLDERS, type ProjectFile, type ProjectFolder } from './project
 import { plcIoRows } from './plcIo'
 import { parseDataBlocks } from './dataBlocks'
 import { collectUsedAddresses } from './ladderEngine'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
 import type { LadderContact, LadderRung, LadderContactType, LadderCoilType, LadderCoilEl, ComponentType, ElectricalComponent } from '../types'
@@ -15,8 +15,11 @@ import {
   IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder, IconCompare, IconMath, IconMove,
   IconFunction, IconUndo, IconRedo, IconChevronDown, IconChevronRight, IconShield,
-  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube,
+  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp,
 } from '../ui/icons'
+import { useLadderPrefs } from './ladderPrefs'
+import { ELEMENT_KEYS } from './ladderShortcuts'
+import ShortcutsDialog from './ShortcutsDialog'
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -155,14 +158,28 @@ const STRIP: Array<{ kind: PaletteKind; title: string }> = [
   { kind: 'CALL', title: 'Chamar FC explicitamente no OB1' },
 ]
 
-function RungRow({ rung, index, minWidth = 640, active = false }: { rung: LadderRung; index: number; minWidth?: number; active?: boolean }) {
+function RungRow({ rung, index, total = 1, minWidth = 640, active = false, collapsed: collapsedProp, onToggleCollapse }: {
+  rung: LadderRung; index: number; total?: number; minWidth?: number; active?: boolean
+  /** controlado pelo pai (Ctrl+E, recolher tudo); sem valor, a network gere o seu estado */
+  collapsed?: boolean; onToggleCollapse?: () => void
+}) {
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
   const { deleteRung, duplicateRung, moveRung, renameRung, updateRung } = useSimStore()
   const [selection, setSelection] = useState<RungSelection>(null)
   const [dialogSelection, setDialogSelection] = useState<Exclude<NonNullable<RungSelection>, { type: 'insert' }> | null>(null)
   /** network recolhida (só o cabeçalho visível) — como no TIA Portal */
-  const [collapsed, setCollapsed] = useState(false)
+  const [localCollapsed, setLocalCollapsed] = useState(false)
+  const collapsed = collapsedProp ?? localCollapsed
+  const toggleCollapsed = () => (onToggleCollapse ? onToggleCollapse() : setLocalCollapsed((v) => !v))
+  const confirmDelete = useLadderPrefs((p) => p.confirmDelete)
+  const showStripHint = useLadderPrefs((p) => p.showStripHint)
+  const requestDelete = () => {
+    if (confirmDelete && !window.confirm(`Eliminar a network ${index + 1}${rung.name ? ` («${rung.name}»)` : ''}? Pode repô-la com Ctrl+Z.`)) return
+    deleteRung(rung.id)
+  }
+  const contactCount = rung.branches.reduce((n, b) => n + b.elements.length, 0)
+  const outputCount = rung.coils.length + (rung.timer ? 1 : 0) + (rung.counter ? 1 : 0) + (rung.call ? 1 : 0) + (rung.move ? 1 : 0)
 
   const powered = !!rungPowered[rung.id]
   const selectedContact =
@@ -248,13 +265,13 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
   const smallBtn = 'dc-btn !h-[22px] !px-1.5 !text-[10px]'
   const tiny = 'dc-input !h-[22px] !text-[10px] !w-auto'
   return (
-    <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''} ${active ? 'is-active' : ''}`}>
+    <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''} ${active ? 'is-active' : ''} ${rung.enabled ? '' : 'is-disabled'}`}>
       {/* cabeçalho da network — estilo TIA Portal: "Network n: título" */}
-      <div className="ladder-rung-header" onDoubleClick={() => setCollapsed((v) => !v)}>
+      <div className="ladder-rung-header" onDoubleClick={() => toggleCollapsed()}>
         <button
           className="ladder-collapse-btn"
           title={collapsed ? 'Expandir network' : 'Recolher network'}
-          onClick={() => setCollapsed((v) => !v)}
+          onClick={() => toggleCollapsed()}
         >
           {collapsed ? <IconChevronRight size={11} /> : <IconChevronDown size={11} />}
         </button>
@@ -272,15 +289,21 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
           <i />
           {powered && running ? 'RLO = 1' : 'RLO = 0'}
         </span>
-        <label className="flex items-center gap-1 text-[10px] text-ink-400 cursor-pointer" title="Network habilitada para execução" onDoubleClick={(e) => e.stopPropagation()}>
+        <span className="ladder-rung-chips" title={`${contactCount} contacto(s) · ${outputCount} saída(s)/bloco(s)`}>
+          <span className="ladder-chip">{contactCount} <small>contactos</small></span>
+          <span className="ladder-chip">{outputCount} <small>saídas</small></span>
+          {!rung.enabled && <span className="ladder-chip is-off">desativada</span>}
+        </span>
+        <label className="ladder-switch" title="Network habilitada para execução (Ctrl+Shift+A)" onDoubleClick={(e) => e.stopPropagation()}>
           <input type="checkbox" checked={rung.enabled} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, enabled: e.target.checked }))} />
-          ativa
+          <span className="ladder-switch-track"><i /></span>
+          <span className="ladder-switch-text">ativa</span>
         </label>
-        <div className="flex gap-0.5" onDoubleClick={(e) => e.stopPropagation()}>
-          <button className={smallBtn} title="Mover para cima" onClick={() => moveRung(rung.id, -1)}>↑</button>
-          <button className={smallBtn} title="Mover para baixo" onClick={() => moveRung(rung.id, 1)}>↓</button>
-          <button className={smallBtn} title="Duplicar network" onClick={() => duplicateRung(rung.id)}><IconCopy size={10} /></button>
-          <button className={`${smallBtn} !text-state-error`} title="Excluir network" onClick={() => deleteRung(rung.id)}><IconDelete size={10} /></button>
+        <div className="ladder-rung-actions" onDoubleClick={(e) => e.stopPropagation()}>
+          <button className="ladder-rung-action" title="Mover para cima (Alt+Shift+↑)" aria-label="Mover network para cima" disabled={index === 0} onClick={() => moveRung(rung.id, -1)}>↑</button>
+          <button className="ladder-rung-action" title="Mover para baixo (Alt+Shift+↓)" aria-label="Mover network para baixo" disabled={index >= total - 1} onClick={() => moveRung(rung.id, 1)}>↓</button>
+          <button className="ladder-rung-action" title="Duplicar network (Ctrl+D)" aria-label="Duplicar network" onClick={() => duplicateRung(rung.id)}><IconCopy size={11} /></button>
+          <button className="ladder-rung-action is-danger" title="Eliminar network (Ctrl+Del)" aria-label="Eliminar network" onClick={requestDelete}><IconDelete size={11} /></button>
         </div>
       </div>
 
@@ -316,7 +339,7 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
             <LadderGlyph kind={it.kind} />
           </button>
         ))}
-        <span className="ml-auto text-[9.5px] text-ink-400 hidden md:inline">clique insere · arraste para posicionar · Del remove</span>
+        {showStripHint && <span className="ml-auto text-[9.5px] text-ink-400 hidden md:inline">clique insere · arraste para posicionar · Del remove elemento · ? atalhos</span>}
       </div>
 
       {/* diagrama — grelha padrão de 20px */}
@@ -1129,6 +1152,25 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   useEffect(() => { setActiveProjectNode('main'); setProgramTab('program') }, [activePlcId])
   const [expandedNodes, setExpandedNodes] = useState<Set<ProjectNodeId>>(() => new Set(['plc', 'programBlocks']))
   const [dragOver, setDragOver] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
+  const [toast, setToast] = useState<{ text: string; id: number } | null>(null)
+  const toastTimer = useRef<number | undefined>(undefined)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const showToasts = useLadderPrefs((p) => p.showToasts)
+  const autoScroll = useLadderPrefs((p) => p.autoScroll)
+  const confirmDelete = useLadderPrefs((p) => p.confirmDelete)
+  const deleteRung = useSimStore((s) => s.deleteRung)
+  const duplicateRung = useSimStore((s) => s.duplicateRung)
+  const moveRung = useSimStore((s) => s.moveRung)
+
+  const notify = useCallback((text: string) => {
+    if (!useLadderPrefs.getState().showToasts) return
+    window.clearTimeout(toastTimer.current)
+    setToast({ text, id: Date.now() })
+    toastTimer.current = window.setTimeout(() => setToast(null), 1400)
+  }, [])
+  useEffect(() => () => window.clearTimeout(toastTimer.current), [])
 
   const activeId = activeRungId && rungs.some((r) => r.id === activeRungId) ? activeRungId : rungs[0]?.id
   const counts = programCounts(rungs)
@@ -1142,28 +1184,122 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   const selectedFile = activeProjectNode.startsWith('file:') ? files.find((f) => f.id === activeProjectNode.slice(5)) : undefined
   const activeTitle = selectedFile?.name ?? (activeProjectNode === 'plc' ? activePlc?.ref ?? 'Programa geral' : NODE_TITLES[activeProjectNode as Exclude<ProjectNodeId, `file:${string}`>])
 
+  const focusRung = useCallback((id: string | undefined) => {
+    if (!id) return
+    setActiveRungId(id)
+    if (!useLadderPrefs.getState().autoScroll) return
+    requestAnimationFrame(() => document.getElementById(`ladder-net-${id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+  }, [])
+
+  const doUndo = useCallback(() => {
+    const st = useSimStore.getState()
+    if (!st.history.length) return notify('Nada para desfazer')
+    st.undo(); notify('Desfeito')
+  }, [notify])
+  const doRedo = useCallback(() => {
+    const st = useSimStore.getState()
+    if (!st.future.length) return notify('Nada para refazer')
+    st.redo(); notify('Refeito')
+  }, [notify])
+
+  const removeActiveRung = useCallback(() => {
+    const st = useSimStore.getState()
+    const list = st.ladder.rungs
+    const idx = list.findIndex((r) => r.id === activeId)
+    if (idx < 0) return
+    if (useLadderPrefs.getState().confirmDelete && !window.confirm(`Eliminar a network ${idx + 1}? Pode repô-la com Ctrl+Z.`)) return
+    const neighbour = list[idx + 1] ?? list[idx - 1]
+    st.deleteRung(list[idx].id)
+    setActiveRungId(neighbour?.id ?? null)
+    notify(`Network ${idx + 1} eliminada · Ctrl+Z repõe`)
+  }, [activeId, notify])
+
+  const quickAddRef = useRef<(kind: PaletteKind) => void>(() => {})
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
-      const modifier = event.ctrlKey || event.metaKey
-      if (modifier && (event.key === '+' || event.key === '=')) {
+      const target = event.target as HTMLElement | null
+      const typing = !!target?.closest('input,textarea,select,[contenteditable="true"]')
+      const mod = event.ctrlKey || event.metaKey
+      const key = event.key
+      const lower = key.toLowerCase()
+
+      // Ctrl+/ e ? abrem a ajuda — também a partir de campos, no caso do Ctrl+/
+      if (mod && key === '/') { event.preventDefault(); setHelpOpen((v) => !v); return }
+      if (typing || helpOpen) return
+
+      // ---- vista/zoom (já existiam)
+      if (mod && (key === '+' || key === '=')) { event.preventDefault(); setLadderZoom((v) => Math.min(1.35, Number((v + 0.1).toFixed(2)))); return }
+      if (mod && key === '-') { event.preventDefault(); setLadderZoom((v) => Math.max(0.75, Number((v - 0.1).toFixed(2)))); return }
+      if (mod && key === '0') { event.preventDefault(); setLadderZoom(1); return }
+
+      // ---- os restantes só fazem sentido no programa Ladder principal
+      if (section !== 'Projeto') return
+      if (mod && lower === 'b') { event.preventDefault(); setShowPalette((v) => !v); return }
+      if (mod && lower === 'f') { event.preventDefault(); setShowPalette(true); requestAnimationFrame(() => searchRef.current?.focus()); return }
+      if (!mod && !event.altKey && key === '/') { event.preventDefault(); setShowPalette(true); requestAnimationFrame(() => searchRef.current?.focus()); return }
+      if (!mod && !event.altKey && key === '?') { event.preventDefault(); setHelpOpen(true); return }
+
+      if (!isMainOpen || programTab !== 'program') return
+
+      // ---- edição
+      if (mod && !event.altKey && lower === 'z') { event.preventDefault(); if (event.shiftKey) doRedo(); else doUndo(); return }
+      if (mod && !event.altKey && lower === 'y') { event.preventDefault(); doRedo(); return }
+
+      const list = useSimStore.getState().ladder.rungs
+      const idx = list.findIndex((r) => r.id === activeId)
+
+      // ---- criar / duplicar / eliminar / mover
+      if (key === 'Insert' || (mod && event.shiftKey && lower === 'n')) {
         event.preventDefault()
-        setLadderZoom((value) => Math.min(1.35, Number((value + 0.1).toFixed(2))))
-      } else if (modifier && event.key === '-') {
+        const created = addRung(); focusRung(created); notify('Nova network criada'); return
+      }
+      if (mod && !event.shiftKey && lower === 'd') {
         event.preventDefault()
-        setLadderZoom((value) => Math.max(0.75, Number((value - 0.1).toFixed(2))))
-      } else if (modifier && event.key === '0') {
+        if (idx >= 0) { duplicateRung(list[idx].id); notify(`Network ${idx + 1} duplicada`); requestAnimationFrame(() => focusRung(useSimStore.getState().ladder.rungs[idx + 1]?.id)) }
+        return
+      }
+      if (mod && key === 'Delete') { event.preventDefault(); removeActiveRung(); return }
+      if (event.altKey && event.shiftKey && (key === 'ArrowUp' || key === 'ArrowDown')) {
         event.preventDefault()
-        setLadderZoom(1)
-      } else if (event.key === 'Insert' && isMainOpen && programTab === 'program') {
+        if (idx >= 0) { moveRung(list[idx].id, key === 'ArrowUp' ? -1 : 1); requestAnimationFrame(() => focusRung(list[idx].id)) }
+        return
+      }
+
+      // ---- navegar
+      const go = (to: number) => { if (list.length) focusRung(list[Math.max(0, Math.min(list.length - 1, to))].id) }
+      if (event.altKey && !event.shiftKey && key === 'ArrowUp') { event.preventDefault(); go((idx < 0 ? 0 : idx) - 1); return }
+      if (event.altKey && !event.shiftKey && key === 'ArrowDown') { event.preventDefault(); go((idx < 0 ? 0 : idx) + 1); return }
+      if (!mod && key === 'PageUp') { event.preventDefault(); go((idx < 0 ? 0 : idx) - 1); return }
+      if (!mod && key === 'PageDown') { event.preventDefault(); go((idx < 0 ? 0 : idx) + 1); return }
+      if (!mod && !event.altKey && key === 'Home') { event.preventDefault(); go(0); return }
+      if (!mod && !event.altKey && key === 'End') { event.preventDefault(); go(list.length - 1); return }
+
+      // ---- recolher / ativar
+      if (mod && lower === 'e') {
         event.preventDefault()
-        const created = addRung()
-        setActiveRungId(created)
+        if (event.shiftKey) {
+          setCollapsedIds((cur) => (cur.size >= list.length ? new Set() : new Set(list.map((r) => r.id))))
+        } else if (activeId) {
+          setCollapsedIds((cur) => { const next = new Set(cur); if (next.has(activeId)) next.delete(activeId); else next.add(activeId); return next })
+        }
+        return
+      }
+      if (mod && event.shiftKey && lower === 'a') {
+        event.preventDefault()
+        if (idx >= 0) { const enabled = !list[idx].enabled; updateRung(list[idx].id, (r) => ({ ...r, enabled })); notify(`Network ${idx + 1} ${enabled ? 'ativada' : 'desativada'}`) }
+        return
+      }
+
+      // ---- inserir elementos com uma tecla
+      if (!mod && !event.altKey) {
+        const hit = ELEMENT_KEYS.find((e) => e.key === lower && !!e.shift === event.shiftKey)
+        if (hit) { event.preventDefault(); quickAddRef.current(hit.kind); notify(`${hit.label} inserido`) }
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [addRung, isMainOpen, programTab])
+  }, [section, isMainOpen, programTab, activeId, helpOpen, addRung, updateRung, duplicateRung, moveRung, focusRung, doUndo, doRedo, removeActiveRung, notify])
 
   const createFile = (folder: ProjectFolder) => {
     const suggested = folder === 'programBlocks' ? 'FC' : folder === 'dataBlocks' ? 'DB' : folder === 'watchTables' ? 'Observação' : folder === 'backups' ? 'Backup' : 'Novo ficheiro'
@@ -1211,6 +1347,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
     setActiveRungId(rungId)
     updateRung(rungId, (r) => applyKind(r, kind).rung)
   }
+  quickAddRef.current = quickAdd
 
   /** Fallback: largar fora de qualquer network (área vazia) → network ativa. */
   const dropKindFromEvent = (e: React.DragEvent): PaletteKind | null => {
@@ -1259,7 +1396,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           </select>
           <span className="truncate text-ink-400">{plcs.length > 1 ? `${plcs.length} PLCs · programa independente por dispositivo` : plcs.length ? 'Programa deste PLC' : 'Adicione um PLC no Esquema'}</span>
         </div>
-        {section !== 'Projeto' ? <LadderSections section={section} onAdd={(kind) => { quickAdd(kind); setSection('Projeto') }} /> : <>
+        {section !== 'Projeto' ? <LadderSections section={section} groups={PALETTE_GROUPS} renderGlyph={(kind) => <LadderGlyph kind={kind} size={30} />} onAdd={(kind) => { quickAdd(kind); setSection('Projeto') }} /> : <>
         <div className="ladder-project-tabs">
           <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}>
             {isFcOpen ? <IconFunction size={13} /> : <IconSchematic size={13} />} {activeTitle} <span>×</span>
@@ -1270,8 +1407,8 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           </span>
         </div>
         <div className="ladder-editor-toolbar">
-          <button className="ladder-toolbar-button" onClick={undo} disabled={!history.length} title="Desfazer"><IconUndo size={14} /></button>
-          <button className="ladder-toolbar-button" onClick={redo} disabled={!future.length} title="Refazer"><IconRedo size={14} /></button>
+          <button className="ladder-toolbar-button" onClick={doUndo} disabled={!history.length} title="Desfazer (Ctrl+Z)" aria-label="Desfazer"><IconUndo size={14} /></button>
+          <button className="ladder-toolbar-button" onClick={doRedo} disabled={!future.length} title="Refazer (Ctrl+Y)" aria-label="Refazer"><IconRedo size={14} /></button>
           <span className="ladder-toolbar-separator" />
           <span className="ladder-zoom-label">⌕ {Math.round(ladderZoom * 100)}%</span>
           <button className="ladder-toolbar-button" disabled={ladderZoom <= 0.75} onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} title="Reduzir zoom (Ctrl−)"><IconZoomOut size={14} /></button>
@@ -1288,7 +1425,16 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           <span className="ladder-zoom-label">Malha {grid.enabled ? `${grid.size}px` : 'off'}</span>
           <span className="ladder-toolbar-separator" />
           <span className="text-[10px] text-slate-400">{isProgramView ? 'Programa Ladder' : activeTitle}</span>
-          {isMainOpen && <button onClick={addRung} className="ladder-primary-button ml-auto" title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>}
+          {isMainOpen && programTab === 'program' && rungs.length > 1 && (
+            <>
+              <span className="ladder-toolbar-separator" />
+              <button className="ladder-toolbar-button" onClick={() => setCollapsedIds((cur) => (cur.size >= rungs.length ? new Set() : new Set(rungs.map((r) => r.id))))} title="Recolher / expandir todas (Ctrl+Shift+E)">
+                {collapsedIds.size >= rungs.length ? 'Expandir tudo' : 'Recolher tudo'}
+              </button>
+            </>
+          )}
+          <button className="ladder-toolbar-button ml-auto" onClick={() => setHelpOpen(true)} title="Atalhos de teclado (?)" aria-label="Atalhos de teclado"><IconHelp size={14} /> <span className="ml-1 text-[10px]">Atalhos</span></button>
+          {isMainOpen && <button onClick={() => { const id = addRung(); focusRung(id) }} className="ladder-primary-button" title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>}
         </div>
         {programTab === 'program' && isMainOpen && (
           <div className="ladder-program-summary">
@@ -1330,8 +1476,12 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           >
             <div className="ladder-networks-scale" style={{ zoom: ladderZoom }}>
               {rungs.map((r, i) => (
-                <div key={r.id} className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`} onMouseDownCapture={() => setActiveRungId(r.id)}>
-                  <RungRow rung={r} index={i} active={activeId === r.id} minWidth={720} />
+                <div key={r.id} id={`ladder-net-${r.id}`} className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`} onMouseDownCapture={() => setActiveRungId(r.id)}>
+                  <RungRow
+                    rung={r} index={i} total={rungs.length} active={activeId === r.id} minWidth={720}
+                    collapsed={collapsedIds.has(r.id)}
+                    onToggleCollapse={() => setCollapsedIds((cur) => { const next = new Set(cur); if (next.has(r.id)) next.delete(r.id); else next.add(r.id); return next })}
+                  />
                 </div>
               ))}
               {!rungs.length && <LadderEmptyState onCreate={addRung} />}
@@ -1364,7 +1514,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           <button className="ladder-ghost-button" onClick={() => setShowPalette(false)} title="Recolher elementos">›</button>
         </div>
         <div className="relative mb-2">
-          <input className="ladder-palette-search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Buscar elemento..." />
+          <input ref={searchRef} className="ladder-palette-search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Buscar elemento…  ( / )" onKeyDown={(e) => { if (e.key === 'Escape') { setFilter(''); (e.target as HTMLInputElement).blur() } }} />
           <span className="ladder-search-icon">⌕</span>
         </div>
         <div className="ladder-palette-scroll">
@@ -1406,6 +1556,8 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           Elementos
         </button>
       ))}
+      <ShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+      {toast && <div key={toast.id} className="ladder-toast" role="status" aria-live="polite">{toast.text}</div>}
     </div>
   )
 }

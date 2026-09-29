@@ -223,6 +223,18 @@ interface Store extends CircuitState {
 
 type DrawKey = { kind: 'c' | 'w'; id: string }
 
+/** Agrupa edições rápidas e consecutivas da mesma network (ex.: escrever um
+ *  endereço letra a letra) num único passo de "Desfazer". */
+const RUNG_HISTORY_WINDOW_MS = 900
+let lastRungEdit = { key: '', at: 0 }
+function shouldCommitRungEdit(key: string): boolean {
+  const now = Date.now()
+  const commit = key !== lastRungEdit.key || now - lastRungEdit.at > RUNG_HISTORY_WINDOW_MS
+  lastRungEdit = { key, at: now }
+  return commit
+}
+function markRungEdit(key: string) { lastRungEdit = { key, at: Date.now() } }
+
 /** Ordem de empilhamento atual (cabos + componentes), do fundo para a frente,
  * usando o campo `z` (padrão 0) com a ordem de inserção original como
  * critério de desempate — mesma lógica usada pelo SchematicView ao desenhar. */
@@ -1287,6 +1299,7 @@ export const useSimStore = create<Store>((set, get) => ({
   addRung: () => {
     get().commitHistory()
     const rungId = nanoid(6)
+    markRungEdit(`rung:${rungId}`)
     set((s) => ({
       ladder: { rungs: [...s.ladder.rungs, { id: rungId, name: `Rung ${s.ladder.rungs.length + 1}`, branches: [{ id: nanoid(6), elements: [] }], coils: [], enabled: true }] },
       dirty: true,
@@ -1330,9 +1343,13 @@ export const useSimStore = create<Store>((set, get) => ({
     get().step()
   },
 
-  renameRung: (rungId, name) => set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? { ...r, name } : r)) }, dirty: true })),
+  renameRung: (rungId, name) => {
+    if (shouldCommitRungEdit(`rung:${rungId}:name`)) get().commitHistory()
+    set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? { ...r, name } : r)) }, dirty: true }))
+  },
 
   updateRung: (rungId, updater) => {
+    if (shouldCommitRungEdit(`rung:${rungId}`)) get().commitHistory()
     set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? updater(r) : r)) }, dirty: true }))
     get().step()
   },
