@@ -1968,3 +1968,21 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
     .dc-btn, .dc-icon-btn, .dc-tool-btn { min-height: 32px; }
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Estados vazios do editor — nunca uma área em branco sem explicação
+   ------------------------------------------------------------------------ */
+@layer components {
+  .dc-empty-state {
+    @apply flex flex-col items-center gap-2 text-center px-4 py-7 mx-auto max-w-[240px];
+  }
+  .dc-empty-state-icon {
+    @apply grid place-items-center w-11 h-11 rounded-lg border border-line bg-surface-sunken text-ink-400 mb-1;
+  }
+  .dc-empty-state strong { @apply text-[13px] font-semibold text-ink-900; }
+  .dc-empty-state p { @apply text-[11px] leading-relaxed text-ink-500; }
+  .dc-empty-state-hint { @apply text-[10px] text-ink-400 mt-1; }
+  .dc-empty-state kbd {
+    @apply inline-block px-1.5 py-px rounded border border-line bg-white font-mono text-[9px] text-ink-700 align-middle;
+  }
+}

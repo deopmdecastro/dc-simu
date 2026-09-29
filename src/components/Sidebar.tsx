@@ -193,7 +193,14 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
           <div className="flex-1 overflow-y-auto p-2 min-h-0 dc-library-scroll">
             {recent.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">◴ Recentes <span>{recent.length}</span></div><div className="dc-library-recent">{recent.map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => add(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
             {favorites.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">★ Favoritos <span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => add(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
-            {!filtered.length && <div className="p-4 text-center text-xs text-ink-400">Nenhum componente encontrado. Experimente outro termo ou limpe a pesquisa.</div>}
+            {!filtered.length && (
+              <div className="dc-empty-state">
+                <span className="dc-empty-state-icon"><IconSearch size={18} /></span>
+                <strong>Nenhum componente encontrado</strong>
+                <p>Não há resultados para «{filter.trim()}». Experimente outro termo, o nome do fabricante ou a categoria.</p>
+                <button className="dc-btn dc-btn-primary" onClick={() => setFilter('')}>Limpar pesquisa</button>
+              </div>
+            )}
             {filtered.map((g) => {
               const isCollapsed = !filter.trim() && collapsedGroups.has(g.group)
               return <section className="dc-library-folder" key={g.group}>
@@ -216,9 +223,12 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
         <div ref={inspectorRef} className="dc-inspector-scroll flex-1 overflow-y-auto p-3 text-xs text-ink-700 space-y-3 min-h-0">
           {!selectedComponent && !selectedWire && !selectedTerminal && (
             <div className="h-full flex items-center justify-center">
-              <p className="text-ink-400 leading-relaxed text-center max-w-[220px]">
-                Nada selecionado. Clique em um componente, um cabo ou um borne no esquema (ou na lista do painel 3D) para editar aqui.
-              </p>
+              <div className="dc-empty-state">
+                <span className="dc-empty-state-icon"><IconLayers size={18} /></span>
+                <strong>Nada selecionado</strong>
+                <p>Escolha um componente, um cabo ou um borne — no esquema ou no painel 3D — para editar as propriedades aqui.</p>
+                <span className="dc-empty-state-hint">Dica: <kbd>Esc</kbd> limpa a seleção</span>
+              </div>
             </div>
           )}
 
