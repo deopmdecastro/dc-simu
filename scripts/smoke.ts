@@ -694,21 +694,28 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const ls = createComponent('plcLsXbmDn32s')
   check('LS XBM-DN32S é PLC programável com 16DI/16DO', isProgrammablePlc(ls) && plcIoCapacity(ls).inputs === 16 && plcIoCapacity(ls).outputs === 16)
   check('TS Adapter IE é acessório e não recebe programa Ladder', !isProgrammablePlc(createComponent('siemensTsAdapterIeBasic')))
+
+  const motor = createComponent('motor3ph')
+  const motorCad = getComponentModelSpec('motor3ph')
+  check('SEW DRN80MK4/B3 usa o GLB real fora da calha DIN', motorCad?.path === '/models/motores/DRN80MK4-B3.glb' && motorCad.placement === 'machine' && motorCad.rotation.every((angle) => angle === 0))
+  check('motor SEW conserva U1/V1/W1/PE e dados nominais da ficha', ['U1', 'V1', 'W1', 'PE'].every((label) => motor.terminals.some((terminal) => terminal.label === label))
+    && motor.state.powerKw === 0.55 && motor.state.rpm === 1435 && motor.state.frequencyHz === 50
+    && motor.state.currentA === 1.29 && motor.state.torqueNm === 3.65 && motor.state.massKg === 11)
 }
 
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 15 componentes com GLB real', availableTypes.length === 15, `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 16 componentes com GLB real', availableTypes.length === 16, `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
-  check('componentes sem GLB permanecem bloqueados', ['motor3ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
+  check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
   check('todos os componentes disponíveis expõem GLB para o turntable da landing', availableTypes.every((type) => getComponentGlbSpec(type)?.path.toLowerCase().endsWith('.glb')))
 
   const beforeBlockedAdd = useSimStore.getState().components.length
-  const blockedId = useSimStore.getState().addComponent('motor3ph', 0, 0)
+  const blockedId = useSimStore.getState().addComponent('motor1ph', 0, 0)
   check('store impede inserção indireta de componente sem GLB', blockedId === null && useSimStore.getState().components.length === beforeBlockedAdd)
-  useSimStore.getState().setPlacingType('motor3ph')
+  useSimStore.getState().setPlacingType('motor1ph')
   useSimStore.getState().setDragType('buttonNO')
   check('estados de posicionamento e arraste não contornam o bloqueio', useSimStore.getState().placingType === null && useSimStore.getState().dragType === null)
 }

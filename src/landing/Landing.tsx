@@ -33,9 +33,10 @@ const LIBRARY: LandingLibraryItem[] = ([
   { type: 'terminalPhoenixPti6', n: 'Borne Phoenix Contact PTI 6', m: 'Push-in · 6 mm² · 41 A', c: 'Bornes' },
   { type: 'terminalPE', n: 'Borne de terra PE', m: 'Verde/amarelo · calha DIN', c: 'Bornes' },
   { type: 'powerSupplyProauto24A', n: 'Fonte Proauto DRAN120-24A', m: '24 V DC · 5 A · 120 W', c: 'Fontes' },
+  { type: 'motor3ph', n: 'Motor SEW DRN80MK4/B3', m: 'Trifásico · 0,55 kW · 1435 rpm', c: 'Motores' },
 ] satisfies LandingLibraryItem[]).filter((item) => hasComponent3DModel(item.type))
 
-const CATEGORIES = ['Todos', 'Proteção', 'Comando', 'Contactores', 'Relés', 'Controladores', 'Bornes', 'Fontes']
+const CATEGORIES = ['Todos', 'Proteção', 'Comando', 'Contactores', 'Relés', 'Controladores', 'Bornes', 'Fontes', 'Motores']
 
 const FLOW: [string, string][] = [
   ['Escolher componente', 'Pesquise por nome, fabricante ou categoria.'],
@@ -541,6 +542,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           <span>Bornes</span>
           <span>Controladores</span>
           <span>Fontes</span>
+          <span>Motores</span>
         </div>
       </div>
 
@@ -645,7 +647,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           <div className="dx-head" data-rv>
             <span className="dx-over">Biblioteca com CAD validado</span>
             <h2>Apenas equipamentos que já têm modelo GLB real.</h2>
-            <p>Explore os 15 componentes atualmente integrados. Cada modelo começa estático: arraste com o rato ou com o dedo para o girar em 3D, usando o mesmo GLB do Esquema e do Painel 3D.</p>
+            <p>Explore os {LIBRARY.length} componentes atualmente integrados. Cada modelo começa estático: arraste com o rato ou com o dedo para o girar em 3D, usando o mesmo GLB do Esquema e do Painel 3D.</p>
           </div>
           <div className="dx-lib-toolbar" data-rv>
             <div className="dx-lib-filters">

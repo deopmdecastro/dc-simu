@@ -18,6 +18,10 @@ const STATE_LABELS: Record<string, string> = {
   closed: 'Fechado', tripped: 'Disparado', poles: 'Polos', curve: 'Curva', inA: 'Corrente nominal (A)',
   powered: 'Alimentado', powerReady: 'Saída pronta (RDY)', watt: 'Potência (W)', energized: 'Energizado', pressed: 'Premido', running: 'Em funcionamento', presetMs: 'Tempo definido (ms)',
   elapsedMs: 'Tempo decorrido (ms)', triggered: 'Ativado', on: 'Ligado', enabled: 'Ativo',
+  manufacturer: 'Fabricante', model: 'Modelo', mounting: 'Forma construtiva', frame: 'Carcaça IEC', phases: 'Fases',
+  powerKw: 'Potência nominal (kW)', cv: 'Potência (cv)', rpm: 'Rotação nominal (rpm)', rpmVisual: 'Rotação visual',
+  frequencyHz: 'Frequência (Hz)', voltage: 'Tensão nominal', currentA: 'Corrente nominal (A)', cosPhi: 'Fator de potência (cos φ)',
+  torqueNm: 'Binário nominal (Nm)', massKg: 'Massa (kg)', direction: 'Sentido de rotação',
 }
 const stateLabel = (key: string) => STATE_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2')
 

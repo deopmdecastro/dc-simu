@@ -9,6 +9,19 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v4.5 (motor SEW DRN80MK4/B3)
+
+- O `motor3ph` usa agora o GLB real **SEW-EURODRIVE DRN80MK4/B3**, associado por uma única
+  especificação CAD partilhada pela Biblioteca, Esquema, Painel 3D e landing.
+- O PDF recebido foi integrado no inspetor. Os dados aplicados são: 0,55 kW, 1435 rpm, 400 V,
+  1,29 A, cos φ 0,75, binário nominal de 3,65 Nm, carcaça 80, montagem B3 e massa de 11 kg.
+- O Painel 3D mantém o motor fora da calha, distribui corretamente várias instâncias, aproxima os
+  cabos da caixa de terminais e mostra no eixo um indicador de rotação ligado ao estado/sentido real.
+- O modelo procedural continua como reserva caso o GLB não carregue. Bornes U1/V1/W1/PE, sequência
+  de fases, sentido de rotação, medições e projetos antigos permanecem compatíveis.
+- O motor foi desbloqueado na Biblioteca e incluído na galeria pública `(3D)`; o motor monofásico
+  continua bloqueado até existir um GLB próprio.
+
 ## Novidades — v4.4 (refinamentos dos editores)
 
 - O workspace recupera a última vista e secção Ladder usadas e avisa antes de fechar a aba quando
@@ -104,7 +117,7 @@ nem o conteúdo.
 - A vitrine WebGL principal usa os três modelos CAD verdadeiros (LOGO! 12/24RC, contator WEG e fonte
   DRAN120): é possível rodar, aproximar e ligar/desligar a alimentação; os modelos carregam em
   `Suspense`, protegidos por `ErrorBoundary`, sem bloquear a página.
-- A galeria pública mostra exclusivamente os **15 tipos que já possuem GLB real integrado**. Cada
+- A galeria pública mostra exclusivamente os **16 tipos que já possuem GLB real integrado**. Cada
   cartão apresenta o selo **(3D)** e começa estático; o utilizador gira o turntable horizontalmente
   com rato, dedo ou setas do teclado. As frames vêm do mesmo ficheiro usado no Esquema e Painel 3D,
   são criadas sob demanda e libertam o contexto WebGL temporário para preservar desempenho no móvel.

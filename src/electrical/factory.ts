@@ -495,12 +495,18 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
 
   // ---------------- Motores / acionamentos ----------------
   motor3ph: {
-    category: 'motor', paletteName: 'Motor trifásico (U1/V1/W1)', group: 'Motores', tag: 'M', w: 120, h: 130,
+    category: 'motor', paletteName: 'Motor SEW DRN80MK4/B3 · 0,55 kW', group: 'Motores', tag: 'M', w: 140, h: 120,
     terminals: [
       T('U1', 'power-in', 0.25, 0), T('V1', 'power-in', 0.5, 0), T('W1', 'power-in', 0.75, 0),
       T('PE', 'earth', 0.5, 1),
     ],
-    defaultState: { running: false, direction: 'stopped', rpmVisual: 0, tripped: false, cv: 1, rpm: 1730, voltage: '380V' },
+    // Valores da ficha CADENAS/3Dfindit recebida com o modelo DRN80MK4-B3.
+    defaultState: {
+      running: false, direction: 'stopped', rpmVisual: 0, tripped: false,
+      manufacturer: 'SEW-EURODRIVE', model: 'DRN80MK4/B3', mounting: 'B3', frame: 80,
+      phases: 3, powerKw: 0.55, cv: 0.75, rpm: 1435, frequencyHz: 50, voltage: '400V', currentA: 1.29,
+      cosPhi: 0.75, torqueNm: 3.65, massKg: 11,
+    },
   },
   motor1ph: {
     category: 'motor', paletteName: 'Motor monofásico', group: 'Motores', tag: 'M', w: 100, h: 120,

@@ -53,14 +53,15 @@ export function buildMeasurements(
     .filter((c) => c.type === 'motor3ph' || c.type === 'motor1ph')
     .forEach((m) => {
       const cv = Number(m.state.cv ?? 1)
-      const nominal = (cv * 736) / (1.732 * VOLT_NOMINAL * 0.86)
+      const estimated = (cv * 736) / (1.732 * VOLT_NOMINAL * 0.86)
+      const nominal = m.state.currentA == null ? estimated * 0.92 : Number(m.state.currentA)
       const running = !!m.state.running
       if (running) {
         out.push({
           id: `m-${m.id}-i`,
           ref: m.ref,
           kind: 'corrente',
-          value: Number((nominal * 0.92).toFixed(2)),
+          value: Number(nominal.toFixed(2)),
           unit: 'A',
           ok: true,
         })
@@ -68,7 +69,7 @@ export function buildMeasurements(
           id: `m-${m.id}-f`,
           ref: m.ref,
           kind: 'frequência',
-          value: 60,
+          value: Number(m.state.frequencyHz ?? 60),
           unit: 'Hz',
           ok: true,
         })

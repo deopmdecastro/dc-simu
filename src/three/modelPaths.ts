@@ -20,6 +20,8 @@ export const MODEL_PATHS = {
   phoenixTerminalPti6: '/models/bornes-e-barras/phoenix-pti6-3213972.glb',
   terminalPE: '/models/bornes-e-barras/terminal-pe.glb',
   safetyRelayMsr127Tp: '/models/reles/allen-bradley-msr127tp.glb',
+  /** Motor trifásico SEW-EURODRIVE DRN80MK4, montagem B3. */
+  motorSewDrn80Mk4B3: '/models/motores/DRN80MK4-B3.glb',
 } as const
 
 export type ComponentModelSpec = {
@@ -29,7 +31,7 @@ export type ComponentModelSpec = {
   /** Alguns exports têm a face em -Z; a reflexão apresenta-a à câmara. */
   flipDepth?: boolean
   /** Local físico correto no painel. */
-  placement: 'din-rail' | 'panel-front'
+  placement: 'din-rail' | 'panel-front' | 'machine'
   /** Altura normalizada do aparelho no Painel 3D. */
   targetHeight: number
 }
@@ -55,6 +57,9 @@ const COMPONENT_MODELS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   siemensTsAdapterIeBasic: { path: MODEL_PATHS.siemensTsAdapterIeBasic, rotation: [0, 0, 0], placement: 'din-rail', targetHeight: 0.94 },
   terminalPhoenixPti6: { path: MODEL_PATHS.phoenixTerminalPti6, rotation: [0, 0, 0], placement: 'din-rail', targetHeight: 0.62 },
   terminalPE: { path: MODEL_PATHS.terminalPE, rotation: [0, 0, 0], placement: 'din-rail', targetHeight: 0.58 },
+
+  // Export CADENAS/3Dfindit em milímetros, já com Y para cima e eixo em +X.
+  motor3ph: { path: MODEL_PATHS.motorSewDrn80Mk4B3, rotation: [0, 0, 0], placement: 'machine', targetHeight: 1.04 },
 }
 
 export function getComponentModelSpec(type: ComponentType): ComponentModelSpec | undefined {

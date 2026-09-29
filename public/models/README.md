@@ -43,6 +43,11 @@ Os CAD integrados pelo renderizador comum de `src/schematic/cad3DImage.ts` e pel
 | Siemens TS Adapter IE Basic | `controladores/siemens-ts-adapter-ie-basic.glb` | Calha DIN |
 | Phoenix Contact PTI 6 | `bornes-e-barras/phoenix-pti6-3213972.glb` | Calha DIN |
 | Borne PE genérico | `bornes-e-barras/terminal-pe.glb` | Calha DIN |
+| Motor SEW-EURODRIVE DRN80MK4/B3 | `motores/DRN80MK4-B3.glb` | Máquina / montagem com pés B3 |
+
+O motor DRN80MK4/B3 usa o GLB CADENAS/3Dfindit recebido sem alterar o ficheiro de origem. O export
+já tem Y para cima e o eixo em +X; o código apenas normaliza escala e posição. A ficha integrada
+confirma 0,55 kW, 1435 rpm, 400 V / 1,29 A, cos φ 0,75, 3,65 Nm e massa de 11 kg.
 
 Os GLB recebidos com nomes de conversor/espaços foram renomeados para URLs estáveis. O borne PE não
 inclui metadados suficientes para afirmar fabricante/referência e, por isso, continua identificado

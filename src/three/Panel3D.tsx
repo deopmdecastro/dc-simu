@@ -14,6 +14,9 @@ import ComponentViewEditor from '../components/ComponentViewEditor'
 
 const SLOT_WIDTH = 0.72
 const RAIL_Y = 0.4
+const PANEL_FLOOR_Y = -2.6
+/** Centro do DRN80 normalizado (1,04 m de cena), com os pés apoiados no piso. */
+const MOTOR_CENTER_Y = PANEL_FLOOR_Y + 0.52
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -559,18 +562,19 @@ function Sensor3D({ c, x, onToggle }: { c: ElectricalComponent; x: number; onTog
   )
 }
 
-function Motor3D({ c }: { c: ElectricalComponent }) {
+function Motor3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const running = !!c.state.running
   const dir = c.state.direction
   const fanRef = useRef<THREE.Mesh>(null)
   useFrame((_, delta) => {
-    if (fanRef.current && c.state.rpmVisual > 0) {
-      const speed = (dir === 'ccw' ? -1 : 1) * c.state.rpmVisual * 9
+    const rpmVisual = Number(c.state.rpmVisual ?? 0)
+    if (fanRef.current && rpmVisual > 0) {
+      const speed = (dir === 'ccw' ? -1 : 1) * rpmVisual * 9
       fanRef.current.rotation.x += speed * delta
     }
   })
   return (
-    <group position={[2.4, -0.75, 0.7]}>
+    <group position={[x, MOTOR_CENTER_Y, 0.7]}>
       <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[0.52, 0.52, 1.05, 28]} />
         <meshStandardMaterial color="#1e3a8a" metalness={0.45} roughness={0.5} />
@@ -581,15 +585,15 @@ function Motor3D({ c }: { c: ElectricalComponent }) {
           <meshStandardMaterial color="#334155" metalness={0.5} />
         </mesh>
       ))}
-      <mesh ref={fanRef} position={[0.57, 0, 0]}>
+      <mesh ref={fanRef} position={[-0.57, 0, 0]}>
         <boxGeometry args={[0.05, 0.42, 0.42]} />
         <meshStandardMaterial color={running ? '#60a5fa' : '#334155'} />
       </mesh>
-      <mesh position={[-0.68, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+      <mesh position={[0.68, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
         <cylinderGeometry args={[0.09, 0.09, 0.32, 14]} />
         <meshStandardMaterial color="#94a3b8" metalness={0.65} />
       </mesh>
-      <mesh position={[0, -0.62, 0]} receiveShadow>
+      <mesh position={[0, -0.48, 0]} receiveShadow>
         <boxGeometry args={[1.3, 0.08, 0.9]} />
         <meshStandardMaterial color="#4b5563" />
       </mesh>
@@ -600,9 +604,60 @@ function Motor3D({ c }: { c: ElectricalComponent }) {
   )
 }
 
+/** SEW-EURODRIVE DRN80MK4/B3 — CAD real com indicador funcional no eixo. */
+function MotorSewDrn80Mk4B3Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  const spec = getComponentModelSpec('motor3ph')!
+  const { scene } = useGLTF(spec.path)
+  const shaftIndicator = useRef<THREE.Group>(null)
+  const model = useMemo(() => {
+    const object = scene.clone(true)
+    object.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => material.clone()) : mesh.material.clone()
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+    })
+    object.rotation.set(...spec.rotation)
+    object.updateMatrixWorld(true)
+    const raw = new THREE.Box3().setFromObject(object)
+    const height = raw.max.y - raw.min.y
+    const scale = height > 0 ? spec.targetHeight / height : 1
+    object.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
+    object.updateMatrixWorld(true)
+    const fitted = new THREE.Box3().setFromObject(object)
+    const center = fitted.getCenter(new THREE.Vector3())
+    object.position.set(-center.x, -fitted.min.y, -center.z)
+    return object
+  }, [scene, spec])
+  const running = !!c.state.running
+  const direction = c.state.direction
+  useFrame((_, delta) => {
+    const rpmVisual = Number(c.state.rpmVisual ?? 0)
+    if (!shaftIndicator.current || rpmVisual <= 0) return
+    const speed = (direction === 'ccw' ? -1 : 1) * rpmVisual * 9
+    shaftIndicator.current.rotation.x += speed * delta
+  })
+  const markerColor = running ? '#22c55e' : '#64748b'
+  return <group position={[x, MOTOR_CENTER_Y, 0.7]}>
+    {/* O CAD é normalizado pela altura; este deslocamento conserva o pivô no centro do motor. */}
+    <group position={[0, -spec.targetHeight / 2, 0]}>
+      <primitive object={model} />
+      <group ref={shaftIndicator} position={[0.67, 0.4, 0]}>
+        <mesh><boxGeometry args={[0.022, 0.22, 0.026]} /><meshStandardMaterial color={markerColor} emissive={running ? markerColor : '#000000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
+        <mesh><boxGeometry args={[0.022, 0.026, 0.22]} /><meshStandardMaterial color={markerColor} emissive={running ? markerColor : '#000000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
+      </group>
+      {running && <pointLight color="#22c55e" intensity={0.22} distance={1.2} position={[0.58, 0.4, 0.2]} />}
+    </group>
+    <Text position={[0, 0.69, 0]} fontSize={0.105} color="#24324a" anchorX="center">
+      {`${c.ref} · DRN80MK4/B3 ${running ? (direction === 'cw' ? '↻' : '↺') : '· parado'}`}
+    </Text>
+  </group>
+}
+
 /* ------------------------------------------------------------------ cabos 3D */
 
-function Wires3D({ positions }: { positions: Record<string, THREE.Vector3> }) {
+function Wires3D({ positions, offRailX }: { positions: Record<string, THREE.Vector3>; offRailX: Record<string, number> }) {
   const wires = useSimStore((s) => s.wires)
   const components = useSimStore((s) => s.components)
 
@@ -631,8 +686,14 @@ function Wires3D({ positions }: { positions: Record<string, THREE.Vector3> }) {
       if (!t) continue
       const base = positions[c.id]
       if (!base) {
-        // componentes fora do trilho (botões, sinaleiros): usa a posição do esquema
-        return [c.schematicX / 300 - 2.6, RAIL_Y + 0.6, 0.4]
+        const x = offRailX[c.id] ?? c.schematicX / 300 - 2.6
+        if (c.type === 'motor3ph' || c.type === 'motor1ph') {
+          // Caixa de terminais sobre o motor; PE fica junto à carcaça/base.
+          if (t.kind === 'earth') return [x, PANEL_FLOOR_Y + 0.1, 0.92]
+          return [x + (t.x - 0.5) * 0.5, PANEL_FLOOR_Y + 1.02, 1.02]
+        }
+        // Botões, sinaleiros e sensores usam a mesma régua frontal da cena.
+        return [x, RAIL_Y + 0.6, 0.4]
       }
       const p = terminalPos(c, t)
       return [base.x, base.y + (t.kind === 'power-in' || t.kind === 'coil-plus' ? 0.32 : -0.32), t.y < 0.5 ? 0.28 : -0.05]
@@ -777,13 +838,23 @@ export default function Panel3D() {
   const railComponents = components.filter((c) => positions[c.id])
   const offRail = components.filter((c) => !positions[c.id])
 
-  // posiciona botões, sinaleiros e sensores numa régua frontal
+  // Posiciona comandos numa régua frontal e motores com espaçamento próprio à direita.
   const front = useMemo(() => {
     const pos: Record<string, number> = {}
-    let cursor = -3.4
-    for (const c of offRail) pos[c.id] = (cursor += 0.5)
+    let controlCursor = -Math.max(2.8, railWidth / 2 - 0.35)
+    let motorCursor = railWidth / 2 + 1.05
+    for (const component of offRail) {
+      if (component.type === 'motor3ph' || component.type === 'motor1ph') {
+        pos[component.id] = motorCursor
+        motorCursor += 1.65
+      } else {
+        pos[component.id] = controlCursor
+        controlCursor += 0.52
+      }
+    }
     return pos
-  }, [offRail])
+  }, [offRail, railWidth])
+  const sceneWidth = Math.max(railWidth, ...Object.values(front).map((x) => Math.abs(x) * 2 + 1.6))
 
   const orientationFor = (component: ElectricalComponent) => viewOrientationEditor?.componentId === component.id
     ? viewOrientationEditor.draft
@@ -799,7 +870,7 @@ export default function Panel3D() {
     >{content}</OrientedInstance>
   )
   const frontPivot = (component: ElectricalComponent, x: number): [number, number, number] => {
-    if (component.type === 'motor3ph' || component.type === 'motor1ph') return [2.4, -0.75, 0.7]
+    if (component.type === 'motor3ph' || component.type === 'motor1ph') return [x, MOTOR_CENTER_Y, 0.7]
     if (component.type === 'towerLight') return [x, RAIL_Y + 1.3, 0.12]
     if (component.type === 'ledGreen' || component.type === 'ledRed' || component.type === 'ledYellow' || component.type === 'ledWhite' || component.type === 'buzzer') return [x, RAIL_Y + 1.15, 0.12]
     if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [x, RAIL_Y + 0.9, 0.3]
@@ -856,7 +927,7 @@ export default function Panel3D() {
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
-        {showGrid && <gridHelper args={[16, 32, '#c3cdda', '#dfe5ee']} position={[0, -2.6, 0]} />}
+        {showGrid && <gridHelper args={[16, 32, '#c3cdda', '#dfe5ee']} position={[0, PANEL_FLOOR_Y, 0]} />}
 
         <DinRail width={railWidth} />
 
@@ -882,7 +953,10 @@ export default function Panel3D() {
           let content: ReactNode
           if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />
           else if (c.type === 'towerLight') content = <TowerLight3D c={c} x={x} />
-          else if (c.type === 'motor3ph' || c.type === 'motor1ph') content = <Motor3D c={c} />
+          else if (c.type === 'motor3ph') {
+            const fallback = <Motor3D c={c} x={x} />
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><MotorSewDrn80Mk4B3Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          } else if (c.type === 'motor1ph') content = <Motor3D c={c} x={x} />
           else if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => setComponentState(c.id, { startPressed: pressed })} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><DualPushButtonReal3D c={c} x={x}
@@ -893,9 +967,9 @@ export default function Panel3D() {
           else content = <PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />
           return wrapOriented(c, frontPivot(c, x), content)
         })}
-        <Wires3D positions={positions} />
+        <Wires3D positions={positions} offRailX={front} />
 
-        <PanelCameraRig command={cameraCommand} railWidth={railWidth} />
+        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} />
       </Canvas>
 
       {!components.length && <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
