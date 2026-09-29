@@ -409,8 +409,9 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'ledRed':
       case 'ledYellow':
       case 'ledWhite':
+      case 'pilotLightAd22':
       case 'buzzer': {
-        const col = c.state.color && c.type.startsWith('led') ? c.state.color : '#f59e0b'
+        const col = c.state.color && (c.type.startsWith('led') || c.type === 'pilotLightAd22') ? c.state.color : '#f59e0b'
         const lit = !!c.state.on
         return (
           <g>

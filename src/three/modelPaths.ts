@@ -22,6 +22,8 @@ export const MODEL_PATHS = {
   safetyRelayMsr127Tp: '/models/reles/allen-bradley-msr127tp.glb',
   /** Motor trifásico SEW-EURODRIVE DRN80MK4, montagem B3. */
   motorSewDrn80Mk4B3: '/models/motores/DRN80MK4-B3.glb',
+  /** Sinaleiro LED genérico AD22-22DS, 22 mm, 24 V AC/DC. */
+  pilotLightAd22: '/models/sinalizacao/ad22-22ds-24v.glb',
 } as const
 
 export type ComponentModelSpec = {
@@ -60,6 +62,8 @@ const COMPONENT_MODELS: Partial<Record<ComponentType, ComponentModelSpec>> = {
 
   // Export CADENAS/3Dfindit em milímetros, já com Y para cima e eixo em +X.
   motor3ph: { path: MODEL_PATHS.motorSewDrn80Mk4B3, rotation: [0, 0, 0], placement: 'machine', targetHeight: 1.04 },
+  // O eixo do sinaleiro já aponta para +Z; a face circular fica frontal sem correção de origem.
+  pilotLightAd22: { path: MODEL_PATHS.pilotLightAd22, rotation: [0, 0, 0], placement: 'panel-front', targetHeight: 0.4 },
 }
 
 export function getComponentModelSpec(type: ComponentType): ComponentModelSpec | undefined {

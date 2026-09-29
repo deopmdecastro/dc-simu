@@ -44,6 +44,11 @@ Os CAD integrados pelo renderizador comum de `src/schematic/cad3DImage.ts` e pel
 | Phoenix Contact PTI 6 | `bornes-e-barras/phoenix-pti6-3213972.glb` | Calha DIN |
 | Borne PE genérico | `bornes-e-barras/terminal-pe.glb` | Calha DIN |
 | Motor SEW-EURODRIVE DRN80MK4/B3 | `motores/DRN80MK4-B3.glb` | Máquina / montagem com pés B3 |
+| Sinaleiro LED AD22-22DS | `sinalizacao/ad22-22ds-24v.glb` | Frente do painel · furação 22 mm |
+
+O sinaleiro AD22-22DS mede aproximadamente 29,3 × 29,3 × 51,5 mm no CAD recebido. O eixo já aponta
+para +Z e a face fica frontal sem correção de origem. A lente vermelha está isolada no material
+`FF0000FF`, permitindo que cada instância altere cor e emissão sem modificar o GLB original.
 
 O motor DRN80MK4/B3 usa o GLB CADENAS/3Dfindit recebido sem alterar o ficheiro de origem. O export
 já tem Y para cima e o eixo em +X; o código apenas normaliza escala e posição. A ficha integrada

@@ -22,7 +22,15 @@ const STATE_LABELS: Record<string, string> = {
   powerKw: 'Potência nominal (kW)', cv: 'Potência (cv)', rpm: 'Rotação nominal (rpm)', rpmVisual: 'Rotação visual',
   frequencyHz: 'Frequência (Hz)', voltage: 'Tensão nominal', currentA: 'Corrente nominal (A)', cosPhi: 'Fator de potência (cos φ)',
   torqueNm: 'Binário nominal (Nm)', massKg: 'Massa (kg)', direction: 'Sentido de rotação',
+  color: 'Cor da luz', lamp: 'Fonte luminosa', mountingDiameterMm: 'Furação do painel (mm)',
+  currentMa: 'Corrente máxima (mA)', serviceLifeHours: 'Vida útil (h)', protection: 'Proteção',
+  operatingTemperature: 'Temperatura de serviço',
 }
+const PILOT_LIGHT_COLORS = [
+  { name: 'Vermelho', value: '#ef4444' }, { name: 'Verde', value: '#22c55e' },
+  { name: 'Amarelo', value: '#eab308' }, { name: 'Azul', value: '#3b82f6' },
+  { name: 'Branco', value: '#f8fafc' }, { name: 'Laranja', value: '#f97316' },
+] as const
 const stateLabel = (key: string) => STATE_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2')
 
 
@@ -371,6 +379,25 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                           onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: Number(e.target.value) })}
                         />
                       </label>
+                    )
+                  }
+                  if (selectedComponent.type === 'pilotLightAd22' && k === 'color' && typeof v === 'string') {
+                    return (
+                      <div key={k} className="rounded-md border border-line-soft bg-surface-sunken/50 p-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-ink-500" title={k}>{stateLabel(k)}</span>
+                          <input type="color" className="h-7 w-12 cursor-pointer rounded border border-line bg-white p-0.5"
+                            value={v} aria-label="Escolher uma cor personalizada para a luz"
+                            onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { color: e.target.value })} />
+                        </div>
+                        <div className="mt-2 grid grid-cols-6 gap-1" aria-label="Cores predefinidas">
+                          {PILOT_LIGHT_COLORS.map((option) => <button key={option.value} type="button"
+                            className={`h-6 rounded border ${v.toLowerCase() === option.value ? 'border-brand-600 ring-1 ring-brand-300' : 'border-line'}`}
+                            style={{ backgroundColor: option.value }} title={option.name} aria-label={option.name}
+                            aria-pressed={v.toLowerCase() === option.value}
+                            onClick={() => useSimStore.getState().setComponentState(selectedComponent.id, { color: option.value })} />)}
+                        </div>
+                      </div>
                     )
                   }
                   if (typeof v === 'string') {

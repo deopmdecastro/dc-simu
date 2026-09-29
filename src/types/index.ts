@@ -73,6 +73,7 @@ export type ComponentType =
   | 'ledRed'
   | 'ledYellow'
   | 'ledWhite'
+  | 'pilotLightAd22'
   | 'buzzer'
   | 'towerLight'
   // --- Motores / acionamentos ------------------------------------------

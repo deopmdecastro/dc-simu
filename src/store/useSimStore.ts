@@ -423,7 +423,7 @@ function runOneTick(state: Store, dtMs: number) {
 
   // 8) Sinaleiros / buzzer / torre
   for (const c of components) {
-    if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') {
+    if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'pilotLightAd22' || c.type === 'buzzer') {
       c.state.on = isLoadPowered(c, pass3.energizedTerminals)
     }
     if (c.type === 'towerLight') {

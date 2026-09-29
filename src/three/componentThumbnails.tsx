@@ -211,7 +211,7 @@ function buildSignaling(g: THREE.Group, type: string) {
     cyl(g, 0.05, 0.05, 0.32, BLACK, 0, 0, 0, {}, 8)
     return
   }
-  const color = type.includes('Green') ? GREEN : type.includes('Red') ? RED : type.includes('Yellow') ? AMBER : WHITE
+  const color = type === 'pilotLightAd22' ? RED : type.includes('Green') ? GREEN : type.includes('Red') ? RED : type.includes('Yellow') ? AMBER : WHITE
   cyl(g, 0.16, 0.2, 0.2, CASING_DARK, 0, -0.18, 0, {}, 20)
   cyl(g, 0.16, 0.16, 0.22, color, 0, 0.1, 0, { emissive: color, emissiveIntensity: 0.45 }, 20)
 }

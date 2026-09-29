@@ -9,6 +9,19 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v4.6 (sinaleiro LED AD22-22DS)
+
+- Novo componente **Sinaleiro LED AD22-22DS · 24 V AC/DC**, com o GLB real no catálogo,
+  Esquema, Painel 3D, editor de vistas e galeria pública `(3D)`.
+- A montagem é tratada como componente de frente de painel de 22 mm, com bornes de parafuso
+  X1/X2 e comportamento elétrico de carga: a lente acende somente quando ambos os polos estão
+  corretamente alimentados.
+- Cada instância permite escolher a cor da luz no inspetor — vermelho, verde, amarelo, azul,
+  branco, laranja ou uma cor personalizada. A escolha altera a lente, emissão e halo no Painel 3D,
+  persiste no projeto e não modifica o GLB original nem outras instâncias.
+- O PDF resumido da série AD22 está integrado. O modelo recebido mede aproximadamente
+  29,3 × 29,3 × 51,5 mm e já apresenta a face no eixo +Z.
+
 ## Novidades — v4.5 (motor SEW DRN80MK4/B3)
 
 - O `motor3ph` usa agora o GLB real **SEW-EURODRIVE DRN80MK4/B3**, associado por uma única
@@ -22,8 +35,9 @@ U1/V1/W1.
 - O motor foi desbloqueado na Biblioteca e incluído na galeria pública `(3D)`; o motor monofásico
   continua bloqueado até existir um GLB próprio.
 - A demonstração pública de partida direta pode alternar entre **Ladder** e **Painel 3D** sem perder
-  o estado. A cena usa os GLB reais da fonte, LOGO! Siemens, botoeira NHD START/STOP, contator WEG
-  e motor SEW; RUN, START e STOP atualizam simultaneamente a lógica, os cabos, KM1 e a rotação.
+  o estado. A cena usa os GLB reais da fonte, LOGO! Siemens, botoeira NHD START/STOP, contator WEG,
+  motor SEW e sinaleiro AD22 H1; RUN, START e STOP atualizam simultaneamente a lógica, os cabos,
+  KM1, a rotação e a luz de marcha.
 
 ## Novidades — v4.4 (refinamentos dos editores)
 
@@ -120,7 +134,7 @@ nem o conteúdo.
 - A vitrine WebGL principal usa os três modelos CAD verdadeiros (LOGO! 12/24RC, contator WEG e fonte
   DRAN120): é possível rodar, aproximar e ligar/desligar a alimentação; os modelos carregam em
   `Suspense`, protegidos por `ErrorBoundary`, sem bloquear a página.
-- A galeria pública mostra exclusivamente os **16 tipos que já possuem GLB real integrado**. Cada
+- A galeria pública mostra exclusivamente os **17 tipos que já possuem GLB real integrado**. Cada
   cartão apresenta o selo **(3D)** e começa estático; o utilizador gira o turntable horizontalmente
   com rato, dedo ou setas do teclado. As frames vêm do mesmo ficheiro usado no Esquema e Painel 3D,
   são criadas sob demanda e libertam o contexto WebGL temporário para preservar desempenho no móvel.

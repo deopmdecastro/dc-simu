@@ -478,6 +478,18 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: [T('X1', 'io', 0.5, 0.1, { color: '#ef4444' }), T('X2', 'io', 0.5, 0.9, { color: '#3b82f6' })],
     defaultState: { on: false, color: '#f8fafc', voltage: '24V' },
   },
+  pilotLightAd22: {
+    category: 'signaling', paletteName: 'Sinaleiro LED AD22-22DS · 24 V', group: 'Sinalização', tag: 'H', w: 70, h: 82,
+    terminals: [
+      T('X1', 'io', 0.5, 0.08, { color: '#ef4444', terminalType: 'screw' }),
+      T('X2', 'io', 0.5, 0.92, { color: '#3b82f6', terminalType: 'screw' }),
+    ],
+    defaultState: {
+      on: false, color: '#ef4444', model: 'AD22-22DS', voltage: '24 V AC/DC', lamp: 'LED',
+      mountingDiameterMm: 22, currentMa: 20, serviceLifeHours: 30000,
+      protection: 'IP40 (série)', operatingTemperature: '-25…+55 °C',
+    },
+  },
   buzzer: {
     category: 'signaling', paletteName: 'Buzzer / sirene', group: 'Sinalização', tag: 'HA', w: 60, h: 80,
     terminals: [T('X1', 'io', 0.5, 0.1, { color: '#ef4444' }), T('X2', 'io', 0.5, 0.9, { color: '#3b82f6' })],

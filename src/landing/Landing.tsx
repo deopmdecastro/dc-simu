@@ -33,10 +33,11 @@ const LIBRARY: LandingLibraryItem[] = ([
   { type: 'terminalPhoenixPti6', n: 'Borne Phoenix Contact PTI 6', m: 'Push-in · 6 mm² · 41 A', c: 'Bornes' },
   { type: 'terminalPE', n: 'Borne de terra PE', m: 'Verde/amarelo · calha DIN', c: 'Bornes' },
   { type: 'powerSupplyProauto24A', n: 'Fonte Proauto DRAN120-24A', m: '24 V DC · 5 A · 120 W', c: 'Fontes' },
+  { type: 'pilotLightAd22', n: 'Sinaleiro LED AD22-22DS', m: '24 V AC/DC · 22 mm · cor configurável', c: 'Sinalização' },
   { type: 'motor3ph', n: 'Motor SEW DRN80MK4/B3', m: 'Trifásico · 0,55 kW · 1435 rpm', c: 'Motores' },
 ] satisfies LandingLibraryItem[]).filter((item) => hasComponent3DModel(item.type))
 
-const CATEGORIES = ['Todos', 'Proteção', 'Comando', 'Contactores', 'Relés', 'Controladores', 'Bornes', 'Fontes', 'Motores']
+const CATEGORIES = ['Todos', 'Proteção', 'Comando', 'Contactores', 'Relés', 'Controladores', 'Bornes', 'Fontes', 'Sinalização', 'Motores']
 
 const FLOW: [string, string][] = [
   ['Escolher componente', 'Pesquise por nome, fabricante ou categoria.'],
@@ -182,8 +183,8 @@ function HeroViewport() {
         <b>
           <i aria-hidden /> Simulação ativa
         </b>
-        <span>START/STOP → LOGO! → KM1 → Motor M1</span>
-        <span className="end">5 equipamentos reais · 9 ligações</span>
+        <span>START/STOP → LOGO! → KM1/M1 + H1</span>
+        <span className="end">6 equipamentos reais · 11 ligações</span>
       </div>
     </div>
   )
@@ -411,7 +412,7 @@ function EditorAnatomy() {
       </div>}
       <div className={`dx-window-foot${plcRunning ? ' is-running' : ' is-stopped'}`} aria-live="polite">
         <b><i aria-hidden /> PLC em {plcRunning ? 'RUN' : 'STOP'}</b>
-        <span>{powered ? (view === 'panel3d' ? 'KM1 ligado · motor M1 em rotação' : 'KM1 e H1 energizados') : 'Saídas desenergizadas'}</span>
+        <span>{powered ? (view === 'panel3d' ? 'KM1 ligado · M1 em rotação · H1 aceso' : 'KM1 e H1 energizados') : 'Saídas desenergizadas'}</span>
         <span className="end">IEC 61131-3 · {plcRunning ? 'scan 4 ms' : 'CPU parada'}</span>
       </div>
     </div>
@@ -554,6 +555,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           <span>Bornes</span>
           <span>Controladores</span>
           <span>Fontes</span>
+          <span>Sinalização</span>
           <span>Motores</span>
         </div>
       </div>
@@ -613,7 +615,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           <div className="dx-head" data-rv>
             <span className="dx-over">Demonstração Ladder interativa</span>
             <h2>Execute uma partida direta sem sair desta página.</h2>
-            <p>Clique em RUN e START, depois alterne entre Ladder e Painel 3D: o LOGO! Siemens, a botoeira START/STOP, KM1 e o motor SEW partilham o mesmo estado. Use STOP para desligar.</p>
+            <p>Clique em RUN e START, depois alterne entre Ladder e Painel 3D: o LOGO! Siemens, a botoeira START/STOP, KM1, o motor SEW e o novo sinaleiro H1 partilham o mesmo estado. Use STOP para desligar.</p>
           </div>
           <div className="dx-studio-grid">
             <div data-rv>

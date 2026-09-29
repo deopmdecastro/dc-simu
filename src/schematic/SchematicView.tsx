@@ -959,6 +959,13 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
             <image x={0} y={0} width={c.w} height={c.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
+            {c.type === 'pilotLightAd22' && <g pointerEvents="none">
+              <circle cx={c.w / 2} cy={c.h / 2} r={Math.min(c.w, c.h) * 0.17}
+                fill={String(c.state.color ?? '#ef4444')} fillOpacity={c.state.on ? 0.78 : 0.34}
+                stroke={String(c.state.color ?? '#ef4444')} strokeWidth={c.state.on ? 4 : 2} strokeOpacity={c.state.on ? 0.5 : 0.28} />
+              {c.state.on && <circle cx={c.w / 2} cy={c.h / 2} r={Math.min(c.w, c.h) * 0.23}
+                fill="none" stroke={String(c.state.color ?? '#ef4444')} strokeWidth={4} strokeOpacity={0.2} />}
+            </g>}
             {c.type === 'dualPushButtonNpb22D11' && <>
               <rect x={c.w * 0.12} y={c.h * 0.18} width={c.w * 0.34} height={c.h * 0.55} rx={6}
                 fill={c.state.stopPressed ? '#ef4444' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}

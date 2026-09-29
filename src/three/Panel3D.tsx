@@ -500,6 +500,56 @@ function Lamp3D({ c, x }: { c: ElectricalComponent; x: number }) {
   )
 }
 
+/** Sinaleiro AD22-22DS real; a lente mantém o CAD e recebe a cor da instância. */
+function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  const spec = getComponentModelSpec('pilotLightAd22')!
+  const { scene } = useGLTF(spec.path)
+  const model = useMemo(() => {
+    const object = scene.clone(true)
+    object.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => material.clone()) : mesh.material.clone()
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+    })
+    object.rotation.set(...spec.rotation)
+    object.updateMatrixWorld(true)
+    const rawSize = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3())
+    const faceDiameter = Math.max(rawSize.x, rawSize.y)
+    const scale = faceDiameter > 0 ? spec.targetHeight / faceDiameter : 1
+    object.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
+    object.updateMatrixWorld(true)
+    object.position.sub(new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3()))
+    return object
+  }, [scene, spec])
+  const on = !!c.state.on
+  const color = typeof c.state.color === 'string' ? c.state.color : '#ef4444'
+  useEffect(() => {
+    const selected = new THREE.Color(color)
+    model.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      materials.forEach((material) => {
+        const standard = material as THREE.MeshStandardMaterial
+        // Material FF0000FF = lente frontal (z 42,5…51,5 mm) no GLB recebido.
+        if (standard.name.toUpperCase() !== 'FF0000FF') return
+        standard.color.copy(selected).multiplyScalar(on ? 1 : 0.42)
+        standard.emissive.copy(selected)
+        standard.emissiveIntensity = on ? 1.8 : 0.05
+        standard.toneMapped = !on
+        standard.needsUpdate = true
+      })
+    })
+  }, [color, model, on])
+  return <group position={[x, RAIL_Y + 1.05, 0.4]}>
+    <primitive object={model} />
+    {on && <pointLight color={color} intensity={0.9} distance={1.7} position={[0, 0, 0.46]} />}
+    <Label text={`${c.ref} · AD22`} position={[0, 0.3, 0.08]} color="#334155" />
+  </group>
+}
+
 function TowerLight3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const bulbs: Array<[string, boolean]> = [
     ['#ef4444', !!c.state.red],
@@ -687,6 +737,10 @@ function Wires3D({ positions, offRailX }: { positions: Record<string, THREE.Vect
       const base = positions[c.id]
       if (!base) {
         const x = offRailX[c.id] ?? c.schematicX / 300 - 2.6
+        if (c.type === 'pilotLightAd22') {
+          // Dois parafusos na traseira do corpo de montagem de 22 mm.
+          return [x + (t.label === 'X1' ? -0.11 : 0.11), RAIL_Y + 1.05, 0.05]
+        }
         if (c.type === 'motor3ph' || c.type === 'motor1ph') {
           // Caixa de terminais sobre o motor; PE fica junto à carcaça/base.
           if (t.kind === 'earth') return [x, PANEL_FLOOR_Y + 0.1, 0.92]
@@ -872,6 +926,7 @@ export default function Panel3D() {
   const frontPivot = (component: ElectricalComponent, x: number): [number, number, number] => {
     if (component.type === 'motor3ph' || component.type === 'motor1ph') return [x, MOTOR_CENTER_Y, 0.7]
     if (component.type === 'towerLight') return [x, RAIL_Y + 1.3, 0.12]
+    if (component.type === 'pilotLightAd22') return [x, RAIL_Y + 1.05, 0.4]
     if (component.type === 'ledGreen' || component.type === 'ledRed' || component.type === 'ledYellow' || component.type === 'ledWhite' || component.type === 'buzzer') return [x, RAIL_Y + 1.15, 0.12]
     if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [x, RAIL_Y + 0.9, 0.3]
     return [x, RAIL_Y + 1.05, 0.4]
@@ -951,7 +1006,10 @@ export default function Panel3D() {
         {offRail.map((c) => {
           const x = front[c.id]
           let content: ReactNode
-          if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />
+          if (c.type === 'pilotLightAd22') {
+            const fallback = <Lamp3D c={c} x={x} />
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><PilotLightAd22Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          } else if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />
           else if (c.type === 'towerLight') content = <TowerLight3D c={c} x={x} />
           else if (c.type === 'motor3ph') {
             const fallback = <Motor3D c={c} x={x} />

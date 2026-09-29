@@ -9,11 +9,11 @@ import type { ComponentType } from '../types'
 /**
  * Vitrine 3D da partida direta usada pela demonstração Ladder da landing.
  * Todos os equipamentos vêm da mesma associação tipo → GLB usada no editor:
- * fonte DRAN120, LOGO! Siemens, botoeira START/STOP, contator WEG e motor SEW.
+ * fonte DRAN120, LOGO! Siemens, botoeira START/STOP, contator WEG, sinaleiro AD22 e motor SEW.
  */
 
 interface DeviceSpec {
-  id: 'psu' | 'logo' | 'pushbutton' | 'km' | 'motor'
+  id: 'psu' | 'logo' | 'pushbutton' | 'pilot' | 'km' | 'motor'
   label: string
   modelUrl: string
   rotation: [number, number, number]
@@ -32,6 +32,7 @@ const DEVICES = {
   psu: deviceSpec('psu', 'powerSupplyProauto24A', 'Fonte 24 V'),
   logo: deviceSpec('logo', 'plcSiemensLogo1224RC', 'PLC LOGO!'),
   pushbutton: deviceSpec('pushbutton', 'dualPushButtonNpb22D11', 'S1 · STOP / START'),
+  pilot: deviceSpec('pilot', 'pilotLightAd22', 'H1 · MARCHA'),
   km: deviceSpec('km', 'contactorWegCWC09', 'KM1'),
   motor: deviceSpec('motor', 'motor3ph', 'M1 · SEW DRN80MK4'),
 } as const
@@ -131,6 +132,36 @@ function PushButtonDevice({ model, position, onStart, onStop }: {
   </group>
 }
 
+/** H1 usa o mesmo AD22 configurável do editor e acompanha a Network 2. */
+function PilotLightDevice({ model, position, on }: { model: THREE.Object3D; position: [number, number, number]; on: boolean }) {
+  const color = '#22c55e'
+  useEffect(() => {
+    const selected = new THREE.Color(color)
+    model.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      materials.forEach((material) => {
+        const standard = material as THREE.MeshStandardMaterial
+        if (standard.name.toUpperCase() !== 'FF0000FF') return
+        standard.color.copy(selected).multiplyScalar(on ? 1 : 0.42)
+        standard.emissive.copy(selected)
+        standard.emissiveIntensity = on ? 1.7 : 0.05
+        standard.toneMapped = !on
+        standard.needsUpdate = true
+      })
+    })
+  }, [model, on])
+  return <group position={position}>
+    <mesh position={[0, 0, -0.08]} receiveShadow>
+      <boxGeometry args={[0.62, 0.72, 0.08]} /><meshStandardMaterial color="#e9eef5" roughness={0.82} />
+    </mesh>
+    <primitive object={model} />
+    {on && <pointLight color={color} intensity={0.6} distance={1.2} position={[0, 0, 0.45]} />}
+    <Text position={[0, 0.48, 0.08]} fontSize={0.09} color="#475569" anchorX="center">{DEVICES.pilot.label}</Text>
+  </group>
+}
+
 /** O CAD é estático; o marcador no eixo comunica rotação e sentido sem alterar o ficheiro. */
 function MotorDevice({ model, position, running }: { model: THREE.Object3D; position: [number, number, number]; running: boolean }) {
   const shaft = useRef<THREE.Group>(null)
@@ -215,27 +246,29 @@ function CircuitScene({ plcRunning, motorOn, onStart, onStop }: {
   const psu = useFittedModel(DEVICES.psu)
   const logo = useFittedModel(DEVICES.logo)
   const pushbutton = useFittedModel(DEVICES.pushbutton)
+  const pilot = useFittedModel(DEVICES.pilot)
   const km = useFittedModel(DEVICES.km)
   const motor = useFittedModel(DEVICES.motor)
   const gap = 0.42
   const layout = useMemo(() => {
-    const buttonSpace = Math.max(1.05, pushbutton.width + 0.4)
+    const panelSpace = Math.max(1.5, pushbutton.width + pilot.width + 0.5)
     const railWidth = psu.width + logo.width + km.width + gap * 2
-    const total = buttonSpace + 0.24 + railWidth + 0.65 + motor.width
+    const total = panelSpace + 0.24 + railWidth + 0.65 + motor.width
     const left = -total / 2
-    const xButton = left + buttonSpace / 2
-    const railStart = left + buttonSpace + 0.24
+    const xButton = left + panelSpace * 0.31
+    const xPilot = left + panelSpace * 0.75
+    const railStart = left + panelSpace + 0.24
     const xPsu = railStart + psu.width / 2
     const xLogo = railStart + psu.width + gap + logo.width / 2
     const xKm = railStart + psu.width + gap + logo.width + gap + km.width / 2
     const xMotor = railStart + railWidth + 0.65 + motor.width / 2
-    return { total, railWidth, railX: railStart + railWidth / 2, xButton, xPsu, xLogo, xKm, xMotor }
-  }, [psu.width, logo.width, pushbutton.width, km.width, motor.width])
+    return { total, railWidth, railX: railStart + railWidth / 2, xButton, xPilot, xPsu, xLogo, xKm, xMotor }
+  }, [psu.width, logo.width, pushbutton.width, pilot.width, km.width, motor.width])
 
   const wires = useMemo<ShowcaseWire[]>(() => {
     const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z)
     const zf = 0.34
-    const { xButton, xPsu, xLogo, xKm, xMotor } = layout
+    const { xButton, xPilot, xPsu, xLogo, xKm, xMotor } = layout
     const topPsu = psu.height * 0.92
     const topLogo = logo.height * 0.92
     const topKm = km.height * 0.9
@@ -246,6 +279,9 @@ function CircuitScene({ plcRunning, motorOn, onStart, onStop }: {
       // STOP NF (I1) permanece fechado; START NA (I2) acompanha o selo nesta síntese visual.
       { color: '#dc2626', offset: 0.38, powered: true, points: [v(xButton - 0.13, 0.45, 0.72), v(xButton - 0.13, 1.05, 0.62), v(xLogo - logo.width * 0.02, topLogo + 0.55, 0.5), v(xLogo - logo.width * 0.02, topLogo, zf)] },
       { color: '#16a34a', offset: 0.5, powered: motorOn, points: [v(xButton + 0.13, 0.45, 0.72), v(xButton + 0.13, 1.18, 0.68), v(xLogo + logo.width * 0.08, topLogo + 0.68, 0.56), v(xLogo + logo.width * 0.08, topLogo, zf)] },
+      // Q2 e 0 V alimentam o sinaleiro verde H1 da Network 2.
+      { color: '#f97316', offset: 0.56, powered: motorOn, points: [v(xLogo + logo.width * 0.31, 0.08, zf + 0.03), v(xLogo + logo.width * 0.38, -0.38, 0.42), v(xPilot - 0.1, -0.1, 0.16), v(xPilot - 0.1, 0.45, 0.09)] },
+      { color: '#2563eb', offset: 0.59, powered: motorOn, points: [v(xPilot + 0.1, 0.45, 0.09), v(xPilot + 0.1, 0.92, 0.18), v(xPsu - psu.width * 0.18, topPsu + 0.72, 0.45), v(xPsu - psu.width * 0.1, topPsu, zf)] },
       // Q1 do LOGO! comanda A1/A2 de KM1.
       { color: '#f59e0b', offset: 0.62, powered: motorOn, points: [v(xLogo + logo.width * 0.22, 0.08, zf), v(xLogo + logo.width * 0.3, -0.28, zf + 0.05), v(xKm - km.width * 0.28, -0.28, zf + 0.05), v(xKm - km.width * 0.2, 0.08, zf)] },
       { color: '#2563eb', offset: 0.74, powered: motorOn, points: [v(xKm + km.width * 0.2, topKm, zf), v(xKm + km.width * 0.2, topKm + 0.5, zf + 0.09), v(xPsu - psu.width * 0.05, topPsu + 0.5, zf + 0.09), v(xPsu - psu.width * 0.1, topPsu, zf)] },
@@ -276,6 +312,7 @@ function CircuitScene({ plcRunning, motorOn, onStart, onStop }: {
     </mesh>
     <Text position={[layout.xLogo, logo.height + 0.24, 0.2]} fontSize={0.085} color={plcRunning ? '#15803d' : '#b91c1c'} anchorX="center">{plcRunning ? 'CPU RUN' : 'CPU STOP'}</Text>
     <PushButtonDevice model={pushbutton.obj} position={[layout.xButton, 0.45, 0.44]} onStart={onStart} onStop={onStop} />
+    <PilotLightDevice model={pilot.obj} position={[layout.xPilot, 0.45, 0.44]} on={motorOn} />
     <Device model={km.obj} position={[layout.xKm, 0, 0]} powered={motorOn} />
     <MotorDevice model={motor.obj} position={[layout.xMotor, -0.9, 0.08]} running={motorOn} />
     {wires.map((wire, index) => <Wire key={index} points={wire.points} color={wire.color} powered={wire.powered} offset={wire.offset} />)}
@@ -352,7 +389,7 @@ export default function LandingShowcase({
 
       <div className="dc-showcase-badge" aria-live="polite">
         <span className="dc-showcase-brand">PARTIDA DIRETA EM 3D</span>
-        <strong>Botoeira → PLC LOGO! → KM1 → Motor M1</strong>
+        <strong>Botoeira → LOGO! → KM1/M1 + H1</strong>
         <small>{plcRunning ? (motorOn ? 'Q1 ativo · motor em rotação.' : 'PLC em RUN · pronto para START.') : 'PLC em STOP · execute RUN para iniciar.'}</small>
       </div>
 

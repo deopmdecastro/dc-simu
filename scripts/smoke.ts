@@ -5,7 +5,7 @@ import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition } from 
  * motor de fases e a sonda exatamente como o store faz a cada ciclo.
  */
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario } from '../src/simulation/scenarios'
-import { computeContinuity, internalBridges, isCoilPowered, probe, sourceTerminalIds } from '../src/electrical/engine'
+import { computeContinuity, internalBridges, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../src/electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../src/electrical/phases'
 import { runScan } from '../src/ladder/ladderEngine'
 import { applyKind } from '../src/ladder/ladderDnd'
@@ -701,18 +701,31 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('motor SEW conserva U1/V1/W1/PE e dados nominais da ficha', ['U1', 'V1', 'W1', 'PE'].every((label) => motor.terminals.some((terminal) => terminal.label === label))
     && motor.state.powerKw === 0.55 && motor.state.rpm === 1435 && motor.state.frequencyHz === 50
     && motor.state.currentA === 1.29 && motor.state.torqueNm === 3.65 && motor.state.massKg === 11)
+
+  const pilot = createComponent('pilotLightAd22')
+  const secondPilot = createComponent('pilotLightAd22')
+  const pilotCad = getComponentModelSpec('pilotLightAd22')
+  check('AD22-22DS usa o GLB real na frente do painel', pilotCad?.path === '/models/sinalizacao/ad22-22ds-24v.glb'
+    && pilotCad.placement === 'panel-front' && pilotCad.rotation.every((angle) => angle === 0))
+  check('sinaleiro AD22 cria X1/X2 e dados nominais de 24 V AC/DC', ['X1', 'X2'].every((label) => pilot.terminals.some((terminal) => terminal.label === label))
+    && pilot.state.model === 'AD22-22DS' && pilot.state.voltage === '24 V AC/DC' && pilot.state.mountingDiameterMm === 22)
+  const pilotX1 = terminalByLabel(pilot, 'X1')!.id
+  const pilotX2 = terminalByLabel(pilot, 'X2')!.id
+  check('sinaleiro AD22 só acende com X1 e X2 alimentados', !isLoadPowered(pilot, new Set([pilotX1])) && isLoadPowered(pilot, new Set([pilotX1, pilotX2])))
+  pilot.state.color = '#3b82f6'
+  check('cor da luz é individual e não altera outra instância', pilot.state.color === '#3b82f6' && secondPilot.state.color === '#ef4444')
 }
 
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 16 componentes com GLB real', availableTypes.length === 16, `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 17 componentes com GLB real', availableTypes.length === 17, `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
   check('todos os componentes disponíveis expõem GLB para o turntable da landing', availableTypes.every((type) => getComponentGlbSpec(type)?.path.toLowerCase().endsWith('.glb')))
-  const directStart3DTypes = ['powerSupplyProauto24A', 'plcSiemensLogo1224RC', 'dualPushButtonNpb22D11', 'contactorWegCWC09', 'motor3ph'] as const
-  check('demonstração de partida direta 3D usa cinco componentes com GLB real', directStart3DTypes.every((type) => hasComponent3DModel(type) && !!getComponentGlbSpec(type)))
+  const directStart3DTypes = ['powerSupplyProauto24A', 'plcSiemensLogo1224RC', 'dualPushButtonNpb22D11', 'contactorWegCWC09', 'pilotLightAd22', 'motor3ph'] as const
+  check('demonstração de partida direta 3D usa seis componentes com GLB real', directStart3DTypes.every((type) => hasComponent3DModel(type) && !!getComponentGlbSpec(type)))
 
   const beforeBlockedAdd = useSimStore.getState().components.length
   const blockedId = useSimStore.getState().addComponent('motor1ph', 0, 0)
@@ -720,6 +733,13 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.getState().setPlacingType('motor1ph')
   useSimStore.getState().setDragType('buttonNO')
   check('estados de posicionamento e arraste não contornam o bloqueio', useSimStore.getState().placingType === null && useSimStore.getState().dragType === null)
+
+  const pilotId = useSimStore.getState().addComponent('pilotLightAd22', 320, 180)
+  if (!pilotId) throw new Error('não foi possível inserir o sinaleiro AD22 com GLB')
+  useSimStore.getState().setComponentState(pilotId, { color: '#22c55e' })
+  const savedPilot = JSON.parse(useSimStore.getState().saveJSON()).components.find((component: ElectricalComponent) => component.id === pilotId)
+  check('cor escolhida para o AD22 persiste no projeto', savedPilot?.state.color === '#22c55e')
+  useSimStore.getState().deleteComponents([pilotId])
 }
 
 /* Orientação visual por instância: isolada da lógica e persistida no projeto. */
