@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalPos } from './symbols'
-import { IconProbe, IconHelp } from '../ui/icons'
+import { IconProbe, IconHelp, IconCube, IconSchematic } from '../ui/icons'
 import { SCENARIOS } from '../simulation/scenarios'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
@@ -17,6 +17,43 @@ import ComponentViewEditor from '../components/ComponentViewEditor'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
+import Panel3D from '../three/Panel3D'
+
+const SCHEMATIC_CANVAS_MODE_KEY = 'dc-simu:schematic-canvas-mode:v1'
+type SchematicCanvasMode = '2d' | '3d'
+
+/** O Esquema e o Painel usam o mesmo renderer físico no modo 3D: não há
+ * cópia de componentes, bornes, cabos ou estado elétrico. */
+export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
+  const placingType = useSimStore((state) => state.placingType)
+  const [canvasMode, setCanvasMode] = useState<SchematicCanvasMode>(() => {
+    try { return localStorage.getItem(SCHEMATIC_CANVAS_MODE_KEY) === '3d' ? '3d' : '2d' } catch { return '2d' }
+  })
+  const chooseMode = useCallback((mode: SchematicCanvasMode) => {
+    setCanvasMode(mode)
+    try { localStorage.setItem(SCHEMATIC_CANVAS_MODE_KEY, mode) } catch { /* preferência apenas visual */ }
+  }, [])
+
+  // A inserção por clique depende de coordenadas do desenho. Se o utilizador
+  // escolher um item na Biblioteca durante a inspeção 3D, volta ao Canvas 2D
+  // automaticamente para mostrar o fantasma e permitir posicioná-lo.
+  useEffect(() => {
+    if (placingType && canvasMode === '3d') chooseMode('2d')
+  }, [placingType, canvasMode, chooseMode])
+
+  return <div className="schematic-view-shell" data-canvas-mode={canvasMode}>
+    {canvasMode === '3d' ? <Panel3D embedded /> : <Schematic2DView libraryCollapsed={libraryCollapsed} />}
+    <div className="schematic-dimension-switch" role="group" aria-label="Dimensão de visualização do Canvas do Esquema">
+      <button type="button" className={canvasMode === '2d' ? 'is-active' : ''} aria-pressed={canvasMode === '2d'} onClick={() => chooseMode('2d')} title="Editar o esquema, bornes e traçados em 2D">
+        <IconSchematic size={13} />Esquema 2D
+      </button>
+      <button type="button" className={canvasMode === '3d' ? 'is-active' : ''} aria-pressed={canvasMode === '3d'} onClick={() => chooseMode('3d')} title="Visualizar os mesmos componentes, bornes e cabos em 3D">
+        <IconCube size={13} />Visualização 3D
+      </button>
+      {canvasMode === '3d' && <span><i />Sincronizado</span>}
+    </div>
+  </div>
+}
 
 const CANVAS_W = 2000
 const CANVAS_H = 1400
@@ -143,7 +180,7 @@ function insertWaypoint(a: Pt, b: Pt, waypoints: Pt[], p: Pt): Pt[] {
 }
 
 /** Editor de esquema completo: malha, arraste, seleção, cabos, bornes, sonda. */
-export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
+function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
   const components = useSimStore((s) => s.components)
   const [logoImages, setLogoImages] = useState<{ off: string; on: string } | null>(null)
   const [proautoImage, setProautoImage] = useState<string | null>(null)

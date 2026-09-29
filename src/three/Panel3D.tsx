@@ -898,7 +898,7 @@ function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraC
   return <OrbitControls ref={controlsRef} minDistance={1.2} maxDistance={24} enableDamping dampingFactor={0.08} makeDefault onChange={report} />
 }
 
-export default function Panel3D() {
+export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
   const storedComponents = useSimStore((s) => s.components)
   const pressButton = useSimStore((s) => s.pressButton)
   const setComponentState = useSimStore((s) => s.setComponentState)
@@ -1066,6 +1066,8 @@ export default function Panel3D() {
    return (
      <div
        className={`panel3d-stage relative w-full h-full ${stageBackground}`}
+       data-embedded-in-schematic={embedded ? 'true' : undefined}
+       aria-label={embedded ? 'Visualização 3D do Canvas do Esquema' : 'Painel 3D'}
        onDragOver={(e) => {
          e.preventDefault()
          e.dataTransfer.dropEffect = 'copy'
@@ -1159,9 +1161,9 @@ export default function Panel3D() {
 
       {!components.length && <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
         <div className="dc-editor-empty pointer-events-auto">
-          <span className="dc-empty-kicker">PAINEL 3D</span>
-          <h2>Prepare o seu painel</h2>
-          <p>Carregue um cenário para explorar os componentes em 3D ou adicione-os através da biblioteca.</p>
+          <span className="dc-empty-kicker">{embedded ? 'ESQUEMA · VISUALIZAÇÃO 3D' : 'PAINEL 3D'}</span>
+          <h2>{embedded ? 'Visualize o esquema em 3D' : 'Prepare o seu painel'}</h2>
+          <p>{embedded ? 'Adicione componentes no modo 2D ou carregue um cenário; bornes e cabos aparecerão aqui nas suas posições físicas.' : 'Carregue um cenário para explorar os componentes em 3D ou adicione-os através da biblioteca.'}</p>
           <div className="flex flex-wrap justify-center gap-2 mt-4">{SCENARIOS.slice(0, 3).map((scenario) => <button className="dc-btn" key={scenario.id} onClick={() => useSimStore.getState().loadScenario(scenario.id)}>{scenario.name}</button>)}</div>
         </div>
       </div>}
