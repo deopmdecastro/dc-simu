@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalPos } from './symbols'
 import { IconProbe, IconHelp } from '../ui/icons'
@@ -300,6 +300,44 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     }
   }
 
+  /** Enquadra todo o conteúdo sem alterar posições, ligações ou dados elétricos. */
+  const fitContent = useCallback(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    const points: Pt[] = []
+    components.forEach((component) => {
+      points.push(
+        { x: component.schematicX, y: component.schematicY },
+        { x: component.schematicX + component.w, y: component.schematicY + component.h },
+      )
+    })
+    wires.forEach((wire) => {
+      if (wire.fromPoint) points.push(wire.fromPoint)
+      if (wire.toPoint) points.push(wire.toPoint)
+      points.push(...(wire.waypoints ?? []))
+    })
+    if (!points.length) {
+      setZoom(1)
+      setPan(0, 0)
+      return
+    }
+    const minX = Math.min(...points.map((point) => point.x))
+    const minY = Math.min(...points.map((point) => point.y))
+    const maxX = Math.max(...points.map((point) => point.x))
+    const maxY = Math.max(...points.map((point) => point.y))
+    const contentWidth = Math.max(80, maxX - minX)
+    const contentHeight = Math.max(80, maxY - minY)
+    const margin = 72
+    const nextZoom = Math.max(0.25, Math.min(2.5, Math.min(
+      svg.clientWidth / (contentWidth + margin * 2),
+      svg.clientHeight / (contentHeight + margin * 2),
+    )))
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+    setZoom(nextZoom)
+    setPan(svg.clientWidth / 2 - centerX * nextZoom, svg.clientHeight / 2 - centerY * nextZoom)
+  }, [components, wires, setPan, setZoom])
+
   // ---------------------------------------------------------------- teclado
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -317,12 +355,15 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       }
       const target = e.target as HTMLElement
       if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return
-      if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (e.key === 'Home' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        fitContent()
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault()
         deleteSelection()
-      } else if (e.key.toLowerCase() === 'r' && selectedIds.length === 1) {
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r' && selectedIds.length === 1) {
         rotateComponent(selectedIds[0])
-      } else if (e.key.toLowerCase() === 'd' && selectedIds.length) {
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'd' && selectedIds.length) {
         duplicateComponents(selectedIds)
       } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
         e.preventDefault()
@@ -338,9 +379,11 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         e.preventDefault()
         if (e.shiftKey) sendSelectionToBack()
         else sendSelectionBackward()
-      } else if (e.key === '1') useSimStore.getState().setTool('select')
-      else if (e.key === '2') useSimStore.getState().setTool('wire')
-      else if (e.key === '3') useSimStore.getState().setTool('probe')
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === '1') useSimStore.getState().setTool('select')
+      else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === '2') useSimStore.getState().setTool('wire')
+      else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === '3') useSimStore.getState().setTool('probe')
+      else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === '4') useSimStore.getState().setTool('erase')
+      else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === '5') useSimStore.getState().setTool('pan')
       else if (e.ctrlKey && e.key.toLowerCase() === 'a') {
         e.preventDefault()
         selectComponents(components.map((c) => c.id))
@@ -379,6 +422,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     components,
     grid,
     commitHistory,
+    fitContent,
   ])
 
   // --------------------------------------------------------------- mouse
@@ -1161,7 +1205,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         <span className="schematic-hud-separator" />
         <span title={`Malha ${grid.enabled ? `${grid.size}px, encaixe ${grid.snap ? 'ativo' : 'inativo'}` : 'desligada'}`}>▦ {grid.enabled ? `${grid.size}px${grid.snap ? ' · ímã' : ''}` : 'off'}</span>
         <span className="schematic-hud-separator" />
-        <span title="Zoom do esquema">⌕ {Math.round(zoom * 100)}%</span>
+        <button type="button" className="schematic-hud-action" onClick={() => { setZoom(1); setPan(0, 0) }} title="Restaurar zoom e posição">⌕ {Math.round(zoom * 100)}%</button>
+        <button type="button" className="schematic-hud-action" onClick={fitContent} title="Enquadrar todos os componentes e fios (Home)">⊙ Ajustar</button>
         <span className="schematic-hud-separator" />
         <span title="Quantidade de componentes e cabos no projeto">{components.length} comp. · {wires.length} fios</span>
       </div>
@@ -1221,7 +1266,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
             <div>ferramenta Cabo: clique prolonga · Esc termina e conserva o traçado</div>
             <div>rígido e flexível têm o mesmo percurso ortogonal · arraste os pontos para ajustar</div>
             <div>Ctrl+] avança · Ctrl+[ recua · Ctrl+Shift+]/[ frente/trás</div>
-            <div>R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>
+            <div>1–5 ferramentas · Home ajusta a vista · R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>
           </div>
         )}
         <button

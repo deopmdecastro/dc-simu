@@ -396,9 +396,9 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
           </label>
           <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.timer.address} onChange={(e) => updateTimer({ address: e.target.value.toUpperCase() })} /></label>
           <label>Nome da tag <input className={`${tiny} !w-36`} value={tags.find((t) => t.address === rung.timer!.address)?.name ?? ''} placeholder="Nome simbólico" onChange={(e) => setTagName(rung.timer!.address, e.target.value)} /></label>
-          <label>Preset <input type="number" className={`${tiny} !w-20`} value={rung.timer.presetMs} onChange={(e) => updateTimer({ presetMs: Number(e.target.value) })} /> ms</label>
+          <label>Preset <input type="number" min={0} step={10} className={`${tiny} !w-20`} value={rung.timer.presetMs} onChange={(e) => updateTimer({ presetMs: Math.max(0, Number(e.target.value) || 0) })} /> ms</label>
           {rung.timer.timerType === 'STAR_DELTA' && (
-            <label>Transição <input type="number" className={`${tiny} !w-16`} value={rung.timer.preset2Ms ?? 50} onChange={(e) => updateTimer({ preset2Ms: Number(e.target.value) })} /> ms</label>
+            <label>Transição <input type="number" min={0} step={10} className={`${tiny} !w-16`} value={rung.timer.preset2Ms ?? 50} onChange={(e) => updateTimer({ preset2Ms: Math.max(0, Number(e.target.value) || 0) })} /> ms</label>
           )}
           <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => setTimer('none')}><IconDelete size={10} /> remover</button>
         </div>
@@ -417,7 +417,7 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
           </label>
           <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.address} onChange={(e) => updateCounter({ address: e.target.value.toUpperCase() })} /></label>
           <label>Nome da tag <input className={`${tiny} !w-36`} value={tags.find((t) => t.address === rung.counter!.address)?.name ?? ''} placeholder="Nome simbólico" onChange={(e) => setTagName(rung.counter!.address, e.target.value)} /></label>
-          <label>Preset <input type="number" className={`${tiny} !w-16`} value={rung.counter.preset} onChange={(e) => updateCounter({ preset: Number(e.target.value) })} /></label>
+          <label>Preset <input type="number" min={0} step={1} className={`${tiny} !w-16`} value={rung.counter.preset} onChange={(e) => updateCounter({ preset: Math.max(0, Math.trunc(Number(e.target.value) || 0)) })} /></label>
           <label>Reset <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateCounter({ resetAddress: e.target.value.toUpperCase() })} /></label>
           <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => setCounter('none')}><IconDelete size={10} /> remover</button>
         </div>
@@ -577,7 +577,12 @@ function CompactLadderEditor() {
   const grid = useSimStore((s) => s.grid)
   const setGrid = useSimStore((s) => s.setGrid)
   const [tab, setTab] = useState<LadderTab>('program')
-  const [ladderZoom, setLadderZoom] = useState(1)
+  const [ladderZoom, setLadderZoom] = useState(() => {
+    try { return Math.max(0.75, Math.min(1.35, Number(localStorage.getItem('dcsimu:ladder:zoom')) || 1)) } catch { return 1 }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('dcsimu:ladder:zoom', String(ladderZoom)) } catch {}
+  }, [ladderZoom])
   const [dragOver, setDragOver] = useState(false)
   const counts = programCounts(rungs)
   const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
@@ -619,9 +624,9 @@ function CompactLadderEditor() {
               <IconGrid size={11} />
             </button>
           )}
-          {tab === 'program' && <span className="text-[9px] font-mono text-ink-400 mr-1">{Math.round(ladderZoom * 100)}%</span>}
-          {tab === 'program' && <button onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Reduzir escala do Ladder"><IconZoomOut size={11} /></button>}
-          {tab === 'program' && <button onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Aumentar escala do Ladder"><IconZoomIn size={11} /></button>}
+          {tab === 'program' && <button type="button" onClick={() => setLadderZoom(1)} className="text-[9px] font-mono text-ink-400 mr-1 hover:text-brand-600" title="Repor escala a 100%">{Math.round(ladderZoom * 100)}%</button>}
+          {tab === 'program' && <button disabled={ladderZoom <= 0.75} onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Reduzir escala do Ladder"><IconZoomOut size={11} /></button>}
+          {tab === 'program' && <button disabled={ladderZoom >= 1.35} onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Aumentar escala do Ladder"><IconZoomIn size={11} /></button>}
           {tab === 'program' && <button onClick={addRung} className="dc-btn-primary dc-btn !h-6 !text-[11px] ml-1"><IconPlus size={11} /> Rung</button>}
         </div>
       </div>
@@ -1055,7 +1060,12 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters'>('io')
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
   const [filter, setFilter] = useState('')
-  const [ladderZoom, setLadderZoom] = useState(1)
+  const [ladderZoom, setLadderZoom] = useState(() => {
+    try { return Math.max(0.75, Math.min(1.35, Number(localStorage.getItem('dcsimu:ladder:zoom')) || 1)) } catch { return 1 }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('dcsimu:ladder:zoom', String(ladderZoom)) } catch {}
+  }, [ladderZoom])
   const [showProjectPane, setShowProjectPane] = useState(true)
   const [showPalette, setShowPalette] = useState(true)
   const [activeProjectNode, setActiveProjectNode] = useState<ProjectNodeId>('main')
@@ -1073,6 +1083,29 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   const activePlc = plcs.find((c) => c.id === activePlcId)
   const selectedFile = activeProjectNode.startsWith('file:') ? files.find((f) => f.id === activeProjectNode.slice(5)) : undefined
   const activeTitle = selectedFile?.name ?? (activeProjectNode === 'plc' ? activePlc?.ref ?? 'Programa geral' : NODE_TITLES[activeProjectNode as Exclude<ProjectNodeId, `file:${string}`>])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
+      const modifier = event.ctrlKey || event.metaKey
+      if (modifier && (event.key === '+' || event.key === '=')) {
+        event.preventDefault()
+        setLadderZoom((value) => Math.min(1.35, Number((value + 0.1).toFixed(2))))
+      } else if (modifier && event.key === '-') {
+        event.preventDefault()
+        setLadderZoom((value) => Math.max(0.75, Number((value - 0.1).toFixed(2))))
+      } else if (modifier && event.key === '0') {
+        event.preventDefault()
+        setLadderZoom(1)
+      } else if (event.key === 'Insert' && isMainOpen && programTab === 'program') {
+        event.preventDefault()
+        const created = addRung()
+        setActiveRungId(created)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [addRung, isMainOpen, programTab])
 
   const createFile = (folder: ProjectFolder) => {
     const suggested = folder === 'programBlocks' ? 'FC' : folder === 'dataBlocks' ? 'DB' : folder === 'watchTables' ? 'Observação' : folder === 'backups' ? 'Backup' : 'Novo ficheiro'
@@ -1166,9 +1199,9 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           <button className="ladder-toolbar-button" onClick={redo} disabled={!future.length} title="Refazer"><IconRedo size={14} /></button>
           <span className="ladder-toolbar-separator" />
           <span className="ladder-zoom-label">⌕ {Math.round(ladderZoom * 100)}%</span>
-          <button className="ladder-toolbar-button" onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} title="Reduzir zoom"><IconZoomOut size={14} /></button>
-          <button className="ladder-toolbar-button" onClick={() => setLadderZoom(1)} title="Zoom 100%">100</button>
-          <button className="ladder-toolbar-button" onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} title="Aumentar zoom"><IconZoomIn size={14} /></button>
+          <button className="ladder-toolbar-button" disabled={ladderZoom <= 0.75} onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} title="Reduzir zoom (Ctrl−)"><IconZoomOut size={14} /></button>
+          <button className="ladder-toolbar-button" onClick={() => setLadderZoom(1)} title="Zoom 100% (Ctrl+0)">100</button>
+          <button className="ladder-toolbar-button" disabled={ladderZoom >= 1.35} onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} title="Aumentar zoom (Ctrl+)"><IconZoomIn size={14} /></button>
           <span className="ladder-toolbar-separator" />
           <button
             className={`ladder-toolbar-button ${grid.enabled ? 'is-active' : ''}`}
@@ -1180,7 +1213,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           <span className="ladder-zoom-label">Malha {grid.enabled ? `${grid.size}px` : 'off'}</span>
           <span className="ladder-toolbar-separator" />
           <span className="text-[10px] text-slate-400">{isProgramView ? 'Programa Ladder' : activeTitle}</span>
-          {isMainOpen && <button onClick={addRung} className="ladder-primary-button ml-auto"><IconPlus size={12} /> Nova network</button>}
+          {isMainOpen && <button onClick={addRung} className="ladder-primary-button ml-auto" title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>}
         </div>
         {programTab === 'program' && isMainOpen && (
           <div className="ladder-program-summary">

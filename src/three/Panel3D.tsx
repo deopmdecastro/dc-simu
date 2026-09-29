@@ -1,4 +1,4 @@
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Text, Line, useGLTF } from '@react-three/drei'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import type { ReactNode } from 'react'
@@ -674,6 +674,43 @@ function Wires3D({ positions }: { positions: Record<string, THREE.Vector3> }) {
 
 /* -------------------------------------------------------------------- cena */
 
+type PanelCameraView = 'fit' | 'front' | 'top' | 'isometric' | 'focus'
+type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number] }
+
+/** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
+function PanelCameraRig({ command, railWidth }: { command: PanelCameraCommand; railWidth: number }) {
+  const { camera, size } = useThree()
+  const controlsRef = useRef<any>(null)
+  useEffect(() => {
+    const controls = controlsRef.current
+    if (!controls) return
+    const target = new THREE.Vector3(...command.target)
+    const verticalFov = THREE.MathUtils.degToRad((camera as THREE.PerspectiveCamera).fov || 44)
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * Math.max(0.55, size.width / Math.max(1, size.height)))
+    const fitDistance = Math.max(4.2, Math.min(16, (Math.max(4.5, railWidth) * 0.62) / Math.max(0.2, Math.tan(horizontalFov / 2))))
+    let position: THREE.Vector3
+    camera.up.set(0, 1, 0)
+    if (command.view === 'focus') {
+      const direction = camera.position.clone().sub(controls.target).normalize()
+      if (!Number.isFinite(direction.x) || direction.lengthSq() < 0.1) direction.set(0.25, 0.35, 1)
+      position = target.clone().add(direction.multiplyScalar(3.1))
+    } else if (command.view === 'front') {
+      position = target.clone().add(new THREE.Vector3(0, 0.45, fitDistance))
+    } else if (command.view === 'top') {
+      camera.up.set(0, 0, -1)
+      position = target.clone().add(new THREE.Vector3(0, fitDistance, 0.01))
+    } else {
+      position = target.clone().add(new THREE.Vector3(fitDistance * 0.68, fitDistance * 0.48, fitDistance * 0.78))
+    }
+    camera.position.copy(position)
+    controls.target.copy(target)
+    camera.lookAt(target)
+    camera.updateProjectionMatrix()
+    controls.update()
+  }, [camera, command, railWidth, size.height, size.width])
+  return <OrbitControls ref={controlsRef} minDistance={1.2} maxDistance={24} enableDamping dampingFactor={0.08} makeDefault />
+}
+
 export default function Panel3D() {
   const components = useSimStore((s) => s.components)
   const pressButton = useSimStore((s) => s.pressButton)
@@ -682,6 +719,17 @@ export default function Panel3D() {
   const selectComponents = useSimStore((s) => s.selectComponents)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const viewOrientationEditor = useSimStore((s) => s.viewOrientationEditor)
+  const [cameraCommand, setCameraCommand] = useState<PanelCameraCommand>({ id: 0, view: 'isometric', target: [0, 0.35, 0] })
+  const [showGrid, setShowGrid] = useState(() => {
+    try { return localStorage.getItem('dc-simu:panel3d:grid') !== '0' } catch { return true }
+  })
+  const moveCamera = (view: PanelCameraView, target: [number, number, number] = [0, 0.35, 0]) =>
+    setCameraCommand((current) => ({ id: current.id + 1, view, target }))
+  const toggleGrid = () => setShowGrid((current) => {
+    const next = !current
+    try { localStorage.setItem('dc-simu:panel3d:grid', next ? '1' : '0') } catch {}
+    return next
+  })
 
   const [showHints, setShowHints] = useState(() => {
     try {
@@ -757,6 +805,28 @@ export default function Panel3D() {
     if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [x, RAIL_Y + 0.9, 0.3]
     return [x, RAIL_Y + 1.05, 0.4]
   }
+  const selectedComponent = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
+  const selectedTarget: [number, number, number] | null = selectedComponent
+    ? positions[selectedComponent.id]
+      ? [positions[selectedComponent.id].x, RAIL_Y + 0.4, 0]
+      : frontPivot(selectedComponent, front[selectedComponent.id] ?? 0)
+    : null
+  const focusSelection = () => {
+    if (selectedTarget) moveCamera('focus', selectedTarget)
+  }
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
+      if (event.key === 'Home' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); moveCamera('fit') }
+      else if (event.key.toLowerCase() === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey && selectedTarget) { event.preventDefault(); focusSelection() }
+      else if (event.key.toLowerCase() === 'g' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); toggleGrid() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // O alvo é recalculado apenas quando a seleção/posição visual muda.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedComponent?.id, selectedTarget?.[0], selectedTarget?.[1], selectedTarget?.[2]])
 
    return (
      <div
@@ -774,11 +844,19 @@ export default function Panel3D() {
        }}
      >
       <ComponentViewEditor />
+      <div className="panel3d-viewbar" role="toolbar" aria-label="Vistas e navegação do painel 3D">
+        <button type="button" onClick={() => moveCamera('fit')} title="Enquadrar todo o painel (Home)">Ajustar</button>
+        <button type="button" onClick={() => moveCamera('front')} title="Vista frontal">Frente</button>
+        <button type="button" onClick={() => moveCamera('top')} title="Vista superior">Superior</button>
+        <button type="button" onClick={() => moveCamera('isometric')} title="Vista isométrica">ISO</button>
+        <button type="button" onClick={focusSelection} disabled={!selectedTarget} title="Focar o componente selecionado (F)">Focar</button>
+        <button type="button" className={showGrid ? 'is-active' : ''} aria-pressed={showGrid} onClick={toggleGrid} title="Mostrar ou ocultar a grelha (G)">Grelha</button>
+      </div>
       <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => selectComponents([])}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
-        <gridHelper args={[16, 32, '#c3cdda', '#dfe5ee']} position={[0, -2.6, 0]} />
+        {showGrid && <gridHelper args={[16, 32, '#c3cdda', '#dfe5ee']} position={[0, -2.6, 0]} />}
 
         <DinRail width={railWidth} />
 
@@ -817,7 +895,7 @@ export default function Panel3D() {
         })}
         <Wires3D positions={positions} />
 
-        <OrbitControls minDistance={2} maxDistance={18} makeDefault />
+        <PanelCameraRig command={cameraCommand} railWidth={railWidth} />
       </Canvas>
 
       {!components.length && <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
@@ -833,7 +911,8 @@ export default function Panel3D() {
       <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
         {showHints && (
           <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
-            <div>arraste = mover · scroll = aproximar/afastar</div>
+            <div>arraste = orbitar · scroll = aproximar/afastar</div>
+            <div>Home ajusta · F foca a seleção · G alterna a grelha</div>
             <div>clique em botoeiras e sensores para acionar</div>
           </div>
         )}

@@ -739,5 +739,19 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.setState({ components: before, viewOrientationEditor: null })
 }
 
+/* O histórico partilhado também cobre alterações no editor GRAFCET. */
+{
+  const previous = structuredClone(useSimStore.getState().grafcet)
+  useSimStore.setState({ history: [], future: [] })
+  const extra = { id: 'smoke-grafcet-step', name: 'Teste de histórico', initial: previous.steps.length === 0, action: '', condition: 'I1', actions: [] }
+  useSimStore.getState().setGrafcet({ ...previous, steps: [...previous.steps, extra] })
+  check('edição GRAFCET entra no histórico global', useSimStore.getState().history.length === 1 && useSimStore.getState().grafcet.steps.some((step) => step.id === extra.id))
+  useSimStore.getState().undo()
+  check('Desfazer restaura o GRAFCET anterior', !useSimStore.getState().grafcet.steps.some((step) => step.id === extra.id))
+  useSimStore.getState().redo()
+  check('Refazer reaplica a alteração GRAFCET', useSimStore.getState().grafcet.steps.some((step) => step.id === extra.id))
+  useSimStore.setState({ grafcet: previous, history: [], future: [] })
+}
+
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)

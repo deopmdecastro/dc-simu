@@ -9,6 +9,22 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v4.4 (refinamentos dos editores)
+
+- O workspace recupera a última vista e secção Ladder usadas e avisa antes de fechar a aba quando
+  existirem alterações por guardar.
+- O **Esquema** ganhou enquadramento automático de todo o conteúdo (`Home`/`Ajustar`), reset de zoom
+  no HUD e atalhos completos `1–5` para as cinco ferramentas, sem alterar posições ou ligações.
+- O **Painel 3D** ganhou vistas Frente, Superior e Isométrica, enquadramento geral, foco no componente
+  selecionado e grelha opcional, além dos atalhos `Home`, `F` e `G`.
+- O **Ladder** conserva o zoom entre sessões, aceita `Ctrl +`, `Ctrl −`, `Ctrl 0` e `Insert`, limita
+  presets de timers/contadores a valores válidos e melhora o feedback dos limites de zoom.
+- O **GRAFCET** passou a participar no histórico global de Desfazer/Refazer e mostra validação imediata
+  de transições, ações e etapa inicial.
+- O **Monitor** permite repor todas as falhas injetadas com um único comando.
+- São refinamentos incrementais: o modelo elétrico, os projetos, os CAD e o fluxo de trabalho
+  existentes permanecem compatíveis.
+
 ## Novidades — v4.3 (editor de vistas por componente)
 
 - O Esquema e o Painel 3D partilham o comando **Editar vista** para o componente selecionado.

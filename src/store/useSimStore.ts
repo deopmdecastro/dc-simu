@@ -43,6 +43,8 @@ export interface Snapshot {
   components: ElectricalComponent[]
   wires: Wire[]
   ladder: LadderRung[]
+  /** Incluído no histórico para que Desfazer/Refazer funcione também no editor GRAFCET. */
+  grafcet?: GrafcetProgram
   fcBlocks?: { fc1: LadderRung[]; fc2: LadderRung[] }
   plcPrograms?: Record<string, PlcProgram>
   activePlcId?: string | null
@@ -282,6 +284,7 @@ function reorderSelection(
 function snapshot(state: Store): Snapshot {
   return JSON.parse(JSON.stringify({
     components: state.components, wires: state.wires, ladder: state.ladder.rungs,
+    grafcet: state.grafcet,
     fcBlocks: state.fcBlocks, activePlcId: state.activePlcId,
     plcPrograms: programsForSave(state.plcPrograms, state.activePlcId, state.ladder.rungs, state.fcBlocks),
   })) as Snapshot
@@ -567,7 +570,10 @@ export const useSimStore = create<Store>((set, get) => ({
   },
   grafcet: emptyGrafcet(),
   grafcetRuntime: emptyGrafcetRuntime(),
-  setGrafcet: (program) => set({ grafcet: program, dirty: true }),
+  setGrafcet: (program) => {
+    get().commitHistory()
+    set({ grafcet: program, dirty: true })
+  },
   updateFc: (id, rungs) => {
     get().commitHistory()
     set((state) => ({ fcBlocks: { ...state.fcBlocks, [id]: rungs }, dirty: true }))
@@ -1223,11 +1229,13 @@ export const useSimStore = create<Store>((set, get) => ({
       components: prev.components,
       wires: prev.wires,
       ladder: { rungs: prev.ladder },
+      grafcet: prev.grafcet ?? s.grafcet,
       fcBlocks: prev.fcBlocks ?? s.fcBlocks,
       plcPrograms: prev.plcPrograms ?? s.plcPrograms,
       activePlcId: prev.activePlcId !== undefined ? prev.activePlcId : s.activePlcId,
       history: s.history.slice(0, -1),
       future: [...s.future, snapshot(s)],
+      dirty: true,
     })
     get().step()
   },
@@ -1240,11 +1248,13 @@ export const useSimStore = create<Store>((set, get) => ({
       components: next.components,
       wires: next.wires,
       ladder: { rungs: next.ladder },
+      grafcet: next.grafcet ?? s.grafcet,
       fcBlocks: next.fcBlocks ?? s.fcBlocks,
       plcPrograms: next.plcPrograms ?? s.plcPrograms,
       activePlcId: next.activePlcId !== undefined ? next.activePlcId : s.activePlcId,
       future: s.future.slice(0, -1),
       history: [...s.history, snapshot(s)],
+      dirty: true,
     })
     get().step()
   },

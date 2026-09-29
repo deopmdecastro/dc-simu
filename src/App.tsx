@@ -11,8 +11,18 @@ import Panel3D from './three/Panel3D'
 import { useSimStore } from './store/useSimStore'
 
 export default function App({ onBack, onSave }: { onBack: () => void; onSave: () => void }) {
-  const [mode, setMode] = useState<ViewMode>('schematic')
-  const [ladderSection, setLadderSection] = useState<LadderSection>('Projeto')
+  const [mode, setMode] = useState<ViewMode>(() => {
+    try {
+      const saved = localStorage.getItem('dcsimu:workspace:view') as ViewMode | null
+      return saved && ['schematic', 'ladder', 'grafcet', 'panel3d', 'monitor'].includes(saved) ? saved : 'schematic'
+    } catch { return 'schematic' }
+  })
+  const [ladderSection, setLadderSection] = useState<LadderSection>(() => {
+    try {
+      const saved = localStorage.getItem('dcsimu:workspace:ladder-section') as LadderSection | null
+      return saved && ['Projeto', 'Biblioteca', 'Dispositivos', 'Diagnóstico', 'Configurações'].includes(saved) ? saved : 'Projeto'
+    } catch { return 'Projeto' }
+  })
   const [showLadder, setShowLadder] = useState(() => window.innerWidth >= 800)
   const [showLibrary, setShowLibrary] = useState(() => window.innerWidth >= 800)
   const [panelSizes, setPanelSizes] = useState(() => {
@@ -31,6 +41,25 @@ export default function App({ onBack, onSave }: { onBack: () => void; onSave: ()
   const faults = useSimStore((s) => s.sim.faults)
   const currentProjectName = useSimStore((s) => s.currentProjectName)
   const dirty = useSimStore((s) => s.dirty)
+
+  // Mantém o utilizador no editor onde estava, sem alterar o projeto.
+  useEffect(() => {
+    try {
+      localStorage.setItem('dcsimu:workspace:view', mode)
+      localStorage.setItem('dcsimu:workspace:ladder-section', ladderSection)
+    } catch { /* localStorage indisponível */ }
+  }, [mode, ladderSection])
+
+  // Evita perder trabalho ao atualizar/fechar a aba com alterações pendentes.
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!dirty) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', beforeUnload)
+    return () => window.removeEventListener('beforeunload', beforeUnload)
+  }, [dirty])
 
   useEffect(() => {
     if (!resizing) return
@@ -137,7 +166,7 @@ export default function App({ onBack, onSave }: { onBack: () => void; onSave: ()
 
       {/* ============================================== barra de estado */}
       <footer className="shrink-0 flex items-center gap-2 px-3 h-[26px] border-t border-line bg-surface-rail text-[11px] text-ink-500 select-none">
-        <span className="text-ink-400 font-semibold tracking-wide">DC·SIMU <span className="font-normal">v4.0</span></span>
+        <span className="text-ink-400 font-semibold tracking-wide">DC·SIMU <span className="font-normal">v4.4</span></span>
         <span className="h-3.5 w-px bg-line" />
         <span className="truncate max-w-[280px]" title="Ctrl+S guarda · Ctrl+Shift+O reabre a lista de projetos guardados neste navegador">
           {currentProjectName ? (

@@ -57,6 +57,8 @@ export default function MonitorPanel() {
   const inputs = group('I')
   const outputs = group('Q')
   const memories = group('M')
+  const activeFaultCount = Object.values(faults).filter(Boolean).length
+  const clearFaults = () => setFaults({ phaseLoss: false, shortCircuit: false, earthLeak: false, overvoltage: false, overload: false })
 
   const toggleBit = (k: string) => {
     // bits M são de memória interna: permitem forçar leitura/escrita para teste
@@ -162,7 +164,10 @@ export default function MonitorPanel() {
       </section>
 
       <section>
-        <SectionTitle icon={IconShield}>Injeção de falhas (para treino de diagnóstico)</SectionTitle>
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <SectionTitle icon={IconShield}>Injeção de falhas (para treino de diagnóstico)</SectionTitle>
+          <button type="button" className="dc-btn !h-6 !text-[10px]" onClick={clearFaults} disabled={!activeFaultCount} title="Desativar todas as falhas injetadas">Repor falhas{activeFaultCount ? ` (${activeFaultCount})` : ''}</button>
+        </div>
         <div className="grid grid-cols-2 xl:grid-cols-3 gap-1.5 text-xs">
           {(
             [

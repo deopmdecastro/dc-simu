@@ -1638,6 +1638,9 @@ input[type='color'] {
 .grafcet-header { display:flex; align-items:center; justify-content:space-between; padding:12px; background:white; border-bottom:1px solid #dce4ef; }
 .grafcet-header strong { display:block; color:#2455d8; font-size:14px; letter-spacing:.05em; }
 .grafcet-header small { color:#68778d; }
+.grafcet-validation { display:inline-flex; min-height:22px; align-items:center; padding:2px 7px; border:1px solid; border-radius:999px; font-size:9px; font-weight:750; white-space:nowrap; }
+.grafcet-validation.is-valid { border-color:#b7e4c8; color:#137a47; background:#effaf4; }
+.grafcet-validation.has-issues { border-color:#f2cf91; color:#9a5b07; background:#fff8e8; }
 .grafcet-help { margin:0; padding:10px 12px; line-height:1.5; background:#edf3ff; border-bottom:1px solid #dce4ef; }
 .grafcet-list { flex:1; min-height:0; overflow:auto; padding:16px 14px; }
 .grafcet-empty { border:1px dashed #a9b9d6; border-radius:8px; padding:24px; text-align:center; color:#68778d; }
@@ -1737,6 +1740,7 @@ button:disabled { cursor:not-allowed; }
 .grafcet-preview .grafcet-canvas { min-height:100%; padding:18px 10px; overflow-x:hidden; }
 .grafcet-preview .grafcet-canvas svg { width:100%; height:auto; max-width:560px; }
 .grafcet-preview .grafcet-header { gap:8px; }
+.grafcet-preview .grafcet-validation { display:none; }
 .grafcet-preview .grafcet-header .dc-btn { white-space:nowrap; }
 .grafcet-preview-status { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; padding:9px 12px; border-top:1px solid #dce4ef; background:#fff; font-size:10px; color:#64748b; }
 .grafcet-preview-status .is-running { color:#15803d; font-weight:700; }
@@ -1772,11 +1776,19 @@ button:disabled { cursor:not-allowed; }
 .dc-library-favorite.is-favorite { color:#f59e0b; }
 
 /* HUD do esquema: leitura rápida sem três caixas a bloquear o canvas. */
-.schematic-hud { position:absolute; z-index:8; top:10px; left:10px; display:flex; align-items:center; gap:7px; max-width:calc(100% - 20px); min-height:28px; padding:4px 9px; border:1px solid #d5e1f0; border-radius:9px; background:#fffffff0; backdrop-filter:blur(8px); box-shadow:0 3px 12px #243b6318; color:#50617a; font-size:10px; white-space:nowrap; pointer-events:none; }
+.panel3d-viewbar { position:absolute; z-index:12; top:10px; left:50%; display:flex; max-width:calc(100% - 24px); align-items:center; gap:3px; padding:4px; border:1px solid #cbd7e8; border-radius:8px; background:#fffffff0; box-shadow:0 4px 14px #243b6324; backdrop-filter:blur(8px); transform:translateX(-50%); overflow-x:auto; }
+.panel3d-viewbar button { flex:0 0 auto; height:24px; padding:0 7px; border:1px solid transparent; border-radius:5px; color:#53637b; background:transparent; font-size:9px; font-weight:700; cursor:pointer; }
+.panel3d-viewbar button:hover,.panel3d-viewbar button.is-active { border-color:#b9cdf8; color:#1f55e0; background:#eef4ff; }
+.panel3d-viewbar button:disabled { cursor:not-allowed; opacity:.38; }
+@media(max-width:560px) { .panel3d-viewbar { top:46px; } .panel3d-viewbar button { padding-inline:5px; font-size:8px; } }
+
+.schematic-hud { position:absolute; z-index:8; top:10px; left:10px; display:flex; align-items:center; gap:7px; max-width:calc(100% - 20px); min-height:28px; padding:4px 9px; border:1px solid #d5e1f0; border-radius:9px; background:#fffffff0; backdrop-filter:blur(8px); box-shadow:0 3px 12px #243b6318; color:#50617a; font-size:10px; white-space:nowrap; }
 .schematic-hud.is-library-collapsed { top:52px; }
-.schematic-hud-tool { display:inline-flex; align-items:center; gap:5px; color:#1d4ed8; font-weight:700; }
+.schematic-hud-tool { display:inline-flex; align-items:center; gap:5px; color:#1d4ed8; font-weight:700; pointer-events:none; }
 .schematic-hud-tool i { width:6px; height:6px; border-radius:50%; background:#2563eb; }
-.schematic-hud-separator { height:13px; border-left:1px solid #d5e1f0; }
+.schematic-hud-separator { height:13px; border-left:1px solid #d5e1f0; pointer-events:none; }
+.schematic-hud-action { height:20px; padding:0 5px; border:1px solid transparent; border-radius:4px; color:#50617a; background:transparent; font:inherit; cursor:pointer; }
+.schematic-hud-action:hover { border-color:#bfd0ec; color:#1d4ed8; background:#eef4ff; }
 @media(max-width:700px) { .schematic-hud { gap:5px; font-size:9px; padding:4px 6px; } .schematic-hud span:last-child { display:none; } }
 .schematic-stage { container-type:inline-size; }
 @container (max-width:510px) { .schematic-hud span:last-child,.schematic-hud span:nth-last-child(2) { display:none; } }

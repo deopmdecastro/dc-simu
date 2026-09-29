@@ -149,6 +149,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     ...(step.action ? [{ id: `legacy-${step.id}`, address: step.action, condition: '1' }] : []),
     ...(step.actions ?? []),
   ]
+  const validationIssueCount =
+    (steps.length > 0 && !steps.some((step) => step.initial) ? 1 : 0) +
+    transitions.filter((transition) => !transition.from.length || !transition.to.length || !validCondition(transition.condition)).length +
+    steps.flatMap(actionsOf).filter((action) => (action.address !== '' && !/^[QM]\d{1,2}$/.test(action.address)) || !validCondition(action.condition)).length
   // Cada etapa ocupa uma linha no diagrama. Arestas explicitam bifurcações e junções.
   const stepY = (stepId: string) => 70 + steps.findIndex((s) => s.id === stepId) * 154
   const width = full ? 760 : 560
@@ -193,7 +197,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const onPreviewUp = () => { dragRef.current = null }
   const resetView = () => { setZoom(null); setPan(null) }
   return <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
-    <header className="grafcet-header"><div><strong>GRAFCET</strong><small>{steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas</small></div>{full ? <div className="grafcet-header-actions"><button className="dc-btn" onClick={addStep}>+ Etapa solta</button><button className="dc-btn-primary dc-btn" onClick={addConnectedStep}>+ Etapa ligada</button><button className="dc-btn" disabled={steps.length < 2} onClick={addTransition}>+ Transição</button></div> : <button className="dc-btn-primary dc-btn" onClick={onOpenEditor}>Abrir editor ↗</button>}</header>
+    <header className="grafcet-header"><div><strong>GRAFCET</strong><small>{steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas</small></div><span className={`grafcet-validation ${validationIssueCount ? 'has-issues' : 'is-valid'}`} title={validationIssueCount ? 'Existem propriedades inválidas ou ligações incompletas' : 'Estrutura GRAFCET válida'}>{validationIssueCount ? `⚠ ${validationIssueCount} aviso${validationIssueCount === 1 ? '' : 's'}` : '✓ Validado'}</span>{full ? <div className="grafcet-header-actions"><button className="dc-btn" onClick={addStep}>+ Etapa solta</button><button className="dc-btn-primary dc-btn" onClick={addConnectedStep}>+ Etapa ligada</button><button className="dc-btn" disabled={steps.length < 2} onClick={addTransition}>+ Transição</button></div> : <button className="dc-btn-primary dc-btn" onClick={onOpenEditor}>Abrir editor ↗</button>}</header>
     <div className="grafcet-designer-body">
       {full && (showPalette ? <aside className="grafcet-toolbox" aria-label="Ferramentas GRAFCET">
         <div className="grafcet-toolbox-head"><div><strong>Componentes</strong><small>Para construir a sequência</small></div><button title="Recolher ferramentas" aria-label="Recolher ferramentas" onClick={() => setShowPalette(false)}>‹</button></div>
