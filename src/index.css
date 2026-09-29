@@ -11,6 +11,14 @@ body,
   touch-action: pan-x pan-y;
 }
 
+/* Em Safari móvel, 100%/100vh inclui por vezes a zona atrás das barras do
+   navegador. O viewport dinâmico mantém o editor e a barra de estado visíveis. */
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root { height: 100dvh; }
+}
+
 body {
   @apply bg-surface-app text-ink-900 font-sans antialiased;
   font-size: 13px;
@@ -1766,7 +1774,7 @@ button:disabled { cursor:not-allowed; }
 
 /* Canvas do Esquema com alternância para o renderer físico partilhado do Painel 3D. */
 .schematic-view-shell { position:relative; width:100%; height:100%; min-width:0; min-height:0; overflow:hidden; }
-.schematic-dimension-switch { position:absolute; z-index:30; left:50%; bottom:12px; display:flex; align-items:center; gap:3px; max-width:calc(100% - 24px); padding:4px; border:1px solid #c7d4e6; border-radius:10px; background:#fffffff2; box-shadow:0 6px 20px #243b632b; backdrop-filter:blur(10px); transform:translateX(-50%); }
+.schematic-dimension-switch { position:absolute; z-index:30; left:50%; bottom:max(12px,env(safe-area-inset-bottom)); display:flex; align-items:center; gap:3px; max-width:calc(100% - 24px); padding:4px; border:1px solid #c7d4e6; border-radius:10px; background:#fffffff2; box-shadow:0 6px 20px #243b632b; backdrop-filter:blur(10px); transform:translateX(-50%); }
 .schematic-dimension-switch button { display:flex; height:28px; flex:0 0 auto; align-items:center; justify-content:center; gap:5px; padding:0 10px; border:1px solid transparent; border-radius:6px; color:#53637b; background:transparent; font-size:9px; font-weight:750; white-space:nowrap; cursor:pointer; }
 .schematic-dimension-switch button:hover { border-color:#bfd0ec; color:#1d4ed8; background:#eef4ff; }
 .schematic-dimension-switch button.is-active { border-color:#2f6bff; color:#fff; background:#2f6bff; box-shadow:0 2px 7px #2563eb42; }
@@ -1774,7 +1782,37 @@ button:disabled { cursor:not-allowed; }
 .schematic-dimension-switch > span i { width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px #dcfce7; }
 .schematic-view-shell[data-canvas-mode="3d"] .panel3d-axis-hud { bottom:62px; }
 .schematic-view-shell[data-canvas-mode="3d"] .panel3d-stage > .absolute.left-2.bottom-2 { bottom:54px; }
-@media(max-width:560px) { .schematic-dimension-switch { bottom:7px; } .schematic-dimension-switch button { height:26px; padding-inline:7px; font-size:8px; } .schematic-dimension-switch > span { display:none; } .schematic-view-shell[data-canvas-mode="3d"] .panel3d-axis-hud { bottom:52px; } }
+
+/* O estado vazio respeita as barras técnicas em cima e os controlos em baixo,
+   inclusive em landscape e no viewport visual do Safari. */
+.panel3d-empty-overlay { padding:58px 16px 68px; }
+.panel3d-empty-card { width:min(620px,100%); max-height:100%; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+.panel3d-empty-actions { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)); width:100%; }
+.panel3d-empty-actions .dc-btn { width:100%; height:auto; min-height:36px; padding:7px 9px; line-height:1.25; white-space:normal; }
+@media(max-width:560px) {
+  .schematic-dimension-switch { bottom:max(14px,env(safe-area-inset-bottom)); }
+  .schematic-dimension-switch button { height:28px; padding-inline:9px; font-size:9px; }
+  .schematic-dimension-switch > span { display:none; }
+  .schematic-view-shell[data-canvas-mode="3d"] .panel3d-axis-hud { right:43px; bottom:62px; }
+  .panel3d-empty-overlay { padding:92px 46px 66px 10px; }
+  .panel3d-empty-card { padding:20px 16px; border-radius:10px; }
+  .panel3d-empty-card h2 { margin:6px 0; font-size:18px; }
+  .panel3d-empty-card p { font-size:11px; line-height:1.5; }
+  .panel3d-empty-actions { grid-template-columns:1fr; gap:6px; margin-top:12px; }
+  .panel3d-empty-actions .dc-btn { min-height:34px; padding:6px 8px; font-size:10px; }
+}
+@media(max-height:620px) {
+  .panel3d-empty-overlay { padding-top:52px; padding-bottom:58px; }
+  .panel3d-empty-card { padding:8px 12px; overflow:hidden; }
+  .panel3d-empty-card .dc-empty-kicker,
+  .panel3d-empty-card p { display:none; }
+  .panel3d-empty-card h2 { margin:0; font-size:14px; line-height:1.2; }
+  .panel3d-empty-actions { grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; margin-top:6px; }
+  .panel3d-empty-actions .dc-btn { min-height:27px; padding:3px 6px; font-size:8px; line-height:1.15; }
+}
+@media(min-width:561px) and (max-height:620px) {
+  .schematic-view-shell[data-canvas-mode="3d"] .panel3d-axis-hud { bottom:12px; }
+}
 
 /* HUD do esquema: leitura rápida sem três caixas a bloquear o canvas. */
 .panel3d-viewbar { position:absolute; z-index:12; top:10px; left:50%; display:flex; max-width:calc(100% - 24px); align-items:center; gap:3px; padding:4px; border:1px solid #cbd7e8; border-radius:8px; background:#fffffff0; box-shadow:0 4px 14px #243b6324; backdrop-filter:blur(8px); transform:translateX(-50%); overflow-x:auto; }
@@ -1793,7 +1831,12 @@ button:disabled { cursor:not-allowed; }
 .panel3d-axis-hud span { display:flex; justify-content:space-between; gap:8px; color:#718096; font:600 7px ui-monospace,monospace; }
 .panel3d-axis-hud strong { color:#1f55e0; }
 @media(max-width:760px) { .panel3d-model-badge { top:82px; max-width:180px; } .panel3d-axis-hud { right:7px; bottom:7px; } .panel3d-axis-hud > div { display:none; } }
-@media(max-width:560px) { .panel3d-viewbar { top:46px; } .panel3d-viewbar button { padding-inline:5px; font-size:8px; } }
+@media(max-width:560px) {
+  .panel3d-viewbar { top:46px; left:calc(50% - 18px); max-width:calc(100% - 62px); gap:1px; padding:3px; scrollbar-width:none; }
+  .panel3d-viewbar::-webkit-scrollbar { display:none; }
+  .panel3d-viewbar button { height:27px; padding-inline:6px; font-size:8px; }
+  .panel3d-tool-prefix { display:none; }
+}
 
 .schematic-hud { position:absolute; z-index:8; top:10px; left:10px; display:flex; align-items:center; gap:7px; max-width:calc(100% - 20px); min-height:28px; padding:4px 9px; border:1px solid #d5e1f0; border-radius:9px; background:#fffffff0; backdrop-filter:blur(8px); box-shadow:0 3px 12px #243b6318; color:#50617a; font-size:10px; white-space:nowrap; }
 .schematic-hud.is-library-collapsed { top:52px; }
@@ -1931,8 +1974,9 @@ button:disabled { cursor:not-allowed; }
 /* OrbitControls recebe os gestos diretamente na área 3D. */
 canvas[data-engine="three.js r169"] { touch-action: none; }
 
-@media (max-width: 799px) {
+@media (max-width: 1023px) {
   .dc-toolbar-main { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; min-height: 48px; scrollbar-width: thin; }
+  .schematic-view-shell[data-canvas-mode="3d"] .panel3d-axis-hud { right:43px; }
   .dc-views-container { order: initial; flex-basis: auto; flex-shrink: 0; }
   .dc-workspace .dc-resize-handle { display: none; }
   .dc-workspace .mobile-library-panel { position: absolute; z-index: 22; top: 0; bottom: 0; left: 0; width: min(90vw, 360px) !important; background: white; box-shadow: 5px 0 20px #14234a30; }

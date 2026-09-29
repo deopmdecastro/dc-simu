@@ -942,7 +942,7 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
   const [showHints, setShowHints] = useState(() => {
     try {
       const saved = localStorage.getItem('dc-simu:showHints')
-      return saved === null ? true : saved === '1'
+      return saved === null ? !window.matchMedia('(max-width: 700px), (pointer: coarse)').matches : saved === '1'
     } catch {
       return true
     }
@@ -1088,7 +1088,7 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
         <button type="button" onClick={() => moveCamera('isometric')} title="Vista isométrica">ISO</button>
         <button type="button" onClick={focusSelection} disabled={!selectedTarget} title="Focar o componente selecionado (F)">Focar</button>
         <button type="button" className={showGrid ? 'is-active' : ''} aria-pressed={showGrid} onClick={toggleGrid} title="Mostrar ou ocultar a grelha (G)">Grelha</button>
-        <button type="button" onClick={cycleBackground} title="Alternar fundo técnico, branco e escuro">Fundo: {backgroundMode === 'technical' ? 'Técnico' : backgroundMode === 'white' ? 'Branco' : 'Escuro'}</button>
+        <button type="button" onClick={cycleBackground} title="Alternar fundo técnico, branco e escuro"><span className="panel3d-tool-prefix">Fundo: </span>{backgroundMode === 'technical' ? 'Técnico' : backgroundMode === 'white' ? 'Branco' : 'Escuro'}</button>
       </div>
       {selectedComponent && <div className="panel3d-model-badge">
         <span><i />MODELO 3D</span><strong>{selectedComponent.ref} · {selectedComponent.label}</strong>
@@ -1102,7 +1102,7 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
         {showGrid && <gridHelper args={[16, 32, '#c3cdda', '#dfe5ee']} position={[0, PANEL_FLOOR_Y, 0]} />}
 
-        <DinRail width={railWidth} />
+        {components.length > 0 && <DinRail width={railWidth} />}
 
         {railComponents.map((c) => {
           const x = positions[c.id].x
@@ -1159,12 +1159,12 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
         <div><span>Yaw <strong>{cameraStats.yaw.toFixed(1)}°</strong></span><span>Pitch <strong>{cameraStats.pitch.toFixed(1)}°</strong></span><span>Zoom <strong>{cameraStats.zoom}%</strong></span></div>
       </div>
 
-      {!components.length && <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-        <div className="dc-editor-empty pointer-events-auto">
+      {!components.length && <div className="panel3d-empty-overlay absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+        <div className="dc-editor-empty panel3d-empty-card pointer-events-auto">
           <span className="dc-empty-kicker">{embedded ? 'ESQUEMA · VISUALIZAÇÃO 3D' : 'PAINEL 3D'}</span>
           <h2>{embedded ? 'Visualize o esquema em 3D' : 'Prepare o seu painel'}</h2>
           <p>{embedded ? 'Adicione componentes no modo 2D ou carregue um cenário; bornes e cabos aparecerão aqui nas suas posições físicas.' : 'Carregue um cenário para explorar os componentes em 3D ou adicione-os através da biblioteca.'}</p>
-          <div className="flex flex-wrap justify-center gap-2 mt-4">{SCENARIOS.slice(0, 3).map((scenario) => <button className="dc-btn" key={scenario.id} onClick={() => useSimStore.getState().loadScenario(scenario.id)}>{scenario.name}</button>)}</div>
+          <div className="panel3d-empty-actions flex flex-wrap justify-center gap-2 mt-4">{SCENARIOS.slice(0, 3).map((scenario) => <button className="dc-btn" key={scenario.id} onClick={() => useSimStore.getState().loadScenario(scenario.id)}>{scenario.name}</button>)}</div>
         </div>
       </div>}
 

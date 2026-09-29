@@ -23,8 +23,9 @@ export default function App({ onBack }: { onBack: () => void }) {
       return saved && ['Projeto', 'Biblioteca', 'Dispositivos', 'Diagnóstico', 'Configurações'].includes(saved) ? saved : 'Projeto'
     } catch { return 'Projeto' }
   })
-  const [showLadder, setShowLadder] = useState(() => window.innerWidth >= 800)
-  const [showLibrary, setShowLibrary] = useState(() => window.innerWidth >= 800)
+  const compactWorkspace = () => window.innerWidth < 1024 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches
+  const [showLadder, setShowLadder] = useState(() => !compactWorkspace())
+  const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
   const [panelSizes, setPanelSizes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('dcsimu:workspace:panels') ?? '{}')

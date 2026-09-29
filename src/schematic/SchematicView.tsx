@@ -331,7 +331,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
   const [showHints, setShowHints] = useState(() => {
     try {
       const saved = localStorage.getItem('dc-simu:showHints')
-      return saved === null ? true : saved === '1'
+      return saved === null ? !window.matchMedia('(max-width: 700px), (pointer: coarse)').matches : saved === '1'
     } catch {
       return true
     }

@@ -1055,6 +1055,10 @@ button.dx-notification-item:hover {
   font-family: var(--dx-font) !important;
   min-height: 100vh;
 }
+@supports (min-height: 100dvh) {
+  .account-shell,
+  .dx-auth { min-height: 100dvh; }
+}
 
 /* ------------------------------------------- polimento do editor (tokens) */
 .dc-btn:focus-visible,
