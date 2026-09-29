@@ -15,6 +15,13 @@ const PRESETS: Array<{ id: ComponentViewPreset; label: string }> = [
   { id: 'bottom', label: 'Inferior' },
 ]
 
+const VIEW_CUBE_CORNERS: Array<{ position: string; label: string; orientation: ComponentViewOrientation }> = [
+  { position: 'nw', label: 'Canto isométrico superior esquerdo', orientation: { x: -35.264, y: -45, z: 0 } },
+  { position: 'ne', label: 'Canto isométrico superior direito', orientation: COMPONENT_VIEW_PRESETS.isometric },
+  { position: 'sw', label: 'Canto isométrico inferior esquerdo', orientation: { x: 35.264, y: -45, z: 0 } },
+  { position: 'se', label: 'Canto isométrico inferior direito', orientation: { x: 35.264, y: 45, z: 0 } },
+]
+
 function OrientationCube({ value, onChange }: { value: ComponentViewOrientation; onChange: (value: ComponentViewOrientation) => void }) {
   const drag = useRef<{ pointerId: number; x: number; y: number; orientation: ComponentViewOrientation } | null>(null)
   const finish = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -52,6 +59,15 @@ function OrientationCube({ value, onChange }: { value: ComponentViewOrientation;
           <button className="face top" onClick={(event) => { event.stopPropagation(); preset('top') }} title="Superior">S</button>
           <button className="face bottom" onClick={(event) => { event.stopPropagation(); preset('bottom') }} title="Inferior">I</button>
         </div>
+        {VIEW_CUBE_CORNERS.map((corner) => <button
+          type="button"
+          key={corner.position}
+          className={`component-view-cube-corner ${corner.position}`}
+          aria-label={corner.label}
+          title={corner.label}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => { event.stopPropagation(); onChange({ ...corner.orientation }) }}
+        />)}
       </div>
       <button className="component-view-iso" onClick={() => preset('isometric')} title="Vista isométrica">ISO</button>
       <span>Arraste o cubo · Shift = eixo Z</span>
