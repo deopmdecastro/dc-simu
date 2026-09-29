@@ -1,127 +1,158 @@
 import type { ComponentType } from '../types'
 
-/** URLs públicas dos modelos CAD disponíveis (ficheiros em public/models/). */
 export const MODEL_PATHS = {
-  powerSupplyProauto24A: '/models/fontes/fonte-proauto-dran120-24a.glb',
   plcSiemensLogo1224RC: '/models/controladores/logo-siemens-1224rc.glb',
-  /** Contator WEG CWC07/CWC09 10E — modelo CAD real do fabricante. */
+  powerSupplyProauto24A: '/models/fontes/fonte-proauto-dran120-24a.glb',
   wegContactorCWC09: '/models/contactores/weg-cwc07-10e.glb',
-  /** Botões e botoeiras de painel. */
+  wegBreakerMdwC10: '/models/protecao/weg-mdw-c10.glb',
+  phoenixEcb3000760: '/models/protecao/phoenix-ec1-12dc-1a-s-r.glb',
   emergencyButtonP20AKR: '/models/comando/P20AKR-1.glb',
   emergencyButtonKeyP20ACR: '/models/comando/metaltex-p20acr-r-1b.glb',
   dualPushButtonNpb22D11: '/models/comando/nhd-npb22-d11.glb',
-  /** Proteção. */
-  phoenixEcb3000760: '/models/protecao/phoenix-ec1-12dc-1a-s-r.glb',
-  wegBreakerMdwC10: '/models/protecao/weg-mdw-c10.glb',
-  /** Controladores e comunicação. */
+  safetyRelayMsr127Tp: '/models/reles/allen-bradley-msr127tp.glb',
   plcLsXbmDn32s: '/models/controladores/ls-xbm-dn32s.glb',
   siemensTsAdapterIeBasic: '/models/controladores/siemens-ts-adapter-ie-basic.glb',
-  /** Bornes e relés. */
   phoenixTerminalPti6: '/models/bornes-e-barras/phoenix-pti6-3213972.glb',
   terminalPE: '/models/bornes-e-barras/terminal-pe.glb',
-  safetyRelayMsr127Tp: '/models/reles/allen-bradley-msr127tp.glb',
-  /** Motor trifásico SEW-EURODRIVE DRN80MK4, montagem B3. */
   motorSewDrn80Mk4B3: '/models/motores/DRN80MK4-B3.glb',
-  /** Sinaleiro LED genérico AD22-22DS, 22 mm, 24 V AC/DC. */
   pilotLightAd22: '/models/sinalizacao/ad22-22ds-24v.glb',
 } as const
 
-export type ComponentModelSpec = {
-  path: string
-  /** Orienta o CAD para Y para cima e frente em +Z na cena. */
-  rotation: [number, number, number]
-  /** Alguns exports têm a face em -Z; a reflexão apresenta-a à câmara. */
-  flipDepth?: boolean
-  /** Local físico correto no painel. */
-  placement: 'din-rail' | 'panel-front' | 'machine'
-  /** Altura normalizada do aparelho no Painel 3D. */
-  targetHeight: number
+export type ComponentPlacement = 'din-rail' | 'panel-front' | 'machine'
+
+export interface PhysicalSizeMm {
+  /** Dimensões da apresentação frontal padrão, depois de aplicada a rotação base. */
+  width: number
+  height: number
+  depth: number
 }
 
 /**
- * Associação única tipo → CAD. A mesma especificação alimenta Biblioteca,
- * Esquema e Painel 3D para impedir orientações divergentes entre vistas.
+ * Uma única escala física alimenta o Painel 3D e os footprints do Esquema.
+ * No painel, 100 mm correspondem a 1 unidade de cena. No esquema, 1 mm
+ * corresponde a 1,5 px a 100% de zoom.
  */
-const COMPONENT_MODELS: Partial<Record<ComponentType, ComponentModelSpec>> = {
-  // Estes dois exports têm Z para cima e a frente em -Y.
-  breaker1p: { path: '/models/protecao/Q2A5.glb', rotation: [-Math.PI / 2, 0, 0], placement: 'din-rail', targetHeight: 0.78 },
-  breaker2p: { path: '/models/protecao/DISJUNTOR%202.glb', rotation: [-Math.PI / 2, 0, 0], placement: 'din-rail', targetHeight: 0.78 },
-  breakerWegMdwC10: { path: MODEL_PATHS.wegBreakerMdwC10, rotation: [0, 0, 0], placement: 'din-rail', targetHeight: 0.8 },
-  phoenixEcb3000760: { path: MODEL_PATHS.phoenixEcb3000760, rotation: [0, 0, 0], placement: 'din-rail', targetHeight: 0.78 },
+export const PANEL_UNITS_PER_MM = 0.01
+export const SCHEMATIC_PX_PER_MM = 1.5
+export const MIN_SCHEMATIC_HIT_WIDTH = 24
 
-  // O eixo da haste dos P20 é Y no export; +90° em X aponta o cogumelo para +Z.
-  emergencyButton: { path: MODEL_PATHS.emergencyButtonP20AKR, rotation: [Math.PI / 2, 0, 0], placement: 'panel-front', targetHeight: 0.42 },
-  emergencyButtonKeyP20ACR: { path: MODEL_PATHS.emergencyButtonKeyP20ACR, rotation: [Math.PI / 2, 0, 0], placement: 'panel-front', targetHeight: 0.44 },
-  dualPushButtonNpb22D11: { path: MODEL_PATHS.dualPushButtonNpb22D11, rotation: [0, 0, 0], placement: 'panel-front', targetHeight: 0.52 },
+export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalSizeMm>> = {
+  plcSiemensLogo1224RC: { width: 72, height: 90, depth: 55 },
+  powerSupplyProauto24A: { width: 64, height: 124.5, depth: 123.6 },
+  contactorWegCWC09: { width: 45.48, height: 58, depth: 52.01 },
+  breaker1p: { width: 17.7, height: 74.13, depth: 90.01 },
+  breaker2p: { width: 35.4, height: 74.3, depth: 93.87 },
+  breakerWegMdwC10: { width: 53.5, height: 78.51, depth: 77.24 },
+  phoenixEcb3000760: { width: 12.4, height: 80, depth: 81.65 },
+  emergencyButton: { width: 38.9, height: 44.2, depth: 76 },
+  emergencyButtonKeyP20ACR: { width: 40, height: 44, depth: 97 },
+  dualPushButtonNpb22D11: { width: 48.8, height: 30.2, depth: 61.8 },
+  safetyRelay: { width: 22.65, height: 99.1, depth: 112.73 },
+  plcLsXbmDn32s: { width: 82.03, height: 97.49, depth: 30.2 },
+  siemensTsAdapterIeBasic: { width: 30, height: 105.58, depth: 75.1 },
+  terminalPhoenixPti6: { width: 8.15, height: 66.02, depth: 48.5 },
+  terminalPE: { width: 5.15, height: 48.6, depth: 35.25 },
+  motor3ph: { width: 264, height: 208, depth: 156 },
+  pilotLightAd22: { width: 29.3, height: 29.3, depth: 51.5 },
+}
 
-  safetyRelay: { path: MODEL_PATHS.safetyRelayMsr127Tp, rotation: [0, 0, Math.PI / 2], flipDepth: true, placement: 'din-rail', targetHeight: 0.92 },
-  plcLsXbmDn32s: { path: MODEL_PATHS.plcLsXbmDn32s, rotation: [0, 0, 0], placement: 'din-rail', targetHeight: 0.96 },
-  siemensTsAdapterIeBasic: { path: MODEL_PATHS.siemensTsAdapterIeBasic, rotation: [0, 0, 0], placement: 'din-rail', targetHeight: 0.94 },
-  terminalPhoenixPti6: { path: MODEL_PATHS.phoenixTerminalPti6, rotation: [0, 0, 0], placement: 'din-rail', targetHeight: 0.62 },
-  terminalPE: { path: MODEL_PATHS.terminalPE, rotation: [0, 0, 0], placement: 'din-rail', targetHeight: 0.58 },
+export interface ComponentModelSpec {
+  path: string
+  /** Rotação base que põe o topo físico em +Y e a frente física em +Z. */
+  rotation: [number, number, number]
+  placement: ComponentPlacement
+  /** Altura derivada da dimensão física; nunca é calibrada isoladamente. */
+  targetHeight: number
+  physicalSizeMm: PhysicalSizeMm
+  /** Alguns CAD vêm com a face operacional no lado -Z. */
+  flipDepth?: boolean
+}
 
-  // Export CADENAS/3Dfindit em milímetros, já com Y para cima e eixo em +X.
-  motor3ph: { path: MODEL_PATHS.motorSewDrn80Mk4B3, rotation: [0, 0, 0], placement: 'machine', targetHeight: 1.04 },
-  // O eixo do sinaleiro já aponta para +Z; a face circular fica frontal sem correção de origem.
-  pilotLightAd22: { path: MODEL_PATHS.pilotLightAd22, rotation: [0, 0, 0], placement: 'panel-front', targetHeight: 0.4 },
+function spec(
+  type: ComponentType,
+  path: string,
+  rotation: [number, number, number],
+  placement: ComponentPlacement,
+  flipDepth = false,
+): ComponentModelSpec {
+  const physicalSizeMm = COMPONENT_PHYSICAL_SIZE_MM[type]
+  if (!physicalSizeMm) throw new Error(`Dimensões físicas em falta para ${type}`)
+  return {
+    path,
+    rotation,
+    placement,
+    physicalSizeMm,
+    targetHeight: physicalSizeMm.height * PANEL_UNITS_PER_MM,
+    ...(flipDepth ? { flipDepth: true } : {}),
+  }
+}
+
+/**
+ * Bases frontais verificadas na geometria dos GLB. A orientação guardada em
+ * cada instância é aplicada por cima desta base e, portanto, continua isolada.
+ */
+const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
+  plcSiemensLogo1224RC: spec('plcSiemensLogo1224RC', MODEL_PATHS.plcSiemensLogo1224RC, [Math.PI / 2, 0, 0], 'din-rail'),
+  powerSupplyProauto24A: spec('powerSupplyProauto24A', MODEL_PATHS.powerSupplyProauto24A, [0, 0, 0], 'din-rail'),
+  contactorWegCWC09: spec('contactorWegCWC09', MODEL_PATHS.wegContactorCWC09, [Math.PI / 2, 0, 0], 'din-rail'),
+  breaker1p: spec('breaker1p', '/models/protecao/Q2A5.glb', [0, 0, 0], 'din-rail', true),
+  breaker2p: spec('breaker2p', '/models/protecao/DISJUNTOR%202.glb', [0, 0, 0], 'din-rail', true),
+  breakerWegMdwC10: spec('breakerWegMdwC10', MODEL_PATHS.wegBreakerMdwC10, [0, 0, Math.PI / 2], 'din-rail', true),
+  phoenixEcb3000760: spec('phoenixEcb3000760', MODEL_PATHS.phoenixEcb3000760, [Math.PI / 2, 0, 0], 'din-rail'),
+
+  // O P20AKR tem o eixo longo em Z; identidade mostra a cabeça circular frontal.
+  emergencyButton: spec('emergencyButton', MODEL_PATHS.emergencyButtonP20AKR, [0, 0, 0], 'panel-front', true),
+  emergencyButtonKeyP20ACR: spec('emergencyButtonKeyP20ACR', MODEL_PATHS.emergencyButtonKeyP20ACR, [Math.PI / 2, 0, 0], 'panel-front'),
+  dualPushButtonNpb22D11: spec('dualPushButtonNpb22D11', MODEL_PATHS.dualPushButtonNpb22D11, [0, 0, 0], 'panel-front', true),
+
+  safetyRelay: spec('safetyRelay', MODEL_PATHS.safetyRelayMsr127Tp, [0, 0, Math.PI / 2], 'din-rail', true),
+  plcLsXbmDn32s: spec('plcLsXbmDn32s', MODEL_PATHS.plcLsXbmDn32s, [Math.PI / 2, 0, 0], 'din-rail'),
+  siemensTsAdapterIeBasic: spec('siemensTsAdapterIeBasic', MODEL_PATHS.siemensTsAdapterIeBasic, [Math.PI / 2, 0, 0], 'din-rail'),
+  terminalPhoenixPti6: spec('terminalPhoenixPti6', MODEL_PATHS.phoenixTerminalPti6, [Math.PI / 2, 0, 0], 'din-rail'),
+  terminalPE: spec('terminalPE', MODEL_PATHS.terminalPE, [Math.PI / 2, 0, 0], 'din-rail'),
+
+  motor3ph: spec('motor3ph', MODEL_PATHS.motorSewDrn80Mk4B3, [0, 0, 0], 'machine'),
+  pilotLightAd22: spec('pilotLightAd22', MODEL_PATHS.pilotLightAd22, [Math.PI / 2, 0, 0], 'panel-front'),
 }
 
 export function getComponentModelSpec(type: ComponentType): ComponentModelSpec | undefined {
-  return COMPONENT_MODELS[type]
+  return MODEL_SPECS[type]
 }
 
-/**
- * CAD com renderizadores históricos dedicados. A especificação unificada
- * permite reutilizar estes GLB em novas vistas, como o turntable da landing.
- */
-const DEDICATED_COMPONENT_MODELS: Partial<Record<ComponentType, ComponentModelSpec>> = {
-  plcSiemensLogo1224RC: {
-    path: MODEL_PATHS.plcSiemensLogo1224RC,
-    rotation: [Math.PI / 2, 0, 0],
-    placement: 'din-rail',
-    targetHeight: 1.3,
-  },
-  powerSupplyProauto24A: {
-    path: MODEL_PATHS.powerSupplyProauto24A,
-    rotation: [0, 0, 0],
-    placement: 'din-rail',
-    targetHeight: 1.25,
-  },
-  contactorWegCWC09: {
-    path: MODEL_PATHS.wegContactorCWC09,
-    rotation: [0, 0, 0],
-    flipDepth: true,
-    placement: 'din-rail',
-    targetHeight: 1.2,
-  },
+export function getComponentPhysicalSizeMm(type: ComponentType): PhysicalSizeMm | undefined {
+  return COMPONENT_PHYSICAL_SIZE_MM[type]
 }
 
-/** Especificação de qualquer GLB real, genérico ou com renderizador dedicado. */
+export function getSchematicPhysicalFootprint(type: ComponentType): { w: number; h: number } | undefined {
+  const physical = getComponentPhysicalSizeMm(type)
+  if (!physical) return undefined
+  return {
+    w: Math.max(1, Math.round(physical.width * SCHEMATIC_PX_PER_MM)),
+    h: Math.max(1, Math.round(physical.height * SCHEMATIC_PX_PER_MM)),
+  }
+}
+
+export type CommandModelSpec = ComponentModelSpec
+export function getCommandModelSpec(type: ComponentType): CommandModelSpec | undefined {
+  return ['emergencyButton', 'emergencyButtonKeyP20ACR', 'dualPushButtonNpb22D11'].includes(type) ? MODEL_SPECS[type] : undefined
+}
+
+export type ProtectionModelSpec = ComponentModelSpec
+export function getProtectionModelSpec(type: ComponentType): ProtectionModelSpec | undefined {
+  return ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(type) ? MODEL_SPECS[type] : undefined
+}
+
+/** Especificação GLB única consumida pelo editor, esquema, painel e landing. */
 export function getComponentGlbSpec(type: ComponentType): ComponentModelSpec | undefined {
-  return COMPONENT_MODELS[type] ?? DEDICATED_COMPONENT_MODELS[type]
+  return MODEL_SPECS[type]
 }
 
-/** Única regra de disponibilidade: só componentes com ficheiro GLB real podem ser inseridos. */
 export function hasComponent3DModel(type: ComponentType): boolean {
   return !!getComponentGlbSpec(type)
 }
 
 export const MISSING_3D_MODEL_MESSAGE = 'Bloqueado: modelo 3D GLB ainda não disponível.'
 
-export type ProtectionModelSpec = ComponentModelSpec
-export function getProtectionModelSpec(type: ComponentType): ProtectionModelSpec | undefined {
-  return ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(type)
-    ? COMPONENT_MODELS[type]
-    : undefined
-}
-
-export type CommandModelSpec = ComponentModelSpec
-export function getCommandModelSpec(type: ComponentType): CommandModelSpec | undefined {
-  return ['emergencyButton', 'emergencyButtonKeyP20ACR', 'dualPushButtonNpb22D11'].includes(type)
-    ? COMPONENT_MODELS[type]
-    : undefined
-}
-
 export function hasDinRailModel(type: ComponentType): boolean {
-  return COMPONENT_MODELS[type]?.placement === 'din-rail'
+  return getComponentGlbSpec(type)?.placement === 'din-rail'
 }

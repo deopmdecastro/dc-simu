@@ -28,7 +28,7 @@ import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTa
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario, SCENARIOS } from '../simulation/scenarios'
-import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradeProauto24A } from '../electrical/factory'
+import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradePhysicalFootprint, upgradeProauto24A } from '../electrical/factory'
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
@@ -1349,7 +1349,7 @@ export const useSimStore = create<Store>((set, get) => ({
     return JSON.stringify(
       {
         app: 'dc-simu',
-        version: 4,
+        version: 5,
         savedAt: new Date().toISOString(),
         components: s.components,
         wires: s.wires,
@@ -1374,7 +1374,9 @@ export const useSimStore = create<Store>((set, get) => ({
     try {
       const parsed = JSON.parse(json)
       get().stop()
-      const loadedComponents = (parsed.components ?? []).map(upgradeLogoTerminals).map(upgradeProauto24A) as ElectricalComponent[]
+      const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
+      const loadedComponents = sourceComponents.map(upgradeLogoTerminals).map(upgradeProauto24A).map(upgradePhysicalFootprint) as ElectricalComponent[]
+      const footprintUpgraded = loadedComponents.some((component, index) => component.w !== sourceComponents[index]?.w || component.h !== sourceComponents[index]?.h)
       const loadedWires = (parsed.wires ?? []) as Wire[]
       const alignedWires = connectNearWireEnds(loadedComponents, loadedWires)
       const plcIds = loadedComponents.filter(isProgrammablePlc).map((c) => c.id)
@@ -1402,7 +1404,7 @@ export const useSimStore = create<Store>((set, get) => ({
         viewOrientationEditor: null,
         history: [],
         future: [],
-        dirty: alignedWires.some((wire, i) => wire !== loadedWires[i]),
+        dirty: footprintUpgraded || alignedWires.some((wire, i) => wire !== loadedWires[i]),
       })
       get().pushEvent('info', 'Projeto carregado de arquivo JSON.')
       get().step()

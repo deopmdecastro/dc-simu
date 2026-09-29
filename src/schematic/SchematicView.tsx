@@ -9,7 +9,7 @@ import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
 import { getWeg3DImage } from './weg3DImage'
 import { getCad3DImage } from './cad3DImage'
-import { getComponentModelSpec, hasComponent3DModel } from '../three/modelPaths'
+import { getComponentModelSpec, hasComponent3DModel, MIN_SCHEMATIC_HIT_WIDTH } from '../three/modelPaths'
 import { componentOrientationOf, isOriginalComponentOrientation } from '../three/componentOrientation'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
 import ComponentViewEditor from '../components/ComponentViewEditor'
@@ -157,7 +157,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     getLogo3DImages().then((images) => { if (active) setLogoImages(images) }).catch((error) => console.warn('Modelo LOGO! indisponível; símbolo de reserva em uso', error))
     return () => { active = false }
   }, [hasLogo])
-  const cadTypesKey = [...new Set(components.map((c) => c.type).filter((type) => !!getComponentModelSpec(type)))].sort().join('|')
+  const dedicatedImageTypes: ComponentType[] = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09']
+  const cadTypesKey = [...new Set(components.map((c) => c.type).filter((type) => !!getComponentModelSpec(type) && !dedicatedImageTypes.includes(type)))].sort().join('|')
   useEffect(() => {
     const types = cadTypesKey ? cadTypesKey.split('|') as ComponentType[] : []
     if (!types.length) return
@@ -855,18 +856,11 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   }
 
   const modelBounds = (c: ElectricalComponent) => {
-    const genericCad = !!getComponentModelSpec(c.type)
-    const imgW = genericCad ? Math.min(c.w, c.h) : Math.min(c.w, c.h * 560 / 720)
-    const imgH = genericCad ? Math.min(c.w, c.h) : Math.min(c.h, c.w * 720 / 560)
-    // Caixa visível aproximada dentro do PNG transparente; serve para seleção
-    // e snap, sem substituir as coordenadas editáveis dos bornes.
-    const factor = c.type === 'plcSiemensLogo1224RC' ? { w: 0.87, h: 0.91 }
-      : c.type === 'contactorWegCWC09' ? { w: 0.94, h: 0.92 }
-        : c.type === 'powerSupplyProauto24A' ? { w: 0.59, h: 0.91 }
-          : { w: 0.9, h: 0.9 }
-    const bodyW = imgW * factor.w
-    const bodyH = imgH * factor.h
-    return { x: (c.w - bodyW) / 2, y: (c.h - bodyH) / 2, w: bodyW, h: bodyH }
+    if (!getComponentModelSpec(c.type)) return { x: 0, y: 0, w: c.w, h: c.h }
+    // O raster já vem justo e com o aspect ratio físico. Bornes estreitos mantêm
+    // o corpo à escala, mas recebem uma área de clique central de 24 px.
+    const hitWidth = Math.max(c.w, MIN_SCHEMATIC_HIT_WIDTH)
+    return { x: (c.w - hitWidth) / 2, y: 0, w: hitWidth, h: c.h }
   }
 
   const renderWireEnds = (layer: 'back' | 'front') => wires.flatMap((w) => {
@@ -939,10 +933,10 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
             <ComponentTerminals c={c} />
             {/* Zonas dos botões do modelo: continuam operacionais na vista frontal. */}
             {(['up', 'down', 'left', 'right', 'ESC', 'OK'] as const).map((button) => {
-              const imageW = Math.min(c.w, c.h * 560 / 720)
-              const imageH = Math.min(c.h, c.w * 720 / 560)
-              const x0 = (c.w - imageW) / 2
-              const y0 = (c.h - imageH) / 2
+              const imageW = c.w
+              const imageH = c.h
+              const x0 = 0
+              const y0 = 0
               const coords = { up: [0.8, 0.45], down: [0.8, 0.63], left: [0.68, 0.54], right: [0.92, 0.54], ESC: [0.72, 0.72], OK: [0.88, 0.72] }
               const [bx, by] = coords[button]
               return <rect key={button} x={x0 + (bx - 0.055) * imageW} y={y0 + (by - 0.035) * imageH} width={imageW * 0.11} height={imageH * 0.07} rx={3} fill={c.state.pressedButton === button ? '#38bdf8' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}

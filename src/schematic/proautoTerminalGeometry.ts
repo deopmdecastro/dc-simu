@@ -1,12 +1,12 @@
 import type { ElectricalComponent, Terminal } from '../types'
 
-// Posição física na vista frontal 560×720 gerada do GLB. A vista do fabricante
-// (ficha p. 3) mostra os pinos 6→1 da esquerda para a direita em cima.
+// Centros físicos na captura frontal adaptativa. A ficha mostra os pinos 6→1
+// da esquerda para a direita na fila superior.
 const positions: Record<string, [number, number]> = {
-  '-V2': [0.355, 0.105], '-V1': [0.413, 0.105],
-  '+V2': [0.471, 0.105], '+V1': [0.529, 0.105],
-  RDY2: [0.587, 0.105], RDY1: [0.645, 0.105],
-  PE: [0.405, 0.895], L: [0.5, 0.895], N: [0.595, 0.895],
+  '-V2': [0.18, 0.105], '-V1': [0.31, 0.105],
+  '+V2': [0.44, 0.105], '+V1': [0.57, 0.105],
+  RDY2: [0.70, 0.105], RDY1: [0.83, 0.105],
+  PE: [0.30, 0.895], L: [0.50, 0.895], N: [0.70, 0.895],
 }
 const template: Record<string, [number, number]> = {
   '-V2': [0.18, 0], '-V1': [0.31, 0], '+V2': [0.44, 0], '+V1': [0.57, 0],
@@ -19,7 +19,5 @@ export function proautoTerminalLocal(c: ElectricalComponent, t: Terminal) {
   const expected = template[t.label]
   const point = positions[t.label]
   if (!expected || !point || Math.abs(t.x - expected[0]) > 0.002 || Math.abs(t.y - expected[1]) > 0.002) return ordinary
-  const width = Math.min(c.w, c.h * 560 / 720)
-  const height = Math.min(c.h, c.w * 720 / 560)
-  return { x: (c.w - width) / 2 + point[0] * width, y: (c.h - height) / 2 + point[1] * height }
+  return { x: point[0] * c.w, y: point[1] * c.h }
 }

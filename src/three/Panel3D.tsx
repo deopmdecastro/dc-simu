@@ -8,15 +8,17 @@ import { SCENARIOS } from '../simulation/scenarios'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType } from '../types'
 import * as THREE from 'three'
-import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, MODEL_PATHS } from './modelPaths'
+import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel } from './modelPaths'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import ComponentViewEditor from '../components/ComponentViewEditor'
 
 const SLOT_WIDTH = 0.72
 const RAIL_Y = 0.4
 const PANEL_FLOOR_Y = -2.6
-/** Centro do DRN80 normalizado (1,04 m de cena), com os pés apoiados no piso. */
-const MOTOR_CENTER_Y = PANEL_FLOOR_Y + 0.52
+const MOTOR_TARGET_HEIGHT = getComponentModelSpec('motor3ph')!.targetHeight
+const MOTOR_SCALE_RATIO = MOTOR_TARGET_HEIGHT / 1.04
+/** Centro físico do DRN80, com os pés apoiados no piso. */
+const MOTOR_CENTER_Y = PANEL_FLOOR_Y + MOTOR_TARGET_HEIGHT / 2
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -127,15 +129,10 @@ function Contactor3D({ c, x }: { c: ElectricalComponent; x: number }) {
 }
 
 /* ---------- Siemens LOGO! 12/24RC — modelo 3D real (GLTF/GLB) ---------- */
-const LOGO_1224RC_MODEL_URL = MODEL_PATHS.plcSiemensLogo1224RC
-// O export do SolidWorks vem com Z para cima; o three.js usa Y para cima.
-// Confirmado por análise da geometria (posição dos parafusos dos bornes de
-// entrada/saída e do ecrã): rodar +90° em torno de X coloca o topo real do
-// aparelho para cima, a base para baixo, e a frente (ecrã à esquerda,
-// ESC/OK/setas à direita) virada para a câmara — sem inverter nada.
-const LOGO_1224RC_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0]
-// Altura alvo (unidades da cena), semelhante à dos outros aparelhos de calha (disjuntores ~0.7-0.9).
-const LOGO_1224RC_TARGET_HEIGHT = 0.9
+const LOGO_1224RC_SPEC = getComponentModelSpec('plcSiemensLogo1224RC')!
+const LOGO_1224RC_MODEL_URL = LOGO_1224RC_SPEC.path
+const LOGO_1224RC_ROTATION = LOGO_1224RC_SPEC.rotation
+const LOGO_1224RC_TARGET_HEIGHT = LOGO_1224RC_SPEC.targetHeight
 
 function OrientedInstance({ c, pivot, orientation, selected, onSelect, children }: {
   c: ElectricalComponent
@@ -237,60 +234,58 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
   )
 }
 
-/** Modelo Proauto: eixos Y-up/+Z-frente confirmados no GLB; sem rotação. */
+/** Fonte Proauto normalizada pela mesma dimensão física do Esquema. */
 function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
-  const { scene } = useGLTF(MODEL_PATHS.powerSupplyProauto24A)
+  const spec = getComponentModelSpec(c.type)!
+  const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
     const obj = scene.clone(true)
+    obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
     const bounds = new THREE.Box3().setFromObject(obj)
     const height = bounds.max.y - bounds.min.y
-    obj.scale.setScalar(height > 0 ? 1.1 / height : 1)
+    const scale = height > 0 ? spec.targetHeight / height : 1
+    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
     const box = new THREE.Box3().setFromObject(obj)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
     return obj
-  }, [scene])
+  }, [scene, spec])
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
-    <Label text={c.ref} position={[0, 1.2, 0.25]} color="#e2e8f0" />
+    <Label text={c.ref} position={[0, spec.targetHeight + 0.12, 0.25]} color="#e2e8f0" />
   </group>
 }
 
-/**
- * Contator WEG CWC07/CWC09 10E — modelo CAD real do fabricante. O GLB está
- * em Y-up, mas a face frontal está voltada para -Z. Refletimos só a profundidade
- * para apresentar a frente à câmara (+Z), mantendo os bornes na mesma ordem.
- */
+/** Contator WEG na base frontal +X 90°, partilhada com o Esquema. */
 function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
-  const { scene } = useGLTF(MODEL_PATHS.wegContactorCWC09)
+  const spec = getComponentModelSpec(c.type)!
+  const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
     const obj = scene.clone(true)
-    // Materiais clonados: o estado de um contator nunca deve alterar os outros modelos.
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((mat) => mat.clone()) : mesh.material.clone()
     })
+    obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
     const bounds = new THREE.Box3().setFromObject(obj)
     const height = bounds.max.y - bounds.min.y
-    const scale = height > 0 ? 0.92 / height : 1
-    obj.scale.set(scale, scale, -scale)
+    const scale = height > 0 ? spec.targetHeight / height : 1
+    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
     const box = new THREE.Box3().setFromObject(obj)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
     return obj
-  }, [scene])
+  }, [scene, spec])
   const en = !!c.state.energized
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
-    {/* Sem partes móveis separadas no CAD: a bobina energizada acende o
-        contorno e a etiqueta muda de cor, como no restante painel. */}
-    {en && <pointLight color="#22c55e" intensity={0.22} distance={1.3} position={[0, 0.5, 0.35]} />}
-    <Label text={c.ref} position={[0, 1.08, 0.24]} color={en ? '#4ade80' : '#e2e8f0'} />
+    {en && <pointLight color="#22c55e" intensity={0.22} distance={1.3} position={[0, spec.targetHeight * 0.5, 0.35]} />}
+    <Label text={c.ref} position={[0, spec.targetHeight + 0.12, 0.24]} color={en ? '#4ade80' : '#e2e8f0'} />
   </group>
 }
 
@@ -340,10 +335,8 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
     obj.updateMatrixWorld(true)
     const bounds = new THREE.Box3().setFromObject(obj)
     const size = bounds.getSize(new THREE.Vector3())
-    // O diâmetro de montagem do botão é ~22 mm; enquadra-o à mesma escala
-    // visual dos restantes botões do painel, sem distorcer o CAD.
-    const diameter = Math.max(size.x, size.y)
-    obj.scale.setScalar(diameter > 0 ? 0.38 / diameter : 1)
+    const scale = size.y > 0 ? spec.targetHeight / size.y : 1
+    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
     const fitted = new THREE.Box3().setFromObject(obj)
     obj.position.sub(fitted.getCenter(new THREE.Vector3()))
@@ -359,7 +352,7 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
     <group position={[0, 0, pressed ? -0.025 : 0]}>
       <primitive object={model} castShadow receiveShadow />
     </group>
-    <Label text={c.ref} position={[0, 0.28, 0.08]} />
+    <Label text={c.ref} position={[0, spec.targetHeight / 2 + 0.12, 0.08]} />
   </group>
 }
 
@@ -383,7 +376,7 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
     obj.updateMatrixWorld(true)
     const raw = new THREE.Box3().setFromObject(obj)
     const size = raw.getSize(new THREE.Vector3())
-    const scale = spec.targetHeight / (Math.max(size.x, size.y) || 1)
+    const scale = spec.targetHeight / (size.y || 1)
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
     obj.position.sub(new THREE.Box3().setFromObject(obj).getCenter(new THREE.Vector3()))
@@ -693,13 +686,13 @@ function MotorSewDrn80Mk4B3Real3D({ c, x }: { c: ElectricalComponent; x: number 
     {/* O CAD é normalizado pela altura; este deslocamento conserva o pivô no centro do motor. */}
     <group position={[0, -spec.targetHeight / 2, 0]}>
       <primitive object={model} />
-      <group ref={shaftIndicator} position={[0.67, 0.4, 0]}>
+      <group ref={shaftIndicator} position={[0.67 * MOTOR_SCALE_RATIO, 0.4 * MOTOR_SCALE_RATIO, 0]}>
         <mesh><boxGeometry args={[0.022, 0.22, 0.026]} /><meshStandardMaterial color={markerColor} emissive={running ? markerColor : '#000000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
         <mesh><boxGeometry args={[0.022, 0.026, 0.22]} /><meshStandardMaterial color={markerColor} emissive={running ? markerColor : '#000000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
       </group>
       {running && <pointLight color="#22c55e" intensity={0.22} distance={1.2} position={[0.58, 0.4, 0.2]} />}
     </group>
-    <Text position={[0, 0.69, 0]} fontSize={0.105} color="#24324a" anchorX="center">
+    <Text position={[0, MOTOR_TARGET_HEIGHT / 2 + 0.17, 0]} fontSize={0.105} color="#24324a" anchorX="center">
       {`${c.ref} · DRN80MK4/B3 ${running ? (direction === 'cw' ? '↻' : '↺') : '· parado'}`}
     </Text>
   </group>
@@ -871,11 +864,9 @@ export default function Panel3D() {
     const pos: Record<string, THREE.Vector3> = {}
     let cursor = 0
     const widths = rail.map((c) => {
-      if (c.type === 'terminalPhoenixPti6' || c.type === 'terminalPE') return 0.34
-      if (c.type === 'safetyRelay' || c.type === 'breakerWegMdwC10') return 0.48
-      if (c.type === 'siemensTsAdapterIeBasic') return 0.62
-      if (c.type.startsWith('plc')) return c.type === 'plcLsXbmDn32s' ? 1.42 : 1.6
-      if (c.type === 'contactorWegCWC09') return 1.15
+      const cad = getComponentModelSpec(c.type)
+      if (cad?.placement === 'din-rail') return Math.max(0.12, cad.physicalSizeMm.width * 0.01)
+      if (c.type.startsWith('plc')) return 1.6
       if (c.type === 'busbarPhase') return 1.8
       if (c.type.startsWith('busbar') || c.type === 'earthBar') return 1.4
       return 0.72 + c.terminals.filter((t) => t.kind === 'power-in').length * 0.06
@@ -883,7 +874,8 @@ export default function Panel3D() {
     const total = widths.reduce((a, b) => a + b + 0.14, 0)
     cursor = -total / 2
     rail.forEach((c, i) => {
-      pos[c.id] = new THREE.Vector3(cursor + widths[i] / 2, RAIL_Y + 0.4, 0)
+      const targetHeight = getComponentModelSpec(c.type)?.targetHeight ?? 0.8
+      pos[c.id] = new THREE.Vector3(cursor + widths[i] / 2, RAIL_Y + targetHeight / 2, 0)
       cursor += widths[i] + 0.14
     })
     return { positions: pos, railWidth: Math.max(6, total + 1.2) }
@@ -896,14 +888,16 @@ export default function Panel3D() {
   const front = useMemo(() => {
     const pos: Record<string, number> = {}
     let controlCursor = -Math.max(2.8, railWidth / 2 - 0.35)
-    let motorCursor = railWidth / 2 + 1.05
+    let motorEdge = railWidth / 2 + 0.4
     for (const component of offRail) {
+      const spec = getComponentModelSpec(component.type)
+      const physicalWidth = spec ? spec.physicalSizeMm.width * 0.01 : 0.38
       if (component.type === 'motor3ph' || component.type === 'motor1ph') {
-        pos[component.id] = motorCursor
-        motorCursor += 1.65
+        pos[component.id] = motorEdge + physicalWidth / 2
+        motorEdge += physicalWidth + 0.4
       } else {
         pos[component.id] = controlCursor
-        controlCursor += 0.52
+        controlCursor += Math.max(0.46, physicalWidth + 0.12)
       }
     }
     return pos
@@ -934,7 +928,7 @@ export default function Panel3D() {
   const selectedComponent = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
   const selectedTarget: [number, number, number] | null = selectedComponent
     ? positions[selectedComponent.id]
-      ? [positions[selectedComponent.id].x, RAIL_Y + 0.4, 0]
+      ? [positions[selectedComponent.id].x, positions[selectedComponent.id].y, 0]
       : frontPivot(selectedComponent, front[selectedComponent.id] ?? 0)
     : null
   const focusSelection = () => {
@@ -989,18 +983,19 @@ export default function Panel3D() {
         {railComponents.map((c) => {
           const x = positions[c.id].x
           let content: ReactNode
-          if (c.type === 'thermalRelay') content = <ThermalRelay3D c={c} x={x} />
+          if (c.type === 'plcSiemensLogo1224RC') content = <Model3DErrorBoundary fallback={<PLC3D c={c} x={x} />}><Suspense fallback={<PLC3D c={c} x={x} />}><LogoSiemens1224RCMesh c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          else if (c.type === 'powerSupplyProauto24A') content = <Model3DErrorBoundary fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          else if (c.type === 'contactorWegCWC09') content = <Model3DErrorBoundary fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          else if (c.type === 'thermalRelay') content = <ThermalRelay3D c={c} x={x} />
           else if (hasDinRailModel(c.type)) {
             const fallback = c.type === 'phoenixEcb3000760' ? <PhoenixEcb3D c={c} x={x} /> : <Breaker3D c={c} x={x} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><CadComponentReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
-          } else if (c.type === 'contactorWegCWC09') content = <Model3DErrorBoundary fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
-          else if (c.type.startsWith('contactor')) content = <Contactor3D c={c} x={x} />
-          else if (c.type === 'powerSupplyProauto24A') content = <Model3DErrorBoundary fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          } else if (c.type.startsWith('contactor')) content = <Contactor3D c={c} x={x} />
           else if (c.type === 'powerSupply') content = <PowerSupply3D c={c} x={x} />
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} />
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />
-          return wrapOriented(c, [x, RAIL_Y + 0.4, 0], content)
+          return wrapOriented(c, [x, positions[c.id].y, 0], content)
         })}
 
         {offRail.map((c) => {

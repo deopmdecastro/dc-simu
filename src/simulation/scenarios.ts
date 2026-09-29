@@ -52,7 +52,7 @@ export function buildDirectStartScenario(): Scenario {
   const PLC1 = createComponent('plcLogo', 'PLC1', 'LOGO! 230RCE', 5, 560, 60, { outputs: { Q1: false, Q2: false, Q3: false, Q4: false } })
   const H1 = createComponent('ledGreen', 'H1', 'Motor Ligado', 6, 800, 60)
   const H2 = createComponent('ledRed', 'H2', 'Falha / Parado', 7, 800, 150)
-  const M1 = createComponent('motor3ph', 'M1', 'Motor Trifásico', 8, 380, 300)
+  const M1 = createComponent('motor3ph', 'M1', 'Motor Trifásico', 8, 380, 460)
   const XN = createComponent('busbarNeutral', 'XN', 'Barramento Neutro', 9, 60, 300)
   const BPE = createComponent('earthBar', 'BPE', 'Barra de Terra', 10, 60, 400)
   const BR = createComponent('breaker3p', 'QF2', 'Entrada L1/L2/L3', 11, 60, 150)
@@ -127,7 +127,7 @@ export function buildReversalScenario(): Scenario {
   const H1 = createComponent('ledGreen', 'H1', 'Avanço', 9, 880, 40)
   const H2 = createComponent('ledYellow', 'H2', 'Reversão', 10, 880, 130)
   const H3 = createComponent('ledRed', 'H3', 'Emergência', 11, 880, 220)
-  const M1 = createComponent('motor3ph', 'M1', 'Motor Trifásico', 12, 380, 380)
+  const M1 = createComponent('motor3ph', 'M1', 'Motor Trifásico', 12, 380, 500)
   const XN = createComponent('busbarNeutral', 'XN', 'Barramento Neutro', 13, 60, 440)
   const BPE = createComponent('earthBar', 'BPE', 'Barra de Terra', 14, 60, 520)
 
@@ -225,7 +225,7 @@ export function buildStarDeltaScenario(): Scenario {
   const H1 = createComponent('ledGreen', 'H1', 'Estrela', 9, 880, 220)
   const H2 = createComponent('ledYellow', 'H2', 'Triângulo', 10, 880, 300)
   const H3 = createComponent('ledRed', 'H3', 'Falha', 11, 880, 380)
-  const M1 = createComponent('motor3ph', 'M1', 'Motor Trifásico', 12, 620, 420)
+  const M1 = createComponent('motor3ph', 'M1', 'Motor Trifásico', 12, 620, 520)
   const XN = createComponent('busbarNeutral', 'XN', 'Barramento Neutro', 13, 60, 480)
   const BPE = createComponent('earthBar', 'BPE', 'Barra de Terra', 14, 60, 560)
 
@@ -328,8 +328,8 @@ export function buildSequentialScenario(): Scenario {
   const H2 = createComponent('ledYellow', 'H2', 'M2 ligado', 10, 880, 280)
   const T1 = createComponent('timerRelayTON', 'KT1', 'Atraso 3 s', 11, 360, 260)
   T1.state.presetMs = 3000
-  const M1 = createComponent('motor3ph', 'M1', 'Motor 1', 12, 480, 420)
-  const M2 = createComponent('motor3ph', 'M2', 'Motor 2', 13, 660, 420)
+  const M1 = createComponent('motor3ph', 'M1', 'Motor 1', 12, 380, 560)
+  const M2 = createComponent('motor3ph', 'M2', 'Motor 2', 13, 820, 560)
   const XN = createComponent('busbarNeutral', 'XN', 'Barramento Neutro', 14, 60, 480)
 
   const components = [BR, RT1, RT2, KM1, KM2, S1, S2, B1, PLC1, H1, H2, T1, M1, M2, XN]

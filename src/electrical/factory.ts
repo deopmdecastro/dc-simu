@@ -21,6 +21,7 @@ import type {
   TerminalType,
 } from '../types'
 import { getDefaultComponentOrientation } from '../three/componentOrientation'
+import { getSchematicPhysicalFootprint } from '../three/modelPaths'
 
 export interface TerminalTemplate {
   label: string
@@ -707,6 +708,7 @@ export function createComponent(
   stateOverride: Record<string, any> = {},
 ): ElectricalComponent {
   const tpl = TEMPLATES[type]
+  const footprint = getSchematicPhysicalFootprint(type) ?? { w: tpl.w, h: tpl.h }
   const compId = nanoid(8)
   const terminals: Terminal[] = tpl.terminals.map((t) => ({
     id: `${compId}-${t.label}`,
@@ -728,8 +730,8 @@ export function createComponent(
     slot,
     schematicX,
     schematicY,
-    w: tpl.w,
-    h: tpl.h,
+    w: footprint.w,
+    h: footprint.h,
     rotation: 0,
     viewOrientation: getDefaultComponentOrientation(type),
     mirrored: false,
@@ -741,6 +743,17 @@ export function createComponent(
     state: { ...structuredClone(tpl.defaultState), ...stateOverride },
     faults: [],
   }
+}
+
+/**
+ * Atualiza apenas footprints legados ainda exatamente no tamanho do template.
+ * Posições, bornes normalizados, IDs, fios, estado e vistas da instância ficam intactos.
+ */
+export function upgradePhysicalFootprint(c: ElectricalComponent): ElectricalComponent {
+  const template = TEMPLATES[c.type]
+  const footprint = getSchematicPhysicalFootprint(c.type)
+  if (!template || !footprint || c.w !== template.w || c.h !== template.h) return c
+  return { ...c, w: footprint.w, h: footprint.h }
 }
 
 /** Cria um borne novo (usado pelo editor ao adicionar bornes). */

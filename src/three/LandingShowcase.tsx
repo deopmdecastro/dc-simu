@@ -66,7 +66,7 @@ function useFittedModel(spec: DeviceSpec) {
     obj.updateMatrixWorld(true)
     const raw = new THREE.Box3().setFromObject(obj)
     const rawSize = raw.getSize(new THREE.Vector3())
-    const basis = spec.placement === 'panel-front' ? Math.max(rawSize.x, rawSize.y) : rawSize.y
+    const basis = rawSize.y
     const scale = basis > 0 ? spec.targetHeight / basis : 1
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
@@ -319,7 +319,7 @@ function CircuitScene({ plcRunning, motorOn, onStart, onStop }: {
     <Text position={[layout.xPsu, -0.38, 0.2]} fontSize={0.09} color="#64748b" anchorX="center">{DEVICES.psu.label}</Text>
     <Text position={[layout.xLogo, -0.38, 0.2]} fontSize={0.09} color="#64748b" anchorX="center">{DEVICES.logo.label}</Text>
     <Text position={[layout.xKm, -0.38, 0.2]} fontSize={0.09} color="#64748b" anchorX="center">{DEVICES.km.label}</Text>
-    <Text position={[layout.xMotor, 0.27, 0.18]} fontSize={0.09} color="#64748b" anchorX="center">{DEVICES.motor.label}</Text>
+    <Text position={[layout.xMotor, -0.9 + motor.height + 0.15, 0.18]} fontSize={0.09} color="#64748b" anchorX="center">{DEVICES.motor.label}</Text>
   </>
 }
 

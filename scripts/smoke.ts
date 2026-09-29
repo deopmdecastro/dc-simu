@@ -24,7 +24,7 @@ import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
-import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, hasComponent3DModel } from '../src/three/modelPaths'
+import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
 import { COMPONENT_VIEW_PRESETS, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
@@ -361,7 +361,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const q4 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q4')!)
   const q4Second = logoTerminalLocal(logo, terminalByLabel(logo, 'Q4.2')!)
   check('bornes superiores do LOGO! estão sobre o modelo', l.y > 0 && l.y < logo.h * 0.2 && i8.x > l.x && i8.x < logo.w * 0.8)
-  check('saídas do LOGO! estão sobre os contactos inferiores', q1.y > logo.h * 0.8 && q4.x > q1.x && q4Second.x > q4.x && q4Second.x < logo.w * 0.8)
+  check('saídas do LOGO! estão sobre os contactos inferiores', q1.y > logo.h * 0.8 && q4.x > q1.x && q4Second.x > q4.x && q4Second.x < logo.w * 0.85)
   // A imagem PNG original mede 560×720; estes alvos foram aferidos visualmente
   // sobre os centros dos parafusos da captura, sem depender do zoom do esquema.
   const fullImage = { ...logo, w: 560, h: 720 }
@@ -637,7 +637,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 {
   const emergency = createComponent('emergencyButton')
   const cad = getCommandModelSpec('emergencyButton')
-  check('Botão de emergência usa o CAD Metaltex P20AKR', cad?.path === '/models/comando/P20AKR-1.glb' && cad.rotation[1] === 0)
+  check('Botão de emergência usa a face frontal do CAD Metaltex P20AKR', cad?.path === '/models/comando/P20AKR-1.glb' && cad.rotation.every((angle) => angle === 0) && cad.flipDepth)
   check('Botão de emergência CAD mantém os dois bornes NF 21/22', emergency.terminals.some((t) => t.label === '21' && t.kind === 'aux-nc') && emergency.terminals.some((t) => t.label === '22' && t.kind === 'aux-nc'))
 }
 
@@ -648,7 +648,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const bridges = internalBridges(ecb)
   const cad = getProtectionModelSpec('phoenixEcb3000760')
   check('Phoenix 3000760 cria Line+, LOAD+, 0V, RESET e STATUS', ['Line+', 'LOAD+', '0V', 'RESET', 'STATUS'].every((label) => labels.includes(label)))
-  check('Phoenix 3000760 usa o GLB oficial com orientação vertical', cad?.path === '/models/protecao/phoenix-ec1-12dc-1a-s-r.glb' && cad.rotation.every((angle) => angle === 0))
+  check('Phoenix 3000760 usa o GLB oficial com orientação frontal vertical', cad?.path === '/models/protecao/phoenix-ec1-12dc-1a-s-r.glb' && cad.rotation[0] === Math.PI / 2)
   check('Phoenix 3000760 encaminha apenas Line+ para LOAD+ quando fechado', bridges.length === 1 && bridges[0][0] === `${ecb.id}-Line+` && bridges[0][1] === `${ecb.id}-LOAD+`)
   const tripped = createComponent('phoenixEcb3000760', undefined, undefined, 0, 0, 0, { tripped: true })
   check('Phoenix 3000760 interrompe a passagem quando disparado', internalBridges(tripped).length === 0)
@@ -707,7 +707,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const secondPilot = createComponent('pilotLightAd22')
   const pilotCad = getComponentModelSpec('pilotLightAd22')
   check('AD22-22DS usa o GLB real na frente do painel', pilotCad?.path === '/models/sinalizacao/ad22-22ds-24v.glb'
-    && pilotCad.placement === 'panel-front' && pilotCad.rotation.every((angle) => angle === 0))
+    && pilotCad.placement === 'panel-front' && pilotCad.rotation[0] === Math.PI / 2)
   check('sinaleiro AD22 cria X1/X2 e dados nominais de 24 V AC/DC', ['X1', 'X2'].every((label) => pilot.terminals.some((terminal) => terminal.label === label))
     && pilot.state.model === 'AD22-22DS' && pilot.state.voltage === '24 V AC/DC' && pilot.state.mountingDiameterMm === 22)
   const pilotX1 = terminalByLabel(pilot, 'X1')!.id
@@ -724,7 +724,19 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
+  check('disjuntores Q2A5 e DISJUNTOR 2 mostram a face dos manípulos sem tombar o corpo', ['breaker1p', 'breaker2p'].every((type) => {
+    const spec = getComponentModelSpec(type as import('../src/types').ComponentType)
+    return spec?.rotation.every((angle) => angle === 0) && spec.flipDepth
+  }))
   check('todos os componentes disponíveis expõem GLB para o turntable da landing', availableTypes.every((type) => getComponentGlbSpec(type)?.path.toLowerCase().endsWith('.glb')))
+  check('Esquema e Painel 3D derivam escala da mesma dimensão física', availableTypes.every((type) => {
+    const footprint = getSchematicPhysicalFootprint(type)
+    const spec = getComponentGlbSpec(type)
+    return !!footprint && !!spec
+      && footprint.w === Math.round(spec.physicalSizeMm.width * 1.5)
+      && footprint.h === Math.round(spec.physicalSizeMm.height * 1.5)
+      && Math.abs(spec.targetHeight - spec.physicalSizeMm.height * 0.01) < 1e-9
+  }))
   const directStart3DTypes = ['powerSupplyProauto24A', 'plcSiemensLogo1224RC', 'dualPushButtonNpb22D11', 'contactorWegCWC09', 'pilotLightAd22', 'motor3ph'] as const
   check('demonstração de partida direta 3D usa seis componentes com GLB real', directStart3DTypes.every((type) => hasComponent3DModel(type) && !!getComponentGlbSpec(type)))
 

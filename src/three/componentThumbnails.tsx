@@ -376,7 +376,7 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
     return () => { active = false }
   }, [type])
   useEffect(() => {
-    if (!getComponentModelSpec(type)) return
+    if (!getComponentModelSpec(type) || ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)) return
     let active = true
     setCadSrc(null)
     getCad3DImage(type).then((image) => { if (active) setCadSrc(image) }).catch(() => { /* reserva procedural */ })
