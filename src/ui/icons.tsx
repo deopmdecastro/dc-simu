@@ -72,6 +72,25 @@ export const IconHelp = (p: IconProps) => (
     <circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none" />
   </Svg>
 )
+export const IconBell = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+    <path d="M10 21h4" />
+  </Svg>
+)
+export const IconUser = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </Svg>
+)
+export const IconLogout = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M10 17l5-5-5-5" />
+    <path d="M15 12H3" />
+    <path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5" />
+  </Svg>
+)
 export const IconProbe = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 3v6a6 6 0 0 0 12 0V3" />

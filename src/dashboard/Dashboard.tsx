@@ -278,7 +278,7 @@ export default function Dashboard({
       </div>
 
       {invites.length > 0 && (
-        <div className="dx-invites">
+        <div className="dx-invites" id="dashboard-invites">
           <strong>Convites para colaborar</strong>
           {invites.map((i) => (
             <div className="dx-invite-row" key={i.id}>

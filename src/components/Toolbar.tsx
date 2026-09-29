@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { LogoMark } from '../ui/Brand'
 import { useSimStore } from '../store/useSimStore'
 import type { EditorTool, WireColor, WireEndType } from '../types'
 import { buildBOM, bomToCSV } from '../utils/bom'
@@ -87,7 +86,7 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
   )
 }
 
-export default function Toolbar({ mode, setMode, ladderSection, setLadderSection, onBack, onSave }: { mode: ViewMode; setMode: (m: ViewMode) => void; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onSave: () => void }) {
+export default function Toolbar({ mode, setMode, ladderSection, setLadderSection, onBack }: { mode: ViewMode; setMode: (m: ViewMode) => void; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void }) {
   const {
     activeScenario, loadScenario, sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
     step, saveJSON, loadJSON, tool, setTool, grid, setGrid, zoom, setZoom,
@@ -160,21 +159,9 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
 
   return (
     <div className="shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20">
-      {/* ============================ linha 1 — marca · arquivo · vistas · simulação */}
-      <div className="flex items-center gap-2 px-3 min-h-[50px] border-b border-line-soft dc-toolbar-main">
-        <div className="flex items-center gap-2 pr-1 shrink-0 select-none">
-          <LogoMark size={24} />
-          <div className="leading-none whitespace-nowrap hidden sm:block">
-            <div className="text-[13px] font-bold tracking-tight text-ink-900">
-              DC-SIMU
-            </div>
-            <div className="text-[8.5px] font-semibold uppercase tracking-[0.14em] text-ink-400 mt-0.5">Electrical Panel Studio</div>
-          </div>
-        </div>
-
-        <span className="tb-sep" />
-
-        {/* arquivo — ações frequentes com ícone, restante no menu */}
+      {/* ============================ linha 1 — projeto · vistas · simulação */}
+      <div className="flex items-center gap-2 px-3 min-h-[46px] border-b border-line-soft dc-toolbar-main">
+        {/* arquivo — ações frequentes; conta/projeto permanecem na barra superior única */}
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="flex items-center gap-0.5 bg-surface-sunken border border-line rounded-lg p-1">
             <button onClick={createNewProject} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Novo projeto em branco">
@@ -187,8 +174,6 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
               <IconSave size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Salvar</span>
               {dirty && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-state-pause" title="Alterações por guardar" />}
             </button>
-            <button className="dc-btn" onClick={onBack}>Projetos</button>
-            <button className="dc-btn" onClick={onSave}>Guardar na conta</button>
             <button onClick={downloadBOM} disabled={!components.length} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 disabled:opacity-50 disabled:hover:bg-transparent" title="Exportar lista de materiais (CSV)">
               <IconDownload size={14} /> <span className="hidden xl:inline text-[11px] font-medium">BOM</span>
             </button>

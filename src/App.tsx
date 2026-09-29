@@ -10,7 +10,7 @@ import MonitorPanel from './components/MonitorPanel'
 import Panel3D from './three/Panel3D'
 import { useSimStore } from './store/useSimStore'
 
-export default function App({ onBack, onSave }: { onBack: () => void; onSave: () => void }) {
+export default function App({ onBack }: { onBack: () => void }) {
   const [mode, setMode] = useState<ViewMode>(() => {
     try {
       const saved = localStorage.getItem('dcsimu:workspace:view') as ViewMode | null
@@ -97,7 +97,7 @@ export default function App({ onBack, onSave }: { onBack: () => void; onSave: ()
 
   return (
     <div className="h-full w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
-      <Toolbar onBack={onBack} onSave={onSave} mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection} />
+      <Toolbar onBack={onBack} mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection} />
       <div className="flex-1 flex min-h-0 dc-workspace relative">
         {(mode === 'schematic' || mode === 'panel3d') && showLibrary && (
           <>

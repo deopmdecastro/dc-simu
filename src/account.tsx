@@ -8,6 +8,7 @@ import { useSimStore } from './store/useSimStore'
 import { accountApi } from './auth/accountApi'
 import { useAppUpdates } from './utils/appUpdates'
 import { saveAutosave } from './utils/persistence'
+import AccountControls from './components/AccountControls'
 
 type Open = { id: string; name: string; revision: number }
 type AdminUser = User & { projects: number }
@@ -30,6 +31,10 @@ export default function Account() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
+  const editorDirty = useSimStore((state) => state.dirty)
+  const diagnostics = useSimStore((state) => state.sim.diagnostics)
+  const notificationErrors = diagnostics.filter((entry) => entry.level === 'error').length
+  const notificationWarnings = diagnostics.filter((entry) => entry.level === 'warning').length
 
   const refresh = useCallback(async () => {
     try {
@@ -146,13 +151,20 @@ export default function Account() {
   }
 
   async function leave() {
-    if (useSimStore.getState().dirty && !confirm('Existem alterações não guardadas. Voltar aos projetos?')) return
+    if (useSimStore.getState().dirty && !confirm('Existem alterações não guardadas. Voltar aos projetos?')) return false
     useSimStore.getState().stop()
     openRef.current = null
     setOpen(null)
     setPage('dashboard')
     setMessage('')
     refresh().catch(error)
+    return true
+  }
+
+  async function openInvitations() {
+    if (page === 'editor' && !(await leave())) return
+    else if (page !== 'dashboard') setPage('dashboard')
+    window.setTimeout(() => document.getElementById('dashboard-invites')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80)
   }
 
   async function invite(id: string, email: string) {
@@ -180,7 +192,9 @@ export default function Account() {
   }
 
   async function logout() {
+    if (page === 'editor' && useSimStore.getState().dirty && !confirm('Existem alterações não guardadas. Sair da conta?')) return
     try {
+      useSimStore.getState().stop()
       await api('/logout', 'POST')
       useSimStore.getState().newProject()
       setUser(null)
@@ -218,16 +232,28 @@ export default function Account() {
     <div className="account-bar dx">
       <Logo size={22} tagline={false} />
       <span className="dx-bar-sep">/</span>
-      <span className="dx-bar-name">{open.name}</span>
-      <span className="dx-bar-sep">·</span>
-      <span style={{ color: 'var(--dx-ink-3)' }}>{user?.name}</span>
+      <div className="dx-project-context">
+        <strong>{open.name}</strong>
+        <small>{editorDirty ? 'Alterações por guardar' : 'Guardado na conta'}</small>
+      </div>
       {message && <span className="dx-bar-msg">{message}</span>}
-      <div style={{ marginLeft: message ? 12 : 'auto', display: 'flex', gap: 8 }}>
-        <button onClick={() => void leave()}>← Projetos</button>
-        <button className="dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
+      <div className="account-bar-actions">
+        <button className="account-project-action" onClick={() => void leave()}>← Projetos</button>
+        <button className="account-project-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
+        {user && <AccountControls
+          user={user}
+          invites={invites}
+          context="editor"
+          dirty={editorDirty}
+          errors={notificationErrors}
+          warnings={notificationWarnings}
+          onProjects={() => void leave()}
+          onOpenInvites={() => void openInvitations()}
+          onLogout={() => void logout()}
+        />}
       </div>
     </div>
-    <div className="dx-editor-in" style={{ height: 'calc(100vh - 42px)' }}><App onBack={() => void leave()} onSave={() => void save()} /></div>
+    <div className="dx-editor-in" style={{ height: 'calc(100vh - 42px)' }}><App onBack={() => void leave()} /></div>
   </>
 
   if (page === 'landing') return <Landing onAccess={() => { setMessage(''); setPage('login') }} onLogin={() => { setMessage(''); setPage('login') }} />
@@ -236,13 +262,15 @@ export default function Account() {
     {page !== 'login' && <header className="dx-topbar">
       <Logo size={28} />
       <div className="dx-topbar-right">
-        {user && <>
-          <span className="dx-chip">{user.role === 'admin' ? 'Administrador' : 'Conta'}</span>
-          {user.role === 'admin' && page !== 'admin' && <button className="dx-btn dx-btn-ghost dx-btn-sm" onClick={() => setPage('admin')}>Administração</button>}
-          {page === 'admin' && <button className="dx-btn dx-btn-ghost dx-btn-sm" onClick={() => setPage('dashboard')}>← Projetos</button>}
-          <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void logout()}>Sair</button>
-          <span className="dx-avatar" title={user.email}>{user.name.charAt(0).toUpperCase()}</span>
-        </>}
+        {user && <AccountControls
+          user={user}
+          invites={invites}
+          context={page === 'admin' ? 'admin' : 'dashboard'}
+          onProjects={page === 'admin' ? () => setPage('dashboard') : undefined}
+          onAdmin={user.role === 'admin' ? () => setPage('admin') : undefined}
+          onOpenInvites={() => void openInvitations()}
+          onLogout={() => void logout()}
+        />}
       </div>
     </header>}
     {page === 'login' && <AuthScreen form={form} setForm={setForm} busy={busy} message={message} clearMessage={() => setMessage('')} onSubmit={authenticate} onHome={() => { setMessage(''); setPage('landing') }} />}
