@@ -83,11 +83,11 @@ export default function Account() {
 
   if (page==='editor' && open) return <>
     <div className="account-bar dx">
-      <Logo size={20} tone="dark" tagline={false}/>
+      <Logo size={22} tagline={false}/>
       <span className="dx-bar-sep">/</span>
       <span className="dx-bar-name">{open.name}</span>
       <span className="dx-bar-sep">·</span>
-      <span style={{color:'#7d8daa'}}>{user?.name}</span>
+      <span style={{color:'var(--dx-ink-3)'}}>{user?.name}</span>
       {message && <span className="dx-bar-msg">{message}</span>}
       <div style={{marginLeft: message ? 12 : 'auto', display:'flex', gap:8}}>
         <button onClick={()=>void leave()}>← Projetos</button>
@@ -128,7 +128,7 @@ function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwit
   const labels=['','Curta — mínimo 10 caracteres','Boa','Forte']
   return <div className="dx dx-auth">
     <aside className="dx-auth-side">
-      <button className="dx-auth-logo" onClick={onHome} aria-label="Voltar ao início"><Logo tone="dark"/></button>
+      <button className="dx-auth-logo" onClick={onHome} aria-label="Voltar ao início"><Logo/></button>
       <div className="dx-auth-pitch">
         <h2>{reg?<>O próximo quadro<br/><em>começa aqui.</em></>:<>Projete o quadro.<br/><em>Veja-o ganhar vida.</em></>}</h2>
         <p>{reg?'Crie uma conta e monte o seu primeiro quadro elétrico em 3D em menos de um minuto.':'Retome o esquema, a lógica Ladder e o painel 3D exatamente onde os deixou.'}</p>

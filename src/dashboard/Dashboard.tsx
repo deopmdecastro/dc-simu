@@ -6,57 +6,40 @@ export type User = { id: string; name: string; email: string; role: 'admin' | 'u
 export type Project = { id: string; name: string; revision: number; owner: string; role: 'owner' | 'editor'; updated_at: string }
 export type Invite = { id: string; project: string; sender: string }
 
-/** Pré-visualização técnica do quadro (blueprint) usada nos cartões de projeto. */
+/** Pré-visualização simplificada do quadro, usada nos cartões de projeto. */
 function PanelPreview({ variant = 0 }: { variant?: number }) {
   const modules = 5 + (variant % 3)
   return (
     <svg viewBox="0 0 320 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs>
-        <pattern id={`dxg-${variant}`} width="16" height="16" patternUnits="userSpaceOnUse">
-          <path d="M16 0H0v16" fill="none" stroke="#d4dbe3" strokeWidth=".7" />
-        </pattern>
-      </defs>
-      <rect width="320" height="140" fill="#f2f4f7" />
-      <rect width="320" height="140" fill={`url(#dxg-${variant})`} />
+      <rect width="320" height="140" fill="#f6f8fb" />
       {/* caixa do quadro */}
-      <rect x="24" y="16" width="272" height="104" rx="6" fill="#ffffff" stroke="#bcc7d3" />
-      {/* calha DIN com furação */}
-      <g stroke="#9aa8b8" strokeWidth="1.4">
-        <path d="M32 46h256M32 90h256" />
-      </g>
-      <g fill="#b8c2ce">
-        {Array.from({ length: 9 }).map((_, i) => (
-          <circle key={i} cx={44 + i * 29} cy="46" r="1.3" />
-        ))}
-      </g>
+      <rect x="24" y="16" width="272" height="108" rx="6" fill="#ffffff" stroke="#c2ccda" />
+      {/* calhas DIN */}
+      <path d="M32 46h256M32 92h256" stroke="#d3dbe5" strokeWidth="6" />
       {/* módulos de proteção */}
       {Array.from({ length: modules }).map((_, i) => (
         <g key={i}>
-          <rect x={36 + i * 26} y={24} width="21" height="30" rx="2.5" fill="#dde3ea" stroke="#93a3b4" />
-          <rect x={40 + i * 26} y={28} width="13" height="7" rx="1.5" fill="#fff" stroke="#aeb9c6" />
-          <rect x={43.5 + i * 26} y={39} width="6" height="9" rx="1" fill="#39434f" opacity=".75" />
+          <rect x={36 + i * 26} y={24} width="21" height="30" rx="2.5" fill="#eef4ff" stroke="#94b6fa" />
+          <rect x={43.5 + i * 26} y={35} width="6" height="12" rx="1.5" fill="#2655e5" opacity=".85" />
         </g>
       ))}
-      {/* PLC — ecrã com RUN */}
-      <rect x={36} y={72} width="66" height="36" rx="3" fill="#10161d" />
-      <text x={45} y={93} fontFamily="'JetBrains Mono', monospace" fontSize="10" fill="#3ddc84">
-        RUN
-      </text>
-      <circle cx={93} cy={87} r="2.2" fill="#f5a524" />
-      <circle cx={93} cy={96} r="2.2" fill="#3ddc84" opacity=".8" />
+      {/* PLC */}
+      <rect x={36} y={72} width="66" height="38" rx="3" fill="#dce7fd" stroke="#94b6fa" />
+      <rect x={42} y={78} width="30" height="14" rx="2" fill="#ffffff" stroke="#94b6fa" />
+      <circle cx={86} cy={82} r="2.4" fill="#16a34a" />
+      <circle cx={94} cy={82} r="2.4" fill="#2655e5" opacity=".6" />
+      <path d="M42 100h54" stroke="#94b6fa" strokeWidth="1.6" />
       {/* contactor + fonte */}
-      <rect x={112} y={72} width="46" height="36" rx="3" fill="#dde3ea" stroke="#93a3b4" />
-      <rect x={117} y={77} width="36" height="6" rx="1" fill="#fff" />
-      <rect x={168} y={72} width="34" height="36" rx="3" fill="#dde3ea" stroke="#93a3b4" />
-      <path d="M173 79h24M173 84h24" stroke="#aeb9c6" strokeWidth="1.6" />
-      {/* bornes de fase */}
-      <g fill="#f5a524" stroke="#b9720a" strokeWidth=".8">
+      <rect x={112} y={72} width="46" height="38" rx="3" fill="#f6f8fb" stroke="#aab4c2" />
+      <rect x={117} y={77} width="36" height="7" rx="1.5" fill="#ffffff" stroke="#d3dbe5" />
+      <rect x={168} y={72} width="34" height="38" rx="3" fill="#f6f8fb" stroke="#aab4c2" />
+      <path d="M174 80h22M174 86h22" stroke="#c2ccda" strokeWidth="1.6" />
+      {/* bornes */}
+      <g fill="#2655e5">
         <circle cx="234" cy="84" r="4" />
         <circle cx="250" cy="84" r="4" opacity=".6" />
-        <circle cx="266" cy="84" r="4" opacity=".35" />
+        <circle cx="266" cy="84" r="4" opacity=".3" />
       </g>
-      {/* etiqueta do projeto */}
-      <rect x={24} y={124} width="76" height="10" rx="2" fill="#e2e7ec" />
     </svg>
   )
 }
@@ -196,7 +179,7 @@ export default function Dashboard({
           </h1>
           <p>Continue um quadro existente ou comece um novo projeto em 3D.</p>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, marginLeft: 'auto' }}>
+        <div className="dx-dash-side">
           <span className="dx-dash-date">{today}</span>
           <button className="dx-btn dx-btn-primary" onClick={() => openModal('create')}>
             <IconPlus size={14} /> Novo projeto
@@ -237,7 +220,7 @@ export default function Dashboard({
                   Recusar
                 </button>
                 <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => void onReply(i.id, 'accept')}>
-                  Aceitar →
+                  Aceitar
                 </button>
               </div>
             </div>
@@ -366,8 +349,8 @@ export default function Dashboard({
 
         {projects.length === 0 && (
           <div className="dx-empty">
-            <div className="dx-empty-ic" style={{ background: 'transparent', border: '1px dashed var(--dx-accent-line)' }}>
-              <LogoMark size={34} />
+            <div className="dx-empty-ic" style={{ background: 'transparent' }}>
+              <LogoMark size={44} />
             </div>
             <h3>Ainda não tem projetos</h3>
             <p>Comece o seu primeiro quadro elétrico em 3D. Escolha os componentes, posicione-os na calha e simule o comando.</p>

@@ -1,10 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 
 /**
- * DC-SIMU — Design tokens (editor)
- * --------------------------------
- * Identidade: instrumento de engenharia — grafite frio, papel técnico,
- * âmbar de energia como assinatura e azul cobalto exclusivamente interação.
+ * DC-SIMU — Design tokens
+ * -----------------------
+ * Identidade: tema claro, azul institucional (o mesmo do simulador) sobre
+ * neutros slate. O âmbar existe apenas como cor semântica de "energizado".
  * Estes valores espelham src/styles/dx.css. Nada de cores soltas nos componentes.
  */
 export default {
@@ -18,38 +18,38 @@ export default {
       colors: {
         /* ------------------------------------------------ superfícies */
         surface: {
-          app: '#f3f5f7', // fundo geral da aplicação
-          rail: '#f7f8fa', // header / barras (acima do conteúdo)
+          app: '#edf0f5', // fundo geral da aplicação
+          rail: '#f6f8fb', // header / barras (acima do conteúdo)
           panel: '#ffffff', // painéis, cartões, popovers
-          sunken: '#e9ecef', // áreas rebaixadas (canvas, campos disabled)
+          sunken: '#e3e8ef', // áreas rebaixadas (canvas, campos disabled)
         },
         /* ----------------------------------------------------- texto */
         ink: {
-          900: '#10161d', // títulos, valores
-          700: '#39434f', // corpo
-          500: '#5f6b78', // secundário
-          400: '#8b96a3', // rótulos discretos
-          300: '#aab3bf', // placeholders
-          disabled: '#bcc4cd',
+          900: '#17202e', // títulos, valores
+          700: '#3d4b5e', // corpo
+          500: '#64748b', // secundário
+          400: '#8b98a9', // rótulos discretos
+          300: '#aab4c2', // placeholders
+          disabled: '#b9c2ce',
         },
         /* ---------------------------------------------------- bordas */
         line: {
-          strong: '#c7ced6',
-          DEFAULT: '#dfe4e9',
-          soft: '#edf0f3',
+          strong: '#c2ccda',
+          DEFAULT: '#d3dbe5',
+          soft: '#e2e8f0',
         },
-        /* --------------------------- interação (cobalto — só ações/foco) */
+        /* ------------------------------------ identidade DC-SIMU (primary) */
         brand: {
-          50: '#edf2fe',
-          100: '#dbe6fc',
-          200: '#b9cdf8',
-          300: '#8fadf2',
-          400: '#5f84ea',
-          500: '#2457e6',
-          600: '#1a44c8',
-          700: '#17379e',
-          800: '#142d7a',
-          900: '#12255c',
+          50: '#eef4ff',
+          100: '#dce7fd',
+          200: '#c0d4fc',
+          300: '#94b6fa',
+          400: '#6192f6',
+          500: '#3c6ff0',
+          600: '#2655e5',
+          700: '#1e42d3',
+          800: '#1f38ab',
+          900: '#1f3388',
         },
         /* ------------------------------- estados do PLC / simulação */
         state: {
@@ -57,36 +57,36 @@ export default {
           runbg: '#e9f7ee',
           pause: '#d97706',
           pausebg: '#fdf3e3',
-          stop: '#5f6b78',
-          stopbg: '#eef1f4',
-          ready: '#2457e6',
-          readybg: '#edf2fe',
+          stop: '#64748b',
+          stopbg: '#eef1f5',
+          ready: '#2655e5',
+          readybg: '#eaf0fe',
           error: '#dc2626',
           errorbg: '#fdecec',
         },
-        /* ------------------------------------- energia — assinatura */
+        /* ------------------- energia (semântica: condutor energizado) */
         energy: {
-          50: '#fef6e4',
-          100: '#fdebc3',
-          200: '#fbd98a',
-          300: '#f9c453',
-          400: '#f6ae2e',
-          500: '#f5a524', // assinatura DC-SIMU
-          600: '#dd8e0f',
-          700: '#b9720a',
-          800: '#8f550a',
-          900: '#6b3f0b',
-          DEFAULT: '#f5a524',
-          deep: '#dd8e0f',
+          50: '#fffbeb',
+          100: '#fef3c7',
+          200: '#fde68a',
+          300: '#fcd34d',
+          400: '#fbbf24',
+          500: '#f59e0b',
+          600: '#d97706',
+          700: '#b45309',
+          800: '#92400e',
+          900: '#78350f',
+          DEFAULT: '#f59e0b',
+          deep: '#d97706',
         },
       },
       boxShadow: {
-        xs: '0 1px 1px rgba(16,22,29,.05)',
-        sm: '0 1px 2px rgba(16,22,29,.07)',
-        DEFAULT: '0 1px 3px rgba(16,22,29,.09), 0 1px 2px rgba(16,22,29,.05)',
-        md: '0 3px 8px rgba(16,22,29,.11)',
-        lg: '0 10px 28px rgba(16,22,29,.16)',
-        focus: '0 0 0 3px rgba(36,87,230,.18)',
+        xs: '0 1px 1px rgba(23,32,46,.06)',
+        sm: '0 1px 2px rgba(23,32,46,.08)',
+        DEFAULT: '0 1px 3px rgba(23,32,46,.1), 0 1px 2px rgba(23,32,46,.05)',
+        md: '0 3px 8px rgba(23,32,46,.12)',
+        lg: '0 10px 28px rgba(23,32,46,.18)',
+        focus: '0 0 0 3px rgba(38,85,229,.16)',
       },
     },
   },

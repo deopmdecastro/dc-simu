@@ -1,44 +1,42 @@
+import { useId } from 'react'
+
 /**
  * Marca DC-SIMU — logótipo único usado em toda a aplicação (landing, auth,
- * dashboard, editor). Módulo de calha DIN em grafite com furação de calha
- * e raio de energia âmbar — a assinatura visual do produto.
+ * dashboard, editor): quadrado arredondado azul com raio branco.
+ * É o mesmo símbolo de public/favicon.svg e dos ícones da PWA.
  */
 export function LogoMark({ size = 28 }: { size?: number }) {
+  const gid = useId()
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className="dx-mark">
-      <rect x="1" y="1" width="30" height="30" rx="7" fill="var(--dx-mark-bg)" />
-      <rect x="1.5" y="1.5" width="29" height="29" rx="6.5" fill="none" stroke="var(--dx-mark-ring)" strokeOpacity=".65" />
-      {/* calhas DIN com furação */}
-      <path d="M6 11.5h20M6 20.5h20" stroke="var(--dx-mark-rail)" strokeWidth="1.2" />
-      <g fill="var(--dx-mark-rail)">
-        <circle cx="9" cy="11.5" r="0.9" />
-        <circle cx="23" cy="11.5" r="0.9" />
-        <circle cx="9" cy="20.5" r="0.9" />
-        <circle cx="23" cy="20.5" r="0.9" />
-      </g>
-      <path d="M18.6 6.2 10.6 17.4h4.6l-2.1 8.4 8-11.2h-4.6z" fill="var(--dx-mark-bolt)" />
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" className="dx-mark">
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#3869fa" />
+          <stop offset="1" stopColor="#1944bf" />
+        </linearGradient>
+      </defs>
+      <rect x="3" y="3" width="58" height="58" rx="14" fill={`url(#${gid})`} />
+      <path d="M35 10 17 35h12l-3 19 21-29H34z" fill="#fff" stroke="#fff" strokeLinejoin="round" strokeWidth="2" />
     </svg>
   )
 }
 
-/** Logótipo completo com wordmark. `tone` adapta ao fundo claro ou escuro. */
+/** Logótipo completo com wordmark. Tema claro em toda a aplicação. */
 export default function Logo({
   size = 28,
-  tone = 'light',
   tagline = true,
 }: {
   size?: number
+  /** Mantido por compatibilidade — a aplicação usa apenas o tema claro. */
   tone?: 'light' | 'dark'
   tagline?: boolean
 }) {
   return (
-    <span className={`dx-logo dx-logo-${tone}`}>
+    <span className="dx-logo">
       <LogoMark size={size} />
       <span className="dx-logo-text">
-        <b>
-          DC<span>·</span>SIMU
-        </b>
-        {tagline && <small>electrical panel studio</small>}
+        <b>DC-SIMU</b>
+        {tagline && <small>Electrical Panel Studio</small>}
       </span>
     </span>
   )

@@ -184,114 +184,104 @@ function HeroViewport() {
     return () => io.disconnect()
   }, [])
   return (
-    <div className="dx-viewport-wrap dx-frame" ref={ref}>
-      <span className="dx-tick tl" />
-      <span className="dx-tick tr" />
-      <span className="dx-tick bl" />
-      <span className="dx-tick br" />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingInline: 2 }}>
-        <span className="dx-anno dx-anno-on-deep" style={{ flex: 1 }}>Fig.01 — Painel 3D · calha DIN 35 mm</span>
-        <span className="dx-mono" style={{ color: '#5f7089', fontSize: 10 }}>ESC 1:1 · MM</span>
+    <div className="dx-window" ref={ref}>
+      <div className="dx-window-bar">
+        <LogoMark size={18} />
+        <span className="dx-window-path">/projetos/quadro-motor-01.dcs</span>
+        <div className="dx-window-tabs">
+          <span>Esquema</span>
+          <span>Ladder</span>
+          <span className="on">Painel 3D</span>
+          <span>Monitor</span>
+        </div>
       </div>
-      <div className="dx-viewport">
-        <div className="dx-viewport-bar">
-          <LogoMark size={18} />
-          <span className="dx-path">/projetos/quadro-motor-01.dcs</span>
-          <div className="dx-tabs">
-            <span>Esquema</span>
-            <span>Ladder</span>
-            <span className="on">Painel 3D</span>
-            <span>Monitor</span>
-          </div>
-        </div>
-        <div className="dx-viewport-stage">
-          {visible ? (
-            <Suspense fallback={<div className="dc-showcase-fallback">A carregar modelos 3D…</div>}>
-              <LandingShowcase compact />
-            </Suspense>
-          ) : (
-            <div className="dc-showcase-fallback">Painel 3D</div>
-          )}
-        </div>
-        <div className="dx-viewport-foot">
-          <b>Simulação ativa</b>
-          <span>Fonte 24 V → PLC LOGO! → Contator KM1</span>
-          <span className="dx-mono">3 EQUIP · 4 LIGAÇÕES · SNAP 1 MM</span>
-        </div>
+      <div className="dx-window-stage">
+        {visible ? (
+          <Suspense fallback={<div className="dc-showcase-fallback">A carregar modelos 3D…</div>}>
+            <LandingShowcase compact />
+          </Suspense>
+        ) : (
+          <div className="dc-showcase-fallback">Painel 3D</div>
+        )}
+      </div>
+      <div className="dx-window-foot">
+        <b>
+          <i aria-hidden /> Simulação ativa
+        </b>
+        <span>Fonte 24 V → PLC LOGO! → Contator KM1</span>
+        <span className="end">3 equipamentos · 4 ligações · snap 1 mm</span>
       </div>
     </div>
   )
 }
 
-/** Anatomia da interface — maquete técnica do editor (barra + biblioteca + esquema + propriedades). */
+/** Anatomia da interface — maquete do editor (barra + biblioteca + esquema + propriedades). */
 function EditorAnatomy() {
   return (
-    <div className="dx-appframe dx-frame">
-      <span className="dx-tick tl" style={{ color: '#3b4a5c' }} />
-      <span className="dx-tick tr" style={{ color: '#3b4a5c' }} />
-      <span className="dx-tick bl" style={{ color: '#3b4a5c' }} />
-      <span className="dx-tick br" style={{ color: '#3b4a5c' }} />
-      <div className="dx-appframe-bar">
-        <span className="on" />
-        <span />
-        <span />
-        <b />
-        <i />
-        <i />
-        <i />
+    <div className="dx-window dx-anatomy">
+      <div className="dx-window-bar">
+        <span className="dx-window-dots" aria-hidden>
+          <i />
+          <i />
+          <i />
+        </span>
+        <div className="dx-window-tabs">
+          <span className="on">Esquema</span>
+          <span>Ladder</span>
+          <span>Painel 3D</span>
+        </div>
       </div>
-      <div className="dx-appframe-body">
-        <div className="dx-appframe-rail" aria-hidden>
+      <div className="dx-anatomy-body">
+        <div className="dx-anatomy-rail" aria-hidden>
           <b className="on" />
           <b />
           <b />
           <b />
           <b />
           <b />
-          <b />
         </div>
-        <div className="dx-appframe-view" aria-hidden>
+        <div className="dx-anatomy-view" aria-hidden>
           <svg viewBox="0 0 460 300" preserveAspectRatio="xMidYMid meet">
             <defs>
               <pattern id="dx-dot" width="20" height="20" patternUnits="userSpaceOnUse">
-                <circle cx="1" cy="1" r="1" fill="#26313e" />
+                <circle cx="1" cy="1" r="1" fill="#d3dbe5" />
               </pattern>
             </defs>
             <rect width="460" height="300" fill="url(#dx-dot)" />
             {/* barramento + rede ladder simplificada */}
-            <g fill="none" stroke="#42556e" strokeWidth="1.6">
+            <g fill="none" stroke="#94a3b8" strokeWidth="1.6">
               <path d="M60 40v222" strokeWidth="2.4" />
-              <path d="M60 70h120m0 0v0" />
+              <path d="M60 70h120" />
               <path d="M60 150h240" />
               <path d="M60 230h120" />
             </g>
-            {/* contatos */}
-            <g fill="none" stroke="#8fa2bc" strokeWidth="1.6">
+            {/* contactos */}
+            <g fill="none" stroke="#3d4b5e" strokeWidth="1.6">
               <path d="M92 62v16M106 62v16M92 70h6m8 0h6" />
               <path d="M144 142v16M158 142v16M144 150h6m8 0h6" />
               <path d="M196 142v16M210 142v16M196 150h6m8 0h6" />
             </g>
             {/* bobina energizada */}
-            <g fill="none" stroke="#f5a524" strokeWidth="2">
+            <g fill="#eef4ff" stroke="#2655e5" strokeWidth="2">
               <circle cx="286" cy="150" r="11" />
-              <path d="M60 150h215" strokeDasharray="4 3" opacity=".85" />
             </g>
-            <g fill="none" stroke="#42556e" strokeWidth="1.6">
+            <path d="M60 150h215" stroke="#2655e5" strokeWidth="2" fill="none" />
+            <g fill="none" stroke="#94a3b8" strokeWidth="1.6">
               <circle cx="222" cy="70" r="11" />
               <circle cx="222" cy="230" r="11" />
             </g>
             {/* etiquetas */}
-            <g fontFamily="JetBrains Mono, monospace" fontSize="9" fill="#5f7089" letterSpacing="1">
+            <g fontFamily="Inter, sans-serif" fontSize="10" fontWeight="600" fill="#64748b">
               <text x="90" y="52">E0.0</text>
               <text x="280" y="132">Q0.1</text>
-              <text x="60" y="272" fill="#3f4f63">NW 1 — MARCHA</text>
-              <text x="60" y="285" fill="#3f4f63">SCAN 4 MS</text>
+              <text x="60" y="272">NW 1 — Marcha</text>
+              <text x="60" y="286" fontWeight="500" fill="#8b98a9">Scan 4 ms</text>
             </g>
-            {/* cursor de seleção */}
-            <rect x="138" y="136" width="26" height="28" fill="none" stroke="#2457e6" strokeWidth="1.4" strokeDasharray="4 3" />
+            {/* seleção */}
+            <rect x="138" y="136" width="26" height="28" rx="2" fill="#2655e5" fillOpacity=".08" stroke="#2655e5" strokeWidth="1.4" strokeDasharray="4 3" />
           </svg>
         </div>
-        <div className="dx-appframe-props" aria-hidden>
+        <div className="dx-anatomy-props" aria-hidden>
           <b style={{ width: '60%' }} />
           <span />
           <span />
@@ -301,13 +291,11 @@ function EditorAnatomy() {
           <span />
         </div>
       </div>
-      <div className="dx-appframe-foot">
+      <div className="dx-window-foot">
         <span>Selecionar</span>
-        <span>·</span>
         <span>Snap 1 mm</span>
-        <span>·</span>
         <span>Malha 20 px</span>
-        <u style={{ marginLeft: 'auto' }}>Zoom 100%</u>
+        <span className="end">Zoom 100%</span>
       </div>
     </div>
   )
@@ -333,7 +321,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
     <div className="dx dx-landing">
       <nav className="dx-nav">
         <div className="dx-wrap dx-nav-in">
-          <Logo size={30} />
+          <Logo size={32} />
           <div className="dx-nav-links">
             {links.map(([href, label]) => (
               <a key={href} href={href}>
@@ -361,11 +349,11 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
               {label}
             </a>
           ))}
-          <div style={{ display: 'flex', gap: 10, paddingTop: 14 }}>
-            <button className="dx-btn dx-btn-secondary" style={{ flex: 1 }} onClick={onLogin}>
+          <div className="dx-mobile-cta">
+            <button className="dx-btn dx-btn-secondary" onClick={onLogin}>
               Entrar
             </button>
-            <button className="dx-btn dx-btn-primary" style={{ flex: 1 }} onClick={onRegister}>
+            <button className="dx-btn dx-btn-primary" onClick={onRegister}>
               Começar
             </button>
           </div>
@@ -374,122 +362,85 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
 
       {/* ------------------------------------------------------------- HERO */}
       <header className="dx-hero">
-        <div className="dx-wrap">
+        <div className="dx-wrap dx-hero-in">
           <div className="dx-hero-copy">
-            <div className="dx-hero-logo">
-              <Logo size={40} tone="dark" />
-            </div>
-            <span className="dx-over">
-              <i />
-              Crie · configure · valide — antes da obra
-            </span>
+            <span className="dx-pill">Crie · configure · valide — antes da obra</span>
             <h1>
-              Desenhe quadros elétricos
-              <br />
-              <em>em 3D.</em>
+              Desenhe quadros elétricos <em>em 3D.</em>
             </h1>
             <p>Crie e configure os seus quadros elétricos num ambiente 3D profissional — esquema, lógica de comando e simulação no mesmo projeto.</p>
             <div className="dx-hero-actions">
               <button className="dx-btn dx-btn-primary dx-btn-lg" onClick={onRegister}>
-                Começar gratuitamente <span className="dx-arr" aria-hidden>→</span>
+                Começar gratuitamente
               </button>
-              <a className="dx-btn dx-btn-secondary dx-btn-lg" href="#produto" style={{ textDecoration: 'none' }}>
+              <a className="dx-btn dx-btn-secondary dx-btn-lg" href="#produto">
                 Ver como funciona
               </a>
             </div>
-            <div className="dx-hero-meta">
-              <span>Modelos CAD reais</span>
-              <span>Sem instalação</span>
-              <span>Projetos partilhados</span>
-            </div>
+            <ul className="dx-hero-meta">
+              <li>Modelos CAD reais</li>
+              <li>Sem instalação</li>
+              <li>Projetos partilhados</li>
+            </ul>
           </div>
           <HeroViewport />
         </div>
       </header>
 
       <div className="dx-strip" aria-hidden>
-        <span>Proteção</span>
-        <i />
-        <span>Contactores</span>
-        <i />
-        <span>Relés</span>
-        <i />
-        <span>Bornes</span>
-        <i />
-        <span>PLC</span>
-        <i />
-        <span>Fontes</span>
-        <i />
-        <span>Sinalização</span>
+        <div className="dx-wrap">
+          <span>Proteção</span>
+          <span>Contactores</span>
+          <span>Relés</span>
+          <span>Bornes</span>
+          <span>PLC</span>
+          <span>Fontes</span>
+          <span>Sinalização</span>
+        </div>
       </div>
 
       {/* --------------------------------------------------- PROBLEMA/SOLUÇÃO */}
       <section className="dx-section" id="produto">
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
-            <div>
-              <span className="dx-over">
-                <i />
-                O problema
-              </span>
-              <h2>
-                Projetar um quadro ainda se faz
-                <br />
-                com papel, fita métrica <em>e sorte.</em>
-              </h2>
-            </div>
+            <span className="dx-over">O problema</span>
+            <h2>Projetar um quadro ainda se faz com papel, fita métrica e sorte.</h2>
             <p>Entre o esquema no CAD, a lista de material numa folha de cálculo e a montagem na bancada, perde-se tempo — e descobrem-se erros tarde demais.</p>
           </div>
-          <div className="dx-split">
-            <div className="dx-panel dx-panel-problem" data-rv>
-              <span className="dx-mono">ANTES</span>
+          <div className="dx-compare">
+            <div className="dx-compare-col is-before" data-rv>
+              <span className="dx-compare-tag">Antes</span>
               <h3>Sem DC-SIMU</h3>
               <ul>
                 <li>
-                  <span>
-                    <b>Espaço mal calculado</b> — o material não cabe na calha.
-                  </span>
+                  <b>Espaço mal calculado</b> — o material não cabe na calha.
                 </li>
                 <li>
-                  <span>
-                    <b>Erros de ligação</b> só detetados com o quadro já montado.
-                  </span>
+                  <b>Erros de ligação</b> só detetados com o quadro já montado.
                 </li>
                 <li>
-                  <span>
-                    <b>Lógica por validar</b> — o PLC só é testado em obra.
-                  </span>
+                  <b>Lógica por validar</b> — o PLC só é testado em obra.
                 </li>
                 <li>
-                  <span>
-                    <b>Documentação dispersa</b> por ficheiros e versões.
-                  </span>
+                  <b>Documentação dispersa</b> por ficheiros e versões.
                 </li>
               </ul>
             </div>
-            <div className="dx-panel dx-panel-solution" data-rv>
-              <span className="dx-mono">DEPOIS</span>
+            <div className="dx-compare-col is-after" data-rv>
+              <span className="dx-compare-tag">Depois</span>
               <h3>Com DC-SIMU</h3>
               <ul>
                 <li>
-                  <span>
-                    <b>Quadro em 3D à escala</b> com modelos CAD do fabricante.
-                  </span>
+                  <b>Quadro em 3D à escala</b> com modelos CAD do fabricante.
                 </li>
                 <li>
-                  <span>
-                    <b>Verificação de ligações</b> enquanto desenha o esquema.
-                  </span>
+                  <b>Verificação de ligações</b> enquanto desenha o esquema.
                 </li>
                 <li>
-                  <span>
-                    <b>Simulação do comando</b> em Ladder e GRAFCET, antes da obra.
-                  </span>
+                  <b>Simulação do comando</b> em Ladder e GRAFCET, antes da obra.
                 </li>
                 <li>
-                  <span>
-                    <b>Material e datasheets</b> gerados a partir do próprio projeto.
-                  </span>
+                  <b>Material e datasheets</b> gerados a partir do próprio projeto.
                 </li>
               </ul>
             </div>
@@ -498,20 +449,11 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
       </section>
 
       {/* ------------------------------------------------------------ EDITOR */}
-      <section className="dx-section dx-studio" id="editor">
+      <section className="dx-section dx-section-alt" id="editor">
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
-            <div>
-              <span className="dx-over">
-                <i />
-                O estúdio completo
-              </span>
-              <h2>
-                Três vistas.
-                <br />
-                Um único <em>modelo de dados.</em>
-              </h2>
-            </div>
+            <span className="dx-over">O estúdio completo</span>
+            <h2>Três vistas. Um único modelo de dados.</h2>
             <p>O esquema elétrico, a lógica Ladder e o painel 3D leem e escrevem o mesmo ficheiro — o que edita num sítio aparece instantaneamente nos outros.</p>
           </div>
           <div className="dx-studio-grid">
@@ -520,28 +462,28 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
             </div>
             <ul className="dx-studio-side" data-rv>
               <li>
-                <span className="idx">01</span>
+                <span className="idx">1</span>
                 <div>
                   <h3>Sincronização total</h3>
                   <p>Esquema ↔ Painel 3D ↔ Ladder: os bornes, cabos e referências são os mesmos em todas as vistas.</p>
                 </div>
               </li>
               <li>
-                <span className="idx">02</span>
+                <span className="idx">2</span>
                 <div>
                   <h3>Diagnóstico em tempo real</h3>
                   <p>Erros de ligação, fases em falta e conflitos de endereços assinalados enquanto trabalha.</p>
                 </div>
               </li>
               <li>
-                <span className="idx">03</span>
+                <span className="idx">3</span>
                 <div>
                   <h3>Medição e cenários</h3>
                   <p>Sonda de continuidade, injeção de falhas e cenários de arranque prontos a executar.</p>
                 </div>
               </li>
               <li>
-                <span className="idx">04</span>
+                <span className="idx">4</span>
                 <div>
                   <h3>Exportação para produção</h3>
                   <p>Lista de material em CSV, etiquetas de bornes e esquema final — sem transcrever nada.</p>
@@ -553,25 +495,22 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
       </section>
 
       {/* ------------------------------------------------------- BIBLIOTECA */}
-      <section className="dx-section dx-lib" id="biblioteca">
+      <section className="dx-section" id="biblioteca">
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
-            <div>
-              <span className="dx-over">
-                <i />
-                Biblioteca de componentes
-              </span>
-              <h2>Os equipamentos que encontra num quadro real.</h2>
-            </div>
+            <span className="dx-over">Biblioteca de componentes</span>
+            <h2>Os equipamentos que encontra num quadro real.</h2>
             <p>Pesquise, filtre por categoria e arraste para o quadro. Cada componente traz fabricante, modelo, dimensões e pré-visualização 3D.</p>
           </div>
           <div className="dx-lib-toolbar" data-rv>
-            {CATEGORIES.map((c) => (
-              <button key={c} className="dx-filter" aria-pressed={cat === c} onClick={() => setCat(c)}>
-                {c}
-              </button>
-            ))}
-            <span className="dx-lib-count">{visibleLib.length} ITENS</span>
+            <div className="dx-lib-filters">
+              {CATEGORIES.map((c) => (
+                <button key={c} className="dx-filter" aria-pressed={cat === c} onClick={() => setCat(c)}>
+                  {c}
+                </button>
+              ))}
+            </div>
+            <span className="dx-lib-count">{visibleLib.length} itens</span>
           </div>
           <div className="dx-lib-grid" data-rv>
             {visibleLib.map((c) => (
@@ -594,28 +533,19 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
       </section>
 
       {/* ---------------------------------------------------------- WORKFLOW */}
-      <section className="dx-section" id="fluxo">
+      <section className="dx-section dx-section-alt" id="fluxo">
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
-            <div>
-              <span className="dx-over">
-                <i />
-                Fluxo de trabalho
-              </span>
-              <h2>
-                Do componente ao quadro montado,
-                <br />
-                em seis passos.
-              </h2>
-            </div>
+            <span className="dx-over">Fluxo de trabalho</span>
+            <h2>Do componente ao quadro montado, em seis passos.</h2>
             <p>Um percurso direto, pensado para quem projeta todos os dias. Sem configurações demoradas.</p>
           </div>
-          <ol className="dx-flow" data-rv>
+          <ol className="dx-steps" data-rv>
             {FLOW.map(([t, d], i) => (
               <li key={t}>
-                <b>ST-0{i + 1}</b>
-                <span>{t}</span>
-                <small style={{ display: 'block', marginTop: 6, fontSize: 11, lineHeight: 1.5, color: 'var(--dx-ink-3)', fontWeight: 400 }}>{d}</small>
+                <span className="n">{i + 1}</span>
+                <b>{t}</b>
+                <small>{d}</small>
               </li>
             ))}
           </ol>
@@ -623,26 +553,16 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
       </section>
 
       {/* -------------------------------------------------------- FEATURES */}
-      <section className="dx-section" style={{ background: 'var(--dx-surface-2)', borderBlock: '1px solid var(--dx-line)' }}>
+      <section className="dx-section">
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
-            <div>
-              <span className="dx-over">
-                <i />
-                Funcionalidades
-              </span>
-              <h2>
-                Uma ferramenta de engenharia,
-                <br />
-                não mais um editor genérico.
-              </h2>
-            </div>
+            <span className="dx-over">Funcionalidades</span>
+            <h2>Uma ferramenta de engenharia, não mais um editor genérico.</h2>
             <p>Tudo o que precisa para desenhar, testar e documentar um quadro elétrico — no mesmo ambiente.</p>
           </div>
           <div className="dx-cards">
             {FEATURES.map((f, i) => (
-              <article key={f.t} data-rv style={{ transitionDelay: `${(i % 3) * 70}ms` }}>
-                <span aria-hidden>F-0{i + 1}</span>
+              <article key={f.t} data-rv style={{ transitionDelay: `${(i % 3) * 60}ms` }}>
                 <div className="dx-ic" aria-hidden>
                   <f.i size={20} />
                 </div>
@@ -655,66 +575,48 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
       </section>
 
       {/* -------------------------------------------------------- PARA QUEM */}
-      <section className="dx-section" id="para-quem">
+      <section className="dx-section dx-section-alt" id="para-quem">
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
-            <div>
-              <span className="dx-over">
-                <i />
-                Para quem é
-              </span>
-              <h2>Feito para quem monta, projeta e mantém quadros.</h2>
-            </div>
+            <span className="dx-over">Para quem é</span>
+            <h2>Feito para quem monta, projeta e mantém quadros.</h2>
             <p>Da bancada à sala de projeto, o mesmo ficheiro acompanha todas as fases do trabalho.</p>
           </div>
           <div className="dx-who" data-rv>
-            {WHO.map((w, i) => (
+            {WHO.map((w) => (
               <div key={w.t}>
-                <i aria-hidden>{String(i + 1).padStart(2, '0')}</i>
-                <span>
-                  <b>{w.t}</b>
-                  <small>{w.d}</small>
-                </span>
-                <span className="arr" aria-hidden>→</span>
+                <b>{w.t}</b>
+                <p>{w.d}</p>
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 'var(--dx-6)' }} data-rv>
-            <div className="dx-stats">
-              <div>
-                <b>5</b>
-                <span>vistas sincronizadas</span>
-              </div>
-              <div>
-                <b>3D</b>
-                <span>modelos CAD reais</span>
-              </div>
-              <div>
-                <b>
-                  11<em>+</em>
-                </b>
-                <span>categorias de material</span>
-              </div>
-              <div>
-                <b>PWA</b>
-                <span>instalável em qualquer ecrã</span>
-              </div>
+          <div className="dx-stats" data-rv>
+            <div>
+              <b>5</b>
+              <span>vistas sincronizadas</span>
+            </div>
+            <div>
+              <b>3D</b>
+              <span>modelos CAD reais</span>
+            </div>
+            <div>
+              <b>11+</b>
+              <span>categorias de material</span>
+            </div>
+            <div>
+              <b>PWA</b>
+              <span>instalável em qualquer ecrã</span>
             </div>
           </div>
         </div>
       </section>
 
       {/* -------------------------------------------------------------- FAQ */}
-      <section className="dx-section dx-faq" id="faq" style={{ background: 'var(--dx-surface-2)', borderTop: '1px solid var(--dx-line)' }}>
-        <div className="dx-wrap" style={{ maxWidth: 860 }}>
-          <div className="dx-head" data-rv style={{ gridTemplateColumns: '1fr' }}>
-            <div>
-              <span className="dx-over">
-                <i />
-                Perguntas frequentes
-              </span>
-              <h2>Tudo o que precisa de saber para começar.</h2>
-            </div>
+      <section className="dx-section dx-faq" id="faq">
+        <div className="dx-wrap dx-wrap-narrow">
+          <div className="dx-head" data-rv>
+            <span className="dx-over">Perguntas frequentes</span>
+            <h2>Tudo o que precisa de saber para começar.</h2>
           </div>
           <div data-rv>
             {FAQ.map((f) => (
@@ -731,20 +633,14 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
       <section className="dx-cta">
         <div className="dx-wrap dx-cta-in">
           <div>
-            <span className="dx-over">
-              <i />
-              Pronto para começar?
-            </span>
-            <h2>
-              O próximo quadro <em>começa aqui.</em>
-            </h2>
+            <h2>O próximo quadro começa aqui.</h2>
             <p>Crie a conta e monte o primeiro quadro em 3D em menos de um minuto. Gratuito, sem instalação.</p>
           </div>
           <div className="dx-cta-actions">
-            <button className="dx-btn dx-btn-primary dx-btn-lg" onClick={onRegister}>
-              Começar gratuitamente <span className="dx-arr" aria-hidden>→</span>
+            <button className="dx-btn dx-btn-white dx-btn-lg" onClick={onRegister}>
+              Começar gratuitamente
             </button>
-            <button className="dx-btn dx-btn-secondary dx-btn-lg" onClick={onLogin}>
+            <button className="dx-btn dx-btn-outline-white dx-btn-lg" onClick={onLogin}>
               Já tenho conta
             </button>
           </div>
@@ -753,8 +649,10 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
 
       <footer className="dx-foot">
         <div className="dx-wrap dx-foot-in">
-          <Logo size={26} tone="dark" />
-          <span style={{ fontFamily: 'var(--dx-mono)', letterSpacing: '.08em', textTransform: 'uppercase' }}>Quadros 3D · Esquema · Ladder · Simulação</span>
+          <div className="dx-foot-brand">
+            <Logo size={28} />
+            <span>Quadros 3D · Esquema · Ladder · Simulação</span>
+          </div>
           <nav aria-label="Rodapé">
             {links.map(([href, label]) => (
               <a key={href} href={href}>

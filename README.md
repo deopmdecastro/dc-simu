@@ -9,30 +9,29 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
-## Novidades — v3.0 (rebrand UI/UX)
+## Novidades — v4.0 (rebranding corporativo · tema claro)
 
-**Nova identidade visual "Precision Graphite + Energy Amber"** em todo o produto
-(landing, autenticação, dashboard e chrome do editor), sem alterar a lógica de simulação.
+**Nova identidade visual: tema claro e azul institucional** em todo o produto (landing,
+autenticação, dashboard, administração e barra do editor), sem alterar a lógica de simulação
+nem o conteúdo.
 
-- **Design system `dx` reescrito** (`src/styles/dx.css`): grafite frio + papel técnico,
-  âmbar de energia como assinatura (CTA primária, marca, estados "energizado") e azul cobalto
-  reservado exclusivamente a interação (foco, ligações, seleção). Nada de cores soltas —
-  os tokens Tailwind (`tailwind.config.js`) espelham os mesmos valores.
-- **Novo logótipo**: módulo de calha DIN em grafite com furação e raio âmbar
-  (`src/ui/Brand.tsx`), favicon e theme a condizer.
-- **Landing page reformulada**: hero com folha de desenho técnica (anotações mono, marcas
-  de registo), moldura de viewport tipo instrumento CAD com os modelos 3D reais, secção
-  "O estúdio completo" com anatomia da interface, biblioteca com símbolos blueprint
-  desenhados (frentes de equipamentos), fluxo em calha ST-01…06, features F-01…06 com os
-  ícones do próprio sistema, índice "para quem é", banda de métricas, FAQ e CTA final.
-- **Dashboard redesenhado**: saudação com data, métricas com ícones do sistema, cartão
-  "Novo projeto" na grelha, pré-visualizações blueprint dos quadros, estados vazios
-  cuidados e modais com barra âmbar.
-- **Editor**: wordmark âmbar, botões de dock, tiles da biblioteca com palco blueprint,
-  hover/selected coerentes, estado vazio do Painel 3D refinado; os controlos de simulação
-  (RUN/PAUSE/STOP) mantêm as cores semânticas.
-- **Acessibilidade**: focus-visible azul em toda a parte, estados nunca comunicados só por
-  cor, alvos táteis, `prefers-reduced-motion` respeitado nas animações da landing.
+- **Paleta do simulador**: azul `#2655e5` sobre neutros slate e superfícies brancas, a mesma do
+  editor. O âmbar fica apenas como cor semântica (condutor energizado, avisos). Os tokens
+  Tailwind (`tailwind.config.js`) e as variáveis `--dx-*` (`src/styles/dx.css`) espelham os
+  mesmos valores.
+- **Logótipo**: quadrado azul com raio branco (`src/ui/Brand.tsx`, `public/favicon.svg` e ícones
+  da PWA), agora igual em toda a aplicação.
+- **Design system `dx` consolidado** em três ficheiros: `dx.css` (tokens, botões, campos, barra
+  da app, autenticação, administração), `dx-dashboard.css` e `dx-landing.css`. Sem tema escuro,
+  sem gradientes decorativos, sem elementos "blueprint".
+- **Landing page**: navegação limpa, hero com o viewport 3D real, antes/depois, estúdio, biblioteca
+  com filtros, fluxo em seis passos, funcionalidades, público-alvo, FAQ e chamada final em faixa
+  azul — mesmo conteúdo, ritmo vertical constante e cartões consistentes.
+- **Dashboard**: métricas num único cartão, filtros segmentados, cartões de projeto, menu de
+  ações, diálogos e estados vazios com o mesmo sistema de componentes.
+- **Editor**: barra de projeto clara, wordmark igual ao logótipo global e vitrine 3D em tema claro.
+- **Acessibilidade**: `focus-visible` azul, estados nunca comunicados só por cor e
+  `prefers-reduced-motion` respeitado.
 
 ## Novidades — v2.3
 

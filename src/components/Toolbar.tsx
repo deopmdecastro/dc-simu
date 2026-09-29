@@ -166,9 +166,9 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
           <LogoMark size={24} />
           <div className="leading-none whitespace-nowrap hidden sm:block">
             <div className="text-[13px] font-bold tracking-tight text-ink-900">
-              DC<span className="text-energy-600">·</span>SIMU
+              DC-SIMU
             </div>
-            <div className="text-[8.5px] font-semibold uppercase tracking-[0.14em] text-ink-400 mt-0.5">electrical panel studio</div>
+            <div className="text-[8.5px] font-semibold uppercase tracking-[0.14em] text-ink-400 mt-0.5">Electrical Panel Studio</div>
           </div>
         </div>
 
