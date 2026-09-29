@@ -17,6 +17,7 @@ import { getProauto3DImage } from '../schematic/proauto3DImage'
 import { getWeg3DImage } from '../schematic/weg3DImage'
 import { getCad3DImage } from '../schematic/cad3DImage'
 import { getComponentModelSpec } from './modelPaths'
+import { getComponentTurntableFrames } from './componentTurntable'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -348,14 +349,12 @@ export function getComponentThumbnail(type: ComponentType): string {
 }
 
 /** Miniatura 3D real de um componente da biblioteca (renderizada uma vez, depois é apenas uma imagem). */
-export function ComponentThumb({ type, size = 26, realOnly = false }: { type: ComponentType; size?: number; realOnly?: boolean }) {
+export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?: number }) {
   const [logoSrc, setLogoSrc] = useState<string | null>(null)
   const [proautoSrc, setProautoSrc] = useState<string | null>(null)
   const [wegSrc, setWegSrc] = useState<string | null>(null)
   const [cadSrc, setCadSrc] = useState<string | null>(null)
-  // Na landing, nunca substituir um CAD por uma forma procedural: permanece
-  // um placeholder enquanto o GLB real é carregado.
-  const fallback = useMemo(() => realOnly ? '' : getComponentThumbnail(type), [type, realOnly])
+  const fallback = useMemo(() => getComponentThumbnail(type), [type])
   useEffect(() => {
     if (type !== 'plcSiemensLogo1224RC') return
     let active = true
@@ -388,7 +387,7 @@ export function ComponentThumb({ type, size = 26, realOnly = false }: { type: Co
       : type === 'contactorWegCWC09' ? wegSrc ?? fallback
         : getComponentModelSpec(type) ? cadSrc ?? fallback
           : fallback
-  if (!src) return <div style={{ width: size, height: size }} className={`shrink-0 rounded-[4px] bg-surface-sunken ${realOnly ? 'dc-real-glb-loading' : ''}`} aria-hidden="true" />
+  if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken" />
   return (
     <img
       src={src}
@@ -398,6 +397,50 @@ export function ComponentThumb({ type, size = 26, realOnly = false }: { type: Co
       aria-hidden="true"
       draggable={false}
       className="shrink-0 rounded-[4px] bg-white border border-line-soft"
+      style={{ width: size, height: size, objectFit: 'contain' }}
+    />
+  )
+}
+
+/** Turntable animado gerado exclusivamente a partir do GLB real. */
+export function RotatingComponentThumb({ type, size = 112 }: { type: ComponentType; size?: number }) {
+  const [frames, setFrames] = useState<string[]>([])
+  const [frame, setFrame] = useState(0)
+  const [failed, setFailed] = useState(false)
+  const reduceMotion = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  )
+
+  useEffect(() => {
+    let active = true
+    setFrames([])
+    setFrame(0)
+    setFailed(false)
+    getComponentTurntableFrames(type)
+      .then((images) => { if (active) setFrames(images) })
+      .catch(() => { if (active) setFailed(true) })
+    return () => { active = false }
+  }, [type])
+
+  useEffect(() => {
+    if (reduceMotion || frames.length < 2) return
+    const timer = window.setInterval(() => setFrame((index) => (index + 1) % frames.length), 145)
+    return () => window.clearInterval(timer)
+  }, [frames, reduceMotion])
+
+  if (failed) return <div className="dc-real-glb-loading is-error" style={{ width: size, height: size }} aria-label="Não foi possível apresentar o modelo 3D" />
+  const src = frames[frame]
+  if (!src) return <div className="dc-real-glb-loading" style={{ width: size, height: size }} aria-hidden="true" />
+  return (
+    <img
+      src={src}
+      width={size}
+      height={size}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      className="dc-turntable-thumb"
       style={{ width: size, height: size, objectFit: 'contain' }}
     />
   )

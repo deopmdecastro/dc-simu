@@ -62,18 +62,39 @@ export function getComponentModelSpec(type: ComponentType): ComponentModelSpec |
 }
 
 /**
- * Tipos com renderizadores CAD dedicados anteriores à tabela genérica.
- * Continuam a contar como GLB real para disponibilidade na Biblioteca.
+ * CAD com renderizadores históricos dedicados. A especificação unificada
+ * permite reutilizar estes GLB em novas vistas, como o turntable da landing.
  */
-const DEDICATED_MODEL_TYPES = new Set<ComponentType>([
-  'plcSiemensLogo1224RC',
-  'powerSupplyProauto24A',
-  'contactorWegCWC09',
-])
+const DEDICATED_COMPONENT_MODELS: Partial<Record<ComponentType, ComponentModelSpec>> = {
+  plcSiemensLogo1224RC: {
+    path: MODEL_PATHS.plcSiemensLogo1224RC,
+    rotation: [Math.PI / 2, 0, 0],
+    placement: 'din-rail',
+    targetHeight: 1.3,
+  },
+  powerSupplyProauto24A: {
+    path: MODEL_PATHS.powerSupplyProauto24A,
+    rotation: [0, 0, 0],
+    placement: 'din-rail',
+    targetHeight: 1.25,
+  },
+  contactorWegCWC09: {
+    path: MODEL_PATHS.wegContactorCWC09,
+    rotation: [0, 0, 0],
+    flipDepth: true,
+    placement: 'din-rail',
+    targetHeight: 1.2,
+  },
+}
+
+/** Especificação de qualquer GLB real, genérico ou com renderizador dedicado. */
+export function getComponentGlbSpec(type: ComponentType): ComponentModelSpec | undefined {
+  return COMPONENT_MODELS[type] ?? DEDICATED_COMPONENT_MODELS[type]
+}
 
 /** Única regra de disponibilidade: só componentes com ficheiro GLB real podem ser inseridos. */
 export function hasComponent3DModel(type: ComponentType): boolean {
-  return DEDICATED_MODEL_TYPES.has(type) || !!COMPONENT_MODELS[type]
+  return !!getComponentGlbSpec(type)
 }
 
 export const MISSING_3D_MODEL_MESSAGE = 'Bloqueado: modelo 3D GLB ainda não disponível.'

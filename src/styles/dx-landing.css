@@ -892,13 +892,19 @@ html:has(.dx-landing) {
   animation: dx-sheen 1.6s linear infinite;
 }
 .dx-lib-thumb .dc-real-glb-loading::after {
-  content: 'A carregar GLB';
+  content: 'A carregar 3D';
   position: absolute;
   inset: auto 0 10px;
   color: var(--dx-ink-4);
   font-family: var(--dx-mono);
   font-size: 9px;
   text-align: center;
+}
+.dx-lib-thumb .dc-real-glb-loading.is-error::after {
+  content: '3D indisponível';
+}
+.dx-lib-thumb .dc-turntable-thumb {
+  will-change: transform;
 }
 .dx-lib-3d {
   position: absolute;

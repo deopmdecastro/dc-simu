@@ -24,7 +24,7 @@ import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
-import { getCommandModelSpec, getComponentModelSpec, getProtectionModelSpec, hasComponent3DModel } from '../src/three/modelPaths'
+import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, hasComponent3DModel } from '../src/three/modelPaths'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
@@ -702,6 +702,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor3ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
+  check('todos os componentes disponíveis expõem GLB para o turntable da landing', availableTypes.every((type) => getComponentGlbSpec(type)?.path.toLowerCase().endsWith('.glb')))
 
   const beforeBlockedAdd = useSimStore.getState().components.length
   const blockedId = useSimStore.getState().addComponent('motor3ph', 0, 0)
