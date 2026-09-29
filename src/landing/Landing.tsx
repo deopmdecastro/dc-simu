@@ -188,10 +188,11 @@ function HeroViewport() {
   )
 }
 
-/** Network estática desenhada com a mesma gramática visual do editor Ladder real. */
-function LandingLadderNetwork() {
+/** Network interativa desenhada com a mesma gramática visual do editor Ladder real. */
+function LandingLadderNetwork({ powered }: { powered: boolean }) {
+  const wire = powered ? '#16a34a' : '#8b98aa'
   return (
-    <svg className="dx-ladder-network-svg" viewBox="0 0 600 190" role="img" aria-label="Network Ladder de marcha e selo com a saída KM1 energizada">
+    <svg className={`dx-ladder-network-svg${powered ? ' is-powered' : ''}`} viewBox="0 0 600 190" role="img" aria-label={`Network Ladder de marcha e selo com a saída KM1 ${powered ? 'energizada' : 'desenergizada'}`}>
       <defs>
         <pattern id="dx-ladder-grid" width="20" height="20" patternUnits="userSpaceOnUse">
           <circle cx="1" cy="1" r="1" fill="#d2dbea" />
@@ -201,21 +202,21 @@ function LandingLadderNetwork() {
       <rect width="600" height="190" fill="url(#dx-ladder-grid)" />
 
       {/* rail, alimentação e derivações — mesmas cores do NetworkDiagram */}
-      <g fill="none" stroke="#16a34a" strokeWidth="2.6" strokeLinecap="square">
+      <g fill="none" stroke={wire} strokeWidth="2.6" strokeLinecap="square">
         <path d="M24 22v146" />
         <path d="M24 72h64M112 72h64M200 72h64M264 72h234" />
         <path d="M138 72v70h38M200 142h64v-70" />
       </g>
-      <path className="dx-ladder-current" d="M24 72h474" fill="none" stroke="#d9fbe7" strokeWidth="2.6" strokeLinecap="round" />
+      <path className={`dx-ladder-current${powered ? ' is-on' : ''}`} d="M24 72h474" fill="none" stroke={powered ? '#d9fbe7' : 'transparent'} strokeWidth="2.6" strokeLinecap="round" />
 
       {/* STOP NF */}
-      <g fill="none" stroke="#16a34a" strokeWidth="2">
+      <g fill="none" stroke={wire} strokeWidth="2">
         <line x1="88" y1="58" x2="88" y2="86" />
         <line x1="112" y1="58" x2="112" y2="86" />
         <line x1="84" y1="86" x2="116" y2="56" />
       </g>
       {/* START NA e contacto de selo */}
-      <g fill="none" stroke="#16a34a" strokeWidth="2">
+      <g fill="none" stroke={wire} strokeWidth="2">
         <line x1="176" y1="58" x2="176" y2="86" />
         <line x1="200" y1="58" x2="200" y2="86" />
         <line x1="176" y1="128" x2="176" y2="156" />
@@ -223,11 +224,11 @@ function LandingLadderNetwork() {
       </g>
 
       {/* bobina */}
-      <g fill="none" stroke="#16a34a" strokeWidth="2.4">
+      <g fill="none" stroke={wire} strokeWidth="2.4">
         <path d="M498 52c-18 8-18 32 0 40" />
         <path d="M540 52c18 8 18 32 0 40" />
       </g>
-      <rect x="488" y="46" width="62" height="52" rx="4" fill="#16a34a" fillOpacity=".08" stroke="#5bc486" strokeWidth="1" />
+      <rect x="488" y="46" width="62" height="52" rx="4" fill={powered ? '#16a34a' : '#94a3b8'} fillOpacity=".08" stroke={powered ? '#5bc486' : '#b8c1ce'} strokeWidth="1" />
 
       <g fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" textAnchor="middle">
         <g fill="#1f2a3d" fontSize="11" fontWeight="700">
@@ -242,15 +243,68 @@ function LandingLadderNetwork() {
           <text x="188" y="106">"SELO"</text>
           <text x="519" y="110">"KM1"</text>
         </g>
-        <text x="519" y="77" fill="#137a47" fontSize="11" fontWeight="800">KM1</text>
-        <text x="570" y="76" fill="#15803d" fontSize="9" textAnchor="end">1</text>
+        <text x="519" y="77" fill={powered ? '#137a47' : '#64748b'} fontSize="11" fontWeight="800">KM1</text>
+        <text x="570" y="76" fill={powered ? '#15803d' : '#64748b'} fontSize="9" textAnchor="end">{powered ? '1' : '0'}</text>
       </g>
     </svg>
   )
 }
 
-/** Pré-visualização fiel da vista Ladder do simulador, reutilizando as classes reais do editor. */
+/** Segunda network: contacto de KM1 a comandar a lâmpada de marcha H1. */
+function LandingStatusNetwork({ powered }: { powered: boolean }) {
+  const wire = powered ? '#16a34a' : '#8b98aa'
+  return (
+    <svg className={`dx-ladder-network-svg dx-ladder-status-svg${powered ? ' is-powered' : ''}`} viewBox="0 0 600 112" role="img" aria-label={`Sinalização H1 ${powered ? 'ligada' : 'desligada'}`}>
+      <defs>
+        <pattern id="dx-ladder-grid-status" width="20" height="20" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="1" fill="#d2dbea" />
+        </pattern>
+      </defs>
+      <rect width="600" height="112" fill="#f8fafd" />
+      <rect width="600" height="112" fill="url(#dx-ladder-grid-status)" />
+      <g fill="none" stroke={wire} strokeWidth="2.6" strokeLinecap="square">
+        <path d="M24 14v84" />
+        <path d="M24 58h142M190 58h304" />
+      </g>
+      <path className={`dx-ladder-current${powered ? ' is-on' : ''}`} d="M24 58h470" fill="none" stroke={powered ? '#d9fbe7' : 'transparent'} strokeWidth="2.6" strokeLinecap="round" />
+      <g fill="none" stroke={wire} strokeWidth="2">
+        <line x1="166" y1="44" x2="166" y2="72" />
+        <line x1="190" y1="44" x2="190" y2="72" />
+      </g>
+      <g fill="none" stroke={wire} strokeWidth="2.4">
+        <circle cx="512" cy="58" r="22" />
+        <path d="M497 43l30 30M527 43l-30 30" />
+      </g>
+      <circle cx="512" cy="58" r="16" fill={powered ? '#22c55e' : '#cbd5e1'} fillOpacity={powered ? '.22' : '.16'} />
+      <g fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" textAnchor="middle">
+        <text x="178" y="34" fill="#1f2a3d" fontSize="11" fontWeight="700">%Q1</text>
+        <text x="178" y="87" fill="#6f7d92" fontSize="9">"KM1"</text>
+        <text x="512" y="28" fill="#1f2a3d" fontSize="11" fontWeight="700">%Q2</text>
+        <text x="512" y="96" fill={powered ? '#137a47' : '#64748b'} fontSize="9">H1 MARCHA</text>
+        <text x="570" y="61" fill={powered ? '#15803d' : '#64748b'} fontSize="9" textAnchor="end">{powered ? '1' : '0'}</text>
+      </g>
+    </svg>
+  )
+}
+
+/** Pré-visualização funcional da vista Ladder do simulador. */
 function EditorAnatomy() {
+  const [plcRunning, setPlcRunning] = useState(false)
+  const [motorOn, setMotorOn] = useState(false)
+  const [zoom, setZoom] = useState(100)
+  const powered = plcRunning && motorOn
+
+  const runPlc = () => setPlcRunning(true)
+  const stopPlc = () => {
+    setPlcRunning(false)
+    setMotorOn(false)
+  }
+  const startMotor = () => {
+    if (plcRunning) setMotorOn(true)
+  }
+  const stopMotor = () => setMotorOn(false)
+  const changeZoom = (step: number) => setZoom((current) => Math.max(75, Math.min(150, current + step)))
+
   return (
     <div className="dx-window dx-ladder-demo">
       <div className="dx-window-bar">
@@ -287,57 +341,69 @@ function EditorAnatomy() {
             <span className="ladder-project-tab is-active"><IconLadder size={12} /> OB1 <span>×</span></span>
             <span className="ladder-project-tab">FC1 <span>×</span></span>
           </div>
-          <div className="ladder-editor-toolbar" aria-hidden="true">
-            <span className="ladder-toolbar-button"><IconUndo size={12} /></span>
-            <span className="ladder-toolbar-button"><IconRedo size={12} /></span>
+          <div className="ladder-editor-toolbar" aria-label="Controlos da demonstração Ladder">
+            <button type="button" className="ladder-toolbar-button dx-history-control" disabled title="Desfazer"><IconUndo size={12} /></button>
+            <button type="button" className="ladder-toolbar-button dx-history-control" disabled title="Refazer"><IconRedo size={12} /></button>
+            <i className="ladder-toolbar-separator dx-history-control" />
+            <button type="button" className="ladder-toolbar-button" onClick={() => changeZoom(-25)} disabled={zoom <= 75} aria-label="Diminuir zoom"><IconZoomOut size={12} /></button>
+            <span className="ladder-zoom-label" aria-live="polite">{zoom}%</span>
+            <button type="button" className="ladder-toolbar-button" onClick={() => changeZoom(25)} disabled={zoom >= 150} aria-label="Aumentar zoom"><IconZoomIn size={12} /></button>
             <i className="ladder-toolbar-separator" />
-            <span className="ladder-toolbar-button"><IconZoomOut size={12} /></span>
-            <span className="ladder-zoom-label">100%</span>
-            <span className="ladder-toolbar-button"><IconZoomIn size={12} /></span>
-            <i className="ladder-toolbar-separator" />
-            <span className="ladder-primary-button"><IconPlay size={11} /> RUN</span>
+            <button type="button" className="ladder-primary-button" onClick={runPlc} disabled={plcRunning}><IconPlay size={11} /> RUN</button>
+            <button type="button" className="ladder-stop-button" onClick={stopPlc} disabled={!plcRunning}><span aria-hidden>■</span> STOP</button>
           </div>
-          <div className="ladder-program-summary">
-            <div className="ladder-metric is-run"><span>Estado</span><strong>RUN</strong></div>
+          <div className="ladder-program-summary" aria-live="polite">
+            <div className={`ladder-metric ${plcRunning ? 'is-run' : 'is-stop'}`}><span>Estado</span><strong>{plcRunning ? 'RUN' : 'STOP'}</strong></div>
             <div className="ladder-metric"><span>Networks</span><strong>02</strong></div>
-            <div className="ladder-metric"><span>Scan</span><strong>4 ms</strong></div>
-            <div className="ladder-live-bus"><span>PLC ativo</span><strong>LOGO! 12/24RC</strong></div>
+            <div className="ladder-metric"><span>Scan</span><strong>{plcRunning ? '4 ms' : '—'}</strong></div>
+            <div className="ladder-live-bus"><span>PLC</span><strong>{plcRunning ? 'LOGO! ativo' : 'CPU parada'}</strong></div>
+          </div>
+          <div className="dx-ladder-operator" aria-label="Comandos do motor">
+            <div>
+              <span>Comando de campo</span>
+              <strong>{powered ? 'KM1 ligado · selo ativo' : plcRunning ? 'Pronto para arrancar' : 'Execute o PLC primeiro'}</strong>
+            </div>
+            <button type="button" className="dx-operator-start" onClick={startMotor} disabled={!plcRunning || motorOn}><i aria-hidden /> START <small>I2</small></button>
+            <button type="button" className="dx-operator-stop" onClick={stopMotor} disabled={!motorOn}><i aria-hidden /> STOP <small>I1</small></button>
           </div>
           <div className="ladder-networks grid-lines">
-            <div className="dx-ladder-demo-scale">
-              <div className="ladder-rung-card is-powered">
+            <div className="dx-ladder-demo-scale" style={{ width: `${zoom}%` }}>
+              <div className={`ladder-rung-card${powered ? ' is-powered' : ''}`}>
                 <div className="ladder-rung-header">
                   <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
-                  <span className="ladder-network-no is-on">Network 1:</span>
+                  <span className={`ladder-network-no${powered ? ' is-on' : ''}`}>Network 1:</span>
                   <span className="ladder-network-title">Partida direta com selo</span>
-                  <span className="ladder-rung-live is-on"><i />RLO = 1</span>
+                  <span className={`ladder-rung-live${powered ? ' is-on' : ''}`}><i />RLO = {powered ? '1' : '0'}</span>
                 </div>
                 <div className="ladder-network-comment">STOP + START + retenção de KM1</div>
                 <div className="ladder-rung-body">
-                  <div className="ladder-diagram-scroll"><LandingLadderNetwork /></div>
+                  <div className="ladder-diagram-scroll"><LandingLadderNetwork powered={powered} /></div>
                 </div>
               </div>
-              <div className="ladder-rung-card dx-ladder-secondary">
+              <div className={`ladder-rung-card dx-ladder-secondary${powered ? ' is-powered' : ''}`}>
                 <div className="ladder-rung-header">
                   <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
-                  <span className="ladder-network-no">Network 2:</span>
+                  <span className={`ladder-network-no${powered ? ' is-on' : ''}`}>Network 2:</span>
                   <span className="ladder-network-title">Sinalização de estado</span>
-                  <span className="ladder-rung-live"><i />RLO = 0</span>
+                  <span className={`ladder-rung-live${powered ? ' is-on' : ''}`}><i />RLO = {powered ? '1' : '0'}</span>
+                </div>
+                <div className="ladder-network-comment">KM1 comanda a lâmpada verde de marcha H1</div>
+                <div className="ladder-rung-body">
+                  <div className="ladder-diagram-scroll"><LandingStatusNetwork powered={powered} /></div>
                 </div>
               </div>
             </div>
           </div>
         </main>
       </div>
-      <div className="dx-window-foot">
-        <b><i aria-hidden /> PLC em RUN</b>
-        <span>Network 1 energizada</span>
-        <span className="end">IEC 61131-3 · scan 4 ms</span>
+      <div className={`dx-window-foot${plcRunning ? ' is-running' : ' is-stopped'}`} aria-live="polite">
+        <b><i aria-hidden /> PLC em {plcRunning ? 'RUN' : 'STOP'}</b>
+        <span>{powered ? 'KM1 e H1 energizados' : 'Saídas desenergizadas'}</span>
+        <span className="end">IEC 61131-3 · {plcRunning ? 'scan 4 ms' : 'CPU parada'}</span>
       </div>
     </div>
   )
 }
-
 /* ================================================================ página */
 
 export default function Landing({ onRegister, onLogin }: { onRegister: () => void; onLogin: () => void }) {
@@ -531,9 +597,9 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
       <section className="dx-section dx-section-alt" id="editor">
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
-            <span className="dx-over">O editor Ladder real</span>
-            <h2>Na landing, a mesma interface Ladder do simulador.</h2>
-            <p>A pré-visualização reproduz a árvore do projeto, as networks IEC 61131-3, o estado RLO e o fluxo energizado com a mesma linguagem visual usada no editor — ligada ao Esquema e ao Painel 3D.</p>
+            <span className="dx-over">Demonstração Ladder interativa</span>
+            <h2>Execute uma partida direta sem sair desta página.</h2>
+            <p>Clique em RUN, depois em START e acompanhe o selo de KM1 e a sinalização H1 nas duas networks. Use STOP para desligar e os controlos −/+ para testar o zoom.</p>
           </div>
           <div className="dx-studio-grid">
             <div data-rv>
