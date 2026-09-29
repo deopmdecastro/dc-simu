@@ -302,7 +302,6 @@ function Settings() {
           <Toggle checked={prefs.confirmDelete} onChange={(v) => prefs.set({ confirmDelete: v })} title="Confirmar antes de eliminar networks" hint="Desligado por omissão — Ctrl+Z repõe a network eliminada" />
           <Toggle checked={prefs.autoScroll} onChange={(v) => prefs.set({ autoScroll: v })} title="Deslocar para a network ativa" hint="Ao navegar com o teclado, mantém a network visível" />
           <Toggle checked={prefs.showToasts} onChange={(v) => prefs.set({ showToasts: v })} title="Avisos rápidos" hint={'Mostra “Desfeito”, “Network duplicada”, etc.'} />
-          <Toggle checked={prefs.showStripHint} onChange={(v) => prefs.set({ showStripHint: v })} title="Dica na barra de elementos" hint="Texto de ajuda em cada network" />
           <div className="ls-actions"><button className="ls-btn" onClick={prefs.reset}>Repor preferências do editor</button></div>
         </section>
         <section className="ls-panel">

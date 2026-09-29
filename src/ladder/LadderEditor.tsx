@@ -143,20 +143,6 @@ function BlockButton({
 /* --------------------------------------------------------------- editor row */
 
 /** Barra única de elementos por network: clique insere · arraste para posicionar. */
-const STRIP: Array<{ kind: PaletteKind; title: string }> = [
-  { kind: 'NO', title: 'Contato NA (normalmente aberto)' },
-  { kind: 'NC', title: 'Contato NF (normalmente fechado)' },
-  { kind: 'RISING', title: 'Contato de borda de subida (P)' },
-  { kind: 'FALLING', title: 'Contato de borda de descida (N)' },
-  { kind: 'BRANCH', title: 'Abrir ramo paralelo (OR)' },
-  { kind: 'COIL', title: 'Bobina de saída' },
-  { kind: 'SET', title: 'Bobina SET (retentiva)' },
-  { kind: 'RESET', title: 'Bobina RESET' },
-  { kind: 'TON', title: 'Temporizador TON' },
-  { kind: 'CTU', title: 'Contador CTU' },
-  { kind: 'MOVE', title: 'MOVE BOOL (copiar bit se a network estiver ativa)' },
-  { kind: 'CALL', title: 'Chamar FC explicitamente no OB1' },
-]
 
 function RungRow({ rung, index, total = 1, minWidth = 640, active = false, collapsed: collapsedProp, onToggleCollapse }: {
   rung: LadderRung; index: number; total?: number; minWidth?: number; active?: boolean
@@ -173,7 +159,6 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
   const collapsed = collapsedProp ?? localCollapsed
   const toggleCollapsed = () => (onToggleCollapse ? onToggleCollapse() : setLocalCollapsed((v) => !v))
   const confirmDelete = useLadderPrefs((p) => p.confirmDelete)
-  const showStripHint = useLadderPrefs((p) => p.showStripHint)
   const requestDelete = () => {
     if (confirmDelete && !window.confirm(`Eliminar a network ${index + 1}${rung.name ? ` («${rung.name}»)` : ''}? Pode repô-la com Ctrl+Z.`)) return
     deleteRung(rung.id)
@@ -184,26 +169,6 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
   const powered = !!rungPowered[rung.id]
   const plcId = useSimStore((st) => st.activePlcId)
   const fcFiles = useSimStore((st) => st.projectFiles[plcId ?? '_general'] ?? [])
-
-  /** Clique num item da barra: insere na network (após o contato selecionado, se houver). */
-  const insert = (kind: PaletteKind) => {
-    let target: DropTarget = { kind: 'output' }
-    if (isContactKind(kind)) {
-      target = { kind: 'branch', branchIndex: 0, index: rung.branches[0]?.elements.length ?? 0 }
-      if (selection?.type === 'contact') {
-        const bi = rung.branches.findIndex((b) => b.id === selection.branchId)
-        const idx = rung.branches[bi]?.elements.findIndex((e) => e.id === selection.elementId) ?? -1
-        if (bi >= 0 && idx >= 0) target = { kind: 'branch', branchIndex: bi, index: idx + 1 }
-      }
-    }
-    let created: RungSelection = null
-    updateRung(rung.id, (r) => {
-      const res = applyKind(r, kind, target)
-      created = (res.created as RungSelection) ?? null
-      return res.rung
-    })
-    if (created) setSelection(created)
-  }
 
   return (
     <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''} ${active ? 'is-active' : ''} ${rung.enabled ? '' : 'is-disabled'}`}>
@@ -260,29 +225,6 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
 
       {collapsed ? null : (
       <>
-      {/* barra única de elementos: clique insere · arraste para a posição exata */}
-      <div className="lnet-strip" role="toolbar" aria-label="Elementos da network">
-        {STRIP.map((it) => (
-          <button
-            key={it.kind}
-            className="lnet-strip-btn"
-            title={`${it.title} — clique insere · arraste para posicionar`}
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData(LADDER_MIME, it.kind)
-              e.dataTransfer.setData('text/plain', `ladder:${it.kind}`)
-              e.dataTransfer.effectAllowed = 'copy'
-              setLadderDrag({ kind: it.kind })
-            }}
-            onDragEnd={() => setLadderDrag(null)}
-            onClick={() => insert(it.kind)}
-          >
-            <LadderGlyph kind={it.kind} />
-          </button>
-        ))}
-        {showStripHint && <span className="ml-auto text-[9.5px] text-ink-400 hidden md:inline">clique insere · arraste para posicionar · duplo clique edita · Del remove · ? atalhos</span>}
-      </div>
-
       {/* diagrama — grelha padrão de 20px */}
       <div className="ladder-rung-body">
         <div className="lnet-scroll">
@@ -943,6 +885,14 @@ function FunctionBlockView({ id }: { id: 'fc1' | 'fc2' | `file:${string}` }) {
   )
 }
 
+/** Escala base do editor completo: o "100%" mostrado ao utilizador equivale a 115% do desenho original. */
+const ZOOM_BASE = 1.15
+const ZOOM_MIN = 0.7
+const ZOOM_MAX = 1.5
+const ZOOM_STEP = 0.1
+/** chave nova: a antiga guardava a escala em bruto (1.15 = 115%) e ficaria a 132% */
+const ZOOM_KEY = 'dcsimu:ladder:zoom:v2'
+
 function FullLadderEditor({ section, setSection }: { section: LadderSection; setSection: (value: LadderSection) => void }) {
   const components = useSimStore((s) => s.components)
   const plcs = components.filter(isProgrammablePlc)
@@ -974,10 +924,10 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
   const [filter, setFilter] = useState('')
   const [ladderZoom, setLadderZoom] = useState(() => {
-    try { return Math.max(0.75, Math.min(1.35, Number(localStorage.getItem('dcsimu:ladder:zoom')) || 1)) } catch { return 1 }
+    try { return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Number(localStorage.getItem(ZOOM_KEY)) || 1)) } catch { return 1 }
   })
   useEffect(() => {
-    try { localStorage.setItem('dcsimu:ladder:zoom', String(ladderZoom)) } catch {}
+    try { localStorage.setItem(ZOOM_KEY, String(ladderZoom)) } catch {}
   }, [ladderZoom])
   const [showProjectPane, setShowProjectPane] = useState(true)
   const [showPalette, setShowPalette] = useState(true)
@@ -1068,8 +1018,8 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
       if (typing || helpOpen) return
 
       // ---- vista/zoom (já existiam)
-      if (mod && (key === '+' || key === '=')) { event.preventDefault(); setLadderZoom((v) => Math.min(1.35, Number((v + 0.1).toFixed(2)))); return }
-      if (mod && key === '-') { event.preventDefault(); setLadderZoom((v) => Math.max(0.75, Number((v - 0.1).toFixed(2)))); return }
+      if (mod && (key === '+' || key === '=')) { event.preventDefault(); setLadderZoom((v) => Math.min(ZOOM_MAX, Number((v + ZOOM_STEP).toFixed(2)))); return }
+      if (mod && key === '-') { event.preventDefault(); setLadderZoom((v) => Math.max(ZOOM_MIN, Number((v - ZOOM_STEP).toFixed(2)))); return }
       if (mod && key === '0') { event.preventDefault(); setLadderZoom(1); return }
 
       // ---- os restantes só fazem sentido no programa Ladder principal
@@ -1251,9 +1201,9 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           <button className="ladder-toolbar-button" onClick={doRedo} disabled={!future.length} title="Refazer (Ctrl+Y)" aria-label="Refazer"><IconRedo size={14} /></button>
           <span className="ladder-toolbar-separator" />
           <span className="ladder-zoom-label">⌕ {Math.round(ladderZoom * 100)}%</span>
-          <button className="ladder-toolbar-button" disabled={ladderZoom <= 0.75} onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} title="Reduzir zoom (Ctrl−)"><IconZoomOut size={14} /></button>
+          <button className="ladder-toolbar-button" disabled={ladderZoom <= ZOOM_MIN} onClick={() => setLadderZoom((z) => Math.max(ZOOM_MIN, Number((z - ZOOM_STEP).toFixed(2))))} title="Reduzir zoom (Ctrl−)"><IconZoomOut size={14} /></button>
           <button className="ladder-toolbar-button" onClick={() => setLadderZoom(1)} title="Zoom 100% (Ctrl+0)">100</button>
-          <button className="ladder-toolbar-button" disabled={ladderZoom >= 1.35} onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} title="Aumentar zoom (Ctrl+)"><IconZoomIn size={14} /></button>
+          <button className="ladder-toolbar-button" disabled={ladderZoom >= ZOOM_MAX} onClick={() => setLadderZoom((z) => Math.min(ZOOM_MAX, Number((z + ZOOM_STEP).toFixed(2))))} title="Aumentar zoom (Ctrl+)"><IconZoomIn size={14} /></button>
           <span className="ladder-toolbar-separator" />
           <button
             className={`ladder-toolbar-button ${grid.enabled ? 'is-active' : ''}`}
@@ -1314,7 +1264,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
               if (kind) quickAdd(kind)
             }}
           >
-            <div className="ladder-networks-scale" style={{ zoom: ladderZoom }}>
+            <div className="ladder-networks-scale" style={{ zoom: ladderZoom * ZOOM_BASE }}>
               {rungs.map((r, i) => (
                 <div key={r.id} id={`ladder-net-${r.id}`} className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`} onMouseDownCapture={() => setActiveRungId(r.id)}>
                   <RungRow

@@ -4,8 +4,6 @@ import { create } from 'zustand'
 export interface LadderPrefs {
   /** pedir confirmação antes de eliminar uma network (o Ctrl+Z também a repõe) */
   confirmDelete: boolean
-  /** mostrar a dica "clique insere · arraste…" na barra de cada network */
-  showStripHint: boolean
   /** deslocar automaticamente a vista para a network ativa ao navegar pelo teclado */
   autoScroll: boolean
   /** mostrar avisos rápidos ("Desfeito", "Network duplicada"…) */
@@ -13,7 +11,7 @@ export interface LadderPrefs {
 }
 
 const KEY = 'dcsimu:ladder:prefs'
-const DEFAULTS: LadderPrefs = { confirmDelete: false, showStripHint: true, autoScroll: true, showToasts: true }
+const DEFAULTS: LadderPrefs = { confirmDelete: false, autoScroll: true, showToasts: true }
 
 function load(): LadderPrefs {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') } } catch { return DEFAULTS }

@@ -257,7 +257,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     </text>
   )
   const selBox = (x: number, y: number, w: number, h: number, key: string) => (
-    <rect key={key} x={x} y={y} width={w} height={h} rx={3} fill="#dbe7ff" fillOpacity={0.7} stroke="#2f6fe4" strokeWidth={1.2} />
+    <rect key={key} className="lnet-sel" x={x} y={y} width={w} height={h} rx={7} fill="#2f6fe4" fillOpacity={0.09} stroke="#2f6fe4" strokeWidth={1.5} />
   )
 
   // ramos
