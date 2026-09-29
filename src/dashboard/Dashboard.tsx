@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { LogoMark } from '../ui/Brand'
 import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus } from '../ui/icons'
 
@@ -6,9 +6,19 @@ export type User = { id: string; name: string; email: string; role: 'admin' | 'u
 export type Project = { id: string; name: string; revision: number; owner: string; role: 'owner' | 'editor'; updated_at: string }
 export type Invite = { id: string; project: string; sender: string }
 
+/** Hash estável do id → cada projeto tem sempre a mesma miniatura, mas diferente das outras. */
+function hashId(id: string) {
+  let h = 2166136261
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619) >>> 0
+  return h
+}
+
 /** Pré-visualização simplificada do quadro, usada nos cartões de projeto. */
-function PanelPreview({ variant = 0 }: { variant?: number }) {
-  const modules = 5 + (variant % 3)
+function PanelPreview({ seed }: { seed: string }) {
+  const v = hashId(seed)
+  const modules = 4 + (v % 4)
+  const leds = 1 + ((v >> 3) % 3)
+  const twoContactors = ((v >> 5) & 1) === 1
   return (
     <svg viewBox="0 0 320 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <rect width="320" height="140" fill="#f6f8fb" />
@@ -16,33 +26,86 @@ function PanelPreview({ variant = 0 }: { variant?: number }) {
       <rect x="24" y="16" width="272" height="108" rx="6" fill="#ffffff" stroke="#c2ccda" />
       {/* calhas DIN */}
       <path d="M32 46h256M32 92h256" stroke="#d3dbe5" strokeWidth="6" />
-      {/* módulos de proteção */}
-      {Array.from({ length: modules }).map((_, i) => (
-        <g key={i}>
-          <rect x={36 + i * 26} y={24} width="21" height="30" rx="2.5" fill="#eef4ff" stroke="#94b6fa" />
-          <rect x={43.5 + i * 26} y={35} width="6" height="12" rx="1.5" fill="#2655e5" opacity=".85" />
-        </g>
-      ))}
+      {/* módulos de proteção (alguns ligados, outros desligados) */}
+      {Array.from({ length: modules }).map((_, i) => {
+        const on = i === 0 || ((v >> (i + 6)) & 1) === 1
+        return (
+          <g key={i}>
+            <rect x={36 + i * 26} y={24} width="21" height="30" rx="2.5" fill="#eef4ff" stroke="#94b6fa" />
+            <rect x={43.5 + i * 26} y={on ? 29 : 39} width="6" height="12" rx="1.5" fill={on ? '#2655e5' : '#aab4c2'} opacity={on ? 0.85 : 0.9} />
+          </g>
+        )
+      })}
       {/* PLC */}
       <rect x={36} y={72} width="66" height="38" rx="3" fill="#dce7fd" stroke="#94b6fa" />
       <rect x={42} y={78} width="30" height="14" rx="2" fill="#ffffff" stroke="#94b6fa" />
       <circle cx={86} cy={82} r="2.4" fill="#16a34a" />
       <circle cx={94} cy={82} r="2.4" fill="#2655e5" opacity=".6" />
       <path d="M42 100h54" stroke="#94b6fa" strokeWidth="1.6" />
-      {/* contactor + fonte */}
+      {/* contactor(es) + fonte */}
       <rect x={112} y={72} width="46" height="38" rx="3" fill="#f6f8fb" stroke="#aab4c2" />
       <rect x={117} y={77} width="36" height="7" rx="1.5" fill="#ffffff" stroke="#d3dbe5" />
-      <rect x={168} y={72} width="34" height="38" rx="3" fill="#f6f8fb" stroke="#aab4c2" />
-      <path d="M174 80h22M174 86h22" stroke="#c2ccda" strokeWidth="1.6" />
+      {twoContactors ? (
+        <>
+          <rect x={164} y={72} width="30" height="38" rx="3" fill="#f6f8fb" stroke="#aab4c2" />
+          <rect x={168} y={77} width="22" height="7" rx="1.5" fill="#ffffff" stroke="#d3dbe5" />
+        </>
+      ) : (
+        <>
+          <rect x={168} y={72} width="34" height="38" rx="3" fill="#f6f8fb" stroke="#aab4c2" />
+          <path d="M174 80h22M174 86h22" stroke="#c2ccda" strokeWidth="1.6" />
+        </>
+      )}
       {/* bornes */}
       <g fill="#2655e5">
-        <circle cx="234" cy="84" r="4" />
-        <circle cx="250" cy="84" r="4" opacity=".6" />
-        <circle cx="266" cy="84" r="4" opacity=".3" />
+        {[0, 1, 2].map((i) => (
+          <circle key={i} cx={234 + i * 16} cy="84" r="4" opacity={i < leds ? 1 - i * 0.28 : 0.18} />
+        ))}
       </g>
     </svg>
   )
 }
+
+/** Número que sobe até ao valor final (respeita movimento reduzido). */
+function useCountUp(target: number, ms = 700) {
+  const [value, setValue] = useState(target)
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || target === 0) {
+      setValue(target)
+      return
+    }
+    let raf = 0
+    let start = 0
+    const from = 0
+    const tick = (t: number) => {
+      if (!start) start = t
+      const k = Math.min(1, (t - start) / ms)
+      const eased = 1 - Math.pow(1 - k, 3)
+      setValue(Math.round(from + (target - from) * eased))
+      if (k < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, ms])
+  return value
+}
+
+function Metric({ icon: Ic, value, label }: { icon: typeof IconLayers; value: number; label: string }) {
+  const n = useCountUp(value)
+  return (
+    <div className="dx-metric">
+      <i aria-hidden>
+        <Ic size={16} />
+      </i>
+      <span>
+        <b>{n}</b>
+        <small>{label}</small>
+      </span>
+    </div>
+  )
+}
+
+const stagger = (i: number) => ({ ['--i' as string]: i }) as CSSProperties
 
 function Members({ id, fetchMembers }: { id: string; fetchMembers: (id: string) => Promise<{ name: string; email: string }[]> }) {
   const [members, setMembers] = useState<{ name: string; email: string }[] | null>(null)
@@ -81,6 +144,7 @@ export default function Dashboard({
   user,
   projects,
   invites,
+  loading = false,
   onCreate,
   onOpen,
   onInvite,
@@ -91,6 +155,8 @@ export default function Dashboard({
   user: User | null
   projects: Project[]
   invites: Invite[]
+  /** Enquanto a primeira lista de projetos ainda não chegou. */
+  loading?: boolean
   onCreate: (name: string) => Promise<void>
   onOpen: (id: string) => Promise<void>
   onInvite: (id: string, email: string) => Promise<void>
@@ -107,13 +173,24 @@ export default function Dashboard({
   const [expanded, setExpanded] = useState<string | null>(null)
   const [menu, setMenu] = useState<string | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
+  const [closing, setClosing] = useState(false)
 
   const visible = projects.filter(
     (p) => (filter === 'all' || p.role === filter) && p.name.toLocaleLowerCase('pt-PT').includes(query.trim().toLocaleLowerCase('pt-PT')),
   )
   const owned = projects.filter((p) => p.role === 'owner').length
 
+  const closeModal = () => {
+    if (!modal || closing) return
+    setClosing(true)
+    window.setTimeout(() => {
+      setModal(null)
+      setClosing(false)
+    }, 170)
+  }
+
   const openModal = (type: 'create' | 'invite', project?: Project) => {
+    setClosing(false)
     setModal({ type, project })
     setValue('')
     setNotice('')
@@ -129,7 +206,7 @@ export default function Dashboard({
     try {
       if (modal?.type === 'create') await onCreate(text)
       else if (modal?.project) await onInvite(modal.project.id, text)
-      setModal(null)
+      closeModal()
       setValue('')
     } catch (err) {
       setNotice(err instanceof Error ? err.message : 'Não foi possível concluir a operação.')
@@ -150,17 +227,23 @@ export default function Dashboard({
   useEffect(() => {
     if (!modal) return
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !saving) setModal(null)
+      if (e.key === 'Escape' && !saving) closeModal()
     }
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
-  }, [modal, saving])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modal, saving, closing])
 
   useEffect(() => {
     if (!menu) return
     const close = () => setMenu(null)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(null)
     window.addEventListener('click', close)
-    return () => window.removeEventListener('click', close)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('keydown', esc)
+    }
   }, [menu])
 
   const today = new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -177,7 +260,7 @@ export default function Dashboard({
             {greeting()}
             {user ? `, ${user.name.split(' ')[0]}` : ''}.
           </h1>
-          <p>Continue um quadro existente ou comece um novo projeto em 3D.</p>
+          <p>Continue um quadro existente ou comece um novo projeto.</p>
         </div>
         <div className="dx-dash-side">
           <span className="dx-dash-date">{today}</span>
@@ -188,22 +271,10 @@ export default function Dashboard({
       </div>
 
       <div className="dx-metrics">
-        {[
-          [IconLayers, projects.length, 'Projetos acessíveis'],
-          [IconFile, owned, 'Da sua autoria'],
-          [IconProjects, projects.length - owned, 'Partilhados consigo'],
-          [IconTag, invites.length, 'Convites pendentes'],
-        ].map(([Ic, n, label]) => (
-          <div className="dx-metric" key={String(label)}>
-            <i aria-hidden>
-              {(Ic as typeof IconLayers)({ size: 16 })}
-            </i>
-            <span>
-              <b>{n as number}</b>
-              <small>{label as string}</small>
-            </span>
-          </div>
-        ))}
+        <Metric icon={IconLayers} value={projects.length} label="Projetos acessíveis" />
+        <Metric icon={IconFile} value={owned} label="Da sua autoria" />
+        <Metric icon={IconProjects} value={projects.length - owned} label="Partilhados consigo" />
+        <Metric icon={IconTag} value={invites.length} label="Convites pendentes" />
       </div>
 
       {invites.length > 0 && (
@@ -252,7 +323,23 @@ export default function Dashboard({
       </div>
 
       <div className="dx-projects">
-        {projects.length > 0 && (filter !== 'editor' || visible.length > 0) && (
+        {loading &&
+          [0, 1, 2, 3, 4, 5].map((i) => (
+            <div className="dx-skel" key={i} style={stagger(i)} aria-hidden>
+              <div className="dx-skel-art" />
+              <div className="dx-skel-body">
+                <i style={{ width: '62%' }} />
+                <i style={{ width: '38%' }} />
+                <i className="btn" />
+              </div>
+            </div>
+          ))}
+        {loading && (
+          <span className="dx-sr" role="status">
+            A carregar projetos…
+          </span>
+        )}
+        {!loading && projects.length > 0 && (filter !== 'editor' || visible.length > 0) && (
           <button className="dx-proj-new" onClick={() => openModal('create')} style={visible.length === 0 && projects.length > 0 ? { display: 'none' } : undefined}>
             <span className="plus" aria-hidden>
               +
@@ -264,10 +351,16 @@ export default function Dashboard({
           </button>
         )}
 
-        {visible.map((p, index) => (
-          <article className="dx-card dx-card-hover dx-proj" key={p.id}>
-            <div className="dx-proj-art">
-              <PanelPreview variant={index} />
+        {!loading &&
+          visible.map((p, index) => (
+          <article className="dx-card dx-card-hover dx-proj" key={p.id} style={stagger(index + 1)}>
+            <div
+              className="dx-proj-art"
+              onClick={(e) => {
+                if (!(e.target as HTMLElement).closest('button')) void open(p.id)
+              }}
+            >
+              <PanelPreview seed={p.id} />
               <span className="dx-proj-badge">{p.role === 'owner' ? 'Meu projeto' : 'Partilhado'}</span>
               {p.role === 'owner' && (
                 <div className="dx-menu-wrap" onClick={(e) => e.stopPropagation()}>
@@ -305,7 +398,9 @@ export default function Dashboard({
               )}
             </div>
             <div className="dx-proj-body">
-              <h3 title={p.name}>{p.name}</h3>
+              <h3 title={p.name} onClick={() => void open(p.id)}>
+                {p.name}
+              </h3>
               <div className="dx-proj-meta">
                 <span>por {p.owner}</span>
                 <span>·</span>
@@ -314,8 +409,14 @@ export default function Dashboard({
                 <span>{new Date(p.updated_at).toLocaleDateString('pt-PT')}</span>
               </div>
               <div className="dx-proj-actions">
-                <button className="dx-btn dx-btn-primary" disabled={opening === p.id} onClick={() => void open(p.id)}>
-                  {opening === p.id ? 'A abrir…' : 'Abrir no editor 3D'}
+                <button className="dx-btn dx-btn-secondary dx-proj-open" disabled={opening === p.id} onClick={() => void open(p.id)}>
+                  {opening === p.id ? (
+                    <>
+                      <span className="dx-spin" aria-hidden /> A abrir…
+                    </>
+                  ) : (
+                    'Abrir no editor 3D'
+                  )}
                 </button>
                 {p.role === 'owner' && (
                   <button className="dx-btn dx-btn-secondary" title="Convidar editor" aria-label={`Convidar editor para ${p.name}`} onClick={() => openModal('invite', p)}>
@@ -328,7 +429,7 @@ export default function Dashboard({
           </article>
         ))}
 
-        {projects.length > 0 && visible.length === 0 && (
+        {!loading && projects.length > 0 && visible.length === 0 && (
           <div className="dx-empty">
             <div className="dx-empty-ic">
               <IconSearch size={24} />
@@ -347,7 +448,7 @@ export default function Dashboard({
           </div>
         )}
 
-        {projects.length === 0 && (
+        {!loading && projects.length === 0 && (
           <div className="dx-empty">
             <div className="dx-empty-ic" style={{ background: 'transparent' }}>
               <LogoMark size={44} />
@@ -363,13 +464,13 @@ export default function Dashboard({
 
       {modal && (
         <div
-          className="dx-overlay"
+          className={'dx-overlay' + (closing ? ' is-closing' : '')}
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !saving) setModal(null)
+            if (e.target === e.currentTarget && !saving) closeModal()
           }}
         >
           <div className="dx-dialog" role="dialog" aria-modal="true" aria-labelledby="dx-dialog-title">
-            <button className="dx-btn dx-btn-ghost dx-btn-sm dx-dialog-close" aria-label="Fechar" disabled={saving} onClick={() => setModal(null)}>
+            <button className="dx-btn dx-btn-ghost dx-btn-sm dx-dialog-close" aria-label="Fechar" disabled={saving} onClick={closeModal}>
               ×
             </button>
             <div className="dx-empty-ic" style={{ margin: 0, width: 44, height: 44 }}>
@@ -402,11 +503,19 @@ export default function Dashboard({
                 </div>
               )}
               <div className="dx-dialog-actions">
-                <button type="button" className="dx-btn dx-btn-ghost" disabled={saving} onClick={() => setModal(null)}>
+                <button type="button" className="dx-btn dx-btn-ghost" disabled={saving} onClick={closeModal}>
                   Cancelar
                 </button>
                 <button type="submit" className="dx-btn dx-btn-primary" disabled={saving || !value.trim()}>
-                  {saving ? 'A guardar…' : modal.type === 'create' ? 'Criar projeto' : 'Enviar convite'}
+                  {saving ? (
+                    <>
+                      <span className="dx-spin" aria-hidden /> A guardar…
+                    </>
+                  ) : modal.type === 'create' ? (
+                    'Criar projeto'
+                  ) : (
+                    'Enviar convite'
+                  )}
                 </button>
               </div>
             </form>

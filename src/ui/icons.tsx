@@ -295,6 +295,11 @@ export const IconChevronRight = (p: IconProps) => (
     <path d="M9 6l6 6-6 6" />
   </Svg>
 )
+export const IconArrowRight = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </Svg>
+)
 export const IconLock = (p: IconProps) => (
   <Svg {...p}>
     <rect x="5" y="10.5" width="14" height="10" rx="1.5" />

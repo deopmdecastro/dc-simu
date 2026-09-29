@@ -1,6 +1,6 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, type CSSProperties } from 'react'
 import Logo, { LogoMark } from '../ui/Brand'
-import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects } from '../ui/icons'
+import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight } from '../ui/icons'
 
 /** Viewport 3D real do produto — carregado só quando entra em vista (performance). */
 const LandingShowcase = lazy(() => import('../three/LandingShowcase'))
@@ -55,6 +55,18 @@ const FAQ = [
   { q: 'Posso trabalhar em equipa?', a: 'Sim. O proprietário convida editores, que passam a ver o projeto na sua área de trabalho.' },
   { q: 'Que circuitos posso simular?', a: 'Comandos elétricos industriais: proteções, contactores, relés, fontes, motores e PLC, com lógica Ladder e GRAFCET.' },
 ]
+
+const LINKS: [string, string][] = [
+  ['#produto', 'Produto'],
+  ['#editor', 'Editor'],
+  ['#biblioteca', 'Biblioteca'],
+  ['#fluxo', 'Como funciona'],
+  ['#para-quem', 'Para quem'],
+  ['#faq', 'FAQ'],
+]
+
+/** Estilo inline com o índice de escalonamento usado pelas animações CSS. */
+const stagger = (i: number) => ({ ['--i' as string]: i }) as CSSProperties
 
 /* ====================================================== símbolos técnicos */
 
@@ -197,19 +209,28 @@ function HeroViewport() {
       </div>
       <div className="dx-window-stage">
         {visible ? (
-          <Suspense fallback={<div className="dc-showcase-fallback">A carregar modelos 3D…</div>}>
-            <LandingShowcase compact />
+          <Suspense
+            fallback={
+              <div className="dx-stage-skeleton" role="status">
+                <span className="dx-spin" aria-hidden />
+                A carregar modelos 3D…
+              </div>
+            }
+          >
+            <div className="dx-stage-in">
+              <LandingShowcase compact />
+            </div>
           </Suspense>
         ) : (
-          <div className="dc-showcase-fallback">Painel 3D</div>
+          <div className="dx-stage-skeleton" aria-hidden />
         )}
       </div>
       <div className="dx-window-foot">
         <b>
           <i aria-hidden /> Simulação ativa
         </b>
-        <span>Fonte 24 V → PLC LOGO! → Contator KM1</span>
-        <span className="end">3 equipamentos · 4 ligações · snap 1 mm</span>
+        <span>Fonte 24 V → LOGO! → KM1</span>
+        <span className="end">3 equipamentos · 4 ligações</span>
       </div>
     </div>
   )
@@ -263,9 +284,10 @@ function EditorAnatomy() {
             </g>
             {/* bobina energizada */}
             <g fill="#eef4ff" stroke="#2655e5" strokeWidth="2">
-              <circle cx="286" cy="150" r="11" />
+              <circle className="dx-coil" cx="286" cy="150" r="11" />
             </g>
             <path d="M60 150h215" stroke="#2655e5" strokeWidth="2" fill="none" />
+            <path className="dx-flow" d="M60 150h215" stroke="#ffffff" strokeOpacity=".9" strokeWidth="2" strokeLinecap="round" fill="none" />
             <g fill="none" stroke="#94a3b8" strokeWidth="1.6">
               <circle cx="222" cy="70" r="11" />
               <circle cx="222" cy="230" r="11" />
@@ -306,25 +328,63 @@ function EditorAnatomy() {
 export default function Landing({ onRegister, onLogin }: { onRegister: () => void; onLogin: () => void }) {
   const [menu, setMenu] = useState(false)
   const [cat, setCat] = useState('Todos')
+  const [swapped, setSwapped] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const [active, setActive] = useState('')
   useReveal()
-  const links = [
-    ['#produto', 'Produto'],
-    ['#editor', 'Editor'],
-    ['#biblioteca', 'Biblioteca'],
-    ['#fluxo', 'Como funciona'],
-    ['#para-quem', 'Para quem'],
-    ['#faq', 'FAQ'],
-  ]
+
+  // navegação: sombra/borda depois de sair do topo
+  useEffect(() => {
+    const onScroll = () => {
+      setScrolled(window.scrollY > 8)
+      if (window.scrollY < 240) setActive('')
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // scrollspy: destaca a secção que ocupa o meio do ecrã
+  useEffect(() => {
+    if (!('IntersectionObserver' in window)) return
+    const io = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) setActive(e.target.id)
+        }),
+      { rootMargin: '-45% 0px -50% 0px' },
+    )
+    LINKS.forEach(([href]) => {
+      const el = document.getElementById(href.slice(1))
+      if (el) io.observe(el)
+    })
+    return () => io.disconnect()
+  }, [])
+
+  // Esc fecha o menu móvel
+  useEffect(() => {
+    if (!menu) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [menu])
+
+  const links = LINKS
+  const pickCat = (c: string) => {
+    if (c === cat) return
+    setCat(c)
+    setSwapped(true)
+  }
   const visibleLib = LIBRARY.filter((c) => cat === 'Todos' || c.c === cat)
 
   return (
     <div className="dx dx-landing">
-      <nav className="dx-nav">
+      <nav className={'dx-nav' + (scrolled ? ' is-scrolled' : '')}>
         <div className="dx-wrap dx-nav-in">
           <Logo size={32} />
           <div className="dx-nav-links">
             {links.map(([href, label]) => (
-              <a key={href} href={href}>
+              <a key={href} href={href} aria-current={active === href.slice(1) ? 'true' : undefined}>
                 {label}
               </a>
             ))}
@@ -336,7 +396,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
             <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={onRegister}>
               Começar <span className="dx-long">gratuitamente</span>
             </button>
-            <button className="dx-burger" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+            <button className="dx-burger" aria-label={menu ? 'Fechar menu' : 'Abrir menu'} aria-expanded={menu} onClick={() => setMenu(!menu)}>
               <i />
               <i />
               <i />
@@ -344,18 +404,20 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           </div>
         </div>
         <div className={'dx-mobile-menu' + (menu ? ' open' : '')} onClick={() => setMenu(false)}>
-          {links.map(([href, label]) => (
-            <a key={href} href={href}>
-              {label}
-            </a>
-          ))}
-          <div className="dx-mobile-cta">
-            <button className="dx-btn dx-btn-secondary" onClick={onLogin}>
-              Entrar
-            </button>
-            <button className="dx-btn dx-btn-primary" onClick={onRegister}>
-              Começar
-            </button>
+          <div className="dx-mobile-inner">
+            {links.map(([href, label], i) => (
+              <a key={href} href={href} style={stagger(i)}>
+                {label}
+              </a>
+            ))}
+            <div className="dx-mobile-cta">
+              <button className="dx-btn dx-btn-secondary" onClick={onLogin}>
+                Entrar
+              </button>
+              <button className="dx-btn dx-btn-primary" onClick={onRegister}>
+                Começar
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -364,14 +426,15 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
       <header className="dx-hero">
         <div className="dx-wrap dx-hero-in">
           <div className="dx-hero-copy">
-            <span className="dx-pill">Crie · configure · valide — antes da obra</span>
+            <span className="dx-over">Crie · configure · valide — antes da obra</span>
             <h1>
               Desenhe quadros elétricos <em>em 3D.</em>
             </h1>
-            <p>Crie e configure os seus quadros elétricos num ambiente 3D profissional — esquema, lógica de comando e simulação no mesmo projeto.</p>
+            <p>Monte o quadro em 3D com modelos CAD reais, desenhe o esquema, programe a lógica e simule o comando — tudo no mesmo projeto.</p>
             <div className="dx-hero-actions">
               <button className="dx-btn dx-btn-primary dx-btn-lg" onClick={onRegister}>
                 Começar gratuitamente
+                <IconArrowRight size={16} className="dx-arrow" />
               </button>
               <a className="dx-btn dx-btn-secondary dx-btn-lg" href="#produto">
                 Ver como funciona
@@ -389,6 +452,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
 
       <div className="dx-strip" aria-hidden>
         <div className="dx-wrap">
+          <span className="lbl">Na biblioteca</span>
           <span>Proteção</span>
           <span>Contactores</span>
           <span>Relés</span>
@@ -404,24 +468,24 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
             <span className="dx-over">O problema</span>
-            <h2>Projetar um quadro ainda se faz com papel, fita métrica e sorte.</h2>
-            <p>Entre o esquema no CAD, a lista de material numa folha de cálculo e a montagem na bancada, perde-se tempo — e descobrem-se erros tarde demais.</p>
+            <h2>Os problemas de um quadro costumam aparecer tarde demais.</h2>
+            <p>O esquema vive num CAD, a lista de material numa folha de cálculo e a montagem só acontece na bancada. Cada passagem entre ferramentas é uma oportunidade de erro.</p>
           </div>
           <div className="dx-compare">
             <div className="dx-compare-col is-before" data-rv>
               <span className="dx-compare-tag">Antes</span>
               <h3>Sem DC-SIMU</h3>
               <ul>
-                <li>
+                <li style={stagger(0)}>
                   <b>Espaço mal calculado</b> — o material não cabe na calha.
                 </li>
-                <li>
+                <li style={stagger(1)}>
                   <b>Erros de ligação</b> só detetados com o quadro já montado.
                 </li>
-                <li>
+                <li style={stagger(2)}>
                   <b>Lógica por validar</b> — o PLC só é testado em obra.
                 </li>
-                <li>
+                <li style={stagger(3)}>
                   <b>Documentação dispersa</b> por ficheiros e versões.
                 </li>
               </ul>
@@ -430,16 +494,16 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
               <span className="dx-compare-tag">Depois</span>
               <h3>Com DC-SIMU</h3>
               <ul>
-                <li>
+                <li style={stagger(0)}>
                   <b>Quadro em 3D à escala</b> com modelos CAD do fabricante.
                 </li>
-                <li>
+                <li style={stagger(1)}>
                   <b>Verificação de ligações</b> enquanto desenha o esquema.
                 </li>
-                <li>
+                <li style={stagger(2)}>
                   <b>Simulação do comando</b> em Ladder e GRAFCET, antes da obra.
                 </li>
-                <li>
+                <li style={stagger(3)}>
                   <b>Material e datasheets</b> gerados a partir do próprio projeto.
                 </li>
               </ul>
@@ -453,7 +517,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
             <span className="dx-over">O estúdio completo</span>
-            <h2>Três vistas. Um único modelo de dados.</h2>
+            <h2>Esquema, Ladder e painel 3D sobre o mesmo modelo.</h2>
             <p>O esquema elétrico, a lógica Ladder e o painel 3D leem e escrevem o mesmo ficheiro — o que edita num sítio aparece instantaneamente nos outros.</p>
           </div>
           <div className="dx-studio-grid">
@@ -462,28 +526,28 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
             </div>
             <ul className="dx-studio-side" data-rv>
               <li>
-                <span className="idx">1</span>
+                <span className="idx">01</span>
                 <div>
                   <h3>Sincronização total</h3>
                   <p>Esquema ↔ Painel 3D ↔ Ladder: os bornes, cabos e referências são os mesmos em todas as vistas.</p>
                 </div>
               </li>
               <li>
-                <span className="idx">2</span>
+                <span className="idx">02</span>
                 <div>
                   <h3>Diagnóstico em tempo real</h3>
                   <p>Erros de ligação, fases em falta e conflitos de endereços assinalados enquanto trabalha.</p>
                 </div>
               </li>
               <li>
-                <span className="idx">3</span>
+                <span className="idx">03</span>
                 <div>
                   <h3>Medição e cenários</h3>
                   <p>Sonda de continuidade, injeção de falhas e cenários de arranque prontos a executar.</p>
                 </div>
               </li>
               <li>
-                <span className="idx">4</span>
+                <span className="idx">04</span>
                 <div>
                   <h3>Exportação para produção</h3>
                   <p>Lista de material em CSV, etiquetas de bornes e esquema final — sem transcrever nada.</p>
@@ -505,26 +569,26 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           <div className="dx-lib-toolbar" data-rv>
             <div className="dx-lib-filters">
               {CATEGORIES.map((c) => (
-                <button key={c} className="dx-filter" aria-pressed={cat === c} onClick={() => setCat(c)}>
+                <button key={c} className="dx-filter" aria-pressed={cat === c} onClick={() => pickCat(c)}>
                   {c}
                 </button>
               ))}
             </div>
-            <span className="dx-lib-count">{visibleLib.length} itens</span>
+            <span className="dx-lib-count" aria-live="polite">
+              {visibleLib.length} {visibleLib.length === 1 ? 'item' : 'itens'}
+            </span>
           </div>
-          <div className="dx-lib-grid" data-rv>
-            {visibleLib.map((c) => (
-              <article className="dx-lib-card" key={c.n}>
+          <div className={'dx-lib-grid' + (swapped ? ' is-swap' : '')} data-rv>
+            {visibleLib.map((c, i) => (
+              <article className="dx-lib-card" key={cat + c.n} style={stagger(i)}>
                 <div className="dx-lib-thumb" aria-hidden>
                   <LibSymbol s={c.s} />
+                  <span className="dx-lib-3d">3D</span>
                 </div>
                 <div className="dx-lib-body">
                   <b>{c.n}</b>
                   <small>{c.m}</small>
-                  <div className="dx-lib-tags">
-                    <span>{c.c}</span>
-                    <span className="acc">3D</span>
-                  </div>
+                  <span className="dx-lib-cat">{c.c}</span>
                 </div>
               </article>
             ))}
@@ -542,8 +606,8 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           </div>
           <ol className="dx-steps" data-rv>
             {FLOW.map(([t, d], i) => (
-              <li key={t}>
-                <span className="n">{i + 1}</span>
+              <li key={t} style={stagger(i)}>
+                <span className="n">{String(i + 1).padStart(2, '0')}</span>
                 <b>{t}</b>
                 <small>{d}</small>
               </li>
@@ -557,12 +621,12 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
         <div className="dx-wrap">
           <div className="dx-head" data-rv>
             <span className="dx-over">Funcionalidades</span>
-            <h2>Uma ferramenta de engenharia, não mais um editor genérico.</h2>
+            <h2>Feito para a engenharia de quadros elétricos.</h2>
             <p>Tudo o que precisa para desenhar, testar e documentar um quadro elétrico — no mesmo ambiente.</p>
           </div>
-          <div className="dx-cards">
+          <div className="dx-cards" data-rv>
             {FEATURES.map((f, i) => (
-              <article key={f.t} data-rv style={{ transitionDelay: `${(i % 3) * 60}ms` }}>
+              <article key={f.t} style={stagger(i % 3)}>
                 <div className="dx-ic" aria-hidden>
                   <f.i size={20} />
                 </div>
@@ -583,8 +647,8 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
             <p>Da bancada à sala de projeto, o mesmo ficheiro acompanha todas as fases do trabalho.</p>
           </div>
           <div className="dx-who" data-rv>
-            {WHO.map((w) => (
-              <div key={w.t}>
+            {WHO.map((w, i) => (
+              <div key={w.t} style={stagger(i % 3)}>
                 <b>{w.t}</b>
                 <p>{w.d}</p>
               </div>
@@ -616,7 +680,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
         <div className="dx-wrap dx-wrap-narrow">
           <div className="dx-head" data-rv>
             <span className="dx-over">Perguntas frequentes</span>
-            <h2>Tudo o que precisa de saber para começar.</h2>
+            <h2>Antes de começar.</h2>
           </div>
           <div data-rv>
             {FAQ.map((f) => (
@@ -639,6 +703,7 @@ export default function Landing({ onRegister, onLogin }: { onRegister: () => voi
           <div className="dx-cta-actions">
             <button className="dx-btn dx-btn-white dx-btn-lg" onClick={onRegister}>
               Começar gratuitamente
+              <IconArrowRight size={16} className="dx-arrow" />
             </button>
             <button className="dx-btn dx-btn-outline-white dx-btn-lg" onClick={onLogin}>
               Já tenho conta

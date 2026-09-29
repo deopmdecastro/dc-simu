@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import App from './App'
 import Logo from './ui/Brand'
+import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight } from './ui/icons'
 import Landing from './landing/Landing'
 import Dashboard, { type User, type Project, type Invite } from './dashboard/Dashboard'
 import { useSimStore } from './store/useSimStore'
@@ -22,6 +23,7 @@ export default function Account() {
   const [page, setPage] = useState<'landing' | 'login' | 'register' | 'dashboard' | 'editor' | 'admin'>('landing')
   const [projects, setProjects] = useState<Project[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [open, setOpen] = useState<Open | null>(null)
   const openRef = useRef<Open | null>(null)
   const [message, setMessage] = useState('')
@@ -29,7 +31,7 @@ export default function Account() {
   const [form, setForm] = useState({ name: '', email: '', password: '' })
 
   const refresh = useCallback(async () => {
-    const [p, i] = await Promise.all([api<Project[]>('/projects'), api<Invite[]>('/invitations')]); setProjects(p); setInvites(i)
+    try { const [p, i] = await Promise.all([api<Project[]>('/projects'), api<Invite[]>('/invitations')]); setProjects(p); setInvites(i) } finally { setLoaded(true) }
   }, [])
   useEffect(() => { api<{user:User}>('/me').then(r => { setUser(r.user); setPage('dashboard'); refresh().catch(e => setMessage(e.message)) }).catch(() => {}).finally(() => setReady(true)) }, [refresh])
   // limpa a notificação automaticamente — feedback discreto, sem ruído permanente
@@ -69,7 +71,7 @@ export default function Account() {
     try {await api('/projects/'+p.id,'DELETE');await refresh()}catch(e){error(e)}
   }
   async function logout() {
-    try {await api('/logout','POST');useSimStore.getState().newProject();setUser(null);setOpen(null);openRef.current=null;setProjects([]);setInvites([]);setPage('landing');setMessage('')}catch(e){error(e)}
+    try {await api('/logout','POST');useSimStore.getState().newProject();setUser(null);setOpen(null);openRef.current=null;setProjects([]);setInvites([]);setLoaded(false);setPage('landing');setMessage('')}catch(e){error(e)}
   }
   const fetchMembers = useCallback(async (id: string) => (await api<{members:{name:string;email:string}[]}>('/projects/'+id+'/members')).members, [])
 
@@ -79,7 +81,7 @@ export default function Account() {
     window.addEventListener('keydown',handle);return()=>window.removeEventListener('keydown',handle)
   },[page])
 
-  if (!ready) return <div className="dx" style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'var(--dx-bg)'}}><div style={{textAlign:'center',display:'grid',gap:12,justifyItems:'center'}}><Logo size={34}/><span style={{fontSize:13,color:'var(--dx-ink-3)'}}>A preparar o seu espaço de trabalho…</span></div></div>
+  if (!ready) return <div className="dx" style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'var(--dx-bg)'}}><div style={{textAlign:'center',display:'grid',gap:12,justifyItems:'center'}}><Logo size={34}/><span style={{display:'inline-flex',alignItems:'center',gap:10,fontSize:13,color:'var(--dx-ink-3)'}}><span className="dx-spin" aria-hidden/>A preparar o seu espaço de trabalho…</span></div></div>
 
   if (page==='editor' && open) return <>
     <div className="account-bar dx">
@@ -94,7 +96,7 @@ export default function Account() {
         <button className="dx-bar-primary" onClick={()=>void save()} title="Guardar (Ctrl+S)">Guardar</button>
       </div>
     </div>
-    <div style={{height:'calc(100vh - 42px)'}}><App onBack={()=>void leave()} onSave={()=>void save()}/></div>
+    <div className="dx-editor-in" style={{height:'calc(100vh - 42px)'}}><App onBack={()=>void leave()} onSave={()=>void save()}/></div>
   </>
 
   if (page==='landing') return <Landing onRegister={()=>{setMessage('');setPage('register')}} onLogin={()=>{setMessage('');setPage('login')}}/>
@@ -114,7 +116,7 @@ export default function Account() {
     </header>}
     {(page==='login'||page==='register')&&<AuthScreen mode={page} form={form} setForm={setForm} busy={busy} message={message} clearMessage={()=>setMessage('')} onSubmit={authenticate} onSwitch={()=>{setMessage('');setPage(page==='register'?'login':'register')}} onHome={()=>{setMessage('');setPage('landing')}}/>}
     {page==='admin'&&user?.role==='admin'&&<AdminPanel onBack={()=>setPage('dashboard')}/>}
-    {page==='dashboard'&&<Dashboard user={user} projects={projects} invites={invites} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove} fetchMembers={fetchMembers}/>}
+    {page==='dashboard'&&<Dashboard user={user} projects={projects} invites={invites} loading={!loaded} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove} fetchMembers={fetchMembers}/>}
     {message && page!=='login' && page!=='register' && <div className="dx-toast" role="status">{message}<button onClick={()=>setMessage('')} aria-label="Fechar">×</button></div>}
   </main>
 }
@@ -130,16 +132,16 @@ function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwit
     <aside className="dx-auth-side">
       <button className="dx-auth-logo" onClick={onHome} aria-label="Voltar ao início"><Logo/></button>
       <div className="dx-auth-pitch">
-        <h2>{reg?<>O próximo quadro<br/><em>começa aqui.</em></>:<>Projete o quadro.<br/><em>Veja-o ganhar vida.</em></>}</h2>
-        <p>{reg?'Crie uma conta e monte o seu primeiro quadro elétrico em 3D em menos de um minuto.':'Retome o esquema, a lógica Ladder e o painel 3D exatamente onde os deixou.'}</p>
+        <h2>{reg?<>O próximo quadro<br/><em>começa aqui.</em></>:<>Retome o trabalho<br/><em>onde o deixou.</em></>}</h2>
+        <p>{reg?'Crie uma conta e monte o seu primeiro quadro elétrico em 3D em menos de um minuto.':'O esquema, a lógica Ladder e o painel 3D ficam exatamente como os guardou.'}</p>
         <ul>
-          <li><i aria-hidden>⌁</i>Esquema elétrico com bornes e cabos reais</li>
-          <li><i aria-hidden>▤</i>Ladder com simulação do scan do PLC</li>
-          <li><i aria-hidden>▣</i>Painel 3D sincronizado com o projeto</li>
-          <li><i aria-hidden>⇄</i>Projetos partilhados com a equipa</li>
+          <li style={{'--i':0} as React.CSSProperties}><i aria-hidden><IconSchematic size={16}/></i>Esquema elétrico com bornes e cabos reais</li>
+          <li style={{'--i':1} as React.CSSProperties}><i aria-hidden><IconLadder size={16}/></i>Ladder com simulação do scan do PLC</li>
+          <li style={{'--i':2} as React.CSSProperties}><i aria-hidden><IconCube size={16}/></i>Painel 3D sincronizado com o projeto</li>
+          <li style={{'--i':3} as React.CSSProperties}><i aria-hidden><IconProjects size={16}/></i>Projetos partilhados com a equipa</li>
         </ul>
       </div>
-      <div className="dx-auth-status"><span className="dx-auth-run"><i/>RUN</span>Os seus projetos ficam guardados no servidor.</div>
+      <div className="dx-auth-status"><span className="dx-auth-run"><IconLock size={14}/>Os seus projetos ficam guardados no servidor.</span></div>
     </aside>
     <section className="dx-auth-main"><div className="dx-auth-panel">
       <div className="dx-auth-mobile">
@@ -161,7 +163,7 @@ function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwit
           </div>
         </label>
         {reg&&<div className="dx-auth-meter" aria-live="polite"><div className={'s'+strength}><i/><i/><i/></div><small>{labels[strength]||'Use pelo menos 10 caracteres'}</small></div>}
-        <button className="dx-btn dx-btn-primary dx-btn-lg" style={{width:'100%'}} disabled={busy}>{busy?'Aguarde…':reg?'Criar conta':'Entrar'}{!busy&&<span aria-hidden>→</span>}</button>
+        <button className="dx-btn dx-btn-primary dx-btn-lg" style={{width:'100%'}} disabled={busy}>{busy?<><span className="dx-spin" aria-hidden/>Aguarde…</>:<>{reg?'Criar conta':'Entrar'}<IconArrowRight size={16} className="dx-arrow"/></>}</button>
       </form>
       <p className="dx-auth-switch">{reg?'Já tem conta?':'Ainda não tem conta?'} <button onClick={onSwitch}>{reg?'Entrar':'Criar conta grátis'}</button></p>
     </div></section>

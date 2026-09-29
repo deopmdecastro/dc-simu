@@ -19,7 +19,7 @@
 .dx-dash-head h1 {
   margin: var(--dx-2) 0 6px;
   font-size: 28px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.025em;
   color: var(--dx-ink);
@@ -37,8 +37,12 @@
 .dx-dash-date {
   font-size: var(--dx-t-xs);
   font-weight: 500;
-  color: var(--dx-ink-4);
-  text-transform: capitalize;
+  color: var(--dx-ink-3);
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+.dx-dash-date::first-letter {
+  text-transform: uppercase;
 }
 
 /* métricas: um único cartão com quatro células ----------------------------*/
@@ -65,19 +69,26 @@
   flex: none;
   width: 36px;
   height: 36px;
+  border: 1px solid var(--dx-line);
   border-radius: var(--dx-r);
   display: grid;
   place-items: center;
-  background: var(--dx-brand-soft);
+  background: var(--dx-surface);
   color: var(--dx-brand);
+  transition: background var(--dx-med), border-color var(--dx-med);
+}
+.dx-metric:hover i {
+  background: var(--dx-brand-soft);
+  border-color: var(--dx-brand-line);
 }
 .dx-metric b {
   display: block;
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--dx-ink);
+  font-variant-numeric: tabular-nums;
 }
 .dx-metric small {
   display: block;
@@ -113,6 +124,7 @@
   color: var(--dx-brand-900);
 }
 .dx-invite-row {
+  animation: dx-drop 320ms var(--dx-ease-out) backwards;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -193,14 +205,30 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--dx-4);
 }
+.dx-projects > .dx-proj,
+.dx-projects > .dx-proj-new,
+.dx-projects > .dx-skel {
+  animation: dx-pop 460ms var(--dx-ease-out) backwards;
+  animation-delay: calc(80ms + var(--i, 0) * 50ms);
+}
 .dx-proj {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
+.dx-proj-open {
+  transition: background var(--dx-fast), border-color var(--dx-fast), color var(--dx-fast), box-shadow var(--dx-fast), transform var(--dx-fast);
+}
+.dx-proj:hover .dx-proj-open:not([disabled]) {
+  background: var(--dx-brand);
+  border-color: var(--dx-brand);
+  color: #fff;
+}
 .dx-proj-art {
   position: relative;
   height: 140px;
+  overflow: hidden;
+  cursor: pointer;
   background: var(--dx-surface-2);
   border-bottom: 1px solid var(--dx-line-soft);
 }
@@ -208,13 +236,17 @@
   display: block;
   width: 100%;
   height: 100%;
+  transition: transform 700ms var(--dx-ease-out);
+}
+.dx-proj:hover .dx-proj-art > svg {
+  transform: scale(1.04);
 }
 .dx-proj-badge {
   position: absolute;
   left: 12px;
   top: 12px;
-  padding: 3px 9px;
-  border-radius: var(--dx-r-pill);
+  padding: 3px 8px;
+  border-radius: 5px;
   background: var(--dx-surface);
   border: 1px solid var(--dx-line);
   font-size: 11px;
@@ -236,7 +268,10 @@
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
-  transition: background var(--dx-fast), border-color var(--dx-fast);
+  transition: background var(--dx-fast), border-color var(--dx-fast), color var(--dx-fast), transform var(--dx-fast);
+}
+.dx-icon-btn:active {
+  transform: scale(0.94);
 }
 .dx-icon-btn:hover {
   background: var(--dx-brand-soft);
@@ -254,6 +289,18 @@
   border: 1px solid var(--dx-line);
   border-radius: var(--dx-r);
   box-shadow: var(--dx-sh);
+  transform-origin: top right;
+  animation: dx-menu-in 170ms var(--dx-ease-out) both;
+}
+@keyframes dx-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .dx-menu button {
   display: block;
@@ -268,6 +315,7 @@
   font-weight: 500;
   color: var(--dx-ink-2);
   cursor: pointer;
+  transition: background var(--dx-fast), color var(--dx-fast);
 }
 .dx-menu button:hover {
   background: var(--dx-brand-soft);
@@ -296,6 +344,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color var(--dx-fast);
+}
+.dx-proj:hover .dx-proj-body h3 {
+  color: var(--dx-brand-700);
 }
 .dx-proj-meta {
   display: flex;
@@ -330,6 +383,14 @@
 .dx-proj-new:hover {
   border-color: var(--dx-brand);
   background: var(--dx-brand-soft);
+}
+.dx-proj-new .plus {
+  transition: transform var(--dx-med), background var(--dx-fast), color var(--dx-fast);
+}
+.dx-proj-new:hover .plus {
+  transform: rotate(90deg);
+  background: var(--dx-brand);
+  color: #fff;
 }
 .dx-proj-new .plus {
   flex: none;
@@ -367,6 +428,7 @@
   border-top: 1px solid var(--dx-line-soft);
   font-size: var(--dx-t-xs);
   color: var(--dx-ink-3);
+  animation: dx-drop 260ms var(--dx-ease-out) both;
 }
 .dx-members > div {
   display: flex;
@@ -401,6 +463,7 @@
   background: var(--dx-surface);
   border: 1px solid var(--dx-line);
   border-radius: var(--dx-r-lg);
+  animation: dx-pop 420ms var(--dx-ease-out) backwards;
 }
 .dx-empty-ic {
   width: 52px;
@@ -434,7 +497,26 @@
   display: grid;
   place-items: center;
   padding: var(--dx-4);
-  background: rgba(23, 32, 46, 0.45);
+  background: rgba(23, 32, 46, 0.42);
+  backdrop-filter: blur(3px);
+  animation: dx-fade 200ms var(--dx-ease) both;
+}
+.dx-overlay.is-closing {
+  animation: dx-fade-out 170ms var(--dx-ease) forwards;
+}
+.dx-overlay.is-closing .dx-dialog {
+  animation: dx-dialog-out 170ms var(--dx-ease) forwards;
+}
+@keyframes dx-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes dx-dialog-out {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
 }
 .dx-dialog {
   position: relative;
@@ -444,6 +526,7 @@
   background: var(--dx-surface);
   border-radius: var(--dx-r-lg);
   box-shadow: var(--dx-sh-lg);
+  animation: dx-pop 300ms var(--dx-ease-out) both;
 }
 .dx-dialog-close {
   position: absolute;
@@ -454,7 +537,7 @@
 .dx-dialog h2 {
   margin: var(--dx-3) 0 6px;
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 .dx-dialog > p {
@@ -473,4 +556,41 @@
   justify-content: flex-end;
   gap: var(--dx-2);
   margin-top: var(--dx-2);
+}
+
+/* esqueleto de carregamento dos cartões ------------------------------------*/
+.dx-skel {
+  overflow: hidden;
+  background: var(--dx-surface);
+  border: 1px solid var(--dx-line);
+  border-radius: var(--dx-r-lg);
+}
+.dx-skel-art,
+.dx-skel-body i {
+  background: linear-gradient(100deg, var(--dx-surface-2) 30%, #ffffff 50%, var(--dx-surface-2) 70%) 200% 0 / 200% 100%;
+  animation: dx-sheen 1.5s linear infinite;
+}
+.dx-skel-art {
+  height: 140px;
+  border-bottom: 1px solid var(--dx-line-soft);
+}
+.dx-skel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--dx-4);
+}
+.dx-skel-body i {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+}
+.dx-skel-body i.btn {
+  height: 40px;
+  margin-top: 6px;
+  border-radius: var(--dx-r);
+}
+
+.dx-proj-open {
+  flex: 1;
 }
