@@ -689,7 +689,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     return (
       <g key={w.id}>
         {/* halo de seleção e brilho de energia por BAIXO — a cor do cabo fica sempre visível */}
-        {selected && <path d={d} fill="none" stroke="#2655e5" strokeWidth={width + 8} opacity={0.18} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
+        {selected && <path d={d} fill="none" stroke="#2f6bff" strokeWidth={width + 8} opacity={0.18} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
         {w.energized && <path d={d} fill="none" stroke="#fbbf24" strokeWidth={width + 6} opacity={0.35} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
         {/* contorno escuro fino: dá leitura a cores claras (branco, amarelo, azul-claro) */}
         <path d={d} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
@@ -732,7 +732,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
               cy={wp.y}
               r={5.5}
               fill="#ffffff"
-              stroke="#2655e5"
+              stroke="#2f6bff"
               strokeWidth={2}
               style={{ cursor: 'grab' }}
               onMouseDown={(e) => {
@@ -756,7 +756,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
             cy={handle.y}
             r={6}
             fill="#ffffff"
-            stroke="#2655e5"
+            stroke="#2f6bff"
             strokeWidth={2}
             style={{ cursor: handle.mode === 'curve' ? 'grab' : 'ew-resize' }}
             onMouseDown={(e) => {
@@ -825,7 +825,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         }}
         style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? 'move' : 'inherit', opacity: c.locked ? 0.85 : 1 }}
       >
-        {selected && <rect x={bounds.x - 4} y={bounds.y - 4} width={bounds.w + 8} height={bounds.h + 8} rx={6} fill="none" stroke="#2655e5" strokeWidth={1.5} strokeDasharray="5 3" />}
+        {selected && <rect x={bounds.x - 4} y={bounds.y - 4} width={bounds.w + 8} height={bounds.h + 8} rx={6} fill="none" stroke="#2f6bff" strokeWidth={1.5} strokeDasharray="5 3" />}
         {c.type === 'contactorWegCWC09' && wegImage ? (
           <>
             {/* vista frontal do mesmo GLB usado no Painel 3D — não é um SVG */}
@@ -961,7 +961,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
                     cy={p.y}
                     r={7}
                     fill="transparent"
-                    stroke={chainIdx >= 0 ? '#65a30d' : isFrom ? '#2655e5' : isDrawTarget ? '#16a34a' : isSel ? '#db2777' : 'transparent'}
+                    stroke={chainIdx >= 0 ? '#65a30d' : isFrom ? '#2f6bff' : isDrawTarget ? '#16a34a' : isSel ? '#db2777' : 'transparent'}
                     strokeWidth={2}
                     style={{ cursor: tool === 'select' ? 'pointer' : 'crosshair' }}
                     onMouseDown={(e) => onTerminalDown(e, t.id)}
@@ -1012,9 +1012,9 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
               y={Math.min(marquee.y0, marquee.y1)}
               width={Math.abs(marquee.x1 - marquee.x0)}
               height={Math.abs(marquee.y1 - marquee.y0)}
-              fill="#2655e5"
+              fill="#2f6bff"
               opacity={0.08}
-           stroke="#2655e5"
+           stroke="#2f6bff"
                strokeWidth={1.5}
              />
            )}
@@ -1023,7 +1023,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
            {ghost && cursorPos && (
              <g style={{ pointerEvents: 'none' }}>
                <g transform={`translate(${snap(cursorPos.x - ghost.w / 2)},${snap(cursorPos.y - ghost.h / 2)})`} opacity={0.62}>
-                 <rect x={-6} y={-6} width={ghost.w + 12} height={ghost.h + 12} rx={6} fill="#2655e5" fillOpacity={0.06} stroke="#2655e5" strokeWidth={1.2} strokeDasharray="6 3" />
+                 <rect x={-6} y={-6} width={ghost.w + 12} height={ghost.h + 12} rx={6} fill="#2f6bff" fillOpacity={0.06} stroke="#2f6bff" strokeWidth={1.2} strokeDasharray="6 3" />
                  <SymbolGlyph c={ghost} selected={false} />
                  <text x={0} y={-12} className="dc-ghost-label">{ghost.label}</text>
                </g>

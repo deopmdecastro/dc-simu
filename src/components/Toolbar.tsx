@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { LogoMark } from '../ui/Brand'
 import { useSimStore } from '../store/useSimStore'
 import type { EditorTool, WireColor, WireEndType } from '../types'
 import { buildBOM, bomToCSV } from '../utils/bom'
@@ -162,15 +163,12 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
       {/* ============================ linha 1 — marca · arquivo · vistas · simulação */}
       <div className="flex items-center gap-2 px-3 min-h-[50px] border-b border-line-soft dc-toolbar-main">
         <div className="flex items-center gap-2 pr-1 shrink-0 select-none">
-          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden className="shrink-0">
-            <rect x="1" y="1" width="22" height="22" rx="5" fill="#2655e5" />
-            <path d="M13.5 4.5 7 13.5h4l-1.5 6 6.5-9h-4z" fill="#fff" />
-          </svg>
+          <LogoMark size={24} />
           <div className="leading-none whitespace-nowrap hidden sm:block">
             <div className="text-[13px] font-bold tracking-tight text-ink-900">
-              DC<span className="text-brand-600">-</span>SIMU
+              DC<span className="text-brand-600">·</span>SIMU
             </div>
-            <div className="text-[8.5px] font-semibold uppercase tracking-[0.14em] text-ink-400 mt-0.5">comandos elétricos</div>
+            <div className="text-[8.5px] font-semibold uppercase tracking-[0.14em] text-ink-400 mt-0.5">electrical panel studio</div>
           </div>
         </div>
 

@@ -126,27 +126,44 @@ function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwit
   const len=form.password.length
   const strength=len===0?0:len<10?1:len<14?2:3
   const labels=['','Curta — mínimo 10 caracteres','Boa','Forte']
-  return <div className="auth">
-    <aside className="auth-side"><button className="auth-logo" onClick={onHome} aria-label="Voltar ao início"><Logo tone="dark"/></button>
-      <div className="auth-pitch"><h2>{reg?<>O próximo circuito<br/>começa aqui.</>:<>Projete o circuito.<br/>Veja-o ganhar vida.</>}</h2>
-        <p>{reg?'Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.':'Retome o esquema, a lógica Ladder e o painel 3D exatamente onde os deixou.'}</p>
-        <ul><li><i>⌁</i>Esquema elétrico com bornes e cabos</li><li><i>▤</i>Ladder com simulação do scan do PLC</li><li><i>▧</i>Painel 3D sincronizado com o projeto</li><li><i>↗</i>Projetos partilhados com a equipa</li></ul></div>
-      <div className="auth-status"><span><i/>RUN</span>Os seus projetos ficam guardados no servidor.</div></aside>
-    <section className="auth-main"><div className="auth-panel">
-      <div className="auth-mobile-logo"><button className="auth-mlogo" onClick={onHome} aria-label="Voltar ao início"><Logo/></button><button className="auth-mback" onClick={onHome}>← Início</button></div>
-      <button className="auth-back" onClick={onHome}>← Voltar ao início</button>
-      <span className="lp-tag">A SUA ÁREA DE TRABALHO</span>
+  return <div className="dx dx-auth">
+    <aside className="dx-auth-side">
+      <button className="dx-auth-logo" onClick={onHome} aria-label="Voltar ao início"><Logo tone="dark"/></button>
+      <div className="dx-auth-pitch">
+        <h2>{reg?<>O próximo quadro<br/>começa aqui.</>:<>Projete o quadro.<br/>Veja-o ganhar vida.</>}</h2>
+        <p>{reg?'Crie uma conta e monte o seu primeiro quadro elétrico em 3D em menos de um minuto.':'Retome o esquema, a lógica Ladder e o painel 3D exatamente onde os deixou.'}</p>
+        <ul>
+          <li><i aria-hidden>⌁</i>Esquema elétrico com bornes e cabos reais</li>
+          <li><i aria-hidden>▤</i>Ladder com simulação do scan do PLC</li>
+          <li><i aria-hidden>▧</i>Painel 3D sincronizado com o projeto</li>
+          <li><i aria-hidden>↗</i>Projetos partilhados com a equipa</li>
+        </ul>
+      </div>
+      <div className="dx-auth-status"><span className="dx-auth-run"><i/>RUN</span>Os seus projetos ficam guardados no servidor.</div>
+    </aside>
+    <section className="dx-auth-main"><div className="dx-auth-panel">
+      <div className="dx-auth-mobile">
+        <button onClick={onHome} aria-label="Voltar ao início"><Logo/></button>
+        <button onClick={onHome}>← Início</button>
+      </div>
+      <button className="dx-auth-back" onClick={onHome}>← Voltar ao início</button>
+      <span className="dx-over"><i/>A sua área de trabalho</span>
       <h1>{reg?'Criar conta':'Bem-vindo de volta'}</h1>
-      <p className="auth-sub">{reg?'Gratuito. Comece o primeiro projeto em menos de um minuto.':'Entre para continuar os seus projetos.'}</p>
-      {message&&<div className="auth-error" role="alert"><span>{message}</span><button onClick={clearMessage} aria-label="Fechar aviso">×</button></div>}
+      <p className="dx-auth-sub">{reg?'Gratuito. Comece o primeiro projeto em menos de um minuto.':'Entre para continuar os seus projetos.'}</p>
+      {message&&<div className="dx-alert" role="alert"><span>{message}</span><button onClick={clearMessage} aria-label="Fechar aviso">×</button></div>}
       <form onSubmit={onSubmit} noValidate={false}>
-        {reg&&<label>Nome<input required minLength={2} autoFocus={canFocus} autoComplete="name" placeholder="O seu nome" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>}
-        <label>Email<input required type="email" autoFocus={canFocus&&!reg} autoComplete="email" placeholder="nome@empresa.com" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label>
-        <label>Palavra-passe<div className="auth-pw"><input required minLength={reg?10:1} type={show?'text':'password'} autoComplete={reg?'new-password':'current-password'} placeholder={reg?'Mínimo 10 caracteres':'A sua palavra-passe'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/><button type="button" onClick={()=>setShow(!show)} aria-pressed={show}>{show?'Ocultar':'Mostrar'}</button></div></label>
-        {reg&&<div className="auth-meter" aria-live="polite"><div className={'s'+strength}><i/><i/><i/></div><small>{labels[strength]||'Use pelo menos 10 caracteres'}</small></div>}
-        <button className="lp-btn auth-submit" disabled={busy}>{busy?'Aguarde…':reg?'Criar conta':'Entrar'} {!busy&&<span aria-hidden>→</span>}</button>
+        {reg&&<label className="dx-field"><span className="dx-label">Nome</span><input className="dx-input" required minLength={2} autoFocus={canFocus} autoComplete="name" placeholder="O seu nome" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>}
+        <label className="dx-field"><span className="dx-label">Email</span><input className="dx-input" required type="email" autoFocus={canFocus&&!reg} autoComplete="email" placeholder="nome@empresa.com" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label>
+        <label className="dx-field"><span className="dx-label">Palavra-passe</span>
+          <div className="dx-auth-pw">
+            <input className="dx-input" required minLength={reg?10:1} type={show?'text':'password'} autoComplete={reg?'new-password':'current-password'} placeholder={reg?'Mínimo 10 caracteres':'A sua palavra-passe'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/>
+            <button type="button" onClick={()=>setShow(!show)} aria-pressed={show}>{show?'Ocultar':'Mostrar'}</button>
+          </div>
+        </label>
+        {reg&&<div className="dx-auth-meter" aria-live="polite"><div className={'s'+strength}><i/><i/><i/></div><small>{labels[strength]||'Use pelo menos 10 caracteres'}</small></div>}
+        <button className="dx-btn dx-btn-primary dx-btn-lg" style={{width:'100%'}} disabled={busy}>{busy?'Aguarde…':reg?'Criar conta':'Entrar'}{!busy&&<span aria-hidden>→</span>}</button>
       </form>
-      <p className="auth-switch">{reg?'Já tem conta?':'Ainda não tem conta?'} <button onClick={onSwitch}>{reg?'Entrar':'Criar conta grátis'}</button></p>
+      <p className="dx-auth-switch">{reg?'Já tem conta?':'Ainda não tem conta?'} <button onClick={onSwitch}>{reg?'Entrar':'Criar conta grátis'}</button></p>
     </div></section>
   </div>
 }
@@ -162,8 +179,31 @@ function AdminPanel({onBack}:{onBack:()=>void}) {
     if(!confirm(`Eliminar permanentemente ${label}? Esta ação não pode ser anulada.`))return
     try{await api(`/admin/${type}/${id}`,'DELETE');await reload()}catch(e){setError(e instanceof Error?e.message:'Falha ao eliminar')}
   }
-  return <section className="account-dashboard account-admin"><button onClick={onBack}>← Projetos</button><span className="account-pill">ACESSO RESTRITO</span><h1>Administração<span>.</span></h1><p>Gestão global de contas e projetos. Eliminar uma conta remove também os projetos de que é proprietária.</p>{error&&<p role="alert">{error}</p>}
-    <h2>Utilizadores · {users.length}</h2><div className="account-admin-list">{users.map(u=><div key={u.id}><span><strong>{u.name}</strong> · {u.email} · {u.role} · {u.projects} projeto(s)</span>{u.role!=='admin'&&<button onClick={()=>void remove('users',u.id,`a conta ${u.email} e os seus projetos`)}>Eliminar conta</button>}</div>)}</div>
-    <h2>Projetos · {projects.length}</h2><div className="account-admin-list">{projects.map(p=><div key={p.id}><span><strong>{p.name}</strong> · {p.owner}</span><button onClick={()=>void remove('projects',p.id,`o projeto ${p.name}`)}>Eliminar projeto</button></div>)}</div>
+  return <section className="dx dx-admin">
+    <div className="dx-admin-head">
+      <div>
+        <span className="dx-over"><i/>Acesso restrito</span>
+        <h1>Administração.</h1>
+        <p>Gestão global de contas e projetos. Eliminar uma conta remove também os projetos de que é proprietária.</p>
+      </div>
+      <button className="dx-btn dx-btn-secondary" onClick={onBack}>← Projetos</button>
+    </div>
+    {error&&<div className="dx-alert" role="alert"><span>{error}</span></div>}
+    <div className="dx-admin-section"><h2>Utilizadores</h2><span>{users.length}</span></div>
+    <div className="dx-admin-table">
+      {users.length===0&&<div className="dx-admin-empty">Ainda não há contas registadas.</div>}
+      {users.map(u=><div key={u.id}>
+        <span><strong>{u.name}</strong> · {u.email} · {u.role} · {u.projects} projeto(s)</span>
+        {u.role!=='admin'&&<button className="dx-btn dx-btn-danger dx-btn-sm" onClick={()=>void remove('users',u.id,`a conta ${u.email} e os seus projetos`)}>Eliminar conta</button>}
+      </div>)}
+    </div>
+    <div className="dx-admin-section"><h2>Projetos</h2><span>{projects.length}</span></div>
+    <div className="dx-admin-table">
+      {projects.length===0&&<div className="dx-admin-empty">Ainda não há projetos criados.</div>}
+      {projects.map(p=><div key={p.id}>
+        <span><strong>{p.name}</strong> · {p.owner}</span>
+        <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={()=>void remove('projects',p.id,`o projeto ${p.name}`)}>Eliminar projeto</button>
+      </div>)}
+    </div>
   </section>
 }
