@@ -182,65 +182,8 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
   const outputCount = rung.coils.length + (rung.timer ? 1 : 0) + (rung.counter ? 1 : 0) + (rung.call ? 1 : 0) + (rung.move ? 1 : 0)
 
   const powered = !!rungPowered[rung.id]
-  const selectedContact =
-    selection?.type === 'contact'
-      ? rung.branches.find((b) => b.id === selection.branchId)?.elements.find((el) => el.id === selection.elementId)
-      : null
-  const selectedCoil = selection?.type === 'coil' ? rung.coils.find((c) => c.id === selection.coilId) : null
   const plcId = useSimStore((st) => st.activePlcId)
   const fcFiles = useSimStore((st) => st.projectFiles[plcId ?? '_general'] ?? [])
-  const selectedAddress = selectedContact?.address ?? selectedCoil?.address ?? rung.timer?.address ?? rung.counter?.address ?? ''
-  const selectedTagName = useTagName(selectedAddress)
-  const tags = useSimStore((s) => s.tags)
-  const setTagName = (address: string, name: string) => {
-    const normalized = address.trim().toUpperCase()
-    if (!normalized) return
-    const existing = tags.find((t) => t.address === normalized)
-    if (existing) useSimStore.getState().updateTag(existing.id, { name })
-    else if (name.trim()) useSimStore.setState((s) => ({
-      tags: [...s.tags, { id: crypto.randomUUID(), address: normalized, name, dataType: normalized.startsWith('T') ? 'Time' : normalized.startsWith('C') ? 'Int' : 'Bool', comment: '' }], dirty: true,
-    }))
-  }
-
-  const updateContact = (branchId: string, elementId: string, patch: Partial<LadderContact>) =>
-    updateRung(rung.id, (r) => ({
-      ...r,
-      branches: r.branches.map((b) =>
-        b.id === branchId ? { ...b, elements: b.elements.map((e) => (e.id === elementId ? { ...e, ...patch } : e)) } : b,
-      ),
-    }))
-
-  const updateCoil = (coilId: string, patch: Partial<LadderCoilEl>) =>
-    updateRung(rung.id, (r) => ({ ...r, coils: r.coils.map((c) => (c.id === coilId ? { ...c, ...patch } : c)) }))
-
-  const updateTimer = (patch: Partial<NonNullable<LadderRung['timer']>>) =>
-    updateRung(rung.id, (r) => (r.timer ? { ...r, timer: { ...r.timer, ...patch } } : r))
-
-  const updateCounter = (patch: Partial<NonNullable<LadderRung['counter']>>) =>
-    updateRung(rung.id, (r) => (r.counter ? { ...r, counter: { ...r.counter, ...patch } } : r))
-
-  const removeElement = (branchId: string, elementId: string) => {
-    updateRung(rung.id, (r) => ({
-      ...r,
-      branches: r.branches.map((b) => (b.id === branchId ? { ...b, elements: b.elements.filter((e) => e.id !== elementId) } : b)),
-    }))
-    setSelection(null)
-  }
-
-  const removeCoil = (id: string) => {
-    updateRung(rung.id, (r) => ({ ...r, coils: r.coils.filter((c) => c.id !== id) }))
-    setSelection(null)
-  }
-
-  const setTimer = (kind: 'none') => {
-    if (kind === 'none') updateRung(rung.id, (r) => ({ ...r, timer: undefined }))
-    setSelection(null)
-  }
-
-  const setCounter = (kind: 'none') => {
-    if (kind === 'none') updateRung(rung.id, (r) => ({ ...r, counter: undefined }))
-    setSelection(null)
-  }
 
   /** Clique num item da barra: insere na network (após o contato selecionado, se houver). */
   const insert = (kind: PaletteKind) => {
@@ -262,8 +205,6 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
     if (created) setSelection(created)
   }
 
-  const smallBtn = 'dc-btn !h-[22px] !px-1.5 !text-[10px]'
-  const tiny = 'dc-input !h-[22px] !text-[10px] !w-auto'
   return (
     <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''} ${active ? 'is-active' : ''} ${rung.enabled ? '' : 'is-disabled'}`}>
       {/* cabeçalho da network — estilo TIA Portal: "Network n: título" */}
@@ -339,7 +280,7 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
             <LadderGlyph kind={it.kind} />
           </button>
         ))}
-        {showStripHint && <span className="ml-auto text-[9.5px] text-ink-400 hidden md:inline">clique insere · arraste para posicionar · Del remove elemento · ? atalhos</span>}
+        {showStripHint && <span className="ml-auto text-[9.5px] text-ink-400 hidden md:inline">clique insere · arraste para posicionar · duplo clique edita · Del remove · ? atalhos</span>}
       </div>
 
       {/* diagrama — grelha padrão de 20px */}
@@ -355,114 +296,6 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
         </div>
       </div>
 
-      {/* painel contextual — configurações feitas ao clicar num elemento */}
-      {selection?.type === 'contact' && selectedContact && (
-        <div className="ladder-block-popover">
-          <div className="ladder-popover-head">
-            <strong><IconContact size={12} /> Contato {selectedContact.address}</strong>
-            <button className="ladder-ghost-button" onClick={() => setSelection(null)} title="Fechar">×</button>
-          </div>
-          <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={selectedContact.address} onChange={(e) => updateContact(selection.branchId, selection.elementId, { address: e.target.value.toUpperCase() })} /></label>
-          <label>Nome da tag <input className={`${tiny} !w-36`} value={tags.find((t) => t.address === selectedContact.address)?.name ?? ''} placeholder="Nome simbólico" onChange={(e) => setTagName(selectedContact.address, e.target.value)} /></label>
-          <label>Tipo
-            <select className={tiny} value={selectedContact.contactType} onChange={(e) => updateContact(selection.branchId, selection.elementId, { contactType: e.target.value as LadderContactType })}>
-              <option value="NO">NA</option>
-              <option value="NC">NF</option>
-              <option value="RISING">Subida</option>
-              <option value="FALLING">Descida</option>
-            </select>
-          </label>
-          {selectedTagName && <span className="text-[10px] text-ink-400">{selectedTagName}</span>}
-          <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => removeElement(selection.branchId, selection.elementId)}><IconDelete size={10} /> remover</button>
-        </div>
-      )}
-      {selection?.type === 'coil' && selectedCoil && (
-        <div className="ladder-block-popover">
-          <div className="ladder-popover-head">
-            <strong><IconCoil size={12} /> Bobina {selectedCoil.address}</strong>
-            <button className="ladder-ghost-button" onClick={() => setSelection(null)} title="Fechar">×</button>
-          </div>
-          <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={selectedCoil.address} onChange={(e) => updateCoil(selectedCoil.id, { address: e.target.value.toUpperCase() })} /></label>
-          <label>Nome da tag <input className={`${tiny} !w-36`} value={tags.find((t) => t.address === selectedCoil.address)?.name ?? ''} placeholder="Nome simbólico" onChange={(e) => setTagName(selectedCoil.address, e.target.value)} /></label>
-          <label>Tipo
-            <select className={tiny} value={selectedCoil.coilType} onChange={(e) => updateCoil(selectedCoil.id, { coilType: e.target.value as LadderCoilType })}>
-              <option value="COIL">COIL</option>
-              <option value="SET">SET</option>
-              <option value="RESET">RESET</option>
-            </select>
-          </label>
-          {selectedTagName && <span className="text-[10px] text-ink-400">{selectedTagName}</span>}
-          <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => removeCoil(selectedCoil.id)}><IconDelete size={10} /> remover</button>
-        </div>
-      )}
-      {selection?.type === 'call' && rung.call && <div className="ladder-block-popover">
-        <div className="ladder-popover-head"><strong>CALL FC</strong><button className="ladder-ghost-button" onClick={() => setSelection(null)}>×</button></div>
-        <label>Bloco <select className={tiny} value={rung.call.targetId} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, call: { targetId: e.target.value } }))}>
-          <option value="fc1">FC1</option><option value="fc2">FC2</option>
-          {fcFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}
-        </select></label>
-        <span className="text-[10px] text-ink-400">Executado só quando RLO = 1; chamadas recursivas são bloqueadas.</span>
-        <button className={`${smallBtn} !text-state-error`} onClick={() => updateRung(rung.id, (r) => ({ ...r, call: undefined }))}><IconDelete size={10} /> remover</button>
-      </div>}
-      {selection?.type === 'move' && rung.move && <div className="ladder-block-popover">
-        <div className="ladder-popover-head"><strong>MOVE BOOL</strong><button className="ladder-ghost-button" onClick={() => setSelection(null)}>×</button></div>
-        <label>IN <input className={`${tiny} !w-20 font-mono`} list={TAG_DATALIST_ID} value={rung.move.source} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, move: { ...r.move!, source: e.target.value.toUpperCase() } }))} /></label>
-        <label>OUT <input className={`${tiny} !w-20 font-mono`} list={TAG_DATALIST_ID} value={rung.move.target} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, move: { ...r.move!, target: e.target.value.toUpperCase() } }))} /></label>
-        <span className="text-[10px] text-ink-400">I/Q/M, TRUE/FALSE ou DB.var → Q/M ou DB.var (BOOL/INT/REAL). Só se RLO = 1.</span>
-        <button className={`${smallBtn} !text-state-error`} onClick={() => updateRung(rung.id, (r) => ({ ...r, move: undefined }))}><IconDelete size={10} /> remover</button>
-      </div>}
-      {selection?.type === 'timer' && rung.timer && (
-        <div className="ladder-block-popover">
-          <div className="ladder-popover-head">
-            <strong><IconTimer size={12} /> Temporizador {rung.timer.address}</strong>
-            <button className="ladder-ghost-button" onClick={() => setSelection(null)} title="Fechar">×</button>
-          </div>
-          <label>Tipo
-            <select className={tiny} value={rung.timer.timerType} onChange={(e) => updateTimer({ timerType: e.target.value as NonNullable<LadderRung['timer']>['timerType'] })}>
-              <option value="TON">TON</option>
-              <option value="TOF">TOF</option>
-              <option value="TP">TP</option>
-              <option value="STAR_DELTA">Estrela-Triângulo</option>
-            </select>
-          </label>
-          <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.timer.address} onChange={(e) => updateTimer({ address: e.target.value.toUpperCase() })} /></label>
-          <label>Nome da tag <input className={`${tiny} !w-36`} value={tags.find((t) => t.address === rung.timer!.address)?.name ?? ''} placeholder="Nome simbólico" onChange={(e) => setTagName(rung.timer!.address, e.target.value)} /></label>
-          <label>Preset <input type="number" min={0} step={10} className={`${tiny} !w-20`} value={rung.timer.presetMs} onChange={(e) => updateTimer({ presetMs: Math.max(0, Number(e.target.value) || 0) })} /> ms</label>
-          {rung.timer.timerType === 'STAR_DELTA' && (
-            <label>Transição <input type="number" min={0} step={10} className={`${tiny} !w-16`} value={rung.timer.preset2Ms ?? 50} onChange={(e) => updateTimer({ preset2Ms: Math.max(0, Number(e.target.value) || 0) })} /> ms</label>
-          )}
-          <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => setTimer('none')}><IconDelete size={10} /> remover</button>
-        </div>
-      )}
-      {selection?.type === 'counter' && rung.counter && (
-        <div className="ladder-block-popover">
-          <div className="ladder-popover-head">
-            <strong><IconCounter size={12} /> Contador {rung.counter.address}</strong>
-            <button className="ladder-ghost-button" onClick={() => setSelection(null)} title="Fechar">×</button>
-          </div>
-          <label>Tipo
-            <select className={tiny} value={rung.counter.counterType} onChange={(e) => updateCounter({ counterType: e.target.value as NonNullable<LadderRung['counter']>['counterType'] })}>
-              <option value="CTU">CTU (crescente)</option>
-              <option value="CTD">CTD (decrescente)</option>
-            </select>
-          </label>
-          <label>Endereço <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.address} onChange={(e) => updateCounter({ address: e.target.value.toUpperCase() })} /></label>
-          <label>Nome da tag <input className={`${tiny} !w-36`} value={tags.find((t) => t.address === rung.counter!.address)?.name ?? ''} placeholder="Nome simbólico" onChange={(e) => setTagName(rung.counter!.address, e.target.value)} /></label>
-          <label>Preset <input type="number" min={0} step={1} className={`${tiny} !w-16`} value={rung.counter.preset} onChange={(e) => updateCounter({ preset: Math.max(0, Math.trunc(Number(e.target.value) || 0)) })} /></label>
-          <label>Reset <input className={`${tiny} !w-14 font-mono`} list={TAG_DATALIST_ID} value={rung.counter.resetAddress ?? ''} onChange={(e) => updateCounter({ resetAddress: e.target.value.toUpperCase() })} /></label>
-          <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => setCounter('none')}><IconDelete size={10} /> remover</button>
-        </div>
-      )}
-      {selection && selection.type !== 'insert' && (
-        <button
-          type="button"
-          className="ladder-open-dialog-button"
-          onClick={() => setDialogSelection(selection)}
-          title="Abrir todas as propriedades, nome simbólico e presets"
-        >
-          <IconFunction size={12} /> Propriedades e presets…
-        </button>
-      )}
 
       </>
       )}
