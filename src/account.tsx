@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import App from './App'
-import LandingShowcase from './three/LandingShowcase'
+import Logo from './ui/Brand'
+import Landing from './landing/Landing'
+import Dashboard, { type User, type Project, type Invite } from './dashboard/Dashboard'
 import { useSimStore } from './store/useSimStore'
 
-type User = { id: string; name: string; email: string; role: 'admin' | 'user' }
-type Project = { id: string; name: string; revision: number; owner: string; role: 'owner' | 'editor'; updated_at: string }
-type Invite = { id: string; project: string; sender: string }
 type Open = { id: string; name: string; revision: number }
+type AdminUser = User & { projects: number }
+type AdminProject = { id: string; name: string; owner: string; updated_at: string }
+
 async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch('/api' + url, { method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
   const data = await response.json()
   if (!response.ok) throw new Error(data.error || 'Falha no servidor')
   return data as T
 }
+
 export default function Account() {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
@@ -24,13 +27,17 @@ export default function Account() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '' })
+
   const refresh = useCallback(async () => {
     const [p, i] = await Promise.all([api<Project[]>('/projects'), api<Invite[]>('/invitations')]); setProjects(p); setInvites(i)
   }, [])
   useEffect(() => { api<{user:User}>('/me').then(r => { setUser(r.user); setPage('dashboard'); refresh().catch(e => setMessage(e.message)) }).catch(() => {}).finally(() => setReady(true)) }, [refresh])
+  // limpa a notificação automaticamente — feedback discreto, sem ruído permanente
+  useEffect(() => { if (!message || page === 'login' || page === 'register') return; const t = setTimeout(() => setMessage(''), 5000); return () => clearTimeout(t) }, [message, page])
+
   const error = (e: unknown) => setMessage(e instanceof Error ? e.message : 'Falha inesperada')
   async function authenticate(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true);setMessage('')
+    e.preventDefault(); setBusy(true); setMessage('')
     try { const r = await api<{user:User}>(page === 'register' ? '/register' : '/login','POST',form);setUser(r.user);setPage('dashboard');setForm({name:'',email:'',password:''});await refresh() } catch(e) {error(e)} finally {setBusy(false)}
   }
   async function create(name: string) {
@@ -44,7 +51,7 @@ export default function Account() {
   }
   async function save() {
     const entry=openRef.current;if(!entry)return
-    try {const r=await api<{revision:number}>('/projects/'+entry.id,'PUT',{revision:entry.revision,content:JSON.parse(useSimStore.getState().saveJSON())});const updated={...entry,revision:r.revision};openRef.current=updated;setOpen(updated);useSimStore.setState({dirty:false});setMessage('Projeto guardado na conta.') }catch(e){error(e)}
+    try {const r=await api<{revision:number}>('/projects/'+entry.id,'PUT',{revision:entry.revision,content:JSON.parse(useSimStore.getState().saveJSON())});const updated={...entry,revision:r.revision};openRef.current=updated;setOpen(updated);useSimStore.setState({dirty:false});setMessage('Projeto guardado.') }catch(e){error(e)}
   }
   async function leave() {
     if(useSimStore.getState().dirty && !confirm('Existem alterações não guardadas. Voltar aos projetos?'))return
@@ -64,28 +71,52 @@ export default function Account() {
   async function logout() {
     try {await api('/logout','POST');useSimStore.getState().newProject();setUser(null);setOpen(null);openRef.current=null;setProjects([]);setInvites([]);setPage('landing');setMessage('')}catch(e){error(e)}
   }
+  const fetchMembers = useCallback(async (id: string) => (await api<{members:{name:string;email:string}[]}>('/projects/'+id+'/members')).members, [])
+
   useEffect(() => {
     if(page!=='editor')return
     const handle=(e:KeyboardEvent)=>{if(e.ctrlKey && e.key.toLowerCase()==='s'){e.preventDefault();void save()}}
     window.addEventListener('keydown',handle);return()=>window.removeEventListener('keydown',handle)
   },[page])
-  if(!ready)return <div className="account-shell">A carregar DC-SIMU…</div>
-  if(page==='editor' && open)return <><div className="account-bar"><span>{user?.name} · {open.name}</span><span>{message}</span><button onClick={()=>void save()}>Guardar no servidor</button><button onClick={()=>void leave()}>Projetos</button></div><div style={{height:'calc(100vh - 38px)'}}><App onBack={()=>void leave()} onSave={()=>void save()}/></div></>
-  return <main className="account-shell">
-    <header className="account-header"><Logo size={26}/><nav>{user ? <><span>{user.name}</span>{user.role==='admin'&&<button onClick={()=>setPage('admin')}>Administração</button>}<button onClick={()=>void logout()}>Sair</button></> : <><button onClick={()=>setPage('login')}>Entrar</button><button className="account-primary" onClick={()=>setPage('register')}>Criar conta</button></>}</nav></header>
-    {message && page!=='login' && page!=='register' && <div className="account-alert" role="alert">{message}<button onClick={()=>setMessage('')}>×</button></div>}
-    {page==='landing' && <Landing onRegister={()=>setPage('register')} onLogin={()=>setPage('login')}/>}
+
+  if (!ready) return <div className="dx" style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'var(--dx-bg)'}}><div style={{textAlign:'center',display:'grid',gap:12,justifyItems:'center'}}><Logo size={34}/><span style={{fontSize:13,color:'var(--dx-ink-3)'}}>A preparar o seu espaço de trabalho…</span></div></div>
+
+  if (page==='editor' && open) return <>
+    <div className="account-bar dx">
+      <Logo size={20} tone="dark" tagline={false}/>
+      <span className="dx-bar-sep">/</span>
+      <span className="dx-bar-name">{open.name}</span>
+      <span className="dx-bar-sep">·</span>
+      <span style={{color:'#7d8daa'}}>{user?.name}</span>
+      {message && <span className="dx-bar-msg">{message}</span>}
+      <div style={{marginLeft: message ? 12 : 'auto', display:'flex', gap:8}}>
+        <button onClick={()=>void leave()}>← Projetos</button>
+        <button className="dx-bar-primary" onClick={()=>void save()} title="Guardar (Ctrl+S)">Guardar</button>
+      </div>
+    </div>
+    <div style={{height:'calc(100vh - 42px)'}}><App onBack={()=>void leave()} onSave={()=>void save()}/></div>
+  </>
+
+  if (page==='landing') return <Landing onRegister={()=>{setMessage('');setPage('register')}} onLogin={()=>{setMessage('');setPage('login')}}/>
+
+  return <main className="account-shell dx">
+    {page!=='login' && page!=='register' && <header className="dx-topbar">
+      <Logo size={28}/>
+      <div className="dx-topbar-right">
+        {user && <>
+          <span className="dx-chip">{user.role==='admin'?'Administrador':'Conta'}</span>
+          {user.role==='admin' && page!=='admin' && <button className="dx-btn dx-btn-ghost dx-btn-sm" onClick={()=>setPage('admin')}>Administração</button>}
+          {page==='admin' && <button className="dx-btn dx-btn-ghost dx-btn-sm" onClick={()=>setPage('dashboard')}>← Projetos</button>}
+          <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={()=>void logout()}>Sair</button>
+          <span className="dx-avatar" title={user.email}>{user.name.charAt(0).toUpperCase()}</span>
+        </>}
+      </div>
+    </header>}
     {(page==='login'||page==='register')&&<AuthScreen mode={page} form={form} setForm={setForm} busy={busy} message={message} clearMessage={()=>setMessage('')} onSubmit={authenticate} onSwitch={()=>{setMessage('');setPage(page==='register'?'login':'register')}} onHome={()=>{setMessage('');setPage('landing')}}/>}
     {page==='admin'&&user?.role==='admin'&&<AdminPanel onBack={()=>setPage('dashboard')}/>}
-    {page==='dashboard'&&<Dashboard user={user} projects={projects} invites={invites} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove}/>}
-
+    {page==='dashboard'&&<Dashboard user={user} projects={projects} invites={invites} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove} fetchMembers={fetchMembers}/>}
+    {message && page!=='login' && page!=='register' && <div className="dx-toast" role="status">{message}<button onClick={()=>setMessage('')} aria-label="Fechar">×</button></div>}
   </main>
-}
-function Logo({dark,size=30}:{dark?:boolean;size?:number}) {
-  return <span className={'dc-logo'+(dark?' dark':'')}>
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden><rect x="1" y="1" width="22" height="22" rx="5" fill="#2655e5"/><path d="M13.5 4.5 7 13.5h4l-1.5 6 6.5-9h-4z" fill="#fff"/></svg>
-    <span className="dc-logo-t"><b>DC<i>-</i>SIMU</b><small>comandos elétricos</small></span>
-  </span>
 }
 
 function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwitch,onHome}:{mode:'login'|'register';form:{name:string;email:string;password:string};setForm:(f:{name:string;email:string;password:string})=>void;busy:boolean;message:string;clearMessage:()=>void;onSubmit:(e:React.FormEvent)=>void;onSwitch:()=>void;onHome:()=>void}) {
@@ -96,7 +127,7 @@ function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwit
   const strength=len===0?0:len<10?1:len<14?2:3
   const labels=['','Curta — mínimo 10 caracteres','Boa','Forte']
   return <div className="auth">
-    <aside className="auth-side"><button className="auth-logo" onClick={onHome} aria-label="Voltar ao início"><Logo dark/></button>
+    <aside className="auth-side"><button className="auth-logo" onClick={onHome} aria-label="Voltar ao início"><Logo tone="dark"/></button>
       <div className="auth-pitch"><h2>{reg?<>O próximo circuito<br/>começa aqui.</>:<>Projete o circuito.<br/>Veja-o ganhar vida.</>}</h2>
         <p>{reg?'Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.':'Retome o esquema, a lógica Ladder e o painel 3D exatamente onde os deixou.'}</p>
         <ul><li><i>⌁</i>Esquema elétrico com bornes e cabos</li><li><i>▤</i>Ladder com simulação do scan do PLC</li><li><i>▧</i>Painel 3D sincronizado com o projeto</li><li><i>↗</i>Projetos partilhados com a equipa</li></ul></div>
@@ -120,65 +151,7 @@ function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwit
   </div>
 }
 
-function ProjectArtwork({variant=0}:{variant?:number}) {
-  return <svg className="pd-art" viewBox="0 0 360 135" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <defs><pattern id={`pd-grid-${variant}`} width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="#b1c1e6"/></pattern></defs>
-    <rect width="360" height="135" fill={variant%2?'#e6ebf7':'#e9edf8'}/><rect width="360" height="135" fill={`url(#pd-grid-${variant})`}/>
-    <g fill="none" stroke="#6d89c9" strokeWidth="2"><path d="M42 66H108V46H155"/><path d="M207 46H251V74H309"/><path d="M108 66V106H155"/><path d="M207 106H251V74"/></g>
-    <g fill="#fff" stroke="#7e96ce" strokeWidth="1.5"><rect x="30" y="40" width="55" height="51" rx="5"/><rect x="155" y="27" width="52" height="96" rx="5"/><rect x="309" y="48" width="43" height="52" rx="5"/></g>
-    <g fill="#d8dff0"><rect x="37" y="47" width="41" height="13" rx="2"/><rect x="162" y="34" width="38" height="14" rx="2"/><rect x="316" y="55" width="29" height="11" rx="2"/></g>
-    <g fontSize="6" fontFamily="sans-serif" fontWeight="bold" fill="#1c3d8a"><text x="41" y="56">24V DC</text><text x="169" y="44">PLC</text><text x="318" y="63">KM1</text></g>
-    <rect x="164" y="56" width="34" height="20" rx="2" fill="#172f7e"/><text x="170" y="70" fontSize="7" fontFamily="monospace" fill="#a6e8c8">RUN</text>
-    <g fill="#3c6ff0" stroke="white" strokeWidth="1.3"><circle cx="85" cy="66" r="3.5"/><circle cx="155" cy="46" r="3.5"/><circle cx="155" cy="106" r="3.5"/><circle cx="207" cy="46" r="3.5"/><circle cx="207" cy="106" r="3.5"/><circle cx="309" cy="74" r="3.5"/></g>
-  </svg>
-}
 
-function Members({id}:{id:string}) {
-  const [members,setMembers]=useState<{name:string;email:string}[]>([])
-  const [error,setError]=useState('')
-  useEffect(()=>{api<{members:{name:string;email:string}[]}>('/projects/'+id+'/members').then(r=>setMembers(r.members)).catch(e=>setError(e instanceof Error?e.message:'Erro ao carregar'))},[id])
-  return <div className="pd-members">{error|| (members.length ? members.map(m=><div key={m.email}><span className="pd-avatar">{m.name.charAt(0).toUpperCase()}</span><span><b>{m.name}</b><small>{m.email}</small></span></div>) : 'Ainda não há editores neste projeto.')}</div>
-}
-
-function Dashboard({user,projects,invites,onCreate,onOpen,onInvite,onReply,onDelete}:{user:User|null;projects:Project[];invites:Invite[];onCreate:(name:string)=>Promise<void>;onOpen:(id:string)=>Promise<void>;onInvite:(id:string,email:string)=>Promise<void>;onReply:(id:string,action:'accept'|'reject')=>Promise<void>;onDelete:(p:Project)=>Promise<void>}) {
-  const [query,setQuery]=useState('')
-  const [filter,setFilter]=useState<'all'|'owner'|'editor'>('all')
-  const [modal,setModal]=useState<{type:'create'|'invite';project?:Project}|null>(null)
-  const [value,setValue]=useState('')
-  const [saving,setSaving]=useState(false)
-  const [notice,setNotice]=useState('')
-  const [expanded,setExpanded]=useState<string|null>(null)
-  const [menu,setMenu]=useState<string|null>(null)
-  const visible=projects.filter(p=>(filter==='all'||p.role===filter)&&p.name.toLocaleLowerCase('pt-PT').includes(query.trim().toLocaleLowerCase('pt-PT')))
-  const owned=projects.filter(p=>p.role==='owner').length
-  const openModal=(type:'create'|'invite',project?:Project)=>{setModal({type,project});setValue('');setNotice('');setMenu(null)}
-  async function submit(e:React.FormEvent) {
-    e.preventDefault();const text=value.trim();if(!text||saving)return
-    setSaving(true);setNotice('')
-    try {if(modal?.type==='create')await onCreate(text);else if(modal?.project)await onInvite(modal.project.id,text);setModal(null);setValue('')}
-    catch(e){setNotice(e instanceof Error?e.message:'Não foi possível concluir a operação.')}
-    finally{setSaving(false)}
-  }
-  useEffect(()=>{if(!modal)return;const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!saving)setModal(null)};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[modal,saving])
-  return <section className="pd-page"><div className="pd-inner">
-    <div className="pd-breadcrumb"><span className="pd-breadcrumb-icon">▦</span> Espaço de trabalho <span>/</span> Projetos</div>
-    <div className="pd-head"><div><span className="pd-overline"><i/> O SEU ESPAÇO DE TRABALHO</span><h1>Os seus projetos<span>.</span></h1><p>Bem-vindo de volta, <strong>{user?.name}</strong>. Continue de onde ficou ou dê vida a uma nova ideia.</p></div><button className="pd-create" onClick={()=>openModal('create')}><span>＋</span> Novo projeto</button></div>
-    <div className="pd-summary" aria-label="Resumo dos projetos"><div><span className="pd-summary-icon">▦</span><span><strong>{projects.length}</strong><small>Projetos acessíveis</small></span></div><div><span className="pd-summary-icon">◇</span><span><strong>{owned}</strong><small>Da sua autoria</small></span></div><div><span className="pd-summary-icon">↗</span><span><strong>{projects.length-owned}</strong><small>Partilhados consigo</small></span></div><div><span className="pd-summary-icon">✉</span><span><strong>{invites.length}</strong><small>Convites pendentes</small></span></div></div>
-    {invites.length>0&&<div className="pd-invites"><div className="pd-invite-heading"><span>✉</span><div><b>Convites para colaborar</b><small>Outros utilizadores querem trabalhar consigo.</small></div></div>{invites.map(i=><div className="pd-invite-row" key={i.id}><div><b>{i.project}</b><span>Convite de {i.sender}</span></div><div><button onClick={()=>void onReply(i.id,'reject')}>Recusar</button><button className="pd-accept" onClick={()=>void onReply(i.id,'accept')}>Aceitar convite →</button></div></div>)}</div>}
-    <div className="pd-list-head"><div><span className="pd-overline">BIBLIOTECA DE PROJETOS</span><h2>Projetos <span>{projects.length}</span></h2></div></div>
-    <div className="pd-toolbar"><div className="pd-tabs" role="group" aria-label="Filtrar projetos">{([['all','Todos'],['owner','Os meus'],['editor','Partilhados']] as const).map(([key,label])=><button key={key} className={filter===key?'selected':''} aria-pressed={filter===key} onClick={()=>setFilter(key)}>{label}</button>)}</div><label className="pd-search"><span aria-hidden>⌕</span><span className="sr-only">Pesquisar projetos</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Pesquisar projeto..." type="search"/></label></div>
-    <div className="pd-grid">{visible.map((p,index)=><article className="pd-card" key={p.id}><div className="pd-card-art"><ProjectArtwork variant={index}/><span className="pd-card-kind">{p.role==='owner'?'◇ Meu projeto':'↗ Partilhado'}</span></div><div className="pd-card-body"><div className="pd-card-top"><span className="pd-role">{p.role==='owner'?'PROPRIETÁRIO':'EDITOR'}</span>{p.role==='owner'&&<div className="pd-menu-wrap"><button className="pd-more" title={`Opções de ${p.name}`} aria-label={`Opções de ${p.name}`} aria-expanded={menu===p.id} onClick={()=>setMenu(menu===p.id?null:p.id)}>···</button>{menu===p.id&&<div className="pd-menu"><button onClick={()=>openModal('invite',p)}>↗ Convidar editor</button><button onClick={()=>{setExpanded(expanded===p.id?null:p.id);setMenu(null)}}>♙ Ver membros</button><button className="danger" onClick={()=>{setMenu(null);void onDelete(p)}}>✕ Eliminar projeto</button></div>}</div>}</div><h3>{p.name}</h3><div className="pd-card-meta"><span>por {p.owner}</span><span>·</span><span>Atualizado em {new Date(p.updated_at).toLocaleDateString('pt-PT')}</span></div><div className="pd-card-actions"><button className="pd-open" onClick={()=>void onOpen(p.id)}>Abrir projeto <span>↗</span></button>{p.role==='owner'&&<button className="pd-share" onClick={()=>openModal('invite',p)} title="Convidar editor" aria-label={`Convidar editor para ${p.name}`}>↗</button>}</div>{expanded===p.id&&<Members id={p.id}/>}</div></article>)}
-      {projects.length>0&&visible.length===0&&<div className="pd-empty pd-no-results"><div className="pd-empty-icon">⌕</div><h3>Nenhum projeto encontrado</h3><p>Experimente outro termo ou escolha um filtro diferente.</p><button onClick={()=>{setQuery('');setFilter('all')}}>Limpar filtros</button></div>}
-      {projects.length===0&&<div className="pd-empty"><div className="pd-empty-icon">▦</div><h3>O seu próximo projeto começa aqui.</h3><p>Crie um projeto para começar a montar, programar e simular.</p><button className="pd-create" onClick={()=>openModal('create')}>＋ Criar primeiro projeto</button></div>}
-    </div>
-    <div className="pd-footnote"><span>◇ DC-SIMU</span> · Esquema, lógica e simulação no mesmo lugar.</div>
-  </div>
-  {modal&&<div className="pd-overlay" onMouseDown={e=>{if(e.target===e.currentTarget&&!saving)setModal(null)}}><div className="pd-dialog" role="dialog" aria-modal="true" aria-labelledby="pd-dialog-title"><button className="pd-dialog-close" aria-label="Fechar" onClick={()=>setModal(null)} disabled={saving}>×</button><div className="pd-dialog-icon">{modal.type==='create'?'▦':'↗'}</div><h2 id="pd-dialog-title">{modal.type==='create'?'Criar novo projeto':'Convidar editor'}</h2><p>{modal.type==='create'?'Dê um nome ao projeto. Poderá editar o esquema assim que o criar.':<>Convide um utilizador já registado para editar <strong>{modal.project?.name}</strong>.</>}</p><form onSubmit={e=>void submit(e)}><label>{modal.type==='create'?'Nome do projeto':'Email do utilizador'}<input autoFocus required maxLength={modal.type==='create'?120:254} type={modal.type==='invite'?'email':'text'} value={value} placeholder={modal.type==='create'?'Ex.: Quadro de comando — Linha A':'nome@empresa.com'} onChange={e=>setValue(e.target.value)}/></label>{modal.type==='invite'&&<small>O convite aparece no painel da pessoa convidada. Não enviamos email.</small>}{notice&&<div className="pd-dialog-error" role="alert">{notice}</div>}<div className="pd-dialog-actions"><button type="button" disabled={saving} onClick={()=>setModal(null)}>Cancelar</button><button type="submit" className="pd-create" disabled={!value.trim()||saving}>{saving?'Aguarde…':modal.type==='create'?'Criar projeto':'Enviar convite →'}</button></div></form></div></div>}
-  </section>
-}
-
-type AdminUser = User & { projects: number }
-type AdminProject = { id: string; name: string; owner: string; updated_at: string }
 function AdminPanel({onBack}:{onBack:()=>void}) {
   const [users,setUsers]=useState<AdminUser[]>([])
   const [projects,setProjects]=useState<AdminProject[]>([])
@@ -193,74 +166,4 @@ function AdminPanel({onBack}:{onBack:()=>void}) {
     <h2>Utilizadores · {users.length}</h2><div className="account-admin-list">{users.map(u=><div key={u.id}><span><strong>{u.name}</strong> · {u.email} · {u.role} · {u.projects} projeto(s)</span>{u.role!=='admin'&&<button onClick={()=>void remove('users',u.id,`a conta ${u.email} e os seus projetos`)}>Eliminar conta</button>}</div>)}</div>
     <h2>Projetos · {projects.length}</h2><div className="account-admin-list">{projects.map(p=><div key={p.id}><span><strong>{p.name}</strong> · {p.owner}</span><button onClick={()=>void remove('projects',p.id,`o projeto ${p.name}`)}>Eliminar projeto</button></div>)}</div>
   </section>
-}
-
-function SimWindow({full}:{full?:boolean}) {
-  return <div className={'lp-win'+(full?' full':'')} aria-label="Pré-visualização do editor DC-SIMU: circuito completo em 3D e Ladder">
-    <div className="lp-win-top"><Logo dark size={22}/><small>/ PROJETO MOTOR 01</small><span className="lp-run"><i/>RUN</span></div>
-    <div className="lp-win-tabs"><span>Esquema</span><span>Ladder</span><span className="on">Painel 3D</span><span>Monitor</span></div>
-    <div className="lp-win-body">
-      <div className="lp-pane lp-schem"><div className="lp-pane-h">CIRCUITO COMPLETO<em>PAINEL 3D · MODELOS REAIS</em></div>
-        <LandingShowcase compact className="dc-win-showcase" /></div>
-      <div className="lp-side">
-        <div className="lp-pane lp-ladder"><div className="lp-pane-h">LADDER<em>REDE 1</em></div>
-          <svg viewBox="0 0 220 90" aria-hidden="true"><g stroke="#12214f" strokeWidth="2" fill="none"><path d="M10 8 V82"/><path d="M210 8 V82"/><path d="M10 26 H70 M92 26 H130 M152 26 H210"/><path d="M10 64 H70 M92 64 H130 M152 64 H210"/></g><g stroke="#2655e5" strokeWidth="2" fill="none"><path d="M70 16 V36 M92 16 V36"/><path d="M70 54 V74 M92 54 V74"/><circle cx="141" cy="26" r="10"/></g><path d="M10 26 H70 M92 26 H130" stroke="#16a34a" strokeWidth="2.5"/><g fontFamily="system-ui" fontSize="7" fill="#6a7fa6"><text x="66" y="12">I0.0</text><text x="66" y="50">Q0.0</text><text x="129" y="14">Q0.0</text></g></svg></div>
-      </div>
-    </div>
-    <div className="lp-win-foot"><span><i/>SIMULAÇÃO ATIVA</span><span className="lp-mon">Monitor · I0.0 ▮ &nbsp; Q0.0 ▮ &nbsp; KM1 ▮</span><span>3 componentes · 4 ligações</span></div>
-  </div>
-}
-
-function Landing({onRegister,onLogin}:{onRegister:()=>void;onLogin:()=>void}) {
-  const items=[
-    {k:'01 / ESQUEMA',t:'Monte o seu esquema',p:'Organize componentes, bornes e cabos num espaço de trabalho visual, com deteção de erros de ligação.',i:'⌁'},
-    {k:'02 / LADDER',t:'Programe e simule',p:'Crie lógica Ladder e acompanhe o comportamento do PLC durante o scan, rede a rede.',i:'▤'},
-    {k:'03 / GRAFCET',t:'Desenhe sequências',p:'Modele etapas e transições em GRAFCET e valide a sequência antes de a levar para o painel.',i:'◇'},
-    {k:'04 / PAINEL 3D',t:'Veja o painel real',p:'Equipamentos com modelos CAD reais, dispostos em 3D e sincronizados com o esquema.',i:'▧'},
-    {k:'05 / MONITOR',t:'Observe em tempo real',p:'Entradas, saídas e contactores visíveis durante a simulação, com o estado RUN sempre à vista.',i:'◉'},
-    {k:'06 / PARTILHAR',t:'Trabalhe em conjunto',p:'Convide editores para o projeto e continue o trabalho em equipa, em qualquer dispositivo.',i:'↗'}]
-  const steps=[
-    {n:'1',t:'Crie o projeto',p:'Registe-se e comece com um projeto vazio ou com um cenário pronto a explorar.'},
-    {n:'2',t:'Ligue e programe',p:'Arraste componentes da Biblioteca, ligue os bornes e escreva a lógica em Ladder ou GRAFCET.'},
-    {n:'3',t:'Simule e partilhe',p:'Execute, meça, corrija erros e convide a equipa para rever o mesmo projeto.'}]
-  const cats=['Proteção','Comando','Contactores','Relés','Controladores','Motores','Acionamentos','Sensores','Sinalização','Bornes e barras','Fontes']
-  const faqs=[
-    {q:'Preciso de instalar alguma coisa?',a:'Não. O DC-SIMU corre no navegador e pode ser instalado como aplicação (PWA) no computador ou no telemóvel.'},
-    {q:'Posso trabalhar com outras pessoas no mesmo projeto?',a:'Sim. O proprietário pode convidar editores, que passam a ver o projeto na sua área de trabalho.'},
-    {q:'Que tipo de circuitos posso simular?',a:'Comandos elétricos industriais: contactores, relés, proteções, fontes, motores e PLC, com lógica em Ladder e sequências em GRAFCET.'},
-    {q:'O painel 3D usa equipamentos reais?',a:'Sim, os equipamentos disponíveis usam modelos CAD reais, e o painel mantém-se sincronizado com o esquema.'}]
-  const [menu,setMenu]=useState(false)
-  useEffect(()=>{
-    const els=Array.from(document.querySelectorAll<HTMLElement>('.lp [data-rv]'))
-    if(!('IntersectionObserver' in window)||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return
-    const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('rv-in');io.unobserve(e.target)}}),{threshold:.12,rootMargin:'0px 0px -40px 0px'})
-    els.forEach(el=>{el.classList.add('rv-init');io.observe(el)})
-    return()=>io.disconnect()
-  },[])
-  return <div className="landing lp">
-    <nav className="lp-nav"><div className="lp-nav-in"><Logo/>
-      <div className={'lp-links'+(menu?' open':'')} onClick={()=>setMenu(false)}><a href="#funcionalidades">Funcionalidades</a><a href="#como-funciona">Como funciona</a><a href="#simulador">Simulador</a><a href="#biblioteca">Biblioteca</a><a href="#faq">FAQ</a><button className="lp-menu-login" onClick={onLogin}>Entrar</button></div>
-      <div className="lp-nav-cta"><button className="lp-ghost" onClick={onLogin}>Entrar</button><button className="lp-btn sm" onClick={onRegister}><span className="lp-long">Criar projeto grátis</span><span className="lp-short">Criar conta</span></button><button className="lp-burger" aria-label="Menu" aria-expanded={menu} onClick={()=>setMenu(!menu)}><i/><i/><i/></button></div></div></nav>
-    <section className="lp-hero"><div className="lp-hero-copy">
-      <span className="lp-pill"><i/>O SEU LABORATÓRIO DE AUTOMAÇÃO</span>
-      <h1>Projete o circuito.<br/><em>Veja-o ganhar vida.</em></h1>
-      <p>Do primeiro fio ao scan do PLC: crie esquemas, programe em Ladder e visualize o seu painel em 3D. Tudo ligado, no mesmo projeto.</p>
-      <div className="lp-actions"><button className="lp-btn" onClick={onRegister}>Criar projeto grátis <span aria-hidden>↗</span></button><button className="lp-outline" onClick={onLogin}>Entrar na minha conta <span aria-hidden>→</span></button></div>
-      <ul className="lp-checks"><li>Esquema, Ladder e painel 3D sincronizados</li><li>Corre no navegador, sem instalação</li><li>Projetos partilhados com a equipa</li></ul></div>
-      <div className="lp-hero-vis"><SimWindow/><div className="lp-chip c1">⚡ <div><b>Simulação em tempo real</b><small>Do borne à lógica do PLC</small></div></div><div className="lp-chip c2">▧ <div><b>Mais que um simulador.</b><small>Um ambiente completo.</small></div></div></div>
-    </section>
-    <div className="lp-views" id="recursos"><span>UM PROJETO, VÁRIAS VISTAS</span><b>Esquema elétrico</b><i/><b>Ladder</b><i/><b>GRAFCET</b><i/><b>Painel 3D</b><i/><b>Monitorização</b></div>
-    <section className="lp-stats" aria-label="Em números"><div><b>5</b><span>vistas sincronizadas</span></div><div><b>{cats.length}</b><span>categorias na Biblioteca</span></div><div><b>3D</b><span>modelos CAD reais</span></div><div><b>PWA</b><span>instalável em qualquer ecrã</span></div></section>
-    <section className="lp-sec" id="funcionalidades"><div className="lp-head" data-rv><div><span className="lp-tag">PENSADO PARA QUEM CONSTRÓI</span><h2>Menos ferramentas separadas.<br/>Mais tempo a criar.</h2></div><p>Uma experiência de ponta a ponta para desenhar, testar e partilhar os seus sistemas de automação.</p></div>
-      <div className="lp-feats">{items.map((f,i)=><article key={f.k} data-rv style={{transitionDelay:`${(i%3)*70}ms`}}><div className="lp-ic">{f.i}</div><span>{f.k}</span><h3>{f.t}</h3><p>{f.p}</p></article>)}</div></section>
-    <section className="lp-sec lp-how" id="como-funciona"><div className="lp-head" data-rv><div><span className="lp-tag">COMO FUNCIONA</span><h2>Da ideia à simulação<br/>em três passos.</h2></div><p>Sem configurações demoradas: abra, ligue e execute.</p></div>
-      <ol className="lp-steps">{steps.map((st,i)=><li key={st.n} data-rv style={{transitionDelay:`${i*90}ms`}}><span className="lp-step-n">{st.n}</span><h3>{st.t}</h3><p>{st.p}</p></li>)}</ol></section>
-    <section className="lp-sec lp-sim" id="simulador"><div className="lp-head" data-rv><div><span className="lp-tag">O SIMULADOR</span><h2>Esquema, Ladder e Painel 3D<br/>numa única área de trabalho.</h2></div><p>Componentes PLC, ligações elétricas e Monitor em tempo real, com o estado RUN sempre visível.</p></div><div data-rv><SimWindow full/></div></section>
-    <section className="lp-sec lp-lib" id="biblioteca"><div className="lp-head" data-rv><div><span className="lp-tag">BIBLIOTECA</span><h2>Os componentes que<br/>encontra num quadro real.</h2></div><p>Organizados por categoria, com datasheets e modelos 3D para os equipamentos disponíveis.</p></div>
-      <div className="lp-cats" data-rv>{cats.map(c=><span key={c}>{c}</span>)}</div></section>
-    <section className="lp-sec lp-faq" id="faq"><div className="lp-head" data-rv><div><span className="lp-tag">PERGUNTAS FREQUENTES</span><h2>Tudo o que precisa<br/>de saber para começar.</h2></div></div>
-      <div className="lp-faq-list" data-rv>{faqs.map(f=><details key={f.q}><summary>{f.q}</summary><p>{f.a}</p></details>)}</div></section>
-    <section className="lp-end" id="sobre"><div><span className="lp-tag light">PRONTO PARA COMEÇAR?</span><h2>O próximo circuito começa aqui.</h2><p>Crie uma conta e transforme o seu projeto num sistema que pode ver funcionar.</p></div><div className="lp-end-cta"><button className="lp-btn light" onClick={onRegister}>Criar conta <span aria-hidden>↗</span></button><button className="lp-end-login" onClick={onLogin}>Já tenho conta</button></div></section>
-    <footer className="lp-foot"><Logo dark size={26}/><span>Esquema. Lógica. Simulação.</span><nav className="lp-foot-links" aria-label="Rodapé"><a href="#funcionalidades">Funcionalidades</a><a href="#como-funciona">Como funciona</a><a href="#biblioteca">Biblioteca</a><a href="#faq">FAQ</a></nav><small>© {new Date().getFullYear()} DC-SIMU</small></footer>
-  </div>
 }
