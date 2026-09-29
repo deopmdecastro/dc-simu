@@ -10,6 +10,9 @@ import { getProauto3DImage } from './proauto3DImage'
 import { getWeg3DImage } from './weg3DImage'
 import { getCad3DImage } from './cad3DImage'
 import { getComponentModelSpec, hasComponent3DModel } from '../three/modelPaths'
+import { componentOrientationOf, isOriginalComponentOrientation } from '../three/componentOrientation'
+import { getOrientedComponentImage } from '../three/orientedComponentImage'
+import ComponentViewEditor from '../components/ComponentViewEditor'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
@@ -131,6 +134,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const [proautoImage, setProautoImage] = useState<string | null>(null)
   const [wegImage, setWegImage] = useState<string | null>(null)
   const [cadImages, setCadImages] = useState<Partial<Record<ComponentType, string>>>({})
+  const [orientedImages, setOrientedImages] = useState<Record<string, string>>({})
+  const viewOrientationEditor = useSimStore((state) => state.viewOrientationEditor)
   const hasProauto = components.some((c) => c.type === 'powerSupplyProauto24A')
   useEffect(() => {
     if (!hasProauto) return
@@ -164,6 +169,28 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     })
     return () => { active = false }
   }, [cadTypesKey])
+  const orientedRequests = components.flatMap((component) => {
+    if (!hasComponent3DModel(component.type)) return []
+    const orientation = viewOrientationEditor?.componentId === component.id ? viewOrientationEditor.draft : componentOrientationOf(component)
+    return isOriginalComponentOrientation(orientation) ? [] : [{ id: component.id, type: component.type, orientation }]
+  })
+  const orientedRequestsKey = orientedRequests.map(({ id, type, orientation }) => `${id}:${type}:${orientation.x}:${orientation.y}:${orientation.z}`).join('|')
+  useEffect(() => {
+    const activeIds = new Set(orientedRequests.map((request) => request.id))
+    setOrientedImages((current) => Object.fromEntries(Object.entries(current).filter(([id]) => activeIds.has(id))))
+    if (!orientedRequests.length) return
+    let active = true
+    const timer = window.setTimeout(() => {
+      orientedRequests.forEach((request) => {
+        getOrientedComponentImage(request.type, request.orientation)
+          .then((image) => { if (active) setOrientedImages((current) => ({ ...current, [request.id]: image })) })
+          .catch((error) => console.warn(`Não foi possível renderizar a vista personalizada de ${request.type}.`, error))
+      })
+    }, 70)
+    return () => { active = false; window.clearTimeout(timer) }
+    // A chave contém exclusivamente os dados visuais relevantes; alterações elétricas não recriam imagens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orientedRequestsKey])
   const showEmptyWelcome = useSimStore((s) => s.showEmptyWelcome)
   const wires = useSimStore((s) => s.wires)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
@@ -827,7 +854,11 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const renderComponentEl = (c: ElectricalComponent) => {
     const selected = selectedIds.includes(c.id)
     const cadImage = cadImages[c.type]
-    const model = (c.type === 'plcSiemensLogo1224RC' && logoImages) || (c.type === 'powerSupplyProauto24A' && proautoImage) || (c.type === 'contactorWegCWC09' && wegImage) || cadImage
+    const baseModelImage = c.type === 'plcSiemensLogo1224RC' ? (logoImages ? (c.state.powered ? logoImages.on : logoImages.off) : null)
+      : c.type === 'powerSupplyProauto24A' ? proautoImage
+        : c.type === 'contactorWegCWC09' ? wegImage
+          : cadImage
+    const model = orientedImages[c.id] ?? baseModelImage
     const bounds = model ? modelBounds(c) : { x: 0, y: 0, w: c.w, h: c.h }
     return (
       <g
@@ -841,24 +872,24 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? 'move' : 'inherit', opacity: c.locked ? 0.85 : 1 }}
       >
         {selected && <rect x={bounds.x - 4} y={bounds.y - 4} width={bounds.w + 8} height={bounds.h + 8} rx={6} fill="none" stroke="#2f6bff" strokeWidth={1.5} strokeDasharray="5 3" />}
-        {c.type === 'contactorWegCWC09' && wegImage ? (
+        {c.type === 'contactorWegCWC09' && model ? (
           <>
-            {/* vista frontal do mesmo GLB usado no Painel 3D — não é um SVG */}
-            <image x={0} y={0} width={c.w} height={c.h} href={wegImage} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            {/* vista do mesmo GLB usado no Painel 3D — não é um SVG */}
+            <image x={0} y={0} width={c.w} height={c.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
             <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
-        ) : c.type === 'powerSupplyProauto24A' && proautoImage ? (
+        ) : c.type === 'powerSupplyProauto24A' && model ? (
           <>
-            <image x={0} y={0} width={c.w} height={c.h} href={proautoImage} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            <image x={0} y={0} width={c.w} height={c.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
             <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
-        ) : c.type === 'plcSiemensLogo1224RC' && logoImages ? (
+        ) : c.type === 'plcSiemensLogo1224RC' && model ? (
           <>
-            <image x={0} y={0} width={c.w} height={c.h} href={c.state.powered ? logoImages.on : logoImages.off} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            <image x={0} y={0} width={c.w} height={c.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             {/* Alvos de seleção e bornes mantêm-se nas coordenadas reais do esquema. */}
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
@@ -878,10 +909,10 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
             })}
             <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
-        ) : cadImage ? (
+        ) : model ? (
           <>
-            {/* Mesmo CAD, rotação e materiais utilizados na Biblioteca e no Painel 3D. */}
-            <image x={0} y={0} width={c.w} height={c.h} href={cadImage} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            {/* Mesmo CAD e materiais, com orientação visual específica desta instância. */}
+            <image x={0} y={0} width={c.w} height={c.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
             {c.type === 'dualPushButtonNpb22D11' && <>
@@ -908,6 +939,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
   return (
     <div className="schematic-stage w-full h-full relative overflow-hidden bg-[#f8fafd]">
+      <ComponentViewEditor />
       <svg
         ref={svgRef}
         className="w-full h-full"

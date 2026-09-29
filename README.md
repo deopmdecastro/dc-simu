@@ -9,6 +9,19 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v4.3 (editor de vistas por componente)
+
+- O Esquema e o Painel 3D partilham o comando **Editar vista** para o componente selecionado.
+- Um View Cube no canto superior direito oferece Frente, Trás, Esquerda, Direita, Superior, Inferior,
+  Isométrica, rotação livre, ângulos X/Y/Z e reset para a orientação original.
+- A pré-visualização é aplicada em tempo real somente à instância selecionada. Bornes, fios, posição,
+  estado e propriedades elétricas não são alterados.
+- **Aplicar** persiste `viewOrientation` no componente e, portanto, no JSON/projeto; **Cancelar** repõe
+  a vista anterior. A opção **Guardar como vista padrão** usa apenas configuração da aplicação e faz
+  com que novas instâncias do mesmo tipo adotem os ângulos escolhidos, sem modificar o GLB original.
+- O sistema central de orientação é reutilizado nas duas vistas e já admite futuros presets, snap,
+  espelhamento e biblioteca de vistas.
+
 ## Novidades — v4.2 (integração dos novos componentes CAD)
 
 Os modelos recebidos foram analisados, normalizados e integrados pelo mesmo princípio usado no

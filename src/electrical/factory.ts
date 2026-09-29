@@ -20,6 +20,7 @@ import type {
   TerminalKind,
   TerminalType,
 } from '../types'
+import { getDefaultComponentOrientation } from '../three/componentOrientation'
 
 export interface TerminalTemplate {
   label: string
@@ -712,6 +713,7 @@ export function createComponent(
     w: tpl.w,
     h: tpl.h,
     rotation: 0,
+    viewOrientation: getDefaultComponentOrientation(type),
     mirrored: false,
     locked: false,
     bodyColor: undefined,

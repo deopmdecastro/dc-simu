@@ -156,6 +156,13 @@ export interface Terminal {
   energized: boolean
 }
 
+export interface ComponentViewOrientation {
+  /** Rotação visual adicional em graus, sem alterar lógica, bornes ou modelo de origem. */
+  x: number
+  y: number
+  z: number
+}
+
 export interface ElectricalComponentBase {
   id: string
   type: ComponentType
@@ -171,8 +178,10 @@ export interface ElectricalComponentBase {
   /** Largura / altura do footprint no esquema 2D */
   w: number
   h: number
-  /** Rotação no esquema: 0 | 90 | 180 | 270 */
+  /** Rotação do footprint no esquema: 0 | 90 | 180 | 270. */
   rotation: number
+  /** Orientação visual 3D adicional desta instância; não move bornes nem ligações. */
+  viewOrientation?: ComponentViewOrientation
   /** Espelhamento horizontal */
   mirrored?: boolean
   /** Bloqueado contra arraste acidental */

@@ -9,6 +9,8 @@ import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType } from '../types'
 import * as THREE from 'three'
 import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, MODEL_PATHS } from './modelPaths'
+import { componentOrientationOf, orientationRadians } from './componentOrientation'
+import ComponentViewEditor from '../components/ComponentViewEditor'
 
 const SLOT_WIDTH = 0.72
 const RAIL_Y = 0.4
@@ -131,6 +133,24 @@ const LOGO_1224RC_MODEL_URL = MODEL_PATHS.plcSiemensLogo1224RC
 const LOGO_1224RC_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0]
 // Altura alvo (unidades da cena), semelhante à dos outros aparelhos de calha (disjuntores ~0.7-0.9).
 const LOGO_1224RC_TARGET_HEIGHT = 0.9
+
+function OrientedInstance({ c, pivot, orientation, selected, onSelect, children }: {
+  c: ElectricalComponent
+  pivot: [number, number, number]
+  orientation: ElectricalComponent['viewOrientation']
+  selected: boolean
+  onSelect: () => void
+  children: ReactNode
+}) {
+  const rotation = orientationRadians(orientation)
+  return <group position={pivot} rotation={rotation} onClick={(event) => { event.stopPropagation(); onSelect() }}>
+    <group position={[-pivot[0], -pivot[1], -pivot[2]]}>{children}</group>
+    {selected && <mesh position={[0, -0.43, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[0.42, 0.48, 32]} />
+      <meshBasicMaterial color="#2f6fe4" transparent opacity={0.8} side={THREE.DoubleSide} />
+    </mesh>}
+  </group>
+}
 
 class Model3DErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
   constructor(props: { fallback: ReactNode; children: ReactNode }) {
@@ -329,8 +349,8 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
   const pressed = !!c.state.pressed
   return <group
     position={[x, RAIL_Y + 1.05, 0.4]}
-    onPointerDown={(event) => { event.stopPropagation(); onPress(true) }}
-    onPointerUp={(event) => { event.stopPropagation(); onPress(false) }}
+    onPointerDown={() => onPress(true)}
+    onPointerUp={() => onPress(false)}
     onPointerOut={() => { if (pressed) onPress(false) }}
   >
     <group position={[0, 0, pressed ? -0.025 : 0]}>
@@ -367,8 +387,8 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
     return obj
   }, [scene, spec])
   const buttonEvents = (handler: (pressed: boolean) => void) => ({
-    onPointerDown: (event: any) => { event.stopPropagation(); handler(true) },
-    onPointerUp: (event: any) => { event.stopPropagation(); handler(false) },
+    onPointerDown: () => handler(true),
+    onPointerUp: () => handler(false),
     onPointerOut: () => handler(false),
   })
   return <group position={[x, RAIL_Y + 1.05, 0.4]}>
@@ -510,14 +530,8 @@ function PushButton3D({ c, x, onPress }: { c: ElectricalComponent; x: number; on
       </mesh>
       <mesh
         position={[0, pressed ? -0.05 : 0, 0]}
-        onPointerDown={(e) => {
-          e.stopPropagation()
-          onPress(true)
-        }}
-        onPointerUp={(e) => {
-          e.stopPropagation()
-          onPress(false)
-        }}
+        onPointerDown={() => onPress(true)}
+        onPointerUp={() => onPress(false)}
         onPointerOut={() => pressed && onPress(false)}
       >
         <cylinderGeometry args={[r, r, 0.1, 24]} />
@@ -666,6 +680,8 @@ export default function Panel3D() {
   const setComponentState = useSimStore((s) => s.setComponentState)
   const addComponent = useSimStore((s) => s.addComponent)
   const selectComponents = useSimStore((s) => s.selectComponents)
+  const selectedIds = useSimStore((s) => s.selectedComponentIds)
+  const viewOrientationEditor = useSimStore((s) => s.viewOrientationEditor)
 
   const [showHints, setShowHints] = useState(() => {
     try {
@@ -721,7 +737,26 @@ export default function Panel3D() {
     return pos
   }, [offRail])
 
-  const motor = components.find((c) => c.type === 'motor3ph')
+  const orientationFor = (component: ElectricalComponent) => viewOrientationEditor?.componentId === component.id
+    ? viewOrientationEditor.draft
+    : componentOrientationOf(component)
+  const wrapOriented = (component: ElectricalComponent, pivot: [number, number, number], content: ReactNode) => (
+    <OrientedInstance
+      key={component.id}
+      c={component}
+      pivot={pivot}
+      orientation={orientationFor(component)}
+      selected={selectedIds.includes(component.id)}
+      onSelect={() => selectComponents([component.id])}
+    >{content}</OrientedInstance>
+  )
+  const frontPivot = (component: ElectricalComponent, x: number): [number, number, number] => {
+    if (component.type === 'motor3ph' || component.type === 'motor1ph') return [2.4, -0.75, 0.7]
+    if (component.type === 'towerLight') return [x, RAIL_Y + 1.3, 0.12]
+    if (component.type === 'ledGreen' || component.type === 'ledRed' || component.type === 'ledYellow' || component.type === 'ledWhite' || component.type === 'buzzer') return [x, RAIL_Y + 1.15, 0.12]
+    if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [x, RAIL_Y + 0.9, 0.3]
+    return [x, RAIL_Y + 1.05, 0.4]
+  }
 
    return (
      <div
@@ -738,7 +773,8 @@ export default function Panel3D() {
          addComponent(compType, 0, 0)
        }}
      >
-      <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }}>
+      <ComponentViewEditor />
+      <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => selectComponents([])}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
@@ -748,40 +784,37 @@ export default function Panel3D() {
 
         {railComponents.map((c) => {
           const x = positions[c.id].x
-          if (c.type === 'thermalRelay') return <ThermalRelay3D key={c.id} c={c} x={x} />
-          if (hasDinRailModel(c.type)) {
+          let content: ReactNode
+          if (c.type === 'thermalRelay') content = <ThermalRelay3D c={c} x={x} />
+          else if (hasDinRailModel(c.type)) {
             const fallback = c.type === 'phoenixEcb3000760' ? <PhoenixEcb3D c={c} x={x} /> : <Breaker3D c={c} x={x} />
-            return <Model3DErrorBoundary key={c.id} fallback={fallback}><Suspense fallback={fallback}><CadComponentReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
-          }
-          if (c.type === 'contactorWegCWC09') return <Model3DErrorBoundary key={c.id} fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
-          if (c.type.startsWith('contactor')) return <Contactor3D key={c.id} c={c} x={x} />
-          if (c.type === 'powerSupplyProauto24A') return <Model3DErrorBoundary key={c.id} fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
-          if (c.type === 'powerSupply') return <PowerSupply3D key={c.id} c={c} x={x} />
-          if (c.type.startsWith('plc')) return <PLC3D key={c.id} c={c} x={x} />
-          if (c.type === 'vfd' || c.type === 'softStarter') return <Drive3D key={c.id} c={c} x={x} />
-          return <Breaker3D key={c.id} c={c} x={x} />
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><CadComponentReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          } else if (c.type === 'contactorWegCWC09') content = <Model3DErrorBoundary fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          else if (c.type.startsWith('contactor')) content = <Contactor3D c={c} x={x} />
+          else if (c.type === 'powerSupplyProauto24A') content = <Model3DErrorBoundary fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          else if (c.type === 'powerSupply') content = <PowerSupply3D c={c} x={x} />
+          else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} />
+          else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
+          else content = <Breaker3D c={c} x={x} />
+          return wrapOriented(c, [x, RAIL_Y + 0.4, 0], content)
         })}
 
         {offRail.map((c) => {
           const x = front[c.id]
-          if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') return <Lamp3D key={c.id} c={c} x={x} />
-          if (c.type === 'towerLight') return <TowerLight3D key={c.id} c={c} x={x} />
-          if (c.type === 'motor3ph') return <Motor3D key={c.id} c={c} />
-          if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
+          let content: ReactNode
+          if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />
+          else if (c.type === 'towerLight') content = <TowerLight3D c={c} x={x} />
+          else if (c.type === 'motor3ph' || c.type === 'motor1ph') content = <Motor3D c={c} />
+          else if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => setComponentState(c.id, { startPressed: pressed })} />
-            return <Model3DErrorBoundary key={c.id} fallback={fallback}><Suspense fallback={fallback}><DualPushButtonReal3D c={c} x={x}
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><DualPushButtonReal3D c={c} x={x}
               onStart={(pressed) => setComponentState(c.id, { startPressed: pressed })}
               onStop={(pressed) => setComponentState(c.id, { stopPressed: pressed })} /></Suspense></Model3DErrorBoundary>
-          }
-          if ((c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR') && getCommandModelSpec(c.type)) return <Model3DErrorBoundary key={c.id} fallback={<PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />}><Suspense fallback={<PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />}><EmergencyButtonReal3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} /></Suspense></Model3DErrorBoundary>
-          if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(c.type)) {
-            return <Sensor3D key={c.id} c={c} x={x} onToggle={() => setComponentState(c.id, { triggered: !c.state.triggered })} />
-          }
-          if (c.type === 'motor1ph') return <Motor3D key={c.id} c={c} />
-          return <PushButton3D key={c.id} c={c} x={x} onPress={(p) => pressButton(c.id, p)} />
+          } else if ((c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR') && getCommandModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />}><Suspense fallback={<PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />}><EmergencyButtonReal3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} /></Suspense></Model3DErrorBoundary>
+          else if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(c.type)) content = <Sensor3D c={c} x={x} onToggle={() => setComponentState(c.id, { triggered: !c.state.triggered })} />
+          else content = <PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />
+          return wrapOriented(c, frontPivot(c, x), content)
         })}
-
-        {motor && <Motor3D c={motor} />}
         <Wires3D positions={positions} />
 
         <OrbitControls minDistance={2} maxDistance={18} makeDefault />

@@ -6,6 +6,17 @@ import { getComponentGlbSpec } from './modelPaths'
 const FRAME_COUNT = 16
 const FRAME_SIZE = 180
 const frameCache = new Map<ComponentType, Promise<string[]>>()
+const sourceCache = new Map<ComponentType, Promise<THREE.Object3D>>()
+const orientationImageCache = new Map<string, Promise<string>>()
+
+function loadComponentSource(type: ComponentType, path: string): Promise<THREE.Object3D> {
+  const cached = sourceCache.get(type)
+  if (cached) return cached
+  const request = new GLTFLoader().loadAsync(path).then(({ scene }) => scene)
+    .catch((error) => { sourceCache.delete(type); throw error })
+  sourceCache.set(type, request)
+  return request
+}
 
 const nextPaint = () => new Promise<void>((resolve) => {
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve())
@@ -26,7 +37,7 @@ export function getComponentTurntableFrames(type: ComponentType): Promise<string
   const spec = getComponentGlbSpec(type)
   if (!spec) return Promise.reject(new Error(`Sem GLB real associado a ${type}.`))
 
-  const request = new GLTFLoader().loadAsync(spec.path).then(async ({ scene: source }) => {
+  const request = loadComponentSource(type, spec.path).then(async (source) => {
     const canvas = document.createElement('canvas')
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true })
     const clonedMaterials: THREE.Material[] = []

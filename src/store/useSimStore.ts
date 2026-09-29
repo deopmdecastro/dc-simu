@@ -16,6 +16,7 @@ import type {
   SimEvent,
   FaultState,
   ComponentType,
+  ComponentViewOrientation,
   Terminal,
   ProbeResult,
 } from '../types'
@@ -36,6 +37,7 @@ import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 import { hasComponent3DModel } from '../three/modelPaths'
+import { componentOrientationOf, normalizeComponentOrientation, saveDefaultComponentOrientation } from '../three/componentOrientation'
 
 export interface Snapshot {
   components: ElectricalComponent[]
@@ -130,6 +132,12 @@ interface Store extends CircuitState {
   /** Componente a ser arrastado da biblioteca (HTML5 drag) — usado para o fantasma no esquema */
   dragType: ComponentType | null
   setDragType: (t: ComponentType | null) => void
+  /** Editor visual partilhado pelo Esquema e Painel 3D. */
+  viewOrientationEditor: { componentId: string; draft: ComponentViewOrientation } | null
+  openViewOrientationEditor: (componentId: string) => void
+  setViewOrientationDraft: (orientation: ComponentViewOrientation) => void
+  cancelViewOrientationEditor: () => void
+  applyViewOrientationEditor: (saveAsDefault: boolean) => void
   /** Preferências aplicadas aos novos cabos (ferramenta Cabo) */
   wireDefaults: WireDefaults
   setWireDefaults: (patch: Partial<WireDefaults>) => void
@@ -593,6 +601,7 @@ export const useSimStore = create<Store>((set, get) => ({
       selectedComponentIds: [],
       selectedWireId: null,
       selectedTerminalId: null,
+      viewOrientationEditor: null,
       runtime: EMPTY_RUNTIME(),
       history: [],
       future: [],
@@ -726,6 +735,36 @@ export const useSimStore = create<Store>((set, get) => ({
   },
   dragType: null,
   setDragType: (t) => set({ dragType: t && hasComponent3DModel(t) ? t : null }),
+  viewOrientationEditor: null,
+  openViewOrientationEditor: (componentId) => {
+    const component = get().components.find((item) => item.id === componentId)
+    if (!component) return
+    set({
+      viewOrientationEditor: { componentId, draft: componentOrientationOf(component) },
+      selectedComponentIds: [componentId],
+      selectedWireId: null,
+      selectedTerminalId: null,
+    })
+  },
+  setViewOrientationDraft: (orientation) => set((state) => state.viewOrientationEditor ? {
+    viewOrientationEditor: { ...state.viewOrientationEditor, draft: normalizeComponentOrientation(orientation) },
+  } : {}),
+  cancelViewOrientationEditor: () => set({ viewOrientationEditor: null }),
+  applyViewOrientationEditor: (saveAsDefault) => {
+    const editor = get().viewOrientationEditor
+    if (!editor) return
+    const component = get().components.find((item) => item.id === editor.componentId)
+    if (!component) { set({ viewOrientationEditor: null }); return }
+    const orientation = normalizeComponentOrientation(editor.draft)
+    get().commitHistory()
+    if (saveAsDefault) saveDefaultComponentOrientation(component.type, orientation)
+    set((state) => ({
+      components: state.components.map((item) => item.id === component.id ? { ...item, viewOrientation: orientation } : item),
+      viewOrientationEditor: null,
+      dirty: true,
+    }))
+    get().pushEvent('info', `Vista de ${component.ref} guardada${saveAsDefault ? ' como padrão do componente' : ''}.`)
+  },
   wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'rigid', endType: 'ferrule' },
   setWireDefaults: (patch) => set((s) => ({ wireDefaults: { ...s.wireDefaults, ...patch } })),
 
@@ -767,6 +806,7 @@ export const useSimStore = create<Store>((set, get) => ({
         const clone = createComponent(src.type, undefined, src.label, s.components.length + clones.length, src.schematicX + 30, src.schematicY + 30, JSON.parse(JSON.stringify(src.state)))
         clone.ref = nextRef([...s.components, ...clones], src.type)
         clone.rotation = src.rotation
+        clone.viewOrientation = componentOrientationOf(src)
         clone.w = src.w
         clone.h = src.h
         clone.bodyColor = src.bodyColor
@@ -829,6 +869,7 @@ export const useSimStore = create<Store>((set, get) => ({
       const nextId = living.some((p) => p.id === s.activePlcId) ? s.activePlcId : living[0]?.id ?? null
       const nextProgram = nextId && nextId !== s.activePlcId ? keptPrograms[nextId] ?? blankPlcProgram() : null
       return { components: remaining, wires, selectedComponentIds: [], dirty: true,
+        viewOrientationEditor: s.viewOrientationEditor && ids.includes(s.viewOrientationEditor.componentId) ? null : s.viewOrientationEditor,
         activePlcId: nextId, plcPrograms: keptPrograms, plcTags: keptTags,
         projectFiles: Object.fromEntries(Object.entries(s.projectFiles).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),
         ...(nextProgram ? { tags: keptTags[nextId!] ?? [], ladder: { rungs: nextProgram.rungs }, fcBlocks: { fc1: nextProgram.fc1, fc2: nextProgram.fc2 }, history: [], future: [] } : {}),
@@ -842,10 +883,11 @@ export const useSimStore = create<Store>((set, get) => ({
       selectedComponentIds: additive ? [...new Set([...s.selectedComponentIds, ...ids])] : ids,
       selectedWireId: null,
       selectedTerminalId: null,
+      viewOrientationEditor: s.viewOrientationEditor && !ids.includes(s.viewOrientationEditor.componentId) ? null : s.viewOrientationEditor,
     })),
 
-  selectWire: (id) => set({ selectedWireId: id, selectedComponentIds: [], selectedTerminalId: null }),
-  selectTerminal: (id) => set({ selectedTerminalId: id, selectedWireId: null, selectedComponentIds: [] }),
+  selectWire: (id) => set({ selectedWireId: id, selectedComponentIds: [], selectedTerminalId: null, viewOrientationEditor: null }),
+  selectTerminal: (id) => set({ selectedTerminalId: id, selectedWireId: null, selectedComponentIds: [], viewOrientationEditor: null }),
 
   addTerminal: (componentId) => {
     get().commitHistory()
@@ -1297,7 +1339,7 @@ export const useSimStore = create<Store>((set, get) => ({
     return JSON.stringify(
       {
         app: 'dc-simu',
-        version: 3,
+        version: 4,
         savedAt: new Date().toISOString(),
         components: s.components,
         wires: s.wires,
@@ -1347,6 +1389,7 @@ export const useSimStore = create<Store>((set, get) => ({
         runtime: EMPTY_RUNTIME(),
         selectedComponentIds: [],
         selectedWireId: null,
+        viewOrientationEditor: null,
         history: [],
         future: [],
         dirty: alignedWires.some((wire, i) => wire !== loadedWires[i]),
@@ -1376,6 +1419,7 @@ export const useSimStore = create<Store>((set, get) => ({
       runtime: EMPTY_RUNTIME(),
       selectedComponentIds: [],
       selectedWireId: null,
+      viewOrientationEditor: null,
       history: [],
       future: [],
       dirty: false,

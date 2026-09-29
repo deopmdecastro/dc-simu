@@ -25,6 +25,7 @@ import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
 import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, hasComponent3DModel } from '../src/three/modelPaths'
+import { COMPONENT_VIEW_PRESETS, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
@@ -710,6 +711,32 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.getState().setPlacingType('motor3ph')
   useSimStore.getState().setDragType('buttonNO')
   check('estados de posicionamento e arraste não contornam o bloqueio', useSimStore.getState().placingType === null && useSimStore.getState().dragType === null)
+}
+
+/* Orientação visual por instância: isolada da lógica e persistida no projeto. */
+{
+  const component = createComponent('breakerWegMdwC10')
+  check('nova instância recebe uma orientação visual válida', !!component.viewOrientation && isOriginalComponentOrientation(component.viewOrientation))
+  check('presets cobrem vista isométrica, faces e reset original', COMPONENT_VIEW_PRESETS.isometric.x !== 0
+    && COMPONENT_VIEW_PRESETS.front.y === 0 && COMPONENT_VIEW_PRESETS.back.y === 180
+    && COMPONENT_VIEW_PRESETS.left.y === -90 && COMPONENT_VIEW_PRESETS.right.y === 90
+    && COMPONENT_VIEW_PRESETS.top.x === -90 && COMPONENT_VIEW_PRESETS.bottom.x === 90
+    && isOriginalComponentOrientation(COMPONENT_VIEW_PRESETS.original))
+  check('ângulos personalizados são normalizados sem tocar em dados elétricos', normalizeComponentOrientation({ x: 370, y: -450, z: 181 }).x === 10
+    && normalizeComponentOrientation({ x: 370, y: -450, z: 181 }).y === -90
+    && normalizeComponentOrientation({ x: 370, y: -450, z: 181 }).z === -179)
+
+  const before = useSimStore.getState().components
+  useSimStore.setState({ components: [...before, component] })
+  useSimStore.getState().openViewOrientationEditor(component.id)
+  useSimStore.getState().setViewOrientationDraft({ x: 15, y: 35, z: -10 })
+  useSimStore.getState().applyViewOrientationEditor(false)
+  const oriented = useSimStore.getState().components.find((item) => item.id === component.id)
+  check('editor aplica orientação somente à instância selecionada', oriented?.viewOrientation?.x === 15 && oriented.viewOrientation.y === 35 && oriented.viewOrientation.z === -10
+    && before.every((item, index) => useSimStore.getState().components[index].id === item.id && useSimStore.getState().components[index].viewOrientation === item.viewOrientation))
+  const saved = JSON.parse(useSimStore.getState().saveJSON())
+  check('orientação visual da instância é persistida no JSON do projeto', saved.components.find((item: ElectricalComponent) => item.id === component.id)?.viewOrientation?.y === 35)
+  useSimStore.setState({ components: before, viewOrientationEditor: null })
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
