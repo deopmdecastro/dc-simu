@@ -164,6 +164,16 @@ export interface ComponentViewOrientation {
   z: number
 }
 
+/** Posição visual de um borne numa vista 3D. Os valores são relativos ao
+ * footprint original e podem ultrapassar 0..1 quando a vista projetada é maior. */
+export interface ComponentTerminalViewPosition {
+  x: number
+  y: number
+}
+
+/** Posições manuais por vista/orientação, indexadas pelo id estável do borne. */
+export type ComponentTerminalViewPositions = Record<string, Record<string, ComponentTerminalViewPosition>>
+
 export interface ElectricalComponentBase {
   id: string
   type: ComponentType
@@ -181,8 +191,10 @@ export interface ElectricalComponentBase {
   h: number
   /** Rotação do footprint no esquema: 0 | 90 | 180 | 270. */
   rotation: number
-  /** Orientação visual 3D adicional desta instância; não move bornes nem ligações. */
+  /** Orientação visual 3D adicional desta instância; não altera a lógica elétrica. */
   viewOrientation?: ComponentViewOrientation
+  /** Ajustes visuais dos bornes por vista 3D. As ligações continuam referenciadas pelo id. */
+  terminalViewPositions?: ComponentTerminalViewPositions
   /** Espelhamento horizontal */
   mirrored?: boolean
   /** Bloqueado contra arraste acidental */

@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
-import { COMPONENT_VIEW_PRESETS, normalizeComponentOrientation, type ComponentViewPreset } from '../three/componentOrientation'
+import {
+  COMPONENT_VIEW_PRESETS,
+  componentTerminalViewKey,
+  normalizeComponentOrientation,
+  type ComponentViewPreset,
+} from '../three/componentOrientation'
 import { hasComponent3DModel } from '../three/modelPaths'
+import { componentTerminalLocal } from '../schematic/componentTerminalViews'
 import { IconCube, IconRotate, IconSave } from '../ui/icons'
-import type { ComponentViewOrientation } from '../types'
+import type { ComponentViewOrientation, ElectricalComponent } from '../types'
 
 const PRESETS: Array<{ id: ComponentViewPreset; label: string }> = [
   { id: 'isometric', label: 'Isométrica' },
@@ -79,6 +85,113 @@ function AngleField({ axis, value, onChange }: { axis: 'X' | 'Y' | 'Z'; value: n
   return <label className="component-view-angle"><span>{axis}</span><input type="number" min={-180} max={180} step={1} value={Math.round(value * 10) / 10} onChange={(event) => onChange(Number(event.target.value) || 0)} /><small>°</small></label>
 }
 
+const MAP_MIN = -0.18
+const MAP_SPAN = 1.36
+const toMapPercent = (value: number) => ((value - MAP_MIN) / MAP_SPAN) * 100
+const fromMapFraction = (value: number) => MAP_MIN + value * MAP_SPAN
+
+function TerminalPlacementEditor({ component, draft }: { component: ElectricalComponent; draft: ComponentViewOrientation }) {
+  const editor = useSimStore((state) => state.viewOrientationEditor)!
+  const setPosition = useSimStore((state) => state.setViewTerminalPosition)
+  const autoPlace = useSimStore((state) => state.autoPlaceViewTerminals)
+  const mapRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ pointerId: number; terminalId: string } | null>(null)
+  const [selectedTerminalId, setSelectedTerminalId] = useState(component.terminals[0]?.id ?? '')
+  const viewKey = componentTerminalViewKey(draft)
+  const viewLabel = PRESETS.find((preset) => preset.id === viewKey)?.label ?? 'Personalizada'
+  const preview = useMemo(() => ({
+    ...component,
+    viewOrientation: draft,
+    terminalViewPositions: editor.terminalViewPositions,
+  }), [component, draft, editor.terminalViewPositions])
+  const positions = useMemo(() => Object.fromEntries(preview.terminals.map((terminal) => {
+    const point = componentTerminalLocal(preview, terminal)
+    return [terminal.id, { x: point.x / preview.w, y: point.y / preview.h }]
+  })), [preview])
+  const selectedTerminal = component.terminals.find((terminal) => terminal.id === selectedTerminalId) ?? component.terminals[0]
+  const selectedPosition = selectedTerminal ? positions[selectedTerminal.id] : undefined
+  const manualCount = Object.keys(editor.terminalViewPositions[viewKey] ?? {}).length
+
+  useEffect(() => {
+    if (!component.terminals.some((terminal) => terminal.id === selectedTerminalId)) setSelectedTerminalId(component.terminals[0]?.id ?? '')
+  }, [component.id, component.terminals, selectedTerminalId])
+
+  const moveFromPointer = (event: ReactPointerEvent<HTMLElement>, terminalId: string) => {
+    const rect = mapRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const x = fromMapFraction(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)))
+    const y = fromMapFraction(Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)))
+    setPosition(terminalId, { x, y })
+  }
+
+  return <div className="component-terminal-editor">
+    <div className="component-terminal-editor-title">
+      <span><strong>Posicionar bornes</strong><small>Vista: {viewLabel}</small></span>
+      <button type="button" onClick={autoPlace} title="Projetar automaticamente os bornes nesta vista"><IconRotate size={11} />Rastrear automaticamente</button>
+    </div>
+    <div className="component-terminal-view-buttons" aria-label="Escolher vista para posicionar bornes">
+      {PRESETS.map((preset) => <button
+        type="button"
+        key={`terminal-${preset.id}`}
+        className={componentTerminalViewKey(draft) === componentTerminalViewKey(COMPONENT_VIEW_PRESETS[preset.id]) ? 'active' : ''}
+        onClick={() => useSimStore.getState().setViewOrientationDraft({ ...COMPONENT_VIEW_PRESETS[preset.id] })}
+      >{preset.label}</button>)}
+    </div>
+    <div
+      ref={mapRef}
+      className="component-terminal-map"
+      aria-label="Mapa de bornes arrastáveis"
+      onPointerMove={(event) => {
+        const drag = dragRef.current
+        if (drag?.pointerId === event.pointerId) moveFromPointer(event, drag.terminalId)
+      }}
+      onPointerUp={(event) => {
+        if (dragRef.current?.pointerId !== event.pointerId) return
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+        dragRef.current = null
+      }}
+      onPointerCancel={() => { dragRef.current = null }}
+    >
+      <div className="component-terminal-map-body"><span>modelo 3D · {component.ref}</span></div>
+      {component.terminals.map((terminal) => {
+        const position = positions[terminal.id]
+        if (!position) return null
+        const selected = terminal.id === selectedTerminal?.id
+        const viewPositions = editor.terminalViewPositions[viewKey]
+        const terminalIndex = component.terminals.findIndex((item) => item.id === terminal.id)
+        const manual = !!(viewPositions?.[terminal.id] ?? viewPositions?.[`index:${terminalIndex}`] ?? viewPositions?.[`label:${terminal.label}`])
+        return <button
+          type="button"
+          key={terminal.id}
+          className={`component-terminal-dot${selected ? ' selected' : ''}${manual ? ' manual' : ''}`}
+          style={{ left: `${toMapPercent(position.x)}%`, top: `${toMapPercent(position.y)}%`, backgroundColor: terminal.color }}
+          title={`${terminal.label} · arraste para posicionar`}
+          onPointerDown={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            setSelectedTerminalId(terminal.id)
+            dragRef.current = { pointerId: event.pointerId, terminalId: terminal.id }
+            mapRef.current?.setPointerCapture(event.pointerId)
+            moveFromPointer(event, terminal.id)
+          }}
+        ><span>{terminal.label}</span></button>
+      })}
+    </div>
+    <div className="component-terminal-controls">
+      <label><span>Borne</span><select value={selectedTerminal?.id ?? ''} onChange={(event) => setSelectedTerminalId(event.target.value)}>{component.terminals.map((terminal) => <option key={terminal.id} value={terminal.id}>{terminal.label}</option>)}</select></label>
+      {(['x', 'y'] as const).map((axis) => <label key={axis}><span>{axis.toUpperCase()} %</span><input
+        type="number"
+        min={-50}
+        max={150}
+        step={1}
+        value={selectedPosition ? Math.round(selectedPosition[axis] * 1000) / 10 : 0}
+        onChange={(event) => selectedTerminal && setPosition(selectedTerminal.id, { ...selectedPosition!, [axis]: Number(event.target.value) / 100 })}
+      /></label>)}
+    </div>
+    <p>{manualCount ? `${manualCount} borne(s) ajustado(s) manualmente nesta vista.` : 'Sugestão automática ativa. Arraste um borne no mapa ou diretamente sobre o componente no Esquema.'}</p>
+  </div>
+}
+
 /** Comando + editor partilhado pelas vistas Esquema e Painel 3D. */
 export default function ComponentViewEditor() {
   const components = useSimStore((state) => state.components)
@@ -97,7 +210,7 @@ export default function ComponentViewEditor() {
   if (!editor) {
     if (!selected) return null
     return <div className="component-view-command">
-      <button type="button" onClick={() => open(selected.id)} title={`Editar orientação visual de ${selected.ref}`}><IconCube size={14} />Editar vista</button>
+      <button type="button" onClick={() => open(selected.id)} title={`Editar componente 3D ${selected.ref}`}><IconCube size={14} />Editar componente 3D</button>
     </div>
   }
   if (!component) return null
@@ -105,9 +218,9 @@ export default function ComponentViewEditor() {
   const draft = editor.draft
   const updateAxis = (axis: 'x' | 'y' | 'z', value: number) => setDraft(normalizeComponentOrientation({ ...draft, [axis]: value }))
   return (
-    <section className="component-view-editor" aria-label={`Editor de vista de ${component.ref}`} onPointerDown={(event) => event.stopPropagation()}>
+    <section className="component-view-editor" aria-label={`Editar componente 3D ${component.ref}`} onPointerDown={(event) => event.stopPropagation()}>
       <header>
-        <div><IconCube size={16} /><span><strong>Editar vista</strong><small>{component.ref} · {component.label}</small></span></div>
+        <div><IconCube size={16} /><span><strong>Editar componente 3D</strong><small>{component.ref} · {component.label}</small></span></div>
         <button type="button" onClick={cancel} aria-label="Fechar e cancelar">×</button>
       </header>
 
@@ -128,9 +241,11 @@ export default function ComponentViewEditor() {
         <button type="button" onClick={() => setDraft({ ...COMPONENT_VIEW_PRESETS.original })}><IconRotate size={11} />Original</button>
       </div>
 
-      <label className="component-view-default"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} /><span>Guardar como vista padrão do componente<small>Novas instâncias de {component.type} usarão esta orientação.</small></span></label>
-      {!hasComponent3DModel(component.type) && <p className="component-view-warning">Este tipo usa uma representação procedural; no Esquema, os bornes permanecem fixos.</p>}
-      <p className="component-view-note">Apenas a vista muda. Bornes, fios, posição e dados elétricos permanecem intactos.</p>
+      <TerminalPlacementEditor component={component} draft={draft} />
+
+      <label className="component-view-default"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} /><span>Guardar como padrão do componente<small>Novas instâncias usarão esta orientação e mapas de bornes.</small></span></label>
+      {!hasComponent3DModel(component.type) && <p className="component-view-warning">Este tipo não dispõe de GLB e permanece bloqueado para novas inserções.</p>}
+      <p className="component-view-note">Apenas a apresentação muda. IDs, fios, posição elétrica, referências, propriedades e o GLB de origem permanecem intactos.</p>
 
       <footer>
         <button type="button" className="dc-btn" onClick={cancel}>Cancelar</button>

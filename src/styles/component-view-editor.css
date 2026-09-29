@@ -2,7 +2,7 @@
 .component-view-command { position:absolute; z-index:24; top:12px; right:12px; }
 .component-view-command > button { display:inline-flex; height:30px; align-items:center; gap:6px; padding:0 10px; border:1px solid #b9cdf8; border-radius:6px; color:#1f55e0; background:#fff; box-shadow:0 3px 12px #1f2a3d1f; font-size:10px; font-weight:750; }
 .component-view-command > button:hover { border-color:#7da2f5; background:#eef4ff; }
-.component-view-editor { position:absolute; z-index:45; top:12px; right:12px; width:310px; max-width:calc(100% - 24px); max-height:calc(100% - 24px); overflow:auto; border:1px solid #cbd5e1; border-radius:10px; color:#27344b; background:#fff; box-shadow:0 18px 45px #0f172a36; font-size:11px; }
+.component-view-editor { position:absolute; z-index:45; top:12px; right:12px; width:340px; max-width:calc(100% - 24px); max-height:calc(100% - 24px); overflow:auto; border:1px solid #cbd5e1; border-radius:10px; color:#27344b; background:#fff; box-shadow:0 18px 45px #0f172a36; font-size:11px; }
 .component-view-editor > header { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; min-height:44px; padding:7px 9px 7px 11px; border-bottom:1px solid #dce3ed; background:linear-gradient(180deg,#f8fafc,#eef2f7); }
 .component-view-editor > header > div { min-width:0; display:flex; align-items:center; gap:8px; color:#1f55e0; }
 .component-view-editor > header span { min-width:0; display:flex; flex-direction:column; }
@@ -42,6 +42,28 @@
 .component-view-angle small { color:#94a3b8; text-align:center; }
 .component-view-rotate-z { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:0 8px 8px; }
 .component-view-rotate-z button { display:flex; align-items:center; justify-content:center; gap:3px; }
+.component-terminal-editor { margin:0 8px 8px; padding:8px; border:1px solid #cbdaf8; border-radius:7px; background:#f8faff; }
+.component-terminal-editor-title { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px; }
+.component-terminal-editor-title > span { display:flex; min-width:0; flex-direction:column; }
+.component-terminal-editor-title strong { color:#25324a; font-size:9px; }
+.component-terminal-editor-title small { color:#718096; font-size:7px; }
+.component-terminal-editor-title > button { display:flex; min-height:24px; align-items:center; gap:3px; padding:0 6px; border:1px solid #a9c1f6; border-radius:5px; color:#1f55e0; background:#fff; font-size:7px; font-weight:700; }
+.component-terminal-editor-title > button:hover { background:#eaf1ff; }
+.component-terminal-view-buttons { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; margin-bottom:6px; }
+.component-terminal-view-buttons button { min-height:22px; padding:2px; border:1px solid #d6deea; border-radius:4px; color:#526078; background:#fff; font-size:7px; font-weight:650; }
+.component-terminal-view-buttons button.active { border-color:#2f6fe4; color:#fff; background:#2f6fe4; }
+.component-terminal-map { position:relative; height:126px; overflow:hidden; border:1px solid #bfd0ed; border-radius:6px; background:radial-gradient(circle at 50% 45%,#fff,#e8eef7); touch-action:none; user-select:none; }
+.component-terminal-map::before { position:absolute; inset:0; content:""; background-image:linear-gradient(#b9c7da35 1px,transparent 1px),linear-gradient(90deg,#b9c7da35 1px,transparent 1px); background-size:12px 12px; pointer-events:none; }
+.component-terminal-map-body { position:absolute; inset:14% 12%; display:grid; place-items:center; border:1px dashed #8ea5c8; border-radius:8px; color:#8291a7; background:#dbe4f080; font:700 7px ui-monospace,monospace; }
+.component-terminal-dot { position:absolute; z-index:2; width:12px; height:12px; padding:0; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px #52627b,0 2px 5px #0f172a42; transform:translate(-50%,-50%); cursor:grab; touch-action:none; }
+.component-terminal-dot:active { cursor:grabbing; }
+.component-terminal-dot.selected { box-shadow:0 0 0 3px #2f6fe4,0 3px 7px #0f172a4d; }
+.component-terminal-dot.manual::after { position:absolute; top:-5px; right:-5px; width:5px; height:5px; border:1px solid #fff; border-radius:50%; background:#16a34a; content:""; }
+.component-terminal-dot > span { position:absolute; top:-7px; left:50%; max-width:48px; overflow:hidden; padding:1px 2px; border-radius:2px; color:#26354b; background:#ffffffe8; font:700 6px ui-monospace,monospace; text-overflow:ellipsis; white-space:nowrap; transform:translate(-50%,-100%); pointer-events:none; }
+.component-terminal-controls { display:grid; grid-template-columns:1.45fr 1fr 1fr; gap:4px; margin-top:6px; }
+.component-terminal-controls label { display:flex; min-width:0; flex-direction:column; gap:2px; color:#718096; font-size:7px; }
+.component-terminal-controls input,.component-terminal-controls select { min-width:0; height:25px; padding:0 4px; border:1px solid #d4deeb; border-radius:4px; color:#334155; background:#fff; font:600 8px ui-monospace,monospace; }
+.component-terminal-editor > p { margin:6px 0 0; color:#718096; font-size:7px; line-height:1.35; }
 .component-view-default { display:flex; align-items:flex-start; gap:7px; margin:0 8px 7px; padding:8px; border:1px solid #cbdaf8; border-radius:6px; color:#334155; background:#f4f7ff; cursor:pointer; }
 .component-view-default input { margin-top:1px; accent-color:#2655e5; }
 .component-view-default span { display:flex; flex-direction:column; font-size:9px; font-weight:700; }

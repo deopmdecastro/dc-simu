@@ -11,6 +11,7 @@ import { getWeg3DImage } from './weg3DImage'
 import { getCad3DImage } from './cad3DImage'
 import { getComponentModelSpec, hasComponent3DModel, MIN_SCHEMATIC_HIT_WIDTH } from '../three/modelPaths'
 import { componentOrientationOf, isOriginalComponentOrientation } from '../three/componentOrientation'
+import { projectedComponentBounds } from './componentTerminalViews'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
 import ComponentViewEditor from '../components/ComponentViewEditor'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
@@ -19,6 +20,20 @@ import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
 
 const CANVAS_W = 2000
 const CANVAS_H = 1400
+
+function pngDataAspect(dataUri?: string | null): number | null {
+  if (!dataUri?.startsWith('data:image/png;base64,')) return null
+  try {
+    const raw = atob(dataUri.slice(dataUri.indexOf(',') + 1, dataUri.indexOf(',') + 1 + 40))
+    if (raw.length < 24) return null
+    const read32 = (offset: number) => ((raw.charCodeAt(offset) << 24) >>> 0) + (raw.charCodeAt(offset + 1) << 16) + (raw.charCodeAt(offset + 2) << 8) + raw.charCodeAt(offset + 3)
+    const width = read32(16)
+    const height = read32(20)
+    return width > 0 && height > 0 ? width / height : null
+  } catch {
+    return null
+  }
+}
 
 /** Direção unitária (terminal → interior do cabo) a partir da lista de pontos. */
 function endDir(pts: Pt[], atStart: boolean): Pt {
@@ -134,27 +149,40 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const [proautoImage, setProautoImage] = useState<string | null>(null)
   const [wegImage, setWegImage] = useState<string | null>(null)
   const [cadImages, setCadImages] = useState<Partial<Record<ComponentType, string>>>({})
-  const [orientedImages, setOrientedImages] = useState<Record<string, string>>({})
+  const [orientedImages, setOrientedImages] = useState<Record<string, { requestKey: string; image: string }>>({})
+  const [modelErrors, setModelErrors] = useState<Record<string, string>>({})
   const viewOrientationEditor = useSimStore((state) => state.viewOrientationEditor)
   const hasProauto = components.some((c) => c.type === 'powerSupplyProauto24A')
   useEffect(() => {
     if (!hasProauto) return
     let active = true
-    getProauto3DImage().then((image) => { if (active) setProautoImage(image) }).catch((error) => console.warn('Modelo da fonte indisponível', error))
+    setModelErrors((current) => { const next = { ...current }; delete next['type:powerSupplyProauto24A']; return next })
+    getProauto3DImage().then((image) => { if (active) setProautoImage(image) }).catch((error) => {
+      console.warn('Modelo da fonte indisponível', error)
+      if (active) setModelErrors((current) => ({ ...current, 'type:powerSupplyProauto24A': 'Não foi possível gerar a vista 3D.' }))
+    })
     return () => { active = false }
   }, [hasProauto])
   const hasWegContactor = components.some((c) => c.type === 'contactorWegCWC09')
   useEffect(() => {
     if (!hasWegContactor) return
     let active = true
-    getWeg3DImage().then((image) => { if (active) setWegImage(image) }).catch((error) => console.warn('Modelo do contator WEG indisponível; símbolo de reserva em uso', error))
+    setModelErrors((current) => { const next = { ...current }; delete next['type:contactorWegCWC09']; return next })
+    getWeg3DImage().then((image) => { if (active) setWegImage(image) }).catch((error) => {
+      console.warn('Modelo do contator WEG indisponível', error)
+      if (active) setModelErrors((current) => ({ ...current, 'type:contactorWegCWC09': 'Não foi possível gerar a vista 3D.' }))
+    })
     return () => { active = false }
   }, [hasWegContactor])
   const hasLogo = components.some((c) => c.type === 'plcSiemensLogo1224RC')
   useEffect(() => {
     if (!hasLogo) return
     let active = true
-    getLogo3DImages().then((images) => { if (active) setLogoImages(images) }).catch((error) => console.warn('Modelo LOGO! indisponível; símbolo de reserva em uso', error))
+    setModelErrors((current) => { const next = { ...current }; delete next['type:plcSiemensLogo1224RC']; return next })
+    getLogo3DImages().then((images) => { if (active) setLogoImages(images) }).catch((error) => {
+      console.warn('Modelo LOGO! indisponível', error)
+      if (active) setModelErrors((current) => ({ ...current, 'type:plcSiemensLogo1224RC': 'Não foi possível gerar a vista 3D.' }))
+    })
     return () => { active = false }
   }, [hasLogo])
   const dedicatedImageTypes: ComponentType[] = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09']
@@ -164,9 +192,13 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     if (!types.length) return
     let active = true
     types.forEach((type) => {
+      setModelErrors((current) => { const next = { ...current }; delete next[`type:${type}`]; return next })
       getCad3DImage(type)
         .then((image) => { if (active) setCadImages((current) => ({ ...current, [type]: image })) })
-        .catch((error) => console.warn(`Modelo CAD ${type} indisponível no esquema; símbolo de reserva em uso`, error))
+        .catch((error) => {
+          console.warn(`Modelo CAD ${type} indisponível no esquema`, error)
+          if (active) setModelErrors((current) => ({ ...current, [`type:${type}`]: 'Não foi possível gerar a vista 3D.' }))
+        })
     })
     return () => { active = false }
   }, [cadTypesKey])
@@ -183,9 +215,14 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     let active = true
     const timer = window.setTimeout(() => {
       orientedRequests.forEach((request) => {
+        const errorKey = `component:${request.id}:${request.type}:${request.orientation.x}:${request.orientation.y}:${request.orientation.z}`
+        setModelErrors((current) => { const next = { ...current }; delete next[errorKey]; return next })
         getOrientedComponentImage(request.type, request.orientation)
-          .then((image) => { if (active) setOrientedImages((current) => ({ ...current, [request.id]: image })) })
-          .catch((error) => console.warn(`Não foi possível renderizar a vista personalizada de ${request.type}.`, error))
+          .then((image) => { if (active) setOrientedImages((current) => ({ ...current, [request.id]: { requestKey: `${request.type}:${request.orientation.x}:${request.orientation.y}:${request.orientation.z}`, image } })) })
+          .catch((error) => {
+            console.warn(`Não foi possível renderizar a vista personalizada de ${request.type}.`, error)
+            if (active) setModelErrors((current) => ({ ...current, [errorKey]: 'Não foi possível gerar esta orientação 3D.' }))
+          })
       })
     }, 70)
     return () => { active = false; window.clearTimeout(timer) }
@@ -251,6 +288,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const [chain, setChain] = useState<string[]>([])
   /** arraste do ponto de dobra/curva/waypoint de um cabo diretamente no esquema */
   const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' | 'waypoint' | 'fromPoint' | 'toPoint'; index?: number; originalTerminalId?: string; start?: Pt } | null>(null)
+  const [terminalViewDrag, setTerminalViewDrag] = useState<{ componentId: string; terminalId: string } | null>(null)
   const [dropPos, setDropPos] = useState<{ x: number; y: number } | null>(null)
   const [cursorPos, setCursorPos] = useState<Pt | null>(null)
   const [showHints, setShowHints] = useState(() => {
@@ -274,16 +312,22 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     })
   }
 
+  const displayComponents = useMemo(() => components.map((component) => viewOrientationEditor?.componentId === component.id ? {
+    ...component,
+    viewOrientation: viewOrientationEditor.draft,
+    terminalViewPositions: viewOrientationEditor.terminalViewPositions,
+  } : component), [components, viewOrientationEditor])
+
   const terminalIndex = useMemo(() => {
     const map = new Map<string, { c: ElectricalComponent; x: number; y: number; label: string; color: string; energized: boolean }>()
-    for (const c of components) {
+    for (const c of displayComponents) {
       for (const t of c.terminals) {
         const p = terminalPos(c, t)
         map.set(t.id, { c, x: p.x, y: p.y, label: `${c.ref}.${t.displayName || t.label}`, color: t.color, energized: t.energized })
       }
     }
     return map
-  }, [components])
+  }, [displayComponents])
 
   useEffect(() => {
     if (tool !== 'wire' || gridDragEnabled) { setChain([]); setWireFrom(null); setFreeStart(null); setDraftPoints([]); setActiveWireId(null) }
@@ -506,6 +550,23 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       return
     }
     const p = toCanvas(e.clientX, e.clientY)
+    if (terminalViewDrag) {
+      const component = components.find((item) => item.id === terminalViewDrag.componentId)
+      if (!component) return
+      const cx = component.w / 2
+      const cy = component.h / 2
+      const angle = (-component.rotation * Math.PI) / 180
+      const dx = p.x - component.schematicX - cx
+      const dy = p.y - component.schematicY - cy
+      let localX = dx * Math.cos(angle) - dy * Math.sin(angle) + cx
+      const localY = dx * Math.sin(angle) + dy * Math.cos(angle) + cy
+      if (component.mirrored) localX = component.w - localX
+      useSimStore.getState().setViewTerminalPosition(terminalViewDrag.terminalId, {
+        x: Math.max(-0.5, Math.min(1.5, localX / component.w)),
+        y: Math.max(-0.5, Math.min(1.5, localY / component.h)),
+      })
+      return
+    }
     if (wireDrag) {
       const w = wires.find((x) => x.id === wireDrag.wireId)
       if (w && (wireDrag.mode === 'fromPoint' || wireDrag.mode === 'toPoint')) {
@@ -553,6 +614,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   }
 
   const onMouseUp = (e?: React.MouseEvent) => {
+    setTerminalViewDrag(null)
     if (wireDrag && (wireDrag.mode === 'fromPoint' || wireDrag.mode === 'toPoint') && e) {
       const w = useSimStore.getState().wires.find((item) => item.id === wireDrag.wireId)
       const p = toCanvas(e.clientX, e.clientY)
@@ -712,10 +774,10 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const drawOrder = useMemo(() => {
     const entries: (DrawEntry & { z: number; idx: number })[] = []
     wires.forEach((w, i) => entries.push({ kind: 'wire', wire: w, z: w.z ?? 0, idx: i }))
-    components.forEach((c, i) => entries.push({ kind: 'component', comp: c, z: c.z ?? 0, idx: i + wires.length }))
+    displayComponents.forEach((c, i) => entries.push({ kind: 'component', comp: c, z: c.z ?? 0, idx: i + wires.length }))
     entries.sort((a, b) => a.z - b.z || a.idx - b.idx)
     return entries
-  }, [wires, components])
+  }, [wires, displayComponents])
 
   // Nos modelos reais o centro do parafuso fica dentro da fotografia.
   // Sair perpendicularmente do corpo antes do primeiro cotovelo evita que
@@ -855,12 +917,24 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     )
   }
 
-  const modelBounds = (c: ElectricalComponent) => {
-    if (!getComponentModelSpec(c.type)) return { x: 0, y: 0, w: c.w, h: c.h }
-    // O raster já vem justo e com o aspect ratio físico. Bornes estreitos mantêm
-    // o corpo à escala, mas recebem uma área de clique central de 24 px.
-    const hitWidth = Math.max(c.w, MIN_SCHEMATIC_HIT_WIDTH)
-    return { x: (c.w - hitWidth) / 2, y: 0, w: hitWidth, h: c.h }
+  const modelBounds = (c: ElectricalComponent, model?: string | null) => {
+    if (!hasComponent3DModel(c.type)) return { x: 0, y: 0, w: c.w, h: c.h }
+    const orientation = componentOrientationOf(c)
+    if (isOriginalComponentOrientation(orientation)) return { x: 0, y: 0, w: c.w, h: c.h }
+    const projected = projectedComponentBounds(c, orientation)
+    const aspect = pngDataAspect(model)
+    let raster = projected
+    if (aspect) {
+      const baseAspect = c.w / Math.max(1, c.h)
+      const w = aspect >= baseAspect ? c.h * aspect : c.w
+      const h = aspect >= baseAspect ? c.h : c.w / aspect
+      raster = { x: (c.w - w) / 2, y: (c.h - h) / 2, w, h }
+    }
+    const x = Math.min(projected.x, raster.x)
+    const y = Math.min(projected.y, raster.y)
+    const right = Math.max(projected.x + projected.w, raster.x + raster.w)
+    const bottom = Math.max(projected.y + projected.h, raster.y + raster.h)
+    return { x, y, w: right - x, h: bottom - y }
   }
 
   const renderWireEnds = (layer: 'back' | 'front') => wires.flatMap((w) => {
@@ -896,8 +970,17 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       : c.type === 'powerSupplyProauto24A' ? proautoImage
         : c.type === 'contactorWegCWC09' ? wegImage
           : cadImage
-    const model = orientedImages[c.id] ?? baseModelImage
-    const bounds = model ? modelBounds(c) : { x: 0, y: 0, w: c.w, h: c.h }
+    const orientation = componentOrientationOf(c)
+    const needsOrientedImage = !isOriginalComponentOrientation(orientation)
+    const orientedRequestKey = `${c.type}:${orientation.x}:${orientation.y}:${orientation.z}`
+    const orientedImage = orientedImages[c.id]
+    // Nunca apresentar a orientação base, uma captura antiga ou o símbolo SVG
+    // enquanto a vista correta ainda está a ser gerada.
+    const model = needsOrientedImage && orientedImage?.requestKey === orientedRequestKey ? orientedImage.image : needsOrientedImage ? null : baseModelImage
+    const modelError = modelErrors[needsOrientedImage ? `component:${c.id}:${orientedRequestKey}` : `type:${c.type}`]
+    const imageBounds = modelBounds(c, model)
+    const hitWidth = Math.max(imageBounds.w, MIN_SCHEMATIC_HIT_WIDTH)
+    const bounds = { ...imageBounds, x: imageBounds.x - (hitWidth - imageBounds.w) / 2, w: hitWidth }
     return (
       <g
         key={c.id}
@@ -913,26 +996,26 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
         {c.type === 'contactorWegCWC09' && model ? (
           <>
             {/* vista do mesmo GLB usado no Painel 3D — não é um SVG */}
-            <image x={0} y={0} width={c.w} height={c.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
-            <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
         ) : c.type === 'powerSupplyProauto24A' && model ? (
           <>
-            <image x={0} y={0} width={c.w} height={c.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
-            <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
         ) : c.type === 'plcSiemensLogo1224RC' && model ? (
           <>
-            <image x={0} y={0} width={c.w} height={c.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             {/* Alvos de seleção e bornes mantêm-se nas coordenadas reais do esquema. */}
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
             {/* Zonas dos botões do modelo: continuam operacionais na vista frontal. */}
-            {(['up', 'down', 'left', 'right', 'ESC', 'OK'] as const).map((button) => {
+            {isOriginalComponentOrientation(orientation) && (['up', 'down', 'left', 'right', 'ESC', 'OK'] as const).map((button) => {
               const imageW = c.w
               const imageH = c.h
               const x0 = 0
@@ -945,22 +1028,22 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
                 onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.pressedButton === button) useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>{button}</title></rect>
             })}
-            <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
         ) : model ? (
           <>
             {/* Mesmo CAD e materiais, com orientação visual específica desta instância. */}
-            <image x={0} y={0} width={c.w} height={c.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
+            <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
-            {c.type === 'pilotLightAd22' && <g pointerEvents="none">
+            {c.type === 'pilotLightAd22' && isOriginalComponentOrientation(orientation) && <g pointerEvents="none">
               <circle cx={c.w / 2} cy={c.h / 2} r={Math.min(c.w, c.h) * 0.17}
                 fill={String(c.state.color ?? '#ef4444')} fillOpacity={c.state.on ? 0.78 : 0.34}
                 stroke={String(c.state.color ?? '#ef4444')} strokeWidth={c.state.on ? 4 : 2} strokeOpacity={c.state.on ? 0.5 : 0.28} />
               {c.state.on && <circle cx={c.w / 2} cy={c.h / 2} r={Math.min(c.w, c.h) * 0.23}
                 fill="none" stroke={String(c.state.color ?? '#ef4444')} strokeWidth={4} strokeOpacity={0.2} />}
             </g>}
-            {c.type === 'dualPushButtonNpb22D11' && <>
+            {c.type === 'dualPushButtonNpb22D11' && isOriginalComponentOrientation(orientation) && <>
               <rect x={c.w * 0.12} y={c.h * 0.18} width={c.w * 0.34} height={c.h * 0.55} rx={6}
                 fill={c.state.stopPressed ? '#ef4444' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
                 onMouseDown={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { stopPressed: true }) }}
@@ -974,10 +1057,22 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
                 onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.startPressed) useSimStore.getState().setComponentState(c.id, { startPressed: false }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>START · contacto NA 13–14</title></rect>
             </>}
-            <text x={c.w / 2} y={c.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
+            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
+        ) : hasComponent3DModel(c.type) ? (
+          <g data-model-state={modelError ? 'error' : 'loading'}>
+            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} rx={7}
+              fill={modelError ? '#fff1f2' : '#edf2f8'} stroke={modelError ? '#dc2626' : '#b8c5d6'}
+              strokeWidth={1.2} strokeDasharray={modelError ? '4 3' : undefined} />
+            {!modelError && <rect x={bounds.x + bounds.w * 0.16} y={bounds.y + bounds.h * 0.19} width={bounds.w * 0.68} height={bounds.h * 0.52} rx={5}
+              fill="#dce5f0" stroke="#c3cfde" strokeWidth={0.8} />}
+            <text x={c.w / 2} y={c.h / 2 - 2} textAnchor="middle" fontSize={9} fontWeight={700}
+              fill={modelError ? '#b91c1c' : '#64748b'} pointerEvents="none">{modelError ? 'Modelo 3D indisponível' : 'A carregar modelo 3D…'}</text>
+            <text x={c.w / 2} y={c.h / 2 + 11} textAnchor="middle" fontSize={7}
+              fill={modelError ? '#be123c' : '#8190a5'} pointerEvents="none">{modelError ?? c.ref}</text>
+          </g>
         ) : <SymbolGlyph c={c} selected={selected} />}
-        {c.locked && <text x={c.w - 12} y={12} fontSize={10} fill="#b45309">🔒</text>}
+        {c.locked && <text x={bounds.x + bounds.w - 12} y={bounds.y + 12} fontSize={10} fill="#b45309">🔒</text>}
       </g>
     )
   }
@@ -1041,7 +1136,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
                 fill="none" stroke={WIRE_COLORS[w.color] ?? '#94a3b8'} strokeWidth={Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)} pointerEvents="none" />
             })
           })}
-          {components.flatMap((c) => c.terminals.filter((t) => wires.some((w) => (!w.fromPoint && w.fromTerminalId === t.id) || (!w.toPoint && w.toTerminalId === t.id))).map((t) => {
+          {displayComponents.flatMap((c) => c.terminals.filter((t) => wires.some((w) => (!w.fromPoint && w.fromTerminalId === t.id) || (!w.toPoint && w.toTerminalId === t.id))).map((t) => {
             const p = terminalPos(c, t)
             return <g key={`connected-${t.id}`} pointerEvents="none"><TerminalGlyph x={p.x} y={p.y} type={t.terminalType} color={t.color} energized={t.energized} r={4.5} /></g>
           }))}
@@ -1052,16 +1147,21 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
           {pendingFrom && draftPoints.map((point, i) => <circle key={`draft-${i}`} cx={point.x} cy={point.y} r={4} fill="white" stroke="#2563eb" strokeWidth={2} pointerEvents="none" />)}
           {pendingFrom && cursorPos && <path d={wireGeometry(pendingFrom, hoverTerminal && terminalIndex.get(hoverTerminal) ? terminalIndex.get(hoverTerminal)! : nearestTerminal(components, cursorPos, 16 / zoom, wireFrom ?? undefined)?.point ?? nearestModelTerminal(components, cursorPos, wireFrom ?? undefined, Math.min(24, 28 / zoom))?.point ?? cursorPos, 'orthogonal', 0.5, 0, draftPoints).d} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="5 4" pointerEvents="none" />}
           {/* alvos clicáveis dos bornes (acima de tudo) */}
-          {components.map((c) =>
+          {displayComponents.map((c) =>
             c.terminals.map((t) => {
               const p = terminalPos(c, t)
               const isFrom = wireFrom === t.id
               const isSel = selectedTerminalId === t.id
               const chainIdx = chain.indexOf(t.id)
               const isDrawTarget = tool === 'wire' && (!!wireFrom || !!freeStart) && wireFrom !== t.id && hoverTerminal === t.id
+              const isViewEditing = viewOrientationEditor?.componentId === c.id
               return (
                 <g key={`${t.id}-hit`}>
                   {isDrawTarget && <circle cx={p.x} cy={p.y} r={9} fill="#dcfce7" stroke="#16a34a" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />}
+                  {isViewEditing && <>
+                    <circle cx={p.x} cy={p.y} r={10} fill="#dbeafe" fillOpacity={0.8} stroke="#2563eb" strokeWidth={1.5} strokeDasharray="2 2" pointerEvents="none" />
+                    <text x={p.x + 10} y={p.y - 8} fontSize={8} fontWeight={700} fill="#1d4ed8" pointerEvents="none">{t.label}</text>
+                  </>}
                   <circle
                     cx={p.x}
                     cy={p.y}
@@ -1069,8 +1169,16 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
                     fill="transparent"
                     stroke={chainIdx >= 0 ? '#65a30d' : isFrom ? '#2f6bff' : isDrawTarget ? '#16a34a' : isSel ? '#db2777' : 'transparent'}
                     strokeWidth={2}
-                    style={{ cursor: tool === 'select' ? 'pointer' : 'crosshair' }}
-                    onMouseDown={(e) => onTerminalDown(e, t.id)}
+                    style={{ cursor: isViewEditing ? 'grab' : tool === 'select' ? 'pointer' : 'crosshair' }}
+                    onMouseDown={(e) => {
+                      if (isViewEditing) {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setTerminalViewDrag({ componentId: c.id, terminalId: t.id })
+                        return
+                      }
+                      onTerminalDown(e, t.id)
+                    }}
                     onContextMenu={(e) => e.preventDefault()}
                     onMouseEnter={() => setHoverTerminal(t.id)}
                     onMouseLeave={() => setHoverTerminal(null)}

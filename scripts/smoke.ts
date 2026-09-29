@@ -25,7 +25,8 @@ import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
 import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
-import { COMPONENT_VIEW_PRESETS, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
+import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
+import { automaticTerminalViewPositions, componentTerminalLocal, projectedComponentBounds } from '../src/schematic/componentTerminalViews'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import { fixedAccountEmails, localApi, verifyFixedCredentials } from '../src/auth/localBackend'
@@ -774,18 +775,67 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('ângulos personalizados são normalizados sem tocar em dados elétricos', normalizeComponentOrientation({ x: 370, y: -450, z: 181 }).x === 10
     && normalizeComponentOrientation({ x: 370, y: -450, z: 181 }).y === -90
     && normalizeComponentOrientation({ x: 370, y: -450, z: 181 }).z === -179)
+  check('cada preset tem uma chave estável para o mapa de bornes', componentTerminalViewKey(COMPONENT_VIEW_PRESETS.front) === 'front'
+    && componentTerminalViewKey(COMPONENT_VIEW_PRESETS.back) === 'back'
+    && componentTerminalViewKey({ x: 12, y: 34, z: 5 }) === 'custom:12:34:5')
+  const terminal = component.terminals[0]
+  const frontTerminal = componentTerminalLocal(component, terminal, COMPONENT_VIEW_PRESETS.front)
+  const sideTerminal = componentTerminalLocal(component, terminal, COMPONENT_VIEW_PRESETS.right)
+  const isoBounds = projectedComponentBounds(component, COMPONENT_VIEW_PRESETS.isometric)
+  check('rastreio automático projeta o borne quando a vista roda', Math.abs(frontTerminal.x - sideTerminal.x) > 0.1 || Math.abs(frontTerminal.y - sideTerminal.y) > 0.1)
+  check('limites projetados nunca cortam o footprint original', isoBounds.w >= component.w && isoBounds.h >= component.h)
+  check('rastreio automático cria uma sugestão para cada borne', Object.keys(automaticTerminalViewPositions(component, COMPONENT_VIEW_PRESETS.isometric)).length === component.terminals.length)
 
   const before = useSimStore.getState().components
   useSimStore.setState({ components: [...before, component] })
   useSimStore.getState().openViewOrientationEditor(component.id)
   useSimStore.getState().setViewOrientationDraft({ x: 15, y: 35, z: -10 })
+  useSimStore.getState().autoPlaceViewTerminals()
+  useSimStore.getState().setViewTerminalPosition(terminal.id, { x: 0.23, y: 0.31 })
   useSimStore.getState().applyViewOrientationEditor(false)
   const oriented = useSimStore.getState().components.find((item) => item.id === component.id)
+  const customViewKey = componentTerminalViewKey({ x: 15, y: 35, z: -10 })
   check('editor aplica orientação somente à instância selecionada', oriented?.viewOrientation?.x === 15 && oriented.viewOrientation.y === 35 && oriented.viewOrientation.z === -10
     && before.every((item, index) => useSimStore.getState().components[index].id === item.id && useSimStore.getState().components[index].viewOrientation === item.viewOrientation))
+  check('posição manual do borne é guardada apenas na vista ativa', oriented?.terminalViewPositions?.[customViewKey]?.[terminal.id]?.x === 0.23
+    && oriented.terminalViewPositions[customViewKey][terminal.id].y === 0.31)
   const saved = JSON.parse(useSimStore.getState().saveJSON())
-  check('orientação visual da instância é persistida no JSON do projeto', saved.components.find((item: ElectricalComponent) => item.id === component.id)?.viewOrientation?.y === 35)
+  const savedOriented = saved.components.find((item: ElectricalComponent) => item.id === component.id)
+  check('orientação e mapa de bornes persistem no JSON do projeto', savedOriented?.viewOrientation?.y === 35
+    && savedOriented?.terminalViewPositions?.[customViewKey]?.[terminal.id]?.y === 0.31)
+  useSimStore.getState().openViewOrientationEditor(component.id)
+  useSimStore.getState().setViewOrientationDraft(COMPONENT_VIEW_PRESETS.top)
+  useSimStore.getState().setViewTerminalPosition(terminal.id, { x: 0.9, y: 0.9 })
+  useSimStore.getState().cancelViewOrientationEditor()
+  const cancelled = useSimStore.getState().components.find((item) => item.id === component.id)
+  check('Cancelar descarta orientação e bornes do rascunho', cancelled?.viewOrientation?.y === 35 && !cancelled?.terminalViewPositions?.top)
   useSimStore.setState({ components: before, viewOrientationEditor: null })
+}
+
+/* Padrões de tipo usam a ordem estável dos bornes, sem alterar instâncias existentes. */
+{
+  const memory = new Map<string, string>()
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => { memory.set(key, value) },
+    removeItem: (key: string) => { memory.delete(key) },
+  } })
+  const before = useSimStore.getState().components
+  const source = createComponent('breakerWegMdwC10')
+  const existingPeer = createComponent('breakerWegMdwC10')
+  const terminal = source.terminals[0]
+  useSimStore.setState({ components: [...before, source, existingPeer] })
+  useSimStore.getState().openViewOrientationEditor(source.id)
+  useSimStore.getState().setViewOrientationDraft(COMPONENT_VIEW_PRESETS.right)
+  useSimStore.getState().setViewTerminalPosition(terminal.id, { x: 0.18, y: 0.27 })
+  useSimStore.getState().applyViewOrientationEditor(true)
+  const future = createComponent('breakerWegMdwC10')
+  const futurePoint = componentTerminalLocal(future, future.terminals[0])
+  check('padrão do tipo aplica orientação e bornes apenas a futuras instâncias', componentTerminalViewKey(future.viewOrientation) === 'right'
+    && Math.abs(futurePoint.x / future.w - 0.18) < 1e-9 && Math.abs(futurePoint.y / future.h - 0.27) < 1e-9
+    && isOriginalComponentOrientation(useSimStore.getState().components.find((item) => item.id === existingPeer.id)?.viewOrientation))
+  useSimStore.setState({ components: before, viewOrientationEditor: null })
+  delete (globalThis as { localStorage?: Storage }).localStorage
 }
 
 /* O histórico partilhado também cobre alterações no editor GRAFCET. */

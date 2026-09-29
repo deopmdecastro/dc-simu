@@ -17,6 +17,8 @@ import type {
   FaultState,
   ComponentType,
   ComponentViewOrientation,
+  ComponentTerminalViewPosition,
+  ComponentTerminalViewPositions,
   Terminal,
   ProbeResult,
 } from '../types'
@@ -37,7 +39,8 @@ import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 import { hasComponent3DModel } from '../three/modelPaths'
-import { componentOrientationOf, normalizeComponentOrientation, saveDefaultComponentOrientation } from '../three/componentOrientation'
+import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOrientation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
+import { automaticTerminalViewPositions } from '../schematic/componentTerminalViews'
 
 export interface Snapshot {
   components: ElectricalComponent[]
@@ -145,9 +148,15 @@ interface Store extends CircuitState {
   dragType: ComponentType | null
   setDragType: (t: ComponentType | null) => void
   /** Editor visual partilhado pelo Esquema e Painel 3D. */
-  viewOrientationEditor: { componentId: string; draft: ComponentViewOrientation } | null
+  viewOrientationEditor: {
+    componentId: string
+    draft: ComponentViewOrientation
+    terminalViewPositions: ComponentTerminalViewPositions
+  } | null
   openViewOrientationEditor: (componentId: string) => void
   setViewOrientationDraft: (orientation: ComponentViewOrientation) => void
+  setViewTerminalPosition: (terminalId: string, position: ComponentTerminalViewPosition) => void
+  autoPlaceViewTerminals: () => void
   cancelViewOrientationEditor: () => void
   applyViewOrientationEditor: (saveAsDefault: boolean) => void
   /** Preferências aplicadas aos novos cabos (ferramenta Cabo) */
@@ -799,7 +808,11 @@ export const useSimStore = create<Store>((set, get) => ({
     const component = get().components.find((item) => item.id === componentId)
     if (!component) return
     set({
-      viewOrientationEditor: { componentId, draft: componentOrientationOf(component) },
+      viewOrientationEditor: {
+        componentId,
+        draft: componentOrientationOf(component),
+        terminalViewPositions: structuredClone(component.terminalViewPositions ?? {}),
+      },
       selectedComponentIds: [componentId],
       selectedWireId: null,
       selectedTerminalId: null,
@@ -808,6 +821,39 @@ export const useSimStore = create<Store>((set, get) => ({
   setViewOrientationDraft: (orientation) => set((state) => state.viewOrientationEditor ? {
     viewOrientationEditor: { ...state.viewOrientationEditor, draft: normalizeComponentOrientation(orientation) },
   } : {}),
+  setViewTerminalPosition: (terminalId, position) => set((state) => {
+    const editor = state.viewOrientationEditor
+    if (!editor || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return {}
+    const viewKey = componentTerminalViewKey(editor.draft)
+    return {
+      viewOrientationEditor: {
+        ...editor,
+        terminalViewPositions: {
+          ...editor.terminalViewPositions,
+          [viewKey]: {
+            ...(editor.terminalViewPositions[viewKey] ?? {}),
+            [terminalId]: { x: position.x, y: position.y },
+          },
+        },
+      },
+    }
+  }),
+  autoPlaceViewTerminals: () => set((state) => {
+    const editor = state.viewOrientationEditor
+    if (!editor) return {}
+    const component = state.components.find((item) => item.id === editor.componentId)
+    if (!component) return {}
+    const viewKey = componentTerminalViewKey(editor.draft)
+    return {
+      viewOrientationEditor: {
+        ...editor,
+        terminalViewPositions: {
+          ...editor.terminalViewPositions,
+          [viewKey]: automaticTerminalViewPositions(component, editor.draft),
+        },
+      },
+    }
+  }),
   cancelViewOrientationEditor: () => set({ viewOrientationEditor: null }),
   applyViewOrientationEditor: (saveAsDefault) => {
     const editor = get().viewOrientationEditor
@@ -815,14 +861,25 @@ export const useSimStore = create<Store>((set, get) => ({
     const component = get().components.find((item) => item.id === editor.componentId)
     if (!component) { set({ viewOrientationEditor: null }); return }
     const orientation = normalizeComponentOrientation(editor.draft)
+    const terminalViewPositions = structuredClone(editor.terminalViewPositions)
     get().commitHistory()
-    if (saveAsDefault) saveDefaultComponentOrientation(component.type, orientation)
+    if (saveAsDefault) {
+      saveDefaultComponentOrientation(component.type, orientation)
+      const terminalIndexes = new Map(component.terminals.map((terminal, index) => [terminal.id, index]))
+      const reusablePositions = Object.fromEntries(Object.entries(terminalViewPositions).map(([view, positions]) => [view,
+        Object.fromEntries(Object.entries(positions).map(([terminalId, position]) => {
+          const index = terminalIndexes.get(terminalId)
+          return [index === undefined ? terminalId : `index:${index}`, position]
+        })),
+      ]))
+      saveDefaultComponentTerminalViewPositions(component.type, reusablePositions)
+    }
     set((state) => ({
-      components: state.components.map((item) => item.id === component.id ? { ...item, viewOrientation: orientation } : item),
+      components: state.components.map((item) => item.id === component.id ? { ...item, viewOrientation: orientation, terminalViewPositions } : item),
       viewOrientationEditor: null,
       dirty: true,
     }))
-    get().pushEvent('info', `Vista de ${component.ref} guardada${saveAsDefault ? ' como padrão do componente' : ''}.`)
+    get().pushEvent('info', `Componente 3D ${component.ref} guardado${saveAsDefault ? ' como padrão do componente' : ''}.`)
   },
   wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'rigid', endType: 'ferrule' },
   setWireDefaults: (patch) => set((s) => ({ wireDefaults: { ...s.wireDefaults, ...patch } })),
@@ -866,6 +923,13 @@ export const useSimStore = create<Store>((set, get) => ({
         clone.ref = nextRef([...s.components, ...clones], src.type)
         clone.rotation = src.rotation
         clone.viewOrientation = componentOrientationOf(src)
+        const sourceTerminalIndexes = new Map(src.terminals.map((terminal, index) => [terminal.id, index]))
+        clone.terminalViewPositions = Object.fromEntries(Object.entries(src.terminalViewPositions ?? {}).map(([view, positions]) => [view,
+          Object.fromEntries(Object.entries(positions).map(([terminalId, position]) => {
+            const index = sourceTerminalIndexes.get(terminalId)
+            return [index === undefined ? terminalId : `index:${index}`, { ...position }]
+          })),
+        ]))
         clone.w = src.w
         clone.h = src.h
         clone.bodyColor = src.bodyColor

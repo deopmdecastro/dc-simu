@@ -20,7 +20,7 @@ import type {
   TerminalKind,
   TerminalType,
 } from '../types'
-import { getDefaultComponentOrientation } from '../three/componentOrientation'
+import { getDefaultComponentOrientation, getDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
 import { getSchematicPhysicalFootprint } from '../three/modelPaths'
 
 export interface TerminalTemplate {
@@ -734,6 +734,7 @@ export function createComponent(
     h: footprint.h,
     rotation: 0,
     viewOrientation: getDefaultComponentOrientation(type),
+    terminalViewPositions: getDefaultComponentTerminalViewPositions(type),
     mirrored: false,
     locked: false,
     bodyColor: undefined,
