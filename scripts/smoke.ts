@@ -799,6 +799,16 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('Desfazer restaura o GRAFCET anterior', !useSimStore.getState().grafcet.steps.some((step) => step.id === extra.id))
   useSimStore.getState().redo()
   check('Refazer reaplica a alteração GRAFCET', useSimStore.getState().grafcet.steps.some((step) => step.id === extra.id))
+
+  const base = structuredClone(useSimStore.getState().grafcet)
+  const first = { ...base, steps: base.steps.map((step, index) => index === 0 ? { ...step, name: 'M' } : step) }
+  const second = { ...first, steps: first.steps.map((step, index) => index === 0 ? { ...step, name: 'Motor' } : step) }
+  useSimStore.setState({ history: [], future: [] })
+  useSimStore.getState().setGrafcet(first, 'auto', 'smoke:grafcet:nome')
+  useSimStore.getState().setGrafcet(second, 'auto', 'smoke:grafcet:nome')
+  check('escrita contínua no GRAFCET cria um único passo de histórico', useSimStore.getState().history.length === 1)
+  useSimStore.getState().undo()
+  check('Ctrl+Z no GRAFCET repõe o valor anterior à escrita agrupada', useSimStore.getState().grafcet.steps[0]?.name === base.steps[0]?.name)
   useSimStore.setState({ grafcet: previous, history: [], future: [] })
 }
 

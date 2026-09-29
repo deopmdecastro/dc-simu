@@ -73,7 +73,7 @@ interface Store extends CircuitState {
   dismissEmptyWelcome: () => void
   grafcet: GrafcetProgram
   grafcetRuntime: GrafcetRuntime
-  setGrafcet: (program: GrafcetProgram) => void
+  setGrafcet: (program: GrafcetProgram, historyMode?: 'auto' | 'force' | 'skip', historyKey?: string) => void
   fcBlocks: Record<'fc1' | 'fc2', LadderRung[]>
   activePlcId: string | null
   plcPrograms: Record<string, PlcProgram>
@@ -621,8 +621,9 @@ export const useSimStore = create<Store>((set, get) => ({
   },
   grafcet: emptyGrafcet(),
   grafcetRuntime: emptyGrafcetRuntime(),
-  setGrafcet: (program) => {
-    get().commitHistory()
+  setGrafcet: (program, historyMode = 'force', historyKey = 'grafcet') => {
+    if (historyMode === 'force' || (historyMode === 'auto' && shouldCommitGroupedEdit(historyKey))) get().commitHistory()
+    if (historyMode === 'force') resetGroupedEdit()
     set({ grafcet: program, dirty: true })
   },
   updateFc: (id, rungs) => {
