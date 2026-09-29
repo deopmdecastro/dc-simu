@@ -130,13 +130,13 @@ function AuthScreen({mode,form,setForm,busy,message,clearMessage,onSubmit,onSwit
     <aside className="dx-auth-side">
       <button className="dx-auth-logo" onClick={onHome} aria-label="Voltar ao início"><Logo tone="dark"/></button>
       <div className="dx-auth-pitch">
-        <h2>{reg?<>O próximo quadro<br/>começa aqui.</>:<>Projete o quadro.<br/>Veja-o ganhar vida.</>}</h2>
+        <h2>{reg?<>O próximo quadro<br/><em>começa aqui.</em></>:<>Projete o quadro.<br/><em>Veja-o ganhar vida.</em></>}</h2>
         <p>{reg?'Crie uma conta e monte o seu primeiro quadro elétrico em 3D em menos de um minuto.':'Retome o esquema, a lógica Ladder e o painel 3D exatamente onde os deixou.'}</p>
         <ul>
           <li><i aria-hidden>⌁</i>Esquema elétrico com bornes e cabos reais</li>
           <li><i aria-hidden>▤</i>Ladder com simulação do scan do PLC</li>
-          <li><i aria-hidden>▧</i>Painel 3D sincronizado com o projeto</li>
-          <li><i aria-hidden>↗</i>Projetos partilhados com a equipa</li>
+          <li><i aria-hidden>▣</i>Painel 3D sincronizado com o projeto</li>
+          <li><i aria-hidden>⇄</i>Projetos partilhados com a equipa</li>
         </ul>
       </div>
       <div className="dx-auth-status"><span className="dx-auth-run"><i/>RUN</span>Os seus projetos ficam guardados no servidor.</div>

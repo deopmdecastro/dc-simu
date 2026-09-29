@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { LogoMark } from '../ui/Brand'
+import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus } from '../ui/icons'
 
 export type User = { id: string; name: string; email: string; role: 'admin' | 'user' }
 export type Project = { id: string; name: string; revision: number; owner: string; role: 'owner' | 'editor'; updated_at: string }
@@ -8,35 +10,53 @@ export type Invite = { id: string; project: string; sender: string }
 function PanelPreview({ variant = 0 }: { variant?: number }) {
   const modules = 5 + (variant % 3)
   return (
-    <svg viewBox="0 0 320 132" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <svg viewBox="0 0 320 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <defs>
         <pattern id={`dxg-${variant}`} width="16" height="16" patternUnits="userSpaceOnUse">
-          <path d="M16 0H0v16" fill="none" stroke="#ccd7ec" strokeWidth=".7" />
+          <path d="M16 0H0v16" fill="none" stroke="#d4dbe3" strokeWidth=".7" />
         </pattern>
       </defs>
-      <rect width="320" height="132" fill="#eff3fa" />
-      <rect width="320" height="132" fill={`url(#dxg-${variant})`} />
-      <rect x="26" y="20" width="268" height="92" rx="6" fill="#fff" stroke="#b7c4dd" />
-      <g stroke="#9fb0cf" strokeWidth="1.4">
-        <path d="M34 46h252M34 88h252" />
+      <rect width="320" height="140" fill="#f2f4f7" />
+      <rect width="320" height="140" fill={`url(#dxg-${variant})`} />
+      {/* caixa do quadro */}
+      <rect x="24" y="16" width="272" height="104" rx="6" fill="#ffffff" stroke="#bcc7d3" />
+      {/* calha DIN com furação */}
+      <g stroke="#9aa8b8" strokeWidth="1.4">
+        <path d="M32 46h256M32 90h256" />
       </g>
+      <g fill="#b8c2ce">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <circle key={i} cx={44 + i * 29} cy="46" r="1.3" />
+        ))}
+      </g>
+      {/* módulos de proteção */}
       {Array.from({ length: modules }).map((_, i) => (
         <g key={i}>
-          <rect x={38 + i * 30} y={28} width="24" height="30" rx="3" fill="#dbe4f5" stroke="#8fa3c8" />
-          <rect x={42 + i * 30} y={33} width="16" height="7" rx="1.5" fill="#fff" />
+          <rect x={36 + i * 26} y={24} width="21" height="30" rx="2.5" fill="#dde3ea" stroke="#93a3b4" />
+          <rect x={40 + i * 26} y={28} width="13" height="7" rx="1.5" fill="#fff" stroke="#aeb9c6" />
+          <rect x={43.5 + i * 26} y={39} width="6" height="9" rx="1" fill="#39434f" opacity=".75" />
         </g>
       ))}
-      <rect x={38} y={70} width="62" height="34" rx="3" fill="#16233c" />
-      <text x={48} y={91} fontFamily="monospace" fontSize="10" fill="#7fe0b4">
+      {/* PLC — ecrã com RUN */}
+      <rect x={36} y={72} width="66" height="36" rx="3" fill="#10161d" />
+      <text x={45} y={93} fontFamily="'JetBrains Mono', monospace" fontSize="10" fill="#3ddc84">
         RUN
       </text>
-      <rect x={112} y={70} width="46" height="34" rx="3" fill="#dbe4f5" stroke="#8fa3c8" />
-      <rect x={168} y={70} width="46" height="34" rx="3" fill="#dbe4f5" stroke="#8fa3c8" />
-      <g fill="#2f6bff">
-        <circle cx="232" cy="80" r="4" />
-        <circle cx="248" cy="80" r="4" opacity=".55" />
-        <circle cx="264" cy="80" r="4" opacity=".3" />
+      <circle cx={93} cy={87} r="2.2" fill="#f5a524" />
+      <circle cx={93} cy={96} r="2.2" fill="#3ddc84" opacity=".8" />
+      {/* contactor + fonte */}
+      <rect x={112} y={72} width="46" height="36" rx="3" fill="#dde3ea" stroke="#93a3b4" />
+      <rect x={117} y={77} width="36" height="6" rx="1" fill="#fff" />
+      <rect x={168} y={72} width="34" height="36" rx="3" fill="#dde3ea" stroke="#93a3b4" />
+      <path d="M173 79h24M173 84h24" stroke="#aeb9c6" strokeWidth="1.6" />
+      {/* bornes de fase */}
+      <g fill="#f5a524" stroke="#b9720a" strokeWidth=".8">
+        <circle cx="234" cy="84" r="4" />
+        <circle cx="250" cy="84" r="4" opacity=".6" />
+        <circle cx="266" cy="84" r="4" opacity=".35" />
       </g>
+      {/* etiqueta do projeto */}
+      <rect x={24} y={124} width="76" height="10" rx="2" fill="#e2e7ec" />
     </svg>
   )
 }
@@ -160,13 +180,15 @@ export default function Dashboard({
     return () => window.removeEventListener('click', close)
   }, [menu])
 
+  const today = new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })
+
   return (
     <div className="dx dx-dash">
       <div className="dx-dash-head">
         <div>
           <span className="dx-over">
             <i />
-            ESPAÇO DE TRABALHO
+            Espaço de trabalho
           </span>
           <h1>
             {greeting()}
@@ -174,23 +196,28 @@ export default function Dashboard({
           </h1>
           <p>Continue um quadro existente ou comece um novo projeto em 3D.</p>
         </div>
-        <button className="dx-btn dx-btn-primary" onClick={() => openModal('create')}>
-          ＋ Novo projeto
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, marginLeft: 'auto' }}>
+          <span className="dx-dash-date">{today}</span>
+          <button className="dx-btn dx-btn-primary" onClick={() => openModal('create')}>
+            <IconPlus size={14} /> Novo projeto
+          </button>
+        </div>
       </div>
 
       <div className="dx-metrics">
         {[
-          ['▦', projects.length, 'Projetos acessíveis'],
-          ['◇', owned, 'Da sua autoria'],
-          ['↗', projects.length - owned, 'Partilhados consigo'],
-          ['✉', invites.length, 'Convites pendentes'],
-        ].map(([ic, n, label]) => (
+          [IconLayers, projects.length, 'Projetos acessíveis'],
+          [IconFile, owned, 'Da sua autoria'],
+          [IconProjects, projects.length - owned, 'Partilhados consigo'],
+          [IconTag, invites.length, 'Convites pendentes'],
+        ].map(([Ic, n, label]) => (
           <div className="dx-metric" key={String(label)}>
-            <i aria-hidden>{ic}</i>
+            <i aria-hidden>
+              {(Ic as typeof IconLayers)({ size: 16 })}
+            </i>
             <span>
-              <b>{n}</b>
-              <small>{label}</small>
+              <b>{n as number}</b>
+              <small>{label as string}</small>
             </span>
           </div>
         ))}
@@ -233,18 +260,32 @@ export default function Dashboard({
           ))}
         </div>
         <label className="dx-search">
-          <span aria-hidden>⌕</span>
+          <span aria-hidden>
+            <IconSearch size={13} />
+          </span>
           <span className="dx-sr">Pesquisar projetos</span>
           <input className="dx-input" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Pesquisar projeto…" />
         </label>
       </div>
 
       <div className="dx-projects">
+        {projects.length > 0 && (filter !== 'editor' || visible.length > 0) && (
+          <button className="dx-proj-new" onClick={() => openModal('create')} style={visible.length === 0 && projects.length > 0 ? { display: 'none' } : undefined}>
+            <span className="plus" aria-hidden>
+              +
+            </span>
+            <span>
+              <b>Novo projeto</b>
+              <small>Quadro em branco, pronto a receber componentes.</small>
+            </span>
+          </button>
+        )}
+
         {visible.map((p, index) => (
           <article className="dx-card dx-card-hover dx-proj" key={p.id}>
             <div className="dx-proj-art">
               <PanelPreview variant={index} />
-              <span className="dx-proj-badge">{p.role === 'owner' ? '◇ Meu projeto' : '↗ Partilhado'}</span>
+              <span className="dx-proj-badge">{p.role === 'owner' ? 'Meu projeto' : 'Partilhado'}</span>
               {p.role === 'owner' && (
                 <div className="dx-menu-wrap" onClick={(e) => e.stopPropagation()}>
                   <button
@@ -253,18 +294,18 @@ export default function Dashboard({
                     aria-expanded={menu === p.id}
                     onClick={() => setMenu(menu === p.id ? null : p.id)}
                   >
-                    ···
+                    ⋯
                   </button>
                   {menu === p.id && (
                     <div className="dx-menu" role="menu">
-                      <button onClick={() => openModal('invite', p)}>↗ Convidar editor</button>
+                      <button onClick={() => openModal('invite', p)}>Convidar editor</button>
                       <button
                         onClick={() => {
                           setExpanded(expanded === p.id ? null : p.id)
                           setMenu(null)
                         }}
                       >
-                        ♙ Ver membros
+                        Ver membros
                       </button>
                       <button
                         className="danger"
@@ -273,7 +314,7 @@ export default function Dashboard({
                           void onDelete(p)
                         }}
                       >
-                        ✕ Eliminar projeto
+                        Eliminar projeto
                       </button>
                     </div>
                   )}
@@ -281,7 +322,7 @@ export default function Dashboard({
               )}
             </div>
             <div className="dx-proj-body">
-              <h3>{p.name}</h3>
+              <h3 title={p.name}>{p.name}</h3>
               <div className="dx-proj-meta">
                 <span>por {p.owner}</span>
                 <span>·</span>
@@ -306,7 +347,9 @@ export default function Dashboard({
 
         {projects.length > 0 && visible.length === 0 && (
           <div className="dx-empty">
-            <div className="dx-empty-ic">⌕</div>
+            <div className="dx-empty-ic">
+              <IconSearch size={24} />
+            </div>
             <h3>Nenhum projeto encontrado</h3>
             <p>Experimente outro termo de pesquisa ou escolha um filtro diferente.</p>
             <button
@@ -323,11 +366,13 @@ export default function Dashboard({
 
         {projects.length === 0 && (
           <div className="dx-empty">
-            <div className="dx-empty-ic">▦</div>
+            <div className="dx-empty-ic" style={{ background: 'transparent', border: '1px dashed var(--dx-accent-line)' }}>
+              <LogoMark size={34} />
+            </div>
             <h3>Ainda não tem projetos</h3>
             <p>Comece o seu primeiro quadro elétrico em 3D. Escolha os componentes, posicione-os na calha e simule o comando.</p>
             <button className="dx-btn dx-btn-primary" onClick={() => openModal('create')}>
-              ＋ Criar projeto
+              <IconPlus size={14} /> Criar projeto
             </button>
           </div>
         )}
@@ -344,8 +389,8 @@ export default function Dashboard({
             <button className="dx-btn dx-btn-ghost dx-btn-sm dx-dialog-close" aria-label="Fechar" disabled={saving} onClick={() => setModal(null)}>
               ×
             </button>
-            <div className="dx-empty-ic" style={{ margin: 0, width: 44, height: 44, fontSize: 20 }}>
-              {modal.type === 'create' ? '▦' : '↗'}
+            <div className="dx-empty-ic" style={{ margin: 0, width: 44, height: 44 }}>
+              {modal.type === 'create' ? <IconPlus size={20} /> : <IconProjects size={20} />}
             </div>
             <h2 id="dx-dialog-title">{modal.type === 'create' ? 'Criar novo projeto' : 'Convidar editor'}</h2>
             <p>

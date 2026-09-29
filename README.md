@@ -9,6 +9,31 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v3.0 (rebrand UI/UX)
+
+**Nova identidade visual "Precision Graphite + Energy Amber"** em todo o produto
+(landing, autenticação, dashboard e chrome do editor), sem alterar a lógica de simulação.
+
+- **Design system `dx` reescrito** (`src/styles/dx.css`): grafite frio + papel técnico,
+  âmbar de energia como assinatura (CTA primária, marca, estados "energizado") e azul cobalto
+  reservado exclusivamente a interação (foco, ligações, seleção). Nada de cores soltas —
+  os tokens Tailwind (`tailwind.config.js`) espelham os mesmos valores.
+- **Novo logótipo**: módulo de calha DIN em grafite com furação e raio âmbar
+  (`src/ui/Brand.tsx`), favicon e theme a condizer.
+- **Landing page reformulada**: hero com folha de desenho técnica (anotações mono, marcas
+  de registo), moldura de viewport tipo instrumento CAD com os modelos 3D reais, secção
+  "O estúdio completo" com anatomia da interface, biblioteca com símbolos blueprint
+  desenhados (frentes de equipamentos), fluxo em calha ST-01…06, features F-01…06 com os
+  ícones do próprio sistema, índice "para quem é", banda de métricas, FAQ e CTA final.
+- **Dashboard redesenhado**: saudação com data, métricas com ícones do sistema, cartão
+  "Novo projeto" na grelha, pré-visualizações blueprint dos quadros, estados vazios
+  cuidados e modais com barra âmbar.
+- **Editor**: wordmark âmbar, botões de dock, tiles da biblioteca com palco blueprint,
+  hover/selected coerentes, estado vazio do Painel 3D refinado; os controlos de simulação
+  (RUN/PAUSE/STOP) mantêm as cores semânticas.
+- **Acessibilidade**: focus-visible azul em toda a parte, estados nunca comunicados só por
+  cor, alvos táteis, `prefers-reduced-motion` respeitado nas animações da landing.
+
 ## Novidades — v2.3
 
 **Contator WEG CWC09 no simulador (modelo CAD real)**
