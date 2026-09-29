@@ -27,7 +27,7 @@ import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTa
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario, SCENARIOS } from '../simulation/scenarios'
-import { createComponent, createTerminal, nextRef, terminalByLabel, upgradeLogoTerminals, upgradeProauto24A } from '../electrical/factory'
+import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradeProauto24A } from '../electrical/factory'
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
@@ -35,6 +35,7 @@ import type { ProjectFile, ProjectFolder } from '../ladder/projectFiles'
 import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
+import { hasComponent3DModel } from '../three/modelPaths'
 
 export interface Snapshot {
   components: ElectricalComponent[]
@@ -132,7 +133,7 @@ interface Store extends CircuitState {
   /** Preferências aplicadas aos novos cabos (ferramenta Cabo) */
   wireDefaults: WireDefaults
   setWireDefaults: (patch: Partial<WireDefaults>) => void
-  addComponent: (type: ComponentType, x: number, y: number) => string
+  addComponent: (type: ComponentType, x: number, y: number) => string | null
   duplicateComponents: (ids: string[]) => void
   updateComponent: (id: string, patch: Partial<ElectricalComponent>) => void
   moveComponent: (id: string, x: number, y: number) => void
@@ -719,13 +720,20 @@ export const useSimStore = create<Store>((set, get) => ({
   setGridDragEnabled: (enabled) => set({ gridDragEnabled: enabled }),
 
   placingType: null,
-  setPlacingType: (t) => set({ placingType: t, tool: t ? 'select' : get().tool }),
+  setPlacingType: (t) => {
+    const availableType = t && hasComponent3DModel(t) ? t : null
+    set({ placingType: availableType, tool: availableType ? 'select' : get().tool })
+  },
   dragType: null,
-  setDragType: (t) => set({ dragType: t }),
+  setDragType: (t) => set({ dragType: t && hasComponent3DModel(t) ? t : null }),
   wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'rigid', endType: 'ferrule' },
   setWireDefaults: (patch) => set((s) => ({ wireDefaults: { ...s.wireDefaults, ...patch } })),
 
   addComponent: (type, x, y) => {
+    if (!hasComponent3DModel(type)) {
+      get().pushEvent('warning', `Componente bloqueado: o modelo 3D GLB de ${TEMPLATES[type]?.paletteName ?? type} ainda não está disponível.`)
+      return null
+    }
     get().commitHistory()
     const comp = createComponent(type, undefined, undefined, get().components.length, x, y)
     comp.ref = nextRef(get().components, type)
@@ -741,10 +749,19 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   duplicateComponents: (ids) => {
+    const allowedIds = ids.filter((id) => {
+      const source = get().components.find((component) => component.id === id)
+      return source ? hasComponent3DModel(source.type) : false
+    })
+    if (allowedIds.length === 0) {
+      if (ids.length > 0) get().pushEvent('warning', 'Duplicação bloqueada: o componente selecionado ainda não possui modelo 3D GLB.')
+      return
+    }
+    if (allowedIds.length < ids.length) get().pushEvent('warning', 'Componentes sem modelo 3D GLB não foram duplicados.')
     get().commitHistory()
     set((s) => {
       const clones: ElectricalComponent[] = []
-      for (const id of ids) {
+      for (const id of allowedIds) {
         const src = s.components.find((c) => c.id === id)
         if (!src) continue
         const clone = createComponent(src.type, undefined, src.label, s.components.length + clones.length, src.schematicX + 30, src.schematicY + 30, JSON.parse(JSON.stringify(src.state)))

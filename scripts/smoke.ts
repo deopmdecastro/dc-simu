@@ -11,7 +11,7 @@ import { runScan } from '../src/ladder/ladderEngine'
 import { applyKind } from '../src/ladder/ladderDnd'
 import { parseDataBlocks, moveValue } from '../src/ladder/dataBlocks'
 import type { CounterTable, AddressTable, TimerTable } from '../src/ladder/ladderEngine'
-import { createComponent, terminalByLabel, upgradeLogoTerminals, upgradeProauto24A } from '../src/electrical/factory'
+import { createComponent, terminalByLabel, TEMPLATES, upgradeLogoTerminals, upgradeProauto24A } from '../src/electrical/factory'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
 import { proautoTerminalLocal } from '../src/schematic/proautoTerminalGeometry'
 import { connectNearWireEnds, nearestTerminal, nearestModelTerminal } from '../src/schematic/terminalSnap'
@@ -24,7 +24,7 @@ import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
-import { getCommandModelSpec, getComponentModelSpec, getProtectionModelSpec } from '../src/three/modelPaths'
+import { getCommandModelSpec, getComponentModelSpec, getProtectionModelSpec, hasComponent3DModel } from '../src/three/modelPaths'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
@@ -693,6 +693,22 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const ls = createComponent('plcLsXbmDn32s')
   check('LS XBM-DN32S é PLC programável com 16DI/16DO', isProgrammablePlc(ls) && plcIoCapacity(ls).inputs === 16 && plcIoCapacity(ls).outputs === 16)
   check('TS Adapter IE é acessório e não recebe programa Ladder', !isProgrammablePlc(createComponent('siemensTsAdapterIeBasic')))
+}
+
+/* A Biblioteca só liberta componentes associados a um GLB real. */
+{
+  const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
+  check('disponibilidade 3D reconhece os 15 componentes com GLB real', availableTypes.length === 15, `tipos: ${availableTypes.join(', ')}`)
+  check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
+  check('componentes sem GLB permanecem bloqueados', ['motor3ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
+  check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
+
+  const beforeBlockedAdd = useSimStore.getState().components.length
+  const blockedId = useSimStore.getState().addComponent('motor3ph', 0, 0)
+  check('store impede inserção indireta de componente sem GLB', blockedId === null && useSimStore.getState().components.length === beforeBlockedAdd)
+  useSimStore.getState().setPlacingType('motor3ph')
+  useSimStore.getState().setDragType('buttonNO')
+  check('estados de posicionamento e arraste não contornam o bloqueio', useSimStore.getState().placingType === null && useSimStore.getState().dragType === null)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

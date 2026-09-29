@@ -61,6 +61,23 @@ export function getComponentModelSpec(type: ComponentType): ComponentModelSpec |
   return COMPONENT_MODELS[type]
 }
 
+/**
+ * Tipos com renderizadores CAD dedicados anteriores à tabela genérica.
+ * Continuam a contar como GLB real para disponibilidade na Biblioteca.
+ */
+const DEDICATED_MODEL_TYPES = new Set<ComponentType>([
+  'plcSiemensLogo1224RC',
+  'powerSupplyProauto24A',
+  'contactorWegCWC09',
+])
+
+/** Única regra de disponibilidade: só componentes com ficheiro GLB real podem ser inseridos. */
+export function hasComponent3DModel(type: ComponentType): boolean {
+  return DEDICATED_MODEL_TYPES.has(type) || !!COMPONENT_MODELS[type]
+}
+
+export const MISSING_3D_MODEL_MESSAGE = 'Bloqueado: modelo 3D GLB ainda não disponível.'
+
 export type ProtectionModelSpec = ComponentModelSpec
 export function getProtectionModelSpec(type: ComponentType): ProtectionModelSpec | undefined {
   return ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(type)

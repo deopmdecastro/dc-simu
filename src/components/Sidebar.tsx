@@ -10,6 +10,7 @@ import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
+import { hasComponent3DModel, MISSING_3D_MODEL_MESSAGE } from '../three/modelPaths'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects } from '../ui/icons'
 
 const label = 'dc-field-label'
@@ -48,16 +49,23 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
   type: ComponentType; name: string; favorite: boolean; placing: boolean
   onPick: () => void; onQuickAdd: () => void; onFavorite: () => void; onRecent: () => void
 }) {
-  return <div className={`dc-library-tile ${placing ? 'is-placing' : ''}`}>
+  const available = hasComponent3DModel(type)
+  const title = available
+    ? `${name} — clique para posicionar · duplo clique para inserir · arraste para o esquema`
+    : `${name} — ${MISSING_3D_MODEL_MESSAGE}`
+  return <div className={`dc-library-tile ${placing ? 'is-placing' : ''} ${available ? '' : 'is-locked'}`} title={title}>
     <button
       type="button"
       className="dc-library-tile-main"
-      title={`${name} — clique para posicionar · duplo clique para inserir · arraste para o esquema`}
-      aria-label={`Posicionar ${name} no esquema`}
-      onClick={() => { onRecent(); onPick() }}
-      onDoubleClick={() => { onRecent(); onQuickAdd() }}
-      draggable
+      title={title}
+      aria-label={available ? `Posicionar ${name} no esquema` : `${name}. ${MISSING_3D_MODEL_MESSAGE}`}
+      aria-disabled={!available}
+      disabled={!available}
+      onClick={() => { if (available) { onRecent(); onPick() } }}
+      onDoubleClick={() => { if (available) { onRecent(); onQuickAdd() } }}
+      draggable={available}
       onDragStart={(e) => {
+        if (!available) { e.preventDefault(); return }
         const st = useSimStore.getState()
         st.setPlacingType(null)
         st.setDragType(type)
@@ -71,10 +79,14 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
         e.dataTransfer.setDragImage(chip, -12, -12)
         window.setTimeout(() => chip.remove(), 0)
       }}
-      onDragEnd={(e) => { if (e.dataTransfer.dropEffect !== 'none') onRecent(); useSimStore.getState().setDragType(null) }}
+      onDragEnd={(e) => { if (available && e.dataTransfer.dropEffect !== 'none') onRecent(); useSimStore.getState().setDragType(null) }}
     >
-      <span className="dc-library-tile-image"><ComponentThumb type={type} size={58} /></span>
+      <span className="dc-library-tile-image">
+        <ComponentThumb type={type} size={58} />
+        {!available && <span className="dc-library-tile-lock" aria-hidden="true"><IconLock size={16} /></span>}
+      </span>
       <span className="dc-library-tile-name">{name}</span>
+      {!available && <span className="dc-library-tile-status">Aguarda GLB 3D</span>}
     </button>
     <button type="button" className={`dc-library-tile-favorite ${favorite ? 'is-favorite' : ''}`} onClick={onFavorite} aria-pressed={favorite} aria-label={`${favorite ? 'Remover' : 'Adicionar'} ${name} ${favorite ? 'dos' : 'aos'} favoritos`} title={favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}>{favorite ? '★' : '☆'}</button>
   </div>
@@ -130,6 +142,8 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   useEffect(() => { if (inspectorRef.current) inspectorRef.current.scrollTop = 0 }, [selectedIds[0], selectedWireId, selectedTerminalId])
 
   const groups = useMemo(() => paletteGroups(), [])
+  const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter(hasComponent3DModel).length, [])
+  const lockedCount = Object.keys(TEMPLATES).length - modelReadyCount
   const selectedComponent = components.find((c) => c.id === selectedIds[0])
   const selectedWire = wires.find((w) => w.id === selectedWireId)
   const wireFromTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.fromTerminalId) : undefined
@@ -143,12 +157,14 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   /** Clique = modo "posicionar com o mouse" (fantasma segue o cursor no
    *  esquema). Clique novamente no mesmo item cancela. */
   const add = (type: ComponentType) => {
+    if (!hasComponent3DModel(type)) return
     const st = useSimStore.getState()
     st.setPlacingType(st.placingType === type ? null : type)
   }
 
   /** Duplo clique = insere imediatamente na próxima posição livre. */
   const addImmediate = (type: ComponentType) => {
+    if (!hasComponent3DModel(type)) return
     const st = useSimStore.getState()
     st.setPlacingType(null)
     const n = st.components.length
@@ -163,13 +179,16 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
       .map((g) => ({ ...g, items: g.items.filter((i) => i.name.toLocaleLowerCase('pt-PT').includes(f) || i.type.toLowerCase().includes(f) || g.group.toLocaleLowerCase('pt-PT').includes(f)) }))
       .filter((g) => g.items.length)
   }, [groups, filter])
+  const filteredItems = filtered.flatMap((group) => group.items)
+  const filteredReadyCount = filteredItems.filter((item) => hasComponent3DModel(item.type)).length
+  const filteredLockedCount = filteredItems.length - filteredReadyCount
 
   return (
     <div className="shrink-0 border-r border-line bg-surface-panel flex flex-col h-full min-h-0" style={{ width }}>
       {/* abas */}
       <div className="flex items-end border-b border-line bg-surface-rail px-1 pt-1">
         <button onClick={() => setTab('library')} className={`dc-tab ${tab === 'library' ? 'dc-tab-active' : ''}`}>
-          Biblioteca <span className="text-ink-300 font-normal">({Object.keys(TEMPLATES).length})</span>
+          Biblioteca <span className="text-ink-300 font-normal">({modelReadyCount}/{Object.keys(TEMPLATES).length})</span>
         </button>
         <button onClick={() => setTab('inspector')} className={`dc-tab ${tab === 'inspector' ? 'dc-tab-active' : ''}`}>
           Inspetor
@@ -185,8 +204,12 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
               <IconSearch size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none" />
             </div>
           </div>
+          <div className="dc-library-model-notice" role="note">
+            <IconLock size={13} />
+            <span><strong>{lockedCount} componentes bloqueados.</strong> Sem GLB 3D real não podem ser inseridos.</span>
+          </div>
           <div className="flex items-center justify-between px-2 py-1 border-b border-line text-[10px] text-ink-500">
-            <span>{filtered.reduce((n, g) => n + g.items.length, 0)} componentes {filter ? 'encontrados' : 'disponíveis'}</span>
+            <span>{filteredReadyCount} com 3D · {filteredLockedCount} bloqueados{filter ? ' na pesquisa' : ''}</span>
             <span className="flex gap-2"><button onClick={() => setCollapsedGroups(new Set())}>Expandir</button><button onClick={() => setCollapsedGroups(new Set(groups.map((g) => g.group)))}>Recolher</button></span>
           </div>
           {placingType && <div className="p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center"><span className="flex-1">A posicionar: {TEMPLATES[placingType]?.paletteName ?? placingType}</span><button className="dc-btn !h-6" onClick={() => useSimStore.getState().setPlacingType(null)}>Cancelar</button></div>}
@@ -211,9 +234,9 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
               </section>
             })}
              <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
-               <b className="text-ink-500">Clique ou arraste</b> um item: o componente aparece em pré-visualização no esquema
-               e fica onde <b className="text-ink-500">soltar/clicar</b> (encaixa na malha). Duplo clique insere já no esquema · Shift+clique posiciona vários · Esc cancela.
-               Também pode arrastar botões, sensores e contatores para uma network Ladder.
+               Nos itens <b className="text-ink-500">com GLB 3D</b>, clique ou arraste: o componente aparece em pré-visualização no esquema
+               e fica onde <b className="text-ink-500">soltar/clicar</b> (encaixa na malha). O cadeado indica que o modelo 3D ainda falta e bloqueia a inserção.
+               Duplo clique insere já no esquema · Shift+clique posiciona vários · Esc cancela.
              </p>
           </div>
         </>

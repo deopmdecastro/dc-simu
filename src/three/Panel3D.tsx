@@ -8,7 +8,7 @@ import { SCENARIOS } from '../simulation/scenarios'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType } from '../types'
 import * as THREE from 'three'
-import { getCommandModelSpec, getComponentModelSpec, hasDinRailModel, MODEL_PATHS } from './modelPaths'
+import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, MODEL_PATHS } from './modelPaths'
 
 const SLOT_WIDTH = 0.72
 const RAIL_Y = 0.4
@@ -733,7 +733,7 @@ export default function Panel3D() {
        onDrop={(e) => {
          e.preventDefault()
          const compType = e.dataTransfer.getData('text/plain') as ComponentType
-         if (!compType) return
+         if (!compType || !hasComponent3DModel(compType)) return
          selectComponents([])
          addComponent(compType, 0, 0)
        }}

@@ -9,7 +9,7 @@ import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
 import { getWeg3DImage } from './weg3DImage'
 import { getCad3DImage } from './cad3DImage'
-import { getComponentModelSpec } from '../three/modelPaths'
+import { getComponentModelSpec, hasComponent3DModel } from '../three/modelPaths'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
@@ -363,6 +363,10 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     // modo "posicionar componente": clique esquerdo posiciona (Shift = vários),
     // clique direito ou Esc cancela
     if (placingType) {
+      if (!hasComponent3DModel(placingType)) {
+        setPlacingType(null)
+        return
+      }
       if (e.button === 2) {
         e.preventDefault()
         setPlacingType(null)
@@ -533,7 +537,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     const compType = (e.dataTransfer.getData('application/dc-simu-component') || e.dataTransfer.getData('application/x-dcsimu-component') || e.dataTransfer.getData('text/plain')) as ComponentType
     useSimStore.getState().setDragType(null)
     setCursorPos(null)
-    if (!compType || compType.includes(':')) return
+    if (!compType || compType.includes(':') || !hasComponent3DModel(compType)) return
     const p = toCanvas(e.clientX, e.clientY)
     const g = createComponent(compType)
     selectWire(null)
@@ -1100,10 +1104,10 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
             <div className="mt-3 flex flex-wrap justify-center gap-1.5">
               {(
                 [
-                  ['plcLogo', 'CLP'],
-                  ['buttonNO', 'Botão NA'],
-                  ['contactor', 'Contator'],
-                  ['motor3ph', 'Motor 3~'],
+                  ['plcLsXbmDn32s', 'CLP LS'],
+                  ['dualPushButtonNpb22D11', 'START/STOP'],
+                  ['contactorWegCWC09', 'Contator WEG'],
+                  ['breakerWegMdwC10', 'Disjuntor WEG'],
                 ] as Array<[ComponentType, string]>
               ).map(([type, text], index) => (
                 <button
