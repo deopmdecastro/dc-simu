@@ -186,16 +186,16 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           const put = putContact(taken.rung, taken.el, adj)
           branchId = put.branchId
           return put.rung
-        })
+        }, 'force')
         if (branchId) onSelect({ type: 'contact', branchId, elementId: payload.elementId })
       } else {
         const src = st.ladder.rungs.find((r) => r.id === payload!.rungId)
         if (!src) return
         const taken = takeContact(src, payload.branchId, payload.elementId)
         if (!taken.el) return
-        updateRung(src.id, () => taken.rung)
+        updateRung(src.id, () => taken.rung, 'force')
         const put = putContact(rung, taken.el, target)
-        updateRung(rung.id, () => put.rung)
+        updateRung(rung.id, () => put.rung, 'skip')
         onSelect({ type: 'contact', branchId: put.branchId, elementId: taken.el.id })
       }
       return
@@ -208,33 +208,46 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       const res = applyKind(r, k, target)
       created = (res.created as RungSelection) ?? null
       return res.rung
-    })
+    }, 'force')
     if (created) onSelect(created)
   }
 
   // ------------------------------------------------------------- ações
   const removeContact = (branchId: string, elementId: string) =>
-    updateRung(rung.id, (r) => ({ ...r, branches: r.branches.map((b) => (b.id === branchId ? { ...b, elements: b.elements.filter((x) => x.id !== elementId) } : b)) }))
-  const removeCoil = (id: string) => updateRung(rung.id, (r) => ({ ...r, coils: r.coils.filter((c) => c.id !== id) }))
+    updateRung(rung.id, (r) => ({ ...r, branches: r.branches.map((b) => (b.id === branchId ? { ...b, elements: b.elements.filter((x) => x.id !== elementId) } : b)) }), 'force')
+  const removeCoil = (id: string) => updateRung(rung.id, (r) => ({ ...r, coils: r.coils.filter((c) => c.id !== id) }), 'force')
   const addCoil = () => {
     let created: RungSelection = null
     updateRung(rung.id, (r) => {
       const res = applyKind(r, 'COIL')
       created = res.created as RungSelection
       return res.rung
-    })
+    }, 'force')
     if (created) onSelect(created)
   }
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (readonly || (e.key !== 'Delete' && e.key !== 'Backspace')) return
+    if (readonly) return
     const tag = (e.target as HTMLElement).tagName
-    if (tag === 'INPUT' || tag === 'SELECT') return
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
+    if (e.key === 'Escape' && selection) {
+      e.preventDefault()
+      e.stopPropagation()
+      onSelect(null)
+      return
+    }
+    if (e.key === 'Enter' && selection && selection.type !== 'insert') {
+      e.preventDefault()
+      e.stopPropagation()
+      onEdit(selection)
+      return
+    }
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return
     if (selection?.type === 'contact') removeContact(selection.branchId, selection.elementId)
     else if (selection?.type === 'coil') removeCoil(selection.coilId)
-    else if (selection?.type === 'timer') updateRung(rung.id, (r) => ({ ...r, timer: undefined }))
-    else if (selection?.type === 'counter') updateRung(rung.id, (r) => ({ ...r, counter: undefined }))
-    else if (selection?.type === 'move') updateRung(rung.id, (r) => ({ ...r, move: undefined }))
-    else if (selection?.type === 'call') updateRung(rung.id, (r) => ({ ...r, call: undefined }))
+    else if (selection?.type === 'timer') updateRung(rung.id, (r) => ({ ...r, timer: undefined }), 'force')
+    else if (selection?.type === 'counter') updateRung(rung.id, (r) => ({ ...r, counter: undefined }), 'force')
+    else if (selection?.type === 'move') updateRung(rung.id, (r) => ({ ...r, move: undefined }), 'force')
+    else if (selection?.type === 'call') updateRung(rung.id, (r) => ({ ...r, call: undefined }), 'force')
     else return
     e.preventDefault()
     e.stopPropagation()
@@ -321,7 +334,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           className="lnet-branch-rm"
           style={{ left: contactsEnd - 18, top: cy + 8 }}
           title="Remover este ramo (OR)"
-          onClick={(e) => { e.stopPropagation(); updateRung(rung.id, (r) => ({ ...r, branches: r.branches.filter((x) => x.id !== b.id) })) }}
+          onClick={(e) => { e.stopPropagation(); updateRung(rung.id, (r) => ({ ...r, branches: r.branches.filter((x) => x.id !== b.id) }), 'force') }}
         >
           ×
         </button>,
@@ -371,7 +384,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             style={{ left: boxX - 8, top: top - 22, width: BOX_W + 16, height: 108 }}
             onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'timer' }) }}
             onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'timer' }) }}
-            onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, timer: undefined })) }}
+            onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, timer: undefined }), 'force') }}
             title="Temporizador — clique: edição rápida · duplo clique: tipo e presets · Del/botão direito remove"
           />,
         )
@@ -412,7 +425,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             style={{ left: boxX - 8, top: top - 22, width: BOX_W + 16, height: 108 }}
             onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'counter' }) }}
             onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'counter' }) }}
-            onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, counter: undefined })) }}
+            onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, counter: undefined }), 'force') }}
             title="Contador — clique: edição rápida · duplo clique: tipo e presets · Del/botão direito remove"
           />,
         )
@@ -428,7 +441,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       if (!readonly) hits.push(<div key="call-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 66 }}
         onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'call' }) }}
         onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'call' }) }}
-        onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, call: undefined })) }}
+        onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, call: undefined }), 'force') }}
         title="CALL FC — clique: edição rápida · duplo clique: escolher bloco · botão direito remove" />)
     } else if (o.type === 'move' && rung.move) {
       const m = rung.move
@@ -456,7 +469,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       if (!readonly) hits.push(<div key="move-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 86 }}
         onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'move' }) }}
         onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'move' }) }}
-        onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, move: undefined })) }}
+        onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, move: undefined }), 'force') }}
         title="MOVE — duplo clique: origem e destino · Del/botão direito remove" />)
     } else if (o.type === 'coil') {
       const c = o.coil

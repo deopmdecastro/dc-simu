@@ -2203,7 +2203,8 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
 .ladder-rung-chips { display:inline-flex; align-items:center; gap:4px; flex-shrink:0; }
 .ladder-chip { display:inline-flex; align-items:center; gap:3px; height:17px; padding:0 6px; border-radius:9px; background:rgba(255,255,255,.65); border:1px solid #cfd8e6; color:#3b4a63; font-size:10px; font-weight:700; font-variant-numeric:tabular-nums; }
 .ladder-chip small { font-size:9.5px; font-weight:500; color:#6b7a93; }
-.ladder-chip.is-off { background:#fff4e5; border-color:#f3c98b; color:#9a5b00; }
+.ladder-chip.is-off,.ladder-chip.is-warn { background:#fff4e5; border-color:#f3c98b; color:#9a5b00; }
+.ladder-chip.is-info { background:#eef4ff; border-color:#bfd0f2; color:#315b9d; }
 @media (max-width: 1100px) { .ladder-chip small { display:none; } }
 
 .ladder-switch { display:inline-flex; align-items:center; gap:5px; cursor:pointer; user-select:none; flex-shrink:0; }
@@ -2228,7 +2229,8 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
 .ladder-rung-card.is-active .ladder-rung-header { background:linear-gradient(180deg,#e8effc 0%,#d6e3fa 100%); }
 .ladder-rung-card.is-disabled .ladder-rung-body,
 .ladder-rung-card.is-disabled .lnet-strip { opacity:.5; filter:grayscale(.6); }
-.ladder-network-wrap { scroll-margin:12px; }
+.ladder-network-wrap { scroll-margin:12px; border-radius:4px; outline:none; }
+.ladder-network-wrap:focus-visible { box-shadow:0 0 0 3px rgba(31,85,224,.22); }
 
 .ladder-toast { position:fixed; left:50%; bottom:44px; transform:translateX(-50%); z-index:80; padding:7px 14px; border-radius:8px; background:#1b2540; color:#fff; font-size:12px; font-weight:600; box-shadow:0 8px 24px rgba(15,23,42,.28); pointer-events:none; animation:ladder-toast-in .16s ease-out; }
 @keyframes ladder-toast-in { from { opacity:0; transform:translate(-50%,6px); } to { opacity:1; transform:translate(-50%,0); } }

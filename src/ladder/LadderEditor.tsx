@@ -165,6 +165,7 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
   }
   const contactCount = rung.branches.reduce((n, b) => n + b.elements.length, 0)
   const outputCount = rung.coils.length + (rung.timer ? 1 : 0) + (rung.counter ? 1 : 0) + (rung.call ? 1 : 0) + (rung.move ? 1 : 0)
+  const blockKinds = [rung.timer?.timerType, rung.counter?.counterType, rung.move ? 'MOVE' : '', rung.call ? 'CALL' : ''].filter(Boolean)
 
   const powered = !!rungPowered[rung.id]
   const plcId = useSimStore((st) => st.activePlcId)
@@ -195,13 +196,15 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
           <i />
           {powered && running ? 'RLO = 1' : 'RLO = 0'}
         </span>
-        <span className="ladder-rung-chips" title={`${contactCount} contacto(s) · ${outputCount} saída(s)/bloco(s)`}>
+        <span className="ladder-rung-chips" title={`${contactCount} contacto(s) · ${outputCount} saída(s)/bloco(s) · ${rung.branches.length} ramo(s)`}>
           <span className="ladder-chip">{contactCount} <small>contactos</small></span>
-          <span className="ladder-chip">{outputCount} <small>saídas</small></span>
+          <span className={`ladder-chip ${outputCount ? '' : 'is-warn'}`}>{outputCount} <small>saídas</small></span>
+          {rung.branches.length > 1 && <span className="ladder-chip is-info">{rung.branches.length} <small>ramos</small></span>}
+          {!!blockKinds.length && <span className="ladder-chip is-info">{blockKinds.join(' · ')}</span>}
           {!rung.enabled && <span className="ladder-chip is-off">desativada</span>}
         </span>
         <label className="ladder-switch" title="Network habilitada para execução (Ctrl+Shift+A)" onDoubleClick={(e) => e.stopPropagation()}>
-          <input type="checkbox" checked={rung.enabled} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, enabled: e.target.checked }))} />
+          <input type="checkbox" checked={rung.enabled} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, enabled: e.target.checked }), 'force')} />
           <span className="ladder-switch-track"><i /></span>
           <span className="ladder-switch-text">ativa</span>
         </label>
@@ -410,8 +413,9 @@ function CompactLadderEditor() {
   const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
 
   const quickAdd = (kind: PaletteKind) => {
-    const rungId = rungs.length ? rungs[rungs.length - 1].id : addRung()
-    updateRung(rungId, (r) => applyKind(r, kind).rung)
+    const existingRung = rungs[rungs.length - 1]
+    const rungId = existingRung?.id ?? addRung()
+    updateRung(rungId, (r) => applyKind(r, kind).rung, existingRung ? 'force' : 'skip')
     setTab('program')
   }
 
@@ -893,7 +897,7 @@ const ZOOM_STEP = 0.1
 /** chave nova: a antiga guardava a escala em bruto (1.15 = 115%) e ficaria a 132% */
 const ZOOM_KEY = 'dcsimu:ladder:zoom:v2'
 
-function FullLadderEditor({ section, setSection }: { section: LadderSection; setSection: (value: LadderSection) => void }) {
+function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: LadderSection; setSection: (value: LadderSection) => void; onOpenSchematic?: (componentId: string) => void }) {
   const components = useSimStore((s) => s.components)
   const plcs = components.filter(isProgrammablePlc)
   const activePlcId = useSimStore((s) => s.activePlcId)
@@ -1029,6 +1033,17 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
       if (mod && key === '-') { event.preventDefault(); setLadderZoom((v) => Math.max(ZOOM_MIN, Number((v - ZOOM_STEP).toFixed(2)))); return }
       if (mod && key === '0') { event.preventDefault(); setLadderZoom(1); return }
 
+      // Alt+1…5 navega entre as áreas Ladder sem colidir com Ctrl+1…5 das vistas globais.
+      if (!mod && event.altKey && !event.shiftKey && /^[1-5]$/.test(key)) {
+        event.preventDefault()
+        setSection((['Projeto', 'Biblioteca', 'Dispositivos', 'Diagnóstico', 'Configurações'] as LadderSection[])[Number(key) - 1])
+        return
+      }
+
+      // Desfazer/refazer cobre todo o projeto Ladder (networks, tags e árvore).
+      if (mod && !event.altKey && lower === 'z') { event.preventDefault(); if (event.shiftKey) doRedo(); else doUndo(); return }
+      if (mod && !event.altKey && lower === 'y') { event.preventDefault(); doRedo(); return }
+
       // ---- os restantes só fazem sentido no programa Ladder principal
       if (section !== 'Projeto') return
       if (mod && lower === 'b') { event.preventDefault(); setShowPalette((v) => !v); return }
@@ -1038,10 +1053,6 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
       if (!mod && !event.altKey && key === '?') { event.preventDefault(); setHelpOpen(true); return }
 
       if (!isMainOpen || programTab !== 'program') return
-
-      // ---- edição
-      if (mod && !event.altKey && lower === 'z') { event.preventDefault(); if (event.shiftKey) doRedo(); else doUndo(); return }
-      if (mod && !event.altKey && lower === 'y') { event.preventDefault(); doRedo(); return }
 
       const list = useSimStore.getState().ladder.rungs
       const idx = list.findIndex((r) => r.id === activeId)
@@ -1084,7 +1095,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
       }
       if (mod && event.shiftKey && lower === 'a') {
         event.preventDefault()
-        if (idx >= 0) { const enabled = !list[idx].enabled; updateRung(list[idx].id, (r) => ({ ...r, enabled })); notify(`Network ${idx + 1} ${enabled ? 'ativada' : 'desativada'}`) }
+        if (idx >= 0) { const enabled = !list[idx].enabled; updateRung(list[idx].id, (r) => ({ ...r, enabled }), 'force'); notify(`Network ${idx + 1} ${enabled ? 'ativada' : 'desativada'}`) }
         return
       }
 
@@ -1096,7 +1107,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [section, isMainOpen, programTab, activeId, helpOpen, addRung, updateRung, duplicateRung, moveRung, focusRung, doUndo, doRedo, removeActiveRung, notify])
+  }, [section, setSection, isMainOpen, programTab, activeId, helpOpen, addRung, updateRung, duplicateRung, moveRung, focusRung, doUndo, doRedo, removeActiveRung, notify])
 
   const createFile = (folder: ProjectFolder) => {
     const suggested = folder === 'programBlocks' ? 'FC' : folder === 'dataBlocks' ? 'DB' : folder === 'watchTables' ? 'Observação' : folder === 'backups' ? 'Backup' : 'Novo ficheiro'
@@ -1140,9 +1151,10 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   const quickAdd = (kind: PaletteKind) => {
     setActiveProjectNode('main')
     setProgramTab('program')
+    const hadActiveRung = !!activeId
     const rungId = activeId ?? addRung()
     setActiveRungId(rungId)
-    updateRung(rungId, (r) => applyKind(r, kind).rung)
+    updateRung(rungId, (r) => applyKind(r, kind).rung, hadActiveRung ? 'force' : 'skip')
   }
   quickAddRef.current = quickAdd
 
@@ -1193,7 +1205,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           </select>
           <span className="truncate text-ink-400">{plcs.length > 1 ? `${plcs.length} PLCs · programa independente por dispositivo` : plcs.length ? 'Programa deste PLC' : 'Adicione um PLC no Esquema'}</span>
         </div>
-        {section !== 'Projeto' ? <LadderSections section={section} groups={PALETTE_GROUPS} renderGlyph={(kind) => <LadderGlyph kind={kind} size={30} />} onAdd={(kind) => { quickAdd(kind); setSection('Projeto') }} /> : <>
+        {section !== 'Projeto' ? <LadderSections section={section} groups={PALETTE_GROUPS} renderGlyph={(kind) => <LadderGlyph kind={kind} size={30} />} onAdd={(kind) => { quickAdd(kind); setSection('Projeto') }} onOpenSchematic={onOpenSchematic} /> : <>
         <div className="ladder-project-tabs">
           <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}>
             {isFcOpen ? <IconFunction size={13} /> : <IconSchematic size={13} />} {activeTitle} <span>×</span>
@@ -1273,7 +1285,16 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           >
             <div className="ladder-networks-scale" style={{ zoom: ladderZoom * ZOOM_BASE }}>
               {rungs.map((r, i) => (
-                <div key={r.id} id={`ladder-net-${r.id}`} className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`} onMouseDownCapture={() => setActiveRungId(r.id)}>
+                <div
+                  key={r.id}
+                  id={`ladder-net-${r.id}`}
+                  className={`ladder-network-wrap ${activeId === r.id ? 'is-selected' : ''}`}
+                  tabIndex={0}
+                  role="region"
+                  aria-label={`Network ${i + 1}: ${r.name || 'sem título'}`}
+                  onFocusCapture={() => setActiveRungId(r.id)}
+                  onMouseDownCapture={() => setActiveRungId(r.id)}
+                >
                   <RungRow
                     rung={r} index={i} total={rungs.length} active={activeId === r.id} minWidth={720}
                     collapsed={collapsedIds.has(r.id)}
@@ -1367,6 +1388,6 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   )
 }
 
-export default function LadderEditor({ compact = false, section = 'Projeto', setSection = () => {} }: { compact?: boolean; section?: LadderSection; setSection?: (value: LadderSection) => void }) {
-  return compact ? <CompactLadderEditor /> : <FullLadderEditor section={section} setSection={setSection} />
+export default function LadderEditor({ compact = false, section = 'Projeto', setSection = () => {}, onOpenSchematic }: { compact?: boolean; section?: LadderSection; setSection?: (value: LadderSection) => void; onOpenSchematic?: (componentId: string) => void }) {
+  return compact ? <CompactLadderEditor /> : <FullLadderEditor section={section} setSection={setSection} onOpenSchematic={onOpenSchematic} />
 }

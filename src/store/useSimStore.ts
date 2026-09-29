@@ -48,6 +48,12 @@ export interface Snapshot {
   fcBlocks?: { fc1: LadderRung[]; fc2: LadderRung[] }
   plcPrograms?: Record<string, PlcProgram>
   activePlcId?: string | null
+  /** Dados auxiliares do programa Ladder também têm de voltar no mesmo passo.
+   *  Sem estes campos, desfazer uma edição de endereço deixava a tag alterada. */
+  tags?: LadderTag[]
+  plcTags?: Record<string, LadderTag[]>
+  projectFiles?: Record<string, ProjectFile[]>
+  hiddenProjectFolders?: Record<string, ProjectFolder[]>
 }
 
 interface RuntimeExtras {
@@ -204,16 +210,16 @@ interface Store extends CircuitState {
   duplicateRung: (rungId: string) => void
   moveRung: (rungId: string, dir: -1 | 1) => void
   renameRung: (rungId: string, name: string) => void
-  updateRung: (rungId: string, updater: (r: LadderRung) => LadderRung) => void
+  updateRung: (rungId: string, updater: (r: LadderRung) => LadderRung, historyMode?: 'auto' | 'force' | 'skip') => void
 
   // --- tabela de tags (variáveis) ---
   /** Cria uma nova tag no próximo endereço livre da família indicada. */
   addTag: (prefix: 'I' | 'Q' | 'M' | 'T' | 'C') => void
-  updateTag: (id: string, patch: Partial<Omit<LadderTag, 'id'>>) => void
+  updateTag: (id: string, patch: Partial<Omit<LadderTag, 'id'>>, historyMode?: 'auto' | 'force' | 'skip') => void
   removeTag: (id: string) => void
   /** Varre o programa Ladder e cria uma tag (nome = endereço) para cada
    *  endereço já usado no programa que ainda não tenha uma tag. */
-  autoDetectTags: () => void
+  autoDetectTags: (historyMode?: 'force' | 'skip') => void
 
   // --- arquivo ---
   saveJSON: () => string
@@ -223,17 +229,17 @@ interface Store extends CircuitState {
 
 type DrawKey = { kind: 'c' | 'w'; id: string }
 
-/** Agrupa edições rápidas e consecutivas da mesma network (ex.: escrever um
- *  endereço letra a letra) num único passo de "Desfazer". */
-const RUNG_HISTORY_WINDOW_MS = 900
-let lastRungEdit = { key: '', at: 0 }
-function shouldCommitRungEdit(key: string): boolean {
+/** Agrupa escrita rápida no mesmo campo (nome, comentário ou conteúdo) num
+ *  único passo de Desfazer, sem juntar ações discretas como inserir/remover. */
+const EDIT_HISTORY_WINDOW_MS = 900
+let lastGroupedEdit = { key: '', at: 0 }
+function shouldCommitGroupedEdit(key: string): boolean {
   const now = Date.now()
-  const commit = key !== lastRungEdit.key || now - lastRungEdit.at > RUNG_HISTORY_WINDOW_MS
-  lastRungEdit = { key, at: now }
+  const commit = key !== lastGroupedEdit.key || now - lastGroupedEdit.at > EDIT_HISTORY_WINDOW_MS
+  lastGroupedEdit = { key, at: now }
   return commit
 }
-function markRungEdit(key: string) { lastRungEdit = { key, at: Date.now() } }
+function resetGroupedEdit() { lastGroupedEdit = { key: '', at: 0 } }
 
 /** Ordem de empilhamento atual (cabos + componentes), do fundo para a frente,
  * usando o campo `z` (padrão 0) com a ordem de inserção original como
@@ -298,11 +304,14 @@ function reorderSelection(
 }
 
 function snapshot(state: Store): Snapshot {
+  const plcTags = { ...state.plcTags, ...(state.activePlcId ? { [state.activePlcId]: state.tags } : {}) }
   return JSON.parse(JSON.stringify({
     components: state.components, wires: state.wires, ladder: state.ladder.rungs,
     grafcet: state.grafcet,
     fcBlocks: state.fcBlocks, activePlcId: state.activePlcId,
     plcPrograms: programsForSave(state.plcPrograms, state.activePlcId, state.ladder.rungs, state.fcBlocks),
+    tags: state.tags, plcTags,
+    projectFiles: state.projectFiles, hiddenProjectFolders: state.hiddenProjectFolders,
   })) as Snapshot
 }
 
@@ -551,6 +560,7 @@ export const useSimStore = create<Store>((set, get) => ({
     const plcId = get().activePlcId ?? '_general'
     const trimmed = name.trim()
     if (!trimmed) return null
+    get().commitHistory()
     const id = nanoid(10)
     const file: ProjectFile = { id, folder, name: trimmed, createdAt: new Date().toISOString(),
       content: folder === 'backups' ? get().saveJSON() : '', ...(folder === 'programBlocks' ? { rungs: [] } : {}) }
@@ -559,16 +569,21 @@ export const useSimStore = create<Store>((set, get) => ({
   },
   updateProjectFile: (id, patch) => {
     const plcId = get().activePlcId ?? '_general'
+    if (shouldCommitGroupedEdit(`project-file:${plcId}:${id}`)) get().commitHistory()
     set((s) => ({ projectFiles: { ...s.projectFiles, [plcId]: (s.projectFiles[plcId] ?? []).map((f) => f.id === id ? { ...f, ...patch, name: patch.name !== undefined ? patch.name.trimStart() : f.name } : f) }, dirty: true }))
   },
   deleteProjectFile: (id) => {
     const plcId = get().activePlcId ?? '_general'
+    if (!(get().projectFiles[plcId] ?? []).some((file) => file.id === id)) return
+    get().commitHistory()
     set((s) => ({ projectFiles: { ...s.projectFiles, [plcId]: (s.projectFiles[plcId] ?? []).filter((f) => f.id !== id) }, dirty: true }))
   },
   deleteProjectFolder: (folder) => {
     // Blocos de programa e variáveis são a estrutura mínima do PLC e não podem ser removidos.
     if (folder === 'programBlocks' || folder === 'plcVariables') return
     const plcId = get().activePlcId ?? '_general'
+    if ((get().hiddenProjectFolders[plcId] ?? []).includes(folder)) return
+    get().commitHistory()
     set((s) => ({
       projectFiles: { ...s.projectFiles, [plcId]: (s.projectFiles[plcId] ?? []).filter((file) => file.folder !== folder) },
       hiddenProjectFolders: { ...s.hiddenProjectFolders, [plcId]: [...new Set([...(s.hiddenProjectFolders[plcId] ?? []), folder])] },
@@ -577,6 +592,8 @@ export const useSimStore = create<Store>((set, get) => ({
   },
   restoreProjectFolder: (folder) => {
     const plcId = get().activePlcId ?? '_general'
+    if (!(get().hiddenProjectFolders[plcId] ?? []).includes(folder)) return
+    get().commitHistory()
     set((s) => ({
       hiddenProjectFolders: { ...s.hiddenProjectFolders, [plcId]: (s.hiddenProjectFolders[plcId] ?? []).filter((item) => item !== folder) },
       dirty: true,
@@ -657,7 +674,7 @@ export const useSimStore = create<Store>((set, get) => ({
       },
       dirty: false,
     })
-    get().autoDetectTags()
+    get().autoDetectTags('skip')
     get().step()
   },
 
@@ -1269,6 +1286,10 @@ export const useSimStore = create<Store>((set, get) => ({
       fcBlocks: prev.fcBlocks ?? s.fcBlocks,
       plcPrograms: prev.plcPrograms ?? s.plcPrograms,
       activePlcId: prev.activePlcId !== undefined ? prev.activePlcId : s.activePlcId,
+      tags: prev.tags ?? s.tags,
+      plcTags: prev.plcTags ?? s.plcTags,
+      projectFiles: prev.projectFiles ?? s.projectFiles,
+      hiddenProjectFolders: prev.hiddenProjectFolders ?? s.hiddenProjectFolders,
       history: s.history.slice(0, -1),
       future: [...s.future, snapshot(s)],
       dirty: true,
@@ -1288,6 +1309,10 @@ export const useSimStore = create<Store>((set, get) => ({
       fcBlocks: next.fcBlocks ?? s.fcBlocks,
       plcPrograms: next.plcPrograms ?? s.plcPrograms,
       activePlcId: next.activePlcId !== undefined ? next.activePlcId : s.activePlcId,
+      tags: next.tags ?? s.tags,
+      plcTags: next.plcTags ?? s.plcTags,
+      projectFiles: next.projectFiles ?? s.projectFiles,
+      hiddenProjectFolders: next.hiddenProjectFolders ?? s.hiddenProjectFolders,
       future: s.future.slice(0, -1),
       history: [...s.history, snapshot(s)],
       dirty: true,
@@ -1299,7 +1324,7 @@ export const useSimStore = create<Store>((set, get) => ({
   addRung: () => {
     get().commitHistory()
     const rungId = nanoid(6)
-    markRungEdit(`rung:${rungId}`)
+    resetGroupedEdit()
     set((s) => ({
       ladder: { rungs: [...s.ladder.rungs, { id: rungId, name: `Rung ${s.ladder.rungs.length + 1}`, branches: [{ id: nanoid(6), elements: [] }], coils: [], enabled: true }] },
       dirty: true,
@@ -1344,12 +1369,13 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   renameRung: (rungId, name) => {
-    if (shouldCommitRungEdit(`rung:${rungId}:name`)) get().commitHistory()
+    if (shouldCommitGroupedEdit(`rung:${rungId}:name`)) get().commitHistory()
     set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? { ...r, name } : r)) }, dirty: true }))
   },
 
-  updateRung: (rungId, updater) => {
-    if (shouldCommitRungEdit(`rung:${rungId}`)) get().commitHistory()
+  updateRung: (rungId, updater, historyMode = 'auto') => {
+    if (historyMode === 'force' || (historyMode === 'auto' && shouldCommitGroupedEdit(`rung:${rungId}`))) get().commitHistory()
+    if (historyMode === 'force') resetGroupedEdit()
     set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? updater(r) : r)) }, dirty: true }))
     get().step()
   },
@@ -1357,35 +1383,45 @@ export const useSimStore = create<Store>((set, get) => ({
   // ------------------------------------------------------------- tabela de tags
   addTag: (prefix) => {
     const addr = nextAddress(prefix, get().runtime.table)
+    get().commitHistory()
+    resetGroupedEdit()
     set((s) => ({
       tags: [...s.tags, { id: nanoid(6), address: addr, name: addr, dataType: defaultDataTypeFor(addr) as LadderDataType, comment: '' }],
       dirty: true,
     }))
   },
 
-  updateTag: (id, patch) => {
+  updateTag: (id, patch, historyMode = 'auto') => {
+    if (!get().tags.some((tag) => tag.id === id)) return
+    if (historyMode === 'force' || (historyMode === 'auto' && shouldCommitGroupedEdit(`tag:${id}`))) get().commitHistory()
+    if (historyMode === 'force') resetGroupedEdit()
     set((s) => ({
       tags: s.tags.map((t) => (t.id === id ? { ...t, ...patch, ...(patch.address ? { address: patch.address.toUpperCase() } : {}) } : t)),
       dirty: true,
     }))
   },
 
-  removeTag: (id) => set((s) => ({ tags: s.tags.filter((t) => t.id !== id), dirty: true })),
+  removeTag: (id) => {
+    if (!get().tags.some((tag) => tag.id === id)) return
+    get().commitHistory()
+    resetGroupedEdit()
+    set((s) => ({ tags: s.tags.filter((t) => t.id !== id), dirty: true }))
+  },
 
-  autoDetectTags: () => {
-    set((s) => {
-      const known = new Set(s.tags.map((t) => t.address))
-      const used = collectUsedAddresses(s.ladder).filter((a) => !known.has(a))
-      if (!used.length) return s
-      const added: LadderTag[] = used.map((address) => ({
-        id: nanoid(6),
-        address,
-        name: address,
-        dataType: defaultDataTypeFor(address) as LadderDataType,
-        comment: '',
-      }))
-      return { tags: [...s.tags, ...added] }
-    })
+  autoDetectTags: (historyMode = 'force') => {
+    const state = get()
+    const known = new Set(state.tags.map((tag) => tag.address))
+    const used = collectUsedAddresses(state.ladder).filter((address) => !known.has(address))
+    if (!used.length) return
+    if (historyMode === 'force') { state.commitHistory(); resetGroupedEdit() }
+    const added: LadderTag[] = used.map((address) => ({
+      id: nanoid(6),
+      address,
+      name: address,
+      dataType: defaultDataTypeFor(address) as LadderDataType,
+      comment: '',
+    }))
+    set((s) => ({ tags: [...s.tags, ...added], ...(historyMode === 'force' ? { dirty: true } : {}) }))
   },
 
   // ------------------------------------------------------------------ arquivo

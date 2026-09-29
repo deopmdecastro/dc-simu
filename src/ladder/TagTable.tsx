@@ -68,7 +68,7 @@ export default function TagTable() {
         <button
           className="dc-btn shrink-0"
           title="Cria uma tag (nome = endereço) para todo endereço já usado no programa que ainda não tenha uma"
-          onClick={autoDetectTags}
+          onClick={() => autoDetectTags()}
         >
           ⟲ Detectar do programa
         </button>

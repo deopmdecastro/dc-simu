@@ -17,6 +17,7 @@ export interface LadderPaletteGroup {
 interface Props {
   section: Exclude<LadderSection, 'Projeto'>
   onAdd: (kind: PaletteKind) => void
+  onOpenSchematic?: (componentId: string) => void
   /** grupos de elementos Ladder (vêm do editor, para evitar dependência circular) */
   groups: LadderPaletteGroup[]
   renderGlyph: (kind: PaletteKind) => ReactNode
@@ -165,7 +166,7 @@ function Library({ onAdd, groups, renderGlyph }: Pick<Props, 'onAdd' | 'groups' 
 
 /* ------------------------------------------------------------------ Dispositivos */
 
-function Devices() {
+function Devices({ onOpenSchematic }: Pick<Props, 'onOpenSchematic'>) {
   const components = useSimStore((s) => s.components)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const select = useSimStore((s) => s.selectComponents)
@@ -210,8 +211,15 @@ function Devices() {
                 </div>
                 <strong>{c.label || c.type}</strong>
                 <small className="ls-mono">{c.type} · {c.terminals.length} terminais</small>
-                <button className={`ls-btn ${picked ? 'is-done' : ''}`} onClick={() => select(picked ? [] : [c.id], false)} aria-pressed={picked}>
-                  {picked ? '✓ Marcado no esquema' : 'Marcar no esquema'}
+                <button
+                  className={`ls-btn ${picked ? 'is-done' : ''}`}
+                  onClick={() => {
+                    select([c.id], false)
+                    onOpenSchematic?.(c.id)
+                  }}
+                  title="Selecionar este dispositivo e abrir a vista Esquema"
+                >
+                  {picked ? '✓ Abrir seleção no esquema' : 'Abrir no esquema'}
                 </button>
               </div>
             )
@@ -290,7 +298,7 @@ function Settings() {
         <section className="ls-panel">
           <h3>Malha</h3>
           <Toggle checked={grid.enabled} onChange={(v) => setGrid({ enabled: v })} title="Mostrar malha" hint="Grelha de fundo na área das networks" />
-          <Toggle checked={grid.snap} onChange={(v) => setGrid({ snap: v })} title="Ajustar à malha" hint="Alinha elementos arrastados à grelha" />
+          <Toggle checked={grid.snap} onChange={(v) => setGrid({ snap: v })} title="Ajustar à malha" hint="Ativa o encaixe à grelha nas vistas de edição" />
           <Segmented value={grid.size} onChange={(v) => setGrid({ size: v })} options={[10, 20, 25, 40]} title="Espaçamento" format={(v) => `${v}px`} />
         </section>
         <section className="ls-panel">
@@ -324,12 +332,12 @@ function Settings() {
 
 /* ------------------------------------------------------------------ entrada */
 
-export default function LadderSections({ section, onAdd, groups, renderGlyph }: Props) {
+export default function LadderSections({ section, onAdd, onOpenSchematic, groups, renderGlyph }: Props) {
   return (
     <section className="ladder-section-view ls-page" aria-label={section}>
       <div className="ls-inner">
         {section === 'Biblioteca' && <Library onAdd={onAdd} groups={groups} renderGlyph={renderGlyph} />}
-        {section === 'Dispositivos' && <Devices />}
+        {section === 'Dispositivos' && <Devices onOpenSchematic={onOpenSchematic} />}
         {section === 'Diagnóstico' && <Diagnostics />}
         {section === 'Configurações' && <Settings />}
       </div>

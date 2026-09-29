@@ -33,7 +33,11 @@ export const ELEMENT_KEYS: { key: string; shift?: boolean; kind: PaletteKind; la
 export const SHORTCUTS: ShortcutDef[] = [
   { id: 'undo', group: 'edit', keys: ['Ctrl', 'Z'], label: 'Desfazer' },
   { id: 'redo', group: 'edit', keys: ['Ctrl', 'Y'], label: 'Refazer (ou Ctrl+Shift+Z)' },
+  { id: 'save', group: 'edit', keys: ['Ctrl', 'S'], label: 'Guardar o projeto' },
+  { id: 'open', group: 'edit', keys: ['Ctrl', 'Shift', 'O'], label: 'Abrir projetos guardados' },
+  { id: 'edit-el', group: 'edit', keys: ['Enter'], label: 'Editar o elemento selecionado' },
   { id: 'del-el', group: 'edit', keys: ['Del'], label: 'Remover o elemento selecionado' },
+  { id: 'clear-el', group: 'edit', keys: ['Esc'], label: 'Limpar seleção ou fechar diálogo' },
 
   { id: 'new', group: 'networks', keys: ['Insert'], label: 'Nova network (ou Ctrl+Shift+N)' },
   { id: 'nav', group: 'networks', keys: ['Alt', '↑ / ↓'], label: 'Network anterior / seguinte' },
@@ -53,5 +57,6 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'palette', group: 'view', keys: ['Ctrl', 'B'], label: 'Mostrar / esconder paleta de elementos' },
   { id: 'status', group: 'view', keys: ['Ctrl', 'J'], label: 'Mostrar / esconder o painel de Entradas/Saídas' },
   { id: 'views', group: 'view', keys: ['Ctrl', '1 … 5'], label: 'Mudar de vista (Esquema, Ladder, GRAFCET…)' },
+  { id: 'sections', group: 'view', keys: ['Alt', '1 … 5'], label: 'Projeto, Biblioteca, Dispositivos, Diagnóstico e Configurações' },
   { id: 'help', group: 'view', keys: ['?'], label: 'Mostrar esta lista de atalhos (ou Ctrl+/)' },
 ]

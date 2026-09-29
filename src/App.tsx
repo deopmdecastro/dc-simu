@@ -119,7 +119,7 @@ export default function App({ onBack }: { onBack: () => void }) {
         <div className="flex-1 min-w-0 flex flex-col relative">
           {(mode === 'schematic' || mode === 'panel3d') && !showLibrary && <button className="dc-dock-open is-left" onClick={() => setShowLibrary(true)} title="Mostrar biblioteca e inspetor">▤ Biblioteca</button>}
           {mode === 'schematic' && <SchematicView libraryCollapsed={!showLibrary} />}
-          {mode === 'ladder' && <LadderEditor section={ladderSection} setSection={setLadderSection} />}
+          {mode === 'ladder' && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={() => { setShowLibrary(true); setMode('schematic') }} />}
           {mode === 'grafcet' && <GrafcetEditor full />}
           {mode === 'panel3d' && <Panel3D />}
           {mode === 'monitor' && <MonitorPanel />}

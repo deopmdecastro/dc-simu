@@ -146,8 +146,8 @@ export default function LadderElementDialog({
     const oldTag = state.tags.find((tag) => tag.address === oldAddress.toUpperCase())
     const nextTag = state.tags.find((tag) => tag.address === nextAddress)
     const tagPatch = { name: draft.tagName.trim() || nextAddress, dataType: draft.dataType, comment: draft.comment.trim() }
-    if (nextTag) state.updateTag(nextTag.id, tagPatch)
-    else if (oldTag) state.updateTag(oldTag.id, { ...tagPatch, address: nextAddress })
+    if (nextTag) state.updateTag(nextTag.id, tagPatch, 'skip')
+    else if (oldTag) state.updateTag(oldTag.id, { ...tagPatch, address: nextAddress }, 'skip')
     else if (draft.tagName.trim() || draft.comment.trim()) useSimStore.setState((current) => ({
       tags: [...current.tags, { id: crypto.randomUUID(), address: nextAddress, ...tagPatch }],
       dirty: true,
@@ -165,7 +165,6 @@ export default function LadderElementDialog({
     }
 
     const state = useSimStore.getState()
-    state.commitHistory()
     state.updateRung(rung.id, (current) => {
       if (selection.type === 'contact') return {
         ...current,
@@ -180,7 +179,7 @@ export default function LadderElementDialog({
       if (selection.type === 'move' && current.move) return { ...current, move: { source: draft.source.trim().toUpperCase(), target: draft.target.trim().toUpperCase() } }
       if (selection.type === 'call' && current.call) return { ...current, call: { targetId: draft.targetId } }
       return current
-    })
+    }, 'force')
     if (draft.kind !== 'move' && draft.kind !== 'call' && 'address' in entity) syncTag(entity.address, normalizedAddress)
     onClose()
   }
@@ -188,7 +187,6 @@ export default function LadderElementDialog({
   const remove = () => {
     if (!window.confirm(`Eliminar ${titleFor(draft.kind).toLocaleLowerCase('pt-PT')} desta network?`)) return
     const state = useSimStore.getState()
-    state.commitHistory()
     state.updateRung(rung.id, (current) => {
       if (selection.type === 'contact') return { ...current, branches: current.branches.map((branch) => branch.id === selection.branchId ? { ...branch, elements: branch.elements.filter((element) => element.id !== selection.elementId) } : branch) }
       if (selection.type === 'coil') return { ...current, coils: current.coils.filter((coil) => coil.id !== selection.coilId) }
@@ -196,7 +194,7 @@ export default function LadderElementDialog({
       if (selection.type === 'counter') return { ...current, counter: undefined }
       if (selection.type === 'move') return { ...current, move: undefined }
       return { ...current, call: undefined }
-    })
+    }, 'force')
     onClose()
   }
 

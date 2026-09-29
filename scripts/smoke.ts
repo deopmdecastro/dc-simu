@@ -802,6 +802,43 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.setState({ grafcet: previous, history: [], future: [] })
 }
 
+/* O histórico Ladder mantém a alteração visual e os dados auxiliares no mesmo passo. */
+{
+  const state = useSimStore.getState()
+  const previous = {
+    ladder: structuredClone(state.ladder), tags: structuredClone(state.tags), plcTags: structuredClone(state.plcTags),
+    projectFiles: structuredClone(state.projectFiles), hiddenProjectFolders: structuredClone(state.hiddenProjectFolders),
+    activePlcId: state.activePlcId, history: state.history, future: state.future,
+  }
+  const contact = { id: 'hist-contact', address: 'I1', contactType: 'NO' as const }
+  const rungA = { id: 'hist-a', name: 'Origem', branches: [{ id: 'hist-ba', elements: [contact] }], coils: [], enabled: true }
+  const rungB = { id: 'hist-b', name: 'Destino', branches: [{ id: 'hist-bb', elements: [] }], coils: [], enabled: true }
+  const tag = { id: 'hist-tag', address: 'I1', name: 'Start', dataType: 'Bool' as const, comment: '' }
+  useSimStore.setState({ activePlcId: null, ladder: { rungs: [rungA, rungB] }, tags: [tag], plcTags: {}, history: [], future: [] })
+  useSimStore.getState().updateRung(rungA.id, (rung) => ({ ...rung, branches: [{ ...rung.branches[0], elements: [] }] }), 'force')
+  useSimStore.getState().updateRung(rungB.id, (rung) => ({ ...rung, branches: [{ ...rung.branches[0], elements: [contact] }] }), 'skip')
+  useSimStore.getState().updateTag(tag.id, { name: 'Start alterado' }, 'skip')
+  check('mover entre networks e sincronizar tag cria um só passo de histórico', useSimStore.getState().history.length === 1)
+  useSimStore.getState().undo()
+  check('Ctrl+Z restaura networks e tag em conjunto', useSimStore.getState().ladder.rungs[0].branches[0].elements.length === 1
+    && useSimStore.getState().ladder.rungs[1].branches[0].elements.length === 0 && useSimStore.getState().tags[0].name === 'Start')
+  useSimStore.getState().redo()
+  check('Ctrl+Y reaplica networks e tag em conjunto', useSimStore.getState().ladder.rungs[0].branches[0].elements.length === 0
+    && useSimStore.getState().ladder.rungs[1].branches[0].elements.length === 1 && useSimStore.getState().tags[0].name === 'Start alterado')
+
+  const plcKey = '_general'
+  const file = { id: 'hist-file', folder: 'dataBlocks' as const, name: 'DB teste', content: '', createdAt: '' }
+  useSimStore.setState({ projectFiles: { [plcKey]: [file] }, hiddenProjectFolders: { [plcKey]: [] }, history: [], future: [] })
+  useSimStore.getState().deleteProjectFolder('dataBlocks')
+  useSimStore.getState().undo()
+  check('Ctrl+Z recupera pasta e conteúdo eliminados da árvore', useSimStore.getState().projectFiles[plcKey]?.[0]?.id === file.id
+    && !useSimStore.getState().hiddenProjectFolders[plcKey]?.includes('dataBlocks'))
+  useSimStore.getState().redo()
+  check('Ctrl+Y reaplica eliminação segura da pasta', !useSimStore.getState().projectFiles[plcKey]?.length
+    && useSimStore.getState().hiddenProjectFolders[plcKey]?.includes('dataBlocks'))
+  useSimStore.setState(previous)
+}
+
 /* A autenticação estática aceita exatamente as duas identidades aprovadas. */
 {
   const emails = fixedAccountEmails()
