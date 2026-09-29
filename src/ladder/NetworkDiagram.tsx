@@ -42,11 +42,13 @@ interface Props {
   rung: LadderRung
   selection?: RungSelection
   onSelect?: (s: RungSelection) => void
+  /** Duplo clique abre o editor completo de propriedades/presets. */
+  onEdit?: (s: Exclude<NonNullable<RungSelection>, { type: 'insert' }>) => void
   readonly?: boolean
   minWidth?: number
 }
 
-export default function NetworkDiagram({ rung, selection = null, onSelect = () => {}, readonly = false, minWidth = 640 }: Props) {
+export default function NetworkDiagram({ rung, selection = null, onSelect = () => {}, onEdit = () => {}, readonly = false, minWidth = 640 }: Props) {
   const table = useSimStore((s) => s.runtime.table)
   const db = useSimStore((s) => s.runtime.db)
   const timers = useSimStore((s) => s.runtime.timers)
@@ -212,18 +214,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   // ------------------------------------------------------------- ações
   const removeContact = (branchId: string, elementId: string) =>
     updateRung(rung.id, (r) => ({ ...r, branches: r.branches.map((b) => (b.id === branchId ? { ...b, elements: b.elements.filter((x) => x.id !== elementId) } : b)) }))
-  const toggleContact = (branchId: string, elementId: string) => {
-    const order: LadderContact['contactType'][] = ['NO', 'NC', 'RISING', 'FALLING']
-    updateRung(rung.id, (r) => ({
-      ...r,
-      branches: r.branches.map((b) => (b.id === branchId ? { ...b, elements: b.elements.map((x) => (x.id === elementId ? { ...x, contactType: order[(order.indexOf(x.contactType) + 1) % 4] } : x)) } : b)),
-    }))
-  }
   const removeCoil = (id: string) => updateRung(rung.id, (r) => ({ ...r, coils: r.coils.filter((c) => c.id !== id) }))
-  const cycleCoil = (id: string) => {
-    const order = ['COIL', 'SET', 'RESET'] as const
-    updateRung(rung.id, (r) => ({ ...r, coils: r.coils.map((c) => (c.id === id ? { ...c, coilType: order[(order.indexOf(c.coilType) + 1) % 3] } : c)) }))
-  }
   const addCoil = () => {
     let created: RungSelection = null
     updateRung(rung.id, (r) => {
@@ -313,9 +304,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             }}
             onDragEnd={() => setLadderDrag(null)}
             onClick={(e) => { e.stopPropagation(); onSelect({ type: 'contact', branchId: b.id, elementId: el.id }) }}
-            onDoubleClick={(e) => { e.stopPropagation(); toggleContact(b.id, el.id) }}
+            onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'contact', branchId: b.id, elementId: el.id }) }}
             onContextMenu={(e) => { e.preventDefault(); removeContact(b.id, el.id) }}
-            title={`%${el.address}${name ? ` "${name}"` : ''} — clique: propriedades · duplo clique: NA/NF/P/N · arraste para mover · Del/botão direito remove`}
+            title={`%${el.address}${name ? ` "${name}"` : ''} — clique: edição rápida · duplo clique: propriedades e nome · arraste para mover · Del/botão direito remove`}
           />,
         )
       p = pOut
@@ -378,8 +369,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             className="lnet-hit"
             style={{ left: boxX - 8, top: top - 22, width: BOX_W + 16, height: 108 }}
             onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'timer' }) }}
+            onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'timer' }) }}
             onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, timer: undefined })) }}
-            title="Temporizador — clique para configurar · Del/botão direito remove"
+            title="Temporizador — clique: edição rápida · duplo clique: tipo e presets · Del/botão direito remove"
           />,
         )
     } else if (o.type === 'counter' && rung.counter) {
@@ -418,8 +410,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             className="lnet-hit"
             style={{ left: boxX - 8, top: top - 22, width: BOX_W + 16, height: 108 }}
             onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'counter' }) }}
+            onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'counter' }) }}
             onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, counter: undefined })) }}
-            title="Contador — clique para configurar · Del/botão direito remove"
+            title="Contador — clique: edição rápida · duplo clique: tipo e presets · Del/botão direito remove"
           />,
         )
     } else if (o.type === 'call' && rung.call) {
@@ -432,8 +425,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       </g>)
       if (!readonly) hits.push(<div key="call-hit" className="lnet-hit" style={{ left: boxX, top, width: BOX_W, height: 50 }}
         onClick={(e) => { e.stopPropagation(); onSelect({ type: 'call' }) }}
+        onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'call' }) }}
         onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, call: undefined })) }}
-        title="CALL FC — clique para escolher o bloco · botão direito remove" />)
+        title="CALL FC — clique: edição rápida · duplo clique: escolher bloco · botão direito remove" />)
     } else if (o.type === 'move' && rung.move) {
       const m = rung.move
       const top = cy - 30
@@ -447,8 +441,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       </g>)
       if (!readonly) hits.push(<div key="move-hit" className="lnet-hit" style={{ left: boxX, top, width: BOX_W, height: 60 }}
         onClick={(e) => { e.stopPropagation(); onSelect({ type: 'move' }) }}
+        onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'move' }) }}
         onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, move: undefined })) }}
-        title="MOVE BOOL — clique para configurar · botão direito remove" />)
+        title="MOVE — clique: edição rápida · duplo clique: origem e destino · botão direito remove" />)
     } else if (o.type === 'coil') {
       const c = o.coil
       const on = online && !!table[c.address]
@@ -474,9 +469,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             className="lnet-hit"
             style={{ left: coilCX - 40, top: cy - 46, width: 80, height: 66 }}
             onClick={(e) => { e.stopPropagation(); onSelect({ type: 'coil', coilId: c.id }) }}
-            onDoubleClick={(e) => { e.stopPropagation(); cycleCoil(c.id) }}
+            onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'coil', coilId: c.id }) }}
             onContextMenu={(e) => { e.preventDefault(); removeCoil(c.id) }}
-            title={`%${c.address}${name ? ` "${name}"` : ''} — clique: propriedades · duplo clique: COIL/SET/RESET · Del/botão direito remove`}
+            title={`%${c.address}${name ? ` "${name}"` : ''} — clique: edição rápida · duplo clique: propriedades e nome · Del/botão direito remove`}
           />,
         )
     } else if (o.type === 'placeholder') {

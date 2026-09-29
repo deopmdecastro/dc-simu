@@ -73,9 +73,13 @@ interface Store extends CircuitState {
   plcPrograms: Record<string, PlcProgram>
   plcTags: Record<string, LadderTag[]>
   projectFiles: Record<string, ProjectFile[]>
+  /** Pastas opcionais ocultadas pelo utilizador, separadas por PLC. */
+  hiddenProjectFolders: Record<string, ProjectFolder[]>
   addProjectFile: (folder: ProjectFolder, name: string) => string | null
   updateProjectFile: (id: string, patch: Partial<Pick<ProjectFile, 'name' | 'content' | 'rungs'>>) => void
   deleteProjectFile: (id: string) => void
+  deleteProjectFolder: (folder: ProjectFolder) => void
+  restoreProjectFolder: (folder: ProjectFolder) => void
   restoreProjectBackup: (id: string) => boolean
   setActivePlc: (id: string) => void
   updateFc: (id: 'fc1' | 'fc2', rungs: LadderRung[]) => void
@@ -530,6 +534,7 @@ export const useSimStore = create<Store>((set, get) => ({
   plcPrograms: {},
   plcTags: {},
   projectFiles: {},
+  hiddenProjectFolders: {},
   addProjectFile: (folder, name) => {
     const plcId = get().activePlcId ?? '_general'
     const trimmed = name.trim()
@@ -547,6 +552,23 @@ export const useSimStore = create<Store>((set, get) => ({
   deleteProjectFile: (id) => {
     const plcId = get().activePlcId ?? '_general'
     set((s) => ({ projectFiles: { ...s.projectFiles, [plcId]: (s.projectFiles[plcId] ?? []).filter((f) => f.id !== id) }, dirty: true }))
+  },
+  deleteProjectFolder: (folder) => {
+    // Blocos de programa e variáveis são a estrutura mínima do PLC e não podem ser removidos.
+    if (folder === 'programBlocks' || folder === 'plcVariables') return
+    const plcId = get().activePlcId ?? '_general'
+    set((s) => ({
+      projectFiles: { ...s.projectFiles, [plcId]: (s.projectFiles[plcId] ?? []).filter((file) => file.folder !== folder) },
+      hiddenProjectFolders: { ...s.hiddenProjectFolders, [plcId]: [...new Set([...(s.hiddenProjectFolders[plcId] ?? []), folder])] },
+      dirty: true,
+    }))
+  },
+  restoreProjectFolder: (folder) => {
+    const plcId = get().activePlcId ?? '_general'
+    set((s) => ({
+      hiddenProjectFolders: { ...s.hiddenProjectFolders, [plcId]: (s.hiddenProjectFolders[plcId] ?? []).filter((item) => item !== folder) },
+      dirty: true,
+    }))
   },
   restoreProjectBackup: (id) => {
     const plcId = get().activePlcId ?? '_general'
@@ -599,6 +621,7 @@ export const useSimStore = create<Store>((set, get) => ({
       plcPrograms: {},
       plcTags: {},
       projectFiles: {},
+      hiddenProjectFolders: {},
       fcBlocks: { fc1: [], fc2: [] },
       grafcet: emptyGrafcet(),
       grafcetRuntime: emptyGrafcetRuntime(),
@@ -878,6 +901,7 @@ export const useSimStore = create<Store>((set, get) => ({
         viewOrientationEditor: s.viewOrientationEditor && ids.includes(s.viewOrientationEditor.componentId) ? null : s.viewOrientationEditor,
         activePlcId: nextId, plcPrograms: keptPrograms, plcTags: keptTags,
         projectFiles: Object.fromEntries(Object.entries(s.projectFiles).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),
+        hiddenProjectFolders: Object.fromEntries(Object.entries(s.hiddenProjectFolders).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),
         ...(nextProgram ? { tags: keptTags[nextId!] ?? [], ladder: { rungs: nextProgram.rungs }, fcBlocks: { fc1: nextProgram.fc1, fc2: nextProgram.fc2 }, history: [], future: [] } : {}),
       }
     })
@@ -1289,20 +1313,24 @@ export const useSimStore = create<Store>((set, get) => ({
       rungs.splice(idx + 1, 0, clone)
       return { ladder: { rungs }, dirty: true }
     })
+    get().step()
   },
 
   moveRung: (rungId, dir) => {
+    const current = get().ladder.rungs
+    const index = current.findIndex((rung) => rung.id === rungId)
+    const swapWith = index + dir
+    if (index === -1 || swapWith < 0 || swapWith >= current.length) return
+    get().commitHistory()
     set((s) => {
-      const idx = s.ladder.rungs.findIndex((r) => r.id === rungId)
-      const swapWith = idx + dir
-      if (idx === -1 || swapWith < 0 || swapWith >= s.ladder.rungs.length) return s
       const rungs = [...s.ladder.rungs]
-      ;[rungs[idx], rungs[swapWith]] = [rungs[swapWith], rungs[idx]]
-      return { ladder: { rungs } }
+      ;[rungs[index], rungs[swapWith]] = [rungs[swapWith], rungs[index]]
+      return { ladder: { rungs }, dirty: true }
     })
+    get().step()
   },
 
-  renameRung: (rungId, name) => set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? { ...r, name } : r)) } })),
+  renameRung: (rungId, name) => set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? { ...r, name } : r)) }, dirty: true })),
 
   updateRung: (rungId, updater) => {
     set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? updater(r) : r)) }, dirty: true }))
@@ -1359,6 +1387,7 @@ export const useSimStore = create<Store>((set, get) => ({
         plcPrograms: programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks),
         plcTags: { ...s.plcTags, ...(s.activePlcId ? { [s.activePlcId]: s.tags } : {}) },
         projectFiles: s.projectFiles,
+        hiddenProjectFolders: s.hiddenProjectFolders,
         grafcet: s.grafcet,
         tags: s.tags,
         grid: s.grid,
@@ -1393,6 +1422,7 @@ export const useSimStore = create<Store>((set, get) => ({
         plcPrograms: programs,
         plcTags: parsed.plcTags ?? {},
         projectFiles: parsed.projectFiles ?? {},
+        hiddenProjectFolders: parsed.hiddenProjectFolders ?? {},
         grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
         grafcetRuntime: emptyGrafcetRuntime(),
         tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
@@ -1424,6 +1454,9 @@ export const useSimStore = create<Store>((set, get) => ({
       fcBlocks: { fc1: [], fc2: [] },
       activePlcId: null,
       plcPrograms: {},
+      plcTags: {},
+      projectFiles: {},
+      hiddenProjectFolders: {},
       grafcet: emptyGrafcet(),
       grafcetRuntime: emptyGrafcetRuntime(),
       tags: [],

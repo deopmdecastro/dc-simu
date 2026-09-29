@@ -552,6 +552,13 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('reabrir repõe ficheiros e tags do PLC', useSimStore.getState().projectFiles[compact.id].length === 8 && useSimStore.getState().tags[0].name === 'Partida')
   st.deleteProjectFile(ids[1]!)
   check('eliminar ficheiro remove apenas item selecionado', useSimStore.getState().projectFiles[compact.id].length === 7)
+  st.deleteProjectFolder('documentation')
+  check('eliminar pasta opcional remove o conteúdo e oculta a pasta', useSimStore.getState().hiddenProjectFolders[compact.id].includes('documentation') && !useSimStore.getState().projectFiles[compact.id].some((file) => file.folder === 'documentation'))
+  const withDeletedFolder = st.saveJSON()
+  st.loadJSON(withDeletedFolder)
+  check('pastas eliminadas persistem ao reabrir o projeto', useSimStore.getState().hiddenProjectFolders[compact.id].includes('documentation'))
+  st.restoreProjectFolder('documentation')
+  check('pasta eliminada pode ser restaurada vazia', !useSimStore.getState().hiddenProjectFolders[compact.id].includes('documentation'))
   const backupId = st.addProjectFile('backups', 'Antes da mudança')!
   const tagId = useSimStore.getState().tags[0].id
   st.updateTag(tagId, { name: 'Mudança posterior' })

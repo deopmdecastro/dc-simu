@@ -9,6 +9,7 @@ import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
 import type { LadderContact, LadderRung, LadderContactType, LadderCoilType, LadderCoilEl, ComponentType, ElectricalComponent } from '../types'
 import NetworkDiagram, { type RungSelection } from './NetworkDiagram'
+import LadderElementDialog from './LadderElementDialog'
 import { COMPONENT_TO_LADDER, LADDER_MIME, applyKind, isContactKind, setLadderDrag, type DropTarget, type PaletteKind } from './ladderDnd'
 import {
   IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy,
@@ -159,6 +160,7 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
   const running = useSimStore((s) => s.sim.runState === 'running')
   const { deleteRung, duplicateRung, moveRung, renameRung, updateRung } = useSimStore()
   const [selection, setSelection] = useState<RungSelection>(null)
+  const [dialogSelection, setDialogSelection] = useState<Exclude<NonNullable<RungSelection>, { type: 'insert' }> | null>(null)
   /** network recolhida (só o cabeçalho visível) — como no TIA Portal */
   const [collapsed, setCollapsed] = useState(false)
 
@@ -320,7 +322,13 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
       {/* diagrama — grelha padrão de 20px */}
       <div className="ladder-rung-body">
         <div className="lnet-scroll">
-          <NetworkDiagram rung={rung} selection={selection} onSelect={setSelection} minWidth={minWidth} />
+          <NetworkDiagram
+            rung={rung}
+            selection={selection}
+            onSelect={setSelection}
+            onEdit={(next) => { setSelection(next); setDialogSelection(next) }}
+            minWidth={minWidth}
+          />
         </div>
       </div>
 
@@ -422,9 +430,25 @@ function RungRow({ rung, index, minWidth = 640, active = false }: { rung: Ladder
           <button className={`${smallBtn} !text-state-error ml-auto`} onClick={() => setCounter('none')}><IconDelete size={10} /> remover</button>
         </div>
       )}
+      {selection && selection.type !== 'insert' && (
+        <button
+          type="button"
+          className="ladder-open-dialog-button"
+          onClick={() => setDialogSelection(selection)}
+          title="Abrir todas as propriedades, nome simbólico e presets"
+        >
+          <IconFunction size={12} /> Propriedades e presets…
+        </button>
+      )}
 
       </>
       )}
+      <LadderElementDialog
+        rung={rung}
+        selection={dialogSelection}
+        functionFiles={fcFiles}
+        onClose={() => setDialogSelection(null)}
+      />
     </div>
   )
 }
@@ -788,10 +812,20 @@ function ProjectTreePane({
   onQuickAdd,
   activePlc,
   files,
+  hiddenFolders,
   onCreateFile,
+  onDeleteFile,
+  onRenameFile,
+  onDeleteFolder,
+  onRestoreFolder,
 }: {
   files: ProjectFile[]
+  hiddenFolders: ProjectFolder[]
   onCreateFile: (folder: ProjectFolder) => void
+  onDeleteFile: (file: ProjectFile) => void
+  onRenameFile: (file: ProjectFile) => void
+  onDeleteFolder: (folder: ProjectFolder) => void
+  onRestoreFolder: (folder: ProjectFolder) => void
   activePlc?: ElectricalComponent
   activeNode: ProjectNodeId
   expanded: Set<ProjectNodeId>
@@ -810,12 +844,18 @@ function ProjectTreePane({
     { label: 'CALL FC', kind: 'CALL' },
   ]
 
-  const projectTree: ProjectTreeItem = { ...PROJECT_TREE, children: PROJECT_TREE.children?.map((folder) => ({ ...folder,
-    children: PROJECT_FOLDERS.includes(folder.id as ProjectFolder) ? [ ...(folder.children ?? []), ...files.filter((f) => f.folder === folder.id).map((f) => ({ id: `file:${f.id}` as ProjectNodeId, label: f.name, icon: (f.folder === 'programBlocks' ? 'block' : f.folder === 'backups' ? 'backup' : 'doc') as ProjectTreeItem['icon'] })) ] : folder.children,
-  })) }
+  const projectTree: ProjectTreeItem = { ...PROJECT_TREE, children: PROJECT_TREE.children
+    ?.filter((folder) => !hiddenFolders.includes(folder.id as ProjectFolder))
+    .map((folder) => ({ ...folder,
+      children: PROJECT_FOLDERS.includes(folder.id as ProjectFolder) ? [ ...(folder.children ?? []), ...files.filter((f) => f.folder === folder.id).map((f) => ({ id: `file:${f.id}` as ProjectNodeId, label: f.name, icon: (f.folder === 'programBlocks' ? 'block' : f.folder === 'backups' ? 'backup' : 'doc') as ProjectTreeItem['icon'] })) ] : folder.children,
+    })) }
   const renderNode = (node: ProjectTreeItem, depth = 0) => {
     const hasChildren = !!node.children?.length
-    const isExpandableFolder = !node.id.startsWith('file:') && (hasChildren || !BLOCK_NODE_IDS.has(node.id))
+    const isFile = node.id.startsWith('file:')
+    const file = isFile ? files.find((item) => `file:${item.id}` === node.id) : undefined
+    const folder = PROJECT_FOLDERS.includes(node.id as ProjectFolder) ? node.id as ProjectFolder : null
+    const canDeleteFolder = !!folder && folder !== 'programBlocks' && folder !== 'plcVariables'
+    const isExpandableFolder = !isFile && (hasChildren || !BLOCK_NODE_IDS.has(node.id))
     const isOpen = expanded.has(node.id)
     const isActive = activeNode === node.id
     return (
@@ -828,7 +868,9 @@ function ProjectTreePane({
             if (isExpandableFolder) onToggle(node.id)
             onSelect(node.id)
           }}
-          title={node.detail ? `${node.label} (${node.detail})` : node.label}
+          onDoubleClick={(event) => { if (file) { event.stopPropagation(); onRenameFile(file) } }}
+          onContextMenu={(event) => { if (file) { event.preventDefault(); onDeleteFile(file) } }}
+          title={file ? `${node.label} · duplo clique para mudar o nome · botão direito para eliminar` : node.detail ? `${node.label} (${node.detail})` : node.label}
         >
           <span className="tree-chevron">
             {isExpandableFolder ? (isOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />) : <span />}
@@ -837,7 +879,11 @@ function ProjectTreePane({
           <span className="tree-label">{node.label}</span>
           {node.detail && <small>({node.detail})</small>}
         </button>
-        {PROJECT_FOLDERS.includes(node.id as ProjectFolder) && <button type="button" className="tree-create-file" title={`Criar em ${node.label}`} aria-label={`Criar em ${node.label}`} onClick={() => onCreateFile(node.id as ProjectFolder)}>＋</button>}
+        {folder && <span className="tree-row-actions">
+          <button type="button" className="tree-create-file" title={`Criar em ${node.label}`} aria-label={`Criar em ${node.label}`} onClick={() => onCreateFile(folder)}>＋</button>
+          {canDeleteFolder && <button type="button" className="tree-delete-item" title={`Eliminar pasta ${node.label}`} aria-label={`Eliminar pasta ${node.label}`} onClick={() => onDeleteFolder(folder)}><IconDelete size={10} /></button>}
+        </span>}
+        {file && <button type="button" className="tree-delete-item" title={`Eliminar ${file.name}`} aria-label={`Eliminar ${file.name}`} onClick={() => onDeleteFile(file)}><IconDelete size={10} /></button>}
         </div>
         {hasChildren && isOpen && node.children!.map((child) => renderNode(child, depth + 1))}
         {!hasChildren && isExpandableFolder && isOpen && <div className="tree-hint tree-depth-2">Pasta vazia · use ＋ para criar</div>}
@@ -849,7 +895,18 @@ function ProjectTreePane({
     <aside className="ladder-project-pane">
       <div className="ladder-pane-heading">
         <span>Projeto</span>
-        <button className="ladder-ghost-button" title="Recolher projeto" onClick={onClose}>×</button>
+        <span className="ladder-pane-heading-actions">
+          {hiddenFolders.length > 0 && <select
+            aria-label="Restaurar pasta eliminada"
+            title="Restaurar pasta eliminada"
+            value=""
+            onChange={(event) => { if (event.target.value) onRestoreFolder(event.target.value as ProjectFolder) }}
+          >
+            <option value="">＋ Pasta</option>
+            {hiddenFolders.map((folder) => <option key={folder} value={folder}>{NODE_TITLES[folder]}</option>)}
+          </select>}
+          <button className="ladder-ghost-button" title="Recolher projeto" onClick={onClose}>×</button>
+        </span>
       </div>
       <div className="ladder-project-tree">
         {renderNode({ ...projectTree, label: activePlc?.ref ?? 'Programa geral', detail: activePlc?.label ?? 'Sem PLC no esquema' })}
@@ -1077,6 +1134,7 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
   const counts = programCounts(rungs)
   const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
   const files = useSimStore((s) => s.projectFiles[activePlcId ?? '_general'] ?? [])
+  const hiddenFolders = useSimStore((s) => s.hiddenProjectFolders[activePlcId ?? '_general'] ?? [])
   const isMainOpen = activeProjectNode === 'main'
   const isFcOpen = activeProjectNode === 'fc1' || activeProjectNode === 'fc2' || (activeProjectNode.startsWith('file:') && files.some((f) => `file:${f.id}` === activeProjectNode && f.folder === 'programBlocks'))
   const isProgramView = isMainOpen || isFcOpen
@@ -1114,10 +1172,22 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
     const id = useSimStore.getState().addProjectFile(folder, name)
     if (id) { setProgramTab('program'); setActiveProjectNode(`file:${id}`); setExpandedNodes((prev) => new Set([...prev, folder])) }
   }
+  const renameFile = (file: ProjectFile) => {
+    const name = window.prompt('Novo nome do item:', file.name)?.trim()
+    if (!name || name === file.name) return
+    useSimStore.getState().updateProjectFile(file.id, { name })
+  }
   const deleteFile = (file: ProjectFile) => {
-    if (!window.confirm(`Eliminar «${file.name}»?`)) return
+    if (!window.confirm(`Eliminar «${file.name}»? Esta ação remove o item do projeto.`)) return
     useSimStore.getState().deleteProjectFile(file.id)
-    setActiveProjectNode(file.folder)
+    if (activeProjectNode === `file:${file.id}`) setActiveProjectNode(file.folder)
+  }
+  const deleteFolder = (folder: ProjectFolder) => {
+    const count = files.filter((file) => file.folder === folder).length
+    const suffix = count ? ` e ${count} ${count === 1 ? 'item' : 'itens'} no seu interior` : ''
+    if (!window.confirm(`Eliminar a pasta «${NODE_TITLES[folder]}»${suffix}? Poderá restaurar a pasta vazia no menu “＋ Pasta”.`)) return
+    useSimStore.getState().deleteProjectFolder(folder)
+    if (activeProjectNode === folder || selectedFile?.folder === folder) setActiveProjectNode('main')
   }
 
   const toggleNode = (id: ProjectNodeId) => {
@@ -1167,7 +1237,12 @@ function FullLadderEditor({ section, setSection }: { section: LadderSection; set
           onQuickAdd={quickAdd}
           activePlc={activePlc}
           files={files}
+          hiddenFolders={hiddenFolders}
           onCreateFile={createFile}
+          onDeleteFile={deleteFile}
+          onRenameFile={renameFile}
+          onDeleteFolder={deleteFolder}
+          onRestoreFolder={(folder) => useSimStore.getState().restoreProjectFolder(folder)}
         />
       ) : (
         <button className="ladder-collapsed-pane-button" onClick={() => setShowProjectPane(true)} title="Mostrar projeto">

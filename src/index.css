@@ -2018,3 +2018,191 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
     @apply inline-block px-1.5 py-px rounded border border-line bg-white font-mono text-[9px] text-ink-700 align-middle;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Ladder — gestão da árvore e editor modal de elementos
+   ------------------------------------------------------------------------ */
+@layer components {
+  .tree-row-actions {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+  }
+  .tree-delete-item {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #a7b0c0;
+    opacity: 0;
+    transition: opacity .12s ease, color .12s ease, background .12s ease;
+  }
+  .tree-row-wrap:hover .tree-delete-item,
+  .tree-delete-item:focus-visible { opacity: 1; }
+  .tree-delete-item:hover { color: #c93636; background: #fff0f0; }
+  .ladder-pane-heading-actions { display: inline-flex; align-items: center; gap: 4px; }
+  .ladder-pane-heading-actions select {
+    max-width: 78px;
+    height: 24px;
+    border: 1px solid #d9e0ea;
+    border-radius: 5px;
+    background: #fff;
+    color: #506079;
+    font-size: 9px;
+    font-weight: 650;
+  }
+  .ladder-open-dialog-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin: -3px 12px 10px auto;
+    padding: 5px 9px;
+    border: 1px solid #c0d4fc;
+    border-radius: 6px;
+    background: #eef4ff;
+    color: #1f55e0;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .ladder-open-dialog-button:hover { border-color: #7da4f3; background: #e2ecff; }
+
+  .ladder-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 180;
+    display: grid;
+    place-items: center;
+    padding: 22px;
+    background: rgba(17, 28, 49, .48);
+    backdrop-filter: blur(3px);
+    animation: ladder-dialog-fade .14s ease-out;
+  }
+  @keyframes ladder-dialog-fade { from { opacity: 0; } to { opacity: 1; } }
+  .ladder-element-dialog {
+    width: min(680px, calc(100vw - 28px));
+    max-height: min(780px, calc(100vh - 28px));
+    overflow: hidden;
+    border: 1px solid #b9c9e6;
+    border-radius: 13px;
+    background: #fff;
+    box-shadow: 0 28px 70px rgba(13, 32, 65, .3), 0 3px 12px rgba(13, 32, 65, .14);
+    color: #25324a;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    animation: ladder-dialog-in .18s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes ladder-dialog-in { from { opacity: 0; transform: translateY(9px) scale(.985); } to { opacity: 1; transform: none; } }
+  .ladder-element-dialog > header {
+    min-height: 64px;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 30px;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 15px;
+    border-bottom: 1px solid #e2e8f1;
+    background: linear-gradient(180deg, #fbfdff, #f4f7fc);
+  }
+  .ladder-dialog-icon {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #c8d8f7;
+    border-radius: 9px;
+    background: #eaf1ff;
+    color: #1f55e0;
+  }
+  .ladder-element-dialog > header div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .ladder-element-dialog > header strong { font-size: 14px; color: #1e2c45; }
+  .ladder-element-dialog > header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #7b899f; font-size: 10px; }
+  .ladder-dialog-close {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #8c98aa;
+    font-size: 20px;
+    line-height: 1;
+  }
+  .ladder-dialog-close:hover { background: #e8eef8; color: #294363; }
+  .ladder-element-dialog form { display: flex; min-height: 0; max-height: calc(100vh - 110px); flex-direction: column; }
+  .ladder-dialog-body { min-height: 0; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+  .ladder-dialog-section { padding: 12px; border: 1px solid #e0e7f1; border-radius: 9px; background: #fbfcfe; }
+  .ladder-dialog-section h3 { margin: 0 0 10px; color: #53637c; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  .ladder-dialog-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ladder-dialog-grid label,
+  .ladder-dialog-full-label { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .ladder-dialog-grid label.is-wide { grid-column: 1 / -1; }
+  .ladder-dialog-grid label > span,
+  .ladder-dialog-full-label > span { color: #526078; font-size: 10px; font-weight: 700; }
+  .ladder-dialog-grid input,
+  .ladder-dialog-grid select,
+  .ladder-dialog-full-label select {
+    width: 100%;
+    height: 34px;
+    min-width: 0;
+    padding: 0 9px;
+    border: 1px solid #cfd9e7;
+    border-radius: 7px;
+    outline: none;
+    background: #fff;
+    color: #1f2c43;
+    font-size: 11px;
+  }
+  .ladder-dialog-grid input:focus,
+  .ladder-dialog-grid select:focus,
+  .ladder-dialog-full-label select:focus { border-color: #2f6fe4; box-shadow: 0 0 0 3px rgba(47,111,228,.12); }
+  .ladder-choice-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+  .ladder-choice-grid.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ladder-choice-grid button {
+    min-height: 62px;
+    padding: 8px;
+    border: 1px solid #d4deeb;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: #fff;
+    color: #46546b;
+  }
+  .ladder-choice-grid button:hover { border-color: #9bb8ee; background: #f4f8ff; }
+  .ladder-choice-grid button.is-selected { border-color: #2f6fe4; background: #eaf1ff; color: #174bc2; box-shadow: inset 0 0 0 1px #2f6fe4; }
+  .ladder-choice-grid strong { font-size: 12px; }
+  .ladder-choice-grid small { font-size: 9px; color: #8793a5; }
+  .ladder-preset-row { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+  .ladder-preset-row > span { margin-right: 3px; color: #68768c; font-size: 9px; font-weight: 700; }
+  .ladder-preset-row button { min-width: 42px; height: 26px; padding: 0 8px; border: 1px solid #d6dfeb; border-radius: 999px; background: #fff; color: #536178; font-size: 9px; }
+  .ladder-preset-row button:hover,
+  .ladder-preset-row button.is-selected { border-color: #2f6fe4; background: #eaf1ff; color: #174bc2; }
+  .ladder-dialog-help { margin: 9px 0 0; color: #76849a; font-size: 10px; line-height: 1.45; }
+  .ladder-dialog-error { margin: 0; padding: 8px 10px; border: 1px solid #fecaca; border-radius: 7px; background: #fff1f2; color: #b4232f; font-size: 10px; font-weight: 650; }
+  .ladder-element-dialog footer {
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 15px;
+    border-top: 1px solid #e2e8f1;
+    background: #f8fafc;
+  }
+  .ladder-dialog-delete { height: 32px; padding: 0 10px; border: 1px solid #fecaca; border-radius: 7px; display: inline-flex; align-items: center; gap: 6px; background: #fff; color: #b4232f; font-size: 10px; font-weight: 700; }
+  .ladder-dialog-delete:hover { background: #fff1f2; }
+
+  @media (max-width: 620px) {
+    .ladder-dialog-backdrop { padding: 8px; align-items: end; }
+    .ladder-element-dialog { width: 100%; max-height: calc(100vh - 12px); border-radius: 13px 13px 7px 7px; }
+    .ladder-dialog-grid,
+    .ladder-choice-grid,
+    .ladder-choice-grid.is-three { grid-template-columns: 1fr 1fr; }
+    .ladder-element-dialog footer { grid-template-columns: 1fr 1fr; }
+    .ladder-element-dialog footer > span { display: none; }
+    .ladder-dialog-delete { grid-column: 1 / -1; justify-content: center; }
+  }
+}
