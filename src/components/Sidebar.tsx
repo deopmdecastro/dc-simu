@@ -326,8 +326,8 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                         <input
                           type="checkbox"
                           checked={v}
-                          disabled={(selectedComponent.type === 'plcSiemensLogo1224RC' || selectedComponent.type === 'powerSupplyProauto24A') && (k === 'powered' || k === 'powerReady')}
-                          title={selectedComponent.type === 'plcSiemensLogo1224RC' && k === 'powered' ? 'Derivado das ligações L+ e M' : selectedComponent.type === 'powerSupplyProauto24A' && (k === 'powered' || k === 'powerReady') ? 'Derivado das ligações AC L e N' : undefined}
+                          disabled={(['plcSiemensLogo1224RC', 'plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(selectedComponent.type) || selectedComponent.type === 'powerSupplyProauto24A') && (k === 'powered' || k === 'powerReady')}
+                          title={['plcSiemensLogo1224RC', 'plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(selectedComponent.type) && k === 'powered' ? 'Derivado das ligações L+ e M' : selectedComponent.type === 'powerSupplyProauto24A' && (k === 'powered' || k === 'powerReady') ? 'Derivado das ligações AC L e N' : undefined}
                           onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: e.target.checked })}
                         />
                       </label>

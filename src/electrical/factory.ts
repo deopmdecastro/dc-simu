@@ -149,12 +149,34 @@ function plcTerminals(inputs: number, outputs: number): TerminalTemplate[] {
   return list
 }
 
+/** LS Electric XGB XBM-DN32S: 16 entradas DC e 16 saídas transistor NPN. */
+function plcLsXbmDn32sTerminals(): TerminalTemplate[] {
+  const list: TerminalTemplate[] = [
+    T('L+', 'power-in', 0.02, 0.5, { terminalType: 'screw', color: '#ef4444' }),
+    T('M', 'neutral', 0.98, 0.5, { terminalType: 'screw', color: '#3b82f6' }),
+  ]
+  for (let i = 0; i < 16; i++) {
+    const x = 0.06 + i * (0.88 / 15)
+    list.push(T(`I${i + 1}`, 'io', x, 0, { terminalType: 'screw' }))
+    list.push(T(`Q${i + 1}`, 'io', x, 1, { terminalType: 'screw' }))
+  }
+  return list
+}
+
 export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   // ---------------- Proteção ----------------
   breaker1p: {
     category: 'protection', paletteName: 'Disjuntor monopolar', group: 'Proteção', tag: 'QF', w: 60, h: 110,
     terminals: [T('1', 'power-in', 0.5, 0), T('2', 'power-out', 0.5, 1)],
     defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 16 },
+  },
+  breakerWegMdwC10: {
+    category: 'protection', paletteName: 'Disjuntor WEG MDW-C10 · 1P 10 A curva C', group: 'Proteção', tag: 'QF', w: 72, h: 118,
+    terminals: [
+      T('1', 'power-in', 0.5, 0, { terminalType: 'screw' }),
+      T('2', 'power-out', 0.5, 1, { terminalType: 'screw' }),
+    ],
+    defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 10, ue: '440 Vac / 250 Vdc', code: '10076405' },
   },
   breaker2p: {
     category: 'protection', paletteName: 'Disjuntor bipolar', group: 'Proteção', tag: 'QF', w: 90, h: 110,
@@ -243,10 +265,28 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: [T('21', 'aux-nc', 0.15, 0.5), T('22', 'aux-nc', 0.85, 0.5)],
     defaultState: { pressed: false, momentary: true, color: '#ef4444' },
   },
+  dualPushButtonNpb22D11: {
+    category: 'command', paletteName: 'Botoeira dupla NHD NPB22-D11 · START/STOP', group: 'Comando', tag: 'S', w: 105, h: 100,
+    terminals: [
+      T('13', 'aux-no', 0.08, 0.30, { terminalType: 'screw', color: '#22c55e' }),
+      T('14', 'aux-no', 0.92, 0.30, { terminalType: 'screw', color: '#22c55e' }),
+      T('21', 'aux-nc', 0.08, 0.72, { terminalType: 'screw', color: '#ef4444' }),
+      T('22', 'aux-nc', 0.92, 0.72, { terminalType: 'screw', color: '#ef4444' }),
+    ],
+    defaultState: { startPressed: false, stopPressed: false, momentary: true, mountingMm: 22, ithA: 5 },
+  },
   emergencyButton: {
     category: 'command', paletteName: 'Botão de emergência Metaltex P20AKR · 1NF', group: 'Comando', tag: 'S', w: 80, h: 80,
     terminals: [T('21', 'aux-nc', 0.15, 0.5), T('22', 'aux-nc', 0.85, 0.5)],
-    defaultState: { pressed: false, latched: true, color: '#dc2626' },
+    defaultState: { pressed: false, latched: true, resetMethod: 'giro', color: '#dc2626' },
+  },
+  emergencyButtonKeyP20ACR: {
+    category: 'command', paletteName: 'Botão de emergência Metaltex P20ACR · chave · 1NF', group: 'Comando', tag: 'S', w: 80, h: 88,
+    terminals: [
+      T('21', 'aux-nc', 0.15, 0.5, { terminalType: 'screw' }),
+      T('22', 'aux-nc', 0.85, 0.5, { terminalType: 'screw' }),
+    ],
+    defaultState: { pressed: false, latched: true, resetMethod: 'chave', color: '#dc2626', mountingMm: 22, ithA: 10 },
   },
   selector2: {
     category: 'command', paletteName: 'Seletor 2 posições', group: 'Comando', tag: 'S', w: 80, h: 80,
@@ -393,13 +433,27 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { energized: false, count: 0, preset: 5, done: false },
   },
   safetyRelay: {
-    category: 'relay', paletteName: 'Relé de segurança (duplo canal)', group: 'Relés', tag: 'KS', w: 130, h: 120,
+    category: 'relay', paletteName: 'Relé de segurança Allen-Bradley Guardmaster MSR127TP', group: 'Relés', tag: 'KS', w: 150, h: 145,
+    // 24 V AC/DC, dois canais, reset auto/manual, 3 saídas de segurança NA
+    // e uma saída auxiliar NF. Serigrafia segundo a documentação MSR127TP.
     terminals: [
-      T('A1', 'coil-plus', 0.1, 0), T('A2', 'coil-minus', 0.1, 1),
-      T('S11', 'io', 0.45, 0), T('S12', 'io', 0.6, 0), T('S21', 'io', 0.75, 0), T('S22', 'io', 0.9, 0),
-      T('13', 'aux-no', 0.3, 1), T('14', 'aux-no', 0.45, 1), T('23', 'aux-no', 0.6, 1), T('24', 'aux-no', 0.75, 1),
+      T('A1', 'coil-plus', 0.06, 0, { terminalType: 'screw' }),
+      T('S11', 'io', 0.19, 0, { terminalType: 'screw' }),
+      T('S12', 'io', 0.32, 0, { terminalType: 'screw' }),
+      T('S21', 'io', 0.45, 0, { terminalType: 'screw' }),
+      T('S22', 'io', 0.58, 0, { terminalType: 'screw' }),
+      T('S34', 'io', 0.71, 0, { terminalType: 'screw' }),
+      T('41', 'aux-nc', 0.84, 0, { terminalType: 'screw' }),
+      T('42', 'aux-nc', 0.96, 0, { terminalType: 'screw' }),
+      T('A2', 'coil-minus', 0.06, 1, { terminalType: 'screw' }),
+      T('13', 'aux-no', 0.24, 1, { terminalType: 'screw' }),
+      T('14', 'aux-no', 0.36, 1, { terminalType: 'screw' }),
+      T('23', 'aux-no', 0.49, 1, { terminalType: 'screw' }),
+      T('24', 'aux-no', 0.61, 1, { terminalType: 'screw' }),
+      T('33', 'aux-no', 0.74, 1, { terminalType: 'screw' }),
+      T('34', 'aux-no', 0.86, 1, { terminalType: 'screw' }),
     ],
-    defaultState: { energized: false, tripped: false, dualChannel: true },
+    defaultState: { energized: false, tripped: false, dualChannel: true, supply: '24 V AC/DC', reset: 'auto/manual', safetyCategory: 'Cat. 4 / PLe / SIL 3' },
   },
 
   // ---------------- Sinalização ----------------
@@ -485,6 +539,29 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: plcLogoRCTerminals(),
     defaultState: { powered: false, inputs: {}, outputs: { Q1: false, Q2: false, Q3: false, Q4: false }, memories: {}, pressedButton: null },
   },
+  plcLsXbmDn32s: {
+    category: 'controller', paletteName: 'CLP LS Electric XGB XBM-DN32S · 16DI/16DO', group: 'Controladores', tag: 'PLC', w: 360, h: 210,
+    terminals: plcLsXbmDn32sTerminals(),
+    defaultState: {
+      powered: false,
+      inputs: {},
+      outputs: Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`Q${i + 1}`, false])),
+      memories: {},
+      supply: '24 V DC',
+      outputType: '16 transistor NPN (sink)',
+      programCapacity: '10 ksteps',
+    },
+  },
+  siemensTsAdapterIeBasic: {
+    category: 'controller', paletteName: 'Siemens SIMATIC TS Adapter IE Basic · 6ES7972-0EB00-0XA0', group: 'Controladores', tag: 'NET', w: 135, h: 180,
+    terminals: [
+      T('L+', 'power-in', 0.28, 1, { terminalType: 'plug', color: '#ef4444' }),
+      T('M', 'neutral', 0.48, 1, { terminalType: 'plug', color: '#3b82f6' }),
+      T('ETH', 'io', 0.72, 1, { terminalType: 'plug', color: '#22c55e' }),
+      T('SERVICE', 'io', 0.92, 0.55, { terminalType: 'plug', color: '#94a3b8' }),
+    ],
+    defaultState: { powered: false, supply: '19.2–28.8 V DC', ethernetMbps: 100, service: 'TeleService' },
+  },
   plcCompact: {
     category: 'controller', paletteName: 'CLP modular 12I/8Q', group: 'Controladores', tag: 'PLC', w: 240, h: 160,
     terminals: plcTerminals(12, 8),
@@ -513,6 +590,14 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('T3', 'io', 0.85, 0.5, { terminalType: 'spring' }),
     ],
     defaultState: { bridged: true },
+  },
+  terminalPhoenixPti6: {
+    category: 'terminal', paletteName: 'Borne Phoenix Contact PTI 6 · 3213972', group: 'Bornes e barras', tag: 'X', w: 76, h: 118,
+    terminals: [
+      T('1', 'io', 0.5, 0, { terminalType: 'spring', color: '#f59e0b' }),
+      T('2', 'io', 0.5, 1, { terminalType: 'spring', color: '#f59e0b' }),
+    ],
+    defaultState: { bridged: true, connection: 'Push-in', sectionMm2: 6, maxSectionMm2: 10, nominalA: 41, nominalV: 800, article: '3213972' },
   },
   terminalPE: {
     category: 'terminal', paletteName: 'Borne de terra (verde/amarelo)', group: 'Bornes e barras', tag: 'XPE', w: 70, h: 50,

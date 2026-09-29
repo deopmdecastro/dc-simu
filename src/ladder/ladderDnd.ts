@@ -24,7 +24,7 @@ export const LADDER_MOVE_MIME = 'application/x-dcsimu-ladder-move'
 /** Componente do esquema → elemento Ladder equivalente (arrastar da biblioteca). */
 export const COMPONENT_TO_LADDER: Partial<Record<ComponentType, PaletteKind>> = {
   buttonNO: 'NO', buttonNC: 'NC', selector2: 'NO', selector3: 'NO', keySwitch: 'NO',
-  footSwitch: 'NO', emergencyButton: 'NC', limitSwitch: 'NO', proximitySensor: 'NO',
+  footSwitch: 'NO', emergencyButton: 'NC', emergencyButtonKeyP20ACR: 'NC', dualPushButtonNpb22D11: 'NO', limitSwitch: 'NO', proximitySensor: 'NO',
   photoSensor: 'NO', pressureSwitch: 'NO', floatSwitch: 'NO', thermostat: 'NO',
   motor1ph: 'COIL', motor3ph: 'COIL', contactor: 'COIL',
   auxRelay: 'COIL', timerRelayTON: 'TON', timerRelayTOF: 'TOF', timerRelayStarDelta: 'TON',

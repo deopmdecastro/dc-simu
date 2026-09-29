@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  server: { host: '0.0.0.0', proxy: { '/api': 'http://127.0.0.1:3000' } },
+  server: { host: '0.0.0.0', allowedHosts: true, proxy: { '/api': 'http://127.0.0.1:3000' } },
   plugins: [react(), VitePWA({
     registerType: 'prompt',
     includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
@@ -24,7 +24,7 @@ export default defineConfig({
     },
     workbox: {
       globPatterns: ['**/*.{js,css,html,svg,png,webp,glb,pdf}'],
-      // O modelo WEG msr127tp é maior que 5 MiB; mantê-lo em cache evita falha no build PWA.
+      // O modelo Allen-Bradley MSR127TP é maior que 5 MiB; mantê-lo em cache evita falha no build PWA.
       maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       navigateFallback: 'index.html',
     },

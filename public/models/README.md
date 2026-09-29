@@ -30,6 +30,24 @@ caminho definido em `src/three/modelPaths.ts`.
 O modelo é ajustado à orientação e escala da cena pelo código. O ecrã é
 identificado pelo material verde e reage à alimentação no borne L+.
 
+Os CAD integrados pelo renderizador comum de `src/schematic/cad3DImage.ts` e pela tabela única de
+`src/three/modelPaths.ts` são:
+
+| Tipo | Ficheiro | Vista no painel |
+|---|---|---|
+| Disjuntor WEG MDW-C10 | `protecao/weg-mdw-c10.glb` | Calha DIN |
+| Emergência Metaltex P20ACR | `comando/metaltex-p20acr-r-1b.glb` | Frente do painel |
+| Botoeira NHD NPB22-D11 | `comando/nhd-npb22-d11.glb` | Frente do painel |
+| Relé Allen-Bradley MSR127TP | `reles/allen-bradley-msr127tp.glb` | Calha DIN |
+| CLP LS XBM-DN32S | `controladores/ls-xbm-dn32s.glb` | Calha DIN |
+| Siemens TS Adapter IE Basic | `controladores/siemens-ts-adapter-ie-basic.glb` | Calha DIN |
+| Phoenix Contact PTI 6 | `bornes-e-barras/phoenix-pti6-3213972.glb` | Calha DIN |
+| Borne PE genérico | `bornes-e-barras/terminal-pe.glb` | Calha DIN |
+
+Os GLB recebidos com nomes de conversor/espaços foram renomeados para URLs estáveis. O borne PE não
+inclui metadados suficientes para afirmar fabricante/referência e, por isso, continua identificado
+como componente genérico.
+
 `fontes/fonte-proauto-dran120-24a.glb` é a fonte com terminais de parafuso:
 usada no Painel 3D, Esquema e miniatura. A URL pública é
 `/models/fontes/fonte-proauto-dran120-24a.glb`. Os seus pontos de ligação

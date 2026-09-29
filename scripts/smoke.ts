@@ -24,7 +24,7 @@ import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
-import { getCommandModelSpec, getProtectionModelSpec } from '../src/three/modelPaths'
+import { getCommandModelSpec, getComponentModelSpec, getProtectionModelSpec } from '../src/three/modelPaths'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
@@ -652,6 +652,47 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('Phoenix 3000760 interrompe a passagem quando disparado', internalBridges(tripped).length === 0)
   const open = createComponent('phoenixEcb3000760', undefined, undefined, 0, 0, 0, { closed: false })
   check('Phoenix 3000760 interrompe a passagem quando aberto', internalBridges(open).length === 0)
+}
+
+/* Novos CAD reais: domínio, continuidade e vista física permanecem sincronizados. */
+{
+  const expectedCad = {
+    breakerWegMdwC10: '/models/protecao/weg-mdw-c10.glb',
+    emergencyButtonKeyP20ACR: '/models/comando/metaltex-p20acr-r-1b.glb',
+    dualPushButtonNpb22D11: '/models/comando/nhd-npb22-d11.glb',
+    safetyRelay: '/models/reles/allen-bradley-msr127tp.glb',
+    plcLsXbmDn32s: '/models/controladores/ls-xbm-dn32s.glb',
+    siemensTsAdapterIeBasic: '/models/controladores/siemens-ts-adapter-ie-basic.glb',
+    terminalPhoenixPti6: '/models/bornes-e-barras/phoenix-pti6-3213972.glb',
+    terminalPE: '/models/bornes-e-barras/terminal-pe.glb',
+  } as const
+  check('todos os novos equipamentos têm CAD e vista física correta', Object.entries(expectedCad).every(([type, path]) => {
+    const spec = getComponentModelSpec(type as import('../src/types').ComponentType)
+    const panelFront = type === 'emergencyButtonKeyP20ACR' || type === 'dualPushButtonNpb22D11'
+    return spec?.path === path && spec.placement === (panelFront ? 'panel-front' : 'din-rail')
+  }))
+
+  const weg = createComponent('breakerWegMdwC10')
+  check('WEG MDW-C10 fecha um polo 1–2 e conserva 10 A curva C', internalBridges(weg).length === 1 && weg.state.inA === 10 && weg.state.curve === 'C')
+
+  const pti = createComponent('terminalPhoenixPti6')
+  check('Phoenix PTI 6 cria duas ligações Push-in no mesmo potencial', pti.terminals.length === 2 && pti.terminals.every((t) => t.terminalType === 'spring') && internalBridges(pti).length === 1)
+
+  const dualIdle = createComponent('dualPushButtonNpb22D11')
+  const dualStart = createComponent('dualPushButtonNpb22D11', undefined, undefined, 0, 0, 0, { startPressed: true })
+  const dualStop = createComponent('dualPushButtonNpb22D11', undefined, undefined, 0, 0, 0, { stopPressed: true })
+  check('NPB22-D11 separa START NA de STOP NF', internalBridges(dualIdle).some(([a, b]) => a.endsWith('-21') && b.endsWith('-22'))
+    && internalBridges(dualStart).some(([a, b]) => a.endsWith('-13') && b.endsWith('-14'))
+    && !internalBridges(dualStop).some(([a, b]) => a.endsWith('-21') && b.endsWith('-22')))
+
+  const safetyOff = createComponent('safetyRelay')
+  const safetyOn = createComponent('safetyRelay', undefined, undefined, 0, 0, 0, { energized: true })
+  check('MSR127TP modela 3NA de segurança e 1NF auxiliar', internalBridges(safetyOff).some(([a, b]) => a.endsWith('-41') && b.endsWith('-42'))
+    && ['13', '23', '33'].every((label) => internalBridges(safetyOn).some(([a]) => a.endsWith(`-${label}`))))
+
+  const ls = createComponent('plcLsXbmDn32s')
+  check('LS XBM-DN32S é PLC programável com 16DI/16DO', isProgrammablePlc(ls) && plcIoCapacity(ls).inputs === 16 && plcIoCapacity(ls).outputs === 16)
+  check('TS Adapter IE é acessório e não recebe programa Ladder', !isProgrammablePlc(createComponent('siemensTsAdapterIeBasic')))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

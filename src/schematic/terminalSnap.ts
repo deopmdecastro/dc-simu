@@ -1,5 +1,6 @@
 import type { ElectricalComponent, Wire } from '../types'
 import { terminalPos } from './symbols'
+import { getComponentModelSpec } from '../three/modelPaths'
 
 type Point = { x: number; y: number }
 
@@ -20,7 +21,7 @@ export function nearestTerminal(components: ElectricalComponent[], point: Point,
 export function nearestModelTerminal(components: ElectricalComponent[], point: Point, excludeId?: string, radius = 28) {
   let best: { id: string; point: Point; distance: number } | null = null
   for (const c of components) {
-    if (!['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(c.type)) continue
+    if (!getComponentModelSpec(c.type) && !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(c.type)) continue
     const cx = c.schematicX + c.w / 2
     const cy = c.schematicY + c.h / 2
     const rotated = Math.abs(c.rotation % 180) === 90

@@ -2,7 +2,7 @@ import type { ElectricalComponent, LadderRung } from '../types'
 
 export type PlcProgram = { rungs: LadderRung[]; fc1: LadderRung[]; fc2: LadderRung[] }
 export const isProgrammablePlc = (c: ElectricalComponent) =>
-  c.type === 'plcLogo' || c.type === 'plcCompact' || c.type === 'plcSiemensLogo1224RC'
+  c.type === 'plcLogo' || c.type === 'plcCompact' || c.type === 'plcSiemensLogo1224RC' || c.type === 'plcLsXbmDn32s'
 
 export const blankPlcProgram = (): PlcProgram => ({ rungs: [], fc1: [], fc2: [] })
 

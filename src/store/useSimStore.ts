@@ -304,6 +304,10 @@ function buildScenario(id: string) {
 
 function runOneTick(state: Store, dtMs: number) {
   const { components, wires, ladder, sim } = state
+  // Atualizar acessórios DC que têm alimentação física, antes do grafo do scan.
+  for (const c of components) if (c.type === 'siemensTsAdapterIeBasic') {
+    c.state.powered = logoElectricalInputs(c, components, wires).powered
+  }
   // Atualizar fontes AC→DC antes de calcular as fontes do grafo neste scan.
   for (const c of components) if (c.type === 'powerSupplyProauto24A') {
     c.state.powered = proautoInputPowered(c, components, wires)
@@ -327,7 +331,9 @@ function runOneTick(state: Store, dtMs: number) {
   for (const plc of plcs) {
     const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(plcIoCapacity(plc).inputs, plcIoCapacity(plc).outputs), timers: {}, counters: {}, rungPowered: {}, db: {} }
     const table = prior.table
-    const logo = plc.type === 'plcSiemensLogo1224RC' ? logoElectricalInputs(plc, components, wires) : null
+    const logo = plc.type === 'plcSiemensLogo1224RC' || plc.type === 'plcLsXbmDn32s'
+      ? logoElectricalInputs(plc, components, wires)
+      : null
     const powered = logo?.powered ?? true
     if (logo) plc.state.powered = powered
     for (const t of plc.terminals) {
@@ -665,7 +671,14 @@ export const useSimStore = create<Store>((set, get) => ({
   pressButton: (componentId, pressed) => {
     set((s) => {
       const c = s.components.find((x) => x.id === componentId)
-      if (c) c.state.pressed = pressed
+      if (c) {
+        // Cogumelos de emergência permanecem acionados ao largar. Um novo
+        // clique representa o giro/chave de rearme; botoeiras comuns continuam
+        // momentâneas e seguem diretamente o estado do ponteiro.
+        if (c.state.latched) {
+          if (pressed) c.state.pressed = !c.state.pressed
+        } else c.state.pressed = pressed
+      }
       return { components: [...s.components], dirty: true }
     })
     get().step()
@@ -686,7 +699,7 @@ export const useSimStore = create<Store>((set, get) => ({
       for (const c of s.components) {
         const t = c.terminals.find((x) => x.id === terminalId)
         if (t) {
-          if (c.type === 'breaker1p' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'residualBreaker') {
+          if (c.type === 'breaker1p' || c.type === 'breakerWegMdwC10' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'residualBreaker') {
             c.state.closed = !c.state.closed
           } else if (c.type === 'fuse' || c.type === 'fuseHolder') {
             c.state.blown = !c.state.blown

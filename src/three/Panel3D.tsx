@@ -8,7 +8,7 @@ import { SCENARIOS } from '../simulation/scenarios'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType } from '../types'
 import * as THREE from 'three'
-import { getCommandModelSpec, getProtectionModelSpec, MODEL_PATHS } from './modelPaths'
+import { getCommandModelSpec, getComponentModelSpec, hasDinRailModel, MODEL_PATHS } from './modelPaths'
 
 const SLOT_WIDTH = 0.72
 const RAIL_Y = 0.4
@@ -271,9 +271,9 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   </group>
 }
 
-/** Disjuntores 1P/2P com o modelo CAD correspondente; mantém o corpo procedural como reserva. */
-function ProtectionBreakerReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
-  const spec = getProtectionModelSpec(c.type)!
+/** CAD genérico de calha DIN, normalizado a partir da especificação partilhada. */
+function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  const spec = getComponentModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
     const obj = scene.clone(true)
@@ -286,16 +286,19 @@ function ProtectionBreakerReal3D({ c, x }: { c: ElectricalComponent; x: number }
     obj.updateMatrixWorld(true)
     const raw = new THREE.Box3().setFromObject(obj)
     const height = raw.max.y - raw.min.y
-    obj.scale.setScalar(height > 0 ? 0.78 / height : 1)
+    const scale = height > 0 ? spec.targetHeight / height : 1
+    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
     const box = new THREE.Box3().setFromObject(obj)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
     return obj
   }, [scene, spec])
+  const active = !!(c.state.energized || c.state.powered)
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
-    <Label text={c.ref} position={[0, 0.86, 0.22]} color="#e2e8f0" />
+    {active && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
+    <Label text={c.ref} position={[0, spec.targetHeight + 0.1, 0.22]} color={active ? '#4ade80' : '#e2e8f0'} />
   </group>
 }
 
@@ -334,6 +337,49 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
       <primitive object={model} castShadow receiveShadow />
     </group>
     <Label text={c.ref} position={[0, 0.28, 0.08]} />
+  </group>
+}
+
+/** Botoeira dupla NPB22-D11: zonas independentes STOP (NF) e START (NA). */
+function DualPushButtonReal3D({ c, x, onStart, onStop }: {
+  c: ElectricalComponent
+  x: number
+  onStart: (pressed: boolean) => void
+  onStop: (pressed: boolean) => void
+}) {
+  const spec = getCommandModelSpec(c.type)!
+  const { scene } = useGLTF(spec.path)
+  const model = useMemo(() => {
+    const obj = scene.clone(true)
+    obj.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => material.clone()) : mesh.material.clone()
+    })
+    obj.rotation.set(...spec.rotation)
+    obj.updateMatrixWorld(true)
+    const raw = new THREE.Box3().setFromObject(obj)
+    const size = raw.getSize(new THREE.Vector3())
+    const scale = spec.targetHeight / (Math.max(size.x, size.y) || 1)
+    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
+    obj.updateMatrixWorld(true)
+    obj.position.sub(new THREE.Box3().setFromObject(obj).getCenter(new THREE.Vector3()))
+    return obj
+  }, [scene, spec])
+  const buttonEvents = (handler: (pressed: boolean) => void) => ({
+    onPointerDown: (event: any) => { event.stopPropagation(); handler(true) },
+    onPointerUp: (event: any) => { event.stopPropagation(); handler(false) },
+    onPointerOut: () => handler(false),
+  })
+  return <group position={[x, RAIL_Y + 1.05, 0.4]}>
+    <primitive object={model} castShadow receiveShadow />
+    <mesh position={[-0.13, 0, 0.2]} {...buttonEvents(onStop)}>
+      <boxGeometry args={[0.24, 0.42, 0.18]} /><meshBasicMaterial transparent opacity={0} />
+    </mesh>
+    <mesh position={[0.13, 0, 0.2]} {...buttonEvents(onStart)}>
+      <boxGeometry args={[0.24, 0.42, 0.18]} /><meshBasicMaterial transparent opacity={0} />
+    </mesh>
+    <Label text={`${c.ref} · STOP / START`} position={[0, 0.35, 0.08]} />
   </group>
 }
 
@@ -452,7 +498,7 @@ function TowerLight3D({ c, x }: { c: ElectricalComponent; x: number }) {
 
 function PushButton3D({ c, x, onPress }: { c: ElectricalComponent; x: number; onPress: (p: boolean) => void }) {
   const pressed = !!c.state.pressed
-  const isEmg = c.type === 'emergencyButton'
+  const isEmg = c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
   const isNC = c.type === 'buttonNC'
   const color = isEmg ? '#dc2626' : isNC ? '#ef4444' : c.type === 'buttonNO' ? '#22c55e' : '#eab308'
   const r = isEmg ? 0.17 : 0.1
@@ -642,10 +688,19 @@ export default function Panel3D() {
   const railTypes = ['breaker', 'motorBreaker', 'residualBreaker', 'fuse', 'surgeProtector', 'thermalRelay', 'contactor', 'auxRelay', 'timerRelay', 'timerRelayStarDelta', 'counterRelay', 'safetyRelay', 'plcLogo', 'plcCompact', 'plcSiemensLogo1224RC', 'vfd', 'softStarter', 'transformer', 'powerSupply', 'powerSupplyProauto24A', 'terminalBlock', 'terminalPE', 'busbarPhase', 'busbarNeutral', 'earthBar', 'fuseHolder', 'auxContactBlock']
 
   const { positions, railWidth } = useMemo(() => {
-    const rail = components.filter((c) => railTypes.some((t) => c.type.startsWith(t)))
+    const rail = components.filter((c) => hasDinRailModel(c.type) || railTypes.some((t) => c.type.startsWith(t)))
     const pos: Record<string, THREE.Vector3> = {}
     let cursor = 0
-    const widths = rail.map((c) => (c.type.startsWith('plc') ? 1.6 : c.type === 'contactorWegCWC09' ? 1.15 : c.type === 'busbarPhase' ? 1.8 : c.type.startsWith('busbar') || c.type === 'earthBar' ? 1.4 : 0.72 + c.terminals.filter((t) => t.kind === 'power-in').length * 0.06))
+    const widths = rail.map((c) => {
+      if (c.type === 'terminalPhoenixPti6' || c.type === 'terminalPE') return 0.34
+      if (c.type === 'safetyRelay' || c.type === 'breakerWegMdwC10') return 0.48
+      if (c.type === 'siemensTsAdapterIeBasic') return 0.62
+      if (c.type.startsWith('plc')) return c.type === 'plcLsXbmDn32s' ? 1.42 : 1.6
+      if (c.type === 'contactorWegCWC09') return 1.15
+      if (c.type === 'busbarPhase') return 1.8
+      if (c.type.startsWith('busbar') || c.type === 'earthBar') return 1.4
+      return 0.72 + c.terminals.filter((t) => t.kind === 'power-in').length * 0.06
+    })
     const total = widths.reduce((a, b) => a + b + 0.14, 0)
     cursor = -total / 2
     rail.forEach((c, i) => {
@@ -694,8 +749,10 @@ export default function Panel3D() {
         {railComponents.map((c) => {
           const x = positions[c.id].x
           if (c.type === 'thermalRelay') return <ThermalRelay3D key={c.id} c={c} x={x} />
-          if (c.type === 'phoenixEcb3000760') return <Model3DErrorBoundary key={c.id} fallback={<PhoenixEcb3D c={c} x={x} />}><Suspense fallback={<PhoenixEcb3D c={c} x={x} />}><ProtectionBreakerReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
-          if (getProtectionModelSpec(c.type)) return <Model3DErrorBoundary key={c.id} fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={<Breaker3D c={c} x={x} />}><ProtectionBreakerReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          if (hasDinRailModel(c.type)) {
+            const fallback = c.type === 'phoenixEcb3000760' ? <PhoenixEcb3D c={c} x={x} /> : <Breaker3D c={c} x={x} />
+            return <Model3DErrorBoundary key={c.id} fallback={fallback}><Suspense fallback={fallback}><CadComponentReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          }
           if (c.type === 'contactorWegCWC09') return <Model3DErrorBoundary key={c.id} fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           if (c.type.startsWith('contactor')) return <Contactor3D key={c.id} c={c} x={x} />
           if (c.type === 'powerSupplyProauto24A') return <Model3DErrorBoundary key={c.id} fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
@@ -710,7 +767,13 @@ export default function Panel3D() {
           if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') return <Lamp3D key={c.id} c={c} x={x} />
           if (c.type === 'towerLight') return <TowerLight3D key={c.id} c={c} x={x} />
           if (c.type === 'motor3ph') return <Motor3D key={c.id} c={c} />
-          if (c.type === 'emergencyButton' && getCommandModelSpec(c.type)) return <Model3DErrorBoundary key={c.id} fallback={<PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />}><Suspense fallback={<PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />}><EmergencyButtonReal3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} /></Suspense></Model3DErrorBoundary>
+          if (c.type === 'dualPushButtonNpb22D11' && getCommandModelSpec(c.type)) {
+            const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => setComponentState(c.id, { startPressed: pressed })} />
+            return <Model3DErrorBoundary key={c.id} fallback={fallback}><Suspense fallback={fallback}><DualPushButtonReal3D c={c} x={x}
+              onStart={(pressed) => setComponentState(c.id, { startPressed: pressed })}
+              onStop={(pressed) => setComponentState(c.id, { stopPressed: pressed })} /></Suspense></Model3DErrorBoundary>
+          }
+          if ((c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR') && getCommandModelSpec(c.type)) return <Model3DErrorBoundary key={c.id} fallback={<PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />}><Suspense fallback={<PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />}><EmergencyButtonReal3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} /></Suspense></Model3DErrorBoundary>
           if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(c.type)) {
             return <Sensor3D key={c.id} c={c} x={x} onToggle={() => setComponentState(c.id, { triggered: !c.state.triggered })} />
           }

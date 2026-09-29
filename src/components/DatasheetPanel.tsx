@@ -8,8 +8,21 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
   const input = useRef<HTMLInputElement>(null)
-  const builtin = type === 'phoenixEcb3000760' ? '/datasheets/phoenix-contact-3000760-pt.pdf' : type === 'plcSiemensLogo1224RC' ? '/datasheets/logo-manual-0ba4-en.pdf' : type === 'powerSupplyProauto24A' ? '/datasheets/chinfa-dran120-series.pdf' : type === 'contactorWegCWC09' ? '/datasheets/weg-cwc09-12679840.pdf' : null
-  const builtinName = type === 'phoenixEcb3000760' ? 'Phoenix Contact EC 1 12DC/1A S-R · 3000760 (PT).pdf' : type === 'powerSupplyProauto24A' ? 'Ficha Chinfa DRAN120-24A (série).pdf' : type === 'contactorWegCWC09' ? 'WEG CWC09 · 12679840 (datasheet).pdf' : 'LOGO-manual-0BA4-en.pdf'
+  const builtinInfo = type === 'phoenixEcb3000760'
+    ? { path: '/datasheets/phoenix-contact-3000760-pt.pdf', name: 'Phoenix Contact EC 1 12DC/1A S-R · 3000760 (PT).pdf' }
+    : type === 'terminalPhoenixPti6'
+      ? { path: '/datasheets/phoenix-contact-3213972-pt.pdf', name: 'Phoenix Contact PTI 6 · 3213972 (PT).pdf' }
+      : type === 'plcSiemensLogo1224RC'
+        ? { path: '/datasheets/logo-manual-0ba4-en.pdf', name: 'LOGO-manual-0BA4-en.pdf' }
+        : type === 'powerSupplyProauto24A'
+          ? { path: '/datasheets/chinfa-dran120-series.pdf', name: 'Ficha Chinfa DRAN120-24A (série).pdf' }
+          : type === 'contactorWegCWC09'
+            ? { path: '/datasheets/weg-cwc09-12679840.pdf', name: 'WEG CWC09 · 12679840 (datasheet).pdf' }
+            : type === 'emergencyButton' || type === 'emergencyButtonKeyP20ACR'
+              ? { path: '/datasheets/Push%20Button,%20Emergency%20Push%20Button%20Switch.pdf', name: 'Emergency Push Button Switch.pdf' }
+              : null
+  const builtin = builtinInfo?.path ?? null
+  const builtinName = builtinInfo?.name ?? 'datasheet.pdf'
   useEffect(() => {
     let active = true
     setBusy(true)
@@ -52,10 +65,10 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
     <div className="dc-inspector-group-body">
       <p className="text-[10px] text-ink-500 leading-relaxed">PDFs pessoais associados ao tipo de componente ficam apenas neste navegador. Manuais incluídos na aplicação são identificados à parte.</p>
       {builtin && <div className="rounded border border-amber-200 bg-amber-50 p-2 text-[10px] leading-relaxed text-amber-900">
-        {type === 'phoenixEcb3000760' ? <><strong>Phoenix Contact EC 1 12DC/1A S-R · artigo 3000760.</strong> Disjuntor eletrónico CC de 1 canal, 12 V DC / 1 A, montagem em calha DIN 35 mm, 12,5 × 80 mm, operação de −20 °C a 60 °C. Terminais funcionais Line+ / LOAD+ / 0V, entrada de reset e saída de status. Nota de aplicação do fabricante: o reset atua por borda descendente e aceita até 30 V DC. A ficha não especifica aqui a polaridade/comportamento do status nem o limiar de disparo.</> : type === 'powerSupplyProauto24A' ? <><strong>Ficha Chinfa DRAN120, variante 24A (parafusos).</strong> O PDF descreve a série Chinfa; a correspondência exata com «Proauto» deve ser confirmada na etiqueta do aparelho.</> : type === 'contactorWegCWC09' ? <><strong>Datasheet WEG CWC09 · código 12679840 (42 V 50 Hz / 48 V 60 Hz).</strong> O modelo 3D é o CWC07 10E da mesma família, usado como referência geométrica; a ficha confirma a série e os valores elétricos do código selecionado.</> : <><strong>Manual Siemens LOGO! 0BA4 (inglês).</strong> O modelo 3D mostra 0BA2; este documento descreve uma versão posterior e não confirma funções exclusivas do 0BA2.</>}
+        {type === 'phoenixEcb3000760' ? <><strong>Phoenix Contact EC 1 12DC/1A S-R · artigo 3000760.</strong> Disjuntor eletrónico CC de 1 canal, 12 V DC / 1 A, montagem em calha DIN 35 mm, 12,5 × 80 mm, operação de −20 °C a 60 °C. Terminais funcionais Line+ / LOAD+ / 0V, entrada de reset e saída de status. Nota de aplicação do fabricante: o reset atua por borda descendente e aceita até 30 V DC. A ficha não especifica aqui a polaridade/comportamento do status nem o limiar de disparo.</> : type === 'terminalPhoenixPti6' ? <><strong>Phoenix Contact PTI 6 · artigo 3213972.</strong> Borne de passagem Push-in, duas ligações num potencial, 6 mm² nominais (0,5–10 mm²), 41 A, 800 V e montagem em calha NS 35.</> : type === 'emergencyButton' || type === 'emergencyButtonKeyP20ACR' ? <><strong>Ficha de botão de emergência recebida com o projeto.</strong> O simulador mantém o contacto 1NF 21–22 e distingue o rearme por giro (P20AKR) do rearme por chave (P20ACR).</> : type === 'powerSupplyProauto24A' ? <><strong>Ficha Chinfa DRAN120, variante 24A (parafusos).</strong> O PDF descreve a série Chinfa; a correspondência exata com «Proauto» deve ser confirmada na etiqueta do aparelho.</> : type === 'contactorWegCWC09' ? <><strong>Datasheet WEG CWC09 · código 12679840 (42 V 50 Hz / 48 V 60 Hz).</strong> O modelo 3D é o CWC07 10E da mesma família, usado como referência geométrica; a ficha confirma a série e os valores elétricos do código selecionado.</> : <><strong>Manual Siemens LOGO! 0BA4 (inglês).</strong> O modelo 3D mostra 0BA2; este documento descreve uma versão posterior e não confirma funções exclusivas do 0BA2.</>}
         {type === 'phoenixEcb3000760' && <p className="mt-2">Na simulação, <strong>Fechado</strong>/<strong>Disparado</strong> controla a passagem entre Line+ e LOAD+; a curva de proteção e a lógica elétrica do STATUS não são simuladas porque não estão especificadas na ficha. O painel 3D usa o modelo CAD GLB recebido; o arranjo dos bornes no esquema elétrico é funcional, não um desenho de montagem.</p>}
         <div className="flex flex-wrap gap-1 mt-2">
-          <a className="dc-btn" href={builtin} target="_blank" rel="noopener noreferrer">{type === 'phoenixEcb3000760' ? 'Ver ficha ↗' : 'Ver manual ↗'}</a>
+          <a className="dc-btn" href={builtin} target="_blank" rel="noopener noreferrer">{type === 'plcSiemensLogo1224RC' ? 'Ver manual ↗' : 'Ver ficha ↗'}</a>
           <a className="dc-btn" href={builtin} download={builtinName}>↓ Descarregar</a>
         </div>
       </div> }

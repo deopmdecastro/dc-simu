@@ -15,9 +15,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { getLogo3DImages } from '../schematic/logo3DImage'
 import { getProauto3DImage } from '../schematic/proauto3DImage'
 import { getWeg3DImage } from '../schematic/weg3DImage'
-import { getProtection3DImage } from '../schematic/protection3DImage'
-import { getCommand3DImage } from '../schematic/command3DImage'
-import { getCommandModelSpec, getProtectionModelSpec } from './modelPaths'
+import { getCad3DImage } from '../schematic/cad3DImage'
+import { getComponentModelSpec } from './modelPaths'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -128,7 +127,13 @@ function buildProtection(g: THREE.Group, type: string, st: any) {
 }
 
 function buildCommand(g: THREE.Group, type: string) {
-  if (type === 'emergencyButton') {
+  if (type === 'dualPushButtonNpb22D11') {
+    box(g, 0.72, 0.48, 0.3, CASING_DARK, 0, -0.08, 0)
+    box(g, 0.25, 0.3, 0.08, RED, -0.17, 0.08, 0.19)
+    box(g, 0.25, 0.3, 0.08, GREEN, 0.17, 0.08, 0.19)
+    return
+  }
+  if (type === 'emergencyButton' || type === 'emergencyButtonKeyP20ACR') {
     box(g, 0.5, 0.42, 0.32, CASING_DARK, 0, -0.14, 0)
     cyl(g, 0.32, 0.32, 0.1, AMBER, 0, 0.14, 0)
     cyl(g, 0.22, 0.24, 0.18, RED, 0, 0.26, 0)
@@ -347,8 +352,7 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
   const [logoSrc, setLogoSrc] = useState<string | null>(null)
   const [proautoSrc, setProautoSrc] = useState<string | null>(null)
   const [wegSrc, setWegSrc] = useState<string | null>(null)
-  const [protectionSrc, setProtectionSrc] = useState<string | null>(null)
-  const [commandSrc, setCommandSrc] = useState<string | null>(null)
+  const [cadSrc, setCadSrc] = useState<string | null>(null)
   const fallback = useMemo(() => getComponentThumbnail(type), [type])
   useEffect(() => {
     if (type !== 'plcSiemensLogo1224RC') return
@@ -371,22 +375,16 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
     return () => { active = false }
   }, [type])
   useEffect(() => {
-    if (!getProtectionModelSpec(type)) return
+    if (!getComponentModelSpec(type)) return
     let active = true
-    getProtection3DImage(type).then((image) => { if (active) setProtectionSrc(image) }).catch(() => { /* reserva procedural */ })
-    return () => { active = false }
-  }, [type])
-  useEffect(() => {
-    if (!getCommandModelSpec(type)) return
-    let active = true
-    getCommand3DImage(type).then((image) => { if (active) setCommandSrc(image) }).catch(() => { /* reserva procedural */ })
+    setCadSrc(null)
+    getCad3DImage(type).then((image) => { if (active) setCadSrc(image) }).catch(() => { /* reserva procedural */ })
     return () => { active = false }
   }, [type])
   const src = type === 'plcSiemensLogo1224RC' ? logoSrc ?? fallback
     : type === 'powerSupplyProauto24A' ? proautoSrc ?? fallback
       : type === 'contactorWegCWC09' ? wegSrc ?? fallback
-        : getProtectionModelSpec(type) ? protectionSrc ?? fallback
-        : getCommandModelSpec(type) ? commandSrc ?? fallback
+        : getComponentModelSpec(type) ? cadSrc ?? fallback
           : fallback
   if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken" />
   return (

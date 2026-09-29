@@ -26,6 +26,7 @@ export interface ContinuityResult {
 
 const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   breaker1p: [['1', '2']],
+  breakerWegMdwC10: [['1', '2']],
   breaker2p: [['1', '2'], ['3', '4']],
   breaker3p: [['1', '2'], ['3', '4'], ['5', '6']],
   breaker4p: [['1', '2'], ['3', '4'], ['5', '6'], ['7', '8']],
@@ -52,6 +53,7 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
   switch (c.type) {
     // ---- proteção: fecha os polos quando armado e não disparado ----
     case 'breaker1p':
+    case 'breakerWegMdwC10':
     case 'breaker2p':
     case 'breaker3p':
     case 'breaker4p':
@@ -105,8 +107,15 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
       break
     }
     case 'buttonNC':
-    case 'emergencyButton': {
+    case 'emergencyButton':
+    case 'emergencyButtonKeyP20ACR': {
       if (!c.state.pressed) pair(la('21'), la('22'))
+      break
+    }
+    case 'dualPushButtonNpb22D11': {
+      // O botão verde fecha 13–14; o vermelho abre o contacto 21–22.
+      if (c.state.startPressed) pair(la('13'), la('14'))
+      if (!c.state.stopPressed) pair(la('21'), la('22'))
       break
     }
 
@@ -184,6 +193,9 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
       if (c.state.energized && !c.state.tripped) {
         pair(la('13'), la('14'))
         pair(la('23'), la('24'))
+        pair(la('33'), la('34'))
+      } else {
+        pair(la('41'), la('42'))
       }
       break
     }
@@ -225,6 +237,7 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
 
     // ---- bornes / barras: passagem direta ----
     case 'terminalBlock':
+    case 'terminalPhoenixPti6':
     case 'terminalPE':
     case 'busbarPhase':
     case 'busbarNeutral':
@@ -239,6 +252,16 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
       // parafusos quando o programa ativa o relé, sem ponte para L+.
       for (const q of Object.keys(c.state.outputs ?? {})) {
         if (c.state.powered !== false && c.state.outputs[q]) pair(la(q), la(`${q}.2`))
+      }
+      break
+    }
+    case 'plcLsXbmDn32s': {
+      // O aparelho real tem saídas transistor NPN (sink). O motor atual é
+      // binário e representa o estado lógico fechando cada Q à alimentação
+      // de comando, mantendo a programação e a cablagem observáveis.
+      const supply = la('L+')
+      if (c.state.powered !== false && supply && c.state.outputs) {
+        for (const q of Object.keys(c.state.outputs)) if (c.state.outputs[q]) pair(supply, la(q))
       }
       break
     }
@@ -281,7 +304,7 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
     }
     if (c.type === 'earthBar') c.terminals.forEach((x) => ids.push(x.id))
     // rede entrando pelos polos de entrada dos disjuntores gerais
-    if (c.type === 'breaker1p' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'residualBreaker') {
+    if (c.type === 'breaker1p' || c.type === 'breakerWegMdwC10' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'residualBreaker') {
       c.terminals.filter((x) => x.kind === 'power-in' || (x.label === 'N1')).forEach((x) => {
         if (faults?.phaseLoss && /L2|[35]/.test(x.label)) return
         ids.push(x.id)

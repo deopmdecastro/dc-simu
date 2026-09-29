@@ -211,6 +211,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
     switch (c.type) {
       // ------------------------------------------------------------- proteção
       case 'breaker1p':
+      case 'breakerWegMdwC10':
       case 'breaker2p':
       case 'breaker3p':
       case 'breaker4p':
@@ -285,17 +286,28 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       }
 
       // -------------------------------------------------------------- comando
+      case 'dualPushButtonNpb22D11': {
+        return <g>
+          <rect x={4} y={8} width={w - 8} height={h - 16} rx={7} fill="#1f2937" stroke={s} />
+          <rect x={w * 0.12} y={h * 0.22} width={w * 0.32} height={h * 0.48} rx={5} fill={c.state.stopPressed ? '#991b1b' : '#ef4444'} />
+          <rect x={w * 0.56} y={h * 0.22} width={w * 0.32} height={h * 0.48} rx={5} fill={c.state.startPressed ? '#166534' : '#22c55e'} />
+          <text x={w * 0.28} y={h * 0.82} textAnchor="middle" fontSize={8} fill="#fca5a5">STOP</text>
+          <text x={w * 0.72} y={h * 0.82} textAnchor="middle" fontSize={8} fill="#86efac">START</text>
+          {label(6, 12, c.ref, 10, '#93c5fd')}
+        </g>
+      }
       case 'buttonNO':
       case 'buttonNC':
       case 'emergencyButton':
+      case 'emergencyButtonKeyP20ACR':
       case 'selector2':
       case 'selector3':
       case 'keySwitch':
       case 'limitSwitch':
       case 'footSwitch': {
         const pressed = c.state.pressed
-        const isNC = c.type === 'buttonNC' || c.type === 'emergencyButton'
-        const isEmg = c.type === 'emergencyButton'
+        const isNC = c.type === 'buttonNC' || c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
+        const isEmg = c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
         const col = c.type === 'buttonNO' ? '#22c55e' : isEmg ? '#dc2626' : isNC ? '#ef4444' : '#eab308'
         const cy = h / 2
         return (
@@ -461,7 +473,8 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
 
       // -------------------------------------------------------- controladores
       case 'plcLogo':
-      case 'plcCompact': {
+      case 'plcCompact':
+      case 'plcLsXbmDn32s': {
         return (
           <g>
             <rect x={4} y={10} width={w - 8} height={h - 20} rx={5} fill="#0b1220" stroke={s} strokeWidth={2} />
@@ -584,6 +597,16 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
           </g>
         )
       }
+      case 'siemensTsAdapterIeBasic': {
+        return <g>
+          <rect x={4} y={8} width={w - 8} height={h - 16} rx={5} fill="#334155" stroke={s} />
+          <rect x={w * 0.18} y={h * 0.18} width={w * 0.64} height={h * 0.34} rx={3} fill="#dbe4ec" />
+          <rect x={w * 0.28} y={h * 0.62} width={w * 0.44} height={h * 0.2} rx={2} fill="#111827" stroke="#22c55e" />
+          <circle cx={w * 0.78} cy={h * 0.14} r={4} fill={c.state.powered ? '#22c55e' : '#64748b'} />
+          {label(8, 22, 'TS Adapter IE', 9, '#0f172a')}
+          {label(6, h - 4, c.ref, 9, '#93c5fd')}
+        </g>
+      }
       case 'hmi': {
         return (
           <g>
@@ -597,6 +620,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
 
       // ------------------------------------------------------ bornes e barras
       case 'terminalBlock':
+      case 'terminalPhoenixPti6':
       case 'terminalPE':
       case 'busbarPhase':
       case 'busbarNeutral':

@@ -9,6 +9,32 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v4.2 (integração dos novos componentes CAD)
+
+Os modelos recebidos foram analisados, normalizados e integrados pelo mesmo princípio usado no
+Siemens LOGO!: **um único tipo elétrico e uma única especificação CAD** alimentam a Biblioteca, o
+Esquema e o Painel 3D. O componente fica na vista física correta (calha DIN ou frente do painel),
+com símbolo de reserva se o WebGL/GLB não estiver disponível.
+
+- **WEG MDW-C10**: disjuntor monopolar de 10 A, curva C, bornes 1–2 e CAD real na calha DIN.
+- **Metaltex P20ACR-R-1B**: emergência 1NF 21–22 com rearme por chave; o P20AKR existente passou a
+  conservar corretamente o estado travado até novo acionamento de rearme.
+- **NHD NPB22-D11**: botoeira dupla com zonas independentes no Esquema/Painel 3D — START fecha
+  13–14 e STOP abre 21–22.
+- **Allen-Bradley Guardmaster MSR127TP**: CAD real, alimentação A1/A2, entradas de dois canais/reset,
+  três contactos de segurança NA (13–14, 23–24, 33–34) e auxiliar NF 41–42.
+- **LS Electric XGB XBM-DN32S**: CLP programável 16DI/16DO com programa Ladder próprio, alimentação
+  L+/M e CAD real. O aparelho é identificado como saída transistor NPN; como o motor de continuidade
+  atual é binário, cada Q ativa uma ponte lógica de comando em vez de simular corrente sink.
+- **Siemens SIMATIC TS Adapter IE Basic 6ES7972-0EB00-0XA0**: acessório de TeleService 24 V/Ethernet
+  na calha DIN; deliberadamente não aparece como PLC programável.
+- **Phoenix Contact PTI 6 · 3213972**: borne Push-in de duas ligações, 6 mm², 41 A/800 V, com ficha
+  técnica local e passagem elétrica 1–2.
+- **Borne PE**: o segundo CAD recebido (verde/amarelo) substitui a forma procedural do borne de terra;
+  o ficheiro não traz uma referência comercial confirmável, por isso permanece como tipo genérico.
+- Os nomes brutos dos GLB foram normalizados e os oito CAD têm testes de associação, posição física,
+  bornes e continuidade. `npm test` cobre também 16DI/16DO, START/STOP e 3NA+1NF.
+
 ## Novidades — v4.0 (rebranding corporativo · tema claro)
 
 **Nova identidade visual: tema claro e azul institucional** em todo o produto (landing,
@@ -136,7 +162,7 @@ npm run preview    # serve o build
   terra, I/O, analógico, barramento), **tipo físico** (parafuso, mola/push-in, faston, olhal, plug),
   **cor** e **posição (x,y)** dentro do footprint.
 
-### Componentes (biblioteca com 50 tipos)
+### Componentes (biblioteca com 56 tipos)
 Proteção (mono/bi/tri/tetrapolar, disjuntor-motor, DR 30 mA, fusível, porta-fusível, DPS, térmico),
 Comando (botão NA/NF, cogumelo, seletor 2 e 3 posições, chave com segredo, pedal, fim de curso),
 Sensores (indutivo PNP, fotoelétrico, pressostato, termostato, boia), Contatores (tripolar,
