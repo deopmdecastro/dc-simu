@@ -1118,11 +1118,17 @@ function Wires3D({ pivots, editMode, selectedWireId, activeWaypointIndex, onSele
     const selected = wire.id === selectedWireId
     const width = wire.gauge.startsWith('0.') ? 1.4 : wire.gauge.startsWith('1') ? 1.8 : wire.gauge.startsWith('2.5') ? 2.4 : 3
     const flowing = wireEnergyEffectVisible(runState, wire.energized)
-    return <group key={wire.id}>
-      {selected && <Line points={points} color="#60a5fa" lineWidth={width + 5} transparent opacity={0.5} />}
-      {flowing && <Line points={points} color="#fbbf24" lineWidth={width + 4} transparent opacity={0.42} />}
-      <Line points={points} color={WIRE_3D_COLORS[wire.color]} lineWidth={selected ? width + 1 : width} onClick={(event) => { event.stopPropagation(); onSelectWire(wire.id) }} />
-      {flowing && <EnergyFlow3D points={points} />}
+  const wireColor = WIRE_3D_COLORS[wire.color]
+  const start = points[0]
+  const end = points[points.length - 1]
+  return <group key={wire.id}>
+  {selected && <Line points={points} color="#60a5fa" lineWidth={width + 6} transparent opacity={0.48} />}
+  {flowing && <Line points={points} color="#fbbf24" lineWidth={width + 5} transparent opacity={0.46} />}
+  <Line points={points} color="#111827" lineWidth={width + 1.4} transparent opacity={0.32} />
+  <Line points={points} color={wireColor} lineWidth={selected ? width + 1.2 : width} onClick={(event) => { event.stopPropagation(); onSelectWire(wire.id) }} />
+  <mesh position={start}><sphereGeometry args={[Math.max(0.026, width * 0.009), 10, 10]} /><meshStandardMaterial color={wireColor} metalness={0.45} roughness={0.3} /></mesh>
+  <mesh position={end}><sphereGeometry args={[Math.max(0.026, width * 0.009), 10, 10]} /><meshStandardMaterial color={wireColor} metalness={0.45} roughness={0.3} /></mesh>
+  {flowing && <EnergyFlow3D points={points} />}
       {selected && editMode === 'curve' && (wire.waypoints3D ?? []).map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={point} index={index} active={activeWaypointIndex === index} onSelect={onSelectWaypoint} onMove={(waypointIndex, next) => onMoveWaypoint(wire.id, waypointIndex, next)} />)}
     </group>
   })}</group>
@@ -1258,10 +1264,11 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false }: { co
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, command])
-  // Edição frontal: botão esquerdo no vazio faz pan (como num editor 2D); orbitar fica no botão direito e no cubo de vista.
-  const buttons = frontEdit ? { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE } : undefined
-  const touches = frontEdit ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE } : undefined
-  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} enableDamping dampingFactor={0.08} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning />
+  // A cena permanece navegável em todas as vistas: arrastar orbita livremente em X/Y,
+  // a roda aproxima/afasta e o botão direito faz pan, inclusive no modo de edição frontal.
+  const buttons = frontEdit ? { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN } : undefined
+  const touches = frontEdit ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : undefined
+  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} enablePan enableRotate enableZoom enableDamping dampingFactor={0.08} rotateSpeed={0.82} panSpeed={0.72} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning />
 }
 
 /** Grelha por pontos do Esquema, desenhada na cena 3D sobre a placa: acompanha zoom, pan e órbita. */

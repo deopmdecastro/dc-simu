@@ -2,7 +2,7 @@
 .component-view-command { position:absolute; z-index:24; top:12px; right:12px; }
 .component-view-command > button { display:inline-flex; height:30px; align-items:center; gap:6px; padding:0 10px; border:1px solid #b9cdf8; border-radius:6px; color:#1f55e0; background:#fff; box-shadow:0 3px 12px #1f2a3d1f; font-size:10px; font-weight:750; }
 .component-view-command > button:hover { border-color:#7da2f5; background:#eef4ff; }
-.component-view-editor { position:absolute; z-index:45; top:12px; right:12px; width:372px; max-width:calc(100% - 24px); max-height:calc(100% - 24px); overflow:auto; border:1px solid #cbd5e1; border-radius:10px; color:#27344b; background:#fff; box-shadow:0 18px 45px #0f172a36; font-size:11px; }
+.component-view-editor { position:fixed; z-index:100; top:76px; right:18px; width:372px; max-width:calc(100vw - 36px); max-height:calc(100vh - 94px); overflow:auto; border:1px solid #cbd5e1; border-radius:10px; color:#27344b; background:#fff; box-shadow:0 18px 45px #0f172a36; font-size:11px; }
 .component-view-editor > header { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; min-height:44px; padding:7px 9px 7px 11px; border-bottom:1px solid #dce3ed; background:linear-gradient(180deg,#f8fafc,#eef2f7); }
 .component-view-editor > header > div { min-width:0; display:flex; align-items:center; gap:8px; color:#1f55e0; }
 .component-view-editor > header span { min-width:0; display:flex; flex-direction:column; }
@@ -95,7 +95,7 @@
 .component-view-warning { padding:5px 6px; border-radius:5px; color:#9a3412; background:#fff7ed; }
 .component-view-editor > footer { position:sticky; bottom:0; display:flex; justify-content:flex-end; gap:6px; padding:8px; border-top:1px solid #dce3ed; background:#fff; }
 .component-view-editor > footer .dc-btn { min-height:28px; font-size:9px; }
-@media(max-width:560px) { .component-view-editor { top:8px; right:8px; max-width:calc(100% - 16px); max-height:calc(100% - 16px); } .component-view-command { top:8px; right:8px; } .vcube-panel { min-height:130px; } }
+@media(max-width:560px) { .component-view-editor { top:64px; right:8px; width:calc(100vw - 16px); max-width:none; max-height:calc(100vh - 72px); } .component-view-command { top:8px; right:8px; } .vcube-panel { min-height:130px; } }
 
 /* ---------------------------------------------------------------------------
    Esquema 2D — hover/seleção suaves e rotação sem "flash" de carregamento
