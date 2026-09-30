@@ -18,13 +18,13 @@ export const CORNER_ANGLES: Record<ViewCubeCorner, { yaw: number; pitch: number;
   se: { yaw: 45, pitch: -ISO_PITCH, label: 'Canto isométrico inferior direito' },
 }
 
-const FACES: Array<{ id: FaceId; letter: string; title: string }> = [
-  { id: 'front', letter: 'F', title: 'Frente' },
-  { id: 'back', letter: 'T', title: 'Trás' },
-  { id: 'right', letter: 'D', title: 'Direita' },
-  { id: 'left', letter: 'E', title: 'Esquerda' },
-  { id: 'top', letter: 'S', title: 'Superior' },
-  { id: 'bottom', letter: 'I', title: 'Inferior' },
+const FACES: Array<{ id: FaceId; label: string; title: string }> = [
+  { id: 'front', label: 'FRENTE', title: 'Frente' },
+  { id: 'back', label: 'TRÁS', title: 'Trás' },
+  { id: 'right', label: 'DIR', title: 'Direita' },
+  { id: 'left', label: 'ESQ', title: 'Esquerda' },
+  { id: 'top', label: 'SUP', title: 'Superior' },
+  { id: 'bottom', label: 'INF', title: 'Inferior' },
 ]
 
 const CORNERS: ViewCubeCorner[] = ['nw', 'ne', 'sw', 'se']
@@ -157,6 +157,7 @@ export function ViewCubeDial({
   }
   const cls = `vcube vcube-${variant}${variant === 'floating' ? ` vcube-${placement}` : ''}`
   return <div className={cls} role="group" aria-label={ariaLabel} onPointerDown={(event) => event.stopPropagation()} onWheel={(event) => event.stopPropagation()}>
+    <div className="vcube-heading" aria-hidden="true"><span>ORIENTAÇÃO</span><b>3D</b></div>
     <div className="vcube-stage" title={dragTitle ?? 'Arraste para rodar · clique numa face ou num canto para mudar de vista'} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       {ARROWS.map((arrow) => <button
         type="button"
@@ -176,7 +177,7 @@ export function ViewCubeDial({
           title={face.title}
           aria-label={`Vista ${face.title.toLowerCase()}`}
           onClick={guard(() => onFace(face.id))}
-        >{face.letter}</button>)}
+        >{face.label}</button>)}
       </div>
       {CORNERS.map((corner) => <button
         type="button"

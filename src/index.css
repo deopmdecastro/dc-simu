@@ -1989,7 +1989,7 @@ button:disabled { cursor:not-allowed; }
 /* OrbitControls recebe os gestos diretamente na área 3D. */
 canvas[data-engine="three.js r169"] { touch-action: none; }
 
-@media (max-width: 1023px) {
+@media (max-width: 1079px) {
   .dc-toolbar-main { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; min-height: 48px; scrollbar-width: thin; }
   .schematic-view-shell[data-canvas-mode="3d"] .panel3d-axis-hud { right:43px; }
   .panel3d-stage .component-view-command { right:43px; }
