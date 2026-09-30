@@ -1571,3 +1571,20 @@ html:has(.dx-landing) {
     flex: 1 1 100%;
   }
 }
+
+/* ═══ Landing v4.7 · 3D maior e legível em qualquer largura ═══ */
+.dx-showcase-wrap { min-height: 260px; touch-action: pan-y; }
+.dx-showcase-state, .dx-showcase-legend { font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .dx-showcase-wrap { min-height: clamp(300px, 52svh, 460px); }
+  .dx-showcase-state { top: 8px; left: 8px; max-width: min(190px, 52%); padding: 6px 8px; }
+  .dx-showcase-state span { font-size: 10px; }
+  .dx-showcase-legend { top: 8px; right: 8px; }
+  .dx-showcase-controls { left: 8px; right: 8px; bottom: 8px; flex-wrap: wrap; justify-content: center; }
+  .dx-showcase-controls button { min-height: 40px; flex: 1 1 calc(50% - 6px); }
+}
+@media (max-width: 380px) {
+  .dx-showcase-state small { display: none; }
+  .dx-showcase-legend span { font-size: 9px; }
+}
+@media (min-width: 1600px) { .dx-showcase-wrap { min-height: 560px; } }

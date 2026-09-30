@@ -2730,3 +2730,36 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
   .dc-toolbar-main > :last-child { order:2; }
   .dc-toolbar-main > :first-child { order:3; }
 }
+
+/* ═══ UI/UX v4.7 · barra 3D sem sobreposição, alvos de toque e foco visível ═══
+   A barra usava left:50% + translateX(-50%): a largura "shrink-to-fit" ficava
+   limitada a 50% do painel e os grupos encolhiam uns por cima dos outros. */
+.panel3d-viewbar,
+.panel3d-stage[data-front-edit="true"]:not([data-component-editing="true"]) .panel3d-viewbar {
+  left: 12px; right: 12px; width: fit-content; max-width: calc(100% - 24px);
+  margin-inline: auto; transform: none;
+  overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity; scrollbar-width: none;
+}
+.panel3d-stage[data-front-edit="true"]:not([data-component-editing="true"]) .panel3d-viewbar { margin-left: 0; margin-right: auto; max-width: calc(100% - 166px); }
+.panel3d-viewbar::-webkit-scrollbar { display: none; }
+.panel3d-viewbar-group { flex: 0 0 auto; scroll-snap-align: start; white-space: nowrap; }
+.panel3d-viewbar button { min-width: max-content; white-space: nowrap; transition: background-color .15s, color .15s, border-color .15s, box-shadow .15s; }
+.panel3d-viewbar button:focus-visible,
+.panel3d-edit-context button:focus-visible,
+.dc-toolbar-main button:focus-visible { outline: 2px solid #2f6bff; outline-offset: 2px; }
+.panel3d-viewbar-group + .panel3d-viewbar-group { margin-left: 2px; }
+.panel3d-edit-context { width: max-content; }
+
+@media (max-width: 760px) {
+  .panel3d-viewbar { top: 52px; left: 8px; right: 8px; max-width: calc(100% - 16px); }
+  .panel3d-model-badge { top: 100px; left: 8px; max-width: min(200px, 52vw); }
+  .panel3d-edit-context { top: 100px; left: 8px; right: 8px; width: auto; max-width: calc(100% - 16px); transform: none; }
+}
+@media (pointer: coarse) {
+  .panel3d-viewbar button, .panel3d-edit-context button { min-height: 36px; padding-inline: 11px; font-size: 11px; }
+  .panel3d-viewbar-label { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

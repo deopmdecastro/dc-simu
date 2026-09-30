@@ -7,6 +7,7 @@ import { createComponent } from '../electrical/factory'
 import type { ComponentType, ElectricalComponent, Terminal } from '../types'
 import { getComponentModelSpec } from './modelPaths'
 import { terminalWorld3D } from './terminal3D'
+import { brushedMetal, galvanizedSteel, matteWall, polishedConcrete } from './proceduralTextures'
 
 const UNIT = 0.0055
 
@@ -297,15 +298,16 @@ function DemoCable({ definition, energized }: { definition: CableDefinition; ene
 }
 
 function DinRail() {
+  const metal = useMemo(() => brushedMetal([7, 1]), [])
   return (
     <group position={[0, 1.02, 0.29]}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[4.45, 0.16, 0.12]} />
-        <meshStandardMaterial color="#b9c1c7" metalness={0.86} roughness={0.27} />
+        <meshStandardMaterial color="#d3d9dd" metalness={0.9} roughness={0.9} map={metal.map} bumpMap={metal.bump} bumpScale={1.4} roughnessMap={metal.rough} envMapIntensity={1.2} />
       </mesh>
       <mesh position={[0, 0, 0.066]}>
         <boxGeometry args={[4.22, 0.04, 0.035]} />
-        <meshStandardMaterial color="#717b84" metalness={0.72} roughness={0.32} />
+        <meshStandardMaterial color="#8d979f" metalness={0.8} roughness={0.8} map={metal.map} roughnessMap={metal.rough} />
       </mesh>
       {Array.from({ length: 16 }, (_, index) => (
         <mesh key={index} position={[-2.02 + index * 0.27, 0, 0.094]}>
@@ -318,22 +320,44 @@ function DinRail() {
 }
 
 function FixedPanel() {
+  const steel = useMemo(() => galvanizedSteel([4, 3]), [])
+  const plate = useMemo(() => galvanizedSteel([5, 3.5]), [])
+  const concrete = useMemo(() => polishedConcrete([5, 5]), [])
+  const wall = useMemo(() => matteWall([4, 2]), [])
   return (
     <group>
+      {/* pavimento de betão polido com reflexo suave */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.43, 1.2]} receiveShadow>
+        <planeGeometry args={[14, 14]} />
+        <meshStandardMaterial color="#b4b8ba" map={concrete.map} bumpMap={concrete.bump} bumpScale={1.6} roughnessMap={concrete.rough} roughness={0.85} metalness={0.05} />
+      </mesh>
+      {/* parede técnica atrás do quadro */}
+      <mesh position={[0, 3, -0.6]} receiveShadow>
+        <planeGeometry args={[14, 7]} />
+        <meshStandardMaterial color="#dfe4e2" map={wall.map} bumpMap={wall.bump} bumpScale={0.6} roughnessMap={wall.rough} roughness={0.95} />
+      </mesh>
+      {/* caixa metálica */}
       <mesh position={[0, 1.27, 0]} receiveShadow castShadow>
         <boxGeometry args={[4.9, 3.35, 0.22]} />
-        <meshStandardMaterial color="#d7dbdc" roughness={0.46} metalness={0.18} />
+        <meshStandardMaterial color="#cfd5d8" map={steel.map} bumpMap={steel.bump} bumpScale={1.2} roughnessMap={steel.rough} roughness={0.8} metalness={0.55} envMapIntensity={0.9} />
       </mesh>
+      {/* contraplaca perfurada */}
       <mesh position={[0, 1.27, 0.13]} receiveShadow>
         <boxGeometry args={[4.72, 3.17, 0.05]} />
-        <meshStandardMaterial color="#eef1ef" roughness={0.58} metalness={0.09} />
+        <meshStandardMaterial color="#e9eeec" map={plate.map} bumpMap={plate.bump} bumpScale={2.2} roughnessMap={plate.rough} roughness={0.75} metalness={0.35} />
       </mesh>
       <DinRail />
       {[[2.28, 2.72], [-2.28, 2.72], [2.28, -0.18], [-2.28, -0.18]].map(([x, y], index) => (
-        <mesh key={index} position={[x, y, 0.19]}>
-          <cylinderGeometry args={[0.055, 0.055, 0.04, 18]} />
-          <meshStandardMaterial color="#555f67" metalness={0.8} roughness={0.28} />
-        </mesh>
+        <group key={index} position={[x, y, 0.19]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.055, 0.055, 0.04, 6]} />
+            <meshStandardMaterial color="#6b757d" metalness={0.92} roughness={0.3} />
+          </mesh>
+          <mesh position={[0, 0.022, 0]}>
+            <cylinderGeometry args={[0.026, 0.026, 0.006, 6]} />
+            <meshStandardMaterial color="#20262b" metalness={0.5} roughness={0.6} />
+          </mesh>
+        </group>
       ))}
     </group>
   )
@@ -346,7 +370,8 @@ function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor,
 
   return (
     <>
-      <color attach="background" args={['#edf1ef']} />
+      <color attach="background" args={['#e6ebe9']} />
+      <fog attach="fog" args={['#e6ebe9', 11, 22]} />
       <ambientLight intensity={1.35} />
       <hemisphereLight args={['#ffffff', '#60706a', 1.4]} />
       <directionalLight position={[4, 6, 6]} intensity={2.3} castShadow shadow-mapSize={[1024, 1024]} />
@@ -372,8 +397,8 @@ function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor,
         return <DemoCable key={definition.id} definition={definition} energized={energized} />
       })}
 
-      <ContactShadows position={[0, -0.42, 0]} opacity={0.34} scale={7} blur={2.8} far={4} />
-      <Environment preset="studio" environmentIntensity={0.58} />
+      <ContactShadows position={[0, -0.425, 0.6]} opacity={0.45} scale={9} blur={2.4} far={4} resolution={512} />
+      <Environment preset="warehouse" environmentIntensity={0.72} />
       <OrbitControls
         makeDefault
         enablePan={false}
