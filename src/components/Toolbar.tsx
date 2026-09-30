@@ -88,10 +88,10 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
 
 export default function Toolbar({ mode, setMode, ladderSection, setLadderSection, onBack }: { mode: ViewMode; setMode: (m: ViewMode) => void; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void }) {
   const {
-    activeScenario, loadScenario, sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
+    sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
     step, saveJSON, loadJSON, tool, setTool, grid, setGrid, zoom, setZoom,
     components, undo, redo, history, future, organizeWires, wires, selectedComponentIds,
-    alignSelection, distributeSelection, autoNumberWires, setCurrentProjectName,
+    alignSelection, distributeSelection, autoNumberWires, setCurrentProjectName, currentProjectName,
     dirty, wireDefaults, setWireDefaults, gridDragEnabled, setGridDragEnabled,
   } = useSimStore()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -126,8 +126,9 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
     a.click()
     URL.revokeObjectURL(url)
   }
-  const downloadBOM = () => saveBlob('\uFEFF' + bomToCSV(buildBOM(components), wires), 'text/csv;charset=utf-8', `dc-simu-${activeScenario}-bom.csv`)
-  const download = () => saveBlob(saveJSON(), 'application/json', `dc-simu-${activeScenario}.json`)
+  const fileSlug = (currentProjectName ?? 'projeto').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'projeto'
+  const downloadBOM = () => saveBlob('\uFEFF' + bomToCSV(buildBOM(components), wires), 'text/csv;charset=utf-8', `dc-simu-${fileSlug}-bom.csv`)
+  const download = () => saveBlob(saveJSON(), 'application/json', `dc-simu-${fileSlug}.json`)
 
   const upload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -222,7 +223,7 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
             <button onClick={step} className={`${segBtn(false)} !px-2 !text-brand-600`} title="Avançar um ciclo de varredura">
               <IconStep size={13} />
             </button>
-            <button onClick={reset} className={`${segBtn(false)} !px-2`} title="Recarregar o cenário">
+            <button onClick={reset} className={`${segBtn(false)} !px-2`} title="Reiniciar a simulação sem alterar o projeto">
               <IconReset size={13} />
             </button>
           </div>
@@ -454,14 +455,7 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
           </div>
         )}
 
-        {/* cenário + treino */}
-        <select value={activeScenario} onChange={(e) => loadScenario(e.target.value)} className="dc-select !w-auto max-w-[190px] shrink-0" title="Cenário de aplicação">
-          <option value="direct-start">Partida Direta com Selo</option>
-          <option value="reversal">Reversão de Motor</option>
-          <option value="star-delta">Partida Estrela-Triângulo</option>
-          <option value="sequential">Partida Sequencial + Contagem</option>
-          <option value="custom">Projeto personalizado</option>
-        </select>
+        {/* ferramentas de diagnóstico do projeto atual */}
         <button
           onClick={() => useSimStore.getState().toggleBlackBox()}
           className={`dc-btn ${sim.blackBox ? '!border-amber-300 !bg-amber-50 !text-amber-700' : ''}`}

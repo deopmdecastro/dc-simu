@@ -1,6 +1,5 @@
 import { useSimStore } from '../store/useSimStore'
 import { IconPlay, IconTimer, IconShield, IconSearch } from '../ui/icons'
-import { SCENARIOS } from '../simulation/scenarios'
 
 function Bit({ label: name, tagName, value, onToggle }: { label: string; tagName?: string | null; value: boolean; onToggle?: () => void }) {
   return (
@@ -80,15 +79,8 @@ export default function MonitorPanel() {
             <div>
               <h2 className="text-sm font-bold text-ink-900">Monitor pronto para simular</h2>
               <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-500">
-                Carregue um cenário para ver entradas, saídas, temporizadores, contadores e diagnósticos em tempo real.
+                O projeto está vazio. Adicione componentes no Esquema ou no Painel 3D; as mesmas entradas, saídas, TAGs e ligações aparecerão aqui.
               </p>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {SCENARIOS.slice(0, 3).map((scenario) => (
-                <button key={scenario.id} className="dc-btn" onClick={() => useSimStore.getState().loadScenario(scenario.id)}>
-                  {scenario.name}
-                </button>
-              ))}
             </div>
           </div>
         </section>

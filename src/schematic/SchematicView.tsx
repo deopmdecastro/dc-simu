@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalPos } from './symbols'
 import { IconProbe, IconHelp, IconCube, IconSchematic } from '../ui/icons'
-import { SCENARIOS } from '../simulation/scenarios'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
@@ -18,6 +17,7 @@ import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
 import Panel3D from '../three/Panel3D'
+import { wireEnergyEffectVisible } from '../three/panel3DEditing'
 
 const SCHEMATIC_CANVAS_MODE_KEY = 'dc-simu:schematic-canvas-mode:v1'
 type SchematicCanvasMode = '2d' | '3d'
@@ -268,6 +268,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
   }, [orientedRequestsKey])
   const showEmptyWelcome = useSimStore((s) => s.showEmptyWelcome)
   const wires = useSimStore((s) => s.wires)
+  const simRunState = useSimStore((s) => s.sim.runState)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const selectedWireId = useSimStore((s) => s.selectedWireId)
   const selectedTerminalId = useSimStore((s) => s.selectedTerminalId)
@@ -864,6 +865,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
     const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
     const cap = 'square'
     const join = 'miter'
+    const showEnergyFlow = wireEnergyEffectVisible(simRunState, w.energized)
     const addPoint = (e: React.MouseEvent) => {
       // duplo clique no cabo = adiciona um ponto de curva arrastável
       e.stopPropagation()
@@ -877,13 +879,13 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
       <g key={w.id}>
         {/* halo de seleção e brilho de energia por BAIXO — a cor do cabo fica sempre visível */}
         {selected && <path d={d} fill="none" stroke="#2f6bff" strokeWidth={width + 8} opacity={0.18} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
-        {w.energized && <path d={d} fill="none" stroke="#fbbf24" strokeWidth={width + 6} opacity={0.35} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
+        {showEnergyFlow && <path d={d} fill="none" stroke="#fbbf24" strokeWidth={width + 6} opacity={0.35} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
         {/* contorno escuro fino: dá leitura a cores claras (branco, amarelo, azul-claro) */}
         <path d={d} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
         <path d={d} fill="none" stroke={col} strokeWidth={width} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
         {/* O acabamento do fio é igual para rígido e flexível. */}
         <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={Math.max(0.6, width * 0.26)} strokeLinecap="butt" strokeLinejoin="miter" pointerEvents="none" />
-        {w.energized && <path d={d} fill="none" stroke="#fde047" strokeWidth={Math.max(1, width * 0.45)} strokeDasharray="4 10" className="dc-flow" strokeLinecap="round" pointerEvents="none" />}
+        {showEnergyFlow && <path d={d} fill="none" stroke="#fde047" strokeWidth={Math.max(1, width * 0.45)} strokeDasharray="4 10" className="dc-flow" strokeLinecap="round" pointerEvents="none" />}
         {/* área de clique larga (clique seleciona · duplo clique adiciona ponto de curva) */}
         <path
           d={d}
@@ -1305,45 +1307,12 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
             <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-md border border-brand-200 bg-brand-50 text-brand-700">
               DC
             </div>
-            <h2 className="text-sm font-bold text-ink-900">Comece por um circuito real</h2>
+            <h2 className="text-sm font-bold text-ink-900">Projeto vazio</h2>
             <p className="mx-auto mt-1 max-w-[390px] text-xs leading-relaxed text-ink-500">
-              Escolha um cenário de treino, adicione dispositivos ou abra um projeto totalmente vazio.
+              Abra a Biblioteca e adicione o primeiro componente. O mesmo projeto será refletido no Esquema 2D, na Visualização 3D e no programa Ladder.
             </p>
-            <button className="dc-btn-primary dc-btn mx-auto mt-4 !h-9 !px-4" onClick={() => {
-              const st = useSimStore.getState()
-              if (st.dirty && !window.confirm('Criar um projeto vazio e descartar alterações não guardadas?')) return
-              st.newProject()
-              st.dismissEmptyWelcome()
-            }}>＋ Começar projeto novo vazio</button>
-            <div className="mt-3 text-[10px] uppercase tracking-wider text-ink-400">ou escolha um ponto de partida</div>
-            <div className="mt-3 grid grid-cols-2 gap-1.5 text-left">
-              {SCENARIOS.map((scenario) => (
-                <button
-                  key={scenario.id}
-                  className="dc-btn !h-auto !justify-start !px-2 !py-2 text-left"
-                  onClick={() => useSimStore.getState().loadScenario(scenario.id)}
-                >
-                  <span className="truncate">{scenario.name}</span>
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-              {(
-                [
-                  ['plcLsXbmDn32s', 'CLP LS'],
-                  ['dualPushButtonNpb22D11', 'START/STOP'],
-                  ['contactorWegCWC09', 'Contator WEG'],
-                  ['breakerWegMdwC10', 'Disjuntor WEG'],
-                ] as Array<[ComponentType, string]>
-              ).map(([type, text], index) => (
-                <button
-                  key={type}
-                  className="dc-btn-primary dc-btn"
-                  onClick={() => useSimStore.getState().addComponent(type, 220 + index * 150, 220)}
-                >
-                  + {text}
-                </button>
-              ))}
+            <div className="mx-auto mt-4 max-w-[360px] rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[11px] leading-relaxed text-brand-700">
+              Nenhum exemplo é carregado automaticamente. Componentes, bornes, cabos, TAGs e estados pertencem sempre a este projeto.
             </div>
           </div>
         </div>

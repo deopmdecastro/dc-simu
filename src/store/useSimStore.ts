@@ -31,7 +31,6 @@ import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phas
 import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTable, nextAddress, collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
-import { buildDirectStartScenario, buildReversalScenario, buildStarDeltaScenario, buildSequentialScenario, SCENARIOS } from '../simulation/scenarios'
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradePhysicalFootprint, upgradeProauto24A } from '../electrical/factory'
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
@@ -120,7 +119,6 @@ interface Store extends CircuitState {
   pasteClipboard: () => void
 
   // --- ciclo de simulação ---
-  loadScenario: (id: string) => void
   play: () => void
   pause: () => void
   stop: () => void
@@ -348,19 +346,6 @@ const EMPTY_RUNTIME = (): RuntimeExtras => ({
   energizedWires: new Set(),
 })
 
-function buildScenario(id: string) {
-  switch (id) {
-    case 'reversal':
-      return buildReversalScenario()
-    case 'star-delta':
-      return buildStarDeltaScenario()
-    case 'sequential':
-      return buildSequentialScenario()
-    default:
-      return buildDirectStartScenario()
-  }
-}
-
 function runOneTick(state: Store, dtMs: number) {
   const { components, wires, ladder, sim } = state
   // Atualizar acessórios DC que têm alimentação física, antes do grafo do scan.
@@ -559,7 +544,7 @@ export const useSimStore = create<Store>((set, get) => ({
     measurements: [],
     blackBox: false,
   },
-  activeScenario: 'direct-start',
+  activeScenario: 'custom',
   selectedComponentIds: [],
   selectedWireId: null,
   selectedTerminalId: null,
@@ -661,46 +646,6 @@ export const useSimStore = create<Store>((set, get) => ({
   _intervalId: null,
 
   // ---------------------------------------------------------------- simulação
-  loadScenario: (id) => {
-    const scenario = buildScenario(id)
-    get().stop()
-    set({
-      components: scenario.components,
-      showEmptyWelcome: false,
-      wires: scenario.wires,
-      ladder: scenario.ladder,
-      activePlcId: scenario.components.find(isProgrammablePlc)?.id ?? null,
-      plcPrograms: {},
-      plcTags: {},
-      projectFiles: {},
-      hiddenProjectFolders: {},
-      fcBlocks: { fc1: [], fc2: [] },
-      grafcet: emptyGrafcet(),
-      grafcetRuntime: emptyGrafcetRuntime(),
-      tags: [],
-      activeScenario: scenario.id,
-      selectedComponentIds: [],
-      selectedWireId: null,
-      selectedTerminalId: null,
-      viewOrientationEditor: null,
-      runtime: EMPTY_RUNTIME(),
-      history: [],
-      future: [],
-      probeResult: null,
-      currentProjectName: null,
-      sim: {
-        ...get().sim,
-        runState: 'stopped',
-        scanCount: 0,
-        diagnostics: [],
-        events: [{ id: nanoid(6), ts: Date.now(), level: 'info', message: `Cenário "${scenario.name}" carregado.` }],
-      },
-      dirty: false,
-    })
-    get().autoDetectTags('skip')
-    get().step()
-  },
-
   play: () => {
     const existing = get()._intervalId
     if (existing) return
@@ -727,7 +672,45 @@ export const useSimStore = create<Store>((set, get) => ({
     set((s) => ({ sim: { ...s.sim, runState: 'stopped' }, _intervalId: null }))
   },
 
-  reset: () => get().loadScenario(get().activeScenario),
+  reset: () => {
+    get().stop()
+    const state = get()
+    const components = state.components.map((component) => {
+      const nextState = { ...component.state }
+      for (const key of ['energized', 'pressed', 'startPressed', 'stopPressed', 'running', 'done', 'powered', 'powerReady', 'triggered', 'tripped']) {
+        if (key in nextState) nextState[key] = false
+      }
+      for (const key of ['elapsedMs', 'rpmVisual', 'reading', 'count', 'frequencyHz']) {
+        if (key in nextState) nextState[key] = 0
+      }
+      if ('direction' in nextState) nextState.direction = 'stopped'
+      for (const key of ['inputs', 'outputs', 'memories']) {
+        const table = nextState[key]
+        if (table && typeof table === 'object') nextState[key] = Object.fromEntries(Object.keys(table).map((address) => [address, false]))
+      }
+      return {
+        ...component,
+        state: nextState,
+        terminals: component.terminals.map((terminal) => ({ ...terminal, energized: false })),
+      }
+    })
+    set({
+      components,
+      wires: state.wires.map((wire) => ({ ...wire, energized: false })),
+      runtime: EMPTY_RUNTIME(),
+      grafcetRuntime: emptyGrafcetRuntime(),
+      sim: {
+        ...state.sim,
+        runState: 'stopped',
+        scanCount: 0,
+        diagnostics: [],
+        measurements: [],
+        faults: { phaseLoss: false, shortCircuit: false, earthLeak: false, overvoltage: false, overload: false },
+        events: [{ id: nanoid(6), ts: Date.now(), level: 'info' as const, message: 'Simulação reiniciada sem alterar o projeto.' }, ...state.sim.events].slice(0, 120),
+      },
+      _intervalId: null,
+    })
+  },
 
   setSpeed: (n) => set((s) => ({ sim: { ...s.sim, speed: n } })),
   setMode: (m) => {
@@ -1023,6 +1006,9 @@ export const useSimStore = create<Store>((set, get) => ({
         clone.bodyColor = src.bodyColor
         clone.view3DScale = component3DScaleOf(src)
         clone.view3DRenderMode = src.view3DRenderMode ?? 'solid'
+        clone.panel3DPosition = src.panel3DPosition
+          ? { x: src.panel3DPosition.x + 0.35, y: src.panel3DPosition.y, z: src.panel3DPosition.z + 0.18 }
+          : undefined
         clones.push(clone)
       }
       return { components: [...s.components, ...clones], selectedComponentIds: clones.map((c) => c.id), dirty: true }
@@ -1600,7 +1586,6 @@ export const useSimStore = create<Store>((set, get) => ({
         tags: s.tags,
         grid: s.grid,
         activeScenario: s.activeScenario,
-        scenarios: SCENARIOS.map((x) => ({ id: x.id, name: x.name })),
       },
       null,
       2,
@@ -1756,6 +1741,9 @@ export const useSimStore = create<Store>((set, get) => ({
         id: newId,
         schematicX: src.schematicX + 40,
         schematicY: src.schematicY + 40,
+        panel3DPosition: src.panel3DPosition
+          ? { x: src.panel3DPosition.x + 0.35, y: src.panel3DPosition.y, z: src.panel3DPosition.z + 0.18 }
+          : undefined,
         terminals: newTerminals,
         ref: nextRef([...get().components, ...newComponents], src.type),
         z: undefined,

@@ -176,6 +176,13 @@ export interface Component3DScale {
   z: number
 }
 
+/** Coordenada física no editor 3D, independente do layout legível do Esquema 2D. */
+export interface SpatialPoint3D {
+  x: number
+  y: number
+  z: number
+}
+
 /** Posição visual de um borne numa vista 3D. Os valores são relativos ao
  * footprint original e podem ultrapassar 0..1 quando a vista projetada é maior. */
 export interface ComponentTerminalViewPosition {
@@ -209,6 +216,8 @@ export interface ElectricalComponentBase {
   terminalViewPositions?: ComponentTerminalViewPositions
   /** Escala visual individual no Painel 3D; não altera o GLB de origem. */
   view3DScale?: Component3DScale
+  /** Posição editável no Painel 3D. Não desloca o símbolo do Esquema 2D. */
+  panel3DPosition?: SpatialPoint3D
   /** Apresentação individual do modelo no Painel 3D. */
   view3DRenderMode?: Component3DRenderMode
   /** Espelhamento horizontal */
@@ -316,6 +325,9 @@ export interface Wire {
    * suaves. Duplo clique num ponto remove-o.
    */
   waypoints?: Array<{ x: number; y: number }>
+  /** Pontos de passagem físicos editáveis no Painel 3D. O layout 2D mantém os
+   * seus próprios pontos para que cada representação continue legível. */
+  waypoints3D?: SpatialPoint3D[]
   /** Terminação das pontas do cabo (ponteira, olhal, forquilha…) */
   endType?: WireEndType
   /** Opções independentes de cada extremidade; endType é o fallback legado. */

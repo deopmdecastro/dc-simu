@@ -27,6 +27,7 @@ import { useSimStore } from '../src/store/useSimStore'
 import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
 import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, getDefaultComponent3DPresentation, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
 import { component3DDimensions, component3DScaleOf, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from '../src/three/terminal3D'
+import { wireEnergyEffectVisible } from '../src/three/panel3DEditing'
 import * as THREE from 'three'
 import { automaticTerminalViewPositions, componentTerminalLocal, projectedComponentBounds } from '../src/schematic/componentTerminalViews'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
@@ -951,6 +952,36 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.getState().redo()
   check('Ctrl+Y reaplica eliminação segura da pasta', !useSimStore.getState().projectFiles[plcKey]?.length
     && useSimStore.getState().hiddenProjectFolders[plcKey]?.includes('dataBlocks'))
+  useSimStore.setState(previous)
+}
+
+/* Projeto único: começa vazio e conserva o mesmo layout/dados nas vistas 2D, 3D e Ladder. */
+{
+  const previous = useSimStore.getState()
+  useSimStore.getState().newProject()
+  let state = useSimStore.getState()
+  check('novo projeto começa completamente vazio', state.components.length === 0 && state.wires.length === 0 && state.ladder.rungs.length === 0 && state.activeScenario === 'custom')
+  const firstId = state.addComponent('breakerWegMdwC10', 120, 140)!
+  const secondId = useSimStore.getState().addComponent('pilotLightAd22', 360, 140)!
+  const first = useSimStore.getState().components.find((component) => component.id === firstId)!
+  const second = useSimStore.getState().components.find((component) => component.id === secondId)!
+  useSimStore.getState().addWire(first.terminals[0].id, second.terminals[0].id)
+  const wireId = useSimStore.getState().wires[0].id
+  useSimStore.getState().updateComponent(firstId, { panel3DPosition: { x: 1.25, y: 0.8, z: -0.35 } })
+  useSimStore.getState().updateWire(wireId, { waypoints3D: [{ x: 0.4, y: -0.2, z: 0.6 }] })
+  const serialized = JSON.parse(useSimStore.getState().saveJSON())
+  check('projeto guardado não incorpora catálogo de exemplos', serialized.scenarios === undefined)
+  check('posição 3D individual persiste no mesmo projeto', serialized.components.find((component: ElectricalComponent) => component.id === firstId)?.panel3DPosition?.z === -0.35)
+  check('curvas 3D do cabo persistem sem alterar os bornes partilhados', serialized.wires.find((wire: Wire) => wire.id === wireId)?.waypoints3D?.[0]?.z === 0.6
+    && serialized.wires.find((wire: Wire) => wire.id === wireId)?.fromTerminalId === first.terminals[0].id)
+  useSimStore.setState({ wires: useSimStore.getState().wires.map((wire) => ({ ...wire, energized: true })) })
+  useSimStore.getState().reset()
+  state = useSimStore.getState()
+  check('reiniciar simulação não troca nem recria o projeto', state.components.some((component) => component.id === firstId)
+    && state.components.some((component) => component.id === secondId) && state.wires.some((wire) => wire.id === wireId))
+  check('reiniciar remove energia visual sem apagar o cabo', state.wires.find((wire) => wire.id === wireId)?.energized === false)
+  check('efeito de fluxo elétrico aparece exclusivamente durante RUN', wireEnergyEffectVisible('running', true)
+    && !wireEnergyEffectVisible('paused', true) && !wireEnergyEffectVisible('stopped', true) && !wireEnergyEffectVisible('running', false))
   useSimStore.setState(previous)
 }
 
