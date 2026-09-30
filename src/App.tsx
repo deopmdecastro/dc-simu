@@ -24,9 +24,26 @@ export default function App({ onBack }: { onBack: () => void }) {
       return saved && ['Projeto', 'Biblioteca', 'Dispositivos', 'Diagnóstico', 'Configurações'].includes(saved) ? saved : 'Projeto'
     } catch { return 'Projeto' }
   })
-  const compactWorkspace = () => window.innerWidth < 1024 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches
+  // Os dois painéis laterais precisam de pelo menos ~1080 px para deixar
+  // espaço útil ao canvas; em tablets passam a ser gavetas sobrepostas.
+  const compactWorkspace = () => window.innerWidth < 1080 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches
   const [showLadder, setShowLadder] = useState(() => !compactWorkspace())
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
+
+  // Reaplica o layout ao atravessar o breakpoint (ex.: redimensionar a janela
+  // ou rodar o tablet), sem interferir nos painéis enquanto o modo não muda.
+  useEffect(() => {
+    let compact = compactWorkspace()
+    const onResize = () => {
+      const nextCompact = compactWorkspace()
+      if (nextCompact === compact) return
+      compact = nextCompact
+      setShowLibrary(!nextCompact)
+      setShowLadder(!nextCompact)
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
   const [panelSizes, setPanelSizes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('dcsimu:workspace:panels') ?? '{}')
