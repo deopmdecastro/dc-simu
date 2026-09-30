@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { OrbitControls, Text, Line, TransformControls, Edges, useGLTF } from '@react-three/drei'
+import { OrbitControls, Text, TransformControls, Edges, useGLTF } from '@react-three/drei'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -300,12 +300,19 @@ function ConnectionTerminal3D({ component, terminal, active, onPick }: {
 }) {
   const position = terminalLocal3D(component, terminal)
   const k = terminalMarkerScale(terminal)
-  return <group position={position} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onPick(terminal.id) }}>
+  const [hover, setHover] = useState(false)
+  const radius = (active ? 0.052 : hover ? 0.043 : 0.034) * k
+  return <group position={position}
+    onPointerDown={(event) => event.stopPropagation()}
+    onPointerOver={(event) => { event.stopPropagation(); setHover(true) }}
+    onPointerOut={() => setHover(false)}
+    onClick={(event) => { event.stopPropagation(); onPick(terminal.id) }}>
     <mesh renderOrder={30}>
-      <sphereGeometry args={[(active ? 0.07 : 0.052) * k, 18, 18]} />
-      <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : terminal.color} emissiveIntensity={active ? 1 : 0.3} depthTest={false} />
+      <sphereGeometry args={[radius, 16, 16]} />
+      <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : terminal.color} emissiveIntensity={active ? 1 : hover ? 0.45 : 0.2} depthTest={false} />
     </mesh>
-    <Text position={[0, 0.05 + 0.04 * k, 0]} fontSize={0.055} color="#0f172a" anchorX="center" anchorY="bottom" depthOffset={-3}>{terminal.label}</Text>
+    <mesh><sphereGeometry args={[Math.max(0.058, radius * 1.8), 10, 10]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
+    {(active || hover) && <Text position={[0, 0.045 + 0.035 * k, 0]} fontSize={0.048} color="#0f172a" anchorX="center" anchorY="bottom" depthOffset={-3}>{terminal.label}</Text>}
   </group>
 }
 
@@ -1018,6 +1025,48 @@ const WIRE_3D_COLORS: Record<WireColor, string> = {
 
 type Panel3DEditMode = 'navigate' | 'move' | 'connect' | 'curve'
 
+/** Diâmetro exterior aproximado do cabo isolado a partir da secção do condutor.
+ * A cena do painel usa 0,01 unidade por mm, portanto o tubo mantém escala física. */
+function cableOuterDiameterMm(gauge: string): number {
+  const area = Number.parseFloat(gauge.replace(',', '.'))
+  if (!Number.isFinite(area) || area <= 0) return 2.8
+  const conductorDiameter = Math.sqrt((4 * area) / Math.PI)
+  const insulationPerSide = area <= 1.5 ? 0.7 : area <= 4 ? 0.85 : 1.05
+  return Math.max(2.2, conductorDiameter + insulationPerSide * 2)
+}
+
+function cableCurve3D(points: Array<[number, number, number]>, smooth: boolean): THREE.Curve<THREE.Vector3> {
+  const vectors = points.map((point) => new THREE.Vector3(...point))
+  if (smooth && vectors.length > 2) return new THREE.CatmullRomCurve3(vectors, false, 'centripetal', 0.45)
+  const path = new THREE.CurvePath<THREE.Vector3>()
+  for (let index = 1; index < vectors.length; index += 1) path.add(new THREE.LineCurve3(vectors[index - 1], vectors[index]))
+  return path
+}
+
+function CableEnd3D({ point, next, radius, color, type }: {
+  point: [number, number, number]
+  next: [number, number, number]
+  radius: number
+  color: string
+  type: Wire['endType']
+}) {
+  const direction = new THREE.Vector3(...next).sub(new THREE.Vector3(...point)).normalize()
+  const length = Math.max(0.028, radius * (type === 'tinned' ? 2.8 : 4.2))
+  const position = new THREE.Vector3(...point).addScaledVector(direction, length * 0.42)
+  const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)
+  const metalColor = type === 'tinned' ? '#d97706' : type === 'none' ? color : '#d8dee8'
+  return <group position={position} quaternion={quaternion}>
+    <mesh castShadow>
+      <cylinderGeometry args={[radius * 0.78, radius * 0.78, length, 12]} />
+      <meshStandardMaterial color={metalColor} metalness={type === 'tinned' ? 0.45 : 0.8} roughness={0.28} />
+    </mesh>
+    {type !== 'tinned' && type !== 'none' && <mesh position={[0, -length * 0.38, 0]}>
+      <cylinderGeometry args={[radius * 1.16, radius * 1.16, Math.max(0.012, length * 0.24), 12]} />
+      <meshStandardMaterial color={color} roughness={0.55} />
+    </mesh>}
+  </group>
+}
+
 function terminalWorldPosition(components: ElectricalComponent[], pivots: Record<string, THREE.Vector3>, terminalId: string): [number, number, number] | null {
   for (const component of components) {
     const terminal = component.terminals.find((candidate) => candidate.id === terminalId)
@@ -1055,7 +1104,7 @@ function wirePoints3D(wire: Wire, a: [number, number, number], b: [number, numbe
   return [a, [a[0], channelY, a[2]], [b[0], channelY, b[2]], b]
 }
 
-function EnergyFlow3D({ points }: { points: Array<[number, number, number]> }) {
+function EnergyFlow3D({ points, cableRadius }: { points: Array<[number, number, number]>; cableRadius: number }) {
   const refs = useRef<Array<THREE.Mesh | null>>([])
   const curve = useMemo(() => new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point))), [points])
   useFrame(({ clock }) => {
@@ -1065,8 +1114,9 @@ function EnergyFlow3D({ points }: { points: Array<[number, number, number]> }) {
       mesh.position.copy(point)
     })
   })
+  const particleRadius = Math.max(0.009, cableRadius * 0.72)
   return <group>{Array.from({ length: 6 }).map((_, index) => <mesh key={index} ref={(mesh) => { refs.current[index] = mesh }} renderOrder={25}>
-    <sphereGeometry args={[0.026, 10, 10]} />
+    <sphereGeometry args={[particleRadius, 10, 10]} />
     <meshBasicMaterial color="#fde047" transparent opacity={0.95} depthTest={false} />
   </mesh>)}</group>
 }
@@ -1116,19 +1166,35 @@ function Wires3D({ pivots, editMode, selectedWireId, activeWaypointIndex, onSele
     if (!a || !b) return null
     const points = wirePoints3D(wire, a, b)
     const selected = wire.id === selectedWireId
-    const width = wire.gauge.startsWith('0.') ? 1.4 : wire.gauge.startsWith('1') ? 1.8 : wire.gauge.startsWith('2.5') ? 2.4 : 3
+    const outerDiameterMm = cableOuterDiameterMm(wire.gauge)
+    const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
+    const curve = cableCurve3D(points, wire.flexibility === 'flexible' || wire.route === 'arc')
+    const segments = Math.max(18, points.length * 10)
     const flowing = wireEnergyEffectVisible(runState, wire.energized)
-  const wireColor = WIRE_3D_COLORS[wire.color]
-  const start = points[0]
-  const end = points[points.length - 1]
-  return <group key={wire.id}>
-  {selected && <Line points={points} color="#60a5fa" lineWidth={width + 6} transparent opacity={0.48} />}
-  {flowing && <Line points={points} color="#fbbf24" lineWidth={width + 5} transparent opacity={0.46} />}
-  <Line points={points} color="#111827" lineWidth={width + 1.4} transparent opacity={0.32} />
-  <Line points={points} color={wireColor} lineWidth={selected ? width + 1.2 : width} onClick={(event) => { event.stopPropagation(); onSelectWire(wire.id) }} />
-  <mesh position={start}><sphereGeometry args={[Math.max(0.026, width * 0.009), 10, 10]} /><meshStandardMaterial color={wireColor} metalness={0.45} roughness={0.3} /></mesh>
-  <mesh position={end}><sphereGeometry args={[Math.max(0.026, width * 0.009), 10, 10]} /><meshStandardMaterial color={wireColor} metalness={0.45} roughness={0.3} /></mesh>
-  {flowing && <EnergyFlow3D points={points} />}
+    const wireColor = WIRE_3D_COLORS[wire.color]
+    const start = points[0]
+    const end = points[points.length - 1]
+    return <group key={wire.id}>
+      {selected && <mesh renderOrder={18}>
+        <tubeGeometry args={[curve, segments, radius + 0.014, 10, false]} />
+        <meshBasicMaterial color="#60a5fa" transparent opacity={0.34} depthWrite={false} />
+      </mesh>}
+      {flowing && <mesh renderOrder={17}>
+        <tubeGeometry args={[curve, segments, radius * 1.55, 10, false]} />
+        <meshBasicMaterial color="#fbbf24" transparent opacity={0.28} depthWrite={false} />
+      </mesh>}
+      <mesh castShadow receiveShadow renderOrder={19}>
+        <tubeGeometry args={[curve, segments, radius, 12, false]} />
+        <meshStandardMaterial color={wireColor} roughness={0.52} metalness={0.03} emissive={flowing ? '#7c5b05' : '#000000'} emissiveIntensity={flowing ? 0.28 : 0} />
+      </mesh>
+      {/* Volume transparente maior: seleção fiável sem falsificar a secção visível. */}
+      <mesh onClick={(event) => { event.stopPropagation(); onSelectWire(wire.id) }}>
+        <tubeGeometry args={[curve, segments, Math.max(0.04, radius * 2.5), 8, false]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      <CableEnd3D point={start} next={points[Math.min(1, points.length - 1)]} radius={radius} color={wireColor} type={wire.fromEndType ?? wire.endType} />
+      <CableEnd3D point={end} next={points[Math.max(0, points.length - 2)]} radius={radius} color={wireColor} type={wire.toEndType ?? wire.endType} />
+      {flowing && <EnergyFlow3D points={points} cableRadius={radius} />}
       {selected && editMode === 'curve' && (wire.waypoints3D ?? []).map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={point} index={index} active={activeWaypointIndex === index} onSelect={onSelectWaypoint} onMove={(waypointIndex, next) => onMoveWaypoint(wire.id, waypointIndex, next)} />)}
     </group>
   })}</group>
@@ -1348,7 +1414,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const wires = useSimStore((s) => s.wires)
   const selectedWireId = useSimStore((s) => s.selectedWireId)
   const selectWire = useSimStore((s) => s.selectWire)
-  const updateWire = useSimStore((s) => s.updateWire)
   const deleteWire = useSimStore((s) => s.deleteWire)
   const addWire = useSimStore((s) => s.addWire)
   const viewOrientationEditor = useSimStore((s) => s.viewOrientationEditor)
@@ -1357,6 +1422,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const [connectionStartId, setConnectionStartId] = useState<string | null>(null)
   const [reconnect, setReconnect] = useState<{ wireId: string; end: 'from' | 'to' } | null>(null)
   const [activeWaypointIndex, setActiveWaypointIndex] = useState<number | null>(null)
+  const wireEditBaselineRef = useRef<{ id: string; wire: Wire } | null>(null)
+  const [wireEditDirty, setWireEditDirty] = useState(false)
   const components = useMemo(() => storedComponents.map((component) => viewOrientationEditor?.componentId === component.id ? {
     ...component,
     viewOrientation: viewOrientationEditor.draft,
@@ -1614,6 +1681,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
   const selectedComponent = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
   const selectedWire = selectedWireId ? wires.find((wire) => wire.id === selectedWireId) : undefined
+  useEffect(() => {
+    wireEditBaselineRef.current = selectedWire ? { id: selectedWire.id, wire: structuredClone(selectedWire) } : null
+    setWireEditDirty(false)
+  }, [selectedWire?.id])
   const selectedTarget: [number, number, number] | null = selectedComponent
     ? [panelPivots[selectedComponent.id].x, panelPivots[selectedComponent.id].y, panelPivots[selectedComponent.id].z]
     : null
@@ -1621,11 +1692,35 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (selectedTarget) moveCamera('focus', selectedTarget)
   }
   const selectedDimensions = selectedComponent ? getComponentModelSpec(selectedComponent.type)?.physicalSizeMm : undefined
+  const beginWireEdit = (wire: Wire) => {
+    const store = useSimStore.getState()
+    if (!wireEditDirty || wireEditBaselineRef.current?.id !== wire.id) {
+      wireEditBaselineRef.current = { id: wire.id, wire: structuredClone(wire) }
+      store.commitHistory()
+    }
+    setWireEditDirty(true)
+    return store
+  }
   const patchSelectedWire = (patch: Partial<Wire>) => {
     if (!selectedWire) return
+    beginWireEdit(selectedWire).updateWire(selectedWire.id, patch)
+  }
+  const saveWireEdit = () => {
+    if (!selectedWire) return
+    const current = useSimStore.getState().wires.find((wire) => wire.id === selectedWire.id)
+    if (current) wireEditBaselineRef.current = { id: current.id, wire: structuredClone(current) }
+    setWireEditDirty(false)
+    useSimStore.getState().pushEvent('info', `Cabo ${selectedWire.number || selectedWire.id} guardado no projeto.`)
+  }
+  const cancelWireEdit = () => {
+    const baseline = wireEditBaselineRef.current
+    if (!baseline) return
     const store = useSimStore.getState()
-    store.commitHistory()
-    store.updateWire(selectedWire.id, patch)
+    store.updateWire(baseline.id, structuredClone(baseline.wire))
+    store.step()
+    setWireEditDirty(false)
+    setActiveWaypointIndex(null)
+    store.pushEvent('info', 'Edição 3D do cabo cancelada; os valores anteriores foram repostos.')
   }
   const addWireWaypoint = () => {
     if (!selectedWire) return
@@ -1647,9 +1742,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (!wire) return
     const next = [...(wire.waypoints3D ?? [])]
     next[index] = point
-    const store = useSimStore.getState()
-    store.commitHistory()
-    store.updateWire(wireId, { waypoints3D: next })
+    beginWireEdit(wire).updateWire(wireId, { waypoints3D: next })
   }
   const removeWireWaypoint = () => {
     if (!selectedWire || activeWaypointIndex === null) return
@@ -1707,6 +1800,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
      <div
        className={`panel3d-stage relative w-full h-full ${stageBackground}`}
        data-embedded-in-schematic="true"
+       data-component-editing={viewOrientationEditor ? 'true' : 'false'}
        aria-label="Visualização 3D do Esquema"
        onDragOver={(e) => {
          e.preventDefault()
@@ -1723,21 +1817,29 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
        }}
      >
       <ComponentViewEditor />
-      <ViewCube yaw={cameraStats.yaw} pitch={cameraStats.pitch} onPick={pickCubeView} onAngles={pickCubeAngles} onOrbit={orbitCamera} note={cubeNote} placement={viewOrientationEditor ? 'shifted' : selectedIds.length === 1 ? 'below-command' : 'top'} />
+      {viewOrientationEditor && <ViewCube yaw={cameraStats.yaw} pitch={cameraStats.pitch} onPick={pickCubeView} onAngles={pickCubeAngles} onOrbit={orbitCamera} note={cubeNote} placement="shifted" />}
       <div className="panel3d-viewbar" role="toolbar" aria-label="Edição, vistas e navegação do painel 3D">
-        <button type="button" className={editMode === 'navigate' ? 'is-edit-active' : ''} aria-pressed={editMode === 'navigate'} onClick={() => changeEditMode('navigate')} title="Navegar e orbitar a câmara · clique e arraste um componente para o mover">Navegar</button>
-        <button type="button" className={editMode === 'move' ? 'is-edit-active' : ''} aria-pressed={editMode === 'move'} onClick={() => changeEditMode('move')} title="Selecionar e mover componentes diretamente no espaço 3D">Mover</button>
-        <button type="button" className={editMode === 'connect' ? 'is-edit-active' : ''} aria-pressed={editMode === 'connect'} onClick={() => changeEditMode('connect')} title="Criar ou religar cabos nos bornes físicos">Ligar</button>
-        <button type="button" className={editMode === 'curve' ? 'is-edit-active' : ''} aria-pressed={editMode === 'curve'} onClick={() => changeEditMode('curve')} title="Selecionar cabos e editar os pontos das curvas">Cabos</button>
-        <span className="panel3d-viewbar-separator" aria-hidden="true" />
-        <button type="button" onClick={() => moveCamera('fit')} title="Enquadrar todo o painel (Home)">Ajustar</button>
-        <button type="button" onClick={() => moveCamera('front')} title="Vista frontal">Frente</button>
-        <button type="button" onClick={() => moveCamera('top')} title="Vista superior">Superior</button>
-        <button type="button" onClick={() => moveCamera('isometric')} title="Vista isométrica">ISO</button>
-        <button type="button" onClick={focusSelection} disabled={!selectedTarget} title="Focar o componente selecionado (F)">Focar</button>
-        <button type="button" className={railMagnet ? 'is-active' : ''} aria-pressed={railMagnet} onClick={() => useSimStore.getState().setGrid({ railMagnet: !railMagnet })} title="Imã de calha: ao largar, o equipamento centra-se e fixa-se na calha DIN mais próxima (igual ao Esquema 2D)">Imã de calha</button>
-        <button type="button" className={showGrid ? 'is-active' : ''} aria-pressed={showGrid} onClick={toggleGrid} title="Mostrar ou ocultar a grelha (G)">Grelha</button>
-        <button type="button" onClick={cycleBackground} title="Alternar fundo técnico, branco e escuro"><span className="panel3d-tool-prefix">Fundo: </span>{backgroundMode === 'technical' ? 'Técnico' : backgroundMode === 'white' ? 'Branco' : 'Escuro'}</button>
+        <div className="panel3d-viewbar-group" aria-label="Ferramentas 3D">
+          <span className="panel3d-viewbar-label">Editar</span>
+          <button type="button" className={editMode === 'navigate' ? 'is-edit-active' : ''} aria-pressed={editMode === 'navigate'} onClick={() => changeEditMode('navigate')} title="Navegar e orbitar a câmara · clique e arraste um componente para o mover">Navegar</button>
+          <button type="button" className={editMode === 'move' ? 'is-edit-active' : ''} aria-pressed={editMode === 'move'} onClick={() => changeEditMode('move')} title="Selecionar e mover componentes diretamente no espaço 3D">Mover</button>
+          <button type="button" className={editMode === 'connect' ? 'is-edit-active' : ''} aria-pressed={editMode === 'connect'} onClick={() => changeEditMode('connect')} title="Criar ou religar cabos nos bornes físicos">Ligar</button>
+          <button type="button" className={editMode === 'curve' ? 'is-edit-active' : ''} aria-pressed={editMode === 'curve'} onClick={() => changeEditMode('curve')} title="Selecionar cabos e editar os pontos das curvas">Cabos</button>
+        </div>
+        <div className="panel3d-viewbar-group" aria-label="Vistas da câmara">
+          <span className="panel3d-viewbar-label">Vista</span>
+          <button type="button" onClick={() => moveCamera('fit')} title="Enquadrar todo o painel (Home)">Ajustar</button>
+          <button type="button" onClick={() => moveCamera('front')} title="Vista frontal">Frente</button>
+          <button type="button" onClick={() => moveCamera('top')} title="Vista superior">Superior</button>
+          <button type="button" onClick={() => moveCamera('isometric')} title="Vista isométrica">ISO</button>
+          <button type="button" onClick={focusSelection} disabled={!selectedTarget} title="Focar o componente selecionado (F)">Focar</button>
+        </div>
+        <div className="panel3d-viewbar-group" aria-label="Auxiliares do painel">
+          <span className="panel3d-viewbar-label">Auxiliares</span>
+          <button type="button" className={railMagnet ? 'is-active' : ''} aria-pressed={railMagnet} onClick={() => useSimStore.getState().setGrid({ railMagnet: !railMagnet })} title="Imã de calha: ao largar, o equipamento centra-se e fixa-se na calha DIN mais próxima (igual ao Esquema 2D)">Imã</button>
+          <button type="button" className={showGrid ? 'is-active' : ''} aria-pressed={showGrid} onClick={toggleGrid} title="Mostrar ou ocultar a grelha partilhada (G)">Grelha</button>
+          <button type="button" onClick={cycleBackground} title="Alternar fundo técnico, branco e escuro">{backgroundMode === 'technical' ? 'Técnico' : backgroundMode === 'white' ? 'Branco' : 'Escuro'}</button>
+        </div>
       </div>
       {editMode === 'move' && <div className="panel3d-edit-context" role="status">
         {selectedComponent ? <>
@@ -1751,19 +1853,31 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {(reconnect || connectionStartId) && <button type="button" onClick={() => { setReconnect(null); setConnectionStartId(null) }}>Cancelar</button>}
       </div>}
       {editMode === 'curve' && <div className="panel3d-edit-context panel3d-wire-context" role="region" aria-label="Editor de cabos 3D">
-        {selectedWire ? <>
-          <strong>{selectedWire.number || 'Cabo'}</strong>
-          <label>Cor<select aria-label="Cor do cabo 3D" value={selectedWire.color} onChange={(event) => patchSelectedWire({ color: event.target.value as WireColor })}>{(Object.keys(WIRE_3D_COLORS) as WireColor[]).map((color) => <option key={color} value={color}>{color}</option>)}</select></label>
-          <label>Seção<select aria-label="Seção do cabo 3D" value={selectedWire.gauge} onChange={(event) => patchSelectedWire({ gauge: event.target.value })}>{['0.5mm²', '0.75mm²', '1mm²', '1.5mm²', '2.5mm²', '4mm²', '6mm²'].map((gauge) => <option key={gauge} value={gauge}>{gauge}</option>)}</select></label>
-          <label>Traçado<select aria-label="Traçado do cabo 3D" value={selectedWire.route} onChange={(event) => patchSelectedWire({ route: event.target.value as Wire['route'] })}><option value="direct">Direto</option><option value="orthogonal">Ortogonal</option><option value="manhattan">Canalizado</option><option value="arc">Curvo</option></select></label>
-          <button type="button" onClick={() => patchSelectedWire({ flexibility: selectedWire.flexibility === 'flexible' ? 'rigid' : 'flexible' })}>{selectedWire.flexibility === 'flexible' ? 'Flexível' : 'Rígido'}</button>
-          <button type="button" onClick={addWireWaypoint}>+ ponto</button>
-          <button type="button" disabled={activeWaypointIndex === null} onClick={removeWireWaypoint}>− ponto</button>
-          <button type="button" disabled={!selectedWire.waypoints3D?.length} onClick={() => { patchSelectedWire({ waypoints3D: undefined }); setActiveWaypointIndex(null) }}>Limpar curvas</button>
-          <button type="button" onClick={() => startReconnect('from')}>Religar A</button>
-          <button type="button" onClick={() => startReconnect('to')}>Religar B</button>
-          <button type="button" className="is-danger" onClick={() => { deleteWire(selectedWire.id); setActiveWaypointIndex(null) }}>Eliminar</button>
-        </> : <span>Selecione um cabo no painel para editar cor, seção, traçado, curvas e ligações.</span>}
+        {selectedWire ? <div className="panel3d-wire-inspector">
+          <header>
+            <span><strong>{selectedWire.number || 'Cabo sem número'}</strong><small>{selectedWire.gauge} · Ø exterior aproximado {cableOuterDiameterMm(selectedWire.gauge).toFixed(1)} mm</small></span>
+            <i className={wireEditDirty ? 'is-dirty' : ''}>{wireEditDirty ? 'Alterado' : 'Sincronizado'}</i>
+          </header>
+          <div className="panel3d-wire-fields">
+            <label><span>Cor</span><select aria-label="Cor do cabo 3D" value={selectedWire.color} onChange={(event) => patchSelectedWire({ color: event.target.value as WireColor })}>{(Object.keys(WIRE_3D_COLORS) as WireColor[]).map((color) => <option key={color} value={color}>{color}</option>)}</select></label>
+            <label><span>Secção real</span><select aria-label="Secção do cabo 3D" value={selectedWire.gauge} onChange={(event) => patchSelectedWire({ gauge: event.target.value })}>{['0.5mm²', '0.75mm²', '1mm²', '1.5mm²', '2.5mm²', '4mm²', '6mm²'].map((gauge) => <option key={gauge} value={gauge}>{gauge}</option>)}</select></label>
+            <label><span>Traçado</span><select aria-label="Traçado do cabo 3D" value={selectedWire.route} onChange={(event) => patchSelectedWire({ route: event.target.value as Wire['route'] })}><option value="direct">Direto</option><option value="orthogonal">Ortogonal</option><option value="manhattan">Canalizado</option><option value="arc">Curvo</option></select></label>
+            <label><span>Condutor</span><button type="button" aria-pressed={selectedWire.flexibility === 'flexible'} onClick={() => patchSelectedWire({ flexibility: selectedWire.flexibility === 'flexible' ? 'rigid' : 'flexible' })}>{selectedWire.flexibility === 'flexible' ? 'Flexível' : 'Rígido'}</button></label>
+          </div>
+          <div className="panel3d-wire-actions">
+            <button type="button" onClick={addWireWaypoint}>+ Ponto de curva</button>
+            <button type="button" disabled={activeWaypointIndex === null} onClick={removeWireWaypoint}>− Ponto ativo</button>
+            <button type="button" disabled={!selectedWire.waypoints3D?.length} onClick={() => { patchSelectedWire({ waypoints3D: undefined }); setActiveWaypointIndex(null) }}>Limpar curva</button>
+            <button type="button" onClick={() => startReconnect('from')}>Religar A</button>
+            <button type="button" onClick={() => startReconnect('to')}>Religar B</button>
+          </div>
+          <footer>
+            <span>As alterações aparecem imediatamente no Esquema e no 3D.</span>
+            <button type="button" disabled={!wireEditDirty} onClick={cancelWireEdit}>Cancelar</button>
+            <button type="button" className="is-primary" disabled={!wireEditDirty} onClick={saveWireEdit}>Guardar cabo</button>
+            <button type="button" className="is-danger" onClick={() => { deleteWire(selectedWire.id); setActiveWaypointIndex(null) }}>Eliminar</button>
+          </footer>
+        </div> : <span>Selecione um cabo no painel para editar a secção à escala, o traçado, as curvas e as ligações.</span>}
       </div>}
       {selectedComponent && editMode === 'navigate' && <div className="panel3d-model-badge">
         <span><i />MODELO 3D</span><strong>{selectedComponent.ref} · {selectedComponent.label}</strong>
@@ -1775,8 +1889,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
+        {/* A grelha de edição partilhada permanece montada em todas as vistas 3D.
+            A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}
         {showGrid && !frontEdit && <gridHelper args={[40, 80, '#c3cdda', '#dfe5ee']} position={[sceneCenter[0], floorY, 0]} />}
-        {frontEdit && showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} dark={backgroundMode === 'dark'} />}
+        {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} dark={backgroundMode === 'dark'} />}
         {frontEdit && placingType && hasComponent3DModel(placingType) && <PlacementPlane step={gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0} onPlace={(x, y) => {
           const step = gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0
           const snapTo = (value: number) => step ? Math.round(value / step) * step : Math.round(value)

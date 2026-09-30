@@ -1815,12 +1815,17 @@ button:disabled { cursor:not-allowed; }
 }
 
 /* HUD do esquema: leitura rápida sem três caixas a bloquear o canvas. */
-.panel3d-viewbar { position:absolute; z-index:12; top:10px; left:50%; display:flex; max-width:calc(100% - 24px); align-items:center; gap:3px; padding:4px; border:1px solid #cbd7e8; border-radius:8px; background:#fffffff0; box-shadow:0 4px 14px #243b6324; backdrop-filter:blur(8px); transform:translateX(-50%); overflow-x:auto; }
-.panel3d-viewbar button { flex:0 0 auto; height:24px; padding:0 7px; border:1px solid transparent; border-radius:5px; color:#53637b; background:transparent; font-size:9px; font-weight:700; cursor:pointer; }
+.panel3d-viewbar { position:absolute; z-index:12; top:10px; left:50%; display:flex; max-width:calc(100% - 24px); align-items:stretch; justify-content:center; gap:3px; padding:4px; border:1px solid #cbd7e8; border-radius:9px; background:#fffffff0; box-shadow:0 4px 14px #243b6324; backdrop-filter:blur(8px); transform:translateX(-50%); }
+.panel3d-viewbar-group { display:flex; min-width:0; align-items:center; gap:2px; padding:0 3px; border-right:1px solid #dbe3ee; }
+.panel3d-viewbar-group:last-child { border-right:0; }
+.panel3d-viewbar-label { padding:0 3px; color:#8996a9; font-size:7px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.panel3d-viewbar button { flex:0 0 auto; height:26px; padding:0 7px; border:1px solid transparent; border-radius:5px; color:#53637b; background:transparent; font-size:9px; font-weight:700; cursor:pointer; }
 .panel3d-viewbar button:hover,.panel3d-viewbar button.is-active { border-color:#b9cdf8; color:#1f55e0; background:#eef4ff; }
 .panel3d-viewbar button.is-edit-active { border-color:#2f6bff; color:#fff; background:#2f6bff; box-shadow:0 2px 6px #2563eb38; }
 .panel3d-viewbar button:disabled { cursor:not-allowed; opacity:.38; }
-.panel3d-viewbar-separator { width:1px; height:18px; flex:0 0 auto; margin-inline:2px; background:#d4ddeb; }
+.panel3d-stage[data-component-editing="true"] .panel3d-viewbar-label { display:none; }
+.panel3d-stage[data-component-editing="true"] .panel3d-viewbar button { padding-inline:5px; }
+.panel3d-stage[data-component-editing="true"] .panel3d-viewbar-group { padding-inline:1px; }
 .panel3d-edit-context { position:absolute; z-index:23; top:52px; left:50%; display:flex; max-width:calc(100% - 24px); min-height:32px; align-items:center; gap:6px; padding:4px 6px; overflow-x:auto; border:1px solid #bfcde0; border-radius:8px; color:#53637b; background:#fffffff2; box-shadow:0 4px 14px #243b6324; backdrop-filter:blur(8px); transform:translateX(-50%); scrollbar-width:thin; white-space:nowrap; }
 .panel3d-edit-context strong { color:#1e3a8a; font-size:9px; }
 .panel3d-edit-context span { font-size:9px; }
@@ -1831,7 +1836,25 @@ button:disabled { cursor:not-allowed; }
 .panel3d-edit-context button.is-danger { color:#b91c1c; }
 .panel3d-edit-context label { display:flex; align-items:center; gap:4px; color:#718096; font-size:8px; }
 .panel3d-edit-context label select { max-width:88px; }
-.panel3d-wire-context { max-width:calc(100% - 24px); }
+.panel3d-wire-context { display:block; width:min(720px,calc(100% - 24px)); max-width:none; padding:0; overflow:visible; white-space:normal; }
+.panel3d-wire-inspector { overflow:hidden; border-radius:8px; background:#fff; }
+.panel3d-wire-inspector > header { display:flex; min-height:38px; align-items:center; justify-content:space-between; gap:10px; padding:6px 9px; border-bottom:1px solid #dbe4ef; background:#f7f9fc; }
+.panel3d-wire-inspector > header > span { display:flex; min-width:0; flex-direction:column; gap:1px; }
+.panel3d-wire-inspector > header strong { color:#1e3a8a; font-size:10px; }
+.panel3d-wire-inspector > header small { color:#718096; font:600 8px ui-monospace,monospace; }
+.panel3d-wire-inspector > header i { flex:none; padding:3px 6px; border-radius:999px; color:#15803d; background:#dcfce7; font-size:7px; font-style:normal; font-weight:800; text-transform:uppercase; }
+.panel3d-wire-inspector > header i.is-dirty { color:#1d4ed8; background:#dbeafe; }
+.panel3d-wire-fields { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; padding:8px 9px; }
+.panel3d-edit-context .panel3d-wire-fields label { display:flex; min-width:0; align-items:stretch; flex-direction:column; gap:3px; color:#64748b; font-size:8px; }
+.panel3d-wire-fields label > span { font-weight:700; }
+.panel3d-edit-context .panel3d-wire-fields select,.panel3d-edit-context .panel3d-wire-fields button { width:100%; max-width:none; min-height:29px; font-size:9px; }
+.panel3d-wire-actions { display:flex; flex-wrap:wrap; gap:4px; padding:0 9px 8px; }
+.panel3d-edit-context .panel3d-wire-actions button { min-height:27px; font-size:8px; }
+.panel3d-wire-inspector > footer { display:flex; min-height:39px; align-items:center; justify-content:flex-end; gap:5px; padding:6px 9px; border-top:1px solid #dbe4ef; background:#f8fafc; }
+.panel3d-wire-inspector > footer span { margin-right:auto; color:#64748b; font-size:8px; white-space:normal; }
+.panel3d-wire-inspector > footer button { min-height:27px; }
+.panel3d-wire-inspector > footer button.is-primary { border-color:#2563eb; color:#fff; background:#2563eb; }
+.panel3d-wire-inspector > footer button.is-primary:hover:not(:disabled) { color:#fff; background:#1d4ed8; }
 .panel3d-model-badge { position:absolute; z-index:11; top:12px; left:12px; display:flex; max-width:260px; flex-direction:column; gap:1px; padding:7px 10px; border:1px solid #cbd7e8; border-radius:8px; color:#334155; background:#fffffff0; box-shadow:0 4px 14px #243b6320; backdrop-filter:blur(8px); pointer-events:none; }
 .panel3d-model-badge span { display:flex; align-items:center; gap:5px; color:#64748b; font:800 7px ui-monospace,monospace; letter-spacing:.08em; }
 .panel3d-model-badge span i { width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px #dcfce7; }
@@ -1848,8 +1871,14 @@ button:disabled { cursor:not-allowed; }
   .panel3d-viewbar { top:46px; left:calc(50% - 18px); max-width:calc(100% - 62px); gap:1px; padding:3px; scrollbar-width:none; }
   .panel3d-viewbar::-webkit-scrollbar { display:none; }
   .panel3d-viewbar button { height:27px; padding-inline:6px; font-size:8px; }
+  .panel3d-viewbar-group { padding-inline:1px; }
+  .panel3d-viewbar-label { display:none; }
   .panel3d-edit-context { top:86px; left:calc(50% - 18px); max-width:calc(100% - 62px); scrollbar-width:none; }
   .panel3d-edit-context::-webkit-scrollbar { display:none; }
+  .panel3d-wire-context { width:calc(100% - 62px); overflow:visible; }
+  .panel3d-wire-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .panel3d-wire-inspector > footer { flex-wrap:wrap; }
+  .panel3d-wire-inspector > footer span { width:100%; }
   .panel3d-tool-prefix { display:none; }
 }
 
@@ -2638,15 +2667,15 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .panel3d-stage { container: panel3d / inline-size; }
 
 @container panel3d (max-width: 980px) {
-  /* Barra de vistas numa 2.ª linha, sem tapar o botão Biblioteca nem o cubo (à direita). */
-  .panel3d-viewbar { top:52px; left:12px; transform:none; max-width:calc(100% - 176px); scrollbar-width:none; }
+  /* Barra de vistas numa 2.ª linha; o cubo só existe durante a edição de componente. */
+  .panel3d-viewbar { top:52px; left:12px; transform:none; max-width:calc(100% - 24px); overflow-x:auto; scrollbar-width:none; }
   .panel3d-viewbar::-webkit-scrollbar { display:none; }
-  .panel3d-edit-context { top:92px; left:12px; transform:none; max-width:calc(100% - 176px); scrollbar-width:none; }
+  .panel3d-edit-context { top:92px; left:12px; transform:none; max-width:calc(100% - 24px); scrollbar-width:none; }
   .panel3d-edit-context::-webkit-scrollbar { display:none; }
 }
 @container panel3d (max-width: 560px) {
-  .panel3d-stage .vcube-floating:not(.vcube-shifted) { width:104px; }
-  .panel3d-viewbar, .panel3d-edit-context { max-width:calc(100% - 152px); }
+  .panel3d-viewbar, .panel3d-edit-context { max-width:calc(100% - 24px); }
+  .panel3d-wire-context { width:calc(100% - 24px); }
 }
 
 /* Cubo compacto: em ecrãs estreitos ou baixos os atalhos Frente/ISO já existem na barra de vistas. */

@@ -135,6 +135,10 @@ export type TerminalKind =
   | 'analog'
   | 'bus'
 
+/** Domínio elétrico do borne. É opcional no objeto para que projetos antigos
+ * continuem válidos; a interface infere uma sugestão quando está omisso. */
+export type TerminalElectricalClass = 'dc' | 'ac' | 'network' | 'other'
+
 /** Um ponto de conexão físico/elétrico de um componente. */
 export interface Terminal {
   id: string
@@ -147,6 +151,10 @@ export interface Terminal {
   kind: TerminalKind
   /** Tipo físico do borne (editável no inspetor) */
   terminalType: TerminalType
+  /** AC, DC, rede ou outro. Omisso = sugestão inferida da ficha técnica. */
+  electricalClass?: TerminalElectricalClass
+  /** Designação livre quando a categoria é "outro" (ex.: contacto seco, PE). */
+  electricalClassCustom?: string
   /** Cor do borne no esquema 3D/2D (editável) */
   color: string
   /** Posição no footprint local do componente (0..1) */

@@ -11,8 +11,9 @@ import { componentTerminalLocal } from '../schematic/componentTerminalViews'
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL } from '../schematic/symbols'
 import { component3DDimensions, positionOnTerminalFace, terminal3DPositionOf, type Terminal3DFace } from '../three/terminal3D'
 import { ViewCubeDial, orientationFacingFace, type ViewCubeCorner } from './ViewCube'
-import { IconCube, IconProbe, IconRotate, IconSave } from '../ui/icons'
-import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent, TerminalKind, TerminalType } from '../types'
+import { IconCube, IconDelete, IconPlus, IconProbe, IconRotate, IconSave } from '../ui/icons'
+import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent, TerminalElectricalClass, TerminalKind, TerminalType } from '../types'
+import { inferTerminalElectricalClass, terminalDatasheetGuidance, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 
 const PRESETS: Array<{ id: ComponentViewPreset; label: string }> = [
   { id: 'isometric', label: 'Isométrica' },
@@ -72,12 +73,22 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
   const setPosition = useSimStore((state) => state.setViewTerminalPosition)
   const autoPlace = useSimStore((state) => state.autoPlaceViewTerminals)
   const setDefinition = useSimStore((state) => state.setViewTerminalDefinition)
+  const addTerminal = useSimStore((state) => state.addViewTerminal)
+  const deleteTerminal = useSimStore((state) => state.deleteViewTerminal)
   const setActiveTerminal = useSimStore((state) => state.setViewActiveTerminal)
   const setTracking = useSimStore((state) => state.setViewTracking)
   const setDiameter = useSimStore((state) => state.setViewTerminalDiameter)
   const nudge = useSimStore((state) => state.nudgeViewTerminal)
+  const wires = useSimStore((state) => state.wires)
   const mapRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerId: number; terminalId: string } | null>(null)
+  const [newLabel, setNewLabel] = useState('')
+  const [newName, setNewName] = useState('')
+  const [newKind, setNewKind] = useState<TerminalKind>('io')
+  const [newType, setNewType] = useState<TerminalType>('screw')
+  const [newClass, setNewClass] = useState<TerminalElectricalClass>('other')
+  const [newCustomClass, setNewCustomClass] = useState('')
+  const [classOverridden, setClassOverridden] = useState(false)
   const selectedTerminalId = editor.activeTerminalId ?? component.terminals[0]?.id ?? ''
   const viewKey = componentTerminalViewKey(draft)
   const viewLabel = PRESETS.find((preset) => preset.id === viewKey)?.label ?? 'Personalizada'
@@ -95,10 +106,40 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
   const selectedPosition3D = selectedTerminal ? terminal3DPositionOf(selectedTerminal) : undefined
   const dotSize = Math.max(6, Math.min(22, Math.round(editor.trackingDiameter * 0.75)))
   const manualCount = Object.keys(editor.terminalViewPositions[viewKey] ?? {}).length
+  const suggestedClass = inferTerminalElectricalClass(component, {
+    id: 'new-terminal', componentId: component.id, label: newLabel.trim() || 'X', kind: newKind,
+    terminalType: newType, color: '#64748b', x: 0.5, y: 0.5, energized: false,
+  })
+  const duplicateNewLabel = !!newLabel.trim() && component.terminals.some((terminal) => terminal.label.toLocaleUpperCase() === newLabel.trim().toLocaleUpperCase())
 
   useEffect(() => {
     if (!component.terminals.some((terminal) => terminal.id === selectedTerminalId)) setActiveTerminal(component.terminals[0]?.id ?? null)
   }, [component.id, component.terminals, selectedTerminalId, setActiveTerminal])
+  useEffect(() => {
+    if (!classOverridden) setNewClass(suggestedClass)
+  }, [classOverridden, suggestedClass])
+  useEffect(() => {
+    setNewLabel('')
+    setNewName('')
+    setNewCustomClass('')
+    setClassOverridden(false)
+  }, [component.id])
+
+  const createTerminal = () => {
+    const label = newLabel.trim()
+    if (!label || duplicateNewLabel) return
+    addTerminal({ label, displayName: newName.trim() || undefined, kind: newKind, terminalType: newType, electricalClass: newClass, electricalClassCustom: newClass === 'other' ? newCustomClass.trim() || undefined : undefined, color: '#64748b' })
+    setNewLabel('')
+    setNewName('')
+    setNewCustomClass('')
+    setClassOverridden(false)
+  }
+  const removeSelectedTerminal = () => {
+    if (!selectedTerminal) return
+    const connected = wires.filter((wire) => wire.fromTerminalId === selectedTerminal.id || wire.toTerminalId === selectedTerminal.id).length
+    if (connected > 0 && !window.confirm(`O borne ${selectedTerminal.label} tem ${connected} cabo(s). Ao Aplicar, esses cabos serão removidos. Continuar?`)) return
+    deleteTerminal(selectedTerminal.id)
+  }
 
   const moveFromPointer = (event: ReactPointerEvent<HTMLElement>, terminalId: string) => {
     const rect = mapRef.current?.getBoundingClientRect()
@@ -110,9 +151,23 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
 
   return <div className="component-terminal-editor">
     <div className="component-terminal-editor-title">
-      <span><strong>Posicionar bornes</strong><small>Vista: {viewLabel}</small></span>
-      <button type="button" onClick={autoPlace} title="Projetar automaticamente os bornes nesta vista"><IconRotate size={11} />Rastrear automaticamente</button>
+      <span><strong>Definir e posicionar bornes</strong><small>Vista: {viewLabel}</small></span>
+      <button type="button" onClick={autoPlace} disabled={component.terminals.length === 0} title="Projetar automaticamente os bornes nesta vista"><IconRotate size={11} />Rastrear automaticamente</button>
     </div>
+    <form className="component-terminal-create" onSubmit={(event) => { event.preventDefault(); createTerminal() }}>
+      <div className="component-terminal-create-head"><span><IconPlus size={12} /><strong>Adicionar borne</strong></span><small>{terminalDatasheetGuidance(component)}</small></div>
+      <div className="component-terminal-create-grid">
+        <label><span>Identificação *</span><input value={newLabel} placeholder="Ex.: A1, L+, ETH" onChange={(event) => setNewLabel(event.target.value)} aria-invalid={duplicateNewLabel} /></label>
+        <label><span>Nome visível</span><input value={newName} placeholder="Opcional" onChange={(event) => setNewName(event.target.value)} /></label>
+        <label><span>Função elétrica</span><select value={newKind} onChange={(event) => setNewKind(event.target.value as TerminalKind)}>{Object.entries(TERMINAL_KIND_LABEL).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</select></label>
+        <label><span>Categoria elétrica</span><select value={newClass} onChange={(event) => { setNewClass(event.target.value as TerminalElectricalClass); setClassOverridden(true) }}>{Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+        {newClass === 'other' && <label><span>Designação personalizada</span><input value={newCustomClass} placeholder="Ex.: PE, contacto seco" onChange={(event) => setNewCustomClass(event.target.value)} /></label>}
+        <label><span>Tipo físico</span><select value={newType} onChange={(event) => setNewType(event.target.value as TerminalType)}>{Object.entries(TERMINAL_TYPE_LABEL).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</select></label>
+        <button type="submit" className="dc-btn-primary dc-btn" disabled={!newLabel.trim() || duplicateNewLabel}><IconPlus size={12} />Criar borne</button>
+      </div>
+      {duplicateNewLabel && <small className="component-terminal-create-error">Já existe um borne com esta identificação.</small>}
+      <small className="component-terminal-create-suggestion">Sugestão atual: <strong>{TERMINAL_ELECTRICAL_CLASS_LABEL[suggestedClass]}</strong>. A ficha técnica orienta a sugestão; confirme antes de aplicar.</small>
+    </form>
     <div className="component-terminal-view-buttons" aria-label="Escolher vista para posicionar bornes">
       {PRESETS.map((preset) => <button
         type="button"
@@ -146,6 +201,7 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
       onPointerCancel={() => { dragRef.current = null }}
     >
       <div className="component-terminal-map-body"><span>modelo 3D · {component.ref}</span></div>
+      {component.terminals.length === 0 && <div className="component-terminal-empty"><IconProbe size={18} /><strong>Sem bornes definidos</strong><span>Crie o primeiro borne acima e posicione-o nesta vista ou diretamente no 3D.</span></div>}
       {component.terminals.map((terminal) => {
         const position = positions[terminal.id]
         if (!position) return null
@@ -192,11 +248,13 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
       /></label>)}
     </div>
     {selectedTerminal && selectedPosition3D && <div className="component-terminal-definition">
-      <div className="component-terminal-definition-title"><strong>Definição do borne</strong><span>{selectedTerminal.energized ? '● Energizado' : '○ Sem tensão'}</span></div>
+      <div className="component-terminal-definition-title"><strong>Definição do borne</strong><span>{selectedTerminal.energized ? '● Energizado' : '○ Sem tensão'}</span><button type="button" className="component-terminal-delete" onClick={removeSelectedTerminal} title={`Remover borne ${selectedTerminal.label}`}><IconDelete size={12} />Remover</button></div>
       <div className="component-terminal-definition-grid">
         <label><span>Identificação</span><input value={selectedTerminal.label} onChange={(event) => setDefinition(selectedTerminal.id, { label: event.target.value })} /></label>
         <label><span>Nome visível</span><input value={selectedTerminal.displayName ?? ''} placeholder={selectedTerminal.label} onChange={(event) => setDefinition(selectedTerminal.id, { displayName: event.target.value || undefined })} /></label>
         <label><span>Função elétrica</span><select value={selectedTerminal.kind} onChange={(event) => setDefinition(selectedTerminal.id, { kind: event.target.value as TerminalKind })}>{Object.entries(TERMINAL_KIND_LABEL).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</select></label>
+        <label><span>Categoria elétrica</span><select value={selectedTerminal.electricalClass ?? inferTerminalElectricalClass(component, selectedTerminal)} onChange={(event) => setDefinition(selectedTerminal.id, { electricalClass: event.target.value as TerminalElectricalClass, electricalClassCustom: event.target.value === 'other' ? selectedTerminal.electricalClassCustom : undefined })}>{Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select><small>{selectedTerminal.electricalClass ? 'Definida manualmente' : 'Sugerida pela ficha técnica'}</small></label>
+        {(selectedTerminal.electricalClass ?? inferTerminalElectricalClass(component, selectedTerminal)) === 'other' && <label><span>Designação personalizada</span><input value={selectedTerminal.electricalClassCustom ?? ''} placeholder="Ex.: PE, contacto seco" onChange={(event) => setDefinition(selectedTerminal.id, { electricalClassCustom: event.target.value || undefined })} /></label>}
         <label><span>Tipo físico</span><select value={selectedTerminal.terminalType} onChange={(event) => setDefinition(selectedTerminal.id, { terminalType: event.target.value as TerminalType })}>{Object.entries(TERMINAL_TYPE_LABEL).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</select></label>
         <label className="component-terminal-color"><span>Cor</span><input type="color" value={selectedTerminal.color} onChange={(event) => setDefinition(selectedTerminal.id, { color: event.target.value })} /></label>
       </div>
@@ -282,7 +340,7 @@ export default function ComponentViewEditor() {
     if (!selected) return null
     return <div className="component-view-command">
       <button type="button" onClick={() => open(selected.id)} title={`Editar componente 3D ${selected.ref}`}><IconCube size={14} />Editar componente 3D</button>
-      {selected.terminals.length > 0 && <button type="button" onClick={() => open(selected.id, 'terminals')} title={`Mover, redimensionar e renomear os bornes de ${selected.ref} diretamente no desenho`}><IconProbe size={14} />Editar bornes</button>}
+      <button type="button" onClick={() => open(selected.id, 'terminals')} title={`Adicionar, classificar e posicionar os bornes de ${selected.ref}`}><IconProbe size={14} />{selected.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'}</button>
     </div>
   }
   if (!component) return null
@@ -333,7 +391,7 @@ export default function ComponentViewEditor() {
 
       <label className="component-view-default"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} /><span>Guardar apresentação como padrão<small>Novas instâncias usarão orientação, escala, renderização e mapas de bornes.</small></span></label>
       {!hasComponent3DModel(component.type) && <p className="component-view-warning">Este tipo não dispõe de GLB e permanece bloqueado para novas inserções.</p>}
-      <p className="component-view-note">IDs dos bornes, fios, posição elétrica do componente, referências e GLB de origem permanecem intactos. Só os campos de borne explicitamente editados são alterados.</p>
+      <p className="component-view-note">A edição é individual: posições 2D/3D, referências, dados elétricos e GLB de origem não mudam. Bornes existentes conservam o ID; ao aplicar uma remoção, apenas os cabos ligados ao borne eliminado são limpos em segurança.</p>
 
       <footer>
         <button type="button" className="dc-btn" onClick={cancel}>Cancelar</button>

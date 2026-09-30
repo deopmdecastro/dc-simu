@@ -31,6 +31,7 @@ import { wireEnergyEffectVisible } from '../src/three/panel3DEditing'
 import * as THREE from 'three'
 import { automaticTerminalViewPositions, componentTerminalLocal, projectedComponentBounds } from '../src/schematic/componentTerminalViews'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
+import { inferTerminalElectricalClass, terminalClassesCompatible, terminalElectricalClassOf } from '../src/electrical/terminalClassification'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import { fixedAccountEmails, isFixedAccount, localApi, verifyFixedCredentials } from '../src/auth/localBackend'
 import { accountApi, readableApiError } from '../src/auth/accountApi'
@@ -774,6 +775,49 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const savedPilot = JSON.parse(useSimStore.getState().saveJSON()).components.find((component: ElectricalComponent) => component.id === pilotId)
   check('cor escolhida para o AD22 persiste no projeto', savedPilot?.state.color === '#22c55e')
   useSimStore.getState().deleteComponents([pilotId])
+}
+
+/* Bornes classificados pela ficha e gestão completa no rascunho do editor. */
+{
+  const logo = createComponent('plcSiemensLogo1224RC')
+  const source = createComponent('powerSupplyProauto24A')
+  const motor = createComponent('motor3ph')
+  check('classificação inferida distingue DC, AC, rede e contactos secos',
+    terminalElectricalClassOf(logo, terminalByLabel(logo, 'L+')!) === 'dc'
+    && terminalElectricalClassOf(logo, terminalByLabel(logo, 'Q1')!) === 'other'
+    && terminalElectricalClassOf(source, terminalByLabel(source, 'L')!) === 'ac'
+    && terminalElectricalClassOf(source, terminalByLabel(source, '+V1')!) === 'dc'
+    && terminalElectricalClassOf(motor, terminalByLabel(motor, 'PE')!) === 'other')
+  check('classificação explícita tem prioridade e incompatibilidades são detetadas',
+    terminalElectricalClassOf(logo, { ...terminalByLabel(logo, 'L+')!, electricalClass: 'network' }) === 'network'
+    && !terminalClassesCompatible('ac', 'dc') && !terminalClassesCompatible('network', 'dc')
+    && terminalClassesCompatible('other', 'ac')
+    && inferTerminalElectricalClass(logo, { ...terminalByLabel(logo, 'L+')!, label: 'ETH', kind: 'bus' }) === 'network')
+
+  const beforeComponents = useSimStore.getState().components
+  const beforeWires = useSimStore.getState().wires
+  const edited = createComponent('breakerWegMdwC10')
+  const peer = createComponent('breakerWegMdwC10')
+  const removedId = edited.terminals[0].id
+  const linked: Wire = { id: 'draft-terminal-wire', fromTerminalId: removedId, toTerminalId: peer.terminals[0].id, color: 'black', gauge: '1.5mm²', kind: 'power', flexibility: 'rigid', route: 'direct', bend: 0.5, energized: false }
+  useSimStore.setState({ components: [...beforeComponents, edited, peer], wires: [...beforeWires, linked] })
+  useSimStore.getState().openViewOrientationEditor(edited.id, 'terminals')
+  useSimStore.getState().addViewTerminal({ label: 'NET1', kind: 'bus', terminalType: 'plug', electricalClass: 'network', position3D: { x: 0.8, y: 0.25, z: 1 } })
+  const draftNewId = useSimStore.getState().viewOrientationEditor?.terminals.find((terminal) => terminal.label === 'NET1')?.id
+  useSimStore.getState().deleteViewTerminal(removedId)
+  useSimStore.getState().applyViewOrientationEditor(false)
+  const applied = useSimStore.getState().components.find((component) => component.id === edited.id)
+  check('Aplicar persiste a lista completa de bornes, incluindo novos e removidos', !!draftNewId
+    && applied?.terminals.some((terminal) => terminal.id === draftNewId && terminal.electricalClass === 'network' && terminal.position3D?.z === 1)
+    && !applied?.terminals.some((terminal) => terminal.id === removedId))
+  check('remover borne no editor limpa apenas cabos que ficaram inválidos', !useSimStore.getState().wires.some((wire) => wire.id === linked.id)
+    && beforeWires.every((wire) => useSimStore.getState().wires.some((current) => current.id === wire.id)))
+  const countAfterApply = applied?.terminals.length ?? 0
+  useSimStore.getState().openViewOrientationEditor(edited.id, 'terminals')
+  useSimStore.getState().addViewTerminal({ label: 'CANCEL', electricalClass: 'dc' })
+  useSimStore.getState().cancelViewOrientationEditor()
+  check('Cancelar descarta borne criado no rascunho', useSimStore.getState().components.find((component) => component.id === edited.id)?.terminals.length === countAfterApply)
+  useSimStore.setState({ components: beforeComponents, wires: beforeWires, viewOrientationEditor: null })
 }
 
 /* Orientação visual por instância: isolada da lógica e persistida no projeto. */

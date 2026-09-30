@@ -25,6 +25,7 @@ import type {
   ProbeResult,
 } from '../types'
 import { logoElectricalInputs } from '../electrical/logoPower'
+import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
@@ -173,6 +174,9 @@ interface Store extends CircuitState {
   setViewTerminalPosition3D: (terminalId: string, position: Terminal3DPosition) => void
   setViewOrientationDraft: (orientation: ComponentViewOrientation) => void
   setViewTerminalPosition: (terminalId: string, position: ComponentTerminalViewPosition) => void
+  /** Cria/remove bornes apenas no rascunho. Aplicar confirma; Cancelar não altera o projeto. */
+  addViewTerminal: (initial?: Partial<Pick<Terminal, 'label' | 'displayName' | 'kind' | 'terminalType' | 'electricalClass' | 'electricalClassCustom' | 'color' | 'x' | 'y' | 'position3D' | 'diameter'>>) => void
+  deleteViewTerminal: (terminalId: string) => void
   setViewTerminalDefinition: (terminalId: string, patch: Partial<Terminal>) => void
   setViewActiveTerminal: (terminalId: string | null) => void
   setViewTracking: (patch: { trackingDiameter?: number; trackingLabels?: 'all' | 'active' | 'off' }) => void
@@ -918,6 +922,55 @@ export const useSimStore = create<Store>((set, get) => ({
       },
     }
   }),
+  addViewTerminal: (initial = {}) => set((state) => {
+    const editor = state.viewOrientationEditor
+    if (!editor) return {}
+    const usedLabels = new Set(editor.terminals.map((terminal) => terminal.label.toLocaleUpperCase()))
+    let ordinal = editor.terminals.length + 1
+    while (usedLabels.has(`X${ordinal}`)) ordinal += 1
+    const label = initial.label?.trim() || `X${ordinal}`
+    const terminal = {
+      ...createTerminal(editor.componentId, label, initial.kind ?? 'io', initial.x ?? 0.5, initial.y ?? 0.5),
+      ...initial,
+      label,
+      id: `${editor.componentId}-${label}-${nanoid(6)}`,
+      componentId: editor.componentId,
+      position3D: initial.position3D ? normalizeTerminal3DPosition(initial.position3D, { x: 0.5, y: 0.5, z: 1 }) : { x: 0.5, y: 0.5, z: 1 },
+      energized: false,
+    }
+    return {
+      viewOrientationEditor: {
+        ...editor,
+        terminals: [...editor.terminals, terminal],
+        activeTerminalId: terminal.id,
+      },
+    }
+  }),
+  deleteViewTerminal: (terminalId) => set((state) => {
+    const editor = state.viewOrientationEditor
+    const terminalIndex = editor?.terminals.findIndex((terminal) => terminal.id === terminalId) ?? -1
+    const removed = terminalIndex >= 0 ? editor?.terminals[terminalIndex] : undefined
+    if (!editor || !removed) return {}
+    const terminals = editor.terminals.filter((terminal) => terminal.id !== terminalId)
+    // Converte chaves legadas por índice/rótulo em IDs antes da remoção, para
+    // que os mapas das restantes peças não mudem de dono quando o índice fecha.
+    const terminalViewPositions = Object.fromEntries(Object.entries(editor.terminalViewPositions).map(([view, positions]) => [
+      view,
+      Object.fromEntries(Object.entries(positions).map(([key, position]) => {
+        const indexed = key.startsWith('index:') ? editor.terminals[Number(key.slice(6))] : undefined
+        const labelled = key.startsWith('label:') ? editor.terminals.find((terminal) => terminal.label === key.slice(6)) : undefined
+        return [indexed?.id ?? labelled?.id ?? key, position] as const
+      }).filter(([key]) => key !== terminalId)),
+    ]))
+    return {
+      viewOrientationEditor: {
+        ...editor,
+        terminals,
+        terminalViewPositions,
+        activeTerminalId: editor.activeTerminalId === terminalId ? (terminals[0]?.id ?? null) : editor.activeTerminalId,
+      },
+    }
+  }),
   setViewTerminalDefinition: (terminalId, patch) => set((state) => {
     const editor = state.viewOrientationEditor
     if (!editor) return {}
@@ -1013,7 +1066,7 @@ export const useSimStore = create<Store>((set, get) => ({
     get().commitHistory()
     if (saveAsDefault) {
       saveDefaultComponentOrientation(component.type, orientation)
-      const terminalIndexes = new Map(component.terminals.map((terminal, index) => [terminal.id, index]))
+      const terminalIndexes = new Map(terminalDrafts.map((terminal, index) => [terminal.id, index]))
       const reusablePositions = Object.fromEntries(Object.entries(terminalViewPositions).map(([view, positions]) => [view,
         Object.fromEntries(Object.entries(positions).map(([terminalId, position]) => {
           const index = terminalIndexes.get(terminalId)
@@ -1023,6 +1076,9 @@ export const useSimStore = create<Store>((set, get) => ({
       saveDefaultComponentTerminalViewPositions(component.type, reusablePositions)
       saveDefaultComponent3DPresentation(component.type, { scale: scale3D, renderMode: renderMode3D, bodyColor: bodyColor3D })
     }
+    const validTerminalIds = new Set(terminalDrafts.map((terminal) => terminal.id))
+    const removedTerminalIds = new Set(component.terminals.map((terminal) => terminal.id).filter((id) => !validTerminalIds.has(id)))
+    const removedWireCount = get().wires.filter((wire) => removedTerminalIds.has(wire.fromTerminalId) || removedTerminalIds.has(wire.toTerminalId)).length
     set((state) => ({
       components: state.components.map((item) => item.id === component.id ? {
         ...item,
@@ -1031,15 +1087,26 @@ export const useSimStore = create<Store>((set, get) => ({
         view3DScale: scale3D,
         view3DRenderMode: renderMode3D,
         bodyColor: bodyColor3D,
-        terminals: item.terminals.map((terminal) => {
-          const draft = terminalDrafts.find((candidate) => candidate.id === terminal.id)
-          return draft ? { ...draft, id: terminal.id, componentId: terminal.componentId, energized: terminal.energized } : terminal
+        // O rascunho é a lista completa: preserva os novos bornes e confirma remoções.
+        terminals: terminalDrafts.map((draft) => {
+          const current = item.terminals.find((terminal) => terminal.id === draft.id)
+          return {
+            ...draft,
+            componentId: item.id,
+            energized: current?.energized ?? false,
+          }
         }),
       } : item),
+      wires: removedTerminalIds.size > 0
+        ? state.wires.filter((wire) => !removedTerminalIds.has(wire.fromTerminalId) && !removedTerminalIds.has(wire.toTerminalId))
+        : state.wires,
+      selectedWireId: state.selectedWireId && state.wires.some((wire) => wire.id === state.selectedWireId && !removedTerminalIds.has(wire.fromTerminalId) && !removedTerminalIds.has(wire.toTerminalId)) ? state.selectedWireId : null,
+      selectedTerminalId: state.selectedTerminalId && validTerminalIds.has(state.selectedTerminalId) ? state.selectedTerminalId : null,
       viewOrientationEditor: null,
       dirty: true,
     }))
     get().pushEvent('info', `Componente 3D ${component.ref} guardado${saveAsDefault ? ' como padrão do componente' : ''}.`)
+    if (removedWireCount > 0) get().pushEvent('warning', `${removedWireCount} cabo(s) ligado(s) a bornes removidos foram eliminados em segurança.`)
   },
   wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'rigid', endType: 'ferrule' },
   setWireDefaults: (patch) => set((s) => ({ wireDefaults: { ...s.wireDefaults, ...patch } })),
@@ -1285,6 +1352,8 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   updateTerminal: (terminalId, patch) => {
+    const fields = Object.keys(patch).sort().join(',') || 'definition'
+    if (shouldCommitGroupedEdit(`terminal:${terminalId}:${fields}`)) get().commitHistory()
     set((s) => ({
       components: s.components.map((c) => ({
         ...c,
@@ -1292,6 +1361,7 @@ export const useSimStore = create<Store>((set, get) => ({
       })),
       dirty: true,
     }))
+    get().step()
   },
 
   deleteTerminal: (terminalId) => {
@@ -1336,8 +1406,8 @@ export const useSimStore = create<Store>((set, get) => ({
     // heurística: cabo entre polos de força = 'power'; entre N/PE = neutral/earth
     const labelOf = (tid: string) => {
       for (const c of get().components) {
-        const t = c.terminals.find((x) => x.id === tid)
-        if (t) return { kind: t.kind, comp: c }
+        const terminal = c.terminals.find((candidate) => candidate.id === tid)
+        if (terminal) return { kind: terminal.kind, terminal, comp: c, electricalClass: terminalElectricalClassOf(c, terminal) }
       }
       return null
     }
@@ -1347,12 +1417,16 @@ export const useSimStore = create<Store>((set, get) => ({
     if (a?.kind === 'neutral' || b?.kind === 'neutral') wire.kind = 'neutral'
     if (a?.kind === 'earth' || b?.kind === 'earth') wire.kind = 'earth'
     if (a?.kind === 'io' || b?.kind === 'io') wire.kind = 'signal'
+    if (a?.electricalClass === 'network' || b?.electricalClass === 'network') wire.kind = 'bus'
     // cor automática pela função (IEC 60204-1): força preto, comando vermelho,
     // neutro azul-claro, PE verde-amarelo, sinal laranja, bus violeta
     if (!color && defs.autoColor) wire.color = WIRE_KIND_COLOR[wire.kind]
 
     set((s) => ({ wires: [...s.wires, wire], selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo ${wire.number} criado (${a?.comp.ref ?? '?'} → ${b?.comp.ref ?? '?'}).`)
+    if (a && b && !terminalClassesCompatible(a.electricalClass, b.electricalClass)) {
+      get().pushEvent('warning', `Verifique ${wire.number}: ${TERMINAL_ELECTRICAL_CLASS_LABEL[a.electricalClass]} ligado a ${TERMINAL_ELECTRICAL_CLASS_LABEL[b.electricalClass]}.`)
+    }
     get().step()
   },
 

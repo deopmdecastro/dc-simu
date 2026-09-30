@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { disabledReason, useComponentSettings } from '../admin/componentSettings'
 import { paletteGroups, TEMPLATES } from '../electrical/factory'
-import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../types'
+import type { ComponentType, TerminalElectricalClass, TerminalKind, TerminalType, Wire, WireColor } from '../types'
 import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
+import { terminalClassesCompatible, terminalDatasheetGuidance, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import LabelLibrary from './LabelLibrary'
 import DatasheetPanel from './DatasheetPanel'
 import { terminalConnections } from '../schematic/terminalConnections'
@@ -167,9 +168,44 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   const selectedWire = wires.find((w) => w.id === selectedWireId)
   const wireFromTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.fromTerminalId) : undefined
   const wireToTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.toTerminalId) : undefined
+  const wireFromOwner = wireFromTerminal ? components.find((component) => component.id === wireFromTerminal.componentId) : undefined
+  const wireToOwner = wireToTerminal ? components.find((component) => component.id === wireToTerminal.componentId) : undefined
+  const wireFromClass = wireFromOwner && wireFromTerminal ? terminalElectricalClassOf(wireFromOwner, wireFromTerminal) : undefined
+  const wireToClass = wireToOwner && wireToTerminal ? terminalElectricalClassOf(wireToOwner, wireToTerminal) : undefined
+  const wireClassCompatible = !wireFromClass || !wireToClass || terminalClassesCompatible(wireFromClass, wireToClass)
   const selectedTerminal = components.flatMap((c) => c.terminals).find((t) => t.id === selectedTerminalId)
   const terminalOwner = selectedTerminal ? components.find((c) => c.id === selectedTerminal.componentId) : undefined
   const connections = selectedTerminal ? terminalConnections(selectedTerminal.id, components, wires) : []
+  const wireEditBaselineRef = useRef<{ id: string; wire: Wire } | null>(null)
+  const [wireEditDirty, setWireEditDirty] = useState(false)
+
+  useEffect(() => {
+    wireEditBaselineRef.current = selectedWire ? { id: selectedWire.id, wire: structuredClone(selectedWire) } : null
+    setWireEditDirty(false)
+  }, [selectedWire?.id])
+
+  const patchSelectedWire = (patch: Partial<Wire>) => {
+    if (!selectedWire) return
+    const store = useSimStore.getState()
+    if (!wireEditDirty) store.commitHistory()
+    store.updateWire(selectedWire.id, patch)
+    setWireEditDirty(true)
+  }
+  const saveWireChanges = () => {
+    if (!selectedWire) return
+    const current = useSimStore.getState().wires.find((wire) => wire.id === selectedWire.id)
+    if (current) wireEditBaselineRef.current = { id: current.id, wire: structuredClone(current) }
+    setWireEditDirty(false)
+    useSimStore.getState().pushEvent('info', `Alterações do cabo ${selectedWire.number ?? selectedWire.id} guardadas no projeto.`)
+  }
+  const cancelWireChanges = () => {
+    const baseline = wireEditBaselineRef.current
+    if (!baseline) return
+    useSimStore.getState().updateWire(baseline.id, structuredClone(baseline.wire))
+    useSimStore.getState().step()
+    setWireEditDirty(false)
+    useSimStore.getState().pushEvent('info', 'Edição do cabo cancelada; os valores anteriores foram repostos.')
+  }
 
   const placingType = useSimStore((s) => s.placingType)
   const canInsert = (type: ComponentType) => hasComponent3DModel(type) && !(type in disabledComponents)
@@ -469,8 +505,9 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
               <details className="dc-inspector-group" open><summary>Bornes <span className="dc-inspector-count">{selectedComponent.terminals.length}</span></summary><div className="dc-inspector-group-body">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] text-ink-400">Ligação e identificação</span>
-                  <button className="dc-btn !h-5 !px-1.5 !text-[10px]" onClick={() => useSimStore.getState().addTerminal(selectedComponent.id)}><IconPlus size={10} /> borne</button>
+                  <button className="dc-btn !h-6 !px-2 !text-[10px]" title="Adicionar e classificar segundo a ficha técnica" onClick={() => useSimStore.getState().openViewOrientationEditor(selectedComponent.id, 'terminals')}><IconPlus size={10} /> Adicionar borne</button>
                 </div>
+                <p className="mb-2 rounded-md border border-blue-100 bg-blue-50/70 px-2 py-1.5 text-[9px] leading-4 text-blue-800">{terminalDatasheetGuidance(selectedComponent)}</p>
                 <div className="flex flex-col gap-1">
                   {selectedComponent.terminals.map((t) => (
                     <div key={t.id} className={`dc-inspector-terminal rounded-[7px] border px-2 py-2 transition-colors ${t.energized ? 'border-emerald-300 bg-state-runbg/60' : 'border-line bg-white'}`}>
@@ -509,6 +546,13 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                           useSimStore.getState().deleteTerminal(t.id)
                         }}>✕</button>
                       </div>
+                      <label className="mt-1.5 flex min-w-0 flex-col gap-0.5 text-[9px] text-ink-400"><span>Categoria elétrica {t.electricalClass ? '· definida' : '· sugestão da ficha'}</span><select
+                        className="dc-select !h-[26px] !text-[10px]"
+                        aria-label={`Categoria elétrica do borne ${t.label}`}
+                        value={terminalElectricalClassOf(selectedComponent, t)}
+                        onChange={(e) => useSimStore.getState().updateTerminal(t.id, { electricalClass: e.target.value as TerminalElectricalClass, electricalClassCustom: e.target.value === 'other' ? t.electricalClassCustom : undefined })}
+                      >{Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, classLabel]) => <option key={id} value={id}>{classLabel}</option>)}</select></label>
+                      {terminalElectricalClassOf(selectedComponent, t) === 'other' && <label className="mt-1 flex min-w-0 flex-col gap-0.5 text-[9px] text-ink-400"><span>Designação personalizada</span><input className="dc-input !h-[26px] !text-[10px]" value={t.electricalClassCustom ?? ''} placeholder="Ex.: PE, contacto seco" onChange={(e) => useSimStore.getState().updateTerminal(t.id, { electricalClassCustom: e.target.value || undefined })} /></label>}
                       <div className="dc-inspector-terminal-details">
                         <label><span>Tipo</span><select
                           className="dc-select !h-[24px] !text-[10px]"
@@ -543,6 +587,25 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 </span>
               </header>
 
+              <div className={`rounded-md border px-2 py-2 ${wireEditDirty ? 'border-blue-200 bg-blue-50' : 'border-emerald-200 bg-emerald-50/70'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[9px] leading-4 text-ink-500">{wireEditDirty ? 'Pré-visualização aplicada ao Esquema e 3D.' : 'Cabo sincronizado com o projeto.'}</span>
+                  <div className="flex gap-1">
+                    <button type="button" className="dc-btn !h-6 !px-2 !text-[9px]" disabled={!wireEditDirty} onClick={cancelWireChanges}>Cancelar</button>
+                    <button type="button" className="dc-btn-primary dc-btn !h-6 !px-2 !text-[9px]" disabled={!wireEditDirty} onClick={saveWireChanges}>Guardar cabo</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`rounded-md border px-2 py-2 text-[9px] ${wireClassCompatible ? 'border-line bg-surface-sunken/50 text-ink-500' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>
+                <div className="flex items-center justify-between gap-2"><strong>Compatibilidade elétrica</strong><span>{wireClassCompatible ? '✓ coerente' : '⚠ verificar'}</span></div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {wireFromTerminal && wireFromClass && <span className="dc-chip">{wireFromOwner?.ref}.{wireFromTerminal.label} · {TERMINAL_ELECTRICAL_CLASS_LABEL[wireFromClass]}</span>}
+                  {wireToTerminal && wireToClass && <span className="dc-chip">{wireToOwner?.ref}.{wireToTerminal.label} · {TERMINAL_ELECTRICAL_CLASS_LABEL[wireToClass]}</span>}
+                </div>
+                {!wireClassCompatible && <p className="mt-1">As categorias AC, DC e Rede não devem ser ligadas diretamente. Confirme a ficha técnica e a função do circuito.</p>}
+              </div>
+
               <LayerButtons />
 
               <div>
@@ -552,11 +615,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                     <button
                       key={name}
                       title={name}
-                      onClick={() => {
-                        const st = useSimStore.getState()
-                        st.commitHistory()
-                        st.updateWire(selectedWire.id, { color: name as WireColor })
-                      }}
+                      onClick={() => patchSelectedWire({ color: name as WireColor })}
                       className={`h-[22px] w-[22px] rounded-full border-2 transition-transform hover:scale-110 ${
                         selectedWire.color === name ? 'border-brand-600 ring-2 ring-brand-200 scale-110' : 'border-white shadow-[0_0_0_1px_rgba(0,0,0,0.15)]'
                       }`}
@@ -573,7 +632,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={label}>Seção</label>
-                  <select className="dc-select" value={selectedWire.gauge} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { gauge: e.target.value })}>
+                  <select className="dc-select" value={selectedWire.gauge} onChange={(e) => patchSelectedWire({ gauge: e.target.value })}>
                     {GAUGES.map((g) => (
                       <option key={g} value={g}>{g}</option>
                     ))}
@@ -583,10 +642,8 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   <label className={label}>Tipo / função</label>
                   <select className="dc-select" value={selectedWire.kind} onChange={(e) => {
                     const kind = e.target.value as keyof typeof WIRE_KIND_COLOR
-                    const st = useSimStore.getState()
-                    st.commitHistory()
                     // cor normalizada pela função (IEC 60204-1) — pode ser alterada depois na paleta
-                    st.updateWire(selectedWire.id, { kind, color: WIRE_KIND_COLOR[kind] })
+                    patchSelectedWire({ kind, color: WIRE_KIND_COLOR[kind] })
                   }}>
                     {Object.entries(WIRE_KIND_LABEL).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
@@ -599,11 +656,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                     {([['flexible', 'Flexível', 'multifilar · curvas suaves'], ['rigid', 'Rígido', 'fio sólido · cantos arredondados']] as const).map(([id, name, hint]) => (
                       <button
                         key={id}
-                        onClick={() => {
-                          const st = useSimStore.getState()
-                          st.commitHistory()
-                          st.updateWire(selectedWire.id, { flexibility: id })
-                        }}
+                        onClick={() => patchSelectedWire({ flexibility: id })}
                         className={`flex flex-col items-start gap-0.5 rounded-md border px-2 py-1.5 text-left transition-colors ${
                           selectedWire.flexibility === id ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200' : 'border-line bg-white hover:border-line-strong hover:bg-slate-50'
                         }`}
@@ -617,7 +670,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 </div>
                 <div>
                   <label className={label}>Roteamento</label>
-                  <select className="dc-select" value={selectedWire.route} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { route: e.target.value as any })}>
+                  <select className="dc-select" value={selectedWire.route} onChange={(e) => patchSelectedWire({ route: e.target.value as any })}>
                     <option value="orthogonal">Ortogonal</option>
                     <option value="manhattan">Manhattan (vertical)</option>
                     <option value="arc">Curvo</option>
@@ -626,7 +679,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 </div>
                 <div>
                   <label className={label}>Dobra {selectedWire.bend.toFixed(2)}</label>
-                  <input type="range" min={0} max={1} step={0.05} className="w-full" value={selectedWire.bend} onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { bend: Number(e.target.value) })} />
+                  <input type="range" min={0} max={1} step={0.05} className="w-full" value={selectedWire.bend} onChange={(e) => patchSelectedWire({ bend: Number(e.target.value) })} />
                 </div>
                 {(selectedWire.waypoints?.length ?? 0) > 0 && (
                   <div>
@@ -634,7 +687,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                     <button
                       className="dc-btn w-full"
                       title="Remove todos os pontos de curva adicionados com duplo clique"
-                      onClick={() => useSimStore.getState().updateWire(selectedWire.id, { waypoints: undefined })}
+                      onClick={() => patchSelectedWire({ waypoints: undefined })}
                     >
                       Limpar pontos de curva
                     </button>
@@ -650,7 +703,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                       step={5}
                       className="w-full"
                       value={selectedWire.curveOffset ?? 0}
-                      onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { curveOffset: Number(e.target.value) })}
+                      onChange={(e) => patchSelectedWire({ curveOffset: Number(e.target.value) })}
                     />
                     <div className="text-[10px] text-ink-400 mt-0.5">Dica: com o cabo selecionado, também dá para arrastar o ponto de controle direto no esquema.</div>
                   </div>
@@ -661,11 +714,11 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                     <input
                       className="dc-input"
                       value={selectedWire.number ?? ''}
-                      onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { number: e.target.value })}
+                      onChange={(e) => patchSelectedWire({ number: e.target.value })}
                     />
                     <LabelLibrary
                       title="Escolher rótulo padrão IEC para a identificação do cabo"
-                      onPick={(l) => useSimStore.getState().updateWire(selectedWire.id, { number: l })}
+                      onPick={(l) => patchSelectedWire({ number: l })}
                     />
                   </div>
                 </div>
@@ -675,11 +728,11 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                     <input
                       className="dc-input"
                       value={selectedWire.label ?? ''}
-                      onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { label: e.target.value })}
+                      onChange={(e) => patchSelectedWire({ label: e.target.value })}
                     />
                     <LabelLibrary
                       title="Escolher rótulo padrão IEC para a etiqueta do cabo"
-                      onPick={(l) => useSimStore.getState().updateWire(selectedWire.id, { label: l })}
+                      onPick={(l) => patchSelectedWire({ label: l })}
                     />
                   </div>
                 </div>
@@ -704,7 +757,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                           title={value === 'back' ? 'Terminal atrás dos componentes' : 'Terminal à frente dos componentes'}
                           aria-pressed={layer === value}
                           className={`px-1.5 py-0.5 text-[10px] ${layer === value ? 'bg-brand-600 text-white' : 'bg-white text-ink-600'}`}
-                          onClick={() => { const st = useSimStore.getState(); st.commitHistory(); st.updateWire(selectedWire.id, { [layerKey]: value }) }}>
+                          onClick={() => patchSelectedWire({ [layerKey]: value })}>
                           {value === 'back' ? 'Atrás' : 'À frente'}
                         </button>)}
                       </div>
@@ -712,13 +765,13 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                     <div className="flex items-center gap-2 text-[10px] text-ink-500">
                       <label htmlFor={`wire-${side}-end-color`} className="shrink-0">Cor da ponteira</label>
                       <input id={`wire-${side}-end-color`} type="color" className="w-9 h-7 rounded border border-line cursor-pointer" value={endColor}
-                        onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { [colorKey]: e.target.value })} />
+                        onChange={(e) => patchSelectedWire({ [colorKey]: e.target.value })} />
                       <span className="font-mono">{endColor}</span>
-                      {selectedWire[colorKey] && <button type="button" className="ml-auto text-brand-600 hover:underline" title="Voltar a seguir a cor do borne" onClick={() => useSimStore.getState().updateWire(selectedWire.id, { [colorKey]: undefined })}>Repor</button>}
+                      {selectedWire[colorKey] && <button type="button" className="ml-auto text-brand-600 hover:underline" title="Voltar a seguir a cor do borne" onClick={() => patchSelectedWire({ [colorKey]: undefined })}>Repor</button>}
                     </div>
                     <div className="grid grid-cols-2 gap-1">
                       {WIRE_END_OPTIONS.map((o) => <button key={o.id} type="button" title={o.hint} aria-pressed={chosen === o.id}
-                        onClick={() => { const st = useSimStore.getState(); st.commitHistory(); st.updateWire(selectedWire.id, { [typeKey]: o.id }) }}
+                        onClick={() => patchSelectedWire({ [typeKey]: o.id })}
                         className={`flex items-center gap-1.5 rounded-[5px] border px-1.5 py-1 text-left text-[10.5px] transition-colors ${chosen === o.id ? 'border-brand-500 bg-brand-50 text-brand-700 font-semibold' : 'border-line bg-white text-ink-700 hover:border-line-strong hover:bg-slate-50'}`}>
                         <WireEndIcon type={o.id} color={endColor} size={30} /><span className="truncate">{o.label}</span>
                       </button>)}
@@ -736,7 +789,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   type="number"
                   className="dc-input"
                   value={selectedWire.lengthMm ?? 0}
-                  onChange={(e) => useSimStore.getState().updateWire(selectedWire.id, { lengthMm: Number(e.target.value) })}
+                  onChange={(e) => patchSelectedWire({ lengthMm: Number(e.target.value) })}
                 />
               </label>
 
@@ -759,6 +812,15 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   <input id="terminal-name" className="dc-input" value={selectedTerminal.displayName ?? ''} placeholder={selectedTerminal.label}
                     onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { displayName: e.target.value })} />
                   <p className="text-[10px] text-ink-400 mt-1">Nome visível no inspetor; o código elétrico {selectedTerminal.label} mantém-se para não alterar a simulação.</p>
+                </div>
+                <div>
+                  <label className={label} htmlFor="terminal-electrical-class">Categoria elétrica · {selectedTerminal.electricalClass ? 'definida' : 'sugerida pela ficha'}</label>
+                  <select id="terminal-electrical-class" className="dc-select" value={terminalElectricalClassOf(terminalOwner, selectedTerminal)}
+                    onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { electricalClass: e.target.value as TerminalElectricalClass, electricalClassCustom: e.target.value === 'other' ? selectedTerminal.electricalClassCustom : undefined })}>
+                    {Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                  </select>
+                  {terminalElectricalClassOf(terminalOwner, selectedTerminal) === 'other' && <input className="dc-input mt-1" value={selectedTerminal.electricalClassCustom ?? ''} placeholder="Designação: PE, contacto seco…" onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { electricalClassCustom: e.target.value || undefined })} />}
+                  <p className="mt-1 text-[9px] leading-4 text-ink-400">{terminalDatasheetGuidance(terminalOwner)}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div><label className={label} htmlFor="terminal-kind">Função elétrica</label>
