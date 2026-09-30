@@ -126,7 +126,7 @@ export function projectedTerminalLocal(
   }
 }
 
-function automaticProjectedPositions(component: ElectricalComponent, orientation: ComponentViewOrientation) {
+function automaticProjectedPositions(component: ElectricalComponent, orientation: ComponentViewOrientation, diameter = 16) {
   const projected = component.terminals.map((terminal) => ({ terminal, point: projectedTerminalLocal(component, terminal, orientation) }))
   if (isOriginalComponentOrientation(orientation)) return new Map(projected.map(({ terminal, point }) => [terminal.id, point]))
 
@@ -135,13 +135,14 @@ function automaticProjectedPositions(component: ElectricalComponent, orientation
   // selecionáveis sem fingir que a sugestão substitui a calibração manual.
   const result = new Map<string, { x: number; y: number }>()
   const consumed = new Set<string>()
-  const threshold = Math.max(3, Math.min(component.w, component.h) * 0.025)
+  // Bornes cujos círculos de rastreamento se tocam formam um grupo e são abertos em leque.
+  const threshold = Math.max(3, diameter * 0.75)
   for (const item of projected) {
     if (consumed.has(item.terminal.id)) continue
     const cluster = projected.filter((candidate) => !consumed.has(candidate.terminal.id)
       && Math.hypot(candidate.point.x - item.point.x, candidate.point.y - item.point.y) <= threshold)
     cluster.forEach((candidate) => consumed.add(candidate.terminal.id))
-    const spacing = Math.max(8, Math.min(14, component.w * 0.045))
+    const spacing = Math.max(diameter * 1.05, 6)
     cluster.forEach((candidate, index) => result.set(candidate.terminal.id, {
       x: candidate.point.x + (index - (cluster.length - 1) / 2) * spacing,
       y: candidate.point.y,
@@ -171,8 +172,9 @@ export function componentTerminalLocal(
 export function automaticTerminalViewPositions(
   component: ElectricalComponent,
   orientation: ComponentViewOrientation,
+  diameter = 16,
 ): Record<string, ComponentTerminalViewPosition> {
-  const projected = automaticProjectedPositions(component, orientation)
+  const projected = automaticProjectedPositions(component, orientation, diameter)
   return Object.fromEntries(component.terminals.map((terminal) => {
     const point = projected.get(terminal.id) ?? projectedTerminalLocal(component, terminal, orientation)
     return [terminal.id, { x: point.x / component.w, y: point.y / component.h }]

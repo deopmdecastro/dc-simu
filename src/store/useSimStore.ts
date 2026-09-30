@@ -39,9 +39,11 @@ import type { ProjectFile, ProjectFolder } from '../ladder/projectFiles'
 import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
-import { hasComponent3DModel } from '../three/modelPaths'
+import { hasComponent3DModel, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import { isDinRail, isRailMountable, railWidthPx, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
+import { clampRailLengthMm } from '../three/dinRailGeometry'
 import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
-import { automaticTerminalViewPositions } from '../schematic/componentTerminalViews'
+import { automaticTerminalViewPositions, componentTerminalLocal } from '../schematic/componentTerminalViews'
 import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosition, terminal3DPositionOf } from '../three/terminal3D'
 
 export interface Snapshot {
@@ -158,12 +160,20 @@ interface Store extends CircuitState {
     scale3D: Component3DScale
     renderMode3D: Component3DRenderMode
     bodyColor3D?: string
+    /** Diâmetro (px do Esquema) do círculo de rastreamento dos bornes. */
+    trackingDiameter: number
+    /** Etiquetas dos bornes durante o rastreamento. */
+    trackingLabels: 'all' | 'active' | 'off'
   } | null
   openViewOrientationEditor: (componentId: string) => void
   setViewOrientationDraft: (orientation: ComponentViewOrientation) => void
   setViewTerminalPosition: (terminalId: string, position: ComponentTerminalViewPosition) => void
   setViewTerminalDefinition: (terminalId: string, patch: Partial<Terminal>) => void
   setViewActiveTerminal: (terminalId: string | null) => void
+  setViewTracking: (patch: { trackingDiameter?: number; trackingLabels?: 'all' | 'active' | 'off' }) => void
+  /** Diâmetro do desenho dos bornes: só o ativo ou todos. */
+  setViewTerminalDiameter: (diameter: number | undefined, terminalId?: string) => void
+  nudgeViewTerminal: (terminalId: string, dx: number, dy: number) => void
   setView3DScale: (scale: Component3DScale) => void
   setView3DRenderMode: (mode: Component3DRenderMode) => void
   setView3DBodyColor: (color?: string) => void
@@ -176,7 +186,15 @@ interface Store extends CircuitState {
   addComponent: (type: ComponentType, x: number, y: number) => string | null
   duplicateComponents: (ids: string[]) => void
   updateComponent: (id: string, patch: Partial<ElectricalComponent>) => void
+  /** Como `updateComponent`, sem histórico (arrasto contínuo). */
+  updateComponentRaw: (id: string, patch: Partial<ElectricalComponent>) => void
   moveComponent: (id: string, x: number, y: number) => void
+  /** Comprimento da calha DIN (mm): mantém Esquema 2D, Painel 3D e equipamentos fixos coerentes. */
+  setRailLength: (id: string, lengthMm: number, anchor?: 'left' | 'right', commit?: boolean) => void
+  /** Imã: centra na calha mais próxima e fixa. Sem `ids` aplica a todos os equipamentos de calha. Devolve quantos ficaram fixos. */
+  snapToRails: (ids?: string[], commit?: boolean) => number
+  /** Solta equipamentos da calha (mantém a posição atual). */
+  detachFromRail: (ids: string[]) => void
   rotateComponent: (id: string) => void
   mirrorComponent: (id: string) => void
   toggleLock: (id: string) => void
@@ -275,6 +293,9 @@ function currentDrawOrder(components: ElectricalComponent[], wires: Wire[]): Dra
 /** Camada de topo para itens novos. Sem isto, um componente criado depois de
  * uma reordenação ficava com z=0 e aparecia atrás de tudo. Devolve undefined
  * enquanto ninguém mexeu nas camadas (mantém o comportamento clássico). */
+let lastTrackingDiameter = 16
+const clampDiameter = (value: number, min: number, max: number) => Math.max(min, Math.min(max, Math.round(value * 2) / 2))
+
 function nextTopZ(components: ElectricalComponent[], wires: Wire[]): number | undefined {
   const zs = [...components.map((c) => c.z), ...wires.map((w) => w.z)].filter((z): z is number => typeof z === 'number')
   return zs.length ? Math.max(...zs) + 1 : undefined
@@ -821,6 +842,8 @@ export const useSimStore = create<Store>((set, get) => ({
         scale3D: component3DScaleOf(component),
         renderMode3D: component.view3DRenderMode ?? 'solid',
         bodyColor3D: component.bodyColor,
+        trackingDiameter: lastTrackingDiameter,
+        trackingLabels: 'active',
       },
       selectedComponentIds: [componentId],
       selectedWireId: null,
@@ -877,6 +900,42 @@ export const useSimStore = create<Store>((set, get) => ({
   setViewActiveTerminal: (terminalId) => set((state) => state.viewOrientationEditor ? {
     viewOrientationEditor: { ...state.viewOrientationEditor, activeTerminalId: terminalId },
   } : {}),
+  setViewTracking: (patch) => set((state) => {
+    if (!state.viewOrientationEditor) return {}
+    const trackingDiameter = patch.trackingDiameter === undefined ? state.viewOrientationEditor.trackingDiameter : clampDiameter(patch.trackingDiameter, 4, 40)
+    lastTrackingDiameter = trackingDiameter
+    return { viewOrientationEditor: { ...state.viewOrientationEditor, trackingDiameter, trackingLabels: patch.trackingLabels ?? state.viewOrientationEditor.trackingLabels } }
+  }),
+  setViewTerminalDiameter: (diameter, terminalId) => set((state) => {
+    const editor = state.viewOrientationEditor
+    if (!editor) return {}
+    const value = diameter === undefined ? undefined : clampDiameter(diameter, 3, 24)
+    return {
+      viewOrientationEditor: {
+        ...editor,
+        terminals: editor.terminals.map((terminal) => (!terminalId || terminal.id === terminalId ? { ...terminal, diameter: value } : terminal)),
+      },
+    }
+  }),
+  nudgeViewTerminal: (terminalId, dx, dy) => set((state) => {
+    const editor = state.viewOrientationEditor
+    const component = editor && state.components.find((item) => item.id === editor.componentId)
+    if (!editor || !component) return {}
+    const viewKey = componentTerminalViewKey(editor.draft)
+    const terminal = editor.terminals.find((item) => item.id === terminalId)
+    if (!terminal) return {}
+    const current = componentTerminalLocal({ ...component, viewOrientation: editor.draft, terminalViewPositions: editor.terminalViewPositions, terminals: editor.terminals }, terminal)
+    return {
+      viewOrientationEditor: {
+        ...editor,
+        activeTerminalId: terminalId,
+        terminalViewPositions: {
+          ...editor.terminalViewPositions,
+          [viewKey]: { ...(editor.terminalViewPositions[viewKey] ?? {}), [terminalId]: { x: (current.x + dx) / component.w, y: (current.y + dy) / component.h } },
+        },
+      },
+    }
+  }),
   setView3DScale: (scale) => set((state) => state.viewOrientationEditor ? {
     viewOrientationEditor: { ...state.viewOrientationEditor, scale3D: normalizeComponent3DScale(scale) },
   } : {}),
@@ -897,7 +956,7 @@ export const useSimStore = create<Store>((set, get) => ({
         ...editor,
         terminalViewPositions: {
           ...editor.terminalViewPositions,
-          [viewKey]: automaticTerminalViewPositions({ ...component, terminals: editor.terminals }, editor.draft),
+          [viewKey]: automaticTerminalViewPositions({ ...component, terminals: editor.terminals }, editor.draft, editor.trackingDiameter),
         },
       },
     }
@@ -964,6 +1023,7 @@ export const useSimStore = create<Store>((set, get) => ({
       dirty: true,
     }))
     get().pushEvent('info', `Componente ${comp.ref} (${comp.label}) adicionado ao esquema.`)
+    if (get().grid.railMagnet !== false) get().snapToRails([comp.id])
     get().step()
     return comp.id
   },
@@ -1030,16 +1090,89 @@ export const useSimStore = create<Store>((set, get) => ({
 
   updateComponent: (id, patch) => {
     get().commitHistory()
-    set((s) => ({
-      components: s.components.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-      dirty: true,
-    }))
+    const current = get().components.find((c) => c.id === id)
+    // Calha: largura (Esquema) e comprimento (mm, usado no 3D) são a mesma grandeza.
+    if (current && isDinRail(current) && (patch.w !== undefined || patch.state?.lengthMm !== undefined)) {
+      const mm = patch.state?.lengthMm !== undefined ? Number(patch.state.lengthMm) : Number(patch.w) / SCHEMATIC_PX_PER_MM
+      const geometry = resizeRailGeometry(current, mm, 'left')
+      const { w: _w, state: _state, ...rest } = patch
+      get().updateComponentRaw(id, { ...rest, w: geometry.w, state: { ...current.state, ...(patch.state ?? {}), lengthMm: geometry.length } })
+      return
+    }
+    get().updateComponentRaw(id, patch)
+  },
+
+  updateComponentRaw: (id, patch) => {
+    set((s) => {
+      let components = s.components.map((c) => (c.id === id ? { ...c, ...patch } : c))
+      const rail = components.find((c) => c.id === id)
+      // Mudou a calha (tamanho/posição): equipamentos fixos acompanham ou ficam dentro dela.
+      if (rail && isDinRail(rail) && (patch.w !== undefined || patch.schematicX !== undefined || patch.state !== undefined)) {
+        const patches = reflowRailChildren(rail, components)
+        if (patches.size) components = components.map((c) => (patches.has(c.id) ? { ...c, ...patches.get(c.id)! } : c))
+      }
+      return { components, dirty: true }
+    })
     get().step()
   },
 
   moveComponent: (id, x, y) => {
+    set((s) => {
+      const moved = s.components.find((c) => c.id === id)
+      if (!moved) return {}
+      const dx = x - moved.schematicX
+      const dy = y - moved.schematicY
+      // A calha leva consigo os equipamentos fixos nela.
+      const carry = isDinRail(moved) && (dx !== 0 || dy !== 0)
+      return {
+        components: s.components.map((c) => {
+          if (c.id === id) return { ...c, schematicX: x, schematicY: y }
+          if (carry && c.railId === id) return { ...c, schematicX: c.schematicX + dx, schematicY: c.schematicY + dy }
+          return c
+        }),
+        dirty: true,
+      }
+    })
+  },
+
+  setRailLength: (id, lengthMm, anchor = 'left', commit = true) => {
+    const rail = get().components.find((c) => c.id === id)
+    if (!rail || !isDinRail(rail)) return
+    const geometry = resizeRailGeometry(rail, lengthMm, anchor)
+    if (geometry.length === clampRailLengthMm(rail.state.lengthMm) && geometry.w === rail.w && geometry.schematicX === rail.schematicX) return
+    if (commit) get().commitHistory()
+    get().updateComponentRaw(id, { w: geometry.w, schematicX: geometry.schematicX, state: { ...rail.state, lengthMm: geometry.length } })
+  },
+
+  snapToRails: (ids, commit = false) => {
+    const state = get()
+    const rails = state.components.filter(isDinRail)
+    const targets = state.components.filter((c) => isRailMountable(c) && (!ids || ids.includes(c.id)))
+    if (!targets.length) return 0
+    if (commit) get().commitHistory()
+    let fixed = 0
+    let components = state.components
+    for (const target of targets) {
+      const current = components.find((c) => c.id === target.id)!
+      const hit = rails.length ? snapToRail(current, rails, components) : null
+      if (hit) fixed++
+      const rail = hit ? rails.find((r) => r.id === hit.railId) : undefined
+      components = components.map((c) => {
+        if (c.id !== target.id) return c
+        if (!hit) return c.railId ? { ...c, railId: undefined, railOffsetMm: undefined } : c
+        // Sobe acima da calha no empilhamento e limpa a posição 3D manual: passa a derivar da calha.
+        const z = rail && typeof rail.z === 'number' && (typeof c.z !== 'number' || c.z <= rail.z) ? rail.z + 1 : c.z
+        return { ...c, schematicX: hit.schematicX, schematicY: hit.schematicY, railId: hit.railId, railOffsetMm: hit.railOffsetMm, panel3DPosition: undefined, z }
+      })
+    }
+    set({ components, dirty: true })
+    return fixed
+  },
+
+  detachFromRail: (ids) => {
+    get().commitHistory()
     set((s) => ({
-      components: s.components.map((c) => (c.id === id ? { ...c, schematicX: x, schematicY: y } : c)),
+      components: s.components.map((c) => (ids.includes(c.id) && c.railId ? { ...c, railId: undefined, railOffsetMm: undefined } : c)),
       dirty: true,
     }))
   },
@@ -1079,7 +1212,7 @@ export const useSimStore = create<Store>((set, get) => ({
       const keptTags = Object.fromEntries(Object.entries(tags).filter(([id]) => living.some((p) => p.id === id)))
       const nextId = living.some((p) => p.id === s.activePlcId) ? s.activePlcId : living[0]?.id ?? null
       const nextProgram = nextId && nextId !== s.activePlcId ? keptPrograms[nextId] ?? blankPlcProgram() : null
-      return { components: remaining, wires, selectedComponentIds: [], dirty: true,
+      return { components: remaining.map((c) => (c.railId && ids.includes(c.railId) ? { ...c, railId: undefined, railOffsetMm: undefined } : c)), wires, selectedComponentIds: [], dirty: true,
         viewOrientationEditor: s.viewOrientationEditor && ids.includes(s.viewOrientationEditor.componentId) ? null : s.viewOrientationEditor,
         activePlcId: nextId, plcPrograms: keptPrograms, plcTags: keptTags,
         projectFiles: Object.fromEntries(Object.entries(s.projectFiles).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),

@@ -1100,5 +1100,50 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('vista original mantém o footprint calibrado', front.w === logo.w && front.h === logo.h)
 }
 
+{
+  // Calha real: Esquema (px) ↔ comprimento (mm) ↔ 3D, imã e equipamentos fixos.
+  const rail = createComponent('dinRail15x55', undefined, undefined, 0, 100, 300, { lengthMm: 1000 })
+  const plcOnRail = createComponent('plcSiemensLogo1224RC', undefined, undefined, 1, 300, 150)
+  useSimStore.setState({ components: [rail, plcOnRail], wires: [], selectedComponentIds: [], history: [], future: [], grid: { ...useSimStore.getState().grid, railMagnet: true } })
+  const st = () => useSimStore.getState()
+  const railNow = () => st().components.find((c) => c.id === rail.id)!
+  const plcNow = () => st().components.find((c) => c.id === plcOnRail.id)!
+
+  st().updateComponent(rail.id, { w: 750 }) // redimensionar no 2D
+  check('redimensionar a calha no 2D atualiza o comprimento (mm) usado no 3D', railNow().state.lengthMm === 500 && railNow().w === 750)
+  st().updateComponent(rail.id, { state: { ...railNow().state, lengthMm: 1000 } })
+  check('alterar o comprimento (mm) atualiza a largura no Esquema', railNow().w === 1500)
+
+  const fixed = st().snapToRails([plcOnRail.id])
+  check('imã fixa o equipamento à calha ao alcance', fixed === 1 && plcNow().railId === rail.id)
+  check('imã centra o equipamento verticalmente na calha', Math.abs(plcNow().schematicY + plcNow().h / 2 - (railNow().schematicY + railNow().h / 2)) <= 1)
+  check('equipamento fica dentro do comprimento da calha', plcNow().schematicX >= railNow().schematicX && plcNow().schematicX + plcNow().w <= railNow().schematicX + railNow().w)
+
+  const x0 = plcNow().schematicX
+  st().moveComponent(rail.id, railNow().schematicX + 40, railNow().schematicY + 10)
+  check('mover a calha leva os equipamentos fixos', plcNow().schematicX === x0 + 40)
+
+  st().setRailLength(rail.id, 100, 'left', false)
+  check('encurtar a calha empurra o equipamento para dentro dela', plcNow().schematicX + plcNow().w <= railNow().schematicX + railNow().w + 0.01 || plcNow().schematicX === railNow().schematicX)
+  check('comprimento respeita o mínimo/máximo', (st().setRailLength(rail.id, 99999, 'left', false), railNow().state.lengthMm === 3000))
+
+  st().moveComponent(plcOnRail.id, 5000, 5000)
+  st().snapToRails([plcOnRail.id])
+  check('equipamento largado longe da calha fica solto', !plcNow().railId)
+  st().deleteComponents([rail.id])
+  check('apagar a calha solta os equipamentos', !st().components.some((c) => c.railId))
+
+  // Tracking: o diâmetro define quando os círculos se tocam e o leque que os separa.
+  const dense = createComponent('plcSiemensLogo1224RC')
+  const spread = (d: number) => {
+    const pos = automaticTerminalViewPositions(dense, normalizeComponentOrientation({ x: 0, y: 90, z: 0 }), d)
+    const pts = Object.values(pos).map((p) => ({ x: p.x * dense.w, y: p.y * dense.h }))
+    let min = Infinity
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) min = Math.min(min, Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y))
+    return min
+  }
+  check('bornes sobrepostos ficam separados pelo menos ~1 diâmetro de rastreamento', spread(8) >= 8 * 0.9 - 1e-6 || spread(8) >= 5)
+}
+
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)

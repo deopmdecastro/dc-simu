@@ -155,6 +155,8 @@ export interface Terminal {
   /** Posição física normalizada no volume 3D do componente.
    * X = esquerda/direita, Y = baixo/cima, Z = trás/frente (0..1). */
   position3D?: { x: number; y: number; z: number }
+  /** Diâmetro do borne no Esquema 2D (unidades do canvas). Omisso = tamanho padrão do símbolo. */
+  diameter?: number
   /** Fixado pelo usuário — impede reposicionamento automático */
   pinned?: boolean
   /** Está energizado neste ciclo de varredura (derivado) */
@@ -203,6 +205,10 @@ export interface ElectricalComponentBase {
   label: string
   /** Posição no trilho DIN (índice) para o painel 3D */
   slot: number
+  /** Calha DIN (componente `dinRail15x55`) onde este equipamento está fixo. */
+  railId?: string
+  /** Distância (mm) do início da calha ao bordo esquerdo do equipamento. */
+  railOffsetMm?: number
   /** Canto superior-esquerdo no esquema 2D (unidades do canvas) */
   schematicX: number
   schematicY: number
@@ -522,6 +528,8 @@ export interface GridSettings {
   snap: boolean
   style: 'dots' | 'lines'
   background: string
+  /** Imã de calha: centra e fixa equipamentos de calha DIN ao largá-los perto de uma calha (omisso = ligado). */
+  railMagnet?: boolean
 }
 
 export interface CircuitState {

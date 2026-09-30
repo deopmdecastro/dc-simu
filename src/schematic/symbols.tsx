@@ -68,6 +68,16 @@ export const TERMINAL_TYPE_LABEL: Record<string, string> = {
  * exposta é desenhada em tom prateado fixo. `r` é o raio "de referência"
  * (mesma escala usada antes para o círculo simples do borne).
  */
+/** Raio de desenho do borne: `diameter` do borne (editável) ou o padrão do símbolo. */
+export function terminalGlyphRadius(t: { diameter?: number }, fallback: number): number {
+  return typeof t.diameter === 'number' && t.diameter > 0 ? t.diameter / 2 : fallback
+}
+
+/** Área clicável acompanha o borne: nunca menor que 3,5 px nem muito maior que o desenho. */
+export function terminalHitRadius(t: { diameter?: number }): number {
+  return typeof t.diameter === 'number' && t.diameter > 0 ? Math.max(3.5, Math.min(9, t.diameter / 2 + 2)) : 7
+}
+
 export function TerminalGlyph({
   x,
   y,
@@ -628,7 +638,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
               const x = ((i + 1) * w) / (count + 1)
               return (
                 <g key={t.id}>
-                  <TerminalGlyph x={x} y={h / 2} type={t.terminalType} color={t.color} energized={t.energized} r={6} />
+                  <TerminalGlyph x={x} y={h / 2} type={t.terminalType} color={t.color} energized={t.energized} r={terminalGlyphRadius(t, 6)} />
                   <text x={x - 8} y={h / 2 + 20} fontSize={8} fill="#94a3b8">{t.label}</text>
                 </g>
               )
@@ -710,8 +720,8 @@ export function ComponentTerminals({ c }: { c: ElectricalComponent }) {
         const { x: px, y: py } = componentTerminalLocal(c, t)
         return (
           <g key={t.id}>
-            <TerminalGlyph x={px} y={py} type={t.terminalType} color={t.color} energized={t.energized} r={4.5} />
-            <circle cx={px} cy={py} r={7} fill="transparent" className="dc-terminal-hit" />
+            <TerminalGlyph x={px} y={py} type={t.terminalType} color={t.color} energized={t.energized} r={terminalGlyphRadius(t, 4.5)} />
+            <circle cx={px} cy={py} r={terminalHitRadius(t)} fill="transparent" className="dc-terminal-hit" />
           </g>
         )
       })}

@@ -100,6 +100,9 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
   const autoPlace = useSimStore((state) => state.autoPlaceViewTerminals)
   const setDefinition = useSimStore((state) => state.setViewTerminalDefinition)
   const setActiveTerminal = useSimStore((state) => state.setViewActiveTerminal)
+  const setTracking = useSimStore((state) => state.setViewTracking)
+  const setDiameter = useSimStore((state) => state.setViewTerminalDiameter)
+  const nudge = useSimStore((state) => state.nudgeViewTerminal)
   const mapRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerId: number; terminalId: string } | null>(null)
   const selectedTerminalId = editor.activeTerminalId ?? component.terminals[0]?.id ?? ''
@@ -117,6 +120,7 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
   const selectedTerminal = component.terminals.find((terminal) => terminal.id === selectedTerminalId) ?? component.terminals[0]
   const selectedPosition = selectedTerminal ? positions[selectedTerminal.id] : undefined
   const selectedPosition3D = selectedTerminal ? terminal3DPositionOf(selectedTerminal) : undefined
+  const dotSize = Math.max(6, Math.min(22, Math.round(editor.trackingDiameter * 0.75)))
   const manualCount = Object.keys(editor.terminalViewPositions[viewKey] ?? {}).length
 
   useEffect(() => {
@@ -148,6 +152,15 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
       ref={mapRef}
       className="component-terminal-map"
       aria-label="Mapa de bornes arrastáveis"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        const step = event.shiftKey ? 5 : 1
+        const delta: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }
+        const move = delta[event.key]
+        if (!move || !selectedTerminal) return
+        event.preventDefault()
+        nudge(selectedTerminal.id, move[0], move[1])
+      }}
       onPointerMove={(event) => {
         const drag = dragRef.current
         if (drag?.pointerId === event.pointerId) moveFromPointer(event, drag.terminalId)
@@ -171,7 +184,7 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
           type="button"
           key={terminal.id}
           className={`component-terminal-dot${selected ? ' selected' : ''}${manual ? ' manual' : ''}`}
-          style={{ left: `${toMapPercent(position.x)}%`, top: `${toMapPercent(position.y)}%`, backgroundColor: terminal.color }}
+          style={{ left: `${toMapPercent(position.x)}%`, top: `${toMapPercent(position.y)}%`, backgroundColor: terminal.color, width: dotSize, height: dotSize }}
           title={`${terminal.label} · arraste para posicionar`}
           onPointerDown={(event) => {
             event.preventDefault()
@@ -183,6 +196,16 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
           }}
         ><span>{terminal.label}</span></button>
       })}
+    </div>
+    <div className="component-terminal-tracking">
+      <label><span>Diâmetro do rastreamento · {editor.trackingDiameter} px</span>
+        <input type="range" min={4} max={40} step={0.5} value={editor.trackingDiameter} onChange={(event) => setTracking({ trackingDiameter: Number(event.target.value) })} />
+      </label>
+      <label><span>Etiquetas</span>
+        <select value={editor.trackingLabels} onChange={(event) => setTracking({ trackingLabels: event.target.value as 'all' | 'active' | 'off' })}>
+          <option value="active">Só o borne ativo</option><option value="all">Todos</option><option value="off">Nenhum</option>
+        </select>
+      </label>
     </div>
     <div className="component-terminal-controls">
       <label><span>Borne</span><select value={selectedTerminal?.id ?? ''} onChange={(event) => setActiveTerminal(event.target.value)}>{component.terminals.map((terminal) => <option key={terminal.id} value={terminal.id}>{terminal.label}</option>)}</select></label>
@@ -204,6 +227,15 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
         <label><span>Tipo físico</span><select value={selectedTerminal.terminalType} onChange={(event) => setDefinition(selectedTerminal.id, { terminalType: event.target.value as TerminalType })}>{Object.entries(TERMINAL_TYPE_LABEL).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</select></label>
         <label className="component-terminal-color"><span>Cor</span><input type="color" value={selectedTerminal.color} onChange={(event) => setDefinition(selectedTerminal.id, { color: event.target.value })} /></label>
       </div>
+      <div className="component-terminal-diameter">
+        <label><span>Diâmetro do borne · {selectedTerminal.diameter ? `${selectedTerminal.diameter} px` : 'padrão'}</span>
+          <input type="range" min={3} max={24} step={0.5} value={selectedTerminal.diameter ?? 9} onChange={(event) => setDiameter(Number(event.target.value), selectedTerminal.id)} />
+        </label>
+        <div>
+          <button type="button" onClick={() => setDiameter(selectedTerminal.diameter ?? 9)} title="Aplicar este diâmetro a todos os bornes do componente" >Aplicar a todos</button>
+          <button type="button" onClick={() => setDiameter(undefined, selectedTerminal.id)} title="Voltar ao tamanho padrão">Padrão</button>
+        </div>
+      </div>
       <div className="component-terminal-3d-head"><span>Posição física 3D</span><small>X esquerda/direita · Y baixo/cima · Z trás/frente</small></div>
       <div className="component-terminal-3d-fields">
         {(['x', 'y', 'z'] as const).map((axis) => <label key={`terminal-3d-${axis}`}><span>{axis.toUpperCase()} %</span><input type="number" min={0} max={100} step={1}
@@ -214,7 +246,7 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
         {([['front', 'Frente'], ['back', 'Trás'], ['left', 'Esq.'], ['right', 'Dir.'], ['top', 'Topo'], ['bottom', 'Base']] as Array<[Terminal3DFace, string]>).map(([face, label]) => <button type="button" key={face} onClick={() => setDefinition(selectedTerminal.id, { position3D: positionOnTerminalFace(selectedPosition3D, face) })}>{label}</button>)}
       </div>
     </div>}
-    <p>{manualCount ? `${manualCount} borne(s) ajustado(s) manualmente nesta vista.` : 'Sugestão automática ativa. No Painel 3D, use o gizmo XYZ para acertar o ponto físico.'}</p>
+    <p>{manualCount ? `${manualCount} borne(s) ajustado(s) manualmente nesta vista.` : 'Sugestão automática ativa. No Painel 3D, use o gizmo XYZ para acertar o ponto físico.'} Setas = ajuste fino (Shift = 5 px) · Alt ao arrastar desliga as guias de alinhamento.</p>
   </div>
 }
 

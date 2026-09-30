@@ -154,3 +154,12 @@
 .dc-rail-length { display: grid; gap: 6px; padding: 8px; margin: 6px 0; border: 1px solid #dbe4f0; border-radius: 8px; background: #f8fafd; }
 .dc-rail-length-row { display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: center; }
 .dc-rail-length-row input[type='range'] { width: 100%; accent-color: #2563eb; }
+
+.component-terminal-tracking { display:grid; grid-template-columns:1.6fr 1fr; gap:6px; margin-top:6px; }
+.component-terminal-tracking label, .component-terminal-diameter label { display:flex; min-width:0; flex-direction:column; gap:2px; color:#718096; font-size:7px; }
+.component-terminal-tracking input[type=range], .component-terminal-diameter input[type=range] { width:100%; height:18px; accent-color:#2563eb; }
+.component-terminal-tracking select { height:22px; padding:0 4px; border:1px solid #d4deeb; border-radius:4px; color:#334155; background:#fff; font:600 8px ui-monospace,monospace; }
+.component-terminal-diameter { display:grid; grid-template-columns:1.6fr 1fr; gap:6px; align-items:end; margin-top:6px; }
+.component-terminal-diameter > div { display:flex; gap:3px; }
+.component-terminal-diameter button { flex:1; min-height:22px; border:1px solid #d6deea; border-radius:4px; color:#526078; background:#f8fafc; font-size:7px; font-weight:750; }
+.component-terminal-map:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }

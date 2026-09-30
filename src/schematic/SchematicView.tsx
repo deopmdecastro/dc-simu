@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
-import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalPos } from './symbols'
+import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
 import { IconProbe, IconHelp, IconCube, IconSchematic } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
@@ -8,9 +8,9 @@ import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
 import { getWeg3DImage } from './weg3DImage'
 import { getCad3DImage } from './cad3DImage'
-import { getComponentModelSpec, hasComponent3DModel, MIN_SCHEMATIC_HIT_WIDTH } from '../three/modelPaths'
+import { getComponentModelSpec, hasComponent3DModel, MIN_SCHEMATIC_HIT_WIDTH, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { componentOrientationOf, isOriginalComponentOrientation } from '../three/componentOrientation'
-import { orientedImageFrame } from './componentTerminalViews'
+import { componentTerminalLocal, orientedImageFrame } from './componentTerminalViews'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
 import DinRail2D from './DinRail2D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
@@ -313,6 +313,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
   const [chain, setChain] = useState<string[]>([])
   /** arraste do ponto de dobra/curva/waypoint de um cabo diretamente no esquema */
   const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' | 'waypoint' | 'fromPoint' | 'toPoint'; index?: number; originalTerminalId?: string; start?: Pt } | null>(null)
+  const [railResize, setRailResize] = useState<{ id: string; side: 'left' | 'right' } | null>(null)
   const [terminalViewDrag, setTerminalViewDrag] = useState<{ componentId: string; terminalId: string } | null>(null)
   const [dropPos, setDropPos] = useState<{ x: number; y: number } | null>(null)
   const [cursorPos, setCursorPos] = useState<Pt | null>(null)
@@ -579,6 +580,16 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
       return
     }
     const p = toCanvas(e.clientX, e.clientY)
+    if (railResize) {
+      const rail = components.find((item) => item.id === railResize.id)
+      if (!rail) return
+      // Ponta esquerda/direita segue o rato; a oposta fica fixa. Passo de 5 mm (Alt = livre).
+      const fixedX = railResize.side === 'right' ? rail.schematicX : rail.schematicX + rail.w
+      const rawMm = Math.abs(p.x - fixedX) / SCHEMATIC_PX_PER_MM
+      const mm = e.altKey ? rawMm : Math.round(rawMm / 5) * 5
+      useSimStore.getState().setRailLength(rail.id, mm, railResize.side === 'right' ? 'left' : 'right', false)
+      return
+    }
     if (terminalViewDrag) {
       const component = components.find((item) => item.id === terminalViewDrag.componentId)
       if (!component) return
@@ -590,9 +601,24 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
       let localX = dx * Math.cos(angle) - dy * Math.sin(angle) + cx
       const localY = dx * Math.sin(angle) + dy * Math.cos(angle) + cy
       if (component.mirrored) localX = component.w - localX
+      let targetX = localX
+      let targetY = localY
+      if (!e.altKey) {
+        // Guias de alinhamento: cola ao X/Y de outro borne quando está a ≤ 3 px (Alt desativa).
+        const editorState = useSimStore.getState().viewOrientationEditor
+        if (editorState) {
+          const preview = { ...component, viewOrientation: editorState.draft, terminalViewPositions: editorState.terminalViewPositions, terminals: editorState.terminals }
+          for (const other of preview.terminals) {
+            if (other.id === terminalViewDrag.terminalId) continue
+            const at = componentTerminalLocal(preview, other)
+            if (Math.abs(at.x - localX) <= 3) targetX = at.x
+            if (Math.abs(at.y - localY) <= 3) targetY = at.y
+          }
+        }
+      }
       useSimStore.getState().setViewTerminalPosition(terminalViewDrag.terminalId, {
-        x: Math.max(-0.5, Math.min(1.5, localX / component.w)),
-        y: Math.max(-0.5, Math.min(1.5, localY / component.h)),
+        x: Math.max(-0.5, Math.min(1.5, targetX / component.w)),
+        y: Math.max(-0.5, Math.min(1.5, targetY / component.h)),
       })
       return
     }
@@ -642,6 +668,9 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
       }
       for (const id of drag.ids) {
         const o = drag.orig[id]
+        // Equipamentos fixos numa calha que também está a ser arrastada seguem a calha.
+        const railOf = components.find((item) => item.id === id)?.railId
+        if (railOf && drag.ids.includes(railOf)) continue
         if (o) moveComponent(id, snap(o.x + dx), snap(o.y + dy))
       }
     }
@@ -673,6 +702,11 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
       const y1 = Math.max(marquee.y0, marquee.y1)
       const hit = components.filter((c) => c.schematicX < x1 && c.schematicX + c.w > x0 && c.schematicY < y1 && c.schematicY + c.h > y0)
       if (hit.length) selectComponents(hit.map((c) => c.id))
+    }
+    if (railResize) setRailResize(null)
+    if (drag?.committed && grid.railMagnet !== false) {
+      const moved = drag.ids.filter((id) => { const item = components.find((c) => c.id === id); return !(item?.railId && drag.ids.includes(item.railId)) })
+      useSimStore.getState().snapToRails(moved)
     }
     setDrag(null)
     setMarquee(null)
@@ -1029,6 +1063,14 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
           <>
             <DinRail2D c={c} />
             <rect x={0} y={-4} width={c.w} height={c.h + 8} fill="transparent" />
+            {selected && !c.locked && c.rotation === 0 && !c.mirrored && (['left', 'right'] as const).map((side) => (
+              <g key={side} style={{ cursor: 'ew-resize' }}
+                onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); commitHistory(); setRailResize({ id: c.id, side }) }}>
+                <rect x={(side === 'left' ? 0 : c.w) - 7} y={-3} width={14} height={c.h + 6} fill="transparent" />
+                <rect x={(side === 'left' ? 0 : c.w) - 3} y={c.h / 2 - 9} width={6} height={18} rx={3} fill="#2f6bff" stroke="white" strokeWidth={1.2} />
+                <title>Arraste para alterar o comprimento da calha (passos de 5 mm · Alt = livre)</title>
+              </g>
+            ))}
           </>
         ) : c.type === 'contactorWegCWC09' && model ? (
           <>
@@ -1190,7 +1232,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
           })}
           {displayComponents.flatMap((c) => c.terminals.filter((t) => wires.some((w) => (!w.fromPoint && w.fromTerminalId === t.id) || (!w.toPoint && w.toTerminalId === t.id))).map((t) => {
             const p = terminalPos(c, t)
-            return <g key={`connected-${t.id}`} pointerEvents="none"><TerminalGlyph x={p.x} y={p.y} type={t.terminalType} color={t.color} energized={t.energized} r={4.5} /></g>
+            return <g key={`connected-${t.id}`} pointerEvents="none"><TerminalGlyph x={p.x} y={p.y} type={t.terminalType} color={t.color} energized={t.energized} r={terminalGlyphRadius(t, 4.5)} /></g>
           }))}
           {/* Pontas da frente: apenas as escolhidas no inspetor. */}
           {renderWireEnds('front')}
@@ -1207,17 +1249,20 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
               const chainIdx = chain.indexOf(t.id)
               const isDrawTarget = tool === 'wire' && (!!wireFrom || !!freeStart) && wireFrom !== t.id && hoverTerminal === t.id
               const isViewEditing = viewOrientationEditor?.componentId === c.id
+              const trackingR = (viewOrientationEditor?.trackingDiameter ?? 16) / 2
+              const isActiveTracking = viewOrientationEditor?.activeTerminalId === t.id
+              const hitR = isViewEditing ? Math.max(3, Math.min(trackingR, 10)) : terminalHitRadius(t)
               return (
                 <g key={`${t.id}-hit`}>
                   {isDrawTarget && <circle cx={p.x} cy={p.y} r={9} fill="#dcfce7" stroke="#16a34a" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />}
                   {isViewEditing && <>
-                    <circle cx={p.x} cy={p.y} r={10} fill="#dbeafe" fillOpacity={0.8} stroke="#2563eb" strokeWidth={1.5} strokeDasharray="2 2" pointerEvents="none" />
-                    <text x={p.x + 10} y={p.y - 8} fontSize={8} fontWeight={700} fill="#1d4ed8" pointerEvents="none">{t.label}</text>
+                    <circle cx={p.x} cy={p.y} r={trackingR} fill="#dbeafe" fillOpacity={isActiveTracking ? 0.85 : 0.55} stroke={isActiveTracking ? '#0891b2' : '#2563eb'} strokeWidth={isActiveTracking ? 1.6 : 1} strokeDasharray="2 2" pointerEvents="none" />
+                    {(viewOrientationEditor?.trackingLabels === 'all' || (viewOrientationEditor?.trackingLabels !== 'off' && (isActiveTracking || hoverTerminal === t.id))) && <text x={p.x + trackingR + 1} y={p.y - trackingR * 0.6} fontSize={8} fontWeight={700} fill="#1d4ed8" pointerEvents="none" stroke="white" strokeWidth={2.4} paintOrder="stroke">{t.label}</text>}
                   </>}
                   <circle
                     cx={p.x}
                     cy={p.y}
-                    r={7}
+                    r={hitR}
                     fill="transparent"
                     stroke={chainIdx >= 0 ? '#65a30d' : isFrom ? '#2f6bff' : isDrawTarget ? '#16a34a' : isSel ? '#db2777' : 'transparent'}
                     strokeWidth={2}

@@ -6,9 +6,10 @@ import { useSimStore } from '../store/useSimStore'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColor } from '../types'
 import * as THREE from 'three'
-import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail } from './modelPaths'
-import { clampToPanel, panelLimits, PLATE_BOTTOM, PLATE_THICKNESS, PLATE_TOP, PLATE_Z, RAIL_Y, type PanelLimits } from './panelBounds'
+import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from './modelPaths'
+import { clampToPanel, componentHalfExtents, panelLimits, PLATE_BOTTOM, PLATE_THICKNESS, PLATE_TOP, PLATE_Z, RAIL_Y, type PanelLimits } from './panelBounds'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
+import { isRailMountable, RAIL_MOUNT_TYPE_PREFIXES, railLengthOf, railSpanMm } from './railMount'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
@@ -23,6 +24,10 @@ const MOTOR_CENTER_Y = PANEL_FLOOR_Y + MOTOR_TARGET_HEIGHT / 2
 
 /* ------------------------------------------------------------------ helpers */
 
+/** Marcador 3D do borne acompanha o diâmetro definido no Esquema (9 px = tamanho padrão). */
+const terminalMarkerScale = (terminal: { diameter?: number }): number =>
+  typeof terminal.diameter === 'number' && terminal.diameter > 0 ? Math.max(0.35, Math.min(2.6, terminal.diameter / 9)) : 1
+
 function Label({ text, position, color = '#0f172a', size = 0.085 }: { text: string; position: [number, number, number]; color?: string; size?: number }) {
   return (
     <Text position={position} fontSize={size} color={color} anchorX="center" anchorY="middle">
@@ -31,19 +36,11 @@ function Label({ text, position, color = '#0f172a', size = 0.085 }: { text: stri
   )
 }
 
-function DinRail({ width, plateWidth }: { width: number; plateWidth: number }) {
+/** Chapa de montagem = limite físico do painel (ver panelBounds.ts). As calhas são componentes reais. */
+function MountingPlate({ plateWidth }: { plateWidth: number }) {
   const plateHeight = PLATE_TOP - PLATE_BOTTOM
   return (
     <group position={[0, RAIL_Y, 0]}>
-      <mesh>
-        <boxGeometry args={[width, 0.08, 0.16]} />
-        <meshStandardMaterial color="#b8bcc4" metalness={0.75} roughness={0.3} />
-      </mesh>
-      <mesh position={[0, -0.1, -0.16]}>
-        <boxGeometry args={[width, 0.06, 0.12]} />
-        <meshStandardMaterial color="#8d939c" metalness={0.6} roughness={0.4} />
-      </mesh>
-      {/* Chapa de montagem = limite físico do painel (ver panelBounds.ts). */}
       <mesh position={[0, (PLATE_TOP + PLATE_BOTTOM) / 2 - RAIL_Y, PLATE_Z]} receiveShadow>
         <boxGeometry args={[plateWidth, plateHeight, PLATE_THICKNESS]} />
         <meshStandardMaterial color="#eef1f4" metalness={0.15} roughness={0.75} />
@@ -54,8 +51,8 @@ function DinRail({ width, plateWidth }: { width: number; plateWidth: number }) {
 }
 
 /** Calha DIN perfurada 15 × 5,5 mm com comprimento editável (furos regenerados, nunca esticados). */
-function MountingRail3D({ c, position }: { c: ElectricalComponent; position: [number, number, number] }) {
-  const lengthMm = clampRailLengthMm(c.state.lengthMm)
+function MountingRail3D({ c, position, lengthOverrideMm, labelText }: { c?: ElectricalComponent; position: [number, number, number]; lengthOverrideMm?: number; labelText?: string }) {
+  const lengthMm = clampRailLengthMm(lengthOverrideMm ?? c?.state.lengthMm)
   const group = useMemo(() => {
     const material = createGalvanizedMaterial()
     const rail = buildDinRailGroup(lengthMm, 0.01, material)
@@ -72,7 +69,7 @@ function MountingRail3D({ c, position }: { c: ElectricalComponent; position: [nu
   const baseCenterZ = (DIN_RAIL_15X55.height / 2) * 0.01
   return <group position={position}>
     <group position={[0, 0, -baseCenterZ]}><primitive object={group} /></group>
-    <Label text={`${c.ref} · ${Math.round(lengthMm)} mm`} position={[0, DIN_RAIL_15X55.width * 0.01 * 0.5 + 0.1, baseCenterZ + 0.02]} size={0.065} color="#475569" />
+    <Label text={labelText ?? `${c?.ref ?? 'TR'} · ${Math.round(lengthMm)} mm`} position={[0, DIN_RAIL_15X55.width * 0.01 * 0.5 + 0.1, baseCenterZ + 0.02]} size={0.065} color="#475569" />
   </group>
 }
 
@@ -192,6 +189,7 @@ function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['v
 }
 
 function EditableTerminal3D({ component, terminal, active }: { component: ElectricalComponent; terminal: ElectricalComponent['terminals'][number]; active: boolean }) {
+  const k = terminalMarkerScale(terminal)
   const handle = useRef<THREE.Group>(null)
   const setActive = useSimStore((state) => state.setViewActiveTerminal)
   const setDefinition = useSimStore((state) => state.setViewTerminalDefinition)
@@ -202,10 +200,10 @@ function EditableTerminal3D({ component, terminal, active }: { component: Electr
     onClick={(event) => { event.stopPropagation(); setActive(terminal.id) }}
   >
     <mesh>
-      <sphereGeometry args={[active ? 0.055 : 0.042, 18, 18]} />
+      <sphereGeometry args={[(active ? 0.055 : 0.042) * k, 18, 18]} />
       <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : '#000000'} emissiveIntensity={active ? 0.7 : 0} metalness={0.2} roughness={0.35} depthTest={false} />
     </mesh>
-    <Text position={[0, 0.085, 0]} fontSize={0.06} color={active ? '#0e7490' : '#1e293b'} anchorX="center" anchorY="bottom" depthOffset={-2}>{terminal.label}</Text>
+    <Text position={[0, 0.05 + 0.035 * k, 0]} fontSize={0.06} color={active ? '#0e7490' : '#1e293b'} anchorX="center" anchorY="bottom" depthOffset={-2}>{terminal.label}</Text>
   </group>
   if (!active) return marker
   return <TransformControls
@@ -226,12 +224,13 @@ function ConnectionTerminal3D({ component, terminal, active, onPick }: {
   onPick: (terminalId: string) => void
 }) {
   const position = terminalLocal3D(component, terminal)
+  const k = terminalMarkerScale(terminal)
   return <group position={position} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onPick(terminal.id) }}>
     <mesh renderOrder={30}>
-      <sphereGeometry args={[active ? 0.07 : 0.052, 18, 18]} />
+      <sphereGeometry args={[(active ? 0.07 : 0.052) * k, 18, 18]} />
       <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : terminal.color} emissiveIntensity={active ? 1 : 0.3} depthTest={false} />
     </mesh>
-    <Text position={[0, 0.09, 0]} fontSize={0.055} color="#0f172a" anchorX="center" anchorY="bottom" depthOffset={-3}>{terminal.label}</Text>
+    <Text position={[0, 0.05 + 0.04 * k, 0]} fontSize={0.055} color="#0f172a" anchorX="center" anchorY="bottom" depthOffset={-3}>{terminal.label}</Text>
   </group>
 }
 
@@ -1221,13 +1220,18 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
     setConnectionStartId(null)
   }
 
-  const railTypes = ['breaker', 'motorBreaker', 'residualBreaker', 'fuse', 'surgeProtector', 'thermalRelay', 'contactor', 'auxRelay', 'timerRelay', 'timerRelayStarDelta', 'counterRelay', 'safetyRelay', 'plcLogo', 'plcCompact', 'plcSiemensLogo1224RC', 'vfd', 'softStarter', 'transformer', 'powerSupply', 'powerSupplyProauto24A', 'terminalBlock', 'terminalPE', 'busbarPhase', 'busbarNeutral', 'earthBar', 'fuseHolder', 'auxContactBlock']
+
+  const mountingRails = components.filter((c) => isMountingRail(c.type))
+  const railById = new Map(mountingRails.map((rail) => [rail.id, rail]))
+  /** Equipamento fixo numa calha real do projeto (posição 3D derivada do Esquema). */
+  const isAttached = (c: ElectricalComponent) => !!c.railId && railById.has(c.railId) && isRailMountable(c)
 
   const { positions, railWidth } = useMemo(() => {
-    const rail = components.filter((c) => hasDinRailModel(c.type) || railTypes.some((t) => c.type.startsWith(t)))
+    const rail = components.filter((c) => hasDinRailModel(c.type) || RAIL_MOUNT_TYPE_PREFIXES.some((t) => c.type.startsWith(t)))
     const pos: Record<string, THREE.Vector3> = {}
+    const loose = rail.filter((c) => !(c.railId && railById.has(c.railId) && isRailMountable(c)))
     let cursor = 0
-    const widths = rail.map((c) => {
+    const widths = loose.map((c) => {
       const cad = getComponentModelSpec(c.type)
       if (cad?.placement === 'din-rail') return Math.max(0.12, cad.physicalSizeMm.width * 0.01)
       if (c.type.startsWith('plc')) return 1.6
@@ -1237,16 +1241,21 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
     })
     const total = widths.reduce((a, b) => a + b + 0.14, 0)
     cursor = -total / 2
-    rail.forEach((c, i) => {
+    loose.forEach((c, i) => {
       const targetHeight = getComponentModelSpec(c.type)?.targetHeight ?? 0.8
       pos[c.id] = new THREE.Vector3(cursor + widths[i] / 2, RAIL_Y + targetHeight / 2, 0)
       cursor += widths[i] + 0.14
     })
+    // Fixos numa calha: ponto de origem neutro; a posição final vem da calha (ver `attachedPivots`).
+    for (const c of rail) {
+      if (pos[c.id]) continue
+      pos[c.id] = new THREE.Vector3(0, RAIL_Y + (getComponentModelSpec(c.type)?.targetHeight ?? 0.8) / 2, 0)
+    }
     return { positions: pos, railWidth: Math.max(6, total + 1.2) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [components])
 
   const railComponents = components.filter((c) => positions[c.id])
-  const mountingRails = components.filter((c) => isMountingRail(c.type))
   const offRail = components.filter((c) => !positions[c.id] && !isMountingRail(c.type))
 
   // Posiciona comandos numa régua frontal e motores com espaçamento próprio à direita.
@@ -1275,10 +1284,17 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
     if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [x, RAIL_Y + 0.9, 0.3]
     return [x, RAIL_Y + 1.05, 0.4]
   }
-  // Calhas adicionais: por omissão empilhadas por baixo do trilho principal, coladas à chapa.
+  // Calhas reais: posição no painel derivada do Esquema (1.ª calha = referência, à altura RAIL_Y),
+  // encostadas à chapa. Mover a calha no 2D move-a (e aos equipamentos fixos) no 3D.
+  const railFlushZ = PLATE_Z + PLATE_THICKNESS / 2 + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM
   const railBase = (component: ElectricalComponent) => {
-    const index = mountingRails.findIndex((rail) => rail.id === component.id)
-    return new THREE.Vector3(0, RAIL_Y - 1.0 - Math.max(0, index) * 0.9, PLATE_Z + PLATE_THICKNESS / 2 + (DIN_RAIL_15X55.height / 2) * 0.01)
+    const ref = mountingRails[0] ?? component
+    const scale = PANEL_UNITS_PER_MM / SCHEMATIC_PX_PER_MM
+    return new THREE.Vector3(
+      (component.schematicX + component.w / 2 - (ref.schematicX + ref.w / 2)) * scale,
+      RAIL_Y - (component.schematicY + component.h / 2 - (ref.schematicY + ref.h / 2)) * scale,
+      railFlushZ,
+    )
   }
   // A chapa (o painel) cresce para acolher comandos frontais e calhas mais compridas.
   const plateWidth = useMemo(() => {
@@ -1288,8 +1304,9 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
       const width = spec ? spec.physicalSizeMm.width * 0.01 : 0.38
       return Math.max(max, Math.abs(front[component.id] ?? 0) + width / 2 + 0.2)
     }, 0)
-    const longestRail = mountingRails.reduce((max, rail) => Math.max(max, clampRailLengthMm(rail.state.lengthMm) * 0.01), 0)
-    return Math.max(railWidth + 0.8, controlHalf * 2, longestRail + 0.8)
+    const railHalf = mountingRails.reduce((max, rail) => Math.max(max, Math.abs(railBase(rail).x) + railLengthOf(rail) * PANEL_UNITS_PER_MM / 2), 0)
+    const virtualHalf = mountingRails.length ? 0 : railWidth / 2
+    return Math.max(railWidth + 0.8, controlHalf * 2, (railHalf || virtualHalf) * 2 + 0.8)
   }, [offRail, front, mountingRails, railWidth])
   const limits: PanelLimits = useMemo(() => panelLimits(plateWidth), [plateWidth])
   const orientationFor = (component: ElectricalComponent) => viewOrientationEditor?.componentId === component.id
@@ -1306,11 +1323,29 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
   }))
   // Posições (guardadas ou automáticas) são sempre apresentadas dentro do painel;
   // projetos antigos com componentes fora da chapa são corrigidos ao abrir.
-  const panelPivots: Record<string, THREE.Vector3> = Object.fromEntries(components.map((component) => {
-    const custom = component.panel3DPosition ?? basePivots[component.id]
-    const bounded = boundedPosition(component, { x: custom.x, y: custom.y, z: custom.z })
-    return [component.id, new THREE.Vector3(bounded.x, bounded.y, bounded.z)]
-  }))
+  const panelPivots: Record<string, THREE.Vector3> = {}
+  const settle = (component: ElectricalComponent, point: { x: number; y: number; z: number }) => {
+    const bounded = boundedPosition(component, point)
+    panelPivots[component.id] = new THREE.Vector3(bounded.x, bounded.y, bounded.z)
+  }
+  // 1.º as calhas, 2.º o resto (equipamentos fixos derivam da posição final da calha).
+  for (const component of mountingRails) settle(component, component.panel3DPosition ?? basePivots[component.id])
+  for (const component of components) {
+    if (isMountingRail(component.type)) continue
+    let derived: THREE.Vector3 | null = null
+    if (isAttached(component)) {
+      const rail = railById.get(component.railId!)!
+      const railPivot = panelPivots[rail.id]
+      const offsetMm = component.railOffsetMm ?? (component.schematicX - rail.schematicX) / SCHEMATIC_PX_PER_MM
+      const half = componentHalfExtents(component, orientationFor(component))
+      derived = new THREE.Vector3(
+        railPivot.x + (offsetMm + railSpanMm(component) / 2 - railLengthOf(rail) / 2) * PANEL_UNITS_PER_MM,
+        railPivot.y, // centrado na calha
+        railPivot.z + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM + half.z, // assente na face da calha
+      )
+    }
+    settle(component, component.panel3DPosition ?? derived ?? basePivots[component.id])
+  }
   const sceneWidth = Math.max(
     railWidth,
     plateWidth,
@@ -1485,7 +1520,13 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
         {showGrid && <gridHelper args={[16, 32, '#c3cdda', '#dfe5ee']} position={[0, PANEL_FLOOR_Y, 0]} />}
 
-        {components.length > 0 && <DinRail width={railWidth} plateWidth={plateWidth} />}
+        {components.length > 0 && <MountingPlate plateWidth={plateWidth} />}
+        {/* Sem calha no projeto, equipamentos de calha assentam numa calha DIN real automática (mesma geometria do componente). */}
+        {!mountingRails.length && railComponents.length > 0 && <MountingRail3D
+          position={[0, RAIL_Y, railFlushZ]}
+          lengthOverrideMm={Math.round((railWidth * 100 - 60) / 5) * 5}
+          labelText="Calha automática — adicione uma calha DIN para a controlar"
+        />}
 
         {railComponents.map((c) => {
           const x = positions[c.id].x

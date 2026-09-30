@@ -12,6 +12,7 @@ import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
 import { hasComponent3DModel, isMountingRail, MISSING_3D_MODEL_MESSAGE, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRailGeometry'
+import { isRailMountable } from '../three/railMount'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects } from '../ui/icons'
 
 const label = 'dc-field-label'
@@ -111,6 +112,7 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
  */
 export default function Sidebar({ width = 300 }: { width?: number }) {
   const components = useSimStore((s) => s.components)
+  const grid = useSimStore((s) => s.grid)
   const wires = useSimStore((s) => s.wires)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const selectedWireId = useSimStore((s) => s.selectedWireId)
@@ -339,14 +341,9 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
 
               {isMountingRail(selectedComponent.type) && (() => {
                 const length = clampRailLengthMm(selectedComponent.state.lengthMm)
-                const setLength = (value: number) => {
-                  const next = clampRailLengthMm(value)
-                  // Comprimento físico → footprint do Esquema (mesma escala mm→px) e Painel 3D.
-                  useSimStore.getState().updateComponent(selectedComponent.id, {
-                    w: Math.max(4, Math.round(next * SCHEMATIC_PX_PER_MM)),
-                    state: { ...selectedComponent.state, lengthMm: next },
-                  })
-                }
+                const setLength = (value: number) => useSimStore.getState().setRailLength(selectedComponent.id, value, 'left')
+                const attached = components.filter((item) => item.railId === selectedComponent.id)
+                const magnet = grid.railMagnet !== false
                 return <div className="dc-rail-length">
                   <label className={label}>Comprimento da calha (mm)</label>
                   <div className="dc-rail-length-row">
@@ -356,7 +353,34 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   <div className="flex flex-wrap gap-1">
                     {[100, 250, 500, 1000, 2000].map((mm) => <button key={mm} className={`dc-btn${length === mm ? ' dc-btn-primary' : ''}`} onClick={() => setLength(mm)}>{mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
                   </div>
+                  <label className="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50" title="Ao largar um equipamento de calha perto de uma calha, centra-o e fixa-o (cola aos vizinhos e às pontas).">
+                    <span className="text-ink-500">Imã automático de calha</span>
+                    <input type="checkbox" checked={magnet} onChange={(e) => useSimStore.getState().setGrid({ railMagnet: e.target.checked })} />
+                  </label>
+                  <div className="flex flex-wrap gap-1">
+                    <button className="dc-btn" title="Centra e fixa nesta e noutras calhas todos os equipamentos de calha ao alcance" onClick={() => {
+                      const n = useSimStore.getState().snapToRails(undefined, true)
+                      useSimStore.getState().pushEvent('info', n ? `${n} equipamento(s) centrado(s) e fixo(s) nas calhas.` : 'Nenhum equipamento de calha ao alcance de uma calha. Aproxime-os da calha e repita.')
+                    }}>Centrar e fixar equipamentos</button>
+                    <button className="dc-btn" disabled={!attached.length} onClick={() => useSimStore.getState().detachFromRail(attached.map((item) => item.id))}>Soltar todos</button>
+                  </div>
+                  <small className="text-ink-400">{attached.length ? `${attached.length} equipamento(s) fixo(s): ${attached.map((item) => item.ref).join(', ')}. ` : 'Sem equipamentos fixos. '}Arraste as pontas da calha no Esquema 2D para alterar o comprimento.</small>
                   <small className="text-ink-400">Perfil 15 × 5,5 mm · {railSlotCount(length)} furos oblongos (passo {DIN_RAIL_15X55.slotPitch} mm) · {DIN_RAIL_15X55.minLengthMm}–{DIN_RAIL_15X55.maxLengthMm} mm</small>
+                </div>
+              })()}
+
+              {isRailMountable(selectedComponent) && (() => {
+                const rail = components.find((item) => item.id === selectedComponent.railId)
+                return <div className="dc-rail-length">
+                  <label className={label}>Calha DIN</label>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-ink-500">{rail ? `Fixo em ${rail.ref} · ${selectedComponent.railOffsetMm ?? 0} mm do início` : 'Solto (sem calha)'}</span>
+                    <button className="dc-btn" onClick={() => {
+                      const n = useSimStore.getState().snapToRails([selectedComponent.id], true)
+                      if (!n) useSimStore.getState().pushEvent('info', 'Nenhuma calha ao alcance. Aproxime o equipamento de uma calha DIN.')
+                    }}>Centrar e fixar</button>
+                    {rail && <button className="dc-btn" onClick={() => useSimStore.getState().detachFromRail([selectedComponent.id])}>Soltar</button>}
+                  </div>
                 </div>
               })()}
 
@@ -493,6 +517,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                         </select></label>
                         <label><span>X</span><input type="number" step="0.05" min="0" max="1" className="dc-input !h-[24px] !text-[10px]" value={t.x} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { x: Number(e.target.value) })} /></label>
                         <label><span>Y</span><input type="number" step="0.05" min="0" max="1" className="dc-input !h-[24px] !text-[10px]" value={t.y} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { y: Number(e.target.value) })} /></label>
+                        <label title="Diâmetro do desenho do borne no Esquema (vazio = padrão)"><span>Ø px</span><input type="number" step="0.5" min="3" max="24" placeholder="auto" className="dc-input !h-[24px] !text-[10px]" value={t.diameter ?? ''} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { diameter: e.target.value === '' ? undefined : Math.max(3, Math.min(24, Number(e.target.value))) })} /></label>
                       </div>
                       <span className={`dc-inspector-terminal-status ${t.energized ? 'is-on' : ''}`}>{t.energized ? '● Energizado' : '○ Sem tensão'}</span>
                     </div>
