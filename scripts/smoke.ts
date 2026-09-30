@@ -33,6 +33,7 @@ import { automaticTerminalViewPositions, componentTerminalLocal, projectedCompon
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import { fixedAccountEmails, isFixedAccount, localApi, verifyFixedCredentials } from '../src/auth/localBackend'
+import { accountApi, readableApiError } from '../src/auth/accountApi'
 import { ACTION_LABEL, categoryOf, generatePassword, logsToCsv, passwordProblem, queryAudit, severityOf, type AuditEntry } from '../src/admin/adminTypes'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
 import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../src/three/dinRailGeometry'
@@ -757,8 +758,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
       && footprint.h === Math.round(spec.physicalSizeMm.height * 1.5)
       && Math.abs(spec.targetHeight - spec.physicalSizeMm.height * 0.01) < 1e-9
   }))
-  const directStart3DTypes = ['powerSupplyProauto24A', 'plcSiemensLogo1224RC', 'dualPushButtonNpb22D11', 'contactorWegCWC09', 'pilotLightAd22', 'motor3ph'] as const
-  check('demonstração de partida direta 3D usa seis componentes com GLB real', directStart3DTypes.every((type) => hasComponent3DModel(type) && !!getComponentGlbSpec(type)))
+  const directStart3DTypes = ['powerSupplyProauto24A', 'plcSiemensLogo1224RC', 'dualPushButtonNpb22D11', 'contactorWegCWC09', 'pilotLightAd22', 'pilotLightAd22', 'motor3ph'] as const
+  check('demonstração de partida direta 3D usa sete componentes reais, incluindo H1 e H2', directStart3DTypes.length === 7 && directStart3DTypes.every((type) => hasComponent3DModel(type) && !!getComponentGlbSpec(type)))
 
   const beforeBlockedAdd = useSimStore.getState().components.length
   const blockedId = useSimStore.getState().addComponent('motor1ph', 0, 0)
@@ -1043,6 +1044,21 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     setItem: (key: string, value: string) => { memory.set(key, String(value)) },
     removeItem: (key: string) => { memory.delete(key) },
   } })
+
+  const originalFetch = globalThis.fetch
+  let apiRequests = 0
+  globalThis.fetch = async () => {
+    apiRequests++
+    return new Response(JSON.stringify({ error: { code: 'STATIC_NOT_FOUND' } }), {
+      status: 404,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+  const fixedLogin = await accountApi<{ user: { role: string } }>('/login', 'POST', { email: 'ADMIN@DCSIMU.LOCAL', password: 'AdminDcsimu2026!' })
+  check('conta Admin fixa autentica localmente antes de um /api estático', fixedLogin.user.role === 'admin' && apiRequests === 0)
+  check('erro JSON em objeto nunca aparece como [object Object]', readableApiError({ code: 'STATIC_NOT_FOUND' }, 'Falha no servidor (404)') === 'Falha no servidor (404)')
+  globalThis.fetch = originalFetch
+
   const loggedIn = await localApi<{ user: { role: string } }>('/login', 'POST', { email: 'user@dcsimu.local', password: 'UserDcsimu2026!' })
   const created = await localApi<{ id: string; revision: number }>('/projects', 'POST', { name: 'Projeto local', content: { test: 1 } })
   const saved = await localApi<{ revision: number }>(`/projects/${created.id}`, 'PUT', { revision: created.revision, content: { test: 2 } })

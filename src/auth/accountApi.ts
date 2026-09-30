@@ -1,11 +1,25 @@
 import type { User } from '../dashboard/Dashboard'
-import { getLocalSession, isFixedAccount, localApi, rememberFixedSession } from './localBackend'
+import { fixedAccountEmails, getLocalSession, isFixedAccount, localApi, rememberFixedSession } from './localBackend'
 
 type BackendMode = 'unknown' | 'local' | 'server'
 let mode: BackendMode = 'unknown'
 
 /** O servidor não respondeu como API (deploy estático ou rede em baixo). */
 class ApiUnavailable extends Error {}
+
+/** Nunca deixe um payload desconhecido chegar à coerção de Error: objetos
+ * transformam-se em "[object Object]", que não ajuda o utilizador. */
+export function readableApiError(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    for (const key of ['message', 'detail', 'title', 'error_description']) {
+      const candidate = record[key]
+      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    }
+  }
+  return fallback
+}
 
 async function serverApi<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
   let response: Response
@@ -21,8 +35,21 @@ async function serverApi<T>(url: string, method = 'GET', body?: unknown): Promis
   }
   const contentType = response.headers.get('content-type') || ''
   if (!contentType.includes('application/json')) throw new ApiUnavailable('API indisponível')
-  const data = await response.json() as { error?: string }
-  if (!response.ok) throw new Error(data.error || 'Falha no servidor')
+  let data: unknown
+  try {
+    data = await response.json()
+  } catch {
+    throw new ApiUnavailable('API indisponível')
+  }
+  if (!response.ok) {
+    const error = data && typeof data === 'object' ? (data as Record<string, unknown>).error : undefined
+    // Hosts estáticos costumam responder 404/405 em JSON próprio. Isso não é
+    // uma decisão semântica da nossa API e deve ativar o backend local.
+    if ((response.status === 404 || response.status === 405) && typeof error !== 'string') {
+      throw new ApiUnavailable('API indisponível')
+    }
+    throw new Error(readableApiError(error ?? data, `Falha no servidor (${response.status})`))
+  }
   return data as T
 }
 
@@ -37,6 +64,17 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
   if (url === '/register') return localApi<T>(url, verb, body)
 
   if (url === '/login' && verb === 'POST') {
+    const payload = body && typeof body === 'object' ? body as Record<string, unknown> : {}
+    const email = String(payload.email ?? '').trim().toLowerCase()
+
+    // As duas contas autorizadas são deliberadamente locais primeiro. Assim o
+    // login funciona num deploy estático mesmo quando /api/login responde com
+    // uma página/JSON de erro da plataforma em vez de não responder.
+    if (fixedAccountEmails().some((fixedEmail) => fixedEmail === email)) {
+      mode = 'local'
+      return localApi<T>(url, verb, body)
+    }
+
     try {
       const serverResponse = await serverApi<{ user: User }>(url, verb, body)
       // As contas fixas também ficam lembradas localmente (modo offline); as restantes vivem só no servidor.

@@ -183,8 +183,8 @@ function HeroViewport() {
         <b>
           <i aria-hidden /> Simulação ativa
         </b>
-        <span>START/STOP → LOGO! → KM1/M1 + H1</span>
-        <span className="end">6 equipamentos reais · 11 ligações</span>
+        <span>START/STOP → LOGO! → KM1/M1 + H1/H2</span>
+        <span className="end">7 equipamentos reais · cablagem em bornes</span>
       </div>
     </div>
   )
@@ -252,18 +252,23 @@ function LandingLadderNetwork({ powered }: { powered: boolean }) {
   )
 }
 
-/** Segunda network: contacto de KM1 a comandar a lâmpada de marcha H1. */
-function LandingStatusNetwork({ powered }: { powered: boolean }) {
+/** Networks 2/3: o mesmo estado de KM1 alimenta indicações complementares. */
+function LandingStatusNetwork({ powered, stopped = false }: { powered: boolean; stopped?: boolean }) {
   const wire = powered ? '#16a34a' : '#8b98aa'
+  const lampColor = stopped ? '#ef4444' : '#22c55e'
+  const activeText = stopped ? '#b91c1c' : '#137a47'
+  const output = stopped ? 'Q3' : 'Q2'
+  const lamp = stopped ? 'H2 PARADO' : 'H1 MARCHA'
+  const patternId = stopped ? 'dx-ladder-grid-stop' : 'dx-ladder-grid-status'
   return (
-    <svg className={`dx-ladder-network-svg dx-ladder-status-svg${powered ? ' is-powered' : ''}`} viewBox="0 0 600 112" role="img" aria-label={`Sinalização H1 ${powered ? 'ligada' : 'desligada'}`}>
+    <svg className={`dx-ladder-network-svg dx-ladder-status-svg${powered ? ' is-powered' : ''}`} viewBox="0 0 600 112" role="img" aria-label={`Sinalização ${lamp} ${powered ? 'ligada' : 'desligada'}`}>
       <defs>
-        <pattern id="dx-ladder-grid-status" width="20" height="20" patternUnits="userSpaceOnUse">
+        <pattern id={patternId} width="20" height="20" patternUnits="userSpaceOnUse">
           <circle cx="1" cy="1" r="1" fill="#d2dbea" />
         </pattern>
       </defs>
       <rect width="600" height="112" fill="#f8fafd" />
-      <rect width="600" height="112" fill="url(#dx-ladder-grid-status)" />
+      <rect width="600" height="112" fill={`url(#${patternId})`} />
       <g fill="none" stroke={wire} strokeWidth="2.6" strokeLinecap="square">
         <path d="M24 14v84" />
         <path d="M24 58h142M190 58h304" />
@@ -272,18 +277,19 @@ function LandingStatusNetwork({ powered }: { powered: boolean }) {
       <g fill="none" stroke={wire} strokeWidth="2">
         <line x1="166" y1="44" x2="166" y2="72" />
         <line x1="190" y1="44" x2="190" y2="72" />
+        {stopped && <line x1="162" y1="73" x2="194" y2="43" />}
       </g>
       <g fill="none" stroke={wire} strokeWidth="2.4">
         <circle cx="512" cy="58" r="22" />
         <path d="M497 43l30 30M527 43l-30 30" />
       </g>
-      <circle cx="512" cy="58" r="16" fill={powered ? '#22c55e' : '#cbd5e1'} fillOpacity={powered ? '.22' : '.16'} />
+      <circle cx="512" cy="58" r="16" fill={powered ? lampColor : '#cbd5e1'} fillOpacity={powered ? '.24' : '.16'} />
       <g fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" textAnchor="middle">
         <text x="178" y="34" fill="#1f2a3d" fontSize="11" fontWeight="700">%Q1</text>
-        <text x="178" y="87" fill="#6f7d92" fontSize="9">"KM1"</text>
-        <text x="512" y="28" fill="#1f2a3d" fontSize="11" fontWeight="700">%Q2</text>
-        <text x="512" y="96" fill={powered ? '#137a47' : '#64748b'} fontSize="9">H1 MARCHA</text>
-        <text x="570" y="61" fill={powered ? '#15803d' : '#64748b'} fontSize="9" textAnchor="end">{powered ? '1' : '0'}</text>
+        <text x="178" y="87" fill="#6f7d92" fontSize="9">{stopped ? '"KM1 NF"' : '"KM1"'}</text>
+        <text x="512" y="28" fill="#1f2a3d" fontSize="11" fontWeight="700">%{output}</text>
+        <text x="512" y="96" fill={powered ? activeText : '#64748b'} fontSize="9">{lamp}</text>
+        <text x="570" y="61" fill={powered ? activeText : '#64748b'} fontSize="9" textAnchor="end">{powered ? '1' : '0'}</text>
       </g>
     </svg>
   )
@@ -296,6 +302,7 @@ function EditorAnatomy() {
   const [zoom, setZoom] = useState(100)
   const [view, setView] = useState<'ladder' | 'panel3d'>('ladder')
   const powered = plcRunning && motorOn
+  const stoppedIndication = plcRunning && !motorOn
 
   const runPlc = () => setPlcRunning(true)
   const stopPlc = () => {
@@ -356,7 +363,7 @@ function EditorAnatomy() {
           </div>
           <div className="ladder-program-summary" aria-live="polite">
             <div className={`ladder-metric ${plcRunning ? 'is-run' : 'is-stop'}`}><span>Estado</span><strong>{plcRunning ? 'RUN' : 'STOP'}</strong></div>
-            <div className="ladder-metric"><span>Networks</span><strong>02</strong></div>
+            <div className="ladder-metric"><span>Networks</span><strong>03</strong></div>
             <div className="ladder-metric"><span>Scan</span><strong>{plcRunning ? '4 ms' : '—'}</strong></div>
             <div className="ladder-live-bus"><span>PLC</span><strong>{plcRunning ? 'LOGO! ativo' : 'CPU parada'}</strong></div>
           </div>
@@ -386,12 +393,24 @@ function EditorAnatomy() {
                 <div className="ladder-rung-header">
                   <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
                   <span className={`ladder-network-no${powered ? ' is-on' : ''}`}>Network 2:</span>
-                  <span className="ladder-network-title">Sinalização de estado</span>
+                  <span className="ladder-network-title">Sinalização de marcha</span>
                   <span className={`ladder-rung-live${powered ? ' is-on' : ''}`}><i />RLO = {powered ? '1' : '0'}</span>
                 </div>
-                <div className="ladder-network-comment">KM1 comanda a lâmpada verde de marcha H1</div>
+                <div className="ladder-network-comment">Contacto NA de KM1 comanda a lâmpada verde H1</div>
                 <div className="ladder-rung-body">
                   <div className="ladder-diagram-scroll"><LandingStatusNetwork powered={powered} /></div>
+                </div>
+              </div>
+              <div className={`ladder-rung-card dx-ladder-secondary dx-ladder-stopped${stoppedIndication ? ' is-powered' : ''}`}>
+                <div className="ladder-rung-header">
+                  <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
+                  <span className={`ladder-network-no${stoppedIndication ? ' is-on' : ''}`}>Network 3:</span>
+                  <span className="ladder-network-title">Sinalização de motor parado</span>
+                  <span className={`ladder-rung-live${stoppedIndication ? ' is-on' : ''}`}><i />RLO = {stoppedIndication ? '1' : '0'}</span>
+                </div>
+                <div className="ladder-network-comment">Contacto NF de KM1 comanda a lâmpada vermelha H2</div>
+                <div className="ladder-rung-body">
+                  <div className="ladder-diagram-scroll"><LandingStatusNetwork powered={stoppedIndication} stopped /></div>
                 </div>
               </div>
             </div>
@@ -412,7 +431,11 @@ function EditorAnatomy() {
       </div>}
       <div className={`dx-window-foot${plcRunning ? ' is-running' : ' is-stopped'}`} aria-live="polite">
         <b><i aria-hidden /> PLC em {plcRunning ? 'RUN' : 'STOP'}</b>
-        <span>{powered ? (view === 'panel3d' ? 'KM1 ligado · M1 em rotação · H1 aceso' : 'KM1 e H1 energizados') : 'Saídas desenergizadas'}</span>
+        <span>{powered
+          ? (view === 'panel3d' ? 'KM1 ligado · M1 em marcha · H1 verde aceso' : 'Q1/KM1 e Q2/H1 energizados')
+          : stoppedIndication
+            ? (view === 'panel3d' ? 'KM1 desligado · M1 parado · H2 vermelho aceso' : 'Q3/H2 energizado · motor parado')
+            : 'Saídas Q1, Q2 e Q3 desenergizadas'}</span>
         <span className="end">IEC 61131-3 · {plcRunning ? 'scan 4 ms' : 'CPU parada'}</span>
       </div>
     </div>
@@ -615,7 +638,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
           <div className="dx-head" data-rv>
             <span className="dx-over">Demonstração Ladder interativa</span>
             <h2>Execute uma partida direta sem sair desta página.</h2>
-            <p>Clique em RUN e START, depois alterne entre Ladder e a Visualização 3D: o LOGO! Siemens, a botoeira START/STOP, KM1, o motor SEW e o novo sinaleiro H1 partilham o mesmo estado. Use STOP para desligar.</p>
+            <p>Clique em RUN e START, depois alterne entre Ladder e a Visualização 3D: o LOGO! Siemens, a botoeira START/STOP, KM1, o motor SEW, H1 verde de marcha e H2 vermelho de motor parado partilham o mesmo estado. Use STOP para desligar o motor.</p>
           </div>
           <div className="dx-studio-grid">
             <div data-rv>

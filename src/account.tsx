@@ -71,7 +71,14 @@ export default function Account() {
     return () => window.clearTimeout(timer)
   }, [message, page])
 
-  const error = (value: unknown) => setMessage(value instanceof Error ? value.message : 'Falha inesperada')
+  const error = (value: unknown) => {
+    const message = value instanceof Error
+      ? value.message
+      : typeof value === 'string'
+        ? value
+        : 'Falha inesperada. Tente novamente.'
+    setMessage(message === '[object Object]' ? 'Não foi possível concluir o pedido. Tente novamente.' : message)
+  }
 
   async function persistOpenProject(showMessage: boolean) {
     const entry = openRef.current
