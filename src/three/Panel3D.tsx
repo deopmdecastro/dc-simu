@@ -11,7 +11,7 @@ import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDin
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
-import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
+import { PANEL_UNITS_PER_PX, componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
@@ -1134,7 +1134,7 @@ type PanelCameraView = 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bo
 type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number]; dx?: number; dy?: number; yaw?: number; pitch?: number }
 
 /** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
-function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void }) {
+function PanelCameraRig({ command, railWidth, onStats, frontEdit = false }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void; frontEdit?: boolean }) {
   const { camera, size } = useThree()
   const controlsRef = useRef<any>(null)
   // Enquadramento usa os valores mais recentes sem reiniciar a câmara quando o conteúdo/tamanho muda.
@@ -1208,40 +1208,72 @@ function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraC
     report()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, command])
-  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} enableDamping dampingFactor={0.08} makeDefault onChange={report} />
+  // Edição frontal: botão esquerdo no vazio faz pan (como num editor 2D); orbitar fica no botão direito e no cubo de vista.
+  const buttons = frontEdit ? { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE } : undefined
+  const touches = frontEdit ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE } : undefined
+  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} enableDamping dampingFactor={0.08} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning />
 }
 
 /** Grelha por pontos do Esquema, desenhada na cena 3D sobre a placa: acompanha zoom, pan e órbita. */
 function DotGrid({ size, dark }: { size: number; dark: boolean }) {
-  const positions = useMemo(() => {
+  const { minor, major } = useMemo(() => {
     let step = Math.max(5, size)
     while ((2000 / step + 1) * (1400 / step + 1) > 24000) step *= 2
-    const xs: number[] = []
-    const ys: number[] = []
-    for (let x = 0; x <= 2000; x += step) xs.push(schematicToPanelX(x))
-    for (let y = 0; y <= 1400; y += step) ys.push(schematicToPanelY(y))
-    const array = new Float32Array(xs.length * ys.length * 3)
-    let i = 0
-    for (const y of ys) for (const x of xs) { array[i++] = x; array[i++] = y; array[i++] = 0 }
-    return array
+    const minor: number[] = []
+    const major: number[] = []
+    for (let iy = 0, y = 0; y <= 1400; y += step, iy++) {
+      for (let ix = 0, x = 0; x <= 2000; x += step, ix++) {
+        // Um ponto mais forte a cada 5 passos ajuda a medir distâncias a olho.
+        const target = ix % 5 === 0 && iy % 5 === 0 ? major : minor
+        target.push(schematicToPanelX(x), schematicToPanelY(y), 0)
+      }
+    }
+    return { minor: new Float32Array(minor), major: new Float32Array(major) }
   }, [size])
+  const z = PLATE_Z + PLATE_THICKNESS / 2 + 0.003
   return (
-    <points position={[0, 0, PLATE_Z + PLATE_THICKNESS / 2 + 0.003]} renderOrder={1}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-      </bufferGeometry>
-      <pointsMaterial size={2.6} sizeAttenuation={false} color={dark ? '#5b6b82' : '#aab8cc'} depthWrite={false} />
-    </points>
+    <group position={[0, 0, z]}>
+      <points renderOrder={1}>
+        <bufferGeometry><bufferAttribute attach="attributes-position" args={[minor, 3]} /></bufferGeometry>
+        <pointsMaterial size={2.4} sizeAttenuation={false} color={dark ? '#5b6b82' : '#b4c1d3'} depthWrite={false} />
+      </points>
+      <points renderOrder={2}>
+        <bufferGeometry><bufferAttribute attach="attributes-position" args={[major, 3]} /></bufferGeometry>
+        <pointsMaterial size={3.6} sizeAttenuation={false} color={dark ? '#8fa3c0' : '#7f92ad'} depthWrite={false} />
+      </points>
+    </group>
   )
 }
 
-/** Plano invisível que recebe o clique quando há um componente da Biblioteca à espera de ser colocado. */
-function PlacementPlane({ onPlace }: { onPlace: (x: number, y: number) => void }) {
+/** Plano que recebe o clique de colocação e mostra um "fantasma" alinhado à grelha sob o cursor. */
+function PlacementPlane({ onPlace, step, size = 80 }: { onPlace: (x: number, y: number) => void; step: number; size?: number }) {
+  const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null)
+  const z = PLATE_Z + PLATE_THICKNESS / 2
+  const snapPanel = (x: number, y: number) => {
+    if (!step) return { x, y }
+    const sx = Math.round((panelToSchematicX(x) - size / 2) / step) * step + size / 2
+    const sy = Math.round((panelToSchematicY(y) - size / 2) / step) * step + size / 2
+    return { x: schematicToPanelX(sx), y: schematicToPanelY(sy) }
+  }
+  const w = size * PANEL_UNITS_PER_PX
   return (
-    <mesh position={[0, 0, PLATE_Z + PLATE_THICKNESS / 2 + 0.001]} onClick={(event) => { event.stopPropagation(); onPlace(event.point.x, event.point.y) }}>
-      <planeGeometry args={[60, 60]} />
-      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-    </mesh>
+    <group>
+      <mesh
+        position={[0, 0, z + 0.001]}
+        onPointerMove={(event) => { event.stopPropagation(); setGhost(snapPanel(event.point.x, event.point.y)) }}
+        onPointerOut={() => setGhost(null)}
+        onClick={(event) => { event.stopPropagation(); onPlace(event.point.x, event.point.y) }}
+      >
+        <planeGeometry args={[60, 60]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      {ghost && (
+        <mesh position={[ghost.x, ghost.y, z + 0.004]} renderOrder={3}>
+          <planeGeometry args={[w, w]} />
+          <meshBasicMaterial color="#2563eb" transparent opacity={0.16} depthWrite={false} />
+        </mesh>
+      )}
+    </group>
   )
 }
 
@@ -1673,7 +1705,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
         {showGrid && !frontEdit && <gridHelper args={[40, 80, '#c3cdda', '#dfe5ee']} position={[sceneCenter[0], floorY, 0]} />}
         {frontEdit && showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} dark={backgroundMode === 'dark'} />}
-        {frontEdit && placingType && hasComponent3DModel(placingType) && <PlacementPlane onPlace={(x, y) => {
+        {frontEdit && placingType && hasComponent3DModel(placingType) && <PlacementPlane step={gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0} onPlace={(x, y) => {
           const step = gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0
           const snapTo = (value: number) => step ? Math.round(value / step) * step : Math.round(value)
           const id = addComponent(placingType, snapTo(panelToSchematicX(x) - 40), snapTo(panelToSchematicY(y) - 40))
@@ -1737,7 +1769,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           onMoveWaypoint={moveWireWaypoint}
         />
 
-        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} />
+        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} frontEdit={frontEdit} />
       </Canvas>
 
       <div className="panel3d-axis-hud" aria-label="Orientação da câmara 3D">
