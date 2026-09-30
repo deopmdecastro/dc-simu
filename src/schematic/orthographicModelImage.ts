@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { cloneModelScene } from '../three/modelFit'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { CAPTURE_FRAME_PADDING as FRAME_PADDING } from '../three/captureFrame'
 
@@ -68,7 +69,7 @@ export function captureOrthographicModelImage(options: OrthographicModelImageOpt
 
 async function capture(options: OrthographicModelImageOptions): Promise<string> {
   const source = await loadSource(options.path)
-  const inner = source.clone(true)
+  const inner = cloneModelScene(source)
 
   inner.traverse((node) => {
     const mesh = node as THREE.Mesh
@@ -86,12 +87,12 @@ async function capture(options: OrthographicModelImageOptions): Promise<string> 
   if (options.viewRotation) model.rotation.set(...options.viewRotation)
   model.updateMatrixWorld(true)
 
-  const initialBounds = new THREE.Box3().setFromObject(model)
+  const initialBounds = new THREE.Box3().setFromObject(model, true)
   if (initialBounds.isEmpty()) throw new Error(`Modelo sem geometria: ${options.path}`)
   model.position.sub(initialBounds.getCenter(new THREE.Vector3()))
   model.updateMatrixWorld(true)
 
-  const bounds = new THREE.Box3().setFromObject(model)
+  const bounds = new THREE.Box3().setFromObject(model, true)
   const size = bounds.getSize(new THREE.Vector3())
   const width = Math.max(size.x, 1e-6)
   const height = Math.max(size.y, 1e-6)

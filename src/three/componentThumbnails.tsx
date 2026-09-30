@@ -326,7 +326,7 @@ export function getComponentThumbnail(type: ComponentType): string {
   rotated.add(content)
   rotated.updateMatrixWorld(true)
 
-  const bbox = new THREE.Box3().setFromObject(rotated)
+  const bbox = new THREE.Box3().setFromObject(rotated, true)
   const size = new THREE.Vector3()
   const center = new THREE.Vector3()
   bbox.getSize(size)

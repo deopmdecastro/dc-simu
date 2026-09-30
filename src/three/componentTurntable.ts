@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { cloneModelScene } from './modelFit'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { ComponentType } from '../types'
 import { getComponentGlbSpec } from './modelPaths'
@@ -61,7 +62,7 @@ export function getComponentTurntableFrames(type: ComponentType): Promise<string
       rim.position.set(2, 4, -6)
       scene.add(rim)
 
-      const model = source.clone(true)
+      const model = cloneModelScene(source)
       model.traverse((node) => {
         const mesh = node as THREE.Mesh
         if (!mesh.isMesh) return
@@ -77,11 +78,11 @@ export function getComponentTurntableFrames(type: ComponentType): Promise<string
       if (spec.flipDepth) model.scale.z *= -1
       model.updateMatrixWorld(true)
 
-      const initialBox = new THREE.Box3().setFromObject(model)
+      const initialBox = new THREE.Box3().setFromObject(model, true)
       model.position.sub(initialBox.getCenter(new THREE.Vector3()))
       model.updateMatrixWorld(true)
 
-      const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3())
+      const size = new THREE.Box3().setFromObject(model, true).getSize(new THREE.Vector3())
       const rotatingWidth = Math.hypot(size.x, size.z)
       const halfView = Math.max(size.y, rotatingWidth) * 0.61 || 1
       const cameraDistance = Math.max(4, Math.max(size.x, size.y, size.z) * 3.4)

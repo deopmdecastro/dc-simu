@@ -6,6 +6,7 @@ import { useSimStore } from '../store/useSimStore'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColor } from '../types'
 import * as THREE from 'three'
+import { cloneModelScene } from './modelFit'
 import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
@@ -480,7 +481,7 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
   // qualquer modelo exportado do CAD encaixe automaticamente no cenário
   // sem coordenadas fixas manuais.
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     // scene.clone(true) conserva referências aos materiais do cache GLTF;
     // isolá-los evita que o ecrã de um PLC modifique os demais modelos.
     obj.traverse((node) => {
@@ -491,13 +492,13 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
     obj.rotation.set(...LOGO_1224RC_ROTATION)
     obj.updateMatrixWorld(true)
 
-    const rawBox = new THREE.Box3().setFromObject(obj)
+    const rawBox = new THREE.Box3().setFromObject(obj, true)
     const rawHeight = rawBox.max.y - rawBox.min.y
     const scale = rawHeight > 0 ? LOGO_1224RC_TARGET_HEIGHT / rawHeight : 1
     obj.scale.setScalar(scale)
     obj.updateMatrixWorld(true)
 
-    const box = new THREE.Box3().setFromObject(obj)
+    const box = new THREE.Box3().setFromObject(obj, true)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
 
@@ -543,7 +544,7 @@ function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const spec = getComponentModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -551,12 +552,12 @@ function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const bounds = new THREE.Box3().setFromObject(obj)
+    const bounds = new THREE.Box3().setFromObject(obj, true)
     const height = bounds.max.y - bounds.min.y
     const scale = height > 0 ? spec.targetHeight / height : 1
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj)
+    const box = new THREE.Box3().setFromObject(obj, true)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
     return obj
@@ -572,7 +573,7 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const spec = getComponentModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -580,12 +581,12 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const bounds = new THREE.Box3().setFromObject(obj)
+    const bounds = new THREE.Box3().setFromObject(obj, true)
     const height = bounds.max.y - bounds.min.y
     const scale = height > 0 ? spec.targetHeight / height : 1
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj)
+    const box = new THREE.Box3().setFromObject(obj, true)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
     return obj
@@ -603,7 +604,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const spec = getComponentModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -611,12 +612,12 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(obj)
+    const raw = new THREE.Box3().setFromObject(obj, true)
     const height = raw.max.y - raw.min.y
     const scale = height > 0 ? spec.targetHeight / height : 1
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj)
+    const box = new THREE.Box3().setFromObject(obj, true)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
     return obj
@@ -634,7 +635,7 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
   const spec = getCommandModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -642,12 +643,12 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const bounds = new THREE.Box3().setFromObject(obj)
+    const bounds = new THREE.Box3().setFromObject(obj, true)
     const size = bounds.getSize(new THREE.Vector3())
     const scale = size.y > 0 ? spec.targetHeight / size.y : 1
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    const fitted = new THREE.Box3().setFromObject(obj)
+    const fitted = new THREE.Box3().setFromObject(obj, true)
     obj.position.sub(fitted.getCenter(new THREE.Vector3()))
     return obj
   }, [scene, spec])
@@ -675,7 +676,7 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
   const spec = getCommandModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -683,12 +684,12 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(obj)
+    const raw = new THREE.Box3().setFromObject(obj, true)
     const size = raw.getSize(new THREE.Vector3())
     const scale = spec.targetHeight / (size.y || 1)
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    obj.position.sub(new THREE.Box3().setFromObject(obj).getCenter(new THREE.Vector3()))
+    obj.position.sub(new THREE.Box3().setFromObject(obj, true).getCenter(new THREE.Vector3()))
     return obj
   }, [scene, spec])
   const buttonEvents = (handler: (pressed: boolean) => void) => ({
@@ -807,7 +808,7 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const spec = getComponentModelSpec('pilotLightAd22')!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const object = scene.clone(true)
+    const object = cloneModelScene(scene)
     object.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -817,12 +818,12 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
     })
     object.rotation.set(...spec.rotation)
     object.updateMatrixWorld(true)
-    const rawSize = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3())
+    const rawSize = new THREE.Box3().setFromObject(object, true).getSize(new THREE.Vector3())
     const faceDiameter = Math.max(rawSize.x, rawSize.y)
     const scale = faceDiameter > 0 ? spec.targetHeight / faceDiameter : 1
     object.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     object.updateMatrixWorld(true)
-    object.position.sub(new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3()))
+    object.position.sub(new THREE.Box3().setFromObject(object, true).getCenter(new THREE.Vector3()))
     return object
   }, [scene, spec])
   const on = !!c.state.on
@@ -962,7 +963,7 @@ function MotorSewDrn80Mk4B3Real3D({ c, x }: { c: ElectricalComponent; x: number 
   const { scene } = useGLTF(spec.path)
   const shaftIndicator = useRef<THREE.Group>(null)
   const model = useMemo(() => {
-    const object = scene.clone(true)
+    const object = cloneModelScene(scene)
     object.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -972,12 +973,12 @@ function MotorSewDrn80Mk4B3Real3D({ c, x }: { c: ElectricalComponent; x: number 
     })
     object.rotation.set(...spec.rotation)
     object.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(object)
+    const raw = new THREE.Box3().setFromObject(object, true)
     const height = raw.max.y - raw.min.y
     const scale = height > 0 ? spec.targetHeight / height : 1
     object.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     object.updateMatrixWorld(true)
-    const fitted = new THREE.Box3().setFromObject(object)
+    const fitted = new THREE.Box3().setFromObject(object, true)
     const center = fitted.getCenter(new THREE.Vector3())
     object.position.set(-center.x, -fitted.min.y, -center.z)
     return object

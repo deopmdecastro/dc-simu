@@ -1202,5 +1202,15 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     || viewCubeMatrix(0, 0).includes('1.00000,0.00000,0.00000,0'))
 }
 
+{
+  // escala real: a caixa EXATA (vértices) de cada GLB, com a rotação base, tem de encaixar na ficha física
+  const { auditModels } = await import('./audit-models')
+  const rows = await auditModels()
+  check('escala 3D: auditoria cobre os modelos com GLB', rows.length >= 15)
+  for (const r of rows) check(`escala 3D: ${r.type} encaixa na ficha física (<6%)`, r.error < 0.06)
+  const pti6 = rows.find((r) => r.type === 'terminalPhoenixPti6')!
+  check('escala 3D: borne PTI6 fica com 66 mm de altura (não 48,5)', Math.abs(pti6.rotated[1] - 66.02) < 0.5)
+}
+
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)
