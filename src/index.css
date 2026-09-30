@@ -1989,7 +1989,7 @@ button:disabled { cursor:not-allowed; }
 /* OrbitControls recebe os gestos diretamente na área 3D. */
 canvas[data-engine="three.js r169"] { touch-action: none; }
 
-@media (max-width: 1079px) {
+@media (max-width: 1199px) {
   .dc-toolbar-main { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; min-height: 48px; scrollbar-width: thin; }
   .schematic-view-shell[data-canvas-mode="3d"] .panel3d-axis-hud { right:43px; }
   .panel3d-stage .component-view-command { right:43px; }
@@ -2621,3 +2621,71 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 
 .schematic-tilt-note { position:absolute; z-index:21; left:50%; bottom:64px; transform:translateX(-50%); max-width:calc(100% - 24px); padding:7px 14px; border:1px solid var(--float-border,#dbe4f0); border-radius:999px; color:#41536d; background:#fffffff2; box-shadow:var(--float-shadow,0 8px 22px #1b2d491f); font:600 11px ui-sans-serif,system-ui,sans-serif; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .schematic-tilt-note b { color:#1d4ed8; }
+
+/* ---------------------------------------------------------------------------
+   Responsividade (telemóvel · tablet · PC)
+   O canvas mede-se a si próprio (container query): com as duas gavetas abertas
+   num PC o canvas fica estreito mesmo com o ecrã largo.
+--------------------------------------------------------------------------- */
+.panel3d-stage { container: panel3d / inline-size; }
+
+@container panel3d (max-width: 980px) {
+  /* Barra de vistas numa 2.ª linha, sem tapar o botão Biblioteca nem o cubo (à direita). */
+  .panel3d-viewbar { top:52px; left:12px; transform:none; max-width:calc(100% - 176px); scrollbar-width:none; }
+  .panel3d-viewbar::-webkit-scrollbar { display:none; }
+  .panel3d-edit-context { top:92px; left:12px; transform:none; max-width:calc(100% - 176px); scrollbar-width:none; }
+  .panel3d-edit-context::-webkit-scrollbar { display:none; }
+}
+@container panel3d (max-width: 560px) {
+  .panel3d-stage .vcube-floating:not(.vcube-shifted) { width:104px; }
+  .panel3d-viewbar, .panel3d-edit-context { max-width:calc(100% - 152px); }
+}
+
+/* Cubo compacto: em ecrãs estreitos ou baixos os atalhos Frente/ISO já existem na barra de vistas. */
+@media (max-width: 700px), (max-height: 520px) {
+  .panel3d-stage .vcube-floating:not(.vcube-shifted) { --vcube-size:46px; }
+  .panel3d-stage .vcube-floating .vcube-stage { height:100px; }
+  .panel3d-stage .vcube-floating .vcube-actions,
+  .panel3d-stage .vcube-floating .vcube-readout { display:none; }
+  .panel3d-axis-hud > div { display:none; }
+}
+
+/* Rodapé de estado: nunca parte em duas linhas. */
+footer { min-width:0; overflow:hidden; }
+footer > * { flex-shrink:0; white-space:nowrap; }
+footer > span.truncate { flex-shrink:1; min-width:0; }
+@media (max-width: 480px) {
+  footer .tabular-nums { display:none; }
+  footer > span:first-child { font-size:10px; }
+}
+
+/* Ecrãs baixos (telemóvel em paisagem): mais canvas, menos cabeçalho. */
+@media (max-height: 520px) {
+  .dc-toolbar-main { min-height:40px; padding-block:2px; }
+  .toolbar-scroll { height:34px !important; }
+  footer { height:22px !important; }
+  .panel3d-empty-overlay { padding-top:46px; padding-bottom:50px; }
+}
+
+/* Toque: alvos ≥ 32 px e texto legível (o texto de 8–9 px era ilegível). */
+@media (pointer: coarse) {
+  .panel3d-viewbar button, .panel3d-edit-context button { height:32px; padding-inline:10px; font-size:11px; }
+  .schematic-dimension-switch button { height:36px; }
+  .dc-dock-open { min-height:36px; }
+  .vcube-corner { min-width:18px; min-height:18px; }
+}
+
+/* Painéis em gaveta: fundo escurecido leve para perceber que estão sobrepostos. */
+@media (max-width: 1199px) {
+  .dc-workspace .mobile-library-panel, .dc-workspace .mobile-grafcet-panel:not(.mobile-grafcet-closed) { box-shadow:0 0 0 100vmax #0f172a33, 0 16px 40px #0f172a40; }
+}
+
+/* Telemóvel: a barra principal desliza na horizontal, por isso o que mais se usa vem primeiro
+   (vistas → simulação → ficheiro) e o resto fica a um deslize de distância. */
+@media (max-width: 700px) {
+  .dc-toolbar-main { scrollbar-width:none; }
+  .dc-toolbar-main::-webkit-scrollbar { display:none; }
+  .dc-toolbar-main > .dc-views-container { order:1; flex:0 0 auto; }
+  .dc-toolbar-main > :last-child { order:2; }
+  .dc-toolbar-main > :first-child { order:3; }
+}

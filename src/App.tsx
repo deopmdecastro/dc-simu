@@ -25,8 +25,8 @@ export default function App({ onBack }: { onBack: () => void }) {
     } catch { return 'Projeto' }
   })
   // Os dois painéis laterais precisam de pelo menos ~1080 px para deixar
-  // espaço útil ao canvas; em tablets passam a ser gavetas sobrepostas.
-  const compactWorkspace = () => window.innerWidth < 1080 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches
+  // espaço útil ao canvas; abaixo de 1200 px (tablets, portáteis pequenos) passam a gavetas sobrepostas.
+  const compactWorkspace = () => window.innerWidth < 1200 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches
   const [showLadder, setShowLadder] = useState(() => !compactWorkspace())
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
 
@@ -47,8 +47,8 @@ export default function App({ onBack }: { onBack: () => void }) {
   const [panelSizes, setPanelSizes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('dcsimu:workspace:panels') ?? '{}')
-      return { sidebar: Math.min(460, Math.max(220, Number(saved.sidebar) || 300)), ladder: Math.min(720, Math.max(320, Number(saved.ladder) || 440)) }
-    } catch { return { sidebar: 300, ladder: 440 } }
+      return { sidebar: Math.min(460, Math.max(220, Number(saved.sidebar) || 300)), ladder: Math.min(720, Math.max(320, Number(saved.ladder) || 380)) }
+    } catch { return { sidebar: 300, ladder: 380 } }
   })
   useEffect(() => {
     try { localStorage.setItem('dcsimu:workspace:panels', JSON.stringify(panelSizes)) } catch { /* navegação privada */ }

@@ -1859,7 +1859,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
         {showHints && (
           <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
-            <div>Navegar: arraste = orbitar · scroll = zoom</div>
+            <div>{frontEdit ? 'Navegar: arraste = mover vista · botão direito = orbitar · scroll = zoom' : 'Navegar: arraste = orbitar · scroll = zoom'}</div>
             <div>M mover · C ligar bornes · V editar cabos/curvas</div>
             <div>O fluxo de energia nos cabos aparece apenas em RUN.</div>
           </div>
