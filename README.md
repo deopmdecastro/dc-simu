@@ -9,6 +9,28 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v5.0 (administração completa)
+
+O painel **Administração** (conta `admin`) passou a ter sete separadores:
+
+- **Resumo** — fila de revisão, estatísticas, atividade recente e cobertura da biblioteca.
+- **Contribuições** — revisão de datasheets e modelos 3D (aprovar, rejeitar com motivo, repor, eliminar).
+- **Componentes** — catálogo completo com estado do modelo 3D, fichas e modelos da comunidade, e propostas de componentes novos. O administrador pode **desativar** um componente (com motivo): deixa de poder ser inserido a partir da biblioteca (aparece bloqueado com o motivo), mas os projetos que já o usam continuam a abrir. No servidor a definição vale para todos; sem servidor vale só neste navegador.
+- **Projetos** — pesquisa, proprietário, membros, tamanho e revisão; eliminação.
+- **Utilizadores** *(servidor)* — criar contas (nome, e-mail, papel, palavra-passe ≥ 10 caracteres com maiúsculas/minúsculas/números, com gerador), editar nome/papel, **ativar/desativar**, repor palavra-passe, **terminar sessões**, eliminar (com confirmação dos projetos e contribuições que são eliminados) e saltar para a atividade de cada conta. As duas contas fixas e a própria conta do administrador não podem ser alteradas nem eliminadas. O registo público continua desativado: só o administrador cria contas. Desativar uma conta termina de imediato as suas sessões.
+- **Registos** — auditoria de quem fez o quê e quando: início/fim de sessão e falhas, contas, projetos e convites, contribuições, componentes e ações do sistema. Filtros por categoria, ação, utilizador, texto e datas; paginação; atualização automática; **exportação CSV** (protegida contra injeção de fórmulas); apagar registos antigos (a própria purga fica registada). Nunca se guardam palavras-passe.
+- **Sistema** — contas/sessões/projetos/contribuições/eventos, armazenamento, versão, Node, tempo em execução, e **exportação JSON** dos dados (sem palavras-passe).
+
+Segurança do servidor: após 6 tentativas falhadas em 10 minutos (por e-mail + IP) o início de sessão é bloqueado temporariamente (HTTP 429) e fica registado. As contas criadas antes desta versão e que já estavam bloqueadas ficam **desativadas** na migração até o administrador as reativar. As rotas novas estão em `server/admin.mjs`; `npm run test:server` arranca o servidor numa pasta temporária e executa 80 verificações de ponta a ponta.
+
+## Novidades — v4.9 (grelha em todas as vistas, contribuidores e administração)
+
+- **Grelha 3D em todas as vistas.** A grelha deixou de ser só um chão (invisível de frente): mostra agora, consoante a câmara, o chão/teto, a parede da frente ou de trás (colada à chapa) e as paredes laterais — sempre por trás do equipamento, como num CAD. Botão **Grelha** / tecla **G** mantêm-se.
+- **Painel do contribuidor** (menu da conta → *Contribuir*): qualquer conta envia **datasheets (PDF ≤ 25 MB)** e **modelos 3D (GLB ≤ 40 MB)** para um componente existente ou para um componente novo. Os ficheiros são validados (cabeçalho `%PDF-`/`glTF`, versão 2, JSON íntegro, sem recursos externos), o GLB tem pré-visualização 3D com dimensões detetadas, e o autor pode editar/reenviar ou eliminar enquanto não estiver aprovado.
+- **Biblioteca da comunidade**: contribuições aprovadas, pesquisáveis e descarregáveis; as fichas aprovadas aparecem também em *Ficha técnica* do inspetor do componente.
+- **Painel de administração** (conta *Admin*): resumo (fila de revisão, aprovadas, rejeitadas, armazenamento, cobertura por componente), **revisão** (pré-visualizar, aprovar, rejeitar com motivo, repor, eliminar), projetos e contas.
+- **Armazenamento**: no deploy estático, metadados em `localStorage` e ficheiros em IndexedDB; com o servidor (Docker), tabela `contributions` em SQLite e ficheiros em `DATA_DIR/contrib` (`/api/contributions`, `/api/admin/contributions`). A validação do cliente é repetida no servidor.
+
 ## Novidades — v4.8 (editor 2D/3D unificado e à escala real)
 
 - **Um só editor**: o separador «Painel 3D» foi removido. O Esquema tem o interruptor
@@ -653,12 +675,12 @@ API está disponível, o frontend usa automaticamente SQLite no volume
 API, muda para a persistência local descrita acima. Não elimine o volume sem
 backup.
 
-O servidor cria/redefine no arranque apenas as mesmas contas Admin e User,
-deriva as palavras-passe com scrypt e mantém sessões em cookies HttpOnly.
-`POST /api/register` devolve sempre 403, sessões antigas de outras contas são
-invalidadas e nenhuma terceira identidade pode iniciar sessão. Contas antigas
-e os respetivos projetos não são apagados da base, evitando destruição de
-dados, mas ficam impedidos de autenticar.
+O servidor cria/redefine no arranque as contas fixas Admin e User, deriva as
+palavras-passe com scrypt e mantém sessões em cookies HttpOnly.
+`POST /api/register` devolve sempre 403: outras contas só existem se o
+administrador as criar no painel **Administração → Utilizadores**. Contas
+antigas (anteriores ao painel) e os respetivos projetos não são apagados da
+base, mas ficam desativadas até o administrador as reativar.
 
 Cada projeto pertence a uma conta; só o proprietário o pode eliminar e convidar
 a outra conta. O convidado aceita no dashboard e passa a editor. O controlo de
@@ -668,5 +690,5 @@ Não há edição simultânea em tempo real nem envio de email SMTP.
 Para desenvolvimento local: `npm ci`, `npm start` (API na porta 3000) e
 `npm run dev` (Vite com proxy `/api`). Defina `DATA_DIR` para escolher o
 caminho persistente da base SQLite e `PUBLIC_ORIGIN` quando usar um proxy.
-A opção **Administração** consulta as duas contas fixas e permite eliminar
-projetos; nenhuma das contas pode ser criada ou eliminada pela interface.
+A opção **Administração** gere contas, componentes, projetos, contribuições e
+registos (ver v5.0). Sem servidor só é possível consultar as duas contas fixas.

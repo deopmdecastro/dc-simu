@@ -6,13 +6,14 @@ import Landing from './landing/Landing'
 import Dashboard, { type User, type Project, type Invite } from './dashboard/Dashboard'
 import { useSimStore } from './store/useSimStore'
 import { accountApi } from './auth/accountApi'
+import { useComponentSettings } from './admin/componentSettings'
 import { useAppUpdates } from './utils/appUpdates'
 import { saveAutosave } from './utils/persistence'
 import AccountControls from './components/AccountControls'
+import AdminPanel from './admin/AdminPanel'
+import ContributorPanel from './contrib/ContributorPanel'
 
 type Open = { id: string; name: string; revision: number }
-type AdminUser = User & { projects: number }
-type AdminProject = { id: string; name: string; owner: string; updated_at: string }
 
 /** Usa SQLite quando disponível e armazenamento local no deploy estático. */
 async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
@@ -22,7 +23,7 @@ async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
 export default function Account() {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
-  const [page, setPage] = useState<'landing' | 'login' | 'dashboard' | 'editor' | 'admin'>('landing')
+  const [page, setPage] = useState<'landing' | 'login' | 'dashboard' | 'editor' | 'admin' | 'contribute'>('landing')
   const [projects, setProjects] = useState<Project[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -56,6 +57,12 @@ export default function Account() {
       .catch(() => {})
       .finally(() => setReady(true))
   }, [refresh])
+
+  // Componentes desativados pelo administrador: recarrega ao entrar e ao abrir o editor.
+  useEffect(() => {
+    if (user) void useComponentSettings.getState().load()
+    else useComponentSettings.getState().reset()
+  }, [user?.id, page === 'editor'])
 
   // Limpa notificações automaticamente — feedback discreto, sem ruído permanente.
   useEffect(() => {
@@ -262,19 +269,23 @@ export default function Account() {
     {page !== 'login' && <header className="dx-topbar">
       <Logo size={28} />
       <div className="dx-topbar-right">
+        {user && page !== 'contribute' && <button className="dx-btn dx-btn-secondary dx-btn-sm dx-topbar-link" onClick={() => setPage('contribute')}>Contribuir</button>}
+        {user?.role === 'admin' && page !== 'admin' && <button className="dx-btn dx-btn-secondary dx-btn-sm dx-topbar-link" onClick={() => setPage('admin')}>Administração</button>}
         {user && <AccountControls
           user={user}
           invites={invites}
-          context={page === 'admin' ? 'admin' : 'dashboard'}
-          onProjects={page === 'admin' ? () => setPage('dashboard') : undefined}
+          context={page === 'admin' ? 'admin' : page === 'contribute' ? 'contribute' : 'dashboard'}
+          onProjects={page === 'admin' || page === 'contribute' ? () => setPage('dashboard') : undefined}
           onAdmin={user.role === 'admin' ? () => setPage('admin') : undefined}
+          onContribute={() => setPage('contribute')}
           onOpenInvites={() => void openInvitations()}
           onLogout={() => void logout()}
         />}
       </div>
     </header>}
     {page === 'login' && <AuthScreen form={form} setForm={setForm} busy={busy} message={message} clearMessage={() => setMessage('')} onSubmit={authenticate} onHome={() => { setMessage(''); setPage('landing') }} />}
-    {page === 'admin' && user?.role === 'admin' && <AdminPanel onBack={() => setPage('dashboard')} />}
+    {page === 'admin' && user?.role === 'admin' && <AdminPanel currentUser={user} onBack={() => setPage('dashboard')} />}
+    {page === 'contribute' && user && <ContributorPanel user={user} onBack={() => setPage('dashboard')} />}
     {page === 'dashboard' && <Dashboard user={user} projects={projects} invites={invites} loading={!loaded} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove} fetchMembers={fetchMembers} />}
     {message && page !== 'login' && <div className="dx-toast" role="status">{message}<button onClick={() => setMessage('')} aria-label="Fechar">×</button></div>}
   </main>
@@ -329,58 +340,4 @@ function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHo
       <p className="dx-auth-switch">O registo está desativado. O acesso é limitado às contas Admin e User definidas para o DC-SIMU.</p>
     </div></section>
   </div>
-}
-
-function AdminPanel({ onBack }: { onBack: () => void }) {
-  const [users, setUsers] = useState<AdminUser[]>([])
-  const [projects, setProjects] = useState<AdminProject[]>([])
-  const [error, setError] = useState('')
-  const reload = useCallback(async () => {
-    try {
-      const [userList, projectList] = await Promise.all([api<AdminUser[]>('/admin/users'), api<AdminProject[]>('/admin/projects')])
-      setUsers(userList)
-      setProjects(projectList)
-      setError('')
-    } catch (value) {
-      setError(value instanceof Error ? value.message : 'Falha na administração')
-    }
-  }, [])
-  useEffect(() => { void reload() }, [reload])
-
-  async function removeProject(id: string, label: string) {
-    if (!confirm(`Eliminar permanentemente ${label}? Esta ação não pode ser anulada.`)) return
-    try {
-      await api(`/admin/projects/${id}`, 'DELETE')
-      await reload()
-    } catch (value) {
-      setError(value instanceof Error ? value.message : 'Falha ao eliminar')
-    }
-  }
-
-  return <section className="dx dx-admin">
-    <div className="dx-admin-head">
-      <div>
-        <span className="dx-over"><i />Acesso restrito</span>
-        <h1>Administração.</h1>
-        <p>Consulta das duas contas fixas e gestão dos projetos guardados neste navegador. As contas não podem ser criadas nem eliminadas.</p>
-      </div>
-      <button className="dx-btn dx-btn-secondary" onClick={onBack}>← Projetos</button>
-    </div>
-    {error && <div className="dx-alert" role="alert"><span>{error}</span></div>}
-    <div className="dx-admin-section"><h2>Utilizadores autorizados</h2><span>{users.length}</span></div>
-    <div className="dx-admin-table">
-      {users.map((entry) => <div key={entry.id}>
-        <span><strong>{entry.name}</strong> · {entry.email} · {entry.role} · {entry.projects} projeto(s)</span>
-        <span className="dx-chip">Conta fixa</span>
-      </div>)}
-    </div>
-    <div className="dx-admin-section"><h2>Projetos locais</h2><span>{projects.length}</span></div>
-    <div className="dx-admin-table">
-      {projects.length === 0 && <div className="dx-admin-empty">Ainda não há projetos criados.</div>}
-      {projects.map((project) => <div key={project.id}>
-        <span><strong>{project.name}</strong> · {project.owner}</span>
-        <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={() => void removeProject(project.id, `o projeto ${project.name}`)}>Eliminar projeto</button>
-      </div>)}
-    </div>
-  </section>
 }

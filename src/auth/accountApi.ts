@@ -1,27 +1,35 @@
 import type { User } from '../dashboard/Dashboard'
-import { getLocalSession, localApi, rememberFixedSession, verifyFixedCredentials } from './localBackend'
+import { getLocalSession, isFixedAccount, localApi, rememberFixedSession } from './localBackend'
 
 type BackendMode = 'unknown' | 'local' | 'server'
 let mode: BackendMode = 'unknown'
 
+/** O servidor não respondeu como API (deploy estático ou rede em baixo). */
+class ApiUnavailable extends Error {}
+
 async function serverApi<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
-  const response = await fetch('/api' + url, {
-    method,
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
+  let response: Response
+  try {
+    response = await fetch('/api' + url, {
+      method,
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch {
+    throw new ApiUnavailable('API indisponível')
+  }
   const contentType = response.headers.get('content-type') || ''
-  if (!contentType.includes('application/json')) throw new Error('API indisponível')
+  if (!contentType.includes('application/json')) throw new ApiUnavailable('API indisponível')
   const data = await response.json() as { error?: string }
   if (!response.ok) throw new Error(data.error || 'Falha no servidor')
   return data as T
 }
 
 /**
- * Usa a API SQLite quando ela existe (Docker) e o backend local em deployments
- * estáticos. A validação cliente ocorre primeiro, por isso nem um servidor
- * antigo pode introduzir uma terceira identidade pela interface atual.
+ * Usa a API SQLite quando ela existe (Docker) — é ela que decide quem entra,
+ * incluindo as contas criadas pelo administrador. Sem servidor (deploy estático)
+ * cai no backend local, limitado às duas contas fixas.
  */
 export async function accountApi<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
   const verb = method.toUpperCase()
@@ -29,30 +37,28 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
   if (url === '/register') return localApi<T>(url, verb, body)
 
   if (url === '/login' && verb === 'POST') {
-    const payload = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>
-    const approved = await verifyFixedCredentials(String(payload.email || ''), String(payload.password || ''))
-    if (!approved) throw new Error('Credenciais inválidas')
-
-    // Cria sempre o marcador local; não contém palavra-passe nem token.
-    const localResponse = await localApi<T>(url, verb, body)
     try {
       const serverResponse = await serverApi<{ user: User }>(url, verb, body)
-      rememberFixedSession(serverResponse.user)
+      // As contas fixas também ficam lembradas localmente (modo offline); as restantes vivem só no servidor.
+      if (isFixedAccount(serverResponse.user)) rememberFixedSession(serverResponse.user)
       mode = 'server'
       return serverResponse as T
-    } catch {
+    } catch (error) {
+      if (!(error instanceof ApiUnavailable)) throw error
       mode = 'local'
-      return localResponse
+      return localApi<T>(url, verb, body)
     }
   }
 
   if (url === '/me' && verb === 'GET' && mode === 'unknown') {
     try {
       const response = await serverApi<{ user: User }>(url, verb)
-      const user = rememberFixedSession(response.user)
+      const user = isFixedAccount(response.user) ? rememberFixedSession(response.user) : response.user
       mode = 'server'
       return { user } as T
-    } catch {
+    } catch (error) {
+      // Sessão expirada/terminada no servidor: não a substituir pela sessão local.
+      if (!(error instanceof ApiUnavailable)) { mode = 'server'; throw error }
       mode = 'local'
       return localApi<T>(url, verb)
     }

@@ -32,7 +32,8 @@ import * as THREE from 'three'
 import { automaticTerminalViewPositions, componentTerminalLocal, projectedComponentBounds } from '../src/schematic/componentTerminalViews'
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
-import { fixedAccountEmails, localApi, verifyFixedCredentials } from '../src/auth/localBackend'
+import { fixedAccountEmails, isFixedAccount, localApi, verifyFixedCredentials } from '../src/auth/localBackend'
+import { ACTION_LABEL, categoryOf, generatePassword, logsToCsv, passwordProblem, queryAudit, severityOf, type AuditEntry } from '../src/admin/adminTypes'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
 import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../src/three/dinRailGeometry'
 import { clampToPanel, componentHalfExtents, panelLimits, PLATE_BOTTOM, PLATE_TOP } from '../src/three/panelBounds'
@@ -1223,6 +1224,163 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   for (const r of rows) check(`escala 3D: ${r.type} encaixa na ficha física (<6%)`, r.error < 0.06)
   const pti6 = rows.find((r) => r.type === 'terminalPhoenixPti6')!
   check('escala 3D: borne PTI6 fica com 66 mm de altura (não 48,5)', Math.abs(pti6.rotated[1] - 66.02) < 0.5)
+}
+
+{
+  // contribuições: validação de PDF/GLB, filtros e estatísticas
+  const fs = await import('node:fs')
+  const { validateGlbBytes, validateDatasheetBytes, validateInput, safeFileName, validateFile } = await import('../src/contrib/validate')
+  const { applyFilter, computeStats } = await import('../src/contrib/localContrib')
+  const glb = new Uint8Array(fs.readFileSync('public/models/bornes-e-barras/phoenix-pti6-3213972.glb'))
+  const pdf = new Uint8Array(fs.readFileSync('public/datasheets/phoenix-contact-3213972-pt.pdf'))
+  const okGlb = validateGlbBytes(glb)
+  check('contribuir: GLB real é aceite com malhas', okGlb.ok && okGlb.info.meshes > 0)
+  check('contribuir: PDF real é aceite', validateDatasheetBytes(pdf).ok)
+  check('contribuir: PDF não passa como GLB', !validateGlbBytes(pdf).ok)
+  check('contribuir: GLB não passa como PDF', !validateDatasheetBytes(glb).ok)
+  check('contribuir: GLB truncado é rejeitado', !validateGlbBytes(glb.slice(0, glb.length - 10), glb.length).ok || !validateGlbBytes(glb.slice(0, glb.length - 10)).ok)
+  const corrupt = glb.slice(); corrupt[16] = 0
+  check('contribuir: bloco JSON inválido é rejeitado', !validateGlbBytes(corrupt).ok)
+  check('contribuir: limite de tamanho do GLB (40 MB)', !validateGlbBytes(glb, 41 * 1024 * 1024).ok)
+  check('contribuir: limite de tamanho do PDF (25 MB)', !validateDatasheetBytes(pdf, 26 * 1024 * 1024).ok)
+  // GLB com recurso externo
+  const enc = new TextEncoder()
+  const json = enc.encode(JSON.stringify({ asset: { version: '2.0' }, meshes: [{}], buffers: [{ uri: 'https://exemplo.com/x.bin', byteLength: 1 }] }))
+  const padded = new Uint8Array(Math.ceil(json.length / 4) * 4).fill(0x20); padded.set(json)
+  const ext = new Uint8Array(20 + padded.length); const dv = new DataView(ext.buffer)
+  dv.setUint32(0, 0x46546c67, true); dv.setUint32(4, 2, true); dv.setUint32(8, ext.length, true); dv.setUint32(12, padded.length, true); dv.setUint32(16, 0x4e4f534a, true); ext.set(padded, 20)
+  const extResult = validateGlbBytes(ext)
+  check('contribuir: GLB com recursos externos é rejeitado', !extResult.ok && /externos/.test(extResult.error))
+  check('contribuir: validateFile escolhe o validador pelo tipo', validateFile('datasheet', pdf, pdf.length).ok && validateFile('model3d', glb, glb.length).ok && !validateFile('model3d', pdf, pdf.length).ok)
+  check('contribuir: nome de ficheiro sem caminhos', safeFileName('../../etc/passwd.glb') === 'passwd.glb' && safeFileName('C:\\pasta\\f<1>.pdf') === 'f_1_.pdf')
+  check('contribuir: título curto é recusado', !validateInput({ kind: 'datasheet', title: 'ab', componentType: 'motor3ph', description: '' }).ok)
+  check('contribuir: componente novo exige nome', !validateInput({ kind: 'model3d', title: 'Modelo novo', componentType: null, customName: ' ', description: '' }).ok)
+  check('contribuir: componente novo com nome é válido', validateInput({ kind: 'model3d', title: 'Modelo novo', componentType: null, customName: 'Relé Pilz', description: '' }).ok)
+  const base = { description: '', fileName: 'a', size: 100, authorName: 'A', authorEmail: 'a@x', createdAt: '2026-01-01', title: 't', componentType: 'motor3ph' as const }
+  const items = [
+    { ...base, id: '1', kind: 'datasheet' as const, authorId: 'u1', status: 'pending' as const, updatedAt: '2026-01-02' },
+    { ...base, id: '2', kind: 'model3d' as const, authorId: 'u2', status: 'approved' as const, updatedAt: '2026-01-03' },
+    { ...base, id: '3', kind: 'model3d' as const, authorId: 'u1', status: 'rejected' as const, updatedAt: '2026-01-04', componentType: 'breaker1p' as const },
+  ]
+  check('contribuir: filtro "as minhas"', applyFilter(items, { mine: true }, 'u1').map((i) => i.id).join() === '3,1')
+  check('contribuir: filtro por estado+tipo', applyFilter(items, { status: 'approved', kind: 'model3d' }, 'u1').length === 1)
+  check('contribuir: filtro por componente', applyFilter(items, { componentType: 'breaker1p' }, 'u1').length === 1)
+  const stats = computeStats(items)
+  check('contribuir: estatísticas do administrador', stats.total === 3 && stats.pending === 1 && stats.approved === 1 && stats.rejected === 1 && stats.datasheets === 1 && stats.models === 2 && stats.bytes === 300)
+}
+
+{
+  // fluxo completo do contribuidor → administrador no backend local (IndexedDB simulado)
+  await import('fake-indexeddb/auto')
+  const store = new Map<string, string>()
+  const shim = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, String(v)) }, removeItem: (k: string) => { store.delete(k) }, clear: () => store.clear() }
+  const previous = (globalThis as any).localStorage
+  Object.defineProperty(globalThis, 'localStorage', { value: shim, configurable: true, writable: true })
+  const fs = await import('node:fs')
+  const { localApi } = await import('../src/auth/localBackend')
+  const { localContrib } = await import('../src/contrib/localContrib')
+  const glbBytes = fs.readFileSync('public/models/bornes-e-barras/phoenix-pti6-3213972.glb')
+  const pdfBytes = fs.readFileSync('public/datasheets/phoenix-contact-3213972-pt.pdf')
+  const glbFile = new File([glbBytes], 'pti6.glb', { type: 'model/gltf-binary' })
+  const pdfFile = new File([pdfBytes], 'pti6.pdf', { type: 'application/pdf' })
+  const fails = async (run: () => Promise<unknown>, pattern: RegExp) => { try { await run(); return false } catch (error) { return pattern.test(error instanceof Error ? error.message : '') } }
+  await localApi('/login', 'POST', { email: 'user@dcsimu.local', password: 'UserDcsimu2026!' })
+  const model = await localContrib.submit({ kind: 'model3d', title: 'PTI6 detalhado', componentType: 'terminalPhoenixPti6', description: 'v1' }, glbFile)
+  check('contribuir (fluxo): GLB enviado fica em revisão com metadados', model.status === 'pending' && (model.glb?.meshes ?? 0) > 0 && model.authorEmail === 'user@dcsimu.local')
+  check('contribuir (fluxo): PDF não é aceite como modelo 3D', await fails(() => localContrib.submit({ kind: 'model3d', title: 'Falso modelo', componentType: 'motor3ph', description: '' }, pdfFile), /GLB/))
+  const sheet = await localContrib.submit({ kind: 'datasheet', title: 'Ficha PTI6', componentType: null, customName: 'Borne novo', description: '' }, pdfFile)
+  check('contribuir (fluxo): componente novo aceite', sheet.customName === 'Borne novo' && sheet.componentType === null)
+  check('contribuir (fluxo): o autor vê as suas contribuições', (await localContrib.list({ mine: true })).length === 2)
+  check('contribuir (fluxo): utilizador não aprova', await fails(() => localContrib.review(model.id, 'approved', ''), /administrador/))
+  check('contribuir (fluxo): utilizador não vê estatísticas de admin', await fails(() => localContrib.stats(), /administrador/))
+  const blob = await localContrib.file(model.id)
+  check('contribuir (fluxo): ficheiro guardado é idêntico', blob.size === glbBytes.length)
+  await localApi('/logout', 'POST')
+  await localApi('/login', 'POST', { email: 'admin@dcsimu.local', password: 'AdminDcsimu2026!' })
+  check('contribuir (fluxo): admin vê todas as contribuições', (await localContrib.list()).length === 2)
+  check('contribuir (fluxo): rejeitar exige motivo', await fails(() => localContrib.review(model.id, 'rejected', ' '), /motivo/))
+  const rejected = await localContrib.review(model.id, 'rejected', 'Escala errada')
+  check('contribuir (fluxo): rejeição regista motivo e revisor', rejected.status === 'rejected' && rejected.reviewNote === 'Escala errada' && rejected.reviewedBy === 'Admin')
+  const statsNow = await localContrib.stats()
+  check('contribuir (fluxo): estatísticas do admin', statsNow.total === 2 && statsNow.rejected === 1 && statsNow.pending === 1)
+  await localApi('/logout', 'POST')
+  await localApi('/login', 'POST', { email: 'user@dcsimu.local', password: 'UserDcsimu2026!' })
+  const edited = await localContrib.update(model.id, { title: 'PTI6 detalhado v2' }, glbFile)
+  check('contribuir (fluxo): corrigir uma rejeitada volta a «em revisão» e limpa o motivo', edited.status === 'pending' && !edited.reviewNote && edited.title === 'PTI6 detalhado v2')
+  await localApi('/logout', 'POST')
+  await localApi('/login', 'POST', { email: 'admin@dcsimu.local', password: 'AdminDcsimu2026!' })
+  await localContrib.review(model.id, 'approved', 'Bom trabalho')
+  await localApi('/logout', 'POST')
+  await localApi('/login', 'POST', { email: 'user@dcsimu.local', password: 'UserDcsimu2026!' })
+  check('contribuir (fluxo): aprovada já não pode ser alterada pelo autor', await fails(() => localContrib.update(model.id, { title: 'x y z' }), /aprovada/))
+  check('contribuir (fluxo): aprovada não pode ser eliminada pelo autor', await fails(() => localContrib.remove(model.id), /aprovad/))
+  check('contribuir (fluxo): biblioteca pública só tem aprovadas', (await localContrib.list({ status: 'approved' })).map((item) => item.id).join() === model.id)
+  await localContrib.remove(sheet.id)
+  check('contribuir (fluxo): autor elimina a sua contribuição pendente', (await localContrib.list({ mine: true })).length === 1)
+  await localApi('/logout', 'POST')
+  await localApi('/login', 'POST', { email: 'admin@dcsimu.local', password: 'AdminDcsimu2026!' })
+  await localContrib.remove(model.id)
+  check('contribuir (fluxo): admin elimina qualquer contribuição', (await localContrib.list()).length === 0 && await fails(() => localContrib.file(model.id), /encontrada/))
+  // --- Administração (modo local): registos, componentes, contas ---
+  await localApi('/login', 'POST', { email: 'admin@dcsimu.local', password: 'AdminDcsimu2026!' })
+  const adminUsers = await localApi<any[]>('/admin/users')
+  check('admin (local): lista as duas contas fixas protegidas', adminUsers.length === 2 && adminUsers.every((entry) => entry.fixed && entry.active))
+  check('admin (local): criar contas só com servidor', await fails(() => localApi('/admin/users', 'POST', { name: 'Ana', email: 'a@b.pt', password: 'Segredo12345' }), /servidor/))
+  check('admin (local): eliminar contas só com servidor', await fails(() => localApi('/admin/users/x', 'DELETE'), /servidor/))
+  check('admin (local): desativar componente exige motivo', await fails(() => localApi('/admin/components/wegContactorCWC09', 'PUT', { enabled: false }), /motivo/))
+  check('admin (local): tipo de componente inválido', await fails(() => localApi('/admin/components/a-b', 'PUT', { enabled: false, note: 'x' }), /inválido/))
+  await localApi('/admin/components/wegContactorCWC09', 'PUT', { enabled: false, note: 'Em revisão' })
+  check('admin (local): componente desativado aparece nas definições', (await localApi<any>('/settings')).disabledComponents.some((entry: any) => entry.type === 'wegContactorCWC09' && entry.note === 'Em revisão'))
+  await localApi('/logout', 'POST')
+  await localApi('/login', 'POST', { email: 'user@dcsimu.local', password: 'UserDcsimu2026!' })
+  check('admin (local): utilizador vê componentes desativados', (await localApi<any>('/settings')).disabledComponents.length === 1)
+  check('admin (local): utilizador não lê registos', await fails(() => localApi('/admin/logs'), /administrador/))
+  check('admin (local): utilizador não altera componentes', await fails(() => localApi('/admin/components/wegContactorCWC09', 'PUT', { enabled: true }), /administrador/))
+  await localApi('/logout', 'POST')
+  await localApi('/login', 'POST', { email: 'admin@dcsimu.local', password: 'AdminDcsimu2026!' })
+  await localApi('/admin/components/wegContactorCWC09', 'PUT', { enabled: true })
+  check('admin (local): componente reativado', (await localApi<any>('/settings')).disabledComponents.length === 0)
+  await localApi('/login', 'POST', { email: 'admin@dcsimu.local', password: 'errada-errada' }).catch(() => undefined)
+  const logs = await localApi<{ items: AuditEntry[]; total: number }>('/admin/logs?limit=500')
+  const loggedActions = new Set(logs.items.map((entry) => entry.action))
+  for (const action of ['login.success', 'login.failed', 'logout', 'component.disable', 'component.enable', 'contribution.create', 'contribution.upload', 'contribution.rejected', 'contribution.approved', 'contribution.delete']) check('registo local: ' + action, loggedActions.has(action))
+  check('registo local: filtro por categoria', (await localApi<{ items: AuditEntry[] }>('/admin/logs?category=component')).items.every((entry) => categoryOf(entry.action) === 'component'))
+  check('registo local: nunca guarda palavras-passe', !JSON.stringify(logs).includes('AdminDcsimu2026!') && !JSON.stringify(logs).includes('errada-errada'))
+  const system = await localApi<any>('/admin/system')
+  check('sistema (local): resumo', system.backend === 'local' && system.counts.users === 2)
+  check('exportação (local): sem segredos', !JSON.stringify(await localApi('/admin/export')).match(/passwordHash|AdminDcsimu2026!/))
+  check('registos (local): purga exige dias válidos', await fails(() => localApi('/admin/logs?olderThanDays=0', 'DELETE'), /antiguidade/))
+  check('registos (local): purga não apaga registos recentes', (await localApi<any>('/admin/logs?olderThanDays=30', 'DELETE')).removed === 0)
+  await localApi('/logout', 'POST')
+  if (previous === undefined) delete (globalThis as any).localStorage
+  else Object.defineProperty(globalThis, 'localStorage', { value: previous, configurable: true, writable: true })
+}
+
+// --- Administração: funções puras ---
+{
+  const at = (minutes: number) => new Date(Date.UTC(2026, 0, 1, 12, minutes)).toISOString()
+  const entries: AuditEntry[] = [
+    { id: '1', at: at(0), action: 'login.success', actorEmail: 'ana@x.pt', actorId: 'u1', targetLabel: 'ana@x.pt' },
+    { id: '2', at: at(10), action: 'login.failed', actorEmail: 'bob@x.pt', targetLabel: 'bob@x.pt', detail: 'Credenciais inválidas' },
+    { id: '3', at: at(20), action: 'contribution.approved', actorEmail: 'admin@x.pt', targetLabel: 'Ficha PTI6', detail: 'Bom trabalho' },
+    { id: '4', at: at(30), action: 'user.disable', actorEmail: 'admin@x.pt', targetLabel: 'bob@x.pt' },
+    { id: '5', at: at(40), action: 'component.disable', actorEmail: 'admin@x.pt', targetLabel: 'contactor' },
+  ]
+  check('logs: ordena do mais recente', queryAudit(entries, {}).items.map((entry) => entry.id).join() === '5,4,3,2,1')
+  check('logs: categoria auth', queryAudit(entries, { category: 'auth' }).total === 2)
+  check('logs: categoria user não apanha login', queryAudit(entries, { category: 'user' }).items.map((entry) => entry.id).join() === '4')
+  check('logs: pesquisa em detalhe e alvo', queryAudit(entries, { q: 'PTI6' }).total === 1 && queryAudit(entries, { q: 'inválidas' }).total === 1)
+  check('logs: filtro por utilizador (e-mail ou id)', queryAudit(entries, { actor: 'admin@x.pt' }).total === 3 && queryAudit(entries, { actor: 'u1' }).total === 1)
+  check('logs: intervalo de datas', queryAudit(entries, { from: at(10), to: at(30) }).total === 3)
+  check('logs: paginação', queryAudit(entries, { limit: 2, offset: 1 }).items.map((entry) => entry.id).join() === '4,3' && queryAudit(entries, { limit: 2 }).total === 5)
+  check('logs: ação exata', queryAudit(entries, { action: 'user.disable' }).total === 1)
+  check('logs: gravidade', severityOf('login.failed') === 'danger' && severityOf('user.delete') === 'warn' && severityOf('user.create') === 'info' && severityOf('contribution.rejected') === 'warn')
+  check('logs: todas as ações conhecidas têm categoria coerente', Object.keys(ACTION_LABEL).every((action) => categoryOf(action) !== 'system' || /^(logs|export|system)\./.test(action)))
+  const csv = logsToCsv([{ id: 'x', at: at(0), action: 'user.create', actorEmail: '=HYPERLINK("http://mau")', targetLabel: 'a,b "c"', detail: 'linha\nnova' }])
+  check('csv: neutraliza fórmulas e escapa aspas/vírgulas', csv.includes(`"'=HYPERLINK(""http://mau"")"`) && csv.includes('"a,b ""c"""') && csv.startsWith('\ufeffdata,'))
+  check('palavra-passe: regras', !!passwordProblem('curta1A') && !!passwordProblem('semmaiusculas123') && !!passwordProblem('SEMMINUSCULAS123') && !!passwordProblem('SemNumerosAqui') && passwordProblem('Segredo12345') === null)
+  check('palavra-passe: gerada cumpre as regras e varia', (() => { const set = new Set(Array.from({ length: 50 }, () => generatePassword())); return set.size === 50 && [...set].every((value) => passwordProblem(value) === null && value.length === 14) })())
+  check('contas fixas reconhecidas', isFixedAccount({ email: 'admin@dcsimu.local', role: 'admin' }) && !isFixedAccount({ email: 'admin@dcsimu.local', role: 'user' }) && !isFixedAccount({ email: 'ana@x.pt', role: 'user' }))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

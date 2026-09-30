@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ComponentType } from '../types'
 import { getDatasheet, removeDatasheet, saveDatasheet, type Datasheet } from '../utils/datasheets'
+import { contribApi, downloadContribution } from '../contrib/contribApi'
+import type { Contribution } from '../contrib/types'
 
 /** A ficha é comum a todos os exemplares de um tipo, não é guardada no projeto. */
 export default function DatasheetPanel({ type }: { type: ComponentType }) {
@@ -8,6 +10,7 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
   const input = useRef<HTMLInputElement>(null)
+  const [community, setCommunity] = useState<Contribution[]>([])
   const builtinInfo = type === 'phoenixEcb3000760'
     ? { path: '/datasheets/phoenix-contact-3000760-pt.pdf', name: 'Phoenix Contact EC 1 12DC/1A S-R · 3000760 (PT).pdf' }
     : type === 'terminalPhoenixPti6'
@@ -37,6 +40,23 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
       .finally(() => { if (active) setBusy(false) })
     return () => { active = false }
   }, [type])
+
+  // Fichas aprovadas pela comunidade para este tipo de componente (painel do contribuidor).
+  useEffect(() => {
+    let active = true
+    setCommunity([])
+    contribApi.list({ kind: 'datasheet', status: 'approved', componentType: type })
+      .then((items) => { if (active) setCommunity(items) })
+      .catch(() => { /* sem sessão/servidor: a secção simplesmente não aparece */ })
+    return () => { active = false }
+  }, [type])
+  const openCommunity = async (item: Contribution) => {
+    try {
+      const url = URL.createObjectURL(await contribApi.file(item.id))
+      if (!window.open(url, '_blank', 'noopener,noreferrer')) setError('O navegador bloqueou a nova janela. Autorize pop-ups para consultar o PDF.')
+      window.setTimeout(() => URL.revokeObjectURL(url), 120_000)
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível abrir a ficha.') }
+  }
 
   const openFile = (download: boolean) => {
     if (!entry) return
@@ -91,6 +111,16 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
           }}>Remover</button>
         </div>
       </>}
+      {community.length > 0 && <div className="rounded border border-sky-200 bg-sky-50 p-2 text-[10px] leading-relaxed text-sky-900">
+        <strong>Fichas da comunidade ({community.length})</strong>
+        {community.map((item) => <div key={item.id} className="mt-1.5">
+          <span className="font-medium break-all" title={item.fileName}>{item.title}</span> <span className="text-sky-700">· {item.authorName}</span>
+          <div className="flex flex-wrap gap-1 mt-1">
+            <button type="button" className="dc-btn" onClick={() => void openCommunity(item)}>Ver PDF ↗</button>
+            <button type="button" className="dc-btn" onClick={() => void downloadContribution(item).catch(() => setError('Não foi possível descarregar a ficha.'))}>↓ Descarregar</button>
+          </div>
+        </div>)}
+      </div>}
       <label className="dc-btn self-start cursor-pointer">
         {entry ? 'Substituir PDF' : 'Adicionar PDF'}
         <input ref={input} type="file" accept="application/pdf,.pdf" className="sr-only" disabled={busy} onChange={(e) => { void upload(e.target.files?.[0]) }} />

@@ -1,4 +1,6 @@
 import type { Invite, Project, User } from '../dashboard/Dashboard'
+import type { AdminProject as AdminProjectRow, AdminUser as AdminUserRow, ComponentSetting, LogQuery, SystemInfo } from '../admin/adminTypes'
+import { purgeLocalAudit, queryLocalAudit, readLocalAudit, recordLocalAudit } from './auditLocal'
 
 const SESSION_KEY = 'dcsimu:account:session:v1'
 const DATA_KEY = 'dcsimu:account:data:v1'
@@ -44,8 +46,28 @@ type StoredInvitation = {
 }
 type LocalData = { projects: StoredProject[]; invitations: StoredInvitation[] }
 
-type AdminUser = User & { projects: number }
-type AdminProject = { id: string; name: string; owner: string; updated_at: string }
+const SETTINGS_KEY = 'dcsimu:components:v1'
+
+function readSettings(): ComponentSetting[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '[]')
+    return Array.isArray(parsed) ? parsed as ComponentSetting[] : []
+  } catch { return [] }
+}
+
+function writeSettings(settings: ComponentSetting[]) {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)) }
+  catch { throw new Error('Não foi possível guardar neste navegador.') }
+}
+
+function contributionCount() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('dcsimu:contrib:meta:v1') || '[]')
+    return Array.isArray(parsed) ? parsed.length : 0
+  } catch { return 0 }
+}
+
+const LOCAL_ONLY = 'Esta operação só está disponível quando a aplicação corre com o servidor (Docker/SQLite). Sem servidor existem apenas as duas contas fixas.'
 
 function publicUser(account: Account): User {
   return { id: account.id, name: account.name, email: account.email, role: account.role }
@@ -71,6 +93,11 @@ function sameText(a: string, b: string) {
   const length = Math.max(a.length, b.length)
   for (let index = 0; index < length; index++) difference |= (a.charCodeAt(index) || 0) ^ (b.charCodeAt(index) || 0)
   return difference === 0
+}
+
+export function isFixedAccount(user: Pick<User, 'email' | 'role'>) {
+  const account = accountByEmail(user.email)
+  return !!account && account.role === user.role
 }
 
 /** Função pura o suficiente para os testes: nunca cria uma sessão. */
@@ -181,15 +208,20 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
 
   if (url === '/login' && verb === 'POST') {
     const user = await verifyFixedCredentials(String(payload.email || ''), String(payload.password || ''))
-    if (!user) throw new Error('Credenciais inválidas')
+    if (!user) {
+      recordLocalAudit({ email: String(payload.email || '').trim().toLowerCase() }, 'login.failed', { type: 'user', label: String(payload.email || '').trim().toLowerCase() }, 'Credenciais inválidas')
+      throw new Error('Credenciais inválidas')
+    }
     setLocalSession(user)
+    recordLocalAudit(user, 'login.success', { type: 'user', id: user.id, label: user.email })
     return { user } as T
   }
 
   if (url === '/register') throw new Error('O registo está desativado. Utilize uma das duas contas autorizadas.')
   if (url === '/me' && verb === 'GET') return { user: requireSession() } as T
   if (url === '/logout' && verb === 'POST') {
-    requireSession()
+    const leaving = requireSession()
+    recordLocalAudit(leaving, 'logout', { type: 'user', id: leaving.id, label: leaving.email })
     setLocalSession(null)
     return { ok: true } as T
   }
@@ -218,6 +250,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     }
     data.projects.push(project)
     writeData(data)
+    recordLocalAudit(user, 'project.create', { type: 'project', id: project.id, label: project.name })
     return { id: project.id, name: project.name, revision: project.revision } as T
   }
 
@@ -250,6 +283,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     data.projects = data.projects.filter((entry) => entry.id !== project.id)
     data.invitations = data.invitations.filter((entry) => entry.projectId !== project.id)
     writeData(data)
+    recordLocalAudit(user, 'project.delete', { type: 'project', id: project.id, label: project.name })
     return { ok: true } as T
   }
 
@@ -272,6 +306,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     if (data.invitations.some((invite) => invite.projectId === project.id && invite.userId === target.id)) throw new Error('Convite já pendente')
     data.invitations.push({ id: newId(), projectId: project.id, userId: target.id, senderId: user.id, createdAt: new Date().toISOString() })
     writeData(data)
+    recordLocalAudit(user, 'project.invite', { type: 'project', id: project.id, label: project.name }, target.email)
     return { ok: true } as T
   }
 
@@ -296,41 +331,120 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     }
     data.invitations = data.invitations.filter((entry) => entry.id !== invitation.id)
     writeData(data)
+    recordLocalAudit(user, `invite.${parts[2]}`, { type: 'project', id: invitation.projectId })
     return { ok: true } as T
+  }
+
+  if (url === '/settings' && verb === 'GET') {
+    return { disabledComponents: readSettings().filter((entry) => !entry.enabled).map((entry) => ({ type: entry.type, note: entry.note })) } as T
   }
 
   if (url === '/admin/users' && verb === 'GET') {
     requireAdmin()
-    return ACCOUNTS.map((account) => ({
+    const audit = readLocalAudit()
+    return ACCOUNTS.map((account): AdminUserRow => ({
       ...publicUser(account),
+      role: account.role,
+      active: true,
+      fixed: true,
       projects: data.projects.filter((project) => project.ownerId === account.id).length,
+      contributions: 0,
+      sessions: getLocalSession()?.id === account.id ? 1 : 0,
+      lastLogin: audit.find((entry) => entry.action === 'login.success' && entry.actorId === account.id)?.at,
     })) as T
+  }
+
+  if (parts[0] === 'admin' && parts[1] === 'users' && (verb === 'POST' || verb === 'PATCH' || verb === 'DELETE')) {
+    requireAdmin()
+    throw new Error(LOCAL_ONLY)
   }
 
   if (url === '/admin/projects' && verb === 'GET') {
     requireAdmin()
-    return data.projects
+    return [...data.projects]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .map((project): AdminProject => ({
+      .map((project): AdminProjectRow => ({
         id: project.id,
         name: project.name,
         owner: accountById(project.ownerId)?.email || 'conta local',
         updated_at: project.updatedAt,
+        revision: project.revision,
+        size: JSON.stringify(project.content ?? {}).length,
+        members: project.memberIds.length,
       })) as T
   }
 
   if (parts[0] === 'admin' && parts[1] === 'projects' && parts[2] && verb === 'DELETE') {
-    requireAdmin()
-    if (!data.projects.some((project) => project.id === parts[2])) throw new Error('Projeto não encontrado')
-    data.projects = data.projects.filter((project) => project.id !== parts[2])
+    const admin = requireAdmin()
+    const project = data.projects.find((entry) => entry.id === parts[2])
+    if (!project) throw new Error('Projeto não encontrado')
+    data.projects = data.projects.filter((entry) => entry.id !== parts[2])
     data.invitations = data.invitations.filter((invite) => invite.projectId !== parts[2])
     writeData(data)
+    recordLocalAudit(admin, 'project.delete', { type: 'project', id: project.id, label: project.name }, 'pelo administrador')
     return { ok: true } as T
   }
 
-  if (parts[0] === 'admin' && parts[1] === 'users' && parts[2] && verb === 'DELETE') {
+  if (url === '/admin/components' && verb === 'GET') {
     requireAdmin()
-    throw new Error('As duas contas fixas não podem ser eliminadas')
+    return readSettings() as T
+  }
+
+  if (parts[0] === 'admin' && parts[1] === 'components' && parts[2] && verb === 'PUT') {
+    const admin = requireAdmin()
+    const type = parts[2]
+    if (!/^[A-Za-z0-9]{1,60}$/.test(type)) throw new Error('Tipo de componente inválido')
+    const enabled = payload.enabled !== false
+    const note = String(payload.note || '').trim().slice(0, 300)
+    if (!enabled && !note) throw new Error('Indique o motivo para desativar o componente.')
+    const others = readSettings().filter((entry) => entry.type !== type)
+    const setting: ComponentSetting = { type, enabled, note: note || undefined, updatedAt: new Date().toISOString(), updatedBy: admin.name }
+    writeSettings(enabled ? others : [...others, setting])
+    recordLocalAudit(admin, enabled ? 'component.enable' : 'component.disable', { type: 'component', id: type, label: type }, note)
+    return setting as T
+  }
+
+  if (url.split('?')[0] === '/admin/logs' && verb === 'GET') {
+    requireAdmin()
+    const query: LogQuery = Object.fromEntries(new URLSearchParams(url.split('?')[1] || '')) as LogQuery
+    return queryLocalAudit({ ...query, limit: Number(query.limit) || 50, offset: Number(query.offset) || 0 }) as T
+  }
+
+  if (url.split('?')[0] === '/admin/logs' && verb === 'DELETE') {
+    const admin = requireAdmin()
+    const days = Number(new URLSearchParams(url.split('?')[1] || '').get('olderThanDays'))
+    if (!Number.isInteger(days) || days < 1 || days > 3650) throw new Error('Indique uma antiguidade entre 1 e 3650 dias.')
+    const removed = purgeLocalAudit(days)
+    recordLocalAudit(admin, 'logs.purge', { type: 'system', label: 'registos' }, `${removed} registo(s) com mais de ${days} dia(s)`)
+    return { removed } as T
+  }
+
+  if (url === '/admin/system' && verb === 'GET') {
+    requireAdmin()
+    const size = (key: string) => { try { return (localStorage.getItem(key) || '').length * 2 } catch { return 0 } }
+    const info: SystemInfo = {
+      backend: 'local',
+      databaseBytes: size(DATA_KEY) + size('dcsimu:contrib:meta:v1') + size('dcsimu:audit:v1') + size(SETTINGS_KEY),
+      filesBytes: 0,
+      projectBytes: data.projects.reduce((sum, project) => sum + JSON.stringify(project.content ?? {}).length, 0),
+      counts: {
+        users: ACCOUNTS.length, activeUsers: ACCOUNTS.length, projects: data.projects.length, contributions: contributionCount(),
+        sessions: 1, logs: readLocalAudit().length, disabledComponents: readSettings().filter((entry) => !entry.enabled).length,
+      },
+    }
+    return info as T
+  }
+
+  if (url === '/admin/export' && verb === 'GET') {
+    const admin = requireAdmin()
+    recordLocalAudit(admin, 'export.data', { type: 'system', label: 'exportação' })
+    return {
+      exportedAt: new Date().toISOString(),
+      users: ACCOUNTS.map(publicUser),
+      projects: data.projects.map((project) => ({ id: project.id, name: project.name, revision: project.revision, updated_at: project.updatedAt, owner: accountById(project.ownerId)?.email })),
+      disabledComponents: readSettings().filter((entry) => !entry.enabled),
+      logs: readLocalAudit(),
+    } as T
   }
 
   throw new Error('Operação local não suportada')

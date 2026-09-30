@@ -2569,7 +2569,7 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   .grafcet-full .grafcet-header { padding:10px 12px; }
   .grafcet-title { min-width:110px; }
   .grafcet-header-actions { width:100%; overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; }
-  .grafcet-full .grafcet-properties { max-height:48%; padding:12px; }
+  .grafcet-full .grafcet-properties { width:100%; max-height:48%; padding:12px; border-left:0; }
   .grafcet-properties-summary { min-height:30px; }
   .grafcet-entity-list { max-height:150px; }
   .grafcet-shortcuts-dialog .lk-groups { grid-template-columns:1fr; }

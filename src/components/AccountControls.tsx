@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Invite, User } from '../dashboard/Dashboard'
-import { IconBell, IconChevronRight, IconLogout, IconProjects, IconShield, IconUser } from '../ui/icons'
+import { IconBell, IconChevronRight, IconCube, IconLogout, IconProjects, IconShield, IconUser } from '../ui/icons'
 
 type AccountControlsProps = {
   user: User
   invites: Invite[]
-  context: 'dashboard' | 'editor' | 'admin'
+  context: 'dashboard' | 'editor' | 'admin' | 'contribute'
   dirty?: boolean
   errors?: number
   warnings?: number
   onProjects?: () => void
   onAdmin?: () => void
+  onContribute?: () => void
   onLogout: () => void
   onOpenInvites?: () => void
 }
@@ -29,6 +30,7 @@ export default function AccountControls({
   warnings = 0,
   onProjects,
   onAdmin,
+  onContribute,
   onLogout,
   onOpenInvites,
 }: AccountControlsProps) {
@@ -127,8 +129,9 @@ export default function AccountControls({
         <div className="dx-profile-role"><IconShield size={13} />{user.role === 'admin' ? 'Conta de administrador' : 'Conta de utilizador'}</div>
         <nav>
           {onProjects && context !== 'dashboard' && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Os meus projetos</span><IconChevronRight size={13} /></button>}
+          {onContribute && context !== 'contribute' && <button type="button" onClick={() => { setOpen(null); onContribute() }}><IconCube size={15} /><span>Contribuir (datasheets e 3D)</span><IconChevronRight size={13} /></button>}
           {onAdmin && user.role === 'admin' && context !== 'admin' && <button type="button" onClick={() => { setOpen(null); onAdmin() }}><IconShield size={15} /><span>Administração</span><IconChevronRight size={13} /></button>}
-          {context === 'admin' && onProjects && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Voltar aos projetos</span><IconChevronRight size={13} /></button>}
+          {(context === 'admin' || context === 'contribute') && onProjects && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Voltar aos projetos</span><IconChevronRight size={13} /></button>}
           <button type="button" className="is-logout" onClick={() => { setOpen(null); onLogout() }}><IconLogout size={15} /><span>Sair da conta</span></button>
         </nav>
         <footer><IconUser size={12} />Sessão local protegida</footer>

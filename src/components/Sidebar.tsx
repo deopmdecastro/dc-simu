@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import { disabledReason, useComponentSettings } from '../admin/componentSettings'
 import { paletteGroups, TEMPLATES } from '../electrical/factory'
 import type { ComponentType, TerminalKind, TerminalType, WireColor } from '../types'
 import { GAUGES, TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL, WIRE_COLORS, WIRE_KIND_LABEL } from '../schematic/symbols'
@@ -63,16 +64,18 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
   type: ComponentType; name: string; favorite: boolean; placing: boolean
   onPick: () => void; onQuickAdd: () => void; onFavorite: () => void; onRecent: () => void
 }) {
-  const available = hasComponent3DModel(type)
+  const disabledNote = useComponentSettings((s) => disabledReason(s.disabled, type))
+  const available = hasComponent3DModel(type) && !disabledNote
+  const lockMessage = disabledNote ?? MISSING_3D_MODEL_MESSAGE
   const title = available
     ? `${name} — clique para posicionar · duplo clique para inserir · arraste para o esquema`
-    : `${name} — ${MISSING_3D_MODEL_MESSAGE}`
+    : `${name} — ${lockMessage}`
   return <div className={`dc-library-tile ${placing ? 'is-placing' : ''} ${available ? '' : 'is-locked'}`} title={title}>
     <button
       type="button"
       className="dc-library-tile-main"
       title={title}
-      aria-label={available ? `Posicionar ${name} no esquema` : `${name}. ${MISSING_3D_MODEL_MESSAGE}`}
+      aria-label={available ? `Posicionar ${name} no esquema` : `${name}. ${lockMessage}`}
       aria-disabled={!available}
       disabled={!available}
       onClick={() => { if (available) { onRecent(); onPick() } }}
@@ -100,7 +103,7 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
         {!available && <span className="dc-library-tile-lock" aria-hidden="true"><IconLock size={16} /></span>}
       </span>
       <span className="dc-library-tile-name">{name}</span>
-      {!available && <span className="dc-library-tile-status">Aguarda GLB 3D</span>}
+      {!available && <span className="dc-library-tile-status">{disabledNote ? 'Desativado' : 'Aguarda GLB 3D'}</span>}
     </button>
     <button type="button" className={`dc-library-tile-favorite ${favorite ? 'is-favorite' : ''}`} onClick={onFavorite} aria-pressed={favorite} aria-label={`${favorite ? 'Remover' : 'Adicionar'} ${name} ${favorite ? 'dos' : 'aos'} favoritos`} title={favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}>{favorite ? '★' : '☆'}</button>
   </div>
@@ -157,7 +160,8 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   useEffect(() => { if (inspectorRef.current) inspectorRef.current.scrollTop = 0 }, [selectedIds[0], selectedWireId, selectedTerminalId])
 
   const groups = useMemo(() => paletteGroups(), [])
-  const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter(hasComponent3DModel).length, [])
+  const disabledComponents = useComponentSettings((s) => s.disabled)
+  const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => hasComponent3DModel(type) && !(type in disabledComponents)).length, [disabledComponents])
   const lockedCount = Object.keys(TEMPLATES).length - modelReadyCount
   const selectedComponent = components.find((c) => c.id === selectedIds[0])
   const selectedWire = wires.find((w) => w.id === selectedWireId)
@@ -168,18 +172,19 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   const connections = selectedTerminal ? terminalConnections(selectedTerminal.id, components, wires) : []
 
   const placingType = useSimStore((s) => s.placingType)
+  const canInsert = (type: ComponentType) => hasComponent3DModel(type) && !(type in disabledComponents)
 
   /** Clique = modo "posicionar com o mouse" (fantasma segue o cursor no
    *  esquema). Clique novamente no mesmo item cancela. */
   const add = (type: ComponentType) => {
-    if (!hasComponent3DModel(type)) return
+    if (!canInsert(type)) return
     const st = useSimStore.getState()
     st.setPlacingType(st.placingType === type ? null : type)
   }
 
   /** Duplo clique = insere imediatamente na próxima posição livre. */
   const addImmediate = (type: ComponentType) => {
-    if (!hasComponent3DModel(type)) return
+    if (!canInsert(type)) return
     const st = useSimStore.getState()
     st.setPlacingType(null)
     const n = st.components.length
@@ -195,7 +200,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
       .filter((g) => g.items.length)
   }, [groups, filter])
   const filteredItems = filtered.flatMap((group) => group.items)
-  const filteredReadyCount = filteredItems.filter((item) => hasComponent3DModel(item.type)).length
+  const filteredReadyCount = filteredItems.filter((item) => canInsert(item.type)).length
   const filteredLockedCount = filteredItems.length - filteredReadyCount
 
   return (
@@ -221,7 +226,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
           </div>
           <div className="dc-library-model-notice" role="note">
             <IconLock size={13} />
-            <span><strong>{lockedCount} componentes bloqueados.</strong> Sem GLB 3D real não podem ser inseridos.</span>
+            <span><strong>{lockedCount} componentes bloqueados.</strong> Sem GLB 3D real ou desativados pelo administrador, não podem ser inseridos.</span>
           </div>
           <div className="flex items-center justify-between px-2 py-1 border-b border-line text-[10px] text-ink-500">
             <span>{filteredReadyCount} com 3D · {filteredLockedCount} bloqueados{filter ? ' na pesquisa' : ''}</span>
