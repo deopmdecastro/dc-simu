@@ -6,6 +6,7 @@ import LadderEditor from './ladder/LadderEditor'
 import type { LadderSection } from './ladder/LadderSections'
 import GrafcetEditor from './grafcet/GrafcetEditor'
 import SchematicView from './schematic/SchematicView'
+import { ComponentEditorDock } from './components/ComponentViewEditor'
 import MonitorPanel from './components/MonitorPanel'
 import { useSimStore } from './store/useSimStore'
 
@@ -54,6 +55,7 @@ export default function App({ onBack }: { onBack: () => void }) {
     try { localStorage.setItem('dcsimu:workspace:panels', JSON.stringify(panelSizes)) } catch { /* navegação privada */ }
   }, [panelSizes])
   const [resizing, setResizing] = useState<{ target: 'sidebar' | 'ladder'; startX: number; startSize: number } | null>(null)
+  const editingComponent = useSimStore((s) => !!s.viewOrientationEditor)
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const scanCount = useSimStore((s) => s.sim.scanCount)
   const runState = useSimStore((s) => s.sim.runState)
@@ -117,7 +119,7 @@ export default function App({ onBack }: { onBack: () => void }) {
   return (
     <div className="h-full w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
       <Toolbar onBack={onBack} mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection} />
-      <div className="flex-1 flex min-h-0 dc-workspace relative">
+      <div className="flex-1 flex min-h-0 dc-workspace relative" data-component-editing={mode === 'schematic' && editingComponent ? 'true' : 'false'}>
         {mode === 'schematic' && showLibrary && (
           <>
             <div className="mobile-library-panel relative shrink-0 flex flex-col" style={{ width: panelSizes.sidebar }}>
@@ -142,7 +144,8 @@ export default function App({ onBack }: { onBack: () => void }) {
           {mode === 'grafcet' && <GrafcetEditor full />}
           {mode === 'monitor' && <MonitorPanel />}
         </div>
-        {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && (
+        {mode === 'schematic' && <ComponentEditorDock />}
+        {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
           <div
             className={`${showLadder ? 'min-w-[320px]' : 'w-9'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder ? { width: panelSizes.ladder } : undefined}
@@ -169,7 +172,7 @@ export default function App({ onBack }: { onBack: () => void }) {
             )}
           </div>
         )}
-        {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && showLadder && (
+        {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && showLadder && (
           <div
             className="dc-resize-handle dc-resize-handle-left"
             onPointerDown={(e) => {

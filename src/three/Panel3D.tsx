@@ -1826,7 +1826,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           onAngles={pickCubeAngles}
           onOrbit={orbitCamera}
           note={cubeNote}
-          placement={viewOrientationEditor ? 'shifted' : 'top'}
+          placement="top"
         />
       )}
       <div className="panel3d-viewbar" role="toolbar" aria-label="Edição, vistas e navegação do painel 3D">

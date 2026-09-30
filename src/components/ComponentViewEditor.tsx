@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import {
   COMPONENT_VIEW_PRESETS,
+  componentOrientationOf,
   componentTerminalViewKey,
   normalizeComponentOrientation,
   type ComponentViewPreset,
@@ -9,7 +10,7 @@ import {
 import { getComponentModelSpec, hasComponent3DModel } from '../three/modelPaths'
 import { componentTerminalLocal } from '../schematic/componentTerminalViews'
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL } from '../schematic/symbols'
-import { component3DDimensions, positionOnTerminalFace, terminal3DPositionOf, terminalFaceCreationPosition, type Terminal3DFace } from '../three/terminal3D'
+import { component3DDimensions, component3DScaleOf, positionOnTerminalFace, terminal3DPositionOf, terminalFaceCreationPosition, type Terminal3DFace } from '../three/terminal3D'
 import { ViewCubeDial, orientationFacingFace, type ViewCubeCorner } from './ViewCube'
 import { IconCube, IconDelete, IconPlus, IconProbe, IconRotate, IconSave } from '../ui/icons'
 import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent, TerminalElectricalClass, TerminalKind, TerminalType } from '../types'
@@ -181,6 +182,15 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
       <span><strong>Definir e posicionar bornes</strong><small>Vista: {viewLabel}</small></span>
       <button type="button" onClick={autoPlace} disabled={component.terminals.length === 0} title="Projetar automaticamente os bornes nesta vista"><IconRotate size={11} />Rastrear automaticamente</button>
     </div>
+    {component.terminals.length > 0 && <div className="component-terminal-list" role="listbox" aria-label="Bornes do componente">
+      {component.terminals.map((terminal) => {
+        const links = wires.filter((wire) => wire.fromTerminalId === terminal.id || wire.toTerminalId === terminal.id).length
+        const active = terminal.id === selectedTerminal?.id
+        return <button type="button" role="option" aria-selected={active} key={`chip-${terminal.id}`} className={active ? 'active' : ''} onClick={() => setActiveTerminal(terminal.id)} title={`${terminal.label} · ${links} cabo(s) ligado(s)`}>
+          <i style={{ background: terminal.color }} />{terminal.label}{links > 0 && <small>{links}</small>}
+        </button>
+      })}
+    </div>}
     <form className="component-terminal-create" onSubmit={(event) => { event.preventDefault(); createTerminal() }}>
       <div className="component-terminal-create-head"><span><IconPlus size={12} /><strong>Adicionar borne</strong></span><small>{terminalDatasheetGuidance(component)}</small></div>
       <div className="component-terminal-create-grid">
@@ -345,33 +355,78 @@ function AppearanceEditor({ component }: { component: ElectricalComponent }) {
   </div>
 }
 
-/** Comando + editor partilhado pelas vistas Esquema e Visualização 3D. */
+/** Botões de entrada (na barra da vista). O editor em si vive no painel dedicado. */
 export default function ComponentViewEditor() {
   const components = useSimStore((state) => state.components)
   const selectedIds = useSimStore((state) => state.selectedComponentIds)
   const editor = useSimStore((state) => state.viewOrientationEditor)
   const open = useSimStore((state) => state.openViewOrientationEditor)
+  const selected = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
+  if (editor || !selected) return null
+  return <div className="component-view-command">
+    <button type="button" onClick={() => open(selected.id)} title={`Editar componente 3D ${selected.ref}`}><IconCube size={14} />Editar componente 3D</button>
+    <button type="button" onClick={() => open(selected.id, 'terminals')} title={`Adicionar, classificar e posicionar os bornes de ${selected.ref}`}><IconProbe size={14} />{selected.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'}</button>
+  </div>
+}
+
+const DOCK_KEY = 'dcsimu:workspace:component-editor-width'
+const DOCK_MIN = 340
+const DOCK_MAX = 640
+
+/** Painel dedicado (docked) para editar componente e bornes. Ocupa o seu próprio
+ * espaço no workspace — o canvas encolhe em vez de ficar tapado — e em ecrãs
+ * estreitos torna-se uma folha inferior que mantém o componente visível. */
+export function ComponentEditorDock() {
+  const components = useSimStore((state) => state.components)
+  const editor = useSimStore((state) => state.viewOrientationEditor)
   const setDraft = useSimStore((state) => state.setViewOrientationDraft)
   const cancel = useSimStore((state) => state.cancelViewOrientationEditor)
   const apply = useSimStore((state) => state.applyViewOrientationEditor)
-  const [saveAsDefault, setSaveAsDefault] = useState(false)
-  const section = editor?.section ?? 'orientation'
   const setSection = useSimStore((state) => state.setViewEditorSection)
-  const selected = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
+  const [saveAsDefault, setSaveAsDefault] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+  const [width, setWidth] = useState(() => {
+    try { return Math.min(DOCK_MAX, Math.max(DOCK_MIN, Number(localStorage.getItem(DOCK_KEY)) || 400)) } catch { return 400 }
+  })
   const component = editor ? components.find((item) => item.id === editor.componentId) : undefined
+  const section = editor?.section ?? 'orientation'
+
+  useEffect(() => { setSaveAsDefault(false); setCollapsed(false) }, [editor?.componentId])
+  useEffect(() => { try { localStorage.setItem(DOCK_KEY, String(width)) } catch { /* privado */ } }, [width])
+
+  const dirty = useMemo(() => {
+    if (!editor || !component) return false
+    const current = [editor.draft, editor.terminalViewPositions, editor.terminals, editor.scale3D, editor.renderMode3D, editor.bodyColor3D ?? null]
+    const saved = [componentOrientationOf(component), component.terminalViewPositions ?? {}, component.terminals, component3DScaleOf(component), component.view3DRenderMode ?? 'solid', component.bodyColor ?? null]
+    return JSON.stringify(current) !== JSON.stringify(saved)
+  }, [editor, component])
+
+  const requestClose = useCallback(() => {
+    if (dirty && !window.confirm('Descartar as alterações que ainda não aplicou?')) return
+    cancel()
+  }, [dirty, cancel])
+  const submit = useCallback(() => apply(saveAsDefault), [apply, saveAsDefault])
 
   useEffect(() => {
-    setSaveAsDefault(false)
-  }, [editor?.componentId])
+    if (!editor) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !(event.target instanceof HTMLSelectElement)) { event.preventDefault(); requestClose() }
+      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submit() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [editor, requestClose, submit])
 
-  if (!editor) {
-    if (!selected) return null
-    return <div className="component-view-command">
-      <button type="button" onClick={() => open(selected.id)} title={`Editar componente 3D ${selected.ref}`}><IconCube size={14} />Editar componente 3D</button>
-      <button type="button" onClick={() => open(selected.id, 'terminals')} title={`Adicionar, classificar e posicionar os bornes de ${selected.ref}`}><IconProbe size={14} />{selected.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'}</button>
-    </div>
+  if (!editor || !component) return null
+
+  const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startX = event.clientX, startWidth = width
+    const move = (ev: PointerEvent) => setWidth(Math.min(DOCK_MAX, Math.max(DOCK_MIN, startWidth + (startX - ev.clientX))))
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
   }
-  if (!component) return null
 
   const draft = editor.draft
   const draftComponent: ElectricalComponent = {
@@ -384,47 +439,60 @@ export default function ComponentViewEditor() {
     bodyColor: editor.bodyColor3D,
   }
   const updateAxis = (axis: 'x' | 'y' | 'z', value: number) => setDraft(normalizeComponentOrientation({ ...draft, [axis]: value }))
+  const tabs: Array<{ id: typeof section; label: string; badge?: number }> = [
+    { id: 'orientation', label: 'Vista' },
+    { id: 'terminals', label: 'Bornes', badge: editor.terminals.length },
+    { id: 'appearance', label: 'Aparência' },
+  ]
+
   return (
-    <section className="component-view-editor" aria-label={`Editar componente 3D ${component.ref}`} onPointerDown={(event) => event.stopPropagation()}>
-      <header>
-        <div><IconCube size={16} /><span><strong>Editar componente 3D</strong><small>{component.ref} · {component.label}</small></span></div>
-        <button type="button" onClick={cancel} aria-label="Fechar e cancelar">×</button>
-      </header>
+    <aside className="component-editor-dock" data-collapsed={collapsed ? 'true' : 'false'} style={{ ['--dock-w' as string]: `${width}px` }} aria-label={`Painel de edição de ${component.ref}`} onPointerDown={(event) => event.stopPropagation()}>
+      <div className="component-editor-resize" onPointerDown={startResize} role="separator" aria-orientation="vertical" aria-label="Redimensionar painel de edição" title="Arraste para redimensionar" />
+      <button type="button" className="component-editor-grip" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed} aria-label={collapsed ? 'Expandir painel de edição' : 'Recolher painel de edição'}><span /></button>
+      <section className="component-view-editor is-docked">
+        <header>
+          <div><IconCube size={16} /><span><strong>{component.ref}{dirty && <em className="component-editor-dirty" title="Alterações por aplicar">● por aplicar</em>}</strong><small>{component.label}</small></span></div>
+          <button type="button" onClick={requestClose} aria-label="Fechar painel de edição" title="Fechar (Esc)">×</button>
+        </header>
 
-      <nav className="component-view-tabs" role="tablist" aria-label="Secções do editor de componente 3D">
-        <button type="button" role="tab" aria-selected={section === 'orientation'} className={section === 'orientation' ? 'active' : ''} onClick={() => setSection('orientation')}>Vista</button>
-        <button type="button" role="tab" aria-selected={section === 'terminals'} className={section === 'terminals' ? 'active' : ''} onClick={() => setSection('terminals')}>Bornes <span>{editor.terminals.length}</span></button>
-        <button type="button" role="tab" aria-selected={section === 'appearance'} className={section === 'appearance' ? 'active' : ''} onClick={() => setSection('appearance')}>Aparência</button>
-      </nav>
+        <nav className="component-view-tabs" role="tablist" aria-label="Secções do painel de edição">
+          {tabs.map((tab) => <button type="button" role="tab" key={tab.id} aria-selected={section === tab.id} className={section === tab.id ? 'active' : ''} onClick={() => { setSection(tab.id); setCollapsed(false) }}>{tab.label}{tab.badge !== undefined && <span>{tab.badge}</span>}</button>)}
+        </nav>
 
-      {section === 'orientation' && <div className="component-view-section">
-        <OrientationCube value={draft} onChange={setDraft} />
-        <div className="component-view-presets" aria-label="Vistas predefinidas">
-          {PRESETS.map((preset) => <button type="button" key={preset.id} onClick={() => setDraft({ ...COMPONENT_VIEW_PRESETS[preset.id] })}>{preset.label}</button>)}
+        <div className="component-editor-body">
+          <p className="component-editor-live">Pré-visualização em direto na vista ao lado. Nada é gravado até carregar em Aplicar.</p>
+
+          {section === 'orientation' && <div className="component-view-section">
+            <OrientationCube value={draft} onChange={setDraft} />
+            <div className="component-view-presets" aria-label="Vistas predefinidas">
+              {PRESETS.map((preset) => <button type="button" key={preset.id} onClick={() => setDraft({ ...COMPONENT_VIEW_PRESETS[preset.id] })}>{preset.label}</button>)}
+            </div>
+            <div className="component-view-angles">
+              <AngleField axis="X" value={draft.x} onChange={(value) => updateAxis('x', value)} />
+              <AngleField axis="Y" value={draft.y} onChange={(value) => updateAxis('y', value)} />
+              <AngleField axis="Z" value={draft.z} onChange={(value) => updateAxis('z', value)} />
+            </div>
+            <div className="component-view-rotate-z">
+              <button type="button" onClick={() => updateAxis('z', draft.z - 15)}>Z −15°</button>
+              <button type="button" onClick={() => updateAxis('z', draft.z + 15)}>Z +15°</button>
+              <button type="button" onClick={() => setDraft({ ...COMPONENT_VIEW_PRESETS.original })}><IconRotate size={11} />Original</button>
+            </div>
+          </div>}
+
+          {section === 'terminals' && <TerminalPlacementEditor component={draftComponent} draft={draft} />}
+          {section === 'appearance' && <AppearanceEditor component={draftComponent} />}
+
+          <label className="component-view-default"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} /><span>Guardar apresentação como padrão<small>Novas instâncias usarão orientação, escala, renderização e mapas de bornes.</small></span></label>
+          {!hasComponent3DModel(component.type) && <p className="component-view-warning">Este tipo não dispõe de GLB e permanece bloqueado para novas inserções.</p>}
+          <p className="component-view-note">A edição é individual: posições 2D/3D, referências, dados elétricos e GLB de origem não mudam. Bornes existentes conservam o ID; ao aplicar uma remoção, apenas os cabos ligados ao borne eliminado são limpos em segurança.</p>
         </div>
-        <div className="component-view-angles">
-          <AngleField axis="X" value={draft.x} onChange={(value) => updateAxis('x', value)} />
-          <AngleField axis="Y" value={draft.y} onChange={(value) => updateAxis('y', value)} />
-          <AngleField axis="Z" value={draft.z} onChange={(value) => updateAxis('z', value)} />
-        </div>
-        <div className="component-view-rotate-z">
-          <button type="button" onClick={() => updateAxis('z', draft.z - 15)}>Z −15°</button>
-          <button type="button" onClick={() => updateAxis('z', draft.z + 15)}>Z +15°</button>
-          <button type="button" onClick={() => setDraft({ ...COMPONENT_VIEW_PRESETS.original })}><IconRotate size={11} />Original</button>
-        </div>
-      </div>}
 
-      {section === 'terminals' && <TerminalPlacementEditor component={draftComponent} draft={draft} />}
-      {section === 'appearance' && <AppearanceEditor component={draftComponent} />}
-
-      <label className="component-view-default"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} /><span>Guardar apresentação como padrão<small>Novas instâncias usarão orientação, escala, renderização e mapas de bornes.</small></span></label>
-      {!hasComponent3DModel(component.type) && <p className="component-view-warning">Este tipo não dispõe de GLB e permanece bloqueado para novas inserções.</p>}
-      <p className="component-view-note">A edição é individual: posições 2D/3D, referências, dados elétricos e GLB de origem não mudam. Bornes existentes conservam o ID; ao aplicar uma remoção, apenas os cabos ligados ao borne eliminado são limpos em segurança.</p>
-
-      <footer>
-        <button type="button" className="dc-btn" onClick={cancel}>Cancelar</button>
-        <button type="button" className="dc-btn-primary dc-btn" onClick={() => apply(saveAsDefault)}><IconSave size={12} />Aplicar</button>
-      </footer>
-    </section>
+        <footer>
+          <span className="component-editor-status">{dirty ? 'Alterações por aplicar' : 'Sem alterações'}<kbd>Ctrl+↵</kbd></span>
+          <button type="button" className="dc-btn" onClick={requestClose}>Cancelar</button>
+          <button type="button" className="dc-btn-primary dc-btn" disabled={!dirty && !saveAsDefault} onClick={submit}><IconSave size={12} />Aplicar</button>
+        </footer>
+      </section>
+    </aside>
   )
 }

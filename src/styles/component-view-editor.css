@@ -424,3 +424,54 @@ button.vcube-heading:hover { background:#f0f5fc; }
 .vcube-floating .vcube-body .top { background:linear-gradient(145deg,#ffffff,#eaf1fb 60%,#dbe7f7); }
 .vcube-floating .vcube-body .bottom,.vcube-floating .vcube-body .back { background:linear-gradient(145deg,#e4edf9,#c9d9ee); }
 .vcube-floating .vcube-body .face.is-facing { background:linear-gradient(145deg,#f1f7ff,#bcd4fb 62%,#a9c6f3); }
+
+/* ═══ Painel dedicado de edição (docked) ═══ */
+.component-editor-dock { position:relative; z-index:30; flex:0 0 var(--dock-w,400px); width:var(--dock-w,400px); min-width:0; min-height:0; display:flex; flex-direction:column; border-left:1px solid #cbd5e1; background:#fff; box-shadow:-8px 0 24px #0f172a14; }
+.component-editor-resize { position:absolute; z-index:5; top:0; bottom:0; left:-4px; width:8px; cursor:col-resize; touch-action:none; }
+.component-editor-resize::after { content:""; position:absolute; top:50%; left:2px; width:4px; height:42px; border-radius:3px; background:#cbd5e1; transform:translateY(-50%); transition:background-color .15s; }
+.component-editor-resize:hover::after { background:#2f6bff; }
+.component-editor-grip { display:none; }
+
+.component-view-editor.is-docked { position:static; z-index:auto; top:auto; right:auto; width:100%; max-width:none; max-height:none; height:100%; min-height:0; display:flex; flex-direction:column; overflow:hidden; border:0; border-radius:0; box-shadow:none; font-size:12px; }
+.component-view-editor.is-docked > header { position:static; flex:0 0 auto; min-height:52px; padding:8px 10px 8px 14px; }
+.component-view-editor.is-docked > header strong { display:flex; align-items:center; gap:8px; font-size:13px; }
+.component-view-editor.is-docked > header small { max-width:none; font-size:10px; }
+.component-view-editor.is-docked > header > button { width:32px; height:32px; font-size:22px; }
+.component-editor-dirty { padding:1px 7px; border-radius:9px; color:#b45309; background:#fef3c7; font-size:9px; font-style:normal; font-weight:750; }
+.component-view-editor.is-docked .component-view-tabs { position:static; flex:0 0 auto; padding:8px 12px; }
+.component-view-editor.is-docked .component-view-tabs button { min-height:34px; font-size:11px; }
+.component-editor-body { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding-bottom:10px; scrollbar-width:thin; }
+.component-editor-live { margin:10px 12px 4px; padding:7px 9px; border-radius:6px; color:#1e40af; background:#eff6ff; font-size:10px; line-height:1.4; }
+.component-view-editor.is-docked > footer { position:static; flex:0 0 auto; align-items:center; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px)); box-shadow:0 -6px 16px #0f172a0f; }
+.component-view-editor.is-docked > footer .dc-btn { min-height:34px; padding-inline:14px; font-size:11px; }
+.component-view-editor.is-docked > footer .dc-btn:disabled { opacity:.45; cursor:not-allowed; }
+.component-editor-status { display:flex; align-items:center; gap:7px; margin-right:auto; color:#64748b; font-size:10px; font-weight:650; }
+.component-editor-status kbd { padding:1px 5px; border:1px solid #cbd5e1; border-radius:4px; color:#64748b; background:#f8fafc; font:600 9px ui-monospace,monospace; }
+
+/* lista rápida de bornes */
+.component-terminal-list { display:flex; flex-wrap:wrap; gap:5px; margin:0 0 10px; }
+.component-terminal-list button { display:inline-flex; align-items:center; gap:5px; min-height:30px; padding:0 9px; border:1px solid #d6deea; border-radius:15px; color:#334155; background:#f8fafc; font-size:11px; font-weight:700; }
+.component-terminal-list button i { width:9px; height:9px; border-radius:50%; box-shadow:0 0 0 1px #0f172a33; }
+.component-terminal-list button small { min-width:15px; padding:0 4px; border-radius:8px; color:#1d4ed8; background:#dbeafe; font-size:9px; text-align:center; }
+.component-terminal-list button.active { border-color:#2563eb; color:#fff; background:#2563eb; }
+.component-terminal-list button.active small { color:#1d4ed8; background:#fff; }
+.component-terminal-list button:focus-visible, .component-editor-grip:focus-visible, .component-view-editor.is-docked button:focus-visible { outline:2px solid #2f6bff; outline-offset:2px; }
+
+@media (max-width:1100px) and (min-width:761px) { .component-editor-dock { flex-basis:min(var(--dock-w,400px),46vw); width:min(var(--dock-w,400px),46vw); } }
+
+/* Telemóvel: folha inferior — o canvas encolhe e o componente continua visível */
+@media (max-width:760px) {
+  .dc-workspace[data-component-editing="true"] { flex-direction:column; }
+  .dc-workspace[data-component-editing="true"] > .flex-1 { flex:1 1 0; min-height:180px; }
+  .component-editor-dock { flex:0 0 auto; width:100%; height:min(56svh,480px); border-left:0; border-top:1px solid #cbd5e1; border-radius:18px 18px 0 0; box-shadow:0 -12px 30px #0f172a2e; transition:height .22s ease; }
+  .component-editor-dock[data-collapsed="true"] { height:120px; }
+  .component-editor-dock[data-collapsed="true"] .component-editor-body, .component-editor-dock[data-collapsed="true"] > .component-view-editor > footer { display:none; }
+  .component-editor-resize { display:none; }
+  .component-editor-grip { position:absolute; z-index:6; top:0; left:0; right:0; display:flex; justify-content:center; align-items:flex-start; height:20px; padding-top:7px; }
+  .component-editor-grip span { width:38px; height:4px; border-radius:2px; background:#cbd5e1; }
+  .component-view-editor.is-docked > header { padding-top:16px; }
+  .component-editor-status kbd { display:none; }
+  .component-view-editor.is-docked > footer .dc-btn { min-height:40px; }
+  .component-terminal-list button { min-height:36px; }
+}
+@media (prefers-reduced-motion:reduce) { .component-editor-dock { transition:none; } }
