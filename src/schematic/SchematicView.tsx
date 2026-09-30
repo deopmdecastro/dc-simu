@@ -28,6 +28,10 @@ type SchematicCanvasMode = '2d' | '3d'
  * cópia de componentes, bornes, cabos ou estado elétrico. */
 export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
   const placingType = useSimStore((state) => state.placingType)
+  // Editor SVG antigo, mantido como alternativa (localStorage 'dc-simu:classic2d' = '1' ou ?classic2d na URL).
+  const classic2D = useMemo(() => {
+    try { return localStorage.getItem('dc-simu:classic2d') === '1' || new URLSearchParams(window.location.search).has('classic2d') } catch { return false }
+  }, [])
   const [canvasMode, setCanvasMode] = useState<SchematicCanvasMode>(() => {
     try { return localStorage.getItem(SCHEMATIC_CANVAS_MODE_KEY) === '3d' ? '3d' : '2d' } catch { return '2d' }
   })
@@ -51,7 +55,11 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   }, [placingType, canvasMode, chooseMode])
 
   return <div className="schematic-view-shell" data-canvas-mode={canvasMode}>
-    {canvasMode === '3d' ? <Panel3D initialCamera={pendingCamera} onInitialCameraUsed={() => setPendingCamera(null)} /> : <Schematic2DView libraryCollapsed={libraryCollapsed} onOpen3DView={open3DView} />}
+    {canvasMode === '3d'
+      ? <Panel3D initialCamera={pendingCamera} onInitialCameraUsed={() => setPendingCamera(null)} />
+      : classic2D
+        ? <Schematic2DView libraryCollapsed={libraryCollapsed} onOpen3DView={open3DView} />
+        : <Panel3D key="front-edit" frontEdit />}
     <div className="schematic-dimension-switch" role="group" aria-label="Dimensão de visualização do Canvas do Esquema">
       <button type="button" className={canvasMode === '2d' ? 'is-active' : ''} aria-pressed={canvasMode === '2d'} onClick={() => chooseMode('2d')} title="Editar o esquema, bornes e traçados em 2D">
         <IconSchematic size={13} />Esquema 2D

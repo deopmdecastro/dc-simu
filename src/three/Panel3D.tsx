@@ -11,7 +11,7 @@ import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDin
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
-import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY } from './panelLayout'
+import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
@@ -1211,8 +1211,45 @@ function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraC
   return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} enableDamping dampingFactor={0.08} makeDefault onChange={report} />
 }
 
+/** Grelha por pontos do Esquema, desenhada na cena 3D sobre a placa: acompanha zoom, pan e órbita. */
+function DotGrid({ size, dark }: { size: number; dark: boolean }) {
+  const positions = useMemo(() => {
+    let step = Math.max(5, size)
+    while ((2000 / step + 1) * (1400 / step + 1) > 24000) step *= 2
+    const xs: number[] = []
+    const ys: number[] = []
+    for (let x = 0; x <= 2000; x += step) xs.push(schematicToPanelX(x))
+    for (let y = 0; y <= 1400; y += step) ys.push(schematicToPanelY(y))
+    const array = new Float32Array(xs.length * ys.length * 3)
+    let i = 0
+    for (const y of ys) for (const x of xs) { array[i++] = x; array[i++] = y; array[i++] = 0 }
+    return array
+  }, [size])
+  return (
+    <points position={[0, 0, PLATE_Z + PLATE_THICKNESS / 2 + 0.003]} renderOrder={1}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial size={2.6} sizeAttenuation={false} color={dark ? '#5b6b82' : '#aab8cc'} depthWrite={false} />
+    </points>
+  )
+}
+
+/** Plano invisível que recebe o clique quando há um componente da Biblioteca à espera de ser colocado. */
+function PlacementPlane({ onPlace }: { onPlace: (x: number, y: number) => void }) {
+  return (
+    <mesh position={[0, 0, PLATE_Z + PLATE_THICKNESS / 2 + 0.001]} onClick={(event) => { event.stopPropagation(); onPlace(event.point.x, event.point.y) }}>
+      <planeGeometry args={[60, 60]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  )
+}
+
 /** Visualização 3D do Esquema: mesmo projeto, à escala real, em sintonia com o Esquema 2D. */
-export default function Panel3D({ initialCamera = null, onInitialCameraUsed }: { initialCamera?: ViewCubeRequest | null; onInitialCameraUsed?: () => void } = {}) {
+export default function Panel3D({ initialCamera = null, onInitialCameraUsed, frontEdit = false }: { initialCamera?: ViewCubeRequest | null; onInitialCameraUsed?: () => void; /** Edição frontal: mesma cena 3D, vista frontal por prioridade e grelha por pontos do Esquema. */ frontEdit?: boolean } = {}) {
+  const gridSettings = useSimStore((s) => s.grid)
+  const placingType = useSimStore((s) => s.placingType)
+  const setPlacingType = useSimStore((s) => s.setPlacingType)
   const storedComponents = useSimStore((s) => s.components)
   const pressButton = useSimStore((s) => s.pressButton)
   const setComponentState = useSimStore((s) => s.setComponentState)
@@ -1272,6 +1309,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed }: {
   const fittedRef = useRef(false)
   const initialCameraRef = useRef(initialCamera)
   useEffect(() => {
+    if (frontEdit && !initialCameraRef.current) moveCamera('front')
     if (!initialCameraRef.current) return
     onInitialCameraUsed?.()
     // Sem equipamento ainda, aplica já a vista para o cubo refletir o pedido.
@@ -1285,7 +1323,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed }: {
       fittedRef.current = true
       // Vista pedida no cubo do Esquema 2D (frontal por omissão) tem prioridade sobre a isométrica.
       if (initialCameraRef.current) applyCubeRequest(initialCameraRef.current)
-      else moveCamera('isometric')
+      else moveCamera(frontEdit ? 'front' : 'isometric')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasComponents])
@@ -1537,7 +1575,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed }: {
     : backgroundMode === 'dark'
       ? 'bg-gradient-to-b from-[#111827] via-[#1f2937] to-[#0f172a]'
       : 'bg-gradient-to-b from-[#e6ebf3] via-[#f3f5f9] to-[#ccd5e2]'
-  const sceneBackground = backgroundMode === 'white' ? '#ffffff' : backgroundMode === 'dark' ? '#111827' : '#e9eef5'
+  const sceneBackground = backgroundMode === 'white' ? '#ffffff' : backgroundMode === 'dark' ? '#111827' : frontEdit ? '#f8fafd' : '#e9eef5'
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1629,7 +1667,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed }: {
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
-        {showGrid && <gridHelper args={[40, 80, '#c3cdda', '#dfe5ee']} position={[sceneCenter[0], floorY, 0]} />}
+        {showGrid && !frontEdit && <gridHelper args={[40, 80, '#c3cdda', '#dfe5ee']} position={[sceneCenter[0], floorY, 0]} />}
+        {frontEdit && showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} dark={backgroundMode === 'dark'} />}
+        {frontEdit && placingType && hasComponent3DModel(placingType) && <PlacementPlane onPlace={(x, y) => {
+          const id = addComponent(placingType, Math.round(panelToSchematicX(x) - 40), Math.round(panelToSchematicY(y) - 40))
+          setPlacingType(null)
+          selectComponents(id ? [id] : [])
+        }} />}
 
         {plateBounds && <MountingPlate bounds={plateBounds} />}
         {railComponents.map((c) => {
