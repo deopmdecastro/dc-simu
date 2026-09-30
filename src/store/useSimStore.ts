@@ -47,6 +47,7 @@ import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOri
 import { automaticTerminalViewPositions, componentTerminalLocal, terminal3DFromProjectedLocal } from '../schematic/componentTerminalViews'
 import { componentPositionIsFree, nearestFreeComponentPosition, resolveComponentMove } from '../schematic/componentCollision'
 import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosition, terminal3DPositionOf, type Terminal3DPosition } from '../three/terminal3D'
+import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, nextComponentHistory, previousComponentRevision, upgradeComponentEditorMetadata } from '../three/componentRevisions'
 
 export interface Snapshot {
   components: ElectricalComponent[]
@@ -166,7 +167,7 @@ interface Store extends CircuitState {
     trackingDiameter: number
     /** Etiquetas dos bornes durante o rastreamento. */
     trackingLabels: 'all' | 'active' | 'off'
-    /** Secção aberta no editor (Vista · Bornes · Aparência). */
+    /** Secção aberta no editor (Vista · Bornes · Aparência · Versões). */
     section: ViewEditorSection
   } | null
   openViewOrientationEditor: (componentId: string, section?: ViewEditorSection) => void
@@ -188,8 +189,10 @@ interface Store extends CircuitState {
   setView3DRenderMode: (mode: Component3DRenderMode) => void
   setView3DBodyColor: (color?: string) => void
   autoPlaceViewTerminals: () => void
+  /** Carrega uma versão anterior no rascunho; Aplicar cria uma nova versão. */
+  restoreViewEditorRevision: (version: number) => void
   cancelViewOrientationEditor: () => void
-  applyViewOrientationEditor: (saveAsDefault: boolean) => void
+  applyViewOrientationEditor: (saveAsDefault: boolean, note?: string) => void
   /** Preferências aplicadas aos novos cabos (ferramenta Cabo) */
   wireDefaults: WireDefaults
   setWireDefaults: (patch: Partial<WireDefaults>) => void
@@ -304,7 +307,7 @@ function currentDrawOrder(components: ElectricalComponent[], wires: Wire[]): Dra
  * uma reordenação ficava com z=0 e aparecia atrás de tudo. Devolve undefined
  * enquanto ninguém mexeu nas camadas (mantém o comportamento clássico). */
 let lastTrackingDiameter = 16
-export type ViewEditorSection = 'orientation' | 'terminals' | 'appearance'
+export type ViewEditorSection = 'orientation' | 'terminals' | 'appearance' | 'versions'
 
 /** Remove os ajustes manuais (por vista) de um borne, para as vistas 2D voltarem a seguir o ponto 3D. */
 function withoutManualTerminalPositions(positions: ComponentTerminalViewPositions, terminal: Terminal, index: number, exceptView?: string): ComponentTerminalViewPositions {
@@ -1052,8 +1055,27 @@ export const useSimStore = create<Store>((set, get) => ({
       },
     }
   }),
+  restoreViewEditorRevision: (version) => set((state) => {
+    const editor = state.viewOrientationEditor
+    if (!editor) return {}
+    const component = state.components.find((item) => item.id === editor.componentId)
+    const revision = component?.editorHistory?.find((item) => item.version === version)
+    if (!component || !revision) return {}
+    return {
+      viewOrientationEditor: {
+        ...editor,
+        draft: normalizeComponentOrientation(revision.viewOrientation),
+        terminalViewPositions: structuredClone(revision.terminalViewPositions),
+        terminals: structuredClone(revision.terminals).map((terminal) => ({ ...terminal, componentId: component.id, energized: false })),
+        activeTerminalId: revision.terminals[0]?.id ?? null,
+        scale3D: normalizeComponent3DScale(revision.view3DScale),
+        renderMode3D: revision.view3DRenderMode,
+        bodyColor3D: revision.bodyColor,
+      },
+    }
+  }),
   cancelViewOrientationEditor: () => set({ viewOrientationEditor: null }),
-  applyViewOrientationEditor: (saveAsDefault) => {
+  applyViewOrientationEditor: (saveAsDefault, note = '') => {
     const editor = get().viewOrientationEditor
     if (!editor) return
     const component = get().components.find((item) => item.id === editor.componentId)
@@ -1064,7 +1086,26 @@ export const useSimStore = create<Store>((set, get) => ({
     const scale3D = normalizeComponent3DScale(editor.scale3D)
     const renderMode3D = editor.renderMode3D
     const bodyColor3D = editor.bodyColor3D
-    get().commitHistory()
+    const editedComponent: ElectricalComponent = {
+      ...component,
+      viewOrientation: orientation,
+      terminalViewPositions,
+      view3DScale: scale3D,
+      view3DRenderMode: renderMode3D,
+      bodyColor: bodyColor3D,
+      terminals: terminalDrafts,
+    }
+    const beforeSnapshot = componentEditorSnapshotOf(component)
+    const afterSnapshot = componentEditorSnapshotOf(editedComponent)
+    const changes = componentEditorChangeLabels(beforeSnapshot, afterSnapshot)
+    const changed = !componentEditorSnapshotEquals(beforeSnapshot, afterSnapshot)
+    const updatedAt = new Date().toISOString()
+    const nextVersion = componentEditorVersionOf(component) + (changed ? 1 : 0)
+    const revisionNote = note.trim() || changes.join(' · ') || 'Padrão de apresentação atualizado'
+    const history = changed
+      ? nextComponentHistory(component, previousComponentRevision(component, updatedAt))
+      : component.editorHistory ?? []
+
     if (saveAsDefault) {
       saveDefaultComponentOrientation(component.type, orientation)
       const terminalIndexes = new Map(terminalDrafts.map((terminal, index) => [terminal.id, index]))
@@ -1077,17 +1118,23 @@ export const useSimStore = create<Store>((set, get) => ({
       saveDefaultComponentTerminalViewPositions(component.type, reusablePositions)
       saveDefaultComponent3DPresentation(component.type, { scale: scale3D, renderMode: renderMode3D, bodyColor: bodyColor3D })
     }
+
+    if (changed) get().commitHistory()
     const validTerminalIds = new Set(terminalDrafts.map((terminal) => terminal.id))
     const removedTerminalIds = new Set(component.terminals.map((terminal) => terminal.id).filter((id) => !validTerminalIds.has(id)))
     const removedWireCount = get().wires.filter((wire) => removedTerminalIds.has(wire.fromTerminalId) || removedTerminalIds.has(wire.toTerminalId)).length
     set((state) => ({
-      components: state.components.map((item) => item.id === component.id ? {
+      components: changed ? state.components.map((item) => item.id === component.id ? {
         ...item,
         viewOrientation: orientation,
         terminalViewPositions,
         view3DScale: scale3D,
         view3DRenderMode: renderMode3D,
         bodyColor: bodyColor3D,
+        editorVersion: nextVersion,
+        editorUpdatedAt: updatedAt,
+        editorLastChange: revisionNote,
+        editorHistory: history,
         // O rascunho é a lista completa: preserva os novos bornes e confirma remoções.
         terminals: terminalDrafts.map((draft) => {
           const current = item.terminals.find((terminal) => terminal.id === draft.id)
@@ -1097,16 +1144,17 @@ export const useSimStore = create<Store>((set, get) => ({
             energized: current?.energized ?? false,
           }
         }),
-      } : item),
-      wires: removedTerminalIds.size > 0
+      } : item) : state.components,
+      wires: changed && removedTerminalIds.size > 0
         ? state.wires.filter((wire) => !removedTerminalIds.has(wire.fromTerminalId) && !removedTerminalIds.has(wire.toTerminalId))
         : state.wires,
       selectedWireId: state.selectedWireId && state.wires.some((wire) => wire.id === state.selectedWireId && !removedTerminalIds.has(wire.fromTerminalId) && !removedTerminalIds.has(wire.toTerminalId)) ? state.selectedWireId : null,
       selectedTerminalId: state.selectedTerminalId && validTerminalIds.has(state.selectedTerminalId) ? state.selectedTerminalId : null,
       viewOrientationEditor: null,
-      dirty: true,
+      dirty: state.dirty || changed,
     }))
-    get().pushEvent('info', `Componente 3D ${component.ref} guardado${saveAsDefault ? ' como padrão do componente' : ''}.`)
+    if (changed) get().pushEvent('info', `Componente 3D ${component.ref} guardado como versão ${nextVersion}${saveAsDefault ? ' e padrão para novas instâncias' : ''}.`)
+    else if (saveAsDefault) get().pushEvent('info', `Apresentação atual de ${component.ref} guardada como padrão para novas instâncias.`)
     if (removedWireCount > 0) get().pushEvent('warning', `${removedWireCount} cabo(s) ligado(s) a bornes removidos foram eliminados em segurança.`)
   },
   wireDefaults: { autoColor: true, color: 'black', gauge: '1.5mm²', flexibility: 'rigid', endType: 'ferrule' },
@@ -1887,7 +1935,7 @@ export const useSimStore = create<Store>((set, get) => ({
     return JSON.stringify(
       {
         app: 'dc-simu',
-        version: 5,
+        version: 6,
         savedAt: new Date().toISOString(),
         components: s.components,
         wires: s.wires,
@@ -1913,7 +1961,10 @@ export const useSimStore = create<Store>((set, get) => ({
       const parsed = JSON.parse(json)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
-      const loadedComponents = sourceComponents.map(upgradeLogoTerminals).map(upgradeProauto24A).map(upgradePhysicalFootprint) as ElectricalComponent[]
+      const loadedComponents = sourceComponents.map(upgradeLogoTerminals).map(upgradeProauto24A).map(upgradePhysicalFootprint)
+        .map((component) => upgradeComponentEditorMetadata(component, parsed.savedAt)) as ElectricalComponent[]
+      const componentMetadataUpgraded = loadedComponents.some((component, index) => component.editorVersion !== sourceComponents[index]?.editorVersion
+        || component.editorUpdatedAt !== sourceComponents[index]?.editorUpdatedAt || component.editorLastChange !== sourceComponents[index]?.editorLastChange)
       const footprintUpgraded = loadedComponents.some((component, index) => component.w !== sourceComponents[index]?.w || component.h !== sourceComponents[index]?.h)
       const loadedWires = (parsed.wires ?? []) as Wire[]
       const alignedWires = connectNearWireEnds(loadedComponents, loadedWires)
@@ -1943,7 +1994,7 @@ export const useSimStore = create<Store>((set, get) => ({
         viewOrientationEditor: null,
         history: [],
         future: [],
-        dirty: footprintUpgraded || alignedWires.some((wire, i) => wire !== loadedWires[i]),
+        dirty: footprintUpgraded || componentMetadataUpgraded || alignedWires.some((wire, i) => wire !== loadedWires[i]),
       })
       get().pushEvent('info', 'Projeto carregado de arquivo JSON.')
       get().step()

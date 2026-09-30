@@ -728,6 +728,7 @@ export function createComponent(
     energized: false,
   }))
   const presentation3D = getDefaultComponent3DPresentation(type)
+  const createdAt = new Date().toISOString()
   return {
     id: compId,
     type,
@@ -748,6 +749,10 @@ export function createComponent(
     mirrored: false,
     locked: false,
     bodyColor: presentation3D.bodyColor,
+    editorVersion: 1,
+    editorUpdatedAt: createdAt,
+    editorLastChange: 'Versão inicial',
+    editorHistory: [],
     terminals,
     // Cada PLC precisa das suas próprias tabelas I/Q/M; o spread superficial
     // partilhava `outputs` entre instâncias do mesmo modelo.

@@ -204,6 +204,25 @@ export interface ComponentTerminalViewPosition {
 /** Posições manuais por vista/orientação, indexadas pelo id estável do borne. */
 export type ComponentTerminalViewPositions = Record<string, Record<string, ComponentTerminalViewPosition>>
 
+/** Estado editável guardado numa versão anterior do componente. Não inclui
+ * posição no projeto, TAG, cabos, estado elétrico nem o GLB de origem. */
+export interface ComponentEditorSnapshot {
+  viewOrientation: ComponentViewOrientation
+  terminalViewPositions: ComponentTerminalViewPositions
+  terminals: Terminal[]
+  view3DScale: Component3DScale
+  view3DRenderMode: Component3DRenderMode
+  bodyColor?: string
+}
+
+/** Revisão recuperável criada sempre que o utilizador aplica alterações. */
+export interface ComponentEditorRevision extends ComponentEditorSnapshot {
+  version: number
+  updatedAt: string
+  note: string
+  changes: string[]
+}
+
 export interface ElectricalComponentBase {
   id: string
   type: ComponentType
@@ -244,6 +263,14 @@ export interface ElectricalComponentBase {
   z?: number
   /** Caixa de bornes/cor do corpo do componente no editor */
   bodyColor?: string
+  /** Versão da apresentação editável desta instância. Incrementa ao Aplicar. */
+  editorVersion?: number
+  /** Data ISO da última alteração aplicada no editor completo. */
+  editorUpdatedAt?: string
+  /** Nota/descrição da versão atual. */
+  editorLastChange?: string
+  /** Versões anteriores recuperáveis; não altera o modelo GLB original. */
+  editorHistory?: ComponentEditorRevision[]
   terminals: Terminal[]
   /** Estado em tempo de execução — estreitado por tipo nas interfaces abaixo */
   state: Record<string, any>

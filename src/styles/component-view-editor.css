@@ -475,3 +475,48 @@ button.vcube-heading:hover { background:#f0f5fc; }
   .component-terminal-list button { min-height:36px; }
 }
 @media (prefers-reduced-motion:reduce) { .component-editor-dock { transition:none; } }
+
+/* Editor completo — paleta, metadados e histórico de revisões. */
+.component-view-tabs { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.component-editor-version { display:inline-flex; margin-left:6px; padding:1px 5px; border:1px solid #bfdbfe; border-radius:9px; color:#1d4ed8; background:#eff6ff; font-size:8px; font-weight:800; vertical-align:middle; }
+.component-scale-presets { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:4px; margin-top:6px; }
+.component-scale-presets button { min-height:25px; margin:0; border:1px solid #c4d4f4; border-radius:5px; color:#1f55e0; background:#fff; font-size:7px; font-weight:700; }
+.component-scale-presets .component-scale-reset { gap:2px; }
+.component-color-presets { display:grid; grid-template-columns:repeat(10,1fr); gap:5px; margin-top:7px; }
+.component-color-presets button { aspect-ratio:1; min-width:0; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px #cbd5e1; }
+.component-color-presets button.active { box-shadow:0 0 0 2px #2563eb,0 0 0 4px #dbeafe; }
+.component-versions-editor { display:flex; flex-direction:column; gap:8px; padding:8px; }
+.component-versions-editor > section { padding:9px; border:1px solid #dce3ed; border-radius:7px; background:#f8fafc; }
+.component-versions-editor > section > header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; color:#334155; font-size:9px; font-weight:750; }
+.component-versions-editor > section > header small { color:#64748b; font-size:7px; font-weight:550; }
+.component-version-current { background:linear-gradient(135deg,#eff6ff,#f8fafc)!important; border-color:#bfdbfe!important; }
+.component-version-current > header strong { padding:3px 8px; border-radius:11px; color:#fff; background:#2563eb; font-size:9px; }
+.component-version-date { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 7px; border:1px solid #dbeafe; border-radius:5px; color:#526078; background:#fff; font-size:8px; }
+.component-version-date time { color:#1d4ed8; font-weight:750; }
+.component-version-current > p,.component-version-sharing > p { margin:7px 1px 0; color:#64748b; font-size:8px; line-height:1.45; }
+.component-revision-note { display:flex; flex-direction:column; gap:4px; color:#526078; font-size:8px; }
+.component-revision-note textarea { min-height:58px; resize:vertical; padding:7px; border:1px solid #cbd5e1; border-radius:5px; outline:none; color:#334155; background:#fff; font:500 9px/1.4 inherit; }
+.component-revision-note textarea:focus { border-color:#60a5fa; box-shadow:0 0 0 2px #dbeafe; }
+.component-revision-note small { align-self:flex-end; color:#94a3b8; font-size:7px; }
+.component-change-list { display:flex; flex-wrap:wrap; gap:4px; margin:7px 0 0; padding:0; list-style:none; }
+.component-change-list li { padding:3px 6px; border-radius:9px; color:#166534; background:#dcfce7; font-size:7px; font-weight:700; }
+.component-version-empty { margin:7px 0 0; color:#8491a5; font-size:8px; }
+.component-version-timeline { display:flex; max-height:220px; overflow:auto; flex-direction:column; gap:5px; padding-left:9px; border-left:2px solid #dbeafe; }
+.component-version-timeline article { position:relative; padding:7px; border:1px solid #dce3ed; border-radius:6px; background:#fff; }
+.component-version-timeline article::before { position:absolute; top:11px; left:-15px; width:8px; height:8px; border:2px solid #fff; border-radius:50%; background:#94a3b8; box-shadow:0 0 0 1px #bfdbfe; content:""; }
+.component-version-timeline article.is-current { border-color:#bfdbfe; background:#eff6ff; }
+.component-version-timeline article.is-current::before { background:#2563eb; }
+.component-version-timeline article > div { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.component-version-timeline strong { color:#1d4ed8; font-size:9px; }
+.component-version-timeline time { color:#718096; font-size:7px; }
+.component-version-timeline p { margin:4px 0; color:#526078; font-size:8px; line-height:1.35; }
+.component-version-timeline article > span { color:#2563eb; font-size:7px; font-weight:750; }
+.component-version-timeline button,.component-version-sharing button { min-height:25px; padding:0 7px; border:1px solid #bfdbfe; border-radius:5px; color:#1d4ed8; background:#fff; font-size:7px; font-weight:750; }
+.component-version-sharing button { width:100%; margin-top:8px; }
+
+@media(max-width:560px) {
+  .component-view-tabs button { padding-inline:2px; font-size:8px!important; }
+  .component-view-tabs button span { display:none; }
+  .component-view-editor > header small { max-width:235px; }
+  .component-color-presets { grid-template-columns:repeat(10,minmax(18px,1fr)); }
+}

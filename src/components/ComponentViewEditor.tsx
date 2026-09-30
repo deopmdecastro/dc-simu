@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { useSimStore } from '../store/useSimStore'
 import {
   COMPONENT_VIEW_PRESETS,
-  componentOrientationOf,
   componentTerminalViewKey,
   normalizeComponentOrientation,
   type ComponentViewPreset,
@@ -10,11 +9,12 @@ import {
 import { getComponentModelSpec, hasComponent3DModel } from '../three/modelPaths'
 import { componentTerminalLocal } from '../schematic/componentTerminalViews'
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL } from '../schematic/symbols'
-import { component3DDimensions, component3DScaleOf, positionOnTerminalFace, terminal3DPositionOf, terminalFaceCreationPosition, type Terminal3DFace } from '../three/terminal3D'
+import { component3DDimensions, positionOnTerminalFace, terminal3DPositionOf, terminalFaceCreationPosition, type Terminal3DFace } from '../three/terminal3D'
 import { ViewCubeDial, orientationFacingFace, type ViewCubeCorner } from './ViewCube'
 import { IconCube, IconDelete, IconPlus, IconProbe, IconRotate, IconSave } from '../ui/icons'
 import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent, TerminalElectricalClass, TerminalKind, TerminalType } from '../types'
 import { inferTerminalElectricalClass, terminalDatasheetGuidance, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
+import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 
 const PRESETS: Array<{ id: ComponentViewPreset; label: string }> = [
   { id: 'isometric', label: 'Isométrica' },
@@ -34,6 +34,19 @@ const TERMINAL_FACES: Array<{ id: Terminal3DFace; label: string }> = [
   { id: 'top', label: 'Face superior' },
   { id: 'bottom', label: 'Face inferior' },
 ]
+
+const COMPONENT_COLOR_PRESETS = [
+  ['#e5e7eb', 'Cinza claro'],
+  ['#374151', 'Grafite'],
+  ['#0f172a', 'Preto industrial'],
+  ['#dc2626', 'Vermelho'],
+  ['#f59e0b', 'Âmbar'],
+  ['#facc15', 'Amarelo'],
+  ['#16a34a', 'Verde'],
+  ['#2563eb', 'Azul'],
+  ['#0891b2', 'Ciano'],
+  ['#7c3aed', 'Violeta'],
+] as const
 
 const VIEW_CUBE_CORNERS: Record<ViewCubeCorner, ComponentViewOrientation> = {
   nw: { x: -35.264, y: -45, z: 0 },
@@ -339,11 +352,26 @@ function AppearanceEditor({ component }: { component: ElectricalComponent }) {
       <div className="component-scale-fields">
         {(['x', 'y', 'z'] as const).map((axis) => <label key={`scale-${axis}`}><span>{axis.toUpperCase()}</span><input type="number" min={25} max={400} step={5} value={Math.round(editor.scale3D[axis] * 100)} onChange={(event) => updateScale(axis, Number(event.target.value))} /><small>%</small></label>)}
       </div>
-      <button type="button" className="component-scale-reset" onClick={() => setScale({ x: 1, y: 1, z: 1 })}><IconRotate size={11} />Restaurar 100%</button>
+      <div className="component-scale-presets" aria-label="Escala uniforme rápida">
+        {[75, 100, 125, 150].map((percent) => <button type="button" key={percent} onClick={() => setScale({ x: percent / 100, y: percent / 100, z: percent / 100 })}>{percent}%</button>)}
+        <button type="button" className="component-scale-reset" onClick={() => setScale({ x: 1, y: 1, z: 1 })}><IconRotate size={11} />Repor</button>
+      </div>
     </section>
     <section>
       <header><span>Cor de destaque</span><small>mistura não destrutiva sobre materiais</small></header>
       <div className="component-body-color"><input type="color" aria-label="Cor de destaque do componente" value={editor.bodyColor3D ?? '#2563eb'} onChange={(event) => setBodyColor(event.target.value)} /><code>{editor.bodyColor3D ?? 'Original do GLB'}</code><button type="button" onClick={() => setBodyColor(undefined)}>Original</button></div>
+      <div className="component-color-presets" aria-label="Paleta industrial">
+        {COMPONENT_COLOR_PRESETS.map(([color, label]) => <button
+          type="button"
+          key={color}
+          title={label}
+          aria-label={`Aplicar ${label}`}
+          aria-pressed={editor.bodyColor3D === color}
+          className={editor.bodyColor3D === color ? 'active' : ''}
+          style={{ backgroundColor: color }}
+          onClick={() => setBodyColor(color)}
+        />)}
+      </div>
     </section>
     <section>
       <header><span>Modo de renderização</span><small>pré-visualização na Visualização 3D</small></header>
@@ -352,6 +380,80 @@ function AppearanceEditor({ component }: { component: ElectricalComponent }) {
       </div>
     </section>
     <p>As dimensões elétricas, o footprint, a posição no painel e o GLB original não são modificados.</p>
+  </div>
+}
+
+function ComponentVersionsEditor({
+  component,
+  note,
+  onNoteChange,
+  onRestore,
+}: {
+  component: ElectricalComponent
+  note: string
+  onNoteChange: (value: string) => void
+  onRestore: (version: number) => void
+}) {
+  const editor = useSimStore((state) => state.viewOrientationEditor)
+  const restore = useSimStore((state) => state.restoreViewEditorRevision)
+  if (!editor || editor.componentId !== component.id) return null
+  const draftComponent: ElectricalComponent = {
+    ...component,
+    viewOrientation: editor.draft,
+    terminalViewPositions: editor.terminalViewPositions,
+    terminals: editor.terminals,
+    view3DScale: editor.scale3D,
+    view3DRenderMode: editor.renderMode3D,
+    bodyColor: editor.bodyColor3D,
+  }
+  const changes = componentEditorChangeLabels(componentEditorSnapshotOf(component), componentEditorSnapshotOf(draftComponent))
+  const currentVersion = componentEditorVersionOf(component)
+  const history = [...(component.editorHistory ?? [])].sort((a, b) => b.version - a.version)
+  const exportDefinition = () => {
+    const payload = {
+      format: 'dc-simu-component-revision',
+      schemaVersion: 1,
+      exportedAt: new Date().toISOString(),
+      component: { id: component.id, type: component.type, ref: component.ref, label: component.label },
+      revision: {
+        version: changes.length > 0 ? currentVersion + 1 : currentVersion,
+        updatedAt: changes.length > 0 ? new Date().toISOString() : component.editorUpdatedAt,
+        note: note.trim() || changes.join(' · ') || component.editorLastChange || 'Versão atual',
+        changes,
+        ...componentEditorSnapshotOf(draftComponent),
+      },
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${component.ref.replace(/[^a-z0-9_-]+/gi, '-')}-v${payload.revision.version}.dcsimu-component.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+  return <div className="component-versions-editor">
+    <section className="component-version-current">
+      <header><span>Versão atual da instância</span><strong>v{currentVersion}</strong></header>
+      <div className="component-version-date"><span>Última atualização</span><time dateTime={component.editorUpdatedAt}>{formatComponentUpdateDate(component.editorUpdatedAt)}</time></div>
+      <p>{component.editorLastChange || 'Componente importado; a primeira alteração criará a versão 2.'}</p>
+    </section>
+    <section>
+      <header><span>Próxima revisão</span><small>{changes.length > 0 ? `será v${currentVersion + 1}` : 'sem alterações pendentes'}</small></header>
+      <label className="component-revision-note"><span>Descrição da alteração</span><textarea value={note} maxLength={180} rows={3} placeholder="Ex.: bornes ajustados segundo a ficha técnica" onChange={(event) => onNoteChange(event.target.value)} /><small>{note.length}/180 · opcional; é gerada uma descrição automática</small></label>
+      {changes.length > 0 ? <ul className="component-change-list">{changes.map((change) => <li key={change}>{change}</li>)}</ul> : <p className="component-version-empty">Altere a vista, bornes, escala, cor ou renderização para criar uma revisão.</p>}
+    </section>
+    <section>
+      <header><span>Histórico recuperável</span><small>{history.length} versão(ões) anterior(es)</small></header>
+      <div className="component-version-timeline">
+        <article className="is-current"><div><strong>v{currentVersion}</strong><time>{formatComponentUpdateDate(component.editorUpdatedAt)}</time></div><p>{component.editorLastChange || 'Versão atual'}</p><span>Atual</span></article>
+        {history.map((revision) => <article key={`${revision.version}-${revision.updatedAt}`}><div><strong>v{revision.version}</strong><time>{formatComponentUpdateDate(revision.updatedAt)}</time></div><p>{revision.note}</p><button type="button" onClick={() => { restore(revision.version); onRestore(revision.version) }}>Carregar no rascunho</button></article>)}
+      </div>
+    </section>
+    <section className="component-version-sharing">
+      <header><span>Entrega e partilha</span><small>incluída no projeto</small></header>
+      <p>Ao <strong>Aplicar</strong>, a revisão é guardada no componente. Use <strong>Guardar projeto</strong> para que os utilizadores com acesso recebam os novos dados; a atualização PWA continua automática.</p>
+      <button type="button" onClick={exportDefinition}>Exportar definição JSON</button>
+    </section>
   </div>
 }
 
@@ -384,6 +486,7 @@ export function ComponentEditorDock() {
   const apply = useSimStore((state) => state.applyViewOrientationEditor)
   const setSection = useSimStore((state) => state.setViewEditorSection)
   const [saveAsDefault, setSaveAsDefault] = useState(false)
+  const [revisionNote, setRevisionNote] = useState('')
   const [collapsed, setCollapsed] = useState(false)
   const [width, setWidth] = useState(() => {
     try { return Math.min(DOCK_MAX, Math.max(DOCK_MIN, Number(localStorage.getItem(DOCK_KEY)) || 400)) } catch { return 400 }
@@ -391,21 +494,28 @@ export function ComponentEditorDock() {
   const component = editor ? components.find((item) => item.id === editor.componentId) : undefined
   const section = editor?.section ?? 'orientation'
 
-  useEffect(() => { setSaveAsDefault(false); setCollapsed(false) }, [editor?.componentId])
+  useEffect(() => { setSaveAsDefault(false); setRevisionNote(''); setCollapsed(false) }, [editor?.componentId])
   useEffect(() => { try { localStorage.setItem(DOCK_KEY, String(width)) } catch { /* privado */ } }, [width])
 
   const dirty = useMemo(() => {
     if (!editor || !component) return false
-    const current = [editor.draft, editor.terminalViewPositions, editor.terminals, editor.scale3D, editor.renderMode3D, editor.bodyColor3D ?? null]
-    const saved = [componentOrientationOf(component), component.terminalViewPositions ?? {}, component.terminals, component3DScaleOf(component), component.view3DRenderMode ?? 'solid', component.bodyColor ?? null]
-    return JSON.stringify(current) !== JSON.stringify(saved)
+    const candidate: ElectricalComponent = {
+      ...component,
+      viewOrientation: editor.draft,
+      terminalViewPositions: editor.terminalViewPositions,
+      terminals: editor.terminals,
+      view3DScale: editor.scale3D,
+      view3DRenderMode: editor.renderMode3D,
+      bodyColor: editor.bodyColor3D,
+    }
+    return !componentEditorSnapshotEquals(componentEditorSnapshotOf(component), componentEditorSnapshotOf(candidate))
   }, [editor, component])
 
   const requestClose = useCallback(() => {
     if (dirty && !window.confirm('Descartar as alterações que ainda não aplicou?')) return
     cancel()
   }, [dirty, cancel])
-  const submit = useCallback(() => apply(saveAsDefault), [apply, saveAsDefault])
+  const submit = useCallback(() => apply(saveAsDefault, revisionNote), [apply, saveAsDefault, revisionNote])
 
   useEffect(() => {
     if (!editor) return
@@ -439,10 +549,11 @@ export function ComponentEditorDock() {
     bodyColor: editor.bodyColor3D,
   }
   const updateAxis = (axis: 'x' | 'y' | 'z', value: number) => setDraft(normalizeComponentOrientation({ ...draft, [axis]: value }))
-  const tabs: Array<{ id: typeof section; label: string; badge?: number }> = [
+  const tabs: Array<{ id: typeof section; label: string; badge?: number | string }> = [
     { id: 'orientation', label: 'Vista' },
     { id: 'terminals', label: 'Bornes', badge: editor.terminals.length },
     { id: 'appearance', label: 'Aparência' },
+    { id: 'versions', label: 'Versões', badge: `v${componentEditorVersionOf(component)}` },
   ]
 
   return (
@@ -451,7 +562,7 @@ export function ComponentEditorDock() {
       <button type="button" className="component-editor-grip" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed} aria-label={collapsed ? 'Expandir painel de edição' : 'Recolher painel de edição'}><span /></button>
       <section className="component-view-editor is-docked">
         <header>
-          <div><IconCube size={16} /><span><strong>{component.ref}{dirty && <em className="component-editor-dirty" title="Alterações por aplicar">● por aplicar</em>}</strong><small>{component.label}</small></span></div>
+          <div><IconCube size={16} /><span><strong>{component.ref}<b className="component-editor-version">v{componentEditorVersionOf(component)}</b>{dirty && <em className="component-editor-dirty" title="Alterações por aplicar">● por aplicar</em>}</strong><small>{component.label} · Atualizado {formatComponentUpdateDate(component.editorUpdatedAt)}</small></span></div>
           <button type="button" onClick={requestClose} aria-label="Fechar painel de edição" title="Fechar (Esc)">×</button>
         </header>
 
@@ -481,6 +592,7 @@ export function ComponentEditorDock() {
 
           {section === 'terminals' && <TerminalPlacementEditor component={draftComponent} draft={draft} />}
           {section === 'appearance' && <AppearanceEditor component={draftComponent} />}
+          {section === 'versions' && <ComponentVersionsEditor component={component} note={revisionNote} onNoteChange={setRevisionNote} onRestore={(version) => setRevisionNote(`Restauro da versão ${version}`)} />}
 
           <label className="component-view-default"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} /><span>Guardar apresentação como padrão<small>Novas instâncias usarão orientação, escala, renderização e mapas de bornes.</small></span></label>
           {!hasComponent3DModel(component.type) && <p className="component-view-warning">Este tipo não dispõe de GLB e permanece bloqueado para novas inserções.</p>}
@@ -488,7 +600,7 @@ export function ComponentEditorDock() {
         </div>
 
         <footer>
-          <span className="component-editor-status">{dirty ? 'Alterações por aplicar' : 'Sem alterações'}<kbd>Ctrl+↵</kbd></span>
+          <span className="component-editor-status">{dirty ? `Pronta para v${componentEditorVersionOf(component) + 1}` : 'Sem alterações'}<kbd>Ctrl+↵</kbd></span>
           <button type="button" className="dc-btn" onClick={requestClose}>Cancelar</button>
           <button type="button" className="dc-btn-primary dc-btn" disabled={!dirty && !saveAsDefault} onClick={submit}><IconSave size={12} />Aplicar</button>
         </footer>

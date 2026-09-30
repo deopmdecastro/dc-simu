@@ -27,6 +27,7 @@ import { useSimStore } from '../src/store/useSimStore'
 import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
 import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, getDefaultComponent3DPresentation, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
 import { component3DDimensions, component3DScaleOf, terminalFaceCreationPosition, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from '../src/three/terminal3D'
+import { upgradeComponentEditorMetadata } from '../src/three/componentRevisions'
 import { wireEnergyEffectVisible } from '../src/three/panel3DEditing'
 import * as THREE from 'three'
 import { automaticTerminalViewPositions, componentTerminalLocal, projectedComponentBounds } from '../src/schematic/componentTerminalViews'
@@ -832,6 +833,14 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* Orientação visual por instância: isolada da lógica e persistida no projeto. */
 {
   const component = createComponent('breakerWegMdwC10')
+  check('nova instância começa na versão 1 com data ISO de atualização', component.editorVersion === 1
+    && component.editorLastChange === 'Versão inicial' && !Number.isNaN(Date.parse(component.editorUpdatedAt ?? '')))
+  const legacyComponent = { ...component, editorVersion: undefined, editorUpdatedAt: undefined, editorLastChange: undefined, editorHistory: undefined }
+  const migratedComponent = upgradeComponentEditorMetadata(legacyComponent, '2026-09-01T12:30:00.000Z')
+  check('migração de projeto antigo cria metadados seguros usando a última data guardada', migratedComponent.editorVersion === 1
+    && migratedComponent.editorUpdatedAt === '2026-09-01T12:30:00.000Z'
+    && migratedComponent.editorLastChange === 'Importado de uma versão anterior do projeto' && migratedComponent.editorHistory?.length === 0
+    && migratedComponent.terminals === legacyComponent.terminals && migratedComponent.state === legacyComponent.state)
   check('nova instância recebe uma orientação visual válida', !!component.viewOrientation && isOriginalComponentOrientation(component.viewOrientation))
   check('presets cobrem vista isométrica, faces e reset original', COMPONENT_VIEW_PRESETS.isometric.x !== 0
     && COMPONENT_VIEW_PRESETS.front.y === 0 && COMPONENT_VIEW_PRESETS.back.y === 180
@@ -878,11 +887,16 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.getState().setView3DScale({ x: 1.25, y: 0.75, z: 1.5 })
   useSimStore.getState().setView3DRenderMode('xray')
   useSimStore.getState().setView3DBodyColor('#1d4ed8')
-  useSimStore.getState().applyViewOrientationEditor(false)
+  useSimStore.getState().applyViewOrientationEditor(false, 'Bornes calibrados segundo a ficha técnica')
   const oriented = useSimStore.getState().components.find((item) => item.id === component.id)
   const customViewKey = componentTerminalViewKey({ x: 15, y: 35, z: -10 })
   check('editor aplica orientação somente à instância selecionada', oriented?.viewOrientation?.x === 15 && oriented.viewOrientation.y === 35 && oriented.viewOrientation.z === -10
     && before.every((item, index) => useSimStore.getState().components[index].id === item.id && useSimStore.getState().components[index].viewOrientation === item.viewOrientation))
+  check('Aplicar cria uma nova revisão datada com nota e snapshot recuperável', oriented?.editorVersion === 2
+    && oriented.editorLastChange === 'Bornes calibrados segundo a ficha técnica'
+    && !Number.isNaN(Date.parse(oriented.editorUpdatedAt ?? ''))
+    && oriented.editorHistory?.[0]?.version === 1
+    && oriented.editorHistory[0].viewOrientation.y === 0)
   check('posição manual do borne é guardada apenas na vista ativa', oriented?.terminalViewPositions?.[customViewKey]?.[terminal.id]?.x === 0.23
     && oriented.terminalViewPositions[customViewKey][terminal.id].y === 0.31)
   const editedTerminal = oriented?.terminals.find((item) => item.id === terminal.id)
@@ -899,7 +913,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('orientação, mapa, físico e aparência persistem no JSON do projeto', savedOriented?.viewOrientation?.y === 35
     && savedOriented?.terminalViewPositions?.[customViewKey]?.[terminal.id]?.y === 0.31
     && savedOriented?.terminals.find((item: ElectricalComponent['terminals'][number]) => item.id === terminal.id)?.position3D?.z === 0.95
-    && savedOriented?.view3DScale?.z === 1.5 && savedOriented?.view3DRenderMode === 'xray' && savedOriented?.bodyColor === '#1d4ed8')
+    && savedOriented?.view3DScale?.z === 1.5 && savedOriented?.view3DRenderMode === 'xray' && savedOriented?.bodyColor === '#1d4ed8'
+    && savedOriented?.editorVersion === 2 && savedOriented?.editorHistory?.[0]?.version === 1 && !!savedOriented?.editorUpdatedAt)
   useSimStore.getState().openViewOrientationEditor(component.id)
   useSimStore.getState().setViewOrientationDraft(COMPONENT_VIEW_PRESETS.top)
   useSimStore.getState().setViewTerminalPosition(terminal.id, { x: 0.9, y: 0.9 })
@@ -909,9 +924,10 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.getState().setView3DBodyColor('#ef4444')
   useSimStore.getState().cancelViewOrientationEditor()
   const cancelled = useSimStore.getState().components.find((item) => item.id === component.id)
-  check('Cancelar descarta orientação, bornes e aparência do rascunho', cancelled?.viewOrientation?.y === 35 && !cancelled?.terminalViewPositions?.top
+  check('Cancelar descarta orientação, bornes, aparência e não cria versão', cancelled?.viewOrientation?.y === 35 && !cancelled?.terminalViewPositions?.top
     && cancelled?.terminals.find((item) => item.id === terminal.id)?.position3D?.z === 0.95
-    && cancelled?.view3DScale?.x === 1.25 && cancelled?.view3DRenderMode === 'xray' && cancelled?.bodyColor === '#1d4ed8')
+    && cancelled?.view3DScale?.x === 1.25 && cancelled?.view3DRenderMode === 'xray' && cancelled?.bodyColor === '#1d4ed8'
+    && cancelled?.editorVersion === 2 && cancelled?.editorHistory?.length === 1)
   const idsBeforeDuplicate = new Set(useSimStore.getState().components.map((item) => item.id))
   useSimStore.getState().duplicateComponents([component.id])
   const duplicate = useSimStore.getState().components.find((item) => !idsBeforeDuplicate.has(item.id))
@@ -919,6 +935,18 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     && duplicate?.view3DRenderMode === 'xray' && duplicate?.bodyColor === '#1d4ed8'
     && duplicate.terminals[0]?.position3D?.z === cancelled?.terminals[0]?.position3D?.z
     && duplicate.terminals.every((item, index) => item.id !== cancelled?.terminals[index]?.id && item.componentId === duplicate.id))
+  useSimStore.getState().openViewOrientationEditor(component.id, 'versions')
+  useSimStore.getState().applyViewOrientationEditor(false, 'nota sem alteração')
+  check('Aplicar sem alteração real não cria versão artificial', useSimStore.getState().components.find((item) => item.id === component.id)?.editorVersion === 2)
+  useSimStore.getState().openViewOrientationEditor(component.id, 'versions')
+  useSimStore.getState().restoreViewEditorRevision(1)
+  useSimStore.getState().applyViewOrientationEditor(false, 'Restauro da versão 1')
+  const restoredRevision = useSimStore.getState().components.find((item) => item.id === component.id)
+  check('restaurar carrega o snapshot no rascunho e Aplicar cria uma revisão nova, sem reescrever o passado', restoredRevision?.editorVersion === 3
+    && restoredRevision.editorLastChange === 'Restauro da versão 1'
+    && isOriginalComponentOrientation(restoredRevision.viewOrientation)
+    && restoredRevision.editorHistory?.some((revision) => revision.version === 2)
+    && restoredRevision.editorHistory?.some((revision) => revision.version === 1))
   useSimStore.setState({ components: before, wires: beforeWires, viewOrientationEditor: null })
 }
 

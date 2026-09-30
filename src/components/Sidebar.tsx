@@ -15,6 +15,7 @@ import { ComponentThumb } from '../three/componentThumbnails'
 import { hasComponent3DModel, isMountingRail, MISSING_3D_MODEL_MESSAGE, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRailGeometry'
 import { isRailMountable } from '../three/railMount'
+import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects, IconCube } from '../ui/icons'
 
 const label = 'dc-field-label'
@@ -316,7 +317,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
             <section key={selectedComponent.id} className="dc-inspector-component">
               <header className="dc-inspector-hero">
                 <div className="dc-inspector-hero-thumb"><ComponentThumb type={selectedComponent.type} size={42} /></div>
-                <div className="min-w-0 flex-1"><strong className="block text-sm text-ink-900 truncate">{selectedComponent.ref || 'Sem referência'}</strong><span className="block text-[10px] text-ink-500 truncate">{selectedComponent.label}</span></div>
+                <div className="min-w-0 flex-1"><strong className="block text-sm text-ink-900 truncate">{selectedComponent.ref || 'Sem referência'} <span className="text-[9px] text-blue-600">v{componentEditorVersionOf(selectedComponent)}</span></strong><span className="block text-[10px] text-ink-500 truncate">{selectedComponent.label}</span><time className="block text-[8px] text-ink-400 truncate" dateTime={selectedComponent.editorUpdatedAt}>Atualizado {formatComponentUpdateDate(selectedComponent.editorUpdatedAt)}</time></div>
                 <span className={`dc-inspector-indicator ${selectedComponent.state.energized ? 'is-on' : ''}`} title={selectedComponent.state.energized ? 'Energizado' : 'Desligado'} />
               </header>
               <div className="text-[10px] font-mono text-ink-400 px-1 truncate">{selectedComponent.type} · {selectedComponent.terminals.length} bornes{selectedComponent.locked ? ' · bloqueado' : ''}</div>
