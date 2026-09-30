@@ -1,13 +1,26 @@
+# v0 sandbox internal files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+
+# Environment variables
+.env
+.env*.local
+
+# Build and dependency artifacts
 node_modules
 dist
+.next/
 *.local
-.DS_Store
 *.tsbuildinfo
 
 .data
 data
 
-.env
+.DS_Store
 
 # SolidWorks temporary lock files
 ~$*
