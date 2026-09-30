@@ -343,7 +343,6 @@ button.vcube-heading:hover { background:#f0f5fc; }
 @media (max-width: 700px) {
   .vcube-floating:not(.vcube-shifted) { top:8px; right:8px; width:164px; }
   .vcube-floating.vcube-below-command { top:77px; }
-  .vcube-floating { max-height:calc(100% - 16px); overflow-y:auto; }
   .vcube { --vcube-size:60px; }
   .vcube-stage { height:130px; }
   .vcube > small:not(.vcube-readout) { display:none; }
@@ -392,3 +391,13 @@ button.vcube-heading:hover { background:#f0f5fc; }
   .vcube-floating .vcube-corner { display:none; }
   .vcube-floating .vcube-actions > button { padding:0 10px; min-height:26px; font-size:10px; }
 }
+
+/* Garantias do 3D do cubo (Safari/iOS): nenhum ancestral com overflow/filter/opacidade e sem interpolação de matrizes. */
+.vcube-floating { overflow:visible; max-height:none; }
+.vcube-floating .vcube-stage { transform-style:flat; -webkit-perspective:460px; perspective:460px; }
+.vcube-floating .vcube-body { transition:none; -webkit-transform-style:preserve-3d; transform-style:preserve-3d; will-change:transform; }
+.vcube-body .face { -webkit-backface-visibility:hidden; backface-visibility:hidden; }
+.vcube-floating .vcube-body .right,.vcube-floating .vcube-body .left { background:linear-gradient(145deg,#eef4fc,#d2e0f3 60%,#c0d3ec); }
+.vcube-floating .vcube-body .top { background:linear-gradient(145deg,#ffffff,#eaf1fb 60%,#dbe7f7); }
+.vcube-floating .vcube-body .bottom,.vcube-floating .vcube-body .back { background:linear-gradient(145deg,#e4edf9,#c9d9ee); }
+.vcube-floating .vcube-body .face.is-facing { background:linear-gradient(145deg,#f1f7ff,#bcd4fb 62%,#a9c6f3); }
