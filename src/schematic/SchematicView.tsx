@@ -175,39 +175,34 @@ function insertWaypoint(a: Pt, b: Pt, waypoints: Pt[], p: Pt): Pt[] {
 }
 
 /** Editor de esquema completo: malha, arraste, seleção, cabos, bornes, sonda. */
-/** Cubo de vista do Esquema 2D: a vista do desenho é a frontal; arrastar ou clicar noutra face abre o 3D nessa vista. */
-function Schematic2DViewCube({ onOpen3DView, placement }: { onOpen3DView: (request: ViewCubeRequest) => void; placement: 'top' | 'below-command' | 'shifted' }) {
-  const [angles, setAngles] = useState({ yaw: 0, pitch: 0 })
-  const anglesRef = useRef(angles)
-  const update = (next: { yaw: number; pitch: number }) => { anglesRef.current = next; setAngles(next) }
-  const reset = () => update({ yaw: 0, pitch: 0 })
-  const pickFace = (view: ViewCubeFace) => {
-    if (view === 'front') return // o Esquema 2D já é a vista frontal
-    reset()
-    onOpen3DView({ view })
+type Tilt2D = { yaw: number; pitch: number }
+const TILT_LIMIT = 70
+
+/** Cubo de vista do Esquema 2D: inclina o próprio desenho (pré-visualização) sem sair do editor 2D. */
+function Schematic2DViewCube({ tilt, onTilt, placement }: { tilt: Tilt2D; onTilt: (next: Tilt2D) => void; placement: 'top' | 'below-command' | 'shifted' }) {
+  const clamp = (v: number) => Math.max(-TILT_LIMIT, Math.min(TILT_LIMIT, v))
+  const tiltRef = useRef(tilt)
+  tiltRef.current = tilt
+  const set = (yaw: number, pitch: number) => onTilt({ yaw: clamp(yaw), pitch: clamp(pitch) })
+  const faceAngles: Record<ViewCubeFace, Tilt2D> = {
+    front: { yaw: 0, pitch: 0 }, back: { yaw: 0, pitch: 0 }, right: { yaw: TILT_LIMIT, pitch: 0 }, left: { yaw: -TILT_LIMIT, pitch: 0 },
+    top: { yaw: 0, pitch: TILT_LIMIT }, bottom: { yaw: 0, pitch: -TILT_LIMIT }, isometric: { yaw: -45, pitch: 35 },
   }
   return <ViewCube
-    yaw={angles.yaw}
-    pitch={angles.pitch}
+    yaw={tilt.yaw}
+    pitch={tilt.pitch}
     placement={placement}
     showHome={false}
-    note="Esquema 2D = vista frontal · arraste para abrir em 3D"
-    onPick={pickFace}
-    onAngles={(yaw, pitch) => { reset(); onOpen3DView({ yaw, pitch }) }}
-    // Pré-visualização local: a câmara só existe no 3D, por isso abre-se ao largar.
-    onOrbit={(dx, dy) => update({
-      yaw: anglesRef.current.yaw - dx * 0.8,
-      pitch: Math.max(-89, Math.min(89, anglesRef.current.pitch + dy * 0.8)),
-    })}
-    onOrbitEnd={() => {
-      const { yaw, pitch } = anglesRef.current
-      reset()
-      if (Math.abs(yaw) > 0.5 || Math.abs(pitch) > 0.5) onOpen3DView({ yaw, pitch })
-    }}
+    note="Arraste para inclinar o desenho · Frente para voltar a editar"
+    onPick={(view) => set(faceAngles[view].yaw, faceAngles[view].pitch)}
+    onAngles={(yaw, pitch) => set(yaw, pitch)}
+    onOrbit={(dx, dy) => set(tiltRef.current.yaw - dx * 0.8, tiltRef.current.pitch + dy * 0.8)}
   />
 }
 
 function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCollapsed?: boolean; onOpen3DView?: (request: ViewCubeRequest) => void }) {
+  const [tilt, setTilt] = useState<Tilt2D>({ yaw: 0, pitch: 0 })
+  const isTilted = Math.abs(tilt.yaw) > 0.5 || Math.abs(tilt.pitch) > 0.5
   const components = useSimStore((s) => s.components)
   const [logoImages, setLogoImages] = useState<{ off: string; on: string } | null>(null)
   const [proautoImage, setProautoImage] = useState<string | null>(null)
@@ -1199,11 +1194,12 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   return (
     <div className="schematic-stage w-full h-full relative overflow-hidden bg-[#f8fafd]">
       <ComponentViewEditor />
-      {onOpen3DView && <Schematic2DViewCube onOpen3DView={onOpen3DView} placement={viewOrientationEditor ? 'shifted' : selectedIds.length === 1 ? 'below-command' : 'top'} />}
+      {onOpen3DView && <Schematic2DViewCube tilt={tilt} onTilt={setTilt} placement={viewOrientationEditor ? 'shifted' : selectedIds.length === 1 ? 'below-command' : 'top'} />}
+      {isTilted && <button type="button" className="schematic-tilt-note" onClick={() => setTilt({ yaw: 0, pitch: 0 })} title="Voltar à vista frontal para editar">Vista inclinada · <b>Voltar a Frente</b> para editar</button>}
       <svg
         ref={svgRef}
         className="w-full h-full"
-        style={{ cursor: gridDragEnabled ? (panning ? 'grabbing' : 'grab') : tool === 'select' ? 'default' : tool === 'wire' ? 'crosshair' : tool === 'pan' ? 'grab' : 'pointer' }}
+        style={{ ...(isTilted ? { pointerEvents: 'none' as const, transform: `perspective(1600px) rotateX(${tilt.pitch}deg) rotateY(${tilt.yaw}deg)`, transformOrigin: '50% 50%' } : {}), transition: 'transform .12s linear', cursor: gridDragEnabled ? (panning ? 'grabbing' : 'grab') : tool === 'select' ? 'default' : tool === 'wire' ? 'crosshair' : tool === 'pan' ? 'grab' : 'pointer' }}
          onMouseDown={onBackgroundDown}
          onMouseMove={onMouseMove}
          onMouseUp={onMouseUp}

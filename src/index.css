@@ -2618,3 +2618,6 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 @media (max-width: 380px) {
   .schematic-dimension-switch button { padding-inline:9px; gap:4px; font-size:10px; }
 }
+
+.schematic-tilt-note { position:absolute; z-index:21; left:50%; bottom:64px; transform:translateX(-50%); max-width:calc(100% - 24px); padding:7px 14px; border:1px solid var(--float-border,#dbe4f0); border-radius:999px; color:#41536d; background:#fffffff2; box-shadow:var(--float-shadow,0 8px 22px #1b2d491f); font:600 11px ui-sans-serif,system-ui,sans-serif; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.schematic-tilt-note b { color:#1d4ed8; }
