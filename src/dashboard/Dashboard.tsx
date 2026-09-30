@@ -3,65 +3,46 @@ import { LogoMark } from '../ui/Brand'
 import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus } from '../ui/icons'
 
 export type User = { id: string; name: string; email: string; role: 'admin' | 'user' }
-export type Project = { id: string; name: string; revision: number; owner: string; role: 'owner' | 'editor'; updated_at: string }
+export type ProjectPreviewData = {
+  components: Array<{ x: number; y: number; w: number; h: number; r: number; t: string; ref: string; c?: string; p: Array<[number, number]> }>
+  wires: Array<{ a: [number, number]; b: [number, number]; c?: string }>
+}
+export type Project = { id: string; name: string; revision: number; owner: string; role: 'owner' | 'editor'; updated_at: string; preview?: ProjectPreviewData }
 export type Invite = { id: string; project: string; sender: string }
 
-/** Hash estável do id → cada projeto tem sempre a mesma miniatura, mas diferente das outras. */
-function hashId(id: string) {
-  let h = 2166136261
-  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619) >>> 0
-  return h
-}
-
-/** Pré-visualização simplificada do quadro, usada nos cartões de projeto. */
-function PanelPreview({ seed }: { seed: string }) {
-  const v = hashId(seed)
-  const modules = 4 + (v % 4)
-  const leds = 1 + ((v >> 3) % 3)
-  const twoContactors = ((v >> 5) & 1) === 1
+/** Miniatura real: desenha os componentes e fios guardados no projeto (mesma geometria do Esquema 2D). */
+function ProjectThumb({ preview }: { preview?: ProjectPreviewData }) {
+  const comps = preview?.components ?? []
+  if (!comps.length) {
+    return (
+      <div className="dx-proj-empty" aria-hidden="true">
+        <span>Projeto vazio</span>
+      </div>
+    )
+  }
+  const xs = comps.flatMap((c) => [c.x, c.x + c.w])
+  const ys = comps.flatMap((c) => [c.y, c.y + c.h])
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys)
+  const pad = Math.max(24, Math.max(maxX - minX, maxY - minY) * 0.06)
+  const vb = `${minX - pad} ${minY - pad} ${Math.max(1, maxX - minX + pad * 2)} ${Math.max(1, maxY - minY + pad * 2)}`
+  const span = Math.max(maxX - minX, maxY - minY) + pad * 2
+  const stroke = Math.max(1, span / 320)
+  const rails = comps.filter((c) => /rail/i.test(c.t))
+  const devices = comps.filter((c) => !/rail/i.test(c.t))
   return (
-    <svg viewBox="0 0 320 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <rect width="320" height="140" fill="#f6f8fb" />
-      {/* caixa do quadro */}
-      <rect x="24" y="16" width="272" height="108" rx="6" fill="#ffffff" stroke="#c2ccda" />
-      {/* calhas DIN */}
-      <path d="M32 46h256M32 92h256" stroke="#d3dbe5" strokeWidth="6" />
-      {/* módulos de proteção (alguns ligados, outros desligados) */}
-      {Array.from({ length: modules }).map((_, i) => {
-        const on = i === 0 || ((v >> (i + 6)) & 1) === 1
-        return (
-          <g key={i}>
-            <rect x={36 + i * 26} y={24} width="21" height="30" rx="2.5" fill="#eef4ff" stroke="#94b6fa" />
-            <rect x={43.5 + i * 26} y={on ? 29 : 39} width="6" height="12" rx="1.5" fill={on ? '#2655e5' : '#aab4c2'} opacity={on ? 0.85 : 0.9} />
-          </g>
-        )
+    <svg viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      {rails.map((c, i) => <rect key={`r${i}`} x={c.x} y={c.y} width={c.w} height={c.h} rx={stroke * 2} fill="#d3dbe5" />)}
+      {(preview?.wires ?? []).map((w, i) => {
+        const mx = (w.a[0] + w.b[0]) / 2
+        return <path key={`w${i}`} d={`M${w.a[0]} ${w.a[1]}H${mx}V${w.b[1]}H${w.b[0]}`} fill="none" stroke={w.c ?? '#64748b'} strokeWidth={stroke * 1.6} strokeLinejoin="round" opacity=".85" />
       })}
-      {/* PLC */}
-      <rect x={36} y={72} width="66" height="38" rx="3" fill="#dce7fd" stroke="#94b6fa" />
-      <rect x={42} y={78} width="30" height="14" rx="2" fill="#ffffff" stroke="#94b6fa" />
-      <circle cx={86} cy={82} r="2.4" fill="#16a34a" />
-      <circle cx={94} cy={82} r="2.4" fill="#2655e5" opacity=".6" />
-      <path d="M42 100h54" stroke="#94b6fa" strokeWidth="1.6" />
-      {/* contactor(es) + fonte */}
-      <rect x={112} y={72} width="46" height="38" rx="3" fill="#f6f8fb" stroke="#aab4c2" />
-      <rect x={117} y={77} width="36" height="7" rx="1.5" fill="#ffffff" stroke="#d3dbe5" />
-      {twoContactors ? (
-        <>
-          <rect x={164} y={72} width="30" height="38" rx="3" fill="#f6f8fb" stroke="#aab4c2" />
-          <rect x={168} y={77} width="22" height="7" rx="1.5" fill="#ffffff" stroke="#d3dbe5" />
-        </>
-      ) : (
-        <>
-          <rect x={168} y={72} width="34" height="38" rx="3" fill="#f6f8fb" stroke="#aab4c2" />
-          <path d="M174 80h22M174 86h22" stroke="#c2ccda" strokeWidth="1.6" />
-        </>
-      )}
-      {/* bornes */}
-      <g fill="#2655e5">
-        {[0, 1, 2].map((i) => (
-          <circle key={i} cx={234 + i * 16} cy="84" r="4" opacity={i < leds ? 1 - i * 0.28 : 0.18} />
-        ))}
-      </g>
+      {devices.map((c, i) => (
+        <g key={`c${i}`}>
+          <rect x={c.x} y={c.y} width={c.w} height={c.h} rx={Math.min(c.w, c.h) * 0.12} fill={c.c && /^#/.test(c.c) ? c.c : '#eef4ff'} stroke="#7d9fe0" strokeWidth={stroke} />
+          {c.ref && c.w > span / 14 && <text x={c.x + c.w / 2} y={c.y + c.h / 2} fontSize={Math.min(c.h * 0.35, c.w * 0.3, span / 24)} textAnchor="middle" dominantBaseline="central" fill="#284467" fontWeight="700">{c.ref}</text>}
+          {c.p.map((pt, k) => <circle key={k} cx={pt[0]} cy={pt[1]} r={stroke * 1.8} fill="#2655e5" />)}
+        </g>
+      ))}
     </svg>
   )
 }
@@ -360,7 +341,7 @@ export default function Dashboard({
                 if (!(e.target as HTMLElement).closest('button')) void open(p.id)
               }}
             >
-              <PanelPreview seed={p.id} />
+              <ProjectThumb preview={p.preview} />
               <span className="dx-proj-badge">{p.role === 'owner' ? 'Meu projeto' : 'Partilhado'}</span>
               {p.role === 'owner' && (
                 <div className="dx-menu-wrap" onClick={(e) => e.stopPropagation()}>

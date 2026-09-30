@@ -670,3 +670,8 @@
     height: 128px;
   }
 }
+
+/* Miniatura real do projeto */
+.dx-proj-art { background: #f6f8fb; background-image: radial-gradient(#d5dde9 1px, transparent 1px); background-size: 14px 14px; }
+.dx-proj-art > svg { padding: 14px; box-sizing: border-box; }
+.dx-proj-empty { display: grid; height: 100%; place-items: center; color: #7a889c; font-size: 13px; font-weight: 600; }

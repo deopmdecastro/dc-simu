@@ -71,7 +71,38 @@ function login(email,password,req,res) {
 app.post('/api/login',(req,res)=>login(String(req.body.email||'').trim().toLowerCase(),String(req.body.password||''),req,res))
 app.get('/api/me',auth,(req,res)=>res.json({user:req.user}))
 app.post('/api/logout',auth,(req,res)=>{ db.prepare('DELETE FROM sessions WHERE token=?').run(hash(cookie(req)));res.setHeader('Set-Cookie','dc_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');res.json({ok:true}) })
-app.get('/api/projects',auth,(req,res)=>res.json(db.prepare(`SELECT p.id,p.name,p.revision,p.updated_at,u.name owner,CASE WHEN p.owner_id=? THEN 'owner' ELSE 'editor' END role FROM projects p JOIN users u ON u.id=p.owner_id WHERE p.owner_id=? OR EXISTS(SELECT 1 FROM members m WHERE m.project_id=p.id AND m.user_id=?) ORDER BY p.updated_at DESC`).all(req.user.id,req.user.id,req.user.id)))
+// Miniatura real do projeto: geometria leve (componentes + fios) extraída do conteúdo guardado.
+const previewCache=new Map()
+function buildPreview(content){
+ let data;try{data=JSON.parse(content)}catch{return {components:[],wires:[]}}
+ const list=Array.isArray(data?.components)?data.components.slice(0,400):[]
+ const at=new Map()
+ const components=list.filter(c=>Number.isFinite(c?.schematicX)&&Number.isFinite(c?.schematicY)).map(c=>{
+  const w=Number(c.w)||60,h=Number(c.h)||40,r=Number(c.rotation)||0
+  const pts=(Array.isArray(c.terminals)?c.terminals:[]).slice(0,64).map(t=>{
+   let lx=(Number(t.x)||0)-.5,ly=(Number(t.y)||0)-.5
+   if(c.mirrored)lx=-lx
+   for(let i=0;i<Math.round(r/90)%4;i++)[lx,ly]=[-ly,lx]
+   const x=c.schematicX+w/2+lx*w,y=c.schematicY+h/2+ly*h
+   at.set(t.id,[x,y]);return [Math.round(x),Math.round(y)]
+  })
+  return {x:Math.round(c.schematicX),y:Math.round(c.schematicY),w:Math.round(w),h:Math.round(h),r,t:String(c.type||''),ref:String(c.ref||'').slice(0,8),c:typeof c.bodyColor==='string'?c.bodyColor.slice(0,9):undefined,p:pts}
+ })
+ const wires=(Array.isArray(data?.wires)?data.wires:[]).slice(0,800).map(w=>{
+  const a=at.get(w.fromTerminalId)||(w.fromPoint&&[w.fromPoint.x,w.fromPoint.y]),b=at.get(w.toTerminalId)||(w.toPoint&&[w.toPoint.x,w.toPoint.y])
+  return a&&b?{a:[Math.round(a[0]),Math.round(a[1])],b:[Math.round(b[0]),Math.round(b[1])],c:typeof w.color==='string'&&/^#[0-9a-f]{3,8}$/i.test(w.color)?w.color:undefined}:null
+ }).filter(Boolean)
+ return {components,wires}
+}
+app.get('/api/projects',auth,(req,res)=>{
+ const rows=db.prepare(`SELECT p.id,p.name,p.revision,p.updated_at,p.content,u.name owner,CASE WHEN p.owner_id=? THEN 'owner' ELSE 'editor' END role FROM projects p JOIN users u ON u.id=p.owner_id WHERE p.owner_id=? OR EXISTS(SELECT 1 FROM members m WHERE m.project_id=p.id AND m.user_id=?) ORDER BY p.updated_at DESC`).all(req.user.id,req.user.id,req.user.id)
+ res.json(rows.map(({content,...row})=>{
+  const key=row.id+':'+row.revision+':'+row.updated_at
+  let preview=previewCache.get(key)
+  if(!preview){preview=buildPreview(content);previewCache.set(key,preview);if(previewCache.size>200)previewCache.delete(previewCache.keys().next().value)}
+  return {...row,preview}
+ }))
+})
 app.post('/api/projects',auth,(req,res)=>{
  const name=String(req.body.name||'').trim();if (!name||name.length>120)return fail(res,400,'Nome inválido')
  const p={id:id(),name,owner_id:req.user.id,content:JSON.stringify(req.body.content??{}),updated_at:new Date().toISOString()}
