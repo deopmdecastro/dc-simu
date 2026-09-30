@@ -43,8 +43,8 @@ import { hasComponent3DModel, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { isDinRail, isRailMountable, railWidthPx, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { clampRailLengthMm } from '../three/dinRailGeometry'
 import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
-import { automaticTerminalViewPositions, componentTerminalLocal } from '../schematic/componentTerminalViews'
-import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosition, terminal3DPositionOf } from '../three/terminal3D'
+import { automaticTerminalViewPositions, componentTerminalLocal, terminal3DFromProjectedLocal } from '../schematic/componentTerminalViews'
+import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosition, terminal3DPositionOf, type Terminal3DPosition } from '../three/terminal3D'
 
 export interface Snapshot {
   components: ElectricalComponent[]
@@ -164,8 +164,13 @@ interface Store extends CircuitState {
     trackingDiameter: number
     /** Etiquetas dos bornes durante o rastreamento. */
     trackingLabels: 'all' | 'active' | 'off'
+    /** Secção aberta no editor (Vista · Bornes · Aparência). */
+    section: ViewEditorSection
   } | null
-  openViewOrientationEditor: (componentId: string) => void
+  openViewOrientationEditor: (componentId: string, section?: ViewEditorSection) => void
+  setViewEditorSection: (section: ViewEditorSection) => void
+  /** Move um borne no volume 3D (Painel 3D); as vistas 2D passam a seguir o ponto. */
+  setViewTerminalPosition3D: (terminalId: string, position: Terminal3DPosition) => void
   setViewOrientationDraft: (orientation: ComponentViewOrientation) => void
   setViewTerminalPosition: (terminalId: string, position: ComponentTerminalViewPosition) => void
   setViewTerminalDefinition: (terminalId: string, patch: Partial<Terminal>) => void
@@ -294,6 +299,16 @@ function currentDrawOrder(components: ElectricalComponent[], wires: Wire[]): Dra
  * uma reordenação ficava com z=0 e aparecia atrás de tudo. Devolve undefined
  * enquanto ninguém mexeu nas camadas (mantém o comportamento clássico). */
 let lastTrackingDiameter = 16
+export type ViewEditorSection = 'orientation' | 'terminals' | 'appearance'
+
+/** Remove os ajustes manuais (por vista) de um borne, para as vistas 2D voltarem a seguir o ponto 3D. */
+function withoutManualTerminalPositions(positions: ComponentTerminalViewPositions, terminal: Terminal, index: number, exceptView?: string): ComponentTerminalViewPositions {
+  const keys = [terminal.id, `index:${index}`, `label:${terminal.label}`]
+  return Object.fromEntries(Object.entries(positions).map(([view, entries]) => [
+    view,
+    view === exceptView ? entries : Object.fromEntries(Object.entries(entries).filter(([key]) => !keys.includes(key))),
+  ]))
+}
 const clampDiameter = (value: number, min: number, max: number) => Math.max(min, Math.min(max, Math.round(value * 2) / 2))
 
 function nextTopZ(components: ElectricalComponent[], wires: Wire[]): number | undefined {
@@ -829,7 +844,7 @@ export const useSimStore = create<Store>((set, get) => ({
   dragType: null,
   setDragType: (t) => set({ dragType: t && hasComponent3DModel(t) ? t : null }),
   viewOrientationEditor: null,
-  openViewOrientationEditor: (componentId) => {
+  openViewOrientationEditor: (componentId, section = 'orientation') => {
     const component = get().components.find((item) => item.id === componentId)
     if (!component) return
     set({
@@ -844,6 +859,7 @@ export const useSimStore = create<Store>((set, get) => ({
         bodyColor3D: component.bodyColor,
         trackingDiameter: lastTrackingDiameter,
         trackingLabels: 'active',
+        section,
       },
       selectedComponentIds: [componentId],
       selectedWireId: null,
@@ -853,21 +869,52 @@ export const useSimStore = create<Store>((set, get) => ({
   setViewOrientationDraft: (orientation) => set((state) => state.viewOrientationEditor ? {
     viewOrientationEditor: { ...state.viewOrientationEditor, draft: normalizeComponentOrientation(orientation) },
   } : {}),
+  setViewEditorSection: (section) => set((state) => state.viewOrientationEditor ? {
+    viewOrientationEditor: { ...state.viewOrientationEditor, section },
+  } : {}),
   setViewTerminalPosition: (terminalId, position) => set((state) => {
     const editor = state.viewOrientationEditor
     if (!editor || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return {}
     const viewKey = componentTerminalViewKey(editor.draft)
+    const component = state.components.find((item) => item.id === editor.componentId)
+    const terminalIndex = editor.terminals.findIndex((item) => item.id === terminalId)
+    const terminal = editor.terminals[terminalIndex]
+    let terminals = editor.terminals
+    let viewPositions = editor.terminalViewPositions
+    if (component && terminal) {
+      // Arrastar no 2D também move o ponto físico (mantendo a profundidade): o 3D fica em sintonia.
+      const position3D = terminal3DFromProjectedLocal({ ...component, terminals: editor.terminals }, terminal, editor.draft, { x: position.x * component.w, y: position.y * component.h })
+      terminals = editor.terminals.map((item) => (item.id === terminalId ? { ...item, position3D } : item))
+      viewPositions = withoutManualTerminalPositions(viewPositions, terminal, terminalIndex, viewKey)
+    }
     return {
       viewOrientationEditor: {
         ...editor,
         activeTerminalId: terminalId,
+        terminals,
         terminalViewPositions: {
-          ...editor.terminalViewPositions,
+          ...viewPositions,
           [viewKey]: {
-            ...(editor.terminalViewPositions[viewKey] ?? {}),
+            ...(viewPositions[viewKey] ?? {}),
             [terminalId]: { x: position.x, y: position.y },
           },
         },
+      },
+    }
+  }),
+  setViewTerminalPosition3D: (terminalId, position3D) => set((state) => {
+    const editor = state.viewOrientationEditor
+    if (!editor) return {}
+    const terminalIndex = editor.terminals.findIndex((item) => item.id === terminalId)
+    const terminal = editor.terminals[terminalIndex]
+    if (!terminal) return {}
+    const next = normalizeTerminal3DPosition(position3D, terminal3DPositionOf(terminal))
+    return {
+      viewOrientationEditor: {
+        ...editor,
+        activeTerminalId: terminalId,
+        terminals: editor.terminals.map((item) => (item.id === terminalId ? { ...item, position3D: next } : item)),
+        terminalViewPositions: withoutManualTerminalPositions(editor.terminalViewPositions, terminal, terminalIndex),
       },
     }
   }),
@@ -917,25 +964,15 @@ export const useSimStore = create<Store>((set, get) => ({
       },
     }
   }),
-  nudgeViewTerminal: (terminalId, dx, dy) => set((state) => {
+  nudgeViewTerminal: (terminalId, dx, dy) => {
+    const state = get()
     const editor = state.viewOrientationEditor
     const component = editor && state.components.find((item) => item.id === editor.componentId)
-    if (!editor || !component) return {}
-    const viewKey = componentTerminalViewKey(editor.draft)
-    const terminal = editor.terminals.find((item) => item.id === terminalId)
-    if (!terminal) return {}
+    const terminal = editor?.terminals.find((item) => item.id === terminalId)
+    if (!editor || !component || !terminal) return
     const current = componentTerminalLocal({ ...component, viewOrientation: editor.draft, terminalViewPositions: editor.terminalViewPositions, terminals: editor.terminals }, terminal)
-    return {
-      viewOrientationEditor: {
-        ...editor,
-        activeTerminalId: terminalId,
-        terminalViewPositions: {
-          ...editor.terminalViewPositions,
-          [viewKey]: { ...(editor.terminalViewPositions[viewKey] ?? {}), [terminalId]: { x: (current.x + dx) / component.w, y: (current.y + dy) / component.h } },
-        },
-      },
-    }
-  }),
+    get().setViewTerminalPosition(terminalId, { x: (current.x + dx) / component.w, y: (current.y + dy) / component.h })
+  },
   setView3DScale: (scale) => set((state) => state.viewOrientationEditor ? {
     viewOrientationEditor: { ...state.viewOrientationEditor, scale3D: normalizeComponent3DScale(scale) },
   } : {}),

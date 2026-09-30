@@ -11,6 +11,7 @@
 //   paletteName     nome exibido na biblioteca
 // ============================================================================
 
+import { railWidthPx } from '../three/railMount'
 import { nanoid } from 'nanoid'
 import type {
   ElectricalComponent,
@@ -736,7 +737,8 @@ export function createComponent(
     slot,
     schematicX,
     schematicY,
-    w: footprint.w,
+    // Calha com comprimento indicado: o footprint do Esquema acompanha os mm.
+    w: type === 'dinRail15x55' && typeof stateOverride.lengthMm === 'number' ? railWidthPx(stateOverride.lengthMm) : footprint.w,
     h: footprint.h,
     rotation: 0,
     viewOrientation: getDefaultComponentOrientation(type),

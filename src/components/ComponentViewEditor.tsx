@@ -10,7 +10,7 @@ import { getComponentModelSpec, hasComponent3DModel } from '../three/modelPaths'
 import { componentTerminalLocal } from '../schematic/componentTerminalViews'
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL } from '../schematic/symbols'
 import { component3DDimensions, positionOnTerminalFace, terminal3DPositionOf, type Terminal3DFace } from '../three/terminal3D'
-import { IconCube, IconRotate, IconSave } from '../ui/icons'
+import { IconCube, IconProbe, IconRotate, IconSave } from '../ui/icons'
 import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent, TerminalKind, TerminalType } from '../types'
 
 const PRESETS: Array<{ id: ComponentViewPreset; label: string }> = [
@@ -246,7 +246,7 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
         {([['front', 'Frente'], ['back', 'Trás'], ['left', 'Esq.'], ['right', 'Dir.'], ['top', 'Topo'], ['bottom', 'Base']] as Array<[Terminal3DFace, string]>).map(([face, label]) => <button type="button" key={face} onClick={() => setDefinition(selectedTerminal.id, { position3D: positionOnTerminalFace(selectedPosition3D, face) })}>{label}</button>)}
       </div>
     </div>}
-    <p>{manualCount ? `${manualCount} borne(s) ajustado(s) manualmente nesta vista.` : 'Sugestão automática ativa. No Painel 3D, use o gizmo XYZ para acertar o ponto físico.'} Setas = ajuste fino (Shift = 5 px) · Alt ao arrastar desliga as guias de alinhamento.</p>
+    <p>{manualCount ? `${manualCount} borne(s) ajustado(s) manualmente nesta vista.` : 'Sugestão automática ativa. Arraste os bornes diretamente no Esquema 2D ou na Visualização 3D — os dois acompanham-se.'} Setas = ajuste fino (Shift = 5 px) · Alt ao arrastar desliga as guias de alinhamento.</p>
   </div>
 }
 
@@ -277,7 +277,7 @@ function AppearanceEditor({ component }: { component: ElectricalComponent }) {
       <div className="component-body-color"><input type="color" aria-label="Cor de destaque do componente" value={editor.bodyColor3D ?? '#2563eb'} onChange={(event) => setBodyColor(event.target.value)} /><code>{editor.bodyColor3D ?? 'Original do GLB'}</code><button type="button" onClick={() => setBodyColor(undefined)}>Original</button></div>
     </section>
     <section>
-      <header><span>Modo de renderização</span><small>pré-visualização no Painel 3D</small></header>
+      <header><span>Modo de renderização</span><small>pré-visualização na Visualização 3D</small></header>
       <div className="component-render-modes">
         {([['solid', 'Sólido'], ['wireframe', 'Arame'], ['xray', 'Raio-X']] as Array<[Component3DRenderMode, string]>).map(([mode, label]) => <button type="button" key={mode} aria-pressed={editor.renderMode3D === mode} className={editor.renderMode3D === mode ? 'active' : ''} onClick={() => setRenderMode(mode)}>{label}</button>)}
       </div>
@@ -286,7 +286,7 @@ function AppearanceEditor({ component }: { component: ElectricalComponent }) {
   </div>
 }
 
-/** Comando + editor partilhado pelas vistas Esquema e Painel 3D. */
+/** Comando + editor partilhado pelas vistas Esquema e Visualização 3D. */
 export default function ComponentViewEditor() {
   const components = useSimStore((state) => state.components)
   const selectedIds = useSimStore((state) => state.selectedComponentIds)
@@ -296,19 +296,20 @@ export default function ComponentViewEditor() {
   const cancel = useSimStore((state) => state.cancelViewOrientationEditor)
   const apply = useSimStore((state) => state.applyViewOrientationEditor)
   const [saveAsDefault, setSaveAsDefault] = useState(false)
-  const [section, setSection] = useState<'orientation' | 'terminals' | 'appearance'>('orientation')
+  const section = editor?.section ?? 'orientation'
+  const setSection = useSimStore((state) => state.setViewEditorSection)
   const selected = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
   const component = editor ? components.find((item) => item.id === editor.componentId) : undefined
 
   useEffect(() => {
     setSaveAsDefault(false)
-    setSection('orientation')
   }, [editor?.componentId])
 
   if (!editor) {
     if (!selected) return null
     return <div className="component-view-command">
       <button type="button" onClick={() => open(selected.id)} title={`Editar componente 3D ${selected.ref}`}><IconCube size={14} />Editar componente 3D</button>
+      {selected.terminals.length > 0 && <button type="button" onClick={() => open(selected.id, 'terminals')} title={`Mover, redimensionar e renomear os bornes de ${selected.ref} diretamente no desenho`}><IconProbe size={14} />Editar bornes</button>}
     </div>
   }
   if (!component) return null

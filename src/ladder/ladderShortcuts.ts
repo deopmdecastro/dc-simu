@@ -56,7 +56,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'find', group: 'view', keys: ['/'], label: 'Pesquisar na paleta de elementos (ou Ctrl+F)' },
   { id: 'palette', group: 'view', keys: ['Ctrl', 'B'], label: 'Mostrar / esconder paleta de elementos' },
   { id: 'status', group: 'view', keys: ['Ctrl', 'J'], label: 'Mostrar / esconder o painel de Entradas/Saídas' },
-  { id: 'views', group: 'view', keys: ['Ctrl', '1 … 5'], label: 'Mudar de vista (Esquema, Ladder, GRAFCET…)' },
+  { id: 'views', group: 'view', keys: ['Ctrl', '1 … 4'], label: 'Mudar de vista (Esquema, Ladder, GRAFCET…)' },
   { id: 'sections', group: 'view', keys: ['Alt', '1 … 5'], label: 'Projeto, Biblioteca, Dispositivos, Diagnóstico e Configurações' },
   { id: 'help', group: 'view', keys: ['?'], label: 'Mostrar esta lista de atalhos (ou Ctrl+/)' },
 ]

@@ -14,7 +14,7 @@ import {
 import { logoTerminalLocal } from './logoTerminalGeometry'
 import { proautoTerminalLocal } from './proautoTerminalGeometry'
 import { wegTerminalLocal } from './wegTerminalGeometry'
-import { terminal3DPositionOf } from '../three/terminal3D'
+import { normalizeTerminal3DPosition, terminal3DPositionOf, type Terminal3DPosition } from '../three/terminal3D'
 import { getComponentModelSpec } from '../three/modelPaths'
 import { CAPTURE_FRAME_PADDING } from '../three/captureFrame'
 import * as THREE from 'three'
@@ -124,6 +124,39 @@ export function projectedTerminalLocal(
     x: geometry.x + leftPad + point.x - geometry.minX,
     y: geometry.y + topPad + geometry.maxY - point.y,
   }
+}
+
+/**
+ * Inverso de `projectedTerminalLocal`: dado um ponto arrastado na vista 2D
+ * (coordenadas locais do footprint), devolve a posição física normalizada 3D.
+ * A profundidade ao longo do eixo de visão é preservada — arrastar no 2D só
+ * muda as duas coordenadas visíveis, tal como numa vista ortográfica.
+ */
+export function terminal3DFromProjectedLocal(
+  component: ElectricalComponent,
+  terminal: Terminal,
+  orientation: ComponentViewOrientation,
+  local: { x: number; y: number },
+): Terminal3DPosition {
+  const geometry = projectedGeometry(component, orientation)
+  const current = terminal3DPositionOf(terminal)
+  const rotated = rotate({
+    x: (current.x - 0.5) * geometry.width,
+    y: (current.y - 0.5) * geometry.height,
+    z: (current.z - 0.5) * geometry.depth,
+  }, orientation)
+  const leftPad = (geometry.w - geometry.projectedW) / 2
+  const topPad = (geometry.h - geometry.projectedH) / 2
+  const px = local.x - geometry.x - leftPad + geometry.minX
+  const py = geometry.maxY - (local.y - geometry.y - topPad)
+  const [rx, ry, rz] = orientationRadians(orientation)
+  const inverse = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'XYZ')).invert()
+  const v = new THREE.Vector3(px, py, rotated.z).applyQuaternion(inverse)
+  return normalizeTerminal3DPosition({
+    x: v.x / geometry.width + 0.5,
+    y: v.y / geometry.height + 0.5,
+    z: v.z / geometry.depth + 0.5,
+  }, current)
 }
 
 function automaticProjectedPositions(component: ElectricalComponent, orientation: ComponentViewOrientation, diameter = 16) {

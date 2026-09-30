@@ -43,7 +43,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   }, [placingType, canvasMode, chooseMode])
 
   return <div className="schematic-view-shell" data-canvas-mode={canvasMode}>
-    {canvasMode === '3d' ? <Panel3D embedded /> : <Schematic2DView libraryCollapsed={libraryCollapsed} />}
+    {canvasMode === '3d' ? <Panel3D /> : <Schematic2DView libraryCollapsed={libraryCollapsed} />}
     <div className="schematic-dimension-switch" role="group" aria-label="Dimensão de visualização do Canvas do Esquema">
       <button type="button" className={canvasMode === '2d' ? 'is-active' : ''} aria-pressed={canvasMode === '2d'} onClick={() => chooseMode('2d')} title="Editar o esquema, bornes e traçados em 2D">
         <IconSchematic size={13} />Esquema 2D

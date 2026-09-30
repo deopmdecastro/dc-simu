@@ -163,3 +163,29 @@
 .component-terminal-diameter > div { display:flex; gap:3px; }
 .component-terminal-diameter button { flex:1; min-height:22px; border:1px solid #d6deea; border-radius:4px; color:#526078; background:#f8fafc; font-size:7px; font-weight:750; }
 .component-terminal-map:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
+
+/* Duas ações no comando fechado (Editar componente 3D · Editar bornes). */
+.component-view-command { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+
+/* Cubo de vista da câmara 3D — por baixo do comando/painel "Editar componente 3D". */
+.panel3d-viewcube { position:absolute; z-index:22; top:12px; right:12px; display:flex; width:96px; flex-direction:column; align-items:center; gap:3px; padding:6px 4px 4px; border:1px solid #cbd7e8; border-radius:10px; background:#fffffff2; box-shadow:0 4px 14px #243b6324; backdrop-filter:blur(8px); user-select:none; }
+.panel3d-viewcube.below-command { top:84px; }
+.panel3d-viewcube.is-shifted { top:12px; right:396px; }
+.panel3d-viewcube-stage { position:relative; display:grid; width:84px; height:84px; place-items:center; perspective:300px; cursor:grab; touch-action:none; }
+.panel3d-viewcube-stage:active { cursor:grabbing; }
+.panel3d-viewcube-body { position:relative; width:44px; height:44px; transform-style:preserve-3d; }
+.panel3d-viewcube-body .face { position:absolute; inset:0; display:grid; place-items:center; padding:0; border:1px solid #6f8fc9; color:#1e3a8a; background:linear-gradient(135deg,#f4f8ff,#dbe7fb); font:800 7px ui-monospace,monospace; letter-spacing:.02em; cursor:pointer; backface-visibility:hidden; }
+.panel3d-viewcube-body .face:hover { color:#fff; border-color:#1d4ed8; background:linear-gradient(135deg,#3b82f6,#1d4ed8); }
+.panel3d-viewcube-body .front { transform:translateZ(22px); }
+.panel3d-viewcube-body .back { transform:rotateY(180deg) translateZ(22px); }
+.panel3d-viewcube-body .right { transform:rotateY(90deg) translateZ(22px); }
+.panel3d-viewcube-body .left { transform:rotateY(-90deg) translateZ(22px); }
+.panel3d-viewcube-body .top { transform:rotateX(90deg) translateZ(22px); background:linear-gradient(135deg,#eaf6ee,#cfe8d7); }
+.panel3d-viewcube-body .bottom { transform:rotateX(-90deg) translateZ(22px); background:linear-gradient(135deg,#eceff4,#cfd6e2); }
+.panel3d-viewcube-iso { height:18px; padding:0 8px; border:1px solid #c0d4fc; border-radius:5px; color:#1f55e0; background:#fff; font:750 8px ui-monospace,monospace; }
+.panel3d-viewcube-iso:hover { background:#eaf1ff; }
+.panel3d-viewcube > small { color:#7b899d; font:600 7px ui-monospace,monospace; }
+@media (max-width: 700px) { .panel3d-viewcube.below-command { top:84px; }
+.panel3d-viewcube.is-shifted { display:none; } }
+
+/* Painel de edição direta de bornes no 3D. */

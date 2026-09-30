@@ -24,7 +24,7 @@ const ALIGN_BUTTONS: Array<{ edge: AlignEdge; icon: typeof IconAlignLeft; hint: 
   { edge: 'bottom', icon: IconAlignBottom, hint: 'Alinhar embaixo' },
 ]
 
-export type ViewMode = 'schematic' | 'ladder' | 'grafcet' | 'panel3d' | 'monitor'
+export type ViewMode = 'schematic' | 'ladder' | 'grafcet' | 'monitor'
 
 const TOOLS: Array<{ id: EditorTool; label: string; icon: typeof IconCursor; hint: string; key: string }> = [
   { id: 'select', label: 'Selecionar', icon: IconCursor, hint: 'Selecionar / arrastar componentes', key: '1' },
@@ -38,7 +38,6 @@ const VIEWS: Array<{ id: ViewMode; label: string; icon: typeof IconSchematic; ke
   { id: 'schematic', label: 'Esquema', icon: IconSchematic, key: 'F1' },
   { id: 'ladder', label: 'Ladder', icon: IconLadder, key: 'F2' },
   { id: 'grafcet', label: 'GRAFCET', icon: IconStep, key: 'F5' },
-  { id: 'panel3d', label: 'Painel 3D', icon: IconCube, key: 'F3' },
   { id: 'monitor', label: 'Monitor', icon: IconMonitor, key: 'F4' },
 ]
 
@@ -96,16 +95,16 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
   } = useSimStore()
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // atalhos F1–F5 para as vistas
+  // atalhos F1/F2/F4/F5 (ou Ctrl+1…4) para as vistas
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-5]$/.test(e.key)) {
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-4]$/.test(e.key)) {
         if ((e.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
         e.preventDefault()
         setMode(VIEWS[Number(e.key) - 1].id)
         return
       }
-      const idx = ['F1', 'F2', 'F5', 'F3', 'F4'].indexOf(e.key)
+      const idx = ['F1', 'F2', 'F5', 'F4'].indexOf(e.key)
       if (idx >= 0) {
         e.preventDefault()
         setMode(VIEWS[idx].id)
@@ -155,7 +154,7 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
     stopped: { text: 'STOP', cls: 'bg-state-stop' },
   }
   const runBadge = RUN_LABEL[sim.runState] ?? RUN_LABEL.stopped
-  const isCanvas = mode === 'schematic' || mode === 'panel3d'
+  const isCanvas = mode === 'schematic'
   const sel = selectedComponentIds.length
 
   return (

@@ -79,7 +79,7 @@ export default function MonitorPanel() {
             <div>
               <h2 className="text-sm font-bold text-ink-900">Monitor pronto para simular</h2>
               <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-500">
-                O projeto está vazio. Adicione componentes no Esquema ou no Painel 3D; as mesmas entradas, saídas, TAGs e ligações aparecerão aqui.
+                O projeto está vazio. Adicione componentes no Esquema (2D ou 3D); as mesmas entradas, saídas, TAGs e ligações aparecerão aqui.
               </p>
             </div>
           </div>

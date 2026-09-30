@@ -300,7 +300,7 @@ function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHo
         <ul>
           <li style={{ '--i': 0 } as React.CSSProperties}><i aria-hidden><IconSchematic size={16} /></i>Esquema elétrico com bornes e cabos reais</li>
           <li style={{ '--i': 1 } as React.CSSProperties}><i aria-hidden><IconLadder size={16} /></i>Ladder com simulação do scan do PLC</li>
-          <li style={{ '--i': 2 } as React.CSSProperties}><i aria-hidden><IconCube size={16} /></i>Painel 3D sincronizado com o projeto</li>
+          <li style={{ '--i': 2 } as React.CSSProperties}><i aria-hidden><IconCube size={16} /></i>Visualização 3D sincronizada com o projeto</li>
           <li style={{ '--i': 3 } as React.CSSProperties}><i aria-hidden><IconProjects size={16} /></i>Partilha local entre as duas contas autorizadas</li>
         </ul>
       </div>
