@@ -6,17 +6,25 @@ import { useSimStore } from '../store/useSimStore'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColor } from '../types'
 import * as THREE from 'three'
-import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from './modelPaths'
-import { clampToPanel, componentHalfExtents, panelLimits, PLATE_BOTTOM, PLATE_THICKNESS, PLATE_TOP, PLATE_Z, RAIL_Y, type PanelLimits } from './panelBounds'
+import { cloneModelScene } from './modelFit'
+import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM } from './modelPaths'
+import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
-import { isRailMountable, RAIL_MOUNT_TYPE_PREFIXES, railLengthOf, railSpanMm } from './railMount'
+import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
+import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY } from './panelLayout'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
+import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from './panel3DEditing'
 
 const SLOT_WIDTH = 0.72
 const PANEL_FLOOR_Y = -2.6
+/** Margem (1 = 100 mm) da chapa à volta do equipamento. */
+const PLATE_MARGIN = 0.6
+/** A calha assenta na chapa (mesma cota para todas as calhas). */
+const RAIL_FLUSH_Z = PLATE_Z + PLATE_THICKNESS / 2 + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM
+
 const MOTOR_TARGET_HEIGHT = getComponentModelSpec('motor3ph')!.targetHeight
 const MOTOR_SCALE_RATIO = MOTOR_TARGET_HEIGHT / 1.04
 /** Centro físico do DRN80, com os pés apoiados no piso. */
@@ -36,17 +44,19 @@ function Label({ text, position, color = '#0f172a', size = 0.085 }: { text: stri
   )
 }
 
-/** Chapa de montagem = limite físico do painel (ver panelBounds.ts). As calhas são componentes reais. */
-function MountingPlate({ plateWidth }: { plateWidth: number }) {
-  const plateHeight = PLATE_TOP - PLATE_BOTTOM
+/** Retângulo (unidades de cena) ocupado pela chapa de montagem no plano do painel. */
+interface PlateBounds { minX: number; maxX: number; minY: number; maxY: number }
+
+/** Chapa de montagem: acompanha o conteúdo do Esquema (à escala real). As calhas são componentes reais. */
+function MountingPlate({ bounds }: { bounds: PlateBounds }) {
+  const width = bounds.maxX - bounds.minX
+  const height = bounds.maxY - bounds.minY
   return (
-    <group position={[0, RAIL_Y, 0]}>
-      <mesh position={[0, (PLATE_TOP + PLATE_BOTTOM) / 2 - RAIL_Y, PLATE_Z]} receiveShadow>
-        <boxGeometry args={[plateWidth, plateHeight, PLATE_THICKNESS]} />
-        <meshStandardMaterial color="#eef1f4" metalness={0.15} roughness={0.75} />
-        <Edges color="#9aa7b8" threshold={15} />
-      </mesh>
-    </group>
+    <mesh position={[(bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2, PLATE_Z]} receiveShadow>
+      <boxGeometry args={[width, height, PLATE_THICKNESS]} />
+      <meshStandardMaterial color="#eef1f4" metalness={0.15} roughness={0.75} />
+      <Edges color="#9aa7b8" threshold={15} />
+    </mesh>
   )
 }
 
@@ -188,33 +198,98 @@ function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['v
   })
 }
 
+/** Junta a um ponto do volume (0..1) às faces próximas — bornes ficam colados à superfície do corpo. */
+const FACE_SNAP = 0.035
+function snapToVolumeFaces(point: { x: number; y: number; z: number }) {
+  const snap = (value: number) => (value <= FACE_SNAP ? 0 : value >= 1 - FACE_SNAP ? 1 : value)
+  return { x: snap(point.x), y: snap(point.y), z: snap(point.z) }
+}
+
+/**
+ * Borne editável diretamente no 3D: arraste para o mover num plano paralelo ao ecrã,
+ * Shift+arraste move-o em profundidade (eixo Z do componente), Alt desliga o íman às faces.
+ * O Esquema 2D acompanha o ponto (ver `setViewTerminalPosition3D`).
+ */
 function EditableTerminal3D({ component, terminal, active }: { component: ElectricalComponent; terminal: ElectricalComponent['terminals'][number]; active: boolean }) {
   const k = terminalMarkerScale(terminal)
   const handle = useRef<THREE.Group>(null)
+  const dragCleanup = useRef<(() => void) | null>(null)
+  const { camera, gl, controls } = useThree()
   const setActive = useSimStore((state) => state.setViewActiveTerminal)
-  const setDefinition = useSimStore((state) => state.setViewTerminalDefinition)
+  const setPosition3D = useSimStore((state) => state.setViewTerminalPosition3D)
+  const labelsMode = useSimStore((state) => state.viewOrientationEditor?.trackingLabels ?? 'active')
+  const [hover, setHover] = useState(false)
   const position = terminalLocal3D(component, terminal)
-  const marker = <group
+  useEffect(() => () => dragCleanup.current?.(), [])
+
+  const startDrag = (event: ThreeEvent<PointerEvent>) => {
+    const node = handle.current
+    if (event.button !== 0 || !node?.parent) return
+    event.stopPropagation()
+    setActive(terminal.id)
+    const parent = node.parent
+    const depthMode = event.shiftKey
+    const startLocal = node.position.clone()
+    const world = node.getWorldPosition(new THREE.Vector3())
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()), world)
+    const raycaster = new THREE.Raycaster()
+    const ndc = new THREE.Vector2()
+    const hit = new THREE.Vector3()
+    const startY = event.clientY
+    let offset: THREE.Vector3 | null = null
+    const control = controls as unknown as { enabled: boolean } | null
+    if (control) control.enabled = false
+    gl.domElement.style.cursor = 'grabbing'
+    const onMove = (domEvent: PointerEvent) => {
+      let local: THREE.Vector3
+      if (depthMode) {
+        local = startLocal.clone().add(new THREE.Vector3(0, 0, (startY - domEvent.clientY) * 0.004))
+      } else {
+        const rect = gl.domElement.getBoundingClientRect()
+        ndc.set(((domEvent.clientX - rect.left) / rect.width) * 2 - 1, -(((domEvent.clientY - rect.top) / rect.height) * 2 - 1))
+        raycaster.setFromCamera(ndc, camera)
+        if (!raycaster.ray.intersectPlane(plane, hit)) return
+        parent.updateWorldMatrix(true, false)
+        const pointer = parent.worldToLocal(hit.clone())
+        if (!offset) offset = startLocal.clone().sub(pointer) // o ponto agarrado não salta para o cursor
+        local = pointer.add(offset)
+      }
+      const next = terminalPositionFromLocal3D(component, local)
+      setPosition3D(terminal.id, domEvent.altKey ? next : snapToVolumeFaces(next))
+    }
+    const finish = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', finish)
+      window.removeEventListener('pointercancel', finish)
+      if (control) control.enabled = true
+      gl.domElement.style.cursor = ''
+      dragCleanup.current = null
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', finish)
+    window.addEventListener('pointercancel', finish)
+    dragCleanup.current = finish
+  }
+
+  const showLabel = labelsMode === 'all' || (labelsMode !== 'off' && (active || hover))
+  return <group
     ref={handle}
     position={position}
+    onPointerDown={startDrag}
     onClick={(event) => { event.stopPropagation(); setActive(terminal.id) }}
+    onPointerOver={(event) => { event.stopPropagation(); setHover(true); gl.domElement.style.cursor = 'grab' }}
+    onPointerOut={() => { setHover(false); if (!dragCleanup.current) gl.domElement.style.cursor = '' }}
   >
-    <mesh>
-      <sphereGeometry args={[(active ? 0.055 : 0.042) * k, 18, 18]} />
+    <mesh renderOrder={31}>
+      <sphereGeometry args={[(active ? 0.06 : hover ? 0.052 : 0.042) * k, 18, 18]} />
       <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : '#000000'} emissiveIntensity={active ? 0.7 : 0} metalness={0.2} roughness={0.35} depthTest={false} />
     </mesh>
-    <Text position={[0, 0.05 + 0.035 * k, 0]} fontSize={0.06} color={active ? '#0e7490' : '#1e293b'} anchorX="center" anchorY="bottom" depthOffset={-2}>{terminal.label}</Text>
+    {active && <mesh renderOrder={30}>
+      <sphereGeometry args={[0.095 * k, 18, 18]} />
+      <meshBasicMaterial color="#22d3ee" transparent opacity={0.22} depthTest={false} depthWrite={false} />
+    </mesh>}
+    {showLabel && <Text position={[0, 0.05 + 0.035 * k, 0]} fontSize={0.06} color={active ? '#0e7490' : '#1e293b'} anchorX="center" anchorY="bottom" depthOffset={-2}>{terminal.label}</Text>}
   </group>
-  if (!active) return marker
-  return <TransformControls
-    mode="translate"
-    size={0.62}
-    translationSnap={0.01}
-    onObjectChange={() => {
-      if (!handle.current) return
-      setDefinition(terminal.id, { position3D: terminalPositionFromLocal3D(component, handle.current.position) })
-    }}
-  >{marker}</TransformControls>
 }
 
 function ConnectionTerminal3D({ component, terminal, active, onPick }: {
@@ -271,7 +346,7 @@ function SelectionGlow({ component }: { component: ElectricalComponent }) {
   return <sprite position={[center.x, center.y, center.z]} scale={[diameter, diameter, 1]} material={material} renderOrder={-1} raycast={() => null} />
 }
 
-function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, connectionMode, connectionStartId, clampPosition, onSelect, onMove, onTerminalPick, children }: {
+function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, connectionMode, connectionStartId, onSelect, onMove, onDragStart, onDragTo, onDragEnd, onTerminalPick, children }: {
   c: ElectricalComponent
   pivot: [number, number, number]
   sourcePivot: [number, number, number]
@@ -283,16 +358,19 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   draggable: boolean
   connectionMode: boolean
   connectionStartId: string | null
-  /** Mantém o componente dentro do painel (chapa + trilho). */
-  clampPosition: (position: SpatialPoint3D) => SpatialPoint3D
   onSelect: () => void
+  /** Gizmo de mover: posição final (o 3D só edita o plano do painel — X/Y). */
   onMove: (position: SpatialPoint3D) => void
+  /** Arrasto direto: início (histórico), posição viva no plano do painel e fim (imã de calha). */
+  onDragStart: () => void
+  onDragTo: (position: { x: number; y: number }) => void
+  onDragEnd: () => void
   onTerminalPick: (terminalId: string) => void
   children: ReactNode
 }) {
   const rootRef = useRef<THREE.Group>(null)
   const modelRef = useRef<THREE.Group>(null)
-  const dragRef = useRef<{ plane: THREE.Plane; offset: THREE.Vector3; axis: 'x' | 'y' | 'z'; startX: number; startY: number; moved: boolean; cleanup: () => void } | null>(null)
+  const dragRef = useRef<{ plane: THREE.Plane; offset: THREE.Vector3; startX: number; startY: number; moved: boolean; cleanup: () => void } | null>(null)
   const { camera, gl, controls } = useThree()
   const activeTerminalId = useSimStore((state) => state.viewOrientationEditor?.activeTerminalId)
   const rotation = orientationRadians(orientation)
@@ -306,12 +384,10 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
     if (!draggable || event.button !== 0 || !rootRef.current) return
     event.stopPropagation()
     onSelect()
-    // Plano de arrasto perpendicular ao eixo mais alinhado com a câmara:
-    // vista frontal → move em X/Y; vista de cima → move em X/Z.
+    // O Painel 3D e o Esquema partilham o plano X/Y: arrasta-se sempre nesse plano.
+    // Vista de topo (plano de frente quase paralelo ao olhar) usa um plano paralelo ao ecrã.
     const dir = camera.getWorldDirection(new THREE.Vector3())
-    const weights = { z: Math.abs(dir.z) * 1.15, y: Math.abs(dir.y), x: Math.abs(dir.x) }
-    const axis = (Object.entries(weights).sort((a, b) => b[1] - a[1])[0][0]) as 'x' | 'y' | 'z'
-    const normal = new THREE.Vector3(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0)
+    const normal = Math.abs(dir.z) >= 0.3 ? new THREE.Vector3(0, 0, 1) : dir.clone()
     const origin = rootRef.current.position.clone()
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, origin)
     const hit = event.ray.intersectPlane(plane, new THREE.Vector3())
@@ -326,7 +402,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
         if (Math.hypot(domEvent.clientX - state.startX, domEvent.clientY - state.startY) < 4) return
         state.moved = true
         // O histórico guarda o estado ANTES do movimento → Desfazer repõe a posição.
-        useSimStore.getState().commitHistory()
+        onDragStart()
         gl.domElement.style.cursor = 'grabbing'
       }
       const rect = gl.domElement.getBoundingClientRect()
@@ -335,22 +411,19 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
       if (!raycaster.ray.intersectPlane(state.plane, point)) return
       const next = point.clone().add(state.offset)
       const snap = (value: number) => domEvent.altKey ? value : Math.round(value / 0.05) * 0.05
-      const position = clampPosition({ x: snap(next.x), y: snap(next.y), z: snap(next.z) })
-      position[state.axis] = origin[state.axis] // a coordenada do plano não muda
-      useSimStore.setState((s) => ({
-        components: s.components.map((item) => item.id === c.id ? { ...item, panel3DPosition: position } : item),
-        dirty: true,
-      }))
+      onDragTo({ x: snap(next.x), y: snap(next.y) })
     }
     const finish = () => {
+      const moved = dragRef.current?.moved
       window.removeEventListener('pointermove', onMoveDom)
       window.removeEventListener('pointerup', finish)
       window.removeEventListener('pointercancel', finish)
       if (controls) (controls as unknown as { enabled: boolean }).enabled = true
       gl.domElement.style.cursor = ''
       dragRef.current = null
+      if (moved) onDragEnd()
     }
-    dragRef.current = { plane, offset: origin.clone().sub(hit), axis, startX: event.clientX, startY: event.clientY, moved: false, cleanup: finish }
+    dragRef.current = { plane, offset: origin.clone().sub(hit), startX: event.clientX, startY: event.clientY, moved: false, cleanup: finish }
     // Sem isto a câmara orbitaria ao mesmo tempo que o componente se move.
     if (controls) (controls as unknown as { enabled: boolean }).enabled = false
     window.addEventListener('pointermove', onMoveDom)
@@ -380,16 +453,8 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
     </group>
   </group>
   if (!movable) return instance
-  const constrain = () => {
-    const root = rootRef.current
-    if (!root) return null
-    const bounded = clampPosition({ x: root.position.x, y: root.position.y, z: root.position.z })
-    root.position.set(bounded.x, bounded.y, bounded.z)
-    return bounded
-  }
-  return <TransformControls mode="translate" space="world" size={0.72} translationSnap={0.05}
-    onObjectChange={() => { constrain() }}
-    onMouseUp={() => { const bounded = constrain(); if (bounded) onMove(bounded) }}>{instance}</TransformControls>
+  return <TransformControls mode="translate" space="world" size={0.72} translationSnap={0.05} showZ={false}
+    onMouseUp={() => { const root = rootRef.current; if (root) onMove({ x: root.position.x, y: root.position.y, z: root.position.z }) }}>{instance}</TransformControls>
 }
 
 class Model3DErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
@@ -416,7 +481,7 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
   // qualquer modelo exportado do CAD encaixe automaticamente no cenário
   // sem coordenadas fixas manuais.
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     // scene.clone(true) conserva referências aos materiais do cache GLTF;
     // isolá-los evita que o ecrã de um PLC modifique os demais modelos.
     obj.traverse((node) => {
@@ -427,13 +492,13 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
     obj.rotation.set(...LOGO_1224RC_ROTATION)
     obj.updateMatrixWorld(true)
 
-    const rawBox = new THREE.Box3().setFromObject(obj)
+    const rawBox = new THREE.Box3().setFromObject(obj, true)
     const rawHeight = rawBox.max.y - rawBox.min.y
     const scale = rawHeight > 0 ? LOGO_1224RC_TARGET_HEIGHT / rawHeight : 1
     obj.scale.setScalar(scale)
     obj.updateMatrixWorld(true)
 
-    const box = new THREE.Box3().setFromObject(obj)
+    const box = new THREE.Box3().setFromObject(obj, true)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
 
@@ -479,7 +544,7 @@ function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const spec = getComponentModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -487,12 +552,12 @@ function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const bounds = new THREE.Box3().setFromObject(obj)
+    const bounds = new THREE.Box3().setFromObject(obj, true)
     const height = bounds.max.y - bounds.min.y
     const scale = height > 0 ? spec.targetHeight / height : 1
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj)
+    const box = new THREE.Box3().setFromObject(obj, true)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
     return obj
@@ -508,7 +573,7 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const spec = getComponentModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -516,12 +581,12 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const bounds = new THREE.Box3().setFromObject(obj)
+    const bounds = new THREE.Box3().setFromObject(obj, true)
     const height = bounds.max.y - bounds.min.y
     const scale = height > 0 ? spec.targetHeight / height : 1
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj)
+    const box = new THREE.Box3().setFromObject(obj, true)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
     return obj
@@ -539,7 +604,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const spec = getComponentModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -547,12 +612,12 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(obj)
+    const raw = new THREE.Box3().setFromObject(obj, true)
     const height = raw.max.y - raw.min.y
     const scale = height > 0 ? spec.targetHeight / height : 1
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj)
+    const box = new THREE.Box3().setFromObject(obj, true)
     const center = box.getCenter(new THREE.Vector3())
     obj.position.set(-center.x, -box.min.y, -center.z)
     return obj
@@ -570,7 +635,7 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
   const spec = getCommandModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -578,12 +643,12 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const bounds = new THREE.Box3().setFromObject(obj)
+    const bounds = new THREE.Box3().setFromObject(obj, true)
     const size = bounds.getSize(new THREE.Vector3())
     const scale = size.y > 0 ? spec.targetHeight / size.y : 1
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    const fitted = new THREE.Box3().setFromObject(obj)
+    const fitted = new THREE.Box3().setFromObject(obj, true)
     obj.position.sub(fitted.getCenter(new THREE.Vector3()))
     return obj
   }, [scene, spec])
@@ -611,7 +676,7 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
   const spec = getCommandModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -619,12 +684,12 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(obj)
+    const raw = new THREE.Box3().setFromObject(obj, true)
     const size = raw.getSize(new THREE.Vector3())
     const scale = spec.targetHeight / (size.y || 1)
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    obj.position.sub(new THREE.Box3().setFromObject(obj).getCenter(new THREE.Vector3()))
+    obj.position.sub(new THREE.Box3().setFromObject(obj, true).getCenter(new THREE.Vector3()))
     return obj
   }, [scene, spec])
   const buttonEvents = (handler: (pressed: boolean) => void) => ({
@@ -743,7 +808,7 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const spec = getComponentModelSpec('pilotLightAd22')!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const object = scene.clone(true)
+    const object = cloneModelScene(scene)
     object.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -753,12 +818,12 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
     })
     object.rotation.set(...spec.rotation)
     object.updateMatrixWorld(true)
-    const rawSize = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3())
+    const rawSize = new THREE.Box3().setFromObject(object, true).getSize(new THREE.Vector3())
     const faceDiameter = Math.max(rawSize.x, rawSize.y)
     const scale = faceDiameter > 0 ? spec.targetHeight / faceDiameter : 1
     object.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     object.updateMatrixWorld(true)
-    object.position.sub(new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3()))
+    object.position.sub(new THREE.Box3().setFromObject(object, true).getCenter(new THREE.Vector3()))
     return object
   }, [scene, spec])
   const on = !!c.state.on
@@ -898,7 +963,7 @@ function MotorSewDrn80Mk4B3Real3D({ c, x }: { c: ElectricalComponent; x: number 
   const { scene } = useGLTF(spec.path)
   const shaftIndicator = useRef<THREE.Group>(null)
   const model = useMemo(() => {
-    const object = scene.clone(true)
+    const object = cloneModelScene(scene)
     object.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -908,12 +973,12 @@ function MotorSewDrn80Mk4B3Real3D({ c, x }: { c: ElectricalComponent; x: number 
     })
     object.rotation.set(...spec.rotation)
     object.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(object)
+    const raw = new THREE.Box3().setFromObject(object, true)
     const height = raw.max.y - raw.min.y
     const scale = height > 0 ? spec.targetHeight / height : 1
     object.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     object.updateMatrixWorld(true)
-    const fitted = new THREE.Box3().setFromObject(object)
+    const fitted = new THREE.Box3().setFromObject(object, true)
     const center = fitted.getCenter(new THREE.Vector3())
     object.position.set(-center.x, -fitted.min.y, -center.z)
     return object
@@ -1065,13 +1130,16 @@ function Wires3D({ pivots, editMode, selectedWireId, activeWaypointIndex, onSele
 
 /* -------------------------------------------------------------------- cena */
 
-type PanelCameraView = 'fit' | 'front' | 'top' | 'isometric' | 'focus'
-type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number] }
+type PanelCameraView = 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'isometric' | 'focus' | 'orbit' | 'angles'
+type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number]; dx?: number; dy?: number; yaw?: number; pitch?: number }
 
 /** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
 function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void }) {
   const { camera, size } = useThree()
   const controlsRef = useRef<any>(null)
+  // Enquadramento usa os valores mais recentes sem reiniciar a câmara quando o conteúdo/tamanho muda.
+  const fitRef = useRef({ railWidth, width: size.width, height: size.height })
+  fitRef.current = { railWidth, width: size.width, height: size.height }
   const report = () => {
     const controls = controlsRef.current
     if (!controls) return
@@ -1079,28 +1147,56 @@ function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraC
     const distance = Math.max(0.001, offset.length())
     onStats({
       yaw: THREE.MathUtils.radToDeg(Math.atan2(offset.x, offset.z)),
-      pitch: THREE.MathUtils.radToDeg(Math.asin(offset.y / distance)),
+      pitch: THREE.MathUtils.radToDeg(Math.asin(Math.max(-1, Math.min(1, offset.y / distance)))),
       zoom: Math.round(Math.max(25, Math.min(400, 620 / distance))),
     })
   }
   useEffect(() => {
     const controls = controlsRef.current
     if (!controls) return
+    if (command.view === 'orbit') {
+      // Arrasto do cubo de vista: orbita em torno do alvo atual (yaw livre, elevação limitada).
+      camera.up.set(0, 1, 0)
+      const offset = camera.position.clone().sub(controls.target)
+      const spherical = new THREE.Spherical().setFromVector3(offset)
+      spherical.theta -= ((command.dx ?? 0) * Math.PI) / 180 * 0.8
+      spherical.phi = Math.max(0.02, Math.min(Math.PI - 0.02, spherical.phi - ((command.dy ?? 0) * Math.PI) / 180 * 0.8))
+      camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(spherical))
+      camera.lookAt(controls.target)
+      controls.update()
+      report()
+      return
+    }
     const target = new THREE.Vector3(...command.target)
     const verticalFov = THREE.MathUtils.degToRad((camera as THREE.PerspectiveCamera).fov || 44)
-    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * Math.max(0.55, size.width / Math.max(1, size.height)))
-    const fitDistance = Math.max(4.2, Math.min(16, (Math.max(4.5, railWidth) * 0.62) / Math.max(0.2, Math.tan(horizontalFov / 2))))
+    const fit = fitRef.current
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * Math.max(0.55, fit.width / Math.max(1, fit.height)))
+    const fitDistance = Math.max(3.2, Math.min(40, (Math.max(3.5, fit.railWidth) * 0.62) / Math.max(0.2, Math.tan(horizontalFov / 2))))
     let position: THREE.Vector3
     camera.up.set(0, 1, 0)
     if (command.view === 'focus') {
       const direction = camera.position.clone().sub(controls.target).normalize()
       if (!Number.isFinite(direction.x) || direction.lengthSq() < 0.1) direction.set(0.25, 0.35, 1)
-      position = target.clone().add(direction.multiplyScalar(3.1))
+      position = target.clone().add(direction.multiplyScalar(2.6))
     } else if (command.view === 'front') {
-      position = target.clone().add(new THREE.Vector3(0, 0.45, fitDistance))
+      position = target.clone().add(new THREE.Vector3(0, 0.02, fitDistance))
+    } else if (command.view === 'back') {
+      position = target.clone().add(new THREE.Vector3(0, 0.02, -fitDistance))
+    } else if (command.view === 'right') {
+      position = target.clone().add(new THREE.Vector3(fitDistance, 0.02, 0))
+    } else if (command.view === 'left') {
+      position = target.clone().add(new THREE.Vector3(-fitDistance, 0.02, 0))
+    } else if (command.view === 'angles') {
+      // Ângulos livres (cantos do cubo / vista vinda do Esquema 2D): yaw 0° = frente, pitch > 0 = por cima.
+      const yaw = THREE.MathUtils.degToRad(command.yaw ?? 0)
+      const pitch = THREE.MathUtils.degToRad(Math.max(-89, Math.min(89, command.pitch ?? 0)))
+      position = target.clone().add(new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch) + 0.02, Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(fitDistance))
     } else if (command.view === 'top') {
       camera.up.set(0, 0, -1)
       position = target.clone().add(new THREE.Vector3(0, fitDistance, 0.01))
+    } else if (command.view === 'bottom') {
+      camera.up.set(0, 0, 1)
+      position = target.clone().add(new THREE.Vector3(0, -fitDistance, 0.01))
     } else {
       position = target.clone().add(new THREE.Vector3(fitDistance * 0.68, fitDistance * 0.48, fitDistance * 0.78))
     }
@@ -1110,11 +1206,13 @@ function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraC
     camera.updateProjectionMatrix()
     controls.update()
     report()
-  }, [camera, command, railWidth, size.height, size.width])
-  return <OrbitControls ref={controlsRef} minDistance={1.2} maxDistance={24} enableDamping dampingFactor={0.08} makeDefault onChange={report} />
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [camera, command])
+  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} enableDamping dampingFactor={0.08} makeDefault onChange={report} />
 }
 
-export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
+/** Visualização 3D do Esquema: mesmo projeto, à escala real, em sintonia com o Esquema 2D. */
+export default function Panel3D({ initialCamera = null, onInitialCameraUsed }: { initialCamera?: ViewCubeRequest | null; onInitialCameraUsed?: () => void } = {}) {
   const storedComponents = useSimStore((s) => s.components)
   const pressButton = useSimStore((s) => s.pressButton)
   const setComponentState = useSimStore((s) => s.setComponentState)
@@ -1127,8 +1225,8 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
   const updateWire = useSimStore((s) => s.updateWire)
   const deleteWire = useSimStore((s) => s.deleteWire)
   const addWire = useSimStore((s) => s.addWire)
-  const updateComponent = useSimStore((s) => s.updateComponent)
   const viewOrientationEditor = useSimStore((s) => s.viewOrientationEditor)
+  const railMagnet = useSimStore((s) => s.grid.railMagnet !== false)
   const [editMode, setEditMode] = useState<Panel3DEditMode>('navigate')
   const [connectionStartId, setConnectionStartId] = useState<string | null>(null)
   const [reconnect, setReconnect] = useState<{ wireId: string; end: 'from' | 'to' } | null>(null)
@@ -1142,7 +1240,8 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
     view3DRenderMode: viewOrientationEditor.renderMode3D,
     bodyColor: viewOrientationEditor.bodyColor3D,
   } : component), [storedComponents, viewOrientationEditor])
-  const [cameraCommand, setCameraCommand] = useState<PanelCameraCommand>({ id: 0, view: 'isometric', target: [0, 0.35, 0] })
+  const sceneCenterRef = useRef<[number, number, number]>([0, 0, 0.3])
+  const [cameraCommand, setCameraCommand] = useState<PanelCameraCommand>({ id: 0, view: 'isometric', target: [0, 0, 0.3] })
   const [showGrid, setShowGrid] = useState(() => {
     try { return localStorage.getItem('dc-simu:panel3d:grid') !== '0' } catch { return true }
   })
@@ -1158,8 +1257,38 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
     try { localStorage.setItem('dc-simu:panel3d:background', next) } catch {}
     return next
   })
-  const moveCamera = (view: PanelCameraView, target: [number, number, number] = [0, 0.35, 0]) =>
+  const moveCamera = (view: PanelCameraView, target: [number, number, number] = sceneCenterRef.current) =>
     setCameraCommand((current) => ({ id: current.id + 1, view, target }))
+  const pickCubeView = (view: ViewCubeFace) => moveCamera(view === 'isometric' ? 'isometric' : view)
+  const pickCubeAngles = (yaw: number, pitch: number, target: [number, number, number] = sceneCenterRef.current) =>
+    setCameraCommand((current) => ({ id: current.id + 1, view: 'angles', target, yaw, pitch }))
+  const applyCubeRequest = (request: ViewCubeRequest) => {
+    if ('view' in request) pickCubeView(request.view)
+    else pickCubeAngles(request.yaw, request.pitch)
+  }
+  const orbitCamera = (dx: number, dy: number) =>
+    setCameraCommand((current) => ({ id: current.id + 1, view: 'orbit', target: current.target, dx, dy }))
+  // Primeira vez que o projeto tem equipamento: enquadra-o em isométrica.
+  const fittedRef = useRef(false)
+  const initialCameraRef = useRef(initialCamera)
+  useEffect(() => {
+    if (!initialCameraRef.current) return
+    onInitialCameraUsed?.()
+    // Sem equipamento ainda, aplica já a vista para o cubo refletir o pedido.
+    if (!hasComponents) applyCubeRequest(initialCameraRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const hasComponents = storedComponents.length > 0
+  useEffect(() => {
+    if (!hasComponents) { fittedRef.current = false; return }
+    if (!fittedRef.current) {
+      fittedRef.current = true
+      // Vista pedida no cubo do Esquema 2D (frontal por omissão) tem prioridade sobre a isométrica.
+      if (initialCameraRef.current) applyCubeRequest(initialCameraRef.current)
+      else moveCamera('isometric')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasComponents])
   const toggleGrid = () => setShowGrid((current) => {
     const next = !current
     try { localStorage.setItem('dc-simu:panel3d:grid', next ? '1' : '0') } catch {}
@@ -1222,136 +1351,113 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
 
 
   const mountingRails = components.filter((c) => isMountingRail(c.type))
-  const railById = new Map(mountingRails.map((rail) => [rail.id, rail]))
-  /** Equipamento fixo numa calha real do projeto (posição 3D derivada do Esquema). */
-  const isAttached = (c: ElectricalComponent) => !!c.railId && railById.has(c.railId) && isRailMountable(c)
 
-  const { positions, railWidth } = useMemo(() => {
+  // Layout "de fábrica" de cada peça (pivô de origem do conteúdo procedural/GLB). A posição
+  // final de cada instância é derivada do Esquema — ver `panelPivots` mais abaixo.
+  const { positions } = useMemo(() => {
     const rail = components.filter((c) => hasDinRailModel(c.type) || RAIL_MOUNT_TYPE_PREFIXES.some((t) => c.type.startsWith(t)))
     const pos: Record<string, THREE.Vector3> = {}
-    const loose = rail.filter((c) => !(c.railId && railById.has(c.railId) && isRailMountable(c)))
-    let cursor = 0
-    const widths = loose.map((c) => {
-      const cad = getComponentModelSpec(c.type)
-      if (cad?.placement === 'din-rail') return Math.max(0.12, cad.physicalSizeMm.width * 0.01)
-      if (c.type.startsWith('plc')) return 1.6
-      if (c.type === 'busbarPhase') return 1.8
-      if (c.type.startsWith('busbar') || c.type === 'earthBar') return 1.4
-      return 0.72 + c.terminals.filter((t) => t.kind === 'power-in').length * 0.06
-    })
-    const total = widths.reduce((a, b) => a + b + 0.14, 0)
-    cursor = -total / 2
-    loose.forEach((c, i) => {
-      const targetHeight = getComponentModelSpec(c.type)?.targetHeight ?? 0.8
-      pos[c.id] = new THREE.Vector3(cursor + widths[i] / 2, RAIL_Y + targetHeight / 2, 0)
-      cursor += widths[i] + 0.14
-    })
-    // Fixos numa calha: ponto de origem neutro; a posição final vem da calha (ver `attachedPivots`).
-    for (const c of rail) {
-      if (pos[c.id]) continue
-      pos[c.id] = new THREE.Vector3(0, RAIL_Y + (getComponentModelSpec(c.type)?.targetHeight ?? 0.8) / 2, 0)
-    }
-    return { positions: pos, railWidth: Math.max(6, total + 1.2) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    for (const c of rail) pos[c.id] = new THREE.Vector3(0, RAIL_Y + (getComponentModelSpec(c.type)?.targetHeight ?? 0.8) / 2, 0)
+    return { positions: pos }
   }, [components])
 
   const railComponents = components.filter((c) => positions[c.id])
   const offRail = components.filter((c) => !positions[c.id] && !isMountingRail(c.type))
 
-  // Posiciona comandos numa régua frontal e motores com espaçamento próprio à direita.
-  const front = useMemo(() => {
-    const pos: Record<string, number> = {}
-    let controlCursor = -Math.max(2.8, railWidth / 2 - 0.35)
-    let motorEdge = railWidth / 2 + 0.4
-    for (const component of offRail) {
-      const spec = getComponentModelSpec(component.type)
-      const physicalWidth = spec ? spec.physicalSizeMm.width * 0.01 : 0.38
-      if (component.type === 'motor3ph' || component.type === 'motor1ph') {
-        pos[component.id] = motorEdge + physicalWidth / 2
-        motorEdge += physicalWidth + 0.4
-      } else {
-        pos[component.id] = controlCursor
-        controlCursor += Math.max(0.46, physicalWidth + 0.12)
-      }
-    }
-    return pos
-  }, [offRail, railWidth])
-  const frontPivot = (component: ElectricalComponent, x: number): [number, number, number] => {
-    if (component.type === 'motor3ph' || component.type === 'motor1ph') return [x, MOTOR_CENTER_Y, 0.7]
-    if (component.type === 'towerLight') return [x, RAIL_Y + 1.3, 0.12]
-    if (component.type === 'pilotLightAd22') return [x, RAIL_Y + 1.05, 0.4]
-    if (component.type === 'ledGreen' || component.type === 'ledRed' || component.type === 'ledYellow' || component.type === 'ledWhite' || component.type === 'buzzer') return [x, RAIL_Y + 1.15, 0.12]
-    if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [x, RAIL_Y + 0.9, 0.3]
-    return [x, RAIL_Y + 1.05, 0.4]
+  const frontPivot = (component: ElectricalComponent): [number, number, number] => {
+    if (component.type === 'motor3ph' || component.type === 'motor1ph') return [0, MOTOR_CENTER_Y, 0.7]
+    if (component.type === 'towerLight') return [0, RAIL_Y + 1.3, 0.12]
+    if (component.type === 'pilotLightAd22') return [0, RAIL_Y + 1.05, 0.4]
+    if (component.type === 'ledGreen' || component.type === 'ledRed' || component.type === 'ledYellow' || component.type === 'ledWhite' || component.type === 'buzzer') return [0, RAIL_Y + 1.15, 0.12]
+    if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [0, RAIL_Y + 0.9, 0.3]
+    return [0, RAIL_Y + 1.05, 0.4]
   }
-  // Calhas reais: posição no painel derivada do Esquema (1.ª calha = referência, à altura RAIL_Y),
-  // encostadas à chapa. Mover a calha no 2D move-a (e aos equipamentos fixos) no 3D.
-  const railFlushZ = PLATE_Z + PLATE_THICKNESS / 2 + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM
-  const railBase = (component: ElectricalComponent) => {
-    const ref = mountingRails[0] ?? component
-    const scale = PANEL_UNITS_PER_MM / SCHEMATIC_PX_PER_MM
-    return new THREE.Vector3(
-      (component.schematicX + component.w / 2 - (ref.schematicX + ref.w / 2)) * scale,
-      RAIL_Y - (component.schematicY + component.h / 2 - (ref.schematicY + ref.h / 2)) * scale,
-      railFlushZ,
-    )
-  }
-  // A chapa (o painel) cresce para acolher comandos frontais e calhas mais compridas.
-  const plateWidth = useMemo(() => {
-    const controlHalf = offRail.reduce((max, component) => {
-      if (component.type === 'motor3ph' || component.type === 'motor1ph') return max
-      const spec = getComponentModelSpec(component.type)
-      const width = spec ? spec.physicalSizeMm.width * 0.01 : 0.38
-      return Math.max(max, Math.abs(front[component.id] ?? 0) + width / 2 + 0.2)
-    }, 0)
-    const railHalf = mountingRails.reduce((max, rail) => Math.max(max, Math.abs(railBase(rail).x) + railLengthOf(rail) * PANEL_UNITS_PER_MM / 2), 0)
-    const virtualHalf = mountingRails.length ? 0 : railWidth / 2
-    return Math.max(railWidth + 0.8, controlHalf * 2, (railHalf || virtualHalf) * 2 + 0.8)
-  }, [offRail, front, mountingRails, railWidth])
-  const limits: PanelLimits = useMemo(() => panelLimits(plateWidth), [plateWidth])
+  const front = useMemo(() => Object.fromEntries(offRail.map((component) => [component.id, 0])) as Record<string, number>, [offRail])
   const orientationFor = (component: ElectricalComponent) => viewOrientationEditor?.componentId === component.id
     ? viewOrientationEditor.draft
     : componentOrientationOf(component)
-  const boundedPosition = (component: ElectricalComponent, point: SpatialPoint3D) => clampToPanel(point, component, limits, orientationFor(component))
   const basePivots: Record<string, THREE.Vector3> = Object.fromEntries(components.map((component) => {
     const railPosition = positions[component.id]
     return [component.id, railPosition
       ? new THREE.Vector3(railPosition.x, railPosition.y, 0)
       : isMountingRail(component.type)
-        ? railBase(component)
-        : new THREE.Vector3(...frontPivot(component, front[component.id] ?? 0))]
+        ? new THREE.Vector3(0, 0, RAIL_FLUSH_Z)
+        : new THREE.Vector3(...frontPivot(component))]
   }))
-  // Posições (guardadas ou automáticas) são sempre apresentadas dentro do painel;
-  // projetos antigos com componentes fora da chapa são corrigidos ao abrir.
+
+  // Posição 3D = posição no Esquema à escala real (1 mm = 0,01 unidades). O Esquema
+  // continua a ser a fonte única de verdade: mover no 3D altera o Esquema e vice-versa.
   const panelPivots: Record<string, THREE.Vector3> = {}
-  const settle = (component: ElectricalComponent, point: { x: number; y: number; z: number }) => {
-    const bounded = boundedPosition(component, point)
-    panelPivots[component.id] = new THREE.Vector3(bounded.x, bounded.y, bounded.z)
-  }
-  // 1.º as calhas, 2.º o resto (equipamentos fixos derivam da posição final da calha).
-  for (const component of mountingRails) settle(component, component.panel3DPosition ?? basePivots[component.id])
   for (const component of components) {
-    if (isMountingRail(component.type)) continue
-    let derived: THREE.Vector3 | null = null
-    if (isAttached(component)) {
-      const rail = railById.get(component.railId!)!
-      const railPivot = panelPivots[rail.id]
-      const offsetMm = component.railOffsetMm ?? (component.schematicX - rail.schematicX) / SCHEMATIC_PX_PER_MM
+    const { x, y } = componentPanelXY(component)
+    if (isMountingRail(component.type)) {
+      panelPivots[component.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z)
+    } else if (!isPanelBound(component)) {
+      panelPivots[component.id] = new THREE.Vector3(x, y, frontPivot(component)[2])
+    } else {
+      // Assente na face da calha (mesma profundidade, esteja ou não fixo numa calha).
       const half = componentHalfExtents(component, orientationFor(component))
-      derived = new THREE.Vector3(
-        railPivot.x + (offsetMm + railSpanMm(component) / 2 - railLengthOf(rail) / 2) * PANEL_UNITS_PER_MM,
-        railPivot.y, // centrado na calha
-        railPivot.z + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM + half.z, // assente na face da calha
-      )
+      panelPivots[component.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM + half.z)
     }
-    settle(component, component.panel3DPosition ?? derived ?? basePivots[component.id])
   }
-  const sceneWidth = Math.max(
-    railWidth,
-    plateWidth,
-    ...Object.values(front).map((x) => Math.abs(x) * 2 + 1.6),
-    ...Object.values(panelPivots).map((point) => Math.abs(point.x) * 2 + 1.6),
-  )
+
+  // Chapa e enquadramento derivados do conteúdo real.
+  const sceneBounds = (() => {
+    const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+    const all = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+    for (const component of components) {
+      const pivot = panelPivots[component.id]
+      const half = componentHalfExtents(component, orientationFor(component))
+      const target = isPanelBound(component) ? [box, all] : [all]
+      for (const b of target) {
+        b.minX = Math.min(b.minX, pivot.x - half.x); b.maxX = Math.max(b.maxX, pivot.x + half.x)
+        b.minY = Math.min(b.minY, pivot.y - half.y); b.maxY = Math.max(b.maxY, pivot.y + half.y)
+      }
+    }
+    return { plate: box, all }
+  })()
+  const plateBounds: PlateBounds | null = Number.isFinite(sceneBounds.plate.minX)
+    ? {
+      minX: sceneBounds.plate.minX - PLATE_MARGIN, maxX: sceneBounds.plate.maxX + PLATE_MARGIN,
+      minY: sceneBounds.plate.minY - PLATE_MARGIN, maxY: sceneBounds.plate.maxY + PLATE_MARGIN,
+    }
+    : null
+  const contentBounds = Number.isFinite(sceneBounds.all.minX) ? sceneBounds.all : null
+  const sceneCenter: [number, number, number] = contentBounds
+    ? [(contentBounds.minX + contentBounds.maxX) / 2, (contentBounds.minY + contentBounds.maxY) / 2, 0.3]
+    : [0, 0, 0.3]
+  const sceneWidth = contentBounds ? Math.max(3.5, contentBounds.maxX - contentBounds.minX + 1.2, (contentBounds.maxY - contentBounds.minY + 1.2) * 1.3) : 6
+  const floorY = (contentBounds?.minY ?? 0) - 0.35
+  sceneCenterRef.current = sceneCenter
+
+  // --- Edição direta no 3D: traduz X/Y do painel para o Esquema (com imã de calha) ---
+  const beginPanelDrag = (id: string) => {
+    const store = useSimStore.getState()
+    store.commitHistory()
+    // Durante o arrasto o equipamento larga a calha; o imã volta a fixá-lo ao largar.
+    useSimStore.setState((state) => ({
+      components: state.components.map((item) => (item.id === id && item.railId ? { ...item, railId: undefined, railOffsetMm: undefined } : item)),
+    }))
+  }
+  const dragPanelTo = (id: string, point: { x: number; y: number }) => {
+    const store = useSimStore.getState()
+    const component = store.components.find((item) => item.id === id)
+    if (!component) return
+    const drop = dropOnSchematic(component, point, store.grid.railMagnet === false ? [] : store.components)
+    store.moveComponent(id, drop.schematicX, drop.schematicY)
+  }
+  const endPanelDrag = (id: string) => {
+    const store = useSimStore.getState()
+    if (store.grid.railMagnet !== false) store.snapToRails([id], false)
+    store.step()
+  }
+  const movePanelComponent = (component: ElectricalComponent, point: { x: number; y: number }) => {
+    const current = panelPivots[component.id]
+    if (current && Math.abs(current.x - point.x) < 1e-4 && Math.abs(current.y - point.y) < 1e-4) return
+    beginPanelDrag(component.id)
+    dragPanelTo(component.id, point)
+    endPanelDrag(component.id)
+  }
   const wrapOriented = (component: ElectricalComponent, content: ReactNode) => {
     const source = basePivots[component.id]
     const pivot = panelPivots[component.id]
@@ -1367,9 +1473,11 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
       draggable={editMode === 'navigate' && !component.locked && !viewOrientationEditor && !reconnect}
       connectionMode={editMode === 'connect' || reconnect !== null}
       connectionStartId={connectionStartId}
-      clampPosition={(point) => boundedPosition(component, point)}
       onSelect={() => selectComponents([component.id])}
-      onMove={(position) => updateComponent(component.id, { panel3DPosition: position })}
+      onMove={(position) => movePanelComponent(component, position)}
+      onDragStart={() => beginPanelDrag(component.id)}
+      onDragTo={(point) => dragPanelTo(component.id, point)}
+      onDragEnd={() => endPanelDrag(component.id)}
       onTerminalPick={pickConnectionTerminal}
     >{content}</OrientedInstance>
   }
@@ -1452,8 +1560,8 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
    return (
      <div
        className={`panel3d-stage relative w-full h-full ${stageBackground}`}
-       data-embedded-in-schematic={embedded ? 'true' : undefined}
-       aria-label={embedded ? 'Visualização 3D do Canvas do Esquema' : 'Painel 3D'}
+       data-embedded-in-schematic="true"
+       aria-label="Visualização 3D do Esquema"
        onDragOver={(e) => {
          e.preventDefault()
          e.dataTransfer.dropEffect = 'copy'
@@ -1462,11 +1570,14 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
          e.preventDefault()
          const compType = e.dataTransfer.getData('text/plain') as ComponentType
          if (!compType || !hasComponent3DModel(compType)) return
-         selectComponents([])
-         addComponent(compType, 0, 0)
+         // Entra no centro da vista atual, à escala real, e o imã fixa-o à calha se ficar ao alcance.
+         const [cx, cy] = sceneCenterRef.current
+         const id = addComponent(compType, Math.round(panelToSchematicX(cx) - 40), Math.round(panelToSchematicY(cy) - 40))
+         selectComponents(id ? [id] : [])
        }}
      >
       <ComponentViewEditor />
+      <ViewCube yaw={cameraStats.yaw} pitch={cameraStats.pitch} onPick={pickCubeView} onAngles={pickCubeAngles} onOrbit={orbitCamera} placement={viewOrientationEditor ? 'shifted' : selectedIds.length === 1 ? 'below-command' : 'top'} />
       <div className="panel3d-viewbar" role="toolbar" aria-label="Edição, vistas e navegação do painel 3D">
         <button type="button" className={editMode === 'navigate' ? 'is-edit-active' : ''} aria-pressed={editMode === 'navigate'} onClick={() => changeEditMode('navigate')} title="Navegar e orbitar a câmara · clique e arraste um componente para o mover">Navegar</button>
         <button type="button" className={editMode === 'move' ? 'is-edit-active' : ''} aria-pressed={editMode === 'move'} onClick={() => changeEditMode('move')} title="Selecionar e mover componentes diretamente no espaço 3D">Mover</button>
@@ -1478,14 +1589,14 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
         <button type="button" onClick={() => moveCamera('top')} title="Vista superior">Superior</button>
         <button type="button" onClick={() => moveCamera('isometric')} title="Vista isométrica">ISO</button>
         <button type="button" onClick={focusSelection} disabled={!selectedTarget} title="Focar o componente selecionado (F)">Focar</button>
+        <button type="button" className={railMagnet ? 'is-active' : ''} aria-pressed={railMagnet} onClick={() => useSimStore.getState().setGrid({ railMagnet: !railMagnet })} title="Imã de calha: ao largar, o equipamento centra-se e fixa-se na calha DIN mais próxima (igual ao Esquema 2D)">Imã de calha</button>
         <button type="button" className={showGrid ? 'is-active' : ''} aria-pressed={showGrid} onClick={toggleGrid} title="Mostrar ou ocultar a grelha (G)">Grelha</button>
         <button type="button" onClick={cycleBackground} title="Alternar fundo técnico, branco e escuro"><span className="panel3d-tool-prefix">Fundo: </span>{backgroundMode === 'technical' ? 'Técnico' : backgroundMode === 'white' ? 'Branco' : 'Escuro'}</button>
       </div>
       {editMode === 'move' && <div className="panel3d-edit-context" role="status">
         {selectedComponent ? <>
           <strong>{selectedComponent.ref}</strong>
-          <span>{selectedComponent.locked ? 'Componente bloqueado' : 'Arraste os eixos para posicionar no 3D'}</span>
-          {selectedComponent.panel3DPosition && <button type="button" onClick={() => updateComponent(selectedComponent.id, { panel3DPosition: undefined })}>Posição automática</button>}
+          <span>{selectedComponent.locked ? 'Componente bloqueado' : 'Arraste os eixos X/Y — o Esquema acompanha e o imã fixa-o à calha'}</span>
         </> : <span>Selecione um componente e arraste o manipulador 3D.</span>}
       </div>}
       {editMode === 'connect' && <div className="panel3d-edit-context" role="status">
@@ -1518,16 +1629,9 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
-        {showGrid && <gridHelper args={[16, 32, '#c3cdda', '#dfe5ee']} position={[0, PANEL_FLOOR_Y, 0]} />}
+        {showGrid && <gridHelper args={[40, 80, '#c3cdda', '#dfe5ee']} position={[sceneCenter[0], floorY, 0]} />}
 
-        {components.length > 0 && <MountingPlate plateWidth={plateWidth} />}
-        {/* Sem calha no projeto, equipamentos de calha assentam numa calha DIN real automática (mesma geometria do componente). */}
-        {!mountingRails.length && railComponents.length > 0 && <MountingRail3D
-          position={[0, RAIL_Y, railFlushZ]}
-          lengthOverrideMm={Math.round((railWidth * 100 - 60) / 5) * 5}
-          labelText="Calha automática — adicione uma calha DIN para a controlar"
-        />}
-
+        {plateBounds && <MountingPlate bounds={plateBounds} />}
         {railComponents.map((c) => {
           const x = positions[c.id].x
           let content: ReactNode
@@ -1598,9 +1702,9 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
 
       {!components.length && <div className="panel3d-empty-overlay absolute inset-0 flex items-center justify-center pointer-events-none z-10">
         <div className="dc-editor-empty panel3d-empty-card pointer-events-auto">
-          <span className="dc-empty-kicker">{embedded ? 'ESQUEMA · VISUALIZAÇÃO 3D' : 'PAINEL 3D'}</span>
-          <h2>{embedded ? 'Visualize o esquema em 3D' : 'Prepare o seu painel'}</h2>
-          <p>{embedded ? 'O projeto começa vazio. Adicione componentes pela Biblioteca; o mesmo equipamento, bornes e cabos aparecerão aqui e no Esquema 2D.' : 'O projeto começa vazio. Adicione os componentes reais pela Biblioteca e organize-os diretamente neste painel.'}</p>
+          <span className="dc-empty-kicker">ESQUEMA · VISUALIZAÇÃO 3D</span>
+          <h2>Visualize o esquema em 3D</h2>
+          <p>O projeto começa vazio. Adicione componentes pela Biblioteca; o mesmo equipamento, bornes e cabos aparecerão aqui e no Esquema 2D, à escala real.</p>
         </div>
       </div>}
 

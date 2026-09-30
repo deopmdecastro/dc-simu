@@ -18,6 +18,7 @@ import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
 import Panel3D from '../three/Panel3D'
+import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
 
 const SCHEMATIC_CANVAS_MODE_KEY = 'dc-simu:schematic-canvas-mode:v1'
@@ -30,6 +31,13 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const [canvasMode, setCanvasMode] = useState<SchematicCanvasMode>(() => {
     try { return localStorage.getItem(SCHEMATIC_CANVAS_MODE_KEY) === '3d' ? '3d' : '2d' } catch { return '2d' }
   })
+  // Vista pedida no cubo do Esquema 2D: abre a Visualização 3D já nessa orientação.
+  const [pendingCamera, setPendingCamera] = useState<ViewCubeRequest | null>(null)
+  const open3DView = useCallback((request: ViewCubeRequest) => {
+    setPendingCamera(request)
+    setCanvasMode('3d')
+    try { localStorage.setItem(SCHEMATIC_CANVAS_MODE_KEY, '3d') } catch { /* preferência apenas visual */ }
+  }, [])
   const chooseMode = useCallback((mode: SchematicCanvasMode) => {
     setCanvasMode(mode)
     try { localStorage.setItem(SCHEMATIC_CANVAS_MODE_KEY, mode) } catch { /* preferência apenas visual */ }
@@ -43,7 +51,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   }, [placingType, canvasMode, chooseMode])
 
   return <div className="schematic-view-shell" data-canvas-mode={canvasMode}>
-    {canvasMode === '3d' ? <Panel3D embedded /> : <Schematic2DView libraryCollapsed={libraryCollapsed} />}
+    {canvasMode === '3d' ? <Panel3D initialCamera={pendingCamera} onInitialCameraUsed={() => setPendingCamera(null)} /> : <Schematic2DView libraryCollapsed={libraryCollapsed} onOpen3DView={open3DView} />}
     <div className="schematic-dimension-switch" role="group" aria-label="Dimensão de visualização do Canvas do Esquema">
       <button type="button" className={canvasMode === '2d' ? 'is-active' : ''} aria-pressed={canvasMode === '2d'} onClick={() => chooseMode('2d')} title="Editar o esquema, bornes e traçados em 2D">
         <IconSchematic size={13} />Esquema 2D
@@ -167,7 +175,39 @@ function insertWaypoint(a: Pt, b: Pt, waypoints: Pt[], p: Pt): Pt[] {
 }
 
 /** Editor de esquema completo: malha, arraste, seleção, cabos, bornes, sonda. */
-function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
+/** Cubo de vista do Esquema 2D: a vista do desenho é a frontal; arrastar ou clicar noutra face abre o 3D nessa vista. */
+function Schematic2DViewCube({ onOpen3DView, placement }: { onOpen3DView: (request: ViewCubeRequest) => void; placement: 'top' | 'below-command' | 'shifted' }) {
+  const [angles, setAngles] = useState({ yaw: 0, pitch: 0 })
+  const anglesRef = useRef(angles)
+  const update = (next: { yaw: number; pitch: number }) => { anglesRef.current = next; setAngles(next) }
+  const reset = () => update({ yaw: 0, pitch: 0 })
+  const pickFace = (view: ViewCubeFace) => {
+    if (view === 'front') return // o Esquema 2D já é a vista frontal
+    reset()
+    onOpen3DView({ view })
+  }
+  return <ViewCube
+    yaw={angles.yaw}
+    pitch={angles.pitch}
+    placement={placement}
+    showHome={false}
+    note="Esquema 2D = vista frontal · arraste para abrir em 3D"
+    onPick={pickFace}
+    onAngles={(yaw, pitch) => { reset(); onOpen3DView({ yaw, pitch }) }}
+    // Pré-visualização local: a câmara só existe no 3D, por isso abre-se ao largar.
+    onOrbit={(dx, dy) => update({
+      yaw: anglesRef.current.yaw - dx * 0.8,
+      pitch: Math.max(-89, Math.min(89, anglesRef.current.pitch + dy * 0.8)),
+    })}
+    onOrbitEnd={() => {
+      const { yaw, pitch } = anglesRef.current
+      reset()
+      if (Math.abs(yaw) > 0.5 || Math.abs(pitch) > 0.5) onOpen3DView({ yaw, pitch })
+    }}
+  />
+}
+
+function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCollapsed?: boolean; onOpen3DView?: (request: ViewCubeRequest) => void }) {
   const components = useSimStore((s) => s.components)
   const [logoImages, setLogoImages] = useState<{ off: string; on: string } | null>(null)
   const [proautoImage, setProautoImage] = useState<string | null>(null)
@@ -1159,6 +1199,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
   return (
     <div className="schematic-stage w-full h-full relative overflow-hidden bg-[#f8fafd]">
       <ComponentViewEditor />
+      {onOpen3DView && <Schematic2DViewCube onOpen3DView={onOpen3DView} placement={viewOrientationEditor ? 'shifted' : selectedIds.length === 1 ? 'below-command' : 'top'} />}
       <svg
         ref={svgRef}
         className="w-full h-full"

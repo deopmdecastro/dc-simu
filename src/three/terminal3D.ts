@@ -63,11 +63,11 @@ export function component3DDimensions(component: ElectricalComponent): Terminal3
   }
 }
 
-/** Centro do volume relativamente ao pivô usado pelo Painel 3D. Os modelos
- * de calha são apoiados pela base; os de porta/máquina rodam pelo centro. */
-export function component3DVolumeCenter(component: ElectricalComponent): THREE.Vector3 {
-  const size = component3DDimensions(component)
-  return new THREE.Vector3(0, getComponentModelSpec(component.type)?.placement === 'din-rail' ? size.y / 2 : 0, 0)
+/** Centro do volume relativamente ao pivô. O pivô da instância é sempre o centro
+ * do volume (o Painel 3D recentra cada GLB na origem da instância), por isso os
+ * bornes, o brilho de seleção e os limites partilham o mesmo referencial. */
+export function component3DVolumeCenter(_component: ElectricalComponent): THREE.Vector3 {
+  return new THREE.Vector3(0, 0, 0)
 }
 
 export function terminalLocal3D(component: ElectricalComponent, terminal: Terminal): THREE.Vector3 {

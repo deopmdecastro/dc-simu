@@ -3,6 +3,7 @@ import { ContactShadows, OrbitControls, Text, useGLTF } from '@react-three/drei'
 import { Suspense, Component, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as THREE from 'three'
+import { cloneModelScene } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
 import type { ComponentType } from '../types'
 
@@ -54,7 +55,7 @@ class ShowcaseErrorBoundary extends Component<{ fallback: ReactNode; children: R
 function useFittedModel(spec: DeviceSpec) {
   const { scene } = useGLTF(spec.modelUrl)
   return useMemo(() => {
-    const obj = scene.clone(true)
+    const obj = cloneModelScene(scene)
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -64,13 +65,13 @@ function useFittedModel(spec: DeviceSpec) {
     })
     obj.rotation.set(...spec.rotation)
     obj.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(obj)
+    const raw = new THREE.Box3().setFromObject(obj, true)
     const rawSize = raw.getSize(new THREE.Vector3())
     const basis = rawSize.y
     const scale = basis > 0 ? spec.targetHeight / basis : 1
     obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
     obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj)
+    const box = new THREE.Box3().setFromObject(obj, true)
     const center = box.getCenter(new THREE.Vector3())
     if (spec.placement === 'panel-front') obj.position.sub(center)
     else obj.position.set(-center.x, -box.min.y, -center.z)

@@ -157,7 +157,7 @@ function HeroViewport() {
         <div className="dx-window-tabs">
           <span>Esquema</span>
           <span>Ladder</span>
-          <span className="on">Painel 3D</span>
+          <span className="on">Visualização 3D</span>
           <span>Monitor</span>
         </div>
       </div>
@@ -315,7 +315,7 @@ function EditorAnatomy() {
         <span className="dx-window-path">/programa/OB1 — Comando do motor</span>
         <div className="dx-window-tabs is-switcher" role="tablist" aria-label="Vista da demonstração">
           <button type="button" role="tab" aria-selected={view === 'ladder'} className={view === 'ladder' ? 'on' : ''} onClick={() => setView('ladder')}>Ladder</button>
-          <button type="button" role="tab" aria-selected={view === 'panel3d'} className={view === 'panel3d' ? 'on' : ''} onClick={() => setView('panel3d')}>Painel 3D</button>
+          <button type="button" role="tab" aria-selected={view === 'panel3d'} className={view === 'panel3d' ? 'on' : ''} onClick={() => setView('panel3d')}>Visualização 3D</button>
         </div>
       </div>
 
@@ -397,7 +397,7 @@ function EditorAnatomy() {
             </div>
           </div>
         </main>
-      </div> : <div className="dx-ladder-panel3d" role="tabpanel" aria-label="Partida direta no Painel 3D">
+      </div> : <div className="dx-ladder-panel3d" role="tabpanel" aria-label="Partida direta na Visualização 3D">
         <Suspense fallback={<div className="dx-stage-skeleton" role="status">A carregar componentes reais…</div>}>
           <LandingShowcase
             compact
@@ -615,7 +615,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
           <div className="dx-head" data-rv>
             <span className="dx-over">Demonstração Ladder interativa</span>
             <h2>Execute uma partida direta sem sair desta página.</h2>
-            <p>Clique em RUN e START, depois alterne entre Ladder e Painel 3D: o LOGO! Siemens, a botoeira START/STOP, KM1, o motor SEW e o novo sinaleiro H1 partilham o mesmo estado. Use STOP para desligar.</p>
+            <p>Clique em RUN e START, depois alterne entre Ladder e a Visualização 3D: o LOGO! Siemens, a botoeira START/STOP, KM1, o motor SEW e o novo sinaleiro H1 partilham o mesmo estado. Use STOP para desligar.</p>
           </div>
           <div className="dx-studio-grid">
             <div data-rv>
@@ -626,7 +626,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
                 <span className="idx">01</span>
                 <div>
                   <h3>Sincronização total</h3>
-                  <p>Esquema ↔ Painel 3D ↔ Ladder: os bornes, cabos e referências são os mesmos em todas as vistas.</p>
+                  <p>Esquema ↔ Visualização 3D ↔ Ladder: os bornes, cabos e referências são os mesmos em todas as vistas.</p>
                 </div>
               </li>
               <li>
@@ -661,7 +661,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
           <div className="dx-head" data-rv>
             <span className="dx-over">Biblioteca com CAD validado</span>
             <h2>Apenas equipamentos que já têm modelo GLB real.</h2>
-            <p>Explore os {LIBRARY.length} componentes atualmente integrados. Cada modelo começa estático: arraste com o rato ou com o dedo para o girar em 3D, usando o mesmo GLB do Esquema e do Painel 3D.</p>
+            <p>Explore os {LIBRARY.length} componentes atualmente integrados. Cada modelo começa estático: arraste com o rato ou com o dedo para o girar em 3D, usando o mesmo GLB do Esquema e da Visualização 3D.</p>
           </div>
           <div className="dx-lib-toolbar" data-rv>
             <div className="dx-lib-filters">

@@ -1,13 +1,35 @@
 # DC-Simu — Simulador de Comandos Elétricos Industriais
 
 Simulador educacional/profissional com **três áreas sincronizadas por um único modelo de dados**:
-**Editor de Esquema (SVG)** ↔ **Painel 3D (Three.js)** ↔ **Editor Ladder**, com monitor de I/O,
+**Editor de Esquema (SVG)** ↔ **Visualização 3D (Three.js)** ↔ **Editor Ladder**, com monitor de I/O,
 medições, injeção de falhas e sonda de continuidade.
 
 Não é uma interface decorativa: existe um **motor de continuidade elétrica** baseado em grafo de
 bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e um **motor de
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
+
+## Novidades — v4.8 (editor 2D/3D unificado e à escala real)
+
+- **Um só editor**: o separador «Painel 3D» foi removido. O Esquema tem o interruptor
+  **Esquema 2D ↔ Visualização 3D** (mesmos componentes, bornes e cabos). Quem tinha o «Painel 3D»
+  guardado como vista abre agora o Esquema em 3D.
+- **Escala real partilhada**: 1 mm = 1,5 px no Esquema = 0,01 unidades no 3D. A posição 3D de cada
+  peça é calculada a partir da sua posição no Esquema (sem layouts automáticos); a chapa de montagem
+  cresce para acolher o equipamento. Mover uma peça no 3D (arrastar ou gizmo X/Y) move-a no Esquema.
+- **Imã de calha no 3D**: ao largar um equipamento de calha perto de uma calha DIN, ele centra-se,
+  cola-se aos vizinhos/pontas e fixa-se (`railId`/`railOffsetMm`), exatamente como no 2D. O botão
+  **Imã de calha** da barra 3D (e a caixa no Inspetor) liga/desliga o comportamento. Alt desliga o
+  passo de 5 mm.
+- **Cubo de vista** por baixo do botão «Editar componente 3D»: clique numa face (Frente, Trás,
+  Esq., Dir., Topo, Base) ou em ISO para mudar a vista; arraste o cubo para orbitar. O cubo
+  acompanha a câmara e desloca-se para a esquerda quando o editor está aberto.
+- **Editar bornes** (botão novo junto a «Editar componente 3D»): arraste qualquer borne diretamente
+  no Esquema 2D ou na Visualização 3D (Shift+arrastar = profundidade, Alt = sem íman às faces).
+  Os dois acompanham-se: o ponto arrastado no 2D atualiza a posição física 3D (mantendo a
+  profundidade) e o arrasto no 3D limpa ajustes 2D manuais desse borne para o Esquema o seguir.
+  O diâmetro do borne e do círculo de rastreamento continuam ajustáveis no painel.
+- Corrigido o referencial dos bornes no 3D: o pivô da instância é sempre o centro do volume.
 
 ## Novidades — v4.7 (atualização automática e acesso local fechado)
 
@@ -27,12 +49,12 @@ U1/V1/W1.
 ## Novidades — v4.6 (sinaleiro LED AD22-22DS)
 
 - Novo componente **Sinaleiro LED AD22-22DS · 24 V AC/DC**, com o GLB real no catálogo,
-  Esquema, Painel 3D, editor de vistas e galeria pública `(3D)`.
+  Esquema, Visualização 3D, editor de vistas e galeria pública `(3D)`.
 - A montagem é tratada como componente de frente de painel de 22 mm, com bornes de parafuso
   X1/X2 e comportamento elétrico de carga: a lente acende somente quando ambos os polos estão
   corretamente alimentados.
 - Cada instância permite escolher a cor da luz no inspetor — vermelho, verde, amarelo, azul,
-  branco, laranja ou uma cor personalizada. A escolha altera a lente, emissão e halo no Painel 3D,
+  branco, laranja ou uma cor personalizada. A escolha altera a lente, emissão e halo na Visualização 3D,
   persiste no projeto e não modifica o GLB original nem outras instâncias.
 - O PDF resumido da série AD22 está integrado. O modelo recebido mede aproximadamente
   29,3 × 29,3 × 51,5 mm e já apresenta a face no eixo +Z.
@@ -40,16 +62,16 @@ U1/V1/W1.
 ## Novidades — v4.5 (motor SEW DRN80MK4/B3)
 
 - O `motor3ph` usa agora o GLB real **SEW-EURODRIVE DRN80MK4/B3**, associado por uma única
-  especificação CAD partilhada pela Biblioteca, Esquema, Painel 3D e landing.
+  especificação CAD partilhada pela Biblioteca, Esquema, Visualização 3D e landing.
 - O PDF recebido foi integrado no inspetor. Os dados aplicados são: 0,55 kW, 1435 rpm, 400 V,
   1,29 A, cos φ 0,75, binário nominal de 3,65 Nm, carcaça 80, montagem B3 e massa de 11 kg.
-- O Painel 3D mantém o motor fora da calha, distribui corretamente várias instâncias, aproxima os
+- A Visualização 3D mantém o motor fora da calha, distribui corretamente várias instâncias, aproxima os
   cabos da caixa de terminais e mostra no eixo um indicador de rotação ligado ao estado/sentido real.
 - O modelo procedural continua como reserva caso o GLB não carregue. Bornes U1/V1/W1/PE, sequência
   de fases, sentido de rotação, medições e projetos antigos permanecem compatíveis.
 - O motor foi desbloqueado na Biblioteca e incluído na galeria pública `(3D)`; o motor monofásico
   continua bloqueado até existir um GLB próprio.
-- A demonstração pública de partida direta pode alternar entre **Ladder** e **Painel 3D** sem perder
+- A demonstração pública de partida direta pode alternar entre **Ladder** e **Visualização 3D** sem perder
   o estado. A cena usa os GLB reais da fonte, LOGO! Siemens, botoeira NHD START/STOP, contator WEG,
   motor SEW e sinaleiro AD22 H1; RUN, START e STOP atualizam simultaneamente a lógica, os cabos,
   KM1, a rotação e a luz de marcha.
@@ -60,7 +82,7 @@ U1/V1/W1.
   existirem alterações por guardar.
 - O **Esquema** ganhou enquadramento automático de todo o conteúdo (`Home`/`Ajustar`), reset de zoom
   no HUD e atalhos completos `1–5` para as cinco ferramentas, sem alterar posições ou ligações.
-- O **Painel 3D** ganhou vistas Frente, Superior e Isométrica, enquadramento geral, foco no componente
+- A **Visualização 3D** ganhou vistas Frente, Superior e Isométrica, enquadramento geral, foco no componente
   selecionado e grelha opcional, além dos atalhos `Home`, `F` e `G`.
 - O **Ladder** conserva o zoom entre sessões, aceita `Ctrl +`, `Ctrl −`, `Ctrl 0` e `Insert`, limita
   presets de timers/contadores a valores válidos e melhora o feedback dos limites de zoom.
@@ -72,7 +94,7 @@ U1/V1/W1.
 
 ## Novidades — v4.3 (editor de vistas por componente)
 
-- O Esquema e o Painel 3D partilham o comando **Editar vista** para o componente selecionado.
+- O Esquema e o Visualização 3D partilham o comando **Editar vista** para o componente selecionado.
 - Um View Cube no canto superior direito oferece Frente, Trás, Esquerda, Direita, Superior, Inferior,
   Isométrica, rotação livre, ângulos X/Y/Z e reset para a orientação original.
 - A pré-visualização é aplicada em tempo real somente à instância selecionada. Bornes, fios, posição,
@@ -87,13 +109,13 @@ U1/V1/W1.
 
 Os modelos recebidos foram analisados, normalizados e integrados pelo mesmo princípio usado no
 Siemens LOGO!: **um único tipo elétrico e uma única especificação CAD** alimentam a Biblioteca, o
-Esquema e o Painel 3D. O componente fica na vista física correta (calha DIN ou frente do painel),
+Esquema e o Visualização 3D. O componente fica na vista física correta (calha DIN ou frente do painel),
 com símbolo de reserva se o WebGL/GLB não estiver disponível.
 
 - **WEG MDW-C10**: disjuntor monopolar de 10 A, curva C, bornes 1–2 e CAD real na calha DIN.
 - **Metaltex P20ACR-R-1B**: emergência 1NF 21–22 com rearme por chave; o P20AKR existente passou a
   conservar corretamente o estado travado até novo acionamento de rearme.
-- **NHD NPB22-D11**: botoeira dupla com zonas independentes no Esquema/Painel 3D — START fecha
+- **NHD NPB22-D11**: botoeira dupla com zonas independentes no Esquema/Visualização 3D — START fecha
   13–14 e STOP abre 21–22.
 - **Allen-Bradley Guardmaster MSR127TP**: CAD real, alimentação A1/A2, entradas de dois canais/reset,
   três contactos de segurança NA (13–14, 23–24, 33–34) e auxiliar NF 41–42.
@@ -138,7 +160,7 @@ nem o conteúdo.
 **Contator WEG CWC09 no simulador (modelo CAD real)**
 - Novo componente **Contator WEG CWC09 · 9 A (3NA + 1NA)** na biblioteca, com os bornes serigrafados
   do aparelho: `1L1/2T1`, `3L2/4T2`, `5L3/6T3`, auxiliar `13/14`, fechado `21/22` e bobina `A1/A2`.
-- O **Painel 3D** e o **esquema** desenham o GLB real do fabricante (CWC07 10E, mesma família), sem
+- A **Visualização 3D** e o **esquema** desenham o GLB real do fabricante (CWC07 10E, mesma família), sem
   rotação de eixo artificial: o export já vem em Y-up com a frente em +Z.
 - Cada instância tem os seus próprios parafusos clicáveis (encaixe alargado junto ao corpo), com o
   mesmo padrão já usado pelo LOGO! e pela fonte Proauto.
@@ -151,7 +173,7 @@ nem o conteúdo.
   `Suspense`, protegidos por `ErrorBoundary`, sem bloquear a página.
 - A galeria pública mostra exclusivamente os **17 tipos que já possuem GLB real integrado**. Cada
   cartão apresenta o selo **(3D)** e começa estático; o utilizador gira o turntable horizontalmente
-  com rato, dedo ou setas do teclado. As frames vêm do mesmo ficheiro usado no Esquema e Painel 3D,
+  com rato, dedo ou setas do teclado. As frames vêm do mesmo ficheiro usado no Esquema e Visualização 3D,
   são criadas sob demanda e libertam o contexto WebGL temporário para preservar desempenho no móvel.
 - A demonstração Ladder reutiliza a linguagem visual do editor do simulador: árvore de projeto,
   separadores OB/FC, toolbar, métricas de scan, cabeçalho de Network, RLO e fluxo energizado IEC 61131-3.
@@ -348,7 +370,7 @@ src/
     symbols.tsx     Biblioteca de símbolos SVG (um por tipo), cores de cabo, rótulos de borne.
     SchematicView.tsx Editor de esquema: malha, arraste, seleção, marquise, zoom/pan, cabos,
                     bornes clicáveis, sonda e teclas de atalho.
-  three/Panel3D.tsx Painel 3D (R3F): trilho DIN, disjuntores, contator com armadura, CLP com LEDs
+  three/Panel3D.tsx Visualização 3D (R3F): trilho DIN, disjuntores, contator com armadura, CLP com LEDs
                     de I/O, inversor com display, sinaleiros emissivos, torre, botoeiras clicáveis,
                     sensores acionáveis, motor com eixo girando no sentido real e cabos roteados.
   simulation/
@@ -389,7 +411,7 @@ Tailwind CSS, SVG para o esquema e o editor Ladder.
 
 ### GRAFCET no esquema
 
-A vista **Esquema** (e Painel 3D) mostra à direita o editor GRAFCET, enquanto a página **GRAFCET (F5)** abre o mesmo programa num espaço maior. Crie etapas iniciais/normais, várias ações por etapa (Q/M, com condição opcional), e transições explícitas entre etapas. Use `I1`, `!I1`, `(I1 & M1) | Q2`, `1` ou `0` nas condições. Uma transição com vários destinos cria uma divergência AND; várias origens exigem convergência AND (todas as etapas ativas). Transições concorrentes que partilham uma origem têm prioridade pela ordem em que aparecem na lista; cada etapa avança no máximo uma vez por scan. Projetos lineares antigos são convertidos em memória sem perda dos campos anteriores. O programa é incluído no JSON, autosave e projetos locais. No scan, Ladder corre primeiro e as ações GRAFCET têm precedência sobre o mesmo endereço Q/M; evite atribuir a mesma saída aos dois editores. A representação gráfica é automática e não inclui ainda posicionamento livre dos elementos nem divergência OR com seleção simultânea de ramos.
+A vista **Esquema** (e Visualização 3D) mostra à direita o editor GRAFCET, enquanto a página **GRAFCET (F5)** abre o mesmo programa num espaço maior. Crie etapas iniciais/normais, várias ações por etapa (Q/M, com condição opcional), e transições explícitas entre etapas. Use `I1`, `!I1`, `(I1 & M1) | Q2`, `1` ou `0` nas condições. Uma transição com vários destinos cria uma divergência AND; várias origens exigem convergência AND (todas as etapas ativas). Transições concorrentes que partilham uma origem têm prioridade pela ordem em que aparecem na lista; cada etapa avança no máximo uma vez por scan. Projetos lineares antigos são convertidos em memória sem perda dos campos anteriores. O programa é incluído no JSON, autosave e projetos locais. No scan, Ladder corre primeiro e as ações GRAFCET têm precedência sobre o mesmo endereço Q/M; evite atribuir a mesma saída aos dois editores. A representação gráfica é automática e não inclui ainda posicionamento livre dos elementos nem divergência OR com seleção simultânea de ramos.
 
 ### Navegação lateral do Ladder
 
@@ -401,9 +423,9 @@ A biblioteca do Esquema suporta pesquisa por nome, tipo ou categoria, favoritos 
 
 ### Afinação de UI/UX (editores)
 
-A barra principal ajusta-se a ecrãs mais estreitos e aceita `Ctrl+1` a `Ctrl+5` para navegar pelas cinco vistas (fora de campos de texto). A Biblioteca/Inspetor pode ser recolhida e reaberta nas vistas Esquema e Painel 3D; as larguras ajustadas são recordadas neste navegador. O Monitor aproveita agora a largura completa, sem barra lateral do esquema. O Painel 3D vazio sugere cenários para começar. Foram adicionados focos visíveis para navegação por teclado, espaços e estados visuais mais consistentes, e respeito pela preferência de movimento reduzido. Os controlos continuam compactos onde o espaço do editor é limitado.
+A barra principal ajusta-se a ecrãs mais estreitos e aceita `Ctrl+1` a `Ctrl+4` para navegar pelas quatro vistas (Esquema, Ladder, GRAFCET, Monitor) (fora de campos de texto). A Biblioteca/Inspetor pode ser recolhida e reaberta nas vistas Esquema e Visualização 3D; as larguras ajustadas são recordadas neste navegador. O Monitor aproveita agora a largura completa, sem barra lateral do esquema. A Visualização 3D vazio sugere cenários para começar. Foram adicionados focos visíveis para navegação por teclado, espaços e estados visuais mais consistentes, e respeito pela preferência de movimento reduzido. Os controlos continuam compactos onde o espaço do editor é limitado.
 
-O painel GRAFCET ao lado do Esquema/Painel 3D funciona agora **apenas como visualizador**: diagrama adaptado à largura do painel e estado da simulação, sem propriedades ou controlos de edição. O botão «Abrir editor» leva à página GRAFCET (F5), onde se criam e editam etapas, ações e transições. Ambos partilham o mesmo programa do projeto.
+O painel GRAFCET ao lado do Esquema/Visualização 3D funciona agora **apenas como visualizador**: diagrama adaptado à largura do painel e estado da simulação, sem propriedades ou controlos de edição. O botão «Abrir editor» leva à página GRAFCET (F5), onde se criam e editam etapas, ações e transições. Ambos partilham o mesmo programa do projeto.
 
 No visualizador lateral GRAFCET, arraste o diagrama para o deslocar e use a roda do rato ou os botões `−`/`+` para ajustar o zoom. «Ajustar» repõe a vista à largura do painel. Estes controlos afetam apenas a visualização; a edição continua na página GRAFCET.
 
@@ -431,7 +453,7 @@ A Biblioteca do Esquema foi reorganizada como galeria de miniaturas em pastas ex
 
 O Inspetor de componentes foi reorganizado com um resumo fixo do dispositivo, secções recolhíveis de identificação, posição, estado e bornes. Ao selecionar outro componente ou cabo, o painel volta ao início em vez de conservar uma posição de scroll antiga. Os parâmetros mais comuns têm rótulos em português e os bornes mostram tipo, posição e estado com mais espaço. A eliminação de um componente ou borne com cabos ligados pede confirmação.
 
-O Siemens LOGO! 12/24RC no Esquema apresenta uma vista frontal renderizada em WebGL a partir do mesmo ficheiro GLB do Painel 3D, preservando os materiais e cores originais, em vez do corpo desenhado em SVG. A imagem (ligado/desligado conforme alimentação L+/M) é gerada uma vez e reutilizada; os bornes do esquema mantêm a posição, identificação, estado, ligação de cabos e seleção. Em caso de falha no carregamento do modelo, o símbolo anterior serve como reserva.
+O Siemens LOGO! 12/24RC no Esquema apresenta uma vista frontal renderizada em WebGL a partir do mesmo ficheiro GLB da Visualização 3D, preservando os materiais e cores originais, em vez do corpo desenhado em SVG. A imagem (ligado/desligado conforme alimentação L+/M) é gerada uma vez e reutilizada; os bornes do esquema mantêm a posição, identificação, estado, ligação de cabos e seleção. Em caso de falha no carregamento do modelo, o símbolo anterior serve como reserva.
 
 O LOGO! 12/24RC tem 19 bornes correspondentes aos parafusos visíveis do modelo: L+, M, I1–I8, um parafuso superior sem legenda identificado internamente como X1 (sem lógica automática) e dois pontos por cada saída Q1–Q4 (`Q1`/`Q1.2`, etc.). As saídas de relé são contactos secos: ao ativar Q1, apenas os seus dois pontos ficam unidos; L+ não é ligado automaticamente à saída. Projetos anteriores com 14 ou 18 bornes recebem os pontos em falta quando são abertos, preservando os identificadores e cabos existentes.
 
@@ -471,7 +493,7 @@ versão 0BA2: o PDF 0BA4 não prova esses pormenores para o modelo CAD.
 
 A fonte de **24 V DC / 5 A / 120 W** usa o modelo real
 `public/models/fontes/fonte-proauto-dran120-24a.glb` obtido após o `git pull`.
-O mesmo GLB é carregado no **Painel 3D**, renderizado numa vista frontal do
+O mesmo GLB é carregado no **Visualização 3D**, renderizado numa vista frontal do
 **Esquema** e usado na miniatura da **Biblioteca/Inspetor**. O objeto é
 apresentado sem rodar: o export já tem Y para cima e +Z na face da frente.
 Se o GLB não carregar, permanece disponível a representação provisória.
@@ -527,7 +549,7 @@ assinatura adicionais. Os projetos persistem **localmente por dispositivo**:
 exporte o projeto para criar uma cópia de segurança ou o transferir.
 
 A ampliação da **página** por gesto é desativada para manter a interface estável;
-o zoom continua disponível nos editores (pinça no Esquema e Painel 3D, botões
+o zoom continua disponível nos editores (pinça no Esquema e Visualização 3D, botões
 de zoom no GRAFCET, Ctrl+roda e botões no Esquema). Em ecrãs pequenos, a
 biblioteca e a pré-visualização GRAFCET iniciam recolhidas e abrem sobre a
 área de trabalho.

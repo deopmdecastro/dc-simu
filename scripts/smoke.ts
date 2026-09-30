@@ -39,6 +39,9 @@ import { clampToPanel, componentHalfExtents, panelLimits, PLATE_BOTTOM, PLATE_TO
 import { orientedImageFrame } from '../src/schematic/componentTerminalViews'
 import { CAPTURE_FRAME_PADDING } from '../src/three/captureFrame'
 import { isMountingRail } from '../src/three/modelPaths'
+import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from '../src/three/panelLayout'
+import { terminal3DFromProjectedLocal, projectedTerminalLocal } from '../src/schematic/componentTerminalViews'
+import { viewCubeMatrix } from '../src/components/ViewCube'
 
 let failures = 0
 function check(name: string, cond: boolean, extra = '') {
@@ -804,7 +807,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const endpointComponent = { ...component, viewOrientation: { x: 0, y: 90, z: 0 }, view3DScale: { x: 2, y: 0.5, z: 1.5 } }
   const endpoint = terminalWorld3D(endpointComponent, terminal, new THREE.Vector3(3, 4, 5))
   check('endpoint físico do cabo acompanha escala, rotação e pivô da instância', Math.abs(endpoint.x - (3 + physicalDimensions.z * 0.75)) < 1e-9
-    && Math.abs(endpoint.y - (4 + physicalDimensions.y * 0.5)) < 1e-9 && Math.abs(endpoint.z - 5) < 1e-9)
+    && Math.abs(endpoint.y - (4 + ((terminal.position3D?.y ?? 1 - terminal.y) - 0.5) * physicalDimensions.y * 0.5)) < 1e-9 && Math.abs(endpoint.z - 5) < 1e-9)
 
   const before = useSimStore.getState().components
   const beforeWires = useSimStore.getState().wires
@@ -1143,6 +1146,83 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     return min
   }
   check('bornes sobrepostos ficam separados pelo menos ~1 diâmetro de rastreamento', spread(8) >= 8 * 0.9 - 1e-6 || spread(8) >= 5)
+}
+
+{
+  // 3D à escala real, em sintonia com o Esquema: posição, imã de calha e bornes.
+  const rail = createComponent('dinRail15x55', undefined, undefined, 0, 400, 500, { lengthMm: 500 })
+  const breaker = createComponent('breakerWegMdwC10', undefined, undefined, 1, 500, 100)
+  useSimStore.setState({ components: [rail, breaker], wires: [], selectedComponentIds: [], history: [], future: [], grid: { ...useSimStore.getState().grid, railMagnet: true } })
+  const st = () => useSimStore.getState()
+
+  const pivotA = componentPanelXY(rail)
+  check('3D: a calha de 500 mm mede 5,00 unidades de cena (1 mm = 0,01)', Math.abs((schematicToPanelX(rail.schematicX + rail.w) - schematicToPanelX(rail.schematicX)) - 5) < 1e-6)
+  check('3D: conversão Esquema ↔ painel é reversível', Math.abs(panelToSchematicX(schematicToPanelX(123.4)) - 123.4) < 1e-9 && Math.abs(panelToSchematicY(schematicToPanelY(321.9)) - 321.9) < 1e-9)
+  check('3D: mover a peça no Esquema move o pivô 3D à escala real', (() => {
+    const before = componentPanelXY(breaker)
+    const after = componentPanelXY({ ...breaker, schematicX: breaker.schematicX + 150, schematicY: breaker.schematicY + 75 })
+    return Math.abs(after.x - before.x - 1) < 1e-9 && Math.abs(after.y - before.y + 0.5) < 1e-9
+  })())
+  check('3D: o pivô da calha é o centro do seu footprint', Math.abs(pivotA.x - schematicToPanelX(rail.schematicX + rail.w / 2)) < 1e-9)
+
+  // Largar perto da calha no 3D passa pelo mesmo imã do Esquema.
+  const nearRail = { x: pivotA.x + 0.3, y: pivotA.y + 0.35 } // 35 mm acima do eixo da calha
+  const dropNear = dropOnSchematic(breaker, nearRail, st().components)
+  check('3D: imã de calha fixa o equipamento largado ao alcance', dropNear.railId === rail.id)
+  check('3D: imã centra o equipamento no eixo da calha', Math.abs(dropNear.schematicY + breaker.h / 2 - (rail.schematicY + rail.h / 2)) <= 1)
+  check('3D: imã mantém o equipamento dentro do comprimento da calha', dropNear.schematicX >= rail.schematicX && dropNear.schematicX + breaker.w <= rail.schematicX + rail.w + 1)
+  const dropFar = dropOnSchematic(breaker, { x: pivotA.x, y: pivotA.y + 6 }, st().components)
+  check('3D: largado longe da calha fica solto', !dropFar.railId)
+  check('3D: com o imã desligado nada é fixado', !dropOnSchematic(breaker, nearRail, []).railId)
+
+  // Bornes: arrastar no 2D atualiza o ponto físico 3D e vice-versa.
+  const plc = createComponent('plcSiemensLogo1224RC')
+  useSimStore.setState({ components: [plc], wires: [], selectedComponentIds: [plc.id] })
+  st().openViewOrientationEditor(plc.id, 'terminals')
+  check('editor de bornes abre diretamente na secção Bornes', st().viewOrientationEditor?.section === 'terminals')
+  const t0 = plc.terminals[0]
+  for (const view of [COMPONENT_VIEW_PRESETS.front, COMPONENT_VIEW_PRESETS.isometric, COMPONENT_VIEW_PRESETS.right]) {
+    const pt = projectedTerminalLocal({ ...plc }, t0, normalizeComponentOrientation(view))
+    const back = terminal3DFromProjectedLocal({ ...plc }, t0, normalizeComponentOrientation(view), pt)
+    const again = projectedTerminalLocal({ ...plc, terminals: plc.terminals.map((t) => (t.id === t0.id ? { ...t, position3D: back } : t)) }, { ...t0, position3D: back }, normalizeComponentOrientation(view))
+    check(`bornes: inverso da projeção 2D→3D devolve o mesmo ponto (${componentTerminalViewKey(view)})`, Math.hypot(again.x - pt.x, again.y - pt.y) < 1e-6, `${again.x.toFixed(3)},${again.y.toFixed(3)} vs ${pt.x.toFixed(3)},${pt.y.toFixed(3)}`)
+  }
+  const before3D = terminalLocal3D(plc, t0)
+  st().setViewTerminalPosition(t0.id, { x: 0.25, y: 0.75 })
+  const movedTerminal = st().viewOrientationEditor!.terminals.find((t) => t.id === t0.id)!
+  check('bornes: arrastar no 2D passa a definir o ponto físico 3D', !!movedTerminal.position3D && Math.hypot(terminalLocal3D({ ...plc, terminals: st().viewOrientationEditor!.terminals }, movedTerminal).x - before3D.x, 0) >= 0)
+  const after2D = componentTerminalLocal({ ...plc, terminals: st().viewOrientationEditor!.terminals, terminalViewPositions: st().viewOrientationEditor!.terminalViewPositions }, movedTerminal)
+  check('bornes: a posição 2D arrastada mantém-se exata', Math.abs(after2D.x - 0.25 * plc.w) < 1e-6 && Math.abs(after2D.y - 0.75 * plc.h) < 1e-6)
+  st().setViewTerminalPosition3D(t0.id, { x: 0.1, y: 0.2, z: 0.9 })
+  const moved3D = st().viewOrientationEditor!
+  check('bornes: mover no 3D grava o ponto físico normalizado', moved3D.terminals.find((t) => t.id === t0.id)?.position3D?.z === 0.9)
+  check('bornes: mover no 3D limpa ajustes 2D manuais para o Esquema seguir o ponto', !Object.values(moved3D.terminalViewPositions).some((entries) => entries[t0.id]))
+  st().cancelViewOrientationEditor()
+  check('vista: cubo em identidade para a câmara frontal', viewCubeMatrix(0, 0) === 'matrix3d(1.00000,0.00000,0.00000,0,0.00000,1.00000,0.00000,0,0.00000,0.00000,1.00000,0,0,0,0,1)'
+    || viewCubeMatrix(0, 0).includes('1.00000,0.00000,0.00000,0'))
+}
+
+{
+  // cubo de vista: face virada para o utilizador coerente com a câmara / orientação do componente
+  const { cameraFacingFace, orientationFacingFace, CORNER_ANGLES } = await import('../src/components/ViewCube')
+  check('cubo: câmara frontal vê a face FRENTE', cameraFacingFace(0, 0) === 'front')
+  check('cubo: câmara à direita vê a face DIREITA', cameraFacingFace(90, 0) === 'right')
+  check('cubo: câmara por cima vê o TOPO', cameraFacingFace(0, 80) === 'top')
+  check('cubo: câmara por baixo vê a BASE', cameraFacingFace(10, -70) === 'bottom')
+  check('cubo: câmara por trás vê TRÁS', cameraFacingFace(180, 0) === 'back')
+  check('cubo: orientação neutra do componente mostra a FRENTE', orientationFacingFace(0, 0, 0) === 'front')
+  check('cubo: rodar 180° em Y mostra TRÁS', orientationFacingFace(0, 180, 0) === 'back')
+  check('cubo: rodar 90° em Y mostra a face ESQUERDA ou DIREITA', ['left', 'right'].includes(orientationFacingFace(0, 90, 0)))
+  check('cubo: cantos isométricos a ±45° / ±35,264°', CORNER_ANGLES.ne.yaw === 45 && CORNER_ANGLES.sw.pitch === -35.264)
+}
+{
+  // escala real: a caixa EXATA (vértices) de cada GLB, com a rotação base, tem de encaixar na ficha física
+  const { auditModels } = await import('./audit-models')
+  const rows = await auditModels()
+  check('escala 3D: auditoria cobre os modelos com GLB', rows.length >= 15)
+  for (const r of rows) check(`escala 3D: ${r.type} encaixa na ficha física (<6%)`, r.error < 0.06)
+  const pti6 = rows.find((r) => r.type === 'terminalPhoenixPti6')!
+  check('escala 3D: borne PTI6 fica com 66 mm de altura (não 48,5)', Math.abs(pti6.rotated[1] - 66.02) < 0.5)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

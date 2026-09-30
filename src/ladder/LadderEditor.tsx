@@ -366,7 +366,7 @@ function LadderEmptyState({ compact = false, onCreate }: { compact?: boolean; on
     <div className={`ladder-empty-state ${compact ? 'is-compact' : ''}`}>
       <div className="ladder-empty-icon"><IconLadder size={compact ? 24 : 30} /></div>
       <strong>Nenhuma network no programa</strong>
-      <span>Crie a lógica deste projeto. O Ladder usa os mesmos PLCs, TAGs, entradas, saídas e estado de simulação do Esquema e do Painel 3D.</span>
+      <span>Crie a lógica deste projeto. O Ladder usa os mesmos PLCs, TAGs, entradas, saídas e estado de simulação do Esquema e da Visualização 3D.</span>
       <div className="ladder-empty-actions">
         <button onClick={onCreate} className="ladder-primary-button"><IconPlus size={12} /> Criar primeira network</button>
       </div>
