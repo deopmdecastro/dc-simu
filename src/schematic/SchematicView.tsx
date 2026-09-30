@@ -314,7 +314,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
 
   const svgRef = useRef<SVGSVGElement>(null)
   const pinchRef = useRef<{ distance: number; zoom: number; worldX: number; worldY: number } | null>(null)
-  const [drag, setDrag] = useState<{ ids: string[]; startX: number; startY: number; orig: Record<string, { x: number; y: number }> } | null>(null)
+  const [drag, setDrag] = useState<{ ids: string[]; startX: number; startY: number; orig: Record<string, { x: number; y: number }>; committed?: boolean } | null>(null)
   const [wireFrom, setWireFrom] = useState<string | null>(null)
   const [freeStart, setFreeStart] = useState<Pt | null>(null)
   const [activeWireId, setActiveWireId] = useState<string | null>(null)
@@ -646,6 +646,13 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
     if (drag) {
       const dx = p.x - drag.startX
       const dy = p.y - drag.startY
+      // Só entra no histórico se houver movimento real, e ANTES de alterar
+      // (o Desfazer volta assim à posição original).
+      if (!drag.committed) {
+        if (Math.hypot(dx, dy) < 2 / zoom) return
+        commitHistory()
+        drag.committed = true // mutação intencional: evita um 2.º commit antes do re-render
+      }
       for (const id of drag.ids) {
         const o = drag.orig[id]
         if (o) moveComponent(id, snap(o.x + dx), snap(o.y + dy))
@@ -671,9 +678,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
         updateWire(w.id, wireDrag.mode === 'fromPoint' ? { fromTerminalId: wireDrag.originalTerminalId, fromPoint: undefined } : { toTerminalId: wireDrag.originalTerminalId, toPoint: undefined })
       }
     }
-    if (wireDrag && wireDrag.mode !== 'fromPoint' && wireDrag.mode !== 'toPoint') commitHistory()
     setWireDrag(null)
-    if (drag) commitHistory()
     if (marquee) {
       const x0 = Math.min(marquee.x0, marquee.x1)
       const x1 = Math.max(marquee.x0, marquee.x1)
@@ -878,7 +883,11 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
     return (
       <g key={w.id}>
         {/* halo de seleção e brilho de energia por BAIXO — a cor do cabo fica sempre visível */}
-        {selected && <path d={d} fill="none" stroke="#2f6bff" strokeWidth={width + 8} opacity={0.18} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
+        {selected && <g pointerEvents="none" fill="none" strokeLinecap="round" strokeLinejoin="round">
+          <path d={d} stroke="#2f6bff" strokeWidth={width + 14} opacity={0.10} />
+          <path d={d} stroke="#3b82f6" strokeWidth={width + 9} opacity={0.18} />
+          <path d={d} stroke="#60a5fa" strokeWidth={width + 4} opacity={0.42} />
+        </g>}
         {showEnergyFlow && <path d={d} fill="none" stroke="#fbbf24" strokeWidth={width + 6} opacity={0.35} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
         {/* contorno escuro fino: dá leitura a cores claras (branco, amarelo, azul-claro) */}
         <path d={d} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
@@ -926,6 +935,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
               style={{ cursor: 'grab' }}
               onMouseDown={(e) => {
                 e.stopPropagation()
+                commitHistory()
                 setWireDrag({ wireId: w.id, mode: 'waypoint', index: i })
               }}
               onDoubleClick={(e) => {
@@ -950,6 +960,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
             style={{ cursor: handle.mode === 'curve' ? 'grab' : 'ew-resize' }}
             onMouseDown={(e) => {
               e.stopPropagation()
+              commitHistory()
               setWireDrag({ wireId: w.id, mode: handle.mode })
             }}
           >
@@ -1033,9 +1044,9 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
           e.stopPropagation()
           toggleField(c, true)
         }}
-        style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? 'move' : 'inherit', opacity: c.locked ? 0.85 : 1 }}
+        filter={selected ? 'url(#dc-select-glow)' : undefined}
+        style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? (drag ? 'grabbing' : 'grab') : 'inherit', opacity: c.locked ? 0.85 : 1 }}
       >
-        {selected && <rect x={bounds.x - 4} y={bounds.y - 4} width={bounds.w + 8} height={bounds.h + 8} rx={6} fill="none" stroke="#2f6bff" strokeWidth={1.5} strokeDasharray="5 3" />}
         {c.type === 'contactorWegCWC09' && model ? (
           <>
             {/* vista do mesmo GLB usado no Painel 3D — não é um SVG */}
@@ -1147,6 +1158,21 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
          onDrop={onCanvasDrop}
        >
         <defs>
+          {/* Destaque de seleção: brilho suave que segue a silhueta do componente
+              (não desenha molduras, por isso nunca corta o modelo). */}
+          <filter id="dc-select-glow" x="-35%" y="-35%" width="170%" height="170%" colorInterpolationFilters="sRGB">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="2.2" result="tight" />
+            <feGaussianBlur in="SourceAlpha" stdDeviation="7" result="wide" />
+            <feFlood floodColor="#60a5fa" floodOpacity="0.95" result="tightColor" />
+            <feComposite in="tightColor" in2="tight" operator="in" result="tightGlow" />
+            <feFlood floodColor="#2f6bff" floodOpacity="0.7" result="wideColor" />
+            <feComposite in="wideColor" in2="wide" operator="in" result="wideGlow" />
+            <feMerge>
+              <feMergeNode in="wideGlow" />
+              <feMergeNode in="tightGlow" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
           <pattern id="dc-grid-dots" width={grid.size} height={grid.size} patternUnits="userSpaceOnUse">
             <circle cx={1} cy={1} r={1} fill="#ccd5e3" />
           </pattern>

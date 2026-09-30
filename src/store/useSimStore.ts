@@ -272,6 +272,14 @@ function currentDrawOrder(components: ElectricalComponent[], wires: Wire[]): Dra
   return entries.map(({ kind, id }) => ({ kind, id }))
 }
 
+/** Camada de topo para itens novos. Sem isto, um componente criado depois de
+ * uma reordenação ficava com z=0 e aparecia atrás de tudo. Devolve undefined
+ * enquanto ninguém mexeu nas camadas (mantém o comportamento clássico). */
+function nextTopZ(components: ElectricalComponent[], wires: Wire[]): number | undefined {
+  const zs = [...components.map((c) => c.z), ...wires.map((w) => w.z)].filter((z): z is number => typeof z === 'number')
+  return zs.length ? Math.max(...zs) + 1 : undefined
+}
+
 /** Grava de volta a ordem (0..n-1) como o novo `z` de cada item. */
 function applyDrawOrder(order: DrawKey[], components: ElectricalComponent[], wires: Wire[]) {
   const zByKey = new Map<string, number>()
@@ -948,6 +956,7 @@ export const useSimStore = create<Store>((set, get) => ({
     get().commitHistory()
     const comp = createComponent(type, undefined, undefined, get().components.length, x, y)
     comp.ref = nextRef(get().components, type)
+    comp.z = nextTopZ(get().components, get().wires)
     set((s) => ({
       components: [...s.components, comp],
       selectedComponentIds: [comp.id],
@@ -977,6 +986,9 @@ export const useSimStore = create<Store>((set, get) => ({
         if (!src) continue
         const clone = createComponent(src.type, undefined, src.label, s.components.length + clones.length, src.schematicX + 30, src.schematicY + 30, JSON.parse(JSON.stringify(src.state)))
         clone.ref = nextRef([...s.components, ...clones], src.type)
+        const topZ = nextTopZ([...s.components, ...clones], s.wires)
+        clone.z = topZ
+        clone.mirrored = src.mirrored
         clone.rotation = src.rotation
         clone.viewOrientation = componentOrientationOf(src)
         const sourceTerminalIndexes = new Map(src.terminals.map((terminal, index) => [terminal.id, index]))
@@ -1746,7 +1758,7 @@ export const useSimStore = create<Store>((set, get) => ({
           : undefined,
         terminals: newTerminals,
         ref: nextRef([...get().components, ...newComponents], src.type),
-        z: undefined,
+        z: nextTopZ([...get().components, ...newComponents], get().wires),
       }
       newComponents.push(clone)
     }

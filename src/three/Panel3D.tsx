@@ -1,4 +1,4 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Text, Line, TransformControls, useGLTF } from '@react-three/drei'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import type { ReactNode } from 'react'
@@ -8,7 +8,7 @@ import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColo
 import * as THREE from 'three'
 import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel } from './modelPaths'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
-import { component3DScaleOf, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
+import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
 import { wireEnergyEffectVisible } from './panel3DEditing'
 
@@ -208,7 +208,41 @@ function ConnectionTerminal3D({ component, terminal, active, onPick }: {
   </group>
 }
 
-function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, connectionMode, connectionStartId, onSelect, onMove, onTerminalPick, children }: {
+/** Textura radial partilhada do brilho de seleção. */
+let glowTexture: THREE.CanvasTexture | null = null
+function getGlowTexture(): THREE.CanvasTexture {
+  if (glowTexture) return glowTexture
+  const size = 128
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, size * 0.16, size / 2, size / 2, size / 2)
+  gradient.addColorStop(0, 'rgba(96,165,250,0.85)')
+  gradient.addColorStop(0.45, 'rgba(59,130,246,0.38)')
+  gradient.addColorStop(1, 'rgba(37,99,235,0)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, size, size)
+  glowTexture = new THREE.CanvasTexture(canvas)
+  glowTexture.colorSpace = THREE.SRGBColorSpace
+  return glowTexture
+}
+
+/** Brilho suave atrás do componente selecionado. Substitui o anel do chão, que
+ * cortava/tapava o modelo: é um sprite aditivo sem escrita de profundidade. */
+function SelectionGlow({ component }: { component: ElectricalComponent }) {
+  const size = component3DDimensions(component)
+  const scale = component3DScaleOf(component)
+  const diameter = Math.max(size.x * scale.x, size.y * scale.y, size.z * scale.z) * 1.7 + 0.12
+  const center = component3DVolumeCenter(component)
+  const material = useMemo(() => new THREE.SpriteMaterial({
+    map: getGlowTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9,
+  }), [])
+  useEffect(() => () => material.dispose(), [material])
+  return <sprite position={[center.x, center.y, center.z]} scale={[diameter, diameter, 1]} material={material} renderOrder={-1} raycast={() => null} />
+}
+
+function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, connectionMode, connectionStartId, onSelect, onMove, onTerminalPick, children }: {
   c: ElectricalComponent
   pivot: [number, number, number]
   sourcePivot: [number, number, number]
@@ -216,6 +250,8 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   selected: boolean
   editingTerminals: boolean
   movable: boolean
+  /** Clicar e arrastar o corpo do componente move-o diretamente no painel. */
+  draggable: boolean
   connectionMode: boolean
   connectionStartId: string | null
   onSelect: () => void
@@ -225,22 +261,92 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
 }) {
   const rootRef = useRef<THREE.Group>(null)
   const modelRef = useRef<THREE.Group>(null)
+  const dragRef = useRef<{ plane: THREE.Plane; offset: THREE.Vector3; axis: 'x' | 'y' | 'z'; startX: number; startY: number; moved: boolean; cleanup: () => void } | null>(null)
+  const { camera, gl, controls } = useThree()
   const activeTerminalId = useSimStore((state) => state.viewOrientationEditor?.activeTerminalId)
   const rotation = orientationRadians(orientation)
   const scale = component3DScaleOf(c)
   const renderMode = c.view3DRenderMode ?? 'solid'
   useEffect(() => applyRenderMode(modelRef.current, renderMode, c.bodyColor), [renderMode, c.bodyColor, children])
   useFrame(() => { if (renderMode !== 'solid' || c.bodyColor) applyRenderMode(modelRef.current, renderMode, c.bodyColor) })
-  const instance = <group ref={rootRef} position={pivot} rotation={rotation} onClick={(event) => { event.stopPropagation(); onSelect() }}>
-    <group scale={[scale.x, scale.y, scale.z]}>
-      <group ref={modelRef} position={[-sourcePivot[0], -sourcePivot[1], -sourcePivot[2]]}>{children}</group>
-      {editingTerminals && c.terminals.map((terminal) => <EditableTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === activeTerminalId} />)}
-      {connectionMode && !editingTerminals && c.terminals.map((terminal) => <ConnectionTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === connectionStartId} onPick={onTerminalPick} />)}
+  useEffect(() => () => dragRef.current?.cleanup(), [])
+
+  const startDrag = (event: ThreeEvent<PointerEvent>) => {
+    if (!draggable || event.button !== 0 || !rootRef.current) return
+    event.stopPropagation()
+    onSelect()
+    // Plano de arrasto perpendicular ao eixo mais alinhado com a câmara:
+    // vista frontal → move em X/Y; vista de cima → move em X/Z.
+    const dir = camera.getWorldDirection(new THREE.Vector3())
+    const weights = { z: Math.abs(dir.z) * 1.15, y: Math.abs(dir.y), x: Math.abs(dir.x) }
+    const axis = (Object.entries(weights).sort((a, b) => b[1] - a[1])[0][0]) as 'x' | 'y' | 'z'
+    const normal = new THREE.Vector3(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0)
+    const origin = rootRef.current.position.clone()
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, origin)
+    const hit = event.ray.intersectPlane(plane, new THREE.Vector3())
+    if (!hit) return
+    const raycaster = new THREE.Raycaster()
+    const ndc = new THREE.Vector2()
+    const point = new THREE.Vector3()
+    const onMoveDom = (domEvent: PointerEvent) => {
+      const state = dragRef.current
+      if (!state) return
+      if (!state.moved) {
+        if (Math.hypot(domEvent.clientX - state.startX, domEvent.clientY - state.startY) < 4) return
+        state.moved = true
+        // O histórico guarda o estado ANTES do movimento → Desfazer repõe a posição.
+        useSimStore.getState().commitHistory()
+        gl.domElement.style.cursor = 'grabbing'
+      }
+      const rect = gl.domElement.getBoundingClientRect()
+      ndc.set(((domEvent.clientX - rect.left) / rect.width) * 2 - 1, -(((domEvent.clientY - rect.top) / rect.height) * 2 - 1))
+      raycaster.setFromCamera(ndc, camera)
+      if (!raycaster.ray.intersectPlane(state.plane, point)) return
+      const next = point.clone().add(state.offset)
+      const snap = (value: number) => domEvent.altKey ? value : Math.round(value / 0.05) * 0.05
+      const position = { x: snap(next.x), y: snap(next.y), z: snap(next.z) }
+      position[state.axis] = origin[state.axis] // a coordenada do plano não muda
+      useSimStore.setState((s) => ({
+        components: s.components.map((item) => item.id === c.id ? { ...item, panel3DPosition: position } : item),
+        dirty: true,
+      }))
+    }
+    const finish = () => {
+      window.removeEventListener('pointermove', onMoveDom)
+      window.removeEventListener('pointerup', finish)
+      window.removeEventListener('pointercancel', finish)
+      if (controls) (controls as unknown as { enabled: boolean }).enabled = true
+      gl.domElement.style.cursor = ''
+      dragRef.current = null
+    }
+    dragRef.current = { plane, offset: origin.clone().sub(hit), axis, startX: event.clientX, startY: event.clientY, moved: false, cleanup: finish }
+    // Sem isto a câmara orbitaria ao mesmo tempo que o componente se move.
+    if (controls) (controls as unknown as { enabled: boolean }).enabled = false
+    window.addEventListener('pointermove', onMoveDom)
+    window.addEventListener('pointerup', finish)
+    window.addEventListener('pointercancel', finish)
+  }
+
+  // Rotação/espelho do Esquema aplicados também no 3D (Z = eixo de visão frontal).
+  const schematicRotation = schematicRotationRadians(c)
+  const instance = <group
+    ref={rootRef}
+    position={pivot}
+    onClick={(event) => { event.stopPropagation(); onSelect() }}
+    onPointerDown={startDrag}
+    onPointerOver={() => { if (draggable) gl.domElement.style.cursor = 'grab' }}
+    onPointerOut={() => { if (!dragRef.current) gl.domElement.style.cursor = '' }}
+  >
+    {selected && <SelectionGlow component={c} />}
+    <group rotation={[0, 0, schematicRotation]} scale={[c.mirrored ? -1 : 1, 1, 1]}>
+      <group rotation={rotation}>
+        <group scale={[scale.x, scale.y, scale.z]}>
+          <group ref={modelRef} position={[-sourcePivot[0], -sourcePivot[1], -sourcePivot[2]]}>{children}</group>
+          {editingTerminals && c.terminals.map((terminal) => <EditableTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === activeTerminalId} />)}
+          {connectionMode && !editingTerminals && c.terminals.map((terminal) => <ConnectionTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === connectionStartId} onPick={onTerminalPick} />)}
+        </group>
+      </group>
     </group>
-    {selected && <mesh position={[0, -0.43, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[0.42, 0.48, 32]} />
-      <meshBasicMaterial color="#2f6fe4" transparent opacity={0.8} side={THREE.DoubleSide} />
-    </mesh>}
   </group>
   if (!movable) return instance
   return <TransformControls mode="translate" space="world" size={0.72} translationSnap={0.05} onMouseUp={() => {
@@ -1163,6 +1269,7 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
       selected={selectedIds.includes(component.id)}
       editingTerminals={viewOrientationEditor?.componentId === component.id}
       movable={editMode === 'move' && selectedIds.includes(component.id) && !component.locked && !viewOrientationEditor}
+      draggable={editMode === 'navigate' && !component.locked && !viewOrientationEditor && !reconnect}
       connectionMode={editMode === 'connect' || reconnect !== null}
       connectionStartId={connectionStartId}
       onSelect={() => selectComponents([component.id])}
@@ -1265,7 +1372,7 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
      >
       <ComponentViewEditor />
       <div className="panel3d-viewbar" role="toolbar" aria-label="Edição, vistas e navegação do painel 3D">
-        <button type="button" className={editMode === 'navigate' ? 'is-edit-active' : ''} aria-pressed={editMode === 'navigate'} onClick={() => changeEditMode('navigate')} title="Navegar e orbitar a câmara">Navegar</button>
+        <button type="button" className={editMode === 'navigate' ? 'is-edit-active' : ''} aria-pressed={editMode === 'navigate'} onClick={() => changeEditMode('navigate')} title="Navegar e orbitar a câmara · clique e arraste um componente para o mover">Navegar</button>
         <button type="button" className={editMode === 'move' ? 'is-edit-active' : ''} aria-pressed={editMode === 'move'} onClick={() => changeEditMode('move')} title="Selecionar e mover componentes diretamente no espaço 3D">Mover</button>
         <button type="button" className={editMode === 'connect' ? 'is-edit-active' : ''} aria-pressed={editMode === 'connect'} onClick={() => changeEditMode('connect')} title="Criar ou religar cabos nos bornes físicos">Ligar</button>
         <button type="button" className={editMode === 'curve' ? 'is-edit-active' : ''} aria-pressed={editMode === 'curve'} onClick={() => changeEditMode('curve')} title="Selecionar cabos e editar os pontos das curvas">Cabos</button>

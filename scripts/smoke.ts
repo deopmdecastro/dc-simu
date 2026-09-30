@@ -985,6 +985,37 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.setState(previous)
 }
 
+/* Camadas, rotação no 3D e rastreamento dos bornes por vista. */
+{
+  const previous = useSimStore.getState()
+  useSimStore.getState().newProject()
+  const a = useSimStore.getState().addComponent('terminalPE', 100, 100)!
+  const b = useSimStore.getState().addComponent('terminalPE', 110, 100)!
+  useSimStore.getState().selectComponents([b])
+  useSimStore.getState().sendSelectionToBack()
+  const c = useSimStore.getState().addComponent('terminalPE', 120, 100)!
+  const zOf = (id: string) => useSimStore.getState().components.find((item) => item.id === id)?.z ?? 0
+  check('componente novo entra na camada de topo depois de reordenar', zOf(c) > zOf(a) && zOf(c) > zOf(b), `z=${zOf(a)},${zOf(b)},${zOf(c)}`)
+  useSimStore.getState().selectComponents([c])
+  useSimStore.getState().sendSelectionToBack()
+  check('enviar para trás coloca o componente abaixo dos restantes', zOf(c) < zOf(a) && zOf(c) < zOf(b))
+  useSimStore.getState().undo()
+  check('desfazer repõe a camada anterior', zOf(c) > zOf(a))
+
+  const comp = useSimStore.getState().components.find((item) => item.id === a)!
+  const terminal = comp.terminals[0]
+  const at = (patch: Partial<ElectricalComponent>) => terminalWorld3D({ ...comp, ...patch }, terminal, new THREE.Vector3())
+  const base = at({})
+  const turned = at({ rotation: 90 })
+  check('rotação do esquema roda os bornes no 3D (sentido horário)', Math.abs(turned.x - base.y) < 1e-6 && Math.abs(turned.y + base.x) < 1e-6, `${turned.x.toFixed(3)},${turned.y.toFixed(3)}`)
+  const mirrored = at({ mirrored: true })
+  check('espelhar inverte o eixo X dos bornes no 3D', Math.abs(mirrored.x + base.x) < 1e-6 && Math.abs(mirrored.y - base.y) < 1e-6)
+  const iso = { x: -35.264, y: 45, z: 0 }
+  const projected = componentTerminalLocal({ ...comp, viewOrientation: iso }, terminal, iso)
+  check('vista isométrica projeta bornes em coordenadas finitas dentro do componente', Number.isFinite(projected.x) && Number.isFinite(projected.y))
+  useSimStore.setState(previous)
+}
+
 /* A autenticação estática aceita exatamente as duas identidades aprovadas. */
 {
   const emails = fixedAccountEmails()

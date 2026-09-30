@@ -96,5 +96,13 @@ export function terminalWorld3D(component: ElectricalComponent, terminal: Termin
   const scale = component3DScaleOf(component)
   const local = terminalLocal3D(component, terminal).multiply(new THREE.Vector3(scale.x, scale.y, scale.z))
   const [x, y, z] = orientationRadians(component.viewOrientation)
-  return local.applyEuler(new THREE.Euler(x, y, z, 'XYZ')).add(pivot)
+  local.applyEuler(new THREE.Euler(x, y, z, 'XYZ'))
+  // Rotação/espelho do esquema (mesma ordem do Esquema 2D: espelha, depois roda).
+  if (component.mirrored) local.x *= -1
+  return local.applyEuler(new THREE.Euler(0, 0, schematicRotationRadians(component), 'XYZ')).add(pivot)
+}
+
+/** O Esquema roda no sentido horário; no 3D, visto de frente, isso é -Z. */
+export function schematicRotationRadians(component: Pick<ElectricalComponent, 'rotation'>): number {
+  return -((((component.rotation ?? 0) % 360) + 360) % 360) * Math.PI / 180
 }

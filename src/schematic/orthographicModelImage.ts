@@ -4,6 +4,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 export interface OrthographicModelImageOptions {
   path: string
   rotation: [number, number, number]
+  /** Orientação da instância, composta POR CIMA da rotação base (igual ao Painel 3D).
+   * Somar ângulos de Euler não é o mesmo que compor rotações. */
+  viewRotation?: [number, number, number]
   flipDepth?: boolean
   /** Alterações visuais da captura (por exemplo, ecrã ligado do LOGO!). */
   configureObject?: (object: THREE.Object3D) => void
@@ -19,19 +22,22 @@ const FRAME_PADDING = 1.08
  */
 export async function captureOrthographicModelImage(options: OrthographicModelImageOptions): Promise<string> {
   const { scene: source } = await new GLTFLoader().loadAsync(options.path)
-  const model = source.clone(true)
+  const inner = source.clone(true)
 
-  model.traverse((node) => {
+  inner.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh) return
     const originals = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     const materials = originals.map((material) => material.clone())
     mesh.material = Array.isArray(mesh.material) ? materials : materials[0]
   })
-  options.configureObject?.(model)
+  options.configureObject?.(inner)
 
-  model.rotation.set(...options.rotation)
-  if (options.flipDepth) model.scale.z = -1
+  inner.rotation.set(...options.rotation)
+  if (options.flipDepth) inner.scale.z = -1
+  const model = new THREE.Group()
+  model.add(inner)
+  if (options.viewRotation) model.rotation.set(...options.viewRotation)
   model.updateMatrixWorld(true)
 
   const initialBounds = new THREE.Box3().setFromObject(model)

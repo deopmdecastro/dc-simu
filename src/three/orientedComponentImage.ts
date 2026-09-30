@@ -3,6 +3,7 @@ import { captureOrthographicModelImage } from '../schematic/orthographicModelIma
 import { getComponentGlbSpec } from './modelPaths'
 import { normalizeComponentOrientation } from './componentOrientation'
 
+// v2: orientação composta sobre a rotação base (igual ao Painel 3D).
 const cache = new Map<string, Promise<string>>()
 
 /** Captura ortográfica de uma orientação individual, sem alterar o GLB fonte. */
@@ -20,11 +21,8 @@ export function getOrientedComponentImage(
   const radians = Math.PI / 180
   const promise = captureOrthographicModelImage({
     path: spec.path,
-    rotation: [
-      spec.rotation[0] + orientation.x * radians,
-      spec.rotation[1] + orientation.y * radians,
-      spec.rotation[2] + orientation.z * radians,
-    ],
+    rotation: spec.rotation,
+    viewRotation: [orientation.x * radians, orientation.y * radians, orientation.z * radians],
     flipDepth: spec.flipDepth,
   }).catch((error) => {
     cache.delete(key)

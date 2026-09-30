@@ -15,6 +15,8 @@ import { logoTerminalLocal } from './logoTerminalGeometry'
 import { proautoTerminalLocal } from './proautoTerminalGeometry'
 import { wegTerminalLocal } from './wegTerminalGeometry'
 import { terminal3DPositionOf } from '../three/terminal3D'
+import { getComponentModelSpec } from '../three/modelPaths'
+import * as THREE from 'three'
 
 type Point3 = { x: number; y: number; z: number }
 
@@ -27,13 +29,13 @@ export function baseTerminalLocal(component: ElectricalComponent, terminal: Term
       : logoTerminalLocal(component, terminal)
 }
 
+/** Mesma convenção do Painel 3D e da captura ortográfica (Euler XYZ do three.js:
+ * Z, depois Y, depois X aplicados ao vetor). A versão anterior aplicava X→Y→Z,
+ * o que desalinhava os bornes em vistas com mais de um eixo (ex.: isométrica). */
 function rotate(point: Point3, orientation?: Partial<ComponentViewOrientation> | null): Point3 {
   const [rx, ry, rz] = orientationRadians(orientation)
-  let { x, y, z } = point
-  ;[y, z] = [y * Math.cos(rx) - z * Math.sin(rx), y * Math.sin(rx) + z * Math.cos(rx)]
-  ;[x, z] = [x * Math.cos(ry) + z * Math.sin(ry), -x * Math.sin(ry) + z * Math.cos(ry)]
-  ;[x, y] = [x * Math.cos(rz) - y * Math.sin(rz), x * Math.sin(rz) + y * Math.cos(rz)]
-  return { x, y, z }
+  const v = new THREE.Vector3(point.x, point.y, point.z).applyEuler(new THREE.Euler(rx, ry, rz, 'XYZ'))
+  return { x: v.x, y: v.y, z: v.z }
 }
 
 function projectedGeometry(component: ElectricalComponent, orientation: ComponentViewOrientation) {
@@ -41,7 +43,12 @@ function projectedGeometry(component: ElectricalComponent, orientation: Componen
   const height = Math.max(1, component.h)
   // Sem metadados de malha por borne, a profundidade física é estimada. A
   // sugestão serve como ponto de partida e pode sempre ser corrigida à mão.
-  const depth = Math.max(8, Math.min(width, height) * 0.42)
+  // Profundidade real do CAD quando existe ficha física (mesma escala que o
+  // footprint do esquema); caso contrário, estimativa conservadora.
+  const physical = getComponentModelSpec(component.type)?.physicalSizeMm
+  const depth = physical
+    ? Math.max(4, physical.depth * ((width / physical.width + height / physical.height) / 2))
+    : Math.max(8, Math.min(width, height) * 0.42)
   const corners: Point3[] = []
   for (const x of [-width / 2, width / 2]) for (const y of [-height / 2, height / 2]) for (const z of [-depth / 2, depth / 2]) corners.push(rotate({ x, y, z }, orientation))
   const minX = Math.min(...corners.map((point) => point.x))
