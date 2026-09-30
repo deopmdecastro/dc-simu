@@ -10,37 +10,6 @@
 .component-view-editor > header small { max-width:225px; overflow:hidden; color:#718096; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
 .component-view-editor > header > button { width:25px; height:25px; border-radius:5px; color:#64748b; font-size:18px; line-height:1; }
 .component-view-editor > header > button:hover { color:#b91c1c; background:#fee2e2; }
-.component-view-cube-wrap { position:relative; display:flex; min-height:145px; flex-direction:column; align-items:center; justify-content:center; gap:7px; border-bottom:1px solid #e5eaf1; background:radial-gradient(circle at 50% 44%,#fff 0,#f0f5fc 56%,#e6edf7 100%); }
-.component-view-cube-wrap > span { color:#7b899d; font-size:8px; }
-.component-view-cube-stage { position:relative; display:grid; width:112px; height:112px; place-items:center; border:1px solid #285cb5; border-radius:50%; background:radial-gradient(circle,#173f84 0,#0f2a59 58%,#091b3d 100%); box-shadow:inset 0 0 18px #38bdf83d,0 5px 16px #0f2a5945; perspective:360px; cursor:grab; touch-action:none; user-select:none; }
-.component-view-cube-stage::before { position:absolute; inset:8px; border:1px dashed #67e8f97a; border-radius:50%; content:""; pointer-events:none; }
-.component-view-cube-stage:active { cursor:grabbing; }
-.component-view-compass { position:absolute; z-index:1; color:#93c5fd; font:800 7px ui-monospace,monospace; pointer-events:none; }
-.component-view-compass.north { top:5px; left:50%; transform:translateX(-50%); color:#67e8f9; }
-.component-view-compass.east { right:6px; top:50%; transform:translateY(-50%); }
-.component-view-compass.south { bottom:5px; left:50%; transform:translateX(-50%); }
-.component-view-compass.west { left:6px; top:50%; transform:translateY(-50%); }
-.component-view-axis { position:absolute; z-index:3; font:900 7px ui-monospace,monospace; pointer-events:none; }
-.component-view-axis.x { right:19px; bottom:18px; color:#f87171; }
-.component-view-axis.y { left:20px; top:18px; color:#4ade80; }
-.component-view-axis.z { left:19px; bottom:18px; color:#60a5fa; }
-.component-view-cube { position:relative; width:58px; height:58px; transform-style:preserve-3d; transition:transform .08s linear; }
-.component-view-cube-corner { position:absolute; z-index:2; width:13px; height:13px; padding:0; border:1px solid #6f91da; border-radius:2px; background:#dbe8ff; box-shadow:0 1px 4px #1f55e03b; transform:rotate(45deg); cursor:pointer; }
-.component-view-cube-corner:hover { border-color:#1f55e0; background:#2f6fe4; transform:rotate(45deg) scale(1.15); }
-.component-view-cube-corner.nw { top:10px; left:10px; }
-.component-view-cube-corner.ne { top:10px; right:10px; }
-.component-view-cube-corner.sw { bottom:10px; left:10px; }
-.component-view-cube-corner.se { right:10px; bottom:10px; }
-.component-view-cube .face { position:absolute; inset:0; display:grid; place-items:center; border:1px solid #67e8f9aa; color:#fff; background:linear-gradient(135deg,#1e40afee,#2563ebee 56%,#1d4ed8ee); box-shadow:inset 0 0 14px #67e8f947,0 2px 8px #02061766; font:800 13px ui-monospace,monospace; backface-visibility:hidden; }
-.component-view-cube .face:hover { border-color:#22d3ee; color:#67e8f9; background:linear-gradient(135deg,#2563eb,#0284c7); box-shadow:inset 0 0 18px #67e8f97a,0 0 12px #22d3ee80; }
-.component-view-cube .front { transform:translateZ(29px); }
-.component-view-cube .back { transform:rotateY(180deg) translateZ(29px); }
-.component-view-cube .right { transform:rotateY(90deg) translateZ(29px); }
-.component-view-cube .left { transform:rotateY(-90deg) translateZ(29px); }
-.component-view-cube .top { transform:rotateX(90deg) translateZ(29px); }
-.component-view-cube .bottom { transform:rotateX(-90deg) translateZ(29px); }
-.component-view-iso { position:absolute; top:9px; right:10px; height:23px; padding:0 7px; border:1px solid #c0d4fc; border-radius:5px; color:#1f55e0; background:#fff; font:750 8px ui-monospace,monospace; }
-.component-view-iso:hover { background:#eaf1ff; }
 .component-view-presets { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; padding:8px; border-bottom:1px solid #e5eaf1; }
 .component-view-presets button,.component-view-rotate-z button { min-width:0; min-height:25px; padding:3px 4px; border:1px solid #dce3ed; border-radius:5px; color:#4b5b72; background:#f8fafc; font-size:8px; font-weight:650; }
 .component-view-presets button:hover,.component-view-rotate-z button:hover { border-color:#9bb7f6; color:#1f55e0; background:#eef4ff; }
@@ -126,7 +95,7 @@
 .component-view-warning { padding:5px 6px; border-radius:5px; color:#9a3412; background:#fff7ed; }
 .component-view-editor > footer { position:sticky; bottom:0; display:flex; justify-content:flex-end; gap:6px; padding:8px; border-top:1px solid #dce3ed; background:#fff; }
 .component-view-editor > footer .dc-btn { min-height:28px; font-size:9px; }
-@media(max-width:560px) { .component-view-editor { top:8px; right:8px; max-width:calc(100% - 16px); max-height:calc(100% - 16px); } .component-view-command { top:8px; right:8px; } .component-view-cube-wrap { min-height:130px; } }
+@media(max-width:560px) { .component-view-editor { top:8px; right:8px; max-width:calc(100% - 16px); max-height:calc(100% - 16px); } .component-view-command { top:8px; right:8px; } .vcube-panel { min-height:130px; } }
 
 /* ---------------------------------------------------------------------------
    Esquema 2D — hover/seleção suaves e rotação sem "flash" de carregamento
@@ -167,25 +136,53 @@
 /* Duas ações no comando fechado (Editar componente 3D · Editar bornes). */
 .component-view-command { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
 
-/* Cubo de vista da câmara 3D — por baixo do comando/painel "Editar componente 3D". */
-.panel3d-viewcube { position:absolute; z-index:22; top:12px; right:12px; display:flex; width:96px; flex-direction:column; align-items:center; gap:3px; padding:6px 4px 4px; border:1px solid #cbd7e8; border-radius:10px; background:#fffffff2; box-shadow:0 4px 14px #243b6324; backdrop-filter:blur(8px); user-select:none; }
-.panel3d-viewcube.below-command { top:84px; }
-.panel3d-viewcube.is-shifted { top:12px; right:396px; }
-.panel3d-viewcube-stage { position:relative; display:grid; width:84px; height:84px; place-items:center; perspective:300px; cursor:grab; touch-action:none; }
-.panel3d-viewcube-stage:active { cursor:grabbing; }
-.panel3d-viewcube-body { position:relative; width:44px; height:44px; transform-style:preserve-3d; }
-.panel3d-viewcube-body .face { position:absolute; inset:0; display:grid; place-items:center; padding:0; border:1px solid #6f8fc9; color:#1e3a8a; background:linear-gradient(135deg,#f4f8ff,#dbe7fb); font:800 7px ui-monospace,monospace; letter-spacing:.02em; cursor:pointer; backface-visibility:hidden; }
-.panel3d-viewcube-body .face:hover { color:#fff; border-color:#1d4ed8; background:linear-gradient(135deg,#3b82f6,#1d4ed8); }
-.panel3d-viewcube-body .front { transform:translateZ(22px); }
-.panel3d-viewcube-body .back { transform:rotateY(180deg) translateZ(22px); }
-.panel3d-viewcube-body .right { transform:rotateY(90deg) translateZ(22px); }
-.panel3d-viewcube-body .left { transform:rotateY(-90deg) translateZ(22px); }
-.panel3d-viewcube-body .top { transform:rotateX(90deg) translateZ(22px); background:linear-gradient(135deg,#eaf6ee,#cfe8d7); }
-.panel3d-viewcube-body .bottom { transform:rotateX(-90deg) translateZ(22px); background:linear-gradient(135deg,#eceff4,#cfd6e2); }
-.panel3d-viewcube-iso { height:18px; padding:0 8px; border:1px solid #c0d4fc; border-radius:5px; color:#1f55e0; background:#fff; font:750 8px ui-monospace,monospace; }
-.panel3d-viewcube-iso:hover { background:#eaf1ff; }
-.panel3d-viewcube > small { color:#7b899d; font:600 7px ui-monospace,monospace; }
-@media (max-width: 700px) { .panel3d-viewcube.below-command { top:84px; }
-.panel3d-viewcube.is-shifted { display:none; } }
 
 /* Painel de edição direta de bornes no 3D. */
+
+
+/* ---------------------------------------------------------------------------
+   Cubo de vista em mostrador — Esquema 2D, Visualização 3D e "Editar componente 3D"
+--------------------------------------------------------------------------- */
+.vcube { display:flex; flex-direction:column; align-items:center; gap:5px; user-select:none; }
+.vcube-floating { position:absolute; z-index:22; top:12px; right:12px; width:136px; padding:8px 6px 6px; border:1px solid #cbd7e8; border-radius:12px; background:#fffffff0; box-shadow:0 6px 18px #243b6330; backdrop-filter:blur(8px); }
+.vcube-floating.vcube-below-command { top:84px; }
+.vcube-floating.vcube-shifted { top:12px; right:396px; }
+.vcube-panel { position:relative; min-height:170px; justify-content:center; padding:10px 6px 8px; border-bottom:1px solid #e5eaf1; background:radial-gradient(circle at 50% 44%,#fff 0,#f0f5fc 56%,#e6edf7 100%); }
+.vcube-stage { position:relative; display:grid; width:112px; height:112px; flex:none; place-items:center; border:1px solid #285cb5; border-radius:50%; background:radial-gradient(circle,#1a4797 0,#0f2a59 58%,#091b3d 100%); box-shadow:inset 0 0 18px #38bdf84d,0 5px 16px #0f2a5945; perspective:380px; cursor:grab; touch-action:none; }
+.vcube-stage::before { position:absolute; inset:8px; border:1px dashed #67e8f97a; border-radius:50%; content:""; pointer-events:none; }
+.vcube-stage:active { cursor:grabbing; }
+.vcube-arrow { position:absolute; z-index:3; display:grid; width:15px; height:13px; padding:0; place-items:center; border:0; border-radius:4px; color:#7dd3fc; background:transparent; font-size:7px; line-height:1; cursor:pointer; }
+.vcube-arrow:hover { color:#fff; background:#2563eb99; }
+.vcube-arrow.up { top:2px; left:calc(50% - 7.5px); }
+.vcube-arrow.down { bottom:2px; left:calc(50% - 7.5px); }
+.vcube-arrow.left { left:2px; top:calc(50% - 6.5px); }
+.vcube-arrow.right { right:2px; top:calc(50% - 6.5px); }
+.vcube-body { position:relative; width:58px; height:58px; transform-style:preserve-3d; transition:transform .08s linear; }
+.vcube-body .face { position:absolute; inset:0; display:grid; place-items:center; padding:0; border:1px solid #67e8f9aa; color:#e0f2fe; background:linear-gradient(135deg,#1e40afee,#2563ebee 56%,#1d4ed8ee); box-shadow:inset 0 0 14px #67e8f947,0 2px 8px #02061766; font:800 13px ui-monospace,monospace; cursor:pointer; backface-visibility:hidden; transition:background .12s,box-shadow .12s; }
+.vcube-body .face.is-facing { border-color:#a5f3fc; color:#fff; background:linear-gradient(135deg,#2f6fe4,#0ea5e9 62%,#0284c7); box-shadow:inset 0 0 16px #a5f3fc66,0 0 10px #22d3ee66; }
+.vcube-body .face:hover { border-color:#22d3ee; color:#67e8f9; background:linear-gradient(135deg,#2563eb,#0284c7); box-shadow:inset 0 0 18px #67e8f97a,0 0 12px #22d3ee80; }
+.vcube-body .front { transform:translateZ(29px); }
+.vcube-body .back { transform:rotateY(180deg) translateZ(29px); }
+.vcube-body .right { transform:rotateY(90deg) translateZ(29px); }
+.vcube-body .left { transform:rotateY(-90deg) translateZ(29px); }
+.vcube-body .top { transform:rotateX(90deg) translateZ(29px); }
+.vcube-body .bottom { transform:rotateX(-90deg) translateZ(29px); }
+/* Eixos X (vermelho), Y (verde) e Z (azul) a partir do canto frente-esquerda-inferior. */
+.vcube-axis { position:absolute; left:50%; top:50%; width:76px; height:2px; margin-top:-1px; border-radius:1px; pointer-events:none; transform-origin:0 50%; }
+.vcube-axis.x { background:#f87171; box-shadow:0 0 5px #f87171; transform:translate3d(-30px,30px,30px); }
+.vcube-axis.y { background:#4ade80; box-shadow:0 0 5px #4ade80; transform:translate3d(-30px,30px,30px) rotateZ(-90deg); }
+.vcube-axis.z { background:#60a5fa; box-shadow:0 0 5px #60a5fa; transform:translate3d(-30px,30px,30px) rotateY(-90deg); }
+.vcube-corner { position:absolute; z-index:2; width:13px; height:13px; padding:0; border:1px solid #6f91da; border-radius:2px; background:#dbe8ff; box-shadow:0 1px 4px #1f55e03b; transform:rotate(45deg); cursor:pointer; }
+.vcube-corner:hover { border-color:#1f55e0; background:#2f6fe4; transform:rotate(45deg) scale(1.15); }
+.vcube-corner.nw { top:10px; left:10px; }
+.vcube-corner.ne { top:10px; right:10px; }
+.vcube-corner.sw { bottom:10px; left:10px; }
+.vcube-corner.se { right:10px; bottom:10px; }
+.vcube-actions { display:flex; align-items:center; justify-content:center; gap:5px; width:100%; }
+.vcube-actions > button { height:20px; padding:0 8px; border:1px solid #c0d4fc; border-radius:5px; color:#1f55e0; background:#fff; font:750 8px ui-monospace,monospace; cursor:pointer; }
+.vcube-actions > button:hover { background:#eaf1ff; }
+.vcube-legend { display:inline-flex; gap:4px; margin-right:auto; font:900 8px ui-monospace,monospace; }
+.vcube-legend .x { color:#ef4444; } .vcube-legend .y { color:#22c55e; } .vcube-legend .z { color:#3b82f6; }
+.vcube > small { max-width:100%; color:#7b899d; font:600 7.5px ui-monospace,monospace; text-align:center; }
+.vcube > .vcube-readout { color:#1f55e0; }
+@media (max-width: 700px) { .vcube-floating.vcube-shifted { display:none; } }

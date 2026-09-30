@@ -15,7 +15,7 @@ import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
-import ViewCube, { type ViewCubeFace } from '../components/ViewCube'
+import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from './panel3DEditing'
 
 const SLOT_WIDTH = 0.72
@@ -1130,8 +1130,8 @@ function Wires3D({ pivots, editMode, selectedWireId, activeWaypointIndex, onSele
 
 /* -------------------------------------------------------------------- cena */
 
-type PanelCameraView = 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'isometric' | 'focus' | 'orbit'
-type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number]; dx?: number; dy?: number }
+type PanelCameraView = 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'isometric' | 'focus' | 'orbit' | 'angles'
+type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number]; dx?: number; dy?: number; yaw?: number; pitch?: number }
 
 /** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
 function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void }) {
@@ -1186,6 +1186,11 @@ function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraC
       position = target.clone().add(new THREE.Vector3(fitDistance, 0.02, 0))
     } else if (command.view === 'left') {
       position = target.clone().add(new THREE.Vector3(-fitDistance, 0.02, 0))
+    } else if (command.view === 'angles') {
+      // Ângulos livres (cantos do cubo / vista vinda do Esquema 2D): yaw 0° = frente, pitch > 0 = por cima.
+      const yaw = THREE.MathUtils.degToRad(command.yaw ?? 0)
+      const pitch = THREE.MathUtils.degToRad(Math.max(-89, Math.min(89, command.pitch ?? 0)))
+      position = target.clone().add(new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch) + 0.02, Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(fitDistance))
     } else if (command.view === 'top') {
       camera.up.set(0, 0, -1)
       position = target.clone().add(new THREE.Vector3(0, fitDistance, 0.01))
@@ -1207,7 +1212,7 @@ function PanelCameraRig({ command, railWidth, onStats }: { command: PanelCameraC
 }
 
 /** Visualização 3D do Esquema: mesmo projeto, à escala real, em sintonia com o Esquema 2D. */
-export default function Panel3D() {
+export default function Panel3D({ initialCamera = null, onInitialCameraUsed }: { initialCamera?: ViewCubeRequest | null; onInitialCameraUsed?: () => void } = {}) {
   const storedComponents = useSimStore((s) => s.components)
   const pressButton = useSimStore((s) => s.pressButton)
   const setComponentState = useSimStore((s) => s.setComponentState)
@@ -1255,14 +1260,33 @@ export default function Panel3D() {
   const moveCamera = (view: PanelCameraView, target: [number, number, number] = sceneCenterRef.current) =>
     setCameraCommand((current) => ({ id: current.id + 1, view, target }))
   const pickCubeView = (view: ViewCubeFace) => moveCamera(view === 'isometric' ? 'isometric' : view)
+  const pickCubeAngles = (yaw: number, pitch: number, target: [number, number, number] = sceneCenterRef.current) =>
+    setCameraCommand((current) => ({ id: current.id + 1, view: 'angles', target, yaw, pitch }))
+  const applyCubeRequest = (request: ViewCubeRequest) => {
+    if ('view' in request) pickCubeView(request.view)
+    else pickCubeAngles(request.yaw, request.pitch)
+  }
   const orbitCamera = (dx: number, dy: number) =>
     setCameraCommand((current) => ({ id: current.id + 1, view: 'orbit', target: current.target, dx, dy }))
   // Primeira vez que o projeto tem equipamento: enquadra-o em isométrica.
   const fittedRef = useRef(false)
+  const initialCameraRef = useRef(initialCamera)
+  useEffect(() => {
+    if (!initialCameraRef.current) return
+    onInitialCameraUsed?.()
+    // Sem equipamento ainda, aplica já a vista para o cubo refletir o pedido.
+    if (!hasComponents) applyCubeRequest(initialCameraRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const hasComponents = storedComponents.length > 0
   useEffect(() => {
     if (!hasComponents) { fittedRef.current = false; return }
-    if (!fittedRef.current) { fittedRef.current = true; moveCamera('isometric') }
+    if (!fittedRef.current) {
+      fittedRef.current = true
+      // Vista pedida no cubo do Esquema 2D (frontal por omissão) tem prioridade sobre a isométrica.
+      if (initialCameraRef.current) applyCubeRequest(initialCameraRef.current)
+      else moveCamera('isometric')
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasComponents])
   const toggleGrid = () => setShowGrid((current) => {
@@ -1553,7 +1577,7 @@ export default function Panel3D() {
        }}
      >
       <ComponentViewEditor />
-      <ViewCube yaw={cameraStats.yaw} pitch={cameraStats.pitch} onPick={pickCubeView} onOrbit={orbitCamera} shifted={!!viewOrientationEditor} belowCommand={selectedIds.length === 1} />
+      <ViewCube yaw={cameraStats.yaw} pitch={cameraStats.pitch} onPick={pickCubeView} onAngles={pickCubeAngles} onOrbit={orbitCamera} placement={viewOrientationEditor ? 'shifted' : selectedIds.length === 1 ? 'below-command' : 'top'} />
       <div className="panel3d-viewbar" role="toolbar" aria-label="Edição, vistas e navegação do painel 3D">
         <button type="button" className={editMode === 'navigate' ? 'is-edit-active' : ''} aria-pressed={editMode === 'navigate'} onClick={() => changeEditMode('navigate')} title="Navegar e orbitar a câmara · clique e arraste um componente para o mover">Navegar</button>
         <button type="button" className={editMode === 'move' ? 'is-edit-active' : ''} aria-pressed={editMode === 'move'} onClick={() => changeEditMode('move')} title="Selecionar e mover componentes diretamente no espaço 3D">Mover</button>

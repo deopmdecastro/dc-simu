@@ -1993,6 +1993,7 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
   .dc-toolbar-main { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; min-height: 48px; scrollbar-width: thin; }
   .schematic-view-shell[data-canvas-mode="3d"] .panel3d-axis-hud { right:43px; }
   .panel3d-stage .component-view-command { right:43px; }
+  .panel3d-stage .vcube-floating:not(.vcube-shifted) { right:43px; }
   .panel3d-stage .component-view-editor { right:43px; width:min(372px,calc(100% - 55px)); max-width:calc(100% - 55px); }
   .dc-views-container { order: initial; flex-basis: auto; flex-shrink: 0; }
   .dc-workspace .dc-resize-handle { display: none; }

@@ -10,6 +10,7 @@ import { getComponentModelSpec, hasComponent3DModel } from '../three/modelPaths'
 import { componentTerminalLocal } from '../schematic/componentTerminalViews'
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL } from '../schematic/symbols'
 import { component3DDimensions, positionOnTerminalFace, terminal3DPositionOf, type Terminal3DFace } from '../three/terminal3D'
+import { ViewCubeDial, orientationFacingFace, type ViewCubeCorner } from './ViewCube'
 import { IconCube, IconProbe, IconRotate, IconSave } from '../ui/icons'
 import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent, TerminalKind, TerminalType } from '../types'
 
@@ -23,66 +24,38 @@ const PRESETS: Array<{ id: ComponentViewPreset; label: string }> = [
   { id: 'bottom', label: 'Inferior' },
 ]
 
-const VIEW_CUBE_CORNERS: Array<{ position: string; label: string; orientation: ComponentViewOrientation }> = [
-  { position: 'nw', label: 'Canto isométrico superior esquerdo', orientation: { x: -35.264, y: -45, z: 0 } },
-  { position: 'ne', label: 'Canto isométrico superior direito', orientation: COMPONENT_VIEW_PRESETS.isometric },
-  { position: 'sw', label: 'Canto isométrico inferior esquerdo', orientation: { x: 35.264, y: -45, z: 0 } },
-  { position: 'se', label: 'Canto isométrico inferior direito', orientation: { x: 35.264, y: 45, z: 0 } },
-]
+const VIEW_CUBE_CORNERS: Record<ViewCubeCorner, ComponentViewOrientation> = {
+  nw: { x: -35.264, y: -45, z: 0 },
+  ne: COMPONENT_VIEW_PRESETS.isometric,
+  sw: { x: 35.264, y: -45, z: 0 },
+  se: { x: 35.264, y: 45, z: 0 },
+}
 
 function OrientationCube({ value, onChange }: { value: ComponentViewOrientation; onChange: (value: ComponentViewOrientation) => void }) {
-  const drag = useRef<{ pointerId: number; x: number; y: number; orientation: ComponentViewOrientation } | null>(null)
-  const finish = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (drag.current?.pointerId !== event.pointerId) return
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-    drag.current = null
-  }
+  // Arrasto incremental: lê sempre o valor mais recente (evita dessincronizar com o rascunho).
+  const valueRef = useRef(value)
+  valueRef.current = value
   const preset = (id: ComponentViewPreset) => onChange({ ...COMPONENT_VIEW_PRESETS[id] })
-  return (
-    <div className="component-view-cube-wrap">
-      <div
-        className="component-view-cube-stage"
-        title="Arraste para rodar livremente · Shift+arraste roda o eixo Z"
-        onPointerDown={(event) => {
-          drag.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, orientation: { ...value } }
-          event.currentTarget.setPointerCapture(event.pointerId)
-        }}
-        onPointerMove={(event) => {
-          const current = drag.current
-          if (!current || current.pointerId !== event.pointerId) return
-          const dx = event.clientX - current.x
-          const dy = event.clientY - current.y
-          onChange(normalizeComponentOrientation(event.shiftKey
-            ? { ...current.orientation, z: current.orientation.z + dx * 0.65 }
-            : { ...current.orientation, x: current.orientation.x - dy * 0.65, y: current.orientation.y + dx * 0.65 }))
-        }}
-        onPointerUp={finish}
-        onPointerCancel={finish}
-      >
-        <span className="component-view-compass north">N</span><span className="component-view-compass east">L</span><span className="component-view-compass south">S</span><span className="component-view-compass west">O</span>
-        <span className="component-view-axis x">X</span><span className="component-view-axis y">Y</span><span className="component-view-axis z">Z</span>
-        <div className="component-view-cube" style={{ transform: `rotateX(${-value.x}deg) rotateY(${value.y}deg) rotateZ(${value.z}deg)` }}>
-          <button className="face front" onClick={(event) => { event.stopPropagation(); preset('front') }} title="Frente">F</button>
-          <button className="face back" onClick={(event) => { event.stopPropagation(); preset('back') }} title="Trás">T</button>
-          <button className="face right" onClick={(event) => { event.stopPropagation(); preset('right') }} title="Direita">D</button>
-          <button className="face left" onClick={(event) => { event.stopPropagation(); preset('left') }} title="Esquerda">E</button>
-          <button className="face top" onClick={(event) => { event.stopPropagation(); preset('top') }} title="Superior">S</button>
-          <button className="face bottom" onClick={(event) => { event.stopPropagation(); preset('bottom') }} title="Inferior">I</button>
-        </div>
-        {VIEW_CUBE_CORNERS.map((corner) => <button
-          type="button"
-          key={corner.position}
-          className={`component-view-cube-corner ${corner.position}`}
-          aria-label={corner.label}
-          title={corner.label}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => { event.stopPropagation(); onChange({ ...corner.orientation }) }}
-        />)}
-      </div>
-      <button className="component-view-iso" onClick={() => preset('isometric')} title="Vista isométrica">ISO</button>
-      <span>Arraste o cubo · Shift = eixo Z</span>
-    </div>
-  )
+  return <ViewCubeDial
+    variant="panel"
+    ariaLabel="Cubo de orientação do componente"
+    transform={`rotateX(${-value.x}deg) rotateY(${value.y}deg) rotateZ(${value.z}deg)`}
+    activeFace={orientationFacingFace(value.x, value.y, value.z)}
+    onFace={(face) => preset(face)}
+    onCorner={(corner) => onChange({ ...VIEW_CUBE_CORNERS[corner] })}
+    onIso={() => preset('isometric')}
+    onHome={() => preset('front')}
+    onDrag={(dx, dy, shift) => {
+      const current = valueRef.current
+      onChange(normalizeComponentOrientation(shift
+        ? { ...current, z: current.z + dx * 0.65 }
+        : { ...current, x: current.x - dy * 0.65, y: current.y + dx * 0.65 }))
+    }}
+    arrowStep={23}
+    dragTitle="Arraste para rodar livremente · Shift+arraste roda o eixo Z"
+    caption="Arraste o cubo · Shift = eixo Z"
+    readout={`X ${Math.round(value.x)}° · Y ${Math.round(value.y)}° · Z ${Math.round(value.z)}°`}
+  />
 }
 
 function AngleField({ axis, value, onChange }: { axis: 'X' | 'Y' | 'Z'; value: number; onChange: (value: number) => void }) {

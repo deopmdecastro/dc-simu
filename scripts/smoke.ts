@@ -1203,6 +1203,19 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 }
 
 {
+  // cubo de vista: face virada para o utilizador coerente com a câmara / orientação do componente
+  const { cameraFacingFace, orientationFacingFace, CORNER_ANGLES } = await import('../src/components/ViewCube')
+  check('cubo: câmara frontal vê a face FRENTE', cameraFacingFace(0, 0) === 'front')
+  check('cubo: câmara à direita vê a face DIREITA', cameraFacingFace(90, 0) === 'right')
+  check('cubo: câmara por cima vê o TOPO', cameraFacingFace(0, 80) === 'top')
+  check('cubo: câmara por baixo vê a BASE', cameraFacingFace(10, -70) === 'bottom')
+  check('cubo: câmara por trás vê TRÁS', cameraFacingFace(180, 0) === 'back')
+  check('cubo: orientação neutra do componente mostra a FRENTE', orientationFacingFace(0, 0, 0) === 'front')
+  check('cubo: rodar 180° em Y mostra TRÁS', orientationFacingFace(0, 180, 0) === 'back')
+  check('cubo: rodar 90° em Y mostra a face ESQUERDA ou DIREITA', ['left', 'right'].includes(orientationFacingFace(0, 90, 0)))
+  check('cubo: cantos isométricos a ±45° / ±35,264°', CORNER_ANGLES.ne.yaw === 45 && CORNER_ANGLES.sw.pitch === -35.264)
+}
+{
   // escala real: a caixa EXATA (vértices) de cada GLB, com a rotação base, tem de encaixar na ficha física
   const { auditModels } = await import('./audit-models')
   const rows = await auditModels()
