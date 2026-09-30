@@ -366,7 +366,8 @@ button.vcube-heading:hover { background:#f0f5fc; }
   backdrop-filter:none;
 }
 .vcube-floating .vcube-stage { height:128px; border-radius:0; background:none; box-shadow:none; }
-.vcube-floating .vcube-body { --vcube-size:58px; filter:drop-shadow(0 6px 10px #1b2d4933); }
+.vcube-floating .vcube-body { --vcube-size:58px; } /* sem filter: quebraria o preserve-3d e achataria o cubo */
+.vcube-floating .vcube-body .face { box-shadow:inset 0 1px 0 #fff,inset 0 -6px 14px #6c8bb11f,0 4px 10px #1b2d4926; }
 .vcube-floating .vcube-arrow { width:24px; height:24px; border-radius:50%; background:#ffffffd9; box-shadow:0 1px 4px #1b2d4926; }
 .vcube-floating .vcube-arrow.up { top:0; left:calc(50% - 12px); }
 .vcube-floating .vcube-arrow.down { bottom:0; left:calc(50% - 12px); }
@@ -384,7 +385,8 @@ button.vcube-heading:hover { background:#f0f5fc; }
 .vcube-floating > small:not(.vcube-readout) { display:none; }
 .vcube-floating > .vcube-readout { margin:0; padding:2px 8px; align-self:center; border-radius:999px; background:#ffffffcc; }
 @media (max-width: 700px) {
-  .vcube-floating:not(.vcube-shifted) { width:112px; top:6px; right:6px; }
+  .vcube-floating:not(.vcube-shifted):not(.vcube-below-command) { width:112px; top:84px; right:6px; }
+  .vcube-floating.vcube-below-command { width:112px; }
   .vcube-floating .vcube-stage { height:108px; }
   .vcube-floating .vcube-body { --vcube-size:48px; }
   .vcube-floating .vcube-corner { display:none; }
