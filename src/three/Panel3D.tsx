@@ -1800,6 +1800,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
      <div
        className={`panel3d-stage relative w-full h-full ${stageBackground}`}
        data-embedded-in-schematic="true"
+       data-front-edit={frontEdit ? 'true' : 'false'}
        data-component-editing={viewOrientationEditor ? 'true' : 'false'}
        aria-label="Visualização 3D do Esquema"
        onDragOver={(e) => {
@@ -1817,7 +1818,17 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
        }}
      >
       <ComponentViewEditor />
-      {viewOrientationEditor && <ViewCube yaw={cameraStats.yaw} pitch={cameraStats.pitch} onPick={pickCubeView} onAngles={pickCubeAngles} onOrbit={orbitCamera} note={cubeNote} placement="shifted" />}
+      {(frontEdit || viewOrientationEditor) && (
+        <ViewCube
+          yaw={cameraStats.yaw}
+          pitch={cameraStats.pitch}
+          onPick={pickCubeView}
+          onAngles={pickCubeAngles}
+          onOrbit={orbitCamera}
+          note={cubeNote}
+          placement={viewOrientationEditor ? 'shifted' : 'top'}
+        />
+      )}
       <div className="panel3d-viewbar" role="toolbar" aria-label="Edição, vistas e navegação do painel 3D">
         <div className="panel3d-viewbar-group" aria-label="Ferramentas 3D">
           <span className="panel3d-viewbar-label">Editar</span>

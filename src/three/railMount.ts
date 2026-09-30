@@ -100,20 +100,36 @@ export function snapToRail(
   const maxLeft = railRight - span
   left = maxLeft < railLeft ? railLeft : Math.max(railLeft, Math.min(maxLeft, left))
 
-  // 2) imã às pontas e aos vizinhos já fixos nesta calha
-  const candidates: number[] = [railLeft, maxLeft]
-  for (const other of all) {
-    if (other.id === component.id || other.railId !== rail.id) continue
-    const o = extents(other)
-    const oLeft = other.schematicX + other.w / 2 - o.ex
-    candidates.push(oLeft - span, oLeft + o.ex * 2)
+  // 2) imã às pontas e aos vizinhos já fixos nesta calha. Quando a
+  // posição pedida está ocupada, usa a vaga mais próxima em vez de sobrepor.
+  const gap = 4
+  const neighbours = all
+    .filter((other) => other.id !== component.id && other.railId === rail.id)
+    .map((other) => {
+      const o = extents(other)
+      const start = other.schematicX + other.w / 2 - o.ex
+      return { start, end: start + o.ex * 2 }
+    })
+  const isFree = (candidate: number) => candidate >= railLeft - 0.01
+    && candidate <= Math.max(railLeft, maxLeft) + 0.01
+    && neighbours.every((item) => candidate + span + gap <= item.start || candidate >= item.end + gap)
+  const magneticCandidates: number[] = [railLeft, maxLeft]
+  const allCandidates: number[] = [left, railLeft, maxLeft]
+  for (const item of neighbours) {
+    magneticCandidates.push(item.start - span - gap, item.end + gap)
+    allCandidates.push(item.start - span - gap, item.end + gap)
   }
-  let nearest: number | null = null
-  for (const candidate of candidates) {
-    if (candidate < railLeft - 0.01 || candidate > Math.max(railLeft, maxLeft) + 0.01) continue
-    if (Math.abs(candidate - left) <= magnet && (nearest === null || Math.abs(candidate - left) < Math.abs(nearest - left))) nearest = candidate
+  let nearestMagnet: number | null = null
+  for (const candidate of magneticCandidates) {
+    if (!isFree(candidate) || Math.abs(candidate - left) > magnet) continue
+    if (nearestMagnet === null || Math.abs(candidate - left) < Math.abs(nearestMagnet - left)) nearestMagnet = candidate
   }
-  if (nearest !== null) left = nearest
+  if (nearestMagnet !== null) left = nearestMagnet
+  if (!isFree(left)) {
+    const valid = allCandidates.filter(isFree).sort((a, b) => Math.abs(a - left) - Math.abs(b - left))
+    if (!valid.length) return null
+    left = valid[0]
+  }
 
   return {
     schematicX: Math.round(left + ex - component.w / 2),
@@ -139,16 +155,36 @@ export function reflowRailChildren(rail: ElectricalComponent, components: Electr
   const patches = new Map<string, Pick<ElectricalComponent, 'schematicX' | 'railOffsetMm'>>()
   const railLeft = rail.schematicX
   const railRight = rail.schematicX + rail.w
-  for (const child of components) {
-    if (child.railId !== rail.id) continue
-    const { ex } = extents(child)
-    const span = ex * 2
-    const maxLeft = railRight - span
-    let left = child.schematicX + child.w / 2 - ex
-    left = maxLeft < railLeft ? railLeft : Math.max(railLeft, Math.min(maxLeft, left))
-    patches.set(child.id, {
-      schematicX: Math.round(left + ex - child.w / 2),
-      railOffsetMm: Math.round(((left - railLeft) / SCHEMATIC_PX_PER_MM) * 10) / 10,
+  const gap = 4
+  const children = components
+    .filter((component) => component.railId === rail.id)
+    .map((component) => {
+      const { ex } = extents(component)
+      const span = ex * 2
+      const desired = Math.max(railLeft, Math.min(railRight - span, component.schematicX + component.w / 2 - ex))
+      return { component, ex, span, left: desired }
+    })
+    .sort((a, b) => a.left - b.left)
+
+  // Empurra para a direita e, se necessário, recompõe a partir da extremidade
+  // direita. O comprimento mínimo é garantido pela store.
+  let cursor = railLeft
+  for (const child of children) {
+    child.left = Math.max(child.left, cursor)
+    cursor = child.left + child.span + gap
+  }
+  if (children.length && cursor - gap > railRight) {
+    cursor = railRight
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const child = children[index]
+      child.left = Math.min(child.left, cursor - child.span)
+      cursor = child.left - gap
+    }
+  }
+  for (const child of children) {
+    patches.set(child.component.id, {
+      schematicX: Math.round(child.left + child.ex - child.component.w / 2),
+      railOffsetMm: Math.round(((child.left - railLeft) / SCHEMATIC_PX_PER_MM) * 10) / 10,
     })
   }
   return patches

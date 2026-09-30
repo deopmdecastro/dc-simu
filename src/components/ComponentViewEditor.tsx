@@ -9,7 +9,7 @@ import {
 import { getComponentModelSpec, hasComponent3DModel } from '../three/modelPaths'
 import { componentTerminalLocal } from '../schematic/componentTerminalViews'
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL } from '../schematic/symbols'
-import { component3DDimensions, positionOnTerminalFace, terminal3DPositionOf, type Terminal3DFace } from '../three/terminal3D'
+import { component3DDimensions, positionOnTerminalFace, terminal3DPositionOf, terminalFaceCreationPosition, type Terminal3DFace } from '../three/terminal3D'
 import { ViewCubeDial, orientationFacingFace, type ViewCubeCorner } from './ViewCube'
 import { IconCube, IconDelete, IconPlus, IconProbe, IconRotate, IconSave } from '../ui/icons'
 import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent, TerminalElectricalClass, TerminalKind, TerminalType } from '../types'
@@ -23,6 +23,15 @@ const PRESETS: Array<{ id: ComponentViewPreset; label: string }> = [
   { id: 'right', label: 'Direita' },
   { id: 'top', label: 'Superior' },
   { id: 'bottom', label: 'Inferior' },
+]
+
+const TERMINAL_FACES: Array<{ id: Terminal3DFace; label: string }> = [
+  { id: 'front', label: 'Frente do componente' },
+  { id: 'back', label: 'Trás do componente' },
+  { id: 'left', label: 'Lateral esquerda' },
+  { id: 'right', label: 'Lateral direita' },
+  { id: 'top', label: 'Face superior' },
+  { id: 'bottom', label: 'Face inferior' },
 ]
 
 const VIEW_CUBE_CORNERS: Record<ViewCubeCorner, ComponentViewOrientation> = {
@@ -68,6 +77,20 @@ const MAP_SPAN = 1.36
 const toMapPercent = (value: number) => ((value - MAP_MIN) / MAP_SPAN) * 100
 const fromMapFraction = (value: number) => MAP_MIN + value * MAP_SPAN
 
+function isOnTerminalFace(position: ReturnType<typeof terminal3DPositionOf>, face: Terminal3DFace) {
+  if (face === 'front') return position.z > 0.999
+  if (face === 'back') return position.z < 0.001
+  if (face === 'left') return position.x < 0.001
+  if (face === 'right') return position.x > 0.999
+  if (face === 'top') return position.y > 0.999
+  return position.y < 0.001
+}
+
+function nextTerminalFacePosition(component: ElectricalComponent, face: Terminal3DFace) {
+  const occupied = component.terminals.filter((terminal) => isOnTerminalFace(terminal3DPositionOf(terminal), face)).length
+  return terminalFaceCreationPosition(face, occupied)
+}
+
 function TerminalPlacementEditor({ component, draft }: { component: ElectricalComponent; draft: ComponentViewOrientation }) {
   const editor = useSimStore((state) => state.viewOrientationEditor)!
   const setPosition = useSimStore((state) => state.setViewTerminalPosition)
@@ -88,6 +111,7 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
   const [newType, setNewType] = useState<TerminalType>('screw')
   const [newClass, setNewClass] = useState<TerminalElectricalClass>('other')
   const [newCustomClass, setNewCustomClass] = useState('')
+  const [newFace, setNewFace] = useState<Terminal3DFace>('front')
   const [classOverridden, setClassOverridden] = useState(false)
   const selectedTerminalId = editor.activeTerminalId ?? component.terminals[0]?.id ?? ''
   const viewKey = componentTerminalViewKey(draft)
@@ -122,13 +146,16 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
     setNewLabel('')
     setNewName('')
     setNewCustomClass('')
+    setNewFace('front')
     setClassOverridden(false)
   }, [component.id])
 
   const createTerminal = () => {
     const label = newLabel.trim()
     if (!label || duplicateNewLabel) return
-    addTerminal({ label, displayName: newName.trim() || undefined, kind: newKind, terminalType: newType, electricalClass: newClass, electricalClassCustom: newClass === 'other' ? newCustomClass.trim() || undefined : undefined, color: '#64748b' })
+    const position3D = nextTerminalFacePosition(component, newFace)
+    addTerminal({ label, displayName: newName.trim() || undefined, kind: newKind, terminalType: newType, electricalClass: newClass, electricalClassCustom: newClass === 'other' ? newCustomClass.trim() || undefined : undefined, color: '#64748b', position3D })
+    useSimStore.getState().setViewOrientationDraft({ ...COMPONENT_VIEW_PRESETS[newFace] })
     setNewLabel('')
     setNewName('')
     setNewCustomClass('')
@@ -163,7 +190,8 @@ function TerminalPlacementEditor({ component, draft }: { component: ElectricalCo
         <label><span>Categoria elétrica</span><select value={newClass} onChange={(event) => { setNewClass(event.target.value as TerminalElectricalClass); setClassOverridden(true) }}>{Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
         {newClass === 'other' && <label><span>Designação personalizada</span><input value={newCustomClass} placeholder="Ex.: PE, contacto seco" onChange={(event) => setNewCustomClass(event.target.value)} /></label>}
         <label><span>Tipo físico</span><select value={newType} onChange={(event) => setNewType(event.target.value as TerminalType)}>{Object.entries(TERMINAL_TYPE_LABEL).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</select></label>
-        <button type="submit" className="dc-btn-primary dc-btn" disabled={!newLabel.trim() || duplicateNewLabel}><IconPlus size={12} />Criar borne</button>
+        <label className="component-terminal-face-field"><span>Vista / face de criação *</span><select value={newFace} onChange={(event) => setNewFace(event.target.value as Terminal3DFace)}>{TERMINAL_FACES.map((face) => <option key={face.id} value={face.id}>{face.label}</option>)}</select><small>O borne nasce nesta face; depois pode arrastá-lo com precisão.</small></label>
+        <button type="submit" className="dc-btn-primary dc-btn" disabled={!newLabel.trim() || duplicateNewLabel}><IconPlus size={12} />Criar borne na face</button>
       </div>
       {duplicateNewLabel && <small className="component-terminal-create-error">Já existe um borne com esta identificação.</small>}
       <small className="component-terminal-create-suggestion">Sugestão atual: <strong>{TERMINAL_ELECTRICAL_CLASS_LABEL[suggestedClass]}</strong>. A ficha técnica orienta a sugestão; confirme antes de aplicar.</small>

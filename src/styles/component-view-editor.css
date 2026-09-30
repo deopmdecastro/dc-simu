@@ -1,5 +1,7 @@
 /* Editor de orientação visual partilhado pelo Esquema e Painel 3D. */
 .component-view-command { position:absolute; z-index:24; top:12px; right:12px; }
+.panel3d-stage[data-front-edit="true"] .component-view-command,
+.schematic-stage .component-view-command { right:156px; }
 .component-view-command > button { display:inline-flex; height:30px; align-items:center; gap:6px; padding:0 10px; border:1px solid #b9cdf8; border-radius:6px; color:#1f55e0; background:#fff; box-shadow:0 3px 12px #1f2a3d1f; font-size:10px; font-weight:750; }
 .component-view-command > button:hover { border-color:#7da2f5; background:#eef4ff; }
 .component-view-editor { position:fixed; z-index:100; top:142px; right:18px; width:430px; max-width:calc(100vw - 36px); max-height:calc(100vh - 160px); overflow:auto; border:1px solid #cbd5e1; border-radius:10px; color:#27344b; background:#fff; box-shadow:0 18px 45px #0f172a36; font-size:11px; }
@@ -38,6 +40,8 @@
 .component-terminal-create-grid input,.component-terminal-create-grid select { min-width:0; height:28px; padding:0 6px; border:1px solid #cdd8e7; border-radius:5px; color:#27364d; background:#fff; font-size:9px; }
 .component-terminal-create-grid input[aria-invalid=true] { border-color:#dc2626; background:#fff7f7; }
 .component-terminal-create-grid button { min-height:28px; justify-content:center; }
+.component-terminal-face-field { grid-column:1 / -1; padding:6px; border:1px solid #bfdbfe; border-radius:6px; background:#eff6ff; }
+.component-terminal-create-grid .component-terminal-face-field small { color:#526b91; font-size:7px; line-height:1.35; }
 .component-terminal-create-suggestion { color:#526078; font-size:7px; line-height:1.35; }
 .component-terminal-create-error { color:#b91c1c; font-size:7px; }
 .component-terminal-view-buttons { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; margin-bottom:6px; }
@@ -113,7 +117,8 @@
 .component-view-warning { padding:5px 6px; border-radius:5px; color:#9a3412; background:#fff7ed; }
 .component-view-editor > footer { position:sticky; bottom:0; display:flex; justify-content:flex-end; gap:6px; padding:8px; border-top:1px solid #dce3ed; background:#fff; }
 .component-view-editor > footer .dc-btn { min-height:28px; font-size:9px; }
-@media(max-width:560px) { .component-view-editor { top:64px; right:8px; width:calc(100vw - 16px); max-width:none; max-height:calc(100vh - 72px); } .component-view-command { top:8px; right:8px; } .vcube-panel { min-height:130px; } }
+@media(max-width:700px) { .panel3d-stage[data-front-edit="true"] .component-view-command,.schematic-stage .component-view-command { top:150px; right:8px; max-width:calc(100% - 16px); flex-wrap:wrap; justify-content:flex-end; } }
+@media(max-width:560px) { .component-view-editor { top:64px; right:8px; width:calc(100vw - 16px); max-width:none; max-height:calc(100vh - 72px); } .component-view-command { top:8px; right:8px; } .panel3d-stage[data-front-edit="true"] .component-view-command,.schematic-stage .component-view-command { top:150px; right:8px; } .vcube-panel { min-height:130px; } }
 
 /* ---------------------------------------------------------------------------
    Esquema 2D — hover/seleção suaves e rotação sem "flash" de carregamento
@@ -402,7 +407,7 @@ button.vcube-heading:hover { background:#f0f5fc; }
 .vcube-floating > small:not(.vcube-readout) { display:none; }
 .vcube-floating > .vcube-readout { margin:0; padding:2px 8px; align-self:center; border-radius:999px; background:#ffffffcc; }
 @media (max-width: 700px) {
-  .vcube-floating:not(.vcube-shifted):not(.vcube-below-command) { width:112px; top:84px; right:6px; }
+  .vcube-floating:not(.vcube-shifted):not(.vcube-below-command) { width:112px; top:6px; right:6px; }
   .vcube-floating.vcube-below-command { width:112px; }
   .vcube-floating .vcube-stage { height:108px; }
   .vcube-floating .vcube-body { --vcube-size:48px; }

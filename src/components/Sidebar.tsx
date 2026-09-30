@@ -15,7 +15,7 @@ import { ComponentThumb } from '../three/componentThumbnails'
 import { hasComponent3DModel, isMountingRail, MISSING_3D_MODEL_MESSAGE, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRailGeometry'
 import { isRailMountable } from '../three/railMount'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects, IconCube } from '../ui/icons'
 
 const label = 'dc-field-label'
 const STATE_LABELS: Record<string, string> = {
@@ -540,6 +540,10 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                           value={t.color}
                           onChange={(e) => useSimStore.getState().updateTerminal(t.id, { color: e.target.value })}
                         />
+                        <button className="dc-btn !h-6 !px-2 !text-[9px]" title="Editar este borne no painel completo do componente" onClick={() => {
+                          useSimStore.getState().openViewOrientationEditor(selectedComponent.id, 'terminals')
+                          useSimStore.getState().setViewActiveTerminal(t.id)
+                        }}>Editar</button>
                         <button className="dc-icon-btn !text-state-error !border-transparent hover:!bg-state-errorbg" title="Remover borne" onClick={() => {
                           const linked = wires.filter((wire) => wire.fromTerminalId === t.id || wire.toTerminalId === t.id).length
                           if (linked && !window.confirm(`Remover o borne ${t.label} e ${linked} cabo(s) ligado(s)?`)) return
@@ -867,7 +871,10 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                   <div className="text-[11px] text-ink-600">{owner && terminal ? <>Vai para <button type="button" className="text-brand-600 hover:underline font-medium" onClick={() => useSimStore.getState().selectTerminal(terminal.id)}>{owner.ref}.{terminal.displayName || terminal.label}</button> <span className="text-ink-400">({terminal.label})</span></> : 'Outra ponta livre — sem ligação a um borne'}</div>
                 </div>) : <p className="text-[11px] text-ink-400">Ainda não há cabos ligados a este borne.</p>}
               </div>
-              <button className="dc-btn-primary dc-btn" onClick={() => useSimStore.getState().selectComponents([terminalOwner.id])}>Abrir componente</button>
+              <button className="dc-btn-primary dc-btn" onClick={() => {
+                useSimStore.getState().openViewOrientationEditor(terminalOwner.id, 'terminals')
+                useSimStore.getState().setViewActiveTerminal(selectedTerminal.id)
+              }}><IconCube size={12} /> Editar borne no painel completo</button>
             </section>
           )}
         </div>

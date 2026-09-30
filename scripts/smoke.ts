@@ -26,7 +26,7 @@ import type { LadderRung } from '../src/types'
 import { useSimStore } from '../src/store/useSimStore'
 import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
 import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, getDefaultComponent3DPresentation, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
-import { component3DDimensions, component3DScaleOf, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from '../src/three/terminal3D'
+import { component3DDimensions, component3DScaleOf, terminalFaceCreationPosition, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from '../src/three/terminal3D'
 import { wireEnergyEffectVisible } from '../src/three/panel3DEditing'
 import * as THREE from 'three'
 import { automaticTerminalViewPositions, componentTerminalLocal, projectedComponentBounds } from '../src/schematic/componentTerminalViews'
@@ -45,6 +45,7 @@ import { isMountingRail } from '../src/three/modelPaths'
 import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from '../src/three/panelLayout'
 import { terminal3DFromProjectedLocal, projectedTerminalLocal } from '../src/schematic/componentTerminalViews'
 import { viewCubeMatrix } from '../src/components/ViewCube'
+import { componentBounds2D, componentsOverlap2D, nearestFreeComponentPosition, resolveComponentMove } from '../src/schematic/componentCollision'
 
 let failures = 0
 function check(name: string, cond: boolean, extra = '') {
@@ -793,6 +794,14 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     && !terminalClassesCompatible('ac', 'dc') && !terminalClassesCompatible('network', 'dc')
     && terminalClassesCompatible('other', 'ac')
     && inferTerminalElectricalClass(logo, { ...terminalByLabel(logo, 'L+')!, label: 'ETH', kind: 'bus' }) === 'network')
+  const facePositions = {
+    front: terminalFaceCreationPosition('front', 0), back: terminalFaceCreationPosition('back', 0),
+    left: terminalFaceCreationPosition('left', 0), right: terminalFaceCreationPosition('right', 0),
+    top: terminalFaceCreationPosition('top', 0), bottom: terminalFaceCreationPosition('bottom', 0),
+  }
+  check('criação de borne suporta explicitamente as seis faces do componente', facePositions.front.z === 1 && facePositions.back.z === 0
+    && facePositions.left.x === 0 && facePositions.right.x === 1 && facePositions.top.y === 1 && facePositions.bottom.y === 0)
+  check('novos bornes da mesma face recebem posições iniciais distintas', terminalFaceCreationPosition('front', 0).x !== terminalFaceCreationPosition('front', 1).x)
 
   const beforeComponents = useSimStore.getState().components
   const beforeWires = useSimStore.getState().wires
@@ -1165,6 +1174,31 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 }
 
 {
+  // Exclusão física: inserção, arrasto e saltos grandes do cursor nunca atravessam outro equipamento.
+  const first = createComponent('breakerWegMdwC10', undefined, undefined, 0, 100, 100)
+  const second = createComponent('breakerWegMdwC10', undefined, undefined, 1, 300, 100)
+  const resolved = resolveComponentMove(first, 500, 100, [first, second])
+  const moved = { ...first, schematicX: resolved.x, schematicY: resolved.y }
+  check('colisão varrida bloqueia atravessar um componente mesmo com salto grande do cursor', resolved.blocked && !componentsOverlap2D(moved, second)
+    && componentBounds2D(moved).right <= componentBounds2D(second).left - 4 + 1e-6)
+  const free = nearestFreeComponentPosition(first, second.schematicX, second.schematicY, [second])
+  check('inserção ocupada usa automaticamente a posição livre mais próxima', free.displaced
+    && !componentsOverlap2D({ ...first, schematicX: free.x, schematicY: free.y }, second))
+
+  const previousComponents = useSimStore.getState().components
+  const previousWires = useSimStore.getState().wires
+  useSimStore.setState({ components: [first, second], wires: [] })
+  useSimStore.getState().moveComponent(first.id, second.schematicX, second.schematicY)
+  const storeFirst = useSimStore.getState().components.find((component) => component.id === first.id)!
+  check('store impede arrastar um componente para dentro de outro', !componentsOverlap2D(storeFirst, second))
+  const insertedId = useSimStore.getState().addComponent('breakerWegMdwC10', second.schematicX, second.schematicY)
+  const inserted = useSimStore.getState().components.find((component) => component.id === insertedId)!
+  check('store impede inserir componente sobre uma posição ocupada', !!inserted
+    && useSimStore.getState().components.filter((component) => component.id !== inserted.id).every((component) => !componentsOverlap2D(inserted, component)))
+  useSimStore.setState({ components: previousComponents, wires: previousWires })
+}
+
+{
   // Calha real: Esquema (px) ↔ comprimento (mm) ↔ 3D, imã e equipamentos fixos.
   const rail = createComponent('dinRail15x55', undefined, undefined, 0, 100, 300, { lengthMm: 1000 })
   const plcOnRail = createComponent('plcSiemensLogo1224RC', undefined, undefined, 1, 300, 150)
@@ -1182,6 +1216,12 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('imã fixa o equipamento à calha ao alcance', fixed === 1 && plcNow().railId === rail.id)
   check('imã centra o equipamento verticalmente na calha', Math.abs(plcNow().schematicY + plcNow().h / 2 - (railNow().schematicY + railNow().h / 2)) <= 1)
   check('equipamento fica dentro do comprimento da calha', plcNow().schematicX >= railNow().schematicX && plcNow().schematicX + plcNow().w <= railNow().schematicX + railNow().w)
+
+  const neighbour = createComponent('breakerWegMdwC10', undefined, undefined, 2, plcNow().schematicX, plcNow().schematicY)
+  useSimStore.setState({ components: [...st().components, neighbour] })
+  st().snapToRails([neighbour.id])
+  const neighbourNow = () => st().components.find((component) => component.id === neighbour.id)!
+  check('imã da calha escolhe a vaga livre mais próxima e não sobrepõe equipamentos', neighbourNow().railId === rail.id && !componentsOverlap2D(plcNow(), neighbourNow()))
 
   const x0 = plcNow().schematicX
   st().moveComponent(rail.id, railNow().schematicX + 40, railNow().schematicY + 10)

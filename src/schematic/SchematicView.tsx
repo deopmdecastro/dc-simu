@@ -516,12 +516,12 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         const step = e.shiftKey ? grid.size : 1
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
-        const ids = new Set(selectedIds)
-        commitHistory()
-        useSimStore.setState((s) => ({
-          components: s.components.map((c) => (ids.has(c.id) ? { ...c, schematicX: c.schematicX + dx, schematicY: c.schematicY + dy } : c)),
-          dirty: true,
-        }))
+        const movingIds = selectedIds.filter((id) => !components.find((component) => component.id === id)?.locked)
+        const anchor = components.find((component) => component.id === movingIds[0])
+        if (anchor) {
+          commitHistory()
+          moveComponent(anchor.id, anchor.schematicX + dx, anchor.schematicY + dy, movingIds)
+        }
       }
     }
     window.addEventListener('keydown', onKey)
@@ -540,6 +540,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     components,
     grid,
     commitHistory,
+    moveComponent,
     fitContent,
   ])
 
@@ -709,13 +710,12 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         commitHistory()
         drag.committed = true // mutação intencional: evita um 2.º commit antes do re-render
       }
-      for (const id of drag.ids) {
-        const o = drag.orig[id]
-        // Equipamentos fixos numa calha que também está a ser arrastada seguem a calha.
+      const anchorId = drag.ids.find((id) => {
         const railOf = components.find((item) => item.id === id)?.railId
-        if (railOf && drag.ids.includes(railOf)) continue
-        if (o) moveComponent(id, snap(o.x + dx), snap(o.y + dy))
-      }
+        return !railOf || !drag.ids.includes(railOf)
+      })
+      const origin = anchorId ? drag.orig[anchorId] : undefined
+      if (anchorId && origin) moveComponent(anchorId, snap(origin.x + dx), snap(origin.y + dy), drag.ids)
     }
     if (marquee) setMarquee({ ...marquee, x1: p.x, y1: p.y })
     if ((tool === 'wire' && (wireFrom || freeStart)) || placingType) setCursorPos(p)
@@ -1202,7 +1202,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   return (
     <div className="schematic-stage w-full h-full relative overflow-hidden bg-[#f8fafd]">
       <ComponentViewEditor />
-      {onOpen3DView && <Schematic2DViewCube tilt={tilt} onTilt={setTilt} placement={viewOrientationEditor ? 'shifted' : selectedIds.length === 1 ? 'below-command' : 'top'} />}
+      {onOpen3DView && <Schematic2DViewCube tilt={tilt} onTilt={setTilt} placement="top" />}
       {isTilted && <button type="button" className="schematic-tilt-note" onClick={() => setTilt({ yaw: 0, pitch: 0 })} title="Voltar à vista frontal para editar">Vista inclinada · <b>Voltar a Frente</b> para editar</button>}
       <svg
         ref={svgRef}

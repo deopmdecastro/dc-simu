@@ -35,6 +35,18 @@ export function positionOnTerminalFace(position: Terminal3DPosition, face: Termi
   return next
 }
 
+/** Posição inicial distribuída para um novo borne na face escolhida. */
+export function terminalFaceCreationPosition(face: Terminal3DFace, occupiedOnFace = 0): Terminal3DPosition {
+  const column = Math.max(0, occupiedOnFace) % 5
+  const row = Math.floor(Math.max(0, occupiedOnFace) / 5) % 2
+  const across = 0.16 + column * 0.17
+  const vertical = 0.38 + row * 0.28
+  const base = positionOnTerminalFace({ x: 0.5, y: 0.5, z: 0.5 }, face)
+  if (face === 'front' || face === 'back') return { ...base, x: across, y: vertical }
+  if (face === 'left' || face === 'right') return { ...base, z: across, y: vertical }
+  return { ...base, x: across, z: vertical }
+}
+
 export function normalizeComponent3DScale(value?: Partial<Component3DScale>): Component3DScale {
   return {
     x: clamp(finite(value?.x, 1), 0.25, 4),

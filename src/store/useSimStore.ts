@@ -41,10 +41,11 @@ import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 import { hasComponent3DModel, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
-import { isDinRail, isRailMountable, railWidthPx, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
+import { isDinRail, isRailMountable, railSpanMm, railWidthPx, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { clampRailLengthMm } from '../three/dinRailGeometry'
 import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
 import { automaticTerminalViewPositions, componentTerminalLocal, terminal3DFromProjectedLocal } from '../schematic/componentTerminalViews'
+import { componentPositionIsFree, nearestFreeComponentPosition, resolveComponentMove } from '../schematic/componentCollision'
 import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosition, terminal3DPositionOf, type Terminal3DPosition } from '../three/terminal3D'
 
 export interface Snapshot {
@@ -197,7 +198,7 @@ interface Store extends CircuitState {
   updateComponent: (id: string, patch: Partial<ElectricalComponent>) => void
   /** Como `updateComponent`, sem histórico (arrasto contínuo). */
   updateComponentRaw: (id: string, patch: Partial<ElectricalComponent>) => void
-  moveComponent: (id: string, x: number, y: number) => void
+  moveComponent: (id: string, x: number, y: number, movingIds?: string[]) => void
   /** Comprimento da calha DIN (mm): mantém Esquema 2D, Painel 3D e equipamentos fixos coerentes. */
   setRailLength: (id: string, lengthMm: number, anchor?: 'left' | 'right', commit?: boolean) => void
   /** Imã: centra na calha mais próxima e fixa. Sem `ids` aplica a todos os equipamentos de calha. Devolve quantos ficaram fixos. */
@@ -1118,6 +1119,9 @@ export const useSimStore = create<Store>((set, get) => ({
     }
     get().commitHistory()
     const comp = createComponent(type, undefined, undefined, get().components.length, x, y)
+    const free = nearestFreeComponentPosition(comp, x, y, get().components)
+    comp.schematicX = free.x
+    comp.schematicY = free.y
     comp.ref = nextRef(get().components, type)
     comp.z = nextTopZ(get().components, get().wires)
     set((s) => ({
@@ -1127,6 +1131,7 @@ export const useSimStore = create<Store>((set, get) => ({
       dirty: true,
     }))
     get().pushEvent('info', `Componente ${comp.ref} (${comp.label}) adicionado ao esquema.`)
+    if (free.displaced) get().pushEvent('warning', `${comp.ref} foi colocado na posição livre mais próxima para evitar sobreposição.`)
     if (get().grid.railMagnet !== false) get().snapToRails([comp.id])
     get().step()
     return comp.id
@@ -1185,6 +1190,9 @@ export const useSimStore = create<Store>((set, get) => ({
         clone.panel3DPosition = src.panel3DPosition
           ? { x: src.panel3DPosition.x + 0.35, y: src.panel3DPosition.y, z: src.panel3DPosition.z + 0.18 }
           : undefined
+        const free = nearestFreeComponentPosition(clone, clone.schematicX, clone.schematicY, [...s.components, ...clones])
+        clone.schematicX = free.x
+        clone.schematicY = free.y
         clones.push(clone)
       }
       return { components: [...s.components, ...clones], selectedComponentIds: clones.map((c) => c.id), dirty: true }
@@ -1207,11 +1215,25 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   updateComponentRaw: (id, patch) => {
+    const current = get().components.find((component) => component.id === id)
+    const safePatch: Partial<ElectricalComponent> = { ...patch }
+    if (current && (patch.schematicX !== undefined || patch.schematicY !== undefined || patch.w !== undefined || patch.h !== undefined || patch.rotation !== undefined)) {
+      const candidate = { ...current, ...patch }
+      if (!componentPositionIsFree(candidate, candidate.schematicX, candidate.schematicY, get().components, new Set([id]))) {
+        delete safePatch.schematicX
+        delete safePatch.schematicY
+        delete safePatch.w
+        delete safePatch.h
+        delete safePatch.rotation
+        if (isDinRail(current) && (patch.w !== undefined || patch.schematicX !== undefined)) delete safePatch.state
+        get().pushEvent('warning', `${current.ref} manteve a geometria anterior para não entrar noutro componente.`)
+      }
+    }
     set((s) => {
-      let components = s.components.map((c) => (c.id === id ? { ...c, ...patch } : c))
+      let components = s.components.map((c) => (c.id === id ? { ...c, ...safePatch } : c))
       const rail = components.find((c) => c.id === id)
       // Mudou a calha (tamanho/posição): equipamentos fixos acompanham ou ficam dentro dela.
-      if (rail && isDinRail(rail) && (patch.w !== undefined || patch.schematicX !== undefined || patch.state !== undefined)) {
+      if (rail && isDinRail(rail) && (safePatch.w !== undefined || safePatch.schematicX !== undefined || safePatch.state !== undefined)) {
         const patches = reflowRailChildren(rail, components)
         if (patches.size) components = components.map((c) => (patches.has(c.id) ? { ...c, ...patches.get(c.id)! } : c))
       }
@@ -1220,20 +1242,39 @@ export const useSimStore = create<Store>((set, get) => ({
     get().step()
   },
 
-  moveComponent: (id, x, y) => {
+  moveComponent: (id, x, y, movingIds) => {
     set((s) => {
-      const moved = s.components.find((c) => c.id === id)
+      const moved = s.components.find((component) => component.id === id)
       if (!moved) return {}
-      const dx = x - moved.schematicX
-      const dy = y - moved.schematicY
-      // A calha leva consigo os equipamentos fixos nela.
-      const carry = isDinRail(moved) && (dx !== 0 || dy !== 0)
+      const groupIds = new Set(movingIds?.length ? movingIds : [id])
+      // A calha e os seus equipamentos são um grupo físico durante o arrasto.
+      for (const component of s.components) {
+        if (component.railId && groupIds.has(component.railId)) groupIds.add(component.id)
+      }
+      const desiredDx = x - moved.schematicX
+      const desiredDy = y - moved.schematicY
+      let dx = desiredDx
+      let dy = desiredDy
+      const constrain = (desired: number, candidate: number) => desired >= 0 ? Math.min(desired, candidate) : Math.max(desired, candidate)
+      for (const component of s.components) {
+        if (!groupIds.has(component.id)) continue
+        const resolved = resolveComponentMove(
+          component,
+          component.schematicX + desiredDx,
+          component.schematicY + desiredDy,
+          s.components,
+          groupIds,
+        )
+        dx = constrain(dx, resolved.x - component.schematicX)
+        dy = constrain(dy, resolved.y - component.schematicY)
+      }
+      if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return {}
       return {
-        components: s.components.map((c) => {
-          if (c.id === id) return { ...c, schematicX: x, schematicY: y }
-          if (carry && c.railId === id) return { ...c, schematicX: c.schematicX + dx, schematicY: c.schematicY + dy }
-          return c
-        }),
+        components: s.components.map((component) => groupIds.has(component.id) ? {
+          ...component,
+          schematicX: component.schematicX + dx,
+          schematicY: component.schematicY + dy,
+        } : component),
         dirty: true,
       }
     })
@@ -1242,7 +1283,12 @@ export const useSimStore = create<Store>((set, get) => ({
   setRailLength: (id, lengthMm, anchor = 'left', commit = true) => {
     const rail = get().components.find((c) => c.id === id)
     if (!rail || !isDinRail(rail)) return
-    const geometry = resizeRailGeometry(rail, lengthMm, anchor)
+    const children = get().components.filter((component) => component.railId === id)
+    const occupiedMm = children.reduce((sum, component) => sum + railSpanMm(component), 0)
+      + Math.max(0, children.length - 1) * (4 / SCHEMATIC_PX_PER_MM)
+    const safeLengthMm = Math.max(lengthMm, occupiedMm)
+    if (safeLengthMm > lengthMm + 0.01) get().pushEvent('warning', 'A calha manteve espaço suficiente para não sobrepor os equipamentos montados.')
+    const geometry = resizeRailGeometry(rail, safeLengthMm, anchor)
     if (geometry.length === clampRailLengthMm(rail.state.lengthMm) && geometry.w === rail.w && geometry.schematicX === rail.schematicX) return
     if (commit) get().commitHistory()
     get().updateComponentRaw(id, { w: geometry.w, schematicX: geometry.schematicX, state: { ...rail.state, lengthMm: geometry.length } })
@@ -1282,11 +1328,15 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   rotateComponent: (id) => {
+    const current = get().components.find((component) => component.id === id)
+    if (!current) return
+    const candidate = { ...current, rotation: ((current.rotation + 90) % 360) as number }
+    if (!componentPositionIsFree(candidate, candidate.schematicX, candidate.schematicY, get().components, new Set([id]))) {
+      get().pushEvent('warning', `${current.ref} não pode rodar porque entraria noutro componente.`)
+      return
+    }
     get().commitHistory()
-    set((s) => ({
-      components: s.components.map((c) => (c.id === id ? { ...c, rotation: ((c.rotation + 90) % 360) as number } : c)),
-      dirty: true,
-    }))
+    set((s) => ({ components: s.components.map((component) => (component.id === id ? candidate : component)), dirty: true }))
     get().step()
   },
 
@@ -1547,7 +1597,6 @@ export const useSimStore = create<Store>((set, get) => ({
     const { selectedComponentIds, components } = get()
     const sel = components.filter((c) => selectedComponentIds.includes(c.id))
     if (sel.length < 2) return
-    get().commitHistory()
 
     let target: number
     switch (edge) {
@@ -1573,27 +1622,32 @@ export const useSimStore = create<Store>((set, get) => ({
     }
 
     const ids = new Set(selectedComponentIds)
-    set((s) => ({
-      components: s.components.map((c) => {
-        if (!ids.has(c.id)) return c
-        switch (edge) {
-          case 'left':
-            return { ...c, schematicX: target }
-          case 'right':
-            return { ...c, schematicX: target - c.w }
-          case 'top':
-            return { ...c, schematicY: target }
-          case 'bottom':
-            return { ...c, schematicY: target - c.h }
-          case 'centerX':
-            return { ...c, schematicX: target - c.w / 2 }
-          case 'centerY':
-          default:
-            return { ...c, schematicY: target - c.h / 2 }
-        }
-      }),
-      dirty: true,
-    }))
+    const next = components.map((component) => {
+      if (!ids.has(component.id)) return component
+      switch (edge) {
+        case 'left':
+          return { ...component, schematicX: target }
+        case 'right':
+          return { ...component, schematicX: target - component.w }
+        case 'top':
+          return { ...component, schematicY: target }
+        case 'bottom':
+          return { ...component, schematicY: target - component.h }
+        case 'centerX':
+          return { ...component, schematicX: target - component.w / 2 }
+        case 'centerY':
+        default:
+          return { ...component, schematicY: target - component.h / 2 }
+      }
+    })
+    const valid = next.every((component) => !ids.has(component.id)
+      || componentPositionIsFree(component, component.schematicX, component.schematicY, next, new Set([component.id])))
+    if (!valid) {
+      get().pushEvent('warning', 'Alinhamento cancelado: os componentes ficariam sobrepostos.')
+      return
+    }
+    get().commitHistory()
+    set({ components: next, dirty: true })
     get().step()
   },
 
@@ -1619,10 +1673,16 @@ export const useSimStore = create<Store>((set, get) => ({
       cursor += c[sizeKey] + gap
     }
 
-    set((s) => ({
-      components: s.components.map((c) => (patch.has(c.id) ? { ...c, [posKey]: patch.get(c.id)! } : c)),
-      dirty: true,
-    }))
+    const next = components.map((component) => patch.has(component.id) ? { ...component, [posKey]: patch.get(component.id)! } : component)
+    const ids = new Set(selectedComponentIds)
+    const valid = next.every((component) => !ids.has(component.id)
+      || componentPositionIsFree(component, component.schematicX, component.schematicY, next, new Set([component.id])))
+    if (!valid) {
+      get().pushEvent('warning', 'Distribuição cancelada: não existe folga suficiente entre os componentes.')
+      return
+    }
+    get().commitHistory()
+    set({ components: next, dirty: true })
     get().pushEvent('info', `Distribuição ${axis === 'horizontal' ? 'horizontal' : 'vertical'} aplicada a ${sorted.length} componentes.`)
     get().step()
   },
@@ -2004,6 +2064,9 @@ export const useSimStore = create<Store>((set, get) => ({
         ref: nextRef([...get().components, ...newComponents], src.type),
         z: nextTopZ([...get().components, ...newComponents], get().wires),
       }
+      const free = nearestFreeComponentPosition(clone, clone.schematicX, clone.schematicY, [...get().components, ...newComponents])
+      clone.schematicX = free.x
+      clone.schematicY = free.y
       newComponents.push(clone)
     }
     const newWires: Wire[] = clip.wires
