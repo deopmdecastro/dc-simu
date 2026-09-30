@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 
 export type ViewCubeFace = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'isometric'
 export type ViewCubeCorner = 'nw' | 'ne' | 'sw' | 'se'
@@ -123,8 +123,6 @@ export function ViewCubeDial({
   caption, readout, variant = 'floating', placement = 'top', ariaLabel = 'Cubo de vista', dragTitle,
 }: ViewCubeDialProps) {
   const drag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null)
-  // Cartão flutuante: em ecrãs estreitos começa recolhido para não tapar o esquema.
-  const [collapsed, setCollapsed] = useState(() => variant === 'floating' && typeof window !== 'undefined' && window.matchMedia?.('(max-width: 700px)').matches === true)
   const down = (event: ReactPointerEvent<HTMLDivElement>) => {
     drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false }
     event.stopPropagation()
@@ -157,15 +155,9 @@ export function ViewCubeDial({
     if (drag.current?.moved) return
     action()
   }
-  const isCollapsed = variant === 'floating' && collapsed
-  const cls = `vcube vcube-${variant}${variant === 'floating' ? ` vcube-${placement}` : ''}${isCollapsed ? ' is-collapsed' : ''}`
+  const cls = `vcube vcube-${variant}${variant === 'floating' ? ` vcube-${placement}` : ''}`
   return <div className={cls} role="group" aria-label={ariaLabel} onPointerDown={(event) => event.stopPropagation()} onWheel={(event) => event.stopPropagation()}>
-    {variant === 'floating'
-      ? <button type="button" className="vcube-heading" aria-expanded={!isCollapsed} title={isCollapsed ? 'Mostrar cubo de vista' : 'Recolher cubo de vista'} onClick={(event) => { event.stopPropagation(); setCollapsed((value) => !value) }}>
-        <span>Orientação</span><b>3D</b><i aria-hidden="true" className="vcube-chevron" />
-      </button>
-      : <div className="vcube-heading" aria-hidden="true"><span>Orientação</span><b>3D</b></div>}
-    {!isCollapsed && <>
+    {variant === 'panel' && <div className="vcube-heading" aria-hidden="true"><span>Orientação</span><b>3D</b></div>}
     <div className="vcube-stage" title={dragTitle ?? 'Arraste para rodar · clique numa face ou num canto para mudar de vista'} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       {ARROWS.map((arrow) => <button
         type="button"
@@ -204,7 +196,6 @@ export function ViewCubeDial({
     </div>
     <small>{caption}</small>
     {readout && <small className="vcube-readout">{readout}</small>}
-    </>}
   </div>
 }
 

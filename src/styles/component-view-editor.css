@@ -351,3 +351,42 @@ button.vcube-heading:hover { background:#f0f5fc; }
 @media (prefers-reduced-motion: reduce) {
   .vcube-arrow,.vcube-body .face,.vcube-corner,.vcube-actions > button,.vcube-chevron { transition:none; }
 }
+
+/* ---------------------------------------------------------------------------
+   Cubo flutuante sem cartão: só o cubo, setas e atalhos sobre o canvas
+--------------------------------------------------------------------------- */
+.vcube-floating {
+  width:132px;
+  padding:0;
+  gap:6px;
+  border:0;
+  border-radius:0;
+  background:none;
+  box-shadow:none;
+  backdrop-filter:none;
+}
+.vcube-floating .vcube-stage { height:128px; border-radius:0; background:none; box-shadow:none; }
+.vcube-floating .vcube-body { --vcube-size:58px; filter:drop-shadow(0 6px 10px #1b2d4933); }
+.vcube-floating .vcube-arrow { width:24px; height:24px; border-radius:50%; background:#ffffffd9; box-shadow:0 1px 4px #1b2d4926; }
+.vcube-floating .vcube-arrow.up { top:0; left:calc(50% - 12px); }
+.vcube-floating .vcube-arrow.down { bottom:0; left:calc(50% - 12px); }
+.vcube-floating .vcube-arrow.left { left:0; top:calc(50% - 12px); }
+.vcube-floating .vcube-arrow.right { right:0; top:calc(50% - 12px); }
+.vcube-floating .vcube-corner { width:10px; height:10px; border-radius:50%; border-width:1px; opacity:.7; background:#ffffffd9; }
+.vcube-floating .vcube-corner:hover { opacity:1; }
+.vcube-floating .vcube-corner.nw { top:16px; left:16px; }
+.vcube-floating .vcube-corner.ne { top:16px; right:16px; }
+.vcube-floating .vcube-corner.sw { bottom:16px; left:16px; }
+.vcube-floating .vcube-corner.se { right:16px; bottom:16px; }
+.vcube-floating .vcube-actions { justify-content:center; gap:6px; }
+.vcube-floating .vcube-actions > button { flex:0 1 auto; min-height:28px; padding:0 12px; border-radius:999px; background:#ffffffe6; box-shadow:0 1px 4px #1b2d4926; }
+.vcube-floating .vcube-legend,
+.vcube-floating > small:not(.vcube-readout) { display:none; }
+.vcube-floating > .vcube-readout { margin:0; padding:2px 8px; align-self:center; border-radius:999px; background:#ffffffcc; }
+@media (max-width: 700px) {
+  .vcube-floating:not(.vcube-shifted) { width:112px; top:6px; right:6px; }
+  .vcube-floating .vcube-stage { height:108px; }
+  .vcube-floating .vcube-body { --vcube-size:48px; }
+  .vcube-floating .vcube-corner { display:none; }
+  .vcube-floating .vcube-actions > button { padding:0 10px; min-height:26px; font-size:10px; }
+}

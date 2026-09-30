@@ -1997,9 +1997,9 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
   .panel3d-stage .component-view-editor { right:43px; width:min(372px,calc(100% - 55px)); max-width:calc(100% - 55px); }
   .dc-views-container { order: initial; flex-basis: auto; flex-shrink: 0; }
   .dc-workspace .dc-resize-handle { display: none; }
-  .dc-workspace .mobile-library-panel { position: absolute; z-index: 22; top: 0; bottom: 0; left: 0; width: min(90vw, 360px) !important; background: white; box-shadow: 5px 0 20px #14234a30; }
-  .dc-workspace .mobile-grafcet-panel { position: absolute; z-index: 21; top: 0; bottom: 0; right: 0; width: min(90vw, 360px) !important; min-width: 0; box-shadow: -5px 0 20px #14234a30; }
-  .dc-workspace .mobile-grafcet-panel.mobile-grafcet-closed { width: 36px !important; box-shadow: none; }
+  .dc-workspace .mobile-library-panel { position: absolute; z-index: 40; border-top-right-radius: 20px; border-bottom-right-radius: 20px; top: 0; bottom: 0; left: 0; width: min(90vw, 360px) !important; background: white; box-shadow: 5px 0 20px #14234a30; }
+  .dc-workspace .mobile-grafcet-panel { position: absolute; z-index: 40; top: 0; bottom: 0; right: 0; width: min(92vw, 380px) !important; min-width: 0 !important; max-width: 92vw; overflow: hidden auto; border-top-left-radius: 20px; border-bottom-left-radius: 20px; box-shadow: -5px 0 20px #14234a30; }
+  .dc-workspace .mobile-grafcet-panel.mobile-grafcet-closed { width: 36px !important; z-index: 10; border-radius: 0; box-shadow: none; }
   footer > span:nth-child(2), footer > span:nth-child(3), footer > span:nth-child(4) { display: none; }
 }
 
