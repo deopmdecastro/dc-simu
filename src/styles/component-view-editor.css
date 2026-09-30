@@ -520,3 +520,47 @@ button.vcube-heading:hover { background:#f0f5fc; }
   .component-view-editor > header small { max-width:235px; }
   .component-color-presets { grid-template-columns:repeat(10,minmax(18px,1fr)); }
 }
+
+/* Ações compactas no mobile: ficam num dock inferior e deixam modelo, cubo e
+   identificação completamente visíveis durante a navegação. */
+.component-command-short { display:none; }
+@media (max-width:700px) {
+  .panel3d-stage[data-front-edit="true"] .component-view-command,
+  .schematic-stage .component-view-command {
+    top:auto;
+    bottom:72px;
+    left:50%;
+    right:auto;
+    max-width:calc(100% - 76px);
+    flex-wrap:nowrap;
+    justify-content:center;
+    padding:4px;
+    border:1px solid #d6e0ee;
+    border-radius:14px;
+    background:#fffffff2;
+    box-shadow:0 8px 24px #1b2d4926;
+    backdrop-filter:blur(12px);
+    transform:translateX(-50%);
+  }
+  .component-view-command > button {
+    height:36px;
+    min-width:96px;
+    justify-content:center;
+    padding-inline:10px;
+    border-radius:10px;
+    box-shadow:none;
+    font-size:10px;
+  }
+  .component-command-long { display:none; }
+  .component-command-short { display:inline; }
+  .panel3d-stage[data-front-edit="true"] .vcube-floating:not(.vcube-shifted) {
+    top:96px;
+    right:6px;
+    width:94px;
+  }
+  .panel3d-stage[data-front-edit="true"] .vcube-floating .vcube-stage { height:92px; }
+  .panel3d-stage[data-front-edit="true"] .vcube-floating .vcube-body { --vcube-size:44px; }
+}
+@media (max-width:380px) {
+  .component-view-command > button { min-width:82px; padding-inline:8px; }
+}

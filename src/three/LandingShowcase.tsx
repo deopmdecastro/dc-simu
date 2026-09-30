@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { ContactShadows, Environment, Line, OrbitControls, useGLTF } from '@react-three/drei'
+import { ContactShadows, Environment, OrbitControls, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
@@ -151,7 +151,16 @@ function cloneMaterials(root: THREE.Object3D) {
     mesh.castShadow = true
     mesh.receiveShadow = true
     const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    const materials = list.map((material) => material.clone())
+    const materials = list.map((material) => {
+      const cloned = material.clone()
+      if (cloned instanceof THREE.MeshStandardMaterial) {
+        cloned.roughness = THREE.MathUtils.clamp(cloned.roughness * 0.76, 0.18, 0.7)
+        cloned.envMapIntensity = Math.max(cloned.envMapIntensity, 1.12)
+        if (!cloned.map && cloned.color.getHSL({ h: 0, s: 0, l: 0 }).l > 0.82) cloned.color.lerp(new THREE.Color('#c8d2dc'), 0.28)
+        cloned.needsUpdate = true
+      }
+      return cloned
+    })
     mesh.material = Array.isArray(mesh.material) ? materials : materials[0]
   })
 }
@@ -238,7 +247,7 @@ function EnergyFlow({ curve, color = '#fde047' }: { curve: THREE.Curve<THREE.Vec
       {Array.from({ length: count }, (_, index) => (
         <mesh key={index} ref={(node) => { particles.current[index] = node }} renderOrder={18}>
           <sphereGeometry args={[0.013, 10, 10]} />
-          <meshBasicMaterial ref={index === 0 ? material : undefined} color={color} transparent opacity={0.76} depthTest={false} />
+          <meshBasicMaterial ref={index === 0 ? material : undefined} color={color} transparent opacity={0.76} depthTest depthWrite={false} />
         </mesh>
       ))}
     </>
@@ -257,11 +266,11 @@ function Ferrule({ point, toward, color }: { point: THREE.Vector3; toward: THREE
     <group position={position} quaternion={quaternion} renderOrder={17}>
       <mesh position={[0, 0.034, 0]}>
         <cylinderGeometry args={[0.014, 0.014, 0.068, 12]} />
-        <meshStandardMaterial color="#cbd5e1" metalness={0.82} roughness={0.24} depthTest={false} />
+        <meshStandardMaterial color="#cbd5e1" metalness={0.82} roughness={0.2} />
       </mesh>
       <mesh position={[0, 0.083, 0]}>
         <cylinderGeometry args={[0.024, 0.020, 0.030, 12]} />
-        <meshStandardMaterial color={color} metalness={0.12} roughness={0.48} depthTest={false} />
+        <meshStandardMaterial color={color} metalness={0.12} roughness={0.38} />
       </mesh>
     </group>
   )
@@ -271,10 +280,13 @@ function DemoCable({ definition, energized }: { definition: CableDefinition; ene
   const geometry = useMemo(() => {
     const from = terminal(definition.from.device, definition.from.terminal)
     const to = terminal(definition.to.device, definition.to.terminal)
+    // As vias horizontais correm junto à contraplaca, em pistas ligeiramente
+    // separadas. Só os chicotes finais avançam até ao borne ou ao motor.
+    const laneDepth = 0.52 + Math.max(0, definition.depth - 0.88) * 0.11
     const points = [
       from.point,
-      new THREE.Vector3(from.point.x, definition.busY, definition.depth),
-      new THREE.Vector3(to.point.x, definition.busY, definition.depth),
+      new THREE.Vector3(from.point.x, definition.busY, laneDepth),
+      new THREE.Vector3(to.point.x, definition.busY, laneDepth),
       to.point,
     ]
     const curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.18)
@@ -283,11 +295,22 @@ function DemoCable({ definition, energized }: { definition: CableDefinition; ene
 
   return (
     <group>
-      <Line points={geometry.line} color="#111827" lineWidth={4.1} transparent opacity={0.94} depthTest={false} renderOrder={13} />
-      <Line points={geometry.line} color={definition.color} lineWidth={2.7} depthTest={false} renderOrder={14} />
+      {/* Cabos físicos: tubos finos com profundidade real. Ao contrário das linhas
+          sempre visíveis, ficam corretamente ocultos atrás de equipamentos. */}
+      <mesh castShadow receiveShadow>
+        <tubeGeometry args={[geometry.curve, 48, 0.019, 7, false]} />
+        <meshStandardMaterial color="#101722" metalness={0.04} roughness={0.42} />
+      </mesh>
+      <mesh castShadow>
+        <tubeGeometry args={[geometry.curve, 48, 0.014, 7, false]} />
+        <meshStandardMaterial color={definition.color} metalness={0.03} roughness={0.34} envMapIntensity={0.8} />
+      </mesh>
       {energized && (
         <>
-          <Line points={geometry.line} color="#fbbf24" lineWidth={5.3} transparent opacity={0.16} depthTest={false} renderOrder={15} />
+          <mesh renderOrder={15}>
+            <tubeGeometry args={[geometry.curve, 48, 0.021, 7, false]} />
+            <meshBasicMaterial color="#fbbf24" transparent opacity={0.12} depthTest depthWrite={false} blending={THREE.AdditiveBlending} />
+          </mesh>
           <EnergyFlow curve={geometry.curve} />
         </>
       )}
@@ -303,11 +326,11 @@ function DinRail() {
     <group position={[0, 1.02, 0.29]}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[4.45, 0.16, 0.12]} />
-        <meshStandardMaterial color="#d3d9dd" metalness={0.9} roughness={0.9} map={metal.map} bumpMap={metal.bump} bumpScale={1.4} roughnessMap={metal.rough} envMapIntensity={1.2} />
+        <meshStandardMaterial color="#d3d9dd" metalness={0.9} roughness={0.36} map={metal.map} bumpMap={metal.bump} bumpScale={0.65} roughnessMap={metal.rough} envMapIntensity={1.45} />
       </mesh>
       <mesh position={[0, 0, 0.066]}>
         <boxGeometry args={[4.22, 0.04, 0.035]} />
-        <meshStandardMaterial color="#8d979f" metalness={0.8} roughness={0.8} map={metal.map} roughnessMap={metal.rough} />
+        <meshStandardMaterial color="#8d979f" metalness={0.82} roughness={0.32} map={metal.map} roughnessMap={metal.rough} envMapIntensity={1.25} />
       </mesh>
       {Array.from({ length: 16 }, (_, index) => (
         <mesh key={index} position={[-2.02 + index * 0.27, 0, 0.094]}>
@@ -329,22 +352,22 @@ function FixedPanel() {
       {/* pavimento de betão polido com reflexo suave */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.43, 1.2]} receiveShadow>
         <planeGeometry args={[14, 14]} />
-        <meshStandardMaterial color="#b4b8ba" map={concrete.map} bumpMap={concrete.bump} bumpScale={1.6} roughnessMap={concrete.rough} roughness={0.85} metalness={0.05} />
+        <meshStandardMaterial color="#aeb5b8" map={concrete.map} bumpMap={concrete.bump} bumpScale={0.7} roughnessMap={concrete.rough} roughness={0.48} metalness={0.09} envMapIntensity={0.78} />
       </mesh>
       {/* parede técnica atrás do quadro */}
       <mesh position={[0, 3, -0.6]} receiveShadow>
         <planeGeometry args={[14, 7]} />
-        <meshStandardMaterial color="#dfe4e2" map={wall.map} bumpMap={wall.bump} bumpScale={0.6} roughnessMap={wall.rough} roughness={0.95} />
+        <meshStandardMaterial color="#d7dfdc" map={wall.map} bumpMap={wall.bump} bumpScale={0.35} roughnessMap={wall.rough} roughness={0.7} envMapIntensity={0.5} />
       </mesh>
       {/* caixa metálica */}
       <mesh position={[0, 1.27, 0]} receiveShadow castShadow>
         <boxGeometry args={[4.9, 3.35, 0.22]} />
-        <meshStandardMaterial color="#cfd5d8" map={steel.map} bumpMap={steel.bump} bumpScale={1.2} roughnessMap={steel.rough} roughness={0.8} metalness={0.55} envMapIntensity={0.9} />
+        <meshStandardMaterial color="#c7d0d5" map={steel.map} bumpMap={steel.bump} bumpScale={0.65} roughnessMap={steel.rough} roughness={0.4} metalness={0.62} envMapIntensity={1.25} />
       </mesh>
       {/* contraplaca perfurada */}
       <mesh position={[0, 1.27, 0.13]} receiveShadow>
         <boxGeometry args={[4.72, 3.17, 0.05]} />
-        <meshStandardMaterial color="#e9eeec" map={plate.map} bumpMap={plate.bump} bumpScale={2.2} roughnessMap={plate.rough} roughness={0.75} metalness={0.35} />
+        <meshStandardMaterial color="#dfe6e4" map={plate.map} bumpMap={plate.bump} bumpScale={1.05} roughnessMap={plate.rough} roughness={0.44} metalness={0.38} envMapIntensity={1.12} />
       </mesh>
       <DinRail />
       {[[2.28, 2.72], [-2.28, 2.72], [2.28, -0.18], [-2.28, -0.18]].map(([x, y], index) => (
@@ -370,12 +393,13 @@ function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor,
 
   return (
     <>
-      <color attach="background" args={['#e6ebe9']} />
-      <fog attach="fog" args={['#e6ebe9', 11, 22]} />
-      <ambientLight intensity={1.35} />
-      <hemisphereLight args={['#ffffff', '#60706a', 1.4]} />
-      <directionalLight position={[4, 6, 6]} intensity={2.3} castShadow shadow-mapSize={[1024, 1024]} />
-      <directionalLight position={[-4, 2, 3]} intensity={0.85} color="#d8efff" />
+      <color attach="background" args={['#dce4e2']} />
+      <fog attach="fog" args={['#dce4e2', 18, 34]} />
+      <ambientLight intensity={0.48} />
+      <hemisphereLight args={['#f8fbff', '#43524f', 0.86]} />
+      <directionalLight position={[4, 6, 6]} intensity={2.05} castShadow shadow-mapSize={[1024, 1024]} />
+      <directionalLight position={[-4, 2, 3]} intensity={0.48} color="#b9d8ff" />
+      <pointLight position={[0, 3.8, 3.2]} intensity={0.7} color="#fff4dd" distance={12} />
       <FixedPanel />
 
       <ComponentModel type="powerSupplyProauto24A" position={PLACEMENTS.psu.position} active={plcActive} />
@@ -398,7 +422,7 @@ function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor,
       })}
 
       <ContactShadows position={[0, -0.425, 0.6]} opacity={0.45} scale={9} blur={2.4} far={4} resolution={512} />
-      <Environment preset="warehouse" environmentIntensity={0.72} />
+      <Environment preset="warehouse" environmentIntensity={1.08} />
       <OrbitControls
         makeDefault
         enablePan={false}
@@ -426,13 +450,13 @@ export default function LandingShowcase(props: Props) {
     <div className="dx-showcase-wrap">
       <Canvas
         dpr={[1, props.compact ? 1.25 : 1.65]}
-        camera={{ position: [1.45, 3.00, 7.75], fov: 35, near: 0.1, far: 100 }}
+        camera={{ position: props.compact ? [1.45, 3.15, 10.15] : [1.45, 3.00, 7.75], fov: props.compact ? 41 : 35, near: 0.1, far: 100 }}
         gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
         shadows
         onCreated={({ gl }) => {
           gl.outputColorSpace = THREE.SRGBColorSpace
           gl.toneMapping = THREE.ACESFilmicToneMapping
-          gl.toneMappingExposure = 1.08
+          gl.toneMappingExposure = 0.94
         }}
       >
         <Suspense fallback={null}>

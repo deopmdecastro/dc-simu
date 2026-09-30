@@ -2763,3 +2763,22 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Refinamento mobile do workspace: barras com scroll previsível, áreas seguras
+   do iOS e sobreposições que não aumentam a largura da página. */
+@media (max-width:700px) {
+  .dc-workspace { max-width:100vw; overflow:hidden; }
+  .dc-toolbar-main, .toolbar-scroll {
+    overscroll-behavior-x:contain;
+    scroll-snap-type:x proximity;
+    -webkit-overflow-scrolling:touch;
+  }
+  .dc-toolbar-main > *, .toolbar-scroll > * { scroll-snap-align:start; }
+  .panel3d-stage[data-front-edit="true"] .panel3d-model-badge {
+    top:100px;
+    left:8px;
+    max-width:calc(100% - 118px);
+  }
+  .schematic-dimension-switch { bottom:max(12px,env(safe-area-inset-bottom)); }
+  footer { padding-bottom:env(safe-area-inset-bottom); }
+}

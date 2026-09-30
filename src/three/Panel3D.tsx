@@ -1337,33 +1337,80 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false }: { co
   return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} enablePan enableRotate enableZoom enableDamping dampingFactor={0.08} rotateSpeed={0.82} panSpeed={0.72} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning />
 }
 
-/** Grelha por pontos do Esquema, desenhada na cena 3D sobre a placa: acompanha zoom, pan e órbita. */
+/** Textura repetível da grelha. Mipmaps e filtragem anisotrópica evitam o
+ * efeito moiré em leque que surgia no Safari ao inclinar milhares de pontos. */
+function dotGridTexture(color: string, radius: number, repeatX: number, repeatY: number, anisotropy: number) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 64
+  canvas.height = 64
+  const context = canvas.getContext('2d')!
+  context.clearRect(0, 0, 64, 64)
+  context.fillStyle = color
+  context.beginPath()
+  context.arc(32, 32, radius, 0, Math.PI * 2)
+  context.fill()
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(repeatX, repeatY)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.magFilter = THREE.LinearFilter
+  texture.minFilter = THREE.LinearMipmapLinearFilter
+  texture.generateMipmaps = true
+  texture.anisotropy = Math.min(8, anisotropy)
+  texture.needsUpdate = true
+  return texture
+}
+
+/** Grelha partilhada do Esquema, aplicada como superfície filtrada sobre a placa. */
 function DotGrid({ size, dark }: { size: number; dark: boolean }) {
-  const { minor, major } = useMemo(() => {
-    let step = Math.max(5, size)
-    while ((2000 / step + 1) * (1400 / step + 1) > 24000) step *= 2
-    const minor: number[] = []
-    const major: number[] = []
-    for (let iy = 0, y = 0; y <= 1400; y += step, iy++) {
-      for (let ix = 0, x = 0; x <= 2000; x += step, ix++) {
-        // Um ponto mais forte a cada 5 passos ajuda a medir distâncias a olho.
-        const target = ix % 5 === 0 && iy % 5 === 0 ? major : minor
-        target.push(schematicToPanelX(x), schematicToPanelY(y), 0)
-      }
+  const { gl } = useThree()
+  const minorMaterial = useRef<THREE.MeshBasicMaterial>(null)
+  const majorMaterial = useRef<THREE.MeshBasicMaterial>(null)
+  const cameraDirection = useMemo(() => new THREE.Vector3(), [])
+  const step = Math.max(5, size)
+  const widthPx = 2000
+  const heightPx = 1400
+  const textures = useMemo(() => {
+    const anisotropy = gl.capabilities.getMaxAnisotropy()
+    return {
+      minor: dotGridTexture(dark ? '#61738c' : '#9eacc0', 3.1, widthPx / step, heightPx / step, anisotropy),
+      major: dotGridTexture(dark ? '#9eb1ce' : '#607897', 4.1, widthPx / (step * 5), heightPx / (step * 5), anisotropy),
     }
-    return { minor: new Float32Array(minor), major: new Float32Array(major) }
-  }, [size])
-  const z = PLATE_Z + PLATE_THICKNESS / 2 + 0.003
+  }, [dark, gl, step])
+  useEffect(() => () => {
+    textures.minor.dispose()
+    textures.major.dispose()
+  }, [textures])
+  const z = PLATE_Z + PLATE_THICKNESS / 2 + 0.004
+  const width = widthPx * PANEL_UNITS_PER_PX
+  const height = heightPx * PANEL_UNITS_PER_PX
+  // Uma grelha plana deixa de representar distâncias quando vista de perfil.
+  // O fade angular remove as linhas em leque/moiré, mas mantém a grelha nas
+  // vistas frontal e isométrica em que ela é útil para editar.
+  useFrame(({ camera }) => {
+    camera.getWorldDirection(cameraDirection)
+    const facing = Math.abs(cameraDirection.z)
+    const fade = THREE.MathUtils.smoothstep(facing, 0.12, 0.42)
+    if (minorMaterial.current) {
+      minorMaterial.current.opacity = (dark ? 0.5 : 0.58) * fade
+      minorMaterial.current.visible = fade > 0.015
+    }
+    if (majorMaterial.current) {
+      majorMaterial.current.opacity = (dark ? 0.58 : 0.64) * fade
+      majorMaterial.current.visible = fade > 0.015
+    }
+  })
   return (
     <group position={[0, 0, z]}>
-      <points renderOrder={1}>
-        <bufferGeometry><bufferAttribute attach="attributes-position" args={[minor, 3]} /></bufferGeometry>
-        <pointsMaterial size={2.4} sizeAttenuation={false} color={dark ? '#5b6b82' : '#b4c1d3'} depthWrite={false} />
-      </points>
-      <points renderOrder={2}>
-        <bufferGeometry><bufferAttribute attach="attributes-position" args={[major, 3]} /></bufferGeometry>
-        <pointsMaterial size={3.6} sizeAttenuation={false} color={dark ? '#8fa3c0' : '#7f92ad'} depthWrite={false} />
-      </points>
+      <mesh renderOrder={1}>
+        <planeGeometry args={[width, height]} />
+        <meshBasicMaterial ref={minorMaterial} map={textures.minor} transparent opacity={dark ? 0.5 : 0.58} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-1} />
+      </mesh>
+      <mesh position={[0, 0, 0.001]} renderOrder={2}>
+        <planeGeometry args={[width, height]} />
+        <meshBasicMaterial ref={majorMaterial} map={textures.major} transparent opacity={dark ? 0.58 : 0.64} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-2} />
+      </mesh>
     </group>
   )
 }

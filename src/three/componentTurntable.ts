@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { ComponentType } from '../types'
 import { cloneModelScene } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
@@ -56,12 +57,56 @@ function normalizeObject(root: THREE.Object3D) {
   const center = bounds.getCenter(new THREE.Vector3())
   // A diagonal (não apenas o maior eixo) garante que nenhum canto sai do
   // cartão quando o utilizador combina inclinação vertical e rotação lateral.
-  const scale = 2.05 / Math.max(size.length(), 0.001)
+  const scale = 2.38 / Math.max(size.length(), 0.001)
   root.scale.multiplyScalar(scale)
   // A posição do Object3D não é afetada pela própria escala: o centro tem de
   // ser convertido explicitamente, caso contrário alguns CAD ficam cortados.
   root.position.copy(center).multiplyScalar(-scale)
   root.updateMatrixWorld(true)
+}
+
+/** Materiais de catálogo com contraste físico e reflexo controlado. Cada CAD
+ * recebe materiais clonados para nunca alterar a fonte GLB em cache. */
+function enhanceTurntableMaterials(root: THREE.Object3D) {
+  const meshes: THREE.Mesh[] = []
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh) return
+    meshes.push(mesh)
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    const source = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    mesh.userData.turntableNeedsOutline = source.some((entry) => entry instanceof THREE.MeshStandardMaterial
+      && !entry.map && entry.color.getHSL({ h: 0, s: 0, l: 0 }).l > 0.72)
+    const enhanced = source.map((entry) => {
+      const material = entry.clone()
+      if (material instanceof THREE.MeshStandardMaterial) {
+        material.roughness = THREE.MathUtils.clamp(material.roughness * 0.72, 0.18, 0.68)
+        material.metalness = THREE.MathUtils.clamp(material.metalness, 0, 0.96)
+        material.envMapIntensity = Math.max(material.envMapIntensity, 1.18)
+        // Muitos CAD usam plástico branco puro sem mapa; no fundo transparente
+        // perdiam todo o relevo. Um cinza técnico leve conserva o material real.
+        if (!material.map && material.color.getHSL({ h: 0, s: 0, l: 0 }).l > 0.82) {
+          material.color.lerp(new THREE.Color('#c4cfdb'), 0.34)
+        }
+        material.needsUpdate = true
+      }
+      return material
+    })
+    mesh.material = Array.isArray(mesh.material) ? enhanced : enhanced[0]
+  })
+  // Contorno técnico muito fino: recupera parafusos, junções e silhuetas dos
+  // plásticos brancos sem substituir as texturas originais do fabricante.
+  for (const mesh of meshes) {
+    if (!mesh.userData.turntableNeedsOutline) continue
+    const outline = new THREE.LineSegments(
+      new THREE.EdgesGeometry(mesh.geometry, 34),
+      new THREE.LineBasicMaterial({ color: '#53657b', transparent: true, opacity: 0.2, depthWrite: false, toneMapped: false }),
+    )
+    outline.userData.turntableOutline = true
+    outline.renderOrder = 4
+    mesh.add(outline)
+  }
 }
 
 async function renderRow(type: ComponentType, pitchIndex: number): Promise<ComponentTurntableFrames> {
@@ -77,18 +122,30 @@ async function renderRow(type: ComponentType, pitchIndex: number): Promise<Compo
   object.rotation.set(...spec.rotation)
   if (spec.flipDepth) object.rotateY(Math.PI)
   normalizeObject(object)
+  enhanceTurntableMaterials(object)
   turntable.add(object)
 
-  scene.add(new THREE.HemisphereLight('#ffffff', '#5c6b7a', 2.7))
-  const key = new THREE.DirectionalLight('#fffaf0', 4.2)
+  scene.add(new THREE.HemisphereLight('#f8fbff', '#334155', 1.2))
+  const key = new THREE.DirectionalLight('#fff8e8', 2.8)
   key.position.set(3.8, 5.2, 6)
+  key.castShadow = true
+  key.shadow.mapSize.set(512, 512)
   scene.add(key)
-  const fill = new THREE.DirectionalLight('#b9d2ff', 2.2)
+  const fill = new THREE.DirectionalLight('#a9c8ff', 1.15)
   fill.position.set(-4.5, 2.5, 2.2)
   scene.add(fill)
-  const rim = new THREE.DirectionalLight('#ffffff', 1.8)
-  rim.position.set(1, -2, -5)
+  const rim = new THREE.DirectionalLight('#ffffff', 0.9)
+  rim.position.set(1, 1, -5)
   scene.add(rim)
+
+  const shadowFloor = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.4, 3.4),
+    new THREE.ShadowMaterial({ color: '#172033', opacity: 0.22, transparent: true }),
+  )
+  shadowFloor.rotation.x = -Math.PI / 2
+  shadowFloor.position.y = -1.08
+  shadowFloor.receiveShadow = true
+  scene.add(shadowFloor)
 
   const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 50)
   camera.position.set(0, 0.05, 4.25)
@@ -96,12 +153,18 @@ async function renderRow(type: ComponentType, pitchIndex: number): Promise<Compo
 
   const canvas = document.createElement('canvas')
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true, powerPreference: 'low-power' })
-  renderer.setSize(180, 180, false)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35))
+  renderer.setSize(208, 208, false)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.28
+  renderer.toneMappingExposure = 0.94
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.setClearColor(0x000000, 0)
+  const pmrem = new THREE.PMREMGenerator(renderer)
+  const room = new RoomEnvironment()
+  const environment = pmrem.fromScene(room, 0.04).texture
+  scene.environment = environment
 
   const frames: string[] = []
   try {
@@ -112,9 +175,23 @@ async function renderRow(type: ComponentType, pitchIndex: number): Promise<Compo
       if (yaw < YAW_STEPS - 1) await nextPaint()
     }
   } finally {
+    environment.dispose()
+    room.dispose()
+    pmrem.dispose()
+    shadowFloor.geometry.dispose()
+    disposeMaterial(shadowFloor.material)
     renderer.dispose()
     renderer.forceContextLoss()
-    // O clone partilha geometria com a fonte em cache; não a descartamos aqui.
+    // O clone partilha geometria com a fonte em cache; os materiais, porém, são próprios.
+    object.traverse((child) => {
+      const mesh = child as THREE.Mesh
+      if (mesh.isMesh && mesh.material) disposeMaterial(mesh.material)
+      if (child.userData.turntableOutline) {
+        const line = child as THREE.LineSegments
+        line.geometry.dispose()
+        disposeMaterial(line.material)
+      }
+    })
     turntable.remove(object)
   }
 

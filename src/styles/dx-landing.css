@@ -1588,3 +1588,38 @@ html:has(.dx-landing) {
   .dx-showcase-legend span { font-size: 9px; }
 }
 @media (min-width: 1600px) { .dx-showcase-wrap { min-height: 560px; } }
+
+/* Materiais 3D com fundo de estúdio técnico: aumenta contraste dos CAD claros
+   sem trocar as texturas reais nem acrescentar símbolos de reserva. */
+.dx-lib-thumb {
+  background-color:#e8eef5;
+  background-image:
+    radial-gradient(circle at 50% 38%,#ffffff 0 18%,#edf3f8 48%,#dce5ef 100%),
+    linear-gradient(#8ca0b214 1px,transparent 1px),
+    linear-gradient(90deg,#8ca0b214 1px,transparent 1px);
+  background-size:auto,18px 18px,18px 18px;
+  box-shadow:inset 0 -22px 38px #8da1b31c;
+}
+.dx-lib-card:hover .dx-lib-thumb {
+  background-color:#e9f0fb;
+  background-image:
+    radial-gradient(circle at 50% 36%,#ffffff 0 16%,#eef4fc 48%,#d7e5f8 100%),
+    linear-gradient(#5f83b014 1px,transparent 1px),
+    linear-gradient(90deg,#5f83b014 1px,transparent 1px);
+}
+.dx-lib-thumb .dc-turntable-thumb {
+  filter:drop-shadow(0 14px 10px #1d2c4240) contrast(1.08) saturate(1.06);
+}
+.dx-lib-card:hover .dx-lib-thumb .dc-turntable-thumb {
+  filter:drop-shadow(0 17px 12px #1d2c4947) contrast(1.1) saturate(1.08);
+}
+.dx-lib-rotate-hint {
+  border-color:#b9c7d8;
+  color:#40516a;
+  background:#fffffff2;
+  box-shadow:0 2px 7px #1d2c4217;
+}
+@media(max-width:700px) {
+  .dx-lib-thumb { height:154px; }
+  .dx-lib-model-slot,.dx-lib-thumb img { width:138px!important; height:138px!important; }
+}

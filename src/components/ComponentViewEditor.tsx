@@ -466,8 +466,8 @@ export default function ComponentViewEditor() {
   const selected = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
   if (editor || !selected) return null
   return <div className="component-view-command">
-    <button type="button" onClick={() => open(selected.id)} title={`Editar componente 3D ${selected.ref}`}><IconCube size={14} />Editar componente 3D</button>
-    <button type="button" onClick={() => open(selected.id, 'terminals')} title={`Adicionar, classificar e posicionar os bornes de ${selected.ref}`}><IconProbe size={14} />{selected.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'}</button>
+    <button type="button" aria-label={`Editar componente 3D ${selected.ref}`} onClick={() => open(selected.id)} title={`Editar componente 3D ${selected.ref}`}><IconCube size={14} /><span className="component-command-long">Editar componente 3D</span><span className="component-command-short">Componente</span></button>
+    <button type="button" aria-label={`${selected.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'} de ${selected.ref}`} onClick={() => open(selected.id, 'terminals')} title={`Adicionar, classificar e posicionar os bornes de ${selected.ref}`}><IconProbe size={14} /><span className="component-command-long">{selected.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'}</span><span className="component-command-short">Bornes</span></button>
   </div>
 }
 
