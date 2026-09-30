@@ -15,7 +15,7 @@ import { PANEL_UNITS_PER_PX, componentPanelXY, dropOnSchematic, panelToSchematic
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
-import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
+import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from './panel3DEditing'
 
 const SLOT_WIDTH = 0.72
@@ -1151,9 +1151,41 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false }: { co
       zoom: Math.round(Math.max(25, Math.min(400, 620 / distance))),
     })
   }
+  // Transição suave entre vistas (cubo, botões, atalhos): a câmara desliza em arco em ~0,4 s.
+  const firstCommandRef = useRef(true)
+  const animRef = useRef<{ start: number; duration: number; fromDir: THREE.Vector3; toDir: THREE.Vector3; fromDist: number; toDist: number; fromTarget: THREE.Vector3; toTarget: THREE.Vector3; fromUp: THREE.Vector3; toUp: THREE.Vector3 } | null>(null)
   useEffect(() => {
     const controls = controlsRef.current
     if (!controls) return
+    const cancel = () => { animRef.current = null }
+    controls.addEventListener('start', cancel)
+    return () => controls.removeEventListener('start', cancel)
+  }, [])
+  useFrame(() => {
+    const anim = animRef.current
+    const controls = controlsRef.current
+    if (!anim || !controls) return
+    const raw = Math.min(1, (performance.now() - anim.start) / anim.duration)
+    const t = raw < 0.5 ? 4 * raw * raw * raw : 1 - Math.pow(-2 * raw + 2, 3) / 2
+    const dot = anim.fromDir.dot(anim.toDir)
+    const q = new THREE.Quaternion()
+    if (dot < -0.999) q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI * t)
+    else q.slerp(new THREE.Quaternion().setFromUnitVectors(anim.fromDir, anim.toDir), t)
+    const dir = anim.fromDir.clone().applyQuaternion(q).normalize()
+    const dist = THREE.MathUtils.lerp(anim.fromDist, anim.toDist, t)
+    const target = anim.fromTarget.clone().lerp(anim.toTarget, t)
+    camera.up.copy(anim.fromUp).lerp(anim.toUp, t).normalize()
+    camera.position.copy(target).add(dir.multiplyScalar(dist))
+    controls.target.copy(target)
+    camera.lookAt(target)
+    controls.update()
+    report()
+    if (raw >= 1) { camera.up.copy(anim.toUp); animRef.current = null }
+  })
+  useEffect(() => {
+    const controls = controlsRef.current
+    if (!controls) return
+    animRef.current = null
     if (command.view === 'orbit') {
       // Arrasto do cubo de vista: orbita em torno do alvo atual (yaw livre, elevação limitada).
       camera.up.set(0, 1, 0)
@@ -1173,6 +1205,9 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false }: { co
     const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * Math.max(0.55, fit.width / Math.max(1, fit.height)))
     const fitDistance = Math.max(3.2, Math.min(40, (Math.max(3.5, fit.railWidth) * 0.62) / Math.max(0.2, Math.tan(horizontalFov / 2))))
     let position: THREE.Vector3
+    const fromUp = camera.up.clone()
+    const fromPosition = camera.position.clone()
+    const fromTarget = controls.target.clone()
     camera.up.set(0, 1, 0)
     if (command.view === 'focus') {
       const direction = camera.position.clone().sub(controls.target).normalize()
@@ -1200,12 +1235,27 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false }: { co
     } else {
       position = target.clone().add(new THREE.Vector3(fitDistance * 0.68, fitDistance * 0.48, fitDistance * 0.78))
     }
-    camera.position.copy(position)
-    controls.target.copy(target)
-    camera.lookAt(target)
-    camera.updateProjectionMatrix()
-    controls.update()
-    report()
+    const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const fromOffset = fromPosition.clone().sub(fromTarget)
+    const toOffset = position.clone().sub(target)
+    if (firstCommandRef.current || reduceMotion || fromOffset.lengthSq() < 1e-6 || toOffset.lengthSq() < 1e-6) {
+      firstCommandRef.current = false
+      camera.position.copy(position)
+      controls.target.copy(target)
+      camera.lookAt(target)
+      camera.updateProjectionMatrix()
+      controls.update()
+      report()
+      return
+    }
+    const toUp = camera.up.clone()
+    camera.up.copy(fromUp)
+    animRef.current = {
+      start: performance.now(), duration: 420,
+      fromDir: fromOffset.clone().normalize(), toDir: toOffset.clone().normalize(),
+      fromDist: fromOffset.length(), toDist: toOffset.length(),
+      fromTarget, toTarget: target.clone(), fromUp, toUp,
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, command])
   // Edição frontal: botão esquerdo no vazio faz pan (como num editor 2D); orbitar fica no botão direito e no cubo de vista.
@@ -1606,6 +1656,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     setActiveWaypointIndex(null)
     setReconnect({ wireId: selectedWire.id, end })
   }
+  // Legenda do cubo: diz em que vista estás (alinhada a uma face ≤ 4° ou livre) e lembra os atalhos.
+  const cubeNote = (() => {
+    const names: Record<string, string> = { front: 'Frontal', back: 'Trás', left: 'Esquerda', right: 'Direita', top: 'Superior', bottom: 'Inferior' }
+    const wrapped = ((((cameraStats.yaw + 180) % 360) + 360) % 360) - 180
+    const near = (v: number, a: number) => Math.abs(v - a) <= 4
+    const aligned = (near(cameraStats.pitch, 0) && [0, 90, -90, 180, -180].some((a) => near(wrapped, a))) || Math.abs(cameraStats.pitch) >= 86
+    const label = aligned ? `Vista ${names[cameraFacingFace(cameraStats.yaw, cameraStats.pitch)].toLowerCase()}` : 'Vista livre'
+    return `${frontEdit ? 'Edição · ' : ''}${label} · Numpad 1/3/7/5`
+  })()
   const stageBackground = backgroundMode === 'white'
     ? 'bg-white'
     : backgroundMode === 'dark'
@@ -1618,6 +1677,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
       if (event.key === 'Escape') { setConnectionStartId(null); setReconnect(null); setActiveWaypointIndex(null); changeEditMode('navigate') }
       else if (event.key === 'Home' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); moveCamera('fit') }
+      else if (/^Numpad[1357]$/.test(event.code) && !event.altKey && !event.metaKey) {
+        // Como nos CAD: 1 frente · 3 direita · 7 superior · 5 isométrica; Ctrl inverte (trás · esquerda · inferior).
+        event.preventDefault()
+        const map: Record<string, PanelCameraView> = { Numpad1: event.ctrlKey ? 'back' : 'front', Numpad3: event.ctrlKey ? 'left' : 'right', Numpad7: event.ctrlKey ? 'bottom' : 'top', Numpad5: 'isometric' }
+        moveCamera(map[event.code])
+      }
       else if (event.key.toLowerCase() === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey && selectedTarget) { event.preventDefault(); focusSelection() }
       else if (event.key.toLowerCase() === 'g' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); toggleGrid() }
       else if (event.key.toLowerCase() === 'm' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); changeEditMode('move') }
@@ -1651,7 +1716,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
        }}
      >
       <ComponentViewEditor />
-      <ViewCube yaw={cameraStats.yaw} pitch={cameraStats.pitch} onPick={pickCubeView} onAngles={pickCubeAngles} onOrbit={orbitCamera} placement={viewOrientationEditor ? 'shifted' : selectedIds.length === 1 ? 'below-command' : 'top'} />
+      <ViewCube yaw={cameraStats.yaw} pitch={cameraStats.pitch} onPick={pickCubeView} onAngles={pickCubeAngles} onOrbit={orbitCamera} note={cubeNote} placement={viewOrientationEditor ? 'shifted' : selectedIds.length === 1 ? 'below-command' : 'top'} />
       <div className="panel3d-viewbar" role="toolbar" aria-label="Edição, vistas e navegação do painel 3D">
         <button type="button" className={editMode === 'navigate' ? 'is-edit-active' : ''} aria-pressed={editMode === 'navigate'} onClick={() => changeEditMode('navigate')} title="Navegar e orbitar a câmara · clique e arraste um componente para o mover">Navegar</button>
         <button type="button" className={editMode === 'move' ? 'is-edit-active' : ''} aria-pressed={editMode === 'move'} onClick={() => changeEditMode('move')} title="Selecionar e mover componentes diretamente no espaço 3D">Mover</button>
