@@ -1702,7 +1702,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed }: {
 
       {!components.length && <div className="panel3d-empty-overlay absolute inset-0 flex items-center justify-center pointer-events-none z-10">
         <div className="dc-editor-empty panel3d-empty-card pointer-events-auto">
-          <span className="dc-empty-kicker">ESQUEMA · VISUALIZAÇÃO 3D</span>
+          <span className="dc-empty-kicker">Esquema · Visualização 3D</span>
           <h2>Visualize o esquema em 3D</h2>
           <p>O projeto começa vazio. Adicione componentes pela Biblioteca; o mesmo equipamento, bornes e cabos aparecerão aqui e no Esquema 2D, à escala real.</p>
         </div>
