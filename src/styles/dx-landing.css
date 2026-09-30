@@ -587,6 +587,7 @@ html:has(.dx-landing) {
   align-items: center;
   gap: var(--dx-7);
 }
+.dx-studio-grid > * { min-width: 0; }
 .dx-studio-side {
   list-style: none;
   margin: 0;
