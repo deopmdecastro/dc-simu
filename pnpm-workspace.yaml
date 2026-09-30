@@ -1,0 +1,6 @@
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+overrides:
+  browserslist: 4.28.1
+  caniuse-lite: 1.0.30001769

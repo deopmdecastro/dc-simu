@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { EditorTool, WireColor, WireEndType } from '../types'
 import { buildBOM, bomToCSV } from '../utils/bom'
@@ -48,12 +48,16 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const menuId = useId()
+  const updatePosition = () => {
+    const anchor = ref.current
+    if (!anchor) return
+    const bounds = anchor.getBoundingClientRect()
+    const left = align === 'right' ? bounds.right - 220 : bounds.left
+    setPos({ top: bounds.bottom + 4, left: Math.max(8, Math.min(left, window.innerWidth - 240)) })
+  }
   const toggle = () => {
-    if (!open && ref.current) {
-      // posição fixa: a linha da toolbar tem overflow e cortaria um menu absoluto
-      const r = ref.current.getBoundingClientRect()
-      setPos({ top: r.bottom + 4, left: align === 'right' ? Math.max(8, r.right - 220) : Math.min(r.left, window.innerWidth - 240) })
-    }
+    if (!open) updatePosition()
     setOpen((v) => !v)
   }
   useEffect(() => {
@@ -64,20 +68,24 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     window.addEventListener('mousedown', onDown)
     window.addEventListener('keydown', onKey)
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
     return () => {
       window.removeEventListener('mousedown', onDown)
       window.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
     }
   }, [open])
   return (
     <div className="relative shrink-0" ref={ref}>
-      <button className={`dc-btn ${open ? '!border-brand-400 !bg-brand-50 !text-brand-700' : ''}`} onClick={toggle} title={title} disabled={disabled} aria-expanded={open}>
+      <button className={`dc-btn ${open ? '!border-brand-400 !bg-brand-50 !text-brand-700' : ''}`} onClick={toggle} title={title} disabled={disabled} aria-expanded={open} aria-controls={open ? menuId : undefined}>
         {icon}
         {label}
         <IconChevronDown size={11} className={`text-ink-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && pos && (
-        <div className="tb-menu !fixed !mt-0" style={{ top: pos.top, left: pos.left }}>
+        <div id={menuId} className="tb-menu !fixed !mt-0" style={{ top: pos.top, left: pos.left }}>
           {children(() => setOpen(false))}
         </div>
       )}
@@ -98,8 +106,8 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
   // atalhos F1/F2/F4/F5 (ou Ctrl+1…4) para as vistas
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
       if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-4]$/.test(e.key)) {
-        if ((e.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
         e.preventDefault()
         setMode(VIEWS[Number(e.key) - 1].id)
         return

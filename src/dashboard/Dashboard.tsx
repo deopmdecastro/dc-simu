@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { useRef } from 'react'
 import { LogoMark } from '../ui/Brand'
 import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus } from '../ui/icons'
 
@@ -147,8 +148,10 @@ export default function Dashboard({
 }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'owner' | 'editor'>('all')
-  const [modal, setModal] = useState<{ type: 'create' | 'invite'; project?: Project } | null>(null)
+  const [modal, setModal] = useState<{ type: 'create' | 'invite' | 'delete'; project?: Project } | null>(null)
   const [value, setValue] = useState('')
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -170,7 +173,9 @@ export default function Dashboard({
     }, 170)
   }
 
-  const openModal = (type: 'create' | 'invite', project?: Project) => {
+  const openModal = (type: 'create' | 'invite' | 'delete', project?: Project) => {
+    const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    returnFocusRef.current = activeElement?.closest('.dx-menu-wrap')?.querySelector<HTMLElement>('button') ?? activeElement
     setClosing(false)
     setModal({ type, project })
     setValue('')
@@ -205,10 +210,45 @@ export default function Dashboard({
     }
   }
 
+  async function confirmDelete() {
+    if (modal?.type !== 'delete' || !modal.project || saving) return
+    setSaving(true)
+    setNotice('')
+    try {
+      await onDelete(modal.project)
+      closeModal()
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : 'Não foi possível eliminar o projeto.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   useEffect(() => {
-    if (!modal) return
+    if (!modal) {
+      returnFocusRef.current?.focus()
+      return
+    }
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !saving) closeModal()
+      if (e.key === 'Escape' && !saving) {
+        closeModal()
+        return
+      }
+      if (e.key !== 'Tab') return
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')
+      if (!focusable?.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!dialogRef.current?.contains(document.activeElement)) {
+        e.preventDefault()
+        ;(e.shiftKey ? last : first).focus()
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
@@ -368,7 +408,7 @@ export default function Dashboard({
                         className="danger"
                         onClick={() => {
                           setMenu(null)
-                          void onDelete(p)
+                          openModal('delete', p)
                         }}
                       >
                         Eliminar projeto
@@ -450,20 +490,22 @@ export default function Dashboard({
             if (e.target === e.currentTarget && !saving) closeModal()
           }}
         >
-          <div className="dx-dialog" role="dialog" aria-modal="true" aria-labelledby="dx-dialog-title">
+          <div ref={dialogRef} className="dx-dialog" role="dialog" aria-modal="true" aria-labelledby="dx-dialog-title" aria-describedby="dx-dialog-description">
             <button className="dx-btn dx-btn-ghost dx-btn-sm dx-dialog-close" aria-label="Fechar" disabled={saving} onClick={closeModal}>
               ×
             </button>
             <div className="dx-empty-ic" style={{ margin: 0, width: 44, height: 44 }}>
               {modal.type === 'create' ? <IconPlus size={20} /> : <IconProjects size={20} />}
             </div>
-            <h2 id="dx-dialog-title">{modal.type === 'create' ? 'Criar novo projeto' : 'Convidar editor'}</h2>
-            <p>
+            <h2 id="dx-dialog-title">{modal.type === 'create' ? 'Criar novo projeto' : modal.type === 'invite' ? 'Convidar editor' : 'Eliminar projeto?'}</h2>
+            <p id="dx-dialog-description">
               {modal.type === 'create'
                 ? 'Dê um nome ao quadro. Poderá adicionar componentes assim que o projeto abrir.'
-                : `Convide a outra conta autorizada para editar «${modal.project?.name}».`}
+                : modal.type === 'invite'
+                  ? `Convide a outra conta autorizada para editar «${modal.project?.name}».`
+                  : `O projeto «${modal.project?.name}» será eliminado definitivamente. Esta ação não pode ser anulada.`}
             </p>
-            <form onSubmit={(e) => void submit(e)}>
+            {modal.type !== 'delete' ? <form onSubmit={(e) => void submit(e)}>
               <label className="dx-field">
                 <span className="dx-label">{modal.type === 'create' ? 'Nome do projeto' : 'Email do utilizador'}</span>
                 <input
@@ -499,7 +541,15 @@ export default function Dashboard({
                   )}
                 </button>
               </div>
-            </form>
+            </form> : <div>
+              {notice && <div className="dx-alert" role="alert">{notice}</div>}
+              <div className="dx-dialog-actions">
+                <button type="button" autoFocus className="dx-btn dx-btn-ghost" disabled={saving} onClick={closeModal}>Cancelar</button>
+                <button type="button" className="dx-btn dx-btn-danger" disabled={saving} onClick={() => void confirmDelete()}>
+                  {saving ? <><span className="dx-spin" aria-hidden /> A eliminar…</> : 'Eliminar projeto'}
+                </button>
+              </div>
+            </div>}
           </div>
         </div>
       )}

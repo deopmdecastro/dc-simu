@@ -71,6 +71,18 @@ export default function App({ onBack }: { onBack: () => void }) {
     } catch { /* localStorage indisponível */ }
   }, [mode, ladderSection])
 
+  useEffect(() => {
+    if (!showLibrary && !showLadder) return
+    const closeDrawers = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && compactWorkspace()) {
+        setShowLibrary(false)
+        setShowLadder(false)
+      }
+    }
+    window.addEventListener('keydown', closeDrawers)
+    return () => window.removeEventListener('keydown', closeDrawers)
+  }, [showLibrary, showLadder])
+
   // Evita perder trabalho ao atualizar/fechar a aba com alterações pendentes.
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -120,6 +132,14 @@ export default function App({ onBack }: { onBack: () => void }) {
     <div className="h-full w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
       <Toolbar onBack={onBack} mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection} />
       <div className="flex-1 flex min-h-0 dc-workspace relative" data-component-editing={mode === 'schematic' && editingComponent ? 'true' : 'false'}>
+        {mode === 'schematic' && (showLibrary || showLadder) && (
+          <button
+            type="button"
+            className="dc-mobile-backdrop"
+            aria-label="Fechar painéis laterais"
+            onClick={() => { setShowLibrary(false); setShowLadder(false) }}
+          />
+        )}
         {mode === 'schematic' && showLibrary && (
           <>
             <div className="mobile-library-panel relative shrink-0 flex flex-col" style={{ width: panelSizes.sidebar }}>
@@ -138,7 +158,7 @@ export default function App({ onBack }: { onBack: () => void }) {
           </>
         )}
         <div className="flex-1 min-w-0 flex flex-col relative">
-          {mode === 'schematic' && !showLibrary && <button className="dc-dock-open is-left" onClick={() => setShowLibrary(true)} title="Mostrar biblioteca e inspetor">▤ Biblioteca</button>}
+          {mode === 'schematic' && !showLibrary && <button className="dc-dock-open is-left" onClick={() => { setShowLadder(false); setShowLibrary(true) }} title="Mostrar biblioteca e inspetor">▤ Biblioteca</button>}
           {mode === 'schematic' && <SchematicView libraryCollapsed={!showLibrary} />}
           {mode === 'ladder' && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={() => { setShowLibrary(true); setMode('schematic') }} />}
           {mode === 'grafcet' && <GrafcetEditor full />}
@@ -163,7 +183,7 @@ export default function App({ onBack }: { onBack: () => void }) {
               </>
             ) : (
               <button
-                onClick={() => setShowLadder(true)}
+                onClick={() => { setShowLibrary(false); setShowLadder(true) }}
                 className="dc-dock-open is-right"
                 title="Mostrar o editor GRAFCET"
               >
@@ -207,10 +227,22 @@ export default function App({ onBack }: { onBack: () => void }) {
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${state.dot}`} />
           {state.label}
         </button>
-        <span className="ml-1">
-          <span className={errors ? 'text-state-error font-semibold' : 'text-ink-400'}>{errors} erro(s)</span>
-          <span className="text-ink-300"> · </span>
-          <span className={warnings ? 'text-state-pause font-semibold' : 'text-ink-400'}>{warnings} aviso(s)</span>
+        <span className="ml-1 inline-flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setMode('monitor')}
+            className={`${errors ? 'text-state-error font-semibold' : 'text-ink-400'} hover:underline focus-visible:underline`}
+            title="Abrir os diagnósticos no Monitor"
+            aria-label={`${errors} erros; abrir diagnósticos no Monitor`}
+          >{errors} erro(s)</button>
+          <span className="text-ink-300" aria-hidden="true">·</span>
+          <button
+            type="button"
+            onClick={() => setMode('monitor')}
+            className={`${warnings ? 'text-state-pause font-semibold' : 'text-ink-400'} hover:underline focus-visible:underline`}
+            title="Abrir os diagnósticos no Monitor"
+            aria-label={`${warnings} avisos; abrir diagnósticos no Monitor`}
+          >{warnings} aviso(s)</button>
         </span>
         <span className="ml-auto font-mono tabular-nums text-ink-500">scan #{scanCount}</span>
         <InstallApp />

@@ -196,7 +196,6 @@ export default function Account() {
   }
 
   async function remove(project: Project) {
-    if (!confirm(`Eliminar definitivamente «${project.name}»?`)) return
     try {
       await api('/projects/' + project.id, 'DELETE')
       await refresh()

@@ -1519,6 +1519,9 @@ input[type='color'] {
   }
   .tb-menu {
     @apply absolute z-50 mt-1 min-w-[190px] rounded-md border border-line bg-white p-1 shadow-lg;
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .tb-menu-item {
     @apply flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-left text-xs text-ink-700 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-700;
@@ -1719,6 +1722,7 @@ button:disabled { cursor:not-allowed; }
 .dc-dock-collapse { align-self:flex-end; flex:none; width:28px; height:27px; border-radius:0 0 0 8px; background:#f5f7f9; color:#5f6b78; transition:all .12s ease; }
 .dc-dock-open { border:1px solid #dfe4e9; background:#fff; color:#39434f; font-size:11px; font-weight:650; box-shadow:0 3px 12px #10161d18; z-index:12; transition:all .12s ease; }
 .dc-dock-open:hover { border-color:#c9d8fb; color:#1a44c8; box-shadow:0 5px 16px #10161d22; }
+.dc-mobile-backdrop { display:none; }
 .dc-dock-open.is-left { position:absolute; top:12px; left:12px; border-radius:8px; padding:7px 11px; }
 .dc-dock-open.is-right { writing-mode:vertical-rl; transform:rotate(180deg); width:100%; height:100%; padding:9px; border:0; border-radius:0; border-left:1px solid #dfe4e9; }
 .dc-btn, .dc-tool-btn, .dc-tab { transition:background-color .16s ease,color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease; }
@@ -2030,6 +2034,7 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
   .panel3d-stage .component-view-editor { right:43px; width:min(372px,calc(100% - 55px)); max-width:calc(100% - 55px); }
   .dc-views-container { order: initial; flex-basis: auto; flex-shrink: 0; }
   .dc-workspace .dc-resize-handle { display: none; }
+  .dc-mobile-backdrop { position:absolute; inset:0; z-index:30; display:block; background:rgba(15,23,42,.26); backdrop-filter:blur(1px); }
   .dc-workspace .mobile-library-panel { position: absolute; z-index: 40; border-top-right-radius: 20px; border-bottom-right-radius: 20px; top: 0; bottom: 0; left: 0; width: min(90vw, 360px) !important; background: white; box-shadow: 5px 0 20px #14234a30; }
   .dc-workspace .mobile-grafcet-panel { position: absolute; z-index: 40; top: 0; bottom: 0; right: 0; width: min(92vw, 380px) !important; min-width: 0 !important; max-width: 92vw; overflow: hidden auto; border-top-left-radius: 20px; border-bottom-left-radius: 20px; box-shadow: -5px 0 20px #14234a30; }
   .dc-workspace .mobile-grafcet-panel.mobile-grafcet-closed { width: 36px !important; z-index: 10; border-radius: 0; box-shadow: none; }
