@@ -97,13 +97,13 @@ function LandingGlbThumb({ type }: { type: ComponentType }) {
     if (!('IntersectionObserver' in window)) return setVisible(true)
     const io = new IntersectionObserver((entries) => {
       setVisible(entries[0]?.isIntersecting ?? false)
-    }, { rootMargin: '240px' })
+    }, { rootMargin: '100px' })
     io.observe(node)
     return () => io.disconnect()
   }, [])
   return (
     <div ref={ref} className="dx-lib-model-slot">
-      {visible ? <InteractiveComponentThumb type={type} size={112} /> : <div className="dc-real-glb-loading" aria-hidden />}
+      {visible ? <InteractiveComponentThumb type={type} size={148} /> : <div className="dc-real-glb-loading" aria-hidden />}
     </div>
   )
 }
@@ -661,7 +661,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
           <div className="dx-head" data-rv>
             <span className="dx-over">Biblioteca com CAD validado</span>
             <h2>Apenas equipamentos que já têm modelo GLB real.</h2>
-            <p>Explore os {LIBRARY.length} componentes atualmente integrados. Cada modelo começa estático: arraste com o rato ou com o dedo para o girar em 3D, usando o mesmo GLB do Esquema e da Visualização 3D.</p>
+            <p>Explore os {LIBRARY.length} componentes atualmente integrados. Cada modelo começa estático: arraste na horizontal e na vertical para o observar em todos os ângulos, usando o mesmo GLB do Esquema e da Visualização 3D.</p>
           </div>
           <div className="dx-lib-toolbar" data-rv>
             <div className="dx-lib-filters">
@@ -681,7 +681,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
                 <div className="dx-lib-thumb">
                   <LandingGlbThumb type={c.type} />
                   <span className="dx-lib-3d">(3D)</span>
-                  <span className="dx-lib-rotate-hint" aria-hidden="true">↔ Arraste para girar</span>
+                  <span className="dx-lib-rotate-hint" aria-hidden="true">↕ ↔ Arraste para girar</span>
                 </div>
                 <div className="dx-lib-body">
                   <b>{c.n}</b>

@@ -1,22 +1,46 @@
 import * as THREE from 'three'
-import { cloneModelScene } from './modelFit'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { ComponentType } from '../types'
+import { cloneModelScene } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
 
-const FRAME_COUNT = 16
-const FRAME_SIZE = 180
-const frameCache = new Map<ComponentType, Promise<string[]>>()
-const sourceCache = new Map<ComponentType, Promise<THREE.Object3D>>()
-const orientationImageCache = new Map<string, Promise<string>>()
+export interface ComponentTurntableFrames {
+  frames: string[]
+  yawSteps: number
+  pitchIndex: number
+  pitchSteps: number
+}
 
-function loadComponentSource(type: ComponentType, path: string): Promise<THREE.Object3D> {
-  const cached = sourceCache.get(type)
+const YAW_STEPS = 12
+/** Elevação suficiente para observar topo, frente e base sem inverter o equipamento. */
+const PITCH_ANGLES = [-Math.PI / 3, -Math.PI / 6, 0, Math.PI / 6, Math.PI / 3] as const
+const DEFAULT_PITCH_INDEX = 2
+const rowCache = new Map<string, Promise<ComponentTurntableFrames>>()
+const sourceCache = new Map<string, Promise<THREE.Object3D>>()
+let renderQueue: Promise<void> = Promise.resolve()
+
+function disposeMaterial(material: THREE.Material | THREE.Material[]) {
+  for (const value of Array.isArray(material) ? material : [material]) value.dispose()
+}
+
+function disposeObject(root: THREE.Object3D) {
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh) return
+    mesh.geometry?.dispose()
+    if (mesh.material) disposeMaterial(mesh.material)
+  })
+}
+
+function loadSource(path: string) {
+  const cached = sourceCache.get(path)
   if (cached) return cached
-  const request = new GLTFLoader().loadAsync(path).then(({ scene }) => scene)
-    .catch((error) => { sourceCache.delete(type); throw error })
-  sourceCache.set(type, request)
-  return request
+  const pending = new Promise<THREE.Object3D>((resolve, reject) => {
+    new GLTFLoader().load(path, (gltf) => resolve(gltf.scene), undefined, reject)
+  })
+  sourceCache.set(path, pending)
+  pending.catch(() => sourceCache.delete(path))
+  return pending
 }
 
 const nextPaint = () => new Promise<void>((resolve) => {
@@ -24,96 +48,105 @@ const nextPaint = () => new Promise<void>((resolve) => {
   else setTimeout(resolve, 0)
 })
 
-/**
- * Renderiza um turntable real a partir do GLB do componente.
- *
- * As frames são produzidas uma única vez por tipo, usando um contexto WebGL
- * temporário que é libertado no fim. A landing navega entre imagens WebP leves
- * em vez de manter um Canvas/WebGL por cartão — importante no Safari móvel.
- */
-export function getComponentTurntableFrames(type: ComponentType): Promise<string[]> {
-  const cached = frameCache.get(type)
-  if (cached) return cached
+function normalizeObject(root: THREE.Object3D) {
+  root.updateMatrixWorld(true)
+  const bounds = new THREE.Box3().setFromObject(root, true)
+  if (bounds.isEmpty()) throw new Error('Modelo 3D sem geometria visível')
+  const size = bounds.getSize(new THREE.Vector3())
+  const center = bounds.getCenter(new THREE.Vector3())
+  // A diagonal (não apenas o maior eixo) garante que nenhum canto sai do
+  // cartão quando o utilizador combina inclinação vertical e rotação lateral.
+  const scale = 2.05 / Math.max(size.length(), 0.001)
+  root.scale.multiplyScalar(scale)
+  // A posição do Object3D não é afetada pela própria escala: o centro tem de
+  // ser convertido explicitamente, caso contrário alguns CAD ficam cortados.
+  root.position.copy(center).multiplyScalar(-scale)
+  root.updateMatrixWorld(true)
+}
 
+async function renderRow(type: ComponentType, pitchIndex: number): Promise<ComponentTurntableFrames> {
   const spec = getComponentGlbSpec(type)
-  if (!spec) return Promise.reject(new Error(`Sem GLB real associado a ${type}.`))
+  if (!spec) throw new Error('Modelo GLB indisponível')
+  const source = await loadSource(spec.path)
+  const scene = new THREE.Scene()
+  const turntable = new THREE.Group()
+  scene.add(turntable)
 
-  const request = loadComponentSource(type, spec.path).then(async (source) => {
-    const canvas = document.createElement('canvas')
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true })
-    const clonedMaterials: THREE.Material[] = []
-    try {
-      renderer.setSize(FRAME_SIZE, FRAME_SIZE, false)
-      renderer.setPixelRatio(1)
-      renderer.outputColorSpace = THREE.SRGBColorSpace
-      renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.08
-      renderer.setClearColor('#ffffff', 0)
+  // A clonagem mantém o CAD de origem imutável e partilha apenas buffers de leitura.
+  const object = cloneModelScene(source)
+  object.rotation.set(...spec.rotation)
+  if (spec.flipDepth) object.rotateY(Math.PI)
+  normalizeObject(object)
+  turntable.add(object)
 
-      const scene = new THREE.Scene()
-      scene.add(new THREE.HemisphereLight('#ffffff', '#8b9bb1', 1.75))
-      const key = new THREE.DirectionalLight('#ffffff', 2.25)
-      key.position.set(4, 6, 7)
-      scene.add(key)
-      const fill = new THREE.DirectionalLight('#dbe8ff', 1.05)
-      fill.position.set(-5, 3, 2)
-      scene.add(fill)
-      const rim = new THREE.DirectionalLight('#ffffff', 0.75)
-      rim.position.set(2, 4, -6)
-      scene.add(rim)
+  scene.add(new THREE.HemisphereLight('#ffffff', '#5c6b7a', 2.7))
+  const key = new THREE.DirectionalLight('#fffaf0', 4.2)
+  key.position.set(3.8, 5.2, 6)
+  scene.add(key)
+  const fill = new THREE.DirectionalLight('#b9d2ff', 2.2)
+  fill.position.set(-4.5, 2.5, 2.2)
+  scene.add(fill)
+  const rim = new THREE.DirectionalLight('#ffffff', 1.8)
+  rim.position.set(1, -2, -5)
+  scene.add(rim)
 
-      const model = cloneModelScene(source)
-      model.traverse((node) => {
-        const mesh = node as THREE.Mesh
-        if (!mesh.isMesh) return
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-        const clones = materials.map((material) => {
-          const cloned = material.clone()
-          clonedMaterials.push(cloned)
-          return cloned
-        })
-        mesh.material = Array.isArray(mesh.material) ? clones : clones[0]
-      })
-      model.rotation.set(...spec.rotation)
-      if (spec.flipDepth) model.scale.z *= -1
-      model.updateMatrixWorld(true)
+  const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 50)
+  camera.position.set(0, 0.05, 4.25)
+  camera.lookAt(0, 0, 0)
 
-      const initialBox = new THREE.Box3().setFromObject(model, true)
-      model.position.sub(initialBox.getCenter(new THREE.Vector3()))
-      model.updateMatrixWorld(true)
+  const canvas = document.createElement('canvas')
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true, powerPreference: 'low-power' })
+  renderer.setSize(180, 180, false)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35))
+  renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.28
+  renderer.setClearColor(0x000000, 0)
 
-      const size = new THREE.Box3().setFromObject(model, true).getSize(new THREE.Vector3())
-      const rotatingWidth = Math.hypot(size.x, size.z)
-      const halfView = Math.max(size.y, rotatingWidth) * 0.61 || 1
-      const cameraDistance = Math.max(4, Math.max(size.x, size.y, size.z) * 3.4)
-      const camera = new THREE.OrthographicCamera(-halfView, halfView, halfView, -halfView, 0.01, cameraDistance * 3)
-      camera.position.set(0, size.y * 0.04, cameraDistance)
-      camera.lookAt(0, 0, 0)
-
-      const turntable = new THREE.Group()
-      turntable.add(model)
-      scene.add(turntable)
-
-      const frames: string[] = []
-      for (let frame = 0; frame < FRAME_COUNT; frame++) {
-        turntable.rotation.y = (frame / FRAME_COUNT) * Math.PI * 2
-        turntable.updateMatrixWorld(true)
-        renderer.render(scene, camera)
-        frames.push(canvas.toDataURL('image/webp', 0.88))
-        // Distribui o custo por vários frames do browser e evita bloquear o scroll.
-        if (frame < FRAME_COUNT - 1) await nextPaint()
-      }
-      return frames
-    } finally {
-      clonedMaterials.forEach((material) => material.dispose())
-      renderer.dispose()
-      renderer.forceContextLoss()
+  const frames: string[] = []
+  try {
+    for (let yaw = 0; yaw < YAW_STEPS; yaw += 1) {
+      turntable.rotation.set(PITCH_ANGLES[pitchIndex] ?? 0, (yaw / YAW_STEPS) * Math.PI * 2, 0)
+      renderer.render(scene, camera)
+      frames.push(renderer.domElement.toDataURL('image/webp', 0.9))
+      if (yaw < YAW_STEPS - 1) await nextPaint()
     }
-  }).catch((error) => {
-    frameCache.delete(type)
-    throw error
-  })
+  } finally {
+    renderer.dispose()
+    renderer.forceContextLoss()
+    // O clone partilha geometria com a fonte em cache; não a descartamos aqui.
+    turntable.remove(object)
+  }
 
-  frameCache.set(type, request)
-  return request
+  return { frames, yawSteps: YAW_STEPS, pitchIndex, pitchSteps: PITCH_ANGLES.length }
+}
+
+/**
+ * Gera apenas uma faixa de inclinação de cada vez. Assim cada cartão conserva
+ * uma imagem leve e o Safari móvel nunca mantém vários contextos WebGL vivos.
+ */
+export function getComponentTurntableFrames(type: ComponentType, pitchIndex = DEFAULT_PITCH_INDEX) {
+  const normalizedPitch = Math.max(0, Math.min(PITCH_ANGLES.length - 1, Math.round(pitchIndex)))
+  const key = `${type}:${normalizedPitch}`
+  const cached = rowCache.get(key)
+  if (cached) return cached
+  // Uma fila global garante no máximo um contexto WebGL temporário de cada vez,
+  // inclusive quando vários cartões entram juntos no viewport no Safari móvel.
+  const pending = renderQueue.then(() => renderRow(type, normalizedPitch))
+  renderQueue = pending.then(() => undefined, () => undefined)
+  rowCache.set(key, pending)
+  pending.catch(() => rowCache.delete(key))
+  return pending
+}
+
+export function defaultComponentTurntablePitch() {
+  return DEFAULT_PITCH_INDEX
+}
+
+export function clearComponentTurntableCache() {
+  rowCache.clear()
+  for (const pending of sourceCache.values()) {
+    void pending.then(disposeObject).catch(() => undefined)
+  }
+  sourceCache.clear()
 }

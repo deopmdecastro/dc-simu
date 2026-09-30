@@ -5,11 +5,10 @@
  * renderizada a partir de um modelo 3D simplificado (mesma família visual do
  * Painel 3D), gerado uma única vez por tipo e guardado em cache como PNG.
  *
- * Importante: usamos UM ÚNICO WebGLRenderer partilhado (em vez de um
- * <Canvas> por item) para não esgotar o limite de contextos WebGL do
- * navegador quando a biblioteca tem dezenas de itens visíveis ao mesmo
- * tempo. Cada miniatura é desenhada, capturada como dataURL e o resultado
- * fica em cache — depois disso não existe nenhum WebGL "vivo" por item.
+ * Importante: os GLB interativos usam uma fila de renderizadores temporários
+ * (em vez de um <Canvas> por item) para nunca manter vários contextos WebGL
+ * vivos ao mesmo tempo no Safari móvel. Cada faixa é capturada como WebP,
+ * guardada em cache e o respetivo contexto é libertado imediatamente.
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { getLogo3DImages } from '../schematic/logo3DImage'
@@ -17,7 +16,7 @@ import { getProauto3DImage } from '../schematic/proauto3DImage'
 import { getWeg3DImage } from '../schematic/weg3DImage'
 import { getCad3DImage } from '../schematic/cad3DImage'
 import { getComponentModelSpec } from './modelPaths'
-import { getComponentTurntableFrames } from './componentTurntable'
+import { defaultComponentTurntablePitch, getComponentTurntableFrames } from './componentTurntable'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -403,76 +402,100 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
 }
 
 /**
- * Turntable GLB estático até o utilizador o navegar. Arrastar na horizontal
- * com rato ou dedo escolhe o ângulo; as setas permitem a mesma ação via teclado.
+ * Turntable GLB estático até o utilizador o navegar. Mantém apenas imagens no
+ * DOM: cada faixa vertical é renderizada a pedido e o contexto WebGL é fechado.
  */
 export function InteractiveComponentThumb({ type, size = 112 }: { type: ComponentType; size?: number }) {
-  const [frames, setFrames] = useState<string[]>([])
-  const [frame, setFrame] = useState(0)
-  const [failed, setFailed] = useState(false)
+  const defaultPitch = defaultComponentTurntablePitch()
+  const [frames, setFrames] = useState<string[] | null>(null)
+  const [yawSteps, setYawSteps] = useState(12)
+  const [pitchSteps, setPitchSteps] = useState(5)
+  const [yaw, setYaw] = useState(0)
+  const [pitch, setPitch] = useState(defaultPitch)
+  const [displayPitch, setDisplayPitch] = useState(defaultPitch)
   const [dragging, setDragging] = useState(false)
-  const drag = useRef<{ pointerId: number; startX: number; startFrame: number } | null>(null)
+  const [pending, setPending] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const requestRef = useRef(0)
+  const pointer = useRef({ id: -1, x: 0, y: 0, yaw: 0, pitch: defaultPitch })
 
   useEffect(() => {
-    let active = true
-    setFrames([])
-    setFrame(0)
+    const request = ++requestRef.current
+    setPending(true)
     setFailed(false)
-    getComponentTurntableFrames(type)
-      .then((images) => { if (active) setFrames(images) })
-      .catch(() => { if (active) setFailed(true) })
-    return () => { active = false }
-  }, [type])
+    void getComponentTurntableFrames(type, pitch)
+      .then((value) => {
+        if (request !== requestRef.current) return
+        setFrames(value.frames)
+        setYawSteps(value.yawSteps)
+        setPitchSteps(value.pitchSteps)
+        setDisplayPitch(value.pitchIndex)
+        setPending(false)
+      })
+      .catch(() => {
+        if (request !== requestRef.current) return
+        setFailed(true)
+        setPending(false)
+      })
+    return () => { requestRef.current += 1 }
+  }, [pitch, type])
 
-  const normalizedFrame = (index: number) => frames.length ? (index % frames.length + frames.length) % frames.length : 0
-  const finishDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (drag.current?.pointerId !== event.pointerId) return
+  useEffect(() => {
+    setFrames(null)
+    setYaw(0)
+    setPitch(defaultPitch)
+    setDisplayPitch(defaultPitch)
+  }, [defaultPitch, type])
+
+  const normalizedYaw = (value: number) => (value % yawSteps + yawSteps) % yawSteps
+  const movePitch = (delta: number) => setPitch((value) => Math.max(0, Math.min(pitchSteps - 1, value + delta)))
+  const finishPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (pointer.current.id !== event.pointerId) return
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-    drag.current = null
+    pointer.current.id = -1
     setDragging(false)
   }
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-    event.preventDefault()
-    setFrame((index) => normalizedFrame(index + (event.key === 'ArrowLeft' ? -1 : 1)))
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault()
+      setYaw((value) => normalizedYaw(value + (event.key === 'ArrowLeft' ? -1 : 1)))
+    } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      movePitch(event.key === 'ArrowUp' ? -1 : 1)
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      setYaw(0)
+      setPitch(defaultPitch)
+    }
   }
 
-  if (failed) return <div className="dc-real-glb-loading is-error" style={{ width: size, height: size }} aria-label="Não foi possível apresentar o modelo 3D" />
-  const src = frames[frame]
-  if (!src) return <div className="dc-real-glb-loading" style={{ width: size, height: size }} aria-hidden="true" />
-  return (
-    <div
-      className={`dc-turntable-control ${dragging ? 'is-dragging' : ''}`}
-      style={{ width: size, height: size }}
-      role="img"
-      tabIndex={0}
-      aria-label="Modelo 3D. Arraste horizontalmente para girar; use também as setas esquerda e direita."
-      title="Arraste para girar o modelo 3D"
-      onKeyDown={onKeyDown}
-      onPointerDown={(event) => {
-        if (frames.length < 2) return
-        drag.current = { pointerId: event.pointerId, startX: event.clientX, startFrame: frame }
-        event.currentTarget.setPointerCapture(event.pointerId)
-        setDragging(true)
-      }}
-      onPointerMove={(event) => {
-        const current = drag.current
-        if (!current || current.pointerId !== event.pointerId) return
-        const step = Math.round((event.clientX - current.startX) / 11)
-        setFrame(normalizedFrame(current.startFrame - step))
-      }}
-      onPointerUp={finishDrag}
-      onPointerCancel={finishDrag}
-    >
-      <img
-        src={src}
-        width={size}
-        height={size}
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-        className="dc-turntable-thumb"
-      />
-    </div>
-  )
+  if (!frames) return <div className={`dc-real-glb-loading${failed ? ' is-error' : ''}`} style={{ width: size, height: size }} role="status" aria-label={failed ? 'Modelo 3D indisponível' : 'A carregar modelo 3D'} />
+  const src = frames[normalizedYaw(yaw)]
+  return <div
+    className={`dc-turntable-control${dragging ? ' is-dragging' : ''}${pending || displayPitch !== pitch ? ' is-rendering' : ''}`}
+    style={{ width: size, height: size }}
+    role="group"
+    tabIndex={0}
+    aria-label="Modelo 3D interativo. Arraste na horizontal e na vertical; use também as quatro setas."
+    aria-busy={pending}
+    onPointerDown={(event) => {
+      event.preventDefault()
+      pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY, yaw, pitch }
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setDragging(true)
+    }}
+    onPointerMove={(event) => {
+      if (pointer.current.id !== event.pointerId) return
+      event.preventDefault()
+      const dx = event.clientX - pointer.current.x
+      const dy = event.clientY - pointer.current.y
+      setYaw(normalizedYaw(pointer.current.yaw - Math.round(dx / 15)))
+      setPitch(Math.max(0, Math.min(pitchSteps - 1, pointer.current.pitch + Math.round(dy / 28))))
+    }}
+    onPointerUp={finishPointer}
+    onPointerCancel={finishPointer}
+    onKeyDown={onKeyDown}
+  >
+    <img className="dc-turntable-thumb" src={src} alt="" aria-hidden="true" width={size} height={size} draggable={false} />
+  </div>
 }

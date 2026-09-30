@@ -884,7 +884,7 @@ html:has(.dx-landing) {
 @media (max-width: 620px) {
   .dx-ladder-demo-body,
   .dx-ladder-panel3d {
-    height: 555px;
+    height: 500px;
   }
   .dx-window-tabs.is-switcher { flex-shrink: 0; }
   .dx-window-tabs.is-switcher button { display: block; padding-inline: 7px; font-size: 10px; }
@@ -892,7 +892,9 @@ html:has(.dx-landing) {
     display: none;
   }
   .dx-ladder-demo .ladder-program-summary {
-    grid-template-columns: repeat(2, minmax(64px, 1fr));
+    grid-template-columns: repeat(3, minmax(58px, 1fr));
+    gap: 4px;
+    padding: 5px 6px;
   }
   .dx-ladder-demo .ladder-live-bus {
     display: none;
@@ -916,6 +918,12 @@ html:has(.dx-landing) {
   .dx-ladder-demo .ladder-rung-live {
     font-size: 8px;
   }
+  .dx-ladder-demo .ladder-networks { padding: 6px; }
+  .dx-ladder-demo .ladder-rung-card { margin-bottom: 5px; }
+  .dx-ladder-demo .ladder-rung-body { padding: 3px 5px; }
+  .dx-ladder-demo .ladder-network-comment { display: none; }
+  .dx-ladder-demo .ladder-rung-header { min-height: 25px; }
+  .dx-ladder-status-svg { aspect-ratio: 600 / 98; }
 }
 @media (max-width: 420px) {
   .dx-ladder-operator > div { display: none; }
@@ -991,25 +999,25 @@ html:has(.dx-landing) {
   position: relative;
   display: grid;
   place-items: center;
-  height: 120px;
-  background: var(--dx-surface-2);
+  height: 166px;
+  background: radial-gradient(circle at 50% 44%, #ffffff 0 28%, #f2f5f9 66%, #e9eef5 100%);
   border-bottom: 1px solid var(--dx-line-soft);
   color: var(--dx-ink-3);
   transition: color var(--dx-med), background var(--dx-med);
 }
 .dx-lib-card:hover .dx-lib-thumb {
   color: var(--dx-brand);
-  background: var(--dx-brand-soft);
+  background: radial-gradient(circle at 50% 44%, #fff 0 24%, #f5f8ff 58%, var(--dx-brand-soft) 100%);
 }
 .dx-lib-model-slot {
   display: grid;
-  width: 112px;
-  height: 112px;
+  width: 148px;
+  height: 148px;
   place-items: center;
 }
 .dx-lib-thumb img {
-  width: 112px !important;
-  height: 112px !important;
+  width: 148px !important;
+  height: 148px !important;
   border: 0 !important;
   background: transparent !important;
   filter: drop-shadow(0 9px 9px rgba(31, 43, 74, .14));
@@ -1021,8 +1029,8 @@ html:has(.dx-landing) {
 }
 .dx-lib-thumb .dc-real-glb-loading {
   position: relative;
-  width: 112px !important;
-  height: 94px !important;
+  width: 148px !important;
+  height: 126px !important;
   overflow: hidden;
   border: 1px solid var(--dx-line-soft);
   background: linear-gradient(120deg, #eef2f7 20%, #f8fafc 45%, #e8edf5 70%) 200% 0 / 200% 100% !important;
@@ -1046,7 +1054,7 @@ html:has(.dx-landing) {
   border-radius: 8px;
   cursor: grab;
   outline: none;
-  touch-action: pan-y pinch-zoom;
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -1060,6 +1068,7 @@ html:has(.dx-landing) {
   pointer-events: none;
   will-change: transform;
 }
+.dx-lib-thumb .dc-turntable-control.is-rendering .dc-turntable-thumb { opacity: .82; }
 .dx-lib-rotate-hint {
   position: absolute;
   left: 10px;

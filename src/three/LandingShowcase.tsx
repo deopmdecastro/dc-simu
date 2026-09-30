@@ -1,336 +1,16 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { ContactShadows, OrbitControls, Text, useGLTF } from '@react-three/drei'
-import { Suspense, Component, useEffect, useMemo, useRef, useState } from 'react'
+import { Html, OrbitControls, useGLTF } from '@react-three/drei'
+import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as THREE from 'three'
+import type { ComponentType } from '../types'
+import { buildDinRailGroup, createGalvanizedMaterial } from './dinRailGeometry'
 import { cloneModelScene } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
-import type { ComponentType } from '../types'
 
-/**
- * Vitrine 3D da partida direta usada pela demonstração Ladder da landing.
- * Todos os equipamentos vêm da mesma associação tipo → GLB usada no editor:
- * fonte DRAN120, LOGO! Siemens, botoeira START/STOP, contator WEG, sinaleiro AD22 e motor SEW.
- */
-
-interface DeviceSpec {
-  id: 'psu' | 'logo' | 'pushbutton' | 'pilot' | 'km' | 'motor'
-  label: string
-  modelUrl: string
-  rotation: [number, number, number]
-  placement: import('./modelPaths').ComponentPlacement
-  targetHeight: number
-  flipDepth?: boolean
-}
-
-function deviceSpec(id: DeviceSpec['id'], type: ComponentType, label: string): DeviceSpec {
-  const spec = getComponentGlbSpec(type)
-  if (!spec) throw new Error(`O componente ${type} não possui GLB para a demonstração.`)
-  return { id, label, modelUrl: spec.path, rotation: spec.rotation, placement: spec.placement, targetHeight: spec.targetHeight, flipDepth: spec.flipDepth }
-}
-
-const DEVICES = {
-  psu: deviceSpec('psu', 'powerSupplyProauto24A', 'Fonte 24 V'),
-  logo: deviceSpec('logo', 'plcSiemensLogo1224RC', 'PLC LOGO!'),
-  pushbutton: deviceSpec('pushbutton', 'dualPushButtonNpb22D11', 'S1 · STOP / START'),
-  pilot: deviceSpec('pilot', 'pilotLightAd22', 'H1 · MARCHA'),
-  km: deviceSpec('km', 'contactorWegCWC09', 'KM1'),
-  motor: deviceSpec('motor', 'motor3ph', 'M1 · SEW DRN80MK4'),
-} as const
-
-class ShowcaseErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
-  constructor(props: { fallback: ReactNode; children: ReactNode }) {
-    super(props)
-    this.state = { failed: false }
-  }
-  static getDerivedStateFromError() {
-    return { failed: true }
-  }
-  render() {
-    return this.state.failed ? this.props.fallback : this.props.children
-  }
-}
-
-/** Normaliza sem alterar o GLB: base no piso/calha ou centro da face para comandos de porta. */
-function useFittedModel(spec: DeviceSpec) {
-  const { scene } = useGLTF(spec.modelUrl)
-  return useMemo(() => {
-    const obj = cloneModelScene(scene)
-    obj.traverse((node) => {
-      const mesh = node as THREE.Mesh
-      if (!mesh.isMesh) return
-      mesh.castShadow = true
-      mesh.receiveShadow = true
-      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((m) => m.clone()) : mesh.material.clone()
-    })
-    obj.rotation.set(...spec.rotation)
-    obj.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(obj, true)
-    const rawSize = raw.getSize(new THREE.Vector3())
-    const basis = rawSize.y
-    const scale = basis > 0 ? spec.targetHeight / basis : 1
-    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
-    obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj, true)
-    const center = box.getCenter(new THREE.Vector3())
-    if (spec.placement === 'panel-front') obj.position.sub(center)
-    else obj.position.set(-center.x, -box.min.y, -center.z)
-    const size = box.getSize(new THREE.Vector3())
-    return { obj, width: size.x, height: size.y, depth: size.z }
-  }, [scene, spec])
-}
-
-/** Peças que acendem: ecrã do LOGO!, LED da fonte e indicador do contator. */
-function usePoweredMaterials(model: THREE.Object3D, powered: boolean) {
-  useEffect(() => {
-    const lit: THREE.MeshStandardMaterial[] = []
-    model.traverse((node) => {
-      const mesh = node as THREE.Mesh
-      if (!mesh.isMesh) return
-      const name = mesh.name.toLowerCase()
-      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-      for (const material of materials) {
-        const std = material as THREE.MeshStandardMaterial
-        if (!std || !('emissive' in std) || !std.color) continue
-        const green = std.color.g > 0.85 && std.color.r < 0.15 && std.color.b < 0.15
-        const named = name.includes('screen') || name.includes('display') || name.includes('ecra') || /led|rdy|lamp/.test(name)
-        if (!green && !named) continue
-        lit.push(std)
-        std.color.set(powered ? '#22c55e' : '#1f3d2b')
-        std.emissive.set(powered ? '#22c55e' : '#04140a')
-        std.emissiveIntensity = powered ? 1.15 : 0.12
-      }
-    })
-    return () => { lit.forEach((material) => (material.emissiveIntensity = 0)) }
-  }, [model, powered])
-}
-
-function Device({ model, position, powered }: { model: THREE.Object3D; position: [number, number, number]; powered: boolean }) {
-  usePoweredMaterials(model, powered)
-  return <group position={position}><primitive object={model} /></group>
-}
-
-/** Botoeira real NHD; as duas zonas transparentes continuam utilizáveis no Canvas. */
-function PushButtonDevice({ model, position, onStart, onStop }: {
-  model: THREE.Object3D
-  position: [number, number, number]
-  onStart: () => void
-  onStop: () => void
-}) {
-  return <group position={position}>
-    <mesh position={[0, 0, -0.08]} receiveShadow>
-      <boxGeometry args={[0.9, 0.78, 0.08]} />
-      <meshStandardMaterial color="#e9eef5" roughness={0.82} />
-    </mesh>
-    <primitive object={model} />
-    <mesh position={[-0.13, 0, 0.22]} onPointerDown={(event) => { event.stopPropagation(); onStop() }}>
-      <boxGeometry args={[0.24, 0.42, 0.2]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} />
-    </mesh>
-    <mesh position={[0.13, 0, 0.22]} onPointerDown={(event) => { event.stopPropagation(); onStart() }}>
-      <boxGeometry args={[0.24, 0.42, 0.2]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} />
-    </mesh>
-    <Text position={[0, 0.53, 0.08]} fontSize={0.095} color="#475569" anchorX="center">{DEVICES.pushbutton.label}</Text>
-  </group>
-}
-
-/** H1 usa o mesmo AD22 configurável do editor e acompanha a Network 2. */
-function PilotLightDevice({ model, position, on }: { model: THREE.Object3D; position: [number, number, number]; on: boolean }) {
-  const color = '#22c55e'
-  useEffect(() => {
-    const selected = new THREE.Color(color)
-    model.traverse((node) => {
-      const mesh = node as THREE.Mesh
-      if (!mesh.isMesh) return
-      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-      materials.forEach((material) => {
-        const standard = material as THREE.MeshStandardMaterial
-        if (standard.name.toUpperCase() !== 'FF0000FF') return
-        standard.color.copy(selected).multiplyScalar(on ? 1 : 0.42)
-        standard.emissive.copy(selected)
-        standard.emissiveIntensity = on ? 1.7 : 0.05
-        standard.toneMapped = !on
-        standard.needsUpdate = true
-      })
-    })
-  }, [model, on])
-  return <group position={position}>
-    <mesh position={[0, 0, -0.08]} receiveShadow>
-      <boxGeometry args={[0.62, 0.72, 0.08]} /><meshStandardMaterial color="#e9eef5" roughness={0.82} />
-    </mesh>
-    <primitive object={model} />
-    {on && <pointLight color={color} intensity={0.6} distance={1.2} position={[0, 0, 0.45]} />}
-    <Text position={[0, 0.48, 0.08]} fontSize={0.09} color="#475569" anchorX="center">{DEVICES.pilot.label}</Text>
-  </group>
-}
-
-/** O CAD é estático; o marcador no eixo comunica rotação e sentido sem alterar o ficheiro. */
-function MotorDevice({ model, position, running }: { model: THREE.Object3D; position: [number, number, number]; running: boolean }) {
-  const shaft = useRef<THREE.Group>(null)
-  useFrame((_, delta) => {
-    if (shaft.current && running) shaft.current.rotation.x += delta * 11
-  })
-  const color = running ? '#22c55e' : '#64748b'
-  return <group position={position}>
-    <primitive object={model} />
-    <group ref={shaft} position={[0.67, 0.4, 0]}>
-      <mesh><boxGeometry args={[0.022, 0.22, 0.026]} /><meshStandardMaterial color={color} emissive={running ? color : '#000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
-      <mesh><boxGeometry args={[0.022, 0.026, 0.22]} /><meshStandardMaterial color={color} emissive={running ? color : '#000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
-    </group>
-    {running && <pointLight color="#22c55e" intensity={0.22} distance={1.2} position={[0.58, 0.4, 0.2]} />}
-  </group>
-}
-
-function DinRail({ width, x }: { width: number; x: number }) {
-  return <group position={[x, 0, -0.12]}>
-    <mesh position={[0, -0.045, 0]} receiveShadow>
-      <boxGeometry args={[width, 0.09, 0.2]} />
-      <meshStandardMaterial color="#b9bec7" metalness={0.72} roughness={0.32} />
-    </mesh>
-    <mesh position={[0, -0.16, 0]}>
-      <boxGeometry args={[width + 0.5, 0.05, 0.1]} />
-      <meshStandardMaterial color="#8f959e" metalness={0.6} roughness={0.4} />
-    </mesh>
-  </group>
-}
-
-/** Cabo 3D com pulsos de corrente quando o trecho está ativo. */
-function Wire({ points, color, powered, offset = 0 }: { points: THREE.Vector3[]; color: string; powered: boolean; offset?: number }) {
-  const curve = useMemo(() => new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.2), [points])
-  const geometry = useMemo(() => new THREE.TubeGeometry(curve, 48, 0.025, 9, false), [curve])
-  const pulses = useRef<Array<THREE.Mesh | null>>([])
-  useFrame(({ clock }) => {
-    pulses.current.forEach((mesh, i) => {
-      if (!mesh) return
-      mesh.visible = powered
-      if (!powered) return
-      const t = (clock.elapsedTime * 0.22 + offset + i / 3) % 1
-      mesh.position.copy(curve.getPoint(t))
-    })
-  })
-  return <group>
-    <mesh geometry={geometry} castShadow>
-      <meshStandardMaterial color={powered ? color : '#8b95a7'} roughness={0.45} emissive={powered ? color : '#000'} emissiveIntensity={powered ? 0.18 : 0} />
-    </mesh>
-    {[0, 1, 2].map((i) => <mesh key={i} ref={(el) => { pulses.current[i] = el }}>
-      <sphereGeometry args={[0.045, 10, 10]} /><meshBasicMaterial color="#fde68a" />
-    </mesh>)}
-    {[points[0], points[points.length - 1]].map((point, i) => <mesh key={i} position={point}>
-      <sphereGeometry args={[0.042, 10, 10]} /><meshStandardMaterial color="#d4d9e2" metalness={0.8} roughness={0.25} />
-    </mesh>)}
-  </group>
-}
-
-type ShowcaseWire = { color: string; offset: number; powered: boolean; points: THREE.Vector3[] }
-
-/** Enquadra os cinco equipamentos tanto no hero largo como no cartão móvel mais alto. */
-function FitShowcaseCamera({ width }: { width: number }) {
-  const { camera, size } = useThree()
-  useEffect(() => {
-    const perspective = camera as THREE.PerspectiveCamera
-    const verticalFov = THREE.MathUtils.degToRad(perspective.fov || 38)
-    const aspect = Math.max(0.55, size.width / Math.max(1, size.height))
-    const horizontalTangent = Math.tan(verticalFov / 2) * aspect
-    const distance = Math.max(3.4, (3.1 / 2) / Math.tan(verticalFov / 2), (width / 2) / horizontalTangent) * 1.12
-    camera.position.set(0.3, 1.55, distance)
-    camera.lookAt(0, 0.22, 0)
-    perspective.updateProjectionMatrix()
-  }, [camera, size.height, size.width, width])
-  return null
-}
-
-function CircuitScene({ plcRunning, motorOn, onStart, onStop }: {
-  plcRunning: boolean
-  motorOn: boolean
-  onStart: () => void
-  onStop: () => void
-}) {
-  const psu = useFittedModel(DEVICES.psu)
-  const logo = useFittedModel(DEVICES.logo)
-  const pushbutton = useFittedModel(DEVICES.pushbutton)
-  const pilot = useFittedModel(DEVICES.pilot)
-  const km = useFittedModel(DEVICES.km)
-  const motor = useFittedModel(DEVICES.motor)
-  const gap = 0.42
-  const layout = useMemo(() => {
-    const panelSpace = Math.max(1.5, pushbutton.width + pilot.width + 0.5)
-    const railWidth = psu.width + logo.width + km.width + gap * 2
-    const total = panelSpace + 0.24 + railWidth + 0.65 + motor.width
-    const left = -total / 2
-    const xButton = left + panelSpace * 0.31
-    const xPilot = left + panelSpace * 0.75
-    const railStart = left + panelSpace + 0.24
-    const xPsu = railStart + psu.width / 2
-    const xLogo = railStart + psu.width + gap + logo.width / 2
-    const xKm = railStart + psu.width + gap + logo.width + gap + km.width / 2
-    const xMotor = railStart + railWidth + 0.65 + motor.width / 2
-    return { total, railWidth, railX: railStart + railWidth / 2, xButton, xPilot, xPsu, xLogo, xKm, xMotor }
-  }, [psu.width, logo.width, pushbutton.width, pilot.width, km.width, motor.width])
-
-  const wires = useMemo<ShowcaseWire[]>(() => {
-    const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z)
-    const zf = 0.34
-    const { xButton, xPilot, xPsu, xLogo, xKm, xMotor } = layout
-    const topPsu = psu.height * 0.92
-    const topLogo = logo.height * 0.92
-    const topKm = km.height * 0.9
-    const result: ShowcaseWire[] = [
-      // Alimentação 24 V do LOGO!.
-      { color: '#ef4444', offset: 0, powered: true, points: [v(xPsu + psu.width * 0.22, topPsu, zf), v(xPsu + psu.width * 0.3, topPsu + 0.36, zf), v(xLogo - logo.width * 0.3, topLogo + 0.36, zf), v(xLogo - logo.width * 0.22, topLogo, zf)] },
-      { color: '#2563eb', offset: 0.24, powered: true, points: [v(xPsu + psu.width * 0.08, topPsu, zf + 0.05), v(xPsu + psu.width * 0.14, topPsu + 0.23, zf + 0.05), v(xLogo - logo.width * 0.16, topLogo + 0.23, zf + 0.05), v(xLogo - logo.width * 0.08, topLogo, zf + 0.05)] },
-      // STOP NF (I1) permanece fechado; START NA (I2) acompanha o selo nesta síntese visual.
-      { color: '#dc2626', offset: 0.38, powered: true, points: [v(xButton - 0.13, 0.45, 0.72), v(xButton - 0.13, 1.05, 0.62), v(xLogo - logo.width * 0.02, topLogo + 0.55, 0.5), v(xLogo - logo.width * 0.02, topLogo, zf)] },
-      { color: '#16a34a', offset: 0.5, powered: motorOn, points: [v(xButton + 0.13, 0.45, 0.72), v(xButton + 0.13, 1.18, 0.68), v(xLogo + logo.width * 0.08, topLogo + 0.68, 0.56), v(xLogo + logo.width * 0.08, topLogo, zf)] },
-      // Q2 e 0 V alimentam o sinaleiro verde H1 da Network 2.
-      { color: '#f97316', offset: 0.56, powered: motorOn, points: [v(xLogo + logo.width * 0.31, 0.08, zf + 0.03), v(xLogo + logo.width * 0.38, -0.38, 0.42), v(xPilot - 0.1, -0.1, 0.16), v(xPilot - 0.1, 0.45, 0.09)] },
-      { color: '#2563eb', offset: 0.59, powered: motorOn, points: [v(xPilot + 0.1, 0.45, 0.09), v(xPilot + 0.1, 0.92, 0.18), v(xPsu - psu.width * 0.18, topPsu + 0.72, 0.45), v(xPsu - psu.width * 0.1, topPsu, zf)] },
-      // Q1 do LOGO! comanda A1/A2 de KM1.
-      { color: '#f59e0b', offset: 0.62, powered: motorOn, points: [v(xLogo + logo.width * 0.22, 0.08, zf), v(xLogo + logo.width * 0.3, -0.28, zf + 0.05), v(xKm - km.width * 0.28, -0.28, zf + 0.05), v(xKm - km.width * 0.2, 0.08, zf)] },
-      { color: '#2563eb', offset: 0.74, powered: motorOn, points: [v(xKm + km.width * 0.2, topKm, zf), v(xKm + km.width * 0.2, topKm + 0.5, zf + 0.09), v(xPsu - psu.width * 0.05, topPsu + 0.5, zf + 0.09), v(xPsu - psu.width * 0.1, topPsu, zf)] },
-    ]
-    // Saídas trifásicas de KM1 para U1/V1/W1 do motor.
-    const phaseColors = ['#92400e', '#1f2937', '#94a3b8']
-    for (let index = 0; index < 3; index += 1) {
-      const shift = (index - 1) * 0.12
-      result.push({
-        color: phaseColors[index], offset: 0.82 + index * 0.08, powered: motorOn,
-        points: [v(xKm + shift, 0.08, 0.4 + index * 0.04), v(xKm + 0.25 + index * 0.08, -0.48 - index * 0.06, 0.48 + index * 0.05), v(xMotor - 0.22 + index * 0.13, -0.08, 0.44 + index * 0.05)],
-      })
-    }
-    return result
-  }, [layout, psu.height, psu.width, logo.height, logo.width, km.height, km.width, motorOn])
-
-  return <>
-    <FitShowcaseCamera width={layout.total + 0.4} />
-    <mesh position={[0, -0.91, -0.05]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-      <planeGeometry args={[layout.total + 1.3, 4.2]} /><meshStandardMaterial color="#eef2f8" metalness={0.04} roughness={0.92} />
-    </mesh>
-    <DinRail width={layout.railWidth + 0.45} x={layout.railX} />
-    <Device model={psu.obj} position={[layout.xPsu, 0, 0]} powered />
-    <Device model={logo.obj} position={[layout.xLogo, 0, 0]} powered />
-    <mesh position={[layout.xLogo, logo.height + 0.13, 0.2]}>
-      <sphereGeometry args={[0.045, 12, 12]} />
-      <meshStandardMaterial color={plcRunning ? '#22c55e' : '#dc2626'} emissive={plcRunning ? '#22c55e' : '#7f1d1d'} emissiveIntensity={0.8} />
-    </mesh>
-    <Text position={[layout.xLogo, logo.height + 0.24, 0.2]} fontSize={0.085} color={plcRunning ? '#15803d' : '#b91c1c'} anchorX="center">{plcRunning ? 'CPU RUN' : 'CPU STOP'}</Text>
-    <PushButtonDevice model={pushbutton.obj} position={[layout.xButton, 0.45, 0.44]} onStart={onStart} onStop={onStop} />
-    <PilotLightDevice model={pilot.obj} position={[layout.xPilot, 0.45, 0.44]} on={motorOn} />
-    <Device model={km.obj} position={[layout.xKm, 0, 0]} powered={motorOn} />
-    <MotorDevice model={motor.obj} position={[layout.xMotor, -0.9, 0.08]} running={motorOn} />
-    {wires.map((wire, index) => <Wire key={index} points={wire.points} color={wire.color} powered={wire.powered} offset={wire.offset} />)}
-    <Text position={[layout.xPsu, -0.38, 0.2]} fontSize={0.09} color="#64748b" anchorX="center">{DEVICES.psu.label}</Text>
-    <Text position={[layout.xLogo, -0.38, 0.2]} fontSize={0.09} color="#64748b" anchorX="center">{DEVICES.logo.label}</Text>
-    <Text position={[layout.xKm, -0.38, 0.2]} fontSize={0.09} color="#64748b" anchorX="center">{DEVICES.km.label}</Text>
-    <Text position={[layout.xMotor, -0.9 + motor.height + 0.15, 0.18]} fontSize={0.09} color="#64748b" anchorX="center">{DEVICES.motor.label}</Text>
-  </>
-}
-
-function Loader() {
-  return <Text position={[0, 0.8, 0]} fontSize={0.16} color="#64748b" anchorX="center">A carregar a partida direta 3D…</Text>
-}
-
-export interface LandingShowcaseProps {
-  className?: string
+interface LandingShowcaseProps {
   compact?: boolean
+  className?: string
   plcRunning?: boolean
   motorOn?: boolean
   onRunPlc?: () => void
@@ -339,73 +19,353 @@ export interface LandingShowcaseProps {
   onStopMotor?: () => void
 }
 
-/** Circuito 3D controlável de forma autónoma ou pelo estado da demonstração Ladder. */
-export default function LandingShowcase({
-  className = '', compact = false,
-  plcRunning: controlledPlcRunning, motorOn: controlledMotorOn,
-  onRunPlc, onStopPlc, onStartMotor, onStopMotor,
-}: LandingShowcaseProps) {
-  const [localPlcRunning, setLocalPlcRunning] = useState(true)
-  const [localMotorOn, setLocalMotorOn] = useState(true)
-  const [autoRotate, setAutoRotate] = useState(false)
-  const plcRunning = controlledPlcRunning ?? localPlcRunning
-  const motorOn = controlledMotorOn ?? localMotorOn
-  const reduceMotion = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches, [])
-  const rotating = autoRotate && !reduceMotion
+interface ShowcaseState {
+  failed: boolean
+}
 
-  const runPlc = () => { setLocalPlcRunning(true); onRunPlc?.() }
-  const stopPlc = () => { setLocalPlcRunning(false); setLocalMotorOn(false); onStopPlc?.() }
+class ShowcaseErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, ShowcaseState> {
+  state: ShowcaseState = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(error: unknown) { console.warn('Showcase 3D indisponível:', error) }
+  render() { return this.state.failed ? this.props.fallback : this.props.children }
+}
+
+const MODEL_TYPES: ComponentType[] = [
+  'powerSupplyProauto24A',
+  'plcSiemensLogo1224RC',
+  'contactorWegCWC09',
+  'dualPushButtonNpb22D11',
+  'pilotLightAd22',
+  'motor3ph',
+]
+
+for (const type of MODEL_TYPES) {
+  const path = getComponentGlbSpec(type)?.path
+  if (path) useGLTF.preload(path)
+}
+
+type Layout = Record<'psu' | 'plc' | 'contactor' | 'push' | 'pilot' | 'motor', [number, number, number]>
+
+const LAYOUT: Layout = {
+  psu: [-1.86, 0.22, 0.08],
+  plc: [-0.55, 0.25, 0.08],
+  contactor: [0.65, 0.27, 0.08],
+  push: [-1.95, 1.43, 0.38],
+  pilot: [-1.18, 1.44, 0.4],
+  motor: [1.15, -2.07, 0.08],
+}
+
+function cloneMaterials(root: THREE.Object3D, running: boolean, type: ComponentType) {
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh || !mesh.material) return
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    const original = mesh.material
+    const wasArray = Array.isArray(original)
+    const materials: THREE.Material[] = Array.isArray(original) ? original : [original]
+    const clones = materials.map((material) => {
+      const clone = material.clone()
+      if (running && clone instanceof THREE.MeshStandardMaterial) {
+        const name = child.name.toLowerCase()
+        const greenMaterial = clone.color.g > 0.7 && clone.color.r < 0.35 && clone.color.b < 0.45
+        const stateSurface = /screen|display|ecra|led|rdy|lamp/.test(name)
+        if (type === 'pilotLightAd22' || greenMaterial || stateSurface) {
+          clone.emissive.set('#16a34a')
+          clone.emissiveIntensity = type === 'pilotLightAd22' ? 1.55 : 0.72
+        }
+      }
+      return clone
+    })
+    mesh.material = wasArray ? clones : clones[0]
+  })
+}
+
+function ComponentModel({ type, position, running = false }: {
+  type: ComponentType
+  position: [number, number, number]
+  running?: boolean
+}) {
+  const spec = getComponentGlbSpec(type)!
+  const { scene } = useGLTF(spec.path)
+  const prepared = useMemo(() => {
+    const root = cloneModelScene(scene)
+    cloneMaterials(root, running, type)
+    root.rotation.set(...spec.rotation)
+    if (spec.flipDepth) root.rotateY(Math.PI)
+    root.updateMatrixWorld(true)
+    const bounds = new THREE.Box3().setFromObject(root)
+    const size = bounds.getSize(new THREE.Vector3())
+    const center = bounds.getCenter(new THREE.Vector3())
+    const scale = spec.targetHeight / Math.max(size.y, 0.001)
+    root.position.set(-center.x * scale, -center.y * scale, -center.z * scale)
+    return {
+      root,
+      scale,
+      yOffset: spec.targetHeight / 2,
+      zOffset: Math.max(0.06, (size.z * scale) / 2),
+    }
+  }, [running, scene, spec, type])
+
+  return <group position={[position[0], position[1] + prepared.yOffset, position[2] + prepared.zOffset]}>
+    <primitive object={prepared.root} scale={prepared.scale} />
+  </group>
+}
+
+function WirePath({ points, color, active, speed = 0.22 }: {
+  points: [number, number, number][]
+  color: string
+  active: boolean
+  speed?: number
+}) {
+  const pulse = useRef<THREE.Mesh>(null)
+  const phase = useRef(Math.random())
+  const curve = useMemo(
+    () => new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point)), false, 'centripetal', 0.08),
+    [points],
+  )
+  useFrame((_, delta) => {
+    if (!active || !pulse.current) return
+    phase.current = (phase.current + delta * speed) % 1
+    pulse.current.position.copy(curve.getPointAt(phase.current))
+  })
+  return <group>
+    <mesh castShadow>
+      <tubeGeometry args={[curve, 72, 0.018, 9, false]} />
+      <meshStandardMaterial color={color} roughness={0.38} metalness={0.04} />
+    </mesh>
+    {active && <mesh ref={pulse}>
+      <sphereGeometry args={[0.044, 12, 12]} />
+      <meshBasicMaterial color="#f8fafc" toneMapped={false} />
+    </mesh>}
+  </group>
+}
+
+function CableDuct({ position, width, vertical = false }: { position: [number, number, number]; width: number; vertical?: boolean }) {
+  const length = width
+  const slots = Math.max(4, Math.floor(length / 0.24))
+  return <group position={position} rotation={[0, 0, vertical ? Math.PI / 2 : 0]}>
+    <mesh receiveShadow>
+      <boxGeometry args={[length, 0.16, 0.08]} />
+      <meshStandardMaterial color="#d7dde4" roughness={0.72} metalness={0.12} />
+    </mesh>
+    {Array.from({ length: slots }, (_, index) => {
+      const x = -length / 2 + ((index + 0.5) * length) / slots
+      return <mesh key={index} position={[x, 0.005, 0.046]}>
+        <boxGeometry args={[0.035, 0.1, 0.008]} />
+        <meshStandardMaterial color="#8793a1" roughness={0.9} />
+      </mesh>
+    })}
+  </group>
+}
+
+function CameraRig() {
+  const { camera, size } = useThree()
+  useEffect(() => {
+    const perspective = camera as THREE.PerspectiveCamera
+    const verticalFov = THREE.MathUtils.degToRad(perspective.fov)
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * Math.max(0.45, size.width / size.height))
+    const distanceForWidth = 3.25 / Math.tan(horizontalFov / 2)
+    const distanceForHeight = 2.35 / Math.tan(verticalFov / 2)
+    const distance = Math.max(7.3, distanceForWidth, distanceForHeight)
+    perspective.position.set(0.18, 0.28, distance)
+    perspective.lookAt(0, 0.08, 0)
+    perspective.updateProjectionMatrix()
+  }, [camera, size.height, size.width])
+  return null
+}
+
+function ShowcaseDinRail() {
+  const rail = useMemo(() => {
+    const material = createGalvanizedMaterial()
+    // Conserva o perfil e os furos do editor, com resposta mais clara sem HDRI.
+    material.metalness = 0.58
+    material.roughness = 0.34
+    const group = buildDinRailGroup(535, 0.01, material)
+    group.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (mesh.isMesh) {
+        mesh.castShadow = true
+        mesh.receiveShadow = true
+      }
+    })
+    return group
+  }, [])
+  useEffect(() => () => {
+    const materials = new Set<THREE.Material>()
+    rail.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.geometry.dispose()
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) materials.add(material)
+    })
+    materials.forEach((material) => material.dispose())
+  }, [rail])
+  return <group position={[-0.12, 0.23, -0.055]}><primitive object={rail} /></group>
+}
+
+function FixedPanel() {
+  const screws: [number, number][] = [[-2.88, 1.88], [2.88, 1.88], [-2.88, -1.88], [2.88, -1.88]]
+  return <group>
+    <mesh receiveShadow position={[0, 0.01, -0.11]}>
+      <boxGeometry args={[6.15, 4.3, 0.075]} />
+      <meshStandardMaterial color="#e8edf2" metalness={0.3} roughness={0.62} />
+    </mesh>
+    <mesh position={[0, 0.01, -0.071]}>
+      <planeGeometry args={[6.01, 4.16]} />
+      <meshStandardMaterial color="#f7f8fa" transparent opacity={0.3} roughness={0.84} />
+    </mesh>
+    {screws.map(([x, y], index) => <mesh key={index} position={[x, y, -0.052]} rotation={[Math.PI / 2, 0, 0]}>
+      <cylinderGeometry args={[0.045, 0.045, 0.018, 18]} />
+      <meshStandardMaterial color="#778493" metalness={0.72} roughness={0.3} />
+    </mesh>)}
+    <ShowcaseDinRail />
+    <CableDuct position={[-0.1, -0.84, 0.05]} width={5.45} />
+    <CableDuct position={[2.62, 0.44, 0.03]} width={2.45} vertical />
+    <mesh receiveShadow position={[0, -2.19, 0.18]}>
+      <boxGeometry args={[6.2, 0.11, 1.25]} />
+      <meshStandardMaterial color="#bdc6cf" metalness={0.46} roughness={0.5} />
+    </mesh>
+  </group>
+}
+
+function ShowcaseScene({ plcRunning, motorOn }: { plcRunning: boolean; motorOn: boolean }) {
+  const active = plcRunning && motorOn
+  return <>
+    <CameraRig />
+    <ambientLight intensity={1.05} />
+    <hemisphereLight args={['#ffffff', '#536173', 1.15]} />
+    <directionalLight position={[4.5, 7, 7]} intensity={2.35} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+    <directionalLight position={[-5, 2, 4]} intensity={1.1} />
+
+    <FixedPanel />
+
+    <ComponentModel type="powerSupplyProauto24A" position={LAYOUT.psu} running={plcRunning} />
+    <ComponentModel type="plcSiemensLogo1224RC" position={LAYOUT.plc} running={plcRunning} />
+    <ComponentModel type="contactorWegCWC09" position={LAYOUT.contactor} running={active} />
+    <ComponentModel type="dualPushButtonNpb22D11" position={LAYOUT.push} running={active} />
+    <ComponentModel type="pilotLightAd22" position={LAYOUT.pilot} running={active} />
+    <ComponentModel type="motor3ph" position={LAYOUT.motor} running={active} />
+
+    {/* Alimentação 24 V: dois condutores paralelos, canalizados por baixo da calha. */}
+    <WirePath color="#dc2626" active={active} speed={0.18} points={[
+      [-2.05, 0.33, 0.56], [-2.05, -0.7, 0.61], [-0.78, -0.7, 0.61], [-0.78, 0.31, 0.58],
+    ]} />
+    <WirePath color="#2563eb" active={active} speed={0.2} points={[
+      [-1.9, 0.31, 0.54], [-1.9, -0.58, 0.58], [-0.61, -0.58, 0.58], [-0.61, 0.31, 0.55],
+    ]} />
+
+    {/* START/STOP e sinalização: rotas superiores separadas, sem cruzar equipamentos. */}
+    <WirePath color="#f59e0b" active={active} speed={0.23} points={[
+      [-1.83, 1.5, 0.61], [-1.83, 1.91, 0.64], [-0.78, 1.91, 0.64], [-0.78, 1.28, 0.61],
+    ]} />
+    <WirePath color="#475569" active={active} speed={0.24} points={[
+      [-2.06, 1.5, 0.57], [-2.06, 2.02, 0.59], [-0.98, 2.02, 0.59], [-0.98, 1.27, 0.58],
+    ]} />
+    <WirePath color="#22c55e" active={active} speed={0.26} points={[
+      [-0.37, 1.28, 0.58], [-0.37, 1.76, 0.62], [-1.17, 1.76, 0.62], [-1.17, 1.49, 0.58],
+    ]} />
+
+    {/* Saída Q1 para bobina KM1, isolada no canal inferior. */}
+    <WirePath color="#7c3aed" active={active} speed={0.25} points={[
+      [-0.28, 0.31, 0.61], [-0.28, -0.45, 0.68], [0.57, -0.45, 0.68], [0.57, 0.34, 0.61],
+    ]} />
+    <WirePath color="#38bdf8" active={active} speed={0.19} points={[
+      [-0.08, 0.3, 0.55], [-0.08, -0.6, 0.59], [0.77, -0.6, 0.59], [0.77, 0.34, 0.56],
+    ]} />
+
+    {/* Três fases de potência em paralelo até aos bornes do motor. */}
+    <WirePath color="#713f12" active={active} speed={0.23} points={[
+      [0.48, 0.35, 0.7], [0.48, -1.02, 0.74], [1.42, -1.02, 0.74], [1.42, -0.96, 0.74],
+    ]} />
+    <WirePath color="#111827" active={active} speed={0.25} points={[
+      [0.67, 0.35, 0.72], [0.67, -1.14, 0.78], [1.61, -1.14, 0.78], [1.61, -0.98, 0.78],
+    ]} />
+    <WirePath color="#6b7280" active={active} speed={0.27} points={[
+      [0.86, 0.35, 0.74], [0.86, -1.26, 0.82], [1.8, -1.26, 0.82], [1.8, -1.0, 0.82],
+    ]} />
+    <WirePath color="#16a34a" active={active} speed={0.17} points={[
+      [2.15, -1.04, 0.68], [2.34, -1.45, 0.66], [2.34, -1.95, 0.51], [1.92, -2.02, 0.48],
+    ]} />
+
+    <Html position={[-0.53, -2.03, 0.74]} center transform distanceFactor={8.5}>
+      <div style={{ padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: 5, color: '#334155', background: 'rgba(255,255,255,.92)', font: '700 9px ui-monospace,monospace', whiteSpace: 'nowrap' }}>
+        24 VDC · Q1 → KM1 → M1
+      </div>
+    </Html>
+
+    <OrbitControls
+      makeDefault
+      target={[0, 0.08, 0]}
+      enablePan={false}
+      enableDamping
+      dampingFactor={0.075}
+      minDistance={4.8}
+      maxDistance={19}
+      minPolarAngle={0.06}
+      maxPolarAngle={Math.PI - 0.06}
+    />
+  </>
+}
+
+export default function LandingShowcase({
+  compact = false,
+  className = '',
+  plcRunning: controlledPlc,
+  motorOn: controlledMotor,
+  onRunPlc,
+  onStopPlc,
+  onStartMotor,
+  onStopMotor,
+}: LandingShowcaseProps) {
+  const [localPlc, setLocalPlc] = useState(true)
+  const [localMotor, setLocalMotor] = useState(true)
+  const controlled = controlledPlc !== undefined || controlledMotor !== undefined
+  const plcRunning = controlledPlc ?? localPlc
+  const motorOn = controlledMotor ?? localMotor
+  const active = plcRunning && motorOn
+
+  const runPlc = () => controlled ? onRunPlc?.() : setLocalPlc(true)
+  const stopPlc = () => {
+    if (controlled) onStopPlc?.()
+    else {
+      setLocalPlc(false)
+      setLocalMotor(false)
+    }
+  }
   const startMotor = () => {
     if (!plcRunning) return
-    setLocalMotorOn(true)
-    onStartMotor?.()
+    if (controlled) onStartMotor?.()
+    else setLocalMotor(true)
   }
-  const stopMotor = () => { setLocalMotorOn(false); onStopMotor?.() }
+  const stopMotor = () => controlled ? onStopMotor?.() : setLocalMotor(false)
 
   return <div className={'dc-showcase' + (compact ? ' is-compact' : '') + ' ' + className}>
     <div className="dc-showcase-stage">
       <ShowcaseErrorBoundary fallback={<div className="dc-showcase-fallback">Modelo 3D indisponível neste navegador.</div>}>
-        <Canvas shadows dpr={[1, 2]} camera={{ position: [0.3, 1.55, 8], fov: 38 }} gl={{ antialias: true }}>
-          <ambientLight intensity={0.72} />
-          <directionalLight position={[4, 7, 5]} intensity={1.25} castShadow shadow-mapSize={[1024, 1024]} />
-          <directionalLight position={[-4, 2.5, -3]} intensity={0.34} />
-          <Suspense fallback={<Loader />}>
-            <CircuitScene plcRunning={plcRunning} motorOn={motorOn} onStart={startMotor} onStop={stopMotor} />
+        <Canvas
+          shadows
+          dpr={[1, 1.55]}
+          camera={{ position: [0, 0.25, 9], fov: 42, near: 0.1, far: 60 }}
+          gl={{ antialias: true, powerPreference: 'high-performance' }}
+        >
+          <color attach="background" args={['#edf2f7']} />
+          <Suspense fallback={null}>
+            <ShowcaseScene plcRunning={plcRunning} motorOn={motorOn} />
           </Suspense>
-          <ContactShadows position={[0, -0.89, 0]} opacity={0.3} scale={13} blur={2.5} far={4} />
-          <OrbitControls
-            makeDefault target={[0, 0.22, 0]} enablePan={false} minDistance={3.2} maxDistance={12}
-            minPolarAngle={0.35} maxPolarAngle={Math.PI / 2.05} minAzimuthAngle={-1.05} maxAzimuthAngle={1.05}
-            autoRotate={rotating} autoRotateSpeed={0.65}
-            onChange={(event) => {
-              const controls = event?.target as { getAzimuthalAngle: () => number; autoRotateSpeed: number } | undefined
-              if (!controls) return
-              const angle = controls.getAzimuthalAngle()
-              if (angle > 1 && controls.autoRotateSpeed > 0) controls.autoRotateSpeed = -Math.abs(controls.autoRotateSpeed)
-              if (angle < -1 && controls.autoRotateSpeed < 0) controls.autoRotateSpeed = Math.abs(controls.autoRotateSpeed)
-            }}
-          />
         </Canvas>
       </ShowcaseErrorBoundary>
-
       <div className="dc-showcase-badge" aria-live="polite">
         <span className="dc-showcase-brand">PARTIDA DIRETA EM 3D</span>
-        <strong>Botoeira → LOGO! → KM1/M1 + H1</strong>
-        <small>{plcRunning ? (motorOn ? 'Q1 ativo · motor em rotação.' : 'PLC em RUN · pronto para START.') : 'PLC em STOP · execute RUN para iniciar.'}</small>
+        <strong>{active ? 'KM1 ligado · M1 em marcha' : plcRunning ? 'PLC em RUN · motor parado' : 'PLC em STOP'}</strong>
+        <small>LOGO! · START/STOP · CWC09 · DRN80</small>
+        <span className="dc-showcase-sync"><i className={active ? 'on' : ''} /> Ladder ↔ Painel 3D</span>
       </div>
-
       <div className="dc-showcase-tools" aria-label="Comandos da partida direta 3D">
-        <button type="button" onClick={plcRunning ? stopPlc : runPlc} aria-pressed={plcRunning} title="Executar ou parar o PLC">
-          <i className={plcRunning ? 'on' : ''} />{plcRunning ? 'PLC RUN' : 'PLC STOP'}
-        </button>
-        <button type="button" className="is-start" onClick={startMotor} disabled={!plcRunning || motorOn} title="Acionar START (I2)">START <small>I2</small></button>
-        <button type="button" className="is-stop" onClick={stopMotor} disabled={!motorOn} title="Acionar STOP (I1)">STOP <small>I1</small></button>
-        <button type="button" onClick={() => setAutoRotate((value) => !value)} aria-pressed={rotating} title="Ativar ou parar a rotação automática da vista">
-          <i className={rotating ? 'on' : ''} />Vista 3D
-        </button>
+        <button type="button" onClick={plcRunning ? stopPlc : runPlc} aria-pressed={plcRunning} title="Alternar estado do PLC"><i className={plcRunning ? 'on' : ''} />PLC {plcRunning ? 'RUN' : 'STOP'}</button>
+        <button type="button" className="is-start" onClick={startMotor} disabled={!plcRunning || motorOn}>START <small>I2</small></button>
+        <button type="button" className="is-stop" onClick={stopMotor} disabled={!motorOn}>STOP <small>I1</small></button>
       </div>
     </div>
   </div>
 }
-
-Object.values(DEVICES).forEach((device) => useGLTF.preload(device.modelUrl))
