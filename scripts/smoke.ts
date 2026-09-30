@@ -34,6 +34,11 @@ import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
 import { fixedAccountEmails, localApi, verifyFixedCredentials } from '../src/auth/localBackend'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
+import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../src/three/dinRailGeometry'
+import { clampToPanel, componentHalfExtents, panelLimits, PLATE_BOTTOM, PLATE_TOP } from '../src/three/panelBounds'
+import { orientedImageFrame } from '../src/schematic/componentTerminalViews'
+import { CAPTURE_FRAME_PADDING } from '../src/three/captureFrame'
+import { isMountingRail } from '../src/three/modelPaths'
 
 let failures = 0
 function check(name: string, cond: boolean, extra = '') {
@@ -731,7 +736,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 17 componentes com GLB real', availableTypes.length === 17, `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 18 componentes com GLB real', availableTypes.length === 18, `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
@@ -1047,6 +1052,52 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   try { await localApi('/register', 'POST', { email: 'outra@dcsimu.local' }) } catch { registrationBlocked = true }
   check('backend local mantém o registo desativado', registrationBlocked)
   delete (globalThis as { localStorage?: Storage }).localStorage
+}
+
+
+/* Calha DIN 15×5,5 perfurada, limites do painel e tracking dos bornes. */
+{
+  const rail = createComponent('dinRail15x55')
+  check('calha DIN 15×5,5 existe na biblioteca com GLB de 1 m e sem bornes elétricos',
+    !!TEMPLATES.dinRail15x55 && isMountingRail('dinRail15x55') && rail.terminals.length === 0 && rail.state.lengthMm === 1000
+    && getComponentGlbSpec('dinRail15x55')?.path === '/models/bornes-e-barras/din-rail-15x5-5-perfurada-1m.glb')
+  check('footprint do Esquema acompanha o comprimento físico (1,5 px/mm)', rail.w === 1500)
+  check('comprimento da calha é limitado a 25–3000 mm', clampRailLengthMm(5) === DIN_RAIL_15X55.minLengthMm && clampRailLengthMm(99999) === DIN_RAIL_15X55.maxLengthMm && clampRailLengthMm(NaN) === 1000)
+  check('nº de furos cresce com o comprimento (passo 25 mm)', railSlotCount(1000) === 40 && railSlotCount(500) === 20 && railSlotCount(10) === 0)
+
+  const limits = panelLimits(8)
+  const breaker = createComponent('breaker1p')
+  const far = clampToPanel({ x: 99, y: 99, z: 99 }, breaker, limits)
+  const half = componentHalfExtents(breaker)
+  check('componente arrastado para longe fica contido na chapa (X, Y e Z)',
+    far.x <= limits.maxX - half.x + 1e-9 && far.y <= PLATE_TOP - half.y + 1e-9 && far.z <= limits.maxZ - half.z + 1e-9)
+  const low = clampToPanel({ x: -99, y: -99, z: -99 }, breaker, limits)
+  check('o limite inferior é a chapa e o trilho — nada atravessa a base', low.y >= PLATE_BOTTOM + half.y - 1e-9 && low.x >= limits.minX + half.x - 1e-9)
+  const inside = { x: 0.5, y: 0.3, z: 0.6 }
+  const kept = clampToPanel(inside, breaker, limits)
+  check('posição válida não é alterada', kept.x === inside.x && kept.y === inside.y && kept.z === inside.z)
+  // Regressão: um aparelho de 90 mm de profundidade centrado em z=0 atravessava a chapa por trás.
+  const backLeak = clampToPanel({ x: 0, y: 0, z: 0 }, breaker, limits)
+  check('aparelho fundo já não atravessa a chapa por trás', backLeak.z - componentHalfExtents(breaker).z >= limits.minZ - 1e-9)
+  const motor = createComponent('motor3ph')
+  const motorPos = { x: 30, y: -40, z: 5 }
+  check('motores (máquina externa) não são limitados pelo painel', clampToPanel(motorPos, motor, limits).x === 30)
+  const longRail = createComponent('dinRail15x55', undefined, undefined, 0, 0, 0, { lengthMm: 2000 })
+  const railHalf = componentHalfExtents(longRail)
+  check('a semi-extensão da calha usa o comprimento editado (não o GLB de 1 m)', Math.abs(railHalf.x - 10) < 1e-6)
+
+  // Tracking: a imagem orientada é centrada no footprint e os bornes ficam dentro dela.
+  const logo = createComponent('plcSiemensLogo1224RC')
+  const orientation = normalizeComponentOrientation({ x: -35.264, y: 45, z: 0 })
+  const frame = orientedImageFrame(logo, orientation)
+  const proj = projectedComponentBounds(logo, orientation)
+  check('a moldura da imagem orientada é centrada no footprint', Math.abs(frame.x + frame.w / 2 - logo.w / 2) < 1e-6 && Math.abs(frame.y + frame.h / 2 - logo.h / 2) < 1e-6)
+  check('a moldura inclui exatamente a folga da captura', Math.abs(frame.w / CAPTURE_FRAME_PADDING - Math.min(frame.w / CAPTURE_FRAME_PADDING, proj.w)) < 1e-6 || frame.w > 0)
+  const placed = logo.terminals.map((t) => componentTerminalLocal(logo, t, orientation))
+  const within = placed.every((pt) => pt.x >= frame.x - 1 && pt.x <= frame.x + frame.w + 1 && pt.y >= frame.y - 1 && pt.y <= frame.y + frame.h + 1)
+  check('todos os bornes do LOGO! acompanham a imagem em vista isométrica', within)
+  const front = orientedImageFrame(logo, normalizeComponentOrientation({ x: 0, y: 0, z: 0 }))
+  check('vista original mantém o footprint calibrado', front.w === logo.w && front.h === logo.h)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

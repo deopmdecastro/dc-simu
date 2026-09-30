@@ -1,19 +1,20 @@
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { OrbitControls, Text, Line, TransformControls, useGLTF } from '@react-three/drei'
+import { OrbitControls, Text, Line, TransformControls, Edges, useGLTF } from '@react-three/drei'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColor } from '../types'
 import * as THREE from 'three'
-import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel } from './modelPaths'
+import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail } from './modelPaths'
+import { clampToPanel, panelLimits, PLATE_BOTTOM, PLATE_THICKNESS, PLATE_TOP, PLATE_Z, RAIL_Y, type PanelLimits } from './panelBounds'
+import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
 import { wireEnergyEffectVisible } from './panel3DEditing'
 
 const SLOT_WIDTH = 0.72
-const RAIL_Y = 0.4
 const PANEL_FLOOR_Y = -2.6
 const MOTOR_TARGET_HEIGHT = getComponentModelSpec('motor3ph')!.targetHeight
 const MOTOR_SCALE_RATIO = MOTOR_TARGET_HEIGHT / 1.04
@@ -30,7 +31,8 @@ function Label({ text, position, color = '#0f172a', size = 0.085 }: { text: stri
   )
 }
 
-function DinRail({ width }: { width: number }) {
+function DinRail({ width, plateWidth }: { width: number; plateWidth: number }) {
+  const plateHeight = PLATE_TOP - PLATE_BOTTOM
   return (
     <group position={[0, RAIL_Y, 0]}>
       <mesh>
@@ -41,12 +43,37 @@ function DinRail({ width }: { width: number }) {
         <boxGeometry args={[width, 0.06, 0.12]} />
         <meshStandardMaterial color="#8d939c" metalness={0.6} roughness={0.4} />
       </mesh>
-      <mesh position={[0, -1.2, -0.28]} receiveShadow>
-        <boxGeometry args={[width + 0.8, 5.0, 0.06]} />
+      {/* Chapa de montagem = limite físico do painel (ver panelBounds.ts). */}
+      <mesh position={[0, (PLATE_TOP + PLATE_BOTTOM) / 2 - RAIL_Y, PLATE_Z]} receiveShadow>
+        <boxGeometry args={[plateWidth, plateHeight, PLATE_THICKNESS]} />
         <meshStandardMaterial color="#eef1f4" metalness={0.15} roughness={0.75} />
+        <Edges color="#9aa7b8" threshold={15} />
       </mesh>
     </group>
   )
+}
+
+/** Calha DIN perfurada 15 × 5,5 mm com comprimento editável (furos regenerados, nunca esticados). */
+function MountingRail3D({ c, position }: { c: ElectricalComponent; position: [number, number, number] }) {
+  const lengthMm = clampRailLengthMm(c.state.lengthMm)
+  const group = useMemo(() => {
+    const material = createGalvanizedMaterial()
+    const rail = buildDinRailGroup(lengthMm, 0.01, material)
+    rail.traverse((node) => { const mesh = node as THREE.Mesh; if (mesh.isMesh) { mesh.castShadow = true; mesh.receiveShadow = true } })
+    return rail
+  }, [lengthMm])
+  useEffect(() => () => {
+    group.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.geometry.dispose()
+    })
+  }, [group])
+  const baseCenterZ = (DIN_RAIL_15X55.height / 2) * 0.01
+  return <group position={position}>
+    <group position={[0, 0, -baseCenterZ]}><primitive object={group} /></group>
+    <Label text={`${c.ref} · ${Math.round(lengthMm)} mm`} position={[0, DIN_RAIL_15X55.width * 0.01 * 0.5 + 0.1, baseCenterZ + 0.02]} size={0.065} color="#475569" />
+  </group>
 }
 
 /* ------------------------------------------------------------------- peças */
@@ -218,8 +245,9 @@ function getGlowTexture(): THREE.CanvasTexture {
   canvas.height = size
   const ctx = canvas.getContext('2d')!
   const gradient = ctx.createRadialGradient(size / 2, size / 2, size * 0.16, size / 2, size / 2, size / 2)
-  gradient.addColorStop(0, 'rgba(96,165,250,0.85)')
-  gradient.addColorStop(0.45, 'rgba(59,130,246,0.38)')
+  gradient.addColorStop(0, 'rgba(125,180,255,0.55)')
+  gradient.addColorStop(0.4, 'rgba(96,165,250,0.22)')
+  gradient.addColorStop(0.75, 'rgba(59,130,246,0.06)')
   gradient.addColorStop(1, 'rgba(37,99,235,0)')
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, size, size)
@@ -236,13 +264,15 @@ function SelectionGlow({ component }: { component: ElectricalComponent }) {
   const diameter = Math.max(size.x * scale.x, size.y * scale.y, size.z * scale.z) * 1.7 + 0.12
   const center = component3DVolumeCenter(component)
   const material = useMemo(() => new THREE.SpriteMaterial({
-    map: getGlowTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9,
+    map: getGlowTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0,
   }), [])
   useEffect(() => () => material.dispose(), [material])
+  // Fade-in suave em vez de aparecer de repente.
+  useFrame((_, delta) => { material.opacity += (0.6 - material.opacity) * Math.min(1, delta * 9) })
   return <sprite position={[center.x, center.y, center.z]} scale={[diameter, diameter, 1]} material={material} renderOrder={-1} raycast={() => null} />
 }
 
-function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, connectionMode, connectionStartId, onSelect, onMove, onTerminalPick, children }: {
+function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, connectionMode, connectionStartId, clampPosition, onSelect, onMove, onTerminalPick, children }: {
   c: ElectricalComponent
   pivot: [number, number, number]
   sourcePivot: [number, number, number]
@@ -254,6 +284,8 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   draggable: boolean
   connectionMode: boolean
   connectionStartId: string | null
+  /** Mantém o componente dentro do painel (chapa + trilho). */
+  clampPosition: (position: SpatialPoint3D) => SpatialPoint3D
   onSelect: () => void
   onMove: (position: SpatialPoint3D) => void
   onTerminalPick: (terminalId: string) => void
@@ -304,7 +336,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
       if (!raycaster.ray.intersectPlane(state.plane, point)) return
       const next = point.clone().add(state.offset)
       const snap = (value: number) => domEvent.altKey ? value : Math.round(value / 0.05) * 0.05
-      const position = { x: snap(next.x), y: snap(next.y), z: snap(next.z) }
+      const position = clampPosition({ x: snap(next.x), y: snap(next.y), z: snap(next.z) })
       position[state.axis] = origin[state.axis] // a coordenada do plano não muda
       useSimStore.setState((s) => ({
         components: s.components.map((item) => item.id === c.id ? { ...item, panel3DPosition: position } : item),
@@ -349,10 +381,16 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
     </group>
   </group>
   if (!movable) return instance
-  return <TransformControls mode="translate" space="world" size={0.72} translationSnap={0.05} onMouseUp={() => {
-    if (!rootRef.current) return
-    onMove({ x: rootRef.current.position.x, y: rootRef.current.position.y, z: rootRef.current.position.z })
-  }}>{instance}</TransformControls>
+  const constrain = () => {
+    const root = rootRef.current
+    if (!root) return null
+    const bounded = clampPosition({ x: root.position.x, y: root.position.y, z: root.position.z })
+    root.position.set(bounded.x, bounded.y, bounded.z)
+    return bounded
+  }
+  return <TransformControls mode="translate" space="world" size={0.72} translationSnap={0.05}
+    onObjectChange={() => { constrain() }}
+    onMouseUp={() => { const bounded = constrain(); if (bounded) onMove(bounded) }}>{instance}</TransformControls>
 }
 
 class Model3DErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
@@ -1208,7 +1246,8 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
   }, [components])
 
   const railComponents = components.filter((c) => positions[c.id])
-  const offRail = components.filter((c) => !positions[c.id])
+  const mountingRails = components.filter((c) => isMountingRail(c.type))
+  const offRail = components.filter((c) => !positions[c.id] && !isMountingRail(c.type))
 
   // Posiciona comandos numa régua frontal e motores com espaçamento próprio à direita.
   const front = useMemo(() => {
@@ -1236,27 +1275,48 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
     if (['proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat', 'floatSwitch'].includes(component.type)) return [x, RAIL_Y + 0.9, 0.3]
     return [x, RAIL_Y + 1.05, 0.4]
   }
+  // Calhas adicionais: por omissão empilhadas por baixo do trilho principal, coladas à chapa.
+  const railBase = (component: ElectricalComponent) => {
+    const index = mountingRails.findIndex((rail) => rail.id === component.id)
+    return new THREE.Vector3(0, RAIL_Y - 1.0 - Math.max(0, index) * 0.9, PLATE_Z + PLATE_THICKNESS / 2 + (DIN_RAIL_15X55.height / 2) * 0.01)
+  }
+  // A chapa (o painel) cresce para acolher comandos frontais e calhas mais compridas.
+  const plateWidth = useMemo(() => {
+    const controlHalf = offRail.reduce((max, component) => {
+      if (component.type === 'motor3ph' || component.type === 'motor1ph') return max
+      const spec = getComponentModelSpec(component.type)
+      const width = spec ? spec.physicalSizeMm.width * 0.01 : 0.38
+      return Math.max(max, Math.abs(front[component.id] ?? 0) + width / 2 + 0.2)
+    }, 0)
+    const longestRail = mountingRails.reduce((max, rail) => Math.max(max, clampRailLengthMm(rail.state.lengthMm) * 0.01), 0)
+    return Math.max(railWidth + 0.8, controlHalf * 2, longestRail + 0.8)
+  }, [offRail, front, mountingRails, railWidth])
+  const limits: PanelLimits = useMemo(() => panelLimits(plateWidth), [plateWidth])
+  const orientationFor = (component: ElectricalComponent) => viewOrientationEditor?.componentId === component.id
+    ? viewOrientationEditor.draft
+    : componentOrientationOf(component)
+  const boundedPosition = (component: ElectricalComponent, point: SpatialPoint3D) => clampToPanel(point, component, limits, orientationFor(component))
   const basePivots: Record<string, THREE.Vector3> = Object.fromEntries(components.map((component) => {
     const railPosition = positions[component.id]
     return [component.id, railPosition
       ? new THREE.Vector3(railPosition.x, railPosition.y, 0)
-      : new THREE.Vector3(...frontPivot(component, front[component.id] ?? 0))]
+      : isMountingRail(component.type)
+        ? railBase(component)
+        : new THREE.Vector3(...frontPivot(component, front[component.id] ?? 0))]
   }))
+  // Posições (guardadas ou automáticas) são sempre apresentadas dentro do painel;
+  // projetos antigos com componentes fora da chapa são corrigidos ao abrir.
   const panelPivots: Record<string, THREE.Vector3> = Object.fromEntries(components.map((component) => {
-    const custom = component.panel3DPosition
-    return [component.id, custom
-      ? new THREE.Vector3(custom.x, custom.y, custom.z)
-      : basePivots[component.id].clone()]
+    const custom = component.panel3DPosition ?? basePivots[component.id]
+    const bounded = boundedPosition(component, { x: custom.x, y: custom.y, z: custom.z })
+    return [component.id, new THREE.Vector3(bounded.x, bounded.y, bounded.z)]
   }))
   const sceneWidth = Math.max(
     railWidth,
+    plateWidth,
     ...Object.values(front).map((x) => Math.abs(x) * 2 + 1.6),
     ...Object.values(panelPivots).map((point) => Math.abs(point.x) * 2 + 1.6),
   )
-
-  const orientationFor = (component: ElectricalComponent) => viewOrientationEditor?.componentId === component.id
-    ? viewOrientationEditor.draft
-    : componentOrientationOf(component)
   const wrapOriented = (component: ElectricalComponent, content: ReactNode) => {
     const source = basePivots[component.id]
     const pivot = panelPivots[component.id]
@@ -1272,6 +1332,7 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
       draggable={editMode === 'navigate' && !component.locked && !viewOrientationEditor && !reconnect}
       connectionMode={editMode === 'connect' || reconnect !== null}
       connectionStartId={connectionStartId}
+      clampPosition={(point) => boundedPosition(component, point)}
       onSelect={() => selectComponents([component.id])}
       onMove={(position) => updateComponent(component.id, { panel3DPosition: position })}
       onTerminalPick={pickConnectionTerminal}
@@ -1424,7 +1485,7 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
         {showGrid && <gridHelper args={[16, 32, '#c3cdda', '#dfe5ee']} position={[0, PANEL_FLOOR_Y, 0]} />}
 
-        {components.length > 0 && <DinRail width={railWidth} />}
+        {components.length > 0 && <DinRail width={railWidth} plateWidth={plateWidth} />}
 
         {railComponents.map((c) => {
           const x = positions[c.id].x
@@ -1442,6 +1503,11 @@ export default function Panel3D({ embedded = false }: { embedded?: boolean }) {
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />
           return wrapOriented(c, content)
+        })}
+
+        {mountingRails.map((c) => {
+          const base = basePivots[c.id]
+          return wrapOriented(c, <MountingRail3D c={c} position={[base.x, base.y, base.z]} />)
         })}
 
         {offRail.map((c) => {

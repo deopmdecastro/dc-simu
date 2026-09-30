@@ -10,7 +10,8 @@ import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
-import { hasComponent3DModel, MISSING_3D_MODEL_MESSAGE } from '../three/modelPaths'
+import { hasComponent3DModel, isMountingRail, MISSING_3D_MODEL_MESSAGE, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRailGeometry'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects } from '../ui/icons'
 
 const label = 'dc-field-label'
@@ -336,6 +337,29 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 </div>
               </div>
 
+              {isMountingRail(selectedComponent.type) && (() => {
+                const length = clampRailLengthMm(selectedComponent.state.lengthMm)
+                const setLength = (value: number) => {
+                  const next = clampRailLengthMm(value)
+                  // Comprimento físico → footprint do Esquema (mesma escala mm→px) e Painel 3D.
+                  useSimStore.getState().updateComponent(selectedComponent.id, {
+                    w: Math.max(4, Math.round(next * SCHEMATIC_PX_PER_MM)),
+                    state: { ...selectedComponent.state, lengthMm: next },
+                  })
+                }
+                return <div className="dc-rail-length">
+                  <label className={label}>Comprimento da calha (mm)</label>
+                  <div className="dc-rail-length-row">
+                    <input type="number" className="dc-input" min={DIN_RAIL_15X55.minLengthMm} max={DIN_RAIL_15X55.maxLengthMm} step={5} value={length} onChange={(e) => setLength(Number(e.target.value))} />
+                    <input type="range" min={DIN_RAIL_15X55.minLengthMm} max={DIN_RAIL_15X55.maxLengthMm} step={5} value={length} aria-label="Comprimento da calha" onChange={(e) => setLength(Number(e.target.value))} />
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {[100, 250, 500, 1000, 2000].map((mm) => <button key={mm} className={`dc-btn${length === mm ? ' dc-btn-primary' : ''}`} onClick={() => setLength(mm)}>{mm >= 1000 ? `${mm / 1000} m` : `${mm} mm`}</button>)}
+                  </div>
+                  <small className="text-ink-400">Perfil 15 × 5,5 mm · {railSlotCount(length)} furos oblongos (passo {DIN_RAIL_15X55.slotPitch} mm) · {DIN_RAIL_15X55.minLengthMm}–{DIN_RAIL_15X55.maxLengthMm} mm</small>
+                </div>
+              })()}
+
               <div className="flex flex-wrap gap-1">
                 <button className="dc-btn" onClick={() => useSimStore.getState().rotateComponent(selectedComponent.id)}><IconRotate size={12} /> Girar 90°</button>
                 <button className="dc-btn" onClick={() => useSimStore.getState().mirrorComponent(selectedComponent.id)}>Espelhar</button>
@@ -354,6 +378,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
               {/* estado rápido conforme o tipo */}
               <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body space-y-1">
                 {Object.entries(selectedComponent.state).map(([k, v]) => {
+                  if (isMountingRail(selectedComponent.type) && k === 'lengthMm') return null
                   if (typeof v === 'boolean') {
                     return (
                       <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">

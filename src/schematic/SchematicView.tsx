@@ -10,8 +10,9 @@ import { getWeg3DImage } from './weg3DImage'
 import { getCad3DImage } from './cad3DImage'
 import { getComponentModelSpec, hasComponent3DModel, MIN_SCHEMATIC_HIT_WIDTH } from '../three/modelPaths'
 import { componentOrientationOf, isOriginalComponentOrientation } from '../three/componentOrientation'
-import { projectedComponentBounds } from './componentTerminalViews'
+import { orientedImageFrame } from './componentTerminalViews'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
+import DinRail2D from './DinRail2D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
@@ -57,20 +58,6 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
 
 const CANVAS_W = 2000
 const CANVAS_H = 1400
-
-function pngDataAspect(dataUri?: string | null): number | null {
-  if (!dataUri?.startsWith('data:image/png;base64,')) return null
-  try {
-    const raw = atob(dataUri.slice(dataUri.indexOf(',') + 1, dataUri.indexOf(',') + 1 + 40))
-    if (raw.length < 24) return null
-    const read32 = (offset: number) => ((raw.charCodeAt(offset) << 24) >>> 0) + (raw.charCodeAt(offset + 1) << 16) + (raw.charCodeAt(offset + 2) << 8) + raw.charCodeAt(offset + 3)
-    const width = read32(16)
-    const height = read32(20)
-    return width > 0 && height > 0 ? width / height : null
-  } catch {
-    return null
-  }
-}
 
 /** Direção unitária (terminal → interior do cabo) a partir da lista de pontos. */
 function endDir(pts: Pt[], atStart: boolean): Pt {
@@ -222,7 +209,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
     })
     return () => { active = false }
   }, [hasLogo])
-  const dedicatedImageTypes: ComponentType[] = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09']
+  const dedicatedImageTypes: ComponentType[] = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09', 'dinRail15x55']
   const cadTypesKey = [...new Set(components.map((c) => c.type).filter((type) => !!getComponentModelSpec(type) && !dedicatedImageTypes.includes(type)))].sort().join('|')
   useEffect(() => {
     const types = cadTypesKey ? cadTypesKey.split('|') as ComponentType[] : []
@@ -240,7 +227,7 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
     return () => { active = false }
   }, [cadTypesKey])
   const orientedRequests = components.flatMap((component) => {
-    if (!hasComponent3DModel(component.type)) return []
+    if (!hasComponent3DModel(component.type) || component.type === 'dinRail15x55') return []
     const orientation = viewOrientationEditor?.componentId === component.id ? viewOrientationEditor.draft : componentOrientationOf(component)
     return isOriginalComponentOrientation(orientation) ? [] : [{ id: component.id, type: component.type, orientation }]
   })
@@ -971,24 +958,10 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
     )
   }
 
-  const modelBounds = (c: ElectricalComponent, model?: string | null) => {
+  const modelBounds = (c: ElectricalComponent, _model?: string | null) => {
     if (!hasComponent3DModel(c.type)) return { x: 0, y: 0, w: c.w, h: c.h }
-    const orientation = componentOrientationOf(c)
-    if (isOriginalComponentOrientation(orientation)) return { x: 0, y: 0, w: c.w, h: c.h }
-    const projected = projectedComponentBounds(c, orientation)
-    const aspect = pngDataAspect(model)
-    let raster = projected
-    if (aspect) {
-      const baseAspect = c.w / Math.max(1, c.h)
-      const w = aspect >= baseAspect ? c.h * aspect : c.w
-      const h = aspect >= baseAspect ? c.h : c.w / aspect
-      raster = { x: (c.w - w) / 2, y: (c.h - h) / 2, w, h }
-    }
-    const x = Math.min(projected.x, raster.x)
-    const y = Math.min(projected.y, raster.y)
-    const right = Math.max(projected.x + projected.w, raster.x + raster.w)
-    const bottom = Math.max(projected.y + projected.h, raster.y + raster.h)
-    return { x, y, w: right - x, h: bottom - y }
+    // Retângulo único da imagem orientada — o mesmo referencial dos bornes.
+    return orientedImageFrame(c, componentOrientationOf(c))
   }
 
   const renderWireEnds = (layer: 'back' | 'front') => wires.flatMap((w) => {
@@ -1028,9 +1001,13 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
     const needsOrientedImage = !isOriginalComponentOrientation(orientation)
     const orientedRequestKey = `${c.type}:${orientation.x}:${orientation.y}:${orientation.z}`
     const orientedImage = orientedImages[c.id]
-    // Nunca apresentar a orientação base, uma captura antiga ou o símbolo SVG
-    // enquanto a vista correta ainda está a ser gerada.
-    const model = needsOrientedImage && orientedImage?.requestKey === orientedRequestKey ? orientedImage.image : needsOrientedImage ? null : baseModelImage
+    // Enquanto a nova orientação é gerada mantém-se a última captura (ou a vista
+    // base) em vez de mostrar "A carregar modelo 3D…": a rotação fica contínua.
+    const orientedReady = needsOrientedImage && orientedImage?.requestKey === orientedRequestKey
+    const model = !needsOrientedImage ? baseModelImage
+      : orientedReady ? orientedImage!.image
+        : orientedImage?.image ?? baseModelImage ?? null
+    const modelPending = needsOrientedImage && !orientedReady && !!model
     const modelError = modelErrors[needsOrientedImage ? `component:${c.id}:${orientedRequestKey}` : `type:${c.type}`]
     const imageBounds = modelBounds(c, model)
     const hitWidth = Math.max(imageBounds.w, MIN_SCHEMATIC_HIT_WIDTH)
@@ -1044,10 +1021,16 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
           e.stopPropagation()
           toggleField(c, true)
         }}
+        className={`dc-comp${selected ? ' is-selected' : ''}${modelPending ? ' is-pending' : ''}`}
         filter={selected ? 'url(#dc-select-glow)' : undefined}
-        style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? (drag ? 'grabbing' : 'grab') : 'inherit', opacity: c.locked ? 0.85 : 1 }}
+        style={{ cursor: c.locked ? 'not-allowed' : tool === 'select' ? (drag ? 'grabbing' : 'grab') : 'inherit', opacity: c.locked ? 0.85 : undefined }}
       >
-        {c.type === 'contactorWegCWC09' && model ? (
+        {c.type === 'dinRail15x55' ? (
+          <>
+            <DinRail2D c={c} />
+            <rect x={0} y={-4} width={c.w} height={c.h + 8} fill="transparent" />
+          </>
+        ) : c.type === 'contactorWegCWC09' && model ? (
           <>
             {/* vista do mesmo GLB usado no Painel 3D — não é um SVG */}
             <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
@@ -1160,12 +1143,12 @@ function Schematic2DView({ libraryCollapsed = false }: { libraryCollapsed?: bool
         <defs>
           {/* Destaque de seleção: brilho suave que segue a silhueta do componente
               (não desenha molduras, por isso nunca corta o modelo). */}
-          <filter id="dc-select-glow" x="-35%" y="-35%" width="170%" height="170%" colorInterpolationFilters="sRGB">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="2.2" result="tight" />
-            <feGaussianBlur in="SourceAlpha" stdDeviation="7" result="wide" />
-            <feFlood floodColor="#60a5fa" floodOpacity="0.95" result="tightColor" />
+          <filter id="dc-select-glow" x="-40%" y="-40%" width="180%" height="180%" colorInterpolationFilters="sRGB">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="tight" />
+            <feGaussianBlur in="SourceAlpha" stdDeviation="9" result="wide" />
+            <feFlood floodColor="#7fb0ff" floodOpacity="0.5" result="tightColor" />
             <feComposite in="tightColor" in2="tight" operator="in" result="tightGlow" />
-            <feFlood floodColor="#2f6bff" floodOpacity="0.7" result="wideColor" />
+            <feFlood floodColor="#3b78ff" floodOpacity="0.28" result="wideColor" />
             <feComposite in="wideColor" in2="wide" operator="in" result="wideGlow" />
             <feMerge>
               <feMergeNode in="wideGlow" />

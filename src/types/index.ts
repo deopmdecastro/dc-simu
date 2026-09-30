@@ -92,6 +92,7 @@ export type ComponentType =
   | 'terminalBlock'
   | 'terminalPhoenixPti6'
   | 'terminalPE'
+  | 'dinRail15x55'
   | 'busbarPhase'
   | 'busbarNeutral'
   | 'earthBar'

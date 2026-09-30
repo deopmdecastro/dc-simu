@@ -14,11 +14,13 @@ export const MODEL_PATHS = {
   siemensTsAdapterIeBasic: '/models/controladores/siemens-ts-adapter-ie-basic.glb',
   phoenixTerminalPti6: '/models/bornes-e-barras/phoenix-pti6-3213972.glb',
   terminalPE: '/models/bornes-e-barras/terminal-pe.glb',
+  dinRail15x55: '/models/bornes-e-barras/din-rail-15x5-5-perfurada-1m.glb',
   motorSewDrn80Mk4B3: '/models/motores/DRN80MK4-B3.glb',
   pilotLightAd22: '/models/sinalizacao/ad22-22ds-24v.glb',
 } as const
 
-export type ComponentPlacement = 'din-rail' | 'panel-front' | 'machine'
+/** `rail`: a própria calha — não é montada numa calha, monta-se diretamente na chapa. */
+export type ComponentPlacement = 'din-rail' | 'panel-front' | 'machine' | 'rail'
 
 export interface PhysicalSizeMm {
   /** Dimensões da apresentação frontal padrão, depois de aplicada a rotação base. */
@@ -52,6 +54,8 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   siemensTsAdapterIeBasic: { width: 30, height: 105.58, depth: 75.1 },
   terminalPhoenixPti6: { width: 8.15, height: 66.02, depth: 48.5 },
   terminalPE: { width: 5.15, height: 48.6, depth: 35.25 },
+  /** 1 m por omissão; o comprimento real vem de `state.lengthMm`. */
+  dinRail15x55: { width: 1000, height: 15, depth: 5.5 },
   motor3ph: { width: 264, height: 208, depth: 156 },
   pilotLightAd22: { width: 29.3, height: 29.3, depth: 51.5 },
 }
@@ -110,6 +114,7 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   siemensTsAdapterIeBasic: spec('siemensTsAdapterIeBasic', MODEL_PATHS.siemensTsAdapterIeBasic, [Math.PI / 2, 0, 0], 'din-rail'),
   terminalPhoenixPti6: spec('terminalPhoenixPti6', MODEL_PATHS.phoenixTerminalPti6, [Math.PI / 2, 0, 0], 'din-rail'),
   terminalPE: spec('terminalPE', MODEL_PATHS.terminalPE, [Math.PI / 2, 0, 0], 'din-rail'),
+  dinRail15x55: spec('dinRail15x55', MODEL_PATHS.dinRail15x55, [0, 0, 0], 'rail'),
 
   motor3ph: spec('motor3ph', MODEL_PATHS.motorSewDrn80Mk4B3, [0, 0, 0], 'machine'),
   pilotLightAd22: spec('pilotLightAd22', MODEL_PATHS.pilotLightAd22, [Math.PI / 2, 0, 0], 'panel-front'),
@@ -155,4 +160,8 @@ export const MISSING_3D_MODEL_MESSAGE = 'Bloqueado: modelo 3D GLB ainda não dis
 
 export function hasDinRailModel(type: ComponentType): boolean {
   return getComponentGlbSpec(type)?.placement === 'din-rail'
+}
+
+export function isMountingRail(type: ComponentType): boolean {
+  return getComponentGlbSpec(type)?.placement === 'rail'
 }

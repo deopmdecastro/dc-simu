@@ -127,3 +127,30 @@
 .component-view-editor > footer { position:sticky; bottom:0; display:flex; justify-content:flex-end; gap:6px; padding:8px; border-top:1px solid #dce3ed; background:#fff; }
 .component-view-editor > footer .dc-btn { min-height:28px; font-size:9px; }
 @media(max-width:560px) { .component-view-editor { top:8px; right:8px; max-width:calc(100% - 16px); max-height:calc(100% - 16px); } .component-view-command { top:8px; right:8px; } .component-view-cube-wrap { min-height:130px; } }
+
+/* ---------------------------------------------------------------------------
+   Esquema 2D — hover/seleção suaves e rotação sem "flash" de carregamento
+   --------------------------------------------------------------------------- */
+.schematic-stage .dc-comp {
+  transition: filter 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+}
+/* Hover: halo azul discreto (a seleção mantém o filtro SVG próprio). */
+.schematic-stage .dc-comp:not(.is-selected):hover {
+  filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.32));
+}
+/* Enquanto a nova orientação é gerada, a última imagem fica ligeiramente translúcida. */
+.schematic-stage .dc-comp image {
+  transition: opacity 0.18s ease;
+}
+.schematic-stage .dc-comp.is-pending image {
+  opacity: 0.82;
+}
+@media (prefers-reduced-motion: reduce) {
+  .schematic-stage .dc-comp,
+  .schematic-stage .dc-comp image { transition: none; }
+}
+
+/* Inspetor — comprimento da calha DIN */
+.dc-rail-length { display: grid; gap: 6px; padding: 8px; margin: 6px 0; border: 1px solid #dbe4f0; border-radius: 8px; background: #f8fafd; }
+.dc-rail-length-row { display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: center; }
+.dc-rail-length-row input[type='range'] { width: 100%; accent-color: #2563eb; }

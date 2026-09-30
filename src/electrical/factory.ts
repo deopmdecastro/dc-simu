@@ -624,6 +624,11 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: [T('PE1', 'earth', 0.3, 0.5), T('PE2', 'earth', 0.7, 0.5)],
     defaultState: { bridged: true },
   },
+  dinRail15x55: {
+    category: 'terminal', paletteName: 'Calha DIN perfurada 15×5,5 mm (galvanizada) · 1 m', group: 'Bornes e barras', tag: 'TR', w: 1500, h: 23,
+    terminals: [],
+    defaultState: { lengthMm: 1000, profile: '15×5,5 mm', finish: 'Aço galvanizado', perforated: true },
+  },
   busbarPhase: {
     category: 'terminal', paletteName: 'Barramento de fases L1/L2/L3', group: 'Bornes e barras', tag: 'BL', w: 220, h: 50,
     terminals: [

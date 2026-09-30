@@ -17,7 +17,7 @@ interface DeviceSpec {
   label: string
   modelUrl: string
   rotation: [number, number, number]
-  placement: 'din-rail' | 'panel-front' | 'machine'
+  placement: import('./modelPaths').ComponentPlacement
   targetHeight: number
   flipDepth?: boolean
 }

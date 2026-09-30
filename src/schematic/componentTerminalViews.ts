@@ -16,6 +16,7 @@ import { proautoTerminalLocal } from './proautoTerminalGeometry'
 import { wegTerminalLocal } from './wegTerminalGeometry'
 import { terminal3DPositionOf } from '../three/terminal3D'
 import { getComponentModelSpec } from '../three/modelPaths'
+import { CAPTURE_FRAME_PADDING } from '../three/captureFrame'
 import * as THREE from 'three'
 
 type Point3 = { x: number; y: number; z: number }
@@ -72,6 +73,22 @@ function projectedGeometry(component: ElectricalComponent, orientation: Componen
     w: visualW,
     h: visualH,
   }
+}
+
+/**
+ * Retângulo exato onde a captura ortográfica orientada é desenhada.
+ *
+ * Os bornes são projetados em torno do centro do footprint, à escala natural da
+ * projeção; a captura acrescenta `CAPTURE_FRAME_PADDING` à volta do modelo.
+ * Desenhar a imagem neste retângulo (e não numa união de caixas estimadas)
+ * faz os bornes acompanharem o corpo em qualquer rotação.
+ */
+export function orientedImageFrame(component: ElectricalComponent, orientation = componentOrientationOf(component)) {
+  if (isOriginalComponentOrientation(orientation)) return { x: 0, y: 0, w: component.w, h: component.h }
+  const geometry = projectedGeometry(component, orientation)
+  const w = geometry.projectedW * CAPTURE_FRAME_PADDING
+  const h = geometry.projectedH * CAPTURE_FRAME_PADDING
+  return { x: (component.w - w) / 2, y: (component.h - h) / 2, w, h }
 }
 
 /** Limites previstos da projeção, centrados sem deslocar a posição elétrica. */

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { CAPTURE_FRAME_PADDING as FRAME_PADDING } from '../three/captureFrame'
 
 export interface OrthographicModelImageOptions {
   path: string
@@ -13,15 +14,60 @@ export interface OrthographicModelImageOptions {
 }
 
 const CAPTURE_LONG_SIDE = 560
-const FRAME_PADDING = 1.08
+
+/**
+ * Cache do GLB já descodificado (por caminho). Antes, cada rotação voltava a
+ * descarregar e a fazer parse do ficheiro — era isso que mantinha o componente
+ * em "A carregar modelo 3D…" enquanto se girava.
+ */
+const sourceCache = new Map<string, Promise<THREE.Object3D>>()
+function loadSource(path: string): Promise<THREE.Object3D> {
+  const cached = sourceCache.get(path)
+  if (cached) return cached
+  const request = new GLTFLoader().loadAsync(path).then(({ scene }) => scene)
+    .catch((error) => { sourceCache.delete(path); throw error })
+  sourceCache.set(path, request)
+  return request
+}
+
+/** Pré-aquece o GLB (usado ao abrir o editor 3D para a 1.ª rotação ser instantânea). */
+export function preloadModelSource(path: string): void {
+  void loadSource(path).catch(() => undefined)
+}
+
+/**
+ * Um único WebGLRenderer partilhado: criar e destruir um contexto por captura
+ * é caro e o browser limita o número de contextos ativos (~16).
+ */
+let sharedRenderer: THREE.WebGLRenderer | null = null
+function getRenderer(): THREE.WebGLRenderer {
+  if (sharedRenderer && !sharedRenderer.getContext().isContextLost()) return sharedRenderer
+  const canvas = document.createElement('canvas')
+  sharedRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true })
+  sharedRenderer.setPixelRatio(1)
+  sharedRenderer.setClearColor(0x000000, 0)
+  sharedRenderer.outputColorSpace = THREE.SRGBColorSpace
+  sharedRenderer.toneMapping = THREE.ACESFilmicToneMapping
+  sharedRenderer.toneMappingExposure = 1.05
+  return sharedRenderer
+}
+
+/** Capturas em série: nunca duas a competir pelo mesmo canvas partilhado. */
+let queue: Promise<unknown> = Promise.resolve()
 
 /**
  * Produz uma captura frontal ortográfica, transparente e justa ao CAD.
  * O canvas acompanha o aspect ratio projetado: peças estreitas deixam de ficar
  * perdidas dentro de um PNG quadrado antes de o SVG aplicar `meet`.
  */
-export async function captureOrthographicModelImage(options: OrthographicModelImageOptions): Promise<string> {
-  const { scene: source } = await new GLTFLoader().loadAsync(options.path)
+export function captureOrthographicModelImage(options: OrthographicModelImageOptions): Promise<string> {
+  const job = queue.then(() => capture(options))
+  queue = job.catch(() => undefined)
+  return job
+}
+
+async function capture(options: OrthographicModelImageOptions): Promise<string> {
+  const source = await loadSource(options.path)
   const inner = source.clone(true)
 
   inner.traverse((node) => {
@@ -53,14 +99,9 @@ export async function captureOrthographicModelImage(options: OrthographicModelIm
   const canvasWidth = aspect >= 1 ? CAPTURE_LONG_SIDE : Math.max(1, Math.round(CAPTURE_LONG_SIDE * aspect))
   const canvasHeight = aspect >= 1 ? Math.max(1, Math.round(CAPTURE_LONG_SIDE / aspect)) : CAPTURE_LONG_SIDE
 
-  const canvas = document.createElement('canvas')
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true })
-  renderer.setPixelRatio(1)
+  const renderer = getRenderer()
+  const canvas = renderer.domElement
   renderer.setSize(canvasWidth, canvasHeight, false)
-  renderer.setClearColor(0x000000, 0)
-  renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.05
 
   const scene = new THREE.Scene()
   scene.add(model)
@@ -82,13 +123,12 @@ export async function captureOrthographicModelImage(options: OrthographicModelIm
 
   renderer.render(scene, camera)
   const image = canvas.toDataURL('image/png')
-  renderer.dispose()
-  renderer.forceContextLoss()
 
+  // A geometria pertence ao GLB em cache (partilhada por clone) — só os
+  // materiais clonados desta captura são libertados.
   model.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh) return
-    mesh.geometry?.dispose()
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     materials.forEach((material) => material.dispose())
   })

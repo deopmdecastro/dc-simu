@@ -72,3 +72,12 @@ continua a servir de reserva. A pasta `public/` é servida na raiz: não inclua
 
 As pastas vazias contêm apenas `.gitkeep`, para que existam no Git; substitua
 esse marcador por modelos reais quando estiverem disponíveis.
+
+## Calha DIN perfurada 15 × 5,5 mm
+
+`bornes-e-barras/din-rail-15x5-5-perfurada-1m.glb` — calha galvanizada perfurada
+de 1 m (perfil 15 × 5,5 mm, furos oblongos 4,2 × 15 mm, passo 25 mm). O ficheiro é
+gerado por `npx tsx scripts/build-din-rail-glb.ts` a partir de
+`src/three/dinRailGeometry.ts`, o mesmo gerador que o Painel 3D usa para
+desenhar a calha com o **comprimento editável** (Inspetor → Comprimento da
+calha, 25–3000 mm). Os furos são regenerados ao mudar o comprimento, nunca esticados.
