@@ -1482,7 +1482,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const component = store.components.find((item) => item.id === id)
     if (!component) return
     const drop = dropOnSchematic(component, point, store.grid.railMagnet === false ? [] : store.components)
-    store.moveComponent(id, drop.schematicX, drop.schematicY)
+    // Edição frontal: o componente alinha à grelha por pontos do projeto (a calha continua a ter prioridade no fim do arrasto).
+    const g = store.grid
+    const step = frontEdit && g.enabled && g.snap && g.size > 0 ? g.size : 0
+    const snapTo = (value: number) => step ? Math.round(value / step) * step : value
+    store.moveComponent(id, snapTo(drop.schematicX), snapTo(drop.schematicY))
   }
   const endPanelDrag = (id: string) => {
     const store = useSimStore.getState()
@@ -1670,7 +1674,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {showGrid && !frontEdit && <gridHelper args={[40, 80, '#c3cdda', '#dfe5ee']} position={[sceneCenter[0], floorY, 0]} />}
         {frontEdit && showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} dark={backgroundMode === 'dark'} />}
         {frontEdit && placingType && hasComponent3DModel(placingType) && <PlacementPlane onPlace={(x, y) => {
-          const id = addComponent(placingType, Math.round(panelToSchematicX(x) - 40), Math.round(panelToSchematicY(y) - 40))
+          const step = gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0
+          const snapTo = (value: number) => step ? Math.round(value / step) * step : Math.round(value)
+          const id = addComponent(placingType, snapTo(panelToSchematicX(x) - 40), snapTo(panelToSchematicY(y) - 40))
           setPlacingType(null)
           selectComponents(id ? [id] : [])
         }} />}
