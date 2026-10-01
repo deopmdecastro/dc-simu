@@ -7,6 +7,7 @@ import type { CatalogEntry } from '../../catalog/types'
 import { IconCube } from '../../ui/icons'
 import { ComponentThumb } from '../../three/componentThumbnails'
 import type { ComponentType } from '../../types'
+import { generateCover } from './coverGen'
 import { buildBuiltinDraft, builtinComponents, builtinTypeOf, type BuiltinInfo } from './builtinComponents'
 import ComponentEditor3D from './ComponentEditor3D'
 
@@ -18,11 +19,26 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
   const [filter, setFilter] = useState<'all' | 'draft' | 'published' | 'archived' | 'builtin'>('all')
   const [importing, setImporting] = useState<string | null>(null)
   const builtins = useMemo(() => builtinComponents(), [])
+  const [covers, setCovers] = useState<Record<string, string>>({})
 
   const reload = useCallback(async () => {
     try { setEntries(await catalogApi.adminList()) } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao carregar a biblioteca 3D'); setEntries([]) }
   }, [onError])
   useEffect(() => { void reload() }, [reload])
+  // capas sempre atuais: gera-as a partir do rascunho (salvo capa manual), uma de cada vez
+  useEffect(() => {
+    if (!entries) return
+    let cancelled = false
+    void (async () => {
+      for (const entry of entries) {
+        if (cancelled) return
+        if (entry.meta.coverLocked && entry.meta.thumbnail) continue
+        const url = await generateCover(entry)
+        if (url && !cancelled) setCovers((current) => (current[entry.id] === url ? current : { ...current, [entry.id]: url }))
+      }
+    })()
+    return () => { cancelled = true }
+  }, [entries])
   useEffect(() => { if (openId) { setEditing(openId); onOpened?.() } }, [openId, onOpened])
 
   const imported = useMemo(() => new Map((entries ?? []).flatMap((entry) => { const type = builtinTypeOf(entry); return type ? [[type, entry.id] as const] : [] })), [entries])
@@ -83,33 +99,48 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     {entries === null && <div className="dx-admin-empty">A carregar…</div>}
     {entries && visible.length === 0 && builtinVisible.length === 0 && <div className="dx-admin-empty">{entries.length === 0 ? 'Ainda não há componentes 3D. Clique em «+ Novo componente 3D» para criar o primeiro.' : 'Nenhum componente corresponde ao filtro.'}</div>}
     <div className="ce-cards">
-      {visible.map((entry) => <article key={entry.id} className={`ce-card${entry.archived ? ' is-archived' : ''}`}>
-        <div className="ce-card-cover" aria-hidden>{entry.meta.thumbnail ? <img src={entry.meta.thumbnail} alt="" loading="lazy" draggable={false} /> : <IconCube size={28} />}</div>
-        <div className="ce-card-head">
-          <strong>{entry.meta.name}</strong>
-          {builtinTypeOf(entry) && <span className="ce-status" title="Importado de um componente integrado da plataforma">Integrado</span>}
-          <span className={`ce-status${entry.latestVersion ? ' is-pub' : ''}`}>{entry.archived ? 'Arquivado' : entry.latestVersion ? `v${entry.latestVersion}` : 'Rascunho'}</span>
-        </div>
-        <p>{entry.meta.description || 'Sem descrição.'}</p>
-        <small>{entry.meta.group || 'Sem grupo'} · atualizado {new Date(entry.updatedAt ?? Date.now()).toLocaleDateString('pt-PT')}{entry.updatedBy ? ` · ${entry.updatedBy}` : ''}</small>
-        <div className="ce-card-actions">
-          <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => setEditing(entry.id)}>Editar</button>
-          <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void duplicate(entry)} title="Cria um componente novo e independente">Duplicar</button>
-          {entry.latestVersion > 0
-            ? <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void archive(entry)}>{entry.archived ? 'Repor' : 'Arquivar'}</button>
-            : <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={() => void remove(entry)}>Eliminar</button>}
-        </div>
-      </article>)}
+      {visible.map((entry) => {
+        const origin = builtinTypeOf(entry)
+        const cover = covers[entry.id] ?? entry.meta.thumbnail
+        const state = entry.archived ? 'Arquivado' : entry.latestVersion ? `v${entry.latestVersion}` : 'Rascunho'
+        return <article key={entry.id} className={`ce-card${entry.archived ? ' is-archived' : ''}`}>
+          <div className="ce-card-cover">
+            {cover ? <img src={cover} alt={`Capa de ${entry.meta.name}`} loading="lazy" draggable={false} />
+              : origin ? <LazyThumb type={origin as ComponentType} size={150} /> : <div className="ce-card-nocover"><IconCube size={30} /><span>A gerar capa…</span></div>}
+            <span className="ce-card-badges">
+              {origin && <span className="ce-pill is-builtin" title="Importado de um componente integrado da plataforma">Integrado</span>}
+              <span className={`ce-pill${entry.archived ? ' is-archived' : entry.latestVersion ? ' is-pub' : ' is-draft'}`}>{state}</span>
+            </span>
+          </div>
+          <div className="ce-card-body">
+            <h3 className="ce-card-title" title={entry.meta.name}>{entry.meta.name}</h3>
+            <div className="ce-card-meta"><span className="ce-chip">{entry.meta.group || 'Sem grupo'}</span><span>{new Date(entry.updatedAt ?? Date.now()).toLocaleDateString('pt-PT')}{entry.updatedBy ? ` · ${entry.updatedBy}` : ''}</span></div>
+            <p className="ce-card-desc">{entry.meta.description || 'Sem descrição.'}</p>
+          </div>
+          <div className="ce-card-actions">
+            <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => setEditing(entry.id)}>Editar</button>
+            <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void duplicate(entry)} title="Cria um componente novo e independente">Duplicar</button>
+            {entry.latestVersion > 0
+              ? <button className="dx-btn dx-btn-ghost dx-btn-sm" onClick={() => void archive(entry)}>{entry.archived ? 'Repor' : 'Arquivar'}</button>
+              : <button className="dx-btn dx-btn-ghost dx-btn-sm ce-danger" onClick={() => void remove(entry)}>Eliminar</button>}
+          </div>
+        </article>
+      })}
     </div>
     {entries && builtinVisible.length > 0 && <>
       <div className="dx-admin-section ce-builtin-head"><h2>Componentes integrados da plataforma</h2><span>{builtinVisible.length}</span></div>
       <p className="cb-note">Estão na Biblioteca do simulador desde o início. Abra no editor 3D para ver/alterar o modelo e os bornes: é criada uma cópia independente, em rascunho.</p>
       <div className="ce-cards">
         {builtinVisible.map((item) => <article key={item.type} className="ce-card ce-card-builtin">
-          <div className="ce-card-cover" aria-hidden><LazyThumb type={item.type} /></div>
-          <div className="ce-card-head"><strong>{item.name}</strong><span className="ce-status">Integrado</span></div>
-          <p>{item.hasModel ? 'Modelo 3D CAD' : 'Sem modelo CAD (volume físico)'} · {item.terminals} borne{item.terminals === 1 ? '' : 's'}</p>
-          <small>{item.group} · {item.tag}</small>
+          <div className="ce-card-cover">
+            <LazyThumb type={item.type} size={150} />
+            <span className="ce-card-badges"><span className="ce-pill is-builtin">Integrado</span></span>
+          </div>
+          <div className="ce-card-body">
+            <h3 className="ce-card-title" title={item.name}>{item.name}</h3>
+            <div className="ce-card-meta"><span className="ce-chip">{item.group}</span><span>{item.tag} · {item.terminals} borne{item.terminals === 1 ? '' : 's'}</span></div>
+            <p className="ce-card-desc">{item.hasModel ? 'Modelo 3D CAD da plataforma.' : 'Sem modelo CAD: abre como volume com as dimensões físicas.'}</p>
+          </div>
           <div className="ce-card-actions">
             <button className="dx-btn dx-btn-primary dx-btn-sm" disabled={importing !== null} onClick={() => void openBuiltin(item)}>{importing === item.type ? 'A importar…' : 'Editar no 3D'}</button>
           </div>
@@ -120,7 +151,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
 }
 
 /** Miniatura 3D só quando o cartão fica visível (evita criar dezenas de contextos WebGL de uma vez). */
-function LazyThumb({ type }: { type: ComponentType }) {
+function LazyThumb({ type, size = 120 }: { type: ComponentType; size?: number }) {
   const [node, setNode] = useState<HTMLDivElement | null>(null)
   const [seen, setSeen] = useState(false)
   useEffect(() => {
@@ -130,5 +161,5 @@ function LazyThumb({ type }: { type: ComponentType }) {
     observer.observe(node)
     return () => observer.disconnect()
   }, [node, seen])
-  return <div ref={setNode} className="ce-thumb-lazy">{seen ? <ComponentThumb type={type} size={120} /> : <IconCube size={28} />}</div>
+  return <div ref={setNode} className="ce-thumb-lazy">{seen ? <ComponentThumb type={type} size={size} /> : <IconCube size={28} />}</div>
 }

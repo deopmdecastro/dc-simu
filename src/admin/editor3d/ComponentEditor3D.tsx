@@ -362,7 +362,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
 
   const [autosave, setAutosave] = useState<{ state: 'idle' | 'saving' | 'error'; at: number | null }>({ state: 'idle', at: null })
   const savingRef = useRef(false)
-  /** Grava o rascunho. `silent` (auto-guardar) não recalcula a capa nem mostra mensagem. Nunca perde alterações feitas durante o pedido. */
+  /** Grava o rascunho. `silent` (auto-guardar) não mostra mensagem; a capa é sempre atualizada (salvo capa manual). Nunca perde alterações feitas durante o pedido. */
   const persist = useCallback(async (silent: boolean): Promise<boolean> => {
     const initial = useEditorStore.getState()
     if (!initial.entry || savingRef.current) return false
@@ -370,7 +370,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     setSaving(true)
     setAutosave((current) => ({ ...current, state: 'saving' }))
     try {
-      if (!silent) applyCover()
+      applyCover()
       const { def: sentDef, meta: sentMeta, entry: current } = useEditorStore.getState()
       const saved = await catalogApi.save(current!.id, sentMeta, sentDef)
       useEditorStore.getState().markSaved(saved)
