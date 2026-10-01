@@ -112,6 +112,8 @@ const USER_COLOR_PALETTE = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4
 
 export function LightsTab() {
   const def = useEditorStore((s) => s.def)
+  const mode = useEditorStore((s) => s.mode)
+  const previewVars = useEditorStore((s) => s.previewVars)
   const selection = useEditorStore((s) => s.selection)
   const edit = useEditorStore((s) => s.edit)
   const set = useEditorStore((s) => s.set)
@@ -164,6 +166,8 @@ export function LightsTab() {
       <Field label="Intensidade"><Slider value={light.intensity} max={6} step={0.1} onChange={(intensity) => patch({ intensity }, 'int')} /></Field>
       {whenFields(def, light.when, (when) => patch({ when }, 'when'))}
       <Check checked={!!light.blink} label="Pisca quando acende por variável" onChange={(blink) => patch({ blink }, 'blink')} />
+      {mode === 'simulate' && light.when?.var && <div className="ce-actions"><button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => set({ previewVars: { ...previewVars, [light.when!.var]: !previewVars[light.when!.var] } })}>{previewVars[light.when.var] ? 'Apagar no teste' : 'Acender no teste'}</button></div>}
+      {mode === 'simulate' && !light.when?.var && <p className="ce-hint">Esta luz não tem condição: permanece acesa na simulação.</p>}
       <Confirm label="Eliminar zona" className="dx-btn dx-btn-danger dx-btn-sm" onConfirm={() => { edit((state) => ({ ...state, lights: state.lights.filter((item) => item.id !== light.id), states: state.states.map((s) => ({ ...s, lights: Object.fromEntries(Object.entries(s.lights).filter(([id]) => id !== light.id)) })) })); set({ selection: null }) }} />
     </Section>}
   </>

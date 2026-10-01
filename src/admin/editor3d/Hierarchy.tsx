@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { PartDef } from '../../catalog/types'
-import { IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
+import { IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
 import { descendantsOf, patchPart, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
 import { faceOfNormal } from './terminalOps'
@@ -112,6 +112,12 @@ export default function Hierarchy() {
       {def.lights.map((light) => <button key={light.id} className={`ce-row ce-row-btn${selection?.kind === 'light' && selection.id === light.id ? ' is-active' : ''}`}
         onClick={() => useEditorStore.getState().set({ selection: { kind: 'light', id: light.id }, tab: 'lights' })}><i className="ce-dot" style={{ background: light.color }} /><span className="ce-row-name">{light.name}</span></button>)}
       {def.lights.length === 0 && <p className="ce-empty">Sem zonas luminosas.</p>}
+      <div className="ce-panel-head"><strong>LCDs e ecrãs</strong><span>{(def.displays ?? []).length}</span></div>
+      {(def.displays ?? []).map((display) => <button key={display.id} className={`ce-row ce-row-btn${selection?.kind === 'display' && selection.id === display.id ? ' is-active' : ''}`}
+        onClick={() => useEditorStore.getState().set({ selection: { kind: 'display', id: display.id }, tab: 'displays' })}>
+        <i className="ce-row-kind"><IconMonitor size={13} /></i><span className="ce-row-name">{display.name}</span><small>{display.kind === 'lcd' ? 'LCD' : 'Texto'}</small>
+      </button>)}
+      {(def.displays ?? []).length === 0 && <p className="ce-empty">Sem LCDs ou ecrãs.</p>}
     </div>
   </aside>
 }

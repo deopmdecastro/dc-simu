@@ -254,6 +254,7 @@ export function ControlsTab() {
 
 export function DisplaysTab() {
   const def = useEditorStore((s) => s.def)
+  const mode = useEditorStore((s) => s.mode)
   const selection = useEditorStore((s) => s.selection)
   const edit = useEditorStore((s) => s.edit)
   const set = useEditorStore((s) => s.set)
@@ -277,6 +278,7 @@ export function DisplaysTab() {
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => addDisplay('text')}>+ Ecrã de texto</button>
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => addDisplay('lcd')}>+ LCD multímetro</button></span>}>
       <p className="ce-hint">Um ecrã é um retângulo de tamanho próprio colado à superfície do modelo onde aparece o conteúdo do componente (texto com variáveis, ou o LCD de 7 segmentos do multímetro). Depois de criar, marque a área no modelo com <b>2 cliques</b> (cantos opostos).</p>
+      {mode === 'simulate' && <p className="ce-hint"><b>Teste ativo:</b> LCDs e ecrãs atualizam em tempo real com os botões, estados, variáveis e valores de teste do multímetro.</p>}
       {displays.length === 0 && <Empty>Sem ecrãs.</Empty>}
       <div className="ce-list">{displays.map((item) => <button key={item.id} className={`ce-list-item${display?.id === item.id ? ' is-on' : ''}`} onClick={() => set({ selection: { kind: 'display', id: item.id } })}>
         <b>{item.name}</b><small>{item.kind === 'lcd' ? 'LCD multímetro' : 'Texto'} · {item.widthMm}×{item.heightMm} mm</small></button>)}</div>
