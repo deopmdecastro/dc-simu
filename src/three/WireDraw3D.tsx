@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
 import * as THREE from 'three'
 import { create } from 'zustand'
+import { useSimStore } from '../store/useSimStore'
 import { polylineLengthMm, type V3 } from './wireGeometry3D'
 
 /** Estado do cabo em desenho. A origem é um borne ou um ponto livre no espaço. */
@@ -159,7 +160,14 @@ export function WireDrawController({ active, draft, getDraft, terminals, wireRad
         else if (!('terminalId' in draftNow.from && draftNow.from.terminalId === found.terminalId)) state.onFinish({ terminalId: found.terminalId })
         return
       }
-      if (!draftNow) { state.onStart({ point: found.point }); return }
+      if (!draftNow) {
+        // clicar num cabo existente seleciona-o para edição (feito pelo próprio cabo); clicar no vazio com um cabo selecionado só o deseleciona
+        ndc.set(((event.clientX - dom.getBoundingClientRect().left) / dom.getBoundingClientRect().width) * 2 - 1, -((event.clientY - dom.getBoundingClientRect().top) / dom.getBoundingClientRect().height) * 2 + 1)
+        raycaster.setFromCamera(ndc, camera)
+        if (raycaster.intersectObjects(scene.children, true).some((hit) => hit.object.userData?.wireHit)) return
+        if (useSimStore.getState().selectedWireId) { useSimStore.getState().selectWire(null); return }
+        state.onStart({ point: found.point }); return
+      }
       if (event.detail >= 2) {
         // duplo clique: o último ponto largado passa a ser a ponta livre do cabo
         const last = draftNow.points[draftNow.points.length - 1]

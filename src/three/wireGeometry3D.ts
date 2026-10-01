@@ -26,7 +26,8 @@ export function cableOuterDiameterMm(gauge: string): number {
   if (!Number.isFinite(area) || area <= 0) return 2.8
   const conductorDiameter = Math.sqrt((4 * area) / Math.PI)
   const insulationPerSide = area <= 1.5 ? 0.7 : area <= 4 ? 0.85 : 1.05
-  return Math.max(2.2, conductorDiameter + insulationPerSide * 2)
+  // escala visual reduzida (~28%): os cabos reais ficavam demasiado grossos ao lado dos componentes
+  return Math.max(1.6, (conductorDiameter + insulationPerSide * 2) * 0.72)
 }
 
 /** Altura onde pontas livres desenhadas só no Esquema ficam no 3D (à frente da calha DIN). */

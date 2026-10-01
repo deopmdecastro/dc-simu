@@ -57,13 +57,15 @@ export function styleFor(defaults: WireDefaults, a?: TerminalDef, b?: TerminalDe
   }
 }
 
+export const CABLE_VISUAL_SCALE = 0.72
 /** Diâmetro exterior (mm) a partir da secção do condutor — igual ao Painel 3D. */
 export function cableOuterDiameterMm(gauge: string): number {
   const area = Number.parseFloat(gauge.replace(',', '.'))
   if (!Number.isFinite(area) || area <= 0) return 2.8
   const conductor = Math.sqrt((4 * area) / Math.PI)
   const insulation = area <= 1.5 ? 0.7 : area <= 4 ? 0.85 : 1.05
-  return Math.max(2.2, conductor + insulation * 2)
+  // escala visual reduzida (~28%): os cabos reais ficavam demasiado grossos ao lado dos componentes
+  return Math.max(1.6, (conductor + insulation * 2) * CABLE_VISUAL_SCALE)
 }
 export const wireRadiusMm = (gauge: string) => cableOuterDiameterMm(gauge) / 2
 

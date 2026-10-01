@@ -2873,3 +2873,8 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
   .panel3d-stage .panel3d-hud-top .panel3d-wire-context > span { display:block; max-width:520px; padding:3px 6px; font-size:9px; line-height:1.5; white-space:normal; }
   .panel3d-stage .panel3d-hud-top .panel3d-edit-context:not(.panel3d-draw-context):not(.panel3d-wire-context) { min-height:30px; }
 }
+
+/* barra compacta do cabo selecionado no painel 3D (as propriedades estão no Inspetor) */
+.panel3d-wire-bar { width:min(520px, calc(100% - 24px)); }
+.panel3d-wire-bar .panel3d-wire-inspector > footer { flex-wrap:wrap; }
+.panel3d-wire-bar .panel3d-wire-hint { display:block; white-space:normal; padding:5px 10px 7px; font-size:10px; line-height:1.4; color:#64748b; border-top:1px solid rgba(100,116,139,.18); }

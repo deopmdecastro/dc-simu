@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { create } from 'zustand'
 import type { Vec3 } from '../../catalog/types'
 import { useEditorStore } from './editorStore'
-import { WIRE_RADIUS_MM, wireChain, wireCurve } from './wirePath'
+import { WIRE_RADIUS_MM, rigidBendRadiusMm, wireChain, wireCurve } from './wirePath'
 import { wireRadiusMm } from './wireStyle'
 
 /** Informação em direto (cursor, comprimento, borne sob o rato) fora do React da cena. */
@@ -96,7 +96,7 @@ export function WireDrawController({ active, root }: { active: boolean; root: TH
       let lengthMm = 0
       if (state.wireFrom || state.wireStart) {
         const chain = wireChain(state.def.terminals, { a: state.wireFrom, b: found.terminalId ?? null, start: state.wireStart ?? undefined, end: found.terminalId ? undefined : found.point, points: state.wirePoints })
-        const curve = wireCurve(chain, state.wireDefaults.flexibility !== 'rigid')
+        const curve = wireCurve(chain, state.wireDefaults.flexibility !== 'rigid', rigidBendRadiusMm(state.wireDefaults.gauge))
         lengthMm = curve ? Math.round(curve.getLength()) : 0
       }
       const terminal = found.terminalId ? state.def.terminals.find((item) => item.id === found.terminalId) : undefined
@@ -149,6 +149,7 @@ function DraftWire() {
   const points = useEditorStore((s) => s.wirePoints)
   const smooth = useEditorStore((s) => s.wireDefaults.flexibility !== 'rigid')
   const draftRadius = useEditorStore((s) => wireRadiusMm(s.wireDefaults.gauge))
+  const wireGauge = useEditorStore((s) => s.wireDefaults.gauge)
   const terminals = useEditorStore((s) => s.def.terminals)
   const cursor = useWireInfo((s) => s.cursor)
   const invalidate = useThree((s) => s.invalidate)
@@ -160,13 +161,13 @@ function DraftWire() {
   const curve = useMemo(() => {
     if (!drafting) return null
     const target = cursor?.terminalId ?? null
-    return wireCurve(wireChain(terminals, { a: wireFrom, b: target, start: wireStart ?? undefined, end: target ? undefined : cursor?.point, points }), smooth)
-  }, [drafting, terminals, wireFrom, wireStart, points, cursor, smooth])
+    return wireCurve(wireChain(terminals, { a: wireFrom, b: target, start: wireStart ?? undefined, end: target ? undefined : cursor?.point, points }), smooth, rigidBendRadiusMm(wireGauge))
+  }, [drafting, terminals, wireFrom, wireStart, points, cursor, smooth, wireGauge])
   const hovered = cursor?.terminalId ? terminals.find((item) => item.id === cursor.terminalId) : undefined
 
   return <group>
     {curve && <mesh renderOrder={26} raycast={() => null}>
-      <tubeGeometry args={[curve, 48, draftRadius * 0.9, 10, false]} />
+      <tubeGeometry args={[curve, 140, draftRadius * 0.9, 10, false]} />
       <meshBasicMaterial color="#2563eb" transparent opacity={0.75} depthTest={false} />
     </mesh>}
     {points.map((point, index) => <group key={index} position={point}>

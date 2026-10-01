@@ -87,7 +87,7 @@ function WireMesh({ wire }: { wire: TestWire }) {
   const verdict = useMemo(() => evaluateWire(terminals, wire), [terminals, wire])
   if (!model?.curve) return null
   const { curve, radiusMm } = model
-  const segments = Math.max(56, wire.points.length * 24)
+  const segments = Math.min(700, Math.max(56, wire.points.length * 24, Math.ceil(curve.getLength() / 1.1)))
   const hex = WIRE_COLOR_HEX[wire.color]
   const collar = ferruleColor(wire.gauge)
 

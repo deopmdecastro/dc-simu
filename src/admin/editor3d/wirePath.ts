@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { TerminalDef, Vec3 } from '../../catalog/types'
 import type { WireEndType } from '../../types'
 import { checkConnection, type CompatLevel } from '../../catalog/terminalCompat'
-import { isFlatLug, isRoundEnd, wireEndLengthMm, wireRadiusMm } from './wireStyle'
+import { cableOuterDiameterMm, isFlatLug, isRoundEnd, wireEndLengthMm, wireRadiusMm } from './wireStyle'
 
 /**
  * Traçado dos cabos de teste (em mm). Mesma lógica do Painel 3D do simulador: o cabo sai do borne pela
@@ -33,12 +33,41 @@ export function wireChain(terminals: TerminalDef[], wire: WireEnds, cursor?: Vec
   return chain
 }
 
-/** Curva do cabo: Catmull-Rom (suave) ou segmentos retos; null se degenerar. */
-export function wireCurve(chain: THREE.Vector3[] | null, smooth: boolean): THREE.Curve<THREE.Vector3> | null {
+/** Raio de dobra (mm) de um cabo rígido: cresce com o diâmetro, para as curvas parecerem condutores reais e não cantos vivos. */
+export const rigidBendRadiusMm = (gauge?: string) => Math.max(5, cableOuterDiameterMm(gauge ?? '1.5mm²') * 3.2)
+
+/** Poligonal com cantos arredondados (arco tangente a cada troço): rígido sem cantos vivos nem torção do tubo. */
+function filletedPath(points: THREE.Vector3[], radius: number): THREE.CurvePath<THREE.Vector3> {
+  const path = new THREE.CurvePath<THREE.Vector3>()
+  let cursor = points[0]
+  const line = (to: THREE.Vector3) => { if (to.distanceTo(cursor) > 1e-4) { path.add(new THREE.LineCurve3(cursor.clone(), to.clone())); cursor = to } }
+  for (let index = 1; index < points.length; index += 1) {
+    const corner = points[index]
+    const next = points[index + 1]
+    if (!next) { line(corner); break }
+    const toPrev = points[index - 1].clone().sub(corner)
+    const toNext = next.clone().sub(corner)
+    const lenPrev = toPrev.length(), lenNext = toNext.length()
+    const angle = toPrev.angleTo(toNext)
+    if (lenPrev < 1e-4 || lenNext < 1e-4 || angle > Math.PI - 0.03) { line(corner); continue }
+    // distância de corte pedida pelo raio; nunca mais de metade de cada troço vizinho
+    const trim = Math.min(radius / Math.tan(angle / 2), lenPrev * 0.5, lenNext * 0.5)
+    const start = corner.clone().addScaledVector(toPrev.normalize(), trim)
+    const end = corner.clone().addScaledVector(toNext.normalize(), trim)
+    line(start)
+    path.add(new THREE.QuadraticBezierCurve3(start.clone(), corner.clone(), end.clone()))
+    cursor = end
+  }
+  return path
+}
+
+/** Curva do cabo: Catmull-Rom (flexível), segmentos com curvas de dobra (rígido, `bendMm` > 0) ou retos; null se degenerar. */
+export function wireCurve(chain: THREE.Vector3[] | null, smooth: boolean, bendMm = 0): THREE.Curve<THREE.Vector3> | null {
   if (!chain) return null
   const clean = chain.filter((point, index) => index === 0 || point.distanceTo(chain[index - 1]) > 1e-3)
   if (clean.length < 2) return null
   if (smooth && clean.length > 2) return new THREE.CatmullRomCurve3(clean, false, 'centripetal', 0.5)
+  if (!smooth && bendMm > 0 && clean.length > 2) return filletedPath(clean, bendMm)
   const path = new THREE.CurvePath<THREE.Vector3>()
   for (let index = 1; index < clean.length; index += 1) path.add(new THREE.LineCurve3(clean[index - 1], clean[index]))
   return path
@@ -97,7 +126,7 @@ export function wireModel(terminals: TerminalDef[], wire: WireEnds, cursor?: Vec
   const b = fitEnd(endPos, toNormal, wire.endB ?? 'none', points[points.length - 1] ?? (fromNormal ? startPos.clone().addScaledVector(fromNormal, stub) : startPos))
   const chain = [a.head, a.head.clone().addScaledVector(a.axis, stub), ...points, b.head.clone().addScaledVector(b.axis, stub), b.head]
   const radiusMm = wireRadiusMm(wire.gauge ?? '1.5mm²')
-  return { chain, ends: [a.fit, b.fit], radiusMm, curve: wireCurve(chain, wire.flexibility !== 'rigid'), endLengthMm: a.fit.lengthMm + a.fit.embedMm + b.fit.lengthMm + b.fit.embedMm }
+  return { chain, ends: [a.fit, b.fit], radiusMm, curve: wireCurve(chain, wire.flexibility !== 'rigid', rigidBendRadiusMm(wire.gauge)), endLengthMm: a.fit.lengthMm + a.fit.embedMm + b.fit.lengthMm + b.fit.embedMm }
 }
 
 export interface WireVerdict { lengthMm: number; level: CompatLevel; messages: string[] }
