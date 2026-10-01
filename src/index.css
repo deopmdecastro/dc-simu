@@ -2901,3 +2901,19 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
   .dc-mobile-backdrop { display:none !important; }
   .dc-dock-open.is-left, .dc-dock-open.is-right { display:none !important; }
 }
+
+/* Barra contextual móvel: prioriza área útil e mantém todas as ferramentas acessíveis por scroll. */
+@media (max-width: 720px) {
+  .toolbar-scroll { height:44px !important; padding-inline:6px !important; gap:4px !important; scroll-padding-inline:6px; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; }
+  .toolbar-scroll > .tb-sep, .toolbar-scroll > .ce-ribbon-sep { display:none; }
+  .dc-mobile-panel-tools { flex:none; gap:3px; }
+  .dc-mobile-panel-tools .dc-tool-btn { width:38px; min-width:38px; padding-inline:0 !important; justify-content:center; }
+  .dc-mobile-panel-tools .dc-tool-btn span { display:none; }
+  .toolbar-scroll .dc-seg { flex:none; }
+  .toolbar-scroll .dc-tool-btn { min-height:34px; }
+  .toolbar-scroll::-webkit-scrollbar { display:none; }
+  .toolbar-scroll { scrollbar-width:none; }
+  .dc-toolbar-main { padding-inline:6px !important; gap:5px !important; }
+  .dc-toolbar-main .dc-views-container button { padding-inline:10px !important; }
+  .schematic-view-shell .panel3d-model-badge { max-width:calc(100vw - 32px); overflow:hidden; }
+}
