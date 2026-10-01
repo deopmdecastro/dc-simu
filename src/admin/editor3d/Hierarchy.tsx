@@ -39,6 +39,7 @@ export default function Hierarchy() {
   }, [def.terminals, groupBy])
   const groupName = (key: string) => groupBy === 'view' ? FACE_LABEL[key as Face] : key || 'Sem grupo'
   const selectedPart = selection?.kind === 'part' ? def.parts.find((part) => part.id === selection.id) : undefined
+  const openProperties = () => window.dispatchEvent(new CustomEvent('ce-open-inspector'))
 
   const rows: Array<{ part: PartDef; depth: number }> = []
   const walk = (parent: string | null, depth: number) => def.parts.filter((part) => part.parentId === parent).forEach((part) => { rows.push({ part, depth }); walk(part.id, depth + 1) })
@@ -99,7 +100,7 @@ export default function Hierarchy() {
         {items.map((terminal) => {
           const hidden = hiddenTerminals.includes(terminal.id)
           return <div key={terminal.id} role="button" tabIndex={0} className={`ce-row ce-row-btn${selection?.kind === 'terminal' && selection.id === terminal.id ? ' is-active' : ''}${hidden ? ' is-hidden' : ''}`}
-            onClick={() => useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, selectedWire: null, tab: 'terminals' })}
+            onClick={() => { useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, selectedWire: null, tab: 'terminals' }); openProperties() }}
             onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, selectedWire: null, tab: 'terminals' }) } }}>
             <i className="ce-dot" style={{ background: terminal.color }} /><span className="ce-row-name">{terminal.label} · {terminal.name}</span>
             <button className="ce-icon" title={hidden ? 'Mostrar borne' : 'Ocultar borne'} aria-label={hidden ? `Mostrar borne ${terminal.label}` : `Ocultar borne ${terminal.label}`}
@@ -110,11 +111,11 @@ export default function Hierarchy() {
       {def.terminals.length === 0 && <p className="ce-empty">Sem bornes.</p>}
       <div className="ce-panel-head"><strong>Luzes</strong><span>{def.lights.length}</span></div>
       {def.lights.map((light) => <button key={light.id} className={`ce-row ce-row-btn${selection?.kind === 'light' && selection.id === light.id ? ' is-active' : ''}`}
-        onClick={() => useEditorStore.getState().set({ selection: { kind: 'light', id: light.id }, tab: 'lights' })}><i className="ce-dot" style={{ background: light.color }} /><span className="ce-row-name">{light.name}</span></button>)}
+        onClick={() => { useEditorStore.getState().set({ selection: { kind: 'light', id: light.id }, tab: 'lights' }); openProperties() }}><i className="ce-dot" style={{ background: light.color }} /><span className="ce-row-name">{light.name}</span></button>)}
       {def.lights.length === 0 && <p className="ce-empty">Sem zonas luminosas.</p>}
       <div className="ce-panel-head"><strong>LCDs e ecrãs</strong><span>{(def.displays ?? []).length}</span></div>
       {(def.displays ?? []).map((display) => <button key={display.id} className={`ce-row ce-row-btn${selection?.kind === 'display' && selection.id === display.id ? ' is-active' : ''}`}
-        onClick={() => useEditorStore.getState().set({ selection: { kind: 'display', id: display.id }, tab: 'displays' })}>
+        onClick={() => { useEditorStore.getState().set({ selection: { kind: 'display', id: display.id }, tab: 'displays' }); openProperties() }}>
         <i className="ce-row-kind"><IconMonitor size={13} /></i><span className="ce-row-name">{display.name}</span><small>{display.kind === 'lcd' ? 'LCD' : 'Texto'}</small>
       </button>)}
       {(def.displays ?? []).length === 0 && <p className="ce-empty">Sem LCDs ou ecrãs.</p>}

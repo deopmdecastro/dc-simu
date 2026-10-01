@@ -345,6 +345,11 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
   const [publishing, setPublishing] = useState(false)
   const [dropping, setDropping] = useState(false)
   const [mobilePane, setMobilePane] = useState<'canvas' | 'objects' | 'inspector'>('canvas')
+  useEffect(() => {
+    const openInspector = () => setMobilePane('inspector')
+    window.addEventListener('ce-open-inspector', openInspector)
+    return () => window.removeEventListener('ce-open-inspector', openInspector)
+  }, [])
   const faceLock = useEditorStore((s) => s.faceLock)
   const faceLockLabel = FACES.find(([id]) => id === faceLock)?.[1]
   const view = useEditorStore((s) => s.view)
