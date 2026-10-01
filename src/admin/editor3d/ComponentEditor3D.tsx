@@ -15,7 +15,7 @@ import { MaterialsTab, ObjectTab } from './tabs1'
 import { ControlsTab, DisplaysTab } from './tabsControls'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
-import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconPan, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
+import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
 import FaceChooser, { chooseFace } from './FaceChooser'
 import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importGlbAction } from './partActions'
 import { captureCover } from './capture'
@@ -36,7 +36,7 @@ const RIBBON: Array<{ id: Ribbon; label: string; hint: string; key: string; icon
   { id: 'terminal', label: 'Borne', hint: 'Clicar na superfície do modelo para criar bornes (escolha a face em «Bornes por vista»)', key: '2', icon: IconPlus, simulate: false },
   { id: 'wire', label: 'Cabo', hint: 'Ligar dois bornes e validar a compatibilidade (cor, secção e terminais em «Novo cabo»)', key: '3', icon: IconWire, simulate: true },
   { id: 'delete', label: 'Apagar', hint: 'Apagar a peça, o borne ou o cabo sob o cursor', key: '4', icon: IconErase, simulate: false },
-  { id: 'pan', label: 'Mover vista', hint: 'Arrastar para mover a vista (ou botão direito)', key: '5', icon: IconPan, simulate: true },
+  { id: 'pan', label: 'Arrastar malha', hint: 'Arrastar a malha com a mão sem rodar a vista (o botão direito também desloca)', key: '5', icon: IconHand, simulate: true },
   { id: 'measure', label: 'Medir', hint: 'Dois cliques (superfície ou borne) medem a distância em mm · Esc cancela', key: '6', icon: IconRuler, simulate: true },
 ]
 const RIBBON_KEYS: Ribbon[] = ['select', 'terminal', 'wire', 'delete', 'pan', 'measure']
