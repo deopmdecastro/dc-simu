@@ -490,6 +490,67 @@ class Model3DErrorBoundary extends Component<{ fallback: ReactNode; children: Re
   }
 }
 
+type LogoPage = 'home' | 'io' | 'clock' | 'diagnostics'
+const LOGO_PAGES: LogoPage[] = ['home', 'io', 'clock', 'diagnostics']
+
+/** Painel frontal funcional do LOGO!: LCD, seis teclas e LEDs ligados ao runtime. */
+function LogoFrontPanel({ c }: { c: ElectricalComponent }) {
+  const runState = useSimStore((s) => s.sim.runState)
+  const scanCount = useSimStore((s) => s.sim.scanCount)
+  const diagnostics = useSimStore((s) => s.sim.diagnostics)
+  const [page, setPage] = useState<LogoPage>('home')
+  const [pressed, setPressed] = useState<string | null>(null)
+  const canvas = useMemo(() => { const node = document.createElement('canvas'); node.width = 384; node.height = 192; return node }, [])
+  const texture = useMemo(() => { const value = new THREE.CanvasTexture(canvas); value.colorSpace = THREE.SRGBColorSpace; value.anisotropy = 4; return value }, [canvas])
+  const powered = !!c.state.powered
+  const inputs = c.terminals.filter((t) => /^I\d+$/i.test(t.label)).map((t) => !!t.energized)
+  const outputs = c.terminals.filter((t) => /^Q\d+/i.test(t.label)).map((t) => !!t.energized)
+  const errors = diagnostics.filter((item) => item.level === 'error').length
+  const warnings = diagnostics.filter((item) => item.level === 'warning').length
+  const running = powered && runState === 'running' && errors === 0
+  const communication = running && scanCount % 6 < 2
+
+  useEffect(() => {
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = powered ? '#b9c99a' : '#283226'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+    if (!powered) { texture.needsUpdate = true; return }
+    ctx.fillStyle = '#18251b'; ctx.font = 'bold 25px monospace'; ctx.textBaseline = 'top'
+    const text = (value: string, y: number, size = 25) => { ctx.font = `bold ${size}px monospace`; ctx.fillText(value, 18, y) }
+    if (page === 'home') {
+      text('SIEMENS LOGO!', 14, 28); text(running ? 'RUN' : runState === 'paused' ? 'PAUSE' : 'STOP', 55, 34)
+      text(`SCAN ${String(scanCount).padStart(6, '0')}`, 103, 24); text(errors ? `ERROR ${errors}` : warnings ? `WARN  ${warnings}` : 'SYSTEM OK', 143, 24)
+    } else if (page === 'io') {
+      text('I: 12345678', 12, 25); text(`   ${inputs.slice(0, 8).map((v) => v ? '1' : '0').join('') || '--------'}`, 49, 28)
+      text('Q: 1234', 94, 25); text(`   ${outputs.slice(0, 4).map((v) => v ? '1' : '0').join('') || '----'}`, 131, 28)
+    } else if (page === 'clock') {
+      const now = new Date(); text('DATE / TIME', 16, 27); text(now.toLocaleDateString('pt-PT'), 65, 30); text(now.toLocaleTimeString('pt-PT'), 112, 34)
+    } else {
+      text('DIAGNOSTICS', 14, 27); text(`ERRORS   ${errors}`, 60, 27); text(`WARNINGS ${warnings}`, 101, 27); text(`COM ${communication ? 'ACTIVE' : running ? 'READY' : 'OFF'}`, 143, 25)
+    }
+    texture.needsUpdate = true
+  }, [canvas, texture, powered, page, running, runState, scanCount, errors, warnings, communication, inputs.join(''), outputs.join('')])
+
+  useEffect(() => () => { texture.dispose() }, [texture])
+  const move = (step: number) => setPage((current) => LOGO_PAGES[(LOGO_PAGES.indexOf(current) + step + LOGO_PAGES.length) % LOGO_PAGES.length])
+  const button = (id: string, px: number, py: number, action: () => void) => <mesh key={id} position={[px, py, 0.326]}
+    onPointerDown={(event) => { event.stopPropagation(); setPressed(id) }}
+    onPointerUp={(event) => { event.stopPropagation(); setPressed(null); action() }}
+    onPointerOut={() => setPressed(null)}>
+    <circleGeometry args={[0.038, 18]} /><meshStandardMaterial color={pressed === id ? '#64748b' : '#cbd5e1'} roughness={0.8} />
+  </mesh>
+  const led = (px: number, py: number, color: string, on: boolean) => <mesh position={[px, py, 0.329]}><circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={on ? color : '#334155'} emissive={on ? color : '#000'} emissiveIntensity={on ? 1.8 : 0} /></mesh>
+
+  return <group>
+    <mesh position={[0, 0.585, 0.322]}><planeGeometry args={[0.49, 0.245]} /><meshBasicMaterial map={texture} color={powered ? '#ffffff' : '#708070'} toneMapped={false} /></mesh>
+    {button('esc', -0.225, 0.385, () => setPage('home'))}
+    {button('up', 0, 0.425, () => move(-1))}{button('down', 0, 0.345, () => move(1))}
+    {button('left', -0.08, 0.385, () => move(-1))}{button('right', 0.08, 0.385, () => move(1))}
+    {button('ok', 0.225, 0.385, () => setPage(page === 'home' ? 'io' : page))}
+    {led(0.245, 0.72, '#22c55e', running)}{led(0.245, 0.675, '#f59e0b', powered && !running && errors === 0)}
+    {led(0.245, 0.63, '#ef4444', powered && errors > 0)}{led(0.245, 0.585, '#38bdf8', communication)}
+  </group>
+}
+
 function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) {
   const { scene } = useGLTF(LOGO_1224RC_MODEL_URL)
 
@@ -551,6 +612,7 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
   return (
     <group position={[x, RAIL_Y, 0]}>
       <primitive object={model} castShadow receiveShadow />
+      <LogoFrontPanel c={c} />
       <Label text={c.ref} position={[0, LOGO_1224RC_TARGET_HEIGHT + 0.14, 0.22]} color="#e2e8f0" />
     </group>
   )
