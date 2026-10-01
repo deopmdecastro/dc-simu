@@ -724,10 +724,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   multimeterDm20: {
     category: 'measurement', paletteName: 'Multímetro digital RGK DM-20', group: 'Aparelhos de medir', tag: 'MM', w: 132, h: 276,
     terminals: [
-      T('COM', 'io', 0.24, 0.86, { defId: 'dm20-com', terminalType: 'plug', color: '#111827', electricalClass: 'other' }),
-      T('VΩ', 'io', 0.43, 0.86, { defId: 'dm20-volt', terminalType: 'plug', color: '#dc2626', electricalClass: 'other' }),
-      T('mA', 'io', 0.62, 0.86, { defId: 'dm20-ma', terminalType: 'plug', color: '#f59e0b', electricalClass: 'other' }),
-      T('10A', 'io', 0.81, 0.86, { defId: 'dm20-amp', terminalType: 'plug', color: '#ea580c', electricalClass: 'other' }),
+      T('COM', 'io', 0.74, 0.965, { defId: 'dm20-com', position3D: { x: 0.74, y: 0.035, z: 1 }, terminalType: 'plug', diameter: 12, color: '#111827', electricalClass: 'other' }),
+      T('VΩ', 'io', 0.74, 0.83, { defId: 'dm20-volt', position3D: { x: 0.74, y: 0.17, z: 1 }, terminalType: 'plug', diameter: 12, color: '#dc2626', electricalClass: 'other' }),
+      T('mA', 'io', 0.26, 0.83, { defId: 'dm20-ma', position3D: { x: 0.26, y: 0.17, z: 1 }, terminalType: 'plug', diameter: 12, color: '#dc2626', electricalClass: 'other' }),
+      T('10A', 'io', 0.26, 0.965, { defId: 'dm20-amp', position3D: { x: 0.26, y: 0.035, z: 1 }, terminalType: 'plug', diameter: 12, color: '#dc2626', electricalClass: 'other' }),
     ],
     defaultState: { selector: 'off', hold: false, backlight: false, relative: false },
   },
@@ -880,7 +880,7 @@ export function upgradeLogoTerminals(c: ElectricalComponent): ElectricalComponen
 
 /** Migra a fonte 24B provisória para a variante de parafuso 24A sem perder cabos. */
 export function upgradeProtectionTerminalPositions(c: ElectricalComponent): ElectricalComponent {
-  if (!['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(c.type)) return c
+  if (!['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760', 'multimeterDm20'].includes(c.type)) return c
   // Uma revisão feita no editor tem prioridade sobre os novos padrões.
   if ((c.editorVersion ?? 1) > 1) return c
   const defaults = TEMPLATES[c.type].terminals
