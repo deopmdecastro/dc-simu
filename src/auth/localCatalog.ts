@@ -1,3 +1,4 @@
+import type { StoredProfile } from '../catalog/terminalProfiles'
 import type { CatalogEntry, CatalogMeta, CatalogVersion, ComponentDefinition } from '../catalog/types'
 
 /** Catálogo oficial no backend local (deploy estático): localStorage, mesma API do servidor. */
@@ -24,8 +25,35 @@ const cleanMeta = (meta: Partial<CatalogMeta> | undefined, fallback?: CatalogMet
   return merged
 }
 
+const PROFILES_KEY = 'dcsimu:terminal-profiles:v1'
+function readProfiles(): StoredProfile[] {
+  try { const parsed = JSON.parse(localStorage.getItem(PROFILES_KEY) || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
+}
+
 export function localCatalogApi(parts: string[], verb: string, payload: Record<string, unknown>, user: { name: string; role: string }): unknown | undefined {
   const isAdmin = user.role === 'admin'
+  // ----- perfis de bornes personalizados -----
+  if (parts[0] === 'terminal-profiles' && verb === 'GET') return readProfiles()
+  if (parts[0] === 'admin' && parts[1] === 'terminal-profiles') {
+    if (!isAdmin) throw new Error('Acesso reservado ao administrador')
+    const id = parts[2]
+    if (!id || !/^[A-Za-z0-9_-]{3,40}$/.test(id)) throw new Error('Identificador inválido')
+    const all = readProfiles()
+    if (verb === 'PUT') {
+      const specs = Array.isArray(payload.specs) ? (payload.specs as StoredProfile['specs']).slice(0, 200) : []
+      if (!specs.length) throw new Error('O perfil precisa de pelo menos um borne')
+      const next: StoredProfile = { id, name: String(payload.name ?? '').trim().slice(0, 80) || 'Perfil personalizado', category: String(payload.category ?? '').slice(0, 40), description: String(payload.description ?? '').slice(0, 300), specs, updatedAt: new Date().toISOString(), updatedBy: user.name }
+      const index = all.findIndex((entry) => entry.id === id)
+      if (index >= 0) all[index] = next; else all.unshift(next)
+      try { localStorage.setItem(PROFILES_KEY, JSON.stringify(all)) } catch { throw new Error('Sem espaço no navegador para guardar o perfil.') }
+      return next
+    }
+    if (verb === 'DELETE') {
+      if (!all.some((entry) => entry.id === id)) throw new Error('Perfil não encontrado')
+      localStorage.setItem(PROFILES_KEY, JSON.stringify(all.filter((entry) => entry.id !== id)))
+      return { ok: true }
+    }
+  }
   // ----- utilizadores -----
   if (parts[0] === 'catalog') {
     if (parts.length === 1 && verb === 'GET') return read().filter((entry) => entry.latestVersion > 0).map((entry) => strip(entry, false))

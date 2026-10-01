@@ -70,6 +70,14 @@ export interface TerminalDef {
   /** Etiquetas de compatibilidade aceites ("fio-1.5, ponteira"); vazio = tudo. */
   accepts: string
   color: string
+  /** Função do borne no circuito (L1, N, PE, +24V, A1, I0.0…). Opcional: componentes antigos não a têm. */
+  fn?: string
+  /** Contacto: NA (NO), NF (NC) ou comum (COM). */
+  contact?: 'NO' | 'NC' | 'COM'
+  /** Grupo funcional (potência, bobina, aux, entradas…). */
+  group?: string
+  /** Perfil da biblioteca de bornes que o criou. */
+  profileId?: string
 }
 
 export interface LightZoneDef {

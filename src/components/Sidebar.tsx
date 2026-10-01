@@ -2,6 +2,8 @@ import CatalogInspector from '../catalog/CatalogInspector'
 import { useCatalogStore } from '../catalog/registry'
 import { hiddenCatalogTypes } from '../catalog/hidden'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import TerminalLibrary from './TerminalLibrary'
 import { useSimStore } from '../store/useSimStore'
 import { disabledReason, useComponentSettings } from '../admin/componentSettings'
 import { paletteGroups, TEMPLATES } from '../electrical/factory'
@@ -126,6 +128,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
   const selectedWireId = useSimStore((s) => s.selectedWireId)
   const selectedTerminalId = useSimStore((s) => s.selectedTerminalId)
   const [tab, setTab] = useState<'library' | 'inspector'>('library')
+  const [terminalLibOpen, setTerminalLibOpen] = useState(false)
   const inspectorRef = useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(paletteGroups().map((g) => g.group).filter((g) => !['protection', 'command'].includes(g))))
@@ -265,6 +268,9 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
               <IconSearch size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none" />
             </div>
           </div>
+          <div className="px-2 py-1 border-b border-line">
+            <button type="button" className="dc-btn w-full justify-center" onClick={() => setTerminalLibOpen(true)} title="Consulte os perfis de bornes e ligações usados nos componentes (L, N, PE, A1/A2, 13/14…)">Biblioteca de bornes e perfis de ligação</button>
+          </div>
           <div className="dc-library-model-notice" role="note">
             <IconLock size={13} />
             <span><strong>{lockedCount} componentes bloqueados.</strong> Sem GLB 3D real ou desativados pelo administrador, não podem ser inseridos.</span>
@@ -303,6 +309,12 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
         </>
       )}
 
+      {terminalLibOpen && createPortal(<div className="ce-modal ce-modal-fixed" role="dialog" aria-modal="true" aria-label="Biblioteca de bornes" onClick={(event) => { if (event.target === event.currentTarget) setTerminalLibOpen(false) }} onKeyDown={(event) => { if (event.key === 'Escape') setTerminalLibOpen(false) }}>
+        <div className="ce-modal-card tl-modal-card">
+          <div className="ce-lib-head"><span>Biblioteca de bornes e perfis de ligação</span><button className="ce-icon" onClick={() => setTerminalLibOpen(false)} title="Fechar">✕</button></div>
+          <TerminalLibrary mode="browse" />
+        </div>
+      </div>, document.body)}
       {tab === 'inspector' && (
         <div ref={inspectorRef} className="dc-inspector-scroll flex-1 overflow-y-auto p-3 text-xs text-ink-700 space-y-3 min-h-0">
           {!selectedComponent && !selectedWire && !selectedTerminal && (

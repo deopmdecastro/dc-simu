@@ -40,6 +40,16 @@ try {
   check('conta antiga migrada fica desativada e não entra', (await new Client().login('antigo@exemplo.pt', 'Antigo12345')).status === 403)
   check('admin entra', (await admin.login('admin@dcsimu.local', 'AdminDcsimu2026!')).status === 200)
   check('user entra', (await user.login('user@dcsimu.local', 'UserDcsimu2026!')).status === 200)
+  {
+    const profile = { name: 'Meu perfil', category: 'Proteção', description: 'teste', specs: [{ label: '1', name: 'Entrada', fn: 'L', kind: 'power-in', polarity: 'ac', electricalClass: 'ac', direction: 'in', terminalType: 'screw', color: '#92400e', face: 'top' }] }
+    check('perfis de bornes: utilizador não grava', (await user.call('PUT', '/admin/terminal-profiles/p_teste1', profile)).status === 403)
+    check('perfis de bornes: admin grava', (await admin.call('PUT', '/admin/terminal-profiles/p_teste1', profile)).status === 200)
+    check('perfis de bornes: perfil vazio é recusado', (await admin.call('PUT', '/admin/terminal-profiles/p_teste2', { ...profile, specs: [] })).status === 400)
+    const listed = await user.call('GET', '/terminal-profiles')
+    check('perfis de bornes: utilizador lê o perfil do admin', listed.status === 200 && listed.data.some((entry) => entry.id === 'p_teste1' && entry.specs.length === 1))
+    check('perfis de bornes: utilizador não elimina', (await user.call('DELETE', '/admin/terminal-profiles/p_teste1')).status === 403)
+    check('perfis de bornes: admin elimina', (await admin.call('DELETE', '/admin/terminal-profiles/p_teste1')).status === 200 && (await user.call('GET', '/terminal-profiles')).data.length === 0)
+  }
   check('user não acede à administração', (await user.call('GET', '/admin/users')).status === 403)
   check('user não lê registos', (await user.call('GET', '/admin/logs')).status === 403)
 

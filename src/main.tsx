@@ -9,6 +9,7 @@ import './styles/dx-contrib.css'
 import './styles/component-view-editor.css'
 import './styles/terminal-face-editor.css'
 import './styles/catalog-editor.css'
+import './styles/terminal-library.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

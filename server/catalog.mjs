@@ -16,6 +16,46 @@ export function registerCatalog({ app, db, auth, admin, fail, auditReq, dataDir 
   db.exec(`CREATE TABLE IF NOT EXISTS catalog_components(id TEXT PRIMARY KEY,meta TEXT NOT NULL,draft TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'draft',latest_version INTEGER NOT NULL DEFAULT 0,archived INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,updated_by TEXT);
 CREATE TABLE IF NOT EXISTS catalog_versions(component_id TEXT NOT NULL,version INTEGER NOT NULL,note TEXT,changes TEXT,definition TEXT NOT NULL,runtime TEXT NOT NULL,published_at TEXT NOT NULL,published_by TEXT,PRIMARY KEY(component_id,version));`)
 
+  // Perfis de bornes personalizados (biblioteca de bornes): leitura para todos, escrita só do admin.
+  db.exec(`CREATE TABLE IF NOT EXISTS terminal_profiles(id TEXT PRIMARY KEY,data TEXT NOT NULL,updated_at TEXT NOT NULL,updated_by TEXT)`)
+  const PROFILE_ID = /^[A-Za-z0-9_-]{3,40}$/
+  const cleanProfile = (id, body) => {
+    const specs = Array.isArray(body?.specs) ? body.specs.slice(0, 200) : null
+    if (!specs || !specs.length) return null
+    const text = (value, max) => String(value ?? '').trim().slice(0, max)
+    return {
+      id, name: text(body.name, 80) || 'Perfil personalizado', category: text(body.category, 40), description: text(body.description, 300),
+      specs: specs.map(item => ({
+        label: text(item.label, 12) || '?', name: text(item.name, 60), fn: text(item.fn, 16), kind: text(item.kind, 20) || 'io', polarity: text(item.polarity, 12) || 'none',
+        electricalClass: text(item.electricalClass, 12) || 'other', direction: text(item.direction, 4) || 'io', terminalType: text(item.terminalType, 16) || 'screw',
+        color: /^#[0-9a-fA-F]{6}$/.test(item.color) ? item.color : '#cbd5e1', contact: ['NO', 'NC', 'COM'].includes(item.contact) ? item.contact : undefined,
+        group: item.group ? text(item.group, 40) : undefined, face: ['front', 'back', 'left', 'right', 'top', 'bottom'].includes(item.face) ? item.face : 'front', row: item.row ? text(item.row, 20) : undefined,
+      })),
+    }
+  }
+  const profileOut = row => ({ ...JSON.parse(row.data), updatedAt: row.updated_at, updatedBy: row.updated_by || undefined })
+  app.get('/api/terminal-profiles', auth, (_req, res) => {
+    res.json(db.prepare('SELECT * FROM terminal_profiles ORDER BY updated_at DESC').all().map(profileOut))
+  })
+  app.put('/api/admin/terminal-profiles/:id', auth, admin, (req, res) => {
+    const { id } = req.params
+    if (!PROFILE_ID.test(id)) return fail(res, 400, 'Identificador inválido')
+    const data = cleanProfile(id, req.body)
+    if (!data) return fail(res, 400, 'O perfil precisa de pelo menos um borne')
+    const now = new Date().toISOString()
+    db.prepare('INSERT INTO terminal_profiles(id,data,updated_at,updated_by) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at,updated_by=excluded.updated_by').run(id, JSON.stringify(data), now, req.user.name)
+    auditReq(req, 'component.profile.save', { type: 'component', id, label: data.name })
+    res.json(profileOut(db.prepare('SELECT * FROM terminal_profiles WHERE id=?').get(id)))
+  })
+  app.delete('/api/admin/terminal-profiles/:id', auth, admin, (req, res) => {
+    const { id } = req.params
+    const row = PROFILE_ID.test(id) && db.prepare('SELECT * FROM terminal_profiles WHERE id=?').get(id)
+    if (!row) return fail(res, 404, 'Perfil não encontrado')
+    db.prepare('DELETE FROM terminal_profiles WHERE id=?').run(id)
+    auditReq(req, 'component.profile.delete', { type: 'component', id, label: JSON.parse(row.data).name })
+    res.json({ ok: true })
+  })
+
   const versionsOf = componentId => db.prepare('SELECT * FROM catalog_versions WHERE component_id=? ORDER BY version').all(componentId).map(row => ({
     version: row.version, publishedAt: row.published_at, publishedBy: row.published_by || undefined, note: row.note || '',
     changes: JSON.parse(row.changes || '[]'), definition: JSON.parse(row.definition), runtime: JSON.parse(row.runtime),

@@ -87,7 +87,7 @@ export const ACTION_LABEL: Record<string, string> = {
   'contribution.approved': 'Contribuição aprovada', 'contribution.rejected': 'Contribuição rejeitada', 'contribution.pending': 'Contribuição reposta em revisão',
   'component.enable': 'Componente ativado', 'component.disable': 'Componente desativado',
   'component.catalog.create': 'Componente 3D criado', 'component.catalog.save': 'Rascunho 3D guardado', 'component.catalog.publish': 'Componente 3D publicado',
-  'component.catalog.archive': 'Componente 3D arquivado', 'component.catalog.restore': 'Componente 3D reposto', 'component.catalog.delete': 'Componente 3D eliminado',
+  'component.catalog.archive': 'Componente 3D arquivado', 'component.catalog.restore': 'Componente 3D reposto', 'component.catalog.delete': 'Componente 3D eliminado', 'component.profile.save': 'Perfil de bornes guardado', 'component.profile.delete': 'Perfil de bornes eliminado',
   'logs.purge': 'Registos antigos apagados', 'export.data': 'Dados exportados',
 }
 

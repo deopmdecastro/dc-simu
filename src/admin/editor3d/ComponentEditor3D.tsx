@@ -2,6 +2,12 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react
 import { bakeGlb, boundsMm, describeChanges, loadGlbAssets, resolveState, runtimeSpec } from '../../catalog/definition'
 import { catalogApi } from '../../catalog/catalogApi'
 import { useCatalogStore } from '../../catalog/registry'
+import ViewCube, { type ViewCubeFace } from '../../components/ViewCube'
+import TerminalLibrary, { DND_PROFILE, DND_TERMINAL } from '../../components/TerminalLibrary'
+import { BUILTIN_PROFILES, defaultParams, FACES, specsFromTerminals, type TerminalSpec } from '../../catalog/terminalProfiles'
+import { allProfiles, useProfileStore } from '../../catalog/profileStore'
+import { COMPAT_LABEL } from '../../catalog/terminalCompat'
+import { applyProfile, faceCounts } from './terminalOps'
 import Hierarchy from './Hierarchy'
 import { BASE_STATE, glbCache, removeParts, useEditorStore, type InspectorTab } from './editorStore'
 import { ComponentTab, InteractionsTab, LightsTab, StatesTab, TerminalsTab } from './tabs2'
@@ -20,23 +26,92 @@ function ViewToolbar() {
   const snap = useEditorStore((s) => s.snap)
   const set = useEditorStore((s) => s.set)
   const mode = useEditorStore((s) => s.mode)
+  const libraryOpen = useEditorStore((s) => s.libraryOpen)
   return <div className="ce-viewbar" role="toolbar" aria-label="Vista 3D">
     <div className="ce-group" aria-label="Câmara">
-      {([['fit', 'Enquadrar'], ['iso', 'ISO'], ['front', 'Frente'], ['back', 'Trás'], ['left', 'Esq.'], ['right', 'Dir.'], ['top', 'Topo']] as const).map(([kind, label]) => <button key={kind} className="ce-tool" onClick={() => cameraTo(kind)}>{label}</button>)}
+      {([['fit', 'Enquadrar'], ['iso', 'ISO']] as const).map(([kind, label]) => <button key={kind} className="ce-tool" onClick={() => cameraTo(kind)} title={kind === 'fit' ? 'Enquadrar o modelo (F)' : 'Vista isométrica'}>{label}</button>)}
     </div>
     <div className="ce-group" aria-label="Cena">
-      <button className={`ce-tool${view.grid ? ' is-on' : ''}`} onClick={() => setView({ grid: !view.grid })}>Grelha</button>
+      <button className={`ce-tool${view.grid ? ' is-on' : ''}`} onClick={() => setView({ grid: !view.grid })} title="Grelha de pontos do fundo (como no simulador)">Grelha</button>
+      <button className={`ce-tool${view.floor ? ' is-on' : ''}`} onClick={() => setView({ floor: !view.floor })} title="Chão com escala de 10 mm">Chão</button>
       <button className={`ce-tool${view.axes ? ' is-on' : ''}`} onClick={() => setView({ axes: !view.axes })}>Eixos</button>
       <button className={`ce-tool${view.terminals ? ' is-on' : ''}`} onClick={() => setView({ terminals: !view.terminals })}>Rótulos</button>
       <button className={`ce-tool${view.bounds ? ' is-on' : ''}`} onClick={() => setView({ bounds: !view.bounds })}>Caixa</button>
       <button className={`ce-tool${view.dark ? ' is-on' : ''}`} onClick={() => setView({ dark: !view.dark })}>Fundo escuro</button>
     </div>
+    {mode === 'edit' && <div className="ce-group" aria-label="Biblioteca">
+      <button className={`ce-tool${libraryOpen ? ' is-on' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} title="Biblioteca de bornes e perfis de ligação">📚 Biblioteca de bornes</button>
+    </div>}
     {mode === 'edit' && <div className="ce-group" aria-label="Ajuste">
       <button className={`ce-tool${snap.on ? ' is-on' : ''}`} onClick={() => set({ snap: { ...snap, on: !snap.on } })} title="Ajuste a incrementos">Snap</button>
       <select className="ce-mini" value={snap.mm} onChange={(event) => set({ snap: { ...snap, mm: Number(event.target.value) } })} aria-label="Passo em mm">{[0.5, 1, 2, 5, 10].map((value) => <option key={value} value={value}>{value} mm</option>)}</select>
       <select className="ce-mini" value={snap.deg} onChange={(event) => set({ snap: { ...snap, deg: Number(event.target.value) } })} aria-label="Passo angular">{[1, 5, 15, 45, 90].map((value) => <option key={value} value={value}>{value}°</option>)}</select>
     </div>}
   </div>
+}
+
+
+/** Cubo de vista igual ao do simulador: arrastar orbita, clicar numa face enquadra-a. */
+function CubeOverlay() {
+  const angles = useEditorStore((s) => s.camAngles)
+  const set = useEditorStore((s) => s.set)
+  const cameraTo = useEditorStore((s) => s.cameraTo)
+  return <ViewCube yaw={angles.yaw} pitch={angles.pitch} placement="below-command"
+    onPick={(view: ViewCubeFace) => cameraTo(view === 'isometric' ? 'iso' : view)}
+    onAngles={(yaw, pitch) => set({ viewCommand: { kind: 'angles', n: Date.now(), yaw, pitch } })}
+    onOrbit={(dx, dy) => set({ viewCommand: { kind: 'orbit', n: Date.now(), dx, dy } })} />
+}
+
+/** «Bornes por vista»: escolhe a face (câmara + normal fixa) e adiciona bornes nela, como no simulador. */
+function FaceBar() {
+  const terminals = useEditorStore((s) => s.def.terminals)
+  const faceLock = useEditorStore((s) => s.faceLock)
+  const placing = useEditorStore((s) => s.placing)
+  const placingSpec = useEditorStore((s) => s.placingSpec)
+  const set = useEditorStore((s) => s.set)
+  const cameraTo = useEditorStore((s) => s.cameraTo)
+  const counts = faceCounts(terminals)
+  return <div className="ce-facebar" role="toolbar" aria-label="Bornes por vista">
+    <span className="ce-facebar-title">Bornes por vista</span>
+    {FACES.map(([face, label]) => <button key={face} className={`ce-face${faceLock === face ? ' is-on' : ''}`} onClick={() => { if (faceLock === face) set({ faceLock: null }); else { set({ faceLock: face }); cameraTo(face) } }}
+      title={`Ver ${label.toLowerCase()} e fixar a saída dos novos bornes nessa face`}>{label}<b>{counts[face]}</b></button>)}
+    <span className="ce-facebar-sep" />
+    <button className={`ce-face ce-face-add${placing ? ' is-on' : ''}`} onClick={() => set({ placing: !placing, placingSpec: placing ? null : placingSpec })} title="Clique no modelo para colocar bornes (Esc termina)">{placing ? (placingSpec ? `A colocar ${placingSpec.label}` : 'A adicionar…') : '+ Adicionar'}</button>
+    {faceLock && <button className="ce-face" onClick={() => set({ faceLock: null })} title="Voltar à normal da superfície clicada">Face livre</button>}
+  </div>
+}
+
+/** Cabos de teste (modo Simular): lista e veredicto de compatibilidade. */
+function WirePanel() {
+  const wires = useEditorStore((s) => s.testWires)
+  const terminals = useEditorStore((s) => s.def.terminals)
+  const wireFrom = useEditorStore((s) => s.wireFrom)
+  const set = useEditorStore((s) => s.set)
+  const name = (id: string) => terminals.find((item) => item.id === id)?.label ?? '?'
+  return <div className="ce-wirepanel" role="status">
+    <strong>Cabos de teste</strong>
+    <small>{wireFrom ? `Origem ${name(wireFrom)} · clique no borne de destino` : 'Clique num borne e depois noutro para ligar e validar.'}</small>
+    {wires.length === 0 && <small className="ce-wirepanel-empty">Sem cabos de teste.</small>}
+    {wires.map((wire) => <div key={wire.id} className={`ce-wire is-${wire.level}`}>
+      <b>{name(wire.a)} ↔ {name(wire.b)}</b><span>{wire.level === 'ok' ? '✓ ' : '⚠ '}{COMPAT_LABEL[wire.level]}{wire.messages.length ? ` — ${wire.messages.join(' · ')}` : ''}</span>
+    </div>)}
+    {wires.length > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => set({ testWires: [], wireFrom: null })}>Limpar cabos</button>}
+  </div>
+}
+
+function LibraryPanel() {
+  const def = useEditorStore((s) => s.def)
+  const meta = useEditorStore((s) => s.meta)
+  const placingSpec = useEditorStore((s) => s.placingSpec)
+  const set = useEditorStore((s) => s.set)
+  const flash = (text: string) => window.dispatchEvent(new CustomEvent('ce-flash', { detail: text }))
+  return <aside className="ce-lib-panel" aria-label="Biblioteca de bornes">
+    <div className="ce-lib-head"><span>Biblioteca de bornes</span><button className="ce-icon" onClick={() => set({ libraryOpen: false })} title="Fechar">✕</button></div>
+    <TerminalLibrary mode="insert" canEdit suggestFor={meta.category} armedLabel={placingSpec?.label ?? null}
+      onInsert={(profile, params, replace) => { const n = applyProfile(profile, params, replace); flash(`${profile.name}: ${n} bornes adicionados — editáveis na lista à esquerda.`) }}
+      onArmChip={(spec: TerminalSpec) => set({ placing: true, placingSpec: spec, selection: null })}
+      currentSpecs={() => specsFromTerminals(def.terminals)} />
+  </aside>
 }
 
 function PublishDialog({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
@@ -103,6 +178,12 @@ export default function ComponentEditor3D({ id, onClose }: { id: string; onClose
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [publishing, setPublishing] = useState(false)
+  const [dropping, setDropping] = useState(false)
+  const faceLock = useEditorStore((s) => s.faceLock)
+  const faceLockLabel = FACES.find(([id]) => id === faceLock)?.[1]
+  const view = useEditorStore((s) => s.view)
+  const libraryOpen = useEditorStore((s) => s.libraryOpen)
+  useEffect(() => { const handler = (event: Event) => setMessage(String((event as CustomEvent).detail)); window.addEventListener('ce-flash', handler); return () => window.removeEventListener('ce-flash', handler) }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -153,7 +234,7 @@ export default function ComponentEditor3D({ id, onClose }: { id: string; onClose
       else if (key === 'e') state.set({ tool: 'rotate' })
       else if (key === 'r') state.set({ tool: 'scale' })
       else if (key === 'f') state.cameraTo('fit')
-      else if (key === 'escape') { if (state.placing) state.set({ placing: false }); else state.select(null) }
+      else if (key === 'escape') { if (state.placing) state.set({ placing: false, placingSpec: null }); else if (state.faceLock) state.set({ faceLock: null }); else state.select(null) }
       else if ((key === 'delete' || key === 'backspace') && state.selection) {
         event.preventDefault()
         const selection = state.selection
@@ -195,14 +276,30 @@ export default function ComponentEditor3D({ id, onClose }: { id: string; onClose
     </header>
     <div className="ce-body">
       <Hierarchy />
-      <main className="ce-stage">
+      <main className={`ce-stage${view.grid ? '' : ' no-grid'}${view.dark ? ' is-dark' : ''}${dropping ? ' is-dropping' : ''}${libraryOpen && mode === 'edit' ? ' lib-open' : ''}`}
+        onDragOver={(event) => { if (mode === 'edit' && (event.dataTransfer.types.includes(DND_PROFILE) || event.dataTransfer.types.includes(DND_TERMINAL))) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; if (!dropping) setDropping(true) } }}
+        onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropping(false) }}
+        onDrop={(event) => {
+          setDropping(false)
+          const profileData = event.dataTransfer.getData(DND_PROFILE), terminalData = event.dataTransfer.getData(DND_TERMINAL)
+          if (!profileData && !terminalData) return
+          event.preventDefault()
+          if (terminalData) { set({ dropRequest: { spec: JSON.parse(terminalData) as TerminalSpec, x: event.clientX, y: event.clientY, n: Date.now() } }); return }
+          const { id, params } = JSON.parse(profileData) as { id: string; params: Record<string, boolean | number | string> }
+          const profile = allProfiles(useProfileStore.getState().custom).find((item) => item.id === id) ?? BUILTIN_PROFILES.find((item) => item.id === id)
+          if (profile) { const n = applyProfile(profile, { ...defaultParams(profile), ...params }, false); setMessage(`${profile.name}: ${n} bornes adicionados.`) }
+        }}>
         <ViewToolbar />
-        <Suspense fallback={<div className="ce-loading">A carregar o motor 3D…</div>}><Viewport /></Suspense>
+        <CubeOverlay />
+        {mode === 'edit' && tab === 'terminals' && <FaceBar />}
+        {mode === 'simulate' && <WirePanel />}
+        {libraryOpen && mode === 'edit' && <LibraryPanel />}
+        <div className="ce-canvas"><Suspense fallback={<div className="ce-loading">A carregar o motor 3D…</div>}><Viewport /></Suspense></div>
         <div className="ce-stage-info">
           <span>{dims}</span>
           {mode === 'edit' && <span className="ce-pill">{editState === BASE_STATE ? 'A editar: pose base' : `A editar estado: ${stateName}`}</span>}
           {mode === 'simulate' && <span className="ce-pill is-sim">Simulação · clique nas peças</span>}
-          {placing && <span className="ce-pill is-place">Clique numa face para colocar o borne · Esc cancela</span>}
+          {placing && <span className="ce-pill is-place">{faceLockLabel ? `Face ${faceLockLabel}: clique no modelo para colocar bornes` : 'Clique numa face para colocar o borne'} · Esc termina</span>}
         </div>
         {mode === 'simulate' && <div className="ce-simbar"><span>Estado:</span>
           {def.states.map((state) => <button key={state.id} className={`ce-chip${previewState === state.id ? ' is-on' : ''}`} onClick={() => set({ previewState: state.id })}>{state.name}</button>)}

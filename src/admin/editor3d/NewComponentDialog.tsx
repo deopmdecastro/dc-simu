@@ -1,7 +1,10 @@
 import { createPortal } from 'react-dom'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { catalogApi } from '../../catalog/catalogApi'
-import { DEFAULT_META, defaultDefinition, newId } from '../../catalog/definition'
+import { DEFAULT_META, boundsMm, defaultDefinition, newId } from '../../catalog/definition'
+import { allProfiles, useProfileStore } from '../../catalog/profileStore'
+import { specsToTerminals } from '../../catalog/terminalLayout'
+import { SUGGESTED_PROFILES, defaultParams } from '../../catalog/terminalProfiles'
 import type { CatalogMeta } from '../../catalog/types'
 import type { ComponentCategory } from '../../types'
 import { CATEGORIES, COMPONENT_KINDS } from './componentKinds'
@@ -25,6 +28,15 @@ export default function NewComponentDialog({ onCancel, onCreated, onError }: { o
   const [file, setFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [profileId, setProfileId] = useState('')
+  const custom = useProfileStore((state) => state.custom)
+  const loadProfiles = useProfileStore((state) => state.load)
+  useEffect(() => { void loadProfiles() }, [loadProfiles])
+  const suggestions = useMemo(() => {
+    const ids = SUGGESTED_PROFILES[category] ?? []
+    return allProfiles(custom).filter((profile) => ids.includes(profile.id) || profile.custom)
+  }, [category, custom])
+  useEffect(() => { if (profileId && !suggestions.some((profile) => profile.id === profileId)) setProfileId('') }, [suggestions, profileId])
 
   function pickKind(id: string) {
     const next = COMPONENT_KINDS.find((item) => item.id === id) ?? COMPONENT_KINDS[0]
@@ -53,6 +65,11 @@ export default function NewComponentDialog({ onCancel, onCreated, onError }: { o
         group: CATEGORIES.find(([value]) => value === category)?.[1] ?? DEFAULT_META.group,
         datasheet: sheet === 'have' ? { status: 'have', url: cleanUrl || undefined, fileName: file?.name } : { status: 'none' },
       }
+      const profile = suggestions.find((item) => item.id === profileId)
+      if (profile) {
+        const box = boundsMm(definition, new Map())
+        definition.terminals = specsToTerminals(profile.build(defaultParams(profile)), { min: box.min.toArray() as [number, number, number], max: box.max.toArray() as [number, number, number] }, [], () => newId('t_'), profile.id)
+      }
       if (sheet === 'have' && file) definition.assets = { ...definition.assets, datasheet: { name: file.name, mime: 'application/pdf', data: await readDataUrl(file) } }
       await catalogApi.save(id, meta, definition)
       onCreated(id, meta.name)
@@ -65,7 +82,7 @@ export default function NewComponentDialog({ onCancel, onCreated, onError }: { o
   return createPortal(<div className="ce-modal ce-modal-fixed" role="dialog" aria-modal="true" aria-label="Novo componente 3D" onKeyDown={(event) => { if (event.key === 'Escape') onCancel() }}>
     <form className="ce-modal-card ce-new" onSubmit={(event) => { event.preventDefault(); void create() }}>
       <h2>Novo componente 3D</h2>
-      <p className="ce-new-lead">Responda a quatro perguntas e abrimos o editor com o componente já preparado.</p>
+      <p className="ce-new-lead">Responda a estas perguntas e abrimos o editor com o componente já preparado.</p>
 
       <h3>1 · O que é?</h3>
       <div className="ce-kinds" role="radiogroup" aria-label="Tipo de componente">
@@ -100,6 +117,13 @@ export default function NewComponentDialog({ onCancel, onCreated, onError }: { o
         <small>Pode também anexar o datasheet mais tarde, no separador Componente.</small>
       </div>}
       {sheet === 'none' && <small className="ce-new-note">Fica registado como «sem datasheet». Pode anexá-lo mais tarde no editor.</small>}
+
+      <h3>5 · Bornes <span className="ce-new-opt">(opcional)</span></h3>
+      <select className="dx-input" value={profileId} onChange={(event) => setProfileId(event.target.value)} aria-label="Perfil de bornes">
+        <option value="">Sem bornes por agora — adiciono no editor</option>
+        {suggestions.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}{profile.custom ? ' (personalizado)' : ''}</option>)}
+      </select>
+      <small className="ce-new-note">Perfis sugeridos para a categoria escolhida. É só um ponto de partida: no editor pode alterar, mover, apagar ou acrescentar bornes, e abrir a biblioteca completa.</small>
 
       <div className="ce-modal-actions">
         <button type="button" className="dx-btn dx-btn-secondary" onClick={onCancel} disabled={busy}>Cancelar</button>

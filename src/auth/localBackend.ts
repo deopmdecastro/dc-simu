@@ -350,7 +350,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     return { ok: true } as T
   }
 
-  if (parts[0] === 'catalog' || (parts[0] === 'admin' && parts[1] === 'catalog')) {
+  if (parts[0] === 'catalog' || parts[0] === 'terminal-profiles' || (parts[0] === 'admin' && (parts[1] === 'catalog' || parts[1] === 'terminal-profiles'))) {
     const catalogUser = requireSession()
     const handled = localCatalogApi(parts, verb, payload, catalogUser)
     if (handled !== undefined) return handled as T

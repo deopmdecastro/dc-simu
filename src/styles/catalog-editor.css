@@ -65,9 +65,12 @@
 .ce-ok { color:#15803d; font-size:12px; margin:0; }
 
 /* ---- viewport ---- */
-.ce-stage { position:relative; min-width:0; min-height:0; background:#e9eef6; }
+.ce-stage { position:relative; min-width:0; min-height:0; overflow:hidden; background-color:#f7f9fc; background-image:radial-gradient(circle,#c9d3e3 1px,transparent 1px); background-size:20px 20px; }
+.ce-stage.no-grid { background-image:none; }
+.ce-stage.is-dark { background-color:#111827; background-image:radial-gradient(circle,#334155 1px,transparent 1px); }
+.ce-stage.is-dark.no-grid { background-image:none; }
 .ce-stage canvas { display:block; }
-.ce-viewbar { position:absolute; top:8px; left:8px; right:8px; z-index:5; display:flex; gap:8px; flex-wrap:wrap; pointer-events:none; }
+.ce-viewbar { position:absolute; top:8px; left:8px; right:8px; z-index:26; display:flex; gap:8px; flex-wrap:wrap; pointer-events:none; }
 .ce-group { pointer-events:auto; display:inline-flex; gap:2px; align-items:center; background:rgba(255,255,255,.94); border:1px solid var(--dx-line); border-radius:8px; padding:3px; box-shadow:0 1px 4px rgba(15,23,42,.08); }
 .ce-tool { border:0; background:transparent; padding:3px 8px; border-radius:5px; font:inherit; font-size:12px; color:var(--dx-ink-2); cursor:pointer; white-space:nowrap; }
 .ce-tool:hover { background:var(--dx-surface-2); }
@@ -172,3 +175,26 @@
 .ce-cta { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:14px 18px; margin-bottom:14px; border:1px solid var(--dx-brand-line, #c0d4fc); background:var(--dx-brand-soft, #eef4ff); border-radius:12px; }
 .ce-cta strong { display:block; font-size:var(--dx-t-md, 15px); } .ce-cta span { font-size:12.5px; color:var(--dx-ink-3); max-width:60ch; display:block; margin-top:2px; }
 .ce-cta-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* ---- barra «Bornes por vista» (como no simulador) ---- */
+.ce-facebar { position:absolute; left:50%; bottom:46px; transform:translateX(-50%); z-index:25; display:flex; align-items:center; gap:4px; flex-wrap:wrap; justify-content:center; max-width:calc(100% - 24px); background:rgba(255,255,255,.96); border:1px solid var(--dx-line); border-radius:12px; padding:5px 8px; box-shadow:0 8px 24px rgba(15,23,42,.16); }
+.ce-facebar-title { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--dx-ink-4); margin-right:4px; }
+.ce-face { display:inline-flex; align-items:center; gap:5px; border:1px solid var(--dx-line); background:#fff; border-radius:8px; padding:4px 9px; font:inherit; font-size:12px; font-weight:600; color:var(--dx-ink-2); cursor:pointer; }
+.ce-face b { background:var(--dx-surface-2); color:var(--dx-ink-3); border-radius:99px; padding:0 6px; font-size:11px; }
+.ce-face:hover { border-color:var(--dx-brand); }
+.ce-face.is-on { background:var(--dx-brand-soft-2); border-color:var(--dx-brand); color:var(--dx-brand-700); }
+.ce-face.is-on b { background:var(--dx-brand); color:#fff; }
+.ce-face-add.is-on { background:#fef3c7; border-color:#f59e0b; color:#92400e; }
+.ce-facebar-sep { width:1px; align-self:stretch; background:var(--dx-line); margin:0 3px; }
+.ce-wirepanel { position:absolute; left:10px; top:56px; z-index:25; width:min(300px,calc(100% - 20px)); display:flex; flex-direction:column; gap:5px; background:rgba(255,255,255,.96); border:1px solid var(--dx-line); border-radius:10px; padding:9px 11px; box-shadow:0 8px 24px rgba(15,23,42,.14); font-size:12px; }
+.ce-wirepanel small { color:var(--dx-ink-4); }
+.ce-wire { display:flex; flex-direction:column; border-left:3px solid; padding:2px 8px; border-radius:3px; }
+.ce-wire.is-ok { border-color:#16a34a; background:#f0fdf4; } .ce-wire.is-warn { border-color:#f59e0b; background:#fffbeb; } .ce-wire.is-error { border-color:#dc2626; background:#fef2f2; }
+.ce-wire span { font-size:11px; color:var(--dx-ink-3); }
+.ce-inline { display:flex; gap:6px; align-items:center; } .ce-inline > :first-child { flex:1; min-width:0; }
+.ce-linkbtn { background:transparent; border:0; color:var(--dx-brand-700); text-decoration:underline; cursor:pointer; }
+.ce-new-opt { font-weight:400; text-transform:none; letter-spacing:0; color:var(--dx-ink-4); }
+.ce-canvas { position:absolute; inset:0; overflow:hidden; }
+.ce-stage.lib-open .ce-canvas { left:360px; top:0; }
+.ce-stage.lib-open .ce-facebar { left:370px; transform:none; justify-content:flex-start; max-width:calc(100% - 380px); }
+.ce-stage.lib-open .ce-stage-info { left:370px; }

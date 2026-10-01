@@ -1,4 +1,5 @@
 import { accountApi, activeAccountBackend } from '../auth/accountApi'
+import type { StoredProfile } from './terminalProfiles'
 import type { CatalogEntry, CatalogMeta, CatalogVersion, ComponentDefinition } from './types'
 
 /** Camada fina sobre a API de contas: funciona com o servidor (SQLite) e com o backend local do navegador. */
@@ -19,4 +20,11 @@ export const catalogApi = {
     const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0))
     return URL.createObjectURL(new Blob([bytes], { type: 'model/gltf-binary' }))
   },
+}
+
+/** Perfis de bornes personalizados (biblioteca de bornes): todos leem, só o admin escreve. */
+export const profileApi = {
+  list: () => accountApi<StoredProfile[]>('/terminal-profiles'),
+  save: (profile: Omit<StoredProfile, 'updatedAt' | 'updatedBy'>) => accountApi<StoredProfile>(`/admin/terminal-profiles/${profile.id}`, 'PUT', profile),
+  remove: (id: string) => accountApi<{ ok: true }>(`/admin/terminal-profiles/${id}`, 'DELETE'),
 }

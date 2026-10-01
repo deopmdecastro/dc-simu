@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { newId, resolveState } from '../../catalog/definition'
 import type { ActionDef, InteractionDef, LightZoneDef, StateDef, TerminalDef, TriggerName, Vec3 } from '../../catalog/types'
 import type { ComponentCategory } from '../../types'
 import { BASE_STATE, newTerminal, patchTerminal, useEditorStore } from './editorStore'
 import { validateDefinition } from './validate'
+import { FACE_NORMAL, SUGGESTED_PROFILES, defaultParams, inferFromFunction, type Face } from '../../catalog/terminalProfiles'
+import { allProfiles, useProfileStore } from '../../catalog/profileStore'
+import { applyProfile, defBounds, faceCenter, faceOfNormal } from './terminalOps'
 import { Check, Color, Confirm, Empty, Field, Num, Section, Select, Slider, Text, Vec3Input } from './ui'
 
 const NORMALS: Array<[string, string, Vec3]> = [
@@ -22,13 +25,37 @@ export function TerminalsTab() {
   const set = useEditorStore((s) => s.set)
   const terminal = selection?.kind === 'terminal' ? def.terminals.find((item) => item.id === selection.id) : undefined
   const patch = (value: Partial<TerminalDef>, key: string) => terminal && edit((state) => patchTerminal(state, terminal.id, value), `term:${terminal.id}:${key}`)
+  const meta = useEditorStore((s) => s.meta)
+  const faceLock = useEditorStore((s) => s.faceLock)
+  const libraryOpen = useEditorStore((s) => s.libraryOpen)
+  const custom = useProfileStore((s) => s.custom)
+  const glbRevision = useEditorStore((s) => s.glbRevision)
+  const bounds = useMemo(() => defBounds(def), [def.parts, def.assets, glbRevision])
+  const suggested = useMemo(() => { const ids = SUGGESTED_PROFILES[meta.category] ?? []; return allProfiles(custom).filter((profile) => ids.includes(profile.id)) }, [meta.category, custom])
+  // mudar de face leva o borne para essa face do componente
+  const moveToFace = (face: Face) => {
+    if (!terminal) return
+    const normal = FACE_NORMAL[face]
+    const axis = normal[0] ? 0 : normal[1] ? 1 : 2
+    const position = [...terminal.position] as Vec3
+    position[axis] = normal[axis] > 0 ? bounds.max[axis] : bounds.min[axis]
+    patch({ normal, position }, 'normal')
+  }
   const duplicates = terminal ? def.terminals.filter((item) => item.label === terminal.label).length > 1 : false
 
   return <>
-    <Section title="Bornes (ligações)" actions={<button className={`dx-btn dx-btn-sm ${placing ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ placing: !placing })}>{placing ? 'A colocar… (Esc)' : '+ Na superfície'}</button>}>
-      <p className="ce-hint">{placing ? 'Clique numa face do modelo: o borne fica na superfície e a saída do cabo segue a normal dessa face.' : 'Use «+ Na superfície» e clique no modelo, ou adicione ao centro e arraste o gizmo.'}</p>
+    <Section title="Bornes (ligações)" actions={<button className={`dx-btn dx-btn-sm ${placing ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ placing: !placing, placingSpec: null })}>{placing ? 'A colocar… (Esc)' : '+ Na superfície'}</button>}>
+      <p className="ce-hint">{placing ? 'Clique numa face do modelo: o borne fica na superfície e a saída do cabo segue a normal dessa face. Use a barra «Bornes por vista» para fixar a face.' : 'Escolha uma face na barra «Bornes por vista» (ou use «+ Na superfície») e clique no modelo. Pode também aplicar um perfil da biblioteca.'}</p>
       <div className="ce-actions">
-        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { const created = newTerminal(def, [0, 20, 0], [0, 0, 1]); edit((state) => ({ ...state, terminals: [...state.terminals, created] })); set({ selection: { kind: 'terminal', id: created.id } }) }}>+ Ao centro</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { const created = newTerminal(def, faceCenter(bounds, faceLock ?? 'front'), FACE_NORMAL[faceLock ?? 'front']); edit((state) => ({ ...state, terminals: [...state.terminals, created] })); set({ selection: { kind: 'terminal', id: created.id } }) }}>+ Ao centro{faceLock ? ' da face' : ''}</button>
+        <button className={`dx-btn dx-btn-sm ${libraryOpen ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ libraryOpen: !libraryOpen })}>📚 Biblioteca de bornes</button>
+      </div>
+    </Section>
+    <Section title="Perfis sugeridos" open={def.terminals.length === 0}>
+      <p className="ce-hint">Sugestões para «{meta.category}». Cada perfil cria os bornes nas faces certas — depois pode editar, mover, duplicar ou apagar qualquer um.</p>
+      <div className="ce-actions">
+        {suggested.map((profile) => <button key={profile.id} className="dx-btn dx-btn-secondary dx-btn-sm" title={profile.description} onClick={() => applyProfile(profile, defaultParams(profile), false)}>+ {profile.name}</button>)}
+        <button className="dx-btn dx-btn-sm ce-linkbtn" onClick={() => set({ libraryOpen: true })}>Mais perfis…</button>
       </div>
     </Section>
     {!terminal && <Empty>Selecione um borne na lista à esquerda ou no viewport.</Empty>}
@@ -40,11 +67,16 @@ export function TerminalsTab() {
       </Section>
       <Section title="Posição e saída">
         <Vec3Input label="Posição" unit="mm" step={0.5} value={terminal.position} onChange={(position) => patch({ position }, 'pos')} />
-        <Field label="Face / normal"><Select value={normalKey(terminal.normal)} onChange={(key) => patch({ normal: NORMALS.find(([id]) => id === key)![2] }, 'normal')} options={NORMALS.map(([id, label]): [string, string] => [id, label])} /></Field>
-        <p className="ce-hint">A normal decide a face do borne no esquema e a direção em que o cabo sai.</p>
+        <Field label="Face"><Select value={faceOfNormal(terminal.normal)} onChange={moveToFace} options={[['front', 'Frente'], ['back', 'Trás'], ['left', 'Esquerda'], ['right', 'Direita'], ['top', 'Topo'], ['bottom', 'Base']]} /></Field>
+        <Field label="Normal (avançado)"><Select value={normalKey(terminal.normal)} onChange={(key) => patch({ normal: NORMALS.find(([id]) => id === key)![2] }, 'normal')} options={NORMALS.map(([id, label]): [string, string] => [id, label])} /></Field>
+        <p className="ce-hint">A face leva o borne para esse lado do componente. A normal decide a direção em que o cabo sai.</p>
       </Section>
       <Section title="Elétrico">
-        <Field label="Função"><Select value={terminal.kind} onChange={(kind) => patch({ kind }, 'kind')} options={KINDS} /></Field>
+        <Field label="Função (L1, A1…)" hint="Só informativo; use «Sugerir» para preencher tipo, polaridade e cor."><span className="ce-inline"><Text value={terminal.fn ?? ''} onChange={(fn) => patch({ fn }, 'fn')} />
+          <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { const inferred = inferFromFunction(terminal.fn || terminal.label); patch({ kind: inferred.kind, polarity: inferred.polarity, electricalClass: inferred.electricalClass, contact: inferred.contact, color: inferred.color ?? terminal.color, ...(inferred.direction ? { direction: inferred.direction } : {}) }, 'infer') }}>Sugerir</button></span></Field>
+        <Field label="Tipo de borne"><Select value={terminal.kind} onChange={(kind) => patch({ kind }, 'kind')} options={KINDS} /></Field>
+        <Field label="Contacto"><Select value={terminal.contact ?? ''} onChange={(contact) => patch({ contact: contact === '' ? undefined : (contact as 'NO' | 'NC' | 'COM') }, 'contact')} options={[['', '—'], ['NO', 'NA (normalmente aberto)'], ['NC', 'NF (normalmente fechado)'], ['COM', 'Comum']]} /></Field>
+        <Field label="Grupo"><Text value={terminal.group ?? ''} onChange={(group) => patch({ group: group || undefined }, 'group')} placeholder="Potência, Bobina, Aux…" /></Field>
         <Field label="Tipo de ligação"><Select value={terminal.terminalType} onChange={(terminalType) => patch({ terminalType }, 'type')} options={TYPES} /></Field>
         <Field label="Polaridade"><Select value={terminal.polarity} onChange={(polarity) => patch({ polarity }, 'pol')} options={POLARITY} /></Field>
         <Field label="Classe"><Select value={terminal.electricalClass} onChange={(electricalClass) => patch({ electricalClass }, 'class')} options={[['dc', 'CC'], ['ac', 'CA'], ['network', 'Rede'], ['other', 'Outro']]} /></Field>

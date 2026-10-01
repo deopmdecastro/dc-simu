@@ -27,6 +27,9 @@ import { useSimStore } from '../src/store/useSimStore'
 import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
 import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, getDefaultComponent3DPresentation, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
 import { component3DDimensions, component3DScaleOf, terminalFaceCreationPosition, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from '../src/three/terminal3D'
+import { BUILTIN_PROFILES, SUGGESTED_PROFILES, defaultParams, specsFromTerminals } from '../src/catalog/terminalProfiles'
+import { layoutSpecs, specsToTerminals } from '../src/catalog/terminalLayout'
+import { checkConnection } from '../src/catalog/terminalCompat'
 import { upgradeComponentEditorMetadata } from '../src/three/componentRevisions'
 import { wireEnergyEffectVisible } from '../src/three/panel3DEditing'
 import * as THREE from 'three'
@@ -1516,6 +1519,37 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const jpg = 'data:image/jpeg;base64,/9j/AAAA'
   check('cover: miniatura JPEG guardada passa para o preview', buildProjectPreview({ components: [], wires: [], cover: jpg }).cover === jpg)
   check('cover: ignora conteúdo que não é JPEG data URL', buildProjectPreview({ components: [], wires: [], cover: 'http://x/y.jpg' }).cover === undefined && buildProjectPreview({ components: [] }).cover === undefined)
+}
+
+{
+  const byId = (id: string) => BUILTIN_PROFILES.find((profile) => profile.id === id)!
+  const build = (id: string, params = {}) => byId(id).build({ ...defaultParams(byId(id)), ...params })
+  const labels = (id: string, params = {}) => build(id, params).map((item) => item.label)
+  check('bornes: ids de perfis únicos', new Set(BUILTIN_PROFILES.map((profile) => profile.id)).size === BUILTIN_PROFILES.length)
+  check('bornes: sugestões referem perfis existentes', Object.values(SUGGESTED_PROFILES).flat().every((id) => BUILTIN_PROFILES.some((profile) => profile.id === id)))
+  check('bornes: rótulos únicos em todos os perfis (valores por omissão)', BUILTIN_PROFILES.every((profile) => { const l = profile.build(defaultParams(profile)).map((item) => item.label); return new Set(l).size === l.length }))
+  check('bornes: disjuntor 3P = 1..6, entradas em cima e saídas em baixo', labels('breaker-3p').join() === '1,2,3,4,5,6' && build('breaker-3p').filter((item) => item.face === 'top').map((item) => item.label).join() === '1,3,5' && build('breaker-3p').filter((item) => item.face === 'bottom').map((item) => item.label).join() === '2,4,6')
+  check('bornes: disjuntor 4P tem 8 bornes (N = 7/8)', labels('breaker-4p').length === 8 && labels('breaker-4p').slice(-2).join() === '7,8')
+  check('bornes: 3P+N leva N1/N2 com numeração por omissão IEC', labels('breaker-3p-n').length === 8)
+  check('bornes: trifásico com checkboxes (sem L2/PE)', labels('power-3ph', { L2: false, PE: false }).join() === 'L1,L3')
+  check('bornes: contactor 1L1…6T3, A1/A2 e auxiliares 13/14 + 21/22', labels('contactor-power').join() === '1L1,3L2,5L3,2T1,4T2,6T3,A1,A2,13,14,21,22')
+  check('bornes: relé com 3 grupos usa 11/12/14, 21/22/24, 31/32/34', labels('relay', { groups: 3 }).filter((label) => /^\d\d$/.test(label)).join() === '11,12,14,21,22,24,31,32,34')
+  check('bornes: botão NA+NF e seletor de 3 posições', labels('pb-no-nc').join() === '13,14,21,22' && labels('selector', { pos: '3' }).join() === 'COM,P1,P0,P2')
+  check('bornes: PLC configurável conta DI/DO/AI/AO', (() => { const l = build('plc-custom', { di: 12, dq: 4, ai: 3, ao: 1, power: '24V', pe: false }); return l.filter((item) => item.group === 'Entradas digitais').length === 12 && l.filter((item) => item.group === 'Saídas digitais').length === 4 && l.filter((item) => item.group === 'Entradas analógicas').length === 3 && l.filter((item) => item.group === 'Saídas analógicas').length === 1 && !l.some((item) => item.fn === 'PE') })())
+  check('bornes: motor 6 terminais e variador com RS485', labels('motor-6').length === 7 && labels('vfd', { bus: true }).includes('B'))
+  check('bornes: sensor 3 fios marca o contacto NA/NF', build('sensor-3w', { mode: 'NC' }).find((item) => item.fn === 'OUT')?.contact === 'NC')
+  const box = { min: [-18, 0, -29] as [number, number, number], max: [18, 80, 29] as [number, number, number] }
+  const placed = layoutSpecs(build('breaker-3p'), box)
+  check('bornes: layout fica sobre a face (topo y=máx, base y=mín) com normal certa', placed.slice(0, 2).every((item, index) => item.position[1] === (index === 0 ? 80 : 0) && item.normal[1] === (index === 0 ? 1 : -1)))
+  check('bornes: layout dentro da caixa', layoutSpecs(build('plc-custom'), box).every((item) => item.position.every((value, axis) => value >= box.min[axis] - 0.01 && value <= box.max[axis] + 0.01)))
+  let counter = 0
+  const created = specsToTerminals(build('pb-no'), box, [{ label: '13' } as never], () => `t${counter++}`, 'pb-no')
+  check('bornes: etiquetas repetidas ficam únicas ao aplicar outro perfil', created.map((item) => item.label).join() === "13′,14" && created[0].profileId === 'pb-no')
+  check('bornes: especificações extraídas de um componente voltam a gerar o mesmo número', specsFromTerminals(created).length === 2)
+  const ac = (fn: string, kind = 'power-in' as const) => ({ fn, kind, polarity: 'ac' as const, electricalClass: 'ac' as const, direction: 'io' as const })
+  const dc = { fn: '+24V', kind: 'power-in' as const, polarity: 'positive' as const, electricalClass: 'dc' as const, direction: 'io' as const }
+  check('compat: L1↔L1 ok, L1↔L2 aviso, L1↔24V erro, PE↔L1 erro', checkConnection(ac('L1'), ac('L1')).level === 'ok' && checkConnection(ac('L1'), ac('L2')).level === 'warn' && checkConnection(ac('L1'), dc).level === 'error' && checkConnection({ ...ac('PE'), kind: 'earth', polarity: 'earth', electricalClass: 'other' }, ac('L1')).level === 'error')
+  check('compat: bobina A1↔A2 não gera aviso de entradas', checkConnection({ fn: 'A1', kind: 'coil-plus', polarity: 'positive', electricalClass: 'dc', direction: 'in' }, { fn: 'A2', kind: 'coil-minus', polarity: 'negative', electricalClass: 'dc', direction: 'in' }).messages.every((message) => !message.includes('entradas')))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

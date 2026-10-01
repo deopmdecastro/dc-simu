@@ -2,13 +2,19 @@ import { create } from 'zustand'
 import type { Object3D } from 'three'
 import { BASE_STATE } from '../../catalog/stateAnimator'
 import { defaultPart, newId, normalizeDefinition, type GlbCache } from '../../catalog/definition'
+import type { Face, TerminalSpec } from '../../catalog/terminalProfiles'
+import type { CompatLevel } from '../../catalog/terminalCompat'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, MaterialDef, PartDef, StateOverride, TerminalDef, Vec3 } from '../../catalog/types'
 
 export { BASE_STATE }
 export type Selection = { kind: 'part' | 'terminal' | 'light'; id: string } | null
 export type Tool = 'translate' | 'rotate' | 'scale'
 export type InspectorTab = 'object' | 'materials' | 'terminals' | 'lights' | 'states' | 'interactions' | 'component'
-export type ViewCommand = { kind: 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'iso'; n: number }
+export type ViewCommand = { kind: 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'iso' | 'angles' | 'orbit'; n: number; yaw?: number; pitch?: number; dx?: number; dy?: number }
+/** Cabo de teste entre dois bornes (modo Simular): serve para validar a compatibilidade. */
+export interface TestWire { id: string; a: string; b: string; level: CompatLevel; messages: string[] }
+/** Pedido de largada (drag & drop) a partir da biblioteca: o Viewport faz o raycast. */
+export interface DropRequest { spec: TerminalSpec; x: number; y: number; n: number }
 
 /** Cache dos GLB importados (módulo): evita reler/parsear a cada alteração. */
 export const glbCache: GlbCache = new Map<string, Object3D>()
@@ -30,9 +36,18 @@ interface EditorStore {
   editState: string
   previewState: string
   placing: boolean
+  /** Borne da biblioteca que o próximo clique na superfície vai criar (null = borne em branco). */
+  placingSpec: TerminalSpec | null
+  /** Face escolhida na barra «Bornes por vista»: fixa a normal dos bornes novos. */
+  faceLock: Face | null
+  dropRequest: DropRequest | null
+  libraryOpen: boolean
+  camAngles: { yaw: number; pitch: number }
+  testWires: TestWire[]
+  wireFrom: string | null
   tab: InspectorTab
   materialId: string | null
-  view: { grid: boolean; axes: boolean; terminals: boolean; dark: boolean; bounds: boolean }
+  view: { grid: boolean; floor: boolean; axes: boolean; terminals: boolean; dark: boolean; bounds: boolean }
   viewCommand: ViewCommand
   glbRevision: number
   dirty: boolean
@@ -60,8 +75,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   def: normalizeDefinition(undefined),
   baseline: null,
   selection: null, tool: 'translate', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
-  editState: BASE_STATE, previewState: 'off', placing: false, tab: 'object', materialId: null,
-  view: { grid: true, axes: true, terminals: true, dark: false, bounds: false },
+  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, tab: 'object', materialId: null,
+  view: { grid: true, floor: true, axes: true, terminals: true, dark: false, bounds: false },
   viewCommand: { kind: 'iso', n: 0 }, glbRevision: 0,
   dirty: false, past: [], future: [], lastKey: '', lastAt: 0,
 
@@ -70,7 +85,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const last = entry.versions[entry.versions.length - 1]
     set({
       entry, meta: entry.meta, def: draft, baseline: last ? last.definition : null, selection: null, mode: 'edit',
-      editState: BASE_STATE, previewState: draft.initialState, placing: false, tab: 'object', dirty: false, past: [], future: [],
+      editState: BASE_STATE, previewState: draft.initialState, placing: false, placingSpec: null, faceLock: null, testWires: [], wireFrom: null, tab: 'object', dirty: false, past: [], future: [],
       lastKey: '', lastAt: 0, viewCommand: { kind: 'fit', n: Date.now() },
     })
   },
@@ -95,7 +110,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const coalesce = key === lastKey && now - lastAt < 900
     set({ meta: { ...meta, ...patch }, dirty: true, future: [], lastKey: key, lastAt: now, past: coalesce ? past : [...past.slice(-(HISTORY_LIMIT - 1)), { meta, def }] })
   },
-  select: (selection) => set({ selection, placing: false }),
+  select: (selection) => set({ selection, placing: false, placingSpec: null }),
   set: (patch) => set(patch as never),
   setView: (patch) => set((state) => ({ view: { ...state.view, ...patch } })),
   cameraTo: (kind) => set({ viewCommand: { kind, n: Date.now() } }),

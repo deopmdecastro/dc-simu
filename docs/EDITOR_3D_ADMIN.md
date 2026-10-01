@@ -48,3 +48,17 @@ Botão **+ Novo componente 3D** no cabeçalho da Administração, no Resumo e na
 `componentKinds.ts`), 2) categoria, 3) nome, 4) se já tem datasheet (PDF até 4 MB e/ou link). Cria o rascunho e abre o editor.
 O estado fica em `meta.kind` / `meta.datasheet`; o PDF vai em `draft.assets.datasheet` (só no rascunho do admin, não nas
 versões publicadas). No editor, o separador **Componente → Datasheet** permite anexar, abrir ou remover mais tarde.
+
+## Biblioteca de bornes e perfis de ligação
+
+Os perfis são **sugestões**: depois de aplicados, cada borne continua editável (rótulo, nome, função, face, posição, tipo, polaridade, sentido, contacto, cor), pode ser duplicado, movido ou apagado.
+
+- **Onde**: botão «📚 Biblioteca de bornes» na barra da vista e no separador *Bornes*; os utilizadores consultam-na (só leitura) em *Biblioteca → «Biblioteca de bornes e perfis de ligação»*.
+- **Perfis incluídos** (`src/catalog/terminalProfiles.ts`): alimentação (monofásico, trifásico, 3P+N, CC), disjuntores 1P/2P/3P/3P+N/4P (1·3·5 entrada, 2·4·6 saída), botões NA/NF/NA+NF, seletor 2/3 posições, sinalizador, relés (11/12/14…), contactor (1L1…6T3, A1/A2, auxiliares), PLC (preset e configurável: DI/DO/AI/AO), sensores 3/4 fios e analógico, motor (3 e 6 terminais), variador, RS485, CAN, terra PE/FE, borneira.
+- **Bornes soltos**: NO, NC, COM, L, N, PE, GND, +24V, 0V… — clique e depois clique na superfície, ou arraste para o viewport.
+- **Aplicar**: «+ Adicionar …» (ou arrastar o cartão do perfil para o viewport). Opção «Substituir os bornes atuais». O perfil coloca os bornes nas faces certas (topo/base/frente…), com etiquetas únicas.
+- **Sugestões por categoria**: separador *Bornes → Perfis sugeridos* e passo 5 do assistente «Novo componente 3D».
+- **Perfis personalizados**: «+ Novo perfil», «Guardar bornes atuais como perfil» ou «Duplicar como perfil personalizado». Guardam-se no servidor (`/api/admin/terminal-profiles`) ou no navegador (modo local) e ficam visíveis a todos.
+- **Bornes por vista**: barra inferior com Frente/Trás/Esq./Dir./Topo/Base (contagem por face). Escolher uma face move a câmara e fixa a normal dos novos bornes; «+ Adicionar» liga a colocação.
+- **Compatibilidade** (`src/catalog/terminalCompat.ts`, regras em `COMPAT_RULES`, extensíveis): em *Simular*, clique em dois bornes para criar um cabo de teste; aparece «⚠ Ligações incompatíveis» (erro) ou aviso. A aba *Compatibilidade* da biblioteca testa pares de perfis.
+- **Vista**: grelha de pontos como no simulador, cubo de vista (arrastar orbita, clicar numa face enquadra-a), chão com escala opcional.
