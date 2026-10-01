@@ -761,11 +761,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     }
     movingPart.updateMatrixWorld(true)
   }, [model, breaker, breakerClosed, c.type])
-  return <group position={[x, RAIL_Y, 0]} onClick={breaker ? (event) => {
-    event.stopPropagation()
-    const closed = !!c.state.closed && !c.state.tripped
-    useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
-  } : undefined}>
+  return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} />}
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
@@ -2434,6 +2430,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} />
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />
+          const isBreaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
+          if (isBreaker) content = <group onClick={(event) => {
+            event.stopPropagation()
+            const closed = !!c.state.closed && !c.state.tripped
+            useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
+          }}>{content}</group>
           return wrapOriented(c, content)
         })}
 
