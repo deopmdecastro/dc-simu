@@ -541,15 +541,15 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
       </nav>
 
       {/* ------------------------------------------------------------- HERO */}
-      <header className="dx-hero">
-        <div className="dx-wrap dx-hero-in">
-          <div className="dx-hero-copy">
+      <header className="dx-lhero">
+        <div className="dx-wrap dx-lhero-in">
+          <div className="dx-lhero-copy">
             <span className="dx-over">Crie · configure · valide — antes da obra</span>
             <h1>
               Desenhe quadros elétricos <em>em 3D.</em>
             </h1>
             <p>Monte o quadro em 3D com modelos CAD reais, desenhe o esquema, programe a lógica e simule o comando — tudo no mesmo projeto.</p>
-            <div className="dx-hero-actions">
+            <div className="dx-lhero-actions">
               <button className="dx-btn dx-btn-primary dx-btn-lg" onClick={onAccess}>
                 Entrar no simulador
                 <IconArrowRight size={16} className="dx-arrow" />
@@ -558,7 +558,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
                 Ver como funciona
               </a>
             </div>
-            <ul className="dx-hero-meta">
+            <ul className="dx-lhero-meta">
               <li>Modelos CAD reais</li>
               <li>Sem instalação</li>
               <li>Projetos partilhados</li>

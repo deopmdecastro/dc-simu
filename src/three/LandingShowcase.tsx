@@ -2,6 +2,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ContactShadows, Environment, OrbitControls, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
+import { finishCadMaterial } from './catalogMaterials'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { createComponent } from '../electrical/factory'
 import type { ComponentType, ElectricalComponent, Terminal } from '../types'
@@ -151,16 +152,7 @@ function cloneMaterials(root: THREE.Object3D) {
     mesh.castShadow = true
     mesh.receiveShadow = true
     const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    const materials = list.map((material) => {
-      const cloned = material.clone()
-      if (cloned instanceof THREE.MeshStandardMaterial) {
-        cloned.roughness = THREE.MathUtils.clamp(cloned.roughness * 0.76, 0.18, 0.7)
-        cloned.envMapIntensity = Math.max(cloned.envMapIntensity, 1.12)
-        if (!cloned.map && cloned.color.getHSL({ h: 0, s: 0, l: 0 }).l > 0.82) cloned.color.lerp(new THREE.Color('#c8d2dc'), 0.28)
-        cloned.needsUpdate = true
-      }
-      return cloned
-    })
+    const materials = list.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 }))
     mesh.material = Array.isArray(mesh.material) ? materials : materials[0]
   })
 }

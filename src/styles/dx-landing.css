@@ -198,11 +198,11 @@ html:has(.dx-landing) {
 }
 
 /* hero ---------------------------------------------------------------------*/
-.dx-hero {
+.dx-lhero {
   padding: 72px 0 88px;
   background: var(--dx-surface);
 }
-.dx-hero-in {
+.dx-lhero-in {
   width: 100%;
   max-width: var(--dx-max);
   margin-inline: auto;
@@ -212,48 +212,48 @@ html:has(.dx-landing) {
   align-items: center;
   gap: var(--dx-7);
 }
-.dx-hero-copy > * {
+.dx-lhero-copy > * {
   animation: dx-rise 720ms var(--dx-ease-out) both;
 }
-.dx-hero-copy > :nth-child(1) {
+.dx-lhero-copy > :nth-child(1) {
   animation-delay: 60ms;
 }
-.dx-hero-copy > :nth-child(2) {
+.dx-lhero-copy > :nth-child(2) {
   animation-delay: 140ms;
 }
-.dx-hero-copy > :nth-child(3) {
+.dx-lhero-copy > :nth-child(3) {
   animation-delay: 220ms;
 }
-.dx-hero-copy > :nth-child(4) {
+.dx-lhero-copy > :nth-child(4) {
   animation-delay: 300ms;
 }
-.dx-hero-copy > :nth-child(5) {
+.dx-lhero-copy > :nth-child(5) {
   animation-delay: 380ms;
 }
-.dx-hero-copy h1 {
+.dx-lhero-copy h1 {
   margin: 18px 0 16px;
   font-size: clamp(36px, 4.4vw, 56px);
   font-weight: 700;
   line-height: 1.06;
   letter-spacing: -0.035em;
 }
-.dx-hero-copy h1 em {
+.dx-lhero-copy h1 em {
   font-style: normal;
   color: var(--dx-brand);
 }
-.dx-hero-copy > p {
+.dx-lhero-copy > p {
   margin: 0 0 28px;
   max-width: 470px;
   font-size: 17px;
   line-height: 1.65;
   color: var(--dx-ink-2);
 }
-.dx-hero-actions {
+.dx-lhero-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--dx-3);
 }
-.dx-hero-meta {
+.dx-lhero-meta {
   display: flex;
   flex-wrap: wrap;
   gap: var(--dx-2) 22px;
@@ -261,7 +261,7 @@ html:has(.dx-landing) {
   margin: 28px 0 0;
   padding: 0;
 }
-.dx-hero-meta li {
+.dx-lhero-meta li {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -269,7 +269,7 @@ html:has(.dx-landing) {
   font-weight: 500;
   color: var(--dx-ink-3);
 }
-.dx-hero-meta li::before {
+.dx-lhero-meta li::before {
   content: '';
   width: 5px;
   height: 5px;
@@ -278,10 +278,10 @@ html:has(.dx-landing) {
   opacity: 0.7;
 }
 @media (max-width: 960px) {
-  .dx-hero {
+  .dx-lhero {
     padding: var(--dx-6) 0 var(--dx-7);
   }
-  .dx-hero-in {
+  .dx-lhero-in {
     grid-template-columns: 1fr;
     gap: var(--dx-6);
   }
@@ -296,7 +296,7 @@ html:has(.dx-landing) {
   box-shadow: var(--dx-sh);
   overflow: hidden;
 }
-.dx-hero .dx-window {
+.dx-lhero .dx-window {
   box-shadow: var(--dx-sh-lg);
   animation: dx-rise 900ms 200ms var(--dx-ease-out) both;
 }
@@ -1572,7 +1572,7 @@ html:has(.dx-landing) {
 }
 
 @media (max-width: 560px) {
-  .dx-hero-actions .dx-btn,
+  .dx-lhero-actions .dx-btn,
   .dx-cta-actions .dx-btn {
     flex: 1 1 100%;
   }
