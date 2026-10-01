@@ -12,8 +12,12 @@ import { useComponentSettings } from './admin/componentSettings'
 import { useAppUpdates } from './utils/appUpdates'
 import { saveAutosave } from './utils/persistence'
 import AccountControls from './components/AccountControls'
+import { AppTopbar, EditorTopbar } from './components/AppTopbar'
 import AdminPanel from './admin/AdminPanel'
 import ContributorPanel from './contrib/ContributorPanel'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { guardedDestination } from './routing/guards'
+import { pageFromPath, projectIdFromPath, ROUTES, type AppPage } from './routing/routes'
 
 type Open = { id: string; name: string; revision: number }
 
@@ -25,12 +29,23 @@ async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
 export default function Account() {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
-  const [page, setPage] = useState<'landing' | 'login' | 'dashboard' | 'editor' | 'admin' | 'contribute'>('landing')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const openRef = useRef<Open | null>(null)
+  const page = pageFromPath(location.pathname)
+  const setPage = useCallback((next: AppPage) => {
+    const target = next === 'landing' ? ROUTES.home
+      : next === 'login' ? ROUTES.login
+        : next === 'dashboard' ? ROUTES.dashboard
+          : next === 'admin' ? ROUTES.admin
+            : next === 'contribute' ? ROUTES.contribute
+              : openRef.current ? ROUTES.editor(openRef.current.id) : ROUTES.dashboard
+    navigate(target)
+  }, [navigate])
   const [projects, setProjects] = useState<Project[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
   const [loaded, setLoaded] = useState(false)
   const [open, setOpen] = useState<Open | null>(null)
-  const openRef = useRef<Open | null>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
@@ -53,12 +68,27 @@ export default function Account() {
     api<{ user: User }>('/me')
       .then((response) => {
         setUser(response.user)
-        setPage('dashboard')
+        if (page === 'landing' || page === 'login') setPage('dashboard')
         return refresh()
       })
       .catch(() => {})
       .finally(() => setReady(true))
   }, [refresh])
+
+  // Guardas de rota num único ponto: sessão e perfil de administrador.
+  useEffect(() => {
+    if (!ready) return
+    const destination = guardedDestination(page, user)
+    if (destination && destination !== location.pathname) navigate(destination, { replace: true })
+  }, [ready, page, user, location.pathname, navigate])
+
+  // Um URL de projeto pode ser aberto/atualizado diretamente sem perder compatibilidade.
+  useEffect(() => {
+    if (!ready || !user || page !== 'editor') return
+    const projectId = projectIdFromPath(location.pathname)
+    if (!projectId || openRef.current?.id === projectId) return
+    void load(projectId)
+  }, [ready, user?.id, page, location.pathname])
 
   // Componentes desativados pelo administrador: recarrega ao entrar e ao abrir o editor.
   useEffect(() => {
@@ -256,53 +286,24 @@ export default function Account() {
   if (!ready) return <div className="dx" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--dx-bg)' }}><div style={{ textAlign: 'center', display: 'grid', gap: 12, justifyItems: 'center' }}><Logo size={34} /><span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--dx-ink-3)' }}><span className="dx-spin" aria-hidden />A preparar o seu espaço de trabalho…</span></div></div>
 
   if (page === 'editor' && open) return <>
-    <div className="account-bar dx">
-      <Logo size={22} tagline={false} />
-      <span className="dx-bar-sep">/</span>
-      <div className="dx-project-context">
-        <strong>{open.name}</strong>
-        <small>{editorDirty ? 'Alterações por guardar' : 'Guardado na conta'}</small>
-      </div>
-      {message && <span className="dx-bar-msg">{message}</span>}
-      <div className="account-bar-actions">
-        <button className="account-project-action" onClick={() => void leave()}>← Projetos</button>
-        <button className="account-project-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
-        {user && <AccountControls
-          user={user}
-          invites={invites}
-          context="editor"
-          dirty={editorDirty}
-          errors={notificationErrors}
-          warnings={notificationWarnings}
-          onProjects={() => void leave()}
-          onOpenInvites={() => void openInvitations()}
-          onLogout={() => void logout()}
-        />}
-      </div>
-    </div>
+    <EditorTopbar projectName={open.name} dirty={editorDirty} message={message} actions={<>
+      <button className="account-project-action" onClick={() => void leave()}>← Projetos</button>
+      <button className="account-project-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
+      {user && <AccountControls user={user} invites={invites} context="editor" dirty={editorDirty}
+        errors={notificationErrors} warnings={notificationWarnings} onProjects={() => void leave()}
+        onOpenInvites={() => void openInvitations()} onLogout={() => void logout()} />}
+    </>} />
     <div className="dx-editor-in" style={{ height: 'calc(100vh - 42px)' }}><App onBack={() => void leave()} /></div>
   </>
 
   if (page === 'landing') return <Landing onAccess={() => { setMessage(''); setPage('login') }} onLogin={() => { setMessage(''); setPage('login') }} />
 
   return <main className="account-shell dx">
-    {page !== 'login' && <header className="dx-topbar">
-      <Logo size={28} />
-      <div className="dx-topbar-right">
-        {user && page !== 'contribute' && <button className="dx-btn dx-btn-secondary dx-btn-sm dx-topbar-link" onClick={() => setPage('contribute')}>Contribuir</button>}
-        {user?.role === 'admin' && page !== 'admin' && <button className="dx-btn dx-btn-secondary dx-btn-sm dx-topbar-link" onClick={() => setPage('admin')}>Administração</button>}
-        {user && <AccountControls
-          user={user}
-          invites={invites}
-          context={page === 'admin' ? 'admin' : page === 'contribute' ? 'contribute' : 'dashboard'}
-          onProjects={page === 'admin' || page === 'contribute' ? () => setPage('dashboard') : undefined}
-          onAdmin={user.role === 'admin' ? () => setPage('admin') : undefined}
-          onContribute={() => setPage('contribute')}
-          onOpenInvites={() => void openInvitations()}
-          onLogout={() => void logout()}
-        />}
-      </div>
-    </header>}
+    {page !== 'login' && user && <AppTopbar user={user} invites={invites}
+      section={page === 'admin' ? 'admin' : page === 'contribute' ? 'contribute' : 'dashboard'}
+      onProjects={() => setPage('dashboard')} onAdmin={() => setPage('admin')}
+      onContribute={() => setPage('contribute')} onInvites={() => void openInvitations()}
+      onLogout={() => void logout()} />}
     {page === 'login' && <AuthScreen form={form} setForm={setForm} busy={busy} message={message} clearMessage={() => setMessage('')} onSubmit={authenticate} onHome={() => { setMessage(''); setPage('landing') }} />}
     {page === 'admin' && user?.role === 'admin' && <AdminPanel currentUser={user} invites={invites} onLogout={() => void logout()} onBack={() => setPage('dashboard')} />}
     {page === 'contribute' && user && <ContributorPanel user={user} onBack={() => setPage('dashboard')} />}

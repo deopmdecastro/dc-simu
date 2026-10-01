@@ -1,4 +1,11 @@
 {
+  "rewrites": [
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/dashboard", "destination": "/index.html" },
+    { "source": "/contribute", "destination": "/index.html" },
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/projects/:id", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/",

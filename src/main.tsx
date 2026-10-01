@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import Account from './account'
 import { startCatalogAutoUpdate } from './catalog/autoUpdate'
 import './index.css'
@@ -16,6 +17,8 @@ startCatalogAutoUpdate()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Account />
+    <BrowserRouter>
+      <Account />
+    </BrowserRouter>
   </React.StrictMode>,
 )
