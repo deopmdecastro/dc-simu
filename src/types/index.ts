@@ -15,6 +15,7 @@ export type ComponentCategory =
   | 'protection'
   | 'command'
   | 'sensor'
+  | 'measurement'
   | 'contactor'
   | 'relay'
   | 'signaling'

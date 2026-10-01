@@ -1,7 +1,7 @@
 import type { ComponentCategory } from '../../types'
 import type { ComponentDefinition } from '../../catalog/types'
 
-export const CATEGORIES: Array<[ComponentCategory, string]> = [['protection', 'Proteção'], ['command', 'Comando'], ['sensor', 'Sensor'], ['contactor', 'Contactor'], ['relay', 'Relé'], ['signaling', 'Sinalização'], ['motor', 'Motor'], ['drive', 'Variador'], ['controller', 'Controlador / PLC'], ['terminal', 'Terminal / borneira'], ['power', 'Fonte / potência']]
+export const CATEGORIES: Array<[ComponentCategory, string]> = [['protection', 'Proteção'], ['command', 'Comando'], ['sensor', 'Sensor'], ['measurement', 'Aparelho de medir'], ['contactor', 'Contactor'], ['relay', 'Relé'], ['signaling', 'Sinalização'], ['motor', 'Motor'], ['drive', 'Variador'], ['controller', 'Controlador / PLC'], ['terminal', 'Terminal / borneira'], ['power', 'Fonte / potência']]
 
 export interface ComponentKind {
   id: string
@@ -20,7 +20,7 @@ export const COMPONENT_KINDS: ComponentKind[] = [
   { id: 'pushbutton', label: 'Botão / seletor', category: 'command', tag: 'S', mount: 'panel-front', hint: 'Botões, seletores, paragem de emergência' },
   { id: 'pilot', label: 'Sinalizador', category: 'signaling', tag: 'H', mount: 'panel-front', hint: 'Lâmpadas, buzzers, torres de sinalização' },
   { id: 'sensor', label: 'Sensor', category: 'sensor', tag: 'B', mount: 'machine', hint: 'Indutivos, fotoelétricos, finais de curso' },
-  { id: 'instrument', label: 'Instrumento de medida', category: 'sensor', tag: 'P', mount: 'machine', hint: 'Multímetros, osciloscópios, ponteiras de teste' },
+  { id: 'instrument', label: 'Aparelho de medir', category: 'measurement', tag: 'P', mount: 'machine', hint: 'Multímetros, osciloscópios, ponteiras de teste' },
   { id: 'motor', label: 'Motor', category: 'motor', tag: 'M', mount: 'machine', hint: 'Motores e atuadores' },
   { id: 'drive', label: 'Variador / arrancador', category: 'drive', tag: 'U', mount: 'din-rail', hint: 'Variadores de frequência, soft-starters' },
   { id: 'plc', label: 'PLC / controlador', category: 'controller', tag: 'A', mount: 'din-rail', hint: 'PLC, módulos de E/S, HMI' },

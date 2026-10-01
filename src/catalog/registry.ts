@@ -13,10 +13,13 @@ const hiddenInLibrary = hiddenCatalogTypes
 
 function templateOf(entry: CatalogEntry, version: CatalogVersion): ComponentTemplate {
   const runtime = version.runtime
+  const isMultimeter = version.definition.behavior?.type === 'multimeter'
   return {
-    category: entry.meta.category,
+    category: isMultimeter ? 'measurement' : entry.meta.category,
     paletteName: entry.meta.name,
-    group: entry.meta.group?.trim() ? `${PALETTE_GROUP} · ${entry.meta.group.trim()}` : PALETTE_GROUP,
+    // Multímetros publicados (incluindo o DM-20 com LCD e botões) aparecem
+    // sempre numa pasta própria, mesmo que tenham sido criados antes desta categoria.
+    group: isMultimeter ? 'Aparelhos de medir' : entry.meta.group?.trim() ? `${PALETTE_GROUP} · ${entry.meta.group.trim()}` : PALETTE_GROUP,
     tag: (entry.meta.tag || 'X').replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'X',
     w: Math.max(1, Math.round(runtime.widthMm * SCHEMATIC_PX_PER_MM)),
     h: Math.max(1, Math.round(runtime.heightMm * SCHEMATIC_PX_PER_MM)),

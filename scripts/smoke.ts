@@ -1565,7 +1565,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     const meas = { fn: 'V', kind: 'io' as const, polarity: 'none' as const, electricalClass: 'other' as const, direction: 'in' as const, group: 'Medição' }
     check('compat: porta de medição liga a L1, a 24 V e a PE sem erro; duas portas de medição avisam', checkConnection(meas, ac('L1')).level === 'ok' && checkConnection(dc, meas).level === 'ok' && checkConnection(meas, { ...ac('PE'), kind: 'earth' as never }).level === 'ok' && checkConnection(meas, { ...meas, fn: 'COM' }).level === 'warn')
     check('compat: sem grupo Medição mantém as regras (L1↔24V erro)', checkConnection(ac('L1'), dc).level === 'error')
-    check('sugestões: sensor inclui multímetro mas perfis de medição nunca são impostos a outras categorias', (SUGGESTED_PROFILES.sensor ?? []).includes('multimeter-basic') && !(SUGGESTED_PROFILES.contactor ?? []).includes('multimeter-basic'))
+    check('sugestões: aparelhos de medir incluem multímetro sem o impor a sensores ou contactores', (SUGGESTED_PROFILES.measurement ?? []).includes('multimeter-basic') && !(SUGGESTED_PROFILES.sensor ?? []).includes('multimeter-basic') && !(SUGGESTED_PROFILES.contactor ?? []).includes('multimeter-basic'))
   }
   {
     const list = builtinComponents()

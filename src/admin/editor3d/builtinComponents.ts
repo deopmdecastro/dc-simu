@@ -34,7 +34,7 @@ export function builtinTypeOf(entry: Pick<CatalogEntry, 'meta'>): string | null 
 
 const MOUNT: Record<string, ComponentDefinition['mount']> = {
   protection: 'din-rail', relay: 'din-rail', contactor: 'din-rail', terminal: 'din-rail', controller: 'din-rail', power: 'din-rail', drive: 'din-rail',
-  command: 'panel-front', signaling: 'panel-front', motor: 'machine', sensor: 'machine',
+  command: 'panel-front', signaling: 'panel-front', motor: 'machine', sensor: 'machine', measurement: 'machine',
 }
 
 /** Rotação base do modelo (e inversão de profundidade) como Euler XYZ em graus. */
