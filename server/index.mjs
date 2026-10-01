@@ -120,13 +120,13 @@ function buildPreview(content){
    const x=c.schematicX+w/2+lx*w,y=c.schematicY+h/2+ly*h
    at.set(t.id,[x,y]);return [Math.round(x),Math.round(y)]
   })
-  return {x:Math.round(c.schematicX),y:Math.round(c.schematicY),w:Math.round(w),h:Math.round(h),r,t:String(c.type||''),ref:String(c.ref||'').slice(0,8),c:typeof c.bodyColor==='string'?c.bodyColor.slice(0,9):undefined,p:pts}
+  return {x:Math.round(c.schematicX),y:Math.round(c.schematicY),w:Math.round(w),h:Math.round(h),r,t:String(c.type||''),ref:String(c.ref||'').slice(0,8),c:typeof c.bodyColor==='string'?c.bodyColor.slice(0,9):undefined,m:c.mirrored?1:undefined,o:(c.viewOrientation&&(Number(c.viewOrientation.x)||Number(c.viewOrientation.y)||Number(c.viewOrientation.z)))?[Number(c.viewOrientation.x)||0,Number(c.viewOrientation.y)||0,Number(c.viewOrientation.z)||0]:undefined,p:pts}
  })
  const wires=(Array.isArray(data?.wires)?data.wires:[]).slice(0,800).map(w=>{
   const a=at.get(w.fromTerminalId)||(w.fromPoint&&[w.fromPoint.x,w.fromPoint.y]),b=at.get(w.toTerminalId)||(w.toPoint&&[w.toPoint.x,w.toPoint.y])
-  return a&&b?{a:[Math.round(a[0]),Math.round(a[1])],b:[Math.round(b[0]),Math.round(b[1])],c:typeof w.color==='string'&&/^#[0-9a-f]{3,8}$/i.test(w.color)?w.color:undefined}:null
+  return a&&b?{a:[Math.round(a[0]),Math.round(a[1])],b:[Math.round(b[0]),Math.round(b[1])],c:typeof w.color==='string'?w.color.slice(0,16):undefined}:null
  }).filter(Boolean)
- return {components,wires}
+ return {components,wires,stats:{components:Array.isArray(data?.components)?data.components.length:0,wires:Array.isArray(data?.wires)?data.wires.length:0,rungs:Array.isArray(data?.ladder?.rungs)?data.ladder.rungs.length:0}}
 }
 app.get('/api/projects',auth,(req,res)=>{
  const rows=db.prepare(`SELECT p.id,p.name,p.revision,p.updated_at,p.content,u.name owner,CASE WHEN p.owner_id=? THEN 'owner' ELSE 'editor' END role FROM projects p JOIN users u ON u.id=p.owner_id WHERE p.owner_id=? OR EXISTS(SELECT 1 FROM members m WHERE m.project_id=p.id AND m.user_id=?) ORDER BY p.updated_at DESC`).all(req.user.id,req.user.id,req.user.id)

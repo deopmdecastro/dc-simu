@@ -3,50 +3,42 @@ import { useRef } from 'react'
 import { LogoMark } from '../ui/Brand'
 import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus } from '../ui/icons'
 
+import ProjectCover from './ProjectCover'
+import type { ProjectPreviewData } from './projectPreview'
+
+export type { ProjectPreviewData }
 export type User = { id: string; name: string; email: string; role: 'admin' | 'user' }
-export type ProjectPreviewData = {
-  components: Array<{ x: number; y: number; w: number; h: number; r: number; t: string; ref: string; c?: string; p: Array<[number, number]> }>
-  wires: Array<{ a: [number, number]; b: [number, number]; c?: string }>
-}
 export type Project = { id: string; name: string; revision: number; owner: string; role: 'owner' | 'editor'; updated_at: string; preview?: ProjectPreviewData }
 export type Invite = { id: string; project: string; sender: string }
 
-/** Miniatura real: desenha os componentes e fios guardados no projeto (mesma geometria do Esquema 2D). */
-function ProjectThumb({ preview }: { preview?: ProjectPreviewData }) {
-  const comps = preview?.components ?? []
-  if (!comps.length) {
-    return (
-      <div className="dx-proj-empty" aria-hidden="true">
-        <span>Projeto vazio</span>
-      </div>
-    )
-  }
-  const xs = comps.flatMap((c) => [c.x, c.x + c.w])
-  const ys = comps.flatMap((c) => [c.y, c.y + c.h])
-  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys)
-  const pad = Math.max(24, Math.max(maxX - minX, maxY - minY) * 0.06)
-  const vb = `${minX - pad} ${minY - pad} ${Math.max(1, maxX - minX + pad * 2)} ${Math.max(1, maxY - minY + pad * 2)}`
-  const span = Math.max(maxX - minX, maxY - minY) + pad * 2
-  const stroke = Math.max(1, span / 320)
-  const rails = comps.filter((c) => /rail/i.test(c.t))
-  const devices = comps.filter((c) => !/rail/i.test(c.t))
-  return (
-    <svg viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      {rails.map((c, i) => <rect key={`r${i}`} x={c.x} y={c.y} width={c.w} height={c.h} rx={stroke * 2} fill="#d3dbe5" />)}
-      {(preview?.wires ?? []).map((w, i) => {
-        const mx = (w.a[0] + w.b[0]) / 2
-        return <path key={`w${i}`} d={`M${w.a[0]} ${w.a[1]}H${mx}V${w.b[1]}H${w.b[0]}`} fill="none" stroke={w.c ?? '#64748b'} strokeWidth={stroke * 1.6} strokeLinejoin="round" opacity=".85" />
-      })}
-      {devices.map((c, i) => (
-        <g key={`c${i}`}>
-          <rect x={c.x} y={c.y} width={c.w} height={c.h} rx={Math.min(c.w, c.h) * 0.12} fill={c.c && /^#/.test(c.c) ? c.c : '#eef4ff'} stroke="#7d9fe0" strokeWidth={stroke} />
-          {c.ref && c.w > span / 14 && <text x={c.x + c.w / 2} y={c.y + c.h / 2} fontSize={Math.min(c.h * 0.35, c.w * 0.3, span / 24)} textAnchor="middle" dominantBaseline="central" fill="#284467" fontWeight="700">{c.ref}</text>}
-          {c.p.map((pt, k) => <circle key={k} cx={pt[0]} cy={pt[1]} r={stroke * 1.8} fill="#2655e5" />)}
-        </g>
-      ))}
-    </svg>
-  )
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+/** "há 3 dias", "ontem", "agora mesmo"… */
+function relTime(iso: string) {
+  const t = new Date(iso).getTime()
+  if (!Number.isFinite(t)) return ''
+  const diff = (t - Date.now()) / 1000
+  const abs = Math.abs(diff)
+  if (abs < 60) return 'agora mesmo'
+  const rtf = new Intl.RelativeTimeFormat('pt-PT', { numeric: 'auto' })
+  if (abs < 3600) return rtf.format(Math.round(diff / 60), 'minute')
+  if (abs < 86400) return rtf.format(Math.round(diff / 3600), 'hour')
+  if (abs < 86400 * 30) return rtf.format(Math.round(diff / 86400), 'day')
+  if (abs < 86400 * 365) return rtf.format(Math.round(diff / (86400 * 30)), 'month')
+  return rtf.format(Math.round(diff / (86400 * 365)), 'year')
 }
+
+function statsOf(p: Project) {
+  const s = p.preview?.stats
+  return {
+    components: s?.components ?? p.preview?.components.length ?? 0,
+    wires: s?.wires ?? p.preview?.wires.length ?? 0,
+    rungs: s?.rungs ?? 0,
+  }
+}
+
+type SortKey = 'recent' | 'name' | 'size'
+type ViewKey = 'grid' | 'list'
 
 /** Número que sobe até ao valor final (respeita movimento reduzido). */
 function useCountUp(target: number, ms = 700) {
@@ -158,10 +150,26 @@ export default function Dashboard({
   const [menu, setMenu] = useState<string | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
+  const [sort, setSort] = useState<SortKey>('recent')
+  const [view, setViewState] = useState<ViewKey>(() => (typeof localStorage !== 'undefined' && localStorage.getItem('dc.dash.view') === 'list' ? 'list' : 'grid'))
+  const setView = (v: ViewKey) => {
+    setViewState(v)
+    try { localStorage.setItem('dc.dash.view', v) } catch { /* ignorar */ }
+  }
 
-  const visible = projects.filter(
+  const matching = projects.filter(
     (p) => (filter === 'all' || p.role === filter) && p.name.toLocaleLowerCase('pt-PT').includes(query.trim().toLocaleLowerCase('pt-PT')),
   )
+  const byRecent = [...matching].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+  const hero = filter === 'all' && !query.trim() && byRecent.length > 0 ? byRecent[0] : null
+  const sorted =
+    sort === 'name'
+      ? [...matching].sort((a, b) => a.name.localeCompare(b.name, 'pt-PT'))
+      : sort === 'size'
+        ? [...matching].sort((a, b) => statsOf(b).components - statsOf(a).components)
+        : byRecent
+  const visible = hero ? sorted.filter((p) => p.id !== hero.id) : sorted
+  const totalComponents = projects.reduce((sum, p) => sum + statsOf(p).components, 0)
   const owned = projects.filter((p) => p.role === 'owner').length
 
   const closeModal = () => {
@@ -267,6 +275,37 @@ export default function Dashboard({
     }
   }, [menu])
 
+  const renderMenu = (p: Project) =>
+    p.role === 'owner' ? (
+      <div className="dx-menu-wrap" onClick={(e) => e.stopPropagation()}>
+        <button className="dx-icon-btn" aria-label={`Opções de ${p.name}`} aria-expanded={menu === p.id} onClick={() => setMenu(menu === p.id ? null : p.id)}>
+          ⋯
+        </button>
+        {menu === p.id && (
+          <div className="dx-menu" role="menu">
+            <button onClick={() => openModal('invite', p)}>Convidar editor</button>
+            <button
+              onClick={() => {
+                setExpanded(expanded === p.id ? null : p.id)
+                setMenu(null)
+              }}
+            >
+              Ver membros
+            </button>
+            <button
+              className="danger"
+              onClick={() => {
+                setMenu(null)
+                openModal('delete', p)
+              }}
+            >
+              Eliminar projeto
+            </button>
+          </div>
+        )}
+      </div>
+    ) : null
+
   const today = new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
@@ -281,7 +320,11 @@ export default function Dashboard({
             {greeting()}
             {user ? `, ${user.name.split(' ')[0]}` : ''}.
           </h1>
-          <p>Continue um quadro existente ou comece um novo projeto.</p>
+          <p>
+            {projects.length > 0
+              ? `${plural(projects.length, 'projeto', 'projetos')} · ${plural(totalComponents, 'componente', 'componentes')} no total. Continue de onde parou ou comece um novo quadro.`
+              : 'Continue um quadro existente ou comece um novo projeto.'}
+          </p>
         </div>
         <div className="dx-dash-side">
           <span className="dx-dash-date">{today}</span>
@@ -341,9 +384,86 @@ export default function Dashboard({
           <span className="dx-sr">Pesquisar projetos</span>
           <input className="dx-input" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Pesquisar projeto…" />
         </label>
+        <div className="dx-toolbar-end">
+          <label className="dx-sort">
+            <span>Ordenar</span>
+            <select className="dx-input" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+              <option value="recent">Mais recentes</option>
+              <option value="name">Nome (A–Z)</option>
+              <option value="size">Mais componentes</option>
+            </select>
+          </label>
+          <div className="dx-view-toggle" role="group" aria-label="Modo de visualização">
+            <button aria-pressed={view === 'grid'} onClick={() => setView('grid')} title="Cartões" aria-label="Ver em cartões">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.2" /><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.2" /><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.2" /><rect x="9" y="9" width="5.5" height="5.5" rx="1.2" /></svg>
+            </button>
+            <button aria-pressed={view === 'list'} onClick={() => setView('list')} title="Lista" aria-label="Ver em lista">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden><rect x="1.5" y="2" width="13" height="3" rx="1" /><rect x="1.5" y="6.5" width="13" height="3" rx="1" /><rect x="1.5" y="11" width="13" height="3" rx="1" /></svg>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="dx-projects">
+      {!loading && hero && (
+        <section className="dx-hero dx-card" aria-label="Continuar de onde parou">
+          <div
+            className="dx-hero-art dx-proj-art"
+            onClick={(e) => {
+              if (!(e.target as HTMLElement).closest('button')) void open(hero.id)
+            }}
+          >
+            <ProjectCover preview={hero.preview} large />
+            <span className="dx-proj-badge">{hero.role === 'owner' ? 'Meu projeto' : 'Partilhado'}</span>
+            {renderMenu(hero)}
+          </div>
+          <div className="dx-hero-body">
+            <span className="dx-over">
+              <i />
+              Continuar de onde parou
+            </span>
+            <h2 title={hero.name}>{hero.name}</h2>
+            <div className="dx-proj-meta">
+              <span className="dx-avatar dx-avatar-sm">{hero.owner.charAt(0).toUpperCase()}</span>
+              <span>por {hero.owner}</span>
+              <span>·</span>
+              <span>editado {relTime(hero.updated_at)}</span>
+              <span>·</span>
+              <span>rev. {hero.revision}</span>
+            </div>
+            <dl className="dx-hero-stats">
+              <div><dt>Componentes</dt><dd>{statsOf(hero).components}</dd></div>
+              <div><dt>Cabos</dt><dd>{statsOf(hero).wires}</dd></div>
+              <div><dt>Degraus ladder</dt><dd>{statsOf(hero).rungs}</dd></div>
+            </dl>
+            <div className="dx-proj-actions">
+              <button className="dx-btn dx-btn-primary" disabled={opening === hero.id} onClick={() => void open(hero.id)}>
+                {opening === hero.id ? (
+                  <>
+                    <span className="dx-spin" aria-hidden /> A abrir…
+                  </>
+                ) : (
+                  'Continuar a editar'
+                )}
+              </button>
+              {hero.role === 'owner' && (
+                <button className="dx-btn dx-btn-secondary" onClick={() => openModal('invite', hero)}>
+                  Convidar editor
+                </button>
+              )}
+            </div>
+            {expanded === hero.id && <Members id={hero.id} fetchMembers={fetchMembers} />}
+          </div>
+        </section>
+      )}
+
+      {!loading && projects.length > 0 && matching.length > 0 && (
+        <div className="dx-section-title">
+          <h2>{hero ? 'Outros projetos' : 'Projetos'}</h2>
+          <span>{plural(visible.length, 'projeto', 'projetos')}</span>
+        </div>
+      )}
+
+      <div className={'dx-projects' + (view === 'list' ? ' is-list' : '')}>
         {loading &&
           [0, 1, 2, 3, 4, 5].map((i) => (
             <div className="dx-skel" key={i} style={stagger(i)} aria-hidden>
@@ -360,8 +480,8 @@ export default function Dashboard({
             A carregar projetos…
           </span>
         )}
-        {!loading && projects.length > 0 && (filter !== 'editor' || visible.length > 0) && (
-          <button className="dx-proj-new" onClick={() => openModal('create')} style={visible.length === 0 && projects.length > 0 ? { display: 'none' } : undefined}>
+        {!loading && projects.length > 0 && matching.length > 0 && (
+          <button className="dx-proj-new" onClick={() => openModal('create')}>
             <span className="plus" aria-hidden>
               +
             </span>
@@ -373,84 +493,61 @@ export default function Dashboard({
         )}
 
         {!loading &&
-          visible.map((p, index) => (
-          <article className="dx-card dx-card-hover dx-proj" key={p.id} style={stagger(index + 1)}>
-            <div
-              className="dx-proj-art"
-              onClick={(e) => {
-                if (!(e.target as HTMLElement).closest('button')) void open(p.id)
-              }}
-            >
-              <ProjectThumb preview={p.preview} />
-              <span className="dx-proj-badge">{p.role === 'owner' ? 'Meu projeto' : 'Partilhado'}</span>
-              {p.role === 'owner' && (
-                <div className="dx-menu-wrap" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="dx-icon-btn"
-                    aria-label={`Opções de ${p.name}`}
-                    aria-expanded={menu === p.id}
-                    onClick={() => setMenu(menu === p.id ? null : p.id)}
-                  >
-                    ⋯
-                  </button>
-                  {menu === p.id && (
-                    <div className="dx-menu" role="menu">
-                      <button onClick={() => openModal('invite', p)}>Convidar editor</button>
-                      <button
-                        onClick={() => {
-                          setExpanded(expanded === p.id ? null : p.id)
-                          setMenu(null)
-                        }}
-                      >
-                        Ver membros
-                      </button>
-                      <button
-                        className="danger"
-                        onClick={() => {
-                          setMenu(null)
-                          openModal('delete', p)
-                        }}
-                      >
-                        Eliminar projeto
-                      </button>
+          visible.map((p, index) => {
+            const st = statsOf(p)
+            return (
+              <article className="dx-card dx-card-hover dx-proj" key={p.id} style={stagger(index + 1)}>
+                <div
+                  className="dx-proj-art"
+                  onClick={(e) => {
+                    if (!(e.target as HTMLElement).closest('button')) void open(p.id)
+                  }}
+                >
+                  <ProjectCover preview={p.preview} />
+                  <span className="dx-proj-badge">{p.role === 'owner' ? 'Meu projeto' : 'Partilhado'}</span>
+                  {renderMenu(p)}
+                  {st.components > 0 && (
+                    <div className="dx-proj-chips">
+                      <span>{plural(st.components, 'componente', 'componentes')}</span>
+                      <span>{plural(st.wires, 'cabo', 'cabos')}</span>
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-            <div className="dx-proj-body">
-              <h3 title={p.name} onClick={() => void open(p.id)}>
-                {p.name}
-              </h3>
-              <div className="dx-proj-meta">
-                <span>por {p.owner}</span>
-                <span>·</span>
-                <span>rev. {p.revision}</span>
-                <span>·</span>
-                <span>{new Date(p.updated_at).toLocaleDateString('pt-PT')}</span>
-              </div>
-              <div className="dx-proj-actions">
-                <button className="dx-btn dx-btn-secondary dx-proj-open" disabled={opening === p.id} onClick={() => void open(p.id)}>
-                  {opening === p.id ? (
-                    <>
-                      <span className="dx-spin" aria-hidden /> A abrir…
-                    </>
-                  ) : (
-                    'Abrir no editor 3D'
-                  )}
-                </button>
-                {p.role === 'owner' && (
-                  <button className="dx-btn dx-btn-secondary" title="Convidar editor" aria-label={`Convidar editor para ${p.name}`} onClick={() => openModal('invite', p)}>
-                    ↗
-                  </button>
-                )}
-              </div>
-              {expanded === p.id && <Members id={p.id} fetchMembers={fetchMembers} />}
-            </div>
-          </article>
-        ))}
+                <div className="dx-proj-body">
+                  <h3 title={p.name} onClick={() => void open(p.id)}>
+                    {p.name}
+                  </h3>
+                  <div className="dx-proj-meta">
+                    <span className="dx-avatar dx-avatar-sm">{p.owner.charAt(0).toUpperCase()}</span>
+                    <span>{p.owner}</span>
+                    <span>·</span>
+                    <span title={new Date(p.updated_at).toLocaleString('pt-PT')}>{relTime(p.updated_at)}</span>
+                    <span>·</span>
+                    <span>rev. {p.revision}</span>
+                  </div>
+                  <div className="dx-proj-actions">
+                    <button className="dx-btn dx-btn-secondary dx-proj-open" disabled={opening === p.id} onClick={() => void open(p.id)}>
+                      {opening === p.id ? (
+                        <>
+                          <span className="dx-spin" aria-hidden /> A abrir…
+                        </>
+                      ) : (
+                        'Abrir no editor 3D'
+                      )}
+                    </button>
+                    {p.role === 'owner' && (
+                      <button className="dx-btn dx-btn-secondary" title="Convidar editor" aria-label={`Convidar editor para ${p.name}`} onClick={() => openModal('invite', p)}>
+                        ↗
+                      </button>
+                    )}
+                  </div>
+                  {expanded === p.id && <Members id={p.id} fetchMembers={fetchMembers} />}
+                </div>
+              </article>
+            )
+          })}
 
-        {!loading && projects.length > 0 && visible.length === 0 && (
+        {!loading && projects.length > 0 && matching.length === 0 && (
           <div className="dx-empty">
             <div className="dx-empty-ic">
               <IconSearch size={24} />

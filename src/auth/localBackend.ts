@@ -1,4 +1,5 @@
 import type { Invite, Project, User } from '../dashboard/Dashboard'
+import { buildProjectPreview, type ProjectPreviewData } from '../dashboard/projectPreview'
 import type { AdminProject as AdminProjectRow, AdminUser as AdminUserRow, ComponentSetting, LogQuery, SystemInfo } from '../admin/adminTypes'
 import { purgeLocalAudit, queryLocalAudit, readLocalAudit, recordLocalAudit } from './auditLocal'
 
@@ -185,6 +186,18 @@ function accessibleProject(data: LocalData, id: string, userId: string) {
   return project
 }
 
+const previewCache = new Map<string, ProjectPreviewData>()
+function previewFor(project: StoredProject): ProjectPreviewData {
+  const key = `${project.id}:${project.revision}:${project.updatedAt}`
+  let preview = previewCache.get(key)
+  if (!preview) {
+    preview = buildProjectPreview(project.content)
+    previewCache.set(key, preview)
+    if (previewCache.size > 200) previewCache.delete(previewCache.keys().next().value as string)
+  }
+  return preview
+}
+
 function projectSummary(project: StoredProject, userId: string): Project {
   const owner = accountById(project.ownerId)
   return {
@@ -194,6 +207,7 @@ function projectSummary(project: StoredProject, userId: string): Project {
     owner: owner?.name || 'Conta local',
     role: roleFor(project, userId) || 'editor',
     updated_at: project.updatedAt,
+    preview: previewFor(project),
   }
 }
 
