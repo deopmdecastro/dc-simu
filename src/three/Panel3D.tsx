@@ -727,6 +727,30 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   }, [scene, spec])
   const active = !!(c.state.energized || c.state.powered)
   const breaker = ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(c.type)
+  const breakerClosed = !!c.state.closed && !c.state.tripped
+  useEffect(() => {
+    if (!breaker) return
+    // Anima exclusivamente peças que já pertencem ao GLB. Nunca acrescenta
+    // uma alavanca ou botão geométrico por cima do equipamento.
+    const movingPart = c.type === 'breaker1p'
+      ? model.getObjectByName('SB109135_ASM_1_ASM-1SB100442_S_ASM_1_ASM_1_ASM-1MANETTE_1_1_1-1-solid1')
+      : c.type === 'breaker2p'
+        ? model.getObjectByName('Part_8')
+        : c.type === 'phoenixEcb3000760'
+          ? model.getObjectByName('Node3')
+          : null
+    if (!movingPart) return
+    movingPart.userData.breakerBaseRotationX ??= movingPart.rotation.x
+    movingPart.userData.breakerBasePositionZ ??= movingPart.position.z
+    if (c.type === 'phoenixEcb3000760') {
+      // Botão verde real do ECB: pequeno curso axial.
+      movingPart.position.z = Number(movingPart.userData.breakerBasePositionZ) + (breakerClosed ? -1.5 : 0)
+    } else {
+      // MANETTE/Part_8 são as alavancas reais dos CAD mono e bipolar.
+      movingPart.rotation.x = Number(movingPart.userData.breakerBaseRotationX) + (breakerClosed ? -18 : 18) * Math.PI / 180
+    }
+    movingPart.updateMatrixWorld(true)
+  }, [model, breaker, breakerClosed, c.type])
   return <group position={[x, RAIL_Y, 0]} onClick={breaker ? (event) => {
     event.stopPropagation()
     const closed = !!c.state.closed && !c.state.tripped
@@ -735,9 +759,6 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     <primitive object={model} castShadow receiveShadow />
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} />}
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
-    {breaker && <group position={[0, spec.targetHeight * 0.54, 0.34]} rotation={[0, 0, (c.state.closed && !c.state.tripped ? -18 : 18) * Math.PI / 180]} raycast={() => null}>
-      <mesh><boxGeometry args={[0.12, 0.035, 0.035]} /><meshStandardMaterial color={c.state.tripped ? '#ef4444' : '#475569'} roughness={0.7} /></mesh>
-    </group>}
     {active && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
     <Label text={c.ref} position={[0, spec.targetHeight + 0.1, 0.22]} color={active ? '#4ade80' : '#e2e8f0'} />
   </group>
@@ -766,14 +787,20 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
     return obj
   }, [scene, spec])
   const pressed = !!c.state.pressed
+  useEffect(() => {
+    const actuator = model.getObjectByName(c.type === 'emergencyButtonKeyP20ACR' ? 'P20ACR-R-1B-1-solid1' : 'P20AKR-1-solid1')
+    if (!actuator) return
+    actuator.userData.pushBaseZ ??= actuator.position.z
+    // Move o conjunto mecânico real do GLB; o bloco de contactos fica fixo.
+    actuator.position.z = Number(actuator.userData.pushBaseZ) + (pressed ? -0.0035 : 0)
+    actuator.updateMatrixWorld(true)
+  }, [model, pressed, c.type])
   return <group
     position={[x, RAIL_Y + 1.05, 0.4]}
     onClick={(event) => { event.stopPropagation(); onPress(!pressed) }}
     onContextMenu={(event) => { event.stopPropagation(); event.nativeEvent.preventDefault(); if (pressed) onPress(false) }}
   >
-    <group position={[0, 0, pressed ? -0.025 : 0]}>
-      <primitive object={model} castShadow receiveShadow />
-    </group>
+    <primitive object={model} castShadow receiveShadow />
     <Label text={c.ref} position={[0, spec.targetHeight / 2 + 0.12, 0.08]} />
   </group>
 }
@@ -804,6 +831,18 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
     obj.position.sub(new THREE.Box3().setFromObject(obj, true).getCenter(new THREE.Vector3()))
     return obj
   }, [scene, spec])
+  useEffect(() => {
+    const moveButton = (name: string, down: boolean) => {
+      const part = model.getObjectByName(name)
+      if (!part) return
+      part.userData.pushBaseZ ??= part.position.z
+      part.position.z = Number(part.userData.pushBaseZ) + (down ? 2.2 : 0)
+      part.updateMatrixWorld(true)
+    }
+    // Node7 (verde) e Node8 (vermelho) são os botões originais do NPB22.
+    moveButton('Node7', !!c.state.startPressed)
+    moveButton('Node8', !!c.state.stopPressed)
+  }, [model, c.state.startPressed, c.state.stopPressed])
   const buttonEvents = (handler: (pressed: boolean) => void) => ({
     onPointerDown: () => handler(true),
     onPointerUp: () => handler(false),
