@@ -596,7 +596,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           const current = useSimStore.getState().wires.find((w) => w.id === activeWireId)
           if (current && Math.hypot(freeStart.x - point.x, freeStart.y - point.y) >= 5) {
             commitHistory()
-            updateWire(activeWireId, { toPoint: point, waypoints: [...(current.waypoints ?? []), ...draftPoints, freeStart] })
+            updateWire(activeWireId, { toPoint: point, toPoint3D: undefined, waypoints: [...(current.waypoints ?? []), ...draftPoints, freeStart] })
             setFreeStart(point)
             setDraftPoints([])
           }
@@ -670,7 +670,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       const w = wires.find((x) => x.id === wireDrag.wireId)
       if (w && (wireDrag.mode === 'fromPoint' || wireDrag.mode === 'toPoint')) {
         if (wireDrag.start && Math.hypot(p.x - wireDrag.start.x, p.y - wireDrag.start.y) < 3 / zoom) return
-        updateWire(w.id, { [wireDrag.mode]: { x: snap(p.x), y: snap(p.y) } })
+        updateWire(w.id, { [wireDrag.mode]: { x: snap(p.x), y: snap(p.y) }, [`${wireDrag.mode}3D`]: undefined })
         return
       }
       const a = w && terminalIndex.get(w.fromTerminalId)
@@ -730,11 +730,11 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         ?? nearestModelTerminal(components, p, wireDrag.mode === 'fromPoint' ? w?.toTerminalId : w?.fromTerminalId, Math.min(24, 28 / zoom))
       if (w && target) {
         const isFrom = wireDrag.mode === 'fromPoint'
-        updateWire(w.id, isFrom ? { fromTerminalId: target.id, fromPoint: undefined } : { toTerminalId: target.id, toPoint: undefined })
+        updateWire(w.id, isFrom ? { fromTerminalId: target.id, fromPoint: undefined, fromPoint3D: undefined } : { toTerminalId: target.id, toPoint: undefined, toPoint3D: undefined })
         useSimStore.getState().step()
       } else if (w && wireDrag.originalTerminalId && wireDrag.start && Math.hypot(p.x - wireDrag.start.x, p.y - wireDrag.start.y) < 3 / zoom) {
         // Um clique sem deslocação não desliga o borne.
-        updateWire(w.id, wireDrag.mode === 'fromPoint' ? { fromTerminalId: wireDrag.originalTerminalId, fromPoint: undefined } : { toTerminalId: wireDrag.originalTerminalId, toPoint: undefined })
+        updateWire(w.id, wireDrag.mode === 'fromPoint' ? { fromTerminalId: wireDrag.originalTerminalId, fromPoint: undefined, fromPoint3D: undefined } : { toTerminalId: wireDrag.originalTerminalId, toPoint: undefined, toPoint3D: undefined })
       }
     }
     setWireDrag(null)
@@ -844,7 +844,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           const current = useSimStore.getState().wires.find((w) => w.id === activeWireId)
           if (current) {
             commitHistory()
-            updateWire(activeWireId, { toTerminalId: terminalId, toPoint: undefined, waypoints: [...(current.waypoints ?? []), ...draftPoints] })
+            updateWire(activeWireId, { toTerminalId: terminalId, toPoint: undefined, toPoint3D: undefined, waypoints: [...(current.waypoints ?? []), ...draftPoints] })
           }
         } else addFreeWire({ point: freeStart }, { terminalId }, draftPoints)
         setActiveWireId(null)

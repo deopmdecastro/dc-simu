@@ -118,3 +118,19 @@ export function terminalWorld3D(component: ElectricalComponent, terminal: Termin
 export function schematicRotationRadians(component: Pick<ElectricalComponent, 'rotation'>): number {
   return -((((component.rotation ?? 0) % 360) + 360) % 360) * Math.PI / 180
 }
+
+/** Normal exterior (no mundo) da face onde o borne está fixo: é por aqui que a
+ * ponteira entra e que o cabo sai. Aplica as mesmas rotações/espelho que `terminalWorld3D`. */
+export function terminalNormalWorld3D(component: ElectricalComponent, terminal: Terminal): THREE.Vector3 {
+  const p = terminal3DPositionOf(terminal)
+  const faces: Array<[number, THREE.Vector3]> = [
+    [1 - p.z, new THREE.Vector3(0, 0, 1)], [p.z, new THREE.Vector3(0, 0, -1)],
+    [p.x, new THREE.Vector3(-1, 0, 0)], [1 - p.x, new THREE.Vector3(1, 0, 0)],
+    [1 - p.y, new THREE.Vector3(0, 1, 0)], [p.y, new THREE.Vector3(0, -1, 0)],
+  ]
+  const normal = faces.sort((a, b) => a[0] - b[0])[0][1].clone()
+  const [x, y, z] = orientationRadians(component.viewOrientation)
+  normal.applyEuler(new THREE.Euler(x, y, z, 'XYZ'))
+  if (component.mirrored) normal.x *= -1
+  return normal.applyEuler(new THREE.Euler(0, 0, schematicRotationRadians(component), 'XYZ')).normalize()
+}

@@ -23,6 +23,7 @@ import type {
   ComponentTerminalViewPositions,
   Terminal,
   ProbeResult,
+  SpatialPoint3D,
 } from '../types'
 import { logoElectricalInputs } from '../electrical/logoPower'
 import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
@@ -41,6 +42,7 @@ import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 import { hasComponent3DModel, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { isDinRail, isRailMountable, railSpanMm, railWidthPx, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { clampRailLengthMm } from '../three/dinRailGeometry'
 import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
@@ -219,6 +221,8 @@ interface Store extends CircuitState {
   updateTerminal: (terminalId: string, patch: Partial<Terminal>) => void
   deleteTerminal: (terminalId: string) => void
   addWire: (fromTerminalId: string, toTerminalId: string, color?: WireColor, waypoints?: Array<{ x: number; y: number }>) => void
+  /** Cabo desenhado no Painel 3D: cada ponta é um borne ou um ponto livre no espaço; devolve o id do cabo. */
+  addWire3D: (from: WireEnd3D, to: WireEnd3D, waypoints3D?: SpatialPoint3D[]) => string | null
   addFreeWire: (from: { terminalId?: string; point?: { x: number; y: number } }, to: { terminalId?: string; point?: { x: number; y: number } }, waypoints?: Array<{ x: number; y: number }>) => void
   updateWire: (id: string, patch: Partial<Wire>) => void
   deleteWire: (id: string) => void
@@ -277,6 +281,8 @@ interface Store extends CircuitState {
   loadJSON: (json: string) => void
   newProject: () => void
 }
+
+export type WireEnd3D = { terminalId: string } | { point: SpatialPoint3D }
 
 type DrawKey = { kind: 'c' | 'w'; id: string }
 
@@ -1544,6 +1550,45 @@ export const useSimStore = create<Store>((set, get) => ({
     set((state) => ({ wires: [...state.wires, wire], selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo livre ${wire.number} criado (sem continuidade elétrica até ligar ambas as pontas).`)
     get().step()
+  },
+
+  addWire3D: (from, to, waypoints3D) => {
+    const fromId = 'terminalId' in from ? from.terminalId : ''
+    const toId = 'terminalId' in to ? to.terminalId : ''
+    const path = waypoints3D && waypoints3D.length ? waypoints3D : undefined
+    if (fromId && toId) {
+      if (fromId === toId) return null
+      const before = new Set(get().wires.map((w) => w.id))
+      get().addWire(fromId, toId)
+      const created = get().wires.find((w) => !before.has(w.id))
+      if (!created) {
+        get().pushEvent('warning', 'Já existe um cabo entre estes dois bornes.')
+        return null
+      }
+      if (path) set((s) => ({ wires: s.wires.map((w) => (w.id === created.id ? { ...w, waypoints3D: path } : w)) }))
+      return created.id
+    }
+    const project = (p: SpatialPoint3D) => ({ x: Math.round(panelToSchematicX(p.x)), y: Math.round(panelToSchematicY(p.y)) })
+    const defs = get().wireDefaults
+    get().commitHistory()
+    const wire: Wire = {
+      id: nanoid(8),
+      fromTerminalId: fromId,
+      toTerminalId: toId,
+      fromPoint: 'point' in from ? project(from.point) : undefined,
+      toPoint: 'point' in to ? project(to.point) : undefined,
+      fromPoint3D: 'point' in from ? from.point : undefined,
+      toPoint3D: 'point' in to ? to.point : undefined,
+      waypoints3D: path,
+      color: defs.color, gauge: defs.gauge, kind: 'control', flexibility: defs.flexibility,
+      endType: defs.endType, fromEndType: defs.endType, toEndType: defs.endType,
+      fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0,
+      number: `W${get().wires.length + 1}`, energized: false,
+    }
+    set((state) => ({ wires: [...state.wires, wire], selectedWireId: wire.id, dirty: true }))
+    get().pushEvent('info', `Cabo livre ${wire.number} desenhado no 3D (sem continuidade elétrica até ligar ambas as pontas).`)
+    get().step()
+    return wire.id
   },
 
   updateWire: (id, patch) => {

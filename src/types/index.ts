@@ -346,6 +346,9 @@ export interface Wire {
   /** Ponta livre desenhada no esquema (sem borne); não conduz corrente até ser ligada. */
   fromPoint?: { x: number; y: number }
   toPoint?: { x: number; y: number }
+  /** Posição física da ponta livre no Painel 3D (acompanha `fromPoint`/`toPoint`, que é a sua projeção no Esquema). */
+  fromPoint3D?: SpatialPoint3D
+  toPoint3D?: SpatialPoint3D
   color: WireColor
   /** Seção transversal, ex.: "1.5mm²" */
   gauge: string
