@@ -23,6 +23,8 @@ import { isProgrammablePlc } from '../src/ladder/plcPrograms'
 import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
+import { BUILTIN_ORIGIN_PREFIX, builtinComponents, builtinTypeOf } from '../src/admin/editor3d/builtinComponents'
+import { TEMPLATES } from '../src/electrical/factory'
 import { evaluateWire, wireChain, wireCurve } from '../src/admin/editor3d/wirePath'
 import { cableOuterDiameterMm, styleFor, DEFAULT_WIRE_DEFAULTS } from '../src/admin/editor3d/wireStyle'
 import { useSimStore } from '../src/store/useSimStore'
@@ -1560,6 +1562,12 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     check('compat: porta de medição liga a L1, a 24 V e a PE sem erro; duas portas de medição avisam', checkConnection(meas, ac('L1')).level === 'ok' && checkConnection(dc, meas).level === 'ok' && checkConnection(meas, { ...ac('PE'), kind: 'earth' as never }).level === 'ok' && checkConnection(meas, { ...meas, fn: 'COM' }).level === 'warn')
     check('compat: sem grupo Medição mantém as regras (L1↔24V erro)', checkConnection(ac('L1'), dc).level === 'error')
     check('sugestões: sensor inclui multímetro mas perfis de medição nunca são impostos a outras categorias', (SUGGESTED_PROFILES.sensor ?? []).includes('multimeter-basic') && !(SUGGESTED_PROFILES.contactor ?? []).includes('multimeter-basic'))
+  }
+  {
+    const list = builtinComponents()
+    check('biblioteca 3D: lista todos os componentes integrados da plataforma', list.length === Object.keys(TEMPLATES).filter((type) => !type.startsWith('cat:')).length && list.length > 50 && list.every((item) => item.name && item.group))
+    check('biblioteca 3D: tipos únicos e modelos CAD assinalados', new Set(list.map((item) => item.type)).size === list.length && list.some((item) => item.hasModel) && list.some((item) => !item.hasModel))
+    check('biblioteca 3D: cópia importada reconhece o tipo de origem', builtinTypeOf({ meta: { properties: [{ key: 'Origem', value: `${BUILTIN_ORIGIN_PREFIX}breaker1p` }] } } as never) === 'breaker1p' && builtinTypeOf({ meta: { properties: [] } } as never) === null)
   }
   check('cabo (editor): diâmetro exterior cresce com a secção e há cor/terminal automáticos', cableOuterDiameterMm('10mm²') > cableOuterDiameterMm('1.5mm²') && styleFor(DEFAULT_WIRE_DEFAULTS).gauge === '1.5mm²')
   {

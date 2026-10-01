@@ -385,3 +385,8 @@
 .ce-measure i { font-style:normal; font-size:9.5px; opacity:.75; font-variant-numeric:tabular-nums; }
 .ce-measure.is-live { background:#eff6ff; border-color:#2563eb; color:#1d4ed8; }
 .ce-measure button { position:absolute; top:-8px; right:-8px; width:16px; height:16px; line-height:14px; padding:0; border-radius:50%; border:1px solid #f59e0b; background:#fff; color:#92400e; cursor:pointer; font-size:12px; }
+
+/* ---- biblioteca 3D: componentes integrados ---- */
+.ce-builtin-head { margin-top:22px; }
+.ce-thumb-lazy { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+.ce-card-builtin .ce-card-cover { background:#f1f5fb; }

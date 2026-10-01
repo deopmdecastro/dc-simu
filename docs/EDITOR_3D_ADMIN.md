@@ -86,3 +86,9 @@ Categoria **Instrumentos** na biblioteca de bornes (também disponível para uti
 - **Medir**: dois cliques (superfície ou borne, com snap) mostram distância e Δx/Δy/Δz; Esc cancela; «Limpar medições» na barra.
 - **Olhos nos bornes**: na hierarquia (por borne, por grupo e geral) e no inspetor («No viewport»). Só afeta a edição; o borne continua no componente.
 - Separadores do painel direito passam a quebrar linha (sem scroll horizontal).
+
+## Componentes integrados na Biblioteca 3D (Admin)
+
+A lista «Biblioteca 3D» mostra **todos** os componentes da plataforma: primeiro os do catálogo (criados no editor 3D) e, no fim, os **integrados** (`TEMPLATES` do simulador, 66 tipos), com miniatura 3D carregada só quando o cartão fica visível. Filtro «Integrados» e pesquisa incluídos.
+
+«Editar no 3D» cria **uma vez** uma cópia independente em rascunho (`builtinComponents.ts`): o GLB original (referenciado por URL, sem encher o armazenamento do navegador), com a rotação base e escala pela altura física do Painel 3D, assente em Y = 0; os bornes passam para a caixa envolvente (topo/base/frente conforme a posição no esquema); sem CAD, usa-se um volume com as dimensões físicas. A cópia fica marcada em `properties` (`Origem = Integrado · <tipo>`), o cartão integrado desaparece e a cópia aparece no catálogo com a etiqueta «Integrado». O componente integrado do simulador nunca é alterado.
