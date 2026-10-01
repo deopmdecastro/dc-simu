@@ -6,6 +6,18 @@ type BeforeUpdate = () => boolean | Promise<boolean>
 
 const BUILD_KEY = 'dcsimu:app:build:v1'
 const CHECK_INTERVAL_MS = 60_000
+const SNOOZE_MS = 10 * 60_000
+
+/**
+ * Ecrãs com trabalho próprio (ex.: o editor de componentes) registam aqui um intercetor: é chamado antes de a
+ * atualização ser aplicada e decide se avança (true — depois de guardar/perguntar) ou se adia (false).
+ */
+type Interceptor = () => boolean | Promise<boolean>
+let interceptor: Interceptor | null = null
+export function setUpdateInterceptor(next: Interceptor | null): () => void {
+  interceptor = next
+  return () => { if (interceptor === next) interceptor = null }
+}
 
 /**
  * Regista o service worker em toda a aplicação e aplica atualizações sem
@@ -21,6 +33,7 @@ export function useAppUpdates(beforeUpdate: BeforeUpdate) {
     let registration: ServiceWorkerRegistration | undefined
     let activating = false
     let fallbackReload = 0
+    let snoozeUntil = 0
 
     try {
       localStorage.setItem(BUILD_KEY, __APP_BUILD_ID__)
@@ -29,9 +42,10 @@ export function useAppUpdates(beforeUpdate: BeforeUpdate) {
     }
 
     const activate = async () => {
-      if (disposed || activating) return
+      if (disposed || activating || Date.now() < snoozeUntil) return
       activating = true
       try {
+        if (interceptor && !(await interceptor())) { snoozeUntil = Date.now() + SNOOZE_MS; return }
         const safeToReload = await beforeUpdateRef.current()
         if (!safeToReload || disposed) return
         await updateSW(true)

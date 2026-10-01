@@ -18,9 +18,12 @@ import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCon
 import FaceChooser, { chooseFace } from './FaceChooser'
 import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importGlbAction } from './partActions'
 import { captureCover } from './capture'
+import WirePanel from './WirePanel'
+import { setUpdateInterceptor } from '../../utils/appUpdates'
 import type { PartDef } from '../../catalog/types'
 
 const Viewport = lazy(() => import('./Viewport'))
+const AUTO_UPDATE_KEY = 'dcsimu:editor:auto-update'
 
 const TABS: Array<[InspectorTab, string]> = [['object', 'Objeto'], ['materials', 'Materiais'], ['terminals', 'Bornes'], ['lights', 'Luzes'], ['states', 'Estados'], ['interactions', 'Interações'], ['component', 'Componente']]
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
@@ -186,26 +189,6 @@ function FaceBar() {
   </div>
 }
 
-/** Cabos de teste (modo Simular / ferramenta Cabo): lista e veredicto de compatibilidade. */
-function WirePanel() {
-  const wires = useEditorStore((s) => s.testWires)
-  const terminals = useEditorStore((s) => s.def.terminals)
-  const wireFrom = useEditorStore((s) => s.wireFrom)
-  const set = useEditorStore((s) => s.set)
-  const name = (id: string) => terminals.find((item) => item.id === id)?.label ?? '?'
-  return <div className="ce-wirepanel" role="status">
-    <strong>Cabos de teste</strong>
-    <small>{wireFrom ? `Origem ${name(wireFrom)} — clique no borne de destino (Esc cancela)` : terminals.length < 2 ? 'Precisa de pelo menos dois bornes para ligar.' : 'Clique num borne e depois noutro para ligar e validar.'}</small>
-    {wires.length === 0 && <small className="ce-wirepanel-empty">Sem cabos de teste.</small>}
-    {wires.map((wire) => <div key={wire.id} className={`ce-wire is-${wire.level}`}>
-      <b>{name(wire.a)} <span className="ce-wire-link">—</span> {name(wire.b)}</b>
-      <span className="ce-wire-verdict">{wire.level === 'ok' ? <IconCheck size={12} /> : <IconWarning size={12} />}{COMPAT_LABEL[wire.level]}{wire.messages.length ? ` — ${wire.messages.join(' · ')}` : ''}</span>
-      <button className="ce-icon ce-wire-x" title="Remover este cabo" aria-label="Remover este cabo" onClick={() => set({ testWires: wires.filter((item) => item.id !== wire.id) })}><IconClose size={12} /></button>
-    </div>)}
-    {wires.length > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => set({ testWires: [], wireFrom: null })}>Limpar cabos</button>}
-  </div>
-}
-
 function LibraryPanel() {
   const def = useEditorStore((s) => s.def)
   const meta = useEditorStore((s) => s.meta)
@@ -276,6 +259,22 @@ function PublishDialog({ onClose, onDone }: { onClose: () => void; onDone: (mess
   </div>
 }
 
+/** Nova versão da aplicação: o utilizador escolhe quando atualizar; o rascunho é guardado antes de recarregar. */
+function UpdateDialog({ dirty, onAnswer }: { dirty: boolean; onAnswer: (accept: boolean, always?: boolean) => void }) {
+  const [always, setAlways] = useState(false)
+  return <div className="ce-modal" role="dialog" aria-modal="true" aria-label="Atualização disponível">
+    <div className="ce-modal-card">
+      <h2>Nova versão do DC-SIMU</h2>
+      <p className="ce-hint">{dirty ? 'O rascunho do componente será guardado automaticamente e o editor recarrega na nova versão.' : 'O editor recarrega na nova versão. Não há alterações por guardar.'}</p>
+      <label className="ce-check"><input type="checkbox" checked={always} onChange={(event) => setAlways(event.target.checked)} />Atualizar sempre de forma automática (guardando o rascunho)</label>
+      <div className="ce-modal-actions">
+        <button className="dx-btn dx-btn-secondary" onClick={() => onAnswer(false)}>Mais tarde</button>
+        <button className="dx-btn dx-btn-primary" autoFocus onClick={() => onAnswer(true, always)}>Atualizar agora</button>
+      </div>
+    </div>
+  </div>
+}
+
 export default function ComponentEditor3D({ id, onClose, account }: { id: string; onClose: (message?: string) => void; /** Avatar e notificações (mesmos do simulador). */ account?: ReactNode }) {
   const entry = useEditorStore((s) => s.entry)
   const meta = useEditorStore((s) => s.meta)
@@ -310,18 +309,56 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     return () => { cancelled = true }
   }, [id])
 
-  const save = useCallback(async () => {
-    const state = useEditorStore.getState()
-    if (!state.entry || saving) return
+  const [autosave, setAutosave] = useState<{ state: 'idle' | 'saving' | 'error'; at: number | null }>({ state: 'idle', at: null })
+  const savingRef = useRef(false)
+  /** Grava o rascunho. `silent` (auto-guardar) não recalcula a capa nem mostra mensagem. Nunca perde alterações feitas durante o pedido. */
+  const persist = useCallback(async (silent: boolean): Promise<boolean> => {
+    const initial = useEditorStore.getState()
+    if (!initial.entry || savingRef.current) return false
+    savingRef.current = true
     setSaving(true)
+    setAutosave((current) => ({ ...current, state: 'saving' }))
     try {
-      applyCover()
-      const saved = await catalogApi.save(state.entry.id, useEditorStore.getState().meta, state.def)
+      if (!silent) applyCover()
+      const { def: sentDef, meta: sentMeta, entry: current } = useEditorStore.getState()
+      const saved = await catalogApi.save(current!.id, sentMeta, sentDef)
       useEditorStore.getState().markSaved(saved)
-      setMessage('Rascunho guardado.')
-    } catch (value) { setMessage(value instanceof Error ? value.message : 'Falha ao guardar') }
-    finally { setSaving(false) }
-  }, [saving])
+      const after = useEditorStore.getState()
+      if (after.def !== sentDef || after.meta !== sentMeta) useEditorStore.setState({ dirty: true })
+      setAutosave({ state: 'idle', at: Date.now() })
+      if (!silent) setMessage('Rascunho guardado.')
+      return true
+    } catch (value) {
+      setAutosave((current) => ({ ...current, state: 'error' }))
+      setMessage(value instanceof Error ? value.message : 'Falha ao guardar')
+      return false
+    } finally { savingRef.current = false; setSaving(false) }
+  }, [])
+  const save = useCallback(() => persist(false), [persist])
+
+  // auto-guardar: 5 s depois da última alteração (só rascunho; publicar continua manual)
+  useEffect(() => {
+    if (!dirty || !entry || entry.id !== id) return
+    const timer = window.setTimeout(() => { void persist(true) }, 5000)
+    return () => window.clearTimeout(timer)
+  }, [dirty, def, meta, entry?.id, id, persist])
+
+  // atualização da aplicação: pergunta (ou atualiza sozinho) e guarda o rascunho antes de recarregar
+  const [updateAsk, setUpdateAsk] = useState<((accept: boolean, always?: boolean) => void) | null>(null)
+  useEffect(() => setUpdateInterceptor(async () => {
+    const flush = async () => { if (!useEditorStore.getState().dirty) return true; savingRef.current = false; return persist(true) }
+    let auto = false
+    try { auto = localStorage.getItem(AUTO_UPDATE_KEY) === '1' } catch { /* sem localStorage: pergunta sempre */ }
+    if (auto) return flush()
+    const accepted = await new Promise<boolean>((resolve) => {
+      setUpdateAsk(() => (accept: boolean, always?: boolean) => {
+        if (accept && always) { try { localStorage.setItem(AUTO_UPDATE_KEY, '1') } catch { /* ignorar */ } }
+        setUpdateAsk(null)
+        resolve(accept)
+      })
+    })
+    return accepted ? flush() : false
+  }), [persist])
 
   const leave = useCallback((text?: string) => {
     if (!text && useEditorStore.getState().dirty && !window.confirm('Há alterações por guardar. Sair mesmo assim?')) return
@@ -352,13 +389,16 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         if (state.mode === 'edit' || pick === 'select' || pick === 'wire' || pick === 'pan') { event.preventDefault(); state.setRibbon(pick) }
         return
       }
-      if (key === 'escape' && state.wireFrom) { state.set({ wireFrom: null }); return }
+      const drafting = !!(state.wireFrom || state.wireStart)
+      if (drafting && key === 'escape') { state.cancelWire(); return }
+      if (drafting && key === 'enter') { event.preventDefault(); const problem = state.finishWireFree(); if (problem) setMessage(problem); return }
+      if (drafting && (key === 'backspace' || key === 'delete')) { event.preventDefault(); state.undoWirePoint(); return }
       if (state.mode !== 'edit') return
       if (key === 'w') state.set({ tool: 'translate' })
       else if (key === 'e') state.set({ tool: 'rotate' })
       else if (key === 'r') state.set({ tool: 'scale' })
       else if (key === 'f') state.cameraTo('fit')
-      else if (key === 'escape') { if (state.wireFrom) state.set({ wireFrom: null }); else if (state.placing) state.set({ placing: false, placingSpec: null, ribbon: 'select' }); else if (state.ribbon !== 'select') state.setRibbon('select'); else if (state.faceLock) state.set({ faceLock: null }); else state.select(null) }
+      else if (key === 'escape') { if (state.placing) state.set({ placing: false, placingSpec: null, ribbon: 'select' }); else if (state.ribbon !== 'select') state.setRibbon('select'); else if (state.faceLock) state.set({ faceLock: null }); else state.select(null) }
       else if ((key === 'delete' || key === 'backspace') && state.selection) { event.preventDefault(); deleteSelection() }
     }
     window.addEventListener('keydown', onKey)
@@ -380,7 +420,10 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     <header className="ce-top account-bar">
       <Logo size={22} tagline={false} />
       <span className="dx-bar-sep">/</span>
-      <div className="ce-title"><strong>{meta.name || 'Sem nome'}</strong><span className={`ce-status${entry.latestVersion ? ' is-pub' : ''}${dirty ? ' is-dirty' : ''}`}>{status}</span></div>
+      <div className="ce-title"><strong>{meta.name || 'Sem nome'}</strong><span className={`ce-status${entry.latestVersion ? ' is-pub' : ''}${dirty ? ' is-dirty' : ''}`}>{status}</span>
+        <span className={`ce-autosave is-${autosave.state}${dirty ? ' is-pending' : ''}`} title="O rascunho é guardado automaticamente 5 s depois da última alteração">
+          {autosave.state === 'saving' ? 'A guardar…' : autosave.state === 'error' ? 'Falha ao guardar — nova tentativa na próxima alteração' : dirty ? 'Por guardar…' : autosave.at ? `Guardado ${new Date(autosave.at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}` : ''}
+        </span></div>
       <div className="ce-modes" role="tablist" aria-label="Modo">
         <button role="tab" aria-selected={mode === 'edit'} className={mode === 'edit' ? 'is-on' : ''} onClick={() => set({ mode: 'edit', placing: false })}>Editar</button>
         <button role="tab" aria-selected={mode === 'simulate'} className={mode === 'simulate' ? 'is-on' : ''} onClick={() => set({ mode: 'simulate', previewState: previewState || def.initialState, placing: false, ribbon: useEditorStore.getState().ribbon === 'terminal' || useEditorStore.getState().ribbon === 'delete' ? 'select' : useEditorStore.getState().ribbon })}>Simular</button>
@@ -436,6 +479,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       </aside>
     </div>
     <StatusBar />
+    {updateAsk && <UpdateDialog dirty={dirty} onAnswer={updateAsk} />}
     {publishing && <PublishDialog onClose={() => setPublishing(false)} onDone={(text) => { setPublishing(false); leave(text) }} />}
   </div>
 }

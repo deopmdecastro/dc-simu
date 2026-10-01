@@ -23,6 +23,7 @@ import { isProgrammablePlc } from '../src/ladder/plcPrograms'
 import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
+import { wireChain, wireCurve } from '../src/admin/editor3d/wirePath'
 import { useSimStore } from '../src/store/useSimStore'
 import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
 import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, getDefaultComponent3DPresentation, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
@@ -1550,6 +1551,19 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const dc = { fn: '+24V', kind: 'power-in' as const, polarity: 'positive' as const, electricalClass: 'dc' as const, direction: 'io' as const }
   check('compat: L1↔L1 ok, L1↔L2 aviso, L1↔24V erro, PE↔L1 erro', checkConnection(ac('L1'), ac('L1')).level === 'ok' && checkConnection(ac('L1'), ac('L2')).level === 'warn' && checkConnection(ac('L1'), dc).level === 'error' && checkConnection({ ...ac('PE'), kind: 'earth', polarity: 'earth', electricalClass: 'other' }, ac('L1')).level === 'error')
   check('compat: bobina A1↔A2 não gera aviso de entradas', checkConnection({ fn: 'A1', kind: 'coil-plus', polarity: 'positive', electricalClass: 'dc', direction: 'in' }, { fn: 'A2', kind: 'coil-minus', polarity: 'negative', electricalClass: 'dc', direction: 'in' }).messages.every((message) => !message.includes('entradas')))
+  {
+    const terminals = [
+      { id: 't1', label: '1', name: 'L', position: [0, 0, 0], normal: [0, 1, 0] },
+      { id: 't2', label: '2', name: 'L', position: [0, -30, 0], normal: [0, -1, 0] },
+    ] as never
+    const direct = wireCurve(wireChain(terminals, { a: 't1', b: 't2', points: [] }), true)
+    check('cabos 3D: ligação direta entre dois bornes tem comprimento ≥ distância', !!direct && direct.getLength() >= 30)
+    const routed = wireCurve(wireChain(terminals, { a: 't1', b: 't2', points: [[20, 0, 0], [20, -30, 0]] }), false)
+    check('cabos 3D: pontos intermédios alongam o traçado', !!routed && !!direct && routed.getLength() > direct.getLength())
+    const free = wireChain(terminals, { a: 't1', b: null, end: [10, 10, 0], points: [] })
+    check('cabos 3D: ponta livre termina na posição indicada', !!free && free[free.length - 1].x === 10 && free[free.length - 1].y === 10)
+    check('cabos 3D: sem ponta de destino não há traçado', wireChain(terminals, { a: 't1', b: null, points: [] }) === null)
+  }
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

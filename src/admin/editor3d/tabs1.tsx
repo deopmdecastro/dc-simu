@@ -1,10 +1,43 @@
-import { newId, defaultMaterial, posedPart } from '../../catalog/definition'
+import { useMemo } from 'react'
+import { newId, defaultMaterial, posedPart, boundsMm } from '../../catalog/definition'
 import type { MaterialDef, PartDef, Vec3 } from '../../catalog/types'
-import { BASE_STATE, descendantsOf, patchMaterial, patchPart, posePart, useEditorStore } from './editorStore'
+import { BASE_STATE, descendantsOf, glbCache, patchMaterial, patchPart, posePart, useEditorStore } from './editorStore'
+import { validateDefinition } from './validate'
 import { Check, Color, Empty, Field, Num, Section, Select, Slider, Text, Vec3Input, Confirm } from './ui'
 
 const SIZE_LABELS: Record<PartDef['kind'], [string, string, string] | null> = {
   group: null, glb: null, box: ['Largura', 'Altura', 'Profundidade'], cylinder: ['Diâmetro', 'Altura', '—'], cone: ['Diâmetro', 'Altura', '—'], sphere: ['Diâmetro', '—', '—'], torus: ['Diâmetro', '—', 'Espessura'],
+}
+
+/** Estado vazio do separador Objeto: resumo do componente e atalhos para as ações mais comuns. */
+function Overview() {
+  const def = useEditorStore((s) => s.def)
+  const meta = useEditorStore((s) => s.meta)
+  const mode = useEditorStore((s) => s.mode)
+  const glbRevision = useEditorStore((s) => s.glbRevision)
+  const wires = useEditorStore((s) => s.testWires.length)
+  const setRibbon = useEditorStore((s) => s.setRibbon)
+  const cameraTo = useEditorStore((s) => s.cameraTo)
+  const issues = useMemo(() => validateDefinition(def, meta), [def, meta])
+  const errors = issues.filter((issue) => issue.level === 'error').length
+  const size = useMemo(() => { const box = boundsMm(def, glbCache); const v = box.getSize(box.min.clone()); return `${v.x.toFixed(0)} × ${v.y.toFixed(0)} × ${v.z.toFixed(0)}` }, [def.parts, def.assets, glbRevision])
+  return <div className="ce-overview">
+    <p className="ce-empty">Selecione uma peça na hierarquia ou no viewport para editar posição, rotação, escala e material.</p>
+    <div className="ce-overview-grid">
+      <div className="ce-stat"><b>{def.parts.length}</b><span>peças</span></div>
+      <div className="ce-stat"><b>{def.terminals.length}</b><span>bornes</span></div>
+      <div className="ce-stat"><b>{size}</b><span>mm (L × A × P)</span></div>
+      <div className="ce-stat"><b>{wires}</b><span>cabos de teste</span></div>
+      <div className={`ce-stat${errors ? ' is-err' : ''}`}><b>{errors}</b><span>erros</span></div>
+      <div className={`ce-stat${issues.length - errors ? ' is-warn' : ''}`}><b>{issues.length - errors}</b><span>avisos</span></div>
+    </div>
+    <div className="ce-overview-actions">
+      {mode === 'edit' && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => setRibbon('terminal')}>Adicionar borne [2]</button>}
+      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => setRibbon('wire')}>Ligar cabo [3]</button>
+      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => cameraTo('fit')}>Enquadrar [F]</button>
+    </div>
+    {issues.length > 0 && <ul className="ce-overview-issues">{issues.slice(0, 4).map((issue, index) => <li key={index} className={`is-${issue.level}`}>{issue.text}</li>)}{issues.length > 4 && <li>+{issues.length - 4} mais…</li>}</ul>}
+  </div>
 }
 
 export function ObjectTab() {
@@ -17,7 +50,7 @@ export function ObjectTab() {
   const set = useEditorStore((s) => s.set)
   const part = selection?.kind === 'part' ? def.parts.find((item) => item.id === selection.id) : undefined
   const state = def.states.find((item) => item.id === editState)
-  if (!part) return <Empty>Selecione uma peça na hierarquia ou no viewport para editar posição, rotação, escala e material.</Empty>
+  if (!part) return <Overview />
   const override = state?.parts[part.id]
   const pose = posedPart(part, override)
   const base = editState === BASE_STATE
