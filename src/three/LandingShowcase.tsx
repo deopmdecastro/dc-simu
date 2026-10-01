@@ -412,7 +412,7 @@ function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor,
       <fog attach="fog" args={['#dce4e2', 18, 34]} />
       <ambientLight intensity={0.48} />
       <hemisphereLight args={['#f8fbff', '#43524f', 0.86]} />
-      <directionalLight position={[4, 6, 6]} intensity={2.05} castShadow shadow-mapSize={[1024, 1024]} />
+      <directionalLight position={[4, 6, 6]} intensity={2.05} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.02} />
       <directionalLight position={[-4, 2, 3]} intensity={0.48} color="#b9d8ff" />
       <pointLight position={[0, 3.8, 3.2]} intensity={0.7} color="#fff4dd" distance={12} />
       <FixedPanel />
@@ -436,8 +436,8 @@ function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor,
         return <DemoCable key={definition.id} definition={definition} energized={energized} />
       })}
 
-      <ContactShadows position={[0, -0.425, 0.6]} opacity={0.45} scale={9} blur={2.4} far={4} resolution={512} />
-      <Environment preset="warehouse" environmentIntensity={1.08} />
+      <ContactShadows position={[0, -0.425, 0.6]} opacity={0.3} scale={9} blur={2.8} far={4} resolution={512} />
+      <Environment preset="warehouse" environmentIntensity={1.25} />
       <OrbitControls
         makeDefault
         enablePan={false}
@@ -469,14 +469,14 @@ export default function LandingShowcase(props: Props) {
   return (
     <div className="dx-showcase-wrap">
       <Canvas
-        dpr={[1, props.compact ? 1.25 : 1.65]}
+        dpr={[1, props.compact ? 1.5 : 2]}
         camera={{ position: props.compact ? [1.45, 3.15, 10.15] : [1.45, 3.00, 7.75], fov: props.compact ? 41 : 35, near: 0.1, far: 100 }}
         gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
         shadows
         onCreated={({ gl }) => {
           gl.outputColorSpace = THREE.SRGBColorSpace
-          gl.toneMapping = THREE.ACESFilmicToneMapping
-          gl.toneMappingExposure = 0.94
+          gl.toneMapping = THREE.NeutralToneMapping // cores reais do fabricante (ACES dessaturava)
+          gl.toneMappingExposure = 1.0
         }}
       >
         <Suspense fallback={null}>

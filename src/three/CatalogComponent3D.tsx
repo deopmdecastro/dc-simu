@@ -9,6 +9,7 @@ import { parseCatalogType, type TriggerName } from '../catalog/types'
 import { interactionsFor, runInteractions } from '../catalog/interactions'
 import { StateAnimator } from '../catalog/stateAnimator'
 import { cloneModelScene } from './modelFit'
+import { finishCadMaterial } from './catalogMaterials'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 
 /** Procura a peça (nome do nó = id da peça) a partir do objeto atingido. */
@@ -42,7 +43,7 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
     object.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
-      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => material.clone()) : mesh.material.clone()
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
       mesh.castShadow = mesh.receiveShadow = true
     })
     object.scale.setScalar(PANEL_UNITS_PER_MM)

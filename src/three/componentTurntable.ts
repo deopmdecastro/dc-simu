@@ -79,7 +79,7 @@ function enhanceTurntableMaterials(root: THREE.Object3D) {
     const source = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     mesh.userData.turntableNeedsOutline = source.some((entry) => entry instanceof THREE.MeshStandardMaterial
       && !entry.map && entry.metalness < 0.5 && entry.color.getHSL({ h: 0, s: 0, l: 0 }).l > 0.72)
-    const enhanced = source.map((entry) => finishCadMaterial(entry, { envMapIntensity: 1.0 }))
+    const enhanced = source.map((entry) => finishCadMaterial(entry, { envMapIntensity: 1.25 }))
     mesh.material = Array.isArray(mesh.material) ? enhanced : enhanced[0]
   })
   // Contorno técnico muito fino: recupera parafusos, junções e silhuetas dos
@@ -112,7 +112,7 @@ async function renderRow(type: ComponentType, pitchIndex: number): Promise<Compo
   enhanceTurntableMaterials(object)
   turntable.add(object)
 
-  scene.add(new THREE.HemisphereLight('#f8fbff', '#64748b', 0.9))
+  scene.add(new THREE.HemisphereLight('#ffffff', '#94a3b8', 0.7))
   const key = new THREE.DirectionalLight('#fff8ec', 2.1)
   key.position.set(3.8, 5.2, 6)
   scene.add(key)
@@ -134,7 +134,7 @@ async function renderRow(type: ComponentType, pitchIndex: number): Promise<Compo
   renderer.outputColorSpace = THREE.SRGBColorSpace
   // Khronos PBR Neutral: mantém as cores reais do fabricante (ACES dessaturava-as).
   renderer.toneMapping = THREE.NeutralToneMapping
-  renderer.toneMappingExposure = 1.0
+  renderer.toneMappingExposure = 1.05
   renderer.setClearColor(0x000000, 0)
   const pmrem = new THREE.PMREMGenerator(renderer)
   const room = new RoomEnvironment()

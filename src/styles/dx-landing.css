@@ -1629,3 +1629,12 @@ html:has(.dx-landing) {
   .dx-lib-thumb { height:154px; }
   .dx-lib-model-slot,.dx-lib-thumb img { width:138px!important; height:138px!important; }
 }
+
+/* Biblioteca 3D: componentes sem sombra projetada e sem filtros — mostra-se
+   apenas o render real do CAD (cores e acabamento originais). */
+.dx-lib-thumb { box-shadow: none; }
+.dx-lib-thumb img,
+.dx-lib-card:hover .dx-lib-thumb img,
+.dx-lib-thumb .dc-turntable-thumb,
+.dx-lib-card:hover .dx-lib-thumb .dc-turntable-thumb { filter: none !important; }
+.dx-lib-thumb .dc-turntable-control.is-rendering .dc-turntable-thumb { opacity: 1; }
