@@ -726,10 +726,18 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     return obj
   }, [scene, spec])
   const active = !!(c.state.energized || c.state.powered)
-  return <group position={[x, RAIL_Y, 0]}>
+  const breaker = ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(c.type)
+  return <group position={[x, RAIL_Y, 0]} onClick={breaker ? (event) => {
+    event.stopPropagation()
+    const closed = !!c.state.closed && !c.state.tripped
+    useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
+  } : undefined}>
     <primitive object={model} castShadow receiveShadow />
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} />}
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
+    {breaker && <group position={[0, spec.targetHeight * 0.54, 0.34]} rotation={[0, 0, (c.state.closed && !c.state.tripped ? -18 : 18) * Math.PI / 180]} raycast={() => null}>
+      <mesh><boxGeometry args={[0.12, 0.035, 0.035]} /><meshStandardMaterial color={c.state.tripped ? '#ef4444' : '#475569'} roughness={0.7} /></mesh>
+    </group>}
     {active && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
     <Label text={c.ref} position={[0, spec.targetHeight + 0.1, 0.22]} color={active ? '#4ade80' : '#e2e8f0'} />
   </group>
@@ -760,9 +768,8 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
   const pressed = !!c.state.pressed
   return <group
     position={[x, RAIL_Y + 1.05, 0.4]}
-    onPointerDown={() => onPress(true)}
-    onPointerUp={() => onPress(false)}
-    onPointerOut={() => { if (pressed) onPress(false) }}
+    onClick={(event) => { event.stopPropagation(); onPress(!pressed) }}
+    onContextMenu={(event) => { event.stopPropagation(); event.nativeEvent.preventDefault(); if (pressed) onPress(false) }}
   >
     <group position={[0, 0, pressed ? -0.025 : 0]}>
       <primitive object={model} castShadow receiveShadow />

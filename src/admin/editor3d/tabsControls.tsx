@@ -181,6 +181,18 @@ export function ControlsTab() {
     }))
     set({ selection: { kind: 'control', id: created.id }, tab: 'controls' })
   }
+  const createPreset = (preset: 'breaker' | 'push' | 'emergency' | 'selector') => {
+    const partId = selectedPart || drawable.find((part) => part.kind === 'glb')?.id || drawable[0]?.id
+    if (!partId) return
+    const kind: ControlDef['kind'] = preset === 'selector' ? 'selector' : preset === 'push' ? 'button' : 'toggle'
+    const created = newControl(def, kind, partId)
+    const variable = `control_${(def.controls ?? []).length + 1}`
+    const configured: ControlDef = preset === 'selector'
+      ? { ...created, name: 'Chave seletora', bindVar: variable, positions: [{ id: 'off', label: '0 · Desligado', angle: -45 }, { id: 'on', label: '1 · Ligado', angle: 45 }] }
+      : { ...created, name: preset === 'breaker' ? 'Manípulo do disjuntor' : preset === 'emergency' ? 'Emergência com retenção' : 'Botão de pressão', travelMm: preset === 'push' ? 1.2 : 2, actions: [{ type: 'toggleVar', var: variable }] }
+    edit((state) => ({ ...state, controls: [...(state.controls ?? []), configured], vars: [...(state.vars ?? []), { id: variable, name: configured.name, type: preset === 'selector' ? 'text' : 'bool', initial: preset === 'selector' ? 'off' : false }] }), `control:preset:${preset}`)
+    set({ selection: { kind: 'control', id: configured.id }, tab: 'controls', pick: { kind: 'control', id: configured.id } })
+  }
   const vars = mergeVars(def, previewVars)
   const varOptions = varDefsOf(def).map((item): [string, string] => [item.id, item.name])
   const bindOptions: Array<[string, string]> = control?.bindVar && !varOptions.some(([id]) => id === control.bindVar) ? [...varOptions, [control.bindVar, control.bindVar]] : varOptions
@@ -191,6 +203,13 @@ export function ControlsTab() {
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => create('toggle')}>+ Interruptor</button>
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => create('selector')}>+ Seletor</button></span>}>
       <p className="ce-hint">Um controlo liga uma peça (ou objetos de um modelo GLB) a uma ação. Selecione primeiro a peça para a associar. Na <b>simulação</b> (e no simulador) clique para premir; o seletor roda à posição seguinte (Shift = anterior).</p>
+      <div className="ce-actions-inline" aria-label="Acionamentos industriais prontos">
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => createPreset('breaker')}>Disjuntor ON/OFF</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => createPreset('selector')}>Chave seletora</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => createPreset('push')}>Botão de pressão</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => createPreset('emergency')}>Emergência travada</button>
+      </div>
+      <p className="ce-hint">O preset cria variável, ação e animação inicial; depois clique nos objetos móveis do GLB e ajuste eixo, curso ou ângulos.</p>
       {controls.length === 0 && <Empty>Sem controlos. Crie um botão ou aplique o modelo de multímetro.</Empty>}
       <div className="ce-list">{controls.map((item) => <button key={item.id} className={`ce-list-item${control?.id === item.id ? ' is-on' : ''}`} onClick={() => set({ selection: { kind: 'control', id: item.id } })}>
         <b>{item.name}</b><small>{item.kind === 'selector' ? `Seletor · ${item.positions.length} posições` : item.kind === 'toggle' ? 'Interruptor' : 'Botão'} · {def.parts.find((part) => part.id === item.partId)?.name ?? '—'}{item.nodes?.length ? ` · ${item.nodes.length} objeto(s)` : item.nodes ? ' · sem objeto' : ''}</small></button>)}</div>
