@@ -140,9 +140,50 @@ function Scene() {
   useEffect(() => { invalidate() }, [def, selection, view, mode, tool, ribbon, hover, placing, testWiresState, wireFromState, wirePointsState, selectedWireState, hiddenTerminals, measurementsState])
   useEffect(() => () => { timers.current.forEach((id) => window.clearTimeout(id)) }, [])
 
+  // enquadramento único para todas as vistas: a distância sai do tamanho real do modelo e do campo de visão,
+  // por isso componentes pequenos (bornes) e grandes (quadros) ficam igualmente centrados e com a mesma navegação
+  const modelBox = () => {
+    root.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(root, true)
+    if (box.isEmpty()) box.set(new THREE.Vector3(-30, 0, -30), new THREE.Vector3(30, 60, 30))
+    return box
+  }
+  const applyLimits = (radius: number) => {
+    const persp = camera as THREE.PerspectiveCamera
+    persp.near = Math.max(0.05, radius * 0.01)
+    persp.far = Math.max(4000, radius * 400)
+    persp.updateProjectionMatrix()
+    const orbit = controls as unknown as { minDistance: number; maxDistance: number } | null
+    if (orbit) { orbit.minDistance = Math.max(2, radius * 0.12); orbit.maxDistance = Math.max(400, radius * 14) }
+  }
+  const frameBox = (box: THREE.Box3, direction: THREE.Vector3, padding: number) => {
+    const sphere = box.getBoundingSphere(new THREE.Sphere())
+    const radius = Math.max(sphere.radius, 4)
+    const persp = camera as THREE.PerspectiveCamera
+    const vFov = (persp.fov * Math.PI) / 180
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * (persp.aspect || 1))
+    const distance = (radius * padding) / Math.sin(Math.min(vFov, hFov) / 2)
+    const modelRadius = Math.max(radius, modelBox().getBoundingSphere(new THREE.Sphere()).radius)
+    applyLimits(modelRadius)
+    camera.position.copy(sphere.center).addScaledVector(direction, distance)
+    camera.lookAt(sphere.center)
+    const orbit = controls as unknown as { target: THREE.Vector3; update: () => void } | null
+    if (orbit) { orbit.target.copy(sphere.center); orbit.update() }
+    reportAngles(); invalidate()
+  }
+  // enquadra sozinho enquanto o utilizador não mexer na câmara: o GLB carrega depois de abrir o editor e muda o tamanho do modelo
+  const autoFit = useRef(true)
+  const entryId = useEditorStore((s) => s.entry?.id)
+  useEffect(() => { autoFit.current = true }, [entryId])
+  useEffect(() => {
+    if (!autoFit.current || !controls) return
+    frameBox(modelBox(), new THREE.Vector3(0.8, 0.6, 1).normalize(), 1.12)
+  }, [glbRevision, controls, entryId])
+
   // enquadramentos de câmara (mesma convenção do Esquema 3D: yaw 0° = frente, pitch > 0 = por cima)
   useEffect(() => {
     if (!viewCommand.n) return
+    if (viewCommand.kind !== 'fit') autoFit.current = false
     const orbit = controls as unknown as { target: THREE.Vector3; update: () => void } | null
     if (viewCommand.kind === 'orbit' && orbit) {
       const spherical = new THREE.Spherical().setFromVector3(camera.position.clone().sub(orbit.target))
@@ -156,7 +197,7 @@ function Scene() {
     if (viewCommand.kind === 'fitSel') {
       const state = useEditorStore.getState()
       const picked = new THREE.Box3()
-      if (state.selection?.kind === 'part') { const node = root.getObjectByName(state.selection.id); if (node) picked.setFromObject(node) }
+      if (state.selection?.kind === 'part') { const node = root.getObjectByName(state.selection.id); if (node) picked.setFromObject(node, true) }
       else if (state.selection?.kind === 'terminal') { const terminal = state.def.terminals.find((item) => item.id === state.selection!.id); if (terminal) picked.setFromCenterAndSize(new THREE.Vector3(...terminal.position), new THREE.Vector3(24, 24, 24)) }
       else if (state.selectedWire) {
         const wire = state.testWires.find((item) => item.id === state.selectedWire)
@@ -164,32 +205,20 @@ function Scene() {
         chain?.forEach((point) => picked.expandByPoint(point))
       }
       if (!picked.isEmpty()) {
-        const center = picked.getCenter(new THREE.Vector3())
-        const orbit2 = controls as unknown as { target: THREE.Vector3; update: () => void } | null
-        const direction = camera.position.clone().sub(orbit2?.target ?? new THREE.Vector3()).normalize()
-        camera.position.copy(center).addScaledVector(direction, Math.max(50, picked.getSize(new THREE.Vector3()).length() * 2.4))
-        camera.lookAt(center)
-        if (orbit2) { orbit2.target.copy(center); orbit2.update() }
-        reportAngles(); invalidate()
+        const direction = camera.position.clone().sub((controls as unknown as { target: THREE.Vector3 } | null)?.target ?? new THREE.Vector3()).normalize()
+        frameBox(picked, direction, 1.25)
         return
       }
     }
-    const box = new THREE.Box3().setFromObject(root)
-    if (box.isEmpty()) box.set(new THREE.Vector3(-30, 0, -30), new THREE.Vector3(30, 60, 30))
-    const center = box.getCenter(new THREE.Vector3())
-    const radius = Math.max(60, box.getSize(new THREE.Vector3()).length() * 3)
+    const box = modelBox()
     const yaw = (viewCommand.yaw ?? 0) / DEG, pitch = (viewCommand.pitch ?? 0) / DEG
     const dirs: Record<string, number[]> = {
       front: [0, 0.05, 1], back: [0, 0.05, -1], left: [-1, 0.05, 0], right: [1, 0.05, 0], top: [0, 1, 0.001], bottom: [0, -1, 0.001], iso: [0.8, 0.6, 1], fit: [0.8, 0.6, 1],
       fitSel: [0.8, 0.6, 1],
       angles: [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch) + 0.02, Math.cos(yaw) * Math.cos(pitch)],
     }
-    const vector = new THREE.Vector3(...dirs[viewCommand.kind]).normalize().multiplyScalar(radius).add(center)
-    camera.position.copy(vector)
-    camera.lookAt(center)
-    if (orbit) { orbit.target.copy(center); orbit.update() }
-    reportAngles()
-    invalidate()
+    frameBox(box, new THREE.Vector3(...dirs[viewCommand.kind]).normalize(), 1.12)
+    return
   }, [viewCommand])
 
   // yaw/pitch da câmara para o cubo de vista
@@ -319,7 +348,7 @@ function Scene() {
     {partGizmo && selectedNode && <TransformControls object={selectedNode} mode={tool} space={gizmoSpace} size={0.8}
       translationSnap={snap.on ? snap.mm : null} rotationSnap={snap.on ? snap.deg / DEG : null} scaleSnap={snap.on ? 0.05 : null} onMouseUp={commitPart} />}
     {terminalGizmo && markerObject && <TransformControls object={markerObject} mode="translate" size={0.7} translationSnap={snap.on ? Math.min(snap.mm, 0.5) : null} onMouseUp={commitTerminal} />}
-    <OrbitControls makeDefault enableDamping={false} maxDistance={1500} minDistance={20} onChange={reportAngles}
+    <OrbitControls makeDefault enableDamping={false} onChange={reportAngles} onStart={() => { autoFit.current = false }}
       mouseButtons={{ LEFT: ribbon === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }} />
   </>
 }

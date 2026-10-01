@@ -4,7 +4,7 @@
 O Admin cria **componentes oficiais** num editor 3D (separador *Administração → Biblioteca 3D*).
 Cada publicação gera uma **versão imutável**. Os utilizadores veem o componente na biblioteca
 (grupo «Catálogo oficial»), colocam-no nos projetos e recebem um **aviso de atualização** quando
-há versão nova. Atualizar é sempre uma decisão do utilizador.
+há versão nova. A versão publicada pelo administrador prevalece: as instâncias oficiais passam sozinhas para a versão nova (mantendo posição, estado e cabos). Só as cópias independentes («Duplicar como independente») ficam fixas.
 
 ## Modelo de dados (`src/catalog/types.ts`)
 - `ComponentDefinition` — peças (primitivas/GLB, hierarquia), materiais (+texturas), bornes,
@@ -96,3 +96,8 @@ A lista «Biblioteca 3D» mostra **todos** os componentes da plataforma: primeir
 ### Importar GLB
 
 O carregador de GLB (`src/three/gltfLoader.ts`) suporta modelos comprimidos com **Meshopt** (glTF-Transform, gltpack) e **Draco**, e geometria quantizada. Ao importar: se a peça de exemplo «Corpo» continua intacta, é substituída pelo modelo; este fica no chão (Y = 0), com a maior dimensão a 100 mm (ajuste em Escala) e a câmara enquadra-o. Se o ficheiro não puder ser lido, aparece uma mensagem de erro em vez de uma peça vazia.
+
+## Câmara do editor e lista de bornes
+- O enquadramento (Enquadrar, ISO, faces, «Enquadrar seleção») usa a esfera envolvente real do modelo e o campo de visão, por isso componentes pequenos (bornes) e grandes (quadros) ficam igualmente centrados. Os limites de zoom e os planos near/far da câmara adaptam-se ao tamanho do modelo.
+- Ao abrir um componente, a câmara reenquadra sozinha quando o GLB acaba de carregar, até o utilizador mexer na câmara.
+- A lista «Bornes» à esquerda separa-os **Por vista** (Frente, Trás, Esquerda, Direita, Topo, Base; o botão de cada vista leva a câmara a essa face) ou **Por grupo** funcional.

@@ -85,7 +85,7 @@ function frameCamera(box: THREE.Box3, view: CaptureView, aspect: number): THREE.
     return camera
   }
 
-  const camera = new THREE.PerspectiveCamera(30, aspect, 1, radius * 40)
+  const camera = new THREE.PerspectiveCamera(30, aspect, Math.max(0.05, radius * 0.02), radius * 40)
   const dir = view === 'current' && liveCamera
     ? liveCamera.position.clone().sub(center).normalize()
     : new THREE.Vector3(0.8, 0.6, 1).normalize()
@@ -106,7 +106,7 @@ function frameCamera(box: THREE.Box3, view: CaptureView, aspect: number): THREE.
 export function renderCapture(renderer: THREE.WebGLRenderer, root: THREE.Object3D, options: CaptureOptions): string | null {
   const { width, height } = options
   root.updateMatrixWorld(true)
-  const box = new THREE.Box3().setFromObject(root)
+  const box = new THREE.Box3().setFromObject(root, true)
   if (box.isEmpty()) return null
 
   const parent = root.parent

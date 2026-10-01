@@ -1590,5 +1590,28 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   }
 }
 
+// versão publicada pelo administrador prevalece nos projetos (exceto cópias independentes)
+{
+  const { normalizeDefinition } = await import('../src/catalog/definition')
+  const { registerCatalogVersion } = await import('../src/catalog/registry')
+  const { applyOfficialUpdates } = await import('../src/catalog/update')
+  const { catalogType } = await import('../src/catalog/types')
+  const def = normalizeDefinition(undefined)
+  const runtime = { widthMm: 20, heightMm: 40, depthMm: 10, terminals: [] as never[] }
+  const version = (n: number) => ({ version: n, publishedAt: '2026-10-01', note: '', changes: [`alteração ${n}`], definition: def, runtime })
+  const entry = { id: 'auto1', meta: { name: 'Auto', category: 'Outros', group: '', tag: 'AU', description: '' }, status: 'published', latestVersion: 2, archived: false, updatedAt: '2026-10-01', versions: [version(1), version(2)] } as never as import('../src/catalog/types').CatalogEntry
+  entry.versions.forEach((item) => registerCatalogVersion(entry, item))
+  const official = createComponent(catalogType('auto1', 1) as never, 'X1', 'Oficial', 0, 0, 0, {})
+  const copy = createComponent(catalogType('auto1', 1) as never, 'X2', 'Cópia', 0, 100, 0, {})
+  official.catalog = { id: 'auto1', version: 1, source: 'official' }
+  copy.catalog = { id: 'auto1', version: 1, source: 'copy' }
+  useSimStore.setState({ components: [official, copy], wires: [], selectedComponentIds: [], history: [], future: [] })
+  const count = applyOfficialUpdates([entry])
+  const after = useSimStore.getState().components
+  check('catálogo: versão do administrador é aplicada sozinha ao componente oficial', count === 1 && after[0].catalog?.version === 2 && after[0].type === catalogType('auto1', 2))
+  check('catálogo: cópia independente não é atualizada', after[1].catalog?.version === 1 && after[1].type === catalogType('auto1', 1))
+  check('catálogo: posição e identidade da instância mantêm-se', after[0].id === official.id && after[0].ref === 'X1')
+}
+
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)

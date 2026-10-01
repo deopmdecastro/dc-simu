@@ -416,3 +416,7 @@
 .ce-card-actions .ce-danger { color:var(--dx-danger, #d64545); }
 .ce-card.is-archived .ce-card-cover img { filter:grayscale(.7); }
 .ce-card-cover .ce-thumb-lazy img { background:transparent !important; border:0 !important; border-radius:0 !important; mix-blend-mode:multiply; }
+
+.ce-seg { display:flex; margin:6px 8px 4px; padding:2px; gap:2px; background:var(--dx-surface-2); border:1px solid var(--dx-line); border-radius:8px; }
+.ce-seg button { flex:1; height:22px; border:0; border-radius:6px; background:transparent; font-size:11px; font-weight:600; color:var(--dx-ink-3); cursor:pointer; }
+.ce-seg button.is-on { background:var(--dx-surface); color:var(--dx-brand-700); box-shadow:0 1px 2px rgba(15,23,42,.12); }

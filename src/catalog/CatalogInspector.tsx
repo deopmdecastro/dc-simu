@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { useCatalogStore } from './registry'
-import { catalogUpdateInfo, duplicateAsIndependent, ignoreCatalogUpdate, updateCatalogComponent } from './update'
+import { catalogUpdateInfo, duplicateAsIndependent, updateCatalogComponent } from './update'
 
 /** Secção do inspetor para componentes do catálogo oficial 3D: versão instalada, atualizações, estados e cópia independente. */
 export default function CatalogInspector({ component }: { component: ElectricalComponent }) {
@@ -22,7 +22,7 @@ export default function CatalogInspector({ component }: { component: ElectricalC
     <div className="dc-inspector-group-body">
       <div className="text-[11px] text-ink-700">
         <strong>{entry?.meta.name ?? link.id}</strong> · instalado <b>v{link.version}</b>
-        {!info && entry && !isCopy && entry.latestVersion === link.version && <span className="text-ink-400"> · atualizado</span>}
+        {!info && entry && !isCopy && entry.latestVersion === link.version && <span className="text-ink-400"> · versão publicada pelo administrador (atualiza sozinho)</span>}
         {isCopy && <span className="text-ink-400"> · cópia independente (fixa em v{link.version}, sem atualizações automáticas)</span>}
         {entry?.archived && !isCopy && <span className="text-ink-400"> · arquivado pelo administrador</span>}
       </div>
@@ -34,9 +34,8 @@ export default function CatalogInspector({ component }: { component: ElectricalC
         <div className="flex gap-1 flex-wrap mt-1">
           <button className="dc-btn" onClick={() => setShowChanges((value) => !value)}>{showChanges ? 'Ocultar alterações' : 'Ver alterações'}</button>
           <button className="dc-btn dc-btn-primary" onClick={() => updateCatalogComponent(component.id, entries)}>Atualizar</button>
-          <button className="dc-btn" onClick={() => ignoreCatalogUpdate(component.id, info.latest)}>Ignorar</button>
         </div>
-        <div className="text-[10px] text-ink-400 mt-1">Atualizar mantém posição, estado e cabos ligados. Pode desfazer com Ctrl+Z.</div>
+        <div className="text-[10px] text-ink-400 mt-1">A versão do administrador prevalece e é aplicada sozinha, mantendo posição, estado e cabos ligados (Ctrl+Z desfaz). Para fixar esta versão, use «Duplicar como independente».</div>
       </div>}
       {states.length > 1 && <div>
         <label className="dc-field-label">Estado</label>

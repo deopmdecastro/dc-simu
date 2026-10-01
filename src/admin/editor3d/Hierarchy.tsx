@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { PartDef } from '../../catalog/types'
-import { IconBox, IconCylinder, IconEye, IconEyeOff, IconGroup, IconLock, IconModel, IconSparkle, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
+import { IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
 import { descendantsOf, patchPart, useEditorStore } from './editorStore'
+import type { Face } from '../../catalog/terminalProfiles'
+import { faceOfNormal } from './terminalOps'
 import { deleteSelection, duplicateSelection, groupSelection } from './partActions'
 
+const FACE_ORDER: Face[] = ['front', 'back', 'left', 'right', 'top', 'bottom']
+const FACE_LABEL: Record<Face, string> = { front: 'Frente', back: 'Trás', left: 'Esquerda', right: 'Direita', top: 'Topo', bottom: 'Base' }
 const KIND_ICON: Record<PartDef['kind'], typeof IconBox> = { group: IconGroup, box: IconBox, cylinder: IconCylinder, sphere: IconSphere, cone: IconCone, torus: IconTorus, glb: IconModel }
 
 export default function Hierarchy() {
@@ -20,11 +24,20 @@ export default function Hierarchy() {
   const setTerminalsHidden = useEditorStore((s) => s.setTerminalsHidden)
   const toggleTerminalHidden = useEditorStore((s) => s.toggleTerminalHidden)
   const allHidden = def.terminals.length > 0 && def.terminals.every((item) => hiddenTerminals.includes(item.id))
+  // bornes agrupados por vista (face onde saem) ou por grupo funcional
+  const [groupBy, setGroupBy] = useState<'view' | 'group'>(() => { try { return localStorage.getItem('dcsimu:ce:tgroup') === 'group' ? 'group' : 'view' } catch { return 'view' } })
+  const chooseGroupBy = (value: 'view' | 'group') => { setGroupBy(value); try { localStorage.setItem('dcsimu:ce:tgroup', value) } catch { /* ignorar */ } }
   const termGroups = useMemo(() => {
     const map = new Map<string, typeof def.terminals>()
-    for (const terminal of def.terminals) { const key = terminal.group ?? ''; map.set(key, [...(map.get(key) ?? []), terminal]) }
-    return [...map.entries()]
-  }, [def.terminals])
+    for (const terminal of def.terminals) {
+      const key = groupBy === 'view' ? faceOfNormal(terminal.normal) : terminal.group ?? ''
+      map.set(key, [...(map.get(key) ?? []), terminal])
+    }
+    const entries = [...map.entries()]
+    if (groupBy === 'view') entries.sort((a, b) => FACE_ORDER.indexOf(a[0] as Face) - FACE_ORDER.indexOf(b[0] as Face))
+    return entries
+  }, [def.terminals, groupBy])
+  const groupName = (key: string) => groupBy === 'view' ? FACE_LABEL[key as Face] : key || 'Sem grupo'
   const selectedPart = selection?.kind === 'part' ? def.parts.find((part) => part.id === selection.id) : undefined
 
   const rows: Array<{ part: PartDef; depth: number }> = []
@@ -72,9 +85,14 @@ export default function Hierarchy() {
         {def.terminals.length > 0 && <button className="ce-icon ce-head-eye" aria-label={allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes'} title={allHidden ? 'Mostrar todos os bornes [H]' : 'Ocultar todos os bornes [H]'}
           onClick={() => setTerminalsHidden(def.terminals.map((item) => item.id), !allHidden)}>{allHidden ? <IconEyeOff size={13} /> : <IconEye size={13} />}</button>}
       </div>
+      {def.terminals.length > 1 && <div className="ce-seg" role="group" aria-label="Agrupar bornes por">
+        <button className={groupBy === 'view' ? 'is-on' : ''} aria-pressed={groupBy === 'view'} onClick={() => chooseGroupBy('view')} title="Separar os bornes pela face/vista onde saem">Por vista</button>
+        <button className={groupBy === 'group' ? 'is-on' : ''} aria-pressed={groupBy === 'group'} onClick={() => chooseGroupBy('group')} title="Separar os bornes pelo grupo funcional">Por grupo</button>
+      </div>}
       {termGroups.map(([group, items]) => <div key={group || '_'} className="ce-tgroup">
-        {termGroups.length > 1 && <div className="ce-tgroup-head"><span>{group || 'Sem grupo'}</span><em>{items.length}</em>
-          <button className="ce-icon" aria-label={items.every((item) => hiddenTerminals.includes(item.id)) ? `Mostrar bornes de ${group || 'sem grupo'}` : `Ocultar bornes de ${group || 'sem grupo'}`}
+        {(termGroups.length > 1 || groupBy === 'view') && <div className="ce-tgroup-head"><span>{groupName(group)}</span><em>{items.length}</em>
+          {groupBy === 'view' && <button className="ce-icon" aria-label={`Ver a face ${groupName(group)}`} title={`Ver a face ${groupName(group)}`} onClick={() => useEditorStore.getState().cameraTo(group as Face)}><IconFocus size={12} /></button>}
+          <button className="ce-icon" aria-label={items.every((item) => hiddenTerminals.includes(item.id)) ? `Mostrar bornes de ${groupName(group)}` : `Ocultar bornes de ${groupName(group)}`}
             title={items.every((item) => hiddenTerminals.includes(item.id)) ? 'Mostrar este grupo' : 'Ocultar este grupo'}
             onClick={() => setTerminalsHidden(items.map((item) => item.id), !items.every((item) => hiddenTerminals.includes(item.id)))}>
             {items.every((item) => hiddenTerminals.includes(item.id)) ? <IconEyeOff size={12} /> : <IconEye size={12} />}</button></div>}

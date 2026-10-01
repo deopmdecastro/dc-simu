@@ -12,11 +12,11 @@ export interface CatalogUpdateInfo {
 }
 
 /** Atualização disponível para um componente OFICIAL. Cópias independentes nunca recebem avisos. */
-export function catalogUpdateInfo(component: ElectricalComponent, entries: CatalogEntry[]): CatalogUpdateInfo | null {
+export function catalogUpdateInfo(component: ElectricalComponent, entries: CatalogEntry[], ignoreSkips = true): CatalogUpdateInfo | null {
   const link = component.catalog
   if (!link || link.source !== 'official') return null
   const entry = entries.find((item) => item.id === link.id)
-  if (!entry || entry.archived || entry.latestVersion <= link.version || link.ignoredVersion === entry.latestVersion) return null
+  if (!entry || entry.archived || entry.latestVersion <= link.version || (ignoreSkips && link.ignoredVersion === entry.latestVersion)) return null
   const newer = entry.versions.filter((version) => version.version > link.version)
   return {
     entry, current: link.version, latest: entry.latestVersion,
@@ -36,7 +36,7 @@ const same = (a?: { x: number; y: number; z: number }, b?: { x: number; y: numbe
 export function updateCatalogComponent(componentId: string, entries: CatalogEntry[]): { ok: boolean; message: string } {
   const store = useSimStore.getState()
   const component = store.components.find((item) => item.id === componentId)
-  const info = component ? catalogUpdateInfo(component, entries) : null
+  const info = component ? catalogUpdateInfo(component, entries, false) : null
   if (!component || !info) return { ok: false, message: 'Não há atualização disponível.' }
   const newVersion = info.entry.versions.find((version) => version.version === info.latest)
   const oldVersion = info.entry.versions.find((version) => version.version === info.current)
@@ -119,4 +119,27 @@ export function duplicateAsIndependent(componentId: string, name: string) {
     dirty: true,
   }))
   return created.id
+}
+
+const applied = new Set<string>()
+
+/**
+ * A versão publicada pelo administrador prevalece nos projetos: todas as instâncias de componentes OFICIAIS
+ * passam sozinhas para a versão mais recente (mantendo posição, estado, rotação e cabos). Cópias independentes
+ * (`source: 'copy'`) e componentes arquivados nunca são tocados. Cada instância/versão é aplicada só uma vez por
+ * sessão, para um «Desfazer» não ser logo anulado.
+ */
+export function applyOfficialUpdates(entries: CatalogEntry[]): number {
+  if (!entries.length) return 0
+  const components = useSimStore.getState().components
+  let count = 0
+  for (const component of components) {
+    const info = catalogUpdateInfo(component, entries, false)
+    if (!info) continue
+    const key = `${component.id}@${info.latest}`
+    if (applied.has(key)) continue
+    applied.add(key)
+    if (updateCatalogComponent(component.id, entries).ok) count += 1
+  }
+  return count
 }
