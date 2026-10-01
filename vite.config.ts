@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 
 function gitCommit() {
   if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA
@@ -12,7 +13,15 @@ function gitCommit() {
   }
 }
 
-const buildId = gitCommit()
+/** Carimbo incrementado pelo hook pre-commit: cada commit gera um buildId novo (e a limpeza de caches nos clientes). */
+function releaseStamp() {
+  try {
+    const stamp = JSON.parse(readFileSync(new URL('./release-stamp.json', import.meta.url), 'utf8')) as { count?: number; epoch?: string }
+    return `r${stamp.count ?? 0}.${stamp.epoch ?? '0'}`
+  } catch { return 'r0' }
+}
+
+const buildId = `${gitCommit()}.${releaseStamp()}`
 const builtAt = new Date().toISOString()
 
 function buildVersionFile(): Plugin {

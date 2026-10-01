@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { registerSW } from 'virtual:pwa-register'
+import { consumePurgeRequest, hardRefresh, purgeStaleCaches } from './cacheCleanup'
 
 type VersionFile = { buildId?: string; builtAt?: string }
 type BeforeUpdate = () => boolean | Promise<boolean>
@@ -7,6 +8,8 @@ type BeforeUpdate = () => boolean | Promise<boolean>
 const BUILD_KEY = 'dcsimu:app:build:v1'
 const CHECK_INTERVAL_MS = 60_000
 const SNOOZE_MS = 10 * 60_000
+/** Última versão para a qual já se fez limpeza total nesta sessão (evita ciclos de recarga). */
+const PURGE_KEY = 'dcsimu:app:purged:v1'
 
 /**
  * Ecrãs com trabalho próprio (ex.: o editor de componentes) registam aqui um intercetor: é chamado antes de a
@@ -35,11 +38,24 @@ export function useAppUpdates(beforeUpdate: BeforeUpdate) {
     let fallbackReload = 0
     let snoozeUntil = 0
 
+    // Limpeza de caches: pedida no URL (?limpar-cache) ou ao arrancar numa versão nova
+    // (apaga caches de execução antigos; o pré-cache do worker atual fica para o modo offline).
+    if (consumePurgeRequest()) void hardRefresh()
     try {
+      const previous = localStorage.getItem(BUILD_KEY)
+      if (previous && previous !== __APP_BUILD_ID__) void purgeStaleCaches()
       localStorage.setItem(BUILD_KEY, __APP_BUILD_ID__)
     } catch {
       // A atualização do SW não depende do localStorage.
     }
+
+    // Espera (até 15 s) que o worker novo termine a instalação.
+    const settle = (reg?: ServiceWorkerRegistration) => new Promise<void>((resolve) => {
+      const worker = reg?.installing
+      if (!worker || worker.state === 'installed' || worker.state === 'activated') { resolve(); return }
+      const timer = window.setTimeout(resolve, 15_000)
+      worker.addEventListener('statechange', () => { if (worker.state === 'installed' || worker.state === 'activated' || worker.state === 'redundant') { window.clearTimeout(timer); resolve() } })
+    })
 
     const activate = async () => {
       if (disposed || activating || Date.now() < snoozeUntil) return
@@ -77,7 +93,16 @@ export function useAppUpdates(beforeUpdate: BeforeUpdate) {
         const remote = await response.json() as VersionFile
         if (!remote.buildId || remote.buildId === __APP_BUILD_ID__) return
         await registration?.update()
-        if (registration?.waiting) await activate()
+        await settle(registration)
+        if (registration?.waiting) { await activate(); return }
+        // Versão nova no servidor mas nenhum worker novo à espera (worker preso ou em falta):
+        // limpeza total das caches e recarga, uma vez por versão.
+        if (sessionStorage.getItem(PURGE_KEY) === remote.buildId) return
+        if (interceptor && !(await interceptor())) { snoozeUntil = Date.now() + SNOOZE_MS; return }
+        if (!(await beforeUpdateRef.current()) || disposed) return
+        sessionStorage.setItem(PURGE_KEY, remote.buildId)
+        activating = true
+        await hardRefresh()
       } catch {
         // Sem rede: a versão atual e o funcionamento offline são preservados.
       }

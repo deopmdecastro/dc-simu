@@ -1,0 +1,3 @@
+#!/bin/sh
+# Atualiza o carimbo de release em cada commit (força a limpeza de caches nos navegadores).
+node scripts/bump-release.mjs && git add release-stamp.json

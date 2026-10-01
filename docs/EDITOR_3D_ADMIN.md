@@ -121,3 +121,14 @@ O carregador de GLB (`src/three/gltfLoader.ts`) suporta modelos comprimidos com 
 - Avisos: ponta na ficha errada, falta de COM, Ω em circuito com tensão.
 - No simulador os valores vêm do circuito ligado às fichas (a corrente é uma estimativa — o motor é de continuidade, sem solver de tensões). No editor há «Valores de teste».
 - Os controlos também aparecem no Inspetor do simulador e funcionam no painel 3D.
+
+## Limpeza de caches a cada commit/push
+
+Problema: navegadores (e a PWA) ficavam presos em versões antigas. Como funciona agora:
+
+1. **Hook `pre-commit`** (`.githooks/`, ativado por `npm install` via `prepare` ou com `git config core.hooksPath .githooks`) corre `scripts/bump-release.mjs`, que altera `release-stamp.json` em **cada commit**. O carimbo entra no `buildId` (`vite.config.ts`) e em `version.json`, por isso todo o deploy tem um `buildId` novo.
+2. **No navegador** (`src/utils/appUpdates.ts`, `src/utils/cacheCleanup.ts`): ao detetar um `buildId` diferente em `/version.json`, a app aplica o service worker novo; se não houver worker novo (preso ou em falta), **apaga o Cache Storage, desregista os service workers e recarrega** (uma vez por versão, depois de guardar o trabalho pendente). Ao arrancar numa versão nova também apaga os caches de execução antigos.
+3. **Manual**: abrir `…/?limpar-cache` ou Admin → Sistema → «Limpar cache e recarregar».
+4. `vercel.json` serve `sw.js`, `sw-migration.js`, `registerSW.js`, `version.json` e `index.html` sem cache.
+
+A limpeza **nunca** toca em localStorage, sessionStorage nem IndexedDB (projetos, sessão e catálogo ficam intactos). Commits com `--no-verify` não atualizam o carimbo.
