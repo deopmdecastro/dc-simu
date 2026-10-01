@@ -62,13 +62,22 @@ export default function MultimeterDm20Panel({ component, model }: { component: E
     rotatePart('occurrence_of_Plane008_Material004_0')
     rotatePart('occurrence_of_Plane010_Material003_0')
   }, [model, dialAngle])
+  const lcdFit = useMemo(() => {
+    const glass = model?.getObjectByName('occurrence_of_Cube002_Material008_0')
+    if (!glass) return { position: [0, 1.49, 0.102] as [number, number, number], size: [0.6, 0.32] as [number, number] }
+    model!.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(glass, true)
+    const center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3())
+    // Quatro milésimos à frente do vidro: visualmente colado, sem z-fighting.
+    return { position: [center.x, center.y, box.max.z + 0.004] as [number, number, number], size: [size.x, size.y] as [number, number] }
+  }, [model])
   const act = (control: ControlDef, gesture: 'press' | { step: 1 | -1 }) => triggerControl(DM20_DEFINITION, component.id, control, gesture)
   const hit = (id: string, x: number, y: number, control: ControlDef) => <mesh position={[x, y, 0.18]}
     onPointerDown={(e) => { e.stopPropagation(); setPressed(id) }} onPointerUp={(e) => { e.stopPropagation(); setPressed(''); act(control, 'press') }} onPointerOut={() => setPressed('')}>
     <circleGeometry args={[0.075, 20]} /><meshStandardMaterial transparent opacity={pressed === id ? 0.35 : 0.03} color="#94a3b8" /></mesh>
   return <group>
-    {/* O LCD original é rebaixado em relação à moldura: z≈0,09 após a normalização. */}
-    <mesh position={[0, 1.49, 0.091]} renderOrder={4}><planeGeometry args={[0.60, 0.32]} /><meshBasicMaterial map={texture} toneMapped={false} polygonOffset polygonOffsetFactor={-4} polygonOffsetUnits={-4} /></mesh>
+    {/* Tamanho e posição vêm diretamente da caixa do vidro LCD no próprio GLB. */}
+    <mesh position={lcdFit.position} renderOrder={4}><planeGeometry args={lcdFit.size} /><meshBasicMaterial map={texture} toneMapped={false} polygonOffset polygonOffsetFactor={-4} polygonOffsetUnits={-4} /></mesh>
     <mesh position={[0, 0.67, 0.18]} onPointerDown={(e) => { e.stopPropagation(); act(selector, { step: e.shiftKey ? -1 : 1 }) }}>
       <circleGeometry args={[0.21, 28]} /><meshBasicMaterial transparent opacity={0.025} depthWrite={false} />
     </mesh>
