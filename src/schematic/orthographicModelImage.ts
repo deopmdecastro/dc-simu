@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { cloneModelScene } from '../three/modelFit'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { createGltfLoader } from '../three/gltfLoader'
 import { CAPTURE_FRAME_PADDING as FRAME_PADDING } from '../three/captureFrame'
 
 export interface OrthographicModelImageOptions {
@@ -25,7 +25,7 @@ const sourceCache = new Map<string, Promise<THREE.Object3D>>()
 function loadSource(path: string): Promise<THREE.Object3D> {
   const cached = sourceCache.get(path)
   if (cached) return cached
-  const request = new GLTFLoader().loadAsync(path).then(({ scene }) => scene)
+  const request = createGltfLoader().loadAsync(path).then(({ scene }) => scene)
     .catch((error) => { sourceCache.delete(path); throw error })
   sourceCache.set(path, request)
   return request

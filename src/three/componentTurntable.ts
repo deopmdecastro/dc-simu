@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { createGltfLoader } from './gltfLoader'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { ComponentType } from '../types'
 import { cloneModelScene } from './modelFit'
@@ -38,7 +38,7 @@ function loadSource(path: string) {
   const cached = sourceCache.get(path)
   if (cached) return cached
   const pending = new Promise<THREE.Object3D>((resolve, reject) => {
-    new GLTFLoader().load(path, (gltf) => resolve(gltf.scene), undefined, reject)
+    createGltfLoader().load(path, (gltf) => resolve(gltf.scene), undefined, reject)
   })
   sourceCache.set(path, pending)
   pending.catch(() => sourceCache.delete(path))

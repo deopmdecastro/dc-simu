@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { createGltfLoader } from '../three/gltfLoader'
 import { nanoid } from 'nanoid'
 import type {
   CatalogMeta, ComponentDefinition, EasingName, LightState, MaterialDef, PartDef, RuntimeSpec, RuntimeTerminal, StateDef, StateOverride, Vec3,
@@ -150,7 +150,7 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
 
 export async function loadGlbAssets(def: ComponentDefinition, cache: GlbCache): Promise<boolean> {
   let changed = false
-  const loader = new GLTFLoader()
+  const loader = createGltfLoader()
   for (const part of def.parts) {
     if (part.kind !== 'glb' || !part.asset || cache.has(part.asset)) continue
     const asset = def.assets[part.asset]
@@ -159,7 +159,8 @@ export async function loadGlbAssets(def: ComponentDefinition, cache: GlbCache): 
       const buffer = await (await fetch(asset.data)).arrayBuffer()
       const gltf = await new Promise<{ scene: THREE.Object3D }>((resolve, reject) => loader.parse(buffer, '', resolve as never, reject))
       // normaliza para ≈ 50 mm de maior dimensão (o utilizador ajusta com a escala)
-      const box = new THREE.Box3().setFromObject(gltf.scene)
+      gltf.scene.updateMatrixWorld(true)
+      const box = new THREE.Box3().setFromObject(gltf.scene, true)
       const size = box.getSize(new THREE.Vector3())
       const largest = Math.max(size.x, size.y, size.z) || 1
       const holder = new THREE.Group()

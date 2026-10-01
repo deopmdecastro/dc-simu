@@ -40,9 +40,21 @@ export async function importGlbAction(file: File | undefined): Promise<string> {
     const part: PartDef = { ...defaultPart('glb', null, file.name.replace(/\.glb$/i, '')), asset: assetId }
     const next = { ...state.def, assets: { ...state.def.assets, [assetId]: { name: file.name, mime: 'model/gltf-binary', data } }, parts: [...state.def.parts, part] }
     await loadGlbAssets(next, glbCache)
-    state.edit(() => next)
+    if (!glbCache.has(assetId)) return 'Não foi possível interpretar este GLB (ficheiro inválido ou com compressão não suportada). Exporte-o novamente como .glb simples.'
+    // o corpo de exemplo («Corpo», caixa 36×80×58 intacta) esconderia o modelo importado: substitui-o
+    const placeholder = state.def.parts.length === 1 && state.def.parts[0].name === 'Corpo' && state.def.parts[0].kind === 'box' && state.def.parts[0].size.join() === '36,80,58'
+    const parts = placeholder ? [part] : next.parts
+    // pousa o modelo no chão (base a Y = 0), como o resto da peça
+    const box = boundsMm({ ...next, parts: [part] }, glbCache)
+    // tamanho inicial utilizável: a maior dimensão fica com 100 mm (ajuste depois em Escala)
+    const size = box.getSize(box.min.clone())
+    const k = Math.max(0.01, Math.round((100 / (Math.max(size.x, size.y, size.z) || 100)) * 100) / 100)
+    const placed: PartDef = { ...part, scale: [k, k, k], position: [part.position[0], Math.round((part.position[1] - box.min.y) * k * 100) / 100, part.position[2]] }
+    const final = { ...next, parts: parts.map((item) => (item.id === part.id ? placed : item)) }
+    state.edit(() => final)
     state.bumpGlb()
     state.set({ selection: { kind: 'part', id: part.id }, tab: 'object' })
+    state.cameraTo('fit')
     return ''
   } catch { return 'Não foi possível ler o modelo GLB.' }
 }

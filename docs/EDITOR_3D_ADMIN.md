@@ -92,3 +92,7 @@ Categoria **Instrumentos** na biblioteca de bornes (também disponível para uti
 A lista «Biblioteca 3D» mostra **todos** os componentes da plataforma: primeiro os do catálogo (criados no editor 3D) e, no fim, os **integrados** (`TEMPLATES` do simulador, 66 tipos), com miniatura 3D carregada só quando o cartão fica visível. Filtro «Integrados» e pesquisa incluídos.
 
 «Editar no 3D» cria **uma vez** uma cópia independente em rascunho (`builtinComponents.ts`): o GLB original (referenciado por URL, sem encher o armazenamento do navegador), com a rotação base e escala pela altura física do Painel 3D, assente em Y = 0; os bornes passam para a caixa envolvente (topo/base/frente conforme a posição no esquema); sem CAD, usa-se um volume com as dimensões físicas. A cópia fica marcada em `properties` (`Origem = Integrado · <tipo>`), o cartão integrado desaparece e a cópia aparece no catálogo com a etiqueta «Integrado». O componente integrado do simulador nunca é alterado.
+
+### Importar GLB
+
+O carregador de GLB (`src/three/gltfLoader.ts`) suporta modelos comprimidos com **Meshopt** (glTF-Transform, gltpack) e **Draco**, e geometria quantizada. Ao importar: se a peça de exemplo «Corpo» continua intacta, é substituída pelo modelo; este fica no chão (Y = 0), com a maior dimensão a 100 mm (ajuste em Escala) e a câmara enquadra-o. Se o ficheiro não puder ser lido, aparece uma mensagem de erro em vez de uma peça vazia.
