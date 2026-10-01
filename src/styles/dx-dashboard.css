@@ -683,6 +683,9 @@
 .dx-proj-art > .dx-cover > svg { display: block; width: 100%; height: 100%; padding: 22px 18px 34px; box-sizing: border-box; }
 .dx-proj:hover .dx-proj-art > .dx-cover > svg { transform: scale(1.03); }
 .dx-cover > svg { transition: transform 700ms var(--dx-ease-out); }
+.dx-cover-real { overflow: hidden; background: #e9eef5; }
+.dx-cover-photo { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; transition: transform 700ms var(--dx-ease-out); user-select: none; }
+.dx-proj:hover .dx-cover-photo, .dx-hero:hover .dx-cover-photo { transform: scale(1.03); }
 .dx-cover-plate { fill: #fff; stroke: #d9e1ec; filter: drop-shadow(0 2px 6px rgba(30, 50, 90, 0.1)); }
 .dx-cover-img { filter: drop-shadow(0 1px 1.5px rgba(20, 35, 60, 0.28)); }
 .dx-cover-pin { fill: #2655e5; stroke: #fff; stroke-width: 0.5; }

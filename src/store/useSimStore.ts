@@ -49,6 +49,7 @@ import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOri
 import { automaticTerminalViewPositions, componentTerminalLocal, terminal3DFromProjectedLocal } from '../schematic/componentTerminalViews'
 import { componentPositionIsFree, nearestFreeComponentPosition, resolveComponentMove } from '../schematic/componentCollision'
 import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosition, terminal3DPositionOf, type Terminal3DPosition } from '../three/terminal3D'
+import { setStoredCover } from '../three/coverCapture'
 import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, nextComponentHistory, previousComponentRevision, upgradeComponentEditorMetadata } from '../three/componentRevisions'
 
 export interface Snapshot {
@@ -2005,6 +2006,7 @@ export const useSimStore = create<Store>((set, get) => ({
   loadJSON: (json) => {
     try {
       const parsed = JSON.parse(json)
+      setStoredCover(parsed?.cover)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
       const loadedComponents = sourceComponents.map(upgradeLogoTerminals).map(upgradeProauto24A).map(upgradePhysicalFootprint)
@@ -2051,6 +2053,7 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   newProject: () => {
+    setStoredCover(null)
     get().stop()
     set({
       components: [],

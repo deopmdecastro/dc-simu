@@ -5,6 +5,7 @@ import Logo from './ui/Brand'
 import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight } from './ui/icons'
 import Landing from './landing/Landing'
 import Dashboard, { type User, type Project, type Invite } from './dashboard/Dashboard'
+import { canCaptureCover, captureCover, hasStoredCover } from './three/coverCapture'
 import { useSimStore } from './store/useSimStore'
 import { accountApi } from './auth/accountApi'
 import { useComponentSettings } from './admin/componentSettings'
@@ -91,7 +92,7 @@ export default function Account() {
     if (!entry) return
     const response = await api<{ revision: number }>('/projects/' + entry.id, 'PUT', {
       revision: entry.revision,
-      content: JSON.parse(useSimStore.getState().saveJSON()),
+      content: { ...JSON.parse(useSimStore.getState().saveJSON()), cover: captureCover() ?? undefined },
     })
     const updated = { ...entry, revision: response.revision }
     openRef.current = updated
@@ -173,6 +174,12 @@ export default function Account() {
 
   async function leave() {
     if (useSimStore.getState().dirty && !confirm('Existem alterações não guardadas. Voltar aos projetos?')) return false
+    // Projetos antigos sem miniatura: captura a cena 3D e guarda-a antes de sair.
+    if (!useSimStore.getState().dirty && openRef.current && !hasStoredCover() && canCaptureCover() && useSimStore.getState().components.length) {
+      try {
+        if (captureCover()) await persistOpenProject(false)
+      } catch { /* a miniatura é opcional */ }
+    }
     useSimStore.getState().stop()
     openRef.current = null
     setOpen(null)

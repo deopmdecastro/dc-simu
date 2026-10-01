@@ -127,7 +127,8 @@ function buildPreview(content){
   const a=at.get(w.fromTerminalId)||(w.fromPoint&&[w.fromPoint.x,w.fromPoint.y]),b=at.get(w.toTerminalId)||(w.toPoint&&[w.toPoint.x,w.toPoint.y])
   return a&&b?{a:[Math.round(a[0]),Math.round(a[1])],b:[Math.round(b[0]),Math.round(b[1])],c:typeof w.color==='string'?w.color.slice(0,16):undefined}:null
  }).filter(Boolean)
- return {components,wires,stats:{components:Array.isArray(data?.components)?data.components.length:0,wires:Array.isArray(data?.wires)?data.wires.length:0,rungs:Array.isArray(data?.ladder?.rungs)?data.ladder.rungs.length:0}}
+ const cover=typeof data?.cover==='string'&&data.cover.startsWith('data:image/jpeg;base64,')&&data.cover.length<=420000?data.cover:undefined
+ return {components,wires,cover,stats:{components:Array.isArray(data?.components)?data.components.length:0,wires:Array.isArray(data?.wires)?data.wires.length:0,rungs:Array.isArray(data?.ladder?.rungs)?data.ladder.rungs.length:0}}
 }
 app.get('/api/projects',auth,(req,res)=>{
  const rows=db.prepare(`SELECT p.id,p.name,p.revision,p.updated_at,p.content,u.name owner,CASE WHEN p.owner_id=? THEN 'owner' ELSE 'editor' END role FROM projects p JOIN users u ON u.id=p.owner_id WHERE p.owner_id=? OR EXISTS(SELECT 1 FROM members m WHERE m.project_id=p.id AND m.user_id=?) ORDER BY p.updated_at DESC`).all(req.user.id,req.user.id,req.user.id)

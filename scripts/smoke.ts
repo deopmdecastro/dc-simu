@@ -45,6 +45,7 @@ import { CAPTURE_FRAME_PADDING } from '../src/three/captureFrame'
 import { isMountingRail } from '../src/three/modelPaths'
 import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from '../src/three/panelLayout'
 import { terminal3DFromProjectedLocal, projectedTerminalLocal } from '../src/schematic/componentTerminalViews'
+import { buildProjectPreview } from '../src/dashboard/projectPreview'
 import { viewCubeMatrix } from '../src/components/ViewCube'
 import { componentBounds2D, componentsOverlap2D, nearestFreeComponentPosition, resolveComponentMove } from '../src/schematic/componentCollision'
 
@@ -1509,6 +1510,12 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('palavra-passe: regras', !!passwordProblem('curta1A') && !!passwordProblem('semmaiusculas123') && !!passwordProblem('SEMMINUSCULAS123') && !!passwordProblem('SemNumerosAqui') && passwordProblem('Segredo12345') === null)
   check('palavra-passe: gerada cumpre as regras e varia', (() => { const set = new Set(Array.from({ length: 50 }, () => generatePassword())); return set.size === 50 && [...set].every((value) => passwordProblem(value) === null && value.length === 14) })())
   check('contas fixas reconhecidas', isFixedAccount({ email: 'admin@dcsimu.local', role: 'admin' }) && !isFixedAccount({ email: 'admin@dcsimu.local', role: 'user' }) && !isFixedAccount({ email: 'ana@x.pt', role: 'user' }))
+}
+
+{
+  const jpg = 'data:image/jpeg;base64,/9j/AAAA'
+  check('cover: miniatura JPEG guardada passa para o preview', buildProjectPreview({ components: [], wires: [], cover: jpg }).cover === jpg)
+  check('cover: ignora conteúdo que não é JPEG data URL', buildProjectPreview({ components: [], wires: [], cover: 'http://x/y.jpg' }).cover === undefined && buildProjectPreview({ components: [] }).cover === undefined)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

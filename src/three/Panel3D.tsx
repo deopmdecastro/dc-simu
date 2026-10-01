@@ -19,6 +19,7 @@ import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, sch
 import ComponentViewEditor from '../components/ComponentViewEditor'
 import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from './panel3DEditing'
+import { registerCoverCapture } from './coverCapture'
 import { WireEnd3D } from './WireEnd3D'
 import { WireDrawController, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
@@ -357,7 +358,7 @@ function SelectionGlow({ component }: { component: ElectricalComponent }) {
   useEffect(() => () => material.dispose(), [material])
   // Fade-in suave em vez de aparecer de repente.
   useFrame((_, delta) => { material.opacity += (0.6 - material.opacity) * Math.min(1, delta * 9) })
-  return <sprite position={[center.x, center.y, center.z]} scale={[diameter, diameter, 1]} material={material} renderOrder={-1} raycast={() => null} />
+  return <sprite position={[center.x, center.y, center.z]} scale={[diameter, diameter, 1]} material={material} renderOrder={-1} raycast={() => null} userData={{ noSnapshot: true }} />
 }
 
 function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, connectionMode, connectionStartId, onSelect, onMove, onDragStart, onDragTo, onDragEnd, onTerminalPick, children }: {
@@ -461,8 +462,8 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
       <group rotation={rotation}>
         <group scale={[scale.x, scale.y, scale.z]}>
           <group ref={modelRef} position={[-sourcePivot[0], -sourcePivot[1], -sourcePivot[2]]}>{children}</group>
-          {editingTerminals && c.terminals.map((terminal) => <EditableTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === activeTerminalId} />)}
-          {connectionMode && !editingTerminals && c.terminals.map((terminal) => <ConnectionTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === connectionStartId} />)}
+          {editingTerminals && <group userData={{ noSnapshot: true }}>{c.terminals.map((terminal) => <EditableTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === activeTerminalId} />)}</group>}
+          {connectionMode && !editingTerminals && <group userData={{ noSnapshot: true }}>{c.terminals.map((terminal) => <ConnectionTerminal3D key={terminal.id} component={c} terminal={terminal} active={terminal.id === connectionStartId} />)}</group>}
         </group>
       </group>
     </group>
@@ -1270,7 +1271,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     const baseCentroid = drag?.kind === 'all' && drag.wireId === wire.id && drag.origin ? drag.origin : centroidOf(storedWire.waypoints3D ?? [], baseFrom, baseTo)
     const centroid = centroidOf(manual, from, to)
     return <group key={wire.id} userData={{ noPick: true }}>
-      {selected && <mesh renderOrder={18} raycast={() => null}>
+      {selected && <mesh renderOrder={18} raycast={() => null} userData={{ noSnapshot: true }}>
         <tubeGeometry args={[curve, segments, radius + 0.014, 10, false]} />
         <meshBasicMaterial color="#60a5fa" transparent opacity={0.34} depthWrite={false} />
       </mesh>}
@@ -1521,6 +1522,57 @@ function DotGrid({ size, dark, bounds }: { size: number; dark: boolean; bounds: 
 
 /** Fundo “mundo” partilhado pelo Esquema e pela Visualização 3D: chão + parede
  * de quadrícula atrás da chapa, para a cena ter profundidade em qualquer vista. */
+/** Regista a captura da miniatura do projeto: renderiza uma vista frontal enquadrada
+ *  na própria cena (mesmo renderer, mesmas luzes/modelos) e exporta um JPEG leve. */
+function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | null; background: string }) {
+  const { gl, scene, invalidate } = useThree()
+  const ref = useRef({ bounds, background })
+  ref.current = { bounds, background }
+  useEffect(() => {
+    registerCoverCapture(() => {
+      const { bounds: b, background: bg } = ref.current
+      const src = gl.domElement
+      if (!b || src.width < 16 || src.height < 16) return null
+      const fov = 44
+      const aspect = src.width / src.height
+      // Janela de recorte com formato de cover (16:10) centrada no painel.
+      const target = 1.6
+      const fh = Math.min(1, aspect / target)
+      const fw = Math.min(1, (fh * target) / aspect)
+      const cx = (b.minX + b.maxX) / 2
+      const cy = (b.minY + b.maxY) / 2
+      const halfTan = Math.tan((fov * Math.PI) / 360)
+      const windowHeight = Math.max(b.maxY - b.minY, (b.maxX - b.minX) / target) * 1.1
+      const dist = windowHeight / fh / 2 / halfTan + 0.6
+      const cam = new THREE.PerspectiveCamera(fov, aspect, 0.05, 400)
+      cam.position.set(cx, cy, dist)
+      cam.lookAt(cx, cy, 0)
+      cam.updateMatrixWorld()
+      const hidden: THREE.Object3D[] = []
+      scene.traverse((o) => { if (o.userData?.noSnapshot && o.visible) { o.visible = false; hidden.push(o) } })
+      try {
+        gl.render(scene, cam)
+        const sw = src.width * fw, sh = src.height * fh
+        const scale = Math.min(1, 800 / sw)
+        const out = document.createElement('canvas')
+        out.width = Math.max(1, Math.round(sw * scale))
+        out.height = Math.max(1, Math.round(sh * scale))
+        const ctx = out.getContext('2d')
+        if (!ctx) return null
+        ctx.fillStyle = bg
+        ctx.fillRect(0, 0, out.width, out.height)
+        ctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, out.width, out.height)
+        return out.toDataURL('image/jpeg', 0.8)
+      } finally {
+        hidden.forEach((o) => { o.visible = true })
+        invalidate()
+      }
+    })
+    return () => registerCoverCapture(null)
+  }, [gl, scene, invalidate])
+  return null
+}
+
 function WorldBackdrop({ center, floorY, dark }: { center: [number, number, number]; floorY: number; dark: boolean }) {
   const main = dark ? '#334155' : '#c3cdda'
   const sub = dark ? '#243041' : '#dfe5ee'
@@ -2223,6 +2275,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       </div>
       <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
         <color attach="background" args={[sceneBackground]} />
+        <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />

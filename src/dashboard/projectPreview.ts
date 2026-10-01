@@ -21,6 +21,14 @@ export type ProjectPreviewData = {
   wires: PreviewWire[]
   /** contagens reais do projeto (o preview pode estar truncado) */
   stats?: { components: number; wires: number; rungs: number }
+  /** miniatura real do painel 3D (JPEG data URL) capturada pelo editor ao guardar */
+  cover?: string
+}
+
+/** Valida a miniatura guardada no conteúdo do projeto. */
+export function previewCoverOf(data: unknown): string | undefined {
+  const value = (data as { cover?: unknown } | null)?.cover
+  return typeof value === 'string' && value.startsWith('data:image/jpeg;base64,') && value.length <= 420_000 ? value : undefined
 }
 
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d)
@@ -91,5 +99,5 @@ export function buildProjectPreview(content: unknown): ProjectPreviewData {
   }
 
   const ladder = isObj(data.ladder) && Array.isArray(data.ladder.rungs) ? data.ladder.rungs.length : 0
-  return { components, wires, stats: { components: rawList.length, wires: rawWires.length, rungs: ladder } }
+  return { components, wires, cover: previewCoverOf(data), stats: { components: rawList.length, wires: rawWires.length, rungs: ladder } }
 }
