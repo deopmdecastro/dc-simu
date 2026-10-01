@@ -724,10 +724,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   multimeterDm20: {
     category: 'measurement', paletteName: 'Multímetro digital RGK DM-20', group: 'Aparelhos de medir', tag: 'MM', w: 132, h: 276,
     terminals: [
-      T('COM', 'io', 0.74, 0.965, { defId: 'dm20-com', position3D: { x: 0.78, y: 0.035, z: 0.81 }, terminalType: 'plug', diameter: 12, color: '#111827', electricalClass: 'other' }),
-      T('VΩ', 'io', 0.74, 0.83, { defId: 'dm20-volt', position3D: { x: 0.78, y: 0.17, z: 0.81 }, terminalType: 'plug', diameter: 12, color: '#dc2626', electricalClass: 'other' }),
-      T('mA', 'io', 0.26, 0.83, { defId: 'dm20-ma', position3D: { x: 0.22, y: 0.17, z: 0.81 }, terminalType: 'plug', diameter: 12, color: '#dc2626', electricalClass: 'other' }),
-      T('10A', 'io', 0.26, 0.965, { defId: 'dm20-amp', position3D: { x: 0.22, y: 0.035, z: 0.81 }, terminalType: 'plug', diameter: 12, color: '#dc2626', electricalClass: 'other' }),
+      T('COM', 'io', 0.772, 0.93, { defId: 'dm20-com', position3D: { x: 0.77205, y: 0.07044, z: 0.67151 }, terminalType: 'plug', diameter: 8, color: '#111827', electricalClass: 'other' }),
+      T('VΩ', 'io', 0.789, 0.829, { defId: 'dm20-volt', position3D: { x: 0.78887, y: 0.17108, z: 0.67391 }, terminalType: 'plug', diameter: 8, color: '#dc2626', electricalClass: 'other' }),
+      T('mA', 'io', 0.211, 0.829, { defId: 'dm20-ma', position3D: { x: 0.21113, y: 0.17108, z: 0.67391 }, terminalType: 'plug', diameter: 8, color: '#dc2626', electricalClass: 'other' }),
+      T('10A', 'io', 0.228, 0.93, { defId: 'dm20-amp', position3D: { x: 0.22795, y: 0.07044, z: 0.67151 }, terminalType: 'plug', diameter: 8, color: '#dc2626', electricalClass: 'other' }),
     ],
     defaultState: { selector: 'off', hold: false, backlight: false, relative: false },
   },
