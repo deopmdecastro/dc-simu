@@ -1382,7 +1382,7 @@ function DotGrid({ size, dark, bounds }: { size: number; dark: boolean; bounds: 
   const height = bounds ? Math.min(fullH, bounds.maxY - bounds.minY) : fullH
   const texture = useMemo(() => {
     const anisotropy = gl.capabilities.getMaxAnisotropy()
-    const t = dotGridTexture(dark ? '#a9b8cf' : '#3f4f68', 2.3, (width / fullW) * (widthPx / step), (height / fullH) * (heightPx / step), anisotropy)
+    const t = dotGridTexture(dark ? '#a9b8cf' : '#3f4f68', 2.9, (width / fullW) * (widthPx / step), (height / fullH) * (heightPx / step), anisotropy)
     // Mantém os pontos alinhados com a grelha de encaixe do Esquema, mesmo com a chapa recortada.
     t.offset.set(((cx - width / 2 + fullW / 2) / fullW) * (widthPx / step), ((cy - height / 2 + fullH / 2) / fullH) * (heightPx / step))
     return t
@@ -1953,7 +1953,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {/* A grelha de edição partilhada permanece montada em todas as vistas 3D.
             A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}
         {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} />}
-        {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} dark={backgroundMode === 'dark'} bounds={plateBounds} />}
+        {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} dark={backgroundMode === 'dark'} bounds={frontEdit ? null : plateBounds} />}
         {frontEdit && placingType && hasComponent3DModel(placingType) && <PlacementPlane step={gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0} onPlace={(x, y) => {
           const step = gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0
           const snapTo = (value: number) => step ? Math.round(value / step) * step : Math.round(value)
