@@ -93,7 +93,7 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
   )
 }
 
-export default function Toolbar({ mode, setMode, ladderSection, setLadderSection, onBack }: { mode: ViewMode; setMode: (m: ViewMode) => void; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void }) {
+export default function Toolbar({ mode, setMode, ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet }: { mode: ViewMode; setMode: (m: ViewMode) => void; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void }) {
   const {
     sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
     step, saveJSON, loadJSON, tool, setTool, grid, setGrid, zoom, setZoom,
@@ -278,6 +278,11 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
             <IconRedo size={13} />
           </button>
         </div>
+
+        {mode === 'schematic' && <div className="dc-mobile-panel-tools" role="group" aria-label="Painéis">
+          <button className="dc-tool-btn" onClick={onOpenLibrary} title="Abrir biblioteca em ecrã inteiro"><IconCube size={14} /><span>Biblioteca</span></button>
+          <button className="dc-tool-btn" onClick={onOpenGrafcet} title="Abrir GRAFCET em ecrã inteiro"><IconStep size={14} /><span>GRAFCET</span></button>
+        </div>}
 
         {mode === 'ladder' && <>
           <span className="tb-sep" />

@@ -30,6 +30,7 @@ export default function App({ onBack }: { onBack: () => void }) {
   const compactWorkspace = () => window.innerWidth < 1200 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches
   const [showLadder, setShowLadder] = useState(() => !compactWorkspace())
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
+  const compact = compactWorkspace()
 
   // Reaplica o layout ao atravessar o breakpoint (ex.: redimensionar a janela
   // ou rodar o tablet), sem interferir nos painéis enquanto o modo não muda.
@@ -130,7 +131,9 @@ export default function App({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="h-full w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
-      <Toolbar onBack={onBack} mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection} />
+      <Toolbar onBack={onBack} mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection}
+        onOpenLibrary={() => { setShowLadder(false); setShowLibrary(true) }}
+        onOpenGrafcet={() => { setShowLibrary(false); setShowLadder(true) }} />
       <div className="flex-1 flex min-h-0 dc-workspace relative" data-component-editing={mode === 'schematic' && editingComponent ? 'true' : 'false'}>
         {mode === 'schematic' && (showLibrary || showLadder) && (
           <button
@@ -142,8 +145,8 @@ export default function App({ onBack }: { onBack: () => void }) {
         )}
         {mode === 'schematic' && showLibrary && (
           <>
-            <div className="mobile-library-panel relative shrink-0 flex flex-col" style={{ width: panelSizes.sidebar }}>
-              <Sidebar width={panelSizes.sidebar} />
+            <div className={`mobile-library-panel relative shrink-0 flex flex-col ${compact ? 'dc-mobile-fullscreen-panel' : ''}`} style={compact ? undefined : { width: panelSizes.sidebar }}>
+              <Sidebar width={compact ? window.innerWidth : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} />
               <button className="dc-dock-close" onClick={() => setShowLibrary(false)} title="Recolher biblioteca e inspetor" aria-label="Recolher biblioteca e inspetor">◂</button>
             </div>
             <div
@@ -167,8 +170,8 @@ export default function App({ onBack }: { onBack: () => void }) {
         {mode === 'schematic' && <ComponentEditorDock />}
         {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
           <div
-            className={`${showLadder ? 'min-w-[320px]' : 'w-9'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
-            style={showLadder ? { width: panelSizes.ladder } : undefined}
+            className={`${showLadder ? 'min-w-[320px]' : 'w-9'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} ${compact && showLadder ? 'dc-mobile-fullscreen-panel' : ''} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
+            style={showLadder && !compact ? { width: panelSizes.ladder } : undefined}
           >
             {showLadder ? (
               <>

@@ -147,7 +147,7 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
  * Painel esquerdo: biblioteca de componentes (clique adiciona ao esquema) e
  * inspetor completo do que está selecionado (componente, borne ou cabo).
  */
-export default function Sidebar({ width = 300 }: { width?: number }) {
+export default function Sidebar({ width = 300, quickAddOnPick = false, onComponentAdded }: { width?: number; quickAddOnPick?: boolean; onComponentAdded?: () => void }) {
   const components = useSimStore((s) => s.components)
   const grid = useSimStore((s) => s.grid)
   const wires = useSimStore((s) => s.wires)
@@ -263,6 +263,11 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
     setTab('inspector')
   }
 
+  const pickFromLibrary = (type: ComponentType) => {
+    if (quickAddOnPick) { addImmediate(type); onComponentAdded?.() }
+    else add(type)
+  }
+
   const filtered = useMemo(() => {
     if (!filter.trim()) return groups
     const f = filter.trim().toLocaleLowerCase('pt-PT')
@@ -308,8 +313,8 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
           </div>
           {placingType && <div className="p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center"><span className="flex-1">A posicionar: {TEMPLATES[placingType]?.paletteName ?? placingType}</span><button className="dc-btn !h-6" onClick={() => useSimStore.getState().setPlacingType(null)}>Cancelar</button></div>}
           <div className="flex-1 overflow-y-auto p-2 min-h-0 dc-library-scroll">
-            {recent.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">◴ Recentes <span>{recent.length}</span></div><div className="dc-library-recent">{recent.map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => add(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
-            {favorites.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">★ Favoritos <span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => add(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
+            {recent.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">◴ Recentes <span>{recent.length}</span></div><div className="dc-library-recent">{recent.map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
+            {favorites.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">★ Favoritos <span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
             {!filtered.length && (
               <div className="dc-empty-state">
                 <span className="dc-empty-state-icon"><IconSearch size={18} /></span>
@@ -324,7 +329,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 <button type="button" aria-expanded={!isCollapsed} className="dc-library-folder-head" onClick={() => toggleGroup(g.group)} title={`${isCollapsed ? 'Expandir' : 'Recolher'} ${g.group}`}>
                   <span className="dc-library-folder-icon"><IconProjects size={16} /></span><strong>{g.group}</strong><span className="dc-library-folder-count">{g.items.length}</span><IconChevronDown size={13} className={`dc-library-folder-chevron ${isCollapsed ? '' : 'is-open'}`} />
                 </button>
-                {!isCollapsed && <div className="dc-library-grid">{g.items.map((it) => <LibraryTile key={it.type} type={it.type} name={it.name} favorite={favorites.includes(it.type)} placing={placingType === it.type} onPick={() => add(it.type)} onQuickAdd={() => addImmediate(it.type)} onFavorite={() => toggleFavorite(it.type)} onRecent={() => markRecent(it.type)} />)}</div>}
+                {!isCollapsed && <div className="dc-library-grid">{g.items.map((it) => <LibraryTile key={it.type} type={it.type} name={it.name} favorite={favorites.includes(it.type)} placing={placingType === it.type} onPick={() => pickFromLibrary(it.type)} onQuickAdd={() => addImmediate(it.type)} onFavorite={() => toggleFavorite(it.type)} onRecent={() => markRecent(it.type)} />)}</div>}
               </section>
             })}
              <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
