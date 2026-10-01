@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { ElectricalComponent, SpatialPoint3D, Wire, WireColor, WireEndType } from '../types'
-import { PANEL_UNITS_PER_MM } from './modelPaths'
+import { PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from './modelPaths'
 import { PLATE_THICKNESS, PLATE_Z } from './panelBounds'
 import { panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { terminalNormalWorld3D, terminalWorld3D } from './terminal3D'
@@ -45,6 +45,8 @@ export type WireEndpoint3D = {
   normal: V3 | null
   /** Cor do borne (a ponteira segue-a até ser personalizada). */
   terminalColor?: string
+  /** Diâmetro físico estimado do encaixe; só altera a terminação, nunca o cabo. */
+  socketDiameterMm?: number
   free: boolean
 }
 
@@ -75,6 +77,9 @@ export function wireEndpoint3D(
       position: arr(terminalWorld3D(component, terminal, pivot)),
       normal: arr(terminalNormalWorld3D(component, terminal)),
       terminalColor: terminal.color,
+      // `diameter` usa unidades do esquema; a escala física partilhada converte-o
+      // para mm. 82% representa a abertura útil dentro do aro desenhado.
+      socketDiameterMm: Math.max(1, Math.min(14, ((terminal.diameter ?? 9) / SCHEMATIC_PX_PER_MM) * 0.82)),
       free: false,
     }
   }
@@ -108,6 +113,8 @@ export type WireEndGeometry = {
   normal: V3
   /** Quanto a terminação entra no borne (mm), só para ponteiras redondas. */
   embedMm: number
+  /** Diâmetro útil do furo/encaixe onde esta ponta foi ligada. */
+  socketDiameterMm?: number
   /** Distância (unidades) da ponta ao ponto onde o cabo isolado começa. */
   length: number
 }
@@ -130,14 +137,16 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3): { hea
   const thick = normal && flat ? normal.clone() : new THREE.Vector3(0, 0, 1).addScaledVector(axis, -axis.z)
   if (thick.lengthSq() < 1e-6) thick.set(0, 1, 0).addScaledVector(axis, -axis.y)
   thick.normalize()
-  const embedMm = normal && !flat && (type === 'ferrule' || type === 'ferruleDouble' || type === 'pin') ? 3 : 0
+  // Toda a parte metálica tubular fica dentro do encaixe; fora do borne começa
+  // diretamente o colar plástico. A profundidade não altera o cabo.
+  const embedMm = normal && !flat && (type === 'ferrule' || type === 'ferruleDouble' || type === 'pin') ? 8 : 0
   const length = Math.max(0.01, (wireEndLengthMm(type) - embedMm) * U)
   const lift = normal && flat ? normal.clone().multiplyScalar(0.004) : new THREE.Vector3()
   const origin = tip.clone().add(lift)
   const head = origin.clone().addScaledVector(axis, length)
   return {
     head: arr(head),
-    geometry: { type, origin: arr(origin), axis: arr(axis), normal: arr(thick), embedMm, length },
+    geometry: { type, origin: arr(origin), axis: arr(axis), normal: arr(thick), embedMm, socketDiameterMm: endpoint.socketDiameterMm, length },
   }
 }
 

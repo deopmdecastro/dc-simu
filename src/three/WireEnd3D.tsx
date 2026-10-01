@@ -56,34 +56,38 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
 
   const R = wireRadius
   const embed = geometry.embedMm * U
-  const collarR = R * 1.17
+  const socketR = geometry.socketDiameterMm ? (geometry.socketDiameterMm * U) / 2 : R * 0.72
+  // A abertura define apenas o metal e o colar da terminação. O raio do cabo
+  // continua a vir exclusivamente da secção escolhida.
+  const collarR = Math.max(R * 1.17, socketR * 1.08)
   // As ponteiras entram `embed` no borne: o referencial começa nesse recuo.
   const body = (() => {
     switch (geometry.type) {
       case 'ferrule': {
-        const sleeve = 8 * U
+        const sleeve = embed || 8 * U
         const collar = 6 * U
         return <>
-          <Cyl y={-embed + sleeve / 2} length={sleeve} radius={R * 0.72} color={METAL} metalness={0.85} roughness={0.25} />
-          <Cyl y={-embed + sleeve + collar / 2} length={collar} radius={collarR} color={color} roughness={0.45} />
+          <Cyl y={-sleeve / 2} length={sleeve} radius={socketR * 0.98} color={METAL} metalness={0.85} roughness={0.25} />
+          <Cyl y={collar / 2} length={collar} radius={collarR} color={color} roughness={0.68} />
         </>
       }
       case 'ferruleDouble': {
-        const sleeve = 8 * U
+        const sleeve = embed || 8 * U
         const collar = 8 * U
-        const off = R * 0.58
+        const tubeR = socketR * 0.48
+        const off = socketR * 0.48
         return <group>
-          <group position={[-off, 0, 0]}><Cyl y={-embed + sleeve / 2} length={sleeve} radius={R * 0.6} color={METAL} metalness={0.85} roughness={0.25} /></group>
-          <group position={[off, 0, 0]}><Cyl y={-embed + sleeve / 2} length={sleeve} radius={R * 0.6} color={METAL} metalness={0.85} roughness={0.25} /></group>
-          <Cyl y={-embed + sleeve + collar / 2} length={collar} radius={collarR} scaleX={1.55} color={color} roughness={0.45} />
+          <group position={[-off, 0, 0]}><Cyl y={-sleeve / 2} length={sleeve} radius={tubeR} color={METAL} metalness={0.85} roughness={0.25} /></group>
+          <group position={[off, 0, 0]}><Cyl y={-sleeve / 2} length={sleeve} radius={tubeR} color={METAL} metalness={0.85} roughness={0.25} /></group>
+          <Cyl y={collar / 2} length={collar} radius={collarR} scaleX={1.55} color={color} roughness={0.68} />
         </group>
       }
       case 'pin': {
-        const pin = 9 * U
+        const pin = embed || 8 * U
         const collar = 6 * U
         return <>
-          <Cyl y={-embed + pin / 2} length={pin} radius={R * 0.34} color={METAL} metalness={0.9} roughness={0.2} />
-          <Cyl y={-embed + pin + collar / 2} length={collar} radius={collarR} color={color} roughness={0.45} />
+          <Cyl y={-pin / 2} length={pin} radius={socketR * 0.98} color={METAL} metalness={0.9} roughness={0.2} />
+          <Cyl y={collar / 2} length={collar} radius={collarR} color={color} roughness={0.68} />
         </>
       }
       case 'ring':
