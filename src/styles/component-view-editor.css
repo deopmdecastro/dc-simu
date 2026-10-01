@@ -23,69 +23,12 @@
 .component-view-angle small { color:#94a3b8; text-align:center; }
 .component-view-rotate-z { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:0 8px 8px; }
 .component-view-rotate-z button { display:flex; align-items:center; justify-content:center; gap:3px; }
-.component-terminal-editor { margin:0 8px 8px; padding:8px; border:1px solid #cbdaf8; border-radius:7px; background:#f8faff; }
-.component-terminal-editor-title { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px; }
-.component-terminal-editor-title > span { display:flex; min-width:0; flex-direction:column; }
-.component-terminal-editor-title strong { color:#25324a; font-size:9px; }
-.component-terminal-editor-title small { color:#718096; font-size:7px; }
-.component-terminal-editor-title > button { display:flex; min-height:24px; align-items:center; gap:3px; padding:0 6px; border:1px solid #a9c1f6; border-radius:5px; color:#1f55e0; background:#fff; font-size:7px; font-weight:700; }
-.component-terminal-editor-title > button:hover { background:#eaf1ff; }
-.component-terminal-editor-title > button:disabled { opacity:.45; cursor:not-allowed; }
-.component-terminal-create { display:grid; gap:6px; margin:0 0 8px; padding:8px; border:1px solid #dbe4f2; border-radius:7px; background:#fff; }
-.component-terminal-create-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
-.component-terminal-create-head > span { display:flex; flex:none; align-items:center; gap:4px; color:#1d4ed8; font-size:9px; }
-.component-terminal-create-head > small { max-width:265px; color:#64748b; font-size:7px; line-height:1.35; text-align:right; }
-.component-terminal-create-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; align-items:end; }
-.component-terminal-create-grid label { display:flex; min-width:0; flex-direction:column; gap:2px; color:#64748b; font-size:8px; }
-.component-terminal-create-grid input,.component-terminal-create-grid select { min-width:0; height:28px; padding:0 6px; border:1px solid #cdd8e7; border-radius:5px; color:#27364d; background:#fff; font-size:9px; }
-.component-terminal-create-grid input[aria-invalid=true] { border-color:#dc2626; background:#fff7f7; }
-.component-terminal-create-grid button { min-height:28px; justify-content:center; }
-.component-terminal-face-field { grid-column:1 / -1; padding:6px; border:1px solid #bfdbfe; border-radius:6px; background:#eff6ff; }
-.component-terminal-create-grid .component-terminal-face-field small { color:#526b91; font-size:7px; line-height:1.35; }
-.component-terminal-create-suggestion { color:#526078; font-size:7px; line-height:1.35; }
-.component-terminal-create-error { color:#b91c1c; font-size:7px; }
-.component-terminal-view-buttons { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; margin-bottom:6px; }
-.component-terminal-view-buttons button { min-height:22px; padding:2px; border:1px solid #d6deea; border-radius:4px; color:#526078; background:#fff; font-size:7px; font-weight:650; }
-.component-terminal-view-buttons button.active { border-color:#2f6fe4; color:#fff; background:#2f6fe4; }
-.component-terminal-map { position:relative; height:156px; overflow:hidden; border:1px solid #bfd0ed; border-radius:6px; background:radial-gradient(circle at 50% 45%,#fff,#e8eef7); touch-action:none; user-select:none; }
-.component-terminal-map::before { position:absolute; inset:0; content:""; background-image:linear-gradient(#b9c7da35 1px,transparent 1px),linear-gradient(90deg,#b9c7da35 1px,transparent 1px); background-size:12px 12px; pointer-events:none; }
-.component-terminal-map-body { position:absolute; inset:14% 12%; display:grid; place-items:center; border:1px dashed #8ea5c8; border-radius:8px; color:#8291a7; background:#dbe4f080; font:700 7px ui-monospace,monospace; }
-.component-terminal-empty { position:absolute; z-index:3; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:3px; padding:22px; color:#60718a; text-align:center; pointer-events:none; }
-.component-terminal-empty strong { font-size:10px; }
-.component-terminal-empty span { max-width:230px; font-size:8px; line-height:1.4; }
-.component-terminal-dot { position:absolute; z-index:2; width:12px; height:12px; padding:0; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px #52627b,0 2px 5px #0f172a42; transform:translate(-50%,-50%); cursor:grab; touch-action:none; }
-.component-terminal-dot:active { cursor:grabbing; }
-.component-terminal-dot.selected { box-shadow:0 0 0 3px #2f6fe4,0 3px 7px #0f172a4d; }
-.component-terminal-dot.manual::after { position:absolute; top:-5px; right:-5px; width:5px; height:5px; border:1px solid #fff; border-radius:50%; background:#16a34a; content:""; }
-.component-terminal-dot > span { position:absolute; top:-7px; left:50%; max-width:48px; overflow:hidden; padding:1px 2px; border-radius:2px; color:#26354b; background:#ffffffe8; font:700 6px ui-monospace,monospace; text-overflow:ellipsis; white-space:nowrap; transform:translate(-50%,-100%); pointer-events:none; }
-.component-terminal-controls { display:grid; grid-template-columns:1.45fr 1fr 1fr; gap:4px; margin-top:6px; }
-.component-terminal-controls label { display:flex; min-width:0; flex-direction:column; gap:2px; color:#718096; font-size:7px; }
-.component-terminal-controls input,.component-terminal-controls select { min-width:0; height:25px; padding:0 4px; border:1px solid #d4deeb; border-radius:4px; color:#334155; background:#fff; font:600 8px ui-monospace,monospace; }
-.component-terminal-editor > p { margin:6px 0 0; color:#718096; font-size:7px; line-height:1.35; }
 .component-view-tabs { position:sticky; top:44px; z-index:2; display:grid; grid-template-columns:repeat(3,1fr); gap:3px; padding:6px 8px; border-bottom:1px solid #dce3ed; background:#fff; }
 .component-view-tabs button { min-height:28px; border:1px solid #d6deea; border-radius:5px; color:#526078; background:#f8fafc; font-size:8px; font-weight:750; }
 .component-view-tabs button span { display:inline-grid; min-width:15px; height:15px; margin-left:3px; place-items:center; border-radius:8px; color:#64748b; background:#e7edf6; font-size:7px; }
 .component-view-tabs button.active { border-color:#2563eb; color:#fff; background:#2563eb; }
 .component-view-tabs button.active span { color:#1d4ed8; background:#fff; }
 .component-view-section { min-width:0; }
-.component-terminal-definition { margin-top:7px; padding-top:7px; border-top:1px solid #d7e1f1; }
-.component-terminal-definition-title { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-.component-terminal-definition-title strong { color:#25324a; font-size:9px; }
-.component-terminal-definition-title span { color:#64748b; font-size:8px; }
-.component-terminal-delete { display:inline-flex; min-height:23px; margin-left:auto; align-items:center; gap:3px; padding:0 6px; border:1px solid #fecaca; border-radius:5px; color:#b91c1c; background:#fff7f7; font-size:7px; font-weight:750; }
-.component-terminal-delete:hover { background:#fee2e2; }
-.component-terminal-definition-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
-.component-terminal-definition-grid label,.component-terminal-3d-fields label { display:flex; min-width:0; flex-direction:column; gap:2px; color:#64748b; font-size:8px; }
-.component-terminal-definition-grid label > small { color:#8491a5; font-size:6px; }
-.component-terminal-definition-grid input,.component-terminal-definition-grid select,.component-terminal-3d-fields input { min-width:0; height:28px; padding:0 5px; border:1px solid #d4deeb; border-radius:4px; color:#334155; background:#fff; font:600 9px ui-monospace,monospace; }
-.component-terminal-definition-grid .component-terminal-color { grid-column:span 2; }
-.component-terminal-definition-grid .component-terminal-color input { width:100%; padding:2px; cursor:pointer; }
-.component-terminal-3d-head { display:flex; align-items:flex-end; justify-content:space-between; gap:6px; margin:7px 0 4px; color:#334155; font-size:8px; font-weight:750; }
-.component-terminal-3d-head small { color:#8491a5; font-size:6px; font-weight:500; }
-.component-terminal-3d-fields { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; }
-.component-terminal-face-buttons { display:grid; grid-template-columns:repeat(6,1fr); gap:3px; margin-top:5px; }
-.component-terminal-face-buttons button { min-height:22px; padding:1px; border:1px solid #d5dfed; border-radius:4px; color:#526078; background:#fff; font-size:6px; font-weight:700; }
-.component-terminal-face-buttons button:hover { border-color:#7da2f5; color:#1f55e0; background:#edf4ff; }
 .component-appearance-editor { display:flex; flex-direction:column; gap:7px; padding:8px; }
 .component-appearance-editor section { padding:8px; border:1px solid #dce3ed; border-radius:7px; background:#f8fafc; }
 .component-appearance-editor section > header { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; color:#334155; font-size:8px; font-weight:750; }
@@ -147,14 +90,6 @@
 .dc-rail-length-row { display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: center; }
 .dc-rail-length-row input[type='range'] { width: 100%; accent-color: #2563eb; }
 
-.component-terminal-tracking { display:grid; grid-template-columns:1.6fr 1fr; gap:6px; margin-top:6px; }
-.component-terminal-tracking label, .component-terminal-diameter label { display:flex; min-width:0; flex-direction:column; gap:2px; color:#718096; font-size:7px; }
-.component-terminal-tracking input[type=range], .component-terminal-diameter input[type=range] { width:100%; height:18px; accent-color:#2563eb; }
-.component-terminal-tracking select { height:22px; padding:0 4px; border:1px solid #d4deeb; border-radius:4px; color:#334155; background:#fff; font:600 8px ui-monospace,monospace; }
-.component-terminal-diameter { display:grid; grid-template-columns:1.6fr 1fr; gap:6px; align-items:end; margin-top:6px; }
-.component-terminal-diameter > div { display:flex; gap:3px; }
-.component-terminal-diameter button { flex:1; min-height:22px; border:1px solid #d6deea; border-radius:4px; color:#526078; background:#f8fafc; font-size:7px; font-weight:750; }
-.component-terminal-map:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
 
 /* Duas ações no comando fechado, numa só linha para não cruzarem a barra 3D. */
 .component-view-command { display:flex; flex-direction:row; align-items:center; gap:6px; }
@@ -449,13 +384,6 @@ button.vcube-heading:hover { background:#f0f5fc; }
 .component-editor-status kbd { padding:1px 5px; border:1px solid #cbd5e1; border-radius:4px; color:#64748b; background:#f8fafc; font:600 9px ui-monospace,monospace; }
 
 /* lista rápida de bornes */
-.component-terminal-list { display:flex; flex-wrap:wrap; gap:5px; margin:0 0 10px; }
-.component-terminal-list button { display:inline-flex; align-items:center; gap:5px; min-height:30px; padding:0 9px; border:1px solid #d6deea; border-radius:15px; color:#334155; background:#f8fafc; font-size:11px; font-weight:700; }
-.component-terminal-list button i { width:9px; height:9px; border-radius:50%; box-shadow:0 0 0 1px #0f172a33; }
-.component-terminal-list button small { min-width:15px; padding:0 4px; border-radius:8px; color:#1d4ed8; background:#dbeafe; font-size:9px; text-align:center; }
-.component-terminal-list button.active { border-color:#2563eb; color:#fff; background:#2563eb; }
-.component-terminal-list button.active small { color:#1d4ed8; background:#fff; }
-.component-terminal-list button:focus-visible, .component-editor-grip:focus-visible, .component-view-editor.is-docked button:focus-visible { outline:2px solid #2f6bff; outline-offset:2px; }
 
 @media (max-width:1100px) and (min-width:761px) { .component-editor-dock { flex-basis:min(var(--dock-w,400px),46vw); width:min(var(--dock-w,400px),46vw); } }
 
@@ -472,7 +400,6 @@ button.vcube-heading:hover { background:#f0f5fc; }
   .component-view-editor.is-docked > header { padding-top:16px; }
   .component-editor-status kbd { display:none; }
   .component-view-editor.is-docked > footer .dc-btn { min-height:40px; }
-  .component-terminal-list button { min-height:36px; }
 }
 @media (prefers-reduced-motion:reduce) { .component-editor-dock { transition:none; } }
 
@@ -564,3 +491,5 @@ button.vcube-heading:hover { background:#f0f5fc; }
 @media (max-width:380px) {
   .component-view-command > button { min-width:82px; padding-inline:8px; }
 }
+
+.component-editor-grip:focus-visible, .component-view-editor.is-docked button:focus-visible { outline:2px solid #2f6bff; outline-offset:2px; }
