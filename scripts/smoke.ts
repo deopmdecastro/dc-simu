@@ -54,6 +54,7 @@ import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY
 import { terminal3DFromProjectedLocal, projectedTerminalLocal } from '../src/schematic/componentTerminalViews'
 import { buildProjectPreview } from '../src/dashboard/projectPreview'
 import { viewCubeMatrix } from '../src/components/ViewCube'
+import { scaleDefinition } from '../src/admin/editor3d/sizeOps'
 import { meterInputFor } from '../src/electrical/meterModel'
 import { EMPTY_METER_INPUT, formatDigits, multimeterEvent, multimeterReading, runControlActions, selectorStep, setSelector, evalWhen } from '../src/catalog/behavior'
 import type { ControlDef } from '../src/catalog/types'
@@ -1669,6 +1670,19 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('multímetro no circuito: sem pontas não há medição', !none.leads.volt && none.vdc === 0)
   const off = meterInputFor(def, meter, all, dcWires, energizedOf(dcWires), { dial: 'off' })
   check('multímetro no circuito: OFF não mede', off.vdc === 0 && off.vac === 0)
+}
+
+{
+  // tamanho real: escala modelo, bornes, ecrãs e poses dos estados em conjunto
+  const base = {
+    parts: [{ id: 'p1', kind: 'glb', parentId: null, position: [0, 5, 0], rotation: [0, 0, 0], scale: [2, 2, 2], size: [1, 1, 1] }, { id: 'p2', kind: 'box', parentId: null, position: [1, 2, 3], rotation: [0, 0, 0], scale: [1, 1, 1], size: [10, 20, 30] }],
+    terminals: [{ id: 't1', position: [4, 6, 8] }],
+    displays: [{ id: 'd1', position: [1, 2, 3], widthMm: 10, heightMm: 5 }],
+    states: [{ id: 's', parts: { p2: { position: [0, 4, 0] } } }],
+  } as unknown as ComponentDefinition
+  const big = scaleDefinition(base, 3)
+  check('tamanho real: GLB escala a peça, primitivas escalam as dimensões', big.parts[0].scale[0] === 6 && big.parts[0].position[1] === 15 && big.parts[1].size[2] === 90 && big.parts[1].scale[0] === 1)
+  check('tamanho real: bornes, ecrãs e estados acompanham', big.terminals[0].position.join() === '12,18,24' && big.displays![0].widthMm === 30 && big.states[0].parts.p2.position!.join() === '0,12,0')
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

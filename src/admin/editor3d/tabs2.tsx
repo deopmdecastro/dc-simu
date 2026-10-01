@@ -11,6 +11,7 @@ import { Check, Color, Confirm, Empty, Field, Num, Section, Select, Slider, Text
 import { IconCamera, IconEye, IconEyeOff, IconCheck, IconClose, IconCube, IconImage, IconLayers, IconPlus } from '../../ui/icons'
 import FaceChooser from './FaceChooser'
 import { NodePicker, whenFields } from './tabsControls'
+import { currentSizeMm, setRealSize } from './sizeOps'
 import { captureCover, type CaptureView } from './capture'
 
 const NORMALS: Array<[string, string, Vec3]> = [
@@ -349,6 +350,18 @@ function CoverSection() {
   </Section>
 }
 
+/** Tamanho real do equipamento (mm): escala o componente inteiro — modelo, bornes, ecrãs e animações — mantendo as proporções. */
+function RealSizeSection() {
+  useEditorStore((s) => s.def)
+  useEditorStore((s) => s.glbRevision)
+  const size = currentSizeMm()
+  const axes: Array<[0 | 1 | 2, string, number]> = [[0, 'Largura (X)', size.x], [1, 'Altura (Y)', size.y], [2, 'Profundidade (Z)', size.z]]
+  return <Section title="Tamanho real (mm)">
+    <p className="ce-hint">Escala o componente inteiro (modelo, bornes, ecrãs e animações) mantendo as proporções. Use as medidas do equipamento real para que fique à escala dos restantes componentes no simulador. Depois de alterar, publique uma nova versão.</p>
+    {axes.map(([axis, label, value]) => <Field key={axis} label={label}><Num value={Math.round(value * 10) / 10} min={1} step={1} unit="mm" onChange={(mm) => setRealSize(axis, mm)} /></Field>)}
+  </Section>
+}
+
 export function ComponentTab() {
   const meta = useEditorStore((s) => s.meta)
   const def = useEditorStore((s) => s.def)
@@ -372,6 +385,7 @@ export function ComponentTab() {
       <Field label="Etiquetas"><Text value={meta.tags.join(', ')} onChange={(value) => editMeta({ tags: value.split(',').map((t) => t.trim()).filter(Boolean) }, 'tags')} placeholder="separadas por vírgula" /></Field>
       <Field label="Montagem"><Select value={def.mount} onChange={(mount) => edit((state) => ({ ...state, mount }))} options={[['din-rail', 'Calha DIN'], ['panel-front', 'Frente do painel'], ['machine', 'Máquina / campo']]} /></Field>
     </Section>
+    <RealSizeSection />
     <CoverSection />
     <DatasheetSection />
     <Section title="Propriedades" open={false} actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => editMeta({ properties: [...meta.properties, { key: '', value: '' }] })}>+ Nova</button>}>

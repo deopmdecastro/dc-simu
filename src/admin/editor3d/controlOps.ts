@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import { MULTIMETER_VARS, initialVars, mergeVars, runControlActions, selectorStep, setSelector, type Vars } from '../../catalog/behavior'
-import { buildDefinitionObject, newId } from '../../catalog/definition'
+import { boundsMm, buildDefinitionObject, newId } from '../../catalog/definition'
 import { listGlbNodes } from '../../catalog/componentRig'
 import type { BehaviorDef, ComponentDefinition, ControlDef, DisplayDef, LightZoneDef, MaterialDef, PartDef, Vec3 } from '../../catalog/types'
 import { glbCache, useEditorStore } from './editorStore'
+import { setRealSize } from './sizeOps'
 
 /* --------------------------------------------------------- ações do editor sobre controlos */
 
@@ -103,6 +104,8 @@ export function addLedAt(point: Vec3, normal: Vec3) {
 /* ---------------------------------------------------------- modelo de multímetro */
 
 /** Nomes dos objetos do GLB do RGK DM-20 (ficheiro «RootNode-compressed.glb» do projeto). */
+const DM20_HEIGHT_MM = 184
+const round1 = (n: number) => Math.round(n * 10) / 10
 const DM20 = {
   dial: ['occurrence_of_Plane010_Material003_0', 'occurrence_of_Plane008_Material004_0'],
   select: ['occurrence_of_Plane004_Material003_0', 'occurrence_of_Plane013__0', 'occurrence_of_Text015__0_(2)'],
@@ -127,14 +130,27 @@ export function guessBehavior(def: ComponentDefinition): { behavior: BehaviorDef
 /** Aplica o comportamento de multímetro (seletor, botões, LCD) ao rascunho. Devolve a mensagem para o utilizador. */
 export function applyMultimeterPreset(): string {
   const store = useEditorStore.getState()
-  const def = store.def
+  let def = store.def
   const glbPart = def.parts.find((part) => part.kind === 'glb')
-  const root = buildDefinitionObject(def, glbCache)
+  let root = buildDefinitionObject(def, glbCache)
   root.updateMatrixWorld(true)
-  const holder = glbPart ? root.getObjectByName(glbPart.id) : null
+  let holder = glbPart ? root.getObjectByName(glbPart.id) : null
   const nodes = holder ? listGlbNodes(holder) : []
   const known = new Set(nodes.map((node) => node.name))
   const isDm20 = DM20.dial.every((name) => known.has(name)) && known.has(DM20.lcd)
+  let resized = ''
+  if (isDm20) {
+    // tamanho real do RGK DM-20 (com capa): 184 × 88 × 53 mm — o GLB importado vem com uma escala arbitrária
+    const height = boundsMm(def, glbCache).getSize(new THREE.Vector3()).y
+    if (height > 0 && Math.abs(height - DM20_HEIGHT_MM) > 1) {
+      setRealSize(1, DM20_HEIGHT_MM)
+      resized = ` Tamanho ajustado ao real (${DM20_HEIGHT_MM} mm de altura).`
+      def = useEditorStore.getState().def
+      root = buildDefinitionObject(def, glbCache)
+      root.updateMatrixWorld(true)
+      holder = glbPart ? root.getObjectByName(glbPart.id) ?? null : null
+    }
+  }
   const partId = glbPart?.id ?? def.parts[0]?.id ?? ''
   const { behavior, missing } = guessBehavior(def)
   const mk = (kind: ControlDef['kind'], name: string, nodeNames: string[] | undefined, extra: Partial<ControlDef>): ControlDef => ({ ...newControl(def, kind, partId), name, nodes: glbPart ? nodeNames ?? [] : undefined, ...extra })
@@ -155,7 +171,7 @@ export function applyMultimeterPreset(): string {
   const display: DisplayDef = {
     ...newDisplay(def, box.isEmpty() ? new THREE.Box3(new THREE.Vector3(-8, 20, 0), new THREE.Vector3(8, 29, 4)) : box),
     name: 'LCD', kind: 'lcd', background: '#c4c9c0', foreground: '#14171a', density: 28, lines: [],
-    ...(isDm20 ? { widthMm: 15, heightMm: 9, hideNodesPart: partId, hideNodes: DM20.paintedDigits } : { widthMm: 16, heightMm: 9 }),
+    ...(isDm20 ? { widthMm: round1(box.getSize(new THREE.Vector3()).x * 0.96), heightMm: round1(box.getSize(new THREE.Vector3()).y * 0.96), hideNodesPart: partId, hideNodes: DM20.paintedDigits } : { widthMm: 16, heightMm: 9 }),
   }
   store.edit((current) => ({
     ...current,
@@ -165,7 +181,7 @@ export function applyMultimeterPreset(): string {
     displays: [...(current.displays ?? []).filter((item) => item.name !== 'LCD'), display],
   }), 'preset:multimeter')
   store.set({ previewVars: initialVars({ ...def, behavior, controls }), tab: 'controls', selection: { kind: 'control', id: controls[0].id } })
-  const notes = [isDm20 ? 'Modelo RGK DM-20 reconhecido: seletor, botões e LCD já estão ligados aos objetos do GLB.' : 'Modelo desconhecido: escolha no modelo os objetos do seletor e dos botões e marque o LCD no separador Ecrãs.']
+  const notes = [isDm20 ? `Modelo RGK DM-20 reconhecido: seletor, botões e LCD já estão ligados aos objetos do GLB.${resized}` : 'Modelo desconhecido: escolha no modelo os objetos do seletor e dos botões e marque o LCD no separador Ecrãs.']
   if (missing.length) notes.push(`Ligue as fichas em falta no separador Multímetro: ${missing.join(', ')}.`)
   return notes.join(' ')
 }

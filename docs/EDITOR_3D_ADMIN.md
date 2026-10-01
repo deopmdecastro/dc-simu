@@ -132,3 +132,7 @@ Problema: navegadores (e a PWA) ficavam presos em versões antigas. Como funcion
 4. `vercel.json` serve `sw.js`, `sw-migration.js`, `registerSW.js`, `version.json` e `index.html` sem cache.
 
 A limpeza **nunca** toca em localStorage, sessionStorage nem IndexedDB (projetos, sessão e catálogo ficam intactos). Commits com `--no-verify` não atualizam o carimbo.
+
+## Tamanho real (escala do componente)
+
+Separador **Componente → Tamanho real (mm)**: indique a largura, altura ou profundidade reais do equipamento; o componente inteiro (modelo, bornes, ecrãs e poses dos estados) é escalado proporcionalmente (`sizeOps.ts`). O modelo importado vem com uma escala arbitrária (maior dimensão = 100 mm), por isso convém acertá-lo com as medidas do aparelho e **publicar uma nova versão**. «Aplicar/Reaplicar modelo de multímetro» no RGK DM-20 ajusta sozinho para o tamanho real (184 mm de altura).
