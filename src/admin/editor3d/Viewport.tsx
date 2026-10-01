@@ -379,11 +379,31 @@ function Scene() {
     const rotation = [selectedNode.rotation.x * DEG, selectedNode.rotation.y * DEG, selectedNode.rotation.z * DEG].map(r2) as Vec3
     const scale = selectedNode.scale.toArray().map((value) => Math.max(0.01, r2(value))) as Vec3
     const primitive = !['group', 'glb'].includes(selectedPart.kind)
+    const followTerminals = (def: typeof state.def) => {
+      if (!def.terminalsFollowModel || state.editState !== BASE_STATE) return def
+      const compose = (p: Vec3, r: Vec3, s: Vec3) => new THREE.Matrix4().compose(
+        new THREE.Vector3(...p),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(r[0] / DEG, r[1] / DEG, r[2] / DEG)),
+        new THREE.Vector3(...s),
+      )
+      const previous = compose(selectedPart.position, selectedPart.rotation, selectedPart.scale)
+      const next = compose(position, rotation, scale)
+      const delta = next.multiply(previous.invert())
+      const normalMatrix = new THREE.Matrix3().getNormalMatrix(delta)
+      return { ...def, terminals: def.terminals.map((terminal) => ({
+        ...terminal,
+        position: new THREE.Vector3(...terminal.position).applyMatrix4(delta).toArray().map(r2) as Vec3,
+        normal: new THREE.Vector3(...terminal.normal).applyMatrix3(normalMatrix).normalize().toArray().map(r2) as Vec3,
+      })) }
+    }
     if (tool === 'scale' && primitive && state.editState === BASE_STATE) {
       // em primitivas a escala converte-se em dimensões reais (mm) — o "scale" fica a 1
       const size = selectedPart.size.map((value, index) => Math.max(0.1, r2(value * scale[index]))) as Vec3
-      state.edit((def) => ({ ...def, parts: def.parts.map((part) => (part.id === selectedPart.id ? { ...part, position, rotation, size, scale: [1, 1, 1] as Vec3 } : part)) }))
-    } else state.edit((def) => posePart(def, state.editState, selectedPart.id, { position, rotation, scale }))
+      state.edit((def) => {
+        const followed = followTerminals(def)
+        return { ...followed, parts: followed.parts.map((part) => (part.id === selectedPart.id ? { ...part, position, rotation, size, scale: [1, 1, 1] as Vec3 } : part)) }
+      })
+    } else state.edit((def) => posePart(followTerminals(def), state.editState, selectedPart.id, { position, rotation, scale }))
   }
   const commitTerminal = () => {
     if (!selectedTerminal || !markerObject) return

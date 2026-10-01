@@ -220,6 +220,8 @@ export interface ComponentDefinition {
   parts: PartDef[]
   materials: MaterialDef[]
   terminals: TerminalDef[]
+  /** Quando ativo, transformar o modelo base leva todos os bornes consigo. */
+  terminalsFollowModel?: boolean
   lights: LightZoneDef[]
   states: StateDef[]
   initialState: string

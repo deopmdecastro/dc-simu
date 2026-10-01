@@ -52,6 +52,10 @@ export function TerminalsTab() {
 
   return <>
     <FaceChooser />
+    <Section title="Ligação ao componente">
+      <Check checked={!!def.terminalsFollowModel} label="Bloquear todos os bornes ao modelo" onChange={(terminalsFollowModel) => edit((state) => ({ ...state, terminalsFollowModel }), 'terminals:follow-model')} />
+      <p className="ce-hint">Quando ativo, mover, rodar ou redimensionar a peça selecionada leva todos os bornes consigo, mantendo a posição relativa.</p>
+    </Section>
     <Section title="Bornes (ligações)" actions={<button className={`dx-btn dx-btn-sm ce-btn-icon ${placing ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ placing: !placing, placingSpec: null })}><IconPlus size={12} />{placing ? 'A colocar… (Esc)' : 'Na superfície'}</button>}>
       <p className="ce-hint">{placing ? 'Clique numa face do modelo: o borne fica na superfície e a saída do cabo segue a normal dessa face.' : 'Escolha uma face acima (ou use «Na superfície») e clique no modelo. Pode também aplicar um perfil da biblioteca.'}</p>
       <div className="ce-actions">

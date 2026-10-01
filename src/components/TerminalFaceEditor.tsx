@@ -18,7 +18,7 @@ import {
 } from '../three/terminalFaces'
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL } from '../schematic/symbols'
 import { inferTerminalElectricalClass, terminalDatasheetGuidance, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
-import { IconCursor, IconDelete, IconLayers, IconPlus, IconZoomIn } from '../ui/icons'
+import { IconCursor, IconDelete, IconLayers, IconLock, IconPlus, IconZoomIn } from '../ui/icons'
 import TerminalLibrary, { DND_PROFILE, DND_TERMINAL } from './TerminalLibrary'
 import { layoutSpecsUV } from '../three/terminalProfileLayout'
 import { uniqueLabel } from '../catalog/terminalLayout'
@@ -251,7 +251,7 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
         <strong>Bornes por vista</strong>
         <small>Escolha a face do componente e coloque os bornes sobre a superfície real.</small>
       </div>
-      <span className="tfe-total">{terminals.length} {terminals.length === 1 ? 'borne' : 'bornes'}</span>
+      <span className="tfe-total" title="Nesta instância, os bornes usam coordenadas locais e acompanham sempre o movimento e a rotação do componente"><IconLock size={11} /> Ligados · {terminals.length} {terminals.length === 1 ? 'borne' : 'bornes'}</span>
     </header>
 
     <div className="tfe-faces" role="tablist" aria-label="Face do componente">
