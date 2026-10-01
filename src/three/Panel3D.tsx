@@ -733,7 +733,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
   } : undefined}>
     <primitive object={model} castShadow receiveShadow />
-    {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} />}
+    {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} />}
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
     {breaker && <group position={[0, spec.targetHeight * 0.54, 0.34]} rotation={[0, 0, (c.state.closed && !c.state.tripped ? -18 : 18) * Math.PI / 180]} raycast={() => null}>
       <mesh><boxGeometry args={[0.12, 0.035, 0.035]} /><meshStandardMaterial color={c.state.tripped ? '#ef4444' : '#475569'} roughness={0.7} /></mesh>

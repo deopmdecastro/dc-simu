@@ -21,7 +21,7 @@ export const DM20_DEFINITION = {
   controls: [selector, selectButton, powerButton, holdButton], vars: [], displays: [],
 } as ComponentDefinition
 
-export default function MultimeterDm20Panel({ component }: { component: ElectricalComponent }) {
+export default function MultimeterDm20Panel({ component, model }: { component: ElectricalComponent; model?: THREE.Object3D }) {
   const { vars, reading } = useCatalogMeter(component, DM20_DEFINITION)
   const [pressed, setPressed] = useState('')
   const canvas = useMemo(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 150; return c }, [])
@@ -39,18 +39,28 @@ export default function MultimeterDm20Panel({ component }: { component: Electric
     texture.needsUpdate = true
   }, [canvas, texture, reading])
   useEffect(() => () => texture.dispose(), [texture])
+  const dialAngle = selector.positions.find((p) => p.id === String(vars.dial ?? 'off'))?.angle ?? -52
+  useEffect(() => {
+    if (!model) return
+    // O ponteiro amarelo é uma peça separada no GLB. Rodá-lo diretamente
+    // mantém materiais, volume e pivô originais, em vez de desenhar outro
+    // seletor por cima do aparelho.
+    const knob = model.getObjectByName('occurrence_of_Plane010_Material003_0')
+    if (!knob) return
+    if (typeof knob.userData.dm20BaseRotation !== 'number') knob.userData.dm20BaseRotation = knob.rotation.z
+    knob.rotation.z = Number(knob.userData.dm20BaseRotation) + ((dialAngle + 52) * Math.PI) / 180
+    knob.updateMatrixWorld(true)
+  }, [model, dialAngle])
   const act = (control: ControlDef, gesture: 'press' | { step: 1 | -1 }) => triggerControl(DM20_DEFINITION, component.id, control, gesture)
-  const hit = (id: string, x: number, y: number, control: ControlDef) => <mesh position={[x, y, 0.315]}
+  const hit = (id: string, x: number, y: number, control: ControlDef) => <mesh position={[x, y, 0.18]}
     onPointerDown={(e) => { e.stopPropagation(); setPressed(id) }} onPointerUp={(e) => { e.stopPropagation(); setPressed(''); act(control, 'press') }} onPointerOut={() => setPressed('')}>
     <circleGeometry args={[0.075, 20]} /><meshStandardMaterial transparent opacity={pressed === id ? 0.35 : 0.03} color="#94a3b8" /></mesh>
   return <group>
-    <mesh position={[0, 1.4, 0.31]}><planeGeometry args={[0.58, 0.27]} /><meshBasicMaterial map={texture} toneMapped={false} /></mesh>
-    <mesh position={[0, 0.79, 0.32]} onPointerDown={(e) => { e.stopPropagation(); act(selector, { step: e.shiftKey ? -1 : 1 }) }}>
-      <circleGeometry args={[0.2, 28]} /><meshBasicMaterial transparent opacity={0.025} />
+    {/* O LCD fica encostado ao vidro frontal real (a frente do CAD está em z≈0,17). */}
+    <mesh position={[0, 1.49, 0.174]}><planeGeometry args={[0.60, 0.32]} /><meshBasicMaterial map={texture} toneMapped={false} polygonOffset polygonOffsetFactor={-1} /></mesh>
+    <mesh position={[0, 0.67, 0.18]} onPointerDown={(e) => { e.stopPropagation(); act(selector, { step: e.shiftKey ? -1 : 1 }) }}>
+      <circleGeometry args={[0.21, 28]} /><meshBasicMaterial transparent opacity={0.025} depthWrite={false} />
     </mesh>
-    {hit('sel', -0.22, 1.08, selectButton)}{hit('off', 0, 1.08, powerButton)}{hit('hold', 0.22, 1.08, holdButton)}
-    <mesh position={[0, 0.79, 0.335]} rotation={[0, 0, ((selector.positions.find((p) => p.id === String(vars.dial ?? 'off'))?.angle ?? -52) * Math.PI) / 180]} raycast={() => null}>
-      <boxGeometry args={[0.055, 0.25, 0.03]} /><meshStandardMaterial color="#334155" roughness={0.6} />
-    </mesh>
+    {hit('sel', -0.22, 1.14, selectButton)}{hit('off', 0, 1.14, powerButton)}{hit('hold', 0.22, 1.14, holdButton)}
   </group>
 }
