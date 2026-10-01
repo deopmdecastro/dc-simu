@@ -243,3 +243,45 @@
 /* Barra «Bornes por vista» e viewbar passam a ficar abaixo da barra de ferramentas */
 .ce-viewbar { top:8px; }
 .ce-wirepanel { top:54px; }
+
+/* ---- ícones nos botões e títulos ---- */
+.ce-btn-icon { display:inline-flex; align-items:center; gap:5px; }
+.ce-title-icon { display:inline-flex; align-items:center; gap:5px; }
+.ce-icon { display:inline-flex; align-items:center; justify-content:center; line-height:0; }
+.ce-row-kind { display:inline-flex; align-items:center; color:var(--dx-brand); }
+.ce-row-badge { display:inline-flex; align-items:center; color:#f59e0b; }
+.ce-linkbtn { display:inline-flex; align-items:center; }
+.ce-ribbon .dc-tool-btn svg { flex:none; }
+.tl-compat-link { display:flex; align-items:center; justify-content:center; gap:6px; }
+.tl-verdict-title { display:inline-flex; align-items:center; gap:5px; }
+.tl-cat svg { vertical-align:-1px; }
+
+/* ---- «Bornes por vista»: miniaturas das faces ---- */
+.ce-faces { border:1px solid var(--dx-line); border-radius:10px; background:var(--dx-surface); padding:10px; margin-bottom:10px; display:flex; flex-direction:column; gap:8px; }
+.ce-faces-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.ce-faces-head strong { font-size:13px; }
+.ce-faces-total { font-size:11px; font-weight:600; color:var(--dx-brand-700); background:var(--dx-brand-soft-2); border-radius:99px; padding:2px 9px; }
+.ce-faces .ce-hint { margin:0; }
+.ce-faces-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; }
+.ce-facecard { position:relative; display:flex; flex-direction:column; align-items:stretch; gap:3px; padding:4px; border:1px solid var(--dx-line); border-radius:9px; background:#fff; font:inherit; cursor:pointer; color:var(--dx-ink-2); }
+.ce-facecard:hover { border-color:var(--dx-brand); }
+.ce-facecard.is-on { border-color:var(--dx-brand); box-shadow:0 0 0 2px var(--dx-brand-soft-2); background:var(--dx-brand-soft-2); color:var(--dx-brand-700); }
+.ce-facecard-img { position:relative; display:flex; align-items:center; justify-content:center; aspect-ratio:132 / 100; border-radius:6px; overflow:hidden; background:#eaf0f8; color:var(--dx-ink-4); }
+.ce-facecard-img img { width:100%; height:100%; object-fit:contain; display:block; }
+.ce-facecard-count { position:absolute; top:3px; right:3px; min-width:17px; height:17px; padding:0 4px; border-radius:99px; background:var(--dx-brand); color:#fff; font-size:10.5px; line-height:17px; text-align:center; font-weight:700; }
+.ce-facecard-label { font-size:11.5px; font-weight:600; text-align:center; }
+.ce-faces-tools { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+
+/* ---- capa do componente ---- */
+.ce-cover { border:1px solid var(--dx-line); border-radius:9px; overflow:hidden; background:#eaf0f8; aspect-ratio:4 / 3; display:flex; align-items:center; justify-content:center; margin-bottom:8px; }
+.ce-cover-img { width:100%; height:100%; object-fit:cover; display:block; }
+.ce-cover-empty { display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px; color:var(--dx-ink-4); font-size:12px; text-align:center; }
+.ce-card-cover { aspect-ratio:4 / 3; border-radius:8px; overflow:hidden; background:#eaf0f8; display:flex; align-items:center; justify-content:center; color:var(--dx-ink-4); margin-bottom:2px; }
+.ce-card-cover img { width:100%; height:100%; object-fit:cover; display:block; }
+
+/* ---- cabos de teste ---- */
+.ce-wire { position:relative; padding-right:26px; }
+.ce-wire-verdict { display:inline-flex; align-items:flex-start; gap:4px; }
+.ce-wire-verdict svg { flex:none; margin-top:1px; }
+.ce-wire-x { position:absolute; top:3px; right:4px; opacity:.6; }
+.ce-wire-link { opacity:.5; }

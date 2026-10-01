@@ -149,7 +149,10 @@ export interface CatalogMeta {
   internalCode: string
   tag: string
   tags: string[]
+  /** Capa do componente (JPEG em data URL, gerada pelo editor 3D ao guardar). */
   thumbnail?: string
+  /** Capa manual: não é substituída pela captura automática ao guardar. */
+  coverLocked?: boolean
   /** "O que é" (tipo escolhido ao criar, ex.: Disjuntor). */
   kind?: string
   /** Ficha técnica: link e/ou PDF (o PDF vai em `assets.datasheet` do rascunho e não segue nas versões publicadas). */

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { bakeGlb, boundsMm, describeChanges, loadGlbAssets, resolveState, runtimeSpec } from '../../catalog/definition'
 import { catalogApi } from '../../catalog/catalogApi'
 import { useCatalogStore } from '../../catalog/registry'
@@ -14,7 +14,11 @@ import { ComponentTab, InteractionsTab, LightsTab, StatesTab, TerminalsTab } fro
 import { MaterialsTab, ObjectTab } from './tabs1'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
-import { IconCursor, IconErase, IconLayers, IconMove, IconPan, IconPlus, IconRedo, IconRotate, IconUndo, IconWire } from '../../ui/icons'
+import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconPan, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire } from '../../ui/icons'
+import FaceChooser, { chooseFace } from './FaceChooser'
+import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importGlbAction } from './partActions'
+import { captureCover } from './capture'
+import type { PartDef } from '../../catalog/types'
 
 const Viewport = lazy(() => import('./Viewport'))
 
@@ -29,6 +33,8 @@ const RIBBON: Array<{ id: Ribbon; label: string; hint: string; key: string; icon
   { id: 'delete', label: 'Apagar', hint: 'Apagar a peça ou o borne sob o cursor', key: '4', icon: IconErase, simulate: false },
   { id: 'pan', label: 'Mover vista', hint: 'Arrastar para mover a vista (ou botão direito)', key: '5', icon: IconPan, simulate: true },
 ]
+
+const OBJECTS: Array<[PartDef['kind'], string, typeof IconBox]> = [['box', 'Caixa', IconBox], ['cylinder', 'Cilindro', IconCylinder], ['sphere', 'Esfera', IconSphere], ['cone', 'Cone', IconCone], ['torus', 'Anel', IconTorus], ['group', 'Grupo', IconGroup]]
 
 /** Efetiva: «colocar borne» pode ser ligado por outros botões sem passar pela barra. */
 function useActiveRibbon(): Ribbon {
@@ -48,6 +54,9 @@ function ToolRibbon() {
   const libraryOpen = useEditorStore((s) => s.libraryOpen)
   const active = useActiveRibbon()
   const editing = mode === 'edit'
+  const fileRef = useRef<HTMLInputElement>(null)
+  const hasSelection = useEditorStore((s) => !!s.selection)
+  const hasPart = useEditorStore((s) => s.selection?.kind === 'part')
   return <div className="ce-ribbon" role="toolbar" aria-label="Ferramentas">
     <div className="dc-seg" role="group" aria-label="Histórico">
       <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().undo()} disabled={!canUndo} title="Desfazer [Ctrl+Z]"><IconUndo size={13} /></button>
@@ -71,6 +80,21 @@ function ToolRibbon() {
       </div>
     </>}
     {editing && <>
+      <span className="ce-ribbon-sep" />
+      <div className="dc-seg" role="group" aria-label="Adicionar objeto">
+        {OBJECTS.map(([kind, label, Icon]) => <button key={kind} className="dc-tool-btn !px-2" onClick={() => addPartAction(kind)} title={`Adicionar ${label.toLowerCase()}`} aria-label={`Adicionar ${label.toLowerCase()}`}><Icon size={14} /><span className="hidden 2xl:inline">{label}</span></button>)}
+        <button className="dc-tool-btn !px-2" onClick={() => fileRef.current?.click()} title="Importar modelo GLB como peça" aria-label="Importar modelo GLB"><IconModel size={14} /><span className="hidden 2xl:inline">GLB</span></button>
+        <input ref={fileRef} type="file" accept=".glb,model/gltf-binary" hidden onChange={(event) => { void importGlbAction(event.target.files?.[0]).then((error) => error && window.dispatchEvent(new CustomEvent('ce-flash', { detail: error }))); event.target.value = '' }} />
+      </div>
+      <span className="ce-ribbon-sep" />
+      <div className="dc-seg" role="group" aria-label="Edição">
+        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a peça [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /></button>
+        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={groupSelection} title="Agrupar: cria um grupo pai à volta da peça [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /></button>
+        <button className="dc-tool-btn !px-2" disabled={!hasSelection} onClick={deleteSelection} title="Eliminar a seleção [Del]" aria-label="Eliminar"><IconDelete size={14} /></button>
+        <button className="dc-tool-btn !px-2" onClick={dropToFloor} title="Pousar o modelo no chão (base a Y = 0; os bornes acompanham)" aria-label="Pousar no chão"><IconGround size={14} /></button>
+        <button className="dc-tool-btn !px-2" onClick={centerOnOrigin} title="Centrar o modelo na origem (X/Z)" aria-label="Centrar na origem"><IconAlignCenterH size={14} /></button>
+        <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().cameraTo('fit')} title="Enquadrar o modelo [F]" aria-label="Enquadrar"><IconFocus size={14} /></button>
+      </div>
       <span className="ce-ribbon-sep" />
       <button className={`dc-tool-btn ${libraryOpen ? 'dc-tool-active' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} title="Biblioteca de bornes e perfis de ligação"><IconLayers size={13} /><span>Biblioteca de bornes</span></button>
     </>}
@@ -144,26 +168,25 @@ function CubeOverlay() {
     onOrbit={(dx, dy) => set({ viewCommand: { kind: 'orbit', n: Date.now(), dx, dy } })} />
 }
 
-/** «Bornes por vista»: escolhe a face (câmara + normal fixa) e adiciona bornes nela, como no simulador. */
+/** Barra compacta «Bornes por vista» sobre o viewport (a versão com miniaturas está no separador Bornes). */
 function FaceBar() {
   const terminals = useEditorStore((s) => s.def.terminals)
   const faceLock = useEditorStore((s) => s.faceLock)
   const placing = useEditorStore((s) => s.placing)
   const placingSpec = useEditorStore((s) => s.placingSpec)
   const set = useEditorStore((s) => s.set)
-  const cameraTo = useEditorStore((s) => s.cameraTo)
   const counts = faceCounts(terminals)
   return <div className="ce-facebar" role="toolbar" aria-label="Bornes por vista">
     <span className="ce-facebar-title">Bornes por vista</span>
-    {FACES.map(([face, label]) => <button key={face} className={`ce-face${faceLock === face ? ' is-on' : ''}`} onClick={() => { if (faceLock === face) set({ faceLock: null }); else { set({ faceLock: face }); cameraTo(face) } }}
+    {FACES.map(([face, label]) => <button key={face} className={`ce-face${faceLock === face ? ' is-on' : ''}`} onClick={() => chooseFace(face)}
       title={`Ver ${label.toLowerCase()} e fixar a saída dos novos bornes nessa face`}>{label}<b>{counts[face]}</b></button>)}
     <span className="ce-facebar-sep" />
-    <button className={`ce-face ce-face-add${placing ? ' is-on' : ''}`} onClick={() => useEditorStore.getState().setRibbon(placing ? 'select' : 'terminal')} title="Clique no modelo para colocar bornes (Esc termina)">{placing ? (placingSpec ? `A colocar ${placingSpec.label}` : 'A adicionar…') : '+ Adicionar'}</button>
+    <button className={`ce-face ce-face-add${placing ? ' is-on' : ''}`} onClick={() => useEditorStore.getState().setRibbon(placing ? 'select' : 'terminal')} title="Clique no modelo para colocar bornes (Esc termina)"><IconPlus size={12} />{placing ? (placingSpec ? `A colocar ${placingSpec.label}` : 'A adicionar…') : 'Adicionar'}</button>
     {faceLock && <button className="ce-face" onClick={() => set({ faceLock: null })} title="Voltar à normal da superfície clicada">Face livre</button>}
   </div>
 }
 
-/** Cabos de teste (modo Simular): lista e veredicto de compatibilidade. */
+/** Cabos de teste (modo Simular / ferramenta Cabo): lista e veredicto de compatibilidade. */
 function WirePanel() {
   const wires = useEditorStore((s) => s.testWires)
   const terminals = useEditorStore((s) => s.def.terminals)
@@ -172,10 +195,12 @@ function WirePanel() {
   const name = (id: string) => terminals.find((item) => item.id === id)?.label ?? '?'
   return <div className="ce-wirepanel" role="status">
     <strong>Cabos de teste</strong>
-    <small>{wireFrom ? `Origem ${name(wireFrom)} · clique no borne de destino` : 'Clique num borne e depois noutro para ligar e validar.'}</small>
+    <small>{wireFrom ? `Origem ${name(wireFrom)} — clique no borne de destino (Esc cancela)` : terminals.length < 2 ? 'Precisa de pelo menos dois bornes para ligar.' : 'Clique num borne e depois noutro para ligar e validar.'}</small>
     {wires.length === 0 && <small className="ce-wirepanel-empty">Sem cabos de teste.</small>}
     {wires.map((wire) => <div key={wire.id} className={`ce-wire is-${wire.level}`}>
-      <b>{name(wire.a)} ↔ {name(wire.b)}</b><span>{wire.level === 'ok' ? '✓ ' : '⚠ '}{COMPAT_LABEL[wire.level]}{wire.messages.length ? ` — ${wire.messages.join(' · ')}` : ''}</span>
+      <b>{name(wire.a)} <span className="ce-wire-link">—</span> {name(wire.b)}</b>
+      <span className="ce-wire-verdict">{wire.level === 'ok' ? <IconCheck size={12} /> : <IconWarning size={12} />}{COMPAT_LABEL[wire.level]}{wire.messages.length ? ` — ${wire.messages.join(' · ')}` : ''}</span>
+      <button className="ce-icon ce-wire-x" title="Remover este cabo" aria-label="Remover este cabo" onClick={() => set({ testWires: wires.filter((item) => item.id !== wire.id) })}><IconClose size={12} /></button>
     </div>)}
     {wires.length > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => set({ testWires: [], wireFrom: null })}>Limpar cabos</button>}
   </div>
@@ -188,12 +213,20 @@ function LibraryPanel() {
   const set = useEditorStore((s) => s.set)
   const flash = (text: string) => window.dispatchEvent(new CustomEvent('ce-flash', { detail: text }))
   return <aside className="ce-lib-panel" aria-label="Biblioteca de bornes">
-    <div className="ce-lib-head"><span>Biblioteca de bornes</span><button className="ce-icon" onClick={() => set({ libraryOpen: false })} title="Fechar">✕</button></div>
+    <div className="ce-lib-head"><span>Biblioteca de bornes</span><button className="ce-icon" onClick={() => set({ libraryOpen: false })} title="Fechar" aria-label="Fechar"><IconClose size={13} /></button></div>
     <TerminalLibrary mode="insert" canEdit suggestFor={meta.category} armedLabel={placingSpec?.label ?? null}
       onInsert={(profile, params, replace) => { const n = applyProfile(profile, params, replace); flash(`${profile.name}: ${n} bornes adicionados — editáveis na lista à esquerda.`) }}
       onArmChip={(spec: TerminalSpec) => set({ placing: true, placingSpec: spec, selection: null })}
       currentSpecs={() => specsFromTerminals(def.terminals)} />
   </aside>
+}
+
+/** Atualiza a capa do componente (vista isométrica do modelo) antes de guardar/publicar, salvo se for uma capa manual. */
+export function applyCover(): void {
+  const state = useEditorStore.getState()
+  if (state.meta.coverLocked) return
+  const url = captureCover('iso')
+  if (url && url !== state.meta.thumbnail) useEditorStore.setState({ meta: { ...state.meta, thumbnail: url } })
 }
 
 function PublishDialog({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
@@ -217,7 +250,8 @@ function PublishDialog({ onClose, onDone }: { onClose: () => void; onDone: (mess
       const runtime = runtimeSpec(def, boundsMm(def, glbCache))
       const glb = await bakeGlb(def, glbCache)
       if (glb.length > 6_000_000) throw new Error('O modelo 3D resultante é demasiado grande (máx. ≈ 4,5 MB). Simplifique os modelos GLB importados.')
-      await catalogApi.save(entry.id, meta, def)
+      applyCover()
+      await catalogApi.save(entry.id, useEditorStore.getState().meta, def)
       const published = await catalogApi.publish(entry.id, { note, changes, runtime, glb })
       useEditorStore.getState().markSaved(published)
       await useCatalogStore.getState().load()
@@ -281,7 +315,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     if (!state.entry || saving) return
     setSaving(true)
     try {
-      const saved = await catalogApi.save(state.entry.id, state.meta, state.def)
+      applyCover()
+      const saved = await catalogApi.save(state.entry.id, useEditorStore.getState().meta, state.def)
       useEditorStore.getState().markSaved(saved)
       setMessage('Rascunho guardado.')
     } catch (value) { setMessage(value instanceof Error ? value.message : 'Falha ao guardar') }
@@ -309,26 +344,22 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       if (isTyping(event.target) || publishing) return
       if (mod && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) state.redo(); else state.undo(); return }
       if (mod && event.key.toLowerCase() === 'y') { event.preventDefault(); state.redo(); return }
+      if (mod && event.key.toLowerCase() === 'd' && state.mode === 'edit') { event.preventDefault(); duplicateSelection(); return }
+      if (mod && event.key.toLowerCase() === 'g' && state.mode === 'edit') { event.preventDefault(); groupSelection(); return }
       const key = event.key.toLowerCase()
       if (!mod && !event.altKey && ['1', '2', '3', '4', '5'].includes(key)) {
         const pick = (['select', 'terminal', 'wire', 'delete', 'pan'] as const)[Number(key) - 1]
         if (state.mode === 'edit' || pick === 'select' || pick === 'wire' || pick === 'pan') { event.preventDefault(); state.setRibbon(pick) }
         return
       }
+      if (key === 'escape' && state.wireFrom) { state.set({ wireFrom: null }); return }
       if (state.mode !== 'edit') return
       if (key === 'w') state.set({ tool: 'translate' })
       else if (key === 'e') state.set({ tool: 'rotate' })
       else if (key === 'r') state.set({ tool: 'scale' })
       else if (key === 'f') state.cameraTo('fit')
-      else if (key === 'escape') { if (state.placing) state.set({ placing: false, placingSpec: null, ribbon: 'select' }); else if (state.ribbon !== 'select') state.setRibbon('select'); else if (state.faceLock) state.set({ faceLock: null }); else state.select(null) }
-      else if ((key === 'delete' || key === 'backspace') && state.selection) {
-        event.preventDefault()
-        const selection = state.selection
-        if (selection.kind === 'part') state.edit((current) => removeParts(current, [selection.id]))
-        else if (selection.kind === 'terminal') state.edit((current) => ({ ...current, terminals: current.terminals.filter((item) => item.id !== selection.id) }))
-        else state.edit((current) => ({ ...current, lights: current.lights.filter((item) => item.id !== selection.id) }))
-        state.select(null)
-      }
+      else if (key === 'escape') { if (state.wireFrom) state.set({ wireFrom: null }); else if (state.placing) state.set({ placing: false, placingSpec: null, ribbon: 'select' }); else if (state.ribbon !== 'select') state.setRibbon('select'); else if (state.faceLock) state.set({ faceLock: null }); else state.select(null) }
+      else if ((key === 'delete' || key === 'backspace') && state.selection) { event.preventDefault(); deleteSelection() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -356,7 +387,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       </div>
       <div className="ce-spacer" />
       {message && <span className="ce-flash" role="status">{message}</span>}
-      <button className="account-project-action" onClick={() => leave()}>← Biblioteca</button>
+      <button className="account-project-action" onClick={() => leave()}><IconArrowLeft size={13} />Biblioteca</button>
       <button className="account-project-action" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)">{saving ? 'A guardar…' : 'Guardar rascunho'}</button>
       <button className="account-project-action dx-bar-primary" onClick={() => setPublishing(true)}>Publicar…</button>
       {account}
@@ -379,7 +410,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         }}>
         <ViewToolbar />
         <CubeOverlay />
-        {mode === 'edit' && tab === 'terminals' && <FaceBar />}
+        {mode === 'edit' && tab !== 'terminals' && (placing || faceLock) && <FaceBar />}
         {(mode === 'simulate' || activeRibbon === 'wire') && <WirePanel />}
         {libraryOpen && mode === 'edit' && <LibraryPanel />}
         <div className="ce-canvas"><Suspense fallback={<div className="ce-loading">A carregar o motor 3D…</div>}><Viewport /></Suspense></div>

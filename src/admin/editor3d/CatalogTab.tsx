@@ -4,6 +4,7 @@ import { catalogApi } from '../../catalog/catalogApi'
 import { newId } from '../../catalog/definition'
 import { useCatalogStore } from '../../catalog/registry'
 import type { CatalogEntry } from '../../catalog/types'
+import { IconCube } from '../../ui/icons'
 import ComponentEditor3D from './ComponentEditor3D'
 
 /** Separador "Biblioteca 3D": lista os componentes oficiais e abre o editor 3D. */
@@ -58,6 +59,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     {entries && visible.length === 0 && <div className="dx-admin-empty">{entries.length === 0 ? 'Ainda não há componentes 3D. Clique em «+ Novo componente 3D» para criar o primeiro.' : 'Nenhum componente corresponde ao filtro.'}</div>}
     <div className="ce-cards">
       {visible.map((entry) => <article key={entry.id} className={`ce-card${entry.archived ? ' is-archived' : ''}`}>
+        <div className="ce-card-cover" aria-hidden>{entry.meta.thumbnail ? <img src={entry.meta.thumbnail} alt="" loading="lazy" draggable={false} /> : <IconCube size={28} />}</div>
         <div className="ce-card-head">
           <strong>{entry.meta.name}</strong>
           <span className={`ce-status${entry.latestVersion ? ' is-pub' : ''}`}>{entry.archived ? 'Arquivado' : entry.latestVersion ? `v${entry.latestVersion}` : 'Rascunho'}</span>

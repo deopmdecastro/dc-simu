@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import type { Vec3 } from '../../catalog/types'
 
 /** Pequenos controlos do editor 3D (mantêm o visual dx do resto da administração). */
-export function Section({ title, children, open = true, actions }: { title: string; children: ReactNode; open?: boolean; actions?: ReactNode }) {
+export function Section({ title, children, open = true, actions }: { title: ReactNode; children: ReactNode; open?: boolean; actions?: ReactNode }) {
   return <details className="ce-section" open={open}>
     <summary><span>{title}</span>{actions && <span className="ce-section-actions" onClick={(event) => event.preventDefault()}>{actions}</span>}</summary>
     <div className="ce-section-body">{children}</div>
@@ -57,7 +57,7 @@ export function Slider({ value, onChange, min = 0, max = 1, step = 0.01 }: { val
 
 export function Empty({ children }: { children: ReactNode }) { return <p className="ce-empty">{children}</p> }
 
-export function Confirm({ label, onConfirm, className = 'dx-btn dx-btn-secondary dx-btn-sm', title }: { label: string; onConfirm: () => void; className?: string; title?: string }) {
+export function Confirm({ label, onConfirm, className = 'dx-btn dx-btn-secondary dx-btn-sm', title }: { label: ReactNode; onConfirm: () => void; className?: string; title?: string }) {
   const [armed, setArmed] = useState(false)
   return <button className={className} title={title} onBlur={() => setArmed(false)} onClick={() => { if (armed) { setArmed(false); onConfirm() } else setArmed(true) }}>{armed ? 'Confirmar?' : label}</button>
 }

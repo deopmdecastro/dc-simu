@@ -409,3 +409,137 @@ export const IconFunction = (p: IconProps) => (
     <path d="M7 4h10M7 20h10M9 4c6 3 6 13 0 16M15 4c-6 3-6 13 0 16" />
   </Svg>
 )
+
+/* ------------------------------------------------- editor de componentes 3D */
+export const IconClose = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </Svg>
+)
+export const IconCheck = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </Svg>
+)
+export const IconWarning = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3.5 22 20H2z" />
+    <path d="M12 10v4.5" />
+    <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none" />
+  </Svg>
+)
+export const IconArrowLeft = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M19 12H5M11 6l-6 6 6 6" />
+  </Svg>
+)
+export const IconLink = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9.5 14.5 14.5 9.5" />
+    <path d="M11 6.8 12.4 5.4a3.6 3.6 0 0 1 5.1 5.1L16 12" />
+    <path d="M13 17.2 11.6 18.6a3.6 3.6 0 0 1-5.1-5.1L8 12" />
+  </Svg>
+)
+export const IconEye = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+    <circle cx="12" cy="12" r="2.8" />
+  </Svg>
+)
+export const IconEyeOff = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 4l16 16" />
+    <path d="M9.9 6a9.5 9.5 0 0 1 2.1-.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-3 3.7M6.4 7.6A16 16 0 0 0 2.5 12S6 18.5 12 18.5c1.5 0 2.8-.4 4-.9" />
+    <path d="M10 10.2a2.8 2.8 0 0 0 3.8 3.8" />
+  </Svg>
+)
+export const IconUnlock = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="5" y="10.5" width="14" height="10" rx="1.5" />
+    <path d="M8 10.5V7a4 4 0 0 1 7.6-1.7" />
+  </Svg>
+)
+export const IconBox = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" />
+    <path d="M4 7.5 12 12l8-4.5M12 12v9" />
+  </Svg>
+)
+export const IconCylinder = (p: IconProps) => (
+  <Svg {...p}>
+    <ellipse cx="12" cy="6" rx="7" ry="2.8" />
+    <path d="M5 6v12c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8V6" />
+  </Svg>
+)
+export const IconSphere = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <ellipse cx="12" cy="12" rx="8.5" ry="3.2" />
+  </Svg>
+)
+export const IconCone = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3.5 19 18c0 1.5-3.1 2.8-7 2.8S5 19.5 5 18z" />
+    <path d="M5 18c0 1.5 3.1 2.8 7 2.8s7-1.3 7-2.8" />
+  </Svg>
+)
+export const IconTorus = (p: IconProps) => (
+  <Svg {...p}>
+    <ellipse cx="12" cy="12" rx="9" ry="5.8" />
+    <ellipse cx="12" cy="12" rx="3.6" ry="1.9" />
+  </Svg>
+)
+export const IconGroup = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" />
+    <rect x="8.5" y="8.5" width="7" height="7" rx="1" />
+  </Svg>
+)
+export const IconModel = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z" />
+    <path d="M12 12 3.5 7M12 12l8.5-5M12 12v9.5" />
+    <path d="M8 4.8l8 4.4" />
+  </Svg>
+)
+export const IconSparkle = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3.5c.6 4.2 2.3 5.9 6.5 6.5-4.2.6-5.9 2.3-6.5 6.5-.6-4.2-2.3-5.9-6.5-6.5 4.2-.6 5.9-2.3 6.5-6.5z" />
+    <path d="M18.5 16v4M16.5 18h4" />
+  </Svg>
+)
+export const IconCamera = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3.5 8.5a1.5 1.5 0 0 1 1.5-1.5h2.5l1.5-2.5h6L16.5 7H19a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z" />
+    <circle cx="12" cy="12.5" r="3.5" />
+  </Svg>
+)
+export const IconImage = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+    <circle cx="9" cy="10" r="1.8" />
+    <path d="m4 18 5-4.5 3.5 3 3-2.5L20 17" />
+  </Svg>
+)
+export const IconStar = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.8 6.8 19.7l1-5.9L3.5 9.7l5.9-.8z" />
+  </Svg>
+)
+export const IconSwap = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3" />
+  </Svg>
+)
+export const IconFocus = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" />
+    <circle cx="12" cy="12" r="2.5" />
+  </Svg>
+)
+export const IconGround = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 20.5h18" />
+    <path d="M12 3.5v13M7.5 12 12 16.5 16.5 12" />
+  </Svg>
+)

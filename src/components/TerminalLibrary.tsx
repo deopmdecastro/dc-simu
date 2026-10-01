@@ -6,6 +6,7 @@ import { checkConnection, COMPAT_LABEL, type CompatTerminal } from '../catalog/t
 import { BUILTIN_PROFILES, defaultParams, FACES, inferFromFunction, profileCategories, SUGGESTED_PROFILES, TERMINAL_CHIPS, type Face, type ProfileParams, type StoredProfile, type TerminalProfile, type TerminalSpec } from '../catalog/terminalProfiles'
 import type { ComponentCategory } from '../types'
 import { Check, Confirm, Field, Num, Select, Text } from '../admin/editor3d/ui'
+import { IconCheck, IconClose, IconStar, IconSwap, IconWarning } from '../ui/icons'
 
 export const DND_PROFILE = 'application/x-dcsimu-profile'
 export const DND_TERMINAL = 'application/x-dcsimu-terminal'
@@ -88,7 +89,7 @@ export function ProfileEditorDialog({ initial, onClose, onSaved }: { initial?: P
             onBlur={() => { const inferred = inferFromFunction(item.fn); patch(index, { kind: inferred.kind, polarity: inferred.polarity, electricalClass: inferred.electricalClass, contact: inferred.contact, color: inferred.color ?? item.color, direction: inferred.direction ?? item.direction }) }} />
           <select className="dx-input" value={item.face} aria-label="Face" onChange={(event) => patch(index, { face: event.target.value as Face })}>{FACES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select>
           <select className="dx-input" value={item.direction} aria-label="Sentido" onChange={(event) => patch(index, { direction: event.target.value as TerminalSpec['direction'] })}><option value="io">E/S</option><option value="in">Entrada</option><option value="out">Saída</option></select>
-          <button type="button" className="ce-icon" title="Remover borne" onClick={() => setSpecs((list) => list.filter((_, i) => i !== index))}>✕</button>
+          <button type="button" className="ce-icon" title="Remover borne" aria-label="Remover borne" onClick={() => setSpecs((list) => list.filter((_, i) => i !== index))}><IconClose size={12} /></button>
         </div>)}
         <button type="button" className="dx-btn dx-btn-secondary dx-btn-sm" onClick={add}>+ Borne</button>
       </div>
@@ -118,10 +119,10 @@ function CompatTester({ profiles }: { profiles: TerminalProfile[] }) {
   return <div className="tl-compat">
     <p className="ce-hint">Escolha dois bornes e veja se a ligação é aceitável. As regras são conservadoras e servem de aviso — nunca bloqueiam o editor.</p>
     {side(pa, setPa, ia, setIa)}
-    <div className="tl-compat-link">↕ ligar a</div>
+    <div className="tl-compat-link"><IconSwap size={13} /> ligar a</div>
     {side(pb, setPb, ib, setIb)}
     {result && <div className={`tl-verdict is-${result.level}`} role="status">
-      <strong>{result.level === 'ok' ? '✓ ' : '⚠ '}{COMPAT_LABEL[result.level]}</strong>
+      <strong className="tl-verdict-title">{result.level === 'ok' ? <IconCheck size={13} /> : <IconWarning size={13} />}{COMPAT_LABEL[result.level]}</strong>
       {result.messages.length > 0 ? <ul>{result.messages.map((message) => <li key={message}>{message}</li>)}</ul> : <span>Sem avisos para esta combinação.</span>}
     </div>}
   </div>
@@ -187,7 +188,7 @@ export default function TerminalLibrary({ mode, suggestFor, canEdit, onInsert, o
     {tab === 'profiles' && <>
       <div className="tl-search"><input className="dx-input" type="search" placeholder="Pesquisar perfis, funções (L1, A1, 13…)" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar perfis" /></div>
       <div className="tl-cats" aria-label="Categorias">
-        {suggestFor && <button className={`tl-cat${suggestedOnly && !top ? ' is-on' : ''}`} onClick={() => { setSuggestedOnly(true); setTop(null); setSub(null) }}>★ Sugeridos</button>}
+        {suggestFor && <button className={`tl-cat${suggestedOnly && !top ? ' is-on' : ''}`} onClick={() => { setSuggestedOnly(true); setTop(null); setSub(null) }}><IconStar size={12} /> Sugeridos</button>}
         <button className={`tl-cat${!suggestedOnly && !top ? ' is-on' : ''}`} onClick={() => { setSuggestedOnly(false); setTop(null); setSub(null) }}>Todos</button>
         {categories.map((category) => <button key={category.name} className={`tl-cat${top === category.name ? ' is-on' : ''}`} onClick={() => { setTop(category.name); setSub(null); setSuggestedOnly(false) }}>{category.name}</button>)}
       </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { newId, resolveState } from '../../catalog/definition'
 import type { ActionDef, InteractionDef, LightZoneDef, StateDef, TerminalDef, TriggerName, Vec3 } from '../../catalog/types'
 import type { ComponentCategory } from '../../types'
@@ -8,6 +8,9 @@ import { FACE_NORMAL, SUGGESTED_PROFILES, defaultParams, inferFromFunction, type
 import { allProfiles, useProfileStore } from '../../catalog/profileStore'
 import { applyProfile, defBounds, faceCenter, faceOfNormal } from './terminalOps'
 import { Check, Color, Confirm, Empty, Field, Num, Section, Select, Slider, Text, Vec3Input } from './ui'
+import { IconCamera, IconCheck, IconClose, IconCube, IconImage, IconLayers, IconPlus } from '../../ui/icons'
+import FaceChooser from './FaceChooser'
+import { captureCover, type CaptureView } from './capture'
 
 const NORMALS: Array<[string, string, Vec3]> = [
   ['z+', 'Frente (+Z)', [0, 0, 1]], ['z-', 'Trás (−Z)', [0, 0, -1]], ['x+', 'Direita (+X)', [1, 0, 0]], ['x-', 'Esquerda (−X)', [-1, 0, 0]], ['y+', 'Topo (+Y)', [0, 1, 0]], ['y-', 'Base (−Y)', [0, -1, 0]],
@@ -44,11 +47,12 @@ export function TerminalsTab() {
   const duplicates = terminal ? def.terminals.filter((item) => item.label === terminal.label).length > 1 : false
 
   return <>
-    <Section title="Bornes (ligações)" actions={<button className={`dx-btn dx-btn-sm ${placing ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ placing: !placing, placingSpec: null })}>{placing ? 'A colocar… (Esc)' : '+ Na superfície'}</button>}>
-      <p className="ce-hint">{placing ? 'Clique numa face do modelo: o borne fica na superfície e a saída do cabo segue a normal dessa face. Use a barra «Bornes por vista» para fixar a face.' : 'Escolha uma face na barra «Bornes por vista» (ou use «+ Na superfície») e clique no modelo. Pode também aplicar um perfil da biblioteca.'}</p>
+    <FaceChooser />
+    <Section title="Bornes (ligações)" actions={<button className={`dx-btn dx-btn-sm ce-btn-icon ${placing ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ placing: !placing, placingSpec: null })}><IconPlus size={12} />{placing ? 'A colocar… (Esc)' : 'Na superfície'}</button>}>
+      <p className="ce-hint">{placing ? 'Clique numa face do modelo: o borne fica na superfície e a saída do cabo segue a normal dessa face.' : 'Escolha uma face acima (ou use «Na superfície») e clique no modelo. Pode também aplicar um perfil da biblioteca.'}</p>
       <div className="ce-actions">
-        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { const created = newTerminal(def, faceCenter(bounds, faceLock ?? 'front'), FACE_NORMAL[faceLock ?? 'front']); edit((state) => ({ ...state, terminals: [...state.terminals, created] })); set({ selection: { kind: 'terminal', id: created.id } }) }}>+ Ao centro{faceLock ? ' da face' : ''}</button>
-        <button className={`dx-btn dx-btn-sm ${libraryOpen ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ libraryOpen: !libraryOpen })}>📚 Biblioteca de bornes</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm ce-btn-icon" onClick={() => { const created = newTerminal(def, faceCenter(bounds, faceLock ?? 'front'), FACE_NORMAL[faceLock ?? 'front']); edit((state) => ({ ...state, terminals: [...state.terminals, created] })); set({ selection: { kind: 'terminal', id: created.id } }) }}><IconPlus size={12} />Ao centro{faceLock ? ' da face' : ''}</button>
+        <button className={`dx-btn dx-btn-sm ce-btn-icon ${libraryOpen ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ libraryOpen: !libraryOpen })}><IconLayers size={12} />Biblioteca de bornes</button>
       </div>
     </Section>
     <Section title="Perfis sugeridos" open={def.terminals.length === 0}>
@@ -207,8 +211,8 @@ export function InteractionsTab() {
     <Section title="Interações" actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => edit((state) => ({ ...state, interactions: [...state.interactions, { id: newId('i_'), name: `Interação ${state.interactions.length + 1}`, partId: part, trigger: 'click', actions: [{ type: 'toggleState', a: first, b: state.states[1]?.id ?? first }] }] }))}>+ Nova</button>}>
       <p className="ce-hint">Ligam um gesto no modelo (ex.: clicar no manípulo) a uma mudança de estado. Funcionam na simulação do editor e no painel 3D do simulador.</p>
     </Section>
-    {def.interactions.length === 0 && <Empty>Sem interações. Crie uma, p. ex. «clicar no manípulo → alternar OFF/ON».</Empty>}
-    {def.interactions.map((item) => <Section key={item.id} title={item.name} actions={<Confirm label="×" className="ce-linkbtn" onConfirm={() => edit((state) => ({ ...state, interactions: state.interactions.filter((other) => other.id !== item.id) }))} />}>
+    {def.interactions.length === 0 && <Empty>Sem interações. Crie uma, p. ex. «clicar no manípulo» para «alternar OFF/ON».</Empty>}
+    {def.interactions.map((item) => <Section key={item.id} title={item.name} actions={<Confirm label={<IconClose size={12} />} title="Eliminar interação" className="ce-linkbtn" onConfirm={() => edit((state) => ({ ...state, interactions: state.interactions.filter((other) => other.id !== item.id) }))} />}>
       <Field label="Nome"><Text value={item.name} onChange={(name) => patch(item.id, { name }, 'name')} /></Field>
       <Field label="Peça"><Select value={item.partId} onChange={(partId) => patch(item.id, { partId })} options={[['', '— qualquer parte —'], ...def.parts.filter((p) => p.kind !== 'group').map((p): [string, string] => [p.id, p.name])]} /></Field>
       <Field label="Gatilho"><Select value={item.trigger} onChange={(trigger) => patch(item.id, { trigger })} options={TRIGGERS} /></Field>
@@ -216,7 +220,7 @@ export function InteractionsTab() {
         const setAction = (next: ActionDef) => patch(item.id, { actions: item.actions.map((entry, i) => (i === index ? next : entry)) })
         return <div key={index} className="ce-action-card">
           <div className="ce-action-head"><Select value={action.type} onChange={(type) => setAction(makeAction(type))} options={ACTIONS} />
-            <button className="ce-linkbtn" title="Remover ação" onClick={() => patch(item.id, { actions: item.actions.filter((_, i) => i !== index) })}>×</button></div>
+            <button className="ce-linkbtn" title="Remover ação" aria-label="Remover ação" onClick={() => patch(item.id, { actions: item.actions.filter((_, i) => i !== index) })}><IconClose size={12} /></button></div>
           {action.type === 'setState' && <Field label="Estado"><Select value={action.state} onChange={(state) => setAction({ ...action, state })} options={stateOptions} /></Field>}
           {action.type === 'toggleState' && <>
             <Field label="Estado A"><Select value={action.a} onChange={(a) => setAction({ ...action, a })} options={stateOptions} /></Field>
@@ -262,7 +266,7 @@ function DatasheetSection() {
     edit((state) => { const assets = { ...state.assets }; delete assets.datasheet; return { ...state, assets } })
     editMeta({ datasheet: { ...sheet, fileName: undefined, status: sheet.url ? 'have' : 'none' } }, 'datasheet')
   }
-  return <Section title={`Datasheet${sheet.status === 'have' ? ' ✓' : ''}`} open={sheet.status !== 'have'}>
+  return <Section title={<span className="ce-title-icon">Datasheet{sheet.status === 'have' && <IconCheck size={12} />}</span>} open={sheet.status !== 'have'}>
     <div className="ce-datasheet">
       <Field label="Estado"><Select value={sheet.status} onChange={(status) => editMeta({ datasheet: { ...sheet, status } }, 'datasheet')} options={[['have', 'Tem datasheet'], ['none', 'Sem datasheet']]} /></Field>
       {sheet.status === 'have' && <>
@@ -278,6 +282,59 @@ function DatasheetSection() {
         <small className="ce-static">O PDF fica guardado no rascunho do administrador; não segue nas versões publicadas.</small>
       </>}
     </div>
+  </Section>
+}
+
+
+function fileToCover(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const image = new Image()
+    image.onload = () => {
+      const canvas = document.createElement('canvas'); canvas.width = 480; canvas.height = 360
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { URL.revokeObjectURL(url); reject(new Error('canvas')); return }
+      ctx.fillStyle = '#eaf0f8'; ctx.fillRect(0, 0, 480, 360)
+      const k = Math.min(480 / image.width, 360 / image.height)
+      const w = image.width * k, h = image.height * k
+      ctx.drawImage(image, (480 - w) / 2, (360 - h) / 2, w, h)
+      URL.revokeObjectURL(url)
+      resolve(canvas.toDataURL('image/jpeg', 0.85))
+    }
+    image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('imagem inválida')) }
+    image.src = url
+  })
+}
+
+/** Capa do componente: gerada do modelo ao guardar (isométrica), ou escolhida à mão. */
+function CoverSection() {
+  const meta = useEditorStore((s) => s.meta)
+  const editMeta = useEditorStore((s) => s.editMeta)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState('')
+  const capture = (view: CaptureView, locked: boolean) => {
+    const url = captureCover(view)
+    if (!url) { setError('Não foi possível capturar o modelo (está vazio ou o motor 3D ainda não carregou).'); return }
+    setError('')
+    editMeta({ thumbnail: url, coverLocked: locked }, 'cover')
+  }
+  const upload = async (file: File | undefined) => {
+    if (!file) return
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) { setError('Escolha uma imagem (PNG ou JPG) até 5 MB.'); return }
+    try { editMeta({ thumbnail: await fileToCover(file), coverLocked: true }, 'cover'); setError('') } catch { setError('Não foi possível ler a imagem.') }
+  }
+  return <Section title="Capa">
+    <div className="ce-cover">
+      {meta.thumbnail ? <img className="ce-cover-img" src={meta.thumbnail} alt={`Capa de ${meta.name}`} /> : <div className="ce-cover-empty"><IconImage size={26} /><span>Sem capa. É criada automaticamente ao guardar.</span></div>}
+    </div>
+    <div className="ce-actions">
+      <button className="dx-btn dx-btn-secondary dx-btn-sm ce-btn-icon" onClick={() => capture('iso', false)} title="Recaptura a vista isométrica e volta à capa automática"><IconCube size={12} />Automática</button>
+      <button className="dx-btn dx-btn-secondary dx-btn-sm ce-btn-icon" onClick={() => capture('current', true)} title="Usa o enquadramento que está a ver no viewport"><IconCamera size={12} />Vista atual</button>
+      <button className="dx-btn dx-btn-secondary dx-btn-sm ce-btn-icon" onClick={() => fileRef.current?.click()}><IconImage size={12} />Carregar…</button>
+      <input ref={fileRef} type="file" accept="image/*" hidden onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = '' }} />
+    </div>
+    <Check checked={!!meta.coverLocked} onChange={(coverLocked) => editMeta({ coverLocked }, 'cover')} label="Manter esta capa (não atualizar ao guardar)" />
+    {error && <p className="ce-error" role="alert">{error}</p>}
   </Section>
 }
 
@@ -304,13 +361,14 @@ export function ComponentTab() {
       <Field label="Etiquetas"><Text value={meta.tags.join(', ')} onChange={(value) => editMeta({ tags: value.split(',').map((t) => t.trim()).filter(Boolean) }, 'tags')} placeholder="separadas por vírgula" /></Field>
       <Field label="Montagem"><Select value={def.mount} onChange={(mount) => edit((state) => ({ ...state, mount }))} options={[['din-rail', 'Calha DIN'], ['panel-front', 'Frente do painel'], ['machine', 'Máquina / campo']]} /></Field>
     </Section>
+    <CoverSection />
     <DatasheetSection />
     <Section title="Propriedades" open={false} actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => editMeta({ properties: [...meta.properties, { key: '', value: '' }] })}>+ Nova</button>}>
       {meta.properties.length === 0 && <Empty>Dados técnicos opcionais (tensão, corrente, IP…).</Empty>}
       {meta.properties.map((item, index) => <div key={index} className="ce-propline">
         <Text value={item.key} placeholder="Chave" onChange={(key) => editMeta({ properties: meta.properties.map((p, i) => (i === index ? { ...p, key } : p)) }, 'props')} />
         <Text value={item.value} placeholder="Valor" onChange={(value) => editMeta({ properties: meta.properties.map((p, i) => (i === index ? { ...p, value } : p)) }, 'props')} />
-        <button className="ce-linkbtn" onClick={() => editMeta({ properties: meta.properties.filter((_, i) => i !== index) })}>×</button>
+        <button className="ce-linkbtn" title="Remover propriedade" aria-label="Remover propriedade" onClick={() => editMeta({ properties: meta.properties.filter((_, i) => i !== index) })}><IconClose size={12} /></button>
       </div>)}
     </Section>
     <Section title={`Validação${issues.length ? ` (${issues.length})` : ''}`}>

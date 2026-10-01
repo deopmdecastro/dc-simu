@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { Html, OrbitControls, TransformControls } from '@react-three/drei'
+import { Html, Line, OrbitControls, TransformControls, useCursor } from '@react-three/drei'
 import * as THREE from 'three'
 import { buildDefinitionObject } from '../../catalog/definition'
 import { StateAnimator } from '../../catalog/stateAnimator'
@@ -10,6 +10,7 @@ import { checkConnection } from '../../catalog/terminalCompat'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 import { BASE_STATE, glbCache, posePart, patchTerminal, removeParts, useEditorStore } from './editorStore'
 import { addTerminalAt, defBounds, faceCenter } from './terminalOps'
+import { registerCapture, renderCapture } from './capture'
 
 const DEG = 180 / Math.PI
 let lastDragEnd = 0
@@ -20,7 +21,7 @@ function partIdOf(object: THREE.Object3D | null, known: Set<string>): string {
   return ''
 }
 
-/** Cabo de teste (modo Simular): primeiro clique escolhe a origem, o segundo liga e valida a compatibilidade. */
+/** Cabo de teste: o primeiro clique escolhe a origem, o segundo liga e valida a compatibilidade. */
 function testWire(id: string) {
   const state = useEditorStore.getState()
   if (!state.wireFrom) { state.set({ wireFrom: id }); return }
@@ -30,6 +31,17 @@ function testWire(id: string) {
   if (!a || !b) { state.set({ wireFrom: null }); return }
   const result = checkConnection(a, b)
   state.set({ wireFrom: null, testWires: [...state.testWires.filter((wire) => !(wire.a === a.id && wire.b === b.id) && !(wire.a === b.id && wire.b === a.id)), { id: `${a.id}:${b.id}`, a: a.id, b: b.id, level: result.level, messages: result.messages }] })
+}
+
+/** Clique num borne, conforme a ferramenta ativa (usado pelo marcador e pelo clique no modelo). */
+function terminalClick(id: string) {
+  if (performance.now() - lastDragEnd < 250) return
+  const state = useEditorStore.getState()
+  if (state.placing) return // a colocar bornes: o clique pertence ao modelo, não aos bornes existentes
+  if (state.mode === 'simulate' || state.ribbon === 'wire') { testWire(id); return }
+  if (state.ribbon === 'delete') { state.edit((def) => ({ ...def, terminals: def.terminals.filter((item) => item.id !== id) })); return }
+  if (state.ribbon === 'pan') return
+  state.select({ kind: 'terminal', id })
 }
 
 const WIRE_COLOR = { ok: '#16a34a', warn: '#f59e0b', error: '#dc2626' } as const
@@ -50,21 +62,36 @@ function TestWires() {
 /** Seta/haste do borne ao longo da normal (mostra por onde o cabo sai). */
 function TerminalMarker({ id, selected, hidden, onRef }: { id: string; selected: boolean; hidden: boolean; onRef?: (object: THREE.Group | null) => void }) {
   const terminal = useEditorStore((s) => s.def.terminals.find((item) => item.id === id))
-  const select = useEditorStore((s) => s.select)
   const showLabel = useEditorStore((s) => s.view.terminals)
   const pending = useEditorStore((s) => s.wireFrom === id)
+  const origin = useEditorStore((s) => (s.wireFrom && s.wireFrom !== id ? s.def.terminals.find((item) => item.id === s.wireFrom) : undefined))
+  const interactive = useEditorStore((s) => s.mode === 'simulate' || ['wire', 'delete', 'select'].includes(s.ribbon))
+  const [hovered, setHovered] = useState(false)
+  useCursor(hovered && interactive)
   const quaternion = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...(terminal?.normal ?? [0, 0, 1])).normalize()), [terminal?.normal])
   if (!terminal) return null
-  const radius = selected ? 2.4 : 1.8
+  // com um cabo em curso, os restantes bornes mostram o veredicto de compatibilidade
+  const verdict = origin ? checkConnection(origin, terminal).level : null
+  const base = pending ? '#f59e0b' : verdict ? WIRE_COLOR[verdict] : selected ? '#2655e5' : terminal.color
+  const radius = (selected ? 2.4 : 1.8) + (pending || hovered ? 0.8 : 0) + (verdict ? 0.4 : 0)
+  const lift = new THREE.Vector3(...terminal.normal).multiplyScalar(1.6)
   return <group ref={onRef} position={terminal.position} visible={!hidden}>
-    <mesh onClick={(event) => { event.stopPropagation(); if (performance.now() - lastDragEnd < 250) return; const state = useEditorStore.getState()
-      if (state.mode === 'simulate' || state.ribbon === 'wire') { testWire(id); return }
-      if (state.ribbon === 'delete') { state.edit((def) => ({ ...def, terminals: def.terminals.filter((item) => item.id !== id) })); return }
-      if (state.ribbon === 'pan') return
-      select({ kind: 'terminal', id }) }} renderOrder={5}>
-      <sphereGeometry args={[radius + (pending ? 0.8 : 0), 16, 12]} />
-      <meshBasicMaterial color={pending ? '#f59e0b' : selected ? '#2655e5' : terminal.color} depthTest={false} transparent opacity={0.95} />
+    {/* zona de clique generosa e à frente da superfície: o modelo nunca "rouba" o clique ao borne */}
+    <mesh position={lift} userData={{ terminalId: id }} renderOrder={6}
+      onClick={(event) => { if (useEditorStore.getState().placing) return; event.stopPropagation(); terminalClick(id) }}
+      onPointerOver={(event) => { if (useEditorStore.getState().placing) return; event.stopPropagation(); setHovered(true) }}
+      onPointerOut={() => setHovered(false)}>
+      <sphereGeometry args={[4.4, 12, 10]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
     </mesh>
+    <mesh renderOrder={5} position={lift}>
+      <sphereGeometry args={[radius, 16, 12]} />
+      <meshBasicMaterial color={base} depthTest={false} transparent opacity={0.95} />
+    </mesh>
+    {(pending || verdict || hovered) && <mesh renderOrder={4} position={lift}>
+      <ringGeometry args={[radius + 1, radius + 1.8, 28]} />
+      <meshBasicMaterial color={base} depthTest={false} transparent opacity={0.55} side={THREE.DoubleSide} />
+    </mesh>}
     <mesh position={new THREE.Vector3(0, 4, 0).applyQuaternion(quaternion)} quaternion={quaternion} renderOrder={4}>
       <cylinderGeometry args={[0.35, 0.35, 8, 6]} />
       <meshBasicMaterial color={selected ? '#2655e5' : '#475569'} depthTest={false} transparent opacity={0.8} />
@@ -73,6 +100,16 @@ function TerminalMarker({ id, selected, hidden, onRef }: { id: string; selected:
       <span className={`ce-term-tag${selected ? ' is-on' : ''}`}>{terminal.label}</span>
     </Html>}
   </group>
+}
+
+/** Cabo em curso: sai do borne de origem e segue o rato (ou o borne por cima) até ao clique de destino. */
+function WirePreview({ cursor }: { cursor: THREE.Vector3 | null }) {
+  const from = useEditorStore((s) => s.wireFrom ? s.def.terminals.find((item) => item.id === s.wireFrom) : undefined)
+  if (!from || !cursor) return null
+  const pa = new THREE.Vector3(...from.position)
+  const out = pa.clone().addScaledVector(new THREE.Vector3(...from.normal), Math.max(6, pa.distanceTo(cursor) * 0.2))
+  const points = new THREE.CatmullRomCurve3([pa, out, cursor]).getPoints(32)
+  return <Line points={points} color="#f59e0b" lineWidth={2.2} dashed dashSize={3} gapSize={2} depthTest={false} renderOrder={7} />
 }
 
 function Scene() {
@@ -95,6 +132,7 @@ function Scene() {
   const timers = useRef<number[]>([])
   const [hover, setHover] = useState<{ point: THREE.Vector3; normal: THREE.Vector3 } | null>(null)
   const [markerObject, setMarkerObject] = useState<THREE.Group | null>(null)
+  const [wireCursor, setWireCursor] = useState<THREE.Vector3 | null>(null)
 
   const root = useMemo(() => buildDefinitionObject(def, glbCache), [def.parts, def.materials, def.assets, glbRevision])
   const known = useMemo(() => new Set(def.parts.map((part) => part.id)), [def.parts])
@@ -108,6 +146,12 @@ function Scene() {
     })
   }, [root])
 
+  // miniaturas por vista e capa: a UI pede imagens ao renderer/modelo atuais
+  useEffect(() => {
+    registerCapture((options) => renderCapture(gl, root, options), camera)
+    return () => registerCapture(null)
+  }, [gl, root, camera])
+
   const activeState = mode === 'simulate' ? previewState : editState
   useEffect(() => {
     animator.current = new StateAnimator(def, root, activeState)
@@ -118,7 +162,7 @@ function Scene() {
     invalidate()
   }, [activeState, mode, root])
   useFrame((_, delta) => { if (animator.current?.update(Math.min(delta, 0.1))) invalidate() })
-  useEffect(() => { invalidate() }, [def, selection, view, mode, tool, ribbon, hover, placing, testWiresState, wireFromState])
+  useEffect(() => { invalidate() }, [def, selection, view, mode, tool, ribbon, hover, placing, testWiresState, wireFromState, wireCursor])
   useEffect(() => () => { timers.current.forEach((id) => window.clearTimeout(id)) }, [])
 
   // enquadramentos de câmara (mesma convenção do Esquema 3D: yaw 0° = frente, pitch > 0 = por cima)
@@ -199,6 +243,9 @@ function Scene() {
   const onModelClick = (event: ThreeEvent<MouseEvent>) => {
     if (performance.now() - lastDragEnd < 250) return
     event.stopPropagation()
+    // o modelo pode estar à frente do borne ao longo do raio: procurar o borne entre todas as interseções
+    const terminalHit = !placing ? event.intersections.find((item) => typeof item.object.userData?.terminalId === 'string') : undefined
+    if (terminalHit) { terminalClick(terminalHit.object.userData.terminalId as string); return }
     if (mode === 'simulate') {
       const hit = partIdOf(event.object, known)
       const result = runInteractions(interactionsFor(def, 'click', hit), previewState)
@@ -255,6 +302,7 @@ function Scene() {
       object={root}
       onClick={onModelClick}
       onPointerMove={(event: ThreeEvent<PointerEvent>) => {
+        if (useEditorStore.getState().wireFrom) setWireCursor(event.point.clone())
         if (!placing || !event.face) { if (hover) setHover(null); return }
         const normal = event.face.normal.clone().transformDirection(event.object.matrixWorld)
         setHover({ point: event.point.clone(), normal })
@@ -267,6 +315,7 @@ function Scene() {
     {def.terminals.map((terminal) => <TerminalMarker key={terminal.id} id={terminal.id} selected={selection?.kind === 'terminal' && selection.id === terminal.id}
       hidden={false} onRef={selection?.kind === 'terminal' && selection.id === terminal.id ? setMarkerObject : undefined} />)}
     <TestWires />
+    <WirePreview cursor={wireFromState ? wireCursor : null} />
     {placing && hover && <mesh position={hover.point}><sphereGeometry args={[2, 12, 10]} /><meshBasicMaterial color="#16a34a" depthTest={false} transparent opacity={0.85} /></mesh>}
 
     {partGizmo && selectedNode && <TransformControls object={selectedNode} mode={tool} space="local" size={0.8}

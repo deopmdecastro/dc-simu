@@ -94,6 +94,9 @@ CREATE TABLE IF NOT EXISTS catalog_versions(component_id TEXT NOT NULL,version I
     const meta = req.body?.meta, draft = req.body?.draft
     if (!meta || typeof meta.name !== 'string' || !draft || !Array.isArray(draft.parts)) return fail(res, 400, 'Definição inválida')
     meta.name = meta.name.trim().slice(0, 80) || 'Novo componente'
+    // capa: só imagens em data URL e de tamanho razoável
+    if (typeof meta.thumbnail !== 'string' || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(meta.thumbnail) || meta.thumbnail.length > 300000) delete meta.thumbnail
+    if (typeof meta.coverLocked !== 'boolean') delete meta.coverLocked
     const now = new Date().toISOString()
     const exists = db.prepare('SELECT 1 FROM catalog_components WHERE id=?').get(id)
     if (exists) db.prepare('UPDATE catalog_components SET meta=?,draft=?,updated_at=?,updated_by=? WHERE id=?').run(JSON.stringify(meta), JSON.stringify(draft), now, req.user.name, id)
