@@ -180,22 +180,27 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   // ---------------- Proteção ----------------
   breaker1p: {
     category: 'protection', paletteName: 'Disjuntor monopolar', group: 'Proteção', tag: 'QF', w: 60, h: 110,
-    terminals: [T('1', 'power-in', 0.5, 0), T('2', 'power-out', 0.5, 1)],
+    terminals: [
+      T('1', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('2', 'power-out', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
+    ],
     defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 16 },
   },
   breakerWegMdwC10: {
     category: 'protection', paletteName: 'Disjuntor WEG MDW-C10 · 1P 10 A curva C', group: 'Proteção', tag: 'QF', w: 72, h: 118,
     terminals: [
-      T('1', 'power-in', 0.5, 0, { terminalType: 'screw' }),
-      T('2', 'power-out', 0.5, 1, { terminalType: 'screw' }),
+      T('1', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('2', 'power-out', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
     ],
     defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 10, ue: '440 Vac / 250 Vdc', code: '10076405' },
   },
   breaker2p: {
     category: 'protection', paletteName: 'Disjuntor bipolar', group: 'Proteção', tag: 'QF', w: 90, h: 110,
     terminals: [
-      T('1', 'power-in', 0.33, 0), T('2', 'power-out', 0.33, 1),
-      T('3', 'power-in', 0.67, 0), T('4', 'power-out', 0.67, 1),
+      T('1', 'power-in', 0.25, 0, { position3D: { x: 0.25, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('2', 'power-out', 0.25, 1, { position3D: { x: 0.25, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('3', 'power-in', 0.75, 0, { position3D: { x: 0.75, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
+      T('4', 'power-out', 0.75, 1, { position3D: { x: 0.75, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
     ],
     defaultState: { closed: true, tripped: false, poles: 2, curve: 'C', inA: 16 },
   },
@@ -214,13 +219,13 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   },
   phoenixEcb3000760: {
     category: 'protection', paletteName: 'Phoenix Contact EC 1 12DC/1A S-R · 3000760', group: 'Proteção', tag: 'QF', w: 76, h: 128,
-    // Terminais funcionais conforme ficha; a disposição é esquemática, não uma reprodução dos bornes físicos.
+    // Terminais funcionais conforme ficha, calibrados na face de ligação do módulo.
     terminals: [
-      T('Line+', 'power-in', 0.2, 0, { terminalType: 'screw' }),
-      T('LOAD+', 'power-out', 0.2, 1, { terminalType: 'screw' }),
-      T('0V', 'neutral', 0.8, 1, { terminalType: 'screw' }),
-      T('RESET', 'io', 0.8, 0.25, { terminalType: 'screw' }),
-      T('STATUS', 'io', 0.8, 0.62, { terminalType: 'screw' }),
+      T('Line+', 'power-in', 0.25, 0, { position3D: { x: 0.25, y: 0.88, z: 1 }, terminalType: 'screw', diameter: 9 }),
+      T('LOAD+', 'power-out', 0.25, 1, { position3D: { x: 0.25, y: 0.12, z: 1 }, terminalType: 'screw', diameter: 9 }),
+      T('0V', 'neutral', 0.75, 1, { position3D: { x: 0.75, y: 0.12, z: 1 }, terminalType: 'screw', diameter: 9 }),
+      T('RESET', 'io', 0.75, 0.25, { position3D: { x: 0.75, y: 0.76, z: 1 }, terminalType: 'screw', diameter: 9 }),
+      T('STATUS', 'io', 0.75, 0.62, { position3D: { x: 0.75, y: 0.38, z: 1 }, terminalType: 'screw', diameter: 9 }),
     ],
     defaultState: { closed: true, tripped: false },
   },
@@ -874,6 +879,20 @@ export function upgradeLogoTerminals(c: ElectricalComponent): ElectricalComponen
 }
 
 /** Migra a fonte 24B provisória para a variante de parafuso 24A sem perder cabos. */
+export function upgradeProtectionTerminalPositions(c: ElectricalComponent): ElectricalComponent {
+  if (!['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(c.type)) return c
+  // Uma revisão feita no editor tem prioridade sobre os novos padrões.
+  if ((c.editorVersion ?? 1) > 1) return c
+  const defaults = TEMPLATES[c.type].terminals
+  return {
+    ...c,
+    terminals: c.terminals.map((terminal) => {
+      const calibrated = defaults.find((item) => item.label === terminal.label)
+      return calibrated?.position3D ? { ...terminal, position3D: { ...calibrated.position3D }, terminalType: calibrated.terminalType ?? terminal.terminalType, diameter: calibrated.diameter ?? terminal.diameter } : terminal
+    }),
+  }
+}
+
 export function upgradeProauto24A(c: ElectricalComponent): ElectricalComponent {
   if ((c.type as string) !== 'powerSupplyProauto24B') return c
   const oldPos: Record<string, [number, number]> = {

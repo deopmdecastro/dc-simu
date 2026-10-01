@@ -14,7 +14,7 @@ Gerado por `npm run audit:terminals`. Posições manuais são preservadas; borne
 | Contator WEG CWC09 · 9 A (3NA + 1NA) (`contactorWegCWC09`) | 12 | OK | OK | ✅ |
 | Relé de segurança Allen-Bradley Guardmaster MSR127TP (`safetyRelay`) | 15 | OK | OK | ✅ |
 | Sinaleiro LED AD22-22DS · 24 V (`pilotLightAd22`) | 2 | OK | OK | ✅ |
-| Motor SEW DRN80MK4/B3 · 0,55 kW (`motor3ph`) | 4 | OK | OK | ✅ |
+| Motor SEW DRN80MK4/B3 · 0,55 kW (`motor3ph`) | 7 | OK | OK | ✅ |
 | Siemens LOGO! 12/24RC (8DI/4DQ) (`plcSiemensLogo1224RC`) | 19 | OK | OK | ✅ |
 | CLP LS Electric XGB XBM-DN32S · 16DI/16DO (`plcLsXbmDn32s`) | 34 | OK | OK | ✅ |
 | Siemens SIMATIC TS Adapter IE Basic · 6ES7972-0EB00-0XA0 (`siemensTsAdapterIeBasic`) | 4 | OK | OK | ✅ |
@@ -24,4 +24,4 @@ Gerado por `npm run audit:terminals`. Posições manuais são preservadas; borne
 | Fonte Proauto / DRAN120-24A · 24V 5A (`powerSupplyProauto24A`) | 9 | OK | OK | ✅ |
 | Multímetro digital RGK DM-20 (`multimeterDm20`) | 4 | OK | OK | ✅ |
 
-**19 modelos GLB auditados · 128 bornes.**
+**19 modelos GLB auditados · 131 bornes.**

@@ -33,7 +33,7 @@ import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phas
 import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTable, nextAddress, collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
-import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradePhysicalFootprint, upgradeProauto24A } from '../electrical/factory'
+import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradePhysicalFootprint, upgradeProauto24A, upgradeProtectionTerminalPositions } from '../electrical/factory'
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
@@ -2010,7 +2010,7 @@ export const useSimStore = create<Store>((set, get) => ({
       setStoredCover(parsed?.cover)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
-      const loadedComponents = sourceComponents.map(upgradeLogoTerminals).map(upgradeProauto24A).map(upgradePhysicalFootprint)
+      const loadedComponents = sourceComponents.map(upgradeLogoTerminals).map(upgradeProauto24A).map(upgradeProtectionTerminalPositions).map(upgradePhysicalFootprint)
         .map((component) => upgradeComponentEditorMetadata(component, parsed.savedAt)) as ElectricalComponent[]
       const componentMetadataUpgraded = loadedComponents.some((component, index) => component.editorVersion !== sourceComponents[index]?.editorVersion
         || component.editorUpdatedAt !== sourceComponents[index]?.editorUpdatedAt || component.editorLastChange !== sourceComponents[index]?.editorLastChange)
