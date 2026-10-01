@@ -64,3 +64,25 @@ Os perfis são **sugestões**: depois de aplicados, cada borne continua editáve
 - **Auto-guardar e atualizações**: o rascunho é guardado automaticamente 5 s depois da última alteração. Quando há uma nova versão da aplicação, o editor pergunta («Atualizar agora» / «Mais tarde», com opção de atualizar sempre sozinho); o rascunho é guardado antes de recarregar.
 - **Compatibilidade** (`src/catalog/terminalCompat.ts`, regras em `COMPAT_RULES`, extensíveis): em *Simular*, ligue dois bornes com o cabo de teste; aparece «⚠ Ligações incompatíveis» (erro) ou aviso. A aba *Compatibilidade* da biblioteca testa pares de perfis.
 - **Vista**: grelha de pontos como no simulador, cubo de vista (arrastar orbita, clicar numa face enquadra-a), chão com escala opcional.
+
+### Instrumentos de medida (multímetros)
+
+Categoria **Instrumentos** na biblioteca de bornes (também disponível para utilizadores): multímetro básico (COM · VΩ · mA · 10A, com termopar K opcional), multímetro de 3 entradas, alicate amperimétrico, multímetro de bancada a 4 fios (HI/LO/SENSE), ponteiras de teste e osciloscópio (1–4 canais + massa). Há ainda chips soltos «Medição (multímetro)».
+
+- Todas as portas ficam no grupo funcional **Medição** (`MEASURE_GROUP`, tomada banana/BNC, sem polaridade nem contacto).
+- Regra de compatibilidade (`terminalCompat.ts`): uma porta de medição liga a **qualquer** borne sem erros (mede, não conduz); duas portas de medição ligadas entre si dão aviso. O grupo viaja em `CompatTerminal.group` e é passado também pelo editor 3D (`evaluateWire`).
+- Os perfis continuam a ser sugestões: tudo é editável (mover, renomear, apagar, guardar como perfil novo). Existe o tipo de componente «Instrumento de medida» no assistente.
+
+## Cabos de teste no editor 3D (igual ao simulador)
+
+- **Ferramenta Cabo [3]**: clique num borne (ou na superfície) para começar, cliques intermédios criam pontos, termina noutro borne (duplo clique deixa a ponta livre). O painel «Novo cabo» define cor (automática pela função, norma IEC 60204-1, ou manual), secção, condutor e terminal por omissão.
+- **Separador «Cabos»** (inspetor): nome e função, **cor** (paleta do simulador), **secção** (0,5 – 16 mm², com Ø exterior), flexível/rígido, **terminal de cada ponta** (ponteira, ponteira dupla, olhal, forquilha, pino, faston, estanhado, nu; copiar A→B), origem/destino, inverter sentido, pontos de passagem (+ Ponto, limpar), enquadrar e remover. Alterações aparecem de imediato no viewport (`WireEnd3D`/dimensões físicas do simulador) e são desfazíveis.
+- No viewport: clique seleciona o cabo; duplo clique acrescenta um ponto; arrastar move-o; duplo clique no ponto remove-o. `Del` remove o cabo selecionado.
+- O comprimento total (pontas incluídas) e o veredicto de compatibilidade são recalculados a partir dos bornes atuais.
+
+## Barra de ferramentas e visibilidade
+
+- Barra por grupos: histórico · ferramentas **Selecionar 1 / Borne 2 / Cabo 3 / Apagar 4 / Mover vista 5 / Medir 6** · manipulador (Mover W / Rodar E / Escala R, eixos **Local/Global X**) · **Formas ▾** (caixa, cilindro, esfera, cone, anel, grupo, GLB) · duplicar/agrupar/eliminar · pousar no chão/centrar · enquadrar (F) / enquadrar seleção (Shift+F) · biblioteca de bornes e **olho geral** dos bornes (H).
+- **Medir**: dois cliques (superfície ou borne, com snap) mostram distância e Δx/Δy/Δz; Esc cancela; «Limpar medições» na barra.
+- **Olhos nos bornes**: na hierarquia (por borne, por grupo e geral) e no inspetor («No viewport»). Só afeta a edição; o borne continua no componente.
+- Separadores do painel direito passam a quebrar linha (sem scroll horizontal).

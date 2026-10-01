@@ -115,6 +115,13 @@ export const TERMINAL_CHIPS: Array<{ group: string; items: TerminalSpec[] }> = [
   { group: 'Rede e terra', items: [spec('L', 'Fase', 'L'), spec('N', 'Neutro', 'N'), spec('PE', 'Terra de proteção', 'PE'), spec('GND', 'Massa', 'GND')] },
   { group: 'Corrente contínua', items: [spec('+24V', '+24 V', '+24V'), spec('0V', '0 V', '0V'), spec('+12V', '+12 V', '+12V'), spec('+5V', '+5 V', '+5V'), spec('+V', 'Positivo', '+V'), spec('-V', 'Negativo', '-V')] },
   { group: 'Sinal', items: [spec('IN', 'Entrada', 'IN', { direction: 'in' }), spec('OUT', 'Saída', 'OUT', { direction: 'out' }), spec('C', 'Comum (C)', 'C'), spec('A', 'A (barramento)', 'A'), spec('B', 'B (barramento)', 'B')] },
+  { group: 'Medição (multímetro)', items: [
+    spec('COM', 'COM (preto)', 'COM', { group: 'Medição', kind: 'io', polarity: 'none', contact: undefined, terminalType: 'plug', color: '#111827' }),
+    spec('VΩ', 'V · Ω (vermelho)', 'V', { group: 'Medição', kind: 'io', polarity: 'none', terminalType: 'plug', color: '#dc2626' }),
+    spec('mA', 'mA · µA', 'mA', { group: 'Medição', kind: 'io', polarity: 'none', terminalType: 'plug', color: '#f59e0b' }),
+    spec('10A', 'A (10 A)', 'A', { group: 'Medição', kind: 'io', polarity: 'none', terminalType: 'plug', color: '#ea580c' }),
+    spec('CH1', 'Canal 1 (BNC)', 'CH1', { group: 'Medição', kind: 'io', polarity: 'none', terminalType: 'conical', color: '#eab308' }),
+  ] },
 ]
 
 /* ------------------------------------------------------------------ perfis */
@@ -187,6 +194,29 @@ function powerSupply(p: ProfileParams, three: boolean): TerminalSpec[] {
   return list
 }
 
+
+/* ------------------------------------------------------- instrumentos de medida */
+/** Grupo reservado: portas de medição (multímetro, osciloscópio…) ligam a qualquer borne sem regras de polaridade. */
+export const MEASURE_GROUP = 'Medição'
+const jack = (label: string, name: string, fn: string, color: string, o: SpecOptions = {}) => spec(label, name, fn, {
+  kind: 'io', polarity: 'none', electricalClass: 'other', direction: 'in', contact: undefined, terminalType: 'plug', color, face: 'front', row: 'jacks', group: MEASURE_GROUP, ...o,
+})
+const METER = { com: '#111827', volt: '#dc2626', ma: '#f59e0b', amp: '#ea580c', temp: '#7c3aed', hz: '#0ea5e9' }
+
+function multimeter(p: ProfileParams): TerminalSpec[] {
+  const list = [jack('COM', 'COM (comum, preto)', 'COM', METER.com), jack('VΩ', p.hz === true ? 'V · Ω · Hz · diodo' : 'V · Ω · diodo · continuidade', 'V', METER.volt)]
+  if (p.ma !== false) list.push(jack('mA', 'mA · µA', 'mA', METER.ma))
+  if (p.amp !== false) list.push(jack('10A', 'A (até 10 A)', 'A', METER.amp))
+  if (p.temp === true) list.push(jack('T+', 'Termopar K (+)', 'T+', METER.temp, { row: 'temp' }), jack('T−', 'Termopar K (−)', 'T-', METER.temp, { row: 'temp' }))
+  return list
+}
+function oscilloscope(p: ProfileParams): TerminalSpec[] {
+  const channels = count(p.channels, 2, 1, 4)
+  return [...seq(channels).map((i) => jack(`CH${i + 1}`, `Canal ${i + 1}`, `CH${i + 1}`, ['#eab308', '#22c55e', '#3b82f6', '#ef4444'][i], { terminalType: 'conical', row: 'ch' })),
+    ...(p.ext === true ? [jack('EXT', 'Disparo externo', 'EXT', '#94a3b8', { terminalType: 'conical', row: 'ch' })] : []),
+    jack('GND', 'Massa (chassis)', 'GND', METER.com, { row: 'gnd' })]
+}
+
 export const BUILTIN_PROFILES: TerminalProfile[] = [
   /* --- Alimentação --- */
   { id: 'power-1ph', name: 'Monofásico (L · N · PE)', category: ['Alimentação', 'Monofásico'], description: 'Alimentação monofásica: fase, neutro e terra.', params: [bool('L', 'Fase (L)', true), bool('N', 'Neutro (N)', true), bool('PE', 'Terra (PE)', true)], build: (p) => powerSupply(p, false) },
@@ -238,6 +268,13 @@ export const BUILTIN_PROFILES: TerminalProfile[] = [
   { id: 'earth-pe', name: 'Terra de proteção (PE)', category: ['Terra', 'PE'], description: 'Um borne de proteção.', build: () => [spec('PE', 'Terra de proteção', 'PE')] },
   { id: 'earth-fe', name: 'Terra funcional (FE)', category: ['Terra', 'FE'], description: 'Um borne de terra funcional.', build: () => [spec('FE', 'Terra funcional', 'FE')] },
   { id: 'terminal-block', name: 'Borneira (entrada/saída)', category: ['Terminais', 'Borneira'], description: 'Pares de bornes em linha, entrada em cima e saída em baixo.', params: [num('n', 'Número de pares', 2, 1, 24)], build: (p) => seq(count(p.n, 2, 1, 24)).flatMap((i) => [inn(`${i + 1}`, `Entrada ${i + 1}`, 'IN'), out(`${i + 1}'`, `Saída ${i + 1}`, 'OUT')]) },
+  /* --- Instrumentos de medida --- */
+  { id: 'multimeter-basic', name: 'Multímetro (COM · VΩ · mA · 10A)', category: ['Instrumentos', 'Multímetro'], description: 'Tomadas banana de 4 mm: comum, tensão/resistência, mA/µA e 10 A. Termopar K e rótulo Hz opcionais.', params: [bool('ma', 'Entrada mA/µA', true), bool('amp', 'Entrada 10 A', true), bool('temp', 'Termopar K (T+ / T−)', false), bool('hz', 'Rótulo V·Ω·Hz', false)], build: multimeter },
+  { id: 'multimeter-3', name: 'Multímetro de 3 entradas', category: ['Instrumentos', 'Multímetro'], description: 'COM, VΩmA e 10 A (modelos simples).', build: () => [jack('COM', 'COM (comum, preto)', 'COM', METER.com), jack('VΩmA', 'V · Ω · mA', 'V', METER.volt), jack('10A', 'A (até 10 A)', 'A', METER.amp)] },
+  { id: 'multimeter-clamp', name: 'Alicate amperimétrico', category: ['Instrumentos', 'Multímetro'], description: 'Tomadas COM e VΩ; a corrente mede-se pelo alicate (borne «Alicate» colocado sobre o condutor).', params: [bool('jaw', 'Borne do alicate (corrente)', true)], build: (p) => [jack('COM', 'COM (comum, preto)', 'COM', METER.com), jack('VΩ', 'V · Ω · Hz', 'V', METER.volt), ...(p.jaw !== false ? [jack('CLAMP', 'Alicate (corrente)', 'A', METER.amp, { terminalType: 'bar', face: 'top', row: 'jaw' })] : [])] },
+  { id: 'multimeter-bench', name: 'Multímetro de bancada (4 fios)', category: ['Instrumentos', 'Multímetro'], description: 'HI/LO de entrada, SENSE HI/LO para 4 fios e entrada de corrente.', params: [bool('four', 'Medição a 4 fios (SENSE)', true), bool('amp', 'Entrada de corrente (3 A)', true)], build: (p) => [jack('HI', 'Entrada HI', 'V', METER.volt, { row: 'in' }), jack('LO', 'Entrada LO', 'COM', METER.com, { row: 'in' }), ...(p.four !== false ? [jack('SHI', 'Sense HI', 'V', METER.volt, { row: 'sense' }), jack('SLO', 'Sense LO', 'COM', METER.com, { row: 'sense' })] : []), ...(p.amp !== false ? [jack('3A', 'Corrente (3 A)', 'A', METER.amp, { row: 'amp' })] : [])] },
+  { id: 'test-probes', name: 'Ponteiras de teste (vermelha · preta)', category: ['Instrumentos', 'Ponteiras'], description: 'Duas ponteiras de medição: positiva (vermelha) e comum (preta), em tomada banana.', build: () => [jack('+', 'Ponteira vermelha', 'V', METER.volt, { terminalType: 'pin', row: 'p' }), jack('−', 'Ponteira preta (COM)', 'COM', METER.com, { terminalType: 'pin', row: 'p' })] },
+  { id: 'oscilloscope', name: 'Osciloscópio', category: ['Instrumentos', 'Osciloscópio'], description: 'Canais BNC, massa e disparo externo opcional.', params: [num('channels', 'Canais', 2, 1, 4), bool('ext', 'Disparo externo (EXT)', false)], build: oscilloscope },
 ]
 
 /** Perfis sugeridos por categoria do componente (24.20). */
@@ -247,7 +284,7 @@ export const SUGGESTED_PROFILES: Record<ComponentCategory, string[]> = {
   contactor: ['contactor-power', 'contactor-aux'],
   relay: ['relay', 'relay-no'],
   signaling: ['pilot-lamp'],
-  sensor: ['sensor-3w', 'sensor-4w', 'sensor-analog'],
+  sensor: ['sensor-3w', 'sensor-4w', 'sensor-analog', 'multimeter-basic', 'multimeter-3', 'test-probes'],
   motor: ['motor-3ph', 'motor-6', 'motor-1ph'],
   drive: ['vfd'],
   controller: ['plc-8-8', 'plc-16-16', 'plc-ai-ao', 'plc-custom'],

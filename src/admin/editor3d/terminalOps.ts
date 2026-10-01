@@ -52,7 +52,7 @@ export function applyProfile(profile: TerminalProfile, params: ProfileParams, re
     created = specsToTerminals(specs, defBounds(def), base, () => newId('t_'), profile.id)
     return { ...def, terminals: [...base, ...created] }
   })
-  state.set({ selection: { kind: 'terminal', id: created[0].id }, tab: 'terminals', placing: false, placingSpec: null, testWires: [] })
+  state.set({ selection: { kind: 'terminal', id: created[0].id }, tab: 'terminals', placing: false, placingSpec: null, testWires: [], selectedWire: null })
   state.cameraTo('iso')
   return created.length
 }

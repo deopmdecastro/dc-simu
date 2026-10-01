@@ -12,10 +12,14 @@ import { BASE_STATE, glbCache, posePart, patchTerminal, removeParts, useEditorSt
 import { addTerminalAt, defBounds, faceCenter } from './terminalOps'
 import { registerCapture, renderCapture } from './capture'
 import { WireDrawController } from './WireDraw'
-import { WIRE_RADIUS_MM, wireChain, wireCurve } from './wirePath'
+import TestWires from './WiresView'
+import { wireModel } from './wirePath'
+import { MeasureController } from './MeasureTool'
+import { dragState } from './dragState'
 
 const DEG = 180 / Math.PI
 let lastDragEnd = 0
+const dragRecent = () => performance.now() - lastDragEnd < 250 || performance.now() - dragState.endedAt < 250
 const r2 = (value: number) => Math.round(value * 100) / 100
 
 function partIdOf(object: THREE.Object3D | null, known: Set<string>): string {
@@ -28,7 +32,7 @@ function terminalClick(id: string) {
   if (performance.now() - lastDragEnd < 250) return
   const state = useEditorStore.getState()
   if (state.placing) return // a colocar bornes: o clique pertence ao modelo, não aos bornes existentes
-  if (state.ribbon === 'wire') return // o desenho de cabos trata o clique (WireDrawController)
+  if (state.ribbon === 'wire' || state.ribbon === 'measure') return // o desenho de cabos / a régua tratam o clique
   if (state.mode === 'simulate') { state.setRibbon('wire'); state.startWire({ terminalId: id }); return }
   if (state.ribbon === 'delete') { state.edit((def) => ({ ...def, terminals: def.terminals.filter((item) => item.id !== id) })); return }
   if (state.ribbon === 'pan') return
@@ -36,23 +40,6 @@ function terminalClick(id: string) {
 }
 
 const WIRE_COLOR = { ok: '#16a34a', warn: '#f59e0b', error: '#dc2626' } as const
-function TestWires() {
-  const wires = useEditorStore((s) => s.testWires)
-  const terminals = useEditorStore((s) => s.def.terminals)
-  const smooth = useEditorStore((s) => s.wireSmooth)
-  const hoverWire = useEditorStore((s) => s.hoverWire)
-  const curves = useMemo(() => wires.map((wire) => ({ wire, curve: wireCurve(wireChain(terminals, wire), smooth) })), [wires, terminals, smooth])
-  return <>{curves.map(({ wire, curve }) => {
-    if (!curve) return null
-    const on = hoverWire === wire.id
-    return <group key={wire.id}>
-      {wire.start && <mesh position={wire.start} renderOrder={4}><sphereGeometry args={[1.3, 12, 10]} /><meshBasicMaterial color={WIRE_COLOR[wire.level]} depthTest={false} /></mesh>}
-      {wire.end && <mesh position={wire.end} renderOrder={4}><sphereGeometry args={[1.3, 12, 10]} /><meshBasicMaterial color={WIRE_COLOR[wire.level]} depthTest={false} /></mesh>}
-      <mesh renderOrder={3}><tubeGeometry args={[curve, Math.max(40, wire.points.length * 16), on ? WIRE_RADIUS_MM * 1.5 : WIRE_RADIUS_MM, 8, false]} /><meshBasicMaterial color={WIRE_COLOR[wire.level]} depthTest={false} transparent opacity={on ? 1 : 0.92} /></mesh>
-    </group>
-  })}</>
-}
-
 /** Seta/haste do borne ao longo da normal (mostra por onde o cabo sai). */
 function TerminalMarker({ id, selected, hidden, onRef }: { id: string; selected: boolean; hidden: boolean; onRef?: (object: THREE.Group | null) => void }) {
   const terminal = useEditorStore((s) => s.def.terminals.find((item) => item.id === id))
@@ -63,13 +50,13 @@ function TerminalMarker({ id, selected, hidden, onRef }: { id: string; selected:
   const [hovered, setHovered] = useState(false)
   useCursor(hovered && interactive)
   const quaternion = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...(terminal?.normal ?? [0, 0, 1])).normalize()), [terminal?.normal])
-  if (!terminal) return null
+  if (!terminal || hidden) return null
   // com um cabo em curso, os restantes bornes mostram o veredicto de compatibilidade
   const verdict = origin ? checkConnection(origin, terminal).level : null
   const base = pending ? '#f59e0b' : verdict ? WIRE_COLOR[verdict] : selected ? '#2655e5' : terminal.color
   const radius = (selected ? 2.4 : 1.8) + (pending || hovered ? 0.8 : 0) + (verdict ? 0.4 : 0)
   const lift = new THREE.Vector3(...terminal.normal).multiplyScalar(1.6)
-  return <group ref={onRef} position={terminal.position} visible={!hidden}>
+  return <group ref={onRef} position={terminal.position}>
     {/* zona de clique generosa e à frente da superfície: o modelo nunca "rouba" o clique ao borne */}
     <mesh position={lift} userData={{ terminalId: id }} renderOrder={6}
       onClick={(event) => { if (useEditorStore.getState().placing) return; event.stopPropagation(); terminalClick(id) }}
@@ -112,6 +99,10 @@ function Scene() {
   const testWiresState = useEditorStore((s) => s.testWires)
   const wireFromState = useEditorStore((s) => s.wireFrom)
   const wirePointsState = useEditorStore((s) => s.wirePoints)
+  const selectedWireState = useEditorStore((s) => s.selectedWire)
+  const hiddenTerminals = useEditorStore((s) => s.hiddenTerminals)
+  const measurementsState = useEditorStore((s) => s.measurements)
+  const gizmoSpace = useEditorStore((s) => s.gizmoSpace)
   const { invalidate, camera, controls, gl } = useThree()
   const animator = useRef<StateAnimator | null>(null)
   const timers = useRef<number[]>([])
@@ -146,7 +137,7 @@ function Scene() {
     invalidate()
   }, [activeState, mode, root])
   useFrame((_, delta) => { if (animator.current?.update(Math.min(delta, 0.1))) invalidate() })
-  useEffect(() => { invalidate() }, [def, selection, view, mode, tool, ribbon, hover, placing, testWiresState, wireFromState, wirePointsState])
+  useEffect(() => { invalidate() }, [def, selection, view, mode, tool, ribbon, hover, placing, testWiresState, wireFromState, wirePointsState, selectedWireState, hiddenTerminals, measurementsState])
   useEffect(() => () => { timers.current.forEach((id) => window.clearTimeout(id)) }, [])
 
   // enquadramentos de câmara (mesma convenção do Esquema 3D: yaw 0° = frente, pitch > 0 = por cima)
@@ -162,6 +153,27 @@ function Scene() {
       orbit.update(); reportAngles(); invalidate()
       return
     }
+    if (viewCommand.kind === 'fitSel') {
+      const state = useEditorStore.getState()
+      const picked = new THREE.Box3()
+      if (state.selection?.kind === 'part') { const node = root.getObjectByName(state.selection.id); if (node) picked.setFromObject(node) }
+      else if (state.selection?.kind === 'terminal') { const terminal = state.def.terminals.find((item) => item.id === state.selection!.id); if (terminal) picked.setFromCenterAndSize(new THREE.Vector3(...terminal.position), new THREE.Vector3(24, 24, 24)) }
+      else if (state.selectedWire) {
+        const wire = state.testWires.find((item) => item.id === state.selectedWire)
+        const chain = wire ? wireModel(state.def.terminals, wire)?.chain : undefined
+        chain?.forEach((point) => picked.expandByPoint(point))
+      }
+      if (!picked.isEmpty()) {
+        const center = picked.getCenter(new THREE.Vector3())
+        const orbit2 = controls as unknown as { target: THREE.Vector3; update: () => void } | null
+        const direction = camera.position.clone().sub(orbit2?.target ?? new THREE.Vector3()).normalize()
+        camera.position.copy(center).addScaledVector(direction, Math.max(50, picked.getSize(new THREE.Vector3()).length() * 2.4))
+        camera.lookAt(center)
+        if (orbit2) { orbit2.target.copy(center); orbit2.update() }
+        reportAngles(); invalidate()
+        return
+      }
+    }
     const box = new THREE.Box3().setFromObject(root)
     if (box.isEmpty()) box.set(new THREE.Vector3(-30, 0, -30), new THREE.Vector3(30, 60, 30))
     const center = box.getCenter(new THREE.Vector3())
@@ -169,6 +181,7 @@ function Scene() {
     const yaw = (viewCommand.yaw ?? 0) / DEG, pitch = (viewCommand.pitch ?? 0) / DEG
     const dirs: Record<string, number[]> = {
       front: [0, 0.05, 1], back: [0, 0.05, -1], left: [-1, 0.05, 0], right: [1, 0.05, 0], top: [0, 1, 0.001], bottom: [0, -1, 0.001], iso: [0.8, 0.6, 1], fit: [0.8, 0.6, 1],
+      fitSel: [0.8, 0.6, 1],
       angles: [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch) + 0.02, Math.cos(yaw) * Math.cos(pitch)],
     }
     const vector = new THREE.Vector3(...dirs[viewCommand.kind]).normalize().multiplyScalar(radius).add(center)
@@ -222,7 +235,7 @@ function Scene() {
   const gizmoEnabled = mode === 'edit' && !placing && ribbon === 'select'
   const partGizmo = gizmoEnabled && selectedPart && !selectedPart.locked && selectedNode
   const selectedTerminal = selection?.kind === 'terminal' ? def.terminals.find((terminal) => terminal.id === selection.id) : undefined
-  const terminalGizmo = gizmoEnabled && selectedTerminal && markerObject
+  const terminalGizmo = gizmoEnabled && selectedTerminal && markerObject && !hiddenTerminals.includes(selectedTerminal.id)
 
   const onModelClick = (event: ThreeEvent<MouseEvent>) => {
     if (performance.now() - lastDragEnd < 250) return
@@ -230,7 +243,7 @@ function Scene() {
     // o modelo pode estar à frente do borne ao longo do raio: procurar o borne entre todas as interseções
     const terminalHit = !placing ? event.intersections.find((item) => typeof item.object.userData?.terminalId === 'string') : undefined
     if (terminalHit) { terminalClick(terminalHit.object.userData.terminalId as string); return }
-    if (mode === 'simulate' && ribbon === 'wire') return
+    if (mode === 'simulate' && (ribbon === 'wire' || ribbon === 'measure')) return
     if (mode === 'simulate') {
       const hit = partIdOf(event.object, known)
       const result = runInteractions(interactionsFor(def, 'click', hit), previewState)
@@ -238,7 +251,7 @@ function Scene() {
       result.delayed.forEach((action) => timers.current.push(window.setTimeout(() => useEditorStore.getState().set({ previewState: action.state }), action.afterMs)))
       return
     }
-    if (ribbon === 'wire' || ribbon === 'pan') return
+    if (ribbon === 'wire' || ribbon === 'pan' || ribbon === 'measure') return
     if (ribbon === 'delete') {
       const target = partIdOf(event.object, known)
       if (target) { const state = useEditorStore.getState(); state.edit((current) => removeParts(current, [target])); state.select(null) }
@@ -297,12 +310,13 @@ function Scene() {
     {view.bounds && <BoundsBox root={root} />}
 
     {def.terminals.map((terminal) => <TerminalMarker key={terminal.id} id={terminal.id} selected={selection?.kind === 'terminal' && selection.id === terminal.id}
-      hidden={false} onRef={selection?.kind === 'terminal' && selection.id === terminal.id ? setMarkerObject : undefined} />)}
+      hidden={hiddenTerminals.includes(terminal.id)} onRef={selection?.kind === 'terminal' && selection.id === terminal.id ? setMarkerObject : undefined} />)}
     <TestWires />
     <WireDrawController active={ribbon === 'wire'} root={root} />
+    <MeasureController active={ribbon === 'measure'} root={root} />
     {placing && hover && <mesh position={hover.point}><sphereGeometry args={[2, 12, 10]} /><meshBasicMaterial color="#16a34a" depthTest={false} transparent opacity={0.85} /></mesh>}
 
-    {partGizmo && selectedNode && <TransformControls object={selectedNode} mode={tool} space="local" size={0.8}
+    {partGizmo && selectedNode && <TransformControls object={selectedNode} mode={tool} space={gizmoSpace} size={0.8}
       translationSnap={snap.on ? snap.mm : null} rotationSnap={snap.on ? snap.deg / DEG : null} scaleSnap={snap.on ? 0.05 : null} onMouseUp={commitPart} />}
     {terminalGizmo && markerObject && <TransformControls object={markerObject} mode="translate" size={0.7} translationSnap={snap.on ? Math.min(snap.mm, 0.5) : null} onMouseUp={commitTerminal} />}
     <OrbitControls makeDefault enableDamping={false} maxDistance={1500} minDistance={20} onChange={reportAngles}
@@ -319,7 +333,7 @@ export default function Viewport() {
   const select = useEditorStore((s) => s.select)
   return <Canvas frameloop="demand" shadows dpr={[1, 2]} gl={{ alpha: true }} camera={{ position: [150, 110, 190], fov: 35, near: 1, far: 4000 }}
     style={{ cursor: undefined }}
-    onPointerMissed={() => { if (performance.now() - lastDragEnd < 250) return; const state = useEditorStore.getState(); if (!state.placing && state.mode === 'edit' && state.ribbon === 'select') select(null) }}>
+    onPointerMissed={() => { if (dragRecent()) return; const state = useEditorStore.getState(); if (state.selectedWire && state.ribbon === 'select') state.set({ selectedWire: null }); if (!state.placing && state.mode === 'edit' && state.ribbon === 'select') select(null) }}>
     <Scene />
   </Canvas>
 }

@@ -23,7 +23,8 @@ import { isProgrammablePlc } from '../src/ladder/plcPrograms'
 import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
 import type { LadderRung } from '../src/types'
-import { wireChain, wireCurve } from '../src/admin/editor3d/wirePath'
+import { evaluateWire, wireChain, wireCurve } from '../src/admin/editor3d/wirePath'
+import { cableOuterDiameterMm, styleFor, DEFAULT_WIRE_DEFAULTS } from '../src/admin/editor3d/wireStyle'
 import { useSimStore } from '../src/store/useSimStore'
 import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
 import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, getDefaultComponent3DPresentation, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
@@ -1550,6 +1551,21 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const ac = (fn: string, kind = 'power-in' as const) => ({ fn, kind, polarity: 'ac' as const, electricalClass: 'ac' as const, direction: 'io' as const })
   const dc = { fn: '+24V', kind: 'power-in' as const, polarity: 'positive' as const, electricalClass: 'dc' as const, direction: 'io' as const }
   check('compat: L1↔L1 ok, L1↔L2 aviso, L1↔24V erro, PE↔L1 erro', checkConnection(ac('L1'), ac('L1')).level === 'ok' && checkConnection(ac('L1'), ac('L2')).level === 'warn' && checkConnection(ac('L1'), dc).level === 'error' && checkConnection({ ...ac('PE'), kind: 'earth', polarity: 'earth', electricalClass: 'other' }, ac('L1')).level === 'error')
+  {
+    const meter = (labels0: string[], id = 'multimeter-basic', params = {}) => byId(id).build({ ...defaultParams(byId(id)), ...params }).map((item) => item.label).join() === labels0.join()
+    check('multímetro: básico = COM, VΩ, mA, 10A (todos no grupo Medição, tomada banana)', meter(['COM', 'VΩ', 'mA', '10A']) && build('multimeter-basic').every((item) => item.group === 'Medição' && item.terminalType === 'plug' && item.polarity === 'none' && !item.contact))
+    check('multímetro: COM preto e VΩ vermelho; termopar opcional acrescenta T+/T−', build('multimeter-basic')[0].color === '#111827' && build('multimeter-basic')[1].color === '#dc2626' && meter(['COM', 'VΩ', 'T+', 'T−'], 'multimeter-basic', { ma: false, amp: false, temp: true }))
+    check('multímetro: 3 entradas, alicate, bancada 4 fios, ponteiras e osciloscópio', meter(['COM', 'VΩmA', '10A'], 'multimeter-3') && meter(['COM', 'VΩ', 'CLAMP'], 'multimeter-clamp') && meter(['HI', 'LO', 'SHI', 'SLO', '3A'], 'multimeter-bench') && meter(['+', '−'], 'test-probes') && meter(['CH1', 'CH2', 'GND'], 'oscilloscope') && build('oscilloscope', { channels: 4, ext: true }).length === 6)
+    const meas = { fn: 'V', kind: 'io' as const, polarity: 'none' as const, electricalClass: 'other' as const, direction: 'in' as const, group: 'Medição' }
+    check('compat: porta de medição liga a L1, a 24 V e a PE sem erro; duas portas de medição avisam', checkConnection(meas, ac('L1')).level === 'ok' && checkConnection(dc, meas).level === 'ok' && checkConnection(meas, { ...ac('PE'), kind: 'earth' as never }).level === 'ok' && checkConnection(meas, { ...meas, fn: 'COM' }).level === 'warn')
+    check('compat: sem grupo Medição mantém as regras (L1↔24V erro)', checkConnection(ac('L1'), dc).level === 'error')
+    check('sugestões: sensor inclui multímetro mas perfis de medição nunca são impostos a outras categorias', (SUGGESTED_PROFILES.sensor ?? []).includes('multimeter-basic') && !(SUGGESTED_PROFILES.contactor ?? []).includes('multimeter-basic'))
+  }
+  check('cabo (editor): diâmetro exterior cresce com a secção e há cor/terminal automáticos', cableOuterDiameterMm('10mm²') > cableOuterDiameterMm('1.5mm²') && styleFor(DEFAULT_WIRE_DEFAULTS).gauge === '1.5mm²')
+  {
+    const t = [{ id: 'a', label: '1', name: 'L', position: [0, 0, 0], normal: [0, 1, 0], fn: 'L1', kind: 'power-in', polarity: 'ac', electricalClass: 'ac', direction: 'io' }, { id: 'b', label: '2', name: 'M', position: [0, 0, 0], normal: [0, 1, 0], fn: 'V', kind: 'io', polarity: 'none', electricalClass: 'other', direction: 'in', group: 'Medição' }] as never
+    check('cabo (editor): evaluateWire aceita ligação a porta de medição e avisa de ponta livre', evaluateWire(t, { a: 'a', b: 'b', points: [] }).level === 'ok' && evaluateWire(t, { a: 'a', b: null, points: [] }).level === 'warn')
+  }
   check('compat: bobina A1↔A2 não gera aviso de entradas', checkConnection({ fn: 'A1', kind: 'coil-plus', polarity: 'positive', electricalClass: 'dc', direction: 'in' }, { fn: 'A2', kind: 'coil-minus', polarity: 'negative', electricalClass: 'dc', direction: 'in' }).messages.every((message) => !message.includes('entradas')))
   {
     const terminals = [

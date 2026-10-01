@@ -103,7 +103,7 @@ export function ProfileEditorDialog({ initial, onClose, onSaved }: { initial?: P
 }
 
 /* -------------------------------------------------------------- compatibilidade */
-function toCompat(item: TerminalSpec): CompatTerminal { return { fn: item.fn, label: item.label, kind: item.kind, polarity: item.polarity, electricalClass: item.electricalClass, direction: item.direction, contact: item.contact } }
+function toCompat(item: TerminalSpec): CompatTerminal { return { fn: item.fn, label: item.label, kind: item.kind, polarity: item.polarity, electricalClass: item.electricalClass, direction: item.direction, contact: item.contact, group: item.group } }
 
 function CompatTester({ profiles }: { profiles: TerminalProfile[] }) {
   const options = useMemo(() => profiles.map((profile) => ({ profile, specs: profile.build(defaultParams(profile)) })).filter((entry) => entry.specs.length), [profiles])

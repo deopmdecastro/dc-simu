@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { PartDef } from '../../catalog/types'
 import { IconBox, IconCylinder, IconEye, IconEyeOff, IconGroup, IconLock, IconModel, IconSparkle, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
 import { descendantsOf, patchPart, useEditorStore } from './editorStore'
@@ -16,6 +16,15 @@ export default function Hierarchy() {
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
   const readOnly = mode === 'simulate'
+  const hiddenTerminals = useEditorStore((s) => s.hiddenTerminals)
+  const setTerminalsHidden = useEditorStore((s) => s.setTerminalsHidden)
+  const toggleTerminalHidden = useEditorStore((s) => s.toggleTerminalHidden)
+  const allHidden = def.terminals.length > 0 && def.terminals.every((item) => hiddenTerminals.includes(item.id))
+  const termGroups = useMemo(() => {
+    const map = new Map<string, typeof def.terminals>()
+    for (const terminal of def.terminals) { const key = terminal.group ?? ''; map.set(key, [...(map.get(key) ?? []), terminal]) }
+    return [...map.entries()]
+  }, [def.terminals])
   const selectedPart = selection?.kind === 'part' ? def.parts.find((part) => part.id === selection.id) : undefined
 
   const rows: Array<{ part: PartDef; depth: number }> = []
@@ -58,9 +67,28 @@ export default function Hierarchy() {
       <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={deleteSelection}>Eliminar</button>
     </div>}
     <div className="ce-left-lists">
-      <div className="ce-panel-head"><strong>Bornes</strong><span>{def.terminals.length}</span></div>
-      {def.terminals.map((terminal) => <button key={terminal.id} className={`ce-row ce-row-btn${selection?.kind === 'terminal' && selection.id === terminal.id ? ' is-active' : ''}`}
-        onClick={() => useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, tab: 'terminals' })}><i className="ce-dot" style={{ background: terminal.color }} /><span className="ce-row-name">{terminal.label} · {terminal.name}</span></button>)}
+      <div className="ce-panel-head">
+        <strong>Bornes</strong><span>{def.terminals.length}</span>
+        {def.terminals.length > 0 && <button className="ce-icon ce-head-eye" aria-label={allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes'} title={allHidden ? 'Mostrar todos os bornes [H]' : 'Ocultar todos os bornes [H]'}
+          onClick={() => setTerminalsHidden(def.terminals.map((item) => item.id), !allHidden)}>{allHidden ? <IconEyeOff size={13} /> : <IconEye size={13} />}</button>}
+      </div>
+      {termGroups.map(([group, items]) => <div key={group || '_'} className="ce-tgroup">
+        {termGroups.length > 1 && <div className="ce-tgroup-head"><span>{group || 'Sem grupo'}</span><em>{items.length}</em>
+          <button className="ce-icon" aria-label={items.every((item) => hiddenTerminals.includes(item.id)) ? `Mostrar bornes de ${group || 'sem grupo'}` : `Ocultar bornes de ${group || 'sem grupo'}`}
+            title={items.every((item) => hiddenTerminals.includes(item.id)) ? 'Mostrar este grupo' : 'Ocultar este grupo'}
+            onClick={() => setTerminalsHidden(items.map((item) => item.id), !items.every((item) => hiddenTerminals.includes(item.id)))}>
+            {items.every((item) => hiddenTerminals.includes(item.id)) ? <IconEyeOff size={12} /> : <IconEye size={12} />}</button></div>}
+        {items.map((terminal) => {
+          const hidden = hiddenTerminals.includes(terminal.id)
+          return <div key={terminal.id} role="button" tabIndex={0} className={`ce-row ce-row-btn${selection?.kind === 'terminal' && selection.id === terminal.id ? ' is-active' : ''}${hidden ? ' is-hidden' : ''}`}
+            onClick={() => useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, selectedWire: null, tab: 'terminals' })}
+            onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, selectedWire: null, tab: 'terminals' }) } }}>
+            <i className="ce-dot" style={{ background: terminal.color }} /><span className="ce-row-name">{terminal.label} · {terminal.name}</span>
+            <button className="ce-icon" title={hidden ? 'Mostrar borne' : 'Ocultar borne'} aria-label={hidden ? `Mostrar borne ${terminal.label}` : `Ocultar borne ${terminal.label}`}
+              onClick={(event) => { event.stopPropagation(); toggleTerminalHidden(terminal.id) }}>{hidden ? <IconEyeOff size={13} /> : <IconEye size={13} />}</button>
+          </div>
+        })}
+      </div>)}
       {def.terminals.length === 0 && <p className="ce-empty">Sem bornes.</p>}
       <div className="ce-panel-head"><strong>Luzes</strong><span>{def.lights.length}</span></div>
       {def.lights.map((light) => <button key={light.id} className={`ce-row ce-row-btn${selection?.kind === 'light' && selection.id === light.id ? ' is-active' : ''}`}

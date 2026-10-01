@@ -6,6 +6,7 @@ import { create } from 'zustand'
 import type { Vec3 } from '../../catalog/types'
 import { useEditorStore } from './editorStore'
 import { WIRE_RADIUS_MM, wireChain, wireCurve } from './wirePath'
+import { wireRadiusMm } from './wireStyle'
 
 /** Informação em direto (cursor, comprimento, borne sob o rato) fora do React da cena. */
 export const useWireInfo = create<{ cursor: { point: Vec3; terminalId?: string } | null; lengthMm: number; hover: string; surface: 'terminal' | 'surface' | 'air' }>(() => ({ cursor: null, lengthMm: 0, hover: '', surface: 'air' }))
@@ -47,6 +48,7 @@ export function WireDrawController({ active, root }: { active: boolean; root: TH
       let bestDistance = TERMINAL_PICK_PX
       const projected = new THREE.Vector3()
       for (const terminal of state.def.terminals) {
+        if (state.hiddenTerminals.includes(terminal.id)) continue
         const lifted = new THREE.Vector3(...terminal.position).addScaledVector(new THREE.Vector3(...terminal.normal), 1.6)
         projected.copy(lifted).project(camera)
         if (projected.z > 1) continue
@@ -94,7 +96,7 @@ export function WireDrawController({ active, root }: { active: boolean; root: TH
       let lengthMm = 0
       if (state.wireFrom || state.wireStart) {
         const chain = wireChain(state.def.terminals, { a: state.wireFrom, b: found.terminalId ?? null, start: state.wireStart ?? undefined, end: found.terminalId ? undefined : found.point, points: state.wirePoints })
-        const curve = wireCurve(chain, state.wireSmooth)
+        const curve = wireCurve(chain, state.wireDefaults.flexibility !== 'rigid')
         lengthMm = curve ? Math.round(curve.getLength()) : 0
       }
       const terminal = found.terminalId ? state.def.terminals.find((item) => item.id === found.terminalId) : undefined
@@ -145,7 +147,8 @@ function DraftWire() {
   const wireFrom = useEditorStore((s) => s.wireFrom)
   const wireStart = useEditorStore((s) => s.wireStart)
   const points = useEditorStore((s) => s.wirePoints)
-  const smooth = useEditorStore((s) => s.wireSmooth)
+  const smooth = useEditorStore((s) => s.wireDefaults.flexibility !== 'rigid')
+  const draftRadius = useEditorStore((s) => wireRadiusMm(s.wireDefaults.gauge))
   const terminals = useEditorStore((s) => s.def.terminals)
   const cursor = useWireInfo((s) => s.cursor)
   const invalidate = useThree((s) => s.invalidate)
@@ -163,7 +166,7 @@ function DraftWire() {
 
   return <group>
     {curve && <mesh renderOrder={26} raycast={() => null}>
-      <tubeGeometry args={[curve, 48, WIRE_RADIUS_MM * 0.9, 10, false]} />
+      <tubeGeometry args={[curve, 48, draftRadius * 0.9, 10, false]} />
       <meshBasicMaterial color="#2563eb" transparent opacity={0.75} depthTest={false} />
     </mesh>}
     {points.map((point, index) => <group key={index} position={point}>

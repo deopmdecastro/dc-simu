@@ -8,7 +8,7 @@ import { FACE_NORMAL, SUGGESTED_PROFILES, defaultParams, inferFromFunction, type
 import { allProfiles, useProfileStore } from '../../catalog/profileStore'
 import { applyProfile, defBounds, faceCenter, faceOfNormal } from './terminalOps'
 import { Check, Color, Confirm, Empty, Field, Num, Section, Select, Slider, Text, Vec3Input } from './ui'
-import { IconCamera, IconCheck, IconClose, IconCube, IconImage, IconLayers, IconPlus } from '../../ui/icons'
+import { IconCamera, IconEye, IconEyeOff, IconCheck, IconClose, IconCube, IconImage, IconLayers, IconPlus } from '../../ui/icons'
 import FaceChooser from './FaceChooser'
 import { captureCover, type CaptureView } from './capture'
 
@@ -26,6 +26,8 @@ export function TerminalsTab() {
   const placing = useEditorStore((s) => s.placing)
   const edit = useEditorStore((s) => s.edit)
   const set = useEditorStore((s) => s.set)
+  const hiddenTerminals = useEditorStore((s) => s.hiddenTerminals)
+  const toggleHidden = useEditorStore((s) => s.toggleTerminalHidden)
   const terminal = selection?.kind === 'terminal' ? def.terminals.find((item) => item.id === selection.id) : undefined
   const patch = (value: Partial<TerminalDef>, key: string) => terminal && edit((state) => patchTerminal(state, terminal.id, value), `term:${terminal.id}:${key}`)
   const meta = useEditorStore((s) => s.meta)
@@ -68,6 +70,7 @@ export function TerminalsTab() {
         <Field label="Rótulo" hint={duplicates ? 'Rótulo repetido: tem de ser único.' : 'Texto impresso: A1, 13, L1…'}><Text value={terminal.label} onChange={(label) => patch({ label }, 'label')} /></Field>
         <Field label="Nome"><Text value={terminal.name} onChange={(name) => patch({ name }, 'name')} /></Field>
         <Field label="Cor"><Color value={terminal.color} onChange={(color) => patch({ color }, 'color')} /></Field>
+        <Field label="No viewport" hint="Só esconde o marcador durante a edição; o borne continua no componente."><button type="button" className="dx-btn dx-btn-secondary dx-btn-sm ce-btn-icon" onClick={() => toggleHidden(terminal.id)}>{hiddenTerminals.includes(terminal.id) ? <><IconEyeOff size={12} />Mostrar borne</> : <><IconEye size={12} />Ocultar borne</>}</button></Field>
       </Section>
       <Section title="Posição e saída">
         <Vec3Input label="Posição" unit="mm" step={0.5} value={terminal.position} onChange={(position) => patch({ position }, 'pos')} />

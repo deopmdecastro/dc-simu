@@ -14,28 +14,31 @@ import { ComponentTab, InteractionsTab, LightsTab, StatesTab, TerminalsTab } fro
 import { MaterialsTab, ObjectTab } from './tabs1'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
-import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconPan, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire } from '../../ui/icons'
+import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconPan, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
 import FaceChooser, { chooseFace } from './FaceChooser'
 import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importGlbAction } from './partActions'
 import { captureCover } from './capture'
 import WirePanel from './WirePanel'
+import { WiresTab } from './WireInspector'
 import { setUpdateInterceptor } from '../../utils/appUpdates'
 import type { PartDef } from '../../catalog/types'
 
 const Viewport = lazy(() => import('./Viewport'))
 const AUTO_UPDATE_KEY = 'dcsimu:editor:auto-update'
 
-const TABS: Array<[InspectorTab, string]> = [['object', 'Objeto'], ['materials', 'Materiais'], ['terminals', 'Bornes'], ['lights', 'Luzes'], ['states', 'Estados'], ['interactions', 'Interações'], ['component', 'Componente']]
+const TABS: Array<[InspectorTab, string]> = [['object', 'Objeto'], ['materials', 'Materiais'], ['terminals', 'Bornes'], ['wires', 'Cabos'], ['lights', 'Luzes'], ['states', 'Estados'], ['interactions', 'Interações'], ['component', 'Componente']]
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
 
 
 const RIBBON: Array<{ id: Ribbon; label: string; hint: string; key: string; icon: typeof IconCursor; simulate: boolean }> = [
-  { id: 'select', label: 'Selecionar', hint: 'Selecionar e mover peças e bornes', key: '1', icon: IconCursor, simulate: true },
+  { id: 'select', label: 'Selecionar', hint: 'Selecionar e mover peças, bornes e cabos (clique num cabo para o editar)', key: '1', icon: IconCursor, simulate: true },
   { id: 'terminal', label: 'Borne', hint: 'Clicar na superfície do modelo para criar bornes (escolha a face em «Bornes por vista»)', key: '2', icon: IconPlus, simulate: false },
-  { id: 'wire', label: 'Cabo', hint: 'Ligar dois bornes e validar a compatibilidade', key: '3', icon: IconWire, simulate: true },
-  { id: 'delete', label: 'Apagar', hint: 'Apagar a peça ou o borne sob o cursor', key: '4', icon: IconErase, simulate: false },
+  { id: 'wire', label: 'Cabo', hint: 'Ligar dois bornes e validar a compatibilidade (cor, secção e terminais em «Novo cabo»)', key: '3', icon: IconWire, simulate: true },
+  { id: 'delete', label: 'Apagar', hint: 'Apagar a peça, o borne ou o cabo sob o cursor', key: '4', icon: IconErase, simulate: false },
   { id: 'pan', label: 'Mover vista', hint: 'Arrastar para mover a vista (ou botão direito)', key: '5', icon: IconPan, simulate: true },
+  { id: 'measure', label: 'Medir', hint: 'Dois cliques (superfície ou borne) medem a distância em mm · Esc cancela', key: '6', icon: IconRuler, simulate: true },
 ]
+const RIBBON_KEYS: Ribbon[] = ['select', 'terminal', 'wire', 'delete', 'pan', 'measure']
 
 const OBJECTS: Array<[PartDef['kind'], string, typeof IconBox]> = [['box', 'Caixa', IconBox], ['cylinder', 'Cilindro', IconCylinder], ['sphere', 'Esfera', IconSphere], ['cone', 'Cone', IconCone], ['torus', 'Anel', IconTorus], ['group', 'Grupo', IconGroup]]
 
@@ -46,7 +49,30 @@ function useActiveRibbon(): Ribbon {
   return placing ? 'terminal' : ribbon === 'terminal' ? 'select' : ribbon
 }
 
-/** Barra de ferramentas principal — mesma linguagem visual da barra do simulador. */
+/** Menu «Formas»: reúne as primitivas e o GLB numa só entrada (poupa espaço na barra). */
+function ShapeMenu({ onImport }: { onImport: () => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (event: PointerEvent) => { if (!ref.current?.contains(event.target as Node)) setOpen(false) }
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
+    window.addEventListener('pointerdown', close); window.addEventListener('keydown', key)
+    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', key) }
+  }, [open])
+  return <div className="ce-menu" ref={ref}>
+    <button className={`dc-tool-btn${open ? ' dc-tool-active' : ''}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} title="Adicionar uma forma ou modelo GLB">
+      <IconBox size={14} /><span>Formas</span><IconChevronDown size={11} />
+    </button>
+    {open && <div className="ce-menu-pop" role="menu">
+      {OBJECTS.map(([kind, label, Icon]) => <button key={kind} role="menuitem" className="ce-menu-item" onClick={() => { addPartAction(kind); setOpen(false) }}><Icon size={14} />{label}</button>)}
+      <span className="ce-menu-sep" />
+      <button role="menuitem" className="ce-menu-item" onClick={() => { onImport(); setOpen(false) }}><IconModel size={14} />Importar GLB…</button>
+    </div>}
+  </div>
+}
+
+/** Barra de ferramentas principal — mesma linguagem visual da barra do simulador, agora por grupos. */
 function ToolRibbon() {
   const mode = useEditorStore((s) => s.mode)
   const tool = useEditorStore((s) => s.tool)
@@ -55,15 +81,22 @@ function ToolRibbon() {
   const canUndo = useEditorStore((s) => s.past.length > 0)
   const canRedo = useEditorStore((s) => s.future.length > 0)
   const libraryOpen = useEditorStore((s) => s.libraryOpen)
+  const gizmoSpace = useEditorStore((s) => s.gizmoSpace)
+  const measurements = useEditorStore((s) => s.measurements.length)
+  const terminalCount = useEditorStore((s) => s.def.terminals.length)
+  const hiddenCount = useEditorStore((s) => s.hiddenTerminals.length)
+  const wireCount = useEditorStore((s) => s.testWires.length)
   const active = useActiveRibbon()
   const editing = mode === 'edit'
   const fileRef = useRef<HTMLInputElement>(null)
   const hasSelection = useEditorStore((s) => !!s.selection)
   const hasPart = useEditorStore((s) => s.selection?.kind === 'part')
+  const hasFocus = useEditorStore((s) => !!s.selection || !!s.selectedWire)
+  const allHidden = terminalCount > 0 && hiddenCount >= terminalCount
   return <div className="ce-ribbon" role="toolbar" aria-label="Ferramentas">
     <div className="dc-seg" role="group" aria-label="Histórico">
-      <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().undo()} disabled={!canUndo} title="Desfazer [Ctrl+Z]"><IconUndo size={13} /></button>
-      <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().redo()} disabled={!canRedo} title="Refazer [Ctrl+Y]"><IconRedo size={13} /></button>
+      <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().undo()} disabled={!canUndo} title="Desfazer [Ctrl+Z]" aria-label="Desfazer"><IconUndo size={13} /></button>
+      <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().redo()} disabled={!canRedo} title="Refazer [Ctrl+Y]" aria-label="Refazer"><IconRedo size={13} /></button>
     </div>
     <span className="ce-ribbon-sep" />
     <div className="dc-seg" role="group" aria-label="Ferramenta">
@@ -75,31 +108,49 @@ function ToolRibbon() {
         </button>
       })}
     </div>
-    {editing && active === 'select' && <>
+    {editing && <>
       <span className="ce-ribbon-sep" />
-      <div className="dc-seg" role="group" aria-label="Manipulador">
+      <div className="dc-seg" role="group" aria-label="Manipulador" style={active === 'select' ? undefined : { opacity: 0.45 }}>
         {([['translate', 'Mover', 'W', IconMove], ['rotate', 'Rodar', 'E', IconRotate], ['scale', 'Escala', 'R', IconPlus]] as const).map(([id, label, key, Icon]) =>
-          <button key={id} className={`dc-tool-btn ${tool === id ? 'dc-tool-active' : ''}`} aria-pressed={tool === id} onClick={() => set({ tool: id })} title={`${label} [${key}]`}><Icon size={13} /><span className="hidden xl:inline">{label}</span><kbd className="ce-kbd">{key}</kbd></button>)}
+          <button key={id} className={`dc-tool-btn ${tool === id ? 'dc-tool-active' : ''}`} disabled={active !== 'select'} aria-pressed={tool === id} onClick={() => set({ tool: id })} title={`${label} [${key}]`}><Icon size={13} /><span className="hidden xl:inline">{label}</span><kbd className="ce-kbd">{key}</kbd></button>)}
+        <button className="dc-tool-btn" disabled={active !== 'select'} aria-pressed={gizmoSpace === 'world'} onClick={() => set({ gizmoSpace: gizmoSpace === 'local' ? 'world' : 'local' })} title="Eixos do manipulador: locais (da peça) ou globais (do mundo) [X]">{gizmoSpace === 'local' ? 'Local' : 'Global'}</button>
       </div>
     </>}
     {editing && <>
       <span className="ce-ribbon-sep" />
-      <div className="dc-seg" role="group" aria-label="Adicionar objeto">
-        {OBJECTS.map(([kind, label, Icon]) => <button key={kind} className="dc-tool-btn !px-2" onClick={() => addPartAction(kind)} title={`Adicionar ${label.toLowerCase()}`} aria-label={`Adicionar ${label.toLowerCase()}`}><Icon size={14} /><span className="hidden 2xl:inline">{label}</span></button>)}
-        <button className="dc-tool-btn !px-2" onClick={() => fileRef.current?.click()} title="Importar modelo GLB como peça" aria-label="Importar modelo GLB"><IconModel size={14} /><span className="hidden 2xl:inline">GLB</span></button>
-        <input ref={fileRef} type="file" accept=".glb,model/gltf-binary" hidden onChange={(event) => { void importGlbAction(event.target.files?.[0]).then((error) => error && window.dispatchEvent(new CustomEvent('ce-flash', { detail: error }))); event.target.value = '' }} />
-      </div>
-      <span className="ce-ribbon-sep" />
+      <ShapeMenu onImport={() => fileRef.current?.click()} />
+      <input ref={fileRef} type="file" accept=".glb,model/gltf-binary" hidden onChange={(event) => { void importGlbAction(event.target.files?.[0]).then((error) => error && window.dispatchEvent(new CustomEvent('ce-flash', { detail: error }))); event.target.value = '' }} />
       <div className="dc-seg" role="group" aria-label="Edição">
         <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a peça [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /></button>
         <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={groupSelection} title="Agrupar: cria um grupo pai à volta da peça [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /></button>
         <button className="dc-tool-btn !px-2" disabled={!hasSelection} onClick={deleteSelection} title="Eliminar a seleção [Del]" aria-label="Eliminar"><IconDelete size={14} /></button>
+      </div>
+      <div className="dc-seg" role="group" aria-label="Posição">
         <button className="dc-tool-btn !px-2" onClick={dropToFloor} title="Pousar o modelo no chão (base a Y = 0; os bornes acompanham)" aria-label="Pousar no chão"><IconGround size={14} /></button>
         <button className="dc-tool-btn !px-2" onClick={centerOnOrigin} title="Centrar o modelo na origem (X/Z)" aria-label="Centrar na origem"><IconAlignCenterH size={14} /></button>
-        <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().cameraTo('fit')} title="Enquadrar o modelo [F]" aria-label="Enquadrar"><IconFocus size={14} /></button>
       </div>
+    </>}
+    <span className="ce-ribbon-sep" />
+    <div className="dc-seg" role="group" aria-label="Vista">
+      <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().cameraTo('fit')} title="Enquadrar o modelo [F]" aria-label="Enquadrar o modelo"><IconFocus size={14} /></button>
+      <button className="dc-tool-btn" disabled={!hasFocus} onClick={() => useEditorStore.getState().cameraTo('fitSel')} title="Enquadrar a seleção (peça, borne ou cabo) [Shift+F]"><span className="hidden xl:inline">Seleção</span><span className="xl:hidden">Sel.</span></button>
+    </div>
+    {editing && <>
       <span className="ce-ribbon-sep" />
-      <button className={`dc-tool-btn ${libraryOpen ? 'dc-tool-active' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} title="Biblioteca de bornes e perfis de ligação"><IconLayers size={13} /><span>Biblioteca de bornes</span></button>
+      <div className="dc-seg" role="group" aria-label="Bornes">
+        <button className={`dc-tool-btn ${libraryOpen ? 'dc-tool-active' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} title="Biblioteca de bornes e perfis de ligação"><IconLayers size={13} /><span className="hidden xl:inline">Biblioteca de bornes</span><span className="xl:hidden">Bornes</span></button>
+        <button className="dc-tool-btn !px-2" disabled={terminalCount === 0} aria-pressed={allHidden} onClick={() => useEditorStore.getState().setTerminalsHidden(useEditorStore.getState().def.terminals.map((item) => item.id), !allHidden)}
+          title={allHidden ? 'Mostrar todos os bornes' : hiddenCount ? `Ocultar todos os bornes (${hiddenCount} já oculto${hiddenCount > 1 ? 's' : ''}) [H]` : 'Ocultar todos os bornes [H]'} aria-label={allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes'}>
+          {allHidden ? <IconEyeOff size={14} /> : <IconEye size={14} />}{hiddenCount > 0 && !allHidden && <b className="ce-badge">{hiddenCount}</b>}
+        </button>
+      </div>
+    </>}
+    {(measurements > 0 || wireCount > 0) && <>
+      <span className="ce-ribbon-sep" />
+      <div className="dc-seg" role="group" aria-label="Limpar">
+        {measurements > 0 && <button className="dc-tool-btn" onClick={() => set({ measurements: [], measureFrom: null })} title="Apagar todas as medições"><IconRuler size={13} /><span className="hidden xl:inline">Limpar medições</span><b className="ce-badge">{measurements}</b></button>}
+        {wireCount > 0 && <button className={`dc-tool-btn ${useEditorStore.getState().tab === 'wires' ? 'dc-tool-active' : ''}`} onClick={() => set({ tab: 'wires' })} title="Editar cabos de teste: cor, secção e terminais"><IconWire size={13} /><span className="hidden xl:inline">Cabos</span><b className="ce-badge">{wireCount}</b></button>}
+      </div>
     </>}
     <span className="ce-ribbon-hint" aria-live="polite">{RIBBON.find((item) => item.id === active)?.hint}</span>
   </div>
@@ -384,12 +435,14 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       if (mod && event.key.toLowerCase() === 'd' && state.mode === 'edit') { event.preventDefault(); duplicateSelection(); return }
       if (mod && event.key.toLowerCase() === 'g' && state.mode === 'edit') { event.preventDefault(); groupSelection(); return }
       const key = event.key.toLowerCase()
-      if (!mod && !event.altKey && ['1', '2', '3', '4', '5'].includes(key)) {
-        const pick = (['select', 'terminal', 'wire', 'delete', 'pan'] as const)[Number(key) - 1]
-        if (state.mode === 'edit' || pick === 'select' || pick === 'wire' || pick === 'pan') { event.preventDefault(); state.setRibbon(pick) }
+      if (!mod && !event.altKey && ['1', '2', '3', '4', '5', '6'].includes(key)) {
+        const pick = RIBBON_KEYS[Number(key) - 1]
+        if (state.mode === 'edit' || pick === 'select' || pick === 'wire' || pick === 'pan' || pick === 'measure') { event.preventDefault(); state.setRibbon(pick) }
         return
       }
       const drafting = !!(state.wireFrom || state.wireStart)
+      if (state.measureFrom && key === 'escape') { state.set({ measureFrom: null }); return }
+      if (state.selectedWire && !state.selection && !drafting && ['delete', 'backspace'].includes(key) && state.ribbon !== 'measure') { event.preventDefault(); state.removeWire(state.selectedWire); return }
       if (drafting && key === 'escape') { state.cancelWire(); return }
       if (drafting && key === 'enter') { event.preventDefault(); const problem = state.finishWireFree(); if (problem) setMessage(problem); return }
       if (drafting && (key === 'backspace' || key === 'delete')) { event.preventDefault(); state.undoWirePoint(); return }
@@ -397,7 +450,9 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       if (key === 'w') state.set({ tool: 'translate' })
       else if (key === 'e') state.set({ tool: 'rotate' })
       else if (key === 'r') state.set({ tool: 'scale' })
-      else if (key === 'f') state.cameraTo('fit')
+      else if (key === 'f') state.cameraTo(event.shiftKey ? 'fitSel' : 'fit')
+      else if (key === 'x') state.set({ gizmoSpace: state.gizmoSpace === 'local' ? 'world' : 'local' })
+      else if (key === 'h') { const ids = state.def.terminals.map((item) => item.id); state.setTerminalsHidden(ids, state.hiddenTerminals.length < ids.length) }
       else if (key === 'escape') { if (state.placing) state.set({ placing: false, placingSpec: null, ribbon: 'select' }); else if (state.ribbon !== 'select') state.setRibbon('select'); else if (state.faceLock) state.set({ faceLock: null }); else state.select(null) }
       else if ((key === 'delete' || key === 'backspace') && state.selection) { event.preventDefault(); deleteSelection() }
     }
@@ -474,7 +529,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         <div className="ce-tabs" role="tablist">{TABS.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'is-on' : ''} onClick={() => set({ tab: key })}>{label}</button>)}</div>
         <div className="ce-inspector">
           {tab === 'object' && <ObjectTab />}{tab === 'materials' && <MaterialsTab />}{tab === 'terminals' && <TerminalsTab />}
-          {tab === 'lights' && <LightsTab />}{tab === 'states' && <StatesTab />}{tab === 'interactions' && <InteractionsTab />}{tab === 'component' && <ComponentTab />}
+          {tab === 'wires' && <WiresTab />}{tab === 'lights' && <LightsTab />}{tab === 'states' && <StatesTab />}{tab === 'interactions' && <InteractionsTab />}{tab === 'component' && <ComponentTab />}
         </div>
       </aside>
     </div>

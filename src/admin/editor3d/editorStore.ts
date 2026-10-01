@@ -3,20 +3,19 @@ import type { Object3D } from 'three'
 import { BASE_STATE } from '../../catalog/stateAnimator'
 import { defaultPart, newId, normalizeDefinition, type GlbCache } from '../../catalog/definition'
 import type { Face, TerminalSpec } from '../../catalog/terminalProfiles'
-import type { CompatLevel } from '../../catalog/terminalCompat'
+import type { WireEndType } from '../../types'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, MaterialDef, PartDef, StateOverride, TerminalDef, Vec3 } from '../../catalog/types'
-import { checkConnection } from '../../catalog/terminalCompat'
-import { wireChain, wireCurve } from './wirePath'
+import { DEFAULT_WIRE_DEFAULTS, styleFor, type WireDefaults, type WireStyle } from './wireStyle'
 
 export { BASE_STATE }
 export type Selection = { kind: 'part' | 'terminal' | 'light'; id: string } | null
 export type Tool = 'translate' | 'rotate' | 'scale'
 /** Ferramentas da barra principal (como no simulador): 1 Selecionar · 2 Borne · 3 Cabo · 4 Apagar · 5 Mover vista. */
-export type Ribbon = 'select' | 'terminal' | 'wire' | 'delete' | 'pan'
-export type InspectorTab = 'object' | 'materials' | 'terminals' | 'lights' | 'states' | 'interactions' | 'component'
-export type ViewCommand = { kind: 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'iso' | 'angles' | 'orbit'; n: number; yaw?: number; pitch?: number; dx?: number; dy?: number }
+export type Ribbon = 'select' | 'terminal' | 'wire' | 'delete' | 'pan' | 'measure'
+export type InspectorTab = 'object' | 'materials' | 'terminals' | 'lights' | 'states' | 'interactions' | 'wires' | 'component'
+export type ViewCommand = { kind: 'fit' | 'fitSel' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'iso' | 'angles' | 'orbit'; n: number; yaw?: number; pitch?: number; dx?: number; dy?: number }
 /** Cabo de teste entre dois bornes (modo Simular): serve para validar a compatibilidade. */
-export interface TestWire {
+export interface TestWire extends WireStyle {
   id: string
   /** Bornes das pontas (null = ponta livre, nesse caso `start`/`end` guardam a posição em mm). */
   a: string | null
@@ -25,10 +24,13 @@ export interface TestWire {
   end?: Vec3
   /** Pontos intermédios do traçado, em mm (como no simulador: o cabo segue as superfícies). */
   points: Vec3[]
-  lengthMm: number
-  level: CompatLevel
-  messages: string[]
+  /** Nome curto mostrado nas listas (W1, W2…). */
+  number: string
+  /** Oculto no viewport (só no editor). */
+  hidden?: boolean
 }
+/** Medição entre dois pontos (régua), em mm. */
+export interface Measurement { id: string; a: Vec3; b: Vec3 }
 /** Origem do cabo em desenho: um borne ou um ponto livre no espaço. */
 export type WireOrigin = { terminalId: string } | { point: Vec3 }
 /** Pedido de largada (drag & drop) a partir da biblioteca: o Viewport faz o raycast. */
@@ -67,8 +69,15 @@ interface EditorStore {
   wireFrom: string | null
   wireStart: Vec3 | null
   wirePoints: Vec3[]
-  wireSmooth: boolean
+  /** Valores dos cabos novos (cor, secção, condutor e terminação). */
+  wireDefaults: WireDefaults
   hoverWire: string | null
+  selectedWire: string | null
+  /** Bornes ocultos no viewport (apenas vista do editor; não altera o componente). */
+  hiddenTerminals: string[]
+  measurements: Measurement[]
+  measureFrom: Vec3 | null
+  gizmoSpace: 'local' | 'world'
   tab: InspectorTab
   materialId: string | null
   view: { grid: boolean; floor: boolean; axes: boolean; terminals: boolean; dark: boolean; bounds: boolean }
@@ -101,9 +110,16 @@ interface EditorStore {
   finishWire: (to: WireOrigin) => string | null
   /** Enter / duplo clique: o último ponto passa a ser a ponta livre. */
   finishWireFree: () => string | null
+  patchWire: (id: string, patch: Partial<TestWire>) => void
+  removeWire: (id: string) => void
+  reverseWire: (id: string) => void
+  toggleTerminalHidden: (id: string) => void
+  setTerminalsHidden: (ids: string[], hidden: boolean) => void
 }
 
 const CLEAR_WIRE = { wireFrom: null, wireStart: null, wirePoints: [] as Vec3[] }
+const CLEAR_MEASURE = { measureFrom: null as Vec3 | null }
+const nextWireNumber = (wires: TestWire[]) => { let n = wires.length + 1; while (wires.some((wire) => wire.number === `W${n}`)) n += 1; return `W${n}` }
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
   entry: null,
@@ -111,7 +127,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   def: normalizeDefinition(undefined),
   baseline: null,
   selection: null, tool: 'translate', ribbon: 'select', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
-  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireSmooth: true, hoverWire: null, tab: 'object', materialId: null,
+  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
   view: { grid: true, floor: true, axes: true, terminals: true, dark: false, bounds: false },
   viewCommand: { kind: 'iso', n: 0 }, glbRevision: 0,
   dirty: false, past: [], future: [], lastKey: '', lastAt: 0,
@@ -121,7 +137,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const last = entry.versions[entry.versions.length - 1]
     set({
       entry, meta: entry.meta, def: draft, baseline: last ? last.definition : null, selection: null, mode: 'edit',
-      editState: BASE_STATE, previewState: draft.initialState, ribbon: 'select', placing: false, placingSpec: null, faceLock: null, testWires: [], ...CLEAR_WIRE, hoverWire: null, tab: 'object', dirty: false, past: [], future: [],
+      editState: BASE_STATE, previewState: draft.initialState, ribbon: 'select', placing: false, placingSpec: null, faceLock: null, testWires: [], ...CLEAR_WIRE, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, tab: 'object', dirty: false, past: [], future: [],
       lastKey: '', lastAt: 0, viewCommand: { kind: 'fit', n: Date.now() },
     })
   },
@@ -147,7 +163,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set({ meta: { ...meta, ...patch }, dirty: true, future: [], lastKey: key, lastAt: now, past: coalesce ? past : [...past.slice(-(HISTORY_LIMIT - 1)), { meta, def }] })
   },
   select: (selection) => set({ selection, placing: false, placingSpec: null, ...(get().ribbon === 'terminal' ? { ribbon: 'select' as Ribbon } : {}) }),
-  setRibbon: (ribbon) => set({ ribbon, placing: ribbon === 'terminal', placingSpec: ribbon === 'terminal' ? get().placingSpec : null, ...CLEAR_WIRE, ...(ribbon === 'terminal' ? { selection: null } : {}) }),
+  setRibbon: (ribbon) => set({ ribbon, placing: ribbon === 'terminal', placingSpec: ribbon === 'terminal' ? get().placingSpec : null, ...CLEAR_WIRE, ...CLEAR_MEASURE, ...(ribbon === 'terminal' ? { selection: null } : {}) }),
   set: (patch) => set(patch as never),
   setView: (patch) => set((state) => ({ view: { ...state.view, ...patch } })),
   cameraTo: (kind) => set({ viewCommand: { kind, n: Date.now() } }),
@@ -180,13 +196,12 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     if (a && b && a.id === b.id) return null
     const start = a ? undefined : wireStart ?? undefined
     const end = b ? undefined : ('point' in to ? to.point : undefined)
-    const wire: TestWire = { id: `w_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, a: a?.id ?? null, b: b?.id ?? null, start, end, points: wirePoints, lengthMm: 0, level: 'ok', messages: [] }
-    const curve = wireCurve(wireChain(def.terminals, wire), true)
-    wire.lengthMm = curve ? Math.round(curve.getLength()) : 0
-    if (a && b) { const result = checkConnection(a, b); wire.level = result.level; wire.messages = result.messages }
-    else { wire.level = 'warn'; wire.messages = ['Ponta livre: sem validação de compatibilidade'] }
+    const wire: TestWire = {
+      id: `w_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, a: a?.id ?? null, b: b?.id ?? null, start, end, points: wirePoints,
+      number: nextWireNumber(testWires), ...styleFor(get().wireDefaults, a, b),
+    }
     const same = (item: TestWire) => !wirePoints.length && !item.points.length && a && b && ((item.a === a.id && item.b === b.id) || (item.a === b.id && item.b === a.id))
-    set({ testWires: [...testWires.filter((item) => !same(item)), wire], ...CLEAR_WIRE })
+    set({ testWires: [...testWires.filter((item) => !same(item)), wire], selectedWire: wire.id, ...CLEAR_WIRE })
     return null
   },
   finishWireFree() {
@@ -194,6 +209,24 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const last = wirePoints[wirePoints.length - 1]
     if (!last) return null
     return get().finishWire({ point: last })
+  },
+  patchWire: (id, patch) => set((state) => ({ testWires: state.testWires.map((wire) => (wire.id === id ? { ...wire, ...patch } : wire)) })),
+  removeWire: (id) => set((state) => ({ testWires: state.testWires.filter((wire) => wire.id !== id), hoverWire: null, selectedWire: state.selectedWire === id ? null : state.selectedWire })),
+  reverseWire(id) {
+    set((state) => ({
+      testWires: state.testWires.map((wire) => (wire.id !== id ? wire : {
+        ...wire, a: wire.b, b: wire.a, start: wire.end, end: wire.start, points: [...wire.points].reverse(), endA: wire.endB, endB: wire.endA,
+      })),
+    }))
+  },
+  toggleTerminalHidden(id) {
+    const { hiddenTerminals } = get()
+    set({ hiddenTerminals: hiddenTerminals.includes(id) ? hiddenTerminals.filter((item) => item !== id) : [...hiddenTerminals, id] })
+  },
+  setTerminalsHidden(ids, hidden) {
+    const current = new Set(get().hiddenTerminals)
+    ids.forEach((id) => (hidden ? current.add(id) : current.delete(id)))
+    set({ hiddenTerminals: [...current] })
   },
 }))
 

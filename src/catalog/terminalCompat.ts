@@ -1,5 +1,6 @@
 import type { TerminalElectricalClass, TerminalKind } from '../types'
 import type { TerminalDirection, TerminalPolarity } from './types'
+import { MEASURE_GROUP } from './terminalProfiles'
 
 /** Regras de compatibilidade entre bornes — conservadoras, configuráveis e extensíveis. */
 export interface CompatTerminal {
@@ -10,6 +11,8 @@ export interface CompatTerminal {
   electricalClass: TerminalElectricalClass
   direction: TerminalDirection
   contact?: 'NO' | 'NC' | 'COM'
+  /** Grupo funcional: «Medição» marca portas de instrumentos (multímetro…). */
+  group?: string
 }
 export type CompatLevel = 'ok' | 'warn' | 'error'
 export interface CompatRule { id: string; level: Exclude<CompatLevel, 'ok'>; message: string; test: (a: CompatTerminal, b: CompatTerminal) => boolean }
@@ -20,6 +23,9 @@ const isCoil = (t: CompatTerminal) => t.kind === 'coil-plus' || t.kind === 'coil
 const isPhase = (t: CompatTerminal) => t.polarity === 'ac' && /^L[123]?$|^[1-5]L[123]$|^[2-6]T[123]$/i.test(t.fn ?? '')
 const phaseOf = (t: CompatTerminal) => (/[123]/.exec(t.fn ?? '')?.[0] ?? '')
 const bothPolarity = (a: CompatTerminal, b: CompatTerminal, x: TerminalPolarity, y: TerminalPolarity) => (a.polarity === x && b.polarity === y) || (a.polarity === y && b.polarity === x)
+
+/** Portas de medição: um multímetro/osciloscópio pode ser ligado a qualquer borne (mede, não conduz). */
+const isMeasure = (t: CompatTerminal) => t.group === MEASURE_GROUP
 
 export const COMPAT_RULES: CompatRule[] = [
   { id: 'earth', level: 'error', message: 'Terra (PE/FE/GND) só deve ligar a outra terra.', test: (a, b) => isEarth(a) !== isEarth(b) },
@@ -34,6 +40,9 @@ export const COMPAT_RULES: CompatRule[] = [
 ]
 
 export function checkConnection(a: CompatTerminal, b: CompatTerminal, rules: CompatRule[] = COMPAT_RULES): CompatResult {
+  // instrumentos de medida: ligam a qualquer borne sem regras de polaridade; dois instrumentos entre si é que não faz sentido
+  if (isMeasure(a) && isMeasure(b)) return { level: 'warn', messages: ['Duas portas de medição ligadas entre si.'] }
+  if (isMeasure(a) || isMeasure(b)) return { level: 'ok', messages: [] }
   const hits = rules.filter((rule) => rule.test(a, b))
   const level: CompatLevel = hits.some((rule) => rule.level === 'error') ? 'error' : hits.length ? 'warn' : 'ok'
   return { level, messages: hits.map((rule) => rule.message) }
