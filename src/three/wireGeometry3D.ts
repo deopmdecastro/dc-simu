@@ -142,38 +142,64 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3): { hea
 
 /* ------------------------------------------------------------------- traçado */
 
-/** Pontos de controlo (sem terminações) entre as duas pontas, respeitando traçado, flexibilidade e curva manual. */
-export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number): V3[] {
-  const manual = wire.waypoints3D?.map((point) => [point.x, point.y, point.z] as V3) ?? []
-  const controls = [a, ...manual, b]
-  if (manual.length > 0) {
-    if (wire.flexibility === 'flexible' || wire.route === 'arc') {
-      const curve = new THREE.CatmullRomCurve3(controls.map(v), false, 'centripetal', 0.5)
-      return curve.getPoints(Math.max(24, controls.length * 14)).map(arr)
-    }
-    return roundCorners(controls, outerMm)
-  }
-  if (wire.route === 'direct') return [a, b]
-  const drop = -0.55 - Math.min(0.7, Math.abs(a[0] - b[0]) * 0.04)
-  const channelY = THREE.MathUtils.lerp(a[1], b[1], Math.max(0, Math.min(1, wire.bend ?? 0.5))) + drop
-  const mid: V3 = [
-    (a[0] + b[0]) / 2,
-    wire.route === 'arc' ? channelY + (wire.curveOffset ?? 0) * 0.01 : Math.min(a[1], b[1]) + drop * 1.3,
-    (a[2] + b[2]) / 2,
-  ]
-  if (wire.route === 'arc' || wire.flexibility === 'flexible') {
-    const curve = new THREE.CatmullRomCurve3([v(a), v(mid), v(b)])
-    return curve.getPoints(28).map(arr)
-  }
-  return roundCorners([a, [a[0], channelY, a[2]], [b[0], channelY, b[2]], b], outerMm)
+/** Direções de saída (unitárias) de cada ponta, para o cabo não dobrar logo à saída da terminação. */
+export type WireLeads = { a?: V3 | null; b?: V3 | null }
+
+/** Ponto onde o cabo, depois de sair em linha reta da terminação, começa a curvar.
+ * O troço reto cresce com a viragem pedida para respeitar o raio mínimo (≈ 4× o diâmetro). */
+function leadPoint(head: V3, axis: V3, next: V3, outerMm: number): V3 | null {
+  const h = v(head)
+  const ax = v(axis).normalize()
+  const toNext = v(next).sub(h)
+  const dist = toNext.length()
+  if (dist < 1e-6) return null
+  const turn = Math.acos(THREE.MathUtils.clamp(ax.dot(toNext.clone().normalize()), -1, 1))
+  if (turn < 0.1) return null
+  const d = outerMm * U
+  const radius = Math.max(outerMm * 4, 8) * U
+  const need = radius / Math.max(0.12, Math.tan((Math.PI - turn) / 2))
+  const length = THREE.MathUtils.clamp(need + d * 1.5, d * 3, Math.max(d * 3, dist * 0.6))
+  return arr(h.addScaledVector(ax, length))
 }
 
-/** Condutor rígido: cantos com raio de curvatura mínimo (≈ 4× o diâmetro), nunca vincos agudos. */
+/** Pontos de controlo (sem terminações) entre as duas pontas, respeitando traçado, flexibilidade e curva manual. */
+export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, leads: WireLeads = {}): V3[] {
+  const manual = wire.waypoints3D?.map((point) => [point.x, point.y, point.z] as V3) ?? []
+  let controls: V3[]
+  let smooth = wire.flexibility === 'flexible' || wire.route === 'arc'
+  if (manual.length > 0) controls = [a, ...manual, b]
+  else if (wire.route === 'direct') { controls = [a, b]; smooth = false }
+  else {
+    const drop = -0.55 - Math.min(0.7, Math.abs(a[0] - b[0]) * 0.04)
+    const channelY = THREE.MathUtils.lerp(a[1], b[1], Math.max(0, Math.min(1, wire.bend ?? 0.5))) + drop
+    if (wire.route === 'arc' || wire.flexibility === 'flexible') {
+      const mid: V3 = [(a[0] + b[0]) / 2, wire.route === 'arc' ? channelY + (wire.curveOffset ?? 0) * 0.01 : Math.min(a[1], b[1]) + drop * 1.3, (a[2] + b[2]) / 2]
+      controls = [a, mid, b]
+    } else controls = [a, [a[0], channelY, a[2]], [b[0], channelY, b[2]], b]
+  }
+  // saída reta de cada terminação antes de curvar
+  if (controls.length >= 2) {
+    const first = leads.a ? leadPoint(a, leads.a, controls[1], outerMm) : null
+    const last = leads.b ? leadPoint(b, leads.b, controls[controls.length - 2], outerMm) : null
+    if (first) controls = [controls[0], first, ...controls.slice(1)]
+    if (last) controls = [...controls.slice(0, -1), last, controls[controls.length - 1]]
+  }
+  if (smooth && controls.length > 2) {
+    const curve = new THREE.CatmullRomCurve3(controls.map(v), false, 'centripetal', 0.5)
+    return curve.getPoints(Math.max(28, controls.length * 16)).map(arr)
+  }
+  if (controls.length === 2) return controls
+  return roundCorners(controls, outerMm)
+}
+
+/** Condutor rígido: cantos em arco de círculo com raio mínimo (≈ 4× o diâmetro). Nunca vincos agudos.
+ * Em voltas muito fechadas o raio só encolhe quando os troços não deixam espaço; as pontas têm troço de saída próprio. */
 export function roundCorners(points: V3[], outerMm: number): V3[] {
   if (points.length < 3) return points
   const radius = Math.max(outerMm * 4, 8) * U
   const out: V3[] = [points[0]]
-  for (let index = 1; index < points.length - 1; index += 1) {
+  const last = points.length - 1
+  for (let index = 1; index < last; index += 1) {
     const prev = v(points[index - 1])
     const corner = v(points[index])
     const next = v(points[index + 1])
@@ -182,16 +208,30 @@ export function roundCorners(points: V3[], outerMm: number): V3[] {
     const lenPrev = toPrev.length()
     const lenNext = toNext.length()
     if (lenPrev < 1e-6 || lenNext < 1e-6) continue
-    const cut = Math.min(radius, lenPrev / 2, lenNext / 2)
     const dirPrev = toPrev.normalize()
     const dirNext = toNext.normalize()
-    if (Math.abs(dirPrev.dot(dirNext)) > 0.999) { out.push(arr(corner)); continue }
+    const cosPhi = THREE.MathUtils.clamp(dirPrev.dot(dirNext), -1, 1)
+    const phi = Math.acos(cosPhi) // ângulo interior
+    if (phi > Math.PI - 0.02) { out.push(arr(corner)); continue }
+    const half = Math.max(0.05, phi / 2)
+    const wanted = radius / Math.tan(half)
+    const cut = Math.min(wanted, index === 1 ? lenPrev : lenPrev / 2, index === last - 1 ? lenNext : lenNext / 2)
     const start = corner.clone().addScaledVector(dirPrev, cut)
     const end = corner.clone().addScaledVector(dirNext, cut)
-    const curve = new THREE.QuadraticBezierCurve3(start, corner, end)
-    out.push(...curve.getPoints(8).map(arr))
+    const bisector = dirPrev.clone().add(dirNext)
+    if (bisector.lengthSq() < 1e-8) { out.push(arr(corner)); continue }
+    bisector.normalize()
+    const center = corner.clone().addScaledVector(bisector, cut / Math.cos(half))
+    const vs = start.clone().sub(center)
+    const ve = end.clone().sub(center)
+    const axis = new THREE.Vector3().crossVectors(vs, ve)
+    if (axis.lengthSq() < 1e-10) { out.push(arr(corner)); continue }
+    axis.normalize()
+    const angle = vs.angleTo(ve)
+    const steps = Math.max(6, Math.ceil(angle / 0.18))
+    for (let step = 0; step <= steps; step += 1) out.push(arr(center.clone().add(vs.clone().applyAxisAngle(axis, (angle * step) / steps))))
   }
-  out.push(points[points.length - 1])
+  out.push(points[last])
   return out
 }
 
@@ -209,7 +249,7 @@ export function buildWirePath3D(wire: Wire, from: WireEndpoint3D, to: WireEndpoi
   const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm)
   const a = endHead(from, endTypeOf(wire, 'from'), preliminary[Math.min(1, preliminary.length - 1)])
   const b = endHead(to, endTypeOf(wire, 'to'), preliminary[Math.max(0, preliminary.length - 2)])
-  const points = wireBodyPoints3D(wire, a.head, b.head, outerMm)
+  const points = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis })
   return { points, starts: [a.geometry, b.geometry] }
 }
 

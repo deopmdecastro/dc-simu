@@ -21,7 +21,7 @@ import { WireEnd3D } from './WireEnd3D'
 import { WireDrawController, WireDrawLive, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS } from '../schematic/wireEnds'
-import { buildWirePath3D, cableOuterDiameterMm, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3 } from './wireGeometry3D'
+import { buildWirePath3D, cableOuterDiameterMm, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D } from './wireGeometry3D'
 
 const SLOT_WIDTH = 0.72
 const PANEL_FLOOR_Y = -2.6
@@ -1050,60 +1050,115 @@ function EnergyFlow3D({ points, cableRadius }: { points: Array<[number, number, 
   </mesh>)}</group>
 }
 
-function EditableWireWaypoint3D({ point, index, active, onSelect, onMove, onRemove }: {
-  point: SpatialPoint3D
+/** Pega genérica para editar cabos: arrasta-se diretamente (sem gizmo) num plano virado para a câmara, com resposta em tempo real. */
+function DragHandle3D({ position, onPress, onLive, onCommit, snap, onDoubleClick, children }: {
+  position: V3
+  onPress?: () => void
+  onLive: (point: V3 | null) => void
+  onCommit: (point: V3) => void
+  snap?: (point: V3) => V3
+  onDoubleClick?: () => void
+  children: ReactNode
+}) {
+  const { camera, gl, controls } = useThree() as { camera: THREE.Camera; gl: THREE.WebGLRenderer; controls: { enabled: boolean } | null }
+  const begin = (event: ThreeEvent<PointerEvent>) => {
+    event.stopPropagation()
+    if (event.nativeEvent.button !== 0) return
+    onPress?.()
+    const dom = gl.domElement
+    const origin = new THREE.Vector3(position[0], position[1], position[2])
+    const normal = camera.getWorldDirection(new THREE.Vector3())
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, origin)
+    const raycaster = new THREE.Raycaster()
+    const ndc = new THREE.Vector2()
+    const hitAt = (clientX: number, clientY: number) => {
+      const rect = dom.getBoundingClientRect()
+      ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1)
+      raycaster.setFromCamera(ndc, camera)
+      return raycaster.ray.intersectPlane(plane, new THREE.Vector3())
+    }
+    const grab = hitAt(event.nativeEvent.clientX, event.nativeEvent.clientY) ?? origin.clone()
+    const offset = origin.clone().sub(grab)
+    const startX = event.nativeEvent.clientX
+    const startY = event.nativeEvent.clientY
+    let moved = false
+    let last: V3 = position
+    if (controls) controls.enabled = false
+    const move = (e: PointerEvent) => {
+      if (!moved && Math.hypot(e.clientX - startX, e.clientY - startY) < 4) return
+      moved = true
+      const hit = hitAt(e.clientX, e.clientY)
+      if (!hit) return
+      hit.add(offset)
+      let next: V3 = [hit.x, hit.y, hit.z]
+      if (snap && !e.altKey) next = snap(next)
+      last = next
+      onLive(next)
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      if (controls) controls.enabled = true
+      dom.style.cursor = ''
+      if (moved) onCommit(last)
+      onLive(null)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    dom.style.cursor = 'grabbing'
+  }
+  return <group position={position} userData={{ noPick: true }}
+    onPointerDown={begin}
+    onPointerOver={(event) => { event.stopPropagation(); gl.domElement.style.cursor = 'grab' }}
+    onPointerOut={() => { gl.domElement.style.cursor = '' }}
+    onClick={(event) => event.stopPropagation()}
+    onDoubleClick={onDoubleClick ? (event) => { event.stopPropagation(); onDoubleClick() } : undefined}>
+    {children}
+    {/* área de captura generosa, invisível */}
+    <mesh><sphereGeometry args={[0.12, 12, 12]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
+  </group>
+}
+
+function EditableWireWaypoint3D({ point, index, active, onSelect, onLive, onCommit, onRemove }: {
+  point: V3
   index: number
   active: boolean
   onSelect: (index: number) => void
-  onMove: (index: number, point: SpatialPoint3D) => void
+  onLive: (index: number, point: V3 | null) => void
+  onCommit: (index: number, point: V3) => void
   onRemove: (index: number) => void
 }) {
-  const handleRef = useRef<THREE.Group>(null)
-  const marker = <group ref={handleRef} position={[point.x, point.y, point.z]} userData={{ noPick: true }} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onSelect(index) }} onDoubleClick={(event) => { event.stopPropagation(); onRemove(index) }}>
+  return <DragHandle3D position={point} onPress={() => onSelect(index)} onLive={(next) => onLive(index, next)} onCommit={(next) => onCommit(index, next)} onDoubleClick={() => onRemove(index)}>
     <mesh renderOrder={32}><sphereGeometry args={[active ? 0.075 : 0.058, 18, 18]} /><meshStandardMaterial color={active ? '#2563eb' : '#ffffff'} emissive={active ? '#1d4ed8' : '#64748b'} emissiveIntensity={active ? 0.65 : 0.18} depthTest={false} /></mesh>
-    <Text position={[0, 0.1, 0]} fontSize={0.052} color="#1e3a8a" anchorX="center" anchorY="bottom" depthOffset={-4}>{index + 1}</Text>
-  </group>
-  if (!active) return marker
-  return <TransformControls mode="translate" space="world" size={0.58} translationSnap={0.025} onMouseUp={() => {
-    if (!handleRef.current) return
-    onMove(index, { x: handleRef.current.position.x, y: handleRef.current.position.y, z: handleRef.current.position.z })
-  }}>{marker}</TransformControls>
+    <Text position={[0, 0.1, 0]} fontSize={0.052} color="#1e3a8a" anchorX="center" anchorY="bottom" depthOffset={-4} raycast={() => null}>{index + 1}</Text>
+  </DragHandle3D>
 }
 
-/** Pega numa ponta do cabo: as pontas livres arrastam-se (e ligam ao borne mais próximo ao largar); as ligadas escolhem-se para religar/soltar. */
-function EditableWireEnd3D({ side, point, free, active, label, onSelect, onMove }: {
+/** Pega numa ponta do cabo: arrasta-se (ligada ou livre) e encaixa no borne mais próximo ao largar; Religar/Soltar continuam no editor. */
+function EditableWireEnd3D({ side, point, free, active, label, onSelect, onLive, onCommit, snap }: {
   side: 'from' | 'to'
   point: V3
   free: boolean
   active: boolean
   label: string
   onSelect: (side: 'from' | 'to') => void
-  onMove: (side: 'from' | 'to', point: SpatialPoint3D) => void
+  onLive: (side: 'from' | 'to', point: V3 | null) => void
+  onCommit: (side: 'from' | 'to', point: V3) => void
+  snap: (point: V3) => V3
 }) {
-  const handleRef = useRef<THREE.Group>(null)
-  const marker = <group ref={handleRef} position={point} userData={{ noPick: true }} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onSelect(side) }}>
+  return <DragHandle3D position={point} onPress={() => onSelect(side)} onLive={(next) => onLive(side, next)} onCommit={(next) => onCommit(side, next)} snap={snap}>
     <mesh renderOrder={33}><octahedronGeometry args={[active ? 0.085 : 0.065, 0]} /><meshStandardMaterial color={active ? '#f59e0b' : free ? '#16a34a' : '#ffffff'} emissive={active ? '#b45309' : free ? '#15803d' : '#475569'} emissiveIntensity={active ? 0.7 : 0.3} depthTest={false} /></mesh>
-    <Text position={[0, 0.12, 0]} fontSize={0.055} color="#7c2d12" anchorX="center" anchorY="bottom" depthOffset={-4}>{label}</Text>
-  </group>
-  if (!active || !free) return marker
-  return <TransformControls mode="translate" space="world" size={0.58} translationSnap={0.025} onMouseUp={() => {
-    if (!handleRef.current) return
-    onMove(side, { x: handleRef.current.position.x, y: handleRef.current.position.y, z: handleRef.current.position.z })
-  }}>{marker}</TransformControls>
+    <Text position={[0, 0.12, 0]} fontSize={0.055} color="#7c2d12" anchorX="center" anchorY="bottom" depthOffset={-4} raycast={() => null}>{label}</Text>
+  </DragHandle3D>
 }
 
 /** Pega no centro do cabo para o deslocar inteiro (curvas e pontas livres; os bornes ficam onde estão). */
-function WireMoveHandle3D({ origin, onMove }: { origin: V3; onMove: (delta: SpatialPoint3D) => void }) {
-  const handleRef = useRef<THREE.Group>(null)
-  return <TransformControls mode="translate" space="world" size={0.7} translationSnap={0.025} onMouseUp={() => {
-    const handle = handleRef.current
-    if (!handle) return
-    onMove({ x: handle.position.x - origin[0], y: handle.position.y - origin[1], z: handle.position.z - origin[2] })
-  }}>
-    <group ref={handleRef} position={origin} userData={{ noPick: true }}>
-      <mesh renderOrder={33}><boxGeometry args={[0.1, 0.1, 0.1]} /><meshStandardMaterial color="#7c3aed" emissive="#5b21b6" emissiveIntensity={0.6} depthTest={false} /></mesh>
-    </group>
-  </TransformControls>
+function WireMoveHandle3D({ origin, onLive, onCommit }: { origin: V3; onLive: (point: V3 | null) => void; onCommit: (point: V3) => void }) {
+  return <DragHandle3D position={origin} onLive={onLive} onCommit={onCommit}>
+    <mesh renderOrder={33}><boxGeometry args={[0.1, 0.1, 0.1]} /><meshStandardMaterial color="#7c3aed" emissive="#5b21b6" emissiveIntensity={0.6} depthTest={false} /></mesh>
+  </DragHandle3D>
 }
 
 type WireEditHandlers = {
@@ -1118,6 +1173,7 @@ type WireEditHandlers = {
   onSelectEnd: (side: 'from' | 'to') => void
   onMoveEnd: (wireId: string, side: 'from' | 'to', point: SpatialPoint3D) => void
   onMoveAll: (wireId: string, delta: SpatialPoint3D) => void
+  terminals: DrawTerminal[]
 }
 
 function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
@@ -1136,10 +1192,52 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     view3DScale: editor.scale3D,
   } : component), [storedComponents, editor])
 
-  return <group userData={{ noPick: true }}>{wires.map((wire) => {
-    const from = wireEndpoint3D(wire, 'from', components, pivots)
-    const to = wireEndpoint3D(wire, 'to', components, pivots)
-    if (!from || !to) return null
+  type LiveDrag = { wireId: string; kind: 'waypoint' | 'end' | 'all'; index?: number; side?: 'from' | 'to'; point: V3; origin?: V3 }
+  const [drag, setDrag] = useState<LiveDrag | null>(null)
+  const nearestTerminalPoint = (side: 'from' | 'to', wire: Wire) => (point: V3): V3 => {
+    const otherId = side === 'from' ? wire.toTerminalId : wire.fromTerminalId
+    let best: V3 = point
+    let bestDistance = 0.12
+    for (const terminal of handlers.terminals) {
+      if (terminal.id === otherId) continue
+      const distance = Math.hypot(terminal.position[0] - point[0], terminal.position[1] - point[1], terminal.position[2] - point[2])
+      if (distance < bestDistance) { bestDistance = distance; best = terminal.position }
+    }
+    return best
+  }
+  const asFreeEnd = (point: V3) => ({ point: { x: panelToSchematicX(point[0]), y: panelToSchematicY(point[1]) }, point3D: toSpatial(point) })
+  /** Cabo tal como está durante o arrasto (sem tocar na store até largar). */
+  const applyDrag = (wire: Wire, base: { from: WireEndpoint3D | null; to: WireEndpoint3D | null }): Wire => {
+    if (!drag || drag.wireId !== wire.id) return wire
+    if (drag.kind === 'waypoint' && drag.index !== undefined) {
+      const next = [...(wire.waypoints3D ?? [])]
+      next[drag.index] = toSpatial(drag.point)
+      return { ...wire, waypoints3D: next }
+    }
+    if (drag.kind === 'end' && drag.side) {
+      const free = asFreeEnd(drag.point)
+      return drag.side === 'from'
+        ? { ...wire, fromTerminalId: '', fromPoint: free.point, fromPoint3D: free.point3D }
+        : { ...wire, toTerminalId: '', toPoint: free.point, toPoint3D: free.point3D }
+    }
+    if (drag.kind === 'all' && drag.origin) {
+      const delta: V3 = [drag.point[0] - drag.origin[0], drag.point[1] - drag.origin[1], drag.point[2] - drag.origin[2]]
+      const shift = (p: V3): V3 => [p[0] + delta[0], p[1] + delta[1], p[2] + delta[2]]
+      const next: Wire = { ...wire, waypoints3D: wire.waypoints3D?.map((p) => toSpatial(shift(fromSpatial(p)))) }
+      if (base.from?.free) { const f = asFreeEnd(shift(base.from.position)); next.fromPoint = f.point; next.fromPoint3D = f.point3D }
+      if (base.to?.free) { const f = asFreeEnd(shift(base.to.position)); next.toPoint = f.point; next.toPoint3D = f.point3D }
+      return next
+    }
+    return wire
+  }
+
+  return <group userData={{ noPick: true }}>{wires.map((storedWire) => {
+    const baseFrom = wireEndpoint3D(storedWire, 'from', components, pivots)
+    const baseTo = wireEndpoint3D(storedWire, 'to', components, pivots)
+    if (!baseFrom || !baseTo) return null
+    const wire = applyDrag(storedWire, { from: baseFrom, to: baseTo })
+    const from = wireEndpoint3D(wire, 'from', components, pivots) ?? baseFrom
+    const to = wireEndpoint3D(wire, 'to', components, pivots) ?? baseTo
     const path = buildWirePath3D(wire, from, to)
     const points = path.points
     const selected = wire.id === selectedWireId
@@ -1162,11 +1260,13 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
       }
       return side === 'from' ? 'A' : 'B'
     }
-    const centroid: V3 = (() => {
-      const pts = [...manual.map(fromSpatial), ...(from.free ? [from.position] : []), ...(to.free ? [to.position] : [])]
+    const centroidOf = (waypoints: SpatialPoint3D[], a: WireEndpoint3D, b: WireEndpoint3D): V3 => {
+      const pts = [...waypoints.map(fromSpatial), ...(a.free ? [a.position] : []), ...(b.free ? [b.position] : [])]
       const source = pts.length ? pts : [points[Math.floor(points.length / 2)]]
       return [source.reduce((sum, p) => sum + p[0], 0) / source.length, source.reduce((sum, p) => sum + p[1], 0) / source.length, source.reduce((sum, p) => sum + p[2], 0) / source.length]
-    })()
+    }
+    const baseCentroid = drag?.kind === 'all' && drag.wireId === wire.id && drag.origin ? drag.origin : centroidOf(storedWire.waypoints3D ?? [], baseFrom, baseTo)
+    const centroid = centroidOf(manual, from, to)
     return <group key={wire.id} userData={{ noPick: true }}>
       {selected && <mesh renderOrder={18} raycast={() => null}>
         <tubeGeometry args={[curve, segments, radius + 0.014, 10, false]} />
@@ -1195,9 +1295,19 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
       <WireEnd3D geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} />
       <WireEnd3D geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} />
       {flowing && <EnergyFlow3D points={points} cableRadius={radius} />}
-      {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={point} index={index} active={handlers.activeWaypointIndex === index} onSelect={handlers.onSelectWaypoint} onMove={(waypointIndex, next) => handlers.onMoveWaypoint(wire.id, waypointIndex, next)} onRemove={(waypointIndex) => handlers.onRemoveWaypoint(wire.id, waypointIndex)} />)}
-      {editing && !handlers.moveAll && (['from', 'to'] as const).map((side) => <EditableWireEnd3D key={`${wire.id}-${side}`} side={side} point={side === 'from' ? from.position : to.position} free={side === 'from' ? from.free : to.free} active={handlers.activeEnd === side} label={label(side)} onSelect={handlers.onSelectEnd} onMove={(endSide, next) => handlers.onMoveEnd(wire.id, endSide, next)} />)}
-      {editing && handlers.moveAll && <WireMoveHandle3D key={`${wire.id}-all-${centroid.map((n) => n.toFixed(3)).join()}`} origin={centroid} onMove={(delta) => handlers.onMoveAll(wire.id, delta)} />}
+      {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
+        onSelect={handlers.onSelectWaypoint}
+        onLive={(waypointIndex, next) => setDrag(next ? { wireId: wire.id, kind: 'waypoint', index: waypointIndex, point: next } : null)}
+        onCommit={(waypointIndex, next) => handlers.onMoveWaypoint(wire.id, waypointIndex, toSpatial(next))}
+        onRemove={(waypointIndex) => handlers.onRemoveWaypoint(wire.id, waypointIndex)} />)}
+      {editing && !handlers.moveAll && (['from', 'to'] as const).map((side) => <EditableWireEnd3D key={`${wire.id}-${side}`} side={side} point={side === 'from' ? from.position : to.position} free={side === 'from' ? from.free : to.free} active={handlers.activeEnd === side} label={label(side)}
+        onSelect={handlers.onSelectEnd}
+        snap={nearestTerminalPoint(side, storedWire)}
+        onLive={(endSide, next) => setDrag(next ? { wireId: wire.id, kind: 'end', side: endSide, point: next } : null)}
+        onCommit={(endSide, next) => handlers.onMoveEnd(wire.id, endSide, toSpatial(next))} />)}
+      {editing && handlers.moveAll && <WireMoveHandle3D origin={centroid}
+        onLive={(next) => setDrag(next ? { wireId: wire.id, kind: 'all', point: next, origin: baseCentroid } : null)}
+        onCommit={(next) => handlers.onMoveAll(wire.id, { x: next[0] - baseCentroid[0], y: next[1] - baseCentroid[1], z: next[2] - baseCentroid[2] })} />}
     </group>
   })}</group>
 }
@@ -2016,7 +2126,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
          selectComponents(id ? [id] : [])
        }}
      >
-      <ComponentViewEditor />
       <ViewCube
           yaw={cameraStats.yaw}
           pitch={cameraStats.pitch}
@@ -2026,6 +2135,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           note={cubeNote}
           placement="top"
         />
+      <div className="panel3d-hud-top">
       <div className="panel3d-viewbar" role="toolbar" aria-label="Edição, vistas e navegação do painel 3D">
         <div className="panel3d-viewbar-group" aria-label="Ferramentas 3D">
           <span className="panel3d-viewbar-label">Editar</span>
@@ -2049,6 +2159,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           <button type="button" onClick={cycleBackground} title="Alternar fundo técnico, branco e escuro">{backgroundMode === 'technical' ? 'Técnico' : backgroundMode === 'white' ? 'Branco' : 'Escuro'}</button>
         </div>
       </div>
+      <div className="panel3d-hud-row">
       {editMode === 'move' && <div className="panel3d-edit-context" role="status">
         {selectedComponent ? <>
           <strong>{selectedComponent.ref}</strong>
@@ -2141,6 +2252,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           Escala {Math.round(component3DScaleOf(selectedComponent).x * 100)}·{Math.round(component3DScaleOf(selectedComponent).y * 100)}·{Math.round(component3DScaleOf(selectedComponent).z * 100)}% · {selectedComponent.view3DRenderMode === 'wireframe' ? 'Arame' : selectedComponent.view3DRenderMode === 'xray' ? 'Raio-X' : 'Sólido'}
         </small>
       </div>}
+      <ComponentViewEditor />
+      </div>
+      </div>
       <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
         <color attach="background" args={[sceneBackground]} />
         <ambientLight intensity={0.6} />
@@ -2219,6 +2333,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           onSelectEnd={(side) => { setActiveEnd(side); setActiveWaypointIndex(null) }}
           onMoveEnd={moveWireEnd}
           onMoveAll={moveWholeWire}
+          terminals={drawTerminals}
         />
         <WireDrawController
           active={editMode === 'connect'}

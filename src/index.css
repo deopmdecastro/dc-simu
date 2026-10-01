@@ -2840,3 +2840,36 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
 .panel3d-wire-collapse { margin-left:6px; }
 .panel3d-wire-inspector > footer.is-compact { justify-content:flex-start; flex-wrap:wrap; }
 .panel3d-edit-context .panel3d-wire-inspector > footer.is-compact button.is-active { border-color:#7c3aed; color:#fff; background:#7c3aed; }
+
+/* ═══ HUD superior organizado (desktop) ═══
+   Um único bloco ancorado ao canto superior esquerdo, sempre à esquerda do cubo:
+   linha 1 = barra de ferramentas; linha 2 = contexto (modelo ou ferramenta) +
+   ações do componente. Em ecrãs estreitos o wrapper é transparente (display:contents)
+   e valem as regras móveis anteriores. */
+.panel3d-hud-top, .panel3d-hud-row { display:contents; }
+@media (min-width: 761px) {
+  .panel3d-stage .panel3d-hud-top { position:absolute; z-index:24; top:10px; left:10px; right:176px; display:flex; flex-direction:column; align-items:flex-start; gap:8px; pointer-events:none; }
+  .panel3d-stage .panel3d-hud-row { display:flex; width:100%; flex-wrap:wrap; align-items:stretch; gap:8px; pointer-events:none; }
+  .panel3d-stage .panel3d-hud-top > *, .panel3d-stage .panel3d-hud-row > * { pointer-events:auto; }
+  .panel3d-stage .panel3d-hud-top .panel3d-viewbar,
+  .panel3d-stage .panel3d-hud-top .panel3d-edit-context,
+  .panel3d-stage .panel3d-hud-top .panel3d-model-badge,
+  .panel3d-stage .panel3d-hud-top .component-view-command {
+    position:relative !important; top:auto !important; left:auto !important; right:auto !important; bottom:auto !important; margin:0 !important; transform:none !important;
+  }
+  .panel3d-stage .panel3d-hud-top .panel3d-viewbar { max-width:100%; overflow-x:auto; justify-content:flex-start; scrollbar-width:none; }
+  .panel3d-stage .panel3d-hud-top .panel3d-viewbar::-webkit-scrollbar { display:none; }
+  .panel3d-stage .panel3d-hud-top .panel3d-edit-context { max-width:100%; }
+  .panel3d-stage .panel3d-hud-top .panel3d-model-badge { flex:0 1 auto; width:auto; min-width:220px; max-width:min(440px,100%); padding:8px 12px; justify-content:center; }
+  .panel3d-stage .panel3d-hud-top .panel3d-model-badge span strong { max-width:100%; }
+  .panel3d-stage .panel3d-hud-top .component-view-command { display:flex; flex:0 0 auto; align-items:stretch; gap:6px; }
+  .panel3d-stage .panel3d-hud-top .component-view-command > button { height:auto !important; min-height:40px; border-radius:10px !important; box-shadow:0 4px 14px #243b6324; }
+  /* Quando há editor de cabos/ferramenta aberto, as ações descem para a linha seguinte */
+  .panel3d-stage .panel3d-hud-top .panel3d-edit-context + .component-view-command { margin-top:0 !important; }
+}
+@media (min-width: 761px) {
+  .panel3d-stage .panel3d-hud-top .component-view-command > button { min-height:38px; gap:5px; padding:0 10px !important; font-size:10px !important; }
+  .panel3d-stage .panel3d-hud-top .panel3d-model-badge { min-width:200px; padding:6px 11px; }
+  .panel3d-stage .panel3d-hud-top .panel3d-wire-context > span { display:block; max-width:520px; padding:3px 6px; font-size:9px; line-height:1.5; white-space:normal; }
+  .panel3d-stage .panel3d-hud-top .panel3d-edit-context:not(.panel3d-draw-context):not(.panel3d-wire-context) { min-height:30px; }
+}
