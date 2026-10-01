@@ -1,4 +1,6 @@
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
+import { ROUTES } from '../../routing/routes'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { catalogApi } from '../../catalog/catalogApi'
 import { newId } from '../../catalog/definition'
@@ -14,8 +16,10 @@ import ComponentEditor3D from './ComponentEditor3D'
 
 /** Separador "Biblioteca 3D": lista os componentes oficiais e abre o editor 3D. */
 export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpened, account }: { account?: ReactNode; onNotice: (message: string) => void; onError: (message: string) => void; onCreate: () => void; openId?: string | null; onOpened?: () => void }) {
+  const navigate = useNavigate()
   const [entries, setEntries] = useState<CatalogEntry[] | null>(null)
   const [editing, setEditing] = useState<string | null>(openId ?? null)
+  const openEditor = useCallback((id: string) => { setEditing(id); navigate(ROUTES.adminEditor(id)) }, [navigate])
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'draft' | 'published' | 'archived' | 'builtin'>('all')
   const [importing, setImporting] = useState<string | null>(null)
@@ -66,7 +70,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
   /** Abre um componente integrado no editor 3D: cria (uma vez) uma cópia editável com o modelo e os bornes do original. */
   async function openBuiltin(item: BuiltinInfo) {
     const existing = imported.get(item.type)
-    if (existing) { setEditing(existing); return }
+    if (existing) { openEditor(existing); return }
     setImporting(item.type)
     try {
       const { meta, def, usedModel } = await buildBuiltinDraft(item.type)
@@ -74,7 +78,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
       await catalogApi.save(id, meta, def)
       onNotice(usedModel ? `«${item.name}» importado com o modelo 3D e os bornes: edite à vontade (o componente integrado do simulador não é alterado).` : `«${item.name}» importado como volume com as dimensões físicas e os bornes (sem modelo CAD).`)
       await reload()
-      setEditing(id)
+      openEditor(id)
     } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao importar o componente integrado') }
     finally { setImporting(null) }
   }
@@ -108,7 +112,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     finally { setBackupBusy(false); if (backupInput.current) backupInput.current.value = '' }
   }
 
-  if (editing) return createPortal(<div className="ce-overlay dx"><ComponentEditor3D account={account} id={editing} onClose={(message) => { setEditing(null); if (message) onNotice(message); void reload() }} /></div>, document.body)
+  if (editing) return createPortal(<div className="ce-overlay dx"><ComponentEditor3D account={account} id={editing} onClose={(message) => { setEditing(null); navigate(ROUTES.adminEditor()); if (message) onNotice(message); void reload() }} /></div>, document.body)
 
   return <>
     <div className="dx-admin-section"><h2>Biblioteca de componentes 3D</h2><span>{entries ? `${visible.length + builtinVisible.length}/${entries.length + builtins.length - imported.size}` : '…'}</span></div>
@@ -145,7 +149,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
             <p className="ce-card-desc">{entry.meta.description || 'Sem descrição.'}</p>
           </div>
           <div className="ce-card-actions">
-            <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => setEditing(entry.id)}>Editar</button>
+            <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => openEditor(entry.id)}>Editar</button>
             <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void duplicate(entry)} title="Cria um componente novo e independente">Duplicar</button>
             {entry.latestVersion > 0
               ? <button className="dx-btn dx-btn-ghost dx-btn-sm" onClick={() => void archive(entry)}>{entry.archived ? 'Repor' : 'Arquivar'}</button>

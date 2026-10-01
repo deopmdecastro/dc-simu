@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { adminComponentIdFromPath, isAdminEditorPath, ROUTES } from '../routing/routes'
 import type { Invite, User } from '../dashboard/Dashboard'
 import AccountControls from '../components/AccountControls'
 import { activeAccountBackend } from '../auth/accountApi'
@@ -19,7 +21,11 @@ type Tab = 'overview' | 'contributions' | 'components' | 'library3d' | 'projects
 
 /** Painel de gestão do administrador: resumo, revisão de contribuições, projetos e contas. */
 export default function AdminPanel({ onBack, currentUser, initialTab = 'overview', invites = [], onLogout }: { onBack: () => void; currentUser: User; initialTab?: Tab; invites?: Invite[]; onLogout?: () => void }) {
-  const [tab, setTab] = useState<Tab>(initialTab)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const routeEditor = isAdminEditorPath(location.pathname)
+  const routeComponentId = adminComponentIdFromPath(location.pathname)
+  const [tab, setTab] = useState<Tab>(routeEditor ? 'library3d' : initialTab)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [projects, setProjects] = useState<AdminProject[]>([])
   const [contributions, setContributions] = useState<Contribution[]>([])
@@ -35,8 +41,13 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
   const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [creating3D, setCreating3D] = useState(false)
-  const [editorOpenId, setEditorOpenId] = useState<string | null>(null)
-  const clearEditorOpen = useCallback(() => setEditorOpenId(null), [])
+  const [editorOpenId, setEditorOpenId] = useState<string | null>(routeComponentId)
+  const clearEditorOpen = useCallback(() => { setEditorOpenId(null); navigate(ROUTES.adminEditor()) }, [navigate])
+  useEffect(() => {
+    if (!routeEditor) return
+    setTab('library3d')
+    setEditorOpenId(routeComponentId)
+  }, [routeEditor, routeComponentId])
   const [rejecting, setRejecting] = useState<string | null>(null)
   const [note, setNote] = useState('')
 
@@ -97,7 +108,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
         <button className="dx-btn dx-btn-secondary" onClick={onBack}>← Projetos</button>
       </div>
     </div>
-    {creating3D && <NewComponentDialog onCancel={() => setCreating3D(false)} onError={onError} onCreated={(id, name) => { setCreating3D(false); setNotice(`«${name}» criado como rascunho. Modele-o e publique quando estiver pronto.`); setEditorOpenId(id); setTab('library3d') }} />}
+    {creating3D && <NewComponentDialog onCancel={() => setCreating3D(false)} onError={onError} onCreated={(id, name) => { setCreating3D(false); setNotice(`«${name}» criado como rascunho. Modele-o e publique quando estiver pronto.`); setEditorOpenId(id); setTab('library3d'); navigate(ROUTES.adminEditor(id)) }} />}
 
     <div className="cb-tabs" role="tablist" aria-label="Gestão do administrador">
       {tabs.map(([id, label, count]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>
