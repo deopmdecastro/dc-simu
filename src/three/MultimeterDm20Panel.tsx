@@ -1,0 +1,56 @@
+import { useEffect, useMemo, useState } from 'react'
+import * as THREE from 'three'
+import type { ElectricalComponent } from '../types'
+import { triggerControl, useCatalogMeter } from '../catalog/runtimeControls'
+import type { ComponentDefinition, ControlDef } from '../catalog/types'
+
+const selector: ControlDef = {
+  id: 'dm20-selector', name: 'Seletor de função', kind: 'selector', partId: 'dm20', nodes: [], axis: [0, 0, -1], travelMm: 0,
+  bindVar: 'dial', actions: [], positions: [
+    { id: 'off', label: 'OFF', angle: -52 }, { id: 'acv', label: 'V ~', angle: -22 }, { id: 'dcv', label: 'V ⎓', angle: 0 },
+    { id: 'ma', label: 'mA', angle: 68 }, { id: 'a10', label: '10 A', angle: 93 }, { id: 'ohm', label: 'Ω', angle: -112 },
+  ],
+}
+const button = (id: string, event: 'select' | 'power' | 'hold'): ControlDef => ({ id, name: id, kind: 'button', partId: 'dm20', nodes: [], axis: [0, 0, 1], travelMm: 1, bindVar: '', positions: [], actions: [{ type: 'behavior', event }] })
+const selectButton = button('dm20-select', 'select'), powerButton = button('dm20-power', 'power'), holdButton = button('dm20-hold', 'hold')
+
+/** Definição funcional embutida: usa os mesmos bornes estáveis da biblioteca. */
+export const DM20_DEFINITION = {
+  schemaVersion: 1, mount: 'machine', parts: [], materials: [], terminals: [], lights: [], states: [], initialState: 'base', interactions: [], assets: {},
+  behavior: { type: 'multimeter', com: 'dm20-com', volt: 'dm20-volt', milliamp: 'dm20-ma', amp: 'dm20-amp' },
+  controls: [selector, selectButton, powerButton, holdButton], vars: [], displays: [],
+} as ComponentDefinition
+
+export default function MultimeterDm20Panel({ component }: { component: ElectricalComponent }) {
+  const { vars, reading } = useCatalogMeter(component, DM20_DEFINITION)
+  const [pressed, setPressed] = useState('')
+  const canvas = useMemo(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 150; return c }, [])
+  const texture = useMemo(() => { const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; return t }, [canvas])
+  useEffect(() => {
+    const ctx = canvas.getContext('2d')!; const on = reading?.on ?? false
+    ctx.fillStyle = on ? (reading?.backlight ? '#9fdbad' : '#bdc8b2') : '#303b32'; ctx.fillRect(0, 0, 320, 150)
+    if (on) {
+      ctx.fillStyle = '#172018'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = 'bold 72px monospace'; ctx.fillText(`${reading?.negative ? '-' : ''}${reading?.text ?? ''}`, 265, 78)
+      ctx.font = 'bold 25px sans-serif'; ctx.fillText(reading?.unit ?? '', 310, 35)
+      ctx.textAlign = 'left'; ctx.font = 'bold 17px sans-serif'; ctx.fillText(reading?.ac ? 'AC' : reading?.dc ? 'DC' : '', 10, 25)
+      if (reading?.hold) ctx.fillText('HOLD', 10, 132)
+      if (reading?.continuity) ctx.fillText('•)))', 245, 132)
+    }
+    texture.needsUpdate = true
+  }, [canvas, texture, reading])
+  useEffect(() => () => texture.dispose(), [texture])
+  const act = (control: ControlDef, gesture: 'press' | { step: 1 | -1 }) => triggerControl(DM20_DEFINITION, component.id, control, gesture)
+  const hit = (id: string, x: number, y: number, control: ControlDef) => <mesh position={[x, y, 0.315]}
+    onPointerDown={(e) => { e.stopPropagation(); setPressed(id) }} onPointerUp={(e) => { e.stopPropagation(); setPressed(''); act(control, 'press') }} onPointerOut={() => setPressed('')}>
+    <circleGeometry args={[0.075, 20]} /><meshStandardMaterial transparent opacity={pressed === id ? 0.35 : 0.03} color="#94a3b8" /></mesh>
+  return <group>
+    <mesh position={[0, 1.4, 0.31]}><planeGeometry args={[0.58, 0.27]} /><meshBasicMaterial map={texture} toneMapped={false} /></mesh>
+    <mesh position={[0, 0.79, 0.32]} onPointerDown={(e) => { e.stopPropagation(); act(selector, { step: e.shiftKey ? -1 : 1 }) }}>
+      <circleGeometry args={[0.2, 28]} /><meshBasicMaterial transparent opacity={0.025} />
+    </mesh>
+    {hit('sel', -0.22, 1.08, selectButton)}{hit('off', 0, 1.08, powerButton)}{hit('hold', 0.22, 1.08, holdButton)}
+    <mesh position={[0, 0.79, 0.335]} rotation={[0, 0, ((selector.positions.find((p) => p.id === String(vars.dial ?? 'off'))?.angle ?? -52) * Math.PI) / 180]} raycast={() => null}>
+      <boxGeometry args={[0.055, 0.25, 0.03]} /><meshStandardMaterial color="#334155" roughness={0.6} />
+    </mesh>
+  </group>
+}

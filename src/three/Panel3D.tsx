@@ -22,6 +22,7 @@ import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } f
 import { wireEnergyEffectVisible } from './panel3DEditing'
 import { registerCoverCapture } from './coverCapture'
 import { WireEnd3D } from './WireEnd3D'
+import MultimeterDm20Panel from './MultimeterDm20Panel'
 import { WireDrawController, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS } from '../schematic/wireEnds'
@@ -704,6 +705,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const active = !!(c.state.energized || c.state.powered)
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
+    {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} />}
     {active && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
     <Label text={c.ref} position={[0, spec.targetHeight + 0.1, 0.22]} color={active ? '#4ade80' : '#e2e8f0'} />
   </group>

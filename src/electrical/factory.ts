@@ -714,10 +714,10 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   multimeterDm20: {
     category: 'measurement', paletteName: 'Multímetro digital RGK DM-20', group: 'Aparelhos de medir', tag: 'MM', w: 132, h: 276,
     terminals: [
-      T('COM', 'io', 0.24, 0.86, { terminalType: 'plug', color: '#111827', electricalClass: 'other' }),
-      T('VΩ', 'io', 0.43, 0.86, { terminalType: 'plug', color: '#dc2626', electricalClass: 'other' }),
-      T('mA', 'io', 0.62, 0.86, { terminalType: 'plug', color: '#f59e0b', electricalClass: 'other' }),
-      T('10A', 'io', 0.81, 0.86, { terminalType: 'plug', color: '#ea580c', electricalClass: 'other' }),
+      T('COM', 'io', 0.24, 0.86, { defId: 'dm20-com', terminalType: 'plug', color: '#111827', electricalClass: 'other' }),
+      T('VΩ', 'io', 0.43, 0.86, { defId: 'dm20-volt', terminalType: 'plug', color: '#dc2626', electricalClass: 'other' }),
+      T('mA', 'io', 0.62, 0.86, { defId: 'dm20-ma', terminalType: 'plug', color: '#f59e0b', electricalClass: 'other' }),
+      T('10A', 'io', 0.81, 0.86, { defId: 'dm20-amp', terminalType: 'plug', color: '#ea580c', electricalClass: 'other' }),
     ],
     defaultState: { selector: 'off', hold: false, backlight: false, relative: false },
   },
