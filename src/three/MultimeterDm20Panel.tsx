@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { triggerControl, useCatalogMeter } from '../catalog/runtimeControls'
@@ -71,6 +72,20 @@ export default function MultimeterDm20Panel({ component, model }: { component: E
     // Quatro milésimos à frente do vidro: visualmente colado, sem z-fighting.
     return { position: [center.x, center.y, box.max.z + 0.004] as [number, number, number], size: [size.x, size.y] as [number, number] }
   }, [model])
+  const physicalButtons = useMemo(() => ({
+    sel: model?.getObjectByName('occurrence_of_Plane004_Material003_0'),
+    off: model?.getObjectByName('occurrence_of_Plane002_Material002_0'),
+    hold: model?.getObjectByName('occurrence_of_Plane003_Material007_0'),
+  }), [model])
+  useFrame((_, delta) => {
+    for (const [id, part] of Object.entries(physicalButtons)) {
+      if (!part) continue
+      part.userData.dm20ButtonBaseZ ??= part.position.z
+      const target = Number(part.userData.dm20ButtonBaseZ) + (pressed === id ? -0.0018 : 0)
+      part.position.z = THREE.MathUtils.damp(part.position.z, target, 30, delta)
+      part.updateMatrixWorld(true)
+    }
+  })
   const act = (control: ControlDef, gesture: 'press' | { step: 1 | -1 }) => triggerControl(DM20_DEFINITION, component.id, control, gesture)
   const hit = (id: string, x: number, y: number, control: ControlDef) => <mesh position={[x, y, 0.18]}
     onPointerDown={(e) => { e.stopPropagation(); setPressed(id) }} onPointerUp={(e) => { e.stopPropagation(); setPressed(''); act(control, 'press') }} onPointerOut={() => setPressed('')}>

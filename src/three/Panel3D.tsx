@@ -537,7 +537,7 @@ function LogoFrontPanel({ c }: { c: ElectricalComponent }) {
     onPointerDown={(event) => { event.stopPropagation(); setPressed(id) }}
     onPointerUp={(event) => { event.stopPropagation(); setPressed(null); action() }}
     onPointerOut={() => setPressed(null)}>
-    <circleGeometry args={[0.038, 18]} /><meshStandardMaterial color={pressed === id ? '#64748b' : '#cbd5e1'} roughness={0.8} />
+    <circleGeometry args={[0.052, 18]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} />
   </mesh>
   const led = (px: number, py: number, color: string, on: boolean) => <mesh position={[px, py, 0.329]}><circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={on ? color : '#334155'} emissive={on ? color : '#000'} emissiveIntensity={on ? 1.8 : 0} /></mesh>
 
