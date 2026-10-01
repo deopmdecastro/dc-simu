@@ -37,8 +37,10 @@ const terminalMarkerScale = (terminal: { diameter?: number }): number =>
   typeof terminal.diameter === 'number' && terminal.diameter > 0 ? Math.max(0.35, Math.min(2.6, terminal.diameter / 9)) : 1
 
 function Label({ text, position, color = '#0f172a', size = 0.085 }: { text: string; position: [number, number, number]; color?: string; size?: number }) {
+  // As referências acima dos equipamentos eram claras (chapa escura); na chapa clara ficam ilegíveis.
+  const ink = color.toLowerCase() === '#e2e8f0' ? '#1e293b' : color
   return (
-    <Text position={position} fontSize={size} color={color} anchorX="center" anchorY="middle">
+    <Text position={position} fontSize={size} color={ink} anchorX="center" anchorY="middle">
       {text}
     </Text>
   )
@@ -54,7 +56,7 @@ function MountingPlate({ bounds }: { bounds: PlateBounds }) {
   return (
     <mesh position={[(bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2, PLATE_Z]} receiveShadow>
       <boxGeometry args={[width, height, PLATE_THICKNESS]} />
-      <meshStandardMaterial color="#eef1f4" metalness={0.15} roughness={0.75} />
+      <meshStandardMaterial color="#eef1f4" emissive="#dde3ea" emissiveIntensity={0.4} metalness={0.1} roughness={0.8} />
       <Edges color="#9aa7b8" threshold={15} />
     </mesh>
   )
@@ -1362,55 +1364,58 @@ function dotGridTexture(color: string, radius: number, repeatX: number, repeatY:
   return texture
 }
 
-/** Grelha partilhada do Esquema, aplicada como superfície filtrada sobre a placa. */
-function DotGrid({ size, dark }: { size: number; dark: boolean }) {
+/** Grelha partilhada do Esquema: pontos pequenos e discretos, só sobre a chapa
+ * (sem pontos grandes “a flutuar” no mundo 3D). Mipmaps e filtragem anisotrópica
+ * evitam o efeito moiré ao inclinar a vista. */
+function DotGrid({ size, dark, bounds }: { size: number; dark: boolean; bounds: PlateBounds | null }) {
   const { gl } = useThree()
-  const minorMaterial = useRef<THREE.MeshBasicMaterial>(null)
-  const majorMaterial = useRef<THREE.MeshBasicMaterial>(null)
+  const material = useRef<THREE.MeshBasicMaterial>(null)
   const cameraDirection = useMemo(() => new THREE.Vector3(), [])
   const step = Math.max(5, size)
   const widthPx = 2000
   const heightPx = 1400
-  const textures = useMemo(() => {
+  const fullW = widthPx * PANEL_UNITS_PER_PX
+  const fullH = heightPx * PANEL_UNITS_PER_PX
+  const cx = bounds ? (bounds.minX + bounds.maxX) / 2 : 0
+  const cy = bounds ? (bounds.minY + bounds.maxY) / 2 : 0
+  const width = bounds ? Math.min(fullW, bounds.maxX - bounds.minX) : fullW
+  const height = bounds ? Math.min(fullH, bounds.maxY - bounds.minY) : fullH
+  const texture = useMemo(() => {
     const anisotropy = gl.capabilities.getMaxAnisotropy()
-    return {
-      minor: dotGridTexture(dark ? '#61738c' : '#9eacc0', 3.1, widthPx / step, heightPx / step, anisotropy),
-      major: dotGridTexture(dark ? '#9eb1ce' : '#607897', 4.1, widthPx / (step * 5), heightPx / (step * 5), anisotropy),
-    }
-  }, [dark, gl, step])
-  useEffect(() => () => {
-    textures.minor.dispose()
-    textures.major.dispose()
-  }, [textures])
+    const t = dotGridTexture(dark ? '#a9b8cf' : '#3f4f68', 2.3, (width / fullW) * (widthPx / step), (height / fullH) * (heightPx / step), anisotropy)
+    // Mantém os pontos alinhados com a grelha de encaixe do Esquema, mesmo com a chapa recortada.
+    t.offset.set(((cx - width / 2 + fullW / 2) / fullW) * (widthPx / step), ((cy - height / 2 + fullH / 2) / fullH) * (heightPx / step))
+    return t
+  }, [dark, gl, step, width, height, cx, cy, fullW, fullH])
+  useEffect(() => () => texture.dispose(), [texture])
   const z = PLATE_Z + PLATE_THICKNESS / 2 + 0.004
-  const width = widthPx * PANEL_UNITS_PER_PX
-  const height = heightPx * PANEL_UNITS_PER_PX
-  // Uma grelha plana deixa de representar distâncias quando vista de perfil.
-  // O fade angular remove as linhas em leque/moiré, mas mantém a grelha nas
-  // vistas frontal e isométrica em que ela é útil para editar.
+  // Uma grelha plana deixa de representar distâncias quando vista de perfil: o fade
+  // angular remove linhas em leque/moiré, mas mantém os pontos nas vistas úteis para editar.
   useFrame(({ camera }) => {
     camera.getWorldDirection(cameraDirection)
-    const facing = Math.abs(cameraDirection.z)
-    const fade = THREE.MathUtils.smoothstep(facing, 0.12, 0.42)
-    if (minorMaterial.current) {
-      minorMaterial.current.opacity = (dark ? 0.5 : 0.58) * fade
-      minorMaterial.current.visible = fade > 0.015
-    }
-    if (majorMaterial.current) {
-      majorMaterial.current.opacity = (dark ? 0.58 : 0.64) * fade
-      majorMaterial.current.visible = fade > 0.015
+    const fade = THREE.MathUtils.smoothstep(Math.abs(cameraDirection.z), 0.3, 0.7)
+    if (material.current) {
+      material.current.opacity = (dark ? 0.55 : 0.6) * fade
+      material.current.visible = fade > 0.015
     }
   })
   return (
-    <group position={[0, 0, z]}>
-      <mesh renderOrder={1}>
-        <planeGeometry args={[width, height]} />
-        <meshBasicMaterial ref={minorMaterial} map={textures.minor} transparent opacity={dark ? 0.5 : 0.58} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-1} />
-      </mesh>
-      <mesh position={[0, 0, 0.001]} renderOrder={2}>
-        <planeGeometry args={[width, height]} />
-        <meshBasicMaterial ref={majorMaterial} map={textures.major} transparent opacity={dark ? 0.58 : 0.64} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-2} />
-      </mesh>
+    <mesh position={[cx, cy, z]} renderOrder={1}>
+      <planeGeometry args={[width, height]} />
+      <meshBasicMaterial ref={material} map={texture} transparent opacity={dark ? 0.55 : 0.6} depthWrite={false} toneMapped={false} polygonOffset polygonOffsetFactor={-1} />
+    </mesh>
+  )
+}
+
+/** Fundo “mundo” partilhado pelo Esquema e pela Visualização 3D: chão + parede
+ * de quadrícula atrás da chapa, para a cena ter profundidade em qualquer vista. */
+function WorldBackdrop({ center, floorY, dark }: { center: [number, number, number]; floorY: number; dark: boolean }) {
+  const main = dark ? '#334155' : '#c3cdda'
+  const sub = dark ? '#243041' : '#dfe5ee'
+  return (
+    <group>
+      <gridHelper args={[40, 80, main, sub]} position={[center[0], floorY, 0]} />
+      <gridHelper args={[40, 80, main, sub]} position={[center[0], center[1], PLATE_Z - 1.4]} rotation={[Math.PI / 2, 0, 0]} />
     </group>
   )
 }
@@ -1817,7 +1822,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     : backgroundMode === 'dark'
       ? 'bg-gradient-to-b from-[#111827] via-[#1f2937] to-[#0f172a]'
       : 'bg-gradient-to-b from-[#e6ebf3] via-[#f3f5f9] to-[#ccd5e2]'
-  const sceneBackground = backgroundMode === 'white' ? '#ffffff' : backgroundMode === 'dark' ? '#111827' : frontEdit ? '#f8fafd' : '#e9eef5'
+  const sceneBackground = backgroundMode === 'white' ? '#ffffff' : backgroundMode === 'dark' ? '#111827' : '#e9eef5'
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1865,8 +1870,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
        }}
      >
       <ComponentViewEditor />
-      {(frontEdit || viewOrientationEditor) && (
-        <ViewCube
+      <ViewCube
           yaw={cameraStats.yaw}
           pitch={cameraStats.pitch}
           onPick={pickCubeView}
@@ -1875,7 +1879,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           note={cubeNote}
           placement="top"
         />
-      )}
       <div className="panel3d-viewbar" role="toolbar" aria-label="Edição, vistas e navegação do painel 3D">
         <div className="panel3d-viewbar-group" aria-label="Ferramentas 3D">
           <span className="panel3d-viewbar-label">Editar</span>
@@ -1949,8 +1952,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
         {/* A grelha de edição partilhada permanece montada em todas as vistas 3D.
             A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}
-        {showGrid && !frontEdit && <gridHelper args={[40, 80, '#c3cdda', '#dfe5ee']} position={[sceneCenter[0], floorY, 0]} />}
-        {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} dark={backgroundMode === 'dark'} />}
+        {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} />}
+        {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} dark={backgroundMode === 'dark'} bounds={plateBounds} />}
         {frontEdit && placingType && hasComponent3DModel(placingType) && <PlacementPlane step={gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0} onPlace={(x, y) => {
           const step = gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0
           const snapTo = (value: number) => step ? Math.round(value / step) * step : Math.round(value)
