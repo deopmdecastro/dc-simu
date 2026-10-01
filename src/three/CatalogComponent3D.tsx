@@ -62,16 +62,17 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
   }, [scene, origin, anchor])
 
   const { vars, reading } = useCatalogMeter(c, version?.definition)
+  const displayVars = useMemo(() => ({ ...vars, ...Object.fromEntries(Object.entries((c.state?.catalogColors as Record<string, string> | undefined) ?? {}).map(([id, color]) => [`color.${id}`, color])) }), [vars, c.state?.catalogColors])
   useEffect(() => {
     if (!version) { animator.current = null; rig.current = null; return }
     animator.current = new StateAnimator(version.definition, model, c.state?.catalogState ?? version.definition.initialState)
     rig.current = new ComponentRig(version.definition, model, animator.current)
-    rig.current.setVars(vars, reading, version.definition.states.find((item) => item.id === (c.state?.catalogState ?? version.definition.initialState))?.name ?? '')
+    rig.current.setVars(displayVars, reading, version.definition.states.find((item) => item.id === (c.state?.catalogState ?? version.definition.initialState))?.name ?? '')
     rig.current.snap()
     invalidate()
     return () => { timers.current.forEach((id) => window.clearTimeout(id)); timers.current = []; rig.current?.dispose(); rig.current = null }
   }, [version, model])
-  useEffect(() => { rig.current?.setVars(vars, reading); invalidate() }, [vars, reading])
+  useEffect(() => { rig.current?.setVars(displayVars, reading); invalidate() }, [displayVars, reading])
   useEffect(() => { setBeep(!!reading?.beep); return () => setBeep(false) }, [reading?.beep])
 
   const stateId = String(c.state?.catalogState ?? version?.definition.initialState ?? '')

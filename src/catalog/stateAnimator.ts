@@ -148,11 +148,14 @@ export class StateAnimator {
       const part = this.def.parts.find((item) => item.id === light.partId)
       const material = this.def.materials.find((item) => item.id === (this.materialOf.get(light.partId) ?? part?.materialId))
       const pulse = blinks ? (Math.sin(this.clock * 6) > 0 ? 1 : 0.1) : 1
+      const selected = this.vars[`color.${light.id}`]
+      const chosenColor = typeof selected === 'string' && light.userPalette?.some((color) => color.toLowerCase() === selected.toLowerCase()) ? selected : light.color
       for (const mesh of lightNodes.flatMap((node) => this.meshesOf(node))) {
         const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
         for (const item of list as THREE.MeshStandardMaterial[]) {
           if (!item.isMeshStandardMaterial) continue
-          if (isOn) { item.emissive.set(state.on ? state.color ?? light.color : light.color); item.emissiveIntensity = (state.on ? state.intensity ?? light.intensity : light.intensity) * pulse }
+          if (light.tintMaterial && light.userPalette?.length) item.color.set(chosenColor)
+          if (isOn) { item.emissive.set(state.on ? state.color ?? chosenColor : chosenColor); item.emissiveIntensity = (state.on ? state.intensity ?? light.intensity : light.intensity) * pulse }
           else { item.emissive.set(light.nodes?.length ? '#000000' : material?.emissive ?? '#000000'); item.emissiveIntensity = light.nodes?.length ? 0 : material?.emissiveIntensity ?? 0 }
         }
       }

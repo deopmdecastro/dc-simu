@@ -108,6 +108,8 @@ export function TerminalsTab() {
   </>
 }
 
+const USER_COLOR_PALETTE = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ffffff', '#111827']
+
 export function LightsTab() {
   const def = useEditorStore((s) => s.def)
   const selection = useEditorStore((s) => s.selection)
@@ -138,6 +140,12 @@ export function LightsTab() {
       <Field label="Tipo"><Select value={light.kind ?? 'lamp'} onChange={(kind) => patch({ kind }, 'kind')} options={[['led', 'LED'], ['lamp', 'Lâmpada / sinaleiro']]} /></Field>
       <NodePicker partId={light.partId} nodes={light.nodes} pickKind="light" id={light.id} onChange={(nodes) => patch({ nodes: nodes.length ? nodes : undefined }, 'nodes')} />
       <Field label="Cor"><Color value={light.color} onChange={(color) => patch({ color }, 'color')} /></Field>
+      <Check checked={!!light.userPalette?.length} label="Utilizador pode escolher a cor desta zona" onChange={(enabled) => patch({ userPalette: enabled ? (light.userPalette?.length ? light.userPalette : USER_COLOR_PALETTE.slice(0, 7)) : undefined, tintMaterial: enabled || light.tintMaterial }, 'userPalette')} />
+      {!!light.userPalette?.length && <Field label="Paleta do utilizador" hint="Clique para permitir ou remover uma cor."><span className="ce-actions-inline">{USER_COLOR_PALETTE.map((color) => {
+        const active = light.userPalette!.includes(color)
+        return <button key={color} type="button" aria-pressed={active} title={active ? 'Remover cor' : 'Permitir cor'} onClick={() => patch({ userPalette: active ? light.userPalette!.filter((item) => item !== color) : [...light.userPalette!, color] }, 'palette')} style={{ width: 24, height: 24, borderRadius: 999, background: color, border: active ? '3px solid #2563eb' : '1px solid #94a3b8' }} />
+      })}</span></Field>}
+      {!!light.userPalette?.length && <Check checked={light.tintMaterial !== false} label="Pintar botão/lente e a luz emitida" onChange={(tintMaterial) => patch({ tintMaterial }, 'tint')} />}
       <Field label="Intensidade"><Slider value={light.intensity} max={6} step={0.1} onChange={(intensity) => patch({ intensity }, 'int')} /></Field>
       {whenFields(def, light.when, (when) => patch({ when }, 'when'))}
       <Check checked={!!light.blink} label="Pisca quando acende por variável" onChange={(blink) => patch({ blink }, 'blink')} />

@@ -18,6 +18,8 @@ export default function CatalogInspector({ component }: { component: ElectricalC
   if (!link) return null
   const controls = version?.definition.controls ?? []
   const states = version?.definition.states ?? []
+  const colorZones = version?.definition.lights.filter((light) => !!light.userPalette?.length) ?? []
+  const selectedColors = (component.state?.catalogColors as Record<string, string> | undefined) ?? {}
   const current = String(component.state?.catalogState ?? version?.definition.initialState ?? '')
   const isCopy = link.source === 'copy'
 
@@ -58,6 +60,18 @@ export default function CatalogInspector({ component }: { component: ElectricalC
           {controls.filter((control) => control.kind !== 'selector').map((control) => <button key={control.id} className="dc-btn" onClick={() => triggerControl(version.definition, component.id, control, 'press')}
             onContextMenu={(event) => { event.preventDefault(); triggerControl(version.definition, component.id, control, 'long') }} title="Clique: ação · botão direito: premir longo">{control.name}</button>)}
         </div>
+      </div>}
+      {colorZones.length > 0 && <div className="dc-catalog-colors">
+        <label className="dc-field-label">Cores do componente</label>
+        {colorZones.map((zone) => <div key={zone.id} className="rounded-md border border-line-soft p-2 mb-1">
+          <div className="text-[11px] text-ink-600 mb-1">{zone.name}</div>
+          <div className="flex gap-1 flex-wrap">{zone.userPalette!.map((color) => {
+            const selected = (selectedColors[zone.id] ?? zone.color).toLowerCase() === color.toLowerCase()
+            return <button key={color} type="button" aria-label={`${zone.name}: ${color}`} aria-pressed={selected} title={color}
+              className={`h-7 w-7 rounded-full border-2 ${selected ? 'border-brand-600 ring-2 ring-brand-200' : 'border-slate-300'}`}
+              style={{ backgroundColor: color }} onClick={() => useSimStore.getState().setComponentState(component.id, { catalogColors: { ...selectedColors, [zone.id]: color } })} />
+          })}</div>
+        </div>)}
       </div>}
       {states.length > 1 && <div>
         <label className="dc-field-label">Estado</label>

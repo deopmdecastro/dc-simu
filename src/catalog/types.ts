@@ -93,6 +93,10 @@ export interface LightZoneDef {
   nodes?: string[]
   color: string
   intensity: number
+  /** Paleta definida pelo Admin; quando existe, o utilizador escolhe uma cor por zona. */
+  userPalette?: string[]
+  /** A cor escolhida pinta também o material (botão/lente), mesmo quando a luz está apagada. */
+  tintMaterial?: boolean
   /** 'led' = pequeno indicador; 'lamp' = sinaleiro/lâmpada. Só informativo. */
   kind?: 'led' | 'lamp'
   /** A zona acende quando a condição se verifica (além do que o estado definir). */
