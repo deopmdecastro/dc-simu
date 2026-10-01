@@ -672,6 +672,16 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     return obj
   }, [scene, spec])
   const en = !!c.state.energized
+  const armature = useMemo(() => model.getObjectByName('Node10'), [model])
+  useFrame((_, delta) => {
+    if (!armature) return
+    armature.userData.contactorBaseZ ??= armature.position.z
+    // Node10 é o núcleo/atuador frontal original do CWC. Ao energizar,
+    // aproxima-se do corpo como a armadura de um contator real.
+    const target = Number(armature.userData.contactorBaseZ) + (en ? -2.4 : 0)
+    armature.position.z = THREE.MathUtils.damp(armature.position.z, target, 18, delta)
+    armature.updateMatrixWorld(true)
+  })
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
     {en && <pointLight color="#22c55e" intensity={0.22} distance={1.3} position={[0, spec.targetHeight * 0.5, 0.35]} />}
@@ -787,14 +797,15 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
     return obj
   }, [scene, spec])
   const pressed = !!c.state.pressed
-  useEffect(() => {
-    const actuator = model.getObjectByName(c.type === 'emergencyButtonKeyP20ACR' ? 'P20ACR-R-1B-1-solid1' : 'P20AKR-1-solid1')
+  const actuator = useMemo(() => model.getObjectByName(c.type === 'emergencyButtonKeyP20ACR' ? 'P20ACR-R-1B-1-solid1' : 'P20AKR-1-solid1'), [model, c.type])
+  useFrame((_, delta) => {
     if (!actuator) return
     actuator.userData.pushBaseZ ??= actuator.position.z
-    // Move o conjunto mecânico real do GLB; o bloco de contactos fica fixo.
-    actuator.position.z = Number(actuator.userData.pushBaseZ) + (pressed ? -0.0035 : 0)
+    // Move suavemente o conjunto mecânico real; o bloco de contactos fica fixo.
+    const target = Number(actuator.userData.pushBaseZ) + (pressed ? -0.0035 : 0)
+    actuator.position.z = THREE.MathUtils.damp(actuator.position.z, target, 22, delta)
     actuator.updateMatrixWorld(true)
-  }, [model, pressed, c.type])
+  })
   return <group
     position={[x, RAIL_Y + 1.05, 0.4]}
     onClick={(event) => { event.stopPropagation(); onPress(!pressed) }}
@@ -831,18 +842,20 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
     obj.position.sub(new THREE.Box3().setFromObject(obj, true).getCenter(new THREE.Vector3()))
     return obj
   }, [scene, spec])
-  useEffect(() => {
-    const moveButton = (name: string, down: boolean) => {
-      const part = model.getObjectByName(name)
+  const startButton = useMemo(() => model.getObjectByName('Node7'), [model])
+  const stopButton = useMemo(() => model.getObjectByName('Node8'), [model])
+  useFrame((_, delta) => {
+    const moveButton = (part: THREE.Object3D | undefined, down: boolean) => {
       if (!part) return
       part.userData.pushBaseZ ??= part.position.z
-      part.position.z = Number(part.userData.pushBaseZ) + (down ? 2.2 : 0)
+      const target = Number(part.userData.pushBaseZ) + (down ? 2.2 : 0)
+      part.position.z = THREE.MathUtils.damp(part.position.z, target, 28, delta)
       part.updateMatrixWorld(true)
     }
     // Node7 (verde) e Node8 (vermelho) são os botões originais do NPB22.
-    moveButton('Node7', !!c.state.startPressed)
-    moveButton('Node8', !!c.state.stopPressed)
-  }, [model, c.state.startPressed, c.state.stopPressed])
+    moveButton(startButton, !!c.state.startPressed)
+    moveButton(stopButton, !!c.state.stopPressed)
+  })
   const buttonEvents = (handler: (pressed: boolean) => void) => ({
     onPointerDown: () => handler(true),
     onPointerUp: () => handler(false),
