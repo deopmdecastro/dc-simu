@@ -40,3 +40,11 @@ há versão nova. Atualizar é sempre uma decisão do utilizador.
 `CatalogComponent3D` (painel 3D) carrega o GLB, anima estados (`StateAnimator`), acende zonas luminosas
 (emissivo) e executa as interações (`interactions.ts`); estado da instância em `state.catalogState`.
 Fase 1 não simula eletricidade interna (ligações internas entre bornes ficam para a fase 2).
+
+## Criar um componente (assistente)
+
+Botão **+ Novo componente 3D** no cabeçalho da Administração, no Resumo e na Biblioteca 3D. O assistente
+(`src/admin/editor3d/NewComponentDialog.tsx`) pergunta: 1) o que é (tipo: pré-preenche categoria, prefixo TAG e montagem,
+`componentKinds.ts`), 2) categoria, 3) nome, 4) se já tem datasheet (PDF até 4 MB e/ou link). Cria o rascunho e abre o editor.
+O estado fica em `meta.kind` / `meta.datasheet`; o PDF vai em `draft.assets.datasheet` (só no rascunho do admin, não nas
+versões publicadas). No editor, o separador **Componente → Datasheet** permite anexar, abrir ou remover mais tarde.

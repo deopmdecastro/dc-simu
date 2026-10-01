@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { newId, resolveState } from '../../catalog/definition'
 import type { ActionDef, InteractionDef, LightZoneDef, StateDef, TerminalDef, TriggerName, Vec3 } from '../../catalog/types'
 import type { ComponentCategory } from '../../types'
@@ -204,6 +205,50 @@ export function InteractionsTab() {
 
 const CATEGORIES: Array<[ComponentCategory, string]> = [['protection', 'Proteção'], ['command', 'Comando'], ['sensor', 'Sensor'], ['contactor', 'Contactor'], ['relay', 'Relé'], ['signaling', 'Sinalização'], ['motor', 'Motor'], ['drive', 'Variador'], ['controller', 'Controlador / PLC'], ['terminal', 'Terminal / borneira'], ['power', 'Fonte / potência']]
 
+function DatasheetSection() {
+  const meta = useEditorStore((s) => s.meta)
+  const def = useEditorStore((s) => s.def)
+  const editMeta = useEditorStore((s) => s.editMeta)
+  const edit = useEditorStore((s) => s.edit)
+  const [error, setError] = useState('')
+  const sheet = meta.datasheet ?? { status: 'none' as const }
+  const asset = def.assets.datasheet
+  function attach(file: File | null) {
+    setError('')
+    if (!file) return
+    if (!/\.pdf$/i.test(file.name) && !/pdf$/i.test(file.type)) { setError('Escolha um ficheiro PDF.'); return }
+    if (file.size > 4 * 1024 * 1024) { setError('O PDF excede 4 MB. Use antes um link.'); return }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const data = String(reader.result)
+      edit((state) => ({ ...state, assets: { ...state.assets, datasheet: { name: file.name, mime: 'application/pdf', data } } }))
+      editMeta({ datasheet: { ...sheet, status: 'have', fileName: file.name } }, 'datasheet')
+    }
+    reader.readAsDataURL(file)
+  }
+  function removeFile() {
+    edit((state) => { const assets = { ...state.assets }; delete assets.datasheet; return { ...state, assets } })
+    editMeta({ datasheet: { ...sheet, fileName: undefined, status: sheet.url ? 'have' : 'none' } }, 'datasheet')
+  }
+  return <Section title={`Datasheet${sheet.status === 'have' ? ' ✓' : ''}`} open={sheet.status !== 'have'}>
+    <div className="ce-datasheet">
+      <Field label="Estado"><Select value={sheet.status} onChange={(status) => editMeta({ datasheet: { ...sheet, status } }, 'datasheet')} options={[['have', 'Tem datasheet'], ['none', 'Sem datasheet']]} /></Field>
+      {sheet.status === 'have' && <>
+        <Field label="Link"><Text value={sheet.url ?? ''} placeholder="https://…" onChange={(url) => editMeta({ datasheet: { ...sheet, url: url.trim() || undefined } }, 'datasheet')} /></Field>
+        <div className="ce-datasheet-actions">
+          {asset ? <><span className="ce-static">{asset.name}</span>
+            <a className="dx-btn dx-btn-secondary dx-btn-sm" href={asset.data} target="_blank" rel="noreferrer" download={asset.name}>Abrir PDF</a>
+            <Confirm label="Remover PDF" onConfirm={removeFile} /></>
+            : <label className="dx-btn dx-btn-secondary dx-btn-sm">Anexar PDF<input type="file" accept="application/pdf,.pdf" hidden onChange={(event) => { attach(event.target.files?.[0] ?? null); event.target.value = '' }} /></label>}
+          {sheet.url && /^https?:\/\//i.test(sheet.url) && <a className="dx-btn dx-btn-secondary dx-btn-sm" href={sheet.url} target="_blank" rel="noreferrer">Abrir link</a>}
+        </div>
+        {error && <small className="ce-new-error">{error}</small>}
+        <small className="ce-static">O PDF fica guardado no rascunho do administrador; não segue nas versões publicadas.</small>
+      </>}
+    </div>
+  </Section>
+}
+
 export function ComponentTab() {
   const meta = useEditorStore((s) => s.meta)
   const def = useEditorStore((s) => s.def)
@@ -227,6 +272,7 @@ export function ComponentTab() {
       <Field label="Etiquetas"><Text value={meta.tags.join(', ')} onChange={(value) => editMeta({ tags: value.split(',').map((t) => t.trim()).filter(Boolean) }, 'tags')} placeholder="separadas por vírgula" /></Field>
       <Field label="Montagem"><Select value={def.mount} onChange={(mount) => edit((state) => ({ ...state, mount }))} options={[['din-rail', 'Calha DIN'], ['panel-front', 'Frente do painel'], ['machine', 'Máquina / campo']]} /></Field>
     </Section>
+    <DatasheetSection />
     <Section title="Propriedades" open={false} actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => editMeta({ properties: [...meta.properties, { key: '', value: '' }] })}>+ Nova</button>}>
       {meta.properties.length === 0 && <Empty>Dados técnicos opcionais (tensão, corrente, IP…).</Empty>}
       {meta.properties.map((item, index) => <div key={index} className="ce-propline">

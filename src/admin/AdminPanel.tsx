@@ -6,6 +6,7 @@ import { adminApi } from './adminApi'
 import { actionLabel, type AdminProject, type AdminUser, type AuditEntry, type ComponentSetting } from './adminTypes'
 import ComponentsTab from './ComponentsTab'
 import CatalogTab from './editor3d/CatalogTab'
+import NewComponentDialog from './editor3d/NewComponentDialog'
 import LogsTab from './LogsTab'
 import SystemTab from './SystemTab'
 import UsersTab from './UsersTab'
@@ -32,6 +33,9 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
   const [kindFilter, setKindFilter] = useState<'all' | ContributionKind>('all')
   const [query, setQuery] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
+  const [creating3D, setCreating3D] = useState(false)
+  const [editorOpenId, setEditorOpenId] = useState<string | null>(null)
+  const clearEditorOpen = useCallback(() => setEditorOpenId(null), [])
   const [rejecting, setRejecting] = useState<string | null>(null)
   const [note, setNote] = useState('')
 
@@ -87,8 +91,12 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
         <h1>Administração.</h1>
         <p>Reveja as contribuições da comunidade, gira contas, componentes e projetos, e acompanhe a atividade do sistema. {activeAccountBackend() === 'server' ? 'Dados no servidor (SQLite).' : 'Dados guardados neste navegador.'}</p>
       </div>
-      <button className="dx-btn dx-btn-secondary" onClick={onBack}>← Projetos</button>
+      <div className="dx-admin-head-actions">
+        <button className="dx-btn dx-btn-primary" onClick={() => setCreating3D(true)} title="Criar um componente no editor 3D">+ Novo componente 3D</button>
+        <button className="dx-btn dx-btn-secondary" onClick={onBack}>← Projetos</button>
+      </div>
     </div>
+    {creating3D && <NewComponentDialog onCancel={() => setCreating3D(false)} onError={onError} onCreated={(id, name) => { setCreating3D(false); setNotice(`«${name}» criado como rascunho. Modele-o e publique quando estiver pronto.`); setEditorOpenId(id); setTab('library3d') }} />}
 
     <div className="cb-tabs" role="tablist" aria-label="Gestão do administrador">
       {tabs.map(([id, label, count]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>
@@ -99,6 +107,13 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
     {notice && <div className="cb-toast" role="status">{notice}<button onClick={() => setNotice('')} aria-label="Fechar">×</button></div>}
 
     {tab === 'overview' && <>
+      <div className="ce-cta">
+        <div><strong>Editor 3D de componentes</strong><span>Crie componentes oficiais com modelo 3D, bornes, estados e animações. O assistente pergunta o que é, a categoria, o nome e se já tem datasheet.</span></div>
+        <div className="ce-cta-actions">
+          <button className="dx-btn dx-btn-primary" onClick={() => setCreating3D(true)}>+ Novo componente 3D</button>
+          <button className="dx-btn dx-btn-secondary" onClick={() => setTab('library3d')}>Abrir biblioteca 3D</button>
+        </div>
+      </div>
       <div className="cb-stats">
         <div className={pendingCount ? 'is-attention' : ''}><strong>{stats?.pending ?? '—'}</strong><span>Em revisão</span><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { setStatusFilter('pending'); setTab('contributions') }}>Rever agora</button></div>
         <div><strong>{stats?.approved ?? '—'}</strong><span>Aprovadas</span></div>
@@ -150,7 +165,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
 
     {tab === 'components' && <ComponentsTab settings={settings} contributions={contributions} onChanged={afterChange} onError={onError} onOpenContributions={(type) => { setQuery(type); setStatusFilter('all'); setKindFilter('all'); setTab('contributions') }} />}
 
-    {tab === 'library3d' && <CatalogTab onNotice={setNotice} onError={onError} />}
+    {tab === 'library3d' && <CatalogTab onNotice={setNotice} onError={onError} onCreate={() => setCreating3D(true)} openId={editorOpenId} onOpened={clearEditorOpen} />}
 
     {tab === 'projects' && <>
       <div className="dx-admin-section"><h2>Projetos</h2><span>{shownProjects.length}/{projects.length}</span></div>

@@ -1,15 +1,15 @@
 import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { catalogApi } from '../../catalog/catalogApi'
-import { DEFAULT_META, defaultDefinition, newId } from '../../catalog/definition'
+import { newId } from '../../catalog/definition'
 import { useCatalogStore } from '../../catalog/registry'
 import type { CatalogEntry } from '../../catalog/types'
 import ComponentEditor3D from './ComponentEditor3D'
 
 /** Separador "Biblioteca 3D": lista os componentes oficiais e abre o editor 3D. */
-export default function CatalogTab({ onNotice, onError }: { onNotice: (message: string) => void; onError: (message: string) => void }) {
+export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpened }: { onNotice: (message: string) => void; onError: (message: string) => void; onCreate: () => void; openId?: string | null; onOpened?: () => void }) {
   const [entries, setEntries] = useState<CatalogEntry[] | null>(null)
-  const [editing, setEditing] = useState<string | null>(null)
+  const [editing, setEditing] = useState<string | null>(openId ?? null)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'draft' | 'published' | 'archived'>('all')
 
@@ -17,21 +17,13 @@ export default function CatalogTab({ onNotice, onError }: { onNotice: (message: 
     try { setEntries(await catalogApi.adminList()) } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao carregar a biblioteca 3D'); setEntries([]) }
   }, [onError])
   useEffect(() => { void reload() }, [reload])
+  useEffect(() => { if (openId) { setEditing(openId); onOpened?.() } }, [openId, onOpened])
 
   const visible = useMemo(() => (entries ?? []).filter((entry) => {
     if (filter === 'archived' ? !entry.archived : filter === 'draft' ? entry.latestVersion > 0 || entry.archived : filter === 'published' ? entry.latestVersion === 0 || entry.archived : false) return false
     return `${entry.meta.name} ${entry.meta.group} ${entry.meta.reference} ${entry.meta.tags.join(' ')}`.toLowerCase().includes(query.trim().toLowerCase())
   }), [entries, filter, query])
 
-  async function create() {
-    const name = window.prompt('Nome do novo componente', 'Novo componente')
-    if (!name?.trim()) return
-    try {
-      const id = newId('c')
-      await catalogApi.save(id, { ...DEFAULT_META, name: name.trim() }, defaultDefinition())
-      setEditing(id)
-    } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao criar') }
-  }
   async function duplicate(entry: CatalogEntry) {
     try {
       const source = await catalogApi.adminGet(entry.id)
@@ -60,10 +52,10 @@ export default function CatalogTab({ onNotice, onError }: { onNotice: (message: 
       <select className="dx-input" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} aria-label="Filtrar por estado">
         <option value="all">Todos</option><option value="draft">Só rascunhos</option><option value="published">Publicados</option><option value="archived">Arquivados</option>
       </select>
-      <button className="dx-btn dx-btn-primary" onClick={() => void create()}>+ Novo componente</button>
+      <button className="dx-btn dx-btn-primary" onClick={onCreate}>+ Novo componente 3D</button>
     </div>
     {entries === null && <div className="dx-admin-empty">A carregar…</div>}
-    {entries && visible.length === 0 && <div className="dx-admin-empty">{entries.length === 0 ? 'Ainda não há componentes 3D. Crie o primeiro.' : 'Nenhum componente corresponde ao filtro.'}</div>}
+    {entries && visible.length === 0 && <div className="dx-admin-empty">{entries.length === 0 ? 'Ainda não há componentes 3D. Clique em «+ Novo componente 3D» para criar o primeiro.' : 'Nenhum componente corresponde ao filtro.'}</div>}
     <div className="ce-cards">
       {visible.map((entry) => <article key={entry.id} className={`ce-card${entry.archived ? ' is-archived' : ''}`}>
         <div className="ce-card-head">

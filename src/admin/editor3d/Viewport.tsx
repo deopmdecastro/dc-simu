@@ -89,7 +89,7 @@ function Scene() {
     const box = new THREE.Box3().setFromObject(root)
     if (box.isEmpty()) box.set(new THREE.Vector3(-30, 0, -30), new THREE.Vector3(30, 60, 30))
     const center = box.getCenter(new THREE.Vector3())
-    const radius = Math.max(60, box.getSize(new THREE.Vector3()).length() * 2.1)
+    const radius = Math.max(60, box.getSize(new THREE.Vector3()).length() * 3)
     const dir = {
       front: [0, 0.05, 1], back: [0, 0.05, -1], left: [-1, 0.05, 0], right: [1, 0.05, 0], top: [0, 1, 0.001], iso: [0.8, 0.6, 1], fit: [0.8, 0.6, 1],
     }[viewCommand.kind]

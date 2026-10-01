@@ -150,3 +150,25 @@
 
 /* ---- aviso de atualização no inspetor do simulador ---- */
 .dc-catalog-update { border:1px solid var(--dx-brand-line, #c0d4fc); background:var(--dx-brand-soft, #eef4ff); border-radius:8px; padding:8px; }
+
+/* ---- assistente "Novo componente 3D" ---- */
+.ce-modal-fixed { position:fixed; z-index:95; }
+.ce-new { width:min(640px,100%); }
+.ce-new-lead { margin:0; font-size:12.5px; color:var(--dx-ink-3); }
+.ce-kinds { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:6px; }
+.ce-kind { text-align:left; border:1px solid var(--dx-line, #d9e1ec); background:var(--dx-surface); border-radius:8px; padding:7px 9px; cursor:pointer; display:flex; flex-direction:column; gap:1px; font:inherit; color:inherit; }
+.ce-kind b { font-size:12.5px; } .ce-kind small { font-size:11px; color:var(--dx-ink-4); line-height:1.3; }
+.ce-kind:hover { border-color:var(--dx-brand-line, #c0d4fc); }
+.ce-kind.is-active { border-color:var(--dx-brand, #2655e5); background:var(--dx-brand-soft, #eef4ff); box-shadow:0 0 0 1px var(--dx-brand, #2655e5) inset; }
+.ce-seg { display:inline-flex; border:1px solid var(--dx-line, #d9e1ec); border-radius:8px; overflow:hidden; align-self:flex-start; }
+.ce-seg button { border:0; background:var(--dx-surface); padding:7px 14px; font:inherit; font-size:12.5px; cursor:pointer; color:inherit; }
+.ce-seg button + button { border-left:1px solid var(--dx-line, #d9e1ec); }
+.ce-seg button.is-active { background:var(--dx-brand, #2655e5); color:#fff; }
+.ce-new-sheet { display:flex; flex-direction:column; gap:8px; } .ce-new-sheet small, .ce-new-note { color:var(--dx-ink-4); font-size:11.5px; }
+.ce-new-error { color:var(--dx-danger) !important; }
+.ce-datasheet { display:flex; flex-direction:column; gap:6px; grid-column:1 / -1; }
+.ce-datasheet-actions { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.dx-admin-head-actions { display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap; }
+.ce-cta { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:14px 18px; margin-bottom:14px; border:1px solid var(--dx-brand-line, #c0d4fc); background:var(--dx-brand-soft, #eef4ff); border-radius:12px; }
+.ce-cta strong { display:block; font-size:var(--dx-t-md, 15px); } .ce-cta span { font-size:12.5px; color:var(--dx-ink-3); max-width:60ch; display:block; margin-top:2px; }
+.ce-cta-actions { display:flex; gap:8px; flex-wrap:wrap; }

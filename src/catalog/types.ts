@@ -142,6 +142,10 @@ export interface CatalogMeta {
   tag: string
   tags: string[]
   thumbnail?: string
+  /** "O que é" (tipo escolhido ao criar, ex.: Disjuntor). */
+  kind?: string
+  /** Ficha técnica: link e/ou PDF (o PDF vai em `assets.datasheet` do rascunho e não segue nas versões publicadas). */
+  datasheet?: { status: 'have' | 'none'; url?: string; fileName?: string }
   properties: Array<{ key: string; value: string }>
 }
 
