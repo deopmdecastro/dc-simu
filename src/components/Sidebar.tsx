@@ -73,9 +73,11 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
 }) {
   const disabledNote = useComponentSettings((s) => disabledReason(s.disabled, type))
   const available = hasComponent3DModel(type) && !disabledNote
+  const touchStart = useRef<{ at: number; x: number; y: number; moved: boolean } | null>(null)
+  const suppressClick = useRef(false)
   const lockMessage = disabledNote ?? MISSING_3D_MODEL_MESSAGE
   const title = available
-    ? `${name} — clique para posicionar · duplo clique para inserir · arraste para o esquema`
+    ? `${name} — clique para posicionar · duplo clique ou toque prolongado para inserir · arraste para o esquema`
     : `${name} — ${lockMessage}`
   return <div className={`dc-library-tile ${placing ? 'is-placing' : ''} ${available ? '' : 'is-locked'}`} title={title}>
     <button
@@ -85,8 +87,33 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
       aria-label={available ? `Posicionar ${name} no esquema` : `${name}. ${lockMessage}`}
       aria-disabled={!available}
       disabled={!available}
-      onClick={() => { if (available) { onRecent(); onPick() } }}
+      onClick={(event) => {
+        if (suppressClick.current) { suppressClick.current = false; event.preventDefault(); return }
+        if (available) { onRecent(); onPick() }
+      }}
       onDoubleClick={() => { if (available) { onRecent(); onQuickAdd() } }}
+      onPointerDown={(event) => {
+        if (!available || event.pointerType === 'mouse') return
+        touchStart.current = { at: performance.now(), x: event.clientX, y: event.clientY, moved: false }
+      }}
+      onPointerMove={(event) => {
+        const start = touchStart.current
+        if (!start) return
+        if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 12) start.moved = true
+      }}
+      onPointerUp={(event) => {
+        const start = touchStart.current
+        touchStart.current = null
+        if (!available || !start || start.moved || performance.now() - start.at < 500) return
+        // No telefone, inserir apenas quando o utilizador larga depois de
+        // segurar; o clique sintético seguinte é ignorado para não ativar o
+        // modo de posicionamento ao mesmo tempo.
+        suppressClick.current = true
+        event.preventDefault()
+        onRecent()
+        onQuickAdd()
+      }}
+      onPointerCancel={() => { touchStart.current = null }}
       draggable={available}
       onDragStart={(e) => {
         if (!available) { e.preventDefault(); return }
