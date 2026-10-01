@@ -24,7 +24,7 @@ import type {
   TerminalType,
 } from '../types'
 import { getDefaultComponent3DPresentation, getDefaultComponentOrientation, getDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
-import { getSchematicPhysicalFootprint } from '../three/modelPaths'
+import { getComponentModelSpec, getSchematicPhysicalFootprint } from '../three/modelPaths'
 
 export interface TerminalTemplate {
   label: string
@@ -722,6 +722,42 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { selector: 'off', hold: false, backlight: false, relative: false },
   },
 }
+
+/**
+ * Calibração conservadora dos bornes dos CAD integrados. Posições manuais já
+ * existentes têm prioridade; os restantes são projetados para a superfície
+ * física coerente com a vista elétrica (topo/base ou frente/trás).
+ */
+export function calibrateModelTerminalTemplates(): void {
+  for (const [type, template] of Object.entries(TEMPLATES) as Array<[ComponentType, ComponentTemplate]>) {
+    const spec = getComponentModelSpec(type)
+    if (!spec) continue
+    // Estes modelos têm geometria dedicada calibrada por parafuso no Esquema;
+    // não substituir essa calibração fina por projeção genérica.
+    const dedicatedGeometry = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A'].includes(type)
+    for (const terminal of template.terminals) {
+      // A tipologia explícita evita que um modelo publicado dependa do
+      // fallback visual. Perfis especiais já definidos nunca são substituídos.
+      terminal.terminalType ??= 'screw'
+      terminal.diameter ??= terminal.terminalType === 'plug' || terminal.terminalType === 'conical' ? 12 : terminal.terminalType === 'bar' ? 10 : 9
+      if (dedicatedGeometry || terminal.position3D) continue
+      const x = Math.max(0.025, Math.min(0.975, terminal.x))
+      const screenY = Math.max(0.025, Math.min(0.975, terminal.y))
+      // Linhas de entrada/saída ficam nas faces superior/inferior. Bornes que
+      // aparecem no corpo ficam na face operacional; em comando de painel,
+      // os contactos físicos estão atrás do atuador.
+      terminal.position3D = screenY <= 0.12
+        ? { x, y: 1, z: 1 }
+        : screenY >= 0.88
+          ? { x, y: 0, z: 1 }
+          : spec.placement === 'panel-front'
+            ? { x, y: 1 - screenY, z: 0 }
+            : { x, y: 1 - screenY, z: 1 }
+    }
+  }
+}
+
+calibrateModelTerminalTemplates()
 
 /** Cria um componente novo a partir do template, com TAG automático se não informado. */
 export function createComponent(
