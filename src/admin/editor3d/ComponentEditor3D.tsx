@@ -344,6 +344,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
   const [message, setMessage] = useState('')
   const [publishing, setPublishing] = useState(false)
   const [dropping, setDropping] = useState(false)
+  const [mobilePane, setMobilePane] = useState<'canvas' | 'objects' | 'inspector'>('canvas')
   const faceLock = useEditorStore((s) => s.faceLock)
   const faceLockLabel = FACES.find(([id]) => id === faceLock)?.[1]
   const view = useEditorStore((s) => s.view)
@@ -492,7 +493,12 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       {account}
     </header>
     <ToolRibbon />
-    <div className="ce-body">
+    <nav className="ce-mobile-panes" aria-label="Área do editor">
+      <button className={mobilePane === 'canvas' ? 'is-on' : ''} onClick={() => setMobilePane('canvas')}>Canvas 3D</button>
+      <button className={mobilePane === 'objects' ? 'is-on' : ''} onClick={() => setMobilePane('objects')}>Objetos</button>
+      <button className={mobilePane === 'inspector' ? 'is-on' : ''} onClick={() => setMobilePane('inspector')}>Propriedades</button>
+    </nav>
+    <div className={`ce-body ce-mobile-${mobilePane}`}>
       <Hierarchy />
       <main className={`ce-stage is-tool-${activeRibbon}${view.grid ? '' : ' no-grid'}${view.dark ? ' is-dark' : ''}${dropping ? ' is-dropping' : ''}${libraryOpen && mode === 'edit' ? ' lib-open' : ''}`}
         onDragOver={(event) => { if (mode === 'edit' && (event.dataTransfer.types.includes(DND_PROFILE) || event.dataTransfer.types.includes(DND_TERMINAL))) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; if (!dropping) setDropping(true) } }}

@@ -427,3 +427,36 @@
 .ce-chips .ce-chip button { border:0; background:transparent; padding:0; display:inline-flex; cursor:pointer; color:inherit; }
 .ce-actions-inline { display:inline-flex; gap:4px; flex-wrap:wrap; }
 .ce-inline { display:inline-flex; gap:6px; align-items:center; }
+
+/* No telefone o editor deixa de comprimir três painéis desktop lado a lado. */
+.ce-mobile-panes { display:none; }
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  .ce-root { width:100vw; height:100%; overflow:hidden; }
+  .ce-top { min-height:50px; padding-inline:8px; gap:6px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; }
+  .ce-top::-webkit-scrollbar { display:none; }
+  .ce-top .ce-title { min-width:150px; }
+  .ce-top .ce-title strong { max-width:145px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ce-top .ce-autosave, .ce-top .dx-bar-sep { display:none; }
+  .ce-top .account-project-action { flex:none; white-space:nowrap; }
+  .ce-ribbon { flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; padding:5px 6px; gap:4px; min-height:46px; scrollbar-width:none; }
+  .ce-ribbon::-webkit-scrollbar { display:none; }
+  .ce-ribbon > * { flex:none; }
+  .ce-ribbon-sep { display:none; }
+  .ce-mobile-panes { display:grid; grid-template-columns:repeat(3,1fr); flex:none; height:40px; padding:4px 6px; gap:4px; background:var(--dx-surface); border-bottom:1px solid var(--dx-line); }
+  .ce-mobile-panes button { border:1px solid var(--dx-line); border-radius:7px; background:var(--dx-surface); color:var(--dx-ink-3); font-size:12px; font-weight:700; }
+  .ce-mobile-panes button.is-on { background:var(--dx-brand); border-color:var(--dx-brand); color:#fff; }
+  .ce-body { display:block; position:relative; min-height:0; }
+  .ce-body > .ce-left, .ce-body > .ce-stage, .ce-body > .ce-right { position:absolute; inset:0; width:100%; max-width:none; border:0; }
+  .ce-body.ce-mobile-canvas > .ce-left, .ce-body.ce-mobile-canvas > .ce-right { display:none; }
+  .ce-body.ce-mobile-objects > .ce-stage, .ce-body.ce-mobile-objects > .ce-right { display:none; }
+  .ce-body.ce-mobile-inspector > .ce-left, .ce-body.ce-mobile-inspector > .ce-stage { display:none; }
+  .ce-body.ce-mobile-objects > .ce-left, .ce-body.ce-mobile-inspector > .ce-right { display:flex; }
+  .ce-left-lists { flex:1; }
+  .ce-right .ce-tabs { overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; }
+  .ce-right .ce-tabs::-webkit-scrollbar { display:none; }
+  .ce-right .ce-tabs button { flex:none; min-width:82px; }
+  .ce-stage .ce-view-toolbar { max-width:calc(100vw - 12px); overflow-x:auto; }
+  .ce-stage.lib-open .ce-canvas { left:0; }
+  .ce-stage.lib-open .ce-stage-info { left:10px; }
+  .ce-statusbar { font-size:10px; overflow:hidden; }
+}
