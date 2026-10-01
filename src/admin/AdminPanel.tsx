@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { User } from '../dashboard/Dashboard'
+import type { Invite, User } from '../dashboard/Dashboard'
+import AccountControls from '../components/AccountControls'
 import { activeAccountBackend } from '../auth/accountApi'
 import { useComponentSettings } from './componentSettings'
 import { adminApi } from './adminApi'
@@ -17,7 +18,7 @@ import { KIND_LABEL, STATUS_LABEL, type Contribution, type ContributionKind, typ
 type Tab = 'overview' | 'contributions' | 'components' | 'library3d' | 'projects' | 'users' | 'logs' | 'system'
 
 /** Painel de gestão do administrador: resumo, revisão de contribuições, projetos e contas. */
-export default function AdminPanel({ onBack, currentUser, initialTab = 'overview' }: { onBack: () => void; currentUser: User; initialTab?: Tab }) {
+export default function AdminPanel({ onBack, currentUser, initialTab = 'overview', invites = [], onLogout }: { onBack: () => void; currentUser: User; initialTab?: Tab; invites?: Invite[]; onLogout?: () => void }) {
   const [tab, setTab] = useState<Tab>(initialTab)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [projects, setProjects] = useState<AdminProject[]>([])
@@ -165,7 +166,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
 
     {tab === 'components' && <ComponentsTab settings={settings} contributions={contributions} onChanged={afterChange} onError={onError} onOpenContributions={(type) => { setQuery(type); setStatusFilter('all'); setKindFilter('all'); setTab('contributions') }} />}
 
-    {tab === 'library3d' && <CatalogTab onNotice={setNotice} onError={onError} onCreate={() => setCreating3D(true)} openId={editorOpenId} onOpened={clearEditorOpen} />}
+    {tab === 'library3d' && <CatalogTab account={<AccountControls user={currentUser} invites={invites} context="editor" onProjects={onBack} onLogout={onLogout ?? (() => undefined)} />} onNotice={setNotice} onError={onError} onCreate={() => setCreating3D(true)} openId={editorOpenId} onOpened={clearEditorOpen} />}
 
     {tab === 'projects' && <>
       <div className="dx-admin-section"><h2>Projetos</h2><span>{shownProjects.length}/{projects.length}</span></div>

@@ -9,6 +9,8 @@ import type { CatalogEntry, CatalogMeta, ComponentDefinition, MaterialDef, PartD
 export { BASE_STATE }
 export type Selection = { kind: 'part' | 'terminal' | 'light'; id: string } | null
 export type Tool = 'translate' | 'rotate' | 'scale'
+/** Ferramentas da barra principal (como no simulador): 1 Selecionar · 2 Borne · 3 Cabo · 4 Apagar · 5 Mover vista. */
+export type Ribbon = 'select' | 'terminal' | 'wire' | 'delete' | 'pan'
 export type InspectorTab = 'object' | 'materials' | 'terminals' | 'lights' | 'states' | 'interactions' | 'component'
 export type ViewCommand = { kind: 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'iso' | 'angles' | 'orbit'; n: number; yaw?: number; pitch?: number; dx?: number; dy?: number }
 /** Cabo de teste entre dois bornes (modo Simular): serve para validar a compatibilidade. */
@@ -30,6 +32,7 @@ interface EditorStore {
   baseline: ComponentDefinition | null
   selection: Selection
   tool: Tool
+  ribbon: Ribbon
   snap: { on: boolean; mm: number; deg: number }
   mode: 'edit' | 'simulate'
   /** Estado em edição: BASE_STATE (pose base) ou o id de um estado (as alterações guardam-se como diferença). */
@@ -61,6 +64,8 @@ interface EditorStore {
   edit: (recipe: (def: ComponentDefinition) => ComponentDefinition, key?: string) => void
   editMeta: (patch: Partial<CatalogMeta>, key?: string) => void
   select: (selection: Selection) => void
+  /** Escolhe a ferramenta da barra principal e sincroniza o modo «colocar borne». */
+  setRibbon: (ribbon: Ribbon) => void
   set: (patch: Partial<EditorStore>) => void
   setView: (patch: Partial<EditorStore['view']>) => void
   cameraTo: (kind: ViewCommand['kind']) => void
@@ -74,7 +79,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   meta: { name: '', description: '', category: 'command', group: '', manufacturer: '', reference: '', internalCode: '', tag: 'X', tags: [], properties: [] },
   def: normalizeDefinition(undefined),
   baseline: null,
-  selection: null, tool: 'translate', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
+  selection: null, tool: 'translate', ribbon: 'select', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
   editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, tab: 'object', materialId: null,
   view: { grid: true, floor: true, axes: true, terminals: true, dark: false, bounds: false },
   viewCommand: { kind: 'iso', n: 0 }, glbRevision: 0,
@@ -85,7 +90,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const last = entry.versions[entry.versions.length - 1]
     set({
       entry, meta: entry.meta, def: draft, baseline: last ? last.definition : null, selection: null, mode: 'edit',
-      editState: BASE_STATE, previewState: draft.initialState, placing: false, placingSpec: null, faceLock: null, testWires: [], wireFrom: null, tab: 'object', dirty: false, past: [], future: [],
+      editState: BASE_STATE, previewState: draft.initialState, ribbon: 'select', placing: false, placingSpec: null, faceLock: null, testWires: [], wireFrom: null, tab: 'object', dirty: false, past: [], future: [],
       lastKey: '', lastAt: 0, viewCommand: { kind: 'fit', n: Date.now() },
     })
   },
@@ -110,7 +115,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const coalesce = key === lastKey && now - lastAt < 900
     set({ meta: { ...meta, ...patch }, dirty: true, future: [], lastKey: key, lastAt: now, past: coalesce ? past : [...past.slice(-(HISTORY_LIMIT - 1)), { meta, def }] })
   },
-  select: (selection) => set({ selection, placing: false, placingSpec: null }),
+  select: (selection) => set({ selection, placing: false, placingSpec: null, ...(get().ribbon === 'terminal' ? { ribbon: 'select' as Ribbon } : {}) }),
+  setRibbon: (ribbon) => set({ ribbon, placing: ribbon === 'terminal', placingSpec: ribbon === 'terminal' ? get().placingSpec : null, wireFrom: null, ...(ribbon === 'terminal' ? { selection: null } : {}) }),
   set: (patch) => set(patch as never),
   setView: (patch) => set((state) => ({ view: { ...state.view, ...patch } })),
   cameraTo: (kind) => set({ viewCommand: { kind, n: Date.now() } }),

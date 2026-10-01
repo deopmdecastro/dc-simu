@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { bakeGlb, boundsMm, describeChanges, loadGlbAssets, resolveState, runtimeSpec } from '../../catalog/definition'
 import { catalogApi } from '../../catalog/catalogApi'
 import { useCatalogStore } from '../../catalog/registry'
@@ -9,15 +9,101 @@ import { allProfiles, useProfileStore } from '../../catalog/profileStore'
 import { COMPAT_LABEL } from '../../catalog/terminalCompat'
 import { applyProfile, faceCounts } from './terminalOps'
 import Hierarchy from './Hierarchy'
-import { BASE_STATE, glbCache, removeParts, useEditorStore, type InspectorTab } from './editorStore'
+import { BASE_STATE, glbCache, removeParts, useEditorStore, type InspectorTab, type Ribbon } from './editorStore'
 import { ComponentTab, InteractionsTab, LightsTab, StatesTab, TerminalsTab } from './tabs2'
 import { MaterialsTab, ObjectTab } from './tabs1'
 import { validateDefinition } from './validate'
+import Logo from '../../ui/Brand'
+import { IconCursor, IconErase, IconLayers, IconMove, IconPan, IconPlus, IconRedo, IconRotate, IconUndo, IconWire } from '../../ui/icons'
 
 const Viewport = lazy(() => import('./Viewport'))
 
 const TABS: Array<[InspectorTab, string]> = [['object', 'Objeto'], ['materials', 'Materiais'], ['terminals', 'Bornes'], ['lights', 'Luzes'], ['states', 'Estados'], ['interactions', 'Interações'], ['component', 'Componente']]
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
+
+
+const RIBBON: Array<{ id: Ribbon; label: string; hint: string; key: string; icon: typeof IconCursor; simulate: boolean }> = [
+  { id: 'select', label: 'Selecionar', hint: 'Selecionar e mover peças e bornes', key: '1', icon: IconCursor, simulate: true },
+  { id: 'terminal', label: 'Borne', hint: 'Clicar na superfície do modelo para criar bornes (escolha a face em «Bornes por vista»)', key: '2', icon: IconPlus, simulate: false },
+  { id: 'wire', label: 'Cabo', hint: 'Ligar dois bornes e validar a compatibilidade', key: '3', icon: IconWire, simulate: true },
+  { id: 'delete', label: 'Apagar', hint: 'Apagar a peça ou o borne sob o cursor', key: '4', icon: IconErase, simulate: false },
+  { id: 'pan', label: 'Mover vista', hint: 'Arrastar para mover a vista (ou botão direito)', key: '5', icon: IconPan, simulate: true },
+]
+
+/** Efetiva: «colocar borne» pode ser ligado por outros botões sem passar pela barra. */
+function useActiveRibbon(): Ribbon {
+  const ribbon = useEditorStore((s) => s.ribbon)
+  const placing = useEditorStore((s) => s.placing)
+  return placing ? 'terminal' : ribbon === 'terminal' ? 'select' : ribbon
+}
+
+/** Barra de ferramentas principal — mesma linguagem visual da barra do simulador. */
+function ToolRibbon() {
+  const mode = useEditorStore((s) => s.mode)
+  const tool = useEditorStore((s) => s.tool)
+  const set = useEditorStore((s) => s.set)
+  const setRibbon = useEditorStore((s) => s.setRibbon)
+  const canUndo = useEditorStore((s) => s.past.length > 0)
+  const canRedo = useEditorStore((s) => s.future.length > 0)
+  const libraryOpen = useEditorStore((s) => s.libraryOpen)
+  const active = useActiveRibbon()
+  const editing = mode === 'edit'
+  return <div className="ce-ribbon" role="toolbar" aria-label="Ferramentas">
+    <div className="dc-seg" role="group" aria-label="Histórico">
+      <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().undo()} disabled={!canUndo} title="Desfazer [Ctrl+Z]"><IconUndo size={13} /></button>
+      <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().redo()} disabled={!canRedo} title="Refazer [Ctrl+Y]"><IconRedo size={13} /></button>
+    </div>
+    <span className="ce-ribbon-sep" />
+    <div className="dc-seg" role="group" aria-label="Ferramenta">
+      {RIBBON.map((item) => {
+        const Icon = item.icon
+        const disabled = !editing && !item.simulate
+        return <button key={item.id} className={`dc-tool-btn ${active === item.id ? 'dc-tool-active' : ''}`} disabled={disabled} aria-pressed={active === item.id} onClick={() => setRibbon(item.id)} title={`${item.hint} [${item.key}]`}>
+          <Icon size={13} /><span className="hidden lg:inline">{item.label}</span><kbd className="ce-kbd">{item.key}</kbd>
+        </button>
+      })}
+    </div>
+    {editing && active === 'select' && <>
+      <span className="ce-ribbon-sep" />
+      <div className="dc-seg" role="group" aria-label="Manipulador">
+        {([['translate', 'Mover', 'W', IconMove], ['rotate', 'Rodar', 'E', IconRotate], ['scale', 'Escala', 'R', IconPlus]] as const).map(([id, label, key, Icon]) =>
+          <button key={id} className={`dc-tool-btn ${tool === id ? 'dc-tool-active' : ''}`} aria-pressed={tool === id} onClick={() => set({ tool: id })} title={`${label} [${key}]`}><Icon size={13} /><span className="hidden xl:inline">{label}</span><kbd className="ce-kbd">{key}</kbd></button>)}
+      </div>
+    </>}
+    {editing && <>
+      <span className="ce-ribbon-sep" />
+      <button className={`dc-tool-btn ${libraryOpen ? 'dc-tool-active' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} title="Biblioteca de bornes e perfis de ligação"><IconLayers size={13} /><span>Biblioteca de bornes</span></button>
+    </>}
+    <span className="ce-ribbon-hint" aria-live="polite">{RIBBON.find((item) => item.id === active)?.hint}</span>
+  </div>
+}
+
+/** Barra de estado, igual à do simulador. */
+function StatusBar() {
+  const def = useEditorStore((s) => s.def)
+  const meta = useEditorStore((s) => s.meta)
+  const dirty = useEditorStore((s) => s.dirty)
+  const mode = useEditorStore((s) => s.mode)
+  const snap = useEditorStore((s) => s.snap)
+  const selection = useEditorStore((s) => s.selection)
+  const wires = useEditorStore((s) => s.testWires)
+  const issues = useMemo(() => validateDefinition(def, meta), [def, meta])
+  const errors = issues.filter((issue) => issue.level === 'error').length
+  const warnings = issues.length - errors
+  const selected = selection?.kind === 'terminal' ? `borne ${def.terminals.find((item) => item.id === selection.id)?.label ?? ''}` : selection?.kind === 'part' ? def.parts.find((item) => item.id === selection.id)?.name : selection?.kind === 'light' ? 'luz' : ''
+  return <footer className="ce-statusbar">
+    <span className="ce-status-brand">DC·SIMU <span>editor de componentes</span></span>
+    <span className="ce-status-sep" />
+    <span className="ce-status-truncate"><span className="ce-status-dim">Componente:</span> <b>{meta.name || 'Sem nome'}</b>{dirty && <span className="ce-status-dirty" title="Alterações por guardar"> •</span>}</span>
+    <span className="ce-status-sep" />
+    <span className={`ce-status-mode${mode === 'simulate' ? ' is-sim' : ''}`}><i />{mode === 'simulate' ? 'SIMULAR' : 'EDITAR'}</span>
+    <span className="ce-status-counts">{def.parts.length} peça(s) · {def.terminals.length} borne(s) · {def.lights.length} luz(es){wires.length ? ` · ${wires.length} cabo(s) de teste` : ''}</span>
+    <span className={errors ? 'ce-status-err' : 'ce-status-dim'}>{errors} erro(s)</span><span className="ce-status-dim">·</span><span className={warnings ? 'ce-status-warn' : 'ce-status-dim'}>{warnings} aviso(s)</span>
+    <span className="ce-status-spacer" />
+    {selected && <span className="ce-status-dim">Seleção: <b>{selected}</b></span>}
+    <span className="ce-status-mono">snap {snap.on ? `${snap.mm} mm · ${snap.deg}°` : 'desligado'}</span>
+  </footer>
+}
 
 function ViewToolbar() {
   const view = useEditorStore((s) => s.view)
@@ -26,7 +112,6 @@ function ViewToolbar() {
   const snap = useEditorStore((s) => s.snap)
   const set = useEditorStore((s) => s.set)
   const mode = useEditorStore((s) => s.mode)
-  const libraryOpen = useEditorStore((s) => s.libraryOpen)
   return <div className="ce-viewbar" role="toolbar" aria-label="Vista 3D">
     <div className="ce-group" aria-label="Câmara">
       {([['fit', 'Enquadrar'], ['iso', 'ISO']] as const).map(([kind, label]) => <button key={kind} className="ce-tool" onClick={() => cameraTo(kind)} title={kind === 'fit' ? 'Enquadrar o modelo (F)' : 'Vista isométrica'}>{label}</button>)}
@@ -39,9 +124,6 @@ function ViewToolbar() {
       <button className={`ce-tool${view.bounds ? ' is-on' : ''}`} onClick={() => setView({ bounds: !view.bounds })}>Caixa</button>
       <button className={`ce-tool${view.dark ? ' is-on' : ''}`} onClick={() => setView({ dark: !view.dark })}>Fundo escuro</button>
     </div>
-    {mode === 'edit' && <div className="ce-group" aria-label="Biblioteca">
-      <button className={`ce-tool${libraryOpen ? ' is-on' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} title="Biblioteca de bornes e perfis de ligação">📚 Biblioteca de bornes</button>
-    </div>}
     {mode === 'edit' && <div className="ce-group" aria-label="Ajuste">
       <button className={`ce-tool${snap.on ? ' is-on' : ''}`} onClick={() => set({ snap: { ...snap, on: !snap.on } })} title="Ajuste a incrementos">Snap</button>
       <select className="ce-mini" value={snap.mm} onChange={(event) => set({ snap: { ...snap, mm: Number(event.target.value) } })} aria-label="Passo em mm">{[0.5, 1, 2, 5, 10].map((value) => <option key={value} value={value}>{value} mm</option>)}</select>
@@ -76,7 +158,7 @@ function FaceBar() {
     {FACES.map(([face, label]) => <button key={face} className={`ce-face${faceLock === face ? ' is-on' : ''}`} onClick={() => { if (faceLock === face) set({ faceLock: null }); else { set({ faceLock: face }); cameraTo(face) } }}
       title={`Ver ${label.toLowerCase()} e fixar a saída dos novos bornes nessa face`}>{label}<b>{counts[face]}</b></button>)}
     <span className="ce-facebar-sep" />
-    <button className={`ce-face ce-face-add${placing ? ' is-on' : ''}`} onClick={() => set({ placing: !placing, placingSpec: placing ? null : placingSpec })} title="Clique no modelo para colocar bornes (Esc termina)">{placing ? (placingSpec ? `A colocar ${placingSpec.label}` : 'A adicionar…') : '+ Adicionar'}</button>
+    <button className={`ce-face ce-face-add${placing ? ' is-on' : ''}`} onClick={() => useEditorStore.getState().setRibbon(placing ? 'select' : 'terminal')} title="Clique no modelo para colocar bornes (Esc termina)">{placing ? (placingSpec ? `A colocar ${placingSpec.label}` : 'A adicionar…') : '+ Adicionar'}</button>
     {faceLock && <button className="ce-face" onClick={() => set({ faceLock: null })} title="Voltar à normal da superfície clicada">Face livre</button>}
   </div>
 }
@@ -160,7 +242,7 @@ function PublishDialog({ onClose, onDone }: { onClose: () => void; onDone: (mess
   </div>
 }
 
-export default function ComponentEditor3D({ id, onClose }: { id: string; onClose: (message?: string) => void }) {
+export default function ComponentEditor3D({ id, onClose, account }: { id: string; onClose: (message?: string) => void; /** Avatar e notificações (mesmos do simulador). */ account?: ReactNode }) {
   const entry = useEditorStore((s) => s.entry)
   const meta = useEditorStore((s) => s.meta)
   const def = useEditorStore((s) => s.def)
@@ -170,8 +252,6 @@ export default function ComponentEditor3D({ id, onClose }: { id: string; onClose
   const editState = useEditorStore((s) => s.editState)
   const previewState = useEditorStore((s) => s.previewState)
   const placing = useEditorStore((s) => s.placing)
-  const canUndo = useEditorStore((s) => s.past.length > 0)
-  const canRedo = useEditorStore((s) => s.future.length > 0)
   const glbRevision = useEditorStore((s) => s.glbRevision)
   const set = useEditorStore((s) => s.set)
   const [loadError, setLoadError] = useState('')
@@ -183,6 +263,7 @@ export default function ComponentEditor3D({ id, onClose }: { id: string; onClose
   const faceLockLabel = FACES.find(([id]) => id === faceLock)?.[1]
   const view = useEditorStore((s) => s.view)
   const libraryOpen = useEditorStore((s) => s.libraryOpen)
+  const activeRibbon = useActiveRibbon()
   useEffect(() => { const handler = (event: Event) => setMessage(String((event as CustomEvent).detail)); window.addEventListener('ce-flash', handler); return () => window.removeEventListener('ce-flash', handler) }, [])
 
   useEffect(() => {
@@ -228,13 +309,18 @@ export default function ComponentEditor3D({ id, onClose }: { id: string; onClose
       if (isTyping(event.target) || publishing) return
       if (mod && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) state.redo(); else state.undo(); return }
       if (mod && event.key.toLowerCase() === 'y') { event.preventDefault(); state.redo(); return }
-      if (state.mode !== 'edit') return
       const key = event.key.toLowerCase()
+      if (!mod && !event.altKey && ['1', '2', '3', '4', '5'].includes(key)) {
+        const pick = (['select', 'terminal', 'wire', 'delete', 'pan'] as const)[Number(key) - 1]
+        if (state.mode === 'edit' || pick === 'select' || pick === 'wire' || pick === 'pan') { event.preventDefault(); state.setRibbon(pick) }
+        return
+      }
+      if (state.mode !== 'edit') return
       if (key === 'w') state.set({ tool: 'translate' })
       else if (key === 'e') state.set({ tool: 'rotate' })
       else if (key === 'r') state.set({ tool: 'scale' })
       else if (key === 'f') state.cameraTo('fit')
-      else if (key === 'escape') { if (state.placing) state.set({ placing: false, placingSpec: null }); else if (state.faceLock) state.set({ faceLock: null }); else state.select(null) }
+      else if (key === 'escape') { if (state.placing) state.set({ placing: false, placingSpec: null, ribbon: 'select' }); else if (state.ribbon !== 'select') state.setRibbon('select'); else if (state.faceLock) state.set({ faceLock: null }); else state.select(null) }
       else if ((key === 'delete' || key === 'backspace') && state.selection) {
         event.preventDefault()
         const selection = state.selection
@@ -260,23 +346,25 @@ export default function ComponentEditor3D({ id, onClose }: { id: string; onClose
   const stateName = editState === BASE_STATE ? 'Pose base' : def.states.find((state) => state.id === editState)?.name
 
   return <div className="ce-root" role="application" aria-label="Editor 3D de componentes">
-    <header className="ce-top">
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => leave()}>← Biblioteca</button>
+    <header className="ce-top account-bar">
+      <Logo size={22} tagline={false} />
+      <span className="dx-bar-sep">/</span>
       <div className="ce-title"><strong>{meta.name || 'Sem nome'}</strong><span className={`ce-status${entry.latestVersion ? ' is-pub' : ''}${dirty ? ' is-dirty' : ''}`}>{status}</span></div>
       <div className="ce-modes" role="tablist" aria-label="Modo">
         <button role="tab" aria-selected={mode === 'edit'} className={mode === 'edit' ? 'is-on' : ''} onClick={() => set({ mode: 'edit', placing: false })}>Editar</button>
-        <button role="tab" aria-selected={mode === 'simulate'} className={mode === 'simulate' ? 'is-on' : ''} onClick={() => set({ mode: 'simulate', previewState: previewState || def.initialState, placing: false })}>Simular</button>
+        <button role="tab" aria-selected={mode === 'simulate'} className={mode === 'simulate' ? 'is-on' : ''} onClick={() => set({ mode: 'simulate', previewState: previewState || def.initialState, placing: false, ribbon: useEditorStore.getState().ribbon === 'terminal' || useEditorStore.getState().ribbon === 'delete' ? 'select' : useEditorStore.getState().ribbon })}>Simular</button>
       </div>
       <div className="ce-spacer" />
       {message && <span className="ce-flash" role="status">{message}</span>}
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => useEditorStore.getState().undo()} disabled={!canUndo} title="Anular (Ctrl+Z)">↶</button>
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => useEditorStore.getState().redo()} disabled={!canRedo} title="Refazer (Ctrl+Y)">↷</button>
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)">{saving ? 'A guardar…' : 'Guardar rascunho'}</button>
-      <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => setPublishing(true)}>Publicar…</button>
+      <button className="account-project-action" onClick={() => leave()}>← Biblioteca</button>
+      <button className="account-project-action" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)">{saving ? 'A guardar…' : 'Guardar rascunho'}</button>
+      <button className="account-project-action dx-bar-primary" onClick={() => setPublishing(true)}>Publicar…</button>
+      {account}
     </header>
+    <ToolRibbon />
     <div className="ce-body">
       <Hierarchy />
-      <main className={`ce-stage${view.grid ? '' : ' no-grid'}${view.dark ? ' is-dark' : ''}${dropping ? ' is-dropping' : ''}${libraryOpen && mode === 'edit' ? ' lib-open' : ''}`}
+      <main className={`ce-stage is-tool-${activeRibbon}${view.grid ? '' : ' no-grid'}${view.dark ? ' is-dark' : ''}${dropping ? ' is-dropping' : ''}${libraryOpen && mode === 'edit' ? ' lib-open' : ''}`}
         onDragOver={(event) => { if (mode === 'edit' && (event.dataTransfer.types.includes(DND_PROFILE) || event.dataTransfer.types.includes(DND_TERMINAL))) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; if (!dropping) setDropping(true) } }}
         onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropping(false) }}
         onDrop={(event) => {
@@ -292,7 +380,7 @@ export default function ComponentEditor3D({ id, onClose }: { id: string; onClose
         <ViewToolbar />
         <CubeOverlay />
         {mode === 'edit' && tab === 'terminals' && <FaceBar />}
-        {mode === 'simulate' && <WirePanel />}
+        {(mode === 'simulate' || activeRibbon === 'wire') && <WirePanel />}
         {libraryOpen && mode === 'edit' && <LibraryPanel />}
         <div className="ce-canvas"><Suspense fallback={<div className="ce-loading">A carregar o motor 3D…</div>}><Viewport /></Suspense></div>
         <div className="ce-stage-info">
@@ -316,6 +404,7 @@ export default function ComponentEditor3D({ id, onClose }: { id: string; onClose
         </div>
       </aside>
     </div>
+    <StatusBar />
     {publishing && <PublishDialog onClose={() => setPublishing(false)} onDone={(text) => { setPublishing(false); leave(text) }} />}
   </div>
 }

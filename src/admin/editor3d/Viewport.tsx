@@ -8,7 +8,7 @@ import { interactionsFor, runInteractions } from '../../catalog/interactions'
 import type { Vec3 } from '../../catalog/types'
 import { checkConnection } from '../../catalog/terminalCompat'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
-import { BASE_STATE, glbCache, posePart, patchTerminal, useEditorStore } from './editorStore'
+import { BASE_STATE, glbCache, posePart, patchTerminal, removeParts, useEditorStore } from './editorStore'
 import { addTerminalAt, defBounds, faceCenter } from './terminalOps'
 
 const DEG = 180 / Math.PI
@@ -57,7 +57,11 @@ function TerminalMarker({ id, selected, hidden, onRef }: { id: string; selected:
   if (!terminal) return null
   const radius = selected ? 2.4 : 1.8
   return <group ref={onRef} position={terminal.position} visible={!hidden}>
-    <mesh onClick={(event) => { event.stopPropagation(); if (performance.now() - lastDragEnd < 250) return; if (useEditorStore.getState().mode === 'simulate') { testWire(id); return } select({ kind: 'terminal', id }) }} renderOrder={5}>
+    <mesh onClick={(event) => { event.stopPropagation(); if (performance.now() - lastDragEnd < 250) return; const state = useEditorStore.getState()
+      if (state.mode === 'simulate' || state.ribbon === 'wire') { testWire(id); return }
+      if (state.ribbon === 'delete') { state.edit((def) => ({ ...def, terminals: def.terminals.filter((item) => item.id !== id) })); return }
+      if (state.ribbon === 'pan') return
+      select({ kind: 'terminal', id }) }} renderOrder={5}>
       <sphereGeometry args={[radius + (pending ? 0.8 : 0), 16, 12]} />
       <meshBasicMaterial color={pending ? '#f59e0b' : selected ? '#2655e5' : terminal.color} depthTest={false} transparent opacity={0.95} />
     </mesh>
@@ -78,6 +82,7 @@ function Scene() {
   const previewState = useEditorStore((s) => s.previewState)
   const selection = useEditorStore((s) => s.selection)
   const tool = useEditorStore((s) => s.tool)
+  const ribbon = useEditorStore((s) => s.ribbon)
   const snap = useEditorStore((s) => s.snap)
   const placing = useEditorStore((s) => s.placing)
   const view = useEditorStore((s) => s.view)
@@ -113,7 +118,7 @@ function Scene() {
     invalidate()
   }, [activeState, mode, root])
   useFrame((_, delta) => { if (animator.current?.update(Math.min(delta, 0.1))) invalidate() })
-  useEffect(() => { invalidate() }, [def, selection, view, mode, tool, hover, placing, testWiresState, wireFromState])
+  useEffect(() => { invalidate() }, [def, selection, view, mode, tool, ribbon, hover, placing, testWiresState, wireFromState])
   useEffect(() => () => { timers.current.forEach((id) => window.clearTimeout(id)) }, [])
 
   // enquadramentos de câmara (mesma convenção do Esquema 3D: yaw 0° = frente, pitch > 0 = por cima)
@@ -186,7 +191,7 @@ function Scene() {
   const helper = useMemo(() => (highlightNode ? new THREE.BoxHelper(highlightNode, '#2655e5') : null), [highlightNode, root])
   useFrame(() => { helper?.update() })
 
-  const gizmoEnabled = mode === 'edit' && !placing
+  const gizmoEnabled = mode === 'edit' && !placing && ribbon === 'select'
   const partGizmo = gizmoEnabled && selectedPart && !selectedPart.locked && selectedNode
   const selectedTerminal = selection?.kind === 'terminal' ? def.terminals.find((terminal) => terminal.id === selection.id) : undefined
   const terminalGizmo = gizmoEnabled && selectedTerminal && markerObject
@@ -199,6 +204,12 @@ function Scene() {
       const result = runInteractions(interactionsFor(def, 'click', hit), previewState)
       useEditorStore.getState().set({ previewState: result.state })
       result.delayed.forEach((action) => timers.current.push(window.setTimeout(() => useEditorStore.getState().set({ previewState: action.state }), action.afterMs)))
+      return
+    }
+    if (ribbon === 'wire' || ribbon === 'pan') return
+    if (ribbon === 'delete') {
+      const target = partIdOf(event.object, known)
+      if (target) { const state = useEditorStore.getState(); state.edit((current) => removeParts(current, [target])); state.select(null) }
       return
     }
     if (placing && event.face) {
@@ -261,7 +272,8 @@ function Scene() {
     {partGizmo && selectedNode && <TransformControls object={selectedNode} mode={tool} space="local" size={0.8}
       translationSnap={snap.on ? snap.mm : null} rotationSnap={snap.on ? snap.deg / DEG : null} scaleSnap={snap.on ? 0.05 : null} onMouseUp={commitPart} />}
     {terminalGizmo && markerObject && <TransformControls object={markerObject} mode="translate" size={0.7} translationSnap={snap.on ? Math.min(snap.mm, 0.5) : null} onMouseUp={commitTerminal} />}
-    <OrbitControls makeDefault enableDamping={false} maxDistance={1500} minDistance={20} onChange={reportAngles} />
+    <OrbitControls makeDefault enableDamping={false} maxDistance={1500} minDistance={20} onChange={reportAngles}
+      mouseButtons={{ LEFT: ribbon === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }} />
   </>
 }
 
@@ -273,7 +285,8 @@ function BoundsBox({ root }: { root: THREE.Object3D }) {
 export default function Viewport() {
   const select = useEditorStore((s) => s.select)
   return <Canvas frameloop="demand" shadows dpr={[1, 2]} gl={{ alpha: true }} camera={{ position: [150, 110, 190], fov: 35, near: 1, far: 4000 }}
-    onPointerMissed={() => { if (performance.now() - lastDragEnd < 250) return; if (!useEditorStore.getState().placing && useEditorStore.getState().mode === 'edit') select(null) }}>
+    style={{ cursor: undefined }}
+    onPointerMissed={() => { if (performance.now() - lastDragEnd < 250) return; const state = useEditorStore.getState(); if (!state.placing && state.mode === 'edit' && state.ribbon === 'select') select(null) }}>
     <Scene />
   </Canvas>
 }

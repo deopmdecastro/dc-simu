@@ -198,3 +198,48 @@
 .ce-stage.lib-open .ce-canvas { left:360px; top:0; }
 .ce-stage.lib-open .ce-facebar { left:370px; transform:none; justify-content:flex-start; max-width:calc(100% - 380px); }
 .ce-stage.lib-open .ce-stage-info { left:370px; }
+
+/* ==========================================================================
+   Editor de componentes — mesma linguagem do editor de simulação
+   (cabeçalho com marca + avatar, barra de ferramentas, barra de estado)
+   ========================================================================== */
+.ce-top.account-bar { position:static; height:auto; min-height:42px; padding:6px 12px; gap:10px; flex-wrap:nowrap; }
+.ce-top.account-bar .ce-title { min-width:0; flex:0 1 auto; }
+.ce-top.account-bar .ce-title strong { font-size:13px; max-width:240px; }
+.ce-top .account-project-action:disabled { opacity:.45; cursor:not-allowed; }
+.ce-top .dx-account-controls { margin-left:2px; }
+@media (max-width: 900px) { .ce-top.account-bar { flex-wrap:wrap; } }
+
+.ce-ribbon { display:flex; align-items:center; gap:8px; padding:6px 12px; background:var(--dx-surface); border-bottom:1px solid var(--dx-line); flex-wrap:wrap; }
+.ce-ribbon-sep { width:1px; align-self:stretch; background:var(--dx-line); margin:2px 2px; }
+.ce-ribbon-hint { margin-left:auto; font-size:11.5px; color:var(--dx-ink-4); max-width:46ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ce-kbd { display:none; font-family:var(--dx-mono); font-size:9px; padding:0 4px; border-radius:3px; background:var(--dx-surface-2); color:var(--dx-ink-4); }
+.dc-tool-active .ce-kbd { background:rgba(255,255,255,.22); color:#fff; }
+@media (min-width: 1500px) { .ce-kbd { display:inline; } }
+@media (max-width: 1100px) { .ce-ribbon-hint { display:none; } }
+
+.ce-stage.is-tool-pan canvas { cursor:grab; }
+.ce-stage.is-tool-pan canvas:active { cursor:grabbing; }
+.ce-stage.is-tool-delete canvas { cursor:not-allowed; }
+.ce-stage.is-tool-wire canvas, .ce-stage.is-tool-terminal canvas { cursor:crosshair; }
+
+.ce-statusbar { flex:none; display:flex; align-items:center; gap:8px; height:26px; padding:0 12px; border-top:1px solid var(--dx-line); background:var(--dx-surface-2); font-size:11px; color:var(--dx-ink-3); user-select:none; white-space:nowrap; overflow:hidden; }
+.ce-status-brand { font-weight:700; letter-spacing:.04em; color:var(--dx-ink-4); }
+.ce-status-brand span { font-weight:400; letter-spacing:0; }
+.ce-status-sep { width:1px; height:14px; background:var(--dx-line); }
+.ce-status-truncate { max-width:300px; overflow:hidden; text-overflow:ellipsis; }
+.ce-status-truncate b { color:var(--dx-ink); font-weight:600; }
+.ce-status-dim { color:var(--dx-ink-4); }
+.ce-status-dirty { color:#d97706; }
+.ce-status-err { color:var(--dx-danger); font-weight:600; }
+.ce-status-warn { color:#b45309; font-weight:600; }
+.ce-status-spacer { flex:1; }
+.ce-status-mono { font-family:var(--dx-mono); font-variant-numeric:tabular-nums; }
+.ce-status-mode { display:inline-flex; align-items:center; gap:6px; height:18px; padding:0 8px; border-radius:4px; font-family:var(--dx-mono); font-size:10px; font-weight:700; letter-spacing:.08em; background:var(--dx-brand-soft-2); color:var(--dx-brand-700); }
+.ce-status-mode i { width:6px; height:6px; border-radius:50%; background:currentColor; }
+.ce-status-mode.is-sim { background:var(--dx-run-soft); color:#15803d; }
+@media (max-width: 900px) { .ce-status-counts, .ce-status-brand span { display:none; } }
+
+/* Barra «Bornes por vista» e viewbar passam a ficar abaixo da barra de ferramentas */
+.ce-viewbar { top:8px; }
+.ce-wirepanel { top:54px; }

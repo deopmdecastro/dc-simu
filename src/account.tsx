@@ -304,7 +304,7 @@ export default function Account() {
       </div>
     </header>}
     {page === 'login' && <AuthScreen form={form} setForm={setForm} busy={busy} message={message} clearMessage={() => setMessage('')} onSubmit={authenticate} onHome={() => { setMessage(''); setPage('landing') }} />}
-    {page === 'admin' && user?.role === 'admin' && <AdminPanel currentUser={user} onBack={() => setPage('dashboard')} />}
+    {page === 'admin' && user?.role === 'admin' && <AdminPanel currentUser={user} invites={invites} onLogout={() => void logout()} onBack={() => setPage('dashboard')} />}
     {page === 'contribute' && user && <ContributorPanel user={user} onBack={() => setPage('dashboard')} />}
     {page === 'dashboard' && <Dashboard user={user} projects={projects} invites={invites} loading={!loaded} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove} fetchMembers={fetchMembers} />}
     {message && page !== 'login' && <div className="dx-toast" role="status">{message}<button onClick={() => setMessage('')} aria-label="Fechar">×</button></div>}

@@ -18,7 +18,12 @@ import {
 } from '../three/terminalFaces'
 import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL } from '../schematic/symbols'
 import { inferTerminalElectricalClass, terminalDatasheetGuidance, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
-import { IconCursor, IconDelete, IconPlus, IconZoomIn } from '../ui/icons'
+import { IconCursor, IconDelete, IconLayers, IconPlus, IconZoomIn } from '../ui/icons'
+import TerminalLibrary, { DND_PROFILE, DND_TERMINAL } from './TerminalLibrary'
+import { layoutSpecsUV } from '../three/terminalProfileLayout'
+import { uniqueLabel } from '../catalog/terminalLayout'
+import { BUILTIN_PROFILES, defaultParams, type ProfileParams, type TerminalProfile, type TerminalSpec } from '../catalog/terminalProfiles'
+import { allProfiles, useProfileStore } from '../catalog/profileStore'
 import type { ComponentType, ElectricalComponent, Terminal, TerminalElectricalClass, TerminalKind, TerminalType } from '../types'
 
 type Tool = 'move' | 'add'
@@ -90,6 +95,10 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
   const [newLabel, setNewLabel] = useState('')
   const [newKind, setNewKind] = useState<TerminalKind>('io')
   const [cursor, setCursor] = useState<{ u: number; v: number } | null>(null)
+  const [libOpen, setLibOpen] = useState(false)
+  const [armed, setArmed] = useState<TerminalSpec | null>(null)
+  const [notice, setNotice] = useState('')
+  const [dropping, setDropping] = useState(false)
   const [stageSize, setStageSize] = useState({ w: 340, h: STAGE_HEIGHT })
   const stageRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -118,7 +127,8 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
     if (faces.length > 0 && !faces.includes(face)) setFace(faces[0])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId])
-  useEffect(() => { setTool('move'); setNewLabel('') }, [component.id])
+  useEffect(() => { setTool('move'); setNewLabel(''); setArmed(null) }, [component.id])
+  useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 3500); return () => window.clearTimeout(timer) }, [notice])
 
   const fit = Math.min((stageSize.w - 28) / aspect, stageSize.h - 40)
   const canvasH = fit * zoom
@@ -140,13 +150,41 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
   }
   const toPercent = (value: number) => (FACE_IMAGE_PAD + value * (1 - 2 * FACE_IMAGE_PAD)) * 100
 
-  const placeNewTerminal = (u: number, v: number) => {
+  const placeNewTerminal = (u: number, v: number, spec: TerminalSpec | null = armed) => {
     const taken = new Set(terminals.map((terminal) => terminal.label.trim().toLocaleUpperCase()))
-    const typed = newLabel.trim()
-    const label = typed && !taken.has(typed.toLocaleUpperCase()) ? typed : nextFreeTerminalLabel(terminals)
+    const typed = (spec ? spec.label : newLabel).trim()
+    const label = typed && !taken.has(typed.toLocaleUpperCase()) ? typed : spec && typed ? uniqueLabel(typed, new Set(terminals.map((terminal) => terminal.label))) : nextFreeTerminalLabel(terminals)
     const position3D = positionFromFaceUV(face, u, v)
-    addTerminal({ label, kind: newKind, terminalType: 'screw', color: '#64748b', x: position3D.x, y: 1 - position3D.y, position3D })
+    addTerminal({
+      label, kind: spec?.kind ?? newKind, terminalType: spec?.terminalType ?? 'screw', color: spec?.color ?? '#64748b',
+      ...(spec ? { displayName: spec.name, electricalClass: spec.electricalClass } : {}),
+      x: position3D.x, y: 1 - position3D.y, position3D,
+    })
     setNewLabel('')
+  }
+
+  /** Aplica um perfil da biblioteca: cria os bornes nas faces certas (todos continuam editáveis). */
+  const applyProfileToComponent = (profile: TerminalProfile, params: ProfileParams, replace: boolean) => {
+    const specs = profile.build(params)
+    if (!specs.length) return
+    if (replace && terminals.length > 0) {
+      const linked = terminals.reduce((sum, terminal) => sum + wireCount(terminal), 0)
+      if (!window.confirm(linked > 0 ? `Substituir os ${terminals.length} bornes atuais? ${linked} cabo(s) ligado(s) serão removidos ao Aplicar.` : `Substituir os ${terminals.length} bornes atuais?`)) return
+      terminals.forEach((terminal) => deleteTerminal(terminal.id))
+    }
+    const used = new Set(replace ? [] : terminals.map((terminal) => terminal.label))
+    const places = layoutSpecsUV(specs)
+    specs.forEach((spec, index) => {
+      const place = places[index]
+      const position3D = positionFromFaceUV(place.face, place.u, place.v)
+      addTerminal({
+        label: uniqueLabel(spec.label, used), kind: spec.kind, terminalType: spec.terminalType, color: spec.color, displayName: spec.name, electricalClass: spec.electricalClass,
+        x: position3D.x, y: 1 - position3D.y, position3D,
+      })
+    })
+    setFace(places[0].face)
+    setArmed(null); setTool('move')
+    setNotice(`${profile.name}: ${specs.length} bornes adicionados.`)
   }
 
   const removeTerminal = (terminal: Terminal) => {
@@ -158,7 +196,8 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
   const onStageKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
     const key = event.key.toLowerCase()
-    if (key === 'v') { setTool('move'); return }
+    if (event.key === 'Escape') { setArmed(null); setTool('move'); return }
+    if (key === 'v') { setTool('move'); setArmed(null); return }
     if (key === 'a') { setTool('add'); return }
     if (!selected) return
     if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); removeTerminal(selected); return }
@@ -230,27 +269,46 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
 
     <div className="tfe-toolbar" role="toolbar" aria-label="Ferramentas de bornes">
       <div className="tfe-seg" role="group" aria-label="Ferramenta">
-        <button type="button" className={tool === 'move' ? 'active' : ''} aria-pressed={tool === 'move'} onClick={() => setTool('move')} title="Selecionar e arrastar bornes (V)"><IconCursor size={13} />Mover</button>
-        <button type="button" className={tool === 'add' ? 'active' : ''} aria-pressed={tool === 'add'} onClick={() => setTool('add')} title="Clicar na superfície para criar um borne (A)"><IconPlus size={13} />Adicionar</button>
+        <button type="button" className={tool === 'move' ? 'active' : ''} aria-pressed={tool === 'move'} onClick={() => { setTool('move'); setArmed(null) }} title="Selecionar e arrastar bornes (V)"><IconCursor size={13} />Mover</button>
+        <button type="button" className={tool === 'add' ? 'active' : ''} aria-pressed={tool === 'add'} onClick={() => { setTool('add'); setArmed(null) }} title="Clicar na superfície para criar um borne (A)"><IconPlus size={13} />Adicionar</button>
       </div>
       <div className="tfe-seg" role="group" aria-label="Ampliação">
         <span className="tfe-seg-icon" aria-hidden="true"><IconZoomIn size={13} /></span>
         {ZOOMS.map((value) => <button type="button" key={value} className={zoom === value ? 'active' : ''} aria-pressed={zoom === value} onClick={() => setZoom(value)}>{value}×</button>)}
       </div>
+      <button type="button" className={`tfe-toggle${libOpen ? ' active' : ''}`} aria-pressed={libOpen} onClick={() => setLibOpen((value) => !value)} title="Perfis de bornes e bornes soltos prontos a usar"><IconLayers size={13} /> Biblioteca</button>
       <button type="button" className={`tfe-toggle${showLabels ? ' active' : ''}`} aria-pressed={showLabels} onClick={() => setShowLabels((value) => !value)} title="Mostrar ou ocultar as identificações">Rótulos</button>
     </div>
 
+    {libOpen && <div className="tfe-lib" aria-label="Biblioteca de bornes">
+      <TerminalLibrary mode="insert" armedLabel={armed?.label ?? null} onInsert={applyProfileToComponent}
+        onArmChip={(spec) => { setArmed(spec); setNewKind(spec.kind); setTool('add') }} />
+    </div>}
+    {notice && <p className="tfe-notice-ok" role="status">{notice}</p>}
+
     {tool === 'add' && <div className="tfe-add" role="group" aria-label="Novo borne">
-      <label className="tfe-field"><span>Identificação</span><input value={newLabel} placeholder={`Auto (${nextFreeTerminalLabel(terminals)})`} onChange={(event) => setNewLabel(event.target.value)} /></label>
-      <label className="tfe-field"><span>Função elétrica</span><select value={newKind} onChange={(event) => setNewKind(event.target.value as TerminalKind)}>{Object.entries(TERMINAL_KIND_LABEL).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</select></label>
-      <p>Clique na superfície da face <strong>{FACE_META[face].label}</strong> para criar o borne. Pode continuar a clicar para criar vários.</p>
+      {!armed && <label className="tfe-field"><span>Identificação</span><input value={newLabel} placeholder={`Auto (${nextFreeTerminalLabel(terminals)})`} onChange={(event) => setNewLabel(event.target.value)} /></label>}
+      {!armed && <label className="tfe-field"><span>Função elétrica</span><select value={newKind} onChange={(event) => setNewKind(event.target.value as TerminalKind)}>{Object.entries(TERMINAL_KIND_LABEL).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</select></label>}
+      <p>{armed ? <>A colocar <strong>{armed.label}</strong> · {armed.name}. </> : null}Clique na superfície da face <strong>{FACE_META[face].label}</strong> para criar o borne. Pode continuar a clicar para criar vários{armed ? ' · Esc termina' : ''}.</p>
     </div>}
 
     <div className="tfe-stage" ref={stageRef} style={{ height: STAGE_HEIGHT }} tabIndex={0} onKeyDown={onStageKeyDown} aria-label={`Vista ${FACE_META[face].label} de ${component.ref}. Setas movem o borne selecionado, Delete remove.`}>
       <div
         ref={canvasRef}
-        className={`tfe-canvas${tool === 'add' ? ' is-adding' : ''}${image.status !== 'ready' ? ' is-blueprint' : ''}`}
+        className={`tfe-canvas${dropping ? ' is-dropping' : ''}${tool === 'add' ? ' is-adding' : ''}${image.status !== 'ready' ? ' is-blueprint' : ''}`}
         style={{ width: canvasW, height: canvasH }}
+        onDragOver={(event) => { if (event.dataTransfer.types.includes(DND_TERMINAL) || event.dataTransfer.types.includes(DND_PROFILE)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; if (!dropping) setDropping(true) } }}
+        onDragLeave={() => setDropping(false)}
+        onDrop={(event) => {
+          setDropping(false)
+          const chip = event.dataTransfer.getData(DND_TERMINAL), profileData = event.dataTransfer.getData(DND_PROFILE)
+          if (!chip && !profileData) return
+          event.preventDefault()
+          if (chip) { const point = pointerToUV(event); if (point) placeNewTerminal(point.u, point.v, JSON.parse(chip) as TerminalSpec); return }
+          const { id, params } = JSON.parse(profileData) as { id: string; params: ProfileParams }
+          const profile = allProfiles(useProfileStore.getState().custom).find((item) => item.id === id) ?? BUILTIN_PROFILES.find((item) => item.id === id)
+          if (profile) applyProfileToComponent(profile, { ...defaultParams(profile), ...params }, false)
+        }}
         onPointerMove={dragMove}
         onPointerLeave={() => { if (!dragRef.current) setCursor(null) }}
         onPointerUp={(event) => {

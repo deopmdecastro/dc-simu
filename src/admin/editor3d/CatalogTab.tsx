@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { catalogApi } from '../../catalog/catalogApi'
 import { newId } from '../../catalog/definition'
 import { useCatalogStore } from '../../catalog/registry'
@@ -7,7 +7,7 @@ import type { CatalogEntry } from '../../catalog/types'
 import ComponentEditor3D from './ComponentEditor3D'
 
 /** Separador "Biblioteca 3D": lista os componentes oficiais e abre o editor 3D. */
-export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpened }: { onNotice: (message: string) => void; onError: (message: string) => void; onCreate: () => void; openId?: string | null; onOpened?: () => void }) {
+export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpened, account }: { account?: ReactNode; onNotice: (message: string) => void; onError: (message: string) => void; onCreate: () => void; openId?: string | null; onOpened?: () => void }) {
   const [entries, setEntries] = useState<CatalogEntry[] | null>(null)
   const [editing, setEditing] = useState<string | null>(openId ?? null)
   const [query, setQuery] = useState('')
@@ -42,7 +42,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     try { await catalogApi.remove(entry.id); await reload() } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao eliminar') }
   }
 
-  if (editing) return createPortal(<div className="ce-overlay"><ComponentEditor3D id={editing} onClose={(message) => { setEditing(null); if (message) onNotice(message); void reload() }} /></div>, document.body)
+  if (editing) return createPortal(<div className="ce-overlay dx"><ComponentEditor3D account={account} id={editing} onClose={(message) => { setEditing(null); if (message) onNotice(message); void reload() }} /></div>, document.body)
 
   return <>
     <div className="dx-admin-section"><h2>Biblioteca de componentes 3D</h2><span>{entries ? `${visible.length}/${entries.length}` : '…'}</span></div>

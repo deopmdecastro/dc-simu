@@ -116,3 +116,9 @@
   .tfe-inline { grid-column:1 / -1; }
 }
 @media (prefers-reduced-motion:reduce) { .tfe-thumb i.is-loading { animation:none; } }
+
+/* Biblioteca de bornes dentro do editor de bornes por vista (utilizadores) */
+.tfe-lib { border:1px solid var(--dx-line, #d9e1ec); border-radius:10px; overflow:hidden; height:340px; display:flex; flex-direction:column; background:#fff; }
+.tfe-lib .tl-root { height:100%; }
+.tfe-notice-ok { margin:0; padding:6px 10px; border-radius:8px; background:#f0fdf4; border:1px solid #bde5cb; color:#15803d; font-size:12px; }
+.tfe-canvas.is-dropping { outline:2px dashed var(--dx-brand, #2655e5); outline-offset:-2px; }
