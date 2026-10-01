@@ -1,3 +1,4 @@
+import { idbDelete, idbGet, idbSet } from './idbStore'
 import type { StoredProfile } from '../catalog/terminalProfiles'
 import type { CatalogEntry, CatalogMeta, CatalogVersion, ComponentDefinition } from '../catalog/types'
 
@@ -6,11 +7,37 @@ type Stored = Omit<CatalogEntry, 'versions'> & { draft: ComponentDefinition; ver
 const KEY = 'dcsimu:catalog:v1'
 const glbKey = (id: string, version: number) => `dcsimu:catalog:glb:${id}:${version}`
 
-function read(): Stored[] {
-  try { const parsed = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
+/**
+ * Catálogo e modelos GLB vivem em IndexedDB (sem o limite de ~5 MB do localStorage).
+ * Os dados antigos do localStorage migram na primeira leitura.
+ */
+let cache: Stored[] | null = null
+async function read(): Promise<Stored[]> {
+  if (cache) return cache
+  let stored = await idbGet<Stored[]>(KEY)
+  if (!Array.isArray(stored)) {
+    stored = []
+    try {
+      const legacy = JSON.parse(localStorage.getItem(KEY) || '[]')
+      if (Array.isArray(legacy) && legacy.length) {
+        stored = legacy
+        await idbSet(KEY, legacy)
+        for (const entry of legacy as Stored[]) {
+          for (const version of entry.versions ?? []) {
+            const old = localStorage.getItem(glbKey(entry.id, version.version))
+            if (old) { await idbSet(glbKey(entry.id, version.version), old); localStorage.removeItem(glbKey(entry.id, version.version)) }
+          }
+        }
+        localStorage.removeItem(KEY)
+      }
+    } catch { /* sem dados antigos aproveitáveis */ }
+  }
+  cache = stored
+  return cache
 }
-function write(entries: Stored[]) {
-  try { localStorage.setItem(KEY, JSON.stringify(entries)) } catch { throw new Error('Sem espaço no navegador para guardar o componente (reduza texturas/modelos GLB).') }
+async function write(entries: Stored[]) {
+  try { await idbSet(KEY, entries) } catch { throw new Error('Sem espaço no navegador para guardar o componente (liberte espaço ou reduza o modelo GLB).') }
+  cache = entries
 }
 const strip = (entry: Stored, withDraft: boolean): CatalogEntry => {
   const { draft, ...rest } = entry
@@ -30,7 +57,7 @@ function readProfiles(): StoredProfile[] {
   try { const parsed = JSON.parse(localStorage.getItem(PROFILES_KEY) || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
 }
 
-export function localCatalogApi(parts: string[], verb: string, payload: Record<string, unknown>, user: { name: string; role: string }): unknown | undefined {
+export async function localCatalogApi(parts: string[], verb: string, payload: Record<string, unknown>, user: { name: string; role: string }): Promise<unknown | undefined> {
   const isAdmin = user.role === 'admin'
   // ----- perfis de bornes personalizados -----
   if (parts[0] === 'terminal-profiles' && verb === 'GET') return readProfiles()
@@ -56,16 +83,16 @@ export function localCatalogApi(parts: string[], verb: string, payload: Record<s
   }
   // ----- utilizadores -----
   if (parts[0] === 'catalog') {
-    if (parts.length === 1 && verb === 'GET') return read().filter((entry) => entry.latestVersion > 0).map((entry) => strip(entry, false))
+    if (parts.length === 1 && verb === 'GET') return (await read()).filter((entry) => entry.latestVersion > 0).map((entry) => strip(entry, false))
     if (parts[2] === 'glb' && parts[3] && verb === 'GET') {
-      const data = localStorage.getItem(glbKey(parts[1], Number(parts[3])))
+      const data = await idbGet<string>(glbKey(parts[1], Number(parts[3])))
       if (!data) throw new Error('Modelo não encontrado')
       return { data }
     }
   }
   if (parts[0] !== 'admin' || parts[1] !== 'catalog') return undefined
   if (!isAdmin) throw new Error('Acesso reservado ao administrador')
-  const entries = read()
+  const entries = await read()
   if (parts.length === 2 && verb === 'GET') return entries.map((entry) => strip(entry, false))
   const id = parts[2]
   if (!id || !/^[A-Za-z0-9_-]{3,40}$/.test(id)) throw new Error('Identificador inválido')
@@ -79,7 +106,7 @@ export function localCatalogApi(parts: string[], verb: string, payload: Record<s
       ? { ...entries[index], meta: cleanMeta(payload.meta as Partial<CatalogMeta>, entries[index].meta), draft, updatedAt: now, updatedBy: user.name }
       : { id, meta: cleanMeta(payload.meta as Partial<CatalogMeta>), draft, status: 'draft', latestVersion: 0, archived: false, updatedAt: now, updatedBy: user.name, versions: [] }
     if (index >= 0) entries[index] = next; else entries.push(next)
-    write(entries)
+    await write(entries)
     return strip(next, true)
   }
   if (index < 0) throw new Error('Componente não encontrado')
@@ -94,24 +121,26 @@ export function localCatalogApi(parts: string[], verb: string, payload: Record<s
     }
     const glb = String(payload.glb || '')
     if (!glb) throw new Error('GLB em falta')
-    try { localStorage.setItem(glbKey(id, version), glb) } catch { throw new Error('Sem espaço no navegador para guardar o modelo 3D.') }
+    try { await idbSet(glbKey(id, version), glb) } catch { throw new Error('Sem espaço no navegador para guardar o modelo 3D. Liberte espaço do site nas definições do navegador.') }
     entry.versions = [...entry.versions, published]
     entry.latestVersion = version
     entry.status = 'published'
     entry.archived = false
     entry.updatedAt = published.publishedAt
-    write(entries)
+    await write(entries)
     return strip(entry, true)
   }
   if (parts[3] === 'archive' && verb === 'POST') {
     entries[index] = { ...entries[index], archived: payload.archived !== false, updatedAt: new Date().toISOString() }
-    write(entries)
+    await write(entries)
     return strip(entries[index], false)
   }
   if (parts.length === 3 && verb === 'DELETE') {
     if (entries[index].latestVersion > 0) throw new Error('Componentes publicados não se eliminam (as versões em uso têm de continuar a abrir). Arquive-o.')
+    const deletedVersions = entries[index].versions.map((item) => item.version)
     entries.splice(index, 1)
-    write(entries)
+    await write(entries)
+    await Promise.all(deletedVersions.map((v) => idbDelete(glbKey(id, v))))
     return { ok: true }
   }
   return undefined

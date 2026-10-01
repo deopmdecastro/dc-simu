@@ -10,6 +10,7 @@ import { applyProfile, defBounds, faceCenter, faceOfNormal } from './terminalOps
 import { Check, Color, Confirm, Empty, Field, Num, Section, Select, Slider, Text, Vec3Input } from './ui'
 import { IconCamera, IconEye, IconEyeOff, IconCheck, IconClose, IconCube, IconImage, IconLayers, IconPlus } from '../../ui/icons'
 import FaceChooser from './FaceChooser'
+import { NodePicker, whenFields } from './tabsControls'
 import { captureCover, type CaptureView } from './capture'
 
 const NORMALS: Array<[string, string, Vec3]> = [
@@ -110,6 +111,7 @@ export function LightsTab() {
   const light = selection?.kind === 'light' ? def.lights.find((item) => item.id === selection.id) : undefined
   const patch = (value: Partial<LightZoneDef>, key: string) => light && edit((state) => ({ ...state, lights: state.lights.map((item) => (item.id === light.id ? { ...item, ...value } : item)) }), `light:${light.id}:${key}`)
   const candidates = def.parts.filter((item) => item.kind !== 'group')
+  const placingLed = useEditorStore((s) => s.placingLed)
   const create = () => {
     const target = part && part.kind !== 'group' ? part : candidates[0]
     if (!target) return
@@ -118,15 +120,21 @@ export function LightsTab() {
     set({ selection: { kind: 'light', id: created.id } })
   }
   return <>
-    <Section title="Zonas luminosas" actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={create} disabled={!candidates.length}>+ Nova</button>}>
-      <p className="ce-hint">Uma zona luminosa faz uma peça emitir luz. Defina quando acende no separador <b>Estados</b>. Selecione primeiro a peça para a associar.</p>
+    <Section title="LEDs e luzes" actions={<span className="ce-actions-inline">
+      <button className={`dx-btn dx-btn-sm ${placingLed ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ placingLed: !placingLed, placingDisplay: null, displayCorner: null, pick: null, placing: false, ribbon: 'select' })}>{placingLed ? 'Cancelar' : '+ LED na superfície'}</button>
+      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={create} disabled={!candidates.length}>+ Zona de luz</button></span>}>
+      <p className="ce-hint">{placingLed ? 'Clique numa face do modelo: o LED fica nesse ponto.' : 'Um LED é uma peça pequena que emite luz; uma zona de luz faz uma peça (ou objetos de um GLB) brilhar. Acendem pelos separadores Estados ou — mais simples — quando uma variável se verifica (ex.: o botão HOLD ligado).'}</p>
     </Section>
     {!light && <Empty>Selecione uma zona luminosa na lista à esquerda{part ? ' ou crie uma para a peça atual' : ''}.</Empty>}
     {light && <Section title="Zona luminosa">
       <Field label="Nome"><Text value={light.name} onChange={(name) => patch({ name }, 'name')} /></Field>
       <Field label="Peça"><Select value={light.partId} onChange={(partId) => patch({ partId }, 'part')} options={candidates.map((item): [string, string] => [item.id, item.name])} /></Field>
+      <Field label="Tipo"><Select value={light.kind ?? 'lamp'} onChange={(kind) => patch({ kind }, 'kind')} options={[['led', 'LED'], ['lamp', 'Lâmpada / sinaleiro']]} /></Field>
+      <NodePicker partId={light.partId} nodes={light.nodes} pickKind="light" id={light.id} onChange={(nodes) => patch({ nodes: nodes.length ? nodes : undefined }, 'nodes')} />
       <Field label="Cor"><Color value={light.color} onChange={(color) => patch({ color }, 'color')} /></Field>
       <Field label="Intensidade"><Slider value={light.intensity} max={6} step={0.1} onChange={(intensity) => patch({ intensity }, 'int')} /></Field>
+      {whenFields(def, light.when, (when) => patch({ when }, 'when'))}
+      <Check checked={!!light.blink} label="Pisca quando acende por variável" onChange={(blink) => patch({ blink }, 'blink')} />
       <Confirm label="Eliminar zona" className="dx-btn dx-btn-danger dx-btn-sm" onConfirm={() => { edit((state) => ({ ...state, lights: state.lights.filter((item) => item.id !== light.id), states: state.states.map((s) => ({ ...s, lights: Object.fromEntries(Object.entries(s.lights).filter(([id]) => id !== light.id)) })) })); set({ selection: null }) }} />
     </Section>}
   </>

@@ -2,17 +2,18 @@ import { create } from 'zustand'
 import type { Object3D } from 'three'
 import { BASE_STATE } from '../../catalog/stateAnimator'
 import { defaultPart, newId, normalizeDefinition, type GlbCache } from '../../catalog/definition'
+import { EMPTY_METER_INPUT, type MeterInput, type Vars } from '../../catalog/behavior'
 import type { Face, TerminalSpec } from '../../catalog/terminalProfiles'
 import type { WireEndType } from '../../types'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, MaterialDef, PartDef, StateOverride, TerminalDef, Vec3 } from '../../catalog/types'
 import { DEFAULT_WIRE_DEFAULTS, styleFor, type WireDefaults, type WireStyle } from './wireStyle'
 
 export { BASE_STATE }
-export type Selection = { kind: 'part' | 'terminal' | 'light'; id: string } | null
+export type Selection = { kind: 'part' | 'terminal' | 'light' | 'control' | 'display'; id: string } | null
 export type Tool = 'translate' | 'rotate' | 'scale'
 /** Ferramentas da barra principal (como no simulador): 1 Selecionar · 2 Borne · 3 Cabo · 4 Apagar · 5 Mover vista. */
 export type Ribbon = 'select' | 'terminal' | 'wire' | 'delete' | 'pan' | 'measure'
-export type InspectorTab = 'object' | 'materials' | 'terminals' | 'lights' | 'states' | 'interactions' | 'wires' | 'component'
+export type InspectorTab = 'object' | 'materials' | 'terminals' | 'lights' | 'states' | 'interactions' | 'controls' | 'displays' | 'wires' | 'component'
 export type ViewCommand = { kind: 'fit' | 'fitSel' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'iso' | 'angles' | 'orbit'; n: number; yaw?: number; pitch?: number; dx?: number; dy?: number }
 /** Cabo de teste entre dois bornes (modo Simular): serve para validar a compatibilidade. */
 export interface TestWire extends WireStyle {
@@ -63,6 +64,18 @@ interface EditorStore {
   faceLock: Face | null
   dropRequest: DropRequest | null
   libraryOpen: boolean
+  /** Valores das variáveis no ecrã do editor (botões carregados, seletor rodado…). */
+  previewVars: Vars
+  /** Entradas de teste do multímetro (tensão, resistência…) para validar o LCD no editor. */
+  meterTest: MeterInput
+  /** Modo «escolher no modelo»: o próximo clique num objeto do GLB liga-o ao controlo/luz. */
+  pick: { kind: 'control' | 'light'; id: string } | null
+  hoverNode: { partId: string; node: string } | null
+  /** Ecrã em colocação: 1.º clique = canto, 2.º clique = canto oposto. */
+  placingDisplay: string | null
+  displayCorner: { point: Vec3; normal: Vec3 } | null
+  /** Modo «colocar LED»: o próximo clique na superfície cria um LED. */
+  placingLed: boolean
   camAngles: { yaw: number; pitch: number }
   testWires: TestWire[]
   /** Cabo em desenho: borne de origem (ou ponto livre em `wireStart`) e pontos intermédios. */
@@ -127,7 +140,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   def: normalizeDefinition(undefined),
   baseline: null,
   selection: null, tool: 'translate', ribbon: 'select', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
-  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
+  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, previewVars: {}, meterTest: { ...EMPTY_METER_INPUT, vdc: 12.34, vac: 230, ohm: 4700 }, pick: null, hoverNode: null, placingDisplay: null, displayCorner: null, placingLed: false, camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
   view: { grid: true, floor: true, axes: true, terminals: true, dark: false, bounds: false },
   viewCommand: { kind: 'iso', n: 0 }, glbRevision: 0,
   dirty: false, past: [], future: [], lastKey: '', lastAt: 0,
@@ -269,6 +282,7 @@ export function removeParts(def: ComponentDefinition, ids: string[]): ComponentD
     parts: def.parts.filter((part) => !drop.has(part.id)),
     lights: def.lights.filter((light) => !drop.has(light.partId)),
     interactions: def.interactions.map((item) => (drop.has(item.partId) ? { ...item, partId: '' } : item)),
+    controls: (def.controls ?? []).filter((item) => !drop.has(item.partId)),
     states: def.states.map((state) => ({ ...state, parts: Object.fromEntries(Object.entries(state.parts).filter(([id]) => !drop.has(id))) })),
   }
 }

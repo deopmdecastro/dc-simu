@@ -80,12 +80,22 @@ export interface TerminalDef {
   profileId?: string
 }
 
+/** Condição sobre uma variável do componente (ex.: «hold» é verdadeira). */
+export interface WhenDef { var: string; op?: 'eq' | 'ne'; value?: string | number | boolean }
+
 export interface LightZoneDef {
   id: string
   name: string
   partId: string
+  /** Nós dentro do GLB da peça (nomes) — para LEDs que já existem no modelo. */
+  nodes?: string[]
   color: string
   intensity: number
+  /** 'led' = pequeno indicador; 'lamp' = sinaleiro/lâmpada. Só informativo. */
+  kind?: 'led' | 'lamp'
+  /** A zona acende quando a condição se verifica (além do que o estado definir). */
+  when?: WhenDef
+  blink?: boolean
 }
 
 export interface StateOverride {
@@ -124,6 +134,82 @@ export interface InteractionDef {
   actions: ActionDef[]
 }
 
+/* -------------------------------------------------- variáveis, controlos e ecrãs */
+
+export type VarValue = string | number | boolean
+export interface VarDef { id: string; name: string; type: 'bool' | 'number' | 'text'; initial: VarValue }
+
+/** Ação de um botão/seletor sobre as variáveis e os estados do componente. */
+export type ControlAction =
+  | ActionDef
+  | { type: 'setVar'; var: string; value: VarValue }
+  | { type: 'toggleVar'; var: string }
+  | { type: 'cycleVar'; var: string; values: VarValue[] }
+  | { type: 'behavior'; event: BehaviorEvent }
+
+/** Eventos do comportamento embutido (multímetro). */
+export type BehaviorEvent = 'select' | 'hold' | 'light' | 'power'
+
+export interface ControlPosition { id: string; label: string; /** graus (rotação à volta do eixo) */ angle: number }
+
+/** Botão, interruptor ou seletor rotativo ligado a uma peça — ou a um nó dentro do GLB. */
+export interface ControlDef {
+  id: string
+  name: string
+  kind: 'button' | 'toggle' | 'selector'
+  partId: string
+  /** Nomes dos nós dentro do GLB que se movem juntos (vazio = a peça inteira). */
+  nodes?: string[]
+  /** Eixo de rotação (seletor) ou de deslocação (botão), no espaço do componente. */
+  axis: Vec3
+  /** Curso do botão em mm (positivo = para dentro, contra o eixo). */
+  travelMm: number
+  /** Seletor: posições e ângulos. */
+  positions: ControlPosition[]
+  /** Seletor: variável que recebe o id da posição. */
+  bindVar?: string
+  /** Botão/interruptor: ações ao clicar; `longActions` ao manter premido (≥ 0,6 s). */
+  actions: ControlAction[]
+  longActions?: ControlAction[]
+}
+
+/** Ecrã de tamanho próprio, colado à superfície do modelo. */
+export interface DisplayLine { id: string; text: string; x: number; y: number; size: number; align: 'left' | 'center' | 'right'; color?: string; when?: WhenDef }
+export interface DisplayDef {
+  id: string
+  name: string
+  /** Centro do ecrã (mm, espaço do componente) e normal exterior (eixo). */
+  position: Vec3
+  normal: Vec3
+  /** Rotação no plano do ecrã (graus). */
+  roll: number
+  widthMm: number
+  heightMm: number
+  /** Píxeis por mm da textura. */
+  density: number
+  background: string
+  foreground: string
+  /** 'text' = linhas com variáveis; 'lcd' = LCD de multímetro (7 segmentos). */
+  kind: 'text' | 'lcd'
+  lines: DisplayLine[]
+  /** Variável que liga/desliga o ecrã (vazio = sempre ligado) e a que acende a retroiluminação. */
+  powerVar?: string
+  backlightVar?: string
+  /** Nós do GLB (da peça `hideNodesPart`) escondidos porque este ecrã os substitui (ex.: dígitos pintados no modelo). */
+  hideNodesPart?: string
+  hideNodes?: string[]
+}
+
+/** Comportamento embutido que calcula valores a partir do circuito. */
+export interface BehaviorDef {
+  type: 'multimeter'
+  /** Ids dos bornes das fichas: COM, V/Ω, mA, 10 A. */
+  com: string
+  volt: string
+  milliamp: string
+  amp: string
+}
+
 export interface AssetDef { name: string; mime: string; data: string }
 
 export interface ComponentDefinition {
@@ -137,6 +223,11 @@ export interface ComponentDefinition {
   initialState: string
   interactions: InteractionDef[]
   assets: Record<string, AssetDef>
+  /** Opcionais (componentes antigos não os têm; `normalizeDefinition` preenche). */
+  vars?: VarDef[]
+  controls?: ControlDef[]
+  displays?: DisplayDef[]
+  behavior?: BehaviorDef
 }
 
 export interface CatalogMeta {

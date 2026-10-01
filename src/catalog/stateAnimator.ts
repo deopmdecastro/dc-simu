@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { applyEasing, posedPart, resolveState } from './definition'
-import type { ComponentDefinition, StateDef, Vec3 } from './types'
+import { evalWhen, type Vars } from './behavior'
+import type { ComponentDefinition, LightZoneDef, StateDef, Vec3 } from './types'
 
 const DEG = Math.PI / 180
 /** Estado sintético: a pose base das peças, sem diferenças. */
@@ -22,6 +23,8 @@ export class StateAnimator {
   private progress = 1
   private lightsDirty = true
   private clock = 0
+  private vars: Vars = {}
+  private readonly ledNodes = new Map<string, THREE.Object3D[]>()
 
   constructor(private readonly def: ComponentDefinition, root: THREE.Object3D, stateId?: string) {
     root.traverse((node) => { if (node.name && def.parts.some((part) => part.id === node.name)) this.nodes.set(node.name, node) })
@@ -107,7 +110,7 @@ export class StateAnimator {
       this.apply(applyEasing(this.target.easing, this.progress))
       active = true
     }
-    const blinking = this.def.lights.some((light) => this.target.lights[light.id]?.blink && this.target.lights[light.id]?.on)
+    const blinking = this.def.lights.some((light) => (this.target.lights[light.id]?.blink && this.target.lights[light.id]?.on) || (light.blink && !!light.when && evalWhen(light.when, this.vars)))
     if (this.lightsDirty || blinking) {
       this.updateLights()
       this.lightsDirty = false
@@ -116,20 +119,41 @@ export class StateAnimator {
     return active
   }
 
+  /** Variáveis do componente: as zonas com condição (`when`) acendem/apagam em função delas. */
+  setVars(vars: Vars) { this.vars = vars; this.lightsDirty = true }
+
+  private lightNodes(light: LightZoneDef): THREE.Object3D[] {
+    if (!light.nodes?.length) { const node = this.nodes.get(light.partId); return node ? [node] : [] }
+    const cached = this.ledNodes.get(light.id)
+    if (cached) return cached
+    const part = this.nodes.get(light.partId)
+    const list = light.nodes.map((name) => part?.getObjectByName(name)).filter((node): node is THREE.Object3D => !!node)
+    // materiais próprios: acender um LED do GLB não pode acender o resto do modelo
+    for (const node of list) node.traverse((child) => {
+      const mesh = child as THREE.Mesh
+      if (mesh.isMesh) mesh.material = Array.isArray(mesh.material) ? mesh.material.map((item) => item.clone()) : mesh.material.clone()
+    })
+    this.ledNodes.set(light.id, list)
+    return list
+  }
+
   private updateLights() {
     for (const light of this.def.lights) {
-      const node = this.nodes.get(light.partId)
-      if (!node) continue
+      const lightNodes = this.lightNodes(light)
+      if (!lightNodes.length) continue
       const state = this.target.lights[light.id] ?? { on: false }
+      const byVar = !!light.when && evalWhen(light.when, this.vars)
+      const isOn = state.on || byVar
+      const blinks = !!state.blink || (byVar && !!light.blink)
       const part = this.def.parts.find((item) => item.id === light.partId)
       const material = this.def.materials.find((item) => item.id === (this.materialOf.get(light.partId) ?? part?.materialId))
-      const pulse = state.blink ? (Math.sin(this.clock * 6) > 0 ? 1 : 0.1) : 1
-      for (const mesh of this.meshesOf(node)) {
+      const pulse = blinks ? (Math.sin(this.clock * 6) > 0 ? 1 : 0.1) : 1
+      for (const mesh of lightNodes.flatMap((node) => this.meshesOf(node))) {
         const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
         for (const item of list as THREE.MeshStandardMaterial[]) {
           if (!item.isMeshStandardMaterial) continue
-          if (state.on) { item.emissive.set(state.color ?? light.color); item.emissiveIntensity = (state.intensity ?? light.intensity) * pulse }
-          else { item.emissive.set(material?.emissive ?? '#000000'); item.emissiveIntensity = material?.emissiveIntensity ?? 0 }
+          if (isOn) { item.emissive.set(state.on ? state.color ?? light.color : light.color); item.emissiveIntensity = (state.on ? state.intensity ?? light.intensity : light.intensity) * pulse }
+          else { item.emissive.set(light.nodes?.length ? '#000000' : material?.emissive ?? '#000000'); item.emissiveIntensity = light.nodes?.length ? 0 : material?.emissiveIntensity ?? 0 }
         }
       }
     }

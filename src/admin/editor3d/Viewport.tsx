@@ -2,8 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Html, OrbitControls, TransformControls, useCursor } from '@react-three/drei'
 import * as THREE from 'three'
-import { buildDefinitionObject } from '../../catalog/definition'
+import { buildDefinitionObject, resolveState } from '../../catalog/definition'
 import { StateAnimator } from '../../catalog/stateAnimator'
+import { ComponentRig, topNodeOf } from '../../catalog/componentRig'
+import { mergeVars, multimeterReading } from '../../catalog/behavior'
+import { setBeep } from '../../catalog/beep'
+import { addLedAt, placeDisplayClick, triggerEditorControl } from './controlOps'
 import { interactionsFor, runInteractions } from '../../catalog/interactions'
 import type { Vec3 } from '../../catalog/types'
 import { checkConnection } from '../../catalog/terminalCompat'
@@ -103,8 +107,17 @@ function Scene() {
   const hiddenTerminals = useEditorStore((s) => s.hiddenTerminals)
   const measurementsState = useEditorStore((s) => s.measurements)
   const gizmoSpace = useEditorStore((s) => s.gizmoSpace)
+  const previewVars = useEditorStore((s) => s.previewVars)
+  const meterTest = useEditorStore((s) => s.meterTest)
+  const pick = useEditorStore((s) => s.pick)
+  const hoverNodeState = useEditorStore((s) => s.hoverNode)
+  const placingDisplay = useEditorStore((s) => s.placingDisplay)
+  const displayCorner = useEditorStore((s) => s.displayCorner)
+  const placingLed = useEditorStore((s) => s.placingLed)
   const { invalidate, camera, controls, gl } = useThree()
   const animator = useRef<StateAnimator | null>(null)
+  const rig = useRef<ComponentRig | null>(null)
+  const held = useRef<{ id: string; at: number } | null>(null)
   const timers = useRef<number[]>([])
   const [hover, setHover] = useState<{ point: THREE.Vector3; normal: THREE.Vector3 } | null>(null)
   const [markerObject, setMarkerObject] = useState<THREE.Group | null>(null)
@@ -136,8 +149,21 @@ function Scene() {
     animator.current?.setState(activeState, mode === 'edit')
     invalidate()
   }, [activeState, mode, root])
-  useFrame((_, delta) => { if (animator.current?.update(Math.min(delta, 0.1))) invalidate() })
-  useEffect(() => { invalidate() }, [def, selection, view, mode, tool, ribbon, hover, placing, testWiresState, wireFromState, wirePointsState, selectedWireState, hiddenTerminals, measurementsState])
+  const vars = useMemo(() => mergeVars(def, previewVars), [def.vars, def.controls, def.behavior, previewVars])
+  const reading = useMemo(() => (def.behavior ? multimeterReading(vars, meterTest, 0) : null), [def.behavior, vars, meterTest])
+  useEffect(() => {
+    rig.current = new ComponentRig(def, root, animator.current)
+    rig.current.setVars(vars, reading, resolveState(def, previewState).name)
+    rig.current.setHitProxies(useEditorStore.getState().mode === 'simulate')
+    rig.current.snap()
+    invalidate()
+    return () => { rig.current?.dispose(); rig.current = null }
+  }, [root, def.controls, def.displays, def.lights, def.states, def.behavior])
+  useEffect(() => { rig.current?.setVars(vars, reading, resolveState(def, previewState).name); invalidate() }, [vars, reading, previewState])
+  useEffect(() => { rig.current?.setHitProxies(mode === 'simulate') }, [mode])
+  useEffect(() => { setBeep(mode === 'simulate' && !!reading?.beep); return () => setBeep(false) }, [reading?.beep, mode])
+  useFrame((_, delta) => { const a = animator.current?.update(Math.min(delta, 0.1)); const b = rig.current?.update(Math.min(delta, 0.1)); if (a || b) invalidate() })
+  useEffect(() => { invalidate() }, [def, selection, pick, hoverNodeState, placingDisplay, displayCorner, placingLed, view, mode, tool, ribbon, hover, placing, testWiresState, wireFromState, wirePointsState, selectedWireState, hiddenTerminals, measurementsState])
   useEffect(() => () => { timers.current.forEach((id) => window.clearTimeout(id)) }, [])
 
   // enquadramento único para todas as vistas: a distância sai do tamanho real do modelo e do campo de visão,
@@ -273,6 +299,13 @@ function Scene() {
     const terminalHit = !placing ? event.intersections.find((item) => typeof item.object.userData?.terminalId === 'string') : undefined
     if (terminalHit) { terminalClick(terminalHit.object.userData.terminalId as string); return }
     if (mode === 'simulate' && (ribbon === 'wire' || ribbon === 'measure')) return
+    const st = useEditorStore.getState()
+    if (st.pick) { pickNodeAt(event); return }
+    if (st.placingDisplay && event.face) { placeDisplayClick(event.point.toArray() as Vec3, event.face.normal.clone().transformDirection(event.object.matrixWorld).toArray() as Vec3); return }
+    if (st.placingLed && event.face) { addLedAt(event.point.toArray() as Vec3, event.face.normal.clone().transformDirection(event.object.matrixWorld).toArray() as Vec3); return }
+    const controlHit = rig.current?.controlFromHits(event.intersections, 3)
+    if (mode === 'simulate' && controlHit) return
+    if (mode === 'edit' && controlHit && ribbon === 'select' && !placing && st.tab === 'controls') { st.set({ selection: { kind: 'control', id: controlHit } }); return }
     if (mode === 'simulate') {
       const hit = partIdOf(event.object, known)
       const result = runInteractions(interactionsFor(def, 'click', hit), previewState)
@@ -294,6 +327,47 @@ function Scene() {
     }
     const hit = partIdOf(event.object, known)
     if (hit) useEditorStore.getState().set({ selection: { kind: 'part', id: hit }, tab: 'object' })
+  }
+
+  /** Modo «escolher no modelo»: liga/desliga o objeto do GLB atingido ao controlo ou luz em edição. */
+  const topNodeFrom = (event: ThreeEvent<MouseEvent | PointerEvent>) => {
+    const partId = partIdOf(event.object, known)
+    const part = def.parts.find((item) => item.id === partId)
+    const holder = partId ? root.getObjectByName(partId) : null
+    if (!part || part.kind !== 'glb' || !holder) return null
+    const top = topNodeOf(event.object, holder)
+    return top ? { partId, name: top.name } : null
+  }
+  const pickNodeAt = (event: ThreeEvent<MouseEvent>) => {
+    const state = useEditorStore.getState()
+    const target = state.pick
+    const hit = topNodeFrom(event)
+    if (!target || !hit) return
+    const toggle = (partId: string, nodes: string[] | undefined) => {
+      const same = partId === hit.partId ? nodes ?? [] : []
+      return same.includes(hit.name) ? same.filter((name) => name !== hit.name) : [...same, hit.name]
+    }
+    if (target.kind === 'control') state.edit((current) => ({ ...current, controls: (current.controls ?? []).map((item) => (item.id === target.id ? { ...item, partId: hit.partId, nodes: toggle(item.partId, item.nodes) } : item)) }))
+    else state.edit((current) => ({ ...current, lights: current.lights.map((item) => (item.id === target.id ? { ...item, partId: hit.partId, nodes: toggle(item.partId, item.nodes) } : item)) }))
+  }
+  const pressDown = (event: ThreeEvent<PointerEvent>) => {
+    if (mode !== 'simulate' || ribbon === 'wire' || ribbon === 'measure') return
+    if (event.intersections[0]?.object !== event.object) return
+    const id = rig.current?.controlFromHits(event.intersections, 3)
+    const control = id ? rig.current?.controlById(id) : undefined
+    if (!id || !control) return
+    event.stopPropagation()
+    if (control.kind === 'selector') { triggerEditorControl(control, { step: event.shiftKey ? -1 : 1 }); return }
+    held.current = { id, at: performance.now() }
+    rig.current?.hold(id, true); invalidate()
+    const release = () => {
+      window.removeEventListener('pointerup', release)
+      const press = held.current
+      held.current = null
+      rig.current?.hold(id, false); invalidate()
+      if (press) triggerEditorControl(control, performance.now() - press.at >= 600 ? 'long' : 'press')
+    }
+    window.addEventListener('pointerup', release)
   }
 
   const commitPart = () => {
@@ -328,12 +402,19 @@ function Scene() {
     <primitive
       object={root}
       onClick={onModelClick}
+      onPointerDown={pressDown}
       onPointerMove={(event: ThreeEvent<PointerEvent>) => {
-        if (!placing || !event.face) { if (hover) setHover(null); return }
+        if (pick) {
+          const hit = topNodeFrom(event)
+          const current = useEditorStore.getState().hoverNode
+          if (hit?.name !== current?.node) useEditorStore.getState().set({ hoverNode: hit ? { partId: hit.partId, node: hit.name } : null })
+          return
+        }
+        if ((!placing && !placingDisplay && !placingLed) || !event.face) { if (hover) setHover(null); return }
         const normal = event.face.normal.clone().transformDirection(event.object.matrixWorld)
         setHover({ point: event.point.clone(), normal })
       }}
-      onPointerOut={() => hover && setHover(null)}
+      onPointerOut={() => { if (hover) setHover(null); if (useEditorStore.getState().hoverNode) useEditorStore.getState().set({ hoverNode: null }) }}
     />
     {helper && mode === 'edit' && <primitive object={helper} />}
     {view.bounds && <BoundsBox root={root} />}
@@ -343,7 +424,9 @@ function Scene() {
     <TestWires />
     <WireDrawController active={ribbon === 'wire'} root={root} />
     <MeasureController active={ribbon === 'measure'} root={root} />
-    {placing && hover && <mesh position={hover.point}><sphereGeometry args={[2, 12, 10]} /><meshBasicMaterial color="#16a34a" depthTest={false} transparent opacity={0.85} /></mesh>}
+    <NodeHighlights root={root} />
+    {displayCorner && <mesh position={displayCorner.point}><sphereGeometry args={[0.9, 12, 10]} /><meshBasicMaterial color="#f59e0b" depthTest={false} transparent opacity={0.95} /></mesh>}
+    {(placing || placingDisplay || placingLed) && hover && <mesh position={hover.point}><sphereGeometry args={[2, 12, 10]} /><meshBasicMaterial color="#16a34a" depthTest={false} transparent opacity={0.85} /></mesh>}
 
     {partGizmo && selectedNode && <TransformControls object={selectedNode} mode={tool} space={gizmoSpace} size={0.8}
       translationSnap={snap.on ? snap.mm : null} rotationSnap={snap.on ? snap.deg / DEG : null} scaleSnap={snap.on ? 0.05 : null} onMouseUp={commitPart} />}
@@ -351,6 +434,38 @@ function Scene() {
     <OrbitControls makeDefault enableDamping={false} onChange={reportAngles} onStart={() => { autoFit.current = false }}
       mouseButtons={{ LEFT: ribbon === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }} />
   </>
+}
+
+/** Contornos dos objetos do GLB: sob o rato (azul) e os do controlo/luz/ecrã selecionado (laranja). */
+function NodeHighlights({ root }: { root: THREE.Object3D }) {
+  const def = useEditorStore((s) => s.def)
+  const selection = useEditorStore((s) => s.selection)
+  const hoverNode = useEditorStore((s) => s.hoverNode)
+  const mode = useEditorStore((s) => s.mode)
+  const group = useMemo(() => new THREE.Group(), [])
+  const entries = useRef<Array<{ helper: THREE.Box3Helper; nodes: () => Array<THREE.Object3D | null | undefined> }>>([])
+  useEffect(() => {
+    entries.current.forEach(({ helper }) => { group.remove(helper); helper.dispose() })
+    entries.current = []
+    const add = (nodes: () => Array<THREE.Object3D | null | undefined>, color: string) => {
+      const helper = new THREE.Box3Helper(new THREE.Box3(), color)
+      ;(helper.material as THREE.LineBasicMaterial).depthTest = false
+      helper.renderOrder = 20
+      group.add(helper); entries.current.push({ helper, nodes })
+    }
+    if (mode === 'edit') {
+      const control = selection?.kind === 'control' ? (def.controls ?? []).find((item) => item.id === selection.id) : undefined
+      const light = selection?.kind === 'light' ? def.lights.find((item) => item.id === selection.id) : undefined
+      const display = selection?.kind === 'display' ? (def.displays ?? []).find((item) => item.id === selection.id) : undefined
+      const holder = (id: string) => root.getObjectByName(id)
+      if (control) add(() => (control.nodes === undefined ? [holder(control.partId)] : control.nodes.map((name) => holder(control.partId)?.getObjectByName(name))), '#f97316')
+      if (light?.nodes?.length) add(() => light.nodes!.map((name) => holder(light.partId)?.getObjectByName(name)), '#22c55e')
+      if (display) add(() => [root.getObjectByName(`display:${display.id}`)], '#f59e0b')
+      if (hoverNode) add(() => [holder(hoverNode.partId)?.getObjectByName(hoverNode.node)], '#2655e5')
+    }
+  }, [def.controls, def.lights, def.displays, selection, hoverNode, mode, root])
+  useFrame(() => { for (const { helper, nodes } of entries.current) { helper.box.makeEmpty(); nodes().forEach((node) => node && helper.box.expandByObject(node, true)) } })
+  return <primitive object={group} />
 }
 
 function BoundsBox({ root }: { root: THREE.Object3D }) {

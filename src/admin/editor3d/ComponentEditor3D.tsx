@@ -12,6 +12,7 @@ import Hierarchy from './Hierarchy'
 import { BASE_STATE, glbCache, removeParts, useEditorStore, type InspectorTab, type Ribbon } from './editorStore'
 import { ComponentTab, InteractionsTab, LightsTab, StatesTab, TerminalsTab } from './tabs2'
 import { MaterialsTab, ObjectTab } from './tabs1'
+import { ControlsTab, DisplaysTab } from './tabsControls'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
 import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconPan, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
@@ -26,7 +27,7 @@ import type { PartDef } from '../../catalog/types'
 const Viewport = lazy(() => import('./Viewport'))
 const AUTO_UPDATE_KEY = 'dcsimu:editor:auto-update'
 
-const TABS: Array<[InspectorTab, string]> = [['object', 'Objeto'], ['materials', 'Materiais'], ['terminals', 'Bornes'], ['wires', 'Cabos'], ['lights', 'Luzes'], ['states', 'Estados'], ['interactions', 'Interações'], ['component', 'Componente']]
+const TABS: Array<[InspectorTab, string]> = [['object', 'Objeto'], ['materials', 'Materiais'], ['terminals', 'Bornes'], ['wires', 'Cabos'], ['lights', 'Luzes'], ['states', 'Estados'], ['interactions', 'Interações'], ['controls', 'Botões'], ['displays', 'Ecrãs'], ['component', 'Componente']]
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
 
 
@@ -529,7 +530,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         <div className="ce-tabs" role="tablist">{TABS.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'is-on' : ''} onClick={() => set({ tab: key })}>{label}</button>)}</div>
         <div className="ce-inspector">
           {tab === 'object' && <ObjectTab />}{tab === 'materials' && <MaterialsTab />}{tab === 'terminals' && <TerminalsTab />}
-          {tab === 'wires' && <WiresTab />}{tab === 'lights' && <LightsTab />}{tab === 'states' && <StatesTab />}{tab === 'interactions' && <InteractionsTab />}{tab === 'component' && <ComponentTab />}
+          {tab === 'wires' && <WiresTab />}{tab === 'lights' && <LightsTab />}{tab === 'states' && <StatesTab />}{tab === 'interactions' && <InteractionsTab />}{tab === 'controls' && <ControlsTab />}{tab === 'displays' && <DisplaysTab />}{tab === 'component' && <ComponentTab />}
         </div>
       </aside>
     </div>

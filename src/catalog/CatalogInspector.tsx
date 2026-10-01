@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
 import { useCatalogStore } from './registry'
+import { triggerControl, useCatalogMeter } from './runtimeControls'
+import { selectorValue } from './behavior'
 import { catalogUpdateInfo, duplicateAsIndependent, updateCatalogComponent } from './update'
 
 /** Secção do inspetor para componentes do catálogo oficial 3D: versão instalada, atualizações, estados e cópia independente. */
@@ -12,7 +14,9 @@ export default function CatalogInspector({ component }: { component: ElectricalC
   const entry = useMemo(() => entries.find((item) => item.id === link?.id), [entries, link?.id])
   const version = entry?.versions.find((item) => item.version === link?.version)
   const info = useMemo(() => catalogUpdateInfo(component, entries), [component, entries])
+  const meter = useCatalogMeter(component, version?.definition)
   if (!link) return null
+  const controls = version?.definition.controls ?? []
   const states = version?.definition.states ?? []
   const current = String(component.state?.catalogState ?? version?.definition.initialState ?? '')
   const isCopy = link.source === 'copy'
@@ -36,6 +40,24 @@ export default function CatalogInspector({ component }: { component: ElectricalC
           <button className="dc-btn dc-btn-primary" onClick={() => updateCatalogComponent(component.id, entries)}>Atualizar</button>
         </div>
         <div className="text-[10px] text-ink-400 mt-1">A versão do administrador prevalece e é aplicada sozinha, mantendo posição, estado e cabos ligados (Ctrl+Z desfaz). Para fixar esta versão, use «Duplicar como independente».</div>
+      </div>}
+      {version && controls.length > 0 && <div className="dc-catalog-controls">
+        <label className="dc-field-label">Controlos do equipamento</label>
+        {meter.reading && <div className="dc-meter-readout" role="status" aria-live="polite">
+          <span className="dc-meter-lcd">{meter.reading.on ? `${meter.reading.negative ? '-' : ''}${meter.reading.text} ${meter.reading.unit}` : 'OFF'}</span>
+          <span className="dc-meter-tags">{meter.reading.on && meter.reading.quantity}{meter.reading.hold ? ' · HOLD' : ''}{meter.reading.beep ? ' · 🔔' : ''}</span>
+          {meter.reading.warning && <span className="dc-meter-warn">{meter.reading.warning}</span>}
+        </div>}
+        {controls.filter((control) => control.kind === 'selector').map((control) => <div key={control.id}>
+          <label className="dc-field-label">{control.name}</label>
+          <select className="dc-select" value={selectorValue(control, meter.vars)} onChange={(event) => triggerControl(version.definition, component.id, control, { select: event.target.value })}>
+            {control.positions.map((position) => <option key={position.id} value={position.id}>{position.label}</option>)}
+          </select>
+        </div>)}
+        <div className="flex gap-1 flex-wrap mt-1">
+          {controls.filter((control) => control.kind !== 'selector').map((control) => <button key={control.id} className="dc-btn" onClick={() => triggerControl(version.definition, component.id, control, 'press')}
+            onContextMenu={(event) => { event.preventDefault(); triggerControl(version.definition, component.id, control, 'long') }} title="Clique: ação · botão direito: premir longo">{control.name}</button>)}
+        </div>
       </div>}
       {states.length > 1 && <div>
         <label className="dc-field-label">Estado</label>

@@ -8,6 +8,9 @@ import { useCatalogStore } from '../catalog/registry'
 import { parseCatalogType, type TriggerName } from '../catalog/types'
 import { interactionsFor, runInteractions } from '../catalog/interactions'
 import { StateAnimator } from '../catalog/stateAnimator'
+import { ComponentRig } from '../catalog/componentRig'
+import { triggerControl, useCatalogMeter } from '../catalog/runtimeControls'
+import { setBeep } from '../catalog/beep'
 import { cloneModelScene } from './modelFit'
 import { finishCadMaterial } from './catalogMaterials'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
@@ -35,6 +38,8 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
   const version = useMemo(() => entries.find((entry) => entry.id === link?.id)?.versions.find((item) => item.version === link?.version), [entries, link?.id, link?.version])
   const invalidate = useThree((state) => state.invalidate)
   const animator = useRef<StateAnimator | null>(null)
+  const rig = useRef<ComponentRig | null>(null)
+  const pressed = useRef<{ id: string; at: number } | null>(null)
   const timers = useRef<number[]>([])
 
   const origin = version?.runtime.originMm
@@ -56,20 +61,47 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
     return { model: object, topY: anchor === 'bottom' ? height : height / 2 }
   }, [scene, origin, anchor])
 
+  const { vars, reading } = useCatalogMeter(c, version?.definition)
   useEffect(() => {
-    if (!version) { animator.current = null; return }
+    if (!version) { animator.current = null; rig.current = null; return }
     animator.current = new StateAnimator(version.definition, model, c.state?.catalogState ?? version.definition.initialState)
+    rig.current = new ComponentRig(version.definition, model, animator.current)
+    rig.current.setVars(vars, reading, version.definition.states.find((item) => item.id === (c.state?.catalogState ?? version.definition.initialState))?.name ?? '')
+    rig.current.snap()
     invalidate()
-    return () => { timers.current.forEach((id) => window.clearTimeout(id)); timers.current = [] }
+    return () => { timers.current.forEach((id) => window.clearTimeout(id)); timers.current = []; rig.current?.dispose(); rig.current = null }
   }, [version, model])
+  useEffect(() => { rig.current?.setVars(vars, reading); invalidate() }, [vars, reading])
+  useEffect(() => { setBeep(!!reading?.beep); return () => setBeep(false) }, [reading?.beep])
 
   const stateId = String(c.state?.catalogState ?? version?.definition.initialState ?? '')
   useEffect(() => { animator.current?.setState(stateId); invalidate() }, [stateId])
-  useFrame((_, delta) => { if (animator.current?.update(Math.min(delta, 0.1))) invalidate() })
+  useFrame((_, delta) => { const a = animator.current?.update(Math.min(delta, 0.1)); const b = rig.current?.update(Math.min(delta, 0.1)); if (a || b) invalidate() })
 
   const known = useMemo(() => new Set(version?.definition.parts.map((part) => part.id) ?? []), [version])
+  /** Botões/seletores do modelo: premir (visual), largar (ação) e rodar o seletor. */
+  const controlDown = (event: ThreeEvent<PointerEvent>) => {
+    if (event.intersections[0]?.object !== event.object) return false
+    const id = rig.current?.controlFromHits(event.intersections, 3 * PANEL_UNITS_PER_MM)
+    const control = id ? rig.current?.controlById(id) : undefined
+    if (!id || !control || !version) return false
+    event.stopPropagation()
+    if (control.kind === 'selector') { triggerControl(version.definition, c.id, control, { step: event.shiftKey ? -1 : 1 }); return true }
+    pressed.current = { id, at: performance.now() }
+    rig.current?.hold(id, true); invalidate()
+    const release = () => {
+      window.removeEventListener('pointerup', release)
+      const press = pressed.current
+      pressed.current = null
+      rig.current?.hold(id, false); invalidate()
+      if (press) triggerControl(version.definition, c.id, control, performance.now() - press.at >= 600 ? 'long' : 'press')
+    }
+    window.addEventListener('pointerup', release)
+    return true
+  }
   const fire = (event: ThreeEvent<MouseEvent | PointerEvent>, trigger: TriggerName) => {
     if (!version) return
+    if (trigger !== 'pressDown' && rig.current?.controlFromHits(event.intersections, 3 * PANEL_UNITS_PER_MM)) return
     const interactions = interactionsFor(version.definition, trigger, partIdOf(event.object, known))
     if (!interactions.length) return
     const store = useSimStore.getState()
@@ -85,7 +117,7 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
     position={position}
     onClick={(event) => fire(event, 'click')}
     onDoubleClick={(event) => fire(event, 'doubleClick')}
-    onPointerDown={(event) => fire(event, 'pressDown')}
+    onPointerDown={(event) => { if (!controlDown(event)) fire(event, 'pressDown') }}
     onPointerUp={(event) => fire(event, 'pressUp')}
   >
     <primitive object={model} />

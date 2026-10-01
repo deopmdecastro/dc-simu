@@ -50,6 +50,10 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
   }
   const la = (label: string) => t(c, label)?.id
 
+  // multímetro em modo de corrente: as fichas COM e mA/10 A ficam ligadas em série (shunt)
+  const meterBridge = c.state?.meterBridge as unknown
+  if (Array.isArray(meterBridge) && meterBridge.length === 2) pair(la(String(meterBridge[0])), la(String(meterBridge[1])))
+
   switch (c.type) {
     // ---- proteção: fecha os polos quando armado e não disparado ----
     case 'breaker1p':

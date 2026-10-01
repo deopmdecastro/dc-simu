@@ -54,6 +54,8 @@ import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY
 import { terminal3DFromProjectedLocal, projectedTerminalLocal } from '../src/schematic/componentTerminalViews'
 import { buildProjectPreview } from '../src/dashboard/projectPreview'
 import { viewCubeMatrix } from '../src/components/ViewCube'
+import { EMPTY_METER_INPUT, formatDigits, multimeterEvent, multimeterReading, runControlActions, selectorStep, setSelector, evalWhen } from '../src/catalog/behavior'
+import type { ControlDef } from '../src/catalog/types'
 import { componentBounds2D, componentsOverlap2D, nearestFreeComponentPosition, resolveComponentMove } from '../src/schematic/componentCollision'
 
 let failures = 0
@@ -1611,6 +1613,34 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('catálogo: versão do administrador é aplicada sozinha ao componente oficial', count === 1 && after[0].catalog?.version === 2 && after[0].type === catalogType('auto1', 2))
   check('catálogo: cópia independente não é atualizada', after[1].catalog?.version === 1 && after[1].type === catalogType('auto1', 1))
   check('catálogo: posição e identidade da instância mantêm-se', after[0].id === official.id && after[0].ref === 'X1')
+}
+
+/* ----------------------------------------------------------- multímetro e controlos do catálogo (Tarefa 22) */
+{
+  const leads = { com: true, volt: true, ma: false, amp: false }
+  const input = { ...EMPTY_METER_INPUT, vdc: 12.34, vac: 230.9, ohm: 4700, leads }
+  check('multímetro: formato dos dígitos (≥100 → 1 casa, ≥10 → 2, senão 3)', formatDigits(123.456) === '123.5' && formatDigits(12.345) === '12.35' && formatDigits(1.2345).startsWith('1.23'))
+  const dcv = multimeterReading({ dial: 'dcv' }, input)
+  check('multímetro: V⎓ mostra a tensão contínua', dcv.on && dcv.text === '12.34' && dcv.unit === 'V' && dcv.dc && !dcv.warning)
+  const acv = multimeterReading({ dial: 'acv' }, input)
+  check('multímetro: V~ mostra a tensão alternada', acv.ac && acv.text === '230.9' && acv.unit === 'V')
+  const ohm = multimeterReading({ dial: 'ohm' }, input)
+  check('multímetro: Ω escala para kΩ', ohm.unit === 'kΩ' && ohm.text === '4.700')
+  check('multímetro: OFF apaga o ecrã', !multimeterReading({ dial: 'off' }, input).on)
+  const wrong = multimeterReading({ dial: 'ma' }, input)
+  check('multímetro: ponta na ficha errada avisa e não mede', !!wrong.warning && /mA/.test(wrong.warning) && Number(wrong.text) === 0)
+  check('multímetro: sem ponta COM avisa', !!multimeterReading({ dial: 'dcv' }, { ...input, leads: { ...leads, com: false } }).warning)
+  const open = multimeterReading({ dial: 'ohm' }, { ...input, ohm: null })
+  check('multímetro: circuito aberto → OL', open.text === 'OL')
+  const cont = multimeterReading({ dial: 'ohm', cont: true }, { ...input, ohm: 10 })
+  check('multímetro: continuidade com bip abaixo de 50 Ω', cont.continuity && cont.beep)
+  check('multímetro: HOLD, SEL e OFF atuam sobre as variáveis', multimeterEvent({ dial: 'dcv', hold: false }, 'hold').hold === true && multimeterEvent({ dial: 'ohm', cont: false }, 'select').cont === true && multimeterEvent({ dial: 'dcv', sleep: '' }, 'power').sleep === 'dcv')
+  const selector: ControlDef = { id: 'c', name: 'Seletor', kind: 'selector', partId: 'p', axis: 'z', travelMm: 0, bindVar: 'dial', actions: [], positions: [{ id: 'off', label: 'OFF', angle: 0 }, { id: 'dcv', label: 'V', angle: 30 }, { id: 'ohm', label: 'Ω', angle: 60 }] } as unknown as ControlDef
+  check('seletor: avança e volta ao início', selectorStep(selector, { dial: 'dcv' }, 1) === 'ohm' && selectorStep(selector, { dial: 'ohm' }, 1) === 'off' && selectorStep(selector, { dial: 'off' }, -1) === 'ohm')
+  check('seletor: rodar acorda o aparelho', setSelector(selector, { dial: 'dcv', sleep: 'dcv' }, 'ohm').sleep === '')
+  const toggled = runControlActions([{ type: 'toggleVar', var: 'hold' }], { hold: false }, 'off')
+  check('ações: alternar variável', toggled.vars.hold === true)
+  check('condições: evalWhen compara variáveis', evalWhen({ var: 'dial', value: 'dcv' }, { dial: 'dcv' }) && !evalWhen({ var: 'dial', value: 'dcv' }, { dial: 'ohm' }) && evalWhen({ var: 'hold', op: 'ne', value: true }, { hold: false }))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

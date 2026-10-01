@@ -101,3 +101,23 @@ O carregador de GLB (`src/three/gltfLoader.ts`) suporta modelos comprimidos com 
 - O enquadramento (Enquadrar, ISO, faces, «Enquadrar seleção») usa a esfera envolvente real do modelo e o campo de visão, por isso componentes pequenos (bornes) e grandes (quadros) ficam igualmente centrados. Os limites de zoom e os planos near/far da câmara adaptam-se ao tamanho do modelo.
 - Ao abrir um componente, a câmara reenquadra sozinha quando o GLB acaba de carregar, até o utilizador mexer na câmara.
 - A lista «Bornes» à esquerda separa-os **Por vista** (Frente, Trás, Esquerda, Direita, Topo, Base; o botão de cada vista leva a câmara a essa face) ou **Por grupo** funcional.
+
+## Botões, ecrãs, LEDs e multímetro (Tarefa 22)
+
+**Armazenamento.** O catálogo e os GLB publicados vivem em IndexedDB (`src/auth/idbStore.ts`, com migração do `localStorage`), pelo que modelos grandes já não rebentam a quota de ~5 MB («Sem espaço no navegador…»).
+
+**Separador «Botões»** (`tabsControls.tsx`, `controlOps.ts`). Um *controlo* liga objetos do GLB a uma ação:
+- `button` (prime e solta; pressão longa opcional), `toggle` e `selector` (rotativo com posições e ângulos).
+- Escolhem-se os objetos no modelo («Escolher no modelo») — um botão pode ter vários (tampa, símbolo, texto).
+- Ações: definir/alternar/ciclar variável, mudar de estado, evento de comportamento. As variáveis (`vars`) são do componente e vão no estado da instância.
+- Em Simular, clica-se no modelo; cada controlo tem uma zona de clique invisível (caixa dos seus objetos) porque as malhas finas do GLB deixavam o raio passar.
+
+**Separador «Ecrãs».** Um ecrã é um retângulo posicionado sobre uma face (tamanho em mm à medida): `text` (texto com variáveis) ou `lcd` (LCD de multímetro de 7 segmentos com indicadores DC/AC/AUTO/HOLD/BAT). Pode esconder os objetos do GLB que trazem os dígitos desenhados.
+
+**Separador «Luzes».** «+ LED na superfície» (clique no modelo), «+ Zona de luz» (peça ou objetos do GLB), tipo LED/lâmpada, cor, intensidade, *Acende quando* uma variável se verifica, e pisca.
+
+**Multímetro** (`behavior.ts`, `electrical/meterModel.ts`). «Aplicar modelo de multímetro» configura seletor (OFF, V~, V⎓, mA, 10 A, Ω), botões SEL/REL, OFF e HOLD (pressão longa = luz) e o LCD. O modelo RGK DM-20 é reconhecido pelos nomes dos objetos; noutros GLB os objetos escolhem-se à mão.
+- Leitura: tensão CC/CA entre COM e V/Ω, resistência (kΩ/MΩ, OL), continuidade com bip (<50 Ω), corrente mA/10 A. Formato dos dígitos: ≥100 → 1 casa, ≥10 → 2, senão 3.
+- Avisos: ponta na ficha errada, falta de COM, Ω em circuito com tensão.
+- No simulador os valores vêm do circuito ligado às fichas (a corrente é uma estimativa — o motor é de continuidade, sem solver de tensões). No editor há «Valores de teste».
+- Os controlos também aparecem no Inspetor do simulador e funcionam no painel 3D.
