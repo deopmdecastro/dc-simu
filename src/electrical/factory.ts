@@ -521,15 +521,20 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   motor3ph: {
     category: 'motor', paletteName: 'Motor SEW DRN80MK4/B3 · 0,55 kW', group: 'Motores', tag: 'M', w: 140, h: 120,
     terminals: [
-      T('U1', 'power-in', 0.25, 0), T('V1', 'power-in', 0.5, 0), T('W1', 'power-in', 0.75, 0),
-      T('PE', 'earth', 0.5, 1),
+      T('U1', 'power-in', 0.25, 0, { position3D: { x: 0.28, y: 1, z: 0.34 }, terminalType: 'screw', diameter: 11 }),
+      T('V1', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 1, z: 0.34 }, terminalType: 'screw', diameter: 11 }),
+      T('W1', 'power-in', 0.75, 0, { position3D: { x: 0.72, y: 1, z: 0.34 }, terminalType: 'screw', diameter: 11 }),
+      T('W2', 'coil-minus', 0.25, 1, { position3D: { x: 0.28, y: 1, z: 0.7 }, terminalType: 'screw', diameter: 11 }),
+      T('U2', 'coil-minus', 0.5, 1, { position3D: { x: 0.5, y: 1, z: 0.7 }, terminalType: 'screw', diameter: 11 }),
+      T('V2', 'coil-minus', 0.75, 1, { position3D: { x: 0.72, y: 1, z: 0.7 }, terminalType: 'screw', diameter: 11 }),
+      T('PE', 'earth', 0.93, 0.5, { position3D: { x: 0.9, y: 1, z: 0.52 }, terminalType: 'screw', diameter: 11 }),
     ],
     // Valores da ficha CADENAS/3Dfindit recebida com o modelo DRN80MK4-B3.
     defaultState: {
       running: false, direction: 'stopped', rpmVisual: 0, tripped: false,
       manufacturer: 'SEW-EURODRIVE', model: 'DRN80MK4/B3', mounting: 'B3', frame: 80,
       phases: 3, powerKw: 0.55, cv: 0.75, rpm: 1435, frequencyHz: 50, voltage: '400V', currentA: 1.29,
-      cosPhi: 0.75, torqueNm: 3.65, massKg: 11,
+      cosPhi: 0.75, torqueNm: 3.65, massKg: 11, motorConnection: 'star',
     },
   },
   motor1ph: {

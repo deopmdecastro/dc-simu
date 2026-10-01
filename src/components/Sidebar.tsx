@@ -34,7 +34,7 @@ const STATE_LABELS: Record<string, string> = {
   torqueNm: 'Binário nominal (Nm)', massKg: 'Massa (kg)', direction: 'Sentido de rotação',
   color: 'Cor da luz', lamp: 'Fonte luminosa', mountingDiameterMm: 'Furação do painel (mm)',
   currentMa: 'Corrente máxima (mA)', serviceLifeHours: 'Vida útil (h)', protection: 'Proteção',
-  operatingTemperature: 'Temperatura de serviço',
+  operatingTemperature: 'Temperatura de serviço', motorConnection: 'Pontes da caixa de bornes',
 }
 const PILOT_LIGHT_COLORS = [
   { name: 'Vermelho', value: '#ef4444' }, { name: 'Verde', value: '#22c55e' },
@@ -534,6 +534,14 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                         </div>
                       </div>
                     )
+                  }
+                  if (selectedComponent.type === 'motor3ph' && k === 'motorConnection' && typeof v === 'string') {
+                    return <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5">
+                      <span className="text-ink-500">{stateLabel(k)}</span>
+                      <select className="dc-input !w-32" value={v} onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { motorConnection: e.target.value })}>
+                        <option value="none">Sem pontes</option><option value="star">Estrela (Y)</option><option value="delta">Triângulo (Δ)</option>
+                      </select>
+                    </label>
                   }
                   if (typeof v === 'string') {
                     return (

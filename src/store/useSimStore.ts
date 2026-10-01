@@ -539,7 +539,8 @@ function runOneTick(state: Store, dtMs: number) {
       const u1 = terminalByLabel(c, 'U1')
       const v1 = terminalByLabel(c, 'V1')
       const w1 = terminalByLabel(c, 'W1')
-      const live = !!(u1 && v1 && w1 && pass3.energizedTerminals.has(u1.id) && pass3.energizedTerminals.has(v1.id) && pass3.energizedTerminals.has(w1.id))
+      const bridged = c.state.motorConnection == null || c.state.motorConnection === 'star' || c.state.motorConnection === 'delta'
+      const live = !!(bridged && u1 && v1 && w1 && pass3.energizedTerminals.has(u1.id) && pass3.energizedTerminals.has(v1.id) && pass3.energizedTerminals.has(w1.id))
       c.state.tripped = thermalTripped
       c.state.running = live && !thermalTripped && !sim.faults.phaseLoss
       if (c.state.running) {
