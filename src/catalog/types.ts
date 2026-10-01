@@ -70,6 +70,8 @@ export interface TerminalDef {
   /** Etiquetas de compatibilidade aceites ("fio-1.5, ponteira"); vazio = tudo. */
   accepts: string
   color: string
+  /** Diâmetro visual/físico do encaixe em mm. Omisso = 6 mm. */
+  diameterMm?: number
   /** Função do borne no circuito (L1, N, PE, +24V, A1, I0.0…). Opcional: componentes antigos não a têm. */
   fn?: string
   /** Contacto: NA (NO), NF (NC) ou comum (COM). */

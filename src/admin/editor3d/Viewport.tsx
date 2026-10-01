@@ -58,7 +58,8 @@ function TerminalMarker({ id, selected, hidden, onRef }: { id: string; selected:
   // com um cabo em curso, os restantes bornes mostram o veredicto de compatibilidade
   const verdict = origin ? checkConnection(origin, terminal).level : null
   const base = pending ? '#f59e0b' : verdict ? WIRE_COLOR[verdict] : selected ? '#2655e5' : terminal.color
-  const radius = (selected ? 2.4 : 1.8) + (pending || hovered ? 0.8 : 0) + (verdict ? 0.4 : 0)
+  const physicalRadius = Math.max(1, Math.min(13, (terminal.diameterMm ?? 6) / 2))
+  const radius = physicalRadius * (selected ? 0.82 : 0.65) + (pending || hovered ? 0.8 : 0) + (verdict ? 0.4 : 0)
   const lift = new THREE.Vector3(...terminal.normal).multiplyScalar(1.6)
   return <group ref={onRef} position={terminal.position}>
     {/* zona de clique generosa e à frente da superfície: o modelo nunca "rouba" o clique ao borne */}

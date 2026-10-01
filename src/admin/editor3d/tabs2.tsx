@@ -77,6 +77,7 @@ export function TerminalsTab() {
       <Section title="Posição e saída">
         <Vec3Input label="Posição" unit="mm" step={0.5} value={terminal.position} onChange={(position) => patch({ position }, 'pos')} />
         <Field label="Face"><Select value={faceOfNormal(terminal.normal)} onChange={moveToFace} options={[['front', 'Frente'], ['back', 'Trás'], ['left', 'Esquerda'], ['right', 'Direita'], ['top', 'Topo'], ['bottom', 'Base']]} /></Field>
+        <Field label="Diâmetro do encaixe" hint="Usado no marcador e para a ponteira preencher o furo sem engrossar o cabo."><span className="ce-inline"><Num value={terminal.diameterMm ?? 6} min={2} max={26} step={0.5} unit="mm" onChange={(diameterMm) => patch({ diameterMm }, 'diameter')} /><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => edit((state) => ({ ...state, terminals: state.terminals.map((item) => ({ ...item, diameterMm: terminal.diameterMm ?? 6 })) }), 'terminal:diameter-all')}>Todos</button></span></Field>
         <Field label="Normal (avançado)"><Select value={normalKey(terminal.normal)} onChange={(key) => patch({ normal: NORMALS.find(([id]) => id === key)![2] }, 'normal')} options={NORMALS.map(([id, label]): [string, string] => [id, label])} /></Field>
         <p className="ce-hint">A face leva o borne para esse lado do componente. A normal decide a direção em que o cabo sai.</p>
       </Section>

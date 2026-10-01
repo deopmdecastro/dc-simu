@@ -33,6 +33,8 @@ export interface TerminalTemplate {
   y: number
   terminalType?: TerminalType
   color?: string
+  /** Diâmetro publicado do encaixe, convertido para a escala do Esquema. */
+  diameter?: number
   /** Catálogo: identidade estável, posição 3D normalizada e regras. */
   defId?: string
   electricalClass?: import('../types').TerminalElectricalClass
@@ -738,6 +740,7 @@ export function createComponent(
     ...(t.position3D ? { position3D: { ...t.position3D } } : {}),
     ...(t.rules ? { catalogRules: { ...t.rules } } : {}),
     ...(t.displayName ? { displayName: t.displayName } : {}),
+    ...(t.diameter ? { diameter: t.diameter } : {}),
     energized: false,
   }))
   const presentation3D = getDefaultComponent3DPresentation(type)
