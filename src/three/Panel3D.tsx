@@ -1323,7 +1323,7 @@ type PanelCameraView = 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bo
 type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number]; dx?: number; dy?: number; yaw?: number; pitch?: number }
 
 /** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
-function PanelCameraRig({ command, railWidth, onStats, frontEdit = false }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void; frontEdit?: boolean }) {
+function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMode = false }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void; frontEdit?: boolean; panMode?: boolean }) {
   const { camera, size } = useThree()
   const controlsRef = useRef<any>(null)
   // Enquadramento usa os valores mais recentes sem reiniciar a câmara quando o conteúdo/tamanho muda.
@@ -1447,10 +1447,14 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false }: { co
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, command])
-  // A cena permanece navegável em todas as vistas: arrastar orbita livremente em X/Y,
-  // a roda aproxima/afasta e o botão direito faz pan, inclusive no modo de edição frontal.
-  const buttons = frontEdit ? { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN } : undefined
-  const touches = frontEdit ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : undefined
+  // A mão «Arrastar malha» faz pan também no esquema 3D. Fora desse modo,
+  // o botão esquerdo continua a orbitar e o direito a deslocar a vista.
+  const buttons = panMode || frontEdit
+    ? { LEFT: panMode ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }
+    : undefined
+  const touches = panMode
+    ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN }
+    : frontEdit ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : undefined
   return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} enablePan enableRotate enableZoom enableDamping dampingFactor={0.08} rotateSpeed={0.82} panSpeed={0.72} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning />
 }
 
@@ -1637,6 +1641,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const viewOrientationEditor = useSimStore((s) => s.viewOrientationEditor)
   const railMagnet = useSimStore((s) => s.grid.railMagnet !== false)
   const tool = useSimStore((s) => s.tool)
+  const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = tool === 'wire' ? 'connect' : 'navigate'
   const [connectionStartId, setConnectionStartId] = useState<string | null>(null)
   const [reconnect, setReconnect] = useState<{ wireId: string; end: 'from' | 'to' } | null>(null)
@@ -1897,7 +1902,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       selected={selectedIds.includes(component.id)}
       editingTerminals={viewOrientationEditor?.componentId === component.id}
       movable={false}
-      draggable={editMode === 'navigate' && !component.locked && !viewOrientationEditor && !reconnect}
+      draggable={editMode === 'navigate' && !gridDragEnabled && !component.locked && !viewOrientationEditor && !reconnect}
       connectionMode={editMode === 'connect' || reconnect !== null}
       connectionStartId={draft && 'terminalId' in draft.from ? draft.from.terminalId : null}
       onSelect={() => selectComponents([component.id])}
@@ -2326,7 +2331,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           onReconnectPick={pickConnectionTerminal}
         />
 
-        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} frontEdit={frontEdit} />
+        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} frontEdit={frontEdit} panMode={gridDragEnabled} />
       </Canvas>
 
       <div className="panel3d-axis-hud" aria-label="Orientação da câmara 3D">
