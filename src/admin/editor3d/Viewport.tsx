@@ -91,6 +91,7 @@ function TerminalMarker({ id, selected, hidden, onRef }: { id: string; selected:
 function Scene() {
   const def = useEditorStore((s) => s.def)
   const mode = useEditorStore((s) => s.mode)
+  const tab = useEditorStore((s) => s.tab)
   const editState = useEditorStore((s) => s.editState)
   const previewState = useEditorStore((s) => s.previewState)
   const selection = useEditorStore((s) => s.selection)
@@ -152,16 +153,17 @@ function Scene() {
   }, [activeState, mode, root])
   const vars = useMemo(() => mergeVars(def, previewVars), [def.vars, def.controls, def.behavior, previewVars])
   const reading = useMemo(() => (def.behavior ? multimeterReading(vars, meterTest, 0) : null), [def.behavior, vars, meterTest])
+  const liveControlTest = mode === 'simulate' || (mode === 'edit' && tab === 'controls' && ribbon === 'select' && !pick && !placing)
   useEffect(() => {
     rig.current = new ComponentRig(def, root, animator.current)
     rig.current.setVars(vars, reading, resolveState(def, previewState).name)
-    rig.current.setHitProxies(useEditorStore.getState().mode === 'simulate')
+    rig.current.setHitProxies(liveControlTest)
     rig.current.snap()
     invalidate()
     return () => { rig.current?.dispose(); rig.current = null }
   }, [root, def.controls, def.displays, def.lights, def.states, def.behavior])
   useEffect(() => { rig.current?.setVars(vars, reading, resolveState(def, previewState).name); invalidate() }, [vars, reading, previewState])
-  useEffect(() => { rig.current?.setHitProxies(mode === 'simulate') }, [mode])
+  useEffect(() => { rig.current?.setHitProxies(liveControlTest) }, [liveControlTest])
   useEffect(() => { setBeep(mode === 'simulate' && !!reading?.beep); return () => setBeep(false) }, [reading?.beep, mode])
   useFrame((_, delta) => { const a = animator.current?.update(Math.min(delta, 0.1)); const b = rig.current?.update(Math.min(delta, 0.1)); if (a || b) invalidate() })
   useEffect(() => { invalidate() }, [def, selection, pick, hoverNodeState, placingDisplay, displayCorner, placingLed, view, mode, tool, ribbon, hover, placing, testWiresState, wireFromState, wirePointsState, selectedWireState, hiddenTerminals, measurementsState])
@@ -352,7 +354,7 @@ function Scene() {
     else state.edit((current) => ({ ...current, lights: current.lights.map((item) => (item.id === target.id ? { ...item, partId: hit.partId, nodes: toggle(item.partId, item.nodes) } : item)) }))
   }
   const pressDown = (event: ThreeEvent<PointerEvent>) => {
-    if (mode !== 'simulate' || ribbon === 'wire' || ribbon === 'measure') return
+    if (!liveControlTest || ribbon === 'wire' || ribbon === 'measure') return
     if (event.intersections[0]?.object !== event.object) return
     const id = rig.current?.controlFromHits(event.intersections, 3)
     const control = id ? rig.current?.controlById(id) : undefined

@@ -202,7 +202,7 @@ export function ControlsTab() {
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => create('button')}>+ Botão</button>
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => create('toggle')}>+ Interruptor</button>
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => create('selector')}>+ Seletor</button></span>}>
-      <p className="ce-hint">Um controlo liga uma peça (ou objetos de um modelo GLB) a uma ação. Selecione primeiro a peça para a associar. Na <b>simulação</b> (e no simulador) clique para premir; o seletor roda à posição seguinte (Shift = anterior).</p>
+      <p className="ce-hint">Um controlo liga uma peça (ou objetos de um modelo GLB) a uma ação. Selecione primeiro a peça para a associar. Pode testá-lo imediatamente em <b>Editar › Controlos › Selecionar</b> ou em <b>Simular</b>: clique/toque para premir; o seletor roda à posição seguinte (Shift = anterior).</p>
       <div className="ce-actions-inline" aria-label="Acionamentos industriais prontos">
         <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => createPreset('breaker')}>Disjuntor ON/OFF</button>
         <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => createPreset('selector')}>Chave seletora</button>
