@@ -1,6 +1,6 @@
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ContactShadows, Environment, OrbitControls, useGLTF } from '@react-three/drei'
-import { Suspense, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { createComponent } from '../electrical/factory'
@@ -352,7 +352,7 @@ function FixedPanel() {
       {/* pavimento de betão polido com reflexo suave */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.43, 1.2]} receiveShadow>
         <planeGeometry args={[14, 14]} />
-        <meshStandardMaterial color="#aeb5b8" map={concrete.map} bumpMap={concrete.bump} bumpScale={0.7} roughnessMap={concrete.rough} roughness={0.48} metalness={0.09} envMapIntensity={0.78} />
+        <meshStandardMaterial color="#c4cacc" map={concrete.map} bumpMap={concrete.bump} bumpScale={0.7} roughnessMap={concrete.rough} roughness={0.48} metalness={0.09} envMapIntensity={0.78} />
       </mesh>
       {/* parede técnica atrás do quadro */}
       <mesh position={[0, 3, -0.6]} receiveShadow>
@@ -386,10 +386,33 @@ function FixedPanel() {
   )
 }
 
+/** Alvo e direção de câmara do showcase: o enquadramento ajusta-se ao formato do ecrã para o motor e a fonte nunca ficarem cortados. */
+const SHOWCASE_TARGET = new THREE.Vector3(0.35, 1.2, 0.38)
+const SHOWCASE_DIR = new THREE.Vector3(1.1, 1.9, 9.8).normalize()
+const SHOWCASE_WIDTH = 7.6
+const SHOWCASE_HEIGHT = 4.7
+
+function useShowcaseFit(touched: MutableRefObject<boolean>) {
+  const size = useThree((state) => state.size)
+  const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera
+  const aspect = Math.max(0.5, size.width / Math.max(1, size.height))
+  const halfTan = Math.tan((camera.fov * Math.PI) / 360)
+  const fit = Math.max(SHOWCASE_WIDTH / 2 / (halfTan * aspect), SHOWCASE_HEIGHT / 2 / halfTan) * 1.04
+  useLayoutEffect(() => {
+    if (touched.current) return
+    camera.position.copy(SHOWCASE_TARGET).addScaledVector(SHOWCASE_DIR, fit)
+    camera.lookAt(SHOWCASE_TARGET)
+    camera.updateProjectionMatrix()
+  }, [camera, fit, touched])
+  return fit
+}
+
 function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor, onStopMotor }: Omit<Props, 'compact'>) {
   const plcActive = plcRunning ?? true
   const motorActive = plcActive && (motorOn ?? true)
   const stoppedActive = plcActive && !motorActive
+  const touched = useRef(false)
+  const fit = useShowcaseFit(touched)
 
   return (
     <>
@@ -428,11 +451,16 @@ function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor,
         enablePan={false}
         enableZoom
         enableRotate
-        minDistance={5.2}
-        maxDistance={9.2}
-        minPolarAngle={0.38}
-        maxPolarAngle={Math.PI - 0.38}
-        target={[0, 1.22, 0.38]}
+        enableDamping
+        onStart={() => { touched.current = true }}
+        minDistance={fit * 0.62}
+        maxDistance={fit * 1.2}
+        // Limites: nunca por trás da parede nem por baixo do pavimento (vistas escuras/cortadas).
+        minPolarAngle={0.55}
+        maxPolarAngle={Math.PI / 2 + 0.04}
+        minAzimuthAngle={-0.85}
+        maxAzimuthAngle={0.85}
+        target={SHOWCASE_TARGET}
       />
     </>
   )

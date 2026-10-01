@@ -203,8 +203,12 @@ html:has(.dx-landing) {
   background: var(--dx-surface);
 }
 .dx-hero-in {
+  width: 100%;
+  max-width: var(--dx-max);
+  margin-inline: auto;
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6.4fr);
   align-items: center;
   gap: var(--dx-7);
 }
@@ -356,7 +360,7 @@ html:has(.dx-landing) {
 .dx-window-tabs button:focus-visible { outline: 2px solid var(--dx-brand); outline-offset: 1px; }
 .dx-window-stage {
   position: relative;
-  height: 340px;
+  height: clamp(340px, 31vw, 440px);
   background: var(--dx-surface);
 }
 .dx-stage-in {
@@ -750,12 +754,12 @@ html:has(.dx-landing) {
   --ladder-blue-line: #c0d4fc;
 }
 .dx-ladder-demo-body {
-  height: 565px;
+  height: 664px;
   min-height: 0;
 }
 .dx-ladder-panel3d {
   position: relative;
-  height: 565px;
+  height: 664px;
   min-height: 0;
   background: linear-gradient(180deg, #f8fafc, #e8edf5);
 }
@@ -932,6 +936,8 @@ html:has(.dx-landing) {
 .dx-ladder-demo .ladder-networks {
   min-height: 0;
   overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #c3cddc transparent;
   padding: 8px;
   overscroll-behavior: contain;
 }
@@ -965,13 +971,13 @@ html:has(.dx-landing) {
   width: 100%;
   min-width: 0;
   height: auto;
-  aspect-ratio: 600 / 190;
+  aspect-ratio: 600 / 180;
 }
 .dx-ladder-secondary {
   opacity: 1;
 }
 .dx-ladder-status-svg {
-  aspect-ratio: 600 / 112;
+  aspect-ratio: 600 / 100;
 }
 .dx-ladder-current.is-on {
   stroke-dasharray: 5 12;
@@ -1030,7 +1036,7 @@ html:has(.dx-landing) {
   .dx-ladder-demo .ladder-rung-body { padding: 3px 5px; }
   .dx-ladder-demo .ladder-network-comment { display: none; }
   .dx-ladder-demo .ladder-rung-header { min-height: 25px; }
-  .dx-ladder-status-svg { aspect-ratio: 600 / 98; }
+  .dx-ladder-status-svg { aspect-ratio: 600 / 100; }
 }
 @media (max-width: 420px) {
   .dx-ladder-operator > div { display: none; }
@@ -1580,7 +1586,7 @@ html:has(.dx-landing) {
   .dx-showcase-state { top: 8px; left: 8px; max-width: min(190px, 52%); padding: 6px 8px; }
   .dx-showcase-state span { font-size: 10px; }
   .dx-showcase-legend { top: 8px; right: 8px; }
-  .dx-showcase-controls { left: 8px; right: 8px; bottom: 8px; flex-wrap: wrap; justify-content: center; }
+  .dx-showcase-controls { left: 8px; right: 8px; bottom: 8px; transform: none; flex-wrap: wrap; justify-content: center; }
   .dx-showcase-controls button { min-height: 40px; flex: 1 1 calc(50% - 6px); }
 }
 @media (max-width: 380px) {

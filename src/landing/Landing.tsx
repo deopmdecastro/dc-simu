@@ -184,7 +184,7 @@ function HeroViewport() {
           <i aria-hidden /> Simulação ativa
         </b>
         <span>START/STOP → LOGO! → KM1/M1 + H1/H2</span>
-        <span className="end">7 equipamentos reais · cablagem em bornes</span>
+        <span className="end">7 equipamentos reais</span>
       </div>
     </div>
   )
@@ -194,7 +194,7 @@ function HeroViewport() {
 function LandingLadderNetwork({ powered }: { powered: boolean }) {
   const wire = powered ? '#16a34a' : '#8b98aa'
   return (
-    <svg className={`dx-ladder-network-svg${powered ? ' is-powered' : ''}`} viewBox="0 0 600 190" role="img" aria-label={`Network Ladder de marcha e selo com a saída KM1 ${powered ? 'energizada' : 'desenergizada'}`}>
+    <svg className={`dx-ladder-network-svg${powered ? ' is-powered' : ''}`} viewBox="0 4 600 180" role="img" aria-label={`Network Ladder de marcha e selo com a saída KM1 ${powered ? 'energizada' : 'desenergizada'}`}>
       <defs>
         <pattern id="dx-ladder-grid" width="20" height="20" patternUnits="userSpaceOnUse">
           <circle cx="1" cy="1" r="1" fill="#d2dbea" />
@@ -261,7 +261,7 @@ function LandingStatusNetwork({ powered, stopped = false }: { powered: boolean; 
   const lamp = stopped ? 'H2 PARADO' : 'H1 MARCHA'
   const patternId = stopped ? 'dx-ladder-grid-stop' : 'dx-ladder-grid-status'
   return (
-    <svg className={`dx-ladder-network-svg dx-ladder-status-svg${powered ? ' is-powered' : ''}`} viewBox="0 0 600 112" role="img" aria-label={`Sinalização ${lamp} ${powered ? 'ligada' : 'desligada'}`}>
+    <svg className={`dx-ladder-network-svg dx-ladder-status-svg${powered ? ' is-powered' : ''}`} viewBox="0 6 600 100" role="img" aria-label={`Sinalização ${lamp} ${powered ? 'ligada' : 'desligada'}`}>
       <defs>
         <pattern id={patternId} width="20" height="20" patternUnits="userSpaceOnUse">
           <circle cx="1" cy="1" r="1" fill="#d2dbea" />
