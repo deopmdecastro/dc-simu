@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { COMPONENT_PHYSICAL_SIZE_MM, getComponentModelSpec } from '../src/three/modelPaths'
 import type { ComponentType } from '../src/types'
 
@@ -15,7 +16,7 @@ export async function auditModels() {
     if (!fs.existsSync(file)) continue
     const buf = fs.readFileSync(file)
     const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
-    const gltf: any = await new Promise((resolve, reject) => new GLTFLoader().parse(ab, '', resolve, reject))
+    const gltf: any = await new Promise((resolve, reject) => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parse(ab, '', resolve, reject))
     const raw = new THREE.Box3().setFromObject(gltf.scene, true).getSize(new THREE.Vector3())
     gltf.scene.rotation.set(...spec.rotation)
     gltf.scene.updateMatrixWorld(true)

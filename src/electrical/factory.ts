@@ -711,6 +711,16 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: [T('1', 'io', 0.15, 0.5), T('2', 'io', 0.85, 0.5)],
     defaultState: { reading: 0, scaleInA: 10 },
   },
+  multimeterDm20: {
+    category: 'measurement', paletteName: 'Multímetro digital RGK DM-20', group: 'Aparelhos de medir', tag: 'MM', w: 132, h: 276,
+    terminals: [
+      T('COM', 'io', 0.24, 0.86, { terminalType: 'plug', color: '#111827', electricalClass: 'other' }),
+      T('VΩ', 'io', 0.43, 0.86, { terminalType: 'plug', color: '#dc2626', electricalClass: 'other' }),
+      T('mA', 'io', 0.62, 0.86, { terminalType: 'plug', color: '#f59e0b', electricalClass: 'other' }),
+      T('10A', 'io', 0.81, 0.86, { terminalType: 'plug', color: '#ea580c', electricalClass: 'other' }),
+    ],
+    defaultState: { selector: 'off', hold: false, backlight: false, relative: false },
+  },
 }
 
 /** Cria um componente novo a partir do template, com TAG automático se não informado. */

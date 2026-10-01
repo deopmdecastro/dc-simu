@@ -103,6 +103,8 @@ export type ComponentType =
   | 'powerSupply'
   | 'powerSupplyProauto24A'
   | 'analogAmmeter'
+  // --- Aparelhos de medir ----------------------------------------------
+  | 'multimeterDm20'
 
 /**
  * Tipos físicos de terminal/conexão do borne — inclui os terminais de cabo

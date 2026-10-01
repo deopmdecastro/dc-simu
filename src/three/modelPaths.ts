@@ -17,6 +17,7 @@ export const MODEL_PATHS = {
   dinRail15x55: '/models/bornes-e-barras/din-rail-15x5-5-perfurada-1m.glb',
   motorSewDrn80Mk4B3: '/models/motores/DRN80MK4-B3.glb',
   pilotLightAd22: '/models/sinalizacao/ad22-22ds-24v.glb',
+  multimeterDm20: '/models/aparelhos-de-medir/rgk-dm20-multimetro.glb',
 } as const
 
 /** `rail`: a própria calha — não é montada numa calha, monta-se diretamente na chapa. */
@@ -58,6 +59,7 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   dinRail15x55: { width: 1000, height: 15, depth: 5.5 },
   motor3ph: { width: 264, height: 208, depth: 156 },
   pilotLightAd22: { width: 29.3, height: 29.3, depth: 51.5 },
+  multimeterDm20: { width: 88, height: 184, depth: 53 },
 }
 
 export interface ComponentModelSpec {
@@ -118,6 +120,7 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
 
   motor3ph: spec('motor3ph', MODEL_PATHS.motorSewDrn80Mk4B3, [0, 0, 0], 'machine'),
   pilotLightAd22: spec('pilotLightAd22', MODEL_PATHS.pilotLightAd22, [Math.PI / 2, 0, 0], 'panel-front'),
+  multimeterDm20: spec('multimeterDm20', MODEL_PATHS.multimeterDm20, [0, 0, 0], 'machine'),
 }
 
 export function getComponentModelSpec(type: ComponentType): ComponentModelSpec | undefined {

@@ -18,6 +18,7 @@ acentos, por exemplo `disjuntor-2p.glb`.
 | Sinalização | `sinalizacao/` |
 | Bornes e barras | `bornes-e-barras/` |
 | Fontes | `fontes/` |
+| Aparelhos de medir | `aparelhos-de-medir/` |
 
 ## Modelos disponíveis
 
@@ -45,6 +46,7 @@ Os CAD integrados pelo renderizador comum de `src/schematic/cad3DImage.ts` e pel
 | Borne PE genérico | `bornes-e-barras/terminal-pe.glb` | Calha DIN |
 | Motor SEW-EURODRIVE DRN80MK4/B3 | `motores/DRN80MK4-B3.glb` | Máquina / montagem com pés B3 |
 | Sinaleiro LED AD22-22DS | `sinalizacao/ad22-22ds-24v.glb` | Frente do painel · furação 22 mm |
+| Multímetro digital RGK DM-20 | `aparelhos-de-medir/rgk-dm20-multimetro.glb` | Aparelho portátil / bancada |
 
 O sinaleiro AD22-22DS mede aproximadamente 29,3 × 29,3 × 51,5 mm no CAD recebido. O eixo já aponta
 para +Z e a face fica frontal sem correção de origem. A lente vermelha está isolada no material

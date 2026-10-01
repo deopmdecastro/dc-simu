@@ -2341,6 +2341,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />
             const [px, py, pz] = frontPivot(c)
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><CatalogComponent3D c={c} position={[x + px, py, pz]} anchor="center">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.1]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
+          } else if (c.type === 'multimeterDm20') {
+            content = <Model3DErrorBoundary fallback={<Sensor3D c={c} x={x} onToggle={() => {}} />}><Suspense fallback={<Sensor3D c={c} x={x} onToggle={() => {}} />}><CadComponentReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'pilotLightAd22') {
             const fallback = <Lamp3D c={c} x={x} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><PilotLightAd22Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
