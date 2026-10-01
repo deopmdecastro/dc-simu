@@ -10,7 +10,6 @@ import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColo
 import * as THREE from 'three'
 import { cloneModelScene } from './modelFit'
 import { finishCadMaterial } from './catalogMaterials'
-import { StudioEnvironment } from './StudioEnvironment'
 import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
@@ -2275,12 +2274,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       <ComponentViewEditor />
       </div>
       </div>
-      <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onCreated={({ gl }) => { gl.outputColorSpace = THREE.SRGBColorSpace; gl.toneMapping = THREE.NeutralToneMapping; gl.toneMappingExposure = 1 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
+      <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
         <color attach="background" args={[sceneBackground]} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
-        <StudioEnvironment />
-        <ambientLight intensity={0.35} />
-        <directionalLight position={[4, 7, 5]} intensity={1.5} castShadow />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
         {/* A grelha de edição partilhada permanece montada em todas as vistas 3D.
             A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}

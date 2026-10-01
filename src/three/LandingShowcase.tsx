@@ -436,8 +436,8 @@ function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor,
         return <DemoCable key={definition.id} definition={definition} energized={energized} />
       })}
 
-      <ContactShadows position={[0, -0.425, 0.6]} opacity={0.3} scale={9} blur={2.8} far={4} resolution={512} />
-      <Environment preset="warehouse" environmentIntensity={1.25} />
+      <ContactShadows position={[0, -0.425, 0.6]} opacity={0.45} scale={9} blur={2.4} far={4} resolution={512} />
+      <Environment preset="warehouse" environmentIntensity={1.08} />
       <OrbitControls
         makeDefault
         enablePan={false}
@@ -475,8 +475,8 @@ export default function LandingShowcase(props: Props) {
         shadows
         onCreated={({ gl }) => {
           gl.outputColorSpace = THREE.SRGBColorSpace
-          gl.toneMapping = THREE.NeutralToneMapping // cores reais do fabricante (ACES dessaturava)
-          gl.toneMappingExposure = 1.0
+          gl.toneMapping = THREE.ACESFilmicToneMapping
+          gl.toneMappingExposure = 0.94
         }}
       >
         <Suspense fallback={null}>

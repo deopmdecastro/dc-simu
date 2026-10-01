@@ -66,8 +66,7 @@ function normalizeObject(root: THREE.Object3D) {
   root.updateMatrixWorld(true)
 }
 
-/** Acabamento de catálogo: preserva a cor real do CAD e corrige apenas o brilho
- * físico (ver `catalogMaterials.ts`). Cada CAD recebe materiais clonados para
+/** Materiais originais do CAD (ver `catalogMaterials.ts`). Cada CAD recebe materiais clonados para
  * nunca alterar a fonte GLB em cache. Sem sombras: os componentes flutuam sobre
  * fundo transparente. */
 function enhanceTurntableMaterials(root: THREE.Object3D) {
@@ -79,7 +78,7 @@ function enhanceTurntableMaterials(root: THREE.Object3D) {
     const source = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     mesh.userData.turntableNeedsOutline = source.some((entry) => entry instanceof THREE.MeshStandardMaterial
       && !entry.map && entry.metalness < 0.5 && entry.color.getHSL({ h: 0, s: 0, l: 0 }).l > 0.72)
-    const enhanced = source.map((entry) => finishCadMaterial(entry, { envMapIntensity: 1.25 }))
+    const enhanced = source.map((entry) => finishCadMaterial(entry))
     mesh.material = Array.isArray(mesh.material) ? enhanced : enhanced[0]
   })
   // Contorno técnico muito fino: recupera parafusos, junções e silhuetas dos
@@ -112,15 +111,15 @@ async function renderRow(type: ComponentType, pitchIndex: number): Promise<Compo
   enhanceTurntableMaterials(object)
   turntable.add(object)
 
-  scene.add(new THREE.HemisphereLight('#ffffff', '#94a3b8', 0.7))
-  const key = new THREE.DirectionalLight('#fff8ec', 2.1)
+  scene.add(new THREE.HemisphereLight('#f8fbff', '#334155', 1.2))
+  const key = new THREE.DirectionalLight('#fff8e8', 2.8)
   key.position.set(3.8, 5.2, 6)
   scene.add(key)
-  const fill = new THREE.DirectionalLight('#c8dcff', 0.6)
+  const fill = new THREE.DirectionalLight('#a9c8ff', 1.15)
   fill.position.set(-4.5, 2.5, 2.2)
   scene.add(fill)
-  const rim = new THREE.DirectionalLight('#ffffff', 1.1)
-  rim.position.set(1, 1.5, -5)
+  const rim = new THREE.DirectionalLight('#ffffff', 0.9)
+  rim.position.set(1, 1, -5)
   scene.add(rim)
 
   const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 50)
@@ -132,9 +131,8 @@ async function renderRow(type: ComponentType, pitchIndex: number): Promise<Compo
   renderer.setSize(208, 208, false)
   renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 1.5), 2))
   renderer.outputColorSpace = THREE.SRGBColorSpace
-  // Khronos PBR Neutral: mantém as cores reais do fabricante (ACES dessaturava-as).
-  renderer.toneMapping = THREE.NeutralToneMapping
-  renderer.toneMappingExposure = 1.05
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 0.94
   renderer.setClearColor(0x000000, 0)
   const pmrem = new THREE.PMREMGenerator(renderer)
   const room = new RoomEnvironment()
