@@ -1213,6 +1213,7 @@ export const useSimStore = create<Store>((set, get) => ({
         clone.z = topZ
         clone.mirrored = src.mirrored
         clone.rotation = src.rotation
+        if (src.catalog) clone.catalog = { ...src.catalog }
         clone.viewOrientation = componentOrientationOf(src)
         const sourceTerminalIndexes = new Map(src.terminals.map((terminal, index) => [terminal.id, index]))
         clone.terminalViewPositions = Object.fromEntries(Object.entries(src.terminalViewPositions ?? {}).map(([view, positions]) => [view,

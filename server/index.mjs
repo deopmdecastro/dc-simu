@@ -4,6 +4,7 @@ import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypt
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { registerAdmin } from './admin.mjs'
+import { registerCatalog } from './catalog.mjs'
 
 const dir = process.env.DATA_DIR || './data'
 mkdirSync(dir, { recursive: true })
@@ -177,6 +178,7 @@ app.post('/api/invitations/:id/:action',auth,(req,res)=>{
 // Rotas administrativas separadas das rotas normais de projeto: o papel
 // admin não contorna implicitamente as permissões de leitura/escrita do editor.
 registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, auditReq, clientIp, fixedAccounts, contribDir, dataDir: dir, attempts })
+registerCatalog({ app, db, auth, admin, fail, auditReq, dataDir: dir })
 
 // ---------------------------------------------------------------------------
 // Contribuições (datasheets PDF e modelos 3D GLB) — qualquer conta autenticada

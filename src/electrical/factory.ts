@@ -11,6 +11,8 @@
 //   paletteName     nome exibido na biblioteca
 // ============================================================================
 
+import { hiddenCatalogTypes } from '../catalog/hidden'
+import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
 import { nanoid } from 'nanoid'
 import type {
@@ -31,6 +33,12 @@ export interface TerminalTemplate {
   y: number
   terminalType?: TerminalType
   color?: string
+  /** Catálogo: identidade estável, posição 3D normalizada e regras. */
+  defId?: string
+  electricalClass?: import('../types').TerminalElectricalClass
+  position3D?: { x: number; y: number; z: number }
+  rules?: { polarity: string; direction: string; accepts: string }
+  displayName?: string
 }
 
 export interface ComponentTemplate {
@@ -725,6 +733,11 @@ export function createComponent(
     color: t.color ?? KIND_COLOR[t.kind],
     x: t.x,
     y: t.y,
+    ...(t.defId ? { defId: t.defId } : {}),
+    ...(t.electricalClass && t.electricalClass !== 'other' ? { electricalClass: t.electricalClass } : {}),
+    ...(t.position3D ? { position3D: { ...t.position3D } } : {}),
+    ...(t.rules ? { catalogRules: { ...t.rules } } : {}),
+    ...(t.displayName ? { displayName: t.displayName } : {}),
     energized: false,
   }))
   const presentation3D = getDefaultComponent3DPresentation(type)
@@ -749,6 +762,7 @@ export function createComponent(
     mirrored: false,
     locked: false,
     bodyColor: presentation3D.bodyColor,
+    ...(parseCatalogType(type) ? { catalog: { id: parseCatalogType(type)!.id, version: parseCatalogType(type)!.version, source: 'official' as const } } : {}),
     editorVersion: 1,
     editorUpdatedAt: createdAt,
     editorLastChange: 'Versão inicial',
@@ -835,6 +849,7 @@ export function terminalByLabel(c: ElectricalComponent, label: string): Terminal
 export function paletteGroups(): Array<{ group: string; items: Array<{ type: ComponentType; name: string; category: ComponentCategory }> }> {
   const groups = new Map<string, Array<{ type: ComponentType; name: string; category: ComponentCategory }>>()
   for (const [type, tpl] of Object.entries(TEMPLATES) as Array<[ComponentType, ComponentTemplate]>) {
+    if (hiddenCatalogTypes.has(type)) continue
     if (!groups.has(tpl.group)) groups.set(tpl.group, [])
     groups.get(tpl.group)!.push({ type, name: tpl.paletteName, category: tpl.category })
   }

@@ -165,3 +165,18 @@ export function hasDinRailModel(type: ComponentType): boolean {
 export function isMountingRail(type: ComponentType): boolean {
   return getComponentGlbSpec(type)?.placement === 'rail'
 }
+
+/** Registo em tempo de execução dos componentes do catálogo oficial (um tipo por versão publicada). */
+export function registerCatalogModel(type: ComponentType, path: string, physicalSizeMm: PhysicalSizeMm, placement: ComponentPlacement): void {
+  COMPONENT_PHYSICAL_SIZE_MM[type] = physicalSizeMm
+  MODEL_SPECS[type] = {
+    path, rotation: [0, 0, 0], placement, physicalSizeMm,
+    targetHeight: physicalSizeMm.height * PANEL_UNITS_PER_MM,
+  }
+}
+
+/** Atualiza só o caminho do GLB (URL do servidor ou blob local). */
+export function setCatalogModelPath(type: ComponentType, path: string): void {
+  const current = MODEL_SPECS[type]
+  if (current) MODEL_SPECS[type] = { ...current, path }
+}

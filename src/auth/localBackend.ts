@@ -1,3 +1,4 @@
+import { localCatalogApi } from './localCatalog'
 import type { Invite, Project, User } from '../dashboard/Dashboard'
 import { buildProjectPreview, type ProjectPreviewData } from '../dashboard/projectPreview'
 import type { AdminProject as AdminProjectRow, AdminUser as AdminUserRow, ComponentSetting, LogQuery, SystemInfo } from '../admin/adminTypes'
@@ -347,6 +348,12 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     writeData(data)
     recordLocalAudit(user, `invite.${parts[2]}`, { type: 'project', id: invitation.projectId })
     return { ok: true } as T
+  }
+
+  if (parts[0] === 'catalog' || (parts[0] === 'admin' && parts[1] === 'catalog')) {
+    const catalogUser = requireSession()
+    const handled = localCatalogApi(parts, verb, payload, catalogUser)
+    if (handled !== undefined) return handled as T
   }
 
   if (url === '/settings' && verb === 'GET') {

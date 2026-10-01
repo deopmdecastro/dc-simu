@@ -1,3 +1,4 @@
+import { useCatalogStore } from '../catalog/registry'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { paletteGroups } from '../electrical/factory'
@@ -99,7 +100,8 @@ function Segmented<T extends number | string>({ value, onChange, options, title,
 function Library({ onAdd, groups, renderGlyph }: Pick<Props, 'onAdd' | 'groups' | 'renderGlyph'>) {
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<string>('all')
-  const schematicGroups = useMemo(() => paletteGroups(), [])
+  const catalogRevision = useCatalogStore((s) => s.revision)
+  const schematicGroups = useMemo(() => paletteGroups(), [catalogRevision])
   const q = norm(query)
   const ladderGroups = groups
     .map((g) => ({ ...g, items: g.items.filter((i) => !q || norm(`${i.label} ${i.detail} ${g.title}`).includes(q)) }))

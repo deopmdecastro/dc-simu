@@ -1,3 +1,6 @@
+import CatalogInspector from '../catalog/CatalogInspector'
+import { useCatalogStore } from '../catalog/registry'
+import { hiddenCatalogTypes } from '../catalog/hidden'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { disabledReason, useComponentSettings } from '../admin/componentSettings'
@@ -161,10 +164,11 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
 
   useEffect(() => { if (inspectorRef.current) inspectorRef.current.scrollTop = 0 }, [selectedIds[0], selectedWireId, selectedTerminalId])
 
-  const groups = useMemo(() => paletteGroups(), [])
+  const catalogRevision = useCatalogStore((s) => s.revision)
+  const groups = useMemo(() => paletteGroups(), [catalogRevision])
   const disabledComponents = useComponentSettings((s) => s.disabled)
-  const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => hasComponent3DModel(type) && !(type in disabledComponents)).length, [disabledComponents])
-  const lockedCount = Object.keys(TEMPLATES).length - modelReadyCount
+  const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => hasComponent3DModel(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type)).length, [disabledComponents, catalogRevision])
+  const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type)).length - modelReadyCount
   const selectedComponent = components.find((c) => c.id === selectedIds[0])
   const selectedWire = wires.find((w) => w.id === selectedWireId)
   const wireFromTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.fromTerminalId) : undefined
@@ -332,6 +336,7 @@ export default function Sidebar({ width = 300 }: { width?: number }) {
                 <input className="dc-input" value={selectedComponent.label} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { label: e.target.value })} />
               </div>
               </div></details>
+              {selectedComponent.catalog && <CatalogInspector component={selectedComponent} />}
               <DatasheetPanel type={selectedComponent.type} />
               <details className="dc-inspector-group" open><summary>Posição e aparência</summary><div className="dc-inspector-group-body">
               <LayerButtons />

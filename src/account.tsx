@@ -1,3 +1,4 @@
+import { useCatalogStore } from './catalog/registry'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import App from './App'
 import Logo from './ui/Brand'
@@ -63,6 +64,11 @@ export default function Account() {
     if (user) void useComponentSettings.getState().load()
     else useComponentSettings.getState().reset()
   }, [user?.id, page === 'editor'])
+
+  // Catálogo oficial de componentes 3D: regista os tipos antes de qualquer projeto abrir.
+  useEffect(() => {
+    if (user) void useCatalogStore.getState().load()
+  }, [user?.id])
 
   // Limpa notificações automaticamente — feedback discreto, sem ruído permanente.
   useEffect(() => {
@@ -145,6 +151,7 @@ export default function Account() {
     try {
       const response = await api<Open & { content: unknown }>('/projects/' + id)
       useSimStore.getState().stop()
+      await useCatalogStore.getState().ensureLoaded()
       useSimStore.getState().loadJSON(JSON.stringify(response.content))
       useSimStore.getState().setCurrentProjectName(response.name)
       const entry = { id: response.id, name: response.name, revision: response.revision }

@@ -5,6 +5,7 @@ import { useComponentSettings } from './componentSettings'
 import { adminApi } from './adminApi'
 import { actionLabel, type AdminProject, type AdminUser, type AuditEntry, type ComponentSetting } from './adminTypes'
 import ComponentsTab from './ComponentsTab'
+import CatalogTab from './editor3d/CatalogTab'
 import LogsTab from './LogsTab'
 import SystemTab from './SystemTab'
 import UsersTab from './UsersTab'
@@ -12,7 +13,7 @@ import { contribApi } from '../contrib/contribApi'
 import { COMPONENT_OPTIONS, ContributionRow, formatBytes, formatDate } from '../contrib/ContribParts'
 import { KIND_LABEL, STATUS_LABEL, type Contribution, type ContributionKind, type ContributionStatus, type ContribStats } from '../contrib/types'
 
-type Tab = 'overview' | 'contributions' | 'components' | 'projects' | 'users' | 'logs' | 'system'
+type Tab = 'overview' | 'contributions' | 'components' | 'library3d' | 'projects' | 'users' | 'logs' | 'system'
 
 /** Painel de gestão do administrador: resumo, revisão de contribuições, projetos e contas. */
 export default function AdminPanel({ onBack, currentUser, initialTab = 'overview' }: { onBack: () => void; currentUser: User; initialTab?: Tab }) {
@@ -76,7 +77,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
 
   const pendingCount = stats?.pending ?? 0
   const disabledCount = settings.filter((entry) => !entry.enabled).length
-  const tabs: Array<[Tab, string, number | undefined]> = [['overview', 'Resumo', undefined], ['contributions', 'Contribuições', pendingCount || undefined], ['components', 'Componentes', disabledCount || undefined], ['projects', 'Projetos', projects.length], ['users', 'Utilizadores', users.length], ['logs', 'Registos', undefined], ['system', 'Sistema', undefined]]
+  const tabs: Array<[Tab, string, number | undefined]> = [['overview', 'Resumo', undefined], ['contributions', 'Contribuições', pendingCount || undefined], ['components', 'Componentes', disabledCount || undefined], ['library3d', 'Biblioteca 3D', undefined], ['projects', 'Projetos', projects.length], ['users', 'Utilizadores', users.length], ['logs', 'Registos', undefined], ['system', 'Sistema', undefined]]
   const shownProjects = projects.filter((project) => `${project.name} ${project.owner}`.toLowerCase().includes(projectQuery.trim().toLowerCase()))
 
   return <section className="dx dx-admin cb-panel">
@@ -148,6 +149,8 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
     </div>}
 
     {tab === 'components' && <ComponentsTab settings={settings} contributions={contributions} onChanged={afterChange} onError={onError} onOpenContributions={(type) => { setQuery(type); setStatusFilter('all'); setKindFilter('all'); setTab('contributions') }} />}
+
+    {tab === 'library3d' && <CatalogTab onNotice={setNotice} onError={onError} />}
 
     {tab === 'projects' && <>
       <div className="dx-admin-section"><h2>Projetos</h2><span>{shownProjects.length}/{projects.length}</span></div>

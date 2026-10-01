@@ -1,3 +1,5 @@
+import CatalogComponent3D from './CatalogComponent3D'
+import { isCatalogType } from '../catalog/types'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Text, TransformControls, Edges, useGLTF } from '@react-three/drei'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
@@ -18,7 +20,7 @@ import ComponentViewEditor from '../components/ComponentViewEditor'
 import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from './panel3DEditing'
 import { WireEnd3D } from './WireEnd3D'
-import { WireDrawController, WireDrawLive, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
+import { WireDrawController, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS } from '../schematic/wireEnds'
 import { buildWirePath3D, cableOuterDiameterMm, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D } from './wireGeometry3D'
@@ -2093,6 +2095,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       }
       else if (event.key.toLowerCase() === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey && selectedTarget) { event.preventDefault(); focusSelection() }
       else if (event.key.toLowerCase() === 'g' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); toggleGrid() }
+      else if (event.key.toLowerCase() === 'b' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); cycleBackground() }
       else if (event.key.toLowerCase() === 'm' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); changeEditMode('move') }
       else if (event.key.toLowerCase() === 'c' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); changeEditMode('connect') }
       else if (event.key.toLowerCase() === 'v' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); changeEditMode('curve') }
@@ -2144,20 +2147,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           <button type="button" className={editMode === 'connect' ? 'is-edit-active' : ''} aria-pressed={editMode === 'connect'} onClick={() => changeEditMode('connect')} title="Criar ou religar cabos nos bornes físicos">Ligar</button>
           <button type="button" className={editMode === 'curve' ? 'is-edit-active' : ''} aria-pressed={editMode === 'curve'} onClick={() => changeEditMode('curve')} title="Selecionar cabos e editar os pontos das curvas">Cabos</button>
         </div>
-        <div className="panel3d-viewbar-group" aria-label="Vistas da câmara">
-          <span className="panel3d-viewbar-label">Vista</span>
-          <button type="button" onClick={() => moveCamera('fit')} title="Enquadrar todo o painel (Home)">Ajustar</button>
-          <button type="button" onClick={() => moveCamera('front')} title="Vista frontal">Frente</button>
-          <button type="button" onClick={() => moveCamera('top')} title="Vista superior">Superior</button>
-          <button type="button" onClick={() => moveCamera('isometric')} title="Vista isométrica">ISO</button>
-          <button type="button" onClick={focusSelection} disabled={!selectedTarget} title="Focar o componente selecionado (F)">Focar</button>
-        </div>
-        <div className="panel3d-viewbar-group" aria-label="Auxiliares do painel">
-          <span className="panel3d-viewbar-label">Auxiliares</span>
-          <button type="button" className={railMagnet ? 'is-active' : ''} aria-pressed={railMagnet} onClick={() => useSimStore.getState().setGrid({ railMagnet: !railMagnet })} title="Imã de calha: ao largar, o equipamento centra-se e fixa-se na calha DIN mais próxima (igual ao Esquema 2D)">Imã</button>
-          <button type="button" className={showGrid ? 'is-active' : ''} aria-pressed={showGrid} onClick={toggleGrid} title="Mostrar ou ocultar a grelha partilhada (G)">Grelha</button>
-          <button type="button" onClick={cycleBackground} title="Alternar fundo técnico, branco e escuro">{backgroundMode === 'technical' ? 'Técnico' : backgroundMode === 'white' ? 'Branco' : 'Escuro'}</button>
-        </div>
       </div>
       <div className="panel3d-hud-row">
       {editMode === 'move' && <div className="panel3d-edit-context" role="status">
@@ -2165,29 +2154,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           <strong>{selectedComponent.ref}</strong>
           <span>{selectedComponent.locked ? 'Componente bloqueado' : 'Arraste os eixos X/Y — o Esquema acompanha e o imã fixa-o à calha'}</span>
         </> : <span>Selecione um componente e arraste o manipulador 3D.</span>}
-      </div>}
-      {editMode === 'connect' && <div className="panel3d-edit-context panel3d-draw-context" role="region" aria-label="Desenhar cabos no 3D">
-        <header>
-          <strong>{reconnect ? `Religar ponta ${reconnect.end === 'from' ? 'A' : 'B'}` : draft ? 'A desenhar cabo' : 'Desenhar cabo'}</strong>
-          <WireDrawLive points={draft?.points.length ?? 0} drafting={!!draft && !reconnect} />
-        </header>
-        <p>{reconnect
-          ? 'Clique no novo borne. Pode orbitar a câmara livremente.'
-          : draft
-            ? 'Clique para largar pontos de curva (orbite à vontade) · borne = ligar · duplo clique ou Enter = ponta livre.'
-            : 'Clique num borne (ou numa superfície) para começar. Orbite a câmara a qualquer momento e continue.'}</p>
-        {!reconnect && <div className="panel3d-draw-defaults">
-          <label><span>Terminação</span><select aria-label="Terminação dos novos cabos" value={wireDefaults.endType} onChange={(event) => useSimStore.getState().setWireDefaults({ endType: event.target.value as Wire['endType'] & string })}>{WIRE_END_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
-          <label><span>Secção</span><select aria-label="Secção dos novos cabos" value={wireDefaults.gauge} onChange={(event) => useSimStore.getState().setWireDefaults({ gauge: event.target.value })}>{['0.5mm²', '0.75mm²', '1mm²', '1.5mm²', '2.5mm²', '4mm²', '6mm²'].map((gauge) => <option key={gauge} value={gauge}>{gauge}</option>)}</select></label>
-          <label><span>Condutor</span><button type="button" onClick={() => useSimStore.getState().setWireDefaults({ flexibility: wireDefaults.flexibility === 'flexible' ? 'rigid' : 'flexible' })}>{wireDefaults.flexibility === 'flexible' ? 'Flexível' : 'Rígido'}</button></label>
-          <label><span>Cor</span><select aria-label="Cor dos novos cabos" value={wireDefaults.autoColor ? 'auto' : wireDefaults.color} onChange={(event) => event.target.value === 'auto' ? useSimStore.getState().setWireDefaults({ autoColor: true }) : useSimStore.getState().setWireDefaults({ autoColor: false, color: event.target.value as WireColor })}><option value="auto">Automática (função)</option>{(Object.keys(WIRE_3D_COLORS) as WireColor[]).map((color) => <option key={color} value={color}>{color}</option>)}</select></label>
-        </div>}
-        <div className="panel3d-wire-actions">
-          {draft && !reconnect && <button type="button" disabled={!draft.points.length} onClick={draftFinishFree} title="Termina o cabo no último ponto, sem borne (Enter)">Terminar livre</button>}
-          {draft && !reconnect && <button type="button" onClick={draftUndoPoint} title="Remove o último ponto (Backspace)">Desfazer ponto</button>}
-          {(reconnect || draft) && <button type="button" onClick={() => { setReconnect(null); setDraft(null) }} title="Cancelar (Esc)">Cancelar</button>}
-        </div>
-        <small className="panel3d-draw-keys">Shift trava o eixo · Alt desliga o encaixe à grelha · Esc cancela · depois selecione o cabo em “Cabos” para o ajustar</small>
       </div>}
       {editMode === 'curve' && <div className="panel3d-edit-context panel3d-wire-context" role="region" aria-label="Editor de cabos 3D">
         {selectedWire ? <div className="panel3d-wire-inspector">
@@ -2276,7 +2242,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {railComponents.map((c) => {
           const x = positions[c.id].x
           let content: ReactNode
-          if (c.type === 'plcSiemensLogo1224RC') content = <Model3DErrorBoundary fallback={<PLC3D c={c} x={x} />}><Suspense fallback={<PLC3D c={c} x={x} />}><LogoSiemens1224RCMesh c={c} x={x} /></Suspense></Model3DErrorBoundary>
+          if (isCatalogType(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={<Breaker3D c={c} x={x} />}><CatalogComponent3D c={c} position={[x, RAIL_Y, 0]} anchor="bottom">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.22]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
+          else if (c.type === 'plcSiemensLogo1224RC') content = <Model3DErrorBoundary fallback={<PLC3D c={c} x={x} />}><Suspense fallback={<PLC3D c={c} x={x} />}><LogoSiemens1224RCMesh c={c} x={x} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'powerSupplyProauto24A') content = <Model3DErrorBoundary fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'contactorWegCWC09') content = <Model3DErrorBoundary fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'thermalRelay') content = <ThermalRelay3D c={c} x={x} />
@@ -2299,7 +2266,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {offRail.map((c) => {
           const x = front[c.id]
           let content: ReactNode
-          if (c.type === 'pilotLightAd22') {
+          if (isCatalogType(c.type)) {
+            const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => pressButton(c.id, pressed)} />
+            const [px, py, pz] = frontPivot(c)
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><CatalogComponent3D c={c} position={[x + px, py, pz]} anchor="center">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.1]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
+          } else if (c.type === 'pilotLightAd22') {
             const fallback = <Lamp3D c={c} x={x} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><PilotLightAd22Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'ledGreen' || c.type === 'ledRed' || c.type === 'ledYellow' || c.type === 'ledWhite' || c.type === 'buzzer') content = <Lamp3D c={c} x={x} />

@@ -25,6 +25,8 @@ export type ComponentCategory =
   | 'power'
 
 export type ComponentType =
+  // --- Catálogo oficial (Editor 3D do Admin): cat:<id>:v<versão> ---------
+  | `cat:${string}`
   // --- Proteção ---------------------------------------------------------
   | 'breaker1p'
   | 'breaker2p'
@@ -143,6 +145,10 @@ export type TerminalElectricalClass = 'dc' | 'ac' | 'network' | 'other'
 export interface Terminal {
   id: string
   componentId: string
+  /** Identidade estável do borne na definição do catálogo (mantém os cabos nas atualizações). */
+  defId?: string
+  /** Regras do catálogo: polaridade, sentido e compatibilidade. */
+  catalogRules?: { polarity: string; direction: string; accepts: string }
   /** Rótulo impresso no dispositivo real: "A1", "13", "1L1", "U1"… */
   label: string
   /** Nome de apresentação editável, sem mudar o código elétrico do borne. */
@@ -271,6 +277,8 @@ export interface ElectricalComponentBase {
   editorLastChange?: string
   /** Versões anteriores recuperáveis; não altera o modelo GLB original. */
   editorHistory?: ComponentEditorRevision[]
+  /** Ligação ao catálogo oficial (versão instalada, origem, avisos). */
+  catalog?: import('../catalog/types').CatalogLink
   terminals: Terminal[]
   /** Estado em tempo de execução — estreitado por tipo nas interfaces abaixo */
   state: Record<string, any>
