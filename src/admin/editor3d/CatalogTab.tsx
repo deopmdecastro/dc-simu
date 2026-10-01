@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom'
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { catalogApi } from '../../catalog/catalogApi'
 import { newId } from '../../catalog/definition'
 import { useCatalogStore } from '../../catalog/registry'
@@ -8,6 +8,7 @@ import { IconCube } from '../../ui/icons'
 import { ComponentThumb } from '../../three/componentThumbnails'
 import type { ComponentType } from '../../types'
 import { generateCover } from './coverGen'
+import { createComponentCatalogBackup, downloadComponentCatalogBackup, parseComponentCatalogBackup, restoreComponentCatalogBackup } from '../../catalog/catalogBackup'
 import { buildBuiltinDraft, builtinComponents, builtinTypeOf, type BuiltinInfo } from './builtinComponents'
 import ComponentEditor3D from './ComponentEditor3D'
 
@@ -20,6 +21,8 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
   const [importing, setImporting] = useState<string | null>(null)
   const builtins = useMemo(() => builtinComponents(), [])
   const [covers, setCovers] = useState<Record<string, string>>({})
+  const [backupBusy, setBackupBusy] = useState(false)
+  const backupInput = useRef<HTMLInputElement>(null)
 
   const reload = useCallback(async () => {
     try { setEntries(await catalogApi.adminList()) } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao carregar a biblioteca 3D'); setEntries([]) }
@@ -84,6 +87,27 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     try { await catalogApi.remove(entry.id); await reload() } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao eliminar') }
   }
 
+  async function exportBackup() {
+    setBackupBusy(true)
+    try {
+      const backup = await createComponentCatalogBackup()
+      downloadComponentCatalogBackup(backup)
+      onNotice(`Backup guardado: ${backup.entries.length} componente(s).`)
+    } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao criar o backup dos componentes.') }
+    finally { setBackupBusy(false) }
+  }
+  async function importBackup(file: File) {
+    setBackupBusy(true)
+    try {
+      const backup = parseComponentCatalogBackup(await file.text())
+      const result = await restoreComponentCatalogBackup(backup, (entry) => window.confirm(`O componente «${entry.meta.name}» já existe. Substituir o rascunho atual pelo backup? As versões publicadas existentes serão preservadas.`))
+      await useCatalogStore.getState().load()
+      await reload()
+      onNotice(`Backup recuperado: ${result.restored} componente(s); ${result.skipped} ignorado(s).`)
+    } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao recuperar o backup dos componentes.') }
+    finally { setBackupBusy(false); if (backupInput.current) backupInput.current.value = '' }
+  }
+
   if (editing) return createPortal(<div className="ce-overlay dx"><ComponentEditor3D account={account} id={editing} onClose={(message) => { setEditing(null); if (message) onNotice(message); void reload() }} /></div>, document.body)
 
   return <>
@@ -94,6 +118,9 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
       <select className="dx-input" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} aria-label="Filtrar por estado">
         <option value="all">Todos</option><option value="draft">Só rascunhos</option><option value="published">Publicados</option><option value="archived">Arquivados</option><option value="builtin">Integrados</option>
       </select>
+      <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => void exportBackup()}>{backupBusy ? 'A processar…' : 'Guardar backup'}</button>
+      <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => backupInput.current?.click()}>Recuperar backup</button>
+      <input ref={backupInput} type="file" accept=".json,.dcs-components.json,application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importBackup(file) }} />
       <button className="dx-btn dx-btn-primary" onClick={onCreate}>+ Novo componente 3D</button>
     </div>
     {entries === null && <div className="dx-admin-empty">A carregar…</div>}
