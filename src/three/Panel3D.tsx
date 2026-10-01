@@ -679,6 +679,29 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   </group>
 }
 
+/** Indicadores de estado para equipamentos GLB integrados que possuem sinalização frontal. */
+function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: number }) {
+  const runState = useSimStore((s) => s.sim.runState)
+  const scanCount = useSimStore((s) => s.sim.scanCount)
+  const diagnostics = useSimStore((s) => s.sim.diagnostics)
+  const plc = ['plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(c.type)
+  const safety = c.type === 'safetyRelay'
+  const breaker = ['phoenixEcb3000760', 'breaker1p', 'breaker2p', 'breakerWegMdwC10'].includes(c.type)
+  if (!plc && !safety && !breaker) return null
+  const error = diagnostics.some((item) => item.level === 'error') || !!c.state.tripped
+  const powered = c.state.powered !== false
+  const run = powered && runState === 'running' && !error
+  const comm = plc && run && scanCount % 6 < 2
+  const lights = plc
+    ? [{ c: '#22c55e', on: run }, { c: '#ef4444', on: error }, { c: '#38bdf8', on: comm }]
+    : safety
+      ? [{ c: '#22c55e', on: powered && !error }, { c: '#ef4444', on: error }]
+      : [{ c: '#22c55e', on: powered && !c.state.tripped }, { c: '#ef4444', on: !!c.state.tripped }]
+  return <group position={[0.24, height * 0.64, 0.34]}>{lights.map((light, index) => <mesh key={index} position={[0, -index * 0.055, 0]} raycast={() => null}>
+    <circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={light.on ? light.c : '#334155'} emissive={light.on ? light.c : '#000'} emissiveIntensity={light.on ? 2 : 0} />
+  </mesh>)}</group>
+}
+
 /** CAD genérico de calha DIN, normalizado a partir da especificação partilhada. */
 function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const spec = getComponentModelSpec(c.type)!
@@ -706,6 +729,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} />}
+    <EquipmentStatusLights c={c} height={spec.targetHeight} />
     {active && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
     <Label text={c.ref} position={[0, spec.targetHeight + 0.1, 0.22]} color={active ? '#4ade80' : '#e2e8f0'} />
   </group>

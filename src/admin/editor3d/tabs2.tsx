@@ -127,11 +127,26 @@ export function LightsTab() {
     edit((state) => ({ ...state, lights: [...state.lights, created] }))
     set({ selection: { kind: 'light', id: created.id } })
   }
+  const createStatus = (name: string, variable: string, color: string, blink = false) => {
+    const target = part && part.kind !== 'group' ? part : candidates[0]
+    if (!target) return
+    const created: LightZoneDef = { id: newId('l_'), name, partId: target.id, color, intensity: 2.2, kind: 'led', when: { var: variable, op: 'eq', value: true }, blink }
+    edit((state) => ({ ...state, lights: [...state.lights, created] }), `light:status:${variable}`)
+    set({ selection: { kind: 'light', id: created.id }, pick: { kind: 'light', id: created.id } })
+  }
   return <>
     <Section title="LEDs e luzes" actions={<span className="ce-actions-inline">
       <button className={`dx-btn dx-btn-sm ${placingLed ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ placingLed: !placingLed, placingDisplay: null, displayCorner: null, pick: null, placing: false, ribbon: 'select' })}>{placingLed ? 'Cancelar' : '+ LED na superfície'}</button>
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={create} disabled={!candidates.length}>+ Zona de luz</button></span>}>
-      <p className="ce-hint">{placingLed ? 'Clique numa face do modelo: o LED fica nesse ponto.' : 'Um LED é uma peça pequena que emite luz; uma zona de luz faz uma peça (ou objetos de um GLB) brilhar. Acendem pelos separadores Estados ou — mais simples — quando uma variável se verifica (ex.: o botão HOLD ligado).'}</p>
+      <p className="ce-hint">{placingLed ? 'Clique numa face do modelo: o LED fica nesse ponto.' : 'Um LED é uma peça pequena que emite luz; uma zona de luz faz uma peça (ou objetos de um GLB) brilhar. Acendem pelos separadores Estados ou por variáveis da simulação.'}</p>
+      <div className="ce-actions-inline" aria-label="Indicadores automáticos">
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={!candidates.length} onClick={() => createStatus('RUN / funcionamento', '$run', '#22c55e')}>+ RUN</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={!candidates.length} onClick={() => createStatus('STOP / parado', '$stop', '#f59e0b')}>+ STOP</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={!candidates.length} onClick={() => createStatus('ERROR / falha', '$error', '#ef4444')}>+ ERROR</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={!candidates.length} onClick={() => createStatus('COM / comunicação', '$communication', '#38bdf8', true)}>+ COM</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={!candidates.length} onClick={() => createStatus('TRIP / disparado', '$tripped', '#ef4444')}>+ TRIP</button>
+      </div>
+      <p className="ce-hint">O indicador é criado com a lógica pronta. Em seguida, clique nos objetos do GLB que correspondem à lente/LED. O utilizador apenas visualiza o resultado da simulação.</p>
     </Section>
     {!light && <Empty>Selecione uma zona luminosa na lista à esquerda{part ? ' ou crie uma para a peça atual' : ''}.</Empty>}
     {light && <Section title="Zona luminosa">

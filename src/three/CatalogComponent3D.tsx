@@ -62,7 +62,19 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
   }, [scene, origin, anchor])
 
   const { vars, reading } = useCatalogMeter(c, version?.definition)
-  const displayVars = useMemo(() => ({ ...vars, ...Object.fromEntries(Object.entries((c.state?.catalogColors as Record<string, string> | undefined) ?? {}).map(([id, color]) => [`color.${id}`, color])) }), [vars, c.state?.catalogColors])
+  const runState = useSimStore((s) => s.sim.runState)
+  const scanCount = useSimStore((s) => s.sim.scanCount)
+  const diagnostics = useSimStore((s) => s.sim.diagnostics)
+  const systemVars = useMemo(() => ({
+    '$powered': c.state?.powered !== false,
+    '$run': runState === 'running' && !diagnostics.some((item) => item.level === 'error'),
+    '$stop': runState === 'stopped', '$pause': runState === 'paused',
+    '$error': diagnostics.some((item) => item.level === 'error') || !!c.state?.tripped,
+    '$warning': diagnostics.some((item) => item.level === 'warning'),
+    '$communication': runState === 'running' && scanCount % 6 < 2,
+    '$tripped': !!c.state?.tripped,
+  }), [c.state?.powered, c.state?.tripped, runState, scanCount, diagnostics])
+  const displayVars = useMemo(() => ({ ...vars, ...systemVars, ...Object.fromEntries(Object.entries((c.state?.catalogColors as Record<string, string> | undefined) ?? {}).map(([id, color]) => [`color.${id}`, color])) }), [vars, systemVars, c.state?.catalogColors])
   useEffect(() => {
     if (!version) { animator.current = null; rig.current = null; return }
     animator.current = new StateAnimator(version.definition, model, c.state?.catalogState ?? version.definition.initialState)
