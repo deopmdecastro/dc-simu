@@ -10,7 +10,7 @@ export function auditTerminals() {
     .filter(([type]) => !!getComponentModelSpec(type))
     .map(([type, template]) => {
       const duplicateLabels = template.terminals.filter((terminal, index, list) => list.findIndex((item) => item.label.toLocaleUpperCase() === terminal.label.toLocaleUpperCase()) !== index).map((terminal) => terminal.label)
-      const dedicatedGeometry = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A'].includes(type)
+      const dedicatedGeometry = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'multimeterDm20'].includes(type)
       const interior = dedicatedGeometry ? [] : template.terminals.filter((terminal) => !terminal.position3D || !nearSurface(terminal.position3D)).map((terminal) => terminal.label)
       const missingType = template.terminals.filter((terminal) => !terminal.terminalType).map((terminal) => terminal.label)
       return { type, name: template.paletteName, terminals: template.terminals.length, duplicateLabels, interior, missingType, ok: duplicateLabels.length === 0 && interior.length === 0 }
