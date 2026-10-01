@@ -54,6 +54,7 @@ import { componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY
 import { terminal3DFromProjectedLocal, projectedTerminalLocal } from '../src/schematic/componentTerminalViews'
 import { buildProjectPreview } from '../src/dashboard/projectPreview'
 import { viewCubeMatrix } from '../src/components/ViewCube'
+import { meterInputFor } from '../src/electrical/meterModel'
 import { EMPTY_METER_INPUT, formatDigits, multimeterEvent, multimeterReading, runControlActions, selectorStep, setSelector, evalWhen } from '../src/catalog/behavior'
 import type { ControlDef } from '../src/catalog/types'
 import { componentBounds2D, componentsOverlap2D, nearestFreeComponentPosition, resolveComponentMove } from '../src/schematic/componentCollision'
@@ -1641,6 +1642,33 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const toggled = runControlActions([{ type: 'toggleVar', var: 'hold' }], { hold: false }, 'off')
   check('ações: alternar variável', toggled.vars.hold === true)
   check('condições: evalWhen compara variáveis', evalWhen({ var: 'dial', value: 'dcv' }, { dial: 'dcv' }) && !evalWhen({ var: 'dial', value: 'dcv' }, { dial: 'ohm' }) && evalWhen({ var: 'hold', op: 'ne', value: true }, { hold: false }))
+}
+
+{
+  // multímetro ligado ao circuito: tensões CA/CC lidas pelas fichas
+  const bus = createComponent('busbarPhase')
+  const neutral = createComponent('busbarNeutral')
+  const psu = createComponent('powerSupply')
+  const base = createComponent('powerSupply')
+  const jack = (label: string, defId: string) => ({ ...base.terminals[0], id: `m-${defId}`, label, defId })
+  const meter = { ...base, id: 'meter1', type: 'cat:dm:v1', terminals: [jack('COM', 'com'), jack('VΩ', 'volt'), jack('mA', 'ma'), jack('10A', 'amp')] } as typeof base
+  const def = { behavior: { type: 'multimeter', com: 'com', volt: 'volt', milliamp: 'ma', amp: 'amp' } } as unknown as ComponentDefinition
+  const tid = (c: typeof base, label: string) => terminalByLabel(c, label)!.id
+  const w = (a: string, b: string): Wire => ({ id: `${a}>${b}`, fromTerminalId: a, toTerminalId: b, color: 'red', gauge: '1.5mm²', kind: 'power', route: 'direct', bend: 0.5, flexibility: 'rigid', energized: false, number: 1, z: 0 }) as Wire
+  const all = [bus, neutral, psu, meter]
+  const energizedOf = (wires: Wire[]) => computeContinuity(all, wires, sourceTerminalIds(all)).energizedTerminals
+  const acWires = [w('m-com', tid(bus, 'L1')), w('m-volt', tid(bus, 'L2'))]
+  const ac = meterInputFor(def, meter, all, acWires, energizedOf(acWires), { dial: 'acv' })
+  check('multímetro no circuito: L1–L2 lê ≈ 400 V CA', Math.abs(ac.vac - 400) < 1 && ac.leads.com && ac.leads.volt)
+  const dcWires = [w(tid(bus, 'L1'), tid(psu, 'L')), w('m-volt', tid(psu, '+V')), w('m-com', tid(psu, '-V'))]
+  const dc = meterInputFor(def, meter, all, dcWires, energizedOf(dcWires), { dial: 'dcv' })
+  check('multímetro no circuito: +V/−V da fonte lê 24 V CC', Math.abs(dc.vdc - 24) < 0.01)
+  const rev = [w(tid(bus, 'L1'), tid(psu, 'L')), w('m-com', tid(psu, '+V')), w('m-volt', tid(psu, '-V'))]
+  check('multímetro no circuito: pontas trocadas dão tensão negativa', meterInputFor(def, meter, all, rev, energizedOf(rev), { dial: 'dcv' }).vdc < -23.9)
+  const none = meterInputFor(def, meter, all, [], new Set(), { dial: 'dcv' })
+  check('multímetro no circuito: sem pontas não há medição', !none.leads.volt && none.vdc === 0)
+  const off = meterInputFor(def, meter, all, dcWires, energizedOf(dcWires), { dial: 'off' })
+  check('multímetro no circuito: OFF não mede', off.vdc === 0 && off.vac === 0)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
