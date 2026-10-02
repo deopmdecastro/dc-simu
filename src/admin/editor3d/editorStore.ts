@@ -3,6 +3,7 @@ import type { Object3D } from 'three'
 import { BASE_STATE } from '../../catalog/stateAnimator'
 import { defaultPart, newId, normalizeDefinition, type GlbCache } from '../../catalog/definition'
 import { EMPTY_METER_INPUT, type MeterInput, type Vars } from '../../catalog/behavior'
+import type { DetectedHole } from '../../catalog/holeDetect'
 import type { Face, TerminalSpec } from '../../catalog/terminalProfiles'
 import type { WireEndType } from '../../types'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, MaterialDef, PartDef, StateOverride, TerminalDef, Vec3 } from '../../catalog/types'
@@ -78,6 +79,8 @@ interface EditorStore {
   displayCorner: { point: Vec3; normal: Vec3 } | null
   /** Modo «colocar LED»: o próximo clique na superfície cria um LED. */
   placingLed: boolean
+  /** Furos encontrados na última varredura do modelo (encaixe de bornes). */
+  holes: DetectedHole[]
   camAngles: { yaw: number; pitch: number }
   testWires: TestWire[]
   /** Cabo em desenho: borne de origem (ou ponto livre em `wireStart`) e pontos intermédios. */
@@ -145,7 +148,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   def: normalizeDefinition(undefined),
   baseline: null,
   selection: null, multi: [], tool: 'translate', ribbon: 'select', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
-  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, previewVars: {}, meterTest: { ...EMPTY_METER_INPUT, vdc: 12.34, vac: 230, ohm: 4700 }, pick: null, hoverNode: null, placingDisplay: null, displayCorner: null, placingLed: false, camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
+  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, previewVars: {}, meterTest: { ...EMPTY_METER_INPUT, vdc: 12.34, vac: 230, ohm: 4700 }, pick: null, hoverNode: null, placingDisplay: null, displayCorner: null, placingLed: false, holes: [], camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
   view: { grid: true, floor: true, axes: true, terminals: true, dark: false, bounds: false },
   viewCommand: { kind: 'iso', n: 0 }, glbRevision: 0,
   dirty: false, past: [], future: [], lastKey: '', lastAt: 0,

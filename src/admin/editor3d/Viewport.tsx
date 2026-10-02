@@ -14,6 +14,7 @@ import { checkConnection } from '../../catalog/terminalCompat'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 import { BASE_STATE, glbCache, posePart, patchTerminal, removeParts, useEditorStore } from './editorStore'
 import { addTerminalAt, defBounds, faceCenter } from './terminalOps'
+import { addTerminalInHole, snapPointToHole } from './holeOps'
 import { registerCapture, renderCapture } from './capture'
 import { WireDrawController } from './WireDraw'
 import TestWires from './WiresView'
@@ -86,6 +87,24 @@ function TerminalMarker({ id, selected, hidden, onRef }: { id: string; selected:
       <span className={`ce-term-tag${selected ? ' is-on' : ''}`}>{terminal.label}</span>
     </Html>}
   </group>
+}
+
+
+/** Anéis verdes nos furos encontrados: mostram onde o borne vai encaixar. */
+function HoleMarkers() {
+  const holes = useEditorStore((s) => s.holes)
+  if (!holes.length) return null
+  return <group>{holes.map((hole) => {
+    const normal = new THREE.Vector3(...hole.normal)
+    const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal)
+    const radius = Math.max(0.8, hole.diameterMm / 2)
+    return <group key={hole.id} position={hole.position} quaternion={quaternion}>
+      <mesh position={[0, 0, 0.2]}><ringGeometry args={[radius, radius + 0.45, 24]} /><meshBasicMaterial color="#16a34a" depthTest={false} transparent opacity={0.95} side={THREE.DoubleSide} /></mesh>
+      <mesh position={[0, 0, 0.1]} onClick={(event) => { event.stopPropagation(); addTerminalInHole(hole) }}>
+        <circleGeometry args={[radius, 20]} /><meshBasicMaterial color="#16a34a" depthTest={false} transparent opacity={0.22} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  })}</group>
 }
 
 function Scene() {
@@ -330,6 +349,9 @@ function Scene() {
       return
     }
     if (placing && event.face) {
+      // Furo encontrado por baixo do ponto clicado: o borne encaixa nele.
+      const hole = snapPointToHole(event.point.toArray() as Vec3)
+      if (hole) { addTerminalInHole(hole); return }
       const state = useEditorStore.getState()
       const normal = state.faceLock ? FACE_NORMAL[state.faceLock] : (event.face.normal.clone().transformDirection(event.object.matrixWorld).toArray() as Vec3)
       addTerminalAt(state.placingSpec, event.point.toArray() as Vec3, normal)
@@ -461,6 +483,7 @@ function Scene() {
     <WireDrawController active={ribbon === 'wire'} root={root} />
     <MeasureController active={ribbon === 'measure'} root={root} />
     <NodeHighlights root={root} />
+    <HoleMarkers />
     {displayCorner && <mesh position={displayCorner.point}><sphereGeometry args={[0.9, 12, 10]} /><meshBasicMaterial color="#f59e0b" depthTest={false} transparent opacity={0.95} /></mesh>}
     {(placing || placingDisplay || placingLed) && hover && <mesh position={hover.point}><sphereGeometry args={[2, 12, 10]} /><meshBasicMaterial color="#16a34a" depthTest={false} transparent opacity={0.85} /></mesh>}
 

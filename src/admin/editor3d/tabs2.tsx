@@ -7,6 +7,7 @@ import { validateDefinition } from './validate'
 import { FACE_NORMAL, SUGGESTED_PROFILES, defaultParams, inferFromFunction, type Face } from '../../catalog/terminalProfiles'
 import { allProfiles, useProfileStore } from '../../catalog/profileStore'
 import { applyProfile, defBounds, faceCenter, faceOfNormal } from './terminalOps'
+import { addTerminalInHole, addTerminalsInAllHoles, clearHoles, scanHoles } from './holeOps'
 import { Check, Color, Confirm, Empty, Field, Num, Section, Select, Slider, Text, Vec3Input } from './ui'
 import { IconCamera, IconEye, IconEyeOff, IconCheck, IconClose, IconCube, IconImage, IconLayers, IconPlus } from '../../ui/icons'
 import FaceChooser from './FaceChooser'
@@ -21,6 +22,58 @@ const normalKey = (normal: Vec3) => NORMALS.find(([, , value]) => value.every((c
 const KINDS: Array<[TerminalDef['kind'], string]> = [['io', 'Entrada/saída'], ['power-in', 'Alimentação (entrada)'], ['power-out', 'Alimentação (saída)'], ['coil-plus', 'Bobina +'], ['coil-minus', 'Bobina −'], ['aux-no', 'Contacto NA'], ['aux-nc', 'Contacto NF'], ['neutral', 'Neutro'], ['earth', 'Terra (PE)'], ['analog', 'Analógico'], ['bus', 'Comunicação']]
 const TYPES: Array<[TerminalDef['terminalType'], string]> = [['screw', 'Parafuso'], ['spring', 'Mola'], ['plug', 'Ficha'], ['faston', 'Faston'], ['fastonMale', 'Faston macho'], ['fastonFemale', 'Faston fêmea'], ['ring', 'Olhal'], ['fork', 'Forquilha'], ['pin', 'Pino'], ['conical', 'Cónico'], ['claw', 'Garra'], ['tubular', 'Tubular'], ['bar', 'Barra']]
 const POLARITY: Array<[TerminalDef['polarity'], string]> = [['none', 'Sem polaridade'], ['positive', 'Positivo (+)'], ['negative', 'Negativo (−)'], ['ac', 'Fase CA'], ['neutral', 'Neutro'], ['earth', 'Terra']]
+
+/** Procura furos no modelo e põe bornes dentro deles. */
+function HoleFinder() {
+  const holes = useEditorStore((s) => s.holes)
+  const faceLock = useEditorStore((s) => s.faceLock)
+  const [scope, setScope] = useState<Face | 'all'>(faceLock ?? 'front')
+  const [range, setRange] = useState<[number, number]>([2, 16])
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  const run = () => {
+    setBusy(true)
+    setMessage('A analisar a superfície do modelo…')
+    // deixa o ecrã pintar a mensagem antes da varredura (é síncrona e pesada)
+    window.setTimeout(() => {
+      const faces: Face[] = scope === 'all' ? ['front', 'back', 'left', 'right', 'top', 'bottom'] : [scope]
+      const found = scanHoles(faces, { minDiameterMm: range[0], maxDiameterMm: range[1] })
+      setBusy(false)
+      setMessage(found.length
+        ? `${found.length} furo(s) por ocupar. Clique em «+» para pôr um borne dentro do furo — no viewport ficam marcados a verde e o clique encaixa neles.`
+        : 'Nenhum furo livre nesse intervalo de diâmetros. Alargue o intervalo ou escolha outra face.')
+    }, 30)
+  }
+
+  return <Section title="Furos do modelo" open={holes.length > 0}>
+    <p className="ce-hint">Varre a face com uma grelha de raios e encontra os furos (encaixes de bornes, fichas banana, buracos de parafuso), com centro, diâmetro e profundidade. Os furos já ocupados por um borne não são propostos.</p>
+    <Field label="Onde procurar">
+      <Select value={scope} onChange={(value) => setScope(value as Face | 'all')} options={[['front', 'Frente'], ['back', 'Trás'], ['left', 'Esquerda'], ['right', 'Direita'], ['top', 'Topo'], ['bottom', 'Base'], ['all', 'Todas as faces (mais lento)']]} />
+    </Field>
+    <Field label="Diâmetro aceite" hint="Ignora furos fora deste intervalo (ex.: textura, ranhuras de ventilação).">
+      <span className="ce-inline">
+        <Num value={range[0]} min={0.5} max={30} step={0.5} unit="mm" onChange={(value) => setRange([value, Math.max(value + 0.5, range[1])])} />
+        <Num value={range[1]} min={1} max={40} step={0.5} unit="mm" onChange={(value) => setRange([Math.min(range[0], value - 0.5), value])} />
+      </span>
+    </Field>
+    <div className="ce-actions">
+      <button className="dx-btn dx-btn-primary dx-btn-sm" disabled={busy} onClick={run}>{busy ? 'A analisar…' : 'Procurar furos'}</button>
+      {holes.length > 0 && <>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { const n = addTerminalsInAllHoles(); setMessage(`${n} borne(s) criado(s) dentro dos furos.`) }}>Borne em todos</button>
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { clearHoles(); setMessage('') }}>Limpar marcas</button>
+      </>}
+    </div>
+    {message && <p className="ce-hint" role="status">{message}</p>}
+    {holes.length > 0 && <ul className="ce-list">
+      {holes.map((hole) => <li key={hole.id}>
+        <button type="button" className="ce-list-item" title={`Centro ${hole.position.map((value) => value.toFixed(1)).join(' / ')} mm`} onClick={() => addTerminalInHole(hole)}>
+          <span><IconPlus size={11} /> Borne no furo Ø {hole.diameterMm.toFixed(1)} mm</span>
+          <small>{hole.through ? 'passante' : `${hole.depthMm.toFixed(1)} mm de fundo`} · face {hole.face} · {hole.position.map((value) => value.toFixed(1)).join(' / ')} mm</small>
+        </button>
+      </li>)}
+    </ul>}
+  </Section>
+}
 
 export function TerminalsTab() {
   const def = useEditorStore((s) => s.def)
@@ -63,6 +116,7 @@ export function TerminalsTab() {
         <button className={`dx-btn dx-btn-sm ce-btn-icon ${libraryOpen ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ libraryOpen: !libraryOpen })}><IconLayers size={12} />Biblioteca de bornes</button>
       </div>
     </Section>
+    <HoleFinder />
     <Section title="Perfis sugeridos" open={def.terminals.length === 0}>
       <p className="ce-hint">Sugestões para «{meta.category}». Cada perfil cria os bornes nas faces certas — depois pode editar, mover, duplicar ou apagar qualquer um.</p>
       <div className="ce-actions">
