@@ -22,6 +22,9 @@ export function componentBounds2D(component: ElectricalComponent, x = component.
 }
 
 function isIntentionalMountingOverlap(a: ElectricalComponent, b: ElectricalComponent): boolean {
+  // Um componente trazido para a frente fica por cima: a sobreposição com o
+  // que está por baixo passa a ser intencional.
+  if (a.allowOverlap || b.allowOverlap) return true
   // Só equipamentos próprios para calha DIN podem sobrepor o seu suporte; duas
   // calhas e componentes de montagem em chapa continuam a ser objetos físicos.
   if (isDinRail(a) !== isDinRail(b)) {

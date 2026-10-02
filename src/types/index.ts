@@ -272,6 +272,9 @@ export interface ElectricalComponentBase {
   /** Ordem de empilhamento no esquema (maior = mais à frente). Cabos e
    *  componentes compartilham o mesmo espaço de camadas. */
   z?: number
+  /** Trazido para a frente: pode assentar por cima de outros componentes
+   *  (a verificação de sobreposição deixa de o travar). */
+  allowOverlap?: boolean
   /** Caixa de bornes/cor do corpo do componente no editor */
   bodyColor?: string
   /** Versão da apresentação editável desta instância. Incrementa ao Aplicar. */

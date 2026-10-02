@@ -33,8 +33,12 @@ export default function ProjectObjects() {
 
   const rows = useMemo(() => {
     const text = query.trim().toLowerCase()
-    // De cima para baixo = da frente para trás (como nas camadas de um desenho).
-    const ordered = [...components].reverse()
+    // De cima para baixo = da frente para trás, pela camada real de desenho
+    // (campo `z`, com a ordem de inserção a desempatar).
+    const ordered = components
+      .map((item, index) => ({ item, index, z: item.z ?? 0 }))
+      .sort((a, b) => b.z - a.z || b.index - a.index)
+      .map((entry) => entry.item)
     if (!text) return ordered
     return ordered.filter((item) => `${item.ref} ${item.label ?? ''} ${item.type}`.toLowerCase().includes(text))
   }, [components, query])
@@ -71,7 +75,7 @@ export default function ProjectObjects() {
             title={`${item.ref} · ${item.type} · rotação ${item.rotation}°`}>
             <span className="dc-objects-card"><ObjectPreview component={item} /></span>
             <span className="dc-objects-text">
-              <span className="dc-objects-ref">{item.ref}{item.rotation !== 0 && <span className="dc-objects-badge">{item.rotation}°</span>}</span>
+              <span className="dc-objects-ref">{item.ref}{item.rotation !== 0 && <span className="dc-objects-badge">{item.rotation}°</span>}{item.allowOverlap && <span className="dc-objects-badge" title="Está à frente e pode ficar por cima de outros">à frente</span>}</span>
               <span className="dc-objects-name">{item.label || item.type}</span>
             </span>
           </button>

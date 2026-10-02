@@ -354,9 +354,12 @@ function reorderSelection(
   get: () => Store,
   set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
   mode: 'front' | 'back' | 'forward' | 'backward',
+  componentIds?: string[],
 ) {
   const { components, wires, selectedComponentIds, selectedWireId } = get()
-  const selKeys = new Set<string>([...selectedComponentIds.map((id) => `c:${id}`), ...(selectedWireId ? [`w:${selectedWireId}`] : [])])
+  const selKeys = componentIds
+    ? new Set<string>(componentIds.map((id) => `c:${id}`))
+    : new Set<string>([...selectedComponentIds.map((id) => `c:${id}`), ...(selectedWireId ? [`w:${selectedWireId}`] : [])])
   if (!selKeys.size) return
   const isSel = (k: DrawKey) => selKeys.has(`${k.kind}:${k.id}`)
   let order = currentDrawOrder(components, wires)
@@ -387,7 +390,14 @@ function reorderSelection(
 
   get().commitHistory()
   const patch = applyDrawOrder(order, components, wires)
-  set({ ...patch, dirty: true })
+  // Quem vai para a frente pode assentar por cima dos que ficam atrás; quem
+  // volta para trás deixa de poder sobrepor e volta às regras normais.
+  const overlap = mode === 'front' || mode === 'forward'
+  set({
+    ...patch,
+    components: patch.components.map((item) => (selKeys.has(`c:${item.id}`) ? { ...item, allowOverlap: overlap || undefined } : item)),
+    dirty: true,
+  })
 }
 
 function snapshot(state: Store): Snapshot {
@@ -1468,27 +1478,7 @@ export const useSimStore = create<Store>((set, get) => ({
 
   reorderComponents: (ids, where) => {
     if (!ids.length) return
-    get().commitHistory()
-    set((s) => {
-      const chosen = new Set(ids)
-      const picked = s.components.filter((item) => chosen.has(item.id))
-      const rest = s.components.filter((item) => !chosen.has(item.id))
-      if (!picked.length) return {}
-      if (where === 'front') return { components: [...rest, ...picked], dirty: true }
-      if (where === 'back') return { components: [...picked, ...rest], dirty: true }
-      // Um passo de cada vez, mantendo a ordem relativa da seleção.
-      const next = [...s.components]
-      const step = where === 'forward' ? 1 : -1
-      const order = where === 'forward'
-        ? next.map((item, index) => index).filter((index) => chosen.has(next[index].id)).reverse()
-        : next.map((item, index) => index).filter((index) => chosen.has(next[index].id))
-      for (const index of order) {
-        const target = index + step
-        if (target < 0 || target >= next.length || chosen.has(next[target].id)) continue
-        ;[next[index], next[target]] = [next[target], next[index]]
-      }
-      return { components: next, dirty: true }
-    })
+    reorderSelection(get, set, where, ids)
   },
 
   selectComponents: (ids, additive = false) =>
