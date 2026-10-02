@@ -112,6 +112,30 @@ function geometryFor(part: PartDef): THREE.BufferGeometry | null {
 
 export type GlbCache = Map<string, THREE.Object3D>
 
+/** Partes (malhas) existentes dentro de um GLB importado, pela ordem do ficheiro. */
+export function glbNodeList(root: THREE.Object3D): Array<{ key: string; name: string }> {
+  const items: Array<{ key: string; name: string }> = []
+  root.traverse((child) => {
+    if (!(child as THREE.Mesh).isMesh) return
+    items.push({ key: `#${items.length}`, name: child.name?.trim() || `Parte ${items.length + 1}` })
+  })
+  return items
+}
+
+/** Encontra a parte indicada por `glbNode`: «#n» = índice da malha, caso contrário o nome do nó. */
+export function pickGlbNode(root: THREE.Object3D, key: string): THREE.Object3D | null {
+  if (!key.startsWith('#')) return root.getObjectByName(key) ?? null
+  const wanted = Number(key.slice(1))
+  let index = 0
+  let found: THREE.Object3D | null = null
+  root.traverse((child) => {
+    if (!(child as THREE.Mesh).isMesh) return
+    if (index === wanted) found = child
+    index += 1
+  })
+  return found
+}
+
 /** Constrói a árvore Three (em mm). Os nomes dos nós são os ids das peças. */
 export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = new Map(), options: { includeHidden?: boolean } = {}): THREE.Group {
   const root = new THREE.Group()
@@ -126,7 +150,19 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
       if (source) {
         const clone = source.clone(true)
         clone.traverse((child) => { const mesh = child as THREE.Mesh; if (mesh.isMesh) mesh.material = Array.isArray(mesh.material) ? mesh.material.map((item) => item.clone()) : mesh.material.clone() })
-        node.add(clone)
+        // Peça ligada a uma parte do modelo (manípulo, tampa…): usa só esse nó,
+        // preservando a posição que ele tinha dentro do GLB original.
+        const picked = part.glbNode ? pickGlbNode(clone, part.glbNode) : clone
+        if (picked) {
+          if (picked !== clone) {
+            picked.updateWorldMatrix(true, false)
+            const matrix = picked.matrixWorld.clone()
+            picked.removeFromParent()
+            picked.matrixAutoUpdate = false
+            picked.matrix.copy(matrix)
+          }
+          node.add(picked)
+        }
       }
     } else if (part.kind === 'group') node = new THREE.Group()
     else {

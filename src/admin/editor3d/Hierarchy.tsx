@@ -4,7 +4,7 @@ import { IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconL
 import { descendantsOf, patchPart, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
 import { faceOfNormal } from './terminalOps'
-import { deleteSelection, duplicateSelection, groupSelection } from './partActions'
+import { deleteSelection, duplicateSelection, explodeGlbPart, groupSelection, mergeGlbParts } from './partActions'
 
 const FACE_ORDER: Face[] = ['front', 'back', 'left', 'right', 'top', 'bottom']
 const FACE_LABEL: Record<Face, string> = { front: 'Frente', back: 'Trás', left: 'Esquerda', right: 'Direita', top: 'Topo', bottom: 'Base' }
@@ -40,6 +40,8 @@ export default function Hierarchy() {
   const groupName = (key: string) => groupBy === 'view' ? FACE_LABEL[key as Face] : key || 'Sem grupo'
   const selectedPart = selection?.kind === 'part' ? def.parts.find((part) => part.id === selection.id) : undefined
   const openProperties = () => window.dispatchEvent(new CustomEvent('ce-open-inspector'))
+  // Partes já separadas da peça selecionada (permite voltar a juntá-las).
+  const explodedPieces = selectedPart ? def.parts.filter((part) => part.parentId === selectedPart.id && part.glbNode).length : 0
 
   const rows: Array<{ part: PartDef; depth: number }> = []
   const walk = (parent: string | null, depth: number) => def.parts.filter((part) => part.parentId === parent).forEach((part) => { rows.push({ part, depth }); walk(part.id, depth + 1) })
@@ -76,6 +78,8 @@ export default function Hierarchy() {
       })}
     </div>
     {selectedPart && !readOnly && <div className="ce-left-actions">
+      {selectedPart.kind === 'glb' && <button className="dx-btn dx-btn-secondary dx-btn-sm" title="Mostra cada parte do modelo (manípulo, tampa, botões…) como objeto editável" onClick={explodeGlbPart}>Separar partes</button>}
+      {selectedPart.asset && explodedPieces > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" title="Volta a juntar as partes separadas num único modelo" onClick={mergeGlbParts}>Juntar partes</button>}
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={duplicateSelection}>Duplicar</button>
       <button className="dx-btn dx-btn-secondary dx-btn-sm" title="Cria um grupo pai à volta desta peça" onClick={groupSelection}>Agrupar</button>
       <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={deleteSelection}>Eliminar</button>

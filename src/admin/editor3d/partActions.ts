@@ -1,4 +1,4 @@
-import { boundsMm, defaultPart, loadGlbAssets, newId } from '../../catalog/definition'
+import { boundsMm, defaultPart, glbNodeList, loadGlbAssets, newId } from '../../catalog/definition'
 import type { PartDef, Vec3 } from '../../catalog/types'
 import { addPart, duplicatePart, glbCache, patchPart, removeParts, useEditorStore } from './editorStore'
 
@@ -141,3 +141,39 @@ export function nudgeSelection(dx: number, dy: number, dz: number) {
     return def
   })
 }
+
+/**
+ * Separa um modelo GLB nas suas partes: cada malha do ficheiro passa a ser um
+ * objeto próprio na lista «Objetos», podendo ser selecionada, movida, rodada,
+ * escondida, pintada ou usada como manípulo de um botão/seletor.
+ * A peça original mantém-se como grupo, por isso o conjunto não se desloca.
+ */
+export function explodeGlbPart() {
+  const state = useEditorStore.getState()
+  const part = selectedPart()
+  if (!part || part.kind !== 'glb' || !part.asset) { flash('Selecione primeiro a peça do modelo GLB.'); return }
+  const source = glbCache.get(part.asset)
+  const items = source ? glbNodeList(source) : []
+  if (!items.length) { flash('O modelo ainda está a carregar.'); return }
+  if (items.length === 1) { flash('Este modelo tem uma única malha: não há partes para separar.'); return }
+  const asset = part.asset
+  const children = items.map((item) => ({ ...defaultPart('glb', part.materialId, item.name), parentId: part.id, asset, glbNode: item.key }))
+  state.edit((def) => ({ ...def, parts: [...def.parts.map((item) => (item.id === part.id ? { ...item, kind: 'group' as const } : item)), ...children] }))
+  flash(`Modelo separado em ${items.length} partes.`)
+}
+
+/** Volta a juntar as partes separadas num único modelo GLB. */
+export function mergeGlbParts() {
+  const state = useEditorStore.getState()
+  const selection = state.selection
+  const part = selection?.kind === 'part' ? state.def.parts.find((item) => item.id === selection.id) : undefined
+  if (!part?.asset) return
+  const pieces = state.def.parts.filter((item) => item.parentId === part.id && item.glbNode)
+  if (!pieces.length) return
+  state.edit((def) => ({ ...def, parts: def.parts.filter((item) => !pieces.some((piece) => piece.id === item.id)).map((item) => (item.id === part.id ? { ...item, kind: 'glb' as const } : item)) }))
+  flash('Partes reunidas no modelo original.')
+}
+
+/** Partes separadas de uma peça (para a interface saber que botão mostrar). */
+export const explodedPiecesOf = (partId: string) =>
+  useEditorStore.getState().def.parts.filter((item) => item.parentId === partId && item.glbNode).length

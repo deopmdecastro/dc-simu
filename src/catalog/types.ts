@@ -46,6 +46,9 @@ export interface PartDef {
   locked: boolean
   /** id em `assets` quando `kind === 'glb'`. */
   asset?: string
+  /** Parte do modelo que esta peça representa («#2» = índice da malha, ou o nome do nó).
+   *  Permite separar um GLB importado em objetos editáveis (manípulos, tampas, botões…). */
+  glbNode?: string
   clickable?: boolean
 }
 
