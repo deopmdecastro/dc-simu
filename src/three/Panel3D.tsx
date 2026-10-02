@@ -6,6 +6,7 @@ import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { useEditorShortcuts } from '../ui/shortcuts'
+import ShortcutHelp from '../ui/ShortcutHelp'
 import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColor } from '../types'
@@ -1791,6 +1792,7 @@ function PlacementPlane({ onPlace, step, size = 80 }: { onPlace: (x: number, y: 
 
 /** Visualização 3D do Esquema: mesmo projeto, à escala real, em sintonia com o Esquema 2D. */
 export default function Panel3D({ initialCamera = null, onInitialCameraUsed, frontEdit = false }: { initialCamera?: ViewCubeRequest | null; onInitialCameraUsed?: () => void; /** Edição frontal: mesma cena 3D, vista frontal por prioridade e grelha por pontos do Esquema. */ frontEdit?: boolean } = {}) {
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
   const gridSettings = useSimStore((s) => s.grid)
   const placingType = useSimStore((s) => s.placingType)
   const setPlacingType = useSimStore((s) => s.setPlacingType)
@@ -2355,7 +2357,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     ungroup: () => useSimStore.getState().ungroupSelection(),
     copy: () => useSimStore.getState().copySelection(),
     paste: () => useSimStore.getState().pasteClipboard(),
-  })
+    help: () => setShortcutHelpOpen((open) => !open),
+  }, { enabled: !shortcutHelpOpen })
 
    return (
      <div
@@ -2570,6 +2573,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         >
           <IconHelp size={13} />
         </button>
+        <button
+          onClick={() => setShortcutHelpOpen(true)}
+          className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-[11px] font-semibold text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
+          title="Atalhos de teclado (F1)"
+          aria-label="Atalhos de teclado"
+        >
+          ?
+        </button>
+        <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor="Painel 3D" />
       </div>
     </div>
   )

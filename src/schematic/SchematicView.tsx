@@ -19,6 +19,7 @@ import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
 import { isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
 import { useEditorShortcuts } from '../ui/shortcuts'
+import ShortcutHelp from '../ui/ShortcutHelp'
 import { EDITOR_THEME } from '../ui/editorTheme'
 import Panel3D from '../three/Panel3D'
 import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
@@ -212,6 +213,7 @@ function Schematic2DViewCube({ tilt, onTilt, placement }: { tilt: Tilt2D; onTilt
 }
 
 function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCollapsed?: boolean; onOpen3DView?: (request: ViewCubeRequest) => void }) {
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
   const [tilt, setTilt] = useState<Tilt2D>({ yaw: 0, pitch: 0 })
   const isTilted = Math.abs(tilt.yaw) > 0.5 || Math.abs(tilt.pitch) > 0.5
   const components = useSimStore((s) => s.components)
@@ -530,6 +532,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     selectAll: () => selectComponents(components.map((component) => component.id)),
     copy: () => useSimStore.getState().copySelection(),
     paste: () => useSimStore.getState().pasteClipboard(),
+    help: () => setShortcutHelpOpen((open) => !open),
     fitView: fitContent,
     zoomView: (factor) => setZoom(useSimStore.getState().zoom * factor),
     panView: (dx, dy) => setPan(useSimStore.getState().panX - dx, useSimStore.getState().panY - dy),
@@ -557,7 +560,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         ...(wire.waypoints?.length ? { waypoints: wire.waypoints.map((point) => ({ ...point, x: point.x + dx, y: point.y + dy })) } : {}),
       })
     },
-  })
+  }, { enabled: !shortcutHelpOpen })
 
   // --------------------------------------------------------------- mouse
   const onBackgroundDown = (e: React.MouseEvent) => {
@@ -1517,6 +1520,15 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         >
           <IconHelp size={13} />
         </button>
+        <button
+          onClick={() => setShortcutHelpOpen(true)}
+          className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-[11px] font-semibold text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
+          title="Atalhos de teclado (F1)"
+          aria-label="Atalhos de teclado"
+        >
+          ?
+        </button>
+        <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor="Esquema" />
       </div>
     </div>
   )

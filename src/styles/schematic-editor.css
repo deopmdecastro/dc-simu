@@ -1,0 +1,42 @@
+/* schematic-editor.css — estilos do editor (schematic), extraídos de index.css. Usa os tokens --dx-* de dx.css. */
+
+.schematic-view-shell { position:relative; width:100%; height:100%; min-width:0; min-height:0; overflow:hidden; }
+.schematic-dimension-switch { position:absolute; z-index:30; left:50%; bottom:max(12px,env(safe-area-inset-bottom)); display:flex; align-items:center; gap:3px; max-width:calc(100% - 24px); padding:4px; border:1px solid #c7d4e6; border-radius:10px; background:#fffffff2; box-shadow:0 6px 20px #243b632b; backdrop-filter:blur(10px); transform:translateX(-50%); }
+.schematic-dimension-switch button { display:flex; height:28px; flex:0 0 auto; align-items:center; justify-content:center; gap:5px; padding:0 10px; border:1px solid transparent; border-radius:6px; color:#53637b; background:transparent; font-size:9px; font-weight:750; white-space:nowrap; cursor:pointer; }
+.schematic-dimension-switch button:hover { border-color:#bfd0ec; color:#1d4ed8; background:var(--dx-brand-soft); }
+.schematic-dimension-switch button.is-active { border-color:#2f6bff; color:#fff; background:#2f6bff; box-shadow:0 2px 7px #2563eb42; }
+.schematic-dimension-switch > span { display:flex; align-items:center; gap:5px; padding:0 7px 0 5px; color:#15803d; font:700 7px ui-monospace,monospace; letter-spacing:.04em; white-space:nowrap; }
+.schematic-dimension-switch > span i { width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 3px #dcfce7; }
+.schematic-hud { position:absolute; z-index:8; top:10px; left:10px; display:flex; align-items:center; gap:7px; max-width:calc(100% - 20px); min-height:28px; padding:4px 9px; border:1px solid #d5e1f0; border-radius:9px; background:#fffffff0; backdrop-filter:blur(8px); box-shadow:0 3px 12px #243b6318; color:#50617a; font-size:10px; white-space:nowrap; }
+.schematic-hud.is-library-collapsed { top:52px; }
+.schematic-hud-tool { display:inline-flex; align-items:center; gap:5px; color:#1d4ed8; font-weight:700; pointer-events:none; }
+.schematic-hud-tool i { width:6px; height:6px; border-radius:50%; background:#2563eb; }
+.schematic-hud-separator { height:13px; border-left:1px solid #d5e1f0; pointer-events:none; }
+.schematic-hud-action { height:20px; padding:0 5px; border:1px solid transparent; border-radius:4px; color:#50617a; background:transparent; font:inherit; cursor:pointer; }
+.schematic-hud-action:hover { border-color:#bfd0ec; color:#1d4ed8; background:var(--dx-brand-soft); }
+.schematic-stage { container-type:inline-size; }
+.schematic-view-shell {
+  --float-radius: 18px;
+  --float-border: #dbe4f0;
+  --float-shadow: 0 10px 28px #1b2d4920, 0 1px 3px #1b2d4912;
+}
+.schematic-hud {
+  gap:8px; min-height:34px; padding:4px 12px;
+  border-color:var(--float-border); border-radius:999px; box-shadow:var(--float-shadow);
+  font-size:11px; overflow:hidden; text-overflow:ellipsis;
+}
+.schematic-hud-tool i { width:7px; height:7px; }
+.schematic-hud-action { height:24px; padding:0 8px; border-radius:999px; }
+.schematic-dimension-switch {
+  padding:4px; gap:2px;
+  border-color:var(--float-border); border-radius:999px; background:#ffffffee; backdrop-filter:blur(12px);
+  box-shadow:var(--float-shadow);
+}
+.schematic-dimension-switch button { height:32px; padding:0 14px; border-radius:999px; font-size:12px; }
+.schematic-dimension-switch button.is-active { box-shadow:0 3px 9px #2563eb3d; }
+.schematic-dimension-switch > span { font:600 10px ui-sans-serif,system-ui,sans-serif; letter-spacing:0; }
+@media (max-width: 380px) {
+  .schematic-dimension-switch button { padding-inline:9px; gap:4px; font-size:10px; }
+}
+.schematic-tilt-note { position:absolute; z-index:21; left:50%; bottom:64px; transform:translateX(-50%); max-width:calc(100% - 24px); padding:7px 14px; border:1px solid var(--float-border,#dbe4f0); border-radius:999px; color:#41536d; background:#fffffff2; box-shadow:var(--float-shadow,0 8px 22px #1b2d491f); font:600 11px ui-sans-serif,system-ui,sans-serif; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.schematic-tilt-note b { color:#1d4ed8; }

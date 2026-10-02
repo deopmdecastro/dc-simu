@@ -18,6 +18,7 @@ import Logo from '../../ui/Brand'
 import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconUngroup, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
 import FaceChooser, { chooseFace } from './FaceChooser'
 import { useEditorShortcuts } from '../../ui/shortcuts'
+import ShortcutHelp, { type ShortcutHelpExtra } from '../../ui/ShortcutHelp'
 import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, explodeGlbPart, groupSelection, importGlbAction, mergeGlbParts, nudgeSelection, ungroupSelection } from './partActions'
 import { captureCover } from './capture'
 import WirePanel from './WirePanel'
@@ -31,6 +32,20 @@ const AUTO_UPDATE_KEY = 'dcsimu:editor:auto-update'
 const TABS: Array<[InspectorTab, string]> = [['object', 'Objeto'], ['materials', 'Materiais'], ['terminals', 'Bornes'], ['wires', 'Cabos'], ['lights', 'Luzes'], ['states', 'Estados'], ['interactions', 'Interações'], ['controls', 'Botões'], ['displays', 'Ecrãs'], ['component', 'Componente']]
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
 
+const EDITOR3D_HELP: ShortcutHelpExtra[] = [
+  { title: 'Ferramentas', items: [
+    { keys: '1', action: 'Selecionar' }, { keys: '2', action: 'Borne' }, { keys: '3', action: 'Cabo' },
+    { keys: '4', action: 'Apagar' }, { keys: '5', action: 'Arrastar malha' }, { keys: '6', action: 'Medir' },
+  ] },
+  { title: 'Transformação', items: [
+    { keys: 'W', action: 'Mover' }, { keys: 'E', action: 'Rodar' }, { keys: 'R', action: 'Escalar' },
+    { keys: 'X', action: 'Alternar espaço local/mundo' }, { keys: 'F · Shift+F', action: 'Enquadrar tudo / seleção' },
+    { keys: 'H', action: 'Mostrar/ocultar bornes' }, { keys: 'Setas · Shift+setas · Alt+setas', action: 'Mover 1 mm · 10 mm · em altura' },
+  ] },
+  { title: 'Cabos', items: [
+    { keys: 'Enter', action: 'Terminar cabo livre' }, { keys: 'Backspace', action: 'Remover último ponto do cabo' }, { keys: 'Escape', action: 'Cancelar cabo/medição' },
+  ] },
+]
 
 const RIBBON: Array<{ id: Ribbon; label: string; hint: string; key: string; icon: typeof IconCursor; simulate: boolean }> = [
   { id: 'select', label: 'Selecionar', hint: 'Selecionar e mover peças, bornes e cabos (clique num cabo para o editar)', key: '1', icon: IconCursor, simulate: true },
@@ -351,6 +366,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [publishing, setPublishing] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [dropping, setDropping] = useState(false)
   const [mobilePane, setMobilePane] = useState<'canvas' | 'objects' | 'inspector'>('canvas')
   useEffect(() => {
@@ -463,7 +479,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       const state = useEditorStore.getState()
       const mod = event.ctrlKey || event.metaKey
       if (mod && event.key.toLowerCase() === 's') { event.preventDefault(); void save(); return }
-      if (isTyping(event.target) || publishing) return
+      if (isTyping(event.target) || publishing || helpOpen) return
       if (mod && event.key.toLowerCase() === 'd' && state.mode === 'edit') { event.preventDefault(); duplicateSelection(); return }
       if (mod && event.key.toLowerCase() === 'g' && state.mode === 'edit') { event.preventDefault(); event.shiftKey ? ungroupSelection() : groupSelection(); return }
       const key = event.key.toLowerCase()
@@ -500,14 +516,15 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [save, publishing])
+  }, [save, publishing, helpOpen])
 
   // Atalhos universais, iguais aos do esquema 2D, do ladder e do GRAFCET.
   useEditorShortcuts({
     undo: () => useEditorStore.getState().undo(),
     redo: () => useEditorStore.getState().redo(),
     fitView: () => useEditorStore.getState().cameraTo('fit'),
-  }, { enabled: !publishing })
+    help: () => setHelpOpen((open) => !open),
+  }, { enabled: !publishing && !helpOpen })
 
   const dims = useMemo(() => {
     const box = boundsMm(def, glbCache)
@@ -534,6 +551,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       </div>
       <div className="ce-spacer" />
       {message && <span className="ce-flash" role="status">{message}</span>}
+      <button className="account-project-action" onClick={() => setHelpOpen(true)} title="Atalhos de teclado (F1)" aria-label="Atalhos de teclado">?</button>
       <button className="account-project-action" onClick={() => leave()}><IconArrowLeft size={13} />Biblioteca</button>
       <button className="account-project-action" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)">{saving ? 'A guardar…' : 'Guardar rascunho'}</button>
       <button className="account-project-action dx-bar-primary" onClick={() => setPublishing(true)}>Publicar…</button>
@@ -588,6 +606,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       </aside>
     </div>
     <StatusBar />
+    <ShortcutHelp open={helpOpen} onClose={() => setHelpOpen(false)} editor="Editor 3D de componentes" extra={EDITOR3D_HELP} />
     {updateAsk && <UpdateDialog dirty={dirty} onAnswer={updateAsk} />}
     {publishing && <PublishDialog onClose={() => setPublishing(false)} onDone={(text) => { setPublishing(false); leave(text) }} />}
   </div>
