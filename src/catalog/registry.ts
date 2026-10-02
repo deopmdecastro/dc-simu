@@ -7,19 +7,31 @@ import { hiddenCatalogTypes } from './hidden'
 import { catalogType, isCatalogType, parseCatalogType, type CatalogEntry, type CatalogVersion } from './types'
 
 const PALETTE_GROUP = 'Catálogo oficial'
+const BUILTIN_ORIGIN_PREFIX = 'Integrado · '
 const registered = new Set<string>()
+
+/** Um integrado editado pelo Admin substitui a respetiva entrada original na
+ * biblioteca, sem mudar o tipo de componentes já colocados nos projetos. */
+function builtinOrigin(entry: CatalogEntry): ComponentType | null {
+  const value = entry.meta.properties?.find((item) => item.key === 'Origem')?.value
+  if (!value?.startsWith(BUILTIN_ORIGIN_PREFIX)) return null
+  const type = value.slice(BUILTIN_ORIGIN_PREFIX.length) as ComponentType
+  return TEMPLATES[type] ? type : null
+}
 /** Tipos antigos que já não devem aparecer na biblioteca (há versão mais recente ou o componente foi arquivado). */
 const hiddenInLibrary = hiddenCatalogTypes
 
 function templateOf(entry: CatalogEntry, version: CatalogVersion): ComponentTemplate {
   const runtime = version.runtime
   const isMultimeter = version.definition.behavior?.type === 'multimeter'
+  const origin = builtinOrigin(entry)
+  const original = origin ? TEMPLATES[origin] : undefined
   return {
-    category: isMultimeter ? 'measurement' : entry.meta.category,
+    category: isMultimeter ? 'measurement' : original?.category ?? entry.meta.category,
     paletteName: entry.meta.name,
-    // Multímetros publicados (incluindo o DM-20 com LCD e botões) aparecem
-    // sempre numa pasta própria, mesmo que tenham sido criados antes desta categoria.
-    group: isMultimeter ? 'Aparelhos de medir' : entry.meta.group?.trim() ? `${PALETTE_GROUP} · ${entry.meta.group.trim()}` : PALETTE_GROUP,
+    // Um integrado republicado permanece na pasta onde os utilizadores já o
+    // procuram; componentes novos ficam no Catálogo oficial.
+    group: isMultimeter ? 'Aparelhos de medir' : original?.group ?? (entry.meta.group?.trim() ? `${PALETTE_GROUP} · ${entry.meta.group.trim()}` : PALETTE_GROUP),
     tag: (entry.meta.tag || 'X').replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'X',
     w: Math.max(1, Math.round(runtime.widthMm * SCHEMATIC_PX_PER_MM)),
     h: Math.max(1, Math.round(runtime.heightMm * SCHEMATIC_PX_PER_MM)),
@@ -74,6 +86,10 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
           const type = registerCatalogVersion(entry, version)
           const isLatest = version.version === entry.latestVersion && !entry.archived
           if (!isLatest) hiddenInLibrary.add(type)
+          // A versão publicada pelo Admin toma o lugar visual do integrado na
+          // biblioteca. O tipo antigo continua registado para projetos existentes.
+          const origin = builtinOrigin(entry)
+          if (isLatest && origin) hiddenInLibrary.add(origin)
           try { setCatalogModelPath(type, await catalogApi.glbUrl(entry.id, version.version)) } catch { /* GLB em falta: o componente fica sem modelo */ }
         }
       }
