@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useRef } from 'react'
 import { LogoMark } from '../ui/Brand'
-import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus } from '../ui/icons'
+import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus, IconGrid } from '../ui/icons'
 
 import ProjectCover from './ProjectCover'
 import type { ProjectPreviewData } from './projectPreview'
@@ -395,10 +395,10 @@ export default function Dashboard({
           </label>
           <div className="dx-view-toggle" role="group" aria-label="Modo de visualização">
             <button aria-pressed={view === 'grid'} onClick={() => setView('grid')} title="Cartões" aria-label="Ver em cartões">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.2" /><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.2" /><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.2" /><rect x="9" y="9" width="5.5" height="5.5" rx="1.2" /></svg>
+              <IconGrid size={15} />
             </button>
             <button aria-pressed={view === 'list'} onClick={() => setView('list')} title="Lista" aria-label="Ver em lista">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden><rect x="1.5" y="2" width="13" height="3" rx="1" /><rect x="1.5" y="6.5" width="13" height="3" rx="1" /><rect x="1.5" y="11" width="13" height="3" rx="1" /></svg>
+              <IconLayers size={15} />
             </button>
           </div>
         </div>

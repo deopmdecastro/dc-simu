@@ -21,7 +21,7 @@ import { hasComponent3DModel, isMountingRail, MISSING_3D_MODEL_MESSAGE, SCHEMATI
 import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRailGeometry'
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects, IconCube } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects, IconCube, IconClose } from '../ui/icons'
 
 const label = 'dc-field-label'
 const STATE_LABELS: Record<string, string> = {
@@ -343,7 +343,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
       {terminalLibOpen && createPortal(<div className="ce-modal ce-modal-fixed" role="dialog" aria-modal="true" aria-label="Biblioteca de bornes" onClick={(event) => { if (event.target === event.currentTarget) setTerminalLibOpen(false) }} onKeyDown={(event) => { if (event.key === 'Escape') setTerminalLibOpen(false) }}>
         <div className="ce-modal-card tl-modal-card">
-          <div className="ce-lib-head"><span>Biblioteca de bornes e perfis de ligação</span><button className="ce-icon" onClick={() => setTerminalLibOpen(false)} title="Fechar">✕</button></div>
+          <div className="ce-lib-head"><span>Biblioteca de bornes e perfis de ligação</span><button className="ce-icon" onClick={() => setTerminalLibOpen(false)} title="Fechar"><IconClose size={12} /></button></div>
           <TerminalLibrary mode="browse" />
         </div>
       </div>, document.body)}
@@ -606,7 +606,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           const linked = wires.filter((wire) => wire.fromTerminalId === t.id || wire.toTerminalId === t.id).length
                           if (linked && !window.confirm(`Remover o borne ${t.label} e ${linked} cabo(s) ligado(s)?`)) return
                           useSimStore.getState().deleteTerminal(t.id)
-                        }}>✕</button>
+                        }}><IconClose size={11} /></button>
                       </div>
                       <label className="mt-1.5 flex min-w-0 flex-col gap-0.5 text-[9px] text-ink-400"><span>Categoria elétrica {t.electricalClass ? '· definida' : '· sugestão da ficha'}</span><select
                         className="dc-select !h-[26px] !text-[10px]"

@@ -1,3 +1,4 @@
+import { IconLayers } from './ui/icons'
 import { useEffect, useState } from 'react'
 import InstallApp from './components/InstallApp'
 import Toolbar, { type ViewMode } from './components/Toolbar'
@@ -161,7 +162,7 @@ export default function App({ onBack }: { onBack: () => void }) {
           </>
         )}
         <div className="flex-1 min-w-0 flex flex-col relative">
-          {mode === 'schematic' && !showLibrary && <button className="dc-dock-open is-left" onClick={() => { setShowLadder(false); setShowLibrary(true) }} title="Mostrar biblioteca e inspetor">▤ Biblioteca</button>}
+          {mode === 'schematic' && !showLibrary && <button className="dc-dock-open is-left" onClick={() => { setShowLadder(false); setShowLibrary(true) }} title="Mostrar biblioteca e inspetor"><IconLayers size={12} /> Biblioteca</button>}
           {mode === 'schematic' && <SchematicView libraryCollapsed={!showLibrary} />}
           {mode === 'ladder' && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={() => { setShowLibrary(true); setMode('schematic') }} />}
           {mode === 'grafcet' && <GrafcetEditor full />}

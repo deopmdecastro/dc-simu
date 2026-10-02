@@ -1,6 +1,6 @@
 import { useSimStore } from '../store/useSimStore'
 import type { LadderDataType, LadderTag } from '../types'
-import { IconPlus } from '../ui/icons'
+import { IconPlus, IconClose } from '../ui/icons'
 
 /* ------------------------------------------------------------------------ *
  * Tabela de Tags — inspirada na organização do TIA Portal: uma tabela por
@@ -46,7 +46,7 @@ function TagRow({ tag }: { tag: LadderTag }) {
       </td>
       <td className="w-6 text-center">
         <button className="text-ink-300 hover:text-state-error text-xs" title="Remover tag" onClick={() => removeTag(tag.id)}>
-          ✕
+          <IconClose size={11} />
         </button>
       </td>
     </tr>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
-import { IconProbe, IconHelp, IconCube, IconSchematic } from '../ui/icons'
+import { IconProbe, IconHelp, IconCube, IconSchematic, IconGrid, IconZoomIn, IconFocus } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
@@ -1447,10 +1447,10 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       <div className={`schematic-hud ${libraryCollapsed ? 'is-library-collapsed' : ''}`} role="status" aria-label="Estado do editor de esquema">
         <span className="schematic-hud-tool"><i /> {gridDragEnabled ? 'Arrastar malha' : tool === 'select' ? 'Selecionar' : tool === 'wire' ? 'Desenhar fio' : tool === 'probe' ? 'Sonda' : tool === 'erase' ? 'Apagar' : 'Mover vista'}</span>
         <span className="schematic-hud-separator" />
-        <span title={`Malha ${grid.enabled ? `${grid.size}px, encaixe ${grid.snap ? 'ativo' : 'inativo'}` : 'desligada'}`}>▦ {grid.enabled ? `${grid.size}px${grid.snap ? ' · ímã' : ''}` : 'off'}</span>
+        <span title={`Malha ${grid.enabled ? `${grid.size}px, encaixe ${grid.snap ? 'ativo' : 'inativo'}` : 'desligada'}`}><IconGrid size={11} /> {grid.enabled ? `${grid.size}px${grid.snap ? ' · ímã' : ''}` : 'off'}</span>
         <span className="schematic-hud-separator" />
-        <button type="button" className="schematic-hud-action" onClick={() => { setZoom(1); setPan(0, 0) }} title="Restaurar zoom e posição">⌕ {Math.round(zoom * 100)}%</button>
-        <button type="button" className="schematic-hud-action" onClick={fitContent} title="Enquadrar todos os componentes e fios (Home)">⊙ Ajustar</button>
+        <button type="button" className="schematic-hud-action" onClick={() => { setZoom(1); setPan(0, 0) }} title="Restaurar zoom e posição"><IconZoomIn size={11} /> {Math.round(zoom * 100)}%</button>
+        <button type="button" className="schematic-hud-action" onClick={fitContent} title="Enquadrar todos os componentes e fios (Home)"><IconFocus size={11} /> Ajustar</button>
         <span className="schematic-hud-separator" />
         <span title="Quantidade de componentes e cabos no projeto">{components.length} comp. · {wires.length} fios</span>
       </div>

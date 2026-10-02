@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { listProjects, type ProjectMeta } from '../utils/persistence'
-import { IconProjects, IconSave } from '../ui/icons'
+import { IconProjects, IconSave, IconClose } from '../ui/icons'
 
 function formatDate(iso: string) {
   try {
@@ -137,7 +137,7 @@ export default function ProjectsPanel() {
                   Abrir
                 </button>
                 <button onClick={() => remove(p.name)} className="dc-icon-btn !w-5 !h-5 !border-transparent !text-ink-300 hover:!text-state-error hover:!bg-state-errorbg" title="Eliminar">
-                  ✕
+                  <IconClose size={11} />
                 </button>
               </div>
             ))}
