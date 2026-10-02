@@ -106,6 +106,16 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   }
   const box = boundsMm(def, cache)
   def.terminals = terminalsFor(tpl.terminals, box)
+  // Proteções importadas chegam ao editor já testáveis. O WEG não expõe a
+  // alavanca como nó separado no GLB; nesse caso, o corpo funciona como área
+  // de clique sem receber deslocamento artificial.
+  if (['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(type)) {
+    const partId = def.parts[0]?.id
+    if (partId) {
+      def.vars = [{ id: 'closed', name: 'Disjuntor fechado', type: 'bool', initial: true }, { id: 'tripped', name: 'Disparado', type: 'bool', initial: false }]
+      def.controls = [{ id: newId('ctl_'), name: 'Liga / desliga', kind: 'toggle', partId, axis: [0, 1, 0], travelMm: 0, bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }]
+    }
+  }
   const meta: CatalogMeta = {
     ...DEFAULT_META,
     name: tpl.paletteName, description: `Componente integrado da plataforma, importado como ponto de partida editável${usedModel ? '' : ' (sem modelo CAD: volume com as dimensões físicas)'}.`,

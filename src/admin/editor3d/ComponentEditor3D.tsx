@@ -361,6 +361,15 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     let cancelled = false
     catalogApi.adminGet(id).then(async (loaded) => {
       if (cancelled) return
+      const origin = loaded.meta.properties?.find((item) => item.key === 'Origem')?.value ?? ''
+      const breakerOrigin = /(breaker|phoenixEcb|motorBreaker|residualBreaker)/.test(origin)
+      if (breakerOrigin && loaded.draft && !(loaded.draft.controls?.length)) {
+        const partId = loaded.draft.parts[0]?.id
+        if (partId) loaded = { ...loaded, draft: { ...loaded.draft,
+          vars: [...(loaded.draft.vars ?? []), { id: 'closed', name: 'Disjuntor fechado', type: 'bool', initial: true }, { id: 'tripped', name: 'Disparado', type: 'bool', initial: false }],
+          controls: [{ id: 'builtin-breaker-toggle', name: 'Liga / desliga', kind: 'toggle', partId, axis: [0, 1, 0], travelMm: 0, bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }],
+        } }
+      }
       useEditorStore.getState().open(loaded)
       if (await loadGlbAssets(useEditorStore.getState().def, glbCache)) useEditorStore.getState().bumpGlb()
     }).catch((value) => !cancelled && setLoadError(value instanceof Error ? value.message : 'Não foi possível abrir o componente'))
