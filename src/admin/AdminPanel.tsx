@@ -108,7 +108,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
         <button className="dx-btn dx-btn-secondary" onClick={onBack}>← Projetos</button>
       </div>
     </div>
-    {creating3D && <NewComponentDialog onCancel={() => setCreating3D(false)} onError={onError} onCreated={(id, name) => { setCreating3D(false); setNotice(`«${name}» criado como rascunho. Modele-o e publique quando estiver pronto.`); setEditorOpenId(id); setTab('library3d'); navigate(ROUTES.adminEditor(id)) }} />}
+    {creating3D && <NewComponentDialog onCancel={() => setCreating3D(false)} onError={onError} onCreated={(id, name) => { setCreating3D(false); setNotice(`«${name}» criado como rascunho. Modele-o e publique quando estiver pronto.`); setEditorOpenId(id); setTab('library3d'); navigate(ROUTES.adminEditor(id, name)) }} />}
 
     <div className="cb-tabs" role="tablist" aria-label="Gestão do administrador">
       {tabs.map(([id, label, count]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>

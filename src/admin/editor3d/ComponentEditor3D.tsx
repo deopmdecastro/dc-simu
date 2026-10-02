@@ -1,3 +1,5 @@
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { bakeGlb, boundsMm, describeChanges, loadGlbAssets, resolveState, runtimeSpec } from '../../catalog/definition'
 import { catalogApi } from '../../catalog/catalogApi'
@@ -362,6 +364,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
   const placing = useEditorStore((s) => s.placing)
   const glbRevision = useEditorStore((s) => s.glbRevision)
   const set = useEditorStore((s) => s.set)
+  const navigate = useNavigate()
+  const location = useLocation()
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -525,6 +529,17 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     fitView: () => useEditorStore.getState().cameraTo('fit'),
     help: () => setHelpOpen((open) => !open),
   }, { enabled: !publishing && !helpOpen })
+
+  // A rota e o título mostram sempre o dispositivo em edição:
+  // /admin/editor/<id>/<nome-do-dispositivo>
+  useEffect(() => {
+    if (!meta.name) return
+    const target = ROUTES.adminEditor(id, meta.name)
+    if (location.pathname !== target) navigate(target, { replace: true })
+    const previous = document.title
+    document.title = `${meta.name} · Editor de componentes · DC-SIMU`
+    return () => { document.title = previous }
+  }, [id, meta.name, location.pathname, navigate])
 
   const dims = useMemo(() => {
     const box = boundsMm(def, glbCache)

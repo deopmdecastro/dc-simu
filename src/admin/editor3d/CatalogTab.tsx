@@ -19,7 +19,8 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
   const navigate = useNavigate()
   const [entries, setEntries] = useState<CatalogEntry[] | null>(null)
   const [editing, setEditing] = useState<string | null>(openId ?? null)
-  const openEditor = useCallback((id: string) => { setEditing(id); navigate(ROUTES.adminEditor(id)) }, [navigate])
+  // A rota leva o nome do dispositivo, para se perceber o que está a ser editado.
+  const openEditor = useCallback((id: string, name?: string) => { setEditing(id); navigate(ROUTES.adminEditor(id, name)) }, [navigate])
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'draft' | 'published' | 'archived' | 'builtin'>('all')
   const [importing, setImporting] = useState<string | null>(null)
@@ -70,7 +71,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
   /** Abre um componente integrado no editor 3D: cria (uma vez) uma cópia editável com o modelo e os bornes do original. */
   async function openBuiltin(item: BuiltinInfo) {
     const existing = imported.get(item.type)
-    if (existing) { openEditor(existing); return }
+    if (existing) { openEditor(existing, (entries ?? []).find((entry) => entry.id === existing)?.meta.name ?? item.name); return }
     setImporting(item.type)
     try {
       const { meta, def, usedModel } = await buildBuiltinDraft(item.type)
@@ -78,7 +79,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
       await catalogApi.save(id, meta, def)
       onNotice(usedModel ? `«${item.name}» importado com o modelo 3D e os bornes: edite à vontade (o componente integrado do simulador não é alterado).` : `«${item.name}» importado como volume com as dimensões físicas e os bornes (sem modelo CAD).`)
       await reload()
-      openEditor(id)
+      openEditor(id, meta.name)
     } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao importar o componente integrado') }
     finally { setImporting(null) }
   }
@@ -149,7 +150,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
             <p className="ce-card-desc">{entry.meta.description || 'Sem descrição.'}</p>
           </div>
           <div className="ce-card-actions">
-            <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => openEditor(entry.id)}>Editar</button>
+            <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => openEditor(entry.id, entry.meta.name)}>Editar</button>
             <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void duplicate(entry)} title="Cria um componente novo e independente">Duplicar</button>
             {entry.latestVersion > 0
               ? <button className="dx-btn dx-btn-ghost dx-btn-sm" onClick={() => void archive(entry)}>{entry.archived ? 'Repor' : 'Arquivar'}</button>
