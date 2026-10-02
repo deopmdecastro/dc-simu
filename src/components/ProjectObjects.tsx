@@ -62,7 +62,7 @@ export default function ProjectObjects() {
             title={`${item.ref} · ${item.type} · rotação ${item.rotation}°`}>
             <span className="dc-objects-card"><ComponentThumb type={item.type} size={40} /></span>
             <span className="dc-objects-text">
-              <span className="dc-objects-ref">{item.ref}{item.rotation !== 0 && <span className="dc-objects-badge">{item.rotation}°</span>}{item.allowOverlap && <span className="dc-objects-badge" title="Está à frente e pode ficar por cima de outros">à frente</span>}</span>
+              <span className="dc-objects-ref">{item.ref}{item.rotation !== 0 && <span className="dc-objects-badge">{item.rotation}°</span>}</span>
               <span className="dc-objects-name">{item.label || item.type}</span>
             </span>
           </button>

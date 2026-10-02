@@ -48,7 +48,7 @@ import { isDinRail, isRailMountable, railSpanMm, railWidthPx, reflowRailChildren
 import { clampRailLengthMm } from '../three/dinRailGeometry'
 import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
 import { automaticTerminalViewPositions, componentTerminalLocal, terminal3DFromProjectedLocal } from '../schematic/componentTerminalViews'
-import { componentPositionIsFree, nearestFreeComponentPosition, resolveComponentMove } from '../schematic/componentCollision'
+import { componentPositionIsFree, nearestFreeComponentPosition, resolveComponentMove, stackOnTopPosition } from '../schematic/componentCollision'
 import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosition, terminal3DPositionOf, type Terminal3DPosition } from '../three/terminal3D'
 import { setStoredCover } from '../three/coverCapture'
 import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, nextComponentHistory, previousComponentRevision, upgradeComponentEditorMetadata } from '../three/componentRevisions'
@@ -390,14 +390,20 @@ function reorderSelection(
 
   get().commitHistory()
   const patch = applyDrawOrder(order, components, wires)
-  // Quem vai para a frente pode assentar por cima dos que ficam atrás; quem
-  // volta para trás deixa de poder sobrepor e volta às regras normais.
-  const overlap = mode === 'front' || mode === 'forward'
-  set({
-    ...patch,
-    components: patch.components.map((item) => (selKeys.has(`c:${item.id}`) ? { ...item, allowOverlap: overlap || undefined } : item)),
-    dirty: true,
-  })
+  set({ ...patch, dirty: true })
+
+  // Trazer para a frente põe o componente EM CIMA do que está por baixo: os
+  // corpos são sólidos, por isso em vez de o sobrepor, assenta-o no topo.
+  if (mode === 'front' || mode === 'forward') {
+    for (const id of [...selKeys].filter((key) => key.startsWith('c:')).map((key) => key.slice(2))) {
+      const current = get().components.find((item) => item.id === id)
+      if (!current || current.locked) continue
+      const spot = stackOnTopPosition(current, get().components)
+      if (!spot) continue
+      get().updateComponentRaw(id, { schematicX: spot.x, schematicY: spot.y })
+      get().pushEvent('info', `${current.ref} ficou assente por cima do componente que estava por baixo.`)
+    }
+  }
 }
 
 function snapshot(state: Store): Snapshot {

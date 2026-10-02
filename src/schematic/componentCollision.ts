@@ -22,9 +22,6 @@ export function componentBounds2D(component: ElectricalComponent, x = component.
 }
 
 function isIntentionalMountingOverlap(a: ElectricalComponent, b: ElectricalComponent): boolean {
-  // Um componente trazido para a frente fica por cima: a sobreposição com o
-  // que está por baixo passa a ser intencional.
-  if (a.allowOverlap || b.allowOverlap) return true
   // Só equipamentos próprios para calha DIN podem sobrepor o seu suporte; duas
   // calhas e componentes de montagem em chapa continuam a ser objetos físicos.
   if (isDinRail(a) !== isDinRail(b)) {
@@ -125,6 +122,27 @@ export function resolveComponentMove(
     best = { x: component.schematicX, y: component.schematicY }
   }
   return { ...best, blocked: Math.abs(best.x - targetX) > 0.01 || Math.abs(best.y - targetY) > 0.01 }
+}
+
+/**
+ * Pousa o componente EM CIMA do que está por baixo: procura o topo mais alto
+ * entre os componentes que a caixa atual intersecta e devolve a posição onde
+ * o componente fica assente nesse topo (os corpos são sólidos, nunca entram
+ * uns nos outros). Devolve null quando não há nada por baixo.
+ */
+export function stackOnTopPosition(
+  component: ElectricalComponent,
+  all: ElectricalComponent[],
+  gap = COMPONENT_COLLISION_GAP,
+): { x: number; y: number } | null {
+  const own = componentBounds2D(component)
+  const below = obstaclesFor(component, all, new Set()).filter((other) => boundsOverlap(own, componentBounds2D(other), gap))
+  if (!below.length) return null
+  const top = Math.min(...below.map((other) => componentBounds2D(other).top))
+  const height = own.bottom - own.top
+  // `schematicX/Y` é o canto do footprint; a caixa rodada pode ser maior.
+  const offsetY = own.top - component.schematicY
+  return { x: component.schematicX, y: top - gap - height - offsetY }
 }
 
 /** Procura a posição livre mais próxima para inserções e duplicações. */
