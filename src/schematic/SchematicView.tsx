@@ -19,6 +19,7 @@ import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
 import { isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
 import { useEditorShortcuts } from '../ui/shortcuts'
+import { EDITOR_THEME } from '../ui/editorTheme'
 import Panel3D from '../three/Panel3D'
 import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
@@ -1222,7 +1223,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   }
 
   return (
-    <div className="schematic-stage w-full h-full relative overflow-hidden bg-[#f8fafd]">
+    <div className="schematic-stage w-full h-full relative overflow-hidden" style={{ background: EDITOR_THEME.background }}>
       <ComponentViewEditor />
       {onOpen3DView && <Schematic2DViewCube tilt={tilt} onTilt={setTilt} placement="top" />}
       {isTilted && <button type="button" className="schematic-tilt-note" onClick={() => setTilt({ yaw: 0, pitch: 0 })} title="Voltar à vista frontal para editar">Vista inclinada · <b>Voltar a Frente</b> para editar</button>}
@@ -1266,14 +1267,14 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             </feMerge>
           </filter>
           <pattern id="dc-grid-dots" width={grid.size} height={grid.size} patternUnits="userSpaceOnUse">
-            <circle cx={1} cy={1} r={1} fill="#ccd5e3" />
+            <circle cx={1} cy={1} r={1} fill={EDITOR_THEME.dot} />
           </pattern>
           <pattern id="dc-grid-lines" width={grid.size} height={grid.size} patternUnits="userSpaceOnUse">
-            <path d={`M ${grid.size} 0 L 0 0 0 ${grid.size}`} fill="none" stroke="#e4eaf2" strokeWidth={1} />
+            <path d={`M ${grid.size} 0 L 0 0 0 ${grid.size}`} fill="none" stroke={EDITOR_THEME.line} strokeWidth={1} />
           </pattern>
         </defs>
 
-        <rect width="100%" height="100%" fill={grid.background} />
+        <rect width="100%" height="100%" fill={EDITOR_THEME.background} />
         <g transform={`translate(${panX},${panY}) scale(${zoom})`}>
           {grid.enabled && <rect x={-CANVAS_W} y={-CANVAS_H} width={CANVAS_W * 3} height={CANVAS_H * 3} fill={grid.style === 'dots' ? 'url(#dc-grid-dots)' : 'url(#dc-grid-lines)'} />}
 

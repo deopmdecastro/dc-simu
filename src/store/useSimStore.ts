@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { EDITOR_THEME } from '../ui/editorTheme'
 import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
 import { nanoid } from 'nanoid'
 import type {
@@ -612,7 +613,7 @@ export const useSimStore = create<Store>((set, get) => ({
   selectedWireId: null,
   selectedTerminalId: null,
   tool: 'select',
-  grid: { enabled: true, size: 20, snap: true, style: 'dots', background: '#f8fafd' },
+  grid: { enabled: true, size: EDITOR_THEME.step, snap: true, style: 'dots', background: EDITOR_THEME.background },
   zoom: 1,
   panX: 0,
   panY: 0,
@@ -2061,7 +2062,7 @@ export const useSimStore = create<Store>((set, get) => ({
         grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
         grafcetRuntime: emptyGrafcetRuntime(),
         tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
-        grid: parsed.grid ? { ...parsed.grid, background: '#f8fafd' } : get().grid,
+        grid: parsed.grid ? { ...parsed.grid, background: EDITOR_THEME.background } : get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',
         runtime: EMPTY_RUNTIME(),
         selectedComponentIds: [],

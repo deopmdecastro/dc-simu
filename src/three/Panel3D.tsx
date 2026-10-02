@@ -6,6 +6,7 @@ import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { useEditorShortcuts } from '../ui/shortcuts'
+import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColor } from '../types'
 import * as THREE from 'three'
@@ -1747,8 +1748,7 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
 }
 
 function WorldBackdrop({ center, floorY, dark }: { center: [number, number, number]; floorY: number; dark: boolean }) {
-  const main = dark ? '#334155' : '#c3cdda'
-  const sub = dark ? '#243041' : '#dfe5ee'
+  const { floorMain: main, floorSub: sub } = editorPalette(dark)
   return (
     <group>
       <gridHelper args={[40, 80, main, sub]} position={[center[0], floorY, 0]} />
@@ -2291,12 +2291,18 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const label = aligned ? `Vista ${names[cameraFacingFace(cameraStats.yaw, cameraStats.pitch)].toLowerCase()}` : 'Vista livre'
     return `${frontEdit ? 'Edição · ' : ''}${label} · Numpad 1/3/7/5`
   })()
-  const stageBackground = backgroundMode === 'white'
-    ? 'bg-white'
-    : backgroundMode === 'dark'
-      ? 'bg-gradient-to-b from-[#111827] via-[#1f2937] to-[#0f172a]'
-      : 'bg-gradient-to-b from-[#e6ebf3] via-[#f3f5f9] to-[#ccd5e2]'
-  const sceneBackground = backgroundMode === 'white' ? '#ffffff' : backgroundMode === 'dark' ? '#111827' : '#e9eef5'
+  // Mesmo espaço de edição do editor de componentes do Admin: fundo liso com
+  // grelha de pontos de 20 px e as mesmas cores de chão.
+  const stageBackground = ''
+  const palette = editorPalette(backgroundMode === 'dark')
+  const sceneBackground = backgroundMode === 'white' ? '#ffffff' : palette.background
+  const stageStyle = backgroundMode === 'white'
+    ? { background: '#ffffff' }
+    : {
+        backgroundColor: palette.background,
+        backgroundImage: `radial-gradient(circle, ${palette.dot} 1px, transparent 1px)`,
+        backgroundSize: `${EDITOR_THEME.step}px ${EDITOR_THEME.step}px`,
+      }
 
   // Atalhos dos cabos (leem sempre o estado atual através da ref).
   const wireKeysRef = useRef<(event: KeyboardEvent) => boolean>(() => false)
@@ -2354,6 +2360,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
    return (
      <div
        className={`panel3d-stage relative w-full h-full ${stageBackground}`}
+       style={stageStyle}
        data-embedded-in-schematic="true"
        data-front-edit={frontEdit ? 'true' : 'false'}
        data-edit-mode={editMode}
@@ -2417,8 +2424,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       <ComponentViewEditor />
       </div>
       </div>
-      <Canvas shadows camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
-        <color attach="background" args={[sceneBackground]} />
+      <Canvas shadows gl={{ alpha: true }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
