@@ -240,7 +240,7 @@ function CubeOverlay() {
   const angles = useEditorStore((s) => s.camAngles)
   const set = useEditorStore((s) => s.set)
   const cameraTo = useEditorStore((s) => s.cameraTo)
-  return <ViewCube yaw={angles.yaw} pitch={angles.pitch} placement="below-command"
+  return <ViewCube yaw={angles.yaw} pitch={angles.pitch} placement="top"
     onPick={(view: ViewCubeFace) => cameraTo(view === 'isometric' ? 'iso' : view)}
     onAngles={(yaw, pitch) => set({ viewCommand: { kind: 'angles', n: Date.now(), yaw, pitch } })}
     onOrbit={(dx, dy) => set({ viewCommand: { kind: 'orbit', n: Date.now(), dx, dy } })} />
