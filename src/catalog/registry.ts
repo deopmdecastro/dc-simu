@@ -9,6 +9,11 @@ import { catalogType, isCatalogType, parseCatalogType, type CatalogEntry, type C
 const PALETTE_GROUP = 'Catálogo oficial'
 const BUILTIN_ORIGIN_PREFIX = 'Integrado · '
 const registered = new Set<string>()
+/** Tipo de catálogo → componente integrado que ele substitui (DM-20, motor…). */
+const builtinOriginByType = new Map<string, ComponentType>()
+
+/** Componente integrado que está na origem de um tipo do catálogo, se existir. */
+export const builtinOriginType = (type: string): ComponentType | null => builtinOriginByType.get(type) ?? null
 
 /** Um integrado editado pelo Admin substitui a respetiva entrada original na
  * biblioteca, sem mudar o tipo de componentes já colocados nos projetos. */
@@ -81,6 +86,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     try {
       const entries = await catalogApi.list()
       hiddenInLibrary.clear()
+      builtinOriginByType.clear()
       for (const entry of entries) {
         for (const version of entry.versions) {
           const type = registerCatalogVersion(entry, version)
@@ -89,6 +95,9 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
           // A versão publicada pelo Admin toma o lugar visual do integrado na
           // biblioteca. O tipo antigo continua registado para projetos existentes.
           const origin = builtinOrigin(entry)
+          // Os extras do integrado (LCD do multímetro, placa de bornes do motor…)
+          // continuam a funcionar na versão publicada pelo Admin.
+          if (origin) builtinOriginByType.set(type, origin)
           if (isLatest && origin) hiddenInLibrary.add(origin)
           try { setCatalogModelPath(type, await catalogApi.glbUrl(entry.id, version.version)) } catch { /* GLB em falta: o componente fica sem modelo */ }
         }

@@ -4,7 +4,7 @@ import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
-import { useCatalogStore } from '../catalog/registry'
+import { builtinOriginType, useCatalogStore } from '../catalog/registry'
 import { parseCatalogType, type TriggerName } from '../catalog/types'
 import { interactionsFor, runInteractions } from '../catalog/interactions'
 import { StateAnimator } from '../catalog/stateAnimator'
@@ -14,6 +14,8 @@ import { setBeep } from '../catalog/beep'
 import { cloneModelScene } from './modelFit'
 import { finishCadMaterial } from './catalogMaterials'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
+import MultimeterDm20Panel from './MultimeterDm20Panel'
+import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 
 /** Procura a peça (nome do nó = id da peça) a partir do objeto atingido. */
 function partIdOf(object: THREE.Object3D | null, known: Set<string>): string {
@@ -32,6 +34,10 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
   children?: (topY: number) => ReactNode
 }) {
   const link = parseCatalogType(c.type)
+  // Quando esta versão substitui um componente integrado, os extras desse
+  // componente (LCD e botões do DM-20, placa de bornes Y/Δ do motor) continuam
+  // a ser desenhados por cima do modelo publicado.
+  const builtin = builtinOriginType(c.type)
   const spec = getComponentModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const entries = useCatalogStore((s) => s.entries)
@@ -134,6 +140,8 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
     onPointerUp={(event) => fire(event, 'pressUp')}
   >
     <primitive object={model} />
+    {builtin === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} />}
+    {builtin === 'motor3ph' && <MotorTerminalBoard3D c={c} position={[0, topY * 0.82, 0.08]} />}
     {children?.(topY)}
   </group>
 }
