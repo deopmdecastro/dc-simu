@@ -25,7 +25,7 @@ function getRenderer(): THREE.WebGLRenderer | null {
   return renderer
 }
 
-const keyOf = (def: ComponentDefinition) => `${def.parts.length}:${def.parts.map((part) => `${part.id}${part.kind}${part.size.join()}${part.position.join()}${part.rotation.join()}${part.scale.join()}${part.glbNode ?? ''}${part.materialId ?? ''}`).join('|')}|${def.materials.map((item) => `${item.id}${item.color}`).join('|')}`
+const keyOf = (def: ComponentDefinition, revision = 0) => `r${revision}:` + `${def.parts.length}:${def.parts.map((part) => `${part.id}${part.kind}${part.size.join()}${part.position.join()}${part.rotation.join()}${part.scale.join()}${part.glbNode ?? ''}${part.materialId ?? ''}`).join('|')}|${def.materials.map((item) => `${item.id}${item.color}`).join('|')}`
 
 function builtFor(def: ComponentDefinition, key: string): THREE.Object3D | null {
   if (builtKey !== key || !builtRoot) {
@@ -61,8 +61,8 @@ function lit(): THREE.Scene {
  * normal indicada, enquadrada na área pedida. Serve de cartão para LCDs e
  * controlos, que não são peças próprias do modelo.
  */
-export function areaThumbnail(def: ComponentDefinition, centre: [number, number, number], normal: [number, number, number], widthMm: number, heightMm: number): string | null {
-  const key = keyOf(def)
+export function areaThumbnail(def: ComponentDefinition, centre: [number, number, number], normal: [number, number, number], widthMm: number, heightMm: number, revision = 0): string | null {
+  const key = keyOf(def, revision)
   const cacheKey = `area:${centre.join()}:${normal.join()}:${widthMm}x${heightMm}@${key}`
   const hit = cache.get(cacheKey)
   if (hit !== undefined) return hit || null
@@ -77,10 +77,11 @@ export function areaThumbnail(def: ComponentDefinition, centre: [number, number,
   const half = Math.max(2, Math.max(widthMm, heightMm) * 0.75)
   const camera = new THREE.OrthographicCamera(-half, half, half, -half, 0.01, half * 40)
   camera.position.copy(centreVec).addScaledVector(direction, half * 8)
-  camera.up.set(Math.abs(direction.y) > 0.9 ? 0 : 0, Math.abs(direction.y) > 0.9 ? 0 : 1, Math.abs(direction.y) > 0.9 ? -1 : 0)
+  const vertical = Math.abs(direction.y) > 0.9
+  camera.up.set(0, vertical ? 0 : 1, vertical ? -1 : 0)
   camera.lookAt(centreVec)
   const url = shoot(scene, camera, gl)
-  cache.set(cacheKey, url ?? '')
+  if (url) cache.set(cacheKey, url)
   return url
 }
 
@@ -88,8 +89,8 @@ export function areaThumbnail(def: ComponentDefinition, centre: [number, number,
  * Miniatura (data URL) da peça `partId`. Quando `nodes` é indicado, mostra só
  * esses objetos do GLB (o manípulo, a tecla do botão…).
  */
-export function partThumbnail(def: ComponentDefinition, partId: string, nodes?: string[]): string | null {
-  const key = keyOf(def)
+export function partThumbnail(def: ComponentDefinition, partId: string, nodes?: string[], revision = 0): string | null {
+  const key = keyOf(def, revision)
   const cacheKey = `${partId}:${nodes?.join('+') ?? ''}@${key}`
   const hit = cache.get(cacheKey)
   if (hit !== undefined) return hit || null
@@ -98,7 +99,7 @@ export function partThumbnail(def: ComponentDefinition, partId: string, nodes?: 
   const root = gl ? builtFor(def, key) : null
   if (!gl || !root) return null
   const holderNode = root.getObjectByName(partId)
-  if (!holderNode) { cache.set(cacheKey, ''); return null }
+  if (!holderNode) return null
   let node: THREE.Object3D = holderNode
   if (nodes?.length) {
     const picked = nodes.map((name) => holderNode.getObjectByName(name)).filter((item): item is THREE.Object3D => !!item)
@@ -130,7 +131,7 @@ export function partThumbnail(def: ComponentDefinition, partId: string, nodes?: 
   scene.add(key1)
 
   const box = new THREE.Box3().setFromObject(clone, true)
-  if (box.isEmpty()) { cache.set(cacheKey, ''); return null }
+  if (box.isEmpty()) { scene.clear(); return null }
   const centre = box.getCenter(new THREE.Vector3())
   const radius = Math.max(0.001, box.getSize(new THREE.Vector3()).length() / 2)
   const camera = new THREE.PerspectiveCamera(32, 1, radius / 100, radius * 100)
@@ -144,7 +145,6 @@ export function partThumbnail(def: ComponentDefinition, partId: string, nodes?: 
     cache.set(cacheKey, url)
     return url
   } catch {
-    cache.set(cacheKey, '')
     return null
   } finally {
     scene.clear()

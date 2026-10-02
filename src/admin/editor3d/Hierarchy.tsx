@@ -11,7 +11,7 @@ import { areaThumbnail, partThumbnail } from './partThumb'
 function PartThumb({ partId, kind, size }: { partId: string; kind: PartDef['kind']; size: number }) {
   const def = useEditorStore((s) => s.def)
   const glbRevision = useEditorStore((s) => s.glbRevision)
-  const url = useMemo(() => partThumbnail(def, partId), [def, partId, glbRevision])
+  const url = useMemo(() => partThumbnail(def, partId, undefined, glbRevision), [def, partId, glbRevision])
   const Icon = KIND_ICON[kind]
   if (!url) return <i className="ce-row-kind" style={{ width: size, height: size }}><Icon size={Math.round(size * 0.62)} /></i>
   return <img className="ce-row-thumb" src={url} alt="" width={size} height={size} loading="lazy" />
@@ -21,7 +21,7 @@ function PartThumb({ partId, kind, size }: { partId: string; kind: PartDef['kind
 function ControlThumb({ partId, nodes, size = 34 }: { partId: string; nodes?: string[]; size?: number }) {
   const def = useEditorStore((s) => s.def)
   const glbRevision = useEditorStore((s) => s.glbRevision)
-  const url = useMemo(() => (partId ? partThumbnail(def, partId, nodes) : null), [def, partId, nodes, glbRevision])
+  const url = useMemo(() => (partId ? partThumbnail(def, partId, nodes, glbRevision) : null), [def, partId, nodes, glbRevision])
   if (!url) return <i className="ce-row-kind" style={{ width: size, height: size }}><IconFocus size={13} /></i>
   return <img className="ce-row-thumb" src={url} alt="" width={size} height={size} loading="lazy" />
 }
@@ -30,7 +30,7 @@ function ControlThumb({ partId, nodes, size = 34 }: { partId: string; nodes?: st
 function DisplayThumb({ display, size = 34 }: { display: DisplayDef; size?: number }) {
   const def = useEditorStore((s) => s.def)
   const glbRevision = useEditorStore((s) => s.glbRevision)
-  const url = useMemo(() => areaThumbnail(def, display.position, display.normal, display.widthMm, display.heightMm), [def, display, glbRevision])
+  const url = useMemo(() => areaThumbnail(def, display.position, display.normal, display.widthMm, display.heightMm, glbRevision), [def, display, glbRevision])
   if (!url) return <i className="ce-row-kind" style={{ width: size, height: size }}><IconMonitor size={13} /></i>
   return <img className="ce-row-thumb" src={url} alt="" width={size} height={size} loading="lazy" />
 }
