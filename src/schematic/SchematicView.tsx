@@ -521,6 +521,23 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     fitContent,
   ])
 
+  // Rotação e ordem de desenho da seleção (vale para o Esquema e para o 3D).
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+      const state = useSimStore.getState()
+      const ids = state.selectedComponentIds
+      if (!ids.length) return
+      const mod = event.ctrlKey || event.metaKey
+      if (!mod && (event.key === 'r' || event.key === 'R')) { event.preventDefault(); state.rotateComponents(ids, event.shiftKey ? -90 : 90); return }
+      if (mod && (event.key === ']' || event.code === 'BracketRight')) { event.preventDefault(); state.reorderComponents(ids, event.shiftKey ? 'forward' : 'front'); return }
+      if (mod && (event.key === '[' || event.code === 'BracketLeft')) { event.preventDefault(); state.reorderComponents(ids, event.shiftKey ? 'backward' : 'back') }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
   // Atalhos universais (iguais no ladder, no GRAFCET e nos editores 3D).
   useEditorShortcuts({
     undo: () => useSimStore.getState().undo(),

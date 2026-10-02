@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import InstallApp from './components/InstallApp'
 import Toolbar, { type ViewMode } from './components/Toolbar'
 import Sidebar from './components/Sidebar'
+import ProjectObjects from './components/ProjectObjects'
 import LadderEditor from './ladder/LadderEditor'
 import type { LadderSection } from './ladder/LadderSections'
 import GrafcetEditor from './grafcet/GrafcetEditor'
@@ -30,6 +31,7 @@ export default function App({ onBack }: { onBack: () => void }) {
   // espaço útil ao canvas; abaixo de 1200 px (tablets, portáteis pequenos) passam a gavetas sobrepostas.
   const compactWorkspace = () => window.innerWidth < 1200 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches
   const [showLadder, setShowLadder] = useState(() => !compactWorkspace())
+  const [rightTab, setRightTab] = useState<'grafcet' | 'objects'>('grafcet')
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
   const compact = compactWorkspace()
 
@@ -179,19 +181,23 @@ export default function App({ onBack }: { onBack: () => void }) {
                 <button
                   onClick={() => setShowLadder(false)}
                   className="dc-dock-collapse"
-                  title="Recolher o editor GRAFCET"
+                  title="Recolher o painel direito"
                 >
                   ▸
                 </button>
-                <GrafcetEditor onOpenEditor={() => setMode('grafcet')} />
+                <div className="dc-dock-tabs" role="tablist" aria-label="Painel direito">
+                  <button role="tab" aria-selected={rightTab === 'grafcet'} className={rightTab === 'grafcet' ? 'is-on' : ''} onClick={() => setRightTab('grafcet')}>GRAFCET</button>
+                  <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')}>Objetos</button>
+                </div>
+                {rightTab === 'grafcet' ? <GrafcetEditor onOpenEditor={() => setMode('grafcet')} /> : <ProjectObjects />}
               </>
             ) : (
               <button
                 onClick={() => { setShowLibrary(false); setShowLadder(true) }}
                 className="dc-dock-open is-right"
-                title="Mostrar o editor GRAFCET"
+                title="Mostrar GRAFCET e objetos do projeto"
               >
-                ◂ GRAFCET
+                ◂ GRAFCET · Objetos
               </button>
             )}
           </div>

@@ -2211,3 +2211,31 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
 }
 
 /* Barra contextual móvel: prioriza área útil e mantém todas as ferramentas acessíveis por scroll. */
+
+
+/* Painel direito: separadores GRAFCET / Objetos e lista de objetos do projeto */
+.dc-dock-tabs { display:flex; gap:4px; padding:6px 8px; border-bottom:1px solid var(--dc-line, #e5e9ef); background:#fbfcfe; }
+.dc-dock-tabs button { flex:1; padding:5px 8px; border:1px solid #dfe4e9; border-radius:7px; background:#fff; color:#39434f; font-size:11px; font-weight:650; cursor:pointer; }
+.dc-dock-tabs button.is-on { border-color:#1a44c8; color:#1a44c8; background:#eef3ff; }
+.dc-objects { display:flex; flex-direction:column; min-height:0; flex:1; overflow:hidden; }
+.dc-objects-head { padding:8px; display:flex; flex-direction:column; gap:6px; border-bottom:1px solid #eef1f5; }
+.dc-objects-title { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:#39434f; text-transform:uppercase; letter-spacing:.03em; }
+.dc-objects-title b { margin-left:auto; color:#1a44c8; }
+.dc-objects-search { display:flex; align-items:center; gap:6px; border:1px solid #dfe4e9; border-radius:7px; padding:4px 7px; background:#fff; }
+.dc-objects-search input { border:0; outline:0; font-size:11px; width:100%; background:transparent; }
+.dc-objects-actions { display:flex; flex-wrap:wrap; gap:4px; padding:7px 8px; border-bottom:1px solid #eef1f5; }
+.dc-objects-actions .dc-btn-sm { display:inline-flex; align-items:center; gap:4px; padding:4px 7px; font-size:11px; font-weight:650; border:1px solid #dfe4e9; border-radius:7px; background:#fff; color:#39434f; cursor:pointer; }
+.dc-objects-actions .dc-btn-sm:hover:not(:disabled) { border-color:#c9d8fb; color:#1a44c8; }
+.dc-objects-actions .dc-btn-sm:disabled { opacity:.45; cursor:not-allowed; }
+.dc-objects-empty { padding:12px 10px; font-size:11px; color:#6b7684; }
+.dc-objects-list { list-style:none; margin:0; padding:6px; display:flex; flex-direction:column; gap:3px; overflow:auto; min-height:0; }
+.dc-objects-row { display:flex; align-items:center; gap:4px; border:1px solid transparent; border-radius:7px; padding:2px 4px; }
+.dc-objects-row:hover { background:#f5f8ff; }
+.dc-objects-row.is-on { border-color:#1a44c8; background:#eef3ff; }
+.dc-objects-main { flex:1; min-width:0; display:flex; align-items:center; gap:6px; background:none; border:0; padding:4px 2px; cursor:pointer; text-align:left; font:inherit; }
+.dc-objects-ref { font-size:11px; font-weight:750; color:#1a2230; }
+.dc-objects-name { font-size:11px; color:#6b7684; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dc-objects-badge { margin-left:auto; font-size:10px; color:#1a44c8; background:#eef3ff; border-radius:5px; padding:1px 4px; }
+.dc-objects-tools { display:flex; gap:2px; }
+.dc-objects-tools button { border:0; background:none; color:#6b7684; padding:3px; border-radius:5px; cursor:pointer; }
+.dc-objects-tools button:hover { background:#e6edff; color:#1a44c8; }

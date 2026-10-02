@@ -220,6 +220,10 @@ interface Store extends CircuitState {
   groupSelection: () => void
   ungroupSelection: () => void
   selectComponents: (ids: string[], additive?: boolean) => void
+  /** Roda os componentes indicados (graus, múltiplos de 90). */
+  rotateComponents: (ids: string[], deltaDeg: number) => void
+  /** Ordem de desenho no Esquema: trazer para a frente / enviar para trás. */
+  reorderComponents: (ids: string[], where: 'front' | 'back' | 'forward' | 'backward') => void
   selectWire: (id: string | null) => void
   selectTerminal: (id: string | null) => void
   addTerminal: (componentId: string) => void
@@ -1436,6 +1440,55 @@ export const useSimStore = create<Store>((set, get) => ({
       }
     })
     get().step()
+  },
+
+
+  rotateComponents: (ids, deltaDeg) => {
+    const movable = ids.filter((id) => !get().components.find((item) => item.id === id)?.locked)
+    if (!movable.length) return
+    get().commitHistory()
+    const moving = new Set(movable)
+    for (const id of movable) {
+      const current = get().components.find((item) => item.id === id)
+      if (!current) continue
+      const rotation = (((current.rotation + deltaDeg) % 360) + 360) % 360
+      const candidate = { ...current, rotation }
+      const others = get().components
+      // Rodar troca largura por altura: se a nova caixa chocar com um vizinho,
+      // procura-se o lugar livre mais perto em vez de recusar a rotação.
+      if (componentPositionIsFree(candidate, current.schematicX, current.schematicY, others, moving)) {
+        get().updateComponentRaw(id, { rotation })
+        continue
+      }
+      const spot = nearestFreeComponentPosition(candidate, current.schematicX, current.schematicY, others.filter((item) => !moving.has(item.id)))
+      get().updateComponentRaw(id, { rotation, schematicX: spot.x, schematicY: spot.y })
+      if (spot.displaced) get().pushEvent('info', `${current.ref} rodou ${deltaDeg > 0 ? '+' : ''}${deltaDeg}° e afastou-se um pouco para não sobrepor outro componente.`)
+    }
+  },
+
+  reorderComponents: (ids, where) => {
+    if (!ids.length) return
+    get().commitHistory()
+    set((s) => {
+      const chosen = new Set(ids)
+      const picked = s.components.filter((item) => chosen.has(item.id))
+      const rest = s.components.filter((item) => !chosen.has(item.id))
+      if (!picked.length) return {}
+      if (where === 'front') return { components: [...rest, ...picked], dirty: true }
+      if (where === 'back') return { components: [...picked, ...rest], dirty: true }
+      // Um passo de cada vez, mantendo a ordem relativa da seleção.
+      const next = [...s.components]
+      const step = where === 'forward' ? 1 : -1
+      const order = where === 'forward'
+        ? next.map((item, index) => index).filter((index) => chosen.has(next[index].id)).reverse()
+        : next.map((item, index) => index).filter((index) => chosen.has(next[index].id))
+      for (const index of order) {
+        const target = index + step
+        if (target < 0 || target >= next.length || chosen.has(next[target].id)) continue
+        ;[next[index], next[target]] = [next[target], next[index]]
+      }
+      return { components: next, dirty: true }
+    })
   },
 
   selectComponents: (ids, additive = false) =>
