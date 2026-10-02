@@ -30,6 +30,7 @@ import {
   faCaretUp,
   faCheck,
   faChevronDown,
+  faChevronLeft,
   faChevronRight,
   faChevronUp,
   faCircle,
@@ -151,6 +152,7 @@ export const IconTag = fa(faTag)
 export const IconDownload = fa(faDownload)
 export const IconSearch = fa(faMagnifyingGlass)
 export const IconChevronDown = fa(faChevronDown)
+export const IconChevronLeft = fa(faChevronLeft)
 export const IconChevronRight = fa(faChevronRight)
 export const IconChevronUp = fa(faChevronUp)
 export const IconArrowRight = fa(faArrowRight)

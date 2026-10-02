@@ -1,4 +1,4 @@
-import { IconLayers } from './ui/icons'
+import { IconChevronLeft, IconChevronRight, IconLayers } from './ui/icons'
 import { useEffect, useState } from 'react'
 import InstallApp from './components/InstallApp'
 import Toolbar, { type ViewMode } from './components/Toolbar'
@@ -150,7 +150,7 @@ export default function App({ onBack }: { onBack: () => void }) {
           <>
             <div className={`mobile-library-panel relative shrink-0 flex flex-col ${compact ? 'dc-mobile-fullscreen-panel' : ''}`} style={compact ? undefined : { width: panelSizes.sidebar }}>
               <Sidebar width={compact ? window.innerWidth : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} />
-              <button className="dc-dock-close" onClick={() => setShowLibrary(false)} title="Recolher biblioteca e inspetor" aria-label="Recolher biblioteca e inspetor">◂</button>
+              <button className="dc-dock-close" onClick={() => setShowLibrary(false)} title="Recolher biblioteca e inspetor" aria-label="Recolher biblioteca e inspetor"><IconChevronLeft size={12} /></button>
             </div>
             <div
               className="dc-resize-handle"
@@ -183,7 +183,7 @@ export default function App({ onBack }: { onBack: () => void }) {
                   className="dc-dock-collapse"
                   title="Recolher o painel direito"
                 >
-                  ▸
+                  <IconChevronRight size={12} />
                 </button>
                 <div className="dc-dock-tabs" role="tablist" aria-label="Painel direito">
                   <button role="tab" aria-selected={rightTab === 'grafcet'} className={rightTab === 'grafcet' ? 'is-on' : ''} onClick={() => setRightTab('grafcet')}>GRAFCET</button>
@@ -197,7 +197,7 @@ export default function App({ onBack }: { onBack: () => void }) {
                 className="dc-dock-open is-right"
                 title="Mostrar GRAFCET e objetos do projeto"
               >
-                ◂ GRAFCET · Objetos
+                <IconChevronLeft size={11} /> GRAFCET · Objetos
               </button>
             )}
           </div>

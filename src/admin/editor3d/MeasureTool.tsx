@@ -4,6 +4,7 @@ import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Vec3 } from '../../catalog/types'
 import { useEditorStore } from './editorStore'
+import { IconClose } from '../../ui/icons'
 
 const PICK_PX = 14
 const CLICK_SLOP_PX = 5
@@ -17,7 +18,7 @@ function Label({ a, b, live, onRemove }: { a: Vec3; b: Vec3; live?: boolean; onR
     <span className={`ce-measure${live ? ' is-live' : ''}`}>
       <b>{r1(distance(a, b))} mm</b>
       <i>Δx {r1(d[0])} · y {r1(d[1])} · z {r1(d[2])}</i>
-      {onRemove && <button type="button" aria-label="Apagar medição" title="Apagar medição" onClick={onRemove}>×</button>}
+      {onRemove && <button type="button" aria-label="Apagar medição" title="Apagar medição" onClick={onRemove}><IconClose size={10} /></button>}
     </span>
   </Html>
 }

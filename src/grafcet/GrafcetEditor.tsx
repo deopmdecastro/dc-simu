@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 
 import { useSimStore } from '../store/useSimStore'
 import { evalCondition, transitionsOf, validCondition } from './engine'
 import type { GrafcetAction, GrafcetStep, GrafcetTransition, GrafcetProgram } from './engine'
-import { IconCopy, IconDelete, IconHelp, IconRedo, IconSearch, IconUndo } from '../ui/icons'
+import { IconChevronRight, IconCopy, IconDelete, IconHelp, IconRedo, IconSearch, IconUndo } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import { useEditorShortcuts } from '../ui/shortcuts'
 
@@ -406,7 +406,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           return items.length ? <section key={group.group}><h3>{group.group}</h3>{items.map((item) => <button key={item.kind} disabled={paletteDisabled(item.kind)} onClick={() => usePalette(item.kind)} draggable={!paletteDisabled(item.kind)} onDragStart={(event) => { event.dataTransfer.setData(GRAFCET_MIME, item.kind); event.dataTransfer.effectAllowed = 'copy' }} className="grafcet-toolbox-item" title={`${item.name}: clique ou arraste para o diagrama`}><span className="grafcet-toolbox-icon">{item.icon}</span><span><strong>{item.name}</strong><small>{item.detail}</small></span></button>)}</section> : null
         })}{!PALETTE.some((group) => group.items.some((item) => norm(`${item.name} ${item.detail}`).includes(norm(paletteFilter)))) && <div className="grafcet-toolbox-empty">Nenhum componente encontrado.</div>}</div>
         <p className="grafcet-toolbox-tip">Selecione uma etapa e clique ou arraste um componente. Configure a entidade no painel à direita.</p>
-      </aside> : <button className="grafcet-toolbox-restore" onClick={() => setShowPalette(true)} title="Mostrar componentes (Ctrl+B)">› Ferramentas</button>)}
+      </aside> : <button className="grafcet-toolbox-restore" onClick={() => setShowPalette(true)} title="Mostrar componentes (Ctrl+B)"><IconChevronRight size={11} /> Ferramentas</button>)}
 
       <div
         ref={viewportRef}

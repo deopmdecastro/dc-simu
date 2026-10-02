@@ -16,6 +16,7 @@ import UsersTab from './UsersTab'
 import { contribApi } from '../contrib/contribApi'
 import { COMPONENT_OPTIONS, ContributionRow, formatBytes, formatDate } from '../contrib/ContribParts'
 import { KIND_LABEL, STATUS_LABEL, type Contribution, type ContributionKind, type ContributionStatus, type ContribStats } from '../contrib/types'
+import { IconArrowLeft, IconClose } from '../ui/icons'
 
 type Tab = 'overview' | 'contributions' | 'components' | 'library3d' | 'projects' | 'users' | 'logs' | 'system'
 
@@ -105,7 +106,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
       </div>
       <div className="dx-admin-head-actions">
         <button className="dx-btn dx-btn-primary" onClick={() => setCreating3D(true)} title="Criar um componente no editor 3D">+ Novo componente 3D</button>
-        <button className="dx-btn dx-btn-secondary" onClick={onBack}>← Projetos</button>
+        <button className="dx-btn dx-btn-secondary" onClick={onBack}><IconArrowLeft size={12} /> Projetos</button>
       </div>
     </div>
     {creating3D && <NewComponentDialog onCancel={() => setCreating3D(false)} onError={onError} onCreated={(id, name) => { setCreating3D(false); setNotice(`«${name}» criado como rascunho. Modele-o e publique quando estiver pronto.`); setEditorOpenId(id); setTab('library3d'); navigate(ROUTES.adminEditor(id, name)) }} />}
@@ -115,8 +116,8 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
         {label}{count !== undefined && (id === 'contributions' ? <em title="Em revisão">{count}</em> : <span>{count}</span>)}
       </button>)}
     </div>
-    {error && <div className="dx-alert" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Fechar">×</button></div>}
-    {notice && <div className="cb-toast" role="status">{notice}<button onClick={() => setNotice('')} aria-label="Fechar">×</button></div>}
+    {error && <div className="dx-alert" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Fechar"><IconClose size={11} /></button></div>}
+    {notice && <div className="cb-toast" role="status">{notice}<button onClick={() => setNotice('')} aria-label="Fechar"><IconClose size={11} /></button></div>}
 
     {tab === 'overview' && <>
       <div className="ce-cta">

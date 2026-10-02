@@ -1,10 +1,21 @@
 import { useMemo, useState } from 'react'
 import type { PartDef } from '../../catalog/types'
-import { IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
+import { IconGrid, IconLayers, IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
 import { descendantsOf, patchPart, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
 import { faceOfNormal } from './terminalOps'
 import { deleteSelection } from './partActions'
+import { partThumbnail } from './partThumb'
+
+/** Miniatura 3D da peça (cai para o ícone da forma quando não há imagem). */
+function PartThumb({ partId, kind, size }: { partId: string; kind: PartDef['kind']; size: number }) {
+  const def = useEditorStore((s) => s.def)
+  const glbRevision = useEditorStore((s) => s.glbRevision)
+  const url = useMemo(() => partThumbnail(def, partId), [def, partId, glbRevision])
+  const Icon = KIND_ICON[kind]
+  if (!url) return <i className="ce-row-kind" style={{ width: size, height: size }}><Icon size={Math.round(size * 0.62)} /></i>
+  return <img className="ce-row-thumb" src={url} alt="" width={size} height={size} loading="lazy" />
+}
 
 const FACE_ORDER: Face[] = ['front', 'back', 'left', 'right', 'top', 'bottom']
 const FACE_LABEL: Record<Face, string> = { front: 'Frente', back: 'Trás', left: 'Esquerda', right: 'Direita', top: 'Topo', bottom: 'Base' }
@@ -17,6 +28,9 @@ export default function Hierarchy() {
   const edit = useEditorStore((s) => s.edit)
   const select = useEditorStore((s) => s.select)
   const [renaming, setRenaming] = useState<string | null>(null)
+  // Lista compacta ou cartões com a miniatura de cada peça.
+  const [cards, setCards] = useState<boolean>(() => { try { return localStorage.getItem('dcsimu:ce:objcards') !== '0' } catch { return true } })
+  const chooseCards = (value: boolean) => { setCards(value); try { localStorage.setItem('dcsimu:ce:objcards', value ? '1' : '0') } catch { /* ignorar */ } }
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
   const readOnly = mode === 'simulate'
@@ -55,8 +69,10 @@ export default function Hierarchy() {
   }
 
   return <aside className="ce-left" aria-label="Hierarquia">
-    <div className="ce-panel-head"><strong>Objetos</strong><span>{def.parts.length}</span></div>
-    <div className="ce-tree" role="tree" onDragOver={(event) => { if (dragId) event.preventDefault() }} onDrop={() => { if (dragId) reparent(dragId, null); setDragId(null); setOverId(null) }}>
+    <div className="ce-panel-head"><strong>Objetos</strong><span>{def.parts.length}</span>
+      <button className="ce-icon" title={cards ? 'Ver em lista' : 'Ver em cartões com miniatura'} aria-label={cards ? 'Ver em lista' : 'Ver em cartões'} onClick={() => chooseCards(!cards)}>{cards ? <IconLayers size={13} /> : <IconGrid size={13} />}</button>
+    </div>
+    <div className={`ce-tree${cards ? ' is-cards' : ''}`} role="tree" onDragOver={(event) => { if (dragId) event.preventDefault() }} onDrop={() => { if (dragId) reparent(dragId, null); setDragId(null); setOverId(null) }}>
       {rows.length === 0 && <p className="ce-empty">Sem peças. Adicione uma forma na barra de ferramentas.</p>}
       {rows.map(({ part, depth }) => {
         const active = selection?.kind === 'part' && (selection.id === part.id || multi.includes(part.id))
@@ -66,7 +82,7 @@ export default function Hierarchy() {
           onDragStart={() => setDragId(part.id)} onDragEnd={() => { setDragId(null); setOverId(null) }}
           onDragOver={(event) => { if (dragId) { event.preventDefault(); event.stopPropagation(); setOverId(part.id) } }}
           onDrop={(event) => { event.stopPropagation(); if (dragId) reparent(dragId, part.id); setDragId(null); setOverId(null) }}>
-          <i className="ce-row-kind">{(() => { const Icon = KIND_ICON[part.kind]; return <Icon size={13} /> })()}</i>
+          <PartThumb partId={part.id} kind={part.kind} size={cards ? 46 : 20} />
           {renaming === part.id
             ? <input autoFocus className="dx-input ce-rename" defaultValue={part.name} onClick={(event) => event.stopPropagation()}
                 onBlur={(event) => { edit((current) => patchPart(current, part.id, { name: event.target.value.trim() || part.name })); setRenaming(null) }}

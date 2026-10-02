@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import type { ElectricalComponent } from '../types'
+import { SymbolGlyph } from '../schematic/symbols'
 import { IconChevronUp, IconChevronDown, IconLayers, IconLock, IconRotate, IconSearch, IconUnlock } from '../ui/icons'
 
 /**
@@ -8,6 +10,18 @@ import { IconChevronUp, IconChevronDown, IconLayers, IconLock, IconRotate, IconS
  * rotação e de ordem de desenho (trazer para a frente / enviar para trás).
  * A ordem da lista é a ordem de desenho: o último é o que fica por cima.
  */
+/** Pré-visualização do objeto: o mesmo símbolo que é desenhado no esquema. */
+function ObjectPreview({ component }: { component: ElectricalComponent }) {
+  const pad = 4
+  const width = Math.max(1, component.w)
+  const height = Math.max(1, component.h)
+  return <svg className="dc-objects-thumb" viewBox={`${-pad} ${-pad} ${width + pad * 2} ${height + pad * 2}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <g transform={`rotate(${component.rotation},${width / 2},${height / 2}) ${component.mirrored ? `translate(${width},0) scale(-1,1)` : ''}`}>
+      <SymbolGlyph c={component} selected={false} />
+    </g>
+  </svg>
+}
+
 export default function ProjectObjects() {
   const components = useSimStore((s) => s.components)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
@@ -55,9 +69,11 @@ export default function ProjectObjects() {
         return <li key={item.id} className={`dc-objects-row${selected ? ' is-on' : ''}`}>
           <button type="button" className="dc-objects-main" onClick={(event) => selectComponents([item.id], event.ctrlKey || event.metaKey || event.shiftKey)}
             title={`${item.ref} · ${item.type} · rotação ${item.rotation}°`}>
-            <span className="dc-objects-ref">{item.ref}</span>
-            <span className="dc-objects-name">{item.label || item.type}</span>
-            {item.rotation !== 0 && <span className="dc-objects-badge">{item.rotation}°</span>}
+            <span className="dc-objects-card"><ObjectPreview component={item} /></span>
+            <span className="dc-objects-text">
+              <span className="dc-objects-ref">{item.ref}{item.rotation !== 0 && <span className="dc-objects-badge">{item.rotation}°</span>}</span>
+              <span className="dc-objects-name">{item.label || item.type}</span>
+            </span>
           </button>
           <span className="dc-objects-tools">
             <button type="button" title="Rodar 90°" onClick={() => rotateComponents([item.id], 90)}><IconRotate size={11} /></button>

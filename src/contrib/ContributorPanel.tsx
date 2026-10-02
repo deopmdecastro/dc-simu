@@ -6,6 +6,7 @@ import { COMPONENT_OPTIONS, ContributionRow, GlbPreview, formatBytes } from './C
 import type { GlbDimensions } from './GlbPreview'
 import { KIND_LABEL, MAX_GLB_BYTES, MAX_PDF_BYTES, type Contribution, type ContributionKind } from './types'
 import { readValidationHead, validateFile, validateInput } from './validate'
+import { IconArrowLeft } from '../ui/icons'
 
 type Tab = 'send' | 'mine' | 'library'
 const NEW_COMPONENT = '__new__'
@@ -130,7 +131,7 @@ export default function ContributorPanel({ user, onBack, initialTab = 'send' }: 
         <h1>Contribuir.</h1>
         <p>Envie fichas técnicas (PDF) e modelos 3D (GLB) de componentes. Olá, {user.name}: as suas contribuições são revistas pelo administrador antes de ficarem disponíveis para todos.</p>
       </div>
-      <button className="dx-btn dx-btn-secondary" onClick={onBack}>← Projetos</button>
+      <button className="dx-btn dx-btn-secondary" onClick={onBack}><IconArrowLeft size={12} /> Projetos</button>
     </div>
 
     <div className="cb-tabs" role="tablist" aria-label="Painel do contribuidor">

@@ -19,6 +19,7 @@ import ContributorPanel from './contrib/ContributorPanel'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { guardedDestination } from './routing/guards'
 import { pageFromPath, projectIdFromPath, ROUTES, type AppPage } from './routing/routes'
+import { IconArrowLeft, IconClose } from './ui/icons'
 
 type Open = { id: string; name: string; revision: number }
 
@@ -290,7 +291,7 @@ export default function Account() {
 
   if (page === 'editor' && open) return <>
     <EditorTopbar projectName={open.name} dirty={editorDirty} message={message} actions={<>
-      <button className="account-project-action" onClick={() => void leave()}>← Projetos</button>
+      <button className="account-project-action" onClick={() => void leave()}><IconArrowLeft size={12} /> Projetos</button>
       <button className="account-project-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
       {user && <AccountControls user={user} invites={invites} context="editor" dirty={editorDirty}
         errors={notificationErrors} warnings={notificationWarnings} onProjects={() => void leave()}
@@ -311,7 +312,7 @@ export default function Account() {
     {page === 'admin' && user?.role === 'admin' && <AdminPanel currentUser={user} invites={invites} onLogout={() => void logout()} onBack={() => setPage('dashboard')} />}
     {page === 'contribute' && user && <ContributorPanel user={user} onBack={() => setPage('dashboard')} />}
     {page === 'dashboard' && <Dashboard user={user} projects={projects} invites={invites} loading={!loaded} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove} fetchMembers={fetchMembers} />}
-    {message && page !== 'login' && <div className="dx-toast" role="status">{message}<button onClick={() => setMessage('')} aria-label="Fechar">×</button></div>}
+    {message && page !== 'login' && <div className="dx-toast" role="status">{message}<button onClick={() => setMessage('')} aria-label="Fechar"><IconClose size={11} /></button></div>}
   </main>
 }
 
@@ -344,13 +345,13 @@ function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHo
     <section className="dx-auth-main"><div className="dx-auth-panel">
       <div className="dx-auth-mobile">
         <button onClick={onHome} aria-label="Voltar ao início"><Logo /></button>
-        <button onClick={onHome}>← Início</button>
+        <button onClick={onHome}><IconArrowLeft size={12} /> Início</button>
       </div>
-      <button className="dx-auth-back" onClick={onHome}>← Voltar ao início</button>
+      <button className="dx-auth-back" onClick={onHome}><IconArrowLeft size={12} /> Voltar ao início</button>
       <span className="dx-over"><i />A sua área de trabalho</span>
       <h1>Bem-vindo de volta</h1>
       <p className="dx-auth-sub">Entre com uma das duas contas autorizadas.</p>
-      {message && <div className="dx-alert" role="alert"><span>{message}</span><button onClick={clearMessage} aria-label="Fechar aviso">×</button></div>}
+      {message && <div className="dx-alert" role="alert"><span>{message}</span><button onClick={clearMessage} aria-label="Fechar aviso"><IconClose size={11} /></button></div>}
       <form onSubmit={onSubmit} noValidate={false}>
         <label className="dx-field"><span className="dx-label">Email</span><input className="dx-input" required type="email" autoFocus={canFocus} autoComplete="username" placeholder="conta autorizada" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
         <label className="dx-field"><span className="dx-label">Palavra-passe</span>

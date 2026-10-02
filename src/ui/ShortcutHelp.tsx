@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { SHORTCUT_HELP } from './shortcuts'
+import { IconClose } from './icons'
 
 export interface ShortcutHelpExtra {
   title: string
@@ -46,7 +47,7 @@ export default function ShortcutHelp({ open, onClose, editor, extra = [] }: Prop
             <h3>Atalhos de teclado</h3>
             <small>{editor} · no macOS use ⌘ em vez de Ctrl</small>
           </div>
-          <button className="ladder-ghost-button" onClick={onClose} aria-label="Fechar" title="Fechar (Esc)">×</button>
+          <button className="ladder-ghost-button" onClick={onClose} aria-label="Fechar" title="Fechar (Esc)"><IconClose size={12} /></button>
         </header>
         <input autoFocus className="lk-search" placeholder="Filtrar atalhos…" value={query} onChange={(event) => setQuery(event.target.value)} />
         <div className="lk-body">

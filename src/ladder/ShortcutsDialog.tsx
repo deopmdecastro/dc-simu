@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { SHORTCUTS, SHORTCUT_GROUPS, type ShortcutGroupId } from './ladderShortcuts'
+import { IconClose } from '../ui/icons'
 
 export function Kbd({ keys }: { keys: string[] }) {
   return (
@@ -50,7 +51,7 @@ export default function ShortcutsDialog({ open, onClose }: { open: boolean; onCl
             <h3>Atalhos de teclado</h3>
             <small>Editor Ladder · no macOS use ⌘ em vez de Ctrl</small>
           </div>
-          <button className="ladder-ghost-button" onClick={onClose} aria-label="Fechar" title="Fechar (Esc)">×</button>
+          <button className="ladder-ghost-button" onClick={onClose} aria-label="Fechar" title="Fechar (Esc)"><IconClose size={12} /></button>
         </header>
         <input autoFocus className="lk-search" placeholder="Filtrar atalhos…" value={query} onChange={(e) => setQuery(e.target.value)} />
         <div className="lk-body"><ShortcutList query={query} /></div>

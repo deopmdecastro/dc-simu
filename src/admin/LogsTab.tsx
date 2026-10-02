@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { formatDate } from '../contrib/ContribParts'
 import { adminApi, downloadText } from './adminApi'
 import { ACTION_LABEL, CATEGORY_LABEL, actionLabel, categoryOf, logsToCsv, severityOf, type AuditEntry, type LogCategory, type LogQuery } from './adminTypes'
+import { IconArrowLeft, IconArrowRight, IconClose } from '../ui/icons'
 
 const PAGE = 50
 const fail = (value: unknown) => value instanceof Error ? value.message : 'Falha ao carregar os registos'
@@ -70,7 +71,7 @@ export default function LogsTab({ initialActor = '', onChanged, onError }: { ini
       <input className="dx-input" type="date" value={from} max={to || undefined} onChange={(event) => reset(() => setFrom(event.target.value))} aria-label="Desde" title="Desde" />
       <input className="dx-input" type="date" value={to} min={from || undefined} onChange={(event) => reset(() => setTo(event.target.value))} aria-label="Até" title="Até" />
     </div>
-    {actor && <div className="cb-chipbar"><span className="cb-badge">Utilizador: {actor}<button aria-label="Remover filtro de utilizador" onClick={() => reset(() => setActor(''))}>×</button></span></div>}
+    {actor && <div className="cb-chipbar"><span className="cb-badge">Utilizador: {actor}<button aria-label="Remover filtro de utilizador" onClick={() => reset(() => setActor(''))}><IconClose size={10} /></button></span></div>}
 
     <div className="cb-logs" role="table" aria-label="Registos de atividade">
       {data.items.length === 0 && <div className="dx-admin-empty">{loading ? 'A carregar…' : 'Nenhum evento com este filtro.'}</div>}
@@ -99,9 +100,9 @@ export default function LogsTab({ initialActor = '', onChanged, onError }: { ini
     </div>
 
     <div className="cb-pager">
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={page === 0} onClick={() => setPage(page - 1)}>← Mais recentes</button>
+      <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={page === 0} onClick={() => setPage(page - 1)}><IconArrowLeft size={11} /> Mais recentes</button>
       <span>Página {page + 1} de {pages}</span>
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>Mais antigos →</button>
+      <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>Mais antigos <IconArrowRight size={11} /></button>
     </div>
 
     <div className="cb-logtools">

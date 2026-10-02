@@ -6,7 +6,7 @@ import { COMPONENT_TO_LADDER, type PaletteKind } from './ladderDnd'
 import { ELEMENT_KEYS } from './ladderShortcuts'
 import { useLadderPrefs } from './ladderPrefs'
 import { Kbd, ShortcutList } from './ShortcutsDialog'
-import { IconSearch } from '../ui/icons'
+import { IconClose, IconSearch } from '../ui/icons'
 
 export type LadderSection = 'Projeto' | 'Biblioteca' | 'Dispositivos' | 'Diagnóstico' | 'Configurações'
 
@@ -51,7 +51,7 @@ function SearchBox({ value, onChange, placeholder, label }: { value: string; onC
     <div className="ls-search">
       <IconSearch size={14} />
       <input aria-label={label} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && onChange('')} />
-      {value && <button onClick={() => onChange('')} aria-label="Limpar pesquisa" title="Limpar">×</button>}
+      {value && <button onClick={() => onChange('')} aria-label="Limpar pesquisa" title="Limpar"><IconClose size={11} /></button>}
     </div>
   )
 }

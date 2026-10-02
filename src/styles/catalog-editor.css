@@ -460,3 +460,14 @@
   .ce-stage.lib-open .ce-stage-info { left:10px; }
   .ce-statusbar { font-size:10px; overflow:hidden; }
 }
+
+
+/* Objetos em cartões: miniatura 3D de cada peça */
+.ce-row-thumb { border-radius:6px; background:#f2f5f9; border:1px solid #e3e8ef; object-fit:contain; flex:0 0 auto; }
+.ce-tree.is-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(118px, 1fr)); gap:6px; padding:6px; }
+.ce-tree.is-cards .ce-row { flex-direction:column; align-items:stretch; gap:4px; padding:6px !important; border:1px solid var(--dx-line); border-radius:9px; background:var(--dx-surface); }
+.ce-tree.is-cards .ce-row .ce-row-thumb, .ce-tree.is-cards .ce-row .ce-row-kind { align-self:center; }
+.ce-tree.is-cards .ce-row-name { text-align:center; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ce-tree.is-cards .ce-row .ce-icon { position:static; }
+.ce-tree.is-cards .ce-row > .ce-icon:nth-last-of-type(-n+2) { display:inline-flex; }
+.ce-tree.is-cards .ce-row.is-active { border-color:var(--dx-brand); background:var(--dx-brand-soft); }

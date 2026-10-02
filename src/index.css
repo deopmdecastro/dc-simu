@@ -2239,3 +2239,13 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
 .dc-objects-tools { display:flex; gap:2px; }
 .dc-objects-tools button { border:0; background:none; color:#6b7684; padding:3px; border-radius:5px; cursor:pointer; }
 .dc-objects-tools button:hover { background:#e6edff; color:#1a44c8; }
+
+
+/* Cartão com a pré-visualização do objeto na lista do projeto */
+.dc-objects-row { align-items:stretch; }
+.dc-objects-main { align-items:center; gap:8px; }
+.dc-objects-card { flex:0 0 auto; width:46px; height:38px; display:flex; align-items:center; justify-content:center; border:1px solid #e3e8ef; border-radius:7px; background:#f7f9fc; overflow:hidden; }
+.dc-objects-thumb { width:100%; height:100%; }
+.dc-objects-text { display:flex; flex-direction:column; min-width:0; gap:1px; }
+.dc-objects-text .dc-objects-ref { display:flex; align-items:center; gap:5px; }
+.dc-objects-row.is-on .dc-objects-card { border-color:#1a44c8; background:#fff; }

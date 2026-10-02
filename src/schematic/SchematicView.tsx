@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
-import { IconProbe, IconHelp, IconCube, IconSchematic, IconGrid, IconZoomIn, IconFocus } from '../ui/icons'
+import { IconCube, IconFocus, IconGrid, IconHelp, IconLock, IconProbe, IconSchematic, IconZoomIn } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
@@ -1237,7 +1237,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               fill={modelError ? '#be123c' : '#8190a5'} pointerEvents="none">{modelError ?? c.ref}</text>
           </g>
         ) : <SymbolGlyph c={c} selected={selected} />}
-        {c.locked && <text x={bounds.x + bounds.w - 12} y={bounds.y + 12} fontSize={10} fill="#b45309">🔒</text>}
+        {c.locked && <g transform={`translate(${bounds.x + bounds.w - 17},${bounds.y + 3})`} color="#b45309"><IconLock size={11} /></g>}
       </g>
     )
   }
