@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { TEMPLATES, type ComponentTemplate, type TerminalTemplate } from '../../electrical/factory'
-import { boundsMm, defaultDefinition, defaultMaterial, defaultPart, loadGlbAssets, newId, type GlbCache } from '../../catalog/definition'
+import { boundsMm, buildDefinitionObject, defaultDefinition, defaultMaterial, defaultPart, loadGlbAssets, newId, type GlbCache } from '../../catalog/definition'
 import { inferFromFunction } from '../../catalog/terminalProfiles'
 import { DEFAULT_META } from '../../catalog/definition'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, TerminalDef, Vec3 } from '../../catalog/types'
@@ -66,11 +66,82 @@ function terminalsFor(list: TerminalTemplate[], box: THREE.Box3): TerminalDef[] 
     const polarity = inferred.polarity
     const direction = inferred.direction ?? (item.kind === 'power-in' || item.kind === 'coil-plus' || item.kind === 'coil-minus' ? 'in' : item.kind === 'power-out' ? 'out' : 'io')
     return {
-      id: newId('t_'), label, name: item.displayName ?? (label === item.label ? label : item.label), position: [round(position[0]), round(position[1]), round(position[2])], normal,
+      id: item.defId ?? newId('t_'), label, name: item.displayName ?? (label === item.label ? label : item.label), position: [round(position[0]), round(position[1]), round(position[2])], normal,
       kind: item.kind, terminalType: item.terminalType ?? 'screw', polarity, electricalClass: item.electricalClass ?? inferred.electricalClass, direction,
       accepts: item.rules?.accepts ?? '', color: item.color ?? inferred.color ?? '#cbd5e1', fn: item.label, contact: inferred.contact,
     }
   })
+}
+
+
+/** Nós reais do CAD do RGK DM-20 (nomes exportados pelo Blender). */
+const DM20_NODES = {
+  dialBody: 'occurrence_of_Plane008_Material004_0',
+  dialPointer: 'occurrence_of_Plane010_Material003_0',
+  glass: 'occurrence_of_Cube002_Material008_0',
+  buttonLeft: 'occurrence_of_Plane004_Material003_0',
+  buttonMiddle: 'occurrence_of_Plane002_Material002_0',
+  buttonRight: 'occurrence_of_Plane003_Material007_0',
+}
+
+/**
+ * Prepara o multímetro RGK DM-20 como componente editável completo:
+ * seletor rotativo, três botões e o LCD aparecem na lista de elementos do
+ * editor, cada um ligado ao objeto correspondente dentro do GLB.
+ */
+function seedMultimeterDm20(def: ComponentDefinition, cache: GlbCache) {
+  const partId = def.parts[0]?.id
+  if (!partId) return
+  const root = buildDefinitionObject(def, cache)
+  const holder = root.getObjectByName(partId)
+  const boxOf = (name: string) => {
+    const node = holder?.getObjectByName(name)
+    if (!node) return null
+    root.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(node, true)
+    if (box.isEmpty()) return null
+    const centre = box.getCenter(new THREE.Vector3())
+    const size = box.getSize(new THREE.Vector3())
+    const r = (value: number) => Math.round(value * 100) / 100
+    return { centre: [r(centre.x), r(centre.y), r(centre.z)] as Vec3, size: [r(size.x), r(size.y), r(size.z)] as Vec3 }
+  }
+
+  def.vars = [
+    { id: 'dial', name: 'Seletor de função', type: 'text', initial: 'off' },
+    { id: 'hold', name: 'Reter leitura (HOLD)', type: 'bool', initial: false },
+    { id: 'backlight', name: 'Retroiluminação', type: 'bool', initial: false },
+  ]
+  def.behavior = { type: 'multimeter', com: 'dm20-com', volt: 'dm20-volt', milliamp: 'dm20-ma', amp: 'dm20-amp' }
+  const button = (node: string, name: string, event: 'select' | 'power' | 'hold') => ({
+    id: newId('ctl_'), name, kind: 'button' as const, partId, nodes: [node], axis: [0, 0, 1] as Vec3, travelMm: 1,
+    positions: [], actions: [{ type: 'behavior' as const, event }],
+  })
+  def.controls = [
+    {
+      id: newId('ctl_'), name: 'Seletor de função', kind: 'selector', partId,
+      nodes: [DM20_NODES.dialBody, DM20_NODES.dialPointer], axis: [0, 0, -1], travelMm: 0, bindVar: 'dial',
+      actions: [],
+      positions: [
+        { id: 'off', label: 'OFF', angle: -52 }, { id: 'acv', label: 'V ~', angle: -22 }, { id: 'dcv', label: 'V ⎓', angle: 0 },
+        { id: 'ma', label: 'mA', angle: 68 }, { id: 'a10', label: '10 A', angle: 93 }, { id: 'ohm', label: 'Ω', angle: -112 },
+      ],
+    },
+    button(DM20_NODES.buttonLeft, 'Botão de luz / ligar', 'power'),
+    button(DM20_NODES.buttonMiddle, 'Botão SELECT', 'select'),
+    button(DM20_NODES.buttonRight, 'Botão HOLD', 'hold'),
+  ]
+
+  const glass = boxOf(DM20_NODES.glass)
+  if (glass) {
+    def.displays = [{
+      id: newId('dsp_'), name: 'LCD', kind: 'lcd',
+      position: [glass.centre[0], glass.centre[1], Math.round((glass.centre[2] + glass.size[2] / 2) * 100) / 100],
+      normal: [0, 0, 1], roll: 0,
+      widthMm: Math.max(4, glass.size[0]), heightMm: Math.max(4, glass.size[1]), density: 8,
+      background: '#bdc8b2', foreground: '#172018', lines: [],
+      powerVar: '', backlightVar: 'backlight',
+    }]
+  }
 }
 
 /** Rascunho editável a partir de um componente integrado: modelo GLB (ou volume físico) + bornes + metadados. */
@@ -115,6 +186,9 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
       def.controls = [{ id: newId('ctl_'), name: 'Liga / desliga', kind: 'toggle', partId, nodes: type === 'breakerWegMdwC10' ? ['WEG_Handle'] : undefined, axis: type === 'breakerWegMdwC10' ? [1, 0, 0] : [0, 1, 0], travelMm: type === 'breakerWegMdwC10' ? 8 : 0, bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }]
     }
   }
+  // O multímetro DM-20 chega ao editor completo: seletor, botões e LCD já
+  // ligados aos objetos reais do modelo, visíveis na lista como elementos.
+  if (type === 'multimeterDm20') seedMultimeterDm20(def, cache)
   const meta: CatalogMeta = {
     ...DEFAULT_META,
     name: tpl.paletteName, description: `Componente integrado da plataforma, importado como ponto de partida editável${usedModel ? '' : ' (sem modelo CAD: volume com as dimensões físicas)'}.`,
