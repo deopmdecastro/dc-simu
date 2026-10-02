@@ -2917,27 +2917,3 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
   .dc-toolbar-main .dc-views-container button { padding-inline:10px !important; }
   .schematic-view-shell .panel3d-model-badge { max-width:calc(100vw - 32px); overflow:hidden; }
 }
-
-/* ---- GRAFCET (pré-visualização lateral): espaçamentos e estados ---- */
-.grafcet-preview .grafcet-header { gap:12px; padding:14px 16px; align-items:center; }
-.grafcet-preview .grafcet-title { min-width:0; display:flex; flex-direction:column; gap:3px; }
-.grafcet-preview .grafcet-header strong { font-size:14px; line-height:1.1; }
-.grafcet-preview .grafcet-header small { font-size:10.5px; line-height:1.3; }
-.grafcet-preview .grafcet-header .dc-btn { flex:none; height:32px; padding:0 14px; font-size:12px; }
-.grafcet-preview .grafcet-canvas:has(> .grafcet-empty) { display:flex; align-items:center; justify-content:center; padding:20px 16px; cursor:default; }
-.grafcet-preview .grafcet-empty { width:100%; max-width:300px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:28px 20px; border-radius:12px; background:#ffffffcc; }
-.grafcet-empty-icon { display:inline-grid; place-items:center; width:40px; height:40px; margin-bottom:4px; border-radius:50%; background:#eaf0fe; color:#2455d8; font-size:20px; line-height:1; }
-.grafcet-empty strong { color:#25344c; font-size:13px; }
-.grafcet-empty p { margin:0; font-size:11.5px; line-height:1.5; max-width:34ch; }
-.grafcet-empty-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:10px; }
-.grafcet-preview-status { flex:none; flex-direction:column; align-items:stretch; gap:4px; padding:10px 16px; flex-wrap:nowrap; }
-.grafcet-preview-row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-.grafcet-run-pill { display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 9px; border-radius:99px; background:#f1f5f9; color:#64748b; font-weight:700; font-size:10.5px; }
-.grafcet-run-pill i { width:7px; height:7px; border-radius:50%; background:currentColor; }
-.grafcet-run-pill.is-running { background:#dcfce7; color:#15803d; }
-.grafcet-run-pill.is-running i { animation:grafcet-pulse 1.4s ease-in-out infinite; }
-@keyframes grafcet-pulse { 50% { opacity:.35; } }
-@media (prefers-reduced-motion: reduce) { .grafcet-run-pill.is-running i { animation:none; } }
-.grafcet-active-info { color:#475569; font-size:10.5px; }
-.grafcet-preview-status small { color:#94a3b8; font-size:10px; }
-.grafcet-preview .grafcet-viewport-tools { top:12px; right:12px; }

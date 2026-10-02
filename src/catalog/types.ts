@@ -46,12 +46,6 @@ export interface PartDef {
   locked: boolean
   /** id em `assets` quando `kind === 'glb'`. */
   asset?: string
-  /** Peça CAD dividida: índices dos filhos que levam do modelo importado até ao sub-nó desta peça. */
-  nodePath?: number[]
-  /** Ponto (no espaço do modelo importado) onde fica a origem desta peça dividida. */
-  pivot?: Vec3
-  /** Só a malha do próprio nó (sem os filhos, que são peças à parte). */
-  ownOnly?: boolean
   clickable?: boolean
 }
 

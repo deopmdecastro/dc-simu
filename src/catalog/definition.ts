@@ -112,33 +112,6 @@ function geometryFor(part: PartDef): THREE.BufferGeometry | null {
 
 export type GlbCache = Map<string, THREE.Object3D>
 
-/** Nó do modelo importado a que um `nodePath` aponta (a raiz quando não há caminho). */
-export function glbNodeAt(root: THREE.Object3D, path: number[] | undefined): THREE.Object3D | null {
-  let node: THREE.Object3D | null = root
-  for (const index of path ?? []) { node = node?.children[index] ?? null; if (!node) return null }
-  return node
-}
-
-/** Cópia do modelo importado; nas peças CAD divididas fica só o sub-nó da peça, com a origem no `pivot`. */
-function glbSubtree(source: THREE.Object3D, part: PartDef): THREE.Object3D {
-  const clone = source.clone(true)
-  if (!part.nodePath) return clone
-  const target = glbNodeAt(clone, part.nodePath)
-  if (!target) return new THREE.Group()
-  // percorre da raiz até ao alvo, descartando irmãos e malhas dos antepassados (as transformações mantêm-se)
-  let current: THREE.Object3D = clone
-  for (const index of part.nodePath) {
-    const keep = current.children[index]
-    current.children.slice().forEach((child) => { if (child !== keep) current.remove(child) })
-    const mesh = current as THREE.Mesh
-    if (mesh.isMesh) mesh.geometry = new THREE.BufferGeometry()
-    current = keep
-  }
-  if (part.ownOnly) target.children.slice().forEach((child) => target.remove(child))
-  if (part.pivot) clone.position.sub(new THREE.Vector3(...part.pivot))
-  return clone
-}
-
 /** Constrói a árvore Three (em mm). Os nomes dos nós são os ids das peças. */
 export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = new Map(), options: { includeHidden?: boolean } = {}): THREE.Group {
   const root = new THREE.Group()
@@ -151,7 +124,7 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
       const source = part.asset ? glb.get(part.asset) : undefined
       node = new THREE.Group()
       if (source) {
-        const clone = glbSubtree(source, part)
+        const clone = source.clone(true)
         clone.traverse((child) => { const mesh = child as THREE.Mesh; if (mesh.isMesh) mesh.material = Array.isArray(mesh.material) ? mesh.material.map((item) => item.clone()) : mesh.material.clone() })
         node.add(clone)
       }
