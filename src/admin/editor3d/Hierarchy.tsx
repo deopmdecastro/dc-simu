@@ -4,7 +4,8 @@ import { IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconL
 import { descendantsOf, patchPart, selectedPartIds, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
 import { faceOfNormal } from './terminalOps'
-import { canSplitSelection, deleteSelection, duplicateSelection, groupSelection, splitSelection } from './partActions'
+import ContextMenu, { type MenuEntry } from './ContextMenu'
+import { canSplitSelection, toggleSelectionLocked, toggleSelectionVisible, deleteSelection, duplicateSelection, groupSelection, splitSelection } from './partActions'
 
 const FACE_ORDER: Face[] = ['front', 'back', 'left', 'right', 'top', 'bottom']
 const FACE_LABEL: Record<Face, string> = { front: 'Frente', back: 'Trás', left: 'Esquerda', right: 'Direita', top: 'Topo', bottom: 'Base' }
@@ -17,6 +18,7 @@ export default function Hierarchy() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
   const [anchor, setAnchor] = useState<string | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuEntry[] } | null>(null)
   const selectedIds = useMemo(() => new Set(selectedPartIds({ selection, extraSel })), [selection, extraSel])
   const mode = useEditorStore((s) => s.mode)
   const edit = useEditorStore((s) => s.edit)
@@ -93,6 +95,24 @@ export default function Hierarchy() {
         return <div key={part.id} role="treeitem" aria-selected={active} draggable={!readOnly}
           className={`ce-row${active ? ' is-active' : ''}${overId === part.id ? ' is-over' : ''}${part.visible ? '' : ' is-hidden'}`} style={{ paddingLeft: 6 + depth * 14 }}
           onClick={(event) => pick(event, part.id)}
+          onContextMenu={(event) => {
+            event.preventDefault()
+            if (readOnly) return
+            if (!selectedIds.has(part.id)) { select({ kind: 'part', id: part.id }); setAnchor(part.id) }
+            const many = selectedIds.has(part.id) && selectedIds.size > 1
+            setMenu({ x: event.clientX, y: event.clientY, items: [
+              { label: 'Renomear', hint: 'F2', disabled: many, onClick: () => setRenaming(part.id) },
+              { label: 'Duplicar', hint: 'Ctrl+D', onClick: duplicateSelection },
+              { label: 'Agrupar', hint: 'Ctrl+G', onClick: groupSelection },
+              ...(!many && part.kind === 'glb' ? [{ label: 'Dividir em partes', onClick: () => { select({ kind: 'part', id: part.id }); splitSelection() } } as MenuEntry] : []),
+              'sep',
+              { label: part.visible ? 'Ocultar' : 'Mostrar', hint: 'Shift+H', onClick: () => toggleSelectionVisible() },
+              { label: part.locked ? 'Desbloquear' : 'Bloquear', hint: 'L', onClick: toggleSelectionLocked },
+              { label: 'Enquadrar', hint: 'Shift+F', onClick: () => useEditorStore.getState().cameraTo('fitSel') },
+              'sep',
+              { label: many ? `Eliminar (${selectedIds.size})` : 'Eliminar', hint: 'Del', danger: true, onClick: deleteSelection },
+            ] })
+          }}
           onDragStart={() => setDragId(part.id)} onDragEnd={() => { setDragId(null); setOverId(null) }}
           onDragOver={(event) => { if (dragId) { event.preventDefault(); event.stopPropagation(); setOverId(part.id) } }}
           onDrop={(event) => { event.stopPropagation(); if (dragId) reparent(dragId, part.id); setDragId(null); setOverId(null) }}>
@@ -161,5 +181,6 @@ export default function Hierarchy() {
       </button>)}
       {(def.displays ?? []).length === 0 && <p className="ce-empty">Sem LCDs ou ecrãs.</p>}
     </div>
+    {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
   </aside>
 }

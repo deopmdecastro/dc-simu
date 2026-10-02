@@ -20,6 +20,8 @@ import FaceChooser, { chooseFace } from './FaceChooser'
 import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importModelAction, nudgeSelection, selectAllParts, toggleSelectionLocked, toggleSelectionVisible } from './partActions'
 import { CAD_ACCEPT } from './cadImport'
 import ShortcutsDialog from './ShortcutsDialog'
+import SelectionBar from './SelectionBar'
+import PanelResizer, { DEFAULT_PANELS, clampPanel, loadPanels, savePanels } from './PanelResizer'
 import { captureCover } from './capture'
 import WirePanel from './WirePanel'
 import { WiresTab } from './WireInspector'
@@ -346,6 +348,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [showKeys, setShowKeys] = useState(false)
+  const [panels, setPanels] = useState(loadPanels)
+  const patchPanels = useCallback((patch: Partial<typeof panels>) => setPanels((current) => { const next = { ...current, ...patch }; savePanels(next); return next }), [])
   const [publishing, setPublishing] = useState(false)
   const [dropping, setDropping] = useState(false)
   const [mobilePane, setMobilePane] = useState<'canvas' | 'objects' | 'inspector'>('canvas')
@@ -487,6 +491,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         nudgeSelection(arrows[key][0] * step, arrows[key][1] * step, arrows[key][2] * step)
         return
       }
+      if ((key === '[' || key === ']') && !mod) { event.preventDefault(); patchPanels(key === '[' ? { leftOpen: !panels.leftOpen } : { rightOpen: !panels.rightOpen }); return }
       if (key === 'f2' && state.selection?.kind === 'part') { event.preventDefault(); window.dispatchEvent(new CustomEvent('ce-rename', { detail: state.selection.id })); return }
       if (key === 'h' && event.altKey) { event.preventDefault(); toggleSelectionVisible(true); return }
       if (key === 'h' && event.shiftKey) { event.preventDefault(); toggleSelectionVisible(); return }
@@ -502,7 +507,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [save, publishing])
+  }, [save, publishing, panels.leftOpen, panels.rightOpen, patchPanels])
 
   const dims = useMemo(() => {
     const box = boundsMm(def, glbCache)
@@ -541,8 +546,14 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       <button className={mobilePane === 'objects' ? 'is-on' : ''} onClick={() => setMobilePane('objects')}>Objetos</button>
       <button className={mobilePane === 'inspector' ? 'is-on' : ''} onClick={() => setMobilePane('inspector')}>Propriedades</button>
     </nav>
-    <div className={`ce-body ce-mobile-${mobilePane}`}>
+    <div className={`ce-body ce-mobile-${mobilePane}`} style={{ ['--ce-lw' as string]: `${panels.leftOpen ? panels.left : 0}px`, ['--ce-rw' as string]: `${panels.rightOpen ? panels.right : 0}px` }}>
       <Hierarchy />
+      {panels.leftOpen && <PanelResizer side="left" width={panels.left} onChange={(value) => patchPanels({ left: value })} onReset={() => patchPanels({ left: DEFAULT_PANELS.left })} />}
+      {panels.rightOpen && <PanelResizer side="right" width={panels.right} onChange={(value) => patchPanels({ right: value })} onReset={() => patchPanels({ right: DEFAULT_PANELS.right })} />}
+      <div className="ce-dock" role="group" aria-label="Painéis">
+        <button aria-pressed={panels.leftOpen} onClick={() => patchPanels({ leftOpen: !panels.leftOpen, left: clampPanel('left', panels.left) })} title="Mostrar/ocultar a hierarquia [ [ ]">Objetos</button>
+        <button aria-pressed={panels.rightOpen} onClick={() => patchPanels({ rightOpen: !panels.rightOpen, right: clampPanel('right', panels.right) })} title="Mostrar/ocultar o inspetor [ ] ]">Propriedades</button>
+      </div>
       <main className={`ce-stage is-tool-${activeRibbon}${view.grid ? '' : ' no-grid'}${view.dark ? ' is-dark' : ''}${dropping ? ' is-dropping' : ''}${libraryOpen && mode === 'edit' ? ' lib-open' : ''}`}
         onDragOver={(event) => { if (mode === 'edit' && (event.dataTransfer.types.includes(DND_PROFILE) || event.dataTransfer.types.includes(DND_TERMINAL))) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; if (!dropping) setDropping(true) } }}
         onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropping(false) }}
@@ -558,6 +569,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         }}>
         <ViewToolbar />
         <CubeOverlay />
+        <SelectionBar />
         {mode === 'edit' && tab !== 'terminals' && (placing || faceLock) && <FaceBar />}
         {(mode === 'simulate' || activeRibbon === 'wire') && <WirePanel />}
         {libraryOpen && mode === 'edit' && <LibraryPanel />}
@@ -575,7 +587,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         {mode === 'edit' && editState !== BASE_STATE && <div className="ce-simbar"><span>Estados:</span>
           <button className="ce-chip" onClick={() => set({ editState: BASE_STATE })}>Voltar à pose base</button></div>}
       </main>
-      <aside className="ce-right" aria-label="Inspetor">
+      <aside className="ce-right" aria-label="Inspetor" hidden={!panels.rightOpen}>
         <div className="ce-tabs" role="tablist">{TABS.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'is-on' : ''} onClick={() => set({ tab: key })}>{label}</button>)}</div>
         <div className="ce-inspector">
           {tab === 'object' && <ObjectTab />}{tab === 'materials' && <MaterialsTab />}{tab === 'terminals' && <TerminalsTab />}
