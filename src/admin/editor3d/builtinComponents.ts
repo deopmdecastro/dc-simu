@@ -106,23 +106,13 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   }
   const box = boundsMm(def, cache)
   def.terminals = terminalsFor(tpl.terminals, box)
-  // Proteções importadas chegam ao editor já testáveis. No WEG o GLB não
-  // expõe a alavanca como nó separado, por isso acrescentamos um atuador 3D
-  // próprio sobre a frente do aparelho, movido pelo mesmo motor dos seletores.
+  // Proteções importadas chegam ao editor já testáveis. No WEG, o manípulo
+  // azul original do GLB está isolado no nó WEG_Handle e é o próprio atuador.
   if (['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(type)) {
-    let partId = def.parts[0]?.id
-    if (type === 'breakerWegMdwC10') {
-      const size = box.getSize(new THREE.Vector3())
-      const center = box.getCenter(new THREE.Vector3())
-      const leverMaterial = defaultMaterial('Alavanca WEG', '#20242a')
-      const lever = { ...defaultPart('box', leverMaterial.id, 'Alavanca liga / desliga'), size: [Math.min(10, size.x * .55), Math.min(16, size.y * .2), 5] as Vec3, position: [center.x, box.min.y + size.y * .58, box.max.z + 2.5] as Vec3 }
-      def.materials.push(leverMaterial)
-      def.parts.push(lever)
-      partId = lever.id
-    }
+    const partId = def.parts[0]?.id
     if (partId) {
       def.vars = [{ id: 'closed', name: 'Disjuntor fechado', type: 'bool', initial: true }, { id: 'tripped', name: 'Disparado', type: 'bool', initial: false }]
-      def.controls = [{ id: newId('ctl_'), name: 'Liga / desliga', kind: 'toggle', partId, axis: [0, 1, 0], travelMm: type === 'breakerWegMdwC10' ? 8 : 0, bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }]
+      def.controls = [{ id: newId('ctl_'), name: 'Liga / desliga', kind: 'toggle', partId, nodes: type === 'breakerWegMdwC10' ? ['WEG_Handle'] : undefined, axis: type === 'breakerWegMdwC10' ? [1, 0, 0] : [0, 1, 0], travelMm: type === 'breakerWegMdwC10' ? 8 : 0, bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }]
     }
   }
   const meta: CatalogMeta = {
