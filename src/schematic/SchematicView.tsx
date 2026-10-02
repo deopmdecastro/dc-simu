@@ -17,7 +17,8 @@ import ComponentViewEditor from '../components/ComponentViewEditor'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
-import { arrowDelta, isDeleteKey, isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
+import { isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
+import { useEditorShortcuts } from '../ui/shortcuts'
 import Panel3D from '../three/Panel3D'
 import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
@@ -476,22 +477,10 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       // atalhos ficam suspensos; fora disso valem sempre, mesmo que o foco
       // esteja num botão do painel de propriedades.
       if (isTypingTarget(e.target)) return
-      if (e.key === 'Home' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault()
-        fitContent()
-      } else if (isDeleteKey(e.key)) {
-        e.preventDefault()
-        deleteSelection()
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r' && selectedIds.length === 1) {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r' && selectedIds.length === 1) {
         rotateComponent(selectedIds[0])
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'd' && selectedIds.length) {
         duplicateComponents(selectedIds)
-      } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
-        e.preventDefault()
-        useSimStore.getState().undo()
-      } else if (e.ctrlKey && e.key.toLowerCase() === 'y') {
-        e.preventDefault()
-        useSimStore.getState().redo()
       } else if (e.ctrlKey && e.key === ']') {
         e.preventDefault()
         if (e.shiftKey) bringSelectionToFront()
@@ -505,40 +494,6 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === '3') useSimStore.getState().setTool('probe')
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === '4') useSimStore.getState().setTool('erase')
       else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === '5') useSimStore.getState().setTool('pan')
-      else if (e.ctrlKey && e.key.toLowerCase() === 'a') {
-        e.preventDefault()
-        selectComponents(components.map((c) => c.id))
-      } else if (e.ctrlKey && e.key.toLowerCase() === 'c') {
-        useSimStore.getState().copySelection()
-      } else if (e.ctrlKey && e.key.toLowerCase() === 'v') {
-        e.preventDefault()
-        useSimStore.getState().pasteClipboard()
-      } else if (arrowDelta(e.key, e.shiftKey ? grid.size : 1) && (selectedIds.length || selectedWireId)) {
-        // Setas movem a seleção: 1 px, ou o passo da malha com Shift.
-        e.preventDefault()
-        const { dx, dy } = arrowDelta(e.key, e.shiftKey ? grid.size : 1)!
-        if (selectedIds.length) {
-          const movingIds = selectedIds.filter((id) => !components.find((component) => component.id === id)?.locked)
-          const anchor = components.find((component) => component.id === movingIds[0])
-          if (anchor) {
-            commitHistory()
-            moveComponent(anchor.id, anchor.schematicX + dx, anchor.schematicY + dy, movingIds)
-          }
-        } else if (selectedWireId) {
-          // No fio movem-se os pontos livres: pontas soltas e vértices do traçado.
-          // As pontas ligadas a bornes continuam agarradas ao componente.
-          const wire = wires.find((item) => item.id === selectedWireId)
-          if (wire) {
-            const shift = (point?: { x: number; y: number }) => (point ? { x: point.x + dx, y: point.y + dy } : undefined)
-            commitHistory()
-            updateWire(wire.id, {
-              ...(wire.fromPoint ? { fromPoint: shift(wire.fromPoint), fromPoint3D: undefined } : {}),
-              ...(wire.toPoint ? { toPoint: shift(wire.toPoint), toPoint3D: undefined } : {}),
-              ...(wire.waypoints?.length ? { waypoints: wire.waypoints.map((point) => ({ ...point, x: point.x + dx, y: point.y + dy })) } : {}),
-            })
-          }
-        }
-      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -562,6 +517,44 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     moveComponent,
     fitContent,
   ])
+
+  // Atalhos universais (iguais no ladder, no GRAFCET e nos editores 3D).
+  useEditorShortcuts({
+    undo: () => useSimStore.getState().undo(),
+    redo: () => useSimStore.getState().redo(),
+    remove: deleteSelection,
+    duplicate: () => selectedIds.length && duplicateComponents(selectedIds),
+    selectAll: () => selectComponents(components.map((component) => component.id)),
+    copy: () => useSimStore.getState().copySelection(),
+    paste: () => useSimStore.getState().pasteClipboard(),
+    fitView: fitContent,
+    zoomView: (factor) => setZoom(useSimStore.getState().zoom * factor),
+    panView: (dx, dy) => setPan(useSimStore.getState().panX - dx, useSimStore.getState().panY - dy),
+    nudge: (dirX, dirY, big) => {
+      // Setas movem a seleção: 1 px, ou o passo da malha com Shift.
+      const step = big ? grid.size : 1
+      const dx = dirX * step, dy = dirY * step
+      if (selectedIds.length) {
+        const movingIds = selectedIds.filter((id) => !components.find((component) => component.id === id)?.locked)
+        const anchorPart = components.find((component) => component.id === movingIds[0])
+        if (!anchorPart) return
+        commitHistory()
+        moveComponent(anchorPart.id, anchorPart.schematicX + dx, anchorPart.schematicY + dy, movingIds)
+        return
+      }
+      // No cabo movem-se os pontos livres: pontas soltas e vértices do traçado.
+      // As pontas ligadas a bornes continuam agarradas ao componente.
+      const wire = selectedWireId ? wires.find((item) => item.id === selectedWireId) : undefined
+      if (!wire) return
+      const shift = (point?: { x: number; y: number }) => (point ? { x: point.x + dx, y: point.y + dy } : undefined)
+      commitHistory()
+      updateWire(wire.id, {
+        ...(wire.fromPoint ? { fromPoint: shift(wire.fromPoint), fromPoint3D: undefined } : {}),
+        ...(wire.toPoint ? { toPoint: shift(wire.toPoint), toPoint3D: undefined } : {}),
+        ...(wire.waypoints?.length ? { waypoints: wire.waypoints.map((point) => ({ ...point, x: point.x + dx, y: point.y + dy })) } : {}),
+      })
+    },
+  })
 
   // --------------------------------------------------------------- mouse
   const onBackgroundDown = (e: React.MouseEvent) => {

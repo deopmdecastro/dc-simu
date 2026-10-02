@@ -20,6 +20,7 @@ import {
 import { useLadderPrefs } from './ladderPrefs'
 import { ELEMENT_KEYS } from './ladderShortcuts'
 import ShortcutsDialog from './ShortcutsDialog'
+import { useEditorShortcuts } from '../ui/shortcuts'
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -950,6 +951,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
   const searchRef = useRef<HTMLInputElement>(null)
+  const mainPaneRef = useRef<HTMLElement>(null)
   const showToasts = useLadderPrefs((p) => p.showToasts)
   const autoScroll = useLadderPrefs((p) => p.autoScroll)
   const confirmDelete = useLadderPrefs((p) => p.confirmDelete)
@@ -1102,6 +1104,15 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     return () => window.removeEventListener('keydown', onKey)
   }, [section, setSection, isMainOpen, programTab, activeId, helpOpen, addRung, updateRung, duplicateRung, moveRung, focusRung, doUndo, doRedo, removeActiveRung, notify])
 
+  // Atalhos universais partilhados com o esquema 2D, o GRAFCET e os editores 3D.
+  useEditorShortcuts({
+    undo: doUndo,
+    redo: doRedo,
+    zoomView: (factor) => setLadderZoom((value) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number((value * factor).toFixed(2))))),
+    fitView: () => setLadderZoom(1),
+    panView: (dx, dy) => mainPaneRef.current?.scrollBy({ left: dx, top: dy, behavior: 'auto' }),
+  }, { enabled: !helpOpen })
+
   const createFile = (folder: ProjectFolder) => {
     const suggested = folder === 'programBlocks' ? 'FC' : folder === 'dataBlocks' ? 'DB' : folder === 'watchTables' ? 'Observação' : folder === 'backups' ? 'Backup' : 'Novo ficheiro'
     const name = window.prompt('Nome do novo item:', `${suggested} ${(files.filter((f) => f.folder === folder).length + 1)}`)?.trim()
@@ -1188,7 +1199,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           Projeto
         </button>
       ))}
-      <main className="ladder-main-pane">
+      <main className="ladder-main-pane" ref={mainPaneRef}>
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-line bg-white text-[11px] shrink-0">
           <label htmlFor="ladder-target-plc" className="font-semibold text-ink-600 whitespace-nowrap">PLC a programar</label>
           <select id="ladder-target-plc" className="dc-select !w-auto max-w-[280px]" value={plcs.some((c) => c.id === activePlcId) ? activePlcId! : ''}

@@ -5,6 +5,7 @@ import { OrbitControls, Text, TransformControls, Edges, useGLTF } from '@react-t
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import { useEditorShortcuts } from '../ui/shortcuts'
 import { IconHelp } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColor } from '../types'
 import * as THREE from 'three'
@@ -2321,17 +2322,27 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       else if (event.key.toLowerCase() === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey && selectedTarget) { event.preventDefault(); focusSelection() }
       else if (event.key.toLowerCase() === 'g' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); toggleGrid() }
       else if (event.key.toLowerCase() === 'b' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); cycleBackground() }
-      else if (event.key === 'Delete' || event.key === 'Backspace') {
-        // Apagar no 3D segue a mesma regra do esquema 2D: borne, cabo ou componentes.
-        const store = useSimStore.getState()
-        if (store.selectedWireId || store.selectedTerminalId || store.selectedComponentIds.length) { event.preventDefault(); store.deleteSelection() }
-      }
+
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // O alvo é recalculado apenas quando a seleção/posição visual muda.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedComponent?.id, selectedTarget?.[0], selectedTarget?.[1], selectedTarget?.[2]])
+
+  // Atalhos universais (desfazer, refazer, duplicar e apagar). O enquadramento
+  // fica a cargo das teclas de vista do próprio 3D (Home e teclado numérico).
+  useEditorShortcuts({
+    undo: () => useSimStore.getState().undo(),
+    redo: () => useSimStore.getState().redo(),
+    remove: () => {
+      const store = useSimStore.getState()
+      if (store.selectedWireId || store.selectedTerminalId || store.selectedComponentIds.length) store.deleteSelection()
+    },
+    duplicate: () => { const ids = useSimStore.getState().selectedComponentIds; if (ids.length) useSimStore.getState().duplicateComponents(ids) },
+    copy: () => useSimStore.getState().copySelection(),
+    paste: () => useSimStore.getState().pasteClipboard(),
+  })
 
    return (
      <div

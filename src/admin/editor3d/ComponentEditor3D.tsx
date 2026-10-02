@@ -17,6 +17,7 @@ import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
 import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
 import FaceChooser, { chooseFace } from './FaceChooser'
+import { useEditorShortcuts } from '../../ui/shortcuts'
 import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importGlbAction, nudgeSelection } from './partActions'
 import { captureCover } from './capture'
 import WirePanel from './WirePanel'
@@ -456,8 +457,6 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       const mod = event.ctrlKey || event.metaKey
       if (mod && event.key.toLowerCase() === 's') { event.preventDefault(); void save(); return }
       if (isTyping(event.target) || publishing) return
-      if (mod && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) state.redo(); else state.undo(); return }
-      if (mod && event.key.toLowerCase() === 'y') { event.preventDefault(); state.redo(); return }
       if (mod && event.key.toLowerCase() === 'd' && state.mode === 'edit') { event.preventDefault(); duplicateSelection(); return }
       if (mod && event.key.toLowerCase() === 'g' && state.mode === 'edit') { event.preventDefault(); groupSelection(); return }
       const key = event.key.toLowerCase()
@@ -495,6 +494,13 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [save, publishing])
+
+  // Atalhos universais, iguais aos do esquema 2D, do ladder e do GRAFCET.
+  useEditorShortcuts({
+    undo: () => useEditorStore.getState().undo(),
+    redo: () => useEditorStore.getState().redo(),
+    fitView: () => useEditorStore.getState().cameraTo('fit'),
+  }, { enabled: !publishing })
 
   const dims = useMemo(() => {
     const box = boundsMm(def, glbCache)

@@ -4,6 +4,7 @@ import { evalCondition, transitionsOf, validCondition } from './engine'
 import type { GrafcetAction, GrafcetStep, GrafcetTransition, GrafcetProgram } from './engine'
 import { IconCopy, IconDelete, IconHelp, IconRedo, IconSearch, IconUndo } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
+import { useEditorShortcuts } from '../ui/shortcuts'
 
 const id = () => crypto.randomUUID()
 
@@ -348,17 +349,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       const lower = event.key.toLowerCase()
       if (mod && event.key === '/') { event.preventDefault(); setHelpOpen((value) => !value); return }
       if (typing || helpOpen) return
-      if (mod && !event.altKey && lower === 'z') { event.preventDefault(); event.shiftKey ? doRedo() : doUndo(); return }
-      if (mod && !event.altKey && lower === 'y') { event.preventDefault(); doRedo(); return }
       if (mod && lower === 'b') { event.preventDefault(); setShowPalette((value) => !value); return }
       if (mod && lower === 'f') { event.preventDefault(); setShowPalette(true); requestAnimationFrame(() => paletteSearchRef.current?.focus()); return }
-      if (mod && (event.key === '+' || event.key === '=')) { event.preventDefault(); zoomAt(scale * 1.2, { x: viewport.width / 2, y: viewport.height / 2 }); return }
-      if (mod && event.key === '-') { event.preventDefault(); zoomAt(scale / 1.2, { x: viewport.width / 2, y: viewport.height / 2 }); return }
-      if (mod && event.key === '0') { event.preventDefault(); resetView(); return }
       if (mod && lower === 'd') { event.preventDefault(); duplicateSelected(); return }
       if (event.key === 'Delete' || event.key === 'Backspace') { if (selected) { event.preventDefault(); requestDelete() } return }
       if (event.key === 'Escape') { setSelected(null); return }
-      if (event.key === 'Home') { event.preventDefault(); resetView(); return }
       if (event.key === 'Insert') { event.preventDefault(); event.shiftKey ? addStep() : addConnectedStep(); return }
       if (event.key === '?') { event.preventDefault(); setHelpOpen(true); return }
       if (!mod && !event.altKey && lower === 'a') { event.preventDefault(); addAction(event.shiftKey); return }
@@ -369,6 +364,15 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+
+  // Atalhos universais: desfazer, refazer, zoom, enquadrar e mover a vista.
+  useEditorShortcuts({
+    undo: doUndo,
+    redo: doRedo,
+    fitView: resetView,
+    zoomView: (factor) => zoomAt(scale * factor, { x: viewport.width / 2, y: viewport.height / 2 }),
+    panView: (dx, dy) => setPan({ x: position.x - dx, y: position.y - dy }),
+  }, { enabled: full && !helpOpen })
 
   const actionAddresses = tags.filter((tag) => /^[QM]\d{1,2}$/.test(tag.address))
   const liveBits = Object.entries(table).filter(([key, value]) => /^[QM]/.test(key) && value).map(([key]) => key)
