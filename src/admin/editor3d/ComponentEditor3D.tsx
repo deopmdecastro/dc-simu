@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { bakeGlb, boundsMm, describeChanges, loadGlbAssets, resolveState, runtimeSpec } from '../../catalog/definition'
+import { upgradeBuiltinDraft } from './builtinComponents'
 import { catalogApi } from '../../catalog/catalogApi'
 import { useCatalogStore } from '../../catalog/registry'
 import ViewCube, { type ViewCubeFace } from '../../components/ViewCube'
@@ -397,6 +398,14 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
           vars: [...(loaded.draft.vars ?? []), { id: 'closed', name: 'Disjuntor fechado', type: 'bool', initial: true }, { id: 'tripped', name: 'Disparado', type: 'bool', initial: false }],
           controls: [{ id: 'builtin-breaker-toggle', name: 'Liga / desliga', kind: 'toggle', partId, axis: [0, 1, 0], travelMm: 0, bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }],
         } }
+      }
+      // Multímetro e motor importados antes: acrescenta botões, LCD e a placa
+      // de bornes aos rascunhos que ainda não os têm.
+      if (loaded.draft && /multimeterDm20|motor3ph/.test(origin)) {
+        const type = /multimeterDm20/.test(origin) ? 'multimeterDm20' : 'motor3ph'
+        const upgraded = await upgradeBuiltinDraft(type, loaded.draft)
+        if (cancelled) return
+        if (upgraded) loaded = { ...loaded, draft: upgraded }
       }
       // Remove o antigo botão artificial e liga o controlo diretamente ao
       // manípulo azul, agora isolado como nó WEG_Handle dentro do próprio GLB.
