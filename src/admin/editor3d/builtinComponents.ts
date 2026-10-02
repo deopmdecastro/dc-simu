@@ -144,6 +144,57 @@ function seedMultimeterDm20(def: ComponentDefinition, cache: GlbCache) {
   }
 }
 
+
+/**
+ * Placa de bornes do motor como peças reais e editáveis: base, seis bornes
+ * U1/V1/W1/W2/U2/V2 e as pontes em estrela. Assim as ligações aparecem no
+ * 3D do editor (e não apenas no componente publicado).
+ */
+function seedMotorTerminalBoard(def: ComponentDefinition, cache: GlbCache) {
+  if (def.parts.some((part) => part.name === 'Placa de bornes')) return
+  const box = boundsMm(def, cache)
+  const widthMm = Math.max(40, box.max.x - box.min.x)
+  const k = widthMm // o modelo publicado desenha a placa em unidades do componente
+  const brass = defaultMaterial('Latão', '#c79532')
+  const plate = defaultMaterial('Baquelite', '#c9b99f')
+  def.materials = [...def.materials, plate, brass]
+  const baseY = box.max.y
+  const z0 = 0.08 * k
+  const group = { ...defaultPart('group', null, 'Placa de bornes'), position: [0, baseY, z0] as Vec3 }
+  const parts = [group]
+  parts.push({ ...defaultPart('box', plate.id, 'Base da placa'), parentId: group.id, size: [0.52 * k, 0.035 * k, 0.31 * k] as Vec3, position: [0, 0, 0] as Vec3 })
+  const xs = [-0.18, 0, 0.18]
+  const zs = [-0.09, 0.09]
+  const labels = [['U1', 'V1', 'W1'], ['W2', 'U2', 'V2']]
+  zs.forEach((z, row) => xs.forEach((x, col) => {
+    parts.push({ ...defaultPart('cylinder', brass.id, `Borne ${labels[row][col]}`), parentId: group.id, size: [0.064 * k, 0.06 * k, 0.064 * k] as Vec3, position: [x * k, 0.035 * k, z * k] as Vec3 })
+  }))
+  parts.push({ ...defaultPart('box', brass.id, 'Ponte estrela W2-U2'), parentId: group.id, size: [0.22 * k, 0.018 * k, 0.052 * k] as Vec3, position: [-0.09 * k, 0.077 * k, zs[1] * k] as Vec3 })
+  parts.push({ ...defaultPart('box', brass.id, 'Ponte estrela U2-V2'), parentId: group.id, size: [0.22 * k, 0.018 * k, 0.052 * k] as Vec3, position: [0.09 * k, 0.077 * k, zs[1] * k] as Vec3 })
+  def.parts = [...def.parts, ...parts]
+}
+
+/**
+ * Acrescenta a um rascunho já importado os elementos que passaram a ser
+ * gerados na importação (botões, LCD, placa de bornes). Devolve `null` quando
+ * não há nada a acrescentar ou quando o utilizador já criou os seus.
+ */
+export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDefinition): Promise<ComponentDefinition | null> {
+  const next: ComponentDefinition = JSON.parse(JSON.stringify(def))
+  const cache: GlbCache = new Map()
+  await loadGlbAssets(next, cache)
+  let changed = false
+  if (type === 'multimeterDm20' && (next.controls ?? []).length === 0 && (next.displays ?? []).length === 0) {
+    seedMultimeterDm20(next, cache)
+    changed = (next.controls ?? []).length > 0
+  }
+  if (type === 'motor3ph' && !next.parts.some((part) => part.name === 'Placa de bornes')) {
+    seedMotorTerminalBoard(next, cache)
+    changed = true
+  }
+  return changed ? next : null
+}
+
 /** Rascunho editável a partir de um componente integrado: modelo GLB (ou volume físico) + bornes + metadados. */
 export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: CatalogMeta; def: ComponentDefinition; usedModel: boolean }> {
   const tpl = TEMPLATES[type]
@@ -189,6 +240,7 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   // O multímetro DM-20 chega ao editor completo: seletor, botões e LCD já
   // ligados aos objetos reais do modelo, visíveis na lista como elementos.
   if (type === 'multimeterDm20') seedMultimeterDm20(def, cache)
+  if (type === 'motor3ph') seedMotorTerminalBoard(def, cache)
   const meta: CatalogMeta = {
     ...DEFAULT_META,
     name: tpl.paletteName, description: `Componente integrado da plataforma, importado como ponto de partida editável${usedModel ? '' : ' (sem modelo CAD: volume com as dimensões físicas)'}.`,

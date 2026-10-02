@@ -11,7 +11,7 @@ import { ComponentThumb } from '../../three/componentThumbnails'
 import type { ComponentType } from '../../types'
 import { generateCover } from './coverGen'
 import { createComponentCatalogBackup, downloadComponentCatalogBackup, parseComponentCatalogBackup, restoreComponentCatalogBackup } from '../../catalog/catalogBackup'
-import { buildBuiltinDraft, builtinComponents, builtinTypeOf, type BuiltinInfo } from './builtinComponents'
+import { buildBuiltinDraft, builtinComponents, builtinTypeOf, upgradeBuiltinDraft, type BuiltinInfo } from './builtinComponents'
 import ComponentEditor3D from './ComponentEditor3D'
 
 /** Separador "Biblioteca 3D": lista os componentes oficiais e abre o editor 3D. */
@@ -71,7 +71,19 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
   /** Abre um componente integrado no editor 3D: cria (uma vez) uma cópia editável com o modelo e os bornes do original. */
   async function openBuiltin(item: BuiltinInfo) {
     const existing = imported.get(item.type)
-    if (existing) { openEditor(existing, (entries ?? []).find((entry) => entry.id === existing)?.meta.name ?? item.name); return }
+    if (existing) {
+      const name = (entries ?? []).find((entry) => entry.id === existing)?.meta.name ?? item.name
+      // Rascunhos importados antes podem não ter os elementos que a importação
+      // passou a gerar (botões, LCD, placa de bornes): são acrescentados aqui.
+      try {
+        const source = await catalogApi.adminGet(existing)
+        const current = source.draft ?? source.versions[source.versions.length - 1].definition
+        const upgraded = await upgradeBuiltinDraft(item.type, current)
+        if (upgraded) { await catalogApi.save(existing, source.meta, upgraded); onNotice('Rascunho atualizado com os elementos em falta (botões, ecrãs e ligações).'); await reload() }
+      } catch { /* abre na mesma o que existe */ }
+      openEditor(existing, name)
+      return
+    }
     setImporting(item.type)
     try {
       const { meta, def, usedModel } = await buildBuiltinDraft(item.type)
