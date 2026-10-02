@@ -471,3 +471,7 @@
 .ce-tree.is-cards .ce-row .ce-icon { position:static; }
 .ce-tree.is-cards .ce-row > .ce-icon:nth-last-of-type(-n+2) { display:inline-flex; }
 .ce-tree.is-cards .ce-row.is-active { border-color:var(--dx-brand); background:var(--dx-brand-soft); }
+
+/* Cartões de botões, seletores e ecrãs com miniatura 3D */
+.ce-row-btn .ce-row-thumb { width:34px; height:34px; }
+.ce-row-btn { align-items:center; gap:7px; }

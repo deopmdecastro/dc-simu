@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
-import type { PartDef } from '../../catalog/types'
+import type { DisplayDef, PartDef } from '../../catalog/types'
 import { IconGrid, IconLayers, IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
 import { descendantsOf, patchPart, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
 import { faceOfNormal } from './terminalOps'
 import { deleteSelection } from './partActions'
-import { partThumbnail } from './partThumb'
+import { areaThumbnail, partThumbnail } from './partThumb'
 
 /** Miniatura 3D da peça (cai para o ícone da forma quando não há imagem). */
 function PartThumb({ partId, kind, size }: { partId: string; kind: PartDef['kind']; size: number }) {
@@ -14,6 +14,24 @@ function PartThumb({ partId, kind, size }: { partId: string; kind: PartDef['kind
   const url = useMemo(() => partThumbnail(def, partId), [def, partId, glbRevision])
   const Icon = KIND_ICON[kind]
   if (!url) return <i className="ce-row-kind" style={{ width: size, height: size }}><Icon size={Math.round(size * 0.62)} /></i>
+  return <img className="ce-row-thumb" src={url} alt="" width={size} height={size} loading="lazy" />
+}
+
+/** Miniatura 3D de um controlo (botão, seletor) a partir dos nós que move. */
+function ControlThumb({ partId, nodes, size = 34 }: { partId: string; nodes?: string[]; size?: number }) {
+  const def = useEditorStore((s) => s.def)
+  const glbRevision = useEditorStore((s) => s.glbRevision)
+  const url = useMemo(() => (partId ? partThumbnail(def, partId, nodes) : null), [def, partId, nodes, glbRevision])
+  if (!url) return <i className="ce-row-kind" style={{ width: size, height: size }}><IconFocus size={13} /></i>
+  return <img className="ce-row-thumb" src={url} alt="" width={size} height={size} loading="lazy" />
+}
+
+/** Miniatura 3D da zona do ecrã, vista a direito pela sua normal. */
+function DisplayThumb({ display, size = 34 }: { display: DisplayDef; size?: number }) {
+  const def = useEditorStore((s) => s.def)
+  const glbRevision = useEditorStore((s) => s.glbRevision)
+  const url = useMemo(() => areaThumbnail(def, display.position, display.normal, display.widthMm, display.heightMm), [def, display, glbRevision])
+  if (!url) return <i className="ce-row-kind" style={{ width: size, height: size }}><IconMonitor size={13} /></i>
   return <img className="ce-row-thumb" src={url} alt="" width={size} height={size} loading="lazy" />
 }
 
@@ -130,7 +148,7 @@ export default function Hierarchy() {
       <div className="ce-panel-head"><strong>Botões e seletores</strong><span>{(def.controls ?? []).length}</span></div>
       {(def.controls ?? []).map((control) => <button key={control.id} className={`ce-row ce-row-btn${selection?.kind === 'control' && selection.id === control.id ? ' is-active' : ''}`}
         onClick={() => { useEditorStore.getState().set({ selection: { kind: 'control', id: control.id }, tab: 'controls' }); openProperties() }}>
-        <i className="ce-row-kind"><IconFocus size={13} /></i><span className="ce-row-name">{control.name}</span><small>{control.kind === 'selector' ? 'Seletor' : control.kind === 'toggle' ? 'Liga/desliga' : 'Botão'}</small>
+        <ControlThumb partId={control.partId} nodes={control.nodes} /><span className="ce-row-name">{control.name}</span><small>{control.kind === 'selector' ? 'Seletor' : control.kind === 'toggle' ? 'Liga/desliga' : 'Botão'}</small>
       </button>)}
       {(def.controls ?? []).length === 0 && <p className="ce-empty">Sem botões ou seletores.</p>}
       <div className="ce-panel-head"><strong>Luzes</strong><span>{def.lights.length}</span></div>
@@ -140,7 +158,7 @@ export default function Hierarchy() {
       <div className="ce-panel-head"><strong>LCDs e ecrãs</strong><span>{(def.displays ?? []).length}</span></div>
       {(def.displays ?? []).map((display) => <button key={display.id} className={`ce-row ce-row-btn${selection?.kind === 'display' && selection.id === display.id ? ' is-active' : ''}`}
         onClick={() => { useEditorStore.getState().set({ selection: { kind: 'display', id: display.id }, tab: 'displays' }); openProperties() }}>
-        <i className="ce-row-kind"><IconMonitor size={13} /></i><span className="ce-row-name">{display.name}</span><small>{display.kind === 'lcd' ? 'LCD' : 'Texto'}</small>
+        <DisplayThumb display={display} /><span className="ce-row-name">{display.name}</span><small>{display.kind === 'lcd' ? 'LCD' : 'Texto'}</small>
       </button>)}
       {(def.displays ?? []).length === 0 && <p className="ce-empty">Sem LCDs ou ecrãs.</p>}
     </div>
