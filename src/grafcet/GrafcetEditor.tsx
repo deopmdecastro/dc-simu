@@ -423,7 +423,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           <button title="Aumentar zoom (Ctrl+)" aria-label="Aumentar zoom" onClick={() => zoomAt(scale * 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}>+</button>
           <button onClick={resetView} title="Ajustar diagrama (Ctrl+0)">Ajustar</button>
         </div>}
-        {!steps.length && <div className="grafcet-empty"><strong>Ainda não há etapas</strong><p>{full ? 'Crie a primeira etapa ou abra o exemplo para iniciar a sequência.' : 'Abra o editor para criar a primeira etapa.'}</p>{full && <div className="grafcet-empty-actions"><button className="dc-btn-primary dc-btn" onClick={addStep}>Criar etapa inicial</button><button className="dc-btn" onClick={loadExample}>Abrir exemplo de 3 etapas</button></div>}</div>}
+        {!steps.length && <div className="grafcet-empty"><span className="grafcet-empty-icon" aria-hidden="true">◇</span><strong>Ainda não há etapas</strong><p>{full ? 'Crie a primeira etapa ou abra o exemplo para iniciar a sequência.' : 'Abra o editor para criar a primeira etapa.'}</p>{full && <div className="grafcet-empty-actions"><button className="dc-btn-primary dc-btn" onClick={addStep}>Criar etapa inicial</button><button className="dc-btn" onClick={loadExample}>Abrir exemplo de 3 etapas</button></div>}</div>}
         {!!steps.length && <div className="grafcet-pan-layer" style={{ width, height, transform: `translate(${position.x}px, ${position.y}px) scale(${scale})` }}>
           <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Etapas, ações e transições do GRAFCET">
             <defs><marker id="grafcet-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6" fill="none" stroke="#526883" /></marker></defs>
@@ -541,7 +541,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       </aside>}
     </div>
 
-    {!full && <div className="grafcet-preview-status" role="status"><span className={running ? 'is-running' : ''}>● {running ? 'Simulação ativa' : 'Parado'}</span><span>{runtime.active.length ? `Etapas ativas: ${runtime.active.map((value) => steps.findIndex((step) => step.id === value)).join(', ')}` : 'Nenhuma etapa ativa'}</span><span>Arraste para navegar · roda para ampliar</span></div>}
+    {!full && <div className="grafcet-preview-status" role="status">
+      <div className="grafcet-preview-row">
+        <span className={`grafcet-run-pill${running ? ' is-running' : ''}`}><i aria-hidden="true" />{running ? 'Simulação ativa' : 'Parado'}</span>
+        <span className="grafcet-active-info">{runtime.active.length ? `Etapas ativas: ${runtime.active.map((value) => steps.findIndex((step) => step.id === value)).join(', ')}` : 'Nenhuma etapa ativa'}</span>
+      </div>
+      {!!steps.length && <small>Arraste para navegar · roda para ampliar</small>}
+    </div>}
     <GrafcetShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     {toast && <div key={toast.id} className="ladder-toast grafcet-toast" role="status" aria-live="polite">{toast.text}</div>}
   </div>
