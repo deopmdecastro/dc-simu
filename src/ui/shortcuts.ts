@@ -18,6 +18,10 @@ export interface EditorShortcutActions {
   remove?: () => void
   /** Ctrl+D */
   duplicate?: () => void
+  /** Ctrl+G */
+  group?: () => void
+  /** Ctrl+Shift+G */
+  ungroup?: () => void
   /** Ctrl+A */
   selectAll?: () => void
   /** Ctrl+C */
@@ -46,6 +50,9 @@ export const SHORTCUT_HELP: Array<{ keys: string; action: string }> = [
   { keys: 'Ctrl+Shift+Z · Ctrl+Y', action: 'Refazer' },
   { keys: 'Delete · Backspace', action: 'Apagar a seleção' },
   { keys: 'Ctrl+D', action: 'Duplicar' },
+  { keys: 'Ctrl+G', action: 'Agrupar a seleção' },
+  { keys: 'Ctrl+Shift+G', action: 'Desagrupar' },
+  { keys: 'Ctrl+clique · Shift+clique', action: 'Seleção múltipla' },
   { keys: 'Ctrl+A', action: 'Selecionar tudo' },
   { keys: 'Ctrl+C · Ctrl+V', action: 'Copiar e colar' },
   { keys: 'Ctrl+S', action: 'Guardar' },
@@ -80,6 +87,7 @@ export function runEditorShortcut(event: KeyboardEvent, actions: EditorShortcutA
   if (mod && !event.altKey && lower === 'z') return done(event.shiftKey ? actions.redo : actions.undo)
   if (mod && !event.altKey && lower === 'y') return done(actions.redo)
   if (mod && lower === 'd') return done(actions.duplicate)
+  if (mod && lower === 'g') return done(event.shiftKey ? actions.ungroup : actions.group)
   if (mod && lower === 'a') return done(actions.selectAll)
   if (mod && lower === 'c') return done(actions.copy)
   if (mod && lower === 'v') return done(actions.paste)

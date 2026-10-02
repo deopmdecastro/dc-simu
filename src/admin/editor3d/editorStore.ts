@@ -50,6 +50,8 @@ interface EditorStore {
   /** Última versão publicada (para listar as alterações antes de publicar). */
   baseline: ComponentDefinition | null
   selection: Selection
+  /** Peças adicionais selecionadas com Ctrl/Shift (seleção múltipla). */
+  multi: string[]
   tool: Tool
   ribbon: Ribbon
   snap: { on: boolean; mm: number; deg: number }
@@ -106,7 +108,10 @@ interface EditorStore {
   markSaved: (entry: CatalogEntry) => void
   edit: (recipe: (def: ComponentDefinition) => ComponentDefinition, key?: string) => void
   editMeta: (patch: Partial<CatalogMeta>, key?: string) => void
-  select: (selection: Selection) => void
+  /** `additive` (Ctrl/Shift) acrescenta ou retira a peça da seleção múltipla. */
+  select: (selection: Selection, additive?: boolean) => void
+  /** Todas as peças selecionadas (seleção principal + múltipla). */
+  selectedParts: () => string[]
   /** Escolhe a ferramenta da barra principal e sincroniza o modo «colocar borne». */
   setRibbon: (ribbon: Ribbon) => void
   set: (patch: Partial<EditorStore>) => void
@@ -139,7 +144,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   meta: { name: '', description: '', category: 'command', group: '', manufacturer: '', reference: '', internalCode: '', tag: 'X', tags: [], properties: [] },
   def: normalizeDefinition(undefined),
   baseline: null,
-  selection: null, tool: 'translate', ribbon: 'select', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
+  selection: null, multi: [], tool: 'translate', ribbon: 'select', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
   editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, previewVars: {}, meterTest: { ...EMPTY_METER_INPUT, vdc: 12.34, vac: 230, ohm: 4700 }, pick: null, hoverNode: null, placingDisplay: null, displayCorner: null, placingLed: false, camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
   view: { grid: true, floor: true, axes: true, terminals: true, dark: false, bounds: false },
   viewCommand: { kind: 'iso', n: 0 }, glbRevision: 0,
@@ -149,7 +154,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const draft = normalizeDefinition(entry.draft ?? entry.versions[entry.versions.length - 1]?.definition)
     const last = entry.versions[entry.versions.length - 1]
     set({
-      entry, meta: entry.meta, def: draft, baseline: last ? last.definition : null, selection: null, mode: 'edit',
+      entry, meta: entry.meta, def: draft, baseline: last ? last.definition : null, selection: null, multi: [], mode: 'edit',
       editState: BASE_STATE, previewState: draft.initialState, ribbon: 'select', placing: false, placingSpec: null, faceLock: null, testWires: [], ...CLEAR_WIRE, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, tab: 'object', dirty: false, past: [], future: [],
       lastKey: '', lastAt: 0, viewCommand: { kind: 'fit', n: Date.now() },
     })
@@ -175,8 +180,22 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const coalesce = key === lastKey && now - lastAt < 900
     set({ meta: { ...meta, ...patch }, dirty: true, future: [], lastKey: key, lastAt: now, past: coalesce ? past : [...past.slice(-(HISTORY_LIMIT - 1)), { meta, def }] })
   },
-  select: (selection) => set({ selection, placing: false, placingSpec: null, ...(get().ribbon === 'terminal' ? { ribbon: 'select' as Ribbon } : {}) }),
-  setRibbon: (ribbon) => set({ ribbon, placing: ribbon === 'terminal', placingSpec: ribbon === 'terminal' ? get().placingSpec : null, ...CLEAR_WIRE, ...CLEAR_MEASURE, ...(ribbon === 'terminal' ? { selection: null } : {}) }),
+  select: (selection, additive = false) => {
+    const state = get()
+    const base = { placing: false, placingSpec: null, ...(state.ribbon === 'terminal' ? { ribbon: 'select' as Ribbon } : {}) }
+    // Ctrl/Shift + clique: junta (ou retira) peças à seleção, como nos editores CAD.
+    if (additive && selection?.kind === 'part' && state.selection?.kind === 'part') {
+      if (selection.id === state.selection.id) return set({ ...base })
+      const already = state.multi.includes(selection.id)
+      return set({ ...base, multi: already ? state.multi.filter((id) => id !== selection.id) : [...state.multi, selection.id] })
+    }
+    set({ ...base, selection, multi: [] })
+  },
+  selectedParts: () => {
+    const { selection, multi } = get()
+    return selection?.kind === 'part' ? [selection.id, ...multi.filter((id) => id !== selection.id)] : []
+  },
+  setRibbon: (ribbon) => set({ ribbon, multi: [], placing: ribbon === 'terminal', placingSpec: ribbon === 'terminal' ? get().placingSpec : null, ...CLEAR_WIRE, ...CLEAR_MEASURE, ...(ribbon === 'terminal' ? { selection: null } : {}) }),
   set: (patch) => set(patch as never),
   setView: (patch) => set((state) => ({ view: { ...state.view, ...patch } })),
   cameraTo: (kind) => set({ viewCommand: { kind, n: Date.now() } }),

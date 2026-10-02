@@ -15,10 +15,10 @@ import { MaterialsTab, ObjectTab } from './tabs1'
 import { ControlsTab, DisplaysTab } from './tabsControls'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
-import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
+import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconUngroup, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
 import FaceChooser, { chooseFace } from './FaceChooser'
 import { useEditorShortcuts } from '../../ui/shortcuts'
-import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importGlbAction, nudgeSelection } from './partActions'
+import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, explodeGlbPart, groupSelection, importGlbAction, mergeGlbParts, nudgeSelection, ungroupSelection } from './partActions'
 import { captureCover } from './capture'
 import WirePanel from './WirePanel'
 import { WiresTab } from './WireInspector'
@@ -93,6 +93,10 @@ function ToolRibbon() {
   const fileRef = useRef<HTMLInputElement>(null)
   const hasSelection = useEditorStore((s) => !!s.selection)
   const hasPart = useEditorStore((s) => s.selection?.kind === 'part')
+  const selectedPartDef = useEditorStore((s) => (s.selection?.kind === 'part' ? s.def.parts.find((part) => part.id === s.selection!.id) : undefined))
+  const hasGroup = useEditorStore((s) => s.selectedParts().some((id) => s.def.parts.find((part) => part.id === id)?.kind === 'group'))
+  const hasGlb = selectedPartDef?.kind === 'glb'
+  const hasPieces = useEditorStore((s) => !!selectedPartDef?.asset && s.def.parts.some((part) => part.parentId === selectedPartDef?.id && !!part.glbNode))
   const hasFocus = useEditorStore((s) => !!s.selection || !!s.selectedWire)
   const allHidden = terminalCount > 0 && hiddenCount >= terminalCount
   return <div className="ce-ribbon" role="toolbar" aria-label="Ferramentas">
@@ -123,8 +127,11 @@ function ToolRibbon() {
       <ShapeMenu onImport={() => fileRef.current?.click()} />
       <input ref={fileRef} type="file" accept=".glb,model/gltf-binary" hidden onChange={(event) => { void importGlbAction(event.target.files?.[0]).then((error) => error && window.dispatchEvent(new CustomEvent('ce-flash', { detail: error }))); event.target.value = '' }} />
       <div className="dc-seg" role="group" aria-label="Edição">
-        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a peça [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /></button>
-        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={groupSelection} title="Agrupar: cria um grupo pai à volta da peça [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /></button>
+        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a seleção [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /></button>
+        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={groupSelection} title="Agrupar as peças selecionadas [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /></button>
+        <button className="dc-tool-btn !px-2" disabled={!hasGroup} onClick={ungroupSelection} title="Desagrupar: devolve as peças ao nível de cima [Ctrl+Shift+G]" aria-label="Desagrupar"><IconUngroup size={14} /></button>
+        <button className="dc-tool-btn" disabled={!hasGlb} onClick={explodeGlbPart} title="Separar partes: cada parte do modelo (manípulo, tampa, botões…) passa a objeto editável"><IconModel size={13} /><span className="hidden xl:inline">Separar partes</span></button>
+        {hasPieces && <button className="dc-tool-btn" onClick={mergeGlbParts} title="Juntar partes: volta a reunir o modelo separado"><IconGroup size={13} /><span className="hidden xl:inline">Juntar partes</span></button>}
         <button className="dc-tool-btn !px-2" disabled={!hasSelection} onClick={deleteSelection} title="Eliminar a seleção [Del]" aria-label="Eliminar"><IconDelete size={14} /></button>
       </div>
       <div className="dc-seg" role="group" aria-label="Posição">
@@ -458,7 +465,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       if (mod && event.key.toLowerCase() === 's') { event.preventDefault(); void save(); return }
       if (isTyping(event.target) || publishing) return
       if (mod && event.key.toLowerCase() === 'd' && state.mode === 'edit') { event.preventDefault(); duplicateSelection(); return }
-      if (mod && event.key.toLowerCase() === 'g' && state.mode === 'edit') { event.preventDefault(); groupSelection(); return }
+      if (mod && event.key.toLowerCase() === 'g' && state.mode === 'edit') { event.preventDefault(); event.shiftKey ? ungroupSelection() : groupSelection(); return }
       const key = event.key.toLowerCase()
       if (!mod && !event.altKey && ['1', '2', '3', '4', '5', '6'].includes(key)) {
         const pick = RIBBON_KEYS[Number(key) - 1]

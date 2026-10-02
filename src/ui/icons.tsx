@@ -495,6 +495,14 @@ export const IconGroup = (p: IconProps) => (
     <rect x="8.5" y="8.5" width="7" height="7" rx="1" />
   </Svg>
 )
+/** Desagrupar: cantos abertos à volta de duas peças separadas. */
+export const IconUngroup = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 20h2.5a1.5 1.5 0 0 0 1.5-1.5V16" />
+    <rect x="3.5" y="10.5" width="7" height="7" rx="1" />
+    <rect x="13.5" y="6.5" width="7" height="7" rx="1" />
+  </Svg>
+)
 export const IconModel = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z" />

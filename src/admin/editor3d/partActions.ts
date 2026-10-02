@@ -60,32 +60,79 @@ export async function importGlbAction(file: File | undefined): Promise<string> {
 }
 
 export function duplicateSelection() {
-  const part = selectedPart()
-  if (!part) return
   const state = useEditorStore.getState()
-  const result = duplicatePart(state.def, part.id)
-  if (!result) return
-  state.edit(() => result.def)
-  state.set({ selection: { kind: 'part', id: result.id }, tab: 'object' })
+  const ids = state.selectedParts()
+  if (!ids.length) return
+  // Seleção múltipla: duplica todas as peças e deixa as cópias selecionadas.
+  let def = state.def
+  const copies: string[] = []
+  for (const id of ids) {
+    const result = duplicatePart(def, id)
+    if (!result) continue
+    def = result.def
+    copies.push(result.id)
+  }
+  if (!copies.length) return
+  state.edit(() => def)
+  state.set({ selection: { kind: 'part', id: copies[0] }, multi: copies.slice(1), tab: 'object' })
 }
 
+/** Ctrl+G: cria um grupo pai à volta de todas as peças selecionadas. */
 export function groupSelection() {
-  const part = selectedPart()
-  if (!part) return
   const state = useEditorStore.getState()
-  const group = { ...defaultPart('group', null, 'Grupo'), parentId: part.parentId, position: [...part.position] as Vec3 }
-  state.edit((current) => ({ ...current, parts: [...current.parts.map((item) => (item.id === part.id ? { ...item, parentId: group.id, position: [0, 0, 0] as Vec3 } : item)), group] }))
-  state.set({ selection: { kind: 'part', id: group.id } })
+  const ids = state.selectedParts()
+  if (!ids.length) return
+  const parts = state.def.parts.filter((item) => ids.includes(item.id))
+  const first = parts[0]
+  if (!first) return
+  // O grupo nasce na posição da primeira peça; as outras mantêm-se onde estão.
+  const origin = [...first.position] as Vec3
+  const group = { ...defaultPart('group', null, 'Grupo'), parentId: first.parentId, position: origin }
+  state.edit((current) => ({
+    ...current,
+    parts: [...current.parts.map((item) => (ids.includes(item.id)
+      ? { ...item, parentId: group.id, position: [item.position[0] - origin[0], item.position[1] - origin[1], item.position[2] - origin[2]] as Vec3 }
+      : item)), group],
+  }))
+  state.set({ selection: { kind: 'part', id: group.id }, multi: [] })
+  flash(ids.length > 1 ? `${ids.length} peças agrupadas.` : 'Peça agrupada.')
+}
+
+/** Ctrl+Shift+G: desfaz o grupo e devolve as peças ao nível de cima. */
+export function ungroupSelection() {
+  const state = useEditorStore.getState()
+  const ids = state.selectedParts()
+  const groups = state.def.parts.filter((item) => ids.includes(item.id) && item.kind === 'group')
+  if (!groups.length) { flash('Selecione um grupo para desagrupar.'); return }
+  const freed: string[] = []
+  state.edit((current) => {
+    let next = current
+    for (const group of groups) {
+      const children = next.parts.filter((item) => item.parentId === group.id)
+      next = {
+        ...next,
+        parts: next.parts
+          .filter((item) => item.id !== group.id)
+          .map((item) => (item.parentId === group.id
+            ? { ...item, parentId: group.parentId, position: [item.position[0] + group.position[0], item.position[1] + group.position[1], item.position[2] + group.position[2]] as Vec3 }
+            : item)),
+      }
+      freed.push(...children.map((item) => item.id))
+    }
+    return next
+  })
+  state.set({ selection: freed.length ? { kind: 'part', id: freed[0] } : null, multi: freed.slice(1) })
+  flash(groups.length > 1 ? `${groups.length} grupos desfeitos.` : 'Grupo desfeito.')
 }
 
 export function deleteSelection() {
   const state = useEditorStore.getState()
   const selection = state.selection
   if (!selection) return
-  if (selection.kind === 'part') state.edit((current) => removeParts(current, [selection.id]))
+  if (selection.kind === 'part') { const ids = state.selectedParts(); state.edit((current) => removeParts(current, ids)) }
   else if (selection.kind === 'terminal') state.edit((current) => ({ ...current, terminals: current.terminals.filter((item) => item.id !== selection.id) }))
   else state.edit((current) => ({ ...current, lights: current.lights.filter((item) => item.id !== selection.id) }))
-  state.set({ selection: null })
+  state.set({ selection: null, multi: [] })
 }
 
 
@@ -131,10 +178,15 @@ export function nudgeSelection(dx: number, dy: number, dz: number) {
   if (!selection) return
   const r = (value: number) => Math.round(value * 100) / 100
   const moved = (position: Vec3): Vec3 => [r(position[0] + dx), r(position[1] + dy), r(position[2] + dz)]
+  const partIds = state.selectedParts()
   state.edit((def) => {
     if (selection.kind === 'part') {
-      const part = def.parts.find((item) => item.id === selection.id)
-      return part ? patchPart(def, part.id, { position: moved(part.position) }) : def
+      let next = def
+      for (const id of partIds) {
+        const part = next.parts.find((item) => item.id === id)
+        if (part) next = patchPart(next, part.id, { position: moved(part.position) })
+      }
+      return next
     }
     if (selection.kind === 'terminal') return { ...def, terminals: def.terminals.map((item) => (item.id === selection.id ? { ...item, position: moved(item.position) } : item)) }
     // As zonas de luz acompanham a peça a que pertencem: não têm posição própria.

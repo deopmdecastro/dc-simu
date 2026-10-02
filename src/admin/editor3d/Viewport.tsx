@@ -288,7 +288,14 @@ function Scene() {
   const highlightPart = selection?.kind === 'part' ? selection.id : selection?.kind === 'light' ? def.lights.find((light) => light.id === selection.id)?.partId : undefined
   const highlightNode = highlightPart ? root.getObjectByName(highlightPart) ?? null : null
   const helper = useMemo(() => (highlightNode ? new THREE.BoxHelper(highlightNode, '#2655e5') : null), [highlightNode, root])
-  useFrame(() => { helper?.update() })
+  // Caixas das restantes peças da seleção múltipla.
+  const multi = useEditorStore((s) => s.multi)
+  const multiHelpers = useMemo(() => multi
+    .filter((id) => id !== highlightPart)
+    .map((id) => root.getObjectByName(id))
+    .filter((node): node is THREE.Object3D => !!node)
+    .map((node) => new THREE.BoxHelper(node, '#2655e5')), [multi, highlightPart, root])
+  useFrame(() => { helper?.update(); multiHelpers.forEach((item) => item.update()) })
 
   const gizmoEnabled = mode === 'edit' && !placing && ribbon === 'select'
   const partGizmo = gizmoEnabled && selectedPart && !selectedPart.locked && selectedNode
@@ -329,7 +336,12 @@ function Scene() {
       return
     }
     const hit = partIdOf(event.object, known)
-    if (hit) useEditorStore.getState().set({ selection: { kind: 'part', id: hit }, tab: 'object' })
+    // Ctrl/Shift + clique acrescenta a peça à seleção (seleção múltipla).
+    if (hit) {
+      const additive = event.ctrlKey || event.metaKey || event.shiftKey
+      useEditorStore.getState().select({ kind: 'part', id: hit }, additive)
+      useEditorStore.getState().set({ tab: 'object' })
+    }
   }
 
   /** Modo «escolher no modelo»: liga/desliga o objeto do GLB atingido ao controlo ou luz em edição. */
@@ -440,6 +452,7 @@ function Scene() {
       onPointerOut={() => { if (hover) setHover(null); if (useEditorStore.getState().hoverNode) useEditorStore.getState().set({ hoverNode: null }) }}
     />
     {helper && mode === 'edit' && <primitive object={helper} />}
+    {mode === 'edit' && multiHelpers.map((item, index) => <primitive key={index} object={item} />)}
     {view.bounds && <BoundsBox root={root} />}
 
     {def.terminals.map((terminal) => <TerminalMarker key={terminal.id} id={terminal.id} selected={selection?.kind === 'terminal' && selection.id === terminal.id}

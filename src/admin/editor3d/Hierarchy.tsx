@@ -4,7 +4,7 @@ import { IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconL
 import { descendantsOf, patchPart, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
 import { faceOfNormal } from './terminalOps'
-import { deleteSelection, duplicateSelection, explodeGlbPart, groupSelection, mergeGlbParts } from './partActions'
+import { deleteSelection } from './partActions'
 
 const FACE_ORDER: Face[] = ['front', 'back', 'left', 'right', 'top', 'bottom']
 const FACE_LABEL: Record<Face, string> = { front: 'Frente', back: 'Trás', left: 'Esquerda', right: 'Direita', top: 'Topo', bottom: 'Base' }
@@ -40,8 +40,9 @@ export default function Hierarchy() {
   const groupName = (key: string) => groupBy === 'view' ? FACE_LABEL[key as Face] : key || 'Sem grupo'
   const selectedPart = selection?.kind === 'part' ? def.parts.find((part) => part.id === selection.id) : undefined
   const openProperties = () => window.dispatchEvent(new CustomEvent('ce-open-inspector'))
-  // Partes já separadas da peça selecionada (permite voltar a juntá-las).
-  const explodedPieces = selectedPart ? def.parts.filter((part) => part.parentId === selectedPart.id && part.glbNode).length : 0
+  // Peças abrangidas pela seleção múltipla (Ctrl/Shift + clique).
+  const multi = useEditorStore((s) => s.multi)
+  const selectedCount = selectedPart ? 1 + multi.filter((id) => id !== selectedPart.id).length : 0
 
   const rows: Array<{ part: PartDef; depth: number }> = []
   const walk = (parent: string | null, depth: number) => def.parts.filter((part) => part.parentId === parent).forEach((part) => { rows.push({ part, depth }); walk(part.id, depth + 1) })
@@ -58,10 +59,10 @@ export default function Hierarchy() {
     <div className="ce-tree" role="tree" onDragOver={(event) => { if (dragId) event.preventDefault() }} onDrop={() => { if (dragId) reparent(dragId, null); setDragId(null); setOverId(null) }}>
       {rows.length === 0 && <p className="ce-empty">Sem peças. Adicione uma forma na barra de ferramentas.</p>}
       {rows.map(({ part, depth }) => {
-        const active = selection?.kind === 'part' && selection.id === part.id
+        const active = selection?.kind === 'part' && (selection.id === part.id || multi.includes(part.id))
         return <div key={part.id} role="treeitem" aria-selected={active} draggable={!readOnly}
           className={`ce-row${active ? ' is-active' : ''}${overId === part.id ? ' is-over' : ''}${part.visible ? '' : ' is-hidden'}`} style={{ paddingLeft: 6 + depth * 14 }}
-          onClick={() => select({ kind: 'part', id: part.id })}
+          onClick={(event) => select({ kind: 'part', id: part.id }, event.ctrlKey || event.metaKey || event.shiftKey)}
           onDragStart={() => setDragId(part.id)} onDragEnd={() => { setDragId(null); setOverId(null) }}
           onDragOver={(event) => { if (dragId) { event.preventDefault(); event.stopPropagation(); setOverId(part.id) } }}
           onDrop={(event) => { event.stopPropagation(); if (dragId) reparent(dragId, part.id); setDragId(null); setOverId(null) }}>
@@ -78,11 +79,8 @@ export default function Hierarchy() {
       })}
     </div>
     {selectedPart && !readOnly && <div className="ce-left-actions">
-      {selectedPart.kind === 'glb' && <button className="dx-btn dx-btn-secondary dx-btn-sm" title="Mostra cada parte do modelo (manípulo, tampa, botões…) como objeto editável" onClick={explodeGlbPart}>Separar partes</button>}
-      {selectedPart.asset && explodedPieces > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" title="Volta a juntar as partes separadas num único modelo" onClick={mergeGlbParts}>Juntar partes</button>}
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={duplicateSelection}>Duplicar</button>
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" title="Cria um grupo pai à volta desta peça" onClick={groupSelection}>Agrupar</button>
-      <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={deleteSelection}>Eliminar</button>
+      {/* Duplicar, agrupar e separar partes vivem na barra de ferramentas. */}
+      <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={deleteSelection}>Eliminar{selectedCount > 1 ? ` (${selectedCount})` : ''}</button>
     </div>}
     <div className="ce-left-lists">
       <div className="ce-panel-head">

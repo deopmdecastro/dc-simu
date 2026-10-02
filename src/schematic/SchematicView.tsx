@@ -524,6 +524,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     redo: () => useSimStore.getState().redo(),
     remove: deleteSelection,
     duplicate: () => selectedIds.length && duplicateComponents(selectedIds),
+    group: () => useSimStore.getState().groupSelection(),
+    ungroup: () => useSimStore.getState().ungroupSelection(),
     selectAll: () => selectComponents(components.map((component) => component.id)),
     copy: () => useSimStore.getState().copySelection(),
     paste: () => useSimStore.getState().pasteClipboard(),
@@ -593,7 +595,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     if (tool === 'select') {
       const p = toCanvas(e.clientX, e.clientY)
       setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y })
-      if (!e.shiftKey) selectComponents([])
+      if (!e.shiftKey && !e.ctrlKey && !e.metaKey) selectComponents([])
     }
     if (tool === 'wire' && e.button === 0) {
       const p = toCanvas(e.clientX, e.clientY)
@@ -818,8 +820,11 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     releaseTypingFocus()
     e.stopPropagation()
     const p = toCanvas(e.clientX, e.clientY)
+    // Ctrl ou Shift + clique acrescenta à seleção (igual em todos os editores).
+    const additive = e.shiftKey || e.ctrlKey || e.metaKey
     const ids = selectedIds.includes(c.id) ? selectedIds : [c.id]
-    if (!selectedIds.includes(c.id)) selectComponents(ids, e.shiftKey)
+    if (!selectedIds.includes(c.id)) selectComponents(ids, additive)
+    else if (additive) { selectComponents(selectedIds.filter((id) => id !== c.id)); return }
     const orig: Record<string, { x: number; y: number }> = {}
     for (const id of ids) {
       const comp = components.find((x) => x.id === id)

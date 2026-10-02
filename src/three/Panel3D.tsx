@@ -376,7 +376,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   draggable: boolean
   connectionMode: boolean
   connectionStartId: string | null
-  onSelect: () => void
+  onSelect: (additive?: boolean) => void
   /** Gizmo de mover: posição final (o 3D só edita o plano do painel — X/Y). */
   onMove: (position: SpatialPoint3D) => void
   /** Arrasto direto: início (histórico), posição viva no plano do painel e fim (imã de calha). */
@@ -455,7 +455,7 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
     ref={rootRef}
     position={pivot}
     userData={{ wireSurface: true }}
-    onClick={(event) => { event.stopPropagation(); if (!connectionMode) onSelect() }}
+    onClick={(event) => { event.stopPropagation(); if (!connectionMode) onSelect(event.ctrlKey || event.metaKey || event.shiftKey) }}
     onPointerDown={startDrag}
     onPointerOver={() => { if (draggable) gl.domElement.style.cursor = 'grab' }}
     onPointerOut={() => { if (!dragRef.current) gl.domElement.style.cursor = '' }}
@@ -2072,7 +2072,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       draggable={editMode === 'navigate' && !gridDragEnabled && !component.locked && !viewOrientationEditor && !reconnect}
       connectionMode={editMode === 'connect' || reconnect !== null}
       connectionStartId={draft && 'terminalId' in draft.from ? draft.from.terminalId : null}
-      onSelect={() => selectComponents([component.id])}
+      onSelect={(additive) => {
+        // Ctrl/Shift + clique: seleção múltipla, como no esquema 2D e no Admin.
+        const current = useSimStore.getState().selectedComponentIds
+        if (additive && current.includes(component.id)) selectComponents(current.filter((id) => id !== component.id))
+        else selectComponents([component.id], additive)
+      }}
       onMove={(position) => movePanelComponent(component, position)}
       onDragStart={() => beginPanelDrag(component.id)}
       onDragTo={(point) => dragPanelTo(component.id, point)}
@@ -2340,6 +2345,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       if (store.selectedWireId || store.selectedTerminalId || store.selectedComponentIds.length) store.deleteSelection()
     },
     duplicate: () => { const ids = useSimStore.getState().selectedComponentIds; if (ids.length) useSimStore.getState().duplicateComponents(ids) },
+    group: () => useSimStore.getState().groupSelection(),
+    ungroup: () => useSimStore.getState().ungroupSelection(),
     copy: () => useSimStore.getState().copySelection(),
     paste: () => useSimStore.getState().pasteClipboard(),
   })

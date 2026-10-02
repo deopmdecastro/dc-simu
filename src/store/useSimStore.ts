@@ -215,6 +215,9 @@ interface Store extends CircuitState {
   mirrorComponent: (id: string) => void
   toggleLock: (id: string) => void
   deleteComponents: (ids: string[]) => void
+  /** Agrupa e desagrupa os componentes selecionados (Ctrl+G / Ctrl+Shift+G). */
+  groupSelection: () => void
+  ungroupSelection: () => void
   selectComponents: (ids: string[], additive?: boolean) => void
   selectWire: (id: string | null) => void
   selectTerminal: (id: string | null) => void
@@ -1435,12 +1438,35 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   selectComponents: (ids, additive = false) =>
-    set((s) => ({
-      selectedComponentIds: additive ? [...new Set([...s.selectedComponentIds, ...ids])] : ids,
+    set((s) => {
+      // Selecionar um componente agrupado traz consigo todo o grupo.
+      const groups = new Set(ids.map((id) => s.components.find((item) => item.id === id)?.groupId).filter(Boolean) as string[])
+      const expanded = groups.size ? [...new Set([...ids, ...s.components.filter((item) => item.groupId && groups.has(item.groupId)).map((item) => item.id)])] : ids
+      return {
+      selectedComponentIds: additive ? [...new Set([...s.selectedComponentIds, ...expanded])] : expanded,
       selectedWireId: null,
       selectedTerminalId: null,
       viewOrientationEditor: s.viewOrientationEditor && !ids.includes(s.viewOrientationEditor.componentId) ? null : s.viewOrientationEditor,
-    })),
+      }
+    }),
+
+  /** Ctrl+G: junta os componentes selecionados num grupo. */
+  groupSelection: () => {
+    const { selectedComponentIds } = get()
+    if (selectedComponentIds.length < 2) return
+    get().commitHistory()
+    const groupId = `g_${Math.random().toString(36).slice(2, 10)}`
+    set((s) => ({ components: s.components.map((item) => (selectedComponentIds.includes(item.id) ? { ...item, groupId } : item)), dirty: true }))
+  },
+
+  /** Ctrl+Shift+G: desfaz o grupo dos componentes selecionados. */
+  ungroupSelection: () => {
+    const { selectedComponentIds, components } = get()
+    const groups = new Set(components.filter((item) => selectedComponentIds.includes(item.id) && item.groupId).map((item) => item.groupId))
+    if (!groups.size) return
+    get().commitHistory()
+    set((s) => ({ components: s.components.map((item) => (item.groupId && groups.has(item.groupId) ? { ...item, groupId: undefined } : item)), dirty: true }))
+  },
 
   selectWire: (id) => set({ selectedWireId: id, selectedComponentIds: [], selectedTerminalId: null, viewOrientationEditor: null }),
   selectTerminal: (id) => set({ selectedTerminalId: id, selectedWireId: null, selectedComponentIds: [], viewOrientationEditor: null }),

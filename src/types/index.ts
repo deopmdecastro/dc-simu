@@ -234,6 +234,8 @@ export interface ComponentEditorRevision extends ComponentEditorSnapshot {
 
 export interface ElectricalComponentBase {
   id: string
+  /** Componentes agrupados com Ctrl+G: selecionam-se e movem-se em conjunto. */
+  groupId?: string
   type: ComponentType
   category: ComponentCategory
   /** TAG do dispositivo: KM1, S1, F1, M1, H1… */
