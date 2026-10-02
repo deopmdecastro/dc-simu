@@ -44,7 +44,7 @@
 .ce-chip.is-on { background:var(--dx-brand); border-color:var(--dx-brand); color:#fff; }
 .ce-chip i { font-style:normal; color:var(--dx-brand); }
 .ce-chip.is-on i { color:#fff; }
-.ce-tree { flex:1 1 40%; min-height:90px; overflow:auto; padding:4px 0; }
+.ce-tree { flex:0 0 auto; min-height:0; overflow:visible; padding:4px 0; }
 .ce-row { display:flex; align-items:center; gap:4px; padding:4px 6px; cursor:pointer; border-left:3px solid transparent; min-height:28px; }
 .ce-row:hover { background:var(--dx-surface-2); }
 .ce-row.is-active { background:var(--dx-brand-soft); border-left-color:var(--dx-brand); }
@@ -59,7 +59,7 @@
 .ce-icon { border:0; background:transparent; cursor:pointer; padding:0 2px; font-size:12px; opacity:.55; }
 .ce-icon:hover:not([disabled]) { opacity:1; }
 .ce-left-actions { display:flex; gap:6px; padding:8px; border-top:1px solid var(--dx-line-soft); flex-wrap:wrap; }
-.ce-left-lists { overflow:auto; flex:0 1 38%; min-height:0; }
+.ce-left-lists { overflow:visible; flex:0 0 auto; min-height:0; }
 .ce-empty { color:var(--dx-ink-4); font-size:12px; padding:6px 12px; margin:0; }
 .ce-error { color:var(--dx-danger); font-size:12px; padding:4px 12px; margin:0; }
 .ce-ok { color:#15803d; font-size:12px; margin:0; }
@@ -451,7 +451,7 @@
   .ce-body.ce-mobile-objects > .ce-stage, .ce-body.ce-mobile-objects > .ce-right { display:none; }
   .ce-body.ce-mobile-inspector > .ce-left, .ce-body.ce-mobile-inspector > .ce-stage { display:none; }
   .ce-body.ce-mobile-objects > .ce-left, .ce-body.ce-mobile-inspector > .ce-right { display:flex; }
-  .ce-left-lists { flex:1; }
+  .ce-left-lists { flex:0 0 auto; }
   .ce-right .ce-tabs { overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; }
   .ce-right .ce-tabs::-webkit-scrollbar { display:none; }
   .ce-right .ce-tabs button { flex:none; min-width:82px; }
@@ -475,3 +475,10 @@
 /* Cartões de botões, seletores e ecrãs com miniatura 3D */
 .ce-row-btn .ce-row-thumb { width:34px; height:34px; }
 .ce-row-btn { align-items:center; gap:7px; }
+
+
+/* Painel esquerdo com um único scroll: objetos, bornes, botões, luzes e ecrãs
+   correm na mesma barra, com os cabeçalhos de cada secção fixos no topo. */
+.ce-left { overflow-y:auto; overflow-x:hidden; }
+.ce-left > .ce-panel-head, .ce-left-lists .ce-panel-head { position:sticky; top:0; z-index:3; }
+.ce-left-actions { position:sticky; bottom:0; background:var(--dx-surface); z-index:3; }
