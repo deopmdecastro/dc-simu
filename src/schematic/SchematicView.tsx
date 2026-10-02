@@ -17,6 +17,7 @@ import ComponentViewEditor from '../components/ComponentViewEditor'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
+import { arrowDelta, isDeleteKey, isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
 import Panel3D from '../three/Panel3D'
 import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
@@ -471,12 +472,14 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         clearProbe()
         return
       }
-      const target = e.target as HTMLElement
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA')) return
+      // Enquanto o utilizador escreve num campo (nome, etiqueta, notas…) os
+      // atalhos ficam suspensos; fora disso valem sempre, mesmo que o foco
+      // esteja num botão do painel de propriedades.
+      if (isTypingTarget(e.target)) return
       if (e.key === 'Home' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault()
         fitContent()
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      } else if (isDeleteKey(e.key)) {
         e.preventDefault()
         deleteSelection()
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r' && selectedIds.length === 1) {
@@ -510,17 +513,30 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       } else if (e.ctrlKey && e.key.toLowerCase() === 'v') {
         e.preventDefault()
         useSimStore.getState().pasteClipboard()
-      } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') && selectedIds.length) {
-        // move o(s) componente(s) selecionado(s): 1px, ou o passo da malha com Shift
+      } else if (arrowDelta(e.key, e.shiftKey ? grid.size : 1) && (selectedIds.length || selectedWireId)) {
+        // Setas movem a seleção: 1 px, ou o passo da malha com Shift.
         e.preventDefault()
-        const step = e.shiftKey ? grid.size : 1
-        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
-        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
-        const movingIds = selectedIds.filter((id) => !components.find((component) => component.id === id)?.locked)
-        const anchor = components.find((component) => component.id === movingIds[0])
-        if (anchor) {
-          commitHistory()
-          moveComponent(anchor.id, anchor.schematicX + dx, anchor.schematicY + dy, movingIds)
+        const { dx, dy } = arrowDelta(e.key, e.shiftKey ? grid.size : 1)!
+        if (selectedIds.length) {
+          const movingIds = selectedIds.filter((id) => !components.find((component) => component.id === id)?.locked)
+          const anchor = components.find((component) => component.id === movingIds[0])
+          if (anchor) {
+            commitHistory()
+            moveComponent(anchor.id, anchor.schematicX + dx, anchor.schematicY + dy, movingIds)
+          }
+        } else if (selectedWireId) {
+          // No fio movem-se os pontos livres: pontas soltas e vértices do traçado.
+          // As pontas ligadas a bornes continuam agarradas ao componente.
+          const wire = wires.find((item) => item.id === selectedWireId)
+          if (wire) {
+            const shift = (point?: { x: number; y: number }) => (point ? { x: point.x + dx, y: point.y + dy } : undefined)
+            commitHistory()
+            updateWire(wire.id, {
+              ...(wire.fromPoint ? { fromPoint: shift(wire.fromPoint), fromPoint3D: undefined } : {}),
+              ...(wire.toPoint ? { toPoint: shift(wire.toPoint), toPoint3D: undefined } : {}),
+              ...(wire.waypoints?.length ? { waypoints: wire.waypoints.map((point) => ({ ...point, x: point.x + dx, y: point.y + dy })) } : {}),
+            })
+          }
         }
       }
     }
@@ -528,6 +544,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     return () => window.removeEventListener('keydown', onKey)
   }, [
     selectedIds,
+    selectedWireId,
+    wires,
+    updateWire,
     deleteSelection,
     rotateComponent,
     duplicateComponents,
@@ -546,6 +565,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   // --------------------------------------------------------------- mouse
   const onBackgroundDown = (e: React.MouseEvent) => {
+    // Devolve o teclado à tela: se o foco ficasse num campo do painel de
+    // propriedades, «Delete» e as setas eram entregues ao campo e não ao editor.
+    releaseTypingFocus()
     if (gridDragEnabled) {
       if (e.button === 0 || e.button === 1) setPanning({ sx: e.clientX, sy: e.clientY, px: panX, py: panY })
       return
@@ -800,6 +822,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   const startDrag = (e: React.MouseEvent, c: ElectricalComponent) => {
     if (tool !== 'select') return
+    releaseTypingFocus()
     e.stopPropagation()
     const p = toCanvas(e.clientX, e.clientY)
     const ids = selectedIds.includes(c.id) ? selectedIds : [c.id]
@@ -970,6 +993,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           style={{ cursor: 'pointer' }}
           onMouseDown={(e) => {
             if (tool === 'pan' || e.button !== 0 || tool === 'wire') return
+            releaseTypingFocus()
             e.stopPropagation()
             if (tool === 'erase') {
               useSimStore.getState().deleteWire(w.id)

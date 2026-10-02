@@ -120,3 +120,24 @@ export function centerOnOrigin() {
   shiftModel(dx, 0, dz)
   flash('Modelo centrado na origem.')
 }
+
+/**
+ * Move a seleção com as setas do teclado: peças, bornes e luzes deslocam-se
+ * em passos de 1 mm (10 mm com Shift) no plano X/Z, ou em Y com Alt.
+ */
+export function nudgeSelection(dx: number, dy: number, dz: number) {
+  const state = useEditorStore.getState()
+  const selection = state.selection
+  if (!selection) return
+  const r = (value: number) => Math.round(value * 100) / 100
+  const moved = (position: Vec3): Vec3 => [r(position[0] + dx), r(position[1] + dy), r(position[2] + dz)]
+  state.edit((def) => {
+    if (selection.kind === 'part') {
+      const part = def.parts.find((item) => item.id === selection.id)
+      return part ? patchPart(def, part.id, { position: moved(part.position) }) : def
+    }
+    if (selection.kind === 'terminal') return { ...def, terminals: def.terminals.map((item) => (item.id === selection.id ? { ...item, position: moved(item.position) } : item)) }
+    // As zonas de luz acompanham a peça a que pertencem: não têm posição própria.
+    return def
+  })
+}

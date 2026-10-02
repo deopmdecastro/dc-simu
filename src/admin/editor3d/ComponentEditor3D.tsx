@@ -17,7 +17,7 @@ import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
 import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
 import FaceChooser, { chooseFace } from './FaceChooser'
-import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importGlbAction } from './partActions'
+import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importGlbAction, nudgeSelection } from './partActions'
 import { captureCover } from './capture'
 import WirePanel from './WirePanel'
 import { WiresTab } from './WireInspector'
@@ -481,6 +481,16 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       else if (key === 'h') { const ids = state.def.terminals.map((item) => item.id); state.setTerminalsHidden(ids, state.hiddenTerminals.length < ids.length) }
       else if (key === 'escape') { if (state.placing) state.set({ placing: false, placingSpec: null, ribbon: 'select' }); else if (state.ribbon !== 'select') state.setRibbon('select'); else if (state.faceLock) state.set({ faceLock: null }); else state.select(null) }
       else if ((key === 'delete' || key === 'backspace') && state.selection) { event.preventDefault(); deleteSelection() }
+      else if (state.selection && event.key.startsWith('Arrow')) {
+        // Setas afinam a posição: 1 mm, 10 mm com Shift; Alt move em altura.
+        event.preventDefault()
+        const step = event.shiftKey ? 10 : 1
+        const sign = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -step : step
+        const horizontal = event.key === 'ArrowLeft' || event.key === 'ArrowRight'
+        if (horizontal) nudgeSelection(sign, 0, 0)
+        else if (event.altKey) nudgeSelection(0, 0, sign)
+        else nudgeSelection(0, -sign, 0)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

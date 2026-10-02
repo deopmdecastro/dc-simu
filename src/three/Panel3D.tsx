@@ -2321,7 +2321,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       else if (event.key.toLowerCase() === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey && selectedTarget) { event.preventDefault(); focusSelection() }
       else if (event.key.toLowerCase() === 'g' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); toggleGrid() }
       else if (event.key.toLowerCase() === 'b' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); cycleBackground() }
-      else if ((event.key === 'Delete' || event.key === 'Backspace') && useSimStore.getState().selectedWireId) { event.preventDefault(); deleteWire(useSimStore.getState().selectedWireId!) }
+      else if (event.key === 'Delete' || event.key === 'Backspace') {
+        // Apagar no 3D segue a mesma regra do esquema 2D: borne, cabo ou componentes.
+        const store = useSimStore.getState()
+        if (store.selectedWireId || store.selectedTerminalId || store.selectedComponentIds.length) { event.preventDefault(); store.deleteSelection() }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
