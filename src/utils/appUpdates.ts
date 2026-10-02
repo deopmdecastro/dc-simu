@@ -63,7 +63,8 @@ export function useAppUpdates(beforeUpdate: BeforeUpdate) {
       try {
         if (interceptor && !(await interceptor())) { snoozeUntil = Date.now() + SNOOZE_MS; return }
         const safeToReload = await beforeUpdateRef.current()
-        if (!safeToReload || disposed) return
+        if (!safeToReload) { snoozeUntil = Date.now() + SNOOZE_MS; return }
+        if (disposed) return
         await updateSW(true)
         // O workbox-window recarrega em `controlling`. Este temporizador cobre
         // navegadores que ativam o worker mas não emitem esse evento a tempo.
@@ -83,7 +84,7 @@ export function useAppUpdates(beforeUpdate: BeforeUpdate) {
     })
 
     const checkVersion = async () => {
-      if (disposed || activating || document.visibilityState === 'hidden') return
+      if (disposed || activating || Date.now() < snoozeUntil || document.visibilityState === 'hidden') return
       try {
         const response = await fetch(`/version.json?t=${Date.now()}`, {
           cache: 'no-store',
@@ -99,7 +100,8 @@ export function useAppUpdates(beforeUpdate: BeforeUpdate) {
         // limpeza total das caches e recarga, uma vez por versão.
         if (sessionStorage.getItem(PURGE_KEY) === remote.buildId) return
         if (interceptor && !(await interceptor())) { snoozeUntil = Date.now() + SNOOZE_MS; return }
-        if (!(await beforeUpdateRef.current()) || disposed) return
+        if (!(await beforeUpdateRef.current())) { snoozeUntil = Date.now() + SNOOZE_MS; return }
+        if (disposed) return
         sessionStorage.setItem(PURGE_KEY, remote.buildId)
         activating = true
         await hardRefresh()

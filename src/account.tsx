@@ -10,6 +10,7 @@ import { useSimStore } from './store/useSimStore'
 import { accountApi } from './auth/accountApi'
 import { useComponentSettings } from './admin/componentSettings'
 import { useAppUpdates } from './utils/appUpdates'
+import { askUpdateWithPendingChanges } from './components/UpdatePrompt'
 import { saveAutosave } from './utils/persistence'
 import AccountControls from './components/AccountControls'
 import { AppTopbar, EditorTopbar } from './components/AppTopbar'
@@ -134,6 +135,8 @@ export default function Account() {
   const preserveBeforeUpdate = useCallback(async () => {
     const state = useSimStore.getState()
     if (!state.dirty) return true
+    // Com trabalho por guardar, o utilizador decide: a atualização nunca o tira do editor sem perguntar.
+    if ((await askUpdateWithPendingChanges()) === 'later') return false
     // Cópia adicional best-effort; a gravação principal continua a ser o
     // projeto aberto, preservando revisão, nome e acesso no dashboard.
     saveAutosave(state.saveJSON())
