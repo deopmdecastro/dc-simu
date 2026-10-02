@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { bakeGlb, boundsMm, describeChanges, loadGlbAssets, resolveState, runtimeSpec } from '../../catalog/definition'
+import { bakeGlb, boundsMm, defaultMaterial, defaultPart, describeChanges, loadGlbAssets, resolveState, runtimeSpec } from '../../catalog/definition'
 import { catalogApi } from '../../catalog/catalogApi'
 import { useCatalogStore } from '../../catalog/registry'
 import ViewCube, { type ViewCubeFace } from '../../components/ViewCube'
@@ -369,6 +369,14 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
           vars: [...(loaded.draft.vars ?? []), { id: 'closed', name: 'Disjuntor fechado', type: 'bool', initial: true }, { id: 'tripped', name: 'Disparado', type: 'bool', initial: false }],
           controls: [{ id: 'builtin-breaker-toggle', name: 'Liga / desliga', kind: 'toggle', partId, axis: [0, 1, 0], travelMm: 0, bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }],
         } }
+      }
+      // Atualiza também rascunhos WEG criados antes de existir uma alavanca
+      // articulada: acrescenta o atuador sem alterar o GLB original.
+      if (/breakerWegMdwC10/.test(origin) && loaded.draft && !loaded.draft.parts.some((part) => part.name === 'Alavanca liga / desliga')) {
+        const material = defaultMaterial('Alavanca WEG', '#20242a')
+        const lever = { ...defaultPart('box', material.id, 'Alavanca liga / desliga'), size: [10, 16, 5] as [number, number, number], position: [0, 48, 38] as [number, number, number] }
+        const controls = loaded.draft.controls?.length ? loaded.draft.controls.map((control) => control.name === 'Liga / desliga' ? { ...control, partId: lever.id, axis: [0, 1, 0] as [number, number, number], travelMm: 8 } : control) : []
+        loaded = { ...loaded, draft: { ...loaded.draft, materials: [...loaded.draft.materials, material], parts: [...loaded.draft.parts, lever], controls } }
       }
       useEditorStore.getState().open(loaded)
       if (await loadGlbAssets(useEditorStore.getState().def, glbCache)) useEditorStore.getState().bumpGlb()
