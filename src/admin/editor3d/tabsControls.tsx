@@ -5,6 +5,7 @@ import { listGlbNodes } from '../../catalog/componentRig'
 import { newId } from '../../catalog/definition'
 import type { BehaviorEvent, ComponentDefinition, ControlAction, ControlDef, DisplayDef, DisplayLine, VarDef, VarValue, Vec3, WhenDef } from '../../catalog/types'
 import { IconClose } from '../../ui/icons'
+import { AutoDetectSection } from './AutoDetectPanel'
 import { glbCache, useEditorStore } from './editorStore'
 import { applyMultimeterPreset, guessBehavior, newControl, newDisplay, triggerEditorControl } from './controlOps'
 import { defBounds } from './terminalOps'
@@ -246,6 +247,7 @@ export function ControlsTab() {
       </>}
       <Section title="Ações"><Confirm label="Eliminar controlo" className="dx-btn dx-btn-danger dx-btn-sm" onConfirm={() => { edit((state) => ({ ...state, controls: (state.controls ?? []).filter((item) => item.id !== control.id) })); set({ selection: null, pick: null }) }} /></Section>
     </>}
+    <AutoDetectSection />
     <VarsSection />
   </>
 }

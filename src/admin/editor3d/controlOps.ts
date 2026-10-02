@@ -1,8 +1,9 @@
 import * as THREE from 'three'
-import { MULTIMETER_VARS, initialVars, mergeVars, runControlActions, selectorStep, setSelector, type Vars } from '../../catalog/behavior'
+import { MULTIMETER_VARS, initialVars, mergeVars, runControlActions, selectorStep, setSelector, varDefsOf, type Vars } from '../../catalog/behavior'
 import { boundsMm, buildDefinitionObject, newId } from '../../catalog/definition'
 import { listGlbNodes } from '../../catalog/componentRig'
-import type { BehaviorDef, ComponentDefinition, ControlDef, DisplayDef, LightZoneDef, MaterialDef, PartDef, Vec3 } from '../../catalog/types'
+import { controlFromSuggestion, lightFromSuggestion, variableFromSuggestion, type Suggestion } from '../../catalog/interactables'
+import type { BehaviorDef, ComponentDefinition, ControlDef, DisplayDef, LightZoneDef, MaterialDef, PartDef, VarDef, Vec3 } from '../../catalog/types'
 import { glbCache, useEditorStore } from './editorStore'
 import { setRealSize } from './sizeOps'
 
@@ -99,6 +100,66 @@ export function addLedAt(point: Vec3, normal: Vec3) {
   const light: LightZoneDef = { id: newId('l_'), name: part.name, partId: part.id, color: '#22c55e', intensity: 2.4, kind: 'led' }
   store.edit((def) => ({ ...def, materials: [...def.materials, material], parts: [...def.parts, part], lights: [...def.lights, light] }))
   store.set({ placingLed: false, selection: { kind: 'light', id: light.id }, tab: 'lights' })
+}
+
+/* ------------------------------------------- controlos a partir da deteção automática */
+
+/**
+ * Cria os controlos e indicadores marcados na deteção automática (`interactables.ts`):
+ * cada objeto do GLB passa a ter eixo, curso/ângulo, variável e ação já configurados.
+ * Devolve a mensagem para o utilizador.
+ */
+export function applyAutoInteractions(partId: string, chosen: Suggestion[]): string {
+  const store = useEditorStore.getState()
+  if (!chosen.length) return 'Nada marcado: não foi criado nenhum controlo.'
+  const part = store.def.parts.find((item) => item.id === partId)
+  if (!part || part.kind !== 'glb') return 'Escolha uma peça do tipo modelo GLB.'
+  const def = store.def
+  // objetos já ligados a um controlo, a uma luz ou a um ecrã não voltam a ser usados
+  const used = new Set<string>([
+    ...(def.controls ?? []).flatMap((control) => control.nodes ?? []),
+    ...def.lights.flatMap((light) => light.nodes ?? []),
+    ...(def.displays ?? []).flatMap((display) => display.hideNodes ?? []),
+  ])
+  const takenVars = new Set(varDefsOf(def).map((item) => item.id))
+  const takenNames = new Set([...(def.controls ?? []).map((control) => control.name), ...def.lights.map((light) => light.name)])
+  const controls: ControlDef[] = []
+  const lights: LightZoneDef[] = []
+  const vars: VarDef[] = []
+  let skipped = 0
+  for (const suggestion of chosen) {
+    if (used.has(suggestion.node)) { skipped += 1; continue }
+    used.add(suggestion.node)
+    let variable = suggestion.variable
+    while (takenVars.has(variable)) variable = `${variable}_2`
+    takenVars.add(variable)
+    let label = suggestion.label
+    while (takenNames.has(label)) label = `${label} 2`
+    takenNames.add(label)
+    const named: Suggestion = { ...suggestion, label, variable }
+    if (suggestion.kind === 'led') {
+      lights.push(lightFromSuggestion(partId, named, newId('l_')))
+      const variableDef = variableFromSuggestion(named, variable)
+      if (variableDef && !vars.some((item) => item.id === variableDef.id)) vars.push(variableDef)
+      continue
+    }
+    controls.push(controlFromSuggestion(partId, named, newId('c_'), variable))
+    const variableDef = variableFromSuggestion(named, variable)
+    if (variableDef && !vars.some((item) => item.id === variableDef.id)) vars.push(variableDef)
+  }
+  store.edit((current) => ({
+    ...current,
+    controls: [...(current.controls ?? []), ...controls],
+    lights: [...current.lights, ...lights],
+    vars: [...(current.vars ?? []), ...vars.filter((item) => !(current.vars ?? []).some((existing) => existing.id === item.id))],
+  }), 'auto:interactions')
+  if (controls[0]) store.set({ tab: 'controls', selection: { kind: 'control', id: controls[0].id } })
+  else if (lights[0]) store.set({ tab: 'lights', selection: { kind: 'light', id: lights[0].id } })
+  const created: string[] = []
+  if (controls.length) created.push(`${controls.length} controlo(s)`)
+  if (lights.length) created.push(`${lights.length} indicador(es)`)
+  const extra = skipped ? ` ${skipped} objeto(s) já ligados foram ignorados.` : ''
+  return `${created.join(' e ')} criado(s). Afine o eixo, o curso e os ângulos em «Controlo › Movimento».${extra}`
 }
 
 /* ---------------------------------------------------------- modelo de multímetro */
