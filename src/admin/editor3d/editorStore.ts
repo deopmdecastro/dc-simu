@@ -50,6 +50,8 @@ interface EditorStore {
   /** Última versão publicada (para listar as alterações antes de publicar). */
   baseline: ComponentDefinition | null
   selection: Selection
+  /** Peças selecionadas além da principal (Ctrl/Shift+clique, Ctrl+A). */
+  extraSel: string[]
   tool: Tool
   ribbon: Ribbon
   snap: { on: boolean; mm: number; deg: number }
@@ -107,6 +109,9 @@ interface EditorStore {
   edit: (recipe: (def: ComponentDefinition) => ComponentDefinition, key?: string) => void
   editMeta: (patch: Partial<CatalogMeta>, key?: string) => void
   select: (selection: Selection) => void
+  /** Ctrl/Shift+clique: junta ou tira uma peça da seleção. */
+  toggleSelectPart: (id: string) => void
+  selectParts: (ids: string[]) => void
   /** Escolhe a ferramenta da barra principal e sincroniza o modo «colocar borne». */
   setRibbon: (ribbon: Ribbon) => void
   set: (patch: Partial<EditorStore>) => void
@@ -139,7 +144,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   meta: { name: '', description: '', category: 'command', group: '', manufacturer: '', reference: '', internalCode: '', tag: 'X', tags: [], properties: [] },
   def: normalizeDefinition(undefined),
   baseline: null,
-  selection: null, tool: 'translate', ribbon: 'select', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
+  selection: null, extraSel: [], tool: 'translate', ribbon: 'select', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
   editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, previewVars: {}, meterTest: { ...EMPTY_METER_INPUT, vdc: 12.34, vac: 230, ohm: 4700 }, pick: null, hoverNode: null, placingDisplay: null, displayCorner: null, placingLed: false, camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
   view: { grid: true, floor: true, axes: true, terminals: true, dark: false, bounds: false },
   viewCommand: { kind: 'iso', n: 0 }, glbRevision: 0,
@@ -149,7 +154,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const draft = normalizeDefinition(entry.draft ?? entry.versions[entry.versions.length - 1]?.definition)
     const last = entry.versions[entry.versions.length - 1]
     set({
-      entry, meta: entry.meta, def: draft, baseline: last ? last.definition : null, selection: null, mode: 'edit',
+      entry, meta: entry.meta, def: draft, baseline: last ? last.definition : null, selection: null, extraSel: [], mode: 'edit',
       editState: BASE_STATE, previewState: draft.initialState, ribbon: 'select', placing: false, placingSpec: null, faceLock: null, testWires: [], ...CLEAR_WIRE, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, tab: 'object', dirty: false, past: [], future: [],
       lastKey: '', lastAt: 0, viewCommand: { kind: 'fit', n: Date.now() },
     })
@@ -175,7 +180,20 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const coalesce = key === lastKey && now - lastAt < 900
     set({ meta: { ...meta, ...patch }, dirty: true, future: [], lastKey: key, lastAt: now, past: coalesce ? past : [...past.slice(-(HISTORY_LIMIT - 1)), { meta, def }] })
   },
-  select: (selection) => set({ selection, placing: false, placingSpec: null, ...(get().ribbon === 'terminal' ? { ribbon: 'select' as Ribbon } : {}) }),
+  select: (selection) => set({ selection, extraSel: [], placing: false, placingSpec: null, ...(get().ribbon === 'terminal' ? { ribbon: 'select' as Ribbon } : {}) }),
+  toggleSelectPart(id) {
+    const { selection, extraSel } = get()
+    const primary = selection?.kind === 'part' ? selection.id : null
+    if (!primary) { set({ selection: { kind: 'part', id }, extraSel: [], tab: 'object' }); return }
+    if (id === primary) {
+      const [next, ...rest] = extraSel
+      set(next ? { selection: { kind: 'part', id: next }, extraSel: rest } : { selection: null, extraSel: [] })
+    } else set({ extraSel: extraSel.includes(id) ? extraSel.filter((item) => item !== id) : [...extraSel, id] })
+  },
+  selectParts(ids) {
+    const [first, ...rest] = ids
+    set(first ? { selection: { kind: 'part', id: first }, extraSel: rest, tab: 'object' } : { selection: null, extraSel: [] })
+  },
   setRibbon: (ribbon) => set({ ribbon, placing: ribbon === 'terminal', placingSpec: ribbon === 'terminal' ? get().placingSpec : null, ...CLEAR_WIRE, ...CLEAR_MEASURE, ...(ribbon === 'terminal' ? { selection: null } : {}) }),
   set: (patch) => set(patch as never),
   setView: (patch) => set((state) => ({ view: { ...state.view, ...patch } })),
@@ -277,6 +295,15 @@ export function descendantsOf(def: ComponentDefinition, id: string): string[] {
 /** Remove peças e tudo o que as referencia (luzes, interações, diferenças de estado). */
 export function removeParts(def: ComponentDefinition, ids: string[]): ComponentDefinition {
   const drop = new Set(ids.flatMap((id) => [id, ...descendantsOf(def, id)]))
+  const result = removePartsRaw(def, drop)
+  // modelos importados que ninguém usa mais não ficam a pesar no componente
+  const orphan = [...new Set(def.parts.filter((part) => drop.has(part.id) && part.asset).map((part) => part.asset!))]
+    .filter((asset) => !result.parts.some((part) => part.asset === asset) && !JSON.stringify({ ...result, assets: undefined }).includes(asset))
+  if (!orphan.length) return result
+  return { ...result, assets: Object.fromEntries(Object.entries(result.assets).filter(([id]) => !orphan.includes(id))) }
+}
+
+function removePartsRaw(def: ComponentDefinition, drop: Set<string>): ComponentDefinition {
   return {
     ...def,
     parts: def.parts.filter((part) => !drop.has(part.id)),
@@ -322,4 +349,9 @@ export function newTerminal(def: ComponentDefinition, position: Vec3, normal: Ve
     id: newId('t_'), label: String(n), name: `Borne ${n}`, position: position.map((v) => Math.round(v * 10) / 10) as Vec3, normal: snapped,
     kind: 'io', terminalType: 'screw', polarity: 'none', electricalClass: 'other', direction: 'io', accepts: '', color: '#cbd5e1',
   }
+}
+
+/** Ids das peças selecionadas (principal primeiro). */
+export function selectedPartIds(state: Pick<EditorStore, 'selection' | 'extraSel'>): string[] {
+  return [...(state.selection?.kind === 'part' ? [state.selection.id] : []), ...state.extraSel]
 }

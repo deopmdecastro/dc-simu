@@ -288,7 +288,9 @@ function Scene() {
   const highlightPart = selection?.kind === 'part' ? selection.id : selection?.kind === 'light' ? def.lights.find((light) => light.id === selection.id)?.partId : undefined
   const highlightNode = highlightPart ? root.getObjectByName(highlightPart) ?? null : null
   const helper = useMemo(() => (highlightNode ? new THREE.BoxHelper(highlightNode, '#2655e5') : null), [highlightNode, root])
-  useFrame(() => { helper?.update() })
+  const extraSel = useEditorStore((s) => s.extraSel)
+  const extraHelpers = useMemo(() => extraSel.map((id) => root.getObjectByName(id)).filter((node): node is THREE.Object3D => !!node).map((node) => new THREE.BoxHelper(node, '#7aa2ff')), [extraSel, root, def.parts])
+  useFrame(() => { helper?.update(); extraHelpers.forEach((item) => item.update()) })
 
   const gizmoEnabled = mode === 'edit' && !placing && ribbon === 'select'
   const partGizmo = gizmoEnabled && selectedPart && !selectedPart.locked && selectedNode
@@ -319,7 +321,11 @@ function Scene() {
     if (ribbon === 'wire' || ribbon === 'pan' || ribbon === 'measure') return
     if (ribbon === 'delete') {
       const target = partIdOf(event.object, known)
-      if (target) { const state = useEditorStore.getState(); state.edit((current) => removeParts(current, [target])); state.select(null) }
+      if (target) {
+        const state = useEditorStore.getState()
+        if (state.def.parts.find((part) => part.id === target)?.locked) { window.dispatchEvent(new CustomEvent('ce-flash', { detail: 'Peça bloqueada: desbloqueie-a (L) para a eliminar.' })); return }
+        state.edit((current) => removeParts(current, [target])); state.select(null)
+      }
       return
     }
     if (placing && event.face) {
@@ -329,7 +335,11 @@ function Scene() {
       return
     }
     const hit = partIdOf(event.object, known)
-    if (hit) useEditorStore.getState().set({ selection: { kind: 'part', id: hit }, tab: 'object' })
+    if (hit) {
+      const native = event.nativeEvent
+      if (native.shiftKey || native.ctrlKey || native.metaKey) useEditorStore.getState().toggleSelectPart(hit)
+      else useEditorStore.getState().set({ selection: { kind: 'part', id: hit }, extraSel: [], tab: 'object' })
+    }
   }
 
   /** Modo «escolher no modelo»: liga/desliga o objeto do GLB atingido ao controlo ou luz em edição. */
@@ -440,6 +450,7 @@ function Scene() {
       onPointerOut={() => { if (hover) setHover(null); if (useEditorStore.getState().hoverNode) useEditorStore.getState().set({ hoverNode: null }) }}
     />
     {helper && mode === 'edit' && <primitive object={helper} />}
+    {mode === 'edit' && extraHelpers.map((item) => <primitive key={item.uuid} object={item} />)}
     {view.bounds && <BoundsBox root={root} />}
 
     {def.terminals.map((terminal) => <TerminalMarker key={terminal.id} id={terminal.id} selected={selection?.kind === 'terminal' && selection.id === terminal.id}

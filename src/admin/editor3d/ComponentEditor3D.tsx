@@ -15,9 +15,11 @@ import { MaterialsTab, ObjectTab } from './tabs1'
 import { ControlsTab, DisplaysTab } from './tabsControls'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
-import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
+import { IconHelp, IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconWarning, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
 import FaceChooser, { chooseFace } from './FaceChooser'
-import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importGlbAction } from './partActions'
+import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, groupSelection, importModelAction, nudgeSelection, selectAllParts, toggleSelectionLocked, toggleSelectionVisible } from './partActions'
+import { CAD_ACCEPT } from './cadImport'
+import ShortcutsDialog from './ShortcutsDialog'
 import { captureCover } from './capture'
 import WirePanel from './WirePanel'
 import { WiresTab } from './WireInspector'
@@ -62,13 +64,13 @@ function ShapeMenu({ onImport }: { onImport: () => void }) {
     return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', key) }
   }, [open])
   return <div className="ce-menu" ref={ref}>
-    <button className={`dc-tool-btn${open ? ' dc-tool-active' : ''}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} title="Adicionar uma forma ou modelo GLB">
+    <button className={`dc-tool-btn${open ? ' dc-tool-active' : ''}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} title="Adicionar uma forma ou importar um modelo (.glb, .gltf, .stl, .obj)">
       <IconBox size={14} /><span>Formas</span><IconChevronDown size={11} />
     </button>
     {open && <div className="ce-menu-pop" role="menu">
       {OBJECTS.map(([kind, label, Icon]) => <button key={kind} role="menuitem" className="ce-menu-item" onClick={() => { addPartAction(kind); setOpen(false) }}><Icon size={14} />{label}</button>)}
       <span className="ce-menu-sep" />
-      <button role="menuitem" className="ce-menu-item" onClick={() => { onImport(); setOpen(false) }}><IconModel size={14} />Importar GLB…</button>
+      <button role="menuitem" className="ce-menu-item" onClick={() => { onImport(); setOpen(false) }}><IconModel size={14} />Importar modelo 3D / CAD…</button>
     </div>}
   </div>
 }
@@ -120,10 +122,10 @@ function ToolRibbon() {
     {editing && <>
       <span className="ce-ribbon-sep" />
       <ShapeMenu onImport={() => fileRef.current?.click()} />
-      <input ref={fileRef} type="file" accept=".glb,model/gltf-binary" hidden onChange={(event) => { void importGlbAction(event.target.files?.[0]).then((error) => error && window.dispatchEvent(new CustomEvent('ce-flash', { detail: error }))); event.target.value = '' }} />
+      <input ref={fileRef} type="file" accept={CAD_ACCEPT} hidden onChange={(event) => { void importModelAction(event.target.files?.[0]).then((error) => error && window.dispatchEvent(new CustomEvent('ce-flash', { detail: error }))); event.target.value = '' }} />
       <div className="dc-seg" role="group" aria-label="Edição">
-        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a peça [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /></button>
-        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={groupSelection} title="Agrupar: cria um grupo pai à volta da peça [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /></button>
+        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a seleção [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /></button>
+        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={groupSelection} title="Agrupar a seleção num grupo [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /></button>
         <button className="dc-tool-btn !px-2" disabled={!hasSelection} onClick={deleteSelection} title="Eliminar a seleção [Del]" aria-label="Eliminar"><IconDelete size={14} /></button>
       </div>
       <div className="dc-seg" role="group" aria-label="Posição">
@@ -134,6 +136,7 @@ function ToolRibbon() {
     <span className="ce-ribbon-sep" />
     <div className="dc-seg" role="group" aria-label="Vista">
       <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().cameraTo('fit')} title="Enquadrar o modelo [F]" aria-label="Enquadrar o modelo"><IconFocus size={14} /></button>
+      <button className="dc-tool-btn !px-2" onClick={() => window.dispatchEvent(new CustomEvent('ce-shortcuts'))} title="Atalhos de teclado [?]" aria-label="Atalhos de teclado"><IconHelp size={14} /></button>
       <button className="dc-tool-btn" disabled={!hasFocus} onClick={() => useEditorStore.getState().cameraTo('fitSel')} title="Enquadrar a seleção (peça, borne ou cabo) [Shift+F]"><span className="hidden xl:inline">Seleção</span><span className="xl:hidden">Sel.</span></button>
     </div>
     {editing && <>
@@ -342,6 +345,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [showKeys, setShowKeys] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [dropping, setDropping] = useState(false)
   const [mobilePane, setMobilePane] = useState<'canvas' | 'objects' | 'inspector'>('canvas')
@@ -355,6 +359,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
   const view = useEditorStore((s) => s.view)
   const libraryOpen = useEditorStore((s) => s.libraryOpen)
   const activeRibbon = useActiveRibbon()
+  useEffect(() => { const open = () => setShowKeys(true); window.addEventListener('ce-shortcuts', open); return () => window.removeEventListener('ce-shortcuts', open) }, [])
   useEffect(() => { const handler = (event: Event) => setMessage(String((event as CustomEvent).detail)); window.addEventListener('ce-flash', handler); return () => window.removeEventListener('ce-flash', handler) }, [])
 
   useEffect(() => {
@@ -460,6 +465,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       if (mod && event.key.toLowerCase() === 'y') { event.preventDefault(); state.redo(); return }
       if (mod && event.key.toLowerCase() === 'd' && state.mode === 'edit') { event.preventDefault(); duplicateSelection(); return }
       if (mod && event.key.toLowerCase() === 'g' && state.mode === 'edit') { event.preventDefault(); groupSelection(); return }
+      if (mod && event.key.toLowerCase() === 'a' && state.mode === 'edit') { event.preventDefault(); selectAllParts(); return }
+      if (event.key === '?' || event.key === 'F1') { event.preventDefault(); setShowKeys(true); return }
       const key = event.key.toLowerCase()
       if (!mod && !event.altKey && ['1', '2', '3', '4', '5', '6'].includes(key)) {
         const pick = RIBBON_KEYS[Number(key) - 1]
@@ -473,6 +480,17 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       if (drafting && key === 'enter') { event.preventDefault(); const problem = state.finishWireFree(); if (problem) setMessage(problem); return }
       if (drafting && (key === 'backspace' || key === 'delete')) { event.preventDefault(); state.undoWirePoint(); return }
       if (state.mode !== 'edit') return
+      const arrows: Record<string, [number, number, number]> = { arrowleft: [-1, 0, 0], arrowright: [1, 0, 0], arrowup: [0, 0, -1], arrowdown: [0, 0, 1], pageup: [0, 1, 0], pagedown: [0, -1, 0] }
+      if (arrows[key] && !mod && state.selection && state.ribbon === 'select') {
+        event.preventDefault()
+        const step = (state.snap.on ? state.snap.mm : 1) * (event.shiftKey ? 10 : event.altKey ? 0.1 : 1)
+        nudgeSelection(arrows[key][0] * step, arrows[key][1] * step, arrows[key][2] * step)
+        return
+      }
+      if (key === 'f2' && state.selection?.kind === 'part') { event.preventDefault(); window.dispatchEvent(new CustomEvent('ce-rename', { detail: state.selection.id })); return }
+      if (key === 'h' && event.altKey) { event.preventDefault(); toggleSelectionVisible(true); return }
+      if (key === 'h' && event.shiftKey) { event.preventDefault(); toggleSelectionVisible(); return }
+      if (key === 'l' && !mod && state.selection?.kind === 'part') { toggleSelectionLocked(); return }
       if (key === 'w') state.set({ tool: 'translate' })
       else if (key === 'e') state.set({ tool: 'rotate' })
       else if (key === 'r') state.set({ tool: 'scale' })
@@ -511,6 +529,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       </div>
       <div className="ce-spacer" />
       {message && <span className="ce-flash" role="status">{message}</span>}
+      {showKeys && <ShortcutsDialog onClose={() => setShowKeys(false)} />}
       <button className="account-project-action" onClick={() => leave()}><IconArrowLeft size={13} />Biblioteca</button>
       <button className="account-project-action" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)">{saving ? 'A guardar…' : 'Guardar rascunho'}</button>
       <button className="account-project-action dx-bar-primary" onClick={() => setPublishing(true)}>Publicar…</button>
