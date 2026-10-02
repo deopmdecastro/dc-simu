@@ -148,7 +148,7 @@ function ToolRibbon() {
         <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a seleção [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /></button>
         <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={groupSelection} title="Agrupar as peças selecionadas [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /></button>
         <button className="dc-tool-btn !px-2" disabled={!hasGroup} onClick={ungroupSelection} title="Desagrupar: devolve as peças ao nível de cima [Ctrl+Shift+G]" aria-label="Desagrupar"><IconUngroup size={14} /></button>
-        <button className="dc-tool-btn" disabled={!hasGlb} onClick={explodeGlbPart} title="Separar partes: cada parte do modelo (manípulo, tampa, botões…) passa a objeto editável"><IconModel size={13} /><span className="hidden xl:inline">Separar partes</span></button>
+        <button className="dc-tool-btn" disabled={!hasGlb} onClick={(event) => explodeGlbPart(event.shiftKey ? 'meshes' : 'smart')} title="Separar partes: o modelo passa a peças editáveis (manípulo, tampa, botões…), agrupando o que está encostado. Shift+clique separa malha a malha."><IconModel size={13} /><span className="hidden xl:inline">Separar partes</span></button>
         {hasPieces && <button className="dc-tool-btn" onClick={mergeGlbParts} title="Juntar partes: volta a reunir o modelo separado"><IconGroup size={13} /><span className="hidden xl:inline">Juntar partes</span></button>}
         <button className="dc-tool-btn !px-2" disabled={!hasSelection} onClick={deleteSelection} title="Eliminar a seleção [Del]" aria-label="Eliminar"><IconDelete size={14} /></button>
       </div>

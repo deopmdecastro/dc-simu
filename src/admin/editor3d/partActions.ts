@@ -1,4 +1,4 @@
-import { boundsMm, defaultPart, glbNodeList, loadGlbAssets, newId } from '../../catalog/definition'
+import { boundsMm, defaultPart, glbNodeList, glbPieceList, loadGlbAssets, newId } from '../../catalog/definition'
 import type { PartDef, Vec3 } from '../../catalog/types'
 import { addPart, duplicatePart, glbCache, patchPart, removeParts, useEditorStore } from './editorStore'
 
@@ -200,18 +200,19 @@ export function nudgeSelection(dx: number, dy: number, dz: number) {
  * escondida, pintada ou usada como manípulo de um botão/seletor.
  * A peça original mantém-se como grupo, por isso o conjunto não se desloca.
  */
-export function explodeGlbPart() {
+export function explodeGlbPart(mode: 'smart' | 'meshes' = 'smart') {
   const state = useEditorStore.getState()
   const part = selectedPart()
   if (!part || part.kind !== 'glb' || !part.asset) { flash('Selecione primeiro a peça do modelo GLB.'); return }
   const source = glbCache.get(part.asset)
-  const items = source ? glbNodeList(source) : []
+  const items = source ? (mode === 'meshes' ? glbNodeList(source).map((item) => ({ ...item, meshes: 1 })) : glbPieceList(source)) : []
   if (!items.length) { flash('O modelo ainda está a carregar.'); return }
-  if (items.length === 1) { flash('Este modelo tem uma única malha: não há partes para separar.'); return }
+  if (items.length === 1) { flash('Este modelo forma uma peça única: não há partes para separar.'); return }
   const asset = part.asset
   const children = items.map((item) => ({ ...defaultPart('glb', part.materialId, item.name), parentId: part.id, asset, glbNode: item.key }))
   state.edit((def) => ({ ...def, parts: [...def.parts.map((item) => (item.id === part.id ? { ...item, kind: 'group' as const } : item)), ...children] }))
-  flash(`Modelo separado em ${items.length} partes.`)
+  const total = items.reduce((sum, item) => sum + (item.meshes ?? 1), 0)
+  flash(mode === 'meshes' ? `Modelo separado em ${items.length} malhas.` : `Modelo separado em ${items.length} peças (${total} malhas agrupadas por proximidade e material). Shift+clique separa malha a malha.`)
 }
 
 /** Volta a juntar as partes separadas num único modelo GLB. */

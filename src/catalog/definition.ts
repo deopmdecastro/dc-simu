@@ -122,8 +122,26 @@ export function glbNodeList(root: THREE.Object3D): Array<{ key: string; name: st
   return items
 }
 
-/** Encontra a parte indicada por `glbNode`: «#n» = índice da malha, caso contrário o nome do nó. */
+/**
+ * Encontra a parte indicada por `glbNode`: «#n» = índice da malha, «a+b+c» =
+ * várias malhas reunidas numa só peça, caso contrário o nome do nó.
+ */
 export function pickGlbNode(root: THREE.Object3D, key: string): THREE.Object3D | null {
+  if (key.includes('+')) {
+    const picked = key.split('+').map((item) => pickGlbNode(root, item)).filter((item): item is THREE.Object3D => !!item)
+    if (!picked.length) return null
+    const group = new THREE.Group()
+    group.name = key
+    for (const node of picked) {
+      node.updateWorldMatrix(true, false)
+      const matrix = node.matrixWorld.clone()
+      node.removeFromParent()
+      node.matrixAutoUpdate = false
+      node.matrix.copy(matrix)
+      group.add(node)
+    }
+    return group
+  }
   if (!key.startsWith('#')) return root.getObjectByName(key) ?? null
   const wanted = Number(key.slice(1))
   let index = 0
@@ -134,6 +152,105 @@ export function pickGlbNode(root: THREE.Object3D, key: string): THREE.Object3D |
     index += 1
   })
   return found
+}
+
+
+export interface GlbPiece { key: string; name: string; meshes: number }
+
+/** Nome legível a partir do nome técnico exportado pelo CAD. */
+function prettyNodeName(name: string): string {
+  const clean = name.replace(/^occurrence_of_/i, '').replace(/_Material\d+_\d+$/i, '').replace(/_\d+$/, '')
+    .replace(/[_.]+/g, ' ').replace(/\s*\bmesh\b\s*$/i, '').trim()
+  // Nomes sem significado («mesh97», «Object_12») não ajudam o utilizador.
+  if (!clean || /^(mesh|object|node|group|geometry)\s*\d*$/i.test(clean)) return ''
+  return clean
+}
+
+/**
+ * Agrupa as malhas de um modelo em peças úteis, em vez de uma peça por malha.
+ * Junta o que está encostado e partilha material (parafusos, letras, biséis
+ * ficam com o corpo a que pertencem) e absorve as malhas minúsculas na peça
+ * vizinha maior, para a lista «Objetos» ter poucas peças reconhecíveis.
+ */
+export function glbPieceList(root: THREE.Object3D, options: { maxPieces?: number } = {}): GlbPiece[] {
+  const maxPieces = options.maxPieces ?? 24
+  root.updateMatrixWorld(true)
+  const meshes: Array<{ index: number; name: string; box: THREE.Box3; material: string; size: number }> = []
+  let index = 0
+  root.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh) return
+    const box = new THREE.Box3().setFromObject(mesh, true)
+    const material = Array.isArray(mesh.material) ? mesh.material.map((item) => item.name || item.uuid).join('|') : mesh.material?.name || (mesh.material as THREE.Material | undefined)?.uuid || ''
+    meshes.push({ index, name: mesh.name?.trim() || `Parte ${index + 1}`, box, material, size: box.isEmpty() ? 0 : box.getSize(new THREE.Vector3()).length() })
+    index += 1
+  })
+  if (meshes.length <= 1) return meshes.map((mesh) => ({ key: `#${mesh.index}`, name: prettyNodeName(mesh.name) || 'Peça', meshes: 1 }))
+
+  const whole = new THREE.Box3()
+  for (const mesh of meshes) if (!mesh.box.isEmpty()) whole.union(mesh.box)
+  const span = whole.getSize(new THREE.Vector3()).length() || 1
+  const glue = span * 0.012
+
+  // União de malhas encostadas com o mesmo material.
+  const parent = meshes.map((_, i) => i)
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])))
+  const union = (a: number, b: number) => { const ra = find(a); const rb = find(b); if (ra !== rb) parent[rb] = ra }
+  const grown = meshes.map((mesh) => mesh.box.clone().expandByScalar(glue))
+  for (let i = 0; i < meshes.length; i += 1) {
+    for (let j = i + 1; j < meshes.length; j += 1) {
+      if (meshes[i].material !== meshes[j].material) continue
+      if (grown[i].intersectsBox(grown[j])) union(i, j)
+    }
+  }
+
+  type Cluster = { root: number; items: number[]; box: THREE.Box3; size: number }
+  const build = (): Cluster[] => {
+    const map = new Map<number, Cluster>()
+    meshes.forEach((mesh, i) => {
+      const key = find(i)
+      const cluster = map.get(key) ?? { root: key, items: [], box: new THREE.Box3(), size: 0 }
+      cluster.items.push(i)
+      if (!mesh.box.isEmpty()) cluster.box.union(mesh.box)
+      map.set(key, cluster)
+    })
+    const list = [...map.values()]
+    for (const cluster of list) cluster.size = cluster.box.isEmpty() ? 0 : cluster.box.getSize(new THREE.Vector3()).length()
+    return list.sort((a, b) => b.size - a.size)
+  }
+
+  // Peças minúsculas juntam-se à peça maior mais próxima.
+  const absorb = (predicate: (cluster: Cluster) => boolean) => {
+    const list = build()
+    const keep = list.filter((cluster) => !predicate(cluster))
+    if (!keep.length) return
+    for (const small of list.filter(predicate)) {
+      const centre = small.box.getCenter(new THREE.Vector3())
+      let best = keep[0]
+      let bestDistance = Infinity
+      for (const candidate of keep) {
+        const distance = candidate.box.distanceToPoint(centre)
+        if (distance < bestDistance) { bestDistance = distance; best = candidate }
+      }
+      union(best.root, small.root)
+    }
+  }
+  absorb((cluster) => cluster.size < span * 0.05)
+  let list = build()
+  if (list.length > maxPieces) {
+    const limit = list[maxPieces - 1]?.size ?? 0
+    absorb((cluster) => cluster.size < limit)
+    list = build()
+  }
+
+  const used = new Map<string, number>()
+  return list.map((cluster) => {
+    const items = cluster.items.slice().sort((a, b) => meshes[b].size - meshes[a].size)
+    const base = prettyNodeName(meshes[items[0]].name) || 'Peça'
+    const seen = (used.get(base) ?? 0) + 1
+    used.set(base, seen)
+    return { key: items.map((i) => `#${meshes[i].index}`).join('+'), name: seen > 1 ? `${base} ${seen}` : base, meshes: items.length }
+  })
 }
 
 /** Constrói a árvore Three (em mm). Os nomes dos nós são os ids das peças. */
