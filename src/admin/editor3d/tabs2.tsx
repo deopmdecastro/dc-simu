@@ -8,7 +8,7 @@ import { FACE_NORMAL, SUGGESTED_PROFILES, defaultParams, inferFromFunction, type
 import { allProfiles, useProfileStore } from '../../catalog/profileStore'
 import { applyProfile, defBounds, faceCenter, faceOfNormal } from './terminalOps'
 import { addTerminalInHole, addTerminalsInAllHoles, clearHoles, scanHoles } from './holeOps'
-import { Check, Color, Confirm, Empty, Field, Num, Section, Select, Slider, Text, Vec3Input } from './ui'
+import { Check, Color, Confirm, Empty, Field, Group, Num, PresetCard, Section, Select, Slider, Text, Vec3Input } from './ui'
 import { IconCamera, IconEye, IconEyeOff, IconCheck, IconClose, IconCube, IconImage, IconLayers, IconPlus } from '../../ui/icons'
 import FaceChooser from './FaceChooser'
 import { NodePicker, whenFields } from './tabsControls'
@@ -109,21 +109,24 @@ export function TerminalsTab() {
       <Check checked={!!def.terminalsFollowModel} label="Bloquear todos os bornes ao modelo" onChange={(terminalsFollowModel) => edit((state) => ({ ...state, terminalsFollowModel }), 'terminals:follow-model')} />
       <p className="ce-hint">Quando ativo, mover, rodar ou redimensionar a peça selecionada leva todos os bornes consigo, mantendo a posição relativa.</p>
     </Section>
-    <Section title="Bornes (ligações)" actions={<button className={`dx-btn dx-btn-sm ce-btn-icon ${placing ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ placing: !placing, placingSpec: null })}><IconPlus size={12} />{placing ? 'A colocar… (Esc)' : 'Na superfície'}</button>}>
-      <p className="ce-hint">{placing ? 'Clique numa face do modelo: o borne fica na superfície e a saída do cabo segue a normal dessa face.' : 'Escolha uma face acima (ou use «Na superfície») e clique no modelo. Pode também aplicar um perfil da biblioteca.'}</p>
-      <div className="ce-actions">
-        <button className="dx-btn dx-btn-secondary dx-btn-sm ce-btn-icon" onClick={() => { const created = newTerminal(def, faceCenter(bounds, faceLock ?? 'front'), FACE_NORMAL[faceLock ?? 'front']); edit((state) => ({ ...state, terminals: [...state.terminals, created] })); set({ selection: { kind: 'terminal', id: created.id } }) }}><IconPlus size={12} />Ao centro{faceLock ? ' da face' : ''}</button>
-        <button className={`dx-btn dx-btn-sm ce-btn-icon ${libraryOpen ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ libraryOpen: !libraryOpen })}><IconLayers size={12} />Biblioteca de bornes</button>
-      </div>
+    <Section title="Criar bornes">
+      <Group tone="manual" title="Colocar à mão"
+        hint={placing ? 'Clique numa face do modelo: o borne fica na superfície e a saída do cabo segue a normal dessa face.' : 'Você decide onde fica cada borne: escolha a face no cubo acima e clique no modelo.'}>
+        <div className="ce-preset-grid">
+          <PresetCard title={placing ? 'A colocar… (Esc)' : 'Clicar na superfície'} description="Cada clique no modelo cria um borne no ponto exato, com a saída do cabo pela normal da face." active={placing} onClick={() => set({ placing: !placing, placingSpec: null })} />
+          <PresetCard title={`Ao centro${faceLock ? ' da face' : ''}`} description="Cria um borne no centro da face escolhida, para depois acertar a posição nos campos em mm." onClick={() => { const created = newTerminal(def, faceCenter(bounds, faceLock ?? 'front'), FACE_NORMAL[faceLock ?? 'front']); edit((state) => ({ ...state, terminals: [...state.terminals, created] })); set({ selection: { kind: 'terminal', id: created.id } }) }} />
+        </div>
+      </Group>
+      <Group tone="auto" title="O editor sugere"
+        actions={<button className={`dx-btn dx-btn-sm ce-btn-icon ${libraryOpen ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => set({ libraryOpen: !libraryOpen })}><IconLayers size={12} />Biblioteca</button>}
+        hint={<>Perfis para «{meta.category}»: criam de uma vez os bornes nas faces certas. Depois pode editar, mover, duplicar ou apagar qualquer um.</>}>
+        {suggested.length > 0 ? <div className="ce-preset-grid">
+          {suggested.map((profile) => <PresetCard key={profile.id} title={profile.name} description={profile.description || 'Perfil da biblioteca de bornes.'} onClick={() => applyProfile(profile, defaultParams(profile), false)} />)}
+        </div> : <p className="ce-hint">Sem perfis para esta categoria — abra a biblioteca para ver todos.</p>}
+        <button className="dx-btn dx-btn-sm ce-linkbtn" onClick={() => set({ libraryOpen: true })}>Mais perfis…</button>
+      </Group>
     </Section>
     <HoleFinder />
-    <Section title="Perfis sugeridos" open={def.terminals.length === 0}>
-      <p className="ce-hint">Sugestões para «{meta.category}». Cada perfil cria os bornes nas faces certas — depois pode editar, mover, duplicar ou apagar qualquer um.</p>
-      <div className="ce-actions">
-        {suggested.map((profile) => <button key={profile.id} className="dx-btn dx-btn-secondary dx-btn-sm" title={profile.description} onClick={() => applyProfile(profile, defaultParams(profile), false)}>+ {profile.name}</button>)}
-        <button className="dx-btn dx-btn-sm ce-linkbtn" onClick={() => set({ libraryOpen: true })}>Mais perfis…</button>
-      </div>
-    </Section>
     {!terminal && <Empty>Selecione um borne na lista à esquerda ou no viewport.</Empty>}
     {terminal && <>
       <Section title="Identificação">

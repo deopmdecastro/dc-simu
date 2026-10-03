@@ -514,3 +514,33 @@
   .ce-modal-fixed .ce-modal-actions { margin-top: 2px; gap: 6px; }
   .ce-modal-fixed .ce-modal-actions .dx-btn { flex: 1 1 0; justify-content: center; min-height: 40px; }
 }
+
+/* --------------------------------------------------------------------------
+   Blocos «Sugestões» vs «Manual» nos separadores Bornes / Controlos / Ecrãs
+   -------------------------------------------------------------------------- */
+.ce-group { border:1px solid var(--dx-line); border-radius:10px; padding:9px 10px 10px; margin-bottom:9px; background:#fff; }
+.ce-group:last-child { margin-bottom:0; }
+.ce-group-auto { border-color:#c7d7fb; background:linear-gradient(180deg,#f5f9ff,#fff); }
+.ce-group-manual { border-color:#dde3ec; background:linear-gradient(180deg,#fafbfd,#fff); }
+.ce-group-head { display:flex; align-items:center; gap:7px; margin-bottom:5px; }
+.ce-group-head strong { font-size:12px; color:var(--dx-ink-1); }
+.ce-group-actions { margin-left:auto; display:flex; gap:5px; }
+.ce-group-tag { flex:0 0 auto; padding:2px 7px; border-radius:99px; font-size:8px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.ce-group-auto .ce-group-tag { color:#1f55e0; background:#e4edff; }
+.ce-group-manual .ce-group-tag { color:#5a6a82; background:#eceff4; }
+.ce-group-hint { margin:0 0 7px; }
+.ce-group-body { display:flex; flex-direction:column; gap:7px; }
+
+.ce-preset-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px; }
+.ce-preset { display:flex; flex-direction:column; gap:2px; padding:7px 9px; border:1px solid var(--dx-line); border-radius:9px; background:#fff; text-align:left; font:inherit; cursor:pointer; transition:border-color .15s ease, box-shadow .15s ease, background .15s ease; }
+.ce-preset b { font-size:11px; font-weight:700; color:var(--dx-ink-1); }
+.ce-preset small { font-size:9.5px; line-height:1.35; color:var(--dx-ink-3); }
+.ce-preset:hover:not(:disabled) { border-color:var(--dx-brand); background:#f6faff; }
+.ce-preset.is-on { border-color:var(--dx-brand); background:var(--dx-brand-soft-2); box-shadow:0 0 0 2px var(--dx-brand-soft-2); }
+.ce-preset.is-on b { color:var(--dx-brand-700); }
+.ce-preset:disabled { opacity:.45; cursor:not-allowed; }
+@media (max-width:760px) { .ce-preset-grid { grid-template-columns:1fr; } }
+
+/* Cubo de vista dentro do painel «Bornes por vista» (mesmo desenho do simulador). */
+.ce-faces-cube { display:flex; justify-content:center; }
+.ce-faces-cube .vcube-panel { margin:0; }

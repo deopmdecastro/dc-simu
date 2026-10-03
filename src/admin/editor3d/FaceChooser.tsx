@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FACES, type Face } from '../../catalog/terminalProfiles'
 import { IconCube, IconCursor, IconPlus } from '../../ui/icons'
+import { CORNER_ANGLES, ViewCubeDial, cameraFacingFace, viewCubeMatrix, type ViewCubeCorner } from '../../components/ViewCube'
 import { canCapture, captureImage } from './capture'
 import { useEditorStore } from './editorStore'
 import { faceCounts } from './terminalOps'
@@ -57,9 +58,33 @@ export default function FaceChooser() {
   const counts = useMemo(() => faceCounts(terminals), [terminals])
   const total = terminals.length
 
+  const camAngles = useEditorStore((s) => s.camAngles)
+  const cameraTo = useEditorStore((s) => s.cameraTo)
+  const facing = cameraFacingFace(camAngles.yaw, camAngles.pitch)
+  const orbit = (dx: number, dy: number) => useEditorStore.setState({ viewCommand: { kind: 'orbit', n: Date.now(), dx, dy } })
+  const toCorner = (corner: ViewCubeCorner) => {
+    const { yaw, pitch } = CORNER_ANGLES[corner]
+    useEditorStore.setState({ viewCommand: { kind: 'angles', n: Date.now(), yaw, pitch } })
+  }
+
   return <div className="ce-faces">
     <div className="ce-faces-head"><strong>Bornes por vista</strong><span className="ce-faces-total">{total} {total === 1 ? 'borne' : 'bornes'}</span></div>
-    <p className="ce-hint">Escolha a face do componente e clique no modelo para colocar os bornes sobre a superfície real.</p>
+    <p className="ce-hint">O mesmo cubo de vista do simulador: arraste para orbitar, clique numa face para a enquadrar. A face escolhida fixa a saída dos novos bornes.</p>
+    <div className="ce-faces-cube">
+      <ViewCubeDial
+        variant="panel"
+        transform={viewCubeMatrix(camAngles.yaw, camAngles.pitch)}
+        activeFace={faceLock ?? facing}
+        onFace={(face) => chooseFace(face)}
+        onCorner={toCorner}
+        onIso={() => cameraTo('iso')}
+        onHome={() => chooseFace('front')}
+        onDrag={(dx, dy) => orbit(dx, dy)}
+        caption={faceLock ? `Face fixa: ${FACES.find(([id]) => id === faceLock)?.[1] ?? faceLock}` : 'Sem face fixa — o borne segue a superfície clicada'}
+        readout={`${Math.round(camAngles.yaw)}° / ${Math.round(camAngles.pitch)}°`}
+        ariaLabel="Cubo de vista do componente"
+      />
+    </div>
     <div className="ce-faces-grid" role="group" aria-label="Escolher face">
       {FACES.map(([face, label]) => <button key={face} className={`ce-facecard${faceLock === face ? ' is-on' : ''}`} aria-pressed={faceLock === face} onClick={() => chooseFace(face)}
         title={`Ver ${label.toLowerCase()} e fixar a saída dos novos bornes nessa face`}>

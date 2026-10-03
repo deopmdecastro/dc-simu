@@ -10,6 +10,29 @@ export function Section({ title, children, open = true, actions }: { title: Reac
   </details>
 }
 
+/**
+ * Bloco que separa visualmente o que o editor sugere automaticamente
+ * («auto»: presets, deteções, perfis) do que o utilizador cria à mão («manual»).
+ */
+export function Group({ tone, title, hint, actions, children }: { tone: 'auto' | 'manual'; title: string; hint?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+  return <div className={`ce-group ce-group-${tone}`}>
+    <div className="ce-group-head">
+      <span className="ce-group-tag">{tone === 'auto' ? 'Sugestões' : 'Manual'}</span>
+      <strong>{title}</strong>
+      {actions && <span className="ce-group-actions">{actions}</span>}
+    </div>
+    {hint && <p className="ce-hint ce-group-hint">{hint}</p>}
+    <div className="ce-group-body">{children}</div>
+  </div>
+}
+
+/** Cartão de atalho: título curto + explicação, em vez de um botão genérico. */
+export function PresetCard({ title, description, onClick, disabled, active }: { title: string; description: string; onClick: () => void; disabled?: boolean; active?: boolean }) {
+  return <button type="button" className={`ce-preset${active ? ' is-on' : ''}`} disabled={disabled} onClick={onClick} title={description}>
+    <b>{title}</b><small>{description}</small>
+  </button>
+}
+
 export function Field({ label, children, hint, wide }: { label: string; children: ReactNode; hint?: string; wide?: boolean }) {
   return <label className={`ce-field${wide ? ' is-wide' : ''}`}><span>{label}</span>{children}{hint && <small>{hint}</small>}</label>
 }

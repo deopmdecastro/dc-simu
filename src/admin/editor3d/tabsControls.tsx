@@ -11,7 +11,7 @@ import { applyMultimeterPreset, breakerAxesOf, detectHandleNodes, guessBehavior,
 import { tiltControlPatch } from '../../catalog/controlMotion'
 import { BreakerAutomation, MotionFields } from './MotionPanel'
 import { defBounds } from './terminalOps'
-import { Check, Color, Confirm, Empty, Field, Num, Section, Select, Text, Vec3Input } from './ui'
+import { Check, Color, Confirm, Empty, Field, Group, Num, PresetCard, Section, Select, Text, Vec3Input } from './ui'
 
 const AXES: Array<[string, string, Vec3]> = [
   ['z+', 'Frente (+Z)', [0, 0, 1]], ['z-', 'Trás (−Z)', [0, 0, -1]], ['x+', 'Direita (+X)', [1, 0, 0]], ['x-', 'Esquerda (−X)', [-1, 0, 0]], ['y+', 'Topo (+Y)', [0, 1, 0]], ['y-', 'Base (−Y)', [0, -1, 0]],
@@ -206,19 +206,25 @@ export function ControlsTab() {
   const bindOptions: Array<[string, string]> = control?.bindVar && !varOptions.some(([id]) => id === control.bindVar) ? [...varOptions, [control.bindVar, control.bindVar]] : varOptions
   return <>
     <MeterSection />
-    <Section title="Botões, interruptores e seletores" actions={<span className="ce-actions-inline">
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => create('button')}>+ Botão</button>
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => create('toggle')}>+ Interruptor</button>
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => create('selector')}>+ Seletor</button></span>}>
-      <p className="ce-hint">Um controlo liga uma peça (ou objetos de um modelo GLB) a uma ação. Selecione primeiro a peça para a associar. Pode testá-lo imediatamente em <b>Editar › Controlos › Selecionar</b> ou em <b>Simular</b>: clique/toque para premir; o seletor roda à posição seguinte (Shift = anterior).</p>
-      <div className="ce-actions-inline" aria-label="Acionamentos industriais prontos">
-        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => createPreset('breaker')}>Disjuntor ON/OFF</button>
-        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => createPreset('selector')}>Chave seletora</button>
-        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => createPreset('push')}>Botão de pressão</button>
-        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => createPreset('emergency')}>Emergência travada</button>
-      </div>
-      <p className="ce-hint">O preset cria variável, ação e animação inicial; depois clique nos objetos móveis do GLB e ajuste eixo, curso ou ângulos.</p>
-      {controls.length === 0 && <Empty>Sem controlos. Crie um botão ou aplique o modelo de multímetro.</Empty>}
+    <Section title="Botões, interruptores e seletores">
+      <Group tone="auto" title="Acionamentos prontos"
+        hint="Cada atalho cria o controlo já com variável, ação e animação. Depois é só apontar os objetos móveis do GLB e afinar eixo, curso ou ângulos.">
+        <div className="ce-preset-grid">
+          <PresetCard title="Disjuntor ON/OFF" description="Manípulo que bascula entre ligado e desligado, com a variável «closed» e o eixo detetado no modelo." onClick={() => createPreset('breaker')} />
+          <PresetCard title="Chave seletora" description="Seletor rotativo com duas posições (0 e 1) e variável de texto com a posição escolhida." onClick={() => createPreset('selector')} />
+          <PresetCard title="Botão de pressão" description="Botão momentâneo com 1,2 mm de curso que comuta a variável enquanto está premido." onClick={() => createPreset('push')} />
+          <PresetCard title="Emergência travada" description="Cogumelo com retenção: fica premido até ser rearmado, com 2 mm de curso." onClick={() => createPreset('emergency')} />
+        </div>
+      </Group>
+      <Group tone="manual" title="Criar do zero"
+        hint="Começa um controlo vazio, para ligar à peça que escolher. Selecione primeiro a peça (ou os objetos do GLB) e defina as ações à mão. Pode testar em Editar › Controlos › Selecionar ou em Simular.">
+        <div className="ce-preset-grid">
+          <PresetCard title="Botão" description="Momentâneo: atua só enquanto está a ser premido." onClick={() => create('button')} />
+          <PresetCard title="Interruptor" description="Mantém o estado entre cliques (liga/desliga)." onClick={() => create('toggle')} />
+          <PresetCard title="Seletor" description="Rotativo com as posições e ângulos que definir." onClick={() => create('selector')} />
+        </div>
+      </Group>
+      {controls.length === 0 && <Empty>Sem controlos. Use um acionamento pronto, crie um do zero ou aplique o modelo de multímetro.</Empty>}
       <div className="ce-list">{controls.map((item) => <button key={item.id} className={`ce-list-item${control?.id === item.id ? ' is-on' : ''}`} onClick={() => set({ selection: { kind: 'control', id: item.id } })}>
         <b>{item.name}</b><small>{item.kind === 'selector' ? `Seletor · ${item.positions.length} posições` : item.kind === 'toggle' ? 'Interruptor' : 'Botão'} · {def.parts.find((part) => part.id === item.partId)?.name ?? '—'}{item.nodes?.length ? ` · ${item.nodes.length} objeto(s)` : item.nodes ? ' · sem objeto' : ''}</small></button>)}</div>
     </Section>
@@ -284,10 +290,19 @@ export function DisplaysTab() {
   }
   const varOptions: Array<[string, string]> = [['', '— sempre —'], ...varDefsOf(def).map((item): [string, string] => [item.id, item.name])]
   return <>
-    <Section title="Ecrãs (áreas de visualização)" actions={<span className="ce-actions-inline">
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => addDisplay('text')}>+ Ecrã de texto</button>
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => addDisplay('lcd')}>+ LCD multímetro</button></span>}>
-      <p className="ce-hint">Um ecrã é um retângulo de tamanho próprio colado à superfície do modelo onde aparece o conteúdo do componente (texto com variáveis, ou o LCD de 7 segmentos do multímetro). Depois de criar, marque a área no modelo com <b>2 cliques</b> (cantos opostos).</p>
+    <Section title="Ecrãs (áreas de visualização)">
+      <Group tone="auto" title="Ecrãs prontos"
+        hint="Já vêm com fundo, cor e tipo de leitura configurados para o uso mais comum.">
+        <div className="ce-preset-grid">
+          <PresetCard title="LCD do multímetro" description="Mostrador de 7 segmentos com fundo verde-cinza, ligado aos valores medidos na simulação." onClick={() => addDisplay('lcd')} />
+        </div>
+      </Group>
+      <Group tone="manual" title="Criar do zero"
+        hint={<>Ecrã de texto vazio: você define as linhas, o tamanho e as variáveis mostradas. Depois de criar, marque a área no modelo com <b>2 cliques</b> (cantos opostos).</>}>
+        <div className="ce-preset-grid">
+          <PresetCard title="Ecrã de texto" description="Retângulo colado à superfície onde escreve linhas com texto e variáveis do componente." onClick={() => addDisplay('text')} />
+        </div>
+      </Group>
       {mode === 'simulate' && <p className="ce-hint"><b>Teste ativo:</b> LCDs e ecrãs atualizam em tempo real com os botões, estados, variáveis e valores de teste do multímetro.</p>}
       {displays.length === 0 && <Empty>Sem ecrãs.</Empty>}
       <div className="ce-list">{displays.map((item) => <button key={item.id} className={`ce-list-item${display?.id === item.id ? ' is-on' : ''}`} onClick={() => set({ selection: { kind: 'display', id: item.id } })}>
