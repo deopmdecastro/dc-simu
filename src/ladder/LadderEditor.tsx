@@ -1,4 +1,5 @@
 import LadderSections, { type LadderSection } from './LadderSections'
+import { isSmallScreen } from '../ui/cleanMode'
 import { isProgrammablePlc } from './plcPrograms'
 import { PROJECT_FOLDERS, type ProjectFile, type ProjectFolder } from './projectFiles'
 import { plcIoRows } from './plcIo'
@@ -927,8 +928,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   useEffect(() => {
     try { localStorage.setItem(ZOOM_KEY, String(ladderZoom)) } catch {}
   }, [ladderZoom])
-  const [showProjectPane, setShowProjectPane] = useState(true)
-  const [showPalette, setShowPalette] = useState(true)
+  const [showProjectPane, setShowProjectPane] = useState(() => !isSmallScreen())
+  const [showPalette, setShowPalette] = useState(() => !isSmallScreen())
   const [activeProjectNode, setActiveProjectNode] = useState<ProjectNodeId>('main')
   useEffect(() => { setActiveProjectNode('main'); setProgramTab('program') }, [activePlcId])
   const [expandedNodes, setExpandedNodes] = useState<Set<ProjectNodeId>>(() => new Set(['plc', 'programBlocks']))

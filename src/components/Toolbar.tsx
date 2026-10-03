@@ -5,12 +5,13 @@ import { buildBOM, bomToCSV } from '../utils/bom'
 import { GAUGES, WIRE_COLORS } from '../schematic/symbols'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import type { LadderSection } from '../ladder/LadderSections'
+import { useCleanMode } from '../ui/cleanMode'
 import {
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
-  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers,
+  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus,
 } from '../ui/icons'
 
 type AlignEdge = 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY'
@@ -94,6 +95,7 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
 }
 
 export default function Toolbar({ mode, setMode, ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects }: { mode: ViewMode; setMode: (m: ViewMode) => void; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void }) {
+  const [clean, setClean] = useCleanMode()
   const {
     sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
     step, saveJSON, loadJSON, tool, setTool, grid, setGrid, zoom, setZoom,
@@ -172,17 +174,17 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
         {/* arquivo — ações frequentes; conta/projeto permanecem na barra superior única */}
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="flex items-center gap-0.5 bg-surface-sunken border border-line rounded-lg p-1">
-            <button onClick={createNewProject} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Novo projeto em branco">
+            <button onClick={createNewProject} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Novo projeto em branco">
               <IconFile size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Novo</span>
             </button>
-            <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Abrir projeto (.json)">
+            <button onClick={() => fileRef.current?.click()} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Abrir projeto (.json)">
               <IconOpen size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Abrir</span>
             </button>
             <button onClick={download} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 relative" title="Salvar projeto em arquivo JSON">
               <IconSave size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Salvar</span>
               {dirty && <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-state-pause" title="Alterações por guardar" />}
             </button>
-            <button onClick={downloadBOM} disabled={!components.length} className="flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 disabled:opacity-50 disabled:hover:bg-transparent" title="Exportar lista de materiais (CSV)">
+            <button onClick={downloadBOM} disabled={!components.length} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 disabled:opacity-50 disabled:hover:bg-transparent" title="Exportar lista de materiais (CSV)">
               <IconDownload size={14} /> <span className="hidden xl:inline text-[11px] font-medium">BOM</span>
             </button>
           </div>
@@ -264,11 +266,12 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
             )}
             {runBadge.text}
           </span>
+          <button type="button" className={`dc-tool-btn dc-clean-toggle ${clean ? 'is-on' : ''}`} aria-pressed={clean} onClick={() => setClean(!clean)} title={clean ? 'Sair do modo clean (mostrar todas as barras)' : 'Modo clean: esconde barras e painéis secundários'}><IconFocus size={13} /><span className="hidden lg:inline">Clean</span></button>
         </div>
       </div>
 
       {/* ============================ linha 2 — contextual à vista ativa */}
-      <div className="flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll">
+      <div className="dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll">
         {/* desfazer / refazer — comum a todas as vistas */}
         <div className="dc-seg" role="toolbar" aria-label="Histórico">
           <button onClick={undo} disabled={!history.length} className={`${segBtn(false)} !px-2`} title="Desfazer [Ctrl+Z]">

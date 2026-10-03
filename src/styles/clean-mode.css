@@ -1,0 +1,88 @@
+/* ---------------------------------------------------------------------------
+   Cubo de vista mais acima (Esquema 2D, Visualização 3D e editores)
+--------------------------------------------------------------------------- */
+.vcube-floating { top: 2px; right: 10px; }
+.vcube-floating.vcube-below-command { top: 54px; }
+.vcube-floating .vcube-stage { margin-top: -6px; }
+@media (max-width: 700px) {
+  .vcube-floating:not(.vcube-shifted):not(.vcube-below-command) { top: 0; right: 4px; }
+  .vcube-floating.vcube-below-command { top: 48px; }
+  .vcube-floating .vcube-stage { margin-top: -4px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Barra contextual da seleção (apagar, rodar, duplicar, bloquear)
+--------------------------------------------------------------------------- */
+.dc-selection-bar {
+  position: absolute; z-index: 40; left: 50%; bottom: 14px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px; max-width: calc(100% - 16px);
+  padding: 5px 6px; border: 1px solid #d5deeb; border-radius: 999px;
+  background: #fffffff2; box-shadow: 0 8px 24px #1b2d4930, 0 1px 3px #1b2d4914;
+  backdrop-filter: blur(10px); overflow-x: auto; scrollbar-width: none;
+}
+.dc-selection-bar::-webkit-scrollbar { display: none; }
+.dc-selection-label { padding: 0 8px 0 10px; color: #41618e; font: 700 11px ui-sans-serif, system-ui, sans-serif; white-space: nowrap; }
+.dc-selection-bar button {
+  flex: none; width: 34px; height: 34px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; color: #41618e; background: transparent; transition: background .12s, color .12s;
+}
+.dc-selection-bar button:hover:not(:disabled) { background: #edf4ff; color: #1d4ed8; }
+.dc-selection-bar button:disabled { opacity: .35; }
+.dc-selection-bar button.is-on { background: #fef3c7; color: #b45309; }
+.dc-selection-bar button.is-danger { color: #b4232f; }
+.dc-selection-bar button.is-danger:hover { background: #fff1f2; color: #b4232f; }
+.dc-selection-bar .flip-x { transform: scaleX(-1); }
+@media (pointer: coarse), (max-width: 700px) {
+  .dc-selection-bar { bottom: 10px; gap: 2px; }
+  .dc-selection-bar button { width: 44px; height: 44px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Botão do modo clean na barra de ferramentas
+--------------------------------------------------------------------------- */
+.dc-clean-toggle.is-on { border-color: #93b4f6; background: #eef4ff; color: #1d4ed8; }
+
+/* ---------------------------------------------------------------------------
+   Modo clean: só o essencial sobre o canvas
+--------------------------------------------------------------------------- */
+html[data-clean="true"] .dc-statusbar { display: none; }
+html[data-clean="true"] .dc-file-extra { display: none; }
+html[data-clean="true"] .dc-toolbar-main { min-height: 42px; }
+html[data-clean="true"] .dc-toolbar-row2 { height: 38px; }
+html[data-clean="true"] .dc-toolbar-row2 .tb-label,
+html[data-clean="true"] .dc-toolbar-row2 kbd { display: none; }
+html[data-clean="true"] .schematic-dimension-switch > span { display: none; }
+html[data-clean="true"] .vcube-readout,
+html[data-clean="true"] .panel3d-axis-hud { display: none; }
+/* Ladder */
+html[data-clean="true"] .ladder-main-pane > div:first-child > span.truncate { display: none; }
+html[data-clean="true"] .ladder-toolbar-button > span { display: none; }
+html[data-clean="true"] .ladder-chip small { display: none; }
+/* GRAFCET */
+html[data-clean="true"] .grafcet-toolbox-tip { display: none; }
+html[data-clean="true"] .grafcet-live-status small { display: none; }
+
+/* ---------------------------------------------------------------------------
+   Ladder e GRAFCET em telas pequenas: painéis laterais viram gavetas por cima
+   do canvas (o diagrama ocupa a largura toda)
+--------------------------------------------------------------------------- */
+@media (max-width: 1199px) {
+  .ladder-workspace { position: relative; }
+  .ladder-project-pane, .ladder-palette {
+    position: absolute; top: 0; bottom: 0; z-index: 30; width: min(320px, 88vw);
+    box-shadow: 0 0 0 100vmax #0f172a2e, 0 16px 40px #0f172a40;
+  }
+  .ladder-project-pane { left: 0; }
+  .ladder-palette { right: 0; }
+  .ladder-collapsed-pane-button { position: relative; z-index: 5; }
+  .grafcet-designer-body { position: relative; }
+  .grafcet-full .grafcet-toolbox {
+    position: absolute; top: 0; bottom: 0; left: 0; z-index: 30; width: min(300px, 86vw);
+    box-shadow: 0 0 0 100vmax #0f172a2e, 0 16px 40px #0f172a40;
+  }
+  .grafcet-full .grafcet-canvas { padding: 12px; }
+}
+@media (pointer: coarse) {
+  .ladder-toolbar-button, .ladder-rung-action, .grafcet-selection-actions button { min-width: 38px; min-height: 38px; }
+  .ladder-palette-item, .grafcet-toolbox-list button { min-height: 44px; }
+}

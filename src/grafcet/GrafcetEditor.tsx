@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
+import { isSmallScreen } from '../ui/cleanMode'
 import { useSimStore } from '../store/useSimStore'
 import { evalCondition, transitionsOf, validCondition } from './engine'
 import type { GrafcetAction, GrafcetStep, GrafcetTransition, GrafcetProgram } from './engine'
@@ -55,8 +56,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const [showPalette, setShowPalette] = useState(() => {
     try {
       const saved = localStorage.getItem('dcsimu:grafcet:palette')
-      return saved === null ? window.innerWidth > 800 : saved !== '0'
-    } catch { return window.innerWidth > 800 }
+      return saved === null ? !isSmallScreen() : saved !== '0'
+    } catch { return !isSmallScreen() }
   })
   const [paletteFilter, setPaletteFilter] = useState('')
   const [entityFilter, setEntityFilter] = useState('')

@@ -22,6 +22,7 @@ import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { EDITOR_THEME } from '../ui/editorTheme'
 import Panel3D from '../three/Panel3D'
+import SelectionBar from '../components/SelectionBar'
 import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
 
@@ -64,6 +65,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       : classic2D
         ? <Schematic2DView libraryCollapsed={libraryCollapsed} onOpen3DView={open3DView} />
         : <Panel3D key="front-edit" frontEdit />}
+    <SelectionBar />
     <div className="schematic-dimension-switch" role="group" aria-label="Dimensão de visualização do Canvas do Esquema">
       <button type="button" className={canvasMode === '2d' ? 'is-active' : ''} aria-pressed={canvasMode === '2d'} onClick={() => chooseMode('2d')} title="Editar o esquema, bornes e traçados em 2D">
         <IconSchematic size={13} />Esquema 2D
