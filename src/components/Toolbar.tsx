@@ -47,15 +47,23 @@ const QUICK_COLORS: WireColor[] = ['black', 'red', 'blue', 'lightblue', 'brown',
 /** Menu suspenso simples, fecha ao clicar fora ou com Esc. */
 function Dropdown({ label, icon, children, title, disabled = false, align = 'left' }: { label: ReactNode; icon?: ReactNode; children: (close: () => void) => ReactNode; title?: string; disabled?: boolean; align?: 'left' | 'right' }) {
   const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const menuId = useId()
   const updatePosition = () => {
     const anchor = ref.current
     if (!anchor) return
     const bounds = anchor.getBoundingClientRect()
-    const left = align === 'right' ? bounds.right - 220 : bounds.left
-    setPos({ top: bounds.bottom + 4, left: Math.max(8, Math.min(left, window.innerWidth - 240)) })
+    // Largura: em ecrãs estreitos o menu ocupa quase toda a largura disponível.
+    const width = Math.min(260, window.innerWidth - 16)
+    const left = align === 'right' ? bounds.right - width : bounds.left
+    // Espaço disponível abaixo e acima do botão; se em baixo não cabe, abre para cima.
+    const below = window.innerHeight - bounds.bottom - 12
+    const above = bounds.top - 12
+    const openUp = below < 200 && above > below
+    const maxHeight = Math.max(160, Math.floor(openUp ? above : below))
+    const top = openUp ? Math.max(8, bounds.top - 4 - maxHeight) : bounds.bottom + 4
+    setPos({ top, left: Math.max(8, Math.min(left, window.innerWidth - width - 8)), width, maxHeight })
   }
   const toggle = () => {
     if (!open) updatePosition()
@@ -86,7 +94,7 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
         <IconChevronDown size={11} className={`text-ink-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && pos && (
-        <div id={menuId} className="tb-menu !fixed !mt-0" style={{ top: pos.top, left: pos.left }}>
+        <div id={menuId} className="tb-menu !fixed !mt-0" style={{ top: pos.top, left: pos.left, width: pos.width, maxWidth: 'calc(100vw - 16px)', maxHeight: pos.maxHeight, overflowY: 'auto', overscrollBehavior: 'contain' }}>
           {children(() => setOpen(false))}
         </div>
       )}
