@@ -28,6 +28,7 @@ import { WireEnd3D } from './WireEnd3D'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorShaftFan3D from './MotorShaftFan3D'
+import { splitGeometryByTriangle } from './breakerHandle'
 import { WireDrawController, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS } from '../schematic/wireEnds'
@@ -743,29 +744,79 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const active = !!(c.state.energized || c.state.powered)
   const breaker = ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(c.type)
   const breakerClosed = !!c.state.closed && !c.state.tripped
-  useEffect(() => {
-    if (!breaker) return
-    // Anima exclusivamente peças que já pertencem ao GLB. Nunca acrescenta
-    // uma alavanca ou botão geométrico por cima do equipamento.
-    const movingPart = c.type === 'breaker1p'
-      ? model.getObjectByName('SB109135_ASM_1_ASM-1SB100442_S_ASM_1_ASM_1_ASM-1MANETTE_1_1_1-1-solid1')
-      : c.type === 'breaker2p'
-        ? model.getObjectByName('Part_8')
-        : c.type === 'phoenixEcb3000760'
-          ? model.getObjectByName('Node3')
-          : null
-    if (!movingPart) return
-    movingPart.userData.breakerBaseRotationX ??= movingPart.rotation.x
-    movingPart.userData.breakerBasePositionZ ??= movingPart.position.z
-    if (c.type === 'phoenixEcb3000760') {
-      // Botão verde real do ECB: pequeno curso axial.
-      movingPart.position.z = Number(movingPart.userData.breakerBasePositionZ) + (breakerClosed ? -1.5 : 0)
-    } else {
-      // MANETTE/Part_8 são as alavancas reais dos CAD mono e bipolar.
-      movingPart.rotation.x = Number(movingPart.userData.breakerBaseRotationX) + (breakerClosed ? -18 : 18) * Math.PI / 180
+  // Peça real do GLB que se move (nunca é acrescentada geometria por cima do equipamento).
+  const movingPart = useMemo(() => {
+    if (!breaker) return null
+    const name = c.type === 'breaker1p'
+      ? 'SB109135_ASM_1_ASM-1SB100442_S_ASM_1_ASM_1_ASM-1MANETTE_1_1_1-1-solid1'
+      : c.type === 'breaker2p' ? 'Part_8'
+        : c.type === 'breakerWegMdwC10' ? 'WEG_Handle'
+          : 'Node3'
+    const node = model.getObjectByName(name) ?? null
+    if (node) {
+      node.userData.breakerBaseRotationX ??= node.rotation.x
+      node.userData.breakerBasePositionZ ??= node.position.z
     }
-    movingPart.updateMatrixWorld(true)
-  }, [model, breaker, breakerClosed, c.type])
+    return node
+  }, [model, breaker, c.type])
+  // O MDW-C10 traz o manípulo azul na mesma malha da faixa frontal (e duplicada):
+  // separamos a parte que sai da caixa e damos-lhe uma charneira própria.
+  const wegHandle = useMemo(() => {
+    if (c.type !== 'breakerWegMdwC10') return null
+    const blue: THREE.Mesh[] = []
+    model.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (mesh.isMesh && (mesh.name === 'WEG_Handle' || mesh.name === 'Node2')) blue.push(mesh)
+    })
+    const target = blue.find((mesh) => mesh.name === 'WEG_Handle') ?? blue[0]
+    if (!target) return null
+    for (const mesh of blue) if (mesh !== target) mesh.visible = false
+    const geometry = target.geometry
+    geometry.computeBoundingBox()
+    const bounds = geometry.boundingBox
+    if (!bounds) return null
+    // A frente do aparelho é +Y na malha; o manípulo é o que fica para fora dela.
+    const splitY = bounds.max.y - (bounds.max.y - bounds.min.y) * 0.11
+    const split = splitGeometryByTriangle(geometry, (point) => point.y > splitY)
+    if (!split) return null
+    target.geometry = split.fixed
+    split.moving.computeBoundingBox()
+    const movingBounds = split.moving.boundingBox
+    if (!movingBounds) return null
+    const hinge = new THREE.Vector3((movingBounds.min.x + movingBounds.max.x) / 2, splitY, (movingBounds.min.z + movingBounds.max.z) / 2)
+    split.moving.translate(-hinge.x, -hinge.y, -hinge.z)
+    const pivot = new THREE.Group()
+    pivot.name = 'dcsimu-weg-handle-pivot'
+    pivot.position.copy(hinge)
+    const handleMesh = new THREE.Mesh(split.moving, target.material)
+    handleMesh.castShadow = true
+    pivot.add(handleMesh)
+    target.parent?.add(pivot)
+    return pivot
+  }, [model, c.type])
+
+  // Curso de cada manípulo real, em graus (o ECB é um botão de curso axial).
+  const throwDeg = c.type === 'breakerWegMdwC10' ? 22 : 18
+  const progress = useRef(breakerClosed ? 1 : 0)
+  useFrame((_, delta) => {
+    const node = movingPart
+    if (!node && !wegHandle) return
+    const target = breakerClosed ? 1 : 0
+    if (Math.abs(progress.current - target) < 0.001) progress.current = target
+    else progress.current += Math.sign(target - progress.current) * Math.min(Math.abs(target - progress.current), delta * 7)
+    const mix = progress.current * 2 - 1 // -1 (desligado) → +1 (ligado)
+    if (c.type === 'breakerWegMdwC10') {
+      if (wegHandle) { wegHandle.rotation.z = (-mix * throwDeg * Math.PI) / 180; wegHandle.updateMatrixWorld(true) }
+      return
+    }
+    if (!node) return
+    if (c.type === 'phoenixEcb3000760') {
+      node.position.z = Number(node.userData.breakerBasePositionZ) - 0.75 * (mix + 1)
+    } else {
+      node.rotation.x = Number(node.userData.breakerBaseRotationX) - (mix * throwDeg * Math.PI) / 180
+    }
+    node.updateMatrixWorld(true)
+  })
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} />}
