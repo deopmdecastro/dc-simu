@@ -268,3 +268,21 @@
   .dc-toolbar-main .dc-views-container button { padding-inline:10px !important; }
   .schematic-view-shell .panel3d-model-badge { max-width:calc(100vw - 32px); overflow:hidden; }
 }
+
+/* Telemóvel: «Componente» e «Bornes» passam para o lado esquerdo, por baixo
+   do cartão do modelo, para não taparem o cubo de vista (canto superior direito). */
+@media (max-width: 760px) {
+  .panel3d-stage .panel3d-hud-top {
+    position: absolute; z-index: 24; top: 8px; left: 8px; right: 96px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none;
+  }
+  .panel3d-stage .panel3d-hud-row { display: flex; flex-direction: column; width: 100%; gap: 6px; pointer-events: none; }
+  .panel3d-stage .panel3d-hud-top > *, .panel3d-stage .panel3d-hud-row > * { pointer-events: auto; }
+  .panel3d-stage .panel3d-hud-top .panel3d-model-badge,
+  .panel3d-stage .panel3d-hud-top .panel3d-edit-context,
+  .panel3d-stage .panel3d-hud-top .component-view-command {
+    position: relative !important; inset: auto !important; margin: 0 !important; transform: none !important; max-width: 100%;
+  }
+  .panel3d-stage .panel3d-hud-top .component-view-command { display: flex; gap: 6px; flex-wrap: wrap; }
+  .panel3d-stage .panel3d-hud-top .component-view-command > button { min-height: 34px; border-radius: 9px; box-shadow: 0 3px 12px #243b6324; }
+}

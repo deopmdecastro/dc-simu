@@ -60,8 +60,9 @@
 .component-view-warning { padding:5px 6px; border-radius:5px; color:#9a3412; background:#fff7ed; }
 .component-view-editor > footer { position:sticky; bottom:0; display:flex; justify-content:flex-end; gap:6px; padding:8px; border-top:1px solid #dce3ed; background:#fff; }
 .component-view-editor > footer .dc-btn { min-height:28px; font-size:9px; }
-@media(max-width:700px) { .panel3d-stage[data-front-edit="true"] .component-view-command,.schematic-stage .component-view-command { top:150px; right:8px; max-width:calc(100% - 16px); flex-wrap:wrap; justify-content:flex-end; } }
-@media(max-width:560px) { .component-view-editor { top:64px; right:8px; width:calc(100vw - 16px); max-width:none; max-height:calc(100vh - 72px); } .component-view-command { top:8px; right:8px; } .panel3d-stage[data-front-edit="true"] .component-view-command,.schematic-stage .component-view-command { top:150px; right:8px; } .vcube-panel { min-height:130px; } }
+/* No telemóvel os atalhos ficam à esquerda: o canto superior direito é do cubo de vista. */
+@media(max-width:700px) { .panel3d-stage[data-front-edit="true"] .component-view-command,.schematic-stage .component-view-command { top:150px; left:8px; right:auto; max-width:calc(100% - 104px); display:flex; flex-wrap:wrap; justify-content:flex-start; gap:6px; } }
+@media(max-width:560px) { .component-view-editor { top:64px; right:8px; width:calc(100vw - 16px); max-width:none; max-height:calc(100vh - 72px); } .component-view-command { top:8px; left:8px; right:auto; } .panel3d-stage[data-front-edit="true"] .component-view-command,.schematic-stage .component-view-command { top:150px; left:8px; right:auto; } .vcube-panel { min-height:130px; } }
 
 /* ---------------------------------------------------------------------------
    Esquema 2D — hover/seleção suaves e rotação sem "flash" de carregamento
