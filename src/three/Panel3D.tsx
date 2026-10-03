@@ -27,6 +27,7 @@ import { registerCoverCapture } from './coverCapture'
 import { WireEnd3D } from './WireEnd3D'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
+import MotorShaftFan3D from './MotorShaftFan3D'
 import { WireDrawController, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS } from '../schematic/wireEnds'
@@ -1082,14 +1083,6 @@ function Sensor3D({ c, x, onToggle }: { c: ElectricalComponent; x: number; onTog
 function Motor3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const running = !!c.state.running
   const dir = c.state.direction
-  const fanRef = useRef<THREE.Mesh>(null)
-  useFrame((_, delta) => {
-    const rpmVisual = Number(c.state.rpmVisual ?? 0)
-    if (fanRef.current && rpmVisual > 0) {
-      const speed = (dir === 'ccw' ? -1 : 1) * rpmVisual * 9
-      fanRef.current.rotation.x += speed * delta
-    }
-  })
   return (
     <group position={[x, MOTOR_CENTER_Y, 0.7]}>
       <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
@@ -1102,10 +1095,9 @@ function Motor3D({ c, x }: { c: ElectricalComponent; x: number }) {
           <meshStandardMaterial color="#334155" metalness={0.5} />
         </mesh>
       ))}
-      <mesh ref={fanRef} position={[-0.57, 0, 0]}>
-        <boxGeometry args={[0.05, 0.42, 0.42]} />
-        <meshStandardMaterial color={running ? '#60a5fa' : '#334155'} />
-      </mesh>
+      <group position={[0.78, 0, 0]}>
+        <MotorShaftFan3D component={c} diameterMm={120} />
+      </group>
       <mesh position={[0.68, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
         <cylinderGeometry args={[0.09, 0.09, 0.32, 14]} />
         <meshStandardMaterial color="#94a3b8" metalness={0.65} />
@@ -1161,9 +1153,12 @@ function MotorSewDrn80Mk4B3Real3D({ c, x }: { c: ElectricalComponent; x: number 
     <group position={[0, -spec.targetHeight / 2, 0]}>
       <primitive object={model} />
       <MotorTerminalBoard3D c={c} />
+      {/* Pá de ensaio no veio: faz parte do motor (predefinição), roda com a velocidade simulada. */}
+      <group position={[0.88 * MOTOR_SCALE_RATIO, 0.4 * MOTOR_SCALE_RATIO, 0]}>
+        <MotorShaftFan3D component={c} />
+      </group>
       <group ref={shaftIndicator} position={[0.67 * MOTOR_SCALE_RATIO, 0.4 * MOTOR_SCALE_RATIO, 0]}>
-        <mesh><boxGeometry args={[0.022, 0.22, 0.026]} /><meshStandardMaterial color={markerColor} emissive={running ? markerColor : '#000000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
-        <mesh><boxGeometry args={[0.022, 0.026, 0.22]} /><meshStandardMaterial color={markerColor} emissive={running ? markerColor : '#000000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
+        <mesh><boxGeometry args={[0.018, 0.1, 0.02]} /><meshStandardMaterial color={markerColor} emissive={running ? markerColor : '#000000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
       </group>
       {running && <pointLight color="#22c55e" intensity={0.22} distance={1.2} position={[0.58, 0.4, 0.2]} />}
     </group>
