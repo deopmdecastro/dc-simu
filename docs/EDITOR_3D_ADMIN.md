@@ -122,6 +122,28 @@ O carregador de GLB (`src/three/gltfLoader.ts`) suporta modelos comprimidos com 
 - No simulador os valores vêm do circuito ligado às fichas (a corrente é uma estimativa — o motor é de continuidade, sem solver de tensões). No editor há «Valores de teste».
 - Os controlos também aparecem no Inspetor do simulador e funcionam no painel 3D.
 
+## Manípulo de disjuntor: bascular, pivô e automação
+
+Um interruptor tem dois tipos de movimento (**Controlos › Movimento**):
+
+- **Deslizar** (antigo): o objeto afunda `Curso` mm no eixo escolhido. Continua a ser o que os botões usam.
+- **Bascular sobre pivô**: o objeto roda à volta de um pivô entre o ângulo **OFF** e o ângulo **ON** (relativos à pose do GLB). O eixo de rotação é o dos polos (de L1 para L3). O pivô guarda-se em **percentagem da caixa do manípulo** (`motion.pivotRel`), por isso a mesma configuração serve noutro disjuntor de outro tamanho.
+
+A **sensação** pode ser *Clique com mola* (ressalto de ~15 %, como um disjuntor real), *Suave* ou *Instantâneo*; a duração é ajustável. A animação vive em `ComponentRig`, por isso é igual no editor e no simulador.
+
+Ferramentas para afinar:
+
+- **OFF / ON** e **Ciclo automático**: veem-se as duas poses e a animação sem simular cliques.
+- **Pivô**: bola vermelha + linha laranja no modelo (pivô e eixo). **Escolher pivô no modelo** = um clique no ponto onde o manípulo deve rodar. **Inverter sentido** troca OFF/ON.
+
+Automação para o próximo disjuntor (**Automação (disjuntores)**):
+
+- **Converter em manípulo de disjuntor (auto)**: deduz o eixo dos polos a partir dos bornes (`inferBreakerAxes`: maior afastamento = vertical, 2.º = polos), liga a variável `closed`, deteta pelo nome o objeto do manípulo (`handle`, `manípulo`, `alavanca`…) e aplica pivô ao centro + mola. O botão de preset **Disjuntor ON/OFF** já faz isto ao criar.
+- **Predefinições**: 3 de origem + as que guardar (ficam em `localStorage`, chave `dc-simu:motion-presets`). Ao aplicar, o eixo de rotação vem dos bornes do componente de destino quando são fiáveis.
+- **Copiar movimento** para os outros controlos do mesmo componente.
+
+A validação avisa se os ângulos ON/OFF forem iguais ou se o basculante não tiver objeto associado. Testes: `npm run test:motion`.
+
 ## Limpeza de caches a cada commit/push
 
 Problema: navegadores (e a PWA) ficavam presos em versões antigas. Como funciona agora:

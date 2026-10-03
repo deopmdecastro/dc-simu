@@ -162,6 +162,27 @@ export type BehaviorEvent = 'select' | 'hold' | 'light' | 'power'
 export interface ControlPosition { id: string; label: string; /** graus (rotação à volta do eixo) */ angle: number }
 
 /** Botão, interruptor ou seletor rotativo ligado a uma peça — ou a um nó dentro do GLB. */
+/**
+ * Movimento de um botão/interruptor. Sem `motion` o controlo desliza em linha reta (comportamento antigo).
+ * `tilt` faz o objeto bascular à volta de um pivô, como o manípulo de um disjuntor real: `axis` passa a ser
+ * o eixo de rotação e os ângulos são relativos à pose do modelo GLB.
+ */
+export interface ControlMotion {
+  mode: 'slide' | 'tilt'
+  /** tilt: ângulo (°) em OFF e em ON, relativo à pose do modelo. */
+  angleOff: number
+  angleOn: number
+  /**
+   * tilt: pivô em fração (0–1) da caixa que envolve os objetos do controlo, por eixo do componente.
+   * Ser relativo é o que torna o movimento reutilizável noutro disjuntor de tamanho diferente.
+   */
+  pivotRel: Vec3
+  /** smooth = suave · snap = mola com ressalto (clique mecânico) · instant = sem animação. */
+  feel: 'smooth' | 'snap' | 'instant'
+  /** Duração aproximada da transição (ms). */
+  durationMs: number
+}
+
 export interface ControlDef {
   id: string
   name: string
@@ -180,6 +201,8 @@ export interface ControlDef {
   /** Botão/interruptor: ações ao clicar; `longActions` ao manter premido (≥ 0,6 s). */
   actions: ControlAction[]
   longActions?: ControlAction[]
+  /** Botão/interruptor: tipo de animação (deslizar ou bascular sobre um pivô). */
+  motion?: ControlMotion
 }
 
 /** Ecrã de tamanho próprio, colado à superfície do modelo. */
