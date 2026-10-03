@@ -760,9 +760,14 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
-  check('disjuntores Q2A5 e DISJUNTOR 2 mostram a face dos manípulos sem tombar o corpo', ['breaker1p', 'breaker2p'].every((type) => {
+  // Os dois GLB vêm deitados: o eixo dos bornes está em Z e o manípulo aponta +Y.
+  // Um quarto de volta em X põe os furos em cima/em baixo e o manípulo na frente (+Z), como no WEG MDW.
+  check('disjuntores Q2A5 e DISJUNTOR 2 ficam de pé, com furos em cima/baixo e manípulo à frente', ['breaker1p', 'breaker2p'].every((type) => {
     const spec = getComponentModelSpec(type as import('../src/types').ComponentType)
-    return spec?.rotation.every((angle) => angle === 0) && spec.flipDepth
+    if (!spec) return false
+    const [rx, ry, rz] = spec.rotation
+    return Math.abs(rx - Math.PI / 2) < 1e-9 && ry === 0 && rz === 0 && spec.flipDepth
+      && spec.physicalSizeMm.height > spec.physicalSizeMm.depth
   }))
   check('todos os componentes disponíveis expõem GLB para o turntable da landing', availableTypes.every((type) => getComponentGlbSpec(type)?.path.toLowerCase().endsWith('.glb')))
   check('Esquema e Painel 3D derivam escala da mesma dimensão física', availableTypes.every((type) => {
