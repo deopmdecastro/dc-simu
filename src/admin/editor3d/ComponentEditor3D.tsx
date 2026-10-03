@@ -119,7 +119,20 @@ function ToolRibbon() {
   const hasPieces = useEditorStore((s) => !!selectedPartDef?.asset && s.def.parts.some((part) => part.parentId === selectedPartDef?.id && !!part.glbNode))
   const hasFocus = useEditorStore((s) => !!s.selection || !!s.selectedWire)
   const allHidden = terminalCount > 0 && hiddenCount >= terminalCount
-  return <div className="ce-ribbon" role="toolbar" aria-label="Ferramentas">
+  // Telemóvel: só histórico + ferramentas ficam na barra; o resto passa para
+  // o painel «Mais», para nada ficar escondido fora do ecrã.
+  const compact = useCompactView()
+  const [more, setMore] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!more) return
+    const close = (event: PointerEvent) => { if (!moreRef.current?.contains(event.target as Node)) setMore(false) }
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setMore(false) }
+    window.addEventListener('pointerdown', close); window.addEventListener('keydown', key)
+    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', key) }
+  }, [more])
+  useEffect(() => { if (!compact) setMore(false) }, [compact])
+  return <div className={`ce-ribbon${compact ? ' is-compact' : ''}`} role="toolbar" aria-label="Ferramentas" ref={moreRef}>
     <div className="dc-seg" role="group" aria-label="Histórico">
       <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().undo()} disabled={!canUndo} title="Desfazer [Ctrl+Z]" aria-label="Desfazer"><IconUndo size={13} /></button>
       <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().redo()} disabled={!canRedo} title="Refazer [Ctrl+Y]" aria-label="Refazer"><IconRedo size={13} /></button>
@@ -134,6 +147,8 @@ function ToolRibbon() {
         </button>
       })}
     </div>
+    {compact && <button className={`dc-tool-btn ce-more-btn${more ? ' dc-tool-active' : ''}`} aria-haspopup="dialog" aria-expanded={more} onClick={() => setMore(!more)} title="Mais ferramentas">⋯<span>Mais</span></button>}
+    <div className={`ce-ribbon-rest${compact && !more ? ' is-closed' : ''}`}>
     {editing && <>
       <span className="ce-ribbon-sep" />
       <div className="dc-seg" role="group" aria-label="Manipulador" style={active === 'select' ? undefined : { opacity: 0.45 }}>
@@ -181,6 +196,7 @@ function ToolRibbon() {
         {wireCount > 0 && <button className={`dc-tool-btn ${useEditorStore.getState().tab === 'wires' ? 'dc-tool-active' : ''}`} onClick={() => set({ tab: 'wires' })} title="Editar cabos de teste: cor, secção e terminais"><IconWire size={13} /><span className="hidden xl:inline">Cabos</span><b className="ce-badge">{wireCount}</b></button>}
       </div>
     </>}
+    </div>
     <span className="ce-ribbon-hint" aria-live="polite">{RIBBON.find((item) => item.id === active)?.hint}</span>
   </div>
 }

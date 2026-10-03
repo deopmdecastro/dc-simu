@@ -584,3 +584,28 @@
 .ce-vm-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .ce-vm-row .ce-tool { border:1px solid var(--dx-line); border-radius:9px; padding:8px 12px; min-height:40px; }
 .ce-vm-row .dcx-select, .ce-vm-row .ce-mini { min-height:40px; font-size:13px; }
+
+/* --------------------------------------------------------------------------
+   Telemóvel: barra de ferramentas sem nada escondido fora do ecrã.
+   Ficam à vista o histórico e as seis ferramentas; o resto (manipulador,
+   formas, edição, posição, vista, bornes) abre no painel «Mais».
+   -------------------------------------------------------------------------- */
+.ce-ribbon.is-compact { position:relative; flex-wrap:nowrap; overflow:visible; }
+.ce-ribbon.is-compact > .dc-seg { flex:0 0 auto; }
+.ce-ribbon.is-compact .ce-more-btn { flex:0 0 auto; margin-left:auto; display:inline-flex; align-items:center; gap:5px; border:1px solid var(--dx-line); border-radius:8px; padding:5px 10px; font-weight:650; }
+.ce-ribbon.is-compact .ce-ribbon-rest {
+  position:absolute; top:calc(100% + 6px); right:6px; left:6px; z-index:45;
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  background:rgba(255,255,255,.98); border:1px solid var(--dx-line); border-radius:12px; padding:10px;
+  box-shadow:0 12px 32px rgba(15,23,42,.18); max-height:60vh; overflow-y:auto;
+}
+.ce-ribbon.is-compact .ce-ribbon-rest.is-closed { display:none; }
+.ce-ribbon.is-compact .ce-ribbon-rest .dc-seg { flex:0 0 auto; }
+.ce-ribbon.is-compact .ce-ribbon-rest .dc-tool-btn { min-height:38px; }
+.ce-ribbon.is-compact .ce-ribbon-rest .ce-ribbon-sep { display:none; }
+/* No painel «Mais» há espaço: os botões mostram o nome, não só o ícone. */
+.ce-ribbon.is-compact .ce-ribbon-rest .dc-tool-btn > span.hidden { display:inline !important; }
+.ce-ribbon.is-compact .ce-ribbon-rest .dc-tool-btn { padding-inline:10px; gap:6px; }
+.ce-ribbon.is-compact .ce-ribbon-rest .ce-kbd { display:none; }
+/* Evita o nome a dobrar («Seleção Sel.»): no painel fica só a versão longa. */
+.ce-ribbon.is-compact .ce-ribbon-rest .dc-tool-btn > span.xl\:hidden { display:none !important; }
