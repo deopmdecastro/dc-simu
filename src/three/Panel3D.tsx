@@ -30,7 +30,7 @@ import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import { WireDrawController, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS } from '../schematic/wireEnds'
-import { buildWirePath3D, cableOuterDiameterMm, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D } from './wireGeometry3D'
+import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D } from './wireGeometry3D'
 
 const SLOT_WIDTH = 0.72
 const PANEL_FLOOR_Y = -2.6
@@ -1345,6 +1345,9 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     view3DScale: editor.scale3D,
   } : component), [storedComponents, editor])
 
+  // sólidos a contornar: os cabos passam à frente dos componentes, nunca por dentro
+  const obstacles = useMemo(() => componentObstacles(components, pivots), [components, pivots])
+
   type LiveDrag = { wireId: string; kind: 'waypoint' | 'end' | 'all'; index?: number; side?: 'from' | 'to'; point: V3; origin?: V3 }
   const [drag, setDrag] = useState<LiveDrag | null>(null)
   const nearestTerminalPoint = (side: 'from' | 'to', wire: Wire) => (point: V3): V3 => {
@@ -1391,7 +1394,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     const wire = applyDrag(storedWire, { from: baseFrom, to: baseTo })
     const from = wireEndpoint3D(wire, 'from', components, pivots) ?? baseFrom
     const to = wireEndpoint3D(wire, 'to', components, pivots) ?? baseTo
-    const path = buildWirePath3D(wire, from, to)
+    const path = buildWirePath3D(wire, from, to, obstacles)
     const points = path.points
     const selected = wire.id === selectedWireId
     const outerDiameterMm = cableOuterDiameterMm(wire.gauge)
@@ -2117,7 +2120,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const selectedWirePath = (() => {
     if (!selectedWire) return null
     const ends = wireEnds(selectedWire)
-    return ends ? buildWirePath3D(selectedWire, ends.from, ends.to) : null
+    return ends ? buildWirePath3D(selectedWire, ends.from, ends.to, componentObstacles(components, panelPivots)) : null
   })()
   const addWireWaypoint = () => {
     if (!selectedWire) return
@@ -2509,6 +2512,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           smooth={wireDefaults.flexibility === 'flexible'}
           reconnecting={reconnect !== null}
           fallbackCenter={sceneCenter}
+          obstacles={componentObstacles(components, panelPivots)}
           onStart={draftStart}
           onAddPoint={draftAddPoint}
           onFinish={draftFinish}

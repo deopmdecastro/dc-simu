@@ -4,7 +4,7 @@ import { Text } from '@react-three/drei'
 import * as THREE from 'three'
 import { create } from 'zustand'
 import { useSimStore } from '../store/useSimStore'
-import { polylineLengthMm, type V3 } from './wireGeometry3D'
+import { polylineLengthMm, wireFrontLimit, type V3, type WireObstacle } from './wireGeometry3D'
 
 /** Estado do cabo em desenho. A origem é um borne ou um ponto livre no espaço. */
 export type WireDraft = { from: { terminalId: string } | { point: V3 }; points: V3[] }
@@ -28,6 +28,8 @@ type Props = {
   /** Religar uma ponta de um cabo existente: só aceita bornes. */
   reconnecting: boolean
   fallbackCenter: V3
+  /** Corpos sólidos (componentes): o ponto largado nunca fica dentro deles. */
+  obstacles?: WireObstacle[]
   onStart: (from: WireDraft['from']) => void
   onAddPoint: (point: V3) => void
   onFinish: (to: { terminalId: string } | { point: V3 }) => void
@@ -44,11 +46,11 @@ const ancestorFlag = (object: THREE.Object3D | null, key: string): boolean => {
  * e clique para largar pontos de curva nas superfícies (ou no plano virado para a câmara); termine num borne,
  * com duplo clique ou Enter para deixar a ponta livre. Shift trava o eixo; Alt desliga o encaixe à grelha.
  */
-export function WireDrawController({ active, draft, getDraft, terminals, wireRadius, wireColor, smooth, reconnecting, fallbackCenter, onStart, onAddPoint, onFinish, onReconnectPick }: Props) {
+export function WireDrawController({ active, draft, getDraft, terminals, wireRadius, wireColor, smooth, reconnecting, fallbackCenter, obstacles = [], onStart, onAddPoint, onFinish, onReconnectPick }: Props) {
   const { camera, gl, scene, size } = useThree()
   const [cursor, setCursor] = useState<{ point: V3; terminalId?: string } | null>(null)
-  const latest = useRef({ draft, getDraft, terminals, reconnecting, fallbackCenter, wireRadius, onStart, onAddPoint, onFinish, onReconnectPick })
-  latest.current = { draft, getDraft, terminals, reconnecting, fallbackCenter, wireRadius, onStart, onAddPoint, onFinish, onReconnectPick }
+  const latest = useRef({ draft, getDraft, terminals, reconnecting, fallbackCenter, wireRadius, obstacles, onStart, onAddPoint, onFinish, onReconnectPick })
+  latest.current = { draft, getDraft, terminals, reconnecting, fallbackCenter, wireRadius, obstacles, onStart, onAddPoint, onFinish, onReconnectPick }
 
   useEffect(() => {
     if (!active) { setCursor(null); useWireDrawInfo.setState({ lengthMm: 0, hover: '', surface: 'air' }); return }
@@ -112,6 +114,12 @@ export function WireDrawController({ active, draft, getDraft, terminals, wireRad
         const step = 0.05
         const snap = (value: number) => Math.round(value / step) * step
         if (!(event.shiftKey && last)) point.set(snap(point.x), snap(point.y), snap(point.z))
+      }
+      // nunca largar um ponto atrás da chapa nem dentro de um componente
+      const clearance = state.wireRadius + 0.02
+      point.z = Math.max(point.z, wireFrontLimit(state.wireRadius * 200)) // raio (unidades) → diâmetro em mm
+      for (const box of state.obstacles) {
+        if (box.distanceToPoint(point) < clearance) point.z = Math.max(point.z, box.max.z + clearance)
       }
       return { point: [point.x, point.y, point.z] as V3, kind: 'air' as const }
     }

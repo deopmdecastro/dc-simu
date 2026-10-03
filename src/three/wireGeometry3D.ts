@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { ElectricalComponent, SpatialPoint3D, Wire, WireColor, WireEndType } from '../types'
 import { PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from './modelPaths'
-import { PLATE_THICKNESS, PLATE_Z } from './panelBounds'
+import { componentHalfExtents, PLATE_THICKNESS, PLATE_Z } from './panelBounds'
 import { panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { terminalNormalWorld3D, terminalWorld3D } from './terminal3D'
 
@@ -172,8 +172,74 @@ function leadPoint(head: V3, axis: V3, next: V3, outerMm: number): V3 | null {
   return arr(h.addScaledVector(ax, length))
 }
 
+/* ----------------------------------------------- obstáculos (chapa e corpos) */
+
+/** Volume sólido a contornar: caixa envolvente de um componente, em unidades da cena. */
+export type WireObstacle = THREE.Box3
+
+/** Caixas envolventes dos componentes do painel (o que o cabo tem de contornar). */
+export function componentObstacles(components: ElectricalComponent[], pivots: Record<string, THREE.Vector3>): WireObstacle[] {
+  const boxes: WireObstacle[] = []
+  for (const component of components) {
+    const pivot = pivots[component.id]
+    if (!pivot) continue
+    const half = componentHalfExtents(component)
+    boxes.push(new THREE.Box3(
+      new THREE.Vector3(pivot.x - half.x, pivot.y - half.y, pivot.z - half.z),
+      new THREE.Vector3(pivot.x + half.x, pivot.y + half.y, pivot.z + half.z),
+    ))
+  }
+  return boxes
+}
+
+/** Z mínimo (à frente da chapa de montagem) em que um cabo com este diâmetro pode passar. */
+export const wireFrontLimit = (outerMm: number) => PLATE_Z + PLATE_THICKNESS / 2 + (outerMm / 2) * U + 0.01
+
+const segmentHitsBox = (from: THREE.Vector3, to: THREE.Vector3, box: THREE.Box3): boolean => {
+  const steps = 14
+  const point = new THREE.Vector3()
+  for (let step = 0; step <= steps; step += 1) {
+    point.lerpVectors(from, to, step / steps)
+    if (box.containsPoint(point)) return true
+  }
+  return false
+}
+
+/**
+ * Afasta o traçado automático do que é sólido: nunca entra na chapa de montagem nem
+ * atravessa o corpo dos componentes — passa à frente deles, como um cabo real.
+ * As pontas (bornes) nunca se mexem; só os pontos intermédios ganham profundidade.
+ */
+export function clearObstacles(controls: V3[], outerMm: number, obstacles: WireObstacle[]): V3[] {
+  if (controls.length < 3) return controls
+  const out = controls.map((point) => [...point] as V3)
+  const frontZ = wireFrontLimit(outerMm)
+  for (let index = 1; index < out.length - 1; index += 1) out[index][2] = Math.max(out[index][2], frontZ)
+  if (obstacles.length === 0) return out
+  const pad = (outerMm / 2) * U + 0.02
+  const grown = obstacles.map((box) => box.clone().expandByScalar(pad))
+  for (let pass = 0; pass < 3; pass += 1) {
+    let changed = false
+    for (let index = 0; index < out.length - 1; index += 1) {
+      const from = v(out[index])
+      const to = v(out[index + 1])
+      for (const box of grown) {
+        // caixa onde a própria ponta está presa (o borne fica na face): não conta
+        if (box.containsPoint(from) && index === 0) continue
+        if (box.containsPoint(to) && index + 1 === out.length - 1) continue
+        if (!segmentHitsBox(from, to, box)) continue
+        const front = box.max.z
+        if (index > 0 && out[index][2] < front) { out[index][2] = front; changed = true }
+        if (index + 1 < out.length - 1 && out[index + 1][2] < front) { out[index + 1][2] = front; changed = true }
+      }
+    }
+    if (!changed) break
+  }
+  return out
+}
+
 /** Pontos de controlo (sem terminações) entre as duas pontas, respeitando traçado, flexibilidade e curva manual. */
-export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, leads: WireLeads = {}): V3[] {
+export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, leads: WireLeads = {}, obstacles: WireObstacle[] = []): V3[] {
   const manual = wire.waypoints3D?.map((point) => [point.x, point.y, point.z] as V3) ?? []
   let controls: V3[]
   let smooth = wire.flexibility === 'flexible' || wire.route === 'arc'
@@ -187,6 +253,12 @@ export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, lead
       controls = [a, mid, b]
     } else controls = [a, [a[0], channelY, a[2]], [b[0], channelY, b[2]], b]
   }
+  // sólidos: a chapa e os corpos dos componentes não se atravessam
+  controls = manual.length > 0
+    ? controls.map((point, index) => (index === 0 || index === controls.length - 1
+      ? point
+      : [point[0], point[1], Math.max(point[2], wireFrontLimit(outerMm))] as V3))
+    : clearObstacles(controls, outerMm, obstacles)
   // saída reta de cada terminação antes de curvar
   if (controls.length >= 2) {
     const first = leads.a ? leadPoint(a, leads.a, controls[1], outerMm) : null
@@ -254,12 +326,12 @@ const endTypeOf = (wire: Wire, side: 'from' | 'to'): WireEndType =>
   (side === 'from' ? wire.fromEndType : wire.toEndType) ?? wire.endType ?? 'none'
 
 /** Traçado completo: cada terminação ocupa o início/fim do percurso e o cabo isolado liga as duas cabeças. */
-export function buildWirePath3D(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D): WirePath3D {
+export function buildWirePath3D(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D, obstacles: WireObstacle[] = []): WirePath3D {
   const outerMm = cableOuterDiameterMm(wire.gauge)
-  const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm)
+  const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles)
   const a = endHead(from, endTypeOf(wire, 'from'), preliminary[Math.min(1, preliminary.length - 1)])
   const b = endHead(to, endTypeOf(wire, 'to'), preliminary[Math.max(0, preliminary.length - 2)])
-  const points = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis })
+  const points = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles)
   return { points, starts: [a.geometry, b.geometry] }
 }
 
