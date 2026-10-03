@@ -33,8 +33,10 @@
 .dc-selection-bar button.is-danger:hover { background: #fff1f2; color: #b4232f; }
 .dc-selection-bar .flip-x { transform: scaleX(-1); }
 @media (pointer: coarse), (max-width: 700px) {
-  .dc-selection-bar { bottom: 10px; gap: 2px; }
-  .dc-selection-bar button { width: 44px; height: 44px; }
+  /* Acima da barra de endereço do navegador (iOS/Android) e com alvos grandes. */
+  .dc-selection-bar { bottom: calc(14px + env(safe-area-inset-bottom)); gap: 2px; flex-wrap: nowrap; }
+  .dc-selection-bar button { width: 42px; height: 42px; }
+  .dc-selection-label { padding: 0 6px; font-size: 11px; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* ---------------------------------------------------------------------------

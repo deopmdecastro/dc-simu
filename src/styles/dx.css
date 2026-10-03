@@ -975,12 +975,13 @@ button.dx-notification-item:hover {
   .account-bar .account-project-action {
     padding: 0 8px !important;
   }
+  /* O botão já tem o ícone de seta: no telemóvel esconde-se só o texto. */
   .account-bar .account-project-action:first-child {
     font-size: 0 !important;
   }
-  .account-bar .account-project-action:first-child::after {
-    content: '←';
-    font-size: 13px;
+  .account-bar .account-project-action:first-child svg {
+    width: 15px;
+    height: 15px;
   }
 }
 @media (max-width: 520px) {

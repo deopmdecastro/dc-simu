@@ -515,3 +515,9 @@ button.vcube-heading:hover { background:#f0f5fc; }
 }
 
 .component-editor-grip:focus-visible, .component-view-editor.is-docked button:focus-visible { outline:2px solid #2f6bff; outline-offset:2px; }
+
+
+/* Rodapé do editor de componente acima da barra do navegador no telemóvel */
+@media (max-width: 700px) {
+  .component-view-editor footer { padding-bottom: calc(10px + env(safe-area-inset-bottom)); position: sticky; bottom: 0; background: #fff; z-index: 5; }
+}
