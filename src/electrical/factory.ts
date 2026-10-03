@@ -12,7 +12,7 @@
 // ============================================================================
 
 import { hiddenCatalogTypes } from '../catalog/hidden'
-import { REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
+import { FACE_INWARD, terminalInsetMm, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
 import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
 import { nanoid } from 'nanoid'
@@ -25,7 +25,7 @@ import type {
   TerminalType,
 } from '../types'
 import { getDefaultComponent3DPresentation, getDefaultComponentOrientation, getDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
-import { getComponentModelSpec, getSchematicPhysicalFootprint } from '../three/modelPaths'
+import { getComponentModelSpec, getComponentPhysicalSizeMm, getSchematicPhysicalFootprint } from '../three/modelPaths'
 
 export interface TerminalTemplate {
   label: string
@@ -744,6 +744,25 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
    rótulo, o tipo e a identidade (os cabos ligados não se perdem); os que o
    aparelho tem a mais são criados.
 --------------------------------------------------------------------------- */
+/**
+ * Recua o borne para DENTRO do furo: o ponto de ligação fica no fundo do
+ * encaixe (metade da profundidade medida, no máximo 6 mm), para o cabo entrar
+ * mesmo na ficha/parafuso em vez de ficar pousado na superfície.
+ */
+function insetIntoHole(type: ComponentType, spot: RealTerminalSpot): { x: number; y: number; z: number } {
+  const size = getComponentPhysicalSizeMm(type)
+  const point = { x: spot.x, y: spot.y, z: spot.z }
+  if (!size) return point
+  const inset = terminalInsetMm(spot)
+  const [nx, ny, nz] = FACE_INWARD[spot.face]
+  const clamp = (value: number) => Math.min(1, Math.max(0, value))
+  return {
+    x: clamp(point.x + (nx * inset) / size.width),
+    y: clamp(point.y + (ny * inset) / size.height),
+    z: clamp(point.z + (nz * inset) / size.depth),
+  }
+}
+
 function applyRealInterfaces() {
   for (const [type, spots] of Object.entries(REAL_TERMINALS) as Array<[ComponentType, RealTerminalSpot[]]>) {
     const template = TEMPLATES[type]
@@ -758,7 +777,7 @@ function applyRealInterfaces() {
       // a interface real só manda na posição 3D, nunca na vista de esquema.
       return T(existing?.label ?? spot.label, kind, existing?.x ?? spot.x, existing?.y ?? schematicY, {
         ...existing,
-        position3D: { x: spot.x, y: spot.y, z: spot.z },
+        position3D: insetIntoHole(type, spot),
         diameter: spot.diameterMm ?? existing?.diameter,
         terminalType: existing?.terminalType ?? (spot.face === 'front' || spot.face === 'back' ? 'screw' : 'screw'),
       })
