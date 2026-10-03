@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useCallback, useEffect, useState } from 'react'
 import { formatDate } from '../contrib/ContribParts'
 import { adminApi, downloadText } from './adminApi'
@@ -61,13 +62,13 @@ export default function LogsTab({ initialActor = '', onChanged, onError }: { ini
     <div className="dx-admin-section"><h2>Registos de atividade</h2><span>{data.total} evento(s){loading ? ' · a atualizar…' : ''}</span></div>
     <div className="cb-filters cb-filters-logs">
       <input className="dx-input" type="search" placeholder="Pesquisar utilizador, alvo ou detalhe…" value={text} onChange={(event) => setText(event.target.value)} aria-label="Pesquisar nos registos" />
-      <select className="dx-input" value={category} onChange={(event) => reset(() => { setCategory(event.target.value as LogCategory | ''); setAction('') })} aria-label="Categoria">
+      <Select className="dx-input" value={category} onChange={(event) => reset(() => { setCategory(event.target.value as LogCategory | ''); setAction('') })} aria-label="Categoria">
         <option value="">Todas as categorias</option>{(Object.keys(CATEGORY_LABEL) as LogCategory[]).map((key) => <option key={key} value={key}>{CATEGORY_LABEL[key]}</option>)}
-      </select>
-      <select className="dx-input" value={action} onChange={(event) => reset(() => setAction(event.target.value))} aria-label="Ação">
+      </Select>
+      <Select className="dx-input" value={action} onChange={(event) => reset(() => setAction(event.target.value))} aria-label="Ação">
         <option value="">Todas as ações</option>
         {Object.entries(ACTION_LABEL).filter(([key]) => !category || categoryOf(key) === category).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-      </select>
+      </Select>
       <input className="dx-input" type="date" value={from} max={to || undefined} onChange={(event) => reset(() => setFrom(event.target.value))} aria-label="Desde" title="Desde" />
       <input className="dx-input" type="date" value={to} min={from || undefined} onChange={(event) => reset(() => setTo(event.target.value))} aria-label="Até" title="Até" />
     </div>
@@ -110,9 +111,9 @@ export default function LogsTab({ initialActor = '', onChanged, onError }: { ini
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void load()}>Atualizar</button>
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void exportCsv()} disabled={data.total === 0}>Exportar CSV ({Math.min(data.total, 5000)})</button>
       <span className="cb-logtools-purge">
-        <select className="dx-input" value={purgeDays} onChange={(event) => setPurgeDays(Number(event.target.value))} aria-label="Antiguidade a apagar">
+        <Select className="dx-input" value={purgeDays} onChange={(event) => setPurgeDays(Number(event.target.value))} aria-label="Antiguidade a apagar">
           {[30, 90, 180, 365].map((days) => <option key={days} value={days}>mais de {days} dias</option>)}
-        </select>
+        </Select>
         <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={() => void purge()}>Apagar antigos</button>
       </span>
     </div>

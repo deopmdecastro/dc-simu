@@ -1,0 +1,44 @@
+/* Lista pendente própria (substitui o <select> nativo em toda a plataforma). */
+.dcx-select {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 6px;
+  min-height: 28px; max-width: 100%; padding: 3px 8px;
+  border: 1px solid var(--dx-line, #d7dee8); border-radius: 6px;
+  background: #fff; color: var(--dx-ink-1, #27344b);
+  font: inherit; font-size: inherit; line-height: 1.2; text-align: left; cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.dcx-select:hover:not(:disabled) { border-color: #9bb7f6; background: #f7faff; }
+.dcx-select:focus-visible { outline: 2px solid #2563eb55; outline-offset: 1px; }
+.dcx-select.is-open { border-color: #2563eb; background: #eff5ff; color: #1f55e0; box-shadow: 0 0 0 3px #2563eb1f; }
+.dcx-select:disabled { opacity: .45; cursor: not-allowed; }
+.dcx-select-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dcx-select-caret { flex: 0 0 auto; opacity: .55; transition: transform .15s ease; }
+.dcx-select.is-open .dcx-select-caret { transform: rotate(180deg); opacity: 1; }
+
+.dcx-select-menu {
+  position: fixed; z-index: 2147483000;
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 4px; border: 1px solid var(--dx-line, #d7dee8); border-radius: 9px;
+  background: #fff; box-shadow: 0 18px 44px #0f172a33;
+  font-size: 12px; color: #27344b;
+}
+.dcx-select-group {
+  padding: 6px 8px 3px; color: #8392a8;
+  font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+}
+.dcx-select-item {
+  display: flex; width: 100%; align-items: center; gap: 8px;
+  min-height: 32px; padding: 5px 8px; border: 0; border-radius: 6px;
+  background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.dcx-select-item > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dcx-select-item > i { flex: 0 0 auto; color: #2563eb; font-style: normal; font-weight: 800; }
+.dcx-select-item:hover:not(:disabled) { background: #eff5ff; color: #1f55e0; }
+.dcx-select-item.is-active { background: #e8f0ff; color: #1f55e0; font-weight: 650; }
+.dcx-select-item:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Toque: alvos maiores. */
+@media (hover: none) and (pointer: coarse) {
+  .dcx-select { min-height: 34px; }
+  .dcx-select-item { min-height: 40px; font-size: 13px; }
+}

@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { User } from '../dashboard/Dashboard'
 import type { ComponentType } from '../types'
@@ -150,13 +151,13 @@ export default function ContributorPanel({ user, onBack, initialTab = 'send' }: 
       </div>
 
       <label className="dx-field"><span className="dx-label">Componente</span>
-        <select className="dx-input" value={draft.component} onChange={(event) => set('component', event.target.value)} required>
+        <Select className="dx-input" value={draft.component} onChange={(event) => set('component', event.target.value)} required>
           <option value="">Escolha o componente…</option>
           {Array.from(new Set(COMPONENT_OPTIONS.map((option) => option.group))).map((group) => <optgroup key={group} label={group}>
             {COMPONENT_OPTIONS.filter((option) => option.group === group).map((option) => <option key={option.type} value={option.type}>{option.label}</option>)}
           </optgroup>)}
           <option value={NEW_COMPONENT}>➕ Componente novo (ainda não existe)</option>
-        </select>
+        </Select>
       </label>
       {draft.component === NEW_COMPONENT && <label className="dx-field"><span className="dx-label">Nome do componente novo</span>
         <input className="dx-input" value={draft.customName} maxLength={80} placeholder="Ex.: Relé de segurança Pilz PNOZ s3" onChange={(event) => set('customName', event.target.value)} />
@@ -201,9 +202,9 @@ export default function ContributorPanel({ user, onBack, initialTab = 'send' }: 
     {tab === 'library' && <div className="cb-list">
       <div className="cb-filters">
         <input className="dx-input" type="search" placeholder="Pesquisar título, componente ou autor…" value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} aria-label="Pesquisar na biblioteca" />
-        <select className="dx-input" value={libraryKind} onChange={(event) => setLibraryKind(event.target.value as 'all' | ContributionKind)} aria-label="Filtrar por tipo">
+        <Select className="dx-input" value={libraryKind} onChange={(event) => setLibraryKind(event.target.value as 'all' | ContributionKind)} aria-label="Filtrar por tipo">
           <option value="all">Todos os tipos</option><option value="datasheet">Datasheets</option><option value="model3d">Modelos 3D</option>
-        </select>
+        </Select>
       </div>
       {shownLibrary.length === 0 && <div className="dx-admin-empty">{library.length ? 'Nenhum resultado para este filtro.' : 'Ainda não há contribuições aprovadas.'}</div>}
       {shownLibrary.map((item) => <ContributionRow key={item.id} item={item} showAuthor expanded={openId === item.id} onToggle={() => setOpenId(openId === item.id ? null : item.id)} />)}

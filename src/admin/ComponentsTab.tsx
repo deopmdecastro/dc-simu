@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useMemo, useState } from 'react'
 import { TEMPLATES } from '../electrical/factory'
 import { COMPONENT_OPTIONS, formatDate } from '../contrib/ContribParts'
@@ -78,12 +79,12 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
 
     <div className="cb-filters cb-filters-components">
       <input className="dx-input" type="search" placeholder="Pesquisar componente…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar componentes" />
-      <select className="dx-input" value={group} onChange={(event) => setGroup(event.target.value)} aria-label="Filtrar por grupo">
+      <Select className="dx-input" value={group} onChange={(event) => setGroup(event.target.value)} aria-label="Filtrar por grupo">
         <option value="all">Todos os grupos</option>{groups.map((name) => <option key={name} value={name}>{name}</option>)}
-      </select>
-      <select className="dx-input" value={state} onChange={(event) => setState(event.target.value as StateFilter)} aria-label="Filtrar por estado">
+      </Select>
+      <Select className="dx-input" value={state} onChange={(event) => setState(event.target.value as StateFilter)} aria-label="Filtrar por estado">
         <option value="all">Todos</option><option value="active">Ativos</option><option value="disabled">Desativados</option><option value="no3d">Sem modelo 3D</option><option value="pending">Com contribuições em revisão</option>
-      </select>
+      </Select>
     </div>
 
     <div className="cb-components">

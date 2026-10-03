@@ -1,3 +1,4 @@
+import Select from '../../ui/Select'
 import { useMemo, useState } from 'react'
 import { WIRE_END_OPTIONS } from '../../schematic/wireEnds'
 import { IconCheck, IconClose, IconWarning } from '../../ui/icons'
@@ -58,9 +59,9 @@ export default function WirePanel() {
         <label className="ce-check"><input type="checkbox" checked={defaults.autoColor} onChange={(event) => setDefaults({ autoColor: event.target.checked })} />Cor automática pela função (IEC 60204-1)</label>
         <ColorSwatches value={defaults.color} disabled={defaults.autoColor} onChange={(color) => setDefaults({ color })} />
         <div className="ce-wp-row">
-          <label>Secção<select className="dx-input" value={defaults.gauge} onChange={(event) => setDefaults({ gauge: event.target.value })}>{WIRE_GAUGES.map((gauge) => <option key={gauge} value={gauge}>{gauge.replace('mm²', ' mm²')}</option>)}</select></label>
-          <label>Condutor<select className="dx-input" value={defaults.flexibility} onChange={(event) => setDefaults({ flexibility: event.target.value as 'rigid' | 'flexible' })}><option value="flexible">Flexível</option><option value="rigid">Rígido</option></select></label>
-          <label>Terminal<select className="dx-input" value={defaults.endType} onChange={(event) => setDefaults({ endType: event.target.value as WireEndType })}>{WIRE_END_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+          <label>Secção<Select className="dx-input" value={defaults.gauge} onChange={(event) => setDefaults({ gauge: event.target.value })}>{WIRE_GAUGES.map((gauge) => <option key={gauge} value={gauge}>{gauge.replace('mm²', ' mm²')}</option>)}</Select></label>
+          <label>Condutor<Select className="dx-input" value={defaults.flexibility} onChange={(event) => setDefaults({ flexibility: event.target.value as 'rigid' | 'flexible' })}><option value="flexible">Flexível</option><option value="rigid">Rígido</option></Select></label>
+          <label>Terminal<Select className="dx-input" value={defaults.endType} onChange={(event) => setDefaults({ endType: event.target.value as WireEndType })}>{WIRE_END_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</Select></label>
         </div>
       </details>
       <div className="ce-wp-options">

@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { ElectricalComponent } from '../types'
@@ -52,9 +53,9 @@ export default function CatalogInspector({ component }: { component: ElectricalC
         </div>}
         {controls.filter((control) => control.kind === 'selector').map((control) => <div key={control.id}>
           <label className="dc-field-label">{control.name}</label>
-          <select className="dc-select" value={selectorValue(control, meter.vars)} onChange={(event) => triggerControl(version.definition, component.id, control, { select: event.target.value })}>
+          <Select className="dc-select" value={selectorValue(control, meter.vars)} onChange={(event) => triggerControl(version.definition, component.id, control, { select: event.target.value })}>
             {control.positions.map((position) => <option key={position.id} value={position.id}>{position.label}</option>)}
-          </select>
+          </Select>
         </div>)}
         <div className="flex gap-1 flex-wrap mt-1">
           {controls.filter((control) => control.kind !== 'selector').map((control) => <button key={control.id} className="dc-btn" onClick={() => triggerControl(version.definition, component.id, control, 'press')}
@@ -75,9 +76,9 @@ export default function CatalogInspector({ component }: { component: ElectricalC
       </div>}
       {states.length > 1 && <div>
         <label className="dc-field-label">Estado</label>
-        <select className="dc-select" value={current} onChange={(event) => useSimStore.getState().updateComponent(component.id, { state: { ...component.state, catalogState: event.target.value } })}>
+        <Select className="dc-select" value={current} onChange={(event) => useSimStore.getState().updateComponent(component.id, { state: { ...component.state, catalogState: event.target.value } })}>
           {states.map((state) => <option key={state.id} value={state.id}>{state.name}</option>)}
-        </select>
+        </Select>
       </div>}
       <button className="dc-btn" title="Cria uma cópia fixa nesta versão, independente do componente oficial" onClick={() => {
         const name = window.prompt('Nome da cópia independente', `${component.label} (cópia)`)

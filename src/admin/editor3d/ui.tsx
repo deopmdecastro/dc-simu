@@ -1,3 +1,4 @@
+import DcxSelect from '../../ui/Select'
 import { useState, type ReactNode } from 'react'
 import type { Vec3 } from '../../catalog/types'
 
@@ -38,9 +39,9 @@ export function Text({ value, onChange, placeholder, multiline }: { value: strin
 }
 
 export function Select<T extends string>({ value, onChange, options, disabled }: { value: T; onChange: (value: T) => void; options: Array<[T, string]>; disabled?: boolean }) {
-  return <select className="dx-input" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value as T)}>
+  return <DcxSelect className="dx-input" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value as T)}>
     {options.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-  </select>
+  </DcxSelect>
 }
 
 export function Color({ value, onChange }: { value: string; onChange: (value: string) => void }) {

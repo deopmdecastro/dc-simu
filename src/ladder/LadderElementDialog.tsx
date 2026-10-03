@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { LadderCoilType, LadderContactType, LadderDataType, LadderRung } from '../types'
@@ -213,7 +214,7 @@ export default function LadderElementDialog({
             <div className="ladder-dialog-grid">
               <label><span>Endereço absoluto</span><input autoFocus list="ladder-tag-addresses" value={draft.address} onChange={(event) => patch({ address: event.target.value.toUpperCase() })} placeholder="I1" /></label>
               <label><span>Nome simbólico</span><input value={draft.tagName} onChange={(event) => patch({ tagName: event.target.value })} placeholder="Ex.: Botao_Start" /></label>
-              <label><span>Tipo de dados</span><select value={draft.dataType} onChange={(event) => patch({ dataType: event.target.value as LadderDataType })}><option>Bool</option><option>Time</option><option>Int</option><option>Real</option></select></label>
+              <label><span>Tipo de dados</span><Select value={draft.dataType} onChange={(event) => patch({ dataType: event.target.value as LadderDataType })}><option>Bool</option><option>Time</option><option>Int</option><option>Real</option></Select></label>
               <label className="is-wide"><span>Comentário</span><input value={draft.comment} onChange={(event) => patch({ comment: event.target.value })} placeholder="Descrição funcional do sinal" /></label>
             </div>
           </section>}
@@ -227,13 +228,13 @@ export default function LadderElementDialog({
           </div></section>}
 
           {draft.kind === 'timer' && <section className="ladder-dialog-section"><h3>Temporização</h3><div className="ladder-dialog-grid">
-            <label><span>Função</span><select value={draft.timerType} onChange={(event) => patch({ timerType: event.target.value as Draft['timerType'] })}><option value="TON">TON — atraso à ligação</option><option value="TOF">TOF — atraso à desligação</option><option value="TP">TP — pulso</option><option value="STAR_DELTA">Estrela–Triângulo</option></select></label>
+            <label><span>Função</span><Select value={draft.timerType} onChange={(event) => patch({ timerType: event.target.value as Draft['timerType'] })}><option value="TON">TON — atraso à ligação</option><option value="TOF">TOF — atraso à desligação</option><option value="TP">TP — pulso</option><option value="STAR_DELTA">Estrela–Triângulo</option></Select></label>
             <label><span>Preset PT (ms)</span><input type="number" min="0" step="10" value={draft.presetMs} onChange={(event) => patch({ presetMs: event.target.value })} /></label>
             {draft.timerType === 'STAR_DELTA' && <label><span>Tempo morto (ms)</span><input type="number" min="0" step="10" value={draft.preset2Ms} onChange={(event) => patch({ preset2Ms: event.target.value })} /></label>}
           </div><div className="ladder-preset-row"><span>Presets:</span>{[100, 500, 1000, 3000, 5000, 10000].map((value) => <button type="button" key={value} className={Number(draft.presetMs) === value ? 'is-selected' : ''} onClick={() => patch({ presetMs: String(value) })}>{value >= 1000 ? `${value / 1000}s` : `${value}ms`}</button>)}</div></section>}
 
           {draft.kind === 'counter' && <section className="ladder-dialog-section"><h3>Contagem</h3><div className="ladder-dialog-grid">
-            <label><span>Função</span><select value={draft.counterType} onChange={(event) => patch({ counterType: event.target.value as Draft['counterType'] })}><option value="CTU">CTU — crescente</option><option value="CTD">CTD — decrescente</option></select></label>
+            <label><span>Função</span><Select value={draft.counterType} onChange={(event) => patch({ counterType: event.target.value as Draft['counterType'] })}><option value="CTU">CTU — crescente</option><option value="CTD">CTD — decrescente</option></Select></label>
             <label><span>Preset PV</span><input type="number" min="0" step="1" value={draft.counterPreset} onChange={(event) => patch({ counterPreset: event.target.value })} /></label>
             <label><span>Entrada de reset</span><input list="ladder-tag-addresses" value={draft.resetAddress} onChange={(event) => patch({ resetAddress: event.target.value.toUpperCase() })} placeholder="M1" /></label>
           </div><div className="ladder-preset-row"><span>Presets:</span>{[1, 5, 10, 25, 50, 100].map((value) => <button type="button" key={value} className={Number(draft.counterPreset) === value ? 'is-selected' : ''} onClick={() => patch({ counterPreset: String(value) })}>{value}</button>)}</div></section>}
@@ -243,7 +244,7 @@ export default function LadderElementDialog({
             <label><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.target} onChange={(event) => patch({ target: event.target.value.toUpperCase() })} placeholder="M1 ou DB1.Value" /></label>
           </div><p className="ladder-dialog-help">Aceita BOOL, INT e REAL. A cópia só ocorre quando o resultado lógico da network é verdadeiro.</p></section>}
 
-          {draft.kind === 'call' && <section className="ladder-dialog-section"><h3>Bloco chamado</h3><label className="ladder-dialog-full-label"><span>Função FC</span><select autoFocus value={draft.targetId} onChange={(event) => patch({ targetId: event.target.value })}><option value="fc1">FC1 [FC1]</option><option value="fc2">FC2 [FC2]</option>{functionFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}</select></label><p className="ladder-dialog-help">O bloco é executado quando o RLO da network é 1. Chamadas recursivas são bloqueadas.</p></section>}
+          {draft.kind === 'call' && <section className="ladder-dialog-section"><h3>Bloco chamado</h3><label className="ladder-dialog-full-label"><span>Função FC</span><Select autoFocus value={draft.targetId} onChange={(event) => patch({ targetId: event.target.value })}><option value="fc1">FC1 [FC1]</option><option value="fc2">FC2 [FC2]</option>{functionFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}</Select></label><p className="ladder-dialog-help">O bloco é executado quando o RLO da network é 1. Chamadas recursivas são bloqueadas.</p></section>}
 
           {error && <p className="ladder-dialog-error" role="alert">{error}</p>}
         </div>

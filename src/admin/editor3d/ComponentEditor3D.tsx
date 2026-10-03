@@ -1,3 +1,4 @@
+import Select from '../../ui/Select'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -231,8 +232,8 @@ function ViewToolbar() {
     </div>
     {mode === 'edit' && <div className="ce-group" aria-label="Ajuste">
       <button className={`ce-tool${snap.on ? ' is-on' : ''}`} onClick={() => set({ snap: { ...snap, on: !snap.on } })} title="Ajuste a incrementos">Snap</button>
-      <select className="ce-mini" value={snap.mm} onChange={(event) => set({ snap: { ...snap, mm: Number(event.target.value) } })} aria-label="Passo em mm">{[0.5, 1, 2, 5, 10].map((value) => <option key={value} value={value}>{value} mm</option>)}</select>
-      <select className="ce-mini" value={snap.deg} onChange={(event) => set({ snap: { ...snap, deg: Number(event.target.value) } })} aria-label="Passo angular">{[1, 5, 15, 45, 90].map((value) => <option key={value} value={value}>{value}°</option>)}</select>
+      <Select className="ce-mini" value={snap.mm} onChange={(event) => set({ snap: { ...snap, mm: Number(event.target.value) } })} aria-label="Passo em mm">{[0.5, 1, 2, 5, 10].map((value) => <option key={value} value={value}>{value} mm</option>)}</Select>
+      <Select className="ce-mini" value={snap.deg} onChange={(event) => set({ snap: { ...snap, deg: Number(event.target.value) } })} aria-label="Passo angular">{[1, 5, 15, 45, 90].map((value) => <option key={value} value={value}>{value}°</option>)}</Select>
     </div>}
   </div>
 }

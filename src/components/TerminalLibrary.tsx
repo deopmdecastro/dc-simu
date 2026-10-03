@@ -1,3 +1,4 @@
+import DcxSelect from '../ui/Select'
 import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { newId } from '../catalog/definition'
@@ -87,8 +88,8 @@ export function ProfileEditorDialog({ initial, onClose, onSaved }: { initial?: P
           <input className="dx-input" value={item.name} aria-label="Nome" onChange={(event) => patch(index, { name: event.target.value })} />
           <input className="dx-input" value={item.fn} aria-label="Função" title="Ao sair do campo, sugerimos tipo, polaridade e cor" onChange={(event) => patch(index, { fn: event.target.value })}
             onBlur={() => { const inferred = inferFromFunction(item.fn); patch(index, { kind: inferred.kind, polarity: inferred.polarity, electricalClass: inferred.electricalClass, contact: inferred.contact, color: inferred.color ?? item.color, direction: inferred.direction ?? item.direction }) }} />
-          <select className="dx-input" value={item.face} aria-label="Face" onChange={(event) => patch(index, { face: event.target.value as Face })}>{FACES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select>
-          <select className="dx-input" value={item.direction} aria-label="Sentido" onChange={(event) => patch(index, { direction: event.target.value as TerminalSpec['direction'] })}><option value="io">E/S</option><option value="in">Entrada</option><option value="out">Saída</option></select>
+          <DcxSelect className="dx-input" value={item.face} aria-label="Face" onChange={(event) => patch(index, { face: event.target.value as Face })}>{FACES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</DcxSelect>
+          <DcxSelect className="dx-input" value={item.direction} aria-label="Sentido" onChange={(event) => patch(index, { direction: event.target.value as TerminalSpec['direction'] })}><option value="io">E/S</option><option value="in">Entrada</option><option value="out">Saída</option></DcxSelect>
           <button type="button" className="ce-icon" title="Remover borne" aria-label="Remover borne" onClick={() => setSpecs((list) => list.filter((_, i) => i !== index))}><IconClose size={12} /></button>
         </div>)}
         <button type="button" className="dx-btn dx-btn-secondary dx-btn-sm" onClick={add}>+ Borne</button>
@@ -113,8 +114,8 @@ function CompatTester({ profiles }: { profiles: TerminalProfile[] }) {
   const a = specsOf(pa)[ia], b = specsOf(pb)[ib]
   const result = a && b ? checkConnection(toCompat(a), toCompat(b)) : null
   const side = (value: string, setValue: (v: string) => void, index: number, setIndex: (v: number) => void) => <div className="tl-compat-side">
-    <select className="dx-input" value={value} onChange={(event) => { setValue(event.target.value); setIndex(0) }} aria-label="Perfil">{options.map(({ profile }) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select>
-    <select className="dx-input" value={index} onChange={(event) => setIndex(Number(event.target.value))} aria-label="Borne">{specsOf(value).map((item, i) => <option key={i} value={i}>{item.label} · {item.name}</option>)}</select>
+    <DcxSelect className="dx-input" value={value} onChange={(event) => { setValue(event.target.value); setIndex(0) }} aria-label="Perfil">{options.map(({ profile }) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</DcxSelect>
+    <DcxSelect className="dx-input" value={index} onChange={(event) => setIndex(Number(event.target.value))} aria-label="Borne">{specsOf(value).map((item, i) => <option key={i} value={i}>{item.label} · {item.name}</option>)}</DcxSelect>
   </div>
   return <div className="tl-compat">
     <p className="ce-hint">Escolha dois bornes e veja se a ligação é aceitável. As regras são conservadoras e servem de aviso — nunca bloqueiam o editor.</p>

@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useSimStore } from '../store/useSimStore'
@@ -250,7 +251,7 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
               <IconReset size={13} />
             </button>
           </div>
-          <select
+          <Select
             value={sim.mode}
             onChange={(e) => setSimMode(e.target.value as any)}
             className="dc-select !w-auto hidden lg:block"
@@ -259,12 +260,12 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
             <option value="realtime">Tempo real</option>
             <option value="turbo">Turbo</option>
             <option value="step">Passo a passo</option>
-          </select>
-          <select value={sim.speed} onChange={(e) => setSpeed(Number(e.target.value))} className="dc-select !w-[62px]" title="Velocidade da simulação">
+          </Select>
+          <Select value={sim.speed} onChange={(e) => setSpeed(Number(e.target.value))} className="dc-select !w-[62px]" title="Velocidade da simulação">
             {[0.25, 0.5, 1, 2, 4, 10].map((v) => (
               <option key={v} value={v}>{v}×</option>
             ))}
-          </select>
+          </Select>
           <span className="tb-sep" />
           <span
             className={`inline-flex items-center gap-1.5 h-[24px] px-2.5 rounded-[5px] font-mono text-[11px] font-bold tracking-[0.08em] text-white whitespace-nowrap ${runBadge.cls}`}
@@ -377,11 +378,11 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
                 <span className="hidden xl:inline">Rígido</span>
               </button>
             </div>
-            <select className="dc-select !w-auto" value={wireDefaults.gauge} onChange={(e) => setWireDefaults({ gauge: e.target.value })} title="Seção dos novos cabos">
+            <Select className="dc-select !w-auto" value={wireDefaults.gauge} onChange={(e) => setWireDefaults({ gauge: e.target.value })} title="Seção dos novos cabos">
               {GAUGES.map((g) => (
                 <option key={g} value={g}>{g}</option>
               ))}
-            </select>
+            </Select>
             <Dropdown
               label={<span className="hidden xl:inline">{WIRE_END_OPTIONS.find((o) => o.id === wireDefaults.endType)?.label}</span>}
               icon={<WireEndIcon type={wireDefaults.endType} size={26} color={wireDefaults.autoColor ? '#ef4444' : WIRE_COLORS[wireDefaults.color]} />}
@@ -462,11 +463,11 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
               )}
             </div>
             {isCanvas && (
-              <select value={grid.size} onChange={(e) => setGrid({ size: Number(e.target.value) })} className="dc-select !w-[66px]" title="Passo da malha do esquema (as networks Ladder usam sempre 20px)">
+              <Select value={grid.size} onChange={(e) => setGrid({ size: Number(e.target.value) })} className="dc-select !w-[66px]" title="Passo da malha do esquema (as networks Ladder usam sempre 20px)">
                 {[5, 10, 20, 25, 50].map((n) => (
                   <option key={n} value={n}>{n}px</option>
                 ))}
-              </select>
+              </Select>
             )}
             {mode === 'schematic' && (
               <div className="dc-seg" role="toolbar" aria-label="Zoom">

@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useCatalogStore } from '../catalog/registry'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -191,10 +192,10 @@ function Devices({ onOpenSchematic }: Pick<Props, 'onOpenSchematic'>) {
       <SearchBox value={query} onChange={setQuery} placeholder="Pesquisar referência, nome ou tipo…" label="Pesquisar dispositivos" />
       <Chips label="Estado" value={status} onChange={setStatus} options={[{ id: 'all', label: 'Todos' }, { id: 'on', label: 'Energizados' }, { id: 'off', label: 'Desligados' }]} />
       {categories.length > 1 && (
-        <select className="ls-select" aria-label="Categoria" value={category} onChange={(e) => setCategory(e.target.value)}>
+        <Select className="ls-select" aria-label="Categoria" value={category} onChange={(e) => setCategory(e.target.value)}>
           <option value="all">Todas as categorias</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+        </Select>
       )}
     </div>
     {!components.length

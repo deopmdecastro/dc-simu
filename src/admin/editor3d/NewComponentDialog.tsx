@@ -1,3 +1,4 @@
+import Select from '../../ui/Select'
 import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { catalogApi } from '../../catalog/catalogApi'
@@ -92,9 +93,9 @@ export default function NewComponentDialog({ onCancel, onCreated, onError }: { o
       </div>
 
       <h3>2 · Categoria</h3>
-      <select className="dx-input" value={category} onChange={(event) => setCategory(event.target.value as ComponentCategory)} aria-label="Categoria">
+      <Select className="dx-input" value={category} onChange={(event) => setCategory(event.target.value as ComponentCategory)} aria-label="Categoria">
         {CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </select>
+      </Select>
 
       <h3>3 · Nome</h3>
       <input className="dx-input" autoFocus value={name} maxLength={80} placeholder={`Ex.: ${kind.label.split(' /')[0]} 16 A`} onChange={(event) => setName(event.target.value)} aria-label="Nome do componente" />
@@ -119,10 +120,10 @@ export default function NewComponentDialog({ onCancel, onCreated, onError }: { o
       {sheet === 'none' && <small className="ce-new-note">Fica registado como «sem datasheet». Pode anexá-lo mais tarde no editor.</small>}
 
       <h3>5 · Bornes <span className="ce-new-opt">(opcional)</span></h3>
-      <select className="dx-input" value={profileId} onChange={(event) => setProfileId(event.target.value)} aria-label="Perfil de bornes">
+      <Select className="dx-input" value={profileId} onChange={(event) => setProfileId(event.target.value)} aria-label="Perfil de bornes">
         <option value="">Sem bornes por agora — adiciono no editor</option>
         {suggestions.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}{profile.custom ? ' (personalizado)' : ''}</option>)}
-      </select>
+      </Select>
       <small className="ce-new-note">Perfis sugeridos para a categoria escolhida. É só um ponto de partida: no editor pode alterar, mover, apagar ou acrescentar bornes, e abrir a biblioteca completa.</small>
 
       <div className="ce-modal-actions">

@@ -1,3 +1,4 @@
+import Select from '../../ui/Select'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
@@ -132,9 +133,9 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     <p className="cb-note">Crie componentes oficiais no editor 3D, publique versões e deixe os utilizadores atualizarem quando quiserem. Os projetos existentes nunca são alterados sem confirmação. Os componentes que já vêm com a plataforma aparecem no fim da lista: «Editar no 3D» cria uma cópia editável (modelo + bornes) sem alterar o original.</p>
     <div className="ce-list-tools">
       <input className="dx-input cb-search" type="search" placeholder="Pesquisar por nome, grupo ou referência…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar componentes 3D" />
-      <select className="dx-input" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} aria-label="Filtrar por estado">
+      <Select className="dx-input" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} aria-label="Filtrar por estado">
         <option value="all">Todos</option><option value="draft">Só rascunhos</option><option value="published">Publicados</option><option value="archived">Arquivados</option><option value="builtin">Integrados</option>
-      </select>
+      </Select>
       <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => void exportBackup()}>{backupBusy ? 'A processar…' : 'Guardar backup'}</button>
       <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => backupInput.current?.click()}>Recuperar backup</button>
       <input ref={backupInput} type="file" accept=".json,.dcs-components.json,application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importBackup(file) }} />

@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import CatalogInspector from '../catalog/CatalogInspector'
 import { useCatalogStore } from '../catalog/registry'
 import { hiddenCatalogTypes } from '../catalog/hidden'
@@ -413,11 +414,11 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 </div>
                 <div>
                   <label className={label}>Rotação</label>
-                  <select className="dc-select" value={selectedComponent.rotation} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { rotation: Number(e.target.value) })}>
+                  <Select className="dc-select" value={selectedComponent.rotation} onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { rotation: Number(e.target.value) })}>
                     {[0, 90, 180, 270].map((r) => (
                       <option key={r} value={r}>{r}°</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className={label}>Cor do corpo</label>
@@ -543,9 +544,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   if (selectedComponent.type === 'motor3ph' && k === 'motorConnection' && typeof v === 'string') {
                     return <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5">
                       <span className="text-ink-500">{stateLabel(k)}</span>
-                      <select className="dc-input !w-32" value={v} onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { motorConnection: e.target.value })}>
+                      <Select className="dc-input !w-32" value={v} onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { motorConnection: e.target.value })}>
                         <option value="none">Sem pontes</option><option value="star">Estrela (Y)</option><option value="delta">Triângulo (Δ)</option>
-                      </select>
+                      </Select>
                     </label>
                   }
                   if (typeof v === 'string') {
@@ -580,7 +581,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           title="Escolher rótulo padrão IEC para este borne"
                           onPick={(l) => useSimStore.getState().updateTerminal(t.id, { label: l })}
                         />
-                        <select
+                        <Select
                           className="dc-select flex-1"
                           aria-label={`Função do borne ${t.label}`}
                           value={t.kind}
@@ -589,7 +590,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           {Object.entries(TERMINAL_KIND_LABEL).map(([k, v]) => (
                             <option key={k} value={k}>{v}</option>
                           ))}
-                        </select>
+                        </Select>
                         <input
                           type="color"
                           aria-label={`Cor do borne ${t.label}`}
@@ -608,15 +609,15 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           useSimStore.getState().deleteTerminal(t.id)
                         }}><IconClose size={11} /></button>
                       </div>
-                      <label className="mt-1.5 flex min-w-0 flex-col gap-0.5 text-[9px] text-ink-400"><span>Categoria elétrica {t.electricalClass ? '· definida' : '· sugestão da ficha'}</span><select
+                      <label className="mt-1.5 flex min-w-0 flex-col gap-0.5 text-[9px] text-ink-400"><span>Categoria elétrica {t.electricalClass ? '· definida' : '· sugestão da ficha'}</span><Select
                         className="dc-select !h-[26px] !text-[10px]"
                         aria-label={`Categoria elétrica do borne ${t.label}`}
                         value={terminalElectricalClassOf(selectedComponent, t)}
                         onChange={(e) => useSimStore.getState().updateTerminal(t.id, { electricalClass: e.target.value as TerminalElectricalClass, electricalClassCustom: e.target.value === 'other' ? t.electricalClassCustom : undefined })}
-                      >{Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, classLabel]) => <option key={id} value={id}>{classLabel}</option>)}</select></label>
+                      >{Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, classLabel]) => <option key={id} value={id}>{classLabel}</option>)}</Select></label>
                       {terminalElectricalClassOf(selectedComponent, t) === 'other' && <label className="mt-1 flex min-w-0 flex-col gap-0.5 text-[9px] text-ink-400"><span>Designação personalizada</span><input className="dc-input !h-[26px] !text-[10px]" value={t.electricalClassCustom ?? ''} placeholder="Ex.: PE, contacto seco" onChange={(e) => useSimStore.getState().updateTerminal(t.id, { electricalClassCustom: e.target.value || undefined })} /></label>}
                       <div className="dc-inspector-terminal-details">
-                        <label><span>Tipo</span><select
+                        <label><span>Tipo</span><Select
                           className="dc-select !h-[24px] !text-[10px]"
                           aria-label={`Tipo físico do borne ${t.label}`}
                           value={t.terminalType}
@@ -625,7 +626,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           {Object.entries(TERMINAL_TYPE_LABEL).map(([k, v]) => (
                             <option key={k} value={k}>{v}</option>
                           ))}
-                        </select></label>
+                        </Select></label>
                         <label><span>X</span><input type="number" step="0.05" min="0" max="1" className="dc-input !h-[24px] !text-[10px]" value={t.x} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { x: Number(e.target.value) })} /></label>
                         <label><span>Y</span><input type="number" step="0.05" min="0" max="1" className="dc-input !h-[24px] !text-[10px]" value={t.y} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { y: Number(e.target.value) })} /></label>
                         <label title="Diâmetro do desenho do borne no Esquema (vazio = padrão)"><span>Ø px</span><input type="number" step="0.5" min="3" max="24" placeholder="auto" className="dc-input !h-[24px] !text-[10px]" value={t.diameter ?? ''} onChange={(e) => useSimStore.getState().updateTerminal(t.id, { diameter: e.target.value === '' ? undefined : Math.max(3, Math.min(24, Number(e.target.value))) })} /></label>
@@ -694,15 +695,15 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={label}>Seção</label>
-                  <select className="dc-select" value={selectedWire.gauge} onChange={(e) => patchSelectedWire({ gauge: e.target.value })}>
+                  <Select className="dc-select" value={selectedWire.gauge} onChange={(e) => patchSelectedWire({ gauge: e.target.value })}>
                     {GAUGES.map((g) => (
                       <option key={g} value={g}>{g}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className={label}>Tipo / função</label>
-                  <select className="dc-select" value={selectedWire.kind} onChange={(e) => {
+                  <Select className="dc-select" value={selectedWire.kind} onChange={(e) => {
                     const kind = e.target.value as keyof typeof WIRE_KIND_COLOR
                     // cor normalizada pela função (IEC 60204-1) — pode ser alterada depois na paleta
                     patchSelectedWire({ kind, color: WIRE_KIND_COLOR[kind] })
@@ -710,7 +711,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     {Object.entries(WIRE_KIND_LABEL).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="col-span-2">
                   <label className={label}>Condutor</label>
@@ -732,12 +733,12 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 </div>
                 <div>
                   <label className={label}>Roteamento</label>
-                  <select className="dc-select" value={selectedWire.route} onChange={(e) => patchSelectedWire({ route: e.target.value as any })}>
+                  <Select className="dc-select" value={selectedWire.route} onChange={(e) => patchSelectedWire({ route: e.target.value as any })}>
                     <option value="orthogonal">Ortogonal</option>
                     <option value="manhattan">Manhattan (vertical)</option>
                     <option value="arc">Curvo</option>
                     <option value="direct">Direto</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className={label}>Dobra {selectedWire.bend.toFixed(2)}</label>
@@ -877,24 +878,24 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                 </div>
                 <div>
                   <label className={label} htmlFor="terminal-electrical-class">Categoria elétrica · {selectedTerminal.electricalClass ? 'definida' : 'sugerida pela ficha'}</label>
-                  <select id="terminal-electrical-class" className="dc-select" value={terminalElectricalClassOf(terminalOwner, selectedTerminal)}
+                  <Select id="terminal-electrical-class" className="dc-select" value={terminalElectricalClassOf(terminalOwner, selectedTerminal)}
                     onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { electricalClass: e.target.value as TerminalElectricalClass, electricalClassCustom: e.target.value === 'other' ? selectedTerminal.electricalClassCustom : undefined })}>
                     {Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-                  </select>
+                  </Select>
                   {terminalElectricalClassOf(terminalOwner, selectedTerminal) === 'other' && <input className="dc-input mt-1" value={selectedTerminal.electricalClassCustom ?? ''} placeholder="Designação: PE, contacto seco…" onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { electricalClassCustom: e.target.value || undefined })} />}
                   <p className="mt-1 text-[9px] leading-4 text-ink-400">{terminalDatasheetGuidance(terminalOwner)}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div><label className={label} htmlFor="terminal-kind">Função elétrica</label>
-                    <select id="terminal-kind" className="dc-select" value={selectedTerminal.kind}
+                    <Select id="terminal-kind" className="dc-select" value={selectedTerminal.kind}
                       onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { kind: e.target.value as TerminalKind })}>
                       {Object.entries(TERMINAL_KIND_LABEL).map(([kind, name]) => <option key={kind} value={kind}>{name}</option>)}
-                    </select></div>
+                    </Select></div>
                   <div><label className={label} htmlFor="terminal-type">Tipo físico</label>
-                    <select id="terminal-type" className="dc-select" value={selectedTerminal.terminalType}
+                    <Select id="terminal-type" className="dc-select" value={selectedTerminal.terminalType}
                       onChange={(e) => useSimStore.getState().updateTerminal(selectedTerminal.id, { terminalType: e.target.value as TerminalType })}>
                       {Object.entries(TERMINAL_TYPE_LABEL).map(([type, name]) => <option key={type} value={type}>{name}</option>)}
-                    </select></div>
+                    </Select></div>
                 </div>
               </div>
               <details className="dc-inspector-group">

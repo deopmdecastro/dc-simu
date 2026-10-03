@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { hasComponent3DModel } from '../three/modelPaths'
@@ -288,7 +289,7 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
 
     {tool === 'add' && <div className="tfe-add" role="group" aria-label="Novo borne">
       {!armed && <label className="tfe-field"><span>Identificação</span><input value={newLabel} placeholder={`Auto (${nextFreeTerminalLabel(terminals)})`} onChange={(event) => setNewLabel(event.target.value)} /></label>}
-      {!armed && <label className="tfe-field"><span>Função elétrica</span><select value={newKind} onChange={(event) => setNewKind(event.target.value as TerminalKind)}>{Object.entries(TERMINAL_KIND_LABEL).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</select></label>}
+      {!armed && <label className="tfe-field"><span>Função elétrica</span><Select value={newKind} onChange={(event) => setNewKind(event.target.value as TerminalKind)}>{Object.entries(TERMINAL_KIND_LABEL).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</Select></label>}
       <p>{armed ? <>A colocar <strong>{armed.label}</strong> · {armed.name}. </> : null}Clique na superfície da face <strong>{FACE_META[face].label}</strong> para criar o borne. Pode continuar a clicar para criar vários{armed ? ' · Esc termina' : ''}.</p>
     </div>}
 
@@ -414,9 +415,9 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
       <div className="tfe-block">
         <h4>Elétrico</h4>
         <div className="tfe-grid">
-          <label className="tfe-field"><span>Função</span><select value={selected.kind} onChange={(event) => setDefinition(selected.id, { kind: event.target.value as TerminalKind })}>{Object.entries(TERMINAL_KIND_LABEL).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</select></label>
-          <label className="tfe-field"><span>Tipo físico</span><select value={selected.terminalType} onChange={(event) => setDefinition(selected.id, { terminalType: event.target.value as TerminalType })}>{Object.entries(TERMINAL_TYPE_LABEL).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</select></label>
-          <label className="tfe-field"><span>Categoria</span><select value={selectedClass} onChange={(event) => setDefinition(selected.id, { electricalClass: event.target.value as TerminalElectricalClass, electricalClassCustom: event.target.value === 'other' ? selected.electricalClassCustom : undefined })}>{Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select><small>{selected.electricalClass ? 'Definida manualmente' : 'Sugerida pela ficha técnica'}</small></label>
+          <label className="tfe-field"><span>Função</span><Select value={selected.kind} onChange={(event) => setDefinition(selected.id, { kind: event.target.value as TerminalKind })}>{Object.entries(TERMINAL_KIND_LABEL).map(([kind, label]) => <option key={kind} value={kind}>{label}</option>)}</Select></label>
+          <label className="tfe-field"><span>Tipo físico</span><Select value={selected.terminalType} onChange={(event) => setDefinition(selected.id, { terminalType: event.target.value as TerminalType })}>{Object.entries(TERMINAL_TYPE_LABEL).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</Select></label>
+          <label className="tfe-field"><span>Categoria</span><Select value={selectedClass} onChange={(event) => setDefinition(selected.id, { electricalClass: event.target.value as TerminalElectricalClass, electricalClassCustom: event.target.value === 'other' ? selected.electricalClassCustom : undefined })}>{Object.entries(TERMINAL_ELECTRICAL_CLASS_LABEL).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</Select><small>{selected.electricalClass ? 'Definida manualmente' : 'Sugerida pela ficha técnica'}</small></label>
           {selectedClass === 'other' && <label className="tfe-field"><span>Designação</span><input value={selected.electricalClassCustom ?? ''} placeholder="Ex.: PE, contacto seco" onChange={(event) => setDefinition(selected.id, { electricalClassCustom: event.target.value || undefined })} /></label>}
         </div>
         <p className="tfe-help">{terminalDatasheetGuidance(component)}</p>

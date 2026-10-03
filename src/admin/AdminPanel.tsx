@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { adminComponentIdFromPath, isAdminEditorPath, ROUTES } from '../routing/routes'
@@ -156,12 +157,12 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
     {tab === 'contributions' && <div className="cb-list">
       <div className="cb-filters">
         <input className="dx-input" type="search" placeholder="Pesquisar título, componente ou autor…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar contribuições" />
-        <select className="dx-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} aria-label="Filtrar por estado">
+        <Select className="dx-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} aria-label="Filtrar por estado">
           <option value="all">Todos os estados</option>{(Object.keys(STATUS_LABEL) as ContributionStatus[]).map((status) => <option key={status} value={status}>{STATUS_LABEL[status]}</option>)}
-        </select>
-        <select className="dx-input" value={kindFilter} onChange={(event) => setKindFilter(event.target.value as typeof kindFilter)} aria-label="Filtrar por tipo">
+        </Select>
+        <Select className="dx-input" value={kindFilter} onChange={(event) => setKindFilter(event.target.value as typeof kindFilter)} aria-label="Filtrar por tipo">
           <option value="all">Todos os tipos</option><option value="datasheet">Datasheets</option><option value="model3d">Modelos 3D</option>
-        </select>
+        </Select>
       </div>
       {visible.length === 0 && <div className="dx-admin-empty">{contributions.length ? 'Nenhuma contribuição com este filtro.' : 'Ainda ninguém enviou contribuições.'}</div>}
       {visible.map((item) => <ContributionRow key={item.id} item={item} showAuthor expanded={openId === item.id} onToggle={() => setOpenId(openId === item.id ? null : item.id)} actions={<>

@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useMemo, useState } from 'react'
 import { activeAccountBackend } from '../auth/accountApi'
 import { formatDate } from '../contrib/ContribParts'
@@ -93,12 +94,12 @@ export default function UsersTab({ users, currentUserId, onChanged, onError, onO
 
     <div className="cb-filters cb-filters-users">
       <input className="dx-input" type="search" placeholder="Pesquisar nome ou e-mail…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar utilizadores" />
-      <select className="dx-input" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)} aria-label="Filtrar por papel">
+      <Select className="dx-input" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)} aria-label="Filtrar por papel">
         <option value="all">Todos os papéis</option><option value="admin">Administradores</option><option value="user">Utilizadores</option>
-      </select>
-      <select className="dx-input" value={stateFilter} onChange={(event) => setStateFilter(event.target.value as typeof stateFilter)} aria-label="Filtrar por estado">
+      </Select>
+      <Select className="dx-input" value={stateFilter} onChange={(event) => setStateFilter(event.target.value as typeof stateFilter)} aria-label="Filtrar por estado">
         <option value="all">Todos os estados</option><option value="active">Ativas</option><option value="disabled">Desativadas</option>
-      </select>
+      </Select>
       <button className="dx-btn dx-btn-primary" disabled={!serverMode} onClick={() => setCreating(!creating)}>{creating ? 'Cancelar' : '+ Nova conta'}</button>
     </div>
 
@@ -107,9 +108,9 @@ export default function UsersTab({ users, currentUserId, onChanged, onError, onO
         <label className="dx-field"><span className="dx-label">Nome</span><input className="dx-input" value={form.name} maxLength={60} autoFocus onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
         <label className="dx-field"><span className="dx-label">E-mail</span><input className="dx-input" type="email" value={form.email} maxLength={254} autoComplete="off" onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
         <label className="dx-field"><span className="dx-label">Papel</span>
-          <select className="dx-input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Role })}>
+          <Select className="dx-input" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Role })}>
             <option value="user">Utilizador (pode contribuir)</option><option value="admin">Administrador (gere tudo)</option>
-          </select>
+          </Select>
         </label>
         <label className="dx-field"><span className="dx-label">Palavra-passe inicial</span>
           <span className="cb-inline">
@@ -152,9 +153,9 @@ export default function UsersTab({ users, currentUserId, onChanged, onError, onO
 
           {editing?.id === user.id && <div className="cb-user-edit">
             <input className="dx-input" value={editing.name} maxLength={60} onChange={(event) => setEditing({ ...editing, name: event.target.value })} aria-label="Nome" />
-            <select className="dx-input" value={editing.role} onChange={(event) => setEditing({ ...editing, role: event.target.value as Role })} aria-label="Papel">
+            <Select className="dx-input" value={editing.role} onChange={(event) => setEditing({ ...editing, role: event.target.value as Role })} aria-label="Papel">
               <option value="user">Utilizador</option><option value="admin">Administrador</option>
-            </select>
+            </Select>
             <button className="dx-btn dx-btn-primary dx-btn-sm" disabled={busy || editing.name.trim().length < 2} onClick={() => void run(() => adminApi.updateUser(user.id, { name: editing.name.trim(), role: editing.role }), 'Conta atualizada.').then((ok) => ok && setEditing(null))}>Guardar</button>
             <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => setEditing(null)}>Cancelar</button>
           </div>}

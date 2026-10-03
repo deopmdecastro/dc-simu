@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import LadderSections, { type LadderSection } from './LadderSections'
 import { isSmallScreen } from '../ui/cleanMode'
 import { isProgrammablePlc } from './plcPrograms'
@@ -693,7 +694,7 @@ function ProjectTreePane({
       <div className="ladder-pane-heading">
         <span>Projeto</span>
         <span className="ladder-pane-heading-actions">
-          {hiddenFolders.length > 0 && <select
+          {hiddenFolders.length > 0 && <Select
             aria-label="Restaurar pasta eliminada"
             title="Restaurar pasta eliminada"
             value=""
@@ -701,7 +702,7 @@ function ProjectTreePane({
           >
             <option value="">＋ Pasta</option>
             {hiddenFolders.map((folder) => <option key={folder} value={folder}>{NODE_TITLES[folder]}</option>)}
-          </select>}
+          </Select>}
           <button className="ladder-ghost-button" title="Recolher projeto" onClick={onClose}>×</button>
         </span>
       </div>
@@ -860,15 +861,15 @@ function FunctionBlockView({ id }: { id: 'fc1' | 'fc2' | `file:${string}` }) {
           <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'MOVE').rung)}>+ MOVE</button>
           <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'CALL').rung)}>+ CALL FC</button>
           {r.move && <div className="flex gap-1 items-center"><strong>MOVE</strong><input className="dc-input !w-24" aria-label="MOVE origem" value={r.move.source} onChange={(e) => modify(i, (v) => ({ ...v, move: { ...v.move!, source: e.target.value.toUpperCase() } }))} />→<input className="dc-input !w-24" aria-label="MOVE destino" value={r.move.target} onChange={(e) => modify(i, (v) => ({ ...v, move: { ...v.move!, target: e.target.value.toUpperCase() } }))} /><button type="button" onClick={() => modify(i, (v) => ({ ...v, move: undefined }))}>×</button></div>}
-          {r.call && <div className="flex gap-1 items-center"><strong>CALL</strong><select className="dc-select !w-auto" value={r.call.targetId} onChange={(e) => modify(i, (v) => ({ ...v, call: { targetId: e.target.value } }))}>
+          {r.call && <div className="flex gap-1 items-center"><strong>CALL</strong><Select className="dc-select !w-auto" value={r.call.targetId} onChange={(e) => modify(i, (v) => ({ ...v, call: { targetId: e.target.value } }))}>
             <option value="fc1">FC1</option><option value="fc2">FC2</option>
             {useSimStore.getState().projectFiles[activePlcId ?? '_general']?.filter((item) => item.folder === 'programBlocks').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select><button type="button" onClick={() => modify(i, (v) => ({ ...v, call: undefined }))}>×</button></div>}
+          </Select><button type="button" onClick={() => modify(i, (v) => ({ ...v, call: undefined }))}>×</button></div>}
 
           {r.branches.map((branch, bi) => <div key={branch.id} className="flex flex-wrap items-center gap-1 border rounded p-1">
             <span>Ramo {bi + 1}</span>
             {branch.elements.map((el) => <span key={el.id} className="inline-flex gap-1 items-center">
-              <select aria-label="Tipo de contacto" value={el.contactType} onChange={(e) => modify(i, (v) => ({ ...v, branches: v.branches.map((b) => b.id === branch.id ? { ...b, elements: b.elements.map((x) => x.id === el.id ? { ...x, contactType: e.target.value as LadderContactType } : x) } : b) }))}><option>NO</option><option>NC</option><option>RISING</option><option>FALLING</option></select>
+              <Select aria-label="Tipo de contacto" value={el.contactType} onChange={(e) => modify(i, (v) => ({ ...v, branches: v.branches.map((b) => b.id === branch.id ? { ...b, elements: b.elements.map((x) => x.id === el.id ? { ...x, contactType: e.target.value as LadderContactType } : x) } : b) }))}><option>NO</option><option>NC</option><option>RISING</option><option>FALLING</option></Select>
               <input className="dc-input !w-14" aria-label="Endereço do contacto" value={el.address} onChange={(e) => modify(i, (v) => ({ ...v, branches: v.branches.map((b) => b.id === branch.id ? { ...b, elements: b.elements.map((x) => x.id === el.id ? { ...x, address: e.target.value.toUpperCase() } : x) } : b) }))} />
               <button title="Remover contacto" onClick={() => modify(i, (v) => ({ ...v, branches: v.branches.map((b) => b.id === branch.id ? { ...b, elements: b.elements.filter((x) => x.id !== el.id) } : b) }))}>×</button>
             </span>)}
@@ -1203,11 +1204,11 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
       <main className="ladder-main-pane" ref={mainPaneRef}>
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-line bg-white text-[11px] shrink-0">
           <label htmlFor="ladder-target-plc" className="font-semibold text-ink-600 whitespace-nowrap">PLC a programar</label>
-          <select id="ladder-target-plc" className="dc-select !w-auto max-w-[280px]" value={plcs.some((c) => c.id === activePlcId) ? activePlcId! : ''}
+          <Select id="ladder-target-plc" className="dc-select !w-auto max-w-[280px]" value={plcs.some((c) => c.id === activePlcId) ? activePlcId! : ''}
             disabled={!plcs.length} onChange={(e) => setActivePlc(e.target.value)}>
             {!plcs.length && <option value="">Sem PLC no esquema · programa geral</option>}
             {plcs.map((c) => <option key={c.id} value={c.id}>{c.ref} · {c.label || c.type}</option>)}
-          </select>
+          </Select>
           <span className="truncate text-ink-400">{plcs.length > 1 ? `${plcs.length} PLCs · programa independente por dispositivo` : plcs.length ? 'Programa deste PLC' : 'Adicione um PLC no Esquema'}</span>
         </div>
         {section !== 'Projeto' ? <LadderSections section={section} groups={PALETTE_GROUPS} renderGlyph={(kind) => <LadderGlyph kind={kind} size={30} />} onAdd={(kind) => { quickAdd(kind); setSection('Projeto') }} onOpenSchematic={onOpenSchematic} /> : <>

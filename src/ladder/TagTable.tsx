@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useSimStore } from '../store/useSimStore'
 import type { LadderDataType, LadderTag } from '../types'
 import { IconPlus, IconClose } from '../ui/icons'
@@ -35,11 +36,11 @@ function TagRow({ tag }: { tag: LadderTag }) {
         <input className={`${cell} font-mono text-center`} value={tag.address} onChange={(e) => updateTag(tag.id, { address: e.target.value })} />
       </td>
       <td className="w-20">
-        <select className={cell} value={tag.dataType} onChange={(e) => updateTag(tag.id, { dataType: e.target.value as LadderDataType })}>
+        <Select className={cell} value={tag.dataType} onChange={(e) => updateTag(tag.id, { dataType: e.target.value as LadderDataType })}>
           {DATA_TYPES.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
-        </select>
+        </Select>
       </td>
       <td className="min-w-[140px]">
         <input className={cell} value={tag.comment ?? ''} onChange={(e) => updateTag(tag.id, { comment: e.target.value })} placeholder="Comentário" />

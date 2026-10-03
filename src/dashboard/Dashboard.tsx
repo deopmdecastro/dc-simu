@@ -1,3 +1,4 @@
+import Select from '../ui/Select'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useRef } from 'react'
 import { LogoMark } from '../ui/Brand'
@@ -387,11 +388,11 @@ export default function Dashboard({
         <div className="dx-toolbar-end">
           <label className="dx-sort">
             <span>Ordenar</span>
-            <select className="dx-input" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+            <Select className="dx-input" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
               <option value="recent">Mais recentes</option>
               <option value="name">Nome (A–Z)</option>
               <option value="size">Mais componentes</option>
-            </select>
+            </Select>
           </label>
           <div className="dx-view-toggle" role="group" aria-label="Modo de visualização">
             <button aria-pressed={view === 'grid'} onClick={() => setView('grid')} title="Cartões" aria-label="Ver em cartões">
