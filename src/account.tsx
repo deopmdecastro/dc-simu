@@ -1,3 +1,4 @@
+import { uiAlert } from './ui/dialogs'
 import { useCatalogStore } from './catalog/registry'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import App from './App'
@@ -147,7 +148,7 @@ export default function Account() {
       return true
     } catch (value) {
       error(value)
-      window.alert('A nova versão está pronta, mas a atualização foi adiada porque não foi possível guardar o trabalho pendente.')
+      await uiAlert('A nova versão está pronta, mas a atualização foi adiada porque não foi possível guardar o trabalho pendente.')
       return false
     }
   }, [])

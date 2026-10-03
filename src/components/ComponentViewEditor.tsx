@@ -1,3 +1,4 @@
+import { uiConfirm } from '../ui/dialogs'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import {
@@ -257,8 +258,8 @@ export function ComponentEditorDock() {
     return !componentEditorSnapshotEquals(componentEditorSnapshotOf(component), componentEditorSnapshotOf(candidate))
   }, [editor, component])
 
-  const requestClose = useCallback(() => {
-    if (dirty && !window.confirm('Descartar as alterações que ainda não aplicou?')) return
+  const requestClose = useCallback(async () => {
+    if (dirty && !await uiConfirm('Descartar as alterações que ainda não aplicou?')) return
     cancel()
   }, [dirty, cancel])
   const submit = useCallback(() => apply(saveAsDefault, revisionNote), [apply, saveAsDefault, revisionNote])

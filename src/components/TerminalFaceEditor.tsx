@@ -1,3 +1,4 @@
+import { uiConfirm } from '../ui/dialogs'
 import Select from '../ui/Select'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -165,12 +166,12 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
   }
 
   /** Aplica um perfil da biblioteca: cria os bornes nas faces certas (todos continuam editáveis). */
-  const applyProfileToComponent = (profile: TerminalProfile, params: ProfileParams, replace: boolean) => {
+  const applyProfileToComponent = async (profile: TerminalProfile, params: ProfileParams, replace: boolean) => {
     const specs = profile.build(params)
     if (!specs.length) return
     if (replace && terminals.length > 0) {
       const linked = terminals.reduce((sum, terminal) => sum + wireCount(terminal), 0)
-      if (!window.confirm(linked > 0 ? `Substituir os ${terminals.length} bornes atuais? ${linked} cabo(s) ligado(s) serão removidos ao Aplicar.` : `Substituir os ${terminals.length} bornes atuais?`)) return
+      if (!await uiConfirm(linked > 0 ? `Substituir os ${terminals.length} bornes atuais? ${linked} cabo(s) ligado(s) serão removidos ao Aplicar.` : `Substituir os ${terminals.length} bornes atuais?`)) return
       terminals.forEach((terminal) => deleteTerminal(terminal.id))
     }
     const used = new Set(replace ? [] : terminals.map((terminal) => terminal.label))
@@ -188,9 +189,9 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
     setNotice(`${profile.name}: ${specs.length} bornes adicionados.`)
   }
 
-  const removeTerminal = (terminal: Terminal) => {
+  const removeTerminal = async (terminal: Terminal) => {
     const linked = wireCount(terminal)
-    if (linked > 0 && !window.confirm(`O borne ${terminal.label} tem ${linked} cabo(s). Ao Aplicar, esses cabos serão removidos. Continuar?`)) return
+    if (linked > 0 && !await uiConfirm(`O borne ${terminal.label} tem ${linked} cabo(s). Ao Aplicar, esses cabos serão removidos. Continuar?`)) return
     deleteTerminal(terminal.id)
   }
 

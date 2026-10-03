@@ -46,11 +46,11 @@ export function parseComponentCatalogBackup(text: string): ComponentCatalogBacku
 
 const restorableDefinition = (entry: CatalogEntry): ComponentDefinition | null => entry.draft ?? entry.versions?.find((version) => version.version === entry.latestVersion)?.definition ?? entry.versions?.[entry.versions.length - 1]?.definition ?? null
 
-export async function restoreComponentCatalogBackup(backup: ComponentCatalogBackup, confirmReplace: (entry: CatalogEntry) => boolean): Promise<{ restored: number; skipped: number }> {
+export async function restoreComponentCatalogBackup(backup: ComponentCatalogBackup, confirmReplace: (entry: CatalogEntry) => boolean | Promise<boolean>): Promise<{ restored: number; skipped: number }> {
   const current = new Set((await catalogApi.adminList()).map((entry) => entry.id))
   let restored = 0, skipped = 0
   for (const entry of backup.entries) {
-    if (current.has(entry.id) && !confirmReplace(entry)) { skipped += 1; continue }
+    if (current.has(entry.id) && !(await confirmReplace(entry))) { skipped += 1; continue }
     const definition = restorableDefinition(entry)
     if (!definition) { skipped += 1; continue }
     const existed = current.has(entry.id)

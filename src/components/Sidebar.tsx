@@ -1,3 +1,4 @@
+import { uiConfirm } from '../ui/dialogs'
 import Select from '../ui/Select'
 import CatalogInspector from '../catalog/CatalogInspector'
 import { useCatalogStore } from '../catalog/registry'
@@ -483,9 +484,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   <IconLock size={12} /> {selectedComponent.locked ? 'Desbloquear' : 'Bloquear'}
                 </button>
                 <button className="dc-btn" onClick={() => useSimStore.getState().duplicateComponents([selectedComponent.id])}><IconCopy size={12} /> Duplicar</button>
-                <button className="dc-btn-danger dc-btn" onClick={() => {
+                <button className="dc-btn-danger dc-btn" onClick={async () => {
                   const linked = wires.filter((wire) => selectedComponent.terminals.some((terminal) => wire.fromTerminalId === terminal.id || wire.toTerminalId === terminal.id)).length
-                  if (linked && !window.confirm(`Eliminar ${selectedComponent.ref} e ${linked} cabo(s) ligado(s)?`)) return
+                  if (linked && !await uiConfirm(`Eliminar ${selectedComponent.ref} e ${linked} cabo(s) ligado(s)?`)) return
                   useSimStore.getState().deleteComponents([selectedComponent.id])
                 }}><IconDelete size={12} /> Eliminar</button>
               </div>
@@ -603,9 +604,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                           useSimStore.getState().openViewOrientationEditor(selectedComponent.id, 'terminals')
                           useSimStore.getState().setViewActiveTerminal(t.id)
                         }}>Editar</button>
-                        <button className="dc-icon-btn !text-state-error !border-transparent hover:!bg-state-errorbg" title="Remover borne" onClick={() => {
+                        <button className="dc-icon-btn !text-state-error !border-transparent hover:!bg-state-errorbg" title="Remover borne" onClick={async () => {
                           const linked = wires.filter((wire) => wire.fromTerminalId === t.id || wire.toTerminalId === t.id).length
-                          if (linked && !window.confirm(`Remover o borne ${t.label} e ${linked} cabo(s) ligado(s)?`)) return
+                          if (linked && !await uiConfirm(`Remover o borne ${t.label} e ${linked} cabo(s) ligado(s)?`)) return
                           useSimStore.getState().deleteTerminal(t.id)
                         }}><IconClose size={11} /></button>
                       </div>

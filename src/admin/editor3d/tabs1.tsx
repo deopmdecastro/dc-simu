@@ -1,3 +1,4 @@
+import { uiAlert } from '../../ui/dialogs'
 import { useMemo } from 'react'
 import { newId, defaultMaterial, posedPart, boundsMm } from '../../catalog/definition'
 import type { MaterialDef, PartDef, Vec3 } from '../../catalog/types'
@@ -114,8 +115,8 @@ export function MaterialsTab() {
 
   async function texture(field: 'map' | 'normalMap', file: File | undefined) {
     if (!file || !material) return
-    if (!file.type.startsWith('image/')) return window.alert('Escolha uma imagem (PNG ou JPG).')
-    if (file.size > TEXTURE_LIMIT) return window.alert('A textura excede 700 KB. Reduza a resolução (ex.: 512×512).')
+    if (!file.type.startsWith('image/')) return await uiAlert('Escolha uma imagem (PNG ou JPG).')
+    if (file.size > TEXTURE_LIMIT) return await uiAlert('A textura excede 700 KB. Reduza a resolução (ex.: 512×512).')
     const data = await readDataUrl(file)
     const assetId = newId('a_')
     edit((state) => ({ ...patchMaterial(state, material.id, { [field]: assetId }), assets: { ...state.assets, [assetId]: { name: file.name, mime: file.type, data } } }))
@@ -152,7 +153,7 @@ export function MaterialsTab() {
           {part && part.kind !== 'group' && part.kind !== 'glb' && <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => edit((state) => patchPart(state, part.id, { materialId: material.id }))}>Aplicar a «{part.name}»</button>}
           <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { const copy = { ...material, id: newId('m_'), name: `${material.name} (cópia)` }; edit((state) => ({ ...state, materials: [...state.materials, copy] })); choose(copy.id) }}>Duplicar</button>
           <Confirm label="Eliminar" className="dx-btn dx-btn-danger dx-btn-sm" title={usage ? `Usado em ${usage} peça(s): passam ao material predefinido` : undefined}
-            onConfirm={() => { if (def.materials.length <= 1) return window.alert('Tem de existir pelo menos um material.'); edit((state) => ({ ...state, materials: state.materials.filter((item) => item.id !== material.id), parts: state.parts.map((item) => item.materialId === material.id ? { ...item, materialId: state.materials.find((other) => other.id !== material.id)?.id ?? null } : item) })) }} />
+            onConfirm={async () => { if (def.materials.length <= 1) return await uiAlert('Tem de existir pelo menos um material.'); edit((state) => ({ ...state, materials: state.materials.filter((item) => item.id !== material.id), parts: state.parts.map((item) => item.materialId === material.id ? { ...item, materialId: state.materials.find((other) => other.id !== material.id)?.id ?? null } : item) })) }} />
         </div>
         {usage > 0 && <p className="ce-hint">Usado em {usage} peça(s).</p>}
       </Section>

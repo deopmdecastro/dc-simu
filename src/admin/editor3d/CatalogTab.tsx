@@ -1,3 +1,4 @@
+import { uiConfirm } from '../../ui/dialogs'
 import Select from '../../ui/Select'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -101,7 +102,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     catch (value) { onError(value instanceof Error ? value.message : 'Falha ao arquivar') }
   }
   async function remove(entry: CatalogEntry) {
-    if (!window.confirm(`Eliminar o rascunho «${entry.meta.name}»?`)) return
+    if (!await uiConfirm(`Eliminar o rascunho «${entry.meta.name}»?`)) return
     try { await catalogApi.remove(entry.id); await reload() } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao eliminar') }
   }
 
@@ -118,7 +119,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     setBackupBusy(true)
     try {
       const backup = parseComponentCatalogBackup(await file.text())
-      const result = await restoreComponentCatalogBackup(backup, (entry) => window.confirm(`O componente «${entry.meta.name}» já existe. Substituir o rascunho atual pelo backup? As versões publicadas existentes serão preservadas.`))
+      const result = await restoreComponentCatalogBackup(backup, async (entry) => await uiConfirm(`O componente «${entry.meta.name}» já existe. Substituir o rascunho atual pelo backup? As versões publicadas existentes serão preservadas.`))
       await useCatalogStore.getState().load()
       await reload()
       onNotice(`Backup recuperado: ${result.restored} componente(s); ${result.skipped} ignorado(s).`)

@@ -1,3 +1,4 @@
+import { uiPrompt } from '../ui/dialogs'
 import Select from '../ui/Select'
 import { useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -80,8 +81,8 @@ export default function CatalogInspector({ component }: { component: ElectricalC
           {states.map((state) => <option key={state.id} value={state.id}>{state.name}</option>)}
         </Select>
       </div>}
-      <button className="dc-btn" title="Cria uma cópia fixa nesta versão, independente do componente oficial" onClick={() => {
-        const name = window.prompt('Nome da cópia independente', `${component.label} (cópia)`)
+      <button className="dc-btn" title="Cria uma cópia fixa nesta versão, independente do componente oficial" onClick={async () => {
+        const name = await uiPrompt('Nome da cópia independente', `${component.label} (cópia)`)
         if (name !== null) duplicateAsIndependent(component.id, name)
       }}>Duplicar como independente</button>
     </div>

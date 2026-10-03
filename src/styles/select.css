@@ -42,3 +42,41 @@
   .dcx-select { min-height: 34px; }
   .dcx-select-item { min-height: 40px; font-size: 13px; }
 }
+
+/* --------------------------------------------------------------------------
+   Caixas de diálogo da plataforma (substituem alert/confirm/prompt nativos)
+   -------------------------------------------------------------------------- */
+.dcx-dialog-backdrop {
+  position: fixed; inset: 0; z-index: 2147483100;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: #0f172a66; backdrop-filter: blur(2px);
+}
+.dcx-dialog {
+  width: min(420px, 100%); display: flex; flex-direction: column; gap: 9px;
+  padding: 18px 18px 15px; border: 1px solid #d7dee8; border-radius: 14px;
+  background: #fff; color: #27344b; box-shadow: 0 24px 60px #0f172a45;
+  animation: dcx-dialog-in .14s ease-out;
+}
+@keyframes dcx-dialog-in { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+.dcx-dialog h2 { margin: 0; font-size: 15px; font-weight: 750; color: #1b2a44; }
+.dcx-dialog p { margin: 0; font-size: 12.5px; line-height: 1.5; color: #4b5b72; white-space: pre-line; }
+.dcx-dialog-input {
+  width: 100%; min-height: 38px; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+  font: inherit; font-size: 13px; color: #1b2a44; background: #f8fafc;
+}
+.dcx-dialog-input:focus { outline: none; border-color: #2563eb; background: #fff; box-shadow: 0 0 0 3px #2563eb22; }
+.dcx-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.dcx-dialog-btn {
+  min-height: 38px; padding: 0 16px; border: 1px solid #d7dee8; border-radius: 8px;
+  background: #fff; color: #4b5b72; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
+}
+.dcx-dialog-btn:hover { border-color: #9bb7f6; background: #f3f7ff; color: #1f55e0; }
+.dcx-dialog-btn.is-primary { border-color: #2563eb; background: #2563eb; color: #fff; }
+.dcx-dialog-btn.is-primary:hover { background: #1d4ed8; }
+.dcx-dialog-btn.is-primary.is-danger { border-color: #dc2626; background: #dc2626; }
+.dcx-dialog-btn.is-primary.is-danger:hover { background: #b91c1c; }
+@media (max-width: 560px) {
+  .dcx-dialog-backdrop { align-items: flex-end; padding: 10px; }
+  .dcx-dialog { padding: 15px 14px calc(14px + env(safe-area-inset-bottom)); border-radius: 15px; }
+  .dcx-dialog-actions .dcx-dialog-btn { flex: 1 1 0; min-height: 42px; }
+}

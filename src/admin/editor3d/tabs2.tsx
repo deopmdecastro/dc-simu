@@ -1,3 +1,4 @@
+import { uiAlert } from '../../ui/dialogs'
 import { useMemo, useRef, useState } from 'react'
 import { newId, resolveState } from '../../catalog/definition'
 import type { ActionDef, InteractionDef, LightZoneDef, StateDef, TerminalDef, TriggerName, Vec3 } from '../../catalog/types'
@@ -278,8 +279,8 @@ export function StatesTab() {
         <div className="ce-actions">
           <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => addState(current)}>Duplicar</button>
           <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => set({ mode: 'simulate', previewState: current.id })}>Pré-visualizar</button>
-          <Confirm label="Eliminar" className="dx-btn dx-btn-danger dx-btn-sm" onConfirm={() => {
-            if (def.states.length <= 1) return window.alert('Tem de existir pelo menos um estado.')
+          <Confirm label="Eliminar" className="dx-btn dx-btn-danger dx-btn-sm" onConfirm={async () => {
+            if (def.states.length <= 1) return await uiAlert('Tem de existir pelo menos um estado.')
             const remaining = def.states.filter((item) => item.id !== current.id)
             const fallback = remaining[0].id
             const fix = (id: string) => (id === current.id ? fallback : id)

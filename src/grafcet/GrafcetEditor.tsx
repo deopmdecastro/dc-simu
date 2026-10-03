@@ -1,3 +1,4 @@
+import { uiConfirm } from '../ui/dialogs'
 import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
 import { isSmallScreen } from '../ui/cleanMode'
 import { useSimStore } from '../store/useSimStore'
@@ -122,11 +123,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     setTab('transitions')
     notify('Transição eliminada · Ctrl+Z repõe')
   }
-  const requestDelete = () => {
+  const requestDelete = async () => {
     if (selectedStep) {
-      const linked = transitions.filter((transition) => transition.from.includes(selectedStep.id) || transition.to.includes(selectedStep.id)).length
-      if (window.confirm(`Eliminar a etapa ${steps.indexOf(selectedStep)} «${selectedStep.name}»${linked ? ` e ${linked} transição(ões) ligada(s)` : ''}?`)) removeStep(selectedStep.id)
-    } else if (selectedTransition && window.confirm(`Eliminar a transição T${transitions.indexOf(selectedTransition) + 1}?`)) removeTransition(selectedTransition.id)
+      const linked = transitions.filter(async (transition) => transition.from.includes(selectedStep.id) || transition.to.includes(selectedStep.id)).length
+      if (await uiConfirm(`Eliminar a etapa ${steps.indexOf(selectedStep)} «${selectedStep.name}»${linked ? ` e ${linked} transição(ões) ligada(s)` : ''}?`)) removeStep(selectedStep.id)
+    } else if (selectedTransition && await uiConfirm(`Eliminar a transição T${transitions.indexOf(selectedTransition) + 1}?`)) removeTransition(selectedTransition.id)
   }
   const duplicateSelected = () => {
     if (selectedStep) {

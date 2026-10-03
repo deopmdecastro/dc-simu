@@ -1,3 +1,4 @@
+import { uiConfirm } from '../ui/dialogs'
 import { useEffect, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { listProjects, type ProjectMeta } from '../utils/persistence'
@@ -77,14 +78,14 @@ export default function ProjectsPanel() {
     refresh()
   }
 
-  const load = (n: string) => {
-    if (dirty && n !== currentProjectName && !window.confirm(`Abrir "${n}" e descartar alterações não guardadas?`)) return
+  const load = async (n: string) => {
+    if (dirty && n !== currentProjectName && !await uiConfirm(`Abrir "${n}" e descartar alterações não guardadas?`)) return
     useSimStore.getState().loadProjectByName(n)
     setOpen(false)
   }
 
-  const remove = (n: string) => {
-    if (!window.confirm(`Eliminar o projeto guardado "${n}"? Esta ação não pode ser desfeita.`)) return
+  const remove = async (n: string) => {
+    if (!await uiConfirm(`Eliminar o projeto guardado "${n}"? Esta ação não pode ser desfeita.`)) return
     useSimStore.getState().deleteProjectByName(n)
     refresh()
   }

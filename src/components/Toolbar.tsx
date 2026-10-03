@@ -1,3 +1,4 @@
+import { uiConfirm } from '../ui/dialogs'
 import Select from '../ui/Select'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -154,10 +155,10 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
   const downloadBOM = () => saveBlob('\uFEFF' + bomToCSV(buildBOM(components), wires), 'text/csv;charset=utf-8', `dc-simu-${fileSlug}-bom.csv`)
   const download = () => saveBlob(saveJSON(), 'application/json', `dc-simu-${fileSlug}.json`)
 
-  const upload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (dirty && !window.confirm('Abrir este arquivo e descartar alterações não guardadas?')) {
+    if (dirty && !await uiConfirm('Abrir este arquivo e descartar alterações não guardadas?')) {
       e.target.value = ''
       return
     }

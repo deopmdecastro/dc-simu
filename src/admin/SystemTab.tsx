@@ -1,3 +1,4 @@
+import { uiConfirm } from '../ui/dialogs'
 import { useCallback, useEffect, useState } from 'react'
 import { formatBytes, formatDate } from '../contrib/ContribParts'
 import { adminApi, downloadText } from './adminApi'
@@ -50,7 +51,7 @@ export default function SystemTab({ onError }: { onError: (message: string) => v
     <div className="cb-actions">
       <button className="dx-btn dx-btn-secondary" onClick={() => void exportData()}>Exportar dados (JSON)</button>
       <button className="dx-btn dx-btn-secondary" onClick={() => void load()}>Atualizar</button>
-      <button className="dx-btn dx-btn-secondary" onClick={() => { if (window.confirm('Limpar as caches deste navegador e recarregar a última versão? Os projetos e a sessão não são apagados.')) void hardRefresh() }}>Limpar cache e recarregar</button>
+      <button className="dx-btn dx-btn-secondary" onClick={async () => { if (await uiConfirm('Limpar as caches deste navegador e recarregar a última versão? Os projetos e a sessão não são apagados.')) void hardRefresh() }}>Limpar cache e recarregar</button>
     </div>
     <div className="dx-admin-table"><div><span><strong>Versão carregada neste navegador</strong> · limpeza automática de caches a cada commit</span><span className="dx-chip">{String(__APP_BUILD_ID__).slice(0, 7)}…{String(__APP_BUILD_ID__).split('.').slice(-2).join('.')}</span></div></div>
     <p className="cb-note">A exportação inclui contas, projetos (metadados), contribuições, definições de componentes e registos. Não inclui palavras-passe nem o conteúdo dos projetos ou dos ficheiros. Para uma cópia de segurança completa guarde a pasta de dados do servidor (<code>DATA_DIR</code>).</p>

@@ -1,3 +1,4 @@
+import { uiConfirm } from '../../ui/dialogs'
 import Select from '../../ui/Select'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
@@ -476,8 +477,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     return accepted ? flush() : false
   }), [persist])
 
-  const leave = useCallback((text?: string) => {
-    if (!text && useEditorStore.getState().dirty && !window.confirm('Há alterações por guardar. Sair mesmo assim?')) return
+  const leave = useCallback(async (text?: string) => {
+    if (!text && useEditorStore.getState().dirty && !await uiConfirm('Há alterações por guardar. Sair mesmo assim?')) return
     useEditorStore.setState({ entry: null })
     onClose(text)
   }, [onClose])

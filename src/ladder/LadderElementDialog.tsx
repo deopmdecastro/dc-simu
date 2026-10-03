@@ -1,3 +1,4 @@
+import { uiConfirm } from '../ui/dialogs'
 import Select from '../ui/Select'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -185,8 +186,8 @@ export default function LadderElementDialog({
     onClose()
   }
 
-  const remove = () => {
-    if (!window.confirm(`Eliminar ${titleFor(draft.kind).toLocaleLowerCase('pt-PT')} desta network?`)) return
+  const remove = async () => {
+    if (!await uiConfirm(`Eliminar ${titleFor(draft.kind).toLocaleLowerCase('pt-PT')} desta network?`)) return
     const state = useSimStore.getState()
     state.updateRung(rung.id, (current) => {
       if (selection.type === 'contact') return { ...current, branches: current.branches.map((branch) => branch.id === selection.branchId ? { ...branch, elements: branch.elements.filter((element) => element.id !== selection.elementId) } : branch) }

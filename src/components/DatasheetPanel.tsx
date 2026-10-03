@@ -1,3 +1,4 @@
+import { uiConfirm } from '../ui/dialogs'
 import { useEffect, useRef, useState } from 'react'
 import type { ComponentType } from '../types'
 import { getDatasheet, removeDatasheet, saveDatasheet, type Datasheet } from '../utils/datasheets'
@@ -103,9 +104,9 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
         <span className="font-medium break-all" title={entry.name}>{entry.name}</span>
         <div className="flex flex-wrap gap-1">
           <button type="button" className="dc-btn" onClick={() => openFile(false)}>Ver PDF ↗</button>
-          <button type="button" className="dc-btn" onClick={() => openFile(true)}>↓ Descarregar</button>
+          <button type="button" className="dc-btn" onClick={async () => openFile(true)}>↓ Descarregar</button>
           <button type="button" className="dc-btn dc-btn-danger" onClick={async () => {
-            if (!window.confirm(`Remover a ficha «${entry.name}» deste navegador?`)) return
+            if (!await uiConfirm(`Remover a ficha «${entry.name}» deste navegador?`)) return
             try { await removeDatasheet(type); setEntry(undefined); setError('') }
             catch { setError('Não foi possível remover o PDF.') }
           }}>Remover</button>

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import Account from './account'
 import { startCatalogAutoUpdate } from './catalog/autoUpdate'
 import UpdatePrompt from './components/UpdatePrompt'
+import DialogHost from './ui/dialogs'
 import './index.css'
 import './styles/schematic-editor.css'
 import './styles/panel3d-editor.css'
@@ -27,6 +28,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Account />
       <UpdatePrompt />
+      <DialogHost />
     </BrowserRouter>
   </React.StrictMode>,
 )

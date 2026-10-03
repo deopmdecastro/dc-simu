@@ -1,3 +1,4 @@
+import { uiConfirm, uiPrompt } from '../ui/dialogs'
 import Select from '../ui/Select'
 import LadderSections, { type LadderSection } from './LadderSections'
 import { isSmallScreen } from '../ui/cleanMode'
@@ -162,8 +163,8 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
   const collapsed = collapsedProp ?? localCollapsed
   const toggleCollapsed = () => (onToggleCollapse ? onToggleCollapse() : setLocalCollapsed((v) => !v))
   const confirmDelete = useLadderPrefs((p) => p.confirmDelete)
-  const requestDelete = () => {
-    if (confirmDelete && !window.confirm(`Eliminar a network ${index + 1}${rung.name ? ` («${rung.name}»)` : ''}? Pode repô-la com Ctrl+Z.`)) return
+  const requestDelete = async () => {
+    if (confirmDelete && !await uiConfirm(`Eliminar a network ${index + 1}${rung.name ? ` («${rung.name}»)` : ''}? Pode repô-la com Ctrl+Z.`)) return
     deleteRung(rung.id)
   }
   const contactCount = rung.branches.reduce((n, b) => n + b.elements.length, 0)
@@ -800,7 +801,7 @@ function ProjectFileView({ file, table, onDelete }: { file: ProjectFile; table: 
     </div>
     {file.folder === 'backups' ? <>
       <p className="text-xs text-ink-500">Cópia do projeto no momento da criação. A restauração substitui o projeto atual; exporte o atual antes, se necessário.</p>
-      <button type="button" className="dc-btn-primary dc-btn self-start" onClick={() => { if (window.confirm(`Restaurar o backup «${file.name}»? O projeto atual será substituído.`)) restore(file.id) }}>Restaurar backup</button>
+      <button type="button" className="dc-btn-primary dc-btn self-start" onClick={async () => { if (await uiConfirm(`Restaurar o backup «${file.name}»? O projeto atual será substituído.`)) restore(file.id) }}>Restaurar backup</button>
     </> : <>
       <label htmlFor="ladder-file-content" className="text-xs font-semibold">{file.folder === 'watchTables' ? 'Endereços a observar (um por linha)' : 'Conteúdo do ficheiro'}</label>
       <textarea id="ladder-file-content" className="dc-input !h-44 !p-2 font-mono text-xs resize-y" value={file.content} onChange={(e) => update(file.id, { content: e.target.value })} placeholder={file.folder === 'watchTables' ? 'I1\nQ1\nM1' : 'Escreva aqui…'} />
@@ -999,12 +1000,12 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     st.redo(); notify('Refeito')
   }, [notify])
 
-  const removeActiveRung = useCallback(() => {
+  const removeActiveRung = useCallback(async () => {
     const st = useSimStore.getState()
     const list = st.ladder.rungs
     const idx = list.findIndex((r) => r.id === activeId)
     if (idx < 0) return
-    if (useLadderPrefs.getState().confirmDelete && !window.confirm(`Eliminar a network ${idx + 1}? Pode repô-la com Ctrl+Z.`)) return
+    if (useLadderPrefs.getState().confirmDelete && !await uiConfirm(`Eliminar a network ${idx + 1}? Pode repô-la com Ctrl+Z.`)) return
     const neighbour = list[idx + 1] ?? list[idx - 1]
     st.deleteRung(list[idx].id)
     setActiveRungId(neighbour?.id ?? null)
@@ -1115,27 +1116,27 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     panView: (dx, dy) => mainPaneRef.current?.scrollBy({ left: dx, top: dy, behavior: 'auto' }),
   }, { enabled: !helpOpen })
 
-  const createFile = (folder: ProjectFolder) => {
+  const createFile = async (folder: ProjectFolder) => {
     const suggested = folder === 'programBlocks' ? 'FC' : folder === 'dataBlocks' ? 'DB' : folder === 'watchTables' ? 'Observação' : folder === 'backups' ? 'Backup' : 'Novo ficheiro'
-    const name = window.prompt('Nome do novo item:', `${suggested} ${(files.filter((f) => f.folder === folder).length + 1)}`)?.trim()
+    const name = (await uiPrompt('Nome do novo item:', `${suggested} ${(files.filter((f) => f.folder === folder).length + 1)}`))?.trim()
     if (!name) return
     const id = useSimStore.getState().addProjectFile(folder, name)
     if (id) { setProgramTab('program'); setActiveProjectNode(`file:${id}`); setExpandedNodes((prev) => new Set([...prev, folder])) }
   }
-  const renameFile = (file: ProjectFile) => {
-    const name = window.prompt('Novo nome do item:', file.name)?.trim()
+  const renameFile = async (file: ProjectFile) => {
+    const name = (await uiPrompt('Novo nome do item:', file.name))?.trim()
     if (!name || name === file.name) return
     useSimStore.getState().updateProjectFile(file.id, { name })
   }
-  const deleteFile = (file: ProjectFile) => {
-    if (!window.confirm(`Eliminar «${file.name}»? Esta ação remove o item do projeto.`)) return
+  const deleteFile = async (file: ProjectFile) => {
+    if (!await uiConfirm(`Eliminar «${file.name}»? Esta ação remove o item do projeto.`)) return
     useSimStore.getState().deleteProjectFile(file.id)
     if (activeProjectNode === `file:${file.id}`) setActiveProjectNode(file.folder)
   }
-  const deleteFolder = (folder: ProjectFolder) => {
+  const deleteFolder = async (folder: ProjectFolder) => {
     const count = files.filter((file) => file.folder === folder).length
     const suffix = count ? ` e ${count} ${count === 1 ? 'item' : 'itens'} no seu interior` : ''
-    if (!window.confirm(`Eliminar a pasta «${NODE_TITLES[folder]}»${suffix}? Poderá restaurar a pasta vazia no menu “＋ Pasta”.`)) return
+    if (!await uiConfirm(`Eliminar a pasta «${NODE_TITLES[folder]}»${suffix}? Poderá restaurar a pasta vazia no menu “＋ Pasta”.`)) return
     useSimStore.getState().deleteProjectFolder(folder)
     if (activeProjectNode === folder || selectedFile?.folder === folder) setActiveProjectNode('main')
   }
