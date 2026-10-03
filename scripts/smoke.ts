@@ -882,8 +882,14 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     && Math.abs(physicalRoundTrip.y - (terminal.position3D?.y ?? 1 - terminal.y)) < 1e-9)
   const endpointComponent = { ...component, viewOrientation: { x: 0, y: 90, z: 0 }, view3DScale: { x: 2, y: 0.5, z: 1.5 } }
   const endpoint = terminalWorld3D(endpointComponent, terminal, new THREE.Vector3(3, 4, 5))
-  check('endpoint físico do cabo acompanha escala, rotação e pivô da instância', Math.abs(endpoint.x - (3 + physicalDimensions.z * 0.75)) < 1e-9
-    && Math.abs(endpoint.y - (4 + ((terminal.position3D?.y ?? 1 - terminal.y) - 0.5) * physicalDimensions.y * 0.5)) < 1e-9 && Math.abs(endpoint.z - 5) < 1e-9)
+  const terminalX = terminal.position3D?.x ?? terminal.x
+  const terminalY = terminal.position3D?.y ?? 1 - terminal.y
+  const terminalZ = terminal.position3D?.z ?? 1 // frente, quando o borne não tem profundidade calibrada
+  // y=90°: o eixo Z local passa a X e o X local passa a −Z.
+  check('endpoint físico do cabo acompanha escala, rotação e pivô da instância',
+    Math.abs(endpoint.x - (3 + (terminalZ - 0.5) * physicalDimensions.z * 1.5)) < 1e-9
+    && Math.abs(endpoint.y - (4 + (terminalY - 0.5) * physicalDimensions.y * 0.5)) < 1e-9
+    && Math.abs(endpoint.z - (5 - (terminalX - 0.5) * physicalDimensions.x * 2)) < 1e-9)
 
   const before = useSimStore.getState().components
   const beforeWires = useSimStore.getState().wires

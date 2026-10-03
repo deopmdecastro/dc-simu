@@ -12,6 +12,7 @@
 // ============================================================================
 
 import { hiddenCatalogTypes } from '../catalog/hidden'
+import { REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
 import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
 import { nanoid } from 'nanoid'
@@ -84,6 +85,7 @@ const KIND_TYPE: Record<TerminalKind, TerminalType> = {
 }
 
 const T = (label: string, kind: TerminalKind, x: number, y: number, extra: Partial<TerminalTemplate> = {}): TerminalTemplate => ({
+  ...extra,
   label,
   kind,
   x,
@@ -187,12 +189,12 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 16 },
   },
   breakerWegMdwC10: {
-    category: 'protection', paletteName: 'Disjuntor WEG MDW-C10 · 1P 10 A curva C', group: 'Proteção', tag: 'QF', w: 72, h: 118,
+    category: 'protection', paletteName: 'Disjuntor WEG MDW-C10-3 · 3P 10 A curva C', group: 'Proteção', tag: 'QF', w: 72, h: 118,
     terminals: [
       T('1', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
       T('2', 'power-out', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
     ],
-    defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 10, ue: '440 Vac / 250 Vdc', code: '10076405' },
+    defaultState: { closed: true, tripped: false, poles: 3, curve: 'C', inA: 10, ue: '440 Vac / 250 Vdc', code: '10076409' },
   },
   breaker2p: {
     category: 'protection', paletteName: 'Disjuntor bipolar', group: 'Proteção', tag: 'QF', w: 90, h: 110,
@@ -732,6 +734,37 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { selector: 'off', hold: false, backlight: false, relative: false },
   },
 }
+
+/* ---------------------------------------------------------------------------
+   Interfaces reais dos modelos 3D (ver src/electrical/realInterfaces.ts).
+
+   As posições medidas no GLB passam a ser o valor por omissão GLOBAL: todos os
+   componentes nascem com os bornes dentro dos encaixes verdadeiros do aparelho,
+   tanto na Visualização 3D como no Esquema. Um borne já existente mantém o
+   rótulo, o tipo e a identidade (os cabos ligados não se perdem); os que o
+   aparelho tem a mais são criados.
+--------------------------------------------------------------------------- */
+function applyRealInterfaces() {
+  for (const [type, spots] of Object.entries(REAL_TERMINALS) as Array<[ComponentType, RealTerminalSpot[]]>) {
+    const template = TEMPLATES[type]
+    if (!template || !spots?.length) continue
+    const previous = template.terminals
+    template.terminals = spots.map((spot) => {
+      const existing = previous.find((item) => item.label.toLocaleUpperCase() === spot.label.toLocaleUpperCase())
+      const schematicY = spot.face === 'top' ? 0 : spot.face === 'bottom' ? 1 : spot.y
+      const kind: TerminalKind = existing?.kind
+        ?? (spot.face === 'top' ? 'power-in' : spot.face === 'bottom' ? 'power-out' : 'io')
+      return T(existing?.label ?? spot.label, kind, spot.x, schematicY, {
+        ...existing,
+        position3D: { x: spot.x, y: spot.y, z: spot.z },
+        diameter: spot.diameterMm ?? existing?.diameter,
+        terminalType: existing?.terminalType ?? (spot.face === 'front' || spot.face === 'back' ? 'screw' : 'screw'),
+      })
+    })
+  }
+}
+
+applyRealInterfaces()
 
 /**
  * Calibração conservadora dos bornes dos CAD integrados. Posições manuais já

@@ -61,7 +61,23 @@ function terminalsFor(list: TerminalTemplate[], box: THREE.Box3): TerminalDef[] 
     const round = (v: number) => Math.round(v * 100) / 100
     let position: Vec3
     let normal: Vec3
-    if (item.y <= 0.02) { position = [x, box.max.y, center.z]; normal = [0, 1, 0] }
+    if (item.position3D) {
+      // Posição real medida no próprio GLB (furo/encaixe do aparelho).
+      const p = item.position3D
+      const px = box.min.x + Math.min(1, Math.max(0, p.x)) * size.x
+      const py = box.max.y - Math.min(1, Math.max(0, p.y)) * size.y
+      const pz = box.min.z + Math.min(1, Math.max(0, p.z)) * size.z
+      // A face é a coordenada que está encostada à caixa envolvente.
+      const margin = 0.02
+      if (p.y <= margin) { position = [px, box.max.y, pz]; normal = [0, 1, 0] }
+      else if (p.y >= 1 - margin) { position = [px, box.min.y, pz]; normal = [0, -1, 0] }
+      else if (p.z >= 1 - margin) { position = [px, py, box.max.z]; normal = [0, 0, 1] }
+      else if (p.z <= margin) { position = [px, py, box.min.z]; normal = [0, 0, -1] }
+      else if (p.x >= 1 - margin) { position = [box.max.x, py, pz]; normal = [1, 0, 0] }
+      else if (p.x <= margin) { position = [box.min.x, py, pz]; normal = [-1, 0, 0] }
+      else { position = [px, py, box.max.z]; normal = [0, 0, 1] }
+    }
+    else if (item.y <= 0.02) { position = [x, box.max.y, center.z]; normal = [0, 1, 0] }
     else if (item.y >= 0.98) { position = [x, box.min.y, center.z]; normal = [0, -1, 0] }
     else { position = [x, box.max.y - item.y * size.y, box.max.z]; normal = [0, 0, 1] }
     const polarity = inferred.polarity
@@ -70,6 +86,7 @@ function terminalsFor(list: TerminalTemplate[], box: THREE.Box3): TerminalDef[] 
       id: item.defId ?? newId('t_'), label, name: item.displayName ?? (label === item.label ? label : item.label), position: [round(position[0]), round(position[1]), round(position[2])], normal,
       kind: item.kind, terminalType: item.terminalType ?? 'screw', polarity, electricalClass: item.electricalClass ?? inferred.electricalClass, direction,
       accepts: item.rules?.accepts ?? '', color: item.color ?? inferred.color ?? '#cbd5e1', fn: item.label, contact: inferred.contact,
+      ...(item.diameter ? { diameterMm: item.diameter } : {}),
     }
   })
 }
