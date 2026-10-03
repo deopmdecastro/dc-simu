@@ -832,8 +832,33 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
     return obj
   }, [scene, spec])
   const pressed = !!c.state.pressed
-  const actuator = useMemo(() => model.getObjectByName(c.type === 'emergencyButtonKeyP20ACR' ? 'P20ACR-R-1B-1-solid1' : 'P20AKR-1-solid1'), [model, c.type])
+  const keyOperated = c.type === 'emergencyButtonKeyP20ACR'
+  const actuator = useMemo(() => model.getObjectByName(keyOperated ? 'P20ACR-R-1B-1-solid1' : 'P20AKR-1-solid1'), [model, keyOperated])
+
+  /* Chave seletora (P20ACR): não se carrega, roda-se.
+   * A peça que roda é descoberta pela geometria — tudo o que sai à frente da
+   * caixa —, nunca pelo nome do nó, que muda de CAD para CAD. O curso é o da
+   * chave real: um quarto de volta entre as duas posições. */
+  const [keyHandle, setKeyHandle] = useState<ReturnType<typeof extractBreakerHandle>>(null)
+  useEffect(() => {
+    if (!keyOperated) { setKeyHandle(null); return }
+    const frame = model.parent
+    if (!frame) return
+    const extracted = extractBreakerHandle(model, frame)
+    setKeyHandle(extracted)
+    return () => { if (extracted) extracted.pivot.removeFromParent() }
+  }, [model, keyOperated])
+
+  const KEY_TURN_DEG = 90
   useFrame((_, delta) => {
+    if (keyOperated) {
+      if (!keyHandle) return
+      // Roda em torno do eixo do próprio botão (Z); a caixa e o bloco de contactos ficam quietos.
+      const target = (pressed ? -KEY_TURN_DEG : 0) * Math.PI / 180
+      keyHandle.pivot.rotation.z = THREE.MathUtils.damp(keyHandle.pivot.rotation.z, target, 14, delta)
+      keyHandle.pivot.updateMatrixWorld(true)
+      return
+    }
     if (!actuator) return
     actuator.userData.pushBaseZ ??= actuator.position.z
     // Move suavemente o conjunto mecânico real; o bloco de contactos fica fixo.
