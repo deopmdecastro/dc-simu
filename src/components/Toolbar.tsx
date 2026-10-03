@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useSimStore } from '../store/useSimStore'
 import type { EditorTool, WireColor, WireEndType } from '../types'
 import { buildBOM, bomToCSV } from '../utils/bom'
@@ -72,20 +73,25 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (ref.current?.contains(target)) return
+      if (document.getElementById(menuId)?.contains(target)) return
+      setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     window.addEventListener('mousedown', onDown)
+    window.addEventListener('touchstart', onDown as unknown as EventListener)
     window.addEventListener('keydown', onKey)
     window.addEventListener('resize', updatePosition)
     window.addEventListener('scroll', updatePosition, true)
     return () => {
       window.removeEventListener('mousedown', onDown)
+      window.removeEventListener('touchstart', onDown as unknown as EventListener)
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('resize', updatePosition)
       window.removeEventListener('scroll', updatePosition, true)
     }
-  }, [open])
+  }, [open, menuId])
   return (
     <div className="relative shrink-0" ref={ref}>
       <button className={`dc-btn ${open ? '!border-brand-400 !bg-brand-50 !text-brand-700' : ''}`} onClick={toggle} title={title} disabled={disabled} aria-expanded={open} aria-controls={open ? menuId : undefined}>
@@ -93,11 +99,11 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
         {label}
         <IconChevronDown size={11} className={`text-ink-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && pos && (
+      {open && pos && createPortal((
         <div id={menuId} className="tb-menu !fixed !mt-0" style={{ top: pos.top, left: pos.left, width: pos.width, maxWidth: 'calc(100vw - 16px)', maxHeight: pos.maxHeight, overflowY: 'auto', overscrollBehavior: 'contain' }}>
           {children(() => setOpen(false))}
         </div>
-      )}
+      ), document.body)}
     </div>
   )
 }

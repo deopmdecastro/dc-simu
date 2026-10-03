@@ -499,3 +499,18 @@
 .ce-tree.is-cards .ce-row > .ce-row-thumb, .ce-tree.is-cards .ce-row > .ce-row-kind, .ce-tree.is-cards .ce-row > .ce-row-name, .ce-tree.is-cards .ce-row > .ce-rename { grid-column:1 / -1; }
 .ce-tree.is-cards .ce-row > button.ce-icon:nth-last-of-type(2) { grid-column:1; justify-self:end; }
 .ce-tree.is-cards .ce-row > button.ce-icon:last-of-type { grid-column:2; justify-self:start; }
+
+/* Telemóvel: o cartão de confirmação (ex.: nova versão da app) fica compacto,
+   ancorado em baixo e com botões a toda a largura. */
+@media (max-width: 560px) {
+  .ce-modal.ce-modal-fixed { align-items: flex-end; padding: 10px; }
+  .ce-modal-fixed .ce-modal-card {
+    width: 100%; max-width: none; gap: 7px;
+    padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+    border-radius: 14px; max-height: 70vh;
+  }
+  .ce-modal-fixed .ce-modal-card h2 { font-size: 14px; line-height: 1.25; }
+  .ce-modal-fixed .ce-modal-card .ce-hint { font-size: 11px; line-height: 1.4; }
+  .ce-modal-fixed .ce-modal-actions { margin-top: 2px; gap: 6px; }
+  .ce-modal-fixed .ce-modal-actions .dx-btn { flex: 1 1 0; justify-content: center; min-height: 40px; }
+}
