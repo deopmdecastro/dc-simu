@@ -76,7 +76,10 @@
 .dcx-dialog-btn.is-primary.is-danger { border-color: #dc2626; background: #dc2626; }
 .dcx-dialog-btn.is-primary.is-danger:hover { background: #b91c1c; }
 @media (max-width: 560px) {
-  .dcx-dialog-backdrop { align-items: flex-end; padding: 10px; }
-  .dcx-dialog { padding: 15px 14px calc(14px + env(safe-area-inset-bottom)); border-radius: 15px; }
-  .dcx-dialog-actions .dcx-dialog-btn { flex: 1 1 0; min-height: 42px; }
+  /* Centrado e compacto, como no PC — só com tipos e botões um pouco menores. */
+  .dcx-dialog-backdrop { align-items: center; padding: 16px; }
+  .dcx-dialog { width: min(320px, 100%); gap: 8px; padding: 15px 16px; border-radius: 14px; }
+  .dcx-dialog h2 { font-size: 14px; }
+  .dcx-dialog p { font-size: 12px; }
+  .dcx-dialog-actions .dcx-dialog-btn { min-height: 36px; padding: 0 12px; font-size: 12px; }
 }
