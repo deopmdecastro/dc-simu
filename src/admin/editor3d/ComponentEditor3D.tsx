@@ -212,6 +212,19 @@ function StatusBar() {
   </footer>
 }
 
+/** Ecrã estreito/telemóvel: a barra da vista passa a um menu só. */
+function useCompactView(): boolean {
+  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px), (pointer: coarse) and (max-height: 700px)').matches)
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 720px), (pointer: coarse) and (max-height: 700px)')
+    const update = () => setCompact(query.matches)
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  return compact
+}
+
 function ViewToolbar() {
   const view = useEditorStore((s) => s.view)
   const setView = useEditorStore((s) => s.setView)
@@ -219,23 +232,63 @@ function ViewToolbar() {
   const snap = useEditorStore((s) => s.snap)
   const set = useEditorStore((s) => s.set)
   const mode = useEditorStore((s) => s.mode)
+  const compact = useCompactView()
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (event: PointerEvent) => { if (!menuRef.current?.contains(event.target as Node)) setOpen(false) }
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
+    window.addEventListener('pointerdown', close); window.addEventListener('keydown', key)
+    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', key) }
+  }, [open])
+  useEffect(() => { if (!compact) setOpen(false) }, [compact])
+
+  const scene: Array<[keyof typeof view, string, string]> = [
+    ['grid', 'Grelha', 'Grelha de pontos do fundo (como no simulador)'],
+    ['floor', 'Chão', 'Chão com escala de 10 mm'],
+    ['axes', 'Eixos', 'Eixos X/Y/Z na origem'],
+    ['terminals', 'Rótulos', 'Nomes dos bornes sobre o modelo'],
+    ['bounds', 'Caixa', 'Caixa envolvente com as dimensões reais'],
+    ['dark', 'Fundo escuro', 'Fundo escuro para peças claras'],
+  ]
+  const camera = <div className="ce-group" aria-label="Câmara">
+    {([['fit', 'Enquadrar'], ['iso', 'ISO']] as const).map(([kind, label]) => <button key={kind} className="ce-tool" onClick={() => cameraTo(kind)} title={kind === 'fit' ? 'Enquadrar o modelo (F)' : 'Vista isométrica'}>{label}</button>)}
+  </div>
+  const snapControls = mode === 'edit' && <>
+    <button className={`ce-tool${snap.on ? ' is-on' : ''}`} onClick={() => set({ snap: { ...snap, on: !snap.on } })} title="Ajuste a incrementos">Snap</button>
+    <Select className="ce-mini" value={snap.mm} onChange={(event) => set({ snap: { ...snap, mm: Number(event.target.value) } })} aria-label="Passo em mm">{[0.5, 1, 2, 5, 10].map((value) => <option key={value} value={value}>{value} mm</option>)}</Select>
+    <Select className="ce-mini" value={snap.deg} onChange={(event) => set({ snap: { ...snap, deg: Number(event.target.value) } })} aria-label="Passo angular">{[1, 5, 15, 45, 90].map((value) => <option key={value} value={value}>{value}°</option>)}</Select>
+  </>
+
+  // Telemóvel: só «Enquadrar/ISO» e um botão «Vista» que abre as opções em
+  // painel — acabou a fila apertada que deslizava por baixo do cubo.
+  if (compact) {
+    const active = scene.filter(([key]) => view[key]).length
+    return <div className="ce-viewbar is-compact" role="toolbar" aria-label="Vista 3D" ref={menuRef}>
+      {camera}
+      <div className="ce-group">
+        <button className={`ce-tool${open ? ' is-on' : ''}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>Vista{active > 0 && <b className="ce-vm-count">{active}</b>}</button>
+      </div>
+      {open && <div className="ce-viewmenu" role="dialog" aria-label="Opções da vista">
+        <div className="ce-vm-title">Cena</div>
+        <div className="ce-vm-grid">
+          {scene.map(([key, label, hint]) => <button key={key} className={`ce-vm-item${view[key] ? ' is-on' : ''}`} title={hint} onClick={() => setView({ [key]: !view[key] } as Partial<typeof view>)}>{label}</button>)}
+        </div>
+        {mode === 'edit' && <>
+          <div className="ce-vm-title">Ajuste</div>
+          <div className="ce-vm-row">{snapControls}</div>
+        </>}
+      </div>}
+    </div>
+  }
+
   return <div className="ce-viewbar" role="toolbar" aria-label="Vista 3D">
-    <div className="ce-group" aria-label="Câmara">
-      {([['fit', 'Enquadrar'], ['iso', 'ISO']] as const).map(([kind, label]) => <button key={kind} className="ce-tool" onClick={() => cameraTo(kind)} title={kind === 'fit' ? 'Enquadrar o modelo (F)' : 'Vista isométrica'}>{label}</button>)}
-    </div>
+    {camera}
     <div className="ce-group" aria-label="Cena">
-      <button className={`ce-tool${view.grid ? ' is-on' : ''}`} onClick={() => setView({ grid: !view.grid })} title="Grelha de pontos do fundo (como no simulador)">Grelha</button>
-      <button className={`ce-tool${view.floor ? ' is-on' : ''}`} onClick={() => setView({ floor: !view.floor })} title="Chão com escala de 10 mm">Chão</button>
-      <button className={`ce-tool${view.axes ? ' is-on' : ''}`} onClick={() => setView({ axes: !view.axes })}>Eixos</button>
-      <button className={`ce-tool${view.terminals ? ' is-on' : ''}`} onClick={() => setView({ terminals: !view.terminals })}>Rótulos</button>
-      <button className={`ce-tool${view.bounds ? ' is-on' : ''}`} onClick={() => setView({ bounds: !view.bounds })}>Caixa</button>
-      <button className={`ce-tool${view.dark ? ' is-on' : ''}`} onClick={() => setView({ dark: !view.dark })}>Fundo escuro</button>
+      {scene.map(([key, label, hint]) => <button key={key} className={`ce-tool${view[key] ? ' is-on' : ''}`} title={hint} onClick={() => setView({ [key]: !view[key] } as Partial<typeof view>)}>{label}</button>)}
     </div>
-    {mode === 'edit' && <div className="ce-group" aria-label="Ajuste">
-      <button className={`ce-tool${snap.on ? ' is-on' : ''}`} onClick={() => set({ snap: { ...snap, on: !snap.on } })} title="Ajuste a incrementos">Snap</button>
-      <Select className="ce-mini" value={snap.mm} onChange={(event) => set({ snap: { ...snap, mm: Number(event.target.value) } })} aria-label="Passo em mm">{[0.5, 1, 2, 5, 10].map((value) => <option key={value} value={value}>{value} mm</option>)}</Select>
-      <Select className="ce-mini" value={snap.deg} onChange={(event) => set({ snap: { ...snap, deg: Number(event.target.value) } })} aria-label="Passo angular">{[1, 5, 15, 45, 90].map((value) => <option key={value} value={value}>{value}°</option>)}</Select>
-    </div>}
+    {mode === 'edit' && <div className="ce-group" aria-label="Ajuste">{snapControls}</div>}
   </div>
 }
 

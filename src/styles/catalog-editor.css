@@ -550,7 +550,7 @@
    Telemóvel: barra da vista 3D numa só linha deslizante, sem tapar o cubo
    -------------------------------------------------------------------------- */
 @media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
-  .ce-viewbar { top:6px; left:6px; right:84px; flex-wrap:nowrap; gap:5px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; pointer-events:auto; }
+  .ce-viewbar { top:6px; left:6px; right:84px; flex-wrap:wrap; gap:5px; overflow:visible; pointer-events:none; }
   .ce-viewbar::-webkit-scrollbar { display:none; }
   .ce-viewbar > .ce-group { flex:0 0 auto; padding:2px; }
   .ce-viewbar .ce-tool { padding:4px 7px; font-size:11px; }
@@ -560,3 +560,27 @@
   .ce-field { grid-template-columns:1fr; }
   .ce-field > small { grid-column:1; }
 }
+
+/* --------------------------------------------------------------------------
+   Telemóvel: barra da vista reduzida a «Enquadrar · ISO · Vista»,
+   com as opções da cena num painel próprio (nada corta, nada desliza).
+   -------------------------------------------------------------------------- */
+.ce-viewbar.is-compact { position:absolute; display:flex; flex-wrap:wrap; gap:6px; pointer-events:none; }
+.ce-viewbar.is-compact > .ce-group { pointer-events:auto; flex:0 0 auto; padding:2px; }
+.ce-viewbar.is-compact .ce-tool { padding:5px 9px; font-size:12px; display:inline-flex; align-items:center; gap:5px; }
+.ce-vm-count { background:var(--dx-brand); color:#fff; border-radius:99px; font-size:10px; line-height:1; padding:2px 5px; font-weight:700; }
+.ce-viewmenu {
+  pointer-events:auto; position:absolute; top:calc(100% + 6px); left:0; width:min(320px, calc(100vw - 24px));
+  background:rgba(255,255,255,.98); border:1px solid var(--dx-line); border-radius:12px; padding:10px;
+  box-shadow:0 12px 32px rgba(15,23,42,.18); display:grid; gap:8px; z-index:40;
+}
+.ce-vm-title { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--dx-ink-4); font-weight:700; }
+.ce-vm-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:6px; }
+.ce-vm-item {
+  border:1px solid var(--dx-line); background:#fff; border-radius:9px; padding:9px 10px; font:inherit; font-size:13px;
+  color:var(--dx-ink-2); cursor:pointer; text-align:left; min-height:40px;
+}
+.ce-vm-item.is-on { background:var(--dx-brand-soft-2); border-color:var(--dx-brand); color:var(--dx-brand-700); font-weight:650; }
+.ce-vm-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.ce-vm-row .ce-tool { border:1px solid var(--dx-line); border-radius:9px; padding:8px 12px; min-height:40px; }
+.ce-vm-row .dcx-select, .ce-vm-row .ce-mini { min-height:40px; font-size:13px; }
