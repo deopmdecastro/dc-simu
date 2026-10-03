@@ -28,7 +28,7 @@ import { WireEnd3D } from './WireEnd3D'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorShaftFan3D from './MotorShaftFan3D'
-import { splitGeometryByTriangle } from './breakerHandle'
+import { extractBreakerHandle } from './breakerHandle'
 import { WireDrawController, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS } from '../schematic/wireEnds'
@@ -744,74 +744,36 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const active = !!(c.state.energized || c.state.powered)
   const breaker = ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(c.type)
   const breakerClosed = !!c.state.closed && !c.state.tripped
-  // Peça real do GLB que se move (nunca é acrescentada geometria por cima do equipamento).
-  const movingPart = useMemo(() => {
-    if (!breaker) return null
-    const name = c.type === 'breaker1p'
-      ? 'SB109135_ASM_1_ASM-1SB100442_S_ASM_1_ASM_1_ASM-1MANETTE_1_1_1-1-solid1'
-      : c.type === 'breaker2p' ? 'Part_8'
-        : c.type === 'breakerWegMdwC10' ? 'WEG_Handle'
-          : 'Node3'
-    const node = model.getObjectByName(name) ?? null
-    if (node) {
-      node.userData.breakerBaseRotationX ??= node.rotation.x
-      node.userData.breakerBasePositionZ ??= node.position.z
-    }
-    return node
-  }, [model, breaker, c.type])
-  // O MDW-C10 traz o manípulo azul na mesma malha da faixa frontal (e duplicada):
-  // separamos a parte que sai da caixa e damos-lhe uma charneira própria.
-  const wegHandle = useMemo(() => {
-    if (c.type !== 'breakerWegMdwC10') return null
-    const blue: THREE.Mesh[] = []
-    model.traverse((node) => {
-      const mesh = node as THREE.Mesh
-      if (mesh.isMesh && (mesh.name === 'WEG_Handle' || mesh.name === 'Node2')) blue.push(mesh)
-    })
-    const target = blue.find((mesh) => mesh.name === 'WEG_Handle') ?? blue[0]
-    if (!target) return null
-    for (const mesh of blue) if (mesh !== target) mesh.visible = false
-    const geometry = target.geometry
-    geometry.computeBoundingBox()
-    const bounds = geometry.boundingBox
-    if (!bounds) return null
-    // A frente do aparelho é +Y na malha; o manípulo é o que fica para fora dela.
-    const splitY = bounds.max.y - (bounds.max.y - bounds.min.y) * 0.11
-    const split = splitGeometryByTriangle(geometry, (point) => point.y > splitY)
-    if (!split) return null
-    target.geometry = split.fixed
-    split.moving.computeBoundingBox()
-    const movingBounds = split.moving.boundingBox
-    if (!movingBounds) return null
-    const hinge = new THREE.Vector3((movingBounds.min.x + movingBounds.max.x) / 2, splitY, (movingBounds.min.z + movingBounds.max.z) / 2)
-    split.moving.translate(-hinge.x, -hinge.y, -hinge.z)
-    const pivot = new THREE.Group()
-    pivot.name = 'dcsimu-weg-handle-pivot'
-    pivot.position.copy(hinge)
-    const handleMesh = new THREE.Mesh(split.moving, target.material)
-    handleMesh.castShadow = true
-    pivot.add(handleMesh)
-    target.parent?.add(pivot)
-    return pivot
-  }, [model, c.type])
-
-  // Curso de cada manípulo real, em graus (o ECB é um botão de curso axial).
-  const throwDeg = c.type === 'breakerWegMdwC10' ? 22 : 18
   const tripped = !!c.state.tripped
 
+  // O manípulo é descoberto pela geometria (o que sai da frente da caixa), não
+  // pelo nome do nó: cada CAD nomeia as peças à sua maneira.
+  // Só depois de montado é que o modelo tem pai (o grupo do componente), e é
+  // nesse referencial que a frente é mesmo +Z.
+  const [handle, setHandle] = useState<ReturnType<typeof extractBreakerHandle>>(null)
+  useEffect(() => {
+    if (!breaker) { setHandle(null); return }
+    const frame = model.parent
+    if (!frame) return
+    const extracted = extractBreakerHandle(model, frame)
+    setHandle(extracted)
+    return () => { if (extracted) extracted.pivot.removeFromParent() }
+  }, [model, breaker])
+  // Curso real: o ECB é um botão de pressão, os outros são alavancas.
+  const pushButton = c.type === 'phoenixEcb3000760'
+  const throwDeg = c.type === 'breakerWegMdwC10' ? 20 : 17
+
   /* Animação do disjuntor (mola, não interpolação linear):
-   *  · manobra manual  → engate rápido com um ligeiro ressalto, como o estalo real;
-   *  · disparo         → largada violenta para a posição intermédia («tripped»),
-   *                      que é onde o manípulo de um disjuntor fica depois de atuar;
-   *  · posição         → 0 desligado · 0,55 disparado · 1 ligado.
+   *  · manobra manual → engate rápido com um ligeiro ressalto, como o estalo real;
+   *  · disparo        → largada violenta para a posição intermédia de «disparado»;
+   *  · posição        → 0 desligado · 0,55 disparado · 1 ligado.
    */
   const motion = useRef({ value: breakerClosed ? 1 : 0, velocity: 0, tripped })
   useFrame((_, delta) => {
-    if (!movingPart && !wegHandle) return
+    if (!handle) return
     const target = breakerClosed ? 1 : tripped ? 0.55 : 0
     const justTripped = tripped && !motion.current.tripped
     motion.current.tripped = tripped
-    // O disparo é mecanicamente mais violento do que a manobra à mão.
     const stiffness = justTripped || tripped ? 2600 : 1400
     const zeta = justTripped ? 0.3 : 0.5
     const damping = 2 * Math.sqrt(stiffness) * zeta
@@ -827,19 +789,16 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
       motion.current.value = target
       motion.current.velocity = 0
     }
-    const mix = THREE.MathUtils.clamp(motion.current.value, -0.12, 1.12) * 2 - 1 // -1 desligado → +1 ligado
-    if (c.type === 'breakerWegMdwC10') {
-      if (wegHandle) { wegHandle.rotation.z = (-mix * throwDeg * Math.PI) / 180; wegHandle.updateMatrixWorld(true) }
-      return
-    }
-    const node = movingPart
-    if (!node) return
-    if (c.type === 'phoenixEcb3000760') {
-      node.position.z = Number(node.userData.breakerBasePositionZ) - 0.75 * (mix + 1)
+    const value = THREE.MathUtils.clamp(motion.current.value, -0.12, 1.12)
+    if (pushButton) {
+      // botão: curso axial para dentro da caixa
+      handle.pivot.position.z = handle.pivot.userData.restZ ?? (handle.pivot.userData.restZ = handle.pivot.position.z)
+      handle.pivot.position.z -= handle.protrusion * 0.45 * value
     } else {
-      node.rotation.x = Number(node.userData.breakerBaseRotationX) - (mix * throwDeg * Math.PI) / 180
+      // ligado = manípulo levantado (para o topo do aparelho)
+      handle.pivot.rotation.x = (-(value * 2 - 1) * throwDeg * Math.PI) / 180
     }
-    node.updateMatrixWorld(true)
+    handle.pivot.updateMatrixWorld(true)
   })
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
