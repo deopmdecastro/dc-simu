@@ -250,9 +250,13 @@ button.vcube-heading:hover { background:#f0f5fc; }
 .vcube-corner {
   position:absolute;
   z-index:3;
-  width:14px;
-  height:14px;
-  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:17px;
+  height:17px;
+  padding:2px;
+  color:#4a6da8;
   border:1.5px solid #9db6da;
   border-radius:6px;
   background:#fff;
@@ -522,3 +526,12 @@ button.vcube-heading:hover { background:#f0f5fc; }
 @media (max-width: 700px) {
   .component-view-editor footer { padding-bottom: calc(10px + env(safe-area-inset-bottom)); position: sticky; bottom: 0; background: #fff; z-index: 5; }
 }
+
+/* Cantos do cubo: rotação de 45° (Shift = vista isométrica do canto). */
+.vcube-corner svg { display:block; width:100%; height:100%; pointer-events:none; }
+.vcube-corner.sw svg, .vcube-corner.se svg { transform-origin:50% 50%; }
+.vcube-corner.sw svg { transform:scaleX(-1) scaleY(-1); }
+.vcube-corner.se svg { transform:scaleY(-1); }
+.vcube-corner:hover { color:#1d4ed8; }
+.vcube-floating .vcube-corner { width:15px; height:15px; border-radius:50%; border-width:1px; opacity:.85; background:#ffffffe6; padding:2px; }
+@media (hover: none) and (pointer: coarse) { .vcube-corner { width:20px; height:20px; } }

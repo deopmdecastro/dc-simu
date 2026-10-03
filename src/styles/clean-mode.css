@@ -5,9 +5,10 @@
 .vcube-floating.vcube-below-command { top: 54px; }
 .vcube-floating .vcube-stage { margin-top: -6px; }
 @media (max-width: 700px) {
-  .vcube-floating:not(.vcube-shifted):not(.vcube-below-command) { top: 0; right: 4px; }
-  .vcube-floating.vcube-below-command { top: 48px; }
-  .vcube-floating .vcube-stage { margin-top: -4px; }
+  /* Folga para a seta de cima não ficar por baixo da barra de ferramentas. */
+  .vcube-floating:not(.vcube-shifted):not(.vcube-below-command) { top: 12px; right: 4px; }
+  .vcube-floating.vcube-below-command { top: 58px; }
+  .vcube-floating .vcube-stage { margin-top: -2px; }
 }
 
 /* ---------------------------------------------------------------------------

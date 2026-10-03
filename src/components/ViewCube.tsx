@@ -27,7 +27,23 @@ const FACES: Array<{ id: FaceId; label: string; title: string }> = [
   { id: 'bottom', label: 'INF', title: 'Inferior' },
 ]
 
-const CORNERS: ViewCubeCorner[] = ['nw', 'ne', 'sw', 'se']
+/**
+ * Cantos do cubo: cada um roda a vista 45° na sua diagonal (sx/sy em passos de
+ * arrasto). Com Shift (ou clique direito) salta para a vista isométrica desse canto.
+ */
+const CORNERS: Array<{ id: ViewCubeCorner; sx: number; sy: number; title: string; flip: boolean }> = [
+  { id: 'nw', sx: -1, sy: -1, title: 'Rodar 45° para cima e para a esquerda', flip: true },
+  { id: 'ne', sx: 1, sy: -1, title: 'Rodar 45° para cima e para a direita', flip: false },
+  { id: 'sw', sx: -1, sy: 1, title: 'Rodar 45° para baixo e para a esquerda', flip: true },
+  { id: 'se', sx: 1, sy: 1, title: 'Rodar 45° para baixo e para a direita', flip: false },
+]
+
+/** Seta curva (o mesmo desenho usado nos botões de rotação). */
+function CurvedArrow({ flip }: { flip: boolean }) {
+  return <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden focusable="false" style={flip ? { transform: 'scaleX(-1)' } : undefined}>
+    <path d="M4 20c0-7.2 4.6-12 10.4-12V4.4L21 10l-6.6 5.6V12C10.6 12 7.4 15 7.4 20z" fill="currentColor" />
+  </svg>
+}
 const ARROWS: Array<{ id: 'up' | 'down' | 'left' | 'right'; glyph: string; title: string; sx: number; sy: number }> = [
   { id: 'up', glyph: '▲', title: 'Rodar para cima', sx: 0, sy: -1 },
   { id: 'right', glyph: '▶', title: 'Rodar para a direita', sx: 1, sy: 0 },
@@ -181,13 +197,20 @@ export function ViewCubeDial({
       </div>
       {CORNERS.map((corner) => <button
         type="button"
-        key={corner}
-        className={`vcube-corner ${corner}`}
-        aria-label={CORNER_ANGLES[corner].label}
-        title={CORNER_ANGLES[corner].label}
+        key={corner.id}
+        className={`vcube-corner ${corner.id}`}
+        aria-label={`${corner.title} · Shift: ${CORNER_ANGLES[corner.id].label}`}
+        title={`${corner.title}\nShift + clique: ${CORNER_ANGLES[corner.id].label}`}
         onPointerDown={(event) => event.stopPropagation()}
-        onClick={guard(() => onCorner(corner))}
-      />)}
+        onContextMenu={(event) => { event.preventDefault(); onCorner(corner.id) }}
+        onClick={(event) => {
+          event.stopPropagation()
+          if (drag.current?.moved) return
+          if (event.shiftKey) { onCorner(corner.id); return }
+          onDrag(corner.sx * arrowStep * 2, corner.sy * arrowStep * 2, false)
+          onDragEnd?.()
+        }}
+      ><CurvedArrow flip={corner.flip} /></button>)}
     </div>
     <div className="vcube-actions">
       <span className="vcube-legend" title="Eixos: X vermelho · Y verde · Z azul"><b className="x">X</b><b className="y">Y</b><b className="z">Z</b></span>
