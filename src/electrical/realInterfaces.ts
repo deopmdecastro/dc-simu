@@ -95,6 +95,140 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     { label: 'X1', face: 'back', x: 0.346, y: 0.5, z: 0.012, diameterMm: 5.8 },
     { label: 'X2', face: 'back', x: 0.654, y: 0.5, z: 0.012, diameterMm: 5.8 },
   ],
+  /**
+   * Contator WEG CWC0 9 A (código 12679840, 3 NA de força + 1 NA auxiliar).
+   * O GLB tem as dez cavidades de parafuso na face da frente, em duas filas de
+   * cinco (Ø6,5 mm). Serigrafia WEG (diagrama CWC0): fila de cima
+   * A1 · 1 · 3 · 5 · 13 e, em baixo, A2 · 2 · 4 · 6 · 14.
+   */
+  contactorWegCWC09: [
+    { label: '1L1', face: 'front', x: 0.132, y: 0.187, z: 1, diameterMm: 6.5 },
+    { label: '3L2', face: 'front', x: 0.32, y: 0.187, z: 1, diameterMm: 6.5 },
+    { label: '5L3', face: 'front', x: 0.508, y: 0.187, z: 1, diameterMm: 6.5 },
+    { label: '13', face: 'front', x: 0.695, y: 0.187, z: 1, diameterMm: 6.5 },
+    { label: 'A1', face: 'front', x: 0.883, y: 0.188, z: 1, diameterMm: 6.5 },
+    { label: '2T1', face: 'front', x: 0.132, y: 0.813, z: 1, diameterMm: 6.5 },
+    { label: '4T2', face: 'front', x: 0.32, y: 0.812, z: 1, diameterMm: 6.5 },
+    { label: '6T3', face: 'front', x: 0.508, y: 0.813, z: 1, diameterMm: 6.5 },
+    { label: '14', face: 'front', x: 0.695, y: 0.813, z: 1, diameterMm: 6.5 },
+    { label: 'A2', face: 'front', x: 0.883, y: 0.812, z: 1, diameterMm: 6.5 },
+  ],
+  /**
+   * Siemens LOGO! 12/24RC (72×90×55 mm). O GLB tem 11 parafusos na régua de
+   * cima (L+, M, I1…I8 e o terminal livre X1) e 8 na de baixo: cada saída a
+   * relé Q1…Q4 ocupa dois parafusos (contacto seco).
+   */
+  plcSiemensLogo1224RC: [
+    { label: 'L+', face: 'top', x: 0.121, y: 0, z: 0.465, diameterMm: 2.8 },
+    { label: 'M', face: 'top', x: 0.191, y: 0, z: 0.465, diameterMm: 2.8 },
+    { label: 'I1', face: 'top', x: 0.262, y: 0, z: 0.465, diameterMm: 2.8 },
+    { label: 'I2', face: 'top', x: 0.336, y: 0, z: 0.465, diameterMm: 2.5 },
+    { label: 'I3', face: 'top', x: 0.406, y: 0, z: 0.465, diameterMm: 2.5 },
+    { label: 'I4', face: 'top', x: 0.477, y: 0, z: 0.465, diameterMm: 2.5 },
+    { label: 'I5', face: 'top', x: 0.547, y: 0, z: 0.465, diameterMm: 2.5 },
+    { label: 'I6', face: 'top', x: 0.617, y: 0, z: 0.465, diameterMm: 2.5 },
+    { label: 'I7', face: 'top', x: 0.687, y: 0, z: 0.465, diameterMm: 2.5 },
+    { label: 'I8', face: 'top', x: 0.762, y: 0, z: 0.465, diameterMm: 2.8 },
+    { label: 'X1', face: 'top', x: 0.832, y: 0, z: 0.465, diameterMm: 2.8 },
+    { label: 'Q1', face: 'bottom', x: 0.148, y: 1, z: 0.461, diameterMm: 2.8 },
+    { label: 'Q1.2', face: 'bottom', x: 0.219, y: 1, z: 0.461, diameterMm: 2.8 },
+    { label: 'Q2', face: 'bottom', x: 0.355, y: 1, z: 0.461, diameterMm: 3.1 },
+    { label: 'Q2.2', face: 'bottom', x: 0.426, y: 1, z: 0.461, diameterMm: 3.1 },
+    { label: 'Q3', face: 'bottom', x: 0.562, y: 1, z: 0.461, diameterMm: 2.8 },
+    { label: 'Q3.2', face: 'bottom', x: 0.633, y: 1, z: 0.461, diameterMm: 2.8 },
+    { label: 'Q4', face: 'bottom', x: 0.766, y: 1, z: 0.461, diameterMm: 2.8 },
+    { label: 'Q4.2', face: 'bottom', x: 0.840, y: 1, z: 0.461, diameterMm: 3.1 },
+  ],
+  /**
+   * Chinfa DRAN120-24A (124,5×64×123,6 mm, ficha p. 4): entrada ⏚ · L · N na
+   * régua de baixo (três cavidades Ø8,1 mm medidas no GLB) e saída
+   * −V · +V mais o contacto RDY na régua de cima, à mesma distância da frente.
+   */
+  powerSupplyProauto24A: [
+    { label: '-V2', face: 'top', x: 0.18, y: 0, z: 0.848, diameterMm: 8.1 },
+    { label: '-V1', face: 'top', x: 0.31, y: 0, z: 0.848, diameterMm: 8.1 },
+    { label: '+V2', face: 'top', x: 0.44, y: 0, z: 0.848, diameterMm: 8.1 },
+    { label: '+V1', face: 'top', x: 0.57, y: 0, z: 0.848, diameterMm: 8.1 },
+    { label: 'RDY2', face: 'top', x: 0.70, y: 0, z: 0.848, diameterMm: 8.1 },
+    { label: 'RDY1', face: 'top', x: 0.83, y: 0, z: 0.848, diameterMm: 8.1 },
+    { label: 'PE', face: 'bottom', x: 0.352, y: 0.97, z: 0.848, diameterMm: 8.1 },
+    { label: 'L', face: 'bottom', x: 0.5, y: 0.97, z: 0.848, diameterMm: 8.1 },
+    { label: 'N', face: 'bottom', x: 0.648, y: 0.97, z: 0.848, diameterMm: 8.1 },
+  ],
+  /**
+   * Allen-Bradley Guardmaster MSR127TP (22,6 mm de largura): dois blocos
+   * amovíveis, um em cima e outro em baixo, cada um com 8 parafusos em duas
+   * colunas. Ordem da documentação MSR127 (frente → trás):
+   * cima A1 · S11 · S52 · S12 e 13 · 23 · 33 · 41; baixo A2 · S21 · S22 · S34
+   * e 14 · 24 · 34 · 42.
+   */
+  safetyRelay: [
+    { label: 'A1', face: 'top', x: 0.3, y: 0, z: 0.82, diameterMm: 4 },
+    { label: 'S11', face: 'top', x: 0.3, y: 0, z: 0.62, diameterMm: 4 },
+    { label: 'S52', face: 'top', x: 0.3, y: 0, z: 0.42, diameterMm: 4 },
+    { label: 'S12', face: 'top', x: 0.3, y: 0, z: 0.22, diameterMm: 4 },
+    { label: '13', face: 'top', x: 0.7, y: 0, z: 0.82, diameterMm: 4 },
+    { label: '23', face: 'top', x: 0.7, y: 0, z: 0.62, diameterMm: 4 },
+    { label: '33', face: 'top', x: 0.7, y: 0, z: 0.42, diameterMm: 4 },
+    { label: '41', face: 'top', x: 0.7, y: 0, z: 0.22, diameterMm: 4 },
+    { label: 'A2', face: 'bottom', x: 0.3, y: 1, z: 0.82, diameterMm: 4 },
+    { label: 'S21', face: 'bottom', x: 0.3, y: 1, z: 0.62, diameterMm: 4 },
+    { label: 'S22', face: 'bottom', x: 0.3, y: 1, z: 0.42, diameterMm: 4 },
+    { label: 'S34', face: 'bottom', x: 0.3, y: 1, z: 0.22, diameterMm: 4 },
+    { label: '14', face: 'bottom', x: 0.7, y: 1, z: 0.82, diameterMm: 4 },
+    { label: '24', face: 'bottom', x: 0.7, y: 1, z: 0.62, diameterMm: 4 },
+    { label: '34', face: 'bottom', x: 0.7, y: 1, z: 0.42, diameterMm: 4 },
+    { label: '42', face: 'bottom', x: 0.7, y: 1, z: 0.22, diameterMm: 4 },
+  ],
+  /**
+   * Siemens TS Adapter IE Basic (6ES7972-0EB00-0XA0): alimentação de 24 V por
+   * bornes na traseira (L+ / M / ⏚), RJ45 Ethernet em cima (Ø17,3 medido) e a
+   * tomada de serviço na traseira, em baixo.
+   */
+  siemensTsAdapterIeBasic: [
+    { label: 'L+', face: 'back', x: 0.5, y: 0.735, z: 0, diameterMm: 7.8 },
+    { label: 'M', face: 'back', x: 0.5, y: 0.812, z: 0, diameterMm: 7.4 },
+    { label: 'ETH', face: 'top', x: 0.541, y: 0.024, z: 0.643, diameterMm: 17.3 },
+    { label: 'SERVICE', face: 'back', x: 0.5, y: 0.334, z: 0, diameterMm: 7.2 },
+  ],
+  /**
+   * SEW DRN80MK4/B3: a caixa de bornes está na face direita do modelo. Placa
+   * padrão SEW: fila de cima W2 · U2 · V2, fila de baixo U1 · V1 · W1 e o
+   * parafuso de terra por baixo da placa.
+   */
+  motor3ph: [
+    { label: 'W2', face: 'right', x: 0.913, y: 0.445, z: 0.273, diameterMm: 4.8 },
+    { label: 'U2', face: 'right', x: 0.913, y: 0.445, z: 0.5, diameterMm: 4.8 },
+    { label: 'V2', face: 'right', x: 0.913, y: 0.445, z: 0.727, diameterMm: 4.8 },
+    { label: 'U1', face: 'right', x: 0.913, y: 0.786, z: 0.272, diameterMm: 4.8 },
+    { label: 'V1', face: 'right', x: 0.913, y: 0.786, z: 0.5, diameterMm: 4.8 },
+    { label: 'W1', face: 'right', x: 0.913, y: 0.786, z: 0.728, diameterMm: 4.8 },
+    { label: 'PE', face: 'right', x: 0.913, y: 0.953, z: 0.5, diameterMm: 3.9 },
+  ],
+  /**
+   * LS Electric XGB XBM-DN32S (82×97,5×30,2 mm): 16 entradas DC na régua de
+   * cima e 16 saídas a transístor na de baixo, mais a alimentação de 24 V.
+   * Posições distribuídas pela régua medida no GLB (passo regular).
+   */
+  plcLsXbmDn32s: [
+    { label: 'L+', face: 'top', x: 0.04, y: 0, z: 0.5, diameterMm: 3 },
+    { label: 'M', face: 'bottom', x: 0.04, y: 1, z: 0.5, diameterMm: 3 },
+    ...Array.from({ length: 16 }, (_, i) => ({ label: `I${i + 1}`, face: 'top' as const, x: 0.12 + i * (0.84 / 15), y: 0, z: 0.5, diameterMm: 3 })),
+    ...Array.from({ length: 16 }, (_, i) => ({ label: `Q${i + 1}`, face: 'bottom' as const, x: 0.12 + i * (0.84 / 15), y: 1, z: 0.5, diameterMm: 3 })),
+  ],
+  /**
+   * Phoenix Contact PTI 6 (3213972): borne de passagem push-in, uma entrada de
+   * condutor em cima e outra em baixo, ambas viradas para a frente.
+   */
+  terminalPhoenixPti6: [
+    { label: '1', face: 'front', x: 0.5, y: 0.2, z: 0.78, diameterMm: 4.2 },
+    { label: '2', face: 'front', x: 0.5, y: 0.8, z: 0.78, diameterMm: 4.2 },
+  ],
+  /** Borne de terra (mesma caixa do borne de passagem): duas entradas PE. */
+  terminalPE: [
+    { label: 'PE1', face: 'front', x: 0.5, y: 0.2, z: 0.78, diameterMm: 4.2 },
+    { label: 'PE2', face: 'front', x: 0.5, y: 0.8, z: 0.78, diameterMm: 4.2 },
+  ],
   /** Multímetro RGK DM-20: fichas banana Ø7 mm na frente (V/Ω/mA e COM). */
   multimeterDm20: [
     { label: 'COM', face: 'front', x: 0.23, y: 0.83, z: 0.886, diameterMm: 7 },

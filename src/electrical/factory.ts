@@ -754,7 +754,9 @@ function applyRealInterfaces() {
       const schematicY = spot.face === 'top' ? 0 : spot.face === 'bottom' ? 1 : spot.y
       const kind: TerminalKind = existing?.kind
         ?? (spot.face === 'top' ? 'power-in' : spot.face === 'bottom' ? 'power-out' : 'io')
-      return T(existing?.label ?? spot.label, kind, spot.x, schematicY, {
+      // O desenho 2D já está calibrado (ex.: parafusos do LOGO! sobre o PNG):
+      // a interface real só manda na posição 3D, nunca na vista de esquema.
+      return T(existing?.label ?? spot.label, kind, existing?.x ?? spot.x, existing?.y ?? schematicY, {
         ...existing,
         position3D: { x: spot.x, y: spot.y, z: spot.z },
         diameter: spot.diameterMm ?? existing?.diameter,
