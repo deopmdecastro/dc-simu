@@ -797,18 +797,42 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
 
   // Curso de cada manípulo real, em graus (o ECB é um botão de curso axial).
   const throwDeg = c.type === 'breakerWegMdwC10' ? 22 : 18
-  const progress = useRef(breakerClosed ? 1 : 0)
+  const tripped = !!c.state.tripped
+
+  /* Animação do disjuntor (mola, não interpolação linear):
+   *  · manobra manual  → engate rápido com um ligeiro ressalto, como o estalo real;
+   *  · disparo         → largada violenta para a posição intermédia («tripped»),
+   *                      que é onde o manípulo de um disjuntor fica depois de atuar;
+   *  · posição         → 0 desligado · 0,55 disparado · 1 ligado.
+   */
+  const motion = useRef({ value: breakerClosed ? 1 : 0, velocity: 0, tripped })
   useFrame((_, delta) => {
-    const node = movingPart
-    if (!node && !wegHandle) return
-    const target = breakerClosed ? 1 : 0
-    if (Math.abs(progress.current - target) < 0.001) progress.current = target
-    else progress.current += Math.sign(target - progress.current) * Math.min(Math.abs(target - progress.current), delta * 7)
-    const mix = progress.current * 2 - 1 // -1 (desligado) → +1 (ligado)
+    if (!movingPart && !wegHandle) return
+    const target = breakerClosed ? 1 : tripped ? 0.55 : 0
+    const justTripped = tripped && !motion.current.tripped
+    motion.current.tripped = tripped
+    // O disparo é mecanicamente mais violento do que a manobra à mão.
+    const stiffness = justTripped || tripped ? 2600 : 1400
+    const zeta = justTripped ? 0.3 : 0.5
+    const damping = 2 * Math.sqrt(stiffness) * zeta
+    if (justTripped) motion.current.velocity -= 6
+    const step = Math.min(delta, 1 / 45)
+    for (let iteration = 0; iteration < 3; iteration += 1) {
+      const sub = step / 3
+      const accel = (target - motion.current.value) * stiffness - motion.current.velocity * damping
+      motion.current.velocity += accel * sub
+      motion.current.value += motion.current.velocity * sub
+    }
+    if (Math.abs(target - motion.current.value) < 0.0008 && Math.abs(motion.current.velocity) < 0.02) {
+      motion.current.value = target
+      motion.current.velocity = 0
+    }
+    const mix = THREE.MathUtils.clamp(motion.current.value, -0.12, 1.12) * 2 - 1 // -1 desligado → +1 ligado
     if (c.type === 'breakerWegMdwC10') {
       if (wegHandle) { wegHandle.rotation.z = (-mix * throwDeg * Math.PI) / 180; wegHandle.updateMatrixWorld(true) }
       return
     }
+    const node = movingPart
     if (!node) return
     if (c.type === 'phoenixEcb3000760') {
       node.position.z = Number(node.userData.breakerBasePositionZ) - 0.75 * (mix + 1)
