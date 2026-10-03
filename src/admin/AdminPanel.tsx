@@ -44,7 +44,11 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
   const [openId, setOpenId] = useState<string | null>(null)
   const [creating3D, setCreating3D] = useState(false)
   const [editorOpenId, setEditorOpenId] = useState<string | null>(routeComponentId)
-  const clearEditorOpen = useCallback(() => { setEditorOpenId(null); navigate(ROUTES.adminEditor()) }, [navigate])
+  // Importante: limpar apenas o pedido de abertura. Navegar aqui criava um
+  // ping-pong com o editor (que repõe /admin/editor/<id>/<nome>): dezenas de
+  // pushState por segundo, que o Safari iOS bloqueia com SecurityError e
+  // fecha o editor. Ver bug «o editor abre e fecha logo a seguir».
+  const clearEditorOpen = useCallback(() => { setEditorOpenId(null) }, [])
   useEffect(() => {
     if (!routeEditor) return
     setTab('library3d')

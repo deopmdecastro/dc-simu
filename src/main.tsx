@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import Account from './account'
 import { startCatalogAutoUpdate } from './catalog/autoUpdate'
+import { installStaleBuildRecovery } from './utils/recoverStaleBuild'
 import UpdatePrompt from './components/UpdatePrompt'
 import DialogHost from './ui/dialogs'
 import './index.css'
@@ -21,6 +22,7 @@ import './styles/terminal-library.css'
 import './styles/clean-mode.css'
 import './styles/select.css'
 
+installStaleBuildRecovery()
 startCatalogAutoUpdate()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

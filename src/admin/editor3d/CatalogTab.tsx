@@ -15,6 +15,7 @@ import { generateCover } from './coverGen'
 import { createComponentCatalogBackup, downloadComponentCatalogBackup, parseComponentCatalogBackup, restoreComponentCatalogBackup } from '../../catalog/catalogBackup'
 import { buildBuiltinDraft, builtinComponents, builtinTypeOf, upgradeBuiltinDraft, type BuiltinInfo } from './builtinComponents'
 import ComponentEditor3D from './ComponentEditor3D'
+import CrashBoundary from '../../ui/CrashBoundary'
 
 /** Separador "Biblioteca 3D": lista os componentes oficiais e abre o editor 3D. */
 export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpened, account }: { account?: ReactNode; onNotice: (message: string) => void; onError: (message: string) => void; onCreate: () => void; openId?: string | null; onOpened?: () => void }) {
@@ -127,7 +128,14 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     finally { setBackupBusy(false); if (backupInput.current) backupInput.current.value = '' }
   }
 
-  if (editing) return createPortal(<div className="ce-overlay dx"><ComponentEditor3D account={account} id={editing} onClose={(message) => { setEditing(null); navigate(ROUTES.adminEditor()); if (message) onNotice(message); void reload() }} /></div>, document.body)
+  if (editing) {
+    const close = (message?: string) => { setEditing(null); navigate(ROUTES.adminEditor()); if (message) onNotice(message); void reload() }
+    return createPortal(<div className="ce-overlay dx">
+      <CrashBoundary title="Não foi possível abrir o editor de componentes." onClose={() => close()}>
+        <ComponentEditor3D account={account} id={editing} onClose={close} />
+      </CrashBoundary>
+    </div>, document.body)
+  }
 
   return <>
     <div className="dx-admin-section"><h2>Biblioteca de componentes 3D</h2><span>{entries ? `${visible.length + builtinVisible.length}/${entries.length + builtins.length - imported.size}` : '…'}</span></div>
