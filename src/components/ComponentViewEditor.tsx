@@ -12,7 +12,7 @@ import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL } from '../schematic/symbols'
 import { component3DDimensions, positionOnTerminalFace, terminal3DPositionOf, terminalFaceCreationPosition, type Terminal3DFace } from '../three/terminal3D'
 import TerminalFaceEditor from './TerminalFaceEditor'
 import { ViewCubeDial, orientationFacingFace, type ViewCubeCorner } from './ViewCube'
-import { IconCube, IconDelete, IconPlus, IconProbe, IconRotate, IconSave } from '../ui/icons'
+import { IconCube, IconDelete, IconEye, IconPlus, IconProbe, IconRotate, IconSave } from '../ui/icons'
 import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent, TerminalElectricalClass, TerminalKind, TerminalType } from '../types'
 import { inferTerminalElectricalClass, terminalDatasheetGuidance, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
@@ -305,10 +305,11 @@ export function ComponentEditorDock() {
   return (
     <aside className="component-editor-dock" data-collapsed={collapsed ? 'true' : 'false'} style={{ ['--dock-w' as string]: `${width}px` }} aria-label={`Painel de edição de ${component.ref}`} onPointerDown={(event) => event.stopPropagation()}>
       <div className="component-editor-resize" onPointerDown={startResize} role="separator" aria-orientation="vertical" aria-label="Redimensionar painel de edição" title="Arraste para redimensionar" />
-      <button type="button" className="component-editor-grip" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed} aria-label={collapsed ? 'Expandir painel de edição' : 'Recolher painel de edição'}><span /></button>
+      <button type="button" className="component-editor-grip" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed} aria-label={collapsed ? 'Expandir painel de edição' : 'Recolher painel de edição'}><span /><b className="component-editor-grip-label">Voltar ao editor</b></button>
       <section className="component-view-editor is-docked">
         <header>
           <div><IconCube size={16} /><span><strong>{component.ref}<b className="component-editor-version">v{componentEditorVersionOf(component)}</b>{dirty && <em className="component-editor-dirty" title="Alterações por aplicar">● por aplicar</em>}</strong><small>{component.label} · Atualizado {formatComponentUpdateDate(component.editorUpdatedAt)}</small></span></div>
+          <button type="button" className="component-editor-peek" onClick={() => setCollapsed(true)} aria-label="Ver a vista do componente" title="Ver a vista (o editor fica minimizado)"><IconEye size={14} /><span>Ver vista</span></button>
           <button type="button" onClick={requestClose} aria-label="Fechar painel de edição" title="Fechar (Esc)">×</button>
         </header>
 
@@ -317,7 +318,7 @@ export function ComponentEditorDock() {
         </nav>
 
         <div className="component-editor-body">
-          <p className="component-editor-live">Pré-visualização em direto na vista ao lado. Nada é gravado até carregar em Aplicar.</p>
+          <p className="component-editor-live">Pré-visualização em direto na vista<span className="only-wide"> ao lado</span><span className="only-narrow"> (toque em «Ver vista»)</span>. Nada é gravado até carregar em Aplicar.</p>
 
           {section === 'orientation' && <div className="component-view-section">
             <OrientationCube value={draft} onChange={setDraft} />

@@ -403,6 +403,28 @@ button.vcube-heading:hover { background:#f0f5fc; }
 }
 @media (prefers-reduced-motion:reduce) { .component-editor-dock { transition:none; } }
 
+/* Telemóvel: o editor abre em ecrã inteiro; «Ver vista» minimiza-o para ver o componente */
+.component-editor-peek, .component-editor-grip-label, .only-narrow { display:none; }
+@media (max-width:760px) {
+  .only-wide { display:none; }
+  .only-narrow { display:inline; }
+  .component-editor-dock[data-collapsed="false"] {
+    position:fixed; inset:0; z-index:200; width:100vw; height:100dvh; border:0; border-radius:0; box-shadow:none;
+  }
+  .component-editor-dock[data-collapsed="false"] .component-editor-grip { display:none; }
+  .component-editor-dock[data-collapsed="false"] .component-view-editor.is-docked > header { padding-top:calc(8px + env(safe-area-inset-top,0px)); }
+  .component-editor-dock[data-collapsed="false"] .component-editor-body { padding-bottom:16px; }
+  .component-editor-dock[data-collapsed="false"] .component-view-editor.is-docked > footer { padding-bottom:calc(12px + env(safe-area-inset-bottom,0px)); }
+  .component-editor-peek { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; margin-left:auto; border:1px solid #b9cdf8; border-radius:999px; color:#1f55e0; background:#eef4ff; font:700 11px ui-sans-serif,system-ui,sans-serif; }
+  .component-editor-dock[data-collapsed="true"] .component-editor-peek { display:none; }
+  .component-editor-dock[data-collapsed="true"] .component-editor-grip { height:30px; align-items:center; gap:10px; padding-top:0; color:#1f55e0; background:#eef4ff; border-radius:18px 18px 0 0; }
+  .component-editor-dock[data-collapsed="true"] .component-editor-grip-label { display:inline; font:700 11px ui-sans-serif,system-ui,sans-serif; }
+  .component-editor-dock[data-collapsed="true"] .component-view-editor.is-docked > header { padding-top:34px; }
+  .component-view-editor.is-docked > header { gap:8px; }
+  .component-view-editor.is-docked > header > button { flex:none; }
+  .component-editor-peek span { display:inline; }
+}
+
 /* Editor completo — paleta, metadados e histórico de revisões. */
 .component-view-tabs { grid-template-columns:repeat(4,minmax(0,1fr)); }
 .component-editor-version { display:inline-flex; margin-left:6px; padding:1px 5px; border:1px solid #bfdbfe; border-radius:9px; color:#1d4ed8; background:#eff6ff; font-size:8px; font-weight:800; vertical-align:middle; }
