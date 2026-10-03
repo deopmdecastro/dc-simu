@@ -51,7 +51,7 @@ export default function ProjectObjects() {
       <button type="button" className="dc-btn-sm" disabled={!targets.length} title="Enviar para trás (Ctrl+[)" onClick={() => act('back')}><IconChevronDown size={12} />Trás</button>
     </div>
 
-    {components.length === 0 && <p className="dc-objects-empty">O projeto ainda não tem componentes. Adicione-os pela biblioteca, à esquerda.</p>}
+    {components.length === 0 && <p className="dc-objects-empty">O projeto ainda não tem componentes. Adicione-os pela Biblioteca.</p>}
     {components.length > 0 && rows.length === 0 && <p className="dc-objects-empty">Nenhum objeto corresponde a «{query}».</p>}
 
     <ul className="dc-objects-list">

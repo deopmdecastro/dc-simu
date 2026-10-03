@@ -343,7 +343,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
       {terminalLibOpen && createPortal(<div className="ce-modal ce-modal-fixed" role="dialog" aria-modal="true" aria-label="Biblioteca de bornes" onClick={(event) => { if (event.target === event.currentTarget) setTerminalLibOpen(false) }} onKeyDown={(event) => { if (event.key === 'Escape') setTerminalLibOpen(false) }}>
         <div className="ce-modal-card tl-modal-card">
-          <div className="ce-lib-head"><span>Biblioteca de bornes e perfis de ligação</span><button className="ce-icon" onClick={() => setTerminalLibOpen(false)} title="Fechar"><IconClose size={12} /></button></div>
+          <div className="ce-lib-head"><span>Biblioteca de bornes e perfis de ligação</span><button className="ce-icon tl-close-btn" onClick={() => setTerminalLibOpen(false)} title="Fechar" aria-label="Fechar biblioteca de bornes"><IconClose size={12} /><span className="tl-close-label">Fechar</span></button></div>
           <TerminalLibrary mode="browse" />
         </div>
       </div>, document.body)}

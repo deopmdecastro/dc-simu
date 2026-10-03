@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { SHORTCUT_HELP } from './shortcuts'
 import { IconClose } from './icons'
 
@@ -39,7 +40,8 @@ export default function ShortcutHelp({ open, onClose, editor, extra = [] }: Prop
   }, [query, extra])
 
   if (!open) return null
-  return (
+  // Portal para o body: dentro do canvas o overlay ficava preso ao contentor (cubo/HUD por cima e janela cortada).
+  return createPortal(
     <div className="lk-overlay" onMouseDown={onClose} role="presentation">
       <div className="lk-dialog" role="dialog" aria-modal="true" aria-label="Atalhos de teclado" onMouseDown={(event) => event.stopPropagation()}>
         <header className="lk-head">
@@ -68,6 +70,7 @@ export default function ShortcutHelp({ open, onClose, editor, extra = [] }: Prop
             </div>}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

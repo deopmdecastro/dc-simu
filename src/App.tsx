@@ -1,4 +1,4 @@
-import { IconChevronLeft, IconChevronRight, IconLayers } from './ui/icons'
+import { IconChevronLeft, IconChevronRight, IconClose, IconLayers } from './ui/icons'
 import { useEffect, useState } from 'react'
 import InstallApp from './components/InstallApp'
 import Toolbar, { type ViewMode } from './components/Toolbar'
@@ -11,6 +11,18 @@ import SchematicView from './schematic/SchematicView'
 import { ComponentEditorDock } from './components/ComponentViewEditor'
 import MonitorPanel from './components/MonitorPanel'
 import { useSimStore } from './store/useSimStore'
+
+/** Cabeçalho das folhas em ecrã inteiro (só aparece em telemóveis): título + botão «Fechar» bem visível. */
+function SheetHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="dc-sheet-head">
+      <strong>{title}</strong>
+      <button type="button" className="dc-sheet-close" onClick={onClose} aria-label={`Fechar ${title}`}>
+        <IconClose size={13} /> Fechar
+      </button>
+    </div>
+  )
+}
 
 export default function App({ onBack }: { onBack: () => void }) {
   const [mode, setMode] = useState<ViewMode>(() => {
@@ -136,7 +148,8 @@ export default function App({ onBack }: { onBack: () => void }) {
     <div className="h-full w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
       <Toolbar onBack={onBack} mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection}
         onOpenLibrary={() => { setShowLadder(false); setShowLibrary(true) }}
-        onOpenGrafcet={() => { setShowLibrary(false); setShowLadder(true) }} />
+        onOpenGrafcet={() => { setShowLibrary(false); setRightTab('grafcet'); setShowLadder(true) }}
+        onOpenObjects={() => { setShowLibrary(false); setRightTab('objects'); setShowLadder(true) }} />
       <div className="flex-1 flex min-h-0 dc-workspace relative" data-component-editing={mode === 'schematic' && editingComponent ? 'true' : 'false'}>
         {mode === 'schematic' && (showLibrary || showLadder) && (
           <button
@@ -149,6 +162,7 @@ export default function App({ onBack }: { onBack: () => void }) {
         {mode === 'schematic' && showLibrary && (
           <>
             <div className={`mobile-library-panel relative shrink-0 flex flex-col ${compact ? 'dc-mobile-fullscreen-panel' : ''}`} style={compact ? undefined : { width: panelSizes.sidebar }}>
+              <SheetHeader title="Biblioteca e inspetor" onClose={() => setShowLibrary(false)} />
               <Sidebar width={compact ? window.innerWidth : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} />
               <button className="dc-dock-close" onClick={() => setShowLibrary(false)} title="Recolher biblioteca e inspetor" aria-label="Recolher biblioteca e inspetor"><IconChevronLeft size={12} /></button>
             </div>
@@ -178,6 +192,7 @@ export default function App({ onBack }: { onBack: () => void }) {
           >
             {showLadder ? (
               <>
+                <SheetHeader title="GRAFCET e objetos do projeto" onClose={() => setShowLadder(false)} />
                 <button
                   onClick={() => setShowLadder(false)}
                   className="dc-dock-collapse"

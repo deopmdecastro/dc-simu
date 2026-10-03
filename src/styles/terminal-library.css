@@ -69,3 +69,16 @@
 /* biblioteca para utilizadores */
 .tl-modal-card { width:min(560px,100%); height:min(680px,90vh); padding:0; overflow:hidden; gap:0; }
 .tl-modal-card .tl-root { flex:1; }
+
+/* Telemóvel: a biblioteca de bornes ocupa o ecrã e tem «Fechar» bem visível */
+.tl-close-label { display:none; }
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  .ce-modal.ce-modal-fixed { padding:0; align-items:stretch; }
+  .ce-modal-fixed .ce-modal-card.tl-modal-card { width:100%; max-width:none; height:100%; max-height:none; border-radius:0; padding:0; gap:0; overflow:hidden; }
+  .tl-modal-card .ce-lib-head { padding:max(8px, env(safe-area-inset-top, 0px)) 12px 8px; min-height:52px; font-size:14px; background:#fff; }
+  .tl-modal-card .tl-close-btn { display:inline-flex; align-items:center; gap:6px; min-height:40px; padding:0 14px; border:1px solid #c9d8fb; border-radius:10px; background:#eef3ff !important; color:#1a44c8 !important; opacity:1 !important; font-size:13px; font-weight:700; }
+  .tl-modal-card .tl-close-label { display:inline; }
+  .tl-modal-card .tl-tabs { overflow-x:auto; scrollbar-width:none; }
+  .tl-modal-card .tl-tabs button { flex:none; min-width:max-content; padding:11px 14px; font-size:12.5px; }
+  .tl-modal-card .tl-root { flex:1; min-height:0; padding-bottom:env(safe-area-inset-bottom, 0px); }
+}

@@ -2249,3 +2249,58 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
 .dc-objects-text { display:flex; flex-direction:column; min-width:0; gap:1px; }
 .dc-objects-text .dc-objects-ref { display:flex; align-items:center; gap:5px; }
 .dc-objects-row.is-on .dc-objects-card { border-color:#1a44c8; background:#fff; }
+
+
+/* ======================================================================
+   Telemóvel: folhas em ecrã inteiro (Biblioteca, GRAFCET e Objetos)
+   - cabeçalho próprio com «Fechar» (a barra do projeto já não o tapa)
+   - sem a faixa branca do painel GRAFCET fechado
+   - cubo/HUD do 3D sem a reserva de 43 px do painel antigo
+   ====================================================================== */
+.dc-sheet-head { display:none; }
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  /* a folha aberta passa por cima da barra do projeto (que tem z-index 50) */
+  .dx-editor-in:has(.dc-mobile-fullscreen-panel) { position:relative; z-index:60; }
+  /* mais específico que a regra de gaveta (<1200 px), que fixava 92 vw */
+  .dc-workspace .mobile-library-panel.dc-mobile-fullscreen-panel,
+  .dc-workspace .mobile-grafcet-panel.dc-mobile-fullscreen-panel {
+    position:fixed !important; inset:0 !important; width:100vw !important; max-width:none !important; min-width:0 !important;
+    height:100% !important; border-radius:0 !important; box-shadow:none !important; overflow:hidden !important;
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
+  .dc-workspace .mobile-library-panel.dc-mobile-fullscreen-panel > *:not(.dc-sheet-head),
+  .dc-workspace .mobile-grafcet-panel.dc-mobile-fullscreen-panel > *:not(.dc-sheet-head) { min-height:0; }
+  .dc-sheet-head {
+    display:flex; flex:none; align-items:center; justify-content:space-between; gap:10px;
+    padding:max(8px, env(safe-area-inset-top, 0px)) 12px 8px; min-height:52px;
+    background:#fff; border-bottom:1px solid #dfe4e9; position:relative; z-index:6;
+  }
+  .dc-sheet-head strong { font-size:15px; font-weight:750; color:#1c2430; }
+  .dc-sheet-close {
+    display:inline-flex; align-items:center; gap:6px; min-height:40px; padding:0 14px;
+    border:1px solid #c9d8fb; border-radius:10px; background:#eef3ff; color:#1a44c8; font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .dc-sheet-close:active { background:#dbe6ff; }
+  /* o botão antigo (chevron pequeno) deixa de ser necessário */
+  .dc-workspace .dc-mobile-fullscreen-panel > .dc-dock-close,
+  .dc-workspace .dc-mobile-fullscreen-panel > .dc-dock-collapse { display:none !important; }
+  /* separadores GRAFCET / Objetos maiores para o toque */
+  .dc-workspace .dc-mobile-fullscreen-panel .dc-dock-tabs { padding:8px 12px; gap:8px; }
+  .dc-workspace .dc-mobile-fullscreen-panel .dc-dock-tabs button { min-height:40px; font-size:13px; border-radius:9px; }
+  /* painel GRAFCET fechado = faixa branca a cortar o canvas: não ocupa lugar */
+  .dc-workspace .mobile-grafcet-panel.mobile-grafcet-closed { display:none !important; }
+  /* cubo, eixos e barras do 3D sem a reserva lateral de 43 px */
+  .schematic-view-shell[data-canvas-mode="3d"] .panel3d-axis-hud { right:8px !important; }
+  .panel3d-stage .component-view-command,
+  .panel3d-stage .vcube-floating:not(.vcube-shifted) { right:8px !important; }
+  .panel3d-stage .component-view-editor { right:8px !important; width:min(372px, calc(100% - 16px)) !important; max-width:calc(100% - 16px) !important; }
+}
+
+/* Lista de atalhos: folha inferior no telemóvel, sem cortar as teclas */
+@media (max-width: 720px) {
+  body .lk-overlay { align-items:flex-end; padding:0; }
+  body .lk-overlay .lk-dialog { width:100%; max-height:88dvh; border-radius:16px 16px 0 0; padding-bottom:env(safe-area-inset-bottom, 0px); }
+  body .lk-overlay .lk-row { flex-wrap:wrap; gap:6px 10px; }
+  body .lk-overlay .lk-keys { flex-wrap:wrap; justify-content:flex-end; max-width:100%; }
+  body .lk-overlay .ladder-ghost-button { min-width:40px; min-height:40px; }
+}
