@@ -86,3 +86,8 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
   .ladder-toolbar-button, .ladder-rung-action, .grafcet-selection-actions button { min-width: 38px; min-height: 38px; }
   .ladder-palette-item, .grafcet-toolbox-list button { min-height: 44px; }
 }
+
+/* O Esquema (Panel3D em edição frontal) fixava o cubo a 96px do topo no telemóvel; fica encostado ao topo. */
+@media (max-width: 700px) {
+  .panel3d-stage[data-front-edit="true"] .vcube-floating:not(.vcube-shifted) { top: 6px; right: 4px; }
+}
