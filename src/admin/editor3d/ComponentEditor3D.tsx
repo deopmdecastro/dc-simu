@@ -414,7 +414,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         const glbPart = loaded.draft.parts.find((part) => part.kind === 'glb')
         if (glbPart) loaded = { ...loaded, draft: { ...loaded.draft,
           parts: loaded.draft.parts.filter((part) => !artificial.has(part.id)),
-          controls: (loaded.draft.controls ?? []).map((control) => control.name === 'Liga / desliga' ? { ...control, partId: glbPart.id, nodes: ['WEG_Handle'], axis: [1, 0, 0] as [number, number, number], travelMm: 8 } : control),
+          // só liga o controlo antigo (ainda sem objetos nem movimento próprio); nunca repõe o que o utilizador já ajustou
+          controls: (loaded.draft.controls ?? []).map((control) => control.name === 'Liga / desliga' && !control.nodes?.length && !control.motion ? { ...control, partId: glbPart.id, nodes: ['WEG_Handle'], axis: [1, 0, 0] as [number, number, number], travelMm: 8 } : control.name === 'Liga / desliga' ? { ...control, partId: glbPart.id } : control),
         } }
       }
       useEditorStore.getState().open(loaded)

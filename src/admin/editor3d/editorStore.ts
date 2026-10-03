@@ -73,6 +73,8 @@ interface EditorStore {
   meterTest: MeterInput
   /** Modo «escolher no modelo»: o próximo clique num objeto do GLB liga-o ao controlo/luz. */
   pick: { kind: 'control' | 'light'; id: string } | null
+  /** Controlo cujo pivô de basculamento está a ser escolhido com um clique no modelo. */
+  pickPivot: string | null
   hoverNode: { partId: string; node: string } | null
   /** Ecrã em colocação: 1.º clique = canto, 2.º clique = canto oposto. */
   placingDisplay: string | null
@@ -148,7 +150,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   def: normalizeDefinition(undefined),
   baseline: null,
   selection: null, multi: [], tool: 'translate', ribbon: 'select', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
-  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, previewVars: {}, meterTest: { ...EMPTY_METER_INPUT, vdc: 12.34, vac: 230, ohm: 4700 }, pick: null, hoverNode: null, placingDisplay: null, displayCorner: null, placingLed: false, holes: [], camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
+  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, previewVars: {}, meterTest: { ...EMPTY_METER_INPUT, vdc: 12.34, vac: 230, ohm: 4700 }, pick: null, pickPivot: null, hoverNode: null, placingDisplay: null, displayCorner: null, placingLed: false, holes: [], camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
   view: { grid: true, floor: true, axes: true, terminals: true, dark: false, bounds: false },
   viewCommand: { kind: 'iso', n: 0 }, glbRevision: 0,
   dirty: false, past: [], future: [], lastKey: '', lastAt: 0,

@@ -7,7 +7,9 @@ import type { BehaviorEvent, ComponentDefinition, ControlAction, ControlDef, Dis
 import { IconClose } from '../../ui/icons'
 import { AutoDetectSection } from './AutoDetectPanel'
 import { glbCache, useEditorStore } from './editorStore'
-import { applyMultimeterPreset, guessBehavior, newControl, newDisplay, triggerEditorControl } from './controlOps'
+import { applyMultimeterPreset, breakerAxesOf, detectHandleNodes, guessBehavior, newControl, newDisplay, triggerEditorControl } from './controlOps'
+import { tiltControlPatch } from '../../catalog/controlMotion'
+import { BreakerAutomation, MotionFields } from './MotionPanel'
 import { defBounds } from './terminalOps'
 import { Check, Color, Confirm, Empty, Field, Num, Section, Select, Text, Vec3Input } from './ui'
 
@@ -187,12 +189,17 @@ export function ControlsTab() {
     if (!partId) return
     const kind: ControlDef['kind'] = preset === 'selector' ? 'selector' : preset === 'push' ? 'button' : 'toggle'
     const created = newControl(def, kind, partId)
-    const variable = `control_${(def.controls ?? []).length + 1}`
-    const configured: ControlDef = preset === 'selector'
+    // o disjuntor usa `closed` (a variável do motor elétrico) e já nasce basculante, com o eixo deduzido dos bornes
+    const variable = preset === 'breaker' && !varDefsOf(def).some((item) => item.id === 'closed') ? 'closed' : `control_${(def.controls ?? []).length + 1}`
+    const handles = preset === 'breaker' && created.nodes?.length === 0 ? detectHandleNodes(def, partId) : []
+    const configured: ControlDef = preset === 'breaker'
+      ? { ...created, name: 'Manípulo do disjuntor', ...tiltControlPatch(breakerAxesOf(def), created.axis), travelMm: 0, nodes: handles.length ? handles : created.nodes, bindVar: variable, actions: [{ type: 'toggleVar', var: variable }] }
+      : preset === 'selector'
       ? { ...created, name: 'Chave seletora', bindVar: variable, positions: [{ id: 'off', label: '0 · Desligado', angle: -45 }, { id: 'on', label: '1 · Ligado', angle: 45 }] }
-      : { ...created, name: preset === 'breaker' ? 'Manípulo do disjuntor' : preset === 'emergency' ? 'Emergência com retenção' : 'Botão de pressão', travelMm: preset === 'push' ? 1.2 : 2, actions: [{ type: 'toggleVar', var: variable }] }
-    edit((state) => ({ ...state, controls: [...(state.controls ?? []), configured], vars: [...(state.vars ?? []), { id: variable, name: configured.name, type: preset === 'selector' ? 'text' : 'bool', initial: preset === 'selector' ? 'off' : false }] }), `control:preset:${preset}`)
-    set({ selection: { kind: 'control', id: configured.id }, tab: 'controls', pick: { kind: 'control', id: configured.id } })
+      : { ...created, name: preset === 'emergency' ? 'Emergência com retenção' : 'Botão de pressão', travelMm: preset === 'push' ? 1.2 : 2, actions: [{ type: 'toggleVar', var: variable }] }
+    edit((state) => ({ ...state, controls: [...(state.controls ?? []), configured], vars: [...(state.vars ?? []), { id: variable, name: configured.name, type: preset === 'selector' ? 'text' : 'bool', initial: preset === 'selector' ? 'off' : variable === 'closed' }] }), `control:preset:${preset}`)
+    // manípulo já detetado pelo nome: não é preciso entrar no modo «escolher no modelo»
+    set({ selection: { kind: 'control', id: configured.id }, tab: 'controls', pick: handles.length ? null : { kind: 'control', id: configured.id } })
   }
   const vars = mergeVars(def, previewVars)
   const varOptions = varDefsOf(def).map((item): [string, string] => [item.id, item.name])
@@ -223,9 +230,9 @@ export function ControlsTab() {
         <NodePicker partId={control.partId} nodes={control.nodes} pickKind="control" id={control.id} onChange={(nodes) => patch({ nodes })} />
       </Section>
       <Section title="Movimento">
-        <Field label={control.kind === 'selector' ? 'Eixo de rotação' : 'Direção do botão'} hint={control.kind === 'selector' ? 'Ângulos positivos rodam no sentido horário visto de quem olha ao longo do eixo.' : 'O botão afunda no sentido contrário ao eixo (a normal da face).'}>
+        {control.kind === 'selector' ? <Field label="Eixo de rotação" hint="Ângulos positivos rodam no sentido horário visto de quem olha ao longo do eixo.">
           <Select value={axisKey(control.axis)} onChange={(key) => patch({ axis: AXES.find(([id]) => id === key)![2] })} options={AXES.map(([id, label]): [string, string] => [id, label])} /></Field>
-        {control.kind !== 'selector' && <Field label="Curso"><Num value={control.travelMm} min={0} max={10} step={0.1} unit="mm" onChange={(travelMm) => patch({ travelMm }, 'travel')} /></Field>}
+          : <MotionFields control={control} patch={patch} />}
         {control.kind === 'selector' && <>
           <Field label="Variável" hint="Recebe o identificador da posição escolhida."><Select value={control.bindVar ?? ''} onChange={(bindVar) => patch({ bindVar })} options={bindOptions.length ? bindOptions : [['', '— crie uma variável —']]} /></Field>
           <p className="ce-hint">Posições (clique em «Ir» para ver o seletor nessa posição e acertar o ângulo com as marcas do modelo):</p>
@@ -247,6 +254,7 @@ export function ControlsTab() {
       </>}
       <Section title="Ações"><Confirm label="Eliminar controlo" className="dx-btn dx-btn-danger dx-btn-sm" onConfirm={() => { edit((state) => ({ ...state, controls: (state.controls ?? []).filter((item) => item.id !== control.id) })); set({ selection: null, pick: null }) }} /></Section>
     </>}
+    {control && <BreakerAutomation control={control} />}
     <AutoDetectSection />
     <VarsSection />
   </>

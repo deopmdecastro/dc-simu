@@ -7,7 +7,8 @@ import { StateAnimator } from '../../catalog/stateAnimator'
 import { ComponentRig, topNodeOf } from '../../catalog/componentRig'
 import { mergeVars, multimeterReading } from '../../catalog/behavior'
 import { setBeep } from '../../catalog/beep'
-import { addLedAt, placeDisplayClick, triggerEditorControl } from './controlOps'
+import { addLedAt, placeDisplayClick, setPivotFromPoint, triggerEditorControl } from './controlOps'
+import { relFromPoint } from '../../catalog/controlMotion'
 import { interactionsFor, runInteractions } from '../../catalog/interactions'
 import type { Vec3 } from '../../catalog/types'
 import { checkConnection } from '../../catalog/terminalCompat'
@@ -329,6 +330,14 @@ function Scene() {
     if (terminalHit) { terminalClick(terminalHit.object.userData.terminalId as string); return }
     if (mode === 'simulate' && (ribbon === 'wire' || ribbon === 'measure')) return
     const st = useEditorStore.getState()
+    if (st.pickPivot) {
+      const box = rig.current?.restBox(st.pickPivot)
+      if (box && !box.isEmpty()) {
+        const local = root.worldToLocal(event.point.clone())
+        setPivotFromPoint(st.pickPivot, relFromPoint(box.min.toArray() as Vec3, box.max.toArray() as Vec3, local.toArray() as Vec3))
+      }
+      st.set({ pickPivot: null }); invalidate(); return
+    }
     if (st.pick) { pickNodeAt(event); return }
     if (st.placingDisplay && event.face) { placeDisplayClick(event.point.toArray() as Vec3, event.face.normal.clone().transformDirection(event.object.matrixWorld).toArray() as Vec3); return }
     if (st.placingLed && event.face) { addLedAt(event.point.toArray() as Vec3, event.face.normal.clone().transformDirection(event.object.matrixWorld).toArray() as Vec3); return }
@@ -483,6 +492,7 @@ function Scene() {
     <WireDrawController active={ribbon === 'wire'} root={root} />
     <MeasureController active={ribbon === 'measure'} root={root} />
     <NodeHighlights root={root} />
+    <PivotGizmo root={root} rig={rig} />
     <HoleMarkers />
     {displayCorner && <mesh position={displayCorner.point}><sphereGeometry args={[0.9, 12, 10]} /><meshBasicMaterial color="#f59e0b" depthTest={false} transparent opacity={0.95} /></mesh>}
     {(placing || placingDisplay || placingLed) && hover && <mesh position={hover.point}><sphereGeometry args={[2, 12, 10]} /><meshBasicMaterial color="#16a34a" depthTest={false} transparent opacity={0.85} /></mesh>}
@@ -493,6 +503,43 @@ function Scene() {
     <OrbitControls makeDefault enableDamping={false} onChange={reportAngles} onStart={() => { autoFit.current = false }}
       mouseButtons={{ LEFT: ribbon === 'pan' ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }} />
   </>
+}
+
+/**
+ * Pivô e eixo do manípulo basculante selecionado (só no editor): bola vermelha = pivô, linha = eixo de rotação.
+ * Dá para ver de imediato se o manípulo vai rodar à volta do sítio certo.
+ */
+function PivotGizmo({ root, rig }: { root: THREE.Object3D; rig: React.MutableRefObject<ComponentRig | null> }) {
+  const def = useEditorStore((s) => s.def)
+  const selection = useEditorStore((s) => s.selection)
+  const mode = useEditorStore((s) => s.mode)
+  const pickPivot = useEditorStore((s) => s.pickPivot)
+  const { invalidate, gl } = useThree()
+  const group = useMemo(() => {
+    const g = new THREE.Group()
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(1.4, 16, 12), new THREE.MeshBasicMaterial({ color: '#ef4444', depthTest: false }))
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -22, 0), new THREE.Vector3(0, 22, 0)]), new THREE.LineBasicMaterial({ color: '#f97316', depthTest: false }))
+    dot.renderOrder = 30; line.renderOrder = 30; line.name = 'axis'
+    g.add(dot, line); g.visible = false
+    return g
+  }, [])
+  useEffect(() => () => { group.traverse((node) => { const mesh = node as THREE.Mesh; mesh.geometry?.dispose(); (mesh.material as THREE.Material | undefined)?.dispose() }) }, [group])
+  useEffect(() => { invalidate() }, [def.controls, selection, mode, pickPivot, invalidate])
+  useEffect(() => {
+    gl.domElement.style.cursor = pickPivot ? 'crosshair' : ''
+    return () => { gl.domElement.style.cursor = '' }
+  }, [pickPivot, gl])
+  useFrame(() => {
+    const control = mode === 'edit' && selection?.kind === 'control' ? (def.controls ?? []).find((item) => item.id === selection.id) : undefined
+    const pivot = control && control.kind !== 'selector' && control.motion?.mode === 'tilt' ? rig.current?.pivotOf(control.id) : null
+    if (!control || !pivot) { group.visible = false; return }
+    group.visible = true
+    root.updateWorldMatrix(true, false)
+    group.position.copy(root.localToWorld(pivot))
+    const dir = new THREE.Vector3(...control.axis).transformDirection(root.matrixWorld).normalize()
+    group.getObjectByName('axis')?.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
+  })
+  return <primitive object={group} />
 }
 
 /** Contornos dos objetos do GLB: sob o rato (azul) e os do controlo/luz/ecrã selecionado (laranja). */

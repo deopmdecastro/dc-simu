@@ -30,6 +30,10 @@ export function validateDefinition(def: ComponentDefinition, meta: CatalogMeta):
     if (control.kind === 'selector' && control.positions.length < 2) issues.push({ level: 'warn', text: `O seletor «${control.name}» tem menos de 2 posições.` })
     if (control.kind === 'selector' && control.bindVar && !varIds.has(control.bindVar)) issues.push({ level: 'warn', text: `O seletor «${control.name}» escreve numa variável que não existe.` })
     if (control.kind !== 'selector' && control.actions.length === 0) issues.push({ level: 'warn', text: `O botão «${control.name}» não tem ações.` })
+    if (control.kind !== 'selector' && control.motion?.mode === 'tilt') {
+      if (Math.abs(control.motion.angleOn - control.motion.angleOff) < 1) issues.push({ level: 'warn', text: `O manípulo «${control.name}» tem os mesmos ângulos em ON e OFF: não vai mexer.` })
+      if (control.nodes !== undefined && control.nodes.length === 0) issues.push({ level: 'warn', text: `O manípulo «${control.name}» não tem objeto do modelo associado: vai bascular a peça inteira.` })
+    }
   })
   ;(def.displays ?? []).forEach((display) => { if (display.widthMm <= 0 || display.heightMm <= 0) issues.push({ level: 'error', text: `O ecrã «${display.name}» tem tamanho inválido.` }) })
   if (def.behavior) for (const key of ['com', 'volt', 'milliamp', 'amp'] as const) if (!def.terminals.some((terminal) => terminal.id === def.behavior![key])) issues.push({ level: 'warn', text: `Multímetro: a ficha «${key}» não está ligada a um borne.` })

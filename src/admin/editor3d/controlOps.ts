@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import { MULTIMETER_VARS, initialVars, mergeVars, runControlActions, selectorStep, setSelector, varDefsOf, type Vars } from '../../catalog/behavior'
 import { boundsMm, buildDefinitionObject, newId } from '../../catalog/definition'
 import { listGlbNodes } from '../../catalog/componentRig'
-import { controlFromSuggestion, lightFromSuggestion, variableFromSuggestion, type Suggestion } from '../../catalog/interactables'
+import { classifyNode, controlFromSuggestion, lightFromSuggestion, variableFromSuggestion, type Suggestion } from '../../catalog/interactables'
+import { applyPreset, BUILTIN_PRESETS, inferBreakerAxes, presetFromControl, tiltControlPatch, type BreakerAxes, type MotionPreset } from '../../catalog/controlMotion'
 import type { BehaviorDef, ComponentDefinition, ControlDef, DisplayDef, LightZoneDef, MaterialDef, PartDef, VarDef, Vec3 } from '../../catalog/types'
 import { glbCache, useEditorStore } from './editorStore'
 import { setRealSize } from './sizeOps'
@@ -27,6 +28,116 @@ export function triggerEditorControl(control: ControlDef, gesture: 'press' | 'lo
   }
   store.set({ previewVars: vars, previewState: state })
   for (const action of delayed) timers.push(window.setTimeout(() => useEditorStore.getState().set({ previewState: action.state }), Math.max(0, action.afterMs)))
+}
+
+/* ------------------------------------------------- disjuntor: ON/OFF, automação, predefinições */
+
+/** Variável booleana que um interruptor/botão alterna (ação «alternar variável» ou, em falta, a ligada ao controlo). */
+export function controlVariable(control: ControlDef): string | null {
+  const action = control.actions.find((item) => item.type === 'toggleVar' || item.type === 'setVar') as { var?: string } | undefined
+  return action?.var ?? control.bindVar ?? null
+}
+
+/** Força o interruptor para ON/OFF na pré-visualização (sem simular clique): serve para afinar as duas poses. */
+export function setControlOn(control: ControlDef, on: boolean) {
+  const variable = controlVariable(control)
+  if (!variable) return
+  const store = useEditorStore.getState()
+  store.set({ previewVars: { ...mergeVars(store.def, store.previewVars), [variable]: on } })
+}
+
+export function controlIsOn(control: ControlDef): boolean {
+  const variable = controlVariable(control)
+  if (!variable) return false
+  const store = useEditorStore.getState()
+  return Boolean(mergeVars(store.def, store.previewVars)[variable])
+}
+
+/** Eixos do disjuntor deduzidos dos bornes do componente (null se não houver bornes suficientes). */
+export function breakerAxesOf(def: ComponentDefinition): BreakerAxes | null {
+  return inferBreakerAxes(def.terminals.map((terminal) => terminal.position))
+}
+
+/** Objetos do GLB que parecem ser o manípulo (pelo nome: handle, manípulo, alavanca, toggle…). */
+export function detectHandleNodes(def: ComponentDefinition, partId: string): string[] {
+  const part = def.parts.find((item) => item.id === partId)
+  if (!part || part.kind !== 'glb') return []
+  const root = buildDefinitionObject(def, glbCache)
+  root.updateMatrixWorld(true)
+  const holder = root.getObjectByName(partId)
+  if (!holder) return []
+  return listGlbNodes(holder)
+    .map((node) => ({ name: node.name, hit: classifyNode(node.name) }))
+    .filter((item) => item.hit?.kind === 'toggle')
+    .sort((a, b) => (b.hit?.confidence ?? 0) - (a.hit?.confidence ?? 0))
+    .map((item) => item.name)
+}
+
+/**
+ * Transforma o controlo num manípulo basculante de disjuntor: eixo de rotação deduzido dos bornes,
+ * pivô ao centro, mola, e a variável `closed` (a que o motor elétrico usa). Devolve a mensagem para o utilizador.
+ */
+export function makeBreakerTilt(controlId: string): string {
+  const store = useEditorStore.getState()
+  const control = (store.def.controls ?? []).find((item) => item.id === controlId)
+  if (!control) return 'Escolha primeiro um controlo.'
+  const axes = breakerAxesOf(store.def)
+  const patch = tiltControlPatch(axes, control.axis)
+  const hasClosed = varDefsOf(store.def).some((item) => item.id === 'closed')
+  const nodes = control.nodes && control.nodes.length === 0 ? detectHandleNodes(store.def, control.partId) : control.nodes
+  store.edit((def) => ({
+    ...def,
+    vars: hasClosed ? def.vars : [...(def.vars ?? []), { id: 'closed', name: 'Disjuntor fechado', type: 'bool', initial: true }],
+    controls: (def.controls ?? []).map((item) => (item.id === controlId ? {
+      ...item, kind: 'toggle', travelMm: 0, ...patch, nodes: nodes ?? item.nodes,
+      bindVar: 'closed', actions: item.actions.some((action) => action.type === 'toggleVar') ? item.actions : [{ type: 'toggleVar', var: 'closed' }],
+    } : item)),
+  }), `control:${controlId}:tilt`)
+  const found = nodes && nodes !== control.nodes && nodes.length ? ` Manípulo detetado pelo nome: ${nodes.join(', ')}.` : ''
+  const how = axes ? `Eixo de rotação deduzido dos bornes (${axes.reason}).` : 'Sem bornes para deduzir o eixo: confirme-o em «Movimento».'
+  return `Manípulo basculante criado. ${how}${found} Use «ON / OFF» para ver as duas poses e afine o pivô.`
+}
+
+const PRESET_KEY = 'dc-simu:motion-presets'
+
+export function loadMotionPresets(): MotionPreset[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PRESET_KEY) ?? '[]') as MotionPreset[]
+    return Array.isArray(raw) ? raw.filter((item) => item && typeof item.id === 'string' && item.motion) : []
+  } catch { return [] }
+}
+
+function storePresets(presets: MotionPreset[]) {
+  try { localStorage.setItem(PRESET_KEY, JSON.stringify(presets)) } catch { /* armazenamento indisponível: o preset só vale nesta sessão */ }
+}
+
+export const allMotionPresets = (): MotionPreset[] => [...BUILTIN_PRESETS, ...loadMotionPresets()]
+
+export function saveMotionPreset(control: ControlDef, name: string): MotionPreset {
+  const preset = presetFromControl(control, newId('mp_'), name.trim() || control.name)
+  storePresets([...loadMotionPresets(), preset])
+  return preset
+}
+
+export function deleteMotionPreset(id: string) { storePresets(loadMotionPresets().filter((item) => item.id !== id)) }
+
+/** Aplica um preset de movimento a um controlo; o eixo de rotação vem dos bornes deste componente quando fiáveis. */
+export function applyMotionPreset(controlId: string, preset: MotionPreset): string {
+  const store = useEditorStore.getState()
+  const control = (store.def.controls ?? []).find((item) => item.id === controlId)
+  if (!control) return 'Escolha primeiro um controlo.'
+  const axes = breakerAxesOf(store.def)
+  store.edit((def) => ({ ...def, controls: (def.controls ?? []).map((item) => (item.id === controlId ? applyPreset(item, preset, axes) : item)) }), `control:${controlId}:preset`)
+  const fromTerminals = preset.motion.mode === 'tilt' && axes?.confidence === 'high'
+  return `«${preset.name}» aplicado.${fromTerminals ? ' Eixo de rotação ajustado aos bornes deste componente.' : ''}`
+}
+
+/** Pivô de um basculante a partir de um ponto clicado no modelo (guardado relativo à caixa do manípulo). */
+export function setPivotFromPoint(controlId: string, rel: Vec3) {
+  useEditorStore.getState().edit((def) => ({
+    ...def,
+    controls: (def.controls ?? []).map((item) => (item.id === controlId && item.motion ? { ...item, motion: { ...item.motion, pivotRel: rel } } : item)),
+  }), `control:${controlId}:pivot`)
 }
 
 /* ------------------------------------------------------------------- criação */

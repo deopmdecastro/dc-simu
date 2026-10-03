@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { selectorValue, toggleIsOn, type MeterReading, type Vars } from './behavior'
 import { displayPixelSize, drawDisplay } from './displayCanvas'
+import { motionAngle, normalizeMotion, pivotFromBox, stepSpring } from './controlMotion'
 import type { StateAnimator } from './stateAnimator'
 import type { ComponentDefinition, ControlDef, DisplayDef } from './types'
 
@@ -51,7 +52,11 @@ interface Item {
   axis: THREE.Vector3
   value: number
   target: number
+  /** Velocidade da mola (só botões/interruptores com «clique com mola»). */
+  velocity: number
   held: boolean
+  /** Caixa dos objetos do controlo na pose de repouso (espaço do componente). */
+  restBox: THREE.Box3
 }
 
 interface DisplayItem { def: DisplayDef; canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; mesh: THREE.Mesh; signature: string }
@@ -79,11 +84,16 @@ export class ComponentRig {
       if (!nodes.length) continue
       const box = new THREE.Box3()
       for (const node of nodes) box.expandByObject(node, true)
-      const pivot = (box.isEmpty() ? new THREE.Vector3() : box.getCenter(new THREE.Vector3())).applyMatrix4(rootInverse)
+      const restBox = new THREE.Box3()
+      if (!box.isEmpty()) for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) restBox.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(rootInverse))
+      const tilt = control.kind !== 'selector' && control.motion?.mode === 'tilt'
+      const pivot = box.isEmpty() ? new THREE.Vector3()
+        : tilt ? new THREE.Vector3(...pivotFromBox(restBox.min.toArray() as [number, number, number], restBox.max.toArray() as [number, number, number], normalizeMotion(control.motion).pivotRel))
+        : box.getCenter(new THREE.Vector3()).applyMatrix4(rootInverse)
       const axis = new THREE.Vector3(...control.axis).normalize()
       if (axis.lengthSq() < 0.5) axis.set(0, 1, 0)
       const moving = nodes.map((node): Moving => ({ node, local0: node.matrix.clone(), parentToRoot: new THREE.Matrix4().multiplyMatrices(rootInverse, node.parent ? node.parent.matrixWorld : root.matrixWorld) }))
-      this.items.set(control.id, { control, moving, pivot, axis, value: 0, target: 0, held: false })
+      this.items.set(control.id, { control, moving, pivot, axis, value: 0, target: 0, velocity: 0, held: false, restBox })
       for (const node of nodes) node.traverse((child) => this.owner.set(child, control.id))
       if (control.nodes !== undefined) this.addProxy(control, box)
     }
@@ -193,6 +203,12 @@ export class ComponentRig {
 
   controlById(id: string) { return this.def.controls?.find((control) => control.id === id) }
 
+  /** Caixa (espaço do componente) dos objetos de um controlo na pose de repouso — base do pivô relativo. */
+  restBox(id: string): THREE.Box3 | null { return this.items.get(id)?.restBox ?? null }
+
+  /** Pivô atual (espaço do componente) de um controlo, para o desenhar no editor. */
+  pivotOf(id: string): THREE.Vector3 | null { return this.items.get(id)?.pivot.clone() ?? null }
+
   /** Botão premido/largado (visual). */
   hold(id: string, held: boolean) {
     const item = this.items.get(id)
@@ -202,14 +218,15 @@ export class ComponentRig {
   }
 
   /** Aplica já a pose final (sem animação). */
-  snap() { for (const item of this.items.values()) item.value = item.target; this.apply() }
+  snap() { for (const item of this.items.values()) { item.value = item.target; item.velocity = 0 } this.apply() }
 
   private apply() {
     for (const item of this.items.values()) {
       const { control } = item
       const delta = new THREE.Matrix4()
-      if (control.kind === 'selector') {
-        delta.makeRotationAxis(item.axis, THREE.MathUtils.degToRad(item.value))
+      if (control.kind === 'selector' || (control.motion?.mode === 'tilt')) {
+        const angle = control.kind === 'selector' ? item.value : motionAngle(normalizeMotion(control.motion), item.value)
+        delta.makeRotationAxis(item.axis, THREE.MathUtils.degToRad(angle))
         _m.makeTranslation(item.pivot.x, item.pivot.y, item.pivot.z)
         delta.premultiply(_m)
         _m.makeTranslation(-item.pivot.x, -item.pivot.y, -item.pivot.z)
@@ -230,8 +247,14 @@ export class ComponentRig {
     let moving = false
     const k = 1 - Math.exp(-delta * 14)
     for (const item of this.items.values()) {
+      if (item.control.kind !== 'selector') {
+        // botões/interruptores: deslizar suave (antigo) ou mola com ressalto (basculante)
+        const motion = normalizeMotion(item.control.motion)
+        if (stepSpring(item, item.target, delta, motion.feel, motion.durationMs)) moving = true
+        continue
+      }
       const diff = item.target - item.value
-      if (Math.abs(diff) > (item.control.kind === 'selector' ? 0.05 : 0.002)) { item.value += diff * k; moving = true } else if (diff !== 0) { item.value = item.target; moving = true }
+      if (Math.abs(diff) > 0.05) { item.value += diff * k; moving = true } else if (diff !== 0) { item.value = item.target; moving = true }
     }
     if (moving) this.apply()
     return moving
