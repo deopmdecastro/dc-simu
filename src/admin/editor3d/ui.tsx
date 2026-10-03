@@ -15,14 +15,14 @@ export function Section({ title, children, open = true, actions }: { title: Reac
  * («auto»: presets, deteções, perfis) do que o utilizador cria à mão («manual»).
  */
 export function Group({ tone, title, hint, actions, children }: { tone: 'auto' | 'manual'; title: string; hint?: ReactNode; actions?: ReactNode; children: ReactNode }) {
-  return <div className={`ce-group ce-group-${tone}`}>
-    <div className="ce-group-head">
-      <span className="ce-group-tag">{tone === 'auto' ? 'Sugestões' : 'Manual'}</span>
+  return <div className={`ce-block ce-block-${tone}`}>
+    <div className="ce-block-head">
+      <span className="ce-block-tag">{tone === 'auto' ? 'Sugestões' : 'Manual'}</span>
       <strong>{title}</strong>
-      {actions && <span className="ce-group-actions">{actions}</span>}
+      {actions && <span className="ce-block-actions">{actions}</span>}
     </div>
-    {hint && <p className="ce-hint ce-group-hint">{hint}</p>}
-    <div className="ce-group-body">{children}</div>
+    {hint && <p className="ce-hint ce-block-hint">{hint}</p>}
+    <div className="ce-block-body">{children}</div>
   </div>
 }
 

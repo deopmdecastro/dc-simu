@@ -513,3 +513,50 @@
   .ce-modal-fixed .ce-modal-actions { margin-top: 4px; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
   .ce-modal-fixed .ce-modal-actions .dx-btn { flex: 0 1 auto; min-height: 36px; padding: 0 12px; font-size: 12px; }
 }
+
+
+/* --------------------------------------------------------------------------
+   Blocos «Sugestões» vs «Manual» (separadores Bornes / Botões / Ecrãs)
+   -------------------------------------------------------------------------- */
+.ce-block { display:block; border:1px solid var(--dx-line); border-radius:10px; padding:9px 10px 10px; margin-bottom:9px; background:#fff; }
+.ce-block:last-child { margin-bottom:0; }
+.ce-block-auto { border-color:#c7d7fb; background:linear-gradient(180deg,#f5f9ff,#fff); }
+.ce-block-manual { border-color:#dde3ec; background:linear-gradient(180deg,#fafbfd,#fff); }
+.ce-block-head { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:5px; }
+.ce-block-head strong { font-size:12px; color:var(--dx-ink-1); }
+.ce-block-actions { margin-left:auto; display:flex; gap:5px; }
+.ce-block-tag { flex:0 0 auto; padding:2px 7px; border-radius:99px; font-size:8px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.ce-block-auto .ce-block-tag { color:#1f55e0; background:#e4edff; }
+.ce-block-manual .ce-block-tag { color:#5a6a82; background:#eceff4; }
+.ce-block-hint { display:block; margin:0 0 8px; font-size:11px; line-height:1.45; }
+.ce-block-body { display:flex; flex-direction:column; gap:7px; }
+
+.ce-preset-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px; }
+.ce-preset { display:flex; flex-direction:column; gap:2px; padding:8px 9px; border:1px solid var(--dx-line); border-radius:9px; background:#fff; text-align:left; font:inherit; cursor:pointer; transition:border-color .15s ease, box-shadow .15s ease, background .15s ease; }
+.ce-preset b { font-size:11.5px; font-weight:700; color:var(--dx-ink-1); }
+.ce-preset small { font-size:10px; line-height:1.4; color:var(--dx-ink-3); }
+.ce-preset:hover:not(:disabled) { border-color:var(--dx-brand); background:#f6faff; }
+.ce-preset.is-on { border-color:var(--dx-brand); background:var(--dx-brand-soft-2); box-shadow:0 0 0 2px var(--dx-brand-soft-2); }
+.ce-preset.is-on b { color:var(--dx-brand-700); }
+.ce-preset:disabled { opacity:.45; cursor:not-allowed; }
+/* Painel estreito (telemóvel ou inspetor encolhido): uma coluna por cartão. */
+@media (max-width: 900px) { .ce-preset-grid { grid-template-columns:1fr; } }
+
+/* Cubo de vista dentro do painel «Bornes por vista» (mesmo desenho do simulador). */
+.ce-faces-cube { display:flex; justify-content:center; }
+.ce-faces-cube .vcube-panel { margin:0; }
+
+/* --------------------------------------------------------------------------
+   Telemóvel: barra da vista 3D numa só linha deslizante, sem tapar o cubo
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  .ce-viewbar { top:6px; left:6px; right:84px; flex-wrap:nowrap; gap:5px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; pointer-events:auto; }
+  .ce-viewbar::-webkit-scrollbar { display:none; }
+  .ce-viewbar > .ce-group { flex:0 0 auto; padding:2px; }
+  .ce-viewbar .ce-tool { padding:4px 7px; font-size:11px; }
+  .ce-viewbar .dcx-select { min-height:26px; padding:2px 6px; font-size:11px; }
+  .ce-stage-info { left:8px; right:8px; bottom:8px; font-size:11px; }
+  .ce-right .ce-section-body { padding:2px 9px 10px; }
+  .ce-field { grid-template-columns:1fr; }
+  .ce-field > small { grid-column:1; }
+}
