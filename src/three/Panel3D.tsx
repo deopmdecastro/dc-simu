@@ -877,33 +877,59 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
     obj.position.sub(new THREE.Box3().setFromObject(obj, true).getCenter(new THREE.Vector3()))
     return obj
   }, [scene, spec])
-  const startButton = useMemo(() => model.getObjectByName('Node7'), [model])
-  const stopButton = useMemo(() => model.getObjectByName('Node8'), [model])
+  /* As tampas são encontradas pela cor do material do GLB, não pelo nome do nó:
+   * o `Node8` (vermelho) nem sempre é o que se vê, e era por isso que só o
+   * verde reagia. Verde = START (NA 13-14), vermelho = STOP (NF 21-22). */
+  const caps = useMemo(() => {
+    const found: { start: THREE.Object3D[]; stop: THREE.Object3D[] } = { start: [], stop: [] }
+    model.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      for (const material of materials) {
+        const color = (material as THREE.MeshStandardMaterial).color
+        if (!color) continue
+        const { r, g, b } = color
+        if (g > 0.35 && g > r * 2.2 && g > b * 2.2) { found.start.push(mesh); return }
+        if (r > 0.35 && r > g * 2.2 && r > b * 2.2) { found.stop.push(mesh); return }
+      }
+    })
+    return found
+  }, [model])
+
   useFrame((_, delta) => {
-    const moveButton = (part: THREE.Object3D | undefined, down: boolean) => {
-      if (!part) return
-      part.userData.pushBaseZ ??= part.position.z
-      const target = Number(part.userData.pushBaseZ) + (down ? 2.2 : 0)
-      part.position.z = THREE.MathUtils.damp(part.position.z, target, 28, delta)
-      part.updateMatrixWorld(true)
+    const moveCap = (parts: THREE.Object3D[], down: boolean) => {
+      for (const part of parts) {
+        part.userData.pushBaseZ ??= part.position.z
+        const target = Number(part.userData.pushBaseZ) + (down ? 2.2 : 0)
+        part.position.z = THREE.MathUtils.damp(part.position.z, target, 28, delta)
+        part.updateMatrixWorld(true)
+      }
     }
-    // Node7 (verde) e Node8 (vermelho) são os botões originais do NPB22.
-    moveButton(startButton, !!c.state.startPressed)
-    moveButton(stopButton, !!c.state.stopPressed)
+    moveCap(caps.start, !!c.state.startPressed)
+    moveCap(caps.stop, !!c.state.stopPressed)
   })
-  const buttonEvents = (handler: (pressed: boolean) => void) => ({
-    onPointerDown: () => handler(true),
-    onPointerUp: () => handler(false),
-    onPointerOut: () => handler(false),
-  })
-  return <group position={[x, RAIL_Y + 1.05, 0.4]}>
+
+  // Qual das tampas foi clicada: sobe na hierarquia a partir da malha atingida.
+  const capOf = (object: THREE.Object3D | null): 'start' | 'stop' | null => {
+    for (let node: THREE.Object3D | null = object; node; node = node.parent) {
+      if (caps.start.includes(node)) return 'start'
+      if (caps.stop.includes(node)) return 'stop'
+    }
+    return null
+  }
+  const press = (object: THREE.Object3D | null, down: boolean) => {
+    const cap = capOf(object)
+    if (cap === 'start') onStart(down)
+    else if (cap === 'stop') onStop(down)
+    else if (!down) { onStart(false); onStop(false) }
+  }
+
+  return <group position={[x, RAIL_Y + 1.05, 0.4]}
+    onPointerDown={(event) => { event.stopPropagation(); press(event.object, true) }}
+    onPointerUp={(event) => { event.stopPropagation(); press(event.object, false) }}
+    onPointerOut={() => { onStart(false); onStop(false) }}>
     <primitive object={model} castShadow receiveShadow />
-    <mesh position={[-0.13, 0, 0.2]} {...buttonEvents(onStop)}>
-      <boxGeometry args={[0.24, 0.42, 0.18]} /><meshBasicMaterial transparent opacity={0} />
-    </mesh>
-    <mesh position={[0.13, 0, 0.2]} {...buttonEvents(onStart)}>
-      <boxGeometry args={[0.24, 0.42, 0.18]} /><meshBasicMaterial transparent opacity={0} />
-    </mesh>
     <Label text={`${c.ref} · STOP / START`} position={[0, 0.35, 0.08]} />
   </group>
 }

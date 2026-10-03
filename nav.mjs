@@ -1,0 +1,18 @@
+import { chromium, devices } from 'playwright'
+const b = await chromium.launch()
+const p = await (await b.newContext(devices['iPhone 13'])).newPage()
+let navs = 0
+p.on('framenavigated', () => navs++)
+await p.goto('http://127.0.0.1:4173/')
+await p.evaluate(() => localStorage.setItem('dcsimu:account:session:v1','dcsimu-admin'))
+await p.goto('http://127.0.0.1:4173/admin', { waitUntil:'networkidle' })
+await p.getByRole('button', { name:'Biblioteca 3D' }).first().click()
+await p.waitForTimeout(600)
+const before = await p.evaluate(() => history.length)
+await p.getByRole('button', { name:/^Editar( no 3D)?$/ }).first().click()
+await p.waitForTimeout(10000)
+const after = await p.evaluate(() => history.length)
+console.log('url', p.url())
+console.log('entradas de histórico acrescentadas:', after - before, '| navegações de frame:', navs)
+console.log('ce-root', await p.locator('.ce-root').count(), 'canvas', await p.locator('canvas').count())
+await b.close()
