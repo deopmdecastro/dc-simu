@@ -432,8 +432,23 @@
 .ce-mobile-panes { display:none; }
 @media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
   .ce-root { width:100vw; height:100%; overflow:hidden; }
-  .ce-top { min-height:50px; padding-inline:8px; gap:6px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; }
-  .ce-top::-webkit-scrollbar { display:none; }
+  /* Cabeçalho: nada de linha cortada por baixo do título. Deixa envolver em
+     duas linhas e mostra-as por inteiro (antes tinha altura fixa + overflow). */
+  .ce-top { min-height:0; height:auto; padding:6px 8px; gap:6px 5px; overflow:visible; flex-wrap:wrap; align-items:center; }
+  /* `.account-bar` impõe height:42px !important em dx.css — no telemóvel a
+     barra precisa de crescer, senão a segunda linha fica a espreitar por trás. */
+  .ce-top.account-bar { flex-wrap:wrap; height:auto !important; min-height:0; padding:6px 8px !important; gap:5px !important; }
+  .ce-top .ce-spacer { display:none; }
+  .ce-top .ce-modes { order:2; }
+  .ce-top .account-project-action, .ce-top .dx-account-controls { order:3; }
+  .ce-top .account-project-action { padding:5px 9px; font-size:12px; min-height:32px; }
+  /* Menos peso na primeira linha: sem logótipo e com o título curto, o
+     seletor Editar/Simular sobe para junto do nome do componente. */
+  .ce-top .dx-logo, .ce-top .dx-logo-text { display:none; }
+  .ce-top .ce-title { min-width:0; flex:1 1 120px; }
+  .ce-top .ce-title strong { max-width:46vw; font-size:12.5px; }
+  .ce-top .ce-modes { order:0; }
+  .ce-top .ce-modes button { padding:5px 10px; font-size:12px; }
   .ce-top .ce-title { min-width:150px; }
   .ce-top .ce-title strong { max-width:145px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .ce-top .ce-autosave, .ce-top .dx-bar-sep { display:none; }
