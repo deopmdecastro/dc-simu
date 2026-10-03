@@ -119,84 +119,99 @@ function ToolRibbon() {
   const hasPieces = useEditorStore((s) => !!selectedPartDef?.asset && s.def.parts.some((part) => part.parentId === selectedPartDef?.id && !!part.glbNode))
   const hasFocus = useEditorStore((s) => !!s.selection || !!s.selectedWire)
   const allHidden = terminalCount > 0 && hiddenCount >= terminalCount
-  // Telemóvel: só histórico + ferramentas ficam na barra; o resto passa para
-  // o painel «Mais», para nada ficar escondido fora do ecrã.
+  // Telemóvel: mesma arrumação do simulador — duas linhas. Em cima os painéis
+  // (Formas, Bornes, Enquadrar…) com nome; em baixo as ferramentas, numa faixa
+  // que desliza na horizontal (classes `toolbar-scroll`/`dc-mobile-panel-tools`
+  // são as mesmas da barra do simulador).
   const compact = useCompactView()
-  const [more, setMore] = useState(false)
-  const moreRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!more) return
-    const close = (event: PointerEvent) => { if (!moreRef.current?.contains(event.target as Node)) setMore(false) }
-    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setMore(false) }
-    window.addEventListener('pointerdown', close); window.addEventListener('keydown', key)
-    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', key) }
-  }, [more])
-  useEffect(() => { if (!compact) setMore(false) }, [compact])
-  return <div className={`ce-ribbon${compact ? ' is-compact' : ''}`} role="toolbar" aria-label="Ferramentas" ref={moreRef}>
-    <div className="dc-seg" role="group" aria-label="Histórico">
-      <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().undo()} disabled={!canUndo} title="Desfazer [Ctrl+Z]" aria-label="Desfazer"><IconUndo size={13} /></button>
-      <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().redo()} disabled={!canRedo} title="Refazer [Ctrl+Y]" aria-label="Refazer"><IconRedo size={13} /></button>
+
+  const groupHistory = <div className="dc-seg" role="group" aria-label="Histórico">
+    <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().undo()} disabled={!canUndo} title="Desfazer [Ctrl+Z]" aria-label="Desfazer"><IconUndo size={13} /></button>
+    <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().redo()} disabled={!canRedo} title="Refazer [Ctrl+Y]" aria-label="Refazer"><IconRedo size={13} /></button>
+  </div>
+
+  const groupTools = <div className="dc-seg" role="group" aria-label="Ferramenta">
+    {RIBBON.map((item) => {
+      const Icon = item.icon
+      const disabled = !editing && !item.simulate
+      return <button key={item.id} className={`dc-tool-btn ${active === item.id ? 'dc-tool-active' : ''}`} disabled={disabled} aria-pressed={active === item.id} onClick={() => setRibbon(item.id)} title={`${item.hint} [${item.key}]`}>
+        <Icon size={13} /><span className="hidden lg:inline">{item.label}</span><kbd className="ce-kbd">{item.key}</kbd>
+      </button>
+    })}
+  </div>
+
+  const groupGizmo = editing && <div className="dc-seg" role="group" aria-label="Manipulador" style={active === 'select' ? undefined : { opacity: 0.45 }}>
+    {([['translate', 'Mover', 'W', IconMove], ['rotate', 'Rodar', 'E', IconRotate], ['scale', 'Escala', 'R', IconPlus]] as const).map(([id, label, key, Icon]) =>
+      <button key={id} className={`dc-tool-btn ${tool === id ? 'dc-tool-active' : ''}`} disabled={active !== 'select'} aria-pressed={tool === id} onClick={() => set({ tool: id })} title={`${label} [${key}]`}><Icon size={13} /><span className="hidden xl:inline">{label}</span><kbd className="ce-kbd">{key}</kbd></button>)}
+    <button className="dc-tool-btn" disabled={active !== 'select'} aria-pressed={gizmoSpace === 'world'} onClick={() => set({ gizmoSpace: gizmoSpace === 'local' ? 'world' : 'local' })} title="Eixos do manipulador: locais (da peça) ou globais (do mundo) [X]">{gizmoSpace === 'local' ? 'Local' : 'Global'}</button>
+  </div>
+
+  const shapes = editing && <>
+    <ShapeMenu onImport={() => fileRef.current?.click()} />
+    <input ref={fileRef} type="file" accept=".glb,model/gltf-binary" hidden onChange={(event) => { void importGlbAction(event.target.files?.[0]).then((error) => error && window.dispatchEvent(new CustomEvent('ce-flash', { detail: error }))); event.target.value = '' }} />
+  </>
+
+  const groupEdit = editing && <div className="dc-seg" role="group" aria-label="Edição">
+    <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a seleção [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /></button>
+    <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={groupSelection} title="Agrupar as peças selecionadas [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /></button>
+    <button className="dc-tool-btn !px-2" disabled={!hasGroup} onClick={ungroupSelection} title="Desagrupar: devolve as peças ao nível de cima [Ctrl+Shift+G]" aria-label="Desagrupar"><IconUngroup size={14} /></button>
+    <button className="dc-tool-btn" disabled={!hasGlb} onClick={(event) => explodeGlbPart(event.shiftKey ? 'meshes' : 'smart')} title="Separar partes: o modelo passa a peças editáveis (manípulo, tampa, botões…), agrupando o que está encostado. Shift+clique separa malha a malha."><IconModel size={13} /><span className="hidden xl:inline">Separar partes</span></button>
+    {hasPieces && <button className="dc-tool-btn" onClick={mergeGlbParts} title="Juntar partes: volta a reunir o modelo separado"><IconGroup size={13} /><span className="hidden xl:inline">Juntar partes</span></button>}
+    <button className="dc-tool-btn !px-2" disabled={!hasSelection} onClick={deleteSelection} title="Eliminar a seleção [Del]" aria-label="Eliminar"><IconDelete size={14} /></button>
+  </div>
+
+  const groupPosition = editing && <div className="dc-seg" role="group" aria-label="Posição">
+    <button className="dc-tool-btn" onClick={dropToFloor} title="Pousar o modelo no chão (base a Y = 0; os bornes acompanham)"><IconGround size={14} /><span className="ce-mobile-label">Pousar</span></button>
+    <button className="dc-tool-btn" onClick={centerOnOrigin} title="Centrar o modelo na origem (X/Z)"><IconAlignCenterH size={14} /><span className="ce-mobile-label">Centrar</span></button>
+  </div>
+
+  const groupView = <div className="dc-seg" role="group" aria-label="Vista">
+    <button className="dc-tool-btn" onClick={() => useEditorStore.getState().cameraTo('fit')} title="Enquadrar o modelo [F]"><IconFocus size={14} /><span className="ce-mobile-label">Enquadrar</span></button>
+    <button className="dc-tool-btn" disabled={!hasFocus} onClick={() => useEditorStore.getState().cameraTo('fitSel')} title="Enquadrar a seleção (peça, borne ou cabo) [Shift+F]"><span className="hidden xl:inline">Seleção</span><span className="xl:hidden">Sel.</span></button>
+  </div>
+
+  const groupTerminals = editing && <div className="dc-seg" role="group" aria-label="Bornes">
+    <button className={`dc-tool-btn ${libraryOpen ? 'dc-tool-active' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} title="Biblioteca de bornes e perfis de ligação"><IconLayers size={13} /><span className="hidden xl:inline">Biblioteca de bornes</span><span className="xl:hidden">Bornes</span></button>
+    <button className="dc-tool-btn !px-2" disabled={terminalCount === 0} aria-pressed={allHidden} onClick={() => useEditorStore.getState().setTerminalsHidden(useEditorStore.getState().def.terminals.map((item) => item.id), !allHidden)}
+      title={allHidden ? 'Mostrar todos os bornes' : hiddenCount ? `Ocultar todos os bornes (${hiddenCount} já oculto${hiddenCount > 1 ? 's' : ''}) [H]` : 'Ocultar todos os bornes [H]'} aria-label={allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes'}>
+      {allHidden ? <IconEyeOff size={14} /> : <IconEye size={14} />}{hiddenCount > 0 && !allHidden && <b className="ce-badge">{hiddenCount}</b>}
+    </button>
+  </div>
+
+  const groupClear = (measurements > 0 || wireCount > 0) && <div className="dc-seg" role="group" aria-label="Limpar">
+    {measurements > 0 && <button className="dc-tool-btn" onClick={() => set({ measurements: [], measureFrom: null })} title="Apagar todas as medições"><IconRuler size={13} /><span className="hidden xl:inline">Limpar medições</span><b className="ce-badge">{measurements}</b></button>}
+    {wireCount > 0 && <button className={`dc-tool-btn ${useEditorStore.getState().tab === 'wires' ? 'dc-tool-active' : ''}`} onClick={() => set({ tab: 'wires' })} title="Editar cabos de teste: cor, secção e terminais"><IconWire size={13} /><span className="hidden xl:inline">Cabos</span><b className="ce-badge">{wireCount}</b></button>}
+  </div>
+
+  // Telemóvel: linha 1 = painéis/vista com nome · linha 2 = ferramentas (desliza).
+  if (compact) return <>
+    <div className="ce-ribbon ce-ribbon-row1 dc-toolbar-main" role="toolbar" aria-label="Painéis e vista">
+      <div className="dc-mobile-panel-tools" role="group" aria-label="Painéis">
+        {shapes}
+        {groupTerminals}
+        {groupView}
+        {groupPosition}
+      </div>
     </div>
+    <div className="ce-ribbon ce-ribbon-row2 toolbar-scroll" role="toolbar" aria-label="Ferramentas">
+      {groupHistory}
+      {groupTools}
+      {groupGizmo}
+      {groupEdit}
+      {groupClear}
+    </div>
+  </>
+
+  return <div className="ce-ribbon" role="toolbar" aria-label="Ferramentas">
+    {groupHistory}
     <span className="ce-ribbon-sep" />
-    <div className="dc-seg" role="group" aria-label="Ferramenta">
-      {RIBBON.map((item) => {
-        const Icon = item.icon
-        const disabled = !editing && !item.simulate
-        return <button key={item.id} className={`dc-tool-btn ${active === item.id ? 'dc-tool-active' : ''}`} disabled={disabled} aria-pressed={active === item.id} onClick={() => setRibbon(item.id)} title={`${item.hint} [${item.key}]`}>
-          <Icon size={13} /><span className="hidden lg:inline">{item.label}</span><kbd className="ce-kbd">{item.key}</kbd>
-        </button>
-      })}
-    </div>
-    {compact && <button className={`dc-tool-btn ce-more-btn${more ? ' dc-tool-active' : ''}`} aria-haspopup="dialog" aria-expanded={more} onClick={() => setMore(!more)} title="Mais ferramentas">⋯<span>Mais</span></button>}
-    <div className={`ce-ribbon-rest${compact && !more ? ' is-closed' : ''}`}>
-    {editing && <>
-      <span className="ce-ribbon-sep" />
-      <div className="dc-seg" role="group" aria-label="Manipulador" style={active === 'select' ? undefined : { opacity: 0.45 }}>
-        {([['translate', 'Mover', 'W', IconMove], ['rotate', 'Rodar', 'E', IconRotate], ['scale', 'Escala', 'R', IconPlus]] as const).map(([id, label, key, Icon]) =>
-          <button key={id} className={`dc-tool-btn ${tool === id ? 'dc-tool-active' : ''}`} disabled={active !== 'select'} aria-pressed={tool === id} onClick={() => set({ tool: id })} title={`${label} [${key}]`}><Icon size={13} /><span className="hidden xl:inline">{label}</span><kbd className="ce-kbd">{key}</kbd></button>)}
-        <button className="dc-tool-btn" disabled={active !== 'select'} aria-pressed={gizmoSpace === 'world'} onClick={() => set({ gizmoSpace: gizmoSpace === 'local' ? 'world' : 'local' })} title="Eixos do manipulador: locais (da peça) ou globais (do mundo) [X]">{gizmoSpace === 'local' ? 'Local' : 'Global'}</button>
-      </div>
-    </>}
-    {editing && <>
-      <span className="ce-ribbon-sep" />
-      <ShapeMenu onImport={() => fileRef.current?.click()} />
-      <input ref={fileRef} type="file" accept=".glb,model/gltf-binary" hidden onChange={(event) => { void importGlbAction(event.target.files?.[0]).then((error) => error && window.dispatchEvent(new CustomEvent('ce-flash', { detail: error }))); event.target.value = '' }} />
-      <div className="dc-seg" role="group" aria-label="Edição">
-        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a seleção [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /></button>
-        <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={groupSelection} title="Agrupar as peças selecionadas [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /></button>
-        <button className="dc-tool-btn !px-2" disabled={!hasGroup} onClick={ungroupSelection} title="Desagrupar: devolve as peças ao nível de cima [Ctrl+Shift+G]" aria-label="Desagrupar"><IconUngroup size={14} /></button>
-        <button className="dc-tool-btn" disabled={!hasGlb} onClick={(event) => explodeGlbPart(event.shiftKey ? 'meshes' : 'smart')} title="Separar partes: o modelo passa a peças editáveis (manípulo, tampa, botões…), agrupando o que está encostado. Shift+clique separa malha a malha."><IconModel size={13} /><span className="hidden xl:inline">Separar partes</span></button>
-        {hasPieces && <button className="dc-tool-btn" onClick={mergeGlbParts} title="Juntar partes: volta a reunir o modelo separado"><IconGroup size={13} /><span className="hidden xl:inline">Juntar partes</span></button>}
-        <button className="dc-tool-btn !px-2" disabled={!hasSelection} onClick={deleteSelection} title="Eliminar a seleção [Del]" aria-label="Eliminar"><IconDelete size={14} /></button>
-      </div>
-      <div className="dc-seg" role="group" aria-label="Posição">
-        <button className="dc-tool-btn !px-2" onClick={dropToFloor} title="Pousar o modelo no chão (base a Y = 0; os bornes acompanham)" aria-label="Pousar no chão"><IconGround size={14} /></button>
-        <button className="dc-tool-btn !px-2" onClick={centerOnOrigin} title="Centrar o modelo na origem (X/Z)" aria-label="Centrar na origem"><IconAlignCenterH size={14} /></button>
-      </div>
-    </>}
+    {groupTools}
+    {editing && <><span className="ce-ribbon-sep" />{groupGizmo}</>}
+    {editing && <><span className="ce-ribbon-sep" />{shapes}{groupEdit}{groupPosition}</>}
     <span className="ce-ribbon-sep" />
-    <div className="dc-seg" role="group" aria-label="Vista">
-      <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().cameraTo('fit')} title="Enquadrar o modelo [F]" aria-label="Enquadrar o modelo"><IconFocus size={14} /></button>
-      <button className="dc-tool-btn" disabled={!hasFocus} onClick={() => useEditorStore.getState().cameraTo('fitSel')} title="Enquadrar a seleção (peça, borne ou cabo) [Shift+F]"><span className="hidden xl:inline">Seleção</span><span className="xl:hidden">Sel.</span></button>
-    </div>
-    {editing && <>
-      <span className="ce-ribbon-sep" />
-      <div className="dc-seg" role="group" aria-label="Bornes">
-        <button className={`dc-tool-btn ${libraryOpen ? 'dc-tool-active' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} title="Biblioteca de bornes e perfis de ligação"><IconLayers size={13} /><span className="hidden xl:inline">Biblioteca de bornes</span><span className="xl:hidden">Bornes</span></button>
-        <button className="dc-tool-btn !px-2" disabled={terminalCount === 0} aria-pressed={allHidden} onClick={() => useEditorStore.getState().setTerminalsHidden(useEditorStore.getState().def.terminals.map((item) => item.id), !allHidden)}
-          title={allHidden ? 'Mostrar todos os bornes' : hiddenCount ? `Ocultar todos os bornes (${hiddenCount} já oculto${hiddenCount > 1 ? 's' : ''}) [H]` : 'Ocultar todos os bornes [H]'} aria-label={allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes'}>
-          {allHidden ? <IconEyeOff size={14} /> : <IconEye size={14} />}{hiddenCount > 0 && !allHidden && <b className="ce-badge">{hiddenCount}</b>}
-        </button>
-      </div>
-    </>}
-    {(measurements > 0 || wireCount > 0) && <>
-      <span className="ce-ribbon-sep" />
-      <div className="dc-seg" role="group" aria-label="Limpar">
-        {measurements > 0 && <button className="dc-tool-btn" onClick={() => set({ measurements: [], measureFrom: null })} title="Apagar todas as medições"><IconRuler size={13} /><span className="hidden xl:inline">Limpar medições</span><b className="ce-badge">{measurements}</b></button>}
-        {wireCount > 0 && <button className={`dc-tool-btn ${useEditorStore.getState().tab === 'wires' ? 'dc-tool-active' : ''}`} onClick={() => set({ tab: 'wires' })} title="Editar cabos de teste: cor, secção e terminais"><IconWire size={13} /><span className="hidden xl:inline">Cabos</span><b className="ce-badge">{wireCount}</b></button>}
-      </div>
-    </>}
-    </div>
+    {groupView}
+    {editing && <><span className="ce-ribbon-sep" />{groupTerminals}</>}
+    {groupClear && <><span className="ce-ribbon-sep" />{groupClear}</>}
     <span className="ce-ribbon-hint" aria-live="polite">{RIBBON.find((item) => item.id === active)?.hint}</span>
   </div>
 }
