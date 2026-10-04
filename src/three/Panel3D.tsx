@@ -702,7 +702,7 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const plc = ['plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(c.type)
   const safety = c.type === 'safetyRelay'
-  const breaker = ['phoenixEcb3000760', 'breaker1p', 'breaker2p', 'breakerWegMdwC10'].includes(c.type)
+  const breaker = ['phoenixEcb3000760', 'breaker1p', 'breaker2p', 'breakerWegMdwC10', 'breakerSteckSdC25'].includes(c.type)
   if (!plc && !safety && !breaker) return null
   const error = diagnostics.some((item) => item.level === 'error') || !!c.state.tripped
   const powered = c.state.powered !== false
@@ -742,7 +742,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     return obj
   }, [scene, spec])
   const active = !!(c.state.energized || c.state.powered)
-  const breaker = ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(c.type)
+  const breaker = ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760'].includes(c.type)
   const breakerClosed = !!c.state.closed && !c.state.tripped
   const tripped = !!c.state.tripped
 
@@ -799,7 +799,12 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
        * Nos GLB montados com espelho em Z (`flipDepth`) o pivot está dentro do
        * nó espelhado, e o mesmo ângulo aparece ao contrário — daí o sinal. */
       const sense = spec.flipDepth ? 1 : -1
-      handle.pivot.rotation.x = (sense * -(value * 2 - 1) * throwDeg * Math.PI) / 180
+      if (c.type === 'breakerSteckSdC25') {
+        // O STEP do Steck vem na posição DESLIGADA (ponta em baixo, «O-OFF» legível):
+        // OFF = pose do CAD (0°) e ON levanta o manípulo 40°, em vez de oscilar
+        // simetricamente à volta da pose desligada. Disparado (0,55) fica a meio.
+        handle.pivot.rotation.x = (-value * 40 * Math.PI) / 180
+      } else handle.pivot.rotation.x = (sense * -(value * 2 - 1) * throwDeg * Math.PI) / 180
     }
     handle.pivot.updateMatrixWorld(true)
   })
@@ -2526,7 +2531,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} />
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />
-          const isBreaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
+          const isBreaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
           if (isBreaker) content = <group onClick={(event) => {
             event.stopPropagation()
             const closed = !!c.state.closed && !c.state.tripped

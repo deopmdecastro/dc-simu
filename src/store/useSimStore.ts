@@ -857,7 +857,7 @@ export const useSimStore = create<Store>((set, get) => ({
       for (const c of s.components) {
         const t = c.terminals.find((x) => x.id === terminalId)
         if (t) {
-          if (c.type === 'breaker1p' || c.type === 'breakerWegMdwC10' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'residualBreaker') {
+          if (c.type === 'breaker1p' || c.type === 'breakerWegMdwC10' || c.type === 'breakerSteckSdC25' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'residualBreaker') {
             c.state.closed = !c.state.closed
           } else if (c.type === 'fuse' || c.type === 'fuseHolder') {
             c.state.blown = !c.state.blown

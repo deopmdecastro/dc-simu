@@ -6,6 +6,7 @@ Gerado por `npm run audit:terminals`. Posições manuais são preservadas; borne
 |---|---:|---|---|---|
 | Disjuntor monopolar (`breaker1p`) | 2 | medido no GLB | OK | ✅ |
 | Disjuntor WEG MDW-C10-3 · 3P 10 A curva C (`breakerWegMdwC10`) | 6 | medido no GLB | OK | ✅ |
+| Disjuntor Steck SD C25 · 1P 25 A curva C (`breakerSteckSdC25`) | 2 | medido no GLB | OK | ✅ |
 | Disjuntor bipolar (`breaker2p`) | 4 | medido no GLB | OK | ✅ |
 | Phoenix Contact EC 1 12DC/1A S-R · 3000760 (`phoenixEcb3000760`) | 5 | medido no GLB | OK | ✅ |
 | Botoeira dupla NHD NPB22-D11 · START/STOP (`dualPushButtonNpb22D11`) | 4 | medido no GLB | OK | ✅ |
@@ -24,4 +25,4 @@ Gerado por `npm run audit:terminals`. Posições manuais são preservadas; borne
 | Fonte Proauto / DRAN120-24A · 24V 5A (`powerSupplyProauto24A`) | 9 | medido no GLB | OK | ✅ |
 | Multímetro digital RGK DM-20 (`multimeterDm20`) | 2 | medido no GLB | OK | ✅ |
 
-**19 modelos GLB auditados · 132 bornes.**
+**20 modelos GLB auditados · 134 bornes.**

@@ -72,6 +72,16 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     { label: '4', face: 'bottom', x: 0.5, y: 0.99, z: 0.711, diameterMm: 12.2, holeDepthMm: 10 },
     { label: '6', face: 'bottom', x: 0.836, y: 0.99, z: 0.711, diameterMm: 12.2, holeDepthMm: 10 },
   ],
+  /**
+   * Steck SD C25 1P (17,8×79,6×72,6 mm, do STEP do fabricante). A caixa de
+   * ligação é aberta em cima (1, entrada) e em baixo (2, saída), com cerca de
+   * 11 mm de largura e 4,5–5 mm de profundidade, a meio da profundidade
+   * (z ≈ 0,39). Os parafusos de aperto ficam acessíveis pela frente.
+   */
+  breakerSteckSdC25: [
+    { label: '1', face: 'top', x: 0.5, y: 0.006, z: 0.389, diameterMm: 11.3, holeDepthMm: 4.5 },
+    { label: '2', face: 'bottom', x: 0.5, y: 0.984, z: 0.39, diameterMm: 11.3, holeDepthMm: 5 },
+  ],
   /** Disjuntor monopolar genérico: encaixe Ø7,2 mm em cima e em baixo. */
   breaker1p: [
     { label: '1', face: 'top', x: 0.5, y: 0.0, z: 0.866, diameterMm: 7.2, holeDepthMm: 8 },
@@ -264,6 +274,10 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
 export const REAL_CONTROLS: Partial<Record<ComponentType, RealControlSpot[]>> = {
   /** Manípulo azul original do disjuntor WEG (bascula ON/OFF). */
   breakerWegMdwC10: [{ node: 'WEG_Handle', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' }],
+  /** Steck SD C25: o manípulo vai no GLB como `dcsimu_handle_2` (plástico vermelho) e `dcsimu_handle_3` (serigrafia O-OFF). */
+  breakerSteckSdC25: [
+    { node: 'dcsimu_handle_2', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+  ],
 }
 
 export const realTerminalsFor = (type: ComponentType): RealTerminalSpot[] | undefined => REAL_TERMINALS[type]

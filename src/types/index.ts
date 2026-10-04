@@ -34,6 +34,7 @@ export type ComponentType =
   | 'breaker3p'
   | 'breaker4p'
   | 'breakerWegMdwC10'
+  | 'breakerSteckSdC25'
   | 'motorBreaker'
   | 'residualBreaker'
   | 'phoenixEcb3000760'

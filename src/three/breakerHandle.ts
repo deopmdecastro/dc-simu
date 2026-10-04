@@ -60,6 +60,20 @@ export function splitGeometryByTriangle(
   return { moving: build(moving), fixed: build(fixed) }
 }
 
+/**
+ * Marca explícita, para GLB que nós próprios gerámos: qualquer malha cujo nome
+ * (ou o de um antepassado) comece por `dcsimu_handle` é manípulo. Quando existe,
+ * dispensa a heurística da frente da caixa — que num CAD com a serigrafia
+ * rebaixada confundiria a moldura do corpo com o manípulo.
+ */
+const HANDLE_MARK = /^dcsimu[_-]handle/i
+function isMarkedHandle(node: THREE.Object3D, root: THREE.Object3D): boolean {
+  for (let current: THREE.Object3D | null = node; current && current !== root.parent; current = current.parent) {
+    if (HANDLE_MARK.test(current.name)) return true
+  }
+  return false
+}
+
 export interface BreakerHandle {
   /** Grupo com charneira; basta rodar em X para bascular o manípulo. */
   pivot: THREE.Group
@@ -124,6 +138,7 @@ export function extractBreakerHandle(model: THREE.Object3D, frame: THREE.Object3
   for (const part of parts) total.union(part.box)
   const depth = total.max.z - total.min.z
   if (depth <= 0) return null
+  const marked = new Set(parts.filter((part) => isMarkedHandle(part.mesh, model)))
 
   /* Plano frontal da caixa.
    * Não dá para o ir buscar à «peça maior»: há CAD partidos em centenas de
@@ -155,6 +170,16 @@ export function extractBreakerHandle(model: THREE.Object3D, frame: THREE.Object3
   const bodyVolume = boxVolume(total)
 
   for (const part of parts) {
+    if (marked.size > 0) {
+      // Manípulo marcado no GLB: só as malhas marcadas se movem, por inteiro.
+      if (!marked.has(part)) continue
+      const moved = (part.mesh.geometry.index ? part.mesh.geometry.toNonIndexed() : part.mesh.geometry.clone()).applyMatrix4(part.relative)
+      moved.computeBoundingBox()
+      if (moved.boundingBox) handleBox.union(moved.boundingBox)
+      movingPieces.push({ geometry: moved, material: part.mesh.material })
+      part.mesh.visible = false
+      continue
+    }
     if (part.box.max.z <= cutZ) continue
     const geometry = part.mesh.geometry
     // Peça pequena e saliente: é o manípulo inteiro — move-se por completo,

@@ -859,7 +859,16 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const isPressable = (c: ElectricalComponent) =>
     ['buttonNO', 'buttonNC', 'dualPushButtonNpb22D11', 'emergencyButton', 'emergencyButtonKeyP20ACR', 'selector2', 'selector3', 'keySwitch', 'footSwitch', 'limitSwitch', 'proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat'].includes(c.type)
 
+  /** Disjuntores: duplo clique no corpo arma/desarma (e rearma um disparo), como o clique no Painel 3D. */
+  const isToggleBreaker = (c: ElectricalComponent) =>
+    ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreaker', 'residualBreaker'].includes(c.type)
+
   const toggleField = (c: ElectricalComponent, down: boolean) => {
+    if (isToggleBreaker(c)) {
+      const closed = !!c.state.closed && !c.state.tripped
+      useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
+      return
+    }
     if (!isPressable(c)) return
     if (c.type === 'proximitySensor' || c.type === 'photoSensor' || c.type === 'pressureSwitch' || c.type === 'thermostat') {
       useSimStore.getState().setComponentState(c.id, { triggered: down })

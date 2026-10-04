@@ -196,6 +196,14 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     defaultState: { closed: true, tripped: false, poles: 3, curve: 'C', inA: 10, ue: '440 Vac / 250 Vdc', code: '10076409' },
   },
+  breakerSteckSdC25: {
+    category: 'protection', paletteName: 'Disjuntor Steck SD C25 · 1P 25 A curva C', group: 'Proteção', tag: 'QF', w: 27, h: 119,
+    terminals: [
+      T('1', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.0, z: 0.35 }, terminalType: 'screw', diameter: 9 }),
+      T('2', 'power-out', 0.5, 1, { position3D: { x: 0.5, y: 1.0, z: 0.35 }, terminalType: 'screw', diameter: 9 }),
+    ],
+    defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 25, ue: '230/400 V~ · 50/60 Hz', code: 'SD C25 1P', icn: '3 kA', norm: 'IEC 60898' },
+  },
   breaker2p: {
     category: 'protection', paletteName: 'Disjuntor bipolar', group: 'Proteção', tag: 'QF', w: 90, h: 110,
     terminals: [
@@ -934,7 +942,7 @@ export function upgradeLogoTerminals(c: ElectricalComponent): ElectricalComponen
 
 /** Migra a fonte 24B provisória para a variante de parafuso 24A sem perder cabos. */
 export function upgradeProtectionTerminalPositions(c: ElectricalComponent): ElectricalComponent {
-  if (!['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760', 'multimeterDm20'].includes(c.type)) return c
+  if (!['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760', 'multimeterDm20'].includes(c.type)) return c
   // Uma revisão feita no editor tem prioridade sobre os novos padrões.
   if ((c.editorVersion ?? 1) > 1) return c
   const defaults = TEMPLATES[c.type].terminals

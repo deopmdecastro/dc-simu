@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
@@ -713,6 +714,40 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const weg = createComponent('breakerWegMdwC10')
   check('WEG MDW-C10 fecha um polo 1–2 e conserva 10 A curva C', internalBridges(weg).length === 1 && weg.state.inA === 10 && weg.state.curve === 'C')
 
+  const steck = createComponent('breakerSteckSdC25')
+  const steckSpec = getComponentModelSpec('breakerSteckSdC25')
+  check('Steck SD C25 usa o GLB do STEP, de pé e sem rotação, em calha DIN', steckSpec?.path === '/models/protecao/steck-sd-c25-1p.glb'
+    && steckSpec.placement === 'din-rail' && steckSpec.rotation.every((angle) => angle === 0) && !steckSpec.flipDepth)
+  check('Steck SD C25 cria os bornes 1 (topo) e 2 (base) e conserva 25 A curva C', steck.terminals.length === 2
+    && steck.terminals.some((terminal) => terminal.label === '1' && terminal.kind === 'power-in')
+    && steck.terminals.some((terminal) => terminal.label === '2' && terminal.kind === 'power-out')
+    && steck.state.inA === 25 && steck.state.curve === 'C' && steck.state.poles === 1)
+  check('Steck SD C25: bornes medidos ficam nas faces de cima e de baixo', (() => {
+    const [top, bottom] = [terminalByLabel(steck, '1'), terminalByLabel(steck, '2')]
+    return !!top?.position3D && !!bottom?.position3D && top.position3D.y < 0.1 && bottom.position3D.y > 0.9
+  })())
+  check('Steck SD C25 fechado liga 1–2', internalBridges(steck).length === 1)
+  const steckOpen = createComponent('breakerSteckSdC25', undefined, undefined, 0, 0, 0, { closed: false })
+  const steckTripped = createComponent('breakerSteckSdC25', undefined, undefined, 0, 0, 0, { tripped: true })
+  check('Steck SD C25 aberto ou disparado interrompe a passagem', internalBridges(steckOpen).length === 0 && internalBridges(steckTripped).length === 0)
+  {
+    const glb = fs.readFileSync('public/models/protecao/steck-sd-c25-1p.glb')
+    const json = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8'))
+    const names: string[] = json.nodes.map((node: { name?: string }) => node.name ?? '')
+    check('GLB do Steck traz o manípulo em malhas dcsimu_handle_* separadas do corpo', names.some((n) => /^dcsimu_handle_/.test(n)) && names.some((n) => /^steck_corpo_/.test(n)))
+  }
+  {
+    const id = useSimStore.getState().addComponent('breakerSteckSdC25', 200, 160)
+    if (!id) throw new Error('não foi possível inserir o Steck SD C25')
+    const closedOf = () => !!useSimStore.getState().components.find((component) => component.id === id)!.state.closed
+    const before = closedOf()
+    useSimStore.getState().setComponentState(id, { closed: !before, tripped: false })
+    const after = closedOf()
+    useSimStore.getState().setComponentState(id, { closed: before, tripped: false })
+    check('Steck SD C25: ação ON/OFF alterna o estado na store e repõe', before === true && after === false && closedOf() === true)
+    useSimStore.getState().deleteComponents([id])
+  }
+
   const pti = createComponent('terminalPhoenixPti6')
   check('Phoenix PTI 6 cria duas ligações Push-in no mesmo potencial', pti.terminals.length === 2 && pti.terminals.every((t) => t.terminalType === 'spring') && internalBridges(pti).length === 1)
 
@@ -756,7 +791,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 19 componentes com GLB real', availableTypes.length === 19 && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 20 componentes com GLB real', availableTypes.length === 20 && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))

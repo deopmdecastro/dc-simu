@@ -5,6 +5,7 @@ export const MODEL_PATHS = {
   powerSupplyProauto24A: '/models/fontes/fonte-proauto-dran120-24a.glb',
   wegContactorCWC09: '/models/contactores/weg-cwc07-10e.glb',
   wegBreakerMdwC10: '/models/protecao/weg-mdw-c10.glb',
+  steckBreakerSdC25: '/models/protecao/steck-sd-c25-1p.glb',
   phoenixEcb3000760: '/models/protecao/phoenix-ec1-12dc-1a-s-r.glb',
   emergencyButtonP20AKR: '/models/comando/P20AKR-1.glb',
   emergencyButtonKeyP20ACR: '/models/comando/metaltex-p20acr-r-1b.glb',
@@ -46,6 +47,8 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   breaker1p: { width: 17.7, height: 90.01, depth: 74.13 },
   breaker2p: { width: 35.4, height: 93.87, depth: 74.3 },
   breakerWegMdwC10: { width: 53.5, height: 78.51, depth: 77.24 },
+  /** Medido no STEP do fabricante: 17,8 × 79,6 × 72,6 mm (a profundidade inclui o manípulo). */
+  breakerSteckSdC25: { width: 17.8, height: 79.6, depth: 72.6 },
   phoenixEcb3000760: { width: 12.4, height: 80, depth: 81.65 },
   emergencyButton: { width: 38.9, height: 44.2, depth: 76 },
   emergencyButtonKeyP20ACR: { width: 40, height: 44, depth: 97 },
@@ -107,6 +110,9 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   // ficavam de pernas para o ar. Meia volta em Y e um quarto em -Z põem a chapa
   // legível, o manípulo à frente e os bornes 1/3/5 em cima.
   breakerWegMdwC10: spec('breakerWegMdwC10', MODEL_PATHS.wegBreakerMdwC10, [0, Math.PI, -Math.PI / 2], 'din-rail'),
+  // O GLB foi gerado do STEP já de pé: topo em +Y, frente em +Z (manípulo e bornes à frente),
+  // por isso não precisa de rotação nem de espelho. O manípulo vai como malhas `dcsimu_handle_*`.
+  breakerSteckSdC25: spec('breakerSteckSdC25', MODEL_PATHS.steckBreakerSdC25, [0, 0, 0], 'din-rail'),
   phoenixEcb3000760: spec('phoenixEcb3000760', MODEL_PATHS.phoenixEcb3000760, [Math.PI / 2, 0, 0], 'din-rail'),
 
   // O P20AKR tem o eixo longo em Z; identidade mostra a cabeça circular frontal.
@@ -150,7 +156,7 @@ export function getCommandModelSpec(type: ComponentType): CommandModelSpec | und
 
 export type ProtectionModelSpec = ComponentModelSpec
 export function getProtectionModelSpec(type: ComponentType): ProtectionModelSpec | undefined {
-  return ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'phoenixEcb3000760'].includes(type) ? MODEL_SPECS[type] : undefined
+  return ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760'].includes(type) ? MODEL_SPECS[type] : undefined
 }
 
 /** Especificação GLB única consumida pelo editor, esquema, painel e landing. */

@@ -248,14 +248,16 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   def.terminals = terminalsFor(tpl.terminals, box)
   // Proteções importadas chegam ao editor já testáveis. No WEG, o manípulo
   // azul original do GLB está isolado no nó WEG_Handle e é o próprio atuador.
-  if (['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(type)) {
+  if (['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(type)) {
     const partId = def.parts[0]?.id
     if (partId) {
       def.vars = [{ id: 'closed', name: 'Disjuntor fechado', type: 'bool', initial: true }, { id: 'tripped', name: 'Disparado', type: 'bool', initial: false }]
       // WEG: o manípulo basculante roda à volta dos polos (eixo deduzido dos bornes) em vez de deslizar 8 mm
       const weg = type === 'breakerWegMdwC10'
-      const tilt = weg ? tiltControlPatch(inferBreakerAxes(def.terminals.map((terminal) => terminal.position)), [0, 0, 1]) : null
-      def.controls = [{ id: newId('ctl_'), name: 'Liga / desliga', kind: 'toggle', partId, nodes: weg ? ['WEG_Handle'] : undefined, axis: tilt?.axis ?? [0, 1, 0], travelMm: 0, ...(tilt ? { motion: tilt.motion } : {}), bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }]
+      // Steck SD C25: o manípulo vai no GLB como malhas `dcsimu_handle_*` (vermelho + serigrafia O-OFF)
+      const steck = type === 'breakerSteckSdC25'
+      const tilt = weg || steck ? tiltControlPatch(inferBreakerAxes(def.terminals.map((terminal) => terminal.position)), [0, 0, 1]) : null
+      def.controls = [{ id: newId('ctl_'), name: 'Liga / desliga', kind: 'toggle', partId, nodes: weg ? ['WEG_Handle'] : steck ? ['dcsimu_handle_2', 'dcsimu_handle_3'] : undefined, axis: tilt?.axis ?? [0, 1, 0], travelMm: 0, ...(tilt ? { motion: tilt.motion } : {}), bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }]
     }
   }
   // O multímetro DM-20 chega ao editor completo: seletor, botões e LCD já
