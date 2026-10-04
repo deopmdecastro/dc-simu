@@ -37,6 +37,7 @@ Os CAD integrados pelo renderizador comum de `src/schematic/cad3DImage.ts` e pel
 | Tipo | Ficheiro | Vista no painel |
 |---|---|---|
 | Disjuntor WEG MDW-C10 | `protecao/weg-mdw-c10.glb` | Calha DIN |
+| Disjuntor Steck SD C25 1P | `protecao/steck-sd-c25-1p.glb` | Calha DIN |
 | Emergência Metaltex P20ACR | `comando/metaltex-p20acr-r-1b.glb` | Frente do painel |
 | Botoeira NHD NPB22-D11 | `comando/nhd-npb22-d11.glb` | Frente do painel |
 | Relé Allen-Bradley MSR127TP | `reles/allen-bradley-msr127tp.glb` | Calha DIN |
@@ -83,3 +84,13 @@ gerado por `npx tsx scripts/build-din-rail-glb.ts` a partir de
 `src/three/dinRailGeometry.ts`, o mesmo gerador que o Painel 3D usa para
 desenhar a calha com o **comprimento editável** (Inspetor → Comprimento da
 calha, 25–3000 mm). Os furos são regenerados ao mudar o comprimento, nunca esticados.
+
+## Disjuntor Steck SD C25 1P
+
+`protecao/steck-sd-c25-1p.glb` foi gerado a partir do STEP do fabricante
+(17,8 × 79,6 × 72,6 mm). Já vem de pé (topo em +Y, frente em +Z), por isso o
+`modelPaths.ts` não lhe aplica rotação nem espelho. O manípulo (plástico
+vermelho e serigrafia «O-OFF») foi separado em malhas `dcsimu_handle_*`, que o
+simulador move por inteiro; o CAD original está na posição desligada, pelo que
+OFF = pose do modelo e ON levanta o manípulo. Os bornes 1 (topo) e 2 (base)
+foram medidos nas caixas de ligação do próprio GLB.

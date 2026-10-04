@@ -755,7 +755,9 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     if (!breaker) { setHandle(null); return }
     const frame = model.parent
     if (!frame) return
-    const extracted = extractBreakerHandle(model, frame)
+    // Steck SD C25: o cubo redondo do manípulo (centro y −8,25 mm, z 61,45 mm no STEP) fica a
+    // 58,7 % da altura e a 32,8 % da profundidade da caixa do manípulo.
+    const extracted = extractBreakerHandle(model, frame, c.type === 'breakerSteckSdC25' ? { y: 0.587, z: 0.328 } : undefined)
     setHandle(extracted)
     return () => { if (extracted) extracted.pivot.removeFromParent() }
   }, [model, breaker])

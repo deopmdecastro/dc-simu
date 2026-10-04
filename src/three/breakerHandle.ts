@@ -112,7 +112,17 @@ const boxVolume = (box: THREE.Box3): number => {
  * devolve-o num grupo com charneira. O modelo fica alterado: as malhas de
  * origem perdem os triângulos que passaram para o manípulo.
  */
-export function extractBreakerHandle(model: THREE.Object3D, frame: THREE.Object3D): BreakerHandle | null {
+export function extractBreakerHandle(
+  model: THREE.Object3D,
+  frame: THREE.Object3D,
+  /**
+   * Só para manípulo marcado (`dcsimu_handle_*`): posição do eixo dentro da caixa do
+   * manípulo, de 0 (mínimo) a 1 (máximo) em Y e em Z. Serve quando o manípulo tem um
+   * cubo redondo cujo centro NÃO é o centro da caixa (o braço estica a caixa): sem isto
+   * o cubo orbitaria em vez de girar sobre si próprio.
+   */
+  hingeFraction?: { y: number; z: number },
+): BreakerHandle | null {
   model.updateMatrixWorld(true)
   frame.updateMatrixWorld(true)
   // Trabalhamos no referencial do componente (onde +Z é mesmo a frente do
@@ -229,6 +239,10 @@ export function extractBreakerHandle(model: THREE.Object3D, frame: THREE.Object3
   const center = handleBox.getCenter(new THREE.Vector3())
   // A charneira fica na base do manípulo, já dentro da caixa.
   const hinge = new THREE.Vector3(center.x, center.y, Math.min(handleBox.min.z, frontZ) - protrusion * 0.2)
+  if (marked.size > 0 && hingeFraction) {
+    hinge.y = handleBox.min.y + (handleBox.max.y - handleBox.min.y) * hingeFraction.y
+    hinge.z = handleBox.min.z + (handleBox.max.z - handleBox.min.z) * hingeFraction.z
+  }
 
   const pivot = new THREE.Group()
   pivot.name = 'dcsimu-breaker-handle'
