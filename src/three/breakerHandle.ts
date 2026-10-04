@@ -219,3 +219,55 @@ export function extractBreakerHandle(model: THREE.Object3D, frame: THREE.Object3
   frame.updateMatrixWorld(true)
   return { pivot, protrusion }
 }
+
+/**
+ * Conjunto da chave de um botão/seletor com segredo (ex.: Metaltex P20ACR).
+ *
+ * Não roda só a palheta da chave: roda o cilindro todo — a chave e o canhão
+ * onde ela entra —, que é o que acontece no aparelho real. O conjunto é
+ * apanhado pela geometria (um cilindro estreito centrado no eixo do botão,
+ * junto à face frontal), nunca pelo nome do nó.
+ */
+export function extractKeyBarrel(model: THREE.Object3D, frame: THREE.Object3D): { pivot: THREE.Group } | null {
+  frame.updateMatrixWorld(true)
+  const inverse = new THREE.Matrix4().copy(frame.matrixWorld).invert()
+  const parts: { mesh: THREE.Mesh; box: THREE.Box3 }[] = []
+  model.traverse((node) => {
+    const mesh = node as THREE.Mesh
+    if (!mesh.isMesh || !mesh.geometry) return
+    const relative = new THREE.Matrix4().multiplyMatrices(inverse, mesh.matrixWorld)
+    const box = drawnBox(mesh.geometry, relative)
+    if (!box.isEmpty()) parts.push({ mesh, box })
+  })
+  if (parts.length === 0) return null
+
+  const total = new THREE.Box3()
+  for (const part of parts) total.union(part.box)
+  const center = total.getCenter(new THREE.Vector3())
+  const size = total.getSize(new THREE.Vector3())
+  const radius = Math.min(size.x, size.y) / 2
+  if (radius <= 0) return null
+
+  // Cilindro da chave: até 70 % do raio da cabeça (deixa de fora a tampa larga)
+  // e só o que está encostado à face frontal.
+  const zCut = total.max.z - radius * 1.4
+  const selected = parts.filter((part) => {
+    if (part.box.max.z <= zCut) return false
+    const far = Math.max(
+      Math.hypot(part.box.max.x - center.x, part.box.max.y - center.y),
+      Math.hypot(part.box.min.x - center.x, part.box.min.y - center.y),
+    )
+    return far <= radius * 0.7
+  })
+  if (selected.length === 0) return null
+
+  const pivot = new THREE.Group()
+  pivot.name = 'dcsimu-key-barrel'
+  frame.add(pivot)
+  pivot.position.set(center.x, center.y, 0)
+  frame.updateMatrixWorld(true)
+  // `attach` preserva a posição no mundo: as peças passam para o pivot sem saltar.
+  for (const part of selected) pivot.attach(part.mesh)
+  frame.updateMatrixWorld(true)
+  return { pivot }
+}

@@ -28,7 +28,7 @@ import { WireEnd3D } from './WireEnd3D'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorShaftFan3D from './MotorShaftFan3D'
-import { extractBreakerHandle } from './breakerHandle'
+import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
 import { WireDrawController, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS } from '../schematic/wireEnds'
@@ -795,8 +795,11 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
       handle.pivot.position.z = handle.pivot.userData.restZ ?? (handle.pivot.userData.restZ = handle.pivot.position.z)
       handle.pivot.position.z -= handle.protrusion * 0.45 * value
     } else {
-      // ligado = manípulo levantado (para o topo do aparelho)
-      handle.pivot.rotation.x = (-(value * 2 - 1) * throwDeg * Math.PI) / 180
+      /* Ligado = manípulo levantado (para o topo do aparelho).
+       * Nos GLB montados com espelho em Z (`flipDepth`) o pivot está dentro do
+       * nó espelhado, e o mesmo ângulo aparece ao contrário — daí o sinal. */
+      const sense = spec.flipDepth ? 1 : -1
+      handle.pivot.rotation.x = (sense * -(value * 2 - 1) * throwDeg * Math.PI) / 180
     }
     handle.pivot.updateMatrixWorld(true)
   })
@@ -839,12 +842,12 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
    * A peça que roda é descoberta pela geometria — tudo o que sai à frente da
    * caixa —, nunca pelo nome do nó, que muda de CAD para CAD. O curso é o da
    * chave real: um quarto de volta entre as duas posições. */
-  const [keyHandle, setKeyHandle] = useState<ReturnType<typeof extractBreakerHandle>>(null)
+  const [keyHandle, setKeyHandle] = useState<ReturnType<typeof extractKeyBarrel>>(null)
   useEffect(() => {
     if (!keyOperated) { setKeyHandle(null); return }
     const frame = model.parent
     if (!frame) return
-    const extracted = extractBreakerHandle(model, frame)
+    const extracted = extractKeyBarrel(model, frame)
     setKeyHandle(extracted)
     return () => { if (extracted) extracted.pivot.removeFromParent() }
   }, [model, keyOperated])
