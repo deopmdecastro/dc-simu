@@ -15,7 +15,8 @@
 // sobretensão, sobrecarga) e medição tipo multímetro (sonda A↔B).
 // ============================================================================
 
-import type { ElectricalComponent, Wire, FaultState, ProbeResult } from '../types'
+import type { ElectricalComponent, Wire, FaultState, ProbeResult, Terminal } from '../types'
+import { isCatalogType } from '../catalog/types'
 
 export interface ContinuityResult {
   energizedTerminals: Set<string>
@@ -36,6 +37,53 @@ const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   contactor: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
   contactor4p: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3'], ['7', '8']],
   contactorWegCWC09: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
+}
+
+/* ------------------------------------------- disjuntores do catálogo oficial */
+
+/**
+ * Disjuntores publicados pelo Editor 3D (`cat:<id>:v<n>`).
+ *
+ * Nestes componentes o estado do manípulo vive nas variáveis do componente
+ * (`state.catalogVars`), não em `state.closed`, e a direção de cada borne vem do
+ * perfil que o criou (`catalogRules.direction`). Sem esta tradução um disjuntor
+ * feito no editor não abria nem fechava o circuito: o motor não tinha como saber
+ * que polos ligar, e o manípulo 3D não fazia nada à instalação.
+ */
+
+/** Bornes de potência: são os únicos que formam polos (contactos auxiliares 13-14/21-22 ficam de fora). */
+const isPowerTerminal = (terminal: Terminal) => terminal.kind === 'power-in' || terminal.kind === 'power-out' || terminal.kind === 'neutral'
+
+/**
+ * Pares de polos de um disjuntor do catálogo, pela convenção IEC (1→2, 3→4,
+ * 5→6) e, nos perfis com letras, N1→N2 / L1→L2. Um contacto auxiliar nunca
+ * entra num par, senão o disjuntor conduzia mesmo desligado.
+ */
+export function catalogPolePairs(c: ElectricalComponent): Array<[string, string]> {
+  if (!isCatalogType(c.type)) return []
+  const incoming = c.terminals.filter((terminal) => isPowerTerminal(terminal) && terminal.kind !== 'power-out')
+  const outgoing = c.terminals.filter((terminal) => isPowerTerminal(terminal) && terminal.kind !== 'power-in')
+  const pairs: Array<[string, string]> = []
+  const taken = new Set<string>()
+  for (const a of incoming) {
+    const number = /^\d+$/.test(a.label) ? Number(a.label) : null
+    const b = number !== null
+      ? outgoing.find((terminal) => Number(terminal.label) === number + 1)
+      : outgoing.find((terminal) => terminal.label.toUpperCase() === a.label.toUpperCase().replace(/1$/, '2'))
+    if (b && b.id !== a.id && !taken.has(b.id)) { taken.add(b.id); pairs.push([a.id, b.id]) }
+  }
+  return pairs
+}
+
+/**
+ * Disjuntor fechado? A variável de comando do manípulo é `closed`; se o
+ * componente não a tiver, vale o primeiro booleano do estado (é o manípulo).
+ */
+export function catalogClosed(c: ElectricalComponent): boolean {
+  const vars = (c.state?.catalogVars ?? {}) as Record<string, unknown>
+  if (typeof vars.closed === 'boolean') return vars.closed
+  const first = Object.values(vars).find((value) => typeof value === 'boolean')
+  return typeof first === 'boolean' ? first : true
 }
 
 function t(c: ElectricalComponent, label: string) {
@@ -281,8 +329,12 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
     }
 
     // cargas puras (sinaleiros, motores, medidores) não são ponte de passagem
-    default:
+    default: {
+      // Disjuntor do catálogo oficial: o manípulo 3D fecha/abre os polos.
+      const pairs = catalogPolePairs(c)
+      if (pairs.length && catalogClosed(c) && !c.state.tripped) for (const [a, b] of pairs) bridges.push([a, b])
       break
+    }
   }
   return bridges
 }
@@ -318,6 +370,13 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
     if (c.type === 'powerSupply' && c.state.on) push('+V')
     if (c.type === 'powerSupplyProauto24A' && c.state.powered && c.state.on) { push('+V1'); push('+V2') }
     if (c.type === 'transformer' && !c.state.failed) push('S1')
+    // disjuntor do catálogo: a rede entra pelos bornes de entrada dos polos
+    for (const [terminalId] of catalogPolePairs(c)) {
+      const terminal = c.terminals.find((item) => item.id === terminalId)
+      if (!terminal) continue
+      if (faults?.phaseLoss && /L2|[35]/.test(terminal.label)) continue
+      ids.push(terminal.id)
+    }
   }
   return ids
 }

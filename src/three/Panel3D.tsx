@@ -29,6 +29,7 @@ import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorShaftFan3D from './MotorShaftFan3D'
 import { extractBreakerHandle } from './breakerHandle'
+import { DEFAULT_TILT, inferBreakerAxes, motionAngle, stepSpring } from '../catalog/controlMotion'
 import { WireDrawController, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS } from '../schematic/wireEnds'
@@ -763,40 +764,48 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const pushButton = c.type === 'phoenixEcb3000760'
   const throwDeg = c.type === 'breakerWegMdwC10' ? 20 : 17
 
+  /* Eixo real do manípulo, deduzido dos bornes do aparelho (mesmo critério do
+   * Editor 3D): o eixo com maior afastamento entre bornes é o vertical
+   * (entradas ↔ saídas), o segundo é o dos polos — e é à volta dele que o
+   * manípulo bascula. Sem bornes suficientes, cai-se no eixo X do componente. */
+  const handleAxis = useMemo(() => {
+    const perMm = 1 / PANEL_UNITS_PER_MM
+    const axes = inferBreakerAxes(c.terminals.map((terminal) => {
+      const local = terminalLocal3D(c, terminal).multiplyScalar(perMm)
+      return [local.x, local.y, local.z] as [number, number, number]
+    }))
+    return new THREE.Vector3(...(axes?.confidence === 'high' ? axes.pole : [1, 0, 0])).normalize()
+  }, [c])
+  const tiltMotion = useMemo(() => ({ ...DEFAULT_TILT, angleOff: throwDeg, angleOn: -throwDeg }), [throwDeg])
+
   /* Animação do disjuntor (mola, não interpolação linear):
    *  · manobra manual → engate rápido com um ligeiro ressalto, como o estalo real;
    *  · disparo        → largada violenta para a posição intermédia de «disparado»;
    *  · posição        → 0 desligado · 0,55 disparado · 1 ligado.
    */
   const motion = useRef({ value: breakerClosed ? 1 : 0, velocity: 0, tripped })
+  const restZ = useRef<number | null>(null)
   useFrame((_, delta) => {
     if (!handle) return
     const target = breakerClosed ? 1 : tripped ? 0.55 : 0
     const justTripped = tripped && !motion.current.tripped
     motion.current.tripped = tripped
-    const stiffness = justTripped || tripped ? 2600 : 1400
-    const zeta = justTripped ? 0.3 : 0.5
-    const damping = 2 * Math.sqrt(stiffness) * zeta
-    if (justTripped) motion.current.velocity -= 6
-    const step = Math.min(delta, 1 / 45)
-    for (let iteration = 0; iteration < 3; iteration += 1) {
-      const sub = step / 3
-      const accel = (target - motion.current.value) * stiffness - motion.current.velocity * damping
-      motion.current.velocity += accel * sub
-      motion.current.value += motion.current.velocity * sub
-    }
-    if (Math.abs(target - motion.current.value) < 0.0008 && Math.abs(motion.current.velocity) < 0.02) {
-      motion.current.value = target
-      motion.current.velocity = 0
-    }
-    const value = THREE.MathUtils.clamp(motion.current.value, -0.12, 1.12)
+    /* Mola do módulo de movimento (o mesmo do Editor 3D, coberto por
+     * `npm run test:motion`): manobra manual com ressalto e disparo mais curto e
+     * seco. Deixa de haver integrador próprio com rigidez à mão. */
+    const spring = { value: motion.current.value, velocity: motion.current.velocity }
+    if (justTripped) spring.velocity -= 6
+    stepSpring(spring, target, Math.min(delta, 1 / 45), 'snap', justTripped || tripped ? 140 : 190)
+    motion.current.value = spring.value
+    motion.current.velocity = spring.velocity
+    const value = THREE.MathUtils.clamp(spring.value, -0.12, 1.12)
     if (pushButton) {
       // botão: curso axial para dentro da caixa
-      handle.pivot.position.z = handle.pivot.userData.restZ ?? (handle.pivot.userData.restZ = handle.pivot.position.z)
-      handle.pivot.position.z -= handle.protrusion * 0.45 * value
+      if (restZ.current === null) restZ.current = handle.pivot.position.z
+      handle.pivot.position.z = restZ.current - handle.protrusion * 0.45 * value
     } else {
-      // ligado = manípulo levantado (para o topo do aparelho)
-      handle.pivot.rotation.x = (-(value * 2 - 1) * throwDeg * Math.PI) / 180
+      // ligado = manípulo levantado (para o topo do aparelho), a rodar no eixo real
+      handle.pivot.quaternion.setFromAxisAngle(handleAxis, THREE.MathUtils.degToRad(motionAngle(tiltMotion, value)))
     }
     handle.pivot.updateMatrixWorld(true)
   })

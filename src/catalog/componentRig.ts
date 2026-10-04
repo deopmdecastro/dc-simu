@@ -61,6 +61,42 @@ interface Item {
 
 interface DisplayItem { def: DisplayDef; canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; mesh: THREE.Mesh; signature: string }
 
+const boxVolume = (box: THREE.Box3): number => {
+  const size = box.getSize(new THREE.Vector3())
+  return Math.max(0, size.x) * Math.max(0, size.y) * Math.max(0, size.z)
+}
+
+/**
+ * Manípulo provável de um GLB, descoberto pela geometria (nunca pelo nome do nó):
+ * entre os objetos do contentor, o que sobressai à frente (+Z) e é pequeno em
+ * relação ao corpo do aparelho.
+ *
+ * Serve os controlos criados sem escolher objetos (`nodes: []`): em vez de
+ * ficarem parados à espera de configuração, passam a animar o manípulo real.
+ */
+export function guessHandleNodes(part: THREE.Object3D): string[] {
+  part.updateWorldMatrix(true, true)
+  const container = glbContainer(part)
+  const total = new THREE.Box3().setFromObject(part, true)
+  if (total.isEmpty()) return []
+  const bodyVolume = boxVolume(total)
+  const depth = total.max.z - total.min.z
+  if (bodyVolume <= 0 || depth <= 0) return []
+  const candidates: Array<{ name: string; volume: number; front: number }> = []
+  for (const child of container.children) {
+    if (!child.name) continue
+    const box = new THREE.Box3().setFromObject(child, true)
+    if (box.isEmpty()) continue
+    const volume = boxVolume(box)
+    if (volume > bodyVolume * 0.08) continue
+    if (box.max.z < total.max.z - depth * 0.05) continue
+    candidates.push({ name: child.name, volume, front: box.max.z })
+  }
+  if (!candidates.length) return []
+  candidates.sort((a, b) => (a.volume - b.volume) || (b.front - a.front))
+  return [candidates[0].name]
+}
+
 /**
  * Faz mexer os botões/seletores e desenha os ecrãs de um componente construído a partir da definição
  * (editor e painel 3D do simulador). O estado vem de fora (`setVars`); a rig só o representa.
@@ -80,22 +116,27 @@ export class ComponentRig {
     root.updateWorldMatrix(true, true)
     const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert()
     for (const control of def.controls ?? []) {
-      const nodes = controlNodes(root, control)
+      // `nodes: []` = controlo criado no editor sem escolher objetos: o manípulo
+      // é descoberto pela geometria, senão o disjuntor ficava sem animação.
+      const part = root.getObjectByName(control.partId)
+      const guessed = part && control.nodes && control.nodes.length === 0 ? guessHandleNodes(part) : []
+      const resolved: ControlDef = guessed.length ? { ...control, nodes: guessed } : control
+      const nodes = controlNodes(root, resolved)
       if (!nodes.length) continue
       const box = new THREE.Box3()
       for (const node of nodes) box.expandByObject(node, true)
       const restBox = new THREE.Box3()
       if (!box.isEmpty()) for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) restBox.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(rootInverse))
-      const tilt = control.kind !== 'selector' && control.motion?.mode === 'tilt'
+      const tilt = resolved.kind !== 'selector' && resolved.motion?.mode === 'tilt'
       const pivot = box.isEmpty() ? new THREE.Vector3()
-        : tilt ? new THREE.Vector3(...pivotFromBox(restBox.min.toArray() as [number, number, number], restBox.max.toArray() as [number, number, number], normalizeMotion(control.motion).pivotRel))
+        : tilt ? new THREE.Vector3(...pivotFromBox(restBox.min.toArray() as [number, number, number], restBox.max.toArray() as [number, number, number], normalizeMotion(resolved.motion).pivotRel))
         : box.getCenter(new THREE.Vector3()).applyMatrix4(rootInverse)
-      const axis = new THREE.Vector3(...control.axis).normalize()
+      const axis = new THREE.Vector3(...resolved.axis).normalize()
       if (axis.lengthSq() < 0.5) axis.set(0, 1, 0)
       const moving = nodes.map((node): Moving => ({ node, local0: node.matrix.clone(), parentToRoot: new THREE.Matrix4().multiplyMatrices(rootInverse, node.parent ? node.parent.matrixWorld : root.matrixWorld) }))
-      this.items.set(control.id, { control, moving, pivot, axis, value: 0, target: 0, velocity: 0, held: false, restBox })
-      for (const node of nodes) node.traverse((child) => this.owner.set(child, control.id))
-      if (control.nodes !== undefined) this.addProxy(control, box)
+      this.items.set(resolved.id, { control: resolved, moving, pivot, axis, value: 0, target: 0, velocity: 0, held: false, restBox })
+      for (const node of nodes) node.traverse((child) => this.owner.set(child, resolved.id))
+      if (resolved.nodes !== undefined) this.addProxy(resolved, box)
     }
     for (const display of def.displays ?? []) {
       this.addDisplay(display)
