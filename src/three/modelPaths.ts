@@ -103,7 +103,10 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   contactorWegCWC09: spec('contactorWegCWC09', MODEL_PATHS.wegContactorCWC09, [Math.PI / 2, 0, 0], 'din-rail'),
   breaker1p: spec('breaker1p', '/models/protecao/Q2A5.glb', [Math.PI / 2, 0, 0], 'din-rail', true),
   breaker2p: spec('breaker2p', '/models/protecao/DISJUNTOR%202.glb', [Math.PI / 2, 0, 0], 'din-rail', true),
-  breakerWegMdwC10: spec('breakerWegMdwC10', MODEL_PATHS.wegBreakerMdwC10, [0, 0, Math.PI / 2], 'din-rail', true),
+  // O GLB vem ao contrário: com o espelho em Z a marcação WEG/MDW e os «0-OFF»
+  // ficavam de pernas para o ar. Meia volta em Y e um quarto em -Z põem a chapa
+  // legível, o manípulo à frente e os bornes 1/3/5 em cima.
+  breakerWegMdwC10: spec('breakerWegMdwC10', MODEL_PATHS.wegBreakerMdwC10, [0, Math.PI, -Math.PI / 2], 'din-rail'),
   phoenixEcb3000760: spec('phoenixEcb3000760', MODEL_PATHS.phoenixEcb3000760, [Math.PI / 2, 0, 0], 'din-rail'),
 
   // O P20AKR tem o eixo longo em Z; identidade mostra a cabeça circular frontal.
