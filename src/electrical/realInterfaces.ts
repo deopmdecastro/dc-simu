@@ -9,13 +9,21 @@ import type { ComponentType } from '../types'
  * rótulos vêm das fichas técnicas dos fabricantes. É o valor por omissão global:
  * qualquer componente novo nasce já com os bornes nos sítios certos.
  *
- * Coordenadas normalizadas na caixa do componente, como `position3D`:
- *   x: 0 = esquerda, 1 = direita · y: 0 = topo, 1 = base · z: 0 = trás, 1 = frente.
+ * Coordenadas normalizadas na caixa do componente.
+ *   x: 0 = esquerda, 1 = direita · y: 0 = TOPO, 1 = base · z: 0 = trás, 1 = frente.
+ *
+ * ATENÇÃO à altura: aqui `y` mede-se de CIMA para baixo (0 = topo), como nas
+ * fichas técnicas e como sai da varredura dos GLB. O `position3D` do componente
+ * mede-se ao contrário (0 = base, 1 = topo), porque é o referencial do Painel
+ * 3D. Quem converte é `placeInHole()` em `factory.ts` — é o único sítio onde a
+ * inversão deve acontecer.
  */
+export type RealFace = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'
+
 export interface RealTerminalSpot {
   label: string
   /** Face onde está o encaixe (define a direção de saída do cabo). */
-  face: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'
+  face: RealFace
   x: number
   y: number
   z: number

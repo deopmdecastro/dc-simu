@@ -171,8 +171,12 @@ export interface Terminal {
   x: number
   y: number
   /** Posição física normalizada no volume 3D do componente.
-   * X = esquerda/direita, Y = baixo/cima, Z = trás/frente (0..1). */
+   * X = esquerda/direita, Y = baixo/cima (1 = topo), Z = trás/frente (0..1). */
   position3D?: { x: number; y: number; z: number }
+  /** Face do volume onde o encaixe está aberto — é por aqui que o cabo sai.
+   * Sem ela, a normal era deduzida só pela coordenada mais encostada à caixa,
+   * o que punha um borne do topo junto à aresta a sair pela lateral/frente. */
+  position3DFace?: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'
   /** Diâmetro do borne no Esquema 2D (unidades do canvas). Omisso = tamanho padrão do símbolo. */
   diameter?: number
   /** Fixado pelo usuário — impede reposicionamento automático */

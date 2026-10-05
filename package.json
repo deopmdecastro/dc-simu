@@ -14,7 +14,8 @@
     "test:server": "node scripts/server-e2e.mjs",
     "typecheck": "tsc -b",
     "start": "node server/index.mjs",
-    "test:motion": "tsx scripts/motion-smoke.ts"
+    "test:motion": "tsx scripts/motion-smoke.ts",
+    "audit:bornes": "tsx scripts/audit-bornes.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",

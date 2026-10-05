@@ -46,7 +46,12 @@ export function facesOfPosition(position: Terminal3DPosition, eps = SURFACE_EPS)
   return faces
 }
 
-export const facesOfTerminal = (terminal: Terminal) => facesOfPosition(terminal3DPositionOf(terminal))
+export const facesOfTerminal = (terminal: Terminal) => {
+  // A face declarada pelo aparelho (ficha/varredura) tem prioridade: um borne do
+  // topo junto a uma aresta não deve aparecer na lista da face lateral.
+  const declared = terminal.position3DFace
+  return declared ? [declared] : facesOfPosition(terminal3DPositionOf(terminal))
+}
 
 /** Face mais próxima (para fixar à superfície um borne que ficou no interior). */
 export function nearestFace(position: Terminal3DPosition): Terminal3DFace {

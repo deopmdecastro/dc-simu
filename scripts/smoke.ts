@@ -721,7 +721,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     && steck.state.inA === 25 && steck.state.curve === 'C' && steck.state.poles === 1)
   check('Steck SD C25: bornes medidos ficam nas faces de cima e de baixo', (() => {
     const [top, bottom] = [terminalByLabel(steck, '1'), terminalByLabel(steck, '2')]
-    return !!top?.position3D && !!bottom?.position3D && top.position3D.y < 0.1 && bottom.position3D.y > 0.9
+    // Convenção do componente: y = 1 é o topo. Entrada (ímpar) em cima, saída (par) em baixo.
+    return !!top?.position3D && !!bottom?.position3D && top.position3D.y > 0.9 && bottom.position3D.y < 0.1
   })())
   check('Steck SD C25 fechado liga 1–2', internalBridges(steck).length === 1)
   const steckOpen = createComponent('breakerSteckSdC25', undefined, undefined, 0, 0, 0, { closed: false })
@@ -752,8 +753,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     const comp = createComponent(type)
     const labels = comp.terminals.map((terminal) => terminal.label).sort()
     check(`${label}: ${poles * 2} bornes (entradas ímpares em cima, saídas pares em baixo)`, comp.terminals.length === poles * 2
-      && Array.from({ length: poles }, (_, i) => String(i * 2 + 1)).every((n) => terminalByLabel(comp, n)?.kind === 'power-in' && (terminalByLabel(comp, n)!.position3D?.y ?? 1) < 0.1)
-      && Array.from({ length: poles }, (_, i) => String(i * 2 + 2)).every((n) => terminalByLabel(comp, n)?.kind === 'power-out' && (terminalByLabel(comp, n)!.position3D?.y ?? 0) > 0.9)
+      && Array.from({ length: poles }, (_, i) => String(i * 2 + 1)).every((n) => terminalByLabel(comp, n)?.kind === 'power-in' && (terminalByLabel(comp, n)!.position3D?.y ?? 0) > 0.9)
+      && Array.from({ length: poles }, (_, i) => String(i * 2 + 2)).every((n) => terminalByLabel(comp, n)?.kind === 'power-out' && (terminalByLabel(comp, n)!.position3D?.y ?? 1) < 0.1)
       && labels.join(',') === Array.from({ length: poles * 2 }, (_, i) => String(i + 1)).sort().join(','))
     const poleCentresMm = poles === 1 ? [8.85] : [9.15, 26.85, 44.55].slice(0, poles)
     check(`${label}: cada borne fica centrado no seu polo e na entrada de cabo (z ≈ 0,29 da profundidade)`, poleCentresMm.every((centre, i) => {

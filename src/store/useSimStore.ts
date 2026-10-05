@@ -1260,6 +1260,7 @@ export const useSimStore = create<Store>((set, get) => ({
             x: source.x,
             y: source.y,
             position3D: source.position3D ? { ...source.position3D } : undefined,
+            ...(source.position3DFace ? { position3DFace: source.position3DFace } : {}),
             pinned: source.pinned,
           } : terminal
         })

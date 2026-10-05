@@ -63,19 +63,25 @@ function terminalsFor(list: TerminalTemplate[], box: THREE.Box3): TerminalDef[] 
     let normal: Vec3
     if (item.position3D) {
       // Posição real medida no próprio GLB (furo/encaixe do aparelho).
+      // `y` aqui já é o do componente: 0 = base, 1 = topo.
       const p = item.position3D
-      const px = box.min.x + Math.min(1, Math.max(0, p.x)) * size.x
-      const py = box.max.y - Math.min(1, Math.max(0, p.y)) * size.y
-      const pz = box.min.z + Math.min(1, Math.max(0, p.z)) * size.z
-      // A face é a coordenada que está encostada à caixa envolvente.
+      const clamp = (value: number) => Math.min(1, Math.max(0, value))
+      const px = box.min.x + clamp(p.x) * size.x
+      const py = box.min.y + clamp(p.y) * size.y
+      const pz = box.min.z + clamp(p.z) * size.z
+      // A face declarada pelo aparelho manda; sem ela, é a coordenada que está
+      // encostada à caixa envolvente (o que erra junto às arestas).
       const margin = 0.02
-      if (p.y <= margin) { position = [px, box.max.y, pz]; normal = [0, 1, 0] }
-      else if (p.y >= 1 - margin) { position = [px, box.min.y, pz]; normal = [0, -1, 0] }
-      else if (p.z >= 1 - margin) { position = [px, py, box.max.z]; normal = [0, 0, 1] }
-      else if (p.z <= margin) { position = [px, py, box.min.z]; normal = [0, 0, -1] }
-      else if (p.x >= 1 - margin) { position = [box.max.x, py, pz]; normal = [1, 0, 0] }
-      else if (p.x <= margin) { position = [box.min.x, py, pz]; normal = [-1, 0, 0] }
-      else { position = [px, py, box.max.z]; normal = [0, 0, 1] }
+      const face = item.position3DFace
+        ?? (p.y >= 1 - margin ? 'top' : p.y <= margin ? 'bottom'
+          : p.z >= 1 - margin ? 'front' : p.z <= margin ? 'back'
+            : p.x >= 1 - margin ? 'right' : p.x <= margin ? 'left' : 'front')
+      if (face === 'top') { position = [px, box.max.y, pz]; normal = [0, 1, 0] }
+      else if (face === 'bottom') { position = [px, box.min.y, pz]; normal = [0, -1, 0] }
+      else if (face === 'front') { position = [px, py, box.max.z]; normal = [0, 0, 1] }
+      else if (face === 'back') { position = [px, py, box.min.z]; normal = [0, 0, -1] }
+      else if (face === 'right') { position = [box.max.x, py, pz]; normal = [1, 0, 0] }
+      else { position = [box.min.x, py, pz]; normal = [-1, 0, 0] }
     }
     else if (item.y <= 0.02) { position = [x, box.max.y, center.z]; normal = [0, 1, 0] }
     else if (item.y >= 0.98) { position = [x, box.min.y, center.z]; normal = [0, -1, 0] }
@@ -84,6 +90,7 @@ function terminalsFor(list: TerminalTemplate[], box: THREE.Box3): TerminalDef[] 
     const direction = inferred.direction ?? (item.kind === 'power-in' || item.kind === 'coil-plus' || item.kind === 'coil-minus' ? 'in' : item.kind === 'power-out' ? 'out' : 'io')
     return {
       id: item.defId ?? newId('t_'), label, name: item.displayName ?? (label === item.label ? label : item.label), position: [round(position[0]), round(position[1]), round(position[2])], normal,
+      position3DFace: item.position3DFace,
       kind: item.kind, terminalType: item.terminalType ?? 'screw', polarity, electricalClass: item.electricalClass ?? inferred.electricalClass, direction,
       accepts: item.rules?.accepts ?? '', color: item.color ?? inferred.color ?? '#cbd5e1', fn: item.label, contact: inferred.contact,
       ...(item.diameter ? { diameterMm: item.diameter } : {}),

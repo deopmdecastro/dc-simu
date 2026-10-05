@@ -12,7 +12,7 @@
 // ============================================================================
 
 import { hiddenCatalogTypes } from '../catalog/hidden'
-import { FACE_INWARD, terminalInsetMm, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
+import { FACE_INWARD, terminalInsetMm, REAL_TERMINALS, type RealFace, type RealTerminalSpot } from './realInterfaces'
 import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
 import { nanoid } from 'nanoid'
@@ -40,6 +40,8 @@ export interface TerminalTemplate {
   defId?: string
   electricalClass?: import('../types').TerminalElectricalClass
   position3D?: { x: number; y: number; z: number }
+  /** Face do volume onde o encaixe está aberto (define a saída do cabo). */
+  position3DFace?: RealFace
   rules?: { polarity: string; direction: string; accepts: string }
   displayName?: string
 }
@@ -762,22 +764,28 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
    aparelho tem a mais são criados.
 --------------------------------------------------------------------------- */
 /**
- * Recua o borne para DENTRO do furo: o ponto de ligação fica no fundo do
- * encaixe (metade da profundidade medida, no máximo 6 mm), para o cabo entrar
- * mesmo na ficha/parafuso em vez de ficar pousado na superfície.
+ * Põe o borne dentro do encaixe real: o ponto de ligação fica no fundo do furo
+ * (um terço da profundidade medida, no máximo 3 mm), para o cabo entrar mesmo na
+ * ficha/parafuso em vez de ficar pousado na superfície.
+ *
+ * A inversão da altura é feita AQUI e só aqui: a ficha técnica mede `y` de cima
+ * para baixo (0 = topo) e o componente mede-a ao contrário (0 = base, 1 = topo),
+ * que é o referencial do Painel 3D. Sem esta inversão os bornes do topo do
+ * aparelho apareciam na base — o defeito que fazia o PLC, o contator e a fonte
+ * parecerem ter os bornes no sítio errado.
  */
-function insetIntoHole(type: ComponentType, spot: RealTerminalSpot): { x: number; y: number; z: number } {
+function placeInHole(type: ComponentType, spot: RealTerminalSpot): { x: number; y: number; z: number } {
   const size = getComponentPhysicalSizeMm(type)
-  const point = { x: spot.x, y: spot.y, z: spot.z }
-  if (!size) return point
+  const clamp = (value: number) => Math.min(1, Math.max(0, value))
+  if (!size) return { x: spot.x, y: 1 - spot.y, z: spot.z }
   const inset = terminalInsetMm(spot)
   const [nx, ny, nz] = FACE_INWARD[spot.face]
-  const clamp = (value: number) => Math.min(1, Math.max(0, value))
-  return {
-    x: clamp(point.x + (nx * inset) / size.width),
-    y: clamp(point.y + (ny * inset) / size.height),
-    z: clamp(point.z + (nz * inset) / size.depth),
+  const inside = {
+    x: clamp(spot.x + (nx * inset) / size.width),
+    y: clamp(spot.y + (ny * inset) / size.height),
+    z: clamp(spot.z + (nz * inset) / size.depth),
   }
+  return { x: inside.x, y: 1 - inside.y, z: inside.z }
 }
 
 function applyRealInterfaces() {
@@ -794,7 +802,8 @@ function applyRealInterfaces() {
       // a interface real só manda na posição 3D, nunca na vista de esquema.
       return T(existing?.label ?? spot.label, kind, existing?.x ?? spot.x, existing?.y ?? schematicY, {
         ...existing,
-        position3D: insetIntoHole(type, spot),
+        position3D: placeInHole(type, spot),
+        position3DFace: spot.face,
         diameter: spot.diameterMm ?? existing?.diameter,
         terminalType: existing?.terminalType ?? (spot.face === 'front' || spot.face === 'back' ? 'screw' : 'screw'),
       })
@@ -827,6 +836,8 @@ export function calibrateModelTerminalTemplates(): void {
       // Linhas de entrada/saída ficam nas faces superior/inferior. Bornes que
       // aparecem no corpo ficam na face operacional; em comando de painel,
       // os contactos físicos estão atrás do atuador.
+      // `y`: 1 = topo, 0 = base. Um borne que no Esquema está em cima assenta no
+      // topo do aparelho; o que está em baixo, na base.
       terminal.position3D = screenY <= 0.12
         ? { x, y: 1, z: 1 }
         : screenY >= 0.88
@@ -834,6 +845,15 @@ export function calibrateModelTerminalTemplates(): void {
           : spec.placement === 'panel-front'
             ? { x, y: 1 - screenY, z: 0 }
             : { x, y: 1 - screenY, z: 1 }
+      // A face fica declarada: a normal do cabo deixa de ser adivinhada pela
+      // coordenada mais encostada à caixa (que errava junto às arestas).
+      terminal.position3DFace = screenY <= 0.12
+        ? 'top'
+        : screenY >= 0.88
+          ? 'bottom'
+          : spec.placement === 'panel-front'
+            ? 'back'
+            : 'front'
     }
   }
 }
@@ -865,6 +885,7 @@ export function createComponent(
     ...(t.defId ? { defId: t.defId } : {}),
     ...(t.electricalClass && t.electricalClass !== 'other' ? { electricalClass: t.electricalClass } : {}),
     ...(t.position3D ? { position3D: { ...t.position3D } } : {}),
+    ...(t.position3DFace ? { position3DFace: t.position3DFace } : {}),
     ...(t.rules ? { catalogRules: { ...t.rules } } : {}),
     ...(t.displayName ? { displayName: t.displayName } : {}),
     ...(t.diameter ? { diameter: t.diameter } : {}),
@@ -959,7 +980,7 @@ export function upgradeProtectionTerminalPositions(c: ElectricalComponent): Elec
     ...c,
     terminals: c.terminals.map((terminal) => {
       const calibrated = defaults.find((item) => item.label === terminal.label)
-      return calibrated?.position3D ? { ...terminal, position3D: { ...calibrated.position3D }, terminalType: calibrated.terminalType ?? terminal.terminalType, diameter: calibrated.diameter ?? terminal.diameter } : terminal
+      return calibrated?.position3D ? { ...terminal, position3D: { ...calibrated.position3D }, position3DFace: calibrated.position3DFace, terminalType: calibrated.terminalType ?? terminal.terminalType, diameter: calibrated.diameter ?? terminal.diameter } : terminal
     }),
   }
 }

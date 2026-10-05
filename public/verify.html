@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<title>Verificação dos bornes</title>
+<style>
+  body { margin: 0; background: #eef1f5; font: 13px system-ui, sans-serif; }
+  .grid { display: grid; grid-template-columns: repeat(2, 540px); gap: 14px; padding: 14px; }
+  .card { background: #fff; border: 1px solid #d5dae1; border-radius: 8px; padding: 8px; }
+  .card h2 { font-size: 13px; margin: 0 0 6px; color: #1e2733; }
+  .card p { margin: 0 0 6px; font-size: 11px; color: #6b7684; }
+  canvas { display: block; width: 500px; height: 300px; border: 1px solid #e6e9ee; border-radius: 4px; }
+  .row { display: flex; gap: 8px; align-items: flex-start; }
+  .tag { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 3px; width: 58px; }
+  .before { background: #fde8e8; color: #a02020; }
+  .after { background: #e4f6e8; color: #17663a; }
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+
+// Um único contexto WebGL para todos os cartões: 20 componentes × 2 variantes
+// estouram o limite de contextos do Chromium (16) e os últimos saíam em branco.
+const U = 0.01 // PANEL_UNITS_PER_MM
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
+renderer.setPixelRatio(1)
+renderer.setSize(500, 300, false)
+
+const data = await (await fetch('/verify.json')).json()
+const loader = new GLTFLoader()
+const grid = document.getElementById('grid')
+window.__done = false
+
+function marker(color) {
+  return new THREE.Mesh(new THREE.SphereGeometry(0.013, 12, 12), new THREE.MeshBasicMaterial({ color, depthTest: false }))
+}
+
+/** Mesma montagem do Painel 3D: rotação base, escala pela altura física, base em y = 0. */
+function assemble(scene, spec) {
+  const obj = scene.clone(true)
+  obj.rotation.set(...spec.rotation)
+  obj.updateMatrixWorld(true)
+  const raw = new THREE.Box3().setFromObject(obj, true)
+  const h = raw.max.y - raw.min.y
+  const k = h > 0 ? spec.targetHeight / h : 1
+  obj.scale.set(k, k, spec.flipDepth ? -k : k)
+  obj.updateMatrixWorld(true)
+  const box = new THREE.Box3().setFromObject(obj, true)
+  const c = box.getCenter(new THREE.Vector3())
+  obj.position.set(-c.x, -box.min.y, -c.z)
+  return obj
+}
+
+for (const comp of data) {
+  const card = document.createElement('div')
+  card.className = 'card'
+  card.dataset.type = comp.type
+  card.innerHTML = `<h2>${comp.name} <span style="color:#8b95a2">· ${comp.type}</span></h2>
+    <p>${comp.size.width} × ${comp.size.height} × ${comp.size.depth} mm · ${comp.terminals.length} bornes · ${comp.path}</p>
+    <div class="row"><span class="tag before">ANTES</span><canvas width="500" height="300" data-variant="before"></canvas></div>
+    <div class="row" style="margin-top:6px"><span class="tag after">DEPOIS</span><canvas width="500" height="300" data-variant="after"></canvas></div>`
+  grid.appendChild(card)
+
+  let gltf
+  try { gltf = await loader.loadAsync(comp.path) } catch (error) { card.querySelector('p').textContent = 'FALHA a carregar ' + comp.path; continue }
+
+  const W = comp.size.width * U, H = comp.size.height * U, D = comp.size.depth * U
+
+  for (const variant of ['before', 'after']) {
+    const scene = new THREE.Scene()
+    scene.background = new THREE.Color('#ffffff')
+    scene.add(new THREE.AmbientLight('#ffffff', 1.2))
+    const key = new THREE.DirectionalLight('#ffffff', 1.5); key.position.set(3, 5, 4); scene.add(key)
+    const fill = new THREE.DirectionalLight('#ffffff', 0.8); fill.position.set(-4, 2, -3); scene.add(fill)
+
+    const obj = assemble(gltf.scene, comp)
+    obj.traverse((n) => { if (n.isMesh) { n.material = n.material.clone(); n.material.color.multiplyScalar(0.9) } })
+    scene.add(obj)
+
+    for (const t of comp.terminals) {
+      const p = t[variant]
+      if (!p) continue
+      const m = marker(variant === 'before' ? '#e23b3b' : '#17a34a')
+      m.position.set((p.x - 0.5) * W, p.y * H, (p.z - 0.5) * D)
+      m.renderOrder = 5
+      scene.add(m)
+    }
+
+    const radius = Math.max(W, H, D) * 2.3
+    const camera = new THREE.PerspectiveCamera(35, 500 / 300, 0.01, 100)
+    camera.position.set(radius * 0.55, H * 0.85 + radius * 0.35, radius * 0.75)
+    camera.lookAt(0, H * 0.5, 0)
+    renderer.render(scene, camera)
+    card.querySelector(`canvas[data-variant="${variant}"]`).getContext('2d').drawImage(renderer.domElement, 0, 0)
+    scene.traverse((n) => { if (n.isMesh) { n.geometry?.dispose?.(); (Array.isArray(n.material) ? n.material : [n.material]).forEach((m) => m?.dispose?.()) } })
+  }
+}
+
+window.__done = true
+</script>
+</body>
+</html>

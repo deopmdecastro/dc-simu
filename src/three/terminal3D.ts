@@ -121,14 +121,30 @@ export function schematicRotationRadians(component: Pick<ElectricalComponent, 'r
 
 /** Normal exterior (no mundo) da face onde o borne está fixo: é por aqui que a
  * ponteira entra e que o cabo sai. Aplica as mesmas rotações/espelho que `terminalWorld3D`. */
+/** Normal exterior local de cada face do volume (Y = cima, Z = frente). */
+export const TERMINAL_FACE_NORMALS: Record<Terminal3DFace, THREE.Vector3> = {
+  front: new THREE.Vector3(0, 0, 1),
+  back: new THREE.Vector3(0, 0, -1),
+  left: new THREE.Vector3(-1, 0, 0),
+  right: new THREE.Vector3(1, 0, 0),
+  top: new THREE.Vector3(0, 1, 0),
+  bottom: new THREE.Vector3(0, -1, 0),
+}
+
 export function terminalNormalWorld3D(component: ElectricalComponent, terminal: Terminal): THREE.Vector3 {
   const p = terminal3DPositionOf(terminal)
-  const faces: Array<[number, THREE.Vector3]> = [
-    [1 - p.z, new THREE.Vector3(0, 0, 1)], [p.z, new THREE.Vector3(0, 0, -1)],
-    [p.x, new THREE.Vector3(-1, 0, 0)], [1 - p.x, new THREE.Vector3(1, 0, 0)],
-    [1 - p.y, new THREE.Vector3(0, 1, 0)], [p.y, new THREE.Vector3(0, -1, 0)],
-  ]
-  const normal = faces.sort((a, b) => a[0] - b[0])[0][1].clone()
+  // A face declarada manda: um borne do topo perto da aresta direita (ex.: A1 do
+  // contator, a 89 % da largura) saía pela lateral só porque essa aresta estava
+  // mais perto do que o plano do topo. Sem face declarada, cai-se na mais próxima.
+  const declared = terminal.position3DFace
+  const normal = declared ? TERMINAL_FACE_NORMALS[declared].clone() : (() => {
+    const faces: Array<[number, THREE.Vector3]> = [
+      [1 - p.z, new THREE.Vector3(0, 0, 1)], [p.z, new THREE.Vector3(0, 0, -1)],
+      [p.x, new THREE.Vector3(-1, 0, 0)], [1 - p.x, new THREE.Vector3(1, 0, 0)],
+      [1 - p.y, new THREE.Vector3(0, 1, 0)], [p.y, new THREE.Vector3(0, -1, 0)],
+    ]
+    return faces.sort((a, b) => a[0] - b[0])[0][1].clone()
+  })()
   const [x, y, z] = orientationRadians(component.viewOrientation)
   normal.applyEuler(new THREE.Euler(x, y, z, 'XYZ'))
   if (component.mirrored) normal.x *= -1
