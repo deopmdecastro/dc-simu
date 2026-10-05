@@ -29,7 +29,7 @@ import { TEMPLATES } from '../src/electrical/factory'
 import { evaluateWire, wireChain, wireCurve } from '../src/admin/editor3d/wirePath'
 import { cableOuterDiameterMm, styleFor, DEFAULT_WIRE_DEFAULTS } from '../src/admin/editor3d/wireStyle'
 import { useSimStore } from '../src/store/useSimStore'
-import { getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
+import { BREAKER_HANDLE_RIG, getCommandModelSpec, getComponentGlbSpec, getComponentModelSpec, getProtectionModelSpec, getSchematicPhysicalFootprint, hasComponent3DModel } from '../src/three/modelPaths'
 import { COMPONENT_VIEW_PRESETS, componentTerminalViewKey, getDefaultComponent3DPresentation, isOriginalComponentOrientation, normalizeComponentOrientation } from '../src/three/componentOrientation'
 import { component3DDimensions, component3DScaleOf, terminalFaceCreationPosition, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from '../src/three/terminal3D'
 import { BUILTIN_PROFILES, SUGGESTED_PROFILES, defaultParams, specsFromTerminals } from '../src/catalog/terminalProfiles'
@@ -748,6 +748,76 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     useSimStore.getState().deleteComponents([id])
   }
 
+  // ---- Schneider Easy9 (EZ9) 1P / 2P / 3P: GLB dos STEP, bornes nas entradas reais, manípulo e simulação ----
+  for (const [type, poles] of [['breaker1p', 1], ['breaker2p', 2], ['breaker3p', 3]] as const) {
+    const label = `EZ9 ${poles}P`
+    const spec = getComponentModelSpec(type)!
+    const comp = createComponent(type)
+    const labels = comp.terminals.map((terminal) => terminal.label).sort()
+    check(`${label}: ${poles * 2} bornes (entradas ímpares em cima, saídas pares em baixo)`, comp.terminals.length === poles * 2
+      && Array.from({ length: poles }, (_, i) => String(i * 2 + 1)).every((n) => terminalByLabel(comp, n)?.kind === 'power-in' && (terminalByLabel(comp, n)!.position3D?.y ?? 1) < 0.1)
+      && Array.from({ length: poles }, (_, i) => String(i * 2 + 2)).every((n) => terminalByLabel(comp, n)?.kind === 'power-out' && (terminalByLabel(comp, n)!.position3D?.y ?? 0) > 0.9)
+      && labels.join(',') === Array.from({ length: poles * 2 }, (_, i) => String(i + 1)).sort().join(','))
+    const poleCentresMm = poles === 1 ? [8.85] : [9.15, 26.85, 44.55].slice(0, poles)
+    check(`${label}: cada borne fica centrado no seu polo e na entrada de cabo (z ≈ 0,29 da profundidade)`, poleCentresMm.every((centre, i) => {
+      const top = terminalByLabel(comp, String(i * 2 + 1))!.position3D!
+      const bottom = terminalByLabel(comp, String(i * 2 + 2))!.position3D!
+      const expectedX = centre / spec.physicalSizeMm.width
+      return Math.abs(top.x - expectedX) < 0.01 && Math.abs(bottom.x - expectedX) < 0.01 && Math.abs(top.z - 0.285) < 0.02 && Math.abs(bottom.z - 0.285) < 0.02
+    }))
+    check(`${label}: fechado liga ${poles} polo(s) (1–2${poles > 1 ? ', 3–4…' : ''}); aberto ou disparado interrompe`, internalBridges(comp).length === poles
+      && Array.from({ length: poles }, (_, i) => {
+        const [n1, n2] = [terminalByLabel(comp, String(i * 2 + 1))!.id, terminalByLabel(comp, String(i * 2 + 2))!.id]
+        return internalBridges(comp).some(([x, y]) => (x === n1 && y === n2) || (x === n2 && y === n1))
+      }).every(Boolean)
+      && internalBridges(createComponent(type, undefined, undefined, 0, 0, 0, { closed: false })).length === 0
+      && internalBridges(createComponent(type, undefined, undefined, 0, 0, 0, { tripped: true })).length === 0)
+
+    // GLB: nós, caixa envolvente = dimensão física e charneira medida dentro da caixa do manípulo
+    const glb = fs.readFileSync(`public/models/protecao/schneider-ez9-${poles}p.glb`)
+    const json = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8'))
+    const names: string[] = json.nodes.map((node: { name?: string }) => node.name ?? '')
+    check(`${label}: GLB traz ${poles} corpo(s), ${poles} alavanca(s)${poles > 1 ? ' e a barra de ligação' : ''} em malhas dcsimu_handle_*`,
+      names.filter((n) => /^ez9_corpo_/.test(n)).length === poles
+      && names.filter((n) => /^dcsimu_handle_\d+$/.test(n)).length === poles
+      && names.includes('dcsimu_handle_bridge') === (poles > 1))
+    const boxOf = (filter: (name: string) => boolean) => {
+      const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity]
+      for (const node of json.nodes as Array<{ name?: string; mesh?: number }>) {
+        if (node.mesh === undefined || !filter(node.name ?? '')) continue
+        for (const primitive of json.meshes[node.mesh].primitives) {
+          const accessor = json.accessors[primitive.attributes.POSITION]
+          for (let k = 0; k < 3; k += 1) { min[k] = Math.min(min[k], accessor.min[k] * 1000); max[k] = Math.max(max[k], accessor.max[k] * 1000) }
+        }
+      }
+      return { min, max }
+    }
+    const all = boxOf(() => true)
+    const size = all.max.map((v, k) => v - all.min[k])
+    check(`${label}: caixa do GLB = dimensão física (${spec.physicalSizeMm.width}×${spec.physicalSizeMm.height}×${spec.physicalSizeMm.depth} mm)`,
+      Math.abs(size[0] - spec.physicalSizeMm.width) < 0.15 && Math.abs(size[1] - spec.physicalSizeMm.height) < 0.15 && Math.abs(size[2] - spec.physicalSizeMm.depth) < 0.15)
+    const hb = boxOf((n) => /^dcsimu_handle/.test(n))
+    const rig = BREAKER_HANDLE_RIG[type]!
+    // o eixo tem de cair no cubo da alavanca: y = 32,5 mm da base do corpo (patim a −2,5) e z = 61,5 mm da traseira
+    const hingeYFromBody = hb.min[1] + (hb.max[1] - hb.min[1]) * rig.hinge.y
+    const hingeZ = hb.min[2] + (hb.max[2] - hb.min[2]) * rig.hinge.z
+    check(`${label}: charneira do manípulo medida no cubo da alavanca (y 32,5 · z 61,5 mm)`, Math.abs(hingeYFromBody - 32.5) < 0.4 && Math.abs(hingeZ - 61.5) < 0.4)
+    check(`${label}: nós do manípulo no rig existem no GLB`, rig.nodes.every((n) => names.includes(n)) && rig.throwDeg > 40 && rig.throwDeg < 90)
+    // o patim da calha assenta igual nos três (2,5 mm abaixo do corpo) e a traseira está em z = 0
+    check(`${label}: patim recolhido (y = −2,5 mm) e traseira em z = 0`, Math.abs(all.min[1] + 2.5) < 0.05 && Math.abs(all.min[2]) < 0.05)
+    {
+      const id = useSimStore.getState().addComponent(type, 200, 160)
+      if (!id) throw new Error(`não foi possível inserir o ${label}`)
+      const closedOf = () => !!useSimStore.getState().components.find((component) => component.id === id)!.state.closed
+      const before = closedOf()
+      useSimStore.getState().setComponentState(id, { closed: !before, tripped: false })
+      const after = closedOf()
+      useSimStore.getState().setComponentState(id, { closed: before, tripped: false })
+      check(`${label}: ação ON/OFF alterna o estado na store e repõe`, before === true && after === false && closedOf() === true)
+      useSimStore.getState().deleteComponents([id])
+    }
+  }
+
   const pti = createComponent('terminalPhoenixPti6')
   check('Phoenix PTI 6 cria duas ligações Push-in no mesmo potencial', pti.terminals.length === 2 && pti.terminals.every((t) => t.terminalType === 'spring') && internalBridges(pti).length === 1)
 
@@ -791,18 +861,15 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 20 componentes com GLB real', availableTypes.length === 20 && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 21 componentes com GLB real (inclui o disjuntor 3P)', availableTypes.length === 21 && availableTypes.includes('breaker3p') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
-  // Os dois GLB vêm deitados: o eixo dos bornes está em Z e o manípulo aponta +Y.
-  // Um quarto de volta em X põe os furos em cima/em baixo e o manípulo na frente (+Z), como no WEG MDW.
-  check('disjuntores Q2A5 e DISJUNTOR 2 ficam de pé, com furos em cima/baixo e manípulo à frente', ['breaker1p', 'breaker2p'].every((type) => {
-    const spec = getComponentModelSpec(type as import('../src/types').ComponentType)
-    if (!spec) return false
-    const [rx, ry, rz] = spec.rotation
-    return Math.abs(rx - Math.PI / 2) < 1e-9 && ry === 0 && rz === 0 && spec.flipDepth
-      && spec.physicalSizeMm.height > spec.physicalSizeMm.depth
+  // Os Easy9 foram gerados dos STEP já de pé (topo em +Y, frente em +Z): sem rotação nem espelho.
+  check('disjuntores Schneider EZ9 1P/2P/3P ficam de pé, sem rotação nem espelho, em calha DIN', (['breaker1p', 'breaker2p', 'breaker3p'] as const).every((type) => {
+    const spec = getComponentModelSpec(type)
+    return !!spec && spec.rotation.every((angle) => angle === 0) && !spec.flipDepth && spec.placement === 'din-rail'
+      && spec.path.startsWith('/models/protecao/schneider-ez9-') && spec.physicalSizeMm.height > spec.physicalSizeMm.width
   }))
   check('todos os componentes disponíveis expõem GLB para o turntable da landing', availableTypes.every((type) => getComponentGlbSpec(type)?.path.toLowerCase().endsWith('.glb')))
   check('Esquema e Painel 3D derivam escala da mesma dimensão física', availableTypes.every((type) => {

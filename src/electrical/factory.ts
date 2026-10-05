@@ -181,7 +181,7 @@ function plcLsXbmDn32sTerminals(): TerminalTemplate[] {
 export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   // ---------------- Proteção ----------------
   breaker1p: {
-    category: 'protection', paletteName: 'Disjuntor monopolar', group: 'Proteção', tag: 'QF', w: 60, h: 110,
+    category: 'protection', paletteName: 'Disjuntor Schneider Easy9 EZ9 · 1P', group: 'Proteção', tag: 'QF', w: 60, h: 110,
     terminals: [
       T('1', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
       T('2', 'power-out', 0.5, 1, { position3D: { x: 0.5, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
@@ -205,7 +205,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 25, ue: '230/400 V~ · 50/60 Hz', code: 'SD C25 1P', icn: '3 kA', norm: 'IEC 60898' },
   },
   breaker2p: {
-    category: 'protection', paletteName: 'Disjuntor bipolar', group: 'Proteção', tag: 'QF', w: 90, h: 110,
+    category: 'protection', paletteName: 'Disjuntor Schneider Easy9 EZ9 · 2P', group: 'Proteção', tag: 'QF', w: 90, h: 110,
     terminals: [
       T('1', 'power-in', 0.25, 0, { position3D: { x: 0.25, y: 0.86, z: 1 }, terminalType: 'screw', diameter: 10 }),
       T('2', 'power-out', 0.25, 1, { position3D: { x: 0.25, y: 0.14, z: 1 }, terminalType: 'screw', diameter: 10 }),
@@ -215,7 +215,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: { closed: true, tripped: false, poles: 2, curve: 'C', inA: 16 },
   },
   breaker3p: {
-    category: 'protection', paletteName: 'Disjuntor tripolar', group: 'Proteção', tag: 'QF', w: 120, h: 110,
+    category: 'protection', paletteName: 'Disjuntor Schneider Easy9 EZ9 · 3P', group: 'Proteção', tag: 'QF', w: 120, h: 110,
     terminals: poles3(),
     defaultState: { closed: true, tripped: false, poles: 3, curve: 'C', inA: 25 },
   },
@@ -942,7 +942,7 @@ export function upgradeLogoTerminals(c: ElectricalComponent): ElectricalComponen
 
 /** Migra a fonte 24B provisória para a variante de parafuso 24A sem perder cabos. */
 export function upgradeProtectionTerminalPositions(c: ElectricalComponent): ElectricalComponent {
-  if (!['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760', 'multimeterDm20'].includes(c.type)) return c
+  if (!['breaker1p', 'breaker2p', 'breaker3p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760', 'multimeterDm20'].includes(c.type)) return c
   // Uma revisão feita no editor tem prioridade sobre os novos padrões.
   if ((c.editorVersion ?? 1) > 1) return c
   const defaults = TEMPLATES[c.type].terminals

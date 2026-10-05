@@ -13,7 +13,7 @@ import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColo
 import * as THREE from 'three'
 import { cloneModelScene } from './modelFit'
 import { finishCadMaterial } from './catalogMaterials'
-import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM } from './modelPaths'
+import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
@@ -702,7 +702,7 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const plc = ['plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(c.type)
   const safety = c.type === 'safetyRelay'
-  const breaker = ['phoenixEcb3000760', 'breaker1p', 'breaker2p', 'breakerWegMdwC10', 'breakerSteckSdC25'].includes(c.type)
+  const breaker = ['phoenixEcb3000760', 'breakerWegMdwC10', 'breakerSteckSdC25'].includes(c.type)
   if (!plc && !safety && !breaker) return null
   const error = diagnostics.some((item) => item.level === 'error') || !!c.state.tripped
   const powered = c.state.powered !== false
@@ -742,7 +742,9 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     return obj
   }, [scene, spec])
   const active = !!(c.state.energized || c.state.powered)
-  const breaker = ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760'].includes(c.type)
+  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760'].includes(c.type)
+  /** Manípulo marcado no GLB (`dcsimu_handle_*`): charneira e curso medidos no CAD. */
+  const rig = BREAKER_HANDLE_RIG[c.type]
   const breakerClosed = !!c.state.closed && !c.state.tripped
   const tripped = !!c.state.tripped
 
@@ -755,12 +757,12 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     if (!breaker) { setHandle(null); return }
     const frame = model.parent
     if (!frame) return
-    // Steck SD C25: o cubo redondo do manípulo (centro y −8,25 mm, z 61,45 mm no STEP) fica a
-    // 58,7 % da altura e a 32,8 % da profundidade da caixa do manípulo.
-    const extracted = extractBreakerHandle(model, frame, c.type === 'breakerSteckSdC25' ? { y: 0.587, z: 0.328 } : undefined)
+    // A charneira vem da tabela `BREAKER_HANDLE_RIG`: o cubo redondo da alavanca (Easy9, Steck) nunca
+    // coincide com o centro da caixa do manípulo, e sem isto a alavanca orbitaria em vez de rodar sobre si.
+    const extracted = extractBreakerHandle(model, frame, rig?.hinge)
     setHandle(extracted)
     return () => { if (extracted) extracted.pivot.removeFromParent() }
-  }, [model, breaker])
+  }, [model, breaker, rig])
   // Curso real: o ECB é um botão de pressão, os outros são alavancas.
   const pushButton = c.type === 'phoenixEcb3000760'
   const throwDeg = c.type === 'breakerWegMdwC10' ? 20 : 17
@@ -801,11 +803,11 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
        * Nos GLB montados com espelho em Z (`flipDepth`) o pivot está dentro do
        * nó espelhado, e o mesmo ângulo aparece ao contrário — daí o sinal. */
       const sense = spec.flipDepth ? 1 : -1
-      if (c.type === 'breakerSteckSdC25') {
-        // O STEP do Steck vem na posição DESLIGADA (ponta em baixo, «O-OFF» legível):
-        // OFF = pose do CAD (0°) e ON levanta o manípulo 40°, em vez de oscilar
-        // simetricamente à volta da pose desligada. Disparado (0,55) fica a meio.
-        handle.pivot.rotation.x = (-value * 40 * Math.PI) / 180
+      if (rig) {
+        // O CAD vem na posição DESLIGADA (alavanca para baixo, marcação legível): OFF = pose do CAD (0°) e
+        // ON levanta a alavanca `throwDeg` graus à volta do cubo, em vez de oscilar simetricamente à volta da
+        // pose desligada. Disparado (0,55) pára a meio, com a alavanca na horizontal, como num disjuntor real.
+        handle.pivot.rotation.x = (-value * rig.throwDeg * Math.PI) / 180
       } else handle.pivot.rotation.x = (sense * -(value * 2 - 1) * throwDeg * Math.PI) / 180
     }
     handle.pivot.updateMatrixWorld(true)

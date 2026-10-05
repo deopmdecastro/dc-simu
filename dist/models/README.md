@@ -38,6 +38,9 @@ Os CAD integrados pelo renderizador comum de `src/schematic/cad3DImage.ts` e pel
 |---|---|---|
 | Disjuntor WEG MDW-C10 | `protecao/weg-mdw-c10.glb` | Calha DIN |
 | Disjuntor Steck SD C25 1P | `protecao/steck-sd-c25-1p.glb` | Calha DIN |
+| Disjuntor Schneider Easy9 EZ9 1P (`breaker1p`) | `protecao/schneider-ez9-1p.glb` | Calha DIN |
+| Disjuntor Schneider Easy9 EZ9 2P (`breaker2p`) | `protecao/schneider-ez9-2p.glb` | Calha DIN |
+| Disjuntor Schneider Easy9 EZ9 3P (`breaker3p`) | `protecao/schneider-ez9-3p.glb` | Calha DIN |
 | Emergência Metaltex P20ACR | `comando/metaltex-p20acr-r-1b.glb` | Frente do painel |
 | Botoeira NHD NPB22-D11 | `comando/nhd-npb22-d11.glb` | Frente do painel |
 | Relé Allen-Bradley MSR127TP | `reles/allen-bradley-msr127tp.glb` | Calha DIN |
@@ -94,3 +97,27 @@ vermelho e serigrafia «O-OFF») foi separado em malhas `dcsimu_handle_*`, que o
 simulador move por inteiro; o CAD original está na posição desligada, pelo que
 OFF = pose do modelo e ON levanta o manípulo. Os bornes 1 (topo) e 2 (base)
 foram medidos nas caixas de ligação do próprio GLB.
+
+## Disjuntores Schneider Easy9 (EZ9) 1P / 2P / 3P
+
+`protecao/schneider-ez9-{1,2,3}p.glb` são gerados dos STEP do fabricante (EZ3331, EZ3332 e «1P3 EASY9»)
+por `scripts/build-ez9-glb.py` (`pip install cadquery trimesh numpy`):
+
+```
+python3 scripts/build-ez9-glb.py <pasta-com-EZ9-1-EZ9-2-EZ9-3> public/models/protecao
+```
+
+Substituem os modelos antigos dos tipos `breaker1p`, `breaker2p` e `breaker3p` (o 3P não tinha CAD).
+Os STEP não trazem cores: o script atribui plástico branco ao corpo, preto à alavanca, cinzento ao patim
+e aço aos parafusos.
+
+- **Dimensões:** 84,5 mm de altura, passo de 17,7 mm por polo (17,7 · 36 · 54 mm de largura) e
+  74,6–75,4 mm de profundidade com a alavanca em OFF. Já vêm de pé (topo +Y, frente +Z, traseira em z = 0),
+  sem rotação nem espelho no `modelPaths.ts`.
+- **Normalização:** o patim da calha do STEP do 1P vem 1,9 mm para fora e é recolhido (−2,5 mm), para os
+  três assentarem igual; a alavanca do 1P vem na horizontal e é rodada 35,8° para a pose OFF dos 2P/3P.
+- **Manípulo:** alavanca(s) e barra de ligação (2P/3P) em malhas `dcsimu_handle_*`. O cubo da alavanca está
+  a y = 32,5 mm e z = 61,5 mm; `BREAKER_HANDLE_RIG` (`modelPaths.ts`) guarda a charneira e o curso (70°).
+  OFF = pose do CAD; ON levanta a alavanca; disparado pára a meio.
+- **Bornes:** nas entradas de cabo (topo 1/3/5, base 2/4/6), centrados em cada polo (x = 9,15 + 17,7·n mm
+  nos 2P/3P; 8,85 mm no 1P) e a z ≈ 0,285 da profundidade. O fundo de 3 mm da entrada é uma estimativa.

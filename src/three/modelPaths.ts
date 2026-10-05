@@ -6,6 +6,10 @@ export const MODEL_PATHS = {
   wegContactorCWC09: '/models/contactores/weg-cwc07-10e.glb',
   wegBreakerMdwC10: '/models/protecao/weg-mdw-c10.glb',
   steckBreakerSdC25: '/models/protecao/steck-sd-c25-1p.glb',
+  /** Schneider Easy9 (EZ9) 1P/2P/3P — GLB gerados dos STEP do fabricante por `scripts/build-ez9-glb.py`. */
+  schneiderEz9Breaker1p: '/models/protecao/schneider-ez9-1p.glb',
+  schneiderEz9Breaker2p: '/models/protecao/schneider-ez9-2p.glb',
+  schneiderEz9Breaker3p: '/models/protecao/schneider-ez9-3p.glb',
   phoenixEcb3000760: '/models/protecao/phoenix-ec1-12dc-1a-s-r.glb',
   emergencyButtonP20AKR: '/models/comando/P20AKR-1.glb',
   emergencyButtonKeyP20ACR: '/models/comando/metaltex-p20acr-r-1b.glb',
@@ -44,8 +48,13 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   plcSiemensLogo1224RC: { width: 72, height: 90, depth: 55 },
   powerSupplyProauto24A: { width: 64, height: 124.5, depth: 123.6 },
   contactorWegCWC09: { width: 45.48, height: 58, depth: 52.01 },
-  breaker1p: { width: 17.7, height: 90.01, depth: 74.13 },
-  breaker2p: { width: 35.4, height: 93.87, depth: 74.3 },
+  /**
+   * Schneider Easy9 (medido nos STEP EZ3331 / EZ3332 / «1P3 EASY9»): 84,5 mm de altura (patim da calha
+   * recolhido incluído), passo de 17,7 mm por polo; a profundidade inclui a alavanca na posição OFF.
+   */
+  breaker1p: { width: 17.7, height: 84.5, depth: 74.57 },
+  breaker2p: { width: 36, height: 84.5, depth: 75.44 },
+  breaker3p: { width: 54, height: 84.5, depth: 75.44 },
   breakerWegMdwC10: { width: 53.5, height: 78.51, depth: 77.24 },
   /** Medido no STEP do fabricante: 17,8 × 79,6 × 72,6 mm (a profundidade inclui o manípulo). */
   breakerSteckSdC25: { width: 17.8, height: 79.6, depth: 72.6 },
@@ -104,8 +113,11 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   plcSiemensLogo1224RC: spec('plcSiemensLogo1224RC', MODEL_PATHS.plcSiemensLogo1224RC, [Math.PI / 2, 0, 0], 'din-rail'),
   powerSupplyProauto24A: spec('powerSupplyProauto24A', MODEL_PATHS.powerSupplyProauto24A, [0, 0, 0], 'din-rail'),
   contactorWegCWC09: spec('contactorWegCWC09', MODEL_PATHS.wegContactorCWC09, [Math.PI / 2, 0, 0], 'din-rail'),
-  breaker1p: spec('breaker1p', '/models/protecao/Q2A5.glb', [Math.PI / 2, 0, 0], 'din-rail', true),
-  breaker2p: spec('breaker2p', '/models/protecao/DISJUNTOR%202.glb', [Math.PI / 2, 0, 0], 'din-rail', true),
+  // Easy9: GLB gerados já de pé (topo em +Y, frente em +Z, traseira/patim em z = 0), sem rotação nem
+  // espelho. A alavanca (e a barra que liga os polos no 2P/3P) vai em malhas `dcsimu_handle_*`.
+  breaker1p: spec('breaker1p', MODEL_PATHS.schneiderEz9Breaker1p, [0, 0, 0], 'din-rail'),
+  breaker2p: spec('breaker2p', MODEL_PATHS.schneiderEz9Breaker2p, [0, 0, 0], 'din-rail'),
+  breaker3p: spec('breaker3p', MODEL_PATHS.schneiderEz9Breaker3p, [0, 0, 0], 'din-rail'),
   // O GLB vem ao contrário: com o espelho em Z a marcação WEG/MDW e os «0-OFF»
   // ficavam de pernas para o ar. Meia volta em Y e um quarto em -Z põem a chapa
   // legível, o manípulo à frente e os bornes 1/3/5 em cima.
@@ -156,7 +168,33 @@ export function getCommandModelSpec(type: ComponentType): CommandModelSpec | und
 
 export type ProtectionModelSpec = ComponentModelSpec
 export function getProtectionModelSpec(type: ComponentType): ProtectionModelSpec | undefined {
-  return ['breaker1p', 'breaker2p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760'].includes(type) ? MODEL_SPECS[type] : undefined
+  return ['breaker1p', 'breaker2p', 'breaker3p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760'].includes(type) ? MODEL_SPECS[type] : undefined
+}
+
+/**
+ * Manípulo de disjuntores com malhas `dcsimu_handle_*` no GLB (os que geramos nós).
+ *  · `hinge`: posição do eixo dentro da caixa do manípulo (0 = mínimo, 1 = máximo em Y e Z), medida
+ *    no CAD — o cubo redondo da alavanca nunca coincide com o centro da caixa;
+ *  · `throwDeg`: curso total. A pose do CAD é sempre OFF (alavanca para baixo); ON levanta-a `throwDeg`
+ *    graus à volta de X; «disparado» pára a meio, como num disjuntor real.
+ */
+export interface BreakerHandleRig {
+  hinge: { y: number; z: number }
+  throwDeg: number
+  /** Nomes dos nós do GLB que formam o manípulo (usados pelo editor 3D). */
+  nodes: string[]
+}
+
+const EZ9_THROW_DEG = 70
+const ez9Nodes = (poles: number) => [...Array.from({ length: poles }, (_, index) => `dcsimu_handle_${index + 1}`), ...(poles > 1 ? ['dcsimu_handle_bridge'] : [])]
+
+export const BREAKER_HANDLE_RIG: Partial<Record<ComponentType, BreakerHandleRig>> = {
+  // cubo da alavanca a y = 32,5 mm e z = 61,5 mm (da base e da traseira do corpo)
+  breaker1p: { hinge: { y: 0.645, z: 0.297 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(1) },
+  breaker2p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(2) },
+  breaker3p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(3) },
+  // Steck: o cubo redondo (centro y −8,25 mm, z 61,45 mm no STEP) fica a 58,7 % da altura e 32,8 % da profundidade
+  breakerSteckSdC25: { hinge: { y: 0.587, z: 0.328 }, throwDeg: 40, nodes: ['dcsimu_handle_2', 'dcsimu_handle_3'] },
 }
 
 /** Especificação GLB única consumida pelo editor, esquema, painel e landing. */

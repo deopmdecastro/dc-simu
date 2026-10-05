@@ -82,17 +82,30 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     { label: '1', face: 'top', x: 0.5, y: 0.006, z: 0.389, diameterMm: 11.3, holeDepthMm: 4.5 },
     { label: '2', face: 'bottom', x: 0.5, y: 0.984, z: 0.39, diameterMm: 11.3, holeDepthMm: 5 },
   ],
-  /** Disjuntor monopolar genérico: encaixe Ø7,2 mm em cima e em baixo. */
+  /**
+   * Schneider Easy9 (EZ9) 1P/2P/3P, medido nos STEP do fabricante (84,5 mm de altura, passo de 17,7 mm).
+   * Cada polo tem a entrada de cabo aberta na face de cima (1/3/5) e na de baixo (2/4/6), centrada em
+   * x = 13,5 mm do polo e a 21,4 mm da traseira (z ≈ 0,285 da profundidade), com ≈ 10 × 21 mm e ≈ 3 mm de
+   * fundo. O parafuso de aperto (Ø7,2 mm) é acessível pela frente, por cima do manípulo e por baixo dele.
+   * Topo do corpo = topo da caixa (y = 0); a base do corpo fica 2,5 mm acima do patim (y ≈ 0,970).
+   */
   breaker1p: [
-    { label: '1', face: 'top', x: 0.5, y: 0.0, z: 0.866, diameterMm: 7.2, holeDepthMm: 8 },
-    { label: '2', face: 'bottom', x: 0.5, y: 1.0, z: 0.866, diameterMm: 7.2, holeDepthMm: 8 },
+    { label: '1', face: 'top', x: 0.5, y: 0.0, z: 0.287, diameterMm: 9, holeDepthMm: 3 },
+    { label: '2', face: 'bottom', x: 0.5, y: 0.97, z: 0.287, diameterMm: 9, holeDepthMm: 3 },
   ],
-  /** Disjuntor bipolar: dois polos a 1/4 e 3/4 da largura. */
   breaker2p: [
-    { label: '1', face: 'top', x: 0.25, y: 0.0, z: 0.871, diameterMm: 7.2, holeDepthMm: 8 },
-    { label: '3', face: 'top', x: 0.75, y: 0.0, z: 0.871, diameterMm: 7.2, holeDepthMm: 8 },
-    { label: '2', face: 'bottom', x: 0.25, y: 1.0, z: 0.871, diameterMm: 7.2, holeDepthMm: 8 },
-    { label: '4', face: 'bottom', x: 0.75, y: 1.0, z: 0.871, diameterMm: 7.2, holeDepthMm: 8 },
+    { label: '1', face: 'top', x: 0.254, y: 0.0, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+    { label: '3', face: 'top', x: 0.746, y: 0.0, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+    { label: '2', face: 'bottom', x: 0.254, y: 0.97, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+    { label: '4', face: 'bottom', x: 0.746, y: 0.97, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+  ],
+  breaker3p: [
+    { label: '1', face: 'top', x: 0.169, y: 0.0, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+    { label: '3', face: 'top', x: 0.497, y: 0.0, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+    { label: '5', face: 'top', x: 0.825, y: 0.0, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+    { label: '2', face: 'bottom', x: 0.169, y: 0.97, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+    { label: '4', face: 'bottom', x: 0.497, y: 0.97, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+    { label: '6', face: 'bottom', x: 0.825, y: 0.97, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
   ],
   /**
    * Phoenix Contact EC 1 12DC/1A S-R (12,4×80×81,7 mm): Line+ no topo,
@@ -277,6 +290,21 @@ export const REAL_CONTROLS: Partial<Record<ComponentType, RealControlSpot[]>> = 
   /** Steck SD C25: o manípulo vai no GLB como `dcsimu_handle_2` (plástico vermelho) e `dcsimu_handle_3` (serigrafia O-OFF). */
   breakerSteckSdC25: [
     { node: 'dcsimu_handle_2', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+  ],
+  /** Easy9: a alavanca de cada polo (`dcsimu_handle_N`) e a barra que as liga (2P/3P) bascúlam juntas. */
+  breaker1p: [
+    { node: 'dcsimu_handle_1', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+  ],
+  breaker2p: [
+    { node: 'dcsimu_handle_1', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_2', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_bridge', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+  ],
+  breaker3p: [
+    { node: 'dcsimu_handle_1', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_2', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_3', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+    { node: 'dcsimu_handle_bridge', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
   ],
 }
 
