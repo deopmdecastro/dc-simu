@@ -22,6 +22,7 @@ const LIBRARY: LandingLibraryItem[] = ([
   { type: 'breaker2p', n: 'Disjuntor modular 2P', m: 'Curva C · 16 A', c: 'Proteção' },
   { type: 'breakerWegMdwC10', n: 'Disjuntor WEG MDW-C10', m: '1P · 10 A · curva C', c: 'Proteção' },
   { type: 'breakerSteckSdC25', n: 'Disjuntor Steck SD C25', m: '1P · 25 A · curva C', c: 'Proteção' },
+  { type: 'motorBreakerPkzmC10', n: 'Disjuntor-motor Eaton PKZM C-10', m: '3P · 6,3-10 A · botão rotativo', c: 'Proteção' },
   { type: 'phoenixEcb3000760', n: 'Phoenix Contact EC 1', m: '12 V DC · 1 A · 3000760', c: 'Proteção' },
   { type: 'dualPushButtonNpb22D11', n: 'Botoeira NHD NPB22-D11', m: 'START/STOP · 1NA + 1NF', c: 'Comando' },
   { type: 'emergencyButton', n: 'Emergência Metaltex P20AKR', m: 'Cogumelo · rearme por giro · 1NF', c: 'Comando' },

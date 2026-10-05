@@ -861,7 +861,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 21 componentes com GLB real (inclui o disjuntor 3P)', availableTypes.length === 21 && availableTypes.includes('breaker3p') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 22 componentes com GLB real (inclui o disjuntor 3P e o PKZM C-10)', availableTypes.length === 22 && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
@@ -1801,6 +1801,21 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const big = scaleDefinition(base, 3)
   check('tamanho real: GLB escala a peça, primitivas escalam as dimensões', big.parts[0].scale[0] === 6 && big.parts[0].position[1] === 15 && big.parts[1].size[2] === 90 && big.parts[1].scale[0] === 1)
   check('tamanho real: bornes, ecrãs e estados acompanham', big.terminals[0].position.join() === '12,18,24' && big.displays![0].widthMm === 30 && big.states[0].parts.p2.position!.join() === '0,12,0')
+}
+
+/* Disjuntor-motor PKZM C-10: GLB de pé, seis bornes nos lugares medidos no STEP e botão rotativo. */
+{
+  const pkzm = createComponent('motorBreakerPkzmC10')
+  const spec = getComponentModelSpec('motorBreakerPkzmC10')!
+  check('PKZM C-10: GLB de pé em calha DIN, sem rotação nem espelho',
+    spec.rotation.every((angle) => angle === 0) && !spec.flipDepth && spec.placement === 'din-rail' && spec.path.endsWith('eaton-pkzmc-10.glb'))
+  check('PKZM C-10: seis bornes 1/3/5 em cima e 2/4/6 em baixo',
+    ['1', '3', '5'].every((label) => terminalByLabel(pkzm, label)?.kind === 'power-in')
+    && ['2', '4', '6'].every((label) => terminalByLabel(pkzm, label)?.kind === 'power-out')
+    && pkzm.terminals.length === 6)
+  const pkzmClosed = createComponent('motorBreakerPkzmC10', undefined, undefined, 0, 0, 0, { closed: true })
+  check('PKZM C-10: fechado liga os três polos; desligado não liga nenhum',
+    internalBridges(pkzmClosed).length === 3 && internalBridges(pkzm).length === 0)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

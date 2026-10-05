@@ -204,6 +204,23 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 25, ue: '230/400 V~ · 50/60 Hz', code: 'SD C25 1P', icn: '3 kA', norm: 'IEC 60898' },
   },
+  /**
+   * Moeller/Eaton PKZM C-10 (44,7 × 91,8 × 75,5 mm, medido no STEP do fabricante).
+   * Disjuntor-motor de 3 polos com botão rotativo O/I, regulação 6,3-10 A.
+   * Bornes 1/L1 · 3/L2 · 5/L3 em cima e 2/T1 · 4/T2 · 6/T3 em baixo.
+   */
+  motorBreakerPkzmC10: {
+    category: 'protection', paletteName: 'Disjuntor-motor Eaton/Moeller PKZM C-10 · 3P 6,3-10 A', group: 'Proteção', tag: 'QM', w: 67, h: 138,
+    terminals: [
+      T('1', 'power-in', 0.19, 0, { position3D: { x: 0.19, y: 0.846, z: 0.497 }, terminalType: 'screw', diameter: 10 }),
+      T('3', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.846, z: 0.497 }, terminalType: 'screw', diameter: 10 }),
+      T('5', 'power-in', 0.81, 0, { position3D: { x: 0.81, y: 0.846, z: 0.497 }, terminalType: 'screw', diameter: 10 }),
+      T('2', 'power-out', 0.19, 1, { position3D: { x: 0.19, y: 0.154, z: 0.497 }, terminalType: 'screw', diameter: 10 }),
+      T('4', 'power-out', 0.5, 1, { position3D: { x: 0.5, y: 0.154, z: 0.497 }, terminalType: 'screw', diameter: 10 }),
+      T('6', 'power-out', 0.81, 1, { position3D: { x: 0.81, y: 0.154, z: 0.497 }, terminalType: 'screw', diameter: 10 }),
+    ],
+    defaultState: { closed: false, tripped: false, poles: 3, curve: 'D', inA: 10, rangeA: '6,3 - 10 A', magnetic: 14, ue: '690 V~', code: 'PKZM C-10', norm: 'IEC/EN 60947' },
+  },
   breaker2p: {
     category: 'protection', paletteName: 'Disjuntor Schneider Easy9 EZ9 · 2P', group: 'Proteção', tag: 'QF', w: 90, h: 110,
     terminals: [

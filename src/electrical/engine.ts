@@ -32,6 +32,7 @@ const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   breaker3p: [['1', '2'], ['3', '4'], ['5', '6']],
   breaker4p: [['1', '2'], ['3', '4'], ['5', '6'], ['7', '8']],
   motorBreaker: [['1', '2'], ['3', '4'], ['5', '6']],
+  motorBreakerPkzmC10: [['1', '2'], ['3', '4'], ['5', '6']],
   residualBreaker: [['1', '2'], ['3', '4'], ['5', '6'], ['N1', 'N2']],
   thermalRelay: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
   contactor: [['1L1', '2T1'], ['3L2', '4T2'], ['5L3', '6T3']],
@@ -64,6 +65,7 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
     case 'breaker3p':
     case 'breaker4p':
     case 'motorBreaker':
+    case 'motorBreakerPkzmC10':
     case 'residualBreaker': {
       if (c.state.closed && !c.state.tripped) {
         for (const [a, b] of POLE_PAIRS[c.type] ?? []) pair(la(a), la(b))
@@ -310,7 +312,7 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
     }
     if (c.type === 'earthBar') c.terminals.forEach((x) => ids.push(x.id))
     // rede entrando pelos polos de entrada dos disjuntores gerais
-    if (c.type === 'breaker1p' || c.type === 'breakerWegMdwC10' || c.type === 'breakerSteckSdC25' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'residualBreaker') {
+    if (c.type === 'breaker1p' || c.type === 'breakerWegMdwC10' || c.type === 'breakerSteckSdC25' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'motorBreakerPkzmC10' || c.type === 'residualBreaker') {
       c.terminals.filter((x) => x.kind === 'power-in' || (x.label === 'N1')).forEach((x) => {
         if (faults?.phaseLoss && /L2|[35]/.test(x.label)) return
         ids.push(x.id)

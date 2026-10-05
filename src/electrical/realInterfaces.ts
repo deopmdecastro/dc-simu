@@ -83,6 +83,20 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     { label: '2', face: 'bottom', x: 0.5, y: 0.984, z: 0.39, diameterMm: 11.3, holeDepthMm: 5 },
   ],
   /**
+   * Eaton/Moeller PKZM C-10 (44,7 × 91,8 × 75,5 mm, do STEP do fabricante). Os seis blocos de
+   * ligação (10,27 mm de largura) ficam a 19 %, 50 % e 81 % da largura, abertos na face de cima
+   * (1/L1 · 3/L2 · 5/L3) e na de baixo (2/T1 · 4/T2 · 6/T3), a meio da profundidade (z ≈ 0,497),
+   * 5 mm abaixo do topo da caixa (y ≈ 0,054). O parafuso de aperto é acessível pela mesma face.
+   */
+  motorBreakerPkzmC10: [
+    { label: '1', face: 'top', x: 0.19, y: 0.054, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
+    { label: '3', face: 'top', x: 0.5, y: 0.054, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
+    { label: '5', face: 'top', x: 0.81, y: 0.054, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
+    { label: '2', face: 'bottom', x: 0.19, y: 0.946, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
+    { label: '4', face: 'bottom', x: 0.5, y: 0.946, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
+    { label: '6', face: 'bottom', x: 0.81, y: 0.946, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
+  ],
+  /**
    * Schneider Easy9 (EZ9) 1P/2P/3P, medido nos STEP do fabricante (84,5 mm de altura, passo de 17,7 mm).
    * Cada polo tem a entrada de cabo aberta na face de cima (1/3/5) e na de baixo (2/4/6), centrada em
    * x = 13,5 mm do polo e a 21,4 mm da traseira (z ≈ 0,285 da profundidade), com ≈ 10 × 21 mm e ≈ 3 mm de
@@ -290,6 +304,10 @@ export const REAL_CONTROLS: Partial<Record<ComponentType, RealControlSpot[]>> = 
   /** Steck SD C25: o manípulo vai no GLB como `dcsimu_handle_2` (plástico vermelho) e `dcsimu_handle_3` (serigrafia O-OFF). */
   breakerSteckSdC25: [
     { node: 'dcsimu_handle_2', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },
+  ],
+  /** PKZM C-10: o botão rotativo verde (`dcsimu_handle_1`) e o aro (`dcsimu_handle_2`) rodam juntos de O para I. */
+  motorBreakerPkzmC10: [
+    { node: 'dcsimu_handle_1', kind: 'toggle', name: 'Botão rotativo O/I', travelMm: 0, variable: 'closed' },
   ],
   /** Easy9: a alavanca de cada polo (`dcsimu_handle_N`) e a barra que as liga (2P/3P) bascúlam juntas. */
   breaker1p: [

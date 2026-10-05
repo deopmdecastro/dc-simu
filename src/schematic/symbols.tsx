@@ -221,6 +221,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'breaker3p':
       case 'breaker4p':
       case 'motorBreaker':
+      case 'motorBreakerPkzmC10':
       case 'residualBreaker': {
         const poles = c.terminals.filter((t) => t.kind === 'power-in').length
         const closed = c.state.closed && !c.state.tripped

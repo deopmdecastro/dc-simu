@@ -121,7 +121,7 @@ export function extractBreakerHandle(
    * cubo redondo cujo centro NÃO é o centro da caixa (o braço estica a caixa): sem isto
    * o cubo orbitaria em vez de girar sobre si próprio.
    */
-  hingeFraction?: { y: number; z: number },
+  hingeFraction?: { x?: number; y: number; z: number },
 ): BreakerHandle | null {
   model.updateMatrixWorld(true)
   frame.updateMatrixWorld(true)
@@ -240,6 +240,7 @@ export function extractBreakerHandle(
   // A charneira fica na base do manípulo, já dentro da caixa.
   const hinge = new THREE.Vector3(center.x, center.y, Math.min(handleBox.min.z, frontZ) - protrusion * 0.2)
   if (marked.size > 0 && hingeFraction) {
+    if (hingeFraction.x !== undefined) hinge.x = handleBox.min.x + (handleBox.max.x - handleBox.min.x) * hingeFraction.x
     hinge.y = handleBox.min.y + (handleBox.max.y - handleBox.min.y) * hingeFraction.y
     hinge.z = handleBox.min.z + (handleBox.max.z - handleBox.min.z) * hingeFraction.z
   }

@@ -10,6 +10,8 @@ export const MODEL_PATHS = {
   schneiderEz9Breaker1p: '/models/protecao/schneider-ez9-1p.glb',
   schneiderEz9Breaker2p: '/models/protecao/schneider-ez9-2p.glb',
   schneiderEz9Breaker3p: '/models/protecao/schneider-ez9-3p.glb',
+  /** Moeller/Eaton PKZM C-10 — GLB gerado do STEP do fabricante por `scripts/build-pkzmc10-glb.py`. */
+  eatonPkzmC10: '/models/protecao/eaton-pkzmc-10.glb',
   phoenixEcb3000760: '/models/protecao/phoenix-ec1-12dc-1a-s-r.glb',
   emergencyButtonP20AKR: '/models/comando/P20AKR-1.glb',
   emergencyButtonKeyP20ACR: '/models/comando/metaltex-p20acr-r-1b.glb',
@@ -58,6 +60,8 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   breakerWegMdwC10: { width: 53.5, height: 78.51, depth: 77.24 },
   /** Medido no STEP do fabricante: 17,8 × 79,6 × 72,6 mm (a profundidade inclui o manípulo). */
   breakerSteckSdC25: { width: 17.8, height: 79.6, depth: 72.6 },
+  /** Medido no STEP do fabricante: 44,7 × 91,8 × 75,5 mm (a profundidade inclui o botão rotativo). */
+  motorBreakerPkzmC10: { width: 44.7, height: 91.8, depth: 75.5 },
   phoenixEcb3000760: { width: 12.4, height: 80, depth: 81.65 },
   emergencyButton: { width: 38.9, height: 44.2, depth: 76 },
   emergencyButtonKeyP20ACR: { width: 40, height: 44, depth: 97 },
@@ -125,6 +129,9 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   // O GLB foi gerado do STEP já de pé: topo em +Y, frente em +Z (manípulo e bornes à frente),
   // por isso não precisa de rotação nem de espelho. O manípulo vai como malhas `dcsimu_handle_*`.
   breakerSteckSdC25: spec('breakerSteckSdC25', MODEL_PATHS.steckBreakerSdC25, [0, 0, 0], 'din-rail'),
+  // PKZM C-10: GLB gerado do STEP já de pé (bornes 1/3/5 em cima, frente com o botão verde em +Z,
+  // patim da calha em z = 0). O botão rotativo vai nas malhas `dcsimu_handle_*` e roda à volta de Z.
+  motorBreakerPkzmC10: spec('motorBreakerPkzmC10', MODEL_PATHS.eatonPkzmC10, [0, 0, 0], 'din-rail'),
   phoenixEcb3000760: spec('phoenixEcb3000760', MODEL_PATHS.phoenixEcb3000760, [Math.PI / 2, 0, 0], 'din-rail'),
 
   // O P20AKR tem o eixo longo em Z; identidade mostra a cabeça circular frontal.
@@ -168,7 +175,7 @@ export function getCommandModelSpec(type: ComponentType): CommandModelSpec | und
 
 export type ProtectionModelSpec = ComponentModelSpec
 export function getProtectionModelSpec(type: ComponentType): ProtectionModelSpec | undefined {
-  return ['breaker1p', 'breaker2p', 'breaker3p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760'].includes(type) ? MODEL_SPECS[type] : undefined
+  return ['breaker1p', 'breaker2p', 'breaker3p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(type) ? MODEL_SPECS[type] : undefined
 }
 
 /**
@@ -179,8 +186,10 @@ export function getProtectionModelSpec(type: ComponentType): ProtectionModelSpec
  *    graus à volta de X; «disparado» pára a meio, como num disjuntor real.
  */
 export interface BreakerHandleRig {
-  hinge: { y: number; z: number }
+  hinge: { x?: number; y: number; z: number }
   throwDeg: number
+  /** Eixo de rotação: `x` para alavancas que bascúlam, `z` para botões rotativos (PKZM). */
+  axis?: 'x' | 'z'
   /** Nomes dos nós do GLB que formam o manípulo (usados pelo editor 3D). */
   nodes: string[]
 }
@@ -195,6 +204,10 @@ export const BREAKER_HANDLE_RIG: Partial<Record<ComponentType, BreakerHandleRig>
   breaker3p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(3) },
   // Steck: o cubo redondo (centro y −8,25 mm, z 61,45 mm no STEP) fica a 58,7 % da altura e 32,8 % da profundidade
   breakerSteckSdC25: { hinge: { y: 0.587, z: 0.328 }, throwDeg: 40, nodes: ['dcsimu_handle_2', 'dcsimu_handle_3'] },
+  /* PKZM C-10: botão rotativo. O eixo medido nas faces cilíndricas do STEP fica em x = 2,6 mm e
+   * y = −4,6 mm (coordenadas do CAD), ou seja a 42,6 % da largura e a 50 % da altura da caixa do
+   * botão. OFF = pose do CAD («O», manípulo deitado); ON roda 90° («I»). */
+  motorBreakerPkzmC10: { hinge: { x: 0.426, y: 0.5, z: 0.5 }, throwDeg: 90, axis: 'z', nodes: ['dcsimu_handle_1', 'dcsimu_handle_2'] },
 }
 
 /** Especificação GLB única consumida pelo editor, esquema, painel e landing. */

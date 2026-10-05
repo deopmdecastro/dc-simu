@@ -702,7 +702,7 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const plc = ['plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(c.type)
   const safety = c.type === 'safetyRelay'
-  const breaker = ['phoenixEcb3000760', 'breakerWegMdwC10', 'breakerSteckSdC25'].includes(c.type)
+  const breaker = ['phoenixEcb3000760', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10'].includes(c.type)
   if (!plc && !safety && !breaker) return null
   const error = diagnostics.some((item) => item.level === 'error') || !!c.state.tripped
   const powered = c.state.powered !== false
@@ -742,7 +742,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     return obj
   }, [scene, spec])
   const active = !!(c.state.energized || c.state.powered)
-  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760'].includes(c.type)
+  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
   /** Manípulo marcado no GLB (`dcsimu_handle_*`): charneira e curso medidos no CAD. */
   const rig = BREAKER_HANDLE_RIG[c.type]
   const breakerClosed = !!c.state.closed && !c.state.tripped
@@ -803,7 +803,11 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
        * Nos GLB montados com espelho em Z (`flipDepth`) o pivot está dentro do
        * nó espelhado, e o mesmo ângulo aparece ao contrário — daí o sinal. */
       const sense = spec.flipDepth ? 1 : -1
-      if (rig) {
+      if (rig?.axis === 'z') {
+        // Botão rotativo (PKZM): «O» = pose do CAD (manípulo deitado), «I» = um quarto de volta
+        // com o manípulo levantado, como no aparelho real. 0,55 pára a meio: posição de disparado.
+        handle.pivot.rotation.z = (value * rig.throwDeg * Math.PI) / 180
+      } else if (rig) {
         // O CAD vem na posição DESLIGADA (alavanca para baixo, marcação legível): OFF = pose do CAD (0°) e
         // ON levanta a alavanca `throwDeg` graus à volta do cubo, em vez de oscilar simetricamente à volta da
         // pose desligada. Disparado (0,55) pára a meio, com a alavanca na horizontal, como num disjuntor real.
@@ -2535,7 +2539,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} />
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />
-          const isBreaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
+          const isBreaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
           if (isBreaker) content = <group onClick={(event) => {
             event.stopPropagation()
             const closed = !!c.state.closed && !c.state.tripped
