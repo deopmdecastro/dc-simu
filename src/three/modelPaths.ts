@@ -4,8 +4,6 @@ export const MODEL_PATHS = {
   plcSiemensLogo1224RC: '/models/controladores/logo-siemens-1224rc.glb',
   powerSupplyProauto24A: '/models/fontes/fonte-proauto-dran120-24a.glb',
   wegContactorCWC09: '/models/contactores/weg-cwc07-10e.glb',
-  /** WEG MDW-C10-3 — GLB gerado do STEP do fabricante por `scripts/build-weg-mdw-glb.py`. */
-  wegBreakerMdwC10: '/models/protecao/weg-mdw-c10-3p.glb',
   steckBreakerSdC25: '/models/protecao/steck-sd-c25-1p.glb',
   /** Schneider Easy9 (EZ9) 1P/2P/3P — GLB gerados dos STEP do fabricante por `scripts/build-ez9-glb.py`. */
   schneiderEz9Breaker1p: '/models/protecao/schneider-ez9-1p.glb',
@@ -58,7 +56,6 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   breaker1p: { width: 17.7, height: 84.5, depth: 74.57 },
   breaker2p: { width: 36, height: 84.5, depth: 75.44 },
   breaker3p: { width: 54, height: 84.5, depth: 75.44 },
-  breakerWegMdwC10: { width: 53.5, height: 78.51, depth: 78.44 },
   /** Medido no STEP do fabricante: 17,8 × 79,6 × 72,6 mm (a profundidade inclui o manípulo). */
   breakerSteckSdC25: { width: 17.8, height: 79.6, depth: 72.6 },
   /** Medido no STEP do fabricante: 44,7 × 91,8 × 75,5 mm (a profundidade inclui o botão rotativo). */
@@ -123,10 +120,6 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   breaker1p: spec('breaker1p', MODEL_PATHS.schneiderEz9Breaker1p, [0, 0, 0], 'din-rail'),
   breaker2p: spec('breaker2p', MODEL_PATHS.schneiderEz9Breaker2p, [0, 0, 0], 'din-rail'),
   breaker3p: spec('breaker3p', MODEL_PATHS.schneiderEz9Breaker3p, [0, 0, 0], 'din-rail'),
-  // WEG MDW-C10-3: GLB gerado do STEP do fabricante já na convenção do projeto (topo com os bornes
-  // 1/3/5 em +Y, manípulo em +Z, patim da calha em z = 0), por isso não leva rotação nem espelho.
-  // O manípulo azul é a malha `dcsimu_handle_1` e a pose do GLB é a de DESLIGADO.
-  breakerWegMdwC10: spec('breakerWegMdwC10', MODEL_PATHS.wegBreakerMdwC10, [0, 0, 0], 'din-rail'),
   // O GLB foi gerado do STEP já de pé: topo em +Y, frente em +Z (manípulo e bornes à frente),
   // por isso não precisa de rotação nem de espelho. O manípulo vai como malhas `dcsimu_handle_*`.
   breakerSteckSdC25: spec('breakerSteckSdC25', MODEL_PATHS.steckBreakerSdC25, [0, 0, 0], 'din-rail'),
@@ -176,7 +169,7 @@ export function getCommandModelSpec(type: ComponentType): CommandModelSpec | und
 
 export type ProtectionModelSpec = ComponentModelSpec
 export function getProtectionModelSpec(type: ComponentType): ProtectionModelSpec | undefined {
-  return ['breaker1p', 'breaker2p', 'breaker3p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(type) ? MODEL_SPECS[type] : undefined
+  return ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(type) ? MODEL_SPECS[type] : undefined
 }
 
 /**
@@ -205,10 +198,6 @@ export const BREAKER_HANDLE_RIG: Partial<Record<ComponentType, BreakerHandleRig>
   breaker3p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(3) },
   // Steck: o cubo redondo (centro y −8,25 mm, z 61,45 mm no STEP) fica a 58,7 % da altura e 32,8 % da profundidade
   breakerSteckSdC25: { hinge: { y: 0.587, z: 0.328 }, throwDeg: 40, nodes: ['dcsimu_handle_2', 'dcsimu_handle_3'] },
-  /* WEG MDW-C10-3: o manípulo azul é uma peça só (`dcsimu_handle_1`). A charneira fica dentro da
-   * caixa — 11 mm atrás da frente e no eixo do pescoço —, logo atrás da caixa do próprio manípulo
-   * (daí a fração negativa em Z). Curso adotado: 30° entre «0-OFF» (pose do GLB) e «I-ON» (pose do CAD). */
-  breakerWegMdwC10: { hinge: { y: 0.968, z: -0.311 }, throwDeg: 30, nodes: ['dcsimu_handle_1'] },
   /* PKZM C-10: botão rotativo. O eixo medido nas faces cilíndricas do STEP fica em x = 2,6 mm e
    * y = −4,6 mm (coordenadas do CAD), ou seja a 42,6 % da largura e a 50 % da altura da caixa do
    * botão. OFF = pose do CAD («O», manípulo deitado); ON roda 90° («I»). */

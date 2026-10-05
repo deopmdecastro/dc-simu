@@ -61,20 +61,6 @@ export interface RealControlSpot {
 
 export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> = {
   /**
-   * WEG MDW-C10-3 (53,5 × 78,51 × 78,44 mm, do STEP do fabricante). As seis cavas de ligação
-   * são furos Ø6,8 mm com ≈11 mm de fundo, abertos na face de cima (1/3/5) e na de baixo (2/4/6),
-   * com passo de 17,85 mm (x = 0,167 · 0,5 · 0,833) e a 54,4 % da profundidade (eixo em y = 4,88 mm
-   * do CAD). O parafuso de aperto fica à frente da cava, acessível pela mesma face.
-   */
-  breakerWegMdwC10: [
-    { label: '1', face: 'top', x: 0.167, y: 0.01, z: 0.544, diameterMm: 6.8, holeDepthMm: 11 },
-    { label: '3', face: 'top', x: 0.5, y: 0.01, z: 0.544, diameterMm: 6.8, holeDepthMm: 11 },
-    { label: '5', face: 'top', x: 0.833, y: 0.01, z: 0.544, diameterMm: 6.8, holeDepthMm: 11 },
-    { label: '2', face: 'bottom', x: 0.167, y: 0.99, z: 0.544, diameterMm: 6.8, holeDepthMm: 11 },
-    { label: '4', face: 'bottom', x: 0.5, y: 0.99, z: 0.544, diameterMm: 6.8, holeDepthMm: 11 },
-    { label: '6', face: 'bottom', x: 0.833, y: 0.99, z: 0.544, diameterMm: 6.8, holeDepthMm: 11 },
-  ],
-  /**
    * Steck SD C25 1P (17,8×79,6×72,6 mm, do STEP do fabricante). A caixa de
    * ligação é aberta em cima (1, entrada) e em baixo (2, saída), com cerca de
    * 11 mm de largura e 4,5–5 mm de profundidade, a meio da profundidade
@@ -301,8 +287,6 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
 }
 
 export const REAL_CONTROLS: Partial<Record<ComponentType, RealControlSpot[]>> = {
-  /** Manípulo azul original do disjuntor WEG (bascula ON/OFF). */
-  breakerWegMdwC10: [{ node: 'dcsimu_handle_1', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' }],
   /** Steck SD C25: o manípulo vai no GLB como `dcsimu_handle_2` (plástico vermelho) e `dcsimu_handle_3` (serigrafia O-OFF). */
   breakerSteckSdC25: [
     { node: 'dcsimu_handle_2', kind: 'toggle', name: 'Manípulo do disjuntor', travelMm: 0, variable: 'closed' },

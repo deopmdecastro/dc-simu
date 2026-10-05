@@ -33,7 +33,6 @@ export type ComponentType =
   | 'breaker2p'
   | 'breaker3p'
   | 'breaker4p'
-  | 'breakerWegMdwC10'
   | 'breakerSteckSdC25'
   | 'motorBreakerPkzmC10'
   | 'motorBreaker'

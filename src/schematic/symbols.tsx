@@ -215,7 +215,6 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
     switch (c.type) {
       // ------------------------------------------------------------- proteção
       case 'breaker1p':
-      case 'breakerWegMdwC10':
       case 'breakerSteckSdC25':
       case 'breaker2p':
       case 'breaker3p':

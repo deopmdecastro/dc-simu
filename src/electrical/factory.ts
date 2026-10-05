@@ -188,23 +188,6 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     ],
     defaultState: { closed: true, tripped: false, poles: 1, curve: 'C', inA: 16 },
   },
-  /**
-   * WEG MDW-C10-3 (53,5 × 78,51 × 78,44 mm, medido no STEP do fabricante). Tripolar a sério:
-   * três entradas 1/3/5 em cima e três saídas 2/4/6 em baixo, com passo de 17,85 mm
-   * (x = 0,167 · 0,5 · 0,833) e o furo da cava a 54,4 % da profundidade.
-   */
-  breakerWegMdwC10: {
-    category: 'protection', paletteName: 'Disjuntor WEG MDW-C10-3 · 3P 10 A curva C', group: 'Proteção', tag: 'QF', w: 72, h: 118,
-    terminals: [
-      T('1', 'power-in', 0.167, 0, { position3D: { x: 0.167, y: 0.05, z: 0.544 }, terminalType: 'screw', diameter: 6.8 }),
-      T('3', 'power-in', 0.5, 0, { position3D: { x: 0.5, y: 0.05, z: 0.544 }, terminalType: 'screw', diameter: 6.8 }),
-      T('5', 'power-in', 0.833, 0, { position3D: { x: 0.833, y: 0.05, z: 0.544 }, terminalType: 'screw', diameter: 6.8 }),
-      T('2', 'power-out', 0.167, 1, { position3D: { x: 0.167, y: 0.95, z: 0.544 }, terminalType: 'screw', diameter: 6.8 }),
-      T('4', 'power-out', 0.5, 1, { position3D: { x: 0.5, y: 0.95, z: 0.544 }, terminalType: 'screw', diameter: 6.8 }),
-      T('6', 'power-out', 0.833, 1, { position3D: { x: 0.833, y: 0.95, z: 0.544 }, terminalType: 'screw', diameter: 6.8 }),
-    ],
-    defaultState: { closed: true, tripped: false, poles: 3, curve: 'C', inA: 10, ue: '440 Vac / 250 Vdc', code: '10076409' },
-  },
   breakerSteckSdC25: {
     category: 'protection', paletteName: 'Disjuntor Steck SD C25 · 1P 25 A curva C', group: 'Proteção', tag: 'QF', w: 27, h: 119,
     terminals: [
@@ -968,7 +951,7 @@ export function upgradeLogoTerminals(c: ElectricalComponent): ElectricalComponen
 
 /** Migra a fonte 24B provisória para a variante de parafuso 24A sem perder cabos. */
 export function upgradeProtectionTerminalPositions(c: ElectricalComponent): ElectricalComponent {
-  if (!['breaker1p', 'breaker2p', 'breaker3p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'phoenixEcb3000760', 'multimeterDm20'].includes(c.type)) return c
+  if (!['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'phoenixEcb3000760', 'multimeterDm20'].includes(c.type)) return c
   // Uma revisão feita no editor tem prioridade sobre os novos padrões.
   if ((c.editorVersion ?? 1) > 1) return c
   const defaults = TEMPLATES[c.type].terminals

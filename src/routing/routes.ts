@@ -1,6 +1,6 @@
 export type AppPage = 'landing' | 'login' | 'dashboard' | 'editor' | 'admin' | 'contribute'
 
-/** Nome legível para a barra de endereço: «Disjuntor WEG MDW-C10 · 1P» → «disjuntor-weg-mdw-c10-1p». */
+/** Nome legível para a barra de endereço: «Disjuntor Steck SD C25 · 1P» → «disjuntor-steck-sd-c25-1p». */
 export function routeSlug(name?: string): string {
   if (!name) return ''
   return name

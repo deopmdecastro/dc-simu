@@ -248,7 +248,7 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   def.terminals = terminalsFor(tpl.terminals, box)
   // Proteções importadas chegam ao editor já testáveis: o manípulo original do
   // GLB (malhas `dcsimu_handle_*`) é o próprio atuador, com a charneira medida no CAD.
-  if (['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(type)) {
+  if (['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(type)) {
     const partId = def.parts[0]?.id
     if (partId) {
       def.vars = [{ id: 'closed', name: 'Disjuntor fechado', type: 'bool', initial: true }, { id: 'tripped', name: 'Disparado', type: 'bool', initial: false }]

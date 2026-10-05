@@ -493,22 +493,6 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         if (cancelled) return
         if (upgraded) loaded = { ...loaded, draft: upgraded }
       }
-      // Remove o antigo botão artificial e liga o controlo diretamente ao
-      // manípulo azul do GLB (malha `dcsimu_handle_1`).
-      if (/breakerWegMdwC10/.test(origin) && loaded.draft) {
-        const artificial = new Set(loaded.draft.parts.filter((part) => part.name === 'Alavanca liga / desliga' && part.kind !== 'glb').map((part) => part.id))
-        const glbPart = loaded.draft.parts.find((part) => part.kind === 'glb')
-        if (glbPart) loaded = { ...loaded, draft: { ...loaded.draft,
-          parts: loaded.draft.parts.filter((part) => !artificial.has(part.id)),
-          // só liga o controlo antigo (ainda sem objetos nem movimento próprio); nunca repõe o que o utilizador já ajustou
-          // o manípulo azul passou a ser a malha `dcsimu_handle_1` do GLB gerado do STEP; rascunhos
-          // antigos apontavam ao nó `WEG_Handle` do modelo anterior, que já não existe
-          controls: (loaded.draft.controls ?? []).map((control) => control.name !== 'Liga / desliga' ? control
-            : (!control.nodes?.length || control.nodes.includes('WEG_Handle'))
-              ? { ...control, partId: glbPart.id, nodes: ['dcsimu_handle_1'], axis: [1, 0, 0] as [number, number, number], travelMm: 0 }
-              : { ...control, partId: glbPart.id }),
-        } }
-      }
       useEditorStore.getState().open(loaded)
       if (await loadGlbAssets(useEditorStore.getState().def, glbCache)) useEditorStore.getState().bumpGlb()
     }).catch((value) => !cancelled && setLoadError(value instanceof Error ? value.message : 'Não foi possível abrir o componente'))

@@ -861,7 +861,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   /** Disjuntores: duplo clique no corpo arma/desarma (e rearma um disparo), como o clique no Painel 3D. */
   const isToggleBreaker = (c: ElectricalComponent) =>
-    ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'motorBreaker', 'residualBreaker'].includes(c.type)
+    ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'motorBreaker', 'residualBreaker'].includes(c.type)
 
   const toggleField = (c: ElectricalComponent, down: boolean) => {
     if (isToggleBreaker(c)) {

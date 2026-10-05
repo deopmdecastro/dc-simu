@@ -702,7 +702,7 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const plc = ['plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(c.type)
   const safety = c.type === 'safetyRelay'
-  const breaker = ['phoenixEcb3000760', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10'].includes(c.type)
+  const breaker = ['phoenixEcb3000760', 'breakerSteckSdC25', 'motorBreakerPkzmC10'].includes(c.type)
   if (!plc && !safety && !breaker) return null
   const error = diagnostics.some((item) => item.level === 'error') || !!c.state.tripped
   const powered = c.state.powered !== false
@@ -742,7 +742,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     return obj
   }, [scene, spec])
   const active = !!(c.state.energized || c.state.powered)
-  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
+  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
   /** Manípulo marcado no GLB (`dcsimu_handle_*`): charneira e curso medidos no CAD. */
   const rig = BREAKER_HANDLE_RIG[c.type]
   const breakerClosed = !!c.state.closed && !c.state.tripped
@@ -765,7 +765,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   }, [model, breaker, rig])
   // Curso real: o ECB é um botão de pressão, os outros são alavancas.
   const pushButton = c.type === 'phoenixEcb3000760'
-  const throwDeg = c.type === 'breakerWegMdwC10' ? 20 : 17
+  const throwDeg = 17
 
   /* Animação do disjuntor (mola, não interpolação linear):
    *  · manobra manual → engate rápido com um ligeiro ressalto, como o estalo real;
@@ -2539,7 +2539,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else if (c.type.startsWith('plc')) content = <PLC3D c={c} x={x} />
           else if (c.type === 'vfd' || c.type === 'softStarter') content = <Drive3D c={c} x={x} />
           else content = <Breaker3D c={c} x={x} />
-          const isBreaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
+          const isBreaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
           if (isBreaker) content = <group onClick={(event) => {
             event.stopPropagation()
             const closed = !!c.state.closed && !c.state.tripped

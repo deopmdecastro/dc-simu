@@ -26,7 +26,6 @@ export interface ContinuityResult {
 
 const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   breaker1p: [['1', '2']],
-  breakerWegMdwC10: [['1', '2'], ['3', '4'], ['5', '6']],
   breakerSteckSdC25: [['1', '2']],
   breaker2p: [['1', '2'], ['3', '4']],
   breaker3p: [['1', '2'], ['3', '4'], ['5', '6']],
@@ -59,7 +58,6 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
   switch (c.type) {
     // ---- proteção: fecha os polos quando armado e não disparado ----
     case 'breaker1p':
-    case 'breakerWegMdwC10':
     case 'breakerSteckSdC25':
     case 'breaker2p':
     case 'breaker3p':
@@ -312,7 +310,7 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
     }
     if (c.type === 'earthBar') c.terminals.forEach((x) => ids.push(x.id))
     // rede entrando pelos polos de entrada dos disjuntores gerais
-    if (c.type === 'breaker1p' || c.type === 'breakerWegMdwC10' || c.type === 'breakerSteckSdC25' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'motorBreakerPkzmC10' || c.type === 'residualBreaker') {
+    if (c.type === 'breaker1p' || c.type === 'breakerSteckSdC25' || c.type === 'breaker2p' || c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'motorBreakerPkzmC10' || c.type === 'residualBreaker') {
       c.terminals.filter((x) => x.kind === 'power-in' || (x.label === 'N1')).forEach((x) => {
         if (faults?.phaseLoss && /L2|[35]/.test(x.label)) return
         ids.push(x.id)

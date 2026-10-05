@@ -696,7 +696,6 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* Novos CAD reais: domínio, continuidade e vista física permanecem sincronizados. */
 {
   const expectedCad = {
-    breakerWegMdwC10: '/models/protecao/weg-mdw-c10-3p.glb',
     emergencyButtonKeyP20ACR: '/models/comando/metaltex-p20acr-r-1b.glb',
     dualPushButtonNpb22D11: '/models/comando/nhd-npb22-d11.glb',
     safetyRelay: '/models/reles/allen-bradley-msr127tp.glb',
@@ -710,23 +709,6 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     const panelFront = type === 'emergencyButtonKeyP20ACR' || type === 'dualPushButtonNpb22D11'
     return spec?.path === path && spec.placement === (panelFront ? 'panel-front' : 'din-rail')
   }))
-
-  const weg = createComponent('breakerWegMdwC10')
-  check('WEG MDW-C10-3 fecha os três polos 1–2/3–4/5–6 e conserva 10 A curva C',
-    internalBridges(weg).length === 3 && weg.state.inA === 10 && weg.state.curve === 'C' && weg.state.poles === 3)
-  check('WEG MDW-C10-3 cria os seis bornes medidos no STEP (passo de 17,85 mm)', weg.terminals.length === 6
-    && ['1', '3', '5'].every((label) => terminalByLabel(weg, label)?.kind === 'power-in')
-    && ['2', '4', '6'].every((label) => terminalByLabel(weg, label)?.kind === 'power-out')
-    && Math.abs((terminalByLabel(weg, '1')!.position3D!.x) - 0.167) < 0.01
-    && Math.abs((terminalByLabel(weg, '5')!.position3D!.x) - 0.833) < 0.01
-    && terminalByLabel(weg, '1')!.position3D!.y < 0.1 && terminalByLabel(weg, '2')!.position3D!.y > 0.9)
-  const wegSpec = getComponentModelSpec('breakerWegMdwC10')
-  check('WEG MDW-C10-3 usa o GLB do STEP, de pé e sem rotação nem espelho, em calha DIN',
-    wegSpec?.path === '/models/protecao/weg-mdw-c10-3p.glb' && wegSpec.placement === 'din-rail'
-    && wegSpec.rotation.every((angle) => angle === 0) && !wegSpec.flipDepth)
-  const wegOpen = createComponent('breakerWegMdwC10', undefined, undefined, 0, 0, 0, { closed: false })
-  const wegTripped = createComponent('breakerWegMdwC10', undefined, undefined, 0, 0, 0, { tripped: true })
-  check('WEG MDW-C10-3 desligado ou disparado corta os três polos', internalBridges(wegOpen).length === 0 && internalBridges(wegTripped).length === 0)
 
   const steck = createComponent('breakerSteckSdC25')
   const steckSpec = getComponentModelSpec('breakerSteckSdC25')
@@ -875,7 +857,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 22 componentes com GLB real (inclui o disjuntor 3P e o PKZM C-10)', availableTypes.length === 22 && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 21 componentes com GLB real (inclui o disjuntor 3P e o PKZM C-10)', availableTypes.length === 21 && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
@@ -939,8 +921,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 
   const beforeComponents = useSimStore.getState().components
   const beforeWires = useSimStore.getState().wires
-  const edited = createComponent('breakerWegMdwC10')
-  const peer = createComponent('breakerWegMdwC10')
+  const edited = createComponent('breaker3p')
+  const peer = createComponent('breaker3p')
   const removedId = edited.terminals[0].id
   const linked: Wire = { id: 'draft-terminal-wire', fromTerminalId: removedId, toTerminalId: peer.terminals[0].id, color: 'black', gauge: '1.5mm²', kind: 'power', flexibility: 'rigid', route: 'direct', bend: 0.5, energized: false }
   useSimStore.setState({ components: [...beforeComponents, edited, peer], wires: [...beforeWires, linked] })
@@ -965,7 +947,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 
 /* Orientação visual por instância: isolada da lógica e persistida no projeto. */
 {
-  const component = createComponent('breakerWegMdwC10')
+  const component = createComponent('breaker3p')
   check('nova instância começa na versão 1 com data ISO de atualização', component.editorVersion === 1
     && component.editorLastChange === 'Versão inicial' && !Number.isNaN(Date.parse(component.editorUpdatedAt ?? '')))
   const legacyComponent = { ...component, editorVersion: undefined, editorUpdatedAt: undefined, editorLastChange: undefined, editorHistory: undefined }
@@ -1014,7 +996,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 
   const before = useSimStore.getState().components
   const beforeWires = useSimStore.getState().wires
-  const physicalPeer = createComponent('breakerWegMdwC10')
+  const physicalPeer = createComponent('breaker3p')
   const preservedWire: Wire = { id: 'smoke-3d-editor-wire', fromTerminalId: terminal.id, toTerminalId: physicalPeer.terminals[0].id, color: 'black', gauge: '1.5mm²', kind: 'control', flexibility: 'flexible', route: 'direct', bend: 0.5, energized: false }
   useSimStore.setState({ components: [...before, component, physicalPeer], wires: [...beforeWires, preservedWire] })
   useSimStore.getState().openViewOrientationEditor(component.id)
@@ -1098,8 +1080,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     removeItem: (key: string) => { memory.delete(key) },
   } })
   const before = useSimStore.getState().components
-  const source = createComponent('breakerWegMdwC10')
-  const existingPeer = createComponent('breakerWegMdwC10')
+  const source = createComponent('breaker3p')
+  const existingPeer = createComponent('breaker3p')
   const terminal = source.terminals[0]
   useSimStore.setState({ components: [...before, source, existingPeer] })
   useSimStore.getState().openViewOrientationEditor(source.id)
@@ -1109,7 +1091,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.getState().setView3DRenderMode('wireframe')
   useSimStore.getState().setView3DBodyColor('#0f766e')
   useSimStore.getState().applyViewOrientationEditor(true)
-  const future = createComponent('breakerWegMdwC10')
+  const future = createComponent('breaker3p')
   const futurePoint = componentTerminalLocal(future, future.terminals[0])
   check('padrão do tipo aplica orientação, bornes e aparência apenas a futuras instâncias', componentTerminalViewKey(future.viewOrientation) === 'right'
     && Math.abs(futurePoint.x / future.w - 0.18) < 1e-9 && Math.abs(futurePoint.y / future.h - 0.27) < 1e-9
@@ -1117,7 +1099,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     && future.view3DRenderMode === 'wireframe' && future.bodyColor === '#0f766e'
     && isOriginalComponentOrientation(useSimStore.getState().components.find((item) => item.id === existingPeer.id)?.viewOrientation)
     && useSimStore.getState().components.find((item) => item.id === existingPeer.id)?.view3DScale?.x === 1)
-  const savedPresentation = getDefaultComponent3DPresentation('breakerWegMdwC10')
+  const savedPresentation = getDefaultComponent3DPresentation('breaker3p')
   check('padrão físico do tipo é normalizado e persistente', savedPresentation.scale.x === 0.8 && savedPresentation.scale.z === 1.3
     && savedPresentation.renderMode === 'wireframe' && savedPresentation.bodyColor === '#0f766e')
   useSimStore.setState({ components: before, viewOrientationEditor: null })
@@ -1191,7 +1173,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.getState().newProject()
   let state = useSimStore.getState()
   check('novo projeto começa completamente vazio', state.components.length === 0 && state.wires.length === 0 && state.ladder.rungs.length === 0 && state.activeScenario === 'custom')
-  const firstId = state.addComponent('breakerWegMdwC10', 120, 140)!
+  const firstId = state.addComponent('breaker3p', 120, 140)!
   const secondId = useSimStore.getState().addComponent('pilotLightAd22', 360, 140)!
   const first = useSimStore.getState().components.find((component) => component.id === firstId)!
   const second = useSimStore.getState().components.find((component) => component.id === secondId)!
@@ -1342,8 +1324,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 
 {
   // Exclusão física: inserção, arrasto e saltos grandes do cursor nunca atravessam outro equipamento.
-  const first = createComponent('breakerWegMdwC10', undefined, undefined, 0, 100, 100)
-  const second = createComponent('breakerWegMdwC10', undefined, undefined, 1, 300, 100)
+  const first = createComponent('breaker3p', undefined, undefined, 0, 100, 100)
+  const second = createComponent('breaker3p', undefined, undefined, 1, 300, 100)
   const resolved = resolveComponentMove(first, 500, 100, [first, second])
   const moved = { ...first, schematicX: resolved.x, schematicY: resolved.y }
   check('colisão varrida bloqueia atravessar um componente mesmo com salto grande do cursor', resolved.blocked && !componentsOverlap2D(moved, second)
@@ -1358,7 +1340,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   useSimStore.getState().moveComponent(first.id, second.schematicX, second.schematicY)
   const storeFirst = useSimStore.getState().components.find((component) => component.id === first.id)!
   check('store impede arrastar um componente para dentro de outro', !componentsOverlap2D(storeFirst, second))
-  const insertedId = useSimStore.getState().addComponent('breakerWegMdwC10', second.schematicX, second.schematicY)
+  const insertedId = useSimStore.getState().addComponent('breaker3p', second.schematicX, second.schematicY)
   const inserted = useSimStore.getState().components.find((component) => component.id === insertedId)!
   check('store impede inserir componente sobre uma posição ocupada', !!inserted
     && useSimStore.getState().components.filter((component) => component.id !== inserted.id).every((component) => !componentsOverlap2D(inserted, component)))
@@ -1384,7 +1366,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('imã centra o equipamento verticalmente na calha', Math.abs(plcNow().schematicY + plcNow().h / 2 - (railNow().schematicY + railNow().h / 2)) <= 1)
   check('equipamento fica dentro do comprimento da calha', plcNow().schematicX >= railNow().schematicX && plcNow().schematicX + plcNow().w <= railNow().schematicX + railNow().w)
 
-  const neighbour = createComponent('breakerWegMdwC10', undefined, undefined, 2, plcNow().schematicX, plcNow().schematicY)
+  const neighbour = createComponent('breaker3p', undefined, undefined, 2, plcNow().schematicX, plcNow().schematicY)
   useSimStore.setState({ components: [...st().components, neighbour] })
   st().snapToRails([neighbour.id])
   const neighbourNow = () => st().components.find((component) => component.id === neighbour.id)!
@@ -1419,7 +1401,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 {
   // 3D à escala real, em sintonia com o Esquema: posição, imã de calha e bornes.
   const rail = createComponent('dinRail15x55', undefined, undefined, 0, 400, 500, { lengthMm: 500 })
-  const breaker = createComponent('breakerWegMdwC10', undefined, undefined, 1, 500, 100)
+  const breaker = createComponent('breaker3p', undefined, undefined, 1, 500, 100)
   useSimStore.setState({ components: [rail, breaker], wires: [], selectedComponentIds: [], history: [], future: [], grid: { ...useSimStore.getState().grid, railMagnet: true } })
   const st = () => useSimStore.getState()
 
