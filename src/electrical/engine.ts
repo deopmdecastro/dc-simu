@@ -26,7 +26,7 @@ export interface ContinuityResult {
 
 const POLE_PAIRS: Record<string, Array<[string, string]>> = {
   breaker1p: [['1', '2']],
-  breakerWegMdwC10: [['1', '2']],
+  breakerWegMdwC10: [['1', '2'], ['3', '4'], ['5', '6']],
   breakerSteckSdC25: [['1', '2']],
   breaker2p: [['1', '2'], ['3', '4']],
   breaker3p: [['1', '2'], ['3', '4'], ['5', '6']],

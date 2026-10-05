@@ -36,7 +36,7 @@ Os CAD integrados pelo renderizador comum de `src/schematic/cad3DImage.ts` e pel
 
 | Tipo | Ficheiro | Vista no painel |
 |---|---|---|
-| Disjuntor WEG MDW-C10 | `protecao/weg-mdw-c10.glb` | Calha DIN |
+| Disjuntor WEG MDW-C10-3 (3P) | `protecao/weg-mdw-c10-3p.glb` (gerado do STEP por `scripts/build-weg-mdw-glb.py`) | Calha DIN |
 | Disjuntor Steck SD C25 1P | `protecao/steck-sd-c25-1p.glb` | Calha DIN |
 | Disjuntor Schneider Easy9 EZ9 1P (`breaker1p`) | `protecao/schneider-ez9-1p.glb` | Calha DIN |
 | Disjuntor Schneider Easy9 EZ9 2P (`breaker2p`) | `protecao/schneider-ez9-2p.glb` | Calha DIN |

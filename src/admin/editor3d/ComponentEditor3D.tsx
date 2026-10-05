@@ -494,14 +494,19 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         if (upgraded) loaded = { ...loaded, draft: upgraded }
       }
       // Remove o antigo botão artificial e liga o controlo diretamente ao
-      // manípulo azul, agora isolado como nó WEG_Handle dentro do próprio GLB.
+      // manípulo azul do GLB (malha `dcsimu_handle_1`).
       if (/breakerWegMdwC10/.test(origin) && loaded.draft) {
         const artificial = new Set(loaded.draft.parts.filter((part) => part.name === 'Alavanca liga / desliga' && part.kind !== 'glb').map((part) => part.id))
         const glbPart = loaded.draft.parts.find((part) => part.kind === 'glb')
         if (glbPart) loaded = { ...loaded, draft: { ...loaded.draft,
           parts: loaded.draft.parts.filter((part) => !artificial.has(part.id)),
           // só liga o controlo antigo (ainda sem objetos nem movimento próprio); nunca repõe o que o utilizador já ajustou
-          controls: (loaded.draft.controls ?? []).map((control) => control.name === 'Liga / desliga' && !control.nodes?.length && !control.motion ? { ...control, partId: glbPart.id, nodes: ['WEG_Handle'], axis: [1, 0, 0] as [number, number, number], travelMm: 8 } : control.name === 'Liga / desliga' ? { ...control, partId: glbPart.id } : control),
+          // o manípulo azul passou a ser a malha `dcsimu_handle_1` do GLB gerado do STEP; rascunhos
+          // antigos apontavam ao nó `WEG_Handle` do modelo anterior, que já não existe
+          controls: (loaded.draft.controls ?? []).map((control) => control.name !== 'Liga / desliga' ? control
+            : (!control.nodes?.length || control.nodes.includes('WEG_Handle'))
+              ? { ...control, partId: glbPart.id, nodes: ['dcsimu_handle_1'], axis: [1, 0, 0] as [number, number, number], travelMm: 0 }
+              : { ...control, partId: glbPart.id }),
         } }
       }
       useEditorStore.getState().open(loaded)

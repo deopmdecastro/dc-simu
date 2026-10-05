@@ -696,7 +696,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* Novos CAD reais: domínio, continuidade e vista física permanecem sincronizados. */
 {
   const expectedCad = {
-    breakerWegMdwC10: '/models/protecao/weg-mdw-c10.glb',
+    breakerWegMdwC10: '/models/protecao/weg-mdw-c10-3p.glb',
     emergencyButtonKeyP20ACR: '/models/comando/metaltex-p20acr-r-1b.glb',
     dualPushButtonNpb22D11: '/models/comando/nhd-npb22-d11.glb',
     safetyRelay: '/models/reles/allen-bradley-msr127tp.glb',
@@ -712,7 +712,21 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   }))
 
   const weg = createComponent('breakerWegMdwC10')
-  check('WEG MDW-C10 fecha um polo 1–2 e conserva 10 A curva C', internalBridges(weg).length === 1 && weg.state.inA === 10 && weg.state.curve === 'C')
+  check('WEG MDW-C10-3 fecha os três polos 1–2/3–4/5–6 e conserva 10 A curva C',
+    internalBridges(weg).length === 3 && weg.state.inA === 10 && weg.state.curve === 'C' && weg.state.poles === 3)
+  check('WEG MDW-C10-3 cria os seis bornes medidos no STEP (passo de 17,85 mm)', weg.terminals.length === 6
+    && ['1', '3', '5'].every((label) => terminalByLabel(weg, label)?.kind === 'power-in')
+    && ['2', '4', '6'].every((label) => terminalByLabel(weg, label)?.kind === 'power-out')
+    && Math.abs((terminalByLabel(weg, '1')!.position3D!.x) - 0.167) < 0.01
+    && Math.abs((terminalByLabel(weg, '5')!.position3D!.x) - 0.833) < 0.01
+    && terminalByLabel(weg, '1')!.position3D!.y < 0.1 && terminalByLabel(weg, '2')!.position3D!.y > 0.9)
+  const wegSpec = getComponentModelSpec('breakerWegMdwC10')
+  check('WEG MDW-C10-3 usa o GLB do STEP, de pé e sem rotação nem espelho, em calha DIN',
+    wegSpec?.path === '/models/protecao/weg-mdw-c10-3p.glb' && wegSpec.placement === 'din-rail'
+    && wegSpec.rotation.every((angle) => angle === 0) && !wegSpec.flipDepth)
+  const wegOpen = createComponent('breakerWegMdwC10', undefined, undefined, 0, 0, 0, { closed: false })
+  const wegTripped = createComponent('breakerWegMdwC10', undefined, undefined, 0, 0, 0, { tripped: true })
+  check('WEG MDW-C10-3 desligado ou disparado corta os três polos', internalBridges(wegOpen).length === 0 && internalBridges(wegTripped).length === 0)
 
   const steck = createComponent('breakerSteckSdC25')
   const steckSpec = getComponentModelSpec('breakerSteckSdC25')

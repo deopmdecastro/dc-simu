@@ -246,23 +246,21 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   }
   const box = boundsMm(def, cache)
   def.terminals = terminalsFor(tpl.terminals, box)
-  // Proteções importadas chegam ao editor já testáveis. No WEG, o manípulo
-  // azul original do GLB está isolado no nó WEG_Handle e é o próprio atuador.
+  // Proteções importadas chegam ao editor já testáveis: o manípulo original do
+  // GLB (malhas `dcsimu_handle_*`) é o próprio atuador, com a charneira medida no CAD.
   if (['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerWegMdwC10', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(type)) {
     const partId = def.parts[0]?.id
     if (partId) {
       def.vars = [{ id: 'closed', name: 'Disjuntor fechado', type: 'bool', initial: true }, { id: 'tripped', name: 'Disparado', type: 'bool', initial: false }]
-      // WEG: o manípulo basculante roda à volta dos polos (eixo deduzido dos bornes) em vez de deslizar 8 mm
-      const weg = type === 'breakerWegMdwC10'
-      // Easy9 e Steck: o manípulo vai no GLB como malhas `dcsimu_handle_*` (a pose do CAD é OFF). O pivô
+      // Easy9, Steck e WEG: o manípulo vai no GLB como malhas `dcsimu_handle_*` (a pose do CAD é OFF). O pivô
       // (cubo da alavanca) e o curso vêm da tabela medida no CAD — o basculante simétrico por omissão
       // (±9° ao centro da caixa) faria a alavanca orbitar em vez de rodar sobre o cubo.
       const rig = BREAKER_HANDLE_RIG[type]
-      const tilt = weg || rig ? tiltControlPatch(inferBreakerAxes(def.terminals.map((terminal) => terminal.position)), [0, 0, 1]) : null
+      const tilt = rig ? tiltControlPatch(inferBreakerAxes(def.terminals.map((terminal) => terminal.position)), [0, 0, 1]) : null
       const motion = rig && tilt
         ? { ...tilt.motion, mode: 'tilt' as const, angleOff: 0, angleOn: -rig.throwDeg, pivotRel: [0.5, rig.hinge.y, rig.hinge.z] as Vec3, feel: 'snap' as const, durationMs: 280 }
         : tilt?.motion
-      def.controls = [{ id: newId('ctl_'), name: 'Liga / desliga', kind: 'toggle', partId, nodes: weg ? ['WEG_Handle'] : rig ? rig.nodes : undefined, axis: rig ? [1, 0, 0] as Vec3 : tilt?.axis ?? [0, 1, 0], travelMm: 0, ...(motion ? { motion } : {}), bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }]
+      def.controls = [{ id: newId('ctl_'), name: 'Liga / desliga', kind: 'toggle', partId, nodes: rig ? rig.nodes : undefined, axis: rig ? [1, 0, 0] as Vec3 : tilt?.axis ?? [0, 1, 0], travelMm: 0, ...(motion ? { motion } : {}), bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }]
     }
   }
   // O multímetro DM-20 chega ao editor completo: seletor, botões e LCD já
