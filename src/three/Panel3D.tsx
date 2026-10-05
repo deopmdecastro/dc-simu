@@ -951,6 +951,10 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
     moveCap(caps.stop, !!c.state.stopPressed)
   })
 
+  // Largar a tecla se o componente sair de cena a meio de um toque.
+  const pressRelease = useRef<(() => void) | null>(null)
+  useEffect(() => () => pressRelease.current?.(), [])
+
   // Qual das tampas foi clicada: sobe na hierarquia a partir da malha atingida.
   const capOf = (object: THREE.Object3D | null): 'start' | 'stop' | null => {
     for (let node: THREE.Object3D | null = object; node; node = node.parent) {
@@ -966,10 +970,11 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
     else if (!down) { onStart(false); onStop(false) }
   }
 
+  const release = () => { onStart(false); onStop(false) }
+  // Sem `stopPropagation`: o arrasto do componente no painel continua a funcionar.
   return <group position={[x, RAIL_Y + 1.05, 0.4]}
-    onPointerDown={(event) => { event.stopPropagation(); press(event.object, true) }}
-    onPointerUp={(event) => { event.stopPropagation(); press(event.object, false) }}
-    onPointerOut={() => { onStart(false); onStop(false) }}>
+    onPointerDown={(event) => { if (!capOf(event.object)) return; pressRelease.current = pressWhileHeld(event, () => press(event.object, true), release) }}
+    onPointerOut={() => { pressRelease.current?.(); pressRelease.current = null }}>
     <primitive object={model} castShadow receiveShadow />
     <Label text={`${c.ref} · STOP / START`} position={[0, 0.35, 0.08]} />
   </group>
@@ -1138,6 +1143,33 @@ function TowerLight3D({ c, x }: { c: ElectricalComponent; x: number }) {
   )
 }
 
+/**
+ * Botão que se pode carregar MAS sem impedir que o componente seja arrastado.
+ *
+ * O `pointerdown` NÃO é consumido: se o fosse, o grupo do componente nunca o
+ * receberia e a botoeira deixaria de se poder mover no painel (era o que
+ * acontecia com a botoeira verde/vermelha). A tecla carrega ao primeiro toque e
+ * larga no `pointerup` — ou mal o cursor se desloque, porque aí o gesto é um
+ * arrasto e não um toque no botão.
+ */
+function pressWhileHeld(event: ThreeEvent<PointerEvent>, press: () => void, release: () => void): () => void {
+  press()
+  const start = { x: event.clientX, y: event.clientY }
+  const finish = () => {
+    release()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', finish)
+    window.removeEventListener('pointercancel', finish)
+  }
+  const onMove = (domEvent: PointerEvent) => {
+    if (Math.hypot(domEvent.clientX - start.x, domEvent.clientY - start.y) >= 4) finish()
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', finish)
+  window.addEventListener('pointercancel', finish)
+  return finish
+}
+
 function PushButton3D({ c, x, onPress }: { c: ElectricalComponent; x: number; onPress: (p: boolean) => void }) {
   const pressed = !!c.state.pressed
   const isEmg = c.type === 'emergencyButton' || c.type === 'emergencyButtonKeyP20ACR'
@@ -1152,8 +1184,7 @@ function PushButton3D({ c, x, onPress }: { c: ElectricalComponent; x: number; on
       </mesh>
       <mesh
         position={[0, pressed ? -0.05 : 0, 0]}
-        onPointerDown={() => onPress(true)}
-        onPointerUp={() => onPress(false)}
+        onPointerDown={(event) => pressWhileHeld(event, () => onPress(true), () => onPress(false))}
         onPointerOut={() => pressed && onPress(false)}
       >
         <cylinderGeometry args={[r, r, 0.1, 24]} />
