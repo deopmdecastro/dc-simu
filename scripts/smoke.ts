@@ -13,6 +13,7 @@ import { applyKind } from '../src/ladder/ladderDnd'
 import { parseDataBlocks, moveValue } from '../src/ladder/dataBlocks'
 import type { CounterTable, AddressTable, TimerTable } from '../src/ladder/ladderEngine'
 import { createComponent, terminalByLabel, TEMPLATES, upgradeLogoTerminals, upgradeProauto24A } from '../src/electrical/factory'
+import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
 import { proautoTerminalLocal } from '../src/schematic/proautoTerminalGeometry'
 import { connectNearWireEnds, nearestTerminal, nearestModelTerminal } from '../src/schematic/terminalSnap'
@@ -1812,6 +1813,20 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const pkzmClosed = createComponent('motorBreakerPkzmC10', undefined, undefined, 0, 0, 0, { closed: true })
   check('PKZM C-10: fechado liga os três polos; desligado não liga nenhum',
     internalBridges(pkzmClosed).length === 3 && internalBridges(pkzm).length === 0)
+}
+
+/* Contator WEG CWC0: cabos entram pelo topo e pela base, como no aparelho real. */
+{
+  const weg = REAL_TERMINALS.contactorWegCWC09!
+  const top = ['1L1', '3L2', '5L3', '13', 'A1']
+  const bottom = ['2T1', '4T2', '6T3', '14', 'A2']
+  check('Contator WEG: 1/3/5/13/A1 no topo e 2/4/6/14/A2 na base',
+    weg.length === 10
+    && top.every((label) => weg.find((spot) => spot.label === label)?.face === 'top')
+    && bottom.every((label) => weg.find((spot) => spot.label === label)?.face === 'bottom'))
+  check('Contator WEG: bocas de ligação alinhadas nas cinco colunas medidas no GLB',
+    top.every((label, i) => Math.abs(weg.find((spot) => spot.label === label)!.x - weg.find((spot) => spot.label === bottom[i])!.x) < 1e-6)
+    && weg.every((spot) => Math.abs(spot.z - 0.828) < 1e-6 && (spot.holeDepthMm ?? 0) > 5))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

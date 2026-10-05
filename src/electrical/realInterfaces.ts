@@ -146,22 +146,27 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     { label: 'X2', face: 'back', x: 0.654, y: 0.5, z: 0.012, diameterMm: 5.8, holeDepthMm: 6 },
   ],
   /**
-   * Contator WEG CWC0 9 A (código 12679840, 3 NA de força + 1 NA auxiliar).
-   * O GLB tem as dez cavidades de parafuso na face da frente, em duas filas de
-   * cinco (Ø6,5 mm). Serigrafia WEG (diagrama CWC0): fila de cima
-   * A1 · 1 · 3 · 5 · 13 e, em baixo, A2 · 2 · 4 · 6 · 14.
+   * Contator WEG CWC0 9 A (código 12679840, 3 NA de força + 1 NA auxiliar),
+   * 45,48 × 58 × 52,01 mm.
+   *
+   * Como no aparelho real, os cabos entram **pelo topo e pela base**, não pela
+   * frente: a varredura do GLB encontra em cada uma dessas faces cinco bocas
+   * de ligação (duas ranhuras por borne, ~8,2 mm de profundidade) centradas a
+   * x = 0,133 · 0,320 · 0,510 · 0,697 · 0,886 e a z ≈ 0,83 (junto à frente).
+   * Serigrafia WEG (diagrama CWC0): em cima 1 · 3 · 5 · 13 · A1 e, em baixo,
+   * 2 · 4 · 6 · 14 · A2. Os parafusos de aperto é que são acessíveis pela frente.
    */
   contactorWegCWC09: [
-    { label: '1L1', face: 'front', x: 0.132, y: 0.187, z: 1, diameterMm: 6.5, holeDepthMm: 3.7 },
-    { label: '3L2', face: 'front', x: 0.32, y: 0.187, z: 1, diameterMm: 6.5, holeDepthMm: 3.7 },
-    { label: '5L3', face: 'front', x: 0.508, y: 0.187, z: 1, diameterMm: 6.5, holeDepthMm: 3.7 },
-    { label: '13', face: 'front', x: 0.695, y: 0.187, z: 1, diameterMm: 6.5, holeDepthMm: 3.7 },
-    { label: 'A1', face: 'front', x: 0.883, y: 0.188, z: 1, diameterMm: 6.5, holeDepthMm: 3.7 },
-    { label: '2T1', face: 'front', x: 0.132, y: 0.813, z: 1, diameterMm: 6.5, holeDepthMm: 3.7 },
-    { label: '4T2', face: 'front', x: 0.32, y: 0.812, z: 1, diameterMm: 6.5, holeDepthMm: 3.7 },
-    { label: '6T3', face: 'front', x: 0.508, y: 0.813, z: 1, diameterMm: 6.5, holeDepthMm: 3.7 },
-    { label: '14', face: 'front', x: 0.695, y: 0.813, z: 1, diameterMm: 6.5, holeDepthMm: 3.7 },
-    { label: 'A2', face: 'front', x: 0.883, y: 0.812, z: 1, diameterMm: 6.5, holeDepthMm: 3.7 },
+    { label: '1L1', face: 'top', x: 0.133, y: 0.105, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
+    { label: '3L2', face: 'top', x: 0.32, y: 0.105, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
+    { label: '5L3', face: 'top', x: 0.51, y: 0.105, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
+    { label: '13', face: 'top', x: 0.697, y: 0.105, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
+    { label: 'A1', face: 'top', x: 0.886, y: 0.105, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
+    { label: '2T1', face: 'bottom', x: 0.133, y: 0.895, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
+    { label: '4T2', face: 'bottom', x: 0.32, y: 0.895, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
+    { label: '6T3', face: 'bottom', x: 0.51, y: 0.895, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
+    { label: '14', face: 'bottom', x: 0.697, y: 0.895, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
+    { label: 'A2', face: 'bottom', x: 0.886, y: 0.895, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
   ],
   /**
    * Siemens LOGO! 12/24RC (72×90×55 mm). O GLB tem 11 parafusos na régua de
