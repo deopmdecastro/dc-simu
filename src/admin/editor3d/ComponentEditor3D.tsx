@@ -24,7 +24,7 @@ import { IconAlignCenterH, IconArrowLeft, IconBox, IconCheck, IconClose, IconCon
 import FaceChooser, { chooseFace } from './FaceChooser'
 import { useEditorShortcuts } from '../../ui/shortcuts'
 import ShortcutHelp, { type ShortcutHelpExtra } from '../../ui/ShortcutHelp'
-import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, explodeGlbPart, groupSelection, importGlbAction, mergeGlbParts, nudgeSelection, ungroupSelection } from './partActions'
+import { addPartAction, centerOnOrigin, deleteSelection, dropToFloor, duplicateSelection, explodeGlbPart, groupSelection, importGlbAction, mergeGlbParts, nudgeSelection, selectAllParts, ungroupSelection } from './partActions'
 import { captureCover } from './capture'
 import WirePanel from './WirePanel'
 import { WiresTab } from './WireInspector'
@@ -46,6 +46,11 @@ const EDITOR3D_HELP: ShortcutHelpExtra[] = [
     { keys: 'W', action: 'Mover' }, { keys: 'E', action: 'Rodar' }, { keys: 'R', action: 'Escalar' },
     { keys: 'X', action: 'Alternar espaço local/mundo' }, { keys: 'F · Shift+F', action: 'Enquadrar tudo / seleção' },
     { keys: 'H', action: 'Mostrar/ocultar bornes' }, { keys: 'Setas · Shift+setas · Alt+setas', action: 'Mover 1 mm · 10 mm · em altura' },
+  ] },
+  { title: 'Seleção e objetos', items: [
+    { keys: 'Ctrl+A', action: 'Selecionar todas as peças' }, { keys: 'Ctrl/⌘+clique', action: 'Juntar ou retirar uma peça à seleção' },
+    { keys: 'Shift+clique (lista)', action: 'Selecionar um intervalo na lista de objetos' }, { keys: 'F2', action: 'Renomear a peça selecionada' },
+    { keys: 'Ctrl+D · Ctrl+G · Ctrl+Shift+G', action: 'Duplicar · agrupar · desagrupar' },
   ] },
   { title: 'Cabos', items: [
     { keys: 'Enter', action: 'Terminar cabo livre' }, { keys: 'Backspace', action: 'Remover último ponto do cabo' }, { keys: 'Escape', action: 'Cancelar cabo/medição' },
@@ -569,6 +574,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       const mod = event.ctrlKey || event.metaKey
       if (mod && event.key.toLowerCase() === 's') { event.preventDefault(); void save(); return }
       if (isTyping(event.target) || publishing || helpOpen) return
+      if (mod && event.key.toLowerCase() === 'a' && state.mode === 'edit') { event.preventDefault(); selectAllParts(); return }
       if (mod && event.key.toLowerCase() === 'd' && state.mode === 'edit') { event.preventDefault(); duplicateSelection(); return }
       if (mod && event.key.toLowerCase() === 'g' && state.mode === 'edit') { event.preventDefault(); event.shiftKey ? ungroupSelection() : groupSelection(); return }
       const key = event.key.toLowerCase()
@@ -584,7 +590,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       if (drafting && key === 'enter') { event.preventDefault(); const problem = state.finishWireFree(); if (problem) setMessage(problem); return }
       if (drafting && (key === 'backspace' || key === 'delete')) { event.preventDefault(); state.undoWirePoint(); return }
       if (state.mode !== 'edit') return
-      if (key === 'w') state.set({ tool: 'translate' })
+      if (key === 'f2') { event.preventDefault(); window.dispatchEvent(new CustomEvent('ce-rename')) }
+      else if (key === 'w') state.set({ tool: 'translate' })
       else if (key === 'e') state.set({ tool: 'rotate' })
       else if (key === 'r') state.set({ tool: 'scale' })
       else if (key === 'f') state.cameraTo(event.shiftKey ? 'fitSel' : 'fit')

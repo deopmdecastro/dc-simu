@@ -208,13 +208,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const { past, def, meta, future } = get()
     const previous = past[past.length - 1]
     if (!previous) return
-    set({ def: previous.def, meta: previous.meta, past: past.slice(0, -1), future: [{ def, meta }, ...future], dirty: true, lastKey: '' })
+    set({ def: previous.def, meta: previous.meta, past: past.slice(0, -1), future: [{ def, meta }, ...future], dirty: true, lastKey: '', ...pruneSelection(previous.def, get().selection, get().multi) })
   },
   redo() {
     const { future, def, meta, past } = get()
     const next = future[0]
     if (!next) return
-    set({ def: next.def, meta: next.meta, future: future.slice(1), past: [...past, { def, meta }], dirty: true, lastKey: '' })
+    set({ def: next.def, meta: next.meta, future: future.slice(1), past: [...past, { def, meta }], dirty: true, lastKey: '', ...pruneSelection(next.def, get().selection, get().multi) })
   },
   bumpGlb: () => set((state) => ({ glbRevision: state.glbRevision + 1 })),
   startWire(from) { set('terminalId' in from ? { wireFrom: from.terminalId, wireStart: null, wirePoints: [] } : { wireFrom: null, wireStart: from.point, wirePoints: [] }) },
@@ -268,6 +268,28 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 }))
 
 /* --------------------------------------------------------------- operações puras */
+
+/** Existe, na definição, o elemento a que a seleção aponta? */
+function selectionExists(def: ComponentDefinition, selection: NonNullable<Selection>): boolean {
+  switch (selection.kind) {
+    case 'part': return def.parts.some((item) => item.id === selection.id)
+    case 'terminal': return def.terminals.some((item) => item.id === selection.id)
+    case 'light': return def.lights.some((item) => item.id === selection.id)
+    case 'control': return (def.controls ?? []).some((item) => item.id === selection.id)
+    case 'display': return (def.displays ?? []).some((item) => item.id === selection.id)
+  }
+}
+
+/**
+ * Depois de desfazer/refazer, a seleção pode apontar para algo que deixou de
+ * existir (ex.: desfazer a criação de uma peça). Limpa-a em vez de a deixar
+ * «fantasma» — a barra de ferramentas ficava com ações ativas sem alvo.
+ */
+export function pruneSelection(def: ComponentDefinition, selection: Selection, multi: string[]): { selection: Selection; multi: string[] } {
+  const alive = selection && selectionExists(def, selection) ? selection : null
+  const parts = new Set(def.parts.map((item) => item.id))
+  return { selection: alive, multi: alive?.kind === 'part' ? multi.filter((id) => parts.has(id) && id !== alive.id) : [] }
+}
 
 export const patchPart = (def: ComponentDefinition, id: string, patch: Partial<PartDef>): ComponentDefinition =>
   ({ ...def, parts: def.parts.map((part) => (part.id === id ? { ...part, ...patch } : part)) })

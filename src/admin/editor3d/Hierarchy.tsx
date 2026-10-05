@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DisplayDef, PartDef } from '../../catalog/types'
-import { IconGrid, IconLayers, IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
+import { IconChevronDown, IconChevronRight, IconClose, IconSearch, IconGrid, IconLayers, IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
 import { descendantsOf, patchPart, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
 import { faceOfNormal } from './terminalOps'
 import { deleteSelection } from './partActions'
+import { ancestorsOf, isPartLocked, normalizeText, rangeBetween, visibleRows } from './selectionOps'
 import { areaThumbnail, partThumbnail } from './partThumb'
 
 /** Miniatura 3D da peça (cai para o ícone da forma quando não há imagem). */
@@ -46,6 +47,10 @@ export default function Hierarchy() {
   const edit = useEditorStore((s) => s.edit)
   const select = useEditorStore((s) => s.select)
   const [renaming, setRenaming] = useState<string | null>(null)
+  // Filtro por nome e grupos recolhidos: um GLB separado chega a dezenas de peças.
+  const [query, setQuery] = useState('')
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
+  const treeRef = useRef<HTMLDivElement>(null)
   // Lista compacta ou cartões com a miniatura de cada peça.
   const [cards, setCards] = useState<boolean>(() => { try { return localStorage.getItem('dcsimu:ce:objcards') !== '0' } catch { return true } })
   const chooseCards = (value: boolean) => { setCards(value); try { localStorage.setItem('dcsimu:ce:objcards', value ? '1' : '0') } catch { /* ignorar */ } }
@@ -76,12 +81,40 @@ export default function Hierarchy() {
   const multi = useEditorStore((s) => s.multi)
   const selectedCount = selectedPart ? 1 + multi.filter((id) => id !== selectedPart.id).length : 0
 
-  const rows: Array<{ part: PartDef; depth: number }> = []
-  const walk = (parent: string | null, depth: number) => def.parts.filter((part) => part.parentId === parent).forEach((part) => { rows.push({ part, depth }); walk(part.id, depth + 1) })
-  walk(null, 0)
+  const needle = normalizeText(query.trim())
+  const filtering = needle.length > 0
+  const rows = useMemo(() => visibleRows(def, { collapsed, needle, allowCollapse: !cards }), [def, collapsed, needle, cards])
+  const groupIds = useMemo(() => def.parts.filter((part) => def.parts.some((child) => child.parentId === part.id)).map((part) => part.id), [def.parts])
+  const allCollapsed = groupIds.length > 0 && groupIds.every((id) => collapsed.has(id))
+
+  // Selecionar no viewport abre os grupos que escondem a peça e traz a linha à vista.
+  const selectedId = selection?.kind === 'part' ? selection.id : null
+  useEffect(() => {
+    if (!selectedId) return
+    const hidden = ancestorsOf(def, selectedId).filter((id) => collapsed.has(id))
+    if (hidden.length) { setCollapsed((current) => { const next = new Set(current); hidden.forEach((id) => next.delete(id)); return next }); return }
+    treeRef.current?.querySelector('.ce-row.is-active')?.scrollIntoView({ block: 'nearest' })
+  }, [selectedId, collapsed]) // eslint-disable-line react-hooks/exhaustive-deps
+  // F2 (atalho do editor) pede para renomear a peça selecionada.
+  useEffect(() => {
+    const handler = () => { const current = useEditorStore.getState(); const id = current.selection?.kind === 'part' ? current.selection.id : null; if (id && current.mode === 'edit') setRenaming(id) }
+    window.addEventListener('ce-rename', handler)
+    return () => window.removeEventListener('ce-rename', handler)
+  }, [])
+
+  const onRowClick = (event: React.MouseEvent, part: PartDef) => {
+    // Shift+clique = intervalo na lista; Ctrl/⌘+clique = acrescenta ou retira uma peça.
+    if (event.shiftKey && selectedPart) {
+      const ids = rangeBetween(rows.map((row) => row.part.id), selectedPart.id, part.id)
+      useEditorStore.getState().set({ selection: { kind: 'part', id: selectedPart.id }, multi: ids.filter((id) => id !== selectedPart.id) })
+      return
+    }
+    select({ kind: 'part', id: part.id }, event.ctrlKey || event.metaKey)
+  }
 
   const reparent = (id: string, parentId: string | null) => {
     if (id === parentId) return
+    if (isPartLocked(def, id)) { window.dispatchEvent(new CustomEvent('ce-flash', { detail: 'Peça bloqueada — desbloqueie-a para a mover na hierarquia.' })); return }
     if (parentId && descendantsOf(def, id).includes(parentId)) return
     edit((current) => patchPart(current, id, { parentId }))
   }
@@ -90,16 +123,30 @@ export default function Hierarchy() {
     <div className="ce-panel-head"><strong>Objetos</strong><span>{def.parts.length}</span>
       <button className="ce-icon" title={cards ? 'Ver em lista' : 'Ver em cartões com miniatura'} aria-label={cards ? 'Ver em lista' : 'Ver em cartões'} onClick={() => chooseCards(!cards)}>{cards ? <IconLayers size={13} /> : <IconGrid size={13} />}</button>
     </div>
-    <div className={`ce-tree${cards ? ' is-cards' : ''}`} role="tree" onDragOver={(event) => { if (dragId) event.preventDefault() }} onDrop={() => { if (dragId) reparent(dragId, null); setDragId(null); setOverId(null) }}>
-      {rows.length === 0 && <p className="ce-empty">Sem peças. Adicione uma forma na barra de ferramentas.</p>}
-      {rows.map(({ part, depth }) => {
+    {def.parts.length > 6 && <div className="ce-search">
+      <IconSearch size={11} />
+      <input className="dx-input" type="search" value={query} placeholder="Filtrar objetos…" aria-label="Filtrar objetos pelo nome"
+        onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape' && query) { event.stopPropagation(); setQuery('') } }} />
+      {query && <button className="ce-icon" aria-label="Limpar filtro" title="Limpar filtro" onClick={() => setQuery('')}><IconClose size={11} /></button>}
+      {!cards && !filtering && groupIds.length > 0 && <button className="ce-icon" aria-label={allCollapsed ? 'Expandir todos os grupos' : 'Recolher todos os grupos'} title={allCollapsed ? 'Expandir todos os grupos' : 'Recolher todos os grupos'}
+        onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(groupIds))}>{allCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}</button>}
+    </div>}
+    <div ref={treeRef} className={`ce-tree${cards ? ' is-cards' : ''}`} role="tree" onDragOver={(event) => { if (dragId) event.preventDefault() }} onDrop={() => { if (dragId) reparent(dragId, null); setDragId(null); setOverId(null) }}>
+      {rows.length === 0 && <p className="ce-empty">{filtering ? `Nenhuma peça corresponde a «${query.trim()}».` : 'Sem peças. Adicione uma forma na barra de ferramentas.'}</p>}
+      {rows.map(({ part, depth, hasChildren }) => {
         const active = selection?.kind === 'part' && (selection.id === part.id || multi.includes(part.id))
         return <div key={part.id} role="treeitem" aria-selected={active} draggable={!readOnly}
           className={`ce-row${active ? ' is-active' : ''}${overId === part.id ? ' is-over' : ''}${part.visible ? '' : ' is-hidden'}`} style={{ paddingLeft: 6 + depth * 14 }}
-          onClick={(event) => select({ kind: 'part', id: part.id }, event.ctrlKey || event.metaKey || event.shiftKey)}
+          aria-expanded={hasChildren && !cards ? !collapsed.has(part.id) || filtering : undefined}
+          onClick={(event) => onRowClick(event, part)}
           onDragStart={() => setDragId(part.id)} onDragEnd={() => { setDragId(null); setOverId(null) }}
           onDragOver={(event) => { if (dragId) { event.preventDefault(); event.stopPropagation(); setOverId(part.id) } }}
           onDrop={(event) => { event.stopPropagation(); if (dragId) reparent(dragId, part.id); setDragId(null); setOverId(null) }}>
+          {!cards && (hasChildren && !filtering
+            ? <button className="ce-icon ce-twirl" aria-label={collapsed.has(part.id) ? `Expandir ${part.name}` : `Recolher ${part.name}`} title={collapsed.has(part.id) ? 'Expandir' : 'Recolher'}
+                onClick={(event) => { event.stopPropagation(); setCollapsed((current) => { const next = new Set(current); if (!next.delete(part.id)) next.add(part.id); return next }) }}>
+                {collapsed.has(part.id) ? <IconChevronRight size={10} /> : <IconChevronDown size={10} />}</button>
+            : <span className="ce-twirl" aria-hidden="true" />)}
           <PartThumb partId={part.id} kind={part.kind} size={cards ? 46 : 20} />
           {renaming === part.id
             ? <input autoFocus className="dx-input ce-rename" defaultValue={part.name} onClick={(event) => event.stopPropagation()}

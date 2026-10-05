@@ -1,6 +1,7 @@
 import { boundsMm, defaultPart, glbNodeList, glbPieceList, loadGlbAssets, newId } from '../../catalog/definition'
 import type { PartDef, Vec3 } from '../../catalog/types'
-import { addPart, duplicatePart, glbCache, patchPart, removeParts, useEditorStore } from './editorStore'
+import { addPart, duplicatePart, glbCache, patchPart, useEditorStore } from './editorStore'
+import { removeSelectionFrom, splitLocked, topmostIds } from './selectionOps'
 
 export const MAX_GLB_BYTES = 4 * 1024 * 1024
 
@@ -61,7 +62,8 @@ export async function importGlbAction(file: File | undefined): Promise<string> {
 
 export function duplicateSelection() {
   const state = useEditorStore.getState()
-  const ids = state.selectedParts()
+  // «Só as de cima»: duplicar um grupo já leva os filhos; sem isto saíam duas cópias de cada filho.
+  const ids = topmostIds(state.def, state.selectedParts())
   if (!ids.length) return
   // Seleção múltipla: duplica todas as peças e deixa as cópias selecionadas.
   let def = state.def
@@ -80,7 +82,7 @@ export function duplicateSelection() {
 /** Ctrl+G: cria um grupo pai à volta de todas as peças selecionadas. */
 export function groupSelection() {
   const state = useEditorStore.getState()
-  const ids = state.selectedParts()
+  const ids = topmostIds(state.def, state.selectedParts())
   if (!ids.length) return
   const parts = state.def.parts.filter((item) => ids.includes(item.id))
   const first = parts[0]
@@ -129,12 +131,22 @@ export function deleteSelection() {
   const state = useEditorStore.getState()
   const selection = state.selection
   if (!selection) return
-  if (selection.kind === 'part') { const ids = state.selectedParts(); state.edit((current) => removeParts(current, ids)) }
-  else if (selection.kind === 'terminal') state.edit((current) => ({ ...current, terminals: current.terminals.filter((item) => item.id !== selection.id) }))
-  else state.edit((current) => ({ ...current, lights: current.lights.filter((item) => item.id !== selection.id) }))
+  const result = removeSelectionFrom(state.def, selection, state.selectedParts())
+  if (result.removed > 0) state.edit(() => result.def)
+  if (result.skippedLocked > 0) flash(result.skippedLocked > 1 ? `${result.skippedLocked} peças bloqueadas não foram eliminadas — desbloqueie-as primeiro.` : 'A peça está bloqueada — desbloqueie-a para a eliminar.')
+  // Tudo bloqueado: nada saiu, por isso a seleção mantém-se (o utilizador ainda a quer desbloquear).
+  if (result.removed === 0 && result.skippedLocked > 0) return
   state.set({ selection: null, multi: [] })
 }
 
+/** Ctrl+A: seleciona todas as peças de topo (os filhos acompanham o pai). */
+export function selectAllParts() {
+  const state = useEditorStore.getState()
+  const ids = state.def.parts.filter((part) => part.parentId === null && part.visible).map((part) => part.id)
+  if (!ids.length) return
+  state.set({ selection: { kind: 'part', id: ids[0] }, multi: ids.slice(1), placing: false, placingSpec: null })
+  flash(ids.length === 1 ? '1 peça selecionada.' : `${ids.length} peças selecionadas.`)
+}
 
 /** Desloca as peças de topo e os bornes por (dx, dy, dz) — os bornes acompanham o modelo. */
 function shiftModel(dx: number, dy: number, dz: number) {
@@ -178,20 +190,23 @@ export function nudgeSelection(dx: number, dy: number, dz: number) {
   if (!selection) return
   const r = (value: number) => Math.round(value * 100) / 100
   const moved = (position: Vec3): Vec3 => [r(position[0] + dx), r(position[1] + dy), r(position[2] + dz)]
-  const partIds = state.selectedParts()
+  // Peças bloqueadas ficam quietas, e um filho não anda duas vezes (por si e com o pai selecionado).
+  const { editable, locked } = splitLocked(state.def, topmostIds(state.def, state.selectedParts()))
+  if (selection.kind === 'part' && !editable.length && locked.length) { flash('Peça bloqueada — desbloqueie-a para a mover.'); return }
   state.edit((def) => {
     if (selection.kind === 'part') {
       let next = def
-      for (const id of partIds) {
+      for (const id of editable) {
         const part = next.parts.find((item) => item.id === id)
         if (part) next = patchPart(next, part.id, { position: moved(part.position) })
       }
       return next
     }
     if (selection.kind === 'terminal') return { ...def, terminals: def.terminals.map((item) => (item.id === selection.id ? { ...item, position: moved(item.position) } : item)) }
-    // As zonas de luz acompanham a peça a que pertencem: não têm posição própria.
+    if (selection.kind === 'display') return { ...def, displays: (def.displays ?? []).map((item) => (item.id === selection.id ? { ...item, position: moved(item.position) } : item)) }
+    // As zonas de luz e os controlos acompanham a peça a que pertencem: não têm posição própria.
     return def
-  })
+  }, `nudge:${selection.kind}:${selection.id}`)
 }
 
 /**

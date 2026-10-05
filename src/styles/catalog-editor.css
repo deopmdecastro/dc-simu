@@ -622,3 +622,9 @@
 .ce-ribbon-row1 .dc-tool-btn > span.hidden { display:inline !important; }
 .ce-ribbon-row1 .dc-tool-btn > span.xl\:hidden { display:none !important; }
 .ce-ribbon-row1 .ce-kbd, .ce-ribbon-row2 .ce-kbd { display:none; }
+
+/* Filtro de objetos e recolher/expandir grupos na hierarquia. */
+.ce-search { display:flex; align-items:center; gap:4px; padding:6px 8px; border-bottom:1px solid var(--dx-line-soft); color:var(--dx-ink-4); }
+.ce-search input.dx-input { flex:1; min-width:0; height:26px; padding:2px 8px; font-size:12px; }
+.ce-twirl { flex:0 0 14px; width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+.ce-row[aria-selected="true"] .ce-twirl { opacity:.9; }

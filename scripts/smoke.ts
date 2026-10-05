@@ -57,6 +57,9 @@ import { terminal3DFromProjectedLocal, projectedTerminalLocal } from '../src/sch
 import { buildProjectPreview } from '../src/dashboard/projectPreview'
 import { viewCubeMatrix } from '../src/components/ViewCube'
 import { scaleDefinition } from '../src/admin/editor3d/sizeOps'
+import { defaultPart, normalizeDefinition } from '../src/catalog/definition'
+import { pruneSelection, useEditorStore } from '../src/admin/editor3d/editorStore'
+import { ancestorsOf, isPartLocked, normalizeText, rangeBetween, removeSelectionFrom, splitLocked, topmostIds, visibleRows } from '../src/admin/editor3d/selectionOps'
 import { meterInputFor } from '../src/electrical/meterModel'
 import { EMPTY_METER_INPUT, formatDigits, multimeterEvent, multimeterReading, runControlActions, selectorStep, setSelector, evalWhen } from '../src/catalog/behavior'
 import type { ControlDef } from '../src/catalog/types'
@@ -1827,6 +1830,61 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('Contator WEG: bocas de ligação alinhadas nas cinco colunas medidas no GLB',
     top.every((label, i) => Math.abs(weg.find((spot) => spot.label === label)!.x - weg.find((spot) => spot.label === bottom[i])!.x) < 1e-6)
     && weg.every((spot) => Math.abs(spot.z - 0.828) < 1e-6 && (spot.holeDepthMm ?? 0) > 5))
+}
+
+
+/* Editor 3D: bloqueio, seleção múltipla e limpeza da seleção (selectionOps + editorStore). */
+{
+  const mk = (id: string, parentId: string | null, locked = false) => ({ ...defaultPart('box', null, id), id, parentId, locked })
+  const base = normalizeDefinition(undefined)
+  const def = {
+    ...base,
+    parts: [mk('grp', null, true), mk('child', 'grp'), mk('free', null), mk('sub', 'free')],
+    terminals: [], lights: [],
+    controls: [{ id: 'c1', name: 'B1', kind: 'button' as const, partId: 'free', axis: [0, 1, 0] as [number, number, number], travelMm: 1, positions: [] }],
+    displays: [{ id: 'd1', name: 'LCD' } as never],
+  }
+  check('Editor 3D: filho de um grupo bloqueado conta como bloqueado', isPartLocked(def, 'child') && isPartLocked(def, 'grp') && !isPartLocked(def, 'free') && !isPartLocked(def, 'sub'))
+  check('Editor 3D: topmostIds tira filhos cujo pai também está selecionado', topmostIds(def, ['free', 'sub', 'grp']).join() === 'free,grp' && topmostIds(def, ['sub']).join() === 'sub')
+  const split = splitLocked(def, ['child', 'free', 'ghost'])
+  check('Editor 3D: splitLocked separa bloqueadas e ignora ids inexistentes', split.editable.join() === 'free' && split.locked.join() === 'child')
+  const del = removeSelectionFrom(def, { kind: 'part', id: 'grp' }, ['grp', 'free'])
+  check('Editor 3D: eliminar poupa peças bloqueadas e apaga as outras com os filhos',
+    del.removed === 1 && del.skippedLocked === 1 && del.def.parts.map((part) => part.id).join() === 'grp,child')
+  const onlyLocked = removeSelectionFrom(def, { kind: 'part', id: 'child' }, ['child'])
+  check('Editor 3D: só peças bloqueadas → nada é eliminado', onlyLocked.removed === 0 && onlyLocked.def === def && onlyLocked.skippedLocked === 1)
+  check('Editor 3D: eliminar um botão selecionado remove-o de facto (antes não fazia nada)', removeSelectionFrom(def, { kind: 'control', id: 'c1' }, []).def.controls?.length === 0)
+  check('Editor 3D: eliminar um ecrã selecionado remove-o de facto', removeSelectionFrom(def, { kind: 'display', id: 'd1' }, []).def.displays?.length === 0)
+  check('Editor 3D: eliminar um id inexistente não altera nada', removeSelectionFrom(def, { kind: 'terminal', id: 'nope' }, []).def === def)
+  check('Editor 3D: rangeBetween devolve o intervalo nos dois sentidos', rangeBetween(['a', 'b', 'c', 'd'], 'b', 'd').join() === 'b,c,d' && rangeBetween(['a', 'b', 'c', 'd'], 'c', 'a').join() === 'a,b,c' && rangeBetween(['a'], 'x', 'a').join() === 'a')
+  check('Editor 3D: ancestorsOf sobe do pai à raiz', ancestorsOf(def, 'sub').join() === 'free' && ancestorsOf(def, 'free').length === 0)
+
+  const none = new Set<string>()
+  const ids = (rows: ReturnType<typeof visibleRows>) => rows.map((row) => `${row.part.id}:${row.depth}`).join()
+  check('Editor 3D: lista de objetos mostra a árvore com a indentação certa', ids(visibleRows(def, { collapsed: none, needle: '', allowCollapse: true })) === 'grp:0,child:1,free:0,sub:1')
+  check('Editor 3D: recolher um grupo esconde os filhos mas mantém a linha do grupo', ids(visibleRows(def, { collapsed: new Set(['grp']), needle: '', allowCollapse: true })) === 'grp:0,free:0,sub:1'
+    && visibleRows(def, { collapsed: new Set(['grp']), needle: '', allowCollapse: true })[0].hasChildren)
+  check('Editor 3D: nos cartões nada é recolhido', ids(visibleRows(def, { collapsed: new Set(['grp']), needle: '', allowCollapse: false })) === 'grp:0,child:1,free:0,sub:1')
+  check('Editor 3D: o filtro mostra a peça e os antepassados, mesmo com o grupo recolhido', ids(visibleRows(def, { collapsed: new Set(['free']), needle: 'sub', allowCollapse: true })) === 'free:0,sub:1')
+  const accents = { ...def, parts: [{ ...mk('acc', null), name: 'Manípulo' }, mk('outra', null)] }
+  check('Editor 3D: o filtro ignora acentos e maiúsculas', ids(visibleRows(accents, { collapsed: none, needle: normalizeText('MANIPULO'), allowCollapse: true })) === 'acc:0')
+  check('Editor 3D: um ciclo de pais corrompido não bloqueia a lista', visibleRows({ ...def, parts: [mk('x', 'y'), mk('y', 'x'), mk('ok', null)] }, { collapsed: none, needle: '', allowCollapse: true }).length === 1)
+
+  const pruned = pruneSelection(def, { kind: 'part', id: 'gone' }, ['free', 'gone'])
+  check('Editor 3D: pruneSelection limpa uma seleção que já não existe', pruned.selection === null && pruned.multi.length === 0)
+  const kept = pruneSelection(def, { kind: 'part', id: 'free' }, ['sub', 'gone', 'free'])
+  check('Editor 3D: pruneSelection mantém o que existe e tira o fantasma da seleção múltipla', kept.selection?.id === 'free' && kept.multi.join() === 'sub')
+
+  // Desfazer a criação de uma peça não pode deixá-la selecionada.
+  const store = useEditorStore
+  store.setState({ def: base, meta: store.getState().meta, past: [], future: [], dirty: false, selection: null, multi: [], lastKey: '', lastAt: 0 })
+  const created = mk('novo', null)
+  store.getState().edit((current) => ({ ...current, parts: [...current.parts, created] }))
+  store.getState().set({ selection: { kind: 'part', id: 'novo' } })
+  store.getState().undo()
+  check('Editor 3D: desfazer a criação de uma peça limpa a seleção', store.getState().selection === null && !store.getState().def.parts.some((part) => part.id === 'novo'))
+  store.getState().redo()
+  check('Editor 3D: refazer repõe a peça sem seleção fantasma', store.getState().def.parts.some((part) => part.id === 'novo') && store.getState().selection === null)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
