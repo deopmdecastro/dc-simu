@@ -3,25 +3,14 @@ __v0_runtime_loader.js
 __v0_devtools.tsx
 __v0_jsx-dev-runtime.ts
 .snowflake/
+.design-cache/
 .v0-trash/
 .vercel/
 
 # Environment variables
-.env
 .env*.local
 
-# Build and dependency artifacts
+# Common ignores
 node_modules
-dist
 .next/
-*.local
-*.tsbuildinfo
-
-.data
-data
-
 .DS_Store
-
-# SolidWorks temporary lock files
-~$*
-**/~$*
