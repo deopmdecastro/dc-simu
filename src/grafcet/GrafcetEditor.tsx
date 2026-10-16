@@ -125,7 +125,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   }
   const requestDelete = async () => {
     if (selectedStep) {
-      const linked = transitions.filter(async (transition) => transition.from.includes(selectedStep.id) || transition.to.includes(selectedStep.id)).length
+      const linked = transitions.filter((transition) => transition.from.includes(selectedStep.id) || transition.to.includes(selectedStep.id)).length
       if (await uiConfirm(`Eliminar a etapa ${steps.indexOf(selectedStep)} «${selectedStep.name}»${linked ? ` e ${linked} transição(ões) ligada(s)` : ''}?`)) removeStep(selectedStep.id)
     } else if (selectedTransition && await uiConfirm(`Eliminar a transição T${transitions.indexOf(selectedTransition) + 1}?`)) removeTransition(selectedTransition.id)
   }
