@@ -9,7 +9,6 @@ import {
   transitionsOf,
   validateGrafcet,
   validCondition,
-  parseIecTimer,
   type GrafcetAction,
   type GrafcetActionKind,
   type GrafcetIssue,
@@ -31,6 +30,7 @@ import {
   IconCopy,
   IconDelete,
   IconHelp,
+  IconLock,
   IconRedo,
   IconSearch,
   IconUndo,
@@ -39,6 +39,7 @@ import {
 } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import { useEditorShortcuts } from '../ui/shortcuts'
+import { useGrafcetUi, type GrafcetBusAction } from './grafcetBus'
 
 const id = () => crypto.randomUUID()
 
@@ -91,6 +92,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const history = useSimStore((state) => state.history)
   const future = useSimStore((state) => state.future)
   const running = useSimStore((state) => state.sim.runState === 'running')
+  const blackBox = useSimStore((state) => state.sim.blackBox)
   const projectKind = useSimStore((state) => state.projectKind)
   const canGenerateLadder = allowedViews(projectKind).includes('ladder')
 
@@ -380,7 +382,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     while (used.has(`Q${n}`)) n++
     updateStep(
       target.id,
-      { actions: [...(target.actions ?? []), { id: id(), address: `Q${n}`, variable: `Q${n}`, condition: conditional ? 'I1' : '1' }] },
+      { actions: [...(target.actions ?? []), { id: id(), address: `Q${n}`, variable: `Q${n}`, condition: conditional ? 'I1' : '1', kind: 'N' }] },
       'force'
     )
     setSelected(target.id)
@@ -499,7 +501,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   let cursorY = 70
   steps.forEach((step) => {
     stepPositions.set(step.id, cursorY)
-    cursorY += Math.max(154, actionsOf(step).length * 36 + 88)
+    cursorY += Math.max(140, actionsOf(step).length * 36 + 88)
   })
   const stepY = (stepId: string) => stepPositions.get(stepId) ?? 70
   const width = full ? 760 : 560
@@ -664,6 +666,26 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         setSelected(null)
         return
       }
+      if (event.key === '1') {
+        event.preventDefault()
+        addConnectedStep()
+        return
+      }
+      if (event.key === '2') {
+        event.preventDefault()
+        addStep()
+        return
+      }
+      if (event.key === '3') {
+        event.preventDefault()
+        addTransition()
+        return
+      }
+      if (event.key === '4') {
+        event.preventDefault()
+        addAction(false)
+        return
+      }
       if (event.key === 'Insert') {
         event.preventDefault()
         event.shiftKey ? addStep() : addConnectedStep()
@@ -698,6 +720,81 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  useEffect(() => {
+    if (full) {
+      useGrafcetUi.getState().setZoom(scale)
+    }
+  }, [full, scale])
+
+  useEffect(() => {
+    if (full) {
+      useGrafcetUi.getState().setSelectedStepId(selectedStep?.id ?? null)
+    }
+  }, [full, selectedStep?.id])
+
+  useEffect(() => {
+    if (!full) return
+    useGrafcetUi.getState().setActionHandler((action: GrafcetBusAction) => {
+      switch (action) {
+        case 'addConnectedStep':
+          addConnectedStep()
+          break
+        case 'addStep':
+          addStep()
+          break
+        case 'addTransition':
+          addTransition()
+          break
+        case 'addAction':
+          addAction(false)
+          break
+        case 'addFork':
+          addFork()
+          break
+        case 'addJoin':
+          addJoin()
+          break
+        case 'openTemplates':
+          setTemplatesOpen(true)
+          break
+        case 'generateLadder':
+          void generateLadder()
+          break
+        case 'exportSvg':
+          exportSvg()
+          break
+        case 'exportJson':
+          exportJson()
+          break
+        case 'importJson':
+          fileInputRef.current?.click()
+          break
+        case 'restart':
+          useSimStore.getState().restartGrafcet()
+          notify('Sequência reiniciada nas etapas iniciais')
+          break
+        case 'zoomIn':
+          zoomAt(scale * 1.2, { x: viewport.width / 2, y: viewport.height / 2 })
+          break
+        case 'zoomOut':
+          zoomAt(scale / 1.2, { x: viewport.width / 2, y: viewport.height / 2 })
+          break
+        case 'zoomReset':
+          resetView()
+          break
+        case 'openShortcuts':
+          setHelpOpen(true)
+          break
+        case 'openDiagnostics':
+          setTab('diagnostics')
+          break
+      }
+    })
+    return () => {
+      useGrafcetUi.getState().setActionHandler(undefined)
+    }
+  })
+
   useEditorShortcuts(
     {
       undo: doUndo,
@@ -717,132 +814,26 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
   return (
     <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
-      {/* TOOLBAR UNIFICADA (Idêntica às outras barras do DC-SIMU) */}
-      <header className="grafcet-header">
-        <div className="grafcet-title">
-          <strong>GRAFCET</strong>
-          <small>
-            {steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas
-          </small>
-        </div>
+      <input ref={fileInputRef} type="file" accept=".json,.grafcet" style={{ display: 'none' }} onChange={importJson} />
 
-        {full ? (
-          <button
-            className={`grafcet-validation ${issues.length ? 'has-issues' : 'is-valid'}`}
-            title={issues.length ? 'Abrir diagnóstico do programa' : 'Estrutura GRAFCET válida'}
-            onClick={() => setTab('diagnostics')}
-          >
-            {errorCount
-              ? `✖ ${errorCount} erro${errorCount === 1 ? '' : 's'}`
-              : issues.length
-              ? `⚠ ${issues.length} aviso${issues.length === 1 ? '' : 's'}`
-              : '✓ Validado'}
-          </button>
-        ) : (
-          <span className={`grafcet-validation ${issues.length ? 'has-issues' : 'is-valid'}`}>
-            {issues.length ? `⚠ ${issues.length}` : '✓ Validado'}
-          </span>
-        )}
-
-        {full ? (
-          <div className="grafcet-header-actions">
-            {/* Desfazer / Refazer */}
-            <button className="grafcet-icon-button" onClick={doUndo} disabled={!history.length} title="Desfazer (Ctrl+Z)" aria-label="Desfazer">
-              <IconUndo size={14} />
-            </button>
-            <button className="grafcet-icon-button" onClick={doRedo} disabled={!future.length} title="Refazer (Ctrl+Y)" aria-label="Refazer">
-              <IconRedo size={14} />
-            </button>
-
-            <span className="grafcet-header-separator" />
-
-            {/* Zoom integrado na barra */}
-            <span style={{ fontSize: '11px', color: '#475569', fontWeight: 600, minWidth: '40px', textAlign: 'center' }}>
-              ⌕ {Math.round(scale * 100)}%
-            </span>
-            <button
-              className="grafcet-icon-button"
-              onClick={() => zoomAt(scale / 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}
-              title="Reduzir zoom (Ctrl−)"
-            >
-              <IconZoomOut size={13} />
-            </button>
-            <button className="dc-btn" style={{ padding: '2px 7px', fontSize: '11px' }} onClick={resetView} title="Enquadrar (100%)">
-              100%
-            </button>
-            <button
-              className="grafcet-icon-button"
-              onClick={() => zoomAt(scale * 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}
-              title="Aumentar zoom (Ctrl+)"
-            >
-              <IconZoomIn size={13} />
-            </button>
-
-            <span className="grafcet-header-separator" />
-
-            {/* Modelos e Ladder */}
-            <button className="dc-btn" onClick={() => setTemplatesOpen(true)} title="Carregar modelos industriais prontos">
-              ★ Modelos
-            </button>
-            {canGenerateLadder && (
-              <button className="dc-btn" onClick={() => void generateLadder()} title="Gera o programa Ladder equivalente a este GRAFCET">
-                ⇢ Gerar Ladder
-              </button>
-            )}
-
-            <span className="grafcet-header-separator" />
-
-            {/* Salvar / Abrir / SVG */}
-            <button className="dc-btn" onClick={exportSvg} title="Exportar diagrama em SVG vetorial">
-              SVG
-            </button>
-            <button className="dc-btn" onClick={exportJson} title="Exportar projeto em JSON">
-              Salvar
-            </button>
-            <button className="dc-btn" onClick={() => fileInputRef.current?.click()} title="Importar projeto JSON">
-              Abrir
-            </button>
-            <input ref={fileInputRef} type="file" accept=".json,.grafcet" style={{ display: 'none' }} onChange={importJson} />
-
-            <button
-              className="grafcet-icon-button"
-              onClick={() => {
-                useSimStore.getState().restartGrafcet()
-                notify('Sequência reiniciada nas etapas iniciais')
-              }}
-              title="Reiniciar a sequência nas etapas iniciais"
-              aria-label="Reiniciar sequência"
-            >
-              ⟲
-            </button>
-
-            <span className="grafcet-header-separator" />
-
-            {/* Ações principais de criação */}
-            <button className="dc-btn" onClick={addStep} title="Adicionar etapa solta (Shift+Insert)">
-              + Etapa solta
-            </button>
-            <button className="dc-btn-primary dc-btn" onClick={addConnectedStep} title="Adicionar etapa ligada à selecionada (Insert)">
-              + Etapa ligada
-            </button>
-            <button className="dc-btn" disabled={steps.length < 2} onClick={addTransition} title="Adicionar transição (T)">
-              + Transição
-            </button>
-
-            <button className="grafcet-icon-button" onClick={() => setHelpOpen(true)} title="Atalhos (?)" aria-label="Atalhos do GRAFCET">
-              <IconHelp size={14} />
-            </button>
+      {!full && (
+        /* Modo Pré-visualização lateral (dock) */
+        <header className="grafcet-header">
+          <div className="grafcet-title">
+            <strong>GRAFCET</strong>
+            <small>
+              {steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas
+            </small>
           </div>
-        ) : (
           <button className="dc-btn-primary dc-btn" onClick={onOpenEditor}>
             Abrir editor ↗
           </button>
-        )}
-      </header>
+        </header>
+      )}
 
       {/* CORPO DO DESIGNER: Painel de Ferramentas à Esquerda + Canvas no Centro + Propriedades à Direita */}
       <div className="grafcet-designer-body">
-        {/* PALETA DE COMPONENTES (Layout antigo clássico com busca e recolher) */}
+        {/* PALETA DE COMPONENTES (Layout clássico com busca e recolher) */}
         {full &&
           (showPalette ? (
             <aside className="grafcet-toolbox" aria-label="Ferramentas GRAFCET">
@@ -961,30 +952,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           onPointerUp={onPreviewUp}
           onPointerCancel={onPreviewUp}
         >
-          {/* Controles de Zoom Flutuantes no Canvas */}
-          {!!steps.length && (
-            <div className="grafcet-viewport-tools" onPointerDown={(event) => event.stopPropagation()}>
-              <button
-                title="Reduzir zoom (Ctrl−)"
-                aria-label="Reduzir zoom"
-                onClick={() => zoomAt(scale / 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}
-              >
-                −
-              </button>
-              <span>{Math.round(scale * 100)}%</span>
-              <button
-                title="Aumentar zoom (Ctrl+)"
-                aria-label="Aumentar zoom"
-                onClick={() => zoomAt(scale * 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}
-              >
-                +
-              </button>
-              <button onClick={resetView} title="Ajustar diagrama (Ctrl+0)">
-                Ajustar
-              </button>
-            </div>
-          )}
-
           {/* Estado Vazio Amigável */}
           {!steps.length && (
             <div className="grafcet-empty">
@@ -1171,6 +1138,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     setEditingStep(step)
                   }
 
+                  // Nome limpo: apenas mostra título acima da etapa se for personalizado
+                  const hasCustomName = step.name && step.name.trim() !== `Etapa ${index}` && step.name.trim() !== String(index)
+
                   return (
                     <g
                       key={step.id}
@@ -1186,6 +1156,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         <circle cx="103" cy={y + 27} r="6" fill="#22c55e">
                           <animate attributeName="opacity" values="1;.45;1" dur="1.4s" repeatCount="indefinite" />
                         </circle>
+                      )}
+
+                      {/* Nome/descrição personalizado acima da etapa */}
+                      {hasCustomName && (
+                        <text x="151" y={y - 7} textAnchor="middle" fill="#334155" fontSize="11" fontWeight="600">
+                          {step.name.slice(0, 28)}
+                        </text>
                       )}
 
                       {/* Caixa externa da etapa */}
@@ -1234,19 +1211,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         </>
                       )}
 
-                      {/* Número da etapa */}
+                      {/* Número da etapa centralizado e nítido */}
                       <text x="151" y={y + 34} textAnchor="middle" fill="#1e293b" fontWeight="700" fontSize="17">
-                        {step.name ? (step.name.length <= 4 ? step.name : index) : index}
+                        {index}
                       </text>
 
-                      {/* Nome/descrição da etapa ao lado */}
-                      <text x="196" y={y + 17} fill="#334155" fontSize="12" fontWeight="600">
-                        {step.name.slice(0, 30)}
-                      </text>
-
-                      {/* Tempo ativo da etapa */}
+                      {/* Tempo ativo da etapa logo abaixo da caixa */}
                       {active && (
-                        <text x="196" y={y + 33} fill="#15803d" fontSize="10.5" fontWeight="600">
+                        <text x="151" y={y + 68} textAnchor="middle" fill="#15803d" fontSize="10.5" fontWeight="600">
                           ⏱ {fmtSeconds(runtime.elapsed?.[step.id] ?? 0)}
                         </text>
                       )}
@@ -1302,14 +1274,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           )}
         </div>
 
-        {/* PAINEL DE PROPRIEDADES À DIREITA (Estrutura e Abas Antigas: Etapas, Transições, Simulador, Diagnóstico) */}
+        {/* PAINEL DE PROPRIEDADES À DIREITA (Estrutura e Abas Clássicas: Etapas, Transições, Simulador, Diagnóstico) */}
         {full && (
           <aside className="grafcet-properties">
             <div className="grafcet-properties-summary">
               <div>
                 <strong>
                   {selectedStep
-                    ? `Etapa ${steps.indexOf(selectedStep)}`
+                    ? `Etapa ${steps.indexOf(selectedStep)}: ${selectedStep.name}`
                     : selectedTransition
                     ? `Transição T${transitions.indexOf(selectedTransition) + 1}`
                     : 'Propriedades'}
