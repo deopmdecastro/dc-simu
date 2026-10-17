@@ -1,4 +1,5 @@
 import VirtualIoPanel from '../components/VirtualIoPanel'
+import { lintLadder } from './ladderLint'
 import { uiConfirm, uiPrompt } from '../ui/dialogs'
 import Select from '../ui/Select'
 import LadderSections, { type LadderSection } from './LadderSections'
@@ -8,7 +9,7 @@ import { PROJECT_FOLDERS, type ProjectFile, type ProjectFolder } from './project
 import { plcIoRows } from './plcIo'
 import { parseDataBlocks } from './dataBlocks'
 import { collectUsedAddresses } from './ladderEngine'
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
 import type { LadderContact, LadderRung, LadderContactType, LadderCoilType, LadderCoilEl, ComponentType, ElectricalComponent } from '../types'
@@ -177,7 +178,7 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
   const fcFiles = useSimStore((st) => st.projectFiles[plcId ?? '_general'] ?? [])
 
   return (
-    <div className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''} ${active ? 'is-active' : ''} ${rung.enabled ? '' : 'is-disabled'}`}>
+    <div id={`rung-${rung.id}`} className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''} ${active ? 'is-active' : ''} ${rung.enabled ? '' : 'is-disabled'}`}>
       {/* cabeçalho da network — estilo TIA Portal: "Network n: título" */}
       <div className="ladder-rung-header" onDoubleClick={() => toggleCollapsed()}>
         <button
@@ -922,7 +923,9 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const history = useSimStore((s) => s.history)
   const future = useSimStore((s) => s.future)
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
-  const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters'>('io')
+  const lintIssues = useMemo(() => lintLadder({ rungs }, { physicalInputs: plcs.length > 0 }), [rungs, plcs.length])
+  const lintCount = lintIssues.filter((issue) => issue.level !== 'info').length
+  const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'lint'>('io')
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
   const [filter, setFilter] = useState('')
   const [ladderZoom, setLadderZoom] = useState(() => {
@@ -1316,7 +1319,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         )}
         <div className={`ladder-bottom-panel ${showStatus ? '' : 'is-collapsed'}`}>
           <div className="ladder-bottom-tabs" role="tablist" aria-label="Estado do PLC">
-            {([['io', 'Entradas/Saídas'], ['memory', 'Memórias'], ['timers', 'Temporizadores'], ['counters', 'Contadores']] as const).map(([id, label]) => (
+            {([['io', 'Entradas/Saídas'], ['memory', 'Memórias'], ['timers', 'Temporizadores'], ['counters', 'Contadores'], ['lint', lintCount ? `Verificação (${lintCount})` : 'Verificação ✓']] as const).map(([id, label]) => (
               <button key={id} role="tab" aria-selected={statusTab === id} className={statusTab === id ? 'is-active' : ''} onClick={() => { setStatusTab(id); setShowStatus(true) }}>{label}</button>
             ))}
             <button
@@ -1331,6 +1334,9 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           {showStatus && <div className="ladder-status-grid" role="tabpanel">
             {statusTab === 'io' && !activePlc && <VirtualIoPanel compact />}
             {statusTab === 'io' && !!activePlc && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
+            {statusTab === 'lint' && <div className="ladder-lint" role="list">
+              {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <small>Nenhum problema encontrado no programa.</small>}
+            </div>}
             {statusTab === 'memory' && <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />}
             {statusTab === 'timers' && <div className="ladder-project-status"><span>Temporizadores</span>{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => <small key={address}>{address}: {t.elapsedMs} / {t.presetMs} ms · {t.done ? 'ativo' : 'inativo'}</small>) : <small>Nenhum temporizador executado.</small>}</div>}
             {statusTab === 'counters' && <div className="ladder-project-status"><span>Contadores</span>{Object.entries(counters).length ? Object.entries(counters).map(([address, c]) => <small key={address}>{address}: {c.count} / {c.preset} · {c.done ? 'atingido' : 'em contagem'}</small>) : <small>Nenhum contador executado.</small>}</div>}

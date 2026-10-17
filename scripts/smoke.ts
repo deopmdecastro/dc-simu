@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { lintLadder } from '../src/ladder/ladderLint'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
 import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition } from '../src/grafcet/engine'
 /**
@@ -1975,6 +1976,32 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     }
     check(`GRAFCET→Ladder (${name}): equivalente ao simulador em 400 scans aleatórios`, !mismatch, mismatch)
   }
+}
+
+/* Verificação do Ladder. */
+{
+  const c = (address: string, contactType: any = 'NO') => ({ kind: 'contact' as const, id: `c-${address}-${contactType}`, address, contactType })
+  const k = (address: string, coilType: any = 'COIL') => ({ kind: 'coil' as const, id: `k-${address}-${coilType}-${Math.random()}`, address, coilType })
+  const rung = (id: string, elements: any[], coils: any[], extra: any = {}) => ({ id, name: id, branches: [{ id: `b-${id}`, elements }], coils, enabled: true, ...extra })
+  const bad = { rungs: [
+    rung('r1', [c('I1')], [k('Q1')]),
+    rung('r2', [c('I2')], [k('Q1')]),
+    rung('r3', [c('I3')], [k('I4')]),
+    rung('r4', [c('M5')], [k('Q2', 'SET')]),
+    rung('r5', [c('I1')], []),
+    rung('r6', [c('I1')], [], { timer: { kind: 'timer', id: 't', address: 'T1', timerType: 'TON', presetMs: 1000 } }),
+    rung('r7', [c('I1')], [], { timer: { kind: 'timer', id: 't2', address: 'T1', timerType: 'TON', presetMs: 1000 } }),
+  ] }
+  const ids = lintLadder(bad as any).map((i) => i.id)
+  check('lint Ladder: bobina duplicada', ids.includes('dup:Q1'))
+  check('lint Ladder: escrita numa entrada', ids.some((i) => i.endsWith(':input')))
+  check('lint Ladder: lido sem escrita', ids.includes('unwritten:M5'))
+  check('lint Ladder: SET sem RESET', ids.includes('set:Q2'))
+  check('lint Ladder: network sem saída', ids.includes('r5:no-output'))
+  check('lint Ladder: temporizador repetido', ids.includes('timer:T1'))
+  const good = { rungs: [rung('a', [c('I1'), c('Q1', 'NC')], [k('Q1', 'SET')]), rung('b', [c('I2')], [k('Q1', 'RESET')])] }
+  check('lint Ladder: programa correto sem erros', lintLadder(good as any).filter((i) => i.level === 'error').length === 0)
+  check('lint Ladder: programa gerado do GRAFCET sem erros', lintLadder({ rungs: grafcetToLadder({ steps: [{ id: 'a', name: 'a', initial: true, action: '', condition: '1', actions: [{ id: 'x', address: 'Q1', condition: '1' }] }, { id: 'b', name: 'b', initial: false, action: '', condition: '1', actions: [] }], transitions: [{ id: 't', from: ['a'], to: ['b'], condition: 'I1' }, { id: 'u', from: ['b'], to: ['a'], condition: '!I1' }] }).rungs }).filter((i) => i.level === 'error').length === 0)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

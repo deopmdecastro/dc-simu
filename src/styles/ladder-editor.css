@@ -142,3 +142,12 @@
 .ladder-rung-card.is-collapsed .ladder-rung-header { box-shadow:none; }
 .ladder-rung-card.is-active { border-color:#9db8f0; box-shadow:0 1px 3px rgba(31,43,74,.08); }
 .ladder-rung-card:not(.is-active):hover { border-color:#c3cfe4; box-shadow:0 1px 3px rgba(31,43,74,.08); }
+
+/* Verificação do programa */
+.ladder-lint { display: grid; gap: 4px; padding: 8px 10px; overflow: auto; width: 100%; }
+.ladder-lint-row { display: flex; gap: 8px; align-items: flex-start; text-align: left; padding: 5px 8px; border: 1px solid var(--line, #d6dae1); border-radius: 6px; background: var(--surface-panel, #fff); font-size: 12px; cursor: pointer; }
+.ladder-lint-row:disabled { cursor: default; }
+.ladder-lint-row b { width: 14px; text-align: center; }
+.ladder-lint-row.is-error b { color: #dc2626; }
+.ladder-lint-row.is-warning b { color: #d97706; }
+.ladder-lint-row.is-info b { color: #2563eb; }
