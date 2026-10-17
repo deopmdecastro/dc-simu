@@ -692,6 +692,40 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     notify('Projeto GRAFCET exportado')
   }
 
+  const exportPng = () => {
+    if (!svgRef.current) return
+    const svgEl = svgRef.current
+    const clone = svgEl.cloneNode(true) as SVGSVGElement
+    clone.removeAttribute('style')
+    const svgData = new XMLSerializer().serializeToString(clone)
+    const img = new Image()
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(svgBlob)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(svgEl.clientWidth || 1200, 1000)
+      canvas.height = Math.max(svgEl.clientHeight || 800, 800)
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0)
+        const pngUrl = canvas.toDataURL('image/png')
+        const a = document.createElement('a')
+        a.href = pngUrl
+        a.download = `grafcet-${Date.now()}.png`
+        a.click()
+        notify('Diagrama exportado para PNG')
+      }
+      URL.revokeObjectURL(url)
+    }
+    img.src = url
+  }
+
+  const printGrafcet = () => {
+    window.print()
+  }
+
   const importJson = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -942,6 +976,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             <button className="dc-btn" onClick={exportSvg} title="Exportar diagrama em formato SVG vetorial">
               SVG
             </button>
+            <button className="dc-btn" onClick={exportPng} title="Exportar imagem PNG">
+              PNG
+            </button>
+            <button className="dc-btn" onClick={printGrafcet} title="Imprimir / Exportar PDF">
+              🖨 Imprimir
+            </button>
             <button className="dc-btn" onClick={exportJson} title="Exportar projeto em JSON">
               Salvar
             </button>
@@ -1032,18 +1072,39 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           {/* Sub-chart switcher */}
           <div className="grafcet-ribbon-group" style={{ borderRight: 'none', marginLeft: 'auto' }}>
             <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>Vista:</span>
-            <select
-              className="dc-input"
-              style={{ padding: '2px 8px', fontSize: '11px', height: '26px' }}
-              value={activeChart}
-              onChange={(e) => setActiveChart(e.target.value)}
-              title="Filtrar por Sub-GRAFCET (ex: G0, G1, G2)"
-            >
-              <option value="all">Todos os Grafcets</option>
-              <option value="G0">G0 - Controlo</option>
-              <option value="G1">G1 - Funcionamento</option>
-              <option value="G2">G2 - Reset</option>
-            </select>
+            <div className="grafcet-chart-tabs">
+              <button
+                type="button"
+                className={`grafcet-chart-tab ${activeChart === 'all' ? 'is-active' : ''}`}
+                onClick={() => setActiveChart('all')}
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                className={`grafcet-chart-tab ${activeChart === 'G0' ? 'is-active' : ''}`}
+                onClick={() => setActiveChart('G0')}
+                title="G0 - Modos de marcha / Controlo"
+              >
+                G0
+              </button>
+              <button
+                type="button"
+                className={`grafcet-chart-tab ${activeChart === 'G1' ? 'is-active' : ''}`}
+                onClick={() => setActiveChart('G1')}
+                title="G1 - Funcionamento normal / Ciclo"
+              >
+                G1
+              </button>
+              <button
+                type="button"
+                className={`grafcet-chart-tab ${activeChart === 'G2' ? 'is-active' : ''}`}
+                onClick={() => setActiveChart('G2')}
+                title="G2 - Paragem e rearme"
+              >
+                G2
+              </button>
+            </div>
           </div>
         </nav>
       )}
@@ -1187,61 +1248,168 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       onDoubleClick={onTransDoubleClick}
                       style={{ cursor: isSourcesActive ? 'pointer' : 'default' }}
                     >
-                      {/* Connection lines from sources */}
-                      {sources.map((sPos, sIdx) => {
-                        const startX = sPos.x + 27
-                        const startY = sPos.y + 54
-                        const pathD =
-                          sources.length === 1
-                            ? `M ${startX} ${startY} V ${pos.y}`
-                            : `M ${startX} ${startY} V ${pos.y - 12} H ${pos.x + 27} V ${pos.y}`
-                        return (
-                          <path
-                            key={sIdx}
-                            d={pathD}
-                            fill="none"
+                      {/* Connection lines from sources & AND Convergence double horizontal bar */}
+                      {sources.length > 1 ? (
+                        <>
+                          {sources.map((sPos, sIdx) => {
+                            const startX = sPos.x + 27
+                            const startY = sPos.y + 54
+                            return (
+                              <path
+                                key={sIdx}
+                                d={`M ${startX} ${startY} V ${pos.y - 4}`}
+                                fill="none"
+                                stroke={strokeColor}
+                                strokeWidth={enabled ? 3 : 2}
+                              />
+                            )
+                          })}
+                          {(() => {
+                            const minX = Math.min(...sources.map((s) => s.x + 27))
+                            const maxX = Math.max(...sources.map((s) => s.x + 27))
+                            return (
+                              <g>
+                                <line
+                                  x1={minX - 6}
+                                  y1={pos.y - 4}
+                                  x2={maxX + 6}
+                                  y2={pos.y - 4}
+                                  stroke={strokeColor}
+                                  strokeWidth={enabled ? 3 : 2.2}
+                                />
+                                <line
+                                  x1={minX - 6}
+                                  y1={pos.y}
+                                  x2={maxX + 6}
+                                  y2={pos.y}
+                                  stroke={strokeColor}
+                                  strokeWidth={enabled ? 3 : 2.2}
+                                />
+                                <line
+                                  x1={pos.x + 27}
+                                  y1={pos.y}
+                                  x2={pos.x + 27}
+                                  y2={pos.y + 20}
+                                  stroke={strokeColor}
+                                  strokeWidth={enabled ? 3 : 2}
+                                />
+                              </g>
+                            )
+                          })()}
+                        </>
+                      ) : (
+                        sources.map((sPos, sIdx) => {
+                          const startX = sPos.x + 27
+                          const startY = sPos.y + 54
+                          return (
+                            <path
+                              key={sIdx}
+                              d={`M ${startX} ${startY} V ${pos.y + 20}`}
+                              fill="none"
+                              stroke={strokeColor}
+                              strokeWidth={enabled ? 3 : 2}
+                            />
+                          )
+                        })
+                      )}
+
+                      {/* Connection lines to targets & AND Divergence double horizontal bar */}
+                      {targets.length > 1 ? (
+                        <>
+                          <line
+                            x1={pos.x + 27}
+                            y1={pos.y + 20}
+                            x2={pos.x + 27}
+                            y2={pos.y + 28}
                             stroke={strokeColor}
                             strokeWidth={enabled ? 3 : 2}
                           />
-                        )
-                      })}
+                          {(() => {
+                            const minX = Math.min(...targets.map((t) => t.x + 27))
+                            const maxX = Math.max(...targets.map((t) => t.x + 27))
+                            return (
+                              <g>
+                                <line
+                                  x1={minX - 6}
+                                  y1={pos.y + 28}
+                                  x2={maxX + 6}
+                                  y2={pos.y + 28}
+                                  stroke={strokeColor}
+                                  strokeWidth={enabled ? 3 : 2.2}
+                                />
+                                <line
+                                  x1={minX - 6}
+                                  y1={pos.y + 32}
+                                  x2={maxX + 6}
+                                  y2={pos.y + 32}
+                                  stroke={strokeColor}
+                                  strokeWidth={enabled ? 3 : 2.2}
+                                />
+                              </g>
+                            )
+                          })()}
+                          {targets.map((tPos, tgtIdx) => {
+                            const endX = tPos.x + 27
+                            const endY = tPos.y
+                            const startY = pos.y + 32
+                            if (endY <= pos.y) {
+                              const returnOffset = 30 + (tgtIdx % 3) * 15
+                              return (
+                                <path
+                                  key={tgtIdx}
+                                  d={`M ${endX} ${startY} V ${startY + 15} H ${pos.x - returnOffset} V ${endY - 15} H ${endX} V ${endY}`}
+                                  fill="none"
+                                  stroke={strokeColor}
+                                  strokeWidth={enabled ? 3 : 2}
+                                  markerEnd={enabled ? 'url(#arrow-active)' : 'url(#arrow)'}
+                                />
+                              )
+                            }
+                            return (
+                              <path
+                                key={tgtIdx}
+                                d={`M ${endX} ${startY} V ${endY}`}
+                                fill="none"
+                                stroke={strokeColor}
+                                strokeWidth={enabled ? 3 : 2}
+                                markerEnd={enabled ? 'url(#arrow-active)' : 'url(#arrow)'}
+                              />
+                            )
+                          })}
+                        </>
+                      ) : (
+                        targets.map((tPos, tgtIdx) => {
+                          const endX = tPos.x + 27
+                          const endY = tPos.y
+                          const startY = pos.y + 20
 
-                      {/* Connection lines to targets (or loopback/jump) */}
-                      {targets.map((tPos, tgtIdx) => {
-                        const endX = tPos.x + 27
-                        const endY = tPos.y
-                        const startY = pos.y + 20
+                          // Loopback / return up
+                          if (endY <= pos.y) {
+                            const returnOffset = 30 + (tgtIdx % 3) * 15
+                            return (
+                              <path
+                                key={tgtIdx}
+                                d={`M ${pos.x + 27} ${startY} V ${startY + 20} H ${pos.x - returnOffset} V ${endY - 15} H ${endX} V ${endY}`}
+                                fill="none"
+                                stroke={strokeColor}
+                                strokeWidth={enabled ? 3 : 2}
+                                markerEnd={enabled ? 'url(#arrow-active)' : 'url(#arrow)'}
+                              />
+                            )
+                          }
 
-                        // Loopback / return up
-                        if (endY <= pos.y) {
-                          const returnOffset = 30 + (tgtIdx % 3) * 15
                           return (
                             <path
                               key={tgtIdx}
-                              d={`M ${pos.x + 27} ${startY} V ${startY + 20} H ${pos.x - returnOffset} V ${endY - 15} H ${endX} V ${endY}`}
+                              d={`M ${pos.x + 27} ${startY} V ${endY}`}
                               fill="none"
                               stroke={strokeColor}
                               strokeWidth={enabled ? 3 : 2}
                               markerEnd={enabled ? 'url(#arrow-active)' : 'url(#arrow)'}
                             />
                           )
-                        }
-
-                        const pathD =
-                          targets.length === 1
-                            ? `M ${pos.x + 27} ${startY} V ${endY}`
-                            : `M ${pos.x + 27} ${startY} V ${startY + 12} H ${endX} V ${endY}`
-                        return (
-                          <path
-                            key={tgtIdx}
-                            d={pathD}
-                            fill="none"
-                            stroke={strokeColor}
-                            strokeWidth={enabled ? 3 : 2}
-                            markerEnd={enabled ? 'url(#arrow-active)' : 'url(#arrow)'}
-                          />
-                        )
-                      })}
+                        })
+                      )}
 
                       {/* Horizontal Crossbar / Tick */}
                       <line

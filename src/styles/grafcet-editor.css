@@ -777,3 +777,36 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   fill: #ffffff;
 }
 
+/* Sub-chart navigation tabs */
+.grafcet-chart-tabs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: #e2e8f0;
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.grafcet-chart-tab {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  white-space: nowrap;
+}
+
+.grafcet-chart-tab:hover {
+  color: #0f172a;
+}
+
+.grafcet-chart-tab.is-active {
+  background: #ffffff;
+  color: #1d4ed8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+

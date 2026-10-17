@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { LadderBranch, LadderCoilEl, LadderContact, LadderContactType, LadderRung, LadderTimer } from '../types'
-import { actionsOfStep, parseDuration, transitionsOf, type GrafcetProgram } from './engine'
+import { actionsOfStep, parseDuration, parseIecTimer, transitionsOf, type GrafcetProgram, type GrafcetStep } from './engine'
 
 /** Árvore booleana de uma condição GRAFCET. */
 type Node =
@@ -8,29 +8,77 @@ type Node =
   | { t: 'const'; value: boolean }
   | { t: 'and' | 'or'; a: Node; b: Node }
   | { t: 'not'; a: Node }
-  | { t: 'timer'; ms: number }
+  | { t: 'timer'; ms: number; key?: string }
   | { t: 'step'; index: number }
 
-const TOKEN = /T\(\d+(?:\.\d+)?(?:MS|S)?\)|X\d{1,2}|[IQM]\d{1,2}|[!&|()01^\\]/g
+const TOKEN_REGEX = /T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:\d+(?:\.\d+)?(?:MS|S)?\/X[A-Za-z0-9_]*)|X\d{1,3}|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|↑|↓|[A-Za-z][A-Za-z0-9_]*/gi
 
 function parse(expression: string): Node | null {
-  const src = expression.trim().toUpperCase()
-  const tokens = src.match(TOKEN)
-  if (!tokens || tokens.join('') !== src.replace(/\s+/g, '')) return null
+  const src = expression.trim()
+  if (!src) return null
+  const rawTokens = src.match(TOKEN_REGEX)
+  if (!rawTokens || rawTokens.join('').replace(/\s+/g, '') !== src.replace(/\s+/g, '')) return null
+
+  const tokens: string[] = []
+  for (const t of rawTokens) {
+    const up = t.toUpperCase()
+    if (up === '*' || up === 'AND') tokens.push('&')
+    else if (up === '+' || up === 'OR') tokens.push('|')
+    else if (up === 'NOT' || t === '/' || t === '_') tokens.push('!')
+    else if (t === '↑') tokens.push('^')
+    else if (t === '↓') tokens.push('\\')
+    else tokens.push(up)
+  }
+
   let i = 0
   const atom = (): Node | null => {
     const token = tokens[i++]
+    if (!token) return null
     if (token === '!') { const a = atom(); return a && { t: 'not', a } }
     if (token === '(') { const a = or(); return tokens[i++] === ')' ? a : null }
-    if (token === '1' || token === '0') return { t: 'const', value: token === '1' }
-    if (token === '^' || token === '\\') { const bit = tokens[i++]; return bit && /^[IQM]\d{1,2}$/.test(bit) ? { t: 'lit', address: bit, edge: token === '^' ? 'R' : 'F' } : null }
-    if (token?.startsWith('T(')) { const ms = parseDuration(token); return ms === null ? null : { t: 'timer', ms } }
-    if (token?.startsWith('X')) return { t: 'step', index: Number(token.slice(1)) }
-    if (token && /^[IQM]\d{1,2}$/.test(token)) return { t: 'lit', address: token }
+    if (token === '1' || token === 'TRUE') return { t: 'const', value: true }
+    if (token === '0' || token === 'FALSE') return { t: 'const', value: false }
+    if (token === '^' || token === '\\') {
+      const bit = tokens[i++]
+      return bit ? { t: 'lit', address: bit, edge: token === '^' ? 'R' : 'F' } : null
+    }
+    if (token.startsWith('T(')) {
+      const ms = parseDuration(token)
+      return ms === null ? null : { t: 'timer', ms }
+    }
+    const iec = parseIecTimer(token)
+    if (iec) {
+      return { t: 'timer', ms: iec.d1, key: token }
+    }
+    if (token.startsWith('X') && /^\d+$/.test(token.slice(1))) {
+      return { t: 'step', index: Number(token.slice(1)) }
+    }
+    if (/^[IQM]\d{1,2}$/.test(token) || /^[A-Z][A-Z0-9_]*$/.test(token)) {
+      return { t: 'lit', address: token }
+    }
     return null
   }
-  const and = (): Node | null => { let v = atom(); while (v && tokens[i] === '&') { i++; const r = atom(); v = r && { t: 'and', a: v, b: r } } return v }
-  const or = (): Node | null => { let v = and(); while (v && tokens[i] === '|') { i++; const r = and(); v = r && { t: 'or', a: v, b: r } } return v }
+
+  const and = (): Node | null => {
+    let v = atom()
+    while (v && tokens[i] === '&') {
+      i++
+      const r = atom()
+      v = r && { t: 'and', a: v, b: r }
+    }
+    return v
+  }
+
+  const or = (): Node | null => {
+    let v = and()
+    while (v && tokens[i] === '|') {
+      i++
+      const r = and()
+      v = r && { t: 'or', a: v, b: r }
+    }
+    return v
+  }
+
   const value = or()
   return i === tokens.length ? value : null
 }
@@ -70,7 +118,10 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
   const steps = program.steps
   const transitions = transitionsOf(program)
   const used = new Set<string>([...reserved].map((a) => a.toUpperCase()))
-  for (const step of steps) for (const a of actionsOfStep(step)) used.add(a.address.trim().toUpperCase())
+  for (const step of steps) for (const a of actionsOfStep(step)) {
+    const addr = (a.address || a.variable || '').trim().toUpperCase()
+    if (addr) used.add(addr)
+  }
   for (const t of transitions) for (const m of t.condition.toUpperCase().match(/[IQM]\d{1,2}/g) ?? []) used.add(m)
   const alloc = (prefix: 'M' | 'T') => {
     for (let n = 1; n <= 99; n++) { const a = `${prefix}${n}`; if (!used.has(a)) { used.add(a); return a } }
@@ -100,13 +151,15 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
   }
 
   // 1) Inicialização: sem nenhuma etapa ativa → ativa as etapas iniciais.
-  const initial = steps.filter((s) => s.initial)
+  const isInitial = (s: GrafcetStep) => s.initial || s.stepType === 'initial' || s.stepType === 'initial-enclosing'
+  const initial = steps.filter(isInitial)
   if (steps.length && !initial.length) warnings.push('Não há etapa inicial: o Ladder não arranca.')
   if (initial.length) push('GRAFCET · Inicialização', [steps.map((s) => contact(stepBits[s.id], 'NC'))], initial.map((s) => coil(stepBits[s.id], 'SET')), { comment: 'Sem etapas ativas → ativa as etapas iniciais' })
 
   // 2) Temporizações das transições e das ações D/L.
-  const transitionTimers = new Map<string, string>() // `${id}|${ms}` → T
+  const transitionTimers = new Map<string, string>() // `${id}|${ms}` ou `${id}|${key}` → T
   transitions.forEach((t, k) => {
+    // Temporizadores legados T(...)
     for (const token of t.condition.toUpperCase().match(/T\(\d+(?:\.\d+)?(?:MS|S)?\)/g) ?? []) {
       const ms = parseDuration(token)!
       const key = `${t.id}|${ms}`
@@ -115,12 +168,32 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
       transitionTimers.set(key, address)
       push(`GRAFCET · Temporização T${k + 1} (${ms / 1000} s)`, [t.from.map((id) => contact(stepBits[id] ?? 'M99'))], [], { timer: timer(address, ms) })
     }
+    // Temporizadores normalizados IEC (ex.: 10s/X85 ou 5s/X1)
+    const iecTokens = t.condition.match(/\d+(?:\.\d+)?(?:MS|S)?\/X[A-Za-z0-9_]*/gi) ?? []
+    for (const token of iecTokens) {
+      const parsed = parseIecTimer(token)
+      if (!parsed) continue
+      const ms = parsed.d1
+      const key = `${t.id}|${token.toUpperCase()}`
+      if (transitionTimers.has(key)) continue
+      const address = alloc('T')
+      transitionTimers.set(key, address)
+      let stepContactAddress = 'M99'
+      if (parsed.step) {
+        const found = steps.find((s, idx) => s.name.trim().toUpperCase() === parsed.step?.toUpperCase() || String(idx) === parsed.step || s.id === parsed.step)
+        if (found && stepBits[found.id]) stepContactAddress = stepBits[found.id]
+        else if (t.from.length && stepBits[t.from[0]]) stepContactAddress = stepBits[t.from[0]]
+      } else if (t.from.length && stepBits[t.from[0]]) {
+        stepContactAddress = stepBits[t.from[0]]
+      }
+      push(`GRAFCET · Temporização IEC T${k + 1} (${token})`, [[contact(stepContactAddress)]], [], { timer: timer(address, ms) })
+    }
   })
 
   const byAddress = new Map<string, Array<{ stepId: string; condition: string; kind: string; timeMs: number; index: number; timerAddress?: string }>>()
   steps.forEach((s, index) => actionsOfStep(s).forEach((a) => {
-    const address = a.address.trim().toUpperCase()
-    if (!/^[QM]\d{1,2}$/.test(address)) return
+    const address = (a.address || a.variable || '').trim().toUpperCase()
+    if (!address) return
     byAddress.set(address, [...(byAddress.get(address) ?? []), { stepId: s.id, condition: a.condition || '1', kind: a.kind ?? 'N', timeMs: a.timeMs ?? 0, index }])
   }))
   // 2b) Temporizadores das ações D/L: correm antes da evolução das etapas (mesma temporização do simulador).
@@ -135,7 +208,14 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
     const prefix = sources.map((id) => contact(stepBits[id]))
     const earlier = transitions.slice(0, k).map((other, j) => ({ other, j })).filter(({ other }) => other.from.some((id) => t.from.includes(id)))
     const guards = earlier.map(({ j }) => contact(enableBits[j], 'NC'))
-    const resolve = (n: Node) => n.t === 'timer' ? transitionTimers.get(`${t.id}|${n.ms}`) ?? null : n.t === 'step' ? bitOfIndex(n.index) : null
+    const resolve = (n: Node) => {
+      if (n.t === 'timer') {
+        if (n.key) return transitionTimers.get(`${t.id}|${n.key.toUpperCase()}`) ?? null
+        return transitionTimers.get(`${t.id}|${n.ms}`) ?? null
+      }
+      if (n.t === 'step') return bitOfIndex(n.index)
+      return null
+    }
     const branches = branchesFor(t.condition, [...prefix, ...guards], resolve, `T${k + 1}`)
     push(`GRAFCET · T${k + 1}: ${t.from.map((id) => steps.findIndex((s) => s.id === id)).join('+')} → ${t.to.map((id) => steps.findIndex((s) => s.id === id)).join('+')}`, branches ?? [[contact('M99', 'NO')]], [coil(enableBits[k], 'COIL')], { comment: `Receptividade: ${t.condition}`, enabled: !!branches })
   })
