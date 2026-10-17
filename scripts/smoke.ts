@@ -1928,6 +1928,12 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const broken = { steps: [mk('x', false), mk('y', false)], transitions: [{ id: 'bad', from: ['x'], to: ['y'], condition: 'X9' }] }
   const found = validateGrafcet(broken).map((i) => i.id)
   check('GRAFCET v2: validação deteta falta de inicial, órfãs e X inexistente', found.includes('initial') && found.includes('x:orphan') && found.includes('bad:x'))
+
+  // Validação e simulação FluidSIM / grafcet.io
+  check('GRAFCET FluidSIM: temporização padrão IEC 10s/X85 válida', validCondition('10s/X85') && validCondition('1s/X45') && validCondition('500ms/X90'))
+  check('GRAFCET FluidSIM: expressões booleanas com *, +, / e _ válidas', validCondition('B_Start * B_Stop_NF * fc_a0 * fc_b0 * /In_Man') && validCondition('_B_Stop_NF + G1X75') && validCondition('b0 * /S_Rolamento'))
+  check('GRAFCET FluidSIM: avaliação de temporizador 10s/X85', evalCondition('10s/X85', {}, { stepElapsedByName: { '85': 10500 }, activeStepNames: new Set(['85']) }) && !evalCondition('10s/X85', {}, { stepElapsedByName: { '85': 8000 }, activeStepNames: new Set(['85']) }))
+  check('GRAFCET FluidSIM: avaliação booleana complexa', evalCondition('B_Start * B_Stop_NF * fc_a0 * fc_b0 * /In_Man', { B_START: true, B_STOP_NF: true, FC_A0: true, FC_B0: true, IN_MAN: false }))
 }
 
 /* GRAFCET → Ladder: o programa gerado tem de comportar-se como o simulador GRAFCET. */
