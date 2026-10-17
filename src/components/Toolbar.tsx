@@ -317,11 +317,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('addConnectedStep')}
-                className="dc-tool-btn font-semibold !text-brand-600"
+                className="dc-tool-btn font-semibold !bg-brand-600 !text-white hover:!bg-brand-700 shadow-xs"
                 title="Adicionar etapa ligada à selecionada [Insert ou 1]"
               >
                 <span>+ Etapa ligada</span>
-                <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-surface-sunken text-ink-400">1</kbd>
+                <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-white/20 text-white">1</kbd>
               </button>
               <button
                 type="button"
