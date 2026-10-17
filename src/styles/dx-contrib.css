@@ -172,3 +172,9 @@
 }
 .dx-topbar-link { margin-right:6px; }
 @media (max-width:520px) { .dx-topbar-link { display:none; } }
+
+/* Administração de componentes: ações em lote */
+.cb-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; }
+.cb-bulk label { display: inline-flex; align-items: center; gap: 6px; }
+.cb-bulk .cb-reject { display: inline-flex; gap: 6px; flex: 1 1 280px; }
+.cb-select { margin-right: 8px; display: inline-flex; vertical-align: middle; }
