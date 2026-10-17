@@ -5,6 +5,9 @@ import { useSimStore } from '../store/useSimStore'
 import { ACTION_KINDS, actionsOfStep, evalCondition, transitionsOf, validateGrafcet, validCondition } from './engine'
 import type { GrafcetAction, GrafcetActionKind, GrafcetIssue, GrafcetStep, GrafcetTransition, GrafcetProgram } from './engine'
 import VirtualIoPanel from '../components/VirtualIoPanel'
+import { grafcetToLadder } from './toLadder'
+import { collectUsedAddresses } from '../ladder/ladderEngine'
+import { allowedViews } from '../project/kind'
 import { IconChevronRight, IconCopy, IconDelete, IconHelp, IconRedo, IconSearch, IconUndo } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import { useEditorShortcuts } from '../ui/shortcuts'
@@ -48,6 +51,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const history = useSimStore((state) => state.history)
   const future = useSimStore((state) => state.future)
   const running = useSimStore((state) => state.sim.runState === 'running')
+  const projectKind = useSimStore((state) => state.projectKind)
+  const canGenerateLadder = allowedViews(projectKind).includes('ladder')
 
   const steps = program.steps
   const transitions = transitionsOf(program)
@@ -104,6 +109,17 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     const base = transition.condition.trim()
     const joined = !base || base === '1' ? token : /[&|(!]$/.test(base) ? `${base} ${token}` : `${base} & ${token}`
     updateTransition(transition.id, { condition: joined.toUpperCase() }, 'force')
+  }
+
+  const generateLadder = async () => {
+    if (!steps.length) return notify('Crie primeiro as etapas do GRAFCET')
+    if (errorCount) return notify('Corrija os erros do GRAFCET antes de gerar o Ladder')
+    const state = useSimStore.getState()
+    const result = grafcetToLadder({ ...program, transitions }, collectUsedAddresses(state.ladder))
+    const note = result.warnings.length ? `\n\nAvisos:\n- ${result.warnings.join('\n- ')}` : ''
+    if (!await uiConfirm(`Acrescentar ${result.rungs.length} networks ao programa Ladder ativo?\n\nCada etapa usa um bit M, por isso o Ladder reproduz o GRAFCET. Para não haver duas lógicas a comandar as mesmas saídas, use só uma delas na simulação.${note}`)) return
+    state.appendRungs(result.rungs)
+    notify(`${result.rungs.length} networks Ladder criadas`)
   }
 
   const addStep = () => {
@@ -394,6 +410,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         <button className="grafcet-icon-button" onClick={doUndo} disabled={!history.length} title="Desfazer (Ctrl+Z)" aria-label="Desfazer"><IconUndo size={14} /></button>
         <button className="grafcet-icon-button" onClick={doRedo} disabled={!future.length} title="Refazer (Ctrl+Y)" aria-label="Refazer"><IconRedo size={14} /></button>
         <button className="grafcet-icon-button" onClick={() => setHelpOpen(true)} title="Atalhos (?)" aria-label="Atalhos do GRAFCET"><IconHelp size={14} /></button>
+        {canGenerateLadder && <button className="dc-btn" onClick={() => void generateLadder()} title="Gera as networks Ladder equivalentes a este GRAFCET e acrescenta-as ao programa Ladder">⇢ Gerar Ladder</button>}
         <button className="grafcet-icon-button" onClick={() => { useSimStore.getState().restartGrafcet(); notify('Sequência reiniciada nas etapas iniciais') }} title="Reiniciar a sequência nas etapas iniciais" aria-label="Reiniciar sequência">⟲</button>
         <span className="grafcet-header-separator" />
         <button className="dc-btn" onClick={addStep}>+ Etapa solta</button>

@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { grafcetToLadder } from '../src/grafcet/toLadder'
 import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
@@ -1926,6 +1927,54 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const broken = { steps: [mk('x', false), mk('y', false)], transitions: [{ id: 'bad', from: ['x'], to: ['y'], condition: 'X9' }] }
   const found = validateGrafcet(broken).map((i) => i.id)
   check('GRAFCET v2: validação deteta falta de inicial, órfãs e X inexistente', found.includes('initial') && found.includes('x:orphan') && found.includes('bad:x'))
+}
+
+/* GRAFCET → Ladder: o programa gerado tem de comportar-se como o simulador GRAFCET. */
+{
+  const mk = (id: string, initial: boolean, actions: any[] = []) => ({ id, name: id, initial, action: '', condition: '1', actions })
+  const programs = [
+    { name: 'sequência com timer, S/R, D e L', program: {
+      steps: [mk('a', true, [{ id: 'q0', address: 'Q4', condition: '1' }]), mk('b', false, [{ id: 'n', address: 'Q1', condition: '1' }, { id: 's', address: 'M1', condition: '1', kind: 'S' }, { id: 'd', address: 'Q2', condition: '!I3', kind: 'D', timeMs: 300 }]), mk('c', false, [{ id: 'r', address: 'M1', condition: '1', kind: 'R' }, { id: 'l', address: 'Q3', condition: '1', kind: 'L', timeMs: 200 }])],
+      transitions: [
+        { id: 't1', from: ['a'], to: ['b'], condition: 'I1 & !I2' },
+        { id: 't2', from: ['b'], to: ['c'], condition: 'T(0.5s) & (I2 | X1)' },
+        { id: 't3', from: ['c'], to: ['a'], condition: 'T(400ms) | I4' },
+      ] } },
+    { name: 'divergência/convergência AND com prioridade', program: {
+      steps: [mk('s0', true), mk('s1', false, [{ id: 'a1', address: 'Q1', condition: 'I2 & !I3' }]), mk('s2', false, [{ id: 'a2', address: 'Q2', condition: '1' }]), mk('s3', false, [{ id: 'a3', address: 'Q1', condition: '1' }]), mk('s4', false, [{ id: 'a4', address: 'Q3', condition: '1' }])],
+      transitions: [
+        { id: 'f', from: ['s0'], to: ['s1', 's2'], condition: 'I1' },
+        { id: 'j', from: ['s1', 's2'], to: ['s3'], condition: 'I4 | I5' },
+        { id: 'r', from: ['s3'], to: ['s0'], condition: '!I1' },
+        { id: 'alt', from: ['s0'], to: ['s4'], condition: 'I6' },
+        { id: 'back', from: ['s4'], to: ['s0'], condition: '!I6' },
+      ] } },
+  ]
+  for (const { name, program } of programs) {
+    const generated = grafcetToLadder(program)
+    check(`GRAFCET→Ladder (${name}): sem avisos`, generated.warnings.length === 0, generated.warnings.join(' | '))
+    const inputs = ['I1', 'I2', 'I3', 'I4', 'I5', 'I6']
+    const outs = [...new Set(program.steps.flatMap((st: any) => st.actions.map((a: any) => a.address)))] as string[]
+    let seed = 12345
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
+    const tableG: AddressTable = {}, tableL: AddressTable = {}
+    const timers: TimerTable = {}, counters: CounterTable = {}
+    let rt = emptyGrafcetRuntime()
+    const ladderProgram = { rungs: structuredClone(generated.rungs) }
+    let mismatch = ''
+    let current: Record<string, boolean> = Object.fromEntries(inputs.map((i) => [i, false]))
+    for (let scan = 0; scan < 400 && !mismatch; scan++) {
+      if (rnd() < 0.25) { const flip = inputs[Math.floor(rnd() * inputs.length)]; current[flip] = !current[flip] }
+      Object.assign(tableG, current); Object.assign(tableL, current)
+      rt = scanGrafcet(program, rt, tableG, 100)
+      runScan(ladderProgram, tableL, timers, counters, 100)
+      const activeLadder = program.steps.filter((s) => tableL[generated.stepBits[s.id]]).map((s) => s.id).sort().join(',')
+      const activeGrafcet = [...rt.active].sort().join(',')
+      if (activeLadder !== activeGrafcet) mismatch = `scan ${scan}: etapas ${activeLadder} ≠ ${activeGrafcet}`
+      else for (const o of outs) if (!!tableL[o] !== !!tableG[o]) { mismatch = `scan ${scan}: ${o} ladder=${!!tableL[o]} grafcet=${!!tableG[o]}`; break }
+    }
+    check(`GRAFCET→Ladder (${name}): equivalente ao simulador em 400 scans aleatórios`, !mismatch, mismatch)
+  }
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
