@@ -11,6 +11,7 @@ import SchematicView from './schematic/SchematicView'
 import { ComponentEditorDock } from './components/ComponentViewEditor'
 import MonitorPanel from './components/MonitorPanel'
 import { useSimStore } from './store/useSimStore'
+import { allowedViews, coerceView, defaultView } from './project/kind'
 
 /** Cabeçalho das folhas em ecrã inteiro (só aparece em telemóveis): título + botão «Fechar» bem visível. */
 function SheetHeader({ title, onClose }: { title: string; onClose: () => void }) {
@@ -25,14 +26,20 @@ function SheetHeader({ title, onClose }: { title: string; onClose: () => void })
 }
 
 export default function App({ onBack }: { onBack: () => void }) {
-  const [mode, setMode] = useState<ViewMode>(() => {
+  const projectKind = useSimStore((s) => s.projectKind)
+  const views = allowedViews(projectKind)
+  const [mode, setModeRaw] = useState<ViewMode>(() => {
+    const kind = useSimStore.getState().projectKind
     try {
       const saved = localStorage.getItem('dcsimu:workspace:view') as ViewMode | 'panel3d' | null
       // O antigo "Painel 3D" passou a ser a Visualização 3D do Esquema.
-      if (saved === 'panel3d') { localStorage.setItem('dc-simu:schematic-canvas-mode:v1', '3d'); return 'schematic' }
-      return saved && ['schematic', 'ladder', 'grafcet', 'monitor'].includes(saved) ? saved : 'schematic'
-    } catch { return 'schematic' }
+      if (saved === 'panel3d') { localStorage.setItem('dc-simu:schematic-canvas-mode:v1', '3d'); return coerceView('schematic', kind) }
+      return saved && ['schematic', 'ladder', 'grafcet', 'monitor'].includes(saved) ? coerceView(saved, kind) : defaultView(kind)
+    } catch { return defaultView(kind) }
   })
+  // Só vistas permitidas pelo tipo de projeto (Tudo / Ladder / GRAFCET).
+  const setMode = (next: ViewMode) => setModeRaw(coerceView(next, projectKind))
+  useEffect(() => { setModeRaw((current) => coerceView(current, projectKind)) }, [projectKind])
   const [ladderSection, setLadderSection] = useState<LadderSection>(() => {
     try {
       const saved = localStorage.getItem('dcsimu:workspace:ladder-section') as LadderSection | null
@@ -146,7 +153,7 @@ export default function App({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="h-full w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
-      <Toolbar onBack={onBack} mode={mode} setMode={setMode} ladderSection={ladderSection} setLadderSection={setLadderSection}
+      <Toolbar onBack={onBack} mode={mode} setMode={setMode} views={views} ladderSection={ladderSection} setLadderSection={setLadderSection}
         onOpenLibrary={() => { setShowLadder(false); setShowLibrary(true) }}
         onOpenGrafcet={() => { setShowLibrary(false); setRightTab('grafcet'); setShowLadder(true) }}
         onOpenObjects={() => { setShowLibrary(false); setRightTab('objects'); setShowLadder(true) }} />
@@ -180,7 +187,7 @@ export default function App({ onBack }: { onBack: () => void }) {
         <div className="flex-1 min-w-0 flex flex-col relative">
           {mode === 'schematic' && !showLibrary && <button className="dc-dock-open is-left" onClick={() => { setShowLadder(false); setShowLibrary(true) }} title="Mostrar biblioteca e inspetor"><IconLayers size={12} /> Biblioteca</button>}
           {mode === 'schematic' && <SchematicView libraryCollapsed={!showLibrary} />}
-          {mode === 'ladder' && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={() => { setShowLibrary(true); setMode('schematic') }} />}
+          {mode === 'ladder' && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}
           {mode === 'grafcet' && <GrafcetEditor full />}
           {mode === 'monitor' && <MonitorPanel />}
         </div>

@@ -1,3 +1,4 @@
+import VirtualIoPanel from '../components/VirtualIoPanel'
 import { uiConfirm, uiPrompt } from '../ui/dialogs'
 import Select from '../ui/Select'
 import LadderSections, { type LadderSection } from './LadderSections'
@@ -1328,7 +1329,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             </button>
           </div>
           {showStatus && <div className="ladder-status-grid" role="tabpanel">
-            {statusTab === 'io' && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
+            {statusTab === 'io' && !activePlc && <VirtualIoPanel compact />}
+            {statusTab === 'io' && !!activePlc && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
             {statusTab === 'memory' && <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />}
             {statusTab === 'timers' && <div className="ladder-project-status"><span>Temporizadores</span>{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => <small key={address}>{address}: {t.elapsedMs} / {t.presetMs} ms · {t.done ? 'ativo' : 'inativo'}</small>) : <small>Nenhum temporizador executado.</small>}</div>}
             {statusTab === 'counters' && <div className="ladder-project-status"><span>Contadores</span>{Object.entries(counters).length ? Object.entries(counters).map(([address, c]) => <small key={address}>{address}: {c.count} / {c.preset} · {c.done ? 'atingido' : 'em contagem'}</small>) : <small>Nenhum contador executado.</small>}</div>}

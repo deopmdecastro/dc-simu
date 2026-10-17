@@ -1,3 +1,4 @@
+import { type ProjectKind } from './project/kind'
 import { uiAlert } from './ui/dialogs'
 import { useCatalogStore } from './catalog/registry'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -173,8 +174,8 @@ export default function Account() {
     }
   }
 
-  async function create(name: string) {
-    useSimStore.getState().newProject()
+  async function create(name: string, kind: ProjectKind = 'all') {
+    useSimStore.getState().newProject(kind)
     const response = await api<Open>('/projects', 'POST', {
       name,
       content: JSON.parse(useSimStore.getState().saveJSON()),

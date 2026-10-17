@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { EDITOR_THEME } from '../ui/editorTheme'
-import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
+import { normalizeKind, type ProjectKind } from '../project/kind'
+import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, forceSteps, fireTransition, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
 import { nanoid } from 'nanoid'
 import type {
   CircuitState,
@@ -112,6 +113,18 @@ interface Store extends CircuitState {
   /** Nome do projeto guardado no navegador atualmente aberto (null = projeto
    *  sem nome / carregado de arquivo / cenário pronto — ainda não guardado). */
   currentProjectName: string | null
+  projectKind: ProjectKind
+  setProjectKind: (kind: ProjectKind) => void
+  /** Entradas virtuais (I1…): usadas quando o projeto não tem PLC físico no esquema. */
+  virtualInputs: Record<string, boolean>
+  virtualInputCount: number
+  setVirtualInput: (address: string, on: boolean) => void
+  setVirtualInputCount: (count: number) => void
+  clearVirtualInputs: () => void
+  /** GRAFCET: forçar etapas ativas, disparar transição à mão e reiniciar a sequência. */
+  forceGrafcetSteps: (stepIds: string[]) => void
+  fireGrafcetTransition: (transitionId: string) => boolean
+  restartGrafcet: () => void
   setCurrentProjectName: (name: string | null) => void
   /** Guarda o projeto atual no navegador (localStorage) sob este nome, criando
    *  ou sobrescrevendo. Usado pelo Ctrl+S e pelo painel "Projetos". */
@@ -288,7 +301,7 @@ interface Store extends CircuitState {
   // --- arquivo ---
   saveJSON: () => string
   loadJSON: (json: string) => void
-  newProject: () => void
+  newProject: (kind?: ProjectKind) => void
 }
 
 export type WireEnd3D = { terminalId: string } | { point: SpatialPoint3D }
@@ -419,7 +432,7 @@ function snapshot(state: Store): Snapshot {
 }
 
 const EMPTY_RUNTIME = (): RuntimeExtras => ({
-  table: emptyTable(8, 4),
+  table: emptyTable(16, 16),
   timers: {},
   counters: {},
   rungPowered: {},
@@ -452,6 +465,8 @@ function runOneTick(state: Store, dtMs: number) {
   const plcs = components.filter(isProgrammablePlc)
   const selectedId = plcs.some((p) => p.id === state.activePlcId) ? state.activePlcId : plcs[0]?.id
   if (!plcs.length) {
+    // Sem PLC no esquema: as entradas vêm do painel de entradas virtuais.
+    for (const [address, on] of Object.entries(state.virtualInputs)) state.runtime.table[address] = on
     const scan = runScan(ladder, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs)
     state.runtime.rungPowered = scan.rungPowered
   }
@@ -490,7 +505,7 @@ function runOneTick(state: Store, dtMs: number) {
     state.runtime.db = active.db
   }
   // GRAFCET global mantém o comportamento anterior sobre a vista ativa.
-  state.grafcetRuntime = scanGrafcet(state.grafcet, state.grafcetRuntime, state.runtime.table)
+  state.grafcetRuntime = scanGrafcet(state.grafcet, state.grafcetRuntime, state.runtime.table, dtMs)
 
   // 5) Segunda passagem — agora com as saídas do CLP ativas
   const pass2 = computeContinuity(components, wires, srcs)
@@ -706,7 +721,7 @@ export const useSimStore = create<Store>((set, get) => ({
     const nextRuntime = state.runtime.plcRuntime[id]
     const plcTags = { ...state.plcTags, ...(state.activePlcId ? { [state.activePlcId]: state.tags } : {}) }
     set({ activePlcId: id, plcPrograms: programs, plcTags, tags: plcTags[id] ?? (state.activePlcId === null && Object.keys(plcTags).length === 0 ? state.tags : []), ladder: { rungs: prior.rungs }, fcBlocks: { fc1: prior.fc1, fc2: prior.fc2 },
-      runtime: { ...state.runtime, table: nextRuntime?.table ?? emptyTable(8, 4), timers: nextRuntime?.timers ?? {}, counters: nextRuntime?.counters ?? {}, rungPowered: nextRuntime?.rungPowered ?? {}, db: nextRuntime?.db ?? {} },
+      runtime: { ...state.runtime, table: nextRuntime?.table ?? emptyTable(16, 16), timers: nextRuntime?.timers ?? {}, counters: nextRuntime?.counters ?? {}, rungPowered: nextRuntime?.rungPowered ?? {}, db: nextRuntime?.db ?? {} },
       history: [], future: [], dirty: true })
     get().step()
   },
@@ -727,6 +742,40 @@ export const useSimStore = create<Store>((set, get) => ({
   probeA: null,
   clipboard: null,
   currentProjectName: null,
+  projectKind: 'all' as ProjectKind,
+  virtualInputs: {},
+  virtualInputCount: 8,
+  setVirtualInput: (address, on) => {
+    set((st) => ({ virtualInputs: { ...st.virtualInputs, [address]: on } }))
+    // Reflete logo na tabela (mesmo com a simulação parada/pausada) e avalia um scan.
+    get().runtime.table[address] = on
+    if (get().sim.runState !== 'running') get().step()
+  },
+  setVirtualInputCount: (count) => set({ virtualInputCount: Math.max(1, Math.min(32, Math.round(count))) }),
+  clearVirtualInputs: () => {
+    set({ virtualInputs: {} })
+    for (const key of Object.keys(get().runtime.table)) if (/^I\d+$/.test(key)) get().runtime.table[key] = false
+    if (get().sim.runState !== 'running') get().step()
+  },
+  forceGrafcetSteps: (stepIds) => {
+    const st = get()
+    set({ grafcetRuntime: forceSteps(st.grafcet, st.grafcetRuntime, stepIds) })
+    get().pushEvent('info', 'GRAFCET: etapas forçadas.')
+    if (get().sim.runState !== 'running') get().step()
+  },
+  fireGrafcetTransition: (transitionId) => {
+    const st = get()
+    const next = fireTransition(st.grafcet, st.grafcetRuntime, transitionId)
+    if (!next) return false
+    set({ grafcetRuntime: next })
+    if (get().sim.runState !== 'running') get().step()
+    return true
+  },
+  restartGrafcet: () => {
+    set({ grafcetRuntime: emptyGrafcetRuntime() })
+    if (get().sim.runState !== 'running') get().step()
+  },
+  setProjectKind: (kind) => set({ projectKind: normalizeKind(kind), dirty: true }),
   _intervalId: null,
 
   // ---------------------------------------------------------------- simulação
@@ -2060,6 +2109,7 @@ export const useSimStore = create<Store>((set, get) => ({
       {
         app: 'dc-simu',
         version: 6,
+        projectKind: s.projectKind,
         savedAt: new Date().toISOString(),
         components: s.components,
         wires: s.wires,
@@ -2098,6 +2148,8 @@ export const useSimStore = create<Store>((set, get) => ({
       const programs = (parsed.plcPrograms ?? {}) as Record<string, PlcProgram>
       const activeProgram = loadedActiveId && programs[loadedActiveId]
       set({
+        projectKind: normalizeKind(parsed.projectKind),
+        virtualInputs: {},
         components: loadedComponents,
         showEmptyWelcome: false,
         wires: alignedWires,
@@ -2129,7 +2181,7 @@ export const useSimStore = create<Store>((set, get) => ({
     }
   },
 
-  newProject: () => {
+  newProject: (kind = 'all') => {
     setStoredCover(null)
     get().stop()
     set({
@@ -2155,6 +2207,8 @@ export const useSimStore = create<Store>((set, get) => ({
       future: [],
       dirty: false,
       currentProjectName: null,
+      virtualInputs: {},
+      projectKind: normalizeKind(kind),
     })
     get().pushEvent('info', 'Novo projeto em branco criado.')
   },

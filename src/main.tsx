@@ -21,6 +21,7 @@ import './styles/catalog-editor.css'
 import './styles/terminal-library.css'
 import './styles/clean-mode.css'
 import './styles/select.css'
+import './styles/virtual-io.css'
 
 installStaleBuildRecovery()
 startCatalogAutoUpdate()

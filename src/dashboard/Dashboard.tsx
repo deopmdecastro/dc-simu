@@ -1,4 +1,5 @@
 import Select from '../ui/Select'
+import { PROJECT_KINDS, kindLabel, type ProjectKind } from '../project/kind'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { useRef } from 'react'
 import { LogoMark } from '../ui/Brand'
@@ -132,7 +133,7 @@ export default function Dashboard({
   invites: Invite[]
   /** Enquanto a primeira lista de projetos ainda não chegou. */
   loading?: boolean
-  onCreate: (name: string) => Promise<void>
+  onCreate: (name: string, kind: ProjectKind) => Promise<void>
   onOpen: (id: string) => Promise<void>
   onInvite: (id: string, email: string) => Promise<void>
   onReply: (id: string, action: 'accept' | 'reject') => Promise<void>
@@ -143,6 +144,7 @@ export default function Dashboard({
   const [filter, setFilter] = useState<'all' | 'owner' | 'editor'>('all')
   const [modal, setModal] = useState<{ type: 'create' | 'invite' | 'delete'; project?: Project } | null>(null)
   const [value, setValue] = useState('')
+  const [kind, setKind] = useState<ProjectKind>('all')
   const dialogRef = useRef<HTMLDivElement>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
   const [saving, setSaving] = useState(false)
@@ -188,6 +190,7 @@ export default function Dashboard({
     setClosing(false)
     setModal({ type, project })
     setValue('')
+    setKind('all')
     setNotice('')
     setMenu(null)
   }
@@ -199,7 +202,7 @@ export default function Dashboard({
     setSaving(true)
     setNotice('')
     try {
-      if (modal?.type === 'create') await onCreate(text)
+      if (modal?.type === 'create') await onCreate(text, kind)
       else if (modal?.project) await onInvite(modal.project.id, text)
       closeModal()
       setValue('')
@@ -414,7 +417,7 @@ export default function Dashboard({
             }}
           >
             <ProjectCover preview={hero.preview} large />
-            <span className="dx-proj-badge">{hero.role === 'owner' ? 'Meu projeto' : 'Partilhado'}</span>
+            <span className="dx-proj-badge">{hero.role === 'owner' ? 'Meu projeto' : 'Partilhado'}{hero.preview?.kind && hero.preview.kind !== 'all' ? ` · ${kindLabel(hero.preview.kind)}` : ''}</span>
             {renderMenu(hero)}
           </div>
           <div className="dx-hero-body">
@@ -505,7 +508,7 @@ export default function Dashboard({
                   }}
                 >
                   <ProjectCover preview={p.preview} />
-                  <span className="dx-proj-badge">{p.role === 'owner' ? 'Meu projeto' : 'Partilhado'}</span>
+                  <span className="dx-proj-badge">{p.role === 'owner' ? 'Meu projeto' : 'Partilhado'}{p.preview?.kind && p.preview.kind !== 'all' ? ` · ${kindLabel(p.preview.kind)}` : ''}</span>
                   {renderMenu(p)}
                   {st.components > 0 && (
                     <div className="dx-proj-chips">
@@ -533,7 +536,7 @@ export default function Dashboard({
                           <span className="dx-spin" aria-hidden /> A abrir…
                         </>
                       ) : (
-                        'Abrir no editor 3D'
+                        p.preview?.kind === 'grafcet' ? 'Abrir no editor GRAFCET' : p.preview?.kind === 'ladder' ? 'Abrir no editor Ladder' : 'Abrir no editor 3D'
                       )}
                     </button>
                     {p.role === 'owner' && (
@@ -598,7 +601,7 @@ export default function Dashboard({
             <h2 id="dx-dialog-title">{modal.type === 'create' ? 'Criar novo projeto' : modal.type === 'invite' ? 'Convidar editor' : 'Eliminar projeto?'}</h2>
             <p id="dx-dialog-description">
               {modal.type === 'create'
-                ? 'Dê um nome ao quadro. Poderá adicionar componentes assim que o projeto abrir.'
+                ? 'Dê um nome ao projeto e escolha com o que quer trabalhar. Só aparecem os editores e simuladores do tipo escolhido.'
                 : modal.type === 'invite'
                   ? `Convide a outra conta autorizada para editar «${modal.project?.name}».`
                   : `O projeto «${modal.project?.name}» será eliminado definitivamente. Esta ação não pode ser anulada.`}
@@ -617,6 +620,19 @@ export default function Dashboard({
                   onChange={(e) => setValue(e.target.value)}
                 />
               </label>
+              {modal.type === 'create' && (
+                <fieldset className="dx-field" style={{ border: 0, padding: 0, margin: '12px 0 0' }}>
+                  <legend className="dx-label">Tipo de projeto</legend>
+                  <div role="radiogroup" aria-label="Tipo de projeto" style={{ display: 'grid', gap: 8 }}>
+                    {PROJECT_KINDS.map((k) => (
+                      <label key={k.id} className={`dx-kind ${kind === k.id ? 'is-on' : ''}`}>
+                        <input type="radio" name="project-kind" value={k.id} checked={kind === k.id} onChange={() => setKind(k.id)} />
+                        <span><b>{k.label}</b><small>{k.detail}</small></span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
               {modal.type === 'invite' && <small style={{ color: 'var(--dx-ink-4)', fontSize: 12 }}>O convite aparece no painel da pessoa convidada. Não enviamos email.</small>}
               {notice && (
                 <div className="dx-alert" role="alert">

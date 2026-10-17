@@ -110,7 +110,7 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
   )
 }
 
-export default function Toolbar({ mode, setMode, ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects }: { mode: ViewMode; setMode: (m: ViewMode) => void; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void }) {
+export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder', 'grafcet', 'monitor'], ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects }: { mode: ViewMode; setMode: (m: ViewMode) => void; views?: ViewMode[]; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void }) {
   const [clean, setClean] = useCleanMode()
   const {
     sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
@@ -120,25 +120,28 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
     dirty, wireDefaults, setWireDefaults, gridDragEnabled, setGridDragEnabled,
   } = useSimStore()
   const fileRef = useRef<HTMLInputElement>(null)
+  const visibleViews = VIEWS.filter((view) => views.includes(view.id))
 
   // atalhos F1/F2/F4/F5 (ou Ctrl+1…4) para as vistas
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
       if (e.ctrlKey && !e.altKey && !e.shiftKey && /^[1-4]$/.test(e.key)) {
+        const target = visibleViews[Number(e.key) - 1]
+        if (!target) return
         e.preventDefault()
-        setMode(VIEWS[Number(e.key) - 1].id)
+        setMode(target.id)
         return
       }
-      const idx = ['F1', 'F2', 'F5', 'F4'].indexOf(e.key)
-      if (idx >= 0) {
+      const target = VIEWS.find((view) => view.key === e.key && views.includes(view.id))
+      if (target) {
         e.preventDefault()
-        setMode(VIEWS[idx].id)
+        setMode(target.id)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setMode])
+  }, [setMode, views])
 
   const createNewProject = onBack
 
@@ -210,7 +213,7 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
         {/* vistas — centralizadas */}
         <div className="flex-1 flex justify-center min-w-0 dc-views-container">
           <div className="flex items-center rounded-lg p-1 gap-1 bg-surface-sunken border border-line shadow-inner" role="tablist" aria-label="Vistas">
-            {VIEWS.map(({ id, label, icon: Icon, key }) => (
+            {visibleViews.map(({ id, label, icon: Icon, key }) => (
               <button
                 key={id}
                 role="tab"
@@ -219,7 +222,7 @@ export default function Toolbar({ mode, setMode, ladderSection, setLadderSection
                 className={`inline-flex items-center gap-1.5 h-[30px] px-4 rounded-[6px] text-xs font-semibold transition-all ${
                   mode === id ? 'bg-brand-600 text-white shadow-md' : 'text-ink-500 hover:text-ink-900 hover:bg-white'
                 }`}
-                title={`${label} [${key} · Ctrl+${VIEWS.findIndex((v) => v.id === id) + 1}]`}
+                title={`${label} [${key} · Ctrl+${visibleViews.findIndex((v) => v.id === id) + 1}]`}
               >
                 <Icon size={14} />
                 <span className="hidden md:inline">{label}</span>

@@ -23,6 +23,8 @@ export type ProjectPreviewData = {
   stats?: { components: number; wires: number; rungs: number }
   /** miniatura real do painel 3D (JPEG data URL) capturada pelo editor ao guardar */
   cover?: string
+  /** tipo de projeto: all | ladder | grafcet */
+  kind?: 'all' | 'ladder' | 'grafcet'
 }
 
 /** Valida a miniatura guardada no conteúdo do projeto. */
@@ -99,5 +101,5 @@ export function buildProjectPreview(content: unknown): ProjectPreviewData {
   }
 
   const ladder = isObj(data.ladder) && Array.isArray(data.ladder.rungs) ? data.ladder.rungs.length : 0
-  return { components, wires, cover: previewCoverOf(data), stats: { components: rawList.length, wires: rawWires.length, rungs: ladder } }
+  return { components, wires, cover: previewCoverOf(data), kind: data.projectKind === 'ladder' || data.projectKind === 'grafcet' ? data.projectKind : 'all', stats: { components: rawList.length, wires: rawWires.length, rungs: ladder } }
 }

@@ -234,3 +234,19 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 @media (max-width: 1199px) {
   .dc-workspace .mobile-library-panel, .dc-workspace .mobile-grafcet-panel:not(.mobile-grafcet-closed) { box-shadow:0 0 0 100vmax #0f172a33, 0 16px 40px #0f172a40; }
 }
+
+/* v2: tipos de ação, temporizações, chips de condição e simulador */
+.grafcet-action-row .grafcet-action-kind { min-width: 0; max-width: 100%; font-size: 11px; }
+.grafcet-time { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+.grafcet-time input { width: 64px; }
+.grafcet-token-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.grafcet-token-chips button { padding: 3px 8px; border: 1px solid var(--line, #d6dae1); border-radius: 999px; background: var(--surface-panel, #fff); font: 600 11px ui-monospace, monospace; cursor: pointer; }
+.grafcet-token-chips button:hover { border-color: #2563eb; color: #2563eb; }
+.grafcet-step-tools { display: flex; align-items: center; gap: 10px; margin: 6px 0; flex-wrap: wrap; }
+.grafcet-step-timer { font-size: 11px; color: #15803d; font-weight: 600; }
+.grafcet-issue.is-error b { color: #dc2626; }
+.grafcet-issue.is-warning b { color: #d97706; }
+.grafcet-io { display: grid; gap: 8px; overflow: auto; }
+.grafcet-active-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.grafcet-active-list button { display: inline-flex; gap: 6px; align-items: center; padding: 4px 8px; border: 1px solid #16a34a; background: #dcfce7; border-radius: 6px; font-size: 11px; cursor: pointer; }
+.grafcet-active-list em { font-style: normal; color: #15803d; font-variant-numeric: tabular-nums; }

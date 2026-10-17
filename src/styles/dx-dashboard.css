@@ -779,3 +779,11 @@
   .dx-hero-body h2 { font-size: 22px; }
 }
 .dx-projects.is-list .dx-cover-empty small, .dx-projects.is-list .dx-cover-ghost { display: none; }
+
+/* Seletor do tipo de projeto (Tudo / Ladder / GRAFCET) */
+.dx-kind { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--dx-line, #d6dae1); border-radius: 10px; cursor: pointer; transition: border-color .15s, background .15s; }
+.dx-kind:hover { border-color: var(--dx-brand, #2563eb); }
+.dx-kind.is-on { border-color: var(--dx-brand, #2563eb); background: color-mix(in srgb, var(--dx-brand, #2563eb) 8%, transparent); }
+.dx-kind input { margin-top: 3px; accent-color: var(--dx-brand, #2563eb); }
+.dx-kind span { display: grid; gap: 2px; }
+.dx-kind small { color: var(--dx-ink-4, #6b7280); font-size: 12px; line-height: 1.35; }

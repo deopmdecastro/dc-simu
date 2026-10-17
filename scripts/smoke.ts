@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition } from '../src/grafcet/engine'
+import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
  * Não depende do React: exercita o motor de continuidade, o motor Ladder, o
@@ -1885,6 +1885,47 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('Editor 3D: desfazer a criação de uma peça limpa a seleção', store.getState().selection === null && !store.getState().def.parts.some((part) => part.id === 'novo'))
   store.getState().redo()
   check('Editor 3D: refazer repõe a peça sem seleção fantasma', store.getState().def.parts.some((part) => part.id === 'novo') && store.getState().selection === null)
+}
+
+/* GRAFCET v2: temporizações T(), X<n>, flancos, ações S/R/D/L, forçagem e validação. */
+{
+  const mk = (id: string, initial: boolean, actions: any[] = []) => ({ id, name: id, initial, action: '', condition: '1', actions })
+  const program = {
+    steps: [mk('a', true), mk('b', false, [{ id: 'n', address: 'Q1', condition: '1' }, { id: 's', address: 'M1', condition: '1', kind: 'S' }, { id: 'd', address: 'Q2', condition: '1', kind: 'D', timeMs: 300 }]), mk('c', false, [{ id: 'r', address: 'M1', condition: '1', kind: 'R' }, { id: 'l', address: 'Q3', condition: '1', kind: 'L', timeMs: 200 }])],
+    transitions: [
+      { id: 't1', from: ['a'], to: ['b'], condition: '^I1' },
+      { id: 't2', from: ['b'], to: ['c'], condition: 'T(0.5s) & X1' },
+      { id: 't3', from: ['c'], to: ['a'], condition: 'T(400ms)' },
+    ],
+  }
+  const table: AddressTable = { I1: true }
+  let rt = scanGrafcet(program, emptyGrafcetRuntime(), table, 100)
+  check('GRAFCET v2: flanco ascendente só dispara uma vez (arranque sem flanco prévio)', rt.active.includes('b') || rt.active.includes('a'))
+  rt = emptyGrafcetRuntime(); table.I1 = false
+  rt = scanGrafcet(program, rt, table, 100)
+  table.I1 = true
+  rt = scanGrafcet(program, rt, table, 100)
+  check('GRAFCET v2: ^I1 dispara no flanco', rt.active.length === 1 && rt.active[0] === 'b' && table.Q1 === true)
+  check('GRAFCET v2: ação S memoriza saída', table.M1 === true)
+  check('GRAFCET v2: ação D ainda não ligou', table.Q2 === false)
+  for (let i = 0; i < 3; i++) rt = scanGrafcet(program, rt, table, 100)
+  check('GRAFCET v2: ação D liga após 300 ms', table.Q2 === true && rt.active[0] === 'b')
+  for (let i = 0; i < 3; i++) rt = scanGrafcet(program, rt, table, 100)
+  check('GRAFCET v2: T(0.5s) avança para c', rt.active[0] === 'c')
+  check('GRAFCET v2: ação R repõe M1 e L liga Q3', table.M1 === false && table.Q3 === true && table.Q1 === false)
+  for (let i = 0; i < 3; i++) rt = scanGrafcet(program, rt, table, 100)
+  check('GRAFCET v2: ação L desliga após 200 ms', table.Q3 === false)
+  for (let i = 0; i < 3; i++) rt = scanGrafcet(program, rt, table, 100)
+  check('GRAFCET v2: T(400ms) regressa ao início', rt.active[0] === 'a')
+  check('condições: sintaxe de tempo e flancos', validCondition('T(2s) & !I1') && validCondition('^I1 | \\I2') && !validCondition('T(s)') && !validCondition('^ & I1'))
+  const forced = forceSteps(program, rt, ['c'])
+  check('GRAFCET v2: forçagem define as etapas ativas', forced.active.length === 1 && forced.active[0] === 'c')
+  const fired = fireTransition(program, forced, 't3')
+  check('GRAFCET v2: disparo manual de transição', !!fired && fired.active[0] === 'a' && fireTransition(program, forced, 't1') === null)
+  check('GRAFCET v2: validação aceita o programa', validateGrafcet(program).filter((i) => i.level === 'error').length === 0)
+  const broken = { steps: [mk('x', false), mk('y', false)], transitions: [{ id: 'bad', from: ['x'], to: ['y'], condition: 'X9' }] }
+  const found = validateGrafcet(broken).map((i) => i.id)
+  check('GRAFCET v2: validação deteta falta de inicial, órfãs e X inexistente', found.includes('initial') && found.includes('x:orphan') && found.includes('bad:x'))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

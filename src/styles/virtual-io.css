@@ -1,0 +1,21 @@
+.vio-panel { display: grid; gap: 8px; padding: 10px 12px; font-size: 12px; }
+.vio-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.vio-head strong { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-500, #64748b); }
+.vio-actions { display: inline-flex; align-items: center; gap: 4px; }
+.vio-actions button { min-width: 24px; height: 22px; padding: 0 7px; border: 1px solid var(--line, #d6dae1); background: var(--surface-panel, #fff); border-radius: 5px; cursor: pointer; font-size: 11px; }
+.vio-actions button:hover:not(:disabled) { border-color: #2563eb; color: #2563eb; }
+.vio-actions button:disabled { opacity: .4; cursor: default; }
+.vio-note { margin: 0; color: #92400e; background: #fef3c7; border-radius: 6px; padding: 6px 8px; font-size: 11px; }
+.vio-inputs { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.vio-switch { display: grid; grid-template-columns: 14px 1fr; align-items: center; gap: 2px 6px; padding: 6px 8px; text-align: left; border: 1px solid var(--line, #d6dae1); border-radius: 8px; background: var(--surface-panel, #fff); cursor: pointer; font: inherit; transition: background .12s, border-color .12s; }
+.vio-switch i { width: 12px; height: 12px; border-radius: 50%; background: #cbd5e1; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.vio-switch b { font-family: ui-monospace, monospace; font-size: 12px; }
+.vio-switch small { grid-column: 1 / -1; color: var(--ink-500, #64748b); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vio-switch.is-on { border-color: #16a34a; background: #dcfce7; }
+.vio-switch.is-on i { background: #16a34a; box-shadow: 0 0 6px #22c55e; }
+.vio-outputs { display: flex; flex-wrap: wrap; gap: 6px; }
+.vio-lamp { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px solid var(--line, #d6dae1); border-radius: 999px; font-family: ui-monospace, monospace; font-size: 11px; background: var(--surface-panel, #fff); }
+.vio-lamp i { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
+.vio-lamp.is-on { border-color: #16a34a; background: #dcfce7; color: #166534; font-weight: 700; }
+.vio-lamp.is-on i { background: #16a34a; box-shadow: 0 0 6px #22c55e; }
+.vio-panel.is-compact .vio-inputs { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }

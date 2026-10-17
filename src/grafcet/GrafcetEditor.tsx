@@ -2,8 +2,9 @@ import { uiConfirm } from '../ui/dialogs'
 import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
 import { isSmallScreen } from '../ui/cleanMode'
 import { useSimStore } from '../store/useSimStore'
-import { evalCondition, transitionsOf, validCondition } from './engine'
-import type { GrafcetAction, GrafcetStep, GrafcetTransition, GrafcetProgram } from './engine'
+import { ACTION_KINDS, actionsOfStep, evalCondition, transitionsOf, validateGrafcet, validCondition } from './engine'
+import type { GrafcetAction, GrafcetActionKind, GrafcetIssue, GrafcetStep, GrafcetTransition, GrafcetProgram } from './engine'
+import VirtualIoPanel from '../components/VirtualIoPanel'
 import { IconChevronRight, IconCopy, IconDelete, IconHelp, IconRedo, IconSearch, IconUndo } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import { useEditorShortcuts } from '../ui/shortcuts'
@@ -11,9 +12,9 @@ import { useEditorShortcuts } from '../ui/shortcuts'
 const id = () => crypto.randomUUID()
 
 type PaletteItem = 'initial' | 'step' | 'transition' | 'action' | 'conditional' | 'fork' | 'join'
-type EditorTab = 'steps' | 'transitions' | 'diagnostics'
+type EditorTab = 'steps' | 'transitions' | 'diagnostics' | 'io'
 type HistoryMode = 'auto' | 'force' | 'skip'
-type ValidationIssue = { id: string; message: string; entityId?: string; tab: EditorTab }
+type ValidationIssue = GrafcetIssue
 
 const GRAFCET_MIME = 'application/x-dcsimu-grafcet'
 const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: string; name: string; detail: string }> }> = [
@@ -33,10 +34,8 @@ const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: st
 ]
 
 const norm = (value: string) => value.toLocaleLowerCase('pt-PT').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-const actionsOf = (step: GrafcetStep): GrafcetAction[] => [
-  ...(step.action ? [{ id: `legacy-${step.id}`, address: step.action, condition: '1' }] : []),
-  ...(step.actions ?? []),
-]
+const actionsOf = (step: GrafcetStep): GrafcetAction[] => actionsOfStep(step)
+const fmtSeconds = (ms: number) => `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)} s`
 
 /** Editor GRAFCET com transições explícitas, divergência/convergência AND,
  * histórico agrupado e monitorização do estado de execução. */
@@ -90,6 +89,22 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     save({ steps: steps.map((step) => step.id === stepId ? { ...step, ...patch } : step) }, mode, historyKey)
   const updateTransition = (transitionId: string, patch: Partial<GrafcetTransition>, mode: HistoryMode = 'auto', historyKey = `grafcet:transition:${transitionId}:${Object.keys(patch).sort().join(',')}`) =>
     save({ transitions: transitions.map((transition) => transition.id === transitionId ? { ...transition, ...patch } : transition) }, mode, historyKey)
+
+  /** Atualiza uma ação (converte a ação legada para a lista nova quando necessário). */
+  const patchAction = (step: GrafcetStep, action: GrafcetAction, patch: Partial<GrafcetAction>, mode: HistoryMode = 'auto') => {
+    const key = `grafcet:action:${action.id}:${Object.keys(patch).sort().join(',')}`
+    if (action.id.startsWith('legacy-')) {
+      const migrated: GrafcetAction = { id: id(), address: action.address, condition: action.condition, kind: action.kind, timeMs: action.timeMs, ...patch }
+      updateStep(step.id, { action: '', actions: [migrated, ...(step.actions ?? [])] }, 'force')
+    } else updateStep(step.id, { actions: (step.actions ?? []).map((value) => value.id === action.id ? { ...value, ...patch } : value) }, mode, key)
+  }
+  const setActionKind = (step: GrafcetStep, action: GrafcetAction, kind: GrafcetActionKind) =>
+    patchAction(step, action, { kind, timeMs: kind === 'D' || kind === 'L' ? (action.timeMs || 2000) : undefined }, 'force')
+  const appendToCondition = (transition: GrafcetTransition, token: string) => {
+    const base = transition.condition.trim()
+    const joined = !base || base === '1' ? token : /[&|(!]$/.test(base) ? `${base} ${token}` : `${base} & ${token}`
+    updateTransition(transition.id, { condition: joined.toUpperCase() }, 'force')
+  }
 
   const addStep = () => {
     const newStep: GrafcetStep = { id: id(), name: `Etapa ${steps.length}`, initial: steps.length === 0, action: '', condition: 'I1', actions: [] }
@@ -253,22 +268,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       : (kind === 'action' || kind === 'conditional' || kind === 'fork') ? steps.length === 0 : false
   const choose = (ids: string[], stepId: string) => ids.includes(stepId) ? ids.filter((value) => value !== stepId) : [...ids, stepId]
 
-  const issues: ValidationIssue[] = []
-  const stepIds = new Set(steps.map((step) => step.id))
-  if (steps.length && !steps.some((step) => step.initial)) issues.push({ id: 'initial', message: 'Defina pelo menos uma etapa inicial.', tab: 'steps' })
-  transitions.forEach((transition, index) => {
-    if (!transition.from.length || !transition.to.length) issues.push({ id: `${transition.id}:links`, message: `T${index + 1} precisa de origem e destino.`, entityId: transition.id, tab: 'transitions' })
-    else if ([...transition.from, ...transition.to].some((stepId) => !stepIds.has(stepId))) issues.push({ id: `${transition.id}:missing`, message: `T${index + 1} referencia uma etapa inexistente.`, entityId: transition.id, tab: 'transitions' })
-    if (!validCondition(transition.condition)) issues.push({ id: `${transition.id}:condition`, message: `Condição inválida em T${index + 1}: «${transition.condition || 'vazia'}».`, entityId: transition.id, tab: 'transitions' })
-  })
-  const incoming = new Set(transitions.flatMap((transition) => transition.to))
-  steps.forEach((step, stepIndex) => {
-    if (!step.initial && !incoming.has(step.id)) issues.push({ id: `${step.id}:orphan`, message: `A etapa ${stepIndex} «${step.name}» não tem transição de entrada.`, entityId: step.id, tab: 'steps' })
-    actionsOf(step).forEach((action, actionIndex) => {
-      if (!/^[QM]\d{1,2}$/.test(action.address)) issues.push({ id: `${step.id}:action:${actionIndex}`, message: `Ação ${actionIndex + 1} da etapa ${stepIndex}: use um endereço Q ou M.`, entityId: step.id, tab: 'steps' })
-      if (!validCondition(action.condition)) issues.push({ id: `${step.id}:action-condition:${actionIndex}`, message: `Condição inválida na ação ${actionIndex + 1} da etapa ${stepIndex}.`, entityId: step.id, tab: 'steps' })
-    })
-  })
+  const issues: ValidationIssue[] = validateGrafcet({ ...program, transitions })
+  const errorCount = issues.filter((issue) => issue.level === 'error').length
 
   const selectIssue = (issue: ValidationIssue) => {
     setTab(issue.tab)
@@ -377,6 +378,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   }, { enabled: full && !helpOpen })
 
   const actionAddresses = tags.filter((tag) => /^[QM]\d{1,2}$/.test(tag.address))
+  const liveBitsAll = [...new Set(steps.flatMap((step) => actionsOf(step).map((action) => action.address.trim().toUpperCase())))]
   const liveBits = Object.entries(table).filter(([key, value]) => /^[QM]/.test(key) && value).map(([key]) => key)
 
   return <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
@@ -386,12 +388,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         <small>{steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas</small>
       </div>
       {full ? <button className={`grafcet-validation ${issues.length ? 'has-issues' : 'is-valid'}`} title={issues.length ? 'Abrir diagnóstico do programa' : 'Estrutura GRAFCET válida'} onClick={() => setTab('diagnostics')}>
-        {issues.length ? `⚠ ${issues.length} aviso${issues.length === 1 ? '' : 's'}` : '✓ Validado'}
+        {errorCount ? `✖ ${errorCount} erro${errorCount === 1 ? '' : 's'}` : issues.length ? `⚠ ${issues.length} aviso${issues.length === 1 ? '' : 's'}` : '✓ Validado'}
       </button> : <span className={`grafcet-validation ${issues.length ? 'has-issues' : 'is-valid'}`}>{issues.length ? `⚠ ${issues.length}` : '✓ Validado'}</span>}
       {full ? <div className="grafcet-header-actions">
         <button className="grafcet-icon-button" onClick={doUndo} disabled={!history.length} title="Desfazer (Ctrl+Z)" aria-label="Desfazer"><IconUndo size={14} /></button>
         <button className="grafcet-icon-button" onClick={doRedo} disabled={!future.length} title="Refazer (Ctrl+Y)" aria-label="Refazer"><IconRedo size={14} /></button>
         <button className="grafcet-icon-button" onClick={() => setHelpOpen(true)} title="Atalhos (?)" aria-label="Atalhos do GRAFCET"><IconHelp size={14} /></button>
+        <button className="grafcet-icon-button" onClick={() => { useSimStore.getState().restartGrafcet(); notify('Sequência reiniciada nas etapas iniciais') }} title="Reiniciar a sequência nas etapas iniciais" aria-label="Reiniciar sequência">⟲</button>
         <span className="grafcet-header-separator" />
         <button className="dc-btn" onClick={addStep}>+ Etapa solta</button>
         <button className="dc-btn-primary dc-btn" onClick={addConnectedStep}>+ Etapa ligada</button>
@@ -469,10 +472,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 {step.initial && <rect x="124" y={stepY(step.id) + 5} width="54" height="44" fill="none" stroke={active ? '#16a34a' : '#263d59'} strokeWidth="1.5" />}
                 <text x="151" y={stepY(step.id) + 34} textAnchor="middle" fill="#1e293b" fontWeight="700" fontSize="17">{index}</text>
                 <text x="196" y={stepY(step.id) + 17} fill="#334155" fontSize="12" fontWeight="600">{step.name.slice(0, 30)}</text>
+                {active && <text x="196" y={stepY(step.id) + 33} fill="#15803d" fontSize="10.5" fontWeight="600">⏱ {fmtSeconds(runtime.elapsed?.[step.id] ?? 0)}</text>}
                 {actionsOf(step).map((action, actionIndex) => {
                   const actionY = stepY(step.id) + actionIndex * 34
                   const actionOn = !!table[action.address]
-                  return <g key={action.id}><path d={`M 183 ${stepY(step.id) + 27} H 310 V ${actionY + 14} H 335`} fill="none" stroke={actionOn ? '#16a34a' : '#263d59'} strokeWidth={actionOn ? 2.5 : 1.5} /><rect x="335" y={actionY} width="176" height="28" rx="3" fill={actionOn ? '#dcfce7' : 'white'} stroke={actionOn ? '#16a34a' : '#263d59'} strokeWidth={actionOn ? 2 : 1.5} /><text x="345" y={actionY + 18} fill={actionOn ? '#15803d' : '#1e293b'} fontSize="11" fontWeight={actionOn ? 700 : 500}>{action.address || 'ação sem endereço'}{action.condition !== '1' ? `  [${action.condition}]` : ''}</text></g>
+                  return <g key={action.id}><path d={`M 183 ${stepY(step.id) + 27} H 310 V ${actionY + 14} H 335`} fill="none" stroke={actionOn ? '#16a34a' : '#263d59'} strokeWidth={actionOn ? 2.5 : 1.5} /><rect x="335" y={actionY} width="176" height="28" rx="3" fill={actionOn ? '#dcfce7' : 'white'} stroke={actionOn ? '#16a34a' : '#263d59'} strokeWidth={actionOn ? 2 : 1.5} /><text x="345" y={actionY + 18} fill={actionOn ? '#15803d' : '#1e293b'} fontSize="11" fontWeight={actionOn ? 700 : 500}>{(action.kind ?? 'N') !== 'N' ? `${action.kind}${action.timeMs ? ` ${action.timeMs / 1000}s` : ''} · ` : ''}{action.address || 'ação sem endereço'}{action.condition !== '1' ? `  [${action.condition}]` : ''}</text></g>
                 })}
               </g>
             })}
@@ -485,9 +489,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         <div className="grafcet-tabs" role="tablist" aria-label="Painel GRAFCET">
           <button role="tab" aria-selected={tab === 'steps'} className={tab === 'steps' ? 'is-active' : ''} onClick={() => setTab('steps')}>Etapas <em>{steps.length}</em></button>
           <button role="tab" aria-selected={tab === 'transitions'} className={tab === 'transitions' ? 'is-active' : ''} onClick={() => setTab('transitions')}>Transições <em>{transitions.length}</em></button>
+          <button role="tab" aria-selected={tab === 'io'} className={tab === 'io' ? 'is-active' : ''} onClick={() => setTab('io')}>Simulador</button>
           <button role="tab" aria-selected={tab === 'diagnostics'} className={tab === 'diagnostics' ? `is-active ${issues.length ? 'has-warning' : ''}` : ''} onClick={() => setTab('diagnostics')}>Diagnóstico <em>{issues.length}</em></button>
         </div>
-        {tab !== 'diagnostics' && <div className="grafcet-entity-search"><IconSearch size={13} /><input className="dc-input" value={entityFilter} onChange={(event) => setEntityFilter(event.target.value)} placeholder={tab === 'steps' ? 'Filtrar etapas ou ações…' : 'Filtrar transições…'} aria-label="Filtrar entidades GRAFCET" />{entityFilter && <button onClick={() => setEntityFilter('')} aria-label="Limpar filtro">×</button>}</div>}
+        {(tab === 'steps' || tab === 'transitions') && <div className="grafcet-entity-search"><IconSearch size={13} /><input className="dc-input" value={entityFilter} onChange={(event) => setEntityFilter(event.target.value)} placeholder={tab === 'steps' ? 'Filtrar etapas ou ações…' : 'Filtrar transições…'} aria-label="Filtrar entidades GRAFCET" />{entityFilter && <button onClick={() => setEntityFilter('')} aria-label="Limpar filtro">×</button>}</div>}
 
         {tab === 'steps' && <>
           <div className="grafcet-entity-list">{filteredSteps.map((step) => {
@@ -499,19 +504,28 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             <h3>Etapa {steps.indexOf(selectedStep)} {selectedStep.initial ? '· inicial' : ''}</h3>
             <label>Nome<input className="dc-input" value={selectedStep.name} onChange={(event) => updateStep(selectedStep.id, { name: event.target.value }, 'auto', `grafcet:step:${selectedStep.id}:name`)} /></label>
             <label className="grafcet-inline"><input type="checkbox" checked={selectedStep.initial} onChange={(event) => updateStep(selectedStep.id, { initial: event.target.checked }, 'force')} /> Etapa inicial</label>
-            <div className="grafcet-form-heading"><h3>Ações contínuas</h3><button onClick={() => addAction(false)}>+ ação</button></div>
+            <label>Comentário<input className="dc-input" value={selectedStep.comment ?? ''} placeholder="Descrição da etapa (opcional)" onChange={(event) => updateStep(selectedStep.id, { comment: event.target.value }, 'auto', `grafcet:step:${selectedStep.id}:comment`)} /></label>
+            <div className="grafcet-step-tools">
+              <button className="dc-btn" onClick={() => { useSimStore.getState().forceGrafcetSteps([selectedStep.id]); notify(`Etapa ${steps.indexOf(selectedStep)} forçada`) }} title="Torna esta a única etapa ativa (forçagem)">⚑ Forçar esta etapa</button>
+              {runtime.active.includes(selectedStep.id) && <span className="grafcet-step-timer">ativa há {fmtSeconds(runtime.elapsed?.[selectedStep.id] ?? 0)}</span>}
+            </div>
+            <div className="grafcet-form-heading"><h3>Ações</h3><button onClick={() => addAction(false)}>+ ação</button></div>
             <datalist id="grafcet-action-addresses">{actionAddresses.map((tag) => <option key={tag.id} value={tag.address}>{tag.name}</option>)}</datalist>
-            {actionsOf(selectedStep).map((action, actionIndex) => <div className={`grafcet-action-row ${table[action.address] ? 'is-on' : ''}`} key={action.id}>
-              <input className="dc-input" list="grafcet-action-addresses" aria-label={`Endereço da ação ${actionIndex + 1}`} placeholder="Q1" value={action.address} onChange={(event) => action.id.startsWith('legacy-') ? updateStep(selectedStep.id, { action: event.target.value.toUpperCase() }, 'auto', `grafcet:step:${selectedStep.id}:legacy-action`) : updateStep(selectedStep.id, { actions: (selectedStep.actions ?? []).map((value) => value.id === action.id ? { ...value, address: event.target.value.toUpperCase() } : value) }, 'auto', `grafcet:action:${action.id}:address`)} />
-              <input className="dc-input" aria-label={`Condição da ação ${actionIndex + 1}`} placeholder="1" value={action.condition} onChange={(event) => {
-                const condition = event.target.value.toUpperCase()
-                if (action.id.startsWith('legacy-')) updateStep(selectedStep.id, { action: '', actions: [...(selectedStep.actions ?? []), { id: id(), address: action.address, condition }] }, 'auto', `grafcet:step:${selectedStep.id}:legacy-condition`)
-                else updateStep(selectedStep.id, { actions: (selectedStep.actions ?? []).map((value) => value.id === action.id ? { ...value, condition } : value) }, 'auto', `grafcet:action:${action.id}:condition`)
-              }} />
-              <button title="Remover ação" aria-label={`Remover ação ${actionIndex + 1}`} onClick={() => updateStep(selectedStep.id, action.id.startsWith('legacy-') ? { action: '' } : { actions: (selectedStep.actions ?? []).filter((value) => value.id !== action.id) }, 'force')}>×</button>
-              {!/^[QM]\d{1,2}$/.test(action.address) && <small className="grafcet-error">Use Q1 ou M1</small>}
-              {!validCondition(action.condition) && <small className="grafcet-error">Condição inválida</small>}
-            </div>)}
+            {actionsOf(selectedStep).map((action, actionIndex) => {
+              const kind = action.kind ?? 'N'
+              const timed = ACTION_KINDS.find((k) => k.id === kind)?.timed
+              return <div className={`grafcet-action-row ${table[action.address] ? 'is-on' : ''}`} key={action.id}>
+                <select className="dc-input grafcet-action-kind" aria-label={`Tipo da ação ${actionIndex + 1}`} title={ACTION_KINDS.find((k) => k.id === kind)?.hint} value={kind} onChange={(event) => setActionKind(selectedStep, action, event.target.value as GrafcetActionKind)}>
+                  {ACTION_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+                </select>
+                <input className="dc-input" list="grafcet-action-addresses" aria-label={`Endereço da ação ${actionIndex + 1}`} placeholder="Q1" value={action.address} onChange={(event) => patchAction(selectedStep, action, { address: event.target.value.toUpperCase() })} />
+                <input className="dc-input" aria-label={`Condição da ação ${actionIndex + 1}`} placeholder="1" value={action.condition} onChange={(event) => patchAction(selectedStep, action, { condition: event.target.value.toUpperCase() })} />
+                {timed && <label className="grafcet-time"><input className="dc-input" type="number" min={0.1} step={0.1} aria-label={`Tempo da ação ${actionIndex + 1} em segundos`} value={((action.timeMs ?? 0) / 1000)} onChange={(event) => patchAction(selectedStep, action, { timeMs: Math.max(0, Math.round(Number(event.target.value) * 1000)) })} /> s</label>}
+                <button title="Remover ação" aria-label={`Remover ação ${actionIndex + 1}`} onClick={() => updateStep(selectedStep.id, action.id.startsWith('legacy-') ? { action: '' } : { actions: (selectedStep.actions ?? []).filter((value) => value.id !== action.id) }, 'force')}>×</button>
+                {!/^[QM]\d{1,2}$/.test(action.address) && <small className="grafcet-error">Use Q1 ou M1</small>}
+                {!validCondition(action.condition || '1') && <small className="grafcet-error">Condição inválida</small>}
+              </div>
+            })}
             {!actionsOf(selectedStep).length && <p className="grafcet-form-empty">Esta etapa não tem ações.</p>}
             <button className="dc-btn" onClick={() => addAction(false)}>+ Adicionar ação</button>
             <button className="dc-btn grafcet-danger" onClick={requestDelete}>Eliminar etapa</button>
@@ -529,18 +543,35 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           {selectedTransition && <div className="grafcet-form">
             <h3>Transição T{transitions.indexOf(selectedTransition) + 1}</h3>
             <label>Condição<input className="dc-input" value={selectedTransition.condition} placeholder="I1 & !I2 | M1" onChange={(event) => updateTransition(selectedTransition.id, { condition: event.target.value.toUpperCase() }, 'auto', `grafcet:transition:${selectedTransition.id}:condition`)} /></label>
+            <div className="grafcet-token-chips" role="group" aria-label="Inserir na condição">
+              <button type="button" title="Tempo desde que a etapa de origem ficou ativa" onClick={() => appendToCondition(selectedTransition, 'T(2S)')}>⏱ T(2s)</button>
+              <button type="button" title="Flanco ascendente da entrada" onClick={() => appendToCondition(selectedTransition, '^I1')}>↑ ^I1</button>
+              <button type="button" title="Flanco descendente da entrada" onClick={() => appendToCondition(selectedTransition, '\\I1')}>↓ \I1</button>
+              <button type="button" title="Etapa N está ativa" onClick={() => appendToCondition(selectedTransition, 'X1')}>X1</button>
+              <button type="button" title="Receptividade sempre verdadeira" onClick={() => updateTransition(selectedTransition.id, { condition: '1' }, 'force')}>1</button>
+            </div>
             <div className="grafcet-condition-state"><span className={validCondition(selectedTransition.condition) && evalCondition(selectedTransition.condition, table) ? 'is-on' : ''}><i /> Resultado atual: {validCondition(selectedTransition.condition) && evalCondition(selectedTransition.condition, table) ? 'VERDADEIRO' : 'FALSO'}</span></div>
-            {!validCondition(selectedTransition.condition) && <small className="grafcet-error">Expressão inválida: use I/Q/M, !, &amp;, | e parênteses.</small>}
+            {!validCondition(selectedTransition.condition) && <small className="grafcet-error">Expressão inválida: use I/Q/M, Xn, T(2s), ^I1, \\I1, !, &amp;, | e parênteses.</small>}
             {(['from', 'to'] as const).map((field) => <fieldset key={field}><legend>{field === 'from' ? 'Origens (todas ativas)' : 'Destinos (ativados juntos)'}</legend><div className="grafcet-step-checks">{steps.map((step, index) => <label className="grafcet-inline" key={step.id}><input type="checkbox" checked={selectedTransition[field].includes(step.id)} onChange={() => updateTransition(selectedTransition.id, { [field]: choose(selectedTransition[field], step.id) }, 'force')} /> {index} · {step.name}</label>)}</div></fieldset>)}
             {(!selectedTransition.from.length || !selectedTransition.to.length) && <small className="grafcet-error">Escolha pelo menos uma origem e um destino.</small>}
+            <button className="dc-btn" disabled={!selectedTransition.from.every((value) => runtime.active.includes(value)) || !selectedTransition.from.length} title="Dispara a transição ignorando a condição (só se as origens estiverem ativas)" onClick={() => notify(useSimStore.getState().fireGrafcetTransition(selectedTransition.id) ? 'Transição disparada' : 'As etapas de origem não estão ativas')}>▶ Disparar manualmente</button>
+            <label>Comentário<input className="dc-input" value={selectedTransition.comment ?? ''} placeholder="Descrição (opcional)" onChange={(event) => updateTransition(selectedTransition.id, { comment: event.target.value }, 'auto', `grafcet:transition:${selectedTransition.id}:comment`)} /></label>
             <button className="dc-btn grafcet-danger" onClick={requestDelete}>Eliminar transição</button>
           </div>}
         </>}
 
+        {tab === 'io' && <div className="grafcet-io">
+          <VirtualIoPanel compact extraBits={liveBitsAll} />
+          <div className="vio-panel is-compact">
+            <div className="vio-head"><strong>Etapas ativas</strong><small>{runtime.fired ?? 0} transição(ões) disparada(s)</small></div>
+            <div className="grafcet-active-list">{runtime.active.length ? runtime.active.map((value) => { const index = steps.findIndex((step) => step.id === value); return <button key={value} onClick={() => { setSelected(value); setTab('steps') }}><b>{index}</b> {steps[index]?.name} <em>{fmtSeconds(runtime.elapsed?.[value] ?? 0)}</em></button> }) : <small>Nenhuma etapa ativa. Prima Run (ou um passo) para começar.</small>}</div>
+          </div>
+        </div>}
+
         {tab === 'diagnostics' && <div className="grafcet-diagnostics">
-          <div className={`grafcet-diagnostic-summary ${issues.length ? 'has-issues' : 'is-valid'}`}><strong>{issues.length ? `${issues.length} problema${issues.length === 1 ? '' : 's'} encontrado${issues.length === 1 ? '' : 's'}` : 'Programa validado'}</strong><span>{issues.length ? 'Selecione um problema para abrir a entidade correspondente.' : 'Todas as etapas, ações e transições estão coerentes.'}</span></div>
-          {issues.map((issue) => <button key={issue.id} className="grafcet-issue" onClick={() => selectIssue(issue)}><b>!</b><span>{issue.message}</span><em>abrir</em></button>)}
-          {!issues.length && <div className="grafcet-validation-checks"><span>✓ Etapa inicial definida</span><span>✓ Ligações completas</span><span>✓ Condições válidas</span><span>✓ Ações endereçadas</span></div>}
+          <div className={`grafcet-diagnostic-summary ${issues.length ? 'has-issues' : 'is-valid'}`}><strong>{issues.length ? `${errorCount} erro${errorCount === 1 ? '' : 's'} · ${issues.length - errorCount} aviso${issues.length - errorCount === 1 ? '' : 's'}` : 'Programa validado'}</strong><span>{issues.length ? 'Selecione um problema para abrir a entidade correspondente.' : 'Todas as etapas, ações e transições estão coerentes.'}</span></div>
+          {issues.map((issue) => <button key={issue.id} className={`grafcet-issue is-${issue.level}`} onClick={() => selectIssue(issue)}><b>{issue.level === 'error' ? '✖' : '!'}</b><span>{issue.message}</span><em>abrir</em></button>)}
+          {!issues.length && <div className="grafcet-validation-checks"><span>✓ Etapa inicial definida</span><span>✓ Ligações completas</span><span>✓ Condições válidas</span><span>✓ Ações endereçadas</span><span>✓ Todas as etapas alcançáveis</span></div>}
         </div>}
 
         <div className="grafcet-live-status"><span className={running ? 'is-running' : ''}><i />{running ? 'Simulação ativa' : 'Parado'}</span><small>Saídas ativas: {liveBits.join(', ') || 'nenhuma'}</small></div>
