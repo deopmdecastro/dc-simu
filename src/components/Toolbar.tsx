@@ -125,6 +125,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const grafcet = useSimStore((state) => state.grafcet)
   const projectKind = useSimStore((state) => state.projectKind)
   const grafcetZoom = useGrafcetUi((state) => state.zoom)
+  const grafcetTool = useGrafcetUi((state) => state.tool)
   const grafcetIssues = useMemo(() => validateGrafcet(grafcet), [grafcet])
   const grafcetErrorCount = grafcetIssues.filter((i) => i.level === 'error').length
   const canGenerateLadder = allowedViews(projectKind).includes('ladder')
@@ -312,6 +313,30 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
         {mode === 'grafcet' && (
           <>
+            <span className="tb-sep" />
+            <div className="dc-seg" role="toolbar" aria-label="Ferramentas de seleção e navegação">
+              <button
+                type="button"
+                onClick={() => useGrafcetUi.getState().setTool('select')}
+                className={segBtn(grafcetTool === 'select')}
+                title="Ferramenta Selecionar: selecione e arraste etapas [V ou S]"
+              >
+                <IconCursor size={13} />
+                <span className="hidden lg:inline">Selecionar</span>
+                <kbd className={`hidden 2xl:inline text-[9px] font-mono px-1 rounded ${grafcetTool === 'select' ? 'bg-white/20' : 'bg-surface-sunken text-ink-400'}`}>V</kbd>
+              </button>
+              <button
+                type="button"
+                onClick={() => useGrafcetUi.getState().setTool('pan')}
+                className={segBtn(grafcetTool === 'pan')}
+                title="Ferramenta Arrastar: mova a tela arrastando o diagrama [H ou Barra de Espaço]"
+              >
+                <IconHand size={13} />
+                <span className="hidden lg:inline">Arrastar</span>
+                <kbd className={`hidden 2xl:inline text-[9px] font-mono px-1 rounded ${grafcetTool === 'pan' ? 'bg-white/20' : 'bg-surface-sunken text-ink-400'}`}>H</kbd>
+              </button>
+            </div>
+
             <span className="tb-sep" />
             <div className="dc-seg" role="toolbar" aria-label="Ferramentas GRAFCET">
               <button

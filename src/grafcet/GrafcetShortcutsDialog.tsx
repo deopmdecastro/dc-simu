@@ -4,23 +4,34 @@ import { Kbd } from '../ladder/ShortcutsDialog'
 
 const GROUPS = [
   {
+    title: 'Ferramentas e Navegação',
+    items: [
+      { keys: ['V'], label: 'Ferramenta Selecionar (ou tecla S)' },
+      { keys: ['H'], label: 'Ferramenta Arrastar tela (Mão)' },
+      { keys: ['Espaço'], label: 'Arrastar tela temporariamente (manter premido)' },
+      { keys: ['↓ / ↑'], label: 'Navegar sequencialmente entre etapas' },
+      { keys: ['Enter'], label: 'Abrir diálogo FluidSIM da entidade' },
+      { keys: ['Ctrl', '0'], label: 'Ajustar diagrama à janela (ou duplo clique no fundo)' },
+    ],
+  },
+  {
     title: 'Edição',
     items: [
       { keys: ['Ctrl', 'Z'], label: 'Desfazer' },
       { keys: ['Ctrl', 'Y'], label: 'Refazer (ou Ctrl+Shift+Z)' },
       { keys: ['Ctrl', 'D'], label: 'Duplicar a etapa ou transição selecionada' },
-      { keys: ['Del'], label: 'Eliminar a entidade selecionada' },
+      { keys: ['Del'], label: 'Eliminar a entidade selecionada (ou Backspace)' },
       { keys: ['Esc'], label: 'Limpar seleção ou fechar ajuda' },
     ],
   },
   {
     title: 'Construção',
     items: [
-      { keys: ['Insert'], label: 'Adicionar etapa ligada' },
-      { keys: ['Shift', 'Insert'], label: 'Adicionar etapa solta' },
-      { keys: ['A'], label: 'Adicionar ação contínua' },
+      { keys: ['1'], label: 'Adicionar etapa ligada (ou Insert)' },
+      { keys: ['2'], label: 'Adicionar etapa solta (ou Shift+Insert)' },
+      { keys: ['3'], label: 'Adicionar transição (ou T)' },
+      { keys: ['4'], label: 'Adicionar ação contínua (ou A)' },
       { keys: ['Shift', 'A'], label: 'Adicionar ação condicionada' },
-      { keys: ['T'], label: 'Adicionar transição' },
       { keys: ['F'], label: 'Criar divergência AND' },
       { keys: ['J'], label: 'Criar convergência AND' },
     ],
@@ -31,7 +42,7 @@ const GROUPS = [
       { keys: ['Ctrl', 'B'], label: 'Mostrar ou esconder componentes' },
       { keys: ['Ctrl', 'F'], label: 'Pesquisar componentes' },
       { keys: ['Ctrl', '+ / − / 0'], label: 'Aumentar, reduzir ou ajustar zoom' },
-      { keys: ['Home'], label: 'Ajustar o diagrama à área visível' },
+      { keys: ['Roda do rato'], label: 'Zoom centrado no cursor' },
       { keys: ['?'], label: 'Mostrar esta lista de atalhos (ou Ctrl+/)' },
     ],
   },
