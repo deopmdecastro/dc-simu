@@ -25,6 +25,7 @@ import VirtualIoPanel from '../components/VirtualIoPanel'
 import { grafcetToLadder } from './toLadder'
 import { collectUsedAddresses } from '../ladder/ladderEngine'
 import { allowedViews } from '../project/kind'
+import { triggerN8nWorkflow } from '../n8n/n8nClient'
 import {
   IconChevronRight,
   IconCopy,
@@ -279,6 +280,33 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       return
     state.appendRungs(result.rungs)
     notify(`${result.rungs.length} networks Ladder criadas`)
+  }
+
+  const sendToN8n = async () => {
+    if (!steps.length) return notify('Crie primeiro o GRAFCET antes de enviar para o n8n')
+    notify('A enviar dados para o workflow n8n...')
+    try {
+      const state = useSimStore.getState()
+      const ladderRes = grafcetToLadder({ ...program, transitions }, collectUsedAddresses(state.ladder))
+      const res = await triggerN8nWorkflow({
+        event: 'grafcet.export',
+        project: { name: state.currentProjectName || 'GRAFCET DC-SIMU' },
+        grafcet: {
+          stepsCount: steps.length,
+          transitionsCount: transitions.length,
+          steps,
+          transitions,
+          ladder: JSON.stringify(ladderRes.rungs),
+        },
+        meta: {
+          activeSteps: runtime.active,
+          errors: errorCount,
+        },
+      })
+      notify(res.message || '✓ Dados enviados para o workflow n8n (MipSJCjJ6fya9UGt)')
+    } catch (err) {
+      notify(`Erro ao comunicar com n8n: ${String(err)}`)
+    }
   }
 
   const addStep = () => {
@@ -1132,6 +1160,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           break
         case 'generateLadder':
           void generateLadder()
+          break
+        case 'sendToN8n':
+          void sendToN8n()
           break
         case 'exportSvg':
           exportSvg()

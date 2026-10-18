@@ -9,6 +9,8 @@ import ProjectCover from './ProjectCover'
 import type { ProjectPreviewData } from './projectPreview'
 import SupabaseModal from '../components/SupabaseModal'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
+import N8nModal from '../components/N8nModal'
+import { isN8nConfigured } from '../n8n/n8nClient'
 
 export type { ProjectPreviewData }
 export type User = { id: string; name: string; email: string; role: 'admin' | 'user' }
@@ -156,6 +158,7 @@ export default function Dashboard({
   const [opening, setOpening] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
   const [supabaseModalOpen, setSupabaseModalOpen] = useState(false)
+  const [n8nModalOpen, setN8nModalOpen] = useState(false)
   const [sort, setSort] = useState<SortKey>('recent')
   const [view, setViewState] = useState<ViewKey>(() => (typeof localStorage !== 'undefined' && localStorage.getItem('dc.dash.view') === 'list' ? 'list' : 'grid'))
   const setView = (v: ViewKey) => {
@@ -344,6 +347,16 @@ export default function Dashboard({
           >
             <span style={{ color: isSupabaseConfigured() ? '#16a34a' : '#94a3b8', fontSize: '10px' }}>●</span>
             {isSupabaseConfigured() ? 'Supabase Conectado' : 'Configurar Supabase'}
+          </button>
+          <button
+            type="button"
+            className="dx-btn dx-btn-secondary"
+            onClick={() => setN8nModalOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            title="Integração n8n Automation (Workflow: MipSJCjJ6fya9UGt)"
+          >
+            <span style={{ color: isN8nConfigured() ? '#ea580c' : '#94a3b8', fontSize: '10px' }}>●</span>
+            {isN8nConfigured() ? 'n8n Conectado' : 'Configurar n8n'}
           </button>
           <button className="dx-btn dx-btn-primary" onClick={() => openModal('create')}>
             <IconPlus size={14} /> Novo projeto
@@ -687,6 +700,10 @@ export default function Dashboard({
         onConfigChanged={() => {
           // recarrega a página ao alterar configuração
         }}
+      />
+      <N8nModal
+        isOpen={n8nModalOpen}
+        onClose={() => setN8nModalOpen(false)}
       />
     </div>
   )

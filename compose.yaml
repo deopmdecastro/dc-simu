@@ -9,6 +9,12 @@ services:
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      VITE_N8N_URL: ${VITE_N8N_URL:-http://localhost:5678}
+      VITE_N8N_API_KEY: ${VITE_N8N_API_KEY:-}
+      VITE_N8N_WORKFLOW_ID: ${VITE_N8N_WORKFLOW_ID:-MipSJCjJ6fya9UGt}
+      N8N_URL: ${N8N_URL:-http://localhost:5678}
+      N8N_API_KEY: ${N8N_API_KEY:-}
+      N8N_WORKFLOW_ID: ${N8N_WORKFLOW_ID:-MipSJCjJ6fya9UGt}
     volumes:
       - dcsimu_data:/data
     restart: unless-stopped

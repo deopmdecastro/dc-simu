@@ -3,6 +3,8 @@ import type { Invite, User } from '../dashboard/Dashboard'
 import { IconBell, IconChevronRight, IconCube, IconLogout, IconProjects, IconShield, IconUser } from '../ui/icons'
 import SupabaseModal from './SupabaseModal'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
+import N8nModal from './N8nModal'
+import { isN8nConfigured } from '../n8n/n8nClient'
 
 type AccountControlsProps = {
   user: User
@@ -38,6 +40,7 @@ export default function AccountControls({
 }: AccountControlsProps) {
   const [open, setOpen] = useState<'notifications' | 'profile' | null>(null)
   const [showSupabase, setShowSupabase] = useState(false)
+  const [showN8n, setShowN8n] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const total = invites.length + (dirty ? 1 : 0) + errors + warnings
 
@@ -140,6 +143,11 @@ export default function AccountControls({
             <span>Base de Dados (Supabase)</span>
             <IconChevronRight size={13} />
           </button>
+          <button type="button" onClick={() => { setOpen(null); setShowN8n(true) }}>
+            <span style={{ color: isN8nConfigured() ? '#ea580c' : '#64748b', fontSize: '14px', width: '15px', textAlign: 'center' }}>⚡</span>
+            <span>Automação (n8n Workflow)</span>
+            <IconChevronRight size={13} />
+          </button>
           <button type="button" className="is-logout" onClick={() => { setOpen(null); onLogout() }}><IconLogout size={15} /><span>Sair da conta</span></button>
         </nav>
         <footer><IconUser size={12} />{isSupabaseConfigured() ? 'Conectado ao Supabase' : 'Sessão local protegida'}</footer>
@@ -147,5 +155,6 @@ export default function AccountControls({
     </div>
 
     <SupabaseModal isOpen={showSupabase} onClose={() => setShowSupabase(false)} />
+    <N8nModal isOpen={showN8n} onClose={() => setShowN8n(false)} />
   </div>
 }

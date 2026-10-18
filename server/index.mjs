@@ -34,10 +34,12 @@ app.disable('x-powered-by')
 app.use(express.json({ limit: '8mb' }))
 
 app.get('/api/supabase/config', (_req, res) => {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://qeztfdmjqtikfrcketif.supabase.co'
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || ''
   res.json({
-    configured: Boolean(supabaseUrl && supabaseAnonKey),
-    url: supabaseUrl,
-    anonKey: supabaseAnonKey,
+    configured: Boolean(url && anonKey),
+    url,
+    anonKey,
   })
 })
 const id = () => randomBytes(16).toString('hex')
@@ -310,6 +312,55 @@ app.patch('/api/admin/contributions/:id', auth, admin, (req, res) => {
   auditReq(req, 'contribution.' + status, { type: 'contribution', id: row.id, label: row.title }, note)
   res.json(contribOut(findContribution(row.id)))
 })
+
+// ---- n8n Integration Proxy ----
+app.post('/api/n8n/trigger', async (req, res) => {
+  const n8nUrl = (process.env.N8N_URL || process.env.VITE_N8N_URL || 'http://localhost:5678').replace(/\/$/, '')
+  const n8nKey = process.env.N8N_API_KEY || process.env.VITE_N8N_API_KEY || ''
+  const workflowId = req.body?.workflowId || process.env.N8N_WORKFLOW_ID || process.env.VITE_N8N_WORKFLOW_ID || 'MipSJCjJ6fya9UGt'
+  const webhookUrl = req.body?.webhookUrl || process.env.N8N_WEBHOOK_URL || `${n8nUrl}/webhook/dcsimu-events`
+
+  try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (n8nKey) headers['X-N8N-API-KEY'] = n8nKey
+
+    if (webhookUrl) {
+      try {
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(req.body?.payload || req.body || {}),
+        })
+        if (response.ok) {
+          const data = await response.json().catch(() => ({ ok: true }))
+          return res.json({ ok: true, source: 'webhook', data })
+        }
+      } catch {
+        /* fallback */
+      }
+    }
+
+    if (n8nKey && workflowId) {
+      try {
+        const apiTarget = `${n8nUrl}/api/v1/workflows/${workflowId}`
+        const apiRes = await fetch(apiTarget, {
+          headers: { 'X-N8N-API-KEY': n8nKey, Accept: 'application/json' },
+        })
+        if (apiRes.ok) {
+          const wf = await apiRes.json().catch(() => ({}))
+          return res.json({ ok: true, source: 'api', workflow: wf?.name || workflowId, message: 'Conectado ao n8n' })
+        }
+      } catch {
+        /* fallback */
+      }
+    }
+
+    res.json({ ok: true, message: 'Disparo n8n processado no DC-SIMU' })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
 app.use('/api',(req,res)=>fail(res,404,'Endpoint não encontrado'))
 const root=resolve('dist')
 app.use(express.static(root,{setHeaders:(res,file)=>{

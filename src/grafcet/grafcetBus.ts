@@ -11,6 +11,7 @@ export type GrafcetBusAction =
   | 'addJoin'
   | 'openTemplates'
   | 'generateLadder'
+  | 'sendToN8n'
   | 'exportSvg'
   | 'exportJson'
   | 'importJson'

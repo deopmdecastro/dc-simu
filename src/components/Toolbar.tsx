@@ -411,14 +411,26 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 <span>★ Modelos</span>
               </button>
               {canGenerateLadder && (
-                <button
-                  type="button"
-                  onClick={() => useGrafcetUi.getState().emit('generateLadder')}
-                  className="dc-tool-btn !gap-1.5"
-                  title="Gera o programa Ladder equivalente no PLC"
-                >
-                  <span>⇢ Gerar Ladder</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => useGrafcetUi.getState().emit('generateLadder')}
+                    className="dc-tool-btn !gap-1.5"
+                    title="Gera o programa Ladder equivalente no PLC"
+                  >
+                    <span>⇢ Gerar Ladder</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => useGrafcetUi.getState().emit('sendToN8n')}
+                    className="dc-tool-btn !gap-1.5"
+                    style={{ color: '#ea580c', borderColor: '#fed7aa', backgroundColor: '#fff7ed' }}
+                    title="Dispara o workflow n8n (MipSJCjJ6fya9UGt) com o diagrama GRAFCET atual"
+                  >
+                    <span style={{ fontWeight: 600 }}>⚡ n8n</span>
+                  </button>
+                </>
               )}
             </div>
 
