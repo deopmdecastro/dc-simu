@@ -126,6 +126,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const projectKind = useSimStore((state) => state.projectKind)
   const grafcetZoom = useGrafcetUi((state) => state.zoom)
   const grafcetTool = useGrafcetUi((state) => state.tool)
+  const grafcetGrid = useGrafcetUi((state) => state.gridOn)
+  const grafcetSnap = useGrafcetUi((state) => state.snapOn)
   const grafcetIssues = useMemo(() => validateGrafcet(grafcet), [grafcet])
   const grafcetErrorCount = grafcetIssues.filter((i) => i.level === 'error').length
   const canGenerateLadder = allowedViews(projectKind).includes('ladder')
@@ -432,6 +434,37 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   </button>
                 </>
               )}
+            </div>
+
+            <span className="tb-sep" />
+
+            <div className="dc-seg" role="toolbar" aria-label="Disposição">
+              <button
+                type="button"
+                onClick={() => useGrafcetUi.getState().toggleGrid()}
+                className={`${segBtn(grafcetGrid)} !px-2`}
+                aria-pressed={grafcetGrid}
+                title="Mostrar/ocultar a grelha"
+              >
+                Grelha
+              </button>
+              <button
+                type="button"
+                onClick={() => useGrafcetUi.getState().toggleSnap()}
+                className={`${segBtn(grafcetSnap)} !px-2`}
+                aria-pressed={grafcetSnap}
+                title="Encaixar à grelha ao arrastar (Alt = livre)"
+              >
+                Íman
+              </button>
+              <button
+                type="button"
+                onClick={() => useGrafcetUi.getState().emit('autoLayout')}
+                className="dc-tool-btn !px-2"
+                title="Organizar automaticamente o diagrama (Ctrl+Z desfaz)"
+              >
+                Organizar
+              </button>
             </div>
 
             <span className="tb-sep" />

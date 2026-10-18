@@ -45,8 +45,11 @@ export interface GrafcetStep {
   comment?: string
   description?: string
   activationLink?: boolean
+  /** Posição manual no diagrama: x = eixo central da etapa, y = topo. Só é usada quando `pinned` é true. */
   x?: number
   y?: number
+  /** true quando o utilizador arrastou a etapa (ou usou "Organizar"); caso contrário o layout é automático. */
+  pinned?: boolean
   chart?: string
 }
 

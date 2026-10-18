@@ -43,6 +43,19 @@ import {
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import { useGrafcetUi, type GrafcetBusAction, type GrafcetCanvasTool } from './grafcetBus'
+import {
+  GRID,
+  MIN_X,
+  SPINE_X,
+  START_Y,
+  STEP_H,
+  alignToOthers,
+  autoLayout,
+  clampPosition,
+  findFreeSlot,
+  snapToGrid,
+  stepPitch,
+} from './layout'
 
 const id = () => crypto.randomUUID()
 
@@ -176,11 +189,20 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const [isSpacePan, setIsSpacePan] = useState(false)
   const spacePressed = useRef(false)
 
-  // Arrastamento direto de etapas para reposicionamento/reordenação na sequência
-  const [draggingStepId, setDraggingStepId] = useState<string | null>(null)
-  const [stepDragOffset, setStepDragOffset] = useState<number | null>(null)
-  const [dropTargetStepId, setDropTargetStepId] = useState<string | null>(null)
-  const stepDragStartRef = useRef<{ stepId: string; startY: number; origIndex: number; hasMoved: boolean } | null>(null)
+  // Arrastamento livre de etapas dentro da grelha (posição guardada em step.x/y + pinned)
+  const gridOn = useGrafcetUi((state) => state.gridOn)
+  const snapOn = useGrafcetUi((state) => state.snapOn)
+  const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
+  const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null })
+  const dragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
+  const stepDragRef = useRef<{
+    stepId: string
+    startX: number
+    startY: number
+    origX: number
+    origY: number
+    moved: boolean
+  } | null>(null)
 
   const selectedStep = steps.find((step) => step.id === selected)
   const selectedTransition = transitions.find((transition) => transition.id === selected)
@@ -309,7 +331,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     }
   }
 
-  const addStep = () => {
+  const addStep = (at?: { x: number; y: number }) => {
     const nextIdx = steps.length
     const newStep: GrafcetStep = {
       id: id(),
@@ -319,6 +341,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       action: '',
       condition: 'I1',
       actions: [],
+      ...(at ? { x: at.x, y: at.y, pinned: true } : {}),
     }
     save({ steps: [...steps, newStep] })
     setSelected(newStep.id)
@@ -326,9 +349,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     notify(newStep.initial ? 'Etapa inicial criada' : 'Etapa solta criada')
   }
 
-  const addConnectedStep = (fromStep?: GrafcetStep) => {
+  const addConnectedStep = (fromStep?: GrafcetStep, at?: { x: number; y: number }) => {
     const source = fromStep ?? selectedStep ?? steps[steps.length - 1]
-    if (!source) return addStep()
+    if (!source) return addStep(at)
     const nextIdx = steps.length
     
     // Procura o próximo número lógico para a etapa (ex: se anterior é 81, tenta 82 ou 85)
@@ -343,6 +366,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       nextName = String(candidate)
     }
 
+    // Posição da nova etapa: onde foi largada, ou logo abaixo da origem quando esta foi movida à mão.
+    let place = at
+    if (!place && isPinned(source)) {
+      const below = { x: stepX(source.id), y: stepY(source.id) + stepPitch(actionsOf(source).length) }
+      place = findFreeSlot(
+        below.x,
+        below.y,
+        steps.map((s) => ({ x: stepX(s.id), y: stepY(s.id) }))
+      )
+    }
     const newStep: GrafcetStep = {
       id: id(),
       name: nextName,
@@ -351,13 +384,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       action: '',
       condition: 'I1',
       actions: [],
+      ...(place ? { x: place.x, y: place.y, pinned: true } : {}),
     }
 
     // Comportamento inteligente estilo grafcet.io:
     // Se a etapa de origem já tiver uma única transição de saída para outra etapa,
     // insere a nova etapa ENTRE a origem e a próxima etapa!
     const outgoing = transitions.find((t) => t.from.length === 1 && t.from[0] === source.id && t.to.length === 1)
-    if (outgoing && steps.some((s) => s.id === outgoing.to[0])) {
+    if (!at && outgoing && steps.some((s) => s.id === outgoing.to[0])) {
       const nextTargetId = outgoing.to[0]
       const newTransition: GrafcetTransition = {
         id: id(),
@@ -490,6 +524,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         initial: false,
         action: selectedStep.action,
         actions: (selectedStep.actions ?? []).map((action) => ({ ...action, id: id() })),
+        ...(isPinned(selectedStep) ? { x: stepX(selectedStep.id) + GRID * 4, y: stepY(selectedStep.id) + GRID * 2, pinned: true } : {}),
       }
       const index = steps.indexOf(selectedStep)
       const next = [...steps.slice(0, index + 1), clone, ...steps.slice(index + 1)]
@@ -570,7 +605,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     save({ transitions: reordered })
   }
 
-  const addInitial = () => {
+  const addInitial = (at?: { x: number; y: number }) => {
     const newStep: GrafcetStep = {
       id: id(),
       name: `Etapa ${steps.length}`,
@@ -579,6 +614,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       action: '',
       condition: 'I1',
       actions: [],
+      ...(at ? { x: at.x, y: at.y, pinned: true } : {}),
     }
     save({ steps: [...steps, newStep] })
     setSelected(newStep.id)
@@ -663,9 +699,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     notify(`Modelo carregado: ${tmpl.name}`)
   }
 
-  const usePalette = (kind: PaletteItem) => {
-    if (kind === 'initial') addInitial()
-    else if (kind === 'step') addConnectedStep()
+  const usePalette = (kind: PaletteItem, at?: { x: number; y: number }) => {
+    if (kind === 'initial') addInitial(at)
+    else if (kind === 'step') addConnectedStep(undefined, at)
     else if (kind === 'transition') addTransition()
     else if (kind === 'action') addAction(false)
     else if (kind === 'conditional') addAction(true)
@@ -710,14 +746,43 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
   // Altura e posicionamento vertical das etapas
   const stepPositions = new Map<string, number>()
-  let cursorY = 70
+  let cursorY = START_Y
   steps.forEach((step) => {
     stepPositions.set(step.id, cursorY)
-    cursorY += Math.max(140, actionsOf(step).length * 36 + 88)
+    cursorY += stepPitch(actionsOf(step).length)
   })
-  const stepY = (stepId: string) => stepPositions.get(stepId) ?? 70
-  const width = full ? 760 : 560
-  const height = Math.max(280, cursorY + 35)
+  const stepById = new Map(steps.map((step) => [step.id, step]))
+  const isPinned = (step?: GrafcetStep) => !!step && step.pinned === true && Number.isFinite(step.x) && Number.isFinite(step.y)
+  /** Topo da etapa: posição manual (ou a do arrasto em curso) ou a do layout automático. */
+  const stepY = (stepId: string) => {
+    if (dragPos?.id === stepId) return dragPos.y
+    const step = stepById.get(stepId)
+    return isPinned(step) ? step!.y! : stepPositions.get(stepId) ?? START_Y
+  }
+  /** Eixo central da etapa. */
+  const stepX = (stepId: string) => {
+    if (dragPos?.id === stepId) return dragPos.x
+    const step = stepById.get(stepId)
+    return isPinned(step) ? step!.x! : SPINE_X
+  }
+  let maxRight = full ? 760 : 560
+  let maxBottom = cursorY + 35
+  steps.forEach((step) => {
+    maxRight = Math.max(maxRight, stepX(step.id) + 320)
+    maxBottom = Math.max(maxBottom, stepY(step.id) + actionsOf(step).length * 36 + 140)
+  })
+  const width = maxRight
+  const height = Math.max(280, maxBottom)
+  /** true se o troço direto entre duas etapas não atravessa nenhuma outra etapa. */
+  const clearPath = (a: GrafcetStep, b: GrafcetStep) => {
+    const left = Math.min(stepX(a.id), stepX(b.id)) - 36
+    const right = Math.max(stepX(a.id), stepX(b.id)) + 36
+    const top = stepY(a.id) + STEP_H
+    const bottom = stepY(b.id)
+    return !steps.some(
+      (o) => o.id !== a.id && o.id !== b.id && stepX(o.id) + 32 > left && stepX(o.id) - 32 < right && stepY(o.id) + STEP_H > top && stepY(o.id) < bottom
+    )
+  }
 
   // Viewport / Zoom / Pan
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -802,18 +867,30 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     }
   }
 
+  const resetStepDrag = () => {
+    stepDragRef.current = null
+    dragPosRef.current = null
+    setDragPos(null)
+    setGuides({ x: null, y: null })
+  }
+
   const onStepPointerDown = (step: GrafcetStep, e: React.PointerEvent) => {
-    if (activeTool !== 'select' || isSpacePan) return
+    if (!full || activeTool !== 'select' || isSpacePan) return
     if (e.button !== 0) return
     if ((e.target as Element).closest('.grafcet-node-handle, button')) return
     e.stopPropagation()
-    stepDragStartRef.current = {
+    stepDragRef.current = {
       stepId: step.id,
+      startX: e.clientX,
       startY: e.clientY,
-      origIndex: steps.findIndex((s) => s.id === step.id),
-      hasMoved: false,
+      origX: stepX(step.id),
+      origY: stepY(step.id),
+      moved: false,
     }
-    setDraggingStepId(step.id)
+    // Seleciona logo ao pressionar, para o painel já mostrar a etapa que se vai mover.
+    setSelected(step.id)
+    setSelectedActionId(null)
+    setTab('steps')
     try {
       ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
     } catch {
@@ -822,65 +899,102 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   }
 
   const onStepPointerMove = (step: GrafcetStep, e: React.PointerEvent) => {
-    if (!stepDragStartRef.current || stepDragStartRef.current.stepId !== step.id) return
-    const dy = e.clientY - stepDragStartRef.current.startY
-    if (Math.abs(dy) > 5) {
-      stepDragStartRef.current.hasMoved = true
+    const drag = stepDragRef.current
+    if (!drag || drag.stepId !== step.id) return
+    const rawDx = e.clientX - drag.startX
+    const rawDy = e.clientY - drag.startY
+    if (!drag.moved) {
+      if (Math.hypot(rawDx, rawDy) < 4) return
+      drag.moved = true
+      // Congela a vista (o "ajustar" automático depende da largura, que pode crescer ao arrastar).
+      if (zoom === null) setZoom(scale)
+      if (pan === null) setPan(position)
     }
-    if (!stepDragStartRef.current.hasMoved) return
-    const scaledDy = dy / scale
-    setStepDragOffset(scaledDy)
-
-    const currentY = stepY(step.id) + scaledDy
-    let closestStep = steps[0]
-    let minDiff = Infinity
-    steps.forEach((s) => {
-      if (s.id === step.id) return
-      const diff = Math.abs(stepY(s.id) - currentY)
-      if (diff < minDiff) {
-        minDiff = diff
-        closestStep = s
+    let x = drag.origX + rawDx / scale
+    let y = drag.origY + rawDy / scale
+    // Shift bloqueia o movimento ao eixo dominante.
+    if (e.shiftKey) {
+      if (Math.abs(rawDx) >= Math.abs(rawDy)) y = drag.origY
+      else x = drag.origX
+    }
+    let guideX: number | null = null
+    let guideY: number | null = null
+    // Alt = movimento livre (sem encaixe nem guias).
+    if (!e.altKey) {
+      if (snapOn) {
+        x = snapToGrid(x, SPINE_X)
+        y = snapToGrid(y, START_Y)
       }
-    })
-    if (minDiff < 75) {
-      setDropTargetStepId(closestStep.id)
-    } else {
-      setDropTargetStepId(null)
+      const others = steps.filter((s) => s.id !== step.id).map((s) => ({ x: stepX(s.id), y: stepY(s.id) }))
+      const aligned = alignToOthers(x, y, others, 6 / scale)
+      x = aligned.x
+      y = aligned.y
+      guideX = aligned.guideX
+      guideY = aligned.guideY
     }
+    const clamped = clampPosition(x, y)
+    const next = { id: step.id, x: Math.round(clamped.x), y: Math.round(clamped.y) }
+    dragPosRef.current = next
+    setDragPos(next)
+    setGuides({ x: guideX, y: guideY })
   }
 
   const onStepPointerUp = (step: GrafcetStep, e: React.PointerEvent) => {
-    if (!stepDragStartRef.current || stepDragStartRef.current.stepId !== step.id) return
-    const { origIndex, hasMoved } = stepDragStartRef.current
+    const drag = stepDragRef.current
+    if (!drag || drag.stepId !== step.id) return
     try {
       ;(e.currentTarget as Element).releasePointerCapture(e.pointerId)
     } catch {
       /* noop */
     }
-    const targetId = dropTargetStepId
-    setDraggingStepId(null)
-    setStepDragOffset(null)
-    setDropTargetStepId(null)
-    stepDragStartRef.current = null
+    const final = dragPosRef.current
+    resetStepDrag()
+    if (!drag.moved || !final || final.id !== step.id) return
+    if (final.x === drag.origX && final.y === drag.origY) return
+    updateStep(step.id, { x: final.x, y: final.y, pinned: true }, 'force')
+  }
 
-    if (!hasMoved) {
-      setSelected(step.id)
-      setSelectedActionId(null)
-      setTab('steps')
-      return
-    }
+  const onStepPointerCancel = () => resetStepDrag()
 
-    if (targetId && targetId !== step.id) {
-      const targetIndex = steps.findIndex((s) => s.id === targetId)
-      if (targetIndex !== -1 && targetIndex !== origIndex) {
-        const reordered = [...steps]
-        const [moved] = reordered.splice(origIndex, 1)
-        reordered.splice(targetIndex, 0, moved)
-        save({ steps: reordered })
-        setSelected(step.id)
-        notify(`Etapa ${step.name} reposicionada na sequência`)
+  // Esc cancela o arrastamento em curso sem guardar.
+  useEffect(() => {
+    if (!dragPos) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation()
+        resetStepDrag()
       }
     }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [dragPos !== null])
+
+  const organizeLayout = () => {
+    if (!steps.length) return notify('Sem etapas para organizar')
+    const layout = autoLayout(steps, transitions)
+    save({
+      steps: steps.map((step) => {
+        const point = layout.get(step.id)
+        return point ? { ...step, x: point.x, y: point.y, pinned: true } : step
+      }),
+    })
+    resetView()
+    notify('Diagrama organizado · Ctrl+Z repõe')
+  }
+
+  /** Shift+setas movem a etapa selecionada um passo (grelha com íman, 4 px sem). */
+  const nudgeSelection = (dx: number, dy: number, big: boolean) => {
+    if (!full || !selectedStep || selectedActionId) return
+    const amount = (snapOn ? GRID : 4) * (big ? 5 : 1)
+    let x = stepX(selectedStep.id) + dx * amount
+    let y = stepY(selectedStep.id) + dy * amount
+    if (snapOn) {
+      x = snapToGrid(x, SPINE_X)
+      y = snapToGrid(y, START_Y)
+    }
+    const next = clampPosition(x, y)
+    if (next.x === stepX(selectedStep.id) && next.y === stepY(selectedStep.id) && isPinned(selectedStep)) return
+    updateStep(selectedStep.id, { x: Math.round(next.x), y: Math.round(next.y), pinned: true }, 'auto', `grafcet:nudge:${selectedStep.id}`)
   }
 
   const doUndo = () => {
@@ -1010,6 +1124,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         resetView()
         notify('Vista ajustada')
         return
+      }
+      if (event.shiftKey && !mod && !event.altKey && selectedStep && !selectedActionId) {
+        const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key as string]
+        if (dir) {
+          event.preventDefault()
+          nudgeSelection(dir[0], dir[1], false)
+          return
+        }
       }
       if (event.key === 'ArrowDown') {
         event.preventDefault()
@@ -1192,6 +1314,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         case 'openDiagnostics':
           setTab('diagnostics')
           break
+        case 'autoLayout':
+          organizeLayout()
+          break
       }
     })
     return () => {
@@ -1350,6 +1475,18 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           ref={viewportRef}
           className={`grafcet-canvas ${activeTool === 'pan' ? 'is-pan-mode' : 'is-select-mode'} ${isSpacePan ? 'is-space-pan' : ''} ${dropActive ? 'is-palette-drop' : ''} ${isDragging ? 'is-dragging' : ''}`}
           aria-label="Diagrama GRAFCET"
+          style={
+            full
+              ? gridOn
+                ? {
+                    // A grelha acompanha pan/zoom e coincide com o encaixe (origem no eixo central e no topo da 1.ª etapa).
+                    backgroundImage: 'radial-gradient(#c5d2e6 1.1px, transparent 1.2px)',
+                    backgroundSize: `${GRID * scale}px ${GRID * scale}px`,
+                    backgroundPosition: `${position.x + SPINE_X * scale - (GRID * scale) / 2}px ${position.y + START_Y * scale - (GRID * scale) / 2}px`,
+                  }
+                : { backgroundImage: 'none' }
+              : undefined
+          }
           onDoubleClick={(event) => {
             if ((event.target as HTMLElement).classList?.contains('grafcet-canvas') || (event.target as SVGElement).tagName === 'svg') {
               resetView()
@@ -1381,7 +1518,22 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   setDropActive(false)
                   const kind = event.dataTransfer.getData(GRAFCET_MIME) as PaletteItem
                   if (PALETTE.some((group) => group.items.some((item) => item.kind === kind)) && !paletteDisabled(kind)) {
-                    usePalette(kind)
+                    // Etapas largadas na tela ficam exatamente onde o rato as soltou (encaixadas à grelha).
+                    let at: { x: number; y: number } | undefined
+                    if (kind === 'initial' || kind === 'step') {
+                      const rect = event.currentTarget.getBoundingClientRect()
+                      let wx = (event.clientX - rect.left - position.x) / scale
+                      let wy = (event.clientY - rect.top - position.y) / scale - STEP_H / 2
+                      if (snapOn && !event.altKey) {
+                        wx = snapToGrid(wx, SPINE_X)
+                        wy = snapToGrid(wy, START_Y)
+                      }
+                      const clamped = clampPosition(wx, wy)
+                      at = { x: Math.round(clamped.x), y: Math.round(clamped.y) }
+                      if (zoom === null) setZoom(scale)
+                      if (pan === null) setPan(position)
+                    }
+                    usePalette(kind, at)
                   }
                 }
               : undefined
@@ -1399,7 +1551,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               <p>{full ? 'Crie a primeira etapa ou abra um modelo para iniciar a sequência.' : 'Abra o editor para criar a primeira etapa.'}</p>
               {full && (
                 <div className="grafcet-empty-actions">
-                  <button className="dc-btn-primary dc-btn" onClick={addStep}>
+                  <button className="dc-btn-primary dc-btn" onClick={() => addStep()}>
                     Criar etapa inicial
                   </button>
                   <button className="dc-btn" onClick={() => setTemplatesOpen(true)}>
@@ -1423,6 +1575,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 ref={svgRef}
                 width={width}
                 height={height}
+                style={{ width, height }}
                 viewBox={`0 0 ${width} ${height}`}
                 role="img"
                 aria-label="Etapas, ações e transições do GRAFCET"
@@ -1450,8 +1603,15 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   const sourceIdx = sourceStep ? steps.indexOf(sourceStep) : -1
                   const targetIdx = targetStep ? steps.indexOf(targetStep) : -1
 
-                  const isConsecutive = isSingleSource && isSingleTarget && sourceStep && targetStep && targetIdx === sourceIdx + 1
-                  const isReturning = isSingleSource && isSingleTarget && sourceStep && targetStep && stepY(targetStep.id) <= stepY(sourceStep.id) && !selfLoop
+                  const sourceX = sourceStep ? stepX(sourceStep.id) : SPINE_X
+                  const targetX = targetStep ? stepX(targetStep.id) : SPINE_X
+                  // Com etapas movidas à mão, a ligação segue a geometria (e não só a ordem da lista).
+                  const manualLink = isPinned(sourceStep ?? undefined) || isPinned(targetStep ?? undefined) || dragPos?.id === sourceStep?.id || dragPos?.id === targetStep?.id
+                  const isForward = !!sourceStep && !!targetStep && stepY(targetStep.id) >= stepY(sourceStep.id) + STEP_H + 24
+                  const isConsecutive =
+                    isSingleSource && isSingleTarget && sourceStep && targetStep && !selfLoop && (manualLink ? isForward && clearPath(sourceStep, targetStep) : targetIdx === sourceIdx + 1)
+                  const isReturning =
+                    isSingleSource && isSingleTarget && sourceStep && targetStep && !selfLoop && !isConsecutive && (manualLink ? !isForward : stepY(targetStep.id) <= stepY(sourceStep.id))
 
                   const conditionOn = validCondition(transition.condition) && evalCondition(transition.condition, table)
                   const enabled = running && conditionOn && sources.every((value) => runtime.active.includes(value))
@@ -1481,9 +1641,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   if (selfLoop) {
                     const y = stepY(sources[0])
                     const path = `M 151 ${y + 54} V ${y + 92} H 62 V ${y - 22} H 151 V ${y}`
+                    const loopShift = stepX(sources[0]) - SPINE_X
                     return (
                       <g
                         key={transition.id}
+                        transform={loopShift ? `translate(${loopShift}, 0)` : undefined}
                         onClick={onSelectThisTransition}
                         onDoubleClick={onTransDoubleClick}
                         onMouseEnter={() => setHoveredTransitionId(transition.id)}
@@ -1524,8 +1686,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     const tY = stepY(targetStep.id)
                     const sBottom = sY + 54
                     const tTop = tY
-                    const tx = 151
-                    const ty = Math.round((sBottom + tTop) / 2)
+                    const bent = sourceX !== targetX
+                    const midY = Math.round((sBottom + tTop) / 2)
+                    // Se as etapas não estão alinhadas, a ligação faz um "Z" e a barra fica no troço final.
+                    const tx = targetX
+                    const ty = bent ? Math.round((midY + tTop) / 2) : midY
+                    const linkPath = bent
+                      ? `M ${sourceX} ${sBottom} V ${midY} H ${targetX} V ${tTop}`
+                      : `M ${sourceX} ${sBottom} V ${tTop}`
 
                     return (
                       <g
@@ -1541,13 +1709,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       >
                         {/* Linha vertical central IEC até à etapa seguinte com seta */}
                         <path
-                          d={`M 151 ${sBottom} V ${tTop}`}
+                          d={linkPath}
                           fill="none"
                           stroke={linkColor}
                           strokeWidth={enabled || selectedLink ? 3 : 2}
                           markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
                         />
-                        <path d={`M 151 ${sBottom} V ${tTop}`} fill="none" stroke="transparent" strokeWidth="18" />
+                        <path d={linkPath} fill="none" stroke="transparent" strokeWidth="18" />
 
                         {/* Barra transversal normalizada IEC 60848 */}
                         <line
@@ -1648,9 +1816,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     const tY = stepY(targetStep.id)
                     const sBottom = sY + 54
                     const tTop = tY
-                    const tx = 151
+                    const tx = sourceX
                     const ty = sBottom + 12
-                    const trackX = 54 - (transitionIndex % 3) * 16
+                    const trackX = Math.min(sourceX, targetX) - 97 - (transitionIndex % 3) * 16
+                    const returnPath = `M ${sourceX} ${sBottom} V ${sBottom + 24} H ${trackX} V ${tTop - 18} H ${targetX} V ${tTop}`
 
                     return (
                       <g
@@ -1666,14 +1835,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       >
                         {/* Linha de retorno: desce do fundo, vai à esquerda pelo barramento, sobe e entra pelo topo */}
                         <path
-                          d={`M 151 ${sBottom} V ${sBottom + 24} H ${trackX} V ${tTop - 18} H 151 V ${tTop}`}
+                          d={returnPath}
                           fill="none"
                           stroke={linkColor}
                           strokeWidth={enabled || selectedLink ? 3 : 2}
                           markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
                         />
                         <path
-                          d={`M 151 ${sBottom} V ${sBottom + 24} H ${trackX} V ${tTop - 18} H 151 V ${tTop}`}
+                          d={returnPath}
                           fill="none"
                           stroke="transparent"
                           strokeWidth="18"
@@ -1751,7 +1920,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   const avgTargetY = targets.reduce((sum, value) => sum + stepY(value), 0) / targets.length
                   const ty = Math.max(42, Math.min(height - 45, (avgSourceY + avgTargetY) / 2))
                   const returning = Math.min(...targets.map(stepY)) <= Math.max(...sources.map(stepY))
-                  const tx = returning ? 60 - (transitionIndex % 3) * 16 : 280 + (transitionIndex % 3) * 24
+                  const allX = [...sources, ...targets].map(stepX)
+                  const tx = returning ? Math.min(...allX) - 91 - (transitionIndex % 3) * 16 : Math.max(...allX) + 129 + (transitionIndex % 3) * 24
                   const hasAndConvergence = sources.length > 1
                   const hasAndDivergence = targets.length > 1
 
@@ -1771,7 +1941,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       {sources.map((value) => (
                         <path
                           key={`f-${value}`}
-                          d={`M 182 ${stepY(value) + 27} H ${tx} V ${ty}`}
+                          d={`M ${stepX(value) + 31} ${stepY(value) + 27} H ${tx} V ${ty}`}
                           fill="none"
                           stroke={linkColor}
                           strokeWidth={enabled ? 3 : 2}
@@ -1782,7 +1952,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       {targets.map((value) => (
                         <path
                           key={`t-${value}`}
-                          d={`M ${tx} ${ty} V ${stepY(value)} H 151`}
+                          d={`M ${tx} ${ty} V ${stepY(value)} H ${stepX(value)}`}
                           fill="none"
                           stroke={linkColor}
                           strokeWidth={enabled ? 3 : 2}
@@ -1879,15 +2049,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
                   // Informação da etapa: número/identificador dentro da caixa e comentário/descrição acima
                   const { stepNumber, comment } = getStepDisplayInfo(step, index)
-                  const isStepBeingDragged = draggingStepId === step.id && stepDragOffset !== null
-                  const stepTranslateY = isStepBeingDragged ? stepDragOffset : 0
-                  const isDropTarget = dropTargetStepId === step.id && draggingStepId !== null && draggingStepId !== step.id
+                  const isStepBeingDragged = dragPos?.id === step.id
+                  const stepShiftX = stepX(step.id) - SPINE_X
 
                   return (
                     <g
                       key={step.id}
                       className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${isThisStepSelected ? 'is-selected' : ''}`}
-                      transform={stepTranslateY ? `translate(0, ${stepTranslateY})` : undefined}
+                      transform={stepShiftX ? `translate(${stepShiftX}, 0)` : undefined}
                       role={full ? 'button' : undefined}
                       tabIndex={full ? 0 : undefined}
                       aria-label={`Etapa ${stepNumber}: ${step.name}${active ? ', ativa' : ''}`}
@@ -1896,7 +2065,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       onPointerDown={(e) => onStepPointerDown(step, e)}
                       onPointerMove={(e) => onStepPointerMove(step, e)}
                       onPointerUp={(e) => onStepPointerUp(step, e)}
-                      onPointerCancel={(e) => onStepPointerUp(step, e)}
+                      onPointerCancel={onStepPointerCancel}
                       onMouseEnter={() => setHoveredStepId(step.id)}
                       onMouseLeave={() => setHoveredStepId(null)}
                       onDragOver={
@@ -1932,11 +2101,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           : undefined
                       }
                     >
-                      {/* Linha indicadora de destino ao arrastar etapa para reordenar */}
-                      {isDropTarget && (
-                        <line x1="85" y1={y - 8} x2="217" y2={y - 8} className="grafcet-drop-target-slot" />
-                      )}
-
                       {/* Ponto verde pulsante de atividade na etapa */}
                       {active && (
                         <circle cx="103" cy={y + 27} r="6" fill="#22c55e">
@@ -2342,6 +2506,19 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     </g>
                   )
                 })}
+
+                {/* Guias de alinhamento durante o arrastamento */}
+                {dragPos && guides.x !== null && (
+                  <line x1={guides.x} y1={0} x2={guides.x} y2={height} className="grafcet-guide" />
+                )}
+                {dragPos && guides.y !== null && (
+                  <line x1={0} y1={guides.y} x2={width} y2={guides.y} className="grafcet-guide" />
+                )}
+                {dragPos && (
+                  <text x={dragPos.x + 42} y={dragPos.y - 8} className="grafcet-drag-badge">
+                    {Math.round(dragPos.x - SPINE_X)}, {Math.round(dragPos.y - START_Y)}
+                  </text>
+                )}
               </svg>
             </div>
           )}
@@ -2402,6 +2579,28 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 title="Ajustar diagrama à janela (Ctrl+0 / Duplo clique no fundo)"
               >
                 Ajustar
+              </button>
+              <span className="grafcet-canvas-hud-sep" />
+              <button
+                type="button"
+                className={gridOn ? 'is-active' : ''}
+                onClick={() => useGrafcetUi.getState().toggleGrid()}
+                title="Mostrar/ocultar a grelha"
+                aria-pressed={gridOn}
+              >
+                Grelha
+              </button>
+              <button
+                type="button"
+                className={snapOn ? 'is-active' : ''}
+                onClick={() => useGrafcetUi.getState().toggleSnap()}
+                title="Encaixar etapas à grelha ao arrastar (segure Alt para mover livremente)"
+                aria-pressed={snapOn}
+              >
+                Íman
+              </button>
+              <button type="button" onClick={organizeLayout} title="Organizar automaticamente: camadas e ramos paralelos em colunas (Ctrl+Z desfaz)">
+                Organizar
               </button>
               <span className="grafcet-canvas-hud-sep" />
               <span style={{ fontSize: '10.5px', color: '#64748b', padding: '0 4px', fontWeight: 600 }}>

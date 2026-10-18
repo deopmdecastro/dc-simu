@@ -15,6 +15,17 @@ const GROUPS = [
     ],
   },
   {
+    title: 'Mover etapas na grelha',
+    items: [
+      { keys: ['Arrastar'], label: 'Mover a etapa livremente; encaixa à grelha e alinha com as outras (guias a rosa)' },
+      { keys: ['Shift', 'Arrastar'], label: 'Mover só na horizontal ou só na vertical' },
+      { keys: ['Alt', 'Arrastar'], label: 'Mover sem encaixe nem guias (movimento livre)' },
+      { keys: ['Esc'], label: 'Cancelar o arrastamento em curso' },
+      { keys: ['Shift', '← ↑ → ↓'], label: 'Mover a etapa selecionada um passo da grelha' },
+      { keys: ['Ctrl', '← ↑ → ↓'], label: 'Mover a vista' },
+    ],
+  },
+  {
     title: 'Edição',
     items: [
       { keys: ['Ctrl', 'Z'], label: 'Desfazer' },

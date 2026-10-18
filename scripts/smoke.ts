@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { lintLadder } from '../src/ladder/ladderLint'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
+import { SPINE_X, START_Y, GRID, COLUMN_WIDTH, snapToGrid, clampPosition, alignToOthers, findFreeSlot, autoLayout, stepPitch } from '../src/grafcet/layout'
 import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
@@ -2008,6 +2009,50 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const good = { rungs: [rung('a', [c('I1'), c('Q1', 'NC')], [k('Q1', 'SET')]), rung('b', [c('I2')], [k('Q1', 'RESET')])] }
   check('lint Ladder: programa correto sem erros', lintLadder(good as any).filter((i) => i.level === 'error').length === 0)
   check('lint Ladder: programa gerado do GRAFCET sem erros', lintLadder({ rungs: grafcetToLadder({ steps: [{ id: 'a', name: 'a', initial: true, action: '', condition: '1', actions: [{ id: 'x', address: 'Q1', condition: '1' }] }, { id: 'b', name: 'b', initial: false, action: '', condition: '1', actions: [] }], transitions: [{ id: 't', from: ['a'], to: ['b'], condition: 'I1' }, { id: 'u', from: ['b'], to: ['a'], condition: '!I1' }] }).rungs }).filter((i) => i.level === 'error').length === 0)
+}
+
+/* Editor GRAFCET: arrastar livre na grelha (encaixe, guias, layout automático). */
+{
+  const st = (id: string, extra: Record<string, unknown> = {}) => ({ id, name: id, initial: false, action: '', condition: '', actions: [], ...extra })
+  const tr = (id: string, from: string[], to: string[]) => ({ id, from, to, condition: '1' })
+
+  check('grelha: encaixe arredonda ao múltiplo mais próximo da origem', snapToGrid(SPINE_X + 29, SPINE_X) === SPINE_X + GRID * 1 && snapToGrid(SPINE_X + 31, SPINE_X) === SPINE_X + GRID * 2)
+  check('grelha: o eixo central é sempre um ponto da grelha', snapToGrid(SPINE_X + 3, SPINE_X) === SPINE_X && snapToGrid(START_Y - 4, START_Y) === START_Y)
+  check('grelha: limites impedem posições negativas', clampPosition(-50, -50).x >= 100 && clampPosition(-50, -50).y > 0 && clampPosition(300, 400).x === 300)
+
+  const guide = alignToOthers(203, 118, [{ x: 200, y: 400 }, { x: 600, y: 120 }], 6)
+  check('guias: alinha ao eixo da etapa mais próxima (x e y independentes)', guide.x === 200 && guide.y === 120 && guide.guideX === 200 && guide.guideY === 120)
+  const far = alignToOthers(250, 250, [{ x: 200, y: 400 }], 6)
+  check('guias: fora do limiar não altera nada', far.x === 250 && far.y === 250 && far.guideX === null && far.guideY === null)
+
+  const slot = findFreeSlot(151, 210, [{ x: 151, y: 210 }, { x: 151 + COLUMN_WIDTH / 2, y: 210 }])
+  check('nova etapa abaixo da origem evita sobrepor outra', slot.x === 151 + COLUMN_WIDTH && slot.y === 210)
+
+  // sequência linear → uma única coluna, sem sobreposições, na ordem do fluxo
+  const linear = autoLayout([st('a', { initial: true }), st('b'), st('c')] as any, [tr('t1', ['a'], ['b']), tr('t2', ['b'], ['c'])] as any)
+  check('organizar: sequência linear fica numa só coluna', linear.get('a')!.x === SPINE_X && linear.get('b')!.x === SPINE_X && linear.get('c')!.x === SPINE_X)
+  check('organizar: etapas descem pela ordem do fluxo', linear.get('a')!.y === START_Y && linear.get('b')!.y === START_Y + stepPitch(0) && linear.get('c')!.y === START_Y + stepPitch(0) * 2)
+
+  // divergência AND: dois ramos lado a lado, convergência volta ao centro
+  const fork = autoLayout(
+    [st('i', { initial: true }), st('a'), st('b'), st('j')] as any,
+    [tr('t1', ['i'], ['a', 'b']), tr('t2', ['a', 'b'], ['j'])] as any
+  )
+  check('organizar: ramos simultâneos ficam em colunas distintas à mesma altura', fork.get('a')!.y === fork.get('b')!.y && fork.get('a')!.x !== fork.get('b')!.x)
+  check('organizar: convergência fica abaixo dos dois ramos', fork.get('j')!.y > fork.get('a')!.y)
+  const forkPositions = [...fork.values()].map((p) => `${p.x},${p.y}`)
+  check('organizar: nenhuma etapa sobreposta', new Set(forkPositions).size === forkPositions.length)
+
+  // ciclo (retorno à inicial) não pode rebentar nem empurrar a inicial para baixo
+  const cyc = autoLayout([st('a', { initial: true }), st('b'), st('c')] as any, [tr('t1', ['a'], ['b']), tr('t2', ['b'], ['c']), tr('t3', ['c'], ['a'])] as any)
+  check('organizar: ciclos mantêm a etapa inicial no topo', cyc.get('a')!.y === START_Y && cyc.get('c')!.y > cyc.get('b')!.y)
+
+  // salto 1→3 com 2 pelo meio: 3 tem de ficar abaixo de 2
+  const skip = autoLayout([st('a', { initial: true }), st('b'), st('c')] as any, [tr('t1', ['a'], ['b']), tr('t2', ['b'], ['c']), tr('t3', ['a'], ['c'])] as any)
+  check('organizar: salto não coloca o destino acima das etapas intermédias', skip.get('c')!.y > skip.get('b')!.y)
+
+  check('organizar: programa vazio devolve vazio', autoLayout([], []).size === 0)
+  check('organizar: mais ações aumentam a altura da linha', autoLayout([st('a', { initial: true, actions: [1, 2, 3, 4].map((n) => ({ id: String(n), address: 'Q' + n, condition: '1' })) }), st('b')] as any, [tr('t', ['a'], ['b'])] as any).get('b')!.y === START_Y + stepPitch(4))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

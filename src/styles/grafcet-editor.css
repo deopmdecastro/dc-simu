@@ -978,3 +978,33 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+
+/* ── Arrastar etapas livremente na grelha ─────────────────────────── */
+.grafcet-full .grafcet-graph-node { cursor: grab; touch-action: none; }
+.grafcet-full .grafcet-graph-node.grafcet-step-dragging { cursor: grabbing; }
+.grafcet-full .grafcet-graph-node.grafcet-step-dragging * { pointer-events: none; }
+.grafcet-graph-node.is-selected rect:first-of-type { stroke: #2563eb; }
+
+.grafcet-guide {
+  stroke: #ec4899;
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.grafcet-drag-badge {
+  font-size: 10px;
+  font-weight: 700;
+  fill: #2563eb;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.grafcet-canvas-hud button[aria-pressed='true'] { background: #2563eb !important; color: #fff !important; }
+@media (prefers-reduced-motion: reduce) {
+  .grafcet-step-dragging { transition: none; }
+}
