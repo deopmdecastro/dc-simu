@@ -55,3 +55,15 @@ VITE_SUPABASE_URL=https://xyzabcdefghijk.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 Reinicie o servidor com `npm run dev`. O DC-SIMU detectará o Supabase automaticamente!
+
+## Registos de saúde do n8n
+
+O nó `Supabase – Guardar Saúde` usa a tabela `public.dc_simu_health`.
+Em instalações existentes, execute no SQL Editor o conteúdo de
+`migrations/20261018093442_create_n8n_health_log.sql`. O ficheiro pode ser
+executado novamente e não elimina registos existentes. A tabela mantém RLS
+ativo e acesso de leitura/inserção apenas para `service_role`.
+
+Na credencial Supabase do n8n, use como Host a URL da API do projeto
+(`https://<project-ref>.supabase.co`), sem `/rest/v1` e sem o caminho do painel
+`supabase.com/dashboard/...`. A chave secreta pertence apenas à credencial do n8n.

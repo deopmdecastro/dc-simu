@@ -29,6 +29,23 @@ Verificado em 18/10/2026. A integração existe na interface, mas o envio do GRA
 
 ## Evidência e limites
 
+### Atualização: erro de saúde corrigido
+
+Foi confirmada a causa de `createdRows.forEach is not a function`: a credencial
+`Supabase account` apontava para o painel web do Supabase, em vez da URL da API
+`https://qeztfdmjqtikfrcketif.supabase.co`. O endereço foi corrigido no n8n,
+preservando a chave existente. A API revelou depois que `public.dc_simu_health`
+não existia; a tabela foi criada pela migração
+`supabase/migrations/20261018093442_create_n8n_health_log.sql`.
+
+A tabela tem RLS ativo e permite apenas SELECT/INSERT ao papel `service_role`;
+`anon` e `authenticated` não têm acesso. A repetição da execução `16` criou a
+execução `18`, concluída com sucesso no nó `Supabase – Guardar Saúde`, com um
+registo inserido (`service=ollama`, `status=up`). Foi testado apenas este ramo;
+os restantes problemas de integração descritos acima continuam por resolver.
+
+### Evidência da revisão inicial
+
 - API autenticada: leitura do workflow, da sua versão publicada e do histórico de execuções concluída.
 - Existe apenas um workflow listado nesta instância: `DC-SIMU`, ativo.
 - Teste isolado do cliente, com `fetch` simulado para falhar em todas as chamadas: cinco tentativas; `triggerOk=true` e `connectionOk=true`. Nenhum webhook real foi disparado pelo teste.

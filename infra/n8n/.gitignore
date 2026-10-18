@@ -1,0 +1,4 @@
+.env
+.env.original
+backups/
+test-result.json
