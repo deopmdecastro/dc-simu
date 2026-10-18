@@ -8,7 +8,7 @@ export function askUpdateWithPendingChanges(): Promise<Answer> {
   return new Promise((resolve) => { if (open) open(resolve); else resolve('later') })
 }
 
-/** Painel global: montado uma vez, fora das páginas, para o utilizador não perder o sítio onde está. */
+/** Painel global com o visual oficial da plataforma DC-SIMU (na cara do site). */
 export default function UpdatePrompt() {
   const [resolver, setResolver] = useState<((answer: Answer) => void) | null>(null)
   useEffect(() => {
@@ -18,13 +18,13 @@ export default function UpdatePrompt() {
   if (!resolver) return null
   const answer = (value: Answer) => { resolver(value); setResolver(null) }
   return (
-    <div className="dx ce-modal ce-modal-fixed" role="dialog" aria-modal="true" aria-label="Atualização disponível">
-      <div className="ce-modal-card">
-        <h2>Nova versão do DC-SIMU</h2>
-        <p className="ce-hint">Tem alterações por guardar. Se atualizar agora, o trabalho é guardado e a página recarrega, voltando ao mesmo editor. Pode também continuar e atualizar mais tarde.</p>
-        <div className="ce-modal-actions">
-          <button className="dx-btn dx-btn-secondary" onClick={() => answer('later')}>Mais tarde</button>
-          <button className="dx-btn dx-btn-primary" autoFocus onClick={() => answer('save')}>Guardar e atualizar</button>
+    <div className="dcx-dialog-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) answer('later') }}>
+      <div className="dcx-dialog" role="alertdialog" aria-modal="true" aria-label="Quer atualizar o site?">
+        <h2>Quer atualizar o site?</h2>
+        <p>É possível que as alterações não tenham sido efetuadas. Se recarregar agora, o rascunho do seu projeto é guardado automaticamente e a aplicação atualiza para a versão mais recente.</p>
+        <div className="dcx-dialog-actions">
+          <button type="button" className="dcx-dialog-btn" onClick={() => answer('later')}>Cancelar</button>
+          <button type="button" className="dcx-dialog-btn is-primary" autoFocus onClick={() => answer('save')}>Recarregar</button>
         </div>
       </div>
     </div>

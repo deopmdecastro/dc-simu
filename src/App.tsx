@@ -1,5 +1,6 @@
 import { IconChevronLeft, IconChevronRight, IconClose, IconLayers } from './ui/icons'
 import { useEffect, useState } from 'react'
+import { uiConfirm } from './ui/dialogs'
 import InstallApp from './components/InstallApp'
 import Toolbar, { type ViewMode } from './components/Toolbar'
 import Sidebar from './components/Sidebar'
@@ -109,12 +110,37 @@ export default function App({ onBack }: { onBack: () => void }) {
   // Evita perder trabalho ao atualizar/fechar a aba com alterações pendentes.
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (!dirty) return
+      if (!dirty || (window as unknown as { __DCSIMU_ALLOW_UNLOAD__?: boolean }).__DCSIMU_ALLOW_UNLOAD__) return
       event.preventDefault()
       event.returnValue = ''
     }
     window.addEventListener('beforeunload', beforeUnload)
     return () => window.removeEventListener('beforeunload', beforeUnload)
+  }, [dirty])
+
+  // Interceta atalhos de recarga do navegador (F5, Ctrl+R, Cmd+R) quando há alterações pendentes,
+  // exibindo a caixa de diálogo com o visual oficial da plataforma DC-SIMU (na cara do site).
+  useEffect(() => {
+    const handleReloadKey = async (e: KeyboardEvent) => {
+      const isReload = e.key === 'F5' || ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R'))
+      if (isReload && dirty) {
+        e.preventDefault()
+        e.stopPropagation()
+        const reloadConfirmed = await uiConfirm('É possível que as alterações não tenham sido efetuadas.', {
+          title: 'Quer atualizar o site?',
+          confirmLabel: 'Recarregar',
+          cancelLabel: 'Cancelar',
+          danger: true,
+        })
+        if (reloadConfirmed) {
+          ;(window as unknown as { __DCSIMU_ALLOW_UNLOAD__?: boolean }).__DCSIMU_ALLOW_UNLOAD__ = true
+          useSimStore.setState({ dirty: false })
+          window.location.reload()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleReloadKey, true)
+    return () => window.removeEventListener('keydown', handleReloadKey, true)
   }, [dirty])
 
   useEffect(() => {

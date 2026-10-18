@@ -31,6 +31,9 @@ export async function purgeAllCaches(): Promise<void> {
 export async function hardRefresh(): Promise<void> {
   await purgeAllCaches()
   try { await fetch(window.location.href, { cache: 'reload', credentials: 'same-origin' }) } catch { /* offline */ }
+  try {
+    ;(window as unknown as { __DCSIMU_ALLOW_UNLOAD__?: boolean }).__DCSIMU_ALLOW_UNLOAD__ = true
+  } catch { /* noop */ }
   window.location.reload()
 }
 

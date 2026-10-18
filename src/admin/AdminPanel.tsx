@@ -1,5 +1,6 @@
 import Select from '../ui/Select'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { uiConfirm } from '../ui/dialogs'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { adminComponentIdFromPath, isAdminEditorPath, ROUTES } from '../routing/routes'
 import type { Invite, User } from '../dashboard/Dashboard'
@@ -81,8 +82,16 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
     catch (value) { setError(value instanceof Error ? value.message : 'Falha na operação') }
   }
   const review = (item: Contribution, status: ContributionStatus, text = '') => act(() => contribApi.review(item.id, status, text), status === 'approved' ? `«${item.title}» aprovada.` : status === 'rejected' ? `«${item.title}» rejeitada.` : `«${item.title}» voltou à fila de revisão.`)
-  const removeContribution = (item: Contribution) => { if (confirm(`Eliminar definitivamente a contribuição «${item.title}»?`)) void act(() => contribApi.remove(item.id), 'Contribuição eliminada.') }
-  const removeProject = (project: AdminProject) => { if (confirm(`Eliminar permanentemente o projeto ${project.name}? Esta ação não pode ser anulada.`)) void act(() => adminApi.deleteProject(project.id), 'Projeto eliminado.') }
+  const removeContribution = async (item: Contribution) => {
+    if (await uiConfirm(`Eliminar definitivamente a contribuição «${item.title}»?`, { title: 'Eliminar contribuição', confirmLabel: 'Eliminar', cancelLabel: 'Cancelar', danger: true })) {
+      void act(() => contribApi.remove(item.id), 'Contribuição eliminada.')
+    }
+  }
+  const removeProject = async (project: AdminProject) => {
+    if (await uiConfirm(`Eliminar permanentemente o projeto ${project.name}? Esta ação não pode ser anulada.`, { title: 'Eliminar projeto', confirmLabel: 'Eliminar', cancelLabel: 'Cancelar', danger: true })) {
+      void act(() => adminApi.deleteProject(project.id), 'Projeto eliminado.')
+    }
+  }
 
   const visible = useMemo(() => contributions.filter((item) => (statusFilter === 'all' || item.status === statusFilter)
     && (kindFilter === 'all' || item.kind === kindFilter)

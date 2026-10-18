@@ -1,5 +1,5 @@
 import { type ProjectKind } from './project/kind'
-import { uiAlert } from './ui/dialogs'
+import { uiAlert, uiConfirm } from './ui/dialogs'
 import { useCatalogStore } from './catalog/registry'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import App from './App'
@@ -140,15 +140,21 @@ export default function Account() {
 
   const preserveBeforeUpdate = useCallback(async () => {
     const state = useSimStore.getState()
-    if (!state.dirty) return true
+    if (!state.dirty) {
+      ;(window as unknown as { __DCSIMU_ALLOW_UNLOAD__?: boolean }).__DCSIMU_ALLOW_UNLOAD__ = true
+      return true
+    }
     // Com trabalho por guardar, o utilizador decide: a atualização nunca o tira do editor sem perguntar.
     if ((await askUpdateWithPendingChanges()) === 'later') return false
     // Cópia adicional best-effort; a gravação principal continua a ser o
     // projeto aberto, preservando revisão, nome e acesso no dashboard.
     saveAutosave(state.saveJSON())
     try {
-      if (!openRef.current) return false
-      await persistOpenProject(false)
+      if (openRef.current) {
+        await persistOpenProject(false)
+      }
+      useSimStore.setState({ dirty: false })
+      ;(window as unknown as { __DCSIMU_ALLOW_UNLOAD__?: boolean }).__DCSIMU_ALLOW_UNLOAD__ = true
       return true
     } catch (value) {
       error(value)
@@ -212,7 +218,12 @@ export default function Account() {
   }
 
   async function leave() {
-    if (useSimStore.getState().dirty && !confirm('Existem alterações não guardadas. Voltar aos projetos?')) return false
+    if (useSimStore.getState().dirty && !(await uiConfirm('Existem alterações não guardadas. Voltar aos projetos?', {
+      title: 'Voltar aos projetos',
+      confirmLabel: 'Voltar',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    }))) return false
     // Projetos antigos sem miniatura: captura a cena 3D e guarda-a antes de sair.
     if (!useSimStore.getState().dirty && openRef.current && !hasStoredCover() && canCaptureCover() && useSimStore.getState().components.length) {
       try {
@@ -258,7 +269,12 @@ export default function Account() {
   }
 
   async function logout() {
-    if (page === 'editor' && useSimStore.getState().dirty && !confirm('Existem alterações não guardadas. Sair da conta?')) return
+    if (page === 'editor' && useSimStore.getState().dirty && !(await uiConfirm('Existem alterações não guardadas. Sair da conta?', {
+      title: 'Sair da conta',
+      confirmLabel: 'Sair',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    }))) return
     try {
       useSimStore.getState().stop()
       await api('/logout', 'POST')

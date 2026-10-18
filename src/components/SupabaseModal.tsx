@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { uiConfirm } from '../ui/dialogs'
 import {
   clearSupabaseConfig,
   getSupabaseConfig,
@@ -125,17 +126,24 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
     saveSupabaseConfig(url.trim(), anonKey.trim())
     onConfigChanged?.()
     onClose()
+    ;(window as unknown as { __DCSIMU_ALLOW_UNLOAD__?: boolean }).__DCSIMU_ALLOW_UNLOAD__ = true
     window.location.reload()
   }
 
-  const handleDisconnect = () => {
-    if (confirm('Deseja desconectar o Supabase e voltar à base de dados local/SQLite?')) {
+  const handleDisconnect = async () => {
+    if (await uiConfirm('Deseja desconectar o Supabase e voltar à base de dados local/SQLite?', {
+      title: 'Desconectar Supabase',
+      confirmLabel: 'Desconectar',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    })) {
       clearSupabaseConfig()
       setUrl('')
       setAnonKey('')
       setTestResult(null)
       onConfigChanged?.()
       onClose()
+      ;(window as unknown as { __DCSIMU_ALLOW_UNLOAD__?: boolean }).__DCSIMU_ALLOW_UNLOAD__ = true
       window.location.reload()
     }
   }

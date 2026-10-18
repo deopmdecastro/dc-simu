@@ -431,14 +431,16 @@ function PublishDialog({ onClose, onDone }: { onClose: () => void; onDone: (mess
 /** Nova versão da aplicação: o utilizador escolhe quando atualizar; o rascunho é guardado antes de recarregar. */
 function UpdateDialog({ dirty, onAnswer }: { dirty: boolean; onAnswer: (accept: boolean, always?: boolean) => void }) {
   const [always, setAlways] = useState(false)
-  return <div className="ce-modal" role="dialog" aria-modal="true" aria-label="Atualização disponível">
-    <div className="ce-modal-card">
-      <h2>Nova versão do DC-SIMU</h2>
-      <p className="ce-hint">{dirty ? 'O rascunho do componente será guardado automaticamente e o editor recarrega na nova versão.' : 'O editor recarrega na nova versão. Não há alterações por guardar.'}</p>
-      <label className="ce-check"><input type="checkbox" checked={always} onChange={(event) => setAlways(event.target.checked)} />Atualizar sempre de forma automática (guardando o rascunho)</label>
-      <div className="ce-modal-actions">
-        <button className="dx-btn dx-btn-secondary" onClick={() => onAnswer(false)}>Mais tarde</button>
-        <button className="dx-btn dx-btn-primary" autoFocus onClick={() => onAnswer(true, always)}>Atualizar agora</button>
+  return <div className="dcx-dialog-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onAnswer(false) }}>
+    <div className="dcx-dialog" role="alertdialog" aria-modal="true" aria-label="Quer atualizar o site?">
+      <h2>Quer atualizar o site?</h2>
+      <p>{dirty ? 'É possível que as alterações não tenham sido efetuadas. O rascunho do componente será guardado automaticamente e o editor recarrega na nova versão.' : 'Uma nova versão do DC-SIMU está pronta. O editor recarrega na nova versão.'}</p>
+      <label className="ce-check" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, color: '#4b5b72' }}>
+        <input type="checkbox" checked={always} onChange={(event) => setAlways(event.target.checked)} />Atualizar sempre de forma automática (guardando o rascunho)
+      </label>
+      <div className="dcx-dialog-actions">
+        <button type="button" className="dcx-dialog-btn" onClick={() => onAnswer(false)}>Cancelar</button>
+        <button type="button" className="dcx-dialog-btn is-primary" autoFocus onClick={() => onAnswer(true, always)}>Recarregar</button>
       </div>
     </div>
   </div>
@@ -563,9 +565,37 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
 
   useEffect(() => { if (!message) return; const timer = window.setTimeout(() => setMessage(''), 3500); return () => window.clearTimeout(timer) }, [message])
   useEffect(() => {
-    const beforeUnload = (event: BeforeUnloadEvent) => { if (useEditorStore.getState().dirty) { event.preventDefault(); event.returnValue = '' } }
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (useEditorStore.getState().dirty && !(window as unknown as { __DCSIMU_ALLOW_UNLOAD__?: boolean }).__DCSIMU_ALLOW_UNLOAD__) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+    }
     window.addEventListener('beforeunload', beforeUnload)
     return () => window.removeEventListener('beforeunload', beforeUnload)
+  }, [])
+
+  useEffect(() => {
+    const handleReloadKey = async (e: KeyboardEvent) => {
+      const isReload = e.key === 'F5' || ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R'))
+      if (isReload && useEditorStore.getState().dirty) {
+        e.preventDefault()
+        e.stopPropagation()
+        const reloadConfirmed = await uiConfirm('É possível que as alterações não tenham sido efetuadas.', {
+          title: 'Quer atualizar o site?',
+          confirmLabel: 'Recarregar',
+          cancelLabel: 'Cancelar',
+          danger: true,
+        })
+        if (reloadConfirmed) {
+          ;(window as unknown as { __DCSIMU_ALLOW_UNLOAD__?: boolean }).__DCSIMU_ALLOW_UNLOAD__ = true
+          useEditorStore.setState({ dirty: false })
+          window.location.reload()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleReloadKey, true)
+    return () => window.removeEventListener('keydown', handleReloadKey, true)
   }, [])
 
   useEffect(() => {

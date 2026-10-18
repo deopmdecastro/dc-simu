@@ -1,5 +1,6 @@
 import Select from '../ui/Select'
 import { useCallback, useEffect, useState } from 'react'
+import { uiConfirm } from '../ui/dialogs'
 import { formatDate } from '../contrib/ContribParts'
 import { adminApi, downloadText } from './adminApi'
 import { ACTION_LABEL, CATEGORY_LABEL, actionLabel, categoryOf, logsToCsv, severityOf, type AuditEntry, type LogCategory, type LogQuery } from './adminTypes'
@@ -50,7 +51,12 @@ export default function LogsTab({ initialActor = '', onChanged, onError }: { ini
   }
 
   async function purge() {
-    if (!confirm(`Apagar definitivamente os registos com mais de ${purgeDays} dias?`)) return
+    if (!(await uiConfirm(`Apagar definitivamente os registos com mais de ${purgeDays} dias?`, {
+      title: 'Limpar registos',
+      confirmLabel: 'Apagar',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    }))) return
     try {
       const result = await adminApi.purgeLogs(purgeDays)
       await onChanged(`${result.removed} registo(s) apagado(s).`)

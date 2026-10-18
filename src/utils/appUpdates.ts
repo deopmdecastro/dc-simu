@@ -68,7 +68,10 @@ export function useAppUpdates(beforeUpdate: BeforeUpdate) {
         await updateSW(true)
         // O workbox-window recarrega em `controlling`. Este temporizador cobre
         // navegadores que ativam o worker mas não emitem esse evento a tempo.
-        fallbackReload = window.setTimeout(() => window.location.reload(), 4_000)
+        fallbackReload = window.setTimeout(() => {
+          ;(window as unknown as { __DCSIMU_ALLOW_UNLOAD__?: boolean }).__DCSIMU_ALLOW_UNLOAD__ = true
+          window.location.reload()
+        }, 4_000)
       } catch (error) {
         console.error('Não foi possível aplicar a atualização do DC-SIMU.', error)
       } finally {

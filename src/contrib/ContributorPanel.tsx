@@ -1,5 +1,6 @@
 import Select from '../ui/Select'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { uiConfirm } from '../ui/dialogs'
 import type { User } from '../dashboard/Dashboard'
 import type { ComponentType } from '../types'
 import { contribApi } from './contribApi'
@@ -116,7 +117,12 @@ export default function ContributorPanel({ user, onBack, initialTab = 'send' }: 
   }
 
   async function remove(item: Contribution) {
-    if (!confirm(`Eliminar «${item.title}»?`)) return
+    if (!(await uiConfirm(`Eliminar «${item.title}»?`, {
+      title: 'Eliminar contribuição',
+      confirmLabel: 'Eliminar',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    }))) return
     try { await contribApi.remove(item.id); await reload() }
     catch (error) { setMessage({ text: error instanceof Error ? error.message : 'Falha ao eliminar', error: true }) }
   }

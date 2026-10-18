@@ -1,5 +1,6 @@
 import Select from '../ui/Select'
 import { useMemo, useState } from 'react'
+import { uiConfirm } from '../ui/dialogs'
 import { activeAccountBackend } from '../auth/accountApi'
 import { formatDate } from '../contrib/ContribParts'
 import { adminApi } from './adminApi'
@@ -60,14 +61,24 @@ export default function UsersTab({ users, currentUserId, onChanged, onError, onO
   }
 
   async function remove(user: AdminUser) {
-    if (!confirm(`Eliminar a conta ${user.email}?`)) return
+    if (!(await uiConfirm(`Eliminar a conta ${user.email}?`, {
+      title: 'Eliminar utilizador',
+      confirmLabel: 'Eliminar',
+      cancelLabel: 'Cancelar',
+      danger: true,
+    }))) return
     setBusy(true)
     try {
       try { await adminApi.deleteUser(user.id) }
       catch (value) {
         // O servidor pede confirmação quando a conta ainda tem dados.
         if (/projeto\(s\)/.test(fail(value))) {
-          if (!confirm(`${fail(value)}\n\nEliminar também todos os dados desta conta? Esta ação não pode ser anulada.`)) return
+          if (!(await uiConfirm(`${fail(value)}\n\nEliminar também todos os dados desta conta? Esta ação não pode ser anulada.`, {
+            title: 'Eliminar dados da conta',
+            confirmLabel: 'Eliminar tudo',
+            cancelLabel: 'Cancelar',
+            danger: true,
+          }))) return
           await adminApi.deleteUser(user.id, true)
         } else throw value
       }
