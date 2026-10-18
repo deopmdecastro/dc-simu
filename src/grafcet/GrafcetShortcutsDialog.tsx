@@ -16,11 +16,13 @@ const GROUPS = [
     ],
   },
   {
-    title: 'Transições soltas',
+    title: 'Elementos soltos (transições e ações)',
     items: [
       { keys: ['T'], label: 'Criar transição solta (barra livre, sem ligações)' },
-      { keys: ['Arrastar'], label: 'Mover a barra; largá-la sobre uma etapa liga-a (topo = origem, fundo = destino)' },
-      { keys: ['L'], label: 'Ligar por linha: da saída de uma etapa para a entrada de outra, ou diretamente para a barra' },
+      { keys: ['4'], label: 'Criar ação solta (caixa livre, sem etapa)' },
+      { keys: ['Arrastar'], label: 'Largar o elemento sobre uma etapa liga-o (barra: topo = origem, fundo = destino); arrastar uma ação ligada para fora desanexa-a' },
+      { keys: ['L'], label: 'Ligar por linha: etapa→etapa cria transição; porto roxo da etapa→ação liga a ação' },
+      { keys: ['Arrastar etapa'], label: 'Largar uma etapa junto a uma barra solta também liga a transição' },
     ],
   },
   {
@@ -47,11 +49,11 @@ const GROUPS = [
   {
     title: 'Construção',
     items: [
-      { keys: ['1'], label: 'Adicionar etapa ligada (ou Insert)' },
-      { keys: ['2'], label: 'Adicionar etapa solta (ou Shift+Insert)' },
+      { keys: ['1'], label: 'Adicionar etapa (nasce sem transição) (ou Insert)' },
+      { keys: ['2'], label: 'Adicionar etapa em posição livre (ou Shift+Insert)' },
       { keys: ['3'], label: 'Adicionar transição solta (ou T)' },
-      { keys: ['4'], label: 'Adicionar ação contínua (ou A)' },
-      { keys: ['Shift', 'A'], label: 'Adicionar ação condicionada' },
+      { keys: ['4'], label: 'Adicionar ação solta (ou A)' },
+      { keys: ['Shift', 'A'], label: 'Adicionar ação condicionada solta' },
       { keys: ['F'], label: 'Criar divergência AND' },
       { keys: ['J'], label: 'Criar convergência AND' },
     ],

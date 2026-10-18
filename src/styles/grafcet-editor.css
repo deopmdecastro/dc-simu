@@ -113,6 +113,27 @@
   flex: none;
 }
 
+/* ---------------------------------------------------------------------
+   Ações soltas e gestos de arrasto de ações
+--------------------------------------------------------------------- */
+.grafcet-graph-action.is-dragging-action { cursor: grabbing !important; }
+.grafcet-port.is-action circle { transition: r .12s ease, fill .12s ease, stroke .12s ease; }
+.grafcet-port.is-action:hover circle:last-child { stroke-width: 3; }
+.grafcet-port.is-action.is-compatible circle:last-child { stroke: #16a34a; }
+.grafcet-port.is-action.is-compatible:hover circle:last-child,
+.grafcet-port.is-action.is-hover circle:last-child { fill: #bbf7d0; stroke: #16a34a; }
+
+.grafcet-free-actions-block { margin-top: 10px; }
+.grafcet-free-actions-title {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b45309;
+}
+.grafcet-free-action-cond { color: #64748b; font-size: 10.5px; }
+
 .grafcet-canvas.is-dragging {
   cursor: grabbing !important;
   user-select: none;

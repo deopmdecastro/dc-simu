@@ -356,36 +356,35 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('addConnectedStep')}
                 className="dc-tool-btn font-semibold !bg-brand-600 !text-white hover:!bg-brand-700 shadow-xs"
-                title="Adicionar etapa ligada à selecionada [Insert ou 1]"
+                title="Nova etapa (nasce sem transição — ligue-a com T ou L) [Insert ou 1]"
               >
-                <span>+ Etapa ligada</span>
+                <span>+ Etapa</span>
                 <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-white/20 text-white">1</kbd>
               </button>
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('addStep')}
                 className="dc-tool-btn"
-                title="Adicionar etapa solta [Shift+Insert ou 2]"
+                title="Nova etapa em posição livre [Shift+Insert ou 2]"
               >
-                <span>+ Etapa solta</span>
+                <span>+ Etapa livre</span>
                 <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-surface-sunken text-ink-400">2</kbd>
               </button>
               <button
                 type="button"
-                disabled={grafcet.steps.length < 2}
+                disabled={grafcet.steps.length < 1}
                 onClick={() => useGrafcetUi.getState().emit('addTransition')}
                 className="dc-tool-btn"
-                title="Adicionar transição entre etapas [T ou 3]"
+                title="Nova transição solta (arraste-a sobre etapas ou ligue por linha) [T ou 3]"
               >
                 <span>+ Transição</span>
                 <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-surface-sunken text-ink-400">3</kbd>
               </button>
               <button
                 type="button"
-                disabled={grafcet.steps.length === 0}
                 onClick={() => useGrafcetUi.getState().emit('addAction')}
                 className="dc-tool-btn"
-                title="Adicionar ação à etapa selecionada [A ou 4]"
+                title="Nova ação solta (arraste-a sobre uma etapa ou ligue por linha) [A ou 4]"
               >
                 <span>+ Ação</span>
                 <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-surface-sunken text-ink-400">4</kbd>

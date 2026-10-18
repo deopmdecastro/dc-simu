@@ -32,6 +32,9 @@ export interface GrafcetAction {
   description?: string
   displayDescription?: boolean
   variable?: string
+  /** Posição livre no diagrama (só para ações soltas, sem etapa associada) */
+  x?: number
+  y?: number
 }
 
 export interface GrafcetStep {
@@ -96,6 +99,8 @@ export interface GrafcetChart {
 export interface GrafcetProgram {
   steps: GrafcetStep[]
   transitions?: GrafcetTransition[]
+  /** Ações soltas: criadas sem etapa; ligam-se depois por arrasto ou por linha */
+  freeActions?: GrafcetAction[]
   comments?: GrafcetComment[]
   charts?: GrafcetChart[]
   activeChart?: string
@@ -519,6 +524,18 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
         issues.push({ id: `${transition.id}:always`, level: 'warning', message: `${name} tem receptividade «1»: dispara logo que as origens ficam ativas.`, entityId: transition.id, tab: 'transitions' })
       }
     }
+  })
+
+  // Ações soltas: criadas sem etapa — a simulação ignora-as até serem ligadas.
+  ;(program.freeActions ?? []).forEach((action, index) => {
+    const name = action.variable || action.address || `A${index + 1}`
+    issues.push({
+      id: `${action.id}:free`,
+      level: 'warning',
+      message: `A ação «${name}» está solta: ligue-a a uma etapa (arrasto ou ferramenta Ligar).`,
+      entityId: action.id,
+      tab: 'steps',
+    })
   })
 
   const incoming = new Set(transitions.flatMap((t) => t.to))
