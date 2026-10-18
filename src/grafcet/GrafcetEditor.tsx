@@ -19,6 +19,9 @@ import {
 import StepDialog from './StepDialog'
 import ActionDialog from './ActionDialog'
 import TransitionDialog from './TransitionDialog'
+import ConditionEditor from './ConditionEditor'
+import SignalTableDialog from './SignalTableDialog'
+import { grafcetSignals } from './signals'
 import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
 import { renderConditionTspans, fmtDuration } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
@@ -177,6 +180,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const [entityFilter, setEntityFilter] = useState('')
   const [dropActive, setDropActive] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [signalsOpen, setSignalsOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
@@ -1708,7 +1712,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         setHelpOpen((value) => !value)
         return
       }
-      if (typing || helpOpen || editingStep || editingTransition || editingAction || templatesOpen) return
+      if (typing || helpOpen || signalsOpen || editingStep || editingTransition || editingAction || templatesOpen) return
       if (event.code === 'Space' && !spacePressed.current && !event.repeat) {
         spacePressed.current = true
         setIsSpacePan(true)
@@ -1920,6 +1924,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         case 'addJoin':
           addJoin()
           break
+        case 'openSignals':
+          setSignalsOpen(true)
+          break
         case 'openTemplates':
           setTemplatesOpen(true)
           break
@@ -1975,39 +1982,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       zoomView: (factor) => zoomAt(scale * factor, { x: viewport.width / 2, y: viewport.height / 2 }),
       panView: (dx, dy) => setPan({ x: position.x - dx, y: position.y - dy }),
     },
-    { enabled: full && !helpOpen }
+    { enabled: full && !helpOpen && !signalsOpen && !editingStep && !editingTransition && !editingAction && !templatesOpen }
   )
 
-  const tagNames = tags.map((t) => t.name).filter(Boolean)
-  const tagAddresses = tags.map((t) => t.address).filter(Boolean)
-  const stepNames = steps.map((s, idx) => s.name || String(idx))
-  const stepBits = stepNames.map((n) => `X${n}`)
-  const stepTimers = stepNames.flatMap((n) => [`1s/X${n}`, `2s/X${n}`, `5s/X${n}`])
-
-  const actionAddresses = tags.filter((tag) => /^[QM]\d{1,2}$/.test(tag.address))
-
-  const actionVariableSuggestions = Array.from(new Set([
-    ...tagAddresses.filter((a) => /^[QM]/.test(a)),
-    ...tagNames,
-    'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8',
-    'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8',
-    'KM1', 'KM2', 'KM3',
-    'L_Verde', 'L_Amarela', 'L_Vermelha', 'Buzzer',
-    'Y0_A+', 'Y1_A-', 'Y2_B+', 'Y3_B-', 'Y4_C+', 'C-', 'Y5_D+', 'Y6_D-',
-    ...steps.flatMap((step) => actionsOf(step).map((a) => a.variable || a.address)).filter(Boolean)
-  ]))
-
-  const transitionVariableSuggestions = Array.from(new Set([
-    ...tagAddresses,
-    ...tagNames,
-    'I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7', 'I8',
-    'B_Start', 'B_Stop_NF', 'In_Man', 'B_Reset', 'Emerg_NF', 'Int_Emerg_NF',
-    'fc_a0', 'fc_a1', 'fc_b0', 'fc_b1', 'b0', 'b1', 'a0', 'a1', 'S_Rolamento',
-    ...stepBits,
-    ...stepTimers,
-    'Q1', 'Q2', 'Q3', 'Q4', 'M1', 'M2', 'M3', 'M4',
-    '1HZ', '0.5HZ', '2HZ', '1'
-  ]))
+  const signalSuggestions = useMemo(() => grafcetSignals(tags), [tags])
+  const actionSignals = signalSuggestions.filter((signal) => signal.area !== 'I')
 
   const liveBitsAll = [...new Set(steps.flatMap((step) => actionsOf(step).map((action) => action.address.trim().toUpperCase())))]
   const liveBits = Object.entries(table)
@@ -2017,6 +1996,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   return (
     <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
       <input ref={fileInputRef} type="file" accept=".json,.grafcet" style={{ display: 'none' }} onChange={importJson} />
+      <datalist id="grafcet-action-addresses">{actionSignals.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
+      <datalist id="grafcet-condition-signals">{signalSuggestions.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
 
       {!full && (
         /* Modo Pré-visualização lateral (dock) */
@@ -2035,6 +2016,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
       {/* CORPO DO DESIGNER: Painel de Ferramentas à Esquerda + Canvas no Centro + Propriedades à Direita */}
       <div className="grafcet-designer-body">
+        {full && showPalette && <button type="button" className="grafcet-toolbox-backdrop" aria-label="Fechar componentes" onClick={() => setShowPalette(false)} />}
         {/* PALETA DE COMPONENTES (Layout clássico com busca e recolher) */}
         {full &&
           (showPalette ? (
@@ -2082,7 +2064,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         <button
                           key={item.kind}
                           disabled={paletteDisabled(item.kind)}
-                          onClick={() => usePalette(item.kind)}
+                          onClick={() => { usePalette(item.kind); if (window.matchMedia('(max-width: 1199px)').matches) setShowPalette(false) }}
                           draggable={!paletteDisabled(item.kind)}
                           onDragStart={(event) => {
                             event.dataTransfer.setData(GRAFCET_MIME, item.kind)
@@ -3713,39 +3695,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           {/* HUD flutuante de navegação estilo grafcet.io */}
           {full && steps.length > 0 && (
             <div className="grafcet-canvas-hud" role="toolbar" aria-label="Navegação e zoom da tela">
-              <button
-                type="button"
-                className={activeTool === 'select' && !isSpacePan ? 'is-active' : ''}
-                onClick={() => setCanvasTool('select')}
-                title="Ferramenta Selecionar: selecione e arraste etapas [V ou S]"
-                aria-label="Ferramenta Selecionar"
-              >
-                <IconCursor size={12} />
-                <span>Selecionar</span>
-              </button>
-              <button
-                type="button"
-                className={activeTool === 'pan' || isSpacePan ? 'is-active' : ''}
-                onClick={() => setCanvasTool('pan')}
-                title="Ferramenta Arrastar: mova a tela arrastando o diagrama [H ou Barra de Espaço]"
-                aria-label="Ferramenta Arrastar"
-              >
-                <IconHand size={12} />
-                <span>Arrastar</span>
-              </button>
-              <button
-                type="button"
-                className={activeTool === 'connect' ? 'is-active' : ''}
-                onClick={() => {
-                  setCanvasTool('connect')
-                  notify(wireDraft ? 'Fio armado — toque numa etapa de destino' : 'Ligar: arraste da saída de uma etapa até ao destino')
-                }}
-                title="Ferramenta Ligar: ligue etapas/transições por linha — toque numa saída e depois no destino [L]"
-                aria-label="Ferramenta Ligar"
-              >
-                <IconWire size={12} />
-                <span>Ligar</span>
-              </button>
+              <span className="grafcet-hud-tool" title={activeTool === 'connect' ? 'Relacione saídas e destinos; Escape cancela a ligação.' : activeTool === 'pan' || isSpacePan ? 'Arraste para deslocar a vista.' : 'Selecione um elemento; duplo clique abre as propriedades.'}>
+                {activeTool === 'connect' ? <IconWire size={13} /> : activeTool === 'pan' || isSpacePan ? <IconHand size={13} /> : <IconCursor size={13} />}
+                <span>{activeTool === 'connect' ? (wireDraft ? 'Escolha o destino' : 'Ligar · escolha a saída') : activeTool === 'pan' || isSpacePan ? 'Arrastar vista' : 'Selecionar'}</span>
+              </span>
               <span className="grafcet-canvas-hud-sep" />
               <button
                 type="button"
@@ -3781,29 +3734,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 Ajustar
               </button>
               <span className="grafcet-canvas-hud-sep" />
-              <button
-                type="button"
-                className={gridOn ? 'is-active' : ''}
-                onClick={() => useGrafcetUi.getState().toggleGrid()}
-                title="Mostrar/ocultar a grelha"
-                aria-pressed={gridOn}
-              >
-                Grelha
-              </button>
-              <button
-                type="button"
-                className={snapOn ? 'is-active' : ''}
-                onClick={() => useGrafcetUi.getState().toggleSnap()}
-                title="Encaixar etapas à grelha ao arrastar (segure Alt para mover livremente)"
-                aria-pressed={snapOn}
-              >
-                Íman
-              </button>
-              <button type="button" onClick={organizeLayout} title="Organizar automaticamente: camadas e ramos paralelos em colunas (Ctrl+Z desfaz)">
-                Organizar
-              </button>
-              <span className="grafcet-canvas-hud-sep" />
-              <span style={{ fontSize: '10.5px', color: '#64748b', padding: '0 4px', fontWeight: 600 }}>
+              <span className="grafcet-hud-stats">
                 {steps.length} etapas · {transitions.length} transições · {steps.reduce((acc, s) => acc + actionsOf(s).length, 0) + freeActions.length} ações{freeActions.length > 0 ? ` (${freeActions.length} soltas)` : ''}
               </span>
             </div>
@@ -3964,9 +3895,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             className="dc-btn"
                             style={{ fontSize: '11px', padding: '2px 8px' }}
                             onClick={() => setEditingAction({ step: null, action: freeAct })}
-                            title="Abrir o diálogo FluidSIM"
+                            title="Editar propriedades da ação" aria-label="Editar propriedades da ação solta"
                           >
-                            Diálogo FluidSIM ↗
+                            Editar propriedades
                           </button>
                         </div>
 
@@ -3996,9 +3927,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           Variável / Saída
                           <input
                             className="dc-input"
+                            list="grafcet-action-addresses"
                             value={freeAct.variable || freeAct.address || ''}
                             onChange={(event) =>
-                              patchFreeAction(freeAct, { variable: event.target.value.toUpperCase(), address: event.target.value.toUpperCase() }, 'force')
+                              patchFreeAction(freeAct, { variable: event.target.value, address: event.target.value }, 'force')
                             }
                             placeholder="Q1, KM1, Y1_A-"
                           />
@@ -4049,9 +3981,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         className="dc-btn"
                         style={{ fontSize: '11px', padding: '2px 8px' }}
                         onClick={() => setEditingStep(selectedStep)}
-                        title="Abrir o diálogo de configuração avançada FluidSIM"
+                        title="Editar propriedades da etapa" aria-label="Editar propriedades da etapa"
                       >
-                        Diálogo FluidSIM ↗
+                        Editar propriedades
                       </button>
                     </div>
 
@@ -4119,14 +4051,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       <button onClick={() => addActionToStep(selectedStep)}>+ ação</button>
                     </div>
 
-                    <datalist id="grafcet-action-addresses">
-                      {actionAddresses.map((tag) => (
-                        <option key={tag.id} value={tag.address}>
-                          {tag.name}
-                        </option>
-                      ))}
-                    </datalist>
-
                     {actionsOf(selectedStep).map((action, actionIndex) => {
                       const kind = action.kind ?? 'N'
                       const timed = ACTION_KINDS.find((k) => k.id === kind)?.timed
@@ -4161,17 +4085,18 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             value={action.address || action.variable || ''}
                             onChange={(event) =>
                               patchAction(selectedStep, action, {
-                                address: event.target.value.toUpperCase(),
-                                variable: event.target.value.toUpperCase(),
+                                address: event.target.value,
+                                variable: event.target.value,
                               })
                             }
                           />
                           <input
                             className="dc-input"
                             aria-label={`Condição da ação ${actionIndex + 1}`}
+                            list="grafcet-condition-signals"
                             placeholder="1"
                             value={action.condition}
-                            onChange={(event) => patchAction(selectedStep, action, { condition: event.target.value.toUpperCase() })}
+                            onChange={(event) => patchAction(selectedStep, action, { condition: event.target.value })}
                           />
                           {timed && (
                             <label className="grafcet-time">
@@ -4195,8 +4120,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             type="button"
                             className="dc-btn"
                             style={{ fontSize: '11px', padding: '1px 5px', minWidth: '22px' }}
-                            title="Abrir diálogo FluidSIM da ação"
-                            aria-label={`Abrir diálogo da ação ${actionIndex + 1}`}
+                            title="Editar propriedades da ação"
+                            aria-label={`Editar propriedades da ação ${actionIndex + 1}`}
                             onClick={(e) => {
                               e.stopPropagation()
                               setEditingAction({ step: selectedStep, action })
@@ -4320,49 +4245,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         className="dc-btn"
                         style={{ fontSize: '11px', padding: '2px 8px' }}
                         onClick={() => setEditingTransition(selectedTransition)}
-                        title="Abrir diálogo FluidSIM da transição"
+                        title="Editar propriedades da transição" aria-label="Editar propriedades da transição"
                       >
-                        Diálogo FluidSIM ↗
+                        Editar propriedades
                       </button>
                     </div>
 
-                    <label>
-                      Condição
-                      <input
-                        className="dc-input"
-                        value={selectedTransition.condition}
-                        placeholder="I1 & !I2 | 10s/X1"
-                        onChange={(event) =>
-                          updateTransition(
-                            selectedTransition.id,
-                            { condition: event.target.value.toUpperCase() },
-                            'auto',
-                            `grafcet:transition:${selectedTransition.id}:condition`
-                          )
-                        }
-                      />
-                    </label>
-
-                    <div className="grafcet-token-chips" role="group" aria-label="Inserir na condição">
-                      <button type="button" title="Temporização normalizada IEC (ex.: 10s desde a ativação da etapa)" onClick={() => appendToCondition(selectedTransition, '10s/X1')}>
-                        ⏱ 10s/X1
-                      </button>
-                      <button type="button" title="Tempo desde que a etapa de origem ficou ativa" onClick={() => appendToCondition(selectedTransition, 'T(2S)')}>
-                        ⏱ T(2s)
-                      </button>
-                      <button type="button" title="Flanco ascendente" onClick={() => appendToCondition(selectedTransition, '^I1')}>
-                        ↑ ^I1
-                      </button>
-                      <button type="button" title="Flanco descendente" onClick={() => appendToCondition(selectedTransition, '\\I1')}>
-                        ↓ \I1
-                      </button>
-                      <button type="button" title="Etapa N ativa" onClick={() => appendToCondition(selectedTransition, 'X1')}>
-                        X1
-                      </button>
-                      <button type="button" title="Receptividade sempre verdadeira" onClick={() => updateTransition(selectedTransition.id, { condition: '1' }, 'force')}>
-                        1
-                      </button>
-                    </div>
+                    <ConditionEditor id="inspector-trans-condition-input" value={selectedTransition.condition} onChange={(condition) => updateTransition(selectedTransition.id, { condition }, 'auto', `grafcet:transition:${selectedTransition.id}:condition`)} signals={signalSuggestions} availableSteps={program.steps} resetKey={selectedTransition.id} active={!signalsOpen && !helpOpen && !editingStep && !editingAction && !editingTransition} />
 
                     <div className="grafcet-condition-state">
                       <span className={validCondition(selectedTransition.condition) && evalCondition(selectedTransition.condition, table) ? 'is-on' : ''}>
@@ -4557,6 +4446,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         </div>
       )}
 
+      {signalsOpen && <SignalTableDialog onClose={() => setSignalsOpen(false)} />}
+
       {/* DIÁLOGOS FLUIDSIM E ATALHOS */}
       <StepDialog
         open={!!editingStep}
@@ -4571,8 +4462,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       <TransitionDialog
         open={!!editingTransition}
         transition={editingTransition}
-        availableSteps={steps}
-        availableVariables={transitionVariableSuggestions}
+        transitionIndex={editingTransition ? transitions.findIndex((transition) => transition.id === editingTransition.id) : 0}
+        availableSteps={program.steps}
+        signals={signalSuggestions}
         onSave={(patch) => {
           if (editingTransition) updateTransition(editingTransition.id, patch, 'force')
         }}
@@ -4582,7 +4474,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       <ActionDialog
         open={!!editingAction}
         action={editingAction?.action ?? null}
-        availableVariables={actionVariableSuggestions}
+        signals={signalSuggestions}
+        availableSteps={program.steps}
         onSave={(patch) => {
           if (!editingAction) return
           if (editingAction.step) patchAction(editingAction.step, editingAction.action, patch, 'force')

@@ -26,6 +26,7 @@ export type GrafcetBusAction =
   | 'addFork'
   | 'addJoin'
   | 'openTemplates'
+  | 'openSignals'
   | 'generateLadder'
   | 'sendToN8n'
   | 'exportSvg'

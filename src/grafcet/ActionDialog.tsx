@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react'
-import type { GrafcetAction, GrafcetActionKind, GrafcetActionAllocation } from './engine'
+import { ACTION_KINDS, validGrafcetVariable, validCondition, type GrafcetAction, type GrafcetActionKind, type GrafcetActionAllocation, type GrafcetStep } from './engine'
+import PropertyDialog from './PropertyDialog'
+import ConditionEditor from './ConditionEditor'
+import SignalPicker from './SignalPicker'
+import { canonicalSignalAddress, type GrafcetSignalSuggestion } from './signals'
 
 interface ActionDialogProps {
   open: boolean
   action: GrafcetAction | null
-  availableVariables?: string[]
+  signals?: GrafcetSignalSuggestion[]
+  availableSteps?: GrafcetStep[]
   onSave: (patch: Partial<GrafcetAction>) => void
   onClose: () => void
   onHelp?: () => void
@@ -12,7 +17,7 @@ interface ActionDialogProps {
 
 type AssignationType = 'simple' | 'conditional'
 
-export default function ActionDialog({ open, action, availableVariables = [], onSave, onClose, onHelp }: ActionDialogProps) {
+export default function ActionDialog({ open, action, signals = [], availableSteps = [], onSave, onClose }: ActionDialogProps) {
   const [assignation, setAssignation] = useState<AssignationType>('simple')
   const [allocation, setAllocation] = useState<GrafcetActionAllocation>('continuous')
   const [kind, setKind] = useState<GrafcetActionKind>('N')
@@ -20,19 +25,24 @@ export default function ActionDialog({ open, action, availableVariables = [], on
   const [condition, setCondition] = useState('1')
   const [description, setDescription] = useState('')
   const [displayDescription, setDisplayDescription] = useState(false)
-  const [timeMs, setTimeMs] = useState<number>(2000)
+  const [duration, setDuration] = useState('2')
+  const [submitted, setSubmitted] = useState(false)
+  const [outputPickerOpen, setOutputPickerOpen] = useState(false)
+  const timeMs = Number(duration) * 1000
 
   useEffect(() => {
     if (action) {
-      setVariable(action.variable || action.address || 'Q1')
-      setDescription(action.description || action.address || '')
+      setSubmitted(false)
+      setOutputPickerOpen(false)
+      setVariable(action.variable ?? action.address ?? '')
+      setDescription(action.description ?? '')
       setDisplayDescription(action.displayDescription ?? (!!action.description && action.description !== action.address && action.description !== action.variable))
-      setCondition(action.condition || '1')
-      setTimeMs(action.timeMs || 2000)
+      setCondition(action.condition ?? '1')
+      setDuration(String((action.timeMs ?? 2000) / 1000))
 
       // Infer assignation & allocation
       const actKind = action.kind || 'N'
-      setKind(actKind)
+      setKind(['N', 'S', 'R', 'D', 'L'].includes(actKind) ? actKind : 'N')
       if (action.type) {
         setAssignation(action.type)
       } else if (action.condition && action.condition !== '1') {
@@ -57,43 +67,21 @@ export default function ActionDialog({ open, action, availableVariables = [], on
     }
   }, [action, open])
 
-  // Atalhos de teclado no modal (Enter para salvar, Escape para fechar)
-  useEffect(() => {
-    if (!open) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onClose()
-      } else if (e.key === 'Enter' && !e.shiftKey) {
-        const target = e.target as HTMLElement | null
-        if (target?.tagName === 'TEXTAREA') return
-        e.preventDefault()
-        handleOk()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [open, variable, description, displayDescription, condition, kind, allocation, assignation, timeMs])
-
   if (!open || !action) return null
 
+  const effectiveKind: GrafcetActionKind = allocation === 'activation' ? 'A' : allocation === 'deactivation' ? 'DA' : allocation === 'event' ? 'EV' : allocation === 'compulsory' ? 'C' : (['N', 'S', 'R', 'D', 'L'].includes(kind) ? kind : 'N')
+  const timed = effectiveKind === 'D' || effectiveKind === 'L'
+  const variableError = !variable.trim() ? 'Indique a variável ou saída da ação.' : !validGrafcetVariable(variable.trim()) ? 'Use uma variável válida, por exemplo Q1, %Q0.0 ou Motor_A.' : ''
+  const conditionError = assignation === 'conditional' && !validCondition(condition) ? 'Indique uma condição válida, por exemplo I1 ou I1 * /I2.' : ''
+  const timeError = timed && (!duration.trim() || !Number.isFinite(timeMs) || timeMs <= 0) ? 'Indique uma duração finita superior a zero.' : ''
   const handleOk = () => {
-    let effectiveKind: GrafcetActionKind = kind
-    if (allocation === 'activation') effectiveKind = 'A'
-    else if (allocation === 'deactivation') effectiveKind = 'DA'
-    else if (allocation === 'event') effectiveKind = 'EV'
-    else if (allocation === 'compulsory') effectiveKind = 'C'
-
+    setSubmitted(true)
+    const invalid = variableError ? 'action-var-input' : conditionError ? 'action-cond-input' : timeError ? 'action-time-input' : ''
+    if (invalid) { document.getElementById(invalid)?.focus(); return }
     onSave({
-      address: variable.trim() || 'Q1',
-      variable: variable.trim() || 'Q1',
-      description: description.trim(),
-      displayDescription,
-      condition: assignation === 'conditional' ? (condition.trim() || '1') : '1',
-      kind: effectiveKind,
-      type: assignation,
-      allocation,
-      timeMs: effectiveKind === 'D' || effectiveKind === 'L' ? timeMs : undefined,
+      address: variable.trim(), variable: variable.trim(), description: description.trim(), displayDescription,
+      condition: assignation === 'conditional' ? condition.trim() : '1', kind: effectiveKind, type: assignation, allocation,
+      timeMs: timed ? timeMs : undefined,
     })
     onClose()
   }
@@ -105,14 +93,14 @@ export default function ActionDialog({ open, action, availableVariables = [], on
 
   // Render SVG Preview normalizado IEC 60848
   const renderPreview = () => {
-    const isCompulsory = allocation === 'compulsory' || kind === 'C'
-    const isActivation = allocation === 'activation' || kind === 'A'
-    const isDeactivation = allocation === 'deactivation' || kind === 'DA'
-    const isEvent = allocation === 'event' || kind === 'EV'
+    const isCompulsory = allocation === 'compulsory'
+    const isActivation = allocation === 'activation'
+    const isDeactivation = allocation === 'deactivation'
+    const isEvent = allocation === 'event'
     const isConditional = assignation === 'conditional'
 
-    const hasQualifier = kind === 'S' || kind === 'R' || kind === 'D' || kind === 'L' || kind === 'N'
-    const qualifierText = kind === 'D' ? `D ${timeMs / 1000}s` : kind === 'L' ? `L ${timeMs / 1000}s` : kind === 'N' ? 'N' : kind
+    const hasQualifier = allocation === 'continuous'
+    const qualifierText = effectiveKind
 
     const boxW = 160
     const boxH = 38
@@ -120,13 +108,13 @@ export default function ActionDialog({ open, action, availableVariables = [], on
     const startY = isConditional ? 38 : 22
 
     return (
-      <svg width="100%" height="110" viewBox="0 0 200 110" className="grafcet-preview-svg">
+      <svg width="100%" height="110" viewBox="0 0 200 110" className="grafcet-preview-svg" role="img" aria-label={`Pré-visualização da ação ${variable || "sem variável"}`}><title>{displayText}</title>
         {/* Conditional notch/flag on top */}
         {isConditional && (
           <g>
             <path d={`M ${startX + 18} ${startY} V ${startY - 14} H ${startX + 80}`} fill="none" stroke="#1e293b" strokeWidth="1.6" />
             <text x={startX + 22} y={startY - 17} fontSize="10" fontWeight="700" fill="#2563eb">
-              {condition || 'condição'}
+              {condition.length > 23 ? condition.slice(0, 22) + '…' : condition || 'condição'}
             </text>
           </g>
         )}
@@ -203,280 +191,84 @@ export default function ActionDialog({ open, action, availableVariables = [], on
           fontWeight="600"
           fill="#0f172a"
         >
-          {displayText}
+          {displayText.length > 19 ? displayText.slice(0, 18) + '…' : displayText}
         </text>
+        {timed && <text x="100" y="97" textAnchor="middle" fontSize="10" fill="#435773">{effectiveKind === 'D' ? 'Atraso' : 'Limite'}: {duration || '—'} s</text>}
       </svg>
     )
   }
 
-  // Suggestion list of variables / outputs
-  const commonVars = [
-    'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8',
-    'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8',
-    'KM1', 'KM2', 'KM3',
-    'L_Verde', 'L_Amarela', 'L_Vermelha', 'Buzzer',
-    'Y0_A+', 'Y1_A-', 'Y2_B+', 'Y3_B-', 'Y4_C+', 'C-', 'Y5_D+', 'Y6_D-',
-    'Y7_E+_Vacuo_On', 'Y8_E-_Vacuo_Off',
+  const outputSignals = signals.filter((signal) => signal.area === 'Q' || signal.area === 'M')
+  const variableInTable = outputSignals.find((signal) => signal.address === canonicalSignalAddress(variable))
+
+  const allocationOptions: Array<{ id: GrafcetActionAllocation; kind: GrafcetActionKind; label: string }> = [
+    { id: 'continuous', kind: 'N', label: 'Durante a etapa' }, { id: 'activation', kind: 'A', label: 'Ao ativar ↑' },
+    { id: 'deactivation', kind: 'DA', label: 'Ao desativar ↓' }, { id: 'event', kind: 'EV', label: 'No evento' },
+    { id: 'compulsory', kind: 'C', label: 'Forçagem' },
   ]
-  const allVars = [...new Set([...availableVariables, ...commonVars])]
-
-  const quickVarChips = ['Q1', 'Q2', 'Q3', 'M1', 'KM1', 'L_Verde', 'L_Amarela', 'Y0_A+', 'Y1_A-']
-  const quickCondChips = ['1HZ', '0.5HZ', '2HZ', 'I1', 'I2', 'b0', 'b1', 'S_Rolamento']
-
+  const selectedKind = ACTION_KINDS.find((item) => item.id === effectiveKind)
+  const originalAllocation = action.allocation ?? (action.kind === 'DA' ? 'deactivation' : action.kind === 'EV' ? 'event' : action.kind === 'C' ? 'compulsory' : action.kind === 'A' ? 'activation' : 'continuous')
+  const notExecuted = ['DA', 'EV', 'C'].includes(effectiveKind)
+  const behaviorHint = notExecuted ? 'Tipo histórico guardado como notação. Esta ação não é executada pelo simulador atual.' : selectedKind?.hint
   return (
-    <div className="grafcet-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="grafcet-fluidsim-dialog" role="dialog" aria-modal="true" aria-labelledby="action-dialog-title">
-        <header className="grafcet-fluidsim-titlebar">
-          <span id="action-dialog-title">Action Properties (IEC 60848 / FluidSIM)</span>
-          <button className="grafcet-fluidsim-close" onClick={onClose} aria-label="Fechar">✕</button>
-        </header>
-
-        <div className="grafcet-fluidsim-body">
-          {/* Coluna da esquerda: Tipo (Assignation & Allocation) */}
-          <div className="grafcet-fluidsim-col-left">
-            <fieldset className="grafcet-fluidsim-group">
-              <legend>Type</legend>
-
-              <fieldset className="grafcet-fluidsim-subgroup">
-                <legend>Assignation</legend>
-                <label className="grafcet-type-radio-label">
-                  <svg width="24" height="16" viewBox="0 0 24 16" className="grafcet-dialog-radio-icon">
-                    <rect x="1" y="2" width="22" height="12" fill="white" stroke="#263d59" strokeWidth="1.5" />
-                  </svg>
-                  <input
-                    type="radio"
-                    name="assignation"
-                    checked={assignation === 'simple'}
-                    onChange={() => setAssignation('simple')}
-                  />
-                  <span>Simple action</span>
-                </label>
-                <label className="grafcet-type-radio-label">
-                  <svg width="24" height="18" viewBox="0 0 24 18" className="grafcet-dialog-radio-icon">
-                    <line x1="4" y1="4" x2="4" y2="1" stroke="#263d59" strokeWidth="1.2" />
-                    <rect x="1" y="4" width="22" height="12" fill="white" stroke="#263d59" strokeWidth="1.5" />
-                  </svg>
-                  <input
-                    type="radio"
-                    name="assignation"
-                    checked={assignation === 'conditional'}
-                    onChange={() => setAssignation('conditional')}
-                  />
-                  <span>Conditional action</span>
-                </label>
-              </fieldset>
-
-              <fieldset className="grafcet-fluidsim-subgroup">
-                <legend>Allocation</legend>
-                <label className="grafcet-type-radio-label">
-                  <svg width="24" height="16" viewBox="0 0 24 16" className="grafcet-dialog-radio-icon">
-                    <rect x="1" y="1" width="22" height="14" fill="white" stroke="#263d59" strokeWidth="1.2" />
-                    <line x1="5" y1="12" x2="5" y2="3" stroke="#263d59" strokeWidth="1.4" />
-                    <path d="M 3 6 L 5 3 L 7 6" stroke="#263d59" strokeWidth="1.4" fill="none" />
-                  </svg>
-                  <input
-                    type="radio"
-                    name="allocation"
-                    checked={allocation === 'activation'}
-                    onChange={() => { setAllocation('activation'); setKind('A') }}
-                  />
-                  <span>Action on activation (↑)</span>
-                </label>
-
-                <label className="grafcet-type-radio-label">
-                  <svg width="24" height="16" viewBox="0 0 24 16" className="grafcet-dialog-radio-icon">
-                    <rect x="1" y="1" width="22" height="14" fill="white" stroke="#263d59" strokeWidth="1.2" />
-                    <line x1="5" y1="3" x2="5" y2="12" stroke="#263d59" strokeWidth="1.4" />
-                    <path d="M 3 9 L 5 12 L 7 9" stroke="#263d59" strokeWidth="1.4" fill="none" />
-                  </svg>
-                  <input
-                    type="radio"
-                    name="allocation"
-                    checked={allocation === 'deactivation'}
-                    onChange={() => { setAllocation('deactivation'); setKind('DA') }}
-                  />
-                  <span>Action on deactivation (↓)</span>
-                </label>
-
-                <label className="grafcet-type-radio-label">
-                  <svg width="24" height="16" viewBox="0 0 24 16" className="grafcet-dialog-radio-icon">
-                    <rect x="1" y="1" width="22" height="14" fill="white" stroke="#263d59" strokeWidth="1.2" />
-                    <path d="M 3 11 L 6 5 L 9 5" stroke="#263d59" strokeWidth="1.3" fill="none" />
-                  </svg>
-                  <input
-                    type="radio"
-                    name="allocation"
-                    checked={allocation === 'event'}
-                    onChange={() => { setAllocation('event'); setKind('EV') }}
-                  />
-                  <span>Action on event</span>
-                </label>
-
-                <label className="grafcet-type-radio-label">
-                  <svg width="24" height="16" viewBox="0 0 24 16" className="grafcet-dialog-radio-icon">
-                    <rect x="1" y="1" width="22" height="14" fill="white" stroke="#263d59" strokeWidth="1.2" />
-                    <rect x="3" y="3" width="18" height="10" fill="none" stroke="#263d59" strokeWidth="1" />
-                  </svg>
-                  <input
-                    type="radio"
-                    name="allocation"
-                    checked={allocation === 'compulsory'}
-                    onChange={() => { setAllocation('compulsory'); setKind('C') }}
-                  />
-                  <span>Compulsory command</span>
-                </label>
-              </fieldset>
-
-              <fieldset className="grafcet-fluidsim-subgroup">
-                <legend>IEC Qualifier (opcional)</legend>
-                <div className="grafcet-qualifier-row">
-                  {(['N', 'S', 'R', 'D', 'L'] as const).map((k) => (
-                    <button
-                      key={k}
-                      type="button"
-                      className={`grafcet-qualifier-chip ${kind === k ? 'is-active' : ''}`}
-                      onClick={() => { setKind(k); setAllocation('continuous') }}
-                    >
-                      {k}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            </fieldset>
+    <PropertyDialog open={open} id="action-dialog" title="Propriedades da ação" subtitle="Defina a saída, o comportamento e as condições de execução." onSave={handleOk} onClose={onClose}>
+      <div className="grafcet-property-grid">
+        <section className="grafcet-property-fields" aria-label="Definições da ação">
+          <div className="grafcet-property-field">
+            <label htmlFor="action-var-input">Variável / saída <span className="grafcet-required">obrigatória</span></label>
+            <input id="action-var-input" data-initial-focus className="dc-input grafcet-code-input" list="grafcet-action-variables-list" value={variable} onChange={(e) => setVariable(e.target.value)} placeholder="Ex.: Q1, Motor_A, Y1_A-" aria-invalid={submitted && !!variableError} aria-describedby={submitted && variableError ? 'action-var-error' : undefined} />
+            <datalist id="grafcet-action-variables-list">{outputSignals.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
+            {submitted && variableError && <p id="action-var-error" className="grafcet-field-error" role="alert">{variableError}</p>}
+            <SignalPicker signals={outputSignals} inputId="action-var-input" onChoose={setVariable} onOpenChange={setOutputPickerOpen} />
+            <div className="grafcet-property-chips" aria-label="Sugestões de saídas">{outputSignals.slice(0, 5).map((signal) => <button type="button" key={signal.address} onClick={() => setVariable(signal.address)} aria-pressed={canonicalSignalAddress(variable) === signal.address} title={signal.comment}><code>{signal.address}</code>{signal.name && ` · ${signal.name}`}</button>)}</div>
+            {variable.trim() && !variableInTable && <p className="grafcet-signal-undeclared">Esta variável não está na tabela de saídas/memórias booleanas. A ação manual é mantida.</p>}
+            {!outputSignals.length && <p className="grafcet-property-note">Declare saídas ou memórias em «Variáveis» para obter sugestões. Pode manter endereços introduzidos manualmente.</p>}
           </div>
-
-          {/* Coluna da direita: Ação, Descrição, Preview */}
-          <div className="grafcet-fluidsim-col-right">
-            <fieldset className="grafcet-fluidsim-group">
-              <legend>Action</legend>
-              <div className="grafcet-fluidsim-field-group">
-                <label htmlFor="action-var-input"><strong>Variable / output</strong></label>
-                <div className="grafcet-input-with-datalist">
-                  <input
-                    id="action-var-input"
-                    className="dc-input grafcet-fluidsim-input"
-                    list="grafcet-action-variables-list"
-                    value={variable}
-                    onChange={(e) => setVariable(e.target.value.toUpperCase())}
-                    placeholder="Q1, Y1_A-, L_Verde"
-                    autoFocus
-                  />
-                  <datalist id="grafcet-action-variables-list">
-                    {allVars.map((v) => (
-                      <option key={v} value={v} />
-                    ))}
-                  </datalist>
-                </div>
-
-                {/* Chips rápidos de variáveis comuns */}
-                <div className="grafcet-quick-chips-row" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
-                  {quickVarChips.map((chip) => (
-                    <button
-                      key={chip}
-                      type="button"
-                      className={`grafcet-chip-sm ${variable === chip ? 'is-selected' : ''}`}
-                      onClick={() => setVariable(chip)}
-                      style={{
-                        padding: '1px 6px',
-                        fontSize: '10.5px',
-                        background: variable === chip ? '#2563eb' : '#f1f5f9',
-                        color: variable === chip ? '#ffffff' : '#334155',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '3px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {chip}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {assignation === 'conditional' && (
-                <div className="grafcet-fluidsim-field-group">
-                  <label htmlFor="action-cond-input"><strong>Condition</strong></label>
-                  <input
-                    id="action-cond-input"
-                    className="dc-input grafcet-fluidsim-input"
-                    value={condition}
-                    onChange={(e) => setCondition(e.target.value.toUpperCase())}
-                    placeholder="1HZ, 0.5 HZ, I1"
-                  />
-                  <div className="grafcet-quick-chips-row" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
-                    {quickCondChips.map((condChip) => (
-                      <button
-                        key={condChip}
-                        type="button"
-                        onClick={() => setCondition(condChip)}
-                        style={{
-                          padding: '1px 6px',
-                          fontSize: '10px',
-                          background: condition === condChip ? '#2563eb' : '#f8fafc',
-                          color: condition === condChip ? '#ffffff' : '#475569',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '3px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {condChip}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {(kind === 'D' || kind === 'L') && (
-                <div className="grafcet-fluidsim-field-group">
-                  <label htmlFor="action-time-input"><strong>Duration (s)</strong></label>
-                  <input
-                    id="action-time-input"
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    className="dc-input grafcet-fluidsim-input"
-                    value={timeMs / 1000}
-                    onChange={(e) => setTimeMs(Math.max(100, Math.round(Number(e.target.value) * 1000)))}
-                  />
-                </div>
-              )}
-            </fieldset>
-
-            <fieldset className="grafcet-fluidsim-group">
-              <legend>Description</legend>
-              <div className="grafcet-fluidsim-field-group">
-                <input
-                  className="dc-input grafcet-fluidsim-input"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Ex: Y1_A-, Y6_D-, C-"
-                />
-              </div>
-
-              <label className="grafcet-fluidsim-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={displayDescription}
-                  onChange={(e) => setDisplayDescription(e.target.checked)}
-                />
-                <span>Display description instead of formula</span>
-              </label>
-            </fieldset>
-
-            <fieldset className="grafcet-fluidsim-group grafcet-preview-group">
-              <legend>Preview (IEC 60848)</legend>
-              <div className="grafcet-fluidsim-preview-box">
-                {renderPreview()}
-              </div>
-            </fieldset>
+          <fieldset className="grafcet-property-section">
+            <legend>Execução</legend>
+            <div className="grafcet-property-choice-row">
+              <label className={`grafcet-property-option ${assignation === 'simple' ? 'is-selected' : ''}`}><input type="radio" name="assignation" checked={assignation === 'simple'} onChange={() => setAssignation('simple')} /><span><strong>Ação simples</strong><small>Sem condição adicional</small></span></label>
+              <label className={`grafcet-property-option ${assignation === 'conditional' ? 'is-selected' : ''}`}><input type="radio" name="assignation" checked={assignation === 'conditional'} onChange={() => setAssignation('conditional')} /><span><strong>Condicional</strong><small>Depende de uma expressão</small></span></label>
+            </div>
+            <div hidden={assignation !== 'conditional'}><ConditionEditor id="action-cond-input" value={condition} onChange={setCondition} signals={signals} availableSteps={availableSteps} resetKey={`${action.id}:${open}`} initialDefaultOne={(action.condition ?? '1') === '1'} active={assignation === 'conditional' && !outputPickerOpen} error={submitted ? conditionError : undefined} /></div>
+          </fieldset>
+          <fieldset className="grafcet-property-section">
+            <legend>Quando executar</legend>
+            <div className="grafcet-allocation-options">{allocationOptions.map((option) => {
+              const unsupported = ['deactivation', 'event', 'compulsory'].includes(option.id)
+              const disabled = unsupported && originalAllocation !== option.id
+              return <label key={option.id} className={`grafcet-property-option ${allocation === option.id ? 'is-selected' : ''} ${disabled ? 'is-unavailable' : ''}`}><input type="radio" name="allocation" checked={allocation === option.id} disabled={disabled} onChange={() => setAllocation(option.id)} /><span>{option.label}{unsupported && <small>Apenas notação · sem execução</small>}</span></label>
+            })}</div>
+            <p className="grafcet-property-note">Ao desativar, no evento e forçagem são tipos históricos sem execução. Pode manter uma seleção existente; novas ações usam os modos disponíveis.</p>
+            {notExecuted && <p className="grafcet-property-warning" role="status">Esta ação ({effectiveKind}) será guardada, mas não liga nem desliga a saída na simulação atual.</p>}
+            {allocation === 'continuous' && <>
+              <span className="grafcet-property-label">Qualificador IEC</span>
+              <div className="grafcet-qualifier-options" role="group" aria-label="Qualificador IEC">{ACTION_KINDS.filter((item) => ['N', 'S', 'R', 'D', 'L'].includes(item.id)).map((item) => <button type="button" key={item.id} aria-pressed={kind === item.id} onClick={() => setKind(item.id)} title={item.hint}><code>{item.id}</code><span>{item.label.split(' · ')[1].replace(' (set)', '').replace(' (reset)', '')}</span></button>)}</div>
+            </>}
+            <p className="grafcet-property-note">{behaviorHint}</p>
+            {timed && <div className="grafcet-property-field">
+              <label htmlFor="action-time-input">Duração <span className="grafcet-optional">segundos</span></label>
+              <input id="action-time-input" type="number" step="any" min="0" className="dc-input grafcet-code-input" value={duration} onChange={(e) => setDuration(e.target.value)} aria-invalid={submitted && !!timeError} aria-describedby={submitted && timeError ? 'action-time-error' : undefined} />
+              {submitted && timeError && <p id="action-time-error" className="grafcet-field-error" role="alert">{timeError}</p>}
+            </div>}
+          </fieldset>
+          <div className="grafcet-property-field">
+            <label htmlFor="action-desc-input">Descrição <span className="grafcet-optional">opcional</span></label>
+            <input id="action-desc-input" className="dc-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Ligar motor de avanço" />
+            <label className="grafcet-property-checkbox"><input type="checkbox" checked={displayDescription} onChange={(e) => setDisplayDescription(e.target.checked)} /><span>Mostrar a descrição no diagrama</span></label>
           </div>
-        </div>
-
-        <footer className="grafcet-fluidsim-actions">
-          <button className="grafcet-fluidsim-btn primary" onClick={handleOk}>OK</button>
-          <button className="grafcet-fluidsim-btn" onClick={onClose}>Cancel</button>
-          <button className="grafcet-fluidsim-btn" onClick={onHelp ?? onClose}>Help</button>
-        </footer>
+          <details className="grafcet-context-help"><summary>Como configurar esta ação</summary><div><p><b>N</b> acompanha a etapa; <b>S</b> memoriza a saída e <b>R</b> repõe a memória. <b>D</b> atrasa a ativação e <b>L</b> limita a duração, em segundos. <b>Ao ativar</b> gera um pulso à entrada na etapa.</p><p>Ao alternar entre «Durante a etapa» e «Ao ativar», o qualificador e a duração em edição são mantidos até guardar ou cancelar.</p><p>A condição usa o tempo da própria etapa: <code>T(2s)</code> torna-se verdadeira após dois segundos de atividade. Os estados <code>X0</code>, <code>X1</code> usam os índices globais das etapas.</p><p>A descrição é opcional e serve para apresentar a ação no diagrama. A saída executada continua a ser a variável escolhida.</p></div></details>
+        </section>
+        <aside className="grafcet-property-preview">
+          <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span>IEC 60848</span></div>
+          <div className="grafcet-property-drawing">{renderPreview()}</div>
+          <strong>{selectedKind?.label}</strong><p>{behaviorHint}</p>
+          <div className="grafcet-property-preview-value"><span>Saída</span><code>{variable || 'Por definir'}</code></div>
+          {assignation === 'conditional' && <div className="grafcet-property-preview-value"><span>Condição</span><code>{condition || 'Por definir'}</code></div>}
+          {timed && <div className="grafcet-property-preview-value"><span>Duração</span><code>{duration || '—'} s</code></div>}
+          {description && <div className="grafcet-property-preview-value"><span>Descrição</span><span>{description}</span></div>}
+        </aside>
       </div>
-    </div>
+    </PropertyDialog>
   )
 }

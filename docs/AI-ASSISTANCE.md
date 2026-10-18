@@ -18,6 +18,8 @@ ChatGPT e Gemini podem ajudar a rever requisitos e resumir excertos sem integra�
 
 Na preparação dos terminais, **Gemma 4 E4B pelo Ollama local** substitui a opção Mistral após cancelamento do setup Vibe. O modelo já instalado respondeu ao teste sintético; a troca no canvas exige executar o procedimento do BrainNet. Llama 3.2 local também tem um terminal preparado. Estes comandos de conversa usam os excertos fornecidos e não lhes dão acesso autónomo a ficheiros ou ferramentas. Ver [terminais e substituição do Mistral](../../../BrainNet/04-Agents/AI-Terminals.md).
 
+O [catálogo ECC](ECC-PLUGINS.md) também foi registado no Codex para explorar skills de revisão, verificação e React. A seleção e a compatibilidade com BrainNet estão documentadas; o plugin não foi instalado nesta exploração.
+
 O Copilot não aloja a aplicação. O repositório contém vercel.json, Dockerfile e compose.yaml; a URL, o commit e o ambiente de produção devem ser confirmados pelo responsável.
 
 O cofre BrainNet, quando estiver na estrutura local de pastas existente, contém a [avaliação de ferramentas e custos](../../../BrainNet/03-Projects/DC-Simu/AI-Tooling-Assessment.md) e o [backlog](../../../BrainNet/03-Projects/DC-Simu/Backlog.md). As ligações pressupõem que BrainNet e a pasta exterior dc-simu são irmãs.

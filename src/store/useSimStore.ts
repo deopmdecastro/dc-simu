@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { EDITOR_THEME } from '../ui/editorTheme'
+import { nextDeclaredTagAddress } from '../grafcet/signals'
 import { normalizeKind, type ProjectKind } from '../project/kind'
 import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, forceSteps, fireTransition, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
 import { nanoid } from 'nanoid'
@@ -113,6 +114,8 @@ interface Store extends CircuitState {
   /** Nome do projeto guardado no navegador atualmente aberto (null = projeto
    *  sem nome / carregado de arquivo / cenário pronto — ainda não guardado). */
   currentProjectName: string | null
+  /** Ephemeral document identity; prevents drafts from writing into a newly loaded project. */
+  projectRevision: number
   projectKind: ProjectKind
   setProjectKind: (kind: ProjectKind) => void
   /** Entradas virtuais (I1…): usadas quando o projeto não tem PLC físico no esquema. */
@@ -299,6 +302,7 @@ interface Store extends CircuitState {
   // --- tabela de tags (variáveis) ---
   /** Cria uma nova tag no próximo endereço livre da família indicada. */
   addTag: (prefix: 'I' | 'Q' | 'M' | 'T' | 'C') => void
+  setTags: (tags: LadderTag[], context?: { activePlcId: string | null; projectRevision: number }) => boolean
   updateTag: (id: string, patch: Partial<Omit<LadderTag, 'id'>>, historyMode?: 'auto' | 'force' | 'skip') => void
   removeTag: (id: string) => void
   /** Varre o programa Ladder e cria uma tag (nome = endereço) para cada
@@ -751,6 +755,7 @@ export const useSimStore = create<Store>((set, get) => ({
   probeA: null,
   clipboard: null,
   currentProjectName: null,
+  projectRevision: 0,
   projectKind: 'all' as ProjectKind,
   virtualInputs: {},
   virtualInputCount: 8,
@@ -2094,13 +2099,25 @@ export const useSimStore = create<Store>((set, get) => ({
 
   // ------------------------------------------------------------- tabela de tags
   addTag: (prefix) => {
-    const addr = nextAddress(prefix, get().runtime.table)
+    const addr = nextDeclaredTagAddress(prefix, get().tags)
+    if (!addr) { get().pushEvent('warning', 'Não existem endereços livres nesta área de variáveis.'); return }
     get().commitHistory()
     resetGroupedEdit()
     set((s) => ({
       tags: [...s.tags, { id: nanoid(6), address: addr, name: addr, dataType: defaultDataTypeFor(addr) as LadderDataType, comment: '' }],
       dirty: true,
     }))
+  },
+
+  setTags: (tags, context) => {
+    const state = get()
+    if (context && (state.activePlcId !== context.activePlcId || state.projectRevision !== context.projectRevision)) return false
+    if (JSON.stringify(tags) === JSON.stringify(state.tags)) return true
+    state.commitHistory()
+    resetGroupedEdit()
+    const saved = tags.map((tag) => ({ ...tag }))
+    set({ tags: saved, ...(state.activePlcId ? { plcTags: { ...state.plcTags, [state.activePlcId]: saved } } : {}), dirty: true })
+    return true
   },
 
   updateTag: (id, patch, historyMode = 'auto') => {
@@ -2183,6 +2200,7 @@ export const useSimStore = create<Store>((set, get) => ({
       const programs = (parsed.plcPrograms ?? {}) as Record<string, PlcProgram>
       const activeProgram = loadedActiveId && programs[loadedActiveId]
       set({
+        projectRevision: get().projectRevision + 1,
         projectKind: normalizeKind(parsed.projectKind),
         virtualInputs: {},
         virtualInputModes: (parsed.virtualInputModes && typeof parsed.virtualInputModes === 'object' ? parsed.virtualInputModes : {}) as Record<string, VirtualInputMode>,
@@ -2221,6 +2239,7 @@ export const useSimStore = create<Store>((set, get) => ({
     setStoredCover(null)
     get().stop()
     set({
+      projectRevision: get().projectRevision + 1,
       components: [],
       wires: [],
       showEmptyWelcome: true,

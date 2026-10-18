@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { GrafcetStep, GrafcetStepType } from './engine'
+import PropertyDialog from './PropertyDialog'
 
 interface StepDialogProps {
   open: boolean
@@ -11,13 +12,13 @@ interface StepDialogProps {
 }
 
 const STEP_TYPES: Array<{ id: GrafcetStepType; label: string; desc: string }> = [
-  { id: 'simple', label: 'Simple step', desc: 'Etapa simples da sequência' },
-  { id: 'initial', label: 'Initial step', desc: 'Etapa inicial ativada no arranque' },
-  { id: 'macro', label: 'Macro-step', desc: 'Representa um sub-GRAFCET (M)' },
-  { id: 'macro-input', label: 'Macro input', desc: 'Entrada de macro-etapa (E)' },
-  { id: 'macro-output', label: 'Macro output', desc: 'Saída de macro-etapa (S)' },
-  { id: 'enclosing', label: 'Enclosing step', desc: 'Etapa encapsulante' },
-  { id: 'initial-enclosing', label: 'Initial enclosing step', desc: 'Etapa encapsulante inicial' },
+  { id: 'simple', label: 'Etapa simples', desc: 'Etapa simples da sequência' },
+  { id: 'initial', label: 'Etapa inicial', desc: 'Etapa inicial ativada no arranque' },
+  { id: 'macro', label: 'Macroetapa', desc: 'Notação de macroetapa (M)' },
+  { id: 'macro-input', label: 'Entrada de macroetapa', desc: 'Entrada de macro-etapa (E)' },
+  { id: 'macro-output', label: 'Saída de macroetapa', desc: 'Saída de macro-etapa (S)' },
+  { id: 'enclosing', label: 'Etapa encapsulante', desc: 'Etapa encapsulante' },
+  { id: 'initial-enclosing', label: 'Encapsulante inicial', desc: 'Etapa encapsulante inicial' },
 ]
 
 export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose, onHelp }: StepDialogProps) {
@@ -25,45 +26,34 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
   const [stepType, setStepType] = useState<GrafcetStepType>('simple')
   const [activationLink, setActivationLink] = useState(false)
   const [description, setDescription] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   useEffect(() => {
     if (step) {
-      setName(step.name || String(stepIndex))
+      setSubmitted(false)
+      setName(step.name ?? String(stepIndex))
       setStepType(step.stepType || (step.initial ? 'initial' : 'simple'))
       setActivationLink(!!step.activationLink)
-      setDescription(step.description || step.comment || '')
+      setDescription(step.description ?? step.comment ?? '')
+      setAdvancedOpen(!!step.activationLink || !!step.stepType && !['simple', 'initial'].includes(step.stepType))
     }
   }, [step, stepIndex, open])
 
-  // Atalhos de teclado no modal (Enter para salvar, Escape para fechar)
-  useEffect(() => {
-    if (!open) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onClose()
-      } else if (e.key === 'Enter' && !e.shiftKey) {
-        const target = e.target as HTMLElement | null
-        if (target?.tagName === 'TEXTAREA') return
-        e.preventDefault()
-        handleOk()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [open, name, stepType, activationLink, description])
-
   if (!open || !step) return null
 
+  const nameError = !name.trim() ? 'Indique o nome ou número da etapa.' : ''
   const handleOk = () => {
+    setSubmitted(true)
+    if (nameError) { document.getElementById('step-name-input')?.focus(); return }
     const isInit = stepType === 'initial' || stepType === 'initial-enclosing'
     onSave({
-      name: name.trim() || String(stepIndex),
+      name: name.trim(),
       stepType,
-      initial: isInit,
+      initial: stepType === (step.stepType ?? (step.initial ? 'initial' : 'simple')) ? step.initial : isInit,
       activationLink,
       description: description.trim(),
-      comment: description.trim(),
+      comment: description === (step.description ?? step.comment ?? '') ? step.comment : description.trim(),
     })
     onClose()
   }
@@ -108,13 +98,14 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
     const isInput = stepType === 'macro-input'
     const isOutput = stepType === 'macro-output'
     const isEnclosing = stepType === 'enclosing' || stepType === 'initial-enclosing'
-    const displayName = name || String(stepIndex)
+    const displayName = name || '—'
+    const previewName = displayName.length > 13 ? displayName.slice(0, 12) + '…' : displayName
 
     // Ajusta o tamanho da fonte para que textos longos (ex: "Etapa 0") não fiquem colados ou transbordando
     const fontSize = displayName.length > 7 ? 11 : displayName.length > 5 ? 12 : displayName.length > 3 ? 14 : 18
 
     return (
-      <svg width="100%" height="150" viewBox="0 0 200 150" className="grafcet-preview-svg">
+      <svg width="100%" height="150" viewBox="0 0 200 150" className="grafcet-preview-svg" role="img" aria-label={`Pré-visualização da etapa ${name || "sem nome"}`}><title>{name}{description ? ` · ${description}` : ""}</title>
         <g transform="translate(68, 43)">
           <rect x="0" y="0" width="64" height="64" fill="white" stroke="#1e293b" strokeWidth="2.5" />
           {isDouble && <rect x="5.5" y="5.5" width="53" height="53" fill="none" stroke="#1e293b" strokeWidth="1.8" />}
@@ -135,13 +126,13 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
               <line x1="50" y1="64" x2="64" y2="50" stroke="#1e293b" strokeWidth="2.5" />
             </>
           )}
-          <text x="32" y={fontSize <= 12 ? 36 : 38} textAnchor="middle" fontSize={fontSize} fontWeight="700" fill="#0f172a">
-            {displayName}
+          <text x="32" y={fontSize <= 12 ? 36 : 38} textAnchor="middle" fontSize={fontSize} textLength={previewName.length > 8 ? 48 : undefined} lengthAdjust="spacingAndGlyphs" fontWeight="700" fill="#0f172a">
+            {previewName}
           </text>
         </g>
         {description && (
           <text x="100" y="132" textAnchor="middle" fontSize="12" fontWeight="600" fill="#334155">
-            "{description}"
+            {description.length > 28 ? description.slice(0, 27) + '…' : description}
           </text>
         )}
       </svg>
@@ -161,127 +152,48 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
   ]
 
   return (
-    <div className="grafcet-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="grafcet-fluidsim-dialog" role="dialog" aria-modal="true" aria-labelledby="step-dialog-title">
-        <header className="grafcet-fluidsim-titlebar">
-          <span id="step-dialog-title">Step Properties (IEC 60848 / FluidSIM)</span>
-          <button className="grafcet-fluidsim-close" onClick={onClose} aria-label="Fechar">✕</button>
-        </header>
-
-        <div className="grafcet-fluidsim-body">
-          {/* Coluna da esquerda: Tipo */}
-          <div className="grafcet-fluidsim-col-left">
-            <fieldset className="grafcet-fluidsim-group">
-              <legend>Step Type</legend>
-              <div className="grafcet-step-types-list">
-                {STEP_TYPES.map((t) => (
-                  <label key={t.id} className="grafcet-type-radio-label">
-                    <div className="grafcet-type-icon-box">{renderTypeIcon(t.id)}</div>
-                    <input
-                      type="radio"
-                      name="stepType"
-                      checked={stepType === t.id}
-                      onChange={() => setStepType(t.id)}
-                    />
-                    <span className="grafcet-type-name">{t.label}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+    <PropertyDialog open={open} id="step-dialog" title="Propriedades da etapa" subtitle="Identifique a etapa e escolha o seu papel na sequência." onSave={handleOk} onClose={onClose}>
+      <div className="grafcet-property-grid">
+        <section className="grafcet-property-fields" aria-label="Definições da etapa">
+          <div className="grafcet-property-field">
+            <label htmlFor="step-name-input">Nome ou número <span className="grafcet-required">obrigatório</span></label>
+            <input id="step-name-input" data-initial-focus className="dc-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: 0, 10, Espera" aria-invalid={submitted && !!nameError} aria-describedby={submitted && nameError ? 'step-name-error' : undefined} />
+            {submitted && nameError && <p id="step-name-error" className="grafcet-field-error" role="alert">{nameError}</p>}
+            <div className="grafcet-property-chips" aria-label="Sugestões de números">{quickStepNumbers.map((num) => <button key={num} type="button" onClick={() => setName(num)} aria-pressed={name === num}>{num}</button>)}</div>
           </div>
-
-          {/* Coluna da direita: Nome, Ativação, Descrição, Pré-visualização */}
-          <div className="grafcet-fluidsim-col-right">
-            <div className="grafcet-fluidsim-field-group">
-              <label htmlFor="step-name-input"><strong>Step Identifier / Name</strong></label>
-              <input
-                id="step-name-input"
-                className="dc-input grafcet-fluidsim-input"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: 0, 1, 10, 30"
-                autoFocus
-              />
-              {/* Sugestões rápidas de números de etapa IEC */}
-              <div className="grafcet-quick-chips-row" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
-                {quickStepNumbers.map((num) => (
-                  <button
-                    key={num}
-                    type="button"
-                    onClick={() => setName(num)}
-                    style={{
-                      padding: '1px 7px',
-                      fontSize: '10.5px',
-                      fontWeight: 600,
-                      background: name === num ? '#2563eb' : '#f1f5f9',
-                      color: name === num ? '#ffffff' : '#334155',
-                      border: '1px solid #cbd5e1',
-                      borderRadius: '3px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {num}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <label className="grafcet-fluidsim-checkbox-label">
-              <input
-                type="checkbox"
-                checked={activationLink}
-                onChange={(e) => setActivationLink(e.target.checked)}
-              />
-              <span>Activation link (ligação de ativação orientada)</span>
-            </label>
-
-            <div className="grafcet-fluidsim-field-group">
-              <label htmlFor="step-desc-input"><strong>Description / Comment</strong></label>
-              <input
-                id="step-desc-input"
-                className="dc-input grafcet-fluidsim-input"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex: Maquina Parada, Avanço Motor"
-              />
-              {/* Sugestões rápidas de descrição */}
-              <div className="grafcet-quick-chips-row" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
-                {quickDescChips.map((chip) => (
-                  <button
-                    key={chip}
-                    type="button"
-                    onClick={() => setDescription(chip)}
-                    style={{
-                      padding: '1px 6px',
-                      fontSize: '10px',
-                      background: '#f1f5f9',
-                      color: '#334155',
-                      border: '1px solid #cbd5e1',
-                      borderRadius: '3px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <fieldset className="grafcet-fluidsim-group grafcet-preview-group">
-              <legend>Preview (IEC 60848)</legend>
-              <div className="grafcet-fluidsim-preview-box">
-                {renderPreview()}
-              </div>
-            </fieldset>
+          <fieldset className="grafcet-property-section">
+            <legend>Tipo de etapa</legend>
+            <div className="grafcet-step-options">{STEP_TYPES.filter((t) => t.id === 'simple' || t.id === 'initial').map((t) => (
+              <label key={t.id} className={`grafcet-property-option ${stepType === t.id ? 'is-selected' : ''}`}>
+                <input type="radio" name="stepType" checked={stepType === t.id} onChange={() => setStepType(t.id)} />
+                {renderTypeIcon(t.id)}<span><strong>{t.label}</strong><small>{t.desc}</small></span>
+              </label>
+            ))}</div>
+          </fieldset>
+          <div className="grafcet-property-field">
+            <label htmlFor="step-desc-input">Descrição <span className="grafcet-optional">opcional</span></label>
+            <input id="step-desc-input" className="dc-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Avanço do cilindro A" />
+            <div className="grafcet-property-chips" aria-label="Sugestões de descrição">{quickDescChips.map((chip) => <button key={chip} type="button" onClick={() => setDescription(chip)}>{chip}</button>)}</div>
           </div>
-        </div>
-
-        <footer className="grafcet-fluidsim-actions">
-          <button className="grafcet-fluidsim-btn primary" onClick={handleOk}>OK</button>
-          <button className="grafcet-fluidsim-btn" onClick={onClose}>Cancel</button>
-          <button className="grafcet-fluidsim-btn" onClick={onHelp ?? onClose}>Help</button>
-        </footer>
+          <details className="grafcet-context-help grafcet-step-advanced" open={advancedOpen} onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}>
+            <summary>Notação avançada <span>{!['simple', 'initial'].includes(stepType) ? STEP_TYPES.find((type) => type.id === stepType)?.label : 'opcional'}</span></summary>
+            <div>
+              <p className="grafcet-property-warning">Macroetapas, encapsulamento e ligação de ativação são notação guardada. O simulador não executa sub-GRAFCETs nem hierarquias; estas etapas continuam na sequência atual.</p>
+              <div className="grafcet-step-options">{STEP_TYPES.filter((type) => !['simple', 'initial'].includes(type.id)).map((type) => <label key={type.id} className={`grafcet-property-option ${stepType === type.id ? 'is-selected' : ''}`}><input type="radio" name="stepType" checked={stepType === type.id} onChange={() => setStepType(type.id)} />{renderTypeIcon(type.id)}<span><strong>{type.label}</strong><small>{type.desc}</small></span></label>)}</div>
+              <label className="grafcet-property-checkbox"><input type="checkbox" checked={activationLink} onChange={(event) => setActivationLink(event.target.checked)} /><span>Ligação de ativação orientada · apenas notação</span></label>
+            </div>
+          </details>
+          <details className="grafcet-context-help"><summary>Como configurar esta etapa</summary><div><p>A etapa inicial fica ativa ao iniciar a sequência. As etapas simples são ativadas pelas transições ligadas a elas.</p><p>O nome é a identificação visual. Nas condições, <code>X0</code> consulta o índice 0 da lista global; mudar o nome para «Espera» não cria uma variável <code>XEspera</code>.</p><p>A descrição é opcional. Associe saídas através das ações da etapa; o nome ou a descrição não ligam saídas.</p></div></details>
+        </section>
+        <aside className="grafcet-property-preview">
+          <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span>IEC 60848</span></div>
+          <div className="grafcet-property-drawing">{renderPreview()}</div>
+          <strong>{STEP_TYPES.find((t) => t.id === stepType)?.label}</strong>
+          <p>{!['simple', 'initial'].includes(stepType) ? 'Notação avançada guardada. Sem execução de sub-GRAFCETs no simulador.' : stepType === 'initial' ? 'Ativa no início da sequência.' : 'A ativação depende das ligações e transições.'}</p>
+          <div className="grafcet-property-preview-value"><span>Identificador</span><code>{name || 'Por definir'}</code></div>
+          {description && <div className="grafcet-property-preview-value"><span>Descrição</span><span>{description}</span></div>}
+        </aside>
       </div>
-    </div>
+    </PropertyDialog>
   )
 }

@@ -116,6 +116,7 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
 
 export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder', 'grafcet', 'monitor'], ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects }: { mode: ViewMode; setMode: (m: ViewMode) => void; views?: ViewMode[]; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void }) {
   const [clean, setClean] = useCleanMode()
+  const [grafcetMoreOpen, setGrafcetMoreOpen] = useState(false)
   const {
     sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
     step, saveJSON, loadJSON, tool, setTool, grid, setGrid, zoom, setZoom,
@@ -303,7 +304,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       </div>
 
       {/* ============================ linha 2 — contextual à vista ativa */}
-      <div className="dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll">
+      <div className={`dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
         {/* desfazer / refazer — comum a todas as vistas */}
         <div className="dc-seg" role="toolbar" aria-label="Histórico">
           <button onClick={undo} disabled={!history.length} className={`${segBtn(false)} !px-2`} title="Desfazer [Ctrl+Z]">
@@ -322,6 +323,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 type="button"
                 onClick={() => useGrafcetUi.getState().setTool('select')}
                 className={segBtn(grafcetTool === 'select')}
+                aria-label="Selecionar" aria-pressed={grafcetTool === 'select'}
                 title="Ferramenta Selecionar: selecione e arraste etapas [V ou S]"
               >
                 <IconCursor size={13} />
@@ -332,6 +334,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 type="button"
                 onClick={() => useGrafcetUi.getState().setTool('pan')}
                 className={segBtn(grafcetTool === 'pan')}
+                aria-label="Arrastar vista" aria-pressed={grafcetTool === 'pan'}
                 title="Ferramenta Arrastar: mova a tela arrastando o diagrama [H ou Barra de Espaço]"
               >
                 <IconHand size={13} />
@@ -342,6 +345,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 type="button"
                 onClick={() => useGrafcetUi.getState().setTool('connect')}
                 className={segBtn(grafcetTool === 'connect')}
+                aria-label="Ligar elementos" aria-pressed={grafcetTool === 'connect'}
                 title="Ferramenta Ligar: una etapas e transições por linha — arraste de uma saída para um destino [L]"
               >
                 <IconWire size={13} />
@@ -351,6 +355,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             </div>
 
             <span className="tb-sep" />
+            <button type="button" className="dc-tool-btn grafcet-signals-tool" aria-label="Tabela de entradas, saídas e memórias" onClick={() => useGrafcetUi.getState().emit('openSignals')} title="Declarar e organizar os sinais usados nas sugestões">Variáveis</button>
+            <button type="button" className="grafcet-toolbar-more dc-tool-btn" aria-expanded={grafcetMoreOpen} onClick={() => setGrafcetMoreOpen((value) => !value)} title="Ficheiros, disposição, modelos e mais ferramentas">
+              {grafcetMoreOpen ? 'Menos' : 'Mais'} <IconChevronDown size={12} className={grafcetMoreOpen ? 'rotate-180' : ''} />
+            </button>
             <div className="dc-seg" role="toolbar" aria-label="Ferramentas GRAFCET">
               <button
                 type="button"
@@ -393,7 +401,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 type="button"
                 disabled={grafcet.steps.length < 1}
                 onClick={() => useGrafcetUi.getState().emit('addFork')}
-                className="dc-tool-btn"
+                className="dc-tool-btn grafcet-toolbar-secondary-inline"
                 title="Criar divergência AND (ramos simultâneos) [F]"
               >
                 <span>⑂ Divergência AND</span>
@@ -403,7 +411,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 type="button"
                 disabled={grafcet.steps.length < 2}
                 onClick={() => useGrafcetUi.getState().emit('addJoin')}
-                className="dc-tool-btn"
+                className="dc-tool-btn grafcet-toolbar-secondary-inline"
                 title="Criar convergência AND (sincronização) [J]"
               >
                 <span>⑃ Convergência AND</span>
@@ -413,7 +421,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
             <span className="tb-sep" />
 
-            <div className="dc-seg" role="toolbar" aria-label="Modelos e Ladder">
+            <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Modelos e Ladder">
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('openTemplates')}
@@ -450,7 +458,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
             <span className="tb-sep" />
 
-            <div className="dc-seg" role="toolbar" aria-label="Disposição">
+            <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Disposição">
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().toggleGrid()}
@@ -481,7 +489,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
             <span className="tb-sep" />
 
-            <div className="dc-seg" role="toolbar" aria-label="Ficheiro">
+            <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Ficheiro">
               <button type="button" onClick={() => useGrafcetUi.getState().emit('exportSvg')} className="dc-tool-btn !px-2" title="Exportar diagrama em formato SVG vetorial">
                 SVG
               </button>
@@ -657,7 +665,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
           {/* vista GRAFCET: validação, zoom e atalhos */}
           {mode === 'grafcet' && (
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0 grafcet-toolbar-secondary">
               <button
                 type="button"
                 className={`grafcet-validation ${grafcetIssues.length ? 'has-issues' : 'is-valid'}`}
