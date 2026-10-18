@@ -1,7 +1,23 @@
 import type { User } from '../dashboard/Dashboard'
+import { isSupabaseConfigured } from '../supabase/supabaseClient'
+import {
+  supabaseCreateProject,
+  supabaseDeleteProject,
+  supabaseFetchProjectMembers,
+  supabaseGetCurrentUser,
+  supabaseGetInvitations,
+  supabaseGetProject,
+  supabaseGetProjects,
+  supabaseInviteMember,
+  supabaseLogin,
+  supabaseLogout,
+  supabaseRegister,
+  supabaseReplyInvitation,
+  supabaseUpdateProject,
+} from '../supabase/supabaseBackend'
 import { fixedAccountEmails, getLocalSession, isFixedAccount, localApi, rememberFixedSession } from './localBackend'
 
-type BackendMode = 'unknown' | 'local' | 'server'
+export type BackendMode = 'unknown' | 'local' | 'server' | 'supabase'
 let mode: BackendMode = 'unknown'
 
 /** O servidor não respondeu como API (deploy estático ou rede em baixo). */
@@ -43,8 +59,6 @@ async function serverApi<T>(url: string, method = 'GET', body?: unknown): Promis
   }
   if (!response.ok) {
     const error = data && typeof data === 'object' ? (data as Record<string, unknown>).error : undefined
-    // Hosts estáticos costumam responder 404/405 em JSON próprio. Isso não é
-    // uma decisão semântica da nossa API e deve ativar o backend local.
     if ((response.status === 404 || response.status === 405) && typeof error !== 'string') {
       throw new ApiUnavailable('API indisponível')
     }
@@ -53,31 +67,107 @@ async function serverApi<T>(url: string, method = 'GET', body?: unknown): Promis
   return data as T
 }
 
+/** Roteia chamadas de projetos e dados para o Supabase */
+async function supabaseApi<T>(url: string, verb: string, body?: unknown): Promise<T> {
+  if (url === '/projects') {
+    if (verb === 'GET') return (await supabaseGetProjects()) as T
+    if (verb === 'POST') {
+      const payload = (body ?? {}) as { name: string; content: unknown }
+      return (await supabaseCreateProject(payload.name, payload.content)) as T
+    }
+  }
+
+  const matchMembers = url.match(/^\/projects\/([^/]+)\/members$/)
+  if (matchMembers && verb === 'GET') {
+    return (await supabaseFetchProjectMembers(matchMembers[1])) as T
+  }
+
+  const matchInvites = url.match(/^\/projects\/([^/]+)\/invitations$/)
+  if (matchInvites && verb === 'POST') {
+    const payload = (body ?? {}) as { email: string }
+    return (await supabaseInviteMember(matchInvites[1], payload.email)) as T
+  }
+
+  const matchProject = url.match(/^\/projects\/([^/]+)$/)
+  if (matchProject) {
+    const projectId = matchProject[1]
+    if (verb === 'GET') return (await supabaseGetProject(projectId)) as T
+    if (verb === 'PUT') {
+      const payload = (body ?? {}) as { content: unknown; revision: number }
+      return (await supabaseUpdateProject(projectId, payload.content, payload.revision)) as T
+    }
+    if (verb === 'DELETE') return (await supabaseDeleteProject(projectId)) as T
+  }
+
+  if (url === '/invitations') {
+    if (verb === 'GET') return (await supabaseGetInvitations()) as T
+  }
+
+  const matchAccept = url.match(/^\/invitations\/([^/]+)\/accept$/)
+  if (matchAccept && verb === 'POST') {
+    return (await supabaseReplyInvitation(matchAccept[1], 'accept')) as T
+  }
+
+  const matchReject = url.match(/^\/invitations\/([^/]+)$/)
+  if (matchReject && verb === 'DELETE') {
+    return (await supabaseReplyInvitation(matchReject[1], 'reject')) as T
+  }
+
+  // Operações de administração que não envolvam Supabase recaem no backend local
+  return localApi<T>(url, verb, body)
+}
+
 /**
- * Usa a API SQLite quando ela existe (Docker) — é ela que decide quem entra,
- * incluindo as contas criadas pelo administrador. Sem servidor (deploy estático)
- * cai no backend local, limitado às duas contas fixas.
+ * Usa a base de dados Supabase quando configurada, o servidor SQLite em ambiente Docker
+ * e cai no backend local offline quando estático.
  */
 export async function accountApi<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
   const verb = method.toUpperCase()
 
-  if (url === '/register') return localApi<T>(url, verb, body)
+  // 1. Registo de nova conta
+  if (url === '/register') {
+    if (isSupabaseConfigured()) {
+      const payload = (body ?? {}) as { email?: string; password?: string; name?: string }
+      if (payload.email && payload.password) {
+        mode = 'supabase'
+        return (await supabaseRegister(payload.email, payload.password, payload.name || 'Utilizador')) as T
+      }
+    }
+    return localApi<T>(url, verb, body)
+  }
 
+  // 2. Login
   if (url === '/login' && verb === 'POST') {
-    const payload = body && typeof body === 'object' ? body as Record<string, unknown> : {}
+    const payload = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
     const email = String(payload.email ?? '').trim().toLowerCase()
+    const password = String(payload.password ?? '')
 
-    // As duas contas autorizadas são deliberadamente locais primeiro. Assim o
-    // login funciona num deploy estático mesmo quando /api/login responde com
-    // uma página/JSON de erro da plataforma em vez de não responder.
+    // As duas contas autorizadas são deliberadamente locais primeiro
     if (fixedAccountEmails().some((fixedEmail) => fixedEmail === email)) {
       mode = 'local'
       return localApi<T>(url, verb, body)
     }
 
+    // Se o Supabase estiver configurado, tenta login pelo Supabase
+    if (isSupabaseConfigured()) {
+      try {
+        const result = await supabaseLogin(email, password)
+        mode = 'supabase'
+        return result as T
+      } catch (err) {
+        // Tenta fallback para o servidor SQLite se existir
+        try {
+          const serverResponse = await serverApi<{ user: User }>(url, verb, body)
+          mode = 'server'
+          return serverResponse as T
+        } catch {
+          throw err
+        }
+      }
+    }
+
     try {
       const serverResponse = await serverApi<{ user: User }>(url, verb, body)
-      // As contas fixas também ficam lembradas localmente (modo offline); as restantes vivem só no servidor.
       if (isFixedAccount(serverResponse.user)) rememberFixedSession(serverResponse.user)
       mode = 'server'
       return serverResponse as T
@@ -88,27 +178,51 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
     }
   }
 
+  // 3. Verificação de sessão (/me)
   if (url === '/me' && verb === 'GET' && mode === 'unknown') {
+    if (isSupabaseConfigured()) {
+      const sbUser = await supabaseGetCurrentUser()
+      if (sbUser) {
+        mode = 'supabase'
+        return { user: sbUser } as T
+      }
+    }
+
     try {
       const response = await serverApi<{ user: User }>(url, verb)
       const user = isFixedAccount(response.user) ? rememberFixedSession(response.user) : response.user
       mode = 'server'
       return { user } as T
     } catch (error) {
-      // Sessão expirada/terminada no servidor: não a substituir pela sessão local.
-      if (!(error instanceof ApiUnavailable)) { mode = 'server'; throw error }
+      if (!(error instanceof ApiUnavailable)) {
+        mode = 'server'
+        throw error
+      }
       mode = 'local'
       return localApi<T>(url, verb)
     }
   }
 
+  // 4. Logout
   if (url === '/logout' && verb === 'POST') {
+    if (mode === 'supabase') {
+      await supabaseLogout()
+    }
     if (mode === 'server') {
-      try { await serverApi(url, verb) } catch { /* a sessão local é encerrada mesmo offline */ }
+      try {
+        await serverApi(url, verb)
+      } catch {
+        /* a sessão local é encerrada mesmo offline */
+      }
     }
     mode = 'local'
     if (!getLocalSession()) return { ok: true } as T
     return localApi<T>(url, verb)
+  }
+
+  // 5. Restantes rotas para projetos e dados
+  if (mode === 'supabase' || (isSupabaseConfigured() && mode !== 'server')) {
+    return supabaseApi<T>(url, verb, body)
   }
 
   if (mode === 'server') return serverApi<T>(url, verb, body)
@@ -116,6 +230,6 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
   return localApi<T>(url, verb, body)
 }
 
-export function activeAccountBackend() {
+export function activeAccountBackend(): BackendMode {
   return mode
 }

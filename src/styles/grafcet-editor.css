@@ -260,9 +260,35 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-toolbox-search > svg { position:absolute; left:18px; z-index:1; pointer-events:none; }
 .grafcet-toolbox-search input { width:100%; padding-left:28px; padding-right:25px; }
 .grafcet-toolbox-empty,.grafcet-list-empty { padding:18px 8px; color:#8490a4; font-size:10px; text-align:center; }
-.grafcet-graph-node:focus-visible,.grafcet-graph-link:focus-visible { outline:none; }
-.grafcet-graph-node:focus-visible rect:first-of-type { stroke:#2563eb; stroke-width:4; }
-.grafcet-graph-link:focus-visible path:first-of-type { stroke:#2563eb; stroke-width:4; }
+/* Elimina completamente o retângulo preto nativo de foco do navegador em qualquer elemento do SVG */
+.grafcet-canvas svg *:focus,
+.grafcet-canvas svg *:focus-visible,
+.grafcet-graph-node,
+.grafcet-graph-node:focus,
+.grafcet-graph-node:focus-visible,
+.grafcet-graph-link,
+.grafcet-graph-link:focus,
+.grafcet-graph-link:focus-visible,
+.grafcet-graph-action,
+.grafcet-graph-action:focus,
+.grafcet-graph-action:focus-visible {
+  outline: none !important;
+}
+
+.grafcet-graph-action {
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.grafcet-graph-action:hover rect {
+  stroke: #2563eb;
+}
+
+.grafcet-graph-action.is-selected rect {
+  stroke: #2563eb !important;
+  stroke-width: 2.5px !important;
+  filter: drop-shadow(0 2px 8px rgba(37, 99, 235, 0.35));
+}
 .grafcet-properties-summary { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:38px; padding:0 1px; }
 .grafcet-properties-summary strong { display:block; color:#25344c; font-size:13px; }
 .grafcet-properties-summary small { display:block; margin-top:2px; color:#77869b; font-size:9.5px; }
@@ -296,8 +322,9 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-form-heading button { color:#1d4ed8; font-size:10px; font-weight:700; }
 .grafcet-form-heading button:hover { text-decoration:underline; }
 .grafcet-form-empty { margin:-4px 0 2px; padding:10px; border:1px dashed #d5deeb; border-radius:7px; color:#8490a4; font-size:10px; text-align:center; }
-.grafcet-action-row { padding:6px; border:1px solid #e4e9f1; border-radius:7px; background:#fafbfd; }
+.grafcet-action-row { padding:6px; border:1px solid #e4e9f1; border-radius:7px; background:#fafbfd; transition: all 0.12s ease; }
 .grafcet-action-row.is-on { border-color:#9bd8b3; background:#f0fbf4; }
+.grafcet-action-row.is-selected-action { border-color:#2563eb !important; background:#eff6ff !important; box-shadow:0 0 0 1px #2563eb; }
 .grafcet-action-row > button { border-radius:5px; color:#9b3540; }
 .grafcet-action-row > button:hover { background:#ffe8eb; }
 .grafcet-step-checks { max-height:160px; overflow:auto; display:flex; flex-direction:column; gap:5px; padding:2px; }

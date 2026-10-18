@@ -23,6 +23,7 @@
     "@fortawesome/react-fontawesome": "^3.5.0",
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
+    "@supabase/supabase-js": "^2.109.0",
     "better-sqlite3": "^12.11.1",
     "express": "^5.2.1",
     "nanoid": "^5.0.7",

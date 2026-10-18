@@ -7,6 +7,8 @@ import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus, Icon
 
 import ProjectCover from './ProjectCover'
 import type { ProjectPreviewData } from './projectPreview'
+import SupabaseModal from '../components/SupabaseModal'
+import { isSupabaseConfigured } from '../supabase/supabaseClient'
 
 export type { ProjectPreviewData }
 export type User = { id: string; name: string; email: string; role: 'admin' | 'user' }
@@ -153,6 +155,7 @@ export default function Dashboard({
   const [menu, setMenu] = useState<string | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
+  const [supabaseModalOpen, setSupabaseModalOpen] = useState(false)
   const [sort, setSort] = useState<SortKey>('recent')
   const [view, setViewState] = useState<ViewKey>(() => (typeof localStorage !== 'undefined' && localStorage.getItem('dc.dash.view') === 'list' ? 'list' : 'grid'))
   const setView = (v: ViewKey) => {
@@ -332,6 +335,16 @@ export default function Dashboard({
         </div>
         <div className="dx-dash-side">
           <span className="dx-dash-date">{today}</span>
+          <button
+            type="button"
+            className="dx-btn dx-btn-secondary"
+            onClick={() => setSupabaseModalOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            title="Configurar conexão à base de dados na nuvem (Supabase / PostgreSQL)"
+          >
+            <span style={{ color: isSupabaseConfigured() ? '#16a34a' : '#94a3b8', fontSize: '10px' }}>●</span>
+            {isSupabaseConfigured() ? 'Supabase Conectado' : 'Configurar Supabase'}
+          </button>
           <button className="dx-btn dx-btn-primary" onClick={() => openModal('create')}>
             <IconPlus size={14} /> Novo projeto
           </button>
@@ -667,6 +680,14 @@ export default function Dashboard({
           </div>
         </div>
       )}
+
+      <SupabaseModal
+        isOpen={supabaseModalOpen}
+        onClose={() => setSupabaseModalOpen(false)}
+        onConfigChanged={() => {
+          // recarrega a página ao alterar configuração
+        }}
+      />
     </div>
   )
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Invite, User } from '../dashboard/Dashboard'
 import { IconBell, IconChevronRight, IconCube, IconLogout, IconProjects, IconShield, IconUser } from '../ui/icons'
+import SupabaseModal from './SupabaseModal'
+import { isSupabaseConfigured } from '../supabase/supabaseClient'
 
 type AccountControlsProps = {
   user: User
@@ -35,6 +37,7 @@ export default function AccountControls({
   onOpenInvites,
 }: AccountControlsProps) {
   const [open, setOpen] = useState<'notifications' | 'profile' | null>(null)
+  const [showSupabase, setShowSupabase] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const total = invites.length + (dirty ? 1 : 0) + errors + warnings
 
@@ -132,10 +135,17 @@ export default function AccountControls({
           {onContribute && context !== 'contribute' && <button type="button" onClick={() => { setOpen(null); onContribute() }}><IconCube size={15} /><span>Contribuir (datasheets e 3D)</span><IconChevronRight size={13} /></button>}
           {onAdmin && user.role === 'admin' && context !== 'admin' && <button type="button" onClick={() => { setOpen(null); onAdmin() }}><IconShield size={15} /><span>Administração</span><IconChevronRight size={13} /></button>}
           {(context === 'admin' || context === 'contribute') && onProjects && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Voltar aos projetos</span><IconChevronRight size={13} /></button>}
+          <button type="button" onClick={() => { setOpen(null); setShowSupabase(true) }}>
+            <span style={{ color: isSupabaseConfigured() ? '#16a34a' : '#64748b', fontSize: '14px', width: '15px', textAlign: 'center' }}>⚡</span>
+            <span>Base de Dados (Supabase)</span>
+            <IconChevronRight size={13} />
+          </button>
           <button type="button" className="is-logout" onClick={() => { setOpen(null); onLogout() }}><IconLogout size={15} /><span>Sair da conta</span></button>
         </nav>
-        <footer><IconUser size={12} />Sessão local protegida</footer>
+        <footer><IconUser size={12} />{isSupabaseConfigured() ? 'Conectado ao Supabase' : 'Sessão local protegida'}</footer>
       </section>}
     </div>
+
+    <SupabaseModal isOpen={showSupabase} onClose={() => setShowSupabase(false)} />
   </div>
 }

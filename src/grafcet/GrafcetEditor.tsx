@@ -165,6 +165,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const [editingAction, setEditingAction] = useState<{ step: GrafcetStep; action: GrafcetAction } | null>(null)
   const [hoveredStepId, setHoveredStepId] = useState<string | null>(null)
   const [hoveredTransitionId, setHoveredTransitionId] = useState<string | null>(null)
+  const [hoveredActionId, setHoveredActionId] = useState<string | null>(null)
+  const [selectedActionId, setSelectedActionId] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
   // Ferramentas ativas: Selecionar vs Arrastar (Mão)
@@ -181,6 +183,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
   const selectedStep = steps.find((step) => step.id === selected)
   const selectedTransition = transitions.find((transition) => transition.id === selected)
+  const selectedAction = selectedStep ? (actionsOf(selectedStep).find((a) => a.id === selectedActionId) ?? null) : null
+
+  const isStepSelected = (stepId: string) => selected === stepId && !selectedActionId
+  const isActionSelected = (actionId: string) => selectedActionId === actionId
+  const isTransitionSelected = (transId: string) => selected === transId && !selectedActionId
 
   useEffect(() => {
     try {
@@ -195,6 +202,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   useEffect(() => {
     if (selected && !steps.some((step) => step.id === selected) && !transitions.some((transition) => transition.id === selected)) {
       setSelected(null)
+      setSelectedActionId(null)
     }
   }, [selected, steps, transitions])
 
@@ -376,6 +384,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       transitions: transitions.filter((transition) => !transition.from.includes(stepId) && !transition.to.includes(stepId)),
     })
     setSelected(neighbour?.id ?? null)
+    setSelectedActionId(null)
     setTab('steps')
     notify('Etapa eliminada · Ctrl+Z repõe')
   }
@@ -385,18 +394,42 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     const neighbour = transitions[index + 1] ?? transitions[index - 1]
     save({ transitions: transitions.filter((transition) => transition.id !== transitionId) })
     setSelected(neighbour?.id ?? null)
+    setSelectedActionId(null)
     setTab('transitions')
     notify('Transição eliminada · Ctrl+Z repõe')
   }
 
+  const removeAction = (step: GrafcetStep, actionId: string) => {
+    const currentActions = actionsOf(step)
+    const targetAction = currentActions.find((a) => a.id === actionId)
+    const remaining = currentActions.filter((a) => a.id !== actionId)
+    updateStep(
+      step.id,
+      { actions: remaining, action: remaining.length === 0 ? '' : step.action },
+      'force'
+    )
+    if (selectedActionId === actionId) {
+      setSelectedActionId(null)
+    }
+    notify(`Ação ${targetAction?.variable || targetAction?.address || ''} eliminada`)
+  }
+
   const requestDelete = async () => {
+    if (selectedStep && selectedActionId) {
+      const act = actionsOf(selectedStep).find((a) => a.id === selectedActionId)
+      if (act) {
+        removeAction(selectedStep, selectedActionId)
+        return
+      }
+    }
     if (selectedStep) {
+      const { stepNumber } = getStepDisplayInfo(selectedStep, steps.indexOf(selectedStep))
       const linked = transitions.filter(
         (transition) => transition.from.includes(selectedStep.id) || transition.to.includes(selectedStep.id)
       ).length
       if (
         await uiConfirm(
-          `Eliminar a etapa ${steps.indexOf(selectedStep)} «${selectedStep.name}»${
+          `Eliminar a etapa ${stepNumber} «${selectedStep.name}»${
             linked ? ` e ${linked} transição(ões) ligada(s)` : ''
           }?`
         )
@@ -411,6 +444,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   }
 
   const duplicateSelected = () => {
+    if (selectedStep && selectedAction) {
+      const clone = { ...selectedAction, id: id() }
+      const current = actionsOf(selectedStep)
+      const actionIndex = current.indexOf(selectedAction)
+      const next = [...current.slice(0, actionIndex + 1), clone, ...current.slice(actionIndex + 1)]
+      updateStep(selectedStep.id, { actions: next }, 'force')
+      setSelectedActionId(clone.id)
+      notify('Ação duplicada')
+      return
+    }
     if (selectedStep) {
       const clone: GrafcetStep = {
         ...selectedStep,
@@ -424,15 +467,45 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       const next = [...steps.slice(0, index + 1), clone, ...steps.slice(index + 1)]
       save({ steps: next })
       setSelected(clone.id)
+      setSelectedActionId(null)
       setTab('steps')
       notify('Etapa duplicada')
     } else if (selectedTransition) {
       const clone = { ...selectedTransition, id: id() }
       const index = transitions.indexOf(selectedTransition)
-      save({ transitions: [...transitions.slice(0, index + 1), clone, ...transitions.slice(index + 1)] })
+      const next = [...transitions.slice(0, index + 1), clone, ...transitions.slice(index + 1)]
+      save({ transitions: next })
       setSelected(clone.id)
+      setSelectedActionId(null)
       setTab('transitions')
       notify('Transição duplicada')
+    }
+  }
+
+  const selectStep = (step: GrafcetStep, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    if (full) {
+      setSelected(step.id)
+      setSelectedActionId(null)
+      setTab('steps')
+    }
+  }
+
+  const selectAction = (step: GrafcetStep, action: GrafcetAction, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (full) {
+      setSelected(step.id)
+      setSelectedActionId(action.id)
+      setTab('steps')
+    }
+  }
+
+  const selectTransition = (transition: GrafcetTransition, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    if (full) {
+      setSelected(transition.id)
+      setSelectedActionId(null)
+      setTab('transitions')
     }
   }
 
@@ -657,8 +730,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     zoomAt(scale * (event.deltaY < 0 ? 1.12 : 1 / 1.12), { x: event.clientX - rect.left, y: event.clientY - rect.top })
   }
 
+  const clickStartRef = useRef<{ x: number; y: number } | null>(null)
+
   const onPreviewDown = (event: PointerEvent<HTMLDivElement>) => {
     if (!steps.length) return
+    clickStartRef.current = { x: event.clientX, y: event.clientY }
     // Botão do meio (1), ou ferramenta 'pan' (Arrastar), ou espaço pressionado:
     if (event.button === 1 || activeTool === 'pan' || isSpacePan) {
       event.currentTarget.setPointerCapture(event.pointerId)
@@ -669,7 +745,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
     // Ferramenta 'select' e botão esquerdo (0):
     if (event.button === 0) {
-      if ((event.target as Element).closest('button, [role="button"], .grafcet-node-handle, .grafcet-graph-node, .grafcet-graph-link')) return
+      if ((event.target as Element).closest('button, [role="button"], .grafcet-node-handle, .grafcet-graph-node, .grafcet-graph-link, .grafcet-graph-action')) return
       event.currentTarget.setPointerCapture(event.pointerId)
       setIsDragging(true)
       dragRef.current = { x: event.clientX, y: event.clientY, px: position.x, py: position.y }
@@ -683,12 +759,17 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
   const onPreviewUp = (event: PointerEvent<HTMLDivElement>) => {
     if (dragRef.current) {
+      const movedDist = clickStartRef.current ? Math.hypot(event.clientX - clickStartRef.current.x, event.clientY - clickStartRef.current.y) : 0
       dragRef.current = null
       setIsDragging(false)
       try {
         event.currentTarget.releasePointerCapture(event.pointerId)
       } catch {
         /* noop */
+      }
+      if (movedDist < 5 && !(event.target as Element).closest('button, [role="button"], .grafcet-node-handle, .grafcet-graph-node, .grafcet-graph-link, .grafcet-graph-action')) {
+        setSelected(null)
+        setSelectedActionId(null)
       }
     }
   }
@@ -756,6 +837,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
     if (!hasMoved) {
       setSelected(step.id)
+      setSelectedActionId(null)
       setTab('steps')
       return
     }
@@ -884,7 +966,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         return
       }
       if (event.key === 'Delete' || event.key === 'Backspace') {
-        if (selected) {
+        if (selected || selectedActionId) {
           event.preventDefault()
           requestDelete()
         }
@@ -892,6 +974,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       }
       if (event.key === 'Escape') {
         setSelected(null)
+        setSelectedActionId(null)
         return
       }
       if (mod && (event.key === '0' || event.key === 'Digit0')) {
@@ -906,6 +989,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         const currentIdx = steps.findIndex((s) => s.id === selected)
         const nextIdx = currentIdx === -1 ? 0 : Math.min(steps.length - 1, currentIdx + 1)
         setSelected(steps[nextIdx].id)
+        setSelectedActionId(null)
         setTab('steps')
         return
       }
@@ -915,10 +999,19 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         const currentIdx = steps.findIndex((s) => s.id === selected)
         const prevIdx = currentIdx === -1 ? steps.length - 1 : Math.max(0, currentIdx - 1)
         setSelected(steps[prevIdx].id)
+        setSelectedActionId(null)
         setTab('steps')
         return
       }
       if (event.key === 'Enter') {
+        if (selectedStep && selectedActionId) {
+          const act = actionsOf(selectedStep).find((a) => a.id === selectedActionId)
+          if (act) {
+            event.preventDefault()
+            setEditingAction({ step: selectedStep, action: act })
+            return
+          }
+        }
         if (selectedStep) {
           event.preventDefault()
           setEditingStep(selectedStep)
@@ -1297,12 +1390,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
                   const conditionOn = validCondition(transition.condition) && evalCondition(transition.condition, table)
                   const enabled = running && conditionOn && sources.every((value) => runtime.active.includes(value))
-                  const selectedLink = selected === transition.id
+                  const selectedLink = isTransitionSelected(transition.id)
                   const linkColor = selectedLink ? '#2563eb' : enabled ? '#16a34a' : running && conditionOn ? '#d97706' : '#526883'
 
-                  const selectTransition = () => {
+                  const onSelectThisTransition = (e: React.MouseEvent) => {
+                    e.stopPropagation()
                     if (full) {
                       setSelected(transition.id)
+                      setSelectedActionId(null)
                       setTab('transitions')
                       if (running && sources.every((value) => runtime.active.includes(value))) {
                         useSimStore.getState().fireGrafcetTransition(transition.id)
@@ -1323,16 +1418,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     return (
                       <g
                         key={transition.id}
-                        onClick={selectTransition}
+                        onClick={onSelectThisTransition}
                         onDoubleClick={onTransDoubleClick}
                         className={full ? 'grafcet-graph-link' : ''}
                         role={full ? 'button' : undefined}
                         tabIndex={full ? 0 : undefined}
                         aria-label={`Transição T${transitionIndex + 1}: ${transition.condition}`}
                       >
-                        <path d={path} fill="none" stroke={linkColor} strokeWidth={enabled ? 3 : 2} markerEnd="url(#grafcet-arrow)" />
+                        <path d={path} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 3 : 2} markerEnd="url(#grafcet-arrow)" />
                         <path d={path} fill="none" stroke="transparent" strokeWidth="14" />
-                        <line x1="51" y1={y + 83} x2="73" y2={y + 83} stroke={linkColor} strokeWidth="3" />
+                        <line x1="51" y1={y + 83} x2="73" y2={y + 83} stroke={linkColor} strokeWidth={selectedLink ? 4 : 3} />
                         <text x="79" y={y + 86} fill={linkColor} fontSize="12" fontWeight="600">
                           {renderConditionTspans(transition.condition.slice(0, 24))}
                         </text>
@@ -1347,7 +1442,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   return (
                     <g
                       key={transition.id}
-                      onClick={selectTransition}
+                      onClick={onSelectThisTransition}
                       onDoubleClick={onTransDoubleClick}
                       onMouseEnter={() => setHoveredTransitionId(transition.id)}
                       onMouseLeave={() => setHoveredTransitionId(null)}
@@ -1403,26 +1498,44 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         </text>
                       )}
 
-                      {/* Manipulador rápido estilo grafcet.io: Inserir etapa após transição */}
+                      {/* Manipulador rápido estilo grafcet.io: Inserir etapa após transição e eliminar transição */}
                       {full && (isTransHovered || selectedLink) && (
-                        <g
-                          className="grafcet-node-handle"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const sourceStep = steps.find((s) => transition.from.includes(s.id))
-                            if (sourceStep) {
-                              addConnectedStep(sourceStep)
-                            } else {
-                              addConnectedStep()
-                            }
-                          }}
-                          style={{ cursor: 'pointer' }}
-                          role="button"
-                          aria-label="Inserir etapa após esta transição"
-                        >
-                          <circle cx={tx} cy={ty + 18} r="8.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                          <path d={`M ${tx} ${ty + 14} V ${ty + 22} M ${tx - 4} ${ty + 18} H ${tx + 4}`} stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" />
-                        </g>
+                        <>
+                          <g
+                            className="grafcet-node-handle"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const sourceStep = steps.find((s) => transition.from.includes(s.id))
+                              if (sourceStep) {
+                                addConnectedStep(sourceStep)
+                              } else {
+                                addConnectedStep()
+                              }
+                            }}
+                            style={{ cursor: 'pointer' }}
+                            role="button"
+                            aria-label="Inserir etapa após esta transição"
+                          >
+                            <circle cx={tx} cy={ty + 18} r="8.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
+                            <path d={`M ${tx} ${ty + 14} V ${ty + 22} M ${tx - 4} ${ty + 18} H ${tx + 4}`} stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" />
+                          </g>
+
+                          {transitions.length > 1 && (
+                            <g
+                              className="grafcet-node-handle is-delete"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                removeTransition(transition.id)
+                              }}
+                              style={{ cursor: 'pointer' }}
+                              role="button"
+                              aria-label="Eliminar transição"
+                            >
+                              <circle cx={tx - 18} cy={ty - 12} r="7.5" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" filter="drop-shadow(0 1px 3px rgba(0,0,0,0.25))" />
+                              <path d={`M ${tx - 20.5} ${ty - 14.5} L ${tx - 15.5} ${ty - 9.5} M ${tx - 15.5} ${ty - 14.5} L ${tx - 20.5} ${ty - 9.5}`} stroke="#ffffff" strokeWidth="1.4" strokeLinecap="round" />
+                            </g>
+                          )}
+                        </>
                       )}
                     </g>
                   )
@@ -1431,18 +1544,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 {/* ETAPAS E AÇÕES ATRELADAS */}
                 {steps.map((step, index) => {
                   const active = runtime.active.includes(step.id)
-                  const isSelected = selected === step.id
+                  const isThisStepSelected = isStepSelected(step.id)
                   const isStepHovered = hoveredStepId === step.id
                   const isInitial = step.initial || step.stepType === 'initial' || step.stepType === 'initial-enclosing'
                   const isMacro = step.stepType === 'macro'
                   const isEnclosing = step.stepType === 'enclosing' || step.stepType === 'initial-enclosing'
                   const y = stepY(step.id)
+                  const actionsCount = actionsOf(step).length
 
-                  const selectStep = () => {
-                    if (full) {
-                      setSelected(step.id)
-                      setTab('steps')
-                    }
+                  const onStepClick = (e: React.MouseEvent) => {
+                    selectStep(step, e)
                   }
 
                   const onStepDoubleClick = (e: React.MouseEvent) => {
@@ -1459,12 +1570,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   return (
                     <g
                       key={step.id}
-                      className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''}`}
+                      className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${isThisStepSelected ? 'is-selected' : ''}`}
                       transform={stepTranslateY ? `translate(0, ${stepTranslateY})` : undefined}
                       role={full ? 'button' : undefined}
                       tabIndex={full ? 0 : undefined}
                       aria-label={`Etapa ${stepNumber}: ${step.name}${active ? ', ativa' : ''}`}
-                      onClick={selectStep}
+                      onClick={onStepClick}
                       onDoubleClick={onStepDoubleClick}
                       onPointerDown={(e) => onStepPointerDown(step, e)}
                       onPointerMove={(e) => onStepPointerMove(step, e)}
@@ -1532,8 +1643,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         height="54"
                         rx="2"
                         fill={active ? '#dcfce7' : 'white'}
-                        stroke={isSelected ? '#2563eb' : active ? '#16a34a' : '#263d59'}
-                        strokeWidth={isSelected || active ? 3 : 2.5}
+                        stroke={isThisStepSelected ? '#2563eb' : active ? '#16a34a' : '#263d59'}
+                        strokeWidth={isThisStepSelected ? 3 : active ? 2.5 : 2}
+                        filter={isThisStepSelected ? 'drop-shadow(0 2px 8px rgba(37,99,235,0.3))' : undefined}
                       />
 
                       {/* Caixa interna de etapa inicial */}
@@ -1544,7 +1656,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           width="54"
                           height="44"
                           fill="none"
-                          stroke={isSelected ? '#2563eb' : active ? '#16a34a' : '#263d59'}
+                          stroke={isThisStepSelected ? '#2563eb' : active ? '#16a34a' : '#263d59'}
                           strokeWidth="1.5"
                         />
                       )}
@@ -1589,10 +1701,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         </text>
                       )}
 
-                      {/* Manipuladores rápidos estilo grafcet.io */}
-                      {full && (isStepHovered || isSelected) && (
+                      {/* Manipuladores rápidos estilo grafcet.io para a etapa selecionada ou em hover */}
+                      {full && (isStepHovered || isThisStepSelected) && (
                         <>
-                          {/* Botão + abaixo da etapa: Adicionar etapa + transição */}
+                          {/* Botão + abaixo da etapa: Adicionar etapa seguinte e transição */}
                           <g
                             className="grafcet-node-handle"
                             onClick={(e) => {
@@ -1603,26 +1715,28 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             role="button"
                             aria-label="Adicionar etapa seguinte e transição"
                           >
-                            <circle cx="151" cy={y + 66} r="10" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
-                            <path d={`M 151 ${y + 61} V ${y + 71} M 146 ${y + 66} H 156`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                            <circle cx="151" cy={y + 68} r="10" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
+                            <path d={`M 151 ${y + 63} V ${y + 73} M 146 ${y + 68} H 156`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
                           </g>
 
-                          {/* Botão + à direita da etapa: Adicionar ação */}
-                          <g
-                            className="grafcet-node-handle"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              addActionToStep(step)
-                            }}
-                            style={{ cursor: 'pointer' }}
-                            role="button"
-                            aria-label="Adicionar ação a esta etapa"
-                          >
-                            <circle cx="196" cy={y + 27} r="9" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
-                            <path d={`M 196 ${y + 23} V ${y + 31} M 192 ${y + 27} H 200`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
-                          </g>
+                          {/* Botão + à direita da etapa: apenas se a etapa ainda NÃO tiver ações */}
+                          {actionsCount === 0 && (
+                            <g
+                              className="grafcet-node-handle"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                addActionToStep(step)
+                              }}
+                              style={{ cursor: 'pointer' }}
+                              role="button"
+                              aria-label="Adicionar ação a esta etapa"
+                            >
+                              <circle cx="202" cy={y + 27} r="9" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
+                              <path d={`M 202 ${y + 23} V ${y + 31} M 198 ${y + 27} H 206`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                            </g>
+                          )}
 
-                          {/* Botão ✕ no canto superior direito: Eliminar etapa */}
+                          {/* Botão ✕ no canto superior direito: Eliminar etapa com folga externa */}
                           {steps.length > 1 && (
                             <g
                               className="grafcet-node-handle is-delete"
@@ -1634,56 +1748,153 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                               role="button"
                               aria-label="Eliminar etapa"
                             >
-                              <circle cx="186" cy={y - 2} r="8" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
-                              <path d={`M 183.5 ${y - 4.5} L 188.5 ${y + 0.5} M 188.5 ${y - 4.5} L 183.5 ${y + 0.5}`} stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+                              <circle cx="185" cy={y - 8} r="8" fill="#ef4444" stroke="#ffffff" strokeWidth="1.8" filter="drop-shadow(0 1px 3px rgba(0,0,0,0.25))" />
+                              <path d={`M 182.5 ${y - 10.5} L 187.5 ${y - 5.5} M 187.5 ${y - 10.5} L 182.5 ${y - 5.5}`} stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
                             </g>
                           )}
                         </>
                       )}
+                    </g>
+                  )
+                })}
 
-                      {/* Ações da etapa */}
-                      {actionsOf(step).map((action, actionIndex) => {
+                {/* AÇÕES INDEPENDENTES E LINHAS CONECTORAS */}
+                {steps.map((step) => {
+                  const actions = actionsOf(step)
+                  if (!actions.length) return null
+                  const y = stepY(step.id)
+                  const isThisStepSelected = isStepSelected(step.id)
+
+                  return (
+                    <g key={`step-actions-${step.id}`}>
+                      {actions.map((action, actionIndex) => {
                         const actionY = y + actionIndex * 34
                         const actionOn = !!table[action.address]
+                        const isThisActionSelected = isActionSelected(action.id)
+                        const isThisActionHovered = hoveredActionId === action.id
                         const kind = action.kind ?? 'N'
+
+                        const onActionClick = (e: React.MouseEvent) => {
+                          selectAction(step, action, e)
+                        }
 
                         const onActionDoubleClick = (e: React.MouseEvent) => {
                           e.stopPropagation()
                           setEditingAction({ step, action })
                         }
 
+                        const strokeColor = isThisActionSelected
+                          ? '#2563eb'
+                          : actionOn
+                          ? '#16a34a'
+                          : '#263d59'
+
                         return (
-                          <g key={action.id} onDoubleClick={onActionDoubleClick} style={{ cursor: 'pointer' }}>
+                          <g
+                            key={action.id}
+                            className={`grafcet-graph-action ${isThisActionSelected ? 'is-selected' : ''}`}
+                            onClick={onActionClick}
+                            onDoubleClick={onActionDoubleClick}
+                            onMouseEnter={() => setHoveredActionId(action.id)}
+                            onMouseLeave={() => setHoveredActionId(null)}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Ação ${action.address || action.variable || 'ação'}${isThisActionSelected ? ' selecionada' : ''}`}
+                          >
+                            {/* Linha conectora da etapa até esta ação */}
                             <path
                               d={`M 183 ${y + 27} H 310 V ${actionY + 14} H 335`}
                               fill="none"
-                              stroke={actionOn ? '#16a34a' : '#263d59'}
-                              strokeWidth={actionOn ? 2.5 : 1.5}
+                              stroke={strokeColor}
+                              strokeWidth={isThisActionSelected || actionOn ? 2.5 : 1.5}
                             />
+
+                            {/* Caixa da ação com borda individual e realce quando selecionada */}
                             <rect
                               x="335"
                               y={actionY}
                               width="180"
                               height="28"
                               rx="3"
-                              fill={actionOn ? '#dcfce7' : 'white'}
-                              stroke={actionOn ? '#16a34a' : '#263d59'}
-                              strokeWidth={actionOn ? 2 : 1.5}
+                              fill={actionOn ? '#dcfce7' : isThisActionSelected ? '#eff6ff' : 'white'}
+                              stroke={strokeColor}
+                              strokeWidth={isThisActionSelected ? 2.5 : actionOn ? 2 : 1.5}
+                              filter={isThisActionSelected ? 'drop-shadow(0 2px 8px rgba(37,99,235,0.35))' : undefined}
                             />
+
+                            {/* Texto da ação com formatação nítida */}
                             <text
                               x="345"
                               y={actionY + 18}
-                              fill={actionOn ? '#15803d' : '#1e293b'}
+                              fill={isThisActionSelected ? '#1d4ed8' : actionOn ? '#15803d' : '#1e293b'}
                               fontSize="11"
-                              fontWeight={actionOn ? 700 : 500}
+                              fontWeight={isThisActionSelected || actionOn ? 700 : 500}
                             >
                               {kind !== 'N' ? `${kind}${action.timeMs ? ` ${action.timeMs / 1000}s` : ''} · ` : ''}
                               {action.address || action.variable || 'ação'}
                               {action.condition && action.condition !== '1' ? `  [${action.condition}]` : ''}
                             </text>
+
+                            {/* Manipulador rápido de eliminação individual ✕ para a ação */}
+                            {full && (isThisActionSelected || isThisActionHovered) && (
+                              <g
+                                className="grafcet-node-handle is-delete"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  removeAction(step, action.id)
+                                }}
+                                style={{ cursor: 'pointer' }}
+                                role="button"
+                                aria-label="Remover ação"
+                              >
+                                <circle cx="510" cy={actionY + 14} r="7" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
+                                <path
+                                  d={`M 508 ${actionY + 12} L 512 ${actionY + 16} M 512 ${actionY + 12} L 508 ${actionY + 16}`}
+                                  stroke="#ffffff"
+                                  strokeWidth="1.4"
+                                  strokeLinecap="round"
+                                />
+                              </g>
+                            )}
                           </g>
                         )
                       })}
+
+                      {/* Botão + Ação abaixo da lista de ações quando a etapa está selecionada */}
+                      {full && isThisStepSelected && (
+                        <g
+                          className="grafcet-node-handle"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            addActionToStep(step)
+                          }}
+                          style={{ cursor: 'pointer' }}
+                          role="button"
+                          aria-label="Adicionar ação"
+                        >
+                          <rect
+                            x="335"
+                            y={y + actions.length * 34 + 4}
+                            width="86"
+                            height="22"
+                            rx="4"
+                            fill="#eff6ff"
+                            stroke="#3b82f6"
+                            strokeWidth="1.2"
+                            strokeDasharray="3 2"
+                          />
+                          <text
+                            x="378"
+                            y={y + actions.length * 34 + 19}
+                            textAnchor="middle"
+                            fill="#1d4ed8"
+                            fontSize="10.5"
+                            fontWeight="600"
+                          >
+                            + Ação
+                          </text>
+                        </g>
+                      )}
                     </g>
                   )
                 })}
@@ -1758,7 +1969,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             <div className="grafcet-properties-summary">
               <div>
                 <strong>
-                  {selectedStep
+                  {selectedStep && selectedAction
+                    ? (() => {
+                        const { stepNumber } = getStepDisplayInfo(selectedStep, steps.indexOf(selectedStep))
+                        return `Ação: ${selectedAction.variable || selectedAction.address || 'Ação'} · Etapa ${stepNumber}`
+                      })()
+                    : selectedStep
                     ? (() => {
                         const { stepNumber, comment } = getStepDisplayInfo(selectedStep, steps.indexOf(selectedStep))
                         return `Etapa ${stepNumber}${comment ? `: ${comment}` : ''}`
@@ -1771,10 +1987,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               </div>
               {selected && (
                 <div className="grafcet-selection-actions">
-                  <button onClick={duplicateSelected} title="Duplicar (Ctrl+D)" aria-label="Duplicar seleção">
+                  <button onClick={duplicateSelected} title={selectedActionId ? 'Duplicar ação (Ctrl+D)' : 'Duplicar (Ctrl+D)'} aria-label="Duplicar seleção">
                     <IconCopy size={13} />
                   </button>
-                  <button className="is-danger" onClick={requestDelete} title="Eliminar (Del)" aria-label="Eliminar seleção">
+                  <button className="is-danger" onClick={requestDelete} title={selectedActionId ? 'Eliminar ação (Del)' : 'Eliminar (Del)'} aria-label="Eliminar seleção">
                     <IconDelete size={13} />
                   </button>
                 </div>
@@ -1948,8 +2164,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     {actionsOf(selectedStep).map((action, actionIndex) => {
                       const kind = action.kind ?? 'N'
                       const timed = ACTION_KINDS.find((k) => k.id === kind)?.timed
+                      const isRowSelected = selectedActionId === action.id
                       return (
-                        <div className={`grafcet-action-row ${table[action.address] ? 'is-on' : ''}`} key={action.id}>
+                        <div
+                          className={`grafcet-action-row ${table[action.address] ? 'is-on' : ''} ${isRowSelected ? 'is-selected-action' : ''}`}
+                          key={action.id}
+                          onClick={() => {
+                            setSelected(selectedStep.id)
+                            setSelectedActionId(action.id)
+                          }}
+                        >
                           <select
                             className="dc-input grafcet-action-kind"
                             aria-label={`Tipo da ação ${actionIndex + 1}`}
@@ -2002,17 +2226,26 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             </label>
                           )}
                           <button
+                            type="button"
+                            className="dc-btn"
+                            style={{ fontSize: '11px', padding: '1px 5px', minWidth: '22px' }}
+                            title="Abrir diálogo FluidSIM da ação"
+                            aria-label={`Abrir diálogo da ação ${actionIndex + 1}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingAction({ step: selectedStep, action })
+                            }}
+                          >
+                            ↗
+                          </button>
+                          <button
+                            type="button"
                             title="Remover ação"
                             aria-label={`Remover ação ${actionIndex + 1}`}
-                            onClick={() =>
-                              updateStep(
-                                selectedStep.id,
-                                action.id.startsWith('legacy-')
-                                  ? { action: '' }
-                                  : { actions: (selectedStep.actions ?? []).filter((value) => value.id !== action.id) },
-                                'force'
-                              )
-                            }
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeAction(selectedStep, action.id)
+                            }}
                           >
                             ×
                           </button>
