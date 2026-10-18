@@ -338,6 +338,16 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 <span className="hidden lg:inline">Arrastar</span>
                 <kbd className={`hidden 2xl:inline text-[9px] font-mono px-1 rounded ${grafcetTool === 'pan' ? 'bg-white/20' : 'bg-surface-sunken text-ink-400'}`}>H</kbd>
               </button>
+              <button
+                type="button"
+                onClick={() => useGrafcetUi.getState().setTool('connect')}
+                className={segBtn(grafcetTool === 'connect')}
+                title="Ferramenta Ligar: una etapas e transições por linha — arraste de uma saída para um destino [L]"
+              >
+                <IconWire size={13} />
+                <span className="hidden lg:inline">Ligar</span>
+                <kbd className={`hidden 2xl:inline text-[9px] font-mono px-1 rounded ${grafcetTool === 'connect' ? 'bg-white/20' : 'bg-surface-sunken text-ink-400'}`}>L</kbd>
+              </button>
             </div>
 
             <span className="tb-sep" />

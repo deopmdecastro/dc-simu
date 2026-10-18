@@ -8,10 +8,19 @@ const GROUPS = [
     items: [
       { keys: ['V'], label: 'Ferramenta Selecionar (ou tecla S)' },
       { keys: ['H'], label: 'Ferramenta Arrastar tela (Mão)' },
+      { keys: ['L'], label: 'Ferramenta Ligar — une etapas/transições por linha (arraste ou toque-a-toque; Esc cancela o fio)' },
       { keys: ['Espaço'], label: 'Arrastar tela temporariamente (manter premido)' },
       { keys: ['↓ / ↑'], label: 'Navegar sequencialmente entre etapas' },
       { keys: ['Enter'], label: 'Abrir diálogo FluidSIM da entidade' },
       { keys: ['Ctrl', '0'], label: 'Ajustar diagrama à janela (ou duplo clique no fundo)' },
+    ],
+  },
+  {
+    title: 'Transições soltas',
+    items: [
+      { keys: ['T'], label: 'Criar transição solta (barra livre, sem ligações)' },
+      { keys: ['Arrastar'], label: 'Mover a barra; largá-la sobre uma etapa liga-a (topo = origem, fundo = destino)' },
+      { keys: ['L'], label: 'Ligar por linha: da saída de uma etapa para a entrada de outra, ou diretamente para a barra' },
     ],
   },
   {
@@ -40,7 +49,7 @@ const GROUPS = [
     items: [
       { keys: ['1'], label: 'Adicionar etapa ligada (ou Insert)' },
       { keys: ['2'], label: 'Adicionar etapa solta (ou Shift+Insert)' },
-      { keys: ['3'], label: 'Adicionar transição (ou T)' },
+      { keys: ['3'], label: 'Adicionar transição solta (ou T)' },
       { keys: ['4'], label: 'Adicionar ação contínua (ou A)' },
       { keys: ['Shift', 'A'], label: 'Adicionar ação condicionada' },
       { keys: ['F'], label: 'Criar divergência AND' },

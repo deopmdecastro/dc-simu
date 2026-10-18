@@ -37,6 +37,7 @@ import {
   IconRedo,
   IconSearch,
   IconUndo,
+  IconWire,
   IconZoomIn,
   IconZoomOut,
 } from '../ui/icons'
@@ -71,7 +72,7 @@ const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: st
     items: [
       { kind: 'initial', icon: '◎', name: 'Etapa inicial', detail: 'Ponto de partida da sequência' },
       { kind: 'step', icon: '□', name: 'Etapa ligada', detail: 'Nova etapa após a selecionada' },
-      { kind: 'transition', icon: '─', name: 'Transição', detail: 'Condição entre duas etapas' },
+      { kind: 'transition', icon: '⊣', name: 'Transição solta', detail: 'Barra livre — arraste ou ligue por linha' },
     ],
   },
   {
@@ -195,6 +196,28 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null })
   const dragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
+
+  // Ligação por linha (ferramenta Ligar) e transições soltas arrastáveis
+  /** Porto de um elemento: saída de etapa/transição (início de fio) ou entrada (fim de fio). */
+  type PortRef = { kind: 'step-out' | 'step-in' | 'trans-out' | 'trans-in'; id: string }
+  const [wireDraft, setWireDraft] = useState<{ start: PortRef; x: number; y: number; moved: boolean } | null>(null)
+  const [wireHover, setWireHover] = useState<PortRef | null>(null)
+  const wireDraftRef = useRef<typeof wireDraft>(null)
+  const wireHoverRef = useRef<PortRef | null>(null)
+  wireDraftRef.current = wireDraft
+  wireHoverRef.current = wireHover
+  const transDragRef = useRef<{
+    transId: string
+    startX: number
+    startY: number
+    origX: number
+    origY: number
+    moved: boolean
+  } | null>(null)
+  const [transDragPos, setTransDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
+  const transDragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
+  /** Etapa candidata a receber a transição solta que está a ser arrastada. */
+  const [transDropStep, setTransDropStep] = useState<string | null>(null)
   const stepDragRef = useRef<{
     stepId: string
     startX: number
@@ -581,20 +604,37 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     save({ steps: reordered })
   }
 
-  const addTransition = () => {
-    if (steps.length < 2) return
-    const sourceIndex = Math.max(0, steps.findIndex((step) => step.id === selected))
+  /**
+   * Cria uma transição SOLTA: vem para a tela sem origem nem destino.
+   * O utilizador liga-a depois — arrastando a barra sobre uma etapa
+   * (metade de cima = origem, metade de baixo = destino) ou com a
+   * ferramenta Ligar por linha (atalho L).
+   */
+  const addFreeTransition = (at?: { x: number; y: number }) => {
+    if (!steps.length) {
+      notify('Crie primeiro uma etapa')
+      return
+    }
+    // Posição por omissão: por baixo da última etapa, na espinha central.
+    const freeCount = transitions.filter((t) => !t.from.filter((v) => stepById.has(v)).length || !t.to.filter((v) => stepById.has(v)).length).length
+    const at2 = at ?? { x: SPINE_X + (freeCount % 2 === 0 ? 0 : GRID * 4), y: cursorY + 46 }
+    const clamped = clampPosition(at2.x, at2.y)
     const transition: GrafcetTransition = {
       id: id(),
-      from: [steps[sourceIndex].id],
-      to: [steps[(sourceIndex + 1) % steps.length].id],
-      condition: 'I1',
+      from: [],
+      to: [],
+      condition: '1',
+      x: Math.round(clamped.x),
+      y: Math.round(clamped.y),
     }
     save({ transitions: [...transitions, transition] })
     setSelected(transition.id)
+    setSelectedActionId(null)
     setTab('transitions')
-    notify('Transição criada')
+    notify('Transição solta criada — arraste-a sobre etapas ou ligue por linha (L)')
   }
+
+  const addTransition = () => addFreeTransition()
 
   const moveTransition = (transitionId: string, direction: -1 | 1) => {
     const index = transitions.findIndex((transition) => transition.id === transitionId)
@@ -702,7 +742,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const usePalette = (kind: PaletteItem, at?: { x: number; y: number }) => {
     if (kind === 'initial') addInitial(at)
     else if (kind === 'step') addConnectedStep(undefined, at)
-    else if (kind === 'transition') addTransition()
+    else if (kind === 'transition') addFreeTransition(at)
     else if (kind === 'action') addAction(false)
     else if (kind === 'conditional') addAction(true)
     else if (kind === 'fork') addFork()
@@ -710,9 +750,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   }
 
   const paletteDisabled = (kind: PaletteItem) =>
-    kind === 'transition' || kind === 'join'
+    kind === 'join'
       ? steps.length < 2
-      : kind === 'action' || kind === 'conditional' || kind === 'fork'
+      : kind === 'transition' || kind === 'action' || kind === 'conditional' || kind === 'fork'
       ? steps.length === 0
       : false
 
@@ -771,8 +811,271 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     maxRight = Math.max(maxRight, stepX(step.id) + 320)
     maxBottom = Math.max(maxBottom, stepY(step.id) + actionsOf(step).length * 36 + 140)
   })
+
+  // ------------------------------------------------------------------
+  // Transições soltas (sem origem/destino completo) e ligação por linha
+  // ------------------------------------------------------------------
+  const existsStep = (value: string) => stepById.has(value)
+  /** true quando a transição ainda tem algum lado por ligar. */
+  const isFreeTransition = (t: GrafcetTransition) => !t.from.filter(existsStep).length || !t.to.filter(existsStep).length
+  /** Posição atual da barra de uma transição solta (guardada ou em arrasto). */
+  const transXY = (t: GrafcetTransition): { x: number; y: number } => {
+    if (transDragPos?.id === t.id) return transDragPos
+    return { x: t.x ?? SPINE_X, y: t.y ?? cursorY + 46 }
+  }
+  transitions.forEach((t) => {
+    if (!isFreeTransition(t)) return
+    const p = transXY(t)
+    maxRight = Math.max(maxRight, p.x + 170)
+    maxBottom = Math.max(maxBottom, p.y + 70)
+  })
   const width = maxRight
   const height = Math.max(280, maxBottom)
+
+  /** Coordenadas do diagrama a partir de um ponto do cliente (rato/toque). */
+  const clientToWorld = (cx: number, cy: number) => {
+    const rect = viewportRef.current?.getBoundingClientRect()
+    if (!rect) return { x: 0, y: 0 }
+    return { x: (cx - rect.left - position.x) / scale, y: (cy - rect.top - position.y) / scale }
+  }
+
+  /** Etapa cuja caixa contém o ponto (com folga vertical para largar barras por cima/por baixo). */
+  const hitStepAt = (wx: number, wy: number) =>
+    steps.find((s) => Math.abs(wx - stepX(s.id)) < 60 && wy >= stepY(s.id) - 30 && wy <= stepY(s.id) + STEP_H + 50)
+
+  /** Posição mundo de um porto. */
+  const portPosOf = (p: PortRef): { x: number; y: number } => {
+    if (p.kind === 'step-out') return { x: stepX(p.id), y: stepY(p.id) + STEP_H }
+    if (p.kind === 'step-in') return { x: stepX(p.id), y: stepY(p.id) }
+    const t = transitions.find((tr) => tr.id === p.id)
+    if (!t) return { x: SPINE_X, y: cursorY }
+    const pos = transXY(t)
+    if (p.kind === 'trans-in') return { x: pos.x, y: t.from.filter(existsStep).length ? pos.y - 8 : pos.y - 30 }
+    return { x: pos.x, y: t.to.filter(existsStep).length ? pos.y + 8 : pos.y + 30 }
+  }
+
+  /** Porto de destino (entrada) válido sob um ponto, para completar um fio. */
+  const hitWireTarget = (wx: number, wy: number, start: PortRef): PortRef | null => {
+    const step = hitStepAt(wx, wy)
+    if (step) {
+      // Largar na metade superior da etapa (ou em qualquer ponto se o início for uma transição) = entrada.
+      return { kind: 'step-in', id: step.id }
+    }
+    for (const t of transitions) {
+      if (!isFreeTransition(t)) continue
+      if (start.kind === 'trans-out' && start.id === t.id) continue // não ligar uma transição a si própria
+      const port = portPosOf({ kind: 'trans-in', id: t.id })
+      if (Math.hypot(wx - port.x, wy - port.y) < 20) return { kind: 'trans-in', id: t.id }
+    }
+    return null
+  }
+
+  /** Inicia um fio a partir de um porto de SAÍDA (etapa ou transição solta). */
+  const startWire = (start: PortRef, cx: number, cy: number) => {
+    const w = clientToWorld(cx, cy)
+    setWireDraft({ start, x: w.x, y: w.y, moved: false })
+    setWireHover(null)
+  }
+
+  /** Completa o fio armado (Ligar) ligando a `start` ao destino `end`. */
+  const completeWire = (start: PortRef, end: PortRef) => {
+    const stepNum = (sid: string) => {
+      const s = stepById.get(sid)
+      return s ? getStepDisplayInfo(s, steps.indexOf(s)).stepNumber : '?'
+    }
+    if (start.kind === 'step-out' && end.kind === 'step-in') {
+      const t: GrafcetTransition = { id: id(), from: [start.id], to: [end.id], condition: '1' }
+      save({ transitions: [...transitions, t] })
+      setSelected(t.id)
+      setSelectedActionId(null)
+      setTab('transitions')
+      notify(`Transição criada: Etapa ${stepNum(start.id)} → Etapa ${stepNum(end.id)}`)
+      return
+    }
+    if (start.kind === 'step-out' && end.kind === 'trans-in') {
+      const t = transitions.find((tr) => tr.id === end.id)
+      if (t && !t.from.includes(start.id)) {
+        updateTransition(end.id, { from: [...t.from, start.id] }, 'force')
+        setSelected(end.id)
+        setSelectedActionId(null)
+        setTab('transitions')
+        notify(`Etapa ${stepNum(start.id)} ligada à origem da transição T${transitions.indexOf(t) + 1}`)
+      } else notify('Essa etapa já é origem desta transição')
+      return
+    }
+    if (start.kind === 'trans-out' && end.kind === 'step-in') {
+      const t = transitions.find((tr) => tr.id === start.id)
+      if (t && !t.to.includes(end.id)) {
+        updateTransition(start.id, { to: [...t.to, end.id] }, 'force')
+        setSelected(start.id)
+        setSelectedActionId(null)
+        setTab('transitions')
+        notify(`Etapa ${stepNum(end.id)} ligada ao destino da transição T${transitions.indexOf(t) + 1}`)
+      } else notify('Essa etapa já é destino desta transição')
+    }
+  }
+
+  const cancelWire = (silent = true) => {
+    setWireDraft(null)
+    setWireHover(null)
+    if (!silent) notify('Fio cancelado — toque num porto de saída para recomeçar')
+  }
+
+  // Ao sair da ferramenta Ligar, o fio armado é cancelado.
+  useEffect(() => {
+    if (activeTool !== 'connect' && wireDraftRef.current) cancelWire()
+  }, [activeTool])
+
+  // Gestos globais da ligação por linha: mover/terminar/cancelar enquanto houver fio armado.
+  useEffect(() => {
+    if (!wireDraft) return
+    const onMove = (event: globalThis.PointerEvent) => {
+      const w = clientToWorld(event.clientX, event.clientY)
+      const draft = wireDraftRef.current
+      if (!draft) return
+      const target = hitWireTarget(w.x, w.y, draft.start)
+      setWireDraft({ ...draft, x: w.x, y: w.y, moved: draft.moved || Math.hypot(w.x - portPosOf(draft.start).x, w.y - portPosOf(draft.start).y) > 8 })
+      setWireHover(target)
+    }
+    const onUp = (event: globalThis.PointerEvent) => {
+      const draft = wireDraftRef.current
+      if (!draft) return
+      const w = clientToWorld(event.clientX, event.clientY)
+      const target = hitWireTarget(w.x, w.y, draft.start)
+      if (target) {
+        completeWire(draft.start, target)
+        cancelWire()
+      } else if (draft.moved) {
+        // Arrastou e soltou no vazio: cancela. Um simples toque MANTÉM o fio armado (fluxo toque-a-toque).
+        cancelWire(false)
+      }
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation()
+        cancelWire(false)
+      }
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      window.removeEventListener('keydown', onKey, true)
+    }
+  }, [wireDraft !== null])
+
+  /** Liga (ou move junto) a transição solta `transId` à etapa em que foi largada. */
+  const attachFreeTransition = (trans: GrafcetTransition, stepId: string, barY: number) => {
+    const step = stepById.get(stepId)
+    if (!step) return
+    const { stepNumber } = getStepDisplayInfo(step, steps.indexOf(step))
+    const sY = stepY(stepId)
+    const asSource = sY + STEP_H / 2 < barY // etapa acima da barra → origem
+    if (asSource) {
+      if (trans.from.includes(stepId)) return notify(`A Etapa ${stepNumber} já é origem desta transição`)
+      const stillFree = !trans.to.filter(existsStep).length
+      updateTransition(
+        trans.id,
+        {
+          from: [...trans.from, stepId],
+          ...(stillFree ? { x: stepX(stepId), y: sY + STEP_H + 30 } : {}),
+        },
+        'force'
+      )
+      notify(`Origem ligada: Etapa ${stepNumber} — agora ligue o destino`)
+    } else {
+      if (trans.to.includes(stepId)) return notify(`A Etapa ${stepNumber} já é destino desta transição`)
+      const stillFree = !trans.from.filter(existsStep).length
+      updateTransition(
+        trans.id,
+        {
+          to: [...trans.to, stepId],
+          ...(stillFree ? { x: stepX(stepId), y: sY - 30 } : {}),
+        },
+        'force'
+      )
+      notify(`Destino ligado: Etapa ${stepNumber}`)
+    }
+  }
+
+  const resetTransDrag = () => {
+    transDragRef.current = null
+    transDragPosRef.current = null
+    setTransDragPos(null)
+    setTransDropStep(null)
+  }
+
+  const onFreeTransPointerDown = (t: GrafcetTransition, e: React.PointerEvent) => {
+    if (!full || activeTool !== 'select' || isSpacePan) return
+    if (e.button !== 0) return
+    if ((e.target as Element).closest('.grafcet-node-handle, .grafcet-port, button')) return
+    e.stopPropagation()
+    const pos = transXY(t)
+    transDragRef.current = { transId: t.id, startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y, moved: false }
+    setSelected(t.id)
+    setSelectedActionId(null)
+    setTab('transitions')
+    try {
+      ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+    } catch {
+      /* noop */
+    }
+  }
+
+  const onFreeTransPointerMove = (t: GrafcetTransition, e: React.PointerEvent) => {
+    const drag = transDragRef.current
+    if (!drag || drag.transId !== t.id) return
+    const rawDx = e.clientX - drag.startX
+    const rawDy = e.clientY - drag.startY
+    if (!drag.moved) {
+      if (Math.hypot(rawDx, rawDy) < 4) return
+      drag.moved = true
+      if (zoom === null) setZoom(scale)
+      if (pan === null) setPan(position)
+    }
+    let x = drag.origX + rawDx / scale
+    let y = drag.origY + rawDy / scale
+    if (snapOn && !e.altKey) {
+      x = snapToGrid(x, SPINE_X)
+      y = snapToGrid(y, START_Y)
+    }
+    const clamped = clampPosition(x, y)
+    const next = { id: t.id, x: Math.round(clamped.x), y: Math.round(clamped.y) }
+    transDragPosRef.current = next
+    setTransDragPos(next)
+    // Deteta a etapa sob a barra para pré-visualizar a ligação (drop): primeiro o cursor, depois o centro da barra.
+    const w = clientToWorld(e.clientX, e.clientY)
+    setTransDropStep(hitStepAt(w.x, w.y)?.id ?? hitStepAt(next.x, next.y)?.id ?? null)
+  }
+
+  const onFreeTransPointerUp = (t: GrafcetTransition, e: React.PointerEvent) => {
+    const drag = transDragRef.current
+    if (!drag || drag.transId !== t.id) return
+    try {
+      ;(e.currentTarget as Element).releasePointerCapture(e.pointerId)
+    } catch {
+      /* noop */
+    }
+    const final = transDragPosRef.current
+    let dropStepId = transDropStep
+    if (!dropStepId && final) {
+      dropStepId = hitStepAt(final.x, final.y)?.id ?? null
+    }
+    resetTransDrag()
+    if (drag.moved && dropStepId && stepById.has(dropStepId)) {
+      // Largada sobre uma etapa: guarda a posição e LIGA automaticamente.
+      if (final) updateTransition(t.id, { x: final.x, y: final.y }, 'force')
+      attachFreeTransition({ ...t, ...(final ? { x: final.x, y: final.y } : {}) }, dropStepId, final?.y ?? transXY(t).y)
+      return
+    }
+    if (!drag.moved || !final || (final.x === drag.origX && final.y === drag.origY)) return
+    updateTransition(t.id, { x: final.x, y: final.y }, 'force')
+  }
+
   /** true se o troço direto entre duas etapas não atravessa nenhuma outra etapa. */
   const clearPath = (a: GrafcetStep, b: GrafcetStep) => {
     const left = Math.min(stepX(a.id), stepX(b.id)) - 36
@@ -861,8 +1164,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         /* noop */
       }
       if (movedDist < 5 && !(event.target as Element).closest('button, [role="button"], .grafcet-node-handle, .grafcet-graph-node, .grafcet-graph-link, .grafcet-graph-action')) {
-        setSelected(null)
-        setSelectedActionId(null)
+        if (wireDraftRef.current) {
+          // Clique no fundo da tela: cancela o fio armado (ferramenta Ligar).
+          cancelWire(false)
+        } else {
+          setSelected(null)
+          setSelectedActionId(null)
+        }
       }
     }
   }
@@ -875,7 +1183,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   }
 
   const onStepPointerDown = (step: GrafcetStep, e: React.PointerEvent) => {
-    if (!full || activeTool !== 'select' || isSpacePan) return
+    if (!full || activeTool !== 'select' || isSpacePan) return // na ferramenta Ligar, a etapa não se arrasta
     if (e.button !== 0) return
     if ((e.target as Element).closest('.grafcet-node-handle, button')) return
     e.stopPropagation()
@@ -1091,6 +1399,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         notify('Ferramenta Arrastar (Mão) ativa [H]')
         return
       }
+      if (!mod && !event.altKey && lower === 'l') {
+        event.preventDefault()
+        setCanvasTool('connect')
+        notify('Ferramenta Ligar ativa — toque numa saída e depois no destino [L]')
+        return
+      }
       if (mod && lower === 'b') {
         event.preventDefault()
         setShowPalette((value) => !value)
@@ -1258,6 +1572,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           break
         case 'setToolPan':
           setCanvasTool('pan')
+          break
+        case 'setToolConnect':
+          setCanvasTool('connect')
           break
         case 'addConnectedStep':
           addConnectedStep()
@@ -1473,7 +1790,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         {/* CANVAS CENTRAL COM O DIAGRAMA VERTICAL ROBUSTO */}
         <div
           ref={viewportRef}
-          className={`grafcet-canvas ${activeTool === 'pan' ? 'is-pan-mode' : 'is-select-mode'} ${isSpacePan ? 'is-space-pan' : ''} ${dropActive ? 'is-palette-drop' : ''} ${isDragging ? 'is-dragging' : ''}`}
+          className={`grafcet-canvas ${activeTool === 'pan' ? 'is-pan-mode' : activeTool === 'connect' ? 'is-connect-mode' : 'is-select-mode'} ${isSpacePan ? 'is-space-pan' : ''} ${dropActive ? 'is-palette-drop' : ''} ${isDragging ? 'is-dragging' : ''} ${wireDraft ? 'is-wiring' : ''}`}
           aria-label="Diagrama GRAFCET"
           style={
             full
@@ -1518,9 +1835,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   setDropActive(false)
                   const kind = event.dataTransfer.getData(GRAFCET_MIME) as PaletteItem
                   if (PALETTE.some((group) => group.items.some((item) => item.kind === kind)) && !paletteDisabled(kind)) {
-                    // Etapas largadas na tela ficam exatamente onde o rato as soltou (encaixadas à grelha).
+                    // Etapas/transições largadas na tela ficam exatamente onde o rato as soltou (encaixadas à grelha).
                     let at: { x: number; y: number } | undefined
-                    if (kind === 'initial' || kind === 'step') {
+                    if (kind === 'initial' || kind === 'step' || kind === 'transition') {
                       const rect = event.currentTarget.getBoundingClientRect()
                       let wx = (event.clientX - rect.left - position.x) / scale
                       let wy = (event.clientY - rect.top - position.y) / scale - STEP_H / 2
@@ -1593,7 +1910,176 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 {transitions.flatMap((transition, transitionIndex) => {
                   const sources = transition.from.filter((value) => steps.some((step) => step.id === value))
                   const targets = transition.to.filter((value) => steps.some((step) => step.id === value))
-                  if (!sources.length || !targets.length) return []
+                  if (!sources.length || !targets.length) {
+                    // ---- Transição SOLTA/parcial: barra livre na tela, arrastável,
+                    // com stubs tracejados nos lados por ligar.
+                    const fp = transXY(transition)
+                    const ftx = fp.x
+                    const fty = fp.y
+                    const freeSelected = isTransitionSelected(transition.id)
+                    const freeHovered = hoveredTransitionId === transition.id
+                    const barColor = freeSelected ? '#2563eb' : freeHovered ? '#b45309' : '#d97706'
+                    const armedFromThis = wireDraft?.start.kind === 'trans-out' && wireDraft.start.id === transition.id
+                    const targetThis = wireHover?.kind === 'trans-in' && wireHover.id === transition.id
+                    // Fios reais dos lados já ligados (curvas suaves até à barra).
+                    const srcWires = sources.map((sid) => {
+                      const sx = stepX(sid)
+                      const sy = stepY(sid) + STEP_H
+                      const my = (sy + fty) / 2
+                      return (
+                        <path
+                          key={`fw-${sid}`}
+                          d={`M ${sx} ${sy} C ${sx} ${my}, ${ftx} ${my}, ${ftx} ${fty - 7}`}
+                          fill="none"
+                          stroke="#526883"
+                          strokeWidth="2"
+                        />
+                      )
+                    })
+                    const dstWires = targets.map((sid) => {
+                      const sx = stepX(sid)
+                      const sy = stepY(sid)
+                      const my = (sy + fty) / 2
+                      return (
+                        <path
+                          key={`tw-${sid}`}
+                          d={`M ${ftx} ${fty + 7} C ${ftx} ${my}, ${sx} ${my}, ${sx} ${sy - 2}`}
+                          fill="none"
+                          stroke="#526883"
+                          strokeWidth="2"
+                          markerEnd="url(#grafcet-arrow)"
+                        />
+                      )
+                    })
+                    return (
+                      <g
+                        key={transition.id}
+                        className={`${full ? 'grafcet-graph-link' : ''} grafcect-free ${freeSelected ? 'is-selected' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (full) {
+                            setSelected(transition.id)
+                            setSelectedActionId(null)
+                            setTab('transitions')
+                          }
+                        }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation()
+                          setEditingTransition(transition)
+                        }}
+                        onPointerDown={(e) => onFreeTransPointerDown(transition, e)}
+                        onPointerMove={(e) => onFreeTransPointerMove(transition, e)}
+                        onPointerUp={(e) => onFreeTransPointerUp(transition, e)}
+                        onPointerCancel={resetTransDrag}
+                        onMouseEnter={() => setHoveredTransitionId(transition.id)}
+                        onMouseLeave={() => setHoveredTransitionId(null)}
+                        role={full ? 'button' : undefined}
+                        tabIndex={full ? 0 : undefined}
+                        aria-label={`Transição T${transitionIndex + 1} solta: ${transition.condition}. Arraste-a sobre uma etapa para ligar.`}
+                      >
+                        {/* halo de agarre generoso para rato e toque */}
+                        <rect x={ftx - 42} y={fty - 34} width="84" height="68" fill="transparent" />
+
+                        {srcWires}
+                        {dstWires}
+
+                        {/* Stub de origem por ligar (cima) com porto de entrada */}
+                        {!sources.length && (
+                          <>
+                            <line x1={ftx} y1={fty - 30} x2={ftx} y2={fty - 8} stroke="#d97706" strokeWidth="2" strokeDasharray="4 4" />
+                            <circle
+                              cx={ftx}
+                              cy={fty - 30}
+                              r="5"
+                              className={`grafcet-free-port ${targetThis ? 'is-hover' : ''}`}
+                              fill={targetThis ? '#bbf7d0' : '#ffffff'}
+                              stroke={targetThis ? '#16a34a' : '#d97706'}
+                              strokeWidth="2.2"
+                            />
+                          </>
+                        )}
+
+                        {/* Stub de destino por ligar (baixo) com porto de saída */}
+                        {!targets.length && (
+                          <>
+                            <line x1={ftx} y1={fty + 8} x2={ftx} y2={fty + 30} stroke="#d97706" strokeWidth="2" strokeDasharray="4 4" />
+                            <circle
+                              cx={ftx}
+                              cy={fty + 30}
+                              r="5"
+                              className={`grafcet-free-port ${armedFromThis ? 'is-armed' : ''}`}
+                              fill={armedFromThis ? '#2563eb' : '#ffffff'}
+                              stroke={armedFromThis ? '#2563eb' : '#d97706'}
+                              strokeWidth="2.2"
+                            />
+                          </>
+                        )}
+
+                        {/* Barra transversal IEC da transição */}
+                        <line x1={ftx - 13} y1={fty} x2={ftx + 13} y2={fty} stroke={barColor} strokeWidth={freeSelected ? 4 : 3} />
+
+                        {/* Número e condição */}
+                        <text x={ftx - 18} y={fty + 3.5} textAnchor="end" fill={freeSelected ? '#2563eb' : '#b45309'} fontSize="10.5" fontWeight="700">
+                          {transitionIndex + 1}
+                        </text>
+                        <g transform={`translate(${ftx + 17}, ${fty + 4})`}>
+                          <text fill={barColor} fontSize="12" fontWeight="600">
+                            {renderConditionTspans((transition.condition || '1').slice(0, 24))}
+                          </text>
+                        </g>
+
+                        {/* Etiqueta "solta" quando selecionada/em hover */}
+                        {full && (freeHovered || freeSelected) && !wireDraft && (
+                          <text x={ftx} y={fty - 38} textAnchor="middle" fill="#b45309" fontSize="9.5" fontWeight="700" style={{ pointerEvents: 'none' }}>
+                            {!sources.length && !targets.length ? 'arraste p/ ligar' : !sources.length ? 'ligue a origem' : 'ligue o destino'}
+                          </text>
+                        )}
+
+                        {/* Porto interativo na ferramenta Ligar: início de fio a partir desta transição */}
+                        {full && activeTool === 'connect' && (
+                          <g
+                            className={`grafcet-port is-out ${armedFromThis ? 'is-armed' : ''}`}
+                            onPointerDown={(e) => {
+                              e.stopPropagation()
+                              startWire({ kind: 'trans-out', id: transition.id }, e.clientX, e.clientY)
+                            }}
+                            role="button"
+                            aria-label="Ligar destino da transição"
+                          >
+                            <circle cx={ftx} cy={fty + (targets.length ? 8 : 30)} r="13" fill="transparent" />
+                            <circle cx={ftx} cy={fty + (targets.length ? 8 : 30)} r="5" fill={armedFromThis ? '#2563eb' : '#ffffff'} stroke="#2563eb" strokeWidth="2.2" />
+                          </g>
+                        )}
+
+                        {/* Alvo interativo na ferramenta Ligar: recebe fio vindo de uma etapa (entrada) */}
+                        {full && activeTool === 'connect' && wireDraft && wireDraft.start.kind === 'step-out' && wireDraft.start.id && (
+                          <g
+                            className={`grafcet-port is-in is-compatible ${targetThis ? 'is-hover' : ''}`}
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            <circle cx={ftx} cy={fty - (sources.length ? 8 : 30)} r="6.5" fill={targetThis ? '#bbf7d0' : 'rgba(255,255,255,0.75)'} stroke="#16a34a" strokeWidth="2" strokeDasharray={targetThis ? undefined : '3 3'} />
+                          </g>
+                        )}
+
+                        {/* Eliminar */}
+                        {full && (freeHovered || freeSelected) && (
+                          <g
+                            className="grafcet-node-handle is-delete"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeTransition(transition.id)
+                            }}
+                            style={{ cursor: 'pointer' }}
+                            role="button"
+                            aria-label="Eliminar transição"
+                          >
+                            <circle cx={ftx - 21} cy={fty - 13} r="7.5" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
+                            <path d={`M ${ftx - 23.5} ${fty - 15.5} L ${ftx - 18.5} ${fty - 10.5} M ${ftx - 18.5} ${fty - 15.5} L ${ftx - 23.5} ${fty - 10.5}`} stroke="#ffffff" strokeWidth="1.4" strokeLinecap="round" />
+                          </g>
+                        )}
+                      </g>
+                    )
+                  }
 
                   const selfLoop = sources.length === 1 && targets.length === 1 && sources[0] === targets[0]
                   const isSingleSource = sources.length === 1
@@ -2039,6 +2525,18 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   const actionsCount = actionsOf(step).length
 
                   const onStepClick = (e: React.MouseEvent) => {
+                    // Ferramenta Ligar: toque-a-toque — 1.º toque arma a saída da etapa, o 2.º define a entrada.
+                    if (full && activeTool === 'connect') {
+                      e.stopPropagation()
+                      const draft = wireDraftRef.current
+                      if (draft) {
+                        completeWire(draft.start, { kind: 'step-in', id: step.id })
+                        cancelWire()
+                      } else {
+                        startWire({ kind: 'step-out', id: step.id }, e.clientX, e.clientY)
+                      }
+                      return
+                    }
                     selectStep(step, e)
                   }
 
@@ -2089,6 +2587,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                                 addActionToStep(step, false)
                               } else if (kind === 'conditional') {
                                 addActionToStep(step, true)
+                              } else if (kind === 'transition') {
+                                // Largar uma transição sobre uma etapa: nasce solta já com a origem ligada.
+                                const t: GrafcetTransition = {
+                                  id: id(),
+                                  from: [step.id],
+                                  to: [],
+                                  condition: '1',
+                                  x: stepX(step.id),
+                                  y: stepY(step.id) + STEP_H + 30,
+                                }
+                                save({ transitions: [...transitions, t] })
+                                setSelected(t.id)
+                                setSelectedActionId(null)
+                                setTab('transitions')
+                                notify(`Transição após a Etapa ${stepNumber} — ligue o destino`)
                               } else if (kind === 'step') {
                                 addConnectedStep(step)
                               } else if (kind === 'initial') {
@@ -2127,6 +2640,55 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         strokeWidth={isThisStepSelected ? 3 : active ? 2.5 : 2}
                         filter={isThisStepSelected ? 'drop-shadow(0 2px 8px rgba(37,99,235,0.3))' : undefined}
                       />
+
+                      {/* Contorno de destino quando uma transição solta paira sobre esta etapa */}
+                      {transDropStep === step.id && (
+                        <rect
+                          x="111"
+                          y={y - 8}
+                          width="80"
+                          height="70"
+                          rx="9"
+                          fill="none"
+                          stroke="#d97706"
+                          strokeWidth="2.5"
+                          strokeDasharray="7 4"
+                          className="grafcet-drop-outline"
+                        />
+                      )}
+
+                      {/* Portos de ligação (ferramenta Ligar): entrada no topo, saída em baixo */}
+                      {full && activeTool === 'connect' && (
+                        <>
+                          <g
+                            className={`grafcet-port is-in ${
+                              wireDraft
+                                ? wireHover?.kind === 'step-in' && wireHover.id === step.id
+                                  ? 'is-hover'
+                                  : 'is-compatible'
+                                : ''
+                            }`}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            role="button"
+                            aria-label={`Entrada da etapa ${stepNumber}`}
+                          >
+                            <circle cx="151" cy={y} r="13" fill="transparent" />
+                            <circle cx="151" cy={y} r="5" fill={wireDraft && wireHover?.kind === 'step-in' && wireHover.id === step.id ? '#bbf7d0' : '#ffffff'} stroke={wireDraft ? '#16a34a' : '#64748b'} strokeWidth="2.2" />
+                          </g>
+                          <g
+                            className={`grafcet-port is-out ${wireDraft?.start.kind === 'step-out' && wireDraft.start.id === step.id ? 'is-armed' : ''}`}
+                            onPointerDown={(e) => {
+                              e.stopPropagation()
+                              startWire({ kind: 'step-out', id: step.id }, e.clientX, e.clientY)
+                            }}
+                            role="button"
+                            aria-label={`Saída da etapa ${stepNumber}: arraste um fio`}
+                          >
+                            <circle cx="151" cy={y + 54} r="13" fill="transparent" />
+                            <circle cx="151" cy={y + 54} r="5" fill={wireDraft?.start.kind === 'step-out' && wireDraft.start.id === step.id ? '#2563eb' : '#ffffff'} stroke="#2563eb" strokeWidth="2.2" />
+                          </g>
+                        </>
+                      )}
 
                       {/* Caixa interna de etapa inicial normalizada IEC */}
                       {isInitial && (
@@ -2519,6 +3081,34 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     {Math.round(dragPos.x - SPINE_X)}, {Math.round(dragPos.y - START_Y)}
                   </text>
                 )}
+
+                {/* FIO EM CURSO (ferramenta Ligar): linha tracejada do porto de saída até ao cursor */}
+                {wireDraft && (
+                  <g className="grafcet-wire-draft" style={{ pointerEvents: 'none' }}>
+                    {(() => {
+                      const from = portPosOf(wireDraft.start)
+                      const my = (from.y + wireDraft.y) / 2
+                      const color = wireHover ? '#16a34a' : '#2563eb'
+                      return (
+                        <>
+                          <path
+                            d={`M ${from.x} ${from.y} C ${from.x} ${my}, ${wireDraft.x} ${my}, ${wireDraft.x} ${wireDraft.y}`}
+                            fill="none"
+                            stroke={color}
+                            strokeWidth="2.5"
+                            strokeDasharray="7 5"
+                            strokeLinecap="round"
+                            className="grafcet-wire-draft-line"
+                          />
+                          <circle cx={wireDraft.x} cy={wireDraft.y} r="4" fill={color} />
+                          <circle cx={from.x} cy={from.y} r="6.5" fill="none" stroke={color} strokeWidth="2" opacity="0.7">
+                            <animate attributeName="r" values="5;8;5" dur="1.1s" repeatCount="indefinite" />
+                          </circle>
+                        </>
+                      )
+                    })()}
+                  </g>
+                )}
               </svg>
             </div>
           )}
@@ -2545,6 +3135,19 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               >
                 <IconHand size={12} />
                 <span>Arrastar</span>
+              </button>
+              <button
+                type="button"
+                className={activeTool === 'connect' ? 'is-active' : ''}
+                onClick={() => {
+                  setCanvasTool('connect')
+                  notify(wireDraft ? 'Fio armado — toque numa etapa de destino' : 'Ligar: arraste da saída de uma etapa até ao destino')
+                }}
+                title="Ferramenta Ligar: ligue etapas/transições por linha — toque numa saída e depois no destino [L]"
+                aria-label="Ferramenta Ligar"
+              >
+                <IconWire size={12} />
+                <span>Ligar</span>
               </button>
               <span className="grafcet-canvas-hud-sep" />
               <button
@@ -2916,22 +3519,34 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             {tab === 'transitions' && (
               <>
                 <p className="grafcet-hint">
-                  Uma origem → vários destinos cria divergência AND. Várias origens → um destino cria convergência AND. A ordem define a prioridade.
+                  Tecla <b>T</b> cria uma transição <b>solta</b>: arraste a barra sobre uma etapa (metade de cima = origem, de baixo = destino) ou
+                  use a ferramenta <b>Ligar [L]</b> e una etapas por linha. A origem → vários destinos cria divergência AND; várias origens → um
+                  destino cria convergência AND.
                 </p>
                 <div className="grafcet-entity-list">
                   {filteredTransitions.map((transition) => {
                     const index = transitions.indexOf(transition)
                     const conditionOn = running && validCondition(transition.condition) && evalCondition(transition.condition, table)
+                    const incomplete = !transition.from.length || !transition.to.length
                     const getStepNum = (id: string) => {
                       const step = steps.find((s) => s.id === id)
                       return step ? getStepDisplayInfo(step, steps.indexOf(step)).stepNumber : '?'
                     }
                     return (
-                      <div className={`grafcet-transition-row ${selected === transition.id ? 'is-active' : ''}`} key={transition.id}>
-                        <button onClick={() => setSelected(transition.id)} aria-label={`Selecionar transição T${index + 1}`}>
-                          <i className={conditionOn ? 'is-on' : ''} />
-                          T{index + 1}: {transition.from.map(getStepNum).join('+')} → {transition.to.map(getStepNum).join('+')}{' '}
+                      <div
+                        className={`grafcet-transition-row ${selected === transition.id ? 'is-active' : ''} ${incomplete ? 'is-incomplete' : ''}`}
+                        key={transition.id}
+                      >
+                        <button
+                          onClick={() => setSelected(transition.id)}
+                          aria-label={`Selecionar transição T${index + 1}${incomplete ? ' (incompleta)' : ''}`}
+                          title={incomplete ? 'Transição solta/incompleta — arraste a barra sobre uma etapa ou ligue por linha (L)' : undefined}
+                        >
+                          <i className={conditionOn ? 'is-on' : incomplete ? 'is-pending' : ''} />
+                          T{index + 1}: {transition.from.length ? transition.from.map(getStepNum).join('+') : '—'} →{' '}
+                          {transition.to.length ? transition.to.map(getStepNum).join('+') : '—'}{' '}
                           <span className={!validCondition(transition.condition) ? 'grafcet-error' : ''}>[{transition.condition}]</span>
+                          {incomplete && <em className="grafcet-tag-free">solta</em>}
                         </button>
                         <button
                           title="Aumentar prioridade"

@@ -53,6 +53,66 @@
   cursor: grab;
 }
 
+/* Ferramenta Ligar: mira sobretudo rede; nós mantêm a mira. */
+.grafcet-canvas.is-connect-mode,
+.grafcet-canvas.is-connect-mode .grafcet-graph-node,
+.grafcet-canvas.is-connect-mode .grafcet-graph-link {
+  cursor: crosshair;
+}
+.grafcet-canvas.is-wiring {
+  cursor: crosshair !important;
+}
+
+/* ---------------------------------------------------------------------
+   Ligação por linha e transições soltas
+--------------------------------------------------------------------- */
+.grafcet-port { cursor: crosshair; }
+.grafcet-port circle { transition: r .12s ease, fill .12s ease, stroke .12s ease; }
+.grafcet-port:hover circle:last-child { stroke-width: 3; }
+.grafcet-port.is-compatible circle:last-child { stroke: #16a34a; }
+.grafcet-port.is-compatible:hover circle:last-child,
+.grafcet-port.is-hover circle:last-child { fill: #bbf7d0; stroke: #16a34a; r: 6.5px; }
+.grafcet-port.is-armed circle:last-child { fill: #2563eb; stroke: #2563eb; }
+
+/* Fio em curso: linha animada tipo "formigas". */
+.grafcet-wire-draft-line {
+  animation: grafcet-wire-flow 0.8s linear infinite;
+}
+@keyframes grafcet-wire-flow {
+  to { stroke-dashoffset: -12; }
+}
+
+/* Contorno de etapa que pode receber a transição solta em arrasto. */
+.grafcet-drop-outline {
+  animation: grafcet-dash-spin 1.2s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(217, 119, 6, 0.35));
+}
+@keyframes grafcet-dash-spin {
+  to { stroke-dashoffset: -22; }
+}
+
+/* Barra de transição solta: agarre mais percetível e cursor de mover. */
+.grafcect-free { cursor: grab; }
+.grafcect-free:active { cursor: grabbing; }
+
+/* Linha de transições no painel: marca as incompletas/soltas. */
+.grafcet-transition-row.is-incomplete { background: #fffbeb; border-left: 3px solid #f59e0b; border-radius: 0 6px 6px 0; }
+.grafcet-transition-row > button:first-child > i.is-pending { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16); }
+.grafcet-tag-free {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-left: 5px;
+  flex: none;
+}
+
 .grafcet-canvas.is-dragging {
   cursor: grabbing !important;
   user-select: none;

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type GrafcetCanvasTool = 'select' | 'pan'
+export type GrafcetCanvasTool = 'select' | 'pan' | 'connect'
 
 const readFlag = (key: string, fallback: boolean) => {
   try {
@@ -40,6 +40,7 @@ export type GrafcetBusAction =
   | 'autoLayout'
   | 'setToolSelect'
   | 'setToolPan'
+  | 'setToolConnect'
 
 interface GrafcetUiState {
   zoom: number
