@@ -19,14 +19,14 @@ export default function ActionDialog({ open, action, availableVariables = [], on
   const [variable, setVariable] = useState('')
   const [condition, setCondition] = useState('1')
   const [description, setDescription] = useState('')
-  const [displayDescription, setDisplayDescription] = useState(true)
+  const [displayDescription, setDisplayDescription] = useState(false)
   const [timeMs, setTimeMs] = useState<number>(2000)
 
   useEffect(() => {
     if (action) {
       setVariable(action.variable || action.address || 'Q1')
       setDescription(action.description || action.address || '')
-      setDisplayDescription(action.displayDescription ?? (!!action.description && action.description !== action.address))
+      setDisplayDescription(action.displayDescription ?? (!!action.description && action.description !== action.address && action.description !== action.variable))
       setCondition(action.condition || '1')
       setTimeMs(action.timeMs || 2000)
 
@@ -99,13 +99,11 @@ export default function ActionDialog({ open, action, availableVariables = [], on
   }
 
   // Label to show in the action preview
-  const displayText = displayDescription
-    ? (description || variable || 'Ação')
-    : (assignation === 'conditional' && condition !== '1'
-        ? `${variable} [${condition}]`
-        : variable || 'Ação')
+  const displayText = displayDescription && description
+    ? description
+    : (variable || 'Ação')
 
-  // Render SVG Preview
+  // Render SVG Preview normalizado IEC 60848
   const renderPreview = () => {
     const isCompulsory = allocation === 'compulsory' || kind === 'C'
     const isActivation = allocation === 'activation' || kind === 'A'
@@ -114,20 +112,20 @@ export default function ActionDialog({ open, action, availableVariables = [], on
     const isConditional = assignation === 'conditional'
 
     const hasQualifier = kind === 'S' || kind === 'R' || kind === 'D' || kind === 'L' || kind === 'N'
-    const qualifierText = kind === 'D' ? `D ${timeMs / 1000}s` : kind === 'L' ? `L ${timeMs / 1000}s` : kind === 'N' ? '' : kind
+    const qualifierText = kind === 'D' ? `D ${timeMs / 1000}s` : kind === 'L' ? `L ${timeMs / 1000}s` : kind === 'N' ? 'N' : kind
 
     const boxW = 160
-    const boxH = 40
+    const boxH = 38
     const startX = 20
-    const startY = isConditional ? 35 : 20
+    const startY = isConditional ? 38 : 22
 
     return (
-      <svg width="100%" height="100" viewBox="0 0 200 100" className="grafcet-preview-svg">
+      <svg width="100%" height="110" viewBox="0 0 200 110" className="grafcet-preview-svg">
         {/* Conditional notch/flag on top */}
         {isConditional && (
           <g>
-            <path d={`M ${startX + 18} ${startY} V ${startY - 14} H ${startX + 75}`} fill="none" stroke="#1e293b" strokeWidth="1.6" />
-            <text x={startX + 22} y={startY - 18} fontSize="10" fontWeight="700" fill="#2563eb">
+            <path d={`M ${startX + 18} ${startY} V ${startY - 14} H ${startX + 80}`} fill="none" stroke="#1e293b" strokeWidth="1.6" />
+            <text x={startX + 22} y={startY - 17} fontSize="10" fontWeight="700" fill="#2563eb">
               {condition || 'condição'}
             </text>
           </g>
@@ -160,43 +158,48 @@ export default function ActionDialog({ open, action, availableVariables = [], on
         {/* Activation arrow UP on left edge */}
         {isActivation && (
           <g stroke="#1e293b" strokeWidth="1.8" fill="none">
-            <line x1={startX + 10} y1={startY + 28} x2={startX + 10} y2={startY + 10} />
-            <path d={`M ${startX + 6} ${startY + 15} L ${startX + 10} ${startY + 9} L ${startX + 14} ${startY + 15}`} />
+            <line x1={startX + 10} y1={startY + 27} x2={startX + 10} y2={startY + 11} />
+            <path d={`M ${startX + 6} ${startY + 16} L ${startX + 10} ${startY + 10} L ${startX + 14} ${startY + 16}`} />
           </g>
         )}
 
         {/* Deactivation arrow DOWN on left edge */}
         {isDeactivation && (
           <g stroke="#1e293b" strokeWidth="1.8" fill="none">
-            <line x1={startX + 10} y1={startY + 10} x2={startX + 10} y2={startY + 28} />
-            <path d={`M ${startX + 6} ${startY + 23} L ${startX + 10} ${startY + 29} L ${startX + 14} ${startY + 23}`} />
+            <line x1={startX + 10} y1={startY + 11} x2={startX + 10} y2={startY + 27} />
+            <path d={`M ${startX + 6} ${startY + 22} L ${startX + 10} ${startY + 28} L ${startX + 14} ${startY + 22}`} />
           </g>
         )}
 
         {/* Event arrow notch */}
         {isEvent && (
           <g stroke="#1e293b" strokeWidth="1.6" fill="none">
-            <path d={`M ${startX + 6} ${startY + 24} L ${startX + 12} ${startY + 12} L ${startX + 16} ${startY + 12}`} />
+            <path d={`M ${startX + 6} ${startY + 24} L ${startX + 12} ${startY + 13} L ${startX + 16} ${startY + 13}`} />
           </g>
         )}
 
         {/* IEC Qualifier section (S, R, D, L, N) */}
         {hasQualifier && (
           <g>
-            <line x1={startX + 34} y1={startY} x2={startX + 34} y2={startY + boxH} stroke="#1e293b" strokeWidth="1.4" />
-            {qualifierText && (
-              <text x={startX + 17} y={startY + 24} textAnchor="middle" fontSize="11" fontWeight="700" fill="#2563eb">
-                {qualifierText}
-              </text>
-            )}
+            <line x1={startX + 32} y1={startY} x2={startX + 32} y2={startY + boxH} stroke="#1e293b" strokeWidth="1.5" />
+            <text
+              x={startX + 16}
+              y={startY + 23}
+              textAnchor="middle"
+              fontSize={kind === 'D' || kind === 'L' ? '9' : '11.5'}
+              fontWeight="700"
+              fill={kind === 'N' ? '#64748b' : '#2563eb'}
+            >
+              {qualifierText}
+            </text>
           </g>
         )}
 
         {/* Text inside box */}
         <text
-          x={hasQualifier ? startX + 42 : isActivation || isDeactivation || isEvent ? startX + 26 : startX + 16}
+          x={hasQualifier ? startX + 41 : isActivation || isDeactivation || isEvent ? startX + 26 : startX + 16}
           y={startY + 24}
-          fontSize="12.5"
+          fontSize={displayText.length > 12 ? '11' : '12.5'}
           fontWeight="600"
           fill="#0f172a"
         >

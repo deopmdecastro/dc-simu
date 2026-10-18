@@ -384,7 +384,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('addAction')}
                 className="dc-tool-btn"
-                title="Nova ação solta (arraste-a sobre uma etapa ou ligue por linha) [A ou 4]"
+                title="Adicionar ação à etapa selecionada ou criar solta [A ou 4]"
               >
                 <span>+ Ação</span>
                 <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-surface-sunken text-ink-400">4</kbd>

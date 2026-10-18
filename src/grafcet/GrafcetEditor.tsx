@@ -793,7 +793,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     notify('Etapa inicial criada')
   }
 
-  const addAction = (conditional: boolean) => addFreeAction(conditional)
+  const addAction = (conditional: boolean) => {
+    if (selectedStep) {
+      addActionToStep(selectedStep, conditional)
+      return
+    }
+    addFreeAction(conditional)
+  }
 
   const addFork = () => {
     const source = selectedStep ?? steps[steps.length - 1]
@@ -981,6 +987,27 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const hitStepAt = (wx: number, wy: number) =>
     steps.find((s) => Math.abs(wx - stepX(s.id)) < 60 && wy >= stepY(s.id) - 30 && wy <= stepY(s.id) + STEP_H + 50)
 
+  /** Deteta etapa para largada de ação: inclui o corpo da etapa E toda a área de ligação de ações à sua direita. */
+  const hitStepForActionDrop = (wx: number, wy: number, ax?: number, ay?: number) => {
+    const direct = hitStepAt(wx, wy)
+    if (direct) return direct
+
+    return steps.find((s) => {
+      const sx = stepX(s.id)
+      const sy = stepY(s.id)
+      const actionsCount = actionsOf(s).length
+      const slotMinY = sy - 30
+      const slotMaxY = sy + STEP_H + Math.max(actionsCount, 1) * ACTION_PITCH + 30
+
+      const inZone = (px: number, py: number) =>
+        px >= sx - 40 && px <= sx + 420 && py >= slotMinY && py <= slotMaxY
+
+      if (inZone(wx, wy)) return true
+      if (ax !== undefined && ay !== undefined && inZone(ax, ay)) return true
+      return false
+    })
+  }
+
   /** Posição mundo de um porto. */
   const portPosOf = (p: PortRef): { x: number; y: number } => {
     if (p.kind === 'step-out') return { x: stepX(p.id), y: stepY(p.id) + STEP_H }
@@ -1040,19 +1067,23 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       const s = stepById.get(sid)
       return s ? getStepDisplayInfo(s, steps.indexOf(s)).stepNumber : '?'
     }
-    // Porto de ação da etapa → entrada de uma ação solta: liga a ação à etapa.
-    if (start.kind === 'step-action' && end.kind === 'action-in') {
-      attachFreeAction(end.id, start.id)
+    // Porto de ação da etapa ↔ ação solta (bidirecional): liga a ação à etapa.
+    if (
+      (start.kind === 'step-action' && end.kind === 'action-in') ||
+      (start.kind === 'action-in' && (end.kind === 'step-attach' || end.kind === 'step-action' || end.kind === 'step-in'))
+    ) {
+      const actionId = start.kind === 'action-in' ? start.id : end.id
+      const stepId = start.kind === 'action-in' ? end.id : start.id
+      attachFreeAction(actionId, stepId)
       return
     }
-    // Entrada de uma ação solta → qualquer etapa: liga a ação a essa etapa.
     // Fio de ação sem destino válido: orienta o utilizador.
     if (start.kind === 'step-action' || end.kind === 'step-attach') {
       notify('O fio de ação liga-se a uma ação solta — largue-o sobre a caixa âmbar')
       return
     }
     if (start.kind === 'action-in' || end.kind === 'action-in') {
-      notify('Este fio liga etapas ou transições — use as portas azuis e roxas corretas')
+      notify('Ligue o fio da ação solta a uma etapa para anexá-la')
       return
     }
     if (start.kind === 'step-out' && end.kind === 'step-in') {
@@ -1323,10 +1354,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     const next = { id: action.id, x: Math.round(x), y: Math.round(y) }
     actionDragPosRef.current = next
     setActionDragPos(next)
-    // Pré-visualização: etapa debaixo da caixa (cursor primeiro, centro da ação depois).
+    // Pré-visualização: deteta etapa sob o cursor ou sob a zona de encaixe da ação.
     const w = clientToWorld(e.clientX, e.clientY)
     const center = { x: next.x + ACTION_FREE_W / 2, y: next.y + ACTION_FREE_H / 2 }
-    setActionDropStep(hitStepAt(w.x, w.y)?.id ?? hitStepAt(center.x, center.y)?.id ?? null)
+    const dropTarget = hitStepForActionDrop(w.x, w.y, next.x, next.y) ?? hitStepForActionDrop(center.x, center.y)
+    setActionDropStep(dropTarget?.id ?? null)
   }
 
   const onActionPointerUp = (action: GrafcetAction, e: React.PointerEvent) => {
@@ -1340,7 +1372,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     const final = actionDragPosRef.current
     let dropStepId = actionDropStep
     if (!dropStepId && final) {
-      dropStepId = hitStepAt(final.x + ACTION_FREE_W / 2, final.y + ACTION_FREE_H / 2)?.id ?? null
+      dropStepId = (hitStepForActionDrop(final.x, final.y) ?? hitStepForActionDrop(final.x + ACTION_FREE_W / 2, final.y + ACTION_FREE_H / 2))?.id ?? null
     }
     const { fromStepId, moved } = drag
     resetActionDrag()
@@ -2312,13 +2344,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         {/* Barra transversal IEC da transição */}
                         <line x1={ftx - 13} y1={fty} x2={ftx + 13} y2={fty} stroke={barColor} strokeWidth={freeSelected ? 4 : 3} />
 
-                        {/* Número e condição */}
-                        <text x={ftx - 18} y={fty + 3.5} textAnchor="end" fill={freeSelected ? '#2563eb' : '#b45309'} fontSize="10.5" fontWeight="700">
-                          {transitionIndex + 1}
+                        {/* Identificador e condição normalizados IEC */}
+                        <text x={ftx - 17} y={fty + 3.5} textAnchor="end" fill={freeSelected ? '#2563eb' : '#b45309'} fontSize="10.5" fontWeight="700">
+                          {transition.name || `T${transitionIndex + 1}`}
                         </text>
                         <g transform={`translate(${ftx + 17}, ${fty + 4})`}>
                           <text fill={barColor} fontSize="12" fontWeight="600">
-                            {renderConditionTspans((transition.condition || '1').slice(0, 24))}
+                            {renderConditionTspans(transition.condition === '1' ? '=1' : (transition.condition || '1').slice(0, 24))}
                           </text>
                         </g>
 
@@ -2507,7 +2539,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           strokeWidth={selectedLink || enabled ? 4 : 3}
                         />
 
-                        {/* Identificador numérico da transição à esquerda */}
+                        {/* Identificador numérico da transição à esquerda normalizado IEC */}
                         <text
                           x={tx - 18}
                           y={ty + 3}
@@ -2516,13 +2548,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           fontSize="10.5"
                           fontWeight="700"
                         >
-                          {transitionIndex + 1}
+                          {transition.name || `T${transitionIndex + 1}`}
                         </text>
 
                         {/* Texto da condição formatada com suporte a barra superior / NOT */}
                         <g transform={`translate(${tx + 18}, ${ty + 4})`}>
                           <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                            {renderConditionTspans(transition.condition.slice(0, 28))}
+                            {renderConditionTspans(transition.condition === '1' ? '=1' : transition.condition.slice(0, 28))}
                           </text>
                         </g>
 
@@ -2646,7 +2678,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           strokeWidth={selectedLink || enabled ? 4 : 3}
                         />
 
-                        {/* Número da transição */}
+                        {/* Identificador da transição à esquerda */}
                         <text
                           x={tx - 18}
                           y={ty + 3}
@@ -2655,13 +2687,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           fontSize="10.5"
                           fontWeight="700"
                         >
-                          {transitionIndex + 1}
+                          {transition.name || `T${transitionIndex + 1}`}
                         </text>
 
                         {/* Texto da condição formatada */}
                         <g transform={`translate(${tx + 18}, ${ty + 4})`}>
                           <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                            {renderConditionTspans(transition.condition.slice(0, 28))}
+                            {renderConditionTspans(transition.condition === '1' ? '=1' : transition.condition.slice(0, 28))}
                           </text>
                         </g>
 
@@ -2751,10 +2783,22 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         <line x1={tx - 18} y1={ty + 4} x2={tx + 18} y2={ty + 4} stroke={linkColor} strokeWidth="2.5" />
                       )}
 
+                      {/* Identificador da transição à esquerda */}
+                      <text
+                        x={tx - (hasAndConvergence || hasAndDivergence ? 22 : 16)}
+                        y={ty + 3.5}
+                        textAnchor="end"
+                        fill={selectedLink ? '#2563eb' : enabled ? '#16a34a' : '#64748b'}
+                        fontSize="10.5"
+                        fontWeight="700"
+                      >
+                        {transition.name || `T${transitionIndex + 1}`}
+                      </text>
+
                       {/* Texto da condição formatada com suporte a barra superior (overbar) */}
                       <g transform={`translate(${tx + 16}, ${ty + 4})`}>
                         <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                          {renderConditionTspans(transition.condition.slice(0, 24))}
+                          {renderConditionTspans(transition.condition === '1' ? '=1' : transition.condition.slice(0, 24))}
                         </text>
                       </g>
 
@@ -2941,18 +2985,52 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
                       {/* Contorno de destino quando uma transição ou ação solta paira sobre esta etapa */}
                       {(transDropStep === step.id || actionDropStep === step.id) && (
-                        <rect
-                          x="111"
-                          y={y - 8}
-                          width="80"
-                          height="70"
-                          rx="9"
-                          fill="none"
-                          stroke="#d97706"
-                          strokeWidth="2.5"
-                          strokeDasharray="7 4"
-                          className="grafcet-drop-outline"
-                        />
+                        <g>
+                          <rect
+                            x="111"
+                            y={y - 8}
+                            width="80"
+                            height="70"
+                            rx="9"
+                            fill="none"
+                            stroke={actionDropStep === step.id ? '#2563eb' : '#d97706'}
+                            strokeWidth="2.5"
+                            strokeDasharray="7 4"
+                            className="grafcet-drop-outline"
+                          />
+                          {actionDropStep === step.id && (
+                            <>
+                              <path
+                                d={`M 183 ${y + 27} H 330 V ${y + actionsOf(step).length * ACTION_PITCH + ACTION_H / 2}`}
+                                fill="none"
+                                stroke="#2563eb"
+                                strokeWidth="2"
+                                strokeDasharray="4 3"
+                              />
+                              <rect
+                                x={ACTION_X}
+                                y={y + actionsOf(step).length * ACTION_PITCH}
+                                width={ACTION_W}
+                                height={ACTION_H}
+                                rx="3"
+                                fill="#eff6ff"
+                                stroke="#2563eb"
+                                strokeWidth="2"
+                                strokeDasharray="5 3"
+                              />
+                              <text
+                                x={ACTION_X + ACTION_W / 2}
+                                y={y + actionsOf(step).length * ACTION_PITCH + 19}
+                                textAnchor="middle"
+                                fill="#1d4ed8"
+                                fontSize="11"
+                                fontWeight="700"
+                              >
+                                + Ligar ação aqui
+                              </text>
+                            </>
+                          )}
+                        </g>
                       )}
 
                       {/* Portos de ligação (ferramenta Ligar): entrada no topo, saída em baixo, ação à direita */}
@@ -3453,9 +3531,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       {/* Halo transparente para agarrar com facilidade (rato e toque) */}
                       <rect x={x - 36} y={y - 18} width={ACTION_FREE_W + 72} height={ACTION_FREE_H + 36} fill="transparent" />
 
-                      {/* Stub à esquerda com porto — ponto de ligação por linha */}
-                      <line x1={x - 30} y1={midY} x2={x} y2={midY} stroke="#d97706" strokeWidth="1.6" strokeDasharray="4 3" className="grafcet-free-stub" />
-                      <circle className="grafcet-free-port" cx={x - 30} cy={midY} r="6" fill="#ffffff" stroke="#d97706" strokeWidth="2.2" />
+                      {/* Stub e porto à esquerda — ponto de ligação por linha */}
+                      <line x1={x - 14} y1={midY} x2={x} y2={midY} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
+                      <circle className="grafcet-free-port" cx={x - 14} cy={midY} r="5" fill="#ffffff" stroke="#d97706" strokeWidth="2" />
 
                       {/* Bandeira da ação condicionada IEC */}
                       {isConditional && (
@@ -3488,17 +3566,35 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         {action.displayDescription && action.description ? action.description : action.variable || action.address || 'ação'}
                       </text>
 
-                      {/* Etiqueta SOLTA */}
-                      <g transform={`translate(${x - 34}, ${y - 8})`}>
-                        <rect width="34" height="13" rx="6.5" fill="#fef3c7" stroke="#f59e0b" strokeWidth="1" />
-                        <text x="17" y="9.5" textAnchor="middle" fill="#b45309" fontSize="8" fontWeight="700" letterSpacing="0.4">SOLTA</text>
+                      {/* Etiqueta SOLTA no topo direito da caixa */}
+                      <g transform={`translate(${x + ACTION_FREE_W - 44}, ${y - 8})`}>
+                        <rect width="44" height="15" rx="3.5" fill="#fef3c7" stroke="#f59e0b" strokeWidth="1" />
+                        <text x="22" y="11" textAnchor="middle" fill="#b45309" fontSize="8.5" fontWeight="700" letterSpacing="0.4">SOLTA</text>
                       </g>
 
                       {/* Dica contextual */}
                       {full && (isThisActionHovered || isThisActionSelected) && (
                         <text x={x + 46} y={y - 20} fill="#b45309" fontSize="9.5" fontStyle="italic">
-                          arraste p/ ligar a uma etapa
+                          arraste sobre uma etapa para ligar
                         </text>
+                      )}
+
+                      {/* Manipulador rápido: Anexar à etapa selecionada se houver */}
+                      {full && (isThisActionSelected || isThisActionHovered) && selectedStep && (
+                        <g
+                          className="grafcet-node-handle"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            attachFreeAction(action.id, selectedStep.id)
+                          }}
+                          style={{ cursor: 'pointer' }}
+                          role="button"
+                          aria-label={`Ligar à Etapa ${selectedStep.name}`}
+                        >
+                          <title>{`Ligar à Etapa ${selectedStep.name}`}</title>
+                          <circle cx={x - 28} cy={midY} r="7.5" fill="#16a34a" stroke="#ffffff" strokeWidth="1.5" />
+                          <path d={`M ${x - 31} ${midY} H ${x - 25} M ${x - 27} ${midY - 2} L ${x - 25} ${midY} L ${x - 27} ${midY + 2}`} stroke="#ffffff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                        </g>
                       )}
 
                       {/* Manipuladores ✎ editar e ✕ eliminar */}
@@ -3708,7 +3804,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               </button>
               <span className="grafcet-canvas-hud-sep" />
               <span style={{ fontSize: '10.5px', color: '#64748b', padding: '0 4px', fontWeight: 600 }}>
-                {steps.length} etapas · {transitions.length} transições · {steps.reduce((acc, s) => acc + actionsOf(s).length, 0)} ações
+                {steps.length} etapas · {transitions.length} transições · {steps.reduce((acc, s) => acc + actionsOf(s).length, 0) + freeActions.length} ações{freeActions.length > 0 ? ` (${freeActions.length} soltas)` : ''}
               </span>
             </div>
           )}
@@ -3855,12 +3951,93 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   </div>
                 )}
 
-                {!selectedStep && (
-                  <p className="grafcet-hint">
-                    Selecione uma etapa no diagrama ou na lista para editar ações e propriedades. Elementos soltos
-                    (transições e ações) ligam-se por arrasto ou com a ferramenta Ligar [L].
-                  </p>
-                )}
+                {!selectedStep && (() => {
+                  const freeAct = freeActions.find((a) => a.id === selectedActionId)
+                  if (freeAct) {
+                    return (
+                      <div className="grafcet-form">
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <h3>
+                            Ação Solta: {freeAct.variable || freeAct.address || 'Ação'}
+                          </h3>
+                          <button
+                            className="dc-btn"
+                            style={{ fontSize: '11px', padding: '2px 8px' }}
+                            onClick={() => setEditingAction({ step: null, action: freeAct })}
+                            title="Abrir o diálogo FluidSIM"
+                          >
+                            Diálogo FluidSIM ↗
+                          </button>
+                        </div>
+
+                        <div className="grafcet-field" style={{ marginTop: '10px' }}>
+                          <label><strong>Associar a uma etapa:</strong></label>
+                          <select
+                            className="dc-input"
+                            style={{ marginTop: '4px' }}
+                            onChange={(e) => {
+                              if (e.target.value) attachFreeAction(freeAct.id, e.target.value)
+                            }}
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Selecione a etapa de destino...</option>
+                            {steps.map((s, idx) => {
+                              const { stepNumber } = getStepDisplayInfo(s, idx)
+                              return (
+                                <option key={s.id} value={s.id}>
+                                  Etapa {stepNumber} {s.description ? `(${s.description})` : ''}
+                                </option>
+                              )
+                            })}
+                          </select>
+                        </div>
+
+                        <label style={{ marginTop: '10px' }}>
+                          Variável / Saída
+                          <input
+                            className="dc-input"
+                            value={freeAct.variable || freeAct.address || ''}
+                            onChange={(event) =>
+                              patchFreeAction(freeAct, { variable: event.target.value.toUpperCase(), address: event.target.value.toUpperCase() }, 'force')
+                            }
+                            placeholder="Q1, KM1, Y1_A-"
+                          />
+                        </label>
+
+                        <div className="grafcet-field" style={{ marginTop: '10px' }}>
+                          <label><strong>Qualificador IEC:</strong></label>
+                          <div className="grafcet-qualifier-row" style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                            {(['N', 'S', 'R', 'D', 'L'] as const).map((k) => (
+                              <button
+                                key={k}
+                                type="button"
+                                className={`grafcet-qualifier-chip ${freeAct.kind === k ? 'is-active' : ''}`}
+                                onClick={() => patchFreeAction(freeAct, { kind: k }, 'force')}
+                              >
+                                {k}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: '16px' }}>
+                          <button
+                            className="dc-btn grafcet-danger"
+                            onClick={() => removeFreeAction(freeAct.id)}
+                          >
+                            Eliminar ação solta
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <p className="grafcet-hint">
+                      Selecione uma etapa no diagrama ou na lista para editar ações e propriedades. Elementos soltos
+                      (transições e ações) ligam-se por arrasto ou com a ferramenta Ligar [L].
+                    </p>
+                  )
+                })()}
 
                 {selectedStep && (
                   <div className="grafcet-form">
@@ -4046,6 +4223,28 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     <button className="dc-btn" onClick={() => addActionToStep(selectedStep)}>
                       + Adicionar ação
                     </button>
+
+                    {freeActions.length > 0 && (
+                      <div style={{ marginTop: '12px', padding: '10px', background: '#fffbeb', borderRadius: '6px', border: '1px solid #fde68a' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#b45309', display: 'block', marginBottom: '6px' }}>
+                          Anexar ação solta a esta etapa:
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {freeActions.map((fa) => (
+                            <button
+                              key={fa.id}
+                              type="button"
+                              className="dc-btn"
+                              style={{ fontSize: '11px', padding: '2px 8px', background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', cursor: 'pointer' }}
+                              onClick={() => attachFreeAction(fa.id, selectedStep.id)}
+                              title={`Anexar ação ${fa.variable || fa.address} à Etapa ${getStepDisplayInfo(selectedStep, steps.indexOf(selectedStep)).stepNumber}`}
+                            >
+                              + Anexar {fa.variable || fa.address}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <button className="dc-btn grafcet-danger" onClick={requestDelete}>
                       Eliminar etapa
                     </button>

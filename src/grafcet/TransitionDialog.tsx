@@ -100,25 +100,26 @@ export default function TransitionDialog({
     onClose()
   }
 
+  const transLabel = name.trim() || `T${transitionIndex + 1}`
   const displayText = displayDescription ? (description || condition) : (condition || '1')
 
   const renderPreview = () => {
     return (
       <svg width="100%" height="150" viewBox="0 0 200 150" className="grafcet-preview-svg">
-        <g transform="translate(80, 75)">
+        <g transform="translate(85, 75)">
           {/* Vertical flow line */}
           <line x1="0" y1="-50" x2="0" y2="50" stroke="#1e293b" strokeWidth="2.5" />
 
           {/* Horizontal transition cross tick */}
-          <line x1="-16" y1="0" x2="16" y2="0" stroke="#1e293b" strokeWidth="3.5" />
+          <line x1="-15" y1="0" x2="15" y2="0" stroke="#1e293b" strokeWidth="3.5" />
 
-          {/* Transition index number badge */}
-          <text x="-22" y="4" textAnchor="end" fontSize="11" fontWeight="700" fill="#64748b">
-            {transitionIndex + 1}
+          {/* Transition name / index badge à esquerda */}
+          <text x="-20" y="4" textAnchor="end" fontSize="11" fontWeight="700" fill="#64748b">
+            {transLabel}
           </text>
 
           {/* Receptivity condition text to the right */}
-          <text x="24" y="5" fontSize="13" fontWeight="600" fill="#0f172a">
+          <text x="22" y="5" fontSize="13" fontWeight="600" fill="#0f172a">
             {displayText}
           </text>
 
@@ -178,7 +179,7 @@ export default function TransitionDialog({
     return true
   })
 
-  const quickCondChips = ['1', 'B_Start', 'B_Stop_NF', 'fc_a1', 'fc_b1', '1s/X', '1HZ']
+  const quickCondChips = ['=1', '1', 'B_Start', 'B_Stop_NF', 'fc_a1', 'fc_b1', '1s/X', '1HZ']
 
   return (
     <div className="grafcet-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
@@ -329,7 +330,7 @@ export default function TransitionDialog({
                   type="button"
                   className="grafcet-trans-tool-btn"
                   onClick={() => {
-                    const firstStep = availableSteps[0]?.name || '1'
+                    const firstStep = availableSteps[0]?.name || '0'
                     insertToken(`1s/X${firstStep}`)
                   }}
                   title="Temporização padrão IEC (t1/X/t2)"
@@ -344,7 +345,7 @@ export default function TransitionDialog({
                   className="dc-input grafcet-fluidsim-input"
                   value={condition}
                   onChange={(e) => setCondition(e.target.value)}
-                  placeholder="Ex: 1s/X45, b0 * /S_Rolamento, B_Start * B_Stop_NF"
+                  placeholder="Ex: 1s/X0, b0 * /S_Rolamento, B_Start * B_Stop_NF"
                   autoFocus
                 />
 
@@ -354,7 +355,7 @@ export default function TransitionDialog({
                     <button
                       key={chip}
                       type="button"
-                      onClick={() => insertToken(chip === '1s/X' ? `1s/X${availableSteps[0]?.name || '1'}` : chip)}
+                      onClick={() => insertToken(chip === '1s/X' ? `1s/X${availableSteps[0]?.name || '0'}` : chip)}
                       style={{
                         padding: '1px 6px',
                         fontSize: '10.5px',
@@ -398,7 +399,7 @@ export default function TransitionDialog({
                   list="grafcet-target-steps-list"
                   value={targetInfo}
                   onChange={(e) => setTargetInfo(e.target.value)}
-                  placeholder="Ex: 1, 11, 51 (salto para etapa)"
+                  placeholder="Ex: 0, 1, 10, 50 (salto para etapa)"
                 />
                 <datalist id="grafcet-target-steps-list">
                   {availableSteps.map((s, idx) => (

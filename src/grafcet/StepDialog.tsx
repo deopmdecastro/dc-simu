@@ -108,6 +108,10 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
     const isInput = stepType === 'macro-input'
     const isOutput = stepType === 'macro-output'
     const isEnclosing = stepType === 'enclosing' || stepType === 'initial-enclosing'
+    const displayName = name || String(stepIndex)
+
+    // Ajusta o tamanho da fonte para que textos longos (ex: "Etapa 0") não fiquem colados ou transbordando
+    const fontSize = displayName.length > 7 ? 11 : displayName.length > 5 ? 12 : displayName.length > 3 ? 14 : 18
 
     return (
       <svg width="100%" height="150" viewBox="0 0 200 150" className="grafcet-preview-svg">
@@ -131,8 +135,8 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
               <line x1="50" y1="64" x2="64" y2="50" stroke="#1e293b" strokeWidth="2.5" />
             </>
           )}
-          <text x="32" y="38" textAnchor="middle" fontSize="18" fontWeight="700" fill="#0f172a">
-            {name || '30'}
+          <text x="32" y={fontSize <= 12 ? 36 : 38} textAnchor="middle" fontSize={fontSize} fontWeight="700" fill="#0f172a">
+            {displayName}
           </text>
         </g>
         {description && (
@@ -143,6 +147,8 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
       </svg>
     )
   }
+
+  const quickStepNumbers = ['0', '1', '2', '3', '4', '10', '20', '30']
 
   const quickDescChips = [
     'Repouso / Início',
@@ -193,9 +199,31 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
                 className="dc-input grafcet-fluidsim-input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: 1, 10, 30"
+                placeholder="Ex: 0, 1, 10, 30"
                 autoFocus
               />
+              {/* Sugestões rápidas de números de etapa IEC */}
+              <div className="grafcet-quick-chips-row" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                {quickStepNumbers.map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => setName(num)}
+                    style={{
+                      padding: '1px 7px',
+                      fontSize: '10.5px',
+                      fontWeight: 600,
+                      background: name === num ? '#2563eb' : '#f1f5f9',
+                      color: name === num ? '#ffffff' : '#334155',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <label className="grafcet-fluidsim-checkbox-label">
