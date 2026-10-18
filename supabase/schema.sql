@@ -91,17 +91,28 @@ CREATE TABLE IF NOT EXISTS public.project_invitations (
 
 ALTER TABLE public.project_invitations ENABLE ROW LEVEL SECURITY;
 
+-- Funções auxiliares com SECURITY DEFINER para evitar recursão infinita no RLS
+CREATE OR REPLACE FUNCTION public.is_project_member(p_project_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.project_members
+    WHERE project_id = p_project_id AND user_id = p_user_id
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION public.is_project_owner(p_project_id UUID, p_user_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.projects
+    WHERE id = p_project_id AND owner_id = p_user_id
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
 -- POLÍTICAS RLS PARA PROJETOS
 CREATE POLICY "Utilizador pode ver projetos onde é proprietário ou membro"
   ON public.projects FOR SELECT
   TO authenticated
-  USING (
-    owner_id = auth.uid() OR
-    EXISTS (
-      SELECT 1 FROM public.project_members m
-      WHERE m.project_id = projects.id AND m.user_id = auth.uid()
-    )
-  );
+  USING (owner_id = auth.uid() OR public.is_project_member(id, auth.uid()));
 
 CREATE POLICY "Utilizador autenticado pode criar projetos"
   ON public.projects FOR INSERT
@@ -111,13 +122,7 @@ CREATE POLICY "Utilizador autenticado pode criar projetos"
 CREATE POLICY "Proprietários e membros podem atualizar projetos"
   ON public.projects FOR UPDATE
   TO authenticated
-  USING (
-    owner_id = auth.uid() OR
-    EXISTS (
-      SELECT 1 FROM public.project_members m
-      WHERE m.project_id = projects.id AND m.user_id = auth.uid()
-    )
-  );
+  USING (owner_id = auth.uid() OR public.is_project_member(id, auth.uid()));
 
 CREATE POLICY "Apenas o proprietário pode eliminar o projeto"
   ON public.projects FOR DELETE
@@ -128,34 +133,17 @@ CREATE POLICY "Apenas o proprietário pode eliminar o projeto"
 CREATE POLICY "Membros de um projeto são visíveis para os participantes"
   ON public.project_members FOR SELECT
   TO authenticated
-  USING (
-    user_id = auth.uid() OR
-    EXISTS (
-      SELECT 1 FROM public.projects p
-      WHERE p.id = project_members.project_id AND p.owner_id = auth.uid()
-    )
-  );
+  USING (user_id = auth.uid() OR public.is_project_owner(project_id, auth.uid()));
 
 CREATE POLICY "Apenas proprietário do projeto pode adicionar membros"
   ON public.project_members FOR INSERT
   TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.projects p
-      WHERE p.id = project_members.project_id AND p.owner_id = auth.uid()
-    )
-  );
+  WITH CHECK (public.is_project_owner(project_id, auth.uid()));
 
 CREATE POLICY "Proprietário ou o próprio membro pode remover a associação"
   ON public.project_members FOR DELETE
   TO authenticated
-  USING (
-    user_id = auth.uid() OR
-    EXISTS (
-      SELECT 1 FROM public.projects p
-      WHERE p.id = project_members.project_id AND p.owner_id = auth.uid()
-    )
-  );
+  USING (user_id = auth.uid() OR public.is_project_owner(project_id, auth.uid()));
 
 -- POLÍTICAS RLS PARA CONVITES
 CREATE POLICY "Destinatário ou remetente pode ver convites"
@@ -166,13 +154,7 @@ CREATE POLICY "Destinatário ou remetente pode ver convites"
 CREATE POLICY "Proprietário do projeto pode enviar convites"
   ON public.project_invitations FOR INSERT
   TO authenticated
-  WITH CHECK (
-    sender_id = auth.uid() AND
-    EXISTS (
-      SELECT 1 FROM public.projects p
-      WHERE p.id = project_invitations.project_id AND p.owner_id = auth.uid()
-    )
-  );
+  WITH CHECK (sender_id = auth.uid() AND public.is_project_owner(project_id, auth.uid()));
 
 CREATE POLICY "Destinatário ou remetente pode responder/apagar convites"
   ON public.project_invitations FOR DELETE
