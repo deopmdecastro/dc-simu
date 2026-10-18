@@ -57,6 +57,24 @@ export default function ActionDialog({ open, action, availableVariables = [], on
     }
   }, [action, open])
 
+  // Atalhos de teclado no modal (Enter para salvar, Escape para fechar)
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        const target = e.target as HTMLElement | null
+        if (target?.tagName === 'TEXTAREA') return
+        e.preventDefault()
+        handleOk()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, variable, description, displayDescription, condition, kind, allocation, assignation, timeMs])
+
   if (!open || !action) return null
 
   const handleOk = () => {
@@ -89,14 +107,14 @@ export default function ActionDialog({ open, action, availableVariables = [], on
 
   // Render SVG Preview
   const renderPreview = () => {
-    const isCompulsory = allocation === 'compulsory'
-    const isActivation = allocation === 'activation'
-    const isDeactivation = allocation === 'deactivation'
-    const isEvent = allocation === 'event'
+    const isCompulsory = allocation === 'compulsory' || kind === 'C'
+    const isActivation = allocation === 'activation' || kind === 'A'
+    const isDeactivation = allocation === 'deactivation' || kind === 'DA'
+    const isEvent = allocation === 'event' || kind === 'EV'
     const isConditional = assignation === 'conditional'
 
-    const hasQualifier = kind === 'S' || kind === 'R' || kind === 'D' || kind === 'L'
-    const qualifierText = kind === 'D' ? `D ${timeMs / 1000}s` : kind === 'L' ? `L ${timeMs / 1000}s` : kind
+    const hasQualifier = kind === 'S' || kind === 'R' || kind === 'D' || kind === 'L' || kind === 'N'
+    const qualifierText = kind === 'D' ? `D ${timeMs / 1000}s` : kind === 'L' ? `L ${timeMs / 1000}s` : kind === 'N' ? '' : kind
 
     const boxW = 160
     const boxH = 40
@@ -108,8 +126,8 @@ export default function ActionDialog({ open, action, availableVariables = [], on
         {/* Conditional notch/flag on top */}
         {isConditional && (
           <g>
-            <path d={`M ${startX + 18} ${startY} V ${startY - 14} H ${startX + 60}`} fill="none" stroke="#1e293b" strokeWidth="1.6" />
-            <text x={startX + 22} y={startY - 18} fontSize="10" fontWeight="600" fill="#2563eb">
+            <path d={`M ${startX + 18} ${startY} V ${startY - 14} H ${startX + 75}`} fill="none" stroke="#1e293b" strokeWidth="1.6" />
+            <text x={startX + 22} y={startY - 18} fontSize="10" fontWeight="700" fill="#2563eb">
               {condition || 'condição'}
             </text>
           </g>
@@ -162,21 +180,23 @@ export default function ActionDialog({ open, action, availableVariables = [], on
           </g>
         )}
 
-        {/* IEC Qualifier section (S, R, D, L) */}
+        {/* IEC Qualifier section (S, R, D, L, N) */}
         {hasQualifier && (
           <g>
             <line x1={startX + 34} y1={startY} x2={startX + 34} y2={startY + boxH} stroke="#1e293b" strokeWidth="1.4" />
-            <text x={startX + 17} y={startY + 24} textAnchor="middle" fontSize="11" fontWeight="700" fill="#2563eb">
-              {qualifierText}
-            </text>
+            {qualifierText && (
+              <text x={startX + 17} y={startY + 24} textAnchor="middle" fontSize="11" fontWeight="700" fill="#2563eb">
+                {qualifierText}
+              </text>
+            )}
           </g>
         )}
 
         {/* Text inside box */}
         <text
-          x={hasQualifier ? startX + 44 : isActivation || isDeactivation || isEvent ? startX + 26 : startX + 16}
+          x={hasQualifier ? startX + 42 : isActivation || isDeactivation || isEvent ? startX + 26 : startX + 16}
           y={startY + 24}
-          fontSize="13"
+          fontSize="12.5"
           fontWeight="600"
           fill="#0f172a"
         >
@@ -188,18 +208,23 @@ export default function ActionDialog({ open, action, availableVariables = [], on
 
   // Suggestion list of variables / outputs
   const commonVars = [
-    'Q1', 'Q2', 'Q3', 'Q4', 'M1', 'M2', 'M3',
-    'L_Verde', 'L_Amarela', 'L_Vermelha',
+    'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8',
+    'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8',
+    'KM1', 'KM2', 'KM3',
+    'L_Verde', 'L_Amarela', 'L_Vermelha', 'Buzzer',
     'Y0_A+', 'Y1_A-', 'Y2_B+', 'Y3_B-', 'Y4_C+', 'C-', 'Y5_D+', 'Y6_D-',
     'Y7_E+_Vacuo_On', 'Y8_E-_Vacuo_Off',
   ]
   const allVars = [...new Set([...availableVariables, ...commonVars])]
 
+  const quickVarChips = ['Q1', 'Q2', 'Q3', 'M1', 'KM1', 'L_Verde', 'L_Amarela', 'Y0_A+', 'Y1_A-']
+  const quickCondChips = ['1HZ', '0.5HZ', '2HZ', 'I1', 'I2', 'b0', 'b1', 'S_Rolamento']
+
   return (
     <div className="grafcet-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="grafcet-fluidsim-dialog" role="dialog" aria-modal="true" aria-labelledby="action-dialog-title">
         <header className="grafcet-fluidsim-titlebar">
-          <span id="action-dialog-title">Action</span>
+          <span id="action-dialog-title">Action Properties (IEC 60848 / FluidSIM)</span>
           <button className="grafcet-fluidsim-close" onClick={onClose} aria-label="Fechar">✕</button>
         </header>
 
@@ -252,7 +277,7 @@ export default function ActionDialog({ open, action, availableVariables = [], on
                     checked={allocation === 'activation'}
                     onChange={() => { setAllocation('activation'); setKind('A') }}
                   />
-                  <span>Action on activation</span>
+                  <span>Action on activation (↑)</span>
                 </label>
 
                 <label className="grafcet-type-radio-label">
@@ -267,7 +292,7 @@ export default function ActionDialog({ open, action, availableVariables = [], on
                     checked={allocation === 'deactivation'}
                     onChange={() => { setAllocation('deactivation'); setKind('DA') }}
                   />
-                  <span>Action on deactivation</span>
+                  <span>Action on deactivation (↓)</span>
                 </label>
 
                 <label className="grafcet-type-radio-label">
@@ -339,6 +364,29 @@ export default function ActionDialog({ open, action, availableVariables = [], on
                     ))}
                   </datalist>
                 </div>
+
+                {/* Chips rápidos de variáveis comuns */}
+                <div className="grafcet-quick-chips-row" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                  {quickVarChips.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      className={`grafcet-chip-sm ${variable === chip ? 'is-selected' : ''}`}
+                      onClick={() => setVariable(chip)}
+                      style={{
+                        padding: '1px 6px',
+                        fontSize: '10.5px',
+                        background: variable === chip ? '#2563eb' : '#f1f5f9',
+                        color: variable === chip ? '#ffffff' : '#334155',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {assignation === 'conditional' && (
@@ -351,6 +399,26 @@ export default function ActionDialog({ open, action, availableVariables = [], on
                     onChange={(e) => setCondition(e.target.value.toUpperCase())}
                     placeholder="1HZ, 0.5 HZ, I1"
                   />
+                  <div className="grafcet-quick-chips-row" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                    {quickCondChips.map((condChip) => (
+                      <button
+                        key={condChip}
+                        type="button"
+                        onClick={() => setCondition(condChip)}
+                        style={{
+                          padding: '1px 6px',
+                          fontSize: '10px',
+                          background: condition === condChip ? '#2563eb' : '#f8fafc',
+                          color: condition === condChip ? '#ffffff' : '#475569',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '3px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {condChip}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -392,7 +460,7 @@ export default function ActionDialog({ open, action, availableVariables = [], on
             </fieldset>
 
             <fieldset className="grafcet-fluidsim-group grafcet-preview-group">
-              <legend>Preview</legend>
+              <legend>Preview (IEC 60848)</legend>
               <div className="grafcet-fluidsim-preview-box">
                 {renderPreview()}
               </div>

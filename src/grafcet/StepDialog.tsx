@@ -35,6 +35,24 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
     }
   }, [step, stepIndex, open])
 
+  // Atalhos de teclado no modal (Enter para salvar, Escape para fechar)
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        const target = e.target as HTMLElement | null
+        if (target?.tagName === 'TEXTAREA') return
+        e.preventDefault()
+        handleOk()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, name, stepType, activationLink, description])
+
   if (!open || !step) return null
 
   const handleOk = () => {
@@ -118,7 +136,7 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
           </text>
         </g>
         {description && (
-          <text x="140" y="78" fontSize="12" fontWeight="600" fill="#334155">
+          <text x="100" y="132" textAnchor="middle" fontSize="12" fontWeight="600" fill="#334155">
             "{description}"
           </text>
         )}
@@ -126,11 +144,21 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
     )
   }
 
+  const quickDescChips = [
+    'Repouso / Início',
+    'Avanço Cilindro A',
+    'Recuo Cilindro A',
+    'Avanço Cilindro B',
+    'Espera Peça',
+    'Temporização',
+    'Ciclo Concluído',
+  ]
+
   return (
     <div className="grafcet-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="grafcet-fluidsim-dialog" role="dialog" aria-modal="true" aria-labelledby="step-dialog-title">
         <header className="grafcet-fluidsim-titlebar">
-          <span id="step-dialog-title">Step</span>
+          <span id="step-dialog-title">Step Properties (IEC 60848 / FluidSIM)</span>
           <button className="grafcet-fluidsim-close" onClick={onClose} aria-label="Fechar">✕</button>
         </header>
 
@@ -138,7 +166,7 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
           {/* Coluna da esquerda: Tipo */}
           <div className="grafcet-fluidsim-col-left">
             <fieldset className="grafcet-fluidsim-group">
-              <legend>Type</legend>
+              <legend>Step Type</legend>
               <div className="grafcet-step-types-list">
                 {STEP_TYPES.map((t) => (
                   <label key={t.id} className="grafcet-type-radio-label">
@@ -159,13 +187,13 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
           {/* Coluna da direita: Nome, Ativação, Descrição, Pré-visualização */}
           <div className="grafcet-fluidsim-col-right">
             <div className="grafcet-fluidsim-field-group">
-              <label htmlFor="step-name-input"><strong>Name</strong></label>
+              <label htmlFor="step-name-input"><strong>Step Identifier / Name</strong></label>
               <input
                 id="step-name-input"
                 className="dc-input grafcet-fluidsim-input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: 30"
+                placeholder="Ex: 1, 10, 30"
                 autoFocus
               />
             </div>
@@ -176,22 +204,43 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose,
                 checked={activationLink}
                 onChange={(e) => setActivationLink(e.target.checked)}
               />
-              <span>Activation link</span>
+              <span>Activation link (ligação de ativação orientada)</span>
             </label>
 
             <div className="grafcet-fluidsim-field-group">
-              <label htmlFor="step-desc-input"><strong>Description / Nota</strong></label>
+              <label htmlFor="step-desc-input"><strong>Description / Comment</strong></label>
               <input
                 id="step-desc-input"
                 className="dc-input grafcet-fluidsim-input"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex: Maquina Parada, Fim do Reset"
+                placeholder="Ex: Maquina Parada, Avanço Motor"
               />
+              {/* Sugestões rápidas de descrição */}
+              <div className="grafcet-quick-chips-row" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                {quickDescChips.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setDescription(chip)}
+                    style={{
+                      padding: '1px 6px',
+                      fontSize: '10px',
+                      background: '#f1f5f9',
+                      color: '#334155',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <fieldset className="grafcet-fluidsim-group grafcet-preview-group">
-              <legend>Preview</legend>
+              <legend>Preview (IEC 60848)</legend>
               <div className="grafcet-fluidsim-preview-box">
                 {renderPreview()}
               </div>
