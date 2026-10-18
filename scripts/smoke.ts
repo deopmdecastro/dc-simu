@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import { lintLadder } from '../src/ladder/ladderLint'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
 import { SPINE_X, START_Y, GRID, COLUMN_WIDTH, snapToGrid, clampPosition, alignToOthers, findFreeSlot, autoLayout, stepPitch } from '../src/grafcet/layout'
+import { detectGrafcetIo, inputsInCondition } from '../src/grafcet/inputDetect'
 import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
@@ -2053,6 +2054,29 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 
   check('organizar: programa vazio devolve vazio', autoLayout([], []).size === 0)
   check('organizar: mais ações aumentam a altura da linha', autoLayout([st('a', { initial: true, actions: [1, 2, 3, 4].map((n) => ({ id: String(n), address: 'Q' + n, condition: '1' })) }), st('b')] as any, [tr('t', ['a'], ['b'])] as any).get('b')!.y === START_Y + stepPitch(4))
+}
+
+// ---- GRAFCET: deteção automática de entradas e nomes de transições ----
+{
+  const set = (c: string) => inputsInCondition(c).sort().join(',')
+  check('entradas: I1*!I2 → I1,I2', set('I1*!I2') === 'I1,I2')
+  check('entradas: flancos ^I3 e \\I4', set('^I3 + \\I4') === 'I3,I4')
+  check('entradas: ignora nomes, Q/M e timers', set('B_I1 * Q1 + M2 + 10s/X1 + X3') === '')
+  check('entradas: I33 fora do intervalo e I05 normalizado', set('I33') === '' && set('I05') === 'I5')
+  const prog: any = {
+    steps: [{ id: 'a', name: 'Etapa 0', initial: true }, { id: 'b', name: 'Etapa 1' }, { id: 'c', name: 'Etapa 2' }],
+    transitions: [
+      { id: 't1', from: ['a'], to: ['b'], condition: 'I1*!I3' },
+      { id: 't2', from: ['b'], to: ['c'], condition: 'I3', name: 'Fim de curso' },
+      { id: 't3', from: ['c'], to: ['a'], condition: '5s/X2' },
+    ],
+  }
+  const det = detectGrafcetIo(prog, (id) => ({ a: '0', b: '1', c: '2' } as Record<string, string>)[id])
+  check('deteção: 3 transições, 2 entradas (I1, I3)', det.transitions.length === 3 && det.inputs.map((i) => i.address).join() === 'I1,I3')
+  check('deteção: I3 usada em T1 e T2', det.inputs[1].transitions.map((t) => t.index + 1).join() === '1,2')
+  check('deteção: nome sugerido T1 · 0 → 1', det.transitions[0].label === 'T1 · 0 → 1')
+  check('deteção: nome do utilizador é mantido', det.transitions[1].label === 'Fim de curso' && det.unnamed === 2)
+  check('deteção: maxInput = 3', det.maxInput === 3)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

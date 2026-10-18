@@ -118,6 +118,11 @@ interface Store extends CircuitState {
   /** Entradas virtuais (I1…): usadas quando o projeto não tem PLC físico no esquema. */
   virtualInputs: Record<string, boolean>
   virtualInputCount: number
+  /** Tipo de cada entrada virtual: 'latch' = botão com encravamento (liga/desliga), 'push' = botão de pressão (só enquanto premido). Por omissão 'latch'. */
+  virtualInputModes: Record<string, VirtualInputMode>
+  setVirtualInputMode: (address: string, mode: VirtualInputMode) => void
+  /** Dá nome a uma entrada (guarda na tabela de tags; nome vazio remove o nome). */
+  setVirtualInputName: (address: string, name: string) => void
   setVirtualInput: (address: string, on: boolean) => void
   setVirtualInputCount: (count: number) => void
   clearVirtualInputs: () => void
@@ -628,6 +633,8 @@ export const WIRE_KIND_COLOR: Record<Wire['kind'], WireColor> = {
   bus: 'violet',
 }
 
+export type VirtualInputMode = 'latch' | 'push'
+
 export const useSimStore = create<Store>((set, get) => ({
   components: [],
   wires: [],
@@ -747,6 +754,22 @@ export const useSimStore = create<Store>((set, get) => ({
   projectKind: 'all' as ProjectKind,
   virtualInputs: {},
   virtualInputCount: 8,
+  virtualInputModes: {},
+  setVirtualInputMode: (address, mode) => {
+    set((st) => ({ virtualInputModes: { ...st.virtualInputModes, [address]: mode }, dirty: true }))
+    // Ao passar para botão de pressão, a entrada volta ao repouso.
+    if (mode === 'push' && get().virtualInputs[address]) get().setVirtualInput(address, false)
+  },
+  setVirtualInputName: (address, rawName) => {
+    const addr = address.toUpperCase()
+    const name = rawName.trim()
+    set((st) => {
+      const existing = st.tags.find((t) => t.address.toUpperCase() === addr)
+      if (existing) return { tags: st.tags.map((t) => (t === existing ? { ...t, name: name || addr } : t)), dirty: true }
+      if (!name) return {}
+      return { tags: [...st.tags, { id: nanoid(6), address: addr, name, dataType: defaultDataTypeFor(addr) as LadderDataType, comment: '' }], dirty: true }
+    })
+  },
   setVirtualInput: (address, on) => {
     set((st) => ({ virtualInputs: { ...st.virtualInputs, [address]: on } }))
     // Reflete logo na tabela (mesmo com a simulação parada/pausada) e avalia um scan.
@@ -2133,6 +2156,7 @@ export const useSimStore = create<Store>((set, get) => ({
         hiddenProjectFolders: s.hiddenProjectFolders,
         grafcet: s.grafcet,
         tags: s.tags,
+        virtualInputModes: s.virtualInputModes,
         grid: s.grid,
         activeScenario: s.activeScenario,
       },
@@ -2161,6 +2185,7 @@ export const useSimStore = create<Store>((set, get) => ({
       set({
         projectKind: normalizeKind(parsed.projectKind),
         virtualInputs: {},
+        virtualInputModes: (parsed.virtualInputModes && typeof parsed.virtualInputModes === 'object' ? parsed.virtualInputModes : {}) as Record<string, VirtualInputMode>,
         components: loadedComponents,
         showEmptyWelcome: false,
         wires: alignedWires,
@@ -2219,6 +2244,7 @@ export const useSimStore = create<Store>((set, get) => ({
       dirty: false,
       currentProjectName: null,
       virtualInputs: {},
+      virtualInputModes: {},
       projectKind: normalizeKind(kind),
     })
     get().pushEvent('info', 'Novo projeto em branco criado.')

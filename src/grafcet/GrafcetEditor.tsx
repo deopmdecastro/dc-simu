@@ -21,7 +21,7 @@ import ActionDialog from './ActionDialog'
 import TransitionDialog from './TransitionDialog'
 import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
 import { renderConditionTspans, fmtDuration } from './grafcetRender'
-import VirtualIoPanel from '../components/VirtualIoPanel'
+import GrafcetSimPanel from './GrafcetSimPanel'
 import { grafcetToLadder } from './toLadder'
 import { collectUsedAddresses } from '../ladder/ladderEngine'
 import { allowedViews } from '../project/kind'
@@ -3089,7 +3089,26 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             {/* ABA SIMULADOR */}
             {tab === 'io' && (
               <div className="grafcet-io">
-                <VirtualIoPanel compact extraBits={liveBitsAll} />
+                <GrafcetSimPanel
+                  program={program}
+                  runtime={runtime}
+                  stepLabel={(stepId) => {
+                    const index = steps.findIndex((step) => step.id === stepId)
+                    return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber
+                  }}
+                  extraBits={liveBitsAll}
+                  onRenameTransition={(transitionId, name) =>
+                    updateTransition(transitionId, { name }, 'auto', `grafcet:transition:${transitionId}:name`)
+                  }
+                  onRenameAllTransitions={(names) => {
+                    save({ transitions: transitions.map((t) => (names[t.id] ? { ...t, name: names[t.id] } : t)) }, 'force')
+                    notify(`${Object.keys(names).length} transição(ões) nomeada(s)`)
+                  }}
+                  onOpenTransition={(transitionId) => {
+                    setSelected(transitionId)
+                    setTab('transitions')
+                  }}
+                />
                 <div className="vio-panel is-compact">
                   <div className="vio-head">
                     <strong>Etapas ativas</strong>

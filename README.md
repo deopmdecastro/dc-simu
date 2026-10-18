@@ -114,6 +114,13 @@ Segurança do servidor: após 6 tentativas falhadas em 10 minutos (por e-mail + 
 - São refinamentos incrementais: o modelo elétrico, os projetos, os CAD e o fluxo de trabalho
   existentes permanecem compatíveis.
 
+### GRAFCET — separador Simulador
+
+- **Entradas detetadas automaticamente**: o painel lê as condições das transições (`I1`, `!I2`, `^I3`, `\I4`…) e mostra só os botões que o programa usa; o nº de entradas virtuais ajusta-se sozinho.
+- **Nome das entradas** (ex.: *Arranque*) guardado na tabela de tags; vê-se também no Ladder.
+- **Tipo de botão por entrada**: *Pressão* (só a 1 enquanto premido — rato, toque ou Espaço/Enter) ou *Encravamento* (liga/desliga). Clique direito alterna o tipo; Shift torna momentâneo um botão com encravamento. O tipo é guardado no projeto.
+- **Transições nomeadas**: lista de transições com nome sugerido (`T2 · 1 → 2`), edição direta, botão *Nomear* para gravar todos os nomes automáticos e estado em tempo real (inativa / à espera / a disparar).
+
 ## Novidades — v4.3 (editor de vistas por componente)
 
 - O Esquema e o Visualização 3D partilham o comando **Editar vista** para o componente selecionado.

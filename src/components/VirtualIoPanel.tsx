@@ -1,19 +1,18 @@
 import { useMemo } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import VirtualInputButton from './VirtualInputButton'
 
 /** Painel de entradas/saídas virtuais: liga/desliga I1…In com o rato e mostra Q/M em tempo real.
  *  Serve para simular Ladder e GRAFCET sem PLC no esquema. */
 export default function VirtualIoPanel({ compact = false, extraBits = [] }: { compact?: boolean; extraBits?: string[] }) {
-  const inputs = useSimStore((s) => s.virtualInputs)
   const count = useSimStore((s) => s.virtualInputCount)
   const table = useSimStore((s) => s.runtime.table)
   const tags = useSimStore((s) => s.tags)
-  const setInput = useSimStore((s) => s.setVirtualInput)
   const setCount = useSimStore((s) => s.setVirtualInputCount)
   const clear = useSimStore((s) => s.clearVirtualInputs)
   const hasPlc = useSimStore((s) => s.components.some((c) => /^plc/i.test(c.type)))
 
-  const nameOf = (address: string) => tags.find((t) => t.address.toUpperCase() === address)?.name
+  const nameOf = (address: string) => { const n = tags.find((t) => t.address.toUpperCase() === address)?.name; return n && n.toUpperCase() !== address ? n : undefined }
   const outputs = useMemo(() => {
     const known = new Set<string>([...extraBits.filter((a) => /^[QM]\d+$/.test(a))])
     for (const [key, value] of Object.entries(table)) if (/^[QM]\d+$/.test(key) && (value || /^Q/.test(key) && Number(key.slice(1)) <= 8)) known.add(key)
@@ -34,15 +33,10 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
     {hasPlc && <p className="vio-note">Há um PLC no esquema: as entradas vêm dos seus bornes. Estas entradas só atuam em projetos sem PLC.</p>}
     <div className="vio-inputs">
       {addresses.map((address) => {
-        const on = !!inputs[address]
-        return <button key={address} type="button" role="switch" aria-checked={on} className={`vio-switch ${on ? 'is-on' : ''}`}
-          title={`${address}${nameOf(address) ? ` · ${nameOf(address)}` : ''} — clique para ${on ? 'desligar' : 'ligar'}; mantenha Shift para botão de pressão`}
-          onClick={(event) => { if (!event.shiftKey) setInput(address, !on) }}
-          onPointerDown={(event) => { if (event.shiftKey) { event.preventDefault(); setInput(address, true) } }}
-          onPointerUp={(event) => { if (event.shiftKey) setInput(address, false) }}
-          onPointerLeave={(event) => { if (event.shiftKey && inputs[address]) setInput(address, false) }}>
-          <i /><b>{address}</b>{nameOf(address) && <small>{nameOf(address)}</small>}
-        </button>
+        const name = nameOf(address)
+        return <VirtualInputButton key={address} address={address} className="vio-switch" title={`${address}${name ? ` · ${name}` : ''}`}>
+          <i /><b>{address}</b>{name && <small>{name}</small>}
+        </VirtualInputButton>
       })}
     </div>
     <div className="vio-head"><strong>Saídas e memórias</strong></div>

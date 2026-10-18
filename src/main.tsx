@@ -22,6 +22,7 @@ import './styles/terminal-library.css'
 import './styles/clean-mode.css'
 import './styles/select.css'
 import './styles/virtual-io.css'
+import './styles/grafcet-sim.css'
 
 installStaleBuildRecovery()
 startCatalogAutoUpdate()
