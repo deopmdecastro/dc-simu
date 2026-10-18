@@ -48,7 +48,7 @@
 /* métricas: um único cartão com quatro células ----------------------------*/
 .dx-metrics {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: var(--dx-5);
   background: var(--dx-surface);
   border: 1px solid var(--dx-line);
@@ -90,15 +90,19 @@
   color: var(--dx-ink);
   font-variant-numeric: tabular-nums;
 }
+.dx-metric > span {
+  min-width: 0;
+}
 .dx-metric small {
   display: block;
   margin-top: 2px;
   font-size: var(--dx-t-xs);
   color: var(--dx-ink-3);
+  overflow-wrap: break-word;
 }
 @media (max-width: 900px) {
   .dx-metrics {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .dx-metric:nth-child(2) {
     border-right: 0;
@@ -616,12 +620,22 @@
   }
   .dx-dash-side {
     width: 100%;
-    justify-content: space-between;
-    gap: 12px;
+    min-width: 0;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .dx-dash-date {
+    flex-basis: 100%;
   }
   .dx-dash-side .dx-btn {
     height: 38px;
-    padding-inline: 15px;
+    padding-inline: 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    justify-content: center;
+    white-space: nowrap;
   }
   .dx-metrics {
     margin-bottom: 18px;

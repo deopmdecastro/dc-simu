@@ -130,13 +130,13 @@
 
 /* --------------------------------------------------------------- keyframes */
 @keyframes dx-view-in {
+  /* Apenas opacidade: um transform retido pelo fill-mode 'both' cria um
+     containing block que prende modais position:fixed dentro das vistas. */
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 @keyframes dx-fade {

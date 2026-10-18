@@ -11,6 +11,7 @@ import SupabaseModal from '../components/SupabaseModal'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
 import N8nModal from '../components/N8nModal'
 import { isN8nConfigured } from '../n8n/n8nClient'
+import { SupabaseLogo, N8nLogo } from '../ui/BrandLogos'
 
 export type { ProjectPreviewData }
 export type User = { id: string; name: string; email: string; role: 'admin' | 'user' }
@@ -342,20 +343,24 @@ export default function Dashboard({
             type="button"
             className="dx-btn dx-btn-secondary"
             onClick={() => setSupabaseModalOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap' }}
             title="Configurar conexão à base de dados na nuvem (Supabase / PostgreSQL)"
           >
-            <span style={{ color: isSupabaseConfigured() ? '#16a34a' : '#94a3b8', fontSize: '10px' }}>●</span>
+            <span style={{ display: 'inline-flex', opacity: isSupabaseConfigured() ? 1 : 0.45 }}>
+              <SupabaseLogo size={14} title="" />
+            </span>
             {isSupabaseConfigured() ? 'Supabase Conectado' : 'Configurar Supabase'}
           </button>
           <button
             type="button"
             className="dx-btn dx-btn-secondary"
             onClick={() => setN8nModalOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap' }}
             title="Integração n8n Automation (Workflow: MipSJCjJ6fya9UGt)"
           >
-            <span style={{ color: isN8nConfigured() ? '#ea580c' : '#94a3b8', fontSize: '10px' }}>●</span>
+            <span style={{ display: 'inline-flex', opacity: isN8nConfigured() ? 1 : 0.45 }}>
+              <N8nLogo size={14} title="" />
+            </span>
             {isN8nConfigured() ? 'n8n Conectado' : 'Configurar n8n'}
           </button>
           <button className="dx-btn dx-btn-primary" onClick={() => openModal('create')}>

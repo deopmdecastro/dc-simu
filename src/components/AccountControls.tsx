@@ -5,6 +5,7 @@ import SupabaseModal from './SupabaseModal'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
 import N8nModal from './N8nModal'
 import { isN8nConfigured } from '../n8n/n8nClient'
+import { SupabaseLogo, N8nLogo } from '../ui/BrandLogos'
 
 type AccountControlsProps = {
   user: User
@@ -139,12 +140,16 @@ export default function AccountControls({
           {onAdmin && user.role === 'admin' && context !== 'admin' && <button type="button" onClick={() => { setOpen(null); onAdmin() }}><IconShield size={15} /><span>Administração</span><IconChevronRight size={13} /></button>}
           {(context === 'admin' || context === 'contribute') && onProjects && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Voltar aos projetos</span><IconChevronRight size={13} /></button>}
           <button type="button" onClick={() => { setOpen(null); setShowSupabase(true) }}>
-            <span style={{ color: isSupabaseConfigured() ? '#16a34a' : '#64748b', fontSize: '14px', width: '15px', textAlign: 'center' }}>⚡</span>
+            <span style={{ display: 'inline-flex', flex: '0 0 auto', width: '15px', justifyContent: 'center', opacity: isSupabaseConfigured() ? 1 : 0.45 }}>
+              <SupabaseLogo size={15} title="" />
+            </span>
             <span>Base de Dados (Supabase)</span>
             <IconChevronRight size={13} />
           </button>
           <button type="button" onClick={() => { setOpen(null); setShowN8n(true) }}>
-            <span style={{ color: isN8nConfigured() ? '#ea580c' : '#64748b', fontSize: '14px', width: '15px', textAlign: 'center' }}>⚡</span>
+            <span style={{ display: 'inline-flex', flex: '0 0 auto', width: '15px', justifyContent: 'center', opacity: isN8nConfigured() ? 1 : 0.45 }}>
+              <N8nLogo size={15} title="" />
+            </span>
             <span>Automação (n8n Workflow)</span>
             <IconChevronRight size={13} />
           </button>
