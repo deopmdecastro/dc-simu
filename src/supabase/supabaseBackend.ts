@@ -318,3 +318,55 @@ export async function supabaseFetchProjectMembers(projectId: string): Promise<{ 
     })),
   }
 }
+
+/** Obtém definições de componentes desativados do Supabase */
+export async function supabaseGetSettings(): Promise<{ disabledComponents: Array<{ type: string; note?: string }> }> {
+  const client = getSupabase()
+  if (!client) return { disabledComponents: [] }
+  try {
+    const { data, error } = await client
+      .from('component_settings')
+      .select('type, note')
+      .eq('enabled', false)
+    if (error || !data) return { disabledComponents: [] }
+    return { disabledComponents: data.map((d: any) => ({ type: d.type, note: d.note || '' })) }
+  } catch {
+    return { disabledComponents: [] }
+  }
+}
+
+/** Atualiza configuração de componente (ativar/desativar) no Supabase */
+export async function supabaseSetComponent(type: string, enabled: boolean, note = ''): Promise<{ ok: boolean }> {
+  const client = clientOrThrow()
+  const { data: { user } } = await client.auth.getUser()
+  const { error } = await client
+    .from('component_settings')
+    .upsert({
+      type,
+      enabled,
+      note,
+      updated_at: new Date().toISOString(),
+      updated_by: user?.email || 'admin',
+    })
+  if (error) throw new Error(error.message)
+  return { ok: true }
+}
+
+/** Obtém todos os projetos no modo administrativo a partir do Supabase */
+export async function supabaseGetAdminProjects(): Promise<Array<{ id: string; name: string; revision: number; updated_at: string; owner: string; size: number; members: number }>> {
+  const client = clientOrThrow()
+  const { data, error } = await client
+    .from('projects')
+    .select('id, name, revision, updated_at, owner_id')
+    .order('updated_at', { ascending: false })
+  if (error || !data) return []
+  return data.map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    revision: p.revision ?? 0,
+    updated_at: p.updated_at,
+    owner: p.owner_id,
+    size: 0,
+    members: 0,
+  }))
+}

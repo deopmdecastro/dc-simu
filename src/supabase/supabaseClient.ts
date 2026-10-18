@@ -137,3 +137,21 @@ export async function testSupabaseConnection(override?: SupabaseConfig): Promise
     return { ok: false, message: `Falha na requisição ao Supabase: ${msg}` }
   }
 }
+
+/** Tenta auto-descobrir as credenciais do Supabase a partir do servidor caso configuradas no ambiente. */
+export async function initSupabaseFromBackend(): Promise<boolean> {
+  if (isSupabaseConfigured()) return true
+  try {
+    const res = await fetch('/api/supabase/config')
+    if (res.ok) {
+      const data = await res.json()
+      if (data.configured && data.url && data.anonKey) {
+        saveSupabaseConfig(data.url, data.anonKey)
+        return true
+      }
+    }
+  } catch {
+    /* backend não disponível ou sem suporte */
+  }
+  return false
+}

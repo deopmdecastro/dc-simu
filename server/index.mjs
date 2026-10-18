@@ -22,9 +22,24 @@ CREATE INDEX IF NOT EXISTS audit_at ON audit_log(at DESC);
 CREATE TABLE IF NOT EXISTS component_settings(type TEXT PRIMARY KEY,enabled INTEGER NOT NULL DEFAULT 1,note TEXT,updated_at TEXT NOT NULL,updated_by TEXT);`)
 const contribDir = resolve(dir, 'contrib')
 mkdirSync(contribDir, { recursive: true })
+
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+if (supabaseUrl) {
+  console.log(`[DC-SIMU] Base de dados Supabase (PostgreSQL) configurada: ${supabaseUrl}`)
+}
+
 const app = express()
 app.disable('x-powered-by')
 app.use(express.json({ limit: '8mb' }))
+
+app.get('/api/supabase/config', (_req, res) => {
+  res.json({
+    configured: Boolean(supabaseUrl && supabaseAnonKey),
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
+  })
+})
 const id = () => randomBytes(16).toString('hex')
 const hash = s => createHash('sha256').update(s).digest('hex')
 const pwd = p => { const salt = randomBytes(16).toString('hex'); return salt + ':' + scryptSync(p, salt, 64).toString('hex') }

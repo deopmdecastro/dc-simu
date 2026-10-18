@@ -8,11 +8,14 @@ import {
   supabaseGetInvitations,
   supabaseGetProject,
   supabaseGetProjects,
+  supabaseGetSettings,
+  supabaseGetAdminProjects,
   supabaseInviteMember,
   supabaseLogin,
   supabaseLogout,
   supabaseRegister,
   supabaseReplyInvitation,
+  supabaseSetComponent,
   supabaseUpdateProject,
 } from '../supabase/supabaseBackend'
 import { fixedAccountEmails, getLocalSession, isFixedAccount, localApi, rememberFixedSession } from './localBackend'
@@ -111,6 +114,21 @@ async function supabaseApi<T>(url: string, verb: string, body?: unknown): Promis
   const matchReject = url.match(/^\/invitations\/([^/]+)$/)
   if (matchReject && verb === 'DELETE') {
     return (await supabaseReplyInvitation(matchReject[1], 'reject')) as T
+  }
+
+  // Componentes e configurações
+  if (url === '/settings' && verb === 'GET') {
+    return (await supabaseGetSettings()) as T
+  }
+
+  const matchComp = url.match(/^\/admin\/components\/([^/]+)$/)
+  if (matchComp && verb === 'PUT') {
+    const payload = (body ?? {}) as { enabled: boolean; note?: string }
+    return (await supabaseSetComponent(matchComp[1], payload.enabled, payload.note)) as T
+  }
+
+  if (url === '/admin/projects' && verb === 'GET') {
+    return (await supabaseGetAdminProjects()) as T
   }
 
   // Operações de administração que não envolvam Supabase recaem no backend local

@@ -22,6 +22,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { guardedDestination } from './routing/guards'
 import { pageFromPath, projectIdFromPath, ROUTES, type AppPage } from './routing/routes'
 import { IconArrowLeft, IconClose } from './ui/icons'
+import { initSupabaseFromBackend } from './supabase/supabaseClient'
 
 type Open = { id: string; name: string; revision: number }
 
@@ -69,14 +70,16 @@ export default function Account() {
   }, [])
 
   useEffect(() => {
-    api<{ user: User }>('/me')
-      .then((response) => {
-        setUser(response.user)
-        if (page === 'landing' || page === 'login') setPage('dashboard')
-        return refresh()
-      })
-      .catch(() => {})
-      .finally(() => setReady(true))
+    initSupabaseFromBackend().finally(() => {
+      api<{ user: User }>('/me')
+        .then((response) => {
+          setUser(response.user)
+          if (page === 'landing' || page === 'login') setPage('dashboard')
+          return refresh()
+        })
+        .catch(() => {})
+        .finally(() => setReady(true))
+    })
   }, [refresh])
 
   // Guardas de rota num único ponto: sessão e perfil de administrador.
