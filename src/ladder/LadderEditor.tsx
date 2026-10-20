@@ -13,14 +13,14 @@ import { collectUsedAddresses } from './ladderEngine'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
-import type { LadderContact, LadderRung, LadderContactType, LadderCoilType, LadderCoilEl, ComponentType, ElectricalComponent } from '../types'
+import type { LadderRung, LadderContactType, ComponentType, ElectricalComponent } from '../types'
 import NetworkDiagram, { type RungSelection } from './NetworkDiagram'
 import LadderElementDialog from './LadderElementDialog'
-import { COMPONENT_TO_LADDER, LADDER_MIME, applyKind, isContactKind, setLadderDrag, type DropTarget, type PaletteKind } from './ladderDnd'
+import { COMPONENT_TO_LADDER, LADDER_MIME, applyKind, isContactKind, setLadderDrag, type PaletteKind } from './ladderDnd'
 import {
-  IconPlus, IconBranch, IconContact, IconCoil, IconTimer, IconCounter, IconDelete, IconCopy,
-  IconZoomIn, IconZoomOut, IconSchematic, IconLadder, IconCompare, IconMath, IconMove,
-  IconFunction, IconUndo, IconRedo, IconChevronDown, IconChevronRight, IconShield,
+  IconPlus, IconDelete, IconCopy,
+  IconZoomIn, IconZoomOut, IconSchematic, IconLadder,
+  IconFunction, IconChevronDown, IconChevronRight, IconShield,
   IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp,
 } from '../ui/icons'
 import { useLadderPrefs } from './ladderPrefs'
@@ -35,7 +35,6 @@ import { useEditorShortcuts } from '../ui/shortcuts'
  *  do editor — tal como o TIA Portal sugere tags existentes ao digitar. */
 const TAG_DATALIST_ID = 'ladder-tag-addresses'
 
-const CONTACT_LABEL: Record<LadderContactType, string> = { NO: 'NA', NC: 'NF', RISING: '↑B', FALLING: '↓B' }
 
 function TagAddressDatalist() {
   const tags = useSimStore((s) => s.tags)
@@ -50,102 +49,9 @@ function TagAddressDatalist() {
   )
 }
 
-/** Nome simbólico da tag associada a um endereço, se existir e for diferente
- *  do próprio endereço (senão não haveria nada de útil a mostrar). */
-function useTagName(address: string): string | null {
-  const tag = useSimStore((s) => s.tags.find((t) => t.address === address.toUpperCase()))
-  return tag && tag.name && tag.name !== tag.address ? tag.name : null
-}
 
-/**
- * Contato Ladder desenhado graficamente (barras verticais estilo IEC 61131),
- * com estados nítidos: energizado (verde) / inativo (cinza).
- */
-function ContactSymbol({ el, table, selected = false }: { el: LadderContact; table: Record<string, boolean>; selected?: boolean }) {
-  const db = useSimStore((s) => s.runtime.db)
-  const raw = db[el.address.toUpperCase()]?.type === 'BOOL' ? db[el.address.toUpperCase()].value === true : !!table[el.address]
-  const powered = el.contactType === 'NC' ? !raw : raw
-  const tagName = useTagName(el.address)
-  const slash = el.contactType === 'NC'
-  const edge = el.contactType === 'RISING' || el.contactType === 'FALLING'
-  return (
-    <div className={`ladder-contact-symbol ${powered ? 'is-powered' : ''} ${selected ? 'is-selected' : ''}`} title={tagName ?? undefined}>
-      <div className="ladder-symbol-address">{el.address}</div>
-      <svg width="54" height="30" viewBox="0 0 54 30" aria-hidden>
-        <line x1="0" y1="15" x2="15" y2="15" />
-        <line x1="39" y1="15" x2="54" y2="15" />
-        <line x1="18" y1="5" x2="18" y2="25" />
-        <line x1="36" y1="5" x2="36" y2="25" />
-        {slash && <line x1="14" y1="25" x2="40" y2="5" />}
-        {edge && (
-          <text x="27" y="18.5" fontSize="10" fontWeight="700" textAnchor="middle" fontFamily="ui-monospace, monospace">
-            {el.contactType === 'RISING' ? 'P' : 'N'}
-          </text>
-        )}
-      </svg>
-      <div className="ladder-symbol-kind">{CONTACT_LABEL[el.contactType]}</div>
-      {tagName && <div className="ladder-symbol-tag">{tagName}</div>}
-    </div>
-  )
-}
 
-/** Bobina desenhada como ( endereço ) com o tipo (SET/RESET) indicado. */
-function CoilButton({ coil, powered, selected = false, onCycle, onRemove, onSelect }: { coil: LadderCoilEl; powered: boolean; selected?: boolean; onCycle: () => void; onRemove: () => void; onSelect?: () => void }) {
-  const tagName = useTagName(coil.address)
-  return (
-    <button
-      onClick={onSelect ?? onCycle}
-      onContextMenu={(e) => {
-        e.preventDefault()
-        onRemove()
-      }}
-      title={`Clique alterna COIL → SET → RESET · botão direito remove${tagName ? ` · ${tagName}` : ''}`}
-      className={`ladder-coil-symbol ${selected ? 'is-selected' : ''} flex items-center gap-1.5 px-2 py-1 rounded-[5px] font-mono text-[11px] font-semibold border-2 transition-colors ${
-        powered ? 'border-state-run text-emerald-800 bg-state-runbg' : 'border-line-strong text-ink-400 bg-white'
-      }`}
-    >
-      <span className="text-[13px] leading-none">(</span>
-      <span>{coil.address}</span>
-      {coil.coilType !== 'COIL' && <span className="text-[8px] font-bold px-1 rounded bg-ink-900/5">{coil.coilType}</span>}
-      <span className="text-[13px] leading-none">)</span>
-      {tagName && <span className="text-[8px] font-normal text-ink-400 max-w-[70px] truncate">{tagName}</span>}
-    </button>
-  )
-}
 
-function BlockButton({
-  label,
-  address,
-  detail,
-  powered,
-  selected = false,
-  onSelect,
-  onRemove,
-}: {
-  label: string
-  address: string
-  detail: string
-  powered: boolean
-  selected?: boolean
-  onSelect: () => void
-  onRemove: () => void
-}) {
-  return (
-    <button
-      className={`ladder-block-symbol ${powered ? 'is-powered' : ''} ${selected ? 'is-selected' : ''}`}
-      onClick={onSelect}
-      onContextMenu={(e) => {
-        e.preventDefault()
-        onRemove()
-      }}
-      title="Clique para configurar · botão direito remove"
-    >
-      <span className="ladder-symbol-address">{address}</span>
-      <strong>{label}</strong>
-      <small>{detail}</small>
-    </button>
-  )
-}
 
 /* --------------------------------------------------------------- editor row */
 
@@ -908,13 +814,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const running = useSimStore((s) => s.sim.runState === 'running')
   const blackBox = useSimStore((s) => s.sim.blackBox)
   const grid = useSimStore((s) => s.grid)
-  const setGrid = useSimStore((s) => s.setGrid)
   const addRung = useSimStore((s) => s.addRung)
   const updateRung = useSimStore((s) => s.updateRung)
-  const undo = useSimStore((s) => s.undo)
-  const redo = useSimStore((s) => s.redo)
-  const history = useSimStore((s) => s.history)
-  const future = useSimStore((s) => s.future)
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
   const lintIssues = useMemo(() => lintLadder({ rungs }, { physicalInputs: plcs.length > 0 }), [rungs, plcs.length])
   const lintCount = lintIssues.filter((issue) => issue.level !== 'info').length
@@ -948,10 +849,6 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const toastTimer = useRef<number | undefined>(undefined)
   const searchRef = useRef<HTMLInputElement>(null)
   const mainPaneRef = useRef<HTMLElement>(null)
-  const showToasts = useLadderPrefs((p) => p.showToasts)
-  const autoScroll = useLadderPrefs((p) => p.autoScroll)
-  const confirmDelete = useLadderPrefs((p) => p.confirmDelete)
-  const deleteRung = useSimStore((s) => s.deleteRung)
   const duplicateRung = useSimStore((s) => s.duplicateRung)
   const moveRung = useSimStore((s) => s.moveRung)
 

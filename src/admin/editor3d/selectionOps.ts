@@ -1,5 +1,6 @@
 import type { ComponentDefinition, PartDef } from '../../catalog/types'
 import { removeParts, type Selection } from './editorStore'
+import { foldText } from '../../utils/text'
 
 /**
  * Operações puras sobre a seleção (sem DOM nem store), para o editor e para os
@@ -101,7 +102,7 @@ export function ancestorsOf(def: ComponentDefinition, id: string): string[] {
 }
 
 /** Sem acentos e em minúsculas: «Manípulo» encontra-se a escrever «manipulo». */
-export const normalizeText = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+export const normalizeText = foldText
 
 export interface TreeRow { part: PartDef; depth: number; hasChildren: boolean }
 

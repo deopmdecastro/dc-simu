@@ -16,7 +16,8 @@
     "test:server": "node scripts/server-e2e.mjs",
     "typecheck": "tsc -b",
     "start": "node server/index.mjs",
-    "test:motion": "tsx scripts/motion-smoke.ts"
+    "test:motion": "tsx scripts/motion-smoke.ts",
+    "test:excel": "tsx scripts/excel-smoke.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",
@@ -27,6 +28,7 @@
     "@react-three/fiber": "^8.17.10",
     "@supabase/supabase-js": "^2.109.0",
     "better-sqlite3": "^12.11.1",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "nanoid": "^5.0.7",
     "react": "^18.3.1",

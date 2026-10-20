@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { validCondition, type GrafcetTransition, type GrafcetStep } from './engine'
-import PropertyDialog from './PropertyDialog'
+import PropertyDialog from '../ui/PropertyDialog'
 import ConditionEditor from './ConditionEditor'
 import type { GrafcetSignalSuggestion } from './signals'
 

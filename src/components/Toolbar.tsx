@@ -14,6 +14,7 @@ import { useLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } fro
 import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { validateGrafcet } from '../grafcet/engine'
 import { N8nLogo } from '../ui/BrandLogos'
+import ComponentTableDialog from './ComponentTableDialog'
 import { allowedViews } from '../project/kind'
 import {
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
@@ -195,6 +196,7 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
 export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder', 'grafcet', 'monitor'], ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects }: { mode: ViewMode; setMode: (m: ViewMode) => void; views?: ViewMode[]; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void }) {
   const [clean, setClean] = useCleanMode()
   const [grafcetMoreOpen, setGrafcetMoreOpen] = useState(false)
+  const [componentTableOpen, setComponentTableOpen] = useState(false)
   const {
     sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
     step, saveJSON, loadJSON, tool, setTool, grid, setGrid, zoom, setZoom,
@@ -267,7 +269,6 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   }
 
   const segBtn = (active: boolean) => `dc-tool-btn ${active ? 'dc-tool-active' : ''}`
-  const toggleCls = (on: boolean) => (on ? '!border-brand-300 !bg-brand-50 !text-brand-700' : '')
 
   const RUN_LABEL: Record<string, { text: string; cls: string }> = {
     running: { text: 'RUN', cls: 'bg-state-run' },
@@ -658,6 +659,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   </>
                 )}
               </Dropdown>
+              <button className="dc-btn" onClick={() => setComponentTableOpen(true)} title="Criar e posicionar componentes por tabela ou Excel">
+                <IconGrid size={13} /> <span className="hidden lg:inline">Tabela</span>
+              </button>
             </>
           )}
 
@@ -707,6 +711,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <IconLock size={13} /> <span className="hidden xl:inline">{sim.blackBox ? 'Caixa-preta ON' : 'Caixa-preta'}</span>
           </button>
         </div>
+      {componentTableOpen && <ComponentTableDialog onClose={() => setComponentTableOpen(false)} />}
     </div>
   )
 }

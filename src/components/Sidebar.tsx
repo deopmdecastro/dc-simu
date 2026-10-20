@@ -19,11 +19,11 @@ import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
-import { hasComponent3DModel, isMountingRail, MISSING_3D_MODEL_MESSAGE, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import { hasComponent3DModel, isMountingRail, MISSING_3D_MODEL_MESSAGE } from '../three/modelPaths'
 import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRailGeometry'
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconTag, IconChevronDown, IconProjects, IconCube, IconClose } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose } from '../ui/icons'
 
 const label = 'dc-field-label'
 const STATE_LABELS: Record<string, string> = {

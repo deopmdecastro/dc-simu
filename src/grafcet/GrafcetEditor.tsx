@@ -24,11 +24,10 @@ import SignalTableDialog from './SignalTableDialog'
 import { grafcetSignals, insertCondition, signalAddressesInCondition, signalUsage, undeclaredSignals, type SignalArea } from './signals'
 import SignalsPanel, { type SignalsContext } from './SignalsPanel'
 import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
-import { renderConditionTspans, fmtDuration } from './grafcetRender'
+import { renderConditionTspans } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
 import { grafcetToLadder } from './toLadder'
 import { collectUsedAddresses } from '../ladder/ladderEngine'
-import { allowedViews } from '../project/kind'
 import { triggerN8nWorkflow } from '../n8n/n8nClient'
 import {
   IconChevronRight,
@@ -36,24 +35,17 @@ import {
   IconCursor,
   IconDelete,
   IconHand,
-  IconHelp,
-  IconLock,
-  IconRedo,
   IconSearch,
-  IconUndo,
   IconWire,
-  IconZoomIn,
-  IconZoomOut,
 } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
 import GrafcetContextMenu, { type ContextMenuItem } from './GrafcetContextMenu'
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView, type Pos, type AlignMode, type DistributeAxis, type SubDiagram } from './selection'
 import { useEditorShortcuts } from '../ui/shortcuts'
-import { useGrafcetUi, type GrafcetBusAction, type GrafcetCanvasTool } from './grafcetBus'
+import { useGrafcetUi, type GrafcetBusAction } from './grafcetBus'
 import {
   GRID,
-  MIN_X,
   SPINE_X,
   START_Y,
   STEP_H,
@@ -65,6 +57,7 @@ import {
 } from './layout'
 
 import { findClearSpot, routeVertical } from './links'
+import { foldText } from '../utils/text'
 
 const id = () => crypto.randomUUID()
 
@@ -108,11 +101,7 @@ const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: st
   },
 ]
 
-const norm = (value: string) =>
-  value
-    .toLocaleLowerCase('pt-PT')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+const norm = foldText
 
 const actionsOf = (step: GrafcetStep): GrafcetAction[] => actionsOfStep(step)
 const fmtSeconds = (ms: number) => `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)} s`
@@ -161,12 +150,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const table = useSimStore((state) => state.runtime.table)
   const tags = useSimStore((state) => state.tags)
   const setGrafcet = useSimStore((state) => state.setGrafcet)
-  const history = useSimStore((state) => state.history)
-  const future = useSimStore((state) => state.future)
   const running = useSimStore((state) => state.sim.runState === 'running')
-  const blackBox = useSimStore((state) => state.sim.blackBox)
-  const projectKind = useSimStore((state) => state.projectKind)
-  const canGenerateLadder = allowedViews(projectKind).includes('ladder')
 
   const steps = program.steps
   const transitions = transitionsOf(program)
@@ -489,11 +473,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     notify(`Ação movida para a Etapa ${stepNumber}`)
   }
 
-  const appendToCondition = (transition: GrafcetTransition, token: string) => {
-    const base = transition.condition.trim()
-    const joined = !base || base === '1' ? token : /[&|(!]$/.test(base) ? `${base} ${token}` : `${base} & ${token}`
-    updateTransition(transition.id, { condition: joined.toUpperCase() }, 'force')
-  }
 
   const generateLadder = async () => {
     if (!steps.length) return notify('Crie primeiro as etapas do GRAFCET')
@@ -803,14 +782,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     }
   }
 
-  const selectTransition = (transition: GrafcetTransition, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation()
-    if (full) {
-      setSelected(transition.id)
-      setSelectedActionId(null)
-      setTab('transitions')
-    }
-  }
 
   const moveStep = (stepId: string, direction: -1 | 1) => {
     const index = steps.findIndex((step) => step.id === stepId)
@@ -3218,7 +3189,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   const isMacro = step.stepType === 'macro'
                   const isEnclosing = step.stepType === 'enclosing' || step.stepType === 'initial-enclosing'
                   const y = stepY(step.id)
-                  const actionsCount = actionsOf(step).length
 
                   const onStepClick = (e: React.MouseEvent) => {
                     // Ferramenta Ligar: toque-a-toque — 1.º toque arma a saída da etapa, o 2.º define a entrada.

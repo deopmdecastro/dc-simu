@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ACTION_KINDS, validGrafcetVariable, validCondition, type GrafcetAction, type GrafcetActionKind, type GrafcetActionAllocation, type GrafcetStep } from './engine'
-import PropertyDialog from './PropertyDialog'
+import PropertyDialog from '../ui/PropertyDialog'
 import ConditionEditor from './ConditionEditor'
 import SignalPicker from './SignalPicker'
 import { canonicalSignalAddress, type GrafcetSignalSuggestion } from './signals'

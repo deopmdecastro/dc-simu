@@ -3,19 +3,16 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { useSimStore } from '../store/useSimStore'
 import {
   COMPONENT_VIEW_PRESETS,
-  componentTerminalViewKey,
   normalizeComponentOrientation,
   type ComponentViewPreset,
 } from '../three/componentOrientation'
 import { getComponentModelSpec, hasComponent3DModel } from '../three/modelPaths'
 
-import { TERMINAL_KIND_LABEL, TERMINAL_TYPE_LABEL } from '../schematic/symbols'
-import { component3DDimensions, positionOnTerminalFace, terminal3DPositionOf, terminalFaceCreationPosition, type Terminal3DFace } from '../three/terminal3D'
+import { component3DDimensions } from '../three/terminal3D'
 import TerminalFaceEditor from './TerminalFaceEditor'
 import { ViewCubeDial, orientationFacingFace, type ViewCubeCorner } from './ViewCube'
-import { IconCube, IconDelete, IconEye, IconPlus, IconProbe, IconRotate, IconSave } from '../ui/icons'
-import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent, TerminalElectricalClass, TerminalKind, TerminalType } from '../types'
-import { inferTerminalElectricalClass, terminalDatasheetGuidance, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
+import { IconCube, IconEye, IconProbe, IconRotate, IconSave } from '../ui/icons'
+import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent } from '../types'
 import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 
 const PRESETS: Array<{ id: ComponentViewPreset; label: string }> = [

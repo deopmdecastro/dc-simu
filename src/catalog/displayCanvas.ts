@@ -66,7 +66,7 @@ export function displayPixelSize(display: DisplayDef) {
 }
 
 /** LCD de multímetro: indicadores, 4 dígitos de 7 segmentos, unidade, HOLD, AUTO, bateria e continuidade. */
-function drawLcd(ctx: CanvasRenderingContext2D, display: DisplayDef, reading: MeterReading | null, bg: string, fg: string) {
+function drawLcd(ctx: CanvasRenderingContext2D, reading: MeterReading | null, bg: string, fg: string) {
   const { width: W, height: H } = ctx.canvas
   const ghost = mix(bg, fg, 0.08)
   const on = reading?.on ?? false
@@ -126,7 +126,7 @@ export function drawDisplay(canvas: HTMLCanvasElement, display: DisplayDef, vars
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.fillStyle = powered || display.kind === 'lcd' ? bg : mix(bg, '#000000', 0.7)
   ctx.fillRect(0, 0, canvas.width, canvas.height)
-  if (display.kind === 'lcd') { drawLcd(ctx, display, reading, bg, display.foreground); return }
+  if (display.kind === 'lcd') { drawLcd(ctx, reading, bg, display.foreground); return }
   if (!powered) return
   for (const line of display.lines) {
     if (line.when && !evalWhen(line.when, vars)) continue

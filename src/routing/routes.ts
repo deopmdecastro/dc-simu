@@ -1,11 +1,10 @@
+import { foldText } from '../utils/text'
 export type AppPage = 'landing' | 'login' | 'dashboard' | 'editor' | 'admin' | 'contribute'
 
 /** Nome legível para a barra de endereço: «Disjuntor Steck SD C25 · 1P» → «disjuntor-steck-sd-c25-1p». */
 export function routeSlug(name?: string): string {
   if (!name) return ''
-  return name
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
+  return foldText(name)
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60)

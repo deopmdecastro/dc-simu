@@ -1,0 +1,49 @@
+/* Tabelas ⇄ Excel: barra de ações, pré-visualização da importação e tabela de componentes. */
+.sheet-bar { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.sheet-import { display:flex; flex-direction:column; gap:16px; padding:20px 24px; font-size:13px; color:#25344c; }
+.sheet-import-summary { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; }
+.sheet-import-summary li { padding:8px 12px; border:1px solid #dce4ef; border-radius:6px; background:#f7f9fc; line-height:1.5; }
+.sheet-import-modes { margin:0; padding:0; border:0; display:grid; gap:8px; }
+.sheet-import-modes legend { padding:0; margin-bottom:8px; font-size:12px; font-weight:700; }
+.sheet-import-modes label { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid #dce4ef; border-radius:6px; cursor:pointer; background:#fff; }
+.sheet-import-modes label:hover { border-color:#9eb7e8; background:#f7faff; }
+.sheet-import-modes label.is-selected { border-color:#5782e9; background:#f0f5ff; box-shadow:inset 3px 0 0 #2455d8; }
+.sheet-import-modes input { margin-top:3px; accent-color:#2455d8; }
+.sheet-import-modes small { display:block; margin-top:2px; color:#52617a; font-size:11px; line-height:1.45; }
+.sheet-import-count { margin:0 0 8px; font-size:12px; color:#52617a; }
+.sheet-import-count .is-error { color:#b42330; }
+.sheet-import-count .is-warning { color:#9a6212; }
+.sheet-import-issues { margin:0; padding:0; list-style:none; max-height:240px; overflow:auto; border:1px solid #dce4ef; border-radius:6px; }
+.sheet-import-issues li { display:grid; grid-template-columns:minmax(90px,170px) 1fr; gap:10px; padding:7px 10px; border-bottom:1px solid #edf1f7; font-size:12px; line-height:1.45; }
+.sheet-import-issues li:last-child { border-bottom:0; }
+.sheet-import-issues li > span { color:#61718a; font-size:11px; }
+.sheet-import-issues li.is-error { background:#fff6f6; }
+.sheet-import-issues li.is-warning { background:#fffaf0; }
+
+.component-table-dialog { width:min(1120px,100%); }
+.component-table { display:flex; flex-direction:column; gap:12px; padding:16px 24px 20px; }
+.component-table-tools { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; justify-content:space-between; }
+.component-table-tools .dc-input { width:min(260px,100%); }
+.component-table-grid { overflow:auto; max-height:min(52dvh,520px); border:1px solid #dce4ef; border-radius:8px; }
+.component-table-grid table { width:100%; min-width:900px; border-collapse:collapse; font-size:12px; }
+.component-table-grid th { position:sticky; top:0; z-index:1; padding:8px 6px; text-align:left; font-weight:650; font-size:11px; color:#52617a; background:#f1f5fb; border-bottom:1px solid #dce4ef; white-space:nowrap; }
+.component-table-grid td { padding:3px 4px; border-bottom:1px solid #edf1f7; vertical-align:middle; }
+.component-table-grid td .dc-input { min-height:30px; padding:4px 7px; font-size:12px; }
+.component-table-grid tr.is-new td { background:#f3faf4; }
+.component-table-grid tr.is-invalid td { background:#fff6f6; }
+.component-table-grid .is-num { width:84px; }
+.component-table-grid .is-narrow { width:84px; }
+.component-table-grid .is-ref { width:92px; }
+.component-table-remove { width:26px; height:26px; border:1px solid transparent; border-radius:5px; background:transparent; color:#7a889c; font-size:16px; line-height:1; }
+.component-table-remove:hover { background:#fdeaea; color:#b42330; }
+.component-table-note { margin:0; font-size:11.5px; line-height:1.5; color:#52617a; }
+.component-table-status { margin:0; min-height:1.4em; font-size:12px; color:#25344c; }
+.component-table-status.is-error { color:#b42330; }
+@media (max-width:720px) {
+  .sheet-import, .component-table { padding:14px 14px 16px; }
+  .sheet-import-issues li { grid-template-columns:1fr; gap:2px; }
+}
+
+.grafcet-signal-table-actions { flex-wrap:wrap; }
+.grafcet-signal-table-actions .sheet-bar .dc-btn { min-height:36px; white-space:nowrap; }
+@media (max-width:720px) { .grafcet-signal-table-actions .sheet-bar { justify-content:stretch; } .grafcet-signal-table-actions .sheet-bar .dc-btn { flex:1; justify-content:center; min-height:40px; } }

@@ -2,6 +2,8 @@ import Select from '../ui/Select'
 import { useSimStore } from '../store/useSimStore'
 import type { LadderDataType, LadderTag } from '../types'
 import { IconPlus, IconClose } from '../ui/icons'
+import TagSheetActions from '../excel/TagSheetActions'
+import { compareTags } from '../excel/tagSheet'
 
 /* ------------------------------------------------------------------------ *
  * Tabela de Tags — inspirada na organização do TIA Portal: uma tabela por
@@ -58,6 +60,7 @@ export default function TagTable() {
   const tags = useSimStore((s) => s.tags)
   const addTag = useSimStore((s) => s.addTag)
   const autoDetectTags = useSimStore((s) => s.autoDetectTags)
+  const setTags = useSimStore((s) => s.setTags)
 
   return (
     <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4 min-h-0 bg-surface-panel">
@@ -66,17 +69,20 @@ export default function TagTable() {
           Dê nomes simbólicos aos endereços usados no programa — o endereço (I1, Q1, M1…) continua a
           ser a referência real; a tag é só documentação, como no TIA Portal.
         </p>
-        <button
-          className="dc-btn shrink-0"
-          title="Cria uma tag (nome = endereço) para todo endereço já usado no programa que ainda não tenha uma"
-          onClick={() => autoDetectTags()}
-        >
-          ⟲ Detectar do programa
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
+          <button
+            className="dc-btn"
+            title="Cria uma tag (nome = endereço) para todo endereço já usado no programa que ainda não tenha uma"
+            onClick={() => autoDetectTags()}
+          >
+            ⟲ Detectar do programa
+          </button>
+          <TagSheetActions tags={tags} context="LADDER · TABELA DE TAGS" fileName="tags-ladder" onApply={(next) => setTags(next)} />
+        </div>
       </div>
 
       {SECTIONS.map(({ prefix, title, hint }) => {
-        const rows = tags.filter((t) => t.address.toUpperCase().startsWith(prefix)).sort((a, b) => Number(a.address.slice(1)) - Number(b.address.slice(1)) || 0)
+        const rows = tags.filter((t) => t.address.toUpperCase().startsWith(prefix)).sort(compareTags)
         return (
           <div key={prefix} className="border border-line rounded-md overflow-hidden bg-white shadow-xs">
             <div className="flex items-center justify-between px-2 py-1.5 bg-surface-rail border-b border-line">

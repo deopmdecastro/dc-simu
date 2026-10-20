@@ -5,7 +5,6 @@ import { defaultPart, newId, normalizeDefinition, type GlbCache } from '../../ca
 import { EMPTY_METER_INPUT, type MeterInput, type Vars } from '../../catalog/behavior'
 import type { DetectedHole } from '../../catalog/holeDetect'
 import type { Face, TerminalSpec } from '../../catalog/terminalProfiles'
-import type { WireEndType } from '../../types'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, MaterialDef, PartDef, StateOverride, TerminalDef, Vec3 } from '../../catalog/types'
 import { DEFAULT_WIRE_DEFAULTS, styleFor, type WireDefaults, type WireStyle } from './wireStyle'
 

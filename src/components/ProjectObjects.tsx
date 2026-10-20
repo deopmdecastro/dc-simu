@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
+import ComponentTableDialog from './ComponentTableDialog'
 import { IconChevronUp, IconChevronDown, IconLayers, IconLock, IconRotate, IconSearch, IconUnlock } from '../ui/icons'
 
 /**
@@ -17,6 +18,7 @@ export default function ProjectObjects() {
   const reorderComponents = useSimStore((s) => s.reorderComponents)
   const updateComponent = useSimStore((s) => s.updateComponent)
   const [query, setQuery] = useState('')
+  const [tableOpen, setTableOpen] = useState(false)
 
   const rows = useMemo(() => {
     const text = query.trim().toLowerCase()
@@ -35,7 +37,7 @@ export default function ProjectObjects() {
 
   return <div className="dc-objects">
     <div className="dc-objects-head">
-      <span className="dc-objects-title"><IconLayers size={12} /> Objetos do projeto <b>{components.length}</b></span>
+      <span className="dc-objects-title"><IconLayers size={12} /> Objetos do projeto <b>{components.length}</b><button type="button" className="dc-btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setTableOpen(true)} title="Criar e posicionar componentes por tabela ou Excel">Tabela</button></span>
       <label className="dc-objects-search">
         <IconSearch size={11} />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Procurar por referência, nome ou tipo" aria-label="Procurar objeto" />
@@ -75,5 +77,6 @@ export default function ProjectObjects() {
         </li>
       })}
     </ul>
+    {tableOpen && <ComponentTableDialog onClose={() => setTableOpen(false)} />}
   </div>
 }

@@ -9,7 +9,7 @@ import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
 import { IconHelp } from '../ui/icons'
-import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire, WireColor } from '../types'
+import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '../types'
 import * as THREE from 'three'
 import { cloneModelScene } from './modelFit'
 import { finishCadMaterial } from './catalogMaterials'
@@ -29,12 +29,10 @@ import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorShaftFan3D from './MotorShaftFan3D'
 import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
-import { WireDrawController, useWireDrawInfo, type DrawTerminal, type WireDraft } from './WireDraw3D'
+import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
-import { WIRE_END_OPTIONS } from '../schematic/wireEnds'
 import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D } from './wireGeometry3D'
 
-const SLOT_WIDTH = 0.72
 const PANEL_FLOOR_Y = -2.6
 /** Margem (1 = 100 mm) da chapa à volta do equipamento. */
 const PLATE_MARGIN = 0.6
@@ -369,7 +367,7 @@ function SelectionGlow({ component }: { component: ElectricalComponent }) {
   return <sprite position={[center.x, center.y, center.z]} scale={[diameter, diameter, 1]} material={material} renderOrder={-1} raycast={() => null} userData={{ noSnapshot: true }} />
 }
 
-function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, connectionMode, connectionStartId, onSelect, onMove, onDragStart, onDragTo, onDragEnd, onTerminalPick, children }: {
+function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editingTerminals, movable, draggable, connectionMode, connectionStartId, onSelect, onMove, onDragStart, onDragTo, onDragEnd, children }: {
   c: ElectricalComponent
   pivot: [number, number, number]
   sourcePivot: [number, number, number]
@@ -506,7 +504,6 @@ function LogoFrontPanel({ c }: { c: ElectricalComponent }) {
   const scanCount = useSimStore((s) => s.sim.scanCount)
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const [page, setPage] = useState<LogoPage>('home')
-  const [pressed, setPressed] = useState<string | null>(null)
   const canvas = useMemo(() => { const node = document.createElement('canvas'); node.width = 384; node.height = 192; return node }, [])
   const texture = useMemo(() => { const value = new THREE.CanvasTexture(canvas); value.colorSpace = THREE.SRGBColorSpace; value.anisotropy = 4; return value }, [canvas])
   const powered = !!c.state.powered
@@ -540,9 +537,8 @@ function LogoFrontPanel({ c }: { c: ElectricalComponent }) {
   useEffect(() => () => { texture.dispose() }, [texture])
   const move = (step: number) => setPage((current) => LOGO_PAGES[(LOGO_PAGES.indexOf(current) + step + LOGO_PAGES.length) % LOGO_PAGES.length])
   const button = (id: string, px: number, py: number, action: () => void) => <mesh key={id} position={[px, py, 0.326]}
-    onPointerDown={(event) => { event.stopPropagation(); setPressed(id) }}
-    onPointerUp={(event) => { event.stopPropagation(); setPressed(null); action() }}
-    onPointerOut={() => setPressed(null)}>
+    onPointerDown={(event) => event.stopPropagation()}
+    onPointerUp={(event) => { event.stopPropagation(); action() }}>
     <circleGeometry args={[0.052, 18]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} />
   </mesh>
   const led = (px: number, py: number, color: string, on: boolean) => <mesh position={[px, py, 0.329]}><circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={on ? color : '#334155'} emissive={on ? color : '#000'} emissiveIntensity={on ? 1.8 : 0} /></mesh>
@@ -1917,22 +1913,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const deleteWire = useSimStore((s) => s.deleteWire)
   const wireDefaults = useSimStore((s) => s.wireDefaults)
   const viewOrientationEditor = useSimStore((s) => s.viewOrientationEditor)
-  const railMagnet = useSimStore((s) => s.grid.railMagnet !== false)
   const tool = useSimStore((s) => s.tool)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = tool === 'wire' ? 'connect' : 'navigate'
-  const [connectionStartId, setConnectionStartId] = useState<string | null>(null)
   const [reconnect, setReconnect] = useState<{ wireId: string; end: 'from' | 'to' } | null>(null)
   const [activeWaypointIndex, setActiveWaypointIndex] = useState<number | null>(null)
   const [activeEnd, setActiveEnd] = useState<'from' | 'to' | null>(null)
   const [moveAllWire, setMoveAllWire] = useState(false)
-  const [wirePanelCollapsed, setWirePanelCollapsed] = useState(() => {
-    try { return localStorage.getItem('dc-simu:panel3d:wire-panel-collapsed') === '1' } catch { return false }
-  })
-  const toggleWirePanel = () => setWirePanelCollapsed((current) => {
-    try { localStorage.setItem('dc-simu:panel3d:wire-panel-collapsed', current ? '0' : '1') } catch { /* sem armazenamento */ }
-    return !current
-  })
   const [draft, setDraftState] = useState<WireDraft | null>(null)
   const draftRef = useRef<WireDraft | null>(null)
   const setDraft = (next: WireDraft | null | ((current: WireDraft | null) => WireDraft | null)) => {
@@ -2027,7 +2014,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
 
   // ao trocar de ferramenta na barra principal, larga qualquer ligação/edição a meio
   const resetInteraction = () => {
-    setConnectionStartId(null)
     setReconnect(null)
     setDraft(null)
     setActiveEnd(null)
@@ -2218,10 +2204,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     setWireEditDirty(true)
     return store
   }
-  const patchSelectedWire = (patch: Partial<Wire>) => {
-    if (!selectedWire) return
-    beginWireEdit(selectedWire).updateWire(selectedWire.id, patch)
-  }
   const saveWireEdit = () => {
     if (!selectedWire) return
     const current = useSimStore.getState().wires.find((wire) => wire.id === selectedWire.id)
@@ -2351,7 +2333,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     freeEnd('to')
     beginWireEdit(wire).updateWire(wireId, patch)
   }
-  const setEndType = (side: 'from' | 'to', type: Wire['endType']) => patchSelectedWire(side === 'from' ? { fromEndType: type } : { toEndType: type })
 
   /** Bornes disponíveis para o desenho/ligação de cabos no 3D (posição física real). */
   const drawTerminals: DrawTerminal[] = components.flatMap((component) => {
@@ -2387,7 +2368,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
   const startReconnect = (end: 'from' | 'to') => {
     if (!selectedWire) return
-    setConnectionStartId(null)
     setDraft(null)
     setActiveEnd(null)
     setActiveWaypointIndex(null)
@@ -2433,7 +2413,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const onKey = (event: KeyboardEvent) => {
       if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
       if (wireKeysRef.current(event)) return
-      if (event.key === 'Escape') { setConnectionStartId(null); setReconnect(null); setActiveWaypointIndex(null); setDraft(null); useSimStore.getState().selectWire(null); if (useSimStore.getState().tool === 'wire') useSimStore.getState().setTool('select') }
+      if (event.key === 'Escape') { setReconnect(null); setActiveWaypointIndex(null); setDraft(null); useSimStore.getState().selectWire(null); if (useSimStore.getState().tool === 'wire') useSimStore.getState().setTool('select') }
       else if (event.key === 'Home' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); moveCamera('fit') }
       else if (/^Numpad[1357]$/.test(event.code) && !event.altKey && !event.metaKey) {
         // Como nos CAD: 1 frente · 3 direita · 7 superior · 5 isométrica; Ctrl inverte (trás · esquerda · inferior).

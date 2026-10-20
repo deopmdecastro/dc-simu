@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { validCondition, type GrafcetStep } from './engine'
 import { matchSignals, signalAddressesInCondition, signalSearchText, tokenAtCursor, type GrafcetSignalSuggestion } from './signals'
 import { declareSignals } from './declareSignals'
+import { foldText } from '../utils/text'
 
 type Category = 'all' | 'inputs' | 'outputs' | 'memory' | 'steps' | 'timers' | 'resources'
 interface Suggestion { value: string; label: string; comment: string; search: string; category: Exclude<Category, 'all'>; source: 'table' | 'expression' }
@@ -80,8 +81,8 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
     setTypeaheadOpen(false)
     focusAt(position)
   }
-  const searchText = search.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT')
-  const filtered = suggestions.filter((item) => (category === 'all' || item.category === category) && `${item.value} ${item.label} ${item.comment} ${item.search}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT').includes(searchText))
+  const searchText = foldText(search)
+  const filtered = suggestions.filter((item) => (category === 'all' || item.category === category) && foldText(`${item.value} ${item.label} ${item.comment} ${item.search}`).includes(searchText))
   const undeclared = signalAddressesInCondition(value).filter((address) => !signals.some((signal) => signal.address === address))
   const valid = validCondition(value)
   const errorId = id.replace(/-input$/, '-error')

@@ -1,5 +1,6 @@
 import type { LadderTag } from '../types'
 import { actionsOfStep, transitionsOf, type GrafcetProgram } from './engine'
+import { foldText } from '../utils/text'
 
 export type SignalArea = 'I' | 'Q' | 'M'
 export interface GrafcetSignalSuggestion {
@@ -23,7 +24,7 @@ export function grafcetSignals(tags: readonly LadderTag[]): GrafcetSignalSuggest
   return [...found.values()]
 }
 
-export const signalSearchText = (signal: GrafcetSignalSuggestion) => `${signal.address} ${signal.name} ${signal.comment}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT')
+export const signalSearchText = (signal: GrafcetSignalSuggestion) => foldText(`${signal.address} ${signal.name} ${signal.comment}`)
 
 /** Declaration allocation is independent of runtime's preallocated I/Q bits. */
 export function nextDeclaredTagAddress(prefix: 'I' | 'Q' | 'M' | 'T' | 'C', tags: readonly Pick<LadderTag, 'address'>[]): string | null {
@@ -141,7 +142,7 @@ export function tokenAtCursor(value: string, cursor: number): TokenAtCursor | nu
   return { start, end, text }
 }
 
-const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT')
+const fold = foldText
 
 /**
  * Ordena as sugestões para uma consulta: endereço começado pela consulta, depois

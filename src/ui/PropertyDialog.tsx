@@ -13,10 +13,15 @@ interface PropertyDialogProps {
   onEscape?: () => void
   className?: string
   saveDisabled?: boolean
+  /** Texto pequeno por cima do título (por omissão, o contexto GRAFCET). */
+  eyebrow?: string
+  saveLabel?: string
+  /** Diálogos só de consulta: sem botão de guardar. */
+  hideSave?: boolean
 }
 
 /** Shared keyboard boundary: diagram shortcuts must never consume modal keys. */
-export default function PropertyDialog({ open, id, title, subtitle, children, onClose, onSave, onHelp, onEscape, className = '', saveDisabled = false }: PropertyDialogProps) {
+export default function PropertyDialog({ open, id, title, subtitle, children, onClose, onSave, onHelp, onEscape, className = '', saveDisabled = false, eyebrow = 'GRAFCET · IEC 60848', saveLabel = 'Guardar alterações', hideSave = false }: PropertyDialogProps) {
   const dialogRef = useRef<HTMLFormElement>(null)
   const closeRef = useRef(onClose)
   const escapeRef = useRef(onEscape)
@@ -33,7 +38,8 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
     })
     const containFocus = (event: FocusEvent) => {
       const dialog = dialogRef.current
-      if (dialog && event.target instanceof Node && !dialog.contains(event.target)) dialog.focus()
+      // Um diálogo aberto por cima (ex.: pré-visualização de importação) tem o seu próprio foco.
+      if (dialog && event.target instanceof Element && !dialog.contains(event.target) && !event.target.closest('[role="dialog"]')) dialog.focus()
     }
     document.addEventListener('focusin', containFocus)
     return () => {
@@ -47,7 +53,7 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
   return createPortal((
     <div className="grafcet-modal-backdrop grafcet-property-backdrop" onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <form ref={dialogRef} className={`grafcet-property-dialog ${className}`} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-subtitle`} tabIndex={-1} noValidate
-        onSubmit={(event) => { event.preventDefault(); onSave() }}
+        onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); onSave() }}
         onKeyDown={(event) => {
           event.stopPropagation()
           const target = event.target
@@ -66,7 +72,7 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
           }
         }}>
         <header className="grafcet-property-header">
-          <div><span className="grafcet-property-eyebrow">GRAFCET · IEC 60848</span><h2 id={`${id}-title`}>{title}</h2><p id={`${id}-subtitle`}>{subtitle}</p></div>
+          <div><span className="grafcet-property-eyebrow">{eyebrow}</span><h2 id={`${id}-title`}>{title}</h2><p id={`${id}-subtitle`}>{subtitle}</p></div>
           <button type="button" className="grafcet-property-close" onClick={onClose} aria-label="Fechar sem guardar">×</button>
         </header>
         <div className="grafcet-property-content">{children}</div>
@@ -74,7 +80,7 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
           {onHelp && <button type="button" className="grafcet-property-help" onClick={onHelp}>Ajuda dos atalhos</button>}
           <span className="grafcet-property-footer-hint">Esc para cancelar</span>
           <button type="button" className="grafcet-fluidsim-btn" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="grafcet-fluidsim-btn primary" disabled={saveDisabled}>Guardar alterações</button>
+          {!hideSave && <button type="submit" className="grafcet-fluidsim-btn primary" disabled={saveDisabled}>{saveLabel}</button>}
         </footer>
       </form>
     </div>

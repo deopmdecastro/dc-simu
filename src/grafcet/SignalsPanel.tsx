@@ -3,6 +3,7 @@ import type { LadderTag } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { declareSignals } from './declareSignals'
 import { isSignalAddress, canonicalSignalAddress, signalSearchText, type SignalArea, type SignalUsage } from './signals'
+import { foldText } from '../utils/text'
 
 export interface SignalsContext {
   /** Frase que explica o que o botão «Usar» faz para a seleção atual. */
@@ -54,7 +55,7 @@ export default function SignalsPanel({ tags, live, running, usage, undeclared, c
     return out.sort((a, b) => 'IQM'.indexOf(a.area) - 'IQM'.indexOf(b.area) || Number(a.address.slice(1)) - Number(b.address.slice(1)))
   }, [tags])
 
-  const query = search.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT').trim()
+  const query = foldText(search).trim()
   const visible = rows.filter((row) => (area === 'all' || row.area === area) && (!query || signalSearchText({ address: row.address, name: row.tag.name, comment: row.tag.comment ?? '', area: row.area }).includes(query)))
   const count = (value: SignalArea) => rows.filter((row) => row.area === value).length
 

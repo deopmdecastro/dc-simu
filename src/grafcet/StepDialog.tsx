@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { GrafcetStep, GrafcetStepType } from './engine'
-import PropertyDialog from './PropertyDialog'
+import PropertyDialog from '../ui/PropertyDialog'
 
 interface StepDialogProps {
   open: boolean
@@ -21,7 +21,7 @@ const STEP_TYPES: Array<{ id: GrafcetStepType; label: string; desc: string }> = 
   { id: 'initial-enclosing', label: 'Encapsulante inicial', desc: 'Etapa encapsulante inicial' },
 ]
 
-export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose, onHelp }: StepDialogProps) {
+export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose }: StepDialogProps) {
   const [name, setName] = useState('')
   const [stepType, setStepType] = useState<GrafcetStepType>('simple')
   const [activationLink, setActivationLink] = useState(false)

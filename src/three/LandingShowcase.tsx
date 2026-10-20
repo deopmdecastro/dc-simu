@@ -399,7 +399,7 @@ function useShowcaseFit(touched: MutableRefObject<boolean>) {
   return fit
 }
 
-function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor, onStopMotor }: Omit<Props, 'compact'>) {
+function ShowcaseScene({ plcRunning, motorOn, onStartMotor, onStopMotor }: Omit<Props, 'compact'>) {
   const plcActive = plcRunning ?? true
   const motorActive = plcActive && (motorOn ?? true)
   const stoppedActive = plcActive && !motorActive

@@ -44,9 +44,10 @@ import type { ProjectFile, ProjectFolder } from '../ladder/projectFiles'
 import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
-import { hasComponent3DModel, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
-import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
-import { isDinRail, isRailMountable, railSpanMm, railWidthPx, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
+import { hasComponent3DModel, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import type { PlannedComponent } from '../excel/componentSheet'
+import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
+import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { clampRailLengthMm } from '../three/dinRailGeometry'
 import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
 import { automaticTerminalViewPositions, componentTerminalLocal, terminal3DFromProjectedLocal } from '../schematic/componentTerminalViews'
@@ -222,6 +223,8 @@ interface Store extends CircuitState {
   wireDefaults: WireDefaults
   setWireDefaults: (patch: Partial<WireDefaults>) => void
   addComponent: (type: ComponentType, x: number, y: number) => string | null
+  /** Aplica uma tabela de componentes validada (Excel / tabela 3D): cria e atualiza, nunca apaga. */
+  applyComponentPlan: (items: PlannedComponent[]) => { created: number; updated: number }
   duplicateComponents: (ids: string[]) => void
   updateComponent: (id: string, patch: Partial<ElectricalComponent>) => void
   /** Como `updateComponent`, sem histórico (arrasto contínuo). */
@@ -1294,6 +1297,60 @@ export const useSimStore = create<Store>((set, get) => ({
     if (get().grid.railMagnet !== false) get().snapToRails([comp.id])
     get().step()
     return comp.id
+  },
+
+  applyComponentPlan: (items) => {
+    if (!items.length) return { created: 0, updated: 0 }
+    get().commitHistory()
+    const sameRef = (a: string, b: string) => a.trim().toUpperCase() === b.trim().toUpperCase()
+    const wires = get().wires
+    let components = [...get().components]
+    let created = 0
+    let updated = 0
+    const touched: string[] = []
+    const railTargets: string[] = []
+    // Calhas primeiro: os equipamentos que a elas se referem precisam de a encontrar já criada.
+    const ordered = [...items].sort((a, b) => Number(b.type === 'dinRail15x55') - Number(a.type === 'dinRail15x55'))
+    for (const item of ordered) {
+      const existing = item.action === 'update' ? components.find((component) => component.id === item.id) : undefined
+      if (item.action === 'update' && !existing) continue
+      let component: ElectricalComponent
+      if (existing) component = { ...existing }
+      else {
+        if (item.type === '') continue
+        component = createComponent(item.type, item.ref, item.label || undefined, components.length, SCHEMATIC_ORIGIN.x, SCHEMATIC_ORIGIN.y)
+        component.z = nextTopZ(components, wires)
+        component.railId = undefined
+        const free = nearestFreeComponentPosition(component, SCHEMATIC_ORIGIN.x - component.w / 2, SCHEMATIC_ORIGIN.y - component.h / 2, components)
+        component.schematicX = free.x
+        component.schematicY = free.y
+      }
+      if (existing && item.label) component.label = item.label
+      if (item.rotation !== null) component.rotation = item.rotation
+      if (item.mirrored !== null) component.mirrored = item.mirrored
+      if (item.locked !== null) component.locked = item.locked
+      if (item.xMm !== null && item.yMm !== null) {
+        component.schematicX = Math.round(panelToSchematicX(item.xMm * PANEL_UNITS_PER_MM) - component.w / 2)
+        component.schematicY = Math.round(panelToSchematicY(item.yMm * PANEL_UNITS_PER_MM) - component.h / 2)
+        if (existing) { component.railId = undefined; component.railOffsetMm = undefined }
+      }
+      const rail = item.rail ? components.find((other) => isDinRail(other) && sameRef(other.ref, item.rail)) : undefined
+      if (rail && isRailMountable(component)) {
+        component.railId = rail.id
+        component.railOffsetMm = item.railOffsetMm ?? 0
+        component.schematicX = Math.round(rail.schematicX + (item.railOffsetMm ?? 0) * SCHEMATIC_PX_PER_MM)
+        component.schematicY = Math.round(rail.schematicY + rail.h / 2 - component.h / 2)
+        railTargets.push(component.id)
+      }
+      if (existing) { components = components.map((other) => (other.id === component.id ? component : other)); updated++ }
+      else { components = [...components, component]; created++ }
+      touched.push(component.id)
+    }
+    set({ components, selectedComponentIds: touched, selectedWireId: null, dirty: true })
+    if (railTargets.length) get().snapToRails(railTargets)
+    get().pushEvent('info', `Tabela de componentes aplicada: ${created} criado(s), ${updated} atualizado(s).`)
+    get().step()
+    return { created, updated }
   },
 
   duplicateComponents: (ids) => {

@@ -14,7 +14,6 @@ interface Scan { partId: string; suggestions: Suggestion[]; ignored: string[] }
 export function AutoDetectSection() {
   const def = useEditorStore((s) => s.def)
   const selection = useEditorStore((s) => s.selection)
-  const glbRevision = useEditorStore((s) => s.glbRevision)
   const glbParts = def.parts.filter((part) => part.kind === 'glb')
   const [partId, setPartId] = useState(selection?.kind === 'part' ? selection.id : glbParts[0]?.id ?? '')
   const [scan, setScan] = useState<Scan | null>(null)

@@ -1,4 +1,5 @@
 import type { ControlDef, LightZoneDef, VarDef, Vec3 } from './types'
+import { foldText } from '../utils/text'
 
 /**
  * Deteção automática de objetos interativos dentro de um modelo GLB.
@@ -38,7 +39,7 @@ export interface Suggestion {
 }
 
 /** Normaliza para comparar: minúsculas e sem acentos. */
-const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+const fold = foldText
 
 const RULES: Array<{ kind: InteractableKind; patterns: RegExp[]; reason: string }> = [
   { kind: 'led', patterns: [/led/, /lamp/, /luz/, /light/, /indicador/, /indicator/, /sinal/, /signal/, /neon/, /glow/, /ilumin/], reason: 'nome sugere indicador luminoso' },

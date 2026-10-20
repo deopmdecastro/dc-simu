@@ -8,6 +8,7 @@ import { ELEMENT_KEYS } from './ladderShortcuts'
 import { useLadderPrefs } from './ladderPrefs'
 import { Kbd, ShortcutList } from './ShortcutsDialog'
 import { IconClose, IconSearch } from '../ui/icons'
+import { foldText } from '../utils/text'
 
 export type LadderSection = 'Projeto' | 'Biblioteca' | 'Dispositivos' | 'Diagnóstico' | 'Configurações'
 
@@ -27,7 +28,7 @@ interface Props {
 
 /* ------------------------------------------------------------------ blocos base */
 
-const norm = (text: string) => text.toLocaleLowerCase('pt-PT').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const norm = foldText
 
 function PageHeader({ title, subtitle, stats }: { title: string; subtitle: string; stats?: Array<{ label: string; value: ReactNode; tone?: 'ok' | 'warn' | 'error' }> }) {
   return (

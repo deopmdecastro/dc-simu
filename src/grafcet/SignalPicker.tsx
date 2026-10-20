@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { signalSearchText, type GrafcetSignalSuggestion } from './signals'
+import { foldText } from '../utils/text'
 
 /** Explicit search includes human labels/comments, but selection inserts only the address. */
 export default function SignalPicker({ signals, inputId, onChoose, onOpenChange }: { signals: GrafcetSignalSuggestion[]; inputId: string; onChoose: (address: string) => void; onOpenChange?: (open: boolean) => void }) {
@@ -7,7 +8,7 @@ export default function SignalPicker({ signals, inputId, onChoose, onOpenChange 
   const [search, setSearch] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const query = search.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT')
+  const query = foldText(search)
   const filtered = signals.filter((signal) => signalSearchText(signal).includes(query))
   const close = () => { setOpen(false); onOpenChange?.(false) }
   const choose = (address: string) => { onChoose(address); close(); requestAnimationFrame(() => document.getElementById(inputId)?.focus()) }

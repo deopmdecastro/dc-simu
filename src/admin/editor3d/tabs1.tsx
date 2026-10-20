@@ -4,7 +4,7 @@ import { newId, defaultMaterial, posedPart, boundsMm } from '../../catalog/defin
 import type { MaterialDef, PartDef, Vec3 } from '../../catalog/types'
 import { BASE_STATE, descendantsOf, glbCache, patchMaterial, patchPart, posePart, useEditorStore } from './editorStore'
 import { validateDefinition } from './validate'
-import { Check, Color, Empty, Field, Num, Section, Select, Slider, Text, Vec3Input, Confirm } from './ui'
+import { Check, Color, Field, Num, Section, Select, Slider, Text, Vec3Input, Confirm } from './ui'
 
 const SIZE_LABELS: Record<PartDef['kind'], [string, string, string] | null> = {
   group: null, glb: null, box: ['Largura', 'Altura', 'Profundidade'], cylinder: ['Diâmetro', 'Altura', '—'], cone: ['Diâmetro', 'Altura', '—'], sphere: ['Diâmetro', '—', '—'], torus: ['Diâmetro', '—', 'Espessura'],

@@ -341,7 +341,6 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     runProbe,
     clearProbe,
     connectChain,
-    organizeWires,
     updateWire,
     bringSelectionToFront,
     sendSelectionToBack,
@@ -365,7 +364,6 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const [wireDrag, setWireDrag] = useState<{ wireId: string; mode: 'bend' | 'curve' | 'waypoint' | 'fromPoint' | 'toPoint'; index?: number; originalTerminalId?: string; start?: Pt } | null>(null)
   const [railResize, setRailResize] = useState<{ id: string; side: 'left' | 'right' } | null>(null)
   const [terminalViewDrag, setTerminalViewDrag] = useState<{ componentId: string; terminalId: string } | null>(null)
-  const [dropPos, setDropPos] = useState<{ x: number; y: number } | null>(null)
   const [cursorPos, setCursorPos] = useState<Pt | null>(null)
   const [showHints, setShowHints] = useState(() => {
     try {
@@ -818,7 +816,6 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   const onCanvasDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    setDropPos(null)
     const compType = (e.dataTransfer.getData('application/dc-simu-component') || e.dataTransfer.getData('application/x-dcsimu-component') || e.dataTransfer.getData('text/plain')) as ComponentType
     useSimStore.getState().setDragType(null)
     setCursorPos(null)
@@ -1275,10 +1272,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
            e.preventDefault()
            e.dataTransfer.dropEffect = 'copy'
            const p = toCanvas(e.clientX, e.clientY)
-           setDropPos({ x: snap(p.x), y: snap(p.y) })
            setCursorPos(p)
          }}
-         onDragLeave={() => { setDropPos(null); setCursorPos(null) }}
+         onDragLeave={() => { setCursorPos(null) }}
          onDrop={onCanvasDrop}
        >
         <defs>
