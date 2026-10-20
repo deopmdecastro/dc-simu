@@ -40,7 +40,7 @@ import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, u
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
-import { autoExecRungs, callableBlocks, type ProjectFile, type ProjectFolder } from '../ladder/projectFiles'
+import { autoExecRungs, callableBlocks, defaultProjectFileContent, type ProjectFile, type ProjectFolder } from '../ladder/projectFiles'
 import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
@@ -711,15 +711,17 @@ export const useSimStore = create<Store>((set, get) => ({
     if (!trimmed) return null
     get().commitHistory()
     const id = nanoid(10)
-    const file: ProjectFile = { id, folder, name: trimmed, createdAt: new Date().toISOString(),
-      content: folder === 'backups' ? get().saveJSON() : '', ...(folder === 'programBlocks' ? { rungs: [] } : {}) }
+    const now = new Date().toISOString()
+    const file: ProjectFile = { id, folder, name: trimmed, createdAt: now, updatedAt: now,
+      content: folder === 'backups' ? get().saveJSON() : defaultProjectFileContent(folder, trimmed), ...(folder === 'programBlocks' ? { rungs: [] } : {}) }
     set((s) => ({ projectFiles: { ...s.projectFiles, [plcId]: [...(s.projectFiles[plcId] ?? []), file] }, dirty: true }))
     return id
   },
   updateProjectFile: (id, patch) => {
     const plcId = get().activePlcId ?? '_general'
     if (shouldCommitGroupedEdit(`project-file:${plcId}:${id}`)) get().commitHistory()
-    set((s) => ({ projectFiles: { ...s.projectFiles, [plcId]: (s.projectFiles[plcId] ?? []).map((f) => f.id === id ? { ...f, ...patch, name: patch.name !== undefined ? patch.name.trimStart() : f.name } : f) }, dirty: true }))
+    const updatedAt = new Date().toISOString()
+    set((s) => ({ projectFiles: { ...s.projectFiles, [plcId]: (s.projectFiles[plcId] ?? []).map((f) => f.id === id ? { ...f, ...patch, updatedAt, name: patch.name !== undefined ? patch.name.trimStart() : f.name } : f) }, dirty: true }))
   },
   deleteProjectFile: (id) => {
     const plcId = get().activePlcId ?? '_general'

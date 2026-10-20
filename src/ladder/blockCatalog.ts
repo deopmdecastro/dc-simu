@@ -176,12 +176,12 @@ export function starterRungs(title: string): LadderRung[] {
 }
 
 /** DB global com variáveis de exemplo no formato tipado que o simulador aceita. */
-export function dbTemplate(dbName: string): string {
+export function dbTemplate(_dbName: string): string {
   return JSON.stringify({
     Enable: { type: 'BOOL', value: false },
     Count: { type: 'INT', value: 0 },
     Setpoint: { type: 'REAL', value: 0 },
-  }, null, 2) + `\n// \"${dbName}\" — variáveis acedidas como ${dbName}.Enable nas instruções MOVE\n`
+  }, null, 2) + '\n'
 }
 
 /** Cabeçalho de fonte externa (SCL/ST/STL): texto guardado no projeto, não compilado. */

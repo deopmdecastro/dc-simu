@@ -7,7 +7,7 @@ import Select from '../ui/Select'
 import LadderSections, { type LadderSection } from './LadderSections'
 import { isSmallScreen } from '../ui/cleanMode'
 import { isProgrammablePlc } from './plcPrograms'
-import { PROJECT_FOLDERS, type ProjectFile, type ProjectFolder } from './projectFiles'
+import { PROJECT_FOLDERS, defaultProjectFileContent, type ProjectFile, type ProjectFolder } from './projectFiles'
 import { plcIoRows } from './plcIo'
 import { parseDataBlocks } from './dataBlocks'
 import { collectUsedAddresses } from './ladderEngine'
@@ -557,7 +557,19 @@ function PaletteIcon({ type }: { type: PaletteKind }) {
   return <LadderGlyph kind={type} size={30} />
 }
 
+const FOLDER_FILE_ICON: Record<ProjectFolder, ProjectTreeItem['icon']> = {
+  programBlocks: 'block',
+  dataBlocks: 'data',
+  technologyObjects: 'folder',
+  externalSources: 'source',
+  plcVariables: 'tags',
+  watchTables: 'watch',
+  backups: 'backup',
+  documentation: 'doc',
+}
+
 function ProjectTreePane({
+  tagCount,
   activeNode,
   expanded,
   onToggle,
@@ -574,6 +586,8 @@ function ProjectTreePane({
   onDeleteFolder,
   onRestoreFolder,
 }: {
+  /** Contador da tabela de tags real, que não vive como ficheiro genérico. */
+  tagCount: number
   files: ProjectFile[]
   hiddenFolders: ProjectFolder[]
   onCreateFile: (folder: ProjectFolder) => void
@@ -604,13 +618,14 @@ function ProjectTreePane({
   const projectTree: ProjectTreeItem = { ...PROJECT_TREE, children: PROJECT_TREE.children
     ?.filter((folder) => !hiddenFolders.includes(folder.id as ProjectFolder))
     .map((folder) => ({ ...folder,
-      children: PROJECT_FOLDERS.includes(folder.id as ProjectFolder) ? [ ...(folder.children ?? []), ...files.filter((f) => f.folder === folder.id).map((f) => ({ id: `file:${f.id}` as ProjectNodeId, label: f.name, icon: (f.folder === 'programBlocks' ? 'block' : f.folder === 'backups' ? 'backup' : 'doc') as ProjectTreeItem['icon'] })) ] : folder.children,
+      children: PROJECT_FOLDERS.includes(folder.id as ProjectFolder) ? [ ...(folder.children ?? []), ...files.filter((f) => f.folder === folder.id).map((f) => ({ id: `file:${f.id}` as ProjectNodeId, label: f.name, icon: FOLDER_FILE_ICON[f.folder] })) ] : folder.children,
     })) }
   const renderNode = (node: ProjectTreeItem, depth = 0) => {
     const hasChildren = !!node.children?.length
     const isFile = node.id.startsWith('file:')
     const file = isFile ? files.find((item) => `file:${item.id}` === node.id) : undefined
     const folder = PROJECT_FOLDERS.includes(node.id as ProjectFolder) ? node.id as ProjectFolder : null
+    const itemCount = folder ? (folder === 'plcVariables' ? tagCount : files.filter((item) => item.folder === folder).length) : null
     const canDeleteFolder = !!folder && folder !== 'programBlocks' && folder !== 'plcVariables'
     const isExpandableFolder = !isFile && (hasChildren || !BLOCK_NODE_IDS.has(node.id))
     const isOpen = expanded.has(node.id)
@@ -649,6 +664,7 @@ function ProjectTreePane({
           </span>
           <TreeGlyph icon={node.icon} />
           <span className="tree-label">{node.label}</span>
+          {itemCount !== null && <span className="tree-item-count" title={`${itemCount} ${folder === 'plcVariables' ? 'variáveis' : 'itens'}`}>{itemCount}</span>}
           {node.detail && <small>({node.detail})</small>}
         </button>
         {folder && <span className="tree-row-actions">
@@ -737,52 +753,175 @@ function NetworkStatus({ table, prefix, label, plc, wires, components, tags, run
   </div>
 }
 
+const PROJECT_FOLDER_DESCRIPTION: Record<ProjectFolder, string> = {
+  programBlocks: 'Blocos Ladder editáveis. Só OB1 é executado automaticamente.',
+  dataBlocks: 'Variáveis BOOL/INT/REAL em JSON, acessíveis por MOVE e contactos BOOL.',
+  technologyObjects: 'Objetos com configuração persistida de tipo, endereço, setpoint e estado.',
+  externalSources: 'Fontes SCL/ST/STL guardadas no projeto como referência editável.',
+  plcVariables: 'Tabela de tags real do PLC selecionado, disponível de imediato nas networks.',
+  watchTables: 'Endereços I/Q/M/T/C e variáveis DB observados em tempo real.',
+  backups: 'Instantâneos JSON do projeto, restauráveis neste dispositivo.',
+  documentation: 'Notas operacionais e de manutenção guardadas com o PLC selecionado.',
+}
+
+const PROJECT_FOLDER_CREATE_LABEL: Record<ProjectFolder, string> = {
+  programBlocks: 'Criar bloco',
+  dataBlocks: 'Criar bloco de dados',
+  technologyObjects: 'Criar objeto',
+  externalSources: 'Criar fonte',
+  plcVariables: 'Gerir variáveis',
+  watchTables: 'Criar tabela',
+  backups: 'Criar backup',
+  documentation: 'Criar documento',
+}
+
+function formatProjectDate(value: string | undefined) {
+  if (!value) return 'sem data'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'sem data' : date.toLocaleString('pt-PT')
+}
+
+function projectFileSummary(file: ProjectFile) {
+  if (file.folder === 'watchTables') return `${file.content.split(/[\s,;]+/).filter(Boolean).length} endereço(s) em observação`
+  if (file.folder === 'backups') return `${Math.max(1, Math.ceil(new Blob([file.content]).size / 1024))} KB · instantâneo restaurável`
+  if (file.folder === 'technologyObjects') return 'Configuração tecnológica editável'
+  if (file.folder === 'externalSources') return `${file.content.split('\n').length} linha(s) de fonte`
+  if (file.folder === 'documentation') return `${file.content.trim().length} caracteres de documentação`
+  return `Atualizado ${formatProjectDate(file.updatedAt ?? file.createdAt)}`
+}
+
 function ProjectDataView({ activeNode, files, onCreate, onOpen }: {
   activeNode: ProjectNodeId; files: ProjectFile[]; onCreate: (folder: ProjectFolder) => void; onOpen: (id: string) => void
 }) {
+  const tags = useSimStore((s) => s.tags)
   const folder = PROJECT_FOLDERS.includes(activeNode as ProjectFolder) ? activeNode as ProjectFolder : null
-  if (!folder) return <div className="ladder-folder-view"><FolderViewHeader icon={<IconCube size={16} />} title="Projeto" subtitle="Escolha uma pasta para criar ficheiros." /></div>
-  const description: Record<ProjectFolder, string> = {
-    programBlocks: 'Blocos Ladder editáveis. Só OB1 é executado automaticamente.',
-    dataBlocks: 'Variáveis BOOL/INT/REAL em JSON, acessíveis por MOVE e contactos BOOL.',
-    technologyObjects: 'Configuração e documentação de objetos tecnológicos.',
-    externalSources: 'Fontes de texto editáveis; não são compiladas nem executadas.',
-    plcVariables: 'Tags do PLC selecionado e ficheiros de documentação.',
-    watchTables: 'Endereços I/Q/M/T/C observados ao vivo: um endereço por linha.',
-    backups: 'Cópias JSON do projeto guardadas neste dispositivo.',
-    documentation: 'Notas e documentação do PLC selecionado.',
-  }
-  const matching = files.filter((f) => f.folder === folder)
-  return <div className={`ladder-folder-view ${folder === 'dataBlocks' ? 'ladder-data-folder' : ''}`}>
-    <FolderViewHeader icon={<IconProjects size={16} />} title={NODE_TITLES[folder]} subtitle={description[folder]} />
-    <button type="button" className="dc-btn-primary dc-btn self-start" onClick={() => onCreate(folder)}><IconPlus size={12} /> Criar {folder === 'backups' ? 'backup' : folder === 'programBlocks' ? 'bloco' : 'ficheiro'}</button>
-    <div className="ladder-data-grid">
-      {matching.map((file) => <button type="button" key={file.id} className="ladder-data-row text-left hover:bg-brand-50" onClick={() => onOpen(file.id)}><strong>{file.name}</strong><span>{new Date(file.createdAt).toLocaleString('pt-PT')}</span></button>)}
-      {!matching.length && <EmptyFolderMessage text="Pasta vazia. Crie o primeiro ficheiro." />}
-    </div>
-    {folder === 'plcVariables' && <div className="min-h-[260px] flex flex-col"><TagTable /></div>}
+  if (!folder) return <div className="ladder-folder-view"><FolderViewHeader icon={<IconCube size={16} />} title="Projeto" subtitle="Escolha uma pasta para criar itens reais do PLC." /></div>
+  if (folder === 'plcVariables') return <div className="ladder-project-tags-view">
+    <FolderViewHeader icon={<IconTag size={16} />} title="Variáveis PLC" subtitle={`${tags.length} variável(is) no PLC selecionado. Edite, importe ou exporte a tabela abaixo.`} />
+    <TagTable />
   </div>
+
+  const matching = files.filter((f) => f.folder === folder)
+  return <div className={`ladder-folder-view ladder-asset-folder ${folder === 'dataBlocks' ? 'ladder-data-folder' : ''}`}>
+    <FolderViewHeader icon={<TreeGlyph icon={FOLDER_FILE_ICON[folder]} />} title={NODE_TITLES[folder]} subtitle={PROJECT_FOLDER_DESCRIPTION[folder]} />
+    <div className="ladder-folder-actions">
+      <button type="button" className="dc-btn-primary dc-btn" onClick={() => onCreate(folder)}><IconPlus size={12} /> {PROJECT_FOLDER_CREATE_LABEL[folder]}</button>
+      <span>{matching.length} {matching.length === 1 ? 'item' : 'itens'} neste PLC</span>
+    </div>
+    <div className="ladder-asset-grid">
+      {matching.map((file) => <button type="button" key={file.id} className="ladder-asset-card" onClick={() => onOpen(file.id)}>
+        <span className="ladder-asset-icon"><TreeGlyph icon={FOLDER_FILE_ICON[file.folder]} /></span>
+        <span className="ladder-asset-main"><strong>{file.name}</strong><small>{projectFileSummary(file)}</small></span>
+        <span className="ladder-asset-date">{formatProjectDate(file.updatedAt ?? file.createdAt)}</span>
+      </button>)}
+      {!matching.length && <EmptyFolderMessage text={`Ainda não há itens em ${NODE_TITLES[folder]}. Use “${PROJECT_FOLDER_CREATE_LABEL[folder]}” para começar.`} />}
+    </div>
+  </div>
+}
+
+function parseWatchAddresses(content: string) {
+  const supported = /^(?:[IQMTC]\d+|[A-Z_]\w*(?:\.[A-Z_]\w*)?)$/
+  return [...new Set(content.split(/[\s,;]+/).map((value) => value.trim().toUpperCase()).filter((value) => supported.test(value)))]
+}
+
+function WatchTableEditor({ file, table }: { file: ProjectFile; table: Record<string, boolean> }) {
+  const update = useSimStore((s) => s.updateProjectFile)
+  const tags = useSimStore((s) => s.tags)
+  const timers = useSimStore((s) => s.runtime.timers)
+  const counters = useSimStore((s) => s.runtime.counters)
+  const db = useSimStore((s) => s.runtime.db)
+  const [newAddress, setNewAddress] = useState('')
+  const addresses = useMemo(() => parseWatchAddresses(file.content), [file.content])
+  const save = (next: string[]) => update(file.id, { content: next.join('\n') })
+  const addAddress = () => {
+    const address = newAddress.trim().toUpperCase()
+    if (!/^(?:[IQMTC]\d+|[A-Z_]\w*(?:\.[A-Z_]\w*)?)$/.test(address) || addresses.includes(address)) return
+    save([...addresses, address])
+    setNewAddress('')
+  }
+  const stateFor = (address: string) => {
+    if (timers[address]) return { value: timers[address].done ? '1 / concluído' : '0 / em curso', detail: `${timers[address].elapsedMs} / ${timers[address].presetMs} ms`, on: timers[address].done }
+    if (counters[address]) return { value: counters[address].done ? '1 / concluído' : '0 / em curso', detail: `${counters[address].count} / ${counters[address].preset}`, on: counters[address].done }
+    if (address in table) return { value: table[address] ? '1 / TRUE' : '0 / FALSE', detail: tags.find((tag) => tag.address.toUpperCase() === address)?.name || 'Endereço PLC', on: table[address] }
+    if (db[address]) return { value: `${db[address].type}: ${String(db[address].value)}`, detail: 'Variável de bloco de dados', on: db[address].type === 'BOOL' && db[address].value === true }
+    return { value: 'Sem valor disponível', detail: 'Verifique o endereço ou adicione-o ao programa', on: false }
+  }
+  return <section className="ladder-watch-editor" aria-label={`Tabela de observação ${file.name}`}>
+    <div className="ladder-watch-intro"><strong>Observação ao vivo</strong><span>Adicione endereços da tabela de tags, I/Q/M/T/C ou variáveis de DB. Os valores atualizam a cada scan.</span></div>
+    <form className="ladder-watch-add" onSubmit={(event) => { event.preventDefault(); addAddress() }}>
+      <input className="dc-input" value={newAddress} onChange={(event) => setNewAddress(event.target.value)} list={TAG_DATALIST_ID} placeholder="Ex.: I1, Q2, T1 ou DB_Motor.Speed" aria-label="Adicionar endereço à tabela de observação" />
+      <button type="submit" className="dc-btn-primary dc-btn" disabled={!newAddress.trim()}>Adicionar</button>
+    </form>
+    <div className="ladder-watch-grid" role="table" aria-label="Valores observados">
+      {addresses.map((address) => {
+        const state = stateFor(address)
+        return <div className="ladder-watch-row" role="row" key={address}>
+          <span role="cell" className="ladder-watch-address">{address}</span>
+          <span role="cell" className="ladder-watch-value">{state.value}<small>{state.detail}</small></span>
+          <i className={state.on ? 'is-on' : ''} aria-label={state.on ? 'Ativo' : 'Inativo'} />
+          <button type="button" className="ladder-watch-remove" onClick={() => save(addresses.filter((item) => item !== address))} aria-label={`Remover ${address} da observação`} title={`Remover ${address}`}><IconClose size={12} /></button>
+        </div>
+      })}
+      {!addresses.length && <EmptyFolderMessage text="A tabela está vazia. Adicione um endereço para acompanhar o valor em tempo real." />}
+    </div>
+  </section>
+}
+
+type TechnologyObjectConfig = { type: string; address: string; setpoint: number; unit: string; enabled: boolean; description: string }
+
+function readTechnologyObject(content: string, name: string): { config: TechnologyObjectConfig; valid: boolean } {
+  const fallback = JSON.parse(defaultProjectFileContent('technologyObjects', name)) as TechnologyObjectConfig
+  try {
+    const source = JSON.parse(content) as Partial<TechnologyObjectConfig>
+    if (!source || typeof source !== 'object' || Array.isArray(source)) throw Error('invalid')
+    return { valid: true, config: {
+      type: typeof source.type === 'string' ? source.type : fallback.type,
+      address: typeof source.address === 'string' ? source.address : fallback.address,
+      setpoint: typeof source.setpoint === 'number' && Number.isFinite(source.setpoint) ? source.setpoint : fallback.setpoint,
+      unit: typeof source.unit === 'string' ? source.unit : fallback.unit,
+      enabled: typeof source.enabled === 'boolean' ? source.enabled : fallback.enabled,
+      description: typeof source.description === 'string' ? source.description : fallback.description,
+    } }
+  } catch { return { config: fallback, valid: false } }
+}
+
+function TechnologyObjectEditor({ file }: { file: ProjectFile }) {
+  const update = useSimStore((s) => s.updateProjectFile)
+  const parsed = useMemo(() => readTechnologyObject(file.content, file.name), [file.content, file.name])
+  const save = (patch: Partial<TechnologyObjectConfig>) => update(file.id, { content: JSON.stringify({ ...parsed.config, ...patch }, null, 2) })
+  return <section className="ladder-technology-editor" aria-label={`Configuração do objeto tecnológico ${file.name}`}>
+    <div className="ladder-technology-intro"><strong>Configuração do objeto</strong><span>Os campos ficam guardados no projeto e podem ser reutilizados na documentação e em fontes externas.</span>{!parsed.valid && <button type="button" className="dc-btn" onClick={() => update(file.id, { content: defaultProjectFileContent('technologyObjects', file.name) })}>Repor configuração válida</button>}</div>
+    <div className="ladder-technology-fields">
+      <label>Tipo<Select className="dc-input" value={parsed.config.type} onChange={(event) => save({ type: event.target.value })}><option>Motor</option><option>PID</option><option>Eixo</option><option>Contador rápido</option><option>Outro</option></Select></label>
+      <label>Endereço<input className="dc-input" value={parsed.config.address} onChange={(event) => save({ address: event.target.value.toUpperCase() })} list={TAG_DATALIST_ID} placeholder="Ex.: Q1 ou DB_Motor.Speed" /></label>
+      <label>Setpoint<input className="dc-input" type="number" value={parsed.config.setpoint} onChange={(event) => save({ setpoint: Number(event.target.value) || 0 })} /></label>
+      <label>Unidade<input className="dc-input" value={parsed.config.unit} onChange={(event) => save({ unit: event.target.value })} placeholder="rpm, °C, bar…" /></label>
+      <label className="ladder-technology-enabled"><input type="checkbox" checked={parsed.config.enabled} onChange={(event) => save({ enabled: event.target.checked })} /> Ativo no projeto</label>
+      <label className="ladder-technology-description">Descrição<textarea className="dc-input" value={parsed.config.description} onChange={(event) => save({ description: event.target.value })} /></label>
+    </div>
+  </section>
 }
 
 function ProjectFileView({ file, table, onDelete }: { file: ProjectFile; table: Record<string, boolean>; onDelete: () => void }) {
   const update = useSimStore((s) => s.updateProjectFile)
   const restore = useSimStore((s) => s.restoreProjectBackup)
   const db = useSimStore((s) => s.runtime.db)
-  const addresses = file.folder === 'watchTables' ? file.content.split(/[\s,;]+/).map((v) => v.trim().toUpperCase()).filter(Boolean) : []
-  return <div className="ladder-folder-view gap-3">
-    <FolderViewHeader icon={<IconFile size={16} />} title={file.name} subtitle={`${NODE_TITLES[file.folder]} · criado em ${new Date(file.createdAt).toLocaleString('pt-PT')}`} />
-    <div className="flex gap-2 items-center"><label htmlFor="ladder-file-name" className="text-xs font-semibold">Nome</label>
+  const fileContentLabel: Partial<Record<ProjectFolder, string>> = { externalSources: 'Código-fonte / texto', documentation: 'Documento', dataBlocks: 'Definição JSON do bloco de dados' }
+  return <div className="ladder-folder-view ladder-file-view gap-3">
+    <FolderViewHeader icon={<TreeGlyph icon={FOLDER_FILE_ICON[file.folder]} />} title={file.name} subtitle={`${NODE_TITLES[file.folder]} · criado em ${formatProjectDate(file.createdAt)} · atualizado ${formatProjectDate(file.updatedAt ?? file.createdAt)}`} />
+    <div className="ladder-file-name-row"><label htmlFor="ladder-file-name" className="text-xs font-semibold">Nome</label>
       <input id="ladder-file-name" className="dc-input max-w-xs" value={file.name} onChange={(e) => update(file.id, { name: e.target.value })} />
       <button type="button" className="dc-btn-danger dc-btn ml-auto" onClick={onDelete}><IconDelete size={12} /> Eliminar</button>
     </div>
-    {file.folder === 'backups' ? <>
-      <p className="text-xs text-ink-500">Cópia do projeto no momento da criação. A restauração substitui o projeto atual; exporte o atual antes, se necessário.</p>
+    {file.folder === 'backups' ? <section className="ladder-backup-view">
+      <strong>Instantâneo do projeto</strong><span>Criado em {formatProjectDate(file.createdAt)} · {projectFileSummary(file)}</span>
+      <p>Cópia integral do projeto no momento da criação. Restaurar substitui o projeto aberto; exporte o atual antes se precisar de o conservar.</p>
       <button type="button" className="dc-btn-primary dc-btn self-start" onClick={async () => { if (await uiConfirm(`Restaurar o backup «${file.name}»? O projeto atual será substituído.`)) restore(file.id) }}>Restaurar backup</button>
-    </> : <>
-      <label htmlFor="ladder-file-content" className="text-xs font-semibold">{file.folder === 'watchTables' ? 'Endereços a observar (um por linha)' : 'Conteúdo do ficheiro'}</label>
-      <textarea id="ladder-file-content" className="dc-input !h-44 !p-2 font-mono text-xs resize-y" value={file.content} onChange={(e) => update(file.id, { content: e.target.value })} placeholder={file.folder === 'watchTables' ? 'I1\nQ1\nM1' : 'Escreva aqui…'} />
-      {file.folder === 'watchTables' && <div className="ladder-data-grid">{addresses.map((address, i) => <div key={`${address}-${i}`} className="ladder-data-row"><strong>{address}</strong><span>{address in table ? table[address] ? '1 / TRUE' : '0 / FALSE' : db[address] ? `${db[address].type}: ${String(db[address].value)}` : 'Sem endereço no PLC selecionado'}</span><i className={table[address] ? 'is-on' : ''} /></div>)}</div>}
-      {file.folder === 'externalSources' && <p className="text-xs text-amber-700">Texto guardado no projeto; compilação SCL/STL ainda não disponível.</p>}
+    </section> : file.folder === 'watchTables' ? <WatchTableEditor file={file} table={table} /> : file.folder === 'technologyObjects' ? <TechnologyObjectEditor file={file} /> : <>
+      <label htmlFor="ladder-file-content" className="text-xs font-semibold">{fileContentLabel[file.folder] ?? 'Conteúdo do ficheiro'}</label>
+      <textarea id="ladder-file-content" className="dc-input !h-44 !p-2 font-mono text-xs resize-y" value={file.content} onChange={(e) => update(file.id, { content: e.target.value })} placeholder="Escreva aqui…" />
+      {file.folder === 'externalSources' && <div className="ladder-file-note is-source"><strong>Fonte externa guardada</strong><span>{file.content.split('\n').length} linha(s). O texto é persistido no projeto; compilação SCL/ST/STL ainda não está disponível.</span></div>}
+      {file.folder === 'documentation' && <div className="ladder-file-note"><strong>Documento guardado</strong><span>{file.content.trim().length} caracteres. Use esta área para instruções de operação, manutenção e validação.</span></div>}
       {file.folder === 'dataBlocks' && <>
         <p className="text-xs text-ink-500">JSON tipado: {`{"Enable":{"type":"BOOL","value":true},"Count":{"type":"INT","value":0},"Speed":{"type":"REAL","value":1.5}}`}. Use MOVE com <strong>{file.name}.Enable</strong> ou <strong>{file.name}.Count</strong>. INT/REAL ainda não têm interface FC.</p>
         {parseDataBlocks([file]).errors.map((error) => <p key={error} className="text-xs text-red-700" role="alert">{error}</p>)}
@@ -1371,6 +1510,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         {/* gaveta em ecrã pequeno: toque fora fecha (visível só até 1199px) */}
         <button type="button" className="ladder-pane-scrim" aria-label="Fechar painel de projeto" onClick={() => setShowProjectPane(false)} />
         <ProjectTreePane
+          tagCount={tags.length}
           activeNode={activeProjectNode}
           expanded={expandedNodes}
           onToggle={toggleNode}

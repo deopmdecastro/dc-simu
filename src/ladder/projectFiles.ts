@@ -7,6 +7,8 @@ export type ProjectFile = {
   folder: ProjectFolder
   name: string
   content: string
+  /** Atualizado por cada edição — usado pela árvore e pelas vistas de projeto. */
+  updatedAt?: string
   /** Só os blocos Ladder são editáveis como networks; os sem `exec` correm via CALL. */
   rungs?: LadderRung[]
   /**
@@ -17,6 +19,23 @@ export type ProjectFile = {
    */
   exec?: 'obCyclic' | 'obStartup'
   createdAt: string
+}
+
+/** Conteúdo inicial útil para cada item que pode ser criado na árvore do PLC.
+ * Assim as pastas não são apenas marcadores visuais: cada item abre logo numa
+ * vista editável e é persistido no próprio projeto. */
+export function defaultProjectFileContent(folder: ProjectFolder, name: string): string {
+  if (folder === 'technologyObjects') return JSON.stringify({
+    type: 'Motor',
+    address: '',
+    setpoint: 0,
+    unit: 'rpm',
+    enabled: true,
+    description: `Objeto tecnológico ${name}`,
+  }, null, 2)
+  if (folder === 'externalSources') return `// ${name}\n// Fonte externa guardada no projeto.\n// Pode usar SCL, ST ou STL como referência; a compilação ainda não está disponível.\n\n`
+  if (folder === 'documentation') return `# ${name}\n\nDescreva aqui a operação, manutenção ou validação deste PLC.\n`
+  return ''
 }
 
 /** OBs de execução automática de uma lista de ficheiros (arranque/cíclicos). */
