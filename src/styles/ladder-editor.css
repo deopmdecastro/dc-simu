@@ -1,5 +1,9 @@
 /* ladder-editor.css — estilos do editor (ladder), extraídos de index.css. Usa os tokens --dx-* de dx.css. */
 
+/* Atalho global da barra: abre a mesma tabela que contém Modelo · Exportar · Importar. */
+.ladder-variables-tool { color:var(--dx-brand-700); font-weight:700; }
+.ladder-variables-tool:hover { color:var(--dx-brand-800); }
+
 .ladder-rung-chips { display:inline-flex; align-items:center; gap:4px; flex-shrink:0; }
 .ladder-chip { display:inline-flex; align-items:center; gap:3px; height:17px; padding:0 6px; border-radius:9px; background:rgba(255,255,255,.65); border:1px solid #cfd8e6; color:#3b4a63; font-size:10px; font-weight:700; font-variant-numeric:tabular-nums; }
 .ladder-chip small { font-size:9.5px; font-weight:500; color:#6b7a93; }

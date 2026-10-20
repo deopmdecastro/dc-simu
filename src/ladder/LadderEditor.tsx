@@ -1,4 +1,5 @@
 import { useLadderZoom, LADDER_ZOOM_STEP } from './ladderZoom'
+import { useLadderUi } from './ladderBus'
 import VirtualIoPanel from '../components/VirtualIoPanel'
 import { lintLadder } from './ladderLint'
 import { uiConfirm, uiPrompt } from '../ui/dialogs'
@@ -1066,6 +1067,17 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const [showProjectPane, setShowProjectPane] = useState(() => !isSmallScreen())
   const [showPalette, setShowPalette] = useState(() => !isSmallScreen())
   const [activeProjectNode, setActiveProjectNode] = useState<ProjectNodeId>('main')
+  const openVariablesTable = useCallback(() => {
+    setSection('Projeto')
+    setProgramTab('tags')
+    setActiveProjectNode('plcVariables')
+  }, [setSection])
+  useEffect(() => {
+    useLadderUi.getState().setActionHandler((action) => {
+      if (action === 'openVariables') openVariablesTable()
+    })
+    return () => useLadderUi.getState().setActionHandler(undefined)
+  }, [openVariablesTable])
   useEffect(() => { setActiveProjectNode('main'); setProgramTab('program') }, [activePlcId])
   const [expandedNodes, setExpandedNodes] = useState<Set<ProjectNodeId>>(() => new Set(['plc', 'programBlocks']))
   const [dragOver, setDragOver] = useState(false)

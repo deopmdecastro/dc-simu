@@ -11,6 +11,7 @@ import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireE
 import type { LadderSection } from '../ladder/LadderSections'
 import { useCleanMode } from '../ui/cleanMode'
 import { useLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } from '../ladder/ladderZoom'
+import { useLadderUi } from '../ladder/ladderBus'
 import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { validateGrafcet } from '../grafcet/engine'
 import { N8nLogo } from '../ui/BrandLogos'
@@ -515,6 +516,18 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 </button>
               ))}
             </nav>
+            <button
+              type="button"
+              className="dc-tool-btn ladder-variables-tool"
+              onClick={() => {
+                setLadderSection('Projeto')
+                useLadderUi.getState().emit('openVariables')
+              }}
+              title="Abrir a tabela de variáveis Ladder para importar um ficheiro Excel"
+            >
+              <IconTag size={13} />
+              <span>Variáveis</span>
+            </button>
           </>}
 
           {isCanvas && (
