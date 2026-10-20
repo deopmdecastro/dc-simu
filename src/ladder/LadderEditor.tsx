@@ -31,9 +31,9 @@ const blockPayloadFrom = (data: DataTransfer): CallBlockPayload | null => {
   return d && 'block' in d ? d.block : null
 }
 import {
-  IconPlus, IconDelete, IconCopy,
+  IconPlus, IconDelete, IconCopy, IconClose,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder,
-  IconFunction, IconChevronDown, IconChevronRight, IconShield,
+  IconFunction, IconChevronDown, IconChevronRight, IconShield, IconSearch,
   IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp,
 } from '../ui/icons'
 import { useLadderPrefs } from './ladderPrefs'
@@ -752,7 +752,7 @@ function ProjectDataView({ activeNode, files, onCreate, onOpen }: {
     documentation: 'Notas e documentação do PLC selecionado.',
   }
   const matching = files.filter((f) => f.folder === folder)
-  return <div className="ladder-folder-view">
+  return <div className={`ladder-folder-view ${folder === 'dataBlocks' ? 'ladder-data-folder' : ''}`}>
     <FolderViewHeader icon={<IconProjects size={16} />} title={NODE_TITLES[folder]} subtitle={description[folder]} />
     <button type="button" className="dc-btn-primary dc-btn self-start" onClick={() => onCreate(folder)}><IconPlus size={12} /> Criar {folder === 'backups' ? 'backup' : folder === 'programBlocks' ? 'bloco' : 'ficheiro'}</button>
     <div className="ladder-data-grid">
@@ -822,10 +822,23 @@ function BlockProgramView({ id, notify, registerInsert }: {
   const file = useSimStore((s) => s.projectFiles[activePlcId ?? '_general']?.find((f) => `file:${f.id}` === id))
   const fcBlocks = useSimStore((s) => s.fcBlocks)
   const rungs = id.startsWith('file:') ? file?.rungs ?? [] : fcBlocks[id as 'fc1' | 'fc2']
+  const table = useSimStore((s) => s.runtime.table)
+  const rungPowered = useSimStore((s) => s.runtime.rungPowered)
+  const running = useSimStore((s) => s.sim.runState === 'running')
+  const grid = useSimStore((s) => s.grid)
+  const ladderZoom = useLadderZoom((state) => state.zoom)
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
   const [dragOver, setDragOver] = useState(false)
   const [dragBlockHint, setDragBlockHint] = useState<string | null>(null)
   const canvasDepth = useRef(0)
+  const counts = programCounts(rungs)
+  const poweredCount = rungs.filter((rung) => rungPowered[rung.id]).length
+  const allCollapsed = rungs.length > 0 && rungs.every((rung) => collapsedIds.has(rung.id))
+  useEffect(() => {
+    setActiveRungId(null)
+    setCollapsedIds(new Set())
+  }, [id])
 
   const getRungs = (): LadderRung[] => {
     const st = useSimStore.getState()
@@ -912,17 +925,41 @@ function BlockProgramView({ id, notify, registerInsert }: {
   }
 
   const title = id.startsWith('file:') ? file?.name ?? 'Bloco eliminado' : NODE_TITLES[id as 'fc1' | 'fc2']
+  const subtitle = file?.exec === 'obCyclic'
+    ? 'Executa automaticamente em todos os ciclos, após o Main [OB1].'
+    : file?.exec === 'obStartup'
+      ? 'Executa uma vez ao entrar em RUN; pressione STOP e RUN para repetir.'
+      : 'Não executa sozinho: use CALL a partir do Main ou de outro bloco.'
   return (
     <div className="ladder-folder-view ladder-block-program">
-      <FolderViewHeader icon={<IconFunction size={16} />} title={title} subtitle={file?.exec === 'obCyclic' ? 'Bloco editável, guardado com o projeto. Executa automaticamente em todos os ciclos, após o Main [OB1].' : file?.exec === 'obStartup' ? 'Bloco editável, guardado com o projeto. Executa uma vez, ao entrar em RUN (arranque); pressione STOP e RUN para o repetir.' : 'Bloco editável, guardado com o projeto. Não corre sozinho: execute-o com CALL a partir do Main ou de outro bloco.'} />
-      <div className="flex gap-2 items-center my-2">
-        <button className="ladder-primary-button" onClick={() => addRungLocal()} title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>
-        <small className="text-[10px] text-ink-400">Edição como na Main: paleta lateral, atalhos, drag&drop e botão «＋» na calha para linhas paralelas.</small>
+      <div className="ladder-editor-toolbar ladder-block-toolbar">
+        <div className="ladder-block-heading" title={subtitle}>
+          <IconFunction size={14} />
+          <strong>{title}</strong>
+        </div>
+        <span className="ladder-block-subtitle">{subtitle}</span>
+        <span className="ladder-toolbar-separator" />
+        {rungs.length > 1 && (
+          <button type="button" className="ladder-toolbar-button" onClick={() => setCollapsedIds(allCollapsed ? new Set() : new Set(rungs.map((rung) => rung.id)))} title="Recolher ou expandir todas as networks">
+            {allCollapsed ? 'Expandir tudo' : 'Recolher tudo'}
+          </button>
+        )}
+        <button type="button" className="ladder-primary-button" onClick={() => addRungLocal()} title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>
       </div>
-      {!rungs.length && <p className="text-xs text-ink-400">Bloco vazio. Crie uma network — ou arraste um elemento da paleta para dentro do quadro.</p>}
+      <div className="ladder-program-summary" aria-label="Resumo do bloco">
+        <LadderMetric label="Networks" value={rungs.length} />
+        <LadderMetric label="Energizadas" value={running ? poweredCount : 0} tone={running && poweredCount ? 'run' : 'neutral'} />
+        <LadderMetric label="Contatos" value={counts.contacts} />
+        <LadderMetric label="Bobinas" value={counts.coils} />
+        <LadderMetric label="Timers/Counters" value={`${counts.timers}/${counts.counters}`} tone={counts.timers + counts.counters ? 'warn' : 'neutral'} />
+        <div className="ladder-live-bus">
+          <span>Bus I/Q/M</span>
+          <strong>{onCount(table, 'I')} / {onCount(table, 'Q')} / {onCount(table, 'M')}</strong>
+        </div>
+      </div>
       <div
-        className={`ladder-networks drop-zone ${dragOver ? 'drag-over' : ''}`}
-        style={{ minHeight: 200, borderRadius: 8, maxHeight: 'none', flex: '0 1 auto' }}
+        className={`ladder-networks ladder-block-network-canvas ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'} drop-zone ${dragOver ? 'drag-over' : ''}`}
+        style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
         onDragOver={(e) => {
           e.preventDefault()
           e.dataTransfer.dropEffect = 'copy'
@@ -956,7 +993,7 @@ function BlockProgramView({ id, notify, registerInsert }: {
             <em>→ nova network</em>
           </div>
         )}
-        <div className={`ladder-networks-scale ${rungs.length ? '' : 'is-empty'}`}>
+        <div className={`ladder-networks-scale ${rungs.length ? '' : 'is-empty'}`} style={{ zoom: ladderZoom * ZOOM_BASE }}>
           {rungs.map((r, i) => (
             <div
               key={r.id}
@@ -969,9 +1006,24 @@ function BlockProgramView({ id, notify, registerInsert }: {
               onMouseDownCapture={() => setActiveRungId(r.id)}
               onDragEnterCapture={() => { if (dragBlockHint) setDragBlockHint(null) }}
             >
-              <RungRow rung={r} index={i} total={rungs.length} active={activeRungId === r.id} minWidth={560} ops={ops} />
+              <RungRow
+                rung={r}
+                index={i}
+                total={rungs.length}
+                active={activeRungId === r.id}
+                minWidth={720}
+                collapsed={collapsedIds.has(r.id)}
+                onToggleCollapse={() => setCollapsedIds((current) => {
+                  const next = new Set(current)
+                  if (next.has(r.id)) next.delete(r.id)
+                  else next.add(r.id)
+                  return next
+                })}
+                ops={ops}
+              />
             </div>
           ))}
+          {!rungs.length && <LadderEmptyState onCreate={addRungLocal} />}
         </div>
       </div>
     </div>
@@ -1487,9 +1539,10 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           </div>
           <button className="ladder-ghost-button" onClick={() => setShowPalette(false)} title="Recolher elementos">›</button>
         </div>
-        <div className="relative mb-2">
-          <input ref={searchRef} className="ladder-palette-search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Buscar elemento…  ( / )" onKeyDown={(e) => { if (e.key === 'Escape') { setFilter(''); (e.target as HTMLInputElement).blur() } }} />
-          <span className="ladder-search-icon">⌕</span>
+        <div className="ladder-palette-search-wrap">
+          <input ref={searchRef} type="search" className="ladder-palette-search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Pesquisar elemento…  ( / )" aria-label="Pesquisar elementos Ladder" onKeyDown={(e) => { if (e.key === 'Escape') { setFilter(''); (e.target as HTMLInputElement).blur() } }} />
+          <span className="ladder-search-icon" aria-hidden="true"><IconSearch size={13} /></span>
+          {filter && <button type="button" className="ladder-palette-clear" onClick={() => { setFilter(''); searchRef.current?.focus() }} aria-label="Limpar pesquisa" title="Limpar pesquisa"><IconClose size={11} /></button>}
         </div>
         <div className="ladder-palette-scroll">
           {visibleGroups.map((group) => (

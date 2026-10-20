@@ -143,3 +143,93 @@
 .ladder-lint-row.is-error b { color: #dc2626; }
 .ladder-lint-row.is-warning b { color: #d97706; }
 .ladder-lint-row.is-info b { color: #2563eb; }
+
+/* Tabela de tags: pesquisa e filtros partilhados com o modelo da tabela GRAFCET. */
+.ladder-tag-table { display:flex; flex:1 1 auto; min-height:0; flex-direction:column; gap:12px; overflow:auto; padding:16px; background:#f7f9fc; }
+.ladder-tag-table-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:14px 16px; border:1px solid #dce5f2; border-radius:9px; background:#fff; box-shadow:0 1px 2px rgba(31,43,74,.05); }
+.ladder-tag-table-heading { display:flex; min-width:0; flex-direction:column; gap:4px; }
+.ladder-tag-table-heading strong { color:#25324a; font-size:14px; }
+.ladder-tag-table-heading span { max-width:620px; color:#718096; font-size:11px; line-height:1.5; }
+.ladder-tag-table-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px; }
+.ladder-tag-transfer .sheet-bar .dc-btn { min-height:32px; white-space:nowrap; }
+.ladder-tag-tools { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.ladder-tag-search { display:flex; flex:1 1 240px; min-width:180px; max-width:420px; height:34px; align-items:center; gap:8px; padding:0 9px; border:1px solid #d5dde8; border-radius:8px; color:#8995a7; background:#fff; }
+.ladder-tag-search:focus-within { border-color:var(--ladder-blue); box-shadow:0 0 0 3px rgba(31,85,224,.12); }
+.ladder-tag-search input { width:100%; min-width:0; border:0; outline:0; color:#25324a; background:transparent; font-size:11px; }
+.ladder-tag-search input::placeholder { color:#9aa6b8; }
+.ladder-tag-search input::-webkit-search-cancel-button { display:none; }
+.ladder-tag-search button { display:inline-flex; width:22px; height:22px; flex:0 0 22px; align-items:center; justify-content:center; border-radius:5px; color:#7a879c; }
+.ladder-tag-search button:hover { color:#25324a; background:#eef2f8; }
+.ladder-tag-area-tabs { display:flex; max-width:100%; align-items:center; gap:4px; overflow:auto; padding:2px; border:1px solid #dce4ef; border-radius:8px; background:#fff; scrollbar-width:thin; }
+.ladder-tag-area-tabs button { display:inline-flex; min-height:28px; flex:0 0 auto; align-items:center; gap:6px; padding:0 9px; border:1px solid transparent; border-radius:6px; color:#617089; background:transparent; font-size:10px; font-weight:650; white-space:nowrap; }
+.ladder-tag-area-tabs button:hover { color:var(--ladder-blue); background:#f4f7fd; }
+.ladder-tag-area-tabs button.is-active { border-color:#d7e2f8; color:var(--ladder-blue-dark); background:#edf3ff; }
+.ladder-tag-area-tabs button[aria-pressed="true"] { font-weight:750; }
+.ladder-tag-area-tabs button span { min-width:17px; padding:1px 4px; border-radius:10px; color:#72809a; background:#eef2f7; font-size:9px; text-align:center; }
+.ladder-tag-area-tabs button.is-active span { color:var(--ladder-blue-dark); background:#dbe7ff; }
+.ladder-tag-section { overflow:hidden; border:1px solid #dce4ef; border-radius:9px; background:#fff; box-shadow:0 1px 2px rgba(31,43,74,.04); }
+.ladder-tag-section-header { display:flex; min-height:48px; align-items:center; justify-content:space-between; gap:12px; padding:8px 12px; border-bottom:1px solid #e7edf5; background:#f8fafd; }
+.ladder-tag-section-title { display:flex; min-width:0; align-items:center; flex-wrap:wrap; gap:7px; }
+.ladder-tag-section-title strong { color:#25324a; font-size:11px; }
+.ladder-tag-section-title > span { min-width:20px; padding:1px 6px; border-radius:10px; color:#315b9d; background:#e6efff; font-size:9px; font-weight:700; text-align:center; }
+.ladder-tag-section-title small { color:#7a879c; font-size:10px; }
+.ladder-tag-add { min-height:28px; flex:0 0 auto; gap:5px; white-space:nowrap; }
+.ladder-tag-table-scroll { overflow:auto; }
+.ladder-tag-grid-table { width:100%; min-width:620px; border-collapse:collapse; background:#fff; font-size:11px; }
+.ladder-tag-grid-table th { position:sticky; top:0; z-index:1; padding:8px 9px; border-bottom:1px solid #e2e8f0; color:#65738a; background:#fff; font-size:10px; font-weight:700; text-align:left; white-space:nowrap; }
+.ladder-tag-grid-table td { padding:5px 7px; border-top:1px solid #edf1f7; vertical-align:middle; }
+.ladder-tag-row:hover td { background:#f8faff; }
+.ladder-tag-address { width:100px; }
+.ladder-tag-name { width:180px; }
+.ladder-tag-comment { min-width:180px; }
+.ladder-tag-type { width:100px; }
+.ladder-tag-remove { width:34px; text-align:center; }
+.ladder-tag-cell-input { width:100%; min-height:30px; padding:4px 7px; border:1px solid transparent; border-radius:6px; outline:none; color:#25324a; background:transparent; font-size:11px; }
+.ladder-tag-cell-input:hover { border-color:#e0e6ef; }
+.ladder-tag-cell-input:focus { border-color:#94b6fa; background:#fff; box-shadow:0 0 0 2px rgba(31,85,224,.1); }
+.ladder-tag-cell-input.is-address { color:#315b9d; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:700; text-align:center; }
+.ladder-tag-cell-input::placeholder { color:#9aa6b8; }
+.ladder-tag-remove-button { display:inline-flex; width:26px; height:26px; align-items:center; justify-content:center; border-radius:6px; color:#9aa6b8; }
+.ladder-tag-remove-button:hover { color:#b42330; background:#fff0f0; }
+.ladder-tag-empty-row { height:42px; color:#8995a7; font-size:10px; text-align:center; }
+.ladder-tag-empty-state { display:flex; min-height:180px; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:20px; border:1px dashed #cbd5e4; border-radius:10px; color:#7a879c; background:#fff; text-align:center; }
+.ladder-tag-empty-state strong { color:#33415c; font-size:12px; }
+.ladder-tag-empty-state span { font-size:10px; }
+
+/* O editor de FC usa a mesma barra, resumo e canvas da Main. */
+.ladder-folder-view.ladder-block-program { display:flex; flex-direction:column; gap:0; overflow:hidden; padding:0; background-color:#f7f9fc; background-image:none; }
+.ladder-block-toolbar { min-height:42px; height:auto; flex:0 0 auto; gap:8px; padding:6px 11px; }
+.ladder-block-heading { display:flex; min-width:0; flex:0 0 auto; align-items:center; gap:6px; color:var(--ladder-blue-dark); font-size:11px; }
+.ladder-block-heading strong { overflow:hidden; max-width:180px; text-overflow:ellipsis; white-space:nowrap; }
+.ladder-block-subtitle { min-width:0; overflow:hidden; color:#7a879c; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.ladder-block-network-canvas { min-height:0; flex:1 1 auto; border-top:1px solid #e0e6ef; }
+
+/* Espaçamento da pasta de blocos de dados e da pesquisa da paleta Ladder. */
+.ladder-data-folder { display:flex; flex-direction:column; gap:14px; padding:18px; }
+.ladder-data-folder .ladder-folder-header { margin-bottom:0; padding:14px; }
+.ladder-data-folder .ladder-data-grid { flex:1 1 auto; align-content:start; gap:10px; }
+.ladder-data-folder .ladder-data-grid > .ladder-folder-empty { grid-column:1 / -1; min-height:clamp(220px,38vh,320px); }
+.ladder-data-folder .ladder-data-row { grid-template-columns:minmax(0,1fr) auto; min-height:44px; gap:12px; padding:10px 12px; border-radius:9px; }
+.ladder-palette-search-wrap { position:relative; margin-bottom:8px; }
+.ladder-palette-search { height:34px; padding-right:32px; border-radius:8px; font-size:11px; }
+.ladder-palette-search:focus { border-color:var(--ladder-blue); box-shadow:0 0 0 3px rgba(38,85,229,.12); }
+.ladder-search-icon { top:10px; display:inline-flex; align-items:center; justify-content:center; }
+.ladder-palette-clear { position:absolute; top:6px; right:6px; display:inline-flex; width:22px; height:22px; align-items:center; justify-content:center; border-radius:5px; color:#7a879c; }
+.ladder-palette-clear:hover { color:#25324a; background:#eef2f8; }
+
+@media (max-width:720px) {
+  .ladder-tag-table { gap:10px; padding:10px; }
+  .ladder-tag-table-header { flex-direction:column; gap:10px; padding:12px; }
+  .ladder-tag-table-actions { width:100%; justify-content:flex-start; }
+  .ladder-tag-table-actions > .dc-btn { min-height:32px; }
+  .ladder-tag-transfer .sheet-bar { justify-content:flex-start; }
+  .ladder-tag-transfer .sheet-bar .dc-btn { min-height:32px; }
+  .ladder-tag-tools { align-items:stretch; }
+  .ladder-tag-search { max-width:none; }
+  .ladder-block-toolbar { flex-wrap:wrap; }
+  .ladder-block-subtitle { order:3; flex-basis:100%; }
+}
+@media (max-width:520px) {
+  .ladder-data-folder { gap:10px; padding:12px; }
+  .ladder-tag-section-header { align-items:flex-start; flex-direction:column; }
+}

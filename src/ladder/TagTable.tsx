@@ -1,9 +1,10 @@
+import { useState } from 'react'
 import Select from '../ui/Select'
 import { useSimStore } from '../store/useSimStore'
 import type { LadderDataType, LadderTag } from '../types'
-import { IconPlus, IconClose } from '../ui/icons'
+import { IconPlus, IconClose, IconSearch } from '../ui/icons'
 import TagSheetActions from '../excel/TagSheetActions'
-import { compareTags } from '../excel/tagSheet'
+import { compareTags, type TagPrefix } from '../excel/tagSheet'
 
 /* ------------------------------------------------------------------------ *
  * Tabela de Tags — inspirada na organização do TIA Portal: uma tabela por
@@ -27,28 +28,27 @@ const DATA_TYPES: LadderDataType[] = ['Bool', 'Time', 'Int', 'Real']
 function TagRow({ tag }: { tag: LadderTag }) {
   const updateTag = useSimStore((s) => s.updateTag)
   const removeTag = useSimStore((s) => s.removeTag)
-  const cell = 'bg-transparent outline-none text-ink-900 w-full px-1 py-0.5 rounded focus:bg-brand-50'
 
   return (
-    <tr className="border-t border-line-soft hover:bg-brand-50/40">
-      <td className="min-w-[120px]">
-        <input className={cell} value={tag.name} onChange={(e) => updateTag(tag.id, { name: e.target.value })} placeholder="Nome simbólico" />
+    <tr className="ladder-tag-row">
+      <td className="ladder-tag-address">
+        <input className="ladder-tag-cell-input is-address" aria-label={`Endereço da tag ${tag.name || tag.address}`} value={tag.address} onChange={(e) => updateTag(tag.id, { address: e.target.value })} />
       </td>
-      <td className="w-16">
-        <input className={`${cell} font-mono text-center`} value={tag.address} onChange={(e) => updateTag(tag.id, { address: e.target.value })} />
+      <td className="ladder-tag-name">
+        <input className="ladder-tag-cell-input" aria-label={`Nome da tag ${tag.address}`} value={tag.name} onChange={(e) => updateTag(tag.id, { name: e.target.value })} placeholder="Nome simbólico" />
       </td>
-      <td className="w-20">
-        <Select className={cell} value={tag.dataType} onChange={(e) => updateTag(tag.id, { dataType: e.target.value as LadderDataType })}>
+      <td className="ladder-tag-comment">
+        <input className="ladder-tag-cell-input" aria-label={`Comentário da tag ${tag.address}`} value={tag.comment ?? ''} onChange={(e) => updateTag(tag.id, { comment: e.target.value })} placeholder="Comentário (opcional)" />
+      </td>
+      <td className="ladder-tag-type">
+        <Select className="ladder-tag-cell-input" aria-label={`Tipo da tag ${tag.address}`} value={tag.dataType} onChange={(e) => updateTag(tag.id, { dataType: e.target.value as LadderDataType })}>
           {DATA_TYPES.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
         </Select>
       </td>
-      <td className="min-w-[140px]">
-        <input className={cell} value={tag.comment ?? ''} onChange={(e) => updateTag(tag.id, { comment: e.target.value })} placeholder="Comentário" />
-      </td>
-      <td className="w-6 text-center">
-        <button className="text-ink-300 hover:text-state-error text-xs" title="Remover tag" onClick={() => removeTag(tag.id)}>
+      <td className="ladder-tag-remove">
+        <button type="button" className="ladder-tag-remove-button" title={`Remover tag ${tag.address}`} aria-label={`Remover tag ${tag.address}`} onClick={() => removeTag(tag.id)}>
           <IconClose size={11} />
         </button>
       </td>
@@ -61,65 +61,103 @@ export default function TagTable() {
   const addTag = useSimStore((s) => s.addTag)
   const autoDetectTags = useSimStore((s) => s.autoDetectTags)
   const setTags = useSimStore((s) => s.setTags)
+  const [area, setArea] = useState<'all' | TagPrefix>('all')
+  const [query, setQuery] = useState('')
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const countFor = (prefix: TagPrefix) => tags.filter((tag) => tag.address.trim().toUpperCase().startsWith(prefix)).length
+  const matchesQuery = (tag: LadderTag) => !normalizedQuery || `${tag.address} ${tag.name} ${tag.comment ?? ''} ${tag.dataType}`.toLocaleLowerCase().includes(normalizedQuery)
+  const sections = SECTIONS
+    .filter(({ prefix }) => area === 'all' || area === prefix)
+    .map((section) => ({
+      ...section,
+      total: countFor(section.prefix),
+      rows: tags.filter((tag) => tag.address.trim().toUpperCase().startsWith(section.prefix) && matchesQuery(tag)).sort(compareTags),
+    }))
+    .filter((section) => !normalizedQuery || section.rows.length > 0 || area === section.prefix)
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4 min-h-0 bg-surface-panel">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] text-ink-500 leading-relaxed">
-          Dê nomes simbólicos aos endereços usados no programa — o endereço (I1, Q1, M1…) continua a
-          ser a referência real; a tag é só documentação, como no TIA Portal.
-        </p>
-        <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
+    <div className="ladder-tag-table">
+      <header className="ladder-tag-table-header">
+        <div className="ladder-tag-table-heading">
+          <strong>Tabela de Tags</strong>
+          <span>Organize e importe variáveis do PLC ativo. Endereço, nome, tipo e comentário acompanham o programa.</span>
+        </div>
+        <div className="ladder-tag-table-actions">
           <button
+            type="button"
             className="dc-btn"
             title="Cria uma tag (nome = endereço) para todo endereço já usado no programa que ainda não tenha uma"
             onClick={() => autoDetectTags()}
           >
             ⟲ Detectar do programa
           </button>
-          <TagSheetActions tags={tags} context="LADDER · TABELA DE TAGS" fileName="tags-ladder" onApply={(next) => setTags(next)} />
+          <TagSheetActions className="ladder-tag-transfer" tags={tags} context="LADDER · TABELA DE TAGS" fileName="tags-ladder" onApply={(next) => setTags(next)} />
+        </div>
+      </header>
+
+      <div className="ladder-tag-tools">
+        <label className="ladder-tag-search">
+          <IconSearch size={13} />
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Endereço, nome ou comentário…" aria-label="Pesquisar tags por endereço, nome ou comentário" />
+          {query && <button type="button" onClick={() => setQuery('')} aria-label="Limpar pesquisa de tags" title="Limpar pesquisa"><IconClose size={12} /></button>}
+        </label>
+        <div className="ladder-tag-area-tabs" role="group" aria-label="Filtrar tags por área">
+          <button type="button" aria-pressed={area === 'all'} className={area === 'all' ? 'is-active' : ''} onClick={() => setArea('all')}>
+            Todas <span>{tags.length}</span>
+          </button>
+          {SECTIONS.map(({ prefix, title }) => (
+            <button type="button" aria-pressed={area === prefix} className={area === prefix ? 'is-active' : ''} key={prefix} onClick={() => setArea(prefix)}>
+              {title} <span>{countFor(prefix)}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {SECTIONS.map(({ prefix, title, hint }) => {
-        const rows = tags.filter((t) => t.address.toUpperCase().startsWith(prefix)).sort(compareTags)
+      {sections.length ? sections.map(({ prefix, title, hint, rows, total }) => {
         return (
-          <div key={prefix} className="border border-line rounded-md overflow-hidden bg-white shadow-xs">
-            <div className="flex items-center justify-between px-2 py-1.5 bg-surface-rail border-b border-line">
-              <div>
-                <span className="text-xs font-semibold text-ink-900">{title}</span>
-                <span className="text-[10px] text-ink-400 ml-2">{hint}</span>
+          <section key={prefix} className="ladder-tag-section">
+            <header className="ladder-tag-section-header">
+              <div className="ladder-tag-section-title">
+                <strong>{title}</strong>
+                <span>{rows.length}{normalizedQuery ? ` de ${total}` : ''}</span>
+                <small>{hint}</small>
               </div>
-              <button className="dc-btn !h-5 !px-1.5 !text-[10px]" onClick={() => addTag(prefix)}>
-                <IconPlus size={10} /> tag
+              <button type="button" className="dc-btn ladder-tag-add" onClick={() => addTag(prefix)} aria-label={`Adicionar tag em ${title}`} title={`Adicionar tag em ${title}`}>
+                <IconPlus size={11} /> <span>Adicionar tag</span>
               </button>
-            </div>
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="text-ink-400 text-left bg-white">
-                  <th className="font-medium px-1 py-0.5">Nome</th>
-                  <th className="font-medium px-1 py-0.5">Endereço</th>
-                  <th className="font-medium px-1 py-0.5">Tipo</th>
-                  <th className="font-medium px-1 py-0.5">Comentário</th>
-                  <th className="w-6" />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((t) => (
-                  <TagRow key={t.id} tag={t} />
-                ))}
-                {!rows.length && (
+            </header>
+            <div className="ladder-tag-table-scroll">
+              <table className="ladder-tag-grid-table" aria-label={`Tags de ${title}`}>
+                <thead>
                   <tr>
-                    <td colSpan={5} className="text-ink-300 px-1 py-1 text-[10px]">
-                      Nenhuma tag nesta área.
-                    </td>
+                    <th scope="col">Endereço</th>
+                    <th scope="col">Nome</th>
+                    <th scope="col">Comentário</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col"><span className="sr-only">Ações</span></th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {rows.map((tag) => <TagRow key={tag.id} tag={tag} />)}
+                  {!rows.length && (
+                    <tr>
+                      <td colSpan={5} className="ladder-tag-empty-row">
+                        {normalizedQuery ? 'Nenhuma tag corresponde à pesquisa nesta área.' : 'Nenhuma tag nesta área. Importe uma tabela ou adicione uma tag.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )
-      })}
+      }) : (
+        <div className="ladder-tag-empty-state">
+          <strong>Nenhuma tag encontrada</strong>
+          <span>Limpe a pesquisa ou escolha outra área para ver as variáveis.</span>
+          <button type="button" className="dc-btn" onClick={() => { setQuery(''); setArea('all') }}>Limpar filtros</button>
+        </div>
+      )}
     </div>
   )
 }
