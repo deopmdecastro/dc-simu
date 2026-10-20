@@ -55,6 +55,7 @@ import {
   faEyeSlash,
   faFile,
   faFloppyDisk,
+  faFolder,
   faFolderOpen,
   faFolderTree,
   faForwardStep,
@@ -110,6 +111,7 @@ function fa(icon: IconDefinition) {
 
 export const IconFile = fa(faFile)
 export const IconSave = fa(faFloppyDisk)
+export const IconFolder = fa(faFolder)
 export const IconOpen = fa(faFolderOpen)
 export const IconProjects = fa(faFolderTree)
 export const IconCursor = fa(faArrowPointer)

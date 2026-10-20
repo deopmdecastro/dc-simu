@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Modal from '../ui/Modal'
 import Select from '../ui/Select'
 import { useSimStore } from '../store/useSimStore'
@@ -6,9 +6,9 @@ import type { ProjectFile, ProjectFolder } from './projectFiles'
 import {
   ALL_OB_TEMPLATES, BLOCK_KINDS, BLOCK_LANGUAGES, OB_CYCLE_GROUP, OB_GROUPS, OB_KIND_DESCRIPTION,
   blockDisplayName, planBlock, suggestLabel, suggestNumber, validateBlock,
-  type BlockKind, type BlockLanguage, type ObGroup,
+  type BlockKind, type BlockLanguage, type ObTemplate,
 } from './blockCatalog'
-import { IconCube, IconFunction, IconGrid, IconLadder } from '../ui/icons'
+import { IconChevronRight, IconCube, IconFolder, IconFunction, IconGrid, IconLadder, IconOpen } from '../ui/icons'
 
 /**
  * Modal «Adicionar novo bloco» do editor Ladder — o equivalente ao
@@ -58,7 +58,11 @@ export default function AddBlockDialog({ open, initialKind = 'OB', onClose, onCr
     }
   }
 
-  // ao abrir a modal repõe-se o ponto de partida — como o TIA Portal faz
+  // pastas da árvore abertas/fechadas — controladas (senão cada tecla nos
+  // campos fechava as pastas que o utilizador tinha aberto)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const toggleFolder = (id: string) =>
+    setCollapsed((cur) => { const next = new Set(cur); if (next.has(id)) next.delete(id); else next.add(id); return next })
   useEffect(() => {
     if (!open) return
     setLanguage('LAD')
@@ -88,6 +92,20 @@ export default function AddBlockDialog({ open, initialKind = 'OB', onClose, onCr
     onCreated(id, plan.folder, plan.name)
     onClose()
   }
+
+  /** Árvore de pastas dos modelos de OB (1.º nível por tema, 2.º por sub-tema). */
+  const obTree = useMemo(() => {
+    type Sub = { id: string; subtitle?: string; items: ObTemplate[] }
+    const byTitle = new Map<string, Sub[]>()
+    for (const group of OB_GROUPS) {
+      const subs = byTitle.get(group.title) ?? []
+      subs.push({ id: group.subtitle ? `${group.title}/${group.subtitle}` : `${group.title}#${subs.length}`, subtitle: group.subtitle, items: group.items })
+      byTitle.set(group.title, subs)
+    }
+    const tree = [...byTitle].map(([title, subs]) => ({ id: title, title, subs }))
+    tree.unshift({ id: OB_CYCLE_GROUP.title, title: OB_CYCLE_GROUP.title, subs: [{ id: OB_CYCLE_GROUP.title, items: OB_CYCLE_GROUP.items }] })
+    return tree
+  }, [])
 
   const scheduleHint = kind === 'OB'
     ? validNumber === 100
@@ -143,12 +161,30 @@ export default function AddBlockDialog({ open, initialKind = 'OB', onClose, onCr
         {/* ------------------------------------------------- lista de modelos */}
         <div className="add-block-templates" aria-label="Modelos disponíveis">
           {kind === 'OB' ? (
-            <>
-              <ObGroupView group={OB_CYCLE_GROUP} selected={templateKey} onPick={applyObTemplate} />
-              {OB_GROUPS.map((group, i) => (
-                <ObGroupView key={`${group.title}-${group.subtitle ?? i}`} group={group} selected={templateKey} onPick={applyObTemplate} />
-              ))}
-            </>
+            obTree.map((folder) => (
+              <FolderRow
+                key={folder.id}
+                title={folder.title}
+                open={!collapsed.has(folder.id)}
+                onToggle={() => toggleFolder(folder.id)}
+              >
+                {folder.subs.map((sub) =>
+                  sub.subtitle ? (
+                    <FolderRow
+                      key={sub.id}
+                      title={sub.subtitle}
+                      depth={1}
+                      open={!collapsed.has(sub.id)}
+                      onToggle={() => toggleFolder(sub.id)}
+                    >
+                      <ObItemList items={sub.items} depth={2} selected={templateKey} onPick={applyObTemplate} />
+                    </FolderRow>
+                  ) : (
+                    <ObItemList key={sub.id} items={sub.items} depth={1} selected={templateKey} onPick={applyObTemplate} />
+                  ),
+                )}
+              </FolderRow>
+            ))
           ) : (
             <div className="add-block-item is-active">
               <span className={`add-block-tile is-sm is-${kind.toLowerCase()}`}>{kind}</span>
@@ -166,6 +202,7 @@ export default function AddBlockDialog({ open, initialKind = 'OB', onClose, onCr
               className="dc-input"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !error) confirm() }}
               placeholder={kind === 'DB' ? 'Data_block_1' : kind === 'FB' ? 'FB_1' : kind === 'FC' ? 'FC_3' : template.label}
             />
           </label>
@@ -207,26 +244,55 @@ function planPreview(kind: BlockKind, language: BlockLanguage): string {
   return 'em «Blocos de programa», com uma network editável'
 }
 
-/** Grupo da árvore de OBs (pasta expansível com os modelos por baixo). */
-function ObGroupView({ group, selected, onPick }: {
-  group: ObGroup
+/** Pasta da árvore (abrir/fechar real): chevron + ícone de pasta aberta/fechada. */
+function FolderRow({ title, depth = 0, open, onToggle, children }: {
+  title: string
+  depth?: number
+  open: boolean
+  onToggle: () => void
+  children?: ReactNode
+}) {
+  return (
+    <div className="add-block-folder">
+      <button
+        type="button"
+        className="add-block-folder-row"
+        style={{ paddingLeft: `${6 + depth * 16}px` }}
+        onClick={onToggle}
+        aria-expanded={open}
+      >
+        <IconChevronRight size={9} className={`add-block-chev ${open ? 'is-open' : ''}`} />
+        {open
+          ? <IconOpen size={13} className="add-block-folder-ico" />
+          : <IconFolder size={13} className="add-block-folder-ico" />}
+        <span>{title}</span>
+      </button>
+      {open && children}
+    </div>
+  )
+}
+
+/** Modelos de OB por baixo de uma pasta. */
+function ObItemList({ items, depth = 1, selected, onPick }: {
+  items: ObTemplate[]
+  depth?: number
   selected: string
   onPick: (key: string) => void
 }) {
   return (
-    <details className="add-block-group" open>
-      <summary>{group.title}{group.subtitle ? <em> › {group.subtitle}</em> : null}</summary>
-      {group.items.map((item) => (
+    <>
+      {items.map((item) => (
         <button
           key={item.key}
           type="button"
           className={`add-block-item ${selected === item.key ? 'is-active' : ''}`}
+          style={{ paddingLeft: `${8 + depth * 16}px` }}
           onClick={() => onPick(item.key)}
         >
           <span className="add-block-tile is-sm is-ob">OB</span>
           <span className="add-block-item-text">{item.label} <em>[OB {item.number}]</em></span>
         </button>
       ))}
-    </details>
+    </>
   )
 }
