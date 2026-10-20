@@ -79,8 +79,8 @@ const GRAFCET_ADD_BUTTONS: Array<{ action: 'addConnectedStep' | 'addStep' | 'add
   { action: 'addStep', label: '+ Etapa livre', kbd: '2', title: 'Nova etapa em posição livre [Shift+Insert ou 2]' },
   { action: 'addTransition', label: '+ Transição', kbd: '3', needs: 1, title: 'Nova transição solta (arraste-a sobre etapas ou ligue por linha) [T ou 3]' },
   { action: 'addAction', label: '+ Ação', kbd: '4', title: 'Adicionar ação à etapa selecionada ou criar solta [A ou 4]' },
-  { action: 'addFork', label: '⑂ Divergência AND', kbd: 'F', needs: 1, secondary: true, title: 'Criar divergência AND (ramos simultâneos) [F]' },
-  { action: 'addJoin', label: '⑃ Convergência AND', kbd: 'J', needs: 2, secondary: true, title: 'Criar convergência AND (sincronização) [J]' },
+  { action: 'addFork', label: '⑂ Divergência AND', kbd: 'F', secondary: true, title: 'Divergência AND solta (ramos simultâneos) — ligue por aproximação ou linha [F]' },
+  { action: 'addJoin', label: '⑃ Convergência AND', kbd: 'J', secondary: true, title: 'Convergência AND solta (sincronização) — ligue por aproximação ou linha [J]' },
 ]
 
 interface ViewControlsProps {

@@ -60,10 +60,11 @@ import {
   alignToOthers,
   autoLayout,
   clampPosition,
-  findFreeSlot,
   snapToGrid,
   stepPitch,
 } from './layout'
+
+import { findClearSpot, routeVertical } from './links'
 
 const id = () => crypto.randomUUID()
 
@@ -537,8 +538,22 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     }
   }
 
+  /** Posição livre para um elemento novo: onde foi largado, ou junto ao elemento selecionado; nunca por cima de outro. */
+  const clearSpot = (want: { x: number; y: number }) => {
+    const occupied = [
+      ...steps.map((s) => ({ x: stepX(s.id), y: stepY(s.id) })),
+      ...transitions.filter((t) => t.x !== undefined).map((t) => transXY(t)),
+      ...freeActions.map((a) => actionXY(a)),
+    ]
+    return findClearSpot(want, occupied)
+  }
+  const defaultSpot = (offsetX = 0) => selectedStep
+    ? { x: stepX(selectedStep.id) + offsetX, y: stepY(selectedStep.id) + stepPitch(actionsOf(selectedStep).length) }
+    : { x: SPINE_X + offsetX, y: Math.max(cursorY, START_Y) }
+
   const addStep = (at?: { x: number; y: number }) => {
     const nextIdx = steps.length
+    const place = clearSpot(at ?? defaultSpot())
     const newStep: GrafcetStep = {
       id: id(),
       name: `Etapa ${nextIdx}`,
@@ -547,12 +562,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       action: '',
       condition: 'I1',
       actions: [],
-      ...(at ? { x: at.x, y: at.y, pinned: true } : {}),
+      x: place.x, y: place.y, pinned: true,
     }
     save({ steps: [...steps, newStep] })
     setSelected(newStep.id)
     setTab('steps')
-    notify(newStep.initial ? 'Etapa inicial criada' : 'Etapa solta criada')
+    notify(newStep.initial ? 'Etapa inicial criada' : 'Etapa solta criada — arraste-a até uma transição ou ligue por linha (L)')
   }
 
   const addConnectedStep = (fromStep?: GrafcetStep, at?: { x: number; y: number }) => {
@@ -573,15 +588,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     }
 
     // Posição da nova etapa: onde foi largada, ou logo abaixo da origem quando esta foi movida à mão.
-    let place = at
-    if (!place && isPinned(source)) {
-      const below = { x: stepX(source.id), y: stepY(source.id) + stepPitch(actionsOf(source).length) }
-      place = findFreeSlot(
-        below.x,
-        below.y,
-        steps.map((s) => ({ x: stepX(s.id), y: stepY(s.id) }))
-      )
-    }
+    const place = clearSpot(at ?? { x: stepX(source.id), y: stepY(source.id) + stepPitch(actionsOf(source).length) })
     const newStep: GrafcetStep = {
       id: id(),
       name: nextName,
@@ -590,7 +597,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       action: '',
       condition: 'I1',
       actions: [],
-      ...(place ? { x: place.x, y: place.y, pinned: true } : {}),
+      x: place.x, y: place.y, pinned: true,
     }
 
     // A etapa nasce SEM transição: a ligação faz-se depois com uma transição solta
@@ -828,7 +835,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     // Posição por omissão: por baixo da última etapa, na espinha central.
     const freeCount = transitions.filter((t) => !t.from.filter((v) => stepById.has(v)).length || !t.to.filter((v) => stepById.has(v)).length).length
     const at2 = at ?? { x: SPINE_X + (freeCount % 2 === 0 ? 0 : GRID * 4), y: cursorY + 46 }
-    const clamped = clampPosition(at2.x, at2.y)
+    const clamped = clearSpot(at2)
     const transition: GrafcetTransition = {
       id: id(),
       from: [],
@@ -856,6 +863,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   }
 
   const addInitial = (at?: { x: number; y: number }) => {
+    const place = clearSpot(at ?? defaultSpot())
     const newStep: GrafcetStep = {
       id: id(),
       name: `Etapa ${steps.length}`,
@@ -864,7 +872,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       action: '',
       condition: 'I1',
       actions: [],
-      ...(at ? { x: at.x, y: at.y, pinned: true } : {}),
+      x: place.x, y: place.y, pinned: true,
     }
     save({ steps: [...steps, newStep] })
     setSelected(newStep.id)
@@ -880,37 +888,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     addFreeAction(conditional)
   }
 
-  const addFork = () => {
-    const source = selectedStep ?? steps[steps.length - 1]
-    if (!source) return
-    const left: GrafcetStep = { id: id(), name: 'Ramo A', initial: false, action: '', condition: 'I1', actions: [] }
-    const right: GrafcetStep = { id: id(), name: 'Ramo B', initial: false, action: '', condition: 'I1', actions: [] }
-    save({
-      steps: [...steps, left, right],
-      transitions: [...transitions, { id: id(), from: [source.id], to: [left.id, right.id], condition: 'I1' }],
-    })
-    setSelected(left.id)
-    setTab('steps')
-    notify('Divergência AND criada')
+  /**
+   * Divergência/convergência AND: nasce SOLTA (barra dupla sem origens nem destinos).
+   * As etapas ligam-se depois por aproximação ou por linha, como qualquer transição.
+   */
+  const addBranchBar = (branchType: 'and-divergence' | 'and-convergence', at?: { x: number; y: number }) => {
+    const spot = clearSpot(at ?? defaultSpot(GRID * 4))
+    const transition: GrafcetTransition = { id: id(), from: [], to: [], condition: '1', x: spot.x, y: spot.y, branchType }
+    save({ transitions: [...transitions, transition] })
+    setSelected(transition.id)
+    setSelectedActionId(null)
+    setTab('transitions')
+    notify(`${branchType === 'and-divergence' ? 'Divergência' : 'Convergência'} AND solta criada — ligue as etapas por aproximação ou por linha (L)`)
   }
-
-  const addJoin = () => {
-    if (steps.length < 2) return
-    const primary = selectedStep ?? steps[steps.length - 1]
-    const fork = transitions.find((transition) => transition.to.length >= 2 && transition.to.includes(primary.id))
-    const otherId =
-      fork?.to.find((value) => value !== primary.id && steps.some((step) => step.id === value)) ??
-      [...steps].reverse().find((step) => step.id !== primary.id)?.id
-    if (!otherId) return
-    const next: GrafcetStep = { id: id(), name: 'Após convergência', initial: false, action: '', condition: 'I1', actions: [] }
-    save({
-      steps: [...steps, next],
-      transitions: [...transitions, { id: id(), from: [primary.id, otherId], to: [next.id], condition: 'I1' }],
-    })
-    setSelected(next.id)
-    setTab('steps')
-    notify('Convergência AND criada')
-  }
+  const addFork = (at?: { x: number; y: number }) => addBranchBar('and-divergence', at)
+  const addJoin = (at?: { x: number; y: number }) => addBranchBar('and-convergence', at)
 
   const loadExample = () => {
     const a = id(),
@@ -947,16 +939,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     else if (kind === 'transition') addFreeTransition(at)
     else if (kind === 'action') addFreeAction(false, at)
     else if (kind === 'conditional') addFreeAction(true, at)
-    else if (kind === 'fork') addFork()
-    else addJoin()
+    else if (kind === 'fork') addFork(at)
+    else addJoin(at)
   }
 
   const paletteDisabled = (kind: PaletteItem) =>
-    kind === 'join'
-      ? steps.length < 2
-      : kind === 'transition' || kind === 'fork'
-      ? steps.length === 0
-      : false
+    kind === 'transition' ? steps.length === 0 : false
 
   const choose = (ids: string[], stepId: string) =>
     ids.includes(stepId) ? ids.filter((value) => value !== stepId) : [...ids, stepId]
@@ -2624,7 +2612,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       return (
                         <path
                           key={`fw-${sid}`}
-                          d={`M ${sx} ${sy} C ${sx} ${my}, ${ftx} ${my}, ${ftx} ${fty - 7}`}
+                          d={routeVertical(sx, sy, ftx, fty - 7, my)}
                           fill="none"
                           stroke="#526883"
                           strokeWidth="2"
@@ -2638,7 +2626,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       return (
                         <path
                           key={`tw-${sid}`}
-                          d={`M ${ftx} ${fty + 7} C ${ftx} ${my}, ${sx} ${my}, ${sx} ${sy - 2}`}
+                          d={routeVertical(ftx, fty + 7, sx, sy - 2, my)}
                           fill="none"
                           stroke="#526883"
                           strokeWidth="2"
@@ -2712,6 +2700,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
                         {/* Barra transversal IEC da transição */}
                         <line x1={ftx - 13} y1={fty} x2={ftx + 13} y2={fty} stroke={barColor} strokeWidth={freeSelected ? 4 : 3} />
+                        {transition.branchType?.startsWith('and-') && (
+                          <line x1={ftx - 18} y1={fty + (transition.branchType === 'and-divergence' ? 4 : -4)} x2={ftx + 18} y2={fty + (transition.branchType === 'and-divergence' ? 4 : -4)} stroke={barColor} strokeWidth="2.5" />
+                        )}
 
                         {/* Identificador e condição normalizados IEC */}
                         <text x={ftx - 17} y={fty + 3.5} textAnchor="end" fill={freeSelected ? '#2563eb' : '#b45309'} fontSize="10.5" fontWeight="700">
@@ -2872,9 +2863,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     // Se as etapas não estão alinhadas, a ligação faz um "Z" e a barra fica no troço final.
                     const tx = targetX
                     const ty = bent ? Math.round((midY + tTop) / 2) : midY
-                    const linkPath = bent
-                      ? `M ${sourceX} ${sBottom} V ${midY} H ${targetX} V ${tTop}`
-                      : `M ${sourceX} ${sBottom} V ${tTop}`
+                    const linkPath = routeVertical(sourceX, sBottom, targetX, tTop, midY)
 
                     return (
                       <g
@@ -3265,7 +3254,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     <g
                       key={step.id}
                       data-step-id={step.id}
-                      className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${isThisStepSelected ? 'is-selected' : ''} ${multi.includes(step.id) ? 'is-multi' : ''}`}
+                      className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${isThisStepSelected ? 'is-selected' : ''} ${multi.includes(step.id) ? 'is-multi' : ''} ${transitions.some((t) => t.from.includes(step.id) || t.to.includes(step.id)) ? '' : 'is-unlinked'}`}
                       transform={stepShiftX ? `translate(${stepShiftX}, 0)` : undefined}
                       role={full ? 'button' : undefined}
                       tabIndex={full ? 0 : undefined}

@@ -1624,3 +1624,15 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-signal-add-comment:hover, .grafcet-signal-add-comment:focus-visible { color: #1d4ed8; text-decoration: underline; }
 .grafcet-signal-comment { grid-column: 2 / -1; }
 .grafcet-signal-row:not(:hover):not(:focus-within) .grafcet-signal-add-comment { opacity: 0; height: 0; overflow: hidden; }
+
+/* ---------------------------------------------------------------------------
+   Elementos: profundidade suave e marcação de elementos soltos (por ligar).
+   Âmbar = solto, igual às barras de transição e ações soltas.
+--------------------------------------------------------------------------- */
+.grafcet-full .grafcet-graph-node { filter: drop-shadow(0 1px 2px rgba(31, 43, 74, .16)); transition: filter .15s ease; }
+.grafcet-full .grafcet-graph-node:hover { filter: drop-shadow(0 3px 8px rgba(37, 99, 235, .28)); }
+.grafcet-full .grafcet-graph-node.is-selected { filter: drop-shadow(0 3px 10px rgba(37, 99, 235, .38)); }
+.grafcet-full .grafcet-graph-node.is-unlinked:not(.is-selected) { filter: drop-shadow(0 0 5px rgba(217, 119, 6, .55)); }
+.grafcet-full .grafcet-graph-node.grafcet-step-dragging { filter: drop-shadow(0 8px 16px rgba(31, 43, 74, .3)); }
+.grafcet-full .grafcet-graph-link path { stroke-linejoin: miter; stroke-linecap: butt; }
+@media (prefers-reduced-motion: reduce) { .grafcet-full .grafcet-graph-node { transition: none; } }
