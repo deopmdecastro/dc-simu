@@ -229,7 +229,7 @@
 }
 .grafcet-canvas svg { display:block; margin:0 auto; max-width:none; }
 .grafcet-graph-node,.grafcet-graph-link { cursor:pointer; }
-.grafcet-graph-node:hover rect,.grafcet-graph-link:hover path { stroke:#2563eb; }
+.grafcet-graph-node:hover rect,.grafcet-graph-link:hover path:not([stroke="transparent"]) { stroke:#2563eb; } /* a área de clique invisível não pode ficar azul (faixa grossa) */
 .grafcet-properties { width:280px; flex:none; overflow:auto; background:white; border-left:1px solid #dce4ef; padding:12px; display:flex; flex-direction:column; gap:10px; }
 .grafcet-tabs { display:flex; gap:4px; border-bottom:1px solid #dce4ef; }
 .grafcet-tabs button { padding:7px 10px; }

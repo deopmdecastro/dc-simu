@@ -3198,6 +3198,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   const active = runtime.active.includes(step.id)
                   const isThisStepSelected = isStepSelected(step.id)
                   const isStepHovered = hoveredStepId === step.id
+                  /* Com transição à saída, o «+» da própria transição insere a etapa seguinte: o da etapa ficaria por cima dela. */
+                  const hasOutgoingTransition = transitions.some((item) => item.from.includes(step.id))
                   const isInitial = step.initial || step.stepType === 'initial' || step.stepType === 'initial-enclosing'
                   const isMacro = step.stepType === 'macro'
                   const isEnclosing = step.stepType === 'enclosing' || step.stepType === 'initial-enclosing'
@@ -3306,7 +3308,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           x="100"
                           y={y - 16}
                           width="112"
-                          height={active ? 114 : 98}
+                          height={hasOutgoingTransition ? 54 + 16 : active ? 114 : 98}
                           fill="transparent"
                           onPointerEnter={() => setHoveredStepId(step.id)}
                         />
@@ -3509,7 +3511,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       {full && (isStepHovered || isThisStepSelected) && (
                         <>
                           {/* Botão + abaixo da etapa: Adicionar etapa seguinte e transição */}
-                          <g
+                          {!hasOutgoingTransition && <g
                             className="grafcet-node-handle"
                             onClick={(e) => {
                               e.stopPropagation()
@@ -3521,7 +3523,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           >
                             <circle cx="151" cy={active ? y + 84 : y + 68} r="10" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
                             <path d={`M 151 ${active ? y + 79 : y + 63} V ${active ? y + 89 : y + 73} M 146 ${active ? y + 84 : y + 68} H 156`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
-                          </g>
+                          </g>}
 
                           {/* Botão + à direita da etapa: adicionar ação a esta etapa */}
                           <g
