@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { validCondition, type GrafcetStep } from './engine'
-import { signalAddressesInCondition, signalSearchText, type GrafcetSignalSuggestion } from './signals'
+import { matchSignals, signalAddressesInCondition, signalSearchText, tokenAtCursor, type GrafcetSignalSuggestion } from './signals'
+import { declareSignals } from './declareSignals'
 
 type Category = 'all' | 'inputs' | 'outputs' | 'memory' | 'steps' | 'timers' | 'resources'
 interface Suggestion { value: string; label: string; comment: string; search: string; category: Exclude<Category, 'all'>; source: 'table' | 'expression' }
@@ -32,6 +33,10 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
   const [pickerOpen, setPickerOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<Category>('all')
+  // Autocompletar ao escrever: sugere sinais da tabela (e etapas Xn) para a palavra sob o cursor.
+  const [cursor, setCursor] = useState(value.length)
+  const [typeaheadOpen, setTypeaheadOpen] = useState(false)
+  const [typeaheadIndex, setTypeaheadIndex] = useState(0)
 
   useEffect(() => {
     defaultOneRef.current = initialDefaultOne ?? valueRef.current === '1'
@@ -51,6 +56,30 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
     for (const token of ['1', '0', '1HZ', '0.5HZ', '2HZ']) entries.set(token, { value: token, label: token === '1' ? 'Sempre verdadeira' : token === '0' ? 'Sempre falsa' : 'Frequência de simulação', comment: '', search: token, category: 'resources', source: 'expression' })
     return [...entries.values()]
   }, [signals, availableSteps])
+  const token = typeaheadOpen && active ? tokenAtCursor(value, cursor) : null
+  const typeaheadItems = useMemo(() => {
+    if (!token) return []
+    const pool = suggestions
+      .filter((item) => item.category === 'inputs' || item.category === 'outputs' || item.category === 'memory' || item.category === 'steps')
+      .map((item) => ({ address: item.value, name: item.label, comment: item.comment, area: item.category === 'steps' ? ('X' as const) : item.category === 'inputs' ? ('I' as const) : item.category === 'outputs' ? ('Q' as const) : ('M' as const), item }))
+    const found = matchSignals(pool, token.text, 7)
+    // Já escrito por completo e sem alternativas: não há nada a sugerir.
+    if (found.length === 1 && found[0].address.toUpperCase() === token.text.toUpperCase()) return []
+    return found
+  }, [token?.text, token?.start, suggestions])
+  const typeaheadActive = Math.min(typeaheadIndex, Math.max(0, typeaheadItems.length - 1))
+  const typeaheadOptionId = (index: number) => `${id}-typeahead-${index}`
+  const acceptTypeahead = (address: string) => {
+    if (!token) return
+    const next = value.slice(0, token.start) + address + value.slice(token.end)
+    const position = token.start + address.length
+    defaultOneRef.current = false
+    onChange(next)
+    selectionRef.current = { start: position, end: position }
+    setCursor(position)
+    setTypeaheadOpen(false)
+    focusAt(position)
+  }
   const searchText = search.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT')
   const filtered = suggestions.filter((item) => (category === 'all' || item.category === category) && `${item.value} ${item.label} ${item.comment} ${item.search}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT').includes(searchText))
   const undeclared = signalAddressesInCondition(value).filter((address) => !signals.some((signal) => signal.address === address))
@@ -101,16 +130,50 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
       if (pickerOpen && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closePicker() }
     }}>
       <label className="grafcet-property-label" htmlFor={id}>Condição</label>
+      <div className="grafcet-typeahead-anchor">
       <input ref={inputRef} id={id} data-initial-focus={initialFocus ? true : undefined} className="dc-input grafcet-code-input" value={value}
-        onChange={(event) => { defaultOneRef.current = false; onChange(event.target.value); selectionRef.current = { start: event.target.selectionStart ?? event.target.value.length, end: event.target.selectionEnd ?? event.target.value.length } }}
-        onSelect={rememberSelection} onBlur={rememberSelection} placeholder="Ex.: I1 * /I2" autoComplete="off" spellCheck={false} aria-invalid={!!error} aria-describedby={`${id}-status${error ? ` ${errorId}` : ''}`} />
+        role="combobox" aria-autocomplete="list" aria-expanded={typeaheadItems.length > 0} aria-controls={typeaheadItems.length ? `${id}-typeahead` : undefined} aria-activedescendant={typeaheadItems.length ? typeaheadOptionId(typeaheadActive) : undefined}
+        onChange={(event) => {
+          defaultOneRef.current = false
+          onChange(event.target.value)
+          const position = event.target.selectionStart ?? event.target.value.length
+          selectionRef.current = { start: position, end: event.target.selectionEnd ?? event.target.value.length }
+          setCursor(position)
+          setTypeaheadOpen(true)
+          setTypeaheadIndex(0)
+        }}
+        onKeyDown={(event) => {
+          if (!typeaheadItems.length || event.ctrlKey || event.metaKey || event.altKey) return
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault()
+            setTypeaheadIndex((typeaheadActive + (event.key === 'ArrowDown' ? 1 : -1) + typeaheadItems.length) % typeaheadItems.length)
+          } else if ((event.key === 'Enter' || event.key === 'Tab') && !event.shiftKey) {
+            event.preventDefault()
+            event.stopPropagation()
+            acceptTypeahead(typeaheadItems[typeaheadActive].address)
+          } else if (event.key === 'Escape') {
+            event.preventDefault()
+            event.stopPropagation()
+            setTypeaheadOpen(false)
+          }
+        }}
+        onSelect={(event) => { rememberSelection(); setCursor(event.currentTarget.selectionStart ?? value.length) }}
+        onBlur={() => { rememberSelection(); setTypeaheadOpen(false) }} placeholder="Ex.: I1 * /I2 — escreva um nome ou endereço para sugestões" autoComplete="off" spellCheck={false} aria-invalid={!!error} aria-describedby={`${id}-status${error ? ` ${errorId}` : ''}`} />
+      {typeaheadItems.length > 0 && <ul className="grafcet-typeahead" id={`${id}-typeahead`} role="listbox" aria-label="Sugestões da tabela de sinais">
+        {typeaheadItems.map((entry, index) => <li key={entry.address} id={typeaheadOptionId(index)} role="option" aria-selected={index === typeaheadActive} className={index === typeaheadActive ? 'is-active' : ''}
+          onMouseDown={(event) => { event.preventDefault(); acceptTypeahead(entry.address) }} onMouseEnter={() => setTypeaheadIndex(index)}>
+          <code>{entry.address}</code><span>{entry.name && <b>{entry.name}</b>}{entry.comment && <small>{entry.comment}</small>}</span><em className={`is-${entry.area}`}>{entry.area === 'X' ? 'etapa' : entry.area === 'I' ? 'entrada' : entry.area === 'Q' ? 'saída' : 'memória'}</em>
+        </li>)}
+        <li className="grafcet-typeahead-hint" aria-hidden="true">↑ ↓ navegar · Enter/Tab inserir · Esc fechar</li>
+      </ul>}
+      </div>
       <div className="grafcet-condition-tools" role="group" aria-label="Inserir operadores na posição do cursor">
         {OPERATORS.map((operator) => <button key={operator.label} type="button" onMouseDown={(event) => { rememberSelection(); event.preventDefault() }} onClick={() => insert(operator.token)} title={operator.hint} aria-label={`Inserir ${operator.label}`}>{operator.label}</button>)}
         <button type="button" className="grafcet-insert-variable" aria-expanded={pickerOpen} aria-controls={pickerOpen ? `${id}-picker` : undefined} onMouseDown={rememberSelection} onClick={() => setPickerOpen((open) => !open)}>Inserir variável</button>
       </div>
       <p id={`${id}-status`} className={`grafcet-condition-status ${valid ? 'is-valid' : 'is-incomplete'}`} role="status" aria-live="polite">{valid ? '✓ Sintaxe válida' : '◌ Expressão incompleta ou inválida'}<span>{valid ? 'A condição será avaliada durante a simulação.' : 'Continue a editar; é necessário corrigir antes de guardar.'}</span></p>
       {!signals.length && <p className="grafcet-property-note">A tabela de sinais está vazia. Declare entradas, saídas ou memórias em «Variáveis» para obter sugestões.</p>}
-      {!!undeclared.length && <p className="grafcet-signal-undeclared">Fora da tabela: {undeclared.join(', ')}. A expressão manual é mantida.</p>}
+      {!!undeclared.length && <p className="grafcet-signal-undeclared">Fora da tabela: {undeclared.join(', ')}. A expressão manual é mantida. <button type="button" className="grafcet-link-button" onClick={() => declareSignals(undeclared)} title="Acrescenta estes endereços à tabela de variáveis, para passarem a ser sugeridos">Declarar na tabela</button></p>}
       {error && <p id={errorId} className="grafcet-field-error" role="alert">{error}</p>}
       {pickerOpen && <div ref={pickerRef} className="grafcet-condition-picker" id={`${id}-picker`}>
         <div className="grafcet-condition-picker-head"><strong>Variáveis e sinais</strong><button type="button" onClick={closePicker} aria-label="Fechar lista de variáveis">×</button></div>

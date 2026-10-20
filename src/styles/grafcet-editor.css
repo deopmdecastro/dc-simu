@@ -1520,3 +1520,84 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-menu button.is-danger:focus-visible { background: #fff1f2; color: #b4232f; }
 .grafcet-menu kbd { font: inherit; font-size: 10.5px; color: #77869b; }
 .grafcet-menu-sep { height: 1px; margin: 4px 6px; background: #e5ebf4; }
+
+/* ── Autocompletar de sinais nas condições ─────────────────────────── */
+.grafcet-typeahead-anchor { position: relative; }
+.grafcet-typeahead {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #b9cae9;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.2);
+}
+.grafcet-typeahead li[role='option'] {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.grafcet-typeahead li.is-active { background: #eff6ff; }
+.grafcet-typeahead code { font-weight: 800; color: #1e3a8a; }
+.grafcet-typeahead span { display: flex; flex-direction: column; min-width: 0; }
+.grafcet-typeahead b, .grafcet-typeahead small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grafcet-typeahead small { color: #64748b; font-size: 11px; }
+.grafcet-typeahead em { font-style: normal; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; background: #e2e8f0; color: #475569; }
+.grafcet-typeahead em.is-I { background: #dbeafe; color: #1d4ed8; }
+.grafcet-typeahead em.is-Q { background: #dcfce7; color: #15803d; }
+.grafcet-typeahead em.is-M { background: #fef3c7; color: #b45309; }
+.grafcet-typeahead-hint { padding: 5px 8px 2px; font-size: 10.5px; color: #77869b; border-top: 1px solid #eef2f8; margin-top: 3px; }
+.grafcet-link-button { padding: 0; border: 0; background: none; color: #1d4ed8; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+
+/* ── Aba «Sinais»: tabela de entradas, saídas e memórias ───────────── */
+.grafcet-tab-dot { display: inline-block; width: 7px; height: 7px; margin-left: 4px; border-radius: 50%; background: #f59e0b; vertical-align: middle; }
+.grafcet-signals { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: auto; }
+.grafcet-signals-context { margin: 0; padding: 7px 9px; border-radius: 7px; font-size: 11.5px; color: #64748b; background: #f1f5f9; }
+.grafcet-signals-context.is-ready { color: #1e3a8a; background: #eff6ff; border: 1px solid #bfdbfe; }
+.grafcet-signals-toolbar { display: flex; flex-direction: column; gap: 6px; }
+.grafcet-signals-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.grafcet-signals-chips button { padding: 3px 9px; border-radius: 99px; border: 1px solid #d5deeb; background: #fff; font-size: 11px; font-weight: 650; color: #475569; cursor: pointer; }
+.grafcet-signals-chips button em { font-style: normal; opacity: 0.7; margin-left: 2px; }
+.grafcet-signals-chips button[aria-pressed='true'] { background: #2563eb; border-color: #2563eb; color: #fff; }
+.grafcet-signals-banner { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border-radius: 7px; background: #fffbeb; border: 1px solid #fcd34d; font-size: 11.5px; color: #92400e; }
+.grafcet-signals-banner code { font-weight: 700; }
+.grafcet-signals-banner button { flex: none; padding: 4px 10px; border-radius: 6px; border: 0; background: #f59e0b; color: #fff; font-weight: 700; cursor: pointer; }
+.grafcet-signals-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.grafcet-signal-row {
+  display: grid;
+  grid-template-columns: 12px 38px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px solid #e2e8f0;
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: #fff;
+}
+.grafcet-signal-row.is-I { border-left-color: #3b82f6; }
+.grafcet-signal-row.is-Q { border-left-color: #22c55e; }
+.grafcet-signal-row.is-M { border-left-color: #f59e0b; }
+.grafcet-signal-row.is-on { background: #f0fdf4; }
+.grafcet-signal-led { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; }
+.grafcet-signal-row.is-on .grafcet-signal-led { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); }
+.grafcet-signal-address { font-weight: 800; color: #1e293b; }
+.grafcet-signal-name, .grafcet-signal-comment { min-width: 0; height: 26px; padding: 0 7px; font-size: 12px; }
+.grafcet-signal-comment { grid-column: 1 / -1; height: 24px; font-size: 11px; color: #475569; }
+.grafcet-signal-usage { font-size: 10px; font-weight: 700; color: #475569; white-space: nowrap; }
+.grafcet-signal-usage.is-unused { color: #94a3b8; font-weight: 600; }
+.grafcet-signal-use { height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; font-weight: 700; cursor: pointer; }
+.grafcet-signal-use:hover:not(:disabled) { background: #dbeafe; }
+.grafcet-signal-use:disabled { opacity: 0.4; cursor: not-allowed; }
+.grafcet-signals-empty { padding: 14px; text-align: center; font-size: 12px; color: #64748b; }
+.grafcet-signals-actions { display: flex; gap: 6px; flex-wrap: wrap; position: sticky; bottom: 0; padding: 8px 0 2px; background: linear-gradient(transparent, #fff 30%); }

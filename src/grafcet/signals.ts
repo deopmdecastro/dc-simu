@@ -63,3 +63,116 @@ export function signalTagErrors(tags: readonly LadderTag[], managedIds?: Readonl
   for (const [address, ids] of addresses) if (ids.length > 1) ids.filter((id) => managed.has(id)).forEach((id) => errors.set(id, `O endereço ${address} está repetido.`))
   return errors
 }
+
+// ---------------------------------------------------------------------------
+// Tabela de sinais dinâmica: uso no programa, declaração e autocompletar
+// ---------------------------------------------------------------------------
+
+export interface SignalUsage {
+  /** Nº de transições cuja condição lê o sinal. */
+  transitions: number
+  /** Nº de ações que escrevem o sinal ou o usam na condição. */
+  actions: number
+}
+
+const bump = (map: Map<string, SignalUsage>, address: string, key: keyof SignalUsage) => {
+  const usage = map.get(address) ?? { transitions: 0, actions: 0 }
+  usage[key] += 1
+  map.set(address, usage)
+}
+
+/** Conta onde cada endereço I/Q/M é usado no programa (cada elemento conta uma vez por endereço). */
+export function signalUsage(program: GrafcetProgram): Map<string, SignalUsage> {
+  const usage = new Map<string, SignalUsage>()
+  const countAction = (action: { address?: string; variable?: string; condition?: string }) => {
+    const own = new Set<string>()
+    const address = canonicalSignalAddress(action.address || action.variable || '')
+    if (isSignalAddress(address)) own.add(address)
+    signalAddressesInCondition(action.condition ?? '').forEach((bit) => own.add(bit))
+    own.forEach((bit) => bump(usage, bit, 'actions'))
+  }
+  program.steps.forEach((step) => actionsOfStep(step).forEach(countAction))
+  ;(program.freeActions ?? []).forEach(countAction)
+  transitionsOf(program).forEach((transition) => signalAddressesInCondition(transition.condition ?? '').forEach((bit) => bump(usage, bit, 'transitions')))
+  return usage
+}
+
+/** Endereços usados no GRAFCET que ainda não existem (como Bool I/Q/M) na tabela de tags. */
+export function undeclaredSignals(program: GrafcetProgram, tags: readonly LadderTag[]): string[] {
+  const declared = new Set(tags.map((tag) => canonicalSignalAddress(tag.address)))
+  return detectGrafcetSignals(program).filter((address) => !declared.has(address))
+}
+
+/** Novas tags Bool (sem nome) para os endereços indicados que ainda não estão declarados. */
+export function tagsToDeclare(tags: readonly Pick<LadderTag, 'address'>[], addresses: readonly string[], newId: () => string): LadderTag[] {
+  const known = new Set(tags.map((tag) => canonicalSignalAddress(tag.address)))
+  const out: LadderTag[] = []
+  for (const raw of addresses) {
+    const address = canonicalSignalAddress(raw)
+    if (!isSignalAddress(address) || known.has(address)) continue
+    known.add(address)
+    out.push({ id: newId(), address, name: '', comment: '', dataType: 'Bool' })
+  }
+  return out
+}
+
+export interface TokenAtCursor {
+  start: number
+  end: number
+  text: string
+}
+
+/**
+ * Palavra (identificador) sob o cursor numa condição, para o autocompletar.
+ * Ignora números e valores como «5s»: só palavras que começam por letra ou «_».
+ */
+export function tokenAtCursor(value: string, cursor: number): TokenAtCursor | null {
+  const at = Math.max(0, Math.min(cursor, value.length))
+  const isWord = (char: string | undefined) => !!char && /[A-Za-z0-9_]/.test(char)
+  let start = at
+  while (start > 0 && isWord(value[start - 1])) start--
+  let end = at
+  while (end < value.length && isWord(value[end])) end++
+  if (start === end) return null
+  const text = value.slice(start, end)
+  if (!/^[A-Za-z_]/.test(text)) return null
+  // «.5HZ», «%I1»: não são endereços escritos à mão.
+  if (start > 0 && /[.%]/.test(value[start - 1])) return null
+  return { start, end, text }
+}
+
+const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-PT')
+
+/**
+ * Ordena as sugestões para uma consulta: endereço começado pela consulta, depois
+ * nome começado por ela (ou por uma das palavras), depois qualquer ocorrência
+ * no endereço, nome ou comentário. Em empate, I → M → Q e endereço numérico.
+ */
+export function matchSignals<T extends { address: string; name: string; comment: string; area: SignalArea | 'X' }>(items: readonly T[], query: string, limit = 8): T[] {
+  const q = fold(query.trim())
+  if (!q) return []
+  const rank = (item: T): number => {
+    const address = fold(item.address)
+    const name = fold(item.name)
+    if (address === q) return 0
+    if (address.startsWith(q)) return 1
+    if (name.startsWith(q) || name.split(/[\s_\-.]+/).some((word) => word.startsWith(q))) return 2
+    if (address.includes(q) || name.includes(q) || fold(item.comment).includes(q)) return 3
+    return 4
+  }
+  const order = (area: SignalArea | 'X') => 'IMQX'.indexOf(area)
+  return items
+    .map((item) => ({ item, score: rank(item) }))
+    .filter((entry) => entry.score < 4)
+    .sort((a, b) => a.score - b.score || order(a.item.area) - order(b.item.area) || Number(a.item.address.slice(1)) - Number(b.item.address.slice(1)))
+    .slice(0, limit)
+    .map((entry) => entry.item)
+}
+
+/** Acrescenta um sinal a uma condição com AND (`*`); «1» e vazio são substituídos. */
+export function insertCondition(base: string, address: string): string {
+  const current = base.trim()
+  if (!current || current === '1') return address
+  if (/[(*+/^\\]$/.test(current)) return `${current}${current.endsWith('(') ? '' : ' '}${address}`.replace(/\s+$/, '')
+  return `${current} * ${address}`
+}

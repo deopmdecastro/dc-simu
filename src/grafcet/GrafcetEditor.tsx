@@ -21,7 +21,8 @@ import ActionDialog from './ActionDialog'
 import TransitionDialog from './TransitionDialog'
 import ConditionEditor from './ConditionEditor'
 import SignalTableDialog from './SignalTableDialog'
-import { grafcetSignals } from './signals'
+import { grafcetSignals, insertCondition, signalAddressesInCondition, signalUsage, undeclaredSignals, type SignalArea } from './signals'
+import SignalsPanel, { type SignalsContext } from './SignalsPanel'
 import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
 import { renderConditionTspans, fmtDuration } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
@@ -67,7 +68,7 @@ import {
 const id = () => crypto.randomUUID()
 
 type PaletteItem = 'initial' | 'step' | 'transition' | 'action' | 'conditional' | 'fork' | 'join'
-type EditorTab = 'steps' | 'transitions' | 'io' | 'diagnostics'
+type EditorTab = 'steps' | 'transitions' | 'signals' | 'io' | 'diagnostics'
 type HistoryMode = 'auto' | 'force' | 'skip'
 type ValidationIssue = GrafcetIssue
 
@@ -2324,6 +2325,45 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
   const signalSuggestions = useMemo(() => grafcetSignals(tags), [tags])
   const actionSignals = signalSuggestions.filter((signal) => signal.area !== 'I')
+  // Uso e declaração dos sinais: recalculados sempre que o programa ou a tabela mudam.
+  const usageBySignal = useMemo(() => signalUsage(program), [program])
+  const undeclared = useMemo(() => undeclaredSignals(program, tags), [program, tags])
+  const selectedFreeAction = !selectedStep ? freeActions.find((action) => action.id === selectedActionId) ?? null : null
+
+  /** O que «Usar» faz na aba Sinais, conforme a seleção atual. */
+  const signalsContext: SignalsContext | null = selectedTransition
+    ? { text: `Transição T${transitions.indexOf(selectedTransition) + 1}: «Usar» acrescenta o sinal à condição (AND).`, accepts: () => true }
+    : selectedStep && selectedAction
+      ? { text: `Ação ${selectedAction.variable || selectedAction.address}: «Usar» troca a saída (Q ou M).`, accepts: (area) => area !== 'I' }
+      : selectedFreeAction
+        ? { text: `Ação solta ${selectedFreeAction.variable || selectedFreeAction.address}: «Usar» troca a saída (Q ou M).`, accepts: (area) => area !== 'I' }
+        : selectedStep
+          ? { text: `Etapa ${getStepDisplayInfo(selectedStep, steps.indexOf(selectedStep)).stepNumber}: «Usar» cria uma ação com a saída (Q ou M).`, accepts: (area) => area !== 'I' }
+          : null
+
+  const applySignal = (address: string, area: SignalArea) => {
+    if (selectedTransition) {
+      if (signalAddressesInCondition(selectedTransition.condition).includes(address)) return notify(`${address} já está na condição`)
+      updateTransition(selectedTransition.id, { condition: insertCondition(selectedTransition.condition, address) }, 'force')
+      return notify(`${address} acrescentado à condição`)
+    }
+    if (area === 'I') return notify('As entradas usam-se em condições: selecione uma transição')
+    if (selectedStep && selectedAction) {
+      patchAction(selectedStep, selectedAction, { address, variable: address }, 'force')
+      return notify(`Ação ligada a ${address}`)
+    }
+    if (selectedFreeAction) {
+      patchFreeAction(selectedFreeAction, { address, variable: address }, 'force')
+      return notify(`Ação solta ligada a ${address}`)
+    }
+    if (selectedStep) {
+      const created: GrafcetAction = { id: id(), address, variable: address, condition: '1', kind: 'N' }
+      updateStep(selectedStep.id, { actions: [...(selectedStep.actions ?? []), created] }, 'force')
+      setSelectedActionId(created.id)
+      return notify(`Ação ${address} criada na etapa`)
+    }
+    notify('Selecione uma transição, etapa ou ação para usar o sinal')
+  }
 
   const liveBitsAll = [...new Set(steps.flatMap((step) => actionsOf(step).map((action) => action.address.trim().toUpperCase())))]
   const liveBits = Object.entries(table)
@@ -4175,6 +4215,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               >
                 Transições <em>{transitions.length}</em>
               </button>
+              <button
+                role="tab"
+                aria-selected={tab === 'signals'}
+                className={tab === 'signals' ? 'is-active' : ''}
+                onClick={() => setTab('signals')}
+                title={undeclared.length ? `${signalSuggestions.length} declarados · ${undeclared.length} usados no GRAFCET sem estarem na tabela` : `${signalSuggestions.length} sinais declarados (I, Q, M)`}
+              >
+                Sinais <em>{signalSuggestions.length}</em>
+                {undeclared.length > 0 && <span className="grafcet-tab-dot" aria-label={`${undeclared.length} por declarar`} />}
+              </button>
               <button role="tab" aria-selected={tab === 'io'} className={tab === 'io' ? 'is-active' : ''} onClick={() => setTab('io')}>
                 Simulador
               </button>
@@ -4717,6 +4767,19 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             )}
 
             {/* ABA SIMULADOR */}
+            {tab === 'signals' && (
+              <SignalsPanel
+                tags={tags}
+                live={table}
+                running={running}
+                usage={usageBySignal}
+                undeclared={undeclared}
+                context={signalsContext}
+                onUse={applySignal}
+                onOpenTable={() => setSignalsOpen(true)}
+              />
+            )}
+
             {tab === 'io' && (
               <div className="grafcet-io">
                 <GrafcetSimPanel

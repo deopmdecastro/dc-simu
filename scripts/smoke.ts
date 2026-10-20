@@ -4,6 +4,7 @@ import { grafcetToLadder } from '../src/grafcet/toLadder'
 import { SPINE_X, START_Y, GRID, COLUMN_WIDTH, snapToGrid, clampPosition, alignToOthers, findFreeSlot, autoLayout, stepPitch } from '../src/grafcet/layout'
 import { detectGrafcetIo, inputsInCondition } from '../src/grafcet/inputDetect'
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView } from '../src/grafcet/selection'
+import { signalUsage, undeclaredSignals, tagsToDeclare, tokenAtCursor, matchSignals, insertCondition } from '../src/grafcet/signals'
 import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
@@ -2132,6 +2133,52 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('zoom à seleção: centro do retângulo fica no centro da janela', Math.abs(200 * fv.scale + fv.x - 400) < 1e-6 && Math.abs(150 * fv.scale + fv.y - 300) < 1e-6)
   check('zoom à seleção: retângulo enorme respeita o mínimo', fitView({ x0: 0, y0: 0, x1: 99999, y1: 99999 }, 800, 600, 0.25, 2.5).scale === 0.25)
 }
+
+// ---- GRAFCET: tabela de sinais dinâmica (uso, declaração, autocompletar) ----
+console.log('\n— Tabela de sinais dinâmica —')
+{
+  const program: any = {
+    steps: [
+      { id: 's0', name: '0', initial: true, action: '', condition: '', actions: [{ id: 'a1', address: 'Q1', condition: '1' }, { id: 'a2', address: 'Q2', condition: 'I3 * M1' }] },
+      { id: 's1', name: '1', initial: false, action: '', condition: '' },
+    ],
+    transitions: [{ id: 't1', from: ['s0'], to: ['s1'], condition: 'I1 * /I2' }, { id: 't2', from: ['s1'], to: ['s0'], condition: 'I1 + T(2s)' }],
+    freeActions: [{ id: 'f1', address: 'Q1', condition: '1' }],
+  }
+  const usage = signalUsage(program)
+  check('uso: I1 lido em 2 transições', usage.get('I1')?.transitions === 2)
+  check('uso: Q1 escrito em 2 ações (etapa + solta)', usage.get('Q1')?.actions === 2)
+  check('uso: condição da ação conta como uso (I3, M1)', usage.get('I3')?.actions === 1 && usage.get('M1')?.actions === 1)
+  check('uso: T(2s) não é endereço', !usage.has('T') && !usage.has('T2'))
+  const tags: any[] = [{ id: 'x', address: 'i1', name: 'Start', dataType: 'Bool' }, { id: 'y', address: 'Q1', name: 'Motor', dataType: 'Bool' }]
+  const missing = undeclaredSignals(program, tags)
+  check('não declarados: só os que faltam, ordenados I→Q→M', missing.join() === 'I2,I3,Q2,M1')
+  let k = 0
+  const created = tagsToDeclare(tags, ['I2', 'i2', 'I1', 'zz', 'M1'], () => `n${++k}`)
+  check('declarar: ignora duplicados, já existentes e inválidos', created.map((t) => t.address).join() === 'I2,M1')
+  check('declarar: cria Bool sem nome', created.every((t) => t.dataType === 'Bool' && t.name === ''))
+  check('cursor: palavra completa sob o cursor', JSON.stringify(tokenAtCursor('I1 * mot', 8)) === JSON.stringify({ start: 5, end: 8, text: 'mot' }))
+  check('cursor: no meio da palavra apanha a palavra toda', tokenAtCursor('Motor1 * I2', 3)?.text === 'Motor1')
+  check('cursor: números e «5s» não são tokens', tokenAtCursor('T(5s)', 4) === null && tokenAtCursor('12', 2) === null)
+  check('cursor: depois de operador sem palavra é null', tokenAtCursor('I1 * ', 5) === null)
+  check('cursor: «.5HZ» ignorado', tokenAtCursor('.5HZ', 4) === null)
+  const sig: any[] = [
+    { address: 'I1', name: 'Botão start', comment: 'Partida', area: 'I' },
+    { address: 'I2', name: 'Paragem', comment: '', area: 'I' },
+    { address: 'Q1', name: 'Motor principal', comment: 'Contator K1', area: 'Q' },
+    { address: 'M1', name: 'Selo motor', comment: '', area: 'M' },
+  ]
+  check('sugestões: endereço exato primeiro', matchSignals(sig, 'q1')[0].address === 'Q1')
+  check('sugestões: nome por palavra («mot» → Selo motor e Motor, empate por I→M→Q)', matchSignals(sig, 'mot').map((s) => s.address).join() === 'M1,Q1')
+  check('sugestões: ignora acentos', matchSignals(sig, 'botao')[0].address === 'I1')
+  check('sugestões: encontra por comentário', matchSignals(sig, 'contator')[0].address === 'Q1')
+  check('sugestões: sem consulta não sugere nada', matchSignals(sig, '  ').length === 0)
+  check('sugestões: respeita o limite', matchSignals(sig, 'i', 1).length === 1)
+  check('inserir: condição «1» é substituída', insertCondition('1', 'I1') === 'I1' && insertCondition('', 'I1') === 'I1')
+  check('inserir: junta com AND', insertCondition('I1', 'M2') === 'I1 * M2')
+  check('inserir: depois de operador não duplica', insertCondition('I1 * ', 'I2') === 'I1 * I2' && insertCondition('I1 * (', 'I2') === 'I1 * (I2')
+}
+
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)
