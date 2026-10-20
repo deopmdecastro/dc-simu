@@ -1601,3 +1601,26 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-signal-use:disabled { opacity: 0.4; cursor: not-allowed; }
 .grafcet-signals-empty { padding: 14px; text-align: center; font-size: 12px; color: #64748b; }
 .grafcet-signals-actions { display: flex; gap: 6px; flex-wrap: wrap; position: sticky; bottom: 0; padding: 8px 0 2px; background: linear-gradient(transparent, #fff 30%); }
+
+/* ── Abas do painel: 3 em cima, 2 em baixo, todas com o mesmo aspeto ── */
+.grafcet-tabs { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.grafcet-tabs button { grid-column: span 2; background: #f8fafc; border-color: #e2e8f0; }
+.grafcet-tabs button:nth-child(n + 4) { grid-column: span 3; }
+.grafcet-tabs button:hover:not(.is-active) { background: #eef3fb; }
+.grafcet-tabs button.is-active { background: #eff6ff; border-color: #bfdbfe; border-bottom-width: 1px; }
+
+/* ── Tabela de sinais compacta: uma linha por sinal ────────────────── */
+.grafcet-signal-row { padding: 6px 8px; gap: 4px 6px; }
+.grafcet-signal-add-comment {
+  grid-column: 2 / -1;
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 10.5px;
+  color: #94a3b8;
+  cursor: pointer;
+}
+.grafcet-signal-add-comment:hover, .grafcet-signal-add-comment:focus-visible { color: #1d4ed8; text-decoration: underline; }
+.grafcet-signal-comment { grid-column: 2 / -1; }
+.grafcet-signal-row:not(:hover):not(:focus-within) .grafcet-signal-add-comment { opacity: 0; height: 0; overflow: hidden; }

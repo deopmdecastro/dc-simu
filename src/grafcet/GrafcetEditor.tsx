@@ -1953,6 +1953,15 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     ]
   }
 
+  /** O minimapa só serve quando há diagrama fora da vista; se tudo cabe, é ruído. */
+  const diagramFitsView = (() => {
+    const box = boundsOf(steps.map((step) => ({ id: step.id, x: stepX(step.id), y: stepY(step.id) })), 20)
+    if (!box) return true
+    const left = -position.x / scale
+    const top = -position.y / scale
+    return box.x0 >= left && box.y0 >= top && box.x1 + 220 <= left + viewport.width / scale && box.y1 <= top + viewport.height / scale
+  })()
+
   const doUndo = () => {
     const state = useSimStore.getState()
     if (!state.history.length) return notify('Nada para desfazer')
@@ -4098,7 +4107,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           )}
 
           {/* Minimapa: visão geral clicável/arrastável do diagrama */}
-          {full && minimapOn && steps.length > 0 && !wireDraft && (
+          {full && minimapOn && steps.length > 0 && !wireDraft && !diagramFitsView && (
             <GrafcetMinimap
               width={width}
               height={height}

@@ -39,6 +39,8 @@ export default function SignalsPanel({ tags, live, running, usage, undeclared, c
   const addTag = useSimStore((state) => state.addTag)
   const [area, setArea] = useState<SignalArea | 'all'>('all')
   const [search, setSearch] = useState('')
+  /** Linha cujo campo de comentário foi aberto à mão (os que já têm comentário mostram-no sempre). */
+  const [commentOpen, setCommentOpen] = useState<string | null>(null)
 
   const rows = useMemo(() => {
     const seen = new Set<string>()
@@ -88,10 +90,14 @@ export default function SignalsPanel({ tags, live, running, usage, undeclared, c
               <code className="grafcet-signal-address">{address}</code>
               <input className="dc-input grafcet-signal-name" value={tag.name === address ? '' : tag.name} placeholder="Nome" aria-label={`Nome de ${address}`} onChange={(event) => updateTag(tag.id, { name: event.target.value })} />
               <span className={`grafcet-signal-usage${use ? '' : ' is-unused'}`} title={use ? `Lido em ${use.transitions} transição(ões) · usado em ${use.actions} ação(ões)` : 'Ainda não é usado no GRAFCET'}>
-                {use ? `${use.transitions}T · ${use.actions}A` : 'sem uso'}
+                {use ? `${use.transitions}T · ${use.actions}A` : '—'}
               </span>
               <button type="button" className="grafcet-signal-use" disabled={!context || !usable} onClick={() => onUse(address, rowArea)} title={!context ? 'Selecione primeiro onde usar o sinal' : usable ? `Usar ${address}` : 'Neste contexto só se usam saídas e memórias'}>Usar</button>
-              <input className="dc-input grafcet-signal-comment" value={tag.comment ?? ''} placeholder="Comentário (função do sinal)" aria-label={`Comentário de ${address}`} onChange={(event) => updateTag(tag.id, { comment: event.target.value })} />
+              {tag.comment || commentOpen === tag.id ? (
+                <input className="dc-input grafcet-signal-comment" autoFocus={commentOpen === tag.id && !tag.comment} value={tag.comment ?? ''} placeholder="Comentário (função do sinal)" aria-label={`Comentário de ${address}`} onChange={(event) => updateTag(tag.id, { comment: event.target.value })} onBlur={() => setCommentOpen(null)} />
+              ) : (
+                <button type="button" className="grafcet-signal-add-comment" onClick={() => setCommentOpen(tag.id)} aria-label={`Adicionar comentário a ${address}`}>+ comentário</button>
+              )}
             </li>
           )
         })}
