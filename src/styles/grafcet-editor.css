@@ -1460,3 +1460,63 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 @media (max-width: 720px) {
   .grafcet-selbar { top: auto; bottom: 64px; }
 }
+
+/* ── Minimapa, menu de contexto e cursor da ferramenta Selecionar ──── */
+.grafcet-full .grafcet-canvas.is-select-mode,
+.grafcet-full .grafcet-canvas.is-select-mode:active { cursor: default; }
+.grafcet-full .grafcet-canvas.is-select-mode.is-space-pan { cursor: grab; }
+.grafcet-full .grafcet-canvas.is-select-mode { user-select: none; }
+
+.grafcet-minimap {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 19;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #dce4ef;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  cursor: pointer;
+  touch-action: none;
+}
+.grafcet-minimap svg { display: block; margin: 0; background: #f8fafc; border-radius: 4px; }
+.grafcet-minimap-node { fill: #cbd5e1; stroke: #94a3b8; stroke-width: 6; }
+.grafcet-minimap-node.is-active { fill: #86efac; stroke: #16a34a; }
+.grafcet-minimap-node.is-selected { fill: #93c5fd; stroke: #2563eb; }
+.grafcet-minimap-view { fill: rgba(37, 99, 235, 0.08); stroke: #2563eb; stroke-width: 1.5; }
+@media (max-width: 1180px) { .grafcet-minimap { display: none; } }
+
+.grafcet-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 218px;
+  padding: 5px;
+  background: #ffffff;
+  border: 1px solid #d5deeb;
+  border-radius: 10px;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.22);
+  font-size: 12.5px;
+}
+.grafcet-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  padding: 7px 10px;
+  color: #1e293b;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+.grafcet-menu button:hover:not(:disabled),
+.grafcet-menu button:focus-visible { background: #eff6ff; color: #1d4ed8; outline: none; }
+.grafcet-menu button:disabled { color: #a3afc0; cursor: not-allowed; }
+.grafcet-menu button.is-danger { color: #b4232f; }
+.grafcet-menu button.is-danger:hover:not(:disabled),
+.grafcet-menu button.is-danger:focus-visible { background: #fff1f2; color: #b4232f; }
+.grafcet-menu kbd { font: inherit; font-size: 10.5px; color: #77869b; }
+.grafcet-menu-sep { height: 1px; margin: 4px 6px; background: #e5ebf4; }

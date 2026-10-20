@@ -45,6 +45,8 @@ import {
   IconZoomOut,
 } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
+import GrafcetMinimap from './GrafcetMinimap'
+import GrafcetContextMenu, { type ContextMenuItem } from './GrafcetContextMenu'
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView, type Pos, type AlignMode, type DistributeAxis, type SubDiagram } from './selection'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import { useGrafcetUi, type GrafcetBusAction, type GrafcetCanvasTool } from './grafcetBus'
@@ -272,6 +274,23 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const [groupOffset, setGroupOffset] = useState<{ dx: number; dy: number } | null>(null)
   /** Evita que o clique que termina um arrasto altere a seleção. */
   const suppressClickRef = useRef(false)
+  /** Menu de contexto (botão direito) e minimapa. */
+  const [menu, setMenu] = useState<{ x: number; y: number; kind: 'step' | 'group' | 'canvas'; stepId?: string; at: { x: number; y: number } } | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
+  const [minimapOn, setMinimapOn] = useState(() => {
+    try {
+      return localStorage.getItem('dcsimu:grafcet:minimap') !== '0'
+    } catch {
+      return true
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('dcsimu:grafcet:minimap', minimapOn ? '1' : '0')
+    } catch {
+      /* navegação privada */
+    }
+  }, [minimapOn])
   /** Área de transferência interna do editor (Ctrl+C / Ctrl+V). */
   const clipboardRef = useRef<{ ids: string[]; steps: GrafcetStep[]; transitions: GrafcetTransition[]; pos: Map<string, { x: number; y: number }>; pastes: number } | null>(null)
 
@@ -1853,6 +1872,86 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     notify(ids.length ? 'Vista ampliada à seleção' : 'Vista ajustada ao diagrama')
   }
 
+  /** Posição do diagrama (encaixada à grelha) para criar um elemento no ponto do ecrã indicado. */
+  const placeAtScreen = (cx: number, cy: number) => {
+    const world = clientToWorld(cx, cy)
+    let wx = world.x
+    let wy = world.y - STEP_H / 2
+    if (snapOn) {
+      wx = snapToGrid(wx, SPINE_X)
+      wy = snapToGrid(wy, START_Y)
+    }
+    const clamped = clampPosition(wx, wy)
+    // Congela a vista, como ao largar da paleta (o ajuste automático depende da largura).
+    if (zoom === null) setZoom(scale)
+    if (pan === null) setPan(position)
+    return { x: Math.round(clamped.x), y: Math.round(clamped.y) }
+  }
+
+  const onCanvasContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!full) return
+    event.preventDefault()
+    const stepId = (event.target as Element).closest('[data-step-id]')?.getAttribute('data-step-id') ?? undefined
+    const inGroup = !!stepId && groupIds.includes(stepId)
+    if (stepId && !inGroup) {
+      setMulti([])
+      setSelected(stepId)
+      setSelectedActionId(null)
+      setTab('steps')
+    }
+    setMenu({
+      x: event.clientX,
+      y: event.clientY,
+      kind: stepId ? (inGroup ? 'group' : 'step') : 'canvas',
+      stepId,
+      at: { x: event.clientX, y: event.clientY },
+    })
+  }
+
+  const menuItems = (): ContextMenuItem[] => {
+    if (!menu) return []
+    const sep: ContextMenuItem = { separator: true }
+    if (menu.kind === 'group') {
+      return [
+        { label: 'Alinhar ao eixo', onSelect: () => alignGroup('axis') },
+        { label: 'Alinhar pelo topo', onSelect: () => alignGroup('top') },
+        { label: 'Distribuir na horizontal', disabled: groupIds.length < 3, onSelect: () => distributeGroup('h') },
+        { label: 'Distribuir na vertical', disabled: groupIds.length < 3, onSelect: () => distributeGroup('v') },
+        sep,
+        { label: 'Copiar', hint: 'Ctrl+C', onSelect: () => copySelection() },
+        { label: 'Duplicar', hint: 'Ctrl+D', onSelect: duplicateSelected },
+        { label: 'Ampliar à seleção', hint: 'Z', onSelect: zoomToSelection },
+        sep,
+        { label: `Eliminar ${groupIds.length} etapas`, hint: 'Del', danger: true, onSelect: () => void requestDelete() },
+      ]
+    }
+    if (menu.kind === 'step') {
+      const target = menu.stepId ? stepById.get(menu.stepId) : undefined
+      return [
+        { label: 'Editar etapa…', hint: 'Enter', disabled: !target, onSelect: () => target && setEditingStep(target) },
+        { label: 'Criar etapa ligada abaixo', disabled: !target, onSelect: () => addConnectedStep(target) },
+        sep,
+        { label: 'Copiar', hint: 'Ctrl+C', onSelect: () => copySelection() },
+        { label: 'Duplicar', hint: 'Ctrl+D', onSelect: duplicateSelected },
+        { label: 'Ampliar à etapa', hint: 'Z', onSelect: zoomToSelection },
+        sep,
+        { label: 'Eliminar etapa', hint: 'Del', danger: true, onSelect: () => void requestDelete() },
+      ]
+    }
+    const place = () => placeAtScreen(menu.at.x, menu.at.y)
+    return [
+      { label: 'Nova etapa aqui', onSelect: () => addStep(place()) },
+      { label: 'Nova transição solta aqui', onSelect: () => addFreeTransition(place()) },
+      { label: 'Nova ação solta aqui', onSelect: () => addFreeAction(false, place()) },
+      sep,
+      { label: 'Colar', hint: 'Ctrl+V', disabled: !clipboardRef.current, onSelect: pasteClipboard },
+      { label: 'Selecionar tudo', hint: 'Ctrl+A', disabled: !steps.length, onSelect: selectAllSteps },
+      sep,
+      { label: 'Ajustar vista ao diagrama', hint: 'Ctrl+0', onSelect: resetView },
+      { label: minimapOn ? 'Esconder minimapa' : 'Mostrar minimapa', onSelect: () => setMinimapOn((value) => !value) },
+    ]
+  }
+
   const doUndo = () => {
     const state = useSimStore.getState()
     if (!state.history.length) return notify('Nada para desfazer')
@@ -2402,6 +2501,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               : undefined
           }
           onWheel={onPreviewWheel}
+          onContextMenu={onCanvasContextMenu}
           onPointerDown={onPreviewDown}
           onPointerMove={onPreviewMove}
           onPointerUp={onPreviewUp}
@@ -3115,6 +3215,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   return (
                     <g
                       key={step.id}
+                      data-step-id={step.id}
                       className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${isThisStepSelected ? 'is-selected' : ''} ${multi.includes(step.id) ? 'is-multi' : ''}`}
                       transform={stepShiftX ? `translate(${stepShiftX}, 0)` : undefined}
                       role={full ? 'button' : undefined}
@@ -3956,6 +4057,20 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             </div>
           )}
 
+          {/* Minimapa: visão geral clicável/arrastável do diagrama */}
+          {full && minimapOn && steps.length > 0 && !wireDraft && (
+            <GrafcetMinimap
+              width={width}
+              height={height}
+              nodes={steps.map((step) => ({ x: stepX(step.id), y: stepY(step.id), active: runtime.active.includes(step.id), selected: isStepSelected(step.id) }))}
+              view={{ x: -position.x / scale, y: -position.y / scale, w: viewport.width / scale, h: viewport.height / scale }}
+              onNavigate={(wx, wy) => {
+                setZoom(scale)
+                setPan({ x: viewport.width / 2 - wx * scale, y: viewport.height / 2 - wy * scale })
+              }}
+            />
+          )}
+
           {/* HUD flutuante de navegação estilo grafcet.io */}
           {full && steps.length > 0 && (
             <div className="grafcet-canvas-hud" role="toolbar" aria-label="Navegação e zoom da tela">
@@ -3996,6 +4111,15 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 title="Ajustar diagrama à janela (Ctrl+0 / Duplo clique no fundo)"
               >
                 Ajustar
+              </button>
+              <button
+                type="button"
+                className={minimapOn ? 'is-active' : ''}
+                onClick={() => setMinimapOn((value) => !value)}
+                title="Mostrar/ocultar o minimapa"
+                aria-pressed={minimapOn}
+              >
+                Mapa
               </button>
               <span className="grafcet-canvas-hud-sep" />
               <span className="grafcet-hud-stats">
@@ -4749,6 +4873,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       />
 
       <GrafcetShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+      {menu && <GrafcetContextMenu x={menu.x} y={menu.y} items={menuItems()} onClose={closeMenu} />}
 
       {/* MODAL DE MODELOS INDUSTRIAIS */}
       {templatesOpen && (

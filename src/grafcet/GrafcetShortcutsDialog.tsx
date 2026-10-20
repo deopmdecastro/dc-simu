@@ -78,6 +78,8 @@ const GROUPS = [
       { keys: ['Ctrl', 'F'], label: 'Pesquisar componentes' },
       { keys: ['Ctrl', '+ / − / 0'], label: 'Aumentar, reduzir ou ajustar zoom' },
       { keys: ['Roda do rato'], label: 'Zoom centrado no cursor' },
+      { keys: ['Botão direito'], label: 'Menu de contexto: criar elementos no cursor, copiar, colar, alinhar, eliminar' },
+      { keys: ['Minimapa'], label: 'Clicar ou arrastar no minimapa (canto inferior esquerdo) para navegar; botão «Mapa» mostra/esconde' },
       { keys: ['?'], label: 'Mostrar esta lista de atalhos (ou Ctrl+/)' },
     ],
   },
