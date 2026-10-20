@@ -37,6 +37,7 @@ import {
   IconHand,
   IconSearch,
   IconWire,
+  IconChevronDown,
 } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
@@ -298,6 +299,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const selectedStep = steps.find((step) => step.id === selected)
   const selectedTransition = transitions.find((transition) => transition.id === selected)
   const selectedAction = selectedStep ? (actionsOf(selectedStep).find((a) => a.id === selectedActionId) ?? null) : null
+  /** Mobile: Propriedades é uma gaveta recolhida; abre ao selecionar algo (no desktop é sempre visível). */
+  const [propsOpen, setPropsOpen] = useState(false)
+  const propsFirstRun = useRef(true)
+  useEffect(() => {
+    if (propsFirstRun.current) { propsFirstRun.current = false; return }
+    if (selected) setPropsOpen(true)
+  }, [selected])
 
   const isStepSelected = (stepId: string) => (selected === stepId && !selectedActionId) || multi.includes(stepId)
   const isActionSelected = (actionId: string) => selectedActionId === actionId
@@ -4189,8 +4197,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
         {/* PAINEL DE PROPRIEDADES À DIREITA (Estrutura e Abas Clássicas: Etapas, Transições, Simulador, Diagnóstico) */}
         {full && (
-          <aside className="grafcet-properties">
-            <div className="grafcet-properties-summary">
+          <aside className={`grafcet-properties ${propsOpen ? 'is-open' : ''}`}>
+            <div className="grafcet-properties-summary" onClick={() => setPropsOpen((value) => !value)}>
               <div>
                 <strong>
                   {selectedStep && selectedAction
@@ -4209,8 +4217,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 </strong>
                 <small>{running ? '● Simulação ativa' : '○ Simulação parada'}</small>
               </div>
+              <button type="button" className="grafcet-properties-toggle" aria-expanded={propsOpen} aria-label={propsOpen ? 'Recolher propriedades' : 'Abrir propriedades'}
+                onClick={(event) => { event.stopPropagation(); setPropsOpen((value) => !value) }}>
+                <IconChevronDown size={14} className={propsOpen ? '' : 'rotate-180'} />
+              </button>
               {selected && (
-                <div className="grafcet-selection-actions">
+                <div className="grafcet-selection-actions" onClick={(event) => event.stopPropagation()}>
                   <button onClick={duplicateSelected} title={selectedActionId ? 'Duplicar ação (Ctrl+D)' : 'Duplicar (Ctrl+D)'} aria-label="Duplicar seleção">
                     <IconCopy size={13} />
                   </button>

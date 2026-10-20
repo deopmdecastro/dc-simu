@@ -1237,7 +1237,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     notify(`Bloco «${name}» criado em ${NODE_TITLES[folder]}`)
   }
   const [showStatus, setShowStatus] = useState(() => {
-    try { return localStorage.getItem('dcsimu:ladder:status-open') !== '0' } catch { return true }
+    try { const saved = localStorage.getItem('dcsimu:ladder:status-open'); return saved === null ? !isSmallScreen() : saved !== '0' } catch { return !isSmallScreen() }
   })
   useEffect(() => {
     try { localStorage.setItem('dcsimu:ladder:status-open', showStatus ? '1' : '0') } catch { /* navegação privada */ }

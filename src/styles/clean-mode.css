@@ -137,3 +137,56 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
     width: auto; max-height: 70dvh; overflow-y: auto;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Telemóvel: mais canvas no GRAFCET e no Ladder
+   - GRAFCET: «Propriedades» é uma gaveta recolhível (abre ao selecionar) e as
+     abas passam a uma única linha com deslize.
+   - Ladder: métricas numa só linha compacta; rails laterais mais finos.
+--------------------------------------------------------------------------- */
+.grafcet-properties-toggle { display: none; }
+@media (max-width: 800px) {
+  .grafcet-full .grafcet-properties {
+    max-height: 48%;
+    /* folga para a barra flutuante do browser (iOS) não tapar o fim da lista */
+    padding-bottom: calc(12px + 56px + env(safe-area-inset-bottom, 0px));
+  }
+  .grafcet-full .grafcet-properties:not(.is-open) {
+    max-height: none; overflow: hidden; gap: 0; padding-top: 4px; padding-bottom: 6px;
+  }
+  .grafcet-properties:not(.is-open) > :not(.grafcet-properties-summary) { display: none; }
+  .grafcet-properties-summary { min-height: 44px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .grafcet-properties-summary .grafcet-selection-actions { order: 2; }
+  .grafcet-properties-toggle {
+    order: 3; display: inline-grid; place-items: center; flex: none; width: 38px; height: 38px;
+    border: 1px solid #c9d8ee; border-radius: 8px; background: #f3f7ff; color: #2455d8;
+  }
+  .grafcet-properties-toggle svg { transition: transform .15s; }
+  /* abas numa linha com deslize (em vez de uma grelha 2×3 que ocupava meio ecrã) */
+  .grafcet-full .grafcet-tabs {
+    display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; gap: 6px; padding-bottom: 6px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .grafcet-full .grafcet-tabs::-webkit-scrollbar { display: none; }
+  .grafcet-full .grafcet-tabs button { flex: none; padding: 7px 12px; min-height: 36px; }
+}
+
+@media (max-width: 700px) {
+  /* métricas do Ladder: uma linha de chips com deslize em vez de 2 linhas de cartões */
+  .ladder-program-summary {
+    display: flex !important; grid-template-columns: none !important; flex-wrap: nowrap;
+    gap: 6px; padding: 6px 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .ladder-program-summary::-webkit-scrollbar { display: none; }
+  .ladder-program-summary .ladder-metric,
+  .ladder-program-summary .ladder-live-bus {
+    flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px;
+  }
+  .ladder-program-summary .ladder-metric span,
+  .ladder-program-summary .ladder-live-bus span { font-size: 9px; }
+  .ladder-program-summary .ladder-metric strong,
+  .ladder-program-summary .ladder-live-bus strong { margin-top: 0; font-size: 12px; white-space: nowrap; }
+  /* rails «Projeto/Elementos» mais finos: sobra largura para o diagrama */
+  .ladder-collapsed-pane-button { flex-basis: 26px; }
+  .ladder-bottom-panel:not(.is-collapsed) { flex-basis: 150px; }
+}
