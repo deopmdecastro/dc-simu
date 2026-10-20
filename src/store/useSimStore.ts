@@ -40,7 +40,7 @@ import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, u
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
-import type { ProjectFile, ProjectFolder } from '../ladder/projectFiles'
+import { autoExecRungs, callableBlocks, type ProjectFile, type ProjectFolder } from '../ladder/projectFiles'
 import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
@@ -73,13 +73,25 @@ export interface Snapshot {
   hiddenProjectFolders?: Record<string, ProjectFolder[]>
 }
 
+interface PlcScanRuntime {
+  table: AddressTable
+  timers: TimerTable
+  counters: CounterTable
+  rungPowered: Record<string, boolean>
+  db: DbTable
+  /** true depois de os OBs de arranque (OB 100) correrem uma vez neste RUN */
+  startupDone?: boolean
+}
+
 interface RuntimeExtras {
   table: AddressTable
   timers: TimerTable
   counters: CounterTable
   rungPowered: Record<string, boolean>
   db: DbTable
-  plcRuntime: Record<string, { table: AddressTable; timers: TimerTable; counters: CounterTable; rungPowered: Record<string, boolean>; db: DbTable }>
+  /** mesmo papel do `startupDone` por PLC, mas para o programa geral (sem PLC) */
+  startupDone?: boolean
+  plcRuntime: Record<string, PlcScanRuntime>
   energizedTerminals: Set<string>
   energizedWires: Set<string>
 }
@@ -99,7 +111,7 @@ interface Store extends CircuitState {
   /** Pastas opcionais ocultadas pelo utilizador, separadas por PLC. */
   hiddenProjectFolders: Record<string, ProjectFolder[]>
   addProjectFile: (folder: ProjectFolder, name: string) => string | null
-  updateProjectFile: (id: string, patch: Partial<Pick<ProjectFile, 'name' | 'content' | 'rungs'>>) => void
+  updateProjectFile: (id: string, patch: Partial<Pick<ProjectFile, 'name' | 'content' | 'rungs' | 'exec'>>) => void
   deleteProjectFile: (id: string) => void
   deleteProjectFolder: (folder: ProjectFolder) => void
   restoreProjectFolder: (folder: ProjectFolder) => void
@@ -481,7 +493,17 @@ function runOneTick(state: Store, dtMs: number) {
   if (!plcs.length) {
     // Sem PLC no esquema: as entradas vêm do painel de entradas virtuais.
     for (const [address, on] of Object.entries(state.virtualInputs)) state.runtime.table[address] = on
-    const scan = runScan(ladder, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs)
+    const generalFiles = state.projectFiles._general ?? []
+    // OBs de arranque correm uma vez por RUN; os cíclicos em todos os scans, após o Main.
+    const scheduled = state.runtime.startupDone ? [] : autoExecRungs(generalFiles, 'obStartup')
+    const functions: Record<string, LadderRung[]> = {
+      fc1: state.fcBlocks.fc1, fc2: state.fcBlocks.fc2, ...callableBlocks(generalFiles),
+    }
+    const declared = parseDataBlocks(generalFiles).values
+    const db = { ...declared, ...Object.fromEntries(Object.entries(state.runtime.db).filter(([key]) => key in declared)) }
+    const scan = runScan({ rungs: [...ladder.rungs, ...scheduled, ...autoExecRungs(generalFiles, 'obCyclic')] }, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs, functions, [], db)
+    state.runtime.db = db
+    state.runtime.startupDone = true
     state.runtime.rungPowered = scan.rungPowered
   }
   for (const plc of plcs) {
@@ -500,14 +522,14 @@ function runOneTick(state: Store, dtMs: number) {
     const program = plc.id === state.activePlcId ? ladder.rungs
       : state.plcPrograms[plc.id]?.rungs ?? (state.activePlcId === null && plc.id === plcs[0].id ? ladder.rungs : [])
     const fc = plc.id === state.activePlcId ? state.fcBlocks : state.plcPrograms[plc.id]
-    const functions: Record<string, LadderRung[]> = {
-      fc1: fc?.fc1 ?? [], fc2: fc?.fc2 ?? [],
-      ...(state.projectFiles[plc.id] ?? []).filter((file) => file.folder === 'programBlocks').reduce((map, file) => ({ ...map, [file.id]: file.rungs ?? [] }), {}),
-    }
-    const declared = parseDataBlocks(state.projectFiles[plc.id] ?? []).values
+    const files = state.projectFiles[plc.id] ?? []
+    const functions: Record<string, LadderRung[]> = { fc1: fc?.fc1 ?? [], fc2: fc?.fc2 ?? [], ...callableBlocks(files) }
+    // OBs de arranque correm uma vez por RUN; os cíclicos em todos os scans, após o Main.
+    const scheduled = prior.startupDone ? [] : autoExecRungs(files, 'obStartup')
+    const declared = parseDataBlocks(files).values
     prior.db = { ...declared, ...Object.fromEntries(Object.entries(prior.db).filter(([key]) => key in declared)) }
-    const scan = runScan({ rungs: program }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db)
-    state.runtime.plcRuntime[plc.id] = { ...prior, rungPowered: scan.rungPowered }
+    const scan = runScan({ rungs: [...program, ...scheduled, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db)
+    state.runtime.plcRuntime[plc.id] = { ...prior, startupDone: true, rungPowered: scan.rungPowered }
     for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = powered && !!scan.table[key]
   }
   if (selectedId) {
@@ -815,7 +837,15 @@ export const useSimStore = create<Store>((set, get) => ({
   play: () => {
     const existing = get()._intervalId
     if (existing) return
-    if (get().sim.runState === 'stopped') set({ grafcetRuntime: emptyGrafcetRuntime() })
+    // RUN a partir de STOP: GRAFCET reinicia e os OBs de arranque voltam a correr uma vez.
+    if (get().sim.runState === 'stopped') set((s) => ({
+      grafcetRuntime: emptyGrafcetRuntime(),
+      runtime: {
+        ...s.runtime,
+        startupDone: false,
+        plcRuntime: Object.fromEntries(Object.entries(s.runtime.plcRuntime).map(([id, rt]) => [id, { ...rt, startupDone: false }])),
+      },
+    }))
     const interval = get().sim.mode === 'turbo' ? 30 : 100
     const iv = window.setInterval(() => {
       const st = get()

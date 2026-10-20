@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import Modal from '../ui/Modal'
 import { SHORTCUTS, SHORTCUT_GROUPS, type ShortcutGroupId } from './ladderShortcuts'
-import { IconClose } from '../ui/icons'
+import { IconHelp, IconSearch } from '../ui/icons'
 
 export function Kbd({ keys }: { keys: string[] }) {
   return (
@@ -33,29 +34,31 @@ export function ShortcutList({ query = '' }: { query?: string }) {
   )
 }
 
+/** Usa a Modal partilhada (Esc/clique fora, folha inferior no telemóvel). */
 export default function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [query, setQuery] = useState('')
-  useEffect(() => {
-    if (!open) return
-    setQuery('')
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
-  if (!open) return null
+  useEffect(() => { if (open) setQuery('') }, [open])
   return (
-    <div className="lk-overlay" onMouseDown={onClose} role="presentation">
-      <div className="lk-dialog" role="dialog" aria-modal="true" aria-label="Atalhos de teclado" onMouseDown={(e) => e.stopPropagation()}>
-        <header className="lk-head">
-          <div>
-            <h3>Atalhos de teclado</h3>
-            <small>Editor Ladder · no macOS use ⌘ em vez de Ctrl</small>
-          </div>
-          <button className="ladder-ghost-button" onClick={onClose} aria-label="Fechar" title="Fechar (Esc)"><IconClose size={12} /></button>
-        </header>
-        <input autoFocus className="lk-search" placeholder="Filtrar atalhos…" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <div className="lk-body"><ShortcutList query={query} /></div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      width={760}
+      title="Atalhos de teclado"
+      subtitle="Editor Ladder · no macOS use ⌘ em vez de Ctrl"
+      icon={<span className="dc-modal-ico-badge"><IconHelp size={13} /></span>}
+    >
+      <div className="lk-query">
+        <IconSearch size={13} />
+        <input
+          data-autofocus
+          className="dc-input"
+          placeholder="Filtrar atalhos…"
+          aria-label="Filtrar atalhos"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
-    </div>
+      <ShortcutList query={query} />
+    </Modal>
   )
 }

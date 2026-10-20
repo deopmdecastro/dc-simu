@@ -433,7 +433,6 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-live-status span.is-running { color:#15803d; }
 .grafcet-live-status span.is-running i { background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.16); }
 .grafcet-live-status small { display:block; margin-top:5px; color:#8490a4; font-size:9.5px; overflow-wrap:anywhere; }
-.grafcet-shortcuts-dialog .lk-body { padding-top:8px; }
 .grafcet-toast { bottom:52px; }
 @media(max-width:1050px) {
   .grafcet-header-actions .dc-btn { padding-left:8px; padding-right:8px; }

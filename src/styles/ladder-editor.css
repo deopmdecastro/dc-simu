@@ -19,8 +19,6 @@
 .ladder-rung-action.is-danger:hover:not(:disabled) { color:#c62828; background:#fff1f1; }
 .ladder-rung-action:disabled { opacity:.3; cursor:not-allowed; }
 .ladder-rung-action:focus-visible { outline:2px solid var(--ladder-blue); outline-offset:1px; }
-.ladder-rung-card { position:relative; }
-.ladder-rung-card.is-active { border-color:#7fa3f5; box-shadow:0 0 0 2px rgba(31,85,224,.14), 0 4px 14px rgba(31,85,224,.10); }
 .ladder-rung-card.is-active::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--ladder-blue); z-index:1; }
 .ladder-rung-card.is-active .ladder-rung-header { background:linear-gradient(180deg,#e8effc 0%,#d6e3fa 100%); }
 .ladder-rung-card.is-disabled .ladder-rung-body,
@@ -29,20 +27,15 @@
 .ladder-network-wrap:focus-visible { box-shadow:0 0 0 3px rgba(31,85,224,.22); }
 .ladder-toast { position:fixed; left:50%; bottom:44px; transform:translateX(-50%); z-index:80; padding:7px 14px; border-radius:8px; background:#1b2540; color:#fff; font-size:12px; font-weight:600; box-shadow:0 8px 24px rgba(15,23,42,.28); pointer-events:none; animation:ladder-toast-in .16s ease-out; }
 @keyframes ladder-toast-in { from { opacity:0; transform:translate(-50%,6px); } to { opacity:1; transform:translate(-50%,0); } }
-.lk-overlay { position:fixed; inset:0; z-index:90; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(15,23,42,.42); backdrop-filter:blur(2px); }
-.lk-dialog { width:min(760px,100%); max-height:min(640px,100%); display:flex; flex-direction:column; border-radius:12px; background:#fff; box-shadow:0 24px 64px rgba(15,23,42,.35); overflow:hidden; }
-.lk-head { display:flex; align-items:flex-start; justify-content:space-between; padding:16px 20px 8px; }
-.lk-head h3 { font-size:16px; font-weight:800; color:#1b2540; }
-.lk-head small { color:#6b7a93; font-size:11px; }
-.lk-search { margin:6px 20px 10px; height:32px; padding:0 10px; border:1px solid #d5dde8; border-radius:7px; font-size:12px; outline:none; }
-.lk-search:focus { border-color:var(--ladder-blue,#1f55e0); box-shadow:0 0 0 3px rgba(31,85,224,.15); }
-.lk-body { overflow:auto; padding:0 20px 18px; }
 .lk-groups { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px 28px; }
 .lk-group h4 { font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#6b7a93; padding-bottom:5px; margin-bottom:2px; border-bottom:1px solid #e3e9f2; }
 .lk-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:5px 0; font-size:12px; color:#33415c; }
-.lk-keys { display:inline-flex; gap:3px; flex-shrink:0; }
+.lk-keys { display:inline-flex; gap:3px; flex-shrink:0; max-width:100%; flex-wrap:wrap; justify-content:flex-end; }
 .lk-key { min-width:20px; padding:1px 6px; border:1px solid #cdd6e4; border-bottom-width:2px; border-radius:5px; background:#f6f8fc; color:#33415c; font:600 10.5px/16px ui-monospace,SFMono-Regular,Menlo,monospace; text-align:center; }
 .lk-empty { padding:20px 0; color:#6b7a93; }
+.lk-query { position:relative; display:flex; align-items:center; gap:7px; margin-bottom:12px; color:#8b98a9; }
+.lk-query svg { position:absolute; left:9px; pointer-events:none; }
+.lk-query .dc-input { height:32px; padding-left:28px; border-radius:8px; }
 .ladder-section-view.ls-page { flex:1; overflow:auto; padding:0; background:#f5f7fb; color:#33415c; font-size:12px; }
 .ls-inner { max-width:1180px; margin:0 auto; padding:22px 28px 40px; }
 .ls-header { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:16px; }
@@ -135,9 +128,8 @@
 .ladder-status-title { position:sticky; top:-8px; z-index:1; margin:-8px 0 4px; padding:8px 0 4px; background:#fff; }
 .ladder-project-status { position:sticky; top:0; align-self:start; }
 .ladder-network-wrap.is-selected { outline-color:transparent; }
-.ladder-rung-card { transition:border-color .14s, box-shadow .14s; }
-.ladder-rung-card:not(.is-active):hover { border-color:#b9cbef; box-shadow:0 2px 8px rgba(31,43,74,.08); }
-.ladder-rung-card { overflow:clip; }               /* 'clip' não cria contentor de scroll → o sticky funciona */
+/* 'clip' não cria contentor de scroll → o sticky do cabeçalho funciona */
+.ladder-rung-card { position:relative; overflow:clip; transition:border-color .14s, box-shadow .14s; }
 .ladder-rung-header { position:sticky; top:0; z-index:4; box-shadow:0 1px 0 #d5dde8; }
 .ladder-rung-card.is-collapsed .ladder-rung-header { box-shadow:none; }
 .ladder-rung-card.is-active { border-color:#9db8f0; box-shadow:0 1px 3px rgba(31,43,74,.08); }

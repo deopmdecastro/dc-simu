@@ -58,6 +58,7 @@ html[data-clean="true"] .schematic-dimension-switch > span { display: none; }
 html[data-clean="true"] .vcube-readout,
 html[data-clean="true"] .panel3d-axis-hud { display: none; }
 /* Ladder */
+.ladder-pane-scrim { display: none; } /* só vira scrim ativo na gaveta (≤1199px, abaixo) */
 html[data-clean="true"] .ladder-main-pane > div:first-child > span.truncate { display: none; }
 html[data-clean="true"] .ladder-toolbar-button > span { display: none; }
 html[data-clean="true"] .ladder-chip small { display: none; }
@@ -72,11 +73,17 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
 @media (max-width: 1199px) {
   .ladder-workspace { position: relative; }
   .ladder-project-pane, .ladder-palette {
-    position: absolute; top: 0; bottom: 0; z-index: 30; width: min(320px, 88vw);
-    box-shadow: 0 0 0 100vmax #0f172a2e, 0 16px 40px #0f172a40;
+    position: absolute; top: 0; bottom: 0; z-index: 32; width: min(320px, 88vw);
+    box-shadow: 0 16px 40px #0f172a40;
   }
   .ladder-project-pane { left: 0; }
   .ladder-palette { right: 0; }
+  /* scrim real: substitui o truque do box-shadow 100vmax — tocar fora fecha a gaveta */
+  .ladder-pane-scrim {
+    position: absolute; inset: 0; z-index: 31;
+    margin: 0; padding: 0; border: 0; display: block;
+    background: #0f172a2e; backdrop-filter: blur(1px); cursor: default;
+  }
   .ladder-collapsed-pane-button { position: relative; z-index: 5; }
   .grafcet-designer-body { position: relative; }
   .grafcet-full .grafcet-toolbox {

@@ -16,6 +16,8 @@ import TagTable from './TagTable'
 import type { LadderRung, LadderContactType, ComponentType, ElectricalComponent } from '../types'
 import NetworkDiagram, { type RungSelection } from './NetworkDiagram'
 import LadderElementDialog from './LadderElementDialog'
+import AddBlockDialog from './AddBlockDialog'
+import type { BlockKind } from './blockCatalog'
 import { COMPONENT_TO_LADDER, LADDER_MIME, applyKind, isContactKind, setLadderDrag, type PaletteKind } from './ladderDnd'
 import {
   IconPlus, IconDelete, IconCopy,
@@ -750,7 +752,7 @@ function FunctionBlockView({ id }: { id: 'fc1' | 'fc2' | `file:${string}` }) {
   const add = () => updateFc(id, [...rungs, { id: crypto.randomUUID(), name: `Network ${rungs.length + 1}`, enabled: true, branches: [{ id: crypto.randomUUID(), elements: [] }], coils: [] }])
   return (
     <div className="ladder-folder-view">
-      <FolderViewHeader icon={<IconFunction size={16} />} title={id.startsWith('file:') ? file?.name ?? 'Bloco eliminado' : NODE_TITLES[id as 'fc1' | 'fc2']} subtitle="Bloco editável, guardado com o projeto. Não é executado automaticamente: integre a lógica no OB1 para a simular." />
+      <FolderViewHeader icon={<IconFunction size={16} />} title={id.startsWith('file:') ? file?.name ?? 'Bloco eliminado' : NODE_TITLES[id as 'fc1' | 'fc2']} subtitle={file?.exec === 'obCyclic' ? 'Bloco editável, guardado com o projeto. Executa automaticamente em todos os ciclos, após o Main [OB1].' : file?.exec === 'obStartup' ? 'Bloco editável, guardado com o projeto. Executa uma vez, ao entrar em RUN (arranque); pressione STOP e RUN para o repetir.' : 'Bloco editável, guardado com o projeto. Não corre sozinho: execute-o com CALL a partir do Main ou de outro bloco.'} />
       <button className="dc-btn-primary dc-btn self-start my-2" onClick={add}><IconPlus size={12} /> Nova network</button>
       {!rungs.length && <p className="text-xs text-ink-400">Bloco vazio. Crie uma network para começar.</p>}
       {rungs.map((r, i) => <div className="ladder-rung-card" key={r.id}>
@@ -838,6 +840,14 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     window.addEventListener('dragend', reset, true)
     return () => { window.removeEventListener('drop', reset, true); window.removeEventListener('dragend', reset, true) }
   }, [])
+  const [blockDialog, setBlockDialog] = useState<BlockKind | null>(null)
+  /** abre o ficheiro recém-criado na modal «Adicionar bloco» e avisa o utilizador */
+  const openCreatedBlock = (id: string, folder: ProjectFolder, name: string) => {
+    setProgramTab('program')
+    setActiveProjectNode(`file:${id}`)
+    setExpandedNodes((prev) => new Set([...prev, folder]))
+    notify(`Bloco «${name}» criado em ${NODE_TITLES[folder]}`)
+  }
   const [showStatus, setShowStatus] = useState(() => {
     try { return localStorage.getItem('dcsimu:ladder:status-open') !== '0' } catch { return true }
   })
@@ -1007,7 +1017,10 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   }, { enabled: !helpOpen })
 
   const createFile = async (folder: ProjectFolder) => {
-    const suggested = folder === 'programBlocks' ? 'FC' : folder === 'dataBlocks' ? 'DB' : folder === 'watchTables' ? 'Observação' : folder === 'backups' ? 'Backup' : 'Novo ficheiro'
+    // Blocos de código/dados abrem a modal «Adicionar novo bloco» (tipo, modelo, número…);
+    // as restantes pastas continuam com criação rápida por nome.
+    if (folder === 'programBlocks' || folder === 'dataBlocks') { setBlockDialog(folder === 'dataBlocks' ? 'DB' : 'OB'); return }
+    const suggested = folder === 'watchTables' ? 'Observação' : folder === 'backups' ? 'Backup' : 'Novo ficheiro'
     const name = (await uiPrompt('Nome do novo item:', `${suggested} ${(files.filter((f) => f.folder === folder).length + 1)}`))?.trim()
     if (!name) return
     const id = useSimStore.getState().addProjectFile(folder, name)
@@ -1071,6 +1084,9 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   return (
     <div className="ladder-workspace">
       {section === 'Projeto' && (showProjectPane ? (
+        <>
+        {/* gaveta em ecrã pequeno: toque fora fecha (visível só até 1199px) */}
+        <button type="button" className="ladder-pane-scrim" aria-label="Fechar painel de projeto" onClick={() => setShowProjectPane(false)} />
         <ProjectTreePane
           activeNode={activeProjectNode}
           expanded={expandedNodes}
@@ -1087,8 +1103,9 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           onDeleteFolder={deleteFolder}
           onRestoreFolder={(folder) => useSimStore.getState().restoreProjectFolder(folder)}
         />
+        </>
       ) : (
-        <button className="ladder-collapsed-pane-button" onClick={() => setShowProjectPane(true)} title="Mostrar projeto">
+        <button className="ladder-collapsed-pane-button" onClick={() => { setShowProjectPane(true); if (isSmallScreen()) setShowPalette(false) }} title="Mostrar projeto">
           Projeto
         </button>
       ))}
@@ -1122,6 +1139,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
               </button>
             </>
           )}
+          <button className="ladder-toolbar-button" onClick={() => setBlockDialog('OB')} title="Adicionar bloco ao projeto (OB/FB/FC/DB)" aria-label="Adicionar bloco"><IconPlus size={13} /> <span className="ml-1 text-[10px]">Bloco</span></button>
           <button className="ladder-toolbar-button ml-auto" onClick={() => setHelpOpen(true)} title="Atalhos de teclado (?)" aria-label="Atalhos de teclado"><IconHelp size={14} /> <span className="ml-1 text-[10px]">Atalhos</span></button>
           {isMainOpen && <button onClick={() => { const id = addRung(); focusRung(id) }} className="ladder-primary-button" title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>}
         </div>
@@ -1215,6 +1233,9 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         </>}
       </main>
       {section === 'Projeto' && (showPalette ? (
+      <>
+      {/* gaveta em ecrã pequeno: toque fora fecha os painéis laterais (visível só até 1199px) */}
+      <button type="button" className="ladder-pane-scrim" aria-label="Fechar painel de elementos" onClick={() => setShowPalette(false)} />
       <aside className="ladder-palette">
         <div className="ladder-palette-header">
           <div>
@@ -1261,12 +1282,22 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           )}
         </div>
       </aside>
+      </>
       ) : (
-        <button className="ladder-collapsed-pane-button is-right" onClick={() => setShowPalette(true)} title="Mostrar elementos">
+        <button className="ladder-collapsed-pane-button is-right" onClick={() => { setShowPalette(true); if (isSmallScreen()) setShowProjectPane(false) }} title="Mostrar elementos">
           Elementos
         </button>
       ))}
       <ShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+      {blockDialog && (
+        <AddBlockDialog
+          open
+          initialKind={blockDialog}
+          files={files}
+          onClose={() => setBlockDialog(null)}
+          onCreated={openCreatedBlock}
+        />
+      )}
       {toast && <div key={toast.id} className="ladder-toast" role="status" aria-live="polite">{toast.text}</div>}
     </div>
   )

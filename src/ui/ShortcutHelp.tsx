@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
+import Modal from './Modal'
 import { SHORTCUT_HELP } from './shortcuts'
-import { IconClose } from './icons'
+import { IconHelp, IconSearch } from './icons'
 
 export interface ShortcutHelpExtra {
   title: string
@@ -17,15 +17,16 @@ interface Props {
   extra?: ShortcutHelpExtra[]
 }
 
-/** Painel de ajuda partilhado: abre com F1, ? ou Ctrl+/ e fecha com Esc. */
+/** Painel de ajuda partilhado: abre com F1, ? ou Ctrl+/ e fecha com Esc (Modal partilhada). */
 export default function ShortcutHelp({ open, onClose, editor, extra = [] }: Props) {
   const [query, setQuery] = useState('')
 
   useEffect(() => {
     if (!open) return
     setQuery('')
+    // F1 também fecha — o Escape fica a cargo da Modal partilhada
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' || event.key === 'F1') { event.preventDefault(); event.stopPropagation(); onClose() }
+      if (event.key === 'F1') { event.preventDefault(); event.stopPropagation(); onClose() }
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -39,38 +40,41 @@ export default function ShortcutHelp({ open, onClose, editor, extra = [] }: Prop
       .filter((group) => group.items.length)
   }, [query, extra])
 
-  if (!open) return null
-  // Portal para o body: dentro do canvas o overlay ficava preso ao contentor (cubo/HUD por cima e janela cortada).
-  return createPortal(
-    <div className="lk-overlay" onMouseDown={onClose} role="presentation">
-      <div className="lk-dialog" role="dialog" aria-modal="true" aria-label="Atalhos de teclado" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="lk-head">
-          <div>
-            <h3>Atalhos de teclado</h3>
-            <small>{editor} · no macOS use ⌘ em vez de Ctrl</small>
-          </div>
-          <button className="ladder-ghost-button" onClick={onClose} aria-label="Fechar" title="Fechar (Esc)"><IconClose size={12} /></button>
-        </header>
-        <input autoFocus className="lk-search" placeholder="Filtrar atalhos…" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <div className="lk-body">
-          {groups.length === 0
-            ? <p className="lk-empty">Nenhum atalho corresponde a «{query}».</p>
-            : <div className="lk-groups">
-              {groups.map((group) => (
-                <section key={group.title} className="lk-group">
-                  <h4>{group.title}</h4>
-                  {group.items.map((item) => (
-                    <div key={`${group.title}-${item.keys}`} className="lk-row">
-                      <span>{item.action}</span>
-                      <span className="lk-keys">{item.keys.split(' · ').map((combo) => <kbd key={combo} className="lk-key">{combo}</kbd>)}</span>
-                    </div>
-                  ))}
-                </section>
-              ))}
-            </div>}
-        </div>
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      width={760}
+      title="Atalhos de teclado"
+      subtitle={`${editor} · no macOS use ⌘ em vez de Ctrl`}
+      icon={<span className="dc-modal-ico-badge"><IconHelp size={13} /></span>}
+    >
+      <div className="lk-query">
+        <IconSearch size={13} />
+        <input
+          data-autofocus
+          className="dc-input"
+          placeholder="Filtrar atalhos…"
+          aria-label="Filtrar atalhos"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
       </div>
-    </div>,
-    document.body,
+      {groups.length === 0
+        ? <p className="lk-empty">Nenhum atalho corresponde a «{query}».</p>
+        : <div className="lk-groups">
+          {groups.map((group) => (
+            <section key={group.title} className="lk-group">
+              <h4>{group.title}</h4>
+              {group.items.map((item) => (
+                <div key={`${group.title}-${item.keys}`} className="lk-row">
+                  <span>{item.action}</span>
+                  <span className="lk-keys">{item.keys.split(' · ').map((combo) => <kbd key={combo} className="lk-key">{combo}</kbd>)}</span>
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>}
+    </Modal>
   )
 }
