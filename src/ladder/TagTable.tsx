@@ -63,7 +63,12 @@ export default function TagTable() {
   const setTags = useSimStore((s) => s.setTags)
   const [area, setArea] = useState<'all' | TagPrefix>('all')
   const [query, setQuery] = useState('')
+  const [transferNotice, setTransferNotice] = useState('')
   const normalizedQuery = query.trim().toLocaleLowerCase()
+  const applyImportedTags = (next: LadderTag[]) => {
+    setTags(next)
+    setTransferNotice(`${next.length} variável(is) atualizada(s). As sugestões já estão disponíveis em Main e nos blocos FC.`)
+  }
   const countFor = (prefix: TagPrefix) => tags.filter((tag) => tag.address.trim().toUpperCase().startsWith(prefix)).length
   const matchesQuery = (tag: LadderTag) => !normalizedQuery || `${tag.address} ${tag.name} ${tag.comment ?? ''} ${tag.dataType}`.toLocaleLowerCase().includes(normalizedQuery)
   const sections = SECTIONS
@@ -79,19 +84,23 @@ export default function TagTable() {
     <div className="ladder-tag-table">
       <header className="ladder-tag-table-header">
         <div className="ladder-tag-table-heading">
-          <strong>Tabela de Tags</strong>
-          <span>Organize e importe variáveis do PLC ativo. Endereço, nome, tipo e comentário acompanham o programa.</span>
+          <div className="ladder-tag-title-row">
+            <strong>Tabela de Tags</strong>
+            <span className="ladder-tag-total" aria-label={`${tags.length} variáveis declaradas`}>{tags.length} variável(is)</span>
+          </div>
+          <span>Importe, filtre e mantenha as variáveis do PLC. As alterações ficam disponíveis de imediato nas networks da Main e dos FC.</span>
+          {transferNotice && <small className="ladder-tag-transfer-notice" role="status">{transferNotice}</small>}
         </div>
         <div className="ladder-tag-table-actions">
           <button
             type="button"
             className="dc-btn"
             title="Cria uma tag (nome = endereço) para todo endereço já usado no programa que ainda não tenha uma"
-            onClick={() => autoDetectTags()}
+            onClick={() => { autoDetectTags(); setTransferNotice('Endereços usados no programa verificados.'); }}
           >
-            ⟲ Detectar do programa
+            ⟲ Detetar no programa
           </button>
-          <TagSheetActions className="ladder-tag-transfer" tags={tags} context="LADDER · TABELA DE TAGS" fileName="tags-ladder" onApply={(next) => setTags(next)} />
+          <TagSheetActions className="ladder-tag-transfer" tags={tags} context="LADDER · TABELA DE VARIÁVEIS" fileName="variaveis-ladder" onApply={applyImportedTags} />
         </div>
       </header>
 

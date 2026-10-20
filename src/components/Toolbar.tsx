@@ -75,15 +75,6 @@ const GRAFCET_TOOLS: Array<{ id: 'select' | 'pan' | 'connect'; label: string; ic
   { id: 'connect', label: 'Ligar', icon: IconWire, key: 'L', title: 'Ferramenta Ligar: una etapas e transições por linha — arraste de uma saída para um destino [L]' },
 ]
 
-const GRAFCET_ADD_BUTTONS: Array<{ action: 'addConnectedStep' | 'addStep' | 'addTransition' | 'addAction' | 'addFork' | 'addJoin'; label: string; kbd: string; title: string; primary?: boolean; secondary?: boolean; needs?: number }> = [
-  { action: 'addConnectedStep', label: '+ Etapa', kbd: '1', primary: true, title: 'Nova etapa (nasce sem transição — ligue-a com T ou L) [Insert ou 1]' },
-  { action: 'addStep', label: '+ Etapa livre', kbd: '2', title: 'Nova etapa em posição livre [Shift+Insert ou 2]' },
-  { action: 'addTransition', label: '+ Transição', kbd: '3', needs: 1, title: 'Nova transição solta (arraste-a sobre etapas ou ligue por linha) [T ou 3]' },
-  { action: 'addAction', label: '+ Ação', kbd: '4', title: 'Adicionar ação à etapa selecionada ou criar solta [A ou 4]' },
-  { action: 'addFork', label: '⑂ Divergência AND', kbd: 'F', secondary: true, title: 'Divergência AND solta (ramos simultâneos) — ligue por aproximação ou linha [F]' },
-  { action: 'addJoin', label: '⑃ Convergência AND', kbd: 'J', secondary: true, title: 'Convergência AND solta (sincronização) — ligue por aproximação ou linha [J]' },
-]
-
 interface ViewControlsProps {
   grid: { on: boolean; toggle: () => void; title?: string }
   snap?: { on: boolean; toggle: () => void; title?: string }
@@ -428,15 +419,6 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button type="button" className="grafcet-toolbar-more dc-tool-btn" aria-expanded={grafcetMoreOpen} onClick={() => setGrafcetMoreOpen((value) => !value)} title="Ficheiros, disposição, modelos e mais ferramentas">
               {grafcetMoreOpen ? 'Menos' : 'Mais'} <IconChevronDown size={12} className={grafcetMoreOpen ? 'rotate-180' : ''} />
             </button>
-            <div className="dc-seg" role="toolbar" aria-label="Ferramentas GRAFCET">
-              {GRAFCET_ADD_BUTTONS.map(({ action, label, kbd, title, primary, secondary, needs }) => (
-                <TbButton key={action} disabled={needs !== undefined && grafcet.steps.length < needs} kbd={kbd} title={title}
-                  className={`dc-tool-btn ${primary ? 'font-semibold !bg-brand-600 !text-white hover:!bg-brand-700 shadow-xs' : ''} ${secondary ? 'grafcet-toolbar-secondary-inline' : ''}`}
-                  kbdOnBrand={primary} onClick={() => useGrafcetUi.getState().emit(action)}>
-                  <span>{label}</span>
-                </TbButton>
-              ))}
-            </div>
 
             <span className="tb-sep" />
 

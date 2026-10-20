@@ -148,8 +148,11 @@
 .ladder-tag-table { display:flex; flex:1 1 auto; min-height:0; flex-direction:column; gap:12px; overflow:auto; padding:16px; background:#f7f9fc; }
 .ladder-tag-table-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:14px 16px; border:1px solid #dce5f2; border-radius:9px; background:#fff; box-shadow:0 1px 2px rgba(31,43,74,.05); }
 .ladder-tag-table-heading { display:flex; min-width:0; flex-direction:column; gap:4px; }
+.ladder-tag-title-row { display:flex; min-width:0; align-items:center; gap:8px; }
 .ladder-tag-table-heading strong { color:#25324a; font-size:14px; }
-.ladder-tag-table-heading span { max-width:620px; color:#718096; font-size:11px; line-height:1.5; }
+.ladder-tag-table-heading > span { max-width:620px; color:#718096; font-size:11px; line-height:1.5; }
+.ladder-tag-total { display:inline-flex; flex:0 0 auto; align-items:center; min-height:20px; padding:1px 7px; border:1px solid #cfe0fb; border-radius:999px; color:#315b9d; background:#edf4ff; font-size:9px; font-weight:750; white-space:nowrap; }
+.ladder-tag-transfer-notice { max-width:620px; color:#167243; font-size:10px; font-weight:650; line-height:1.4; }
 .ladder-tag-table-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px; }
 .ladder-tag-transfer .sheet-bar .dc-btn { min-height:32px; white-space:nowrap; }
 .ladder-tag-tools { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
@@ -196,13 +199,15 @@
 .ladder-tag-empty-state strong { color:#33415c; font-size:12px; }
 .ladder-tag-empty-state span { font-size:10px; }
 
-/* O editor de FC usa a mesma barra, resumo e canvas da Main. */
+/* O editor de FC usa o mesmo cartão, resumo e canvas da Main; só muda o contexto do bloco. */
 .ladder-folder-view.ladder-block-program { display:flex; flex-direction:column; gap:0; overflow:hidden; padding:0; background-color:#f7f9fc; background-image:none; }
-.ladder-block-toolbar { min-height:42px; height:auto; flex:0 0 auto; gap:8px; padding:6px 11px; }
+.ladder-block-toolbar { min-height:42px; height:auto; flex:0 0 auto; gap:8px; padding:6px 11px; box-shadow:0 1px 0 rgba(31,43,74,.03); }
 .ladder-block-heading { display:flex; min-width:0; flex:0 0 auto; align-items:center; gap:6px; color:var(--ladder-blue-dark); font-size:11px; }
 .ladder-block-heading strong { overflow:hidden; max-width:180px; text-overflow:ellipsis; white-space:nowrap; }
 .ladder-block-subtitle { min-width:0; overflow:hidden; color:#7a879c; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
-.ladder-block-network-canvas { min-height:0; flex:1 1 auto; border-top:1px solid #e0e6ef; }
+.ladder-block-program .ladder-program-summary { flex:0 0 auto; border-bottom:1px solid #e0e6ef; }
+.ladder-block-network-canvas { min-height:0; flex:1 1 auto; padding:12px; border-top:0; }
+.ladder-block-network-canvas .ladder-networks-scale { padding-bottom:132px; }
 
 /* Espaçamento da pasta de blocos de dados e da pesquisa da paleta Ladder. */
 .ladder-data-folder { display:flex; flex-direction:column; gap:14px; padding:18px; }

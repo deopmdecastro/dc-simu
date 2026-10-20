@@ -101,6 +101,19 @@ const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: st
   },
 ]
 
+/** Símbolos IEC compactos para a paleta: consistentes com os elementos do canvas,
+ * sem depender de caracteres de fonte que variam entre sistemas operativos. */
+function GrafcetPaletteGlyph({ kind }: { kind: PaletteItem }) {
+  const props = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  if (kind === 'initial') return <svg viewBox="0 0 36 30" aria-hidden="true"><rect x="8" y="5" width="20" height="20" rx="2" {...props} /><rect x="11" y="8" width="14" height="14" rx="1" {...props} /></svg>
+  if (kind === 'step') return <svg viewBox="0 0 36 30" aria-hidden="true"><rect x="8" y="5" width="20" height="20" rx="2" {...props} /><path d="M14 15h8" {...props} /></svg>
+  if (kind === 'transition') return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M18 3v8M10 12h16M18 13v14" {...props} /></svg>
+  if (kind === 'action') return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M4 15h6M10 7h21v16H10zM15 12h11M15 18h7" {...props} /></svg>
+  if (kind === 'conditional') return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M4 15h5M9 7h22v16H9zM15 15l4-4 4 4-4 4z" {...props} /></svg>
+  if (kind === 'fork') return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M18 3v6M8 10h20M8 14h20M18 14v13M12 14v7M24 14v7" {...props} /></svg>
+  return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M12 3v7M24 3v7M8 10h20M8 14h20M18 14v13" {...props} /></svg>
+}
+
 const norm = foldText
 
 const actionsOf = (step: GrafcetStep): GrafcetAction[] => actionsOfStep(step)
@@ -2418,7 +2431,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           className="grafcet-toolbox-item"
                           title={`${item.name}: clique ou arraste para o diagrama`}
                         >
-                          <span className="grafcet-toolbox-icon">{item.icon}</span>
+                          <span className="grafcet-toolbox-icon"><GrafcetPaletteGlyph kind={item.kind} /></span>
                           <span>
                             <strong>{item.name}</strong>
                             <small>{item.detail}</small>
@@ -3285,6 +3298,19 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           : undefined
                       }
                     >
+                      {/* Área contínua de hover: une visualmente a etapa ao atalho «+».
+                          Assim, a ação de adicionar etapa/transição não desaparece ao mover o rato. */}
+                      {full && (
+                        <rect
+                          className="grafcet-step-hover-zone"
+                          x="100"
+                          y={y - 16}
+                          width="112"
+                          height={active ? 114 : 98}
+                          fill="transparent"
+                          onPointerEnter={() => setHoveredStepId(step.id)}
+                        />
+                      )}
                       {/* Ponto verde pulsante de atividade na etapa */}
                       {active && (
                         <circle cx="103" cy={y + 27} r="6" fill="#22c55e">
@@ -3305,10 +3331,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         y={y}
                         width="64"
                         height="54"
-                        rx="2"
-                        fill={active ? '#dcfce7' : isThisStepSelected ? '#eff6ff' : 'white'}
-                        stroke={isThisStepSelected ? '#2563eb' : active ? '#16a34a' : '#263d59'}
-                        strokeWidth={isThisStepSelected ? 3 : active ? 2.5 : 2}
+                        rx="4"
+                        fill={active ? '#ecfdf3' : isThisStepSelected ? '#eff6ff' : '#ffffff'}
+                        stroke={isThisStepSelected ? '#2563eb' : active ? '#16a34a' : '#334155'}
+                        strokeWidth={isThisStepSelected ? 2.75 : active ? 2.35 : 1.85}
+                        vectorEffect="non-scaling-stroke"
                         filter={isThisStepSelected ? 'drop-shadow(0 2px 8px rgba(37,99,235,0.3))' : undefined}
                       />
 

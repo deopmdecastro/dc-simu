@@ -1351,6 +1351,9 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
 
   return (
     <div className="ladder-workspace">
+      {/* Uma única fonte de sugestões para Main e blocos FC/FB: a tabela importada
+          fica disponível imediatamente nos diálogos de qualquer network aberta. */}
+      <TagAddressDatalist />
       {section === 'Projeto' && (showProjectPane ? (
         <>
         {/* gaveta em ecrã pequeno: toque fora fecha (visível só até 1199px) */}
