@@ -20,6 +20,11 @@ export type PaletteKind =
 export const LADDER_MIME = 'application/x-dcsimu-ladder'
 /** MIME do arrastar de um contato já existente (mover dentro/entre networks). */
 export const LADDER_MOVE_MIME = 'application/x-dcsimu-ladder-move'
+/** MIME do arrastar de um bloco de programa da árvore para a Main (insere CALL — como o TIA Portal). */
+export const CALL_BLOCK_MIME = 'application/x-dcsimu-call-block'
+
+/** Bloco de programa em arraste a partir da árvore do projeto. */
+export interface CallBlockPayload { fileId: string; name: string }
 
 /** Componente do esquema → elemento Ladder equivalente (arrastar da biblioteca). */
 export const COMPONENT_TO_LADDER: Partial<Record<ComponentType, PaletteKind>> = {
@@ -35,7 +40,7 @@ export const COMPONENT_TO_LADDER: Partial<Record<ComponentType, PaletteKind>> = 
  * O HTML5 drag não permite ler os dados durante o `dragover` — guardamos
  * aqui o tipo em arraste para o editor mostrar o indicador de largada certo.
  */
-let currentDrag: { kind: PaletteKind } | { move: MovePayload } | null = null
+let currentDrag: { kind: PaletteKind } | { move: MovePayload } | { block: CallBlockPayload } | null = null
 export const setLadderDrag = (v: typeof currentDrag) => {
   currentDrag = v
 }

@@ -1027,11 +1027,32 @@ input[type='color'] {
     min-height: 0;
     overflow: auto;
     padding: 10px;
+    position: relative;
     background-color: #f8fafd;
     background-image: radial-gradient(circle at 1px 1px, #ccd5e3 1px, transparent 1px);
     background-size: 20px 20px;
   }
   .ladder-networks.grid-off { background-image: none; }
+  /* Hint flutuante quando um bloco da árvore paira sobre a área vazia do canvas */
+  .ladder-call-hint {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border: 1.5px dashed rgba(47, 111, 228, 0.65);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.94);
+    color: var(--ladder-blue-dark);
+    font-size: 10px;
+    font-weight: 600;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(47, 111, 228, 0.16);
+  }
+  .ladder-call-hint em { font-style: normal; color: #7d8aa3; font-size: 9px; }
   .drop-zone {
     outline: 2px dashed transparent;
     outline-offset: -2px;
@@ -1046,6 +1067,8 @@ input[type='color'] {
   .ladder-networks-scale {
     min-width: 560px;
     transform-origin: top left;
+    /* Zona vazia no fim da lista (estilo TIA Portal): permite largar blocos/elementos para criar network nova. */
+    padding-bottom: 130px;
   }
   /* Sem networks só existe o cartão vazio: não deve forçar scroll horizontal. */
   .ladder-networks-scale.is-empty { min-width: 0; }
@@ -1572,6 +1595,40 @@ input[type='color'] {
   .lnet.is-drop {
     background: rgba(47, 111, 228, 0.03);
   }
+  /* Drop de um bloco da árvore (CALL) — destaque azul da plataforma + etiqueta flutuante */
+  .lnet.is-call-drop {
+    background: rgba(47, 111, 228, 0.05);
+    box-shadow: inset 0 0 0 1.5px rgba(47, 111, 228, 0.45);
+  }
+  .lnet-call-drop {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    border: 1.5px dashed rgba(47, 111, 228, 0.65);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--ladder-blue-dark);
+    font-size: 10px;
+    font-weight: 600;
+    pointer-events: none;
+    box-shadow: 0 3px 10px rgba(47, 111, 228, 0.15);
+  }
+  .lnet-call-drop-badge {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(47, 111, 228, 0.92);
+    color: #fff;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+  .lnet-call-drop-name { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lnet-call-drop em { font-style: normal; color: #7d8aa3; font-size: 9px; }
   .lnet-hit {
     position: absolute;
     border-radius: 4px;
@@ -1928,6 +1985,28 @@ canvas[data-engine="three.js r169"] { touch-action: none; }
   .tree-row-wrap:hover .tree-delete-item,
   .tree-delete-item:focus-visible { opacity: 1; }
   .tree-delete-item:hover { color: #c93636; background: #fff0f0; }
+
+  /* --- drag&drop de blocos da árvore → CALL na Main (estilo TIA Portal) --- */
+  .tree-row-grab { cursor: grab; }
+  .tree-row-grab:active { cursor: grabbing; }
+  .tree-call-insert {
+    flex: none;
+    height: 18px;
+    padding: 0 6px;
+    border: 1px solid #c7d5f2;
+    border-radius: 4px;
+    background: #eff4ff;
+    color: var(--ladder-blue-dark);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    transition: opacity .12s ease, background .12s ease;
+  }
+  .tree-row-wrap:hover .tree-call-insert,
+  .tree-call-insert:focus-visible { opacity: 1; }
+  .tree-call-insert:hover { background: #dbe7ff; }
+  @media (pointer: coarse) { .tree-call-insert { opacity: 1; } }
   .ladder-pane-heading-actions { display: inline-flex; align-items: center; gap: 4px; }
   .ladder-pane-heading-actions select {
     max-width: 78px;

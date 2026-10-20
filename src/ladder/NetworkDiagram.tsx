@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { LadderContact, LadderRung } from '../types'
 import {
-  COMPONENT_TO_LADDER, LADDER_MIME, LADDER_MOVE_MIME, applyKind, getLadderDrag, isContactKind, putContact, setLadderDrag, takeContact,
-  type DropTarget, type MovePayload, type PaletteKind,
+  CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, LADDER_MOVE_MIME, applyKind, getLadderDrag, isContactKind, putContact, setLadderDrag, takeContact,
+  type CallBlockPayload, type DropTarget, type MovePayload, type PaletteKind,
 } from './ladderDnd'
 
 export type RungSelection =
@@ -59,6 +59,14 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const gridEnabled = useSimStore((s) => s.grid.enabled)
   const tags = useSimStore((s) => s.tags)
   const updateRung = useSimStore((s) => s.updateRung)
+  /** Nome legível do alvo do CALL (fc1/fc2/bloco da árvore) — o id nunca aparece ao utilizador. */
+  const callTargetName = useSimStore((s) => {
+    const target = rung.call?.targetId
+    if (!target) return null
+    if (target === 'fc1') return 'FC1'
+    if (target === 'fc2') return 'FC2'
+    return (s.projectFiles[s.activePlcId ?? '_general'] ?? []).find((f) => f.id === target)?.name ?? target
+  })
   const [drop, setDrop] = useState<DropTarget | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [availableWidth, setAvailableWidth] = useState(minWidth)
@@ -126,14 +134,17 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     const r = wrapRef.current!.getBoundingClientRect()
     return { x: ((e.clientX - r.left) * W) / r.width, y: ((e.clientY - r.top) * H) / r.height }
   }
-  const draggedKind = (): PaletteKind | 'REORDER_CONTACT' | null => {
+  const draggedKind = (): PaletteKind | 'REORDER_CONTACT' | 'CALL_BLOCK' | null => {
     const d = getLadderDrag()
-    if (d) return 'move' in d ? 'REORDER_CONTACT' : d.kind
+    if (d) return 'move' in d ? 'REORDER_CONTACT' : 'block' in d ? 'CALL_BLOCK' : d.kind
     const t = useSimStore.getState().dragType
     return t ? COMPONENT_TO_LADDER[t] ?? null : null
   }
-  const targetFor = (kind: PaletteKind | 'REORDER_CONTACT', p: { x: number; y: number }): DropTarget => {
+  /** Nome do bloco em arraste (durante dragover o `drop` já muda → re-render acontece). */
+  const dragBlockName = drop && draggedKind() === 'CALL_BLOCK' ? (getLadderDrag() as { block: CallBlockPayload } | null)?.block.name ?? null : null
+  const targetFor = (kind: PaletteKind | 'REORDER_CONTACT' | 'CALL_BLOCK', p: { x: number; y: number }): DropTarget => {
     if (kind === 'BRANCH') return { kind: 'newBranch' }
+    if (kind === 'CALL_BLOCK') return { kind: 'output' }
     if (kind === 'REORDER_CONTACT' || isContactKind(kind)) {
       const row = Math.floor((p.y - TOP) / ROW_H)
       if (row >= branches.length) return { kind: 'newBranch' }
@@ -167,6 +178,18 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     e.preventDefault()
     e.stopPropagation()
     const st = useSimStore.getState()
+    // Bloco largado da árvore do projeto → CALL do bloco nesta network (como no TIA Portal).
+    if (kind === 'CALL_BLOCK') {
+      let payload: CallBlockPayload | null = null
+      try { payload = JSON.parse(e.dataTransfer.getData(CALL_BLOCK_MIME)) } catch { payload = null }
+      const d = getLadderDrag()
+      if (!payload && d && 'block' in d) payload = d.block
+      setLadderDrag(null)
+      if (!payload) return
+      updateRung(rung.id, (r) => ({ ...r, call: { targetId: payload!.fileId } }), 'force')
+      onSelect({ type: 'call' })
+      return
+    }
     if (kind === 'REORDER_CONTACT') {
       let payload: MovePayload | null = null
       try { payload = JSON.parse(e.dataTransfer.getData(LADDER_MOVE_MIME)) } catch { payload = null }
@@ -435,7 +458,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       svg.push(<g key="call-block">{isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 66, 'call-sel')}{wire(OJ, cy, boxX, cy, rungOut)}
         <rect x={boxX} y={top} width={BOX_W} height={50} rx={4} fill="#fff" stroke={rungOut ? C_ON : '#5b6b84'} strokeWidth={1.5} />
         {label(boxX + BOX_W / 2, cy - 5, 'CALL', { bold: true, size: 11 })}
-        {label(boxX + BOX_W / 2, cy + 12, rung.call.targetId, { size: 9 })}
+        {label(boxX + BOX_W / 2, cy + 12, callTargetName ?? rung.call.targetId, { size: 9 })}
         {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
       </g>)
       if (!readonly) hits.push(<div key="call-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 66 }}
@@ -549,7 +572,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   return (
     <div
       ref={wrapRef}
-      className={`lnet ${drop ? 'is-drop' : ''} ${readonly ? 'is-readonly' : ''}`}
+      className={`lnet ${drop ? 'is-drop' : ''} ${dragBlockName ? 'is-call-drop' : ''} ${readonly ? 'is-readonly' : ''}`}
       style={{ width: W, height: H }}
       tabIndex={readonly ? -1 : 0}
       onKeyDown={onKeyDown}
@@ -573,6 +596,13 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         {svg}
       </svg>
       {hits}
+      {dragBlockName && (
+        <div className="lnet-call-drop">
+          <span className="lnet-call-drop-badge">CALL</span>
+          <span className="lnet-call-drop-name">«{dragBlockName}»</span>
+          <em>nesta network</em>
+        </div>
+      )}
     </div>
   )
 }

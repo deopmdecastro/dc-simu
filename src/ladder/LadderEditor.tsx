@@ -18,7 +18,17 @@ import NetworkDiagram, { type RungSelection } from './NetworkDiagram'
 import LadderElementDialog from './LadderElementDialog'
 import AddBlockDialog from './AddBlockDialog'
 import type { BlockKind } from './blockCatalog'
-import { COMPONENT_TO_LADDER, LADDER_MIME, applyKind, isContactKind, setLadderDrag, type PaletteKind } from './ladderDnd'
+import { CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, applyKind, getLadderDrag, isContactKind, setLadderDrag, type CallBlockPayload, type PaletteKind } from './ladderDnd'
+
+/** Lê o payload de um bloco do projeto em arraste (dataTransfer + fallback do drag ativo). */
+const blockPayloadFrom = (data: DataTransfer): CallBlockPayload | null => {
+  try {
+    const raw = data.getData(CALL_BLOCK_MIME)
+    if (raw) return JSON.parse(raw) as CallBlockPayload
+  } catch { /* ignora payload inválido */ }
+  const d = getLadderDrag()
+  return d && 'block' in d ? d.block : null
+}
 import {
   IconPlus, IconDelete, IconCopy,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder,
@@ -375,7 +385,16 @@ function CompactLadderEditor() {
           onDrop={(e) => {
             e.preventDefault()
             setDragOver(false)
+            // Bloco arrastado da árvore → CALL na última network (mesmo do editor completo).
+            const block = blockPayloadFrom(e.dataTransfer)
             setLadderDrag(null)
+            if (block) {
+              setTab('program')
+              const existingRung = rungs[rungs.length - 1]
+              const rungId = existingRung?.id ?? addRung()
+              updateRung(rungId, (r) => ({ ...r, call: { targetId: block.fileId } }), existingRung ? 'force' : 'skip')
+              return
+            }
             const k = e.dataTransfer.getData(LADDER_MIME) as PaletteKind
             const kind = k || COMPONENT_TO_LADDER[e.dataTransfer.getData('text/plain') as ComponentType]
             if (kind) quickAdd(kind)
@@ -516,6 +535,7 @@ function ProjectTreePane({
   onSelect,
   onClose,
   onQuickAdd,
+  onInsertCall,
   activePlc,
   files,
   hiddenFolders,
@@ -539,6 +559,8 @@ function ProjectTreePane({
   onSelect: (id: ProjectNodeId) => void
   onClose: () => void
   onQuickAdd: (kind: PaletteKind) => void
+  /** Inserir CALL do bloco numa network (toque/atalho — o drag&drop usa o CALL_BLOCK_MIME). */
+  onInsertCall: (fileId: string, name: string) => void
 }) {
   const toolTiles: Array<{ label: string; kind: PaletteKind }> = [
     { label: 'Contato', kind: 'NO' },
@@ -564,19 +586,34 @@ function ProjectTreePane({
     const isExpandableFolder = !isFile && (hasChildren || !BLOCK_NODE_IDS.has(node.id))
     const isOpen = expanded.has(node.id)
     const isActive = activeNode === node.id
+    // Só blocos de programa podem ser chamados por CALL (ficheiros SCL/DB não são executáveis em ladder).
+    const isCallableBlock = !!file && file.folder === 'programBlocks'
     return (
       <div key={node.id}>
         <div className="tree-row-wrap">
         <button
           type="button"
-          className={`tree-row tree-depth-${Math.min(depth, 2)} ${isActive ? 'tree-selected' : ''}`}
+          className={`tree-row tree-depth-${Math.min(depth, 2)} ${isActive ? 'tree-selected' : ''} ${isCallableBlock ? 'tree-row-grab' : ''}`}
+          draggable={isCallableBlock}
+          onDragStart={(event) => {
+            if (!isCallableBlock || !file) return
+            event.dataTransfer.setData(CALL_BLOCK_MIME, JSON.stringify({ fileId: file.id, name: file.name } satisfies CallBlockPayload))
+            event.dataTransfer.setData('text/plain', `call-block:${file.name}`)
+            event.dataTransfer.effectAllowed = 'copy'
+            setLadderDrag({ block: { fileId: file.id, name: file.name } })
+          }}
+          onDragEnd={() => setLadderDrag(null)}
           onClick={() => {
             if (isExpandableFolder) onToggle(node.id)
             onSelect(node.id)
           }}
           onDoubleClick={(event) => { if (file) { event.stopPropagation(); onRenameFile(file) } }}
           onContextMenu={(event) => { if (file) { event.preventDefault(); onDeleteFile(file) } }}
-          title={file ? `${node.label} · duplo clique para mudar o nome · botão direito para eliminar` : node.detail ? `${node.label} (${node.detail})` : node.label}
+          title={isCallableBlock && file
+            ? `${node.label} · arraste para uma network (insere CALL) · duplo clique muda o nome · botão direito elimina`
+            : file
+              ? `${node.label} · duplo clique para mudar o nome · botão direito para eliminar`
+              : node.detail ? `${node.label} (${node.detail})` : node.label}
         >
           <span className="tree-chevron">
             {isExpandableFolder ? (isOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />) : <span />}
@@ -589,6 +626,9 @@ function ProjectTreePane({
           <button type="button" className="tree-create-file" title={`Criar em ${node.label}`} aria-label={`Criar em ${node.label}`} onClick={() => onCreateFile(folder)}>＋</button>
           {canDeleteFolder && <button type="button" className="tree-delete-item" title={`Eliminar pasta ${node.label}`} aria-label={`Eliminar pasta ${node.label}`} onClick={() => onDeleteFolder(folder)}><IconDelete size={10} /></button>}
         </span>}
+        {isCallableBlock && file && (
+          <button type="button" className="tree-call-insert" title={`Inserir CALL ${file.name} na network ativa`} aria-label={`Inserir CALL ${file.name}`} onClick={(event) => { event.stopPropagation(); onInsertCall(file.id, file.name) }}>CALL</button>
+        )}
         {file && <button type="button" className="tree-delete-item" title={`Eliminar ${file.name}`} aria-label={`Eliminar ${file.name}`} onClick={() => onDeleteFile(file)}><IconDelete size={10} /></button>}
         </div>
         {hasChildren && isOpen && node.children!.map((child) => renderNode(child, depth + 1))}
@@ -1068,6 +1108,32 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   }
   quickAddRef.current = quickAdd
 
+  /** Nome do bloco de programa em arraste sobre o canvas (para o hint «nova network»). */
+  const [dragBlockHint, setDragBlockHint] = useState<string | null>(null)
+  /** Profundidade de enter/leave no canvas — `relatedTarget` é null durante o drag nativo do browser. */
+  const canvasDragDepth = useRef(0)
+
+  /** Inserir CALL de um bloco do projeto (estilo TIA Portal: botão CALL/atalho touch). */
+  const insertCallBlock = (fileId: string, name: string) => {
+    setActiveProjectNode('main')
+    setProgramTab('program')
+    const hadActiveRung = !!activeId
+    const rungId = activeId ?? addRung()
+    setActiveRungId(rungId)
+    updateRung(rungId, (r) => ({ ...r, call: { targetId: fileId } }), hadActiveRung ? 'force' : 'skip')
+    notify(`CALL «${name}» inserido`)
+  }
+
+  /** Largar um bloco da árvore fora das networks → cria network nova com o CALL (como no TIA Portal). */
+  const dropBlockOnCanvas = (payload: CallBlockPayload) => {
+    setActiveProjectNode('main')
+    setProgramTab('program')
+    const rungId = addRung()
+    updateRung(rungId, (r) => ({ ...r, call: { targetId: payload.fileId } }), 'skip')
+    focusRung(rungId)
+    notify(`Network criada com CALL «${payload.name}»`)
+  }
+
   /** Fallback: largar fora de qualquer network (área vazia) → network ativa. */
   const dropKindFromEvent = (e: React.DragEvent): PaletteKind | null => {
     const k = e.dataTransfer.getData(LADDER_MIME) as PaletteKind
@@ -1094,6 +1160,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           onSelect={selectProjectNode}
           onClose={() => setShowProjectPane(false)}
           onQuickAdd={quickAdd}
+          onInsertCall={insertCallBlock}
           activePlc={activePlc}
           files={files}
           hiddenFolders={hiddenFolders}
@@ -1170,17 +1237,42 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           <div
             className={`ladder-networks ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'} drop-zone ${dragOver ? 'drag-over' : ''}`}
             style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
-            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
-            onDragEnter={() => setDragOver(true)}
-            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(false) }}
+            onDragOver={(e) => {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'copy'
+              // Só chega aqui fora das networks (NetworkDiagram faz stopPropagation) → hint «nova network».
+              if (e.dataTransfer.types.includes(CALL_BLOCK_MIME)) {
+                const d = getLadderDrag()
+                const name = d && 'block' in d ? d.block.name : 'bloco'
+                if (dragBlockHint !== name) setDragBlockHint(name)
+              } else if (dragBlockHint) setDragBlockHint(null)
+            }}
+            onDragEnter={() => { canvasDragDepth.current++; setDragOver(true) }}
+            onDragLeave={() => {
+              // `relatedTarget` é null durante o drag nativo — usa-se contagem de profundidade.
+              canvasDragDepth.current--
+              if (canvasDragDepth.current <= 0) { canvasDragDepth.current = 0; setDragOver(false); setDragBlockHint(null) }
+            }}
             onDrop={(e) => {
               e.preventDefault()
+              canvasDragDepth.current = 0
               setDragOver(false)
+              setDragBlockHint(null)
+              // Bloco da árvore largado na área vazia → network nova com CALL (estilo TIA Portal).
+              const block = blockPayloadFrom(e.dataTransfer)
+              if (block) { setLadderDrag(null); dropBlockOnCanvas(block); return }
               setLadderDrag(null)
               const kind = dropKindFromEvent(e)
               if (kind) quickAdd(kind)
             }}
           >
+            {dragBlockHint && (
+              <div className="ladder-call-hint">
+                <span className="lnet-call-drop-badge">CALL</span>
+                <span className="lnet-call-drop-name">«{dragBlockHint}»</span>
+                <em>→ nova network</em>
+              </div>
+            )}
             <div className={`ladder-networks-scale ${rungs.length ? '' : 'is-empty'}`} style={{ zoom: ladderZoom * ZOOM_BASE }}>
               {rungs.map((r, i) => (
                 <div
@@ -1192,6 +1284,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
                   aria-label={`Network ${i + 1}: ${r.name || 'sem título'}`}
                   onFocusCapture={() => setActiveRungId(r.id)}
                   onMouseDownCapture={() => setActiveRungId(r.id)}
+                  onDragEnterCapture={() => { if (dragBlockHint) setDragBlockHint(null) }}
                 >
                   <RungRow
                     rung={r} index={i} total={rungs.length} active={activeId === r.id} minWidth={720}
