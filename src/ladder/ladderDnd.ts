@@ -70,7 +70,7 @@ function nextAddr(rung: LadderRung, prefix: string) {
 
 export type DropTarget =
   | { kind: 'branch'; branchIndex: number; index: number }
-  | { kind: 'newBranch' }
+  | { kind: 'newBranch'; beforeIndex?: number }
   | { kind: 'output' }
 
 /**
@@ -81,7 +81,16 @@ export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarge
   if (kind === 'CALL') return { rung: { ...rung, call: rung.call ?? { targetId: 'fc1' } } }
   if (kind === 'MOVE') return { rung: { ...rung, move: rung.move ?? { source: 'I1', target: 'M1' } } }
   if (kind === 'BRANCH') {
-    return { rung: { ...rung, branches: [...rung.branches, { id: uid(`${rung.id}-b`), elements: [] }] } }
+    // Linha paralela (estilo TIA Portal «abrir ramo»): nasce com um contacto NA pronto a editar,
+    // na posição indicada (beforeIndex) — um ramo vazio faria a network ficar sempre ligada.
+    const el: LadderContact = { kind: 'contact', id: uid(`${rung.id}-c`), address: nextAddr(rung, 'I'), contactType: 'NO' }
+    const branch = { id: uid(`${rung.id}-b`), elements: [el] }
+    const branches = [...rung.branches]
+    const at = target.kind === 'newBranch' && target.beforeIndex !== undefined
+      ? Math.max(0, Math.min(target.beforeIndex, branches.length))
+      : branches.length
+    branches.splice(at, 0, branch)
+    return { rung: { ...rung, branches }, created: { type: 'contact', branchId: branch.id, elementId: el.id } }
   }
   if (isContactKind(kind)) {
     const el: LadderContact = { kind: 'contact', id: uid(`${rung.id}-c`), address: nextAddr(rung, 'I'), contactType: kind }
@@ -89,8 +98,10 @@ export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarge
     let bi = 0
     let idx = branches[0].elements.length
     if (target.kind === 'newBranch') {
-      branches = [...branches, { id: uid(`${rung.id}-b`), elements: [] }]
-      bi = branches.length - 1
+      const branch = { id: uid(`${rung.id}-b`), elements: [] as LadderContact[] }
+      const at = target.beforeIndex !== undefined ? Math.max(0, Math.min(target.beforeIndex, branches.length)) : branches.length
+      branches.splice(at, 0, branch)
+      bi = at
       idx = 0
     } else if (target.kind === 'branch') {
       bi = Math.max(0, Math.min(target.branchIndex, branches.length - 1))
@@ -138,8 +149,10 @@ export function putContact(rung: LadderRung, el: LadderContact, target: DropTarg
   let bi = 0
   let idx = branches[0].elements.length
   if (target.kind === 'newBranch') {
-    branches = [...branches, { id: uid(`${rung.id}-b`), elements: [] }]
-    bi = branches.length - 1
+    const branch = { id: uid(`${rung.id}-b`), elements: [] as LadderContact[] }
+    const at = target.beforeIndex !== undefined ? Math.max(0, Math.min(target.beforeIndex, branches.length)) : branches.length
+    branches.splice(at, 0, branch)
+    bi = at
     idx = 0
   } else if (target.kind === 'branch') {
     bi = Math.max(0, Math.min(target.branchIndex, branches.length - 1))

@@ -39,6 +39,9 @@ function fmtTime(ms: number) {
   return `T#${Math.round(ms)}MS`
 }
 
+/** Assinatura de atualização de uma network (compatível com a store e com blocos do projeto). */
+export type RungUpdater = (id: string, fn: (r: LadderRung) => LadderRung, mode?: 'auto' | 'force' | 'skip') => void
+
 interface Props {
   rung: LadderRung
   selection?: RungSelection
@@ -47,9 +50,13 @@ interface Props {
   onEdit?: (s: Exclude<NonNullable<RungSelection>, { type: 'insert' }>) => void
   readonly?: boolean
   minWidth?: number
+  /** Override de escrita (blocos FC/FB/ficheiros do projeto); omisso → store (Main). */
+  updateRung?: RungUpdater
+  /** Networks irmãs (para mover contactos entre networks do mesmo bloco); omisso → rungs da Main. */
+  siblingRungs?: LadderRung[]
 }
 
-export default function NetworkDiagram({ rung, selection = null, onSelect = () => {}, onEdit = () => {}, readonly = false, minWidth = 640 }: Props) {
+export default function NetworkDiagram({ rung, selection = null, onSelect = () => {}, onEdit = () => {}, readonly = false, minWidth = 640, updateRung: updateRungProp, siblingRungs }: Props) {
   const table = useSimStore((s) => s.runtime.table)
   const db = useSimStore((s) => s.runtime.db)
   const timers = useSimStore((s) => s.runtime.timers)
@@ -58,7 +65,8 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const simRunning = useSimStore((s) => s.sim.runState !== 'stopped')
   const gridEnabled = useSimStore((s) => s.grid.enabled)
   const tags = useSimStore((s) => s.tags)
-  const updateRung = useSimStore((s) => s.updateRung)
+  const updateRungStore = useSimStore((s) => s.updateRung)
+  const updateRung: RungUpdater = updateRungProp ?? updateRungStore
   /** Nome legível do alvo do CALL (fc1/fc2/bloco da árvore) — o id nunca aparece ao utilizador. */
   const callTargetName = useSimStore((s) => {
     const target = rung.call?.targetId
@@ -111,7 +119,8 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   rung.coils.forEach((coil) => { outputs.push({ type: 'coil', cy: oy + CY_OFF, coil }); oy += OUT_H })
   if (!rung.coils.length && !hasBox) { outputs.push({ type: 'placeholder', cy: oy + CY_OFF }); oy += ROW_H }
 
-  const extraRow = drop?.kind === 'newBranch' ? 1 : 0
+  // Espaço extra só quando a linha paralela vai para o FIM (entre linhas não alarga a network).
+  const extraRow = drop?.kind === 'newBranch' && (drop.beforeIndex === undefined || drop.beforeIndex >= branches.length) ? 1 : 0
   const branchesBottom = TOP + (branches.length + extraRow) * ROW_H
   const H = Math.max(branchesBottom, oy) + 10
   const minCoil = OJ + (hasBox ? 80 + BOX_W + 100 : 120)
@@ -143,7 +152,12 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   /** Nome do bloco em arraste (durante dragover o `drop` já muda → re-render acontece). */
   const dragBlockName = drop && draggedKind() === 'CALL_BLOCK' ? (getLadderDrag() as { block: CallBlockPayload } | null)?.block.name ?? null : null
   const targetFor = (kind: PaletteKind | 'REORDER_CONTACT' | 'CALL_BLOCK', p: { x: number; y: number }): DropTarget => {
-    if (kind === 'BRANCH') return { kind: 'newBranch' }
+    if (kind === 'BRANCH') {
+      // Linha paralela na posição largada (estilo TIA Portal): antes da linha atual,
+      // ou no fim quando o ponteiro está abaixo da última linha.
+      const row = Math.floor((p.y - TOP) / ROW_H)
+      return { kind: 'newBranch', beforeIndex: Math.max(0, Math.min(row, branches.length)) }
+    }
     if (kind === 'CALL_BLOCK') return { kind: 'output' }
     if (kind === 'REORDER_CONTACT' || isContactKind(kind)) {
       const row = Math.floor((p.y - TOP) / ROW_H)
@@ -212,7 +226,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         }, 'force')
         if (branchId) onSelect({ type: 'contact', branchId, elementId: payload.elementId })
       } else {
-        const src = st.ladder.rungs.find((r) => r.id === payload!.rungId)
+        const src = (siblingRungs ?? st.ladder.rungs).find((r) => r.id === payload!.rungId)
         if (!src) return
         const taken = takeContact(src, payload.branchId, payload.elementId)
         if (!taken.el) return
@@ -552,22 +566,57 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       </g>,
     )
   } else if (drop?.kind === 'newBranch') {
-    const cy = cyOf(branches.length)
+    // Posição da linha paralela: entre linhas existentes (meio do intervalo) ou no fim (linha nova).
+    const ghostRow = Math.min(drop.beforeIndex ?? branches.length, branches.length)
+    const atEnd = ghostRow >= branches.length
+    const gy = atEnd ? cyOf(branches.length) : cyOf(ghostRow) - ROW_H / 2
     svg.push(
       <g key="drop" pointerEvents="none">
-        <line x1={RAIL_X} y1={cy} x2={contactsEnd} y2={cy} stroke="#2f6fe4" strokeWidth={2} strokeDasharray="6 4" />
-        <line x1={contactsEnd} y1={cyOf(0)} x2={contactsEnd} y2={cy} stroke="#2f6fe4" strokeWidth={2} strokeDasharray="6 4" />
-        <rect x={RAIL_X + 20} y={cy - 22} width={112} height={18} rx={9} fill="#2f6fe4" />
-        <text x={RAIL_X + 76} y={cy - 9} fontSize={10} fontWeight={700} fill="#fff" textAnchor="middle">+ novo ramo (OR)</text>
+        <line x1={RAIL_X} y1={gy} x2={contactsEnd} y2={gy} stroke="#2f6fe4" strokeWidth={2} strokeDasharray="6 4" />
+        <line x1={RAIL_X} y1={gy - (atEnd ? ROW_H : ROW_H / 2)} x2={RAIL_X} y2={gy + ROW_H / 2} stroke="#2f6fe4" strokeWidth={2} strokeDasharray="6 4" />
+        <line x1={contactsEnd} y1={gy - (atEnd ? ROW_H : ROW_H / 2)} x2={contactsEnd} y2={gy + ROW_H / 2} stroke="#2f6fe4" strokeWidth={2} strokeDasharray="6 4" />
+        <rect x={RAIL_X + 20} y={gy - 22} width={128} height={18} rx={9} fill="#2f6fe4" />
+        <text x={RAIL_X + 84} y={gy - 9} fontSize={10} fontWeight={700} fill="#fff" textAnchor="middle">+ linha paralela (OR)</text>
       </g>,
     )
   } else if (drop?.kind === 'output') {
     svg.push(<rect key="drop" x={OJ + 10} y={TOP} width={W - OJ - 20} height={H - TOP - 6} rx={6} fill="#2f6fe4" fillOpacity={0.06} stroke="#2f6fe4" strokeDasharray="6 4" pointerEvents="none" />)
   }
 
+  // Botão «＋» na calha esquerda, em cada intervalo — cria a linha paralela EXATAMENTE aí (estilo TIA Portal).
+  const insertParallel = (beforeIndex: number) => {
+    let created: RungSelection = null
+    updateRung(rung.id, (r) => {
+      const res = applyKind(r, 'BRANCH', { kind: 'newBranch', beforeIndex })
+      created = (res.created as RungSelection) ?? null
+      return res.rung
+    }, 'force')
+    if (created) onSelect(created)
+  }
+  if (!readonly)
+    for (let g = 0; g <= branches.length; g++) {
+      const y = g === branches.length ? cyOf(branches.length) - ROW_H / 2 : cyOf(g) - ROW_H / 2
+      const enabledTip = g === branches.length ? 'Criar linha paralela (OR) no fim' : `Criar linha paralela (OR) antes da linha ${g + 1}`
+      hits.push(
+        <div
+          key={`branch-add-${g}`}
+          role="button"
+          tabIndex={0}
+          className="lnet-branch-add"
+          style={{ left: RAIL_X - 8, top: y - 9 }}
+          title={enabledTip}
+          aria-label={enabledTip}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); insertParallel(g) } }}
+          onPointerDown={(e) => { e.stopPropagation(); insertParallel(g) }}
+        >
+          ＋
+        </div>,
+      )
+    }
+
   const railPowered = online && rung.enabled
   const railTop = TOP + 16
-  const railEnd = Math.max(railBottom, drop?.kind === 'newBranch' ? cyOf(branches.length) : 0) + 24
+  const railEnd = Math.max(railBottom, drop?.kind === 'newBranch' && (drop.beforeIndex === undefined || drop.beforeIndex >= branches.length) ? cyOf(branches.length) : 0) + 24
 
   return (
     <div

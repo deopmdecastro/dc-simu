@@ -69,14 +69,32 @@ function TagAddressDatalist() {
 
 /** Barra única de elementos por network: clique insere · arraste para posicionar. */
 
-function RungRow({ rung, index, total = 1, minWidth = 640, active = false, collapsed: collapsedProp, onToggleCollapse }: {
+/** Operações sobre networks — override para editores fora do Main (blocos FC/FB/ficheiros). */
+interface RungOps {
+  /** Networks do mesmo programa (para mover contactos entre elas). */
+  rungs?: LadderRung[]
+  updateRung: (id: string, fn: (r: LadderRung) => LadderRung, mode?: 'auto' | 'force' | 'skip') => void
+  renameRung: (id: string, name: string) => void
+  deleteRung: (id: string) => void
+  duplicateRung: (id: string) => void
+  moveRung: (id: string, dir: number) => void
+}
+
+function RungRow({ rung, index, total = 1, minWidth = 640, active = false, collapsed: collapsedProp, onToggleCollapse, ops }: {
   rung: LadderRung; index: number; total?: number; minWidth?: number; active?: boolean
   /** controlado pelo pai (Ctrl+E, recolher tudo); sem valor, a network gere o seu estado */
   collapsed?: boolean; onToggleCollapse?: () => void
+  /** Override de escrita/leitura das networks (blocos do projeto); omisso → store (Main). */
+  ops?: RungOps
 }) {
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
-  const { deleteRung, duplicateRung, moveRung, renameRung, updateRung } = useSimStore()
+  const storeOps = useSimStore()
+  const deleteRung = ops?.deleteRung ?? storeOps.deleteRung
+  const duplicateRung = ops?.duplicateRung ?? storeOps.duplicateRung
+  const moveRung = ops?.moveRung ?? storeOps.moveRung
+  const renameRung = ops?.renameRung ?? storeOps.renameRung
+  const updateRung = ops?.updateRung ?? storeOps.updateRung
   const [selection, setSelection] = useState<RungSelection>(null)
   const [dialogSelection, setDialogSelection] = useState<Exclude<NonNullable<RungSelection>, { type: 'insert' }> | null>(null)
   /** network recolhida (só o cabeçalho visível) — como no TIA Portal */
@@ -162,6 +180,8 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
             onSelect={setSelection}
             onEdit={(next) => { setSelection(next); setDialogSelection(next) }}
             minWidth={minWidth}
+            updateRung={ops?.updateRung}
+            siblingRungs={ops?.rungs}
           />
         </div>
       </div>
@@ -779,56 +799,184 @@ function EmptyFolderMessage({ text }: { text: string }) {
   return <div className="ladder-folder-empty">{text}</div>
 }
 
-function FunctionBlockView({ id }: { id: 'fc1' | 'fc2' | `file:${string}` }) {
+/**
+ * Editor de programa de um bloco (FC1/FC2/ficheiro do projeto) — paridade TOTAL com a Main:
+ * mesmo RungRow/NetworkDiagram (drag&drop, seleção, edição rápida, diálogo de propriedades),
+ * paleta e atalhos encaminham para este bloco enquanto estiver aberto.
+ */
+function BlockProgramView({ id, notify, registerInsert }: {
+  id: 'fc1' | 'fc2' | `file:${string}`
+  notify?: (text: string) => void
+  /** Regista quem insere elementos neste bloco (paleta/atalhos/drops do editor completo). */
+  registerInsert?: (fn: ((kind: PaletteKind) => void) | null) => void
+}) {
   const activePlcId = useSimStore((s) => s.activePlcId)
   const file = useSimStore((s) => s.projectFiles[activePlcId ?? '_general']?.find((f) => `file:${f.id}` === id))
   const fcBlocks = useSimStore((s) => s.fcBlocks)
   const rungs = id.startsWith('file:') ? file?.rungs ?? [] : fcBlocks[id as 'fc1' | 'fc2']
-  const updateFc = (key: typeof id, next: LadderRung[]) => {
-    if (key.startsWith('file:')) useSimStore.getState().updateProjectFile(key.slice(5), { rungs: next })
-    else useSimStore.getState().updateFc(key as 'fc1' | 'fc2', next)
-  }
-  const modify = (index: number, fn: (r: LadderRung) => LadderRung) => updateFc(id, rungs.map((r, i) => i === index ? fn(r) : r))
-  const add = () => updateFc(id, [...rungs, { id: crypto.randomUUID(), name: `Network ${rungs.length + 1}`, enabled: true, branches: [{ id: crypto.randomUUID(), elements: [] }], coils: [] }])
-  return (
-    <div className="ladder-folder-view">
-      <FolderViewHeader icon={<IconFunction size={16} />} title={id.startsWith('file:') ? file?.name ?? 'Bloco eliminado' : NODE_TITLES[id as 'fc1' | 'fc2']} subtitle={file?.exec === 'obCyclic' ? 'Bloco editável, guardado com o projeto. Executa automaticamente em todos os ciclos, após o Main [OB1].' : file?.exec === 'obStartup' ? 'Bloco editável, guardado com o projeto. Executa uma vez, ao entrar em RUN (arranque); pressione STOP e RUN para o repetir.' : 'Bloco editável, guardado com o projeto. Não corre sozinho: execute-o com CALL a partir do Main ou de outro bloco.'} />
-      <button className="dc-btn-primary dc-btn self-start my-2" onClick={add}><IconPlus size={12} /> Nova network</button>
-      {!rungs.length && <p className="text-xs text-ink-400">Bloco vazio. Crie uma network para começar.</p>}
-      {rungs.map((r, i) => <div className="ladder-rung-card" key={r.id}>
-        <div className="ladder-rung-header"><strong>Network {i + 1}</strong>
-          <input className="dc-input flex-1" aria-label="Nome da network" value={r.name} onChange={(e) => modify(i, (v) => ({ ...v, name: e.target.value }))} />
-          <button className="dc-btn" onClick={() => updateFc(id, rungs.filter((x) => x.id !== r.id))} title="Eliminar network"><IconDelete size={12} /></button>
-        </div>
-        <div className="ladder-rung-body"><div className="lnet-scroll"><NetworkDiagram rung={r} readonly minWidth={640} /></div></div>
-        <div className="p-2 flex flex-wrap gap-2 items-center text-xs">
-          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'NO', { kind: 'branch', branchIndex: 0, index: v.branches[0]?.elements.length ?? 0 }).rung)}>+ Contato NA</button>
-          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'NC', { kind: 'branch', branchIndex: 0, index: v.branches[0]?.elements.length ?? 0 }).rung)}>+ Contato NF</button>
-          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'BRANCH').rung)}>+ Ramo OR</button>
-          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'COIL').rung)}>+ Bobina</button>
-          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'MOVE').rung)}>+ MOVE</button>
-          <button className="dc-btn" onClick={() => modify(i, (v) => applyKind(v, 'CALL').rung)}>+ CALL FC</button>
-          {r.move && <div className="flex gap-1 items-center"><strong>MOVE</strong><input className="dc-input !w-24" aria-label="MOVE origem" value={r.move.source} onChange={(e) => modify(i, (v) => ({ ...v, move: { ...v.move!, source: e.target.value.toUpperCase() } }))} />→<input className="dc-input !w-24" aria-label="MOVE destino" value={r.move.target} onChange={(e) => modify(i, (v) => ({ ...v, move: { ...v.move!, target: e.target.value.toUpperCase() } }))} /><button type="button" onClick={() => modify(i, (v) => ({ ...v, move: undefined }))}>×</button></div>}
-          {r.call && <div className="flex gap-1 items-center"><strong>CALL</strong><Select className="dc-select !w-auto" value={r.call.targetId} onChange={(e) => modify(i, (v) => ({ ...v, call: { targetId: e.target.value } }))}>
-            <option value="fc1">FC1</option><option value="fc2">FC2</option>
-            {useSimStore.getState().projectFiles[activePlcId ?? '_general']?.filter((item) => item.folder === 'programBlocks').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </Select><button type="button" onClick={() => modify(i, (v) => ({ ...v, call: undefined }))}>×</button></div>}
+  const [activeRungId, setActiveRungId] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [dragBlockHint, setDragBlockHint] = useState<string | null>(null)
+  const canvasDepth = useRef(0)
 
-          {r.branches.map((branch, bi) => <div key={branch.id} className="flex flex-wrap items-center gap-1 border rounded p-1">
-            <span>Ramo {bi + 1}</span>
-            {branch.elements.map((el) => <span key={el.id} className="inline-flex gap-1 items-center">
-              <Select aria-label="Tipo de contacto" value={el.contactType} onChange={(e) => modify(i, (v) => ({ ...v, branches: v.branches.map((b) => b.id === branch.id ? { ...b, elements: b.elements.map((x) => x.id === el.id ? { ...x, contactType: e.target.value as LadderContactType } : x) } : b) }))}><option>NO</option><option>NC</option><option>RISING</option><option>FALLING</option></Select>
-              <input className="dc-input !w-14" aria-label="Endereço do contacto" value={el.address} onChange={(e) => modify(i, (v) => ({ ...v, branches: v.branches.map((b) => b.id === branch.id ? { ...b, elements: b.elements.map((x) => x.id === el.id ? { ...x, address: e.target.value.toUpperCase() } : x) } : b) }))} />
-              <button title="Remover contacto" onClick={() => modify(i, (v) => ({ ...v, branches: v.branches.map((b) => b.id === branch.id ? { ...b, elements: b.elements.filter((x) => x.id !== el.id) } : b) }))}>×</button>
-            </span>)}
-            {bi > 0 && <button title="Eliminar ramo" onClick={() => modify(i, (v) => ({ ...v, branches: v.branches.filter((b) => b.id !== branch.id) }))}>×</button>}
-          </div>)}
-          {r.coils.map((coil) => <span key={coil.id} className="inline-flex gap-1 items-center border rounded p-1">Bobina
-            <input className="dc-input !w-14" aria-label="Endereço da bobina" value={coil.address} onChange={(e) => modify(i, (v) => ({ ...v, coils: v.coils.map((c) => c.id === coil.id ? { ...c, address: e.target.value.toUpperCase() } : c) }))} />
-            <button title="Remover bobina" onClick={() => modify(i, (v) => ({ ...v, coils: v.coils.filter((c) => c.id !== coil.id) }))}>×</button>
-          </span>)}
+  const getRungs = (): LadderRung[] => {
+    const st = useSimStore.getState()
+    return id.startsWith('file:') ? st.projectFiles[st.activePlcId ?? '_general']?.find((f) => `file:${f.id}` === id)?.rungs ?? [] : st.fcBlocks[id as 'fc1' | 'fc2']
+  }
+  const setRungs = (next: LadderRung[]) => {
+    if (id.startsWith('file:')) useSimStore.getState().updateProjectFile(id.slice(5), { rungs: next })
+    else useSimStore.getState().updateFc(id as 'fc1' | 'fc2', next)
+  }
+  const focusRungId = (rid: string) => {
+    setActiveRungId(rid)
+    requestAnimationFrame(() => document.getElementById(`ladder-net-${rid}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
+  }
+  const newRung = (): LadderRung => ({
+    id: crypto.randomUUID(),
+    name: '',
+    enabled: true,
+    branches: [{ id: crypto.randomUUID(), elements: [] }],
+    coils: [],
+  })
+
+  /** Operações deste bloco — override para o RungRow/NetworkDiagram (remover, reordenar, duplicar…). */
+  const ops: RungOps = {
+    rungs,
+    updateRung: (rid, fn) => setRungs(getRungs().map((r) => (r.id === rid ? fn(r) : r))),
+    renameRung: (rid, name) => setRungs(getRungs().map((r) => (r.id === rid ? { ...r, name } : r))),
+    deleteRung: (rid) => {
+      const list = getRungs()
+      setRungs(list.filter((r) => r.id !== rid))
+      if (activeRungId === rid) setActiveRungId(null)
+    },
+    duplicateRung: (rid) => {
+      const list = getRungs()
+      const idx = list.findIndex((r) => r.id === rid)
+      const src = list[idx]
+      if (!src) return
+      const copy: LadderRung = {
+        ...src,
+        id: crypto.randomUUID(),
+        branches: src.branches.map((b) => ({ id: crypto.randomUUID(), elements: b.elements.map((e) => ({ ...e, id: crypto.randomUUID() })) })),
+        coils: src.coils.map((c) => ({ ...c, id: crypto.randomUUID() })),
+        timer: src.timer ? { ...src.timer, id: crypto.randomUUID() } : undefined,
+        counter: src.counter ? { ...src.counter, id: crypto.randomUUID() } : undefined,
+        move: src.move ? { ...src.move } : undefined,
+        call: src.call ? { ...src.call } : undefined,
+      }
+      const next = [...list]
+      next.splice(idx + 1, 0, copy)
+      setRungs(next)
+      notify?.(`Network ${idx + 1} duplicada`)
+    },
+    moveRung: (rid, dir) => {
+      const list = [...getRungs()]
+      const idx = list.findIndex((r) => r.id === rid)
+      const to = idx + dir
+      if (idx < 0 || to < 0 || to >= list.length) return
+      const [r] = list.splice(idx, 1)
+      list.splice(to, 0, r)
+      setRungs(list)
+    },
+  }
+
+  const addRungLocal = () => {
+    const r = newRung()
+    setRungs([...getRungs(), r])
+    focusRungId(r.id)
+    return r.id
+  }
+
+  /** Inserir elemento (paleta lateral, telhas, atalhos) na network ativa deste bloco — ou em network nova. */
+  const quickAdd = (kind: PaletteKind) => {
+    const list = getRungs()
+    const current = activeRungId && list.some((r) => r.id === activeRungId) ? activeRungId : null
+    if (current) setRungs(getRungs().map((r) => (r.id === current ? applyKind(r, kind).rung : r)))
+    else {
+      const r = applyKind(newRung(), kind).rung
+      setRungs([...getRungs(), r])
+      focusRungId(r.id)
+    }
+  }
+  const quickAddRef = useRef(quickAdd)
+  quickAddRef.current = quickAdd
+  useEffect(() => {
+    registerInsert?.((kind) => quickAddRef.current(kind))
+    return () => registerInsert?.(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, registerInsert])
+
+  /** Bloco da árvore largado no canvas deste bloco → network nova com CALL (como na Main). */
+  const dropBlockOnCanvas = (payload: CallBlockPayload) => {
+    const r = newRung()
+    setRungs([...getRungs(), { ...r, call: { targetId: payload.fileId } }])
+    focusRungId(r.id)
+    notify?.(`Network criada com CALL «${payload.name}»`)
+  }
+
+  const title = id.startsWith('file:') ? file?.name ?? 'Bloco eliminado' : NODE_TITLES[id as 'fc1' | 'fc2']
+  return (
+    <div className="ladder-folder-view ladder-block-program">
+      <FolderViewHeader icon={<IconFunction size={16} />} title={title} subtitle={file?.exec === 'obCyclic' ? 'Bloco editável, guardado com o projeto. Executa automaticamente em todos os ciclos, após o Main [OB1].' : file?.exec === 'obStartup' ? 'Bloco editável, guardado com o projeto. Executa uma vez, ao entrar em RUN (arranque); pressione STOP e RUN para o repetir.' : 'Bloco editável, guardado com o projeto. Não corre sozinho: execute-o com CALL a partir do Main ou de outro bloco.'} />
+      <div className="flex gap-2 items-center my-2">
+        <button className="ladder-primary-button" onClick={() => addRungLocal()} title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>
+        <small className="text-[10px] text-ink-400">Edição como na Main: paleta lateral, atalhos, drag&drop e botão «＋» na calha para linhas paralelas.</small>
+      </div>
+      {!rungs.length && <p className="text-xs text-ink-400">Bloco vazio. Crie uma network — ou arraste um elemento da paleta para dentro do quadro.</p>}
+      <div
+        className={`ladder-networks drop-zone ${dragOver ? 'drag-over' : ''}`}
+        style={{ minHeight: 200, borderRadius: 8, maxHeight: 'none', flex: '0 1 auto' }}
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+          if (e.dataTransfer.types.includes(CALL_BLOCK_MIME)) {
+            const d = getLadderDrag()
+            const name = d && 'block' in d ? d.block.name : 'bloco'
+            if (dragBlockHint !== name) setDragBlockHint(name)
+          } else if (dragBlockHint) setDragBlockHint(null)
+        }}
+        onDragEnter={() => { canvasDepth.current++; setDragOver(true) }}
+        onDragLeave={() => {
+          canvasDepth.current--
+          if (canvasDepth.current <= 0) { canvasDepth.current = 0; setDragOver(false); setDragBlockHint(null) }
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          canvasDepth.current = 0
+          setDragOver(false)
+          setDragBlockHint(null)
+          const block = blockPayloadFrom(e.dataTransfer)
+          if (block) { setLadderDrag(null); dropBlockOnCanvas(block); return }
+          setLadderDrag(null)
+          const kind = (e.dataTransfer.getData(LADDER_MIME) as PaletteKind) || COMPONENT_TO_LADDER[e.dataTransfer.getData('text/plain') as ComponentType]
+          if (kind) quickAdd(kind)
+        }}
+      >
+        {dragBlockHint && (
+          <div className="ladder-call-hint">
+            <span className="lnet-call-drop-badge">CALL</span>
+            <span className="lnet-call-drop-name">«{dragBlockHint}»</span>
+            <em>→ nova network</em>
+          </div>
+        )}
+        <div className={`ladder-networks-scale ${rungs.length ? '' : 'is-empty'}`}>
+          {rungs.map((r, i) => (
+            <div
+              key={r.id}
+              id={`ladder-net-${r.id}`}
+              className={`ladder-network-wrap ${activeRungId === r.id ? 'is-selected' : ''}`}
+              tabIndex={0}
+              role="region"
+              aria-label={`Network ${i + 1}: ${r.name || 'sem título'}`}
+              onFocusCapture={() => setActiveRungId(r.id)}
+              onMouseDownCapture={() => setActiveRungId(r.id)}
+              onDragEnterCapture={() => { if (dragBlockHint) setDragBlockHint(null) }}
+            >
+              <RungRow rung={r} index={i} total={rungs.length} active={activeRungId === r.id} minWidth={560} ops={ops} />
+            </div>
+          ))}
         </div>
-      </div>)}
+      </div>
     </div>
   )
 }
@@ -1099,6 +1247,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   }
 
   const quickAdd = (kind: PaletteKind) => {
+    // Com um bloco (FC/FB/ficheiro) aberto, o elemento vai para ELE (paleta/telhas/atalhos) — como no TIA Portal.
+    if (isFcOpen && blockInsertRef.current) { blockInsertRef.current(kind); return }
     setActiveProjectNode('main')
     setProgramTab('program')
     const hadActiveRung = !!activeId
@@ -1108,6 +1258,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   }
   quickAddRef.current = quickAdd
 
+  /** Quando um bloco (FC/FB/ficheiro) está aberto, paleta/atalhos inserem NESSE bloco (como no TIA Portal). */
+  const blockInsertRef = useRef<((kind: PaletteKind) => void) | null>(null)
   /** Nome do bloco de programa em arraste sobre o canvas (para o hint «nova network»). */
   const [dragBlockHint, setDragBlockHint] = useState<string | null>(null)
   /** Profundidade de enter/leave no canvas — `relatedTarget` é null durante o drag nativo do browser. */
@@ -1228,7 +1380,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         ) : blackBox && isMainOpen ? (
           <BlackBoxState />
         ) : isFcOpen ? (
-          <FunctionBlockView id={activeProjectNode as 'fc1' | 'fc2' | `file:${string}`} />
+          <BlockProgramView id={activeProjectNode as 'fc1' | 'fc2' | `file:${string}`} notify={notify} registerInsert={(fn) => { blockInsertRef.current = fn }} />
         ) : selectedFile ? (
           <ProjectFileView file={selectedFile} table={table} onDelete={() => deleteFile(selectedFile)} />
         ) : !isMainOpen ? (

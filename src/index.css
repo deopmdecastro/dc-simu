@@ -1645,6 +1645,29 @@ input[type='color'] {
   .lnet-hit[draggable='true']:active {
     cursor: grabbing;
   }
+  /* Botão «＋» na calha esquerda — cria linha paralela (OR) naquela posição (estilo TIA Portal) */
+  .lnet-branch-add {
+    position: absolute;
+    z-index: 2;
+    width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #9fb8ea;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--ladder-blue-dark);
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .1s ease, background .1s ease, transform .1s ease;
+  }
+  .lnet:hover .lnet-branch-add,
+  .lnet-branch-add:focus-visible { opacity: 1; }
+  .lnet-branch-add:hover { background: rgba(47, 111, 228, 0.92); color: #fff; transform: scale(1.15); }
+  @media (pointer: coarse) { .lnet-branch-add { opacity: 1; } }
   .lnet-branch-rm {
     position: absolute;
     width: 16px;
