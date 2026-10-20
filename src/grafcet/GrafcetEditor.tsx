@@ -224,6 +224,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const [wireHover, setWireHover] = useState<PortRef | null>(null)
   const wireDraftRef = useRef<typeof wireDraft>(null)
   const wireHoverRef = useRef<PortRef | null>(null)
+  /** Fio iniciado pelo puxador de uma etapa/transição (fora da ferramenta Ligar): termina sempre ao largar. */
+  const quickWireRef = useRef(false)
   wireDraftRef.current = wireDraft
   wireHoverRef.current = wireHover
   const transDragRef = useRef<{
@@ -1116,6 +1118,15 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     setWireHover(null)
   }
 
+  /** Puxador «arrastar para ligar»: da etapa (nova transição) ou da transição (novo destino) até uma etapa. */
+  const startQuickWire = (start: PortRef, event: React.PointerEvent) => {
+    event.stopPropagation()
+    event.preventDefault()
+    if (event.button !== 0) return
+    quickWireRef.current = true
+    startWire(start, event.clientX, event.clientY)
+  }
+
   /** Completa o fio armado (Ligar) ligando a `start` ao destino `end`. */
   const completeWire = (start: PortRef, end: PortRef) => {
     const stepNum = (sid: string) => {
@@ -1174,6 +1185,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   }
 
   const cancelWire = (silent = true) => {
+    quickWireRef.current = false
     setWireDraft(null)
     setWireHover(null)
     if (!silent) notify('Fio cancelado — toque num porto de saída para recomeçar')
@@ -1181,7 +1193,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
   // Ao sair da ferramenta Ligar, o fio armado é cancelado.
   useEffect(() => {
-    if (activeTool !== 'connect' && wireDraftRef.current) cancelWire()
+    if (activeTool !== 'connect' && wireDraftRef.current && !quickWireRef.current) cancelWire()
   }, [activeTool])
 
   // Gestos globais da ligação por linha: mover/terminar/cancelar enquanto houver fio armado.
@@ -1203,7 +1215,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       if (target) {
         completeWire(draft.start, target)
         cancelWire()
-      } else if (draft.moved) {
+      } else if (draft.moved || quickWireRef.current) {
         // Arrastou e soltou no vazio: cancela. Um simples toque MANTÉM o fio armado (fluxo toque-a-toque).
         cancelWire(false)
       }
@@ -2913,6 +2925,18 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         {/* Manipuladores rápidos estilo grafcet.io para a transição selecionada ou em hover */}
                         {full && (isTransHovered || selectedLink) && (
                           <>
+                            <g
+                              className="grafcet-node-handle grafcet-link-drag-handle"
+                              onPointerDown={(e) => startQuickWire({ kind: 'trans-out', id: transition.id }, e)}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ cursor: 'crosshair', touchAction: 'none' }}
+                              role="button"
+                              aria-label="Arrastar até uma etapa para ligar o destino desta transição"
+                            >
+                              <title>Arrastar até uma etapa para ligar o destino desta transição</title>
+                              <circle cx={tx + 24} cy={ty + 18} r="8" fill="#16a34a" stroke="#ffffff" strokeWidth="1.5" />
+                              <path d={`M ${tx + 24 - 4} ${ty + 18} H ${tx + 24 + 3} M ${tx + 24} ${ty + 18 - 3.5} L ${tx + 24 + 3.5} ${ty + 18} L ${tx + 24} ${ty + 18 + 3.5}`} fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </g>
                             {/* Botão + para inserir etapa seguinte */}
                             <g
                               className="grafcet-node-handle"
@@ -3154,6 +3178,18 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       {full && (isTransHovered || selectedLink) && (
                         <>
                           <g
+                            className="grafcet-node-handle grafcet-link-drag-handle"
+                            onPointerDown={(e) => startQuickWire({ kind: 'trans-out', id: transition.id }, e)}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ cursor: 'crosshair', touchAction: 'none' }}
+                            role="button"
+                            aria-label="Arrastar até uma etapa para ligar o destino desta transição"
+                          >
+                            <title>Arrastar até uma etapa para ligar o destino desta transição</title>
+                            <circle cx={tx + 24} cy={ty + 18} r="8" fill="#16a34a" stroke="#ffffff" strokeWidth="1.5" />
+                            <path d={`M ${tx + 20} ${ty + 18} H ${tx + 27} M ${tx + 24} ${ty + 14.5} L ${tx + 27.5} ${ty + 18} L ${tx + 24} ${ty + 21.5}`} fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </g>
+                          <g
                             className="grafcet-node-handle"
                             onClick={(e) => {
                               e.stopPropagation()
@@ -3312,6 +3348,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           fill="transparent"
                           onPointerEnter={() => setHoveredStepId(step.id)}
                         />
+                      )}
+                      {full && wireDraft && wireHover?.kind === 'step-in' && wireHover.id === step.id && (
+                        <rect x="113" y={y - 6} width="76" height="66" rx="6" fill="rgba(34,197,94,0.10)" stroke="#16a34a" strokeWidth="2.5" strokeDasharray="6 4" pointerEvents="none" />
                       )}
                       {/* Ponto verde pulsante de atividade na etapa */}
                       {active && (
@@ -3510,6 +3549,18 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       {/* Manipuladores rápidos estilo grafcet.io para a etapa selecionada ou em hover */}
                       {full && (isStepHovered || isThisStepSelected) && (
                         <>
+                          <g
+                              className="grafcet-node-handle grafcet-link-drag-handle"
+                              onPointerDown={(e) => startQuickWire({ kind: 'step-out', id: step.id }, e)}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ cursor: 'crosshair', touchAction: 'none' }}
+                              role="button"
+                              aria-label="Arrastar até outra etapa para criar uma transição"
+                            >
+                              <title>Arrastar até outra etapa para criar uma transição</title>
+                              <circle cx={196} cy={y + 48} r="8" fill="#16a34a" stroke="#ffffff" strokeWidth="1.5" />
+                              <path d={`M ${196 - 4} ${y + 48} H ${196 + 3} M ${196} ${y + 48 - 3.5} L ${196 + 3.5} ${y + 48} L ${196} ${y + 48 + 3.5}`} fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </g>
                           {/* Botão + abaixo da etapa: Adicionar etapa seguinte e transição */}
                           {!hasOutgoingTransition && <g
                             className="grafcet-node-handle"

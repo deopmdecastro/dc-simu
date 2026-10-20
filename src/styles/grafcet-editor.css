@@ -1643,3 +1643,6 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-full .grafcet-graph-link path { stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
 .grafcet-full .grafcet-graph-link:hover > line { stroke-width:3px; }
 @media (prefers-reduced-motion: reduce) { .grafcet-full .grafcet-graph-node { transition: none; } }
+
+/* Puxador «arrastar para ligar» (etapas e transições): fio verde até à etapa de destino. */
+.grafcet-link-drag-handle:hover { filter:drop-shadow(0 2px 5px rgba(22,163,74,.45)); }
