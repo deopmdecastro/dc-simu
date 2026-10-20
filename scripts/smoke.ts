@@ -17,7 +17,7 @@ import { computePhaseLabels, motorDirectionFromPhases } from '../src/electrical/
 import { runScan } from '../src/ladder/ladderEngine'
 import { applyKind } from '../src/ladder/ladderDnd'
 import { parseDataBlocks, moveValue } from '../src/ladder/dataBlocks'
-import type { CounterTable, AddressTable, TimerTable } from '../src/ladder/ladderEngine'
+import type { CounterTable, AddressTable, TimerTable, EdgeTable } from '../src/ladder/ladderEngine'
 import { createComponent, terminalByLabel, TEMPLATES, upgradeLogoTerminals, upgradeProauto24A } from '../src/electrical/factory'
 import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
@@ -280,6 +280,30 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   }
   const c1 = counters['C1']
   check('contador CTU registra 3 pulsos do sensor', c1?.count === 3, `count=${c1?.count}`)
+}
+
+/* Regressão: contactos de FLANCO (P/N) guardam o valor anterior no runtime
+ * (`edges`), nunca no programa — o rung tem de sair do scan bit a bit igual:
+ * é isto que garante undo/guardado limpos e a pureza do motor. */
+{
+  const rising = { id: 'rb', name: 'Flancos', enabled: true, branches: [{ id: 'bb', elements: [{ kind: 'contact' as const, id: 'eR', address: 'I1', contactType: 'RISING' as const }] }], coils: [{ kind: 'coil' as const, id: 'q1', address: 'Q1', coilType: 'COIL' as const }] }
+  const falling = { id: 'ryn', name: 'Flanco N', enabled: true, branches: [{ id: 'bb2', elements: [{ kind: 'contact' as const, id: 'eN', address: 'I2', contactType: 'FALLING' as const }] }], coils: [{ kind: 'coil' as const, id: 'q2', address: 'Q2', coilType: 'COIL' as const }] }
+  const program = { rungs: [rising, falling] }
+  const before = JSON.stringify(program)
+  const table: AddressTable = { I1: false, I2: true }
+  const edges: EdgeTable = {}
+  runScan(program, table, {}, {}, 100, {}, [], {}, edges)
+  check('motor não escreve no programa (rung imutável no scan)', JSON.stringify(program) === before)
+  table.I1 = true
+  runScan(program, table, {}, {}, 100, {}, [], {}, edges)
+  check('RISING dispara na borda de subida', table.Q1 === true)
+  runScan(program, table, {}, {}, 100, {}, [], {}, edges)
+  check('RISING só dura um scan (memória no runtime)', table.Q1 === false)
+  table.I2 = false
+  runScan(program, table, {}, {}, 100, {}, [], {}, edges)
+  check('FALLING dispara na borda de descida', table.Q2 === true)
+  runScan(program, table, {}, {}, 100, {}, [], {}, edges)
+  check('FALLING só dura um scan', table.Q2 === false)
 }
 
 /* Regressões dos temporizadores: pulso não rearma com entrada mantida;

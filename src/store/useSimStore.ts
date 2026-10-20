@@ -33,7 +33,7 @@ import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRIC
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
-import { runScan, type AddressTable, type TimerTable, type CounterTable, emptyTable, nextAddress, collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
+import { runScan, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradePhysicalFootprint, upgradeProauto24A, upgradeProtectionTerminalPositions } from '../electrical/factory'
@@ -79,6 +79,8 @@ interface PlcScanRuntime {
   counters: CounterTable
   rungPowered: Record<string, boolean>
   db: DbTable
+  /** memória de flanco RISING/FALLING por contacto (nunca entra no programa) */
+  edges: EdgeTable
   /** true depois de os OBs de arranque (OB 100) correrem uma vez neste RUN */
   startupDone?: boolean
 }
@@ -89,6 +91,8 @@ interface RuntimeExtras {
   counters: CounterTable
   rungPowered: Record<string, boolean>
   db: DbTable
+  /** mesma memória de flanco do PlcScanRuntime, para o programa geral (sem PLC) */
+  edges: EdgeTable
   /** mesmo papel do `startupDone` por PLC, mas para o programa geral (sem PLC) */
   startupDone?: boolean
   plcRuntime: Record<string, PlcScanRuntime>
@@ -463,6 +467,7 @@ const EMPTY_RUNTIME = (): RuntimeExtras => ({
   counters: {},
   rungPowered: {},
   db: {},
+  edges: {},
   plcRuntime: {},
   energizedTerminals: new Set(),
   energizedWires: new Set(),
@@ -501,13 +506,13 @@ function runOneTick(state: Store, dtMs: number) {
     }
     const declared = parseDataBlocks(generalFiles).values
     const db = { ...declared, ...Object.fromEntries(Object.entries(state.runtime.db).filter(([key]) => key in declared)) }
-    const scan = runScan({ rungs: [...ladder.rungs, ...scheduled, ...autoExecRungs(generalFiles, 'obCyclic')] }, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs, functions, [], db)
+    const scan = runScan({ rungs: [...ladder.rungs, ...scheduled, ...autoExecRungs(generalFiles, 'obCyclic')] }, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs, functions, [], db, state.runtime.edges)
     state.runtime.db = db
     state.runtime.startupDone = true
     state.runtime.rungPowered = scan.rungPowered
   }
   for (const plc of plcs) {
-    const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(plcIoCapacity(plc).inputs, plcIoCapacity(plc).outputs), timers: {}, counters: {}, rungPowered: {}, db: {} }
+    const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(plcIoCapacity(plc).inputs, plcIoCapacity(plc).outputs), timers: {}, counters: {}, rungPowered: {}, db: {}, edges: {} }
     const table = prior.table
     const logo = plc.type === 'plcSiemensLogo1224RC' || plc.type === 'plcLsXbmDn32s'
       ? logoElectricalInputs(plc, components, wires)
@@ -528,7 +533,7 @@ function runOneTick(state: Store, dtMs: number) {
     const scheduled = prior.startupDone ? [] : autoExecRungs(files, 'obStartup')
     const declared = parseDataBlocks(files).values
     prior.db = { ...declared, ...Object.fromEntries(Object.entries(prior.db).filter(([key]) => key in declared)) }
-    const scan = runScan({ rungs: [...program, ...scheduled, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db)
+    const scan = runScan({ rungs: [...program, ...scheduled, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db, prior.edges)
     state.runtime.plcRuntime[plc.id] = { ...prior, startupDone: true, rungPowered: scan.rungPowered }
     for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = powered && !!scan.table[key]
   }

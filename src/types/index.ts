@@ -429,7 +429,6 @@ export interface LadderContact {
   id: string
   address: string
   contactType: LadderContactType
-  prevValue?: boolean
   comment?: string
 }
 

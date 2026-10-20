@@ -19,6 +19,7 @@ import LadderElementDialog from './LadderElementDialog'
 import AddBlockDialog from './AddBlockDialog'
 import type { BlockKind } from './blockCatalog'
 import { CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, applyKind, getLadderDrag, isContactKind, setLadderDrag, type CallBlockPayload, type PaletteKind } from './ladderDnd'
+import { insertIntoRungs, newEmptyRung } from './ladderInsert'
 
 /** Lê o payload de um bloco do projeto em arraste (dataTransfer + fallback do drag ativo). */
 const blockPayloadFrom = (data: DataTransfer): CallBlockPayload | null => {
@@ -87,14 +88,22 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
   /** Override de escrita/leitura das networks (blocos do projeto); omisso → store (Main). */
   ops?: RungOps
 }) {
-  const rungPowered = useSimStore((s) => s.runtime.rungPowered)
+  // Seletor booleano: re-render só quando ESTA network muda de estado
+  // (subscrever o mapa inteiro forçava repintar todas as networks a cada scan).
+  const powered = useSimStore((s) => !!s.runtime.rungPowered[rung.id])
   const running = useSimStore((s) => s.sim.runState === 'running')
-  const storeOps = useSimStore()
-  const deleteRung = ops?.deleteRung ?? storeOps.deleteRung
-  const duplicateRung = ops?.duplicateRung ?? storeOps.duplicateRung
-  const moveRung = ops?.moveRung ?? storeOps.moveRung
-  const renameRung = ops?.renameRung ?? storeOps.renameRung
-  const updateRung = ops?.updateRung ?? storeOps.updateRung
+  // Actions da store (referências estáveis) como fallback das ops do bloco —
+  // evita `useSimStore()` (subscrição ao estado completo → re-render a cada tick).
+  const deleteRungStore = useSimStore((s) => s.deleteRung)
+  const duplicateRungStore = useSimStore((s) => s.duplicateRung)
+  const moveRungStore = useSimStore((s) => s.moveRung)
+  const renameRungStore = useSimStore((s) => s.renameRung)
+  const updateRungStore = useSimStore((s) => s.updateRung)
+  const deleteRung = ops?.deleteRung ?? deleteRungStore
+  const duplicateRung = ops?.duplicateRung ?? duplicateRungStore
+  const moveRung = ops?.moveRung ?? moveRungStore
+  const renameRung = ops?.renameRung ?? renameRungStore
+  const updateRung = ops?.updateRung ?? updateRungStore
   const [selection, setSelection] = useState<RungSelection>(null)
   const [dialogSelection, setDialogSelection] = useState<Exclude<NonNullable<RungSelection>, { type: 'insert' }> | null>(null)
   /** network recolhida (só o cabeçalho visível) — como no TIA Portal */
@@ -110,7 +119,6 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
   const outputCount = rung.coils.length + (rung.timer ? 1 : 0) + (rung.counter ? 1 : 0) + (rung.call ? 1 : 0) + (rung.move ? 1 : 0)
   const blockKinds = [rung.timer?.timerType, rung.counter?.counterType, rung.move ? 'MOVE' : '', rung.call ? 'CALL' : ''].filter(Boolean)
 
-  const powered = !!rungPowered[rung.id]
   const plcId = useSimStore((st) => st.activePlcId)
   const fcFiles = useSimStore((st) => st.projectFiles[plcId ?? '_general'] ?? [])
 
@@ -831,13 +839,7 @@ function BlockProgramView({ id, notify, registerInsert }: {
     setActiveRungId(rid)
     requestAnimationFrame(() => document.getElementById(`ladder-net-${rid}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
   }
-  const newRung = (): LadderRung => ({
-    id: crypto.randomUUID(),
-    name: '',
-    enabled: true,
-    branches: [{ id: crypto.randomUUID(), elements: [] }],
-    coils: [],
-  })
+  const newRung = newEmptyRung
 
   /** Operações deste bloco — override para o RungRow/NetworkDiagram (remover, reordenar, duplicar…). */
   const ops: RungOps = {
@@ -889,14 +891,9 @@ function BlockProgramView({ id, notify, registerInsert }: {
 
   /** Inserir elemento (paleta lateral, telhas, atalhos) na network ativa deste bloco — ou em network nova. */
   const quickAdd = (kind: PaletteKind) => {
-    const list = getRungs()
-    const current = activeRungId && list.some((r) => r.id === activeRungId) ? activeRungId : null
-    if (current) setRungs(getRungs().map((r) => (r.id === current ? applyKind(r, kind).rung : r)))
-    else {
-      const r = applyKind(newRung(), kind).rung
-      setRungs([...getRungs(), r])
-      focusRungId(r.id)
-    }
+    const res = insertIntoRungs(getRungs(), activeRungId, kind)
+    setRungs(res.rungs)
+    focusRungId(res.rungId)
   }
   const quickAddRef = useRef(quickAdd)
   quickAddRef.current = quickAdd
@@ -1251,10 +1248,11 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     if (isFcOpen && blockInsertRef.current) { blockInsertRef.current(kind); return }
     setActiveProjectNode('main')
     setProgramTab('program')
-    const hadActiveRung = !!activeId
-    const rungId = activeId ?? addRung()
+    if (activeId) { updateRung(activeId, (r) => applyKind(r, kind).rung, 'force'); return }
+    // Sem network ativa: cria uma (a store já a foca) e insere o elemento.
+    const rungId = addRung()
     setActiveRungId(rungId)
-    updateRung(rungId, (r) => applyKind(r, kind).rung, hadActiveRung ? 'force' : 'skip')
+    updateRung(rungId, (r) => applyKind(r, kind).rung, 'skip')
   }
   quickAddRef.current = quickAdd
 

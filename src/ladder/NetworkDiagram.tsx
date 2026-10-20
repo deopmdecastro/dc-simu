@@ -57,11 +57,13 @@ interface Props {
 }
 
 export default function NetworkDiagram({ rung, selection = null, onSelect = () => {}, onEdit = () => {}, readonly = false, minWidth = 640, updateRung: updateRungProp, siblingRungs }: Props) {
-  const table = useSimStore((s) => s.runtime.table)
-  const db = useSimStore((s) => s.runtime.db)
-  const timers = useSimStore((s) => s.runtime.timers)
-  const counters = useSimStore((s) => s.runtime.counters)
-  const rungPowered = useSimStore((s) => s.runtime.rungPowered)
+  // `runtime` é substituído a cada scan (pushRuntime) — subscrever o objeto
+  // garante o redesenho das cores; `table`/`timers`/… mantêm a MESMA referência
+  // entre ticks, pelo que seletores finos a eles deixavam o desenho desatualizado.
+  const runtime = useSimStore((s) => s.runtime)
+  const { table, db, timers, counters } = runtime
+  // Seletor booleano por network: repintar apenas quando o RLO desta muda.
+  const powered = useSimStore((s) => !!s.runtime.rungPowered[rung.id])
   const simRunning = useSimStore((s) => s.sim.runState !== 'stopped')
   const gridEnabled = useSimStore((s) => s.grid.enabled)
   const tags = useSimStore((s) => s.tags)
@@ -130,7 +132,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   // ------------------------------------------------------------- estado
   const rawContact = (el: LadderContact) => db[el.address.toUpperCase()]?.type === 'BOOL' ? db[el.address.toUpperCase()].value === true : !!table[el.address]
   const pass = (el: LadderContact) => el.contactType === 'NC' ? !rawContact(el) : rawContact(el)
-  const rungOut = online && !!rungPowered[rung.id]
+  const rungOut = online && powered
   const col = (p: boolean) => (!online ? C_OFF : p ? C_ON : C_IDLE)
   const dash = (p: boolean) => (online && !p ? '5 4' : undefined)
   const sw = (p: boolean) => (online && p ? 2.6 : 1.6)

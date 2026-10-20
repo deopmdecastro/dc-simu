@@ -18,8 +18,14 @@ export interface TimerValue { elapsedMs: number; presetMs: number; done: boolean
 export type TimerTable = Record<string, TimerValue>
 export interface CounterValue { count: number; preset: number; done: boolean; prevPulse: boolean }
 export type CounterTable = Record<string, CounterValue>
+/**
+ * Memória de flanco (RISING/FALLING) por contacto, indexada pelo id e guardada
+ * no runtime — o motor NUNCA escreve no programa (rungs ficam imutáveis durante
+ * o scan, por isso screenshots/undo/saves não carregam estado efémero).
+ */
+export type EdgeTable = Record<string, boolean>
 
-function evalContact(el: LadderContact, table: AddressTable, db: DbTable): boolean {
+function evalContact(el: LadderContact, table: AddressTable, db: DbTable, edges: EdgeTable): boolean {
   const key = el.address.toUpperCase()
   const v = db[key]?.type === 'BOOL' ? db[key].value === true : !!table[key]
   switch (el.contactType) {
@@ -28,30 +34,30 @@ function evalContact(el: LadderContact, table: AddressTable, db: DbTable): boole
     case 'NC':
       return !v
     case 'RISING': {
-      const prev = !!el.prevValue
-      el.prevValue = v
+      const prev = !!edges[el.id]
+      edges[el.id] = v
       return v && !prev
     }
     case 'FALLING': {
-      const prev = !!el.prevValue
-      el.prevValue = v
+      const prev = !!edges[el.id]
+      edges[el.id] = v
       return !v && prev
     }
   }
 }
 
-function evalBranch(branch: LadderBranch, table: AddressTable, db: DbTable): boolean {
-  return branch.elements.every((el) => evalContact(el, table, db))
+function evalBranch(branch: LadderBranch, table: AddressTable, db: DbTable, edges: EdgeTable): boolean {
+  return branch.elements.every((el) => evalContact(el, table, db, edges))
 }
 
-function evalRung(rung: LadderRung, table: AddressTable, db: DbTable): boolean {
+function evalRung(rung: LadderRung, table: AddressTable, db: DbTable, edges: EdgeTable): boolean {
   // um rung sem contatos (branches vazias) é considerado "sempre verdadeiro"
   // apenas quando explicitamente montado assim pelo usuário com 1 branch vazia
   if (!rung.enabled) return false
   if (rung.branches.length === 0) return false
   const anyEmpty = rung.branches.some((b) => b.elements.length === 0)
   if (anyEmpty) return true
-  return rung.branches.some((b) => evalBranch(b, table, db))
+  return rung.branches.some((b) => evalBranch(b, table, db, edges))
 }
 
 export interface ScanResult {
@@ -71,11 +77,12 @@ export function runScan(
   functions: Record<string, LadderRung[]> = {},
   stack: string[] = [],
   db: DbTable = {},
+  edges: EdgeTable = {},
 ): ScanResult {
   const rungPowered: Record<string, boolean> = {}
 
   for (const rung of program.rungs) {
-    const powered = evalRung(rung, table, db)
+    const powered = evalRung(rung, table, db, edges)
     rungPowered[rung.id] = powered
 
     // ---------------- temporizador do rung ----------------
@@ -188,7 +195,7 @@ export function runScan(
       const id = rung.call.targetId
       // Impede ciclos A→B→A e chamadas recursivas descontroladas.
       if (functions[id] && !stack.includes(id) && stack.length < 16)
-        runScan({ rungs: functions[id] }, table, timers, counters, dtMs, functions, [...stack, id], db)
+        runScan({ rungs: functions[id] }, table, timers, counters, dtMs, functions, [...stack, id], db, edges)
     }
   }
 
