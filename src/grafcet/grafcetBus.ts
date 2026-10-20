@@ -28,7 +28,6 @@ export type GrafcetBusAction =
   | 'openTemplates'
   | 'openSignals'
   | 'generateLadder'
-  | 'sendToN8n'
   | 'exportSvg'
   | 'exportJson'
   | 'importJson'

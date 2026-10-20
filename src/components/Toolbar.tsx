@@ -15,7 +15,6 @@ import { useLadderUi } from '../ladder/ladderBus'
 import LadderVariablesMenu from '../ladder/LadderVariablesMenu'
 import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { validateGrafcet } from '../grafcet/engine'
-import { N8nLogo } from '../ui/BrandLogos'
 import ComponentTableDialog from './ComponentTableDialog'
 import { allowedViews } from '../project/kind'
 import {
@@ -444,17 +443,6 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                     <span>⇢ Gerar Ladder</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => useGrafcetUi.getState().emit('sendToN8n')}
-                    className="dc-tool-btn !gap-1.5"
-                    style={{ color: '#c9355f', borderColor: '#f8cdd8', backgroundColor: '#fdf0f3' }}
-                    title="Dispara o workflow n8n (MipSJCjJ6fya9UGt) com o diagrama GRAFCET atual"
-                  >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-                      <N8nLogo size={13} title="" /> n8n
-                    </span>
-                  </button>
                 </>
               )}
             </div>
