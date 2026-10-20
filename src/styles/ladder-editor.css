@@ -300,3 +300,12 @@
   .ladder-watch-row { grid-template-columns:74px minmax(0,1fr) 10px 28px; gap:7px; }
   .ladder-technology-fields { grid-template-columns:1fr; }
 }
+
+/* Menu «Variáveis» na barra do Ladder (importar/exportar tabelas). */
+.ladder-variables-menu { position:relative; display:inline-flex; flex:0 0 auto; }
+.ladder-variables-panel { position:absolute; top:calc(100% + 6px); left:0; z-index:60; display:flex; width:min(320px,calc(100vw - 24px)); flex-direction:column; align-items:flex-start; gap:10px; padding:14px; border:1px solid #d5deec; border-radius:10px; background:#fff; box-shadow:0 12px 32px rgba(31,43,74,.18); }
+.ladder-variables-panel[hidden] { display:none; }
+.ladder-variables-panel strong { color:#25324a; font-size:12px; }
+.ladder-variables-panel small { color:#6b7890; font-size:10.5px; line-height:1.45; }
+.ladder-variables-panel .sheet-bar .dc-btn { min-height:32px; }
+.ladder-variables-notice { color:#1f7a45 !important; font-weight:600; }
