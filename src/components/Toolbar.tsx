@@ -10,6 +10,7 @@ import { GAUGES, WIRE_COLORS } from '../schematic/symbols'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import type { LadderSection } from '../ladder/LadderSections'
 import { useCleanMode } from '../ui/cleanMode'
+import { useLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } from '../ladder/ladderZoom'
 import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { validateGrafcet } from '../grafcet/engine'
 import { N8nLogo } from '../ui/BrandLogos'
@@ -81,6 +82,50 @@ const GRAFCET_ADD_BUTTONS: Array<{ action: 'addConnectedStep' | 'addStep' | 'add
   { action: 'addFork', label: '⑂ Divergência AND', kbd: 'F', needs: 1, secondary: true, title: 'Criar divergência AND (ramos simultâneos) [F]' },
   { action: 'addJoin', label: '⑃ Convergência AND', kbd: 'J', needs: 2, secondary: true, title: 'Criar convergência AND (sincronização) [J]' },
 ]
+
+interface ViewControlsProps {
+  grid: { on: boolean; toggle: () => void; title?: string }
+  snap?: { on: boolean; toggle: () => void; title?: string }
+  step?: { value: number; options: number[]; onChange: (n: number) => void }
+  zoom: { percent: number; onOut: () => void; onReset: () => void; onIn: () => void; canOut?: boolean; canIn?: boolean }
+}
+
+/** Grupo «vista» único (malha · ímã · passo · zoom): igual em Esquema/3D, Ladder e GRAFCET. */
+function ViewControls({ grid, snap, step, zoom }: ViewControlsProps) {
+  const seg = (active: boolean) => `dc-tool-btn ${active ? 'dc-tool-active' : ''}`
+  const on = (v: boolean) => (v ? '!border-brand-300 !bg-brand-50 !text-brand-700' : '')
+  return (
+    <div className="flex items-center gap-1 shrink-0" role="group" aria-label="Vista">
+      <div className="dc-seg" role="group" aria-label="Malha">
+        <button type="button" onClick={grid.toggle} aria-pressed={grid.on} className={`${seg(false)} !px-2 ${on(grid.on)}`} title={grid.title ?? 'Mostrar/ocultar malha'}>
+          <IconGrid size={13} />
+        </button>
+        {snap && (
+          <button type="button" onClick={snap.toggle} aria-pressed={snap.on} className={`${seg(false)} !px-2 ${on(snap.on)}`} title={snap.title ?? 'Encaixar na malha (ímã)'}>
+            <IconMagnet size={13} />
+          </button>
+        )}
+      </div>
+      {step && (
+        <Select value={step.value} onChange={(e) => step.onChange(Number(e.target.value))} className="dc-select !w-[66px]" title="Passo da malha">
+          {step.options.map((n) => <option key={n} value={n}>{n}px</option>)}
+        </Select>
+      )}
+      <div className="dc-seg" role="toolbar" aria-label="Zoom">
+        <button type="button" onClick={zoom.onOut} disabled={zoom.canOut === false} className={`${seg(false)} !px-1.5`} title="Reduzir zoom">
+          <IconZoomOut size={13} />
+        </button>
+        <button type="button" onClick={zoom.onReset} className={`${seg(false)} !px-2 font-mono tabular-nums min-w-[48px] justify-center`} title="Restaurar zoom (100%)">
+          {zoom.percent}%
+        </button>
+        <button type="button" onClick={zoom.onIn} disabled={zoom.canIn === false} className={`${seg(false)} !px-1.5`} title="Ampliar zoom">
+          <IconZoomIn size={13} />
+        </button>
+      </div>
+      <span className="tb-sep" />
+    </div>
+  )
+}
 
 const QUICK_COLORS: WireColor[] = ['black', 'red', 'blue', 'lightblue', 'brown', 'grey', 'orange', 'green-yellow', 'white', 'violet']
 
@@ -230,6 +275,22 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     stopped: { text: 'STOP', cls: 'bg-state-stop' },
   }
   const runBadge = RUN_LABEL[sim.runState] ?? RUN_LABEL.stopped
+  const ladderZoom = useLadderZoom((state) => state.zoom)
+  const setLadderZoom = useLadderZoom((state) => state.setZoom)
+  const viewControls: ViewControlsProps | null =
+    mode === 'schematic' ? {
+      grid: { on: grid.enabled, toggle: () => setGrid({ enabled: !grid.enabled }) },
+      snap: { on: grid.snap, toggle: () => setGrid({ snap: !grid.snap }) },
+      step: { value: grid.size, options: [5, 10, 20, 25, 50], onChange: (size) => setGrid({ size }) },
+      zoom: { percent: Math.round(zoom * 100), onOut: () => setZoom(zoom * 0.9), onIn: () => setZoom(zoom * 1.1), onReset: () => { setZoom(1); useSimStore.getState().setPan(0, 0) } },
+    } : mode === 'ladder' ? {
+      grid: { on: grid.enabled, toggle: () => setGrid({ enabled: !grid.enabled }), title: 'Mostrar/ocultar malha (as networks usam sempre 20px)' },
+      zoom: { percent: Math.round(ladderZoom * 100), onOut: () => setLadderZoom((z) => z - LADDER_ZOOM_STEP), onIn: () => setLadderZoom((z) => z + LADDER_ZOOM_STEP), onReset: () => setLadderZoom(1), canOut: ladderZoom > LADDER_ZOOM_MIN, canIn: ladderZoom < LADDER_ZOOM_MAX },
+    } : mode === 'grafcet' ? {
+      grid: { on: grafcetGrid, toggle: () => useGrafcetUi.getState().toggleGrid(), title: 'Mostrar/ocultar a grelha' },
+      snap: { on: grafcetSnap, toggle: () => useGrafcetUi.getState().toggleSnap(), title: 'Encaixar à grelha ao arrastar (Alt = livre)' },
+      zoom: { percent: Math.round(grafcetZoom * 100), onOut: () => useGrafcetUi.getState().emit('zoomOut'), onIn: () => useGrafcetUi.getState().emit('zoomIn'), onReset: () => useGrafcetUi.getState().emit('zoomReset') },
+    } : null
   const isCanvas = mode === 'schematic'
   const sel = selectedComponentIds.length
 
@@ -416,24 +477,6 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <span className="tb-sep" />
 
             <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Disposição">
-              <button
-                type="button"
-                onClick={() => useGrafcetUi.getState().toggleGrid()}
-                className={`${segBtn(grafcetGrid)} !px-2`}
-                aria-pressed={grafcetGrid}
-                title="Mostrar/ocultar a grelha"
-              >
-                Grelha
-              </button>
-              <button
-                type="button"
-                onClick={() => useGrafcetUi.getState().toggleSnap()}
-                className={`${segBtn(grafcetSnap)} !px-2`}
-                aria-pressed={grafcetSnap}
-                title="Encaixar à grelha ao arrastar (Alt = livre)"
-              >
-                Íman
-              </button>
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('autoLayout')}
@@ -638,20 +681,6 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
               <span className="tb-sep" />
 
-              <div className="dc-seg" role="toolbar" aria-label="Zoom GRAFCET">
-                <button onClick={() => useGrafcetUi.getState().emit('zoomOut')} className={`${segBtn(false)} !px-1.5`} title="Reduzir zoom [Ctrl−]">
-                  <IconZoomOut size={13} />
-                </button>
-                <button onClick={() => useGrafcetUi.getState().emit('zoomReset')} className={`${segBtn(false)} !px-2 font-mono tabular-nums min-w-[48px] justify-center`} title="Restaurar zoom (100%)">
-                  {(grafcetZoom * 100).toFixed(0)}%
-                </button>
-                <button onClick={() => useGrafcetUi.getState().emit('zoomIn')} className={`${segBtn(false)} !px-1.5`} title="Ampliar zoom [Ctrl+]">
-                  <IconZoomIn size={13} />
-                </button>
-              </div>
-
-              <span className="tb-sep" />
-
               <button
                 type="button"
                 className="dc-tool-btn !px-2"
@@ -666,42 +695,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             </div>
           )}
 
-          {/* vista: malha e zoom */}
-          {(isCanvas || mode === 'ladder') && (
-            <div className="flex items-center gap-1 shrink-0">
-              <div className="dc-seg" role="group" aria-label="Malha">
-                <button onClick={() => setGrid({ enabled: !grid.enabled })} className={`${segBtn(false)} !px-2 ${toggleCls(grid.enabled)}`} title="Mostrar/ocultar malha">
-                  <IconGrid size={13} />
-                </button>
-                {isCanvas && (
-                  <button onClick={() => setGrid({ snap: !grid.snap })} className={`${segBtn(false)} !px-2 ${toggleCls(grid.snap)}`} title="Encaixar na malha (ímã)">
-                    <IconMagnet size={13} />
-                  </button>
-                )}
-              </div>
-              {isCanvas && (
-                <Select value={grid.size} onChange={(e) => setGrid({ size: Number(e.target.value) })} className="dc-select !w-[66px]" title="Passo da malha do esquema (as networks Ladder usam sempre 20px)">
-                  {[5, 10, 20, 25, 50].map((n) => (
-                    <option key={n} value={n}>{n}px</option>
-                  ))}
-                </Select>
-              )}
-              {mode === 'schematic' && (
-                <div className="dc-seg" role="toolbar" aria-label="Zoom">
-                  <button onClick={() => setZoom(zoom * 0.9)} className={`${segBtn(false)} !px-1.5`} title="Reduzir zoom [Ctrl+roda]">
-                    <IconZoomOut size={13} />
-                  </button>
-                  <button onClick={() => { setZoom(1); useSimStore.getState().setPan(0, 0) }} className={`${segBtn(false)} !px-2 font-mono tabular-nums min-w-[48px] justify-center`} title="Restaurar zoom e posição (100%)">
-                    {(zoom * 100).toFixed(0)}%
-                  </button>
-                  <button onClick={() => setZoom(zoom * 1.1)} className={`${segBtn(false)} !px-1.5`} title="Ampliar zoom [Ctrl+roda]">
-                    <IconZoomIn size={13} />
-                  </button>
-                </div>
-              )}
-              <span className="tb-sep" />
-            </div>
-          )}
+          {/* vista: malha e zoom — grupo comum a todos os módulos */}
+          {viewControls && <ViewControls {...viewControls} />}
 
           {/* ferramentas de diagnóstico do projeto atual */}
           <button

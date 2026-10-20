@@ -1,3 +1,4 @@
+import { useLadderZoom, LADDER_ZOOM_STEP } from './ladderZoom'
 import VirtualIoPanel from '../components/VirtualIoPanel'
 import { lintLadder } from './ladderLint'
 import { uiConfirm, uiPrompt } from '../ui/dialogs'
@@ -401,12 +402,8 @@ function CompactLadderEditor() {
   const grid = useSimStore((s) => s.grid)
   const setGrid = useSimStore((s) => s.setGrid)
   const [tab, setTab] = useState<LadderTab>('program')
-  const [ladderZoom, setLadderZoom] = useState(() => {
-    try { return Math.max(0.75, Math.min(1.35, Number(localStorage.getItem('dcsimu:ladder:zoom')) || 1)) } catch { return 1 }
-  })
-  useEffect(() => {
-    try { localStorage.setItem('dcsimu:ladder:zoom', String(ladderZoom)) } catch {}
-  }, [ladderZoom])
+  const ladderZoom = useLadderZoom((state) => state.zoom)
+  const setLadderZoom = useLadderZoom((state) => state.setZoom)
   const [dragOver, setDragOver] = useState(false)
   const counts = programCounts(rungs)
   const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
@@ -890,11 +887,7 @@ function FunctionBlockView({ id }: { id: 'fc1' | 'fc2' | `file:${string}` }) {
 
 /** Escala base do editor completo: o "100%" mostrado ao utilizador equivale a 115% do desenho original. */
 const ZOOM_BASE = 1.15
-const ZOOM_MIN = 0.7
-const ZOOM_MAX = 1.5
-const ZOOM_STEP = 0.1
 /** chave nova: a antiga guardava a escala em bruto (1.15 = 115%) e ficaria a 132% */
-const ZOOM_KEY = 'dcsimu:ladder:zoom:v2'
 
 function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: LadderSection; setSection: (value: LadderSection) => void; onOpenSchematic?: (componentId: string) => void }) {
   const components = useSimStore((s) => s.components)
@@ -928,12 +921,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'lint'>('io')
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
   const [filter, setFilter] = useState('')
-  const [ladderZoom, setLadderZoom] = useState(() => {
-    try { return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Number(localStorage.getItem(ZOOM_KEY)) || 1)) } catch { return 1 }
-  })
-  useEffect(() => {
-    try { localStorage.setItem(ZOOM_KEY, String(ladderZoom)) } catch {}
-  }, [ladderZoom])
+  const ladderZoom = useLadderZoom((state) => state.zoom)
+  const setLadderZoom = useLadderZoom((state) => state.setZoom)
   const [showProjectPane, setShowProjectPane] = useState(() => !isSmallScreen())
   const [showPalette, setShowPalette] = useState(() => !isSmallScreen())
   const [activeProjectNode, setActiveProjectNode] = useState<ProjectNodeId>('main')
@@ -1031,8 +1020,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
       if (typing || helpOpen) return
 
       // ---- vista/zoom (já existiam)
-      if (mod && (key === '+' || key === '=')) { event.preventDefault(); setLadderZoom((v) => Math.min(ZOOM_MAX, Number((v + ZOOM_STEP).toFixed(2)))); return }
-      if (mod && key === '-') { event.preventDefault(); setLadderZoom((v) => Math.max(ZOOM_MIN, Number((v - ZOOM_STEP).toFixed(2)))); return }
+      if (mod && (key === '+' || key === '=')) { event.preventDefault(); setLadderZoom((v) => v + LADDER_ZOOM_STEP); return }
+      if (mod && key === '-') { event.preventDefault(); setLadderZoom((v) => v - LADDER_ZOOM_STEP); return }
       if (mod && key === '0') { event.preventDefault(); setLadderZoom(1); return }
 
       // Alt+1…5 navega entre as áreas Ladder sem colidir com Ctrl+1…5 das vistas globais.
@@ -1115,7 +1104,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   useEditorShortcuts({
     undo: doUndo,
     redo: doRedo,
-    zoomView: (factor) => setLadderZoom((value) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number((value * factor).toFixed(2))))),
+    zoomView: (factor) => setLadderZoom((value) => value * factor),
     fitView: () => setLadderZoom(1),
     panView: (dx, dy) => mainPaneRef.current?.scrollBy({ left: dx, top: dy, behavior: 'auto' }),
   }, { enabled: !helpOpen })
@@ -1227,23 +1216,6 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           </span>
         </div>
         <div className="ladder-editor-toolbar">
-          <button className="ladder-toolbar-button" onClick={doUndo} disabled={!history.length} title="Desfazer (Ctrl+Z)" aria-label="Desfazer"><IconUndo size={14} /></button>
-          <button className="ladder-toolbar-button" onClick={doRedo} disabled={!future.length} title="Refazer (Ctrl+Y)" aria-label="Refazer"><IconRedo size={14} /></button>
-          <span className="ladder-toolbar-separator" />
-          <span className="ladder-zoom-label">⌕ {Math.round(ladderZoom * 100)}%</span>
-          <button className="ladder-toolbar-button" disabled={ladderZoom <= ZOOM_MIN} onClick={() => setLadderZoom((z) => Math.max(ZOOM_MIN, Number((z - ZOOM_STEP).toFixed(2))))} title="Reduzir zoom (Ctrl−)"><IconZoomOut size={14} /></button>
-          <button className="ladder-toolbar-button" onClick={() => setLadderZoom(1)} title="Zoom 100% (Ctrl+0)">100</button>
-          <button className="ladder-toolbar-button" disabled={ladderZoom >= ZOOM_MAX} onClick={() => setLadderZoom((z) => Math.min(ZOOM_MAX, Number((z + ZOOM_STEP).toFixed(2))))} title="Aumentar zoom (Ctrl+)"><IconZoomIn size={14} /></button>
-          <span className="ladder-toolbar-separator" />
-          <button
-            className={`ladder-toolbar-button ${grid.enabled ? 'is-active' : ''}`}
-            onClick={() => setGrid({ enabled: !grid.enabled })}
-            title={`Malha ${grid.enabled ? 'ligada' : 'desligada'} · clique para ${grid.enabled ? 'esconder' : 'mostrar'}`}
-          >
-            <IconGrid size={14} />
-          </button>
-          <span className="ladder-zoom-label">Malha {grid.enabled ? `${grid.size}px` : 'off'}</span>
-          <span className="ladder-toolbar-separator" />
           <span className="text-[10px] text-slate-400">{isProgramView ? 'Programa Ladder' : activeTitle}</span>
           {isMainOpen && programTab === 'program' && rungs.length > 1 && (
             <>
