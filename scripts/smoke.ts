@@ -5,6 +5,7 @@ import { SPINE_X, START_Y, GRID, COLUMN_WIDTH, snapToGrid, clampPosition, alignT
 import { detectGrafcetIo, inputsInCondition } from '../src/grafcet/inputDetect'
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView } from '../src/grafcet/selection'
 import { signalUsage, undeclaredSignals, tagsToDeclare, tokenAtCursor, matchSignals, insertCondition } from '../src/grafcet/signals'
+import { GRAFCET_TEMPLATES } from '../src/grafcet/templates'
 import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
@@ -2232,6 +2233,53 @@ console.log('\n— Tabela de sinais dinâmica —')
   const dup = { steps, transitions: [{ id: 'd1', from: ['a'], to: ['b'], condition: 'I1' }, { id: 'd2', from: ['a'], to: ['c'], condition: ' i1 ' }] }
   check('validação: divergência OR com receptividades iguais avisa', validateGrafcet(dup).some((i) => i.id === 'd2:or-conflict' && i.level === 'warning'))
   check('validação: divergência OR exclusiva não avisa', !validateGrafcet({ steps, transitions: [{ id: 'd1', from: ['a'], to: ['b'], condition: 'I1' }, { id: 'd2', from: ['a'], to: ['c'], condition: '!I1' }] }).some((i) => i.id.endsWith(':or-conflict')))
+}
+
+
+/* GRAFCET: modelos IEC (ramos AND, temporizações S/R/D, etapa de falha) válidos e simuláveis. */
+{
+  const iec = GRAFCET_TEMPLATES.filter((t) => t.id.startsWith('iec-'))
+  check('modelos IEC existem (simples, motores, processo)', iec.length === 3)
+  for (const t of iec) {
+    const errors = validateGrafcet(t.program).filter((i) => i.level === 'error')
+    check(`modelo «${t.name}» sem erros de validação`, errors.length === 0)
+    check(`modelo «${t.name}» tem etapas posicionadas`, t.program.steps.every((st) => st.pinned === true && Number.isFinite(st.x) && Number.isFinite(st.y)))
+  }
+  const motores = iec.find((t) => t.id === 'iec-motores-paralelo')!.program
+  const xOf = (name: string) => motores.steps.find((st) => st.name === name)!.x!
+  check('motores: ramos paralelos 3 e 5 em colunas diferentes', xOf('3') !== xOf('5'))
+
+  const proc = iec.find((t) => t.id === 'iec-processo-timers')!.program
+  const names = (rt: ReturnType<typeof emptyGrafcetRuntime>) => proc.steps.filter((st) => rt.active.includes(st.id)).map((st) => st.name).sort((a, b) => Number(a) - Number(b)).join(',')
+  const run = (rt: ReturnType<typeof emptyGrafcetRuntime>, table: AddressTable, scans: number) => { let r = rt; for (let i = 0; i < scans; i++) r = scanGrafcet(proc, r, table, 100); return r }
+
+  // caminho normal: CZ3 chega antes de T6 → T9 → 9 → 10 → 0
+  let tb: AddressTable = { START: true }
+  let rt = run(emptyGrafcetRuntime(), tb, 1)
+  tb.START = false
+  check('processo: START leva à etapa 1', names(rt) === '1')
+  tb.CZ4 = true; rt = run(rt, tb, 1)
+  check('processo: CZ4 leva à etapa 2', names(rt) === '2')
+  rt = run(rt, tb, 12)
+  check('processo: TIMER_T0 (1s) dispara a divergência AND para 3,4,5,6', names(rt) === '3,4,5,6')
+  tb.CZ1 = true; tb.CZ2 = true; rt = run(rt, tb, 1)
+  check('processo: CZ1/CZ2 avançam 4→7 e 5→8 mantendo 3 e 6', names(rt) === '3,6,7,8')
+  tb.CZ3 = true; rt = run(rt, tb, 45)
+  check('processo: T9 sincroniza 3,6,7,8 → etapa 9 (sem ficar nenhuma etapa presa)', names(rt) === '9')
+  rt = run(rt, tb, 25)
+  check('processo: TIMER_T3 (2s) leva à etapa 10', names(rt) === '10')
+  rt = run(rt, tb, 55)
+  check('processo: TIMER_T4 (5s) devolve à etapa inicial 0', names(rt) === '0')
+  check('processo: saídas repostas (R) no regresso', tb.W1 === false || tb.W1 === undefined)
+
+  // caminho de falha: CZ3 nunca chega → T6 (6s) → T11 → etapa 11 vermelha → CZ_LIC → 0
+  tb = { START: true }; rt = run(emptyGrafcetRuntime(), tb, 1); tb.START = false
+  tb.CZ4 = true; rt = run(rt, tb, 13)
+  tb.CZ1 = true; tb.CZ2 = true; rt = run(rt, tb, 70)
+  check('processo: sem CZ3, TIMER_T6 (6s) leva à etapa de falha 11', names(rt) === '11')
+  check('processo: etapa 11 ativa PULSE_Z3 e repõe Z1', tb.PULSE_Z3 === true && tb.Z1 === false)
+  tb.CZ_LIC = true; rt = run(rt, tb, 2)
+  check("processo: T''0 devolve a 0 depois da falha", names(rt) === '0')
 }
 
 

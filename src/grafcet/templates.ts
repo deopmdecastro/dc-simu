@@ -1,4 +1,5 @@
-import type { GrafcetProgram, GrafcetStep, GrafcetTransition, GrafcetComment } from './engine'
+import type { GrafcetAction, GrafcetProgram, GrafcetStep, GrafcetTransition, GrafcetComment } from './engine'
+import { autoLayout } from './layout'
 
 const uid = () => crypto.randomUUID()
 
@@ -9,6 +10,94 @@ export interface GrafcetTemplateInfo {
   description: string
   program: GrafcetProgram
 }
+
+
+/* ---- Construtor para modelos IEC 60848 ---------------------------------------------------
+ * Descreve etapas/ações/transições de forma compacta e posiciona com o mesmo layout do
+ * botão «Organizar» (ramos paralelos lado a lado). */
+type Act = [kind: GrafcetAction['kind'], address: string, label?: string, extra?: Partial<GrafcetAction>]
+
+const act = ([kind, address, label, extra]: Act): GrafcetAction => ({
+  id: uid(), address, variable: address, description: label ?? address, condition: '1', kind, displayDescription: true, ...extra,
+})
+
+const stepOf = (name: string, actions: Act[] = [], opts: Partial<GrafcetStep> = {}): GrafcetStep => ({
+  id: uid(), name, initial: false, stepType: 'simple', action: '', condition: '', actions: actions.map(act), ...opts,
+})
+
+const initialOf = (name: string, actions: Act[] = [], opts: Partial<GrafcetStep> = {}) =>
+  stepOf(name, actions, { initial: true, stepType: 'initial', ...opts })
+
+const placed = (program: GrafcetProgram): GrafcetProgram => {
+  const pos = autoLayout(program.steps, program.transitions ?? [])
+  return { ...program, steps: program.steps.map((step) => { const at = pos.get(step.id); return at ? { ...step, x: at.x, y: at.y, pinned: true } : step }) }
+}
+
+/** Transição entre etapas; `to`/`from` aceitam várias etapas (barra dupla AND). */
+const link = (name: string, from: GrafcetStep[], to: GrafcetStep[], condition: string): GrafcetTransition => ({
+  id: uid(), name, from: from.map((x) => x.id), to: to.map((x) => x.id), condition,
+  ...(to.length > 1 ? { branchType: 'and-divergence' as const } : from.length > 1 ? { branchType: 'and-convergence' as const } : {}),
+})
+
+const IEC_TEMPLATES: GrafcetTemplateInfo[] = (() => {
+  // 1) Sequência simples com ação condicionada (Q2 só com I4)
+  const a0 = initialOf('0'), a1 = stepOf('1', [['N', 'Q1']]), a2 = stepOf('2', [['N', 'Q2', 'Q2', { condition: 'I4', type: 'conditional' }]])
+  const simples: GrafcetProgram = placed({
+    steps: [a0, a1, a2],
+    transitions: [link('T1', [a0], [a1], 'I1'), link('T2', [a1], [a2], 'I2'), link('T3', [a2], [a0], 'I3')],
+    comments: [],
+  })
+
+  // 2) Dois motores: ida em série, regresso em paralelo (divergência/convergência AND) e retorno ao 0
+  const b0 = initialOf('0'), b1 = stepOf('1', [['N', 'MotorA_Dta', 'Motor A - Dreta']]), b2 = stepOf('2', [['N', 'MotorB_Dta', 'Motor B Dreta']])
+  const b3 = stepOf('3', [['N', 'MotorA_Esq', 'Motor A Esquerda']]), b4 = stepOf('4')
+  const b5 = stepOf('5', [['N', 'MotorB_Esq', 'Motor B Esquerda']]), b6 = stepOf('6')
+  const motores: GrafcetProgram = placed({
+    steps: [b0, b1, b2, b3, b4, b5, b6],
+    transitions: [
+      link('T1', [b0], [b1], 'Pm'), link('T2', [b1], [b2], 'FcAd'), link('T3', [b2], [b3, b5], 'FcBd'),
+      link('T4', [b3], [b4], 'FcAe'), link('T5', [b5], [b6], 'FcBe'), link('T6', [b4, b6], [b0], '1'),
+    ],
+    comments: [],
+  })
+
+  // 3) Processo com 4 ramos paralelos, temporizações e etapa de falha (T11)
+  const c0 = initialOf('0', [['S', 'Z1'], ['R', 'Z2'], ['R', 'PULSE_Z3', 'PULSE Z3']])
+  const c1 = stepOf('1', [['S', 'NAPED'], ['S', 'Z2'], ['R', 'Z1']])
+  const c2 = stepOf('2', [['R', 'NAPED'], ['R', 'PULSE_Z2', 'PULSE Z2'], ['D', 'TIMER_T0', 'TIMER T0 = 1s', { timeMs: 1000 }]])
+  const c3 = stepOf('3', [['D', 'TIMER_T6', 'TIMER T6 = 6s', { timeMs: 6000 }]])
+  const c4 = stepOf('4', [['S', 'Z1'], ['S', 'W1']])
+  const c5 = stepOf('5', [['S', 'Z2'], ['S', 'W2']])
+  const c6 = stepOf('6', [['S', 'Z3'], ['S', 'W3']])
+  const c7 = stepOf('7', [['D', 'TIMER_T1', 'TIMER T1 = 3s', { timeMs: 3000 }]])
+  const c8 = stepOf('8', [['D', 'TIMER_T2', 'TIMER T2 = 4s', { timeMs: 4000 }]])
+  const c9 = stepOf('9', [['R', 'Z1'], ['R', 'Z2'], ['R', 'Z3'], ['D', 'TIMER_T3', 'TIMER T3 = 2s', { timeMs: 2000 }]])
+  const c10 = stepOf('10', [['R', 'W1'], ['R', 'W2'], ['R', 'W3'], ['R', 'PULSE_Z2', 'PULSE Z2'], ['D', 'TIMER_T4', 'TIMER T4 = 5s', { timeMs: 5000 }]])
+  const c11 = stepOf('11', [['S', 'PULSE_Z3', 'PULSE Z3'], ['R', 'Z1'], ['R', 'Z2'], ['R', 'Z3'], ['R', 'W1'], ['R', 'W2'], ['R', 'W3']], { description: 'Falha' })
+  const processo: GrafcetProgram = placed({
+    steps: [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11],
+    transitions: [
+      link('T1', [c0], [c1], 'START'),
+      link('T2', [c1], [c2], 'CZ4'),
+      link('T3(4,5,6)', [c2], [c3, c4, c5, c6], 'TIMER_T0'),
+      link('T6', [c4], [c7], 'CZ1'),
+      link('T7', [c5], [c8], 'CZ2'),
+      // Sincronização das quatro sequências; a saída normal (T9) tem prioridade sobre a de falha (T11).
+      link('T9', [c3, c6, c7, c8], [c9], 'TIMER_T1 * TIMER_T2 * CZ3'),
+      link('T11', [c3, c6, c7, c8], [c11], 'TIMER_T1 * TIMER_T2 * TIMER_T6'),
+      link('T10', [c9], [c10], 'TIMER_T3'),
+      link("T'0", [c10], [c0], 'TIMER_T4'),
+      link("T''0", [c11], [c0], 'CZ_LIC'),
+    ],
+    comments: [],
+  })
+
+  return [
+    { id: 'iec-sequencia-simples', name: 'Sequência simples (I1→I2→I3)', title: 'Sequência simples com ação condicionada', description: 'Etapa inicial, duas etapas, retorno ao 0 e ação Q2 condicionada por I4.', program: simples },
+    { id: 'iec-motores-paralelo', name: 'Dois motores (ramos paralelos)', title: 'Dois motores: ida em série, regresso em paralelo', description: 'Divergência e convergência AND com barra dupla IEC e retorno à etapa inicial.', program: motores },
+    { id: 'iec-processo-timers', name: 'Processo com 4 ramos e falha', title: 'Processo com ramos paralelos, temporizadores S/R e etapa de falha', description: 'Divergência AND em 4 ramos, temporizações (TIMER), sincronização e duas saídas (normal T9 / falha T11).', program: processo },
+  ]
+})()
 
 export const GRAFCET_TEMPLATES: GrafcetTemplateInfo[] = [
   // 1. G0 - Grafcet Controlo (conforme captura FluidSIM 6)
@@ -469,7 +558,7 @@ export const GRAFCET_TEMPLATES: GrafcetTemplateInfo[] = [
     description: 'Etapa inicial dispara dois ramos em simultâneo (AND), que progridem independentemente e sincronizam no final.',
     program: (() => {
       const s0 = uid(), s1 = uid(), s2 = uid(), s3 = uid(), s4 = uid()
-      const t0 = uid(), t1 = uid(), t2 = uid(), t3 = uid(), t4 = uid()
+      const t0 = uid(), t1 = uid(), t3 = uid(), t4 = uid()
       return {
         steps: [
           { id: s0, name: '0', initial: true, stepType: 'initial', action: '', condition: '', description: 'Início', x: 260, y: 80 },
@@ -481,7 +570,6 @@ export const GRAFCET_TEMPLATES: GrafcetTemplateInfo[] = [
         transitions: [
           { id: t0, name: 'T0', from: [s0], to: [s1, s2], condition: 'B_Start', x: 260, y: 150, branchType: 'and-divergence' },
           { id: t1, name: 'T1', from: [s1], to: [s3], condition: '1s/X1', x: 120, y: 290 },
-          { id: t2, name: 'T2', from: [s2], to: [], condition: '2s/X2', x: 400, y: 290 },
           { id: t3, name: 'T3', from: [s3, s2], to: [s4], condition: '1', x: 260, y: 425, branchType: 'and-convergence' },
           { id: t4, name: 'T4', from: [s4], to: [s0], condition: '1s/X4', targetInfo: '0', x: 260, y: 565 },
         ],
@@ -491,4 +579,5 @@ export const GRAFCET_TEMPLATES: GrafcetTemplateInfo[] = [
       }
     })(),
   },
+  ...IEC_TEMPLATES,
 ]

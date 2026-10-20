@@ -3074,12 +3074,29 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   // 4. Caso geral: divergências, convergências e saltos entre múltiplos ramos
                   const avgSourceY = sources.reduce((sum, value) => sum + stepY(value), 0) / sources.length
                   const avgTargetY = targets.reduce((sum, value) => sum + stepY(value), 0) / targets.length
-                  const ty = Math.max(42, Math.min(height - 45, (avgSourceY + avgTargetY) / 2))
                   const returning = Math.min(...targets.map(stepY)) <= Math.max(...sources.map(stepY))
                   const allX = [...sources, ...targets].map(stepX)
-                  const tx = returning ? Math.min(...allX) - 91 - (transitionIndex % 3) * 16 : Math.max(...allX) + 129 + (transitionIndex % 3) * 24
                   const hasAndConvergence = sources.length > 1
                   const hasAndDivergence = targets.length > 1
+                  // IEC 60848: divergência/convergência AND = barra dupla horizontal sobre os ramos
+                  // (a transição fica na linha única: acima da barra na divergência, abaixo na convergência).
+                  const STEP_BOTTOM = 54
+                  const iecFork = !returning && sources.length === 1 && targets.length > 1 && Math.min(...targets.map(stepY)) >= stepY(sources[0]) + STEP_BOTTOM + 44
+                  const iecJoin = !returning && targets.length === 1 && sources.length > 1 && stepY(targets[0]) >= Math.max(...sources.map(stepY)) + STEP_BOTTOM + 44
+                  const iec = iecFork || iecJoin
+                  const iecBarY = iecFork
+                    ? Math.round(Math.min(...targets.map(stepY)) - 26)
+                    : Math.round(Math.max(...sources.map(stepY)) + STEP_BOTTOM + 26)
+                  const iecBarX1 = Math.min(...allX) - 24
+                  const iecBarX2 = Math.max(...allX) + 24
+                  const ty = iec
+                    ? (iecFork
+                      ? Math.round((stepY(sources[0]) + STEP_BOTTOM + iecBarY) / 2)
+                      : Math.round((iecBarY + 4 + stepY(targets[0])) / 2))
+                    : Math.max(42, Math.min(height - 45, (avgSourceY + avgTargetY) / 2))
+                  const tx = iec
+                    ? (iecFork ? stepX(sources[0]) : stepX(targets[0]))
+                    : returning ? Math.min(...allX) - 91 - (transitionIndex % 3) * 16 : Math.max(...allX) + 129 + (transitionIndex % 3) * 24
 
                   return (
                     <g
@@ -3093,6 +3110,45 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       tabIndex={full ? 0 : undefined}
                       aria-label={`Transição T${transitionIndex + 1}: ${transition.condition}`}
                     >
+                      {iec ? (
+                        <>
+                          {/* Origens descem até à barra dupla (na divergência, é uma só linha com a transição) */}
+                          {sources.map((value) => (
+                            <path key={`f-${value}`} d={`M ${stepX(value)} ${stepY(value) + STEP_BOTTOM} V ${iecBarY}`} fill="none" stroke={linkColor} strokeWidth={enabled ? 3 : 2} />
+                          ))}
+                          {/* Da barra dupla descem os destinos (na convergência, é uma só linha com a transição) */}
+                          {targets.map((value) => (
+                            <path
+                              key={`t-${value}`}
+                              d={`M ${stepX(value)} ${iecBarY + 4} V ${stepY(value) - 1}`}
+                              fill="none"
+                              stroke={linkColor}
+                              strokeWidth={enabled ? 3 : 2}
+                              markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
+                            />
+                          ))}
+                          <line x1={iecBarX1} y1={iecBarY} x2={iecBarX2} y2={iecBarY} stroke={linkColor} strokeWidth="2.5" />
+                          <line x1={iecBarX1} y1={iecBarY + 4} x2={iecBarX2} y2={iecBarY + 4} stroke={linkColor} strokeWidth="2.5" />
+                          <line x1={iecBarX1} y1={iecBarY + 2} x2={iecBarX2} y2={iecBarY + 2} stroke="transparent" strokeWidth="16" />
+                          {/* Barra da transição na linha única */}
+                          <line x1={tx - 14} y1={ty} x2={tx + 14} y2={ty} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3} />
+                          <text x={tx - 18} y={ty + 3.5} textAnchor="end" fill={selectedLink ? '#2563eb' : enabled ? '#16a34a' : '#64748b'} fontSize="10.5" fontWeight="700">
+                            {transition.name || `T${transitionIndex + 1}`}
+                          </text>
+                          <g transform={`translate(${tx + 18}, ${ty + 4})`}>
+                            <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
+                              {renderConditionTspans(transition.condition === '1' ? '=1' : transition.condition.slice(0, 40))}
+                            </text>
+                          </g>
+                          {enabled && (
+                            <circle cx={tx} cy={ty} r="7" fill="none" stroke="#22c55e" strokeWidth="2">
+                              <animate attributeName="r" values="7;13;7" dur="1.2s" repeatCount="indefinite" />
+                              <animate attributeName="opacity" values="0.9;0.2;0.9" dur="1.2s" repeatCount="indefinite" />
+                            </circle>
+                          )}
+                        </>
+                      ) : (
+                        <>
                       {/* Linhas das origens */}
                       {sources.map((value) => (
                         <path
@@ -3150,6 +3206,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         <text x={tx - 26} y={ty - 7} fill="#c2410c" fontSize="9" fontWeight="700">
                           AND
                         </text>
+                      )}
+
+                        </>
                       )}
 
                       {/* Manipulador rápido estilo grafcet.io: Inserir etapa após transição e eliminar transição */}
