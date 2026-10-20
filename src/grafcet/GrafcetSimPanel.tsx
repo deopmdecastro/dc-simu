@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSimStore, type VirtualInputMode } from '../store/useSimStore'
 import VirtualInputButton from '../components/VirtualInputButton'
 import VirtualIoPanel from '../components/VirtualIoPanel'
-import { evalCondition, validCondition, type GrafcetProgram, type GrafcetRuntime } from './engine'
+import { transitionReceptivity, transitionsOf, type GrafcetProgram, type GrafcetRuntime } from './engine'
 import { detectGrafcetIo, type DetectedTransition } from './inputDetect'
 
 /** Campo de texto que só grava ao sair (blur) ou com Enter; Esc repõe o valor anterior. */
@@ -106,15 +106,12 @@ export default function GrafcetSimPanel({
   }
 
   const activeIds = new Set(runtime.active)
-  const activeIndexes = new Set(program.steps.map((step, index) => (activeIds.has(step.id) ? index : -1)).filter((n) => n >= 0))
   const lastFired = new Set(runtime.lastFired ?? [])
 
   const statusOf = (t: DetectedTransition): { id: 'idle' | 'waiting' | 'ready'; text: string } => {
     if (!t.from.length || !t.from.every((id) => activeIds.has(id))) return { id: 'idle', text: 'Inativa' }
-    const elapsed = Math.min(...t.from.map((id) => runtime.elapsed?.[id] ?? 0))
-    const ok =
-      validCondition(t.condition) &&
-      evalCondition(t.condition, table, { prev: runtime.prev, activeIndexes, elapsedMs: elapsed })
+    const real = transitionsOf(program).find((tr) => tr.id === t.id)
+    const ok = !!real && transitionReceptivity(program, runtime, table, real)
     return ok ? { id: 'ready', text: 'A disparar' } : { id: 'waiting', text: 'À espera' }
   }
 

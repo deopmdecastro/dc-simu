@@ -5,7 +5,7 @@ import { SPINE_X, START_Y, GRID, COLUMN_WIDTH, snapToGrid, clampPosition, alignT
 import { detectGrafcetIo, inputsInCondition } from '../src/grafcet/inputDetect'
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView } from '../src/grafcet/selection'
 import { signalUsage, undeclaredSignals, tagsToDeclare, tokenAtCursor, matchSignals, insertCondition } from '../src/grafcet/signals'
-import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition } from '../src/grafcet/engine'
+import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
  * Não depende do React: exercita o motor de continuidade, o motor Ladder, o
@@ -2201,6 +2201,37 @@ console.log('\n— Tabela de sinais dinâmica —')
   check('inserir: condição «1» é substituída', insertCondition('1', 'I1') === 'I1' && insertCondition('', 'I1') === 'I1')
   check('inserir: junta com AND', insertCondition('I1', 'M2') === 'I1 * M2')
   check('inserir: depois de operador não duplica', insertCondition('I1 * ', 'I2') === 'I1 * I2' && insertCondition('I1 * (', 'I2') === 'I1 * (I2')
+}
+
+
+/* GRAFCET: a UI usa a mesma receptividade do motor (X<n>, T(…)) e avisa divergências OR ambíguas. */
+{
+  const steps = [
+    { id: 'a', name: 'A', initial: true, action: '', condition: '1' },
+    { id: 'b', name: 'B', initial: false, action: '', condition: '1' },
+    { id: 'c', name: 'C', initial: false, action: '', condition: '1' },
+  ]
+  const tX = { id: 't1', from: ['a'], to: ['b'], condition: 'X0*I1' }
+  const tT = { id: 't2', from: ['a'], to: ['c'], condition: 'T(2s)' }
+  const program = { steps, transitions: [tX, tT] }
+  const table: AddressTable = { I1: true }
+  let rt = scanGrafcet(program, emptyGrafcetRuntime(), table)
+  rt = { ...emptyGrafcetRuntime(), active: ['a'], elapsed: { a: 500 } }
+  check('receptividade: X0 usa a etapa ativa (sem contexto daria falso)', transitionReceptivity(program, rt, table, tX) === true && evalCondition('X0*I1', table) === false)
+  check('receptividade: T(2s) falso antes do tempo', transitionReceptivity(program, rt, table, tT) === false)
+  check('receptividade: T(2s) verdadeiro depois do tempo', transitionReceptivity(program, { ...rt, elapsed: { a: 2100 } }, table, tT) === true)
+  check('receptividade: inválida é falsa', transitionReceptivity(program, rt, table, { ...tX, condition: '&&' }) === false)
+  {
+    const clk = { steps: [{ id: 'a', name: 'A', initial: true, action: '', condition: '1' }, { id: 'b', name: 'B', initial: false, action: '', condition: '1' }], transitions: [{ id: 'k', from: ['a'], to: ['b'], condition: '1Hz*I9' }] }
+    const tb: AddressTable = {}
+    let r = emptyGrafcetRuntime()
+    const seen = new Set<boolean>()
+    for (let i = 0; i < 20; i++) { r = scanGrafcet(clk, r, tb, 100); seen.add(transitionReceptivity(clk, r, { I9: true }, clk.transitions[0])) }
+    check('relógio Hz avança com o tempo simulado (sem depender de transições)', seen.size === 2 && (r.simTimeMs ?? 0) === 2000 && (r.fired ?? 0) === 0)
+  }
+  const dup = { steps, transitions: [{ id: 'd1', from: ['a'], to: ['b'], condition: 'I1' }, { id: 'd2', from: ['a'], to: ['c'], condition: ' i1 ' }] }
+  check('validação: divergência OR com receptividades iguais avisa', validateGrafcet(dup).some((i) => i.id === 'd2:or-conflict' && i.level === 'warning'))
+  check('validação: divergência OR exclusiva não avisa', !validateGrafcet({ steps, transitions: [{ id: 'd1', from: ['a'], to: ['b'], condition: 'I1' }, { id: 'd2', from: ['a'], to: ['c'], condition: '!I1' }] }).some((i) => i.id.endsWith(':or-conflict')))
 }
 
 

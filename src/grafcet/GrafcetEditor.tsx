@@ -6,6 +6,7 @@ import {
   ACTION_KINDS,
   actionsOfStep,
   evalCondition,
+  transitionReceptivity,
   transitionsOf,
   validateGrafcet,
   validCondition,
@@ -2750,7 +2751,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   const isReturning =
                     isSingleSource && isSingleTarget && sourceStep && targetStep && !selfLoop && !isConsecutive && (manualLink ? !isForward : stepY(targetStep.id) <= stepY(sourceStep.id))
 
-                  const conditionOn = validCondition(transition.condition) && evalCondition(transition.condition, table)
+                  const conditionOn = transitionReceptivity(program, runtime, table, transition)
                   const enabled = running && conditionOn && sources.every((value) => runtime.active.includes(value))
                   const selectedLink = isTransitionSelected(transition.id)
                   const linkColor = selectedLink ? '#2563eb' : enabled ? '#16a34a' : running && conditionOn ? '#d97706' : '#526883'
@@ -4644,7 +4645,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 <div className="grafcet-entity-list">
                   {filteredTransitions.map((transition) => {
                     const index = transitions.indexOf(transition)
-                    const conditionOn = running && validCondition(transition.condition) && evalCondition(transition.condition, table)
+                    const conditionOn = running && transitionReceptivity(program, runtime, table, transition)
                     const incomplete = !transition.from.length || !transition.to.length
                     const getStepNum = (id: string) => {
                       const step = steps.find((s) => s.id === id)
@@ -4709,9 +4710,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     <ConditionEditor id="inspector-trans-condition-input" value={selectedTransition.condition} onChange={(condition) => updateTransition(selectedTransition.id, { condition }, 'auto', `grafcet:transition:${selectedTransition.id}:condition`)} signals={signalSuggestions} availableSteps={program.steps} resetKey={selectedTransition.id} active={!signalsOpen && !helpOpen && !editingStep && !editingAction && !editingTransition} />
 
                     <div className="grafcet-condition-state">
-                      <span className={validCondition(selectedTransition.condition) && evalCondition(selectedTransition.condition, table) ? 'is-on' : ''}>
+                      <span className={transitionReceptivity(program, runtime, table, selectedTransition) ? 'is-on' : ''}>
                         <i /> Resultado atual:{' '}
-                        {validCondition(selectedTransition.condition) && evalCondition(selectedTransition.condition, table) ? 'VERDADEIRO' : 'FALSO'}
+                        {transitionReceptivity(program, runtime, table, selectedTransition) ? 'VERDADEIRO' : 'FALSO'}
                       </span>
                     </div>
 

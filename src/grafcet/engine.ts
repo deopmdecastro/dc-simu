@@ -115,6 +115,8 @@ export interface GrafcetRuntime {
   prev?: Record<string, boolean>
   /** saídas memorizadas por ações S/R */
   stored?: Record<string, boolean>
+  /** tempo simulado acumulado (ms): relógio das condições em Hz */
+  simTimeMs?: number
   /** nº de transições disparadas desde o início */
   fired?: number
   /** última transição disparada (id) e quando (nº do scan) */
@@ -122,7 +124,7 @@ export interface GrafcetRuntime {
 }
 
 export const emptyGrafcet = (): GrafcetProgram => ({ steps: [], transitions: [], comments: [] })
-export const emptyGrafcetRuntime = (): GrafcetRuntime => ({ active: [], owned: [], elapsed: {}, prev: {}, stored: {}, fired: 0, lastFired: [] })
+export const emptyGrafcetRuntime = (): GrafcetRuntime => ({ active: [], owned: [], elapsed: {}, prev: {}, stored: {}, simTimeMs: 0, fired: 0, lastFired: [] })
 
 export const validBit = (address: string) => /^[IQM]\d{1,2}$/.test(address)
 
@@ -389,7 +391,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
   const firedNow: string[] = []
   const entered = new Set<string>()
 
-  const simTimeMs = (runtime.fired ?? 0) * dtMs
+  const simTimeMs = (runtime.simTimeMs ?? 0) + dtMs
 
   for (const transition of transitionsOf(program)) {
     if (!transition.from.length || !transition.to.length ||
@@ -465,9 +467,39 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
     elapsed: Object.fromEntries([...next].map((id) => [id, elapsed[id] ?? 0])),
     prev: trackedPrev,
     stored,
+    simTimeMs,
     fired: (runtime.fired ?? 0) + firedNow.length,
     lastFired: firedNow,
   }
+}
+
+/** Receptividade de uma transição avaliada com o MESMO contexto do `scanGrafcet`
+ * (flancos ↑/↓, X<n>, T(…), temporizações por etapa). A UI deve usar esta função
+ * em vez de `evalCondition(cond, table)` para nunca contradizer a simulação. */
+export function transitionReceptivity(program: GrafcetProgram, runtime: GrafcetRuntime, table: Record<string, boolean>, transition: GrafcetTransition): boolean {
+  if (!validCondition(transition.condition)) return false
+  const steps = program.steps
+  const active = new Set(runtime.active.filter((id) => steps.some((step) => step.id === id)))
+  const elapsed = runtime.elapsed ?? {}
+  const stepElapsedByName: Record<string, number> = {}
+  const activeStepNames = new Set<string>()
+  steps.forEach((step) => {
+    if (!active.has(step.id) || !step.name?.trim()) return
+    activeStepNames.add(step.name.trim())
+    stepElapsedByName[step.name.trim()] = elapsed[step.id] ?? 0
+  })
+  const activeIndexes = new Set(steps.map((step, index) => (active.has(step.id) ? index : -1)).filter((n) => n >= 0))
+  return evalCondition(transition.condition, table, {
+    table,
+    prev: runtime.prev,
+    activeIndexes,
+    activeStepNames,
+    activeStepIds: active,
+    elapsedMs: transition.from.length ? sourceElapsed(transition, elapsed) : 0,
+    stepElapsed: elapsed,
+    stepElapsedByName,
+    simTimeMs: runtime.simTimeMs ?? 0,
+  })
 }
 
 /** Força as etapas ativas (forçagem GRAFCET): útil para testar uma secção da sequência. */
@@ -525,6 +557,22 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
       }
     }
   })
+
+  // Divergência OR ambígua: duas saídas da mesma etapa com a mesma receptividade disparam
+  // em simultâneo na teoria; aqui só a primeira da lista dispara (prioridade implícita).
+  const bySource = new Map<string, GrafcetTransition[]>()
+  transitions.forEach((t) => { if (t.from.length === 1) bySource.set(t.from[0], [...(bySource.get(t.from[0]) ?? []), t]) })
+  for (const [sourceId, list] of bySource) {
+    if (list.length < 2) continue
+    const seen = new Map<string, GrafcetTransition>()
+    for (const t of list) {
+      const key = t.condition.replace(/\s+/g, '').toUpperCase()
+      const first = seen.get(key)
+      if (first && validCondition(t.condition)) {
+        issues.push({ id: `${t.id}:or-conflict`, level: 'warning', message: `Divergência OR na etapa ${label(sourceId)}: ${t.name || 'uma transição'} tem a mesma receptividade «${t.condition}» de ${first.name || 'outra'} — torne-as exclusivas (ex.: ${first.condition}·!X).`, entityId: t.id, tab: 'transitions' })
+      } else if (!first) seen.set(key, t)
+    }
+  }
 
   // Ações soltas: criadas sem etapa — a simulação ignora-as até serem ligadas.
   ;(program.freeActions ?? []).forEach((action, index) => {
