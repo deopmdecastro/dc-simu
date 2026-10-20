@@ -101,3 +101,39 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
 @media (max-width: 700px) {
   .panel3d-stage[data-front-edit="true"] .vcube-floating:not(.vcube-shifted) { top: 6px; right: 4px; }
 }
+
+/* ---------------------------------------------------------------------------
+   Telemóvel: GRAFCET e Ladder com o mesmo padrão do 3D — só duas barras
+   (1ª: vistas/ficheiro · 2ª: ferramentas, com deslize horizontal).
+   Declarado por último para vencer as regras antigas que quebravam a 2ª
+   barra em várias linhas / escondiam ferramentas atrás de «Mais».
+--------------------------------------------------------------------------- */
+@media (max-width: 800px) {
+  .dc-toolbar-row2,
+  .dc-toolbar-row2.dc-grafcet-toolbar,
+  .dc-toolbar-row2.dc-grafcet-toolbar.is-expanded {
+    height: 40px !important; min-height: 40px; max-height: 40px !important;
+    flex-wrap: nowrap !important; align-items: center;
+    overflow-x: auto !important; overflow-y: hidden !important;
+    padding: 0 28px 0 8px; gap: 6px !important;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+  }
+  .dc-toolbar-row2::-webkit-scrollbar { display: none; }
+  .dc-toolbar-row2 > *, .dc-toolbar-row2 .dc-seg { flex: none; }
+  /* sem «Mais/Menos»: tudo fica a um deslize de distância */
+  .dc-grafcet-toolbar .grafcet-toolbar-more { display: none !important; }
+  .dc-grafcet-toolbar:not(.is-expanded) .grafcet-toolbar-secondary { display: flex !important; }
+  .dc-grafcet-toolbar .dc-seg[aria-label="Ferramentas GRAFCET"] { flex-wrap: nowrap; max-width: none; }
+  .dc-toolbar-row2 .tb-sep { display: block; flex: none; }
+  .dc-grafcet-toolbar .dc-tool-btn, .dc-toolbar-row2 .dc-tool-btn { min-height: 34px; white-space: nowrap; }
+  .dc-toolbar-row2 .dc-tool-btn svg { flex: none; }
+  /* Variáveis (GRAFCET e Ladder): ícone + texto */
+  .grafcet-signals-tool, .ladder-variables-tool { display: inline-flex; align-items: center; gap: 6px; }
+  .grafcet-signals-tool span, .ladder-variables-tool span { display: inline; }
+  /* o menu do Ladder saía cortado pelo overflow da barra: passa a flutuar fixo */
+  .ladder-variables-menu { position: static; }
+  .ladder-variables-panel {
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 96px); left: 8px; right: 8px;
+    width: auto; max-height: 70dvh; overflow-y: auto;
+  }
+}

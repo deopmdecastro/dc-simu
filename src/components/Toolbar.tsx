@@ -417,7 +417,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             </div>
 
             <span className="tb-sep" />
-            <button type="button" className="dc-tool-btn grafcet-signals-tool" aria-label="Tabela de entradas, saídas e memórias" onClick={() => useGrafcetUi.getState().emit('openSignals')} title="Declarar e organizar os sinais usados nas sugestões">Variáveis</button>
+            <button type="button" className="dc-tool-btn grafcet-signals-tool !gap-1.5" aria-label="Tabela de entradas, saídas e memórias" onClick={() => useGrafcetUi.getState().emit('openSignals')} title="Declarar e organizar os sinais usados nas sugestões"><IconTag size={13} /><span>Variáveis</span></button>
             <button type="button" className="grafcet-toolbar-more dc-tool-btn" aria-expanded={grafcetMoreOpen} onClick={() => setGrafcetMoreOpen((value) => !value)} title="Ficheiros, disposição, modelos e mais ferramentas">
               {grafcetMoreOpen ? 'Menos' : 'Mais'} <IconChevronDown size={12} className={grafcetMoreOpen ? 'rotate-180' : ''} />
             </button>
