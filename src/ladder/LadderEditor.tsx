@@ -1294,7 +1294,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
               if (kind) quickAdd(kind)
             }}
           >
-            <div className="ladder-networks-scale" style={{ zoom: ladderZoom * ZOOM_BASE }}>
+            <div className={`ladder-networks-scale ${rungs.length ? '' : 'is-empty'}`} style={{ zoom: ladderZoom * ZOOM_BASE }}>
               {rungs.map((r, i) => (
                 <div
                   key={r.id}

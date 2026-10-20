@@ -1,5 +1,6 @@
 import { uiConfirm } from '../ui/dialogs'
 import Select from '../ui/Select'
+import type React from 'react'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useSimStore } from '../store/useSimStore'
@@ -47,6 +48,38 @@ const VIEWS: Array<{ id: ViewMode; label: string; icon: typeof IconSchematic; ke
   { id: 'ladder', label: 'Ladder', icon: IconLadder, key: 'F2' },
   { id: 'grafcet', label: 'GRAFCET', icon: IconStep, key: 'F5' },
   { id: 'monitor', label: 'Monitor', icon: IconMonitor, key: 'F4' },
+]
+
+/** Tecla de atalho discreta (só em ecrãs largos). */
+function Kbd({ children, onBrand = false }: { children: ReactNode; onBrand?: boolean }) {
+  return <kbd className={`hidden 2xl:inline text-[9px] font-mono px-1 rounded ${onBrand ? 'bg-white/20 text-white' : 'bg-surface-sunken text-ink-400'}`}>{children}</kbd>
+}
+
+/** Botão de barra de ferramentas com atalho opcional — evita repetir o mesmo markup por botão. */
+function TbButton({ children, kbd, kbdOnBrand = false, pressed, className = 'dc-tool-btn', ...rest }: {
+  kbd?: string; kbdOnBrand?: boolean; pressed?: boolean
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'type'>) {
+  return (
+    <button type="button" className={className} aria-pressed={pressed} {...rest}>
+      {children}
+      {kbd && <Kbd onBrand={kbdOnBrand}>{kbd}</Kbd>}
+    </button>
+  )
+}
+
+const GRAFCET_TOOLS: Array<{ id: 'select' | 'pan' | 'connect'; label: string; icon: typeof IconCursor; key: string; title: string }> = [
+  { id: 'select', label: 'Selecionar', icon: IconCursor, key: 'V', title: 'Ferramenta Selecionar: selecione e arraste etapas [V ou S]' },
+  { id: 'pan', label: 'Arrastar', icon: IconHand, key: 'H', title: 'Ferramenta Arrastar: mova a tela arrastando o diagrama [H ou Barra de Espaço]' },
+  { id: 'connect', label: 'Ligar', icon: IconWire, key: 'L', title: 'Ferramenta Ligar: una etapas e transições por linha — arraste de uma saída para um destino [L]' },
+]
+
+const GRAFCET_ADD_BUTTONS: Array<{ action: 'addConnectedStep' | 'addStep' | 'addTransition' | 'addAction' | 'addFork' | 'addJoin'; label: string; kbd: string; title: string; primary?: boolean; secondary?: boolean; needs?: number }> = [
+  { action: 'addConnectedStep', label: '+ Etapa', kbd: '1', primary: true, title: 'Nova etapa (nasce sem transição — ligue-a com T ou L) [Insert ou 1]' },
+  { action: 'addStep', label: '+ Etapa livre', kbd: '2', title: 'Nova etapa em posição livre [Shift+Insert ou 2]' },
+  { action: 'addTransition', label: '+ Transição', kbd: '3', needs: 1, title: 'Nova transição solta (arraste-a sobre etapas ou ligue por linha) [T ou 3]' },
+  { action: 'addAction', label: '+ Ação', kbd: '4', title: 'Adicionar ação à etapa selecionada ou criar solta [A ou 4]' },
+  { action: 'addFork', label: '⑂ Divergência AND', kbd: 'F', needs: 1, secondary: true, title: 'Criar divergência AND (ramos simultâneos) [F]' },
+  { action: 'addJoin', label: '⑃ Convergência AND', kbd: 'J', needs: 2, secondary: true, title: 'Criar convergência AND (sincronização) [J]' },
 ]
 
 const QUICK_COLORS: WireColor[] = ['black', 'red', 'blue', 'lightblue', 'brown', 'grey', 'orange', 'green-yellow', 'white', 'violet']
@@ -319,39 +352,13 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           <>
             <span className="tb-sep" />
             <div className="dc-seg" role="toolbar" aria-label="Ferramentas de seleção e navegação">
-              <button
-                type="button"
-                onClick={() => useGrafcetUi.getState().setTool('select')}
-                className={segBtn(grafcetTool === 'select')}
-                aria-label="Selecionar" aria-pressed={grafcetTool === 'select'}
-                title="Ferramenta Selecionar: selecione e arraste etapas [V ou S]"
-              >
-                <IconCursor size={13} />
-                <span className="hidden lg:inline">Selecionar</span>
-                <kbd className={`hidden 2xl:inline text-[9px] font-mono px-1 rounded ${grafcetTool === 'select' ? 'bg-white/20' : 'bg-surface-sunken text-ink-400'}`}>V</kbd>
-              </button>
-              <button
-                type="button"
-                onClick={() => useGrafcetUi.getState().setTool('pan')}
-                className={segBtn(grafcetTool === 'pan')}
-                aria-label="Arrastar vista" aria-pressed={grafcetTool === 'pan'}
-                title="Ferramenta Arrastar: mova a tela arrastando o diagrama [H ou Barra de Espaço]"
-              >
-                <IconHand size={13} />
-                <span className="hidden lg:inline">Arrastar</span>
-                <kbd className={`hidden 2xl:inline text-[9px] font-mono px-1 rounded ${grafcetTool === 'pan' ? 'bg-white/20' : 'bg-surface-sunken text-ink-400'}`}>H</kbd>
-              </button>
-              <button
-                type="button"
-                onClick={() => useGrafcetUi.getState().setTool('connect')}
-                className={segBtn(grafcetTool === 'connect')}
-                aria-label="Ligar elementos" aria-pressed={grafcetTool === 'connect'}
-                title="Ferramenta Ligar: una etapas e transições por linha — arraste de uma saída para um destino [L]"
-              >
-                <IconWire size={13} />
-                <span className="hidden lg:inline">Ligar</span>
-                <kbd className={`hidden 2xl:inline text-[9px] font-mono px-1 rounded ${grafcetTool === 'connect' ? 'bg-white/20' : 'bg-surface-sunken text-ink-400'}`}>L</kbd>
-              </button>
+              {GRAFCET_TOOLS.map(({ id, label, icon: Icon, key, title }) => (
+                <TbButton key={id} className={segBtn(grafcetTool === id)} pressed={grafcetTool === id} aria-label={label} title={title} kbd={key}
+                  onClick={() => useGrafcetUi.getState().setTool(id)}>
+                  <Icon size={13} />
+                  <span className="hidden lg:inline">{label}</span>
+                </TbButton>
+              ))}
             </div>
 
             <span className="tb-sep" />
@@ -360,63 +367,13 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               {grafcetMoreOpen ? 'Menos' : 'Mais'} <IconChevronDown size={12} className={grafcetMoreOpen ? 'rotate-180' : ''} />
             </button>
             <div className="dc-seg" role="toolbar" aria-label="Ferramentas GRAFCET">
-              <button
-                type="button"
-                onClick={() => useGrafcetUi.getState().emit('addConnectedStep')}
-                className="dc-tool-btn font-semibold !bg-brand-600 !text-white hover:!bg-brand-700 shadow-xs"
-                title="Nova etapa (nasce sem transição — ligue-a com T ou L) [Insert ou 1]"
-              >
-                <span>+ Etapa</span>
-                <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-white/20 text-white">1</kbd>
-              </button>
-              <button
-                type="button"
-                onClick={() => useGrafcetUi.getState().emit('addStep')}
-                className="dc-tool-btn"
-                title="Nova etapa em posição livre [Shift+Insert ou 2]"
-              >
-                <span>+ Etapa livre</span>
-                <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-surface-sunken text-ink-400">2</kbd>
-              </button>
-              <button
-                type="button"
-                disabled={grafcet.steps.length < 1}
-                onClick={() => useGrafcetUi.getState().emit('addTransition')}
-                className="dc-tool-btn"
-                title="Nova transição solta (arraste-a sobre etapas ou ligue por linha) [T ou 3]"
-              >
-                <span>+ Transição</span>
-                <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-surface-sunken text-ink-400">3</kbd>
-              </button>
-              <button
-                type="button"
-                onClick={() => useGrafcetUi.getState().emit('addAction')}
-                className="dc-tool-btn"
-                title="Adicionar ação à etapa selecionada ou criar solta [A ou 4]"
-              >
-                <span>+ Ação</span>
-                <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-surface-sunken text-ink-400">4</kbd>
-              </button>
-              <button
-                type="button"
-                disabled={grafcet.steps.length < 1}
-                onClick={() => useGrafcetUi.getState().emit('addFork')}
-                className="dc-tool-btn grafcet-toolbar-secondary-inline"
-                title="Criar divergência AND (ramos simultâneos) [F]"
-              >
-                <span>⑂ Divergência AND</span>
-                <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-surface-sunken text-ink-400">F</kbd>
-              </button>
-              <button
-                type="button"
-                disabled={grafcet.steps.length < 2}
-                onClick={() => useGrafcetUi.getState().emit('addJoin')}
-                className="dc-tool-btn grafcet-toolbar-secondary-inline"
-                title="Criar convergência AND (sincronização) [J]"
-              >
-                <span>⑃ Convergência AND</span>
-                <kbd className="hidden 2xl:inline text-[9px] font-mono px-1 rounded bg-surface-sunken text-ink-400">J</kbd>
-              </button>
+              {GRAFCET_ADD_BUTTONS.map(({ action, label, kbd, title, primary, secondary, needs }) => (
+                <TbButton key={action} disabled={needs !== undefined && grafcet.steps.length < needs} kbd={kbd} title={title}
+                  className={`dc-tool-btn ${primary ? 'font-semibold !bg-brand-600 !text-white hover:!bg-brand-700 shadow-xs' : ''} ${secondary ? 'grafcet-toolbar-secondary-inline' : ''}`}
+                  kbdOnBrand={primary} onClick={() => useGrafcetUi.getState().emit(action)}>
+                  <span>{label}</span>
+                </TbButton>
+              ))}
             </div>
 
             <span className="tb-sep" />

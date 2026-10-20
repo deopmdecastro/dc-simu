@@ -1,7 +1,7 @@
 .vio-panel { display: grid; gap: 8px; padding: 10px 12px; font-size: 12px; }
-.vio-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.vio-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; }
 .vio-head strong { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-500, #64748b); }
-.vio-actions { display: inline-flex; align-items: center; gap: 4px; }
+.vio-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .vio-actions button { min-width: 24px; height: 22px; padding: 0 7px; border: 1px solid var(--line, #d6dae1); background: var(--surface-panel, #fff); border-radius: 5px; cursor: pointer; font-size: 11px; }
 .vio-actions button:hover:not(:disabled) { border-color: #2563eb; color: #2563eb; }
 .vio-actions button:disabled { opacity: .4; cursor: default; }

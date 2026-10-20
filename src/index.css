@@ -563,6 +563,9 @@ input[type='color'] {
   .ladder-metric span,
   .ladder-live-bus span {
     display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: #7c8aa0;
     font-size: 8px;
     font-weight: 800;
@@ -1044,6 +1047,8 @@ input[type='color'] {
     min-width: 560px;
     transform-origin: top left;
   }
+  /* Sem networks só existe o cartão vazio: não deve forçar scroll horizontal. */
+  .ladder-networks-scale.is-empty { min-width: 0; }
   .ladder-network-wrap {
     margin-bottom: 9px;
     border-radius: 7px;
@@ -1063,8 +1068,10 @@ input[type='color'] {
     align-items: center;
     justify-content: center;
     gap: 10px;
+    max-width: 100%;
     margin: 8px auto;
     padding: 24px;
+    box-sizing: border-box;
     border: 1px dashed #c9d4e2;
     border-radius: 8px;
     color: #718096;
@@ -1316,14 +1323,19 @@ input[type='color'] {
     color: #7b899d;
     font-size: 10px;
   }
+  .ladder-bottom-tabs { overflow-x: auto; scrollbar-width: none; }
+  .ladder-bottom-tabs::-webkit-scrollbar { display: none; }
+  .ladder-bottom-tabs > * { flex: none; white-space: nowrap; }
   .ladder-bottom-tabs span { height: 31px; padding-top: 10px; }
   .ladder-bottom-tabs .is-active { border-bottom: 2px solid var(--ladder-blue); color: var(--ladder-blue); font-weight: 700; }
   .ladder-status-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(120px, 1fr)) 1.35fr;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
     gap: 12px;
     padding: 8px 12px;
   }
+  /* O painel de E/S virtuais ocupa a linha toda (antes ficava espremido numa coluna e sobrepunha o estado). */
+  .ladder-status-grid > .vio-panel { grid-column: 1 / -1; padding: 0; }
   .ladder-status-title {
     margin-bottom: 4px;
     color: #7b899d;
@@ -2159,6 +2171,12 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
   .dc-toolbar-main > .dc-views-container { order:1; flex:0 0 auto; }
   .dc-toolbar-main > :last-child { order:2; }
   .dc-toolbar-main > :first-child { order:3; }
+  /* Esbatido na borda direita: indica que a barra continua com deslize (a barra de scroll está oculta). */
+  .dc-toolbar-main, .dc-toolbar-row2 {
+    padding-right: 28px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+  }
 }
 
 /* ═══ UI/UX v4.7 · barra 3D sem sobreposição, alvos de toque e foco visível ═══
