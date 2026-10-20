@@ -3,6 +3,7 @@ import { lintLadder } from '../src/ladder/ladderLint'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
 import { SPINE_X, START_Y, GRID, COLUMN_WIDTH, snapToGrid, clampPosition, alignToOthers, findFreeSlot, autoLayout, stepPitch } from '../src/grafcet/layout'
 import { detectGrafcetIo, inputsInCondition } from '../src/grafcet/inputDetect'
+import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView } from '../src/grafcet/selection'
 import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
@@ -2077,6 +2078,59 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('deteção: nome sugerido T1 · 0 → 1', det.transitions[0].label === 'T1 · 0 → 1')
   check('deteção: nome do utilizador é mantido', det.transitions[1].label === 'Fim de curso' && det.unnamed === 2)
   check('deteção: maxInput = 3', det.maxInput === 3)
+}
+
+// ---- GRAFCET: seleção múltipla, alinhamento e copiar/colar ----
+{
+  const pts = [
+    { id: 'a', x: 151, y: 70 },
+    { id: 'b', x: 151, y: 210 },
+    { id: 'c', x: 411, y: 70 },
+  ]
+  check('seleção: retângulo normaliza cantos invertidos', JSON.stringify(rectFromPoints(300, 200, 100, 50)) === JSON.stringify({ x0: 100, y0: 50, x1: 300, y1: 200 }))
+  check('seleção: retângulo apanha só as etapas tocadas', stepsInRect(pts, rectFromPoints(100, 40, 200, 140)).join() === 'a')
+  check('seleção: retângulo grande apanha todas', stepsInRect(pts, rectFromPoints(0, 0, 900, 900)).join() === 'a,b,c')
+  check('seleção: retângulo vazio não apanha nada', stepsInRect(pts, rectFromPoints(600, 600, 700, 700)).length === 0)
+  check('seleção: união sem repetidos', unionIds(['a', 'b'], ['b', 'c']).join() === 'a,b,c')
+  check('seleção: toggle liga e desliga', toggleId(['a'], 'b').join() === 'a,b' && toggleId(['a', 'b'], 'a').join() === 'b')
+  const clamped = clampGroupDelta(pts, -500, -500)
+  check('grupo: deslocamento não sai da área mínima', Math.min(...pts.map((p) => p.x + clamped.dx)) >= 110 && Math.min(...pts.map((p) => p.y + clamped.dy)) >= 48)
+  check('grupo: deslocamento positivo passa intacto', clampGroupDelta(pts, 40, 20).dx === 40 && clampGroupDelta(pts, 40, 20).dy === 20)
+  const aligned = alignPositions(pts, 'top')
+  check('alinhar topo: todas com o y mínimo', aligned.every((p) => p.y === 70))
+  const axis = alignPositions(pts, 'axis')
+  check('alinhar eixo: todas com o mesmo x', new Set(axis.map((p) => p.x)).size === 1)
+  check('alinhar: uma só etapa não muda', alignPositions([pts[0]], 'top')[0].y === 70)
+  const dist = distributePositions([{ id: 'p', x: 150, y: 0 }, { id: 'q', x: 190, y: 0 }, { id: 'r', x: 550, y: 0 }], 'h')
+  check('distribuir: espaçamento igual, pontas fixas', dist.find((d) => d.id === 'p')!.x === 150 && dist.find((d) => d.id === 'q')!.x === 350 && dist.find((d) => d.id === 'r')!.x === 550)
+  check('distribuir: menos de 3 não faz nada', distributePositions(pts.slice(0, 2), 'v')[1].y === 210)
+  let n = 0
+  const gen = () => `n${++n}`
+  const steps: any[] = [
+    { id: 's0', name: '0', initial: true, action: '', condition: '', actions: [{ id: 'x1', address: 'Q1', condition: '1' }] },
+    { id: 's1', name: '1', initial: false, action: '', condition: '' },
+    { id: 's2', name: '2', initial: false, action: '', condition: '' },
+  ]
+  const trs: any[] = [
+    { id: 't1', from: ['s0'], to: ['s1'], condition: 'I1' },
+    { id: 't2', from: ['s1'], to: ['s2'], condition: 'I2' },
+  ]
+  const pos = (id: string) => ({ s0: { x: 151, y: 70 }, s1: { x: 151, y: 210 }, s2: { x: 151, y: 350 } } as Record<string, { x: number; y: number }>)[id]
+  const copy = cloneSubDiagram(steps, trs, ['s0', 's1'], pos, { dx: 80, dy: 40 }, gen)
+  check('copiar: 2 etapas e só a transição interna', copy.steps.length === 2 && copy.transitions.length === 1 && copy.transitions[0].condition === 'I1')
+  check('copiar: ids novos e transição remapeada', copy.steps.every((s) => !['s0', 's1'].includes(s.id)) && copy.transitions[0].from[0] === copy.steps[0].id && copy.transitions[0].to[0] === copy.steps[1].id)
+  check('copiar: etapa inicial deixa de ser inicial', copy.steps[0].initial === false)
+  check('copiar: posição deslocada e fixada', copy.steps[0].x === 231 && copy.steps[0].y === 110 && copy.steps[0].pinned === true)
+  check('copiar: ações recebem ids novos', copy.steps[0].actions![0].id !== 'x1' && copy.steps[0].actions![0].address === 'Q1')
+  check('copiar: original intocado', steps[0].initial === true && steps[0].actions[0].id === 'x1')
+  check('copiar: seleção sem transições internas não leva transições', cloneSubDiagram(steps, trs, ['s0', 's2'], pos, { dx: 0, dy: 0 }, gen).transitions.length === 0)
+  const box = boundsOf(pts, 10)!
+  check('limites: caixa envolvente com margem', box.x0 === 151 - 32 - 10 && box.x1 === 411 + 32 + 10 && box.y0 === 60 && box.y1 === 210 + 54 + 10)
+  check('limites: vazio devolve null', boundsOf([]) === null)
+  const fv = fitView({ x0: 100, y0: 100, x1: 300, y1: 200 }, 800, 600, 0.25, 2.5, 50)
+  check('zoom à seleção: escala limitada ao máximo', fv.scale === 2.5)
+  check('zoom à seleção: centro do retângulo fica no centro da janela', Math.abs(200 * fv.scale + fv.x - 400) < 1e-6 && Math.abs(150 * fv.scale + fv.y - 300) < 1e-6)
+  check('zoom à seleção: retângulo enorme respeita o mínimo', fitView({ x0: 0, y0: 0, x1: 99999, y1: 99999 }, 800, 600, 0.25, 2.5).scale === 0.25)
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

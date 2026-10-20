@@ -1410,3 +1410,53 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-preserved-signals code { flex:none; min-width:42px; }
 .grafcet-preserved-signals li > span { flex:1; min-width:0; overflow-wrap:anywhere; }
 .grafcet-preserved-signals b { font-weight:400; color:#526681; font-family:ui-monospace,Consolas,monospace; }
+
+/* ── Seleção múltipla: retângulo, barra de grupo e destaque ───────── */
+.grafcet-marquee {
+  position: absolute;
+  z-index: 15;
+  border: 1.5px solid #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.grafcet-selbar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  max-width: calc(100% - 24px);
+  overflow-x: auto;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(30, 64, 175, 0.16);
+  user-select: none;
+  cursor: default;
+}
+.grafcet-selbar-count { font-size: 11px; color: #1d4ed8; padding: 0 6px; white-space: nowrap; }
+.grafcet-selbar button {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 650;
+  color: #1e3a8a;
+  white-space: nowrap;
+}
+.grafcet-selbar button:hover:not(:disabled) { background: #eff6ff; }
+.grafcet-selbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+.grafcet-selbar button.is-danger { color: #b91c1c; }
+.grafcet-selbar button.is-danger:hover { background: #fef2f2; }
+.grafcet-graph-node.is-multi { filter: drop-shadow(0 0 5px rgba(37, 99, 235, 0.45)); }
+.grafcet-full .grafcet-pan-layer { cursor: default; }
+@media (max-width: 720px) {
+  .grafcet-selbar { top: auto; bottom: 64px; }
+}

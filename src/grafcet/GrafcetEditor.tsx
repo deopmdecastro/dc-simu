@@ -45,6 +45,7 @@ import {
   IconZoomOut,
 } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
+import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView, type Pos, type AlignMode, type DistributeAxis, type SubDiagram } from './selection'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import { useGrafcetUi, type GrafcetBusAction, type GrafcetCanvasTool } from './grafcetBus'
 import {
@@ -258,13 +259,27 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     origX: number
     origY: number
     moved: boolean
+    /** Posições iniciais de todas as etapas do grupo (arrasto em grupo). */
+    group?: Pos[]
   } | null>(null)
+
+  // Seleção múltipla: `multi` guarda o grupo (≥ 2 etapas) e `selected` é sempre um dos membros.
+  const [multi, setMulti] = useState<string[]>([])
+  /** Retângulo de seleção em curso (coordenadas do ecrã, relativas à vista). */
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  const marqueeRef = useRef<{ sx: number; sy: number; add: boolean; base: string[]; moved: boolean } | null>(null)
+  /** Deslocamento aplicado aos restantes membros do grupo durante o arrasto. */
+  const [groupOffset, setGroupOffset] = useState<{ dx: number; dy: number } | null>(null)
+  /** Evita que o clique que termina um arrasto altere a seleção. */
+  const suppressClickRef = useRef(false)
+  /** Área de transferência interna do editor (Ctrl+C / Ctrl+V). */
+  const clipboardRef = useRef<{ ids: string[]; steps: GrafcetStep[]; transitions: GrafcetTransition[]; pos: Map<string, { x: number; y: number }>; pastes: number } | null>(null)
 
   const selectedStep = steps.find((step) => step.id === selected)
   const selectedTransition = transitions.find((transition) => transition.id === selected)
   const selectedAction = selectedStep ? (actionsOf(selectedStep).find((a) => a.id === selectedActionId) ?? null) : null
 
-  const isStepSelected = (stepId: string) => selected === stepId && !selectedActionId
+  const isStepSelected = (stepId: string) => (selected === stepId && !selectedActionId) || multi.includes(stepId)
   const isActionSelected = (actionId: string) => selectedActionId === actionId
   const isTransitionSelected = (transId: string) => selected === transId && !selectedActionId
 
@@ -284,6 +299,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       setSelectedActionId(null)
     }
   }, [selected, steps, transitions])
+
+  // Mantém o grupo coerente: sem etapas apagadas e sempre com a seleção principal lá dentro.
+  useEffect(() => {
+    if (!multi.length) return
+    const alive = multi.filter((value) => steps.some((step) => step.id === value))
+    if (alive.length < 2 || !selected || !alive.includes(selected)) setMulti([])
+    else if (alive.length !== multi.length) setMulti(alive)
+  }, [selected, steps, multi])
 
   const notify = (text: string) => {
     window.clearTimeout(toastTimer.current)
@@ -614,6 +637,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   }
 
   const requestDelete = async () => {
+    if (groupIds.length >= 2) {
+      const gone = new Set(groupIds)
+      const linked = transitions.filter((t) => t.from.some((v) => gone.has(v)) || t.to.some((v) => gone.has(v))).length
+      if (await uiConfirm(`Eliminar ${groupIds.length} etapas${linked ? ` e ${linked} transição(ões) ligada(s)` : ''}?`)) {
+        save({
+          steps: steps.filter((step) => !gone.has(step.id)),
+          transitions: transitions.filter((t) => !t.from.some((v) => gone.has(v)) && !t.to.some((v) => gone.has(v))),
+        })
+        setMulti([])
+        setSelected(null)
+        setSelectedActionId(null)
+        notify(`${gone.size} etapas eliminadas · Ctrl+Z repõe`)
+      }
+      return
+    }
     const selectedFree = freeActions.find((action) => action.id === selectedActionId)
     if (!selectedStep && selectedFree) {
       if (await uiConfirm(`Eliminar a ação solta «${selectedFree.variable || selectedFree.address || ''}»?`)) {
@@ -650,6 +688,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   }
 
   const duplicateSelected = () => {
+    if (groupIds.length >= 2) {
+      copySelection(true)
+      pasteClipboard()
+      return
+    }
     // Ação solta selecionada: duplica ao lado.
     const selectedFree = freeActions.find((action) => action.id === selectedActionId)
     if (selectedFree) {
@@ -705,7 +748,19 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
   const selectStep = (step: GrafcetStep, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
+    if (suppressClickRef.current) return // o clique que fecha um arrasto não muda a seleção
+    if (full && e && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+      // Shift/Ctrl+clique: liga/desliga a etapa no grupo.
+      const base = groupIds.length >= 2 ? groupIds : selected && !selectedActionId && stepById.has(selected) ? [selected] : []
+      const next = toggleId(base, step.id)
+      setMulti(next.length >= 2 ? next : [])
+      setSelected(next.length ? (next.includes(step.id) ? step.id : next[next.length - 1]) : null)
+      setSelectedActionId(null)
+      setTab('steps')
+      return
+    }
     if (full) {
+      setMulti([])
       setSelected(step.id)
       setSelectedActionId(null)
       setTab('steps')
@@ -919,18 +974,22 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     cursorY += stepPitch(actionsOf(step).length)
   })
   const stepById = new Map(steps.map((step) => [step.id, step]))
+  /** Etapas do grupo selecionado (vazio quando há 0 ou 1 etapa selecionada). */
+  const groupIds = multi.length >= 2 ? multi.filter((value) => stepById.has(value)) : []
   const isPinned = (step?: GrafcetStep) => !!step && step.pinned === true && Number.isFinite(step.x) && Number.isFinite(step.y)
   /** Topo da etapa: posição manual (ou a do arrasto em curso) ou a do layout automático. */
   const stepY = (stepId: string) => {
     if (dragPos?.id === stepId) return dragPos.y
     const step = stepById.get(stepId)
-    return isPinned(step) ? step!.y! : stepPositions.get(stepId) ?? START_Y
+    const base = isPinned(step) ? step!.y! : stepPositions.get(stepId) ?? START_Y
+    return groupOffset && multi.includes(stepId) ? base + groupOffset.dy : base
   }
   /** Eixo central da etapa. */
   const stepX = (stepId: string) => {
     if (dragPos?.id === stepId) return dragPos.x
     const step = stepById.get(stepId)
-    return isPinned(step) ? step!.x! : SPINE_X
+    const base = isPinned(step) ? step!.x! : SPINE_X
+    return groupOffset && multi.includes(stepId) ? base + groupOffset.dx : base
   }
   let maxRight = full ? 760 : 560
   let maxBottom = cursorY + 35
@@ -1463,17 +1522,67 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     if (event.button === 0) {
       if ((event.target as Element).closest('button, [role="button"], .grafcet-node-handle, .grafcet-graph-node, .grafcet-graph-link, .grafcet-graph-action')) return
       event.currentTarget.setPointerCapture(event.pointerId)
+      // Ferramenta Selecionar (rato/caneta): arrastar no fundo desenha um retângulo de seleção.
+      // Para mover a vista: ferramenta Arrastar [H], Espaço, botão do meio ou toque.
+      if (full && activeTool === 'select' && event.pointerType !== 'touch') {
+        const add = event.shiftKey || event.ctrlKey || event.metaKey
+        marqueeRef.current = {
+          sx: event.clientX,
+          sy: event.clientY,
+          add,
+          base: add ? (groupIds.length >= 2 ? groupIds : selected && !selectedActionId && stepById.has(selected) ? [selected] : []) : [],
+          moved: false,
+        }
+        return
+      }
       setIsDragging(true)
       dragRef.current = { x: event.clientX, y: event.clientY, px: position.x, py: position.y }
     }
   }
 
   const onPreviewMove = (event: PointerEvent<HTMLDivElement>) => {
+    const mq = marqueeRef.current
+    if (mq) {
+      if (!mq.moved && Math.hypot(event.clientX - mq.sx, event.clientY - mq.sy) < 4) return
+      mq.moved = true
+      const box = event.currentTarget.getBoundingClientRect()
+      setMarquee({ x0: mq.sx - box.left, y0: mq.sy - box.top, x1: event.clientX - box.left, y1: event.clientY - box.top })
+      const a = clientToWorld(mq.sx, mq.sy)
+      const b = clientToWorld(event.clientX, event.clientY)
+      const hit = stepsInRect(steps.map((step) => ({ id: step.id, x: stepX(step.id), y: stepY(step.id) })), rectFromPoints(a.x, a.y, b.x, b.y))
+      const next = unionIds(mq.base, hit)
+      setMulti(next.length >= 2 ? next : [])
+      setSelected(next[0] ?? null)
+      setSelectedActionId(null)
+      return
+    }
     if (!dragRef.current) return
     setPan({ x: dragRef.current.px + event.clientX - dragRef.current.x, y: dragRef.current.py + event.clientY - dragRef.current.y })
   }
 
   const onPreviewUp = (event: PointerEvent<HTMLDivElement>) => {
+    const mq = marqueeRef.current
+    if (mq) {
+      marqueeRef.current = null
+      setMarquee(null)
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      } catch {
+        /* noop */
+      }
+      if (!mq.moved) {
+        // Clique simples no fundo: cancela o fio armado ou limpa a seleção.
+        if (wireDraftRef.current) cancelWire(false)
+        else if (!mq.add) {
+          setMulti([])
+          setSelected(null)
+          setSelectedActionId(null)
+        }
+      } else {
+        setTab('steps')
+      }
+      return
+    }
     if (dragRef.current) {
       const movedDist = clickStartRef.current ? Math.hypot(event.clientX - clickStartRef.current.x, event.clientY - clickStartRef.current.y) : 0
       dragRef.current = null
@@ -1488,6 +1597,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           // Clique no fundo da tela: cancela o fio armado (ferramenta Ligar).
           cancelWire(false)
         } else {
+          setMulti([])
           setSelected(null)
           setSelectedActionId(null)
         }
@@ -1499,6 +1609,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     stepDragRef.current = null
     dragPosRef.current = null
     setDragPos(null)
+    setGroupOffset(null)
     setGuides({ x: null, y: null })
   }
 
@@ -1506,6 +1617,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     if (!full || activeTool !== 'select' || isSpacePan) return // na ferramenta Ligar, a etapa não se arrasta
     if (e.button !== 0) return
     if ((e.target as Element).closest('.grafcet-node-handle, button')) return
+    const modifier = e.shiftKey || e.ctrlKey || e.metaKey
+    const inGroup = groupIds.length >= 2 && groupIds.includes(step.id)
+    // Com Shift/Ctrl só se arrasta o que já está selecionado; caso contrário o clique alterna a seleção.
+    if (modifier && !inGroup && !(selected === step.id && !selectedActionId)) return
     e.stopPropagation()
     stepDragRef.current = {
       stepId: step.id,
@@ -1514,11 +1629,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       origX: stepX(step.id),
       origY: stepY(step.id),
       moved: false,
+      group: inGroup ? groupIds.map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) })) : undefined,
     }
     // Seleciona logo ao pressionar, para o painel já mostrar a etapa que se vai mover.
-    setSelected(step.id)
-    setSelectedActionId(null)
-    setTab('steps')
+    if (!modifier) {
+      setSelected(step.id)
+      setSelectedActionId(null)
+      setTab('steps')
+    }
     try {
       ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
     } catch {
@@ -1553,7 +1671,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         x = snapToGrid(x, SPINE_X)
         y = snapToGrid(y, START_Y)
       }
-      const others = steps.filter((s) => s.id !== step.id).map((s) => ({ x: stepX(s.id), y: stepY(s.id) }))
+      const moving = new Set(drag.group ? drag.group.map((p) => p.id) : [step.id])
+      const others = steps.filter((s) => !moving.has(s.id)).map((s) => ({ x: stepX(s.id), y: stepY(s.id) }))
       const aligned = alignToOthers(x, y, others, 6 / scale)
       x = aligned.x
       y = aligned.y
@@ -1562,6 +1681,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     }
     const clamped = clampPosition(x, y)
     const next = { id: step.id, x: Math.round(clamped.x), y: Math.round(clamped.y) }
+    if (drag.group) {
+      // Arrasto em grupo: o deslocamento é limitado para o grupo manter a forma junto às bordas.
+      const delta = clampGroupDelta(drag.group, next.x - drag.origX, next.y - drag.origY)
+      next.x = drag.origX + delta.dx
+      next.y = drag.origY + delta.dy
+      setGroupOffset(delta)
+    }
     dragPosRef.current = next
     setDragPos(next)
     setGuides({ x: guideX, y: guideY })
@@ -1577,8 +1703,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     }
     const final = dragPosRef.current
     resetStepDrag()
+    if (drag.moved) {
+      suppressClickRef.current = true
+      window.setTimeout(() => {
+        suppressClickRef.current = false
+      }, 0)
+    }
     if (!drag.moved || !final || final.id !== step.id) return
     if (final.x === drag.origX && final.y === drag.origY) return
+    if (drag.group) {
+      const dx = final.x - drag.origX
+      const dy = final.y - drag.origY
+      const start = new Map(drag.group.map((p) => [p.id, p]))
+      save({ steps: steps.map((s) => (start.has(s.id) ? { ...s, x: start.get(s.id)!.x + dx, y: start.get(s.id)!.y + dy, pinned: true } : s)) })
+      return
+    }
     // Largar a etapa junto a uma barra de transição solta liga-a (aproximação).
     const stepCenter = { x: final.x, y: final.y + STEP_H / 2 }
     const near = transitions.find((t) => {
@@ -1624,6 +1763,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const nudgeSelection = (dx: number, dy: number, big: boolean) => {
     if (!full || !selectedStep || selectedActionId) return
     const amount = (snapOn ? GRID : 4) * (big ? 5 : 1)
+    if (groupIds.length >= 2) {
+      const items = groupIds.map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) }))
+      const delta = clampGroupDelta(items, dx * amount, dy * amount)
+      if (!delta.dx && !delta.dy) return
+      const moved = new Map(items.map((p) => [p.id, p]))
+      save({ steps: steps.map((s) => (moved.has(s.id) ? { ...s, x: moved.get(s.id)!.x + delta.dx, y: moved.get(s.id)!.y + delta.dy, pinned: true } : s)) }, 'auto', 'grafcet:nudge:group')
+      return
+    }
     let x = stepX(selectedStep.id) + dx * amount
     let y = stepY(selectedStep.id) + dy * amount
     if (snapOn) {
@@ -1633,6 +1780,77 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     const next = clampPosition(x, y)
     if (next.x === stepX(selectedStep.id) && next.y === stepY(selectedStep.id) && isPinned(selectedStep)) return
     updateStep(selectedStep.id, { x: Math.round(next.x), y: Math.round(next.y), pinned: true }, 'auto', `grafcet:nudge:${selectedStep.id}`)
+  }
+
+  // ------------------------------------------------------------------
+  // Seleção múltipla: alinhar, distribuir, copiar/colar, zoom à seleção
+  // ------------------------------------------------------------------
+  const groupPositions = (): Pos[] => groupIds.map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) }))
+
+  const applyPositions = (items: Pos[], message: string) => {
+    const placed = new Map(items.map((p) => [p.id, p]))
+    save({ steps: steps.map((s) => (placed.has(s.id) ? { ...s, x: Math.round(placed.get(s.id)!.x), y: Math.round(placed.get(s.id)!.y), pinned: true } : s)) })
+    notify(message)
+  }
+
+  const alignGroup = (mode: AlignMode) => {
+    if (groupIds.length < 2) return
+    applyPositions(alignPositions(groupPositions(), mode), mode === 'axis' ? 'Etapas alinhadas ao eixo · Ctrl+Z desfaz' : 'Etapas alinhadas pelo topo · Ctrl+Z desfaz')
+  }
+
+  const distributeGroup = (axis: DistributeAxis) => {
+    if (groupIds.length < 3) return notify('Distribuir precisa de, pelo menos, 3 etapas')
+    applyPositions(distributePositions(groupPositions(), axis), axis === 'h' ? 'Distribuídas na horizontal · Ctrl+Z desfaz' : 'Distribuídas na vertical · Ctrl+Z desfaz')
+  }
+
+  /** Ids das etapas a copiar: o grupo, ou a etapa selecionada. */
+  const copyableIds = () => (groupIds.length >= 2 ? groupIds : selectedStep && !selectedActionId ? [selectedStep.id] : [])
+
+  const copySelection = (silent = false) => {
+    const ids = copyableIds()
+    if (!ids.length) return false
+    clipboardRef.current = { ids, steps, transitions, pos: new Map(ids.map((sid) => [sid, { x: stepX(sid), y: stepY(sid) }])), pastes: 0 }
+    if (!silent) notify(ids.length === 1 ? 'Etapa copiada · Ctrl+V cola' : `${ids.length} etapas copiadas · Ctrl+V cola`)
+    return true
+  }
+
+  const pasteClipboard = () => {
+    const clip = clipboardRef.current
+    if (!clip) return notify('Nada para colar — copie etapas com Ctrl+C')
+    clip.pastes += 1
+    const shift = GRID * 3 * clip.pastes
+    const copy: SubDiagram = cloneSubDiagram(clip.steps, clip.transitions, clip.ids, (sid) => clip.pos.get(sid) ?? { x: SPINE_X, y: START_Y }, { dx: shift, dy: shift }, id)
+    if (!copy.steps.length) return notify('As etapas copiadas já não existem')
+    save({ steps: [...steps, ...copy.steps], transitions: [...transitions, ...copy.transitions] })
+    const pasted = copy.steps.map((s) => s.id)
+    setMulti(pasted.length >= 2 ? pasted : [])
+    setSelected(pasted[0])
+    setSelectedActionId(null)
+    setTab('steps')
+    notify(pasted.length === 1 ? 'Etapa colada' : `${pasted.length} etapas coladas · Ctrl+Z desfaz`)
+  }
+
+  const selectAllSteps = () => {
+    if (!steps.length) return
+    const all = steps.map((s) => s.id)
+    setMulti(all.length >= 2 ? all : [])
+    setSelected(all[0])
+    setSelectedActionId(null)
+    setTab('steps')
+    notify(`${all.length} etapas selecionadas`)
+  }
+
+  /** Enquadra a seleção (ou o diagrama todo, se nada estiver selecionado) na janela. */
+  const zoomToSelection = () => {
+    const ids = copyableIds()
+    const items = (ids.length ? ids : steps.map((s) => s.id)).map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) }))
+    const box = boundsOf(items, 20)
+    if (!box) return
+    box.x1 += 220 // as ações ficam à direita da etapa
+    const view = fitView(box, viewport.width, viewport.height, 0.25, 1.6)
+    setZoom(view.scale)
+    setPan({ x: view.x, y: view.y })
+    notify(ids.length ? 'Vista ampliada à seleção' : 'Vista ajustada ao diagrama')
   }
 
   const doUndo = () => {
@@ -1751,6 +1969,25 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         duplicateSelected()
         return
       }
+      if (mod && lower === 'a') {
+        event.preventDefault()
+        selectAllSteps()
+        return
+      }
+      if (mod && lower === 'c') {
+        if (copySelection()) event.preventDefault()
+        return
+      }
+      if (mod && lower === 'v') {
+        event.preventDefault()
+        pasteClipboard()
+        return
+      }
+      if (!mod && !event.altKey && !event.shiftKey && lower === 'z') {
+        event.preventDefault()
+        zoomToSelection()
+        return
+      }
       if (event.key === 'Delete' || event.key === 'Backspace') {
         if (selected || selectedActionId) {
           event.preventDefault()
@@ -1759,6 +1996,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         return
       }
       if (event.key === 'Escape') {
+        setMulti([])
         setSelected(null)
         setSelectedActionId(null)
         return
@@ -2877,7 +3115,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   return (
                     <g
                       key={step.id}
-                      className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${isThisStepSelected ? 'is-selected' : ''}`}
+                      className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${isThisStepSelected ? 'is-selected' : ''} ${multi.includes(step.id) ? 'is-multi' : ''}`}
                       transform={stepShiftX ? `translate(${stepShiftX}, 0)` : undefined}
                       role={full ? 'button' : undefined}
                       tabIndex={full ? 0 : undefined}
@@ -3692,6 +3930,32 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             </div>
           )}
 
+          {/* Retângulo de seleção por arrastamento */}
+          {marquee && (
+            <div
+              className="grafcet-marquee"
+              aria-hidden="true"
+              style={{ left: Math.min(marquee.x0, marquee.x1), top: Math.min(marquee.y0, marquee.y1), width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0) }}
+            />
+          )}
+
+          {/* Barra de ações do grupo selecionado */}
+          {full && groupIds.length >= 2 && !marquee && (
+            <div className="grafcet-selbar" role="toolbar" aria-label="Ações sobre as etapas selecionadas" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+              <strong className="grafcet-selbar-count">{groupIds.length} etapas</strong>
+              <span className="grafcet-canvas-hud-sep" />
+              <button type="button" onClick={() => alignGroup('axis')} title="Alinhar todas ao mesmo eixo vertical">Alinhar eixo</button>
+              <button type="button" onClick={() => alignGroup('top')} title="Alinhar todas pelo topo">Alinhar topo</button>
+              <button type="button" onClick={() => distributeGroup('h')} disabled={groupIds.length < 3} title="Espaçamento horizontal igual (mín. 3 etapas)">Distribuir ↔</button>
+              <button type="button" onClick={() => distributeGroup('v')} disabled={groupIds.length < 3} title="Espaçamento vertical igual (mín. 3 etapas)">Distribuir ↕</button>
+              <span className="grafcet-canvas-hud-sep" />
+              <button type="button" onClick={duplicateSelected} title="Duplicar o grupo com as transições internas (Ctrl+D)">Duplicar</button>
+              <button type="button" onClick={zoomToSelection} title="Ampliar a vista ao grupo (Z)">Ampliar</button>
+              <button type="button" className="is-danger" onClick={() => void requestDelete()} title="Eliminar as etapas selecionadas (Del)">Eliminar</button>
+              <button type="button" onClick={() => { setMulti([]); setSelected(null) }} aria-label="Limpar seleção" title="Limpar seleção (Esc)">✕</button>
+            </div>
+          )}
+
           {/* HUD flutuante de navegação estilo grafcet.io */}
           {full && steps.length > 0 && (
             <div className="grafcet-canvas-hud" role="toolbar" aria-label="Navegação e zoom da tela">
@@ -3735,7 +3999,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               </button>
               <span className="grafcet-canvas-hud-sep" />
               <span className="grafcet-hud-stats">
-                {steps.length} etapas · {transitions.length} transições · {steps.reduce((acc, s) => acc + actionsOf(s).length, 0) + freeActions.length} ações{freeActions.length > 0 ? ` (${freeActions.length} soltas)` : ''}
+                {steps.length} etapas · {transitions.length} transições · {steps.reduce((acc, s) => acc + actionsOf(s).length, 0) + freeActions.length} ações{freeActions.length > 0 ? ` (${freeActions.length} soltas)` : ''}{groupIds.length >= 2 ? ` · ${groupIds.length} selecionadas` : ''}
               </span>
             </div>
           )}

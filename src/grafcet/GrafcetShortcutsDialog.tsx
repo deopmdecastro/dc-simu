@@ -7,7 +7,7 @@ const GROUPS = [
     title: 'Ferramentas e Navegação',
     items: [
       { keys: ['V'], label: 'Ferramenta Selecionar (ou tecla S)' },
-      { keys: ['H'], label: 'Ferramenta Arrastar tela (Mão)' },
+      { keys: ['H'], label: 'Ferramenta Arrastar tela (Mão) — na ferramenta Selecionar, arrastar o fundo seleciona; use H, Espaço ou o botão do meio para mover a vista' },
       { keys: ['L'], label: 'Ferramenta Ligar — une etapas/transições por linha (arraste ou toque-a-toque; Esc cancela o fio)' },
       { keys: ['Espaço'], label: 'Arrastar tela temporariamente (manter premido)' },
       { keys: ['↓ / ↑'], label: 'Navegar sequencialmente entre etapas' },
@@ -26,9 +26,22 @@ const GROUPS = [
     ],
   },
   {
+    title: 'Seleção múltipla',
+    items: [
+      { keys: ['Arrastar no fundo'], label: 'Desenhar um retângulo e selecionar as etapas tocadas (Shift/Ctrl acrescenta)' },
+      { keys: ['Shift', 'Clique'], label: 'Juntar ou tirar uma etapa da seleção (também Ctrl/⌘)' },
+      { keys: ['Ctrl', 'A'], label: 'Selecionar todas as etapas' },
+      { keys: ['Arrastar'], label: 'Mover o grupo inteiro, mantendo a forma' },
+      { keys: ['Shift', '← ↑ → ↓'], label: 'Mover o grupo um passo da grelha' },
+      { keys: ['Ctrl', 'C'], label: 'Copiar etapas (com as transições entre elas)' },
+      { keys: ['Ctrl', 'V'], label: 'Colar a cópia, deslocada (a etapa inicial copiada deixa de ser inicial)' },
+      { keys: ['Z'], label: 'Ampliar a vista à seleção (ou ao diagrama todo, sem seleção)' },
+    ],
+  },
+  {
     title: 'Mover etapas na grelha',
     items: [
-      { keys: ['Arrastar'], label: 'Mover a etapa livremente; encaixa à grelha e alinha com as outras (guias a rosa)' },
+      { keys: ['Arrastar etapa'], label: 'Mover a etapa livremente; encaixa à grelha e alinha com as outras (guias a rosa)' },
       { keys: ['Shift', 'Arrastar'], label: 'Mover só na horizontal ou só na vertical' },
       { keys: ['Alt', 'Arrastar'], label: 'Mover sem encaixe nem guias (movimento livre)' },
       { keys: ['Esc'], label: 'Cancelar o arrastamento em curso' },
