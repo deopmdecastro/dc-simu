@@ -202,6 +202,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const grafcetTool = useGrafcetUi((state) => state.tool)
   const grafcetGrid = useGrafcetUi((state) => state.gridOn)
   const grafcetSnap = useGrafcetUi((state) => state.snapOn)
+  const grafcetPalette = useGrafcetUi((state) => state.paletteOpen)
+  const grafcetSimVisible = useGrafcetUi((state) => state.simVisible)
+  const showSimControls = mode !== 'grafcet' || grafcetSimVisible
   const grafcetIssues = useMemo(() => validateGrafcet(grafcet), [grafcet])
   const grafcetErrorCount = grafcetIssues.filter((i) => i.level === 'error').length
   const canGenerateLadder = allowedViews(projectKind).includes('ladder')
@@ -334,6 +337,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
         {/* simulação + estado — canto direito */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {showSimControls && (
+            <>
           <div className="dc-seg" role="toolbar" aria-label="Controle de simulação">
             <button
               onClick={play}
@@ -386,6 +391,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             )}
             {runBadge.text}
           </span>
+            </>
+          )}
           <button type="button" className={`dc-tool-btn dc-clean-toggle ${clean ? 'is-on' : ''}`} aria-pressed={clean} onClick={() => setClean(!clean)} title={clean ? 'Sair do modo clean (mostrar todas as barras)' : 'Modo clean: esconde barras e painéis secundários'}><IconFocus size={13} /><span className="hidden lg:inline">Clean</span></button>
         </div>
       </div>
@@ -404,6 +411,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
         {mode === 'grafcet' && (
           <>
+            <span className="tb-sep" />
+            <button type="button" className={`dc-tool-btn grafcet-palette-tool !gap-1.5 ${grafcetPalette ? 'is-on' : ''}`} aria-pressed={grafcetPalette} aria-label="Componentes" onClick={() => useGrafcetUi.getState().emit('togglePalette')} title="Mostrar/ocultar os componentes (Ctrl+B)"><IconLayers size={13} /><span>Componentes</span></button>
+            <button type="button" className={`dc-tool-btn grafcet-sim-tool !gap-1.5 ${grafcetSimVisible ? 'is-on' : ''}`} aria-pressed={grafcetSimVisible} aria-label="Simulação" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'}><IconPlay size={12} /><span>Simulação</span></button>
             <span className="tb-sep" />
             <div className="dc-seg" role="toolbar" aria-label="Ferramentas de seleção e navegação">
               {GRAFCET_TOOLS.map(({ id, label, icon: Icon, key, title }) => (

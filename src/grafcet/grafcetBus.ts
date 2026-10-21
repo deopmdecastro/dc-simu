@@ -27,6 +27,7 @@ export type GrafcetBusAction =
   | 'addJoin'
   | 'openTemplates'
   | 'openSignals'
+  | 'togglePalette'
   | 'generateLadder'
   | 'exportSvg'
   | 'exportJson'
@@ -50,6 +51,12 @@ interface GrafcetUiState {
   gridOn: boolean
   /** Encaixar etapas à grelha ao arrastar (Alt desativa temporariamente). */
   snapOn: boolean
+  /** Painel «Componentes» aberto (espelhado do editor, para o botão da barra). */
+  paletteOpen: boolean
+  setPaletteOpen: (open: boolean) => void
+  /** Mostrar controlos e painel de simulação no GRAFCET. */
+  simVisible: boolean
+  toggleSim: () => void
   toggleGrid: () => void
   toggleSnap: () => void
   setTool: (tool: GrafcetCanvasTool) => void
@@ -66,6 +73,14 @@ export const useGrafcetUi = create<GrafcetUiState>((set, get) => ({
   tool: 'select',
   gridOn: readFlag('dcsimu:grafcet:grid', true),
   snapOn: readFlag('dcsimu:grafcet:snap', true),
+  paletteOpen: false,
+  setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  simVisible: readFlag('dcsimu:grafcet:simvisible', true),
+  toggleSim: () =>
+    set((state) => {
+      writeFlag('dcsimu:grafcet:simvisible', !state.simVisible)
+      return { simVisible: !state.simVisible }
+    }),
   toggleGrid: () =>
     set((state) => {
       writeFlag('dcsimu:grafcet:grid', !state.gridOn)

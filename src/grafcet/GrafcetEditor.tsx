@@ -27,6 +27,7 @@ import SignalsPanel, { type SignalsContext } from './SignalsPanel'
 import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
 import { renderConditionTspans } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
+import GrafcetSimBar from './GrafcetSimBar'
 import { grafcetToLadder } from './toLadder'
 import { collectUsedAddresses } from '../ladder/ladderEngine'
 import {
@@ -254,6 +255,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   // Arrastamento livre de etapas dentro da grelha (posição guardada em step.x/y + pinned)
   const gridOn = useGrafcetUi((state) => state.gridOn)
   const snapOn = useGrafcetUi((state) => state.snapOn)
+  const simVisible = useGrafcetUi((state) => state.simVisible)
   const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null })
   const dragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
@@ -362,6 +364,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
       /* navegação privada */
     }
   }, [showPalette])
+  useEffect(() => {
+    if (full) useGrafcetUi.getState().setPaletteOpen(showPalette)
+  }, [showPalette, full])
+  useEffect(() => {
+    if (!simVisible && tab === 'io') setTab('steps')
+  }, [simVisible, tab])
 
   useEffect(() => () => window.clearTimeout(toastTimer.current), [])
 
@@ -2277,6 +2285,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
           break
         case 'openSignals':
           setSignalsOpen(true)
+          break
+        case 'togglePalette':
+          setShowPalette((value) => !value)
           break
         case 'openTemplates':
           setTemplatesOpen(true)
@@ -4358,7 +4369,18 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     ? `Transição T${transitions.indexOf(selectedTransition) + 1}`
                     : 'Propriedades'}
                 </strong>
-                <small>{running ? '● Simulação ativa' : '○ Simulação parada'}</small>
+                {simVisible && (
+                  <small>
+                    {running ? '● Simulação ativa' : '○ Simulação parada'}
+                    {runtime.active.length > 0 &&
+                      ` · Etapas ativas: ${runtime.active
+                        .map((value) => {
+                          const index = steps.findIndex((step) => step.id === value)
+                          return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber
+                        })
+                        .join(', ')}`}
+                  </small>
+                )}
               </div>
               <button type="button" className="grafcet-properties-toggle" aria-expanded={propsOpen} aria-label={propsOpen ? 'Recolher propriedades' : 'Abrir propriedades'}
                 onClick={(event) => { event.stopPropagation(); setPropsOpen((value) => !value) }}>
@@ -4398,9 +4420,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 Sinais <em>{signalSuggestions.length}</em>
                 {undeclared.length > 0 && <span className="grafcet-tab-dot" aria-label={`${undeclared.length} por declarar`} />}
               </button>
-              <button role="tab" aria-selected={tab === 'io'} className={tab === 'io' ? 'is-active' : ''} onClick={() => setTab('io')}>
-                Simulador
-              </button>
+              {simVisible && (
+                <button role="tab" aria-selected={tab === 'io'} className={tab === 'io' ? 'is-active' : ''} onClick={() => setTab('io')}>
+                  Simulador
+                  <i className={`grafcet-tab-live ${running ? 'is-running' : ''}`} aria-hidden="true" />
+                </button>
+              )}
               <button
                 role="tab"
                 aria-selected={tab === 'diagnostics'}
@@ -4955,8 +4980,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               />
             )}
 
-            {tab === 'io' && (
+            {tab === 'io' && simVisible && (
               <div className="grafcet-io">
+                <GrafcetSimBar />
                 <GrafcetSimPanel
                   program={program}
                   runtime={runtime}
@@ -5044,7 +5070,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               </div>
             )}
 
-            <div className="grafcet-live-status">
+            <div className="grafcet-live-status" hidden={!simVisible}>
               <span className={running ? 'is-running' : ''}>
                 <i />
                 {running ? 'Simulação ativa' : 'Parado'}
