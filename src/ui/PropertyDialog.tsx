@@ -18,10 +18,14 @@ interface PropertyDialogProps {
   saveLabel?: string
   /** Diálogos só de consulta: sem botão de guardar. */
   hideSave?: boolean
+  /** Texto do botão de fechar do rodapé (por omissão «Cancelar»). */
+  closeLabel?: string
+  /** Dica à esquerda do rodapé (por omissão «Esc para cancelar»). */
+  footerHint?: string
 }
 
 /** Shared keyboard boundary: diagram shortcuts must never consume modal keys. */
-export default function PropertyDialog({ open, id, title, subtitle, children, onClose, onSave, onHelp, onEscape, className = '', saveDisabled = false, eyebrow = 'GRAFCET · IEC 60848', saveLabel = 'Guardar alterações', hideSave = false }: PropertyDialogProps) {
+export default function PropertyDialog({ open, id, title, subtitle, children, onClose, onSave, onHelp, onEscape, className = '', saveDisabled = false, eyebrow = 'GRAFCET · IEC 60848', saveLabel = 'Guardar alterações', hideSave = false, closeLabel = 'Cancelar', footerHint = 'Esc para cancelar' }: PropertyDialogProps) {
   const dialogRef = useRef<HTMLFormElement>(null)
   const closeRef = useRef(onClose)
   const escapeRef = useRef(onEscape)
@@ -78,8 +82,8 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
         <div className="grafcet-property-content">{children}</div>
         <footer className="grafcet-property-footer">
           {onHelp && <button type="button" className="grafcet-property-help" onClick={onHelp}>Ajuda dos atalhos</button>}
-          <span className="grafcet-property-footer-hint">Esc para cancelar</span>
-          <button type="button" className="grafcet-fluidsim-btn" onClick={onClose}>Cancelar</button>
+          <span className="grafcet-property-footer-hint">{footerHint}</span>
+          <button type="button" className="grafcet-fluidsim-btn" onClick={onClose}>{closeLabel}</button>
           {!hideSave && <button type="submit" className="grafcet-fluidsim-btn primary" disabled={saveDisabled}>{saveLabel}</button>}
         </footer>
       </form>

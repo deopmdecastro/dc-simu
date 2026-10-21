@@ -198,6 +198,23 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const [hoveredStepId, setHoveredStepId] = useState<string | null>(null)
   const [hoveredTransitionId, setHoveredTransitionId] = useState<string | null>(null)
   const [hoveredActionId, setHoveredActionId] = useState<string | null>(null)
+  /* Hover com «intenção»: entrar aplica-se logo, sair só limpa passados uns ms. Sem isto, ao
+     atravessar a folga entre um componente e os seus botões (ou ao passar de um para outro), os
+     botões desmontavam e montavam a cada movimento do rato — o «piscar». */
+  const hoverTimers = useRef<Partial<Record<'step' | 'transition' | 'action', number>>>({})
+  const hoverElement = useCallback((kind: 'step' | 'transition' | 'action', id: string | null) => {
+    const timers = hoverTimers.current
+    window.clearTimeout(timers[kind])
+    const apply = () => {
+      timers[kind] = undefined
+      if (kind === 'step') setHoveredStepId(id)
+      else if (kind === 'transition') setHoveredTransitionId(id)
+      else setHoveredActionId(id)
+    }
+    if (id) apply()
+    else timers[kind] = window.setTimeout(apply, 90)
+  }, [])
+  useEffect(() => () => { Object.values(hoverTimers.current).forEach((timer) => window.clearTimeout(timer)) }, [])
   const [selectedActionId, setSelectedActionId] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
@@ -2628,8 +2645,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         onPointerMove={(e) => onFreeTransPointerMove(transition, e)}
                         onPointerUp={(e) => onFreeTransPointerUp(transition, e)}
                         onPointerCancel={resetTransDrag}
-                        onMouseEnter={() => setHoveredTransitionId(transition.id)}
-                        onMouseLeave={() => setHoveredTransitionId(null)}
+                        onMouseEnter={() => hoverElement('transition', transition.id)}
+                        onMouseLeave={() => hoverElement('transition', null)}
                         role={full ? 'button' : undefined}
                         tabIndex={full ? 0 : undefined}
                         aria-label={`Transição T${transitionIndex + 1} solta: ${transition.condition}. Arraste-a sobre uma etapa para ligar.`}
@@ -2794,9 +2811,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         transform={loopShift ? `translate(${loopShift}, 0)` : undefined}
                         onClick={onSelectThisTransition}
                         onDoubleClick={onTransDoubleClick}
-                        onMouseEnter={() => setHoveredTransitionId(transition.id)}
-                        onMouseLeave={() => setHoveredTransitionId(null)}
-                        className={full ? 'grafcet-graph-link' : ''}
+                        onMouseEnter={() => hoverElement('transition', transition.id)}
+                        onMouseLeave={() => hoverElement('transition', null)}
+                        className={`${full ? 'grafcet-graph-link' : ''} ${selectedLink ? 'is-selected' : ''}`}
                         role={full ? 'button' : undefined}
                         tabIndex={full ? 0 : undefined}
                         aria-label={`Transição T${transitionIndex + 1}: ${transition.condition}`}
@@ -2844,9 +2861,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         key={transition.id}
                         onClick={onSelectThisTransition}
                         onDoubleClick={onTransDoubleClick}
-                        onMouseEnter={() => setHoveredTransitionId(transition.id)}
-                        onMouseLeave={() => setHoveredTransitionId(null)}
-                        className={full ? 'grafcet-graph-link' : ''}
+                        onMouseEnter={() => hoverElement('transition', transition.id)}
+                        onMouseLeave={() => hoverElement('transition', null)}
+                        className={`${full ? 'grafcet-graph-link' : ''} ${selectedLink ? 'is-selected' : ''}`}
                         role={full ? 'button' : undefined}
                         tabIndex={full ? 0 : undefined}
                         aria-label={`Transição T${transitionIndex + 1}: ${transition.condition}${enabled ? ' (Receptiva - clique para disparar)' : ''}`}
@@ -2982,9 +2999,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         key={transition.id}
                         onClick={onSelectThisTransition}
                         onDoubleClick={onTransDoubleClick}
-                        onMouseEnter={() => setHoveredTransitionId(transition.id)}
-                        onMouseLeave={() => setHoveredTransitionId(null)}
-                        className={full ? 'grafcet-graph-link' : ''}
+                        onMouseEnter={() => hoverElement('transition', transition.id)}
+                        onMouseLeave={() => hoverElement('transition', null)}
+                        className={`${full ? 'grafcet-graph-link' : ''} ${selectedLink ? 'is-selected' : ''}`}
                         role={full ? 'button' : undefined}
                         tabIndex={full ? 0 : undefined}
                         aria-label={`Transição T${transitionIndex + 1}: ${transition.condition}`}
@@ -3103,9 +3120,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       key={transition.id}
                       onClick={onSelectThisTransition}
                       onDoubleClick={onTransDoubleClick}
-                      onMouseEnter={() => setHoveredTransitionId(transition.id)}
-                      onMouseLeave={() => setHoveredTransitionId(null)}
-                      className={full ? 'grafcet-graph-link' : ''}
+                      onMouseEnter={() => hoverElement('transition', transition.id)}
+                      onMouseLeave={() => hoverElement('transition', null)}
+                      className={`${full ? 'grafcet-graph-link' : ''} ${selectedLink ? 'is-selected' : ''}`}
                       role={full ? 'button' : undefined}
                       tabIndex={full ? 0 : undefined}
                       aria-label={`Transição T${transitionIndex + 1}: ${transition.condition}`}
@@ -3312,7 +3329,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     <g
                       key={step.id}
                       data-step-id={step.id}
-                      className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${isThisStepSelected ? 'is-selected' : ''} ${multi.includes(step.id) ? 'is-multi' : ''} ${transitions.some((t) => t.from.includes(step.id) || t.to.includes(step.id)) ? '' : 'is-unlinked'}`}
+                      className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${active ? 'is-active' : ''} ${isThisStepSelected ? 'is-selected' : ''} ${multi.includes(step.id) ? 'is-multi' : ''} ${transitions.some((t) => t.from.includes(step.id) || t.to.includes(step.id)) ? '' : 'is-unlinked'}`}
                       transform={stepShiftX ? `translate(${stepShiftX}, 0)` : undefined}
                       role={full ? 'button' : undefined}
                       tabIndex={full ? 0 : undefined}
@@ -3323,8 +3340,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       onPointerMove={(e) => onStepPointerMove(step, e)}
                       onPointerUp={(e) => onStepPointerUp(step, e)}
                       onPointerCancel={onStepPointerCancel}
-                      onMouseEnter={() => setHoveredStepId(step.id)}
-                      onMouseLeave={() => setHoveredStepId(null)}
+                      onMouseEnter={() => hoverElement('step', step.id)}
+                      onMouseLeave={() => hoverElement('step', null)}
                       onDragOver={
                         full
                           ? (event) => {
@@ -3383,7 +3400,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           width="112"
                           height={hasOutgoingTransition ? 54 + 16 : active ? 114 : 98}
                           fill="transparent"
-                          onPointerEnter={() => setHoveredStepId(step.id)}
+                          onPointerEnter={() => hoverElement('step', step.id)}
                         />
                       )}
                       {full && wireDraft && wireHover?.kind === 'step-in' && wireHover.id === step.id && (
@@ -3403,8 +3420,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         </text>
                       )}
 
+                      {/* Halo de hover/seleção: só um traço translúcido (sem filtros), controlado por CSS — não repinta o grupo nem pisca */}
+                      {full && <rect className="grafcet-hover-halo" x="119" y={y} width="64" height="54" rx="4" pointerEvents="none" />}
                       {/* Caixa externa da etapa */}
                       <rect
+                        className="grafcet-step-box"
                         x="119"
                         y={y}
                         width="64"
@@ -3414,7 +3434,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         stroke={isThisStepSelected ? '#2563eb' : active ? '#16a34a' : '#334155'}
                         strokeWidth={isThisStepSelected ? 2.75 : active ? 2.35 : 1.85}
                         vectorEffect="non-scaling-stroke"
-                        filter={isThisStepSelected ? 'drop-shadow(0 2px 8px rgba(37,99,235,0.3))' : undefined}
                       />
 
                       {/* Contorno de destino quando uma transição ou ação solta paira sobre esta etapa */}
@@ -3716,8 +3735,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             onPointerMove={(e) => onActionPointerMove(action, e)}
                             onPointerUp={(e) => onActionPointerUp(action, e)}
                             onPointerCancel={resetActionDrag}
-                            onMouseEnter={() => setHoveredActionId(action.id)}
-                            onMouseLeave={() => setHoveredActionId(null)}
+                            onMouseEnter={() => hoverElement('action', action.id)}
+                            onMouseLeave={() => hoverElement('action', null)}
                             style={full ? { cursor: 'grab', touchAction: 'none' } : undefined}
                             role="button"
                             tabIndex={0}
@@ -3764,8 +3783,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                               </g>
                             )}
 
+                            {/* Halo de hover/seleção (ver .grafcet-hover-halo) */}
+                            {full && <rect className="grafcet-hover-halo" x={renderX} y={actionY} width={actionW} height={actionH} rx="2" pointerEvents="none" />}
                             {/* Caixa principal da ação IEC */}
                             <rect
+                              className="grafcet-action-box"
                               x={renderX}
                               y={actionY}
                               width={actionW}
@@ -3774,7 +3796,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                               fill={actionOn ? '#dcfce7' : isThisActionSelected ? '#eff6ff' : 'white'}
                               stroke={strokeColor}
                               strokeWidth={isThisActionSelected ? 2.5 : actionOn ? 2 : 1.5}
-                              filter={isThisActionSelected ? 'drop-shadow(0 2px 8px rgba(37,99,235,0.35))' : undefined}
                             />
 
                             {/* Comando compulsivo: retângulo duplo interno */}
@@ -3967,8 +3988,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       onPointerMove={full ? (e) => onActionPointerMove(action, e) : undefined}
                       onPointerUp={full ? (e) => onActionPointerUp(action, e) : undefined}
                       onPointerCancel={full ? resetActionDrag : undefined}
-                      onMouseEnter={() => setHoveredActionId(action.id)}
-                      onMouseLeave={() => setHoveredActionId(null)}
+                      onMouseEnter={() => hoverElement('action', action.id)}
+                      onMouseLeave={() => hoverElement('action', null)}
                       style={full ? { cursor: 'grab', touchAction: 'none' } : { pointerEvents: 'none' }}
                       role="button"
                       tabIndex={0}
@@ -3991,8 +4012,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         </g>
                       )}
 
+                      {/* Halo de hover/seleção (ver .grafcet-hover-halo) */}
+                      {full && <rect className="grafcet-hover-halo" x={x} y={y} width={ACTION_FREE_W} height={ACTION_FREE_H} rx="2" pointerEvents="none" />}
                       {/* Caixa principal IEC (âmbar tracejada enquanto solta) */}
                       <rect
+                        className="grafcet-action-box"
                         x={x}
                         y={y}
                         width={ACTION_FREE_W}
@@ -4002,7 +4026,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         stroke={strokeColor}
                         strokeWidth={isThisActionSelected ? 2.5 : 1.7}
                         strokeDasharray={isThisActionSelected ? undefined : '6 3'}
-                        filter={isThisActionSelected ? 'drop-shadow(0 2px 8px rgba(37,99,235,0.35))' : undefined}
                       />
                       <line x1={x + ACTION_QUALIFIER_W} y1={y} x2={x + ACTION_QUALIFIER_W} y2={y + ACTION_FREE_H} stroke={strokeColor} strokeWidth="1.5" />
                       <text x={x + ACTION_QUALIFIER_W / 2} y={y + 19} textAnchor="middle" fill="#b45309" fontSize="11" fontWeight="700">

@@ -216,20 +216,45 @@
 
 .grafcet-node-handle {
   cursor: pointer;
-  transition: transform 0.12s ease, filter 0.12s ease;
+  /* Em SVG o transform-origin por omissão é a origem da vista (0 0), não o centro do botão: ao escalar no
+     hover o botão «fugia» do cursor, perdia o hover, voltava ao tamanho e repetia — o piscar.
+     Com fill-box + center escala sobre si próprio e o cursor continua em cima dele. */
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.12s ease;
 }
 
 /* Ponte invisível entre a etapa e o atalho «+»: elimina a zona morta que
    fazia o botão de adicionar etapa/transição piscar ao aproximar o rato. */
 .grafcet-step-hover-zone { pointer-events:all; }
 
-.grafcet-node-handle:hover {
-  transform: scale(1.12);
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.3));
-}
+.grafcet-node-handle:hover { transform: scale(1.12); }
+.grafcet-node-handle:active { transform: scale(0.96); }
+.grafcet-node-handle.is-delete:hover circle:first-of-type { fill: #dc2626; }
 .grafcet-canvas svg { display:block; margin:0 auto; max-width:none; }
 .grafcet-graph-node,.grafcet-graph-link { cursor:pointer; }
-.grafcet-graph-node:hover rect,.grafcet-graph-link:hover path:not([stroke="transparent"]) { stroke:#2563eb; } /* a área de clique invisível não pode ficar azul (faixa grossa) */
+/* Hover/seleção de etapas: cor do contorno + halo translúcido. Só o contorno da caixa muda (nunca a zona
+   de hover invisível nem os botões) e não há filtros nem larguras a mudar — nada que repinte o grupo ou
+   desloque a geometria sob o cursor. */
+.grafcet-hover-halo { fill:none; stroke:#2563eb; stroke-width:9px; stroke-opacity:0; vector-effect:non-scaling-stroke; pointer-events:none; transition:stroke-opacity .14s ease; }
+.grafcet-graph-node:hover .grafcet-hover-halo,
+.grafcet-graph-action:hover .grafcet-hover-halo { stroke-opacity:.16; }
+.grafcet-graph-node.is-multi .grafcet-hover-halo { stroke-opacity:.2; }
+.grafcet-graph-node.is-selected .grafcet-hover-halo,
+.grafcet-graph-action.is-selected .grafcet-hover-halo { stroke-opacity:.26; }
+/* selecionado + cursor por cima: halo mais forte e contorno mais escuro, para se distinguir do simples hover */
+.grafcet-graph-node.is-selected:hover .grafcet-hover-halo,
+.grafcet-graph-node.is-multi:hover .grafcet-hover-halo,
+.grafcet-graph-action.is-selected:hover .grafcet-hover-halo { stroke-opacity:.4; stroke-width:11px; }
+.grafcet-graph-node.is-active .grafcet-hover-halo { stroke:#16a34a; }
+.grafcet-graph-node:not(.is-active):not(.is-selected):hover .grafcet-step-box { stroke:#3b82f6; }
+.grafcet-graph-node.is-selected:hover .grafcet-step-box,
+.grafcet-graph-node.is-multi:hover .grafcet-step-box { stroke:#1d4ed8; }
+/* Ligações (transições): realce de cor sem mexer nas larguras. Excluir os botões, senão os ícones brancos ficavam azuis. */
+.grafcet-graph-link:hover path:not([stroke="transparent"]):not(.grafcet-node-handle path),
+.grafcet-graph-link:hover > line:not([stroke="transparent"]):not([stroke-dasharray]) { stroke:#3b82f6; } /* a área de clique invisível não pode ficar azul (faixa grossa) */
+.grafcet-graph-link.is-selected:hover path:not([stroke="transparent"]):not(.grafcet-node-handle path),
+.grafcet-graph-link.is-selected:hover > line:not([stroke="transparent"]):not([stroke-dasharray]) { stroke:#1d4ed8; }
 .grafcet-properties { width:280px; flex:none; overflow:auto; background:white; border-left:1px solid #dce4ef; padding:12px; display:flex; flex-direction:column; gap:10px; }
 .grafcet-tabs { display:flex; gap:4px; border-bottom:1px solid #dce4ef; }
 .grafcet-tabs button { padding:7px 10px; }
@@ -368,15 +393,13 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   transition: transform 0.12s ease;
 }
 
-.grafcet-graph-action:hover rect {
-  stroke: #2563eb;
-}
+.grafcet-graph-action:hover .grafcet-action-box { stroke: #3b82f6; }
 
-.grafcet-graph-action.is-selected rect {
+.grafcet-graph-action.is-selected .grafcet-action-box {
   stroke: #2563eb !important;
   stroke-width: 2.5px !important;
-  filter: drop-shadow(0 2px 8px rgba(37, 99, 235, 0.35));
 }
+.grafcet-graph-action.is-selected:hover .grafcet-action-box { stroke: #1d4ed8 !important; }
 .grafcet-properties-summary { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:38px; padding:0 1px; }
 .grafcet-properties-summary strong { display:block; color:#25344c; font-size:13px; }
 .grafcet-properties-summary small { display:block; margin-top:2px; color:#77869b; font-size:9.5px; }
@@ -1070,7 +1093,6 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-full .grafcet-graph-node { cursor: grab; touch-action: none; }
 .grafcet-full .grafcet-graph-node.grafcet-step-dragging { cursor: grabbing; }
 .grafcet-full .grafcet-graph-node.grafcet-step-dragging * { pointer-events: none; }
-.grafcet-graph-node.is-selected rect:first-of-type { stroke: #2563eb; }
 
 .grafcet-guide {
   stroke: #ec4899;
@@ -1460,7 +1482,6 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-selbar button:disabled { opacity: 0.4; cursor: not-allowed; }
 .grafcet-selbar button.is-danger { color: #b91c1c; }
 .grafcet-selbar button.is-danger:hover { background: #fef2f2; }
-.grafcet-graph-node.is-multi { filter: drop-shadow(0 0 5px rgba(37, 99, 235, 0.45)); }
 .grafcet-full .grafcet-pan-layer { cursor: default; }
 @media (max-width: 720px) {
   .grafcet-selbar { top: auto; bottom: 64px; }
@@ -1634,15 +1655,12 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
    Elementos: profundidade suave e marcação de elementos soltos (por ligar).
    Âmbar = solto, igual às barras de transição e ações soltas.
 --------------------------------------------------------------------------- */
-.grafcet-full .grafcet-graph-node { filter:drop-shadow(0 1px 2px rgba(31,43,74,.16)); transition:filter .15s ease; }
-.grafcet-full .grafcet-graph-node:hover { filter:drop-shadow(0 3px 8px rgba(37,99,235,.28)); }
-.grafcet-full .grafcet-graph-node.is-selected { filter:drop-shadow(0 3px 10px rgba(37,99,235,.38)); }
+.grafcet-full .grafcet-graph-node { filter:drop-shadow(0 1px 2px rgba(31,43,74,.16)); } /* sombra fixa: o hover/seleção usa o halo, sem animar filtros */
 .grafcet-full .grafcet-graph-node.is-unlinked:not(.is-selected) { filter:drop-shadow(0 0 5px rgba(217,119,6,.55)); }
 .grafcet-full .grafcet-graph-node.grafcet-step-dragging { filter:drop-shadow(0 8px 16px rgba(31,43,74,.3)); }
 .grafcet-full .grafcet-graph-node > rect:not(.grafcet-step-hover-zone) { shape-rendering:geometricPrecision; }
 .grafcet-full .grafcet-graph-link path { stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
-.grafcet-full .grafcet-graph-link:hover > line { stroke-width:3px; }
-@media (prefers-reduced-motion: reduce) { .grafcet-full .grafcet-graph-node { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .grafcet-hover-halo, .grafcet-node-handle { transition: none; } }
 
 /* Puxador «arrastar para ligar» (etapas e transições): fio verde até à etapa de destino. */
-.grafcet-link-drag-handle:hover { filter:drop-shadow(0 2px 5px rgba(22,163,74,.45)); }
+.grafcet-link-drag-handle:hover circle:first-of-type { fill:#15803d; }

@@ -130,12 +130,7 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
   /* Variáveis (GRAFCET e Ladder): ícone + texto */
   .grafcet-signals-tool, .ladder-variables-tool { display: inline-flex; align-items: center; gap: 6px; }
   .grafcet-signals-tool span, .ladder-variables-tool span { display: inline; }
-  /* o menu do Ladder saía cortado pelo overflow da barra: passa a flutuar fixo */
   .ladder-variables-menu { position: static; }
-  .ladder-variables-panel {
-    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 96px); left: 8px; right: 8px;
-    width: auto; max-height: 70dvh; overflow-y: auto;
-  }
 }
 
 /* ---------------------------------------------------------------------------
