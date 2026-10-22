@@ -92,6 +92,7 @@ export default function GrafcetSimPanel({
   const setCount = useSimStore((s) => s.setVirtualInputCount)
   const setName = useSimStore((s) => s.setVirtualInputName)
   const clear = useSimStore((s) => s.clearVirtualInputs)
+  const runState = useSimStore((s) => s.sim.runState)
 
   const detection = useMemo(() => detectGrafcetIo(program, stepLabel), [program, stepLabel])
 
@@ -126,9 +127,9 @@ export default function GrafcetSimPanel({
 
   return (
     <div className="gsim">
-      <section className="gsim-state" aria-label="Estado da sequência" aria-live="polite">
+      <section className={`gsim-state is-${runState === 'running' ? 'running' : 'stopped'}`} aria-label="Estado da sequência" aria-live="polite">
         <div className="gsim-state-head">
-          <h4>Etapas ativas</h4>
+          <h4>{runState === 'running' ? 'Etapas ativas' : 'Etapa inicial'}</h4>
           <span title="Transições disparadas desde o início da simulação">{firedCount} {firedCount === 1 ? 'disparo' : 'disparos'}</span>
         </div>
         {activeSteps.length ? (
@@ -141,7 +142,7 @@ export default function GrafcetSimPanel({
             ))}
           </ul>
         ) : (
-          <p className="gsim-state-none">Nenhuma etapa ativa. Prima Run para iniciar na etapa inicial.</p>
+          <p className="gsim-state-none">Nenhuma etapa ativa. Prima Run para começar.</p>
         )}
       </section>
 
@@ -174,9 +175,7 @@ export default function GrafcetSimPanel({
                     <b>{input.address}</b>
                   </VirtualInputButton>
                   <div className="gsim-input-body">
-                    {input.symbol ? (
-                      <span className="gsim-symbol-note" title="Variável simbólica: o botão liga e desliga o seu valor durante a simulação.">Variável da condição</span>
-                    ) : (
+                    {!input.symbol && (
                       <InlineName
                         value={name}
                         placeholder="Dar nome (ex.: Arranque)"
@@ -184,14 +183,16 @@ export default function GrafcetSimPanel({
                         onCommit={(next) => setName(input.address, next)}
                       />
                     )}
-                    <ModeToggle address={input.address} mode={mode} />
-                    <div className="gsim-uses">
+                    <div className="gsim-input-row">
+                      <ModeToggle address={input.address} mode={mode} />
+                      <div className="gsim-uses">
                       <span>Usada em</span>
                       {input.transitions.map((use) => (
                         <button key={use.id} type="button" onClick={() => onOpenTransition(use.id)} title={use.label}>
                           T{use.index + 1}
                         </button>
                       ))}
+                      </div>
                     </div>
                   </div>
                 </li>

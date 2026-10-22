@@ -93,3 +93,29 @@
 @media (prefers-reduced-motion: reduce) {
   .grafcet-graph-node.is-active .grafcet-hover-halo { animation: none; stroke-opacity: .26; }
 }
+
+/* ===== Simulador mais compacto (2.ª passagem) ===== */
+.gsim { gap: 12px; }
+.gsim-state.is-stopped { border-color: var(--line, #d6dae1); background: #f8fafc; }
+.gsim-state.is-stopped h4, .gsim-state.is-stopped .gsim-state-head span { color: #475569; }
+.gsim-state.is-stopped .gsim-state-steps li { border-color: #cbd5e1; }
+.gsim-state.is-stopped .gsim-state-steps b { color: #334155; }
+
+/* Entrada = interruptor em linha (LED + nome) e, ao lado, modo e transições onde é usada */
+.gsim-input { grid-template-columns: 92px minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 10px; border-style: solid; }
+.gsim-actuator { grid-auto-flow: column; justify-content: start; align-content: center; gap: 8px; width: 92px; height: 38px; padding: 0 10px; border-radius: 10px; }
+.gsim-actuator i { width: 14px; height: 14px; flex: none; }
+.gsim-actuator b { font-size: 11.5px; min-width: 0; }
+.gsim-actuator.is-symbol b { max-width: 52px; font-size: 11.5px; }
+.gsim-input-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.gsim-input-row .gsim-seg { width: 150px; flex: none; }
+.gsim-input-row .gsim-uses { flex: 1 1 auto; min-width: 0; }
+.gsim-seg button { padding: 3px 4px; font-size: 10.5px; }
+.gsim-input-body { gap: 4px; }
+
+/* Transições: nome discreto, estado à direita, receptividade como código */
+.gsim-transition { padding: 6px 8px; gap: 2px; }
+.gsim-transition .gsim-name { background: transparent; padding: 3px 6px; font-weight: 600; }
+.gsim-transition .gsim-name:hover { background: #f1f5f9; }
+.gsim-cond { padding: 3px 6px; }
+.gsim-cond code { padding: 1px 6px; border-radius: 4px; background: #f1f5f9; }
