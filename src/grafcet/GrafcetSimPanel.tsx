@@ -121,13 +121,35 @@ export default function GrafcetSimPanel({
     if (Object.keys(names).length) onRenameAllTransitions(names)
   }
 
+  const activeSteps = program.steps.filter((step) => activeIds.has(step.id))
+  const firedCount = runtime.fired ?? 0
+
   return (
     <div className="gsim">
+      <section className="gsim-state" aria-label="Estado da sequência" aria-live="polite">
+        <div className="gsim-state-head">
+          <h4>Etapas ativas</h4>
+          <span title="Transições disparadas desde o início da simulação">{firedCount} {firedCount === 1 ? 'disparo' : 'disparos'}</span>
+        </div>
+        {activeSteps.length ? (
+          <ul className="gsim-state-steps">
+            {activeSteps.map((step) => (
+              <li key={step.id}>
+                <b>{stepLabel(step.id)}</b>
+                <em>{(((runtime.elapsed?.[step.id] ?? 0)) / 1000).toFixed(1)} s</em>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="gsim-state-none">Nenhuma etapa ativa. Prima Run para iniciar na etapa inicial.</p>
+        )}
+      </section>
+
       <section className="gsim-section" aria-label="Entradas usadas nas transições">
         <header className="gsim-head">
           <div>
             <h4>Entradas detetadas</h4>
-            <p>{detection.inputs.length ? `${detection.inputs.length} usada${detection.inputs.length === 1 ? '' : 's'} nas condições das transições` : 'As entradas aparecem aqui quando as usar numa condição.'}</p>
+            <p>{detection.inputs.length ? `${detection.inputs.length} usada${detection.inputs.length === 1 ? '' : 's'} nas condições das transições` : 'As entradas e variáveis aparecem aqui quando as usar numa condição.'}</p>
           </div>
           <button type="button" className="gsim-link" onClick={clear} title="Desligar todas as entradas">
             Desligar tudo
@@ -137,26 +159,31 @@ export default function GrafcetSimPanel({
         {detection.inputs.length === 0 ? (
           <div className="gsim-empty">
             <strong>Nenhuma entrada em uso</strong>
-            <span>Escreva uma condição como <code>I1</code> ou <code>I1*!I2</code> numa transição e o botão correspondente surge aqui.</span>
+            <span>Escreva uma condição como <code>I1</code>, <code>I1*!I2</code> ou <code>Start</code> numa transição e o botão correspondente surge aqui.</span>
           </div>
         ) : (
           <ul className="gsim-inputs">
             {detection.inputs.map((input) => {
               const mode = modes[input.address] ?? 'latch'
-              const name = nameOf(input.address)
+              const name = input.symbol ? '' : nameOf(input.address)
+              const title = input.symbol ? input.address : name || input.address
               return (
-                <li key={input.address} className="gsim-input">
-                  <VirtualInputButton address={input.address} className="gsim-actuator" title={name || input.address}>
+                <li key={input.address} className={`gsim-input${input.symbol ? ' is-symbol' : ''}`}>
+                  <VirtualInputButton address={input.address} className={`gsim-actuator${input.symbol ? ' is-symbol' : ''}`} title={title}>
                     <i aria-hidden="true" />
                     <b>{input.address}</b>
                   </VirtualInputButton>
                   <div className="gsim-input-body">
-                    <InlineName
-                      value={name}
-                      placeholder="Dar nome (ex.: Arranque)"
-                      label={`Nome da entrada ${input.address}`}
-                      onCommit={(next) => setName(input.address, next)}
-                    />
+                    {input.symbol ? (
+                      <span className="gsim-symbol-note" title="Variável simbólica: o botão liga e desliga o seu valor durante a simulação.">Variável da condição</span>
+                    ) : (
+                      <InlineName
+                        value={name}
+                        placeholder="Dar nome (ex.: Arranque)"
+                        label={`Nome da entrada ${input.address}`}
+                        onCommit={(next) => setName(input.address, next)}
+                      />
+                    )}
                     <ModeToggle address={input.address} mode={mode} />
                     <div className="gsim-uses">
                       <span>Usada em</span>

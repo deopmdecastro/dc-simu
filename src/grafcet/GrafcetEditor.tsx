@@ -177,6 +177,14 @@ export const getStepDisplayInfo = (step: GrafcetStep, fallbackIndex: number) => 
   return { stepNumber: String(fallbackIndex), comment: explicitComment || rawName }
 }
 
+/** Menor número de etapa ainda livre (evita «Etapa 2» repetida depois de apagar ou reordenar etapas). */
+export const nextFreeStepNumber = (steps: readonly GrafcetStep[]): number => {
+  const used = new Set(steps.map((step, index) => getStepDisplayInfo(step, index).stepNumber))
+  let n = 0
+  while (used.has(String(n))) n++
+  return n
+}
+
 export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: boolean; onOpenEditor?: () => void }) {
   const program = useSimStore((state) => state.grafcet)
   const runtime = useSimStore((state) => state.grafcetRuntime)
@@ -563,11 +571,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     : { x: SPINE_X + offsetX, y: Math.max(cursorY, START_Y) }
 
   const addStep = (at?: { x: number; y: number }) => {
-    const nextIdx = steps.length
     const place = clearSpot(at ?? defaultSpot())
     const newStep: GrafcetStep = {
       id: id(),
-      name: `Etapa ${nextIdx}`,
+      name: `Etapa ${nextFreeStepNumber(steps)}`,
       initial: steps.length === 0,
       stepType: steps.length === 0 ? 'initial' : 'simple',
       action: '',
@@ -584,17 +591,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const addConnectedStep = (fromStep?: GrafcetStep, at?: { x: number; y: number }) => {
     const source = fromStep ?? selectedStep ?? steps[steps.length - 1]
     if (!source) return addStep(at)
-    const nextIdx = steps.length
-    
-    // Procura o próximo número lógico para a etapa (ex: se anterior é 81, tenta 82 ou 85)
-    let nextName = `Etapa ${nextIdx}`
-    if (/^\d+$/.test(source.name.trim())) {
-      const num = parseInt(source.name.trim(), 10)
-      const existingNames = new Set(steps.map((s) => s.name.trim()))
-      let candidate = num + 1
-      while (existingNames.has(String(candidate))) {
-        candidate++
-      }
+    // Procura o próximo número lógico para a etapa (ex.: se a anterior é 81, tenta 82; se já existir, segue em frente)
+    const usedNumbers = new Set(steps.map((s, i) => getStepDisplayInfo(s, i).stepNumber))
+    let nextName = `Etapa ${nextFreeStepNumber(steps)}`
+    const sourceNumber = getStepDisplayInfo(source, steps.indexOf(source)).stepNumber
+    if (/^\d+$/.test(sourceNumber)) {
+      let candidate = parseInt(sourceNumber, 10) + 1
+      while (usedNumbers.has(String(candidate))) candidate++
       nextName = String(candidate)
     }
 
@@ -869,7 +872,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     const place = clearSpot(at ?? defaultSpot())
     const newStep: GrafcetStep = {
       id: id(),
-      name: `Etapa ${steps.length}`,
+      name: `Etapa ${nextFreeStepNumber(steps)}`,
       initial: true,
       stepType: 'initial',
       action: '',

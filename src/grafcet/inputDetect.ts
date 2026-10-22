@@ -11,6 +11,26 @@ export function inputsInCondition(expression: string): string[] {
   return [...found]
 }
 
+const RESERVED_WORDS = new Set(['AND', 'OR', 'NOT', 'TRUE', 'FALSE', 'T', 'HZ', 'MS', 'S'])
+
+/** Variáveis simbólicas (Start, B_Stop, fc_a0…) usadas numa condição, em maiúsculas.
+ *  Ignora endereços I/Q/M, referências a etapas (X5, G0X3), temporizações (5s/X3, T(2s)) e frequências. */
+export function symbolsInCondition(expression: string): string[] {
+  const cleaned = expression
+    .replace(/T\(\s*\d+(?:\.\d+)?\s*(?:ms|s)?\s*\)/gi, ' ')
+    .replace(/\d+(?:\.\d+)?\s*(?:ms|s)?\s*\/\s*X[A-Za-z0-9_]*(?:\s*\/\s*\d+(?:\.\d+)?\s*(?:ms|s)?)?/gi, ' ')
+    .replace(/\d+(?:\.\d+)?\s*hz/gi, ' ')
+    .replace(/G\d+\s*<=>\s*X\d+/gi, ' ')
+    .replace(/(?<![A-Za-z0-9_])(?:G\d+)?X\d+(?![A-Za-z0-9_])/gi, ' ')
+  const found = new Set<string>()
+  for (const match of cleaned.matchAll(/(?<![A-Za-z0-9_%.])[A-Za-z][A-Za-z0-9_]*/g)) {
+    const word = match[0].toUpperCase()
+    if (RESERVED_WORDS.has(word) || /^[IQM]\d{1,2}$/.test(word)) continue
+    found.add(word)
+  }
+  return [...found]
+}
+
 export interface DetectedTransition {
   id: string
   index: number
@@ -24,10 +44,15 @@ export interface DetectedTransition {
   to: string[]
   condition: string
   inputs: string[]
+  /** variáveis simbólicas usadas na condição */
+  symbols: string[]
 }
 
 export interface DetectedInput {
+  /** chave na tabela de simulação: I1… ou, nas variáveis simbólicas, o nome em maiúsculas */
   address: string
+  /** true quando é uma variável simbólica (Start, B_Stop…) e não um endereço I */
+  symbol: boolean
   /** transições que dependem desta entrada */
   transitions: Array<{ id: string; label: string; index: number }>
 }
@@ -63,22 +88,26 @@ export function detectGrafcetIo(program: GrafcetProgram, stepLabel: (id: string)
       to: transition.to,
       condition: transition.condition ?? '',
       inputs: inputsInCondition(transition.condition ?? ''),
+      symbols: symbolsInCondition(transition.condition ?? ''),
     }
   })
 
   const byInput = new Map<string, DetectedInput>()
-  for (const t of transitions) {
-    for (const address of t.inputs) {
-      const entry = byInput.get(address) ?? { address, transitions: [] }
-      entry.transitions.push({ id: t.id, label: t.label, index: t.index })
-      byInput.set(address, entry)
-    }
+  const register = (address: string, symbol: boolean, t: DetectedTransition) => {
+    const entry = byInput.get(address) ?? { address, symbol, transitions: [] }
+    entry.transitions.push({ id: t.id, label: t.label, index: t.index })
+    byInput.set(address, entry)
   }
-  const inputs = [...byInput.values()].sort((a, b) => Number(a.address.slice(1)) - Number(b.address.slice(1)))
+  for (const t of transitions) {
+    for (const address of t.inputs) register(address, false, t)
+    for (const symbol of t.symbols) register(symbol, true, t)
+  }
+  // Endereços I primeiro (por número), depois as variáveis simbólicas por ordem alfabética.
+  const inputs = [...byInput.values()].sort((a, b) => Number(a.symbol) - Number(b.symbol) || (a.symbol ? a.address.localeCompare(b.address) : Number(a.address.slice(1)) - Number(b.address.slice(1))))
   return {
     transitions,
     inputs,
-    maxInput: inputs.reduce((max, input) => Math.max(max, Number(input.address.slice(1))), 0),
+    maxInput: inputs.reduce((max, input) => (input.symbol ? max : Math.max(max, Number(input.address.slice(1)))), 0),
     unnamed: transitions.filter((t) => !t.name).length,
   }
 }

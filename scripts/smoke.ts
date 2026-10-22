@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import { lintLadder } from '../src/ladder/ladderLint'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
 import { SPINE_X, START_Y, GRID, COLUMN_WIDTH, snapToGrid, clampPosition, alignToOthers, findFreeSlot, autoLayout, stepPitch } from '../src/grafcet/layout'
-import { detectGrafcetIo, inputsInCondition } from '../src/grafcet/inputDetect'
+import { detectGrafcetIo, inputsInCondition, symbolsInCondition } from '../src/grafcet/inputDetect'
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView } from '../src/grafcet/selection'
 import { signalUsage, undeclaredSignals, tagsToDeclare, tokenAtCursor, matchSignals, insertCondition } from '../src/grafcet/signals'
 import { GRAFCET_TEMPLATES } from '../src/grafcet/templates'
@@ -2104,6 +2104,17 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('deteção: nome sugerido T1 · 0 → 1', det.transitions[0].label === 'T1 · 0 → 1')
   check('deteção: nome do utilizador é mantido', det.transitions[1].label === 'Fim de curso' && det.unnamed === 2)
   check('deteção: maxInput = 3', det.maxInput === 3)
+  const sym = (c: string) => symbolsInCondition(c).sort().join(',')
+  check('símbolos: /Start*!Stop → START,STOP', sym('/Start*!Stop') === 'START,STOP')
+  check('símbolos: ignora I/Q/M, etapas, timers e frequências', sym('I1*Q2+M3+X5+G0X3+5s/X3+T(2s)+2 HZ') === '')
+  check('símbolos: operadores por extenso e flancos', sym('NOT Stop OR ^B_Start') === 'B_START,STOP')
+  const symProg: any = {
+    steps: [{ id: 'a', name: '0', initial: true }, { id: 'b', name: '1' }],
+    transitions: [{ id: 't1', from: ['a'], to: ['b'], condition: 'Start*I2' }, { id: 't2', from: ['b'], to: ['a'], condition: 'Stop' }],
+  }
+  const symDet = detectGrafcetIo(symProg, (id) => (id === 'a' ? '0' : '1'))
+  check('deteção: I2 antes das variáveis simbólicas START e STOP', symDet.inputs.map((i) => i.address).join() === 'I2,START,STOP' && symDet.inputs.map((i) => i.symbol).join() === 'false,true,true')
+  check('deteção: maxInput ignora variáveis simbólicas', symDet.maxInput === 2)
 }
 
 // ---- GRAFCET: seleção múltipla, alinhamento e copiar/colar ----
