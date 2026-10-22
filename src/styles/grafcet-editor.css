@@ -268,7 +268,8 @@
 .grafcet-form fieldset { border:1px solid #dce4ef; border-radius:5px; padding:6px; display:flex; flex-direction:column; gap:5px; }
 .grafcet-form legend { padding:0 4px; font-weight:600; }
 .grafcet-inline { display:flex; gap:6px; align-items:center; }
-.grafcet-action-row { display:grid; grid-template-columns:1fr 1fr auto; gap:3px; }
+/* Linha de ação do painel: tipo + botões na 1.ª linha; saída + condição na 2.ª; tempo (D/L) na 3.ª */
+.grafcet-action-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 28px 28px; gap:5px; align-items:center; }
 .grafcet-action-row small { grid-column:1 / -1; }
 .grafcet-danger { color:#b02a36; align-self:start; }
 .grafcet-hint { color:var(--dx-ink-3); font-size:10px; line-height:1.45; }
@@ -1664,3 +1665,21 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 
 /* Puxador «arrastar para ligar» (etapas e transições): fio verde até à etapa de destino. */
 .grafcet-link-drag-handle:hover circle:first-of-type { fill:#15803d; }
+
+/* ===== Ações: linha do painel de propriedades (sem cortes) ===== */
+.grafcet-action-row .grafcet-action-kind { grid-column: 1 / 3; grid-row: 1; width: 100%; text-overflow: ellipsis; }
+.grafcet-action-row .grafcet-action-edit,
+.grafcet-action-row .grafcet-action-remove { grid-row: 1; height: 28px; min-width: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; border: 1px solid #d5deeb; background: #fff; cursor: pointer; }
+.grafcet-action-row .grafcet-action-edit { grid-column: 3; color: #1d4ed8; }
+.grafcet-action-row .grafcet-action-edit:hover { background: #dbeafe; border-color: #93c5fd; }
+.grafcet-action-row .grafcet-action-remove { grid-column: 4; font-size: 16px; }
+.grafcet-action-row .grafcet-action-remove:hover { border-color: #fca5a5; }
+.grafcet-action-row .grafcet-action-address { grid-column: 1; grid-row: 2; min-width: 0; width: 100%; }
+.grafcet-action-row .grafcet-action-condition { grid-column: 2 / 5; grid-row: 2; min-width: 0; width: 100%; }
+.grafcet-action-row .grafcet-time { grid-column: 1 / -1; grid-row: 3; }
+.grafcet-action-row .dc-input:focus-visible,
+.grafcet-action-row button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+
+/* ===== Ações: ligações etapa → ação no diagrama ===== */
+.grafcet-action-link { transition: stroke .12s ease, stroke-width .12s ease; }
+.grafcet-action-link.is-on { filter: drop-shadow(0 0 2px rgba(22, 163, 74, .45)); }

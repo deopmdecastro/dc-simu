@@ -77,6 +77,25 @@ const ACTION_QUALIFIER_W = 32
 const ACTION_PITCH = 38
 const ACTION_FREE_W = ACTION_W
 const ACTION_FREE_H = ACTION_H
+/** Distância do eixo da etapa à caixa da ação anexada (a coluna de ações acompanha a etapa). */
+const ACTION_OFFSET_X = ACTION_X - SPINE_X
+/** Desvio vertical da 1.ª ação: o seu centro fica alinhado com a ligação que sai da etapa (linha reta). */
+const ACTION_TOP_OFFSET = (STEP_H - ACTION_H) / 2
+/** Distância do barramento vertical de ligação à caixa da ação. */
+const ACTION_BUS_GAP = 24
+
+/**
+ * Ligação ortogonal etapa → ação com cantos arredondados:
+ * sai de (x1, y1), desce/sobe pelo barramento em `busX` e entra em (x2, y2).
+ * Reta quando os dois extremos estão à mesma altura.
+ */
+function actionLinkPath(x1: number, y1: number, busX: number, y2: number, x2: number, radius = 8): string {
+  const dy = y2 - y1
+  if (Math.abs(dy) < 1.5) return `M ${x1} ${y1} H ${x2}`
+  const dir = dy > 0 ? 1 : -1
+  const r = Math.max(0, Math.min(radius, Math.abs(dy) / 2, Math.abs(busX - x1), Math.abs(x2 - busX)))
+  return `M ${x1} ${y1} H ${busX - r} Q ${busX} ${y1} ${busX} ${y1 + dir * r} V ${y2 - dir * r} Q ${busX} ${y2} ${busX + r} ${y2} H ${x2}`
+}
 const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: string; name: string; detail: string }> }> = [
   {
     group: 'Etapas e ligações',
@@ -1020,7 +1039,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     if (!step) return { x: ACTION_X, y: cursorY + 46 }
     if (actionDragPos?.id === actionId) return { x: actionDragPos.x, y: actionDragPos.y }
     const index = actionsOf(step).findIndex((a) => a.id === actionId)
-    return { x: ACTION_X, y: stepY(stepId) + Math.max(index, 0) * ACTION_PITCH }
+    return { x: stepX(stepId) + ACTION_OFFSET_X, y: stepY(stepId) + ACTION_TOP_OFFSET + Math.max(index, 0) * ACTION_PITCH }
   }
 
   freeActions.forEach((a) => {
@@ -3454,15 +3473,22 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           {actionDropStep === step.id && (
                             <>
                               <path
-                                d={`M 183 ${y + 27} H 330 V ${y + actionsOf(step).length * ACTION_PITCH + ACTION_H / 2}`}
+                                d={actionLinkPath(
+                                  SPINE_X + 32,
+                                  y + STEP_H / 2,
+                                  ACTION_X - ACTION_BUS_GAP,
+                                  y + ACTION_TOP_OFFSET + actionsOf(step).length * ACTION_PITCH + ACTION_H / 2,
+                                  ACTION_X
+                                )}
                                 fill="none"
                                 stroke="#2563eb"
                                 strokeWidth="2"
                                 strokeDasharray="4 3"
+                                strokeLinecap="round"
                               />
                               <rect
                                 x={ACTION_X}
-                                y={y + actionsOf(step).length * ACTION_PITCH}
+                                y={y + ACTION_TOP_OFFSET + actionsOf(step).length * ACTION_PITCH}
                                 width={ACTION_W}
                                 height={ACTION_H}
                                 rx="3"
@@ -3473,7 +3499,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                               />
                               <text
                                 x={ACTION_X + ACTION_W / 2}
-                                y={y + actionsOf(step).length * ACTION_PITCH + 19}
+                                y={y + ACTION_TOP_OFFSET + actionsOf(step).length * ACTION_PITCH + 19}
                                 textAnchor="middle"
                                 fill="#1d4ed8"
                                 fontSize="11"
@@ -3691,16 +3717,56 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   const y = stepY(step.id)
                   const isThisStepSelected = isStepSelected(step.id)
 
-                  const actionX = ACTION_X
+                  // A coluna de ações acompanha o eixo real da etapa (etapas movidas/fixadas ou em colunas paralelas).
+                  const stepCx = stepX(step.id)
+                  const actionX = stepCx + ACTION_OFFSET_X
                   const actionW = ACTION_W
                   const actionH = ACTION_H
                   const qualifierW = ACTION_QUALIFIER_W
+                  const linkX = stepCx + 32
+                  const linkY = y + STEP_H / 2
+                  const busX = actionX - ACTION_BUS_GAP
+                  const slotTop = (index: number) => y + ACTION_TOP_OFFSET + index * ACTION_PITCH
+
+                  // Ligações etapa → ação: camada própria (as realçadas por cima das neutras, sem mistura de cores).
+                  const linkLayer = actions
+                    .map((action, index) => {
+                      const dragging = full && actionDragPos?.id === action.id
+                      if (dragging) return null
+                      const selected = isActionSelected(action.id)
+                      const on = !!table[action.address]
+                      return {
+                        key: action.id,
+                        d: actionLinkPath(linkX, linkY, busX, slotTop(index) + actionH / 2, actionX),
+                        rank: selected ? 2 : on ? 1 : 0,
+                      }
+                    })
+                    .filter((link): link is { key: string; d: string; rank: number } => link !== null)
+                    .sort((a, b) => a.rank - b.rank)
+                  const anchorRank = linkLayer.reduce((max, link) => Math.max(max, link.rank), 0)
+                  const linkColor = (rank: number) => (rank === 2 ? '#2563eb' : rank === 1 ? '#16a34a' : '#263d59')
 
                   return (
                     <g key={`step-actions-${step.id}`}>
+                      <g className="grafcet-action-links" pointerEvents="none">
+                        {linkLayer.map((link) => (
+                          <path
+                            key={link.key}
+                            className={`grafcet-action-link ${link.rank === 2 ? 'is-selected' : link.rank === 1 ? 'is-on' : ''}`}
+                            d={link.d}
+                            fill="none"
+                            stroke={linkColor(link.rank)}
+                            strokeWidth={link.rank ? 2.5 : 1.5}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        ))}
+                        {/* Ponto de ancoragem na etapa */}
+                        <circle cx={linkX} cy={linkY} r="3" fill={linkColor(anchorRank)} />
+                      </g>
                       {actions.map((action, actionIndex) => {
                         const dragOverride = full && actionDragPos?.id === action.id ? actionDragPos : null
-                        const actionY = dragOverride ? dragOverride.y : y + actionIndex * ACTION_PITCH
+                        const actionY = dragOverride ? dragOverride.y : slotTop(actionIndex)
                         const renderX = dragOverride ? dragOverride.x : actionX
                         const actionOn = !dragOverride && !!table[action.address]
                         const isThisActionSelected = isActionSelected(action.id)
@@ -3742,15 +3808,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             tabIndex={0}
                             aria-label={`Ação ${action.address || action.variable || 'ação'}${isThisActionSelected ? ' selecionada' : ''} — arraste para mover ou desanexar`}
                           >
-                            {/* Linha conectora da etapa até esta ação (some durante o arrasto) */}
-                            {!dragOverride && (
-                              <path
-                                d={`M 183 ${y + 27} H 305 V ${actionY + actionH / 2} H ${renderX}`}
-                                fill="none"
-                                stroke={strokeColor}
-                                strokeWidth={isThisActionSelected || actionOn ? 2.5 : 1.5}
-                              />
-                            )}
+                            {/* A linha conectora etapa → ação é desenhada na camada .grafcet-action-links (some durante o arrasto) */}
 
                             {/* Ponto LED verde pulsante quando a ação está energizada */}
                             {actionOn && (
@@ -3925,7 +3983,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         >
                           <rect
                             x={actionX}
-                            y={y + actions.length * 38 + 4}
+                            y={slotTop(actions.length) + 4}
                             width="90"
                             height="22"
                             rx="4"
@@ -3936,7 +3994,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           />
                           <text
                             x={actionX + 45}
-                            y={y + actions.length * 38 + 19}
+                            y={slotTop(actions.length) + 19}
                             textAnchor="middle"
                             fill="#1d4ed8"
                             fontSize="10.5"
@@ -4043,7 +4101,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
                       {/* Dica contextual */}
                       {full && (isThisActionHovered || isThisActionSelected) && (
-                        <text x={x + 46} y={y - 20} fill="#b45309" fontSize="9.5" fontStyle="italic">
+                        <text x={x + 2} y={y + ACTION_FREE_H + 15} fill="#b45309" fontSize="9.5" fontStyle="italic" pointerEvents="none">
                           arraste sobre uma etapa para ligar
                         </text>
                       )}
@@ -4628,10 +4686,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             ))}
                           </select>
                           <input
-                            className="dc-input"
+                            className="dc-input grafcet-action-address"
                             list="grafcet-action-addresses"
                             aria-label={`Endereço da ação ${actionIndex + 1}`}
-                            placeholder="Q1"
+                            title="Saída (Q) ou memória (M) comandada"
+                            placeholder="Saída Q1"
                             value={action.address || action.variable || ''}
                             onChange={(event) =>
                               patchAction(selectedStep, action, {
@@ -4641,10 +4700,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             }
                           />
                           <input
-                            className="dc-input"
+                            className="dc-input grafcet-action-condition"
                             aria-label={`Condição da ação ${actionIndex + 1}`}
+                            title="Condição de execução (1 = sempre)"
                             list="grafcet-condition-signals"
-                            placeholder="1"
+                            placeholder="Condição (1)"
                             value={action.condition}
                             onChange={(event) => patchAction(selectedStep, action, { condition: event.target.value })}
                           />
@@ -4668,8 +4728,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           )}
                           <button
                             type="button"
-                            className="dc-btn"
-                            style={{ fontSize: '11px', padding: '1px 5px', minWidth: '22px' }}
+                            className="dc-btn grafcet-action-edit"
                             title="Editar propriedades da ação"
                             aria-label={`Editar propriedades da ação ${actionIndex + 1}`}
                             onClick={(e) => {
@@ -4681,6 +4740,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           </button>
                           <button
                             type="button"
+                            className="grafcet-action-remove"
                             title="Remover ação"
                             aria-label={`Remover ação ${actionIndex + 1}`}
                             onClick={(e) => {
