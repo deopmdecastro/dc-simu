@@ -1683,3 +1683,31 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 /* ===== Ações: ligações etapa → ação no diagrama ===== */
 .grafcet-action-link { transition: stroke .12s ease, stroke-width .12s ease; }
 .grafcet-action-link.is-on { filter: drop-shadow(0 0 2px rgba(22, 163, 74, .45)); }
+
+/* ===== Painel: linhas da lista de etapas (setas ↑↓ sem emenda) =====
+   As regras genéricas `.grafcet-entity-list button` davam fundo, borda e padding
+   às setas; aqui a linha inteira é um só bloco e só o hover mostra os botões. */
+.grafcet-step-row { gap: 2px; padding-right: 3px; transition: background .12s ease, border-color .12s ease; }
+.grafcet-step-row:hover:not(.is-active) { background: #eaf0fa; }
+.grafcet-step-row > button { border: 0; background: transparent; }
+.grafcet-step-row > button:first-child { padding: 9px 10px; border-radius: 6px; }
+.grafcet-step-row > button:not(:first-child) { padding: 0; display: grid; place-items: center; font-size: 14px; line-height: 1; }
+.grafcet-step-row > button:hover:not(:disabled) { background: rgba(37, 99, 235, .12); }
+.grafcet-step-row > button:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+.grafcet-step-row.is-active > button:not(:first-child):hover:not(:disabled) { background: rgba(37, 99, 235, .2); }
+
+/* ===== Painel: estado da simulação fixo no fundo =====
+   Passa a ser uma barra opaca de largura total, com sombra para cima: o conteúdo
+   que rola por baixo deixa de parecer cortado a meio. */
+.grafcet-full .grafcet-live-status {
+  bottom: -18px;
+  margin: 0 -18px -18px;
+  padding: 10px 18px 12px;
+  border-top: 1px solid #dce4ef;
+  background: #fff;
+  box-shadow: 0 -8px 12px -8px rgba(31, 43, 74, .14);
+  z-index: 2;
+}
+@media (max-width: 800px) {
+  .grafcet-full .grafcet-live-status { bottom: -12px; margin: 0 -12px -12px; padding: 8px 12px 10px; }
+}
