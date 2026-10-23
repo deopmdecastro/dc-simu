@@ -215,3 +215,80 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
   .grafcet-full .grafcet-toolbox-restore { display: none; }
   .grafcet-palette-tool span, .grafcet-sim-tool span { display: inline; }
 }
+
+/* ---------------------------------------------------------------------------
+   GRAFCET: componentes numa modal (≤1199px) · painel ampliável · modelos.
+--------------------------------------------------------------------------- */
+@media (max-width: 1199px) {
+  .grafcet-full .grafcet-toolbox-restore { display: none; }
+  .grafcet-full .grafcet-toolbox-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 10000; background: #0f172a66; backdrop-filter: blur(2px);
+  }
+  .grafcet-designer.grafcet-full .grafcet-toolbox {
+    position: fixed; inset: auto; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(560px, calc(100vw - 24px)); height: auto; max-height: min(80dvh, 660px);
+    border: 1px solid #cbd5e1; border-radius: 16px; box-shadow: 0 24px 60px #0f172a40; overflow: hidden; z-index: 10001;
+  }
+  .grafcet-full .grafcet-toolbox-head { min-height: 58px; padding-left: 16px; }
+  .grafcet-full .grafcet-toolbox-head button { font-size: 0; border-radius: 10px; }
+  .grafcet-full .grafcet-toolbox-head button::after { content: '✕'; font-size: 16px; }
+  .grafcet-full .grafcet-toolbox-list section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0 14px; }
+  .grafcet-full .grafcet-toolbox-list section h3 { grid-column: 1 / -1; margin: 4px 0 0; }
+  .grafcet-full .grafcet-toolbox-item { min-height: 58px; height: 100%; }
+  .grafcet-full .grafcet-toolbox-tip { display: block; margin: 0; padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px)); font-size: 11px; border-top: 1px solid #e5eaf3; }
+}
+@media (max-width: 420px) {
+  .grafcet-full .grafcet-toolbox-list section { grid-template-columns: 1fr; }
+}
+.grafcet-properties-tall { display: none; }
+@media (max-width: 800px) {
+  .grafcet-properties-tall {
+    order: 3; display: inline-grid; place-items: center; flex: none; width: 38px; height: 38px;
+    border: 1px solid #c9d8ee; border-radius: 8px; background: #fff; color: #2455d8;
+  }
+  .grafcet-full .grafcet-properties.is-open.is-tall { max-height: 84%; }
+  .grafcet-full .grafcet-properties .grafcet-live-status { display: none; }
+  .grafcet-canvas-hud { padding: 3px 5px; }
+  .grafcet-canvas-hud button { min-width: 34px; min-height: 34px; }
+  .grafcet-simbar { position: sticky; top: 0; z-index: 3; box-shadow: 0 6px 10px -8px #0f172a33; }
+}
+
+/* Modelos prontos */
+.gtpl-backdrop { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; background: #0f172a66; backdrop-filter: blur(2px); }
+.gtpl-dialog { display: flex; flex-direction: column; width: min(680px, 100%); max-height: min(86dvh, 760px); border-radius: 16px; background: #fff; box-shadow: 0 24px 60px #0f172a40; overflow: hidden; outline: 0; }
+.gtpl-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px 10px; }
+.gtpl-head strong { display: block; font-size: 16px; color: #1e293b; }
+.gtpl-head small { color: #64748b; font-size: 12px; }
+.gtpl-close { width: 40px; height: 40px; border: 1px solid #dce4ef; border-radius: 10px; background: #f8fafc; color: #475569; font-size: 15px; }
+.gtpl-tools { display: grid; gap: 8px; padding: 0 18px 10px; border-bottom: 1px solid #e5eaf3; }
+.gtpl-search { width: 100%; min-height: 40px; font-size: 16px; }
+.gtpl-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.gtpl-chips::-webkit-scrollbar { display: none; }
+.gtpl-chips button { flex: none; min-height: 34px; padding: 0 12px; border: 1px solid #dce4ef; border-radius: 999px; background: #fff; color: #475569; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.gtpl-chips button.is-active { background: #2455d8; border-color: #2455d8; color: #fff; }
+.gtpl-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 18px calc(16px + env(safe-area-inset-bottom, 0px)); }
+.gtpl-group h3 { display: flex; flex-direction: column; gap: 1px; margin: 16px 0 8px; font-size: 13px; color: #25344c; }
+.gtpl-group h3 small { font-weight: 400; font-size: 11.5px; color: #64748b; }
+.gtpl-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
+.gtpl-card-main { min-width: 0; }
+.gtpl-card-main strong { font-size: 13.5px; color: #0f172a; }
+.gtpl-card-main p { margin: 3px 0 8px; font-size: 12px; line-height: 1.4; color: #64748b; }
+.gtpl-meta { display: flex; flex-wrap: wrap; gap: 5px; }
+.gtpl-meta span { padding: 2px 8px; border-radius: 999px; background: #e8eef9; color: #3b4a63; font-size: 10.5px; font-weight: 600; }
+.gtpl-meta .gtpl-level.is-1 { background: #dcfce7; color: #166534; }
+.gtpl-meta .gtpl-level.is-2 { background: #fef3c7; color: #92400e; }
+.gtpl-meta .gtpl-level.is-3 { background: #fee2e2; color: #991b1b; }
+.gtpl-load { flex: none; min-height: 40px; }
+.gtpl-confirm { flex: none; display: grid; gap: 6px; justify-items: end; }
+.gtpl-confirm small { color: #92400e; font-size: 11px; font-weight: 600; }
+.gtpl-confirm > div { display: flex; gap: 6px; }
+.gtpl-confirm .dc-btn { min-height: 38px; }
+.gtpl-empty { padding: 28px 8px; text-align: center; color: #64748b; font-size: 13px; }
+@media (max-width: 640px) {
+  .gtpl-backdrop { align-items: flex-end; padding: 0; }
+  .gtpl-dialog { width: 100%; max-height: 90dvh; border-radius: 18px 18px 0 0; }
+  .gtpl-card { flex-direction: column; align-items: stretch; }
+  .gtpl-load, .gtpl-confirm { width: 100%; }
+  .gtpl-confirm { justify-items: stretch; }
+  .gtpl-confirm > div { justify-content: flex-end; }
+}

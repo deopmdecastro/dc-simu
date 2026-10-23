@@ -28,6 +28,7 @@ import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
 import { renderConditionTspans } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
 import GrafcetSimBar from './GrafcetSimBar'
+import GrafcetTemplatesDialog from './GrafcetTemplatesDialog'
 import { grafcetToLadder } from './toLadder'
 import { collectUsedAddresses } from '../ladder/ladderEngine'
 import {
@@ -347,6 +348,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const selectedAction = selectedStep ? (actionsOf(selectedStep).find((a) => a.id === selectedActionId) ?? null) : null
   /** Mobile: Propriedades é uma gaveta recolhida; abre ao selecionar algo (no desktop é sempre visível). */
   const [propsOpen, setPropsOpen] = useState(false)
+  const [propsTall, setPropsTall] = useState(false)
   const propsFirstRun = useRef(true)
   useEffect(() => {
     if (propsFirstRun.current) { propsFirstRun.current = false; return }
@@ -4351,7 +4353,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
         {/* PAINEL DE PROPRIEDADES À DIREITA (Estrutura e Abas Clássicas: Etapas, Transições, Simulador, Diagnóstico) */}
         {full && (
-          <aside className={`grafcet-properties ${propsOpen ? 'is-open' : ''}`}>
+          <aside className={`grafcet-properties ${propsOpen ? 'is-open' : ''} ${propsTall ? 'is-tall' : ''}`}>
             <div className="grafcet-properties-summary" onClick={() => setPropsOpen((value) => !value)}>
               <div>
                 <strong>
@@ -4382,6 +4384,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   </small>
                 )}
               </div>
+              {propsOpen && (
+                <button type="button" className="grafcet-properties-tall" aria-pressed={propsTall} aria-label={propsTall ? 'Reduzir painel' : 'Ampliar painel'} title={propsTall ? 'Reduzir painel' : 'Ampliar painel'}
+                  onClick={(event) => { event.stopPropagation(); setPropsTall((value) => !value) }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    {propsTall ? <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" /> : <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />}
+                  </svg>
+                </button>
+              )}
               <button type="button" className="grafcet-properties-toggle" aria-expanded={propsOpen} aria-label={propsOpen ? 'Recolher propriedades' : 'Abrir propriedades'}
                 onClick={(event) => { event.stopPropagation(); setPropsOpen((value) => !value) }}>
                 <IconChevronDown size={14} className={propsOpen ? '' : 'rotate-180'} />
@@ -5140,69 +5150,17 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
       {menu && <GrafcetContextMenu x={menu.x} y={menu.y} items={menuItems()} onClose={closeMenu} />}
 
-      {/* MODAL DE MODELOS INDUSTRIAIS */}
-      {templatesOpen && (
-        <div className="grafcet-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setTemplatesOpen(false) }}>
-          <div className="dc-card" style={{ maxWidth: '540px', width: '100%', padding: '20px', background: 'white' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#1e293b', margin: 0 }}>Modelos de GRAFCET Prontos</h3>
-              <button className="dc-btn" onClick={() => setTemplatesOpen(false)}>✕</button>
-            </div>
-            <p style={{ fontSize: '11.5px', color: '#64748b', marginBottom: '16px' }}>
-              Carregue uma arquitetura padrão para acelerar o desenvolvimento do seu projeto:
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {GRAFCET_TEMPLATES.map((tmpl) => (
-                <div
-                  key={tmpl.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    background: '#f8fafc',
-                  }}
-                >
-                  <div>
-                    <strong style={{ fontSize: '12.5px', color: '#0f172a' }}>{tmpl.name}</strong>
-                    <p style={{ fontSize: '11px', color: '#64748b', margin: '3px 0 0' }}>{tmpl.description}</p>
-                  </div>
-                  <button className="dc-btn-primary dc-btn" onClick={() => loadTemplate(tmpl)}>
-                    Carregar
-                  </button>
-                </div>
-              ))}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 14px',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  background: '#f8fafc',
-                }}
-              >
-                <div>
-                  <strong style={{ fontSize: '12.5px', color: '#0f172a' }}>Exemplo Didático de 3 Etapas</strong>
-                  <p style={{ fontSize: '11px', color: '#64748b', margin: '3px 0 0' }}>Espera, Motor A (Q1) e Motor B (Q2) em sequência fechada.</p>
-                </div>
-                <button
-                  className="dc-btn"
-                  onClick={() => {
-                    loadExample()
-                    setTemplatesOpen(false)
-                  }}
-                >
-                  Carregar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* MODAL DE MODELOS PRONTOS */}
+      <GrafcetTemplatesDialog
+        open={templatesOpen}
+        templates={GRAFCET_TEMPLATES}
+        onClose={() => setTemplatesOpen(false)}
+        onLoad={loadTemplate}
+        onLoadExample={() => {
+          loadExample()
+          setTemplatesOpen(false)
+        }}
+      />
 
       {toast && (
         <div key={toast.id} className="ladder-toast grafcet-toast" role="status" aria-live="polite">
