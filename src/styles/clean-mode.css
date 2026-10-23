@@ -291,3 +291,88 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
   .gtpl-confirm { justify-items: stretch; }
   .gtpl-confirm > div { justify-content: flex-end; }
 }
+
+/* GRAFCET: canvas e inspetor partilham a largura em mobile, sem empurrar o painel
+   para fora do viewport; a gaveta de propriedades mantém o seu próprio scroll. */
+@media (max-width: 800px) {
+  .grafcet-full .grafcet-designer-body {
+    flex-direction: column;
+    min-height: 0;
+  }
+  .grafcet-full .grafcet-canvas {
+    flex: 1 1 0;
+    width: 100%;
+    min-width: 0;
+    min-height: 180px;
+  }
+  .grafcet-full .grafcet-properties {
+    flex: 0 1 48%;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-height: 48%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-top: 1px solid #dce4ef;
+    border-left: 0;
+  }
+  .grafcet-full .grafcet-properties:not(.is-open) {
+    flex: 0 0 auto;
+  }
+  .grafcet-full .grafcet-properties.is-open.is-tall {
+    flex-basis: 72%;
+    max-height: 84%;
+  }
+  .grafcet-full .grafcet-properties-summary {
+    flex: none;
+  }
+  .grafcet-full .grafcet-simbar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+  }
+  .grafcet-full .grafcet-signals-toolbar input {
+    min-height: 40px;
+  }
+  .grafcet-full .grafcet-signals-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .grafcet-full .grafcet-signals-chips::-webkit-scrollbar {
+    display: none;
+  }
+  .grafcet-full .grafcet-signals-chips button,
+  .grafcet-full .grafcet-signal-use,
+  .grafcet-full .grafcet-signal-add-comment {
+    min-height: 36px;
+  }
+  .grafcet-full .grafcet-signal-name,
+  .grafcet-full .grafcet-signal-comment {
+    height: 36px;
+  }
+  .grafcet-full .grafcet-signal-row:not(:hover):not(:focus-within) .grafcet-signal-add-comment {
+    opacity: 1;
+    height: 36px;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 600px) {
+  .grafcet-full .grafcet-properties {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+  .grafcet-full .grafcet-issue {
+    grid-template-columns: 24px minmax(0, 1fr);
+    min-height: 44px;
+    gap: 8px;
+    padding: 9px;
+  }
+  .grafcet-full .grafcet-issue em {
+    grid-column: 2;
+  }
+}

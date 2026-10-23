@@ -4284,7 +4284,28 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             <GrafcetMinimap
               width={width}
               height={height}
-              nodes={steps.map((step) => ({ x: stepX(step.id), y: stepY(step.id), active: runtime.active.includes(step.id), selected: isStepSelected(step.id) }))}
+              nodes={steps.map((step, index) => {
+                const stepNumber = getStepDisplayInfo(step, index).stepNumber
+                return {
+                  x: stepX(step.id),
+                  y: stepY(step.id),
+                  active: runtime.active.includes(step.id),
+                  selected: isStepSelected(step.id),
+                  identifier: String(stepNumber),
+                  label: `Etapa ${stepNumber}`,
+                }
+              })}
+              links={transitions.flatMap((transition) =>
+                transition.from.flatMap((fromId) =>
+                  transition.to.flatMap((toId) => {
+                    const from = stepById.get(fromId)
+                    const to = stepById.get(toId)
+                    return from && to
+                      ? [{ from: { x: stepX(fromId), y: stepY(fromId) }, to: { x: stepX(toId), y: stepY(toId) } }]
+                      : []
+                  }),
+                ),
+              )}
               view={{ x: -position.x / scale, y: -position.y / scale, w: viewport.width / scale, h: viewport.height / scale }}
               onNavigate={(wx, wy) => {
                 setZoom(scale)
@@ -5047,7 +5068,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             {/* ABA DIAGNÓSTICO */}
             {tab === 'diagnostics' && (
               <div className="grafcet-diagnostics">
-                <div className={`grafcet-diagnostic-summary ${issues.length ? 'has-issues' : 'is-valid'}`}>
+                <div className={`grafcet-diagnostic-summary ${issues.length ? 'has-issues' : 'is-valid'}`} role="status" aria-live="polite">
                   <strong>
                     {issues.length
                       ? `${errorCount} erro${errorCount === 1 ? '' : 's'} · ${issues.length - errorCount} aviso${
