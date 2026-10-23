@@ -148,9 +148,17 @@ export default function GrafcetSimPanel({
 
       <section className="gsim-section" aria-label="Entradas usadas nas transições">
         <header className="gsim-head">
-          <div>
-            <h4>Entradas detetadas</h4>
-            <p>{detection.inputs.length ? `${detection.inputs.length} usada${detection.inputs.length === 1 ? '' : 's'} nas condições das transições` : 'As entradas e variáveis aparecem aqui quando as usar numa condição.'}</p>
+          <div className="gsim-heading">
+            <span className="gsim-heading-icon is-input" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="2" fill="currentColor" />
+                <path d="M7.8 7.8a6 6 0 0 0 0 8.4m8.4-8.4a6 6 0 0 1 0 8.4M4.5 4.5a10.6 10.6 0 0 0 0 15m15-15a10.6 10.6 0 0 1 0 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </span>
+            <div>
+              <h4>Entradas detetadas</h4>
+              <p>{detection.inputs.length ? `${detection.inputs.length} usada${detection.inputs.length === 1 ? '' : 's'} nas condições das transições` : 'As entradas e variáveis aparecem aqui quando as usar numa condição.'}</p>
+            </div>
           </div>
           <button type="button" className="gsim-link" onClick={clear} title="Desligar todas as entradas">
             Desligar tudo
@@ -204,9 +212,16 @@ export default function GrafcetSimPanel({
 
       <section className="gsim-section" aria-label="Transições">
         <header className="gsim-head">
-          <div>
-            <h4>Transições</h4>
-            <p>{detection.transitions.length ? `${detection.transitions.length} detetada${detection.transitions.length === 1 ? '' : 's'}` : 'Ainda não há transições.'}</p>
+          <div className="gsim-heading">
+            <span className="gsim-heading-icon is-transition" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M4 7h15m0 0-3.5-3.5M19 7l-3.5 3.5M20 17H5m0 0 3.5-3.5M5 17l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <div>
+              <h4>Transições</h4>
+              <p>{detection.transitions.length ? `${detection.transitions.length} detetada${detection.transitions.length === 1 ? '' : 's'}` : 'Ainda não há transições.'}</p>
+            </div>
           </div>
           {detection.unnamed > 0 && (
             <button type="button" className="gsim-btn" onClick={autoNames} title="Dá um nome a cada transição sem nome (ex.: T2 · 1 → 2)">

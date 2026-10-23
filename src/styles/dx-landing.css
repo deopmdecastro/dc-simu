@@ -770,6 +770,18 @@ html:has(.dx-landing) {
   width: 168px;
   flex-basis: 168px;
 }
+.dx-ladder-demo .ladder-element-pane {
+  width: 148px;
+  flex: 0 0 148px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #d9e0ea;
+  background: #fff;
+}
+.dx-ladder-demo .ladder-element-pane .ladder-pane-heading {
+  padding-inline: 9px;
+}
 .dx-ladder-demo .ladder-project-tree {
   flex: 0 0 auto;
   padding: 8px 5px;
@@ -1807,6 +1819,9 @@ html:has(.dx-landing) {
     height: 600px;
   }
   .dx-ladder-demo .ladder-project-pane {
+    display: none;
+  }
+  .dx-ladder-demo .ladder-element-pane {
     display: none;
   }
   .dx-ladder-demo .ladder-main-pane {

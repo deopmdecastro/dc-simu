@@ -2639,14 +2639,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <div><span>Yaw <strong>{cameraStats.yaw.toFixed(1)}°</strong></span><span>Pitch <strong>{cameraStats.pitch.toFixed(1)}°</strong></span><span>Zoom <strong>{cameraStats.zoom}%</strong></span></div>
       </div>
 
-      {!components.length && <div className="panel3d-empty-overlay absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-        <div className="dc-editor-empty panel3d-empty-card pointer-events-auto">
-          <span className="dc-empty-kicker">Esquema · Visualização 3D</span>
-          <h2>Visualize o esquema em 3D</h2>
-          <p>O projeto começa vazio. Adicione componentes pela Biblioteca; o mesmo equipamento, bornes e cabos aparecerão aqui e no Esquema 2D, à escala real.</p>
-        </div>
-      </div>}
-
       {/* overlay HTML normal (fora do Canvas) — evita que o drei <Html> projete o botão para o centro do ecrã */}
       <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
         {showHints && (

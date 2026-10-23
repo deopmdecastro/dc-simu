@@ -23,7 +23,6 @@
 .ladder-rung-action.is-danger:hover:not(:disabled) { color:#c62828; background:#fff1f1; }
 .ladder-rung-action:disabled { opacity:.3; cursor:not-allowed; }
 .ladder-rung-action:focus-visible { outline:2px solid var(--ladder-blue); outline-offset:1px; }
-.ladder-rung-card.is-active::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--ladder-blue); z-index:1; }
 .ladder-rung-card.is-active .ladder-rung-header { background:linear-gradient(180deg,#e8effc 0%,#d6e3fa 100%); }
 .ladder-rung-card.is-disabled .ladder-rung-body,
 .ladder-rung-card.is-disabled .lnet-strip { opacity:.5; filter:grayscale(.6); }

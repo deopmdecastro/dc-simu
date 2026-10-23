@@ -4284,28 +4284,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             <GrafcetMinimap
               width={width}
               height={height}
-              nodes={steps.map((step, index) => {
-                const stepNumber = getStepDisplayInfo(step, index).stepNumber
-                return {
-                  x: stepX(step.id),
-                  y: stepY(step.id),
-                  active: runtime.active.includes(step.id),
-                  selected: isStepSelected(step.id),
-                  identifier: String(stepNumber),
-                  label: `Etapa ${stepNumber}`,
-                }
-              })}
-              links={transitions.flatMap((transition) =>
-                transition.from.flatMap((fromId) =>
-                  transition.to.flatMap((toId) => {
-                    const from = stepById.get(fromId)
-                    const to = stepById.get(toId)
-                    return from && to
-                      ? [{ from: { x: stepX(fromId), y: stepY(fromId) }, to: { x: stepX(toId), y: stepY(toId) } }]
-                      : []
-                  }),
-                ),
-              )}
+              sourceSvgRef={svgRef}
               view={{ x: -position.x / scale, y: -position.y / scale, w: viewport.width / scale, h: viewport.height / scale }}
               onNavigate={(wx, wy) => {
                 setZoom(scale)

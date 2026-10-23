@@ -337,13 +337,6 @@ function EditorAnatomy() {
             <div className="tree-row tree-depth-2"><IconFile size={12} className="tree-glyph tree-glyph-block" /><span className="tree-label">FC1</span><small>motor</small></div>
             <div className="tree-row tree-depth-1"><IconFile size={12} className="tree-glyph tree-glyph-data" /><span className="tree-label">Tabela de tags</span></div>
           </div>
-          <div className="ladder-tools-heading">ELEMENTOS</div>
-          <div className="dx-ladder-elements" aria-hidden="true">
-            <span>—| |—<small>Contato NA</small></span>
-            <span>—|/|—<small>Contato NF</small></span>
-            <span>—( )—<small>Bobina</small></span>
-            <span>[ TON ]<small>Temporizador</small></span>
-          </div>
         </aside>
 
         <main className="ladder-main-pane">
@@ -417,6 +410,17 @@ function EditorAnatomy() {
             </div>
           </div>
         </main>
+
+        <aside className="ladder-element-pane" aria-label="Paleta de elementos Ladder">
+          <div className="ladder-pane-heading"><span>Elementos</span><span>⌄</span></div>
+          <div className="ladder-tools-heading">INSTRUÇÕES</div>
+          <div className="dx-ladder-elements" aria-hidden="true">
+            <span>—| |—<small>Contato NA</small></span>
+            <span>—|/|—<small>Contato NF</small></span>
+            <span>—( )—<small>Bobina</small></span>
+            <span>[ TON ]<small>Temporizador</small></span>
+          </div>
+        </aside>
       </div> : <div className="dx-ladder-panel3d" role="tabpanel" aria-label="Partida direta na Visualização 3D">
         <Suspense fallback={<div className="dx-stage-skeleton" role="status">A carregar componentes reais…</div>}>
           <LandingShowcase

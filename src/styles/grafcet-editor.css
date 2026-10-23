@@ -10,6 +10,8 @@
 .grafcet-help { margin:0; padding:10px 12px; line-height:1.5; background:#edf3ff; border-bottom:1px solid #dce4ef; }
 .grafcet-list { flex:1; min-height:0; overflow:auto; padding:16px 14px; }
 .grafcet-empty { border:1px dashed #a9b9d6; border-radius:8px; padding:24px; text-align:center; color:#68778d; }
+.grafcet-preview .grafcet-empty { display:grid; justify-items:center; gap:8px; margin:8px 12px; padding:24px 20px; }
+.grafcet-preview .grafcet-empty p { margin:0; line-height:1.5; }
 .grafcet-sequence { display:flex; flex-direction:column; align-items:center; }
 .grafcet-step { width:100%; border:2px solid #a6b7ce; border-radius:7px; padding:10px; background:white; display:flex; flex-direction:column; gap:7px; box-shadow:0 2px 5px #263d5910; }
 .grafcet-step.is-active { border-color:var(--dx-run); background:#f0fdf4; }
@@ -1511,14 +1513,110 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   cursor: pointer;
   touch-action: none;
 }
-.grafcet-minimap svg { display: block; margin: 0; background: #f8fafc; border-radius: 4px; }
-.grafcet-minimap-node { fill: #cbd5e1; stroke: #94a3b8; stroke-width: 6; }
-.grafcet-minimap-node.is-active { fill: #86efac; stroke: #16a34a; }
-.grafcet-minimap-node.is-selected { fill: #93c5fd; stroke: #2563eb; }
-.grafcet-minimap-node-label { fill: #172033; font-family: sans-serif; font-weight: 700; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
-.grafcet-minimap-view { fill: rgba(37, 99, 235, 0.08); stroke: #2563eb; stroke-width: 1.5; }
-.grafcet-minimap-link { stroke: #90a2b8; stroke-width: 1.2; opacity: .9; }
+.grafcet-minimap svg { display: block; margin: 0; overflow: hidden; background: #f8fafc; border-radius: 4px; }
+.grafcet-minimap-diagram,
+.grafcet-minimap-diagram * { pointer-events: none !important; }
+.grafcet-minimap-view { fill: rgba(37, 99, 235, 0.045); stroke: #2563eb; stroke-width: 1.5; }
+.grafcet-minimap-expand {
+  position: absolute;
+  top: -34px;
+  right: 0;
+  padding: 5px 9px;
+  color: #1e3a8a;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.grafcet-minimap-expand:hover { background: #eff6ff; border-color: #93c5fd; }
+.grafcet-minimap-expand:focus-visible,
+.grafcet-preview-close:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 @media (max-width: 1180px) { .grafcet-minimap { display: none; } }
+
+.grafcet-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 3vw, 32px);
+  background: rgba(15, 23, 42, 0.68);
+}
+.grafcet-preview-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(1500px, 96vw);
+  height: min(920px, 92vh);
+  min-height: 0;
+  padding: clamp(14px, 2vw, 24px);
+  color: #172033;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(2, 6, 23, 0.32);
+}
+.grafcet-preview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.grafcet-preview-header h2 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.3;
+}
+.grafcet-preview-header p,
+.grafcet-preview-hint {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+.grafcet-preview-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 7px 11px;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font: inherit;
+  cursor: pointer;
+}
+.grafcet-preview-close:hover { background: #eff6ff; border-color: #93c5fd; }
+.grafcet-preview-close span { color: #64748b; font-size: 19px; line-height: 0.8; }
+.grafcet-preview-frame {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  padding: clamp(10px, 2vw, 24px);
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+}
+.grafcet-preview-frame svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.grafcet-preview-hint { margin-top: 10px; }
+@media (max-width: 600px) {
+  .grafcet-preview-dialog { width: 100%; height: min(88vh, 760px); padding: 12px; }
+  .grafcet-preview-header { margin-bottom: 10px; }
+  .grafcet-preview-header h2 { font-size: 15px; }
+  .grafcet-preview-header p { font-size: 11px; }
+}
 
 .grafcet-menu {
   position: fixed;
