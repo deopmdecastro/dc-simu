@@ -121,6 +121,7 @@ export default function Select({ value, defaultValue, onChange, children, classN
         title={title}
         aria-label={rest['aria-label']}
         aria-haspopup="listbox"
+        aria-controls={open ? menuId : undefined}
         aria-expanded={open}
         className={`dcx-select ${open ? 'is-open' : ''} ${className}`}
         style={style}

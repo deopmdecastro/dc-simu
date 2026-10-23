@@ -34,24 +34,65 @@ type ModalProps = {
   className?: string
   bodyClassName?: string
   closeLabel?: string
+  /** Isola atalhos e mantém o foco, incluindo menus Select em portal. */
+  keyboardScope?: boolean
+  onConfirm?: () => void
   children: ReactNode
 }
 
 export default function Modal({
   open, onClose, title, subtitle, icon, width = 560, footer,
-  dismissable = true, className = '', bodyClassName = '', closeLabel = 'Fechar', children,
+  dismissable = true, className = '', bodyClassName = '', closeLabel = 'Fechar', keyboardScope = false, onConfirm, children,
 }: ModalProps) {
   const titleId = useId()
   const boxRef = useRef<HTMLDivElement>(null)
   const lastFocus = useRef<HTMLElement | null>(null)
+  const closeRef = useRef(onClose)
+  const confirmRef = useRef(onConfirm)
+  closeRef.current = onClose
+  confirmRef.current = onConfirm
 
   useEffect(() => {
     if (!open) return
     lastFocus.current = document.activeElement as HTMLElement | null
+    const ownedMenu = () => {
+      const anchor = boxRef.current?.querySelector<HTMLButtonElement>('[aria-haspopup="listbox"][aria-expanded="true"][aria-controls]')
+      const menu = anchor ? document.getElementById(anchor.getAttribute('aria-controls') ?? '') : null
+      return { anchor, menu }
+    }
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && dismissable) { event.preventDefault(); onClose() }
+      const { anchor, menu } = ownedMenu()
+      if (keyboardScope && event.key === 'Escape' && menu && anchor) {
+        event.preventDefault()
+        event.stopPropagation()
+        anchor.click()
+        anchor.focus()
+        return
+      }
+      if (event.key === 'Escape' && dismissable) { event.preventDefault(); if (keyboardScope) event.stopPropagation(); closeRef.current(); return }
+      if (!keyboardScope) return
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.stopPropagation(); if (!menu) confirmRef.current?.(); return }
+      if (event.key === 'Tab') {
+        const nodes = Array.from(boxRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex="0"]') ?? []).filter((node) => node.getClientRects().length > 0)
+        const first = nodes[0]
+        const last = nodes[nodes.length - 1]
+        // O menu está fora da caixa, mas pertence ao seletor deste diálogo.
+        if (menu && document.activeElement && menu.contains(document.activeElement)) {
+          event.preventDefault()
+          anchor?.click()
+          const index = nodes.indexOf(anchor!)
+          nodes[(index + (event.shiftKey ? -1 : 1) + nodes.length) % nodes.length]?.focus()
+        } else if (event.shiftKey && (document.activeElement === first || document.activeElement === boxRef.current)) { event.preventDefault(); last?.focus() }
+        else if (!event.shiftKey && (document.activeElement === last || document.activeElement === boxRef.current)) { event.preventDefault(); first?.focus() }
+      }
+    }
+    const containFocus = (event: FocusEvent) => {
+      if (!keyboardScope || !(event.target instanceof Node)) return
+      const box = boxRef.current
+      if (box && !box.contains(event.target) && !ownedMenu().menu?.contains(event.target)) box.focus()
     }
     window.addEventListener('keydown', onKey, true)
+    if (keyboardScope) document.addEventListener('focusin', containFocus)
     const timer = window.setTimeout(() => {
       const target = boxRef.current?.querySelector<HTMLElement>('[data-autofocus]')
         ?? boxRef.current?.querySelector<HTMLElement>('input, select, textarea, button')
@@ -59,10 +100,11 @@ export default function Modal({
     }, 30)
     return () => {
       window.removeEventListener('keydown', onKey, true)
+      document.removeEventListener('focusin', containFocus)
       window.clearTimeout(timer)
       lastFocus.current?.focus()
     }
-  }, [open, onClose, dismissable])
+  }, [open, dismissable, keyboardScope])
 
   if (!open) return null
 
@@ -78,6 +120,7 @@ export default function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
+        onKeyDown={keyboardScope ? (event) => event.stopPropagation() : undefined}
         className={`dc-modal ${className}`}
         style={{ '--dc-modal-w': `${width}px` } as CSSProperties}
       >
