@@ -1,12 +1,10 @@
 import { type ProjectKind } from './project/kind'
 import { uiAlert, uiConfirm } from './ui/dialogs'
 import { useCatalogStore } from './catalog/registry'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import App from './App'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Logo from './ui/Brand'
 import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight } from './ui/icons'
-import Landing from './landing/Landing'
-import Dashboard, { type User, type Project, type Invite } from './dashboard/Dashboard'
+import type { User, Project, Invite } from './dashboard/Dashboard'
 import { canCaptureCover, captureCover, hasStoredCover } from './three/coverCapture'
 import { useSimStore } from './store/useSimStore'
 import { accountApi } from './auth/accountApi'
@@ -16,13 +14,17 @@ import { askUpdateWithPendingChanges } from './components/UpdatePrompt'
 import { saveAutosave } from './utils/persistence'
 import AccountControls from './components/AccountControls'
 import { AppTopbar, EditorTopbar } from './components/AppTopbar'
-import AdminPanel from './admin/AdminPanel'
-import ContributorPanel from './contrib/ContributorPanel'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { guardedDestination } from './routing/guards'
 import { pageFromPath, projectIdFromPath, ROUTES, type AppPage } from './routing/routes'
 import { IconArrowLeft, IconClose } from './ui/icons'
 import { initSupabaseFromBackend } from './supabase/supabaseClient'
+
+const App = lazy(() => import('./App'))
+const Landing = lazy(() => import('./landing/Landing'))
+const Dashboard = lazy(() => import('./dashboard/Dashboard'))
+const AdminPanel = lazy(() => import('./admin/AdminPanel'))
+const ContributorPanel = lazy(() => import('./contrib/ContributorPanel'))
 
 type Open = { id: string; name: string; revision: number }
 
@@ -38,6 +40,7 @@ export default function Account() {
   const navigate = useNavigate()
   const openRef = useRef<Open | null>(null)
   const page = pageFromPath(location.pathname)
+  const loadingLabel = pageLoadingLabel(page)
   const setPage = useCallback((next: AppPage) => {
     const target = next === 'landing' ? ROUTES.home
       : next === 'login' ? ROUTES.login
@@ -308,7 +311,7 @@ export default function Account() {
     return () => window.removeEventListener('keydown', handle)
   }, [page])
 
-  if (!ready) return <div className="dx" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--dx-bg)' }}><div style={{ textAlign: 'center', display: 'grid', gap: 12, justifyItems: 'center' }}><Logo size={34} /><span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--dx-ink-3)' }}><span className="dx-spin" aria-hidden />A preparar o seu espaço de trabalho…</span></div></div>
+  if (!ready) return <RouteLoading label={loadingLabel} />
 
   if (page === 'editor' && open) return <>
     <EditorTopbar projectName={open.name} dirty={editorDirty} message={message} actions={<>
@@ -318,10 +321,14 @@ export default function Account() {
         errors={notificationErrors} warnings={notificationWarnings} onProjects={() => void leave()}
         onOpenInvites={() => void openInvitations()} onLogout={() => void logout()} />}
     </>} />
-    <div className="dx-editor-in" style={{ height: 'calc(100vh - 42px)' }}><App onBack={() => void leave()} /></div>
+    <div className="dx-editor-in" style={{ height: 'calc(100vh - 42px)' }}>
+      <Suspense fallback={<RouteLoading label={loadingLabel} />}><App onBack={() => void leave()} /></Suspense>
+    </div>
   </>
 
-  if (page === 'landing') return <Landing onAccess={() => { setMessage(''); setPage('login') }} onLogin={() => { setMessage(''); setPage('login') }} />
+  if (page === 'landing') return <Suspense fallback={<RouteLoading label={loadingLabel} />}>
+    <Landing onAccess={() => { setMessage(''); setPage('login') }} onLogin={() => { setMessage(''); setPage('login') }} />
+  </Suspense>
 
   return <main className="account-shell dx">
     {page !== 'login' && user && <AppTopbar user={user} invites={invites}
@@ -330,11 +337,33 @@ export default function Account() {
       onContribute={() => setPage('contribute')} onInvites={() => void openInvitations()}
       onLogout={() => void logout()} />}
     {page === 'login' && <AuthScreen form={form} setForm={setForm} busy={busy} message={message} clearMessage={() => setMessage('')} onSubmit={authenticate} onHome={() => { setMessage(''); setPage('landing') }} />}
-    {page === 'admin' && user?.role === 'admin' && <AdminPanel currentUser={user} invites={invites} onLogout={() => void logout()} onBack={() => setPage('dashboard')} />}
-    {page === 'contribute' && user && <ContributorPanel user={user} onBack={() => setPage('dashboard')} />}
-    {page === 'dashboard' && <Dashboard user={user} projects={projects} invites={invites} loading={!loaded} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove} fetchMembers={fetchMembers} />}
+    {page === 'admin' && user?.role === 'admin' && <Suspense fallback={<RouteLoading label={loadingLabel} />}><AdminPanel currentUser={user} invites={invites} onLogout={() => void logout()} onBack={() => setPage('dashboard')} /></Suspense>}
+    {page === 'contribute' && user && <Suspense fallback={<RouteLoading label={loadingLabel} />}><ContributorPanel user={user} onBack={() => setPage('dashboard')} /></Suspense>}
+    {page === 'dashboard' && <Suspense fallback={<RouteLoading label={loadingLabel} />}><Dashboard user={user} projects={projects} invites={invites} loading={!loaded} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove} fetchMembers={fetchMembers} /></Suspense>}
     {message && page !== 'login' && <div className="dx-toast" role="status">{message}<button onClick={() => setMessage('')} aria-label="Fechar"><IconClose size={11} /></button></div>}
   </main>
+}
+
+function pageLoadingLabel(page: AppPage): string {
+  switch (page) {
+    case 'landing': return 'A carregar a página inicial…'
+    case 'login': return 'A preparar o acesso…'
+    case 'editor': return 'A carregar o editor…'
+    case 'admin': return 'A carregar a administração…'
+    case 'contribute': return 'A carregar a área de contribuição…'
+    case 'dashboard': return 'A preparar os seus projetos…'
+  }
+}
+
+function RouteLoading({ label }: { label: string }) {
+  return <div className="dx" style={{ minHeight: '100%', display: 'grid', placeItems: 'center', background: 'var(--dx-bg)' }}>
+    <div style={{ textAlign: 'center', display: 'grid', gap: 12, justifyItems: 'center' }}>
+      <Logo size={34} />
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--dx-ink-3)' }}>
+        <span className="dx-spin" aria-hidden />{label}
+      </span>
+    </div>
+  </div>
 }
 
 function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHome }: {

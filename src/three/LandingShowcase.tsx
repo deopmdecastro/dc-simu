@@ -1,5 +1,5 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { ContactShadows, Environment, OrbitControls, useGLTF } from '@react-three/drei'
+import { Canvas, useThree } from '@react-three/fiber'
+import { Environment, OrbitControls, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { finishCadMaterial } from './catalogMaterials'
@@ -42,15 +42,6 @@ type CableDefinition = {
   depth: number
   energized: 'plc' | 'motor' | 'stopped' | 'never'
 }
-
-const MODEL_TYPES: ComponentType[] = [
-  'plcSiemensLogo1224RC',
-  'powerSupplyProauto24A',
-  'dualPushButtonNpb22D11',
-  'contactorWegCWC09',
-  'motor3ph',
-  'pilotLightAd22',
-]
 
 const PLACEMENTS: Record<DeviceKey, { type: ComponentType; position: Point3 }> = {
   psu: { type: 'powerSupplyProauto24A', position: [-2.34, 0.56, 0.34] },
@@ -217,35 +208,6 @@ function ComponentModel({ type, position, active = false, lightColor, onClick }:
   )
 }
 
-function EnergyFlow({ curve, color = '#fde047' }: { curve: THREE.Curve<THREE.Vector3>; color?: string }) {
-  const particles = useRef<Array<THREE.Mesh | null>>([])
-  const material = useRef<THREE.MeshBasicMaterial>(null)
-  const count = 6
-
-  useFrame(({ clock }) => {
-    const elapsed = clock.getElapsedTime()
-    if (material.current) material.current.opacity = 0.64 + Math.sin(elapsed * 5) * 0.18
-    for (let index = 0; index < count; index++) {
-      const particle = particles.current[index]
-      if (!particle) continue
-      particle.position.copy(curve.getPoint((elapsed * 0.30 + index / count) % 1))
-      const pulse = 0.86 + Math.sin(elapsed * 7 + index) * 0.18
-      particle.scale.setScalar(pulse)
-    }
-  })
-
-  return (
-    <>
-      {Array.from({ length: count }, (_, index) => (
-        <mesh key={index} ref={(node) => { particles.current[index] = node }} renderOrder={18}>
-          <sphereGeometry args={[0.013, 10, 10]} />
-          <meshBasicMaterial ref={index === 0 ? material : undefined} color={color} transparent opacity={0.76} depthTest depthWrite={false} />
-        </mesh>
-      ))}
-    </>
-  )
-}
-
 function Ferrule({ point, toward, color }: { point: THREE.Vector3; toward: THREE.Vector3; color: string }) {
   const { position, quaternion } = useMemo(() => {
     const direction = toward.clone().sub(point).normalize()
@@ -282,7 +244,7 @@ function DemoCable({ definition, energized }: { definition: CableDefinition; ene
       to.point,
     ]
     const curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.18)
-    return { from, to, curve, line: curve.getPoints(56) }
+    return { from, to, curve }
   }, [definition])
 
   return (
@@ -290,24 +252,21 @@ function DemoCable({ definition, energized }: { definition: CableDefinition; ene
       {/* Cabos físicos: tubos finos com profundidade real. Ao contrário das linhas
           sempre visíveis, ficam corretamente ocultos atrás de equipamentos. */}
       <mesh castShadow receiveShadow>
-        <tubeGeometry args={[geometry.curve, 48, 0.019, 7, false]} />
+        <tubeGeometry args={[geometry.curve, 32, 0.019, 5, false]} />
         <meshStandardMaterial color="#101722" metalness={0.04} roughness={0.42} />
       </mesh>
       <mesh castShadow>
-        <tubeGeometry args={[geometry.curve, 48, 0.014, 7, false]} />
+        <tubeGeometry args={[geometry.curve, 32, 0.014, 5, false]} />
         <meshStandardMaterial color={definition.color} metalness={0.03} roughness={0.34} envMapIntensity={0.8} />
       </mesh>
       {energized && (
-        <>
-          <mesh renderOrder={15}>
-            <tubeGeometry args={[geometry.curve, 48, 0.021, 7, false]} />
-            <meshBasicMaterial color="#fbbf24" transparent opacity={0.12} depthTest depthWrite={false} blending={THREE.AdditiveBlending} />
-          </mesh>
-          <EnergyFlow curve={geometry.curve} />
-        </>
+        <mesh renderOrder={15}>
+          <tubeGeometry args={[geometry.curve, 32, 0.021, 5, false]} />
+          <meshBasicMaterial color="#fbbf24" transparent opacity={0.28} depthTest depthWrite={false} />
+        </mesh>
       )}
-      <Ferrule point={geometry.from.point} toward={geometry.line[1]} color={geometry.from.terminal.color} />
-      <Ferrule point={geometry.to.point} toward={geometry.line[geometry.line.length - 2]} color={geometry.to.terminal.color} />
+      <Ferrule point={geometry.from.point} toward={geometry.curve.getPoint(0.04)} color={geometry.from.terminal.color} />
+      <Ferrule point={geometry.to.point} toward={geometry.curve.getPoint(0.96)} color={geometry.to.terminal.color} />
     </group>
   )
 }
@@ -410,11 +369,9 @@ function ShowcaseScene({ plcRunning, motorOn, onStartMotor, onStopMotor }: Omit<
     <>
       <color attach="background" args={['#dce4e2']} />
       <fog attach="fog" args={['#dce4e2', 18, 34]} />
-      <ambientLight intensity={0.48} />
-      <hemisphereLight args={['#f8fbff', '#43524f', 0.86]} />
-      <directionalLight position={[4, 6, 6]} intensity={2.05} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.02} />
-      <directionalLight position={[-4, 2, 3]} intensity={0.48} color="#b9d8ff" />
-      <pointLight position={[0, 3.8, 3.2]} intensity={0.7} color="#fff4dd" distance={12} />
+      <ambientLight intensity={0.68} />
+      <directionalLight position={[4, 6, 6]} intensity={2.05} />
+      <directionalLight position={[-4, 2, 3]} intensity={0.38} color="#b9d8ff" />
       <FixedPanel />
 
       <ComponentModel type="powerSupplyProauto24A" position={PLACEMENTS.psu.position} active={plcActive} />
@@ -436,14 +393,13 @@ function ShowcaseScene({ plcRunning, motorOn, onStartMotor, onStopMotor }: Omit<
         return <DemoCable key={definition.id} definition={definition} energized={energized} />
       })}
 
-      <ContactShadows position={[0, -0.425, 0.6]} opacity={0.45} scale={9} blur={2.4} far={4} resolution={512} />
-      <Environment preset="warehouse" environmentIntensity={1.08} />
+      <Environment preset="warehouse" environmentIntensity={1} />
       <OrbitControls
         makeDefault
         enablePan={false}
         enableZoom
         enableRotate
-        enableDamping
+        enableDamping={false}
         onStart={() => { touched.current = true }}
         minDistance={fit * 0.62}
         maxDistance={fit * 1.2}
@@ -469,10 +425,10 @@ export default function LandingShowcase(props: Props) {
   return (
     <div className="dx-showcase-wrap">
       <Canvas
-        dpr={[1, props.compact ? 1.5 : 2]}
+        frameloop="demand"
+        dpr={[1, props.compact ? 1.25 : 1.5]}
         camera={{ position: props.compact ? [1.45, 3.15, 10.15] : [1.45, 3.00, 7.75], fov: props.compact ? 41 : 35, near: 0.1, far: 100 }}
-        gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
-        shadows
+        gl={{ antialias: false, alpha: false, powerPreference: 'low-power' }}
         onCreated={({ gl }) => {
           gl.outputColorSpace = THREE.SRGBColorSpace
           gl.toneMapping = THREE.ACESFilmicToneMapping
@@ -502,9 +458,4 @@ export default function LandingShowcase(props: Props) {
       )}
     </div>
   )
-}
-
-for (const type of MODEL_TYPES) {
-  const spec = getComponentModelSpec(type)
-  if (spec) useGLTF.preload(spec.path)
 }
