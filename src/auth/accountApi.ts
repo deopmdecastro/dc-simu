@@ -18,6 +18,7 @@ import {
   supabaseRegister,
   supabaseReplyInvitation,
   supabaseSetComponent,
+  supabaseRenameProject,
   supabaseUpdateProject,
 } from '../supabase/supabaseBackend'
 import { fixedAccountEmails, getLocalSession, isFixedAccount, localApi, rememberFixedSession } from './localBackend'
@@ -98,8 +99,10 @@ async function supabaseApi<T>(url: string, verb: string, body?: unknown): Promis
     const projectId = matchProject[1]
     if (verb === 'GET') return (await supabaseGetProject(projectId)) as T
     if (verb === 'PUT') {
-      const payload = (body ?? {}) as { content: unknown; revision: number }
-      return (await supabaseUpdateProject(projectId, payload.content, payload.revision)) as T
+      const payload = (body ?? {}) as { content?: unknown; revision?: number; name?: string }
+      // Mudar só o nome (barra do editor): pedido sem conteúdo.
+      if (typeof payload.name === 'string' && payload.content === undefined) return (await supabaseRenameProject(projectId, payload.name)) as T
+      return (await supabaseUpdateProject(projectId, payload.content, payload.revision as number)) as T
     }
     if (verb === 'DELETE') return (await supabaseDeleteProject(projectId)) as T
   }

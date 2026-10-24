@@ -129,6 +129,19 @@ try {
   check('convite a conta existente', inv.status === 201)
   check('convite a conta inexistente falha', (await other.call('POST', `/projects/${project.data.id}/invitations`, { email: 'nao@existe.pt' })).status === 404)
 
+  // mudar o nome do projeto (barra do editor)
+  const renamed = await other.call('PUT', `/projects/${project.data.id}`, { name: 'Projeto da Ana II' })
+  check('proprietário muda o nome sem conteúdo', renamed.status === 200 && renamed.data.name === 'Projeto da Ana II' && renamed.data.revision === 0)
+  check('nome mudado persiste', (await other.call('GET', `/projects/${project.data.id}`)).data.name === 'Projeto da Ana II')
+  check('nome vazio rejeitado', (await other.call('PUT', `/projects/${project.data.id}`, { name: '   ' })).status === 400)
+  check('mudar a revisão não é preciso ao mudar o nome', renamed.data.revision === 0)
+  const memberInvites = (await user.call('GET', '/invitations')).data
+  const memberInv = memberInvites.find((entry) => entry.project === 'Projeto da Ana II')
+  check('convite pendente lista novo nome', !!memberInv)
+  await user.call('POST', `/invitations/${memberInv.id}/accept`)
+  check('membro editor não muda o nome', (await user.call('PUT', `/projects/${project.data.id}`, { name: 'Alterado pela E.' })).status === 403)
+  check('membro editor guarda conteúdo', (await user.call('PUT', `/projects/${project.data.id}`, { content: { b: 2 }, revision: 0 })).status === 200)
+
   // edição
   check('promover a admin', (await admin.call('PATCH', `/admin/users/${ana.id}`, { role: 'admin', name: 'Ana S.' })).data.role === 'admin')
   check('novo admin acede à administração', (await other.call('GET', '/admin/users')).status === 200)
@@ -171,7 +184,7 @@ try {
 
   // projetos
   const projects = (await admin.call('GET', '/admin/projects')).data
-  check('admin lista projetos com tamanho e membros', projects.length === 1 && projects[0].size > 0 && projects[0].members === 0 && projects[0].owner === 'ana@exemplo.pt')
+  check('admin lista projetos com tamanho e membros', projects.length === 1 && projects[0].size > 0 && projects[0].members === 1 && projects[0].owner === 'ana@exemplo.pt')
 
   // eliminar utilizador com dados
   const blocked = await admin.call('DELETE', `/admin/users/${ana.id}`)

@@ -1,4 +1,5 @@
 import { type ProjectKind } from './project/kind'
+import { normalizeProjectName, uniqueProjectName } from './project/name'
 import { uiAlert, uiConfirm } from './ui/dialogs'
 import { useCatalogStore } from './catalog/registry'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
@@ -187,12 +188,36 @@ export default function Account() {
   }
 
   async function create(name: string, kind: ProjectKind = 'all') {
+    // Nomes não se repetem: se já existir, ganha o sufixo _copy, _copy2…
+    const unique = uniqueProjectName(name, projects.map((project) => project.name)) || 'Projeto'
     useSimStore.getState().newProject(kind)
     const response = await api<Open>('/projects', 'POST', {
-      name,
+      name: unique,
       content: JSON.parse(useSimStore.getState().saveJSON()),
     })
     await load(response.id)
+    if (unique !== normalizeProjectName(name)) setMessage(`Já existia um projeto com esse nome — criado como «${unique}».`)
+  }
+
+  /** Mudar o nome pelo contexto da barra do editor (clique no nome). */
+  async function renameProject(rawName: string) {
+    const entry = openRef.current
+    if (!entry) return
+    setMessage('')
+    const existing = projects.filter((project) => project.id !== entry.id).map((project) => project.name)
+    const name = uniqueProjectName(rawName, existing)
+    if (!name || name === entry.name) return
+    try {
+      const response = await api<Open>('/projects/' + entry.id, 'PUT', { name })
+      const updated = { ...entry, name: response.name, revision: response.revision }
+      openRef.current = updated
+      setOpen(updated)
+      useSimStore.getState().setCurrentProjectName(response.name)
+      setMessage(name === normalizeProjectName(rawName) ? 'Nome do projeto atualizado.' : `Já existia «${normalizeProjectName(rawName)}» — ficou «${response.name}».`)
+      void refresh()
+    } catch (value) {
+      error(value)
+    }
   }
 
   async function load(id: string) {
@@ -314,7 +339,7 @@ export default function Account() {
   if (!ready) return <RouteLoading label={loadingLabel} />
 
   if (page === 'editor' && open) return <>
-    <EditorTopbar projectName={open.name} dirty={editorDirty} message={message} actions={<>
+    <EditorTopbar projectName={open.name} dirty={editorDirty} message={message} onRename={(name) => void renameProject(name)} actions={<>
       <button className="account-project-action" onClick={() => void leave()}><IconArrowLeft size={12} /> Projetos</button>
       <button className="account-project-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
       {user && <AccountControls user={user} invites={invites} context="editor" dirty={editorDirty}

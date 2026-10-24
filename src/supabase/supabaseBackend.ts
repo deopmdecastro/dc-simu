@@ -235,6 +235,23 @@ export async function supabaseGetProject(id: string): Promise<{ id: string; name
   }
 }
 
+/** Muda apenas o nome do projeto (barra do editor), sem tocar no conteúdo nem na revisão. */
+export async function supabaseRenameProject(id: string, name: string): Promise<{ id: string; name: string; revision: number }> {
+  const client = clientOrThrow()
+  const { data: { user } } = await client.auth.getUser()
+  if (!user) throw new Error('Sessão expirada.')
+  const trimmed = name.trim()
+  if (!trimmed || trimmed.length > 120) throw new Error('Nome inválido')
+  const { data, error } = await client
+    .from('projects')
+    .update({ name: trimmed, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id, name, revision')
+    .single()
+  if (error || !data) throw new Error(`Erro ao mudar o nome do projeto: ${error?.message || 'Sem resposta'}`)
+  return { id: data.id, name: data.name, revision: data.revision ?? 0 }
+}
+
 /** Atualiza o conteúdo de um projeto com controle de revisão */
 export async function supabaseUpdateProject(id: string, content: unknown, revision: number): Promise<{ ok: boolean; revision: number }> {
   const client = clientOrThrow()

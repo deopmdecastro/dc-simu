@@ -76,6 +76,7 @@ import {
   faObjectGroup,
   faObjectUngroup,
   faPause,
+  faPenToSquare,
   faPlay,
   faPlus,
   faRightFromBracket,
@@ -160,6 +161,7 @@ export const IconChevronLeft = fa(faChevronLeft)
 export const IconChevronRight = fa(faChevronRight)
 export const IconChevronUp = fa(faChevronUp)
 export const IconArrowRight = fa(faArrowRight)
+export const IconEdit = fa(faPenToSquare)
 export const IconArrowLeft = fa(faArrowLeft)
 export const IconArrowUp = fa(faArrowUp)
 export const IconArrowDown = fa(faArrowDown)

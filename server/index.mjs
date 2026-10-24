@@ -234,6 +234,14 @@ app.post('/api/projects',auth,(req,res)=>{
 })
 app.get('/api/projects/:id',auth,project,(req,res)=>res.json({id:req.project.id,name:req.project.name,role:req.project.role,revision:req.project.revision,content:JSON.parse(req.project.content)}))
 app.put('/api/projects/:id',auth,project,(req,res)=>{
+ // Mudar só o nome (sem conteúdo): pedido leve da barra do editor; só o proprietário.
+ if (typeof req.body.name==='string'&&req.body.content===undefined){
+  if(req.project.role!=='owner')return fail(res,403,'Apenas o proprietário pode mudar o nome')
+  const name=req.body.name.trim();if(!name||name.length>120)return fail(res,400,'Nome inválido')
+  db.prepare('UPDATE projects SET name=?,updated_at=? WHERE id=?').run(name,new Date().toISOString(),req.project.id)
+  auditReq(req,'project.rename',{type:'project',id:req.project.id,label:name},`antes: ${req.project.name}`)
+  return res.json({id:req.project.id,name,revision:req.project.revision})
+ }
  const content=JSON.stringify(req.body.content), revision=req.body.revision
  if (!content||content.length>7_000_000)return fail(res,413,'Projeto demasiado grande')
  if (!Number.isInteger(revision))return fail(res,400,'Revisão obrigatória')

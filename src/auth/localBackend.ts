@@ -282,6 +282,16 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
 
   if (parts[0] === 'projects' && parts[1] && parts.length === 2 && verb === 'PUT') {
     const project = accessibleProject(data, parts[1], user.id)
+    // Mudar só o nome (barra do editor): só o proprietário, sem tocar no conteúdo nem na revisão.
+    if (typeof payload.name === 'string' && payload.content === undefined) {
+      if (project.ownerId !== user.id) throw new Error('Apenas o proprietário pode mudar o nome')
+      const name = payload.name.trim()
+      if (!name || name.length > 120) throw new Error('Nome inválido')
+      project.name = name
+      project.updatedAt = new Date().toISOString()
+      writeData(data)
+      return { id: project.id, name: project.name, revision: project.revision } as T
+    }
     const revision = Number(payload.revision)
     if (!Number.isInteger(revision)) throw new Error('Revisão obrigatória')
     if (revision !== project.revision) throw new Error('Este projeto foi alterado noutro separador. Reabra-o antes de guardar.')
