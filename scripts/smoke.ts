@@ -6,7 +6,7 @@ import { detectGrafcetIo, inputsInCondition, symbolsInCondition } from '../src/g
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView } from '../src/grafcet/selection'
 import { signalUsage, undeclaredSignals, tagsToDeclare, tokenAtCursor, matchSignals, insertCondition } from '../src/grafcet/signals'
 import { GRAFCET_TEMPLATES } from '../src/grafcet/templates'
-import { scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity } from '../src/grafcet/engine'
+import { normalizeActionVariable, scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
  * Não depende do React: exercita o motor de continuidade, o motor Ladder, o
@@ -333,6 +333,29 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('estrela-triângulo respeita intervalo de transição', sdTimers.T2.starDone === true && sdTimers.T2.deltaDone === false)
   runScan(sd, table, sdTimers, counters, 100)
   check('estrela-triângulo ativa delta após intervalo', sdTimers.T2.deltaDone === true)
+}
+
+/* GRAFCET: ação só com número, pulso ao desativar, comando forçado e ações soltas. */
+{
+  check('número da ação vira Qn', normalizeActionVariable(' 3 ') === 'Q3' && normalizeActionVariable('Motor_A') === 'Motor_A')
+  const program = {
+    steps: [
+      { id: 's0', name: 'Espera', initial: true, action: '', condition: '', actions: [{ id: 'n', address: '1', condition: '1', kind: 'N' as const }, { id: 'f', address: '4', condition: '1', kind: 'C' as const }, { id: 'd', address: '2', condition: '1', kind: 'DA' as const }] },
+      { id: 's1', name: 'Fim', initial: false, action: '', condition: '' },
+    ],
+    transitions: [{ id: 't0', from: ['s0'], to: ['s1'], condition: 'I1' }],
+    freeActions: [{ id: 'free', address: '9', condition: '1', kind: 'N' as const, x: 0, y: 0 }],
+  }
+  const table: AddressTable = { I1: false }
+  let state = scanGrafcet(program, emptyGrafcetRuntime(), table)
+  check('ação «1» sem prefixo liga Q1 na etapa', table.Q1 === true)
+  check('comando forçado (C) liga a saída enquanto a etapa está ativa', table.Q4 === true && table.Q2 === false)
+  table.I1 = true
+  state = scanGrafcet(program, state, table)
+  check('pulso ao desativar (DA) liga Q2 só ao sair da etapa', table.Q2 === true && table.Q1 === false)
+  state = scanGrafcet(program, state, table)
+  check('pulso ao desativar dura uma varredura', table.Q2 === false)
+  check('ação solta só com número não gera aviso nem erro', !validateGrafcet(program as never).some((issue) => issue.entityId === 'free'))
 }
 
 /* GRAFCET: transições síncronas, ações e endereços abandonados. */

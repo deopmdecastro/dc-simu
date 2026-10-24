@@ -148,9 +148,9 @@ export const ACTION_KINDS: Array<{ id: GrafcetActionKind; label: string; hint: s
   { id: 'D', label: 'D · Retardada', hint: 'Liga só depois do tempo indicado com a etapa ativa.', timed: true },
   { id: 'L', label: 'L · Limitada', hint: 'Liga ao ativar a etapa e desliga após o tempo indicado.', timed: true },
   { id: 'A', label: '↑ · Ao ativar', hint: 'Pulso de ativação ao entrar na etapa.', timed: false },
-  { id: 'DA', label: '↓ · Ao desativar', hint: 'Pulso de desativação ao sair da etapa.', timed: false },
-  { id: 'EV', label: '⮥ · No evento', hint: 'Disparada por evento sob condição.', timed: false },
-  { id: 'C', label: 'C · Forçagem', hint: 'Comando imperativo de forçagem.', timed: false },
+  { id: 'DA', label: '↓ · Ao desativar', hint: 'Pulso na varredura em que a etapa é desativada.', timed: false },
+  { id: 'EV', label: '⮥ · No evento', hint: 'Disparada por evento sob condição (apenas notação; não é executada pelo simulador).', timed: false },
+  { id: 'C', label: 'C · Forçagem', hint: 'Comando imperativo: a saída é forçada enquanto a etapa está ativa.', timed: false },
 ]
 
 /** Contexto de avaliação de uma condição. */
@@ -353,7 +353,13 @@ export function actionsOfStep(step: GrafcetStep): GrafcetAction[] {
   ]
 }
 
-const normAddress = (address: string) => address.trim().toUpperCase()
+/** Aceita só o número da ação: «1» passa a «Q1». O resto fica como escrito. */
+export const normalizeActionVariable = (value: string): string => {
+  const text = value.trim()
+  return /^\d+$/.test(text) ? `Q${Number(text)}` : text
+}
+
+const normAddress = (address: string) => normalizeActionVariable(address).toUpperCase()
 
 /** Tempo (ms) em que TODAS as origens da transição estão ativas. */
 function sourceElapsed(transition: GrafcetTransition, elapsed: Record<string, number>): number {
@@ -431,8 +437,16 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
     const kindOf = (a: Flat) => a.kind ?? 'N'
     let continuous = false
     for (const a of mine) {
-      if (!next.has(a.stepId)) continue
       const kind = kindOf(a)
+      if (kind === 'DA') {
+        // Pulso ao desativar: a etapa saiu da situação ativa nesta varredura.
+        if (consumed.has(a.stepId) && !next.has(a.stepId)) {
+          const exitContext: ConditionContext = { table: snapshot, prev, activeIndexes: nextIndexes, activeStepNames: nextStepNames, activeStepIds: next, elapsedMs: elapsed[a.stepId] ?? 0, stepElapsed: elapsed, stepElapsedByName, simTimeMs }
+          if (evalCondition(a.condition || '1', snapshot, exitContext)) continuous = true
+        }
+        continue
+      }
+      if (!next.has(a.stepId)) continue
       const actionContext: ConditionContext = {
         table: snapshot,
         prev,
@@ -446,7 +460,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
       }
       const holds = evalCondition(a.condition || '1', snapshot, actionContext)
       const time = a.timeMs ?? 0
-      if (kind === 'N' && holds) continuous = true
+      if ((kind === 'N' || kind === 'C') && holds) continuous = true
       else if (kind === 'D' && holds && (elapsed[a.stepId] ?? 0) >= time) continuous = true
       else if (kind === 'L' && holds && (elapsed[a.stepId] ?? 0) < Math.max(time, 1)) continuous = true
       else if (kind === 'A' && holds && (justActivated.has(a.stepId) || starting)) continuous = true
@@ -574,17 +588,7 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
     }
   }
 
-  // Ações soltas: criadas sem etapa — a simulação ignora-as até serem ligadas.
-  ;(program.freeActions ?? []).forEach((action, index) => {
-    const name = action.variable || action.address || `A${index + 1}`
-    issues.push({
-      id: `${action.id}:free`,
-      level: 'warning',
-      message: `A ação «${name}» está solta: ligue-a a uma etapa (arrasto ou ferramenta Ligar).`,
-      entityId: action.id,
-      tab: 'steps',
-    })
-  })
+  // Ações soltas são permitidas: basta o número/variável; só atuam na simulação depois de ligadas a uma etapa.
 
   const incoming = new Set(transitions.flatMap((t) => t.to))
   const outgoing = new Set(transitions.flatMap((t) => t.from))

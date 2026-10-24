@@ -4,6 +4,7 @@ import { isSmallScreen } from '../ui/cleanMode'
 import { useSimStore } from '../store/useSimStore'
 import {
   ACTION_KINDS,
+  normalizeActionVariable,
   actionsOfStep,
   evalCondition,
   transitionReceptivity,
@@ -2529,9 +2530,18 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               ? gridOn
                 ? {
                     // A grelha acompanha pan/zoom e coincide com o encaixe (origem no eixo central e no topo da 1.ª etapa).
-                    backgroundImage: 'radial-gradient(#d6dfeb .75px, transparent .85px)',
-                    backgroundSize: `${gridSpacing}px ${gridSpacing}px`,
-                    backgroundPosition: `${position.x + SPINE_X * scale - gridSpacing / 2}px ${position.y + START_Y * scale - gridSpacing / 2}px`,
+                    backgroundColor: '#f6f8fc',
+                    backgroundImage: [
+                      `radial-gradient(circle, #8da2c0 ${scale < 0.6 ? 0.9 : 1.25}px, transparent ${scale < 0.6 ? 1.1 : 1.5}px)`,
+                      'linear-gradient(to right, rgba(88, 118, 168, .16) 1px, transparent 1px)',
+                      'linear-gradient(to bottom, rgba(88, 118, 168, .16) 1px, transparent 1px)',
+                    ].join(', '),
+                    backgroundSize: `${gridSpacing}px ${gridSpacing}px, ${gridSpacing * 5}px ${gridSpacing * 5}px, ${gridSpacing * 5}px ${gridSpacing * 5}px`,
+                    backgroundPosition: [
+                      `${position.x + SPINE_X * scale - gridSpacing / 2}px ${position.y + START_Y * scale - gridSpacing / 2}px`,
+                      `${position.x + SPINE_X * scale - gridSpacing / 2}px ${position.y + START_Y * scale - gridSpacing / 2}px`,
+                      `${position.x + SPINE_X * scale - gridSpacing / 2}px ${position.y + START_Y * scale - gridSpacing / 2}px`,
+                    ].join(', '),
                   }
                 : { backgroundImage: 'none' }
               : undefined
@@ -4645,6 +4655,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             onChange={(event) =>
                               patchFreeAction(freeAct, { variable: event.target.value, address: event.target.value }, 'force')
                             }
+                            onBlur={(event) => {
+                              const fixed = normalizeActionVariable(event.target.value)
+                              if (fixed !== event.target.value) patchFreeAction(freeAct, { variable: fixed, address: fixed }, 'force')
+                            }}
                             placeholder="Q1, KM1, Y1_A-"
                           />
                         </label>
@@ -4803,6 +4817,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                                 variable: event.target.value,
                               })
                             }
+                            onBlur={(event) => {
+                              const fixed = normalizeActionVariable(event.target.value)
+                              if (fixed !== event.target.value) patchAction(selectedStep, action, { address: fixed, variable: fixed }, 'force')
+                            }}
                           />
                           <input
                             className="dc-input grafcet-action-condition"
