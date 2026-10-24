@@ -81,7 +81,7 @@ export const CATEGORY_LABEL: Record<LogCategory, string> = {
 
 export const ACTION_LABEL: Record<string, string> = {
   'login.success': 'Sessão iniciada', 'login.failed': 'Início de sessão falhado', 'login.denied': 'Acesso negado (conta desativada)', 'login.blocked': 'Bloqueio por tentativas', logout: 'Sessão terminada',
-  'user.create': 'Conta criada', 'user.update': 'Conta alterada', 'user.enable': 'Conta ativada', 'user.disable': 'Conta desativada', 'user.password': 'Palavra-passe reposta', 'user.delete': 'Conta eliminada', 'session.revoke': 'Sessões terminadas',
+  'user.create': 'Conta criada', 'user.update': 'Conta alterada', 'user.enable': 'Conta ativada', 'user.disable': 'Conta desativada', 'user.password': 'Palavra-passe reposta', 'user.password.self': 'Palavra-passe alterada', 'user.delete': 'Conta eliminada', 'session.revoke': 'Sessões terminadas',
   'project.create': 'Projeto criado', 'project.delete': 'Projeto eliminado', 'project.invite': 'Convite enviado', 'invite.accept': 'Convite aceite', 'invite.reject': 'Convite recusado',
   'contribution.create': 'Contribuição criada', 'contribution.upload': 'Ficheiro enviado', 'contribution.update': 'Contribuição editada', 'contribution.delete': 'Contribuição eliminada',
   'contribution.approved': 'Contribuição aprovada', 'contribution.rejected': 'Contribuição rejeitada', 'contribution.pending': 'Contribuição reposta em revisão',

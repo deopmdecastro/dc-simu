@@ -1,12 +1,31 @@
 // Teste de ponta a ponta do servidor (Express + SQLite): `npm run test:server`.
 // Arranca o servidor numa pasta temporária e percorre a administração.
 import { spawn } from 'node:child_process'
+import { createServer } from 'node:http'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const port = 3900 + Math.floor(Math.random() * 90)
 const dataDir = mkdtempSync(join(tmpdir(), 'dcsimu-'))
+const n8nRequests = []
+const n8nMock = createServer((req, res) => {
+  const chunks = []
+  req.on('data', (chunk) => chunks.push(chunk))
+  req.on('end', () => {
+    const body = Buffer.concat(chunks).toString('utf8')
+    n8nRequests.push({ method: req.method, url: req.url, headers: req.headers, body })
+    if (req.method === 'GET' && req.url === '/api/v1/workflows/workflow_test') {
+      res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ name: 'Workflow seguro' }))
+    } else if (req.method === 'POST' && req.url === '/webhook/configured') {
+      res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ responseSecret: 'não devolver ao cliente' }))
+    } else {
+      res.writeHead(404).end('not found')
+    }
+  })
+})
+await new Promise((resolve) => n8nMock.listen(0, '127.0.0.1', resolve))
+const n8nPort = n8nMock.address().port
 const execArgv = process.env.SERVER_NODE_ARGS ? process.env.SERVER_NODE_ARGS.split(' ') : []
 // Base de dados de uma versão anterior: sem papel/estado nas contas e com uma conta antiga já bloqueada.
 {
@@ -16,16 +35,25 @@ const execArgv = process.env.SERVER_NODE_ARGS ? process.env.SERVER_NODE_ARGS.spl
   legacy.exec('CREATE TABLE users(id TEXT PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT NOT NULL,password TEXT NOT NULL);CREATE TABLE sessions(token TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires INTEGER NOT NULL);')
   const salt = randomBytes(16).toString('hex')
   legacy.prepare('INSERT INTO users VALUES (?,?,?,?)').run('legacy-1', 'antigo@exemplo.pt', 'Antigo', salt + ':' + scryptSync('Antigo12345', salt, 64).toString('hex'))
+  const adminSalt = randomBytes(16).toString('hex')
+  legacy.prepare('INSERT INTO users VALUES (?,?,?,?)').run('legacy-admin', 'admin@dcsimu.local', 'Admin anterior', adminSalt + ':' + scryptSync('ExistingAdmin2026!Private', adminSalt, 64).toString('hex'))
   legacy.close()
 }
-const child = spawn(process.execPath, [...execArgv, 'server/index.mjs'], { env: { ...process.env, PORT: String(port), DATA_DIR: dataDir }, stdio: ['ignore', 'pipe', 'inherit'] })
+const child = spawn(process.execPath, [...execArgv, 'server/index.mjs'], { env: {
+  ...process.env,
+  PORT: String(port), DATA_DIR: dataDir,
+  ADMIN_INITIAL_PASSWORD: 'AdminSeed2026!Secure', USER_INITIAL_PASSWORD: 'UserSeed2026!Secure',
+  SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: '', VITE_SUPABASE_ANON_KEY: '', SUPABASE_SERVICE_ROLE_KEY: 'service-role-secret-test', SUPABASE_SECRET_KEY: 'secret-key-test',
+  N8N_URL: `http://127.0.0.1:${n8nPort}`, N8N_API_KEY: 'server-only-test-key', N8N_WORKFLOW_ID: 'workflow_test', N8N_WEBHOOK_URL: `http://127.0.0.1:${n8nPort}/webhook/configured`,
+  VITE_N8N_API_KEY: 'must-not-be-used',
+}, stdio: ['ignore', 'pipe', 'inherit'] })
 let failures = 0, passed = 0
 const check = (name, ok, extra = '') => { if (ok) { passed++; console.log('PASS', name) } else { failures++; console.log('FAIL', name, extra) } }
 
 class Client {
   cookie = ''
-  async call(method, path, body, { raw = false } = {}) {
-    const res = await fetch(`http://127.0.0.1:${port}/api${path}`, { method, headers: { 'Content-Type': 'application/json', ...(this.cookie ? { Cookie: this.cookie } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) })
+  async call(method, path, body, { raw = false, headers: extraHeaders = {} } = {}) {
+    const res = await fetch(`http://127.0.0.1:${port}/api${path}`, { method, headers: { 'Content-Type': 'application/json', ...extraHeaders, ...(this.cookie ? { Cookie: this.cookie } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) })
     const set = res.headers.get('set-cookie')
     if (set) this.cookie = set.split(';')[0]
     const data = await res.json().catch(() => ({}))
@@ -37,9 +65,31 @@ class Client {
 try {
   for (let i = 0; i < 100; i++) { try { await fetch(`http://127.0.0.1:${port}/api/me`); break } catch { await new Promise(r => setTimeout(r, 100)) } }
   const admin = new Client(), user = new Client(), other = new Client()
+  const configResponse = await fetch(`http://127.0.0.1:${port}/api/supabase/config`)
+  const publicConfig = await configResponse.json()
+  check('API não expõe chaves service-role/secret', !JSON.stringify(publicConfig).includes('service-role-secret-test') && !JSON.stringify(publicConfig).includes('secret-key-test') && publicConfig.configured === false && publicConfig.anonKey === '')
+  check('API sem cache e com cabeçalhos de segurança', configResponse.headers.get('cache-control') === 'no-store' && configResponse.headers.get('x-content-type-options') === 'nosniff' && !!configResponse.headers.get('referrer-policy'))
+  check('mutação com Origin externo é recusada', (await new Client().call('POST', '/login', { email: 'user@dcsimu.local', password: 'x' }, { headers: { Origin: 'https://evil.example' } })).status === 403)
+  check('proxy n8n exige sessão', (await new Client().call('POST', '/n8n/trigger', { payload: { event: 'test' }, webhookUrl: 'http://127.0.0.1:1/leak' })).status === 401)
+  check('teste n8n exige sessão', (await new Client().call('POST', '/n8n/test', {})).status === 401)
   check('conta antiga migrada fica desativada e não entra', (await new Client().login('antigo@exemplo.pt', 'Antigo12345')).status === 403)
-  check('admin entra', (await admin.login('admin@dcsimu.local', 'AdminDcsimu2026!')).status === 200)
-  check('user entra', (await user.login('user@dcsimu.local', 'UserDcsimu2026!')).status === 200)
+  check('admin entra sem repor a palavra-passe antiga', (await admin.login('admin@dcsimu.local', 'ExistingAdmin2026!Private')).status === 200)
+  check('senha inicial não substitui a palavra-passe já guardada', (await new Client().login('admin@dcsimu.local', 'AdminSeed2026!Secure')).status === 401)
+  check('user entra com a senha inicial configurada', (await user.login('user@dcsimu.local', 'UserSeed2026!Secure')).status === 200)
+  const n8nTrigger = await user.call('POST', '/n8n/trigger', { payload: { event: 'test' }, webhookUrl: 'http://127.0.0.1:1/leak', workflowId: 'evil' })
+  check('proxy n8n usa o destino do servidor, não o URL do corpo', n8nTrigger.status === 200 && n8nTrigger.data.ok === true && n8nRequests.some((r) => r.method === 'POST' && r.url === '/webhook/configured' && JSON.parse(r.body).event === 'test'))
+  check('proxy n8n não encaminha nem devolve segredos', !JSON.stringify(n8nTrigger.data).includes('responseSecret') && !JSON.stringify(n8nRequests.find((r) => r.method === 'POST')?.headers).includes('server-only-test-key') && !JSON.stringify(n8nTrigger.data).includes('server-only-test-key'))
+  const n8nTest = await user.call('POST', '/n8n/test', {})
+  check('teste n8n confirma workflow sem executar webhook', n8nTest.status === 200 && n8nTest.data.workflowName === 'Workflow seguro' && n8nRequests.some((r) => r.method === 'GET' && r.url === '/api/v1/workflows/workflow_test'))
+  check('chave da API n8n só segue na consulta server-side', n8nRequests.find((r) => r.method === 'GET')?.headers['x-n8n-api-key'] === 'server-only-test-key' && !JSON.stringify(n8nTest.data).includes('server-only-test-key'))
+  const secondUserSession = new Client()
+  check('segunda sessão do utilizador inicia', (await secondUserSession.login('user@dcsimu.local', 'UserSeed2026!Secure')).status === 200)
+  check('alteração exige palavra-passe atual correta', (await user.call('POST', '/account/password', { currentPassword: 'errada', newPassword: 'UserRotated2026!Secure' })).status === 401)
+  check('alteração rejeita palavra-passe fraca', (await user.call('POST', '/account/password', { currentPassword: 'UserSeed2026!Secure', newPassword: 'curta' })).status === 400)
+  const changedPassword = await user.call('POST', '/account/password', { currentPassword: 'UserSeed2026!Secure', newPassword: 'UserRotated2026!Secure' })
+  check('alteração renova a sessão e termina as outras', changedPassword.status === 200 && changedPassword.data.sessionsClosed === 1 && (await user.call('GET', '/me')).status === 200 && (await secondUserSession.call('GET', '/me')).status === 401)
+  check('palavra-passe anterior deixa de funcionar', (await new Client().login('user@dcsimu.local', 'UserSeed2026!Secure')).status === 401)
+  check('palavra-passe nova permite iniciar sessão', (await new Client().login('user@dcsimu.local', 'UserRotated2026!Secure')).status === 200)
   {
     const profile = { name: 'Meu perfil', category: 'Proteção', description: 'teste', specs: [{ label: '1', name: 'Entrada', fn: 'L', kind: 'power-in', polarity: 'ac', electricalClass: 'ac', direction: 'in', terminalType: 'screw', color: '#92400e', face: 'top' }] }
     check('perfis de bornes: utilizador não grava', (await user.call('PUT', '/admin/terminal-profiles/p_teste1', profile)).status === 403)
@@ -135,7 +185,7 @@ try {
   // registos
   const all = (await admin.call('GET', '/admin/logs?limit=500')).data
   const actions = new Set(all.items.map(i => i.action))
-  for (const action of ['login.success', 'login.failed', 'login.denied', 'user.create', 'user.update', 'user.disable', 'user.enable', 'user.password', 'session.revoke', 'user.delete', 'component.disable', 'component.enable', 'project.create', 'contribution.create']) check('registo ' + action, actions.has(action))
+  for (const action of ['login.success', 'login.failed', 'login.denied', 'user.create', 'user.update', 'user.disable', 'user.enable', 'user.password', 'user.password.self', 'session.revoke', 'user.delete', 'component.disable', 'component.enable', 'project.create', 'contribution.create']) check('registo ' + action, actions.has(action))
   check('total coerente', all.total === all.items.length)
   check('registos ordenados do mais recente', all.items.every((item, i) => i === 0 || all.items[i - 1].at >= item.at))
   check('nenhum registo contém palavras-passe', !JSON.stringify(all).includes('Segredo12345') && !JSON.stringify(all).includes('NovaSenha2026x'))
@@ -158,6 +208,10 @@ try {
   check('bloqueio após tentativas falhadas', last === 429)
   check('bloqueado mesmo com a palavra-passe certa', (await brute.login('user@dcsimu.local', 'UserDcsimu2026!')).status === 429)
   check('registo de bloqueio', (await admin.call('GET', '/admin/logs?action=login.blocked')).data.total >= 1)
+  const spoofedIp = new Client()
+  let spoofedStatus = 0
+  for (let i = 0; i < 6; i++) spoofedStatus = (await spoofedIp.call('POST', '/login', { email: 'limiter@example.pt', password: `errada-${i}` }, { headers: { 'X-Forwarded-For': `203.0.113.${i + 1}` } })).status
+  check('X-Forwarded-For não permite contornar o bloqueio', spoofedStatus === 401 && (await spoofedIp.call('POST', '/login', { email: 'limiter@example.pt', password: 'qualquer' }, { headers: { 'X-Forwarded-For': '198.51.100.77' } })).status === 429)
 
   // sistema e exportação
   const system = (await admin.call('GET', '/admin/system')).data
@@ -170,6 +224,7 @@ try {
   console.log('FAIL exceção', error)
 } finally {
   child.kill()
+  await new Promise((resolve) => n8nMock.close(resolve))
   rmSync(dataDir, { recursive: true, force: true })
 }
 console.log(`\n${passed} passaram, ${failures} falharam`)

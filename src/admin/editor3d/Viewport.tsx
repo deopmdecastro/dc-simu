@@ -11,6 +11,7 @@ import { addLedAt, placeDisplayClick, setPivotFromPoint, triggerEditorControl } 
 import { relFromPoint } from '../../catalog/controlMotion'
 import { interactionsFor, runInteractions } from '../../catalog/interactions'
 import type { Vec3 } from '../../catalog/types'
+import { EDITOR_THEME } from '../../ui/editorTheme'
 import { checkConnection } from '../../catalog/terminalCompat'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 import { BASE_STATE, glbCache, posePart, patchTerminal, removeParts, useEditorStore } from './editorStore'
@@ -461,7 +462,7 @@ function Scene() {
     <hemisphereLight args={['#ffffff', view.dark ? '#1f2937' : '#9aa7ba', 0.9]} />
     <directionalLight position={[160, 260, 200]} intensity={1.4} castShadow shadow-bias={-0.0004} shadow-normalBias={0.6} shadow-mapSize={[1024, 1024]} shadow-camera-left={-220} shadow-camera-right={220} shadow-camera-top={220} shadow-camera-bottom={-220} shadow-camera-near={10} shadow-camera-far={900} />
     <directionalLight position={[-180, 120, -160]} intensity={0.5} />
-    {view.floor && <gridHelper args={[400, 40, view.dark ? '#475569' : '#b4c0d2', view.dark ? '#273244' : '#d5dce8']} position={[0, -0.05, 0]} />}
+    {view.floor && <gridHelper args={[400, 400 / EDITOR_THEME.step, view.dark ? '#475569' : '#b4c0d2', view.dark ? '#273244' : '#d5dce8']} position={[0, -0.05, 0]} />}
     {view.axes && <axesHelper args={[30]} position={[-200, 0, 200]} />}
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow><planeGeometry args={[800, 800]} /><shadowMaterial opacity={0.18} /></mesh>
 

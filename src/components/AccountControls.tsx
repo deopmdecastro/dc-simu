@@ -6,6 +6,8 @@ import { isSupabaseConfigured } from '../supabase/supabaseClient'
 import N8nModal from './N8nModal'
 import { isN8nConfigured } from '../n8n/n8nClient'
 import { SupabaseLogo, N8nLogo } from '../ui/BrandLogos'
+import { activeAccountBackend } from '../auth/accountApi'
+import ChangePasswordModal from './ChangePasswordModal'
 
 type AccountControlsProps = {
   user: User
@@ -42,6 +44,7 @@ export default function AccountControls({
   const [open, setOpen] = useState<'notifications' | 'profile' | null>(null)
   const [showSupabase, setShowSupabase] = useState(false)
   const [showN8n, setShowN8n] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const total = invites.length + (dirty ? 1 : 0) + errors + warnings
 
@@ -138,6 +141,7 @@ export default function AccountControls({
           {onProjects && context !== 'dashboard' && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Os meus projetos</span><IconChevronRight size={13} /></button>}
           {onContribute && context !== 'contribute' && <button type="button" onClick={() => { setOpen(null); onContribute() }}><IconCube size={15} /><span>Contribuir (datasheets e 3D)</span><IconChevronRight size={13} /></button>}
           {onAdmin && user.role === 'admin' && context !== 'admin' && <button type="button" onClick={() => { setOpen(null); onAdmin() }}><IconShield size={15} /><span>Administração</span><IconChevronRight size={13} /></button>}
+          {['server', 'supabase'].includes(activeAccountBackend()) && <button type="button" onClick={() => { setOpen(null); setShowPassword(true) }}><IconShield size={15} /><span>Alterar palavra-passe</span><IconChevronRight size={13} /></button>}
           {(context === 'admin' || context === 'contribute') && onProjects && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Voltar aos projetos</span><IconChevronRight size={13} /></button>}
           <button type="button" onClick={() => { setOpen(null); setShowSupabase(true) }}>
             <span style={{ display: 'inline-flex', flex: '0 0 auto', width: '15px', justifyContent: 'center', opacity: isSupabaseConfigured() ? 1 : 0.45 }}>
@@ -161,5 +165,6 @@ export default function AccountControls({
 
     <SupabaseModal isOpen={showSupabase} onClose={() => setShowSupabase(false)} />
     <N8nModal isOpen={showN8n} onClose={() => setShowN8n(false)} />
+    <ChangePasswordModal open={showPassword} onClose={() => setShowPassword(false)} />
   </div>
 }

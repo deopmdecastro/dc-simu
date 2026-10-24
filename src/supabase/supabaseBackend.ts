@@ -56,6 +56,12 @@ export async function supabaseGetCurrentUser(): Promise<User | null> {
   }
 }
 
+/** Alteração da palavra-passe da sessão Supabase atual. */
+export async function supabaseChangePassword(password: string): Promise<void> {
+  const { error } = await clientOrThrow().auth.updateUser({ password })
+  if (error) throw new Error(error.message || 'Não foi possível alterar a palavra-passe no Supabase.')
+}
+
 /** Login com email e palavra-passe no Supabase */
 export async function supabaseLogin(email: string, password: string): Promise<{ user: User }> {
   const client = clientOrThrow()

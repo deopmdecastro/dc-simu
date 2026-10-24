@@ -1,11 +1,12 @@
 import { actionsOfStep, type GrafcetStep, type GrafcetTransition } from './engine'
+import { EDITOR_GRID_STEP } from '../ui/editorTheme'
 
 /** Coluna central (eixo vertical) das etapas no layout automático. */
 export const SPINE_X = 151
 /** Topo da primeira etapa no layout automático. */
 export const START_Y = 70
 /** Passo da grelha (px do diagrama) para encaixe das etapas. */
-export const GRID = 20
+export const GRID = EDITOR_GRID_STEP
 /** Limite mínimo para que laços de retorno à esquerda caibam na tela. */
 export const MIN_X = 110
 export const MIN_Y = 48

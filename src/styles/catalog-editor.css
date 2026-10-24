@@ -65,7 +65,7 @@
 .ce-ok { color:#15803d; font-size:12px; margin:0; }
 
 /* ---- viewport ---- */
-.ce-stage { position:relative; min-width:0; min-height:0; overflow:hidden; background-color:#f7f9fc; background-image:radial-gradient(circle,#c9d3e3 1px,transparent 1px); background-size:20px 20px; }
+.ce-stage { position:relative; min-width:0; min-height:0; overflow:hidden; background-color:#f7f9fc; background-image:radial-gradient(circle,#c9d3e3 1px,transparent 1px); background-size:var(--editor-grid-step,20px) var(--editor-grid-step,20px); }
 .ce-stage.no-grid { background-image:none; }
 .ce-stage.is-dark { background-color:#111827; background-image:radial-gradient(circle,#334155 1px,transparent 1px); }
 .ce-stage.is-dark.no-grid { background-image:none; }

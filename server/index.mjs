@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { registerAdmin } from './admin.mjs'
+import { passwordProblem, registerAdmin } from './admin.mjs'
 import { registerCatalog } from './catalog.mjs'
 
 const dir = process.env.DATA_DIR || './data'
@@ -31,21 +31,27 @@ if (supabaseUrl) {
 
 const app = express()
 app.disable('x-powered-by')
-app.use(express.json({ limit: '8mb' }))
-
-app.get('/api/supabase/config', (_req, res) => {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://qeztfdmjqtikfrcketif.supabase.co'
-  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || ''
-  res.json({
-    configured: Boolean(url && anonKey),
-    url,
-    anonKey,
-  })
+// Só confiar nos cabeçalhos de proxy quando o operador confirmar que há um proxy fiável.
+if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1)
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  next()
 })
+app.use(express.json({ limit: '8mb' }))
 const id = () => randomBytes(16).toString('hex')
 const hash = s => createHash('sha256').update(s).digest('hex')
 const pwd = p => { const salt = randomBytes(16).toString('hex'); return salt + ':' + scryptSync(p, salt, 64).toString('hex') }
-const verify = (p, saved) => { const [salt, expected] = saved.split(':'); return timingSafeEqual(scryptSync(p, salt, 64), Buffer.from(expected, 'hex')) }
+const verify = (password, saved) => {
+  if (typeof password !== 'string' || typeof saved !== 'string') return false
+  const [salt, expected, extra] = saved.split(':')
+  if (extra !== undefined || !/^[a-f0-9]{32}$/i.test(salt || '') || !/^[a-f0-9]{128}$/i.test(expected || '')) return false
+  const expectedBytes = Buffer.from(expected, 'hex')
+  return timingSafeEqual(scryptSync(password, salt, 64), expectedBytes)
+}
+// Igualar o custo de autenticação para emails existentes e inexistentes.
+const DUMMY_PASSWORD_HASH = pwd(randomBytes(24).toString('base64url'))
 // Migração não destrutiva das bases existentes.
 const addColumn = (table, column, ddl) => { if (!db.prepare(`PRAGMA table_info(${table})`).all().some(c => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`) }
 addColumn('users', 'role', "TEXT NOT NULL DEFAULT 'user'")
@@ -60,37 +66,62 @@ addColumn('sessions', 'created_at', 'TEXT')
 addColumn('sessions', 'last_seen', 'TEXT')
 addColumn('sessions', 'ip', 'TEXT')
 addColumn('sessions', 'agent', 'TEXT')
-const clientIp = req => String(req.get('x-forwarded-for') || '').split(',')[0].trim() || req.socket?.remoteAddress || ''
+// req.ip ignora X-Forwarded-For por omissão; só passa a confiar no proxy com TRUST_PROXY=1.
+const clientIp = req => String(req.ip || req.socket?.remoteAddress || '').slice(0, 80)
 /** Registo de auditoria: nunca deve impedir a operação que está a registar. */
 const audit = (actor, action, target = {}, detail = '', ip = '') => {
   try { db.prepare('INSERT INTO audit_log(id,at,actor_id,actor_name,actor_email,action,target_type,target_id,target_label,detail,ip) VALUES (?,?,?,?,?,?,?,?,?,?,?)').run(id(), new Date().toISOString(), actor?.id ?? null, actor?.name ?? null, actor?.email ?? null, action, target.type ?? null, target.id ?? null, target.label ?? null, String(detail || '').slice(0, 500), ip) } catch (error) { console.error('audit', error) }
 }
 const auditReq = (req, action, target, detail) => audit(req.user, action, target, detail, clientIp(req))
 const fixedAccounts = [
-  { email: 'admin@dcsimu.local', name: 'Admin', password: 'AdminDcsimu2026!', role: 'admin' },
-  { email: 'user@dcsimu.local', name: 'User', password: 'UserDcsimu2026!', role: 'user' },
+  { email: 'admin@dcsimu.local', name: 'Admin', role: 'admin' },
+  { email: 'user@dcsimu.local', name: 'User', role: 'user' },
 ]
+const initialAccounts = [
+  { ...fixedAccounts[0], password: process.env.ADMIN_INITIAL_PASSWORD || '' },
+  { ...fixedAccounts[1], password: process.env.USER_INITIAL_PASSWORD || '' },
+]
+const strongInitialPassword = password => typeof password === 'string' && password.length >= 16 && password.length <= 200 && /[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password)
 const seedFixedAccounts = db.transaction(() => {
-  for (const account of fixedAccounts) {
+  for (const account of initialAccounts) {
     const existing = db.prepare('SELECT id FROM users WHERE email=?').get(account.email)
-    if (existing) db.prepare('UPDATE users SET name=?,password=?,role=?,active=1,created_at=COALESCE(created_at,?) WHERE id=?').run(account.name,pwd(account.password),account.role,new Date().toISOString(),existing.id)
-    else db.prepare('INSERT INTO users(id,email,name,password,role,active,created_at) VALUES (?,?,?,?,?,1,?)').run(id(),account.email,account.name,pwd(account.password),account.role,new Date().toISOString())
+    if (existing) {
+      // Nunca reponha a palavra-passe a cada arranque: Admin pode alterá-la sem ser revertida.
+      db.prepare('UPDATE users SET name=?,role=?,active=1,created_at=COALESCE(created_at,?) WHERE id=?').run(account.name,account.role,new Date().toISOString(),existing.id)
+    } else {
+      if (!strongInitialPassword(account.password)) throw new Error(`Defina ${account.role === 'admin' ? 'ADMIN_INITIAL_PASSWORD' : 'USER_INITIAL_PASSWORD'} (mínimo 16 caracteres, maiúsculas, minúsculas e números) antes da primeira inicialização.`)
+      db.prepare('INSERT INTO users(id,email,name,password,role,active,created_at) VALUES (?,?,?,?,?,1,?)').run(id(),account.email,account.name,pwd(account.password),account.role,new Date().toISOString())
+    }
   }
 })
 seedFixedAccounts()
 const fail = (res, code, message) => res.status(code).json({ error: message })
 const cookie = req => (req.headers.cookie || '').split(';').map(s => s.trim()).find(s => s.startsWith('dc_session='))?.slice(11)
+const normalizedOrigin = value => { try { return new URL(value).origin.toLowerCase() } catch { return '' } }
 app.use('/api', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store')
-  if (!['GET','HEAD','OPTIONS'].includes(req.method)) {
-    const origin = req.headers.origin
-    if (origin && origin !== process.env.PUBLIC_ORIGIN && (() => { try { return new URL(origin).host !== req.get('host') } catch { return true } })()) return fail(res, 403, 'Origem inválida')
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    const origin = req.get('origin')
+    if (origin) {
+      const configured = normalizedOrigin(process.env.PUBLIC_ORIGIN || '')
+      const current = normalizedOrigin(`${req.protocol}://${req.get('host') || ''}`)
+      const requestOrigin = normalizedOrigin(origin)
+      if (!requestOrigin || (requestOrigin !== configured && requestOrigin !== current)) return fail(res, 403, 'Origem inválida')
+    } else if (req.get('sec-fetch-site') === 'cross-site') {
+      return fail(res, 403, 'Origem inválida')
+    }
   }
   const token = cookie(req)
   const sessionUser = token ? db.prepare('SELECT users.id,users.email,users.name,users.role FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>? AND users.active=1').get(hash(token), Date.now()) : null
   req.user = sessionUser || null
   if (sessionUser) { const now = Date.now(), seen = db.prepare('SELECT last_seen FROM sessions WHERE token=?').get(hash(token))?.last_seen; if (!seen || now - Date.parse(seen) > 60000) db.prepare('UPDATE sessions SET last_seen=? WHERE token=?').run(new Date(now).toISOString(), hash(token)) }
   next()
+})
+
+// A chave divulgável do Supabase é apenas a anon/public key; service-role nunca é devolvida.
+app.get('/api/supabase/config', (_req, res) => {
+  const url = supabaseUrl || 'https://qeztfdmjqtikfrcketif.supabase.co'
+  res.json({ configured: Boolean(url && supabaseAnonKey), url, anonKey: supabaseAnonKey })
 })
 const auth = (req,res,next) => req.user ? next() : fail(res,401,'Inicie sessão')
 const admin = (req,res,next) => req.user.role === 'admin' ? next() : fail(res,403,'Acesso reservado ao administrador')
@@ -101,15 +132,22 @@ const project = (req,res,next) => {
 }
 app.post('/api/register',(_req,res) => fail(res,403,'O registo está desativado. Utilize uma das duas contas autorizadas.'))
 const attempts = new Map()
-const MAX_ATTEMPTS = 6, WINDOW_MS = 10 * 60_000
+const MAX_ATTEMPTS = 6, WINDOW_MS = 10 * 60_000, MAX_ATTEMPT_KEYS = 5000
 const blockedUntil = key => { const e = attempts.get(key); return e && e.count >= MAX_ATTEMPTS && Date.now() - e.first < WINDOW_MS ? e.first + WINDOW_MS : 0 }
-const noteFailure = key => { const e = attempts.get(key); if (!e || Date.now() - e.first >= WINDOW_MS) attempts.set(key, { count: 1, first: Date.now() }); else e.count++ }
+const noteFailure = key => {
+  const e = attempts.get(key), now = Date.now()
+  if (!e || now - e.first >= WINDOW_MS) attempts.set(key, { count: 1, first: now })
+  else e.count++
+  // Limite rígido para que tentativas distribuídas por muitos emails não encham a memória.
+  while (attempts.size > MAX_ATTEMPT_KEYS) attempts.delete(attempts.keys().next().value)
+}
 function login(email,password,req,res) {
   const ip = clientIp(req), key = email + '|' + ip
   const until = blockedUntil(key)
   if (until) { audit({ email }, 'login.blocked', { type: 'user', label: email }, 'Demasiadas tentativas falhadas', ip); return fail(res, 429, `Demasiadas tentativas. Tente novamente dentro de ${Math.ceil((until - Date.now()) / 60000)} min.`) }
   const user=db.prepare('SELECT * FROM users WHERE email=?').get(email)
-  if (!user || !verify(password,user.password)) { noteFailure(key); audit(user ? { id: user.id, name: user.name, email: user.email } : { email }, 'login.failed', { type: 'user', id: user?.id, label: email }, 'Credenciais inválidas', ip); return fail(res,401,'Credenciais inválidas') }
+  const valid = verify(password, user?.password || DUMMY_PASSWORD_HASH)
+  if (!user || !valid) { noteFailure(key); audit(user ? { id: user.id, name: user.name, email: user.email } : { email }, 'login.failed', { type: 'user', id: user?.id, label: email }, 'Credenciais inválidas', ip); return fail(res,401,'Credenciais inválidas') }
   if (!user.active) { audit(user, 'login.denied', { type: 'user', id: user.id, label: email }, 'Conta desativada', ip); return fail(res,403,'Esta conta está desativada. Contacte o administrador.') }
   attempts.delete(key)
   const token=randomBytes(32).toString('hex'), now=new Date().toISOString()
@@ -117,12 +155,42 @@ function login(email,password,req,res) {
   db.prepare('UPDATE users SET last_login=? WHERE id=?').run(now,user.id)
   db.prepare('DELETE FROM sessions WHERE expires<=?').run(Date.now())
   audit(user, 'login.success', { type: 'user', id: user.id, label: user.email }, '', ip)
-  res.setHeader('Set-Cookie',`dc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${req.secure || req.get('x-forwarded-proto') === 'https' ? '; Secure' : ''}`)
+  res.setHeader('Set-Cookie', `dc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${req.secure ? '; Secure' : ''}`)
   res.json({user:{id:user.id,name:user.name,email:user.email,role:user.role}})
 }
-app.post('/api/login',(req,res)=>login(String(req.body?.email||'').trim().toLowerCase(),String(req.body?.password||''),req,res))
+app.post('/api/login', (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+  const password = typeof req.body?.password === 'string' ? req.body.password : ''
+  if (email.length > 254 || password.length > 200) return fail(res, 400, 'Credenciais inválidas')
+  login(email, password, req, res)
+})
 app.get('/api/me',auth,(req,res)=>res.json({user:req.user}))
-app.post('/api/logout',auth,(req,res)=>{ auditReq(req,'logout',{type:'user',id:req.user.id,label:req.user.email}); db.prepare('DELETE FROM sessions WHERE token=?').run(hash(cookie(req)));res.setHeader('Set-Cookie','dc_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');res.json({ok:true}) })
+app.post('/api/account/password', auth, (req, res) => {
+  const currentPassword = req.body?.currentPassword
+  const newPassword = req.body?.newPassword
+  if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || currentPassword.length > 200 || newPassword.length > 200) return fail(res, 400, 'Dados de palavra-passe inválidos')
+  const row = db.prepare('SELECT password FROM users WHERE id=?').get(req.user.id)
+  if (!row || !verify(currentPassword, row.password)) return fail(res, 401, 'A palavra-passe atual está incorreta')
+  const problem = passwordProblem(newPassword)
+  if (problem) return fail(res, 400, problem)
+
+  const token = randomBytes(32).toString('hex'), tokenHash = hash(token), now = new Date().toISOString()
+  const sessionCount = db.prepare('SELECT count(*) n FROM sessions WHERE user_id=? AND expires>?').get(req.user.id, Date.now()).n
+  db.transaction(() => {
+    db.prepare('UPDATE users SET password=? WHERE id=?').run(pwd(newPassword), req.user.id)
+    db.prepare('DELETE FROM sessions WHERE user_id=?').run(req.user.id)
+    db.prepare('INSERT INTO sessions(token,user_id,expires,created_at,last_seen,ip,agent) VALUES (?,?,?,?,?,?,?)').run(tokenHash, req.user.id, Date.now() + 30 * 86400000, now, now, clientIp(req), String(req.get('user-agent') || '').slice(0, 200))
+  })()
+  auditReq(req, 'user.password.self', { type: 'user', id: req.user.id, label: req.user.email }, `${Math.max(0, sessionCount - 1)} sessão(ões) terminada(s); sessão atual renovada`)
+  res.setHeader('Set-Cookie', `dc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${req.secure ? '; Secure' : ''}`)
+  res.json({ ok: true, sessionsClosed: Math.max(0, sessionCount - 1) })
+})
+app.post('/api/logout',auth,(req,res)=>{
+  auditReq(req,'logout',{type:'user',id:req.user.id,label:req.user.email})
+  db.prepare('DELETE FROM sessions WHERE token=?').run(hash(cookie(req)))
+  res.setHeader('Set-Cookie', `dc_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${req.secure ? '; Secure' : ''}`)
+  res.json({ok:true})
+})
 // Miniatura real do projeto: geometria leve (componentes + fios) extraída do conteúdo guardado.
 const previewCache=new Map()
 function buildPreview(content){
@@ -313,51 +381,74 @@ app.patch('/api/admin/contributions/:id', auth, admin, (req, res) => {
   res.json(contribOut(findContribution(row.id)))
 })
 
-// ---- n8n Integration Proxy ----
-app.post('/api/n8n/trigger', async (req, res) => {
-  const n8nUrl = (process.env.N8N_URL || process.env.VITE_N8N_URL || 'http://localhost:5678').replace(/\/$/, '')
-  const n8nKey = process.env.N8N_API_KEY || process.env.VITE_N8N_API_KEY || ''
-  const workflowId = req.body?.workflowId || process.env.N8N_WORKFLOW_ID || process.env.VITE_N8N_WORKFLOW_ID || 'MipSJCjJ6fya9UGt'
-  const webhookUrl = req.body?.webhookUrl || process.env.N8N_WEBHOOK_URL || `${n8nUrl}/webhook/dcsimu-events`
+// ---- Integração n8n: credenciais e destinos são sempre configuração do servidor. ----
+function serverN8nBase() {
+  const raw = (process.env.N8N_URL || '').trim()
+  if (!raw) return null
+  try {
+    const url = new URL(raw)
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return null
+    return url
+  } catch { return null }
+}
+const validWorkflowId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value)
+
+app.post('/api/n8n/trigger', auth, async (req, res) => {
+  const payload = req.body?.payload
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return fail(res, 400, 'Payload inválido')
+  const body = JSON.stringify(payload)
+  if (Buffer.byteLength(body, 'utf8') > 1_000_000) return fail(res, 413, 'Payload demasiado grande')
+  const webhookUrl = (process.env.N8N_WEBHOOK_URL || '').trim()
+  if (!webhookUrl) return fail(res, 503, 'Webhook n8n não configurado no servidor')
+
+  let target
+  try {
+    target = new URL(webhookUrl)
+    if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password) throw new Error('invalid URL')
+  } catch {
+    return fail(res, 503, 'URL do webhook n8n inválido no servidor')
+  }
 
   try {
-    const headers = { 'Content-Type': 'application/json' }
-    if (n8nKey) headers['X-N8N-API-KEY'] = n8nKey
+    const response = await fetch(target, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      signal: AbortSignal.timeout(8_000),
+    })
+    const status = response.status
+    await response.body?.cancel().catch(() => {})
+    if (!response.ok) return fail(res, 502, `O webhook n8n respondeu com erro HTTP ${status}`)
+    return res.json({ ok: true, source: 'webhook' })
+  } catch (error) {
+    const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError'
+    return fail(res, 502, timeout ? 'Tempo limite ao contactar o webhook n8n' : 'Não foi possível contactar o webhook n8n')
+  }
+})
 
-    if (webhookUrl) {
-      try {
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(req.body?.payload || req.body || {}),
-        })
-        if (response.ok) {
-          const data = await response.json().catch(() => ({ ok: true }))
-          return res.json({ ok: true, source: 'webhook', data })
-        }
-      } catch {
-        /* fallback */
-      }
+// A consulta de ligação é separada do disparo e só lê o workflow do destino configurado.
+app.post('/api/n8n/test', auth, async (_req, res) => {
+  const base = serverN8nBase()
+  const apiKey = (process.env.N8N_API_KEY || '').trim()
+  const workflowId = (process.env.N8N_WORKFLOW_ID || '').trim()
+  if (!base || !apiKey || !validWorkflowId(workflowId)) return fail(res, 503, 'A ligação n8n do servidor não está configurada')
+  const endpoint = new URL(`/api/v1/workflows/${encodeURIComponent(workflowId)}`, base)
+  try {
+    const response = await fetch(endpoint, {
+      headers: { 'X-N8N-API-KEY': apiKey, Accept: 'application/json' },
+      signal: AbortSignal.timeout(8_000),
+    })
+    if (!response.ok) {
+      const status = response.status
+      await response.body?.cancel().catch(() => {})
+      return fail(res, 502, `A API n8n respondeu com erro HTTP ${status}`)
     }
-
-    if (n8nKey && workflowId) {
-      try {
-        const apiTarget = `${n8nUrl}/api/v1/workflows/${workflowId}`
-        const apiRes = await fetch(apiTarget, {
-          headers: { 'X-N8N-API-KEY': n8nKey, Accept: 'application/json' },
-        })
-        if (apiRes.ok) {
-          const wf = await apiRes.json().catch(() => ({}))
-          return res.json({ ok: true, source: 'api', workflow: wf?.name || workflowId, message: 'Conectado ao n8n' })
-        }
-      } catch {
-        /* fallback */
-      }
-    }
-
-    res.json({ ok: true, message: 'Disparo n8n processado no DC-SIMU' })
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message })
+    const workflow = await response.json().catch(() => null)
+    if (!workflow || typeof workflow !== 'object') return fail(res, 502, 'Resposta inválida da API n8n')
+    return res.json({ ok: true, workflowName: typeof workflow.name === 'string' ? workflow.name : workflowId })
+  } catch (error) {
+    const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError'
+    return fail(res, 502, timeout ? 'Tempo limite ao contactar a API n8n' : 'Não foi possível contactar a API n8n')
   }
 })
 

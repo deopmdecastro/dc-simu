@@ -9,6 +9,16 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Novidades — v5.1 (grelha comum e reforço de segurança)
+
+- **Grelha alinhada**: Esquema 2D, GRAFCET, fundo do editor 3D Admin e grelha física do editor 3D usam o mesmo passo de referência de 20 unidades (20 px nos editores planos; 20 mm no chão 3D). O GRAFCET continua a adaptar a densidade visível ao zoom sem alterar o encaixe.
+- **Segredos fora do cliente**: `/api/supabase/config` só devolve a chave anon/public; nunca usa service-role/secret como fallback. A chave da API n8n saiu do código frontend; `N8N_API_KEY` é configuração exclusiva do servidor. Uma chave pessoal de teste nunca é guardada no navegador.
+- **Proxy n8n protegido**: `/api/n8n/trigger` e `/api/n8n/test` exigem sessão. O proxy de disparo aceita destinos apenas da configuração do servidor, limita payloads e distingue execução real de falha; a rota de teste apenas consulta o workflow.
+- **Contas SQLite**: em bases novas, defina `ADMIN_INITIAL_PASSWORD` e `USER_INITIAL_PASSWORD` (mínimo 16 caracteres, maiúsculas/minúsculas/números). São usadas só para criar contas inexistentes; o arranque seguinte nunca repõe a palavra-passe guardada. O menu da conta permite alterá-la, renova a sessão atual e termina as restantes sessões.
+- **Defesas da API**: validação de Origin nas mutações, `Cache-Control: no-store`, cabeçalhos de segurança, verificação de palavra-passe com custo constante para contas inexistentes, limites de tamanho e rate limit que não confia em `X-Forwarded-For` salvo configuração explícita do proxy (`TRUST_PROXY=1`).
+- **Dependências de build**: Vite 7, plugin PWA atualizado e correções das dependências transitivas; `npm audit` e `pnpm audit` sem vulnerabilidades conhecidas na validação desta versão. Docker e desenvolvimento usam Node `>=22.12.0`.
+- Credenciais que tenham sido expostas em código, logs ou conversas devem ser **revogadas/rodadas**. Remover uma chave do código atual não a remove do histórico Git.
+
 ## Novidades — v5.0 (administração completa)
 
 O painel **Administração** (conta `admin`) passou a ter sete separadores:
@@ -678,18 +688,25 @@ autorizada no servidor.
 
 ## API opcional e projetos partilhados (Docker)
 
-Execute `docker compose up --build -d` e abra `http://localhost:3000`. Quando a
-API está disponível, o frontend usa automaticamente SQLite no volume
-`dcsimu_data`, preservando os projetos partilhados entre dispositivos. Sem a
-API, muda para a persistência local descrita acima. Não elimine o volume sem
-backup.
+Antes da primeira execução, copie `.env.example` para `.env` e defina
+`ADMIN_INITIAL_PASSWORD` e `USER_INITIAL_PASSWORD` com valores fortes e únicos.
+Defina também o `PUBLIC_ORIGIN` real se a aplicação estiver atrás de um proxy
+HTTPS. Depois execute `docker compose up --build -d` e abra
+`http://localhost:3000`. Quando a API está disponível, o frontend usa
+automaticamente SQLite no volume `dcsimu_data`, preservando os projetos
+partilhados entre dispositivos. Sem a API, muda para a persistência local
+(descrita acima). Não elimine o volume sem backup.
 
-O servidor cria/redefine no arranque as contas fixas Admin e User, deriva as
-palavras-passe com scrypt e mantém sessões em cookies HttpOnly.
-`POST /api/register` devolve sempre 403: outras contas só existem se o
-administrador as criar no painel **Administração → Utilizadores**. Contas
-antigas (anteriores ao painel) e os respetivos projetos não são apagados da
-base, mas ficam desativadas até o administrador as reativar.
+No servidor, as contas fixas Admin e User só são criadas se ainda não existirem;
+as palavras-passe iniciais são derivadas com scrypt e **não são repostas nos
+arranques seguintes**. Se atualizar uma instalação antiga que usava as
+credenciais de demonstração, altere-as para valores únicos. As sessões usam
+cookies HttpOnly e SameSite=Lax; use HTTPS em produção e configure `TRUST_PROXY=1`
+só quando houver um proxy reverso fiável. `POST /api/register` devolve sempre
+403: outras contas só existem se o administrador as criar no painel
+**Administração → Utilizadores**. Contas antigas (anteriores ao painel) e os
+respetivos projetos não são apagados da base, mas ficam desativadas até o
+administrador as reativar.
 
 Cada projeto pertence a uma conta; só o proprietário o pode eliminar e convidar
 a outra conta. O convidado aceita no dashboard e passa a editor. O controlo de

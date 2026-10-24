@@ -24,7 +24,9 @@ import './styles/select.css'
 import './styles/virtual-io.css'
 import './styles/grafcet-sim.css'
 import './styles/sheet-transfer.css'
+import { EDITOR_GRID_STEP } from './ui/editorTheme'
 
+document.documentElement.style.setProperty('--editor-grid-step', `${EDITOR_GRID_STEP}px`)
 installStaleBuildRecovery()
 startCatalogAutoUpdate()
 

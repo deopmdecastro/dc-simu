@@ -4,6 +4,9 @@
  * do Admin. Alterar aqui muda os três de uma só vez.
  */
 
+/** Passo comum da grelha dos editores (px no Esquema/GRAFCET; mm no editor 3D). */
+export const EDITOR_GRID_STEP = 20
+
 export const EDITOR_THEME = {
   /** Fundo da área de trabalho. */
   background: '#f7f9fc',
@@ -20,7 +23,7 @@ export const EDITOR_THEME = {
   floorMainDark: '#475569',
   floorSubDark: '#273244',
   /** Passo da grelha, em pixels do esquema (1 px = 1 mm no 3D). */
-  step: 20,
+  step: EDITOR_GRID_STEP,
 } as const
 
 /** Conjunto de cores do tema claro ou escuro. */

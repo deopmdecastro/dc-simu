@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   getN8nConfig,
@@ -68,6 +68,10 @@ export default function N8nModal({ isOpen, onClose }: N8nModalProps) {
   const [triggering, setTriggering] = useState(false)
   const [triggerResult, setTriggerResult] = useState<{ ok: boolean; message: string } | null>(null)
 
+  useEffect(() => {
+    if (!isOpen) setApiKey('')
+  }, [isOpen])
+
   if (!isOpen) return null
 
   const configured = isN8nConfigured()
@@ -76,7 +80,7 @@ export default function N8nModal({ isOpen, onClose }: N8nModalProps) {
     setTesting(true)
     setTestResult(null)
     try {
-      const res = await testN8nConnection()
+      const res = await testN8nConnection({ url: url.trim(), apiKey: apiKey.trim(), workflowId: workflowId.trim(), webhookUrl: webhookUrl.trim() })
       setTestResult(res)
     } catch (err) {
       setTestResult({ ok: false, message: `Erro ao testar: ${String(err)}` })
@@ -108,11 +112,11 @@ export default function N8nModal({ isOpen, onClose }: N8nModalProps) {
   const handleSave = () => {
     saveN8nConfig({
       url: url.trim(),
-      apiKey: apiKey.trim(),
       workflowId: workflowId.trim(),
       webhookUrl: webhookUrl.trim(),
     })
-    setTestResult({ ok: true, message: 'Configuração do n8n salva com sucesso!' })
+    setApiKey('')
+    setTestResult({ ok: true, message: 'URLs e identificador do n8n guardados. A chave pessoal não foi armazenada.' })
   }
 
   const workflowUrl = `${url.replace(/\/$/, '')}/workflow/${workflowId}`
@@ -268,7 +272,7 @@ export default function N8nModal({ isOpen, onClose }: N8nModalProps) {
               )}
             </div>
             <div style={{ marginTop: '8px', fontSize: '12px', color: '#9f2f53' }}>
-              O DC-SIMU pode disparar este workflow automaticamente ao gravar projetos, simular circuitos ou exportar esquemas GRAFCET/Ladder.
+              O DC-SIMU pode enviar eventos manualmente para um webhook. No servidor, configure o destino em N8N_WEBHOOK_URL; a URL deste formulário serve como fallback direto no navegador.
             </div>
           </div>
 
@@ -307,7 +311,7 @@ export default function N8nModal({ isOpen, onClose }: N8nModalProps) {
 
             <div className="dc-form-group">
               <label style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '5px' }}>
-                Chave da API Pública do n8n (API Key / JWT)
+                Chave pessoal da API n8n (opcional; só teste direto)
               </label>
               <span style={{ position: 'relative', display: 'block' }}>
                 <input
@@ -316,7 +320,7 @@ export default function N8nModal({ isOpen, onClose }: N8nModalProps) {
                   autoComplete="off"
                   spellCheck={false}
                   style={{ width: '100%', padding: '9px 74px 9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'monospace', fontSize: '12.5px' }}
-                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  placeholder="Chave pessoal, não incluída na aplicação"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                 />
@@ -342,6 +346,9 @@ export default function N8nModal({ isOpen, onClose }: N8nModalProps) {
                   {showKey ? 'Ocultar' : 'Mostrar'}
                 </button>
               </span>
+              <small style={{ display: 'block', marginTop: '5px', color: '#64748b', fontSize: '11px', lineHeight: 1.45 }}>
+                Usada apenas para este teste e nunca guardada nem enviada ao proxy. Para produção, configure N8N_API_KEY apenas no servidor.
+              </small>
             </div>
 
             <div className="dc-form-group">
@@ -358,6 +365,9 @@ export default function N8nModal({ isOpen, onClose }: N8nModalProps) {
                 value={webhookUrl}
                 onChange={(e) => setWebhookUrl(e.target.value)}
               />
+              <small style={{ display: 'block', marginTop: '5px', color: '#64748b', fontSize: '11px', lineHeight: 1.45 }}>
+                No modo estático, este URL é público no navegador: não inclua tokens privados. Com servidor, configure N8N_WEBHOOK_URL no ambiente server-side.
+              </small>
             </div>
           </div>
 

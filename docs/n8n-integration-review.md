@@ -1,6 +1,8 @@
 # Verificação DC-SIMU / n8n
 
-Verificado em 18/10/2026. A integração existe na interface, mas o envio do GRAFCET não está ligado à versão publicada do workflow.
+Revisão remota inicial em 18/10/2026. A integração existia na interface, mas o envio do GRAFCET não estava ligado à versão publicada do workflow.
+
+> **Estado em 24/10/2026:** os itens abaixo que descrevem a instância n8n são históricos e não foram revalidados remotamente. As falhas de segurança no código da aplicação foram corrigidas (ver a atualização no final); não foram alterados workflows, credenciais ou configurações no n8n remoto.
 
 ## Git
 
@@ -9,14 +11,14 @@ Verificado em 18/10/2026. A integração existe na interface, mas o envio do GRA
 - O stash não foi reaplicado: contém versões antigas de muitos ficheiros também alterados no remoto, além dos ajustes locais de ambiente Supabase. O ficheiro `.env`, ignorado pelo Git, permaneceu no disco.
 - O checkout usa sparse-checkout para excluir apenas dois ZIPs com `:` no nome, incompatíveis com Windows: as cópias de `ImageToStl.com_EC+1+12DC:1A+S-R+Electronic+circuit+breaker.glb.zip` em `public/models/acionamentos` e `dist/models/acionamentos`. Os ficheiros continuam no histórico remoto.
 
-## O que o projeto faz
+## O que o código fazia na revisão inicial (18/10/2026)
 
 - O dashboard e o menu de conta abrem o modal de configuração n8n.
 - O botão n8n do editor GRAFCET envia `grafcet.export`, com etapas, transições, Ladder, nome do projeto e metadados.
 - O cliente tenta primeiro `POST /api/n8n/trigger`, depois o webhook diretamente e por fim uma consulta GET à API do n8n.
 - O código prevê nomes de eventos para guardar projetos e iniciar simulações, mas não encontrei chamadas que enviem esses eventos automaticamente. As chamadas implementadas são o envio manual do GRAFCET e o teste no modal.
 
-## Problemas confirmados
+## Problemas confirmados na revisão inicial (18/10/2026)
 
 1. **Workflow publicado diferente do rascunho.** O workflow `MipSJCjJ6fya9UGt` está ativo. A versão publicada `0b25729e-c710-4a56-bbaf-f061bb6cf08d` tem 22 nós; o rascunho `27216e02-cf23-41d0-936d-44357ed0c6d9` tem 65 nós. Os novos caminhos VSCode, Figma e Deploy existem no rascunho, não na versão publicada.
 2. **Webhook incompatível.** O projeto aponta para `/webhook/dcsimu-events`. O único webhook da versão publicada é `POST /webhook/github-dc-simu`, que espera eventos GitHub. O rascunho acrescenta `/webhook/vscode-dc-simu` e `/webhook/dc-simu-deploy`, mas não o endpoint usado pelo projeto. O payload `grafcet.export` também não tem um ramo específico de tratamento.
@@ -52,11 +54,22 @@ os restantes problemas de integração descritos acima continuam por resolver.
 - Não foram publicados rascunhos, alteradas credenciais, criadas issues, enviados comentários nem iniciados deploys.
 - Não foi validada a configuração de webhooks no lado do GitHub nem a credencial Supabase do n8n. A existência dos nós não comprova essas ligações.
 
-## Próximas correções
+## Pendências remotas — estado não revalidado em 24/10/2026
 
-1. Retirar e rodar a API key exposta; limitar e autenticar o proxy.
-2. Definir um webhook para `grafcet.export`, com contrato de payload e resposta explícita; configurar o mesmo caminho no servidor e workflow.
-3. Corrigir os retornos falsos de sucesso e separar o teste de ligação do disparo.
-4. Corrigir o nó Supabase de saúde, preencher a configuração do rascunho e só então publicar e testar a versão pretendida.
+1. Revogar a antiga API key exposta no histórico e configurar uma nova, apenas no ambiente do servidor.
+2. Confirmar o URL/path do webhook configurado em `N8N_WEBHOOK_URL`, o contrato do evento `grafcet.export` e a versão publicada do workflow.
+3. Repetir um teste controlado do workflow publicado; validar separadamente o ramo Supabase de saúde e os restantes nós.
+4. Rever os placeholders de utilizador/repositório/equipa e o endereço de rede Docker, conforme a topologia atual.
 
 Ficheiros principais: `dc-simu/src/n8n/n8nClient.ts`, `dc-simu/server/index.mjs`, `dc-simu/src/components/N8nModal.tsx`, `dc-simu/src/grafcet/GrafcetEditor.tsx` e `dc-simu/compose.yaml`.
+
+## Atualização do código — 24/10/2026
+
+Foram aplicadas as correções de segurança no repositório (não no n8n remoto):
+
+- A chave anteriormente embutida foi removida do frontend; chaves antigas em `localStorage` são apagadas. Uma chave pessoal só pode ser introduzida para o teste direto, fica apenas em memória e não é persistida.
+- `/api/n8n/trigger` e `/api/n8n/test` exigem sessão. O proxy só envia para `N8N_WEBHOOK_URL` configurado no servidor, não encaminha a API key para webhooks e rejeita payloads excessivos.
+- O disparo deixou de usar uma consulta GET ao workflow como falsa confirmação de execução. Falhas de rede/HTTP são apresentadas como falhas; o teste da API é uma rota separada e de leitura.
+- `N8N_API_KEY` é server-only; não usar `VITE_N8N_API_KEY`. O teste direto no navegador aceita uma chave pessoal introduzida pelo utilizador, apenas para leitura, e só usa HTTPS (ou `localhost`); a chave não fica guardada nem é enviada ao proxy.
+
+A correção não publica nem altera workflows, credenciais ou URLs na instância n8n. Permanecem por validar o endpoint do webhook, a versão publicada, os ramos de processamento e os erros de execução descritos na revisão inicial. Como a antiga chave esteve em código público/histórico, removê-la do ficheiro não a revoga: deve ser revogada no n8n e substituída no ambiente do servidor.

@@ -2,6 +2,7 @@ import type { User } from '../dashboard/Dashboard'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
 import {
   supabaseCreateProject,
+  supabaseChangePassword,
   supabaseDeleteProject,
   supabaseFetchProjectMembers,
   supabaseGetCurrentUser,
@@ -250,7 +251,18 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
     return localApi<T>(url, verb)
   }
 
-  // 5. Restantes rotas para projetos e dados
+  // 5. Alteração da palavra-passe, confirmada pelo servidor/Supabase (nunca no modo local estático).
+  if (url === '/account/password' && verb === 'POST') {
+    if (mode === 'server') return serverApi<T>(url, verb, body)
+    if (mode === 'supabase') {
+      const payload = (body ?? {}) as { newPassword?: string }
+      await supabaseChangePassword(String(payload.newPassword ?? ''))
+      return { ok: true, sessionsClosed: 0 } as T
+    }
+    throw new Error('Alterar a palavra-passe exige uma sessão de servidor ou Supabase.')
+  }
+
+  // 6. Restantes rotas para projetos e dados
   if (mode === 'supabase' || (isSupabaseConfigured() && mode !== 'server')) {
     return supabaseApi<T>(url, verb, body)
   }
