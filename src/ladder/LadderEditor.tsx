@@ -1253,6 +1253,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const counters = useSimStore((s) => s.runtime.counters)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
+  const resetMemory = useSimStore((s) => s.resetMemory)
   const blackBox = useSimStore((s) => s.sim.blackBox)
   const grid = useSimStore((s) => s.grid)
   const addRung = useSimStore((s) => s.addRung)
@@ -1773,9 +1774,17 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
               {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <small>Nenhum problema encontrado no programa.</small>}
             </div>}
             {statusTab === 'memory' && <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />}
-            {statusTab === 'timers' && <div className="ladder-project-status"><span>Temporizadores</span>{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => <small key={address}>{address}: {t.elapsedMs} / {t.presetMs} ms · {t.done ? 'ativo' : 'inativo'}</small>) : <small>Nenhum temporizador executado.</small>}</div>}
-            {statusTab === 'counters' && <div className="ladder-project-status"><span>Contadores</span>{Object.entries(counters).length ? Object.entries(counters).map(([address, c]) => <small key={address}>{address}: {c.count} / {c.preset} · {c.done ? 'atingido' : 'em contagem'}</small>) : <small>Nenhum contador executado.</small>}</div>}
-            <div className="ladder-project-status"><span>Estado do Projeto</span><strong><i /> {running ? 'Simulação ativa' : 'Pronto'}</strong></div>
+            {statusTab === 'timers' && <div className="ladder-project-status"><span>Temporizadores</span>{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => {
+              const pct = t.presetMs > 0 ? Math.min(100, Math.round((t.elapsedMs / t.presetMs) * 100)) : t.done ? 100 : 0
+              return <small key={address} className={t.done ? 'is-done' : ''}>{address}: {t.elapsedMs} / {t.presetMs} ms · {t.done ? 'ativo' : 'inativo'}<span className="ladder-meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></span></small>
+            }) : <small>Nenhum temporizador executado.</small>}</div>}
+            {statusTab === 'counters' && <div className="ladder-project-status"><span>Contadores</span>{Object.entries(counters).length ? Object.entries(counters).map(([address, c]) => {
+              const pct = c.preset > 0 ? Math.min(100, Math.round((c.count / c.preset) * 100)) : c.done ? 100 : 0
+              return <small key={address} className={c.done ? 'is-done' : ''}>{address}: {c.count} / {c.preset} · {c.done ? 'atingido' : 'em contagem'}<span className="ladder-meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></span></small>
+            }) : <small>Nenhum contador executado.</small>}</div>}
+            <div className="ladder-project-status"><span>Estado do Projeto</span><strong><i /> {running ? 'Simulação ativa' : 'Pronto'}</strong>
+              <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)">Repor memórias</button>
+            </div>
           </div>}
         </div>
         </>}

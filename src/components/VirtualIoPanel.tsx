@@ -3,7 +3,7 @@ import { useSimStore } from '../store/useSimStore'
 import { bitAddresses, bitAddressOrder } from '../ladder/addresses'
 import VirtualInputButton from './VirtualInputButton'
 
-/** Painel de entradas/saídas virtuais: liga/desliga I1…In com o rato e mostra Q/M em tempo real.
+/** Painel de entradas/saídas virtuais: liga/desliga I0.0…Ix.y com o rato e mostra Q/M em tempo real.
  *  Serve para simular Ladder e GRAFCET sem PLC no esquema. */
 export default function VirtualIoPanel({ compact = false, extraBits = [] }: { compact?: boolean; extraBits?: string[] }) {
   const count = useSimStore((s) => s.virtualInputCount)

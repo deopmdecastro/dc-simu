@@ -1401,6 +1401,36 @@ input[type='color'] {
     background: #24b775;
   }
   .ladder-project-status small { color: #9aa6b7; font-size: 8px; }
+  .ladder-project-status small.is-done { color: #1caa69; font-weight: 700; }
+  .ladder-meter {
+    display: block;
+    height: 4px;
+    margin-top: 2px;
+    border-radius: 2px;
+    background: #e5eaf1;
+    overflow: hidden;
+  }
+  .ladder-meter i {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #5b8def, #1caa69);
+    transition: width 120ms linear;
+  }
+  small.is-done .ladder-meter i { background: #1caa69; }
+  .ladder-status-reset {
+    align-self: flex-start;
+    margin-top: 2px;
+    padding: 2px 8px;
+    border: 1px solid #cbd3df;
+    border-radius: 4px;
+    background: #f4f7fb;
+    color: #51607a;
+    font-size: 9px;
+    cursor: pointer;
+  }
+  .ladder-status-reset:hover { border-color: #8fa3c0; background: #e8eef6; color: #2c3a52; }
+  .ladder-status-reset:active { transform: translateY(1px); }
   .ladder-palette {
     width: 245px;
     flex: 0 0 245px;

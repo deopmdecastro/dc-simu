@@ -159,6 +159,9 @@ interface Store extends CircuitState {
   setVirtualInput: (address: string, on: boolean) => void
   setVirtualInputCount: (count: number) => void
   clearVirtualInputs: () => void
+  /** Repõe a memória de trabalho (Q, M, MW, temporizadores e contadores) a 0
+   *  sem parar a simulação nem tocar nas entradas — o «MRES» do simulador. */
+  resetMemory: () => void
   /** GRAFCET: forçar etapas ativas, disparar transição à mão e reiniciar a sequência. */
   forceGrafcetSteps: (stepIds: string[]) => void
   fireGrafcetTransition: (transitionId: string) => boolean
@@ -851,6 +854,23 @@ export const useSimStore = create<Store>((set, get) => ({
     set({ virtualInputs: {} })
     for (const key of Object.keys(get().runtime.table)) if (/^I\d+\.\d+$/.test(key)) get().runtime.table[key] = false
     if (get().sim.runState !== 'running') get().step()
+  },
+  resetMemory: () => {
+    // Constrói objetos novos (table/timers/…) para os subscritores React verem a mudança.
+    const wipeTable = (table: AddressTable): AddressTable =>
+      Object.fromEntries(Object.entries(table).map(([key, value]) => [key, /^[QM]\d+\.\d+$/.test(key) ? false : value]))
+    const wipeDb = (db: DbTable): DbTable =>
+      Object.fromEntries(Object.entries(db).map(([key, value]) => [key, /^MW\d+$/i.test(key) ? { ...value, value: 0 } : value]))
+    const wipeRt = <T extends { table: AddressTable; timers: TimerTable; counters: CounterTable; rungPowered: Record<string, boolean>; db: DbTable; edges: EdgeTable }>(rt: T): T => ({
+      ...rt, table: wipeTable(rt.table), timers: {}, counters: {}, rungPowered: {}, edges: {}, db: wipeDb(rt.db),
+    })
+    set((s) => ({
+      runtime: {
+        ...wipeRt(s.runtime),
+        plcRuntime: Object.fromEntries(Object.entries(s.runtime.plcRuntime).map(([id, rt]) => [id, wipeRt(rt)])),
+      },
+    }))
+    get().pushEvent('info', 'Memória reposta: saídas, memórias, temporizadores e contadores a 0.')
   },
   forceGrafcetSteps: (stepIds) => {
     const st = get()
@@ -2345,7 +2365,13 @@ export const useSimStore = create<Store>((set, get) => ({
       set({
         projectRevision: get().projectRevision + 1,
         projectKind: normalizeKind(parsed.projectKind),
-        virtualInputs: {},
+        // Estado das entradas virtuais guardado no ficheiro (já migrado para byte.bit):
+        // restitui-o para o projeto continuar a simular exatamente onde ficou.
+        virtualInputs: (() => {
+          const raw = parsed.virtualInputs
+          if (!raw || typeof raw !== 'object') return {}
+          return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([key, value]) => /^I\d+\.\d+$/.test(key) && typeof value === 'boolean')) as Record<string, boolean>
+        })(),
         virtualInputModes: (parsed.virtualInputModes && typeof parsed.virtualInputModes === 'object' ? parsed.virtualInputModes : {}) as Record<string, VirtualInputMode>,
         components: loadedComponents,
         showEmptyWelcome: false,

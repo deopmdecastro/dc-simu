@@ -87,4 +87,21 @@ ok('reload preserva o programa e repete o arranque UMA vez, antes do Main (MW0=1
 store().step()
 ok('scan seguinte do novo RUN não volta a correr o arranque (MW3=1)', store().runtime.db.MW3?.value === 1)
 
+// ---- MIGRAÇÃO LEGADA: dados guardados no formato antigo I1/Q1 — tem de continuar a funcionar em byte.bit
+store().stop()
+store().loadJSON(JSON.stringify({
+  app: 'dc-simu', version: 6, components: [], wires: [],
+  ladder: { rungs: [rung('lg', '', [{ id: 'i1', address: 'I1', contactType: 'NO' }], { coils: [{ id: 'q1', address: 'Q1', coilType: 'COIL' }] })] },
+  ladderLegacy: [],
+  tags: [{ id: 't1', address: 'I1', name: 'Start', dataType: 'Bool', comment: '' }],
+  virtualInputs: { I1: true },
+  projectFiles: {},
+}))
+ok('contacto legado I1 migrado para I0.0', store().ladder.rungs.find((r) => r.id === 'lg')?.branches[0].elements[0]?.address === 'I0.0')
+ok('bobina legada Q1 migrada para Q0.0', store().ladder.rungs.find((r) => r.id === 'lg')?.coils[0]?.address === 'Q0.0')
+ok('tag legada I1 migrada para I0.0', store().tags[0]?.address === 'I0.0')
+ok('entrada virtual legada I1 continua a desenhar a lógica (Q0.0 = 1)', store().runtime.table['Q0.0'] === true)
+store().step()
+ok('scan com dados migrados estável', store().runtime.table['Q0.0'] === true)
+
 console.log(`[ladder-integration] OK — ${checks} verificações`)
