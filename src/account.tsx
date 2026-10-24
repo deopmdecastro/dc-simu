@@ -27,7 +27,7 @@ const Dashboard = lazy(() => import('./dashboard/Dashboard'))
 const AdminPanel = lazy(() => import('./admin/AdminPanel'))
 const ContributorPanel = lazy(() => import('./contrib/ContributorPanel'))
 
-type Open = { id: string; name: string; revision: number }
+type Open = { id: string; name: string; revision: number; role?: 'owner' | 'editor' }
 
 /** Usa SQLite quando disponível e armazenamento local no deploy estático. */
 async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
@@ -228,7 +228,7 @@ export default function Account() {
       await useCatalogStore.getState().ensureLoaded()
       useSimStore.getState().loadJSON(JSON.stringify(response.content))
       useSimStore.getState().setCurrentProjectName(response.name)
-      const entry = { id: response.id, name: response.name, revision: response.revision }
+      const entry = { id: response.id, name: response.name, revision: response.revision, role: response.role }
       openRef.current = entry
       setOpen(entry)
       setPage('editor')
@@ -339,7 +339,8 @@ export default function Account() {
   if (!ready) return <RouteLoading label={loadingLabel} />
 
   if (page === 'editor' && open) return <>
-    <EditorTopbar projectName={open.name} dirty={editorDirty} message={message} onRename={(name) => void renameProject(name)} actions={<>
+    <EditorTopbar projectName={open.name} dirty={editorDirty} message={message}
+      onRename={open.role === 'editor' ? undefined : (name) => void renameProject(name)} actions={<>
       <button className="account-project-action" onClick={() => void leave()}><IconArrowLeft size={12} /> Projetos</button>
       <button className="account-project-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
       {user && <AccountControls user={user} invites={invites} context="editor" dirty={editorDirty}
