@@ -2000,12 +2000,6 @@ html:has(.dx-landing) {
   .dx-ladder-demo .ladder-diagram-scroll {
     overflow: hidden;
   }
-  .dx-ladder-demo .ladder-networks > .dx-ladder-demo-scale > .dx-ladder-secondary {
-    display: none;
-  }
-  .dx-ladder-demo .ladder-networks > .dx-ladder-demo-scale > .ladder-rung-card:first-child {
-    margin-bottom: 0;
-  }
   .dx-ladder-demo .dx-ladder-network-svg text {
     font-size: 16px;
   }
@@ -2084,3 +2078,8 @@ html:has(.dx-landing) {
     animation: none !important;
   }
 }
+
+/* Demo Ladder: usa o diagrama real do simulador — o zoom ajusta à largura disponível, mostrando as 3 networks também no telemóvel */
+.dx-ladder-demo .ladder-diagram-scroll, .dx-ladder-demo .lnet-scroll { overflow-x:auto; overflow-y:hidden; }
+.dx-ladder-demo-scale { width:100% !important; transition:none; }
+.dx-ladder-demo .lnet { pointer-events:none; }

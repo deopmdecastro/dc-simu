@@ -58,16 +58,20 @@ interface Props {
   updateRung?: RungUpdater
   /** Networks irmãs (para mover contactos entre networks do mesmo bloco); omisso → rungs da Main. */
   siblingRungs?: LadderRung[]
+  /** Pré-visualização autónoma (página inicial): estado fornecido em vez de vir da simulação. */
+  preview?: { online: boolean; powered: boolean; table: Record<string, boolean>; names?: Record<string, string> }
 }
 
-export default function NetworkDiagram({ rung, selection = null, onSelect = () => {}, onEdit = () => {}, readonly = false, minWidth = 640, updateRung: updateRungProp, siblingRungs }: Props) {
+export default function NetworkDiagram({ rung, selection = null, onSelect = () => {}, onEdit = () => {}, readonly = false, minWidth = 640, updateRung: updateRungProp, siblingRungs, preview }: Props) {
   // `runtime` é substituído a cada scan (pushRuntime) — subscrever o objeto
   // garante o redesenho das cores; `table`/`timers`/… mantêm a MESMA referência
   // entre ticks, pelo que seletores finos a eles deixavam o desenho desatualizado.
   const runtime = useSimStore((s) => s.runtime)
-  const { table, db, timers, counters } = runtime
+  const { db, timers, counters } = runtime
+  const table = preview ? preview.table : runtime.table
   // Seletor booleano por network: repintar apenas quando o RLO desta muda.
-  const powered = useSimStore((s) => !!s.runtime.rungPowered[rung.id])
+  const storePowered = useSimStore((s) => !!s.runtime.rungPowered[rung.id])
+  const powered = preview ? preview.powered : storePowered
   const simRunning = useSimStore((s) => s.sim.runState !== 'stopped')
   const gridEnabled = useSimStore((s) => s.grid.enabled)
   const tags = useSimStore((s) => s.tags)
@@ -105,8 +109,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     return () => observer.disconnect()
   }, [])
 
-  const online = simRunning && !readonly
+  const online = preview ? preview.online : simRunning && !readonly
   const tagName = (addr: string) => {
+    if (preview) return preview.names?.[addr.toUpperCase()] ?? null
     const t = tags.find((x) => x.address === addr.toUpperCase())
     return t && t.name && t.name !== t.address ? t.name : null
   }

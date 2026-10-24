@@ -191,110 +191,22 @@ function HeroViewport() {
   )
 }
 
-/** Network interativa desenhada com a mesma gramática visual do editor Ladder real. */
-function LandingLadderNetwork({ powered }: { powered: boolean }) {
-  const wire = powered ? '#16a34a' : '#8b98aa'
-  return (
-    <svg className={`dx-ladder-network-svg${powered ? ' is-powered' : ''}`} viewBox="0 4 600 180" role="img" aria-label={`Network Ladder de marcha e selo com a saída KM1 ${powered ? 'energizada' : 'desenergizada'}`}>
-      <defs>
-        <pattern id="dx-ladder-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-          <circle cx="1" cy="1" r="1" fill="#d2dbea" />
-        </pattern>
-      </defs>
-      <rect width="600" height="190" fill="#f8fafd" />
-      <rect width="600" height="190" fill="url(#dx-ladder-grid)" />
+const NetworkDiagram = lazy(() => import('../ladder/NetworkDiagram'))
 
-      {/* rail, alimentação e derivações — mesmas cores do NetworkDiagram */}
-      <g fill="none" stroke={wire} strokeWidth="2.6" strokeLinecap="square">
-        <path d="M24 22v146" />
-        <path d="M24 72h64M112 72h64M200 72h64M264 72h234" />
-        <path d="M138 72v70h38M200 142h64v-70" />
-      </g>
-      <path className={`dx-ladder-current${powered ? ' is-on' : ''}`} d="M24 72h474" fill="none" stroke={powered ? '#d9fbe7' : 'transparent'} strokeWidth="2.6" strokeLinecap="round" />
-
-      {/* STOP NF */}
-      <g fill="none" stroke={wire} strokeWidth="2">
-        <line x1="88" y1="58" x2="88" y2="86" />
-        <line x1="112" y1="58" x2="112" y2="86" />
-        <line x1="84" y1="86" x2="116" y2="56" />
-      </g>
-      {/* START NA e contacto de selo */}
-      <g fill="none" stroke={wire} strokeWidth="2">
-        <line x1="176" y1="58" x2="176" y2="86" />
-        <line x1="200" y1="58" x2="200" y2="86" />
-        <line x1="176" y1="128" x2="176" y2="156" />
-        <line x1="200" y1="128" x2="200" y2="156" />
-      </g>
-
-      {/* bobina */}
-      <g fill="none" stroke={wire} strokeWidth="2.4">
-        <path d="M498 52c-18 8-18 32 0 40" />
-        <path d="M540 52c18 8 18 32 0 40" />
-      </g>
-      <rect x="488" y="46" width="62" height="52" rx="4" fill={powered ? '#16a34a' : '#94a3b8'} fillOpacity=".08" stroke={powered ? '#5bc486' : '#b8c1ce'} strokeWidth="1" />
-
-      <g fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" textAnchor="middle">
-        <g fill="#1f2a3d" fontSize="11" fontWeight="700">
-          <text x="100" y="43">%I1</text>
-          <text x="188" y="43">%I2</text>
-          <text x="188" y="118">%Q1</text>
-          <text x="519" y="42">%Q1</text>
-        </g>
-        <g fill="#6f7d92" fontSize="9">
-          <text x="100" y="31">"STOP"</text>
-          <text x="188" y="31">"START"</text>
-          <text x="188" y="106">"SELO"</text>
-          <text x="519" y="110">"KM1"</text>
-        </g>
-        <text x="519" y="77" fill={powered ? '#137a47' : '#64748b'} fontSize="11" fontWeight="800">KM1</text>
-        <text x="570" y="76" fill={powered ? '#15803d' : '#64748b'} fontSize="9" textAnchor="end">{powered ? '1' : '0'}</text>
-      </g>
-    </svg>
-  )
-}
-
-/** Networks 2/3: o mesmo estado de KM1 alimenta indicações complementares. */
-function LandingStatusNetwork({ powered, stopped = false }: { powered: boolean; stopped?: boolean }) {
-  const wire = powered ? '#16a34a' : '#8b98aa'
-  const lampColor = stopped ? '#ef4444' : '#22c55e'
-  const activeText = stopped ? '#b91c1c' : '#137a47'
-  const output = stopped ? 'Q3' : 'Q2'
-  const lamp = stopped ? 'H2 PARADO' : 'H1 MARCHA'
-  const patternId = stopped ? 'dx-ladder-grid-stop' : 'dx-ladder-grid-status'
-  return (
-    <svg className={`dx-ladder-network-svg dx-ladder-status-svg${powered ? ' is-powered' : ''}`} viewBox="0 6 600 100" role="img" aria-label={`Sinalização ${lamp} ${powered ? 'ligada' : 'desligada'}`}>
-      <defs>
-        <pattern id={patternId} width="20" height="20" patternUnits="userSpaceOnUse">
-          <circle cx="1" cy="1" r="1" fill="#d2dbea" />
-        </pattern>
-      </defs>
-      <rect width="600" height="112" fill="#f8fafd" />
-      <rect width="600" height="112" fill={`url(#${patternId})`} />
-      <g fill="none" stroke={wire} strokeWidth="2.6" strokeLinecap="square">
-        <path d="M24 14v84" />
-        <path d="M24 58h142M190 58h304" />
-      </g>
-      <path className={`dx-ladder-current${powered ? ' is-on' : ''}`} d="M24 58h470" fill="none" stroke={powered ? '#d9fbe7' : 'transparent'} strokeWidth="2.6" strokeLinecap="round" />
-      <g fill="none" stroke={wire} strokeWidth="2">
-        <line x1="166" y1="44" x2="166" y2="72" />
-        <line x1="190" y1="44" x2="190" y2="72" />
-        {stopped && <line x1="162" y1="73" x2="194" y2="43" />}
-      </g>
-      <g fill="none" stroke={wire} strokeWidth="2.4">
-        <circle cx="512" cy="58" r="22" />
-        <path d="M497 43l30 30M527 43l-30 30" />
-      </g>
-      <circle cx="512" cy="58" r="16" fill={powered ? lampColor : '#cbd5e1'} fillOpacity={powered ? '.24' : '.16'} />
-      <g fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" textAnchor="middle">
-        <text x="178" y="34" fill="#1f2a3d" fontSize="11" fontWeight="700">%Q1</text>
-        <text x="178" y="87" fill="#6f7d92" fontSize="9">{stopped ? '"KM1 NF"' : '"KM1"'}</text>
-        <text x="512" y="28" fill="#1f2a3d" fontSize="11" fontWeight="700">%{output}</text>
-        <text x="512" y="96" fill={powered ? activeText : '#64748b'} fontSize="9">{lamp}</text>
-        <text x="570" y="61" fill={powered ? activeText : '#64748b'} fontSize="9" textAnchor="end">{powered ? '1' : '0'}</text>
-      </g>
-    </svg>
-  )
-}
+type DemoRung = import('../types').LadderRung
+const demoContact = (id: string, address: string, contactType: 'NO' | 'NC') => ({ kind: 'contact' as const, id, address, contactType })
+const demoCoil = (id: string, address: string) => ({ kind: 'coil' as const, id, address, coilType: 'COIL' as const })
+/** As mesmas networks do simulador: partida direta com selo e sinalizações H1/H2. */
+const DEMO_RUNGS: DemoRung[] = [
+  { id: 'demo-n1', name: 'Partida direta com selo', comment: 'STOP + START + retenção de KM1', enabled: true,
+    branches: [{ id: 'n1a', elements: [demoContact('c1', 'I1', 'NC'), demoContact('c2', 'I2', 'NO')] }, { id: 'n1b', elements: [demoContact('c3', 'Q1', 'NO')] }],
+    coils: [demoCoil('k1', 'Q1')] },
+  { id: 'demo-n2', name: 'Sinalização de marcha', comment: 'Contacto NA de KM1 comanda a lâmpada verde H1', enabled: true,
+    branches: [{ id: 'n2a', elements: [demoContact('c4', 'Q1', 'NO')] }], coils: [demoCoil('k2', 'Q2')] },
+  { id: 'demo-n3', name: 'Sinalização de motor parado', comment: 'Contacto NF de KM1 comanda a lâmpada vermelha H2', enabled: true,
+    branches: [{ id: 'n3a', elements: [demoContact('c5', 'Q1', 'NC')] }], coils: [demoCoil('k3', 'Q3')] },
+]
+const DEMO_NAMES = { I1: 'STOP', I2: 'START', Q1: 'KM1', Q2: 'H1', Q3: 'H2' }
 
 /** Pré-visualização funcional da vista Ladder do simulador. */
 function EditorAnatomy() {
@@ -304,6 +216,18 @@ function EditorAnatomy() {
   const [view, setView] = useState<'ladder' | 'panel3d'>('ladder')
   const powered = plcRunning && motorOn
   const stoppedIndication = plcRunning && !motorOn
+  const demoTable = { I1: false, I2: false, Q1: powered, Q2: powered, Q3: stoppedIndication }
+  const networksRef = useRef<HTMLDivElement>(null)
+  const [fit, setFit] = useState(1)
+  useEffect(() => {
+    const el = networksRef.current
+    if (!el) return
+    const update = () => setFit(Math.max(0.5, Math.min(1, (el.clientWidth - 16) / 470)))
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [view])
 
   const runPlc = () => setPlcRunning(true)
   const stopPlc = () => {
@@ -369,44 +293,29 @@ function EditorAnatomy() {
             <button type="button" className="dx-operator-start" onClick={startMotor} disabled={!plcRunning || motorOn}><i aria-hidden /> START <small>I2</small></button>
             <button type="button" className="dx-operator-stop" onClick={stopMotor} disabled={!motorOn}><i aria-hidden /> STOP <small>I1</small></button>
           </div>
-          <div className="ladder-networks grid-lines">
-            <div className="dx-ladder-demo-scale" style={{ width: `${zoom}%` }}>
-              <div className={`ladder-rung-card${powered ? ' is-powered' : ''}`}>
-                <div className="ladder-rung-header">
-                  <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
-                  <span className={`ladder-network-no${powered ? ' is-on' : ''}`}>Network 1:</span>
-                  <span className="ladder-network-title">Partida direta com selo</span>
-                  <span className={`ladder-rung-live${powered ? ' is-on' : ''}`}><i />RLO = {powered ? '1' : '0'}</span>
-                </div>
-                <div className="ladder-network-comment">STOP + START + retenção de KM1</div>
-                <div className="ladder-rung-body">
-                  <div className="ladder-diagram-scroll"><LandingLadderNetwork powered={powered} /></div>
-                </div>
-              </div>
-              <div className={`ladder-rung-card dx-ladder-secondary${powered ? ' is-powered' : ''}`}>
-                <div className="ladder-rung-header">
-                  <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
-                  <span className={`ladder-network-no${powered ? ' is-on' : ''}`}>Network 2:</span>
-                  <span className="ladder-network-title">Sinalização de marcha</span>
-                  <span className={`ladder-rung-live${powered ? ' is-on' : ''}`}><i />RLO = {powered ? '1' : '0'}</span>
-                </div>
-                <div className="ladder-network-comment">Contacto NA de KM1 comanda a lâmpada verde H1</div>
-                <div className="ladder-rung-body">
-                  <div className="ladder-diagram-scroll"><LandingStatusNetwork powered={powered} /></div>
-                </div>
-              </div>
-              <div className={`ladder-rung-card dx-ladder-secondary dx-ladder-stopped${stoppedIndication ? ' is-powered' : ''}`}>
-                <div className="ladder-rung-header">
-                  <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
-                  <span className={`ladder-network-no${stoppedIndication ? ' is-on' : ''}`}>Network 3:</span>
-                  <span className="ladder-network-title">Sinalização de motor parado</span>
-                  <span className={`ladder-rung-live${stoppedIndication ? ' is-on' : ''}`}><i />RLO = {stoppedIndication ? '1' : '0'}</span>
-                </div>
-                <div className="ladder-network-comment">Contacto NF de KM1 comanda a lâmpada vermelha H2</div>
-                <div className="ladder-rung-body">
-                  <div className="ladder-diagram-scroll"><LandingStatusNetwork powered={stoppedIndication} stopped /></div>
-                </div>
-              </div>
+          <div className="ladder-networks grid-lines" ref={networksRef}>
+            <div className="dx-ladder-demo-scale" style={{ zoom: fit * zoom / 100 }}>
+              {DEMO_RUNGS.map((rung, index) => {
+                const live = index === 2 ? stoppedIndication : powered
+                return (
+                  <div key={rung.id} className={`ladder-rung-card${live ? ' is-powered' : ''}`}>
+                    <div className="ladder-rung-header">
+                      <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
+                      <span className={`ladder-network-no${live ? ' is-on' : ''}`}>Network {index + 1}:</span>
+                      <span className="ladder-network-title">{rung.name}</span>
+                      <span className={`ladder-rung-live${live ? ' is-on' : ''}`}><i />RLO = {live ? '1' : '0'}</span>
+                    </div>
+                    <div className="ladder-network-comment">{rung.comment}</div>
+                    <div className="ladder-rung-body">
+                      <div className="lnet-scroll">
+                        <Suspense fallback={<div style={{ height: 150 }} />}>
+                          <NetworkDiagram rung={rung} readonly minWidth={460} preview={{ online: plcRunning, powered: live, table: demoTable, names: DEMO_NAMES }} />
+                        </Suspense>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </main>
