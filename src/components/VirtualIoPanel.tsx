@@ -42,7 +42,10 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
     </div>
     <div className="vio-head"><strong>Saídas e memórias</strong></div>
     <div className="vio-outputs">
-      {outputs.map((address) => <span key={address} className={`vio-lamp ${table[address] ? 'is-on' : ''}`} title={nameOf(address) ?? address}><i />{address}</span>)}
+      {outputs.map((address) => {
+        const name = nameOf(address)
+        return <span key={address} className={`vio-lamp ${table[address] ? 'is-on' : ''}`} title={name ? `${address} · ${name}` : address}><i /><b>{address}</b>{name && <small>{name}</small>}</span>
+      })}
       {!outputs.length && <small>Nenhuma saída ativa.</small>}
     </div>
   </section>

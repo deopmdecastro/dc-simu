@@ -336,7 +336,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   )
 
   // --------- blocos de função estilo TIA Portal (MOVE / matemática) ---------
-  const TIA = { head: '#a9b1bd', headText: '#28303c', body: '#e9ebf0', edge: '#79828f', pin: '#44505f', cnst: '#1d4ed8', addr: '#6d7c00', tag: '#b45309', value: '#1a7f37' } as const
+  const TIA = { head: '#a9b1bd', headText: '#28303c', body: '#e9ebf0', edge: '#79828f', pin: '#44505f', cnst: '#1d4ed8', addr: '#0f8b8d', tag: '#b45309', value: '#1a7f37' } as const
   /** Cabeça cinzenta com cantos superiores redondos + título centrado, como no TIA Portal. */
   const tiaChrome = (x: number, y: number, w: number, h: number, title: string, extraTitle?: string) => <>
     <rect x={x} y={y} width={w} height={h} rx={3} fill={TIA.body} stroke={TIA.edge} strokeWidth={1.3} />
@@ -345,7 +345,8 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     {extraTitle && label(x + w / 2, y + 24, extraTitle, { size: 7.5, fill: TIA.headText })}
   </>
   /** Operando fora da caixa, como o TIA Portal: constantes a azul, endereços a
-   *  oliva «%MW100», nome da tag em «âmbar» por cima e valor atual (em RUN) por baixo. */
+   *  verde-azulado «%MW100» em destaque, nome da tag em «âmbar» por cima e
+   *  valor atual (em RUN) por baixo. */
   const formatOperand = (v: string) => (/^(?:[IQM]\d+(?:\.\d+)?|MW\d+)$/i.test(v.trim()) ? `%${v.trim().toUpperCase()}` : v)
   const operandValueText = (key: string): string | null => {
     if (!online) return null
@@ -361,9 +362,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     const value = showValue && !isConstant && trimmed ? operandValueText(key) : null
     return (
       <g>
-        {name && label(x, y - 8, `"${name}"`, { anchor, size: 8, fill: TIA.tag, italic: true })}
-        {label(x, y, trimmed ? (isConstant ? trimmed : formatOperand(trimmed)) : '…', { anchor, size: 9, fill: trimmed ? (isConstant ? TIA.cnst : TIA.addr) : undefined, grey: !trimmed })}
-        {value !== null && label(x, y + 10, value, { anchor, size: 8, fill: TIA.value, bold: true })}
+        {name && label(x, y - 9, `"${name}"`, { anchor, size: 9, fill: TIA.tag, italic: true })}
+        {label(x, y, trimmed ? (isConstant ? trimmed : formatOperand(trimmed)) : '…', { anchor, size: 10, bold: !!trimmed && !isConstant, fill: trimmed ? (isConstant ? TIA.cnst : TIA.addr) : undefined, grey: !trimmed })}
+        {value !== null && label(x, y + 11, value, { anchor, size: 8, fill: TIA.value, bold: true })}
       </g>
     )
   }

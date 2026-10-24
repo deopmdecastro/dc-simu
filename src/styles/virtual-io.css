@@ -16,6 +16,8 @@
 .vio-outputs { display: flex; flex-wrap: wrap; gap: 6px; }
 .vio-lamp { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px solid var(--line, #d6dae1); border-radius: 999px; font-family: ui-monospace, monospace; font-size: 11px; background: var(--surface-panel, #fff); }
 .vio-lamp i { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
+.vio-lamp small { font-size: 8px; color: #64748b; font-weight: 500; }
+.vio-lamp.is-on small { color: #166534; }
 .vio-lamp.is-on { border-color: #16a34a; background: #dcfce7; color: #166534; font-weight: 700; }
 .vio-lamp.is-on i { background: #16a34a; box-shadow: 0 0 6px #22c55e; }
 .vio-panel.is-compact .vio-inputs { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }

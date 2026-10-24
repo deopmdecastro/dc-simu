@@ -1251,6 +1251,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const table = useSimStore((s) => s.runtime.table)
   const timers = useSimStore((s) => s.runtime.timers)
   const counters = useSimStore((s) => s.runtime.counters)
+  const dbWords = useSimStore((s) => s.runtime.db)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
   const resetMemory = useSimStore((s) => s.resetMemory)
@@ -1773,7 +1774,13 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             {statusTab === 'lint' && <div className="ladder-lint" role="list">
               {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <small>Nenhum problema encontrado no programa.</small>}
             </div>}
-            {statusTab === 'memory' && <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />}
+            {statusTab === 'memory' && <>
+              <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />
+              <div className="ladder-project-status"><span>Palavras (MW)</span>
+                {(() => { const words = Object.entries(dbWords).filter(([key]) => /^MW\d+$/i.test(key)).sort(([a], [b]) => Number(a.slice(2)) - Number(b.slice(2)))
+                  return words.length ? words.map(([key, entry]) => <small key={key} className={entry.value !== 0 && entry.value !== false ? 'is-done' : ''}>%{key} = {String(entry.value)} <em>({entry.type})</em></small>) : <small>Nenhuma palavra MW escrita pelo programa.</small> })()}
+              </div>
+            </>}
             {statusTab === 'timers' && <div className="ladder-project-status"><span>Temporizadores</span>{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => {
               const pct = t.presetMs > 0 ? Math.min(100, Math.round((t.elapsedMs / t.presetMs) * 100)) : t.done ? 100 : 0
               return <small key={address} className={t.done ? 'is-done' : ''}>{address}: {t.elapsedMs} / {t.presetMs} ms · {t.done ? 'ativo' : 'inativo'}<span className="ladder-meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></span></small>
