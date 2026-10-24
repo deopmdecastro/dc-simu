@@ -14,6 +14,9 @@ interface ActionDialogProps {
   availableSteps?: GrafcetStep[]
   /** Programa completo, para avisar quando a saída já é comandada por outra ação. */
   program?: GrafcetProgram
+  /** Etapa a que a ação pertence (null/propriedade omitida = ação livre). */
+  ownerStep?: GrafcetStep | null
+  ownerStepIndex?: number
   onSave: (patch: Partial<GrafcetAction>) => void
   onClose: () => void
   onHelp?: () => void
@@ -54,7 +57,7 @@ const ALLOCATIONS: Array<{ id: GrafcetActionAllocation; label: string; hint: str
 
 const KIND_OF_ALLOCATION: Record<GrafcetActionAllocation, GrafcetActionKind> = { continuous: 'N', activation: 'A', deactivation: 'DA', event: 'EV', compulsory: 'C' }
 
-export default function ActionDialog({ open, action, signals = [], availableSteps = [], program, onSave, onClose }: ActionDialogProps) {
+export default function ActionDialog({ open, action, signals = [], availableSteps = [], program, ownerStep, ownerStepIndex = 0, onSave, onClose }: ActionDialogProps) {
   const [assignation, setAssignation] = useState<AssignationType>('simple')
   const [allocation, setAllocation] = useState<GrafcetActionAllocation>('continuous')
   const [kind, setKind] = useState<GrafcetActionKind>('N')
@@ -203,6 +206,7 @@ export default function ActionDialog({ open, action, signals = [], availableStep
           </div>
           <strong>{selectedKind?.label}</strong><p>{notExecuted ? 'Notação guardada; não é executada pelo simulador.' : selectedKind?.hint}</p>
           <div className="grafcet-property-preview-value"><span>Saída</span><code>{resolved || 'Por definir'}</code></div>
+          <div className="grafcet-property-preview-value"><span>Pertence a</span><span>{ownerStep ? `Etapa ${stepNumberOf(ownerStep, ownerStepIndex)}` : 'Ação livre (sem etapa)'}</span></div>
           {assignation === 'conditional' && <div className="grafcet-property-preview-value"><span>Condição</span><code>{condition || 'Por definir'}</code></div>}
           {timed && <div className="grafcet-property-preview-value"><span>{effectiveKind === 'D' ? 'Atraso' : 'Duração'}</span><code>{duration || '—'} s</code></div>}
           {description && <div className="grafcet-property-preview-value"><span>Descrição</span><span>{description}</span></div>}

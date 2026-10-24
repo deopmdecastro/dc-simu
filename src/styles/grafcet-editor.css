@@ -1192,6 +1192,9 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-property-preview > strong { display:block; font-size:13px; font-weight:700; color:#25344c; }
 .grafcet-property-preview > p { margin:7px 0 16px; color:#526681; font-size:11px; line-height:1.65; }
 .grafcet-property-preview-value { display:flex; flex-direction:column; gap:4px; border-top:1px solid #dce4ef; padding:10px 0; font-size:11px; overflow-wrap:anywhere; }
+.grafcet-step-context { border-top:1px solid #dce4ef; padding-top:10px; }
+.grafcet-step-context > strong { display:block; font-size:10.5px; color:#25344c; margin-bottom:2px; }
+.grafcet-step-context .grafcet-property-preview-value { border-top:none; padding:7px 0; }
 .grafcet-property-preview-value > span:first-child { color:#526681; font-size:10px; }
 .grafcet-property-preview-value code { color:#25344c; font-family:ui-monospace,Consolas,monospace; }
 .grafcet-property-footer { display:flex; flex:none; align-items:center; justify-content:flex-end; gap:8px; padding:12px 24px; background:#fafbfd; border-top:1px solid #dce4ef; }

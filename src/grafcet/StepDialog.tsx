@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { nextFreeStepNumber, stepIdentifierTakenBy, stepNumberOf, type GrafcetStep, type GrafcetStepType } from './engine'
+import { nextFreeStepNumber, stepIdentifierTakenBy, stepNumberOf, type GrafcetStep, type GrafcetStepType, type GrafcetTransition } from './engine'
 import PropertyDialog from '../ui/PropertyDialog'
 import { IconChevronRight } from '../ui/icons'
 
@@ -8,6 +8,8 @@ interface StepDialogProps {
   step: GrafcetStep | null
   stepIndex?: number
   availableSteps?: GrafcetStep[]
+  /** Transições do programa — permitem mostrar o contexto (entradas e saídas) na pré-visualização. */
+  transitions?: GrafcetTransition[]
   onSave: (patch: Partial<GrafcetStep>) => void
   onClose: () => void
   onHelp?: () => void
@@ -23,7 +25,7 @@ const STEP_TYPES: Array<{ id: GrafcetStepType; label: string; desc: string }> = 
   { id: 'initial-enclosing', label: 'Encapsulante inicial', desc: 'Etapa encapsulante inicial' },
 ]
 
-export default function StepDialog({ open, step, stepIndex = 0, availableSteps = [], onSave, onClose }: StepDialogProps) {
+export default function StepDialog({ open, step, stepIndex = 0, availableSteps = [], transitions = [], onSave, onClose }: StepDialogProps) {
   const [name, setName] = useState('')
   const [stepType, setStepType] = useState<GrafcetStepType>('simple')
   const [activationLink, setActivationLink] = useState(false)
@@ -51,6 +53,14 @@ export default function StepDialog({ open, step, stepIndex = 0, availableSteps =
   const otherInitial = wantsInitial ? availableSteps.find((item) => item.id !== step.id && (item.stepType === 'initial' || item.stepType === 'initial-enclosing' || (!item.stepType && item.initial))) : undefined
   const otherInitialLabel = otherInitial ? `Etapa ${stepNumberOf(otherInitial, availableSteps.findIndex((item) => item.id === otherInitial.id))}` : ''
   const nextFree = nextFreeStepNumber(availableSteps)
+  // Contexto na sequência: transições que chegam e que saem desta etapa.
+  const linkedIncoming = transitions.filter((transition) => transition.to.includes(step.id))
+  const linkedOutgoing = transitions.filter((transition) => transition.from.includes(step.id))
+  const transitionNameOf = (transition: GrafcetTransition) => transition.name || `T${transitions.indexOf(transition) + 1}`
+  const endpointsOf = (ids: string[]) => ids.map((id) => {
+    const index = availableSteps.findIndex((item) => item.id === id)
+    return index < 0 ? '?' : stepNumberOf(availableSteps[index], index)
+  }).join(', ')
   const handleOk = () => {
     setSubmitted(true)
     if (nameError) { document.getElementById('step-name-input')?.focus(); return }
@@ -204,6 +214,13 @@ export default function StepDialog({ open, step, stepIndex = 0, availableSteps =
           <p>{!['simple', 'initial'].includes(stepType) ? 'Notação avançada guardada. Sem execução de sub-GRAFCETs no simulador.' : stepType === 'initial' ? 'Ativa no início da sequência.' : 'A ativação depende das ligações e transições.'}</p>
           <div className="grafcet-property-preview-value"><span>Identificador</span><code>{name || 'Por definir'}</code></div>
           {description && <div className="grafcet-property-preview-value"><span>Descrição</span><span>{description}</span></div>}
+          {!!transitions.length && (
+            <div className="grafcet-step-context" aria-label="Contexto da etapa na sequência">
+              <strong>Na sequência</strong>
+              <div className="grafcet-property-preview-value"><span>Entrada{linkedIncoming.length === 1 ? '' : 's'}</span><span>{linkedIncoming.length ? linkedIncoming.map((transition) => `${transitionNameOf(transition)} · de Etapa ${endpointsOf(transition.from)}`).join(' · ') : 'ninguém (etapa solta ou inicial)'}</span></div>
+              <div className="grafcet-property-preview-value"><span>Saída{linkedOutgoing.length === 1 ? '' : 's'}</span><span>{linkedOutgoing.length ? linkedOutgoing.map((transition) => `${transitionNameOf(transition)} · para Etapa ${endpointsOf(transition.to)}`).join(' · ') : 'nenhuma (fim de sequência)'}</span></div>
+            </div>
+          )}
         </aside>
       </div>
     </PropertyDialog>

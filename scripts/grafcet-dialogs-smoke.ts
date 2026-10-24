@@ -8,6 +8,7 @@ import {
   sameActionAddress,
   stepIdentifierTakenBy,
   stepNumberOf,
+  validateGrafcet,
   type GrafcetProgram,
   type GrafcetStep,
 } from '../src/grafcet/engine'
@@ -57,5 +58,32 @@ ok('duas ações pares sobre Q1 (outra etapa + livre), inclui legada e ignora a 
 ok('a ação legada da etapa aparece em Q5', actionsOnAddress(program, 'Q5').some((peer) => peer.action.id === 'legacy-s2'))
 ok('endereço sem pares fica vazio', actionsOnAddress(program, 'Q3').length === 0)
 ok('endereço vazio não devolve nada', actionsOnAddress(program, '').length === 0)
+
+// validateGrafcet: novos diagnósticos
+const chain: GrafcetProgram = {
+  steps: [step('a', '0', true), step('b', '1'), step('c', '2')],
+  transitions: [
+    { id: 't0', from: ['a'], to: ['b'], condition: 'I1' },
+    { id: 't1', from: ['b'], to: ['c'], condition: 'I2' },
+    { id: 't2', from: ['c'], to: ['a'], condition: 'I3' },
+  ],
+}
+ok('cadeia sã não produz erros', !validateGrafcet(chain).some((issue) => issue.level === 'error'))
+
+ok('«5» e «Etapa 5» mostram o mesmo identificador → dupnum', validateGrafcet({ steps: [step('a', '0', true), step('b', '5'), step('c', 'Etapa 5'), step('d', '8')], transitions: [] }).some((issue) => issue.id.endsWith(':dupnum')))
+ok('identificadores distintos sem dupnum', !validateGrafcet(chain).some((issue) => issue.id.endsWith(':dupnum')))
+
+ok('duas etapas iniciais avisam', validateGrafcet({ steps: [step('a', '0', true), step('b', '5', true)], transitions: [] }).some((issue) => issue.id === 'initial:several'))
+ok('uma só inicial não avisa', !validateGrafcet(chain).some((issue) => issue.id === 'initial:several'))
+
+const conflict: GrafcetProgram = {
+  steps: [{ ...step('a', '0'), initial: true, actions: [{ id: 'a1', address: 'Q1', condition: '1', kind: 'N' }] }, { ...step('b', '1'), actions: [{ id: 'a2', address: 'Q1', condition: '1', kind: 'N' }] }],
+  transitions: [{ id: 't0', from: ['a'], to: ['b'], condition: '1' }],
+}
+ok('N duplicado na mesma saída avisa', validateGrafcet(conflict).some((issue) => issue.id === 'addr:Q1'))
+ok('set/reset na mesma saída é idiomático e não avisa', !validateGrafcet({ steps: [{ ...step('a', '0'), initial: true, actions: [{ id: 'a1', address: 'Q1', condition: '1', kind: 'S' }] }, { ...step('b', '1'), actions: [{ id: 'a2', address: 'Q1', condition: '1', kind: 'R' }] }], transitions: [] }).some((issue) => issue.id.startsWith('addr:')))
+
+ok('ciclo direto (origem = destino) avisa', validateGrafcet({ steps: [step('a', '0', true)], transitions: [{ id: 't0', from: ['a'], to: ['a'], condition: 'I1' }] }).some((issue) => issue.id === 't0:selfloop'))
+ok('sem ciclo direto não avisa', !validateGrafcet(chain).some((issue) => issue.id.endsWith(':selfloop')))
 
 console.log(`[dialogs] OK — ${checks} verificações`)

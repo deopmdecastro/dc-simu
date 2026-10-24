@@ -664,6 +664,10 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
     } else if ([...transition.from, ...transition.to].some((stepId) => !stepIds.has(stepId))) {
       issues.push({ id: `${transition.id}:missing`, level: 'error', message: `${name} referencia uma etapa inexistente.`, entityId: transition.id, tab: 'transitions' })
     }
+    const selfLoop = transition.from.filter((stepId) => transition.to.includes(stepId) && stepIds.has(stepId))
+    if (selfLoop.length) {
+      issues.push({ id: `${transition.id}:selfloop`, level: 'warning', message: `Ciclo direto em ${name}: ${selfLoop.map((stepId) => label(stepId)).join(', ')} é origem e destino ao mesmo tempo — dispara continuamente enquanto a receptividade for verdadeira.`, entityId: transition.id, tab: 'transitions' })
+    }
     if (!validCondition(transition.condition)) {
       issues.push({ id: `${transition.id}:condition`, level: 'error', message: `Condição inválida em ${name}: «${transition.condition || 'vazia'}».`, entityId: transition.id, tab: 'transitions' })
     } else {
@@ -709,6 +713,26 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
   const names = new Map<string, number>()
   steps.forEach((step) => names.set(step.name.trim().toLowerCase(), (names.get(step.name.trim().toLowerCase()) ?? 0) + 1))
 
+  // Identificadores mostrados no diagrama (X<n>): «5» e «Etapa 5» têm nomes diferentes
+  // distintas mas o mesmo número visível — as referências por número ficam ambíguas.
+  const shownNumbers = new Map<string, Array<{ step: GrafcetStep; index: number }>>()
+  steps.forEach((step, index) => {
+    const key = stepNumberOf(step, index).toLowerCase()
+    shownNumbers.set(key, [...(shownNumbers.get(key) ?? []), { step, index }])
+  })
+  for (const [, group] of shownNumbers) {
+    if (group.length < 2) continue
+    const leader = group[0]
+    group.slice(1).forEach(({ step }) => {
+      issues.push({ id: `${step.id}:dupnum`, level: 'warning', message: `${label(leader.step.id)} e ${label(step.id)} mostram o mesmo identificador no diagrama — as referências por número (X e «Ligar nº») ficam ambíguas.`, entityId: step.id, tab: 'steps' })
+    })
+  }
+
+  const initialSteps = steps.filter((step) => step.initial || step.stepType === 'initial' || step.stepType === 'initial-enclosing')
+  if (initialSteps.length > 1) {
+    issues.push({ id: 'initial:several', level: 'warning', message: `Existem ${initialSteps.length} etapas iniciais (${initialSteps.map((step) => label(step.id)).join(', ')}); no arranque ficam todas ativas em simultâneo.`, entityId: initialSteps[1].id, tab: 'steps' })
+  }
+
   steps.forEach((step, index) => {
     const stepIndex = stepNumberOf(step, index)
     const isInit = step.initial || step.stepType === 'initial' || step.stepType === 'initial-enclosing'
@@ -736,6 +760,23 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
       }
     })
   })
+
+  // Dois comandos à mesma saída brigam entre si. A única combinação idiomática é
+  // set/reset (S num sítio e R noutro); qualquer N/C/D/L/A/DA repetido é suspeito.
+  const addressRefs = new Map<string, Array<{ action: GrafcetAction; where: string; entityId?: string }>>()
+  const collectAddress = (action: GrafcetAction, where: string, entityId?: string) => {
+    const address = normAddress(action.address || action.variable || '')
+    if (!address) return
+    addressRefs.set(address, [...(addressRefs.get(address) ?? []), { action, where, entityId }])
+  }
+  steps.forEach((step, index) => actionsOfStep(step).forEach((action, actionIndex) => collectAddress(action, `etapa ${stepNumberOf(step, index)} · ação ${actionIndex + 1}`, step.id)))
+  ;(program.freeActions ?? []).forEach((action) => collectAddress(action, 'ação livre', action.id))
+  for (const [address, refs] of addressRefs) {
+    if (refs.length < 2) continue
+    const kinds = [...new Set(refs.map((ref) => ref.action.kind ?? 'N'))]
+    if (kinds.every((kind) => kind === 'S' || kind === 'R')) continue // set/reset é o idioma normal
+    issues.push({ id: `addr:${address}`, level: 'warning', message: `A saída ${address} é comandada em ${refs.map((ref) => ref.where).join(', ')} (${kinds.join('/')}) — dois comandos à mesma saída brigam entre si.`, entityId: refs[1].entityId, tab: 'steps' })
+  }
 
   // Alcançabilidade a partir das etapas iniciais.
   const reach = new Set(steps.filter((s) => s.initial || s.stepType === 'initial' || s.stepType === 'initial-enclosing').map((s) => s.id))
