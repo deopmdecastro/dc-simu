@@ -25,7 +25,7 @@ const cut = (v: string, n: number) => (v.length > n ? `${v.slice(0, n - 1)}…` 
 type Box = { w: number; h: number; body: string }
 
 /** Fundo do editor (pontos da grelha) + conteúdo centrado e ajustado ao quadro. */
-function frame(box: Box, label: string, badge: string): string {
+function frame(box: Box, label = '', badge = ''): string {
   const pad = 56
   const scale = Math.min((COVER_W - pad * 2) / box.w, (COVER_H - pad * 2 - 18) / box.h, 1.7)
   const tx = (COVER_W - box.w * scale) / 2
@@ -38,11 +38,10 @@ function frame(box: Box, label: string, badge: string): string {
 <rect width="${COVER_W}" height="${COVER_H}" fill="url(#bg)"/>
 <rect width="${COVER_W}" height="${COVER_H}" fill="url(#dots)"/>
 <g transform="translate(${tx.toFixed(1)} ${ty.toFixed(1)}) scale(${scale.toFixed(3)})">${box.body}</g>
-<g font-family="${SANS}">
-<rect x="20" y="20" width="${badge.length * 9 + 32}" height="26" rx="13" fill="${BRAND}"/>
-<text x="34" y="37" font-size="12" font-weight="700" fill="#fff" letter-spacing=".6">${esc(badge)}</text>
-<text x="${COVER_W - 22}" y="${COVER_H - 20}" font-size="12" font-weight="600" fill="${MUTED}" text-anchor="end">${esc(label)}</text>
-</g>
+${badge || label ? `<g font-family="${SANS}">
+${badge ? `<rect x="20" y="20" width="${badge.length * 9 + 32}" height="26" rx="13" fill="${BRAND}"/><text x="34" y="37" font-size="12" font-weight="700" fill="#fff" letter-spacing=".6">${esc(badge)}</text>` : ''}
+${label ? `<text x="${COVER_W - 22}" y="${COVER_H - 20}" font-size="12" font-weight="600" fill="${MUTED}" text-anchor="end">${esc(label)}</text>` : ''}
+</g>` : ''}
 </svg>`
 }
 
@@ -274,6 +273,117 @@ export function grafcetCoverSvg(program: GrafcetProgram, title = 'GRAFCET'): str
   return frame({ w, h, body }, note, 'GRAFCET')
 }
 
+
+// ───────────────────── Captura do SVG real do editor ─────────────────────
+
+const STYLE_PROPS = [
+  'fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin',
+  'opacity', 'font-family', 'font-size', 'font-weight', 'font-style', 'letter-spacing', 'text-anchor', 'text-decoration',
+  'dominant-baseline',
+]
+const DROP = /(^|\s|-)(handle|handles|guide|guides|marquee|hit|ghost|drop|hover|cursor|rubber)(\s|-|$)/i
+const SELECTION = /(^|\s|-)(sel|selection)(\s|-|$)/i
+
+/** Copia o SVG do editor com os estilos já resolvidos (as classes CSS não existem fora da página). */
+function cloneWithStyles(source: SVGElement): SVGElement {
+  const clone = source.cloneNode(true) as SVGElement
+  const walk = (src: Element, dst: Element) => {
+    const srcKids = Array.from(src.children)
+    const dstKids = Array.from(dst.children)
+    srcKids.forEach((child, i) => {
+      const twin = dstKids[i]
+      if (!twin) return
+      const cls = (child.getAttribute('class') ?? '')
+      const cs = getComputedStyle(child)
+      if (cs.display === 'none' || DROP.test(cls) || (SELECTION.test(cls) && !child.children.length)) { twin.remove(); return }
+      if (child instanceof SVGElement && child.tagName.toLowerCase() !== 'defs') {
+        const declared = twin.getAttribute('style') ?? ''
+        const inline = STYLE_PROPS.map((prop) => `${prop}:${cs.getPropertyValue(prop)}`).join(';')
+        twin.setAttribute('style', `${inline};${declared}`)
+      }
+      twin.removeAttribute('class')
+      walk(child, twin)
+    })
+  }
+  walk(source, clone)
+  clone.removeAttribute('class')
+  return clone
+}
+
+/** Caixa do conteúdo desenhado (ignora o fundo/grelha que ocupa o SVG todo). */
+function contentBox(svg: SVGSVGElement): { x: number; y: number; w: number; h: number } | null {
+  const full = { w: svg.width.baseVal.value, h: svg.height.baseVal.value }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const child of Array.from(svg.children)) {
+    if (!(child instanceof SVGGraphicsElement) || child.tagName.toLowerCase() === 'defs') continue
+    try {
+      const b = child.getBBox()
+      if (!b.width && !b.height) continue
+      if (b.width >= full.w * 0.92 && b.height >= full.h * 0.92 && child.tagName.toLowerCase() === 'rect') continue
+      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
+      maxX = Math.max(maxX, b.x + b.width); maxY = Math.max(maxY, b.y + b.height)
+    } catch { /* elemento sem geometria */ }
+  }
+  return Number.isFinite(minX) ? { x: minX, y: minY, w: maxX - minX, h: maxY - minY } : null
+}
+
+function grafcetFromEditor(): string | null {
+  const svg = document.querySelector<SVGSVGElement>('.grafcet-pan-layer svg[role="img"]')
+  if (!svg) return null
+  const box = contentBox(svg)
+  if (!box || box.w < 10 || box.h < 10) return null
+  const pad = 28
+  const clone = cloneWithStyles(svg)
+  const x = box.x - pad, y = box.y - pad, w = box.w + pad * 2, h = box.h + pad * 2
+  clone.setAttribute('viewBox', `${x} ${y} ${w} ${h}`)
+  clone.setAttribute('x', '0'); clone.setAttribute('y', '0')
+  clone.setAttribute('width', String(w)); clone.setAttribute('height', String(h))
+  clone.removeAttribute('style'); clone.removeAttribute('role'); clone.removeAttribute('aria-label')
+  const inner = new XMLSerializer().serializeToString(clone)
+  return frame({ w, h, body: inner })
+}
+
+function ladderFromEditor(): string | null {
+  const seen = new Set<SVGSVGElement>()
+  const nets = Array.from(document.querySelectorAll<SVGSVGElement>('.ladder-networks .lnet > svg'))
+    .filter((svg) => (seen.has(svg) ? false : (seen.add(svg), true)))
+  if (!nets.length) return null
+  const gap = 14
+  let y = 0
+  let width = 0
+  const parts: string[] = []
+  for (const net of nets) {
+    const w = net.width.baseVal.value, h = net.height.baseVal.value
+    if (!w || !h) continue
+    if (y > 0 && y + h > 1100) break
+    const clone = cloneWithStyles(net)
+    clone.setAttribute('x', '0'); clone.setAttribute('y', String(y))
+    clone.setAttribute('width', String(w)); clone.setAttribute('height', String(h))
+    clone.removeAttribute('aria-hidden')
+    // ids de padrões/marcadores repetidos entre networks: prefixa para não colidirem
+    let markup = new XMLSerializer().serializeToString(clone)
+    const prefix = `n${parts.length}-`
+    markup = markup.replace(/id="([^"]+)"/g, `id="${prefix}$1"`).replace(/url\(#([^)]+)\)/g, `url(#${prefix}$1)`)
+    parts.push(`<rect x="0" y="${y}" width="${w}" height="${h}" rx="10" fill="#fff" stroke="#d3dcea"/>${markup}`)
+    y += h + gap
+    width = Math.max(width, w)
+  }
+  if (!parts.length) return null
+  return frame({ w: width, h: y - gap, body: parts.join('') })
+}
+
+/** SVG do editor aberto (Grafcet ou Ladder), tal como está no ecrã. Null se não estiver montado. */
+export function editorFlowSvg(kind: ProjectKind): string | null {
+  if (typeof document === 'undefined') return null
+  try {
+    if (kind === 'ladder') return ladderFromEditor()
+    if (kind === 'grafcet') return grafcetFromEditor()
+    return grafcetFromEditor() ?? ladderFromEditor()
+  } catch {
+    return null
+  }
+}
+
 // ───────────────────────────── Rasterização ─────────────────────────────
 
 /** SVG → JPEG data URL (dentro do limite de tamanho guardado nos projetos). */
@@ -324,6 +434,11 @@ export function flowCoverSvg({ kind, rungs, grafcet, name }: FlowCoverInput): st
 }
 
 export async function flowCoverDataUrl(input: FlowCoverInput): Promise<string | null> {
-  const svg = flowCoverSvg(input)
-  return svg ? svgToJpegDataUrl(svg) : null
+  // 1.º o conteúdo real do editor; só se não estiver visível usa o desenho de reserva.
+  for (const svg of [editorFlowSvg(input.kind), flowCoverSvg(input)]) {
+    if (!svg) continue
+    const url = await svgToJpegDataUrl(svg)
+    if (url) return url
+  }
+  return null
 }
