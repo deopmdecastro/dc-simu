@@ -635,22 +635,26 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       const m = rung.move
       const top = cy - 40
       const isSel = selection?.type === 'move'
-      // TIA Portal: cabeça cinzenta, EN/ENO na linha de corrente; IN/OUT1 em baixo com operandos fora da caixa
+      // Mesmo estilo dos blocos TON/CTU: caixa branca quadrada, faixa de cabeçalho
+      // «#eef3fb» com título centrado; EN/ENO na linha de corrente; IN/OUT1 em baixo
+      // com operandos fora da caixa (constantes a azul, endereços a oliva, tags a âmbar).
       svg.push(<g key="move-block">
-        {isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 86, 'move-sel')}
+        {isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 100, 'move-sel')}
         {wire(OJ, cy, boxX, cy, rungOut)}
-        {tiaChrome(boxX, top, BOX_W, 70, 'MOVE')}
-        {label(boxX + 6, cy + 3, 'EN', { anchor: 'start', size: 9, fill: TIA.pin })}
-        {label(boxX + 6, cy + 19, 'IN', { anchor: 'start', size: 9, fill: TIA.pin })}
-        {label(boxX + BOX_W - 6, cy + 3, 'ENO', { anchor: 'end', size: 9, fill: TIA.pin })}
-        {label(boxX + BOX_W - 6, cy + 19, 'OUT1', { anchor: 'end', size: 9, fill: TIA.pin })}
-        <line x1={boxX - 14} y1={cy + 16} x2={boxX} y2={cy + 16} stroke={TIA.edge} strokeWidth={1} />
+        <rect x={boxX} y={top} width={BOX_W} height={80} fill="#fff" stroke={online && rungOut ? C_ON : '#5b6b84'} strokeWidth={1.3} />
+        <rect x={boxX} y={top} width={BOX_W} height={30} fill="#eef3fb" />
+        {label(boxX + BOX_W / 2, top + 14, 'MOVE', { bold: true, size: 11 })}
+        {label(boxX + 6, cy + 3, 'EN', { anchor: 'start', size: 9 })}
+        {label(boxX + 6, cy + 19, 'IN', { anchor: 'start', size: 9 })}
+        {label(boxX + BOX_W - 6, cy + 3, 'ENO', { anchor: 'end', size: 9 })}
+        {label(boxX + BOX_W - 6, cy + 19, 'OUT1', { anchor: 'end', size: 9 })}
+        <line x1={boxX - 14} y1={cy + 16} x2={boxX} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
         {pinText(m.source, boxX - 16, cy + 19, 'end')}
         {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
-        <line x1={boxX + BOX_W} y1={cy + 16} x2={boxX + BOX_W + 14} y2={cy + 16} stroke={TIA.edge} strokeWidth={1} />
+        <line x1={boxX + BOX_W} y1={cy + 16} x2={boxX + BOX_W + 14} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
         {pinText(m.target, boxX + BOX_W + 18, cy + 19, 'start')}
       </g>)
-      if (!readonly) hits.push(<div key="move-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 86 }}
+      if (!readonly) hits.push(<div key="move-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 100 }}
         onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'move' }) }}
         onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'move' }) }}
         onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, move: undefined }), 'force') }}
