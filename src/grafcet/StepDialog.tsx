@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { GrafcetStep, GrafcetStepType } from './engine'
+import { nextFreeStepNumber, stepIdentifierTakenBy, stepNumberOf, type GrafcetStep, type GrafcetStepType } from './engine'
 import PropertyDialog from '../ui/PropertyDialog'
 import { IconChevronRight } from '../ui/icons'
 
@@ -7,6 +7,7 @@ interface StepDialogProps {
   open: boolean
   step: GrafcetStep | null
   stepIndex?: number
+  availableSteps?: GrafcetStep[]
   onSave: (patch: Partial<GrafcetStep>) => void
   onClose: () => void
   onHelp?: () => void
@@ -22,7 +23,7 @@ const STEP_TYPES: Array<{ id: GrafcetStepType; label: string; desc: string }> = 
   { id: 'initial-enclosing', label: 'Encapsulante inicial', desc: 'Etapa encapsulante inicial' },
 ]
 
-export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose }: StepDialogProps) {
+export default function StepDialog({ open, step, stepIndex = 0, availableSteps = [], onSave, onClose }: StepDialogProps) {
   const [name, setName] = useState('')
   const [stepType, setStepType] = useState<GrafcetStepType>('simple')
   const [activationLink, setActivationLink] = useState(false)
@@ -44,6 +45,12 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose 
   if (!open || !step) return null
 
   const nameError = !name.trim() ? 'Indique o nome ou número da etapa.' : ''
+  const duplicateOf = name.trim() ? stepIdentifierTakenBy(name, availableSteps, step.id, stepIndex) : null
+  const duplicateLabel = duplicateOf ? `Etapa ${stepNumberOf(duplicateOf, availableSteps.findIndex((item) => item.id === duplicateOf.id))}` : ''
+  const wantsInitial = stepType === 'initial' || stepType === 'initial-enclosing'
+  const otherInitial = wantsInitial ? availableSteps.find((item) => item.id !== step.id && (item.stepType === 'initial' || item.stepType === 'initial-enclosing' || (!item.stepType && item.initial))) : undefined
+  const otherInitialLabel = otherInitial ? `Etapa ${stepNumberOf(otherInitial, availableSteps.findIndex((item) => item.id === otherInitial.id))}` : ''
+  const nextFree = nextFreeStepNumber(availableSteps)
   const handleOk = () => {
     setSubmitted(true)
     if (nameError) { document.getElementById('step-name-input')?.focus(); return }
@@ -158,8 +165,12 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose 
         <section className="grafcet-property-fields" aria-label="Definições da etapa">
           <div className="grafcet-property-field">
             <label htmlFor="step-name-input">Nome ou número <span className="grafcet-required">obrigatório</span></label>
-            <input id="step-name-input" data-initial-focus className="dc-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: 0, 10, Espera" aria-invalid={submitted && !!nameError} aria-describedby={submitted && nameError ? 'step-name-error' : undefined} />
+            <div className="grafcet-var-row">
+              <input id="step-name-input" data-initial-focus className="dc-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: 0, 10, Espera" aria-invalid={submitted && !!nameError} aria-describedby={submitted && nameError ? 'step-name-error' : duplicateOf ? 'step-name-duplicate' : undefined} />
+              {!!availableSteps.length && name !== String(nextFree) && <button type="button" className="grafcet-link-button" onClick={() => setName(String(nextFree))} title="Menor número a seguir ao maior em uso">Seguinte livre: {nextFree}</button>}
+            </div>
             {submitted && nameError && <p id="step-name-error" className="grafcet-field-error" role="alert">{nameError}</p>}
+            {!nameError && duplicateOf && <p id="step-name-duplicate" className="grafcet-property-warning" role="status">Já existe a {duplicateLabel} no diagrama — dois identificadores iguais tornam ambíguas as referências por número (nas condições e no «Ligar nº»). Escolha outro número.</p>}
           </div>
           <fieldset className="grafcet-property-section">
             <legend>Tipo de etapa</legend>
@@ -169,6 +180,7 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose 
                 {renderTypeIcon(t.id)}<span><strong>{t.label}</strong><small>{t.desc}</small></span>
               </label>
             ))}</div>
+            {otherInitial && <p className="grafcet-property-warning" role="status">Já existe uma etapa inicial ({otherInitialLabel}); no arranque ficam as duas ativas. IEC 60848 permite várias — se era essa a intenção, está correto.</p>}
           </fieldset>
           <div className="grafcet-property-field">
             <label htmlFor="step-desc-input">Descrição <span className="grafcet-optional">opcional</span></label>

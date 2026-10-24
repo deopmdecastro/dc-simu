@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ACTION_KINDS, validGrafcetVariable, validCondition, normalizeActionVariable, type GrafcetAction, type GrafcetActionKind, type GrafcetActionAllocation, type GrafcetStep } from './engine'
+import { ACTION_KINDS, validGrafcetVariable, validCondition, normalizeActionVariable, actionsOnAddress, stepNumberOf, type GrafcetAction, type GrafcetActionKind, type GrafcetActionAllocation, type GrafcetProgram, type GrafcetStep } from './engine'
 import PropertyDialog from '../ui/PropertyDialog'
 import ConditionEditor from './ConditionEditor'
 import SignalPicker from './SignalPicker'
@@ -12,6 +12,8 @@ interface ActionDialogProps {
   action: GrafcetAction | null
   signals?: GrafcetSignalSuggestion[]
   availableSteps?: GrafcetStep[]
+  /** Programa completo, para avisar quando a saída já é comandada por outra ação. */
+  program?: GrafcetProgram
   onSave: (patch: Partial<GrafcetAction>) => void
   onClose: () => void
   onHelp?: () => void
@@ -52,7 +54,7 @@ const ALLOCATIONS: Array<{ id: GrafcetActionAllocation; label: string; hint: str
 
 const KIND_OF_ALLOCATION: Record<GrafcetActionAllocation, GrafcetActionKind> = { continuous: 'N', activation: 'A', deactivation: 'DA', event: 'EV', compulsory: 'C' }
 
-export default function ActionDialog({ open, action, signals = [], availableSteps = [], onSave, onClose }: ActionDialogProps) {
+export default function ActionDialog({ open, action, signals = [], availableSteps = [], program, onSave, onClose }: ActionDialogProps) {
   const [assignation, setAssignation] = useState<AssignationType>('simple')
   const [allocation, setAllocation] = useState<GrafcetActionAllocation>('continuous')
   const [kind, setKind] = useState<GrafcetActionKind>('N')
@@ -109,6 +111,11 @@ export default function ActionDialog({ open, action, signals = [], availableStep
   const selectedKind = ACTION_KINDS.find((item) => item.id === effectiveKind)
   const selectedAllocation = ALLOCATIONS.find((item) => item.id === allocation)
   const notExecuted = !selectedAllocation?.executes
+  /** Outras ações que comandam a mesma saída — causa frequente de falhas no quadro. */
+  const peers = program && resolved && !variableError ? actionsOnAddress(program, resolved, action.id) : []
+  const peerLabel = (peer: { stepIndex: number | null; action: GrafcetAction }) => peer.stepIndex === null
+    ? 'ação livre'
+    : `Etapa ${stepNumberOf(program!.steps[peer.stepIndex], peer.stepIndex)} (${peer.action.kind ?? 'N'})`
 
   const typeCard = (name: string, checked: boolean, onSelect: () => void, label: string, hint: string, glyph: React.ReactNode) => (
     <label key={`${name}-${label}`} className={`grafcet-type-card ${checked ? 'is-selected' : ''}`}>
@@ -135,6 +142,7 @@ export default function ActionDialog({ open, action, signals = [], availableStep
             <p className="grafcet-property-note">
               {!variable.trim() ? 'Pode escrever só o número: «1» cria a ação Q1, mesmo sem estar ligada a uma etapa.' : !variableInTable ? 'Variável manual. Adicione-a em «Variáveis» para a encontrar nas sugestões.' : `Saída «${variableInTable.name || variableInTable.address}» encontrada na tabela de variáveis.`}
             </p>
+            {!!peers.length && <p className="grafcet-property-warning" role="status">«{resolved}» também é comandada por {peers.length === 1 ? 'outra ação' : 'outras ações'}: {peers.map((peer) => peerLabel(peer)).join(', ')}. Dois comandos à mesma saída brigam entre si — a maioria dos quadros só pode ter um.</p>}
           </div>
 
           <div className="grafcet-step-block">
@@ -168,6 +176,7 @@ export default function ActionDialog({ open, action, signals = [], availableStep
               {timed && <div className="grafcet-property-field">
                 <label htmlFor="action-time-input">{effectiveKind === 'D' ? 'Atraso' : 'Duração máxima'} <span className="grafcet-optional">segundos</span></label>
                 <input id="action-time-input" type="number" step="any" min="0" className="dc-input grafcet-code-input" value={duration} onChange={(e) => setDuration(e.target.value)} aria-invalid={submitted && !!timeError} aria-describedby={submitted && timeError ? 'action-time-error' : undefined} />
+                <div className="grafcet-property-chips" aria-label="Tempos frequentes">{['0.5', '1', '2', '5', '10'].map((seconds) => <button key={seconds} type="button" onClick={() => setDuration(seconds)} aria-pressed={duration === seconds}>{seconds} s</button>)}</div>
                 {submitted && timeError && <p id="action-time-error" className="grafcet-field-error" role="alert">{timeError}</p>}
               </div>}
             </div>

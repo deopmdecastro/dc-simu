@@ -59,10 +59,23 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
     onSave({ name: name.trim() || `T${transitionIndex + 1}`, condition: condition.trim(), description: description.trim(), comment: description.trim(), displayDescription, targetInfo: targetInfo.trim(), wireless, from: [...from], to: [...to] })
     onClose()
   }
+  /** Número que o diagrama mostra (o mesmo de X<n> e do «Ligar nº»). */
+  const numberOf = (index: number) => stepNumberOf(availableSteps[index], index)
+  /** Rótulo curto: o nome só se junta quando acrescenta informação (evita «Etapa 0 · Etapa 0»). */
+  const pointOf = (index: number): { number: string; name: string } => {
+    const step = availableSteps[index]
+    const number = numberOf(index)
+    const folded = foldText(step.name).replace(/\s+/g, ' ')
+    const generic = folded === number || new RegExp(`^(?:etapa|step|e)\\s*${number}$`).test(folded)
+    return { number, name: generic || !step.name.trim() ? '' : step.name.trim() }
+  }
   const labelOf = (id: string) => {
     const index = availableSteps.findIndex((step) => step.id === id)
-    return index < 0 ? 'Etapa indisponível · ligação preservada' : `Etapa ${index} · ${availableSteps[index].name || index}`
+    if (index < 0) return 'Etapa indisponível · ligação preservada'
+    const point = pointOf(index)
+    return `Etapa ${point.number}${point.name ? ` · ${point.name}` : ''}`
   }
+  const directCycle = from.filter((id) => to.includes(id))
   const toggle = (side: 'from' | 'to', id: string) => {
     const update = (current: string[]) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
     if (side === 'from') setFrom(update)
@@ -70,9 +83,9 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
   }
   /** Liga pelo número da etapa tal como aparece no diagrama (ex.: 141 ou X141). */
   const connectByNumber = (side: 'from' | 'to') => {
-    const raw = (side === 'from' ? quickFrom : quickTo).trim().replace(/^x/i, '')
+    const raw = foldText((side === 'from' ? quickFrom : quickTo).trim()).replace(/^x/, '')
     if (!raw) return
-    const index = availableSteps.findIndex((step, i) => stepNumberOf(step, i) === raw)
+    const index = availableSteps.findIndex((step, i) => foldText(stepNumberOf(step, i)) === raw)
     if (index < 0) { setQuickMsg(`Não existe etapa com o número ${raw}.`); return }
     const id = availableSteps[index].id
     const ids = side === 'from' ? from : to
@@ -84,14 +97,19 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
   }
   const renderConnections = (side: 'from' | 'to', ids: string[]) => {
     const query = foldText((side === 'from' ? fromSearch : toSearch).trim())
-    const matches = availableSteps.map((step, index) => ({ step, index })).filter(({ step, index }) => foldText(`${index} Etapa ${index} ${step.name} ${step.description ?? ''} ${step.comment ?? ''}`).includes(query))
+    const matches = availableSteps.map((step, index) => ({ step, index })).filter(({ step, index }) => { const point = pointOf(index); return foldText(`${index} Etapa ${index} ${point.number} ${step.name} ${step.description ?? ''} ${step.comment ?? ''}`).includes(query) })
     const missing = [...new Set(ids.filter((id) => !availableSteps.some((step) => step.id === id)))]
     return (
     <fieldset className="grafcet-property-section grafcet-connection-selector" aria-label={side === 'from' ? 'Origens · todas ativas' : 'Destinos · ativados juntos'}>
       <legend>{side === 'from' ? 'Origens · todas ativas' : 'Destinos · ativados juntos'} <span>{ids.length}</span></legend>
+      {!!ids.length && (
+        <div className="grafcet-connection-chips" data-property-save-ignore aria-label={side === 'from' ? 'Etapas ligadas nas origens' : 'Etapas ligadas nos destinos'}>
+          {ids.map((id, index) => <span key={`${id}:${index}`} className="grafcet-connection-chip">{labelOf(id)}<button type="button" onClick={() => toggle(side, id)} aria-label={`Desligar ${labelOf(id)}`}>×</button></span>)}
+        </div>
+      )}
       <div className="grafcet-connection-search" data-property-save-ignore><IconSearch size={12} /><input type="search" className="dc-input" aria-label={side === 'from' ? 'Pesquisar etapas de origem' : 'Pesquisar etapas de destino'} placeholder="Pesquisar etapa…" value={side === 'from' ? fromSearch : toSearch} onChange={(event) => (side === 'from' ? setFromSearch : setToSearch)(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault() }} /></div>
       <div className="grafcet-connection-options">
-        {matches.map(({ step, index }) => <label key={step.id} className={ids.includes(step.id) ? 'is-selected' : ''}><input type="checkbox" checked={ids.includes(step.id)} onChange={() => toggle(side, step.id)} /><span><b>Etapa {index}<span className="grafcet-connection-name">{step.name && step.name !== String(index) ? ` · ${step.name}` : ''}</span></b>{(step.description || step.comment) && <small>{step.description || step.comment}</small>}</span></label>)}
+        {matches.map(({ step, index }) => { const point = pointOf(index); return <label key={step.id} className={ids.includes(step.id) ? 'is-selected' : ''}><input type="checkbox" checked={ids.includes(step.id)} onChange={() => toggle(side, step.id)} /><span><b>Etapa {point.number}{point.name && <span className="grafcet-connection-name"> · {point.name}</span>}</b>{(step.description || step.comment) && <small>{step.description || step.comment}</small>}</span></label> })}
         {missing.map((id, index) => <label key={id} className="is-selected is-unresolved"><input type="checkbox" checked onChange={() => toggle(side, id)} /><span><b>Etapa indisponível {index + 1}</b><small>Ligação preservada. Desmarque para remover.</small></span></label>)}
         {!!query && !matches.length && <p className="grafcet-property-note">Nenhuma etapa corresponde à pesquisa.</p>}
         {!availableSteps.length && !ids.length && <p className="grafcet-property-note">Ainda não existem etapas para ligar.</p>}
@@ -114,6 +132,7 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
           <p className="grafcet-property-note">Sem linha: o diagrama não desenha o traçado e cada ponta indica o número da etapa do outro lado (ex.: X141), como na IEC 60848 — útil para saltos entre etapas afastadas. Desmarcada, a ligação volta a ser desenhada com linha. As duas formas funcionam igual na simulação.</p>
           <div className="grafcet-connection-editors">{renderConnections('from', from)}{renderConnections('to', to)}</div>
           {quickMsg && <p className="grafcet-property-note" role="status">{quickMsg}</p>}
+          {!!directCycle.length && <p className="grafcet-property-warning" role="status">Ciclo direto: {directCycle.map((id) => labelOf(id)).join(', ')} {directCycle.length === 1 ? 'é origem e destino' : 'são origem e destino'} ao mesmo tempo — enquanto a condição for verdadeira a transição dispara continuamente, sem esperar noutra etapa.</p>}
           <p className="grafcet-property-note">Com todas as origens ativas e a condição verdadeira, ativa todos os destinos (AND).</p></section>
           {(!from.length || !to.length) && <p className="grafcet-property-warning" role="status">Transição solta: faltam {(!from.length && !to.length) ? 'origens e destinos' : !from.length ? 'origens' : 'destinos'}. Pode guardar o rascunho e completar as ligações depois.</p>}
           <div className="grafcet-property-field"><label htmlFor="trans-desc-input">Descrição <span className="grafcet-optional">opcional</span></label><textarea id="trans-desc-input" className="dc-input" rows={2} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: Cilindro A no fim de curso" /><label className="grafcet-property-checkbox"><input type="checkbox" checked={displayDescription} onChange={(event) => setDisplayDescription(event.target.checked)} /><span>Mostrar a descrição em vez da expressão no diagrama</span></label></div>

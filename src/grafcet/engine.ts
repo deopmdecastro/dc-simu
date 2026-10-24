@@ -429,6 +429,40 @@ export const normalizeActionVariable = (value: string): string => {
 
 const normAddress = (address: string) => normalizeActionVariable(address).toUpperCase()
 
+/** Próximo número de etapa livre: o maior número em uso + 1 (sem etapas começa em 0). */
+export function nextFreeStepNumber(steps: readonly { name?: string }[]): number {
+  let max = -1
+  steps.forEach((step, index) => {
+    const number = parseInt(stepNumberOf(step, index), 10)
+    if (Number.isFinite(number) && number > max) max = number
+  })
+  return max + 1
+}
+
+/** Etapa (que não `selfId`) que já mostra o identificador que `name` viria a ter.
+ *  Dois «X10» no diagrama tornariam ambíguas as referências X<n> e o «Ligar nº». */
+export function stepIdentifierTakenBy(name: string, steps: readonly GrafcetStep[], selfId: string, selfIndex: number): GrafcetStep | null {
+  const candidate = stepNumberOf({ name }, selfIndex).toLowerCase()
+  return steps.find((step, index) => step.id !== selfId && stepNumberOf(step, index).toLowerCase() === candidate) ?? null
+}
+
+/** True quando duas ações comandam a mesma saída («1» = «Q1», sem distinção de maiúsculas). */
+export const sameActionAddress = (a: string, b: string) => normAddress(a) === normAddress(b)
+
+/** Ações do programa inteiro (etapas + ações livres) sobre o mesmo endereço —
+ *  suporta o aviso «saída já comandada» no diálogo da ação. */
+export function actionsOnAddress(program: GrafcetProgram, address: string, excludeId?: string): Array<{ action: GrafcetAction; stepIndex: number | null }> {
+  const matches: Array<{ action: GrafcetAction; stepIndex: number | null }> = []
+  if (!address) return matches
+  program.steps.forEach((step, stepIndex) => actionsOfStep(step).forEach((action) => {
+    if (action.id !== excludeId && sameActionAddress(action.address, address)) matches.push({ action, stepIndex })
+  }))
+  ;(program.freeActions ?? []).forEach((action) => {
+    if (action.id !== excludeId && sameActionAddress(action.address, address)) matches.push({ action, stepIndex: null })
+  })
+  return matches
+}
+
 /** Tempo (ms) em que TODAS as origens da transição estão ativas. */
 function sourceElapsed(transition: GrafcetTransition, elapsed: Record<string, number>): number {
   return Math.min(...transition.from.map((id) => elapsed[id] ?? 0))

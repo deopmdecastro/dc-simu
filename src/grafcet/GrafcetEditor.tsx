@@ -5363,6 +5363,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
         open={!!editingStep}
         step={editingStep}
         stepIndex={editingStep ? steps.findIndex((s) => s.id === editingStep.id) : 0}
+        availableSteps={program.steps}
         onSave={(patch) => {
           if (editingStep) updateStep(editingStep.id, patch, 'force')
         }}
@@ -5386,6 +5387,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
         action={editingAction?.action ?? null}
         signals={signalSuggestions}
         availableSteps={program.steps}
+        program={program}
         onSave={(patch) => {
           if (!editingAction) return
           if (editingAction.step) patchAction(editingAction.step, editingAction.action, patch, 'force')

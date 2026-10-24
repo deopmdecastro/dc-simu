@@ -16,6 +16,7 @@
     "test:grafcet-signals": "tsx scripts/grafcet-signals-smoke.ts",
     "test:grafcet-ladder-sync": "tsx scripts/grafcet-ladder-sync-smoke.ts",
     "test:grafcet-links": "tsx scripts/grafcet-links-smoke.ts",
+    "test:grafcet-dialogs": "tsx scripts/grafcet-dialogs-smoke.ts",
     "test:project-names": "tsx scripts/project-names-smoke.ts",
     "test:style": "node scripts/no-accent-border.mjs",
     "test:interactables": "tsx scripts/interactables-smoke.ts",
