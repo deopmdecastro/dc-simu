@@ -1,3 +1,4 @@
+import { evalCompare } from './compare'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { LadderContact, LadderRung } from '../types'
@@ -131,7 +132,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
 
   // ------------------------------------------------------------- estado
   const rawContact = (el: LadderContact) => db[el.address.toUpperCase()]?.type === 'BOOL' ? db[el.address.toUpperCase()].value === true : !!table[el.address]
-  const pass = (el: LadderContact) => el.contactType === 'NC' ? !rawContact(el) : rawContact(el)
+  const pass = (el: LadderContact) => el.contactType === 'CMP' ? evalCompare(el, { db, timers, counters }) : el.contactType === 'NC' ? !rawContact(el) : rawContact(el)
   const rungOut = online && powered
   const col = (p: boolean) => (!online ? C_OFF : p ? C_ON : C_IDLE)
   const dash = (p: boolean) => (online && !p ? '5 4' : undefined)
@@ -313,6 +314,30 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     <rect key={key} className="lnet-sel" x={x} y={y} width={w} height={h} rx={7} fill="#2f6fe4" fillOpacity={0.09} stroke="#2f6fe4" strokeWidth={1.5} />
   )
 
+  /** Comparador estilo TIA: IN1 em cima (azul-petróleo), caixa com operador e tipo, IN2 em baixo (azul). */
+  const renderCompare = (el: LadderContact, x0: number, cx: number, cy: number, pIn: boolean, pOut: boolean, conducts: boolean, isSel: boolean, name: string) => {
+    const xl = cx - 24
+    const xr = cx + 24
+    const on = online && conducts
+    const stroke = on ? C_ON : C_OFF
+    const mono = 'ui-monospace, SFMono-Regular, Menlo, monospace'
+    return (
+      <g key={el.id}>
+        {isSel && selBox(x0 + 6, cy - 50, COL_W - 12, 88, `${el.id}-sel`)}
+        {wire(x0, cy, xl, cy, online && pIn)}
+        {wire(xr, cy, x0 + COL_W, cy, online && pOut)}
+        {on && <rect x={xl} y={cy - 17} width={48} height={34} fill={C_ON} fillOpacity={0.16} />}
+        <line x1={xl} y1={cy - 17} x2={xl} y2={cy + 17} stroke={stroke} strokeWidth={2} />
+        <line x1={xr} y1={cy - 17} x2={xr} y2={cy + 17} stroke={stroke} strokeWidth={2} />
+        {label(cx, cy - 2, el.compareOp ?? '==', { bold: true, size: 12 })}
+        {label(cx, cy + 12, el.compareType ?? 'Int', { bold: true, size: 9 })}
+        <text x={cx} y={cy - 24} fontSize={10} fontWeight={700} fill="#0f8b8d" textAnchor="middle" fontFamily={mono}>{`%${el.address}`}</text>
+        {name && label(cx, cy - 37, `"${name}"`, { grey: true, size: 9 })}
+        <text x={cx} y={cy + 33} fontSize={10} fontWeight={600} fill="#3b6fd4" textAnchor="middle" fontFamily={mono}>{el.compareValue ?? '0'}</text>
+      </g>
+    )
+  }
+
   // ramos
   let railBottom = cyOf(branches.length - 1)
   branches.forEach((b, bi) => {
@@ -327,7 +352,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       const isSel = selection?.type === 'contact' && selection.elementId === el.id
       const name = tagName(el.address)
       svg.push(
-        <g key={el.id}>
+        el.contactType === 'CMP' ? renderCompare(el, x0, cx, cy, pIn, pOut, conducts, isSel, name ?? '') : <g key={el.id}>
           {isSel && selBox(x0 + 10, cy - 46, COL_W - 20, 66, `${el.id}-sel`)}
           {wire(x0, cy, cx - 10, cy, online && pIn)}
           {wire(cx + 10, cy, x0 + COL_W, cy, online && pOut)}
@@ -346,7 +371,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           <div
             key={`${el.id}-hit`}
             className="lnet-hit"
-            style={{ left: x0 + 10, top: cy - 46, width: COL_W - 20, height: 66 }}
+            style={el.contactType === 'CMP' ? { left: x0 + 6, top: cy - 50, width: COL_W - 12, height: 88 } : { left: x0 + 10, top: cy - 46, width: COL_W - 20, height: 66 }}
             draggable
             onDragStart={(e) => {
               const payload: MovePayload = { rungId: rung.id, branchId: b.id, elementId: el.id }

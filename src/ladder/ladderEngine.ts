@@ -12,6 +12,7 @@
 
 import { moveValue, type DbTable } from './dataBlocks'
 import type { LadderProgram, LadderRung, LadderBranch, LadderContact } from '../types'
+import { evalCompare } from './compare'
 
 export type AddressTable = Record<string, boolean>
 export interface TimerValue { elapsedMs: number; presetMs: number; done: boolean; running: boolean; prevInput?: boolean; transitionMs?: number; starDone?: boolean; deltaDone?: boolean }
@@ -25,7 +26,8 @@ export type CounterTable = Record<string, CounterValue>
  */
 export type EdgeTable = Record<string, boolean>
 
-function evalContact(el: LadderContact, table: AddressTable, db: DbTable, edges: EdgeTable): boolean {
+function evalContact(el: LadderContact, table: AddressTable, db: DbTable, edges: EdgeTable, timers: TimerTable, counters: CounterTable): boolean {
+  if (el.contactType === 'CMP') return evalCompare(el, { db, timers, counters })
   const key = el.address.toUpperCase()
   const v = db[key]?.type === 'BOOL' ? db[key].value === true : !!table[key]
   switch (el.contactType) {
@@ -46,18 +48,18 @@ function evalContact(el: LadderContact, table: AddressTable, db: DbTable, edges:
   }
 }
 
-function evalBranch(branch: LadderBranch, table: AddressTable, db: DbTable, edges: EdgeTable): boolean {
-  return branch.elements.every((el) => evalContact(el, table, db, edges))
+function evalBranch(branch: LadderBranch, table: AddressTable, db: DbTable, edges: EdgeTable, timers: TimerTable, counters: CounterTable): boolean {
+  return branch.elements.every((el) => evalContact(el, table, db, edges, timers, counters))
 }
 
-function evalRung(rung: LadderRung, table: AddressTable, db: DbTable, edges: EdgeTable): boolean {
+function evalRung(rung: LadderRung, table: AddressTable, db: DbTable, edges: EdgeTable, timers: TimerTable, counters: CounterTable): boolean {
   // um rung sem contatos (branches vazias) é considerado "sempre verdadeiro"
   // apenas quando explicitamente montado assim pelo usuário com 1 branch vazia
   if (!rung.enabled) return false
   if (rung.branches.length === 0) return false
   const anyEmpty = rung.branches.some((b) => b.elements.length === 0)
   if (anyEmpty) return true
-  return rung.branches.some((b) => evalBranch(b, table, db, edges))
+  return rung.branches.some((b) => evalBranch(b, table, db, edges, timers, counters))
 }
 
 export interface ScanResult {
@@ -82,7 +84,7 @@ export function runScan(
   const rungPowered: Record<string, boolean> = {}
 
   for (const rung of program.rungs) {
-    const powered = evalRung(rung, table, db, edges)
+    const powered = evalRung(rung, table, db, edges, timers, counters)
     rungPowered[rung.id] = powered
 
     // ---------------- temporizador do rung ----------------
@@ -245,7 +247,9 @@ export function collectUsedAddresses(program: LadderProgram): string[] {
   const set = new Set<string>()
   for (const rung of program.rungs) {
     for (const branch of rung.branches) {
-      for (const el of branch.elements) set.add(el.address.toUpperCase())
+      for (const el of branch.elements) {
+        set.add(el.address.toUpperCase())
+      }
     }
     for (const coil of rung.coils) set.add(coil.address.toUpperCase())
     if (rung.move) { set.add(rung.move.source.toUpperCase()); set.add(rung.move.target.toUpperCase()) }

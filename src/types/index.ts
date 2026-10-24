@@ -412,7 +412,10 @@ export interface Wire {
 // Ladder
 // ---------------------------------------------------------------------------
 
-export type LadderContactType = 'NO' | 'NC' | 'RISING' | 'FALLING'
+export type LadderContactType = 'NO' | 'NC' | 'RISING' | 'FALLING' | 'CMP'
+/** Operador de um comparador: ==, <>, >=, <=, >, <. */
+export type LadderCompareOp = '==' | '<>' | '>=' | '<=' | '>' | '<'
+export type LadderCompareType = 'Int' | 'Word' | 'Real'
 export type LadderCoilType = 'COIL' | 'SET' | 'RESET'
 export type LadderBlockKind =
   | 'TON'
@@ -430,6 +433,11 @@ export interface LadderContact {
   address: string
   contactType: LadderContactType
   comment?: string
+  /** Só para contactType 'CMP': `address` é o 1.º operando (IN1). */
+  compareOp?: LadderCompareOp
+  compareType?: LadderCompareType
+  /** 2.º operando (IN2): constante, MWn, Cn, Tn ou DBx.variável. */
+  compareValue?: string
 }
 
 export interface LadderCoilEl {

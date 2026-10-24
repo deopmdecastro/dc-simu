@@ -1,4 +1,5 @@
 import type { LadderProgram } from '../types'
+import { COMPARE_OPERAND_RE } from './compare'
 
 export type LadderIssueLevel = 'error' | 'warning' | 'info'
 export interface LadderIssue { id: string; level: LadderIssueLevel; message: string; rungId?: string }
@@ -21,6 +22,10 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
     const name = rung.name || `Network ${index + 1}`
     const hasOutput = rung.coils.length > 0 || !!rung.timer || !!rung.counter || !!rung.move || !!rung.call
     for (const branch of rung.branches) for (const el of branch.elements) {
+      if (el.contactType === 'CMP') {
+        if (!COMPARE_OPERAND_RE.test(el.address) || !COMPARE_OPERAND_RE.test(el.compareValue ?? '0')) issues.push({ id: `${el.id}:cmp`, level: 'error', message: `${name}: operando inválido num comparador (${el.address} ${el.compareOp ?? '=='} ${el.compareValue ?? '0'}).`, rungId: rung.id })
+        continue
+      }
       read.add(el.address.toUpperCase())
       if (!VALID.test(el.address.toUpperCase()) && !/^DB/i.test(el.address)) issues.push({ id: `${el.id}:addr`, level: 'error', message: `${name}: endereço inválido «${el.address}» num contacto.`, rungId: rung.id })
     }

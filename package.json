@@ -11,6 +11,7 @@
     "test": "tsx scripts/smoke.ts",
     "test:grafcet-ui": "node scripts/grafcet-ui-smoke.mjs",
     "test:blocks-ui": "node scripts/add-block-ui-smoke.mjs",
+    "test:ladder-compare": "tsx scripts/ladder-compare-smoke.ts",
     "test:grafcet-signals": "tsx scripts/grafcet-signals-smoke.ts",
     "test:interactables": "tsx scripts/interactables-smoke.ts",
     "audit:terminals": "tsx scripts/audit-terminals.ts",

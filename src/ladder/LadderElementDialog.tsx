@@ -1,8 +1,9 @@
+import { COMPARE_OPERAND_RE, COMPARE_OPS, COMPARE_TYPES } from './compare'
 import { uiConfirm } from '../ui/dialogs'
 import Select from '../ui/Select'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { LadderCoilType, LadderContactType, LadderDataType, LadderRung } from '../types'
+import type { LadderCoilType, LadderContactType, LadderDataType, LadderRung, LadderCompareOp, LadderCompareType } from '../types'
 import { IconCoil, IconContact, IconCounter, IconDelete, IconFunction, IconMove, IconTimer } from '../ui/icons'
 import { useSimStore } from '../store/useSimStore'
 import type { ProjectFile } from './projectFiles'
@@ -16,6 +17,9 @@ type Draft = {
   dataType: LadderDataType
   comment: string
   contactType: LadderContactType
+  compareOp: LadderCompareOp
+  compareType: LadderCompareType
+  compareValue: string
   coilType: LadderCoilType
   timerType: NonNullable<LadderRung['timer']>['timerType']
   presetMs: string
@@ -35,6 +39,9 @@ const EMPTY: Draft = {
   dataType: 'Bool',
   comment: '',
   contactType: 'NO',
+  compareOp: '==',
+  compareType: 'Int',
+  compareValue: '0',
   coilType: 'COIL',
   timerType: 'TON',
   presetMs: '3000',
@@ -68,6 +75,7 @@ function selectionKey(selection: EditableSelection | null) {
 }
 
 function defaultDataType(address: string): LadderDataType {
+  if (/^MW\d/i.test(address.trim())) return 'Int'
   const prefix = address.trim().toUpperCase().charAt(0)
   return prefix === 'T' ? 'Time' : prefix === 'C' ? 'Int' : 'Bool'
 }
@@ -120,6 +128,7 @@ export default function LadderElementDialog({
       dataType: tag?.dataType ?? defaultDataType(address),
       comment: tag?.comment ?? ('comment' in entity ? entity.comment ?? '' : ''),
       ...('contactType' in entity ? { contactType: entity.contactType } : {}),
+      ...('contactType' in entity && entity.contactType === 'CMP' ? { compareOp: entity.compareOp ?? '==', compareType: entity.compareType ?? 'Int', compareValue: entity.compareValue ?? '0' } : {}),
       ...('coilType' in entity ? { coilType: entity.coilType } : {}),
       ...('timerType' in entity ? { timerType: entity.timerType, presetMs: String(entity.presetMs), preset2Ms: String(entity.preset2Ms ?? 50) } : {}),
       ...('counterType' in entity ? { counterType: entity.counterType, counterPreset: String(entity.preset), resetAddress: entity.resetAddress ?? '' } : {}),
@@ -142,6 +151,8 @@ export default function LadderElementDialog({
 
   const patch = (next: Partial<Draft>) => setDraft((current) => ({ ...current, ...next }))
   const normalizedAddress = draft.address.trim().replace(/^%/, '').toUpperCase()
+  const isCompare = draft.kind === 'contact' && draft.contactType === 'CMP'
+  const compareValueNorm = draft.compareValue.trim().replace(/^%/, '').toUpperCase()
 
   const syncTag = (oldAddress: string, nextAddress: string) => {
     const state = useSimStore.getState()
@@ -162,6 +173,9 @@ export default function LadderElementDialog({
       const target = draft.target.trim().toUpperCase()
       if (!OPERAND_RE.test(source)) return setError('A origem deve ser um endereço, DB.variável, TRUE/FALSE ou um número.')
       if (!MOVE_TARGET_RE.test(target)) return setError('O destino deve ser Q, M ou uma variável DB válida.')
+    } else if (isCompare) {
+      if (!COMPARE_OPERAND_RE.test(normalizedAddress)) return setError('IN1 inválido. Use MW0, C1, T1, DB1.Variavel ou um número.')
+      if (!COMPARE_OPERAND_RE.test(compareValueNorm)) return setError('IN2 inválido. Use um número, MW2, C1, T1 ou DB1.Variavel.')
     } else if (draft.kind !== 'call' && !ADDRESS_RE.test(normalizedAddress)) {
       return setError('Use um endereço válido, por exemplo I1, Q1, M1, T1, C1 ou DB1.Variavel.')
     }
@@ -172,7 +186,7 @@ export default function LadderElementDialog({
         ...current,
         branches: current.branches.map((branch) => branch.id === selection.branchId ? {
           ...branch,
-          elements: branch.elements.map((element) => element.id === selection.elementId ? { ...element, address: normalizedAddress, contactType: draft.contactType, comment: draft.comment.trim() } : element),
+          elements: branch.elements.map((element) => element.id === selection.elementId ? { ...element, address: normalizedAddress, contactType: draft.contactType, comment: draft.comment.trim(), ...(isCompare ? { compareOp: draft.compareOp, compareType: draft.compareType, compareValue: compareValueNorm } : {}) } : element),
         } : branch),
       }
       if (selection.type === 'coil') return { ...current, coils: current.coils.map((coil) => coil.id === selection.coilId ? { ...coil, address: normalizedAddress, coilType: draft.coilType, comment: draft.comment.trim() } : coil) }
@@ -205,7 +219,7 @@ export default function LadderElementDialog({
     <section className="ladder-element-dialog" role="dialog" aria-modal="true" aria-labelledby="ladder-element-dialog-title">
       <header>
         <span className="ladder-dialog-icon"><KindIcon kind={draft.kind} /></span>
-        <div><strong id="ladder-element-dialog-title">{titleFor(draft.kind)}</strong><small>Network: {rung.name || 'sem título'} · duplo clique para reabrir</small></div>
+        <div><strong id="ladder-element-dialog-title">{isCompare ? 'Propriedades do comparador' : titleFor(draft.kind)}</strong><small>Network: {rung.name || 'sem título'} · duplo clique para reabrir</small></div>
         <button type="button" className="ladder-dialog-close" onClick={onClose} aria-label="Fechar">×</button>
       </header>
       <form onSubmit={(event) => { event.preventDefault(); save() }}>
@@ -213,16 +227,23 @@ export default function LadderElementDialog({
           {commonFields && <section className="ladder-dialog-section">
             <h3>Identificação</h3>
             <div className="ladder-dialog-grid">
-              <label><span>Endereço absoluto</span><input autoFocus list="ladder-tag-addresses" value={draft.address} onChange={(event) => patch({ address: event.target.value.toUpperCase() })} placeholder="I1" /></label>
+              <label><span>{isCompare ? 'IN1 — operando' : 'Endereço absoluto'}</span><input autoFocus list="ladder-tag-addresses" value={draft.address} onChange={(event) => patch({ address: event.target.value.toUpperCase() })} placeholder={isCompare ? 'MW0' : 'I1'} /></label>
               <label><span>Nome simbólico</span><input value={draft.tagName} onChange={(event) => patch({ tagName: event.target.value })} placeholder="Ex.: Botao_Start" /></label>
               <label><span>Tipo de dados</span><Select value={draft.dataType} onChange={(event) => patch({ dataType: event.target.value as LadderDataType })}><option>Bool</option><option>Time</option><option>Int</option><option>Real</option></Select></label>
               <label className="is-wide"><span>Comentário</span><input value={draft.comment} onChange={(event) => patch({ comment: event.target.value })} placeholder="Descrição funcional do sinal" /></label>
             </div>
           </section>}
 
-          {draft.kind === 'contact' && <section className="ladder-dialog-section"><h3>Comportamento do contato</h3><div className="ladder-choice-grid">
+          {draft.kind === 'contact' && !isCompare && <section className="ladder-dialog-section"><h3>Comportamento do contato</h3><div className="ladder-choice-grid">
             {([['NO', 'NA', 'Normal aberto'], ['NC', 'NF', 'Normal fechado'], ['RISING', 'P', 'Borda de subida'], ['FALLING', 'N', 'Borda de descida']] as const).map(([value, label, detail]) => <button type="button" key={value} className={draft.contactType === value ? 'is-selected' : ''} onClick={() => patch({ contactType: value })}><strong>{label}</strong><small>{detail}</small></button>)}
           </div></section>}
+
+{isCompare && <section className="ladder-dialog-section"><h3>Comparação</h3><div className="ladder-choice-grid is-three">
+            {COMPARE_OPS.map(({ op, label, detail }) => <button type="button" key={op} className={draft.compareOp === op ? 'is-selected' : ''} onClick={() => patch({ compareOp: op })}><strong>{label}</strong><small>{detail}</small></button>)}
+          </div><div className="ladder-dialog-grid">
+            <label><span>Tipo de dados</span><Select value={draft.compareType} onChange={(event) => patch({ compareType: event.target.value as LadderCompareType })}>{COMPARE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</Select></label>
+            <label><span>IN2 — valor de comparação</span><input list="ladder-tag-addresses" value={draft.compareValue} onChange={(event) => patch({ compareValue: event.target.value.toUpperCase() })} placeholder="2" /></label>
+          </div><p className="ladder-dialog-help">Resultado: IN1 {draft.compareOp} IN2. Aceita números, 16#FF, MWn, contadores (Cn), tempo decorrido de temporizadores (Tn, em ms) e DB1.variável. Escreva em MWn com o bloco MOVE.</p></section>}
 
           {draft.kind === 'coil' && <section className="ladder-dialog-section"><h3>Modo da bobina</h3><div className="ladder-choice-grid is-three">
             {([['COIL', 'Bobina', 'Segue o RLO'], ['SET', 'SET', 'Retém em 1'], ['RESET', 'RESET', 'Repõe em 0']] as const).map(([value, label, detail]) => <button type="button" key={value} className={draft.coilType === value ? 'is-selected' : ''} onClick={() => patch({ coilType: value })}><strong>{label}</strong><small>{detail}</small></button>)}

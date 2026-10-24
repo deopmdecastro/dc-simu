@@ -1,4 +1,10 @@
-import type { ComponentType, LadderCoilType, LadderContact, LadderContactType, LadderRung } from '../types'
+import type { ComponentType, LadderCoilType, LadderCompareOp, LadderContact, LadderContactType, LadderRung } from '../types'
+
+/** Comparadores da paleta: um por operador. */
+export type CompareKind = 'CMP_EQ' | 'CMP_NE' | 'CMP_GE' | 'CMP_LE' | 'CMP_GT' | 'CMP_LT'
+export const COMPARE_KIND_OP: Record<CompareKind, LadderCompareOp> = {
+  CMP_EQ: '==', CMP_NE: '<>', CMP_GE: '>=', CMP_LE: '<=', CMP_GT: '>', CMP_LT: '<',
+}
 
 /** Tipos de elemento que podem ser inseridos numa network. */
 export type PaletteKind =
@@ -12,6 +18,7 @@ export type PaletteKind =
   | 'MOVE'
   | 'CALL'
   | 'COMPARE'
+  | CompareKind
   | 'ADD'
   | 'SUB'
   | 'BRANCH'
@@ -52,12 +59,21 @@ export interface MovePayload {
   elementId: string
 }
 
+export const isCompareKind = (k: PaletteKind): k is CompareKind => k in COMPARE_KIND_OP
 export const isContactKind = (k: PaletteKind): k is LadderContactType => k === 'NO' || k === 'NC' || k === 'RISING' || k === 'FALLING'
 export const isCoilKind = (k: PaletteKind): k is LadderCoilType => k === 'COIL' || k === 'SET' || k === 'RESET'
 export const isTimerKind = (k: PaletteKind): k is 'TON' | 'TOF' | 'TP' => k === 'TON' || k === 'TOF' || k === 'TP'
 export const isCounterKind = (k: PaletteKind): k is 'CTU' | 'CTD' => k === 'CTU' || k === 'CTD'
 
 const uid = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+
+/** Próxima palavra de memória livre (MW0, MW2, …) — palavras de 16 bits ocupam 2 bytes. */
+function nextWord(rung: LadderRung) {
+  const used = new Set<string>()
+  rung.branches.forEach((b) => b.elements.forEach((e) => used.add(e.address.toUpperCase())))
+  for (let i = 0; i < 200; i += 2) if (!used.has(`MW${i}`)) return `MW${i}`
+  return 'MW0'
+}
 
 /** Próximo endereço livre de um prefixo dentro da network (I1, I2…). */
 function nextAddr(rung: LadderRung, prefix: string) {
@@ -92,8 +108,10 @@ export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarge
     branches.splice(at, 0, branch)
     return { rung: { ...rung, branches }, created: { type: 'contact', branchId: branch.id, elementId: el.id } }
   }
-  if (isContactKind(kind)) {
-    const el: LadderContact = { kind: 'contact', id: uid(`${rung.id}-c`), address: nextAddr(rung, 'I'), contactType: kind }
+  if (isContactKind(kind) || isCompareKind(kind)) {
+    const el: LadderContact = isCompareKind(kind)
+      ? { kind: 'contact', id: uid(`${rung.id}-c`), address: nextWord(rung), contactType: 'CMP', compareOp: COMPARE_KIND_OP[kind], compareType: 'Int', compareValue: '0' }
+      : { kind: 'contact', id: uid(`${rung.id}-c`), address: nextAddr(rung, 'I'), contactType: kind as LadderContactType }
     let branches = rung.branches.length ? [...rung.branches] : [{ id: `${rung.id}-b0`, elements: [] }]
     let bi = 0
     let idx = branches[0].elements.length

@@ -19,7 +19,7 @@ import NetworkDiagram, { type RungSelection } from './NetworkDiagram'
 import LadderElementDialog from './LadderElementDialog'
 import AddBlockDialog from './AddBlockDialog'
 import type { BlockKind } from './blockCatalog'
-import { CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, applyKind, getLadderDrag, isContactKind, setLadderDrag, type CallBlockPayload, type PaletteKind } from './ladderDnd'
+import { CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, COMPARE_KIND_OP, applyKind, getLadderDrag, isCompareKind, isContactKind, setLadderDrag, type CallBlockPayload, type PaletteKind } from './ladderDnd'
 import { insertIntoRungs, newEmptyRung } from './ladderInsert'
 
 /** Lê o payload de um bloco do projeto em arraste (dataTransfer + fallback do drag ativo). */
@@ -496,6 +496,17 @@ const PALETTE_GROUPS: Array<{
     items: [{ kind: 'MOVE', label: 'MOVE', detail: 'BOOL/INT/REAL via DB', icon: 'move' }, { kind: 'CALL', label: 'CALL FC', detail: 'Invocar bloco', icon: 'function' }],
   },
   {
+    title: 'Comparação',
+    items: [
+      { kind: 'CMP_EQ', label: '==', detail: 'Igual', icon: 'compare' },
+      { kind: 'CMP_NE', label: '<>', detail: 'Diferente', icon: 'compare' },
+      { kind: 'CMP_GE', label: '>=', detail: 'Maior ou igual', icon: 'compare' },
+      { kind: 'CMP_LE', label: '<=', detail: 'Menor ou igual', icon: 'compare' },
+      { kind: 'CMP_GT', label: '>', detail: 'Maior', icon: 'compare' },
+      { kind: 'CMP_LT', label: '<', detail: 'Menor', icon: 'compare' },
+    ],
+  },
+  {
     title: 'Contadores',
     items: [
       { kind: 'CTU', label: 'CTU', detail: 'Contador UP', icon: 'counter' },
@@ -520,6 +531,14 @@ export function LadderGlyph({ kind, size = 26 }: { kind: PaletteKind; size?: num
         {kind === 'NC' && <path d="M11 20L29 4" />}
         {kind === 'RISING' && text('P')}
         {kind === 'FALLING' && text('N')}
+      </g>
+    )
+  } else if (isCompareKind(kind)) {
+    body = (
+      <g {...common}>
+        <path d="M0 12H9M31 12H40M9 3V21M31 3V21" />
+        <text x="20" y="11" fontSize="8.5" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">{COMPARE_KIND_OP[kind]}</text>
+        <text x="20" y="19" fontSize="5.5" fontWeight="700" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">Int</text>
       </g>
     )
   } else if (kind === 'COIL' || kind === 'SET' || kind === 'RESET') {

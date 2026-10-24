@@ -35,6 +35,7 @@ export function moveValue(source: string, target: string, table: Record<string, 
   let value: boolean | number | undefined
   if (src === 'TRUE' || src === 'FALSE') value = src === 'TRUE'
   else if (src === '0' || src === '1') value = db[dst]?.type === 'INT' || db[dst]?.type === 'REAL' ? Number(src) : src === '1'
+  else if (/^MW\d+$/.test(src)) value = typeof db[src]?.value === 'number' ? (db[src].value as number) : 0
   else if (/^(?:[IQM]\d+)$/.test(src)) value = !!table[src]
   else if (src in db) value = db[src].value
   else if (/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(src)) value = Number(src)
@@ -44,6 +45,8 @@ export function moveValue(source: string, target: string, table: Record<string, 
     table[dst] = value
     return true
   }
+  // Palavra de memória MWn: criada como INT na primeira escrita numérica.
+  if (/^MW\d+$/.test(dst) && !db[dst] && typeof value === 'number' && Number.isSafeInteger(value)) db[dst] = { type: 'INT', value: 0 }
   const entry = db[dst]
   if (!entry || (entry.type === 'BOOL' && typeof value !== 'boolean') ||
     (entry.type === 'INT' && (typeof value !== 'number' || !Number.isSafeInteger(value))) ||
