@@ -1,3 +1,4 @@
+import { isTabletDesktop } from '../../ui/device'
 import { uiConfirm } from '../../ui/dialogs'
 import Select from '../../ui/Select'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -249,10 +250,10 @@ function StatusBar() {
 
 /** Ecrã estreito/telemóvel: a barra da vista passa a um menu só. */
 function useCompactView(): boolean {
-  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px), (pointer: coarse) and (max-height: 700px)').matches)
+  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && !isTabletDesktop() && window.matchMedia('(max-width: 720px), (pointer: coarse) and (max-height: 700px)').matches)
   useEffect(() => {
     const query = window.matchMedia('(max-width: 720px), (pointer: coarse) and (max-height: 700px)')
-    const update = () => setCompact(query.matches)
+    const update = () => setCompact(!isTabletDesktop() && query.matches)
     update()
     query.addEventListener('change', update)
     return () => query.removeEventListener('change', update)

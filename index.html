@@ -16,12 +16,17 @@
           var shortSide = Math.min(screen.width, screen.height)
           var longSide = Math.max(screen.width, screen.height)
           var tablet = window.matchMedia('(pointer: coarse)').matches && shortSide >= 600
+          document.documentElement.setAttribute('data-tablet', tablet ? 'true' : 'false')
           if (!tablet) { if (meta.getAttribute('content') !== phoneContent) meta.setAttribute('content', phoneContent); return }
           var landscape = window.matchMedia('(orientation: landscape)').matches
           var deviceW = landscape ? longSide : shortSide
-          var scale = Math.min(1, deviceW / DESKTOP_W)
-          scale = Math.round(scale * 1000) / 1000
-          var next = 'width=' + DESKTOP_W + ', initial-scale=' + scale + ', minimum-scale=' + scale + ', maximum-scale=' + Math.max(scale, 1) + ', user-scalable=no, viewport-fit=cover'
+          var next
+          if (deviceW >= DESKTOP_W) {
+            next = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
+          } else {
+            var scale = Math.round((deviceW / DESKTOP_W) * 1000) / 1000
+            next = 'width=' + DESKTOP_W + ', initial-scale=' + scale + ', minimum-scale=' + scale + ', maximum-scale=' + scale + ', user-scalable=no, viewport-fit=cover'
+          }
           if (meta.getAttribute('content') !== next) meta.setAttribute('content', next)
         }
         apply()

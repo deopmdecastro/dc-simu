@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { isTabletDesktop } from './device'
 
 /**
  * Modo «clean»: esconde barras e painéis secundários para dar o máximo de área
@@ -9,6 +10,7 @@ const KEY = 'dcsimu:clean-mode:v1'
 
 export const isSmallScreen = () => {
   try {
+    if (isTabletDesktop()) return false
     return window.innerWidth < 1200 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches
   } catch { return false }
 }

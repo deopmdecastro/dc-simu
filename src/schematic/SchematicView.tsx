@@ -1,3 +1,4 @@
+import { isTabletDesktop } from '../ui/device'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
@@ -368,7 +369,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const [showHints, setShowHints] = useState(() => {
     try {
       const saved = localStorage.getItem('dc-simu:showHints')
-      return saved === null ? !window.matchMedia('(max-width: 700px), (pointer: coarse)').matches : saved === '1'
+      return saved === null ? (isTabletDesktop() || !window.matchMedia('(max-width: 700px), (pointer: coarse)').matches) : saved === '1'
     } catch {
       return true
     }

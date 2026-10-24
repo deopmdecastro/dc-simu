@@ -1,3 +1,4 @@
+import { isTabletDesktop } from '../ui/device'
 import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
@@ -1997,7 +1998,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const [showHints, setShowHints] = useState(() => {
     try {
       const saved = localStorage.getItem('dc-simu:showHints')
-      return saved === null ? !window.matchMedia('(max-width: 700px), (pointer: coarse)').matches : saved === '1'
+      return saved === null ? (isTabletDesktop() || !window.matchMedia('(max-width: 700px), (pointer: coarse)').matches) : saved === '1'
     } catch {
       return true
     }

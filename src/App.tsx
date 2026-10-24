@@ -1,3 +1,4 @@
+import { isTabletDesktop } from './ui/device'
 import { IconChevronLeft, IconChevronRight, IconClose, IconLayers } from './ui/icons'
 import { useEffect, useState } from 'react'
 import { uiConfirm } from './ui/dialogs'
@@ -49,7 +50,7 @@ export default function App({ onBack }: { onBack: () => void }) {
   })
   // Os dois painéis laterais precisam de pelo menos ~1080 px para deixar
   // espaço útil ao canvas; abaixo de 1200 px (tablets, portáteis pequenos) passam a gavetas sobrepostas.
-  const compactWorkspace = () => window.innerWidth < 1200 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches
+  const compactWorkspace = () => !isTabletDesktop() && (window.innerWidth < 1200 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches)
   const [showLadder, setShowLadder] = useState(() => !compactWorkspace())
   const [rightTab, setRightTab] = useState<'grafcet' | 'objects'>('grafcet')
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
