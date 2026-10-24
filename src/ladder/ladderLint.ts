@@ -20,7 +20,7 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
   }
   rungs.forEach((rung, index) => {
     const name = rung.name || `Network ${index + 1}`
-    const hasOutput = rung.coils.length > 0 || !!rung.timer || !!rung.counter || !!rung.move || !!rung.call
+    const hasOutput = rung.coils.length > 0 || !!rung.timer || !!rung.counter || !!rung.move || !!rung.math || !!rung.call
     for (const branch of rung.branches) for (const el of branch.elements) {
       if (el.contactType === 'CMP') {
         if (!COMPARE_OPERAND_RE.test(el.address) || !COMPARE_OPERAND_RE.test(el.compareValue ?? '0')) issues.push({ id: `${el.id}:cmp`, level: 'error', message: `${name}: operando inválido num comparador (${el.address} ${el.compareOp ?? '=='} ${el.compareValue ?? '0'}).`, rungId: rung.id })
@@ -31,6 +31,11 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
     }
     if (rung.counter?.resetAddress) read.add(rung.counter.resetAddress.toUpperCase())
     if (rung.move) read.add(rung.move.source.toUpperCase())
+    if (rung.math) {
+      read.add(rung.math.in1.toUpperCase()); read.add(rung.math.in2.toUpperCase())
+      if (!COMPARE_OPERAND_RE.test(rung.math.in1) || !COMPARE_OPERAND_RE.test(rung.math.in2)) issues.push({ id: `${rung.id}:math-in`, level: 'error', message: `${name}: operando inválido no bloco ${rung.math.op}.`, rungId: rung.id })
+      if ((rung.math.op === 'DIV' || rung.math.op === 'MOD') && /^[+-]?0+(\.0+)?$/.test(rung.math.in2.trim())) issues.push({ id: `${rung.id}:math-div0`, level: 'error', message: `${name}: ${rung.math.op} por zero nunca é executado.`, rungId: rung.id })
+    }
     if (!hasOutput && rung.enabled) issues.push({ id: `${rung.id}:no-output`, level: 'warning', message: `${name}: não tem nenhuma saída (bobina, temporizador, contador ou MOVE).`, rungId: rung.id })
     if (hasOutput && rung.enabled && rung.branches.every((b) => b.elements.length > 0) === false && rung.branches.length > 1) issues.push({ id: `${rung.id}:empty-branch`, level: 'info', message: `${name}: existe um ramo vazio — a network fica sempre ativa.`, rungId: rung.id })
     if (!rung.enabled) issues.push({ id: `${rung.id}:disabled`, level: 'info', message: `${name}: está desativada e não é executada.`, rungId: rung.id })
@@ -46,6 +51,7 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
       if (rung.counter.counterType === 'CTU' && !rung.counter.resetAddress) issues.push({ id: `${rung.id}:no-reset`, level: 'warning', message: `${name}: o contador ${rung.counter.address} não tem endereço de reset.`, rungId: rung.id })
     }
     if (rung.move) addWrite(rung.move.target, rung.id, name, 'move')
+    if (rung.math) addWrite(rung.math.out, rung.id, name, 'math')
   })
   for (const [address, list] of writers) {
     const plain = list.filter((w) => w.type === 'COIL')

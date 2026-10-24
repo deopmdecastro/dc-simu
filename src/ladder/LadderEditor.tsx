@@ -117,8 +117,8 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
     deleteRung(rung.id)
   }
   const contactCount = rung.branches.reduce((n, b) => n + b.elements.length, 0)
-  const outputCount = rung.coils.length + (rung.timer ? 1 : 0) + (rung.counter ? 1 : 0) + (rung.call ? 1 : 0) + (rung.move ? 1 : 0)
-  const blockKinds = [rung.timer?.timerType, rung.counter?.counterType, rung.move ? 'MOVE' : '', rung.call ? 'CALL' : ''].filter(Boolean)
+  const outputCount = rung.coils.length + (rung.timer ? 1 : 0) + (rung.counter ? 1 : 0) + (rung.call ? 1 : 0) + (rung.move ? 1 : 0) + (rung.math ? 1 : 0)
+  const blockKinds = [rung.timer?.timerType, rung.counter?.counterType, rung.move ? 'MOVE' : '', rung.math?.op ?? '', rung.call ? 'CALL' : ''].filter(Boolean)
 
   const plcId = useSimStore((st) => st.activePlcId)
   const fcFiles = useSimStore((st) => st.projectFiles[plcId ?? '_general'] ?? [])
@@ -494,6 +494,16 @@ const PALETTE_GROUPS: Array<{
   {
     title: 'Operações',
     items: [{ kind: 'MOVE', label: 'MOVE', detail: 'BOOL/INT/REAL via DB', icon: 'move' }, { kind: 'CALL', label: 'CALL FC', detail: 'Invocar bloco', icon: 'function' }],
+  },
+  {
+    title: 'Matemática',
+    items: [
+      { kind: 'ADD', label: 'ADD', detail: 'Somar', icon: 'math' },
+      { kind: 'SUB', label: 'SUB', detail: 'Subtrair', icon: 'math' },
+      { kind: 'MUL', label: 'MUL', detail: 'Multiplicar', icon: 'math' },
+      { kind: 'DIV', label: 'DIV', detail: 'Dividir', icon: 'math' },
+      { kind: 'MOD', label: 'MOD', detail: 'Resto da divisão', icon: 'math' },
+    ],
   },
   {
     title: 'Comparação',
@@ -1036,6 +1046,7 @@ function BlockProgramView({ id, notify, registerInsert }: {
         timer: src.timer ? { ...src.timer, id: crypto.randomUUID() } : undefined,
         counter: src.counter ? { ...src.counter, id: crypto.randomUUID() } : undefined,
         move: src.move ? { ...src.move } : undefined,
+        math: src.math ? { ...src.math } : undefined,
         call: src.call ? { ...src.call } : undefined,
       }
       const next = [...list]

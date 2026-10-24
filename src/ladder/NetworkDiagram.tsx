@@ -1,4 +1,6 @@
 import { evalCompare } from './compare'
+import { MATH_OPS } from './ladderMath'
+import { formatPresetMs, parseAddress, parseCounterPreset, parsePresetMs, type InlineResult } from './ladderInlineEdit'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import type { LadderContact, LadderRung } from '../types'
@@ -13,6 +15,7 @@ export type RungSelection =
   | { type: 'coil'; coilId: string }
   | { type: 'timer' }
   | { type: 'move' }
+  | { type: 'math' }
   | { type: 'call' }
   | { type: 'counter' }
   | null
@@ -79,6 +82,18 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     return (s.projectFiles[s.activePlcId ?? '_general'] ?? []).find((f) => f.id === target)?.name ?? target
   })
   const [drop, setDrop] = useState<DropTarget | null>(null)
+  /** Edição «in-place» do texto de um elemento (clique no endereço/valor). */
+  const [inline, setInline] = useState<{ id: string; x: number; y: number; w: number; value: string; commit: (text: string) => InlineResult<unknown> } | null>(null)
+  const [inlineError, setInlineError] = useState<string | null>(null)
+  const inlineLive = useRef(false)
+  const closeInline = () => { inlineLive.current = false; setInline(null); setInlineError(null) }
+  const submitInline = (text: string, fromBlur: boolean) => {
+    if (!inline || !inlineLive.current) return
+    const res = inline.commit(text)
+    if (res.ok) closeInline()
+    else if (fromBlur) closeInline()
+    else setInlineError(res.error)
+  }
   const wrapRef = useRef<HTMLDivElement>(null)
   const [availableWidth, setAvailableWidth] = useState(minWidth)
   useEffect(() => {
@@ -103,13 +118,14 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const contactsEnd = RAIL_X + nCols * COL_W
   const OJ = contactsEnd + 40 // junção das saídas (paralelo)
   const boxX = OJ + 80
-  const hasBox = !!(rung.timer || rung.counter || rung.move || rung.call)
+  const hasBox = !!(rung.timer || rung.counter || rung.move || rung.math || rung.call)
   const cyOf = (row: number) => TOP + row * ROW_H + CY_OFF
 
   type Out =
     | { type: 'timer'; cy: number }
     | { type: 'counter'; cy: number }
     | { type: 'move'; cy: number }
+    | { type: 'math'; cy: number }
     | { type: 'call'; cy: number }
     | { type: 'coil'; cy: number; coil: LadderRung['coils'][number] }
     | { type: 'placeholder'; cy: number }
@@ -118,6 +134,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   if (rung.timer) { outputs.push({ type: 'timer', cy: oy + CY_OFF }); oy += BOX_SLOT }
   if (rung.counter) { outputs.push({ type: 'counter', cy: oy + CY_OFF }); oy += BOX_SLOT }
   if (rung.move) { outputs.push({ type: 'move', cy: oy + CY_OFF }); oy += BOX_SLOT }
+  if (rung.math) { outputs.push({ type: 'math', cy: oy + CY_OFF }); oy += BOX_SLOT + 20 }
   if (rung.call) { outputs.push({ type: 'call', cy: oy + CY_OFF }); oy += OUT_H + 20 }
   rung.coils.forEach((coil) => { outputs.push({ type: 'coil', cy: oy + CY_OFF, coil }); oy += OUT_H })
   if (!rung.coils.length && !hasBox) { outputs.push({ type: 'placeholder', cy: oy + CY_OFF }); oy += ROW_H }
@@ -287,6 +304,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     else if (selection?.type === 'timer') updateRung(rung.id, (r) => ({ ...r, timer: undefined }), 'force')
     else if (selection?.type === 'counter') updateRung(rung.id, (r) => ({ ...r, counter: undefined }), 'force')
     else if (selection?.type === 'move') updateRung(rung.id, (r) => ({ ...r, move: undefined }), 'force')
+    else if (selection?.type === 'math') updateRung(rung.id, (r) => ({ ...r, math: undefined }), 'force')
     else if (selection?.type === 'call') updateRung(rung.id, (r) => ({ ...r, call: undefined }), 'force')
     else return
     e.preventDefault()
@@ -338,6 +356,26 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     )
   }
 
+  /** Zona clicável sobre um texto (endereço/valor): abre o campo de edição in-place. */
+  const textHit = (id: string, x: number, y: number, w: number, current: string, commit: (text: string) => InlineResult<unknown>, title: string, display = current) => {
+    if (readonly || inline?.id === id) return
+    hits.push(
+      <div
+        key={`th-${id}`}
+        className="lnet-text-hit"
+        style={{ left: x, top: y, width: w, height: 15 }}
+        title={`${title} — clique para editar o valor`}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); setInlineError(null); inlineLive.current = true; setInline({ id, x, y: y - 2, w: Math.max(w, 76), value: current, commit }) }}
+        onDoubleClick={(e) => e.stopPropagation()}
+        onContextMenu={(e) => e.stopPropagation()}
+        aria-label={`Editar ${title}: ${display}`}
+      />,
+    )
+  }
+  const patchContact = (branchId: string, elementId: string, patch: Partial<LadderContact>) =>
+    updateRung(rung.id, (r) => ({ ...r, branches: r.branches.map((b) => (b.id === branchId ? { ...b, elements: b.elements.map((x) => (x.id === elementId ? { ...x, ...patch } : x)) } : b)) }), 'force')
+
   // ramos
   let railBottom = cyOf(branches.length - 1)
   branches.forEach((b, bi) => {
@@ -384,9 +422,22 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             onClick={(e) => { e.stopPropagation(); onSelect({ type: 'contact', branchId: b.id, elementId: el.id }) }}
             onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'contact', branchId: b.id, elementId: el.id }) }}
             onContextMenu={(e) => { e.preventDefault(); removeContact(b.id, el.id) }}
-            title={`%${el.address}${name ? ` "${name}"` : ''} — clique: edição rápida · duplo clique: propriedades e nome · arraste para mover · Del/botão direito remove`}
+            title={`%${el.address}${name ? ` "${name}"` : ''} — clique no texto: editar valor · duplo clique: propriedades e nome · arraste para mover · Del/botão direito remove`}
           />,
         )
+      {
+        const isCmp = el.contactType === 'CMP'
+        textHit(`c-${el.id}`, cx - 32, cy - (isCmp ? 35 : 31), 64, el.address, (v) => {
+          const r = parseAddress(v, isCmp ? 'compare' : 'address')
+          if (r.ok) patchContact(b.id, el.id, { address: r.value })
+          return r
+        }, isCmp ? 'IN1 da comparação' : 'Endereço do contacto', `%${el.address}`)
+        if (isCmp) textHit(`cv-${el.id}`, cx - 28, cy + 22, 56, el.compareValue ?? '0', (v) => {
+          const r = parseAddress(v, 'compare')
+          if (r.ok) patchContact(b.id, el.id, { compareValue: r.value })
+          return r
+        }, 'IN2 da comparação')
+      }
       p = pOut
     })
     const endX = RAIL_X + b.elements.length * COL_W
@@ -452,6 +503,16 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             title="Temporizador — clique: edição rápida · duplo clique: tipo e presets · Del/botão direito remove"
           />,
         )
+      textHit('t-addr', boxX + BOX_W / 2 - 32, top - 18, 64, t.address, (v) => {
+        const r = parseAddress(v)
+        if (r.ok) updateRung(rung.id, (x) => (x.timer ? { ...x, timer: { ...x.timer, address: r.value } } : x), 'force')
+        return r
+      }, 'Endereço do temporizador', `%${t.address}`)
+      textHit('t-pt', boxX - 16 - 64, cy + 16, 64, formatPresetMs(t.presetMs), (v) => {
+        const r = parsePresetMs(v)
+        if (r.ok) updateRung(rung.id, (x) => (x.timer ? { ...x, timer: { ...x.timer, presetMs: r.value } } : x), 'force')
+        return r
+      }, 'Tempo PT do temporizador')
     } else if (o.type === 'counter' && rung.counter) {
       const c = rung.counter
       const top = cy - 40
@@ -493,6 +554,22 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             title="Contador — clique: edição rápida · duplo clique: tipo e presets · Del/botão direito remove"
           />,
         )
+      textHit('n-addr', boxX + BOX_W / 2 - 32, top - 18, 64, c.address, (v) => {
+        const r = parseAddress(v)
+        if (r.ok) updateRung(rung.id, (x) => (x.counter ? { ...x, counter: { ...x.counter, address: r.value } } : x), 'force')
+        return r
+      }, 'Endereço do contador', `%${c.address}`)
+      textHit('n-reset', boxX - 16 - 64, cy + 8, 64, c.resetAddress ?? '', (v) => {
+        const empty = !v.trim()
+        const r = empty ? { ok: true as const, value: '' } : parseAddress(v)
+        if (r.ok) updateRung(rung.id, (x) => (x.counter ? { ...x, counter: { ...x.counter, resetAddress: r.value || undefined } } : x), 'force')
+        return r
+      }, c.counterType === 'CTU' ? 'Endereço de reset (R)' : 'Endereço de carga (LD)')
+      textHit('n-pv', boxX - 16 - 64, cy + 24, 64, String(c.preset), (v) => {
+        const r = parseCounterPreset(v)
+        if (r.ok) updateRung(rung.id, (x) => (x.counter ? { ...x, counter: { ...x.counter, preset: r.value } } : x), 'force')
+        return r
+      }, 'Valor de preset (PV)')
     } else if (o.type === 'call' && rung.call) {
       const top = cy - 25
       const isSel = selection?.type === 'call'
@@ -535,6 +612,52 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'move' }) }}
         onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, move: undefined }), 'force') }}
         title="MOVE — duplo clique: origem e destino · Del/botão direito remove" />)
+      textHit('m-src', boxX - 16 - 64, cy + 8, 64, m.source, (v) => {
+        const r = parseAddress(v, 'operand')
+        if (r.ok) updateRung(rung.id, (x) => (x.move ? { ...x, move: { ...x.move, source: r.value } } : x), 'force')
+        return r
+      }, 'Origem (IN) do MOVE')
+      textHit('m-dst', boxX + BOX_W + 18, cy + 8, 64, m.target, (v) => {
+        const r = parseAddress(v, 'moveTarget')
+        if (r.ok) updateRung(rung.id, (x) => (x.move ? { ...x, move: { ...x.move, target: r.value } } : x), 'force')
+        return r
+      }, 'Destino (OUT1) do MOVE')
+    } else if (o.type === 'math' && rung.math) {
+      const mt = rung.math
+      const top = cy - 40
+      const isSel = selection?.type === 'math'
+      const operand = (v: string) => (/^[IQM]\d+(\.\d+)?$/i.test(v.trim()) ? `%${v.trim().toUpperCase()}` : v)
+      const edge = rungOut ? C_ON : '#5b6b84'
+      const symbol = MATH_OPS.find((m) => m.op === mt.op)?.symbol ?? ''
+      svg.push(<g key="math-block">
+        {isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 106, 'math-sel')}
+        {wire(OJ, cy, boxX, cy, rungOut)}
+        <rect x={boxX} y={top} width={BOX_W} height={86} fill="#fff" stroke={edge} strokeWidth={1.3} />
+        <rect x={boxX} y={top} width={BOX_W} height={30} fill="#eef3fb" />
+        {label(boxX + BOX_W / 2, top + 14, mt.op, { bold: true, size: 11 })}
+        {label(boxX + BOX_W / 2, top + 26, `Int  ${symbol}`, { grey: true, size: 9 })}
+        {label(boxX + 6, cy + 3, 'EN', { anchor: 'start', size: 9 })}
+        {label(boxX + 6, cy + 19, 'IN1', { anchor: 'start', size: 9 })}
+        {label(boxX + 6, cy + 35, 'IN2', { anchor: 'start', size: 9 })}
+        {label(boxX + BOX_W - 6, cy + 3, 'ENO', { anchor: 'end', size: 9 })}
+        {label(boxX + BOX_W - 6, cy + 19, 'OUT', { anchor: 'end', size: 9 })}
+        <line x1={boxX - 14} y1={cy + 16} x2={boxX} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
+        <line x1={boxX - 14} y1={cy + 32} x2={boxX} y2={cy + 32} stroke="#5b6b84" strokeWidth={1} />
+        {label(boxX - 16, cy + 19, operand(mt.in1) || '…', { anchor: 'end', size: 9, grey: true })}
+        {label(boxX - 16, cy + 35, operand(mt.in2) || '…', { anchor: 'end', size: 9, grey: true })}
+        {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
+        <line x1={boxX + BOX_W} y1={cy + 16} x2={boxX + BOX_W + 14} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
+        {label(boxX + BOX_W + 18, cy + 19, operand(mt.out) || '…', { anchor: 'start', size: 9, grey: true })}
+      </g>)
+      if (!readonly) hits.push(<div key="math-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 106 }}
+        onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'math' }) }}
+        onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'math' }) }}
+        onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, math: undefined }), 'force') }}
+        title={`${mt.op} — clique no texto: editar valor · duplo clique: operação e operandos · Del/botão direito remove`} />)
+      const setMath = (patch: Partial<NonNullable<LadderRung['math']>>) => updateRung(rung.id, (x) => (x.math ? { ...x, math: { ...x.math, ...patch } } : x), 'force')
+      textHit('a-in1', boxX - 16 - 64, cy + 8, 64, mt.in1, (v) => { const r = parseAddress(v, 'compare'); if (r.ok) setMath({ in1: r.value }); return r }, 'IN1')
+      textHit('a-in2', boxX - 16 - 64, cy + 24, 64, mt.in2, (v) => { const r = parseAddress(v, 'compare'); if (r.ok) setMath({ in2: r.value }); return r }, 'IN2')
+      textHit('a-out', boxX + BOX_W + 18, cy + 8, 64, mt.out, (v) => { const r = parseAddress(v, 'mathTarget'); if (r.ok) setMath({ out: r.value }); return r }, 'OUT')
     } else if (o.type === 'coil') {
       const c = o.coil
       const on = online && !!table[c.address]
@@ -562,9 +685,14 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             onClick={(e) => { e.stopPropagation(); onSelect({ type: 'coil', coilId: c.id }) }}
             onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'coil', coilId: c.id }) }}
             onContextMenu={(e) => { e.preventDefault(); removeCoil(c.id) }}
-            title={`%${c.address}${name ? ` "${name}"` : ''} — clique: edição rápida · duplo clique: propriedades e nome · Del/botão direito remove`}
+            title={`%${c.address}${name ? ` "${name}"` : ''} — clique no texto: editar valor · duplo clique: propriedades e nome · Del/botão direito remove`}
           />,
         )
+      textHit(`k-${c.id}`, coilCX - 32, cy - 31, 64, c.address, (v) => {
+        const r = parseAddress(v)
+        if (r.ok) updateRung(rung.id, (x) => ({ ...x, coils: x.coils.map((k) => (k.id === c.id ? { ...k, address: r.value } : k)) }), 'force')
+        return r
+      }, 'Endereço da bobina', `%${c.address}`)
     } else if (o.type === 'placeholder') {
       svg.push(
         <g key="ph" opacity={0.55}>
@@ -672,6 +800,29 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         {svg}
       </svg>
       {hits}
+      {inline && (
+        <input
+          className={`lnet-inline-input ${inlineError ? 'is-invalid' : ''}`}
+          style={{ left: inline.x, top: inline.y, width: inline.w }}
+          autoFocus
+          spellCheck={false}
+          defaultValue={inline.value}
+          title={inlineError ?? 'Enter confirma · Esc cancela'}
+          aria-invalid={!!inlineError}
+          onFocus={(e) => e.currentTarget.select()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          onChange={() => inlineError && setInlineError(null)}
+          onKeyDown={(e) => {
+            e.stopPropagation()
+            if (e.key === 'Enter') { e.preventDefault(); submitInline(e.currentTarget.value, false) }
+            else if (e.key === 'Escape') { e.preventDefault(); closeInline() }
+          }}
+          onBlur={(e) => submitInline(e.currentTarget.value, true)}
+        />
+      )}
+      {inline && inlineError && <div className="lnet-inline-error" style={{ left: inline.x, top: inline.y + 24 }}>{inlineError}</div>}
       {dragBlockName && (
         <div className="lnet-call-drop">
           <span className="lnet-call-drop-badge">CALL</span>

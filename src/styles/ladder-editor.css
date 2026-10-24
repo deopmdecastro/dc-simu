@@ -133,7 +133,12 @@
 .ladder-network-wrap.is-selected { outline-color:transparent; }
 /* 'clip' não cria contentor de scroll → o sticky do cabeçalho funciona */
 .ladder-rung-card { position:relative; overflow:clip; transition:border-color .14s, box-shadow .14s; }
-.ladder-rung-header { position:sticky; top:0; z-index:4; box-shadow:0 1px 0 #d5dde8; }
+/* Cabeçalho da network acompanha o conteúdo (sem «sticky»): deixa de ficar por cima das networks ao fazer scroll */
+.ladder-rung-header { position:relative; z-index:auto; box-shadow:0 1px 0 #d5dde8; }
+/* Scroll da área de networks mais suave e previsível */
+.ladder-networks { scroll-behavior:smooth; overscroll-behavior:contain; scrollbar-gutter:stable; scroll-padding:12px; -webkit-overflow-scrolling:touch; }
+.ladder-network-wrap { scroll-margin:12px; }
+@media (prefers-reduced-motion:reduce) { .ladder-networks { scroll-behavior:auto; } }
 .ladder-rung-card.is-collapsed .ladder-rung-header { box-shadow:none; }
 .ladder-rung-card.is-active { border-color:#9db8f0; box-shadow:0 1px 3px rgba(31,43,74,.08); }
 .ladder-rung-card:not(.is-active):hover { border-color:#c3cfe4; box-shadow:0 1px 3px rgba(31,43,74,.08); }
@@ -311,3 +316,10 @@
   .ladder-variables-dialog { height:calc(100dvh - 16px); }
   .ladder-variables-dialog-bar { flex-direction:column; align-items:flex-start; }
 }
+
+/* Edição in-place do texto dos elementos da network */
+.lnet-text-hit { position:absolute; z-index:2; border-radius:4px; cursor:text; transition:background-color .12s, box-shadow .12s; }
+.lnet-text-hit:hover { background:rgba(47,111,228,.14); box-shadow:inset 0 0 0 1px rgba(47,111,228,.55); }
+.lnet-inline-input { position:absolute; z-index:6; height:20px; padding:0 6px; border:1.5px solid #2f6fe4; border-radius:5px; background:#fff; color:#1f2a3d; font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace; text-align:center; text-transform:uppercase; outline:none; box-shadow:0 4px 14px rgba(47,111,228,.25); }
+.lnet-inline-input.is-invalid { border-color:#dc2626; box-shadow:0 4px 14px rgba(220,38,38,.22); }
+.lnet-inline-error { position:absolute; z-index:6; max-width:240px; padding:3px 8px; border-radius:5px; background:#7f1d1d; color:#fff; font-size:10px; font-weight:600; line-height:1.3; pointer-events:none; }

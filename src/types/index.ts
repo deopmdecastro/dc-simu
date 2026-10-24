@@ -417,6 +417,8 @@ export type LadderContactType = 'NO' | 'NC' | 'RISING' | 'FALLING' | 'CMP'
 export type LadderCompareOp = '==' | '<>' | '>=' | '<=' | '>' | '<'
 export type LadderCompareType = 'Int' | 'Word' | 'Real'
 export type LadderCoilType = 'COIL' | 'SET' | 'RESET'
+/** Operação do bloco matemático (ADD, SUB, MUL, DIV, MOD). */
+export type LadderMathOp = 'ADD' | 'SUB' | 'MUL' | 'DIV' | 'MOD'
 export type LadderBlockKind =
   | 'TON'
   | 'TOF'
@@ -484,6 +486,8 @@ export interface LadderRung {
   counter?: LadderCounter
   /** MOVE BOOL: copia origem para destino quando a network está ativa. */
   move?: { source: string; target: string }
+  /** Bloco matemático: OUT = IN1 <op> IN2 quando a network está ativa. */
+  math?: { op: LadderMathOp; in1: string; in2: string; out: string }
   /** Chamada explícita de um FC do mesmo PLC. */
   call?: { targetId: string }
   enabled: boolean

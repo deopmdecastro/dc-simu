@@ -11,6 +11,7 @@
 // ============================================================================
 
 import { moveValue, type DbTable } from './dataBlocks'
+import { execMath } from './ladderMath'
 import type { LadderProgram, LadderRung, LadderBranch, LadderContact } from '../types'
 import { evalCompare } from './compare'
 
@@ -193,6 +194,7 @@ export function runScan(
       }
     }
     if (rung.move && powered) moveValue(rung.move.source, rung.move.target, table, db)
+    if (rung.math && powered) execMath(rung.math, { db, timers, counters })
     if (rung.call && powered) {
       const id = rung.call.targetId
       // Impede ciclos A→B→A e chamadas recursivas descontroladas.
@@ -253,6 +255,7 @@ export function collectUsedAddresses(program: LadderProgram): string[] {
     }
     for (const coil of rung.coils) set.add(coil.address.toUpperCase())
     if (rung.move) { set.add(rung.move.source.toUpperCase()); set.add(rung.move.target.toUpperCase()) }
+    if (rung.math) { set.add(rung.math.in1.toUpperCase()); set.add(rung.math.in2.toUpperCase()); set.add(rung.math.out.toUpperCase()) }
     if (rung.timer) set.add(rung.timer.address.toUpperCase())
     if (rung.counter) {
       set.add(rung.counter.address.toUpperCase())

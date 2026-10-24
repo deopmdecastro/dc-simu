@@ -1,9 +1,11 @@
 import { COMPARE_OPERAND_RE, COMPARE_OPS, COMPARE_TYPES } from './compare'
+import { ADDRESS_RE, MATH_TARGET_RE, MOVE_TARGET_RE, OPERAND_RE } from './ladderInlineEdit'
+import { MATH_OPS } from './ladderMath'
 import { uiConfirm } from '../ui/dialogs'
 import Select from '../ui/Select'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { LadderCoilType, LadderContactType, LadderDataType, LadderRung, LadderCompareOp, LadderCompareType } from '../types'
+import type { LadderMathOp, LadderCoilType, LadderContactType, LadderDataType, LadderRung, LadderCompareOp, LadderCompareType } from '../types'
 import { IconCoil, IconContact, IconCounter, IconDelete, IconFunction, IconMove, IconTimer } from '../ui/icons'
 import { useSimStore } from '../store/useSimStore'
 import type { ProjectFile } from './projectFiles'
@@ -29,6 +31,10 @@ type Draft = {
   resetAddress: string
   source: string
   target: string
+  mathOp: LadderMathOp
+  in1: string
+  in2: string
+  out: string
   targetId: string
 }
 
@@ -51,12 +57,13 @@ const EMPTY: Draft = {
   resetAddress: '',
   source: 'I1',
   target: 'M1',
+  mathOp: 'ADD',
+  in1: 'MW0',
+  in2: '1',
+  out: 'MW2',
   targetId: 'fc1',
 }
 
-const ADDRESS_RE = /^(?:[IQMTC]\d{1,3}|[A-Z_][A-Z0-9_]*\.[A-Z_][A-Z0-9_]*)$/i
-const OPERAND_RE = /^(?:TRUE|FALSE|-?\d+(?:\.\d+)?|[IQMTC]\d{1,3}|[A-Z_][A-Z0-9_]*\.[A-Z_][A-Z0-9_]*)$/i
-const MOVE_TARGET_RE = /^(?:[QM]\d{1,3}|[A-Z_][A-Z0-9_]*\.[A-Z_][A-Z0-9_]*)$/i
 
 function selectedEntity(rung: LadderRung, selection: EditableSelection) {
   if (selection.type === 'contact') return rung.branches.find((branch) => branch.id === selection.branchId)?.elements.find((element) => element.id === selection.elementId)
@@ -64,6 +71,7 @@ function selectedEntity(rung: LadderRung, selection: EditableSelection) {
   if (selection.type === 'timer') return rung.timer
   if (selection.type === 'counter') return rung.counter
   if (selection.type === 'move') return rung.move
+  if (selection.type === 'math') return rung.math
   return rung.call
 }
 
@@ -86,6 +94,7 @@ function titleFor(kind: Draft['kind']) {
   if (kind === 'timer') return 'Preset do temporizador'
   if (kind === 'counter') return 'Preset do contador'
   if (kind === 'move') return 'Operação MOVE'
+  if (kind === 'math') return 'Operação matemática'
   return 'Chamada de função'
 }
 
@@ -94,7 +103,7 @@ function KindIcon({ kind }: { kind: Draft['kind'] }) {
   if (kind === 'coil') return <IconCoil size={17} />
   if (kind === 'timer') return <IconTimer size={17} />
   if (kind === 'counter') return <IconCounter size={17} />
-  if (kind === 'move') return <IconMove size={17} />
+  if (kind === 'move' || kind === 'math') return <IconMove size={17} />
   return <IconFunction size={17} />
 }
 
@@ -133,6 +142,7 @@ export default function LadderElementDialog({
       ...('timerType' in entity ? { timerType: entity.timerType, presetMs: String(entity.presetMs), preset2Ms: String(entity.preset2Ms ?? 50) } : {}),
       ...('counterType' in entity ? { counterType: entity.counterType, counterPreset: String(entity.preset), resetAddress: entity.resetAddress ?? '' } : {}),
       ...('source' in entity ? { source: entity.source, target: entity.target } : {}),
+      ...('in1' in entity ? { mathOp: entity.op, in1: entity.in1, in2: entity.in2, out: entity.out } : {}),
       ...('targetId' in entity ? { targetId: entity.targetId } : {}),
     })
     setError('')
@@ -173,6 +183,10 @@ export default function LadderElementDialog({
       const target = draft.target.trim().toUpperCase()
       if (!OPERAND_RE.test(source)) return setError('A origem deve ser um endereço, DB.variável, TRUE/FALSE ou um número.')
       if (!MOVE_TARGET_RE.test(target)) return setError('O destino deve ser Q, M ou uma variável DB válida.')
+    } else if (draft.kind === 'math') {
+      if (!COMPARE_OPERAND_RE.test(draft.in1.trim().toUpperCase())) return setError('IN1 inválido. Use MW0, C1, T1, DB1.Variavel ou um número.')
+      if (!COMPARE_OPERAND_RE.test(draft.in2.trim().toUpperCase())) return setError('IN2 inválido. Use MW0, C1, T1, DB1.Variavel ou um número.')
+      if (!MATH_TARGET_RE.test(draft.out.trim().toUpperCase())) return setError('OUT deve ser uma palavra MWn ou uma variável DB numérica.')
     } else if (isCompare) {
       if (!COMPARE_OPERAND_RE.test(normalizedAddress)) return setError('IN1 inválido. Use MW0, C1, T1, DB1.Variavel ou um número.')
       if (!COMPARE_OPERAND_RE.test(compareValueNorm)) return setError('IN2 inválido. Use um número, MW2, C1, T1 ou DB1.Variavel.')
@@ -193,10 +207,11 @@ export default function LadderElementDialog({
       if (selection.type === 'timer' && current.timer) return { ...current, timer: { ...current.timer, address: normalizedAddress, timerType: draft.timerType, presetMs: Math.max(0, Number(draft.presetMs) || 0), preset2Ms: Math.max(0, Number(draft.preset2Ms) || 0) } }
       if (selection.type === 'counter' && current.counter) return { ...current, counter: { ...current.counter, address: normalizedAddress, counterType: draft.counterType, preset: Math.max(0, Math.trunc(Number(draft.counterPreset) || 0)), resetAddress: draft.resetAddress.trim().replace(/^%/, '').toUpperCase() } }
       if (selection.type === 'move' && current.move) return { ...current, move: { source: draft.source.trim().toUpperCase(), target: draft.target.trim().toUpperCase() } }
+      if (selection.type === 'math' && current.math) return { ...current, math: { op: draft.mathOp, in1: draft.in1.trim().toUpperCase(), in2: draft.in2.trim().toUpperCase(), out: draft.out.trim().toUpperCase() } }
       if (selection.type === 'call' && current.call) return { ...current, call: { targetId: draft.targetId } }
       return current
     }, 'force')
-    if (draft.kind !== 'move' && draft.kind !== 'call' && 'address' in entity) syncTag(entity.address, normalizedAddress)
+    if (draft.kind !== 'move' && draft.kind !== 'math' && draft.kind !== 'call' && 'address' in entity) syncTag(entity.address, normalizedAddress)
     onClose()
   }
 
@@ -209,12 +224,13 @@ export default function LadderElementDialog({
       if (selection.type === 'timer') return { ...current, timer: undefined }
       if (selection.type === 'counter') return { ...current, counter: undefined }
       if (selection.type === 'move') return { ...current, move: undefined }
+      if (selection.type === 'math') return { ...current, math: undefined }
       return { ...current, call: undefined }
     }, 'force')
     onClose()
   }
 
-  const commonFields = draft.kind !== 'move' && draft.kind !== 'call'
+  const commonFields = draft.kind !== 'move' && draft.kind !== 'math' && draft.kind !== 'call'
   return createPortal(<div className="ladder-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <section className="ladder-element-dialog" role="dialog" aria-modal="true" aria-labelledby="ladder-element-dialog-title">
       <header>
@@ -265,6 +281,14 @@ export default function LadderElementDialog({
             <label><span>IN — origem</span><input autoFocus list="ladder-tag-addresses" value={draft.source} onChange={(event) => patch({ source: event.target.value.toUpperCase() })} placeholder="I1 ou DB1.Value" /></label>
             <label><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.target} onChange={(event) => patch({ target: event.target.value.toUpperCase() })} placeholder="M1 ou DB1.Value" /></label>
           </div><p className="ladder-dialog-help">Aceita BOOL, INT e REAL. A cópia só ocorre quando o resultado lógico da network é verdadeiro.</p></section>}
+
+          {draft.kind === 'math' && <section className="ladder-dialog-section"><h3>Operação</h3><div className="ladder-choice-grid is-three">
+            {MATH_OPS.map(({ op, label, detail }) => <button type="button" key={op} className={draft.mathOp === op ? 'is-selected' : ''} onClick={() => patch({ mathOp: op })}><strong>{label}</strong><small>{detail}</small></button>)}
+          </div><div className="ladder-dialog-grid">
+            <label><span>IN1 — primeiro operando</span><input autoFocus list="ladder-tag-addresses" value={draft.in1} onChange={(event) => patch({ in1: event.target.value.toUpperCase() })} placeholder="MW0" /></label>
+            <label><span>IN2 — segundo operando</span><input list="ladder-tag-addresses" value={draft.in2} onChange={(event) => patch({ in2: event.target.value.toUpperCase() })} placeholder="1" /></label>
+            <label className="is-wide"><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.out} onChange={(event) => patch({ out: event.target.value.toUpperCase() })} placeholder="MW2 ou DB1.Valor" /></label>
+          </div><p className="ladder-dialog-help">OUT = IN1 {MATH_OPS.find((m) => m.op === draft.mathOp)?.symbol} IN2, executado quando o resultado lógico da network é verdadeiro. Em destinos Int, o resultado é truncado e o overflow (fora de −32768…32767) ou a divisão por zero não escrevem nada.</p></section>}
 
           {draft.kind === 'call' && <section className="ladder-dialog-section"><h3>Bloco chamado</h3><label className="ladder-dialog-full-label"><span>Função FC</span><Select autoFocus value={draft.targetId} onChange={(event) => patch({ targetId: event.target.value })}><option value="fc1">FC1 [FC1]</option><option value="fc2">FC2 [FC2]</option>{functionFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}</Select></label><p className="ladder-dialog-help">O bloco é executado quando o RLO da network é 1. Chamadas recursivas são bloqueadas.</p></section>}
 

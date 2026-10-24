@@ -1,4 +1,4 @@
-import type { ComponentType, LadderCoilType, LadderCompareOp, LadderContact, LadderContactType, LadderRung } from '../types'
+import type { ComponentType, LadderMathOp, LadderCoilType, LadderCompareOp, LadderContact, LadderContactType, LadderRung } from '../types'
 
 /** Comparadores da paleta: um por operador. */
 export type CompareKind = 'CMP_EQ' | 'CMP_NE' | 'CMP_GE' | 'CMP_LE' | 'CMP_GT' | 'CMP_LT'
@@ -19,8 +19,7 @@ export type PaletteKind =
   | 'CALL'
   | 'COMPARE'
   | CompareKind
-  | 'ADD'
-  | 'SUB'
+  | LadderMathOp
   | 'BRANCH'
 
 /** MIME do arrastar de elementos da paleta Ladder. */
@@ -63,6 +62,7 @@ export const isCompareKind = (k: PaletteKind): k is CompareKind => k in COMPARE_
 export const isContactKind = (k: PaletteKind): k is LadderContactType => k === 'NO' || k === 'NC' || k === 'RISING' || k === 'FALLING'
 export const isCoilKind = (k: PaletteKind): k is LadderCoilType => k === 'COIL' || k === 'SET' || k === 'RESET'
 export const isTimerKind = (k: PaletteKind): k is 'TON' | 'TOF' | 'TP' => k === 'TON' || k === 'TOF' || k === 'TP'
+export const isMathKind = (k: PaletteKind): k is LadderMathOp => k === 'ADD' || k === 'SUB' || k === 'MUL' || k === 'DIV' || k === 'MOD'
 export const isCounterKind = (k: PaletteKind): k is 'CTU' | 'CTD' => k === 'CTU' || k === 'CTD'
 
 const uid = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
@@ -93,9 +93,10 @@ export type DropTarget =
  * Aplica um elemento da paleta numa network, na posição indicada.
  * Devolve a network atualizada e o id do elemento criado (para selecionar).
  */
-export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarget = { kind: 'output' }): { rung: LadderRung; created?: { type: 'contact'; branchId: string; elementId: string } | { type: 'coil'; coilId: string } | { type: 'timer' } | { type: 'counter' } } {
+export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarget = { kind: 'output' }): { rung: LadderRung; created?: { type: 'contact'; branchId: string; elementId: string } | { type: 'coil'; coilId: string } | { type: 'timer' } | { type: 'counter' } | { type: 'math' } } {
   if (kind === 'CALL') return { rung: { ...rung, call: rung.call ?? { targetId: 'fc1' } } }
   if (kind === 'MOVE') return { rung: { ...rung, move: rung.move ?? { source: 'I1', target: 'M1' } } }
+  if (isMathKind(kind)) return { rung: { ...rung, math: { in1: 'MW0', in2: '1', out: 'MW2', ...rung.math, op: kind } }, created: { type: 'math' } }
   if (kind === 'BRANCH') {
     // Linha paralela (estilo TIA Portal «abrir ramo»): nasce com um contacto NA pronto a editar,
     // na posição indicada (beforeIndex) — um ramo vazio faria a network ficar sempre ligada.
