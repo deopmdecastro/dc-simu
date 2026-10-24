@@ -508,8 +508,8 @@ function LogoFrontPanel({ c }: { c: ElectricalComponent }) {
   const canvas = useMemo(() => { const node = document.createElement('canvas'); node.width = 384; node.height = 192; return node }, [])
   const texture = useMemo(() => { const value = new THREE.CanvasTexture(canvas); value.colorSpace = THREE.SRGBColorSpace; value.anisotropy = 4; return value }, [canvas])
   const powered = !!c.state.powered
-  const inputs = c.terminals.filter((t) => /^I\d+$/i.test(t.label)).map((t) => !!t.energized)
-  const outputs = c.terminals.filter((t) => /^Q\d+/i.test(t.label)).map((t) => !!t.energized)
+  const inputs = c.terminals.filter((t) => /^I\d+\.\d+$/i.test(t.label)).map((t) => !!t.energized)
+  const outputs = c.terminals.filter((t) => /^Q\d+\.\d+$/i.test(t.label)).map((t) => !!t.energized)
   const errors = diagnostics.filter((item) => item.level === 'error').length
   const warnings = diagnostics.filter((item) => item.level === 'warning').length
   const running = powered && runState === 'running' && errors === 0

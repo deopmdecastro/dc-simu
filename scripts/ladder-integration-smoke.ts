@@ -50,11 +50,11 @@ store().loadJSON(JSON.stringify({
         rung('ob2', 'Contador de arranques', [], { math: { op: 'ADD' as const, in1: 'MW3', in2: '1', out: 'MW3' } }),
       ], 'obStartup'),
       file('fcControl', 'Controlo', [
-        rung('f1', '', [cmp('c1', 'MW0', '1'), { id: 'i1', address: 'I1', contactType: 'NO' }, { id: 'i2', address: 'I2', contactType: 'NC' }], { move: { source: '2', target: 'MW0' } }),
-        rung('f2', '', [cmp('c2', 'MW0', '2'), { id: 'i3', address: 'I2', contactType: 'NO' }], { move: { source: '1', target: 'MW0' } }),
+        rung('f1', '', [cmp('c1', 'MW0', '1'), { id: 'i1', address: 'I0.0', contactType: 'NO' }, { id: 'i2', address: 'I0.1', contactType: 'NC' }], { move: { source: '2', target: 'MW0' } }),
+        rung('f2', '', [cmp('c2', 'MW0', '2'), { id: 'i3', address: 'I0.1', contactType: 'NO' }], { move: { source: '1', target: 'MW0' } }),
       ]),
       // Como no ecrã do utilizador (FC2: MW0==1 → Q1) — é o que discrimina a ordem do scan.
-      file('fcOut', 'Saída', [rung('f3', '', [cmp('c3', 'MW0', '1')], { coils: [{ id: 'q1', address: 'Q1', coilType: 'COIL' }] })]),
+      file('fcOut', 'Saída', [rung('f3', '', [cmp('c3', 'MW0', '1')], { coils: [{ id: 'q1', address: 'Q0.0', coilType: 'COIL' }] })]),
     ],
   },
 }))
@@ -63,19 +63,19 @@ store().loadJSON(JSON.stringify({
 // Ordem TIA: o arranque corre PRIMEIRO (MW0 vazio = 0 → MOVE 1→MW0) e só depois o Main:
 // a «Saída» vê MW0==1 no MESMO scan e liga Q1. Com a ordem antiga Q1 ficaria a 0.
 ok('scan único: arranque antes do Main (MW0=1) e Saída já ativa (Q1=1)',
-  store().runtime.db.MW0?.value === 1 && store().runtime.table.Q1 === true)
+  store().runtime.db.MW0?.value === 1 && store().runtime.table['Q0.0'] === true)
 ok('arranque contado exatamente 1 vez (MW3=1)', store().runtime.db.MW3?.value === 1)
 
 // ---- I1 ativo → «Controlo» N1 sobe MW0 para 2; «Saída» segue no mesmo scan
-store().setVirtualInput('I1', true)
+store().setVirtualInput('I0.0', true)
 ok('CALL+comparação+MOVE entre blocos: MW0=2 e Q1 segue (desliga, ==1 falso)',
-  store().runtime.db.MW0?.value === 2 && store().runtime.table.Q1 === false)
+  store().runtime.db.MW0?.value === 2 && store().runtime.table['Q0.0'] === false)
 ok('arranque NÃO repetiu (MW3 continua 1)', store().runtime.db.MW3?.value === 1)
 
 // ---- I2 ativo → N2 reverte MW0 para 1; a Saída liga outra vez
-store().setVirtualInput('I1', false)
-store().setVirtualInput('I2', true)
-ok('ciclo completo: MW0 volta a 1 e Q1 religa', store().runtime.db.MW0?.value === 1 && store().runtime.table.Q1 === true)
+store().setVirtualInput('I0.0', false)
+store().setVirtualInput('I0.1', true)
+ok('ciclo completo: MW0 volta a 1 e Q1 religa', store().runtime.db.MW0?.value === 1 && store().runtime.table['Q0.0'] === true)
 ok('arranque continua sem repetir (MW3=1)', store().runtime.db.MW3?.value === 1)
 
 // ---- STOP + novo RUN (via save/load, integração com o ficheiro): arranque volta a correr UMA vez e primeiro
@@ -83,7 +83,7 @@ store().stop()
 store().clearVirtualInputs()
 store().loadJSON(store().saveJSON())
 ok('reload preserva o programa e repete o arranque UMA vez, antes do Main (MW0=1, Q1=1)',
-  store().runtime.db.MW0?.value === 1 && store().runtime.table.Q1 === true && store().runtime.db.MW3?.value === 1)
+  store().runtime.db.MW0?.value === 1 && store().runtime.table['Q0.0'] === true && store().runtime.db.MW3?.value === 1)
 store().step()
 ok('scan seguinte do novo RUN não volta a correr o arranque (MW3=1)', store().runtime.db.MW3?.value === 1)
 

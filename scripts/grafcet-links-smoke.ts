@@ -29,20 +29,20 @@ check(bendInsertIndex([{ x: 0, y: 0 }, { x: 0, y: 50 }, { x: 100, y: 50 }, { x: 
 const program: GrafcetProgram = {
   steps: [
     { id: 's0', name: 'Espera', initial: true, action: '', condition: '' },
-    { id: 's1', name: 'Trabalho', initial: false, action: 'Q1', condition: '' },
+    { id: 's1', name: 'Trabalho', initial: false, action: 'Q0.0', condition: '' },
   ],
-  transitions: [{ id: 't0', from: ['s0'], to: ['s1'], condition: 'I1', wireless: true }],
+  transitions: [{ id: 't0', from: ['s0'], to: ['s1'], condition: 'I0.0', wireless: true }],
   linkBends: { t0: [{ x: 320, y: 240 }] },
 }
 check(!validateGrafcet(program).some((issue) => issue.level === 'error'), 'ligação por referência não gera erros de validação')
 
-const table: Record<string, boolean> = { I1: false }
+const table: Record<string, boolean> = { 'I0.0': false }
 let runtime = scanGrafcet(program, emptyGrafcetRuntime(), table)
-check(table.Q1 === false && runtime.active.includes('s0'), 'etapa inicial ativa antes de disparar')
-table.I1 = true
+check(table['Q0.0'] === false && runtime.active.includes('s0'), 'etapa inicial ativa antes de disparar')
+table['I0.0'] = true
 runtime = scanGrafcet(program, runtime, table)
 check(runtime.active.includes('s1'), 'transição «sem linha» dispara e avança a sequência como uma ligada por linha')
-check(table.Q1 === true, 'ação do destino fica ativa após o salto por referência')
+check(table['Q0.0'] === true, 'ação do destino fica ativa após o salto por referência')
 
 check(stepNumberOf({ name: '141 - Descida' }, 3) === '141', 'número mostrado é o prefixo do nome (para X141)')
 check(stepNumberOf({}, 149) === '149', 'sem nome, o número é o índice da etapa')

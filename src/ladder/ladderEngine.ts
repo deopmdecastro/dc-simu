@@ -10,6 +10,7 @@
 //   contadores CTU (crescente), CTD (decrescente) com preset e reset
 // ============================================================================
 
+import { bitAddresses, migrateBitAddress } from './addresses'
 import { moveValue, type DbTable } from './dataBlocks'
 import { execMath } from './ladderMath'
 import type { LadderProgram, LadderRung, LadderBranch, LadderContact } from '../types'
@@ -223,9 +224,9 @@ export function runScan(
 /** Cria a tabela inicial de endereços a partir dos blocos de I/O declarados. */
 export function emptyTable(inputs: number, outputs: number, memories = 16, timers = 8, counters = 4): AddressTable {
   const table: AddressTable = {}
-  for (let i = 1; i <= inputs; i++) table[`I${i}`] = false
-  for (let q = 1; q <= outputs; q++) table[`Q${q}`] = false
-  for (let m = 1; m <= memories; m++) table[`M${m}`] = false
+  for (const key of bitAddresses('I', inputs)) table[key] = false
+  for (const key of bitAddresses('Q', outputs)) table[key] = false
+  for (const key of bitAddresses('M', memories)) table[key] = false
   for (let tt = 1; tt <= timers; tt++) table[`T${tt}`] = false
   for (let cc = 1; cc <= counters; cc++) table[`C${cc}`] = false
   return table

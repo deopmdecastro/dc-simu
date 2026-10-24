@@ -491,7 +491,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       id: id(),
       address,
       variable: address,
-      condition: conditional ? 'I1' : '1',
+      condition: conditional ? 'I0.0' : '1',
       kind: 'N',
       type: conditional ? 'conditional' : 'simple',
       x: Math.round(pos.x / GRID) * GRID,
@@ -640,7 +640,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       initial: steps.length === 0,
       stepType: steps.length === 0 ? 'initial' : 'simple',
       action: '',
-      condition: 'I1',
+      condition: 'I0.0',
       actions: [],
       x: place.x, y: place.y, pinned: true,
     }
@@ -671,7 +671,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       initial: false,
       stepType: 'simple',
       action: '',
-      condition: 'I1',
+      condition: 'I0.0',
       actions: [],
       x: place.x, y: place.y, pinned: true,
     }
@@ -693,7 +693,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     while (used.has(`Q${n}`)) n++
     updateStep(
       target.id,
-      { actions: [...(target.actions ?? []), { id: id(), address: `Q${n}`, variable: `Q${n}`, condition: conditional ? 'I1' : '1', kind: 'N' }] },
+      { actions: [...(target.actions ?? []), { id: id(), address: `Q${Math.floor((n - 1) / 8)}.${(n - 1) % 8}`, variable: `Q${n}`, condition: conditional ? 'I0.0' : '1', kind: 'N' }] },
       'force'
     )
     setSelected(target.id)
@@ -940,7 +940,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       initial: true,
       stepType: 'initial',
       action: '',
-      condition: 'I1',
+      condition: 'I0.0',
       actions: [],
       x: place.x, y: place.y, pinned: true,
     }
@@ -980,12 +980,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       c = id()
     save({
       steps: [
-        { id: a, name: 'Espera', initial: true, stepType: 'initial', action: '', condition: 'I1', actions: [] },
+        { id: a, name: 'Espera', initial: true, stepType: 'initial', action: '', condition: 'I0.0', actions: [] },
         { id: b, name: 'Motor A', initial: false, stepType: 'simple', action: '', condition: 'I2', actions: [{ id: id(), address: 'Q1', variable: 'Q1', condition: '1', kind: 'N' }] },
         { id: c, name: 'Motor B', initial: false, stepType: 'simple', action: '', condition: 'I3', actions: [{ id: id(), address: 'Q2', variable: 'Q2', condition: '1', kind: 'N' }] },
       ],
       transitions: [
-        { id: id(), from: [a], to: [b], condition: 'I1' },
+        { id: id(), from: [a], to: [b], condition: 'I0.0' },
         { id: id(), from: [b], to: [c], condition: 'I2' },
         { id: id(), from: [c], to: [a], condition: 'I3' },
       ],

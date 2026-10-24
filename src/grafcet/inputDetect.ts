@@ -21,7 +21,7 @@ export function isSymbolicSignalName(raw: string): boolean {
   const word = raw.trim().replace(/[+-]$/, '')
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(word)) return false
   const upper = word.toUpperCase()
-  if (RESERVED_WORDS.has(upper) || /^[IQM]\d{1,2}$/.test(upper)) return false
+  if (RESERVED_WORDS.has(upper) || /^[IQM]\d{1,4}(?:\.[0-7])?$/.test(upper)) return false
   if (/^MW\d{1,4}$/.test(upper) || /^[TC]\d{1,3}$/.test(upper)) return false
   return true
 }
@@ -40,7 +40,7 @@ export function symbolWordsInCondition(expression: string): string[] {
   const found = new Map<string, string>()
   for (const match of cleaned.matchAll(/(?<![A-Za-z0-9_%.])[A-Za-z][A-Za-z0-9_]*/g)) {
     const upper = match[0].toUpperCase()
-    if (RESERVED_WORDS.has(upper) || /^[IQM]\d{1,2}$/.test(upper) || /^MW\d{1,4}$/.test(upper)) continue
+    if (RESERVED_WORDS.has(upper) || /^[IQM]\d{1,4}(?:\.[0-7])?$/.test(upper) || /^MW\d{1,4}$/.test(upper)) continue
     if (!found.has(upper)) found.set(upper, match[0])
   }
   return [...found.values()]

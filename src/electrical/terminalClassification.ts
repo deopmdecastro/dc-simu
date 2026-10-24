@@ -24,10 +24,10 @@ export function inferTerminalElectricalClass(component: ElectricalComponent, ter
     return 'other' // RDY = contacto de sinalização sem potencial
   }
   if (component.type === 'plcSiemensLogo1224RC') {
-    if (/^(L\+|M|I\d+)$/i.test(terminal.label)) return 'dc'
+    if (/^(L\+|M|I\d+(?:\.\d+)?)$/i.test(terminal.label)) return 'dc'
     return 'other' // saídas Q a relé aceitam circuitos externos AC/DC
   }
-  if (component.type === 'plcLsXbmDn32s') return /^(L\+|M|I\d+|Q\d+)$/i.test(terminal.label) ? 'dc' : 'network'
+  if (component.type === 'plcLsXbmDn32s') return /^(L\+|M|I\d+\.\d+|Q\d+\.\d+)$/i.test(terminal.label) ? 'dc' : 'network'
   if (component.type === 'siemensTsAdapterIeBasic') return /^(ETH|SERVICE)$/i.test(terminal.label) ? 'network' : 'dc'
   // A variante AD22 integrada é nominalmente 24 V AC/DC; sem categoria dupla,
   // "outro" evita impor uma alimentação incompatível ao projeto.

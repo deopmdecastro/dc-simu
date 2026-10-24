@@ -268,8 +268,8 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
   plcLsXbmDn32s: [
     { label: 'L+', face: 'top', x: 0.04, y: 0, z: 0.5, diameterMm: 3, holeDepthMm: 5 },
     { label: 'M', face: 'bottom', x: 0.04, y: 1, z: 0.5, diameterMm: 3, holeDepthMm: 5 },
-    ...Array.from({ length: 16 }, (_, i) => ({ label: `I${i + 1}`, face: 'top' as const, x: 0.12 + i * (0.84 / 15), y: 0, z: 0.5, diameterMm: 3, holeDepthMm: 5 })),
-    ...Array.from({ length: 16 }, (_, i) => ({ label: `Q${i + 1}`, face: 'bottom' as const, x: 0.12 + i * (0.84 / 15), y: 1, z: 0.5, diameterMm: 3, holeDepthMm: 5 })),
+    ...Array.from({ length: 16 }, (_, i) => ({ label: `I${Math.floor(i / 8)}.${i % 8}`, face: 'top' as const, x: 0.12 + i * (0.84 / 15), y: 0, z: 0.5, diameterMm: 3, holeDepthMm: 5 })),
+    ...Array.from({ length: 16 }, (_, i) => ({ label: `Q${Math.floor(i / 8)}.${i % 8}`, face: 'bottom' as const, x: 0.12 + i * (0.84 / 15), y: 1, z: 0.5, diameterMm: 3, holeDepthMm: 5 })),
   ],
   /**
    * Phoenix Contact PTI 6 (3213972): borne de passagem push-in, uma entrada de

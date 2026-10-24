@@ -36,11 +36,11 @@ export function moveValue(source: string, target: string, table: Record<string, 
   if (src === 'TRUE' || src === 'FALSE') value = src === 'TRUE'
   else if (src === '0' || src === '1') value = db[dst]?.type === 'INT' || db[dst]?.type === 'REAL' || /^MW\d+$/.test(dst) ? Number(src) : src === '1'
   else if (/^MW\d+$/.test(src)) value = typeof db[src]?.value === 'number' ? (db[src].value as number) : 0
-  else if (/^(?:[IQM]\d+)$/.test(src)) value = !!table[src]
+  else if (/^(?:[IQM]\d+(?:\.\d+)?)$/.test(src)) value = !!table[src]
   else if (src in db) value = db[src].value
   else if (/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(src)) value = Number(src)
   if (value === undefined) return false
-  if (/^[QM]\d+$/.test(dst)) {
+  if (/^[QM]\d+(?:\.\d+)?$/.test(dst)) {
     if (typeof value !== 'boolean') return false
     table[dst] = value
     return true

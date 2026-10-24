@@ -139,7 +139,7 @@ function relayTerminals(extraContacts: number): TerminalTemplate[] {
  * físico.
  */
 function plcLogoRCTerminals(): TerminalTemplate[] {
-  const top = ['L+', 'M', 'I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7', 'I8']
+  const top = ['L+', 'M', 'I0.0', 'I0.1', 'I0.2', 'I0.3', 'I0.4', 'I0.5', 'I0.6', 'I0.7']
   const list: TerminalTemplate[] = top.map((lbl, i) =>
     T(lbl, lbl === 'L+' ? 'power-in' : lbl === 'M' ? 'neutral' : 'io', 0.06 + i * (0.88 / (top.length - 1)), 0, {
       terminalType: 'screw',
@@ -147,9 +147,9 @@ function plcLogoRCTerminals(): TerminalTemplate[] {
     }),
   )
   list.push(T('X1', 'io', 0.98, 0, { terminalType: 'screw', color: '#94a3b8' }))
-  ;['Q1', 'Q2', 'Q3', 'Q4'].forEach((lbl, i) => {
+  ;['Q0.0', 'Q0.1', 'Q0.2', 'Q0.3'].forEach((lbl, i) => {
     list.push(T(lbl, 'io', 0.16 + i * 0.24, 1, { terminalType: 'screw', color: '#f59e0b' }))
-    list.push(T(`${lbl}.2`, 'io', 0.21 + i * 0.24, 1, { terminalType: 'screw', color: '#f59e0b' }))
+    list.push(T(`${lbl}·2`, 'io', 0.21 + i * 0.24, 1, { terminalType: 'screw', color: '#f59e0b' }))
   })
   return list
 }
@@ -159,8 +159,8 @@ function plcTerminals(inputs: number, outputs: number): TerminalTemplate[] {
     T('L', 'power-in', 0.04, 0.5, { color: '#f59e0b' }),
     T('N', 'neutral', 0.96, 0.5),
   ]
-  for (let i = 0; i < inputs; i++) list.push(T(`I${i + 1}`, 'io', 0.12 + i * (0.76 / inputs), 0))
-  for (let i = 0; i < outputs; i++) list.push(T(`Q${i + 1}`, 'io', 0.2 + i * (0.6 / outputs), 1))
+  for (let i = 0; i < inputs; i++) list.push(T(`I${Math.floor(i / 8)}.${i % 8}`, 'io', 0.12 + i * (0.76 / inputs), 0))
+  for (let i = 0; i < outputs; i++) list.push(T(`Q${Math.floor(i / 8)}.${i % 8}`, 'io', 0.2 + i * (0.6 / outputs), 1))
   return list
 }
 
@@ -172,8 +172,8 @@ function plcLsXbmDn32sTerminals(): TerminalTemplate[] {
   ]
   for (let i = 0; i < 16; i++) {
     const x = 0.06 + i * (0.88 / 15)
-    list.push(T(`I${i + 1}`, 'io', x, 0, { terminalType: 'screw' }))
-    list.push(T(`Q${i + 1}`, 'io', x, 1, { terminalType: 'screw' }))
+    list.push(T(`I${Math.floor(i / 8)}.${i % 8}`, 'io', x, 0, { terminalType: 'screw' }))
+    list.push(T(`Q${Math.floor(i / 8)}.${i % 8}`, 'io', x, 1, { terminalType: 'screw' }))
   }
   return list
 }
@@ -592,12 +592,12 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   plcLogo: {
     category: 'controller', paletteName: 'LOGO! / CLP compacto 8I/4Q', group: 'Controladores', tag: 'PLC', w: 190, h: 150,
     terminals: plcTerminals(8, 4),
-    defaultState: { inputs: {}, outputs: { Q1: false, Q2: false, Q3: false, Q4: false }, memories: {} },
+    defaultState: { inputs: {}, outputs: { 'Q0.0': false, 'Q0.1': false, 'Q0.2': false, 'Q0.3': false }, memories: {} },
   },
   plcSiemensLogo1224RC: {
     category: 'controller', paletteName: 'Siemens LOGO! 12/24RC (8DI/4DQ)', group: 'Controladores', tag: 'PLC', w: 280, h: 190,
     terminals: plcLogoRCTerminals(),
-    defaultState: { powered: false, inputs: {}, outputs: { Q1: false, Q2: false, Q3: false, Q4: false }, memories: {}, pressedButton: null },
+    defaultState: { powered: false, inputs: {}, outputs: { 'Q0.0': false, 'Q0.1': false, 'Q0.2': false, 'Q0.3': false }, memories: {}, pressedButton: null },
   },
   plcLsXbmDn32s: {
     category: 'controller', paletteName: 'CLP LS Electric XGB XBM-DN32S · 16DI/16DO', group: 'Controladores', tag: 'PLC', w: 360, h: 210,
@@ -605,7 +605,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     defaultState: {
       powered: false,
       inputs: {},
-      outputs: Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`Q${i + 1}`, false])),
+      outputs: Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`Q${Math.floor(i / 8)}.${i % 8}`, false])),
       memories: {},
       supply: '24 V DC',
       outputType: '16 transistor NPN (sink)',

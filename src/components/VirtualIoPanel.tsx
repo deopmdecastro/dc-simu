@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import { bitAddresses, bitAddressOrder } from '../ladder/addresses'
 import VirtualInputButton from './VirtualInputButton'
 
 /** Painel de entradas/saídas virtuais: liga/desliga I1…In com o rato e mostra Q/M em tempo real.
@@ -14,11 +15,11 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
 
   const nameOf = (address: string) => { const n = tags.find((t) => t.address.toUpperCase() === address)?.name; return n && n.toUpperCase() !== address ? n : undefined }
   const outputs = useMemo(() => {
-    const known = new Set<string>([...extraBits.filter((a) => /^[QM]\d+$/.test(a))])
-    for (const [key, value] of Object.entries(table)) if (/^[QM]\d+$/.test(key) && (value || /^Q/.test(key) && Number(key.slice(1)) <= 8)) known.add(key)
-    return [...known].sort((a, b) => a[0] === b[0] ? Number(a.slice(1)) - Number(b.slice(1)) : a[0] < b[0] ? 1 : -1)
+    const known = new Set<string>([...extraBits.filter((a) => /^[QM]\d+\.\d$/.test(a))])
+    for (const [key, value] of Object.entries(table)) if (/^[QM]\d+\.\d$/.test(key) && (value || /^Q/.test(key) && bitAddressOrder(key) < 8)) known.add(key)
+    return [...known].sort((a, b) => a[0] === b[0] ? bitAddressOrder(a) - bitAddressOrder(b) : a[0] < b[0] ? 1 : -1)
   }, [table, extraBits])
-  const addresses = Array.from({ length: count }, (_, i) => `I${i + 1}`)
+  const addresses = bitAddresses('I', count)
 
   return <section className={`vio-panel ${compact ? 'is-compact' : ''}`} aria-label="Entradas e saídas virtuais">
     <div className="vio-head">

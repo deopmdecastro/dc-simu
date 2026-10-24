@@ -76,13 +76,16 @@ function nextWord(rung: LadderRung) {
   return 'MW0'
 }
 
-/** Próximo endereço livre de um prefixo dentro da network (I1, I2…). */
-function nextAddr(rung: LadderRung, prefix: string) {
+/** Próximo endereço livre de um prefixo na network, formato Siemens byte.bit (I0.0, I0.1… / Q0.0… / M0.0…). */
+function nextAddr(rung: LadderRung, prefix: 'I' | 'Q' | 'M') {
   const used = new Set<string>()
   rung.branches.forEach((b) => b.elements.forEach((e) => used.add(e.address)))
   rung.coils.forEach((c) => used.add(c.address))
-  for (let i = 1; i < 99; i++) if (!used.has(`${prefix}${i}`)) return `${prefix}${i}`
-  return `${prefix}1`
+  for (let i = 0; i < 8 * 12; i++) {
+    const addr = `${prefix}${Math.floor(i / 8)}.${i % 8}`
+    if (!used.has(addr)) return addr
+  }
+  return `${prefix}0.0`
 }
 
 export type DropTarget =

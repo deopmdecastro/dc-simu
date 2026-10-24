@@ -31,7 +31,7 @@ assert.equal(execMath({ op: 'DIV', in1: '1', in2: '0', out: 'MW6' }, { db }), fa
 // 3) integração no scan: só executa com a network ativa
 const rung = (id: string, patch: Partial<LadderRung>): LadderRung => ({ id, name: id, branches: [], coils: [], enabled: true, ...patch })
 const on: LadderProgram = { rungs: [rung('r1', { branches: [{ id: 'b', elements: [] }], math: { op: 'ADD', in1: '2', in2: '3', out: 'MW0' } })] }
-const off: LadderProgram = { rungs: [rung('r1', { branches: [{ id: 'b', elements: [{ kind: 'contact', id: 'c', address: 'I1', contactType: 'NO' }] }], math: { op: 'ADD', in1: '2', in2: '3', out: 'MW0' } })] }
+const off: LadderProgram = { rungs: [rung('r1', { branches: [{ id: 'b', elements: [{ kind: 'contact', id: 'c', address: 'I0.0', contactType: 'NO' }] }], math: { op: 'ADD', in1: '2', in2: '3', out: 'MW0' } })] }
 const dbOn: DbTable = {}; const dbOff: DbTable = {}
 const t = {} as TimerTable; const c = {} as CounterTable
 runScan(on, { I1: false }, t, c, 10, {}, [], dbOn, {} as never)
@@ -46,12 +46,12 @@ assert.equal(applyKind(added.rung, 'DIV').rung.math?.op, 'DIV', 'volta a escolhe
 assert.ok(lintLadder({ rungs: [rung('r', { math: { op: 'DIV', in1: 'MW0', in2: '0', out: 'MW2' } })] }).some((i) => i.id.endsWith('math-div0')))
 
 // 5) edição inline
-assert.deepEqual(parseAddress(' %q1 '), { ok: true, value: 'Q1' })
+assert.deepEqual(parseAddress(' %q1 '), { ok: true, value: 'Q0.0' })
 assert.equal(parseAddress('xx').ok, false)
 assert.deepEqual(parseAddress('mw4', 'compare'), { ok: true, value: 'MW4' })
-assert.equal(parseAddress('I1', 'moveTarget').ok, false, 'MOVE não escreve em entradas')
+assert.equal(parseAddress('I0.0', 'moveTarget').ok, false, 'MOVE não escreve em entradas')
 assert.equal(parseAddress('MW2', 'moveTarget').ok, true)
-assert.equal(parseAddress('M1', 'mathTarget').ok, false)
+assert.equal(parseAddress('M0.0', 'mathTarget').ok, false)
 assert.deepEqual(parsePresetMs('T#3S'), { ok: true, value: 3000 })
 assert.deepEqual(parsePresetMs('1,5s'), { ok: true, value: 1500 })
 assert.deepEqual(parsePresetMs('500ms'), { ok: true, value: 500 })
@@ -62,7 +62,7 @@ assert.equal(formatPresetMs(1500), 'T#1.5S')
 assert.deepEqual(parseCounterPreset('12'), { ok: true, value: 12 })
 assert.equal(parseCounterPreset('-1').ok, false)
 // 6) TONR: acumula, retém ao desligar, reset zera
-const tonr = (input: boolean): LadderProgram => ({ rungs: [rung('t', { branches: [{ id: 'b', elements: input ? [] : [{ kind: 'contact', id: 'x', address: 'I9', contactType: 'NO' }] }], timer: { kind: 'timer', id: 'tt', address: 'T1', timerType: 'TONR', presetMs: 100, resetAddress: 'M1' } })] })
+const tonr = (input: boolean): LadderProgram => ({ rungs: [rung('t', { branches: [{ id: 'b', elements: input ? [] : [{ kind: 'contact', id: 'x', address: 'I1.0', contactType: 'NO' }] }], timer: { kind: 'timer', id: 'tt', address: 'T1', timerType: 'TONR', presetMs: 100, resetAddress: 'M0.0' } })] })
 const tt = {} as TimerTable; const tbl: Record<string, boolean> = {}
 runScan(tonr(true), tbl, tt, c, 40, {}, [], {}, {} as never)
 runScan(tonr(false), tbl, tt, c, 40, {}, [], {}, {} as never)
@@ -70,7 +70,7 @@ assert.equal(tt.T1.elapsedMs, 40, 'retém o tempo ao desligar')
 runScan(tonr(true), tbl, tt, c, 40, {}, [], {}, {} as never)
 runScan(tonr(true), tbl, tt, c, 40, {}, [], {}, {} as never)
 assert.equal(tbl.T1, true, 'atinge o preset somando intervalos')
-tbl.M1 = true
+tbl['M0.0'] = true
 runScan(tonr(true), tbl, tt, c, 40, {}, [], {}, {} as never)
 assert.equal(tt.T1.elapsedMs, 0); assert.equal(tbl.T1, false)
 console.log('ladder-math-smoke: OK')

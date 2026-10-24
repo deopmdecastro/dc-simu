@@ -1,4 +1,5 @@
 import type { LadderTag } from '../types'
+import { normalizeBitAddress } from '../ladder/addresses'
 import { actionsOfStep, normalizeActionVariable, stripGrafcetPrefix, transitionsOf, type GrafcetProgram } from './engine'
 import { isSymbolicSignalName, symbolWordsInCondition } from './inputDetect'
 import { foldText } from '../utils/text'
@@ -11,8 +12,8 @@ export interface GrafcetSignalSuggestion {
   area: SignalArea
 }
 
-export const canonicalSignalAddress = (address: string) => address.trim().toUpperCase()
-export const isSignalAddress = (address: string) => /^[IQM]\d{1,2}$/i.test(address.trim())
+export const canonicalSignalAddress = (address: string) => normalizeBitAddress(address) ?? address.trim().toUpperCase()
+export const isSignalAddress = (address: string) => !!normalizeBitAddress(address.trim())
 
 /** Tags are documentation: always insert the address, never a descriptive name. */
 export function grafcetSignals(tags: readonly LadderTag[]): GrafcetSignalSuggestion[] {
@@ -30,13 +31,18 @@ export const signalSearchText = (signal: GrafcetSignalSuggestion) => foldText(`$
 /** Declaration allocation is independent of runtime's preallocated I/Q bits. */
 export function nextDeclaredTagAddress(prefix: 'I' | 'Q' | 'M' | 'T' | 'C', tags: readonly Pick<LadderTag, 'address'>[]): string | null {
   const used = new Set(tags.map((tag) => canonicalSignalAddress(tag.address)))
+  // Bits I/Q/M: forma Siemens byte.bit (I0.0, I0.1…, I1.0…; igual para Q/M).
+  if (prefix === 'I' || prefix === 'Q' || prefix === 'M') {
+    for (let i = 0; i < 96; i++) { const addr = `${prefix}${Math.floor(i / 8)}.${i % 8}`; if (!used.has(addr)) return addr }
+    return null
+  }
   for (let index = 1; index <= 99; index++) if (!used.has(`${prefix}${index}`)) return `${prefix}${index}`
   return null
 }
 
 /** Explicit bit tokens only: no aliases, timers, Xn, frequencies or factory I/O. */
 export function signalAddressesInCondition(expression: string): string[] {
-  return [...new Set([...expression.matchAll(/(?<![A-Za-z0-9_%.])([IQM]\d{1,2})(?![A-Za-z0-9_.])/gi)].map((match) => match[1].toUpperCase()))]
+  return [...new Set([...expression.matchAll(/(?<![A-Za-z0-9_%.])([IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2})(?![A-Za-z0-9_.])/gi)].map((match) => normalizeBitAddress(match[1]) ?? match[1].toUpperCase()))]
 }
 
 export function detectGrafcetSignals(program: GrafcetProgram): string[] {

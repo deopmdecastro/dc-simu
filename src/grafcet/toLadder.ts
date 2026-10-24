@@ -57,7 +57,7 @@ function parse(expression: string): Node | null {
     if (token.startsWith('X') && /^\d+$/.test(token.slice(1))) {
       return { t: 'step', index: Number(token.slice(1)) }
     }
-    if (/^[IQM]\d{1,2}$/.test(token) || /^[A-Z][A-Z0-9_]*$/.test(token)) {
+    if (/^[IQM]\d{1,4}(?:\.[0-7])?$/.test(token) || /^[A-Z][A-Z0-9_]*$/.test(token)) {
       return { t: 'lit', address: token }
     }
     return null

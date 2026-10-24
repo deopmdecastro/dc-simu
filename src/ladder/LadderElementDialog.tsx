@@ -57,7 +57,7 @@ const EMPTY: Draft = {
   counterType: 'CTU',
   counterPreset: '5',
   resetAddress: '',
-  source: 'I1',
+  source: 'I0.0',
   target: 'M1',
   mathOp: 'ADD',
   in1: 'MW0',
@@ -215,7 +215,7 @@ export default function LadderElementDialog({
       if (!COMPARE_OPERAND_RE.test(normalizedAddress)) return setError('IN1 inválido. Use MW0, C1, T1, DB1.Variavel ou um número.')
       if (!COMPARE_OPERAND_RE.test(compareValueNorm)) return setError('IN2 inválido. Use um número, MW2, C1, T1 ou DB1.Variavel.')
     } else if (draft.kind !== 'call' && !ADDRESS_RE.test(normalizedAddress)) {
-      return setError('Use um endereço válido, por exemplo I1, Q1, M1, T1, C1 ou DB1.Variavel.')
+      return setError('Use um endereço válido, por exemplo I0.0, Q0.1, M0.2, T1, C1 ou DB1.Variavel.')
     }
 
     const state = useSimStore.getState()
@@ -273,7 +273,7 @@ export default function LadderElementDialog({
           {commonFields && <section className="ladder-dialog-section">
             <h3>Identificação</h3>
             <div className="ladder-dialog-grid">
-              <label><span>{isCompare ? 'IN1 — operando' : 'Endereço absoluto'}</span><input autoFocus list="ladder-tag-addresses" value={draft.address} onChange={(event) => patch({ address: event.target.value.toUpperCase() })} placeholder={isCompare ? 'MW0' : 'I1'} /></label>
+              <label><span>{isCompare ? 'IN1 — operando' : 'Endereço absoluto'}</span><input autoFocus list="ladder-tag-addresses" value={draft.address} onChange={(event) => patch({ address: event.target.value.toUpperCase() })} placeholder={isCompare ? 'MW0' : 'I0.0'} /></label>
               <label><span>Nome simbólico</span><input value={draft.tagName} onChange={(event) => patch({ tagName: event.target.value })} placeholder="Ex.: Botao_Start" /></label>
               {!isCompare && <label><span>Tipo de dados</span><Select value={draft.dataType} onChange={(event) => patch({ dataType: event.target.value as LadderDataType })}><option>Bool</option><option>Time</option><option>Int</option><option>Real</option></Select></label>}
               <label className="is-wide"><span>Comentário</span><input value={draft.comment} onChange={(event) => patch({ comment: event.target.value })} placeholder="Descrição funcional do sinal" /></label>
@@ -311,7 +311,7 @@ export default function LadderElementDialog({
           </div><div className="ladder-preset-row"><span>Presets:</span>{[1, 5, 10, 25, 50, 100].map((value) => <button type="button" key={value} className={Number(draft.counterPreset) === value ? 'is-selected' : ''} onClick={() => patch({ counterPreset: String(value) })}>{value}</button>)}</div></section>}
 
           {draft.kind === 'move' && <section className="ladder-dialog-section"><h3>Operadores</h3><div className="ladder-dialog-grid">
-            <label><span>IN — origem</span><input autoFocus list="ladder-tag-addresses" value={draft.source} onChange={(event) => patch({ source: event.target.value.toUpperCase() })} placeholder="I1, 5, MW0 ou DB1.Value" /></label>
+            <label><span>IN — origem</span><input autoFocus list="ladder-tag-addresses" value={draft.source} onChange={(event) => patch({ source: event.target.value.toUpperCase() })} placeholder="I0.0, 5, MW0 ou DB1.Value" /></label>
             <label><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.target} onChange={(event) => patch({ target: event.target.value.toUpperCase() })} placeholder="Q1, MW100 ou DB1.Value" /></label>
           </div><p className="ladder-dialog-help">Aceita BOOL, INT e REAL — constantes (5, TRUE), bits (I1, M1), palavras MWn (ex.: %MW100, 16 bits Int) e variáveis de DB. A cópia só ocorre quando o resultado lógico da network é verdadeiro.</p></section>}
 

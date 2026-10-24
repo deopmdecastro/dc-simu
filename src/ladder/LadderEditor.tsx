@@ -19,6 +19,7 @@ import NetworkDiagram, { type RungSelection } from './NetworkDiagram'
 import LadderElementDialog from './LadderElementDialog'
 import AddBlockDialog from './AddBlockDialog'
 import type { BlockKind } from './blockCatalog'
+import { bitAddressOrder } from './addresses'
 import { CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, COMPARE_KIND_OP, applyKind, getLadderDrag, isCompareKind, isContactKind, onOpenLadderBlock, setLadderDrag, type CallBlockPayload, type PaletteKind } from './ladderDnd'
 import { insertIntoRungs, newEmptyRung } from './ladderInsert'
 
@@ -793,10 +794,10 @@ function NetworkStatus({ table, prefix, label, plc, wires, components, tags, run
 }) {
   const physical = prefix !== 'M' ? plcIoRows(plc, prefix, table, wires, components, tags) : []
   const memory = prefix === 'M' ? [...new Set([
-    ...collectUsedAddresses({ rungs }).filter((a) => /^M\d+$/.test(a)),
-    ...tags.map((t) => t.address).filter((a) => /^M\d+$/i.test(a)),
-    ...Object.keys(table).filter((a) => /^M\d+$/.test(a) && table[a]),
-  ])].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))) : []
+    ...collectUsedAddresses({ rungs }).filter((a) => /^M\d+\.\d$/.test(a)),
+    ...tags.map((t) => t.address).filter((a) => /^M\d+\.\d$/i.test(a)),
+    ...Object.keys(table).filter((a) => /^M\d+\.\d$/.test(a) && table[a]),
+  ])].sort((a, b) => bitAddressOrder(a) - bitAddressOrder(b)) : []
   return <div className="ladder-status-group">
     <div className="ladder-status-title">{label}{plc && prefix !== 'M' ? ` · ${plc.ref} (${physical.length})` : ''}</div>
     {prefix !== 'M' ? physical.map((row) => <div className="ladder-status-row" key={row.address} title={row.destinations.join(' · ') || 'Sem cabo ligado'}>

@@ -1,5 +1,6 @@
 import type { LadderCompareOp } from '../types'
 import { compareNumbers } from '../ladder/compare'
+import { normalizeBitAddress } from '../ladder/addresses'
 /** Qualificadores de ação (IEC 60848 simplificado e estendido FluidSIM):
  *  N = contínua (enquanto a etapa está ativa e a condição é verdadeira)
  *  S = memorizada: coloca a saída a 1 e mantém-na até um R
@@ -135,7 +136,7 @@ export interface GrafcetRuntime {
 export const emptyGrafcet = (): GrafcetProgram => ({ steps: [], transitions: [], comments: [] })
 export const emptyGrafcetRuntime = (): GrafcetRuntime => ({ active: [], owned: [], elapsed: {}, prev: {}, stored: {}, simTimeMs: 0, fired: 0, lastFired: [] })
 
-export const validBit = (address: string) => /^[IQM]\d{1,2}$/.test(address)
+export const validBit = (address: string) => !!normalizeBitAddress(address)
 
 const DISALLOWED_VARS = new Set([
   'MOVE', 'ADD', 'SUB', 'MUL', 'DIV', 'CALL', 'RET', 'JMP', 'NOP', 'TON', 'TOF', 'TP', 'CTU', 'CTD',
@@ -294,6 +295,10 @@ export function referencedSteps(expression: string): number[] {
 }
 
 function parseCondition(expression: string, ctx: ConditionContext): boolean | null {
+  // Leitura canónica da tabela: aceita bits antigos (I3) e novos (I0.2).
+  const bitOf = (t: string) => normalizeBitAddress(t) ?? t
+  const readBit = (t: string) => { const k = bitOf(t); return !!(ctx.table[k] ?? ctx.table[k.toUpperCase()] ?? ctx.table[k.toLowerCase()]) }
+  const readPrev = (t: string) => { const k = bitOf(t); return !!(ctx.prev?.[k] ?? ctx.prev?.[k.toUpperCase()] ?? ctx.prev?.[k.toLowerCase()]) }
   const src = stripGrafcetPrefix(expression).trim()
   if (!src) return null
   if (DISALLOWED_VARS.has(src.toUpperCase())) return null
@@ -301,7 +306,7 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
   // Rejeita sintaxes incorretas explícitas de operadores duplos ou inválidos
   if (/&&|\|\||\^\s*&|\^\s*\||\\\s*&|\\\s*\||\*\s*\*|\+\s*\+/.test(src)) return null
 
-  const regex = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:(?:\d+(?:\.\d+)?(?:MS|S)?)\/X[A-Za-z0-9_]*(?:\/(?:\d+(?:\.\d+)?(?:MS|S)?))?)|(?:\d+(?:\.\d+)?\s*HZ)|(?:G\d+\s*<=>\s*X\d+)|(?:G\d+X\d+)|X\d{1,3}|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|[A-Za-z][A-Za-z0-9_]*(\+|-)?`, 'gi')
+  const regex = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:(?:\d+(?:\.\d+)?(?:MS|S)?)\/X[A-Za-z0-9_]*(?:\/(?:\d+(?:\.\d+)?(?:MS|S)?))?)|(?:\d+(?:\.\d+)?\s*HZ)|(?:G\d+\s*<=>\s*X\d+)|(?:G\d+X\d+)|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|[A-Za-z][A-Za-z0-9_]*(\+|-)?`, 'gi')
 
   const rawTokens = src.match(regex)
   if (!rawTokens) return null
@@ -336,8 +341,8 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
     if (token === '^' || token === '\\') {
       const bit = tokens[i++]
       if (!bit || (!validBit(bit) && !validGrafcetVariable(bit))) return null
-      const now = !!(ctx.table[bit] ?? ctx.table[bit.toUpperCase()] ?? ctx.table[bit.toLowerCase()])
-      const before = !!(ctx.prev?.[bit] ?? ctx.prev?.[bit.toUpperCase()] ?? ctx.prev?.[bit.toLowerCase()])
+      const now = readBit(bit)
+      const before = readPrev(bit)
       return token === '^' ? now && !before : !now && before
     }
     const cmp = parseCompareToken(token)
@@ -373,7 +378,7 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
       return stepIsActive(String(num), ctx)
     }
     if (validBit(token) || validGrafcetVariable(token)) {
-      return !!(ctx.table[token] ?? ctx.table[token.toUpperCase()] ?? ctx.table[token.toLowerCase()])
+      return readBit(token)
     }
     return null
   }

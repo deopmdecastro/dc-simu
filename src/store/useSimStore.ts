@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { EDITOR_THEME } from '../ui/editorTheme'
 import { nextDeclaredTagAddress } from '../grafcet/signals'
+import { normalizeBitAddress } from '../ladder/addresses'
+import { migrateLegacyAddresses } from './migrations'
 import { normalizeKind, type ProjectKind } from '../project/kind'
 import { readOperand } from '../ladder/compare'
 import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, setGrafcetNumericReader, forceSteps, fireTransition, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
@@ -535,7 +537,7 @@ function runOneTick(state: Store, dtMs: number) {
     const powered = logo?.powered ?? true
     if (logo) plc.state.powered = powered
     for (const t of plc.terminals) {
-      if (/^I\d+$/.test(t.label)) table[t.label] = logo
+      if (/^I\d+\.\d+$/.test(t.label)) table[t.label] = logo
         ? powered && logo.positive.has(t.id)
         : pass1.energizedTerminals.has(t.id)
     }
@@ -847,7 +849,7 @@ export const useSimStore = create<Store>((set, get) => ({
   setVirtualInputCount: (count) => set({ virtualInputCount: Math.max(1, Math.min(32, Math.round(count))) }),
   clearVirtualInputs: () => {
     set({ virtualInputs: {} })
-    for (const key of Object.keys(get().runtime.table)) if (/^I\d+$/.test(key)) get().runtime.table[key] = false
+    for (const key of Object.keys(get().runtime.table)) if (/^I\d+\.\d+$/.test(key)) get().runtime.table[key] = false
     if (get().sim.runState !== 'running') get().step()
   },
   forceGrafcetSteps: (stepIds) => {
@@ -2263,7 +2265,7 @@ export const useSimStore = create<Store>((set, get) => ({
     if (historyMode === 'force' || (historyMode === 'auto' && shouldCommitGroupedEdit(`tag:${id}`))) get().commitHistory()
     if (historyMode === 'force') resetGroupedEdit()
     set((s) => ({
-      tags: s.tags.map((t) => (t.id === id ? { ...t, ...patch, ...(patch.address ? { address: patch.address.toUpperCase() } : {}) } : t)),
+      tags: s.tags.map((t) => (t.id === id ? { ...t, ...patch, ...(patch.address ? { address: normalizeBitAddress(patch.address) ?? patch.address.toUpperCase() } : {}) } : t)),
       dirty: true,
     }))
   },
@@ -2324,7 +2326,8 @@ export const useSimStore = create<Store>((set, get) => ({
 
   loadJSON: (json) => {
     try {
-      const parsed = JSON.parse(json)
+      // Migração silenciosa: bits antigos «I1»/«Q2»/«M3» passam a «I0.0»/«Q0.1»/«M0.2».
+      const parsed = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
       setStoredCover(parsed?.cover)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
