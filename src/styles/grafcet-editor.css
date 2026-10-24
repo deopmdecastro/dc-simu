@@ -2042,3 +2042,14 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-namebar { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-bottom: 1px solid var(--dc-border, rgba(128, 128, 128, 0.25)); font-size: 12px; }
 .grafcet-namebar label { opacity: 0.7; white-space: nowrap; }
 .grafcet-namebar input { flex: 1; min-width: 0; max-width: 360px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--dc-border, rgba(128, 128, 128, 0.35)); background: transparent; color: inherit; font: inherit; }
+
+/* Qualificador (N/S/R/D/L): sem o contorno azul exterior de foco — o estado
+   escolhido já é assinalado pelo fundo/borda; para teclado fica um brilho
+   interior subtil em vez do anel azul. */
+.grafcet-qualifier-options button:focus,
+.grafcet-qualifier-options button:focus-visible {
+  outline: none;
+}
+.grafcet-qualifier-options button:focus-visible {
+  box-shadow: inset 0 0 0 2px #b9ccf4;
+}
