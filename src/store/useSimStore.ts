@@ -513,14 +513,15 @@ function runOneTick(state: Store, dtMs: number) {
     // Sem PLC no esquema: as entradas vêm do painel de entradas virtuais.
     for (const [address, on] of Object.entries(state.virtualInputs)) state.runtime.table[address] = on
     const generalFiles = state.projectFiles._general ?? []
-    // OBs de arranque correm uma vez por RUN; os cíclicos em todos os scans, após o Main.
+    // Como no TIA Portal: os OBs de arranque correm UMA vez antes do primeiro scan do Main;
+    // os cíclicos (ex.: OB123) correm em todos os scans, depois do OB1.
     const scheduled = state.runtime.startupDone ? [] : autoExecRungs(generalFiles, 'obStartup')
     const functions: Record<string, LadderRung[]> = {
       fc1: state.fcBlocks.fc1, fc2: state.fcBlocks.fc2, ...callableBlocks(generalFiles),
     }
     const declared = parseDataBlocks(generalFiles).values
-    const db = { ...declared, ...Object.fromEntries(Object.entries(state.runtime.db).filter(([key]) => key in declared)) }
-    const scan = runScan({ rungs: [...ladder.rungs, ...scheduled, ...autoExecRungs(generalFiles, 'obCyclic')] }, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs, functions, [], db, state.runtime.edges)
+    const db = { ...declared, ...state.runtime.db } // a memória persiste durante todo o RUN (como no TIA): palavras escritas em execução sobrevivem entre scans
+    const scan = runScan({ rungs: [...scheduled, ...ladder.rungs, ...autoExecRungs(generalFiles, 'obCyclic')] }, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs, functions, [], db, state.runtime.edges)
     state.runtime.db = db
     state.runtime.startupDone = true
     state.runtime.rungPowered = scan.rungPowered
@@ -543,11 +544,12 @@ function runOneTick(state: Store, dtMs: number) {
     const fc = plc.id === state.activePlcId ? state.fcBlocks : state.plcPrograms[plc.id]
     const files = state.projectFiles[plc.id] ?? []
     const functions: Record<string, LadderRung[]> = { fc1: fc?.fc1 ?? [], fc2: fc?.fc2 ?? [], ...callableBlocks(files) }
-    // OBs de arranque correm uma vez por RUN; os cíclicos em todos os scans, após o Main.
+    // Como no TIA Portal: os OBs de arranque correm UMA vez antes do primeiro scan do Main;
+    // os cíclicos (ex.: OB123) correm em todos os scans, depois do OB1.
     const scheduled = prior.startupDone ? [] : autoExecRungs(files, 'obStartup')
     const declared = parseDataBlocks(files).values
-    prior.db = { ...declared, ...Object.fromEntries(Object.entries(prior.db).filter(([key]) => key in declared)) }
-    const scan = runScan({ rungs: [...program, ...scheduled, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db, prior.edges)
+    prior.db = { ...declared, ...prior.db } // idem: o valor de execução prevalece sobre o inicial do DB
+    const scan = runScan({ rungs: [...scheduled, ...program, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db, prior.edges)
     state.runtime.plcRuntime[plc.id] = { ...prior, startupDone: true, rungPowered: scan.rungPowered }
     for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = powered && !!scan.table[key]
   }

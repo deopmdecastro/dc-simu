@@ -389,7 +389,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         {label(cx, cy - 2, el.compareOp ?? '==', { bold: true, size: 12 })}
         {label(cx, cy + 12, el.compareType ?? 'Int', { bold: true, size: 9 })}
         <text x={cx} y={cy - 24} fontSize={10} fontWeight={700} fill="#0f8b8d" textAnchor="middle" fontFamily={mono}>{`%${el.address}`}</text>
-        {name && label(cx, cy - 37, `"${name}"`, { grey: true, size: 9 })}
+        {name && label(cx, cy - 37, `"${name}"`, { fill: TIA.tag, italic: true, size: 9 })}
         <text x={cx} y={cy + 33} fontSize={10} fontWeight={600} fill="#3b6fd4" textAnchor="middle" fontFamily={mono}>{el.compareValue ?? '0'}</text>
       </g>
     )
@@ -439,7 +439,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           {el.contactType === 'NC' && <line x1={cx - 13} y1={cy + 12} x2={cx + 13} y2={cy - 12} stroke={online && conducts ? C_ON : C_OFF} strokeWidth={1.6} />}
           {(el.contactType === 'RISING' || el.contactType === 'FALLING') && label(cx, cy + 4, el.contactType === 'RISING' ? 'P' : 'N', { bold: true, size: 11 })}
           {label(cx, cy - 20, `%${el.address}`, { bold: true })}
-          {name && label(cx, cy - 33, `"${name}"`, { grey: true, size: 9 })}
+          {name && label(cx, cy - 33, `"${name}"`, { fill: TIA.tag, italic: true, size: 9 })}
           {online && label(cx + 16, cy + 24, rawContact(el) ? '1' : '0', { anchor: 'start', size: 9, grey: !rawContact(el) })}
         </g>,
       )
@@ -711,7 +711,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           <path d={`M ${coilCX + 6} ${cy - 13} Q ${coilCX + 15} ${cy} ${coilCX + 6} ${cy + 13}`} fill="none" stroke={stroke} strokeWidth={2} />
           {c.coilType !== 'COIL' && label(coilCX, cy + 4, c.coilType === 'SET' ? 'S' : 'R', { bold: true, size: 11 })}
           {label(coilCX, cy - 20, `%${c.address}`, { bold: true })}
-          {name && label(coilCX, cy - 33, `"${name}"`, { grey: true, size: 9 })}
+          {name && label(coilCX, cy - 33, `"${name}"`, { fill: TIA.tag, italic: true, size: 9 })}
         </g>,
       )
       if (!readonly)

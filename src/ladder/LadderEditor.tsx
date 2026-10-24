@@ -19,7 +19,7 @@ import NetworkDiagram, { type RungSelection } from './NetworkDiagram'
 import LadderElementDialog from './LadderElementDialog'
 import AddBlockDialog from './AddBlockDialog'
 import type { BlockKind } from './blockCatalog'
-import { CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, COMPARE_KIND_OP, applyKind, getLadderDrag, isCompareKind, isContactKind, setLadderDrag, type CallBlockPayload, type PaletteKind } from './ladderDnd'
+import { CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, COMPARE_KIND_OP, applyKind, getLadderDrag, isCompareKind, isContactKind, onOpenLadderBlock, setLadderDrag, type CallBlockPayload, type PaletteKind } from './ladderDnd'
 import { insertIntoRungs, newEmptyRung } from './ladderInsert'
 
 /** Lê o payload de um bloco do projeto em arraste (dataTransfer + fallback do drag ativo). */
@@ -1454,6 +1454,17 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [section, setSection, isMainOpen, programTab, activeId, helpOpen, addRung, updateRung, duplicateRung, moveRung, focusRung, doUndo, doRedo, removeActiveRung, notify])
+
+  // Navegação TIA-like: «Abrir bloco» no diálogo do CALL abre o alvo na árvore.
+  useEffect(() => onOpenLadderBlock((targetId) => {
+    const isFc = targetId === 'fc1' || targetId === 'fc2'
+    const file = (useSimStore.getState().projectFiles[useSimStore.getState().activePlcId ?? '_general'] ?? []).find((f) => f.id === targetId)
+    if (!isFc && !file) { notify('O bloco chamado já não existe no projeto'); return }
+    setActiveProjectNode(isFc ? targetId : `file:${targetId}`)
+    setProgramTab('program')
+    setExpandedNodes((prev) => new Set([...prev, file?.folder ?? 'programBlocks']))
+    setShowProjectPane(true)
+  }), [])
 
   // Atalhos universais partilhados com o esquema 2D, o GRAFCET e os editores 3D.
   useEditorShortcuts({

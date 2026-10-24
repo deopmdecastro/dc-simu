@@ -183,3 +183,15 @@ export function putContact(rung: LadderRung, el: LadderContact, target: DropTarg
   branches[bi] = { ...branches[bi], elements }
   return { rung: { ...rung, branches }, branchId: branches[bi].id }
 }
+
+/** Navegação «CALL → abrir o bloco chamado» (comunicação entre pastas, como no
+ *  TIA Portal): o diálogo do bloco emite e o editor completo muda de vista. */
+type OpenBlockListener = (targetId: string) => void
+const openBlockListeners = new Set<OpenBlockListener>()
+export function onOpenLadderBlock(fn: OpenBlockListener): () => void {
+  openBlockListeners.add(fn)
+  return () => { openBlockListeners.delete(fn) }
+}
+export function emitOpenLadderBlock(targetId: string) {
+  for (const fn of openBlockListeners) fn(targetId)
+}

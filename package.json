@@ -27,7 +27,8 @@
     "typecheck": "tsc -b",
     "start": "node server/index.mjs",
     "test:motion": "tsx scripts/motion-smoke.ts",
-    "test:excel": "tsx scripts/excel-smoke.ts"
+    "test:excel": "tsx scripts/excel-smoke.ts",
+    "test:ladder-integration": "tsx scripts/ladder-integration-smoke.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",

@@ -6,7 +6,8 @@ import Select from '../ui/Select'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { LadderMathOp, LadderCoilType, LadderContactType, LadderDataType, LadderRung, LadderCompareOp, LadderCompareType } from '../types'
-import { IconCoil, IconContact, IconCounter, IconDelete, IconFunction, IconMove, IconTimer } from '../ui/icons'
+import { IconArrowRight, IconCoil, IconContact, IconCounter, IconDelete, IconFunction, IconMove, IconTimer } from '../ui/icons'
+import { emitOpenLadderBlock } from './ladderDnd'
 import { useSimStore } from '../store/useSimStore'
 import type { ProjectFile } from './projectFiles'
 import type { RungSelection } from './NetworkDiagram'
@@ -295,7 +296,9 @@ export default function LadderElementDialog({
             <label className="is-wide"><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.out} onChange={(event) => patch({ out: event.target.value.toUpperCase() })} placeholder="MW2 ou DB1.Valor" /></label>
           </div><p className="ladder-dialog-help">OUT = IN1 {MATH_OPS.find((m) => m.op === draft.mathOp)?.symbol} IN2, executado quando o resultado lógico da network é verdadeiro. Em destinos Int, o resultado é truncado e o overflow (fora de −32768…32767) ou a divisão por zero não escrevem nada.</p></section>}
 
-          {draft.kind === 'call' && <section className="ladder-dialog-section"><h3>Bloco chamado</h3><label className="ladder-dialog-full-label"><span>Função FC</span><Select autoFocus value={draft.targetId} onChange={(event) => patch({ targetId: event.target.value })}>{(['fc1', 'fc2'] as const).map((fid) => <option key={fid} value={fid}>{`${fcNamesMap[fid]?.trim() || fid.toUpperCase()} [${fid.toUpperCase()}]`}</option>)}{functionFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}</Select></label><p className="ladder-dialog-help">O bloco é executado quando o RLO da network é 1. Chamadas recursivas são bloqueadas.</p></section>}
+          {draft.kind === 'call' && <section className="ladder-dialog-section"><h3>Bloco chamado</h3><label className="ladder-dialog-full-label"><span>Função FC</span><Select autoFocus value={draft.targetId} onChange={(event) => patch({ targetId: event.target.value })}>{(['fc1', 'fc2'] as const).map((fid) => <option key={fid} value={fid}>{`${fcNamesMap[fid]?.trim() || fid.toUpperCase()} [${fid.toUpperCase()}]`}</option>)}{functionFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}</Select></label>
+          <p className="ladder-dialog-help">O bloco é executado quando o RLO da network é 1. Chamadas recursivas são bloqueadas.</p>
+          {draft.targetId && (() => { const label = (draft.targetId === 'fc1' || draft.targetId === 'fc2') ? `${fcNamesMap[draft.targetId]?.trim() || draft.targetId.toUpperCase()} [${draft.targetId.toUpperCase()}]` : functionFiles.find((file) => file.id === draft.targetId)?.name ?? draft.targetId; return <button type="button" className="dc-btn ladder-call-open" onClick={() => { emitOpenLadderBlock(draft.targetId); onClose() }}><IconArrowRight size={12} /> Abrir «{label}» na árvore do projeto</button> })()}</section>}
 
           {error && <p className="ladder-dialog-error" role="alert">{error}</p>}
         </div>

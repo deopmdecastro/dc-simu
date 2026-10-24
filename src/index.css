@@ -2665,3 +2665,13 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
   .add-block-modal .dc-modal-close { min-width:38px; min-height:38px; }
 }
 @media (prefers-reduced-motion:reduce) { .add-block-type,.add-block-chev { transition:none; } }
+
+/* Navegação entre blocos (CALL → abrir o chamado), estilo TIA Portal */
+.ladder-call-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+}
