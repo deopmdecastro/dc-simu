@@ -2791,3 +2791,6 @@ input[list]:focus::-webkit-calendar-picker-indicator {
 .schematic-sheet-del:hover { color: #cc3344; }
 .schematic-sheet-add { border: 1px dashed #b9c6d9; border-radius: 7px; background: none; color: #567; font-size: 10px; padding: 3px 8px; cursor: pointer; }
 .schematic-sheet-add:hover { border-color: #2655e5; color: #1d3fae; }
+
+/* estados vazios do painel de estado */
+.ladder-status-empty.is-ok { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 12px; display: inline-block; font-weight: 600; }

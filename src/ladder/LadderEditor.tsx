@@ -808,7 +808,7 @@ function NetworkStatus({ table, prefix, label, plc, wires, components, tags, run
       <span className="font-mono text-brand-700">{address}</span><span className="truncate text-slate-500">{tags.find((t) => t.address === address)?.name || 'Memória'}</span>
       <span className={`ladder-status-dot ${table[address] ? 'is-on' : ''}`} />
     </div>)}
-    {!(prefix === 'M' ? memory.length : physical.length) && <span className="text-[10px] text-slate-400">{prefix === 'M' ? 'Nenhuma memória usada neste programa.' : 'Este PLC não tem bornes desta categoria.'}</span>}
+    {!(prefix === 'M' ? memory.length : physical.length) && <span className="text-[10px] text-slate-400">{prefix === 'M' ? 'Nenhuma memória usada neste programa — adiciona um contacto/bobina M0.0 (ou SET/RESET M) para a veres aqui em tempo real.' : 'Este PLC não tem bornes desta categoria.'}</span>}
   </div>
 }
 
@@ -1807,14 +1807,14 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             {statusTab === 'io' && !activePlc && <VirtualIoPanel compact />}
             {statusTab === 'io' && !!activePlc && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
             {statusTab === 'lint' && <div className="ladder-lint" role="list">
-              {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <small>Nenhum problema encontrado no programa.</small>}
+              {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <span className="ladder-status-empty is-ok">✓ Nenhum problema encontrado — o programa está limpo.</span>}
             </div>}
             {statusTab === 'memory' && <>
               <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />
               <div className="ladder-status-group">
                 <div className="ladder-status-title">Palavras (MW)</div>
                 {(() => { const words = Object.entries(dbWords).filter(([key]) => /^MW\d+$/i.test(key)).sort(([a], [b]) => Number(a.slice(2)) - Number(b.slice(2)))
-                  return words.length ? <div className="ladder-chip-list">{words.map(([key, entry]) => <span key={key} className={`ladder-word-chip ${entry.value !== 0 && entry.value !== false ? 'is-done' : ''}`} title={`${key} · ${entry.type}`}><b>{key}</b> {String(entry.value)} <em>{entry.type}</em></span>)}</div> : <span className="ladder-status-empty">Nenhuma palavra MW escrita pelo programa.</span> })()}
+                  return words.length ? <div className="ladder-chip-list">{words.map(([key, entry]) => <span key={key} className={`ladder-word-chip ${entry.value !== 0 && entry.value !== false ? 'is-done' : ''}`} title={`${key} · ${entry.type}`}><b>{key}</b> {String(entry.value)} <em>{entry.type}</em></span>)}</div> : <span className="ladder-status-empty">Nenhuma palavra MW ainda — um bloco MOVE ou ADD com destino %MW0 cria-a aqui durante a simulação.</span> })()}
               </div>
             </>}
             {statusTab === 'timers' && <div className="ladder-meter-grid">{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => {

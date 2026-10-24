@@ -20,7 +20,10 @@
 .vio-lamp.is-on small { color: #166534; }
 .vio-lamp.is-on { border-color: #16a34a; background: #dcfce7; color: #166534; font-weight: 700; }
 .vio-lamp.is-on i { background: #16a34a; box-shadow: 0 0 6px #22c55e; }
-.vio-panel.is-compact .vio-inputs { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }
+.vio-panel.is-compact .vio-inputs { grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); }
+.vio-panel.is-compact .vio-switch { padding: 6px 7px; }
+.vio-panel.is-compact .vio-switch b { font-size: 12px; letter-spacing: -0.02em; }
+.vio-head-m { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line, #d6dae1); }
 .vio-switch.is-push { border-style: dashed; }
 .vio-switch.is-push i { border-radius: 3px; }
 .vio-switch:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }

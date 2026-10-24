@@ -77,4 +77,16 @@ ok('loadJSON migra folhas em falta (legados)', (() => {
   return store().sheets.length === 1 && store().sheets[0].name === 'Página 1'
 })())
 
+// ---- contadores de E/S virtual (novos): limites + persistência ----
+store().setVirtualOutputCount(99)
+store().setVirtualMemoryCount(-3)
+ok('contadores com limites (Q≤32, M≥0)', store().virtualOutputCount === 32 && store().virtualMemoryCount === 0)
+store().setVirtualOutputCount(12)
+store().setVirtualMemoryCount(4)
+const saved2 = store().saveJSON()
+store().setVirtualOutputCount(8)
+store().setVirtualMemoryCount(0)
+store().loadJSON(saved2)
+ok('contadores Q/M sobrevivem ao save/load', store().virtualOutputCount === 12 && store().virtualMemoryCount === 4)
+
 console.log(`[sheets] OK — ${checks} verificações`)

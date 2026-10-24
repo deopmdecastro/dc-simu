@@ -151,6 +151,11 @@ interface Store extends CircuitState {
   /** Entradas virtuais (I1…): usadas quando o projeto não tem PLC físico no esquema. */
   virtualInputs: Record<string, boolean>
   virtualInputCount: number
+  /** Nº de saídas (Q0.0…) e memórias (M0.0…) mostradas no painel de E/S virtual. */
+  virtualOutputCount: number
+  virtualMemoryCount: number
+  setVirtualOutputCount: (count: number) => void
+  setVirtualMemoryCount: (count: number) => void
   /** Folhas (páginas) do esquema elétrico; cada componente tem `sheet` (undefined = 1.ª folha). */
   sheets: Array<{ id: string; name: string }>
   activeSheetId: string
@@ -855,6 +860,8 @@ export const useSimStore = create<Store>((set, get) => ({
   },
   setActiveSheet: (id) => set({ activeSheetId: id }),
   virtualInputCount: 8,
+  virtualOutputCount: 8,
+  virtualMemoryCount: 0,
   virtualInputModes: {},
   setVirtualInputMode: (address, mode) => {
     set((st) => ({ virtualInputModes: { ...st.virtualInputModes, [address]: mode }, dirty: true }))
@@ -878,6 +885,8 @@ export const useSimStore = create<Store>((set, get) => ({
     if (get().sim.runState !== 'running') get().step()
   },
   setVirtualInputCount: (count) => set({ virtualInputCount: Math.max(1, Math.min(32, Math.round(count))) }),
+  setVirtualOutputCount: (count) => set({ virtualOutputCount: Math.max(1, Math.min(32, Math.round(count))) }),
+  setVirtualMemoryCount: (count) => set({ virtualMemoryCount: Math.max(0, Math.min(32, Math.round(count))) }),
   clearVirtualInputs: () => {
     set({ virtualInputs: {} })
     for (const key of Object.keys(get().runtime.table)) if (/^I\d+\.\d+$/.test(key)) get().runtime.table[key] = false
@@ -2383,6 +2392,9 @@ export const useSimStore = create<Store>((set, get) => ({
         tags: s.tags,
         virtualInputs: s.virtualInputs,
         virtualInputModes: s.virtualInputModes,
+        virtualInputCount: s.virtualInputCount,
+        virtualOutputCount: s.virtualOutputCount,
+        virtualMemoryCount: s.virtualMemoryCount,
         sheets: s.sheets,
         activeSheetId: s.activeSheetId,
         grid: s.grid,
@@ -2436,6 +2448,9 @@ export const useSimStore = create<Store>((set, get) => ({
         fcNames: parsed.fcNames ?? {},
         grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
         grafcetRuntime: emptyGrafcetRuntime(),
+        virtualInputCount: typeof parsed.virtualInputCount === 'number' ? Math.max(1, Math.min(32, parsed.virtualInputCount)) : 8,
+        virtualOutputCount: typeof parsed.virtualOutputCount === 'number' ? Math.max(1, Math.min(32, parsed.virtualOutputCount)) : 8,
+        virtualMemoryCount: typeof parsed.virtualMemoryCount === 'number' ? Math.max(0, Math.min(32, parsed.virtualMemoryCount)) : 0,
         sheets: Array.isArray(parsed.sheets) && parsed.sheets.length ? parsed.sheets : [{ id: 'sheet-1', name: 'Página 1' }],
         activeSheetId: typeof parsed.activeSheetId === 'string' ? parsed.activeSheetId : 'sheet-1',
         tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
