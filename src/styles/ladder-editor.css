@@ -90,9 +90,9 @@
 .ls-empty { display:flex; flex-direction:column; align-items:center; gap:4px; padding:34px 16px; border:1px dashed #cbd5e4; border-radius:12px; background:#fff; color:#6b7a93; text-align:center; }
 .ls-empty strong { color:#33415c; font-size:13px; }
 .ls-list { display:flex; flex-direction:column; gap:6px; }
-.ls-issue,.ls-event { display:flex; align-items:center; gap:10px; padding:8px 12px; border:1px solid #dce4ef; border-left-width:4px; border-radius:8px; background:#fff; }
-.ls-event { border-left-width:1px; padding:6px 10px; }
-.ls-issue.is-error { border-left-color:#e53935; } .ls-issue.is-warning { border-left-color:#f59e0b; } .ls-issue.is-info { border-left-color:#3b82f6; }
+.ls-issue,.ls-event { display:flex; align-items:center; gap:10px; padding:8px 12px; border:1px solid #dce4ef; border-radius:8px; background:#fff; }
+.ls-event { padding:6px 10px; }
+.ls-issue.is-error { border-color:#e8a1a1; background:#fff7f7; } .ls-issue.is-warning { border-color:#e5c27f; background:#fffbf2; } .ls-issue.is-info { border-color:#9bbaf4; background:#f7faff; }
 .ls-issue-msg { flex:1; min-width:0; }
 .ls-issue .ls-btn { margin:0; }
 .ls-badge { padding:1px 8px; border-radius:9px; background:#e6ecf7; color:#33415c; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; flex-shrink:0; }

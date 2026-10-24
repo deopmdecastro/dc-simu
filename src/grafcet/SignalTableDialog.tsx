@@ -5,6 +5,7 @@ import PropertyDialog from '../ui/PropertyDialog'
 import TagSheetActions from '../excel/TagSheetActions'
 import { canonicalSignalAddress, detectGrafcetSignals, isSignalAddress, nextDeclaredTagAddress, signalTagErrors, type SignalArea } from './signals'
 import { foldText as normalizeSearch } from '../utils/text'
+import { IconChevronRight } from '../ui/icons'
 
 const AREAS: Array<{ area: SignalArea; title: string; add: string; hint: string }> = [
   { area: 'I', title: 'Entradas (I)', add: 'Adicionar entrada', hint: 'Sinais lidos pelas condições.' },
@@ -87,7 +88,7 @@ export default function SignalTableDialog({ onClose }: { onClose: () => void }) 
           <td data-label="Tipo"><span className="grafcet-signal-data-type">{tag.dataType}</span>{!editable(tag) && <small>Preservado</small>}</td><td><button type="button" onClick={() => setDraft((rows) => rows.filter((row) => row.id !== tag.id))} aria-label={`Remover linha ${index + 1}`} disabled={!editable(tag) || contextChanged}>×</button></td>
         </tr>)}</tbody></table>{!visibleRows.length && <p className="grafcet-signal-empty">{search ? 'Nenhum sinal corresponde à pesquisa nesta área.' : 'Ainda não há sinais nesta área. Adicione uma linha ou detete os endereços do GRAFCET.'}</p>}</div>
         <p className="grafcet-signal-table-notice" role="status">{notice || 'As alterações ficam neste rascunho até guardar.'}</p>
-        {!!preservedCount && <details className="grafcet-context-help"><summary>Declarações preservadas ({preservedCount})</summary><div><p>Outras áreas e tipos de dados mantêm-se intactos. Sinais não booleanos não aparecem nas sugestões de bits; edite os seus tipos na tabela Ladder.</p><ul className="grafcet-preserved-signals">{draft.filter((tag) => !rowAreas[tag.id] || tag.dataType !== 'Bool').map((tag) => <li key={tag.id}><code>{tag.address}</code><span>{tag.name}{tag.comment ? ` · ${tag.comment}` : ''}</span><b>{tag.dataType}</b></li>)}</ul></div></details>}
+        {!!preservedCount && <details className="grafcet-context-help"><summary><IconChevronRight size={11} />Declarações preservadas ({preservedCount})</summary><div><p>Outras áreas e tipos de dados mantêm-se intactos. Sinais não booleanos não aparecem nas sugestões de bits; edite os seus tipos na tabela Ladder.</p><ul className="grafcet-preserved-signals">{draft.filter((tag) => !rowAreas[tag.id] || tag.dataType !== 'Bool').map((tag) => <li key={tag.id}><code>{tag.address}</code><span>{tag.name}{tag.comment ? ` · ${tag.comment}` : ''}</span><b>{tag.dataType}</b></li>)}</ul></div></details>}
         <p className="grafcet-property-note">A tabela é guardada no projeto completo. A exportação/importação do diagrama GRAFCET transporta apenas o diagrama.</p>
       </div>
     </PropertyDialog>

@@ -7,7 +7,7 @@
 .sheet-import-modes legend { padding:0; margin-bottom:8px; font-size:12px; font-weight:700; }
 .sheet-import-modes label { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid #dce4ef; border-radius:6px; cursor:pointer; background:#fff; }
 .sheet-import-modes label:hover { border-color:#9eb7e8; background:#f7faff; }
-.sheet-import-modes label.is-selected { border-color:#5782e9; background:#f0f5ff; box-shadow:inset 3px 0 0 #2455d8; }
+.sheet-import-modes label.is-selected { border-color:#2455d8; background:#f0f5ff; }
 .sheet-import-modes input { margin-top:3px; accent-color:#2455d8; }
 .sheet-import-modes small { display:block; margin-top:2px; color:#52617a; font-size:11px; line-height:1.45; }
 .sheet-import-count { margin:0 0 8px; font-size:12px; color:#52617a; }

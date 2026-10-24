@@ -72,7 +72,7 @@
 .tfe-list { display:flex; flex-direction:column; gap:3px; max-height:196px; margin:0; padding:0; overflow-y:auto; list-style:none; scrollbar-width:thin; }
 .tfe-list button { display:flex; align-items:center; gap:8px; width:100%; min-height:36px; padding:0 10px; border:1px solid #e2e8f0; border-radius:8px; color:#334155; background:#fff; text-align:left; font-size:12px; }
 .tfe-list button:hover { border-color:#93b4f5; background:#f5f9ff; }
-.tfe-list button.active { border-color:#2563eb; background:#eff5ff; box-shadow:inset 3px 0 0 #2563eb; }
+.tfe-list button.active { border-color:#2563eb; background:#eff5ff; }
 .tfe-list i, .tfe-detail header i { flex:none; width:11px; height:11px; border-radius:50%; box-shadow:0 0 0 1px #0f172a40; }
 .tfe-list strong { min-width:24px; color:#0f172a; }
 .tfe-list-name { flex:1; min-width:0; overflow:hidden; color:#64748b; text-overflow:ellipsis; white-space:nowrap; }

@@ -4953,8 +4953,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 )}
 
                 {selectedTransition && (
-                  <div className="grafcet-form">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div className="grafcet-form grafcet-transition-inspector">
+                    <div className="grafcet-form-heading">
                       <h3>Transição T{transitions.indexOf(selectedTransition) + 1}</h3>
                       <button
                         className="dc-btn"
@@ -4966,78 +4966,88 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       </button>
                     </div>
 
-                    <ConditionEditor id="inspector-trans-condition-input" value={selectedTransition.condition} onChange={(condition) => updateTransition(selectedTransition.id, { condition }, 'auto', `grafcet:transition:${selectedTransition.id}:condition`)} signals={signalSuggestions} availableSteps={program.steps} resetKey={selectedTransition.id} active={!signalsOpen && !helpOpen && !editingStep && !editingAction && !editingTransition} />
+                    <section className="grafcet-inspector-group is-condition" aria-label="Condição da transição">
+                      <ConditionEditor id="inspector-trans-condition-input" value={selectedTransition.condition} onChange={(condition) => updateTransition(selectedTransition.id, { condition }, 'auto', `grafcet:transition:${selectedTransition.id}:condition`)} signals={signalSuggestions} availableSteps={program.steps} resetKey={selectedTransition.id} active={!signalsOpen && !helpOpen && !editingStep && !editingAction && !editingTransition} />
 
-                    <div className="grafcet-condition-state">
-                      <span className={transitionReceptivity(program, runtime, table, selectedTransition) ? 'is-on' : ''}>
-                        <i /> Resultado atual:{' '}
-                        {transitionReceptivity(program, runtime, table, selectedTransition) ? 'VERDADEIRO' : 'FALSO'}
-                      </span>
-                    </div>
+                      <div className="grafcet-condition-state">
+                        <span className={transitionReceptivity(program, runtime, table, selectedTransition) ? 'is-on' : ''}>
+                          <i /> Resultado atual:{' '}
+                          {transitionReceptivity(program, runtime, table, selectedTransition) ? 'VERDADEIRO' : 'FALSO'}
+                        </span>
+                      </div>
 
-                    {!validCondition(selectedTransition.condition) && (
-                      <small className="grafcet-error">Expressão inválida: use I/Q/M, Xn, 10s/X1, T(2s), ^I1, \I1, !, *, + e parênteses.</small>
-                    )}
+                      {!validCondition(selectedTransition.condition) && (
+                        <small className="grafcet-error">Expressão inválida: use I/Q/M, Xn, 10s/X1, T(2s), ^I1, \I1, !, *, + e parênteses.</small>
+                      )}
+                    </section>
 
-                    {(['from', 'to'] as const).map((field) => (
-                      <fieldset key={field}>
-                        <legend>{field === 'from' ? 'Origens (todas ativas)' : 'Destinos (ativados juntos)'}</legend>
-                        <div className="grafcet-step-checks">
-                          {steps.map((step, index) => (
-                            <label className="grafcet-inline" key={step.id}>
-                              <input
-                                type="checkbox"
-                                checked={selectedTransition[field].includes(step.id)}
-                                onChange={() =>
-                                  updateTransition(selectedTransition.id, { [field]: choose(selectedTransition[field], step.id) }, 'force')
-                                }
-                              />{' '}
-                              {index} · {step.name}
-                            </label>
-                          ))}
-                        </div>
-                      </fieldset>
-                    ))}
+                    <section className="grafcet-inspector-group is-connections" aria-label="Ligações da transição">
+                      <h4>Ligações</h4>
+                      {(['from', 'to'] as const).map((field) => (
+                        <fieldset className="grafcet-transition-links" key={field}>
+                          <legend>{field === 'from' ? 'Origens (todas ativas)' : 'Destinos (ativados juntos)'}</legend>
+                          <div className="grafcet-step-checks">
+                            {steps.map((step, index) => {
+                              const checked = selectedTransition[field].includes(step.id)
+                              return (
+                                <label className={`grafcet-transition-step-option${checked ? ' is-selected' : ''}`} key={step.id}>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() =>
+                                      updateTransition(selectedTransition.id, { [field]: choose(selectedTransition[field], step.id) }, 'force')
+                                    }
+                                  />
+                                  <span>{index} · {step.name}</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </fieldset>
+                      ))}
+                    </section>
 
                     {(!selectedTransition.from.length || !selectedTransition.to.length) && (
                       <small className="grafcet-error">Escolha pelo menos uma origem e um destino.</small>
                     )}
 
-                    <button
-                      className="dc-btn"
-                      disabled={!selectedTransition.from.every((value) => runtime.active.includes(value)) || !selectedTransition.from.length}
-                      title="Dispara a transição ignorando a condição (só se as origens estiverem ativas)"
-                      onClick={() =>
-                        notify(
-                          useSimStore.getState().fireGrafcetTransition(selectedTransition.id)
-                            ? 'Transição disparada'
-                            : 'As etapas de origem não estão ativas'
-                        )
-                      }
-                    >
-                      ▶ Disparar manualmente
-                    </button>
-
-                    <label>
-                      Comentário
-                      <input
-                        className="dc-input"
-                        value={selectedTransition.comment ?? ''}
-                        placeholder="Descrição (opcional)"
-                        onChange={(event) =>
-                          updateTransition(
-                            selectedTransition.id,
-                            { comment: event.target.value },
-                            'auto',
-                            `grafcet:transition:${selectedTransition.id}:comment`
+                    <section className="grafcet-inspector-group is-actions" aria-label="Ações e comentário">
+                      <button
+                        className="dc-btn grafcet-fire-transition"
+                        disabled={!selectedTransition.from.every((value) => runtime.active.includes(value)) || !selectedTransition.from.length}
+                        title="Dispara a transição ignorando a condição (só se as origens estiverem ativas)"
+                        onClick={() =>
+                          notify(
+                            useSimStore.getState().fireGrafcetTransition(selectedTransition.id)
+                              ? 'Transição disparada'
+                              : 'As etapas de origem não estão ativas'
                           )
                         }
-                      />
-                    </label>
+                      >
+                        ▶ Disparar manualmente
+                      </button>
 
-                    <button className="dc-btn grafcet-danger" onClick={requestDelete}>
-                      Eliminar transição
-                    </button>
+                      <label className="grafcet-transition-comment">
+                        Comentário
+                        <input
+                          className="dc-input"
+                          value={selectedTransition.comment ?? ''}
+                          placeholder="Descrição (opcional)"
+                          onChange={(event) =>
+                            updateTransition(
+                              selectedTransition.id,
+                              { comment: event.target.value },
+                              'auto',
+                              `grafcet:transition:${selectedTransition.id}:comment`
+                            )
+                          }
+                        />
+                      </label>
+
+                      <button className="dc-btn grafcet-danger grafcet-delete-transition" onClick={requestDelete}>
+                        Eliminar transição
+                      </button>
+                    </section>
                   </div>
                 )}
               </>

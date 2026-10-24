@@ -4,6 +4,7 @@ import VirtualInputButton from '../components/VirtualInputButton'
 import VirtualIoPanel from '../components/VirtualIoPanel'
 import { transitionReceptivity, transitionsOf, type GrafcetProgram, type GrafcetRuntime } from './engine'
 import { detectGrafcetIo, type DetectedTransition } from './inputDetect'
+import { IconChevronRight } from '../ui/icons'
 
 /** Campo de texto que só grava ao sair (blur) ou com Enter; Esc repõe o valor anterior. */
 function InlineName({
@@ -93,6 +94,7 @@ export default function GrafcetSimPanel({
   const table = useSimStore((s) => s.runtime.table)
   const tags = useSimStore((s) => s.tags)
   const modes = useSimStore((s) => s.virtualInputModes)
+  const virtualInputs = useSimStore((s) => s.virtualInputs)
   const inputCount = useSimStore((s) => s.virtualInputCount)
   const setCount = useSimStore((s) => s.setVirtualInputCount)
   const setName = useSimStore((s) => s.setVirtualInputName)
@@ -184,11 +186,14 @@ export default function GrafcetSimPanel({
               const name = input.symbol ? '' : nameOf(input.address)
               const title = input.symbol ? input.address : name || input.address
               return (
-                <li key={input.address} className={`gsim-input${input.symbol ? ' is-symbol' : ''}`}>
+                <li key={input.address} className={`gsim-input${input.symbol ? ' is-symbol' : ''}${virtualInputs[input.address] ? ' is-on' : ''}`}>
                   <div className="gsim-input-main">
                     <VirtualInputButton address={input.address} className={`gsim-actuator${input.symbol ? ' is-symbol' : ''}`} title={title}>
                       <i aria-hidden="true" />
                       <b>{input.address}</b>
+                      <span className="gsim-actuator-state" aria-hidden="true">
+                        {virtualInputs[input.address] ? 'Ligada' : 'Desligada'}
+                      </span>
                     </VirtualInputButton>
                     {!input.symbol && (
                       <InlineName
@@ -248,6 +253,7 @@ export default function GrafcetSimPanel({
               return (
                 <li key={t.id} className={`gsim-transition is-${status.id} ${lastFired.has(t.id) ? 'was-fired' : ''}`}>
                   <div className="gsim-transition-top">
+                    <span className="gsim-transition-id" aria-hidden="true">T{t.index + 1}</span>
                     <InlineName
                       className={t.name ? '' : 'is-auto'}
                       value={t.name}
@@ -269,7 +275,7 @@ export default function GrafcetSimPanel({
       </section>
 
       <details className="gsim-all">
-        <summary>Todas as entradas e saídas</summary>
+        <summary><IconChevronRight size={11} />Todas as entradas e saídas</summary>
         <VirtualIoPanel compact extraBits={extraBits} />
       </details>
     </div>

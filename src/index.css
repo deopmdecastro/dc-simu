@@ -1866,8 +1866,8 @@ button:disabled { cursor:not-allowed; }
 .dc-inspector-group { overflow:hidden; border:1px solid #dfe7f3; border-radius:9px; background:#fff; }
 .dc-inspector-group > summary { cursor:pointer; display:flex; align-items:center; gap:7px; min-height:33px; padding:8px 10px; background:#f1f5fc; color:#334155; font-size:11px; font-weight:700; list-style:none; }
 .dc-inspector-group > summary::-webkit-details-marker { display:none; }
-.dc-inspector-group > summary::before { content:'⌄'; width:14px; height:16px; color:var(--dx-ink-3); font-size:15px; transition:transform .16s; }
-.dc-inspector-group:not([open]) > summary::before { transform:rotate(-90deg); }
+.dc-inspector-group > summary::before { content:'›'; width:14px; height:16px; color:var(--dx-ink-3); font-size:17px; line-height:14px; transition:transform .16s; }
+.dc-inspector-group[open] > summary::before { transform:rotate(90deg); }
 .dc-inspector-group > summary:hover { background:#e8f0fc; }
 .dc-inspector-group-body { display:flex; flex-direction:column; gap:9px; padding:10px; }
 .dc-inspector-count { margin-left:auto; background:#fff; border:1px solid #dce4ef; border-radius:999px; padding:0 6px; font-size:10px; color:var(--dx-ink-3); }

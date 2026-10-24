@@ -47,16 +47,19 @@
 
 /* Inputs: bounded actuator + editable name, then mode and transition references. */
 .gsim-inputs, .gsim-transitions { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; min-width: 0; }
-.gsim-input { display: grid; gap: 6px; min-width: 0; padding: 8px; border: 1px solid var(--gsim-line); border-radius: 8px; background: #fff; }
+.gsim-input { display: grid; gap: 6px; min-width: 0; padding: 8px; border: 1px solid #cbd7e6; border-radius: 8px; background: #fff; transition: border-color .12s, background .12s; }
+.gsim-input.is-on { border-color: #8bc9a2; background: #f1faf4; }
 .gsim-input-main { display: grid; grid-template-columns: 68px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; }
 .gsim-input.is-symbol .gsim-input-main { grid-template-columns: minmax(0, 1fr); }
-.gsim-actuator { display: flex; align-items: center; justify-content: flex-start; gap: 7px; width: 100%; min-width: 0; height: 32px; padding: 5px 8px; border: 1px solid #cbd7e7; border-radius: 6px; background: #f2f5fa; color: #23344e; font: inherit; cursor: pointer; touch-action: none; user-select: none; transition: background .12s, border-color .12s; }
+.gsim-actuator { display: flex; align-items: center; justify-content: flex-start; gap: 7px; width: 100%; min-width: 0; min-height: 36px; padding: 5px 8px; border: 1px solid #cbd7e7; border-radius: 6px; background: #f2f5fa; color: #23344e; font: inherit; cursor: pointer; touch-action: none; user-select: none; transition: background .12s, border-color .12s; }
 .gsim-actuator i { flex: none; width: 13px; height: 13px; border: 2px solid #fff; border-radius: 50%; background: #8b9bb1; box-shadow: 0 0 0 1px #c2cedd; }
 .gsim-actuator.is-push i { border-radius: 3px; }
 .gsim-actuator b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.gsim-actuator-state { margin-left: auto; color: #586b83; font-size: 10px; font-weight: 650; white-space: nowrap; }
 .gsim-actuator:hover { border-color: #8caee7; background: #eaf1fc; }
 .gsim-actuator.is-on { border-color: #91cfaa; background: #e9f7ef; color: #17633a; }
 .gsim-actuator.is-on i { background: #16a35a; box-shadow: 0 0 0 1px #91cfaa; }
+.gsim-actuator.is-on .gsim-actuator-state { color: #17633a; }
 .gsim-actuator.is-push:active { background: #d7efdf; }
 .gsim-name { display: block; width: 100%; min-width: 0; min-height: 32px; margin: 0; padding: 5px 7px; border: 1px solid #dce4ef; border-radius: 5px; background: #f8fafc; color: var(--gsim-ink); font: inherit; font-size: 12px; }
 .gsim-name::placeholder { color: #64758c; opacity: 1; }
@@ -64,19 +67,21 @@
 .gsim-name:focus { border-color: var(--gsim-blue); background: #fff; }
 .gsim-input-row { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 8px; min-width: 0; }
 .gsim-seg { display: grid; grid-template-columns: .85fr 1.3fr; flex: 1 1 148px; min-width: 0; padding: 2px; gap: 2px; border: 1px solid #e0e7f0; border-radius: 6px; background: #f0f3f8; }
-.gsim-seg button { min-width: 0; min-height: 28px; padding: 3px 4px; border: 0; border-radius: 4px; background: transparent; color: #536681; font: inherit; font-size: 10px; cursor: pointer; }
+.gsim-seg button { min-width: 0; min-height: 34px; padding: 3px 4px; border: 0; border-radius: 4px; background: transparent; color: #536681; font: inherit; font-size: 10px; cursor: pointer; }
 .gsim-seg button:hover { background: #e4ebf7; }
 .gsim-seg button.is-active { background: #fff; color: #2052b9; font-weight: 700; box-shadow: 0 1px 3px #1d35521a; }
+.gsim-seg button:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--gsim-blue); outline-offset: 1px; }
 .gsim-uses { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; color: var(--gsim-muted); font-size: 10px; }
 .gsim-uses button { min-width: 28px; min-height: 28px; padding: 3px 5px; border: 1px solid #d8e2f0; border-radius: 5px; background: #f8faff; color: #365679; font: inherit; font-size: 11px; font-weight: 650; font-variant-numeric: tabular-nums; cursor: pointer; }
 .gsim-uses button:hover { border-color: #93b4ef; background: #edf4ff; color: var(--gsim-blue); }
 
 /* Compact transition cards; the name uses all room left by the status. */
-.gsim-transition { display: grid; gap: 1px; min-width: 0; padding: 7px 8px; border: 1px solid var(--gsim-line); border-left: 3px solid #bbc8d9; border-radius: 7px; background: #fff; }
-.gsim-transition.is-waiting { border-color: #f1d9af; border-left-color: #e9980a; background: #fffdfa; }
-.gsim-transition.is-ready { border-color: #b5ddc5; border-left-color: #16a34a; background: #f4fbf6; }
-.gsim-transition.was-fired { box-shadow: inset 0 0 0 1px #62b981; }
-.gsim-transition-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; min-width: 0; }
+.gsim-transition { display: grid; gap: 1px; min-width: 0; padding: 7px 8px; border: 1px solid var(--gsim-line); border-radius: 7px; background: #fff; }
+.gsim-transition.is-waiting { border-color: #e5c27f; background: #fffbf2; }
+.gsim-transition.is-ready { border-color: #91caa5; background: #f2faf5; }
+.gsim-transition.was-fired { outline: 2px solid #62b981; outline-offset: 1px; }
+.gsim-transition-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 5px; min-width: 0; }
+.gsim-transition-id { display: inline-grid; place-items: center; min-width: 25px; min-height: 23px; padding: 2px 4px; border: 1px solid #d9e2ef; border-radius: 4px; background: #f3f6fa; color: #526681; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
 .gsim-transition .gsim-name { min-height: 28px; padding: 3px 5px; border-color: transparent; background: transparent; color: #284970; font-size: 12px; font-weight: 700; }
 .gsim-transition .gsim-name:hover { border-color: #ccdaee; background: #f1f6fc; }
 .gsim-transition .gsim-name:focus { border-color: var(--gsim-blue); background: #fff; }
@@ -84,20 +89,28 @@
 .gsim-badge { padding: 3px 6px; border-radius: 5px; background: #edf1f6; color: #5a6c84; font-size: 10px; font-weight: 650; white-space: nowrap; }
 .gsim-badge.is-waiting { background: #fff0d2; color: #965600; }
 .gsim-badge.is-ready { background: #def3e5; color: #176738; }
+.gsim-badge::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: currentColor; vertical-align: 1px; }
 .gsim-cond { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; min-height: 28px; padding: 3px 5px; border: 0; border-radius: 4px; background: transparent; text-align: left; font: inherit; cursor: pointer; }
 .gsim-cond:hover { background: #edf3fa; }
 .gsim-cond span { flex: none; color: var(--gsim-muted); font-size: 10px; }
 .gsim-cond code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 5px; border-radius: 4px; background: #eff3f8; color: #243a56; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
 .gsim-transition.is-waiting .gsim-cond code { background: #fff1d9; }
 .gsim-all { padding-top: 8px; border-top: 1px solid var(--gsim-line); min-width: 0; }
-.gsim-all summary { min-height: 28px; padding: 4px 0; color: #405975; font-size: 11px; font-weight: 600; cursor: pointer; }
+.gsim-all summary { min-height: 28px; padding: 4px 0; color: #405975; font-size: 11px; font-weight: 600; cursor: pointer; list-style:none; display:flex; align-items:center; gap:6px; }
+.gsim-all summary::-webkit-details-marker { display:none; }
+.gsim-all summary::marker { content:''; }
+.gsim-all summary > svg { flex:none; color:#61718b; transition:transform .15s ease; }
+.gsim-all[open] summary > svg { transform:rotate(90deg); }
 .gsim-all summary:hover { color: var(--gsim-blue); }
 .gsim-all[open] summary { margin-bottom: 6px; }
 @container grafcet-simulator (max-width: 235px) {
   .gsim-heading-icon { display: none; }
   .gsim-input-row .gsim-seg { flex-basis: 100%; }
+  .gsim-actuator-state { font-size: 9px; }
+  .gsim-transition-top { grid-template-columns: auto minmax(0, 1fr); }
+  .gsim-transition-top .gsim-badge { grid-column: 1 / -1; justify-self: start; margin-left: 30px; }
 }
-@media (prefers-reduced-motion: reduce) { .gsim-actuator { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .gsim-actuator, .gsim-input { transition: none; } }
 
 /* Diagram states and label contrast are shared with the canvas. */
 .grafcet-graph-link text { paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; font-variant-numeric: tabular-nums; }

@@ -45,6 +45,9 @@
   cursor: default;
   position: relative;
 }
+@media (prefers-reduced-motion: reduce) {
+  .grafcet-transition-step-option input[type="checkbox"]::before { transition:none; }
+}
 
 .grafcet-canvas.is-select-mode {
   cursor: default;
@@ -98,7 +101,7 @@
 .grafcect-free:active { cursor: grabbing; }
 
 /* Linha de transições no painel: marca as incompletas/soltas. */
-.grafcet-transition-row.is-incomplete { background: #fffbeb; border-left: 3px solid #f59e0b; border-radius: 0 6px 6px 0; }
+.grafcet-transition-row.is-incomplete { border-color:#edcf8b; background:#fffbeb; }
 .grafcet-transition-row > button:first-child > i.is-pending { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16); }
 .grafcet-tag-free {
   font-style: normal;
@@ -1161,7 +1164,7 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-step-options { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
 .grafcet-property-option { display:flex; align-items:center; gap:8px; padding:10px; min-width:0; border:1px solid #dce4ef; border-radius:6px; background:#fff; cursor:pointer; font-size:11px; }
 .grafcet-property-option:hover { border-color:#9eb7e8; background:#f7faff; }
-.grafcet-property-option.is-selected { border-color:#5782e9; background:#f0f5ff; box-shadow:inset 3px 0 0 var(--property-blue); }
+.grafcet-property-option.is-selected { border-color:var(--property-blue); background:#f0f5ff; }
 .grafcet-property-option input { width:13px; height:13px; flex:none; margin:0; accent-color:var(--property-blue); }
 .grafcet-property-option svg { flex:none; width:24px; height:24px; }
 .grafcet-property-option > span { min-width:0; }
@@ -1323,6 +1326,7 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-context-help > summary:has(> svg) { display:flex; align-items:center; gap:8px; list-style:none; }
 .grafcet-context-help > summary:has(> svg)::-webkit-details-marker { display:none; }
 .grafcet-context-help > summary:has(> svg)::marker { content:''; }
+.grafcet-context-help > summary:has(> svg)::marker { content:''; }
 .grafcet-context-help > summary > svg { flex:none; color:#61718b; transition:transform .15s ease; }
 .grafcet-context-help[open] > summary > svg { transform:rotate(90deg); }
 .grafcet-context-help > summary:focus-visible { outline:2px solid #2455d8; outline-offset:2px; }
@@ -1357,6 +1361,36 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-map-transition > span { font-size:10px; }
 .grafcet-map-transition .is-valid { color:#167243; }
 .grafcet-map-transition .is-incomplete { color:#975c08; }
+
+/* Inspetor de transições: condição, ligações e ações têm hierarquia própria. */
+.grafcet-transition-inspector { gap:12px; }
+.grafcet-transition-inspector > .grafcet-form-heading { margin-bottom:0; }
+.grafcet-transition-inspector > .grafcet-form-heading h3 { margin:0; color:#25344c; font-size:13px; }
+.grafcet-transition-inspector > .grafcet-form-heading .dc-btn { min-height:32px; padding:4px 8px !important; white-space:nowrap; }
+.grafcet-inspector-group { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.grafcet-inspector-group > h4 { margin:0; color:#435773; font-size:10px; font-weight:750; letter-spacing:.05em; text-transform:uppercase; }
+.grafcet-transition-inspector .grafcet-condition-state { margin-top:0; }
+.grafcet-transition-inspector .grafcet-transition-links { min-width:0; border-color:#dce4ef; border-radius:7px; padding:7px; background:#fafbfd; }
+.grafcet-transition-inspector .grafcet-transition-links legend { color:#334b6e; font-size:10px; }
+.grafcet-transition-inspector .grafcet-step-checks { max-height:148px; gap:4px; padding:1px; }
+.grafcet-transition-step-option { display:flex; align-items:center; gap:9px; min-height:38px; padding:6px 8px; border:1px solid transparent; border-radius:5px; color:#334b6e; font-size:11px; line-height:1.35; cursor:pointer; }
+.grafcet-transition-step-option:hover { border-color:#d8e4f8; background:#f2f6fd; }
+.grafcet-transition-step-option.is-selected { border-color:#c7d8f7; background:#edf4ff; color:#204db7; font-weight:650; }
+.grafcet-transition-step-option input[type="checkbox"] { appearance:none; -webkit-appearance:none; display:grid; flex:none; place-content:center; width:19px; height:19px; margin:0; border:1.5px solid #9cabc0; border-radius:5px; background:#fff; cursor:pointer; }
+.grafcet-transition-step-option input[type="checkbox"]::before { content:""; width:8px; height:4px; border:solid #fff; border-width:0 0 2px 2px; transform:translateY(-1px) rotate(-45deg) scale(0); transform-origin:center; transition:transform .1s ease; }
+.grafcet-transition-step-option input[type="checkbox"]:checked { border-color:#2655e5; background:#2655e5; box-shadow:0 1px 2px #17398a30; }
+.grafcet-transition-step-option input[type="checkbox"]:checked::before { transform:translateY(-1px) rotate(-45deg) scale(1); }
+.grafcet-transition-step-option input[type="checkbox"]:focus-visible { outline:3px solid rgba(38,85,229,.25); outline-offset:2px; }
+.grafcet-transition-step-option input[type="checkbox"]:disabled { cursor:not-allowed; opacity:.55; }
+.grafcet-transition-step-option > span { min-width:0; overflow-wrap:anywhere; }
+.grafcet-transition-inspector > .grafcet-error { padding:7px 8px; border:1px solid #f1d09a; border-radius:5px; background:#fff9ed; line-height:1.4; }
+.grafcet-inspector-group.is-actions { gap:9px; padding-top:10px; border-top:1px solid #e2e8f0; }
+.grafcet-fire-transition { align-self:stretch !important; min-height:40px; border-color:#b9ccf6 !important; border-radius:6px !important; background:#eef4ff !important; color:#1e42b8 !important; font-weight:700 !important; }
+.grafcet-fire-transition:hover:not(:disabled) { border-color:#83a6ef !important; background:#e1ebff !important; }
+.grafcet-fire-transition:disabled { color:#64748b !important; }
+.grafcet-transition-comment { gap:5px !important; color:#435773; font-size:10px; font-weight:650; }
+.grafcet-transition-comment .dc-input { width:100%; min-height:36px; }
+.grafcet-delete-transition { min-height:34px; align-self:flex-start !important; padding:5px 8px !important; }
 @media (max-width:600px) {
   .grafcet-condition-tools button, .grafcet-condition-categories button { min-height:38px; min-width:35px; }
   .grafcet-condition-picker-head button { width:38px; height:38px; }
@@ -1364,6 +1398,10 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   .grafcet-condition-picker { padding:10px; }
   .grafcet-connection-editors { grid-template-columns:minmax(0,1fr); }
   .grafcet-connection-options label { min-height:44px; }
+  .grafcet-transition-step-option { min-height:44px; }
+  .grafcet-transition-inspector > .grafcet-form-heading { align-items:flex-start; }
+  .grafcet-transition-inspector > .grafcet-form-heading h3 { padding-top:6px; }
+  .grafcet-fire-transition { min-height:44px; }
   .grafcet-context-help > summary { padding:13px 12px; }
 }
 
@@ -1777,13 +1815,12 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   gap: 6px;
   padding: 7px 8px;
   border: 1px solid #e2e8f0;
-  border-left-width: 3px;
   border-radius: 8px;
   background: #fff;
 }
-.grafcet-signal-row.is-I { border-left-color: #3b82f6; }
-.grafcet-signal-row.is-Q { border-left-color: #22c55e; }
-.grafcet-signal-row.is-M { border-left-color: #f59e0b; }
+.grafcet-signal-row.is-I { border-color:#9bbaf4; background:#f7faff; }
+.grafcet-signal-row.is-Q { border-color:#9bd5ad; background:#f5fbf6; }
+.grafcet-signal-row.is-M { border-color:#edcf8b; background:#fffbf2; }
 .grafcet-signal-row.is-on { background: #f0fdf4; }
 .grafcet-signal-led { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; }
 .grafcet-signal-row.is-on .grafcet-signal-led { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); }
@@ -1915,11 +1952,10 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 }
 .grafcet-transition-row.is-incomplete.is-active {
   border-color: #93b4fa;
-  border-left: 3px solid #d97706;
   background: #dbeafe;
 }
 .grafcet-free-actions-block .grafcet-transition-row.is-incomplete:not(.is-active) {
-  border-radius: 0 6px 6px 0;
+  border-radius: 6px;
 }
 .grafcet-free-actions-block .grafcet-transition-row.is-incomplete > button:first-child {
   min-width: 0;

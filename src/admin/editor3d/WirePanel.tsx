@@ -1,7 +1,7 @@
 import Select from '../../ui/Select'
 import { useMemo, useState } from 'react'
 import { WIRE_END_OPTIONS } from '../../schematic/wireEnds'
-import { IconCheck, IconClose, IconWarning } from '../../ui/icons'
+import { IconCheck, IconChevronRight, IconClose, IconWarning } from '../../ui/icons'
 import { useEditorStore } from './editorStore'
 import { endLabel, evaluateWire } from './wirePath'
 import { useWireInfo } from './WireDraw'
@@ -55,7 +55,7 @@ export default function WirePanel() {
         {points.length > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => state.cancelWire()}>Cancelar</button>}
       </div>}
       <details className="ce-wp-new">
-        <summary>Novo cabo <i className="ce-dot" style={{ background: defaults.autoColor ? '#94a3b8' : WIRE_COLOR_HEX[defaults.color] }} /><span>{defaults.autoColor ? 'cor automática' : defaults.color} · {defaults.gauge.replace('mm²', ' mm²')}</span></summary>
+        <summary><IconChevronRight size={11} />Novo cabo <i className="ce-dot" style={{ background: defaults.autoColor ? '#94a3b8' : WIRE_COLOR_HEX[defaults.color] }} /><span>{defaults.autoColor ? 'cor automática' : defaults.color} · {defaults.gauge.replace('mm²', ' mm²')}</span></summary>
         <label className="ce-check"><input type="checkbox" checked={defaults.autoColor} onChange={(event) => setDefaults({ autoColor: event.target.checked })} />Cor automática pela função (IEC 60204-1)</label>
         <ColorSwatches value={defaults.color} disabled={defaults.autoColor} onChange={(color) => setDefaults({ color })} />
         <div className="ce-wp-row">

@@ -1,11 +1,12 @@
 import DcxSelect from '../../ui/Select'
 import { useState, type ReactNode } from 'react'
 import type { Vec3 } from '../../catalog/types'
+import { IconChevronRight } from '../../ui/icons'
 
 /** Pequenos controlos do editor 3D (mantêm o visual dx do resto da administração). */
 export function Section({ title, children, open = true, actions }: { title: ReactNode; children: ReactNode; open?: boolean; actions?: ReactNode }) {
   return <details className="ce-section" open={open}>
-    <summary><span>{title}</span>{actions && <span className="ce-section-actions" onClick={(event) => event.preventDefault()}>{actions}</span>}</summary>
+    <summary><IconChevronRight size={11} /><span>{title}</span>{actions && <span className="ce-section-actions" onClick={(event) => event.preventDefault()}>{actions}</span>}</summary>
     <div className="ce-section-body">{children}</div>
   </details>
 }
