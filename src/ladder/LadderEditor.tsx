@@ -199,6 +199,7 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
       </>
       )}
       <LadderElementDialog
+        updateRung={ops?.updateRung}
         rung={rung}
         selection={dialogSelection}
         functionFiles={fcFiles}
@@ -489,6 +490,7 @@ const PALETTE_GROUPS: Array<{
       { kind: 'TON', label: 'TON', detail: 'Atraso na ligação', icon: 'timer' },
       { kind: 'TOF', label: 'TOF', detail: 'Atraso na desligação', icon: 'timer' },
       { kind: 'TP', label: 'TP', detail: 'Pulso', icon: 'timer' },
+      { kind: 'TONR', label: 'TONR', detail: 'Atraso retentivo', icon: 'timer' },
     ],
   },
   {

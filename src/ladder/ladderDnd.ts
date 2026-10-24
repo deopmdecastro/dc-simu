@@ -13,6 +13,7 @@ export type PaletteKind =
   | 'TON'
   | 'TOF'
   | 'TP'
+  | 'TONR'
   | 'CTU'
   | 'CTD'
   | 'MOVE'
@@ -61,7 +62,7 @@ export interface MovePayload {
 export const isCompareKind = (k: PaletteKind): k is CompareKind => k in COMPARE_KIND_OP
 export const isContactKind = (k: PaletteKind): k is LadderContactType => k === 'NO' || k === 'NC' || k === 'RISING' || k === 'FALLING'
 export const isCoilKind = (k: PaletteKind): k is LadderCoilType => k === 'COIL' || k === 'SET' || k === 'RESET'
-export const isTimerKind = (k: PaletteKind): k is 'TON' | 'TOF' | 'TP' => k === 'TON' || k === 'TOF' || k === 'TP'
+export const isTimerKind = (k: PaletteKind): k is 'TON' | 'TOF' | 'TP' | 'TONR' => k === 'TON' || k === 'TOF' || k === 'TP' || k === 'TONR'
 export const isMathKind = (k: PaletteKind): k is LadderMathOp => k === 'ADD' || k === 'SUB' || k === 'MUL' || k === 'DIV' || k === 'MOD'
 export const isCounterKind = (k: PaletteKind): k is 'CTU' | 'CTD' => k === 'CTU' || k === 'CTD'
 
@@ -137,7 +138,7 @@ export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarge
   }
   if (isTimerKind(kind)) {
     return {
-      rung: { ...rung, timer: { kind: 'timer', id: rung.timer?.id ?? `${rung.id}-t`, address: rung.timer?.address ?? 'T1', timerType: kind, presetMs: rung.timer?.presetMs ?? 3000, preset2Ms: rung.timer?.preset2Ms ?? 50 } },
+      rung: { ...rung, timer: { kind: 'timer', id: rung.timer?.id ?? `${rung.id}-t`, address: rung.timer?.address ?? 'T1', timerType: kind, presetMs: rung.timer?.presetMs ?? 3000, preset2Ms: rung.timer?.preset2Ms ?? 50, resetAddress: kind === 'TONR' ? (rung.timer?.resetAddress ?? nextAddr(rung, 'M')) : undefined } },
       created: { type: 'timer' },
     }
   }

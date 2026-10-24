@@ -61,4 +61,16 @@ assert.equal(formatPresetMs(3000), 'T#3S')
 assert.equal(formatPresetMs(1500), 'T#1.5S')
 assert.deepEqual(parseCounterPreset('12'), { ok: true, value: 12 })
 assert.equal(parseCounterPreset('-1').ok, false)
+// 6) TONR: acumula, retém ao desligar, reset zera
+const tonr = (input: boolean): LadderProgram => ({ rungs: [rung('t', { branches: [{ id: 'b', elements: input ? [] : [{ kind: 'contact', id: 'x', address: 'I9', contactType: 'NO' }] }], timer: { kind: 'timer', id: 'tt', address: 'T1', timerType: 'TONR', presetMs: 100, resetAddress: 'M1' } })] })
+const tt = {} as TimerTable; const tbl: Record<string, boolean> = {}
+runScan(tonr(true), tbl, tt, c, 40, {}, [], {}, {} as never)
+runScan(tonr(false), tbl, tt, c, 40, {}, [], {}, {} as never)
+assert.equal(tt.T1.elapsedMs, 40, 'retém o tempo ao desligar')
+runScan(tonr(true), tbl, tt, c, 40, {}, [], {}, {} as never)
+runScan(tonr(true), tbl, tt, c, 40, {}, [], {}, {} as never)
+assert.equal(tbl.T1, true, 'atinge o preset somando intervalos')
+tbl.M1 = true
+runScan(tonr(true), tbl, tt, c, 40, {}, [], {}, {} as never)
+assert.equal(tt.T1.elapsedMs, 0); assert.equal(tbl.T1, false)
 console.log('ladder-math-smoke: OK')

@@ -423,6 +423,7 @@ export type LadderBlockKind =
   | 'TON'
   | 'TOF'
   | 'TP'
+  | 'TONR'
   | 'STAR_DELTA'
   | 'CTU'
   | 'CTD'
@@ -454,7 +455,9 @@ export interface LadderTimer {
   kind: 'timer'
   id: string
   address: string
-  timerType: 'TON' | 'TOF' | 'TP' | 'STAR_DELTA'
+  timerType: 'TON' | 'TOF' | 'TP' | 'TONR' | 'STAR_DELTA'
+  /** TONR: endereço do reset (R) que zera o tempo acumulado */
+  resetAddress?: string
   presetMs: number
   /** 2ª preset (estrela→triângulo): tempo de transição */
   preset2Ms?: number

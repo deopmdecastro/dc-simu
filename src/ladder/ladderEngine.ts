@@ -107,6 +107,20 @@ export function runScan(
           }
           break
         }
+        case 'TONR': {
+          // Retentivo: acumula enquanto ativo, mantém o valor ao desligar, só o reset o zera.
+          const rst = rung.timer.resetAddress
+          if (rst && table[rst]) {
+            tv.elapsedMs = 0
+            tv.running = false
+            tv.done = false
+          } else if (powered) {
+            tv.running = true
+            tv.elapsedMs = Math.min(tv.presetMs, tv.elapsedMs + dtMs)
+            tv.done = tv.elapsedMs >= tv.presetMs
+          } else tv.running = false
+          break
+        }
         case 'TOF': {
           if (powered) {
             tv.done = true
@@ -256,7 +270,7 @@ export function collectUsedAddresses(program: LadderProgram): string[] {
     for (const coil of rung.coils) set.add(coil.address.toUpperCase())
     if (rung.move) { set.add(rung.move.source.toUpperCase()); set.add(rung.move.target.toUpperCase()) }
     if (rung.math) { set.add(rung.math.in1.toUpperCase()); set.add(rung.math.in2.toUpperCase()); set.add(rung.math.out.toUpperCase()) }
-    if (rung.timer) set.add(rung.timer.address.toUpperCase())
+    if (rung.timer) { set.add(rung.timer.address.toUpperCase()); if (rung.timer.resetAddress) set.add(rung.timer.resetAddress.toUpperCase()) }
     if (rung.counter) {
       set.add(rung.counter.address.toUpperCase())
       if (rung.counter.resetAddress) set.add(rung.counter.resetAddress.toUpperCase())

@@ -481,6 +481,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           {label(boxX + BOX_W / 2, top + 13, t.timerType === 'STAR_DELTA' ? 'Y-Δ' : t.timerType, { bold: true, size: 11 })}
           {label(boxX + BOX_W / 2, top + 25, 'Time', { grey: true, size: 9 })}
           {label(boxX + 6, cy + 3, 'IN', { anchor: 'start', size: 9 })}
+          {t.timerType === 'TONR' && label(boxX + 6, cy + 15, 'R', { anchor: 'start', size: 9 })}
+          {t.timerType === 'TONR' && <line x1={boxX - 14} y1={cy + 12} x2={boxX} y2={cy + 12} stroke="#5b6b84" strokeWidth={1} />}
+          {t.timerType === 'TONR' && label(boxX - 16, cy + 15, t.resetAddress ? `%${t.resetAddress}` : '…', { anchor: 'end', size: 9, grey: true })}
           {label(boxX + 6, cy + 27, 'PT', { anchor: 'start', size: 9 })}
           {label(boxX + BOX_W - 6, cy + 3, 'Q', { anchor: 'end', size: 9 })}
           {label(boxX + BOX_W - 6, cy + 27, 'ET', { anchor: 'end', size: 9 })}
@@ -508,6 +511,11 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         if (r.ok) updateRung(rung.id, (x) => (x.timer ? { ...x, timer: { ...x.timer, address: r.value } } : x), 'force')
         return r
       }, 'Endereço do temporizador', `%${t.address}`)
+      if (t.timerType === 'TONR') textHit('t-rst', boxX - 16 - 64, cy + 4, 64, t.resetAddress ?? '', (v) => {
+        const r = v.trim() ? parseAddress(v) : { ok: true as const, value: '' }
+        if (r.ok) updateRung(rung.id, (x) => (x.timer ? { ...x, timer: { ...x.timer, resetAddress: r.value || undefined } } : x), 'force')
+        return r
+      }, 'Reset (R) do TONR')
       textHit('t-pt', boxX - 16 - 64, cy + 16, 64, formatPresetMs(t.presetMs), (v) => {
         const r = parsePresetMs(v)
         if (r.ok) updateRung(rung.id, (x) => (x.timer ? { ...x, timer: { ...x.timer, presetMs: r.value } } : x), 'force')

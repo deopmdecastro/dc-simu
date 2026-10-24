@@ -113,7 +113,9 @@ export default function LadderElementDialog({
   selection,
   functionFiles,
   onClose,
+  updateRung: updateRungProp,
 }: {
+  updateRung?: (id: string, fn: (r: LadderRung) => LadderRung, mode?: 'auto' | 'force' | 'skip') => void
   rung: LadderRung
   selection: EditableSelection | null
   functionFiles: ProjectFile[]
@@ -139,7 +141,7 @@ export default function LadderElementDialog({
       ...('contactType' in entity ? { contactType: entity.contactType } : {}),
       ...('contactType' in entity && entity.contactType === 'CMP' ? { compareOp: entity.compareOp ?? '==', compareType: entity.compareType ?? 'Int', compareValue: entity.compareValue ?? '0' } : {}),
       ...('coilType' in entity ? { coilType: entity.coilType } : {}),
-      ...('timerType' in entity ? { timerType: entity.timerType, presetMs: String(entity.presetMs), preset2Ms: String(entity.preset2Ms ?? 50) } : {}),
+      ...('timerType' in entity ? { timerType: entity.timerType, presetMs: String(entity.presetMs), preset2Ms: String(entity.preset2Ms ?? 50), resetAddress: entity.resetAddress ?? '' } : {}),
       ...('counterType' in entity ? { counterType: entity.counterType, counterPreset: String(entity.preset), resetAddress: entity.resetAddress ?? '' } : {}),
       ...('source' in entity ? { source: entity.source, target: entity.target } : {}),
       ...('in1' in entity ? { mathOp: entity.op, in1: entity.in1, in2: entity.in2, out: entity.out } : {}),
@@ -195,7 +197,8 @@ export default function LadderElementDialog({
     }
 
     const state = useSimStore.getState()
-    state.updateRung(rung.id, (current) => {
+    const apply = updateRungProp ?? state.updateRung
+    apply(rung.id, (current) => {
       if (selection.type === 'contact') return {
         ...current,
         branches: current.branches.map((branch) => branch.id === selection.branchId ? {
@@ -204,7 +207,7 @@ export default function LadderElementDialog({
         } : branch),
       }
       if (selection.type === 'coil') return { ...current, coils: current.coils.map((coil) => coil.id === selection.coilId ? { ...coil, address: normalizedAddress, coilType: draft.coilType, comment: draft.comment.trim() } : coil) }
-      if (selection.type === 'timer' && current.timer) return { ...current, timer: { ...current.timer, address: normalizedAddress, timerType: draft.timerType, presetMs: Math.max(0, Number(draft.presetMs) || 0), preset2Ms: Math.max(0, Number(draft.preset2Ms) || 0) } }
+      if (selection.type === 'timer' && current.timer) return { ...current, timer: { ...current.timer, address: normalizedAddress, timerType: draft.timerType, presetMs: Math.max(0, Number(draft.presetMs) || 0), preset2Ms: Math.max(0, Number(draft.preset2Ms) || 0), resetAddress: draft.timerType === 'TONR' ? (draft.resetAddress.trim().replace(/^%/, '').toUpperCase() || undefined) : undefined } }
       if (selection.type === 'counter' && current.counter) return { ...current, counter: { ...current.counter, address: normalizedAddress, counterType: draft.counterType, preset: Math.max(0, Math.trunc(Number(draft.counterPreset) || 0)), resetAddress: draft.resetAddress.trim().replace(/^%/, '').toUpperCase() } }
       if (selection.type === 'move' && current.move) return { ...current, move: { source: draft.source.trim().toUpperCase(), target: draft.target.trim().toUpperCase() } }
       if (selection.type === 'math' && current.math) return { ...current, math: { op: draft.mathOp, in1: draft.in1.trim().toUpperCase(), in2: draft.in2.trim().toUpperCase(), out: draft.out.trim().toUpperCase() } }
@@ -217,8 +220,8 @@ export default function LadderElementDialog({
 
   const remove = async () => {
     if (!await uiConfirm(`Eliminar ${titleFor(draft.kind).toLocaleLowerCase('pt-PT')} desta network?`)) return
-    const state = useSimStore.getState()
-    state.updateRung(rung.id, (current) => {
+    const apply = updateRungProp ?? useSimStore.getState().updateRung
+    apply(rung.id, (current) => {
       if (selection.type === 'contact') return { ...current, branches: current.branches.map((branch) => branch.id === selection.branchId ? { ...branch, elements: branch.elements.filter((element) => element.id !== selection.elementId) } : branch) }
       if (selection.type === 'coil') return { ...current, coils: current.coils.filter((coil) => coil.id !== selection.coilId) }
       if (selection.type === 'timer') return { ...current, timer: undefined }
@@ -266,8 +269,9 @@ export default function LadderElementDialog({
           </div></section>}
 
           {draft.kind === 'timer' && <section className="ladder-dialog-section"><h3>Temporização</h3><div className="ladder-dialog-grid">
-            <label><span>Função</span><Select value={draft.timerType} onChange={(event) => patch({ timerType: event.target.value as Draft['timerType'] })}><option value="TON">TON — atraso à ligação</option><option value="TOF">TOF — atraso à desligação</option><option value="TP">TP — pulso</option><option value="STAR_DELTA">Estrela–Triângulo</option></Select></label>
+            <label><span>Função</span><Select value={draft.timerType} onChange={(event) => patch({ timerType: event.target.value as Draft['timerType'] })}><option value="TON">TON — atraso à ligação</option><option value="TOF">TOF — atraso à desligação</option><option value="TP">TP — pulso</option><option value="TONR">TONR — atraso retentivo</option><option value="STAR_DELTA">Estrela–Triângulo</option></Select></label>
             <label><span>Preset PT (ms)</span><input type="number" min="0" step="10" value={draft.presetMs} onChange={(event) => patch({ presetMs: event.target.value })} /></label>
+            {draft.timerType === 'TONR' && <label><span>Entrada de reset (R)</span><input list="ladder-tag-addresses" value={draft.resetAddress} onChange={(event) => patch({ resetAddress: event.target.value.toUpperCase() })} placeholder="M1" /></label>}
             {draft.timerType === 'STAR_DELTA' && <label><span>Tempo morto (ms)</span><input type="number" min="0" step="10" value={draft.preset2Ms} onChange={(event) => patch({ preset2Ms: event.target.value })} /></label>}
           </div><div className="ladder-preset-row"><span>Presets:</span>{[100, 500, 1000, 3000, 5000, 10000].map((value) => <button type="button" key={value} className={Number(draft.presetMs) === value ? 'is-selected' : ''} onClick={() => patch({ presetMs: String(value) })}>{value >= 1000 ? `${value / 1000}s` : `${value}ms`}</button>)}</div></section>}
 
