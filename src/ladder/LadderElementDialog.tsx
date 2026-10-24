@@ -3,10 +3,11 @@ import { ADDRESS_RE, MATH_TARGET_RE, MOVE_TARGET_RE, OPERAND_RE } from './ladder
 import { MATH_OPS } from './ladderMath'
 import { uiConfirm } from '../ui/dialogs'
 import Select from '../ui/Select'
+import AddBlockDialog from './AddBlockDialog'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { LadderMathOp, LadderCoilType, LadderContactType, LadderDataType, LadderRung, LadderCompareOp, LadderCompareType } from '../types'
-import { IconArrowRight, IconCoil, IconContact, IconCounter, IconDelete, IconFunction, IconMove, IconTimer } from '../ui/icons'
+import { IconArrowRight, IconCoil, IconContact, IconCounter, IconDelete, IconFunction, IconMove, IconPlus, IconTimer } from '../ui/icons'
 import { emitOpenLadderBlock } from './ladderDnd'
 import { useSimStore } from '../store/useSimStore'
 import type { ProjectFile } from './projectFiles'
@@ -131,6 +132,7 @@ export default function LadderElementDialog({
   const saveRef = useRef<() => void>(() => {})
   const [draft, setDraft] = useState<Draft>(EMPTY)
   const [error, setError] = useState('')
+  const [addingBlock, setAddingBlock] = useState(false)
   const key = selectionKey(selection)
   const entity = useMemo(() => selection ? selectedEntity(rung, selection) : null, [rung, key])
 
@@ -323,7 +325,12 @@ export default function LadderElementDialog({
 
           {draft.kind === 'call' && <section className="ladder-dialog-section"><h3>Bloco chamado</h3><label className="ladder-dialog-full-label"><span>Função FC</span><Select autoFocus value={draft.targetId} onChange={(event) => patch({ targetId: event.target.value })}>{(['fc1', 'fc2'] as const).map((fid) => <option key={fid} value={fid}>{`${fcNamesMap[fid]?.trim() || fid.toUpperCase()} [${fid.toUpperCase()}]`}</option>)}{functionFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}</Select></label>
           <p className="ladder-dialog-help">O bloco é executado quando o RLO da network é 1. Chamadas recursivas são bloqueadas.</p>
-          {draft.targetId && (() => { const label = (draft.targetId === 'fc1' || draft.targetId === 'fc2') ? `${fcNamesMap[draft.targetId]?.trim() || draft.targetId.toUpperCase()} [${draft.targetId.toUpperCase()}]` : functionFiles.find((file) => file.id === draft.targetId)?.name ?? draft.targetId; return <button type="button" className="dc-btn ladder-call-open" onClick={() => { emitOpenLadderBlock(draft.targetId); onClose() }}><IconArrowRight size={12} /> Abrir «{label}» na árvore do projeto</button> })()}</section>}
+          <div className="ladder-call-actions">
+            {draft.targetId && (() => { const label = (draft.targetId === 'fc1' || draft.targetId === 'fc2') ? `${fcNamesMap[draft.targetId]?.trim() || draft.targetId.toUpperCase()} [${draft.targetId.toUpperCase()}]` : functionFiles.find((file) => file.id === draft.targetId)?.name ?? draft.targetId; return <button type="button" className="dc-btn ladder-call-open" onClick={() => { emitOpenLadderBlock(draft.targetId); onClose() }}><IconArrowRight size={12} /> Abrir «{label}»</button> })()}
+            <button type="button" className="dc-btn ladder-call-open" onClick={() => setAddingBlock(true)}><IconPlus size={12} /> Criar novo bloco FC…</button>
+          </div>
+          {addingBlock && <AddBlockDialog open initialKind="FC" files={functionFiles} onClose={() => setAddingBlock(false)} onCreated={(id) => { setAddingBlock(false); patch({ targetId: id }); setError('') }} />}
+        </section>}
 
           {error && <p className="ladder-dialog-error" role="alert">{error}</p>}
         </div>

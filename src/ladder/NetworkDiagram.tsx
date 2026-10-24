@@ -618,15 +618,22 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         return r
       }, 'Valor de preset (PV)')
     } else if (o.type === 'call' && rung.call) {
-      const top = cy - 25
+      const top = cy - 27
       const isSel = selection?.type === 'call'
-      svg.push(<g key="call-block">{isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 66, 'call-sel')}{wire(OJ, cy, boxX, cy, rungOut)}
-        <rect x={boxX} y={top} width={BOX_W} height={50} rx={4} fill="#fff" stroke={rungOut ? C_ON : '#5b6b84'} strokeWidth={1.5} />
-        {label(boxX + BOX_W / 2, cy - 5, 'CALL', { bold: true, size: 11 })}
-        {label(boxX + BOX_W / 2, cy + 12, callTargetName ?? rung.call.targetId, { size: 9 })}
+      const callName = callTargetName ?? rung.call.targetId
+      // O nome do bloco pode ser comprido («RESTART COMPLETO [OB 100]»): encolhe com
+      // reticências para caber na caixa; o nome completo aparece como dica (hover).
+      const maxChars = Math.floor((BOX_W - 12) / 5.6)
+      const callNameShort = callName.length > maxChars ? `${callName.slice(0, maxChars - 1).trimEnd()}…` : callName
+      // Mesmo estilo dos blocos TON/CTU/MOVE: caixa branca quadrada + faixa «#eef3fb».
+      svg.push(<g key="call-block">{isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 72, 'call-sel')}{wire(OJ, cy, boxX, cy, rungOut)}
+        <rect x={boxX} y={top} width={BOX_W} height={58} fill="#fff" stroke={rungOut ? C_ON : '#5b6b84'} strokeWidth={1.3} />
+        <rect x={boxX} y={top} width={BOX_W} height={26} fill="#eef3fb" />
+        {label(boxX + BOX_W / 2, top + 13, 'CALL', { bold: true, size: 11 })}
+        <text x={boxX + BOX_W / 2} y={top + 44} textAnchor="middle" fontSize={9.5} fill="#25344c" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">{callNameShort}<title>{callName}</title></text>
         {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
       </g>)
-      if (!readonly) hits.push(<div key="call-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 66 }}
+      if (!readonly) hits.push(<div key="call-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 72 }}
         onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'call' }) }}
         onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'call' }) }}
         onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, call: undefined }), 'force') }}
