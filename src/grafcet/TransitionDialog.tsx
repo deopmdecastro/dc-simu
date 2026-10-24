@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { validCondition, type GrafcetTransition, type GrafcetStep } from './engine'
+import { stepNumberOf, validCondition, type GrafcetTransition, type GrafcetStep } from './engine'
 import PropertyDialog from '../ui/PropertyDialog'
 import ConditionEditor from './ConditionEditor'
 import type { GrafcetSignalSuggestion } from './signals'
@@ -25,9 +25,13 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
   const [targetInfo, setTargetInfo] = useState('')
   const [from, setFrom] = useState<string[]>([])
   const [to, setTo] = useState<string[]>([])
+  const [wireless, setWireless] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [fromSearch, setFromSearch] = useState('')
   const [toSearch, setToSearch] = useState('')
+  const [quickFrom, setQuickFrom] = useState('')
+  const [quickTo, setQuickTo] = useState('')
+  const [quickMsg, setQuickMsg] = useState('')
 
   useEffect(() => {
     if (!transition) return
@@ -41,6 +45,10 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
     setTargetInfo(transition.targetInfo ?? '')
     setFrom([...transition.from])
     setTo([...transition.to])
+    setWireless(!!transition.wireless)
+    setQuickFrom('')
+    setQuickTo('')
+    setQuickMsg('')
   }, [transition, transitionIndex, open])
 
   if (!open || !transition) return null
@@ -48,7 +56,7 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
   const save = () => {
     setSubmitted(true)
     if (conditionError) { document.getElementById('trans-condition-input')?.focus(); return }
-    onSave({ name: name.trim() || `T${transitionIndex + 1}`, condition: condition.trim(), description: description.trim(), comment: description.trim(), displayDescription, targetInfo: targetInfo.trim(), from: [...from], to: [...to] })
+    onSave({ name: name.trim() || `T${transitionIndex + 1}`, condition: condition.trim(), description: description.trim(), comment: description.trim(), displayDescription, targetInfo: targetInfo.trim(), wireless, from: [...from], to: [...to] })
     onClose()
   }
   const labelOf = (id: string) => {
@@ -59,6 +67,20 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
     const update = (current: string[]) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
     if (side === 'from') setFrom(update)
     else setTo(update)
+  }
+  /** Liga pelo número da etapa tal como aparece no diagrama (ex.: 141 ou X141). */
+  const connectByNumber = (side: 'from' | 'to') => {
+    const raw = (side === 'from' ? quickFrom : quickTo).trim().replace(/^x/i, '')
+    if (!raw) return
+    const index = availableSteps.findIndex((step, i) => stepNumberOf(step, i) === raw)
+    if (index < 0) { setQuickMsg(`Não existe etapa com o número ${raw}.`); return }
+    const id = availableSteps[index].id
+    const ids = side === 'from' ? from : to
+    if (ids.includes(id)) { setQuickMsg(`A Etapa ${raw} já está ligada ${side === 'from' ? 'nas origens' : 'nos destinos'}.`); return }
+    if (side === 'from') setFrom([...from, id])
+    else setTo([...to, id])
+    ;(side === 'from' ? setQuickFrom : setQuickTo)('')
+    setQuickMsg(`Etapa ${raw} ligada ${side === 'from' ? 'às origens' : 'aos destinos'} — guarde para aplicar.`)
   }
   const renderConnections = (side: 'from' | 'to', ids: string[]) => {
     const query = foldText((side === 'from' ? fromSearch : toSearch).trim())
@@ -74,6 +96,10 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
         {!!query && !matches.length && <p className="grafcet-property-note">Nenhuma etapa corresponde à pesquisa.</p>}
         {!availableSteps.length && !ids.length && <p className="grafcet-property-note">Ainda não existem etapas para ligar.</p>}
       </div>
+      <div className="grafcet-connection-quick" data-property-save-ignore>
+        <input className="dc-input" inputMode="numeric" placeholder="Ligar pelo nº (ex.: 141)" value={side === 'from' ? quickFrom : quickTo} onChange={(event) => (side === 'from' ? setQuickFrom : setQuickTo)(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); connectByNumber(side) } }} aria-label={side === 'from' ? 'Ligar origem pelo número da etapa' : 'Ligar destino pelo número da etapa'} />
+        <button type="button" className="grafcet-link-button" onClick={() => connectByNumber(side)}>Ligar nº</button>
+      </div>
       <div className="grafcet-connection-selector-footer"><span>{ids.length} selecionada{ids.length === 1 ? '' : 's'}</span><button type="button" className="grafcet-link-button" disabled={!ids.length} onClick={() => (side === 'from' ? setFrom : setTo)([])} aria-label={side === 'from' ? 'Limpar origens' : 'Limpar destinos'}>Limpar</button></div>
     </fieldset>
   )}
@@ -84,7 +110,10 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
           <div className="grafcet-property-field"><label htmlFor="trans-name-input">Nome <span className="grafcet-optional">opcional</span></label><input id="trans-name-input" className="dc-input" value={name} onChange={(event) => setName(event.target.value)} placeholder={`T${transitionIndex + 1}`} /></div>
           <ConditionEditor id="trans-condition-input" value={condition} onChange={setCondition} signals={signals} availableSteps={availableSteps} resetKey={`${transition.id}:${open}`} initialDefaultOne={(transition.condition ?? '1') === '1'} initialFocus error={submitted ? conditionError : undefined} />
           <section className="grafcet-transition-connections" aria-label="Ligações da transição"><div className="grafcet-connections-heading"><h3><IconLink size={13} /> Ligações</h3><button type="button" className="dc-btn grafcet-connections-swap" onClick={() => { setFrom([...to]); setTo([...from]) }} disabled={!from.length && !to.length}><IconSwap size={12} /> Inverter ligações</button></div>
+          <label className="grafcet-property-checkbox"><input type="checkbox" checked={wireless} onChange={(event) => setWireless(event.target.checked)} /><span>Ligação por referência (sem linha)</span></label>
+          <p className="grafcet-property-note">Sem linha: o diagrama não desenha o traçado e cada ponta indica o número da etapa do outro lado (ex.: X141), como na IEC 60848 — útil para saltos entre etapas afastadas. Desmarcada, a ligação volta a ser desenhada com linha. As duas formas funcionam igual na simulação.</p>
           <div className="grafcet-connection-editors">{renderConnections('from', from)}{renderConnections('to', to)}</div>
+          {quickMsg && <p className="grafcet-property-note" role="status">{quickMsg}</p>}
           <p className="grafcet-property-note">Com todas as origens ativas e a condição verdadeira, ativa todos os destinos (AND).</p></section>
           {(!from.length || !to.length) && <p className="grafcet-property-warning" role="status">Transição solta: faltam {(!from.length && !to.length) ? 'origens e destinos' : !from.length ? 'origens' : 'destinos'}. Pode guardar o rascunho e completar as ligações depois.</p>}
           <div className="grafcet-property-field"><label htmlFor="trans-desc-input">Descrição <span className="grafcet-optional">opcional</span></label><textarea id="trans-desc-input" className="dc-input" rows={2} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: Cilindro A no fim de curso" /><label className="grafcet-property-checkbox"><input type="checkbox" checked={displayDescription} onChange={(event) => setDisplayDescription(event.target.checked)} /><span>Mostrar a descrição em vez da expressão no diagrama</span></label></div>

@@ -79,6 +79,9 @@ export interface GrafcetTransition {
   x?: number
   y?: number
   branchType?: GrafcetBranchType
+  /** Ligação por referência (IEC 60848): a linha entre etapas não é desenhada;
+   *  cada ponta mostra o número da etapa do outro lado (ex.: X141). */
+  wireless?: boolean
   chart?: string
 }
 
@@ -106,6 +109,8 @@ export interface GrafcetProgram {
   /** Ações soltas: criadas sem etapa; ligam-se depois por arrasto ou por linha */
   freeActions?: GrafcetAction[]
   comments?: GrafcetComment[]
+  /** Pontos de quebra das ligações (duplo clique na linha), por id de transição ligada 1→1. */
+  linkBends?: Record<string, Array<{ x: number; y: number }>>
   charts?: GrafcetChart[]
   activeChart?: string
 }

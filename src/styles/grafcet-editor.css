@@ -1438,6 +1438,9 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-connection-selector-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:24px; color:#61718a; font-size:10px; }
 .grafcet-connection-selector-footer .grafcet-link-button { min-height:24px; padding:2px 4px; font-size:10px; text-decoration:none; }
 .grafcet-connection-selector-footer button:disabled { color:#7b889a; cursor:not-allowed; text-decoration:none; }
+.grafcet-connection-quick { display:flex; align-items:center; gap:6px; padding:6px 4px 0; }
+.grafcet-property-dialog .grafcet-connection-quick .dc-input { flex:1; min-height:28px; font-size:11px; background:#fff; }
+.grafcet-connection-quick .grafcet-link-button { min-height:26px; padding:2px 6px; font-size:10px; text-decoration:none; white-space:nowrap; }
 .grafcet-preview-live { display:inline-flex; align-items:center; gap:5px; font-size:9px; color:#526681; }
 .grafcet-preview-live::before { content:''; width:5px; height:5px; border-radius:50%; background:#7295dd; }
 .grafcet-map-arrow { display:flex; align-items:center; justify-content:center; min-height:18px; color:#6f86a8; }

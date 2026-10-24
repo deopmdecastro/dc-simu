@@ -63,7 +63,7 @@ import {
   stepPitch,
 } from './layout'
 
-import { findClearSpot, routeVertical } from './links'
+import { bendInsertIndex, findClearSpot, polylineMidpoint, routeThrough, routeVertical, type Point } from './links'
 import { foldText } from '../utils/text'
 
 const id = () => crypto.randomUUID()
@@ -305,6 +305,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     moved: boolean
   } | null>(null)
   const [transDragPos, setTransDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
+  const [bendDragLive, setBendDragLive] = useState<{ tid: string; index: number; x: number; y: number } | null>(null)
+  const bendDragRef = useRef<{ tid: string; index: number; x: number; y: number; moved: boolean } | null>(null)
   const transDragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
   /** Etapa candidata a receber a transição solta que está a ser arrastada. */
   const [transDropStep, setTransDropStep] = useState<string | null>(null)
@@ -715,7 +717,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   const removeTransition = (transitionId: string) => {
     const index = transitions.findIndex((transition) => transition.id === transitionId)
     const neighbour = transitions[index + 1] ?? transitions[index - 1]
-    save({ transitions: transitions.filter((transition) => transition.id !== transitionId) })
+    const linkBends = { ...(program.linkBends ?? {}) }
+    delete linkBends[transitionId]
+    save({ transitions: transitions.filter((transition) => transition.id !== transitionId), linkBends })
     setSelected(neighbour?.id ?? null)
     setSelectedActionId(null)
     setTab('transitions')
@@ -1120,6 +1124,103 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     if (!rect) return { x: 0, y: 0 }
     return { x: (cx - rect.left - position.x) / scale, y: (cy - rect.top - position.y) / scale }
   }
+
+  // ------------------------------------------------------------------
+  // Pontos de quebra das linhas (duplo clique cria; arrastar dobra a linha)
+  // ------------------------------------------------------------------
+  /** Quebras guardadas daquela ligação, com a posição ao vivo enquanto se arrasta. */
+  const bendsOf = (tid: string): Point[] => {
+    const stored = program.linkBends?.[tid] ?? []
+    if (bendDragLive?.tid === tid) return stored.map((bend, index) => (index === bendDragLive.index ? { x: bendDragLive.x, y: bendDragLive.y } : bend))
+    return stored
+  }
+  const commitBends = (tid: string, bends: Point[]) => {
+    const next = { ...(program.linkBends ?? {}) }
+    if (bends.length) next[tid] = bends.map((bend) => ({ x: Math.round(bend.x), y: Math.round(bend.y) }))
+    else delete next[tid]
+    save({ linkBends: next }, 'force', `grafcet:bends:${tid}`)
+  }
+  /** Duplo clique na linha: cria o ponto de quebra no troço clicado. */
+  const addLinkBend = (tid: string, points: Point[], e: React.MouseEvent) => {
+    if (!full || activeTool !== 'select' || isSpacePan) return
+    e.stopPropagation()
+    const w = clientToWorld(e.clientX, e.clientY)
+    const p = snapOn ? { x: snapToGrid(w.x, SPINE_X), y: snapToGrid(w.y, START_Y) } : { x: Math.round(w.x), y: Math.round(w.y) }
+    const bends = points.slice(1, -1)
+    const at = bendInsertIndex(points, p)
+    commitBends(tid, [...bends.slice(0, at), p, ...bends.slice(at)])
+    setSelected(tid)
+    setSelectedActionId(null)
+    setTab('transitions')
+    notify('Ponto de quebra criado — arraste-o para dobrar a linha · duplo clique remove-o')
+  }
+  const onBendPointerDown = (tid: string, index: number, e: React.PointerEvent) => {
+    if (!full || activeTool !== 'select' || isSpacePan) return
+    if (e.button !== 0) return
+    e.stopPropagation()
+    const bend = bendsOf(tid)[index]
+    if (!bend) return
+    bendDragRef.current = { tid, index, x: bend.x, y: bend.y, moved: false }
+    setBendDragLive({ tid, index, x: bend.x, y: bend.y })
+    try {
+      ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+    } catch {
+      /* noop */
+    }
+  }
+  const onBendPointerMove = (tid: string, index: number, e: React.PointerEvent) => {
+    const drag = bendDragRef.current
+    if (!drag || drag.tid !== tid || drag.index !== index) return
+    drag.moved = true
+    const w = clientToWorld(e.clientX, e.clientY)
+    const p = snapOn && !e.altKey ? { x: snapToGrid(w.x, SPINE_X), y: snapToGrid(w.y, START_Y) } : { x: Math.round(w.x), y: Math.round(w.y) }
+    drag.x = p.x
+    drag.y = p.y
+    setBendDragLive({ tid, index, x: p.x, y: p.y })
+  }
+  const onBendPointerUp = (tid: string, index: number, e: React.PointerEvent) => {
+    const drag = bendDragRef.current
+    if (!drag || drag.tid !== tid || drag.index !== index) return
+    bendDragRef.current = null
+    try {
+      ;(e.currentTarget as Element).releasePointerCapture(e.pointerId)
+    } catch {
+      /* noop */
+    }
+    const live = { index, x: drag.x, y: drag.y }
+    setBendDragLive(null)
+    if (!drag.moved) return
+    const stored = program.linkBends?.[tid] ?? []
+    commitBends(tid, stored.map((bend, i) => (i === live.index ? { x: live.x, y: live.y } : bend)))
+  }
+  const removeLinkBend = (tid: string, index: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const stored = program.linkBends?.[tid] ?? []
+    commitBends(tid, stored.filter((_, i) => i !== index))
+    notify('Ponto de quebra removido')
+  }
+  /** Pegas dos pontos de quebra de uma ligação (visíveis com a transição selecionada). */
+  const renderBendHandles = (tid: string, linkColor: string) =>
+    bendsOf(tid).map((bend, index) => (
+      <g
+        key={`bend-${tid}-${index}`}
+        onPointerDown={(e) => onBendPointerDown(tid, index, e)}
+        onPointerMove={(e) => onBendPointerMove(tid, index, e)}
+        onPointerUp={(e) => onBendPointerUp(tid, index, e)}
+        onPointerCancel={() => {
+          bendDragRef.current = null
+          setBendDragLive(null)
+        }}
+        onDoubleClick={(e) => removeLinkBend(tid, index, e)}
+        style={{ cursor: 'grab', touchAction: 'none' }}
+        role="button"
+        aria-label={`Ponto de quebra ${index + 1} da linha — arrastar para dobrar, duplo clique remove`}
+      >
+        <title>Ponto de quebra — arraste para dobrar a linha · duplo clique remove</title>
+        <circle cx={bend.x} cy={bend.y} r={9} fill="transparent" />
+        <circle cx={bend.x} cy={bend.y} r={5} fill="#ffffff" stroke={linkColor} strokeWidth="2" />
+      </g>
+    ))
 
   /** Etapa cuja caixa contém o ponto (com folga vertical para largar barras por cima/por baixo). */
   const hitStepAt = (wx: number, wy: number) =>
@@ -2979,6 +3080,103 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     )
                   }
 
+                  // 1bis. Ligação por referência (sem linha, IEC 60848): a barra fica junto à
+                  // primeira origem e cada ponta indica o número da etapa do outro lado.
+                  if (transition.wireless) {
+                    const refOf = (stepId: string) => {
+                      const target = stepById.get(stepId)
+                      return target ? `X${getStepDisplayInfo(target, steps.indexOf(target)).stepNumber}` : 'X?'
+                    }
+                    const refX = stepX(sources[0])
+                    const refTop = stepY(sources[0]) + 54
+                    const refBarY = refTop + 34
+                    const outRefs = targets.map(refOf).join(' ')
+                    const inRefs = sources.map(refOf).join(' ')
+                    return (
+                      <g
+                        key={transition.id}
+                        onClick={onSelectThisTransition}
+                        onDoubleClick={onTransDoubleClick}
+                        onMouseEnter={() => hoverElement('transition', transition.id)}
+                        onMouseLeave={() => hoverElement('transition', null)}
+                        className={`${full ? 'grafcet-graph-link' : ''} ${selectedLink ? 'is-selected' : ''}`}
+                        role={full ? 'button' : undefined}
+                        tabIndex={full ? 0 : undefined}
+                        aria-label={`Transição T${transitionIndex + 1} (por referência, sem linha): ${transition.condition}`}
+                      >
+                        <path d={`M ${refX} ${refTop} V ${refBarY}`} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} />
+                        <path d={`M ${refX} ${refBarY} V ${refBarY + 24}`} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
+                        <line x1={refX - 14} y1={refBarY} x2={refX + 14} y2={refBarY} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3} />
+                        <text x={refX - 18} y={refBarY + 3} textAnchor="end" fill={selectedLink ? '#2563eb' : enabled ? '#16a34a' : '#64748b'} fontSize="10.5" fontWeight="700">
+                          {transition.name || `T${transitionIndex + 1}`}
+                        </text>
+                        <g transform={`translate(${refX + 18}, ${refBarY + 4})`}>
+                          <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
+                            {diagramCondition(transition.condition)}
+                          </text>
+                        </g>
+                        <text x={refX + 10} y={refBarY + 20} fill={selectedLink ? '#2563eb' : '#64748b'} fontSize="10.5" fontWeight="600">
+                          {`→ ${outRefs}`}
+                        </text>
+                        {/* Origens adicionais: seta curta com a referência dos destinos */}
+                        {sources.slice(1).map((sid) => {
+                          const x = stepX(sid)
+                          const y = stepY(sid) + 54
+                          return (
+                            <g key={`ref-src-${sid}`}>
+                              <path d={`M ${x} ${y} V ${y + 24}`} fill="none" stroke={linkColor} strokeWidth="1.5" markerEnd="url(#grafcet-arrow)" />
+                              <text x={x + 10} y={y + 18} fill="#64748b" fontSize="10.5" fontWeight="600">{`→ ${outRefs}`}</text>
+                            </g>
+                          )
+                        })}
+                        {/* Destinos: referência acima da etapa, seta a entrar por cima */}
+                        {targets.map((tid) => {
+                          const x = stepX(tid)
+                          const y = stepY(tid)
+                          return (
+                            <g key={`ref-dst-${tid}`}>
+                              <path d={`M ${x} ${y - 28} V ${y - 3}`} fill="none" stroke={linkColor} strokeWidth="1.5" markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
+                              <text x={x + 10} y={y - 14} fill="#64748b" fontSize="10.5" fontWeight="600">{`${inRefs} →`}</text>
+                            </g>
+                          )
+                        })}
+                        {enabled && <circle cx={refX} cy={refBarY} r="7" fill="none" stroke="#22c55e" strokeWidth="2" />}
+                        {full && (isTransHovered || selectedLink) && (
+                          <>
+                            <g
+                              className="grafcet-node-handle"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingTransition(transition)
+                              }}
+                              style={{ cursor: 'pointer' }}
+                              role="button"
+                              aria-label="Configurar transição"
+                            >
+                              <circle cx={refX + 11} cy={refBarY - 13} r="7" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
+                              <path d={`M ${refX + 9} ${refBarY - 11} L ${refX + 13} ${refBarY - 15}`} stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+                            </g>
+                            {transitions.length > 1 && (
+                              <g
+                                className="grafcet-node-handle is-delete"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  removeTransition(transition.id)
+                                }}
+                                style={{ cursor: 'pointer' }}
+                                role="button"
+                                aria-label="Eliminar transição"
+                              >
+                                <circle cx={refX - 18} cy={refBarY - 12} r="7.5" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
+                                <path d={`M ${refX - 20.5} ${refBarY - 14.5} L ${refX - 15.5} ${refBarY - 9.5} M ${refX - 15.5} ${refBarY - 14.5} L ${refX - 20.5} ${refBarY - 9.5}`} stroke="#ffffff" strokeWidth="1.4" strokeLinecap="round" />
+                              </g>
+                            )}
+                          </>
+                        )}
+                      </g>
+                    )
+                  }
+
                   // 2. Transição direta consecutiva IEC (fluxo vertical direto na espinha x = 151)
                   if (isConsecutive && sourceStep && targetStep) {
                     const sY = stepY(sourceStep.id)
@@ -2987,10 +3185,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     const tTop = tY
                     const bent = sourceX !== targetX
                     const midY = Math.round((sBottom + tTop) / 2)
+                    // Pontos de quebra (duplo clique na linha): o percurso passa por eles, com ângulos retos.
+                    const bends = bendsOf(transition.id)
+                    const linkPoints: Point[] = [{ x: sourceX, y: sBottom }, ...bends, { x: targetX, y: tTop }]
+                    const linkPath = bends.length ? routeThrough(linkPoints) : routeVertical(sourceX, sBottom, targetX, tTop, midY)
+                    const barMid = bends.length ? polylineMidpoint(linkPoints) : null
                     // Se as etapas não estão alinhadas, a ligação faz um "Z" e a barra fica no troço final.
-                    const tx = targetX
-                    const ty = bent ? Math.round((midY + tTop) / 2) : midY
-                    const linkPath = routeVertical(sourceX, sBottom, targetX, tTop, midY)
+                    const tx = barMid?.x ?? targetX
+                    const ty = barMid?.y ?? (bent ? Math.round((midY + tTop) / 2) : midY)
 
                     return (
                       <g
@@ -3012,7 +3214,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           strokeWidth={enabled || selectedLink ? 2 : 1.5}
                           markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
                         />
-                        <path d={linkPath} fill="none" stroke="transparent" strokeWidth="18" />
+                        <path
+                          d={linkPath}
+                          fill="none"
+                          stroke="transparent"
+                          strokeWidth="18"
+                          onDoubleClick={(e) => addLinkBend(transition.id, linkPoints, e)}
+                          style={{ cursor: 'copy' }}
+                        >
+                          <title>Duplo clique na linha cria um ponto de quebra para dobrar o traçado</title>
+                        </path>
 
                         {/* Barra transversal normalizada IEC 60848 */}
                         <line
@@ -3113,6 +3324,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                             )}
                           </>
                         )}
+                        {/* Pontos de quebra da linha (criados por duplo clique) */}
+                        {full && (isTransHovered || selectedLink) && renderBendHandles(transition.id, linkColor)}
                       </g>
                     )
                   }
@@ -3123,10 +3336,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     const tY = stepY(targetStep.id)
                     const sBottom = sY + 54
                     const tTop = tY
-                    const tx = sourceX
-                    const ty = sBottom + 24
                     const trackX = Math.min(sourceX, targetX) - 97 - (transitionIndex % 3) * 16
-                    const returnPath = `M ${sourceX} ${sBottom} V ${sBottom + 48} H ${trackX} V ${tTop - 24} H ${targetX} V ${tTop}`
+                    // Pontos de quebra (duplo clique na linha): o percurso passa por eles, com ângulos retos.
+                    const bends = bendsOf(transition.id)
+                    const linkPoints: Point[] = [{ x: sourceX, y: sBottom }, ...bends, { x: targetX, y: tTop }]
+                    const returnPath = bends.length ? routeThrough(linkPoints) : `M ${sourceX} ${sBottom} V ${sBottom + 48} H ${trackX} V ${tTop - 24} H ${targetX} V ${tTop}`
+                    const barMid = bends.length ? polylineMidpoint(linkPoints) : null
+                    const tx = barMid?.x ?? sourceX
+                    const ty = barMid?.y ?? sBottom + 24
+                    const delX = bends.length ? tx - 18 : trackX
+                    const delY = bends.length ? ty - 12 : (sBottom + tTop) / 2 - 16
 
                     return (
                       <g
@@ -3153,15 +3372,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           fill="none"
                           stroke="transparent"
                           strokeWidth="18"
-                        />
+                          onDoubleClick={(e) => addLinkBend(transition.id, linkPoints, e)}
+                          style={{ cursor: 'copy' }}
+                        >
+                          <title>Duplo clique na linha cria um ponto de quebra para dobrar o traçado</title>
+                        </path>
 
-                        {/* Seta direcional subindo no barramento à esquerda */}
-                        <path
-                          d={`M ${trackX - 4} ${(sBottom + tTop) / 2 + 5} L ${trackX} ${(sBottom + tTop) / 2 - 2} L ${trackX + 4} ${(sBottom + tTop) / 2 + 5}`}
-                          fill="none"
-                          stroke={linkColor}
-                          strokeWidth="2"
-                        />
+                        {/* Seta direcional subindo no barramento à esquerda (só no traçado automático) */}
+                        {!bends.length && (
+                          <path
+                            d={`M ${trackX - 4} ${(sBottom + tTop) / 2 + 5} L ${trackX} ${(sBottom + tTop) / 2 - 2} L ${trackX + 4} ${(sBottom + tTop) / 2 + 5}`}
+                            fill="none"
+                            stroke={linkColor}
+                            strokeWidth="2"
+                          />
+                        )}
 
                         {/* Barra transversal da transição */}
                         <line
@@ -3212,10 +3437,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                             role="button"
                             aria-label="Eliminar transição"
                           >
-                            <circle cx={trackX} cy={(sBottom + tTop) / 2 - 16} r="7.5" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
-                            <path d={`M ${trackX - 2.5} ${(sBottom + tTop) / 2 - 18.5} L ${trackX + 2.5} ${(sBottom + tTop) / 2 - 13.5} M ${trackX + 2.5} ${(sBottom + tTop) / 2 - 18.5} L ${trackX - 2.5} ${(sBottom + tTop) / 2 - 13.5}`} stroke="#ffffff" strokeWidth="1.4" strokeLinecap="round" />
+                            <circle cx={delX} cy={delY} r="7.5" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
+                            <path d={`M ${delX - 2.5} ${delY - 2.5} L ${delX + 2.5} ${delY + 2.5} M ${delX + 2.5} ${delY - 2.5} L ${delX - 2.5} ${delY + 2.5}`} stroke="#ffffff" strokeWidth="1.4" strokeLinecap="round" />
                           </g>
                         )}
+                        {/* Pontos de quebra da linha (criados por duplo clique) */}
+                        {full && (isTransHovered || selectedLink) && renderBendHandles(transition.id, linkColor)}
                       </g>
                     )
                   }
