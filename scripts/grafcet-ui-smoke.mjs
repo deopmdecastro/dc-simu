@@ -140,7 +140,7 @@ try {
   await openStep()
   await page.locator('#step-name-input').fill('Repouso')
   await page.locator('#step-desc-input').fill('À espera do sinal de arranque')
-  await save()
+  await page.keyboard.press('Control+Enter')
   await waitClosed()
   await openStep()
   check(await page.locator('#step-name-input').inputValue() === 'Repouso', 'nome da etapa é guardado')
@@ -152,6 +152,16 @@ try {
   await dialog().waitFor()
   await page.waitForFunction(() => document.activeElement?.id === 'action-var-input')
   await dialog().getByRole('button', { name: 'Escolher saída ou memória', exact: true }).click()
+  const outputSearch = dialog().getByRole('textbox', { name: 'Pesquisar saída ou memória', exact: true })
+  const outputChoices = dialog().getByRole('group', { name: 'Saídas e memórias disponíveis', exact: true }).getByRole('button')
+  await outputSearch.fill('')
+  await page.keyboard.press('ArrowDown')
+  check(await outputChoices.first().evaluate((el) => el === document.activeElement), 'seta para baixo entra na lista de saídas')
+  await page.keyboard.press('ArrowDown')
+  check(await outputChoices.nth(1).evaluate((el) => el === document.activeElement), 'setas percorrem as saídas disponíveis')
+  await page.keyboard.press('ArrowUp')
+  await page.keyboard.press('ArrowUp')
+  check(await outputSearch.evaluate((el) => el === document.activeElement), 'seta para cima regressa à pesquisa')
   await dialog().getByRole('textbox', { name: 'Pesquisar saída ou memória', exact: true }).fill('Motor principal')
   await page.keyboard.press('Enter')
   check(await page.locator('#action-var-input').inputValue() === 'Q1', 'procurar saída pelo nome insere Q1 na ação')
@@ -262,12 +272,28 @@ try {
   check(await dialog().locator('[data-variable-token="X0"]').textContent().then((value) => value.includes('Repouso')), 'picker usa índice X0 com nome humano da etapa')
   check(await dialog().locator('[data-variable-token="XRepouso"]').count() === 0, 'picker não inventa estados X a partir de nomes livres')
   await page.keyboard.press('Escape')
+  await dialog().getByText('Modelos de condição', { exact: true }).click()
   await dialog().getByRole('group', { name: 'Substituir condição por modelo', exact: true }).getByRole('button', { name: 'T(1s)', exact: true }).click()
   check(await page.locator('#trans-condition-input').inputValue() === 'T(1s)', 'modelo de temporização substitui a condição inteira')
   await page.locator('#trans-condition-input').fill('I1')
   const originalTransition = (await readProgram()).transitions[0]
   const origins = dialog().getByRole('group', { name: 'Origens · todas ativas', exact: true })
   const destinations = dialog().getByRole('group', { name: 'Destinos · ativados juntos', exact: true })
+  await origins.getByRole('searchbox').fill('a espera do sinal')
+  check(await origins.getByRole('checkbox').count() === 1 && await origins.getByRole('checkbox', { name: /^Etapa 0 / }).count() === 1, 'pesquisa encontra descrições sem exigir acentos')
+  await origins.getByRole('searchbox').fill('motor b')
+  check(await origins.getByRole('checkbox').count() === 1, 'pesquisa das origens filtra pelo nome da etapa')
+  await page.keyboard.press('Control+Enter')
+  check(await dialog().isVisible(), 'Ctrl+Enter na pesquisa de ligações não guarda o diálogo')
+  await origins.getByRole('searchbox').fill('')
+  check(await origins.getByRole('checkbox', { name: /^Etapa 0 / }).isChecked(), 'filtrar mantém a origem selecionada fora dos resultados')
+  await dialog().getByRole('button', { name: 'Inverter ligações', exact: true }).click()
+  check(await origins.getByRole('checkbox', { name: /^Etapa 1 / }).isChecked() && await destinations.getByRole('checkbox', { name: /^Etapa 0 / }).isChecked(), 'inverter troca origens e destinos no rascunho')
+  check(JSON.stringify((await readProgram()).transitions[0]) === JSON.stringify(originalTransition), 'inverter não altera o programa antes de guardar')
+  await dialog().getByRole('button', { name: 'Inverter ligações', exact: true }).click()
+  await origins.getByRole('button', { name: /Limpar/ }).click()
+  check(await origins.getByRole('checkbox', { checked: true }).count() === 0, 'limpar origens permite editar uma transição solta')
+  await origins.getByRole('checkbox', { name: /^Etapa 0 / }).check()
   await origins.getByRole('checkbox', { name: /^Etapa 2 / }).check()
   await destinations.getByRole('checkbox', { name: /^Etapa 2 / }).check()
   await snapshot('desktop-transition')
@@ -322,6 +348,36 @@ try {
   check((await readProgram()).steps[1].actions[0].kind === 'DA', 'guardar ação histórica não a converte silenciosamente para N')
   await setProgramFixture(beforeFixture)
 
+  const detachedFixture = JSON.parse(JSON.stringify(beforeFixture))
+  detachedFixture.steps.push({
+    id: 'ui-detached-step-fixture',
+    name: '99',
+    initial: false,
+    stepType: 'simple',
+    action: '',
+    condition: '1',
+    actions: [],
+    pinned: true,
+    x: 300,
+    y: 460,
+    chart: beforeFixture.steps[0].chart,
+  })
+  detachedFixture.transitions = [
+    ...(detachedFixture.transitions ?? []),
+    { id: 'ui-detached-transition-fixture', from: [], to: [], condition: 'I1', x: 420, y: 500 },
+  ]
+  detachedFixture.freeActions = [
+    ...(detachedFixture.freeActions ?? []),
+    { id: 'ui-detached-action-fixture', address: 'Q99', variable: 'Q99', condition: '1', x: 520, y: 500 },
+  ]
+  await setProgramFixture(detachedFixture)
+  check(await page.locator('.grafcet-step-detached-status').count() === 1, 'etapa isolada mostra o estado por ligar')
+  check(await page.locator('.grafcect-free .grafcet-detached-status').count() === 1, 'transição solta mostra o estado por ligar')
+  check(await page.locator('.grafcet-action-free .grafcet-action-detached-status').count() === 1, 'ação solta mostra o estado por ligar')
+  check(await page.locator('.grafcet-action-free').getAttribute('aria-keyshortcuts') === 'L', 'ação solta anuncia a ferramenta Ligar pela tecla L')
+  if (output) await page.locator('.grafcet-canvas').screenshot({ path: path.join(output, 'detached-elements.png') })
+  await setProgramFixture(beforeFixture)
+
   // Reopen at a phone width: the body scrolls while the actions stay usable.
   await page.setViewportSize({ width: 390, height: 844 })
   const collapse = page.getByRole('button', { name: 'Recolher ferramentas', exact: true })
@@ -358,7 +414,7 @@ try {
   check(canvasBeforeDrawer && canvasAfterDrawer && Math.abs(canvasBeforeDrawer.height - canvasAfterDrawer.height) < 2, 'recolher paleta não reserva uma faixa vazia na tela')
   await snapshot('mobile-editor')
   // SVG is still reachable in the canvas even when the inspector is collapsed.
-  await page.locator('.grafcet-graph-node').first().dblclick()
+  await page.locator('.grafcet-graph-node').first().locator('.grafcet-step-box').dblclick()
   await dialog().waitFor()
   await snapshot('mobile-step')
   const bounds = await dialog().boundingBox()

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { GrafcetStep, GrafcetStepType } from './engine'
 import PropertyDialog from '../ui/PropertyDialog'
+import { IconChevronRight } from '../ui/icons'
 
 interface StepDialogProps {
   open: boolean
@@ -12,8 +13,8 @@ interface StepDialogProps {
 }
 
 const STEP_TYPES: Array<{ id: GrafcetStepType; label: string; desc: string }> = [
-  { id: 'simple', label: 'Etapa simples', desc: 'Etapa simples da sequência' },
-  { id: 'initial', label: 'Etapa inicial', desc: 'Etapa inicial ativada no arranque' },
+  { id: 'simple', label: 'Etapa simples', desc: 'Ativada por uma transição' },
+  { id: 'initial', label: 'Etapa inicial', desc: 'Ativa no arranque da sequência' },
   { id: 'macro', label: 'Macroetapa', desc: 'Notação de macroetapa (M)' },
   { id: 'macro-input', label: 'Entrada de macroetapa', desc: 'Entrada de macro-etapa (E)' },
   { id: 'macro-output', label: 'Saída de macroetapa', desc: 'Saída de macro-etapa (S)' },
@@ -159,7 +160,6 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose 
             <label htmlFor="step-name-input">Nome ou número <span className="grafcet-required">obrigatório</span></label>
             <input id="step-name-input" data-initial-focus className="dc-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: 0, 10, Espera" aria-invalid={submitted && !!nameError} aria-describedby={submitted && nameError ? 'step-name-error' : undefined} />
             {submitted && nameError && <p id="step-name-error" className="grafcet-field-error" role="alert">{nameError}</p>}
-            <div className="grafcet-property-chips" aria-label="Sugestões de números">{quickStepNumbers.map((num) => <button key={num} type="button" onClick={() => setName(num)} aria-pressed={name === num}>{num}</button>)}</div>
           </div>
           <fieldset className="grafcet-property-section">
             <legend>Tipo de etapa</legend>
@@ -173,17 +173,17 @@ export default function StepDialog({ open, step, stepIndex = 0, onSave, onClose 
           <div className="grafcet-property-field">
             <label htmlFor="step-desc-input">Descrição <span className="grafcet-optional">opcional</span></label>
             <input id="step-desc-input" className="dc-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Avanço do cilindro A" />
-            <div className="grafcet-property-chips" aria-label="Sugestões de descrição">{quickDescChips.map((chip) => <button key={chip} type="button" onClick={() => setDescription(chip)}>{chip}</button>)}</div>
           </div>
+          <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Sugestões de preenchimento</summary><div><p>Nome ou número</p><div className="grafcet-property-chips" aria-label="Sugestões de números">{quickStepNumbers.map((num) => <button key={num} type="button" onClick={() => setName(num)} aria-pressed={name === num}>{num}</button>)}</div><p>Descrição</p><div className="grafcet-property-chips" aria-label="Sugestões de descrição">{quickDescChips.map((chip) => <button key={chip} type="button" onClick={() => setDescription(chip)}>{chip}</button>)}</div></div></details>
           <details className="grafcet-context-help grafcet-step-advanced" open={advancedOpen} onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}>
-            <summary>Notação avançada <span>{!['simple', 'initial'].includes(stepType) ? STEP_TYPES.find((type) => type.id === stepType)?.label : 'opcional'}</span></summary>
+            <summary><IconChevronRight size={11} />Notação avançada <span>{!['simple', 'initial'].includes(stepType) ? STEP_TYPES.find((type) => type.id === stepType)?.label : 'opcional'}</span></summary>
             <div>
               <p className="grafcet-property-warning">Macroetapas, encapsulamento e ligação de ativação são notação guardada. O simulador não executa sub-GRAFCETs nem hierarquias; estas etapas continuam na sequência atual.</p>
               <div className="grafcet-step-options">{STEP_TYPES.filter((type) => !['simple', 'initial'].includes(type.id)).map((type) => <label key={type.id} className={`grafcet-property-option ${stepType === type.id ? 'is-selected' : ''}`}><input type="radio" name="stepType" checked={stepType === type.id} onChange={() => setStepType(type.id)} />{renderTypeIcon(type.id)}<span><strong>{type.label}</strong><small>{type.desc}</small></span></label>)}</div>
               <label className="grafcet-property-checkbox"><input type="checkbox" checked={activationLink} onChange={(event) => setActivationLink(event.target.checked)} /><span>Ligação de ativação orientada · apenas notação</span></label>
             </div>
           </details>
-          <details className="grafcet-context-help"><summary>Como configurar esta etapa</summary><div><p>A etapa inicial fica ativa ao iniciar a sequência. As etapas simples são ativadas pelas transições ligadas a elas.</p><p>O nome é a identificação visual. Nas condições, <code>X0</code> consulta o índice 0 da lista global; mudar o nome para «Espera» não cria uma variável <code>XEspera</code>.</p><p>A descrição é opcional. Associe saídas através das ações da etapa; o nome ou a descrição não ligam saídas.</p></div></details>
+          <details className="grafcet-context-help"><summary><IconChevronRight size={11} />Como configurar esta etapa</summary><div><p>A etapa inicial fica ativa ao iniciar a sequência. As etapas simples são ativadas pelas transições ligadas a elas.</p><p>O nome é a identificação visual. Nas condições, <code>X0</code> consulta o índice 0 da lista global; mudar o nome para «Espera» não cria uma variável <code>XEspera</code>.</p><p>A descrição é opcional. Associe saídas através das ações da etapa; o nome ou a descrição não ligam saídas.</p></div></details>
         </section>
         <aside className="grafcet-property-preview">
           <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span>IEC 60848</span></div>

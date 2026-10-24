@@ -72,8 +72,8 @@ type ValidationIssue = GrafcetIssue
 const GRAFCET_MIME = 'application/x-dcsimu-grafcet'
 
 // Geometria das ações no diagrama (caixa IEC junto à etapa / solta)
-const ACTION_X = 330
-const ACTION_W = 195
+const ACTION_X = SPINE_X + 80
+const ACTION_W = 140
 const ACTION_H = 30
 const ACTION_QUALIFIER_W = 32
 const ACTION_PITCH = 38
@@ -85,6 +85,18 @@ const ACTION_OFFSET_X = ACTION_X - SPINE_X
 const ACTION_TOP_OFFSET = (STEP_H - ACTION_H) / 2
 /** Distância do barramento vertical de ligação à caixa da ação. */
 const ACTION_BUS_GAP = 24
+
+/** Keep diagram labels inside their lane; the complete value remains in the SVG title. */
+const diagramLabel = (value: string, limit: number) => value.length > limit ? `${value.slice(0, limit - 1).trimEnd()}…` : value
+const actionLabel = (action: GrafcetAction) => action.displayDescription && action.description
+  ? action.description
+  : action.variable || action.address || 'ação'
+const diagramCondition = (condition: string) => <>
+  <title>{condition}</title>
+  <tspan fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="4" strokeLinejoin="round">
+    {renderConditionTspans(condition === '1' ? '=1' : diagramLabel(condition || '1', 24))}
+  </tspan>
+</>
 
 /**
  * Ligação ortogonal etapa → ação com cantos arredondados:
@@ -227,6 +239,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const [hoveredStepId, setHoveredStepId] = useState<string | null>(null)
   const [hoveredTransitionId, setHoveredTransitionId] = useState<string | null>(null)
   const [hoveredActionId, setHoveredActionId] = useState<string | null>(null)
+  const [focusedStepId, setFocusedStepId] = useState<string | null>(null)
+  const [focusedTransitionId, setFocusedTransitionId] = useState<string | null>(null)
+  const [focusedActionId, setFocusedActionId] = useState<string | null>(null)
   /* Hover com «intenção»: entrar aplica-se logo, sair só limpa passados uns ms. Sem isto, ao
      atravessar a folga entre um componente e os seus botões (ou ao passar de um para outro), os
      botões desmontavam e montavam a cada movimento do rato — o «piscar». */
@@ -1015,11 +1030,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     const base = isPinned(step) ? step!.x! : SPINE_X
     return groupOffset && multi.includes(stepId) ? base + groupOffset.dx : base
   }
-  let maxRight = full ? 760 : 560
-  let maxBottom = cursorY + 35
+  let maxRight = full ? 440 : 400
+  let maxBottom = 280
   steps.forEach((step) => {
-    maxRight = Math.max(maxRight, stepX(step.id) + 320)
-    maxBottom = Math.max(maxBottom, stepY(step.id) + actionsOf(step).length * 36 + 140)
+    const count = actionsOf(step).length
+    maxRight = Math.max(maxRight, stepX(step.id) + (count ? ACTION_OFFSET_X + ACTION_W : 220) + 36)
+    maxBottom = Math.max(maxBottom, stepY(step.id) + Math.max(STEP_H + 84, ACTION_TOP_OFFSET + count * ACTION_PITCH + 28))
   })
 
   // ------------------------------------------------------------------
@@ -1036,7 +1052,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   transitions.forEach((t) => {
     if (!isFreeTransition(t)) return
     const p = transXY(t)
-    maxRight = Math.max(maxRight, p.x + 170)
+    maxRight = Math.max(maxRight, p.x + 220)
     maxBottom = Math.max(maxBottom, p.y + 70)
   })
 
@@ -1516,10 +1532,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     return () => observer.disconnect()
   }, [full])
 
-  const fit = full ? Math.min(1.35, Math.max(0.45, (viewport.width - 70) / width)) : Math.min(1, Math.max(0.25, (viewport.width - 28) / width))
+  const fit = full
+    ? Math.min(1.35, Math.max(0.15, Math.min((viewport.width - 70) / width, (viewport.height - 86) / height)))
+    : Math.min(1, Math.max(0.25, (viewport.width - 28) / width))
   const scale = zoom ?? fit
+  // Thin the visible grid by powers of two when zoomed out; snap geometry stays at GRID.
+  const gridSpacing = GRID * scale * 2 ** Math.max(0, Math.ceil(Math.log2(16 / (GRID * scale))))
   const position = pan ?? { x: (viewport.width - width * scale) / 2, y: full ? 38 : 22 }
-  const clamp = (value: number) => Math.max(0.25, Math.min(2.5, value))
+  const clamp = (value: number) => Math.max(full ? 0.15 : 0.25, Math.min(2.5, value))
 
   const zoomAt = (value: number, point: { x: number; y: number }) => {
     const next = clamp(value)
@@ -1880,8 +1900,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     const items = (ids.length ? ids : steps.map((s) => s.id)).map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) }))
     const box = boundsOf(items, 20)
     if (!box) return
-    box.x1 += 220 // as ações ficam à direita da etapa
-    const view = fitView(box, viewport.width, viewport.height, 0.25, 1.6)
+    items.forEach((item) => {
+      const count = actionsOf(stepById.get(item.id)!).length
+      box.x1 = Math.max(box.x1, item.x + (count ? ACTION_OFFSET_X + ACTION_W : 220) + 20)
+      box.y1 = Math.max(box.y1, item.y + ACTION_TOP_OFFSET + Math.max(0, count - 1) * ACTION_PITCH + ACTION_H + 20)
+    })
+    const view = fitView(box, viewport.width, viewport.height, 0.15, 1.6)
     setZoom(view.scale)
     setPan({ x: view.x, y: view.y })
     notify(ids.length ? 'Vista ampliada à seleção' : 'Vista ajustada ao diagrama')
@@ -2505,9 +2529,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
               ? gridOn
                 ? {
                     // A grelha acompanha pan/zoom e coincide com o encaixe (origem no eixo central e no topo da 1.ª etapa).
-                    backgroundImage: 'radial-gradient(#c5d2e6 1.1px, transparent 1.2px)',
-                    backgroundSize: `${GRID * scale}px ${GRID * scale}px`,
-                    backgroundPosition: `${position.x + SPINE_X * scale - (GRID * scale) / 2}px ${position.y + START_Y * scale - (GRID * scale) / 2}px`,
+                    backgroundImage: 'radial-gradient(#d6dfeb .75px, transparent .85px)',
+                    backgroundSize: `${gridSpacing}px ${gridSpacing}px`,
+                    backgroundPosition: `${position.x + SPINE_X * scale - gridSpacing / 2}px ${position.y + START_Y * scale - gridSpacing / 2}px`,
                   }
                 : { backgroundImage: 'none' }
               : undefined
@@ -2603,15 +2627,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                 height={height}
                 style={{ width, height }}
                 viewBox={`0 0 ${width} ${height}`}
+                fontFamily="Inter, Segoe UI, system-ui, -apple-system, sans-serif"
                 role="img"
                 aria-label="Etapas, ações e transições do GRAFCET"
               >
                 <defs>
-                  <marker id="grafcet-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
-                    <path d="M0 0 L7 3 L0 6" fill="none" stroke="#526883" />
+                  <marker id="grafcet-arrow" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                    <path d="M1 1 L7 4 L1 7" fill="none" stroke="#526883" strokeWidth="1.25" />
                   </marker>
-                  <marker id="grafcet-arrow-active" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
-                    <path d="M0 0 L7 3 L0 6" fill="none" stroke="#16a34a" />
+                  <marker id="grafcet-arrow-active" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                    <path d="M1 1 L7 4 L1 7" fill="none" stroke="#16a34a" strokeWidth="1.25" />
                   </marker>
                 </defs>
 
@@ -2682,10 +2707,20 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         onPointerCancel={resetTransDrag}
                         onMouseEnter={() => hoverElement('transition', transition.id)}
                         onMouseLeave={() => hoverElement('transition', null)}
+                        onFocus={() => {
+                          setFocusedTransitionId(transition.id)
+                          hoverElement('transition', transition.id)
+                        }}
+                        onBlur={() => {
+                          setFocusedTransitionId(null)
+                          hoverElement('transition', null)
+                        }}
                         role={full ? 'button' : undefined}
                         tabIndex={full ? 0 : undefined}
-                        aria-label={`Transição T${transitionIndex + 1} solta: ${transition.condition}. Arraste-a sobre uma etapa para ligar.`}
+                        aria-keyshortcuts="L"
+                        aria-label={`Transição T${transitionIndex + 1} por ligar: ${transition.condition}. Arraste-a sobre uma etapa ou use Ligar, tecla L.`}
                       >
+                        <title>{`Transição T${transitionIndex + 1} por ligar · arraste sobre uma etapa ou use a ferramenta Ligar [L]`}</title>
                         {/* halo de agarre generoso para rato e toque */}
                         <rect x={ftx - 42} y={fty - 34} width="84" height="68" fill="transparent" />
 
@@ -2736,14 +2771,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         </text>
                         <g transform={`translate(${ftx + 17}, ${fty + 4})`}>
                           <text fill={barColor} fontSize="12" fontWeight="600">
-                            {renderConditionTspans(transition.condition === '1' ? '=1' : (transition.condition || '1').slice(0, 24))}
+                            {diagramCondition(transition.condition)}
                           </text>
                         </g>
 
-                        {/* Etiqueta "solta" quando selecionada/em hover */}
-                        {full && (freeHovered || freeSelected) && !wireDraft && (
-                          <text x={ftx} y={fty - 38} textAnchor="middle" fill="#b45309" fontSize="9.5" fontWeight="700" style={{ pointerEvents: 'none' }}>
-                            {!sources.length && !targets.length ? 'arraste p/ ligar' : !sources.length ? 'ligue a origem' : 'ligue o destino'}
+                        {full && (
+                          <g className="grafcet-detached-status" pointerEvents="none">
+                            <rect x={ftx - 34} y={fty - 51} width="68" height="15" rx="4" />
+                            <text x={ftx} y={fty - 40} textAnchor="middle">POR LIGAR</text>
+                          </g>
+                        )}
+
+                        {/* A dica surge apenas durante foco/hover para não competir com o diagrama. */}
+                        {full && (freeHovered || freeSelected || focusedTransitionId === transition.id) && !wireDraft && (
+                          <text className="grafcet-detached-hint" x={ftx} y={fty + 47} textAnchor="middle" pointerEvents="none">
+                            arraste sobre etapa · Ligar [L]
                           </text>
                         )}
 
@@ -2853,11 +2895,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         tabIndex={full ? 0 : undefined}
                         aria-label={`Transição T${transitionIndex + 1}: ${transition.condition}`}
                       >
-                        <path d={path} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 3 : 2} markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
+                        <path d={path} fill="none" stroke={linkColor} strokeWidth={enabled || selectedLink ? 2 : 1.5} markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'} />
                         <path d={path} fill="none" stroke="transparent" strokeWidth="16" />
                         <line x1="50" y1={y + 83} x2="74" y2={y + 83} stroke={linkColor} strokeWidth={selectedLink || enabled ? 4 : 3} />
                         <text x="80" y={y + 86} fill={linkColor} fontSize="12" fontWeight="600">
-                          {renderConditionTspans(transition.condition.slice(0, 24))}
+                          {diagramCondition(transition.condition)}
                         </text>
                         {full && (isTransHovered || selectedLink) && (
                           <g
@@ -2908,7 +2950,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           d={linkPath}
                           fill="none"
                           stroke={linkColor}
-                          strokeWidth={enabled || selectedLink ? 3 : 2}
+                          strokeWidth={enabled || selectedLink ? 2 : 1.5}
                           markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
                         />
                         <path d={linkPath} fill="none" stroke="transparent" strokeWidth="18" />
@@ -2938,7 +2980,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         {/* Texto da condição formatada com suporte a barra superior / NOT */}
                         <g transform={`translate(${tx + 18}, ${ty + 4})`}>
                           <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                            {renderConditionTspans(transition.condition === '1' ? '=1' : transition.condition.slice(0, 28))}
+                            {diagramCondition(transition.condition)}
                           </text>
                         </g>
 
@@ -2946,8 +2988,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         {enabled && (
                           <g>
                             <circle cx={tx} cy={ty} r="7" fill="none" stroke="#22c55e" strokeWidth="2">
-                              <animate attributeName="r" values="7;13;7" dur="1.2s" repeatCount="indefinite" />
-                              <animate attributeName="opacity" values="0.9;0.2;0.9" dur="1.2s" repeatCount="indefinite" />
                             </circle>
                           </g>
                         )}
@@ -3025,9 +3065,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     const sBottom = sY + 54
                     const tTop = tY
                     const tx = sourceX
-                    const ty = sBottom + 12
+                    const ty = sBottom + 24
                     const trackX = Math.min(sourceX, targetX) - 97 - (transitionIndex % 3) * 16
-                    const returnPath = `M ${sourceX} ${sBottom} V ${sBottom + 24} H ${trackX} V ${tTop - 18} H ${targetX} V ${tTop}`
+                    const returnPath = `M ${sourceX} ${sBottom} V ${sBottom + 48} H ${trackX} V ${tTop - 24} H ${targetX} V ${tTop}`
 
                     return (
                       <g
@@ -3046,7 +3086,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           d={returnPath}
                           fill="none"
                           stroke={linkColor}
-                          strokeWidth={enabled || selectedLink ? 3 : 2}
+                          strokeWidth={enabled || selectedLink ? 2 : 1.5}
                           markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
                         />
                         <path
@@ -3089,7 +3129,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         {/* Texto da condição formatada */}
                         <g transform={`translate(${tx + 18}, ${ty + 4})`}>
                           <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                            {renderConditionTspans(transition.condition === '1' ? '=1' : transition.condition.slice(0, 28))}
+                            {diagramCondition(transition.condition)}
                           </text>
                         </g>
 
@@ -3097,8 +3137,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         {enabled && (
                           <g>
                             <circle cx={tx} cy={ty} r="7" fill="none" stroke="#22c55e" strokeWidth="2">
-                              <animate attributeName="r" values="7;13;7" dur="1.2s" repeatCount="indefinite" />
-                              <animate attributeName="opacity" values="0.9;0.2;0.9" dur="1.2s" repeatCount="indefinite" />
                             </circle>
                           </g>
                         )}
@@ -3166,7 +3204,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         <>
                           {/* Origens descem até à barra dupla (na divergência, é uma só linha com a transição) */}
                           {sources.map((value) => (
-                            <path key={`f-${value}`} d={`M ${stepX(value)} ${stepY(value) + STEP_BOTTOM} V ${iecBarY}`} fill="none" stroke={linkColor} strokeWidth={enabled ? 3 : 2} />
+                            <path key={`f-${value}`} d={`M ${stepX(value)} ${stepY(value) + STEP_BOTTOM} V ${iecBarY}`} fill="none" stroke={linkColor} strokeWidth={enabled ? 2 : 1.5} />
                           ))}
                           {/* Da barra dupla descem os destinos (na convergência, é uma só linha com a transição) */}
                           {targets.map((value) => (
@@ -3175,7 +3213,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                               d={`M ${stepX(value)} ${iecBarY + 4} V ${stepY(value) - 1}`}
                               fill="none"
                               stroke={linkColor}
-                              strokeWidth={enabled ? 3 : 2}
+                              strokeWidth={enabled ? 2 : 1.5}
                               markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
                             />
                           ))}
@@ -3189,13 +3227,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           </text>
                           <g transform={`translate(${tx + 18}, ${ty + 4})`}>
                             <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                              {renderConditionTspans(transition.condition === '1' ? '=1' : transition.condition.slice(0, 40))}
+                              {diagramCondition(transition.condition)}
                             </text>
                           </g>
                           {enabled && (
                             <circle cx={tx} cy={ty} r="7" fill="none" stroke="#22c55e" strokeWidth="2">
-                              <animate attributeName="r" values="7;13;7" dur="1.2s" repeatCount="indefinite" />
-                              <animate attributeName="opacity" values="0.9;0.2;0.9" dur="1.2s" repeatCount="indefinite" />
                             </circle>
                           )}
                         </>
@@ -3208,7 +3244,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           d={`M ${stepX(value) + 31} ${stepY(value) + 27} H ${tx} V ${ty}`}
                           fill="none"
                           stroke={linkColor}
-                          strokeWidth={enabled ? 3 : 2}
+                          strokeWidth={enabled ? 2 : 1.5}
                         />
                       ))}
 
@@ -3219,7 +3255,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           d={`M ${tx} ${ty} V ${stepY(value)} H ${stepX(value)}`}
                           fill="none"
                           stroke={linkColor}
-                          strokeWidth={enabled ? 3 : 2}
+                          strokeWidth={enabled ? 2 : 1.5}
                           markerEnd={enabled ? 'url(#grafcet-arrow-active)' : 'url(#grafcet-arrow)'}
                         />
                       ))}
@@ -3250,7 +3286,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       {/* Texto da condição formatada com suporte a barra superior (overbar) */}
                       <g transform={`translate(${tx + 16}, ${ty + 4})`}>
                         <text fill={linkColor} fontSize="12" fontWeight={enabled ? '700' : '600'}>
-                          {renderConditionTspans(transition.condition === '1' ? '=1' : transition.condition.slice(0, 24))}
+                          {diagramCondition(transition.condition)}
                         </text>
                       </g>
 
@@ -3329,6 +3365,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                   const isMacro = step.stepType === 'macro'
                   const isEnclosing = step.stepType === 'enclosing' || step.stepType === 'initial-enclosing'
                   const y = stepY(step.id)
+                  const isStepUnlinked = !transitions.some((t) => t.from.includes(step.id) || t.to.includes(step.id))
 
                   const onStepClick = (e: React.MouseEvent) => {
                     // Ferramenta Ligar: toque-a-toque — 1.º toque arma a saída da etapa, o 2.º define a entrada.
@@ -3364,11 +3401,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     <g
                       key={step.id}
                       data-step-id={step.id}
-                      className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${active ? 'is-active' : ''} ${isThisStepSelected ? 'is-selected' : ''} ${multi.includes(step.id) ? 'is-multi' : ''} ${transitions.some((t) => t.from.includes(step.id) || t.to.includes(step.id)) ? '' : 'is-unlinked'}`}
+                      className={`${full ? 'grafcet-graph-node' : ''} ${isStepBeingDragged ? 'grafcet-step-dragging' : ''} ${active ? 'is-active' : ''} ${isThisStepSelected ? 'is-selected' : ''} ${multi.includes(step.id) ? 'is-multi' : ''} ${isStepUnlinked ? 'is-unlinked' : ''}`}
                       transform={stepShiftX ? `translate(${stepShiftX}, 0)` : undefined}
                       role={full ? 'button' : undefined}
                       tabIndex={full ? 0 : undefined}
-                      aria-label={`Etapa ${stepNumber}: ${step.name}${active ? ', ativa' : ''}`}
+                      aria-keyshortcuts={isStepUnlinked ? 'L' : undefined}
+                      aria-label={`Etapa ${stepNumber}: ${step.name}${isStepUnlinked ? ', por ligar' : ''}${active ? ', ativa' : ''}`}
                       onClick={onStepClick}
                       onDoubleClick={onStepDoubleClick}
                       onPointerDown={(e) => onStepPointerDown(step, e)}
@@ -3377,6 +3415,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       onPointerCancel={onStepPointerCancel}
                       onMouseEnter={() => hoverElement('step', step.id)}
                       onMouseLeave={() => hoverElement('step', null)}
+                      onFocus={() => {
+                        setFocusedStepId(step.id)
+                        hoverElement('step', step.id)
+                      }}
+                      onBlur={() => {
+                        setFocusedStepId(null)
+                        hoverElement('step', null)
+                      }}
                       onDragOver={
                         full
                           ? (event) => {
@@ -3441,17 +3487,26 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       {full && wireDraft && wireHover?.kind === 'step-in' && wireHover.id === step.id && (
                         <rect x="113" y={y - 6} width="76" height="66" rx="6" fill="rgba(34,197,94,0.10)" stroke="#16a34a" strokeWidth="2.5" strokeDasharray="6 4" pointerEvents="none" />
                       )}
-                      {/* Ponto verde pulsante de atividade na etapa */}
-                      {active && (
-                        <circle cx="103" cy={y + 27} r="6" fill="#22c55e">
-                          <animate attributeName="opacity" values="1;.45;1" dur="1.4s" repeatCount="indefinite" />
-                        </circle>
+                      <title>{`Etapa ${stepNumber}${comment ? ` · ${comment}` : ''}${isStepUnlinked ? ' · por ligar — arraste uma transição ou use Ligar [L]' : ''}${active ? ` · ativa há ${fmtSeconds(runtime.elapsed?.[step.id] ?? 0)}` : ''}`}</title>
+
+                      {full && isStepUnlinked && (
+                        <>
+                          <g className="grafcet-detached-status grafcet-step-detached-status" pointerEvents="none">
+                            <rect x="119" y={y - 18} width="64" height="14" rx="4" />
+                            <text x="151" y={y - 8} textAnchor="middle">POR LIGAR</text>
+                          </g>
+                          {(isStepHovered || isThisStepSelected || focusedStepId === step.id) && (
+                            <text className="grafcet-detached-hint" x="151" y={y + 69} textAnchor="middle" pointerEvents="none">
+                              arraste uma transição · Ligar [L]
+                            </text>
+                          )}
+                        </>
                       )}
 
-                      {/* Nome/descrição personalizado acima da etapa quando existir */}
+                      {/* Captions occupy the right lane, clear of the incoming flow. */}
                       {comment && (
-                        <text x="151" y={y - 7} textAnchor="middle" fill="#334155" fontSize="11" fontWeight="600">
-                          {comment.slice(0, 32)}
+                        <text className="grafcet-step-caption" x={SPINE_X + 44} y={y - 9} fill="#475569" fontSize="11" fontWeight="600" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="5" strokeLinejoin="round">
+                          {diagramLabel(comment, 25)}
                         </text>
                       )}
 
@@ -3464,10 +3519,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         y={y}
                         width="64"
                         height="54"
-                        rx="4"
-                        fill={active ? '#ecfdf3' : isThisStepSelected ? '#eff6ff' : '#ffffff'}
+                        rx="2"
+                        fill={active ? '#edf9f1' : isThisStepSelected ? '#eff6ff' : '#ffffff'}
                         stroke={isThisStepSelected ? '#2563eb' : active ? '#16a34a' : '#334155'}
-                        strokeWidth={isThisStepSelected ? 2.75 : active ? 2.35 : 1.85}
+                        strokeWidth={isThisStepSelected || active ? 2 : 1.6}
                         vectorEffect="non-scaling-stroke"
                       />
 
@@ -3625,21 +3680,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       {/* Número da etapa centralizado e nítido dentro da caixa da etapa */}
                       <text
                         x="151"
-                        y={y + 34}
+                        y={y + (active ? 28 : 34)}
                         textAnchor="middle"
                         fill="#1e293b"
                         fontWeight="700"
-                        fontSize={stepNumber.length > 3 ? '14' : stepNumber.length > 2 ? '15' : '17'}
+                        fontSize={stepNumber.length > 3 ? '14' : stepNumber.length > 2 ? '16' : '19'}
+                        style={{ fontVariantNumeric: 'tabular-nums' }}
                       >
                         {stepNumber}
                       </text>
 
-                      {/* Tempo ativo da etapa com badge estilo pílula */}
+                      {/* Elapsed time stays inside the symbol, clear of flow and action lanes. */}
                       {active && (
-                        <g>
-                          <rect x="121" y={y + 59} width="60" height="17" rx="4" fill="#dcfce7" stroke="#16a34a" strokeWidth="1" />
-                          <text x="151" y={y + 71} textAnchor="middle" fill="#15803d" fontSize="10" fontWeight="700">
-                            ⏱ {fmtSeconds(runtime.elapsed?.[step.id] ?? 0)}
+                        <g className="grafcet-step-elapsed" pointerEvents="none">
+                          <text x="151" y={y + 40} textAnchor="middle" fill="#187442" fontSize="9" fontWeight="600" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                            {fmtSeconds(runtime.elapsed?.[step.id] ?? 0)}
                           </text>
                         </g>
                       )}
@@ -3772,7 +3827,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             d={link.d}
                             fill="none"
                             stroke={linkColor(link.rank)}
-                            strokeWidth={link.rank ? 2.5 : 1.5}
+                            strokeWidth={link.rank ? 2 : 1.4}
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           />
@@ -3819,6 +3874,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                             onPointerCancel={resetActionDrag}
                             onMouseEnter={() => hoverElement('action', action.id)}
                             onMouseLeave={() => hoverElement('action', null)}
+                            onFocus={() => {
+                              setFocusedActionId(action.id)
+                              hoverElement('action', action.id)
+                            }}
+                            onBlur={() => {
+                              setFocusedActionId(null)
+                              hoverElement('action', null)
+                            }}
                             style={full ? { cursor: 'grab', touchAction: 'none' } : undefined}
                             role="button"
                             tabIndex={0}
@@ -3826,15 +3889,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           >
                             {/* A linha conectora etapa → ação é desenhada na camada .grafcet-action-links (some durante o arrasto) */}
 
-                            {/* Ponto LED verde pulsante quando a ação está energizada */}
-                            {actionOn && (
-                              <g>
-                                <circle cx={renderX - 10} cy={actionY + actionH / 2} r="4.5" fill="#22c55e">
-                                  <animate attributeName="opacity" values="1;0.4;1" dur="1.2s" repeatCount="indefinite" />
-                                </circle>
-                                <circle cx={renderX - 10} cy={actionY + actionH / 2} r="7.5" fill="none" stroke="#22c55e" strokeWidth="1.2" opacity="0.6" />
-                              </g>
-                            )}
+                            <title>{`${kind} · ${actionLabel(action)}${action.variable ? ` · ${action.variable}` : ''}${isConditional ? ` · condição: ${action.condition}` : ''}`}</title>
 
                             {/* Bandeira / suporte superior da ação condicionada IEC */}
                             {isConditional && (
@@ -3852,7 +3907,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                                   fontSize="10"
                                   fontWeight="700"
                                 >
-                                  {action.condition}
+                                  {diagramLabel(action.condition!, 17)}
                                 </text>
                               </g>
                             )}
@@ -3867,10 +3922,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                               width={actionW}
                               height={actionH}
                               rx="2"
-                              fill={actionOn ? '#dcfce7' : isThisActionSelected ? '#eff6ff' : 'white'}
+                              fill={actionOn ? '#edf9f1' : isThisActionSelected ? '#eff6ff' : 'white'}
                               stroke={strokeColor}
-                              strokeWidth={isThisActionSelected ? 2.5 : actionOn ? 2 : 1.5}
+                              strokeWidth={isThisActionSelected || actionOn ? 2 : 1.4}
                             />
+                            <rect x={renderX + 1} y={actionY + 1} width={qualifierW - 1} height={actionH - 2} rx="1" fill={actionOn ? '#dff1e5' : isThisActionSelected ? '#e0edff' : '#f1f5f9'} pointerEvents="none" />
 
                             {/* Comando compulsivo: retângulo duplo interno */}
                             {(action.allocation === 'compulsory' || kind === 'C') && (
@@ -3927,20 +3983,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                               </g>
                             )}
                             {kind === 'N' && (
-                              <text x={renderX + qualifierW / 2} y={actionY + 19} textAnchor="middle" fill="#94a3b8" fontSize="11" fontWeight="600">N</text>
+                              <text x={renderX + qualifierW / 2} y={actionY + 19} textAnchor="middle" fill="#536780" fontSize="11" fontWeight="600">N</text>
                             )}
 
                             {/* Variável e descrição no corpo da ação */}
                             <text
                               x={renderX + qualifierW + 9}
-                              y={actionY + 19}
+                              y={actionY + (action.displayDescription && action.description && action.variable ? 13 : 19)}
                               fill={isThisActionSelected ? '#1d4ed8' : actionOn ? '#15803d' : '#1e293b'}
-                              fontSize="12"
+                              fontSize="11.5"
                               fontWeight={isThisActionSelected || actionOn ? 700 : 600}
+                              fontFamily={action.displayDescription && action.description ? undefined : 'ui-monospace, SFMono-Regular, Menlo, monospace'}
                             >
-                              {action.displayDescription && action.description ? action.description : (action.variable || action.address || 'ação')}
+                              {diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : 13)}
                               {action.displayDescription && action.description && action.variable && action.description !== action.variable ? (
-                                <tspan fill="#64748b" fontSize="10" fontWeight="500"> [{action.variable}]</tspan>
+                                <tspan x={renderX + qualifierW + 9} y={actionY + 24} fill="#64748b" fontSize="9" fontWeight="500" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">{diagramLabel(action.variable, isThisActionSelected || isThisActionHovered ? 10 : 16)}</tspan>
                               ) : null}
                             </text>
 
@@ -4064,11 +4121,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       onPointerCancel={full ? resetActionDrag : undefined}
                       onMouseEnter={() => hoverElement('action', action.id)}
                       onMouseLeave={() => hoverElement('action', null)}
+                      onFocus={() => {
+                        setFocusedActionId(action.id)
+                        hoverElement('action', action.id)
+                      }}
+                      onBlur={() => {
+                        setFocusedActionId(null)
+                        hoverElement('action', null)
+                      }}
                       style={full ? { cursor: 'grab', touchAction: 'none' } : { pointerEvents: 'none' }}
                       role="button"
                       tabIndex={0}
-                      aria-label={`Ação solta ${action.variable || action.address || ''} — arraste sobre uma etapa ou ligue por linha`}
+                      aria-keyshortcuts="L"
+                      aria-label={`Ação solta ${action.variable || action.address || ''} — arraste sobre uma etapa ou use Ligar, tecla L`}
                     >
+                      <title>{`${kind} · ${actionLabel(action)}${action.variable ? ` · ${action.variable}` : ''}${isConditional ? ` · condição: ${action.condition}` : ''} · ação por ligar · arraste sobre uma etapa ou use Ligar [L]`}</title>
                       {/* Halo transparente para agarrar com facilidade (rato e toque) */}
                       <rect x={x - 36} y={y - 18} width={ACTION_FREE_W + 72} height={ACTION_FREE_H + 36} fill="transparent" />
 
@@ -4081,7 +4148,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         <g>
                           <path d={`M ${x + 16} ${y} V ${y - 10} H ${x + 85}`} fill="none" stroke={strokeColor} strokeWidth="1.5" />
                           <text x={x + 20} y={y - 13} fill="#2563eb" fontSize="10" fontWeight="700">
-                            {action.condition}
+                            {diagramLabel(action.condition!, 17)}
                           </text>
                         </g>
                       )}
@@ -4101,24 +4168,25 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                         strokeWidth={isThisActionSelected ? 2.5 : 1.7}
                         strokeDasharray={isThisActionSelected ? undefined : '6 3'}
                       />
+                      <rect x={x + 1} y={y + 1} width={ACTION_QUALIFIER_W - 1} height={ACTION_FREE_H - 2} rx="1" fill={isThisActionSelected ? '#e0edff' : '#fef0cc'} pointerEvents="none" />
                       <line x1={x + ACTION_QUALIFIER_W} y1={y} x2={x + ACTION_QUALIFIER_W} y2={y + ACTION_FREE_H} stroke={strokeColor} strokeWidth="1.5" />
                       <text x={x + ACTION_QUALIFIER_W / 2} y={y + 19} textAnchor="middle" fill="#b45309" fontSize="11" fontWeight="700">
                         {kindLabel}
                       </text>
-                      <text x={x + ACTION_QUALIFIER_W + 9} y={y + 19} fill={isThisActionSelected ? '#1d4ed8' : '#1e293b'} fontSize="12" fontWeight={isThisActionSelected ? 700 : 600}>
-                        {action.displayDescription && action.description ? action.description : action.variable || action.address || 'ação'}
+                      <text x={x + ACTION_QUALIFIER_W + 9} y={y + 19} fill={isThisActionSelected ? '#1d4ed8' : '#1e293b'} fontSize="11.5" fontWeight={isThisActionSelected ? 700 : 600} fontFamily={action.displayDescription && action.description ? undefined : 'ui-monospace, SFMono-Regular, Menlo, monospace'}>
+                        {diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : 13)}
                       </text>
 
-                      {/* Etiqueta SOLTA no topo direito da caixa */}
-                      <g transform={`translate(${x + ACTION_FREE_W - 44}, ${y - 8})`}>
-                        <rect width="44" height="15" rx="3.5" fill="#fef3c7" stroke="#f59e0b" strokeWidth="1" />
-                        <text x="22" y="11" textAnchor="middle" fill="#b45309" fontSize="8.5" fontWeight="700" letterSpacing="0.4">SOLTA</text>
+                      {/* A marca permanece fora da caixa para não colidir com controlos ou texto. */}
+                      <g className="grafcet-detached-status grafcet-action-detached-status" transform={`translate(${x - 50}, ${y - 11})`} pointerEvents="none">
+                        <rect width="64" height="15" rx="4" />
+                        <text x="32" y="10.5" textAnchor="middle">POR LIGAR</text>
                       </g>
 
                       {/* Dica contextual */}
-                      {full && (isThisActionHovered || isThisActionSelected) && (
-                        <text x={x + 2} y={y + ACTION_FREE_H + 15} fill="#b45309" fontSize="9.5" fontStyle="italic" pointerEvents="none">
-                          arraste sobre uma etapa para ligar
+                      {full && (isThisActionHovered || isThisActionSelected || focusedActionId === action.id) && (
+                        <text className="grafcet-detached-hint" x={x + ACTION_FREE_W / 2} y={y + ACTION_FREE_H + 15} textAnchor="middle" pointerEvents="none">
+                          arraste para etapa · Ligar [L]
                         </text>
                       )}
 
@@ -4242,7 +4310,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           />
                           <circle cx={wireDraft.x} cy={wireDraft.y} r="4" fill={color} />
                           <circle cx={from.x} cy={from.y} r="6.5" fill="none" stroke={color} strokeWidth="2" opacity="0.7">
-                            <animate attributeName="r" values="5;8;5" dur="1.1s" repeatCount="indefinite" />
                           </circle>
                         </>
                       )
@@ -4353,7 +4420,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
         {/* PAINEL DE PROPRIEDADES À DIREITA (Estrutura e Abas Clássicas: Etapas, Transições, Simulador, Diagnóstico) */}
         {full && (
-          <aside className={`grafcet-properties ${propsOpen ? 'is-open' : ''} ${propsTall ? 'is-tall' : ''}`}>
+          <aside className={`grafcet-properties ${propsOpen ? 'is-open' : ''} ${propsTall ? 'is-tall' : ''} ${tab === 'io' && simVisible ? 'is-simulator' : ''}`}>
             <div className="grafcet-properties-summary" onClick={() => setPropsOpen((value) => !value)}>
               <div>
                 <strong>
@@ -4509,12 +4576,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                               setSelected(null)
                               setSelectedActionId(action.id)
                             }}
-                            title="Sem etapa — arraste a caixa sobre uma etapa no diagrama ou ligue por linha [L]"
+                            title="Sem etapa — arraste a caixa sobre uma etapa ou use Ligar [L]"
                           >
                             <i className="is-pending" />
                             ▤ <b>{action.variable || action.address || 'ação'}</b>
                             {action.condition && action.condition !== '1' && <span className="grafcet-free-action-cond">· {action.condition}</span>}
-                            <em className="grafcet-tag-free">solta</em>
+                            <em className="grafcet-tag-free">por ligar</em>
                           </button>
                           <button aria-label="Editar ação solta" title="Editar ação" onClick={() => setEditingAction({ step: null, action })}>
                             ✎
@@ -4857,7 +4924,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                           T{index + 1}: {transition.from.length ? transition.from.map(getStepNum).join('+') : '—'} →{' '}
                           {transition.to.length ? transition.to.map(getStepNum).join('+') : '—'}{' '}
                           <span className={!validCondition(transition.condition) ? 'grafcet-error' : ''}>[{transition.condition}]</span>
-                          {incomplete && <em className="grafcet-tag-free">solta</em>}
+                          {incomplete && <em className="grafcet-tag-free">por ligar</em>}
                         </button>
                         <button
                           title="Aumentar prioridade"
@@ -5001,6 +5068,15 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber
                   }}
                   extraBits={liveBitsAll}
+                  stepDescription={(stepId) => {
+                    const index = steps.findIndex((step) => step.id === stepId)
+                    const step = steps[index]
+                    return step ? getStepDisplayInfo(step, index).comment || step.name || '' : ''
+                  }}
+                  onOpenStep={(stepId) => {
+                    setSelected(stepId)
+                    setTab('steps')
+                  }}
                   onRenameTransition={(transitionId, name) =>
                     updateTransition(transitionId, { name }, 'auto', `grafcet:transition:${transitionId}:name`)
                   }
@@ -5013,34 +5089,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                     setTab('transitions')
                   }}
                 />
-                <div className="vio-panel is-compact">
-                  <div className="vio-head">
-                    <strong>Etapas ativas</strong>
-                    <small>{runtime.fired ?? 0} transição(ões) disparada(s)</small>
-                  </div>
-                  <div className="grafcet-active-list">
-                    {runtime.active.length ? (
-                      runtime.active.map((value) => {
-                        const index = steps.findIndex((step) => step.id === value)
-                        const step = steps[index]
-                        const { stepNumber, comment } = step ? getStepDisplayInfo(step, index) : { stepNumber: '?', comment: '' }
-                        return (
-                          <button
-                            key={value}
-                            onClick={() => {
-                              setSelected(value)
-                              setTab('steps')
-                            }}
-                          >
-                            <b>{stepNumber}</b> {comment || step?.name} <em>{fmtSeconds(runtime.elapsed?.[value] ?? 0)}</em>
-                          </button>
-                        )
-                      })
-                    ) : (
-                      <small>Nenhuma etapa ativa. Prima Run (ou Passo a passo) para começar.</small>
-                    )}
-                  </div>
-                </div>
               </div>
             )}
 

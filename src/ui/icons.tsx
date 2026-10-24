@@ -15,8 +15,10 @@ import {
   faAlignLeft,
   faAlignRight,
   faArrowLeft,
+  faArrowDown,
   faArrowPointer,
   faArrowRight,
+  faArrowUp,
   faArrowRotateLeft,
   faArrowsLeftRight,
   faArrowsUpDown,
@@ -159,6 +161,8 @@ export const IconChevronRight = fa(faChevronRight)
 export const IconChevronUp = fa(faChevronUp)
 export const IconArrowRight = fa(faArrowRight)
 export const IconArrowLeft = fa(faArrowLeft)
+export const IconArrowUp = fa(faArrowUp)
+export const IconArrowDown = fa(faArrowDown)
 export const IconLock = fa(faLock)
 export const IconUnlock = fa(faLockOpen)
 export const IconShield = fa(faShieldHalved)

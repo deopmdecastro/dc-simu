@@ -39,7 +39,7 @@
   min-width: 0;
   overflow: auto;
   background-color: #fbfcfe;
-  background-image: radial-gradient(#dce5f4 1px, transparent 1px);
+  background-image: radial-gradient(#dbe3ed .8px, transparent .8px);
   background-size: 20px 20px;
   padding: 18px;
   cursor: default;
@@ -238,17 +238,17 @@
 /* Hover/seleção de etapas: cor do contorno + halo translúcido. Só o contorno da caixa muda (nunca a zona
    de hover invisível nem os botões) e não há filtros nem larguras a mudar — nada que repinte o grupo ou
    desloque a geometria sob o cursor. */
-.grafcet-hover-halo { fill:none; stroke:#2563eb; stroke-width:9px; stroke-opacity:0; vector-effect:non-scaling-stroke; pointer-events:none; transition:stroke-opacity .14s ease; }
+.grafcet-hover-halo { fill:none; stroke:#2563eb; stroke-width:5px; stroke-opacity:0; vector-effect:non-scaling-stroke; pointer-events:none; transition:stroke-opacity .14s ease; }
 .grafcet-graph-node:hover .grafcet-hover-halo,
-.grafcet-graph-action:hover .grafcet-hover-halo { stroke-opacity:.16; }
-.grafcet-graph-node.is-multi .grafcet-hover-halo { stroke-opacity:.2; }
+.grafcet-graph-action:hover .grafcet-hover-halo { stroke-opacity:.09; }
+.grafcet-graph-node.is-multi .grafcet-hover-halo { stroke-opacity:.14; }
 .grafcet-graph-node.is-selected .grafcet-hover-halo,
-.grafcet-graph-action.is-selected .grafcet-hover-halo { stroke-opacity:.26; }
+.grafcet-graph-action.is-selected .grafcet-hover-halo { stroke-opacity:.16; }
 /* selecionado + cursor por cima: halo mais forte e contorno mais escuro, para se distinguir do simples hover */
 .grafcet-graph-node.is-selected:hover .grafcet-hover-halo,
 .grafcet-graph-node.is-multi:hover .grafcet-hover-halo,
-.grafcet-graph-action.is-selected:hover .grafcet-hover-halo { stroke-opacity:.4; stroke-width:11px; }
-.grafcet-graph-node.is-active .grafcet-hover-halo { stroke:#16a34a; }
+.grafcet-graph-action.is-selected:hover .grafcet-hover-halo { stroke-opacity:.2; }
+.grafcet-graph-node.is-active:not(.is-selected):not(.is-multi) .grafcet-hover-halo { stroke:#16a34a; }
 .grafcet-graph-node:not(.is-active):not(.is-selected):hover .grafcet-step-box { stroke:#3b82f6; }
 .grafcet-graph-node.is-selected:hover .grafcet-step-box,
 .grafcet-graph-node.is-multi:hover .grafcet-step-box { stroke:#1d4ed8; }
@@ -400,7 +400,7 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 
 .grafcet-graph-action.is-selected .grafcet-action-box {
   stroke: #2563eb !important;
-  stroke-width: 2.5px !important;
+  stroke-width: 2px !important;
 }
 .grafcet-graph-action.is-selected:hover .grafcet-action-box { stroke: #1d4ed8 !important; }
 .grafcet-properties-summary { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:38px; padding:0 1px; }
@@ -499,7 +499,7 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-step-timer { font-size: 11px; color: #15803d; font-weight: 600; }
 .grafcet-issue.is-error b { color: #dc2626; }
 .grafcet-issue.is-warning b { color: #d97706; }
-.grafcet-io { display: grid; gap: 8px; overflow: auto; }
+.grafcet-io { display: grid; align-content: start; gap: 12px; min-width: 0; }
 .grafcet-active-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .grafcet-active-list button { display: inline-flex; gap: 6px; align-items: center; padding: 4px 8px; border: 1px solid #16a34a; background: #dcfce7; border-radius: 6px; font-size: 11px; cursor: pointer; }
 .grafcet-active-list em { font-style: normal; color: #15803d; font-variant-numeric: tabular-nums; }
@@ -1127,28 +1127,28 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 
 
 /* Propriedades GRAFCET: uma superfície de trabalho, com pré-visualização ao vivo. */
-.grafcet-property-backdrop { padding:24px; background:rgba(15,23,42,.48); }
+.grafcet-property-backdrop { z-index:10040; padding:24px; background:rgba(15,23,42,.48); }
 .grafcet-property-dialog {
   --property-blue:#2455d8;
-  width:min(880px,100%); max-height:calc(100dvh - 48px); min-height:0;
+  width:min(920px,100%); max-height:calc(100dvh - 48px); min-height:0;
   display:flex; flex-direction:column; overflow:hidden; background:#fff;
   border:1px solid #c3cede; border-radius:12px;
   box-shadow:0 24px 80px #0f172a38; color:#25344c; font:inherit; font-size:13px;
 }
 .grafcet-property-dialog:focus { outline:none; }
-.grafcet-property-header { display:flex; flex:none; align-items:flex-start; justify-content:space-between; gap:16px; padding:22px 24px 18px; border-bottom:1px solid #e2e8f0; }
-.grafcet-property-eyebrow { display:block; margin-bottom:6px; color:#526681; font-size:10px; font-weight:750; letter-spacing:.1em; }
-.grafcet-property-header h2 { margin:0; font-size:21px; font-weight:750; line-height:1.3; letter-spacing:-.025em; }
+.grafcet-property-header { display:flex; flex:none; align-items:flex-start; justify-content:space-between; gap:16px; padding:18px 24px 16px; border-bottom:1px solid #e2e8f0; }
+.grafcet-property-eyebrow { display:block; margin-bottom:4px; color:#526681; font-size:9px; font-weight:750; letter-spacing:.1em; }
+.grafcet-property-header h2 { margin:0; font-size:20px; font-weight:750; line-height:1.3; letter-spacing:-.025em; }
 .grafcet-property-header p { margin:5px 0 0; font-size:12px; line-height:1.5; color:#52617a; }
 .grafcet-property-close { width:32px; height:32px; flex:none; display:grid; place-items:center; border:1px solid #dce4ef; border-radius:6px; background:#fff; color:#52617a; font-size:24px; line-height:1; }
 .grafcet-property-close:hover { background:#f1f5f9; color:#25344c; }
 .grafcet-property-content { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; }
-.grafcet-property-grid { display:grid; grid-template-columns:minmax(0,1fr) 270px; gap:24px; padding:24px; align-items:start; }
-.grafcet-property-fields { min-width:0; display:flex; flex-direction:column; gap:20px; }
+.grafcet-property-grid { display:grid; grid-template-columns:minmax(0,1fr) 250px; gap:24px; padding:20px 24px; align-items:start; }
+.grafcet-property-fields { min-width:0; display:flex; flex-direction:column; gap:16px; }
 .grafcet-property-field { display:flex; flex-direction:column; gap:7px; min-width:0; }
 .grafcet-property-field > label, .grafcet-property-label { display:flex; align-items:center; gap:7px; color:#25344c; font-size:12px; font-weight:650; }
 .grafcet-required, .grafcet-optional { color:#61718a; font-size:10px; font-weight:400; }
-.grafcet-property-dialog .dc-input { width:100%; min-width:0; min-height:36px; padding:8px 10px; border:1px solid #bccade; border-radius:6px; background:#fff; color:#172b49; font-size:13px; line-height:1.4; }
+.grafcet-property-dialog .dc-input { width:100%; min-width:0; min-height:32px; padding:6px 10px; border:1px solid #bccade; border-radius:6px; background:#fff; color:#172b49; font-size:13px; line-height:1.4; }
 .grafcet-property-dialog .dc-input:focus { border-color:var(--property-blue); outline:2px solid #2455d829; outline-offset:1px; }
 .grafcet-property-dialog .dc-input[aria-invalid="true"] { border-color:#c43e45; background:#fffafa; }
 .grafcet-code-input { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
@@ -1157,7 +1157,7 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-property-chips button:hover { border-color:#92b0ef; color:#2455d8; background:#eef4ff; }
 .grafcet-property-chips button[aria-pressed="true"] { border-color:#a9bef7; background:#eaf0ff; color:#1944b8; }
 .grafcet-property-section { min-width:0; margin:0; padding:0; border:0; display:flex; flex-direction:column; gap:10px; }
-.grafcet-property-section > legend { display:block; width:100%; margin-bottom:10px; padding:0; font-size:12px; font-weight:700; color:#25344c; }
+.grafcet-property-section > legend { display:block; width:100%; margin-bottom:8px; padding:0; font-size:12px; font-weight:700; color:#25344c; }
 .grafcet-step-options { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
 .grafcet-property-option { display:flex; align-items:center; gap:8px; padding:10px; min-width:0; border:1px solid #dce4ef; border-radius:6px; background:#fff; cursor:pointer; font-size:11px; }
 .grafcet-property-option:hover { border-color:#9eb7e8; background:#f7faff; }
@@ -1181,24 +1181,24 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-property-field > .grafcet-property-checkbox { font-size:11px; font-weight:400; }
 .grafcet-field-error { margin:0; color:#b42332; font-size:11px; line-height:1.5; }
 .grafcet-property-note { margin:0; color:#526681; font-size:11px; line-height:1.6; }
-.grafcet-property-preview { position:sticky; top:0; align-self:start; min-width:0; overflow:hidden; padding:16px; border:1px solid #dce4ef; border-radius:8px; background:#f5f8fc; }
+.grafcet-property-preview { position:sticky; top:0; align-self:start; min-width:0; overflow:hidden; padding:16px; border:1px solid #dce4ef; border-radius:8px; background:#f8fafc; }
 .grafcet-property-preview-label { display:flex; align-items:center; justify-content:space-between; gap:8px; color:#526681; font-size:10px; }
 .grafcet-property-preview-label span:first-child { font-weight:700; color:#334b6e; }
-.grafcet-property-drawing { display:grid; place-items:center; min-height:168px; margin:12px 0 16px; padding:12px; border:1px solid #dce4ef; border-radius:6px; background-color:#fff; background-image:radial-gradient(#dce5f4 .8px,transparent .8px); background-size:12px 12px; }
+.grafcet-property-drawing { display:grid; place-items:center; min-height:140px; margin:12px 0 16px; padding:8px; border:1px solid #dce4ef; border-radius:6px; background-color:#fff; background-image:radial-gradient(#dce5f4 .8px,transparent .8px); background-size:12px 12px; }
 .grafcet-property-drawing svg { display:block; width:100%; max-width:100%; overflow:hidden; }
 .grafcet-property-preview > strong { display:block; font-size:13px; font-weight:700; color:#25344c; }
 .grafcet-property-preview > p { margin:7px 0 16px; color:#526681; font-size:11px; line-height:1.65; }
 .grafcet-property-preview-value { display:flex; flex-direction:column; gap:4px; border-top:1px solid #dce4ef; padding:10px 0; font-size:11px; overflow-wrap:anywhere; }
 .grafcet-property-preview-value > span:first-child { color:#526681; font-size:10px; }
 .grafcet-property-preview-value code { color:#25344c; font-family:ui-monospace,Consolas,monospace; }
-.grafcet-property-footer { display:flex; flex:none; align-items:center; justify-content:flex-end; gap:8px; padding:14px 24px; background:#fafbfd; border-top:1px solid #dce4ef; }
-.grafcet-property-footer .grafcet-fluidsim-btn { min-height:36px; padding:8px 13px; border-color:#c4cede; border-radius:6px; font-size:12px; box-shadow:none; }
+.grafcet-property-footer { display:flex; flex:none; align-items:center; justify-content:flex-end; gap:8px; padding:12px 24px; background:#fafbfd; border-top:1px solid #dce4ef; }
+.grafcet-property-footer .grafcet-fluidsim-btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:34px; padding:7px 12px; border-color:#c4cede; border-radius:6px; font-size:12px; box-shadow:none; }
 .grafcet-property-footer .grafcet-fluidsim-btn.primary { border-color:#2455d8; background:#2455d8; }
 .grafcet-property-footer .grafcet-fluidsim-btn.primary:hover { background:#1944b8; }
 .grafcet-property-help { margin-right:auto; font-size:11px; color:#2455d8; }
 .grafcet-property-footer-hint { margin-right:auto; font-size:10px; color:#61718a; white-space:nowrap; }
 .grafcet-property-help + .grafcet-property-footer-hint { display:none; }
-.grafcet-property-dialog button:focus-visible, .grafcet-property-dialog input:focus-visible { outline:2px solid #2455d8; outline-offset:3px; }
+.grafcet-property-dialog :is(button,input,textarea,select,summary,a):focus-visible { outline:2px solid #2455d8; outline-offset:3px; }
 .grafcet-property-dialog .grafcet-fluidsim-body { max-height:none; overflow:visible; padding:24px; gap:20px; }
 .grafcet-property-dialog .grafcet-fluidsim-col-left, .grafcet-property-dialog .grafcet-fluidsim-col-right { min-width:0; }
 .grafcet-property-dialog .grafcet-fluidsim-group { border-color:#dce4ef; padding:12px; background:#f7f9fc; }
@@ -1298,7 +1298,7 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-condition-tools button { min-width:28px; min-height:30px; padding:5px 8px; border:1px solid #cdd8e9; border-radius:5px; background:#fff; color:#334b6e; font:600 11px ui-monospace,Consolas,monospace; }
 .grafcet-condition-tools button:hover { border-color:#87a6e8; background:#eef4ff; color:#1944b8; }
 .grafcet-condition-tools .grafcet-insert-variable { margin-left:auto; background:#eef4ff; color:#1944b8; font-family:inherit; font-size:11px; }
-.grafcet-condition-status { margin:0; font-size:11px; font-weight:650; line-height:1.5; }
+.grafcet-condition-status { display:flex; align-items:center; gap:6px; margin:0; font-size:11px; font-weight:650; line-height:1.5; }
 .grafcet-condition-status span { display:block; font-size:10px; font-weight:400; color:#526681; }
 .grafcet-condition-status.is-valid { color:#167243; }
 .grafcet-condition-status.is-incomplete { color:#975c08; }
@@ -1319,7 +1319,12 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-condition-results button span { color:#526681; font-size:10px; text-align:right; overflow-wrap:anywhere; }
 .grafcet-condition-results > p { margin:0; padding:8px; color:#526681; font-size:11px; line-height:1.5; }
 .grafcet-context-help { padding:0; border:1px solid #dce4ef; border-radius:6px; background:#fafbfd; font-size:11px; }
-.grafcet-context-help > summary { padding:11px 12px; color:#334b6e; font-weight:650; cursor:pointer; }
+.grafcet-context-help > summary { min-width:0; padding:10px 12px; color:#334b6e; font-weight:650; cursor:pointer; }
+.grafcet-context-help > summary:has(> svg) { display:flex; align-items:center; gap:8px; list-style:none; }
+.grafcet-context-help > summary:has(> svg)::-webkit-details-marker { display:none; }
+.grafcet-context-help > summary:has(> svg)::marker { content:''; }
+.grafcet-context-help > summary > svg { flex:none; color:#61718b; transition:transform .15s ease; }
+.grafcet-context-help[open] > summary > svg { transform:rotate(90deg); }
 .grafcet-context-help > summary:focus-visible { outline:2px solid #2455d8; outline-offset:2px; }
 .grafcet-context-help > summary > span { color:#526681; font-size:10px; font-weight:400; margin-left:8px; }
 .grafcet-context-help > div { display:flex; flex-direction:column; gap:12px; padding:0 12px 12px; }
@@ -1362,6 +1367,66 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   .grafcet-context-help > summary { padding:13px 12px; }
 }
 
+
+/* Edição de propriedades: ferramentas compactas e ligações pesquisáveis. */
+.grafcet-property-footer-hint kbd { padding:2px 4px; border:1px solid #dce4ef; border-radius:4px; background:#fff; font:inherit; color:#435773; }
+.grafcet-footer-separator { padding:0 7px; color:#7c8ca3; }
+.grafcet-property-dialog .grafcet-inline-disclosure { border:0; border-radius:0; background:transparent; }
+.grafcet-property-dialog .grafcet-inline-disclosure > summary { min-height:28px; padding:3px 0; font-size:11px; font-weight:500; }
+.grafcet-property-dialog .grafcet-inline-disclosure[open] > summary { margin-bottom:7px; }
+.grafcet-property-dialog .grafcet-inline-disclosure > div { gap:8px; padding:0 0 4px 19px; }
+.grafcet-property-dialog .grafcet-condition-tools button { display:inline-flex; align-items:center; justify-content:center; min-height:32px; }
+.grafcet-property-dialog .grafcet-condition-picker-head button { display:grid; place-items:center; }
+.grafcet-property-dialog .grafcet-signal-picker-trigger { display:flex; align-items:center; gap:7px; background:#fff; border-color:#dce4ef; }
+.grafcet-property-dialog .grafcet-signal-picker-trigger > svg:last-child { margin-left:auto; }
+.grafcet-property-dialog .grafcet-allocation-options-primary strong > svg { margin-right:5px; }
+.grafcet-property-dialog .grafcet-allocation-options .grafcet-property-option > span > svg { margin-right:5px; }
+.grafcet-property-dialog #action-time-input { max-width:150px; }
+.grafcet-transition-connections { display:flex; flex-direction:column; gap:10px; padding-top:14px; border-top:1px solid #e2e8f0; }
+.grafcet-connections-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+.grafcet-connections-heading h3 { display:flex; align-items:center; gap:7px; margin:0; font-size:12px; font-weight:700; }
+.grafcet-property-dialog .grafcet-connections-swap { display:inline-flex; align-items:center; gap:6px; min-height:30px; padding:5px 8px; border:1px solid #dce4ef; border-radius:5px; background:#fff; color:#435773; font-size:10px; }
+.grafcet-property-dialog .grafcet-connections-swap:hover:not(:disabled) { color:#1944b8; background:#f0f5ff; border-color:#a9bef7; }
+.grafcet-property-dialog .grafcet-connections-swap:disabled { opacity:.5; cursor:not-allowed; }
+.grafcet-connection-selector { gap:7px; }
+.grafcet-connection-search { position:relative; display:flex; align-items:center; min-width:0; color:#6b7c94; }
+.grafcet-connection-search > svg { position:absolute; left:9px; pointer-events:none; }
+.grafcet-property-dialog .grafcet-connection-search .dc-input { min-height:32px; padding-left:28px; font-size:11px; background:#fff; }
+.grafcet-connection-options { min-height:100px; max-height:150px; padding:4px; background:#fbfcfe; }
+.grafcet-connection-options label { align-items:center; min-height:34px; padding:7px; }
+.grafcet-connection-options input { margin:0; accent-color:var(--property-blue); }
+.grafcet-connection-options .grafcet-property-note { padding:8px; }
+.grafcet-connection-name { font-weight:400; }
+.grafcet-connection-selector-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:24px; color:#61718a; font-size:10px; }
+.grafcet-connection-selector-footer .grafcet-link-button { min-height:24px; padding:2px 4px; font-size:10px; text-decoration:none; }
+.grafcet-connection-selector-footer button:disabled { color:#7b889a; cursor:not-allowed; text-decoration:none; }
+.grafcet-preview-live { display:inline-flex; align-items:center; gap:5px; font-size:9px; color:#526681; }
+.grafcet-preview-live::before { content:''; width:5px; height:5px; border-radius:50%; background:#7295dd; }
+.grafcet-map-arrow { display:flex; align-items:center; justify-content:center; min-height:18px; color:#6f86a8; }
+.grafcet-map-transition > span { display:inline-flex; align-items:center; justify-content:center; gap:5px; }
+.grafcet-typeahead-hint > svg { margin-right:3px; vertical-align:middle; }
+@media (prefers-reduced-motion:reduce) { .grafcet-context-help > summary > svg { transition:none; } }
+@media (max-width:600px) {
+  .grafcet-property-header { padding:14px 16px; }
+  .grafcet-property-fields { gap:16px; }
+  .grafcet-property-dialog .dc-input { min-height:40px; padding-top:8px; padding-bottom:8px; }
+  .grafcet-property-dialog .grafcet-connection-search .dc-input { min-height:40px; font-size:16px; }
+  .grafcet-property-dialog .grafcet-condition-tools button,
+  .grafcet-property-dialog .grafcet-signal-picker-trigger,
+  .grafcet-property-dialog .grafcet-condition-picker-head button,
+  .grafcet-property-dialog .grafcet-connections-swap { min-height:40px; }
+  .grafcet-property-dialog .grafcet-condition-tools button { min-width:36px; }
+  .grafcet-property-dialog .grafcet-inline-disclosure > summary { min-height:40px; }
+  .grafcet-property-footer { padding:10px 12px; }
+  .grafcet-property-footer .grafcet-fluidsim-btn { min-height:40px; flex:0 0 auto; }
+  .grafcet-property-footer .grafcet-fluidsim-btn.primary { flex:1; }
+  .grafcet-property-footer-hint { display:block; flex:0 0 100%; margin-bottom:2px; font-size:9px; }
+  .grafcet-connection-options { max-height:176px; min-height:80px; }
+  .grafcet-connection-selector-footer .grafcet-link-button { min-height:36px; padding:4px 8px; }
+  .grafcet-property-dialog .grafcet-qualifier-options button { min-height:52px; }
+  .grafcet-property-dialog .grafcet-property-option { min-height:48px; }
+  .grafcet-property-dialog .grafcet-property-choice-row { grid-template-columns:1fr; }
+}
 
 /* Tabela do PLC/projeto: declaração única, sugestões por endereço absoluto. */
 .grafcet-signals-tool { color:#2455d8; font-weight:650; }
@@ -1760,12 +1825,18 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
    Elementos: profundidade suave e marcação de elementos soltos (por ligar).
    Âmbar = solto, igual às barras de transição e ações soltas.
 --------------------------------------------------------------------------- */
-.grafcet-full .grafcet-graph-node { filter:drop-shadow(0 1px 2px rgba(31,43,74,.16)); } /* sombra fixa: o hover/seleção usa o halo, sem animar filtros */
-.grafcet-full .grafcet-graph-node.is-unlinked:not(.is-selected) { filter:drop-shadow(0 0 5px rgba(217,119,6,.55)); }
-.grafcet-full .grafcet-graph-node.grafcet-step-dragging { filter:drop-shadow(0 8px 16px rgba(31,43,74,.3)); }
+.grafcet-full .grafcet-graph-node { filter:none; }
+.grafcet-full .grafcet-graph-node.is-unlinked:not(.is-selected) .grafcet-step-box { stroke:#ad7526; stroke-dasharray:4 2; }
+.grafcet-full .grafcet-graph-node.grafcet-step-dragging .grafcet-step-box { stroke:#2563eb; stroke-dasharray:4 2; }
 .grafcet-full .grafcet-graph-node > rect:not(.grafcet-step-hover-zone) { shape-rendering:geometricPrecision; }
 .grafcet-full .grafcet-graph-link path { stroke-linejoin:round; stroke-linecap:round; vector-effect:non-scaling-stroke; }
-@media (prefers-reduced-motion: reduce) { .grafcet-hover-halo, .grafcet-node-handle { transition: none; } }
+.grafcet-graph-node:focus-visible .grafcet-step-box,
+.grafcet-graph-action:focus-visible .grafcet-action-box { stroke:#2563eb; stroke-dasharray:4 2; }
+.grafcet-graph-link:focus-visible > path:not([stroke="transparent"]) { stroke:#2563eb; }
+.grafcet-step-caption { font-variant-numeric:tabular-nums; }
+@media (prefers-reduced-motion: reduce) {
+  .grafcet-canvas *, .grafcet-hover-halo, .grafcet-node-handle { transition:none !important; animation:none !important; }
+}
 
 /* Puxador «arrastar para ligar» (etapas e transições): fio verde até à etapa de destino. */
 .grafcet-link-drag-handle:hover circle:first-of-type { fill:#15803d; }
@@ -1812,6 +1883,85 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   box-shadow: 0 -8px 12px -8px rgba(31, 43, 74, .14);
   z-index: 2;
 }
+
+/* Estado por ligar: identificação constante e dica curta só em foco/hover. */
+.grafcet-detached-status rect {
+  fill: #fff7e6;
+  stroke: #d97706;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.grafcet-detached-status text {
+  fill: #92400e;
+  font: 750 8px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: .045em;
+}
+.grafcet-step-detached-status rect {
+  fill: #fff7e6;
+  stroke-dasharray: 2 1;
+}
+.grafcet-action-detached-status text { font-size: 7.6px; }
+.grafcet-detached-hint {
+  fill: #854d0e;
+  font: 600 9px/1 ui-sans-serif, system-ui, sans-serif;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.grafcet-graph-node.is-unlinked:not(.is-selected) .grafcet-step-box {
+  stroke: #ad7526;
+  stroke-dasharray: 4 2;
+}
+.grafcet-transition-row.is-incomplete.is-active {
+  border-color: #93b4fa;
+  border-left: 3px solid #d97706;
+  background: #dbeafe;
+}
+.grafcet-free-actions-block .grafcet-transition-row.is-incomplete:not(.is-active) {
+  border-radius: 0 6px 6px 0;
+}
+.grafcet-free-actions-block .grafcet-transition-row.is-incomplete > button:first-child {
+  min-width: 0;
+}
+.grafcet-detached-status,
+.grafcet-detached-hint { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .grafcet-detached-status,
+  .grafcet-detached-hint { transition: none; }
+}
 @media (max-width: 800px) {
   .grafcet-full .grafcet-live-status { bottom: -12px; margin: 0 -12px -12px; padding: 8px 12px 10px; }
+}
+
+/* Simulator: persistent panel chrome, one scroll area, no overlapping sticky bars. */
+.grafcet-full .grafcet-properties.is-simulator {
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px;
+  gap: 10px;
+}
+.grafcet-full .grafcet-properties.is-simulator > .grafcet-properties-summary,
+.grafcet-full .grafcet-properties.is-simulator > .grafcet-tabs,
+.grafcet-full .grafcet-properties.is-simulator > .grafcet-live-status { flex: none; }
+.grafcet-full .grafcet-properties.is-simulator > .grafcet-io {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 3px;
+}
+.grafcet-full .grafcet-properties.is-simulator .grafcet-simbar {
+  position: static;
+  padding: 9px;
+  gap: 7px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.grafcet-full .grafcet-properties.is-simulator > .grafcet-live-status {
+  position: static;
+  margin: 0;
+  padding: 8px 0 0;
+  box-shadow: none;
 }

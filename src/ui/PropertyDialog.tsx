@@ -1,5 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { IconClose, IconSave } from './icons'
 
 interface PropertyDialogProps {
   open: boolean
@@ -32,14 +33,12 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
   closeRef.current = onClose
   escapeRef.current = onEscape
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const frame = requestAnimationFrame(() => {
-      const dialog = dialogRef.current
-      const first = dialog?.querySelector<HTMLElement>('[data-initial-focus]') ?? dialog?.querySelector<HTMLElement>('input:not([disabled]), textarea:not([disabled])') ?? dialog?.querySelector<HTMLElement>('button:not([disabled])')
-      ;(first ?? dialog)?.focus()
-    })
+    const previous = document.activeElement instanceof HTMLElement || document.activeElement instanceof SVGElement ? document.activeElement : null
+    const dialog = dialogRef.current
+    const first = dialog?.querySelector<HTMLElement>('[data-initial-focus]') ?? dialog?.querySelector<HTMLElement>('input:not([disabled]), textarea:not([disabled])') ?? dialog?.querySelector<HTMLElement>('button:not([disabled])')
+    ;(first ?? dialog)?.focus()
     const containFocus = (event: FocusEvent) => {
       const dialog = dialogRef.current
       // Um diálogo aberto por cima (ex.: pré-visualização de importação) tem o seu próprio foco.
@@ -47,9 +46,8 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
     }
     document.addEventListener('focusin', containFocus)
     return () => {
-      cancelAnimationFrame(frame)
       document.removeEventListener('focusin', containFocus)
-      if (previous?.isConnected) previous.focus()
+      if (previous?.isConnected && 'focus' in previous && typeof previous.focus === 'function') previous.focus()
     }
   }, [open])
 
@@ -57,10 +55,16 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
   return createPortal((
     <div className="grafcet-modal-backdrop grafcet-property-backdrop" onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <form ref={dialogRef} className={`grafcet-property-dialog ${className}`} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-subtitle`} tabIndex={-1} noValidate
-        onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); onSave() }}
+        onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); if (!hideSave && !saveDisabled) onSave() }}
         onKeyDown={(event) => {
           event.stopPropagation()
           const target = event.target
+          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault()
+            const excluded = target instanceof Element && (target.closest('[data-property-save-ignore]') || target instanceof HTMLSelectElement || (target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)))
+            if (!excluded && !hideSave && !saveDisabled) onSave()
+            return
+          }
           if (event.key === 'Enter' && (target instanceof HTMLSelectElement || (target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)) || target === dialogRef.current)) event.preventDefault()
           if (event.key === 'Escape') {
             event.preventDefault()
@@ -77,14 +81,14 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
         }}>
         <header className="grafcet-property-header">
           <div><span className="grafcet-property-eyebrow">{eyebrow}</span><h2 id={`${id}-title`}>{title}</h2><p id={`${id}-subtitle`}>{subtitle}</p></div>
-          <button type="button" className="grafcet-property-close" onClick={onClose} aria-label="Fechar sem guardar">×</button>
+          <button type="button" className="grafcet-property-close" onClick={onClose} aria-label="Fechar sem guardar"><IconClose size={16} /></button>
         </header>
         <div className="grafcet-property-content">{children}</div>
         <footer className="grafcet-property-footer">
           {onHelp && <button type="button" className="grafcet-property-help" onClick={onHelp}>Ajuda dos atalhos</button>}
-          <span className="grafcet-property-footer-hint">{footerHint}</span>
+          <span className="grafcet-property-footer-hint">{footerHint === 'Esc para cancelar' ? <><kbd>Esc</kbd> cancelar</> : footerHint}{!hideSave && <><span className="grafcet-footer-separator">·</span><kbd>Ctrl/⌘ Enter</kbd> guardar</>}</span>
           <button type="button" className="grafcet-fluidsim-btn" onClick={onClose}>{closeLabel}</button>
-          {!hideSave && <button type="submit" className="grafcet-fluidsim-btn primary" disabled={saveDisabled}>{saveLabel}</button>}
+          {!hideSave && <button type="submit" className="grafcet-fluidsim-btn primary" disabled={saveDisabled} aria-keyshortcuts="Control+Enter Meta+Enter"><IconSave size={13} />{saveLabel}</button>}
         </footer>
       </form>
     </div>

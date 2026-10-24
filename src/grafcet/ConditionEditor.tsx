@@ -3,6 +3,7 @@ import { validCondition, type GrafcetStep } from './engine'
 import { matchSignals, signalAddressesInCondition, signalSearchText, tokenAtCursor, type GrafcetSignalSuggestion } from './signals'
 import { declareSignals } from './declareSignals'
 import { foldText } from '../utils/text'
+import { IconArrowDown, IconArrowUp, IconCheck, IconChevronRight, IconClose, IconWarning } from '../ui/icons'
 
 type Category = 'all' | 'inputs' | 'outputs' | 'memory' | 'steps' | 'timers' | 'resources'
 interface Suggestion { value: string; label: string; comment: string; search: string; category: Exclude<Category, 'all'>; source: 'table' | 'expression' }
@@ -20,7 +21,7 @@ interface ConditionEditorProps {
 }
 
 const CATEGORIES: Array<[Category, string]> = [['all', 'Todas'], ['inputs', 'Entradas'], ['outputs', 'Saídas'], ['memory', 'Memórias'], ['steps', 'Etapas'], ['timers', 'Tempo'], ['resources', 'Recursos']]
-const OPERATORS = [{ label: 'NOT', token: '/', hint: 'Negação · /I1' }, { label: 'AND', token: ' * ', hint: 'E lógico · I1 * I2' }, { label: 'OR', token: ' + ', hint: 'OU lógico · I1 + I2' }, { label: '↑', token: '^', hint: 'Flanco ascendente · ^I1' }, { label: '↓', token: '\\', hint: 'Flanco descendente · \\I1' }, { label: '(', token: '(', hint: 'Abrir parênteses' }, { label: ')', token: ')', hint: 'Fechar parênteses' }]
+const OPERATORS = [{ label: 'NOT', token: '/', hint: 'Negação · /I1' }, { label: 'AND', token: ' * ', hint: 'E lógico · I1 * I2' }, { label: 'OR', token: ' + ', hint: 'OU lógico · I1 + I2' }, { label: 'Flanco ascendente', token: '^', hint: 'Flanco ascendente · ^I1' }, { label: 'Flanco descendente', token: '\\', hint: 'Flanco descendente · \\I1' }, { label: '(', token: '(', hint: 'Abrir parênteses' }, { label: ')', token: ')', hint: 'Fechar parênteses' }]
 
 /** Cursor-safe expression editing. Existing expressions are never normalized. */
 export default function ConditionEditor({ id, value, onChange, signals = [], availableSteps = [], resetKey, initialFocus, initialDefaultOne, active = true, error }: ConditionEditorProps) {
@@ -112,7 +113,9 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
   const closePicker = () => {
     setPickerOpen(false)
     const selection = { ...selectionRef.current }
-    requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(selection.start, selection.end) })
+    // Restore before the picker unmounts: a second Escape must reach the parent dialog.
+    inputRef.current?.focus()
+    inputRef.current?.setSelectionRange(selection.start, selection.end)
   }
   useEffect(() => {
     if (!pickerOpen) return
@@ -165,22 +168,21 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
           onMouseDown={(event) => { event.preventDefault(); acceptTypeahead(entry.address) }} onMouseEnter={() => setTypeaheadIndex(index)}>
           <code>{entry.address}</code><span>{entry.name && <b>{entry.name}</b>}{entry.comment && <small>{entry.comment}</small>}</span><em className={`is-${entry.area}`}>{entry.area === 'X' ? 'etapa' : entry.area === 'I' ? 'entrada' : entry.area === 'Q' ? 'saída' : 'memória'}</em>
         </li>)}
-        <li className="grafcet-typeahead-hint" aria-hidden="true">↑ ↓ navegar · Enter/Tab inserir · Esc fechar</li>
+        <li className="grafcet-typeahead-hint" aria-hidden="true"><IconArrowUp size={9} /><IconArrowDown size={9} /> navegar · Enter/Tab inserir · Esc fechar</li>
       </ul>}
       </div>
       <div className="grafcet-condition-tools" role="group" aria-label="Inserir operadores na posição do cursor">
-        {OPERATORS.map((operator) => <button key={operator.label} type="button" onMouseDown={(event) => { rememberSelection(); event.preventDefault() }} onClick={() => insert(operator.token)} title={operator.hint} aria-label={`Inserir ${operator.label}`}>{operator.label}</button>)}
+        {OPERATORS.map((operator) => <button key={operator.label} type="button" onMouseDown={(event) => { rememberSelection(); event.preventDefault() }} onClick={() => insert(operator.token)} title={operator.hint} aria-label={`Inserir ${operator.label}`}>{operator.token === '^' ? <IconArrowUp size={12} /> : operator.token === '\\' ? <IconArrowDown size={12} /> : operator.label}</button>)}
         <button type="button" className="grafcet-insert-variable" aria-expanded={pickerOpen} aria-controls={pickerOpen ? `${id}-picker` : undefined} onMouseDown={rememberSelection} onClick={() => setPickerOpen((open) => !open)}>Inserir variável</button>
       </div>
-      <p id={`${id}-status`} className={`grafcet-condition-status ${valid ? 'is-valid' : 'is-incomplete'}`} role="status" aria-live="polite">{valid ? '✓ Sintaxe válida' : '◌ Expressão incompleta ou inválida'}<span>{valid ? 'A condição será avaliada durante a simulação.' : 'Continue a editar; é necessário corrigir antes de guardar.'}</span></p>
-      {!signals.length && <p className="grafcet-property-note">A tabela de sinais está vazia. Declare entradas, saídas ou memórias em «Variáveis» para obter sugestões.</p>}
-      {!!undeclared.length && <p className="grafcet-signal-undeclared">Fora da tabela: {undeclared.join(', ')}. A expressão manual é mantida. <button type="button" className="grafcet-link-button" onClick={() => declareSignals(undeclared)} title="Acrescenta estes endereços à tabela de variáveis, para passarem a ser sugeridos">Declarar na tabela</button></p>}
+      <p id={`${id}-status`} className={`grafcet-condition-status ${valid ? 'is-valid' : 'is-incomplete'}`} role="status" aria-live="polite">{valid ? <IconCheck size={12} /> : <IconWarning size={12} />}{valid ? 'Sintaxe válida' : 'Expressão incompleta ou inválida'}</p>
+      {undeclared.length ? <p className="grafcet-signal-undeclared">Fora da tabela: {undeclared.join(', ')}. Pode usar a expressão manual ou <button type="button" className="grafcet-link-button" onClick={() => declareSignals(undeclared)} title="Acrescenta estes endereços à tabela de variáveis, para passarem a ser sugeridos">Declarar na tabela</button>.</p> : !signals.length && <p className="grafcet-property-note">Adicione sinais em «Variáveis» para obter sugestões; também pode escrever a expressão.</p>}
       {error && <p id={errorId} className="grafcet-field-error" role="alert">{error}</p>}
-      {pickerOpen && <div ref={pickerRef} className="grafcet-condition-picker" id={`${id}-picker`}>
-        <div className="grafcet-condition-picker-head"><strong>Variáveis e sinais</strong><button type="button" onClick={closePicker} aria-label="Fechar lista de variáveis">×</button></div>
+      {pickerOpen && <div ref={pickerRef} className="grafcet-condition-picker" id={`${id}-picker`} data-property-save-ignore>
+        <div className="grafcet-condition-picker-head"><strong>Variáveis e sinais</strong><button type="button" onClick={closePicker} aria-label="Fechar lista de variáveis"><IconClose size={13} /></button></div>
         <label htmlFor={`${id}-search`}>Pesquisar variável</label>
         <input ref={searchRef} className="dc-input" id={`${id}-search`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome, endereço ou etapa…" onKeyDown={(event) => {
-          if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); if (filtered[0]) insert(filtered[0].value, true) }
+          if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); if (!event.ctrlKey && !event.metaKey && filtered[0]) insert(filtered[0].value, true) }
           if (event.key === 'ArrowDown') { event.preventDefault(); pickerRef.current?.querySelector<HTMLButtonElement>('[data-variable-token]')?.focus() }
         }} />
         <div className="grafcet-condition-categories" role="group" aria-label="Categorias de variáveis">{CATEGORIES.map(([id, label]) => <button key={id} type="button" aria-pressed={category === id} onClick={() => setCategory(id)}>{label}</button>)}</div>
@@ -190,7 +192,7 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
         })}{!filtered.length && <p>Nenhum sinal corresponde à pesquisa. Pode declarar sinais em «Variáveis» ou escrever o endereço manualmente.</p>}</div>
         <p className="grafcet-property-note">Xn refere-se ao índice da etapa. T(…) usa o tempo da etapa da ação ou das origens da transição.</p>
       </div>}
-      <div className="grafcet-condition-presets"><span>Substituir por uma expressão</span><div className="grafcet-property-chips" role="group" aria-label="Substituir condição por modelo">{['1', 'T(1s)', 'T(2s)', 'T(5s)'].map((preset) => <button key={preset} type="button" onClick={() => replace(preset)} title={`Substituir toda a condição por ${preset}`}>{preset}</button>)}</div></div>
+      <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Modelos de condição</summary><div><p>Substituir toda a expressão por:</p><div className="grafcet-property-chips" role="group" aria-label="Substituir condição por modelo">{['1', 'T(1s)', 'T(2s)', 'T(5s)'].map((preset) => <button key={preset} type="button" onClick={() => replace(preset)} title={`Substituir toda a condição por ${preset}`}>{preset}</button>)}</div></div></details>
     </div>
   )
 }

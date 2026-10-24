@@ -31,14 +31,34 @@ const readFiles = () => page.evaluate(async () => {
 const open = async () => {
   await page.getByRole('button', { name: 'Adicionar bloco', exact: true }).click()
   await dialog().waitFor()
+  await dialog().evaluate(async (el) => {
+    await Promise.all(el.getAnimations().map((animation) => animation.finished.catch(() => undefined)))
+  })
 }
+const dialogSize = () => dialog().evaluate((el) => {
+  const rect = el.getBoundingClientRect()
+  return { width: rect.width, height: rect.height }
+})
+const workspaceLayout = () => dialog().locator('.add-block-workspace').evaluate((el) => ({
+  columns: getComputedStyle(el).gridTemplateColumns,
+  widths: Array.from(el.children, (child) => child.getBoundingClientRect().width),
+}))
+const footerAnchored = () => dialog().evaluate((el) => {
+  const modal = el.getBoundingClientRect()
+  const footer = el.querySelector('.dc-modal-footer')?.getBoundingClientRect()
+  return !!footer && Math.abs(modal.bottom - footer.bottom) <= 1
+})
 const cancel = async () => {
   await dialog().getByRole('button', { name: 'Cancelar', exact: true }).click()
   await dialog().waitFor({ state: 'hidden' })
 }
 const pickKind = async (kind) => {
   const labels = { OB: 'Bloco de organização', FB: 'Bloco de função', FC: 'Função', DB: 'Bloco de dados' }
-  await dialog().getByRole('radio', { name: new RegExp(labels[kind] + '(?:\\s|$)') }).click()
+  const option = dialog().getByRole('radio', { name: new RegExp(labels[kind] + '(?:\\s|$)') })
+  await option.click()
+  await option.evaluate(async (el) => {
+    await Promise.all(el.getAnimations().map((animation) => animation.finished.catch(() => undefined)))
+  })
 }
 const language = () => dialog().locator('#block-language-input')
 const pickLanguage = async (value) => {
@@ -54,6 +74,10 @@ const snapshot = async (label) => {
 
 try {
   await page.goto(baseURL + '/dashboard')
+  await page.evaluate(async () => {
+    const { accountApi } = await import('/src/auth/accountApi.ts')
+    await accountApi('/me')
+  })
   await page.getByRole('button', { name: 'Novo projeto', exact: true }).click()
   const project = page.getByRole('dialog')
   await project.getByRole('textbox', { name: 'Nome do projeto', exact: true }).fill('Blocos — verificação isolada')
@@ -64,9 +88,28 @@ try {
     console.log(await dialog().innerText())
     await snapshot('before')
   } else {
+    const defaultSize = await dialogSize()
+    check(defaultSize.width === 940 && defaultSize.height === 680, `tamanho padrão desktop é 940×680px (medido ${defaultSize.width}×${defaultSize.height}px)`)
+    const defaultWorkspace = await workspaceLayout()
     const initialFiles = await readFiles()
     check(await number().inputValue() === '2', 'novo OB evita o OB1 reservado ao programa principal')
     await snapshot('desktop-ob')
+    for (const kind of ['FB', 'FC', 'DB', 'OB']) {
+      await pickKind(kind)
+      const size = await dialogSize()
+      check(Math.abs(size.width - defaultSize.width) <= 1 && Math.abs(size.height - defaultSize.height) <= 1,
+        `${kind} mantém as dimensões padrão desktop`)
+      check(JSON.stringify(await workspaceLayout()) === JSON.stringify(defaultWorkspace),
+        `${kind} mantém a distribuição das duas colunas desktop`)
+      check(await dialog().locator('.add-block-type.is-active').getAttribute('aria-checked') === 'true',
+        `${kind} preserva aria-checked no tipo ativo`)
+      check(await dialog().locator('.add-block-type.is-active').evaluate((el) => {
+        const style = getComputedStyle(el)
+        return style.borderTopColor === 'rgb(49, 93, 235)' && style.boxShadow.includes('49, 93, 235')
+      }), `${kind} conserva a indicação visual azul do tipo ativo`)
+      check(await dialog().locator('.add-block-type-check').count() === 0, `${kind} não mostra ícone de seleção no tipo`)
+      if (kind !== 'OB') check(await dialog().locator('.add-block-no-model').isVisible(), `${kind} mantém um placeholder no painel de modelos`)
+    }
     await name().fill('')
     check(await create().isDisabled(), 'nome-base vazio bloqueia a criação')
     await name().press('Control+Enter')
@@ -182,9 +225,20 @@ try {
         if (await closePane.isVisible()) await closePane.click()
       }
       await open()
+      const mobileSize = await dialogSize()
+      check(mobileSize.height === Math.min(680, size.height - 16), `altura responsiva definida e estável a ${size.width}px`)
       await snapshot('viewport-' + size.width)
       check(await dialog().evaluate((el) => { const rect = el.getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth + 1 && el.scrollWidth <= el.clientWidth + 1 }), 'diálogo cabe sem rolagem horizontal a ' + size.width + 'px')
       check(await create().evaluate((el) => { const rect = el.getBoundingClientRect(); return rect.bottom <= innerHeight && rect.top >= 0 && el.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)) }), 'criar permanece visível e acessível a ' + size.width + 'px')
+      for (const kind of ['FB', 'FC', 'DB', 'OB']) {
+        await pickKind(kind)
+        const kindSize = await dialogSize()
+        check(Math.abs(kindSize.width - mobileSize.width) <= 1 && Math.abs(kindSize.height - mobileSize.height) <= 1,
+          `${kind} mantém as dimensões responsivas a ${size.width}px`)
+        check(await dialog().locator('.dc-modal-body').evaluate((el) => getComputedStyle(el).overflowY === 'auto'),
+          `conteúdo usa rolagem interna a ${size.width}px`)
+        check(await footerAnchored(), `rodapé permanece fixo a ${size.width}px`)
+      }
       await pickKind('DB')
       await snapshot('db-' + size.width)
       await cancel()

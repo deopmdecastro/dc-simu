@@ -4,6 +4,7 @@ import PropertyDialog from '../ui/PropertyDialog'
 import ConditionEditor from './ConditionEditor'
 import SignalPicker from './SignalPicker'
 import { canonicalSignalAddress, type GrafcetSignalSuggestion } from './signals'
+import { IconArrowDown, IconArrowUp, IconChevronRight } from '../ui/icons'
 
 interface ActionDialogProps {
   open: boolean
@@ -28,12 +29,14 @@ export default function ActionDialog({ open, action, signals = [], availableStep
   const [duration, setDuration] = useState('2')
   const [submitted, setSubmitted] = useState(false)
   const [outputPickerOpen, setOutputPickerOpen] = useState(false)
+  const [legacyOpen, setLegacyOpen] = useState(false)
   const timeMs = Number(duration) * 1000
 
   useEffect(() => {
     if (action) {
       setSubmitted(false)
       setOutputPickerOpen(false)
+      setLegacyOpen(['deactivation', 'event', 'compulsory'].includes(action.allocation ?? '') || ['DA', 'EV', 'C'].includes(action.kind ?? ''))
       setVariable(action.variable ?? action.address ?? '')
       setDescription(action.description ?? '')
       setDisplayDescription(action.displayDescription ?? (!!action.description && action.description !== action.address && action.description !== action.variable))
@@ -202,8 +205,8 @@ export default function ActionDialog({ open, action, signals = [], availableStep
   const variableInTable = outputSignals.find((signal) => signal.address === canonicalSignalAddress(variable))
 
   const allocationOptions: Array<{ id: GrafcetActionAllocation; kind: GrafcetActionKind; label: string }> = [
-    { id: 'continuous', kind: 'N', label: 'Durante a etapa' }, { id: 'activation', kind: 'A', label: 'Ao ativar ↑' },
-    { id: 'deactivation', kind: 'DA', label: 'Ao desativar ↓' }, { id: 'event', kind: 'EV', label: 'No evento' },
+    { id: 'continuous', kind: 'N', label: 'Durante a etapa' }, { id: 'activation', kind: 'A', label: 'Ao ativar' },
+    { id: 'deactivation', kind: 'DA', label: 'Ao desativar' }, { id: 'event', kind: 'EV', label: 'No evento' },
     { id: 'compulsory', kind: 'C', label: 'Forçagem' },
   ]
   const selectedKind = ACTION_KINDS.find((item) => item.id === effectiveKind)
@@ -221,8 +224,7 @@ export default function ActionDialog({ open, action, signals = [], availableStep
             {submitted && variableError && <p id="action-var-error" className="grafcet-field-error" role="alert">{variableError}</p>}
             <SignalPicker signals={outputSignals} inputId="action-var-input" onChoose={setVariable} onOpenChange={setOutputPickerOpen} />
             <div className="grafcet-property-chips" aria-label="Sugestões de saídas">{outputSignals.slice(0, 5).map((signal) => <button type="button" key={signal.address} onClick={() => setVariable(signal.address)} aria-pressed={canonicalSignalAddress(variable) === signal.address} title={signal.comment}><code>{signal.address}</code>{signal.name && ` · ${signal.name}`}</button>)}</div>
-            {variable.trim() && !variableInTable && <p className="grafcet-signal-undeclared">Esta variável não está na tabela de saídas/memórias booleanas. A ação manual é mantida.</p>}
-            {!outputSignals.length && <p className="grafcet-property-note">Declare saídas ou memórias em «Variáveis» para obter sugestões. Pode manter endereços introduzidos manualmente.</p>}
+            {variable.trim() && !variableInTable ? <p className="grafcet-property-note">Variável manual. Adicione-a em «Variáveis» para a encontrar nas sugestões de saídas e memórias.</p> : !outputSignals.length && <p className="grafcet-property-note">Escreva uma saída ou memória; adicione sinais em «Variáveis» para obter sugestões.</p>}
           </div>
           <fieldset className="grafcet-property-section">
             <legend>Execução</legend>
@@ -234,12 +236,15 @@ export default function ActionDialog({ open, action, signals = [], availableStep
           </fieldset>
           <fieldset className="grafcet-property-section">
             <legend>Quando executar</legend>
-            <div className="grafcet-allocation-options">{allocationOptions.map((option) => {
+            <div className="grafcet-property-choice-row grafcet-allocation-options-primary">{allocationOptions.slice(0, 2).map((option) => <label key={option.id} className={`grafcet-property-option ${allocation === option.id ? 'is-selected' : ''}`}><input type="radio" name="allocation" checked={allocation === option.id} onChange={() => setAllocation(option.id)} /><span><strong>{option.id === 'activation' && <IconArrowUp size={11} />}{option.label}</strong><small>{option.id === 'continuous' ? 'Enquanto a etapa está ativa' : 'Um pulso à entrada na etapa'}</small></span></label>)}</div>
+            <details className="grafcet-context-help grafcet-inline-disclosure" open={legacyOpen} onToggle={(event) => setLegacyOpen(event.currentTarget.open)}><summary><IconChevronRight size={11} />Notação histórica <span>{notExecuted ? selectedKind?.label : 'sem execução'}</span></summary><div>
+            <p>Tipos preservados em projetos existentes. Pode manter o tipo original ou escolher um dos modos de execução acima.</p>
+            <div className="grafcet-allocation-options">{allocationOptions.slice(2).map((option) => {
               const unsupported = ['deactivation', 'event', 'compulsory'].includes(option.id)
               const disabled = unsupported && originalAllocation !== option.id
-              return <label key={option.id} className={`grafcet-property-option ${allocation === option.id ? 'is-selected' : ''} ${disabled ? 'is-unavailable' : ''}`}><input type="radio" name="allocation" checked={allocation === option.id} disabled={disabled} onChange={() => setAllocation(option.id)} /><span>{option.label}{unsupported && <small>Apenas notação · sem execução</small>}</span></label>
+              return <label key={option.id} className={`grafcet-property-option ${allocation === option.id ? 'is-selected' : ''} ${disabled ? 'is-unavailable' : ''}`}><input type="radio" name="allocation" checked={allocation === option.id} disabled={disabled} onChange={() => setAllocation(option.id)} /><span>{option.id === 'deactivation' && <IconArrowDown size={11} />}{option.label}{unsupported && <small>Apenas notação · sem execução</small>}</span></label>
             })}</div>
-            <p className="grafcet-property-note">Ao desativar, no evento e forçagem são tipos históricos sem execução. Pode manter uma seleção existente; novas ações usam os modos disponíveis.</p>
+            </div></details>
             {notExecuted && <p className="grafcet-property-warning" role="status">Esta ação ({effectiveKind}) será guardada, mas não liga nem desliga a saída na simulação atual.</p>}
             {allocation === 'continuous' && <>
               <span className="grafcet-property-label">Qualificador IEC</span>
@@ -257,7 +262,7 @@ export default function ActionDialog({ open, action, signals = [], availableStep
             <input id="action-desc-input" className="dc-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Ligar motor de avanço" />
             <label className="grafcet-property-checkbox"><input type="checkbox" checked={displayDescription} onChange={(e) => setDisplayDescription(e.target.checked)} /><span>Mostrar a descrição no diagrama</span></label>
           </div>
-          <details className="grafcet-context-help"><summary>Como configurar esta ação</summary><div><p><b>N</b> acompanha a etapa; <b>S</b> memoriza a saída e <b>R</b> repõe a memória. <b>D</b> atrasa a ativação e <b>L</b> limita a duração, em segundos. <b>Ao ativar</b> gera um pulso à entrada na etapa.</p><p>Ao alternar entre «Durante a etapa» e «Ao ativar», o qualificador e a duração em edição são mantidos até guardar ou cancelar.</p><p>A condição usa o tempo da própria etapa: <code>T(2s)</code> torna-se verdadeira após dois segundos de atividade. Os estados <code>X0</code>, <code>X1</code> usam os índices globais das etapas.</p><p>A descrição é opcional e serve para apresentar a ação no diagrama. A saída executada continua a ser a variável escolhida.</p></div></details>
+          <details className="grafcet-context-help"><summary><IconChevronRight size={11} />Como configurar esta ação</summary><div><p><b>N</b> acompanha a etapa; <b>S</b> memoriza a saída e <b>R</b> repõe a memória. <b>D</b> atrasa a ativação e <b>L</b> limita a duração, em segundos. <b>Ao ativar</b> gera um pulso à entrada na etapa.</p><p>Ao alternar entre «Durante a etapa» e «Ao ativar», o qualificador e a duração em edição são mantidos até guardar ou cancelar.</p><p>A condição usa o tempo da própria etapa: <code>T(2s)</code> torna-se verdadeira após dois segundos de atividade. Os estados <code>X0</code>, <code>X1</code> usam os índices globais das etapas.</p><p>A descrição é opcional e serve para apresentar a ação no diagrama. A saída executada continua a ser a variável escolhida.</p></div></details>
         </section>
         <aside className="grafcet-property-preview">
           <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span>IEC 60848</span></div>

@@ -149,12 +149,11 @@ export default function AddBlockDialog({ open, initialKind = 'OB', onClose, onCr
               }}>
               <span className={`add-block-tile is-${item.toLowerCase()}`}>{item}</span>
               <span className="add-block-type-text"><strong>{BLOCK_KINDS[item].label}</strong><small>{typeHints[item]}</small></span>
-              {kind === item && <IconCheck size={11} className="add-block-type-check" />}
             </button>
           ))}
         </div>
-        <div className={`add-block-workspace ${kind !== 'OB' ? 'is-compact' : ''}`}>
-          {kind === 'OB' && <section className="add-block-catalog" aria-labelledby="block-model-heading">
+        <div className="add-block-workspace">
+          {kind === 'OB' ? <section className="add-block-catalog" aria-labelledby="block-model-heading">
             <div className="add-block-section-heading"><h3 id="block-model-heading">Modelo de organização</h3><span>{ALL_OB_TEMPLATES.length} modelos</span></div>
             <div className="add-block-search"><IconSearch size={13} /><input type="search" id="block-model-search" aria-label="Pesquisar modelos OB" placeholder="Pesquisar nome, número ou categoria" value={search} onChange={(event) => setSearch(event.target.value)} />
               {search && <button type="button" onClick={() => setSearch('')} aria-label="Limpar pesquisa"><IconClose size={12} /></button>}
@@ -168,6 +167,15 @@ export default function AddBlockDialog({ open, initialKind = 'OB', onClose, onCr
               {!matchCount && <div className="add-block-empty"><IconSearch size={21} /><strong>Nenhum modelo encontrado</strong><p>Experimente outro nome, número ou categoria.</p><button type="button" className="dc-btn" onClick={() => setSearch('')}>Limpar pesquisa</button></div>}
             </div>
             <div className="add-block-selected-model"><span>Modelo selecionado</span><strong>{template.label} <small>OB {template.number}</small></strong>{query && <span aria-live="polite">{matchCount} {matchCount === 1 ? 'resultado' : 'resultados'}</span>}</div>
+          </section> : <section className="add-block-no-model" aria-labelledby="block-no-model-heading">
+            <div className="add-block-section-heading"><h3 id="block-no-model-heading">Sem modelo necessário</h3><span>{kind}</span></div>
+            <div className="add-block-no-model-panel">
+              <span className={`add-block-tile is-${kind.toLowerCase()}`}>{kind}</span>
+              <strong>{kind === 'DB' ? 'Estrutura de dados pronta a editar' : 'Configuração direta do bloco'}</strong>
+              <p>{kind === 'DB'
+                ? 'O bloco de dados é criado com variáveis tipadas e pode ser ajustado após a criação.'
+                : `${BLOCK_KINDS[kind].label} não utiliza um modelo de organização. Defina as opções à direita para continuar.`}</p>
+            </div>
           </section>}
           <section className="add-block-details" aria-labelledby="block-config-heading">
             <div className="add-block-section-heading"><h3 id="block-config-heading">{kind === 'OB' ? 'Configurar novo bloco' : `Novo ${BLOCK_KINDS[kind].label.toLowerCase()}`}</h3><span>{kind}</span></div>

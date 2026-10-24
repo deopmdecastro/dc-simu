@@ -27,6 +27,7 @@ function InlineName({
       value={draft}
       placeholder={placeholder}
       aria-label={label}
+      title={value || placeholder}
       spellCheck={false}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => draft.trim() !== value.trim() && onCommit(draft.trim())}
@@ -75,6 +76,8 @@ export default function GrafcetSimPanel({
   onRenameTransition,
   onRenameAllTransitions,
   onOpenTransition,
+  onOpenStep,
+  stepDescription,
 }: {
   program: GrafcetProgram
   runtime: GrafcetRuntime
@@ -84,6 +87,8 @@ export default function GrafcetSimPanel({
   /** Grava, de uma só vez, os nomes sugeridos nas transições ainda sem nome. */
   onRenameAllTransitions: (names: Record<string, string>) => void
   onOpenTransition: (transitionId: string) => void
+  onOpenStep: (stepId: string) => void
+  stepDescription: (stepId: string) => string
 }) {
   const table = useSimStore((s) => s.runtime.table)
   const tags = useSimStore((s) => s.tags)
@@ -129,15 +134,18 @@ export default function GrafcetSimPanel({
     <div className="gsim">
       <section className={`gsim-state is-${runState === 'running' ? 'running' : 'stopped'}`} aria-label="Estado da sequência" aria-live="polite">
         <div className="gsim-state-head">
-          <h4>{runState === 'running' ? 'Etapas ativas' : 'Etapa inicial'}</h4>
+          <h4>{runState === 'running' ? 'Etapas ativas' : runState === 'paused' ? 'Sequência em pausa' : 'Estado da sequência'}</h4>
           <span title="Transições disparadas desde o início da simulação">{firedCount} {firedCount === 1 ? 'disparo' : 'disparos'}</span>
         </div>
         {activeSteps.length ? (
           <ul className="gsim-state-steps">
             {activeSteps.map((step) => (
               <li key={step.id}>
-                <b>{stepLabel(step.id)}</b>
-                <em>{(((runtime.elapsed?.[step.id] ?? 0)) / 1000).toFixed(1)} s</em>
+                <button type="button" onClick={() => onOpenStep(step.id)} title={`Abrir etapa ${stepLabel(step.id)}`}>
+                  <b>{stepLabel(step.id)}</b>
+                  {stepDescription(step.id) && <span>{stepDescription(step.id)}</span>}
+                  <em>{(((runtime.elapsed?.[step.id] ?? 0)) / 1000).toFixed(1)} s</em>
+                </button>
               </li>
             ))}
           </ul>
@@ -156,8 +164,7 @@ export default function GrafcetSimPanel({
               </svg>
             </span>
             <div>
-              <h4>Entradas detetadas</h4>
-              <p>{detection.inputs.length ? `${detection.inputs.length} usada${detection.inputs.length === 1 ? '' : 's'} nas condições das transições` : 'As entradas e variáveis aparecem aqui quando as usar numa condição.'}</p>
+              <h4>Entradas <span className="gsim-count">{detection.inputs.length}</span></h4>
             </div>
           </div>
           <button type="button" className="gsim-link" onClick={clear} title="Desligar todas as entradas">
@@ -178,29 +185,29 @@ export default function GrafcetSimPanel({
               const title = input.symbol ? input.address : name || input.address
               return (
                 <li key={input.address} className={`gsim-input${input.symbol ? ' is-symbol' : ''}`}>
-                  <VirtualInputButton address={input.address} className={`gsim-actuator${input.symbol ? ' is-symbol' : ''}`} title={title}>
-                    <i aria-hidden="true" />
-                    <b>{input.address}</b>
-                  </VirtualInputButton>
-                  <div className="gsim-input-body">
+                  <div className="gsim-input-main">
+                    <VirtualInputButton address={input.address} className={`gsim-actuator${input.symbol ? ' is-symbol' : ''}`} title={title}>
+                      <i aria-hidden="true" />
+                      <b>{input.address}</b>
+                    </VirtualInputButton>
                     {!input.symbol && (
                       <InlineName
                         value={name}
-                        placeholder="Dar nome (ex.: Arranque)"
+                        placeholder="Nome da entrada"
                         label={`Nome da entrada ${input.address}`}
                         onCommit={(next) => setName(input.address, next)}
                       />
                     )}
-                    <div className="gsim-input-row">
-                      <ModeToggle address={input.address} mode={mode} />
-                      <div className="gsim-uses">
-                      <span>Usada em</span>
+                  </div>
+                  <div className="gsim-input-row">
+                    <ModeToggle address={input.address} mode={mode} />
+                    <div className="gsim-uses" aria-label={`Transições que usam ${input.address}`}>
+                      <span>Em</span>
                       {input.transitions.map((use) => (
                         <button key={use.id} type="button" onClick={() => onOpenTransition(use.id)} title={use.label}>
                           T{use.index + 1}
                         </button>
                       ))}
-                      </div>
                     </div>
                   </div>
                 </li>
@@ -219,13 +226,12 @@ export default function GrafcetSimPanel({
               </svg>
             </span>
             <div>
-              <h4>Transições</h4>
-              <p>{detection.transitions.length ? `${detection.transitions.length} detetada${detection.transitions.length === 1 ? '' : 's'}` : 'Ainda não há transições.'}</p>
+              <h4>Transições <span className="gsim-count">{detection.transitions.length}</span></h4>
             </div>
           </div>
           {detection.unnamed > 0 && (
             <button type="button" className="gsim-btn" onClick={autoNames} title="Dá um nome a cada transição sem nome (ex.: T2 · 1 → 2)">
-              Nomear {detection.unnamed === detection.transitions.length ? 'todas' : `${detection.unnamed} sem nome`}
+              Nomear {detection.unnamed === detection.transitions.length ? 'todas' : detection.unnamed}
             </button>
           )}
         </header>
@@ -251,7 +257,7 @@ export default function GrafcetSimPanel({
                     />
                     <span className={`gsim-badge is-${status.id}`}>{status.text}</span>
                   </div>
-                  <button type="button" className="gsim-cond" onClick={() => onOpenTransition(t.id)} title="Abrir transição">
+                  <button type="button" className="gsim-cond" onClick={() => onOpenTransition(t.id)} title={`Abrir transição · ${t.condition.trim() || 'sem condição'}`}>
                     <span>Receptividade</span>
                     <code>{t.condition.trim() || 'sem condição'}</code>
                   </button>
