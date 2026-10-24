@@ -4,6 +4,31 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script>
+      /* Tablet = mesmo layout do PC: em ecrãs tácteis com lado curto >= 600px o viewport passa a ter
+         1200px de largura (limiar do modo compacto) e o navegador reduz a escala para caber. */
+      (function () {
+        var DESKTOP_W = 1200
+        var meta = document.querySelector('meta[name="viewport"]')
+        if (!meta || !window.matchMedia) return
+        var phoneContent = meta.getAttribute('content')
+        function apply() {
+          var shortSide = Math.min(screen.width, screen.height)
+          var longSide = Math.max(screen.width, screen.height)
+          var tablet = window.matchMedia('(pointer: coarse)').matches && shortSide >= 600
+          if (!tablet) { if (meta.getAttribute('content') !== phoneContent) meta.setAttribute('content', phoneContent); return }
+          var landscape = window.matchMedia('(orientation: landscape)').matches
+          var deviceW = landscape ? longSide : shortSide
+          var scale = Math.min(1, deviceW / DESKTOP_W)
+          scale = Math.round(scale * 1000) / 1000
+          var next = 'width=' + DESKTOP_W + ', initial-scale=' + scale + ', minimum-scale=' + scale + ', maximum-scale=' + Math.max(scale, 1) + ', user-scalable=no, viewport-fit=cover'
+          if (meta.getAttribute('content') !== next) meta.setAttribute('content', next)
+        }
+        apply()
+        window.addEventListener('orientationchange', function () { setTimeout(apply, 150) })
+        window.addEventListener('resize', apply)
+      })()
+    </script>
     <meta name="theme-color" content="#2655e5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
