@@ -1,5 +1,6 @@
 import type { LadderTag } from '../types'
 import { actionsOfStep, normalizeActionVariable, stripGrafcetPrefix, transitionsOf, type GrafcetProgram } from './engine'
+import { isSymbolicSignalName, symbolWordsInCondition } from './inputDetect'
 import { foldText } from '../utils/text'
 
 export type SignalArea = 'I' | 'Q' | 'M'
@@ -49,6 +50,66 @@ export function detectGrafcetSignals(program: GrafcetProgram): string[] {
   ;(program.freeActions ?? []).forEach(inspectAction)
   transitionsOf(program).forEach((transition) => signalAddressesInCondition(stripGrafcetPrefix(transition.condition ?? '')).forEach((bit) => found.add(bit)))
   return [...found].sort((a, b) => 'IQM'.indexOf(a[0]) - 'IQM'.indexOf(b[0]) || Number(a.slice(1)) - Number(b.slice(1)))
+}
+
+export interface DetectedGrafcetSignal {
+  address: string
+  /** nome sugerido: a grafia usada no programa; vazio quando o próprio endereço já aparece no diagrama */
+  name: string
+  area: SignalArea
+  /** true quando o programa usa um nome (Start, Stop…) e o endereço foi atribuído pela deteção */
+  symbolic: boolean
+}
+
+/**
+ * Deteção completa para a tabela de sinais.
+ * 1) Endereços I/Q/M escritos no diagrama (Q1, I2, M7…) — comportamento de sempre.
+ * 2) Variáveis simbólicas (Start, /Stop, fc_a0…), que antes passavam ao lado:
+ *    lidas em condições → entradas (I); escritas por ações → saídas (Q).
+ *    Recebem o primeiro endereço livre da área e o nome tal como foi escrito no programa.
+ * Símbolos e endereços já declarados (por endereço ou pelo mesmo nome) não são repetidos.
+ */
+export function detectGrafcetSignalsDetailed(program: GrafcetProgram, tags: readonly Pick<LadderTag, 'address' | 'name'>[]): DetectedGrafcetSignal[] {
+  const claimed: Array<Pick<LadderTag, 'address'>> = [...tags]
+  const knownAddresses = new Set(tags.map((tag) => canonicalSignalAddress(tag.address)))
+  const knownNames = new Set(tags.map((tag) => foldText(tag.name.trim())).filter(Boolean))
+
+  const out: DetectedGrafcetSignal[] = []
+  for (const address of detectGrafcetSignals(program)) {
+    if (knownAddresses.has(address)) continue
+    knownAddresses.add(address)
+    claimed.push({ address })
+    out.push({ address, name: '', area: address[0] as SignalArea, symbolic: false })
+  }
+
+  // Variáveis simbólicas: chave em maiúsculas → grafia original da primeira ocorrência.
+  const read = new Map<string, string>()
+  const written = new Map<string, string>()
+  const note = (map: Map<string, string>, raw: string) => {
+    const word = raw.trim()
+    if (word && !map.has(word.toUpperCase())) map.set(word.toUpperCase(), word)
+  }
+  transitionsOf(program).forEach((transition) => symbolWordsInCondition(transition.condition ?? '').forEach((word) => note(read, word)))
+  const inspectAction = (action: { address?: string; variable?: string; condition?: string }) => {
+    symbolWordsInCondition(action.condition ?? '').forEach((word) => note(read, word))
+    const target = normalizeActionVariable(action.address || action.variable || '').trim().replace(/[+-]$/, '')
+    if (isSymbolicSignalName(target)) note(written, target)
+  }
+  program.steps.forEach((step) => actionsOfStep(step).forEach(inspectAction))
+  ;(program.freeActions ?? []).forEach(inspectAction)
+
+  const symbols = [...new Map([...read, ...written]).entries()].sort(([a], [b]) => a.localeCompare(b, 'pt-PT'))
+  for (const [upper, name] of symbols) {
+    const fold = foldText(name)
+    if (knownNames.has(fold)) continue
+    const area: 'I' | 'Q' = written.has(upper) ? 'Q' : 'I'
+    const address = nextDeclaredTagAddress(area, claimed)
+    if (!address) continue
+    knownNames.add(fold)
+    claimed.push({ address })
+    out.push({ address, name, area, symbolic: true })
+  }
+  return out
 }
 
 export function signalTagErrors(tags: readonly LadderTag[], managedIds?: ReadonlySet<string>): Map<string, string> {

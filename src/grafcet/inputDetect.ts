@@ -1,4 +1,4 @@
-import { stripGrafcetPrefix, transitionsOf, type GrafcetProgram, type GrafcetTransition } from './engine'
+import { COMPARE_TOKEN, stripGrafcetPrefix, transitionsOf, type GrafcetProgram, type GrafcetTransition } from './engine'
 
 /** Endereços de entrada (I1…I32) referidos numa expressão: I1, !I2, ^I3, \I4, I1*I2… */
 export function inputsInCondition(expression: string): string[] {
@@ -13,22 +13,42 @@ export function inputsInCondition(expression: string): string[] {
 
 const RESERVED_WORDS = new Set(['AND', 'OR', 'NOT', 'TRUE', 'FALSE', 'T', 'HZ', 'MS', 'S'])
 
-/** Variáveis simbólicas (Start, B_Stop, fc_a0…) usadas numa condição, em maiúsculas.
- *  Ignora endereços I/Q/M, referências a etapas (X5, G0X3), temporizações (5s/X3, T(2s)) e frequências. */
-export function symbolsInCondition(expression: string): string[] {
+const COMPARE_RE = new RegExp(COMPARE_TOKEN, 'gi')
+
+/** true para identificadores que funcionam como variável simbólica (Start, B_Stop…).
+ *  Exclui endereços I/Q/M, palavras reservadas e registos numéricos (MW1, T1, C1). */
+export function isSymbolicSignalName(raw: string): boolean {
+  const word = raw.trim().replace(/[+-]$/, '')
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(word)) return false
+  const upper = word.toUpperCase()
+  if (RESERVED_WORDS.has(upper) || /^[IQM]\d{1,2}$/.test(upper)) return false
+  if (/^MW\d{1,4}$/.test(upper) || /^[TC]\d{1,3}$/.test(upper)) return false
+  return true
+}
+
+/** Variáveis simbólicas (Start, B_Stop, fc_a0…) usadas numa condição, com a grafia original.
+ *  Ignora endereços I/Q/M, referências a etapas (X5, G0X3), temporizações (5s/X3, T(2s)),
+ *  frequências e os operandos numéricos das comparações (MW1>=5, T1>2000). */
+export function symbolWordsInCondition(expression: string): string[] {
   const cleaned = stripGrafcetPrefix(expression)
+    .replace(COMPARE_RE, ' ')
     .replace(/T\(\s*\d+(?:\.\d+)?\s*(?:ms|s)?\s*\)/gi, ' ')
     .replace(/\d+(?:\.\d+)?\s*(?:ms|s)?\s*\/\s*X[A-Za-z0-9_]*(?:\s*\/\s*\d+(?:\.\d+)?\s*(?:ms|s)?)?/gi, ' ')
     .replace(/\d+(?:\.\d+)?\s*hz/gi, ' ')
     .replace(/G\d+\s*<=>\s*X\d+/gi, ' ')
     .replace(/(?<![A-Za-z0-9_])(?:G\d+)?X\d+(?![A-Za-z0-9_])/gi, ' ')
-  const found = new Set<string>()
+  const found = new Map<string, string>()
   for (const match of cleaned.matchAll(/(?<![A-Za-z0-9_%.])[A-Za-z][A-Za-z0-9_]*/g)) {
-    const word = match[0].toUpperCase()
-    if (RESERVED_WORDS.has(word) || /^[IQM]\d{1,2}$/.test(word)) continue
-    found.add(word)
+    const upper = match[0].toUpperCase()
+    if (RESERVED_WORDS.has(upper) || /^[IQM]\d{1,2}$/.test(upper) || /^MW\d{1,4}$/.test(upper)) continue
+    if (!found.has(upper)) found.set(upper, match[0])
   }
-  return [...found]
+  return [...found.values()]
+}
+
+/** Variáveis simbólicas (Start, B_Stop, fc_a0…) usadas numa condição, em maiúsculas. */
+export function symbolsInCondition(expression: string): string[] {
+  return symbolWordsInCondition(expression).map((word) => word.toUpperCase())
 }
 
 export interface DetectedTransition {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { grafcetSignals, detectGrafcetSignals, nextDeclaredTagAddress, signalTagErrors, signalSearchText, signalAddressesInCondition } from '../src/grafcet/signals'
+import { grafcetSignals, detectGrafcetSignals, detectGrafcetSignalsDetailed, nextDeclaredTagAddress, signalTagErrors, signalSearchText, signalAddressesInCondition } from '../src/grafcet/signals'
+import { symbolsInCondition } from '../src/grafcet/inputDetect'
 import { useSimStore } from '../src/store/useSimStore'
 import { createComponent } from '../src/electrical/factory'
 import type { LadderTag } from '../src/types'
@@ -34,6 +35,44 @@ const program: GrafcetProgram = {
 assert.deepEqual(detectGrafcetSignals(program), ['I1', 'I2', 'I3', 'Q1', 'Q2', 'Q4', 'Q10', 'M2', 'M3', 'M7'])
 check(true, 'deteção cobre ações legadas, anexadas, soltas e condições')
 check(detectGrafcetSignals({ ...program, transitions: undefined }).includes('I9'), 'programas lineares antigos também fornecem entradas à deteção')
+
+// Deteção de variáveis simbólicas (Start, Stop…) — o caso do «Detetar do GRAFCET» com nomes nas condições.
+assert.deepEqual(symbolsInCondition('T1>2000 * MW1>=5 + Start * C1<>3'), ['START'])
+check(true, 'operandos numéricos das comparações (MW/T/C) não viram símbolos')
+const symProgram: GrafcetProgram = {
+  steps: [
+    { id: 's0', name: '0', initial: true, action: '', condition: '', actions: [] },
+    { id: 's1', name: '1', initial: false, action: '', condition: '', actions: [{ id: 'a1', address: 'Q1', condition: '1' }] },
+  ],
+  transitions: [
+    { id: 't1', from: ['s0'], to: ['s1'], condition: 'Start * /Stop' },
+    { id: 't2', from: ['s1'], to: ['s0'], condition: 'Stop' },
+  ],
+}
+assert.deepEqual(detectGrafcetSignals(symProgram), ['Q1'])
+check(true, 'deteção clássica continua a listar apenas endereços I/Q/M explícitos')
+const detailed = detectGrafcetSignalsDetailed(symProgram, [])
+assert.deepEqual(detailed.map((signal) => signal.address), ['Q1', 'I1', 'I2'])
+assert.deepEqual(detailed[0], { address: 'Q1', name: '', area: 'Q', symbolic: false })
+assert.deepEqual(detailed[1], { address: 'I1', name: 'Start', area: 'I', symbolic: true })
+assert.deepEqual(detailed[2], { address: 'I2', name: 'Stop', area: 'I', symbolic: true })
+check(true, 'variáveis das condições viram entradas com endereço livre e grafia original')
+const declaredByName = detectGrafcetSignalsDetailed(symProgram, [{ address: 'I5', name: 'Start', dataType: 'Bool', comment: '' }])
+assert.deepEqual(declaredByName.map((signal) => signal.address), ['Q1', 'I1'])
+check(declaredByName[1].name === 'Stop', 'símbolo já declarado por nome não é duplicado')
+const skipTaken = detectGrafcetSignalsDetailed(symProgram, [{ address: 'I1', name: 'Ocupada', dataType: 'Bool', comment: '' }])
+assert.deepEqual(skipTaken.map((signal) => signal.address), ['Q1', 'I2', 'I3'])
+check(true, 'atribuição de endereços salta os já ocupados na tabela')
+const writeProgram: GrafcetProgram = {
+  steps: [{ id: 's0', name: '0', initial: true, action: '', condition: '', actions: [{ id: 'a', address: 'Motor', condition: '1' }] }],
+  transitions: [{ id: 't', from: ['s0'], to: ['s0'], condition: 'Motor * Fc' }],
+}
+const written = detectGrafcetSignalsDetailed(writeProgram, [])
+assert.deepEqual(written.map((signal) => [signal.address, signal.name, signal.area]), [['I1', 'Fc', 'I'], ['Q1', 'Motor', 'Q']])
+check(true, 'variável escrita por uma ação vira saída (Q) e não se duplica com a leitura')
+const fullInputs = detectGrafcetSignalsDetailed(symProgram, Array.from({ length: 99 }, (_, index) => ({ address: `I${index + 1}`, name: '', dataType: 'Bool' as const, comment: '' })))
+assert.deepEqual(fullInputs.map((signal) => signal.address), ['Q1'])
+check(true, 'área cheia não inventa endereços fora de I1…I99')
 
 const state = () => useSimStore.getState()
 state().newProject('grafcet')

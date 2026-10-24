@@ -3,7 +3,7 @@ import type { LadderTag } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import PropertyDialog from '../ui/PropertyDialog'
 import TagSheetActions from '../excel/TagSheetActions'
-import { canonicalSignalAddress, detectGrafcetSignals, isSignalAddress, nextDeclaredTagAddress, signalTagErrors, type SignalArea } from './signals'
+import { canonicalSignalAddress, detectGrafcetSignalsDetailed, isSignalAddress, nextDeclaredTagAddress, signalTagErrors, type SignalArea } from './signals'
 import { foldText as normalizeSearch } from '../utils/text'
 import { IconChevronRight } from '../ui/icons'
 
@@ -47,12 +47,21 @@ export default function SignalTableDialog({ onClose }: { onClose: () => void }) 
     requestAnimationFrame(() => document.getElementById(`signal-name-${id}`)?.focus())
   }
   const detect = () => {
-    const known = new Set(draft.map((tag) => canonicalSignalAddress(tag.address)))
-    const addresses = detectGrafcetSignals(useSimStore.getState().grafcet).filter((address) => !known.has(address))
-    const added = addresses.map((address): LadderTag => ({ id: crypto.randomUUID(), address, name: '', comment: '', dataType: 'Bool' }))
+    const found = detectGrafcetSignalsDetailed(useSimStore.getState().grafcet, draft)
+    const added = found.map((signal): LadderTag => ({ id: crypto.randomUUID(), address: signal.address, name: signal.name, comment: '', dataType: 'Bool' }))
+    if (!added.length) {
+      setNotice('Não foram encontrados novos sinais no GRAFCET (nem endereços I/Q/M, nem variáveis com nome como Start).')
+      return
+    }
     setDraft((rows) => [...rows, ...added])
-    setRowAreas((areas) => ({ ...areas, ...Object.fromEntries(added.map((tag) => [tag.id, tag.address[0] as SignalArea])) }))
-    setNotice(added.length ? `${added.length} sinais adicionados ao rascunho. Ainda não foram guardados.` : 'Não foram encontrados novos endereços I/Q/M no GRAFCET.')
+    setRowAreas((areas) => ({ ...areas, ...Object.fromEntries(added.map((tag, index) => [tag.id, found[index].area])) }))
+    const firstArea = AREAS.find((section) => found.some((signal) => signal.area === section.area))?.area
+    if (firstArea) setArea(firstArea)
+    setSearch('')
+    const preview = found.slice(0, 5).map((signal) => (signal.symbolic ? `${signal.name} → ${signal.address}` : signal.address))
+    const remainder = found.length > preview.length ? `, +${found.length - preview.length}` : ''
+    const symbolicNote = found.some((signal) => signal.symbolic) ? ' As variáveis simbólicas receberam endereços livres — ajuste-os se já usa outros.' : ''
+    setNotice(`${added.length === 1 ? '1 sinal adicionado' : `${added.length} sinais adicionados`} ao rascunho (${preview.join(', ')}${remainder}).${symbolicNote} Ainda não foram guardados.`)
   }
   const importTags = (next: LadderTag[]) => {
     setDraft(next)
@@ -78,7 +87,7 @@ export default function SignalTableDialog({ onClose }: { onClose: () => void }) 
       <div className="grafcet-signal-table">
         {contextChanged && <p className="grafcet-property-warning" role="alert">O projeto, o PLC ativo ou a tabela mudou durante esta edição. Feche e abra novamente a tabela para editar o contexto atual. Este rascunho não será gravado.</p>}
         <p className="grafcet-property-note">O endereço é o valor usado no programa; o nome e o comentário servem para encontrar o sinal. Alterar esta documentação não remapeia nem remove ações ou condições.</p>
-        <div className="grafcet-signal-table-actions"><div className="grafcet-property-field"><label htmlFor="signal-table-search">Pesquisar sinais</label><input data-initial-focus id="signal-table-search" className="dc-input" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault() }} placeholder="Endereço, nome ou comentário…" /></div><button type="button" className="dc-btn" onClick={detect} disabled={contextChanged}>Detetar do GRAFCET</button><TagSheetActions tags={draft} scope={editable} restrict={(tag) => (tag.dataType === 'Bool' && isSignalAddress(tag.address) ? null : 'o GRAFCET só usa bits I, Q ou M (1 a 99); linha ignorada.')} disabled={contextChanged} context="GRAFCET · TABELA DE SINAIS" fileName="sinais-grafcet" onApply={importTags} /></div>
+        <div className="grafcet-signal-table-actions"><div className="grafcet-property-field"><label htmlFor="signal-table-search">Pesquisar sinais</label><input data-initial-focus id="signal-table-search" className="dc-input" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault() }} placeholder="Endereço, nome ou comentário…" /></div><button type="button" className="dc-btn" onClick={detect} disabled={contextChanged} title="Procura nas condições e ações os endereços I/Q/M e as variáveis com nome (Start, Stop…); estas recebem endereços livres">Detetar do GRAFCET</button><TagSheetActions tags={draft} scope={editable} restrict={(tag) => (tag.dataType === 'Bool' && isSignalAddress(tag.address) ? null : 'o GRAFCET só usa bits I, Q ou M (1 a 99); linha ignorada.')} disabled={contextChanged} context="GRAFCET · TABELA DE SINAIS" fileName="sinais-grafcet" onApply={importTags} /></div>
         <div className="grafcet-signal-table-tabs" role="tablist" aria-label="Áreas de sinais">{AREAS.map((section) => <button key={section.area} type="button" role="tab" aria-selected={area === section.area} onClick={() => setArea(section.area)} aria-label={section.title}>{section.title}<span>{draft.filter((tag) => rowAreas[tag.id] === section.area).length}</span></button>)}</div>
         <div className="grafcet-signal-table-section"><div><strong>{AREAS.find((section) => section.area === area)?.title}</strong><p>{AREAS.find((section) => section.area === area)?.hint}</p></div><div className="grafcet-signal-add-actions">{AREAS.map((section) => <button type="button" key={section.area} className="dc-btn" onClick={() => add(section.area)} disabled={contextChanged}>{section.add}</button>)}</div></div>
         <div className="grafcet-signal-table-grid"><table><thead><tr><th>Endereço</th><th>Nome</th><th>Comentário</th><th>Tipo</th><th><span className="sr-only">Remover</span></th></tr></thead><tbody>{visibleRows.map((tag, index) => <tr key={tag.id} className={!editable(tag) ? 'is-preserved' : undefined}>
@@ -86,7 +95,7 @@ export default function SignalTableDialog({ onClose }: { onClose: () => void }) 
           <td data-label="Nome"><input id={`signal-name-${tag.id}`} className="dc-input" aria-label={`Nome da linha ${index + 1}`} value={tag.name} onChange={(event) => change(tag.id, { name: event.target.value })} readOnly={!editable(tag)} placeholder="Ex.: Partida geral" /></td>
           <td data-label="Comentário"><input className="dc-input" aria-label={`Comentário da linha ${index + 1}`} value={tag.comment ?? ''} onChange={(event) => change(tag.id, { comment: event.target.value })} readOnly={!editable(tag)} placeholder="Função do sinal" /></td>
           <td data-label="Tipo"><span className="grafcet-signal-data-type">{tag.dataType}</span>{!editable(tag) && <small>Preservado</small>}</td><td><button type="button" onClick={() => setDraft((rows) => rows.filter((row) => row.id !== tag.id))} aria-label={`Remover linha ${index + 1}`} disabled={!editable(tag) || contextChanged}>×</button></td>
-        </tr>)}</tbody></table>{!visibleRows.length && <p className="grafcet-signal-empty">{search ? 'Nenhum sinal corresponde à pesquisa nesta área.' : 'Ainda não há sinais nesta área. Adicione uma linha ou detete os endereços do GRAFCET.'}</p>}</div>
+        </tr>)}</tbody></table>{!visibleRows.length && <p className="grafcet-signal-empty">{search ? 'Nenhum sinal corresponde à pesquisa nesta área.' : 'Ainda não há sinais nesta área. Adicione uma linha ou detete os sinais do GRAFCET (endereços I/Q/M e variáveis com nome, como Start).'}</p>}</div>
         <p className="grafcet-signal-table-notice" role="status">{notice || 'As alterações ficam neste rascunho até guardar.'}</p>
         {!!preservedCount && <details className="grafcet-context-help"><summary><IconChevronRight size={11} />Declarações preservadas ({preservedCount})</summary><div><p>Outras áreas e tipos de dados mantêm-se intactos. Sinais não booleanos não aparecem nas sugestões de bits; edite os seus tipos na tabela Ladder.</p><ul className="grafcet-preserved-signals">{draft.filter((tag) => !rowAreas[tag.id] || tag.dataType !== 'Bool').map((tag) => <li key={tag.id}><code>{tag.address}</code><span>{tag.name}{tag.comment ? ` · ${tag.comment}` : ''}</span><b>{tag.dataType}</b></li>)}</ul></div></details>}
         <p className="grafcet-property-note">A tabela é guardada no projeto completo. A exportação/importação do diagrama GRAFCET transporta apenas o diagrama.</p>
