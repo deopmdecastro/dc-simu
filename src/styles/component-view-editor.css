@@ -455,7 +455,7 @@ button.vcube-heading:hover { background:#f0f5fc; }
 .component-change-list { display:flex; flex-wrap:wrap; gap:4px; margin:7px 0 0; padding:0; list-style:none; }
 .component-change-list li { padding:3px 6px; border-radius:9px; color:#166534; background:#dcfce7; font-size:7px; font-weight:700; }
 .component-version-empty { margin:7px 0 0; color:#8491a5; font-size:8px; }
-.component-version-timeline { display:flex; max-height:220px; overflow:auto; flex-direction:column; gap:5px; padding-left:9px; border-left:2px solid #dbeafe; }
+.component-version-timeline { display:flex; max-height:220px; overflow:auto; flex-direction:column; gap:5px; padding-left:9px; border-left:1px solid #dbeafe; }
 .component-version-timeline article { position:relative; padding:7px; border:1px solid #dce3ed; border-radius:6px; background:#fff; }
 .component-version-timeline article::before { position:absolute; top:11px; left:-15px; width:8px; height:8px; border:2px solid #fff; border-radius:50%; background:#94a3b8; box-shadow:0 0 0 1px #bfdbfe; content:""; }
 .component-version-timeline article.is-current { border-color:#bfdbfe; background:#eff6ff; }
