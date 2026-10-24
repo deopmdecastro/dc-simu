@@ -6,7 +6,7 @@ import { detectGrafcetIo, inputsInCondition, symbolsInCondition } from '../src/g
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView } from '../src/grafcet/selection'
 import { signalUsage, undeclaredSignals, tagsToDeclare, tokenAtCursor, matchSignals, insertCondition } from '../src/grafcet/signals'
 import { GRAFCET_TEMPLATES } from '../src/grafcet/templates'
-import { normalizeActionVariable, scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity } from '../src/grafcet/engine'
+import { stepNumberOf, stripGrafcetPrefix, normalizeActionVariable, scanGrafcet, emptyGrafcetRuntime, evalCondition, validCondition, validateGrafcet, forceSteps, fireTransition, transitionReceptivity } from '../src/grafcet/engine'
 /**
  * Teste de fumaça dos motores (executado com `npm run test`).
  * Não depende do React: exercita o motor de continuidade, o motor Ladder, o
@@ -2034,6 +2034,51 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     }
     check(`GRAFCET→Ladder (${name}): equivalente ao simulador em 400 scans aleatórios`, !mismatch, mismatch)
   }
+}
+
+/* Grafcets parciais (G0X9 = X9), número real da etapa e criação automática do Ladder (OB100 + tabela). */
+{
+  const mk = (id: string, name: string, initial: boolean, actions: any[] = []) => ({ id, name, initial, action: '', condition: '1', actions })
+  check('G…: prefixo removido (G0X9, G3X12, G1 <=> X5, 5s/G2X4)', stripGrafcetPrefix('G0X9 * I1 + G3X12 + G1 <=> X5 + 5s/G2X4') === 'X9 * I1 + X12 + X5 + 5s/X4')
+  check('G…: variável I1/G3 sem X não é alterada', stripGrafcetPrefix('G3 + MG1X2') === 'G3 + MG1X2')
+  check('G0X9 é uma condição válida', validCondition('G0X9') && validCondition('G0X9 * !G3X2'))
+  const prog = {
+    steps: [mk('a', 'Etapa 10', true), mk('b', 'Etapa 9', false, [{ id: 'q', address: '1', condition: '1' }]), mk('c', 'Etapa 12', false)],
+    transitions: [
+      { id: 't1', from: ['a'], to: ['b'], condition: 'I1' },
+      { id: 't2', from: ['b'], to: ['c'], condition: 'G0X9 * I2' },
+    ],
+  }
+  check('número da etapa: «Etapa 9» → 9', stepNumberOf({ name: 'Etapa 9' }, 4) === '9' && stepNumberOf({ name: '12 - Espera' }, 0) === '12')
+  let rt = emptyGrafcetRuntime(); const tbl: Record<string, boolean> = {}
+  rt = scanGrafcet(prog, rt, tbl, 100)
+  tbl.I1 = true; tbl.I2 = true
+  rt = scanGrafcet(prog, rt, tbl, 100)
+  check('G0X9: ativa quando a etapa desenhada 9 está ativa (não o índice 9)', rt.active.join() === 'b' && tbl.Q1 === true, rt.active.join())
+  rt = scanGrafcet(prog, rt, tbl, 100)
+  check('G0X9 * I2 dispara a transição para a etapa 12', rt.active.join() === 'c', rt.active.join())
+  check('ação só com número («1») atua como Q1', normalizeActionVariable('1') === 'Q1')
+
+  const generated = grafcetToLadder(prog, [], { startupBlock: true })
+  check('Ladder auto: OB100 com repor etapas + etapas iniciais', generated.startupRungs.length >= 2 && generated.startupRungs.some((r) => r.name.includes('Etapas iniciais')))
+  check('Ladder auto: Main sem network de inicialização', !generated.rungs.some((r) => r.name.includes('Inicialização')))
+  check('Ladder auto: saída 1 → Q1 e G0X9 resolvido sem avisos', generated.warnings.length === 0 && generated.rungs.some((r) => r.coils.some((c) => c.address === 'Q1')), generated.warnings.join('|'))
+  check('Ladder auto: tabela com entradas, saídas e memórias', ['I1', 'I2', 'Q1'].every((a) => generated.tags.some((t) => t.address === a)) && generated.tags.some((t) => /^Etapa_/.test(t.name)) && generated.tags.some((t) => /^Rec_T/.test(t.name)))
+  // OB100 corre uma vez e depois o Main: tem de seguir o simulador.
+  const tableL: AddressTable = {}; const timers: TimerTable = {}; const counters: CounterTable = {}
+  runScan({ rungs: structuredClone(generated.startupRungs) }, tableL, timers, counters, 100)
+  const main = { rungs: structuredClone(generated.rungs) }
+  let g = emptyGrafcetRuntime(); const tg: Record<string, boolean> = {}
+  let mismatch = ''
+  const seq = [{}, { I1: true }, { I1: true, I2: true }, { I2: true }, { I1: false, I2: false }]
+  for (const [i, inputs] of seq.entries()) {
+    Object.assign(tg, inputs); Object.assign(tableL, inputs)
+    g = scanGrafcet(prog, g, tg, 100)
+    runScan(main, tableL, timers, counters, 100)
+    const ladderActive = prog.steps.filter((st) => tableL[generated.stepBits[st.id]]).map((st) => st.id).join()
+    if (ladderActive !== [...g.active].join()) mismatch = `passo ${i}: ladder ${ladderActive} ≠ grafcet ${g.active.join()}`
+  }
+  check('Ladder auto (OB100 + Main) equivalente ao simulador com G0X9', !mismatch, mismatch)
 }
 
 /* Verificação do Ladder. */

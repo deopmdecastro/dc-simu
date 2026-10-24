@@ -167,7 +167,49 @@ export interface ConditionContext {
   /** tempo (ms) ativo de cada etapa indexado por id, nome ou índice */
   stepElapsed?: Record<string, number>
   stepElapsedByName?: Record<string, number>
+  /** números de etapa (o que o utilizador escreve em X<n>) existentes / ativos e respetivo tempo ativo */
+  knownStepNumbers?: Set<string>
+  activeStepNumbers?: Set<string>
+  stepElapsedByNumber?: Record<string, number>
   simTimeMs?: number
+}
+
+/** Número de uma etapa tal como aparece no diagrama: «Etapa 9», «E9», «9 - Espera» ou «9» → «9».
+ *  Mantém as mesmas regras de `getStepDisplayInfo` (editor), para X<n> referir sempre a etapa desenhada. */
+export function stepNumberOf(step: { name?: string }, fallbackIndex: number): string {
+  const raw = (step.name || '').trim()
+  if (!raw) return String(fallbackIndex)
+  const prefixed = raw.match(/^(?:Etapa|Step|E)\s*(\d+[a-zA-Z]?)(?:\s*[-:]\s*(.*))?$/i)
+  if (prefixed) return prefixed[1]
+  const withComment = raw.match(/^(\d+[a-zA-Z]?)(?:\s*[-:]\s*(.*))$/)
+  if (withComment) return withComment[1]
+  if (/^\d+[a-zA-Z]?$/.test(raw)) return raw
+  if (raw.length <= 5 && !raw.includes(' ')) return raw
+  return String(fallbackIndex)
+}
+
+/** Grafcets parciais: G0X9, G3X12, G1 <=> X5, 5s/G2X4 → o prefixo G… é ignorado porque o
+ *  programa só tem um grafcet; G0X9 funciona exactamente como X9. */
+export function stripGrafcetPrefix(expression: string): string {
+  return expression.replace(/(?<![A-Za-z0-9_])G\d+\s*(?:<=>|=>|<=|=|:|\.|-)?\s*(?=X\d)/gi, '')
+}
+
+function stepNumberContext(steps: readonly GrafcetStep[], active: ReadonlySet<string>, elapsed: Record<string, number>) {
+  const knownStepNumbers = new Set<string>()
+  const activeStepNumbers = new Set<string>()
+  const stepElapsedByNumber: Record<string, number> = {}
+  steps.forEach((step, index) => {
+    const number = stepNumberOf(step, index)
+    knownStepNumbers.add(number)
+    if (active.has(step.id)) { activeStepNumbers.add(number); stepElapsedByNumber[number] = elapsed[step.id] ?? 0 }
+  })
+  return { knownStepNumbers, activeStepNumbers, stepElapsedByNumber }
+}
+
+/** X<n> ativo: pelo número desenhado; se nenhuma etapa tiver esse número, pelo índice ou nome (projetos antigos). */
+function stepIsActive(num: string, ctx: ConditionContext): boolean {
+  if (ctx.knownStepNumbers?.has(num)) return !!ctx.activeStepNumbers?.has(num)
+  return !!(ctx.activeIndexes?.has(Number(num)) || ctx.activeStepNames?.has(num))
 }
 
 /** Análise de duração: T(5s), T(500ms), 10s, 500ms, 2.5s */
@@ -228,7 +270,7 @@ export function referencedSteps(expression: string): number[] {
 }
 
 function parseCondition(expression: string, ctx: ConditionContext): boolean | null {
-  const src = expression.trim()
+  const src = stripGrafcetPrefix(expression).trim()
   if (!src) return null
   if (DISALLOWED_VARS.has(src.toUpperCase())) return null
 
@@ -285,7 +327,7 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
         const el = ctx.elapsedMs ?? 0
         return el >= d1 && (d2 === null || el <= d1 + d2)
       }
-      const stepElapsed = ctx.stepElapsed?.[step] ?? ctx.stepElapsedByName?.[step] ?? (ctx.activeIndexes?.has(Number(step)) ? (ctx.elapsedMs ?? 0) : null)
+      const stepElapsed = ctx.stepElapsedByNumber?.[step] ?? ctx.stepElapsed?.[step] ?? ctx.stepElapsedByName?.[step] ?? (!ctx.knownStepNumbers?.has(step) && ctx.activeIndexes?.has(Number(step)) ? (ctx.elapsedMs ?? 0) : null)
       if (stepElapsed === null || stepElapsed === undefined) return false
       return stepElapsed >= d1 && (d2 === null || stepElapsed <= d1 + d2)
     }
@@ -297,12 +339,12 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
     }
     if (token.startsWith('X') && /^\d+$/.test(token.slice(1))) {
       const num = Number(token.slice(1))
-      return !!(ctx.activeIndexes?.has(num) || ctx.activeStepNames?.has(token.slice(1)) || ctx.activeStepIds?.has(token))
+      return stepIsActive(String(num), ctx) || !!ctx.activeStepIds?.has(token)
     }
     const gStep = token.match(/^G\d+X(\d+)$/i) || token.match(/^G\d+\s*<=>\s*X(\d+)$/i)
     if (gStep) {
       const num = Number(gStep[1])
-      return !!(ctx.activeIndexes?.has(num) || ctx.activeStepNames?.has(gStep[1]))
+      return stepIsActive(String(num), ctx)
     }
     if (validBit(token) || validGrafcetVariable(token)) {
       return !!(ctx.table[token] ?? ctx.table[token.toUpperCase()] ?? ctx.table[token.toLowerCase()])
@@ -413,6 +455,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
       elapsedMs: sourceElapsed(transition, elapsed),
       stepElapsed: elapsed,
       stepElapsedByName,
+      ...stepNumberContext(steps, current, elapsed),
       simTimeMs,
     }
 
@@ -441,7 +484,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
       if (kind === 'DA') {
         // Pulso ao desativar: a etapa saiu da situação ativa nesta varredura.
         if (consumed.has(a.stepId) && !next.has(a.stepId)) {
-          const exitContext: ConditionContext = { table: snapshot, prev, activeIndexes: nextIndexes, activeStepNames: nextStepNames, activeStepIds: next, elapsedMs: elapsed[a.stepId] ?? 0, stepElapsed: elapsed, stepElapsedByName, simTimeMs }
+          const exitContext: ConditionContext = { table: snapshot, prev, activeIndexes: nextIndexes, activeStepNames: nextStepNames, activeStepIds: next, elapsedMs: elapsed[a.stepId] ?? 0, stepElapsed: elapsed, stepElapsedByName, ...stepNumberContext(steps, next, elapsed), simTimeMs }
           if (evalCondition(a.condition || '1', snapshot, exitContext)) continuous = true
         }
         continue
@@ -456,6 +499,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
         elapsedMs: elapsed[a.stepId] ?? 0,
         stepElapsed: elapsed,
         stepElapsedByName,
+        ...stepNumberContext(steps, next, elapsed),
         simTimeMs,
       }
       const holds = evalCondition(a.condition || '1', snapshot, actionContext)
@@ -512,6 +556,7 @@ export function transitionReceptivity(program: GrafcetProgram, runtime: GrafcetR
     elapsedMs: transition.from.length ? sourceElapsed(transition, elapsed) : 0,
     stepElapsed: elapsed,
     stepElapsedByName,
+    ...stepNumberContext(steps, active, elapsed),
     simTimeMs: runtime.simTimeMs ?? 0,
   })
 }
@@ -562,7 +607,7 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
     if (!validCondition(transition.condition)) {
       issues.push({ id: `${transition.id}:condition`, level: 'error', message: `Condição inválida em ${name}: «${transition.condition || 'vazia'}».`, entityId: transition.id, tab: 'transitions' })
     } else {
-      const bad = referencedSteps(transition.condition).filter((n) => n >= steps.length && !steps.some((s) => s.name.trim() === String(n)))
+      const bad = referencedSteps(transition.condition).filter((n) => !steps.some((s, i) => stepNumberOf(s, i) === String(n) || s.name.trim() === String(n)) && n >= steps.length)
       if (bad.length) {
         issues.push({ id: `${transition.id}:x`, level: 'error', message: `${name} usa X${bad[0]}, mas essa etapa não existe.`, entityId: transition.id, tab: 'transitions' })
       }

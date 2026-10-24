@@ -1,5 +1,5 @@
 import type { LadderTag } from '../types'
-import { actionsOfStep, transitionsOf, type GrafcetProgram } from './engine'
+import { actionsOfStep, normalizeActionVariable, stripGrafcetPrefix, transitionsOf, type GrafcetProgram } from './engine'
 import { foldText } from '../utils/text'
 
 export type SignalArea = 'I' | 'Q' | 'M'
@@ -41,13 +41,13 @@ export function signalAddressesInCondition(expression: string): string[] {
 export function detectGrafcetSignals(program: GrafcetProgram): string[] {
   const found = new Set<string>()
   const inspectAction = (action: { address?: string; variable?: string; condition?: string }) => {
-    const address = canonicalSignalAddress(action.address || action.variable || '')
+    const address = canonicalSignalAddress(normalizeActionVariable(action.address || action.variable || ''))
     if (isSignalAddress(address)) found.add(address)
     signalAddressesInCondition(action.condition ?? '').forEach((bit) => found.add(bit))
   }
   program.steps.forEach((step) => actionsOfStep(step).forEach(inspectAction))
   ;(program.freeActions ?? []).forEach(inspectAction)
-  transitionsOf(program).forEach((transition) => signalAddressesInCondition(transition.condition ?? '').forEach((bit) => found.add(bit)))
+  transitionsOf(program).forEach((transition) => signalAddressesInCondition(stripGrafcetPrefix(transition.condition ?? '')).forEach((bit) => found.add(bit)))
   return [...found].sort((a, b) => 'IQM'.indexOf(a[0]) - 'IQM'.indexOf(b[0]) || Number(a.slice(1)) - Number(b.slice(1)))
 }
 
@@ -94,7 +94,7 @@ export function signalUsage(program: GrafcetProgram): Map<string, SignalUsage> {
   }
   program.steps.forEach((step) => actionsOfStep(step).forEach(countAction))
   ;(program.freeActions ?? []).forEach(countAction)
-  transitionsOf(program).forEach((transition) => signalAddressesInCondition(transition.condition ?? '').forEach((bit) => bump(usage, bit, 'transitions')))
+  transitionsOf(program).forEach((transition) => signalAddressesInCondition(stripGrafcetPrefix(transition.condition ?? '')).forEach((bit) => bump(usage, bit, 'transitions')))
   return usage
 }
 

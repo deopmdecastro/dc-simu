@@ -1,4 +1,4 @@
-import { transitionsOf, type GrafcetProgram, type GrafcetTransition } from './engine'
+import { stripGrafcetPrefix, transitionsOf, type GrafcetProgram, type GrafcetTransition } from './engine'
 
 /** Endereços de entrada (I1…I32) referidos numa expressão: I1, !I2, ^I3, \I4, I1*I2… */
 export function inputsInCondition(expression: string): string[] {
@@ -16,7 +16,7 @@ const RESERVED_WORDS = new Set(['AND', 'OR', 'NOT', 'TRUE', 'FALSE', 'T', 'HZ', 
 /** Variáveis simbólicas (Start, B_Stop, fc_a0…) usadas numa condição, em maiúsculas.
  *  Ignora endereços I/Q/M, referências a etapas (X5, G0X3), temporizações (5s/X3, T(2s)) e frequências. */
 export function symbolsInCondition(expression: string): string[] {
-  const cleaned = expression
+  const cleaned = stripGrafcetPrefix(expression)
     .replace(/T\(\s*\d+(?:\.\d+)?\s*(?:ms|s)?\s*\)/gi, ' ')
     .replace(/\d+(?:\.\d+)?\s*(?:ms|s)?\s*\/\s*X[A-Za-z0-9_]*(?:\s*\/\s*\d+(?:\.\d+)?\s*(?:ms|s)?)?/gi, ' ')
     .replace(/\d+(?:\.\d+)?\s*hz/gi, ' ')

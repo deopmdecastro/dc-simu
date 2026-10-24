@@ -1,3 +1,5 @@
+import { nanoid } from 'nanoid'
+import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent, type WheelEvent } from 'react'
 import { uiConfirm } from '../ui/dialogs'
@@ -32,7 +34,8 @@ import GrafcetSimPanel from './GrafcetSimPanel'
 import GrafcetSimBar from './GrafcetSimBar'
 import GrafcetTemplatesDialog from './GrafcetTemplatesDialog'
 import { grafcetToLadder } from './toLadder'
-import { collectUsedAddresses } from '../ladder/ladderEngine'
+import { collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
+import { blockDisplayName } from '../ladder/blockCatalog'
 import {
   IconChevronRight,
   IconCopy,
@@ -572,16 +575,46 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     if (!steps.length) return notify('Crie primeiro as etapas do GRAFCET')
     if (errorCount) return notify('Corrija os erros do GRAFCET antes de gerar o Ladder')
     const state = useSimStore.getState()
-    const result = grafcetToLadder({ ...program, transitions }, collectUsedAddresses(state.ladder))
+    const plcId = state.activePlcId ?? '_general'
+    const restartFile = (state.projectFiles[plcId] ?? []).find((f) => f.folder === 'programBlocks' && f.exec === 'obStartup' && /\[OB\s*100\s*\]/i.test(f.name))
+    // Networks geradas antes são substituídas (não duplicadas); o que o utilizador escreveu à mão fica.
+    const keptMain = state.ladder.rungs.filter((r) => !r.name.startsWith('GRAFCET ·'))
+    const keptRestart = (restartFile?.rungs ?? []).filter((r) => !r.name.startsWith('Complete restart ·'))
+    const reserved = [...collectUsedAddresses({ rungs: keptMain }), ...collectUsedAddresses({ rungs: keptRestart })]
+    const result = grafcetToLadder({ ...program, transitions }, reserved, { startupBlock: true })
     const note = result.warnings.length ? `\n\nAvisos:\n- ${result.warnings.join('\n- ')}` : ''
     if (
       !(await uiConfirm(
-        `Acrescentar ${result.rungs.length} networks ao programa Ladder ativo?\n\nCada etapa usa um bit M do PLC, reproduzindo a execução do GRAFCET no PLC.${note}`
+        `Gerar o Ladder deste GRAFCET?\n\n• Complete restart [OB 100]: ${result.startupRungs.length} networks (repõe e ativa as etapas iniciais)\n• Main [OB 1]: ${result.rungs.length} networks (funções do GRAFCET e saídas)\n• Tabela de variáveis: ${result.tags.length} entradas, saídas e memórias\n\nAs networks geradas anteriormente são substituídas; as suas ficam como estão.${note}`
       ))
     )
       return
-    state.appendRungs(result.rungs)
-    notify(`${result.rungs.length} networks Ladder criadas`)
+    state.replaceGeneratedRungs(result.rungs)
+
+    const restartRungs = [...result.startupRungs, ...keptRestart]
+    if (restartFile) useSimStore.getState().updateProjectFile(restartFile.id, { rungs: restartRungs, exec: 'obStartup' })
+    else {
+      const fileId = useSimStore.getState().addProjectFile('programBlocks', blockDisplayName('OB', 'Complete restart', 100))
+      if (fileId) useSimStore.getState().updateProjectFile(fileId, { rungs: restartRungs, exec: 'obStartup' })
+    }
+
+    // Tabela de variáveis: acrescenta o que falta e dá nome às linhas ainda sem nome (nunca sobrepõe nomes do utilizador).
+    const tagState = useSimStore.getState()
+    const names = new Set(tagState.tags.map((t) => t.name))
+    const uniqueName = (base: string) => { let name = base; let n = 2; while (names.has(name)) name = `${base}_${n++}`; names.add(name); return name }
+    const generated = new Map(result.tags.map((t) => [t.address.toUpperCase(), t]))
+    const known = new Set(tagState.tags.map((t) => t.address.toUpperCase()))
+    const updated = tagState.tags.map((t) => {
+      const g = generated.get(t.address.toUpperCase())
+      if (!g) return t
+      const unnamed = !t.name || t.name === t.address
+      return { ...t, name: unnamed && g.name !== t.address ? uniqueName(g.name) : t.name, comment: t.comment || g.comment }
+    })
+    const added: LadderTag[] = result.tags.filter((t) => !known.has(t.address.toUpperCase())).map((t) => ({
+      id: nanoid(6), address: t.address, name: t.name === t.address ? t.name : uniqueName(t.name), dataType: defaultDataTypeFor(t.address) as LadderTag['dataType'], comment: t.comment,
+    }))
+    tagState.setTags([...updated, ...added])
+    notify(`Ladder gerado: Complete restart (${result.startupRungs.length}), Main (${result.rungs.length}) e ${result.tags.length} variáveis`)
   }
 
   /** Posição livre para um elemento novo: onde foi largado, ou junto ao elemento selecionado; nunca por cima de outro. */

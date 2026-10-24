@@ -312,6 +312,8 @@ interface Store extends CircuitState {
   addRung: () => string
   /** Acrescenta networks geradas (ex.: a partir do GRAFCET) ao programa Ladder ativo. */
   appendRungs: (rungs: LadderRung[]) => void
+  /** Substitui as networks geradas do GRAFCET («GRAFCET · …») pelas novas, mantendo as restantes. */
+  replaceGeneratedRungs: (rungs: LadderRung[]) => void
   deleteRung: (rungId: string) => void
   duplicateRung: (rungId: string) => void
   moveRung: (rungId: string, dir: -1 | 1) => void
@@ -2140,6 +2142,14 @@ export const useSimStore = create<Store>((set, get) => ({
     get().commitHistory()
     resetGroupedEdit()
     set((s) => ({ ladder: { rungs: [...s.ladder.rungs, ...rungs] }, dirty: true }))
+    get().autoDetectTags('skip')
+    get().step()
+  },
+
+  replaceGeneratedRungs: (rungs) => {
+    get().commitHistory()
+    resetGroupedEdit()
+    set((s) => ({ ladder: { rungs: [...s.ladder.rungs.filter((r) => !r.name.startsWith('GRAFCET ·')), ...rungs] }, dirty: true }))
     get().autoDetectTags('skip')
     get().step()
   },
