@@ -1,9 +1,9 @@
-import { COMPARE_OPERAND_RE, COMPARE_OPS, COMPARE_TYPES } from './compare'
+import { COMPARE_OPERAND_RE, COMPARE_OPS, COMPARE_TYPES, compareNumbers, readOperand } from './compare'
 import { ADDRESS_RE, MATH_TARGET_RE, MOVE_TARGET_RE, OPERAND_RE } from './ladderInlineEdit'
 import { MATH_OPS } from './ladderMath'
 import { uiConfirm } from '../ui/dialogs'
 import Select from '../ui/Select'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { LadderMathOp, LadderCoilType, LadderContactType, LadderDataType, LadderRung, LadderCompareOp, LadderCompareType } from '../types'
 import { IconArrowRight, IconCoil, IconContact, IconCounter, IconDelete, IconFunction, IconMove, IconTimer } from '../ui/icons'
@@ -124,6 +124,11 @@ export default function LadderElementDialog({
 }) {
   const tags = useSimStore((state) => state.tags)
   const fcNamesMap = useSimStore((state) => state.fcNames)
+  const runState = useSimStore((state) => state.sim.runState)
+  const runtimeDb = useSimStore((state) => state.runtime.db)
+  const runtimeTimers = useSimStore((state) => state.runtime.timers)
+  const runtimeCounters = useSimStore((state) => state.runtime.counters)
+  const saveRef = useRef<() => void>(() => {})
   const [draft, setDraft] = useState<Draft>(EMPTY)
   const [error, setError] = useState('')
   const key = selectionKey(selection)
@@ -156,6 +161,8 @@ export default function LadderElementDialog({
     if (!selection) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
+      // Paridade com os diálogos GRAFCET: Ctrl/Cmd+Enter aplica as alterações.
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); saveRef.current() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -167,6 +174,17 @@ export default function LadderElementDialog({
   const normalizedAddress = draft.address.trim().replace(/^%/, '').toUpperCase()
   const isCompare = draft.kind === 'contact' && draft.contactType === 'CMP'
   const compareValueNorm = draft.compareValue.trim().replace(/^%/, '').toUpperCase()
+  // Monitorização ao vivo (estilo TIA «monitorizar»): valores atuais e resultado,
+  // mesmo antes de aplicar — usa o rascunho em edição.
+  let compareMonitor: string | null = null
+  if (isCompare && runState !== 'stopped') {
+    const a = readOperand(normalizedAddress, { db: runtimeDb, timers: runtimeTimers, counters: runtimeCounters })
+    const b = readOperand(compareValueNorm, { db: runtimeDb, timers: runtimeTimers, counters: runtimeCounters })
+    const fmt = (v: number | undefined) => (v === undefined ? '—' : Number.isInteger(v) ? String(v) : v.toFixed(2))
+    compareMonitor = a !== undefined && b !== undefined
+      ? `A monitorizar: IN1 «${normalizedAddress || '?'}» = ${fmt(a)}  ${draft.compareOp}  IN2 «${compareValueNorm || '?'}» = ${fmt(b)}  ⇒  ${compareNumbers(draft.compareOp, a, b) ? 'verdadeiro (energiza)' : 'falso'}`
+      : null
+  }
 
   const syncTag = (oldAddress: string, nextAddress: string) => {
     const state = useSimStore.getState()
@@ -220,6 +238,8 @@ export default function LadderElementDialog({
     onClose()
   }
 
+  saveRef.current = save
+
   const remove = async () => {
     if (!await uiConfirm(`Eliminar ${titleFor(draft.kind).toLocaleLowerCase('pt-PT')} desta network?`)) return
     const apply = updateRungProp ?? useSimStore.getState().updateRung
@@ -236,6 +256,9 @@ export default function LadderElementDialog({
   }
 
   const commonFields = draft.kind !== 'move' && draft.kind !== 'math' && draft.kind !== 'call'
+  // Comunicação com a Tabela de variáveis (como no diálogo de sinais do GRAFCET):
+  const linkedTag = tags.find((item) => item.address === normalizedAddress)
+  const addressish = /^(?:%)?(?:I|Q|M|MW|MB|MD|T|C)\d+/i.test(normalizedAddress)
   return createPortal(<div className="ladder-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <section className="ladder-element-dialog" role="dialog" aria-modal="true" aria-labelledby="ladder-element-dialog-title">
       <header>
@@ -250,9 +273,11 @@ export default function LadderElementDialog({
             <div className="ladder-dialog-grid">
               <label><span>{isCompare ? 'IN1 — operando' : 'Endereço absoluto'}</span><input autoFocus list="ladder-tag-addresses" value={draft.address} onChange={(event) => patch({ address: event.target.value.toUpperCase() })} placeholder={isCompare ? 'MW0' : 'I1'} /></label>
               <label><span>Nome simbólico</span><input value={draft.tagName} onChange={(event) => patch({ tagName: event.target.value })} placeholder="Ex.: Botao_Start" /></label>
-              <label><span>Tipo de dados</span><Select value={draft.dataType} onChange={(event) => patch({ dataType: event.target.value as LadderDataType })}><option>Bool</option><option>Time</option><option>Int</option><option>Real</option></Select></label>
+              {!isCompare && <label><span>Tipo de dados</span><Select value={draft.dataType} onChange={(event) => patch({ dataType: event.target.value as LadderDataType })}><option>Bool</option><option>Time</option><option>Int</option><option>Real</option></Select></label>}
               <label className="is-wide"><span>Comentário</span><input value={draft.comment} onChange={(event) => patch({ comment: event.target.value })} placeholder="Descrição funcional do sinal" /></label>
             </div>
+            {linkedTag && <p className="ladder-dialog-tag-status is-found" role="status">{draft.kind === 'coil' || draft.kind === 'contact' ? 'Sinal' : 'Endereço'} «{linkedTag.name || linkedTag.address}» encontrado na tabela de variáveis ({linkedTag.dataType}){linkedTag.comment ? ` — ${linkedTag.comment}` : ''}.</p>}
+            {!linkedTag && addressish && <p className="ladder-dialog-tag-status" role="status">Endereço «{normalizedAddress}» ainda não tem tag na tabela de variáveis — o nome simbólico acima é o nome de apresentação.</p>}
           </section>}
 
           {draft.kind === 'contact' && !isCompare && <section className="ladder-dialog-section"><h3>Comportamento do contato</h3><div className="ladder-choice-grid">
@@ -262,9 +287,9 @@ export default function LadderElementDialog({
 {isCompare && <section className="ladder-dialog-section"><h3>Comparação</h3><div className="ladder-choice-grid is-three">
             {COMPARE_OPS.map(({ op, label, detail }) => <button type="button" key={op} className={draft.compareOp === op ? 'is-selected' : ''} onClick={() => patch({ compareOp: op })}><strong>{label}</strong><small>{detail}</small></button>)}
           </div><div className="ladder-dialog-grid">
-            <label><span>Tipo de dados</span><Select value={draft.compareType} onChange={(event) => patch({ compareType: event.target.value as LadderCompareType })}>{COMPARE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</Select></label>
+            <label><span>Tipo de dados do comparador</span><Select value={draft.compareType} onChange={(event) => patch({ compareType: event.target.value as LadderCompareType })}>{COMPARE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</Select></label>
             <label><span>IN2 — valor de comparação</span><input list="ladder-tag-addresses" value={draft.compareValue} onChange={(event) => patch({ compareValue: event.target.value.toUpperCase() })} placeholder="2" /></label>
-          </div><p className="ladder-dialog-help">Resultado: IN1 {draft.compareOp} IN2. Aceita números, 16#FF, MWn, contadores (Cn), tempo decorrido de temporizadores (Tn, em ms) e DB1.variável. Escreva em MWn com o bloco MOVE.</p></section>}
+          </div>{compareMonitor && <p className="ladder-compare-monitor" role="status">{compareMonitor}</p>}<p className="ladder-dialog-help">Resultado: IN1 {draft.compareOp} IN2. Aceita números, 16#FF, MWn, contadores (Cn), tempo decorrido de temporizadores (Tn, em ms) e DB1.variável. Escreva em MWn com o bloco MOVE.</p></section>}
 
           {draft.kind === 'coil' && <section className="ladder-dialog-section"><h3>Modo da bobina</h3><div className="ladder-choice-grid is-three">
             {([['COIL', 'Bobina', 'Segue o RLO'], ['SET', 'SET', 'Retém em 1'], ['RESET', 'RESET', 'Repõe em 0']] as const).map(([value, label, detail]) => <button type="button" key={value} className={draft.coilType === value ? 'is-selected' : ''} onClick={() => patch({ coilType: value })}><strong>{label}</strong><small>{detail}</small></button>)}
@@ -304,7 +329,7 @@ export default function LadderElementDialog({
         </div>
         <footer>
           <button type="button" className="ladder-dialog-delete" onClick={remove}><IconDelete size={13} /> Eliminar elemento</button>
-          <span />
+          <span className="ladder-dialog-shortcuts"><kbd>Esc</kbd> cancelar · <kbd>Ctrl/⌘ Enter</kbd> aplicar</span>
           <button type="button" className="dc-btn" onClick={onClose}>Cancelar</button>
           <button type="submit" className="dc-btn dc-btn-primary">Aplicar alterações</button>
         </footer>

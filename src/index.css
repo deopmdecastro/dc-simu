@@ -2675,3 +2675,40 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
   padding: 4px 10px;
   font-size: 11px;
 }
+
+/* Diálogo de elementos Ladder — monitorização ao vivo do comparador (estilo TIA) */
+.ladder-compare-monitor {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border: 1px solid #cde6b0;
+  border-radius: 6px;
+  background: #f4fbee;
+  color: #3f6212;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Diálogo de elementos Ladder — dicas de atalhos no rodapé (paridade GRAFCET) */
+.ladder-dialog-shortcuts { color: #8c97ab; font-size: 10px; text-align: center; flex: 1; }
+.ladder-dialog-shortcuts kbd {
+  padding: 1px 5px;
+  border: 1px solid #d6dde8;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #f7f9fc;
+  color: #5c6a80;
+  font-family: inherit;
+  font-size: 9.5px;
+}
+
+/* Placeholders itálicos uniformes nas tabelas de variáveis/sinais */
+.ladder-tag-cell-input::placeholder,
+.ladder-dialog-grid input::placeholder,
+.ladder-dialog-full-label input::placeholder {
+  font-style: italic;
+  color: #9aa7ba;
+}
+
+/* Ligação elemento ↔ tabela de variáveis (paridade com o diálogo de sinais GRAFCET) */
+.ladder-dialog-tag-status { margin: 8px 0 0; font-size: 11px; color: #8c97ab; }
+.ladder-dialog-tag-status.is-found { color: #3f6212; }
