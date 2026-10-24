@@ -90,7 +90,7 @@ try {
   await dialog().getByRole('button', { name: 'Escolher saída ou memória', exact: true }).click()
   check(await dialog().getByRole('group', { name: 'Saídas e memórias disponíveis', exact: true }).getByRole('button').count() === 0, 'tabela vazia também não inventa alvos de ação')
   await page.keyboard.press('Escape')
-  await dialog().getByRole('radio', { name: /^Condicional / }).check()
+  await dialog().getByRole('radio', { name: /^Ação condicionada / }).check()
   await dialog().getByRole('button', { name: 'Inserir variável', exact: true }).click()
   await dialog().getByRole('textbox', { name: 'Pesquisar variável', exact: true }).fill('B_Start')
   check(await dialog().locator('[data-variable-token]').count() === 0, 'tabela vazia não sugere sinais fictícios nas condições')
@@ -213,7 +213,7 @@ try {
   await page.locator('#action-var-error').waitFor()
   check(await dialog().isVisible(), 'ação vazia não é substituída silenciosamente por Q1')
   await page.locator('#action-var-input').fill('Motor_A')
-  await dialog().getByRole('radio', { name: /^Condicional / }).check()
+  await dialog().getByRole('radio', { name: /^Ação condicionada / }).check()
   await dialog().getByRole('button', { name: 'Inserir variável', exact: true }).click()
   await dialog().getByRole('textbox', { name: 'Pesquisar variável', exact: true }).fill('Partida geral')
   await page.keyboard.press('Enter')
@@ -235,7 +235,7 @@ try {
   check(await page.locator('#action-cond-input').evaluate((el) => el === document.activeElement && el.selectionStart === 0 && el.selectionEnd === 2), 'fechar o picker conserva a seleção original')
   await page.locator('#action-cond-input').fill('1')
   await dialog().getByRole('radio', { name: /^Ação simples / }).check()
-  await dialog().getByRole('radio', { name: /^Condicional / }).check()
+  await dialog().getByRole('radio', { name: /^Ação condicionada / }).check()
   await page.locator('#action-cond-input').press('End')
   await dialog().getByRole('button', { name: 'Inserir variável', exact: true }).click()
   await dialog().getByRole('textbox', { name: 'Pesquisar variável', exact: true }).fill('Q1')
@@ -363,16 +363,16 @@ try {
   await setProgramFixture(beforeFixture)
 
   const legacyFixture = JSON.parse(JSON.stringify(beforeFixture))
-  legacyFixture.steps[1].actions[0].kind = 'DA'
-  legacyFixture.steps[1].actions[0].allocation = 'deactivation'
+  legacyFixture.steps[1].actions[0].kind = 'EV'
+  legacyFixture.steps[1].actions[0].allocation = 'event'
   await setProgramFixture(legacyFixture)
   await page.locator('.grafcet-graph-action:not(.grafcet-action-free)').first().dblclick()
   await dialog().waitFor()
-  check(await dialog().getByRole('radio', { name: /^Ao desativar/ }).isChecked(), 'ação histórica DA mantém a seleção ao abrir')
+  check(await dialog().getByRole('radio', { name: /^No evento/ }).isChecked(), 'ação histórica EV mantém a seleção ao abrir')
   check(await dialog().getByText(/não liga nem desliga a saída na simulação atual/).isVisible(), 'ação sem runtime mostra o limite funcional')
   await save()
   await waitClosed()
-  check((await readProgram()).steps[1].actions[0].kind === 'DA', 'guardar ação histórica não a converte silenciosamente para N')
+  check((await readProgram()).steps[1].actions[0].kind === 'EV', 'guardar ação histórica não a converte silenciosamente para N')
   await setProgramFixture(beforeFixture)
 
   const detachedFixture = JSON.parse(JSON.stringify(beforeFixture))

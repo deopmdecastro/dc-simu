@@ -1,3 +1,4 @@
+import ActionSymbol, { actionShape } from './ActionSymbol'
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent, type WheelEvent } from 'react'
 import { uiConfirm } from '../ui/dialogs'
 import { isSmallScreen } from '../ui/cleanMode'
@@ -3901,115 +3902,25 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
 
                             <title>{`${kind} · ${actionLabel(action)}${action.variable ? ` · ${action.variable}` : ''}${isConditional ? ` · condição: ${action.condition}` : ''}`}</title>
 
-                            {/* Bandeira / suporte superior da ação condicionada IEC */}
-                            {isConditional && (
-                              <g>
-                                <path
-                                  d={`M ${renderX + 16} ${actionY} V ${actionY - 10} H ${renderX + 85}`}
-                                  fill="none"
-                                  stroke={strokeColor}
-                                  strokeWidth={isThisActionSelected ? 2 : 1.5}
-                                />
-                                <text
-                                  x={renderX + 20}
-                                  y={actionY - 13}
-                                  fill={isThisActionSelected ? '#1d4ed8' : '#2563eb'}
-                                  fontSize="10"
-                                  fontWeight="700"
-                                >
-                                  {diagramLabel(action.condition!, 17)}
-                                </text>
-                              </g>
-                            )}
-
                             {/* Halo de hover/seleção (ver .grafcet-hover-halo) */}
                             {full && <rect className="grafcet-hover-halo" x={renderX} y={actionY} width={actionW} height={actionH} rx="2" pointerEvents="none" />}
-                            {/* Caixa principal da ação IEC */}
-                            <rect
-                              className="grafcet-action-box"
+                            {/* Símbolo IEC 60848 partilhado com a modal */}
+                            <ActionSymbol
                               x={renderX}
                               y={actionY}
-                              width={actionW}
-                              height={actionH}
-                              rx="2"
+                              w={actionW}
+                              h={actionH}
+                              shape={actionShape(action)}
+                              condition={action.condition}
+                              timeSeconds={(action.timeMs ?? 2000) / 1000}
+                              qualifierW={qualifierW}
+                              stroke={strokeColor}
+                              strokeWidth={isThisActionSelected || actionOn ? 2 : 1.5}
                               fill={actionOn ? '#edf9f1' : isThisActionSelected ? '#eff6ff' : 'white'}
-                              stroke={strokeColor}
-                              strokeWidth={isThisActionSelected || actionOn ? 2 : 1.4}
+                              textColor={isThisActionSelected ? '#1d4ed8' : actionOn ? '#15803d' : '#1e293b'}
+                              label={diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : 13)}
+                              subLabel={action.displayDescription && action.description && action.variable && action.description !== action.variable ? diagramLabel(action.variable, isThisActionSelected || isThisActionHovered ? 10 : 16) : undefined}
                             />
-                            <rect x={renderX + 1} y={actionY + 1} width={qualifierW - 1} height={actionH - 2} rx="1" fill={actionOn ? '#dff1e5' : isThisActionSelected ? '#e0edff' : '#f1f5f9'} pointerEvents="none" />
-
-                            {/* Comando compulsivo: retângulo duplo interno */}
-                            {(action.allocation === 'compulsory' || kind === 'C') && (
-                              <rect
-                                x={renderX + 2.5}
-                                y={actionY + 2.5}
-                                width={actionW - 5}
-                                height={actionH - 5}
-                                fill="none"
-                                stroke={strokeColor}
-                                strokeWidth="1.2"
-                              />
-                            )}
-
-                            {/* Linha divisória do qualificador IEC */}
-                            <line
-                              x1={renderX + qualifierW}
-                              y1={actionY}
-                              x2={renderX + qualifierW}
-                              y2={actionY + actionH}
-                              stroke={strokeColor}
-                              strokeWidth={isThisActionSelected ? 2 : 1.5}
-                            />
-
-                            {/* Símbolo do qualificador IEC na coluna esquerda */}
-                            {kind === 'S' && (
-                              <text x={renderX + qualifierW / 2} y={actionY + 19} textAnchor="middle" fill={strokeColor} fontSize="12" fontWeight="700">S</text>
-                            )}
-                            {kind === 'R' && (
-                              <text x={renderX + qualifierW / 2} y={actionY + 19} textAnchor="middle" fill={strokeColor} fontSize="12" fontWeight="700">R</text>
-                            )}
-                            {kind === 'D' && (
-                              <>
-                                <text x={renderX + qualifierW / 2} y={actionY + 13} textAnchor="middle" fill={strokeColor} fontSize="9.5" fontWeight="700">D</text>
-                                <text x={renderX + qualifierW / 2} y={actionY + 24} textAnchor="middle" fill={strokeColor} fontSize="8" fontWeight="600">{((action.timeMs ?? 2000) / 1000)}s</text>
-                              </>
-                            )}
-                            {kind === 'L' && (
-                              <>
-                                <text x={renderX + qualifierW / 2} y={actionY + 13} textAnchor="middle" fill={strokeColor} fontSize="9.5" fontWeight="700">L</text>
-                                <text x={renderX + qualifierW / 2} y={actionY + 24} textAnchor="middle" fill={strokeColor} fontSize="8" fontWeight="600">{((action.timeMs ?? 2000) / 1000)}s</text>
-                              </>
-                            )}
-                            {(kind === 'A' || action.allocation === 'activation') && (
-                              <g stroke={strokeColor} strokeWidth="1.6" fill="none">
-                                <line x1={renderX + 16} y1={actionY + 22} x2={renderX + 16} y2={actionY + 8} />
-                                <path d={`M ${renderX + 13} ${actionY + 12} L ${renderX + 16} ${actionY + 7} L ${renderX + 19} ${actionY + 12}`} />
-                              </g>
-                            )}
-                            {(kind === 'DA' || action.allocation === 'deactivation') && (
-                              <g stroke={strokeColor} strokeWidth="1.6" fill="none">
-                                <line x1={renderX + 16} y1={actionY + 8} x2={renderX + 16} y2={actionY + 22} />
-                                <path d={`M ${renderX + 13} ${actionY + 18} L ${renderX + 16} ${actionY + 23} L ${renderX + 19} ${actionY + 18}`} />
-                              </g>
-                            )}
-                            {kind === 'N' && (
-                              <text x={renderX + qualifierW / 2} y={actionY + 19} textAnchor="middle" fill="#536780" fontSize="11" fontWeight="600">N</text>
-                            )}
-
-                            {/* Variável e descrição no corpo da ação */}
-                            <text
-                              x={renderX + qualifierW + 9}
-                              y={actionY + (action.displayDescription && action.description && action.variable ? 13 : 19)}
-                              fill={isThisActionSelected ? '#1d4ed8' : actionOn ? '#15803d' : '#1e293b'}
-                              fontSize="11.5"
-                              fontWeight={isThisActionSelected || actionOn ? 700 : 600}
-                              fontFamily={action.displayDescription && action.description ? undefined : 'ui-monospace, SFMono-Regular, Menlo, monospace'}
-                            >
-                              {diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : 13)}
-                              {action.displayDescription && action.description && action.variable && action.description !== action.variable ? (
-                                <tspan x={renderX + qualifierW + 9} y={actionY + 24} fill="#64748b" fontSize="9" fontWeight="500" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">{diagramLabel(action.variable, isThisActionSelected || isThisActionHovered ? 10 : 16)}</tspan>
-                              ) : null}
-                            </text>
 
                             {/* Manipuladores rápidos na ação: ✎ editar e ✕ eliminar */}
                             {full && (isThisActionSelected || isThisActionHovered) && (
@@ -4153,39 +4064,25 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
                       <line x1={x - 14} y1={midY} x2={x} y2={midY} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
                       <circle className="grafcet-free-port" cx={x - 14} cy={midY} r="5" fill="#ffffff" stroke="#d97706" strokeWidth="2" />
 
-                      {/* Bandeira da ação condicionada IEC */}
-                      {isConditional && (
-                        <g>
-                          <path d={`M ${x + 16} ${y} V ${y - 10} H ${x + 85}`} fill="none" stroke={strokeColor} strokeWidth="1.5" />
-                          <text x={x + 20} y={y - 13} fill="#2563eb" fontSize="10" fontWeight="700">
-                            {diagramLabel(action.condition!, 17)}
-                          </text>
-                        </g>
-                      )}
-
                       {/* Halo de hover/seleção (ver .grafcet-hover-halo) */}
                       {full && <rect className="grafcet-hover-halo" x={x} y={y} width={ACTION_FREE_W} height={ACTION_FREE_H} rx="2" pointerEvents="none" />}
-                      {/* Caixa principal IEC (âmbar tracejada enquanto solta) */}
-                      <rect
-                        className="grafcet-action-box"
+                      {/* Símbolo IEC 60848 (âmbar tracejado enquanto solta) */}
+                      <ActionSymbol
                         x={x}
                         y={y}
-                        width={ACTION_FREE_W}
-                        height={ACTION_FREE_H}
-                        rx="2"
-                        fill={isThisActionSelected ? '#eff6ff' : '#fffbeb'}
+                        w={ACTION_FREE_W}
+                        h={ACTION_FREE_H}
+                        shape={actionShape(action)}
+                        condition={action.condition}
+                        timeSeconds={(action.timeMs ?? 2000) / 1000}
+                        qualifierW={ACTION_QUALIFIER_W}
                         stroke={strokeColor}
-                        strokeWidth={isThisActionSelected ? 2.5 : 1.7}
-                        strokeDasharray={isThisActionSelected ? undefined : '6 3'}
+                        strokeWidth={isThisActionSelected ? 2.2 : 1.6}
+                        fill={isThisActionSelected ? '#eff6ff' : '#fffbeb'}
+                        textColor={isThisActionSelected ? '#1d4ed8' : '#1e293b'}
+                        dashed={!isThisActionSelected}
+                        label={diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : 13)}
                       />
-                      <rect x={x + 1} y={y + 1} width={ACTION_QUALIFIER_W - 1} height={ACTION_FREE_H - 2} rx="1" fill={isThisActionSelected ? '#e0edff' : '#fef0cc'} pointerEvents="none" />
-                      <line x1={x + ACTION_QUALIFIER_W} y1={y} x2={x + ACTION_QUALIFIER_W} y2={y + ACTION_FREE_H} stroke={strokeColor} strokeWidth="1.5" />
-                      <text x={x + ACTION_QUALIFIER_W / 2} y={y + 19} textAnchor="middle" fill="#b45309" fontSize="11" fontWeight="700">
-                        {kindLabel}
-                      </text>
-                      <text x={x + ACTION_QUALIFIER_W + 9} y={y + 19} fill={isThisActionSelected ? '#1d4ed8' : '#1e293b'} fontSize="11.5" fontWeight={isThisActionSelected ? 700 : 600} fontFamily={action.displayDescription && action.description ? undefined : 'ui-monospace, SFMono-Regular, Menlo, monospace'}>
-                        {diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : 13)}
-                      </text>
 
                       {/* A marca permanece fora da caixa para não colidir com controlos ou texto. */}
                       <g className="grafcet-detached-status grafcet-action-detached-status" transform={`translate(${x - 50}, ${y - 11})`} pointerEvents="none">

@@ -4,6 +4,7 @@ import PropertyDialog from '../ui/PropertyDialog'
 import ConditionEditor from './ConditionEditor'
 import SignalPicker from './SignalPicker'
 import { canonicalSignalAddress, type GrafcetSignalSuggestion } from './signals'
+import ActionSymbol from './ActionSymbol'
 import { IconChevronRight } from '../ui/icons'
 
 interface ActionDialogProps {
@@ -18,54 +19,20 @@ interface ActionDialogProps {
 
 type AssignationType = 'simple' | 'conditional'
 
-const INK = '#1e293b'
 const QUALIFIERS: GrafcetActionKind[] = ['N', 'S', 'R', 'D', 'L']
 
-/** Símbolo IEC 60848 da ação, usado nas miniaturas dos tipos e na pré-visualização. */
-function ActionGlyph({ assignation, allocation, qualifier, text, condition, width = 160, height = 38, mini = false }: {
-  assignation: AssignationType; allocation: GrafcetActionAllocation; qualifier?: string; text?: string; condition?: string
-  width?: number; height?: number; mini?: boolean
+/** Símbolo IEC 60848 da ação (o mesmo do diagrama) — miniatura nos tipos e pré-visualização grande. */
+function ActionGlyph({ assignation, allocation, qualifier, text, condition, seconds, mini = false }: {
+  assignation: AssignationType; allocation: GrafcetActionAllocation; qualifier?: string; text?: string; condition?: string; seconds?: number; mini?: boolean
 }) {
-  const conditional = assignation === 'conditional'
-  const pad = 6
-  const top = conditional ? (mini ? 12 : 26) : (mini ? 6 : 16)
-  const sw = mini ? 1.4 : 1.8
-  const bx = pad
-  const total = width + pad * 2
-  const totalH = top + height + (mini ? 6 : 26)
-  const showQualifier = allocation === 'continuous' && !!qualifier
-  const textX = showQualifier ? bx + 40 : allocation === 'continuous' ? bx + 12 : bx + 28
-  const cy = top + height / 2
-  return (
-    <svg viewBox={`0 0 ${total} ${totalH}`} width={mini ? 62 : '100%'} height={mini ? 34 : 118} aria-hidden="true" focusable="false" className="grafcet-preview-svg">
-      {conditional && (
-        <g>
-          <path d={`M ${bx + 14} ${top} V ${top - (mini ? 7 : 12)} H ${bx + (mini ? 40 : 84)}`} fill="none" stroke={INK} strokeWidth={sw} />
-          {!mini && <text x={bx + 18} y={top - 15} fontSize="10" fontWeight="700" fill="#2563eb">{(condition || 'condição').slice(0, 24)}</text>}
-        </g>
-      )}
-      <rect x={bx} y={top} width={width} height={height} fill="#fff" stroke={INK} strokeWidth={sw} />
-      {allocation === 'compulsory' && <rect x={bx + 3} y={top + 3} width={width - 6} height={height - 6} fill="none" stroke={INK} strokeWidth={sw * 0.7} />}
-      {allocation === 'activation' && (
-        <g stroke={INK} strokeWidth={sw} fill="none">
-          <line x1={bx - 0.5} y1={top - 6} x2={bx - 0.5} y2={top + height * 0.55} />
-          <path d={`M ${bx - 4} ${top - 1} L ${bx - 0.5} ${top - 7} L ${bx + 3} ${top - 1}`} />
-        </g>
-      )}
-      {allocation === 'deactivation' && (
-        <g stroke={INK} strokeWidth={sw} fill="none">
-          <line x1={bx - 0.5} y1={top + height * 0.45} x2={bx - 0.5} y2={top + height + 6} />
-          <path d={`M ${bx - 4} ${top + height + 1} L ${bx - 0.5} ${top + height + 7} L ${bx + 3} ${top + height + 1}`} />
-        </g>
-      )}
-      {allocation === 'event' && <path d={`M ${bx} ${top + height * 0.2} L ${bx + 9} ${top + height * 0.2 + 7} L ${bx} ${top + height * 0.2 + 14} Z`} fill={INK} />}
-      {showQualifier && !mini && (
-        <g>
-          <line x1={bx + 28} y1={top} x2={bx + 28} y2={top + height} stroke={INK} strokeWidth="1.4" />
-          <text x={bx + 14} y={cy + 4.5} textAnchor="middle" fontSize="12" fontWeight="700" fill={qualifier === 'N' ? '#64748b' : '#2563eb'}>{qualifier}</text>
-        </g>
-      )}
-      {!mini && <text x={textX} y={cy + 4.5} fontSize={(text ?? '').length > 12 ? 11 : 12.5} fontWeight="600" fill="#0f172a">{(text ?? '').length > 18 ? `${(text ?? '').slice(0, 17)}…` : text}</text>}
+  const shape = { conditional: assignation === 'conditional', allocation, qualifier: qualifier && ['S', 'R', 'D', 'L'].includes(qualifier) && allocation === 'continuous' ? qualifier : null }
+  return mini ? (
+    <svg viewBox="0 0 72 46" width="72" height="46" aria-hidden="true" focusable="false">
+      <ActionSymbol mini x={12} y={13} w={50} h={21} shape={shape} label="" stroke="#1e293b" strokeWidth={1.4} />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 210 96" width="100%" height="104" aria-hidden="true" focusable="false" className="grafcet-preview-svg">
+      <ActionSymbol x={22} y={38} w={168} h={30} shape={shape} label={(text ?? '').length > 17 ? `${(text ?? '').slice(0, 16)}…` : text ?? ''} condition={condition} timeSeconds={seconds} stroke="#1e293b" strokeWidth={1.6} qualifierW={32} />
     </svg>
   )
 }
@@ -172,19 +139,21 @@ export default function ActionDialog({ open, action, signals = [], availableStep
 
           <div className="grafcet-step-block">
             <h3 className="grafcet-step-heading"><span>2</span>Tipo de ação</h3>
-            <div className="grafcet-type-group">
-              <span className="grafcet-type-group-label">Atribuição</span>
-              <div className="grafcet-type-grid grafcet-type-grid-2">
+            <div className="grafcet-type-box" role="group" aria-label="Tipo de ação">
+              <fieldset className="grafcet-type-group">
+                <legend>Atribuição</legend>
                 {ASSIGNATIONS.map((item) => typeCard('assignation', assignation === item.id, () => setAssignation(item.id), item.label, item.hint,
                   <ActionGlyph mini assignation={item.id} allocation="continuous" />))}
-              </div>
-            </div>
-            <div className="grafcet-type-group">
-              <span className="grafcet-type-group-label">Alocação — quando atua</span>
-              <div className="grafcet-type-grid">
-                {ALLOCATIONS.map((item) => typeCard('allocation', allocation === item.id, () => setAllocation(item.id), item.label, item.hint,
+              </fieldset>
+              <fieldset className="grafcet-type-group">
+                <legend>Alocação</legend>
+                {ALLOCATIONS.filter((item) => item.id !== 'compulsory').map((item) => typeCard('allocation', allocation === item.id, () => setAllocation(item.id), item.label, item.hint,
                   <ActionGlyph mini assignation={assignation} allocation={item.id} />))}
-              </div>
+              </fieldset>
+              <fieldset className="grafcet-type-group grafcet-type-group-single">
+                {ALLOCATIONS.filter((item) => item.id === 'compulsory').map((item) => typeCard('allocation', allocation === item.id, () => setAllocation(item.id), item.label, item.hint,
+                  <ActionGlyph mini assignation={assignation} allocation={item.id} />))}
+              </fieldset>
             </div>
             {notExecuted && <p className="grafcet-property-warning" role="status">O tipo «{selectedAllocation?.label}» fica guardado como notação, mas não liga nem desliga a saída na simulação atual.</p>}
           </div>
@@ -221,7 +190,7 @@ export default function ActionDialog({ open, action, signals = [], availableStep
         <aside className="grafcet-property-preview">
           <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span>IEC 60848</span></div>
           <div className="grafcet-property-drawing">
-            <ActionGlyph assignation={assignation} allocation={allocation} qualifier={allocation === 'continuous' ? effectiveKind : undefined} text={displayText} condition={condition} />
+            <ActionGlyph assignation={assignation} allocation={allocation} qualifier={allocation === 'continuous' ? effectiveKind : undefined} text={displayText} condition={condition} seconds={Number(duration) || 2} />
           </div>
           <strong>{selectedKind?.label}</strong><p>{notExecuted ? 'Notação guardada; não é executada pelo simulador.' : selectedKind?.hint}</p>
           <div className="grafcet-property-preview-value"><span>Saída</span><code>{resolved || 'Por definir'}</code></div>
