@@ -2712,3 +2712,21 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
 /* Ligação elemento ↔ tabela de variáveis (paridade com o diálogo de sinais GRAFCET) */
 .ladder-dialog-tag-status { margin: 8px 0 0; font-size: 11px; color: #8c97ab; }
 .ladder-dialog-tag-status.is-found { color: #3f6212; }
+
+/* Datalist: inputs com list= passam a ter o mesmo chevrom leve do componente
+   Select da plataforma (substitui a seta escura/caixa nativa do navegador),
+   em todos os diálogos (Ladder e GRAFCET). */
+input[list]::-webkit-calendar-picker-indicator {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-right: 3px;
+  color: transparent;
+  background: no-repeat center / 10px 10px
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.45 4.05a.8.8 0 0 1 1.13 0L6 6.47l2.42-2.42a.8.8 0 1 1 1.13 1.14l-2.98 2.98a.8.8 0 0 1-1.14 0L2.45 5.19a.8.8 0 0 1 0-1.14z' fill='%2356647a' fill-opacity='.68'/%3E%3C/svg%3E");
+  cursor: pointer;
+}
+input[list]:hover::-webkit-calendar-picker-indicator,
+input[list]:focus::-webkit-calendar-picker-indicator {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.45 4.05a.8.8 0 0 1 1.13 0L6 6.47l2.42-2.42a.8.8 0 1 1 1.13 1.14l-2.98 2.98a.8.8 0 0 1-1.14 0L2.45 5.19a.8.8 0 0 1 0-1.14z' fill='%232556eb'/%3E%3C/svg%3E");
+}
