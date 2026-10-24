@@ -151,6 +151,13 @@ interface Store extends CircuitState {
   /** Entradas virtuais (I1…): usadas quando o projeto não tem PLC físico no esquema. */
   virtualInputs: Record<string, boolean>
   virtualInputCount: number
+  /** Folhas (páginas) do esquema elétrico; cada componente tem `sheet` (undefined = 1.ª folha). */
+  sheets: Array<{ id: string; name: string }>
+  activeSheetId: string
+  addSheet: (name?: string) => string
+  renameSheet: (id: string, name: string) => void
+  removeSheet: (id: string) => boolean
+  setActiveSheet: (id: string) => void
   /** Tipo de cada entrada virtual: 'latch' = botão com encravamento (liga/desliga), 'push' = botão de pressão (só enquanto premido). Por omissão 'latch'. */
   virtualInputModes: Record<string, VirtualInputMode>
   setVirtualInputMode: (address: string, mode: VirtualInputMode) => void
@@ -826,6 +833,27 @@ export const useSimStore = create<Store>((set, get) => ({
   projectRevision: 0,
   projectKind: 'all' as ProjectKind,
   virtualInputs: {},
+  sheets: [{ id: 'sheet-1', name: 'Página 1' }],
+  activeSheetId: 'sheet-1',
+  addSheet: (name) => {
+    const id = `sheet-${Date.now().toString(36)}`
+    set((s) => ({ sheets: [...s.sheets, { id, name: name?.trim() || `Página ${s.sheets.length + 1}` }], activeSheetId: id, dirty: true }))
+    get().pushEvent('info', 'Folha de esquema criada. Liga folhas com etiquetas de rede nas pontas soltas dos fios (ex.: L1, N, 24V).')
+    return id
+  },
+  renameSheet: (id, name) => set((s) => ({ sheets: s.sheets.map((sh) => (sh.id === id ? { ...sh, name: name.trim() || sh.name } : sh)), dirty: true })),
+  removeSheet: (id) => {
+    const s = get()
+    if (s.sheets.length <= 1) return false
+    if (s.components.some((c) => (c.sheet ?? s.sheets[0]?.id ?? 'sheet-1') === id)) {
+      get().pushEvent('warning', 'A folha não está vazia: remove ou move primeiro os componentes dela.')
+      return false
+    }
+    const next = s.sheets.filter((sh) => sh.id !== id)
+    set({ sheets: next, activeSheetId: s.activeSheetId === id ? next[0].id : s.activeSheetId, dirty: true })
+    return true
+  },
+  setActiveSheet: (id) => set({ activeSheetId: id }),
   virtualInputCount: 8,
   virtualInputModes: {},
   setVirtualInputMode: (address, mode) => {
@@ -1376,6 +1404,7 @@ export const useSimStore = create<Store>((set, get) => ({
     comp.schematicY = free.y
     comp.ref = nextRef(get().components, type)
     comp.z = nextTopZ(get().components, get().wires)
+    comp.sheet = get().activeSheetId
     set((s) => ({
       components: [...s.components, comp],
       selectedComponentIds: [comp.id],
@@ -1409,6 +1438,7 @@ export const useSimStore = create<Store>((set, get) => ({
       else {
         if (item.type === '') continue
         component = createComponent(item.type, item.ref, item.label || undefined, components.length, SCHEMATIC_ORIGIN.x, SCHEMATIC_ORIGIN.y)
+        component.sheet = get().activeSheetId
         component.z = nextTopZ(components, wires)
         component.railId = undefined
         const free = nearestFreeComponentPosition(component, SCHEMATIC_ORIGIN.x - component.w / 2, SCHEMATIC_ORIGIN.y - component.h / 2, components)
@@ -1787,6 +1817,22 @@ export const useSimStore = create<Store>((set, get) => ({
 
   addWire: (fromTerminalId, toTerminalId, color, waypoints) => {
     if (fromTerminalId === toTerminalId) return
+    // Esquema com várias folhas: um fio só liga bornes da mesma folha.
+    // Entre folhas usa-se uma etiqueta de rede (menu do fio, ponta solta).
+    if (get().sheets.length > 1) {
+      const firstSheet = get().sheets[0]?.id ?? 'sheet-1'
+      const sheetOfTerminal = (tid: string) => {
+        const comp = get().components.find((c) => c.terminals.some((t) => t.id === tid))
+        return comp ? comp.sheet ?? firstSheet : undefined
+      }
+      const a = sheetOfTerminal(fromTerminalId)
+      const b = sheetOfTerminal(toTerminalId)
+      if (a && b && a !== b) {
+        const nameOf = (id: string) => get().sheets.find((sh) => sh.id === id)?.name ?? id
+        get().pushEvent('warning', `Os bornes estão em folhas diferentes («${nameOf(a)}» e «${nameOf(b)}»). Desenha o fio até à borda da folha e dá-lhe uma etiqueta de rede igual nos dois lados.`)
+        return
+      }
+    }
     const exists = get().wires.some(
       (w) =>
         (w.fromTerminalId === fromTerminalId && w.toTerminalId === toTerminalId) ||
@@ -2335,7 +2381,10 @@ export const useSimStore = create<Store>((set, get) => ({
         fcNames: s.fcNames,
         grafcet: s.grafcet,
         tags: s.tags,
+        virtualInputs: s.virtualInputs,
         virtualInputModes: s.virtualInputModes,
+        sheets: s.sheets,
+        activeSheetId: s.activeSheetId,
         grid: s.grid,
         activeScenario: s.activeScenario,
       },
@@ -2387,6 +2436,8 @@ export const useSimStore = create<Store>((set, get) => ({
         fcNames: parsed.fcNames ?? {},
         grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
         grafcetRuntime: emptyGrafcetRuntime(),
+        sheets: Array.isArray(parsed.sheets) && parsed.sheets.length ? parsed.sheets : [{ id: 'sheet-1', name: 'Página 1' }],
+        activeSheetId: typeof parsed.activeSheetId === 'string' ? parsed.activeSheetId : 'sheet-1',
         tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
         grid: parsed.grid ? { ...parsed.grid, background: EDITOR_THEME.background } : get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',
@@ -2411,6 +2462,8 @@ export const useSimStore = create<Store>((set, get) => ({
     get().stop()
     set({
       projectRevision: get().projectRevision + 1,
+      sheets: [{ id: 'sheet-1', name: 'Página 1' }],
+      activeSheetId: 'sheet-1',
       components: [],
       wires: [],
       showEmptyWelcome: true,
@@ -2521,6 +2574,7 @@ export const useSimStore = create<Store>((set, get) => ({
           ? { x: src.panel3DPosition.x + 0.35, y: src.panel3DPosition.y, z: src.panel3DPosition.z + 0.18 }
           : undefined,
         terminals: newTerminals,
+        sheet: get().activeSheetId,
         ref: nextRef([...get().components, ...newComponents], src.type),
         z: nextTopZ([...get().components, ...newComponents], get().wires),
       }

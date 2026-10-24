@@ -215,11 +215,46 @@ function Schematic2DViewCube({ tilt, onTilt, placement }: { tilt: Tilt2D; onTilt
   />
 }
 
+/** Ponta solta de um fio: círculo simples OU bandeira com a etiqueta de rede
+ *  (duplo clique define/edita; etiquetas iguais em folhas diferentes ficam
+ *  eletricamente ligadas — é a comunicação entre páginas do esquema). */
+function WireNetFlag({ x, y, col, net, selected, onEdit }: { x: number; y: number; col: string; net?: string; selected: boolean; onEdit: () => void }) {
+  if (!net) return <circle cx={x} cy={y} r={selected ? 3.4 : 5} fill="white" stroke={col} strokeWidth={selected ? 1.5 : 2} pointerEvents="none" />
+  const w = Math.max(30, net.length * 7.4 + 14)
+  return (
+    <g
+      style={{ cursor: 'pointer' }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => { e.stopPropagation(); onEdit() }}
+    >
+      <path d={`M ${x} ${y} L ${x + 10} ${y - 11} L ${x + 10 + w} ${y - 11} L ${x + 10 + w} ${y + 11} L ${x + 10} ${y + 11} Z`}
+        fill="#fff8e1" stroke="#d9a440" strokeWidth={1.2} />
+      <text x={x + 12} y={y - 4} fontSize={10} fontWeight={700} fill="#8a5a00" fontFamily="ui-monospace, monospace" dominantBaseline="hanging" textAnchor="start" transform={`translate(0 0)`}>{net}</text>
+      <title>Rede «{net}» — duplo clique para editar/remover. Pontos com a mesma etiqueta estão ligados, mesmo noutra folha.</title>
+    </g>
+  )
+}
+
 function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCollapsed?: boolean; onOpen3DView?: (request: ViewCubeRequest) => void }) {
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
   const [tilt, setTilt] = useState<Tilt2D>({ yaw: 0, pitch: 0 })
   const isTilted = Math.abs(tilt.yaw) > 0.5 || Math.abs(tilt.pitch) > 0.5
-  const components = useSimStore((s) => s.components)
+  const allComponents = useSimStore((s) => s.components)
+  const sheets = useSimStore((s) => s.sheets)
+  const activeSheetId = useSimStore((s) => s.activeSheetId)
+  const addSheet = useSimStore((s) => s.addSheet)
+  const renameSheet = useSimStore((s) => s.renameSheet)
+  const removeSheet = useSimStore((s) => s.removeSheet)
+  const setActiveSheet = useSimStore((s) => s.setActiveSheet)
+  const firstSheetId = sheets[0]?.id ?? 'sheet-1'
+  const activeSheet = sheets.some((sh) => sh.id === activeSheetId) ? activeSheetId : firstSheetId
+  /** Mapa borne → folha do respetivo componente. */
+  const sheetByTerminal = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of allComponents) for (const t of c.terminals) m.set(t.id, c.sheet ?? firstSheetId)
+    return m
+  }, [allComponents, firstSheetId])
+  const components = useMemo(() => allComponents.filter((c) => (c.sheet ?? firstSheetId) === activeSheet), [allComponents, activeSheet, firstSheetId])
   const [logoImages, setLogoImages] = useState<{ off: string; on: string } | null>(null)
   const [proautoImage, setProautoImage] = useState<string | null>(null)
   const [wegImage, setWegImage] = useState<string | null>(null)
@@ -305,7 +340,11 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orientedRequestsKey])
   const showEmptyWelcome = useSimStore((s) => s.showEmptyWelcome)
-  const wires = useSimStore((s) => s.wires)
+  const allWires = useSimStore((s) => s.wires)
+  const wires = useMemo(() => allWires.filter((w) => {
+    const ends = [w.fromTerminalId && !w.fromPoint ? w.fromTerminalId : null, w.toTerminalId && !w.toPoint ? w.toTerminalId : null].filter(Boolean) as string[]
+    return ends.every((tid) => (sheetByTerminal.get(tid) ?? activeSheet) === activeSheet)
+  }), [allWires, sheetByTerminal, activeSheet])
   const simRunState = useSimStore((s) => s.sim.runState)
   const selectedIds = useSimStore((s) => s.selectedComponentIds)
   const selectedWireId = useSimStore((s) => s.selectedWireId)
@@ -1035,8 +1074,20 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         </path>
         <circle cx={a.x} cy={a.y} r={3.4} fill="white" stroke={col} strokeWidth={1.5} pointerEvents="none" />
         <circle cx={b.x} cy={b.y} r={3.4} fill="white" stroke={col} strokeWidth={1.5} pointerEvents="none" />
-        {w.fromPoint && !selected && <circle cx={a.x} cy={a.y} r={5} fill="white" stroke={col} strokeWidth={2} pointerEvents="none" />}
-        {w.toPoint && !selected && <circle cx={b.x} cy={b.y} r={5} fill="white" stroke={col} strokeWidth={2} pointerEvents="none" />}
+        {w.fromPoint && <WireNetFlag x={a.x} y={a.y} col={col} net={w.netFrom} selected={selected}
+          onEdit={() => {
+            const name = window.prompt('Etiqueta de rede nesta ponta solta (ex.: L1, N, 24V). O mesmo nome noutra folha/página fica ligado a este ponto. Vazio remove.', w.netFrom ?? '')
+            if (name === null) return
+            commitHistory()
+            updateWire(w.id, { netFrom: name.trim().toUpperCase() || undefined })
+          }} />}
+        {w.toPoint && <WireNetFlag x={b.x} y={b.y} col={col} net={w.netTo} selected={selected}
+          onEdit={() => {
+            const name = window.prompt('Etiqueta de rede nesta ponta solta (ex.: L1, N, 24V). O mesmo nome noutra folha/página fica ligado a este ponto. Vazio remove.', w.netTo ?? '')
+            if (name === null) return
+            commitHistory()
+            updateWire(w.id, { netTo: name.trim().toUpperCase() || undefined })
+          }} />}
         {/* pontos de curva do cabo — visíveis quando selecionado */}
         {selected &&
           (w.waypoints ?? []).map((wp, i) => (
@@ -1253,6 +1304,23 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   return (
     <div className="schematic-stage w-full h-full relative overflow-hidden" style={{ background: EDITOR_THEME.background }}>
+      <div className="schematic-sheets" role="tablist" aria-label="Folhas do esquema">
+        {sheets.map((sh) => {
+          const isActive = sh.id === activeSheet
+          return (
+            <span key={sh.id} className={`schematic-sheet-chip ${isActive ? 'is-active' : ''}`}>
+              <button
+                type="button" role="tab" aria-selected={isActive}
+                onClick={() => !isActive && setActiveSheet(sh.id)}
+                onDoubleClick={() => { const name = window.prompt('Nome da folha:', sh.name); if (name?.trim()) renameSheet(sh.id, name) }}
+                title={`${sh.name} — duplo clique: renomear. Fios entre folhas ligam-se por etiquetas de rede (pontas soltas).`}
+              >{sh.name}</button>
+              {sheets.length > 1 && <button type="button" className="schematic-sheet-del" aria-label={`Eliminar ${sh.name}`} title="Eliminar folha (só se estiver vazia)" onClick={() => removeSheet(sh.id)}>×</button>}
+            </span>
+          )
+        })}
+        <button type="button" className="schematic-sheet-add" onClick={() => addSheet()} title="Nova folha do esquema. Ex.: potência numa folha, comando noutra — ligadas por etiquetas de rede.">+ Folha</button>
+      </div>
       <ComponentViewEditor />
       {onOpen3DView && <Schematic2DViewCube tilt={tilt} onTilt={setTilt} placement="top" />}
       {isTilted && <button type="button" className="schematic-tilt-note" onClick={() => setTilt({ yaw: 0, pitch: 0 })} title="Voltar à vista frontal para editar">Vista inclinada · <b>Voltar a Frente</b> para editar</button>}

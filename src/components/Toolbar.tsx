@@ -16,6 +16,7 @@ import LadderVariablesMenu from '../ladder/LadderVariablesMenu'
 import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { validateGrafcet } from '../grafcet/engine'
 import ComponentTableDialog from './ComponentTableDialog'
+import ExportPdfDialog from '../export/ExportPdfDialog'
 import {
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
@@ -188,6 +189,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const [clean, setClean] = useCleanMode()
   const [grafcetMoreOpen, setGrafcetMoreOpen] = useState(false)
   const [componentTableOpen, setComponentTableOpen] = useState(false)
+  const [pdfOpen, setPdfOpen] = useState(false)
   const {
     sim, play, pause, stop, reset, setSpeed, setMode: setSimMode,
     step, saveJSON, loadJSON, tool, setTool, grid, setGrid, zoom, setZoom,
@@ -312,6 +314,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             </button>
             <button onClick={downloadBOM} disabled={!components.length} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 disabled:opacity-50 disabled:hover:bg-transparent" title="Exportar lista de materiais (CSV)">
               <IconDownload size={14} /> <span className="hidden xl:inline text-[11px] font-medium">BOM</span>
+            </button>
+            <button onClick={() => setPdfOpen(true)} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Exportar o projeto em PDF (capa, esquema 3D, GRAFCET e ladder à escolha)">
+              <IconFile size={14} /> <span className="hidden xl:inline text-[11px] font-medium">PDF</span>
             </button>
           </div>
           <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={upload} />
@@ -716,6 +721,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           </button>
         </div>
       {componentTableOpen && <ComponentTableDialog onClose={() => setComponentTableOpen(false)} />}
+      {pdfOpen && <ExportPdfDialog open={pdfOpen} onClose={() => setPdfOpen(false)} />}
     </div>
   )
 }

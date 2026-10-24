@@ -2053,3 +2053,17 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-qualifier-options button:focus-visible {
   box-shadow: inset 0 0 0 2px #b9ccf4;
 }
+
+/* ---- Páginas do GRAFCET (charts IEC 60848) ---- */
+.grafcet-pages { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-top: 1px solid #e3e9f4; border-bottom: 1px solid #e3e9f4; background: #f7f9fd; flex-wrap: wrap; }
+.grafcet-pages-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #8494ab; margin-right: 2px; }
+.grafcet-page-chip { display: inline-flex; align-items: center; border: 1px solid #d5deeb; border-radius: 8px; background: #fff; overflow: hidden; }
+.grafcet-page-chip > button { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border: none; background: none; font-size: 11px; color: #3b4763; cursor: pointer; }
+.grafcet-page-chip > button em { font-style: normal; font-size: 9px; color: #fff; background: #9fb0c8; border-radius: 999px; padding: 0 6px; line-height: 15px; }
+.grafcet-page-chip.is-active { border-color: #2655e5; background: #eef3ff; }
+.grafcet-page-chip.is-active > button { color: #1d3fae; font-weight: 700; }
+.grafcet-page-chip.is-active > button em { background: #2655e5; }
+.grafcet-page-del { border: none; background: none; color: #a3b1c6; cursor: pointer; padding: 0 7px; font-size: 13px; line-height: 1; }
+.grafcet-page-del:hover { color: #cc3344; }
+.grafcet-page-add { border: 1px dashed #b9c6d9; border-radius: 8px; background: none; color: #567; font-size: 11px; padding: 4px 10px; cursor: pointer; }
+.grafcet-page-add:hover { border-color: #2655e5; color: #1d3fae; background: #f2f6ff; }

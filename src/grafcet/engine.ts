@@ -38,6 +38,8 @@ export interface GrafcetAction {
   /** Posição livre no diagrama (só para ações soltas, sem etapa associada) */
   x?: number
   y?: number
+  /** Página (chart) a que a ação solta pertence; undefined = primeira página. */
+  chart?: string
 }
 
 export interface GrafcetStep {

@@ -19,6 +19,7 @@ import {
   type GrafcetActionKind,
   type GrafcetIssue,
   type GrafcetStep,
+  type GrafcetChart,
   type GrafcetTransition,
   type GrafcetProgram,
 } from './engine'
@@ -211,9 +212,23 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   const setGrafcet = useSimStore((state) => state.setGrafcet)
   const running = useSimStore((state) => state.sim.runState === 'running')
 
-  const steps = program.steps
-  const transitions = transitionsOf(program)
-  const freeActions = program.freeActions ?? []
+  // ── Páginas do GRAFCET (charts IEC 60848): cada página mostra as suas etapas,
+  //  transições, ações soltas e comentários. Elementos sem página pertencem à 1.ª.
+  //  As páginas partilham o motor (todas correm em simultâneo), os sinais e a
+  //  numeração global das etapas — é assim que comunicam (ex.: X7 noutra página,
+  //  ligações «sem fio» X, sinais S/Q/I/MW e ações S/R).
+  const pageCharts = program.charts ?? []
+  const firstChartId = pageCharts[0]?.id
+  const activeChart = pageCharts.some((c) => c.id === program.activeChart) ? program.activeChart! : firstChartId
+  const inPage = <T extends { chart?: string }>(x: T): boolean => !firstChartId || (x.chart ?? firstChartId) === activeChart
+  const allSteps = program.steps
+  const allTransitions = transitionsOf(program)
+  const allFree = program.freeActions ?? []
+  const allComments = program.comments ?? []
+  const steps = firstChartId ? allSteps.filter(inPage) : allSteps
+  const transitions = firstChartId ? allTransitions.filter(inPage) : allTransitions
+  const freeActions = firstChartId ? allFree.filter(inPage) : allFree
+  const comments = firstChartId ? allComments.filter(inPage) : allComments
   const [selected, setSelected] = useState<string | null>(() => (full ? steps[0]?.id ?? null : null))
   const [tab, setTab] = useState<EditorTab>('steps')
   const [showPalette, setShowPalette] = useState(() => {
@@ -418,8 +433,68 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     toastTimer.current = window.setTimeout(() => setToast(null), 1500)
   }
 
-  const save = (patch: Partial<GrafcetProgram>, mode: HistoryMode = 'force', historyKey = 'grafcet') =>
-    setGrafcet({ ...program, transitions, ...patch }, mode, historyKey)
+  const save = (patch: Partial<GrafcetProgram>, mode: HistoryMode = 'force', historyKey = 'grafcet') => {
+    const p = { ...patch }
+    if (firstChartId) {
+      const stamp = <T extends { id: string; chart?: string }>(all: T[], edited: T[]): T[] => {
+        const known = new Set(all.map((x) => x.id))
+        return edited.map((x) => (known.has(x.id) || x.chart ? x : { ...x, chart: activeChart }))
+      }
+      if (p.steps) p.steps = [...allSteps.filter((s) => !inPage(s)), ...stamp(allSteps, p.steps)]
+      if (p.transitions) p.transitions = [...allTransitions.filter((t) => !inPage(t)), ...stamp(allTransitions, p.transitions)]
+      if (p.freeActions) p.freeActions = [...allFree.filter((a) => !inPage(a)), ...stamp(allFree, p.freeActions)]
+      if (p.comments) p.comments = [...allComments.filter((c) => !inPage(c)), ...stamp(allComments, p.comments)]
+    }
+    setGrafcet({ ...program, transitions: p.transitions ?? allTransitions, ...p }, mode, historyKey)
+  }
+
+  // ---------- páginas (charts) ----------
+  const pageActive = activeChart
+  const chartOf = (x: { chart?: string }) => x.chart ?? firstChartId
+  const addPage = () => {
+    const ensured: GrafcetChart[] = pageCharts.length ? pageCharts : [{ id: 'chart-p1', name: 'Página 1', title: 'Página 1' }]
+    const id = `chart-${Date.now().toString(36)}`
+    const title = `Página ${ensured.length + 1}`
+    setGrafcet({ ...program, charts: [...ensured, { id, name: title, title }], activeChart: id }, 'force', 'grafcet:pages')
+    notify(`Página «${title}» criada — as páginas comunicam por sinais, referências X e ligações sem fio`)
+    setTab('steps')
+  }
+  const switchPage = (id: string) => {
+    setSelected(null)
+    setMulti([])
+    setGrafcet({ ...program, activeChart: id }, 'skip', 'grafcet:pages:switch')
+  }
+  const renamePage = async (id: string) => {
+    const chart = pageCharts.find((c) => c.id === id)
+    if (!chart) return
+    const next = window.prompt('Nome da página:', chart.title || chart.name)
+    if (!next || !next.trim() || next.trim() === chart.title) return
+    save({ charts: pageCharts.map((c) => (c.id === id ? { ...c, name: next.trim(), title: next.trim() } : c)) }, 'force', 'grafcet:pages:rename')
+  }
+  const deletePage = async (id: string) => {
+    const chartSteps = allSteps.filter((s) => chartOf(s) === id)
+    const chartTransitions = allTransitions.filter((t) => chartOf(t) === id)
+    const touchedElsewhere = allTransitions.filter((t) => chartOf(t) !== id && (t.from.some((f) => chartSteps.some((s) => s.id === f)) || t.to.some((f) => chartSteps.some((s) => s.id === f))))
+    if (chartSteps.length || chartTransitions.length || touchedElsewhere.length) {
+      const okDel = await uiConfirm(
+        `Eliminar a página «${pageCharts.find((c) => c.id === id)?.title ?? id}»? Isto remove ${chartSteps.length} etapa(s) e ${chartTransitions.length} transição(ões)${touchedElsewhere.length ? `, mais ${touchedElsewhere.length} transição(ões) de outras páginas que a referenciam` : ''}.`,
+      )
+      if (!okDel) return
+    }
+    const goneSteps = new Set(chartSteps.map((s) => s.id))
+    const nextCharts = pageCharts.filter((c) => c.id !== id)
+    setGrafcet({
+      ...program,
+      charts: nextCharts,
+      activeChart: nextCharts[0]?.id,
+      steps: allSteps.filter((s) => chartOf(s) !== id),
+      transitions: allTransitions.filter((t) => chartOf(t) !== id && !t.from.some((f) => goneSteps.has(f)) && !t.to.some((f) => goneSteps.has(f))),
+      freeActions: allFree.filter((a) => chartOf(a) !== id),
+      comments: allComments.filter((c) => chartOf(c) !== id),
+    }, 'force', 'grafcet:pages')
+    setSelected(null)
+    setMulti([])
+  }
 
   const updateStep = (
     stepId: string,
@@ -636,7 +711,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     const place = clearSpot(at ?? defaultSpot())
     const newStep: GrafcetStep = {
       id: id(),
-      name: `Etapa ${nextFreeStepNumber(steps)}`,
+      name: `Etapa ${nextFreeStepNumber(allSteps)}`,
       initial: steps.length === 0,
       stepType: steps.length === 0 ? 'initial' : 'simple',
       action: '',
@@ -655,7 +730,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     if (!source) return addStep(at)
     // Procura o próximo número lógico para a etapa (ex.: se a anterior é 81, tenta 82; se já existir, segue em frente)
     const usedNumbers = new Set(steps.map((s, i) => getStepDisplayInfo(s, i).stepNumber))
-    let nextName = `Etapa ${nextFreeStepNumber(steps)}`
+    let nextName = `Etapa ${nextFreeStepNumber(allSteps)}`
     const sourceNumber = getStepDisplayInfo(source, steps.indexOf(source)).stepNumber
     if (/^\d+$/.test(sourceNumber)) {
       let candidate = parseInt(sourceNumber, 10) + 1
@@ -936,7 +1011,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     const place = clearSpot(at ?? defaultSpot())
     const newStep: GrafcetStep = {
       id: id(),
-      name: `Etapa ${nextFreeStepNumber(steps)}`,
+      name: `Etapa ${nextFreeStepNumber(allSteps)}`,
       initial: true,
       stepType: 'initial',
       action: '',
@@ -1051,7 +1126,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     stepPositions.set(step.id, cursorY)
     cursorY += stepPitch(actionsOf(step).length)
   })
-  const stepById = new Map(steps.map((step) => [step.id, step]))
+  const stepById = new Map(allSteps.map((step) => [step.id, step]))
   /** Etapas do grupo selecionado (vazio quando há 0 ou 1 etapa selecionada). */
   const groupIds = multi.length >= 2 ? multi.filter((value) => stepById.has(value)) : []
   const isPinned = (step?: GrafcetStep) => !!step && step.pinned === true && Number.isFinite(step.x) && Number.isFinite(step.y)
@@ -2586,6 +2661,30 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
             onChange={(event) => save({ name: event.target.value }, 'auto', 'grafcet:name')}
             title="Aparece no editor e nos comentários do Ladder gerado"
           />
+        </div>
+      )}
+
+      {full && (
+        <div className="grafcet-pages" role="tablist" aria-label="Páginas do GRAFCET">
+          <span className="grafcet-pages-label">Páginas</span>
+          {(pageCharts.length ? pageCharts : [{ id: 'chart-p1', name: 'Página 1', title: 'Página 1' } as GrafcetChart]).map((chart) => {
+            const isActive = chart.id === (pageActive ?? chart.id)
+            const count = allSteps.filter((s) => (s.chart ?? (pageCharts[0]?.id ?? 'chart-p1')) === chart.id).length
+            return (
+              <span key={chart.id} className={`grafcet-page-chip ${isActive ? 'is-active' : ''}`}>
+                <button
+                  type="button" role="tab" aria-selected={isActive}
+                  onClick={() => !isActive && switchPage(chart.id)}
+                  onDoubleClick={() => void renamePage(chart.id)}
+                  title={`${chart.title || chart.name} — ${count} etapa(s). Duplo clique: renomear. As páginas comunicam por sinais, ações S/R, referências X e ligações sem fio.`}
+                >{chart.title || chart.name}<em>{count}</em></button>
+                {pageCharts.length > 1 && (
+                  <button type="button" className="grafcet-page-del" aria-label={`Eliminar ${chart.title || chart.name}`} title="Eliminar página" onClick={() => void deletePage(chart.id)}>×</button>
+                )}
+              </span>
+            )
+          })}
+          <button type="button" className="grafcet-page-add" onClick={addPage} title="Nova página (chart). Ex.: um GRAFCET por estação, a comunicarem por sinais e referências X.">+ Nova página</button>
         </div>
       )}
 

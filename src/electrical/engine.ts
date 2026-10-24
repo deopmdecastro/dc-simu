@@ -336,7 +336,14 @@ function buildGraph(components: ElectricalComponent[], wires: Wire[]): Graph {
     adjacency.get(a)!.push(b)
     adjacency.get(b)!.push(a)
   }
-  for (const w of wires) if (w.fromTerminalId && w.toTerminalId && !w.fromPoint && !w.toPoint) addEdge(w.fromTerminalId, w.toTerminalId)
+  for (const w of wires) {
+    // Etiquetas de rede (comunicação entre folhas do esquema): a ponta marcada
+    // liga-se ao nó virtual «net:NOME», partilhado por todos os fios com a
+    // mesma etiqueta — continuidade elétrica mesmo sem fio desenhado.
+    const a = w.netFrom?.trim() ? `net:${w.netFrom.trim().toUpperCase()}` : !w.fromPoint ? w.fromTerminalId : undefined
+    const b = w.netTo?.trim() ? `net:${w.netTo.trim().toUpperCase()}` : !w.toPoint ? w.toTerminalId : undefined
+    if (a && b) addEdge(a, b)
+  }
   for (const c of components) for (const [a, b] of internalBridges(c)) addEdge(a, b)
   return { adjacency }
 }

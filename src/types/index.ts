@@ -237,6 +237,8 @@ export interface ElectricalComponentBase {
   id: string
   /** Componentes agrupados com Ctrl+G: selecionam-se e movem-se em conjunto. */
   groupId?: string
+  /** Folha (página do esquema) onde o componente está desenhado; undefined = 1.ª folha. */
+  sheet?: string
   type: ComponentType
   category: ComponentCategory
   /** TAG do dispositivo: KM1, S1, F1, M1, H1… */
@@ -360,6 +362,11 @@ export interface Wire {
   /** Ponta livre desenhada no esquema (sem borne); não conduz corrente até ser ligada. */
   fromPoint?: { x: number; y: number }
   toPoint?: { x: number; y: number }
+  /** Etiqueta de rede na ponta «from»: o fio continua noutra folha/página com a
+   *  mesma etiqueta (comunicação entre páginas do esquema, ex.: «L1», «N», «24V»). */
+  netFrom?: string
+  /** Idem na ponta «to». */
+  netTo?: string
   /** Posição física da ponta livre no Painel 3D (acompanha `fromPoint`/`toPoint`, que é a sua projeção no Esquema). */
   fromPoint3D?: SpatialPoint3D
   toPoint3D?: SpatialPoint3D
