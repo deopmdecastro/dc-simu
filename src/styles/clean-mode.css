@@ -183,7 +183,7 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
   .ladder-program-summary .ladder-live-bus strong { margin-top: 0; font-size: 12px; white-space: nowrap; }
   /* rails «Projeto/Elementos» mais finos: sobra largura para o diagrama */
   .ladder-collapsed-pane-button { flex-basis: 26px; }
-  .ladder-bottom-panel:not(.is-collapsed) { flex-basis: 150px; }
+  .ladder-bottom-panel:not(.is-collapsed) { flex-basis: 200px; }
 }
 
 /* ---------------------------------------------------------------------------

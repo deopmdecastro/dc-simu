@@ -24,3 +24,71 @@
 .vio-switch.is-push { border-style: dashed; }
 .vio-switch.is-push i { border-radius: 3px; }
 .vio-switch:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+
+/* ───────── Painel de estado (Ladder) · v2 ───────── */
+.vio-panel { container-type: inline-size; gap: 10px; padding: 10px 14px 12px; font-size: 12px; }
+.vio-cols { display: grid; gap: 12px 24px; grid-template-columns: minmax(0, 1fr); }
+@container (min-width: 760px) { .vio-cols { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); } }
+.vio-col { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.vio-head strong { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; }
+.vio-head em { font-style: normal; padding: 1px 7px; border-radius: 999px; background: #eef2f7; color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.vio-head em.is-live { background: #dcfce7; color: #166534; }
+.vio-count { min-width: 18px; text-align: center; font-weight: 700; color: #334155; }
+.vio-actions button { height: 24px; border-radius: 6px; font-weight: 600; transition: border-color .12s, color .12s, background .12s; }
+.vio-actions button:hover:not(:disabled) { background: #eff4ff; }
+.vio-inputs { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.vio-switch { grid-template-columns: 14px minmax(0, 1fr); gap: 3px 7px; min-height: 46px; padding: 7px 9px; border-radius: 9px; align-content: center; box-shadow: 0 1px 0 rgba(15, 23, 42, .04); }
+.vio-switch b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.vio-switch small { font-size: 10.5px; min-height: 13px; }
+.vio-switch:hover { border-color: #93b4f5; background: #f5f8ff; }
+.vio-switch:active { transform: translateY(1px); }
+.vio-switch.is-on:hover { background: #cff5dc; border-color: #16a34a; }
+.vio-switch.is-on small { color: #166534; }
+.vio-outputs { gap: 7px; }
+.vio-lamp { padding: 5px 11px; font-size: 12px; transition: background .12s, border-color .12s; }
+.vio-lamp i { width: 11px; height: 11px; }
+.vio-lamp small { font-size: 10px; }
+.vio-empty { color: #94a3b8; font-size: 11px; }
+
+.ladder-bottom-panel { position: relative; background: #fff; }
+.ladder-bottom-panel.is-resizing { transition: none; user-select: none; }
+.ladder-bottom-resizer { position: absolute; top: 0; left: 0; right: 0; height: 7px; z-index: 4; cursor: ns-resize; touch-action: none; }
+.ladder-bottom-resizer::after { content: ""; position: absolute; left: 50%; top: 2px; width: 42px; height: 3px; border-radius: 3px; background: #cbd5e1; transform: translateX(-50%); opacity: 0; transition: opacity .15s, background .15s; }
+.ladder-bottom-panel:hover .ladder-bottom-resizer::after, .ladder-bottom-resizer:focus-visible::after, .ladder-bottom-panel.is-resizing .ladder-bottom-resizer::after { opacity: 1; }
+.ladder-bottom-resizer:hover::after, .ladder-bottom-panel.is-resizing .ladder-bottom-resizer::after { background: var(--ladder-blue, #2f6fe4); }
+.ladder-bottom-resizer:focus-visible { outline: 2px solid var(--ladder-blue, #2f6fe4); outline-offset: -2px; }
+.ladder-bottom-tabs > button:not(.ladder-bottom-toggle):not(.ladder-status-reset) { height: 34px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; }
+.ladder-tab-badge { font-style: normal; min-width: 17px; padding: 0 5px; height: 16px; border-radius: 999px; background: #e8edf5; color: #52627a; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
+.ladder-tab-badge.is-live { background: #dcfce7; color: #166534; }
+.ladder-bottom-actions { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.ladder-bottom-actions .ladder-bottom-toggle { margin-left: 0; }
+.ladder-run-pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border-radius: 999px; background: #eef2f7; color: #52627a; font-size: 11px; font-weight: 700; }
+.ladder-run-pill i { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+.ladder-run-pill.is-running { background: #dcfce7; color: #166534; }
+.ladder-run-pill.is-running i { background: #16a34a; box-shadow: 0 0 0 0 rgba(34, 197, 94, .5); animation: ladder-run-pulse 1.6s ease-out infinite; }
+@keyframes ladder-run-pulse { 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+.ladder-bottom-actions .ladder-status-reset { align-self: auto; margin: 0; height: 22px; padding: 0 10px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+
+.ladder-bottom-panel .ladder-status-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 6px 24px; padding: 10px 14px 12px; align-content: start; }
+.ladder-bottom-panel .ladder-status-grid > .vio-panel { padding: 0; }
+.ladder-bottom-panel .ladder-status-title { position: static; margin: 0 0 6px; padding: 0; background: none; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+.ladder-bottom-panel .ladder-status-row { height: 26px; grid-template-columns: 52px minmax(0, 1fr) 12px; gap: 8px; padding: 0 6px; border-radius: 6px; font-size: 12px; }
+.ladder-bottom-panel .ladder-status-row:hover { background: #f4f7fb; }
+.ladder-bottom-panel .ladder-status-dot { width: 10px; height: 10px; }
+.ladder-status-empty { color: #94a3b8; font-size: 12px; grid-column: 1 / -1; }
+.ladder-meter-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.ladder-meter-card { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid #e1e7f0; border-radius: 10px; background: #fff; }
+.ladder-meter-card.is-done { border-color: #86d3a6; background: #f3fbf6; }
+.ladder-meter-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ladder-meter-top b { font-family: ui-monospace, monospace; font-size: 13px; color: #1e2b44; }
+.ladder-chip { padding: 1px 8px; border-radius: 999px; background: #eef2f7; color: #64748b; font-size: 10.5px; font-weight: 700; }
+.ladder-meter-card.is-done .ladder-chip { background: #dcfce7; color: #166534; }
+.ladder-meter-val { font-size: 15px; font-weight: 700; color: #1e2b44; font-variant-numeric: tabular-nums; }
+.ladder-meter-val em { font-style: normal; font-size: 12px; font-weight: 500; color: #8493a8; }
+.ladder-bottom-panel .ladder-meter { height: 6px; border-radius: 3px; margin: 0; }
+.ladder-chip-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.ladder-word-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border: 1px solid #e1e7f0; border-radius: 8px; font-size: 12px; color: #334155; font-variant-numeric: tabular-nums; }
+.ladder-word-chip b { font-family: ui-monospace, monospace; color: #2655e5; }
+.ladder-word-chip em { font-style: normal; font-size: 10px; color: #94a3b8; }
+.ladder-word-chip.is-done { border-color: #86d3a6; background: #f3fbf6; }
+@media (prefers-reduced-motion: reduce) { .ladder-run-pill.is-running i { animation: none; } }

@@ -117,7 +117,7 @@
 .ls-tiles { display:flex; gap:10px; margin:4px 0 8px; } .ls-tiles div { flex:1; padding:10px; border-radius:9px; background:#f5f7fb; } .ls-tiles strong { display:block; font-size:20px; font-weight:800; color:#1b2540; } .ls-tiles span { font-size:10px; color:#6b7a93; text-transform:uppercase; font-weight:700; letter-spacing:.05em; }
 .ls-shortcuts-panel .ls-search { margin:4px 0 12px; width:100%; }
 .ls-shortcuts-panel .lk-groups { grid-template-columns:1fr; }
-.ladder-bottom-panel { display:flex; flex-direction:column; flex:0 0 170px; min-height:0; overflow:hidden; transition:flex-basis .18s ease; }
+.ladder-bottom-panel { display:flex; flex-direction:column; flex:0 0 240px; min-height:0; overflow:hidden; transition:flex-basis .18s ease; }
 .ladder-bottom-panel.is-collapsed { flex-basis:32px; }
 .ladder-bottom-tabs { flex-shrink:0; }
 .ladder-bottom-tabs > button:not(.ladder-bottom-toggle) { height:31px; border-bottom:2px solid transparent; color:inherit; font-size:10px; }

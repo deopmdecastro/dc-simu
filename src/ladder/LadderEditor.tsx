@@ -1300,6 +1300,24 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     setExpandedNodes((prev) => new Set([...prev, folder]))
     notify(`Bloco «${name}» criado em ${NODE_TITLES[folder]}`)
   }
+  const [statusH, setStatusH] = useState(() => {
+    try { const v = Number(localStorage.getItem('dcsimu:ladder:status-height')); return Number.isFinite(v) && v >= 120 ? v : 240 } catch { return 240 }
+  })
+  const [resizingStatus, setResizingStatus] = useState(false)
+  useEffect(() => {
+    try { localStorage.setItem('dcsimu:ladder:status-height', String(Math.round(statusH))) } catch { /* navegação privada */ }
+  }, [statusH])
+  const clampStatusH = (value: number) => Math.max(120, Math.min(Math.round(window.innerHeight * 0.6), value))
+  const startStatusResize = (event: React.PointerEvent) => {
+    event.preventDefault()
+    const startY = event.clientY
+    const startH = statusH
+    setResizingStatus(true)
+    const move = (ev: PointerEvent) => setStatusH(clampStatusH(startH + (startY - ev.clientY)))
+    const up = () => { setResizingStatus(false); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
   const [showStatus, setShowStatus] = useState(() => {
     try { const saved = localStorage.getItem('dcsimu:ladder:status-open'); return saved === null ? !isSmallScreen() : saved !== '0' } catch { return !isSmallScreen() }
   })
@@ -1754,19 +1772,36 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             </div>
           </div>
         )}
-        <div className={`ladder-bottom-panel ${showStatus ? '' : 'is-collapsed'}`}>
+        <div className={`ladder-bottom-panel ${showStatus ? '' : 'is-collapsed'} ${resizingStatus ? 'is-resizing' : ''}`} style={showStatus ? { flexBasis: statusH } : undefined}>
+          {showStatus && <div
+            className="ladder-bottom-resizer" role="separator" aria-orientation="horizontal" tabIndex={0}
+            aria-label="Redimensionar painel de estado (setas ↑ ↓, duplo clique repõe)" title="Arraste para redimensionar · duplo clique repõe"
+            onPointerDown={startStatusResize}
+            onDoubleClick={() => setStatusH(240)}
+            onKeyDown={(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); setStatusH((h) => clampStatusH(h + 24)) } else if (e.key === 'ArrowDown') { e.preventDefault(); setStatusH((h) => clampStatusH(h - 24)) } }}
+          />}
           <div className="ladder-bottom-tabs" role="tablist" aria-label="Estado do PLC">
-            {([['io', 'Entradas/Saídas'], ['memory', 'Memórias'], ['timers', 'Temporizadores'], ['counters', 'Contadores'], ['lint', lintCount ? `Verificação (${lintCount})` : 'Verificação ✓']] as const).map(([id, label]) => (
-              <button key={id} role="tab" aria-selected={statusTab === id} className={statusTab === id ? 'is-active' : ''} onClick={() => { setStatusTab(id); setShowStatus(true) }}>{label}</button>
-            ))}
-            <button
-              className="ladder-bottom-toggle"
-              onClick={() => setShowStatus((v) => !v)}
-              aria-expanded={showStatus}
-              title={`${showStatus ? 'Esconder' : 'Mostrar'} painel de estado (Ctrl+J)`}
-            >
-              <IconChevronDown size={12} className={showStatus ? '' : 'is-flipped'} /> {showStatus ? 'Esconder' : 'Mostrar'}
-            </button>
+            {(() => {
+              const activeBits = Object.entries(table).filter(([key, value]) => value && /^[IQM]\d+\.\d$/.test(key)).length
+              const badge: Record<string, number> = { io: activeBits, timers: Object.keys(timers).length, counters: Object.keys(counters).length }
+              return ([['io', 'Entradas/Saídas'], ['memory', 'Memórias'], ['timers', 'Temporizadores'], ['counters', 'Contadores'], ['lint', lintCount ? `Verificação (${lintCount})` : 'Verificação ✓']] as const).map(([id, label]) => (
+                <button key={id} role="tab" aria-selected={statusTab === id} className={statusTab === id ? 'is-active' : ''} onClick={() => { setStatusTab(id); setShowStatus(true) }}>
+                  {label}{!!badge[id] && <em className={`ladder-tab-badge ${id === 'io' ? 'is-live' : ''}`} title={id === 'io' ? 'Bits ativos' : 'Em uso'}>{badge[id]}</em>}
+                </button>
+              ))
+            })()}
+            <div className="ladder-bottom-actions">
+              <span className={`ladder-run-pill ${running ? 'is-running' : ''}`} role="status"><i /> {running ? 'Simulação ativa' : 'Pronto'}</span>
+              <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)">Repor memórias</button>
+              <button
+                className="ladder-bottom-toggle"
+                onClick={() => setShowStatus((v) => !v)}
+                aria-expanded={showStatus}
+                title={`${showStatus ? 'Esconder' : 'Mostrar'} painel de estado (Ctrl+J)`}
+              >
+                <IconChevronDown size={12} className={showStatus ? '' : 'is-flipped'} /> {showStatus ? 'Esconder' : 'Mostrar'}
+              </button>
+            </div>
           </div>
           {showStatus && <div className="ladder-status-grid" role="tabpanel">
             {statusTab === 'io' && !activePlc && <VirtualIoPanel compact />}
@@ -1776,22 +1811,28 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             </div>}
             {statusTab === 'memory' && <>
               <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />
-              <div className="ladder-project-status"><span>Palavras (MW)</span>
+              <div className="ladder-status-group">
+                <div className="ladder-status-title">Palavras (MW)</div>
                 {(() => { const words = Object.entries(dbWords).filter(([key]) => /^MW\d+$/i.test(key)).sort(([a], [b]) => Number(a.slice(2)) - Number(b.slice(2)))
-                  return words.length ? words.map(([key, entry]) => <small key={key} className={entry.value !== 0 && entry.value !== false ? 'is-done' : ''}>%{key} = {String(entry.value)} <em>({entry.type})</em></small>) : <small>Nenhuma palavra MW escrita pelo programa.</small> })()}
+                  return words.length ? <div className="ladder-chip-list">{words.map(([key, entry]) => <span key={key} className={`ladder-word-chip ${entry.value !== 0 && entry.value !== false ? 'is-done' : ''}`} title={`${key} · ${entry.type}`}><b>{key}</b> {String(entry.value)} <em>{entry.type}</em></span>)}</div> : <span className="ladder-status-empty">Nenhuma palavra MW escrita pelo programa.</span> })()}
               </div>
             </>}
-            {statusTab === 'timers' && <div className="ladder-project-status"><span>Temporizadores</span>{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => {
+            {statusTab === 'timers' && <div className="ladder-meter-grid">{Object.entries(timers).length ? Object.entries(timers).map(([address, t]) => {
               const pct = t.presetMs > 0 ? Math.min(100, Math.round((t.elapsedMs / t.presetMs) * 100)) : t.done ? 100 : 0
-              return <small key={address} className={t.done ? 'is-done' : ''}>{address}: {t.elapsedMs} / {t.presetMs} ms · {t.done ? 'ativo' : 'inativo'}<span className="ladder-meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></span></small>
-            }) : <small>Nenhum temporizador executado.</small>}</div>}
-            {statusTab === 'counters' && <div className="ladder-project-status"><span>Contadores</span>{Object.entries(counters).length ? Object.entries(counters).map(([address, c]) => {
+              return <div key={address} className={`ladder-meter-card ${t.done ? 'is-done' : ''}`}>
+                <div className="ladder-meter-top"><b>{address}</b><span className="ladder-chip">{t.done ? 'ativo' : 'inativo'}</span></div>
+                <div className="ladder-meter-val">{(t.elapsedMs / 1000).toFixed(1)} s <em>/ {(t.presetMs / 1000).toFixed(1)} s</em></div>
+                <span className="ladder-meter" role="progressbar" aria-label={`Progresso de ${address}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></span>
+              </div>
+            }) : <span className="ladder-status-empty">Nenhum temporizador executado. Inicie a simulação (Run).</span>}</div>}
+            {statusTab === 'counters' && <div className="ladder-meter-grid">{Object.entries(counters).length ? Object.entries(counters).map(([address, c]) => {
               const pct = c.preset > 0 ? Math.min(100, Math.round((c.count / c.preset) * 100)) : c.done ? 100 : 0
-              return <small key={address} className={c.done ? 'is-done' : ''}>{address}: {c.count} / {c.preset} · {c.done ? 'atingido' : 'em contagem'}<span className="ladder-meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></span></small>
-            }) : <small>Nenhum contador executado.</small>}</div>}
-            <div className="ladder-project-status"><span>Estado do Projeto</span><strong><i /> {running ? 'Simulação ativa' : 'Pronto'}</strong>
-              <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)">Repor memórias</button>
-            </div>
+              return <div key={address} className={`ladder-meter-card ${c.done ? 'is-done' : ''}`}>
+                <div className="ladder-meter-top"><b>{address}</b><span className="ladder-chip">{c.done ? 'atingido' : 'em contagem'}</span></div>
+                <div className="ladder-meter-val">{c.count} <em>/ {c.preset}</em></div>
+                <span className="ladder-meter" role="progressbar" aria-label={`Progresso de ${address}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><i style={{ width: `${pct}%` }} /></span>
+              </div>
+            }) : <span className="ladder-status-empty">Nenhum contador executado. Inicie a simulação (Run).</span>}</div>}
           </div>}
         </div>
         </>}

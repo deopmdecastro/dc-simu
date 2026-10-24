@@ -21,32 +21,41 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
   }, [table, extraBits])
   const addresses = bitAddresses('I', count)
 
+  const activeInputs = addresses.filter((a) => table[a]).length
+  const activeOutputs = outputs.filter((a) => table[a]).length
+
   return <section className={`vio-panel ${compact ? 'is-compact' : ''}`} aria-label="Entradas e saídas virtuais">
-    <div className="vio-head">
-      <strong>Entradas virtuais</strong>
-      <span className="vio-actions">
-        <button type="button" onClick={() => setCount(count - 1)} disabled={count <= 1} title="Menos entradas" aria-label="Menos entradas">−</button>
-        <span>{count}</span>
-        <button type="button" onClick={() => setCount(count + 1)} disabled={count >= 32} title="Mais entradas" aria-label="Mais entradas">+</button>
-        <button type="button" onClick={clear} title="Desligar todas as entradas">Limpar</button>
-      </span>
-    </div>
     {hasPlc && <p className="vio-note">Há um PLC no esquema: as entradas vêm dos seus bornes. Estas entradas só atuam em projetos sem PLC.</p>}
-    <div className="vio-inputs">
-      {addresses.map((address) => {
-        const name = nameOf(address)
-        return <VirtualInputButton key={address} address={address} className="vio-switch" title={`${address}${name ? ` · ${name}` : ''}`}>
-          <i /><b>{address}</b>{name && <small>{name}</small>}
-        </VirtualInputButton>
-      })}
-    </div>
-    <div className="vio-head"><strong>Saídas e memórias</strong></div>
-    <div className="vio-outputs">
-      {outputs.map((address) => {
-        const name = nameOf(address)
-        return <span key={address} className={`vio-lamp ${table[address] ? 'is-on' : ''}`} title={name ? `${address} · ${name}` : address}><i /><b>{address}</b>{name && <small>{name}</small>}</span>
-      })}
-      {!outputs.length && <small>Nenhuma saída ativa.</small>}
+    <div className="vio-cols">
+      <div className="vio-col">
+        <div className="vio-head">
+          <strong>Entradas virtuais <em className={activeInputs ? 'is-live' : ''}>{activeInputs}/{count}</em></strong>
+          <span className="vio-actions">
+            <button type="button" onClick={() => setCount(count - 1)} disabled={count <= 1} title="Menos entradas" aria-label="Menos entradas">−</button>
+            <span className="vio-count">{count}</span>
+            <button type="button" onClick={() => setCount(count + 1)} disabled={count >= 32} title="Mais entradas" aria-label="Mais entradas">+</button>
+            <button type="button" onClick={clear} disabled={!activeInputs} title="Desligar todas as entradas">Limpar</button>
+          </span>
+        </div>
+        <div className="vio-inputs">
+          {addresses.map((address) => {
+            const name = nameOf(address)
+            return <VirtualInputButton key={address} address={address} className="vio-switch" title={`${address}${name ? ` · ${name}` : ''}`}>
+              <i /><b>{address}</b><small>{name ?? '—'}</small>
+            </VirtualInputButton>
+          })}
+        </div>
+      </div>
+      <div className="vio-col">
+        <div className="vio-head"><strong>Saídas e memórias <em className={activeOutputs ? 'is-live' : ''}>{activeOutputs} ativa{activeOutputs === 1 ? '' : 's'}</em></strong></div>
+        <div className="vio-outputs">
+          {outputs.map((address) => {
+            const name = nameOf(address)
+            return <span key={address} className={`vio-lamp ${table[address] ? 'is-on' : ''}`} title={name ? `${address} · ${name}` : address}><i /><b>{address}</b>{name && <small>{name}</small>}</span>
+          })}
+          {!outputs.length && <small className="vio-empty">Nenhuma saída ativa.</small>}
+        </div>
+      </div>
     </div>
   </section>
 }
