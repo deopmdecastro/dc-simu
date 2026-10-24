@@ -6,7 +6,7 @@ export const normalizeProjectName = (raw: string) => raw.trim().replace(/\s+/g, 
 /**
  * Nome de projeto sem repetidos: devolve `base` limpo; se já existir outro
  * projeto com esse nome (ignorando maiúsculas e acentos), acrescenta-lhe o
- * sufixo _copy, _copy2, _copy3… até ficar único. Devolve '' quando vazio.
+ * sufixo _coppy, _coppy2, _coppy3… até ficar único. Devolve '' quando vazio.
  */
 export function uniqueProjectName(base: string, existing: readonly string[]): string {
   const trimmed = normalizeProjectName(base)
@@ -14,7 +14,7 @@ export function uniqueProjectName(base: string, existing: readonly string[]): st
   const taken = new Set(existing.map((name) => foldText(normalizeProjectName(name))).filter(Boolean))
   if (!taken.has(foldText(trimmed))) return trimmed
   let index = 1
-  let candidate = `${trimmed}_copy`
-  while (taken.has(foldText(candidate))) candidate = `${trimmed}_copy${++index}`
+  let candidate = `${trimmed}_coppy`
+  while (taken.has(foldText(candidate))) candidate = `${trimmed}_coppy${++index}`
   return candidate
 }

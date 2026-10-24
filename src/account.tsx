@@ -188,7 +188,7 @@ export default function Account() {
   }
 
   async function create(name: string, kind: ProjectKind = 'all') {
-    // Nomes não se repetem: se já existir, ganha o sufixo _copy, _copy2…
+    // Nomes não se repetem: se já existir, ganha o sufixo _coppy, _coppy2…
     const unique = uniqueProjectName(name, projects.map((project) => project.name)) || 'Projeto'
     useSimStore.getState().newProject(kind)
     const response = await api<Open>('/projects', 'POST', {
