@@ -67,3 +67,19 @@ ativo e acesso de leitura/inserção apenas para `service_role`.
 Na credencial Supabase do n8n, use como Host a URL da API do projeto
 (`https://<project-ref>.supabase.co`), sem `/rest/v1` e sem o caminho do painel
 `supabase.com/dashboard/...`. A chave secreta pertence apenas à credencial do n8n.
+
+## Contas de utilizador na base de dados
+
+Execute `migrations/20261024120000_accounts_in_database.sql` no SQL Editor (pode ser
+repetido). A migração:
+
+- cria as contas fixas `admin@dcsimu.local` e `user@dcsimu.local` no Supabase Auth, para
+  que o login delas também fique guardado na base de dados e os projetos sejam gravados lá;
+- passa a decidir o papel (`admin`/`user`) apenas no servidor: deixa de ser possível
+  registar-se como administrador através dos metadados, ou alterar o próprio papel em `profiles`;
+- acrescenta `profiles.last_login` e a função `touch_login()`;
+- cria perfis em falta para contas já existentes.
+
+Se mudar as palavras-passe das contas fixas, atualize-as também nesse ficheiro antes de o executar.
+Para o login funcionar, desative **Confirm email** em *Authentication → Providers → Email*
+(os utilizadores novos registados pela app precisam disso, as contas fixas não).

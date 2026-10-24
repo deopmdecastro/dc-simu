@@ -11,6 +11,7 @@ import {
   supabaseGetSettings,
   supabaseGetAdminProjects,
   supabaseInviteMember,
+  supabaseEnsureAccount,
   supabaseLogin,
   supabaseLogout,
   supabaseRegister,
@@ -163,7 +164,18 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
     // As duas contas autorizadas são deliberadamente locais primeiro
     if (fixedAccountEmails().some((fixedEmail) => fixedEmail === email)) {
       mode = 'local'
-      return localApi<T>(url, verb, body)
+      // A palavra-passe é sempre validada localmente (funciona offline)…
+      const localResult = await localApi<{ user: User }>(url, verb, body)
+      // …e, com o Supabase configurado, a conta fica também guardada na base
+      // de dados e os projetos passam a ser gravados lá.
+      if (isSupabaseConfigured()) {
+        const remote = await supabaseEnsureAccount(email, password, localResult.user.name)
+        if (remote) {
+          mode = 'supabase'
+          return remote as T
+        }
+      }
+      return localResult as T
     }
 
     // Se o Supabase estiver configurado, tenta login pelo Supabase

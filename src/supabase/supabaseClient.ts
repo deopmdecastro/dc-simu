@@ -16,8 +16,8 @@ let cachedConfigKey = ''
  * 2. Se não existirem, verifica o localStorage (permite configurar diretamente pela UI)
  */
 export function getSupabaseConfig(): SupabaseConfig {
-  const envUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? ''
-  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? ''
+  const envUrl = (import.meta.env?.VITE_SUPABASE_URL as string | undefined)?.trim() ?? ''
+  const envKey = (import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? ''
 
   if (envUrl && envKey) {
     return { url: envUrl, anonKey: envKey }

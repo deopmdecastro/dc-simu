@@ -7,6 +7,30 @@ function clientOrThrow() {
   return client
 }
 
+/** O papel vem sempre da tabela `profiles` (protegida por RLS/trigger); os
+ * metadados do utilizador são editáveis pelo próprio cliente e não são fiáveis. */
+async function resolveRole(userId: string): Promise<'admin' | 'user'> {
+  const client = getSupabase()
+  if (client) {
+    try {
+      const { data } = await client.from('profiles').select('role').eq('id', userId).maybeSingle()
+      if (data?.role === 'admin' || data?.role === 'user') return data.role
+    } catch {
+      /* perfil ainda indisponível: cai para utilizador comum */
+    }
+  }
+  return 'user'
+}
+
+/** Regista o último acesso na base de dados (melhor esforço, nunca bloqueia o login). */
+async function touchLogin() {
+  try {
+    await getSupabase()?.rpc('touch_login')
+  } catch {
+    /* função opcional: depende da migração de contas */
+  }
+}
+
 /** Retorna o utilizador atualmente autenticado no Supabase ou null */
 export async function supabaseGetCurrentUser(): Promise<User | null> {
   const client = getSupabase()
@@ -18,7 +42,7 @@ export async function supabaseGetCurrentUser(): Promise<User | null> {
 
     // Procura metadados do utilizador ou perfil
     const metadata = user.user_metadata ?? {}
-    const role = (metadata.role === 'admin' ? 'admin' : 'user') as 'admin' | 'user'
+    const role = await resolveRole(user.id)
     const name = (metadata.name as string) || user.email?.split('@')[0] || 'Utilizador'
 
     return {
@@ -42,8 +66,9 @@ export async function supabaseLogin(email: string, password: string): Promise<{ 
   }
 
   const metadata = data.user.user_metadata ?? {}
-  const role = (metadata.role === 'admin' ? 'admin' : 'user') as 'admin' | 'user'
+  const role = await resolveRole(data.user.id)
   const name = (metadata.name as string) || data.user.email?.split('@')[0] || 'Utilizador'
+  void touchLogin()
 
   return {
     user: {
@@ -55,6 +80,30 @@ export async function supabaseLogin(email: string, password: string): Promise<{ 
   }
 }
 
+/**
+ * Garante que uma conta existe no Supabase e abre sessão com ela.
+ * Usada pelas contas fixas: entram localmente (offline) e passam a ficar
+ * também guardadas na base de dados. Devolve null se não for possível
+ * (conta inexistente com confirmação de email ativa, rede em baixo, etc.).
+ */
+export async function supabaseEnsureAccount(email: string, password: string, name: string): Promise<{ user: User } | null> {
+  const client = getSupabase()
+  if (!client) return null
+  try {
+    return await supabaseLogin(email, password)
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : ''
+    if (!message.includes('invalid login credentials')) return null
+  }
+  try {
+    const { data, error } = await client.auth.signUp({ email, password, options: { data: { name } } })
+    if (error || !data.user || !data.session) return null
+    return await supabaseLogin(email, password)
+  } catch {
+    return null
+  }
+}
+
 /** Registo de nova conta no Supabase */
 export async function supabaseRegister(email: string, password: string, name: string): Promise<{ user: User }> {
   const client = clientOrThrow()
@@ -63,7 +112,7 @@ export async function supabaseRegister(email: string, password: string, name: st
     email,
     password,
     options: {
-      data: { name, role: 'user' },
+      data: { name },
     },
   })
 
