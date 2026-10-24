@@ -677,9 +677,13 @@ function ProjectTreePane({
     const isOpen = expanded.has(node.id)
     const isActive = activeNode === node.id
     // Só blocos de programa podem ser chamados por CALL (ficheiros SCL/DB não são executáveis em ladder).
-    const isCallableBlock = !!file && file.folder === 'programBlocks'
+    // FC1 e FC2 (nós estáticos) também são arrastáveis/inseríveis, como os blocos da pasta.
+    const isCallableBlock = (!!file && file.folder === 'programBlocks') || node.id === 'fc1' || node.id === 'fc2'
     const renameableBlock = node.id === 'fc1' || node.id === 'fc2'
     const shownLabel = blockLabel(node)
+    const callPayload: CallBlockPayload | null = isCallableBlock
+      ? (file ? { fileId: file.id, name: file.name } : { fileId: node.id as 'fc1' | 'fc2', name: shownLabel })
+      : null
     return (
       <div key={node.id}>
         <div className="tree-row-wrap">
@@ -688,11 +692,11 @@ function ProjectTreePane({
           className={`tree-row tree-depth-${Math.min(depth, 2)} ${isActive ? 'tree-selected' : ''} ${isCallableBlock ? 'tree-row-grab' : ''}`}
           draggable={isCallableBlock}
           onDragStart={(event) => {
-            if (!isCallableBlock || !file) return
-            event.dataTransfer.setData(CALL_BLOCK_MIME, JSON.stringify({ fileId: file.id, name: file.name } satisfies CallBlockPayload))
-            event.dataTransfer.setData('text/plain', `call-block:${file.name}`)
+            if (!callPayload) return
+            event.dataTransfer.setData(CALL_BLOCK_MIME, JSON.stringify(callPayload))
+            event.dataTransfer.setData('text/plain', `call-block:${callPayload.name}`)
             event.dataTransfer.effectAllowed = 'copy'
-            setLadderDrag({ block: { fileId: file.id, name: file.name } })
+            setLadderDrag({ block: callPayload })
           }}
           onDragEnd={() => setLadderDrag(null)}
           onClick={() => {
@@ -705,8 +709,8 @@ function ProjectTreePane({
             else if (folder) { event.stopPropagation(); onRenameFolder(folder) }
           }}
           onContextMenu={(event) => { if (file) { event.preventDefault(); onDeleteFile(file) } }}
-          title={isCallableBlock && file
-            ? `${shownLabel} · arraste para uma network (insere CALL) · duplo clique muda o nome · botão direito elimina`
+          title={isCallableBlock
+            ? `${shownLabel} · arraste para uma network da Main (insere CALL) · botão CALL insere na network ativa · duplo clique muda o nome`
             : file
               ? `${shownLabel} · duplo clique para mudar o nome · botão direito para eliminar`
               : renameableBlock || folder
@@ -725,8 +729,8 @@ function ProjectTreePane({
           <button type="button" className="tree-create-file" title={`Criar em ${node.label}`} aria-label={`Criar em ${node.label}`} onClick={() => onCreateFile(folder)}>＋</button>
           {canDeleteFolder && <button type="button" className="tree-delete-item" title={`Eliminar pasta ${node.label}`} aria-label={`Eliminar pasta ${node.label}`} onClick={() => onDeleteFolder(folder)}><IconDelete size={10} /></button>}
         </span>}
-        {isCallableBlock && file && (
-          <button type="button" className="tree-call-insert" title={`Inserir CALL ${file.name} na network ativa`} aria-label={`Inserir CALL ${file.name}`} onClick={(event) => { event.stopPropagation(); onInsertCall(file.id, file.name) }}>CALL</button>
+        {isCallableBlock && callPayload && (
+          <button type="button" className="tree-call-insert" title={`Inserir CALL ${callPayload.name} na network ativa da Main`} aria-label={`Inserir CALL ${callPayload.name}`} onClick={(event) => { event.stopPropagation(); onInsertCall(callPayload.fileId, callPayload.name) }}>CALL</button>
         )}
         {file && <button type="button" className="tree-delete-item" title={`Eliminar ${file.name}`} aria-label={`Eliminar ${file.name}`} onClick={() => onDeleteFile(file)}><IconDelete size={10} /></button>}
         </div>
