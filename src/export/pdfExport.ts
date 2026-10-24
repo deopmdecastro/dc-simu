@@ -242,6 +242,15 @@ function addImageFit(doc: jsPDF, dataUrl: string, y: number, maxH: number, capti
 
 const canRaster = () => typeof document !== 'undefined' && typeof Image !== 'undefined'
 
+/** Imagens capturadas do editor REAL (opcional — no browser). Quando presentes,
+ *  o PDF usa os desenhos verdadeiros das networks/páginas em vez do resumo gerado. */
+export interface PdfCaptureHooks {
+  /** Por network selecionada: índice no bloco + PNG 2× do SVG real. */
+  captureLadder?: (picks: Array<{ rung: LadderRung; rungIndex: number }>) => Promise<Array<{ rungIndex: number; png: string; w: number; h: number }>>
+  /** Por página do GRAFCET (null = programa sem páginas): PNG 2× recortado ao conteúdo. */
+  captureGrafcet?: (chartId: string | null) => Promise<{ png: string; w: number; h: number } | null>
+}
+
 export interface PdfExportResult {
   blob: Blob
   pages: number
@@ -254,7 +263,7 @@ export interface PdfExportResult {
  * Gera o PDF do projeto conforme a seleção do utilizador.
  * `schematicImage` é opcional: quando omisso tenta-se `captureCover()` (vista 3D real).
  */
-export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportOptions, schematicImage?: string | null): Promise<PdfExportResult> {
+export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportOptions, schematicImage?: string | null, hooks: PdfCaptureHooks = {}): Promise<PdfExportResult> {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const sections: string[] = []
   const skippedImages: string[] = []
@@ -296,11 +305,29 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
         : src.grafcet
       if (!program.steps.length) continue
       const title = chart ? `GRAFCET — ${chart.title || chart.name}` : 'GRAFCET'
-      const svg = grafcetCoverSvg(program, title)
-      const img = canRaster() && svg ? await svgToJpegDataUrl(svg) : null
+      const caption = `${program.steps.length} etapas · ${(program.transitions ?? []).length} transições`
+      // 1.ª escolha: o editor GRAFCET verdadeiro (mesmo desenho do ecrã)
+      let realCap: { png: string; w: number; h: number } | null = null
+      if (hooks.captureGrafcet) {
+        try { realCap = await hooks.captureGrafcet(chart?.id ?? null) } catch { realCap = null }
+      }
+      const svg = realCap ? null : grafcetCoverSvg(program, title)
+      const img = !realCap && canRaster() && svg ? await svgToJpegDataUrl(svg) : null
       newPage(); header(doc, 'GRAFCET', src.projectName)
-      if (img) {
-        addImageFit(doc, img, 92, PAGE_H - 180, `${program.steps.length} etapas · ${(program.transitions ?? []).length} transições`)
+      if (realCap) {
+        const w = CONTENT_W
+        const h = Math.min(PAGE_H - 190, (w * realCap.h) / realCap.w)
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(BRAND)
+        doc.text(title, MARGIN, 84)
+        doc.setTextColor(INK)
+        doc.setDrawColor('#d7deeb'); doc.setLineWidth(0.8)
+        doc.roundedRect(MARGIN, 94, w, h, 6, 6)
+        doc.addImage(realCap.png, 'PNG', MARGIN + 1, 95, w - 2, h - 2)
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(MUTED)
+        doc.text(`${caption} · desenho real do editor`, MARGIN, 94 + h + 14)
+        doc.setTextColor(INK)
+      } else if (img) {
+        addImageFit(doc, img, 92, PAGE_H - 180, caption)
       } else {
         doc.setTextColor(MUTED); doc.setFontSize(10)
         doc.text(`Diagrama indisponível neste contexto — ${program.steps.length} etapas, ${(program.transitions ?? []).length} transições.`, MARGIN, 100)
@@ -314,24 +341,61 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
   const blocks = collectLadderBlocks(src)
   const chosen = blocks.filter((b) => (opts.ladder[b.id] ?? []).length > 0)
   for (const block of chosen) {
-    const rungs = selectedRungs(block, opts.ladder[block.id])
+    const indices = (opts.ladder[block.id] ?? [])
+    const rungs = selectedRungs(block, indices)
     if (!rungs.length) continue
-    const svg = ladderCoverSvg(rungs, block.title)
-    const img = canRaster() && svg ? await svgToJpegDataUrl(svg) : null
     newPage(); header(doc, `Ladder — ${block.title}`, src.projectName)
-    if (img) {
-      addImageFit(doc, img, 92, PAGE_H - 180, `${rungs.length} de ${block.rungs.length} networks exportadas`)
-    } else {
-      // sem DOM: listar as networks em texto para o PDF continuar útil (e testável)
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(10)
-      let y = 96
-      rungs.forEach((r, i) => {
-        if (y > PAGE_H - 60) return
-        doc.setTextColor(MUTED); doc.text(`Network ${i + 1}`, MARGIN, y)
-        doc.setTextColor(INK); doc.text(r.name || '—', MARGIN + 80, y)
-        y += 16
+    // 1.ª escolha: cada network com o desenho REAL do editor (NetworkDiagram),
+    // incluindo o estado vivo da simulação (verde = energizado).
+    let real: Array<{ rungIndex: number; png: string; w: number; h: number }> = []
+    if (hooks.captureLadder) {
+      try { real = await hooks.captureLadder(rungs.map((rung, i) => ({ rung, rungIndex: indices[i] ?? i }))) } catch { real = [] }
+    }
+    if (real.length) {
+      let y = 92
+      const byIndex = new Map(real.map((c) => [c.rungIndex, c]))
+      rungs.forEach((rung, i) => {
+        const idx = indices[i] ?? i
+        const cap = byIndex.get(idx)
+        const num = `Network ${idx + 1}`
+        const title = rung.name?.trim()
+        const headH = 16
+        const imgH = cap ? Math.min((CONTENT_W * cap.h) / cap.w, 320) : 0
+        if (y + headH + imgH + 14 > PAGE_H - 56) { doc.addPage(); header(doc, `Ladder — ${block.title}`, src.projectName); y = 92 }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(BRAND)
+        doc.text(title ? `${num} — ${title}` : num, MARGIN, y + 10)
+        y += headH
+        if (cap) {
+          doc.setDrawColor('#d7deeb'); doc.setLineWidth(0.8)
+          doc.roundedRect(MARGIN, y, CONTENT_W, imgH, 6, 6)
+          doc.addImage(cap.png, 'PNG', MARGIN + 1, y + 1, CONTENT_W - 2, imgH - 2)
+          y += imgH + 14
+        } else {
+          doc.setFont('helvetica', 'normal'); doc.setTextColor(MUTED); doc.text('(imagem indisponível)', MARGIN, y + 8); y += 18
+        }
+        doc.setTextColor(INK)
       })
-      skippedImages.push(`Ladder — ${block.title}`)
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(MUTED)
+      if (y + 14 > PAGE_H - 50) { doc.addPage(); header(doc, `Ladder — ${block.title}`, src.projectName); y = 92 }
+      doc.text(`Desenho real do editor · ${real.length} de ${block.rungs.length} networks exportadas`, MARGIN, y + 10)
+      doc.setTextColor(INK)
+    } else {
+      // Reserva: diagrama gerado (mesma linguagem visual, sem captura disponível)
+      const svg = ladderCoverSvg(rungs, block.title)
+      const img = canRaster() && svg ? await svgToJpegDataUrl(svg) : null
+      if (img) {
+        addImageFit(doc, img, 92, PAGE_H - 180, `${rungs.length} de ${block.rungs.length} networks exportadas`)
+      } else {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10)
+        let y = 96
+        rungs.forEach((r, i) => {
+          if (y > PAGE_H - 60) return
+          doc.setTextColor(MUTED); doc.text(`Network ${(indices[i] ?? i) + 1}`, MARGIN, y)
+          doc.setTextColor(INK); doc.text(r.name || '—', MARGIN + 80, y)
+          y += 16
+        })
+        skippedImages.push(`Ladder — ${block.title}`)
+      }
     }
     sections.push(`Ladder — ${block.title}`)
   }

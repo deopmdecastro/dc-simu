@@ -1,6 +1,7 @@
 /** Diálogo «Exportar para PDF»: escolher o que entra no documento —
  *  capa/dados, tabela de tags, esquema 3D, páginas de GRAFCET e blocos
- *  de ladder com seleção network a network. */
+ *  de ladder com seleção network a network. Desenho REAL do editor nas
+ *  imagens (NetworkDiagram/GrafcetEditor montados fora do ecrã). */
 import { useMemo, useState } from 'react'
 import PropertyDialog from '../ui/PropertyDialog'
 import { useSimStore } from '../store/useSimStore'
@@ -8,6 +9,7 @@ import {
   collectLadderBlocks, defaultPdfOptions, generateProjectPdf,
   type PdfExportOptions, type PdfLadderBlock,
 } from './pdfExport'
+import { captureGrafcetChart, captureLadderRungs } from './realCapture'
 
 const saveBlob = (blob: Blob, name: string) => {
   const url = URL.createObjectURL(blob)
@@ -20,6 +22,13 @@ const saveBlob = (blob: Blob, name: string) => {
 
 const fileSlugOf = (name: string | null) =>
   (name ?? 'projeto').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'projeto'
+
+const Section = ({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) => (
+  <section className="pdfx-section">
+    <header><strong>{title}</strong>{hint && <small>{hint}</small>}</header>
+    {children}
+  </section>
+)
 
 export default function ExportPdfDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [opts, setOpts] = useState<PdfExportOptions | null>(null)
@@ -76,15 +85,18 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
     const cur = opts.ladder[block.id] ?? []
     setOpts({ ...opts, ladder: { ...opts.ladder, [block.id]: cur.length ? [] : block.rungs.map((_, i) => i) } })
   }
+  const setBlockRungs = (block: PdfLadderBlock, indices: number[]) =>
+    setOpts({ ...opts, ladder: { ...opts.ladder, [block.id]: indices.sort((a, b) => a - b) } })
   const toggleRung = (block: PdfLadderBlock, index: number) => {
     const cur = new Set(opts.ladder[block.id] ?? [])
     if (cur.has(index)) cur.delete(index); else cur.add(index)
-    setOpts({ ...opts, ladder: { ...opts.ladder, [block.id]: [...cur].sort((a, b) => a - b) } })
+    setBlockRungs(block, [...cur])
   }
 
+  const networksPicked = Object.values(opts.ladder).reduce((n, v) => n + v.length, 0)
+  const networksTotal = blocks.reduce((n, b) => n + b.rungs.length, 0)
   const nothing =
-    !opts.cover && !opts.info && !opts.tags && !opts.schematic && !opts.grafcet &&
-    !Object.values(opts.ladder).some((v) => v.length > 0)
+    !opts.cover && !opts.info && !opts.tags && !opts.schematic && !opts.grafcet && networksPicked === 0
 
   const run = async () => {
     setBusy(true)
@@ -101,12 +113,12 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
         tags: s.tags,
         components: s.components,
         wires: s.wires,
-      }, opts)
+      }, opts, null, { captureLadder: captureLadderRungs, captureGrafcet: captureGrafcetChart })
       saveBlob(result.blob, `dc-simu-${fileSlugOf(s.currentProjectName)}.pdf`)
       setNotice(
         result.skippedImages.length
           ? `PDF gerado (${result.pages} páginas). Nota: ${result.skippedImages.join('; ')}.`
-          : `PDF gerado com ${result.pages} páginas.`,
+          : `PDF gerado com ${result.pages} páginas — com o desenho real do editor.`,
       )
     } catch (error) {
       console.error(error)
@@ -119,44 +131,41 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
   return (
     <PropertyDialog
       open={open} id="export-pdf" eyebrow="Projeto · Exportação"
-      title="Exportar para PDF" subtitle="Escolhe os conteúdos do documento"
+      title="Exportar para PDF" subtitle="Escolhe os conteúdos — o documento usa o desenho real do editor"
       onClose={onClose} onSave={() => void run()}
       saveLabel={busy ? 'A gerar…' : 'Exportar PDF'} saveDisabled={busy || nothing}
-      closeLabel="Fechar" footerHint=""
-      className="pdf-export-dialog"
+      closeLabel="Fechar" footerHint={`${networksPicked}/${networksTotal} networks de ladder escolhidas`}
+      className="pdf-export-dialog is-wide"
     >
       <div className="pdf-export-body">
-        <section>
-          <strong>Documento</strong>
-          <label><input type="checkbox" checked={opts.cover} onChange={() => toggle('cover')} /> Capa com dados da plataforma e estatísticas</label>
-          <label><input type="checkbox" checked={opts.info} onChange={() => toggle('info')} /> Informações do projeto</label>
-          <label><input type="checkbox" checked={opts.tags} onChange={() => toggle('tags')} /> Tabela de tags ({state.tags.length})</label>
-        </section>
-        <section>
-          <strong>Esquema</strong>
-          <label><input type="checkbox" checked={opts.schematic} onChange={() => toggle('schematic')} /> Esquema elétrico — vista 3D atual ({state.components.length} componentes)</label>
-        </section>
-        <section>
-          <label><input type="checkbox" checked={opts.grafcet} onChange={() => toggle('grafcet')} /> <strong>GRAFCET</strong> ({state.grafcet.steps.length} etapas)</label>
-          {charts.length > 1 && opts.grafcet && (
-            <div className="pdf-export-sub">
-              Páginas:
-              {charts.map((c) => (
-                <label key={c.id} className="pdf-export-chip">
-                  <input type="checkbox" checked={chartPicked(c.id)} onChange={() => toggleChart(c.id)} /> {c.title || c.name}
-                </label>
-              ))}
-            </div>
-          )}
-        </section>
-        <section>
-          <strong>Ladder</strong>
+        <div className="pdf-export-grid">
+          <Section title="Documento" hint="Estrutura e dados do projeto">
+            <label><input type="checkbox" checked={opts.cover} onChange={() => toggle('cover')} /> <span>Capa com a marca DC-Simu e estatísticas</span></label>
+            <label><input type="checkbox" checked={opts.info} onChange={() => toggle('info')} /> <span>Informações do projeto</span></label>
+            <label><input type="checkbox" checked={opts.tags} onChange={() => toggle('tags')} /> <span>Tabela de tags <em>({state.tags.length})</em></span></label>
+          </Section>
+          <Section title="Diagramas" hint="Capturados tal como estão no editor">
+            <label><input type="checkbox" checked={opts.schematic} onChange={() => toggle('schematic')} /> <span>Esquema elétrico — vista 3D atual <em>({state.components.length} componentes)</em></span></label>
+            <label><input type="checkbox" checked={opts.grafcet} onChange={() => toggle('grafcet')} /> <span><strong>GRAFCET</strong> <em>({state.grafcet.steps.length} etapas)</em></span></label>
+            {charts.length > 1 && opts.grafcet && (
+              <div className="pdf-export-sub">
+                Páginas:
+                {charts.map((c) => (
+                  <label key={c.id} className={`pdf-export-chip ${chartPicked(c.id) ? 'is-on' : ''}`}>
+                    <input type="checkbox" checked={chartPicked(c.id)} onChange={() => toggleChart(c.id)} /> {c.title || c.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </Section>
+        </div>
+        <Section title="Ladder" hint={`${blocks.length} bloco(s) · escolhe blocos e networks`}>
           <ul className="pdf-export-blocks">
             {blocks.map((block) => {
               const picked = opts.ladder[block.id] ?? []
               const openBlock = expanded === block.id
               return (
-                <li key={block.id}>
+                <li key={block.id} className={picked.length ? 'is-picked' : ''}>
                   <div className="pdf-export-block-row">
                     <label>
                       <input
@@ -165,20 +174,26 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
                         ref={(el) => { if (el) el.indeterminate = picked.length > 0 && picked.length < block.rungs.length }}
                         onChange={() => toggleBlock(block)}
                       />
-                      {block.title} <em>({picked.length}/{block.rungs.length} networks)</em>
+                      <span>{block.title}</span> <em>({picked.length}/{block.rungs.length} networks)</em>
                     </label>
-                    {block.rungs.length > 0 && (
-                      <button type="button" className="pdf-export-expand" onClick={() => setExpanded(openBlock ? null : block.id)}>
-                        {openBlock ? '▾ networks' : '▸ escolher networks'}
-                      </button>
-                    )}
+                    <span className="pdf-export-row-tools">
+                      {block.rungs.length > 1 && <>
+                        <button type="button" onClick={() => setBlockRungs(block, block.rungs.map((_, i) => i))}>todas</button>
+                        <button type="button" onClick={() => setBlockRungs(block, [])}>nenhuma</button>
+                      </>}
+                      {block.rungs.length > 0 && (
+                        <button type="button" className="pdf-export-expand" onClick={() => setExpanded(openBlock ? null : block.id)}>
+                          {openBlock ? '▾ fechar' : '▸ escolher networks'}
+                        </button>
+                      )}
+                    </span>
                   </div>
                   {openBlock && (
                     <div className="pdf-export-rungs">
                       {block.rungs.map((r, i) => (
                         <label key={r.id}>
                           <input type="checkbox" checked={picked.includes(i)} onChange={() => toggleRung(block, i)} />
-                          Network {i + 1}{r.name ? ` — ${r.name}` : ''}
+                          <span>Network {i + 1}{r.name ? ` — ${r.name}` : ''}</span>
                         </label>
                       ))}
                     </div>
@@ -187,7 +202,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
               )
             })}
           </ul>
-        </section>
+        </Section>
         {notice && <p className="pdf-export-notice">{notice}</p>}
       </div>
     </PropertyDialog>

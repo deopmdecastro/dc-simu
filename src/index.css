@@ -2766,31 +2766,32 @@ input[list]:focus::-webkit-calendar-picker-indicator {
 .ladder-call-actions .dc-btn { margin-top: 0; }
 
 /* ---- Exportar para PDF ---- */
-.pdf-export-body { display: flex; flex-direction: column; gap: 14px; font-size: 12px; color: #34405a; }
-.pdf-export-body section { display: flex; flex-direction: column; gap: 6px; }
-.pdf-export-body section > strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7a90; }
-.pdf-export-body label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
-.pdf-export-body label em { color: #6b7a90; font-size: 10px; font-style: normal; }
-.pdf-export-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: 22px; color: #6b7a90; font-size: 11px; }
-.pdf-export-chip { display: inline-flex !important; gap: 4px; padding: 2px 8px; border: 1px solid #d7deeb; border-radius: 999px; background: #f6f8fc; }
-.pdf-export-blocks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pdf-export-dialog.grafcet-property-dialog { max-width: 760px; width: min(760px, 96vw); }
+.pdf-export-body { display: flex; flex-direction: column; gap: 16px; font-size: 12.5px; color: #34405a; }
+.pdf-export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .pdf-export-grid { grid-template-columns: 1fr; } }
+.pdfx-section { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid #e4eaf4; border-radius: 12px; background: #fbfcff; }
+.pdfx-section > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pdfx-section > header strong { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #4a5a75; }
+.pdfx-section > header small { font-size: 10px; color: #94a3b8; text-align: right; }
+.pdf-export-body label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.pdf-export-body label span { flex: 1; }
+.pdf-export-body label em { color: #8b98ad; font-size: 10.5px; font-style: normal; }
+.pdf-export-body input[type="checkbox"] { width: 15px; height: 15px; accent-color: #2655e5; }
+.pdf-export-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: 24px; color: #6b7a90; font-size: 11px; }
+.pdf-export-chip { display: inline-flex !important; gap: 5px; padding: 3px 10px; border: 1px solid #d7deeb; border-radius: 999px; background: #fff; font-size: 11px; transition: border-color .12s, background .12s; }
+.pdf-export-chip.is-on { border-color: #2655e5; background: #eef3ff; color: #1d3fae; font-weight: 600; }
+.pdf-export-blocks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pdf-export-blocks > li { border: 1px solid transparent; border-radius: 8px; padding: 3px 6px; transition: background .12s, border-color .12s; }
+.pdf-export-blocks > li.is-picked { background: #f4f8ff; border-color: #d9e4fa; }
 .pdf-export-block-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.pdf-export-expand { border: none; background: none; color: #2655e5; font-size: 10px; cursor: pointer; padding: 2px 4px; }
-.pdf-export-expand:hover { text-decoration: underline; }
-.pdf-export-rungs { margin: 4px 0 2px 22px; padding: 8px 10px; border: 1px solid #e3e9f3; border-radius: 8px; background: #f8fafd; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; max-height: 180px; overflow: auto; }
-.pdf-export-rungs label { font-size: 11px; }
-.pdf-export-notice { margin: 0; padding: 8px 10px; border-radius: 8px; background: #eef4ff; border: 1px solid #cfddfa; color: #33416b; font-size: 11px; }
-
-/* ---- Folhas do esquema (páginas) ---- */
-.schematic-sheets { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 5px; padding: 4px 6px; background: rgba(255,255,255,.92); border: 1px solid #dce4f0; border-radius: 10px; box-shadow: 0 2px 10px rgba(20,32,54,.08); backdrop-filter: blur(4px); }
-.schematic-sheet-chip { display: inline-flex; align-items: center; border: 1px solid transparent; border-radius: 7px; overflow: hidden; }
-.schematic-sheet-chip > button { border: none; background: none; padding: 3px 9px; font-size: 11px; color: #54627a; cursor: pointer; }
-.schematic-sheet-chip.is-active { background: #eef3ff; border-color: #2655e5; }
-.schematic-sheet-chip.is-active > button { color: #1d3fae; font-weight: 700; }
-.schematic-sheet-del { border: none; background: none; color: #a3b1c6; cursor: pointer; padding: 0 6px; font-size: 12px; }
-.schematic-sheet-del:hover { color: #cc3344; }
-.schematic-sheet-add { border: 1px dashed #b9c6d9; border-radius: 7px; background: none; color: #567; font-size: 10px; padding: 3px 8px; cursor: pointer; }
-.schematic-sheet-add:hover { border-color: #2655e5; color: #1d3fae; }
+.pdf-export-row-tools { display: inline-flex; align-items: center; gap: 2px; }
+.pdf-export-row-tools button { border: none; background: none; color: #2655e5; font-size: 10.5px; cursor: pointer; padding: 3px 6px; border-radius: 5px; }
+.pdf-export-row-tools button:hover { background: #eaf0ff; }
+.pdf-export-expand { color: #52627a !important; }
+.pdf-export-rungs { margin: 6px 0 4px 26px; padding: 9px 12px; border: 1px solid #e3e9f3; border-radius: 9px; background: #fff; display: grid; grid-template-columns: 1fr 1fr; gap: 5px 14px; max-height: 190px; overflow: auto; }
+.pdf-export-rungs label { font-size: 11.5px; }
+.pdf-export-notice { margin: 0; padding: 9px 12px; border-radius: 9px; background: #eef4ff; border: 1px solid #cfddfa; color: #33416b; font-size: 11.5px; }
 
 /* estados vazios do painel de estado */
 .ladder-status-empty.is-ok { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 12px; display: inline-block; font-weight: 600; }
