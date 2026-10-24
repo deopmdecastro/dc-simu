@@ -81,8 +81,8 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const callTargetName = useSimStore((s) => {
     const target = rung.call?.targetId
     if (!target) return null
-    if (target === 'fc1') return 'FC1'
-    if (target === 'fc2') return 'FC2'
+    if (target === 'fc1') return s.fcNames.fc1?.trim() || 'FC1'
+    if (target === 'fc2') return s.fcNames.fc2?.trim() || 'FC2'
     return (s.projectFiles[s.activePlcId ?? '_general'] ?? []).find((f) => f.id === target)?.name ?? target
   })
   const [drop, setDrop] = useState<DropTarget | null>(null)
@@ -320,19 +320,53 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   // ------------------------------------------------------------- desenho
   const svg: JSX.Element[] = []
   const hits: JSX.Element[] = []
-  const label = (x: number, y: number, text: string, opts: { bold?: boolean; grey?: boolean; anchor?: 'start' | 'middle' | 'end'; size?: number } = {}) => (
+  const label = (x: number, y: number, text: string, opts: { bold?: boolean; grey?: boolean; anchor?: 'start' | 'middle' | 'end'; size?: number; fill?: string; italic?: boolean } = {}) => (
     <text
       x={x}
       y={y}
       fontSize={opts.size ?? 10}
       fontWeight={opts.bold ? 700 : 500}
-      fill={opts.grey ? '#7b8aa3' : '#1f2a3d'}
+      fill={opts.fill ?? (opts.grey ? '#7b8aa3' : '#1f2a3d')}
+      fontStyle={opts.italic ? 'italic' : undefined}
       textAnchor={opts.anchor ?? 'middle'}
       fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
     >
       {text}
     </text>
   )
+
+  // --------- blocos de função estilo TIA Portal (MOVE / matemática) ---------
+  const TIA = { head: '#a9b1bd', headText: '#28303c', body: '#e9ebf0', edge: '#79828f', pin: '#44505f', cnst: '#1d4ed8', addr: '#6d7c00', tag: '#b45309', value: '#1a7f37' } as const
+  /** Cabeça cinzenta com cantos superiores redondos + título centrado, como no TIA Portal. */
+  const tiaChrome = (x: number, y: number, w: number, h: number, title: string, extraTitle?: string) => <>
+    <rect x={x} y={y} width={w} height={h} rx={3} fill={TIA.body} stroke={TIA.edge} strokeWidth={1.3} />
+    <path d={`M ${x} ${y + 3} Q ${x} ${y} ${x + 3} ${y} L ${x + w - 3} ${y} Q ${x + w} ${y} ${x + w} ${y + 3} L ${x + w} ${y + 24} L ${x} ${y + 24} Z`} fill={TIA.head} />
+    {label(x + w / 2, y + 16, title, { bold: true, size: 11, fill: TIA.headText })}
+    {extraTitle && label(x + w / 2, y + 24, extraTitle, { size: 7.5, fill: TIA.headText })}
+  </>
+  /** Operando fora da caixa, como o TIA Portal: constantes a azul, endereços a
+   *  oliva «%MW100», nome da tag em «âmbar» por cima e valor atual (em RUN) por baixo. */
+  const formatOperand = (v: string) => (/^(?:[IQM]\d+(?:\.\d+)?|MW\d+)$/i.test(v.trim()) ? `%${v.trim().toUpperCase()}` : v)
+  const operandValueText = (key: string): string | null => {
+    if (!online) return null
+    if (db[key]) return String(db[key].value)
+    if (table[key] !== undefined) return table[key] ? 'TRUE' : 'FALSE'
+    return null
+  }
+  const pinText = (raw: string, x: number, y: number, anchor: 'start' | 'end', showValue = true) => {
+    const trimmed = raw.trim()
+    const isConstant = /^(?:TRUE|FALSE|[-+]?\d+(?:\.\d+)?)$/i.test(trimmed)
+    const key = trimmed.replace(/^%/, '').toUpperCase()
+    const name = !isConstant && trimmed ? tagName(key) : null
+    const value = showValue && !isConstant && trimmed ? operandValueText(key) : null
+    return (
+      <g>
+        {name && label(x, y - 8, `"${name}"`, { anchor, size: 8, fill: TIA.tag, italic: true })}
+        {label(x, y, trimmed ? (isConstant ? trimmed : formatOperand(trimmed)) : '…', { anchor, size: 9, fill: trimmed ? (isConstant ? TIA.cnst : TIA.addr) : undefined, grey: !trimmed })}
+        {value !== null && label(x, y + 10, value, { anchor, size: 8, fill: TIA.value, bold: true })}
+      </g>
+    )
+  }
   const selBox = (x: number, y: number, w: number, h: number, key: string) => (
     <rect key={key} className="lnet-sel" x={x} y={y} width={w} height={h} rx={7} fill="#2f6fe4" fillOpacity={0.09} stroke="#2f6fe4" strokeWidth={1.5} />
   )
@@ -601,36 +635,32 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       const m = rung.move
       const top = cy - 40
       const isSel = selection?.type === 'move'
-      const operand = (v: string) => (/^[IQM]\d+(\.\d+)?$/i.test(v.trim()) ? `%${v.trim().toUpperCase()}` : v)
-      const edge = rungOut ? C_ON : '#5b6b84'
-      // TIA Portal: EN/ENO na linha de corrente; IN/OUT1 uma linha abaixo, operandos fora da caixa
+      // TIA Portal: cabeça cinzenta, EN/ENO na linha de corrente; IN/OUT1 em baixo com operandos fora da caixa
       svg.push(<g key="move-block">
         {isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 86, 'move-sel')}
         {wire(OJ, cy, boxX, cy, rungOut)}
-        <rect x={boxX} y={top} width={BOX_W} height={70} fill="#fff" stroke={edge} strokeWidth={1.3} />
-        <rect x={boxX} y={top} width={BOX_W} height={30} fill="#eef3fb" />
-        {label(boxX + BOX_W / 2, top + 19, 'MOVE', { bold: true, size: 11 })}
-        {label(boxX + 6, cy + 3, 'EN', { anchor: 'start', size: 9 })}
-        {label(boxX + 6, cy + 19, 'IN', { anchor: 'start', size: 9 })}
-        {label(boxX + BOX_W - 6, cy + 3, 'ENO', { anchor: 'end', size: 9 })}
-        {label(boxX + BOX_W - 6, cy + 19, 'OUT1', { anchor: 'end', size: 9 })}
-        <line x1={boxX - 14} y1={cy + 16} x2={boxX} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
-        {label(boxX - 16, cy + 19, operand(m.source) || '…', { anchor: 'end', size: 9, grey: true })}
+        {tiaChrome(boxX, top, BOX_W, 70, 'MOVE')}
+        {label(boxX + 6, cy + 3, 'EN', { anchor: 'start', size: 9, fill: TIA.pin })}
+        {label(boxX + 6, cy + 19, 'IN', { anchor: 'start', size: 9, fill: TIA.pin })}
+        {label(boxX + BOX_W - 6, cy + 3, 'ENO', { anchor: 'end', size: 9, fill: TIA.pin })}
+        {label(boxX + BOX_W - 6, cy + 19, 'OUT1', { anchor: 'end', size: 9, fill: TIA.pin })}
+        <line x1={boxX - 14} y1={cy + 16} x2={boxX} y2={cy + 16} stroke={TIA.edge} strokeWidth={1} />
+        {pinText(m.source, boxX - 16, cy + 19, 'end')}
         {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
-        <line x1={boxX + BOX_W} y1={cy + 16} x2={boxX + BOX_W + 14} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
-        {label(boxX + BOX_W + 18, cy + 19, operand(m.target) || '…', { anchor: 'start', size: 9, grey: true })}
+        <line x1={boxX + BOX_W} y1={cy + 16} x2={boxX + BOX_W + 14} y2={cy + 16} stroke={TIA.edge} strokeWidth={1} />
+        {pinText(m.target, boxX + BOX_W + 18, cy + 19, 'start')}
       </g>)
       if (!readonly) hits.push(<div key="move-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 86 }}
         onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'move' }) }}
         onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'move' }) }}
         onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, move: undefined }), 'force') }}
         title="MOVE — duplo clique: origem e destino · Del/botão direito remove" />)
-      textHit('m-src', boxX - 16 - 64, cy + 8, 64, m.source, (v) => {
+      textHit('m-src', boxX - 16 - 64, cy + 5, 64, m.source, (v) => {
         const r = parseAddress(v, 'operand')
         if (r.ok) updateRung(rung.id, (x) => (x.move ? { ...x, move: { ...x.move, source: r.value } } : x), 'force')
         return r
       }, 'Origem (IN) do MOVE')
-      textHit('m-dst', boxX + BOX_W + 18, cy + 8, 64, m.target, (v) => {
+      textHit('m-dst', boxX + BOX_W + 18, cy + 5, 64, m.target, (v) => {
         const r = parseAddress(v, 'moveTarget')
         if (r.ok) updateRung(rung.id, (x) => (x.move ? { ...x, move: { ...x.move, target: r.value } } : x), 'force')
         return r
@@ -639,28 +669,23 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       const mt = rung.math
       const top = cy - 40
       const isSel = selection?.type === 'math'
-      const operand = (v: string) => (/^[IQM]\d+(\.\d+)?$/i.test(v.trim()) ? `%${v.trim().toUpperCase()}` : v)
-      const edge = rungOut ? C_ON : '#5b6b84'
       const symbol = MATH_OPS.find((m) => m.op === mt.op)?.symbol ?? ''
       svg.push(<g key="math-block">
         {isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 106, 'math-sel')}
         {wire(OJ, cy, boxX, cy, rungOut)}
-        <rect x={boxX} y={top} width={BOX_W} height={86} fill="#fff" stroke={edge} strokeWidth={1.3} />
-        <rect x={boxX} y={top} width={BOX_W} height={30} fill="#eef3fb" />
-        {label(boxX + BOX_W / 2, top + 14, mt.op, { bold: true, size: 11 })}
-        {label(boxX + BOX_W / 2, top + 26, `Int  ${symbol}`, { grey: true, size: 9 })}
-        {label(boxX + 6, cy + 3, 'EN', { anchor: 'start', size: 9 })}
-        {label(boxX + 6, cy + 19, 'IN1', { anchor: 'start', size: 9 })}
-        {label(boxX + 6, cy + 35, 'IN2', { anchor: 'start', size: 9 })}
-        {label(boxX + BOX_W - 6, cy + 3, 'ENO', { anchor: 'end', size: 9 })}
-        {label(boxX + BOX_W - 6, cy + 19, 'OUT', { anchor: 'end', size: 9 })}
-        <line x1={boxX - 14} y1={cy + 16} x2={boxX} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
-        <line x1={boxX - 14} y1={cy + 32} x2={boxX} y2={cy + 32} stroke="#5b6b84" strokeWidth={1} />
-        {label(boxX - 16, cy + 19, operand(mt.in1) || '…', { anchor: 'end', size: 9, grey: true })}
-        {label(boxX - 16, cy + 35, operand(mt.in2) || '…', { anchor: 'end', size: 9, grey: true })}
+        {tiaChrome(boxX, top, BOX_W, 86, mt.op, `Int  ${symbol}`)}
+        {label(boxX + 6, cy + 3, 'EN', { anchor: 'start', size: 9, fill: TIA.pin })}
+        {label(boxX + 6, cy + 19, 'IN1', { anchor: 'start', size: 9, fill: TIA.pin })}
+        {label(boxX + 6, cy + 35, 'IN2', { anchor: 'start', size: 9, fill: TIA.pin })}
+        {label(boxX + BOX_W - 6, cy + 3, 'ENO', { anchor: 'end', size: 9, fill: TIA.pin })}
+        {label(boxX + BOX_W - 6, cy + 19, 'OUT', { anchor: 'end', size: 9, fill: TIA.pin })}
+        <line x1={boxX - 14} y1={cy + 16} x2={boxX} y2={cy + 16} stroke={TIA.edge} strokeWidth={1} />
+        <line x1={boxX - 14} y1={cy + 32} x2={boxX} y2={cy + 32} stroke={TIA.edge} strokeWidth={1} />
+        {pinText(mt.in1, boxX - 16, cy + 19, 'end', false)}
+        {pinText(mt.in2, boxX - 16, cy + 35, 'end')}
         {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
-        <line x1={boxX + BOX_W} y1={cy + 16} x2={boxX + BOX_W + 14} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
-        {label(boxX + BOX_W + 18, cy + 19, operand(mt.out) || '…', { anchor: 'start', size: 9, grey: true })}
+        <line x1={boxX + BOX_W} y1={cy + 16} x2={boxX + BOX_W + 14} y2={cy + 16} stroke={TIA.edge} strokeWidth={1} />
+        {pinText(mt.out, boxX + BOX_W + 18, cy + 19, 'start')}
       </g>)
       if (!readonly) hits.push(<div key="math-hit" className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: 106 }}
         onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: 'math' }) }}
@@ -668,9 +693,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, math: undefined }), 'force') }}
         title={`${mt.op} — clique no texto: editar valor · duplo clique: operação e operandos · Del/botão direito remove`} />)
       const setMath = (patch: Partial<NonNullable<LadderRung['math']>>) => updateRung(rung.id, (x) => (x.math ? { ...x, math: { ...x.math, ...patch } } : x), 'force')
-      textHit('a-in1', boxX - 16 - 64, cy + 8, 64, mt.in1, (v) => { const r = parseAddress(v, 'compare'); if (r.ok) setMath({ in1: r.value }); return r }, 'IN1')
+      textHit('a-in1', boxX - 16 - 64, cy + 5, 64, mt.in1, (v) => { const r = parseAddress(v, 'compare'); if (r.ok) setMath({ in1: r.value }); return r }, 'IN1')
       textHit('a-in2', boxX - 16 - 64, cy + 24, 64, mt.in2, (v) => { const r = parseAddress(v, 'compare'); if (r.ok) setMath({ in2: r.value }); return r }, 'IN2')
-      textHit('a-out', boxX + BOX_W + 18, cy + 8, 64, mt.out, (v) => { const r = parseAddress(v, 'mathTarget'); if (r.ok) setMath({ out: r.value }); return r }, 'OUT')
+      textHit('a-out', boxX + BOX_W + 18, cy + 5, 64, mt.out, (v) => { const r = parseAddress(v, 'mathTarget'); if (r.ok) setMath({ out: r.value }); return r }, 'OUT')
     } else if (o.type === 'coil') {
       const c = o.coil
       const on = online && !!table[c.address]

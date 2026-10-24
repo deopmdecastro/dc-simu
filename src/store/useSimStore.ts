@@ -72,6 +72,10 @@ export interface Snapshot {
   plcTags?: Record<string, LadderTag[]>
   projectFiles?: Record<string, ProjectFile[]>
   hiddenProjectFolders?: Record<string, ProjectFolder[]>
+  /** Rótulos personalizados das pastas do projeto (duplo clique na árvore). */
+  projectFolderLabels?: Record<string, Partial<Record<ProjectFolder, string>>>
+  /** Nome personalizado das funções fixas (FC1/FC2). */
+  fcNames?: Partial<Record<'fc1' | 'fc2', string>>
 }
 
 interface PlcScanRuntime {
@@ -115,11 +119,17 @@ interface Store extends CircuitState {
   projectFiles: Record<string, ProjectFile[]>
   /** Pastas opcionais ocultadas pelo utilizador, separadas por PLC. */
   hiddenProjectFolders: Record<string, ProjectFolder[]>
+  /** Rótulos personalizados das pastas, separados por PLC (sem entrada = nome predefinido). */
+  projectFolderLabels: Record<string, Partial<Record<ProjectFolder, string>>>
+  /** Nome personalizado das funções fixas FC1/FC2 (duplo clique na árvore). */
+  fcNames: Partial<Record<'fc1' | 'fc2', string>>
   addProjectFile: (folder: ProjectFolder, name: string) => string | null
   updateProjectFile: (id: string, patch: Partial<Pick<ProjectFile, 'name' | 'content' | 'rungs' | 'exec'>>) => void
   deleteProjectFile: (id: string) => void
   deleteProjectFolder: (folder: ProjectFolder) => void
   restoreProjectFolder: (folder: ProjectFolder) => void
+  renameProjectFolder: (folder: ProjectFolder, name: string | null) => void
+  renameFc: (id: 'fc1' | 'fc2', name: string | null) => void
   restoreProjectBackup: (id: string) => boolean
   setActivePlc: (id: string) => void
   updateFc: (id: 'fc1' | 'fc2', rungs: LadderRung[]) => void
@@ -461,6 +471,7 @@ function snapshot(state: Store): Snapshot {
     plcPrograms: programsForSave(state.plcPrograms, state.activePlcId, state.ladder.rungs, state.fcBlocks),
     tags: state.tags, plcTags,
     projectFiles: state.projectFiles, hiddenProjectFolders: state.hiddenProjectFolders,
+    projectFolderLabels: state.projectFolderLabels, fcNames: state.fcNames,
   })) as Snapshot
 }
 
@@ -708,6 +719,8 @@ export const useSimStore = create<Store>((set, get) => ({
   plcTags: {},
   projectFiles: {},
   hiddenProjectFolders: {},
+  projectFolderLabels: {},
+  fcNames: {},
   addProjectFile: (folder, name) => {
     const plcId = get().activePlcId ?? '_general'
     const trimmed = name.trim()
@@ -752,6 +765,19 @@ export const useSimStore = create<Store>((set, get) => ({
       hiddenProjectFolders: { ...s.hiddenProjectFolders, [plcId]: (s.hiddenProjectFolders[plcId] ?? []).filter((item) => item !== folder) },
       dirty: true,
     }))
+  },
+  renameProjectFolder: (folder, name) => {
+    const plcId = get().activePlcId ?? '_general'
+    const clean = (name ?? '').trim()
+    if ((get().projectFolderLabels[plcId]?.[folder] ?? '') === clean) return
+    get().commitHistory()
+    set((s) => ({ projectFolderLabels: { ...s.projectFolderLabels, [plcId]: { ...(s.projectFolderLabels[plcId] ?? {}), [folder]: clean } }, dirty: true }))
+  },
+  renameFc: (id, name) => {
+    const clean = (name ?? '').trim()
+    if ((get().fcNames[id] ?? '') === clean) return
+    get().commitHistory()
+    set((s) => ({ fcNames: { ...s.fcNames, [id]: clean }, dirty: true }))
   },
   restoreProjectBackup: (id) => {
     const plcId = get().activePlcId ?? '_general'
@@ -1628,6 +1654,7 @@ export const useSimStore = create<Store>((set, get) => ({
         activePlcId: nextId, plcPrograms: keptPrograms, plcTags: keptTags,
         projectFiles: Object.fromEntries(Object.entries(s.projectFiles).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),
         hiddenProjectFolders: Object.fromEntries(Object.entries(s.hiddenProjectFolders).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),
+        projectFolderLabels: Object.fromEntries(Object.entries(s.projectFolderLabels).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),
         ...(nextProgram ? { tags: keptTags[nextId!] ?? [], ladder: { rungs: nextProgram.rungs }, fcBlocks: { fc1: nextProgram.fc1, fc2: nextProgram.fc2 }, history: [], future: [] } : {}),
       }
     })
@@ -2095,6 +2122,8 @@ export const useSimStore = create<Store>((set, get) => ({
       plcTags: prev.plcTags ?? s.plcTags,
       projectFiles: prev.projectFiles ?? s.projectFiles,
       hiddenProjectFolders: prev.hiddenProjectFolders ?? s.hiddenProjectFolders,
+      projectFolderLabels: prev.projectFolderLabels ?? s.projectFolderLabels,
+      fcNames: prev.fcNames ?? s.fcNames,
       history: s.history.slice(0, -1),
       future: [...s.future, snapshot(s)],
       dirty: true,
@@ -2118,6 +2147,8 @@ export const useSimStore = create<Store>((set, get) => ({
       plcTags: next.plcTags ?? s.plcTags,
       projectFiles: next.projectFiles ?? s.projectFiles,
       hiddenProjectFolders: next.hiddenProjectFolders ?? s.hiddenProjectFolders,
+      projectFolderLabels: next.projectFolderLabels ?? s.projectFolderLabels,
+      fcNames: next.fcNames ?? s.fcNames,
       future: s.future.slice(0, -1),
       history: [...s.history, snapshot(s)],
       dirty: true,
@@ -2276,6 +2307,8 @@ export const useSimStore = create<Store>((set, get) => ({
         plcTags: { ...s.plcTags, ...(s.activePlcId ? { [s.activePlcId]: s.tags } : {}) },
         projectFiles: s.projectFiles,
         hiddenProjectFolders: s.hiddenProjectFolders,
+        projectFolderLabels: s.projectFolderLabels,
+        fcNames: s.fcNames,
         grafcet: s.grafcet,
         tags: s.tags,
         virtualInputModes: s.virtualInputModes,
@@ -2319,6 +2352,8 @@ export const useSimStore = create<Store>((set, get) => ({
         plcTags: parsed.plcTags ?? {},
         projectFiles: parsed.projectFiles ?? {},
         hiddenProjectFolders: parsed.hiddenProjectFolders ?? {},
+        projectFolderLabels: parsed.projectFolderLabels ?? {},
+        fcNames: parsed.fcNames ?? {},
         grafcet: parsed.grafcet?.steps && Array.isArray(parsed.grafcet.steps) ? parsed.grafcet : emptyGrafcet(),
         grafcetRuntime: emptyGrafcetRuntime(),
         tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
@@ -2355,6 +2390,8 @@ export const useSimStore = create<Store>((set, get) => ({
       plcTags: {},
       projectFiles: {},
       hiddenProjectFolders: {},
+      projectFolderLabels: {},
+      fcNames: {},
       grafcet: emptyGrafcet(),
       grafcetRuntime: emptyGrafcetRuntime(),
       tags: [],

@@ -122,6 +122,7 @@ export default function LadderElementDialog({
   onClose: () => void
 }) {
   const tags = useSimStore((state) => state.tags)
+  const fcNamesMap = useSimStore((state) => state.fcNames)
   const [draft, setDraft] = useState<Draft>(EMPTY)
   const [error, setError] = useState('')
   const key = selectionKey(selection)
@@ -282,9 +283,9 @@ export default function LadderElementDialog({
           </div><div className="ladder-preset-row"><span>Presets:</span>{[1, 5, 10, 25, 50, 100].map((value) => <button type="button" key={value} className={Number(draft.counterPreset) === value ? 'is-selected' : ''} onClick={() => patch({ counterPreset: String(value) })}>{value}</button>)}</div></section>}
 
           {draft.kind === 'move' && <section className="ladder-dialog-section"><h3>Operadores</h3><div className="ladder-dialog-grid">
-            <label><span>IN — origem</span><input autoFocus list="ladder-tag-addresses" value={draft.source} onChange={(event) => patch({ source: event.target.value.toUpperCase() })} placeholder="I1 ou DB1.Value" /></label>
-            <label><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.target} onChange={(event) => patch({ target: event.target.value.toUpperCase() })} placeholder="M1 ou DB1.Value" /></label>
-          </div><p className="ladder-dialog-help">Aceita BOOL, INT e REAL. A cópia só ocorre quando o resultado lógico da network é verdadeiro.</p></section>}
+            <label><span>IN — origem</span><input autoFocus list="ladder-tag-addresses" value={draft.source} onChange={(event) => patch({ source: event.target.value.toUpperCase() })} placeholder="I1, 5, MW0 ou DB1.Value" /></label>
+            <label><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.target} onChange={(event) => patch({ target: event.target.value.toUpperCase() })} placeholder="Q1, MW100 ou DB1.Value" /></label>
+          </div><p className="ladder-dialog-help">Aceita BOOL, INT e REAL — constantes (5, TRUE), bits (I1, M1), palavras MWn (ex.: %MW100, 16 bits Int) e variáveis de DB. A cópia só ocorre quando o resultado lógico da network é verdadeiro.</p></section>}
 
           {draft.kind === 'math' && <section className="ladder-dialog-section"><h3>Operação</h3><div className="ladder-choice-grid is-three">
             {MATH_OPS.map(({ op, label, detail }) => <button type="button" key={op} className={draft.mathOp === op ? 'is-selected' : ''} onClick={() => patch({ mathOp: op })}><strong>{label}</strong><small>{detail}</small></button>)}
@@ -294,7 +295,7 @@ export default function LadderElementDialog({
             <label className="is-wide"><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.out} onChange={(event) => patch({ out: event.target.value.toUpperCase() })} placeholder="MW2 ou DB1.Valor" /></label>
           </div><p className="ladder-dialog-help">OUT = IN1 {MATH_OPS.find((m) => m.op === draft.mathOp)?.symbol} IN2, executado quando o resultado lógico da network é verdadeiro. Em destinos Int, o resultado é truncado e o overflow (fora de −32768…32767) ou a divisão por zero não escrevem nada.</p></section>}
 
-          {draft.kind === 'call' && <section className="ladder-dialog-section"><h3>Bloco chamado</h3><label className="ladder-dialog-full-label"><span>Função FC</span><Select autoFocus value={draft.targetId} onChange={(event) => patch({ targetId: event.target.value })}><option value="fc1">FC1 [FC1]</option><option value="fc2">FC2 [FC2]</option>{functionFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}</Select></label><p className="ladder-dialog-help">O bloco é executado quando o RLO da network é 1. Chamadas recursivas são bloqueadas.</p></section>}
+          {draft.kind === 'call' && <section className="ladder-dialog-section"><h3>Bloco chamado</h3><label className="ladder-dialog-full-label"><span>Função FC</span><Select autoFocus value={draft.targetId} onChange={(event) => patch({ targetId: event.target.value })}>{(['fc1', 'fc2'] as const).map((fid) => <option key={fid} value={fid}>{`${fcNamesMap[fid]?.trim() || fid.toUpperCase()} [${fid.toUpperCase()}]`}</option>)}{functionFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}</Select></label><p className="ladder-dialog-help">O bloco é executado quando o RLO da network é 1. Chamadas recursivas são bloqueadas.</p></section>}
 
           {error && <p className="ladder-dialog-error" role="alert">{error}</p>}
         </div>

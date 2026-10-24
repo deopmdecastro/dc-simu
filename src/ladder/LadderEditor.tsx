@@ -611,9 +611,13 @@ function ProjectTreePane({
   activePlc,
   files,
   hiddenFolders,
+  folderLabels,
+  fcNames,
   onCreateFile,
   onDeleteFile,
   onRenameFile,
+  onRenameFolder,
+  onRenameFc,
   onDeleteFolder,
   onRestoreFolder,
 }: {
@@ -621,9 +625,15 @@ function ProjectTreePane({
   tagCount: number
   files: ProjectFile[]
   hiddenFolders: ProjectFolder[]
+  /** Rótulos personalizados das pastas (sem entrada = predefinido). */
+  folderLabels: Partial<Record<ProjectFolder, string>>
+  /** Nome personalizado das funções fixas FC1/FC2. */
+  fcNames: Partial<Record<'fc1' | 'fc2', string>>
   onCreateFile: (folder: ProjectFolder) => void
   onDeleteFile: (file: ProjectFile) => void
   onRenameFile: (file: ProjectFile) => void
+  onRenameFolder: (folder: ProjectFolder) => void
+  onRenameFc: (id: 'fc1' | 'fc2') => void
   onDeleteFolder: (folder: ProjectFolder) => void
   onRestoreFolder: (folder: ProjectFolder) => void
   activePlc?: ElectricalComponent
@@ -649,8 +659,13 @@ function ProjectTreePane({
   const projectTree: ProjectTreeItem = { ...PROJECT_TREE, children: PROJECT_TREE.children
     ?.filter((folder) => !hiddenFolders.includes(folder.id as ProjectFolder))
     .map((folder) => ({ ...folder,
+      label: folderLabels[folder.id as ProjectFolder]?.trim() || folder.label,
       children: PROJECT_FOLDERS.includes(folder.id as ProjectFolder) ? [ ...(folder.children ?? []), ...files.filter((f) => f.folder === folder.id).map((f) => ({ id: `file:${f.id}` as ProjectNodeId, label: f.name, icon: FOLDER_FILE_ICON[f.folder] })) ] : folder.children,
     })) }
+  /** Rótulo final do nó estático (FC1/FC2 com nome personalizado mantêm o id técnico à direita, como no TIA). */
+  const blockLabel = (node: ProjectTreeItem) => (node.id === 'fc1' || node.id === 'fc2')
+    ? `${fcNames[node.id]?.trim() || node.label.split('[')[0].trim()} [${node.id === 'fc1' ? 'FC1' : 'FC2'}]`
+    : node.label
   const renderNode = (node: ProjectTreeItem, depth = 0) => {
     const hasChildren = !!node.children?.length
     const isFile = node.id.startsWith('file:')
@@ -663,6 +678,8 @@ function ProjectTreePane({
     const isActive = activeNode === node.id
     // Só blocos de programa podem ser chamados por CALL (ficheiros SCL/DB não são executáveis em ladder).
     const isCallableBlock = !!file && file.folder === 'programBlocks'
+    const renameableBlock = node.id === 'fc1' || node.id === 'fc2'
+    const shownLabel = blockLabel(node)
     return (
       <div key={node.id}>
         <div className="tree-row-wrap">
@@ -682,19 +699,25 @@ function ProjectTreePane({
             if (isExpandableFolder) onToggle(node.id)
             onSelect(node.id)
           }}
-          onDoubleClick={(event) => { if (file) { event.stopPropagation(); onRenameFile(file) } }}
+          onDoubleClick={(event) => {
+            if (file) { event.stopPropagation(); onRenameFile(file) }
+            else if (renameableBlock) { event.stopPropagation(); onRenameFc(node.id as 'fc1' | 'fc2') }
+            else if (folder) { event.stopPropagation(); onRenameFolder(folder) }
+          }}
           onContextMenu={(event) => { if (file) { event.preventDefault(); onDeleteFile(file) } }}
           title={isCallableBlock && file
-            ? `${node.label} · arraste para uma network (insere CALL) · duplo clique muda o nome · botão direito elimina`
+            ? `${shownLabel} · arraste para uma network (insere CALL) · duplo clique muda o nome · botão direito elimina`
             : file
-              ? `${node.label} · duplo clique para mudar o nome · botão direito para eliminar`
-              : node.detail ? `${node.label} (${node.detail})` : node.label}
+              ? `${shownLabel} · duplo clique para mudar o nome · botão direito para eliminar`
+              : renameableBlock || folder
+                ? `${shownLabel} · duplo clique para mudar o nome`
+                : node.detail ? `${shownLabel} (${node.detail})` : shownLabel}
         >
           <span className="tree-chevron">
             {isExpandableFolder ? (isOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />) : <span />}
           </span>
           <TreeGlyph icon={node.icon} />
-          <span className="tree-label">{node.label}</span>
+          <span className="tree-label">{shownLabel}</span>
           {itemCount !== null && <span className="tree-item-count" title={`${itemCount} ${folder === 'plcVariables' ? 'variáveis' : 'itens'}`}>{itemCount}</span>}
           {node.detail && <small>({node.detail})</small>}
         </button>
@@ -725,7 +748,7 @@ function ProjectTreePane({
             onChange={(event) => { if (event.target.value) onRestoreFolder(event.target.value as ProjectFolder) }}
           >
             <option value="">＋ Pasta</option>
-            {hiddenFolders.map((folder) => <option key={folder} value={folder}>{NODE_TITLES[folder]}</option>)}
+            {hiddenFolders.map((folder) => <option key={folder} value={folder}>{folderLabels[folder]?.trim() || NODE_TITLES[folder]}</option>)}
           </Select>}
           <button className="ladder-ghost-button" title="Recolher projeto" onClick={onClose}>×</button>
         </span>
@@ -992,6 +1015,7 @@ function BlockProgramView({ id, notify, registerInsert }: {
   const activePlcId = useSimStore((s) => s.activePlcId)
   const file = useSimStore((s) => s.projectFiles[activePlcId ?? '_general']?.find((f) => `file:${f.id}` === id))
   const fcBlocks = useSimStore((s) => s.fcBlocks)
+  const fcNamesMap = useSimStore((s) => s.fcNames)
   const rungs = id.startsWith('file:') ? file?.rungs ?? [] : fcBlocks[id as 'fc1' | 'fc2']
   const table = useSimStore((s) => s.runtime.table)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
@@ -1096,7 +1120,8 @@ function BlockProgramView({ id, notify, registerInsert }: {
     notify?.(`Network criada com CALL «${payload.name}»`)
   }
 
-  const title = id.startsWith('file:') ? file?.name ?? 'Bloco eliminado' : NODE_TITLES[id as 'fc1' | 'fc2']
+  const fcLabel = (fid: 'fc1' | 'fc2') => `${fcNamesMap[fid]?.trim() || (fid === 'fc1' ? 'FC1' : 'FC2')} [${fid === 'fc1' ? 'FC1' : 'FC2'}]`
+  const title = id.startsWith('file:') ? file?.name ?? 'Bloco eliminado' : fcLabel(id as 'fc1' | 'fc2')
   const subtitle = file?.exec === 'obCyclic'
     ? 'Executa automaticamente em todos os ciclos, após o Main [OB1].'
     : file?.exec === 'obStartup'
@@ -1295,12 +1320,15 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const poweredCount = rungs.filter((r) => rungPowered[r.id]).length
   const files = useSimStore((s) => s.projectFiles[activePlcId ?? '_general'] ?? [])
   const hiddenFolders = useSimStore((s) => s.hiddenProjectFolders[activePlcId ?? '_general'] ?? [])
+  const folderLabels = useSimStore((s) => s.projectFolderLabels[activePlcId ?? '_general'] ?? {})
+  const fcNames = useSimStore((s) => s.fcNames)
   const isMainOpen = activeProjectNode === 'main'
   const isFcOpen = activeProjectNode === 'fc1' || activeProjectNode === 'fc2' || (activeProjectNode.startsWith('file:') && files.some((f) => `file:${f.id}` === activeProjectNode && f.folder === 'programBlocks'))
   const isProgramView = isMainOpen || isFcOpen
   const activePlc = plcs.find((c) => c.id === activePlcId)
   const selectedFile = activeProjectNode.startsWith('file:') ? files.find((f) => f.id === activeProjectNode.slice(5)) : undefined
-  const activeTitle = selectedFile?.name ?? (activeProjectNode === 'plc' ? activePlc?.ref ?? 'Programa geral' : NODE_TITLES[activeProjectNode as Exclude<ProjectNodeId, `file:${string}`>])
+  const fcTitleOf = (fid: 'fc1' | 'fc2') => `${fcNames[fid]?.trim() || (fid === 'fc1' ? 'FC1' : 'FC2')} [${fid === 'fc1' ? 'FC1' : 'FC2'}]`
+  const activeTitle = selectedFile?.name ?? (activeProjectNode === 'plc' ? activePlc?.ref ?? 'Programa geral' : (activeProjectNode === 'fc1' || activeProjectNode === 'fc2') ? fcTitleOf(activeProjectNode) : folderLabels[activeProjectNode as ProjectFolder]?.trim() || NODE_TITLES[activeProjectNode as Exclude<ProjectNodeId, `file:${string}`>])
 
   const focusRung = useCallback((id: string | undefined) => {
     if (!id) return
@@ -1451,6 +1479,24 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     if (!name || name === file.name) return
     useSimStore.getState().updateProjectFile(file.id, { name })
   }
+  /** Duplo clique na pasta: nome personalizado (vazio repõe o predefinido «Blocos de dados» etc.). */
+  const renameFolder = async (folder: ProjectFolder) => {
+    const current = folderLabels[folder]?.trim() || NODE_TITLES[folder]
+    const typed = await uiPrompt(`Novo nome da pasta («${current}» atual; vazio repõe o predefinido ${NODE_TITLES[folder]}):`, current)
+    if (typed == null) return
+    useSimStore.getState().renameProjectFolder(folder, typed)
+    const clean = typed.trim()
+    notify(clean && clean !== NODE_TITLES[folder] ? `Pasta passou a chamar-se «${clean}»` : 'Pasta com o nome predefinido')
+  }
+  /** Duplo clique em FC1/FC2: nome simbólico do bloco (o id técnico FCn mantém-se). */
+  const renameFc = async (id: 'fc1' | 'fc2') => {
+    const current = fcNames[id]?.trim() || (id === 'fc1' ? 'FC1' : 'FC2')
+    const typed = await uiPrompt(`Novo nome do bloco ${id.toUpperCase()} (vazio repõe ${id === 'fc1' ? 'FC1' : 'FC2'}):`, current)
+    if (typed == null) return
+    useSimStore.getState().renameFc(id, typed)
+    const clean = typed.trim()
+    notify(clean ? `${id.toUpperCase()} passou a ser «${clean}»` : `${id.toUpperCase()} com o nome técnico`)
+  }
   const deleteFile = async (file: ProjectFile) => {
     if (!await uiConfirm(`Eliminar «${file.name}»? Esta ação remove o item do projeto.`)) return
     useSimStore.getState().deleteProjectFile(file.id)
@@ -1553,9 +1599,13 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           activePlc={activePlc}
           files={files}
           hiddenFolders={hiddenFolders}
+          folderLabels={folderLabels}
+          fcNames={fcNames}
           onCreateFile={createFile}
           onDeleteFile={deleteFile}
           onRenameFile={renameFile}
+          onRenameFolder={(folder) => void renameFolder(folder)}
+          onRenameFc={(id) => void renameFc(id)}
           onDeleteFolder={deleteFolder}
           onRestoreFolder={(folder) => useSimStore.getState().restoreProjectFolder(folder)}
         />
