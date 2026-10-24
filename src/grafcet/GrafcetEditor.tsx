@@ -2064,7 +2064,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `grafcet-project-${Date.now()}.json`
+    a.download = `${(program.name ?? '').trim().replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'grafcet-project'}-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
     notify('Projeto GRAFCET exportado')
@@ -2454,7 +2454,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
         /* Modo Pré-visualização lateral (dock) */
         <header className="grafcet-header">
           <div className="grafcet-title">
-            <strong>GRAFCET</strong>
+            <strong>{program.name?.trim() || 'GRAFCET'}</strong>
             <small>
               {steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas
             </small>
@@ -2463,6 +2463,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
             Abrir editor ↗
           </button>
         </header>
+      )}
+
+      {full && (
+        <div className="grafcet-namebar">
+          <label htmlFor="grafcet-name">Nome do GRAFCET</label>
+          <input
+            id="grafcet-name"
+            type="text"
+            value={program.name ?? ''}
+            maxLength={60}
+            placeholder="Ex.: Enchimento do depósito"
+            onChange={(event) => save({ name: event.target.value }, 'auto', 'grafcet:name')}
+            title="Aparece no editor e nos comentários do Ladder gerado"
+          />
+        </div>
       )}
 
       {/* CORPO DO DESIGNER: Painel de Ferramentas à Esquerda + Canvas no Centro + Propriedades à Direita */}

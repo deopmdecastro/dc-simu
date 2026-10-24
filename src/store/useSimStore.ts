@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { EDITOR_THEME } from '../ui/editorTheme'
 import { nextDeclaredTagAddress } from '../grafcet/signals'
 import { normalizeKind, type ProjectKind } from '../project/kind'
-import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, forceSteps, fireTransition, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
+import { readOperand } from '../ladder/compare'
+import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, setGrafcetNumericReader, forceSteps, fireTransition, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
 import { nanoid } from 'nanoid'
 import type {
   CircuitState,
@@ -2498,3 +2499,9 @@ export function deriveTable(): AddressTable {
 }
 
 export { nextAddress }
+
+// As condições do GRAFCET (MW1>=5, C1==3, T1>2000) leem os valores do runtime do PLC ativo.
+setGrafcetNumericReader((operand) => {
+  const { runtime } = useSimStore.getState()
+  return readOperand(operand, { db: runtime.db, timers: runtime.timers, counters: runtime.counters })
+})

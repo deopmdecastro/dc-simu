@@ -49,7 +49,7 @@ function plan(program: GrafcetProgram): Plan {
   const baseTags = state.tags.filter((t) => !isGeneratedBit(t))
   // Endereços usados à mão ou já declarados pelo utilizador ficam reservados.
   const reserved = [...collectUsedAddresses({ rungs: keptMain }), ...collectUsedAddresses({ rungs: keptRestart }), ...baseTags.map((t) => t.address)]
-  const result = grafcetToLadder({ ...program, transitions: transitionsOf(program) }, reserved, { startupBlock: true, existingTags: generatedBits })
+  const result = grafcetToLadder({ ...program, transitions: transitionsOf(program) }, reserved, { startupBlock: true, existingTags: generatedBits, name: program.name })
   return { result, keptRestart, restartFileId: restartFile?.id ?? null, baseTags }
 }
 

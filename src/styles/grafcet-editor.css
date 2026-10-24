@@ -2028,3 +2028,7 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   .grafcet-type-grid { grid-template-columns:minmax(0,1fr); }
   .grafcet-type-card { grid-template-columns:auto 62px minmax(0,1fr); }
 }
+
+.grafcet-namebar { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-bottom: 1px solid var(--dc-border, rgba(128, 128, 128, 0.25)); font-size: 12px; }
+.grafcet-namebar label { opacity: 0.7; white-space: nowrap; }
+.grafcet-namebar input { flex: 1; min-width: 0; max-width: 360px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--dc-border, rgba(128, 128, 128, 0.35)); background: transparent; color: inherit; font: inherit; }

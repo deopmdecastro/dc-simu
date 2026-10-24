@@ -1,3 +1,5 @@
+import type { LadderCompareOp } from '../types'
+import { compareNumbers } from '../ladder/compare'
 /** Qualificadores de ação (IEC 60848 simplificado e estendido FluidSIM):
  *  N = contínua (enquanto a etapa está ativa e a condição é verdadeira)
  *  S = memorizada: coloca a saída a 1 e mantém-na até um R
@@ -97,6 +99,8 @@ export interface GrafcetChart {
 }
 
 export interface GrafcetProgram {
+  /** Nome do GRAFCET (aparece no editor e nas networks geradas). */
+  name?: string
   steps: GrafcetStep[]
   transitions?: GrafcetTransition[]
   /** Ações soltas: criadas sem etapa; ligam-se depois por arrasto ou por linha */
@@ -176,6 +180,21 @@ export interface ConditionContext {
 
 /** Número de uma etapa tal como aparece no diagrama: «Etapa 9», «E9», «9 - Espera» ou «9» → «9».
  *  Mantém as mesmas regras de `getStepDisplayInfo` (editor), para X<n> referir sempre a etapa desenhada. */
+/** Comparações numéricas nas condições: MW1>=5, C1==3, T1>2000, MW1<>MW2 (operadores como no Ladder). */
+export const COMPARE_TOKEN = String.raw`(?:MW\d{1,4}|[TC]\d{1,3})\s*(?:==|<>|>=|<=|>|<)\s*(?:[+-]?\d+(?:\.\d+)?|MW\d{1,4}|[TC]\d{1,3})`
+let numericReader: ((operand: string) => number | undefined) | null = null
+/** O simulador regista aqui a leitura de MWn / Cn / Tn (valores em tempo de execução). */
+export const setGrafcetNumericReader = (reader: ((operand: string) => number | undefined) | null) => { numericReader = reader }
+const readNumber = (raw: string): number => {
+  const text = raw.trim().toUpperCase()
+  if (/^[+-]?\d+(?:\.\d+)?$/.test(text)) return Number(text)
+  return numericReader?.(text) ?? 0
+}
+export function parseCompareToken(token: string): { left: string; op: LadderCompareOp; right: string } | null {
+  const m = token.replace(/\s+/g, '').toUpperCase().match(/^((?:MW\d{1,4}|[TC]\d{1,3}))(==|<>|>=|<=|>|<)((?:[+-]?\d+(?:\.\d+)?|MW\d{1,4}|[TC]\d{1,3}))$/)
+  return m ? { left: m[1], op: m[2] as LadderCompareOp, right: m[3] } : null
+}
+
 export function stepNumberOf(step: { name?: string }, fallbackIndex: number): string {
   const raw = (step.name || '').trim()
   if (!raw) return String(fallbackIndex)
@@ -277,7 +296,7 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
   // Rejeita sintaxes incorretas explícitas de operadores duplos ou inválidos
   if (/&&|\|\||\^\s*&|\^\s*\||\\\s*&|\\\s*\||\*\s*\*|\+\s*\+/.test(src)) return null
 
-  const regex = /T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:(?:\d+(?:\.\d+)?(?:MS|S)?)\/X[A-Za-z0-9_]*(?:\/(?:\d+(?:\.\d+)?(?:MS|S)?))?)|(?:\d+(?:\.\d+)?\s*HZ)|(?:G\d+\s*<=>\s*X\d+)|(?:G\d+X\d+)|X\d{1,3}|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|[A-Za-z][A-Za-z0-9_]*(\+|-)?/gi
+  const regex = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:(?:\d+(?:\.\d+)?(?:MS|S)?)\/X[A-Za-z0-9_]*(?:\/(?:\d+(?:\.\d+)?(?:MS|S)?))?)|(?:\d+(?:\.\d+)?\s*HZ)|(?:G\d+\s*<=>\s*X\d+)|(?:G\d+X\d+)|X\d{1,3}|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|[A-Za-z][A-Za-z0-9_]*(\+|-)?`, 'gi')
 
   const rawTokens = src.match(regex)
   if (!rawTokens) return null
@@ -316,6 +335,8 @@ function parseCondition(expression: string, ctx: ConditionContext): boolean | nu
       const before = !!(ctx.prev?.[bit] ?? ctx.prev?.[bit.toUpperCase()] ?? ctx.prev?.[bit.toLowerCase()])
       return token === '^' ? now && !before : !now && before
     }
+    const cmp = parseCompareToken(token)
+    if (cmp) return compareNumbers(cmp.op, readNumber(cmp.left), readNumber(cmp.right))
     if (token.startsWith('T(')) {
       const ms = parseDuration(token)
       return ms === null ? null : (ctx.elapsedMs ?? 0) >= ms

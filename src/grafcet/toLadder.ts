@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid'
 import type { LadderBranch, LadderCoilEl, LadderContact, LadderContactType, LadderRung, LadderTimer } from '../types'
-import { actionsOfStep, normalizeActionVariable, parseDuration, parseIecTimer, stepNumberOf, stripGrafcetPrefix, transitionsOf, type GrafcetProgram, type GrafcetStep } from './engine'
+import { COMPARE_TOKEN, actionsOfStep, normalizeActionVariable, parseCompareToken, parseDuration, parseIecTimer, stepNumberOf, stripGrafcetPrefix, transitionsOf, type GrafcetProgram, type GrafcetStep } from './engine'
+import type { LadderCompareOp } from '../types'
 
 /** Árvore booleana de uma condição GRAFCET. */
 type Node =
@@ -10,8 +11,9 @@ type Node =
   | { t: 'not'; a: Node }
   | { t: 'timer'; ms: number; key?: string }
   | { t: 'step'; index: number }
+  | { t: 'cmp'; left: string; op: LadderCompareOp; right: string }
 
-const TOKEN_REGEX = /T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:\d+(?:\.\d+)?(?:MS|S)?\/X[A-Za-z0-9_]*)|X\d{1,3}|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|↑|↓|[A-Za-z][A-Za-z0-9_]*/gi
+const TOKEN_REGEX = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:\d+(?:\.\d+)?(?:MS|S)?\/X[A-Za-z0-9_]*)|X\d{1,3}|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|↑|↓|[A-Za-z][A-Za-z0-9_]*`, 'gi')
 
 function parse(expression: string): Node | null {
   const src = stripGrafcetPrefix(expression).trim()
@@ -42,6 +44,8 @@ function parse(expression: string): Node | null {
       const bit = tokens[i++]
       return bit ? { t: 'lit', address: bit, edge: token === '^' ? 'R' : 'F' } : null
     }
+    const cmp = parseCompareToken(token)
+    if (cmp) return { t: 'cmp', ...cmp }
     if (token.startsWith('T(')) {
       const ms = parseDuration(token)
       return ms === null ? null : { t: 'timer', ms }
@@ -84,7 +88,8 @@ function parse(expression: string): Node | null {
 }
 
 /** Literal de um contacto: endereço, negado ou não, com flanco opcional. */
-interface Literal { address: string; neg: boolean; edge?: 'R' | 'F' }
+interface Literal { address: string; neg: boolean; edge?: 'R' | 'F'; cmp?: { op: LadderCompareOp; right: string } }
+const NEGATED_OP: Record<LadderCompareOp, LadderCompareOp> = { '==': '<>', '<>': '==', '>=': '<', '<': '>=', '>': '<=', '<=': '>' }
 const MAX_CONJUNCTIONS = 16
 
 /** Converte em forma normal disjuntiva (lista de conjunções de literais). `null` = demasiado grande. */
@@ -93,6 +98,7 @@ function toDnf(node: Node, neg: boolean, resolve: (n: Node) => string | null): L
     case 'const': return node.value !== neg ? [[]] : []
     case 'not': return toDnf(node.a, !neg, resolve)
     case 'lit': return [[{ address: node.address, neg, edge: node.edge }]]
+    case 'cmp': return [[{ address: node.left, neg: false, cmp: { op: neg ? NEGATED_OP[node.op] : node.op, right: node.right } }]]
     case 'timer': case 'step': { const address = resolve(node); return address ? [[{ address, neg }]] : null }
     case 'and': case 'or': {
       const isAnd = (node.t === 'and') !== neg // De Morgan
@@ -125,6 +131,8 @@ export interface GrafcetToLadderOptions {
   startupBlock?: boolean
   /** Tags já declaradas: um bit (M/T) com o mesmo nome simbólico mantém o endereço, para a atualização não deslocar os bits. */
   existingTags?: Array<{ address: string; name: string }>
+  /** Nome do GRAFCET: vai para os comentários das networks geradas. */
+  name?: string
 }
 
 /** Nome simbólico válido para a tabela de variáveis. */
@@ -139,6 +147,8 @@ const symbolName = (text: string): string => {
  *  no máximo uma evolução por scan e a prioridade das transições (ordem da lista) é respeitada. */
 export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<string> = [], options: GrafcetToLadderOptions = {}): LadderFromGrafcet {
   const warnings: string[] = []
+  const label = (options.name ?? program.name ?? '').trim()
+  const withName = (text: string) => (label ? `${label}: ${text}` : text)
   const steps = program.steps
   const transitions = transitionsOf(program)
   const used = new Set<string>([...reserved].map((a) => a.toUpperCase()))
@@ -147,6 +157,17 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
     if (addr) used.add(addr)
   }
   for (const t of transitions) for (const m of t.condition.toUpperCase().match(/[IQM]\d{1,2}/g) ?? []) used.add(m)
+  // Operandos T/C/MW das comparações: os T/C não podem ser realocados; as MW são iniciadas no Complete restart.
+  const compareWords = new Set<string>()
+  const scanCompare = (text: string) => {
+    for (const token of stripGrafcetPrefix(text).toUpperCase().match(new RegExp(COMPARE_TOKEN, 'g')) ?? []) {
+      const c = parseCompareToken(token)
+      if (!c) continue
+      for (const operand of [c.left, c.right]) { if (/^[TC]\d+$/.test(operand)) used.add(operand); else if (/^MW\d+$/.test(operand)) compareWords.add(operand) }
+    }
+  }
+  for (const t of transitions) scanCompare(t.condition)
+  for (const step of steps) for (const a of actionsOfStep(step)) scanCompare(a.condition || '')
   const alloc = (prefix: 'M' | 'T') => {
     for (let n = 1; n <= 99; n++) { const a = `${prefix}${n}`; if (!used.has(a)) { used.add(a); return a } }
     warnings.push(`Sem endereços ${prefix} livres (limite 99).`)
@@ -180,7 +201,7 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
   const pushTo = (list: LadderRung[], name: string, branches: LadderContact[][], coils: LadderCoilEl[], extra: Partial<LadderRung> = {}) =>
     list.push({ id: nanoid(6), name, branches: branches.length ? branches.map(branchOf) : [branchOf([])], coils, enabled: true, ...extra })
   const push = (name: string, branches: LadderContact[][], coils: LadderCoilEl[], extra: Partial<LadderRung> = {}) => pushTo(rungs, name, branches, coils, extra)
-  const toContacts = (lits: Literal[]) => lits.map((l) => contact(l.address, l.edge === 'R' ? (l.neg ? 'FALLING' : 'RISING') : l.edge === 'F' ? (l.neg ? 'RISING' : 'FALLING') : l.neg ? 'NC' : 'NO'))
+  const toContacts = (lits: Literal[]) => lits.map((l): LadderContact => l.cmp ? { ...contact(l.address, 'CMP'), compareOp: l.cmp.op, compareType: /\./.test(l.address + l.cmp.right) ? 'Real' : 'Int', compareValue: l.cmp.right } : contact(l.address, l.edge === 'R' ? (l.neg ? 'FALLING' : 'RISING') : l.edge === 'F' ? (l.neg ? 'RISING' : 'FALLING') : l.neg ? 'NC' : 'NO'))
   const timer = (address: string, presetMs: number): LadderTimer => ({ kind: 'timer', id: nanoid(6), address, timerType: 'TON', presetMs })
 
   // Uma condição → ramos paralelos de contactos em série (cada ramo começa por `prefix`).
@@ -200,9 +221,11 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
     // Complete restart [OB100]: corre uma vez ao entrar em RUN → repõe o GRAFCET e ativa as etapas iniciais.
     const chunk = <T,>(list: T[], size: number) => Array.from({ length: Math.ceil(list.length / size) }, (_, i) => list.slice(i * size, i * size + size))
     const groups = chunk(steps, 8)
-    groups.forEach((group, i) => pushTo(startupRungs, `Complete restart · Repor etapas${groups.length > 1 ? ` (${i + 1}/${groups.length})` : ''}`, [[]], group.map((s) => coil(stepBits[s.id], 'RESET')), { comment: 'Desativa todas as etapas do GRAFCET antes de arrancar' }))
-    if (initial.length) pushTo(startupRungs, 'Complete restart · Etapas iniciais', [[]], initial.map((s) => coil(stepBits[s.id], 'SET')), { comment: 'Ativa as etapas iniciais do GRAFCET' })
-  } else if (initial.length) push('GRAFCET · Inicialização', [steps.map((s) => contact(stepBits[s.id], 'NC'))], initial.map((s) => coil(stepBits[s.id], 'SET')), { comment: 'Sem etapas ativas → ativa as etapas iniciais' })
+    groups.forEach((group, i) => pushTo(startupRungs, `Complete restart · Repor etapas${groups.length > 1 ? ` (${i + 1}/${groups.length})` : ''}`, [[]], group.map((s) => coil(stepBits[s.id], 'RESET')), { comment: withName('Desativa todas as etapas do GRAFCET antes de arrancar') }))
+    // Palavras de memória usadas nas comparações começam a 0 (MOVE), como o resto do GRAFCET.
+    for (const word of [...compareWords].sort()) pushTo(startupRungs, `Complete restart · Iniciar ${word}`, [[]], [], { move: { source: '0', target: word }, comment: withName(`Inicia ${word} a 0 para as comparações do GRAFCET`) })
+    if (initial.length) pushTo(startupRungs, 'Complete restart · Etapas iniciais', [[]], initial.map((s) => coil(stepBits[s.id], 'SET')), { comment: withName('Ativa as etapas iniciais do GRAFCET') })
+  } else if (initial.length) push('GRAFCET · Inicialização', [steps.map((s) => contact(stepBits[s.id], 'NC'))], initial.map((s) => coil(stepBits[s.id], 'SET')), { comment: withName('Sem etapas ativas → ativa as etapas iniciais') })
 
   // 2) Temporizações das transições e das ações D/L.
   const transitionTimers = new Map<string, string>() // `${id}|${ms}` ou `${id}|${key}` → T
@@ -268,7 +291,7 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
       return null
     }
     const branches = branchesFor(t.condition, [...prefix, ...guards], resolve, `T${k + 1}`)
-    push(`GRAFCET · T${k + 1}: ${t.from.map(numberOfStep).join('+')} → ${t.to.map(numberOfStep).join('+')}`, branches ?? [[contact('M99', 'NO')]], [coil(enableBits[k], 'COIL')], { comment: `Receptividade: ${t.condition}`, enabled: !!branches })
+    push(`GRAFCET · T${k + 1}: ${t.from.map(numberOfStep).join('+')} → ${t.to.map(numberOfStep).join('+')}`, branches ?? [[contact('M99', 'NO')]], [coil(enableBits[k], 'COIL')], { comment: withName(`Receptividade: ${t.condition}`), enabled: !!branches })
   })
 
   // 4) Desativar e 5) ativar etapas.

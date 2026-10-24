@@ -46,4 +46,23 @@ check(ladderSyncStatus(state().grafcet) === 'synced', 'sincronizado depois de re
 // Erros no GRAFCET bloqueiam.
 state().setGrafcet({ ...base(), transitions: [{ id: 't1', from: ['s0'], to: ['s1'], condition: '((' }] })
 check(ladderSyncStatus(state().grafcet) === 'blocked', 'erros no GRAFCET bloqueiam a atualização')
+
+// Nome, comparações e Complete restart.
+import { evalCondition, validCondition } from '../src/grafcet/engine'
+const named: GrafcetProgram = { ...base(), name: 'Enchimento', transitions: [{ id: 't1', from: ['s0'], to: ['s1'], condition: 'I1 * MW1>=5' }, { id: 't2', from: ['s1'], to: ['s0'], condition: '!(C1==3) + I2' }] }
+state().setGrafcet(named)
+check(validCondition('I1 * MW1>=5') && validCondition('T1 > 2000') && !validCondition('MW1>>5'), 'condições com comparações são válidas (operador inválido não)')
+state().newProject('grafcet')
+state().setGrafcet(named)
+applyLadderFromGrafcet(state().grafcet)
+const cmpContacts = state().ladder.rungs.flatMap((r) => r.branches.flatMap((b) => b.elements)).filter((c) => c.contactType === 'CMP')
+check(cmpContacts.some((c) => c.address === 'MW1' && c.compareOp === '>=' && c.compareValue === '5'), 'MW1>=5 vira contacto CMP no Ladder')
+check(cmpContacts.some((c) => c.address === 'C1' && c.compareOp === '<>' && c.compareValue === '3'), '!(C1==3) vira CMP com operador invertido (<>)')
+const restart = (state().projectFiles[state().activePlcId ?? '_general'] ?? []).find((f) => f.exec === 'obStartup')
+check(!!restart && restart.rungs!.some((r) => r.move?.target === 'MW1' && r.move.source === '0'), 'Complete restart inicia MW1 com MOVE 0')
+check(restart!.rungs!.some((r) => r.name === 'Complete restart · Etapas iniciais' && (r.comment ?? '').startsWith('Enchimento:')), 'networks do Complete restart levam o nome do GRAFCET')
+check(!state().ladder.rungs.some((r) => r.name === 'GRAFCET · Inicialização'), 'a inicialização não fica na Main (só no Complete restart)')
+check(ladderSyncStatus(state().grafcet) === 'synced', 'sincronizado com nome e comparações')
+state().setGrafcet({ ...named, name: 'Outro nome' })
+check(ladderSyncStatus(state().grafcet) === 'stale', 'mudar o nome desatualiza os comentários do Ladder')
 console.log('OK')
