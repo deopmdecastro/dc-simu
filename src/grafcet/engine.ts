@@ -590,7 +590,7 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
   const issues: GrafcetIssue[] = []
   if (!steps.length) return issues
   const stepIds = new Set(steps.map((step) => step.id))
-  const label = (stepId: string) => `${steps.findIndex((s) => s.id === stepId)} «${steps.find((s) => s.id === stepId)?.name ?? '?'}»`
+  const label = (stepId: string) => { const i = steps.findIndex((s) => s.id === stepId); return i < 0 ? '? «?»' : `${stepNumberOf(steps[i], i)} «${steps[i].name}»` }
 
   const hasInitial = steps.some((step) => step.initial || step.stepType === 'initial' || step.stepType === 'initial-enclosing')
   if (!hasInitial) {
@@ -617,6 +617,15 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
     }
   })
 
+  const seenTransitions = new Map<string, GrafcetTransition>()
+  transitions.forEach((t) => {
+    if (!t.from.length || !t.to.length) return
+    const key = `${[...t.from].sort().join('+')}>${[...t.to].sort().join('+')}|${t.condition.replace(/\s+/g, '').toUpperCase()}`
+    const first = seenTransitions.get(key)
+    if (first) issues.push({ id: `${t.id}:duplicate`, level: 'warning', message: `${t.name || 'Uma transição'} duplica ${first.name || 'outra'} (mesma origem, destino e receptividade).`, entityId: t.id, tab: 'transitions' })
+    else seenTransitions.set(key, t)
+  })
+
   // Divergência OR ambígua: duas saídas da mesma etapa com a mesma receptividade disparam
   // em simultâneo na teoria; aqui só a primeira da lista dispara (prioridade implícita).
   const bySource = new Map<string, GrafcetTransition[]>()
@@ -640,7 +649,8 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
   const names = new Map<string, number>()
   steps.forEach((step) => names.set(step.name.trim().toLowerCase(), (names.get(step.name.trim().toLowerCase()) ?? 0) + 1))
 
-  steps.forEach((step, stepIndex) => {
+  steps.forEach((step, index) => {
+    const stepIndex = stepNumberOf(step, index)
     const isInit = step.initial || step.stepType === 'initial' || step.stepType === 'initial-enclosing'
     if (!isInit && !incoming.has(step.id)) {
       issues.push({ id: `${step.id}:orphan`, level: 'error', message: `A etapa ${label(step.id)} não tem transição de entrada.`, entityId: step.id, tab: 'steps' })

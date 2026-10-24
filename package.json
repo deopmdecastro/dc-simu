@@ -14,6 +14,7 @@
     "test:ladder-compare": "tsx scripts/ladder-compare-smoke.ts",
     "test:ladder-math": "tsx scripts/ladder-math-smoke.ts",
     "test:grafcet-signals": "tsx scripts/grafcet-signals-smoke.ts",
+    "test:grafcet-ladder-sync": "tsx scripts/grafcet-ladder-sync-smoke.ts",
     "test:style": "node scripts/no-accent-border.mjs",
     "test:interactables": "tsx scripts/interactables-smoke.ts",
     "audit:terminals": "tsx scripts/audit-terminals.ts",

@@ -204,6 +204,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const grafcetSnap = useGrafcetUi((state) => state.snapOn)
   const grafcetPalette = useGrafcetUi((state) => state.paletteOpen)
   const grafcetSimVisible = useGrafcetUi((state) => state.simVisible)
+  const ladderSync = useGrafcetUi((state) => state.ladderSync)
+  const grafcetAutoSync = useGrafcetUi((state) => state.autoSync)
   const showSimControls = mode !== 'grafcet' || grafcetSimVisible
   const grafcetIssues = useMemo(() => validateGrafcet(grafcet), [grafcet])
   const grafcetErrorCount = grafcetIssues.filter((i) => i.level === 'error').length
@@ -448,11 +450,26 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                     type="button"
                     onClick={() => useGrafcetUi.getState().emit('generateLadder')}
                     className="dc-tool-btn !gap-1.5"
-                    title="Gera o programa Ladder equivalente no PLC"
+                    title={
+                      ladderSync === 'none' ? 'Gera o programa Ladder equivalente no PLC'
+                        : ladderSync === 'synced' ? 'Ladder sincronizado com o GRAFCET (clique para forçar a atualização)'
+                        : ladderSync === 'blocked' ? 'Corrija os erros do GRAFCET para atualizar o Ladder'
+                        : 'O GRAFCET mudou: atualiza o Ladder gerado'
+                    }
                   >
-                    <span>⇢ Gerar Ladder</span>
+                    <span>{ladderSync === 'none' ? '⇢ Gerar Ladder' : ladderSync === 'synced' ? '✓ Ladder atualizado' : '⟳ Atualizar Ladder'}</span>
                   </button>
-
+                  {ladderSync !== 'none' && (
+                    <button
+                      type="button"
+                      onClick={() => useGrafcetUi.getState().toggleAutoSync()}
+                      className={`dc-tool-btn !px-2 ${grafcetAutoSync ? 'is-active' : ''}`}
+                      aria-pressed={grafcetAutoSync}
+                      title="Atualizar o Ladder automaticamente quando o GRAFCET muda"
+                    >
+                      Auto
+                    </button>
+                  )}
                 </>
               )}
             </div>

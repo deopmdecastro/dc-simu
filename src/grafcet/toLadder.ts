@@ -123,6 +123,8 @@ export interface LadderFromGrafcet {
 export interface GrafcetToLadderOptions {
   /** true: a inicialização vai para `startupRungs` (OB100). false: network inicial dentro de `rungs`. */
   startupBlock?: boolean
+  /** Tags já declaradas: um bit (M/T) com o mesmo nome simbólico mantém o endereço, para a atualização não deslocar os bits. */
+  existingTags?: Array<{ address: string; name: string }>
 }
 
 /** Nome simbólico válido para a tabela de variáveis. */
@@ -150,9 +152,17 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
     warnings.push(`Sem endereços ${prefix} livres (limite 99).`)
     return `${prefix}99`
   }
+  // Reutiliza o endereço da tag com o mesmo nome (atualização estável); caso contrário, o primeiro livre.
+  const preferredByName = new Map<string, string>()
+  for (const t of options.existingTags ?? []) { const a = t.address.trim().toUpperCase(); if (t.name && /^[MT]\d{1,2}$/.test(a) && !preferredByName.has(t.name)) preferredByName.set(t.name, a) }
+  const allocNamed = (prefix: 'M' | 'T', name: string) => {
+    const wanted = preferredByName.get(name)
+    if (wanted && wanted[0] === prefix && !used.has(wanted)) { used.add(wanted); return wanted }
+    return alloc(prefix)
+  }
   const stepBits: Record<string, string> = {}
-  steps.forEach((step) => { stepBits[step.id] = alloc('M') })
-  const enableBits = transitions.map(() => alloc('M'))
+  steps.forEach((step, i) => { stepBits[step.id] = allocNamed('M', `Etapa_${symbolName(stepNumberOf(step, i))}`) })
+  const enableBits = transitions.map((_, k) => allocNamed('M', `Rec_T${k + 1}`))
   // X<n> (também G0X<n>) = etapa desenhada com o número n; sem essa etapa, usa o índice (projetos antigos).
   const stepByNumber = (n: number) => steps.find((s, i) => stepNumberOf(s, i) === String(n)) ?? steps[n]
   const bitOfIndex = (n: number) => { const s = stepByNumber(n); return s ? stepBits[s.id] : null }
@@ -258,17 +268,17 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
       return null
     }
     const branches = branchesFor(t.condition, [...prefix, ...guards], resolve, `T${k + 1}`)
-    push(`GRAFCET · T${k + 1}: ${t.from.map((id) => steps.findIndex((s) => s.id === id)).join('+')} → ${t.to.map((id) => steps.findIndex((s) => s.id === id)).join('+')}`, branches ?? [[contact('M99', 'NO')]], [coil(enableBits[k], 'COIL')], { comment: `Receptividade: ${t.condition}`, enabled: !!branches })
+    push(`GRAFCET · T${k + 1}: ${t.from.map(numberOfStep).join('+')} → ${t.to.map(numberOfStep).join('+')}`, branches ?? [[contact('M99', 'NO')]], [coil(enableBits[k], 'COIL')], { comment: `Receptividade: ${t.condition}`, enabled: !!branches })
   })
 
   // 4) Desativar e 5) ativar etapas.
   steps.forEach((s, index) => {
     const ks = transitions.map((t, k) => (t.from.includes(s.id) ? k : -1)).filter((k) => k >= 0)
-    if (ks.length) push(`GRAFCET · Desativa etapa ${index}`, ks.map((k) => [contact(enableBits[k])]), [coil(stepBits[s.id], 'RESET')])
+    if (ks.length) push(`GRAFCET · Desativa etapa ${stepNumberOf(s, index)}`, ks.map((k) => [contact(enableBits[k])]), [coil(stepBits[s.id], 'RESET')])
   })
   steps.forEach((s, index) => {
     const ks = transitions.map((t, k) => (t.to.includes(s.id) ? k : -1)).filter((k) => k >= 0)
-    if (ks.length) push(`GRAFCET · Ativa etapa ${index}`, ks.map((k) => [contact(enableBits[k])]), [coil(stepBits[s.id], 'SET')])
+    if (ks.length) push(`GRAFCET · Ativa etapa ${stepNumberOf(s, index)}`, ks.map((k) => [contact(enableBits[k])]), [coil(stepBits[s.id], 'SET')])
   })
 
   const storedTargets: string[] = []
@@ -286,7 +296,7 @@ export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<stri
         prefix = [stepContact, contact(tAddress, a.kind === 'D' ? 'NO' : 'NC')]
         resolve = (n: Node) => (n.t === 'step' ? bitOfIndex(n.index) : n.t === 'timer' ? tAddress : null)
       }
-      const branches = branchesFor(a.condition, prefix, resolve, `Ação ${address} (etapa ${a.index})`)
+      const branches = branchesFor(a.condition, prefix, resolve, `Ação ${address} (etapa ${stepNumberOf(steps[a.index], a.index)})`)
       if (!branches) continue
       if (a.kind === 'S') sets.push(...branches)
       else if (a.kind === 'R') resets.push(...branches)

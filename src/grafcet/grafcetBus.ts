@@ -57,6 +57,12 @@ interface GrafcetUiState {
   /** Mostrar controlos e painel de simulação no GRAFCET. */
   simVisible: boolean
   toggleSim: () => void
+  /** Estado do Ladder gerado face ao GRAFCET (para o botão Gerar/Atualizar). */
+  ladderSync: 'none' | 'synced' | 'stale' | 'blocked'
+  setLadderSync: (status: 'none' | 'synced' | 'stale' | 'blocked') => void
+  /** Atualiza o Ladder automaticamente quando o GRAFCET muda (só depois de gerado). */
+  autoSync: boolean
+  toggleAutoSync: () => void
   toggleGrid: () => void
   toggleSnap: () => void
   setTool: (tool: GrafcetCanvasTool) => void
@@ -80,6 +86,14 @@ export const useGrafcetUi = create<GrafcetUiState>((set, get) => ({
     set((state) => {
       writeFlag('dcsimu:grafcet:simvisible', !state.simVisible)
       return { simVisible: !state.simVisible }
+    }),
+  ladderSync: 'none',
+  setLadderSync: (ladderSync) => { if (get().ladderSync !== ladderSync) set({ ladderSync }) },
+  autoSync: readFlag('dcsimu:grafcet:autosync', true),
+  toggleAutoSync: () =>
+    set((state) => {
+      writeFlag('dcsimu:grafcet:autosync', !state.autoSync)
+      return { autoSync: !state.autoSync }
     }),
   toggleGrid: () =>
     set((state) => {

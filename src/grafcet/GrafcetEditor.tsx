@@ -33,9 +33,7 @@ import { renderConditionTspans } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
 import GrafcetSimBar from './GrafcetSimBar'
 import GrafcetTemplatesDialog from './GrafcetTemplatesDialog'
-import { grafcetToLadder } from './toLadder'
-import { collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
-import { blockDisplayName } from '../ladder/blockCatalog'
+import { applyLadderFromGrafcet, hasGeneratedLadder, ladderSyncStatus, previewLadder } from './ladderSync'
 import {
   IconChevronRight,
   IconCopy,
@@ -574,48 +572,42 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const generateLadder = async () => {
     if (!steps.length) return notify('Crie primeiro as etapas do GRAFCET')
     if (errorCount) return notify('Corrija os erros do GRAFCET antes de gerar o Ladder')
-    const state = useSimStore.getState()
-    const plcId = state.activePlcId ?? '_general'
-    const restartFile = (state.projectFiles[plcId] ?? []).find((f) => f.folder === 'programBlocks' && f.exec === 'obStartup' && /\[OB\s*100\s*\]/i.test(f.name))
-    // Networks geradas antes são substituídas (não duplicadas); o que o utilizador escreveu à mão fica.
-    const keptMain = state.ladder.rungs.filter((r) => !r.name.startsWith('GRAFCET ·'))
-    const keptRestart = (restartFile?.rungs ?? []).filter((r) => !r.name.startsWith('Complete restart ·'))
-    const reserved = [...collectUsedAddresses({ rungs: keptMain }), ...collectUsedAddresses({ rungs: keptRestart })]
-    const result = grafcetToLadder({ ...program, transitions }, reserved, { startupBlock: true })
-    const note = result.warnings.length ? `\n\nAvisos:\n- ${result.warnings.join('\n- ')}` : ''
-    if (
-      !(await uiConfirm(
-        `Gerar o Ladder deste GRAFCET?\n\n• Complete restart [OB 100]: ${result.startupRungs.length} networks (repõe e ativa as etapas iniciais)\n• Main [OB 1]: ${result.rungs.length} networks (funções do GRAFCET e saídas)\n• Tabela de variáveis: ${result.tags.length} entradas, saídas e memórias\n\nAs networks geradas anteriormente são substituídas; as suas ficam como estão.${note}`
-      ))
-    )
-      return
-    state.replaceGeneratedRungs(result.rungs)
-
-    const restartRungs = [...result.startupRungs, ...keptRestart]
-    if (restartFile) useSimStore.getState().updateProjectFile(restartFile.id, { rungs: restartRungs, exec: 'obStartup' })
-    else {
-      const fileId = useSimStore.getState().addProjectFile('programBlocks', blockDisplayName('OB', 'Complete restart', 100))
-      if (fileId) useSimStore.getState().updateProjectFile(fileId, { rungs: restartRungs, exec: 'obStartup' })
+    const updating = hasGeneratedLadder()
+    if (!updating) {
+      const preview = previewLadder({ ...program, transitions })
+      const note = preview.warnings.length ? `\n\nAvisos:\n- ${preview.warnings.join('\n- ')}` : ''
+      if (
+        !(await uiConfirm(
+          `Gerar o Ladder deste GRAFCET?\n\n• Complete restart [OB 100]: ${preview.startupRungs.length} networks (repõe e ativa as etapas iniciais)\n• Main [OB 1]: ${preview.rungs.length} networks (funções do GRAFCET e saídas)\n• Tabela de variáveis: ${preview.tags.length} entradas, saídas e memórias\n\nDepois de gerado, o botão passa a «Atualizar Ladder» e o Ladder acompanha o GRAFCET. As suas networks ficam como estão.${note}`
+        ))
+      )
+        return
     }
-
-    // Tabela de variáveis: acrescenta o que falta e dá nome às linhas ainda sem nome (nunca sobrepõe nomes do utilizador).
-    const tagState = useSimStore.getState()
-    const names = new Set(tagState.tags.map((t) => t.name))
-    const uniqueName = (base: string) => { let name = base; let n = 2; while (names.has(name)) name = `${base}_${n++}`; names.add(name); return name }
-    const generated = new Map(result.tags.map((t) => [t.address.toUpperCase(), t]))
-    const known = new Set(tagState.tags.map((t) => t.address.toUpperCase()))
-    const updated = tagState.tags.map((t) => {
-      const g = generated.get(t.address.toUpperCase())
-      if (!g) return t
-      const unnamed = !t.name || t.name === t.address
-      return { ...t, name: unnamed && g.name !== t.address ? uniqueName(g.name) : t.name, comment: t.comment || g.comment }
-    })
-    const added: LadderTag[] = result.tags.filter((t) => !known.has(t.address.toUpperCase())).map((t) => ({
-      id: nanoid(6), address: t.address, name: t.name === t.address ? t.name : uniqueName(t.name), dataType: defaultDataTypeFor(t.address) as LadderTag['dataType'], comment: t.comment,
-    }))
-    tagState.setTags([...updated, ...added])
-    notify(`Ladder gerado: Complete restart (${result.startupRungs.length}), Main (${result.rungs.length}) e ${result.tags.length} variáveis`)
+    const result = applyLadderFromGrafcet({ ...program, transitions })
+    useGrafcetUi.getState().setLadderSync('synced')
+    const warn = result.warnings.length ? ` · ${result.warnings.length} aviso${result.warnings.length === 1 ? '' : 's'}: ${result.warnings[0]}` : ''
+    notify(`Ladder ${updating ? 'atualizado' : 'gerado'}: Complete restart (${result.startupRungs.length}), Main (${result.rungs.length}) e ${result.tags.length} variáveis${warn}`)
   }
+
+  // Estado de sincronização GRAFCET ↔ Ladder + atualização automática (só depois de gerado).
+  const ladderRungs = useSimStore((state) => state.ladder.rungs)
+  const projectFiles = useSimStore((state) => state.projectFiles)
+  const autoSync = useGrafcetUi((state) => state.autoSync)
+  const syncStatus = useMemo(() => ladderSyncStatus(program), [program, ladderRungs, projectFiles]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { useGrafcetUi.getState().setLadderSync(syncStatus) }, [syncStatus])
+  const programSignature = useMemo(() => JSON.stringify({ steps: program.steps, transitions: transitionsOf(program) }), [program])
+  const lastAutoSync = useRef(programSignature)
+  useEffect(() => {
+    if (programSignature === lastAutoSync.current) return
+    lastAutoSync.current = programSignature
+    if (!autoSync || syncStatus !== 'stale') return
+    const timer = window.setTimeout(() => {
+      if (ladderSyncStatus({ ...useSimStore.getState().grafcet, transitions: transitionsOf(useSimStore.getState().grafcet) }) !== 'stale') return
+      applyLadderFromGrafcet(useSimStore.getState().grafcet)
+      useGrafcetUi.getState().setLadderSync('synced')
+    }, 800)
+    return () => window.clearTimeout(timer)
+  }, [programSignature, autoSync, syncStatus])
 
   /** Posição livre para um elemento novo: onde foi largado, ou junto ao elemento selecionado; nunca por cima de outro. */
   const clearSpot = (want: { x: number; y: number }) => {
