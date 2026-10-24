@@ -6,7 +6,8 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Logo from './ui/Brand'
 import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight } from './ui/icons'
 import type { User, Project, Invite } from './dashboard/Dashboard'
-import { canCaptureCover, captureCover, hasStoredCover } from './three/coverCapture'
+import { canCaptureCover, captureCover, hasStoredCover, setStoredCover } from './three/coverCapture'
+import { flowCoverDataUrl } from './dashboard/flowCover'
 import { useSimStore } from './store/useSimStore'
 import { accountApi } from './auth/accountApi'
 import { useComponentSettings } from './admin/componentSettings'
@@ -128,12 +129,26 @@ export default function Account() {
     setMessage(message === '[object Object]' ? 'Não foi possível concluir o pedido. Tente novamente.' : message)
   }
 
+  /** Cover real: cena 3D no projeto completo; diagrama Ladder/GRAFCET nos outros tipos. */
+  async function resolveCover(name?: string): Promise<string | undefined> {
+    const s = useSimStore.getState()
+    const flowKind = s.projectKind !== 'all'
+    const scene = flowKind ? null : captureCover()
+    if (scene) return scene
+    try {
+      const flow = await flowCoverDataUrl({ kind: s.projectKind, rungs: s.ladder.rungs, grafcet: s.grafcet, name })
+      if (flow) { setStoredCover(flow); return flow }
+    } catch { /* a miniatura é opcional */ }
+    return captureCover() ?? undefined
+  }
+
   async function persistOpenProject(showMessage: boolean) {
     const entry = openRef.current
     if (!entry) return
+    const cover = await resolveCover(entry.name)
     const response = await api<{ revision: number }>('/projects/' + entry.id, 'PUT', {
       revision: entry.revision,
-      content: { ...JSON.parse(useSimStore.getState().saveJSON()), cover: captureCover() ?? undefined },
+      content: { ...JSON.parse(useSimStore.getState().saveJSON()), cover },
     })
     const updated = { ...entry, revision: response.revision }
     openRef.current = updated
@@ -253,9 +268,11 @@ export default function Account() {
       danger: true,
     }))) return false
     // Projetos antigos sem miniatura: captura a cena 3D e guarda-a antes de sair.
-    if (!useSimStore.getState().dirty && openRef.current && !hasStoredCover() && canCaptureCover() && useSimStore.getState().components.length) {
+    const snap = useSimStore.getState()
+    const hasFlow = snap.projectKind !== 'all' ? snap.ladder.rungs.length > 0 || snap.grafcet.steps.length > 0 : false
+    if (!snap.dirty && openRef.current && !hasStoredCover() && ((canCaptureCover() && snap.components.length) || hasFlow)) {
       try {
-        if (captureCover()) await persistOpenProject(false)
+        await persistOpenProject(false)
       } catch { /* a miniatura é opcional */ }
     }
     useSimStore.getState().stop()
