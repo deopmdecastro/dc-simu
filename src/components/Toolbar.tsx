@@ -16,7 +16,6 @@ import LadderVariablesMenu from '../ladder/LadderVariablesMenu'
 import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { validateGrafcet } from '../grafcet/engine'
 import ComponentTableDialog from './ComponentTableDialog'
-import { allowedViews } from '../project/kind'
 import {
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
@@ -209,7 +208,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const showSimControls = mode !== 'grafcet' || grafcetSimVisible
   const grafcetIssues = useMemo(() => validateGrafcet(grafcet), [grafcet])
   const grafcetErrorCount = grafcetIssues.filter((i) => i.level === 'error').length
-  const canGenerateLadder = allowedViews(projectKind).includes('ladder')
+  // «Gerar Ladder» aparece sempre na barra do GRAFCET: num projeto só GRAFCET
+  // (sem PLC nem programa Ladder) a primeira geração cria o editor Ladder para o projeto.
+  const canGenerateLadder = projectKind !== 'ladder'
   const fileRef = useRef<HTMLInputElement>(null)
   const visibleViews = VIEWS.filter((view) => views.includes(view.id))
 

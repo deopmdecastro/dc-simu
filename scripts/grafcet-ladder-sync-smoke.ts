@@ -65,4 +65,14 @@ check(!state().ladder.rungs.some((r) => r.name === 'GRAFCET · Inicialização')
 check(ladderSyncStatus(state().grafcet) === 'synced', 'sincronizado com nome e comparações')
 state().setGrafcet({ ...named, name: 'Outro nome' })
 check(ladderSyncStatus(state().grafcet) === 'stale', 'mudar o nome desatualiza os comentários do Ladder')
+
+// Editor Ladder num projeto só GRAFCET: aparece assim que existe Ladder gerado.
+import { allowedViews, coerceView, defaultView } from '../src/project/kind'
+check(state().projectKind === 'grafcet' && hasGeneratedLadder(), 'contexto: projeto GRAFCET com Ladder gerado')
+check(!allowedViews('grafcet').includes('ladder'), 'projeto só GRAFCET não tem editor Ladder por defeito')
+check(allowedViews('grafcet', true).includes('ladder') && allowedViews('grafcet', true)[0] === 'grafcet', 'com Ladder gerado o projeto GRAFCET ganha o editor Ladder (e o GRAFCET continua vista principal)')
+check(coerceView('ladder', 'grafcet', true) === 'ladder' && coerceView('ladder', 'grafcet') === 'grafcet', 'a vista Ladder só é aceite quando existe Ladder gerado')
+check(defaultView('grafcet') === 'grafcet' && defaultView('ladder') === 'ladder', 'vistas iniciais de cada tipo de projeto mantêm-se')
+check(allowedViews(state().projectKind, hasGeneratedLadder()).includes('ladder'), 'depois de gerar, o projeto passa a oferecer o editor Ladder')
+check(!allowedViews('grafcet', true).includes('schematic') && !allowedViews('grafcet', true).includes('monitor'), 'o Ladder gerado não arrasta esquema elétrico nem monitor')
 console.log('OK')

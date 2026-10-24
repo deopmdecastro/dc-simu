@@ -3,6 +3,7 @@ import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent, type WheelEvent } from 'react'
 import { uiConfirm } from '../ui/dialogs'
+import { allowedViews } from '../project/kind'
 import { isSmallScreen } from '../ui/cleanMode'
 import { useSimStore } from '../store/useSimStore'
 import {
@@ -202,7 +203,7 @@ export const nextFreeStepNumber = (steps: readonly GrafcetStep[]): number => {
   return n
 }
 
-export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: boolean; onOpenEditor?: () => void }) {
+export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder }: { full?: boolean; onOpenEditor?: () => void; onOpenLadder?: () => void }) {
   const program = useSimStore((state) => state.grafcet)
   const runtime = useSimStore((state) => state.grafcetRuntime)
   const table = useSimStore((state) => state.runtime.table)
@@ -231,6 +232,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
+  const openLadderTimer = useRef<number | undefined>(undefined)
   const paletteSearchRef = useRef<HTMLInputElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -391,7 +393,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     if (!simVisible && tab === 'io') setTab('steps')
   }, [simVisible, tab])
 
-  useEffect(() => () => window.clearTimeout(toastTimer.current), [])
+  useEffect(() => () => { window.clearTimeout(toastTimer.current); window.clearTimeout(openLadderTimer.current) }, [])
 
   useEffect(() => {
     if (selected && !steps.some((step) => step.id === selected) && !transitions.some((transition) => transition.id === selected)) {
@@ -586,7 +588,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor }: { full?: b
     const result = applyLadderFromGrafcet({ ...program, transitions })
     useGrafcetUi.getState().setLadderSync('synced')
     const warn = result.warnings.length ? ` · ${result.warnings.length} aviso${result.warnings.length === 1 ? '' : 's'}: ${result.warnings[0]}` : ''
-    notify(`Ladder ${updating ? 'atualizado' : 'gerado'}: Complete restart (${result.startupRungs.length}), Main (${result.rungs.length}) e ${result.tags.length} variáveis${warn}`)
+    // Projeto só GRAFCET, primeira geração: o editor Ladder passa a existir — abrir para o utilizador o ver.
+    const opensLadder = !updating && !allowedViews(useSimStore.getState().projectKind).includes('ladder')
+    notify(`Ladder ${updating ? 'atualizado' : 'gerado'}: Complete restart (${result.startupRungs.length}), Main (${result.rungs.length}) e ${result.tags.length} variáveis${warn}${opensLadder ? ' — a abrir o editor Ladder…' : ''}`)
+    if (opensLadder) {
+      window.clearTimeout(openLadderTimer.current)
+      openLadderTimer.current = window.setTimeout(() => onOpenLadder?.(), 900)
+    }
   }
 
   // Estado de sincronização GRAFCET ↔ Ladder + atualização automática (só depois de gerado).
