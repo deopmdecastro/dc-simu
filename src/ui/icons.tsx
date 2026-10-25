@@ -56,6 +56,9 @@ import {
   faEye,
   faEyeSlash,
   faFile,
+  faFileArrowUp,
+  faFileImport,
+  faShapes,
   faFloppyDisk,
   faFolder,
   faFolderOpen,
@@ -199,6 +202,12 @@ export const IconSparkle = fa(faLightbulb)
 export const IconCamera = fa(faCamera)
 export const IconImage = fa(faImage)
 export const IconStar = fa(faStar)
+/** Importar ficheiro para o projeto (ficheiro com seta a entrar). */
+export const IconImport = fa(faFileImport)
+/** Zona de largar ficheiro (ficheiro com seta para cima). */
+export const IconFileUpload = fa(faFileArrowUp)
+export const IconTemplates = fa(faShapes)
+export const IconExample = fa(faWandMagicSparkles)
 export const IconSwap = fa(faRightLeft)
 export const IconFocus = fa(faCrosshairs)
 export const IconGround = fa(faDownLeftAndUpRightToCenter)

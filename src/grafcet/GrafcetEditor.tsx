@@ -45,7 +45,12 @@ import {
   IconHand,
   IconSearch,
   IconWire,
-  IconChevronDown, IconCheck
+  IconChevronDown, IconCheck,
+  IconSchematic,
+  IconPlus,
+  IconImport,
+  IconTemplates,
+  IconExample
 } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
@@ -3043,21 +3048,22 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
           {/* Estado Vazio Amigável */}
           {!steps.length && (
             <div className="grafcet-empty">
+              <span className="grafcet-empty-icon" aria-hidden="true"><IconSchematic size={26} /></span>
               <strong>Ainda não há etapas</strong>
-              <p>{full ? 'Crie a primeira etapa ou abra um modelo para iniciar a sequência.' : 'Abra o editor para criar a primeira etapa.'}</p>
+              <p>{full ? 'Crie a primeira etapa ou parta de um modelo, de um exemplo ou de um ficheiro.' : 'Abra o editor para criar a primeira etapa.'}</p>
               {full && (
                 <div className="grafcet-empty-actions">
-                  <button className="dc-btn-primary dc-btn" onClick={() => addStep()}>
-                    Criar etapa inicial
+                  <button className="dc-btn-primary dc-btn grafcet-empty-main" onClick={() => addStep()}>
+                    <IconPlus size={14} />Criar etapa inicial
                   </button>
                   <button className="dc-btn" onClick={() => setTemplatesOpen(true)}>
-                    ★ Modelos industriais
+                    <IconTemplates size={14} />Modelos industriais
                   </button>
                   <button className="dc-btn" onClick={() => setImportOpen(true)} title="Importar GRAFCET FluidSIM 4 (.ct), JSON ou .grafcet">
-                    Importar GRAFCET
+                    <IconImport size={14} />Importar GRAFCET
                   </button>
-                  <button className="dc-btn" onClick={loadExample}>
-                    Abrir exemplo de 3 etapas
+                  <button className="dc-btn grafcet-empty-wide" onClick={loadExample}>
+                    <IconExample size={14} />Abrir exemplo de 3 etapas
                   </button>
                 </div>
               )}

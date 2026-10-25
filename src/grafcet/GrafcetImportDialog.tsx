@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import PropertyDialog from '../ui/PropertyDialog'
 import { MAX_GRAFCET_IMPORT_BYTES } from './importFile'
+import { IconFileUpload, IconImport } from '../ui/icons'
 
 const ACCEPT = '.ct,.json,.grafcet'
 const MAX_MB = Math.round(MAX_GRAFCET_IMPORT_BYTES / (1024 * 1024))
@@ -76,10 +77,10 @@ export default function GrafcetImportDialog({ open, onClose, onChoose }: {
           onDragLeave={(event) => { if (event.currentTarget === event.target) setDragging(false) }}
           onDrop={onDrop}
         >
-          <span className="grafcet-import-drop-icon" aria-hidden="true">⇩</span>
+          <span className="grafcet-import-drop-icon" aria-hidden="true"><IconFileUpload size={26} /></span>
           <strong>Arraste e solte o ficheiro aqui</strong>
           <span>ou</span>
-          <button type="button" className="dc-btn dc-btn-primary" data-initial-focus onClick={() => inputRef.current?.click()}>Escolher ficheiro</button>
+          <button type="button" className="dc-btn dc-btn-primary" data-initial-focus onClick={() => inputRef.current?.click()}><IconImport size={15} />Escolher ficheiro</button>
           <small>Máximo de {MAX_MB} MB · é importado um ficheiro de cada vez</small>
         </section>
 
