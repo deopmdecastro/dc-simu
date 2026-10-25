@@ -1425,12 +1425,15 @@ input[type='color'] {
     transition: width 120ms linear;
   }
   small.is-done .ladder-meter i { background: #1caa69; }
-  .ladder-live-words { display: inline-flex; align-items: center; gap: 4px; }
-  .ladder-live-word { display: inline-flex; align-items: center; gap: 0; border: 1px solid #d3dcea; border-radius: 999px; background: #f7f9fd; color: #51607a; font-size: 10px; cursor: pointer; padding: 0; overflow: hidden; }
-  .ladder-live-word b { padding: 2px 7px; font-weight: 600; max-width: 84px; overflow: hidden; text-overflow: ellipsis; }
-  .ladder-live-word span { padding: 2px 8px; font-family: ui-monospace, monospace; font-weight: 700; background: #e8eef7; color: #2c3a52; min-width: 20px; text-align: center; }
+  /* chip de palavra MW ao vivo: nome · %endereço · valor (grelha rígida, sem cortes) */
+  .ladder-live-words { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .ladder-live-word { display: inline-flex; align-items: stretch; height: 24px; border: 1px solid #d3dcea; border-radius: 8px; background: #fff; color: #334155; font-size: 11px; cursor: pointer; padding: 0; overflow: hidden; transition: border-color .12s, box-shadow .12s; }
+  .ladder-live-word b { display: flex; align-items: center; max-width: 96px; padding: 0 9px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ladder-live-word small { display: flex; align-items: center; padding: 0 7px 0 0; color: #94a3b8; font: 500 9.5px ui-monospace, Consolas, monospace; }
+  .ladder-live-word span { display: flex; align-items: center; justify-content: center; min-width: 36px; margin-left: auto; padding: 0 10px; border-left: 1px solid #e5e9f2; background: #f1f5f9; color: #2c3a52; font: 700 11.5px ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
   .ladder-live-word.is-nonzero span { background: #dcfce7; color: #166534; }
-  .ladder-live-word:hover { border-color: #8fa3c0; }
+  .ladder-live-word:hover { border-color: #93b4f5; box-shadow: 0 0 0 2px rgba(47, 111, 228, .12); }
+  .ladder-live-word:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
   .ladder-live-more { font-size: 10px; color: #7b899d; font-style: normal; }
   .ladder-scan-count { font-size: 10px; color: #7b899d; font-variant-numeric: tabular-nums; }
   .ladder-status-reset {

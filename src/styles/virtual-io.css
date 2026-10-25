@@ -151,14 +151,6 @@
 .ladder-bottom-actions { gap: 10px; padding-left: 12px; }
 .ladder-actions-sep { width: 1px; height: 16px; background: #dde3ee; flex: none; }
 
-/* Palavras MW em tempo real: nome · %endereço · valor */
-.ladder-bottom-actions .ladder-live-words { gap: 6px; }
-.ladder-bottom-actions .ladder-live-word { height: 22px; align-items: stretch; font-size: 11px; border-color: #d3dcea; background: #fff; transition: border-color .12s, box-shadow .12s; }
-.ladder-bottom-actions .ladder-live-word b { display: grid; align-items: center; padding: 0 8px; color: #334155; font-weight: 700; }
-.ladder-bottom-actions .ladder-live-word small { display: grid; align-items: center; padding-right: 8px; margin-left: -3px; color: #94a3b8; font: 500 9.5px ui-monospace, monospace; }
-.ladder-bottom-actions .ladder-live-word span { display: grid; place-items: center; min-width: 26px; padding: 0 9px; font-size: 11.5px; font-variant-numeric: tabular-nums; transition: background .12s, color .12s; }
-.ladder-bottom-actions .ladder-live-word:hover { border-color: #93b4f5; box-shadow: 0 0 0 2px rgba(47, 111, 228, .12); }
-.ladder-bottom-actions .ladder-live-word:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
 
 /* Estado: parado / ativo / pausa */
 .ladder-run-pill { transition: background .15s, color .15s; }
@@ -178,7 +170,6 @@
 
 @media (pointer: coarse) {
   .ladder-bottom-actions .ladder-status-reset, .ladder-bottom-actions .ladder-bottom-toggle { height: 32px; }
-  .ladder-bottom-actions .ladder-live-word { height: 28px; }
 }
 @media (prefers-reduced-motion: reduce) { .ladder-bottom-actions * { transition: none !important; } }
 
@@ -201,18 +192,12 @@
 .vio-lamp small { font-size: 10.5px; }
 .vio-hint { margin-top: 2px; line-height: 1.6; }
 .vio-empty-row { padding: 6px 0; }
-/* palavras MW em tempo real (barra de separadores) */
-.ladder-live-words { gap: 8px; }
-.ladder-live-word { gap: 8px; padding: 4px 12px; }
 @media (max-width: 640px) { .vio-panel { padding: 12px; } .vio-inputs { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; } }
 
 /* ───── Painel de E/S · v5 (grelha ordenada, cabeçalho respirável) ───── */
-/* A barra de separadores deixa de sufocar quando há palavras MW ao vivo */
+/* A barra de separadores deixa de sufocar quando há palavras MW ao vivo (chip baseado na grelha do index.css) */
 .ladder-bottom-tabs { flex-wrap: wrap; row-gap: 4px; align-items: center; }
 .ladder-bottom-actions { flex-wrap: wrap; row-gap: 4px; }
-.ladder-live-words { display: inline-flex; gap: 6px; flex-wrap: wrap; }
-.ladder-live-word span { border-left: 1px solid #e5e9f2; background: #f8fafc; border-radius: 0 6px 6px 0; }
-.ladder-live-word.is-nonzero span { background: #dcf6e5; color: #166534; font-weight: 700; }
 
 /* Saídas e memórias em grelha de cartões (em vez de pílulas soltas) */
 .vio-outputs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; }
@@ -240,7 +225,7 @@
 @media (max-width: 640px) {
   .vio-outputs { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
-@media (pointer: coarse) { .vio-lamp { min-height: 44px; } }
+@media (pointer: coarse) { .vio-lamp { min-height: 44px; } .ladder-live-word { height: 30px; } }
 
 /* ───── «PLC em STOP»: entradas congeladas até ao Run ───── */
 .vio-note.is-info { color: #1e3a5f; background: #eaf2fd; border: 1px solid #cfdff5; }
@@ -259,7 +244,4 @@
 /* em cartões mais curtos (compacto), o selo não pode empurrar o conteúdo */
 .vio-panel.is-compact .vio-cell > .vio-switch { padding-right: 9px; }
 
-/* Corrigir o valor das palavras MW encolhido/cortado na barra de estado */
-.ladder-bottom-actions .ladder-live-word span { min-width: 32px; padding: 0 10px; }
-.ladder-bottom-actions .ladder-live-word small { margin-left: 0; }
 .ladder-bottom-tabs { row-gap: 6px; }
