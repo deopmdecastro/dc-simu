@@ -41,6 +41,7 @@ import {
 import { useLadderPrefs } from './ladderPrefs'
 import { ELEMENT_KEYS } from './ladderShortcuts'
 import ShortcutsDialog from './ShortcutsDialog'
+import ForcePanel from './ForcePanel'
 import { useEditorShortcuts } from '../ui/shortcuts'
 
 /* ------------------------------------------------------------------ helpers */
@@ -1307,7 +1308,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
   const lintIssues = useMemo(() => lintLadder({ rungs }, { physicalInputs: plcs.length > 0 }), [rungs, plcs.length])
   const lintCount = lintIssues.filter((issue) => issue.level !== 'info').length
-  const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'lint'>('io')
+  const forcedAddrs = useSimStore((s) => s.forces)
+  const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'force' | 'lint'>('io')
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
   const [filter, setFilter] = useState('')
   const ladderZoom = useLadderZoom((state) => state.zoom)
@@ -1832,11 +1834,12 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             {(() => {
               const activeBits = Object.entries(table).filter(([key, value]) => value && /^[IQM]\d+\.\d$/.test(key)).length
               const badge: Record<string, number> = { io: activeBits, timers: Object.keys(timers).length, counters: Object.keys(counters).length }
-              const statusTabs: Array<{ id: 'io' | 'memory' | 'timers' | 'counters' | 'lint'; label: ReactNode }> = [
+              const statusTabs: Array<{ id: 'io' | 'memory' | 'timers' | 'counters' | 'force' | 'lint'; label: ReactNode }> = [
                 { id: 'io', label: <><IconSchematic size={11} />Entradas/Saídas</> },
                 { id: 'memory', label: <><IconTag size={11} />Memórias</> },
                 { id: 'timers', label: <><IconTimer size={11} />Temporizadores</> },
                 { id: 'counters', label: <><IconCounter size={11} />Contadores</> },
+                { id: 'force', label: <><IconShield size={11} />Forçar{Object.keys(forcedAddrs).length ? ` (${Object.keys(forcedAddrs).length})` : ''}</> },
                 { id: 'lint', label: lintCount ? <><IconShield size={11} />Verificação ({lintCount})</> : <><IconCheck size={10} className="ui-ck" />Verificação</> },
               ]
               return statusTabs.map(({ id, label }) => (
@@ -1878,6 +1881,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           {showStatus && <div className="ladder-status-grid" role="tabpanel">
             {statusTab === 'io' && !activePlc && <VirtualIoPanel compact />}
             {statusTab === 'io' && !!activePlc && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
+            {statusTab === 'force' && <ForcePanel />}
             {statusTab === 'lint' && <div className="ladder-lint" role="list">
               {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <span className="ladder-status-empty is-ok"><IconCheck size={11} className="ui-ck" /> Nenhum problema encontrado — o programa está limpo.</span>}
             </div>}

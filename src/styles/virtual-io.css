@@ -296,3 +296,15 @@
     min-height: 54px;
   }
 }
+
+/* Forçar valores (Ladder) */
+.ladder-force { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+.ladder-force-add { display: flex; flex-wrap: wrap; gap: 6px; }
+.ladder-force-add input { flex: 1 1 180px; min-height: 36px; padding: 0 10px; border: 1px solid var(--line, #d6dae1); border-radius: 8px; font-family: ui-monospace, monospace; background: var(--surface-panel, #fff); color: inherit; }
+.ladder-force button { min-height: 36px; padding: 0 12px; border: 1px solid var(--line, #d6dae1); border-radius: 8px; background: var(--surface-panel, #fff); color: inherit; cursor: pointer; }
+.ladder-force button:disabled { opacity: .5; cursor: not-allowed; }
+.ladder-force-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ladder-force-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #f59e0b; border-radius: 8px; background: rgba(245, 158, 11, .1); font-family: ui-monospace, monospace; font-size: 12px; }
+.ladder-force-row small { flex: 1; color: #64748b; }
+.ladder-force-val { min-width: 22px; text-align: center; font-weight: 700; }
+.ladder-force-warn { margin: 0; font-size: 12px; color: #b45309; }

@@ -173,6 +173,12 @@ interface Store extends CircuitState {
   /** Dá nome a uma entrada (guarda na tabela de tags; nome vazio remove o nome). */
   setVirtualInputName: (address: string, name: string) => void
   setVirtualInput: (address: string, on: boolean) => void
+  /** Forçar valores (diagnóstico): endereço → 0/1 imposto durante o RUN, só em memória (não é gravado no projeto).
+   *  Em projetos com vários PLC aplica-se ao PLC ativo na vista. */
+  forces: Record<string, boolean>
+  /** value null remove o forçar desse endereço. */
+  setForce: (address: string, value: boolean | null) => void
+  clearForces: () => void
   setVirtualInputCount: (count: number) => void
   clearVirtualInputs: () => void
   /** Repõe a memória de trabalho (Q, M, MW, temporizadores e contadores) a 0
@@ -544,7 +550,7 @@ function runOneTick(state: Store, dtMs: number) {
     }
     const declared = parseDataBlocks(generalFiles).values
     const db = { ...declared, ...state.runtime.db } // a memória persiste durante todo o RUN (como no TIA): palavras escritas em execução sobrevivem entre scans
-    const scan = runScan({ rungs: [...scheduled, ...ladder.rungs, ...autoExecRungs(generalFiles, 'obCyclic')] }, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs, functions, [], db, state.runtime.edges)
+    const scan = runScan({ rungs: [...scheduled, ...ladder.rungs, ...autoExecRungs(generalFiles, 'obCyclic')] }, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs, functions, [], db, state.runtime.edges, state.forces)
     state.runtime.db = db
     state.runtime.startupDone = true
     state.runtime.rungPowered = scan.rungPowered
@@ -572,7 +578,7 @@ function runOneTick(state: Store, dtMs: number) {
     const scheduled = prior.startupDone ? [] : autoExecRungs(files, 'obStartup')
     const declared = parseDataBlocks(files).values
     prior.db = { ...declared, ...prior.db } // idem: o valor de execução prevalece sobre o inicial do DB
-    const scan = runScan({ rungs: [...scheduled, ...program, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db, prior.edges)
+    const scan = runScan({ rungs: [...scheduled, ...program, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db, prior.edges, plc.id === selectedId ? state.forces : {})
     state.runtime.plcRuntime[plc.id] = { ...prior, startupDone: true, rungPowered: scan.rungPowered }
     for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = powered && !!scan.table[key]
   }
@@ -879,6 +885,24 @@ export const useSimStore = create<Store>((set, get) => ({
   virtualOutputCount: 8,
   virtualMemoryCount: 0,
   virtualInputModes: {},
+  forces: {},
+  setForce: (address, value) => {
+    const key = address.trim().toUpperCase()
+    if (!key) return
+    set((st) => {
+      const forces = { ...st.forces }
+      if (value === null) delete forces[key]
+      else forces[key] = value
+      return { forces }
+    })
+    if (value !== null) get().runtime.table[key] = value
+    if (get().sim.runState !== 'running') get().step()
+  },
+  clearForces: () => {
+    if (!Object.keys(get().forces).length) return
+    set({ forces: {} })
+    if (get().sim.runState !== 'running') get().step()
+  },
   setVirtualInputMode: (address, mode) => {
     set((st) => ({ virtualInputModes: { ...st.virtualInputModes, [address]: mode }, dirty: true }))
     // Ao passar para botão de pressão (NO), a entrada volta ao repouso (0);

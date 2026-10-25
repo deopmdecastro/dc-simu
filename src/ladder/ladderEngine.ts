@@ -64,6 +64,14 @@ function evalRung(rung: LadderRung, table: AddressTable, db: DbTable, edges: Edg
   return rung.branches.some((b) => evalBranch(b, table, db, edges, timers, counters))
 }
 
+/** Forçar valores (diagnóstico PLC): endereço (maiúsculas) → 0/1 imposto durante o RUN. */
+export type ForceTable = Record<string, boolean>
+
+/** Impõe os valores forçados na tabela; o forçar prevalece sobre bobinas, entradas físicas e virtuais. */
+export function applyForces(table: AddressTable, forces: ForceTable): void {
+  for (const key in forces) table[key] = forces[key]
+}
+
 export interface ScanResult {
   table: AddressTable
   rungPowered: Record<string, boolean>
@@ -82,8 +90,11 @@ export function runScan(
   stack: string[] = [],
   db: DbTable = {},
   edges: EdgeTable = {},
+  forces: ForceTable = {},
 ): ScanResult {
   const rungPowered: Record<string, boolean> = {}
+  // As entradas forçadas valem já na leitura do 1.º rung (imagem de processo).
+  applyForces(table, forces)
 
   for (const rung of program.rungs) {
     const powered = evalRung(rung, table, db, edges, timers, counters)
@@ -214,14 +225,17 @@ export function runScan(
       const id = rung.call.targetId
       // Impede ciclos A→B→A e chamadas recursivas descontroladas.
       if (functions[id] && !stack.includes(id) && stack.length < 16) {
-        const inner = runScan({ rungs: functions[id] }, table, timers, counters, dtMs, functions, [...stack, id], db, edges)
+        const inner = runScan({ rungs: functions[id] }, table, timers, counters, dtMs, functions, [...stack, id], db, edges, forces)
         // As networks do bloco chamado também têm RLO: sem isto nunca ficavam «com corrente» no editor
         // (fios e blocos ficavam a azul tracejado mesmo com contactos e bobinas ativos).
         for (const [rungId, on] of Object.entries(inner.rungPowered)) rungPowered[rungId] = rungPowered[rungId] || on
       }
     }
+    // O forçar vale também para as escritas deste rung: os seguintes já leem o valor imposto.
+    applyForces(table, forces)
   }
 
+  applyForces(table, forces)
   return { table, rungPowered, timers, counters }
 }
 

@@ -14,6 +14,7 @@
     "test:blocks-ui": "node scripts/add-block-ui-smoke.mjs",
     "test:ladder-compare": "tsx scripts/ladder-compare-smoke.ts",
     "test:ladder-math": "tsx scripts/ladder-math-smoke.ts",
+    "test:ladder-force": "tsx scripts/ladder-force-smoke.ts",
     "test:diagnostics": "tsx scripts/diagnostics-smoke.ts",
     "test:grafcet-signals": "tsx scripts/grafcet-signals-smoke.ts",
     "test:grafcet-ladder-sync": "tsx scripts/grafcet-ladder-sync-smoke.ts",
