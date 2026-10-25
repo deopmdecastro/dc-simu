@@ -36,7 +36,7 @@ import {
   IconPlus, IconDelete, IconCopy, IconClose,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder,
   IconFunction, IconChevronDown, IconChevronRight, IconShield, IconSearch,
-  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp, IconReset,
+  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp, IconReset, IconCheck
 } from '../ui/icons'
 import { useLadderPrefs } from './ladderPrefs'
 import { ELEMENT_KEYS } from './ladderShortcuts'
@@ -1826,7 +1826,14 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             {(() => {
               const activeBits = Object.entries(table).filter(([key, value]) => value && /^[IQM]\d+\.\d$/.test(key)).length
               const badge: Record<string, number> = { io: activeBits, timers: Object.keys(timers).length, counters: Object.keys(counters).length }
-              return ([['io', 'Entradas/Saídas'], ['memory', 'Memórias'], ['timers', 'Temporizadores'], ['counters', 'Contadores'], ['lint', lintCount ? `Verificação (${lintCount})` : 'Verificação ✓']] as const).map(([id, label]) => (
+              const statusTabs: Array<{ id: 'io' | 'memory' | 'timers' | 'counters' | 'lint'; label: ReactNode }> = [
+                { id: 'io', label: 'Entradas/Saídas' },
+                { id: 'memory', label: 'Memórias' },
+                { id: 'timers', label: 'Temporizadores' },
+                { id: 'counters', label: 'Contadores' },
+                { id: 'lint', label: lintCount ? `Verificação (${lintCount})` : <><IconCheck size={10} className="ui-ck" />Verificação</> },
+              ]
+              return statusTabs.map(({ id, label }) => (
                 <button key={id} role="tab" aria-selected={statusTab === id} className={statusTab === id ? 'is-active' : ''} onClick={() => { setStatusTab(id); setShowStatus(true) }}>
                   {label}{!!badge[id] && <em className={`ladder-tab-badge ${id === 'io' ? 'is-live' : ''}`} title={id === 'io' ? 'Bits ativos' : 'Em uso'}>{badge[id]}</em>}
                 </button>
@@ -1866,7 +1873,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             {statusTab === 'io' && !activePlc && <VirtualIoPanel compact />}
             {statusTab === 'io' && !!activePlc && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
             {statusTab === 'lint' && <div className="ladder-lint" role="list">
-              {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <span className="ladder-status-empty is-ok">✓ Nenhum problema encontrado — o programa está limpo.</span>}
+              {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <span className="ladder-status-empty is-ok"><IconCheck size={11} className="ui-ck" /> Nenhum problema encontrado — o programa está limpo.</span>}
             </div>}
             {statusTab === 'memory' && <>
               <NetworkStatus table={table} prefix="M" label="Memórias" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} />

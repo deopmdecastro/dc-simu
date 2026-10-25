@@ -1,6 +1,6 @@
 import { Children, isValidElement, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { IconChevronDown } from './icons'
+import { IconCheck, IconChevronDown } from './icons'
 
 /**
  * Lista pendente própria da plataforma, para substituir o `<select>` nativo.
@@ -152,7 +152,7 @@ export default function Select({ value, defaultValue, onChange, children, classN
                   onClick={() => pick(item)}
                 >
                   <span>{item.label}</span>
-                  {item.value === current && <i aria-hidden>✓</i>}
+                  {item.value === current && <IconCheck size={10} className="ui-ck" />}
                 </button>
               </div>
             )

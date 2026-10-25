@@ -1,5 +1,5 @@
 import { useSimStore } from '../store/useSimStore'
-import { IconPlay, IconTimer, IconShield, IconSearch, IconCounter } from '../ui/icons'
+import { IconPlay, IconTimer, IconShield, IconSearch, IconCounter, IconCheck } from '../ui/icons'
 
 function Bit({ label: name, tagName, value, onToggle }: { label: string; tagName?: string | null; value: boolean; onToggle?: () => void }) {
   return (
@@ -121,7 +121,7 @@ export default function MonitorPanel() {
               <div key={k} className="flex justify-between items-center border border-line rounded-[5px] px-2 py-1 bg-white">
                 <span className="flex items-center gap-1.5">
                   <IconTimer size={11} className="text-ink-400" />
-                  {k} {t.running ? <IconPlay size={9} className="text-state-run" /> : t.done ? <span className="text-state-run">✓</span> : <span className="text-ink-300">■</span>}
+                  {k} {t.running ? <IconPlay size={9} className="text-state-run" /> : t.done ? <IconCheck size={10} className="text-state-run" /> : <span className="text-ink-300">■</span>}
                 </span>
                 <span className="tabular-nums text-ink-700">
                   {(t.elapsedMs / 1000).toFixed(1)} / {(t.presetMs / 1000).toFixed(1)} s
@@ -132,7 +132,7 @@ export default function MonitorPanel() {
               <div key={k} className="flex justify-between items-center border border-line rounded-[5px] px-2 py-1 bg-white">
                 <span className="flex items-center gap-1.5">
                   <IconCounterProxy />
-                  {k} {c.done ? <span className="text-state-run">✓</span> : ''}
+                  {k} {c.done ? <IconCheck size={10} className="text-state-run" /> : ''}
                 </span>
                 <span className="tabular-nums text-ink-700">{c.count} / {c.preset}</span>
               </div>

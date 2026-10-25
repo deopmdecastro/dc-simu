@@ -23,7 +23,7 @@ import { hasComponent3DModel, isMountingRail, MISSING_3D_MODEL_MESSAGE } from '.
 import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRailGeometry'
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck } from '../ui/icons'
 
 const label = 'dc-field-label'
 const STATE_LABELS: Record<string, string> = {
@@ -662,7 +662,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               </div>
 
               <div className={`rounded-md border px-2 py-2 text-[9px] ${wireClassCompatible ? 'border-line bg-surface-sunken/50 text-ink-500' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>
-                <div className="flex items-center justify-between gap-2"><strong>Compatibilidade elétrica</strong><span>{wireClassCompatible ? '✓ coerente' : '⚠ verificar'}</span></div>
+                <div className="flex items-center justify-between gap-2"><strong>Compatibilidade elétrica</strong><span>{wireClassCompatible ? <><IconCheck size={10} className="ui-ck" />coerente</> : '⚠ verificar'}</span></div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {wireFromTerminal && wireFromClass && <span className="dc-chip">{wireFromOwner?.ref}.{wireFromTerminal.label} · {TERMINAL_ELECTRICAL_CLASS_LABEL[wireFromClass]}</span>}
                   {wireToTerminal && wireToClass && <span className="dc-chip">{wireToOwner?.ref}.{wireToTerminal.label} · {TERMINAL_ELECTRICAL_CLASS_LABEL[wireToClass]}</span>}

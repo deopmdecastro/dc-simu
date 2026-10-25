@@ -45,7 +45,7 @@ import {
   IconHand,
   IconSearch,
   IconWire,
-  IconChevronDown,
+  IconChevronDown, IconCheck
 } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
@@ -5522,11 +5522,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                 ))}
                 {!issues.length && (
                   <div className="grafcet-validation-checks">
-                    <span>✓ Etapa inicial definida</span>
-                    <span>✓ Ligações completas</span>
-                    <span>✓ Condições válidas</span>
-                    <span>✓ Ações endereçadas</span>
-                    <span>✓ Todas as etapas alcançáveis</span>
+                    <span><IconCheck size={10} className="ui-ck" />Etapa inicial definida</span>
+                    <span><IconCheck size={10} className="ui-ck" />Ligações completas</span>
+                    <span><IconCheck size={10} className="ui-ck" />Condições válidas</span>
+                    <span><IconCheck size={10} className="ui-ck" />Ações endereçadas</span>
+                    <span><IconCheck size={10} className="ui-ck" />Todas as etapas alcançáveis</span>
                   </div>
                 )}
               </div>

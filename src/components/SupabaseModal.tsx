@@ -8,7 +8,7 @@ import {
   saveSupabaseConfig,
   testSupabaseConnection,
 } from '../supabase/supabaseClient'
-import { IconClose } from '../ui/icons'
+import { IconClose, IconCheck } from '../ui/icons'
 import { SupabaseLogo } from '../ui/BrandLogos'
 
 const SCHEMA_SQL = `-- DC-SIMU: Script de Inicialização para o Supabase
@@ -390,7 +390,7 @@ export default function SupabaseModal({ isOpen, onClose, onConfigChanged }: Supa
                   cursor: 'pointer',
                 }}
               >
-                {copied ? '✓ Copiado!' : 'Copiar Script SQL'}
+                {copied ? <><IconCheck size={11} className="ui-ck" />Copiado!</> : 'Copiar Script SQL'}
               </button>
             </div>
             <p style={{ fontSize: '11.5px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>

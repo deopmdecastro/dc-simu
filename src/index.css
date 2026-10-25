@@ -2910,3 +2910,16 @@ input[list]:focus::-webkit-calendar-picker-indicator {
   .pdf-export-body .pdf-export-blocks > li { padding: 14px; }
   .pdf-export-body .pdf-export-block-row { gap: 12px; }
 }
+
+/* Ícone de confirmação partilhado (substitui o carácter «✓») — herda a cor do texto */
+.ui-ck { display: inline-block; vertical-align: -0.12em; margin-right: 0.35em; flex: none; }
+
+/* Barra de estado do Ladder: todos os chips/botões com a mesma altura e linha de base */
+.ladder-bottom-tabs { align-items: center !important; }
+.ladder-bottom-actions { align-items: center; gap: 8px; row-gap: 6px; }
+.ladder-bottom-actions .ladder-live-word { height: 26px; }
+.ladder-bottom-actions .ladder-run-pill { height: 26px; padding: 0 11px; }
+.ladder-bottom-actions .ladder-status-reset { height: 26px; }
+.ladder-bottom-actions .ladder-bottom-toggle { height: 26px; }
+.ladder-bottom-actions .ladder-scan-count { display: inline-flex; align-items: center; height: 26px; font-variant-numeric: tabular-nums; }
+.ladder-bottom-actions .ladder-actions-sep { height: 18px; }

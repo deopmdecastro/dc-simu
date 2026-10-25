@@ -7,7 +7,7 @@ import { COMPONENT_TO_LADDER, type PaletteKind } from './ladderDnd'
 import { ELEMENT_KEYS } from './ladderShortcuts'
 import { useLadderPrefs } from './ladderPrefs'
 import { Kbd, ShortcutList } from './ShortcutsDialog'
-import { IconClose, IconSearch } from '../ui/icons'
+import { IconClose, IconSearch, IconCheck } from '../ui/icons'
 import { foldText } from '../utils/text'
 
 export type LadderSection = 'Projeto' | 'Biblioteca' | 'Dispositivos' | 'Diagnóstico' | 'Configurações'
@@ -223,7 +223,7 @@ function Devices({ onOpenSchematic }: Pick<Props, 'onOpenSchematic'>) {
                   }}
                   title="Selecionar este dispositivo e abrir a vista Esquema"
                 >
-                  {picked ? '✓ Abrir seleção no esquema' : 'Abrir no esquema'}
+                  {picked ? <><IconCheck size={11} className="ui-ck" />Abrir seleção no esquema</> : 'Abrir no esquema'}
                 </button>
               </div>
             )

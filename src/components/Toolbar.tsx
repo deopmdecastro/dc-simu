@@ -17,7 +17,7 @@ import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { validateGrafcet } from '../grafcet/engine'
 import ComponentTableDialog from './ComponentTableDialog'
 import ExportPdfDialog from '../export/ExportPdfDialog'
-import {
+import { IconCheck,
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
@@ -463,7 +463,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                         : 'O GRAFCET mudou: atualiza o Ladder gerado'
                     }
                   >
-                    <span>{ladderSync === 'none' ? '⇢ Gerar Ladder' : ladderSync === 'synced' ? '✓ Ladder atualizado' : '⟳ Atualizar Ladder'}</span>
+                    <span>{ladderSync === 'none' ? '⇢ Gerar Ladder' : ladderSync === 'synced' ? <><IconCheck size={11} className="ui-ck" />Ladder atualizado</> : '⟳ Atualizar Ladder'}</span>
                   </button>
                   {ladderSync !== 'none' && (
                     <button
@@ -689,7 +689,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   ? `✖ ${grafcetErrorCount} erro${grafcetErrorCount === 1 ? '' : 's'}`
                   : grafcetIssues.length
                   ? `⚠ ${grafcetIssues.length} aviso${grafcetIssues.length === 1 ? '' : 's'}`
-                  : '✓ Validado'}
+                  : <><IconCheck size={11} className="ui-ck" />Validado</>}
               </button>
 
               <span className="tb-sep" />
