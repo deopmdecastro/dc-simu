@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
 import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent, type WheelEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
 import { uiConfirm } from '../ui/dialogs'
 import { allowedViews } from '../project/kind'
 import { isSmallScreen } from '../ui/cleanMode'
@@ -68,6 +68,7 @@ import {
 import { bendInsertIndex, findClearSpot, polylineMidpoint, routeThrough, routeVertical, type Point } from './links'
 import { foldText } from '../utils/text'
 import { readGrafcetFile } from './importFile'
+import GrafcetImportDialog from './GrafcetImportDialog'
 import '../styles/grafcet-construction.css'
 
 const id = () => crypto.randomUUID()
@@ -268,12 +269,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   const [helpOpen, setHelpOpen] = useState(false)
   const [signalsOpen, setSignalsOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
   const openLadderTimer = useRef<number | undefined>(undefined)
   const paletteSearchRef = useRef<HTMLInputElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const importRequestRef = useRef(0)
   useEffect(() => () => { importRequestRef.current++ }, [])
 
@@ -2435,10 +2436,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     notify('Projeto GRAFCET exportado')
   }
 
-  const importJson = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.currentTarget.value = ''
-    if (!file) return
+  const importGrafcet = async (file: File) => {
     const request = ++importRequestRef.current
     const projectPath = window.location.pathname
     const previousProgram = useSimStore.getState().grafcet
@@ -2478,7 +2476,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
         setHelpOpen((value) => !value)
         return
       }
-      if (typing || helpOpen || signalsOpen || editingStep || editingTransition || editingAction || templatesOpen) return
+      if (typing || helpOpen || signalsOpen || editingStep || editingTransition || editingAction || templatesOpen || importOpen) return
       if (event.code === 'Space' && !spacePressed.current && !event.repeat) {
         spacePressed.current = true
         setIsSpacePan(true)
@@ -2729,7 +2727,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
           exportJson()
           break
         case 'importJson':
-          fileInputRef.current?.click()
+          setImportOpen(true)
           break
         case 'restart':
           useSimStore.getState().restartGrafcet()
@@ -2768,7 +2766,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       zoomView: (factor) => zoomAt(scale * factor, { x: viewport.width / 2, y: viewport.height / 2 }),
       panView: (dx, dy) => setPan({ x: position.x - dx, y: position.y - dy }),
     },
-    { enabled: full && !helpOpen && !signalsOpen && !editingStep && !editingTransition && !editingAction && !templatesOpen }
+    { enabled: full && !helpOpen && !signalsOpen && !editingStep && !editingTransition && !editingAction && !templatesOpen && !importOpen }
   )
 
   const signalSuggestions = useMemo(() => grafcetSignals(tags), [tags])
@@ -2820,7 +2818,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
 
   return (
     <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
-      <input ref={fileInputRef} type="file" accept=".json,.grafcet,.ct" style={{ display: 'none' }} onChange={importJson} />
       <datalist id="grafcet-action-addresses">{actionSignals.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
       <datalist id="grafcet-condition-signals">{signalSuggestions.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
 
@@ -5712,6 +5709,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       />
 
       <GrafcetShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+      <GrafcetImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onChoose={(file) => { void importGrafcet(file) }}
+      />
 
       {menu && <GrafcetContextMenu x={menu.x} y={menu.y} items={menuItems()} onClose={closeMenu} />}
 
