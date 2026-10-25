@@ -276,3 +276,20 @@
     border-top: 1px solid #e7edf5;
   }
 }
+
+/* No painel compacto, entradas e saídas usam cartões com a mesma altura. */
+.vio-panel.is-compact .vio-switch,
+.vio-panel.is-compact .vio-lamp {
+  box-sizing: border-box;
+  min-height: 46px;
+}
+.vio-panel.is-compact .vio-switch {
+  gap: 2px 7px;
+  padding: 6px 9px;
+}
+@media (pointer: coarse) {
+  .vio-panel.is-compact .vio-switch,
+  .vio-panel.is-compact .vio-lamp {
+    min-height: 54px;
+  }
+}
