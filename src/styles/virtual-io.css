@@ -245,3 +245,34 @@
 .vio-panel.is-compact .vio-cell > .vio-switch { padding-right: 9px; }
 
 .ladder-bottom-tabs { row-gap: 6px; }
+
+/* v7: entradas e saídas partilham largura e escala dos cartões no painel compacto. */
+@container (min-width: 760px) {
+  .vio-panel.is-compact .vio-cols {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 24px;
+  }
+}
+.vio-panel.is-compact .vio-inputs,
+.vio-panel.is-compact .vio-outputs {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 120px), 1fr));
+  gap: 9px;
+}
+.vio-panel.is-compact .vio-head {
+  align-items: center;
+  min-height: 32px;
+}
+.vio-panel.is-compact .vio-col + .vio-col {
+  border-color: #e7edf5;
+}
+@media (max-width: 640px) {
+  .vio-panel.is-compact .vio-cols { gap: 16px; }
+  .vio-panel.is-compact .vio-actions,
+  .vio-panel.is-compact .vio-head > .vio-stepper { margin-left: auto; }
+  .vio-panel.is-compact .vio-mode { right: 0; }
+  .vio-panel.is-compact .vio-col + .vio-col {
+    padding: 14px 0 0;
+    border: 0;
+    border-top: 1px solid #e7edf5;
+  }
+}
