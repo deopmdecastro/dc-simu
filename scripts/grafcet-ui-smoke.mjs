@@ -62,6 +62,20 @@ try {
   await page.locator('.grafcet-canvas').waitFor()
   const importFromEmptyCard = page.getByRole('button', { name: 'Importar GRAFCET', exact: true })
   check(await importFromEmptyCard.isVisible(), 'cartão do GRAFCET novo oferece importação')
+  await page.setViewportSize({ width: 390, height: 844 })
+  const emptyActionGaps = await Promise.all([
+    'Criar etapa inicial',
+    'Abrir exemplo de 3 etapas',
+  ].map((name) => page.getByRole('button', { name, exact: true }).evaluate((button) => {
+    const icon = button.querySelector('svg')
+    const label = button.lastChild
+    if (!icon || !label) return NaN
+    const range = document.createRange()
+    range.selectNodeContents(label)
+    return range.getBoundingClientRect().left - icon.getBoundingClientRect().right
+  })))
+  check(emptyActionGaps.every((gap) => gap >= 6 && gap <= 10), 'CTAs largos mantêm o ícone junto ao respetivo texto no móvel')
+  await page.setViewportSize({ width: 1440, height: 900 })
   await importFromEmptyCard.click()
   const importDialog = page.getByRole('dialog', { name: 'Importar GRAFCET', exact: true })
   await importDialog.waitFor()
