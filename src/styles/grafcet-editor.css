@@ -2071,3 +2071,8 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 /* Qualificador IEC: lista suspensa (substitui os cartões N/S/R/D/L) */
 .grafcet-property-dialog .grafcet-qualifier-select { width:100%; min-height:34px; padding:6px 30px 6px 10px; border:1px solid #bccade; border-radius:6px; background:#fff; color:#172b49; font-size:13px; line-height:1.4; cursor:pointer; }
 .grafcet-property-dialog .grafcet-qualifier-select:focus { border-color:var(--property-blue); outline:2px solid #2455d829; outline-offset:1px; }
+
+/* Disposição das ações da etapa (em linha / empilhadas) */
+.grafcet-action-layout-toggle { display:flex; align-items:center; gap:6px; margin:2px 0 8px; font-size:11px; color:#435773; }
+.grafcet-action-layout-toggle button { padding:4px 9px; border:1px solid #d5deeb; border-radius:6px; background:#fff; color:#435773; font-size:11px; cursor:pointer; }
+.grafcet-action-layout-toggle button[aria-pressed="true"] { border-color:#5782e9; background:#edf3ff; color:#1944b8; font-weight:600; }

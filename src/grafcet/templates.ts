@@ -1,5 +1,5 @@
 import type { GrafcetAction, GrafcetProgram, GrafcetStep, GrafcetTransition, GrafcetComment } from './engine'
-import { autoLayout } from './layout'
+import { autoLayout, SPINE_X, START_Y } from './layout'
 
 const uid = () => crypto.randomUUID()
 
@@ -92,10 +92,50 @@ const IEC_TEMPLATES: GrafcetTemplateInfo[] = (() => {
     comments: [],
   })
 
+  // 4) Seleção OU (ramos alternativos): E0 → E1/E2 → E3/E4 → E5, com transição em cada ramo
+  const o0 = initialOf('E0'), o1 = stepOf('E1', [['N', 'ESQUERDA']]), o2 = stepOf('E2', [['N', 'DIREITA']])
+  const o3 = stepOf('E3', [['N', 'INVERTE']]), o4 = stepOf('E4', [['N', 'INVERTE']]), o5 = stepOf('E5')
+  const at = (step: GrafcetStep, col: number, row: number): GrafcetStep => ({ ...step, x: SPINE_X + col * 150, y: START_Y + row * 140, pinned: true })
+  const selecaoOu: GrafcetProgram = {
+    steps: [at(o0, 1, 0), at(o1, 0, 1), at(o2, 2, 1), at(o3, 0, 2), at(o4, 2, 2), at(o5, 1, 3)],
+    transitions: [
+      { ...link('T1', [o0], [o1], 'I0.1'), branchType: 'or-divergence' },
+      { ...link('T2', [o0], [o2], 'I0.2'), branchType: 'or-divergence' },
+      link('T3', [o1], [o3], 'I0.3'), link('T4', [o2], [o4], 'I0.4'),
+      { ...link('T5', [o3], [o5], 'I0.5'), branchType: 'or-convergence' },
+      { ...link('T6', [o4], [o5], 'I0.6'), branchType: 'or-convergence' },
+    ],
+    comments: [],
+  }
+
+  // 5) Semáforos de um cruzamento (modelo de nível 2): ações condicionadas, temporizadores e retornos à etapa 0
+  const ck = { condition: 'ck', type: 'conditional' as const }
+  const sm0 = initialOf('0', [['N', 'A2', 'A2 acende se ck=1', ck], ['N', 'B2', 'B2 acende se ck=1', ck]])
+  const sm1 = stepOf('1', [['N', 'A2', 'A2 acende se ck=1', ck], ['N', 'B2', 'B2 acende se ck=1', ck], ['N', 'T0', 'T0 (10 s)']])
+  const sm2 = stepOf('2', [['N', 'A1', 'A1'], ['N', 'B3', 'B3'], ['N', 'T1', 'T1 (30 s)']])
+  const sm3 = stepOf('3', [['N', 'A1', 'A1'], ['N', 'B2', 'B2'], ['N', 'T2', 'T2 (3 s)']])
+  const sm4 = stepOf('4', [['N', 'A1', 'A1'], ['N', 'B1', 'B1'], ['N', 'T3', 'T3 (2 s)']])
+  const sm5 = stepOf('5', [['N', 'A3', 'A3'], ['N', 'B1', 'B1'], ['N', 'T1', 'T1 (30 s)']])
+  const sm6 = stepOf('6', [['N', 'A2', 'A2'], ['N', 'B1', 'B1'], ['N', 'T2', 'T2 (3 s)']])
+  const sm7 = stepOf('7', [['N', 'A1', 'A1'], ['N', 'B1', 'B1'], ['N', 'T3', 'T3 (2 s)']])
+  const semaforos: GrafcetProgram = placed({
+    steps: [sm0, sm1, sm2, sm3, sm4, sm5, sm6, sm7],
+    transitions: [
+      link('t', [sm0], [sm1], 'i1 * /m10'), link('t0', [sm1], [sm2], '10s/X1'), link('t1', [sm2], [sm3], '30s/X2'),
+      link('t2', [sm3], [sm4], '3s/X3'), link('t3', [sm4], [sm5], '2s/X4'), link('t1', [sm5], [sm6], '30s/X5'),
+      link('t2', [sm6], [sm7], '3s/X6'), link('t3', [sm7], [sm2], '2s/X7'),
+      link('', [sm2], [sm0], '/i1 + m10'), link('', [sm3], [sm0], '/i1 + m10'), link('', [sm4], [sm0], '/i1 + m10'),
+      link('', [sm5], [sm0], '/i1 + m10'), link('', [sm6], [sm0], '/i1 + m10'), link('', [sm7], [sm0], '/i1 + m10'),
+    ],
+    comments: [],
+  })
+
   return [
     { id: 'iec-sequencia-simples', name: 'Sequência simples (I1→I2→I3)', title: 'Sequência simples com ação condicionada', description: 'Etapa inicial, duas etapas, retorno ao 0 e ação Q2 condicionada por I4.', program: simples },
     { id: 'iec-motores-paralelo', name: 'Dois motores (ramos paralelos)', title: 'Dois motores: ida em série, regresso em paralelo', description: 'Divergência e convergência AND com barra dupla IEC e retorno à etapa inicial.', program: motores },
     { id: 'iec-processo-timers', name: 'Processo com 4 ramos e falha', title: 'Processo com ramos paralelos, temporizadores S/R e etapa de falha', description: 'Divergência AND em 4 ramos, temporizações (TIMER), sincronização e duas saídas (normal T9 / falha T11).', program: processo },
+    { id: 'iec-selecao-ou', name: 'Seleção OU (ramos alternativos)', title: 'Seleção OU: dois ramos alternativos com convergência', description: 'Divergência OU (uma só linha) com transição em cada ramo e convergência OU numa etapa final.', program: selecaoOu },
+    { id: 'iec-semaforos', name: 'Semáforos (ciclo com retorno e paragem)', title: 'Semáforos de um cruzamento (nível 2)', description: 'Ações condicionadas, temporizadores nas etapas e transições de paragem que regressam à etapa 0.', program: semaforos },
   ]
 })()
 
@@ -581,3 +621,11 @@ export const GRAFCET_TEMPLATES: GrafcetTemplateInfo[] = [
   },
   ...IEC_TEMPLATES,
 ]
+
+/** Os modelos foram desenhados com as ações empilhadas: mantém essa disposição nas etapas com várias ações
+ *  (as etapas novas criadas no editor usam ações em linha, lado a lado). */
+GRAFCET_TEMPLATES.forEach((template) => {
+  template.program.steps.forEach((step) => {
+    if ((step.actions?.length ?? 0) >= 2 && !step.actionLayout) step.actionLayout = 'column'
+  })
+})

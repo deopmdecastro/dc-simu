@@ -53,6 +53,8 @@ export interface GrafcetStep {
   comment?: string
   description?: string
   activationLink?: boolean
+  /** Disposição das ações no diagrama: 'row' = lado a lado (por omissão), 'column' = empilhadas. */
+  actionLayout?: 'row' | 'column'
   /** Posição manual no diagrama: x = eixo central da etapa, y = topo. Só é usada quando `pinned` é true. */
   x?: number
   y?: number

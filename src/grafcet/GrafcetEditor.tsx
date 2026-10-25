@@ -21,6 +21,7 @@ import {
   type GrafcetStep,
   type GrafcetChart,
   type GrafcetTransition,
+  type GrafcetBranchType,
   type GrafcetProgram,
 } from './engine'
 import StepDialog from './StepDialog'
@@ -69,7 +70,7 @@ import { foldText } from '../utils/text'
 
 const id = () => crypto.randomUUID()
 
-type PaletteItem = 'initial' | 'step' | 'transition' | 'action' | 'conditional' | 'fork' | 'join'
+type PaletteItem = 'initial' | 'step' | 'transition' | 'action' | 'conditional' | 'fork' | 'join' | 'or-block' | 'and-block'
 type EditorTab = 'steps' | 'transitions' | 'signals' | 'io' | 'diagnostics'
 type HistoryMode = 'auto' | 'force' | 'skip'
 type ValidationIssue = GrafcetIssue
@@ -91,6 +92,17 @@ const ACTION_TOP_OFFSET = (STEP_H - ACTION_H) / 2
 /** Distância do barramento vertical de ligação à caixa da ação. */
 const ACTION_BUS_GAP = 24
 
+/** Disposição das ações de uma etapa: em linha (lado a lado, por omissão) ou empilhadas na vertical. */
+type ActionLayout = 'row' | 'column'
+const stepActionLayout = (step: { actionLayout?: ActionLayout } | undefined): ActionLayout => (step?.actionLayout === 'column' ? 'column' : 'row')
+/** Deslocamento (relativo ao eixo/topo da etapa) do canto superior esquerdo da ação de índice `index`. */
+const actionSlotOffset = (layout: ActionLayout, index: number) =>
+  layout === 'row'
+    ? { dx: ACTION_OFFSET_X + index * ACTION_W, dy: ACTION_TOP_OFFSET }
+    : { dx: ACTION_OFFSET_X, dy: ACTION_TOP_OFFSET + index * ACTION_PITCH }
+/** Largura ocupada pelas ações (à direita do eixo da etapa) com `count` ações. */
+const actionsExtentX = (layout: ActionLayout, count: number) => ACTION_OFFSET_X + (layout === 'row' ? Math.max(1, count) * ACTION_W : ACTION_W)
+
 /** Keep diagram labels inside their lane; the complete value remains in the SVG title. */
 const diagramLabel = (value: string, limit: number) => value.length > limit ? `${value.slice(0, limit - 1).trimEnd()}…` : value
 const actionLabel = (action: GrafcetAction) => action.displayDescription && action.description
@@ -99,7 +111,7 @@ const actionLabel = (action: GrafcetAction) => action.displayDescription && acti
 const diagramCondition = (condition: string) => <>
   <title>{condition}</title>
   <tspan fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="4" strokeLinejoin="round">
-    {renderConditionTspans(condition === '1' ? '=1' : diagramLabel(condition || '1', 24))}
+    {renderConditionTspans(condition === '1' ? '=1' : diagramLabel(condition || '1', 40))}
   </tspan>
 </>
 
@@ -138,6 +150,13 @@ const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: st
       { kind: 'join', icon: '⑃', name: 'Convergência AND', detail: 'Dois ramos → uma etapa' },
     ],
   },
+  {
+    group: 'Estruturas prontas',
+    items: [
+      { kind: 'or-block', icon: '⑂', name: 'Seleção OU (2 ramos)', detail: 'Etapa → 2 ramos alternativos → etapa final' },
+      { kind: 'and-block', icon: '⑂', name: 'Paralelismo ET (2 ramos)', detail: 'Etapa → 2 ramos simultâneos (barra dupla) → etapa final' },
+    ],
+  },
 ]
 
 /** Símbolos IEC compactos para a paleta: consistentes com os elementos do canvas,
@@ -149,6 +168,8 @@ function GrafcetPaletteGlyph({ kind }: { kind: PaletteItem }) {
   if (kind === 'transition') return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M18 3v8M10 12h16M18 13v14" {...props} /></svg>
   if (kind === 'action') return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M4 15h6M10 7h21v16H10zM15 12h11M15 18h7" {...props} /></svg>
   if (kind === 'conditional') return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M4 15h5M9 7h22v16H9zM15 15l4-4 4 4-4 4z" {...props} /></svg>
+  if (kind === 'or-block') return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M18 2v5M7 7h22M7 7v3M29 7v3M4 12h6M26 12h6M7 12v8M29 12v8M7 20h22M18 20v8" {...props} /></svg>
+  if (kind === 'and-block') return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M18 2v4M6 7h24M6 10h24M9 10v10M27 10v10M6 20h24M6 23h24M18 23v5" {...props} /></svg>
   if (kind === 'fork') return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M18 3v6M8 10h20M8 14h20M18 14v13M12 14v7M24 14v7" {...props} /></svg>
   return <svg viewBox="0 0 36 30" aria-hidden="true"><path d="M12 3v7M24 3v7M8 10h20M8 14h20M18 14v13" {...props} /></svg>
 }
@@ -1052,6 +1073,49 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   const addFork = (at?: { x: number; y: number }) => addBranchBar('and-divergence', at)
   const addJoin = (at?: { x: number; y: number }) => addBranchBar('and-convergence', at)
 
+  /**
+   * Estrutura pronta com 2 ramos e etapa final de convergência:
+   *  - OU: duas transições alternativas a partir da mesma etapa (linha simples) e convergência OU;
+   *  - ET: divergência e convergência com barra dupla (ramos simultâneos).
+   * Nasce por baixo da etapa selecionada (ou cria a etapa de partida se não houver nenhuma).
+   */
+  const addBranchBlock = (type: 'or' | 'and') => {
+    let n = nextFreeStepNumber(allSteps)
+    const mk = (x: number, y: number, initial = false): GrafcetStep => ({
+      id: id(), name: `Etapa ${n++}`, initial, stepType: initial ? 'initial' : 'simple', action: '', condition: 'I0.0', actions: [], x, y, pinned: true,
+    })
+    const created: GrafcetStep[] = []
+    let source = selectedStep
+    if (!source) {
+      const place = clearSpot(defaultSpot())
+      source = mk(place.x, place.y, steps.length === 0)
+      created.push(source)
+    }
+    const bx = stepX(source.id)
+    const by = stepY(source.id) + stepPitch(actionsOf(source).length)
+    const left = mk(snapToGrid(bx - 150, SPINE_X), by)
+    const right = mk(snapToGrid(bx + 150, SPINE_X), by)
+    const end = mk(bx, by + stepPitch(0))
+    created.push(left, right, end)
+    const link = (from: string[], to: string[], condition: string, branchType: GrafcetBranchType): GrafcetTransition => ({ id: id(), from, to, condition, branchType })
+    const added = type === 'or'
+      ? [
+          link([source.id], [left.id], 'I0.0', 'or-divergence'),
+          link([source.id], [right.id], '/I0.0', 'or-divergence'),
+          link([left.id], [end.id], 'I0.1', 'or-convergence'),
+          link([right.id], [end.id], 'I0.2', 'or-convergence'),
+        ]
+      : [
+          link([source.id], [left.id, right.id], 'I0.0', 'and-divergence'),
+          link([left.id, right.id], [end.id], 'I0.1', 'and-convergence'),
+        ]
+    save({ steps: [...steps, ...created], transitions: [...transitions, ...added] })
+    setSelected(left.id)
+    setSelectedActionId(null)
+    setTab('steps')
+    notify(type === 'or' ? 'Seleção OU criada — edite as condições das transições e adicione ações aos ramos' : 'Paralelismo ET criado — edite as condições das transições e adicione ações aos ramos')
+  }
+
   const loadExample = () => {
     const a = id(),
       b = id(),
@@ -1088,6 +1152,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     else if (kind === 'action') addFreeAction(false, at)
     else if (kind === 'conditional') addFreeAction(true, at)
     else if (kind === 'fork') addFork(at)
+    else if (kind === 'or-block') addBranchBlock('or')
+    else if (kind === 'and-block') addBranchBlock('and')
     else addJoin(at)
   }
 
@@ -1151,8 +1217,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   let maxBottom = 280
   steps.forEach((step) => {
     const count = actionsOf(step).length
-    maxRight = Math.max(maxRight, stepX(step.id) + (count ? ACTION_OFFSET_X + ACTION_W : 220) + 130)
-    maxBottom = Math.max(maxBottom, stepY(step.id) + Math.max(STEP_H + 84, ACTION_TOP_OFFSET + count * ACTION_PITCH + 28))
+    const layout = stepActionLayout(step)
+    maxRight = Math.max(maxRight, stepX(step.id) + (count ? actionsExtentX(layout, count) : 220) + 130)
+    maxBottom = Math.max(maxBottom, stepY(step.id) + Math.max(STEP_H + 84, layout === 'row' ? STEP_H + 84 : ACTION_TOP_OFFSET + count * ACTION_PITCH + 28))
   })
 
   // ------------------------------------------------------------------
@@ -1185,7 +1252,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     if (!step) return { x: ACTION_X, y: cursorY + 46 }
     if (actionDragPos?.id === actionId) return { x: actionDragPos.x, y: actionDragPos.y }
     const index = actionsOf(step).findIndex((a) => a.id === actionId)
-    return { x: stepX(stepId) + ACTION_OFFSET_X, y: stepY(stepId) + ACTION_TOP_OFFSET + Math.max(index, 0) * ACTION_PITCH }
+    const slot = actionSlotOffset(stepActionLayout(step), Math.max(index, 0))
+    return { x: stepX(stepId) + slot.dx, y: stepY(stepId) + slot.dy }
   }
 
   freeActions.forEach((a) => {
@@ -1314,10 +1382,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       const sy = stepY(s.id)
       const actionsCount = actionsOf(s).length
       const slotMinY = sy - 30
-      const slotMaxY = sy + STEP_H + Math.max(actionsCount, 1) * ACTION_PITCH + 30
+      const rowLayout = stepActionLayout(s) === 'row'
+      const slotMaxY = sy + STEP_H + (rowLayout ? 0 : Math.max(actionsCount, 1) * ACTION_PITCH) + 30
+      const slotMaxX = rowLayout ? sx + actionsExtentX('row', actionsCount + 1) + 40 : sx + 420
 
       const inZone = (px: number, py: number) =>
-        px >= sx - 40 && px <= sx + 420 && py >= slotMinY && py <= slotMaxY
+        px >= sx - 40 && px <= slotMaxX && py >= slotMinY && py <= slotMaxY
 
       if (inZone(wx, wy)) return true
       if (ax !== undefined && ay !== undefined && inZone(ax, ay)) return true
@@ -2115,9 +2185,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     const box = boundsOf(items, 20)
     if (!box) return
     items.forEach((item) => {
-      const count = actionsOf(stepById.get(item.id)!).length
-      box.x1 = Math.max(box.x1, item.x + (count ? ACTION_OFFSET_X + ACTION_W : 220) + 20)
-      box.y1 = Math.max(box.y1, item.y + ACTION_TOP_OFFSET + Math.max(0, count - 1) * ACTION_PITCH + ACTION_H + 20)
+      const itemStep = stepById.get(item.id)!
+      const count = actionsOf(itemStep).length
+      const layout = stepActionLayout(itemStep)
+      box.x1 = Math.max(box.x1, item.x + (count ? actionsExtentX(layout, count) : 220) + 20)
+      box.y1 = Math.max(box.y1, item.y + (layout === 'row' ? STEP_H : ACTION_TOP_OFFSET + Math.max(0, count - 1) * ACTION_PITCH + ACTION_H) + 20)
     })
     const view = fitView(box, viewport.width, viewport.height, 0.15, 1.6)
     setZoom(view.scale)
@@ -3286,15 +3358,22 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     const sBottom = sY + 54
                     const tTop = tY
                     const bent = sourceX !== targetX
-                    const midY = Math.round((sBottom + tTop) / 2)
+                    // Seleção OU (IEC 60848): vários ramos alternativos partilham uma só linha horizontal;
+                    // na divergência a transição fica em cada ramo logo abaixo dessa linha, na convergência fica
+                    // em cada ramo antes de a linha se juntar.
+                    const orDivergent = transitions.some((o) => o.id !== transition.id && !o.wireless && o.from.length === 1 && o.from[0] === sourceStep.id && o.to.length === 1 && o.to[0] !== targetStep.id)
+                    const orConvergent = !orDivergent && transitions.some((o) => o.id !== transition.id && !o.wireless && o.to.length === 1 && o.to[0] === targetStep.id && o.from.length === 1 && o.from[0] !== sourceStep.id)
+                    const roomForOr = tTop - sBottom >= 70
+                    const midY = roomForOr && orDivergent ? sBottom + 26 : roomForOr && orConvergent ? tTop - 26 : Math.round((sBottom + tTop) / 2)
                     // Pontos de quebra (duplo clique na linha): o percurso passa por eles, com ângulos retos.
                     const bends = bendsOf(transition.id)
                     const linkPoints: Point[] = [{ x: sourceX, y: sBottom }, ...bends, { x: targetX, y: tTop }]
                     const linkPath = bends.length ? routeThrough(linkPoints) : routeVertical(sourceX, sBottom, targetX, tTop, midY)
                     const barMid = bends.length ? polylineMidpoint(linkPoints) : null
                     // Se as etapas não estão alinhadas, a ligação faz um "Z" e a barra fica no troço final.
-                    const tx = barMid?.x ?? targetX
-                    const ty = barMid?.y ?? (bent ? Math.round((midY + tTop) / 2) : midY)
+                    const barOnFirstLeg = !barMid && roomForOr && orConvergent
+                    const tx = barMid?.x ?? (barOnFirstLeg ? sourceX : targetX)
+                    const ty = barMid?.y ?? (barOnFirstLeg ? Math.round((sBottom + midY) / 2) : bent || (roomForOr && orDivergent) ? Math.round((midY + tTop) / 2) : midY)
 
                     return (
                       <g
@@ -3936,8 +4015,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                                   SPINE_X + 32,
                                   y + STEP_H / 2,
                                   ACTION_X - ACTION_BUS_GAP,
-                                  y + ACTION_TOP_OFFSET + actionsOf(step).length * ACTION_PITCH + ACTION_H / 2,
-                                  ACTION_X
+                                  y + ACTION_TOP_OFFSET + (stepActionLayout(step) === 'row' ? 0 : actionsOf(step).length * ACTION_PITCH) + ACTION_H / 2,
+                                  ACTION_X + (stepActionLayout(step) === 'row' ? actionsOf(step).length * ACTION_W : 0)
                                 )}
                                 fill="none"
                                 stroke="#2563eb"
@@ -3946,8 +4025,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                                 strokeLinecap="round"
                               />
                               <rect
-                                x={ACTION_X}
-                                y={y + ACTION_TOP_OFFSET + actionsOf(step).length * ACTION_PITCH}
+                                x={ACTION_X + (stepActionLayout(step) === 'row' ? actionsOf(step).length * ACTION_W : 0)}
+                                y={y + ACTION_TOP_OFFSET + (stepActionLayout(step) === 'row' ? 0 : actionsOf(step).length * ACTION_PITCH)}
                                 width={ACTION_W}
                                 height={ACTION_H}
                                 rx="3"
@@ -3957,8 +4036,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                                 strokeDasharray="5 3"
                               />
                               <text
-                                x={ACTION_X + ACTION_W / 2}
-                                y={y + ACTION_TOP_OFFSET + actionsOf(step).length * ACTION_PITCH + 19}
+                                x={ACTION_X + ACTION_W / 2 + (stepActionLayout(step) === 'row' ? actionsOf(step).length * ACTION_W : 0)}
+                                y={y + ACTION_TOP_OFFSET + (stepActionLayout(step) === 'row' ? 0 : actionsOf(step).length * ACTION_PITCH) + 19}
                                 textAnchor="middle"
                                 fill="#1d4ed8"
                                 fontSize="11"
@@ -4185,11 +4264,15 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   const linkX = stepCx + 32
                   const linkY = y + STEP_H / 2
                   const busX = actionX - ACTION_BUS_GAP
-                  const slotTop = (index: number) => y + ACTION_TOP_OFFSET + index * ACTION_PITCH
+                  const layout = stepActionLayout(step)
+                  const slotTop = (index: number) => y + actionSlotOffset(layout, index).dy
+                  const slotLeft = (index: number) => stepCx + actionSlotOffset(layout, index).dx
 
                   // Ligações etapa → ação: camada própria (as realçadas por cima das neutras, sem mistura de cores).
                   const linkLayer = actions
                     .map((action, index) => {
+                      // Em linha, só a 1.ª ação liga à etapa: as restantes encostam-se à anterior.
+                      if (layout === 'row' && index > 0) return null
                       const dragging = full && actionDragPos?.id === action.id
                       if (dragging) return null
                       const selected = isActionSelected(action.id)
@@ -4226,7 +4309,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                       {actions.map((action, actionIndex) => {
                         const dragOverride = full && actionDragPos?.id === action.id ? actionDragPos : null
                         const actionY = dragOverride ? dragOverride.y : slotTop(actionIndex)
-                        const renderX = dragOverride ? dragOverride.x : actionX
+                        const renderX = dragOverride ? dragOverride.x : slotLeft(actionIndex)
                         const actionOn = !dragOverride && !!table[action.address]
                         const isThisActionSelected = isActionSelected(action.id)
                         const isThisActionHovered = hoveredActionId === action.id
@@ -4295,7 +4378,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                               strokeWidth={isThisActionSelected || actionOn ? 2 : 1.5}
                               fill={actionOn ? '#edf9f1' : isThisActionSelected ? '#eff6ff' : 'white'}
                               textColor={isThisActionSelected ? '#1d4ed8' : actionOn ? '#15803d' : '#1e293b'}
-                              label={diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : 13)}
+                              label={diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : actionShape(action).qualifier ? 12 : 16)}
                               subLabel={action.displayDescription && action.description && action.variable && action.description !== action.variable ? diagramLabel(action.variable, isThisActionSelected || isThisActionHovered ? 10 : 16) : undefined}
                             />
 
@@ -4340,7 +4423,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                         )
                       })}
 
-                      {/* Botão + Ação ao lado direito da última ação quando a etapa está selecionada */}
+                      {/* Botão + Ação: à direita da última ação (em linha) ou por baixo (empilhadas), com a etapa selecionada */}
                       {full && isThisStepSelected && (
                         <g
                           className="grafcet-node-handle"
@@ -4353,8 +4436,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           aria-label="Adicionar ação"
                         >
                           <rect
-                            x={actionX + actionW + 16}
-                            y={slotTop(actions.length - 1) + (actionH - 22) / 2}
+                            x={layout === 'row' ? actionX + actions.length * actionW + 16 : actionX}
+                            y={layout === 'row' ? slotTop(0) + (actionH - 22) / 2 : slotTop(actions.length) + 4}
                             width="90"
                             height="22"
                             rx="4"
@@ -4364,8 +4447,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                             strokeDasharray="3 2"
                           />
                           <text
-                            x={actionX + actionW + 16 + 45}
-                            y={slotTop(actions.length - 1) + actionH / 2 + 3.5}
+                            x={layout === 'row' ? actionX + actions.length * actionW + 16 + 45 : actionX + 45}
+                            y={layout === 'row' ? slotTop(0) + actionH / 2 + 3.5 : slotTop(actions.length) + 19}
                             textAnchor="middle"
                             fill="#1d4ed8"
                             fontSize="10.5"
@@ -5050,6 +5133,25 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     <div className="grafcet-form-heading">
                       <h3>Ações</h3>
                       <button onClick={() => addActionToStep(selectedStep)}>+ ação</button>
+                    </div>
+                    <div className="grafcet-action-layout-toggle" role="group" aria-label="Disposição das ações no diagrama">
+                      <span>Disposição:</span>
+                      <button
+                        type="button"
+                        aria-pressed={stepActionLayout(selectedStep) === 'row'}
+                        onClick={() => updateStep(selectedStep.id, { actionLayout: 'row' }, 'force')}
+                        title="Ações lado a lado (a nova ação aparece à direita)"
+                      >
+                        ▭▭ Em linha
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={stepActionLayout(selectedStep) === 'column'}
+                        onClick={() => updateStep(selectedStep.id, { actionLayout: 'column' }, 'force')}
+                        title="Ações empilhadas na vertical (a nova ação aparece por baixo)"
+                      >
+                        ▭ Empilhadas
+                      </button>
                     </div>
 
                     {actionsOf(selectedStep).map((action, actionIndex) => {
