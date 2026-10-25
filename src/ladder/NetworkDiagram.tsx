@@ -159,9 +159,14 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const rawContact = (el: LadderContact) => db[el.address.toUpperCase()]?.type === 'BOOL' ? db[el.address.toUpperCase()].value === true : !!table[el.address]
   const pass = (el: LadderContact) => el.contactType === 'CMP' ? evalCompare(el, { db, timers, counters }) : el.contactType === 'NC' ? !rawContact(el) : rawContact(el)
   const rungOut = online && powered
-  const col = (p: boolean) => (!online ? C_OFF : p ? C_ON : C_IDLE)
-  const dash = (p: boolean) => (online && !p ? '5 4' : undefined)
-  const sw = (p: boolean) => (online && p ? 2.6 : 1.6)
+  // A condução local (contacto a contacto) serve as halos e o detalhe por elemento;
+  // para as LINHAS manda o RLO do motor (`powered`): quando a network está energizada
+  // por um caminho alternativo, todas as linhas ficam verdes sólidas — sem o
+  // tracejado azul entre contactos que parecia «linha partida».
+  const lineOn = (p: boolean) => online && (p || powered)
+  const col = (p: boolean) => (!online ? C_OFF : lineOn(p) ? C_ON : C_IDLE)
+  const dash = (p: boolean) => (lineOn(p) ? undefined : '5 4')
+  const sw = (p: boolean) => (lineOn(p) ? 2.6 : 1.6)
   const wire = (x1: number, y1: number, x2: number, y2: number, p: boolean, key?: string) => (
     <line key={key} x1={x1} y1={y1} x2={x2} y2={y2} stroke={col(p)} strokeWidth={sw(p)} strokeDasharray={dash(p)} strokeLinecap="square" />
   )
