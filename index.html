@@ -2,8 +2,39 @@
 <html lang="pt-PT">
   <head>
     <meta charset="UTF-8" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script>
+      // Se um HTML antigo de uma PWA apontar para um CSS já removido no deploy,
+      // invalida as caches e volta a pedir a página atualizada uma única vez.
+      (function () {
+        var key = 'dcsimu:stylesheet-recovered:v1'
+        var recovering = false
+        document.addEventListener('error', function (event) {
+          var link = event.target
+          if (!(link instanceof HTMLLinkElement) || link.rel !== 'stylesheet') return
+          if (recovering) return
+          try {
+            if (sessionStorage.getItem(key) === link.href) return
+            sessionStorage.setItem(key, link.href)
+          } catch (_) { /* armazenamento indisponível */ }
+          recovering = true
+          Promise.all([
+            ('caches' in window ? caches.keys() : Promise.resolve([])).then(function (keys) {
+              return Promise.all(keys.map(function (name) { return caches.delete(name) }))
+            }).catch(function () {}),
+            ('serviceWorker' in navigator ? navigator.serviceWorker.getRegistrations() : Promise.resolve([])).then(function (registrations) {
+              return Promise.all(registrations.map(function (registration) { return registration.unregister() }))
+            }).catch(function () {}),
+          ]).then(function () {
+            var url = new URL(window.location.href)
+            url.searchParams.set('_fresh', String(Date.now()))
+            window.location.replace(url.toString())
+          })
+        }, true)
+      })()
+    </script>
     <script>
       /* Tablet = mesmo layout do PC: em ecrãs tácteis com lado curto >= 600px o viewport passa a ter
          1200px de largura (limiar do modo compacto) e o navegador reduz a escala para caber. */
