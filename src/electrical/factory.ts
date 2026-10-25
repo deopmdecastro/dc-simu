@@ -762,11 +762,11 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
    aparelho tem a mais são criados.
 --------------------------------------------------------------------------- */
 /**
- * Recua o borne para DENTRO do furo: o ponto de ligação fica no fundo do
- * encaixe (metade da profundidade medida, no máximo 6 mm), para o cabo entrar
- * mesmo na ficha/parafuso em vez de ficar pousado na superfície.
+ * Convenção LEGADA (até 2026-10-25): recuava o borne para dentro do furo e usava
+ * «y = 0 é o topo» diretamente como `position3D`, onde y = 1 é o topo. Mantida só
+ * para reconhecer e migrar projetos guardados com essas posições.
  */
-function insetIntoHole(type: ComponentType, spot: RealTerminalSpot): { x: number; y: number; z: number } {
+function legacyInsetIntoHole(type: ComponentType, spot: RealTerminalSpot): { x: number; y: number; z: number } {
   const size = getComponentPhysicalSizeMm(type)
   const point = { x: spot.x, y: spot.y, z: spot.z }
   if (!size) return point
@@ -778,6 +778,44 @@ function insetIntoHole(type: ComponentType, spot: RealTerminalSpot): { x: number
     y: clamp(point.y + (ny * inset) / size.height),
     z: clamp(point.z + (nz * inset) / size.depth),
   }
+}
+
+/**
+ * Posição 3D do borne NA SUPERFÍCIE da face onde está o encaixe.
+ * - `realInterfaces.ts` mede y a partir do topo (0 = topo); `position3D` usa y = 1 no topo,
+ *   por isso o y é invertido aqui. Sem isto as réguas de cima e de baixo ficavam trocadas.
+ * - A coordenada normal da face é fixada a 0/1: é o que faz o borne pertencer à face
+ *   (vistas Topo/Base/Frente… do editor de bornes, que só listam bornes na superfície).
+ */
+function surfacePosition(spot: RealTerminalSpot): { x: number; y: number; z: number } {
+  const point = { x: spot.x, y: 1 - spot.y, z: spot.z }
+  switch (spot.face) {
+    case 'top': point.y = 1; break
+    case 'bottom': point.y = 0; break
+    case 'front': point.z = 1; break
+    case 'back': point.z = 0; break
+    case 'left': point.x = 0; break
+    case 'right': point.x = 1; break
+  }
+  return point
+}
+
+/** Migra bornes de projetos guardados que ainda têm a posição calculada pela convenção legada
+ *  (invertida em y e recuada do plano da face). Bornes movidos à mão não são tocados. */
+export function upgradeRealInterfacePositions(c: ElectricalComponent): ElectricalComponent {
+  const spots = REAL_TERMINALS[c.type]
+  if (!spots?.length) return c
+  let changed = false
+  const terminals = c.terminals.map((terminal) => {
+    const spot = spots.find((item) => item.label.toLocaleUpperCase() === terminal.label.toLocaleUpperCase())
+    const at = terminal.position3D
+    if (!spot || !at) return terminal
+    const legacy = legacyInsetIntoHole(c.type, spot)
+    if (Math.abs(at.x - legacy.x) > 1e-3 || Math.abs(at.y - legacy.y) > 1e-3 || Math.abs(at.z - legacy.z) > 1e-3) return terminal
+    changed = true
+    return { ...terminal, position3D: surfacePosition(spot) }
+  })
+  return changed ? { ...c, terminals } : c
 }
 
 function applyRealInterfaces() {
@@ -794,7 +832,7 @@ function applyRealInterfaces() {
       // a interface real só manda na posição 3D, nunca na vista de esquema.
       return T(existing?.label ?? spot.label, kind, existing?.x ?? spot.x, existing?.y ?? schematicY, {
         ...existing,
-        position3D: insetIntoHole(type, spot),
+        position3D: surfacePosition(spot),
         diameter: spot.diameterMm ?? existing?.diameter,
         terminalType: existing?.terminalType ?? (spot.face === 'front' || spot.face === 'back' ? 'screw' : 'screw'),
       })

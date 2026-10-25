@@ -79,7 +79,7 @@ async function main() {
           mm: hole.position.map((v) => Math.round(v * 10) / 10),
           frac: [
             Math.round(((hole.position[0] - box.min.x) / size.x) * 1000) / 1000,
-            Math.round(((box.max.y - hole.position[1]) / size.y) * 1000) / 1000, // y: 0 em cima (como position3D)
+            Math.round(((box.max.y - hole.position[1]) / size.y) * 1000) / 1000, // y: 0 em cima (convenção de realInterfaces.ts; factory.ts inverte-o para o position3D, onde y = 1 é o topo)
             Math.round(((hole.position[2] - box.min.z) / size.z) * 1000) / 1000,
           ],
           d: Math.round(hole.diameterMm * 10) / 10,

@@ -10,7 +10,9 @@ import type { ComponentType } from '../types'
  * qualquer componente novo nasce já com os bornes nos sítios certos.
  *
  * Coordenadas normalizadas na caixa do componente, como `position3D`:
- *   x: 0 = esquerda, 1 = direita · y: 0 = topo, 1 = base · z: 0 = trás, 1 = frente.
+ *   x: 0 = esquerda, 1 = direita · y: 0 = TOPO, 1 = base (medido de cima para baixo) · z: 0 = trás, 1 = frente.
+ * ATENÇÃO: o `position3D` do borne usa y = 1 no topo; `factory.ts` (surfacePosition) inverte o y e fixa o
+ * borne na superfície da face. Estes valores NÃO se copiam diretamente para `position3D`.
  */
 export interface RealTerminalSpot {
   label: string

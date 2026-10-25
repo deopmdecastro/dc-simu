@@ -21,6 +21,8 @@ import { parseDataBlocks, moveValue } from '../src/ladder/dataBlocks'
 import type { CounterTable, AddressTable, TimerTable, EdgeTable } from '../src/ladder/ladderEngine'
 import { createComponent, terminalByLabel, TEMPLATES, upgradeLogoTerminals, upgradeProauto24A } from '../src/electrical/factory'
 import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
+import { upgradeRealInterfacePositions } from '../src/electrical/factory'
+import { facesOfTerminal } from '../src/three/terminalFaces'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
 import { proautoTerminalLocal } from '../src/schematic/proautoTerminalGeometry'
 import { connectNearWireEnds, nearestTerminal, nearestModelTerminal } from '../src/schematic/terminalSnap'
@@ -519,7 +521,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   } as Wire
   const aligned = connectNearWireEnds([plc, ps], [cable])[0]
   check('cabo antigo próximo encaixa e preserva a ligação da outra ponta', aligned.fromTerminalId === screw.id && !aligned.fromPoint && aligned.toTerminalId === output.id)
-  const olderPoint = { x: center.x - 20, y: center.y - 9 }
+  const olderPoint = { x: center.x - 20, y: center.y + 9 } // para o interior do aparelho (L+ está na aresta de cima)
   const repaired = connectNearWireEnds([plc, ps], [{ ...cable, fromPoint: olderPoint }])[0]
   check('ponta antes escondida pela fotografia do PLC encaixa no parafuso', repaired.fromTerminalId === screw.id && !repaired.fromPoint)
   check('encaixe alargado só atua dentro do corpo do modelo', nearestModelTerminal([plc], { x: center.x - 300, y: center.y }, undefined, 28) === null)
@@ -784,7 +786,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     && steck.state.inA === 25 && steck.state.curve === 'C' && steck.state.poles === 1)
   check('Steck SD C25: bornes medidos ficam nas faces de cima e de baixo', (() => {
     const [top, bottom] = [terminalByLabel(steck, '1'), terminalByLabel(steck, '2')]
-    return !!top?.position3D && !!bottom?.position3D && top.position3D.y < 0.1 && bottom.position3D.y > 0.9
+    return !!top?.position3D && !!bottom?.position3D && top.position3D.y > 0.9 && bottom.position3D.y < 0.1
   })())
   check('Steck SD C25 fechado liga 1–2', internalBridges(steck).length === 1)
   const steckOpen = createComponent('breakerSteckSdC25', undefined, undefined, 0, 0, 0, { closed: false })
@@ -815,8 +817,8 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     const comp = createComponent(type)
     const labels = comp.terminals.map((terminal) => terminal.label).sort()
     check(`${label}: ${poles * 2} bornes (entradas ímpares em cima, saídas pares em baixo)`, comp.terminals.length === poles * 2
-      && Array.from({ length: poles }, (_, i) => String(i * 2 + 1)).every((n) => terminalByLabel(comp, n)?.kind === 'power-in' && (terminalByLabel(comp, n)!.position3D?.y ?? 1) < 0.1)
-      && Array.from({ length: poles }, (_, i) => String(i * 2 + 2)).every((n) => terminalByLabel(comp, n)?.kind === 'power-out' && (terminalByLabel(comp, n)!.position3D?.y ?? 0) > 0.9)
+      && Array.from({ length: poles }, (_, i) => String(i * 2 + 1)).every((n) => terminalByLabel(comp, n)?.kind === 'power-in' && (terminalByLabel(comp, n)!.position3D?.y ?? 0) > 0.9)
+      && Array.from({ length: poles }, (_, i) => String(i * 2 + 2)).every((n) => terminalByLabel(comp, n)?.kind === 'power-out' && (terminalByLabel(comp, n)!.position3D?.y ?? 1) < 0.1)
       && labels.join(',') === Array.from({ length: poles * 2 }, (_, i) => String(i + 1)).sort().join(','))
     const poleCentresMm = poles === 1 ? [8.85] : [9.15, 26.85, 44.55].slice(0, poles)
     check(`${label}: cada borne fica centrado no seu polo e na entrada de cabo (z ≈ 0,29 da profundidade)`, poleCentresMm.every((centre, i) => {
@@ -2367,6 +2369,27 @@ console.log('\n— Tabela de sinais dinâmica —')
   check("processo: T''0 devolve a 0 depois da falha", names(rt) === '0')
 }
 
+
+
+/* Bornes medidos no GLB: y medido do topo é convertido para position3D (y = 1 no topo) e fica na superfície da face. */
+{
+  const ps = createComponent('powerSupplyProauto24A')
+  const outs = ['-V2', '-V1', '+V2', '+V1', 'RDY2', 'RDY1']
+  const ins = ['PE', 'L', 'N']
+  check('Fonte Proauto: -V/+V/RDY estão na face de TOPO (y = 1, vista Topo)', outs.every((l) => facesOfTerminal(terminalByLabel(ps, l)!).includes('top') && terminalByLabel(ps, l)!.position3D!.y === 1))
+  check('Fonte Proauto: PE/L/N estão na face de BASE (y = 0, vista Base)', ins.every((l) => facesOfTerminal(terminalByLabel(ps, l)!).includes('bottom') && terminalByLabel(ps, l)!.position3D!.y === 0))
+  check('Fonte Proauto: nenhum borne fica fora de uma face nem na frente', ps.terminals.every((t) => { const f = facesOfTerminal(t); return f.length > 0 && !f.includes('front') }))
+  const logo = createComponent('plcSiemensLogo1224RC')
+  check('LOGO!: entradas I em cima e saídas Q em baixo', facesOfTerminal(terminalByLabel(logo, 'I0.0')!).includes('top') && facesOfTerminal(terminalByLabel(logo, 'Q0.0')!).includes('bottom'))
+  check('Esquema 2D: +V1 no topo e PE na base da fonte', terminalPos(ps, terminalByLabel(ps, '+V1')!).y < 1 && terminalPos(ps, terminalByLabel(ps, 'PE')!).y > ps.h - 1)
+  // Projeto guardado com a posição legada (invertida e recuada): migra; um borne movido à mão fica intacto.
+  const legacy = { ...ps, terminals: ps.terminals.map((t) => t.label === '+V1' ? { ...t, position3D: { x: 0.57, y: 0.0214190093708166, z: 0.848 } }
+    : t.label === 'PE' ? { ...t, position3D: { x: 0.5, y: 0.5, z: 0.5 } } : t) }
+  const migrated = upgradeRealInterfacePositions(legacy)
+  check('Migração: borne com posição legada passa para a face de topo', terminalByLabel(migrated, '+V1')!.position3D!.y === 1)
+  check('Migração: borne movido à mão não é alterado', terminalByLabel(migrated, 'PE')!.position3D!.y === 0.5)
+  check('Migração: é idempotente', upgradeRealInterfacePositions(migrated) === migrated)
+}
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)
