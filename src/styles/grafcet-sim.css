@@ -133,3 +133,22 @@
 .gsim-uses { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 2px; color: #64758c; font-size: 11px; }
 .gsim-uses button { min-height: 24px; padding: 0 9px; border-radius: 999px; }
 @media (max-width: 420px) { .gsim-seg button { font-size: 10.5px; padding: 4px 3px; } }
+
+/* ───── v6: selo STOP em linha própria + seletor de modo legível em STOP ───── */
+.gsim-head { flex-wrap: wrap; }
+.gsim-stop-hint { flex: 1 1 100%; order: 3; margin-top: 2px; padding: 6px 10px; border-radius: 8px; background: #fff8e8; border: 1px solid #f0dba8; color: #8a5a06; font-size: 11px; font-weight: 600; text-align: left; }
+/* desativado ≠ apagado: restam legíveis (estão «congelados», não inexistentes) */
+.gsim-seg button:disabled { opacity: 1; color: #94a3b8; background: transparent; cursor: not-allowed; }
+.gsim-seg button.is-active:disabled { background: #fff; color: #7b93b5; box-shadow: 0 1px 3px #1d35521a; }
+.gsim-actuator:disabled { opacity: 1; background: #e9edf3; border-color: #d7e0ec; color: #6b7a90; cursor: not-allowed; }
+.gsim-actuator:disabled .gsim-actuator-state { color: #94a3b8; }
+.gsim-actuator:disabled i { background: #a9b8c9; box-shadow: 0 0 0 1px #cbd5e1; }
+.gsim-actuator.is-on:disabled { background: #e4f2e9; color: #3d7a58; }
+.gsim-actuator.is-on:disabled i { background: #35a166; }
+/* respiros do painel do simulador */
+.gsim { gap: 14px; }
+.gsim-section { gap: 10px; }
+.gsim-input { gap: 10px; }
+.gsim-state { gap: 9px; padding: 12px; }
+.gsim-transition { padding: 10px 12px; }
+.gsim-transition-top { gap: 8px; }
