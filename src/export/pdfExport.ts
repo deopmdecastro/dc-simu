@@ -309,7 +309,7 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
     const blocksPlan = collectLadderBlocks(src).filter((b) => (opts.ladder[b.id] ?? []).length > 0)
     const contents = [
       opts.info && 'Informações do projeto',
-      opts.tags && `Tabela de tags (${src.tags.length})`,
+      opts.tags && src.tags.length > 0 && `Tabela de tags (${src.tags.length})`,
       opts.schematic && src.components.length > 0 && 'Esquema elétrico',
       opts.grafcet && (src.grafcet?.steps?.length ?? 0) > 0 && `GRAFCET (${src.grafcet.steps.length} etapas)`,
       ...blocksPlan.map((b) => `Ladder — ${b.title} (${(opts.ladder[b.id] ?? []).length} networks)`),
@@ -317,7 +317,7 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
     newPage(); coverPage(doc, src, contents); sections.push('Capa')
   }
   if (opts.info) { newPage(); infoPage(doc, src); sections.push('Informações do projeto') }
-  if (opts.tags) { newPage(); tagsPage(doc, src); sections.push('Tabela de tags') }
+  if (opts.tags && src.tags.length > 0) { newPage(); tagsPage(doc, src); sections.push('Tabela de tags') }
 
   if (opts.schematic && src.components.length === 0) {
     // Sem componentes a captura seria uma grelha vazia: não gasta uma página.

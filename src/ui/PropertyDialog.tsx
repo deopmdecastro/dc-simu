@@ -23,10 +23,12 @@ interface PropertyDialogProps {
   closeLabel?: string
   /** Dica à esquerda do rodapé (por omissão «Esc para cancelar»). */
   footerHint?: string
+  /** Texto junto ao atalho Ctrl/⌘ Enter (por omissão «guardar»). */
+  saveShortcutLabel?: string
 }
 
 /** Shared keyboard boundary: diagram shortcuts must never consume modal keys. */
-export default function PropertyDialog({ open, id, title, subtitle, children, onClose, onSave, onHelp, onEscape, className = '', saveDisabled = false, eyebrow = 'GRAFCET · IEC 60848', saveLabel = 'Guardar alterações', hideSave = false, closeLabel = 'Cancelar', footerHint = 'Esc para cancelar' }: PropertyDialogProps) {
+export default function PropertyDialog({ open, id, title, subtitle, children, onClose, onSave, onHelp, onEscape, className = '', saveDisabled = false, eyebrow = 'GRAFCET · IEC 60848', saveLabel = 'Guardar alterações', hideSave = false, closeLabel = 'Cancelar', footerHint = 'Esc para cancelar', saveShortcutLabel = 'guardar' }: PropertyDialogProps) {
   const dialogRef = useRef<HTMLFormElement>(null)
   const closeRef = useRef(onClose)
   const escapeRef = useRef(onEscape)
@@ -86,7 +88,7 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
         <div className="grafcet-property-content">{children}</div>
         <footer className="grafcet-property-footer">
           {onHelp && <button type="button" className="grafcet-property-help" onClick={onHelp}>Ajuda dos atalhos</button>}
-          <span className="grafcet-property-footer-hint">{footerHint === 'Esc para cancelar' ? <><kbd>Esc</kbd> cancelar</> : footerHint}{!hideSave && <><span className="grafcet-footer-separator">·</span><kbd>Ctrl/⌘ Enter</kbd> guardar</>}</span>
+          <span className="grafcet-property-footer-hint">{footerHint === 'Esc para cancelar' ? <><kbd>Esc</kbd> cancelar</> : footerHint}{!hideSave && <><span className="grafcet-footer-separator">·</span><kbd>Ctrl/⌘ Enter</kbd> {saveShortcutLabel}</>}</span>
           <button type="button" className="grafcet-fluidsim-btn" onClick={onClose}>{closeLabel}</button>
           {!hideSave && <button type="submit" className="grafcet-fluidsim-btn primary" disabled={saveDisabled} aria-keyshortcuts="Control+Enter Meta+Enter"><IconSave size={13} />{saveLabel}</button>}
         </footer>

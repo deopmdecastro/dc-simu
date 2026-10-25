@@ -4,6 +4,7 @@
  *  imagens (NetworkDiagram/GrafcetEditor montados fora do ecrã). */
 import { useMemo, useState } from 'react'
 import PropertyDialog from '../ui/PropertyDialog'
+import { IconChevronDown } from '../ui/icons'
 import { useSimStore } from '../store/useSimStore'
 import {
   collectLadderBlocks, defaultPdfOptions, generateProjectPdf,
@@ -93,17 +94,20 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
     setBlockRungs(block, [...cur])
   }
 
-  const networksPicked = Object.values(opts.ladder).reduce((n, v) => n + v.length, 0)
-  const networksTotal = blocks.reduce((n, b) => n + b.rungs.length, 0)
-  const nothing =
-    !opts.cover && !opts.info && !opts.tags && !opts.schematic && !opts.grafcet && networksPicked === 0
-
   const schematicEmpty = state.components.length === 0
   const grafcetEmpty = state.grafcet.steps.length === 0
+  const tagsEmpty = state.tags.length === 0
+
+  const networksPicked = Object.values(opts.ladder).reduce((n, v) => n + v.length, 0)
+  const networksTotal = blocks.reduce((n, b) => n + b.rungs.length, 0)
+  // Só conta o que realmente entra no PDF (áreas vazias são omitidas).
+  const nothing =
+    !opts.cover && !opts.info && !(opts.tags && !tagsEmpty) && !(opts.schematic && !schematicEmpty) && !(opts.grafcet && !grafcetEmpty) && networksPicked === 0
+
 
   // Estimativa de páginas: capa/info/tags/esquema/GRAFCET = 1 cada; ladder ≈ 4 networks por página.
   const pageEstimate =
-    (opts.cover ? 1 : 0) + (opts.info ? 1 : 0) + (opts.tags ? Math.max(1, Math.ceil(state.tags.length / 40)) : 0) +
+    (opts.cover ? 1 : 0) + (opts.info ? 1 : 0) + (opts.tags && !tagsEmpty ? Math.ceil(state.tags.length / 40) : 0) +
     (opts.schematic && !schematicEmpty ? 1 : 0) +
     (opts.grafcet && !grafcetEmpty ? Math.max(1, opts.grafcetCharts.length || charts.length) : 0) +
     blocks.reduce((n, b) => { const k = (opts.ladder[b.id] ?? []).length; return n + (k ? Math.ceil(k / 4) : 0) }, 0)
@@ -154,7 +158,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
       title="Exportar para PDF" subtitle="Escolhe os conteúdos — o documento usa o desenho real do editor"
       onClose={onClose} onSave={() => void run()}
       saveLabel={busy ? 'A gerar…' : 'Exportar PDF'} saveDisabled={busy || nothing}
-      closeLabel="Fechar" footerHint={`${networksPicked}/${networksTotal} networks de ladder · ≈ ${pageEstimate} pág. · Ctrl/⌘ Enter exporta`}
+      closeLabel="Fechar" footerHint={`${networksPicked}/${networksTotal} networks de ladder · ≈ ${pageEstimate} pág.`} saveShortcutLabel="exportar"
       className="pdf-export-dialog is-wide"
     >
       <div className="pdf-export-body">
@@ -162,7 +166,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
           <span className="pdfx-brand" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 64 64"><rect x="3" y="3" width="58" height="58" rx="14" fill="#2655e5" /><path d="M35 10 17 35h12l-3 19 21-29H34z" fill="#fff" stroke="#fff" strokeLinejoin="round" strokeWidth="2" /></svg></span>
           <span className="pdfx-toolbar-label">Seleção rápida</span>
           <button type="button" onClick={() => preset('all')}>Tudo</button>
-          <button type="button" onClick={() => preset('ladder')}>Só ladder</button>
+          <button type="button" onClick={() => preset('ladder')} disabled={networksTotal === 0} title={networksTotal === 0 ? 'Este projeto ainda não tem networks de ladder' : undefined}>Só ladder</button>
           <button type="button" onClick={() => preset('none')}>Nada</button>
           <span className="pdfx-pages" title="Estimativa — o número final depende do tamanho dos diagramas">≈ {pageEstimate} página{pageEstimate === 1 ? '' : 's'}</span>
         </div>
@@ -170,7 +174,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
           <Section title="Documento" hint="Estrutura e dados do projeto">
             <label><input type="checkbox" checked={opts.cover} onChange={() => toggle('cover')} /> <span>Capa com a marca DC-Simu e estatísticas</span></label>
             <label><input type="checkbox" checked={opts.info} onChange={() => toggle('info')} /> <span>Informações do projeto</span></label>
-            <label><input type="checkbox" checked={opts.tags} onChange={() => toggle('tags')} /> <span>Tabela de tags <em>({state.tags.length})</em></span></label>
+            <label className={tagsEmpty ? 'is-empty' : ''} title={tagsEmpty ? 'Sem tags — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.tags && !tagsEmpty} disabled={tagsEmpty} onChange={() => toggle('tags')} /> <span>Tabela de tags <em>({tagsEmpty ? 'vazia — omitida' : state.tags.length})</em></span></label>
           </Section>
           <Section title="Diagramas" hint="Capturados tal como estão no editor">
             <label className={schematicEmpty ? 'is-empty' : ''} title={schematicEmpty ? 'Sem componentes no esquema — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.schematic && !schematicEmpty} disabled={schematicEmpty} onChange={() => toggle('schematic')} /> <span>Esquema elétrico — vista 3D atual <em>({schematicEmpty ? 'vazio — omitido' : `${state.components.length} componentes`})</em></span></label>
@@ -187,7 +191,13 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
             )}
           </Section>
         </div>
-        <Section title="Ladder" hint={`${blocks.length} bloco(s) · escolhe blocos e networks`}>
+        <Section title="Ladder" hint={networksTotal ? `${blocks.length} bloco(s) · escolhe blocos e networks` : 'sem networks'}>
+          {!networksTotal && (
+            <div className="pdfx-empty" role="note">
+              <strong>Ainda não há networks de ladder neste projeto</strong>
+              <span>Cria networks no editor Ladder (ou gera-as a partir do GRAFCET) e aparecem aqui para escolheres o que exportar.</span>
+            </div>
+          )}
           <ul className="pdf-export-blocks">
             {blocks.map((block) => {
               const picked = opts.ladder[block.id] ?? []
@@ -208,10 +218,12 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
                       {block.rungs.length > 1 && <>
                         <button type="button" onClick={() => setBlockRungs(block, block.rungs.map((_, i) => i))}>todas</button>
                         <button type="button" onClick={() => setBlockRungs(block, [])}>nenhuma</button>
+                        <span className="pdf-export-tools-sep" aria-hidden="true" />
                       </>}
                       {block.rungs.length > 0 && (
-                        <button type="button" className="pdf-export-expand" onClick={() => setExpanded(openBlock ? null : block.id)}>
-                          {openBlock ? '▾ fechar' : '▸ escolher networks'}
+                        <button type="button" className={`pdf-export-expand ${openBlock ? 'is-open' : ''}`} onClick={() => setExpanded(openBlock ? null : block.id)} aria-expanded={openBlock}>
+                          {openBlock ? 'fechar' : 'escolher networks'}
+                          <IconChevronDown size={10} className="pdf-export-chevron" />
                         </button>
                       )}
                     </span>

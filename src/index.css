@@ -2813,6 +2813,48 @@ input[list]:focus::-webkit-calendar-picker-indicator {
 @keyframes pdfx-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pdfx-spinner { animation: none; } }
 .pdf-export-notice { margin: 0; padding: 9px 12px; border-radius: 9px; background: #eef4ff; border: 1px solid #cfddfa; color: #33416b; font-size: 11.5px; }
+/* ───── Exportar PDF · espaçamentos v2 ───── */
+.pdf-export-body { gap: 18px; padding-bottom: 4px; }
+.pdf-export-grid { gap: 16px; }
+.pdf-export-body .pdfx-toolbar { flex-wrap: wrap; gap: 8px; padding: 10px 14px; }
+.pdf-export-body .pdfx-toolbar-label { margin-right: 6px; }
+.pdf-export-body .pdfx-toolbar button { padding: 5px 13px; }
+.pdf-export-body .pdfx-pages { padding: 4px 12px; }
+.pdf-export-body .pdfx-section { gap: 4px; padding: 16px 18px 14px; border-radius: 14px; }
+.pdf-export-body .pdfx-section > header { align-items: center; margin-bottom: 8px; padding-bottom: 10px; border-bottom: 1px solid #edf1f8; }
+.pdf-export-body .pdfx-section > header small { font-size: 10.5px; }
+.pdf-export-body .pdfx-section > label { min-height: 30px; padding: 3px 4px; margin: 0 -4px; border-radius: 7px; transition: background .12s; }
+.pdf-export-body .pdfx-section > label:hover:not(.is-empty) { background: #f1f5fd; }
+.pdf-export-body label { gap: 10px; }
+.pdf-export-body label em { margin-left: 4px; }
+.pdf-export-body .pdf-export-sub { margin: 4px 0 4px 28px; gap: 8px; }
+.pdf-export-body .pdf-export-chip { padding: 4px 12px; }
+.pdf-export-body .pdf-export-blocks { gap: 8px; }
+.pdf-export-body .pdf-export-blocks > li { padding: 8px 12px; border-radius: 10px; border-color: #edf1f8; background: #fff; }
+.pdf-export-body .pdf-export-blocks > li.is-picked { background: #f4f8ff; border-color: #d9e4fa; }
+.pdf-export-body .pdf-export-block-row { gap: 14px; min-height: 28px; }
+.pdf-export-body .pdf-export-row-tools { gap: 4px; flex: none; }
+.pdf-export-body .pdf-export-row-tools button { padding: 4px 8px; }
+.pdf-export-tools-sep { width: 1px; height: 14px; margin: 0 6px; background: #dbe3f0; }
+.pdf-export-body .pdf-export-expand { display: inline-flex; align-items: center; gap: 7px; padding: 4px 8px 4px 10px; border: 1px solid #d7deeb; background: #fff; }
+.pdf-export-body .pdf-export-expand:hover { border-color: #93b4f5; background: #f4f8ff; }
+.pdf-export-body .pdf-export-expand:focus-visible, .pdf-export-body .pdf-export-row-tools button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+.pdf-export-chevron { transition: transform .15s; }
+.pdf-export-expand.is-open .pdf-export-chevron { transform: rotate(180deg); }
+.pdf-export-body .pdf-export-rungs { margin: 10px 0 4px 28px; padding: 12px 16px; gap: 8px 20px; }
+.pdf-export-body .pdf-export-notice { margin-top: 2px; padding: 11px 14px; line-height: 1.45; }
+@media (max-width: 640px) {
+  .pdf-export-body .pdf-export-block-row { flex-wrap: wrap; row-gap: 6px; }
+  .pdf-export-body .pdf-export-rungs { margin-left: 0; grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .pdf-export-chevron { transition: none; } }
+/* Estado vazio e secções que não encolhem (antes a secção Ladder vazia ficava cortada) */
+.pdf-export-body > * { flex-shrink: 0; }
+.pdf-export-body .pdfx-section { min-height: 0; }
+.pdf-export-body .pdfx-empty { display: grid; gap: 4px; padding: 16px 18px; border: 1px dashed #cfd9ea; border-radius: 10px; background: #fff; color: #6b7a90; font-size: 11.5px; line-height: 1.5; text-align: center; }
+.pdf-export-body .pdfx-empty strong { color: #475569; font-size: 12px; }
+.pdfx-toolbar button:disabled { opacity: .45; cursor: not-allowed; }
+.pdfx-toolbar button:disabled:hover { background: #fff; border-color: #cfddfa; }
 
 /* estados vazios do painel de estado */
 .ladder-status-empty.is-ok { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 12px; display: inline-block; font-weight: 600; }
