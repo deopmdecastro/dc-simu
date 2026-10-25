@@ -100,3 +100,49 @@
 .ladder-word-chip em { font-style: normal; font-size: 10px; color: #94a3b8; }
 .ladder-word-chip.is-done { border-color: #86d3a6; background: #f3fbf6; }
 @media (prefers-reduced-motion: reduce) { .ladder-run-pill.is-running i { animation: none; } }
+
+/* ───────── Painel de E/S · v3 (UX) ───────── */
+/* Stepper segmentado: − valor + num único controlo */
+.vio-panel .vio-stepper { display: inline-flex; align-items: stretch; height: 26px; border: 1px solid var(--line, #d6dae1); border-radius: 7px; overflow: hidden; background: var(--surface-panel, #fff); }
+.vio-panel .vio-stepper button { min-width: 28px; height: auto; padding: 0 8px; border: 0; border-radius: 0; background: transparent; font-size: 14px; line-height: 1; font-weight: 600; cursor: pointer; }
+.vio-panel .vio-stepper button:hover:not(:disabled) { background: #eff4ff; color: #2563eb; }
+.vio-panel .vio-stepper button:active:not(:disabled) { background: #dbe7ff; }
+.vio-panel .vio-stepper button:disabled { opacity: .35; cursor: default; }
+.vio-panel .vio-stepper .vio-count { display: grid; place-items: center; min-width: 30px; padding: 0 4px; border-inline: 1px solid var(--line, #d6dae1); font-size: 12px; font-variant-numeric: tabular-nums; }
+.vio-panel .vio-actions .vio-clear { height: 26px; padding: 0 10px; margin-left: 4px; }
+.vio-panel .vio-stepper button:focus-visible, .vio-panel .vio-actions button:focus-visible, .vio-panel .vio-add:focus-visible, .vio-panel .vio-mode:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+
+/* Célula de entrada: o botão + a etiqueta de tipo (INT / NO / NC) */
+.vio-inputs { padding-top: 5px; }
+.vio-cell { position: relative; display: grid; }
+.vio-cell > .vio-switch { width: 100%; }
+.vio-mode { position: absolute; top: -6px; right: -4px; z-index: 1; height: 16px; min-width: 26px; padding: 0 5px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; color: #64748b; font: 700 9px/14px ui-monospace, monospace; letter-spacing: .03em; text-align: center; cursor: pointer; box-shadow: 0 1px 2px rgba(15, 23, 42, .08); transition: background .12s, color .12s, border-color .12s; }
+.vio-mode:hover { border-color: #2563eb; color: #2563eb; background: #eff4ff; }
+.vio-mode.is-push { border-color: #93b4f5; color: #1d4ed8; background: #eff4ff; }
+.vio-mode.is-nc { border-color: #fca5a5; color: #b91c1c; background: #fef2f2; }
+
+/* Dica única e discreta, em vez de depender do botão direito */
+.vio-hint { margin: 2px 0 0; color: #94a3b8; font-size: 10.5px; line-height: 1.5; }
+.vio-hint b { font-family: ui-monospace, monospace; font-size: 10px; color: #64748b; }
+.vio-hint kbd { padding: 0 4px; border: 1px solid #e1e7f0; border-bottom-width: 2px; border-radius: 4px; background: #f8fafc; color: #64748b; font: 600 10px/1.5 inherit; }
+
+/* Estados vazios com ação direta */
+.vio-empty-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 10px; border: 1px dashed #d6dae1; border-radius: 8px; background: #fafbfd; }
+.vio-add { height: 24px; padding: 0 10px; border: 1px solid #93b4f5; border-radius: 6px; background: #eff4ff; color: #1d4ed8; font-size: 11px; font-weight: 600; cursor: pointer; }
+.vio-add:hover { background: #dbe7ff; }
+
+/* Separador entre colunas quando há largura */
+@container (min-width: 760px) {
+  .vio-cols > .vio-col + .vio-col { padding-left: 24px; border-left: 1px solid #eef1f6; }
+}
+
+/* Alvos de toque maiores em ecrãs táteis */
+@media (pointer: coarse) {
+  .vio-panel .vio-stepper { height: 34px; }
+  .vio-panel .vio-stepper button { min-width: 36px; }
+  .vio-panel .vio-actions .vio-clear { height: 34px; }
+  .vio-switch { min-height: 54px; }
+  .vio-mode { height: 22px; min-width: 32px; font-size: 10px; line-height: 20px; top: -8px; }
+  .vio-add { height: 32px; }
+}
+@media (prefers-reduced-motion: reduce) { .vio-switch, .vio-mode, .vio-lamp { transition: none; } }

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useSimStore } from '../store/useSimStore'
+import { useSimStore, type VirtualInputMode } from '../store/useSimStore'
 import { bitAddresses, bitAddressOrder } from '../ladder/addresses'
 import VirtualInputButton from './VirtualInputButton'
 
@@ -16,6 +16,8 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
   const setOutputCount = useSimStore((s) => s.setVirtualOutputCount)
   const setMemoryCount = useSimStore((s) => s.setVirtualMemoryCount)
   const clear = useSimStore((s) => s.clearVirtualInputs)
+  const modes = useSimStore((s) => s.virtualInputModes)
+  const setMode = useSimStore((s) => s.setVirtualInputMode)
   const hasPlc = useSimStore((s) => s.components.some((c) => /^plc/i.test(c.type)))
 
   const nameOf = (address: string) => { const n = tags.find((t) => t.address.toUpperCase() === address)?.name; return n && n.toUpperCase() !== address ? n : undefined }
@@ -38,12 +40,28 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
   const activeMemories = memories.filter((a) => table[a]).length
 
   const stepper = (value: number, set: (n: number) => void, kind: 'entradas' | 'saídas' | 'memórias', min: number) => (
-    <span className="vio-actions">
+    <span className="vio-stepper" role="group" aria-label={`Quantidade de ${kind}`}>
       <button type="button" onClick={(e) => set(value - (e.shiftKey ? 8 : 1))} disabled={value <= min} title={`Menos ${kind} (Shift = −8)`} aria-label={`Menos ${kind}`}>−</button>
-      <span className="vio-count">{value}</span>
+      <output className="vio-count" aria-live="polite">{value}</output>
       <button type="button" onClick={(e) => set(value + (e.shiftKey ? 8 : 1))} disabled={value >= 32} title={`Mais ${kind} (Shift = +8)`} aria-label={`Mais ${kind}`}>+</button>
     </span>
   )
+
+  // Tipo de botão visível e clicável (antes só havia o botão direito, inacessível em toque).
+  const MODE_NEXT: Record<VirtualInputMode, VirtualInputMode> = { latch: 'push', push: 'nc', nc: 'latch' }
+  const MODE_LABEL: Record<VirtualInputMode, string> = { latch: 'INT', push: 'NO', nc: 'NC' }
+  const MODE_NAME: Record<VirtualInputMode, string> = { latch: 'interruptor (liga/desliga)', push: 'botão de pressão NO', nc: 'botão NC (repousa a 1)' }
+  const inputCell = (address: string) => {
+    const name = nameOf(address)
+    const mode: VirtualInputMode = modes[address] ?? 'latch'
+    return <div key={address} className="vio-cell">
+      <VirtualInputButton address={address} className="vio-switch" title={`${address}${name ? ` · ${name}` : ''}`}>
+        <i /><b>{address}</b><small>{name ?? '—'}</small>
+      </VirtualInputButton>
+      <button type="button" className={`vio-mode is-${mode}`} onClick={() => setMode(address, MODE_NEXT[mode])}
+        title={`${address}: ${MODE_NAME[mode]} — clique para mudar o tipo`} aria-label={`Tipo de ${address}: ${MODE_NAME[mode]}. Mudar tipo`}>{MODE_LABEL[mode]}</button>
+    </div>
+  }
 
   const lamp = (address: string) => {
     const name = nameOf(address)
@@ -58,17 +76,13 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
           <strong>Entradas virtuais <em className={activeInputs ? 'is-live' : ''}>{activeInputs}/{count}</em></strong>
           <span className="vio-actions">
             {stepper(count, setCount, 'entradas', 1)}
-            <button type="button" onClick={clear} disabled={!activeInputs} title="Desligar todas as entradas">Limpar</button>
+            <button type="button" className="vio-clear" onClick={clear} disabled={!activeInputs} title="Desligar todas as entradas">Limpar</button>
           </span>
         </div>
         <div className="vio-inputs">
-          {addresses.map((address) => {
-            const name = nameOf(address)
-            return <VirtualInputButton key={address} address={address} className="vio-switch" title={`${address}${name ? ` · ${name}` : ''}`}>
-              <i /><b>{address}</b><small>{name ?? '—'}</small>
-            </VirtualInputButton>
-          })}
+          {addresses.map(inputCell)}
         </div>
+        <p className="vio-hint"><kbd>Clique</kbd> liga/desliga · <kbd>Shift</kbd> pressão momentânea · a etiqueta <b>INT</b>/<b>NO</b>/<b>NC</b> muda o tipo de botão</p>
       </div>
       <div className="vio-col">
         <div className="vio-head">
@@ -77,14 +91,17 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
         </div>
         <div className="vio-outputs">
           {outputs.map(lamp)}
-          {!outputs.length && <small className="vio-empty">Sem saídas — usa «+» para mostrar Q0.0…</small>}
+          {!outputs.length && <div className="vio-empty-row"><small className="vio-empty">Sem saídas visíveis.</small><button type="button" className="vio-add" onClick={() => setOutputCount(1)}>+ Mostrar Q0.0</button></div>}
         </div>
         <div className="vio-head vio-head-m">
           <strong>Memórias (M) <em className={activeMemories ? 'is-live' : ''}>{activeMemories} ativa{activeMemories === 1 ? '' : 's'}</em></strong>
           {stepper(memoryCount, setMemoryCount, 'memórias', 0)}
         </div>
         {memoryCount === 0 && !memories.length
-          ? <small className="vio-empty">Sem memórias visíveis — usa «+» para acrescentar M0.0, M0.1… ou o programa mostra-as ao ligar.</small>
+          ? <div className="vio-empty-row">
+              <small className="vio-empty">Sem memórias visíveis. O programa mostra-as ao ligar.</small>
+              <button type="button" className="vio-add" onClick={() => setMemoryCount(1)}>+ Adicionar M0.0</button>
+            </div>
           : <div className="vio-outputs">{memories.map(lamp)}</div>}
       </div>
     </div>
