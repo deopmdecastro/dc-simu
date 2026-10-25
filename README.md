@@ -9,6 +9,10 @@ bornes/cabos, um **motor Ladder** que executa ciclos de varredura (scan) reais e
 sequência de fases** que decide o sentido de rotação do motor a partir de como as fases chegam em
 U1/V1/W1.
 
+## Importação de GRAFCET FluidSIM 4
+
+O editor GRAFCET aceita ficheiros `.ct` do FluidSIM 4, com leitura local de etapas, transições, ações contínuas/condicionadas e ligações. A confirmação mostra o resumo e os avisos antes de substituir o diagrama; a operação permite desfazer. Consulte [compatibilidade, limites e testes](docs/FLUIDSIM-IMPORT.md), incluindo referências a gráficos externos.
+
 ## Novidades — v5.1 (grelha comum e reforço de segurança)
 
 - **Grelha alinhada**: Esquema 2D, GRAFCET, fundo do editor 3D Admin e grelha física do editor 3D usam o mesmo passo de referência de 20 unidades (20 px nos editores planos; 20 mm no chão 3D). O GRAFCET continua a adaptar a densidade visível ao zoom sem alterar o encaixe.

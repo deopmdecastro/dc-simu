@@ -6,6 +6,7 @@ import SignalPicker from './SignalPicker'
 import { canonicalSignalAddress, type GrafcetSignalSuggestion } from './signals'
 import ActionSymbol from './ActionSymbol'
 import { IconChevronRight } from '../ui/icons'
+import '../styles/grafcet-dialog-ux.css'
 
 interface ActionDialogProps {
   open: boolean
@@ -131,11 +132,11 @@ export default function ActionDialog({ open, action, signals = [], availableStep
   )
 
   return (
-    <PropertyDialog open={open} id="action-dialog" title="Propriedades da ação" subtitle="Escolha a saída, o tipo de ação e quando ela atua." onSave={handleOk} onClose={onClose}>
+    <PropertyDialog open={open} id="action-dialog" className="grafcet-compact-dialog grafcet-action-dialog" title="Propriedades da ação" subtitle="Defina a saída, quando atua e o seu comportamento." onSave={handleOk} onClose={onClose}>
       <div className="grafcet-property-grid">
         <section className="grafcet-property-fields" aria-label="Definições da ação">
           <div className="grafcet-step-block">
-            <h3 className="grafcet-step-heading"><span>1</span>Saída ou número da ação</h3>
+            <h3 className="grafcet-step-heading"><span>1</span><label htmlFor="action-var-input">Saída ou número da ação</label></h3>
             <div className="grafcet-var-row">
               <input id="action-var-input" data-initial-focus className="dc-input grafcet-code-input" list="grafcet-action-variables-list" value={variable} onChange={(e) => setVariable(e.target.value)} placeholder="Ex.: 1, Q1, Motor_A" aria-invalid={submitted && !!variableError} aria-describedby={submitted && variableError ? 'action-var-error' : undefined} />
               {numberOnly && !variableError && <span className="grafcet-var-resolved" title="Só o número foi indicado">→ <code>{resolved}</code></span>}
@@ -151,20 +152,15 @@ export default function ActionDialog({ open, action, signals = [], availableStep
           </div>
 
           <div className="grafcet-step-block">
-            <h3 className="grafcet-step-heading"><span>2</span>Tipo de ação</h3>
             <div className="grafcet-type-box" role="group" aria-label="Tipo de ação">
-              <fieldset className="grafcet-type-group">
+              <fieldset className="grafcet-type-group grafcet-assignment-grid">
                 <legend>Atribuição</legend>
                 {ASSIGNATIONS.map((item) => typeCard('assignation', assignation === item.id, () => setAssignation(item.id), item.label, item.hint,
                   <ActionGlyph mini assignation={item.id} allocation="continuous" />))}
               </fieldset>
-              <fieldset className="grafcet-type-group">
+              <fieldset className="grafcet-type-group grafcet-allocation-grid">
                 <legend>Alocação</legend>
-                {ALLOCATIONS.filter((item) => item.id !== 'compulsory').map((item) => typeCard('allocation', allocation === item.id, () => setAllocation(item.id), item.label, item.hint,
-                  <ActionGlyph mini assignation={assignation} allocation={item.id} />))}
-              </fieldset>
-              <fieldset className="grafcet-type-group grafcet-type-group-single">
-                {ALLOCATIONS.filter((item) => item.id === 'compulsory').map((item) => typeCard('allocation', allocation === item.id, () => setAllocation(item.id), item.label, item.hint,
+                {ALLOCATIONS.map((item) => typeCard('allocation', allocation === item.id, () => setAllocation(item.id), item.label, item.hint,
                   <ActionGlyph mini assignation={assignation} allocation={item.id} />))}
               </fieldset>
             </div>
@@ -173,14 +169,16 @@ export default function ActionDialog({ open, action, signals = [], availableStep
 
           {allocation === 'continuous' && (
             <div className="grafcet-step-block">
-              <h3 className="grafcet-step-heading"><span>3</span>Qualificador</h3>
               <div className="grafcet-type-box" role="group" aria-label="Qualificador IEC">
-                <fieldset className="grafcet-type-group">
+                <fieldset className="grafcet-type-group grafcet-qualifier-grid">
                   <legend>Qualificador IEC</legend>
-                  {ACTION_KINDS.filter((item) => QUALIFIERS.includes(item.id)).map((item) => typeCard('qualifier', kind === item.id, () => setKind(item.id), `${item.id} — ${QUALIFIER_LABELS[item.id] ?? item.label}`, item.hint,
-                    <ActionGlyph mini assignation={assignation} allocation="continuous" qualifier={item.id === 'N' ? undefined : item.id} />))}
+                  {ACTION_KINDS.filter((item) => QUALIFIERS.includes(item.id)).map((item) => <label key={item.id} className={`grafcet-qualifier-choice ${kind === item.id ? 'is-selected' : ''}`} title={item.hint}>
+                    <input type="radio" name="qualifier" checked={kind === item.id} onChange={() => setKind(item.id)} aria-label={`${item.id} — ${QUALIFIER_LABELS[item.id] ?? item.label}`} />
+                    <code>{item.id}</code><span>{QUALIFIER_LABELS[item.id]}</span>
+                  </label>)}
                 </fieldset>
               </div>
+              <p className="grafcet-property-note grafcet-qualifier-hint" aria-live="polite">{selectedKind?.hint}</p>
               {timed && <div className="grafcet-property-field">
                 <label htmlFor="action-time-input">{effectiveKind === 'D' ? 'Atraso' : 'Duração máxima'} <span className="grafcet-optional">segundos</span></label>
                 <input id="action-time-input" type="number" step="any" min="0" className="dc-input grafcet-code-input" value={duration} onChange={(e) => setDuration(e.target.value)} aria-invalid={submitted && !!timeError} aria-describedby={submitted && timeError ? 'action-time-error' : undefined} />
@@ -191,14 +189,13 @@ export default function ActionDialog({ open, action, signals = [], availableStep
           )}
 
           <div className="grafcet-step-block" hidden={assignation !== 'conditional'}>
-            <h3 className="grafcet-step-heading"><span>{allocation === 'continuous' ? 4 : 3}</span>Condição</h3>
             <ConditionEditor id="action-cond-input" value={condition} onChange={setCondition} signals={signals} availableSteps={availableSteps} resetKey={`${action.id}:${open}`} initialDefaultOne={(action.condition ?? '1') === '1'} active={assignation === 'conditional' && !outputPickerOpen} error={submitted ? conditionError : undefined} />
           </div>
 
           <details className="grafcet-context-help grafcet-inline-disclosure">
             <summary><IconChevronRight size={11} />Descrição (opcional)</summary>
             <div className="grafcet-property-field">
-              <input id="action-desc-input" className="dc-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Ligar motor de avanço" />
+              <label htmlFor="action-desc-input">Descrição</label><input id="action-desc-input" className="dc-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Ligar motor de avanço" />
               <label className="grafcet-property-checkbox"><input type="checkbox" checked={displayDescription} onChange={(e) => setDisplayDescription(e.target.checked)} /><span>Mostrar a descrição no diagrama</span></label>
             </div>
           </details>
@@ -210,7 +207,6 @@ export default function ActionDialog({ open, action, signals = [], availableStep
             <ActionGlyph assignation={assignation} allocation={allocation} qualifier={allocation === 'continuous' ? effectiveKind : undefined} text={displayText} condition={condition} seconds={Number(duration) || 2} />
           </div>
           <strong>{selectedKind?.label}</strong><p>{notExecuted ? 'Notação guardada; não é executada pelo simulador.' : selectedKind?.hint}</p>
-          <div className="grafcet-property-preview-value"><span>Saída</span><code>{resolved || 'Por definir'}</code></div>
           <div className="grafcet-property-preview-value"><span>Pertence a</span><span>{ownerStep ? `Etapa ${stepNumberOf(ownerStep, ownerStepIndex)}` : 'Ação livre (sem etapa)'}</span></div>
           {assignation === 'conditional' && <div className="grafcet-property-preview-value"><span>Condição</span><code>{condition || 'Por definir'}</code></div>}
           {timed && <div className="grafcet-property-preview-value"><span>{effectiveKind === 'D' ? 'Atraso' : 'Duração'}</span><code>{duration || '—'} s</code></div>}

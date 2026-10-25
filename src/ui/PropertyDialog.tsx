@@ -63,7 +63,7 @@ export default function PropertyDialog({ open, id, title, subtitle, children, on
           const target = event.target
           if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
             event.preventDefault()
-            const excluded = target instanceof Element && (target.closest('[data-property-save-ignore]') || target instanceof HTMLSelectElement || (target instanceof HTMLInputElement && ['checkbox', 'radio'].includes(target.type)))
+            const excluded = target instanceof Element && target.closest('[data-property-save-ignore]')
             if (!excluded && !hideSave && !saveDisabled) onSave()
             return
           }

@@ -67,6 +67,8 @@ import {
 
 import { bendInsertIndex, findClearSpot, polylineMidpoint, routeThrough, routeVertical, type Point } from './links'
 import { foldText } from '../utils/text'
+import { readGrafcetFile } from './importFile'
+import '../styles/grafcet-construction.css'
 
 const id = () => crypto.randomUUID()
 
@@ -272,6 +274,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   const paletteSearchRef = useRef<HTMLInputElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const importRequestRef = useRef(0)
+  useEffect(() => () => { importRequestRef.current++ }, [])
 
   // FluidSIM Dialogs state
   const [editingStep, setEditingStep] = useState<GrafcetStep | null>(null)
@@ -323,7 +327,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
    * Porta de ligação por linha: saída/entrada de etapa (transições), saída-ação da etapa
    * (ligar ações), entrada de transição solta, entrada de ação solta e "etapa como destino de ação".
    */
-  type PortRef = { kind: 'step-out' | 'step-in' | 'trans-out' | 'trans-in' | 'step-action' | 'action-in' | 'step-attach'; id: string }
+  type PortRef = { kind: 'step-out' | 'step-in' | 'trans-out' | 'trans-in' | 'step-action' | 'action-in' | 'step-attach' | 'branch-out'; id: string }
   const [wireDraft, setWireDraft] = useState<{ start: PortRef; x: number; y: number; moved: boolean } | null>(null)
   const [wireHover, setWireHover] = useState<PortRef | null>(null)
   const wireDraftRef = useRef<typeof wireDraft>(null)
@@ -341,8 +345,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     moved: boolean
   } | null>(null)
   const [transDragPos, setTransDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
-  const [bendDragLive, setBendDragLive] = useState<{ tid: string; index: number; x: number; y: number } | null>(null)
-  const bendDragRef = useRef<{ tid: string; index: number; x: number; y: number; moved: boolean } | null>(null)
+  const [bendDragLive, setBendDragLive] = useState<{ tid: string; index: number; x: number; y: number; insert?: boolean } | null>(null)
+  const bendDragRef = useRef<{ tid: string; index: number; x: number; y: number; moved: boolean; insert?: boolean; startX?: number; startY?: number } | null>(null)
   const transDragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
   /** Etapa candidata a receber a transição solta que está a ser arrastada. */
   const [transDropStep, setTransDropStep] = useState<string | null>(null)
@@ -1277,7 +1281,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   /** Quebras guardadas daquela ligação, com a posição ao vivo enquanto se arrasta. */
   const bendsOf = (tid: string): Point[] => {
     const stored = program.linkBends?.[tid] ?? []
-    if (bendDragLive?.tid === tid) return stored.map((bend, index) => (index === bendDragLive.index ? { x: bendDragLive.x, y: bendDragLive.y } : bend))
+    if (bendDragLive?.tid === tid) {
+      const point = { x: bendDragLive.x, y: bendDragLive.y }
+      if (bendDragLive.insert) return [...stored.slice(0, bendDragLive.index), point, ...stored.slice(bendDragLive.index)]
+      return stored.map((bend, index) => index === bendDragLive.index ? point : bend)
+    }
     return stored
   }
   const commitBends = (tid: string, bends: Point[]) => {
@@ -1317,12 +1325,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   const onBendPointerMove = (tid: string, index: number, e: React.PointerEvent) => {
     const drag = bendDragRef.current
     if (!drag || drag.tid !== tid || drag.index !== index) return
-    drag.moved = true
     const w = clientToWorld(e.clientX, e.clientY)
+    if (drag.insert && !drag.moved && Math.hypot(w.x - (drag.startX ?? drag.x), w.y - (drag.startY ?? drag.y)) < 5 / scale) return
+    drag.moved = true
     const p = snapOn && !e.altKey ? { x: snapToGrid(w.x, SPINE_X), y: snapToGrid(w.y, START_Y) } : { x: Math.round(w.x), y: Math.round(w.y) }
     drag.x = p.x
     drag.y = p.y
-    setBendDragLive({ tid, index, x: p.x, y: p.y })
+    setBendDragLive({ tid, index, x: p.x, y: p.y, insert: drag.insert })
   }
   const onBendPointerUp = (tid: string, index: number, e: React.PointerEvent) => {
     const drag = bendDragRef.current
@@ -1337,8 +1346,31 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     setBendDragLive(null)
     if (!drag.moved) return
     const stored = program.linkBends?.[tid] ?? []
-    commitBends(tid, stored.map((bend, i) => (i === live.index ? { x: live.x, y: live.y } : bend)))
+    const point = { x: live.x, y: live.y }
+    commitBends(tid, drag.insert ? [...stored.slice(0, index), point, ...stored.slice(index)] : stored.map((bend, i) => i === index ? point : bend))
+    suppressClickRef.current = true
   }
+  /** Arrastar diretamente um troço cria uma dobra apenas ao largar, numa única operação de histórico. */
+  const startSegmentDrag = (tid: string, points: Point[], e: React.PointerEvent) => {
+    if (!full || activeTool !== 'select' || isSpacePan || e.button !== 0 || running) return
+    e.stopPropagation()
+    const point = clientToWorld(e.clientX, e.clientY)
+    const index = bendInsertIndex(points, point)
+    bendDragRef.current = { tid, index, ...point, startX: point.x, startY: point.y, moved: false, insert: true }
+    setSelected(tid)
+    setSelectedActionId(null)
+    setTab('transitions')
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* captura indisponível */ }
+  }
+  const moveSegment = (tid: string, e: React.PointerEvent) => {
+    const drag = bendDragRef.current
+    if (drag?.tid === tid && drag.insert) onBendPointerMove(tid, drag.index, e)
+  }
+  const finishSegment = (tid: string, e: React.PointerEvent) => {
+    const drag = bendDragRef.current
+    if (drag?.tid === tid && drag.insert) onBendPointerUp(tid, drag.index, e)
+  }
+  const cancelBendDrag = () => { bendDragRef.current = null; setBendDragLive(null) }
   const removeLinkBend = (tid: string, index: number, e: React.MouseEvent) => {
     e.stopPropagation()
     const stored = program.linkBends?.[tid] ?? []
@@ -1360,6 +1392,17 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
         onDoubleClick={(e) => removeLinkBend(tid, index, e)}
         style={{ cursor: 'grab', touchAction: 'none' }}
         role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault(); e.stopPropagation()
+            commitBends(tid, (program.linkBends?.[tid] ?? []).filter((_, i) => i !== index))
+          } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault(); e.stopPropagation()
+            const distance = e.shiftKey ? GRID * 5 : GRID
+            commitBends(tid, (program.linkBends?.[tid] ?? []).map((p, i) => i === index ? { x: Math.max(0, p.x + (e.key === 'ArrowLeft' ? -distance : e.key === 'ArrowRight' ? distance : 0)), y: Math.max(0, p.y + (e.key === 'ArrowUp' ? -distance : e.key === 'ArrowDown' ? distance : 0)) } : p))
+          }
+        }}
         aria-label={`Ponto de quebra ${index + 1} da linha — arrastar para dobrar, duplo clique remove`}
       >
         <title>Ponto de quebra — arraste para dobrar a linha · duplo clique remove</title>
@@ -1395,8 +1438,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     })
   }
 
+  // A geometria efetivamente desenhada alimenta os portos, incluindo transições já ligadas.
+  const transitionAnchors = new Map<string, Point>()
+  const branchPointOf = (tid: string): Point => {
+    const transition = transitions.find((item) => item.id === tid)
+    const source = transition?.from.find(existsStep)
+    return source ? { x: stepX(source), y: stepY(source) + STEP_H + 24 } : { x: SPINE_X, y: cursorY }
+  }
   /** Posição mundo de um porto. */
   const portPosOf = (p: PortRef): { x: number; y: number } => {
+    if (p.kind === 'branch-out') return branchPointOf(p.id)
     if (p.kind === 'step-out') return { x: stepX(p.id), y: stepY(p.id) + STEP_H }
     if (p.kind === 'step-in') return { x: stepX(p.id), y: stepY(p.id) }
     if (p.kind === 'step-action' || p.kind === 'step-attach') return { x: stepX(p.id) + 32, y: stepY(p.id) + 27 }
@@ -1408,35 +1459,31 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     }
     const t = transitions.find((tr) => tr.id === p.id)
     if (!t) return { x: SPINE_X, y: cursorY }
-    const pos = transXY(t)
+    const pos = transitionAnchors.get(t.id) ?? transXY(t)
     if (p.kind === 'trans-in') return { x: pos.x, y: t.from.filter(existsStep).length ? pos.y - 8 : pos.y - 30 }
     return { x: pos.x, y: t.to.filter(existsStep).length ? pos.y + 8 : pos.y + 30 }
   }
 
   /** Porto de destino (entrada) válido sob um ponto, para completar um fio. */
   const hitWireTarget = (wx: number, wy: number, start: PortRef): PortRef | null => {
-    const step = hitStepAt(wx, wy)
+    const compatible: PortRef[] = []
+    const upstream = start.kind === 'trans-in' || start.kind === 'step-in'
+    for (const step of steps) {
+      if (start.kind === 'action-in') compatible.push({ kind: 'step-attach', id: step.id })
+      else if (start.kind !== 'step-action') compatible.push({ kind: upstream ? 'step-out' : 'step-in', id: step.id })
+    }
+    if (start.kind === 'step-out') for (const t of transitions) compatible.push({ kind: 'trans-in', id: t.id })
+    if (start.kind === 'step-in') for (const t of transitions) compatible.push({ kind: 'trans-out', id: t.id })
+    if (start.kind === 'step-action') for (const action of freeActions) compatible.push({ kind: 'action-in', id: action.id })
+    const distance = (p: PortRef) => { const at = portPosOf(p); return Math.hypot(wx - at.x, wy - at.y) }
+    const target = compatible.filter((p) => p.kind !== start.kind || p.id !== start.id).sort((a, b) => distance(a) - distance(b))[0]
+    if (target && distance(target) <= Math.max(14, Math.min(32, 22 / scale))) return target
+    const step = steps.find((item) => Math.abs(wx - stepX(item.id)) <= 34 && wy >= stepY(item.id) && wy <= stepY(item.id) + STEP_H)
     if (step) {
       // Um fio vindo de uma ação solta liga a ação à etapa; saída-ação da etapa só fala com ações.
       if (start.kind === 'action-in') return { kind: 'step-attach', id: step.id }
       if (start.kind === 'step-action') return null
-      return { kind: 'step-in', id: step.id }
-    }
-    // Transição solta como destino: apenas fios vindos de saídas de etapa/transição.
-    if (start.kind === 'step-out' || start.kind === 'trans-out') {
-      for (const t of transitions) {
-        if (!isFreeTransition(t)) continue
-        if (start.kind === 'trans-out' && start.id === t.id) continue // não ligar uma transição a si própria
-        const port = portPosOf({ kind: 'trans-in', id: t.id })
-        if (Math.hypot(wx - port.x, wy - port.y) < 20) return { kind: 'trans-in', id: t.id }
-      }
-    }
-    // Ação solta como destino: apenas do porto de ação da etapa.
-    if (start.kind === 'step-action') {
-      for (const a of freeActions) {
-        const port = portPosOf({ kind: 'action-in', id: a.id })
-        if (Math.hypot(wx - port.x, wy - port.y) < 22) return { kind: 'action-in', id: a.id }
-      }
+      return { kind: upstream ? 'step-out' : 'step-in', id: step.id }
     }
     return null
   }
@@ -1453,15 +1500,39 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     event.stopPropagation()
     event.preventDefault()
     if (event.button !== 0) return
+    const draft = wireDraftRef.current
+    if (draft) {
+      if (draft.start.id === start.id && draft.start.kind === start.kind) { cancelWire(); return }
+      const point = clientToWorld(event.clientX, event.clientY)
+      const target = hitWireTarget(point.x, point.y, draft.start)
+      if (target) { completeWire(draft.start, target); cancelWire(); return }
+    }
     quickWireRef.current = true
     startWire(start, event.clientX, event.clientY)
   }
 
   /** Completa o fio armado (Ligar) ligando a `start` ao destino `end`. */
-  const completeWire = (start: PortRef, end: PortRef) => {
+  const completeWire = (start: PortRef, end: PortRef): void => {
+    if ((start.kind === 'trans-in' && end.kind === 'step-out') || (start.kind === 'step-in' && (end.kind === 'trans-out' || end.kind === 'step-out'))) {
+      return completeWire(end, start)
+    }
     const stepNum = (sid: string) => {
       const s = stepById.get(sid)
       return s ? getStepDisplayInfo(s, steps.indexOf(s)).stepNumber : '?'
+    }
+    if (start.kind === 'branch-out' && end.kind === 'step-in') {
+      const source = transitions.find((item) => item.id === start.id)
+      if (!source || source.from.length !== 1 || source.to.length !== 1 || source.wireless) return
+      const point = branchPointOf(source.id)
+      const branch: GrafcetTransition = { id: id(), from: [...source.from], to: [end.id], condition: '1', branchType: 'or-divergence' }
+      const previousBends = program.linkBends?.[source.id] ?? []
+      const bends = previousBends.some((p) => p.x === point.x && p.y === point.y) ? previousBends : [point, ...previousBends]
+      save({ transitions: [...transitions.map((t) => t.id === source.id ? { ...t, branchType: 'or-divergence' as const } : t), branch], linkBends: { ...(program.linkBends ?? {}), [source.id]: bends, [branch.id]: [point] } }, 'force')
+      setSelected(branch.id)
+      setSelectedActionId(null)
+      setTab('transitions')
+      notify('Ramo alternativo criado — cada transição mantém a sua condição')
+      return
     }
     // Porto de ação da etapa ↔ ação solta (bidirecional): liga a ação à etapa.
     if (
@@ -1520,6 +1591,38 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     setWireHover(null)
     if (!silent) notify('Fio cancelado — toque num porto de saída para recomeçar')
   }
+  const activatePort = (port: PortRef) => {
+    const draft = wireDraftRef.current
+    if (draft?.start.id === port.id && draft.start.kind === port.kind) { cancelWire(); return }
+    const at = portPosOf(port)
+    const target = draft ? hitWireTarget(at.x, at.y, draft.start) : null
+    if (draft && target) { completeWire(draft.start, target); cancelWire(); return }
+    quickWireRef.current = true
+    setWireDraft({ start: port, ...at, moved: false })
+    setWireHover(null)
+  }
+  const renderWirePort = (port: PortRef, at: Point, label: string) => {
+    const armed = wireDraft?.start.kind === port.kind && wireDraft.start.id === port.id
+    const target = wireHover?.kind === port.kind && wireHover.id === port.id
+    const origin = wireDraft?.start.kind
+    const compatible = !!origin && (
+      (['step-out', 'trans-out', 'branch-out'].includes(origin) && port.kind === 'step-in') ||
+      (origin === 'step-out' && port.kind === 'trans-in') ||
+      (['step-in', 'trans-in'].includes(origin) && port.kind === 'step-out') ||
+      (origin === 'step-in' && port.kind === 'trans-out') ||
+      (origin === 'action-in' && port.kind === 'step-action')
+    )
+    return <g key={`${port.kind}-${port.id}`} className={`grafcet-construction-port ${armed ? 'is-armed' : ''} ${compatible ? 'is-compatible' : ''} ${target ? 'is-target' : ''}`}
+      role="button" tabIndex={0} aria-label={label} data-port-kind={port.kind} data-port-id={port.id}
+      onPointerDown={(event) => startQuickWire(port, event)} onClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); activatePort(port) } }}>
+      <title>{label} · arraste ou escolha os dois pontos · Esc cancela</title>
+      <circle className="grafcet-port-hit" cx={at.x} cy={at.y} r="14" fill="transparent" />
+      <circle className="grafcet-port-ring" cx={at.x} cy={at.y} r="5" />
+      <circle className="grafcet-port-core" cx={at.x} cy={at.y} r="1.5" />
+    </g>
+  }
 
   // Ao sair da ferramenta Ligar, o fio armado é cancelado.
   useEffect(() => {
@@ -1541,15 +1644,18 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       const draft = wireDraftRef.current
       if (!draft) return
       const w = clientToWorld(event.clientX, event.clientY)
+      const origin = portPosOf(draft.start)
+      if (!draft.moved && Math.hypot(w.x - origin.x, w.y - origin.y) < 8 / scale) return
       const target = hitWireTarget(w.x, w.y, draft.start)
       if (target) {
         completeWire(draft.start, target)
         cancelWire()
-      } else if (draft.moved || quickWireRef.current) {
+      } else if (draft.moved) {
         // Arrastou e soltou no vazio: cancela. Um simples toque MANTÉM o fio armado (fluxo toque-a-toque).
         cancelWire(false)
       }
     }
+    const onCancel = () => cancelWire()
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation()
@@ -1558,12 +1664,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
+    window.addEventListener('pointercancel', onCancel)
     window.addEventListener('keydown', onKey, true)
     return () => {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
+      window.removeEventListener('pointercancel', onCancel)
       window.removeEventListener('keydown', onKey, true)
     }
   }, [wireDraft !== null])
@@ -2329,25 +2435,34 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     notify('Projeto GRAFCET exportado')
   }
 
-  const importJson = (e: ChangeEvent<HTMLInputElement>) => {
+  const importJson = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.currentTarget.value = ''
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      try {
-        const parsed = JSON.parse(event.target?.result as string)
-        if (parsed.steps && Array.isArray(parsed.steps)) {
-          save(parsed, 'force')
-          resetView()
-          notify('Projeto GRAFCET importado')
-        } else {
-          notify('Ficheiro inválido: estrutura de etapas não encontrada')
-        }
-      } catch {
-        notify('Erro ao ler o ficheiro JSON')
-      }
+    const request = ++importRequestRef.current
+    const projectPath = window.location.pathname
+    const previousProgram = useSimStore.getState().grafcet
+    const stillCurrent = () => importRequestRef.current === request && window.location.pathname === projectPath && useSimStore.getState().grafcet === previousProgram
+    try {
+      const result = await readGrafcetFile(file)
+      if (!stillCurrent()) return
+      const imported = result.program
+      const actionCount = imported.steps.reduce((total, step) => total + (step.actions?.length ?? 0), 0) + (imported.freeActions?.length ?? 0)
+      const summary = `${file.name}\n${imported.steps.length} etapas · ${imported.transitions?.length ?? 0} transições · ${actionCount} ações`
+      const warnings = result.warnings.length ? `\n\n${result.warnings.join('\n')}` : ''
+      if (!await uiConfirm(`${summary}${warnings}\n\nSubstituir o GRAFCET atual, incluindo as suas páginas? Pode desfazer a importação.`, { title: 'Importar GRAFCET', confirmLabel: 'Importar', cancelLabel: 'Cancelar' })) return
+      if (!stillCurrent()) return
+      // Uma importação substitui o programa completo; save() mescla apenas a página ativa.
+      setGrafcet(imported, 'force', 'grafcet:import')
+      setSelected(null)
+      setSelectedActionId(null)
+      setMulti([])
+      cancelWire()
+      resetView()
+      notify(result.source === 'fluidsim4' ? 'GRAFCET FluidSIM 4 importado' : 'Projeto GRAFCET importado')
+    } catch (error) {
+      if (importRequestRef.current === request) notify(error instanceof Error ? error.message : 'Não foi possível ler o ficheiro GRAFCET')
     }
-    reader.readAsText(file)
   }
 
   // Teclado e atalhos
@@ -2705,7 +2820,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
 
   return (
     <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
-      <input ref={fileInputRef} type="file" accept=".json,.grafcet" style={{ display: 'none' }} onChange={importJson} />
+      <input ref={fileInputRef} type="file" accept=".json,.grafcet,.ct" style={{ display: 'none' }} onChange={importJson} />
       <datalist id="grafcet-action-addresses">{actionSignals.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
       <datalist id="grafcet-condition-signals">{signalSuggestions.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
 
@@ -2984,6 +3099,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     const fp = transXY(transition)
                     const ftx = fp.x
                     const fty = fp.y
+                    transitionAnchors.set(transition.id, { x: ftx, y: fty })
                     const freeSelected = isTransitionSelected(transition.id)
                     const freeHovered = hoveredTransitionId === transition.id
                     const barColor = freeSelected ? '#2563eb' : freeHovered ? '#b45309' : '#d97706'
@@ -3195,6 +3311,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
 
                   const onSelectThisTransition = (e: React.MouseEvent) => {
                     e.stopPropagation()
+                    if (suppressClickRef.current) { suppressClickRef.current = false; return }
                     if (full) {
                       setSelected(transition.id)
                       setSelectedActionId(null)
@@ -3216,6 +3333,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     const y = stepY(sources[0])
                     const path = `M 151 ${y + 54} V ${y + 92} H 62 V ${y - 22} H 151 V ${y}`
                     const loopShift = stepX(sources[0]) - SPINE_X
+                    transitionAnchors.set(transition.id, { x: 62 + loopShift, y: y + 83 })
                     return (
                       <g
                         key={transition.id}
@@ -3264,6 +3382,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     const refX = stepX(sources[0])
                     const refTop = stepY(sources[0]) + 54
                     const refBarY = refTop + 34
+                    transitionAnchors.set(transition.id, { x: refX, y: refBarY })
                     const outRefs = targets.map(refOf).join(' ')
                     const inRefs = sources.map(refOf).join(' ')
                     return (
@@ -3374,6 +3493,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     const barOnFirstLeg = !barMid && roomForOr && orConvergent
                     const tx = barMid?.x ?? (barOnFirstLeg ? sourceX : targetX)
                     const ty = barMid?.y ?? (barOnFirstLeg ? Math.round((sBottom + midY) / 2) : bent || (roomForOr && orDivergent) ? Math.round((midY + tTop) / 2) : midY)
+                    transitionAnchors.set(transition.id, { x: tx, y: ty })
 
                     return (
                       <g
@@ -3401,9 +3521,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           stroke="transparent"
                           strokeWidth="18"
                           onDoubleClick={(e) => addLinkBend(transition.id, linkPoints, e)}
-                          style={{ cursor: 'copy' }}
+                          onPointerDown={(e) => startSegmentDrag(transition.id, linkPoints, e)}
+                          onPointerMove={(e) => moveSegment(transition.id, e)}
+                          onPointerUp={(e) => finishSegment(transition.id, e)}
+                          onPointerCancel={cancelBendDrag}
+                          className="grafcet-editable-segment"
+                          style={{ cursor: 'grab', touchAction: 'none' }}
                         >
-                          <title>Duplo clique na linha cria um ponto de quebra para dobrar o traçado</title>
+                          <title>Arraste a linha para criar uma dobra · duplo clique adiciona um nó</title>
                         </path>
 
                         {/* Barra transversal normalizada IEC 60848 */}
@@ -3525,6 +3650,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     const barMid = bends.length ? polylineMidpoint(linkPoints) : null
                     const tx = barMid?.x ?? sourceX
                     const ty = barMid?.y ?? sBottom + 24
+                    transitionAnchors.set(transition.id, { x: tx, y: ty })
                     const delX = bends.length ? tx - 18 : trackX
                     const delY = bends.length ? ty - 12 : (sBottom + tTop) / 2 - 16
 
@@ -3554,9 +3680,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           stroke="transparent"
                           strokeWidth="18"
                           onDoubleClick={(e) => addLinkBend(transition.id, linkPoints, e)}
-                          style={{ cursor: 'copy' }}
+                          onPointerDown={(e) => startSegmentDrag(transition.id, linkPoints, e)}
+                          onPointerMove={(e) => moveSegment(transition.id, e)}
+                          onPointerUp={(e) => finishSegment(transition.id, e)}
+                          onPointerCancel={cancelBendDrag}
+                          className="grafcet-editable-segment"
+                          style={{ cursor: 'grab', touchAction: 'none' }}
                         >
-                          <title>Duplo clique na linha cria um ponto de quebra para dobrar o traçado</title>
+                          <title>Arraste a linha para criar uma dobra · duplo clique adiciona um nó</title>
                         </path>
 
                         {/* Seta direcional subindo no barramento à esquerda (só no traçado automático) */}
@@ -3654,6 +3785,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   const tx = iec
                     ? (iecFork ? stepX(sources[0]) : stepX(targets[0]))
                     : returning ? Math.min(...allX) - 91 - (transitionIndex % 3) * 16 : Math.max(...allX) + 129 + (transitionIndex % 3) * 24
+                  transitionAnchors.set(transition.id, { x: tx, y: ty })
 
                   return (
                     <g
@@ -4050,65 +4182,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                         </g>
                       )}
 
-                      {/* Portos de ligação (ferramenta Ligar): entrada no topo, saída em baixo, ação à direita */}
-                      {full && activeTool === 'connect' && (
-                        <>
-                          <g
-                            className={`grafcet-port is-in ${
-                              wireDraft && (wireDraft.start.kind === 'step-out' || wireDraft.start.kind === 'trans-out')
-                                ? wireHover?.kind === 'step-in' && wireHover.id === step.id
-                                  ? 'is-hover'
-                                  : 'is-compatible'
-                                : ''
-                            }`}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            role="button"
-                            aria-label={`Entrada da etapa ${stepNumber}`}
-                          >
-                            <circle cx="151" cy={y} r="13" fill="transparent" />
-                            <circle cx="151" cy={y} r="5" fill={wireDraft && wireHover?.kind === 'step-in' && wireHover.id === step.id ? '#bbf7d0' : '#ffffff'} stroke={wireDraft && wireDraft.start.kind !== 'action-in' ? '#16a34a' : '#64748b'} strokeWidth="2.2" />
-                          </g>
-                          <g
-                            className={`grafcet-port is-out ${wireDraft?.start.kind === 'step-out' && wireDraft.start.id === step.id ? 'is-armed' : ''}`}
-                            onPointerDown={(e) => {
-                              e.stopPropagation()
-                              startWire({ kind: 'step-out', id: step.id }, e.clientX, e.clientY)
-                            }}
-                            role="button"
-                            aria-label={`Saída da etapa ${stepNumber}: arraste um fio para uma etapa ou transição`}
-                          >
-                            <circle cx="151" cy={y + 54} r="13" fill="transparent" />
-                            <circle cx="151" cy={y + 54} r="5" fill={wireDraft?.start.kind === 'step-out' && wireDraft.start.id === step.id ? '#2563eb' : '#ffffff'} stroke="#2563eb" strokeWidth="2.2" />
-                          </g>
-                          <g
-                            className={`grafcet-port is-action ${
-                              wireDraft && wireDraft.start.kind === 'action-in'
-                                ? wireHover?.kind === 'step-attach' && wireHover.id === step.id
-                                  ? 'is-hover'
-                                  : 'is-compatible'
-                                : wireDraft?.start.kind === 'step-action' && wireDraft.start.id === step.id
-                                  ? 'is-armed'
-                                  : ''
-                            }`}
-                            onPointerDown={(e) => {
-                              e.stopPropagation()
-                              startWire({ kind: 'step-action', id: step.id }, e.clientX, e.clientY)
-                            }}
-                            role="button"
-                            aria-label={`Porto de ação da etapa ${stepNumber}: arraste um fio para uma ação solta`}
-                          >
-                            <circle cx="183" cy={y + 27} r="13" fill="transparent" />
-                            <circle
-                              cx="183"
-                              cy={y + 27}
-                              r="4.2"
-                              fill={wireDraft?.start.kind === 'step-action' && wireDraft.start.id === step.id ? '#7c3aed' : wireDraft?.start.kind === 'action-in' ? (wireHover?.kind === 'step-attach' && wireHover.id === step.id ? '#bbf7d0' : '#ffffff') : '#ffffff'}
-                              stroke={wireDraft?.start.kind === 'action-in' ? '#16a34a' : '#7c3aed'}
-                              strokeWidth="2.2"
-                            />
-                          </g>
-                        </>
-                      )}
+                      {/* Portos diretos: disponíveis na seleção, ao passar e durante qualquer ligação. */}
+                      {full && activeTool !== 'pan' && (activeTool === 'connect' || isThisStepSelected || hoveredStepId === step.id || focusedStepId === step.id || wireDraft) && <>
+                        {renderWirePort({ kind: 'step-in', id: step.id }, { x: SPINE_X, y }, `Entrada da etapa ${stepNumber}`)}
+                        {renderWirePort({ kind: 'step-out', id: step.id }, { x: SPINE_X, y: y + STEP_H }, `Saída da etapa ${stepNumber}: arraste um fio para uma etapa ou transição`)}
+                        {renderWirePort({ kind: 'step-action', id: step.id }, { x: SPINE_X + 32, y: y + STEP_H / 2 }, `Porto de ação da etapa ${stepNumber}: arraste um fio para uma ação solta`)}
+                      </>}
 
                       {/* Caixa interna de etapa inicial normalizada IEC */}
                       {isInitial && (
@@ -4644,6 +4723,24 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   )
                 })}
 
+                {/* Os dois lados de qualquer transição podem ligar-se diretamente, sem abrir propriedades. */}
+                {full && activeTool !== 'pan' && transitions.map((transition, index) => {
+                  if (!(activeTool === 'connect' || wireDraft || selected === transition.id || hoveredTransitionId === transition.id || focusedTransitionId === transition.id)) return null
+                  const anchor = transitionAnchors.get(transition.id)
+                  if (!anchor) return null
+                  const incoming = portPosOf({ kind: 'trans-in', id: transition.id })
+                  const outgoing = portPosOf({ kind: 'trans-out', id: transition.id })
+                  const name = transition.name || `T${index + 1}`
+                  const branch = transition.from.length === 1 && transition.to.length === 1 && !transition.wireless && selected === transition.id
+                  return <g key={`ports-${transition.id}`} className="grafcet-transition-ports">
+                    {renderWirePort({ kind: 'trans-in', id: transition.id }, incoming, `Entrada da transição ${name}: ligar uma origem`)}
+                    {renderWirePort({ kind: 'trans-out', id: transition.id }, outgoing, `Saída da transição ${name}: ligar um destino`)}
+                    {branch && <g className="grafcet-branch-node">
+                      {renderWirePort({ kind: 'branch-out', id: transition.id }, branchPointOf(transition.id), `Nó de derivação de ${name}: arraste para uma etapa e crie um ramo alternativo`)}
+                    </g>}
+                  </g>
+                })}
+
                 {/* Guias de alinhamento durante o arrastamento */}
                 {dragPos && guides.x !== null && (
                   <line x1={guides.x} y1={0} x2={guides.x} y2={height} className="grafcet-guide" />
@@ -4667,7 +4764,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                       return (
                         <>
                           <path
-                            d={`M ${from.x} ${from.y} C ${from.x} ${my}, ${wireDraft.x} ${my}, ${wireDraft.x} ${wireDraft.y}`}
+                            d={routeVertical(from.x, from.y, wireHover ? portPosOf(wireHover).x : wireDraft.x, wireHover ? portPosOf(wireHover).y : wireDraft.y, my)}
                             fill="none"
                             stroke={color}
                             strokeWidth="2.5"
@@ -4686,6 +4783,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
               </svg>
             </div>
           )}
+
+          {full && steps.length > 0 && !running && activeTool !== 'pan' && !isSpacePan && <div className={`grafcet-construction-guide ${wireDraft ? 'is-active' : ''}`}>
+            <span className="grafcet-construction-indicator" aria-hidden="true" />
+            <span role="status" aria-live="polite">{wireDraft
+              ? wireHover ? 'Solte para ligar · Esc cancela' : wireDraft.start.kind === 'branch-out' ? 'Escolha uma etapa para o novo ramo · Esc cancela' : 'Escolha outro ponto para ligar · Esc cancela'
+              : 'Arraste os pontos para ligar · arraste uma linha para a dobrar'}</span>
+            {wireDraft && <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => cancelWire()} aria-label="Cancelar ligação em curso">Cancelar</button>}
+          </div>}
 
           {/* Retângulo de seleção por arrastamento */}
           {marquee && (

@@ -1,0 +1,28 @@
+/* Direct construction controls use the existing DC-Simu engineering palette. */
+.grafcet-construction-port { cursor: crosshair; touch-action: none; outline: none; }
+.grafcet-construction-port .grafcet-port-ring { fill: #fff; stroke: #587296; stroke-width: 1.8; vector-effect: non-scaling-stroke; }
+.grafcet-construction-port .grafcet-port-core { fill: #587296; pointer-events: none; }
+.grafcet-construction-port:hover .grafcet-port-ring,
+.grafcet-construction-port:focus-visible .grafcet-port-ring { fill: #eaf1ff; stroke: #2563eb; stroke-width: 2.5; }
+.grafcet-construction-port:focus-visible .grafcet-port-hit { stroke: #2563eb; stroke-width: 1.5; stroke-dasharray: 3 2; }
+.grafcet-construction-port.is-armed .grafcet-port-ring { fill: #2563eb; stroke: #1d4ed8; }
+.grafcet-construction-port.is-armed .grafcet-port-core { fill: #fff; }
+.grafcet-construction-port.is-compatible .grafcet-port-ring { stroke: #15803d; fill: #f0fdf4; }
+.grafcet-construction-port.is-target .grafcet-port-hit { fill: #dcfce7; fill-opacity: .8; }
+.grafcet-construction-port.is-target .grafcet-port-ring { fill: #15803d; stroke: #166534; }
+.grafcet-construction-port.is-target .grafcet-port-core { fill: #fff; }
+.grafcet-branch-node .grafcet-port-ring { fill: #334155; stroke: #fff; stroke-width: 2; }
+.grafcet-branch-node .grafcet-port-core { fill: #fff; }
+.grafcet-branch-node .grafcet-construction-port:hover .grafcet-port-ring,
+.grafcet-branch-node .grafcet-construction-port:focus-visible .grafcet-port-ring { fill: #2563eb; stroke: #fff; }
+.grafcet-editable-segment { touch-action: none; }
+.grafcet-editable-segment:hover { stroke: #2563eb; stroke-opacity: .09; }
+.grafcet-construction-guide { position: absolute; top: 12px; left: 12px; z-index: 6; display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px); padding: 8px 11px; border: 1px solid #dce4ef; border-radius: 7px; background: rgba(255,255,255,.96); color: #405877; font-size: 11px; line-height: 1.45; box-shadow: 0 2px 6px #18365b08; pointer-events: none; }
+.grafcet-construction-guide.is-active { border-color: #b9cdfb; color: #1e40af; }
+.grafcet-construction-indicator { width: 6px; height: 6px; border-radius: 50%; background: #8b9bb1; flex: 0 0 auto; }
+.grafcet-construction-guide.is-active .grafcet-construction-indicator { background: #2563eb; }
+.grafcet-construction-guide button { pointer-events: auto; background: #fff; border: 1px solid #c9d8f4; border-radius: 4px; padding: 3px 7px; color: #1d4ed8; font-weight: 600; cursor: pointer; }
+.grafcet-construction-guide button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+@media (max-width: 600px) {
+  .grafcet-construction-guide { top: 8px; left: 8px; max-width: calc(100% - 16px); font-size: 10px; padding: 6px 8px; }
+}

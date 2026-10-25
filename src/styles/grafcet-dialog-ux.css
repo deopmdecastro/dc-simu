@@ -1,0 +1,115 @@
+/* Propriedades: configuração essencial à vista, sem transformar o formulário numa página longa. */
+.grafcet-property-dialog.grafcet-compact-dialog {
+  width: min(860px, 100%);
+}
+.grafcet-compact-dialog .grafcet-property-header { padding: 16px 20px 14px; }
+.grafcet-compact-dialog .grafcet-property-grid {
+  grid-template-columns: minmax(0, 1fr) 206px;
+  gap: 20px;
+  padding: 18px 20px;
+}
+.grafcet-compact-dialog .grafcet-property-fields { gap: 14px; }
+.grafcet-compact-dialog .grafcet-property-field { gap: 6px; }
+.grafcet-compact-dialog .grafcet-property-preview { padding: 12px; }
+.grafcet-compact-dialog .grafcet-property-preview > p { margin: 5px 0 10px; line-height: 1.5; }
+.grafcet-compact-dialog .grafcet-property-drawing { min-height: 90px; margin: 10px 0; padding: 4px; }
+.grafcet-compact-dialog .grafcet-property-drawing .grafcet-preview-svg { height: 100px; }
+.grafcet-compact-dialog .grafcet-property-preview-value { padding: 8px 0; }
+.grafcet-compact-dialog .grafcet-property-preview-value:last-child { padding-bottom: 0; }
+.grafcet-compact-dialog .grafcet-property-footer { padding: 11px 20px; }
+.grafcet-compact-dialog .grafcet-context-help > summary { min-height: 32px; }
+.grafcet-compact-dialog .grafcet-dialog-annotations > div { display: grid; gap: 12px; }
+.grafcet-compact-dialog .grafcet-property-preview-label { font-size: 10px; }
+.grafcet-compact-dialog :is(.grafcet-property-note, .grafcet-type-text small) { color: #52637c; }
+.grafcet-compact-dialog .grafcet-var-row { gap: 8px; }
+.grafcet-compact-dialog .grafcet-next-number { flex: none; white-space: nowrap; min-height: 32px; padding: 5px 9px; border: 1px solid #cfdaed; border-radius: 5px; text-decoration: none; background: #f6f9ff; }
+.grafcet-step-dialog { width: min(780px, 100%); }
+.grafcet-step-dialog .grafcet-property-drawing .grafcet-preview-svg { height: 118px; }
+.grafcet-step-dialog .grafcet-step-context { padding-top: 9px; }
+.grafcet-step-dialog .grafcet-step-context .grafcet-property-preview-value { padding: 6px 0; line-height: 1.45; }
+
+/* As opções da ação são comparáveis sem uma miniatura grande em cada linha. */
+.grafcet-action-dialog .grafcet-step-block { gap: 8px; padding-bottom: 10px; }
+.grafcet-action-dialog .grafcet-step-heading { margin: 0; font-size: 12px; }
+.grafcet-action-dialog .grafcet-step-heading > span { display: none; }
+.grafcet-action-dialog .grafcet-type-box { gap: 10px; }
+.grafcet-action-dialog .grafcet-type-group { display: grid; gap: 5px; padding: 5px 0 0; border: 0; }
+.grafcet-action-dialog .grafcet-type-group > legend { padding: 0; margin-bottom: 5px; font-size: 11px; color: #52637c; }
+.grafcet-action-dialog .grafcet-assignment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grafcet-action-dialog .grafcet-allocation-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grafcet-action-dialog .grafcet-type-card { min-width: 0; min-height: 48px; gap: 8px; padding: 8px; border: 1px solid #dce4ef; }
+.grafcet-action-dialog .grafcet-type-card.is-selected { border-color: #88a8ed; background: #eef4ff; }
+.grafcet-action-dialog .grafcet-type-card input { order: 0; width: 14px; height: 14px; }
+.grafcet-action-dialog .grafcet-type-card .grafcet-type-glyph { order: 1; width: 34px; height: 27px; border: 0; background: transparent; }
+.grafcet-action-dialog .grafcet-type-glyph svg { width: 36px; height: 27px; }
+.grafcet-action-dialog .grafcet-type-card .grafcet-type-text { order: 2; }
+.grafcet-action-dialog .grafcet-type-text strong { font-size: 11.5px; }
+.grafcet-action-dialog .grafcet-type-text small { font-size: 10px; }
+.grafcet-action-dialog .grafcet-allocation-grid .grafcet-type-glyph { display: none; }
+.grafcet-action-dialog .grafcet-qualifier-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.grafcet-qualifier-choice { display: flex; position: relative; min-width: 0; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 54px; padding: 7px 3px; border: 1px solid #dce4ef; border-radius: 6px; background: #fff; color: #435773; cursor: pointer; }
+.grafcet-qualifier-choice input { position: absolute; top: 7px; left: 7px; width: 10px; height: 10px; margin: 0; accent-color: #2455d8; }
+.grafcet-qualifier-choice code { font: 700 16px ui-monospace, Consolas, monospace; }
+.grafcet-qualifier-choice > span { font-size: 9px; line-height: 1.3; text-align: center; }
+.grafcet-qualifier-choice:hover { background: #f6f9ff; border-color: #a5bce8; }
+.grafcet-qualifier-choice.is-selected { color: #1944b8; border-color: #88a8ed; background: #eef4ff; }
+.grafcet-qualifier-choice:focus-within { outline: 2px solid #2455d8; outline-offset: 2px; }
+.grafcet-action-dialog .grafcet-qualifier-hint { min-height: 16px; font-size: 10px; }
+
+/* Listas lado a lado para distinguir a origem do destino sem percorrer o formulário. */
+.grafcet-transition-dialog { width: min(910px, 100%); }
+.grafcet-transition-dialog .grafcet-property-grid { grid-template-columns: minmax(0, 1fr) 190px; gap: 18px; }
+.grafcet-transition-dialog .grafcet-transition-connections { gap: 7px; padding-top: 10px; }
+.grafcet-transition-dialog .grafcet-connection-editors { gap: 12px; }
+.grafcet-transition-dialog .grafcet-connection-selector { gap: 5px; }
+.grafcet-transition-dialog .grafcet-connection-selector > legend { font-size: 11px; margin-bottom: 6px; }
+.grafcet-transition-dialog .grafcet-connection-chips { padding: 0 0 4px; max-height: 62px; overflow: auto; }
+.grafcet-transition-dialog .grafcet-connection-options { min-height: 72px; max-height: 112px; }
+.grafcet-transition-dialog .grafcet-connection-options label { min-height: 32px; padding: 6px; }
+.grafcet-connection-by-number > summary { display: flex; align-items: center; gap: 5px; width: fit-content; padding: 4px 0; color: #435773; font-size: 10px; cursor: pointer; list-style: none; }
+.grafcet-connection-by-number > summary::-webkit-details-marker { display: none; }
+.grafcet-connection-by-number > summary svg { transition: transform .12s ease; }
+.grafcet-connection-by-number[open] > summary svg { transform: rotate(90deg); }
+.grafcet-connection-by-number .grafcet-connection-quick { padding: 3px 0; }
+.grafcet-transition-dialog .grafcet-transition-map { gap: 7px; padding-top: 12px; }
+.grafcet-transition-dialog .grafcet-map-transition { padding: 10px 5px; }
+.grafcet-transition-dialog .grafcet-map-label { font-size: 8px; letter-spacing: .025em; }
+.grafcet-transition-dialog .grafcet-map-steps { gap: 4px; max-height: 76px; overflow: auto; }
+.grafcet-transition-dialog .grafcet-map-steps > span { padding: 5px 7px; font-size: 10px; }
+
+@media (max-width: 760px) {
+  .grafcet-compact-dialog .grafcet-property-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 16px; }
+  .grafcet-compact-dialog .grafcet-property-preview { position: static; display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 5px 14px; align-items: center; }
+  .grafcet-compact-dialog .grafcet-property-preview-label { grid-column: 1 / -1; }
+  .grafcet-compact-dialog .grafcet-property-drawing { grid-column: 1; grid-row: 2 / span 3; margin: 4px 0; min-height: 80px; }
+  .grafcet-compact-dialog .grafcet-property-drawing .grafcet-preview-svg { height: 94px; }
+  .grafcet-compact-dialog .grafcet-property-preview-value { padding: 6px 0; }
+  .grafcet-compact-dialog .grafcet-step-context { grid-column: 1 / -1; }
+  .grafcet-transition-dialog .grafcet-property-preview { display: block; }
+  .grafcet-transition-dialog .grafcet-transition-map { display: grid; grid-template-columns: minmax(0, 1fr) 20px minmax(70px, 1fr) 20px minmax(0, 1fr); gap: 5px; align-items: center; padding: 10px 0; }
+  .grafcet-transition-dialog .grafcet-transition-map > .grafcet-map-label { display: none; }
+  .grafcet-transition-dialog .grafcet-map-arrow svg { transform: rotate(-90deg); }
+  .grafcet-transition-dialog .grafcet-map-transition { padding: 8px 4px; }
+  .grafcet-transition-dialog .grafcet-map-transition code { font-size: 10px; }
+  .grafcet-transition-dialog .grafcet-map-transition > span { font-size: 9px; }
+  .grafcet-action-dialog .grafcet-allocation-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .grafcet-compact-dialog .grafcet-property-header { padding: 14px 16px; }
+  .grafcet-compact-dialog .grafcet-property-header h2 { font-size: 18px; }
+  .grafcet-compact-dialog .grafcet-property-fields { gap: 14px; }
+  .grafcet-compact-dialog .grafcet-property-footer { padding: 10px 12px; }
+  .grafcet-action-dialog .grafcet-assignment-grid { grid-template-columns: 1fr; }
+  .grafcet-action-dialog .grafcet-type-card { min-height: 52px; }
+  .grafcet-action-dialog .grafcet-type-text small { font-size: 10.5px; }
+  .grafcet-action-dialog .grafcet-qualifier-choice { min-height: 60px; }
+  .grafcet-action-dialog .grafcet-qualifier-choice input { left: 4px; }
+  .grafcet-action-dialog .grafcet-qualifier-choice > span { font-size: 8.5px; }
+  .grafcet-transition-dialog .grafcet-connection-editors { grid-template-columns: 1fr; gap: 14px; }
+  .grafcet-transition-dialog .grafcet-connection-options { max-height: 144px; }
+  .grafcet-transition-dialog .grafcet-connection-options label { min-height: 40px; }
+  .grafcet-connection-by-number > summary { min-height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grafcet-connection-by-number > summary svg { transition: none; }
+}

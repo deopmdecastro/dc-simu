@@ -5,6 +5,7 @@ import ConditionEditor from './ConditionEditor'
 import type { GrafcetSignalSuggestion } from './signals'
 import { foldText } from '../utils/text'
 import { IconArrowDown, IconCheck, IconChevronRight, IconLink, IconSearch, IconSwap, IconWarning } from '../ui/icons'
+import '../styles/grafcet-dialog-ux.css'
 
 interface TransitionDialogProps {
   open: boolean
@@ -32,6 +33,7 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
   const [quickFrom, setQuickFrom] = useState('')
   const [quickTo, setQuickTo] = useState('')
   const [quickMsg, setQuickMsg] = useState('')
+  const [annotationsOpen, setAnnotationsOpen] = useState(false)
 
   useEffect(() => {
     if (!transition) return
@@ -49,6 +51,7 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
     setQuickFrom('')
     setQuickTo('')
     setQuickMsg('')
+    setAnnotationsOpen(!!transition.description || !!transition.comment || !!transition.targetInfo || !!transition.displayDescription)
   }, [transition, transitionIndex, open])
 
   if (!open || !transition) return null
@@ -114,30 +117,32 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
         {!!query && !matches.length && <p className="grafcet-property-note">Nenhuma etapa corresponde à pesquisa.</p>}
         {!availableSteps.length && !ids.length && <p className="grafcet-property-note">Ainda não existem etapas para ligar.</p>}
       </div>
-      <div className="grafcet-connection-quick" data-property-save-ignore>
+      <details className="grafcet-connection-by-number" data-property-save-ignore><summary><IconChevronRight size={10} />Ligar pelo número</summary><div className="grafcet-connection-quick">
         <input className="dc-input" inputMode="numeric" placeholder="Ligar pelo nº (ex.: 141)" value={side === 'from' ? quickFrom : quickTo} onChange={(event) => (side === 'from' ? setQuickFrom : setQuickTo)(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); connectByNumber(side) } }} aria-label={side === 'from' ? 'Ligar origem pelo número da etapa' : 'Ligar destino pelo número da etapa'} />
         <button type="button" className="grafcet-link-button" onClick={() => connectByNumber(side)}>Ligar nº</button>
-      </div>
+      </div></details>
       <div className="grafcet-connection-selector-footer"><span>{ids.length} selecionada{ids.length === 1 ? '' : 's'}</span><button type="button" className="grafcet-link-button" disabled={!ids.length} onClick={() => (side === 'from' ? setFrom : setTo)([])} aria-label={side === 'from' ? 'Limpar origens' : 'Limpar destinos'}>Limpar</button></div>
     </fieldset>
   )}
   return (
-    <PropertyDialog open={open} id="trans-dialog" title="Propriedades da transição" subtitle="Ligue as etapas e defina a condição que permite avançar." onSave={save} onClose={onClose}>
+    <PropertyDialog open={open} id="trans-dialog" className="grafcet-compact-dialog grafcet-transition-dialog" title="Propriedades da transição" subtitle="Defina a condição e escolha as etapas de origem e destino." onSave={save} onClose={onClose}>
       <div className="grafcet-property-grid">
         <section className="grafcet-property-fields" aria-label="Definições da transição">
           <div className="grafcet-property-field"><label htmlFor="trans-name-input">Nome <span className="grafcet-optional">opcional</span></label><input id="trans-name-input" className="dc-input" value={name} onChange={(event) => setName(event.target.value)} placeholder={`T${transitionIndex + 1}`} /></div>
           <ConditionEditor id="trans-condition-input" value={condition} onChange={setCondition} signals={signals} availableSteps={availableSteps} resetKey={`${transition.id}:${open}`} initialDefaultOne={(transition.condition ?? '1') === '1'} initialFocus error={submitted ? conditionError : undefined} />
           <section className="grafcet-transition-connections" aria-label="Ligações da transição"><div className="grafcet-connections-heading"><h3><IconLink size={13} /> Ligações</h3><button type="button" className="dc-btn grafcet-connections-swap" onClick={() => { setFrom([...to]); setTo([...from]) }} disabled={!from.length && !to.length}><IconSwap size={12} /> Inverter ligações</button></div>
           <label className="grafcet-property-checkbox"><input type="checkbox" checked={wireless} onChange={(event) => setWireless(event.target.checked)} /><span>Ligação por referência (sem linha)</span></label>
-          <p className="grafcet-property-note">Sem linha: o diagrama não desenha o traçado e cada ponta indica o número da etapa do outro lado (ex.: X141), como na IEC 60848 — útil para saltos entre etapas afastadas. Desmarcada, a ligação volta a ser desenhada com linha. As duas formas funcionam igual na simulação.</p>
+          <p className="grafcet-property-note">A referência mostra o número da etapa na ponta da ligação.</p>
           <div className="grafcet-connection-editors">{renderConnections('from', from)}{renderConnections('to', to)}</div>
           {quickMsg && <p className="grafcet-property-note" role="status">{quickMsg}</p>}
           {!!directCycle.length && <p className="grafcet-property-warning" role="status">Ciclo direto: {directCycle.map((id) => labelOf(id)).join(', ')} {directCycle.length === 1 ? 'é origem e destino' : 'são origem e destino'} ao mesmo tempo — enquanto a condição for verdadeira a transição dispara continuamente, sem esperar noutra etapa.</p>}
-          <p className="grafcet-property-note">Com todas as origens ativas e a condição verdadeira, ativa todos os destinos (AND).</p></section>
+          </section>
           {(!from.length || !to.length) && <p className="grafcet-property-warning" role="status">Transição solta: faltam {(!from.length && !to.length) ? 'origens e destinos' : !from.length ? 'origens' : 'destinos'}. Pode guardar o rascunho e completar as ligações depois.</p>}
-          <div className="grafcet-property-field"><label htmlFor="trans-desc-input">Descrição <span className="grafcet-optional">opcional</span></label><textarea id="trans-desc-input" className="dc-input" rows={2} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: Cilindro A no fim de curso" /><label className="grafcet-property-checkbox"><input type="checkbox" checked={displayDescription} onChange={(event) => setDisplayDescription(event.target.checked)} /><span>Mostrar a descrição em vez da expressão no diagrama</span></label></div>
-          <div className="grafcet-property-field"><label htmlFor="trans-reference-input">Referência visual <span className="grafcet-optional">opcional</span></label><input id="trans-reference-input" className="dc-input" value={targetInfo} onChange={(event) => setTargetInfo(event.target.value)} placeholder="Ex.: Continuação na folha 2" /><p className="grafcet-property-note">Anotação do diagrama. Não cria um salto nem altera os destinos acima.</p></div>
-          <details className="grafcet-context-help"><summary><IconChevronRight size={11} />Como configurar esta transição</summary><div><p>A condição é uma expressão booleana: <code>I1 * /I2</code> exige I1 ativa e I2 inativa. Use AND (*), OR (+), NOT (/), flancos e parênteses.</p><p><code>X0</code> consulta a primeira etapa da lista global, independentemente do nome. <code>T(2s)</code> verifica dois segundos de atividade das origens desta transição.</p><p>Selecione várias origens para sincronizar ramos. Todas são necessárias; a seleção não cria uma alternativa OR. Desmarcar todas as ligações mantém uma transição solta.</p></div></details>
+          <details className="grafcet-context-help grafcet-dialog-annotations" open={annotationsOpen} onToggle={(event) => setAnnotationsOpen(event.currentTarget.open)}><summary><IconChevronRight size={11} />Descrição e referência visual <span>opcional</span></summary><div>
+            <div className="grafcet-property-field"><label htmlFor="trans-desc-input">Descrição</label><textarea id="trans-desc-input" className="dc-input" rows={2} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: Cilindro A no fim de curso" /><label className="grafcet-property-checkbox"><input type="checkbox" checked={displayDescription} onChange={(event) => setDisplayDescription(event.target.checked)} /><span>Mostrar a descrição em vez da expressão no diagrama</span></label></div>
+            <div className="grafcet-property-field"><label htmlFor="trans-reference-input">Referência visual</label><input id="trans-reference-input" className="dc-input" value={targetInfo} onChange={(event) => setTargetInfo(event.target.value)} placeholder="Ex.: Continuação na folha 2" /><p className="grafcet-property-note">Anotação do diagrama. Os destinos são definidos nas ligações acima.</p></div>
+          </div></details>
+          <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Ajuda sobre transições</summary><div><p>A condição é uma expressão booleana: <code>I1 * /I2</code> exige I1 ativa e I2 inativa. Use AND (*), OR (+), NOT (/), flancos e parênteses.</p><p><code>X10</code> consulta a etapa com o número 10 no diagrama. <code>T(2s)</code> verifica dois segundos de atividade das origens.</p><p>Várias origens sincronizam ramos: todas precisam de estar ativas. Com a condição verdadeira, a transição ativa todos os destinos (AND). Pode guardar uma transição solta e completá-la no diagrama.</p></div></details>
         </section>
         <aside className="grafcet-property-preview">
           <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span className="grafcet-preview-live">Ao editar</span></div>
@@ -148,7 +153,7 @@ export default function TransitionDialog({ open, transition, transitionIndex = 0
             <span className="grafcet-map-arrow"><IconArrowDown size={15} /></span>
             <span className="grafcet-map-label">DESTINOS · ATIVADOS JUNTOS</span><div className="grafcet-map-steps">{to.length ? to.map((id, index) => <span key={`${id}:${index}`}>{labelOf(id)}</span>) : <em>Sem destino</em>}</div>
           </div>
-          <p className="grafcet-property-note">Ligações em edição. As alterações são aplicadas ao guardar.</p>
+          <p className="grafcet-property-note">Pré-visualização do rascunho. Guarde para aplicar.</p>
           {targetInfo && <div className="grafcet-property-preview-value"><span>Referência visual</span><span>{targetInfo}</span></div>}
         </aside>
       </div>

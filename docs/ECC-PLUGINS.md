@@ -26,7 +26,7 @@ codex.cmd plugin list --marketplace ecc --available --json
 
 Dentro do Codex, abrir `/plugins` e consultar ECC. A disponibilidade das skills para invocação exige instalação e uma sessão que as descubra. A ativação futura do plugin é uma configuração partilhada do Codex, não uma alteração da aplicação React ou do alojamento.
 
-O [relatório central no BrainNet](../../../BrainNet/04-Agents/ECC-Exploration.md) contém a seleção para os dois projetos, critérios de ensaio, referências e limitações. O [backlog](../../../BrainNet/03-Projects/DC-Simu/Backlog.md) distingue exploração concluída e piloto ainda pendente.
+O [relatório central no BrainNet](https://github.com/deopmdecastro/BrainNet/blob/main/04-Agents/ECC-Exploration.md) contém a seleção para os dois projetos, critérios de ensaio, referências e limitações. O [backlog](https://github.com/deopmdecastro/BrainNet/blob/main/03-Projects/DC-Simu/Backlog.md) distingue exploração concluída e piloto ainda pendente.
 
 ## Verificação no projeto
 

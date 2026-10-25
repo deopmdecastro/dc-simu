@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { nextFreeStepNumber, stepIdentifierTakenBy, stepNumberOf, type GrafcetStep, type GrafcetStepType, type GrafcetTransition } from './engine'
 import PropertyDialog from '../ui/PropertyDialog'
 import { IconChevronRight } from '../ui/icons'
+import '../styles/grafcet-dialog-ux.css'
 
 interface StepDialogProps {
   open: boolean
@@ -170,14 +171,14 @@ export default function StepDialog({ open, step, stepIndex = 0, availableSteps =
   ]
 
   return (
-    <PropertyDialog open={open} id="step-dialog" title="Propriedades da etapa" subtitle="Identifique a etapa e escolha o seu papel na sequência." onSave={handleOk} onClose={onClose}>
+    <PropertyDialog open={open} id="step-dialog" className="grafcet-compact-dialog grafcet-step-dialog" title="Propriedades da etapa" subtitle="Identifique a etapa e defina como entra na sequência." onSave={handleOk} onClose={onClose}>
       <div className="grafcet-property-grid">
         <section className="grafcet-property-fields" aria-label="Definições da etapa">
           <div className="grafcet-property-field">
             <label htmlFor="step-name-input">Nome ou número <span className="grafcet-required">obrigatório</span></label>
             <div className="grafcet-var-row">
               <input id="step-name-input" data-initial-focus className="dc-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: 0, 10, Espera" aria-invalid={submitted && !!nameError} aria-describedby={submitted && nameError ? 'step-name-error' : duplicateOf ? 'step-name-duplicate' : undefined} />
-              {!!availableSteps.length && name !== String(nextFree) && <button type="button" className="grafcet-link-button" onClick={() => setName(String(nextFree))} title="Menor número a seguir ao maior em uso">Seguinte livre: {nextFree}</button>}
+              {!!availableSteps.length && name !== String(nextFree) && <button type="button" className="grafcet-link-button grafcet-next-number" onClick={() => setName(String(nextFree))} title="Usar o próximo número disponível">Usar {nextFree}</button>}
             </div>
             {submitted && nameError && <p id="step-name-error" className="grafcet-field-error" role="alert">{nameError}</p>}
             {!nameError && duplicateOf && <p id="step-name-duplicate" className="grafcet-property-warning" role="status">Já existe a {duplicateLabel} no diagrama — dois identificadores iguais tornam ambíguas as referências por número (nas condições e no «Ligar nº»). Escolha outro número.</p>}
@@ -205,15 +206,13 @@ export default function StepDialog({ open, step, stepIndex = 0, availableSteps =
               <label className="grafcet-property-checkbox"><input type="checkbox" checked={activationLink} onChange={(event) => setActivationLink(event.target.checked)} /><span>Ligação de ativação orientada · apenas notação</span></label>
             </div>
           </details>
-          <details className="grafcet-context-help"><summary><IconChevronRight size={11} />Como configurar esta etapa</summary><div><p>A etapa inicial fica ativa ao iniciar a sequência. As etapas simples são ativadas pelas transições ligadas a elas.</p><p>O nome é a identificação visual. Nas condições, <code>X0</code> consulta o índice 0 da lista global; mudar o nome para «Espera» não cria uma variável <code>XEspera</code>.</p><p>A descrição é opcional. Associe saídas através das ações da etapa; o nome ou a descrição não ligam saídas.</p></div></details>
+          <details className="grafcet-context-help grafcet-inline-disclosure"><summary><IconChevronRight size={11} />Ajuda sobre etapas</summary><div><p>A etapa inicial fica ativa ao iniciar a sequência. As etapas simples são ativadas pelas transições ligadas a elas.</p><p>Nas condições, <code>X10</code> consulta a etapa com o número 10 no diagrama. Use identificadores distintos para evitar referências ambíguas.</p><p>Associe saídas através das ações da etapa; o nome e a descrição identificam a etapa.</p></div></details>
         </section>
         <aside className="grafcet-property-preview">
           <div className="grafcet-property-preview-label"><span>Pré-visualização</span><span>IEC 60848</span></div>
           <div className="grafcet-property-drawing">{renderPreview()}</div>
           <strong>{STEP_TYPES.find((t) => t.id === stepType)?.label}</strong>
           <p>{!['simple', 'initial'].includes(stepType) ? 'Notação avançada guardada. Sem execução de sub-GRAFCETs no simulador.' : stepType === 'initial' ? 'Ativa no início da sequência.' : 'A ativação depende das ligações e transições.'}</p>
-          <div className="grafcet-property-preview-value"><span>Identificador</span><code>{name || 'Por definir'}</code></div>
-          {description && <div className="grafcet-property-preview-value"><span>Descrição</span><span>{description}</span></div>}
           {!!transitions.length && (
             <div className="grafcet-step-context" aria-label="Contexto da etapa na sequência">
               <strong>Na sequência</strong>
