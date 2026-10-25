@@ -36,7 +36,7 @@ import {
   IconPlus, IconDelete, IconCopy, IconClose,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder,
   IconFunction, IconChevronDown, IconChevronRight, IconShield, IconSearch,
-  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp, IconReset, IconCheck
+  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp, IconReset, IconCheck, IconTimer, IconCounter
 } from '../ui/icons'
 import { useLadderPrefs } from './ladderPrefs'
 import { ELEMENT_KEYS } from './ladderShortcuts'
@@ -371,9 +371,9 @@ function CompactLadderEditor() {
       .map((k) => `${k}=${table[k] ? 1 : 0}`)
       .join('  ')
 
-  const tabBtn = (t: LadderTab, text: string) => (
-    <button onClick={() => setTab(t)} className={`dc-tab ${tab === t ? 'dc-tab-active' : ''}`}>
-      {text}
+  const tabBtn = (t: LadderTab, text: string, Icon: typeof IconLadder) => (
+    <button onClick={() => setTab(t)} className={`dc-tab inline-flex items-center gap-1.5 ${tab === t ? 'dc-tab-active' : ''}`}>
+      <Icon size={11} /><span>{text}</span>
     </button>
   )
 
@@ -382,8 +382,8 @@ function CompactLadderEditor() {
       <TagAddressDatalist />
       <div className="flex items-center justify-between pr-2 border-b border-line bg-surface-rail">
         <div className="flex items-center">
-          {tabBtn('program', 'Programa')}
-          {tabBtn('tags', 'Tabela de Tags')}
+          {tabBtn('program', 'Programa', IconLadder)}
+          {tabBtn('tags', 'Tabela de Tags', IconTag)}
         </div>
         <div className="flex items-center gap-1">
           {tab === 'program' && (
@@ -395,7 +395,7 @@ function CompactLadderEditor() {
               <IconGrid size={11} />
             </button>
           )}
-          {tab === 'program' && <button type="button" onClick={() => setLadderZoom(1)} className="text-[9px] font-mono text-ink-400 mr-1 hover:text-brand-600" title="Repor escala a 100%">{Math.round(ladderZoom * 100)}%</button>}
+          {tab === 'program' && <button type="button" onClick={() => setLadderZoom(1)} className="inline-flex items-center gap-1 text-[9px] font-mono text-ink-400 mr-1 hover:text-brand-600" title="Repor escala a 100%"><IconReset size={10} />{Math.round(ladderZoom * 100)}%</button>}
           {tab === 'program' && <button disabled={ladderZoom <= 0.75} onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Reduzir escala do Ladder"><IconZoomOut size={11} /></button>}
           {tab === 'program' && <button disabled={ladderZoom >= 1.35} onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Aumentar escala do Ladder"><IconZoomIn size={11} /></button>}
           {tab === 'program' && <button onClick={addRung} className="dc-btn-primary dc-btn !h-6 !text-[11px] ml-1"><IconPlus size={11} /> Rung</button>}
@@ -1708,7 +1708,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}>
             {isFcOpen ? <IconFunction size={13} /> : <IconSchematic size={13} />} {activeTitle} <span>×</span>
           </button>
-          <button className={`ladder-project-tab ${programTab === 'tags' ? 'is-active' : ''}`} onClick={() => { setProgramTab('tags'); setActiveProjectNode('plcVariables') }}>Tabela de Tags</button>
+          <button className={`ladder-project-tab ${programTab === 'tags' ? 'is-active' : ''}`} onClick={() => { setProgramTab('tags'); setActiveProjectNode('plcVariables') }}><IconTag size={13} />Tabela de Tags</button>
           <span className="ml-auto flex items-center gap-2 text-[10px] text-slate-400">
             <span className={`ladder-connection-dot ${running ? 'is-live' : ''}`} /> {running ? 'Simulação ativa' : 'Parado'}
           </span>
@@ -1719,7 +1719,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             <>
               <span className="ladder-toolbar-separator" />
               <button className="ladder-toolbar-button" onClick={() => setCollapsedIds((cur) => (cur.size >= rungs.length ? new Set() : new Set(rungs.map((r) => r.id))))} title="Recolher / expandir todas (Ctrl+Shift+E)">
-                {collapsedIds.size >= rungs.length ? 'Expandir tudo' : 'Recolher tudo'}
+                {collapsedIds.size >= rungs.length ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}<span>{collapsedIds.size >= rungs.length ? 'Expandir tudo' : 'Recolher tudo'}</span>
               </button>
             </>
           )}
@@ -1827,11 +1827,11 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
               const activeBits = Object.entries(table).filter(([key, value]) => value && /^[IQM]\d+\.\d$/.test(key)).length
               const badge: Record<string, number> = { io: activeBits, timers: Object.keys(timers).length, counters: Object.keys(counters).length }
               const statusTabs: Array<{ id: 'io' | 'memory' | 'timers' | 'counters' | 'lint'; label: ReactNode }> = [
-                { id: 'io', label: 'Entradas/Saídas' },
-                { id: 'memory', label: 'Memórias' },
-                { id: 'timers', label: 'Temporizadores' },
-                { id: 'counters', label: 'Contadores' },
-                { id: 'lint', label: lintCount ? `Verificação (${lintCount})` : <><IconCheck size={10} className="ui-ck" />Verificação</> },
+                { id: 'io', label: <><IconSchematic size={11} />Entradas/Saídas</> },
+                { id: 'memory', label: <><IconTag size={11} />Memórias</> },
+                { id: 'timers', label: <><IconTimer size={11} />Temporizadores</> },
+                { id: 'counters', label: <><IconCounter size={11} />Contadores</> },
+                { id: 'lint', label: lintCount ? <><IconShield size={11} />Verificação ({lintCount})</> : <><IconCheck size={10} className="ui-ck" />Verificação</> },
               ]
               return statusTabs.map(({ id, label }) => (
                 <button key={id} role="tab" aria-selected={statusTab === id} className={statusTab === id ? 'is-active' : ''} onClick={() => { setStatusTab(id); setShowStatus(true) }}>

@@ -39,6 +39,7 @@ import GrafcetTemplatesDialog from './GrafcetTemplatesDialog'
 import { applyLadderFromGrafcet, hasGeneratedLadder, ladderSyncStatus, previewLadder } from './ladderSync'
 import {
   IconChevronRight,
+  IconChevronLeft,
   IconCopy,
   IconCursor,
   IconDelete,
@@ -50,7 +51,18 @@ import {
   IconPlus,
   IconImport,
   IconTemplates,
-  IconExample
+  IconExample,
+  IconOpen,
+  IconClose,
+  IconAlignCenterH,
+  IconAlignTop,
+  IconDistH,
+  IconDistV,
+  IconFocus,
+  IconZoomIn,
+  IconZoomOut,
+  IconReset,
+  IconGrid
 } from '../ui/icons'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
@@ -2836,7 +2848,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
             </small>
           </div>
           <button className="dc-btn-primary dc-btn" onClick={onOpenEditor}>
-            Abrir editor ↗
+            <IconOpen size={13} />Abrir editor
           </button>
         </header>
       )}
@@ -2871,12 +2883,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   title={`${chart.title || chart.name} — ${count} etapa(s). Duplo clique: renomear. As páginas comunicam por sinais, ações S/R, referências X e ligações sem fio.`}
                 >{chart.title || chart.name}<em>{count}</em></button>
                 {pageCharts.length > 1 && (
-                  <button type="button" className="grafcet-page-del" aria-label={`Eliminar ${chart.title || chart.name}`} title="Eliminar página" onClick={() => void deletePage(chart.id)}>×</button>
+                  <button type="button" className="grafcet-page-del" aria-label={`Eliminar ${chart.title || chart.name}`} title="Eliminar página" onClick={() => void deletePage(chart.id)}><IconClose size={11} /></button>
                 )}
               </span>
             )
           })}
-          <button type="button" className="grafcet-page-add" onClick={addPage} title="Nova página (chart). Ex.: um GRAFCET por estação, a comunicarem por sinais e referências X.">+ Nova página</button>
+          <button type="button" className="grafcet-page-add" onClick={addPage} title="Nova página (chart). Ex.: um GRAFCET por estação, a comunicarem por sinais e referências X."><IconPlus size={12} />Nova página</button>
         </div>
       )}
 
@@ -2893,7 +2905,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   <small>Construa e ligue a sequência</small>
                 </div>
                 <button title="Recolher ferramentas (Ctrl+B)" aria-label="Recolher ferramentas" onClick={() => setShowPalette(false)}>
-                  ‹
+                  <IconChevronLeft size={13} />
                 </button>
               </div>
 
@@ -2914,8 +2926,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   aria-label="Pesquisar componentes GRAFCET"
                 />
                 {paletteFilter && (
-                  <button onClick={() => setPaletteFilter('')} title="Limpar pesquisa">
-                    ×
+                  <button onClick={() => setPaletteFilter('')} title="Limpar pesquisa" aria-label="Limpar pesquisa">
+                    <IconClose size={11} />
                   </button>
                 )}
               </div>
@@ -4795,7 +4807,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
             <span role="status" aria-live="polite">{wireDraft
               ? wireHover ? 'Solte para ligar · Esc cancela' : wireDraft.start.kind === 'branch-out' ? 'Escolha uma etapa para o novo ramo · Esc cancela' : 'Escolha outro ponto para ligar · Esc cancela'
               : 'Arraste os pontos para ligar · arraste uma linha para a dobrar'}</span>
-            {wireDraft && <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => cancelWire()} aria-label="Cancelar ligação em curso">Cancelar</button>}
+            {wireDraft && <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => cancelWire()} aria-label="Cancelar ligação em curso"><IconClose size={12} />Cancelar</button>}
           </div>}
 
           {/* Retângulo de seleção por arrastamento */}
@@ -4812,16 +4824,16 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
             <div className="grafcet-selbar" role="toolbar" aria-label="Ações sobre as etapas selecionadas" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
               <strong className="grafcet-selbar-count">{groupIds.length} etapas</strong>
               <span className="grafcet-canvas-hud-sep" />
-              <button type="button" onClick={() => alignGroup('axis')} title="Alinhar todas ao mesmo eixo vertical">Alinhar eixo</button>
-              <button type="button" onClick={() => alignGroup('top')} title="Alinhar todas pelo topo">Alinhar topo</button>
-              <button type="button" onClick={() => distributeGroup('h')} disabled={groupIds.length < 3} title="Espaçamento horizontal igual (mín. 3 etapas)">Distribuir ↔</button>
-              <button type="button" onClick={() => distributeGroup('v')} disabled={groupIds.length < 3} title="Espaçamento vertical igual (mín. 3 etapas)">Distribuir ↕</button>
+              <button type="button" onClick={() => alignGroup('axis')} title="Alinhar todas ao mesmo eixo vertical"><IconAlignCenterH size={12} />Alinhar eixo</button>
+              <button type="button" onClick={() => alignGroup('top')} title="Alinhar todas pelo topo"><IconAlignTop size={12} />Alinhar topo</button>
+              <button type="button" onClick={() => distributeGroup('h')} disabled={groupIds.length < 3} title="Espaçamento horizontal igual (mín. 3 etapas)"><IconDistH size={12} />Distribuir</button>
+              <button type="button" onClick={() => distributeGroup('v')} disabled={groupIds.length < 3} title="Espaçamento vertical igual (mín. 3 etapas)"><IconDistV size={12} />Distribuir</button>
               <span className="grafcet-canvas-hud-sep" />
-              <button type="button" onClick={() => copySelection()} title="Copiar o grupo com as ações e as transições internas (Ctrl+C)">Copiar</button>
-              <button type="button" onClick={duplicateSelected} title="Duplicar o grupo com as transições internas (Ctrl+D)">Duplicar</button>
-              <button type="button" onClick={zoomToSelection} title="Ampliar a vista ao grupo (Z)">Ampliar</button>
-              <button type="button" className="is-danger" onClick={() => void requestDelete()} title="Eliminar as etapas selecionadas (Del)">Eliminar</button>
-              <button type="button" onClick={() => { setMulti([]); setSelected(null) }} aria-label="Limpar seleção" title="Limpar seleção (Esc)">✕</button>
+              <button type="button" onClick={() => copySelection()} title="Copiar o grupo com as ações e as transições internas (Ctrl+C)"><IconCopy size={12} />Copiar</button>
+              <button type="button" onClick={duplicateSelected} title="Duplicar o grupo com as transições internas (Ctrl+D)"><IconCopy size={12} />Duplicar</button>
+              <button type="button" onClick={zoomToSelection} title="Ampliar a vista ao grupo (Z)"><IconFocus size={12} />Ampliar</button>
+              <button type="button" className="is-danger" onClick={() => void requestDelete()} title="Eliminar as etapas selecionadas (Del)"><IconDelete size={12} />Eliminar</button>
+              <button type="button" onClick={() => { setMulti([]); setSelected(null) }} aria-label="Limpar seleção" title="Limpar seleção (Esc)"><IconClose size={12} /></button>
             </div>
           )}
 
@@ -4853,7 +4865,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                 title="Diminuir zoom (Roda do rato / -)"
                 aria-label="Diminuir zoom"
               >
-                −
+                <IconZoomOut size={13} />
               </button>
               <button
                 type="button"
@@ -4862,7 +4874,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                 title="Ajustar escala (Ctrl+0)"
                 aria-label="Zoom automático"
               >
-                {Math.round(scale * 100)}%
+                <IconReset size={12} /><span>{Math.round(scale * 100)}%</span>
               </button>
               <button
                 type="button"
@@ -4870,7 +4882,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                 title="Aumentar zoom (Roda do rato / +)"
                 aria-label="Aumentar zoom"
               >
-                +
+                <IconZoomIn size={13} />
               </button>
               <span className="grafcet-canvas-hud-sep" />
               <button
@@ -4878,7 +4890,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                 onClick={resetView}
                 title="Ajustar diagrama à janela (Ctrl+0 / Duplo clique no fundo)"
               >
-                Ajustar
+                <IconFocus size={12} /><span>Ajustar</span>
               </button>
               <button
                 type="button"
@@ -4887,7 +4899,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                 title="Mostrar/ocultar o minimapa"
                 aria-pressed={minimapOn}
               >
-                Mapa
+                <IconGrid size={12} /><span>Mapa</span>
               </button>
               <span className="grafcet-canvas-hud-sep" />
               <span className="grafcet-hud-stats">

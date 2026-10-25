@@ -9,7 +9,7 @@ import { useSimStore } from '../store/useSimStore'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
-import { IconHelp } from '../ui/icons'
+import { IconClose, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '../types'
 import * as THREE from 'three'
 import { cloneModelScene } from './modelFit'
@@ -2491,18 +2491,18 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             <i className={wireEditDirty ? 'is-dirty' : ''}>{wireEditDirty ? 'Alterado' : 'Sincronizado'}</i>
           </header>
           <footer className="is-compact">
-            <button type="button" onClick={addWireWaypoint} title="Adiciona um ponto de curva (também: duplo clique sobre o cabo)">+ Ponto</button>
-            <button type="button" disabled={activeWaypointIndex === null} onClick={removeWireWaypoint} title="Remove o ponto ativo (Delete, ou duplo clique no ponto)">− Ponto</button>
-            <button type="button" className={moveAllWire ? 'is-active' : ''} aria-pressed={moveAllWire} onClick={() => { setMoveAllWire((value) => !value); setActiveWaypointIndex(null); setActiveEnd(null) }} title="Desloca o cabo inteiro com o manipulador 3D">Mover cabo</button>
+            <button type="button" onClick={addWireWaypoint} title="Adiciona um ponto de curva (também: duplo clique sobre o cabo)"><IconPlus size={10} />Ponto</button>
+            <button type="button" disabled={activeWaypointIndex === null} onClick={removeWireWaypoint} title="Remove o ponto ativo (Delete, ou duplo clique no ponto)"><IconDelete size={10} />Ponto</button>
+            <button type="button" className={moveAllWire ? 'is-active' : ''} aria-pressed={moveAllWire} onClick={() => { setMoveAllWire((value) => !value); setActiveWaypointIndex(null); setActiveEnd(null) }} title="Desloca o cabo inteiro com o manipulador 3D"><IconMove size={10} />Mover cabo</button>
             {activeEnd && <>
-              <button type="button" onClick={() => startReconnect(activeEnd)} title="Escolher outro borne para esta ponta">Religar {activeEnd === 'from' ? 'A' : 'B'}</button>
-              <button type="button" onClick={() => detachWireEnd(activeEnd)} title="Soltar a ponta do borne (fica livre no espaço)">Soltar {activeEnd === 'from' ? 'A' : 'B'}</button>
+              <button type="button" onClick={() => startReconnect(activeEnd)} title="Escolher outro borne para esta ponta"><IconLink size={10} />Religar {activeEnd === 'from' ? 'A' : 'B'}</button>
+              <button type="button" onClick={() => detachWireEnd(activeEnd)} title="Soltar a ponta do borne (fica livre no espaço)"><IconUnlock size={10} />Soltar {activeEnd === 'from' ? 'A' : 'B'}</button>
             </>}
             {wireEditDirty && <>
-              <button type="button" onClick={cancelWireEdit}>Cancelar</button>
-              <button type="button" className="is-primary" onClick={saveWireEdit}>Guardar</button>
+              <button type="button" onClick={cancelWireEdit}><IconClose size={10} />Cancelar</button>
+              <button type="button" className="is-primary" onClick={saveWireEdit}><IconSave size={10} />Guardar</button>
             </>}
-            <button type="button" className="is-danger" onClick={() => { deleteWire(selectedWire.id); setActiveWaypointIndex(null); setActiveEnd(null) }}>Eliminar</button>
+            <button type="button" className="is-danger" onClick={() => { deleteWire(selectedWire.id); setActiveWaypointIndex(null); setActiveEnd(null) }}><IconDelete size={10} />Eliminar</button>
           </footer>
           <small className="panel3d-wire-hint">{moveAllWire ? 'Arraste o cubo roxo para mover o cabo.' : reconnect ? 'Clique no novo borne da ponta.' : 'Arraste as bolas para curvar · duplo clique no cabo cria um ponto · ◆ = pontas · cor, secção e terminações no Inspetor'}</small>
         </div>
@@ -2662,7 +2662,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           title="Atalhos de teclado (F1)"
           aria-label="Atalhos de teclado"
         >
-          ?
+          <IconKeyboard size={13} />
         </button>
         <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor="Painel 3D" />
       </div>

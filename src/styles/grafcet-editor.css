@@ -1575,6 +1575,10 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 }
 .grafcet-selbar-count { font-size: 11px; color: #1d4ed8; padding: 0 6px; white-space: nowrap; }
 .grafcet-selbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   height: 26px;
   padding: 0 9px;
   border-radius: 5px;
@@ -2048,9 +2052,9 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .grafcet-page-chip.is-active { border-color: #2655e5; background: #eef3ff; }
 .grafcet-page-chip.is-active > button { color: #1d3fae; font-weight: 700; }
 .grafcet-page-chip.is-active > button em { background: #2655e5; }
-.grafcet-page-del { border: none; background: none; color: #a3b1c6; cursor: pointer; padding: 0 7px; font-size: 13px; line-height: 1; }
+.grafcet-page-del { display:inline-flex; align-items:center; justify-content:center; border: none; background: none; color: #a3b1c6; cursor: pointer; padding: 0 7px; font-size: 13px; line-height: 1; }
 .grafcet-page-del:hover { color: #cc3344; }
-.grafcet-page-add { border: 1px dashed #b9c6d9; border-radius: 8px; background: none; color: #567; font-size: 11px; padding: 4px 10px; cursor: pointer; }
+.grafcet-page-add { display:inline-flex; align-items:center; gap:5px; border: 1px dashed #b9c6d9; border-radius: 8px; background: none; color: #567; font-size: 11px; padding: 4px 10px; cursor: pointer; }
 .grafcet-page-add:hover { border-color: #2655e5; color: #1d3fae; background: #f2f6ff; }
 
 /* Qualificador IEC: lista suspensa (substitui os cartões N/S/R/D/L) */

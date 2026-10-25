@@ -69,7 +69,7 @@
 .panel3d-edit-context .panel3d-wire-actions button { min-height:27px; font-size:8px; }
 .panel3d-wire-inspector > footer { display:flex; min-height:39px; align-items:center; justify-content:flex-end; gap:5px; padding:6px 9px; border-top:1px solid #dbe4ef; background:#f8fafc; }
 .panel3d-wire-inspector > footer span { margin-right:auto; color:var(--dx-ink-3); font-size:8px; white-space:normal; }
-.panel3d-wire-inspector > footer button { min-height:27px; }
+.panel3d-wire-inspector > footer button { display:inline-flex; align-items:center; justify-content:center; gap:4px; min-height:27px; }
 .panel3d-wire-inspector > footer button.is-primary { border-color:#2563eb; color:#fff; background:#2563eb; }
 .panel3d-wire-inspector > footer button.is-primary:hover:not(:disabled) { color:#fff; background:#1d4ed8; }
 .panel3d-model-badge { position:absolute; z-index:11; top:12px; left:12px; display:flex; max-width:260px; flex-direction:column; gap:1px; padding:7px 10px; border:1px solid var(--dx-line-strong); border-radius:8px; color:#334155; background:#fffffff0; box-shadow:0 4px 14px #243b6320; backdrop-filter:blur(8px); pointer-events:none; }

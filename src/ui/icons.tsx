@@ -67,6 +67,7 @@ import {
   faHand,
   faHashtag,
   faImage,
+  faKeyboard,
   faLayerGroup,
   faLightbulb,
   faLink,
@@ -201,6 +202,7 @@ export const IconModel = fa(faCubes)
 export const IconSparkle = fa(faLightbulb)
 export const IconCamera = fa(faCamera)
 export const IconImage = fa(faImage)
+export const IconKeyboard = fa(faKeyboard)
 export const IconStar = fa(faStar)
 /** Importar ficheiro para o projeto (ficheiro com seta a entrar). */
 export const IconImport = fa(faFileImport)

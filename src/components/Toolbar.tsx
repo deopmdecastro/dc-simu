@@ -24,6 +24,7 @@ import { IconCheck, IconWarning,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp,
+  IconTemplates, IconImport, IconLink,
 } from '../ui/icons'
 
 type AlignEdge = 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY'
@@ -457,7 +458,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 className="dc-tool-btn !gap-1.5"
                 title="Modelos de GRAFCET industriais prontos para carregar"
               >
-                <span>★ Modelos</span>
+                <IconTemplates size={13} /><span>Modelos</span>
               </button>
               {canGenerateLadder && (
                 <>
@@ -472,17 +473,21 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                         : 'O GRAFCET mudou: atualiza o Ladder gerado'
                     }
                   >
-                    <span>{ladderSync === 'none' ? '⇢ Gerar Ladder' : ladderSync === 'synced' ? <><IconCheck size={11} className="ui-ck" />Ladder atualizado</> : '⟳ Atualizar Ladder'}</span>
+                    {ladderSync === 'none'
+                      ? <><IconLadder size={13} /><span>Gerar Ladder</span></>
+                      : ladderSync === 'synced'
+                        ? <><IconCheck size={11} className="ui-ck" /><span>Ladder atualizado</span></>
+                        : <><IconReset size={13} /><span>Atualizar Ladder</span></>}
                   </button>
                   {ladderSync !== 'none' && (
                     <button
                       type="button"
                       onClick={() => useGrafcetUi.getState().toggleAutoSync()}
-                      className={`dc-tool-btn !px-2 ${grafcetAutoSync ? 'is-active' : ''}`}
+                      className={`dc-tool-btn !gap-1.5 ${grafcetAutoSync ? 'is-active' : ''}`}
                       aria-pressed={grafcetAutoSync}
                       title="Atualizar o Ladder automaticamente quando o GRAFCET muda"
                     >
-                      Auto
+                      <IconLink size={13} /><span>Auto</span>
                     </button>
                   )}
                 </>
@@ -495,32 +500,33 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('autoLayout')}
-                className="dc-tool-btn !px-2"
+                className="dc-tool-btn !gap-1.5"
                 title="Organizar automaticamente o diagrama (Ctrl+Z desfaz)"
               >
-                Organizar
+                <IconOrganize size={13} /><span>Organizar</span>
               </button>
             </div>
 
             <span className="tb-sep" />
 
             <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Ficheiro">
-              <button type="button" onClick={() => useGrafcetUi.getState().emit('exportSvg')} className="dc-tool-btn !px-2" title="Exportar diagrama em formato SVG vetorial">
-                SVG
+              <button type="button" onClick={() => useGrafcetUi.getState().emit('exportSvg')} className="dc-tool-btn !gap-1.5" title="Exportar diagrama em formato SVG vetorial">
+                <IconDownload size={13} /><span>SVG</span>
               </button>
-              <button type="button" onClick={() => useGrafcetUi.getState().emit('exportJson')} className="dc-tool-btn !px-2" title="Exportar o projeto GRAFCET para JSON" aria-label="Exportar GRAFCET em JSON">
-                Exportar JSON
+              <button type="button" onClick={() => useGrafcetUi.getState().emit('exportJson')} className="dc-tool-btn !gap-1.5" title="Exportar o projeto GRAFCET para JSON" aria-label="Exportar GRAFCET em JSON">
+                <IconDownload size={13} /><span>Exportar JSON</span>
               </button>
-              <button type="button" onClick={() => useGrafcetUi.getState().emit('importJson')} className="dc-tool-btn !px-2" title="Importar GRAFCET FluidSIM 4 (.ct), JSON ou .grafcet" aria-label="Importar GRAFCET: FluidSIM 4 (.ct), JSON ou .grafcet">
-                Importar
+              <button type="button" onClick={() => useGrafcetUi.getState().emit('importJson')} className="dc-tool-btn !gap-1.5" title="Importar GRAFCET FluidSIM 4 (.ct), JSON ou .grafcet" aria-label="Importar GRAFCET: FluidSIM 4 (.ct), JSON ou .grafcet">
+                <IconImport size={13} /><span>Importar</span>
               </button>
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('restart')}
                 className="dc-tool-btn !px-2"
                 title="Reiniciar a sequência nas etapas iniciais"
+                aria-label="Reiniciar sequência"
               >
-                ⟲
+                <IconReset size={13} />
               </button>
             </div>
           </>
@@ -723,9 +729,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 onClick={() => useGrafcetUi.getState().emit('openDiagnostics')}
               >
                 {grafcetErrorCount
-                  ? `✖ ${grafcetErrorCount} erro${grafcetErrorCount === 1 ? '' : 's'}`
+                  ? <><IconWarning size={11} />{grafcetErrorCount} erro{grafcetErrorCount === 1 ? '' : 's'}</>
                   : grafcetIssues.length
-                  ? `⚠ ${grafcetIssues.length} aviso${grafcetIssues.length === 1 ? '' : 's'}`
+                  ? <><IconWarning size={11} />{grafcetIssues.length} aviso{grafcetIssues.length === 1 ? '' : 's'}</>
                   : <><IconCheck size={11} className="ui-ck" />Validado</>}
               </button>
 

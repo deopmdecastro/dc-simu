@@ -21,7 +21,7 @@
 .grafcet-construction-guide.is-active { border-color: #b9cdfb; color: #1e40af; }
 .grafcet-construction-indicator { width: 6px; height: 6px; border-radius: 50%; background: #8b9bb1; flex: 0 0 auto; }
 .grafcet-construction-guide.is-active .grafcet-construction-indicator { background: #2563eb; }
-.grafcet-construction-guide button { pointer-events: auto; background: #fff; border: 1px solid #c9d8f4; border-radius: 4px; padding: 3px 7px; color: #1d4ed8; font-weight: 600; cursor: pointer; }
+.grafcet-construction-guide button { display:inline-flex; align-items:center; gap:4px; pointer-events: auto; background: #fff; border: 1px solid #c9d8f4; border-radius: 4px; padding: 3px 7px; color: #1d4ed8; font-weight: 600; cursor: pointer; }
 .grafcet-construction-guide button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 @media (max-width: 600px) {
   .grafcet-construction-guide { top: 8px; left: 8px; max-width: calc(100% - 16px); font-size: 10px; padding: 6px 8px; }
