@@ -212,7 +212,7 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
                         ref={(el) => { if (el) el.indeterminate = picked.length > 0 && picked.length < block.rungs.length }}
                         onChange={() => toggleBlock(block)}
                       />
-                      <span>{block.title}</span> <em>({picked.length}/{block.rungs.length} networks)</em>
+                      <span className="pdfx-block-name"><strong>{block.title}</strong><em>{picked.length}/{block.rungs.length} networks</em></span>
                     </label>
                     <span className="pdf-export-row-tools">
                       {block.rungs.length > 1 && <>

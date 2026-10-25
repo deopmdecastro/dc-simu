@@ -2858,3 +2858,45 @@ input[list]:focus::-webkit-calendar-picker-indicator {
 
 /* estados vazios do painel de estado */
 .ladder-status-empty.is-ok { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 12px; display: inline-block; font-weight: 600; }
+
+/* ───── Exportar PDF · espaçamentos v3 (cards arejados) ───── */
+.pdf-export-dialog.is-wide { width: min(880px, 96vw); max-width: 880px; }
+.pdf-export-body { gap: 24px; padding: 4px 2px 8px; }
+.pdf-export-body .pdf-export-grid { gap: 24px; align-items: start; }
+.pdf-export-body .pdfx-toolbar { padding: 14px 18px; gap: 10px; }
+.pdf-export-body .pdfx-toolbar button { padding: 7px 16px; font-size: 11.5px; }
+.pdf-export-body .pdfx-pages { padding: 6px 14px; }
+.pdf-export-body .pdfx-section { gap: 10px; padding: 22px 24px 24px; border-radius: 16px; box-shadow: 0 1px 2px rgba(30, 50, 100, .04); }
+.pdf-export-body .pdfx-section > header { margin-bottom: 6px; padding-bottom: 14px; }
+.pdf-export-body .pdfx-section > header strong { font-size: 11.5px; letter-spacing: .08em; }
+/* cada opção é um "tile" clicável com respiro e estado marcado */
+.pdf-export-body .pdfx-section > label { min-height: 46px; padding: 11px 14px; margin: 0; border: 1px solid #e6ecf6; border-radius: 11px; background: #fff; line-height: 1.35; transition: background .12s, border-color .12s; }
+.pdf-export-body .pdfx-section > label:hover:not(.is-empty) { background: #f4f8ff; border-color: #cddcf8; }
+.pdf-export-body .pdfx-section > label:has(input:checked) { background: #f1f6ff; border-color: #bcd0f7; }
+.pdf-export-body .pdfx-section > label.is-empty { background: #f8fafc; border-style: dashed; }
+.pdf-export-body label { gap: 12px; }
+.pdf-export-body label em { margin-left: 6px; }
+.pdf-export-body input[type="checkbox"] { width: 17px; height: 17px; flex: none; }
+.pdf-export-body .pdf-export-sub { margin: 4px 0 0; padding: 4px 2px 0; gap: 10px; }
+.pdf-export-body .pdf-export-chip { padding: 6px 14px; }
+/* blocos de ladder: um card por bloco, com nome e contagem em duas linhas */
+.pdf-export-body .pdf-export-blocks { gap: 14px; margin-top: 4px; }
+.pdf-export-body .pdf-export-blocks > li { padding: 16px 18px; border-radius: 14px; }
+.pdf-export-body .pdf-export-block-row { gap: 20px; min-height: 40px; }
+.pdf-export-body .pdf-export-block-row > label { flex: 1; min-width: 0; }
+.pdfx-block-name { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pdfx-block-name strong { font-size: 13px; font-weight: 650; color: #1f2a44; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdfx-block-name em { margin: 0 !important; font-size: 11px !important; }
+.pdf-export-body .pdf-export-row-tools { gap: 6px; }
+.pdf-export-body .pdf-export-row-tools button { padding: 6px 10px; font-size: 11px; }
+.pdf-export-body .pdf-export-expand { padding: 7px 12px 7px 14px; border-radius: 9px; }
+.pdf-export-body .pdf-export-rungs { margin: 14px 0 2px 29px; padding: 16px 18px; gap: 12px 24px; border-radius: 11px; }
+.pdf-export-body .pdf-export-rungs label { min-height: 26px; }
+.pdf-export-body .pdfx-empty { padding: 26px 22px; gap: 8px; border-radius: 12px; }
+.pdf-export-body .pdf-export-notice { padding: 14px 16px; }
+@media (max-width: 640px) {
+  .pdf-export-body .pdf-export-grid { gap: 18px; }
+  .pdf-export-body .pdfx-section { padding: 18px 16px 18px; }
+  .pdf-export-body .pdf-export-blocks > li { padding: 14px; }
+  .pdf-export-body .pdf-export-block-row { gap: 12px; }
+}
