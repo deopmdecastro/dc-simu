@@ -29,6 +29,16 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
       read.add(el.address.toUpperCase())
       if (!VALID.test(el.address.toUpperCase()) && !/^DB/i.test(el.address)) issues.push({ id: `${el.id}:addr`, level: 'error', message: `${name}: endereço inválido «${el.address}» num contacto.`, rungId: rung.id })
     }
+    for (const branch of rung.branches) {
+      const modes = new Map<string, Set<string>>()
+      for (const el of branch.elements) {
+        if (el.contactType !== 'NO' && el.contactType !== 'NC') continue
+        const key = el.address.toUpperCase()
+        modes.set(key, (modes.get(key) ?? new Set()).add(el.contactType))
+      }
+      const clash = [...modes].filter(([, kinds]) => kinds.size > 1).map(([address]) => address)
+      if (clash.length) issues.push({ id: `${branch.id}:contradiction`, level: 'warning', message: `${name}: ${clash.join(', ')} aparece como NO e NC em série no mesmo ramo — esse ramo nunca conduz.`, rungId: rung.id })
+    }
     if (rung.counter?.resetAddress) read.add(rung.counter.resetAddress.toUpperCase())
     if (rung.move) read.add(rung.move.source.toUpperCase())
     if (rung.math) {
@@ -45,8 +55,12 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
       else if (address.startsWith('I')) issues.push({ id: `${coil.id}:input`, level: 'error', message: `${name}: a bobina escreve na entrada ${address}; as entradas só se leem.`, rungId: rung.id })
       addWrite(address, rung.id, name, coil.coilType)
     }
-    if (rung.timer) addWrite(rung.timer.address, rung.id, name, 'timer')
+    if (rung.timer) {
+      addWrite(rung.timer.address, rung.id, name, 'timer')
+      if (!(rung.timer.presetMs > 0)) issues.push({ id: `${rung.id}:timer-preset`, level: 'warning', message: `${name}: o temporizador ${rung.timer.address} tem preset 0 — dispara no mesmo scan e perde o sentido.`, rungId: rung.id })
+    }
     if (rung.counter) {
+      if (!(rung.counter.preset > 0)) issues.push({ id: `${rung.id}:counter-preset`, level: 'warning', message: `${name}: o contador ${rung.counter.address} tem preset 0 — fica logo concluído.`, rungId: rung.id })
       addWrite(rung.counter.address, rung.id, name, 'counter')
       if (rung.counter.counterType === 'CTU' && !rung.counter.resetAddress) issues.push({ id: `${rung.id}:no-reset`, level: 'warning', message: `${name}: o contador ${rung.counter.address} não tem endereço de reset.`, rungId: rung.id })
     }

@@ -817,6 +817,27 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
     }
   })
 
+  // Armadilhas: etapas alcançáveis presas num ciclo fechado que nunca chega a uma etapa inicial nem a uma
+  // etapa final (ex.: 2→3→2 sem retorno). Sequências lineares com final já são avisadas por «dead».
+  if (hasInitial) {
+    // «Saídas» legítimas: etapas iniciais e etapas finais (sem transição de saída, já avisadas à parte).
+    const back = new Set(steps.filter((s) => s.initial || s.stepType === 'initial' || s.stepType === 'initial-enclosing' || !outgoing.has(s.id)).map((s) => s.id))
+    let growing = true
+    while (growing) {
+      growing = false
+      for (const t of transitions) {
+        if (t.to.some((id) => back.has(id))) {
+          for (const id of t.from) if (stepIds.has(id) && !back.has(id)) { back.add(id); growing = true }
+        }
+      }
+    }
+    steps.forEach((step) => {
+      if (reach.has(step.id) && !back.has(step.id) && outgoing.has(step.id)) {
+        issues.push({ id: `${step.id}:trap`, level: 'warning', message: `A etapa ${label(step.id)} está num ciclo fechado sem saída para a etapa inicial: depois de lá chegar, a sequência nunca recomeça.`, entityId: step.id, tab: 'steps' })
+      }
+    })
+  }
+
   // Saída comandada por várias etapas sem qualificador S/R.
   const drivers = new Map<string, string[]>()
   steps.forEach((step) => actionsOfStep(step).forEach((a) => {
