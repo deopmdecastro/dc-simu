@@ -317,13 +317,16 @@
 .grafcet-full .grafcet-empty p { color:var(--dx-ink-3); margin:10px 0 18px; }
 .grafcet-empty-icon { display:grid; place-items:center; width:52px; height:52px; margin:0 auto 12px; border-radius:14px; background:#e8f0ff; color:#2455d8; box-shadow:inset 0 0 0 1px #c9d8f7; }
 .grafcet-empty-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-.grafcet-empty-actions .dc-btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:40px; padding:8px 12px; white-space:normal; line-height:1.25; }
+.grafcet-empty-actions .dc-btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:42px; padding:8px 10px; white-space:normal; text-align:center; line-height:1.2; }
+.grafcet-empty-actions .dc-btn svg, .grafcet-import-dropzone .dc-btn svg { flex:0 0 auto; }
 .grafcet-empty-main, .grafcet-empty-wide { grid-column:1 / -1; }
-.grafcet-empty-wide { border-style:dashed; }
+.grafcet-empty-main { min-height:46px; font-size:14px; }
+.grafcet-empty-wide { border-style:dashed; background:transparent; color:#41618e; }
 @media (max-width:520px) {
-  .grafcet-full .grafcet-empty { top:38%; padding:24px 16px; width:min(420px,calc(100% - 24px)); }
-  .grafcet-empty-actions { grid-template-columns:1fr; }
-  .grafcet-empty-actions .dc-btn { min-height:46px; font-size:14px; }
+  .grafcet-full .grafcet-empty { top:44%; padding:22px 14px 16px; width:min(420px,calc(100% - 24px)); }
+  .grafcet-full .grafcet-empty p { margin:8px 0 16px; font-size:13px; }
+  .grafcet-empty-actions .dc-btn { min-height:46px; font-size:13px; }
+  .grafcet-empty-main { font-size:15px; }
 }
 .grafcet-transition-row { display:flex; align-items:center; border:1px solid transparent; border-radius:6px; background:#f4f7fc; }
 .grafcet-transition-row.is-active { border-color:#93b4fa; background:#dbeafe; }
