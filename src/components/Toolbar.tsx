@@ -15,9 +15,10 @@ import { useLadderUi } from '../ladder/ladderBus'
 import LadderVariablesMenu from '../ladder/LadderVariablesMenu'
 import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { validateGrafcet } from '../grafcet/engine'
+import { ladderSyncStatus } from '../grafcet/ladderSync'
 import ComponentTableDialog from './ComponentTableDialog'
 import ExportPdfDialog from '../export/ExportPdfDialog'
-import { IconCheck,
+import { IconCheck, IconWarning,
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
@@ -199,6 +200,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   } = useSimStore()
   const grafcet = useSimStore((state) => state.grafcet)
   const projectKind = useSimStore((state) => state.projectKind)
+  const ladderRungs = useSimStore((state) => state.ladder.rungs)
+  const ladderTags = useSimStore((state) => state.tags)
+  const projectFiles = useSimStore((state) => state.projectFiles)
+  const activePlcId = useSimStore((state) => state.activePlcId)
   const grafcetZoom = useGrafcetUi((state) => state.zoom)
   const grafcetTool = useGrafcetUi((state) => state.tool)
   const grafcetGrid = useGrafcetUi((state) => state.gridOn)
@@ -208,6 +213,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const ladderSync = useGrafcetUi((state) => state.ladderSync)
   const grafcetAutoSync = useGrafcetUi((state) => state.autoSync)
   const showSimControls = mode !== 'grafcet' || grafcetSimVisible
+  const ladderGrafcetStatus = useMemo(
+    () => ladderSyncStatus(grafcet),
+    [grafcet, ladderRungs, ladderTags, projectFiles, activePlcId],
+  )
   const grafcetIssues = useMemo(() => validateGrafcet(grafcet), [grafcet])
   const grafcetErrorCount = grafcetIssues.filter((i) => i.level === 'error').length
   // «Gerar Ladder» aparece sempre na barra do GRAFCET: num projeto só GRAFCET
@@ -542,6 +551,34 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               setLadderSection('Projeto')
               useLadderUi.getState().emit('openVariables')
             }} />
+            {ladderGrafcetStatus !== 'none' && (() => {
+              const synced = ladderGrafcetStatus === 'synced'
+              const blocked = ladderGrafcetStatus === 'blocked'
+              const label = synced ? 'GRAFCET sincronizado' : blocked ? 'GRAFCET com erros' : 'GRAFCET desatualizado'
+              const title = synced
+                ? 'Abrir o GRAFCET — a parte gerada do Ladder está sincronizada.'
+                : blocked
+                  ? 'Abrir o GRAFCET — corrige os erros para atualizar o Ladder gerado.'
+                  : 'Abrir o GRAFCET — a sequência mudou; atualiza o Ladder na barra do GRAFCET.'
+              const Icon = synced ? IconCheck : IconWarning
+              const statusStyle = synced
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : blocked
+                  ? 'border-state-error/40 bg-state-errorbg text-state-error'
+                  : 'border-amber-300 bg-amber-50 text-amber-800'
+              return (
+                <button
+                  type="button"
+                  className={`dc-tool-btn !gap-1.5 ${statusStyle}`}
+                  onClick={() => setMode('grafcet')}
+                  title={title}
+                  aria-label={label + '. ' + title}
+                >
+                  <Icon size={13} />
+                  <span>{label}</span>
+                </button>
+              )
+            })()}
           </>}
 
           {isCanvas && (
