@@ -49,7 +49,7 @@ const MODES: Array<{ id: VirtualInputMode; label: string; hint: string }> = [
   { id: 'latch', label: 'Encravamento', hint: 'Cada clique liga ou desliga e mantém o estado (como um interruptor).' },
 ]
 
-function ModeToggle({ address, mode }: { address: string; mode: VirtualInputMode }) {
+function ModeToggle({ address, mode, disabled = false }: { address: string; mode: VirtualInputMode; disabled?: boolean }) {
   const setMode = useSimStore((s) => s.setVirtualInputMode)
   return (
     <div className="gsim-seg" role="radiogroup" aria-label={`Tipo de botão de ${address}`}>
@@ -60,7 +60,8 @@ function ModeToggle({ address, mode }: { address: string; mode: VirtualInputMode
           role="radio"
           aria-checked={mode === option.id}
           className={mode === option.id ? 'is-active' : ''}
-          title={option.hint}
+          title={disabled ? 'Simulador parado (STOP) — prime Run' : option.hint}
+          disabled={disabled}
           onClick={() => setMode(address, option.id)}
         >
           {option.label}
@@ -101,6 +102,8 @@ export default function GrafcetSimPanel({
   const setName = useSimStore((s) => s.setVirtualInputName)
   const clear = useSimStore((s) => s.clearVirtualInputs)
   const runState = useSimStore((s) => s.sim.runState)
+  // Comportamento «PLC em STOP»: entradas congeladas até ao Run.
+  const stopped = runState === 'stopped'
 
   const detection = useMemo(() => detectGrafcetIo(program, stepLabel), [program, stepLabel])
 
@@ -170,7 +173,8 @@ export default function GrafcetSimPanel({
               <h4>Entradas <span className="gsim-count">{detection.inputs.length}</span></h4>
             </div>
           </div>
-          <button type="button" className="gsim-link" onClick={clear} title="Desligar todas as entradas">
+          {stopped && <span className="gsim-stop-hint" role="status">STOP — prime Run para ativar as entradas</span>}
+          <button type="button" className="gsim-link" onClick={clear} disabled={stopped} title={stopped ? 'Simulador parado (STOP) — prime Run' : 'Desligar todas as entradas'}>
             Desligar tudo
           </button>
         </header>
@@ -189,7 +193,7 @@ export default function GrafcetSimPanel({
               return (
                 <li key={input.address} className={`gsim-input${input.symbol ? ' is-symbol' : ''}${virtualInputs[input.address] ? ' is-on' : ''}`}>
                   <div className="gsim-input-main">
-                    <VirtualInputButton address={input.address} className={`gsim-actuator${input.symbol ? ' is-symbol' : ''}`} title={title}>
+                    <VirtualInputButton address={input.address} className={`gsim-actuator${input.symbol ? ' is-symbol' : ''}`} title={stopped ? `${title} · STOP: prime Run` : title} disabled={stopped}>
                       <i aria-hidden="true" />
                       <b>{input.address}</b>
                       <span className="gsim-actuator-state" aria-hidden="true">
@@ -206,7 +210,7 @@ export default function GrafcetSimPanel({
                     )}
                   </div>
                   <div className="gsim-input-row">
-                    <ModeToggle address={input.address} mode={mode} />
+                    <ModeToggle address={input.address} mode={mode} disabled={stopped} />
                     <div className="gsim-uses" aria-label={`Transições que usam ${input.address}`}>
                       <span>Em</span>
                       {input.transitions.map((use) => (

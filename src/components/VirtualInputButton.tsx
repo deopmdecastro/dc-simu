@@ -11,11 +11,14 @@ export default function VirtualInputButton({
   className = '',
   children,
   title,
+  disabled = false,
 }: {
   address: string
   className?: string
   children?: ReactNode
   title?: string
+  /** Simulador parado (STOP): a entrada não responde — ligá-la com Run. */
+  disabled?: boolean
 }) {
   const on = useSimStore((s) => !!s.virtualInputs[address])
   const mode: VirtualInputMode = useSimStore((s) => s.virtualInputModes[address] ?? 'latch')
@@ -32,7 +35,7 @@ export default function VirtualInputButton({
   const rest = mode === 'nc'
   const active = mode !== 'nc'
   const press = (event: PointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0 || !(momentary || event.shiftKey)) return
+    if (disabled || event.button !== 0 || !(momentary || event.shiftKey)) return
     event.preventDefault()
     event.currentTarget.setPointerCapture?.(event.pointerId)
     held.current = true
@@ -45,6 +48,7 @@ export default function VirtualInputButton({
     setInput(address, rest)
   }
   const click = () => {
+    if (disabled) return
     if (swallowClick.current) {
       swallowClick.current = false
       return
@@ -58,7 +62,7 @@ export default function VirtualInputButton({
     setInput(address, !useSimStore.getState().virtualInputs[address])
   }
   const keyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (!momentary || (event.key !== ' ' && event.key !== 'Enter') || event.repeat) return
+    if (disabled || !momentary || (event.key !== ' ' && event.key !== 'Enter') || event.repeat) return
     event.preventDefault()
     setInput(address, active)
   }
@@ -80,6 +84,7 @@ export default function VirtualInputButton({
       type="button"
       role="switch"
       aria-checked={on}
+      disabled={disabled}
       className={`${className} ${on ? 'is-on' : ''} is-${mode}`.trim()}
       title={title ? `${title} — ${hint}` : hint}
       onPointerDown={press}

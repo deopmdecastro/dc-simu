@@ -19,6 +19,7 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
   const modes = useSimStore((s) => s.virtualInputModes)
   const setMode = useSimStore((s) => s.setVirtualInputMode)
   const hasPlc = useSimStore((s) => s.components.some((c) => /^plc/i.test(c.type)))
+  const stopped = useSimStore((s) => s.sim.runState === 'stopped')
 
   const nameOf = (address: string) => { const n = tags.find((t) => t.address.toUpperCase() === address)?.name; return n && n.toUpperCase() !== address ? n : undefined }
 
@@ -55,10 +56,10 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
     const name = nameOf(address)
     const mode: VirtualInputMode = modes[address] ?? 'latch'
     return <div key={address} className="vio-cell">
-      <VirtualInputButton address={address} className="vio-switch" title={`${address}${name ? ` · ${name}` : ''}`}>
+      <VirtualInputButton address={address} className="vio-switch" title={`${address}${name ? ` · ${name}` : ''}`} disabled={stopped}>
         <i /><b>{address}</b><small className={name ? 'vio-name' : 'vio-name-empty'}>{name ?? '—'}</small>
       </VirtualInputButton>
-      <button type="button" className={`vio-mode is-${mode}`} onClick={() => setMode(address, MODE_NEXT[mode])}
+      <button type="button" className={`vio-mode is-${mode}`} onClick={() => setMode(address, MODE_NEXT[mode])} disabled={stopped}
         title={`${address}: ${MODE_NAME[mode]} — clique para mudar o tipo`} aria-label={`Tipo de ${address}: ${MODE_NAME[mode]}. Mudar tipo`}>{MODE_LABEL[mode]}</button>
     </div>
   }
@@ -68,7 +69,8 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
     return <span key={address} className={`vio-lamp ${table[address] ? 'is-on' : ''}`} title={name ? `${address} · ${name}` : address}><i /><b>{address}</b>{name && <small>{name}</small>}</span>
   }
 
-  return <section className={`vio-panel ${compact ? 'is-compact' : ''}`} aria-label="Entradas e saídas virtuais">
+  return <section className={`vio-panel ${compact ? 'is-compact' : ''} ${stopped ? 'is-stopped' : ''}`} aria-label="Entradas e saídas virtuais">
+    {stopped && <p className="vio-note is-info" role="status"><b>Simulador parado (STOP).</b> As entradas só atuam com o simulador iniciado — prime <b>Run</b> (ou «Passo») para começar.</p>}
     {hasPlc && <p className="vio-note">Há um PLC no esquema: as entradas vêm dos seus bornes. Estas entradas só atuam em projetos sem PLC.</p>}
     <div className="vio-cols">
       <div className="vio-col">
@@ -76,7 +78,7 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
           <strong>Entradas virtuais <em className={activeInputs ? 'is-live' : ''}>{activeInputs}/{count}</em></strong>
           <span className="vio-actions">
             {stepper(count, setCount, 'entradas', 1)}
-            <button type="button" className="vio-clear" onClick={clear} disabled={!activeInputs} title="Desligar todas as entradas">Limpar</button>
+            <button type="button" className="vio-clear" onClick={clear} disabled={stopped || !activeInputs} title="Desligar todas as entradas">Limpar</button>
           </span>
         </div>
         <div className="vio-inputs">

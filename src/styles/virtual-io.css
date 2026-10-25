@@ -241,3 +241,13 @@
   .vio-outputs { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
 @media (pointer: coarse) { .vio-lamp { min-height: 44px; } }
+
+/* ───── «PLC em STOP»: entradas congeladas até ao Run ───── */
+.vio-note.is-info { color: #1e3a5f; background: #eaf2fd; border: 1px solid #cfdff5; }
+.vio-note.is-info b { color: #16358c; }
+.vio-panel.is-stopped .vio-switch:disabled { opacity: .55; cursor: not-allowed; filter: saturate(.6); }
+.vio-panel.is-stopped .vio-mode:disabled { opacity: .5; cursor: not-allowed; }
+.vio-panel.is-stopped .vio-outputs, .vio-panel.is-stopped .vio-head { opacity: .7; }
+.gsim-actuator:disabled { opacity: .55; cursor: not-allowed; filter: saturate(.6); }
+.gsim-seg button:disabled { opacity: .45; cursor: not-allowed; }
+.gsim-stop-hint { font-size: 10.5px; font-weight: 600; color: #b45309; background: #fef3c7; border-radius: 999px; padding: 2px 9px; }
