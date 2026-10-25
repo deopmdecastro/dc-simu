@@ -2,6 +2,8 @@
 
 O DC-Simu é um simulador de comandos elétricos industriais em React 18, TypeScript e Vite, com Three.js/R3F e Zustand. Lê README.md e docs/AI-ASSISTANCE.md para conhecer os percursos e o uso das ferramentas de IA.
 
+Em tarefas de UI/UX, preserva o sistema visual e os fluxos existentes. Quando a aplicação estiver dentro do cofre BrainNet, consulta também `../../Design-Principles.md` (em `03-Projects/DC-Simu/`) e inclui essa nota no contexto da tarefa. Essa nota não está disponível num clone independente.
+
 ## Implementação
 
 - Esquema 2D, visualização 3D, Ladder e GRAFCET partilham o estado do circuito. Preserva a sincronização e a compatibilidade dos projetos guardados.

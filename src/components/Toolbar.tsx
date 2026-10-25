@@ -499,11 +499,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               <button type="button" onClick={() => useGrafcetUi.getState().emit('exportSvg')} className="dc-tool-btn !px-2" title="Exportar diagrama em formato SVG vetorial">
                 SVG
               </button>
-              <button type="button" onClick={() => useGrafcetUi.getState().emit('exportJson')} className="dc-tool-btn !px-2" title="Salvar projeto GRAFCET em JSON">
-                Salvar
+              <button type="button" onClick={() => useGrafcetUi.getState().emit('exportJson')} className="dc-tool-btn !px-2" title="Exportar o projeto GRAFCET para JSON" aria-label="Exportar GRAFCET em JSON">
+                Exportar JSON
               </button>
-              <button type="button" onClick={() => useGrafcetUi.getState().emit('importJson')} className="dc-tool-btn !px-2" title="Abrir GRAFCET: JSON ou FluidSIM 4 (.ct)">
-                Abrir
+              <button type="button" onClick={() => useGrafcetUi.getState().emit('importJson')} className="dc-tool-btn !px-2" title="Importar GRAFCET FluidSIM 4 (.ct), JSON ou .grafcet" aria-label="Importar GRAFCET: FluidSIM 4 (.ct), JSON ou .grafcet">
+                Importar
               </button>
               <button
                 type="button"
