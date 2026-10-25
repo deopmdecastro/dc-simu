@@ -2940,3 +2940,4 @@ input[list]:focus::-webkit-calendar-picker-indicator {
 .ladder-bottom-actions .ladder-live-word { width: auto; gap: 0; padding: 0; }
 .ladder-bottom-actions .ladder-live-word-sub { height: 100%; }
 .ladder-bottom-actions .ladder-live-word-value { height: 100%; }
+.ladder-bottom-actions .ladder-live-words { min-height: 26px; height: auto; padding: 0; align-items: center; }
