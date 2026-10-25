@@ -1151,7 +1151,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   let maxBottom = 280
   steps.forEach((step) => {
     const count = actionsOf(step).length
-    maxRight = Math.max(maxRight, stepX(step.id) + (count ? ACTION_OFFSET_X + ACTION_W : 220) + 36)
+    maxRight = Math.max(maxRight, stepX(step.id) + (count ? ACTION_OFFSET_X + ACTION_W : 220) + 130)
     maxBottom = Math.max(maxBottom, stepY(step.id) + Math.max(STEP_H + 84, ACTION_TOP_OFFSET + count * ACTION_PITCH + 28))
   })
 
@@ -4340,7 +4340,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                         )
                       })}
 
-                      {/* Botão + Ação abaixo da lista de ações quando a etapa está selecionada */}
+                      {/* Botão + Ação ao lado direito da última ação quando a etapa está selecionada */}
                       {full && isThisStepSelected && (
                         <g
                           className="grafcet-node-handle"
@@ -4353,8 +4353,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           aria-label="Adicionar ação"
                         >
                           <rect
-                            x={actionX}
-                            y={slotTop(actions.length) + 4}
+                            x={actionX + actionW + 16}
+                            y={slotTop(actions.length - 1) + (actionH - 22) / 2}
                             width="90"
                             height="22"
                             rx="4"
@@ -4364,8 +4364,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                             strokeDasharray="3 2"
                           />
                           <text
-                            x={actionX + 45}
-                            y={slotTop(actions.length) + 19}
+                            x={actionX + actionW + 16 + 45}
+                            y={slotTop(actions.length - 1) + actionH / 2 + 3.5}
                             textAnchor="middle"
                             fill="#1d4ed8"
                             fontSize="10.5"

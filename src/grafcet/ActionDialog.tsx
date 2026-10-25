@@ -172,8 +172,11 @@ export default function ActionDialog({ open, action, signals = [], availableStep
           {allocation === 'continuous' && (
             <div className="grafcet-step-block">
               <h3 className="grafcet-step-heading"><span>3</span>Qualificador</h3>
-              <div className="grafcet-qualifier-options" role="group" aria-label="Qualificador IEC">
-                {ACTION_KINDS.filter((item) => QUALIFIERS.includes(item.id)).map((item) => <button type="button" key={item.id} aria-pressed={kind === item.id} onClick={() => setKind(item.id)} title={item.hint}><code>{item.id}</code><span>{item.label.split(' · ')[1].replace(' (set)', '').replace(' (reset)', '')}</span></button>)}
+              <div className="grafcet-property-field">
+                <label htmlFor="action-qualifier-select">Qualificador IEC</label>
+                <select id="action-qualifier-select" className="dc-select grafcet-qualifier-select" value={kind} onChange={(e) => setKind(e.target.value as GrafcetActionKind)}>
+                  {ACTION_KINDS.filter((item) => QUALIFIERS.includes(item.id)).map((item) => <option key={item.id} value={item.id}>{item.id} — {item.label.split(' · ')[1].replace(' (set)', '').replace(' (reset)', '')}</option>)}
+                </select>
               </div>
               <p className="grafcet-property-note">{selectedKind?.hint}</p>
               {timed && <div className="grafcet-property-field">
