@@ -82,7 +82,10 @@
 .ladder-bottom-panel .ladder-status-title { position: static; margin: 0 0 6px; padding: 0; background: none; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
 .ladder-bottom-panel .ladder-status-row { height: 26px; grid-template-columns: 52px minmax(0, 1fr) 12px; gap: 8px; padding: 0 6px; border-radius: 6px; font-size: 12px; }
 .ladder-bottom-panel .ladder-status-row:hover { background: #f4f7fb; }
+.ladder-bottom-panel .ladder-status-row:has(.ladder-status-detail) { height: 34px; }
+.ladder-bottom-panel .ladder-status-detail { display: block; overflow: hidden; color: #8493a8; font-size: 9px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .ladder-bottom-panel .ladder-status-dot { width: 10px; height: 10px; }
+.ladder-bottom-panel .ladder-status-dot.is-unwired { border-style: dashed; border-color: #d39a36; background: #fff8e8; box-shadow: none; }
 .ladder-status-empty { color: #94a3b8; font-size: 12px; grid-column: 1 / -1; }
 .ladder-meter-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
 .ladder-meter-card { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid #e1e7f0; border-radius: 10px; background: #fff; }

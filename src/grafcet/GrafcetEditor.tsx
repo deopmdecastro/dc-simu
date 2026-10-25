@@ -3977,6 +3977,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   const hasOutgoingTransition = transitions.some((item) => item.from.includes(step.id))
                   const isInitial = step.initial || step.stepType === 'initial' || step.stepType === 'initial-enclosing'
                   const isMacro = step.stepType === 'macro'
+                  const isMacroInput = step.stepType === 'macro-input'
+                  const isMacroOutput = step.stepType === 'macro-output'
                   const isEnclosing = step.stepType === 'enclosing' || step.stepType === 'initial-enclosing'
                   const y = stepY(step.id)
                   const isStepUnlinked = !transitions.some((t) => t.from.includes(step.id) || t.to.includes(step.id))
@@ -4227,6 +4229,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           </text>
                         </>
                       )}
+
+                      {isMacroInput && <text x="130" y={y + 17} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b">E</text>}
+                      {isMacroOutput && <text x="172" y={y + 45} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b">S</text>}
 
                       {/* Etapa encapsulante */}
                       {isEnclosing && (

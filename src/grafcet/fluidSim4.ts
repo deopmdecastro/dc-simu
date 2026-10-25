@@ -1,4 +1,4 @@
-import { validCondition, validGrafcetVariable, type GrafcetAction, type GrafcetProgram, type GrafcetStep } from './engine'
+import { validCondition, validGrafcetVariable, type GrafcetAction, type GrafcetChart, type GrafcetProgram, type GrafcetStep, type GrafcetStepType } from './engine'
 
 // Independent reader for the legacy FluidSIM 4 CT container. No vendor code or
 // executable is loaded. See docs/FLUIDSIM-IMPORT.md for the observed wire format.
@@ -162,20 +162,69 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
   const rects = objects.map((o, index) => ({ o, index })).filter(({ o }) => o.kind === 'GRAPHRECT')
   const nativeSteps = rects.filter(({ index }) => typeOf(index) === 1)
   if (!nativeSteps.length) fail('não foram encontradas etapas.')
-  const minX = Math.min(...nativeSteps.map(({ o }) => (o.box[0] + o.box[2]) / 2))
-  const minY = Math.min(...nativeSteps.map(({ o }) => o.box[1]))
-  const point = (o: NativeObject) => ({ x: 200 + ((o.box[0] + o.box[2]) / 2 - minX) * 1.5 / 1024, y: 80 + (o.box[1] - minY) * 1.5 / 1024 })
+  const nativeTransitions = rects.filter(({ index }) => typeOf(index) === 3)
+  const links = nativeTransitions.map(({ o, index }) => ({
+    o, index,
+    from: nativeSteps.filter(s => find(port(s.index, 2)) === find(port(index, 1))),
+    to: nativeSteps.filter(s => find(port(s.index, 1)) === find(port(index, 2))),
+    link: o.props.get('LINK')?.trim(),
+  }))
+  const stepParent = new Map(nativeSteps.map(({ index }) => [index, index]))
+  const stepRoot = (index: number): number => {
+    const parentIndex = stepParent.get(index)
+    if (parentIndex === undefined) fail('referência a etapa inexistente.')
+    if (parentIndex === index) return index
+    const root = stepRoot(parentIndex!); stepParent.set(index, root); return root
+  }
+  const joinSteps = (a: number, b: number) => { stepParent.set(stepRoot(a), stepRoot(b)) }
+  const nameOfStep = (index: number) => objects[index].props.get('NAME')?.trim() || String(index)
+  for (const link of links) {
+    if (link.link) {
+      const candidates = nativeSteps.filter(s => nameOfStep(s.index) === link.link)
+      if (!candidates.length) fail(`destino por referência inválido: ${link.link}.`)
+      const x = (link.o.box[0] + link.o.box[2]) / 2
+      const target = candidates.sort((a, b) => Math.abs((a.o.box[0] + a.o.box[2]) / 2 - x) - Math.abs((b.o.box[0] + b.o.box[2]) / 2 - x))[0]
+      if (link.to.length && !link.to.some(s => s.index === target.index)) fail(`destino por referência inválido: ${link.link}.`)
+      link.to = [target]
+    }
+    if (link.from.length !== 1 || link.to.length !== 1) fail(`a transição ${links.indexOf(link) + 1} tem ligações incompletas ou uma sincronização ainda não suportada.`)
+    joinSteps(link.from[0].index, link.to[0].index)
+  }
+  const chartGroups = [...new Set(nativeSteps.map(({ index }) => stepRoot(index)))].map(root => {
+    const steps = nativeSteps.filter(s => stepRoot(s.index) === root)
+    return { steps, minX: Math.min(...steps.map(s => (s.o.box[0] + s.o.box[2]) / 2)), minY: Math.min(...steps.map(s => s.o.box[1])) }
+  }).sort((a, b) => a.minX - b.minX)
+  const multiChart = chartGroups.length > 1
+  const charts: GrafcetChart[] = chartGroups.map((_, i) => ({ id: `fs4-chart-${i + 1}`, name: `GRAFCET ${i + 1}`, title: `GRAFCET ${i + 1}` }))
+  const chartForStep = new Map<number, string>()
+  chartGroups.forEach((group, i) => group.steps.forEach(({ index }) => chartForStep.set(index, charts[i].id)))
+  const point = (o: NativeObject, chartId?: string) => {
+    const groupIndex = charts.findIndex(chart => chart.id === chartId)
+    const group = chartGroups[groupIndex >= 0 ? groupIndex : 0]
+    return { x: 200 + ((o.box[0] + o.box[2]) / 2 - group.minX) * 1.5 / 1024, y: 80 + (o.box[1] - group.minY) * 1.5 / 1024 }
+  }
   const warnings: string[] = []
+  chartGroups.forEach((group, i) => {
+    const initialCount = group.steps.filter(({ index }) => [1, 17].includes(Number(objects[index].props.get('mod_flag') || 0))).length
+    if (!initialCount)
+      warnings.push(`${charts[i].name} não tem etapa inicial; pode ser um GRAFCET parcial dependente de uma etapa encapsulante.`)
+    else if (initialCount > 1) warnings.push(`${charts[i].name} tem ${initialCount} etapas iniciais; confirme se a ativação simultânea corresponde ao original.`)
+  })
   const stepByIndex = new Map<number, GrafcetStep>()
-  const stepByName = new Map<string, GrafcetStep>()
+  const stepNamesByChart = new Set<string>()
   for (const { o, index } of nativeSteps) {
-    const name = o.props.get('NAME')?.trim() || String(stepByIndex.size)
-    if (stepByName.has(name)) fail(`identificador de etapa repetido: ${name}.`)
+    const name = nameOfStep(index)
     const flags = Number(o.props.get('mod_flag') || 0)
-    if (flags & ~1) fail(`a etapa ${name} usa uma notação ainda não suportada.`)
-    const initial = !!(flags & 1)
-    const step: GrafcetStep = { id: `fs4-step-${index}`, name, initial, stepType: initial ? 'initial' : 'simple', action: '', condition: '', actions: [], pinned: true, ...point(o) }
-    stepByIndex.set(index, step); stepByName.set(name, step)
+    const stepTypes: Record<number, GrafcetStepType> = { 0: 'simple', 1: 'initial', 16: 'enclosing', 17: 'initial-enclosing', 32: 'macro', 256: 'macro-input', 512: 'macro-output' }
+    const stepType = stepTypes[flags]
+    if (!stepType) fail(`a etapa ${name} usa uma notação ainda não suportada (0x${flags.toString(16)}).`)
+    const chart = chartForStep.get(index)!
+    const scopedName = `${chart}:${name}`
+    if (stepNamesByChart.has(scopedName)) fail(`identificador de etapa repetido no mesmo GRAFCET: ${name}.`)
+    stepNamesByChart.add(scopedName)
+    const initial = stepType === 'initial' || stepType === 'initial-enclosing'
+    const step: GrafcetStep = { id: `fs4-step-${index}`, name, initial, stepType, action: '', condition: '', actions: [], pinned: true, ...(multiChart ? { chart } : {}), ...point(o, chart) }
+    stepByIndex.set(index, step)
   }
   const external = new Set<string>()
   const condition = (value: string | undefined, context: string) => {
@@ -187,31 +236,30 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
     for (const match of result.matchAll(/\bG\d+\s*(?:<=>\s*)?X\d+\b/gi)) external.add(match[0])
     return result
   }
-  const nativeTransitions = rects.filter(({ index }) => typeOf(index) === 3)
-  const transitions = nativeTransitions.map(({ o, index }, ordinal) => {
-    const fromGroup = find(port(index, 1)), toGroup = find(port(index, 2))
-    const from = nativeSteps.filter(s => find(port(s.index, 2)) === fromGroup).map(s => stepByIndex.get(s.index)!.id)
-    let to = nativeSteps.filter(s => find(port(s.index, 1)) === toGroup).map(s => stepByIndex.get(s.index)!.id)
-    const link = o.props.get('LINK')?.trim()
-    if (link) {
-      const targetId = stepByName.get(link)?.id ?? fail(`destino por referência inválido: ${link}.`)
-      if (to.some(id => id !== targetId)) fail(`destino por referência inválido: ${link}.`)
-      to = [targetId]
-    }
-    if (from.length !== 1 || to.length !== 1) fail(`a transição ${ordinal + 1} tem ligações incompletas ou uma sincronização ainda não suportada.`)
-    return { id: `fs4-transition-${index}`, name: `T${ordinal + 1}`, from, to, condition: condition(o.props.get('COND'), `T${ordinal + 1}`), wireless: !!link, ...point(o) }
+  const transitionOrdinals = new Map<string, number>()
+  const transitions = links.map(({ o, index, from, to, link }) => {
+    const fromStep = stepByIndex.get(from[0].index)!, toStep = stepByIndex.get(to[0].index)!
+    const chart = chartForStep.get(from[0].index)!
+    if (chart !== chartForStep.get(to[0].index)) fail('uma ligação entre GRAFCETs diferentes não pode ser importada como transição local.')
+    const ordinal = (transitionOrdinals.get(chart) ?? 0) + 1
+    transitionOrdinals.set(chart, ordinal)
+    return { id: `fs4-transition-${index}`, name: `T${ordinal}`, from: [fromStep.id], to: [toStep.id], condition: condition(o.props.get('COND'), `T${ordinal}`), wireless: !!link, ...(multiChart ? { chart } : {}), ...point(o, chart) }
   })
   const freeActions: GrafcetAction[] = []
   for (const { o, index } of rects.filter(r => typeOf(r.index) === 2)) {
     const flags = Number(o.props.get('mod_flag') || 0)
-    if (![0x800, 0x840, 0x2800, 0x2840].includes(flags) || o.props.get('ACTION')?.trim() || o.props.get('ACTION_SUB_GRAPH')?.trim() || o.props.get('ACTION_STEPS')?.trim()) fail('ação memorizada, de evento ou de forçagem ainda não suportada.')
+    const actionFlags = [0x800, 0x840, 0x2800, 0x2840, 0x2008, 0x2004, 0x2001]
+    if (!actionFlags.includes(flags)) fail('ação memorizada, de evento ou de forçagem ainda não suportada.')
+    if (o.props.get('ACTION')?.trim() || o.props.get('ACTION_SUB_GRAPH')?.trim() || o.props.get('ACTION_STEPS')?.trim()) fail('ação memorizada, de evento ou de forçagem ainda não suportada.')
     const variable = (o.props.get('VAR') || o.props.get('ACTION_DESCR') || '').trim()
     if (!validGrafcetVariable(variable)) fail(`variável de ação inválida: ${variable || '(vazia)'}.`)
     const conditional = !!(flags & 0x40)
-    const action: GrafcetAction = { id: `fs4-action-${index}`, address: variable, variable, description: o.props.get('ACTION_DESCR')?.trim() || '', kind: 'N', allocation: 'continuous', type: conditional ? 'conditional' : 'simple', condition: conditional ? condition(o.props.get('COND'), variable) : '1', ...point(o) }
     const group = find(port(index, 4))
     const owners = nativeSteps.filter(s => find(port(s.index, 3)) === group)
     if (owners.length > 1) fail(`a ação ${variable} está ligada a várias etapas.`)
+    const chart = owners.length ? chartForStep.get(owners[0].index) : undefined
+    if (![0x800, 0x840, 0x2800, 0x2840].includes(flags)) warnings.push(`A ação ${variable} foi importada como contínua; o qualificador original (0x${flags.toString(16)}) precisa de revisão.`)
+    const action: GrafcetAction = { id: `fs4-action-${index}`, address: variable, variable, description: o.props.get('ACTION_DESCR')?.trim() || '', kind: 'N', allocation: 'continuous', type: conditional ? 'conditional' : 'simple', condition: conditional ? condition(o.props.get('COND'), variable) : '1', ...point(o, chart) }
     if (owners.length) stepByIndex.get(owners[0].index)!.actions!.push(action)
     else { freeActions.push(action); warnings.push(`A ação ${variable} ficou solta: não tem ligação a uma etapa.`) }
   }
@@ -219,7 +267,8 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
   // source expression and explicitly report that external charts need review.
   if (external.size) warnings.push(`Referências a outros GRAFCETs preservadas: ${[...external].join(', ')}. O simulador atual interpreta X no gráfico atual; reveja estas condições antes de simular.`)
   for (const step of stepByIndex.values()) step.actions!.sort((a, b) => (a.x || 0) - (b.x || 0))
-  return { program: { steps: [...stepByIndex.values()], transitions, freeActions, comments: [] }, warnings }
+  const program: GrafcetProgram = { steps: [...stepByIndex.values()], transitions, freeActions, comments: [], ...(multiChart ? { charts, activeChart: charts[0].id } : {}) }
+  return { program, warnings }
 }
 
 export function importFluidSim4(input: Uint8Array): FluidSimImport {

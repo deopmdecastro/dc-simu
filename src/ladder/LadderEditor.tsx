@@ -837,11 +837,17 @@ function NetworkStatus({ table, prefix, label, plc, wires, components, tags, run
   ])].sort((a, b) => bitAddressOrder(a) - bitAddressOrder(b)) : []
   return <div className="ladder-status-group">
     <div className="ladder-status-title">{label}{plc && prefix !== 'M' ? ` · ${plc.ref} (${physical.length})` : ''}</div>
-    {prefix !== 'M' ? physical.map((row) => <div className="ladder-status-row" key={row.address} title={row.destinations.join(' · ') || 'Sem cabo ligado'}>
+    {prefix !== 'M' ? physical.map((row) => {
+      const detail = !row.powerAvailable ? 'PLC sem alimentação'
+        : row.connectionState === 'connected' ? `${row.on ? '1 · ativa' : '0 · ligada'}`
+          : row.connectionState === 'loose' ? 'Ponta livre' : 'Sem ligação'
+      const source = row.name || (row.destinations.length ? row.destinations.join(', ') : 'Sem ligação')
+      return <div className={`ladder-status-row ${row.connectionState === 'unwired' ? 'is-unwired' : ''}`} key={row.address}
+        title={`${row.address}: ${detail}${row.destinations.length ? ` · ${row.destinations.join(' · ')}` : ''}`}>
       <span className="font-mono text-brand-700">{row.address}</span>
-      <span className="truncate text-slate-500">{row.name || (row.destinations.length ? row.destinations.join(', ') : 'Sem ligação')}</span>
-      <span className={`ladder-status-dot ${row.on ? 'is-on' : ''}`} title={row.on ? 'Ativo' : 'Inativo'} />
-    </div>) : memory.map((address) => <div className="ladder-status-row" key={address}>
+      <span className="truncate text-slate-500">{source}<small className="ladder-status-detail">{detail}</small></span>
+      <span className={`ladder-status-dot ${row.on && row.powerAvailable ? 'is-on' : ''} ${row.connectionState === 'unwired' ? 'is-unwired' : ''}`} aria-label={detail} />
+    </div>}) : memory.map((address) => <div className="ladder-status-row" key={address}>
       <span className="font-mono text-brand-700">{address}</span><span className="truncate text-slate-500">{tags.find((t) => t.address === address)?.name || 'Memória'}</span>
       <span className={`ladder-status-dot ${table[address] ? 'is-on' : ''}`} />
     </div>)}

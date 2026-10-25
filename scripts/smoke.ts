@@ -622,6 +622,12 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const cable = { id: 'real-link', fromTerminalId: out.id, toTerminalId: i1.id, color: 'red', gauge: '1.5mm²', kind: 'power', route: 'orthogonal', bend: .5, flexibility: 'rigid', energized: false } as Wire
   const inputRows = plcIoRows(compact, 'I', { 'I0.0': true }, [cable], [compact, source], [])
   check('CLP modular mostra 12 entradas reais, nome e destino do fio', inputRows.length === 12 && inputRows[0].on && inputRows[0].destinations.includes(`${source.ref}.${out.label}`))
+  check('monitor identifica entrada física ligada e o valor lido', inputRows[0].connectionState === 'connected' && inputRows[0].powerAvailable && inputRows[0].on)
+  const disconnected = plcIoRows(compact, 'I', {}, [], [compact], [])[0]
+  check('monitor distingue entrada sem ligação de uma entrada ligada a zero', disconnected.connectionState === 'unwired' && !disconnected.on)
+  const unpowered = { ...compact, state: { ...compact.state, powered: false } }
+  const unpoweredInput = plcIoRows(unpowered, 'I', {}, [cable], [unpowered, source], [])[0]
+  check('monitor assinala PLC sem alimentação mesmo com cabo na entrada', unpoweredInput.connectionState === 'connected' && !unpoweredInput.powerAvailable)
   check('LOGO mostra 8 entradas e 4 saídas agrupando parafusos duplos', plcIoRows(logo, 'I', {}, [], [logo], []).length === 8 && plcIoRows(logo, 'Q', {}, [], [logo], []).length === 4)
   check('capacidade derivada dos bornes do PLC e não do padrão fixo 8/4', plcIoCapacity(compact).inputs === 12 && plcIoCapacity(compact).outputs === 8)
   useSimStore.setState({ components: [compact, logo, source], activePlcId: compact.id, plcPrograms: {}, plcTags: {}, projectFiles: {}, tags: [] })

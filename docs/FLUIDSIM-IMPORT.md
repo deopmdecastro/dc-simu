@@ -11,7 +11,7 @@ Na barra do editor GRAFCET, **Importar** abre o seletor de ficheiros para `.ct` 
 - Ligações explícitas e contactos coincidentes das portas nativas, incluindo derivações OR e cadeias de ações.
 - Os identificadores `O<n>` antigos podem conter lacunas. O leitor resolve as ligações pela tabela ordenada de objetos usada pelos registos `gate` e `CON`.
 
-Não se inferem ligações pela distância entre símbolos. Macroetapas, sincronizações AND nativas, ações memorizadas/de evento/de forçagem e submodelos ainda não interpretados são rejeitados com uma mensagem; o projeto atual fica preservado. A extensão `.ct` não implica compatibilidade com todas as versões ou variantes FluidSIM.
+Não se inferem ligações pela distância entre símbolos. Etapas encapsulantes, macroetapas e entradas/saídas de macroetapas são preservadas. Sincronizações AND nativas, ações memorizadas/de evento/de forçagem e submodelos ainda não interpretados são rejeitados com uma mensagem; o projeto atual fica preservado. Alguns qualificadores de ação ainda não têm correspondência confirmada e geram um aviso de revisão. A extensão `.ct` não implica compatibilidade com todas as versões ou variantes FluidSIM.
 
 Os nomes simbólicos são preservados. Depois de importar, declare as variáveis na tabela do DC-Simu e associe-as às entradas/saídas necessárias. Não são inventados endereços de PLC.
 
@@ -61,5 +61,7 @@ npm run test:grafcet-construction-ui
 O exemplo anterior foi recuperado com **5 etapas, 7 transições e 7 ações**, incluindo o ramo cuja condição estava cortada na imagem TIFF. As sete relações entre etapas foram verificadas, assim como as condições e os avisos sobre referências externas.
 
 Foi também validado um ficheiro CT de referência adicional, mantido fora do repositório: **4 etapas, 4 transições e 2 ações**, com relações `5→1`, `10→5`, `15→10` e `1→15`. As ações ficaram associadas às etapas 5 e 15; as condições coincidiram com a referência visual e a importação não gerou avisos. Espaços repetidos em torno do OR foram reduzidos a um espaço. Não foi guardada uma cópia do ficheiro no repositório.
+
+O exemplo `Monta Carga.ct`, acompanhado de TIFF, contém três diagramas lado a lado. O leitor separa-os em três páginas, cada uma com 4 etapas e 4 transições, mantendo números de etapa repetidos em páginas diferentes. As etapas encapsulantes e as macroetapas E/M/S são reconhecidas. A página 2 não tem etapa inicial e é assinalada como parcial; a página 3 tem duas etapas iniciais e pede confirmação. Três qualificadores de ação ainda não mapeados geram avisos para revisão antes de simular. Os ficheiros de origem permanecem fora do repositório.
 
 O [manual oficial do FluidSIM 4](https://www.art-systems.de/www/files/fluidsim/downloads/v4/hb-eng-p4.pdf) descreve GRAFCET e a exportação TIFF/DXF. A opção de guardar XML sem compressão pertence a versões posteriores; não é um requisito deste leitor CT.

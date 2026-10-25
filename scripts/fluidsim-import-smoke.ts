@@ -29,6 +29,14 @@ const fixture = 'BEGIN_FSPREVIEW\nEND_FSPREVIEW\n' +
   'gate1 # 7 8\ngate2 # 7 9\ngate3 # 7 10\n' +
   'gate1 # 11 12\ngate2 # 11 13\ngate3 # 11 14\ngate4 # 11 15\n' +
   'CON GLine 2 5\nCON GLine 6 8\nCON GLine 3 15\nENDCT\nBEGINDSD\nENDDSD\nBEGINSYM\nENDSYM\n'
+const offsetDiagram = (text: string, dx: number) => {
+  const indexOffset = (text.match(/^\w+ O\d+ /gm) ?? []).length
+  return text
+    .replace(/^(\w+ O)(\d+ )(-?\d+) (-?\d+) (-?\d+) (-?\d+)(.*)$/gm,
+      (_, prefix: string, label: string, x1: string, y1: string, x2: string, y2: string, suffix: string) => `${prefix}${+label.trim() + indexOffset} ${+x1 + dx} ${y1} ${+x2 + dx} ${y2}${suffix}`)
+    .replace(/^(gate\d+ # )(\d+) (\d+)$/gm, (_, prefix: string, owner: string, port: string) => `${prefix}${+owner + indexOffset} ${+port + indexOffset}`)
+    .replace(/^(CON GLine )(\d+) (\d+)$/gm, (_, prefix: string, a: string, b: string) => `${prefix}${+a + indexOffset} ${+b + indexOffset}`)
+}
 
 let checks = 0
 const check = (name: string, action: () => void) => { action(); checks++; console.log(`PASS — ${name}`) }
@@ -62,7 +70,16 @@ check('referências externas são preservadas e reportadas', () => {
 })
 check('destino inexistente é rejeitado', () => assert.throws(() => parseFluidSim4Text(fixture.replace('CON GLine 6 8', 'CON GLine 6 999')), /inexistente/))
 check('ligação incompleta é rejeitada', () => assert.throws(() => parseFluidSim4Text(fixture.replace('CON GLine 6 8\n', '')), /incompletas/))
-check('nomes repetidos são rejeitados', () => assert.throws(() => parseFluidSim4Text(fixture.replace(' S NAME S 10', ' S NAME S 0')), /repetido/))
+check('nomes repetidos no mesmo GRAFCET são rejeitados', () => assert.throws(() => parseFluidSim4Text(fixture.replace(' S NAME S 10', ' S NAME S 0')), /repetido/))
+check('diagramas separados com etapas de mesmo nome são importados em páginas distintas', () => {
+  const body = fixture.slice('BEGIN_FSPREVIEW\nEND_FSPREVIEW\n'.length, fixture.indexOf('ENDCT\n'))
+  const result = parseFluidSim4Text(`${body}${offsetDiagram(body, 50000)}ENDCT\nBEGINDSD\nENDDSD\nBEGINSYM\nENDSYM\n`)
+  assert.equal(result.program.charts?.length, 2)
+  assert.equal(result.program.steps.length, 4)
+  assert.equal(new Set(result.program.steps.map(s => s.chart)).size, 2)
+  assert.equal(result.program.transitions?.length, 2)
+  assert.equal(result.warnings.length, 0)
+})
 check('sincronização desconhecida não é convertida em sequência', () => assert.throws(() => parseFluidSim4Text(fixture.replace(' S graph_type I 3', ' S graph_type I 4')), /não suportado/))
 check('ação memorizada não é convertida em ação contínua', () => assert.throws(() => parseFluidSim4Text(fixture.replace(' S mod_flag I 10240', ' S mod_flag I 10368')), /memorizada/))
 check('dados truncados e parâmetros inválidos são rejeitados', () => {

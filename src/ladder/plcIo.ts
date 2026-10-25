@@ -15,9 +15,13 @@ export function plcIoRows(plc: ElectricalComponent | undefined, prefix: 'I' | 'Q
     const connections = terminals.flatMap((t) => terminalConnections(t.id, components, wires))
     const destinations = connections.map(({ owner, terminal, loose }) =>
       loose || !owner || !terminal ? 'Ponta livre' : `${owner.ref}.${terminal.displayName || terminal.label}`)
+    const hasConnectedTerminal = connections.some(({ owner, terminal, loose }) => !loose && !!owner && !!terminal)
+    const hasLooseTerminal = connections.some(({ loose, owner, terminal }) => loose || !owner || !terminal)
     const tag = tags.find((t) => t.address.toUpperCase() === address)
     return { address, on: !!table[address], name: tag?.name && tag.name !== address ? tag.name : terminals.find((t) => t.displayName)?.displayName ?? '',
-      destinations: [...new Set(destinations)], terminalCount: terminals.length }
+      destinations: [...new Set(destinations)], terminalCount: terminals.length,
+      connectionState: hasConnectedTerminal ? 'connected' as const : hasLooseTerminal ? 'loose' as const : 'unwired' as const,
+      powerAvailable: plc.state.powered !== false }
   })
 }
 
