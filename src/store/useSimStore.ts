@@ -42,7 +42,7 @@ import { buildMeasurements } from '../utils/measurements'
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradePhysicalFootprint, upgradeProauto24A, upgradeProtectionTerminalPositions } from '../electrical/factory'
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
-import { blankPlcProgram, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
+import { blankPlcProgram, fcPresentOf, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
 import { autoExecRungs, callableBlocks, defaultProjectFileContent, type ProjectFile, type ProjectFolder } from '../ladder/projectFiles'
 import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
@@ -115,6 +115,10 @@ interface Store extends CircuitState {
   grafcetRuntime: GrafcetRuntime
   setGrafcet: (program: GrafcetProgram, historyMode?: 'auto' | 'force' | 'skip', historyKey?: string) => void
   fcBlocks: Record<'fc1' | 'fc2', LadderRung[]>
+  /** FC1/FC2 não vêm por defeito: só entram na árvore depois de adicionadas
+   *  manualmente («+» em Blocos de programa) — ou quando já têm conteúdo/nome. */
+  fcAdded: Record<'fc1' | 'fc2', boolean>
+  addFc: (id: 'fc1' | 'fc2') => void
   activePlcId: string | null
   plcPrograms: Record<string, PlcProgram>
   plcTags: Record<string, LadderTag[]>
@@ -736,6 +740,7 @@ export const useSimStore = create<Store>((set, get) => ({
   showEmptyWelcome: true,
   dismissEmptyWelcome: () => set({ showEmptyWelcome: false }),
   fcBlocks: { fc1: [], fc2: [] },
+  fcAdded: { fc1: false, fc2: false },
   activePlcId: null,
   plcPrograms: {},
   plcTags: {},
@@ -811,12 +816,14 @@ export const useSimStore = create<Store>((set, get) => ({
   setActivePlc: (id) => {
     const state = get()
     if (!state.components.some((c) => c.id === id && isProgrammablePlc(c)) || state.activePlcId === id) return
-    const programs = programsForSave(state.plcPrograms, state.activePlcId, state.ladder.rungs, state.fcBlocks)
-    const prior = programs[id] ?? (state.activePlcId === null && Object.keys(programs).length === 0
+    const programs = programsForSave(state.plcPrograms, state.activePlcId, state.ladder.rungs, state.fcBlocks, state.fcAdded)
+    const priorIsCurrent = state.activePlcId === null && Object.keys(programs).length === 0
+    const prior = programs[id] ?? (priorIsCurrent
       ? { rungs: state.ladder.rungs, fc1: state.fcBlocks.fc1, fc2: state.fcBlocks.fc2 } : blankPlcProgram())
+    const priorFcAdded = priorIsCurrent ? state.fcAdded : fcPresentOf(prior.fcAdded, prior, state.fcNames)
     const nextRuntime = state.runtime.plcRuntime[id]
     const plcTags = { ...state.plcTags, ...(state.activePlcId ? { [state.activePlcId]: state.tags } : {}) }
-    set({ activePlcId: id, plcPrograms: programs, plcTags, tags: plcTags[id] ?? (state.activePlcId === null && Object.keys(plcTags).length === 0 ? state.tags : []), ladder: { rungs: prior.rungs }, fcBlocks: { fc1: prior.fc1, fc2: prior.fc2 },
+    set({ activePlcId: id, plcPrograms: programs, plcTags, tags: plcTags[id] ?? (state.activePlcId === null && Object.keys(plcTags).length === 0 ? state.tags : []), ladder: { rungs: prior.rungs }, fcBlocks: { fc1: prior.fc1, fc2: prior.fc2 }, fcAdded: priorFcAdded,
       runtime: { ...state.runtime, table: nextRuntime?.table ?? emptyTable(16, 16), timers: nextRuntime?.timers ?? {}, counters: nextRuntime?.counters ?? {}, rungPowered: nextRuntime?.rungPowered ?? {}, db: nextRuntime?.db ?? {} },
       history: [], future: [], dirty: true })
     get().step()
@@ -827,6 +834,12 @@ export const useSimStore = create<Store>((set, get) => ({
     if (historyMode === 'force' || (historyMode === 'auto' && shouldCommitGroupedEdit(historyKey))) get().commitHistory()
     if (historyMode === 'force') resetGroupedEdit()
     set({ grafcet: program, dirty: true })
+  },
+  addFc: (id: 'fc1' | 'fc2') => {
+    const state = get()
+    if (state.fcAdded[id]) return
+    set({ fcAdded: { ...state.fcAdded, [id]: true }, dirty: true })
+    get().pushEvent('info', `${id.toUpperCase()} adicionada aos blocos de programa.`)
   },
   updateFc: (id, rungs) => {
     get().commitHistory()
@@ -1714,7 +1727,7 @@ export const useSimStore = create<Store>((set, get) => ({
       const deadTerminals = new Set(s.components.filter((c) => ids.includes(c.id)).flatMap((c) => c.terminals.map((t) => t.id)))
       const wires = s.wires.filter((w) => !deadTerminals.has(w.fromTerminalId) && !deadTerminals.has(w.toTerminalId))
       const living = remaining.filter(isProgrammablePlc)
-      const programs = programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks)
+      const programs = programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks, s.fcAdded)
       const keptPrograms = Object.fromEntries(Object.entries(programs).filter(([id]) => living.some((p) => p.id === id)))
       const tags = { ...s.plcTags, ...(s.activePlcId ? { [s.activePlcId]: s.tags } : {}) }
       const keptTags = Object.fromEntries(Object.entries(tags).filter(([id]) => living.some((p) => p.id === id)))
@@ -1726,7 +1739,7 @@ export const useSimStore = create<Store>((set, get) => ({
         projectFiles: Object.fromEntries(Object.entries(s.projectFiles).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),
         hiddenProjectFolders: Object.fromEntries(Object.entries(s.hiddenProjectFolders).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),
         projectFolderLabels: Object.fromEntries(Object.entries(s.projectFolderLabels).filter(([id]) => id === '_general' || living.some((p) => p.id === id))),
-        ...(nextProgram ? { tags: keptTags[nextId!] ?? [], ladder: { rungs: nextProgram.rungs }, fcBlocks: { fc1: nextProgram.fc1, fc2: nextProgram.fc2 }, history: [], future: [] } : {}),
+        ...(nextProgram ? { tags: keptTags[nextId!] ?? [], ladder: { rungs: nextProgram.rungs }, fcBlocks: { fc1: nextProgram.fc1, fc2: nextProgram.fc2 }, fcAdded: fcPresentOf(nextProgram.fcAdded, nextProgram), history: [], future: [] } : {}),
       }
     })
     get().step()
@@ -2398,8 +2411,9 @@ export const useSimStore = create<Store>((set, get) => ({
         wires: s.wires,
         ladder: s.ladder,
         fcBlocks: s.fcBlocks,
+        fcAdded: s.fcAdded,
         activePlcId: s.activePlcId,
-        plcPrograms: programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks),
+        plcPrograms: programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks, s.fcAdded),
         plcTags: { ...s.plcTags, ...(s.activePlcId ? { [s.activePlcId]: s.tags } : {}) },
         projectFiles: s.projectFiles,
         hiddenProjectFolders: s.hiddenProjectFolders,
@@ -2456,6 +2470,8 @@ export const useSimStore = create<Store>((set, get) => ({
         wires: alignedWires,
         ladder: { rungs: activeProgram?.rungs ?? parsed.ladder?.rungs ?? [] },
         fcBlocks: { fc1: activeProgram?.fc1 ?? parsed.fcBlocks?.fc1 ?? [], fc2: activeProgram?.fc2 ?? parsed.fcBlocks?.fc2 ?? [] },
+        fcAdded: fcPresentOf((parsed.fcAdded ?? activeProgram?.fcAdded) as { fc1?: boolean; fc2?: boolean } | undefined,
+          { fc1: activeProgram?.fc1 ?? parsed.fcBlocks?.fc1 ?? [], fc2: activeProgram?.fc2 ?? parsed.fcBlocks?.fc2 ?? [] }, parsed.fcNames),
         activePlcId: loadedActiveId,
         plcPrograms: programs,
         plcTags: parsed.plcTags ?? {},
@@ -2501,6 +2517,7 @@ export const useSimStore = create<Store>((set, get) => ({
       showEmptyWelcome: true,
       ladder: { rungs: [] },
       fcBlocks: { fc1: [], fc2: [] },
+      fcAdded: { fc1: false, fc2: false },
       activePlcId: null,
       plcPrograms: {},
       plcTags: {},

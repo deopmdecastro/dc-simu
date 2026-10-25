@@ -89,4 +89,17 @@ store().setVirtualMemoryCount(0)
 store().loadJSON(saved2)
 ok('contadores Q/M sobrevivem ao save/load', store().virtualOutputCount === 12 && store().virtualMemoryCount === 4)
 
+// ---- blocos FC por defeito: só a Main; FC1/FC2 entram por adição manual ----
+ok('FC1/FC2 não vêm por defeito (só Main)', store().fcAdded.fc1 === false && store().fcAdded.fc2 === false)
+store().addFc('fc1')
+ok('addFc adiciona a FC1 à árvore', store().fcAdded.fc1 === true && store().fcAdded.fc2 === false)
+const saved3 = store().saveJSON()
+store().newProject()
+store().loadJSON(saved3)
+ok('fcAdded sobrevive ao save/load', store().fcAdded.fc1 === true && store().fcAdded.fc2 === false)
+// projeto antigo (sem fcAdded) mas com conteúdo em FC2 → migração mostra-a
+store().loadJSON(JSON.stringify({ app: 'dc-simu', version: 6, components: [], wires: [], ladder: { rungs: [] },
+  fcBlocks: { fc1: [], fc2: [{ id: 'r1', name: 'teste', branches: [], coils: [], enabled: true }] } }))
+ok('legado: FC2 com conteúdo volta a aparecer', store().fcAdded.fc2 === true && store().fcAdded.fc1 === false)
+
 console.log(`[sheets] OK — ${checks} verificações`)

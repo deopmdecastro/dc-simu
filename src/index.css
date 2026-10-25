@@ -302,8 +302,15 @@ input[type='color'] {
     border-bottom: 1px solid #e5eaf1;
   }
   .tree-row-wrap { display: flex; align-items: center; width: 100%; min-width: 0; }
+  .tree-row-actions { position: relative; display: inline-flex; align-items: center; }
   .tree-create-file { flex: none; color: #1f55e0; font-size: 14px; padding: 1px 6px; border-radius: 4px; }
-  .tree-create-file:hover { background: #eff6ff; }
+  .tree-create-file:hover, .tree-create-file.is-open { background: #eff6ff; }
+  /* Menu «+» dos blocos de programa: FC1/FC2 (quando por adicionar) ou bloco novo */
+  .tree-add-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; display: flex; flex-direction: column; min-width: 210px; padding: 5px; background: #fff; border: 1px solid #d7e0ee; border-radius: 9px; box-shadow: 0 12px 28px -10px #0f172a3d; }
+  .tree-add-menu button { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: none; border-radius: 6px; background: none; color: #25344c; font-size: 12px; font-weight: 500; text-align: left; cursor: pointer; }
+  .tree-add-menu button:hover { background: #eef3ff; color: #16358c; }
+  .tree-add-menu button svg { color: #4a5a75; flex: none; }
+  .tree-add-menu i { height: 1px; margin: 4px 8px; background: #e7edf6; }
   .tree-row {
     display: flex;
     flex: 1;

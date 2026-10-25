@@ -614,6 +614,8 @@ function ProjectTreePane({
   hiddenFolders,
   folderLabels,
   fcNames,
+  fcAdded,
+  onAddFc,
   onCreateFile,
   onDeleteFile,
   onRenameFile,
@@ -630,6 +632,9 @@ function ProjectTreePane({
   folderLabels: Partial<Record<ProjectFolder, string>>
   /** Nome personalizado das funções fixas FC1/FC2. */
   fcNames: Partial<Record<'fc1' | 'fc2', string>>
+  /** FC1/FC2 só aparecem na árvore depois de adicionadas manualmente. */
+  fcAdded: Record<'fc1' | 'fc2', boolean>
+  onAddFc: (id: 'fc1' | 'fc2') => void
   onCreateFile: (folder: ProjectFolder) => void
   onDeleteFile: (file: ProjectFile) => void
   onRenameFile: (file: ProjectFile) => void
@@ -647,6 +652,8 @@ function ProjectTreePane({
   /** Inserir CALL do bloco numa network (toque/atalho — o drag&drop usa o CALL_BLOCK_MIME). */
   onInsertCall: (fileId: string, name: string) => void
 }) {
+  const [fcAddMenu, setFcAddMenu] = useState<ProjectNodeId | null>(null)
+  const pendingFcs = (['fc1', 'fc2'] as const).filter((fid) => !fcAdded[fid])
   const toolTiles: Array<{ label: string; kind: PaletteKind }> = [
     { label: 'Contato', kind: 'NO' },
     { label: 'Bobina', kind: 'COIL' },
@@ -661,7 +668,11 @@ function ProjectTreePane({
     ?.filter((folder) => !hiddenFolders.includes(folder.id as ProjectFolder))
     .map((folder) => ({ ...folder,
       label: folderLabels[folder.id as ProjectFolder]?.trim() || folder.label,
-      children: PROJECT_FOLDERS.includes(folder.id as ProjectFolder) ? [ ...(folder.children ?? []), ...files.filter((f) => f.folder === folder.id).map((f) => ({ id: `file:${f.id}` as ProjectNodeId, label: f.name, icon: FOLDER_FILE_ICON[f.folder] })) ] : folder.children,
+      children: PROJECT_FOLDERS.includes(folder.id as ProjectFolder) ? [
+        // Só a Main vem por defeito: FC1/FC2 aparecem quando adicionadas pelo «+».
+        ...(folder.id === 'programBlocks' ? (folder.children ?? []).filter((n) => n.id === 'main' || fcAdded[n.id as 'fc1' | 'fc2']) : (folder.children ?? [])),
+        ...files.filter((f) => f.folder === folder.id).map((f) => ({ id: `file:${f.id}` as ProjectNodeId, label: f.name, icon: FOLDER_FILE_ICON[f.folder] })),
+      ] : folder.children,
     })) }
   /** Rótulo final do nó estático (FC1/FC2 com nome personalizado mantêm o id técnico à direita, como no TIA). */
   const blockLabel = (node: ProjectTreeItem) => (node.id === 'fc1' || node.id === 'fc2')
@@ -727,7 +738,33 @@ function ProjectTreePane({
           {node.detail && <small>({node.detail})</small>}
         </button>
         {folder && <span className="tree-row-actions">
-          <button type="button" className="tree-create-file" title={`Criar em ${node.label}`} aria-label={`Criar em ${node.label}`} onClick={() => onCreateFile(folder)}>＋</button>
+          {folder === 'programBlocks' ? (
+            <>
+              <button
+                type="button"
+                className={`tree-create-file ${fcAddMenu === node.id ? 'is-open' : ''}`}
+                title="Adicionar bloco de programa"
+                aria-label="Adicionar bloco de programa"
+                aria-expanded={fcAddMenu === node.id}
+                onClick={(event) => { event.stopPropagation(); setFcAddMenu(fcAddMenu === node.id ? null : node.id) }}
+              >＋</button>
+              {fcAddMenu === node.id && (
+                <span className="tree-add-menu" role="menu" aria-label="Adicionar bloco de programa">
+                  {pendingFcs.map((fid) => (
+                    <button key={fid} type="button" role="menuitem" onClick={(event) => { event.stopPropagation(); setFcAddMenu(null); onAddFc(fid); onSelect(fid) }}>
+                      <IconLadder size={12} /> {fid === 'fc1' ? 'Função FC1' : 'Função FC2'}
+                    </button>
+                  ))}
+                  {pendingFcs.length > 0 && <i aria-hidden="true" />}
+                  <button type="button" role="menuitem" onClick={(event) => { event.stopPropagation(); setFcAddMenu(null); onCreateFile(folder) }}>
+                    <IconPlus size={12} /> Bloco novo (OB/FB/FC/DB)…
+                  </button>
+                </span>
+              )}
+            </>
+          ) : (
+            <button type="button" className="tree-create-file" title={`Criar em ${node.label}`} aria-label={`Criar em ${node.label}`} onClick={() => onCreateFile(folder)}>＋</button>
+          )}
           {canDeleteFolder && <button type="button" className="tree-delete-item" title={`Eliminar pasta ${node.label}`} aria-label={`Eliminar pasta ${node.label}`} onClick={() => onDeleteFolder(folder)}><IconDelete size={10} /></button>}
         </span>}
         {isCallableBlock && callPayload && (
@@ -1349,6 +1386,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const hiddenFolders = useSimStore((s) => s.hiddenProjectFolders[activePlcId ?? '_general'] ?? [])
   const folderLabels = useSimStore((s) => s.projectFolderLabels[activePlcId ?? '_general'] ?? {})
   const fcNames = useSimStore((s) => s.fcNames)
+  const fcAdded = useSimStore((s) => s.fcAdded)
   const isMainOpen = activeProjectNode === 'main'
   const isFcOpen = activeProjectNode === 'fc1' || activeProjectNode === 'fc2' || (activeProjectNode.startsWith('file:') && files.some((f) => `file:${f.id}` === activeProjectNode && f.folder === 'programBlocks'))
   const isProgramView = isMainOpen || isFcOpen
@@ -1639,6 +1677,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           hiddenFolders={hiddenFolders}
           folderLabels={folderLabels}
           fcNames={fcNames}
+          fcAdded={fcAdded}
+          onAddFc={(fid) => useSimStore.getState().addFc(fid)}
           onCreateFile={createFile}
           onDeleteFile={deleteFile}
           onRenameFile={renameFile}

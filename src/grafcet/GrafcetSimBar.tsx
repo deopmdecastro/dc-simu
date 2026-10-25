@@ -12,15 +12,15 @@ export default function GrafcetSimBar() {
     <div className="grafcet-simbar" role="group" aria-label="Controlo da simulação">
       <div className="grafcet-simbar-state">
         <span className={`grafcet-simbar-dot ${running ? 'is-running' : stopped ? '' : 'is-paused'}`} aria-hidden="true" />
-        <strong>{label}</strong>
-        <small>ciclo #{sim.scanCount}</small>
+        <strong className={running ? 'is-running' : stopped ? '' : 'is-paused'}>{label}</strong>
+        <small className="grafcet-simbar-cycle">ciclo #{sim.scanCount}</small>
       </div>
       <div className="grafcet-simbar-buttons">
         <button type="button" onClick={play} disabled={running} className="is-run" title="Iniciar simulação (RUN)"><IconPlay size={15} /><span>Run</span></button>
-        <button type="button" onClick={pause} disabled={!running} title="Pausar"><IconPause size={15} /><span>Pausa</span></button>
-        <button type="button" onClick={step} title="Avançar um ciclo"><IconStep size={15} /><span>Passo</span></button>
-        <button type="button" onClick={stop} disabled={stopped} title="Parar (STOP)"><IconStop size={15} /><span>Stop</span></button>
-        <button type="button" onClick={reset} title="Reiniciar a simulação"><IconReset size={15} /><span>Reiniciar</span></button>
+        <button type="button" onClick={pause} disabled={!running} className="is-pause" title="Pausar"><IconPause size={15} /><span>Pausa</span></button>
+        <button type="button" onClick={step} className="is-step" title="Avançar um ciclo"><IconStep size={15} /><span>Passo</span></button>
+        <button type="button" onClick={stop} disabled={stopped} className="is-stop" title="Parar (STOP)"><IconStop size={15} /><span>Stop</span></button>
+        <button type="button" onClick={reset} className="is-reset" title="Reiniciar a simulação"><IconReset size={15} /><span>Reiniciar</span></button>
       </div>
       <div className="grafcet-simbar-opts">
         <Select value={sim.mode} onChange={(e) => setMode(e.target.value as any)} className="dc-select" title="Modo de execução" aria-label="Modo de execução">

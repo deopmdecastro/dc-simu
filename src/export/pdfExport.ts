@@ -45,6 +45,8 @@ export interface PdfProjectSource {
   projectName: string
   ladder: LadderRung[]
   fcBlocks: { fc1: LadderRung[]; fc2: LadderRung[] }
+  /** Blocos FC adicionados manualmente (ausente = projeto antigo: mostrar os que têm conteúdo). */
+  fcAdded?: Record<'fc1' | 'fc2', boolean>
   fcNames?: Partial<Record<'fc1' | 'fc2', string>>
   projectFiles: Record<string, ProjectFile[]>
   grafcet: GrafcetProgram
@@ -57,8 +59,10 @@ export interface PdfProjectSource {
 export function collectLadderBlocks(src: PdfProjectSource): PdfLadderBlock[] {
   const blocks: PdfLadderBlock[] = []
   if (src.ladder.length) blocks.push({ id: 'main', title: 'Main [OB1]', rungs: src.ladder })
-  if (src.fcBlocks.fc1.length) blocks.push({ id: 'fc1', title: src.fcNames?.fc1?.trim() || 'FC1', rungs: src.fcBlocks.fc1 })
-  if (src.fcBlocks.fc2.length) blocks.push({ id: 'fc2', title: src.fcNames?.fc2?.trim() || 'FC2', rungs: src.fcBlocks.fc2 })
+  if ((src.fcAdded?.fc1 ?? (src.fcBlocks.fc1.length > 0 || !!src.fcNames?.fc1?.trim())) && src.fcBlocks.fc1.length)
+    blocks.push({ id: 'fc1', title: src.fcNames?.fc1?.trim() || 'FC1', rungs: src.fcBlocks.fc1 })
+  if ((src.fcAdded?.fc2 ?? (src.fcBlocks.fc2.length > 0 || !!src.fcNames?.fc2?.trim())) && src.fcBlocks.fc2.length)
+    blocks.push({ id: 'fc2', title: src.fcNames?.fc2?.trim() || 'FC2', rungs: src.fcBlocks.fc2 })
   for (const files of Object.values(src.projectFiles ?? {}))
     for (const f of files ?? [])
       if (f.rungs?.length) blocks.push({ id: `file:${f.id}`, title: f.name || 'Bloco', rungs: f.rungs })

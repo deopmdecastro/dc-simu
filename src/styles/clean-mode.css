@@ -194,22 +194,36 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
 .grafcet-sim-tool svg { color: #16a34a; }
 .grafcet-tab-live { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: #b8c2d1; vertical-align: middle; }
 .grafcet-tab-live.is-running { background: #16a34a; box-shadow: 0 0 0 3px #16a34a2e; }
-.grafcet-simbar { display: grid; gap: 10px; padding: 12px; border: 1px solid #dce4ef; border-radius: 10px; background: #f8faff; }
-.grafcet-simbar-state { display: flex; align-items: baseline; gap: 8px; }
-.grafcet-simbar-state strong { font-size: 13px; color: #25344c; }
-.grafcet-simbar-state small { margin-left: auto; color: #77869b; font-size: 11px; }
-.grafcet-simbar-dot { align-self: center; width: 9px; height: 9px; border-radius: 50%; background: #b8c2d1; }
+/* Painel de simulação: cartão com estado no topo, botões grandes e legíveis, opções em linha */
+.grafcet-simbar { display: grid; gap: 12px; padding: 14px; border: 1px solid #dce4ef; border-radius: 14px; background: linear-gradient(180deg, #fbfdff, #f4f8ff); box-shadow: 0 1px 3px #0f172a0d; }
+.grafcet-simbar-state { display: flex; align-items: center; gap: 9px; padding: 0 2px; }
+.grafcet-simbar-state strong { font-size: 12.5px; font-weight: 700; color: #55627a; letter-spacing: .01em; }
+.grafcet-simbar-state strong.is-running { color: #15803d; }
+.grafcet-simbar-state strong.is-paused { color: #b45309; }
+.grafcet-simbar-cycle { margin-left: auto; padding: 3px 9px; border: 1px solid #dde5f2; border-radius: 999px; background: #fff; color: #77869b; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.grafcet-simbar-dot { width: 10px; height: 10px; border-radius: 50%; background: #b8c2d1; flex: none; }
 .grafcet-simbar-dot.is-running { background: #16a34a; box-shadow: 0 0 0 4px #16a34a2e; }
-.grafcet-simbar-dot.is-paused { background: #d97706; }
-.grafcet-simbar-buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.grafcet-simbar-dot.is-paused { background: #d97706; box-shadow: 0 0 0 4px #d9770626; }
+.grafcet-simbar-buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
 .grafcet-simbar-buttons button {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  min-height: 48px; padding: 6px 2px; border: 1px solid #c9d8ee; border-radius: 8px; background: #fff;
-  color: #2455d8; font-size: 10.5px; font-weight: 650;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-height: 52px; padding: 7px 2px; border: 1px solid #d3e0f2; border-radius: 10px; background: #fff;
+  color: #2455d8; font-size: 10.5px; font-weight: 700; letter-spacing: .015em; cursor: pointer;
+  transition: transform .12s ease, background-color .12s ease, border-color .12s ease, box-shadow .12s ease, color .12s ease;
 }
+.grafcet-simbar-buttons button:hover:not(:disabled) { border-color: #9fbce9; background: #f4f8ff; transform: translateY(-1px); box-shadow: 0 4px 10px -6px #1e3a8a44; }
+.grafcet-simbar-buttons button:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+.grafcet-simbar-buttons button:focus-visible { outline: 2px solid #2455d855; outline-offset: 2px; }
 .grafcet-simbar-buttons button.is-run { color: #15803d; }
-.grafcet-simbar-buttons button:disabled { opacity: .4; }
-.grafcet-simbar-opts { display: grid; grid-template-columns: 1fr 86px; gap: 8px; }
+.grafcet-simbar-buttons button.is-run:hover:not(:disabled) { background: #16a34a; border-color: #15803d; color: #fff; }
+.grafcet-simbar-buttons button.is-pause { color: #b45309; }
+.grafcet-simbar-buttons button.is-pause:hover:not(:disabled) { background: #fff4e2; border-color: #f0c795; }
+.grafcet-simbar-buttons button.is-stop { color: #c11107; }
+.grafcet-simbar-buttons button.is-stop:hover:not(:disabled) { background: #fef2f0; border-color: #f3b3aa; }
+.grafcet-simbar-buttons button.is-reset { color: #55627a; }
+.grafcet-simbar-buttons button:disabled { opacity: .38; cursor: not-allowed; transform: none; box-shadow: none; }
+.grafcet-simbar-opts { display: grid; grid-template-columns: 1fr 84px; gap: 8px; }
+.grafcet-simbar-opts .dc-select, .grafcet-simbar-opts select { width: 100%; min-height: 36px; border-radius: 9px; font-size: 12px; font-weight: 600; }
 @media (max-width: 800px) {
   /* o botão flutuante sobre o diagrama sai: «Componentes» vive na barra de ferramentas */
   .grafcet-full .grafcet-toolbox-restore { display: none; }
