@@ -36,7 +36,7 @@ import {
   IconPlus, IconDelete, IconCopy, IconClose,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder,
   IconFunction, IconChevronDown, IconChevronRight, IconShield, IconSearch,
-  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp,
+  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp, IconReset,
 } from '../ui/icons'
 import { useLadderPrefs } from './ladderPrefs'
 import { ELEMENT_KEYS } from './ladderShortcuts'
@@ -1255,6 +1255,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const scanCount = useSimStore((s) => s.sim.scanCount)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
+  const paused = useSimStore((s) => s.sim.runState === 'paused')
   const resetMemory = useSimStore((s) => s.resetMemory)
   const blackBox = useSimStore((s) => s.sim.blackBox)
   const grid = useSimStore((s) => s.grid)
@@ -1799,17 +1800,18 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
                 return live.length ? (
                   <span className="ladder-live-words" role="group" aria-label="Palavras de memória em tempo real">
                     {live.slice(0, 4).map(([key, entry]) => (
-                      <button type="button" key={key} className={`ladder-live-word ${entry.value !== 0 && entry.value !== false ? 'is-nonzero' : ''}`} title={`${nameOf(key) ?? key} · %${key} = ${String(entry.value)} — abrir a aba Memórias`} onClick={() => { setStatusTab('memory'); setShowStatus(true) }}>
-                        <b>{nameOf(key) ?? key}</b><span>{String(entry.value)}</span>
+                      <button type="button" key={key} className={`ladder-live-word ${entry.value !== 0 && entry.value !== false ? 'is-nonzero' : ''}`} title={`${nameOf(key) ?? key} · %${key} = ${String(entry.value)} (${entry.type}) — abrir a aba Memórias`} aria-label={`${nameOf(key) ?? key}, %${key}, valor ${String(entry.value)}. Abrir a aba Memórias`} onClick={() => { setStatusTab('memory'); setShowStatus(true) }}>
+                        <b>{nameOf(key) ?? key}</b><small>%{key}</small><span>{String(entry.value)}</span>
                       </button>
                     ))}
                     {live.length > 4 && <em className="ladder-live-more">+{live.length - 4}</em>}
                   </span>
                 ) : null
               })()}
-              {running && <span className="ladder-scan-count" title="Ciclos de scan executados desde que a simulação arrancou">{scanCount.toLocaleString('pt-PT')} ciclos</span>}
-              <span className={`ladder-run-pill ${running ? 'is-running' : ''}`} role="status"><i /> {running ? 'Simulação ativa' : 'Pronto'}</span>
-              <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)">Repor memórias</button>
+              {(running || paused) && <span className="ladder-scan-count" title="Ciclos de scan executados desde que a simulação arrancou">{scanCount.toLocaleString('pt-PT')} ciclos</span>}
+              <span className={`ladder-run-pill ${running ? 'is-running' : paused ? 'is-paused' : ''}`} role="status" title={running ? 'A simulação está a correr' : paused ? 'A simulação está em pausa' : 'Simulação parada — carregue em Run para arrancar'}><i /> {running ? 'Simulação ativa' : paused ? 'Em pausa' : 'Pronto'}</span>
+              <span className="ladder-actions-sep" aria-hidden="true" />
+              <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)"><IconReset size={11} /> Repor memórias</button>
               <button
                 className="ladder-bottom-toggle"
                 onClick={() => setShowStatus((v) => !v)}
