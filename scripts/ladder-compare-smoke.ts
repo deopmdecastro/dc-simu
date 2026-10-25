@@ -62,3 +62,29 @@ assert.equal(lintLadder({ rungs: [rung('r', { branches: [{ id: 'b', elements: [c
 assert.equal(lintLadder({ rungs: [rung('r', { branches: [{ id: 'b', elements: [cmp('??', '==', '2')] }], coils: [{ kind: 'coil', id: 'k', address: 'Q1', coilType: 'COIL' }] })] }).some((i) => i.level === 'error'), true)
 
 console.log('ladder-compare-smoke: ok')
+
+// 6) lint de máquina de estados em %MW: estado escrito que ninguém testa / teste que ninguém escreve
+{
+  const mwCmp = (id: string, v: string) => ({ ...cmp('MW0', '==', v), id })
+  const prog: LadderProgram = { rungs: [
+    rung('a', { branches: [{ id: 'b', elements: [mwCmp('c1', '1')] }], move: { source: '2', target: 'MW0' } }),
+    rung('b', { branches: [{ id: 'b', elements: [mwCmp('c2', '3')] }], coils: [{ kind: 'coil', id: 'k9', address: 'Q0', coilType: 'COIL' }] }),
+  ] }
+  const msgs = lintLadder(prog).map((i) => i.id)
+  assert.ok(msgs.includes('mw-test:MW0:3'), 'MW0 == 3 nunca é escrito → aviso')
+  assert.ok(msgs.includes('mw-write:MW0:2'), 'MW0 := 2 nunca é testado → info')
+}
+console.log('[ladder-compare] lint MW OK')
+
+// 7) botão NC virtual: repousa a 1 (contacto fechado), cai a 0 premido, «Limpar» devolve-o a 1
+{
+  const { useSimStore } = await import('../src/store/useSimStore')
+  const s = useSimStore.getState()
+  s.setVirtualInputMode('I0.1', 'nc')
+  assert.equal(useSimStore.getState().virtualInputs['I0.1'], true, 'NC repousa a 1')
+  useSimStore.getState().setVirtualInput('I0.1', false)
+  assert.equal(useSimStore.getState().runtime.table['I0.1'], false, 'premido → 0')
+  useSimStore.getState().clearVirtualInputs()
+  assert.equal(useSimStore.getState().virtualInputs['I0.1'], true, 'Limpar repõe o NC a 1')
+}
+console.log('[ladder-compare] botão NC OK')

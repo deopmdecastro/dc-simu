@@ -44,7 +44,8 @@ function InlineName({
 }
 
 const MODES: Array<{ id: VirtualInputMode; label: string; hint: string }> = [
-  { id: 'push', label: 'Pressão', hint: 'Só está a 1 enquanto o botão é premido (como um botão de arranque).' },
+  { id: 'push', label: 'Pressão (NO)', hint: 'Só está a 1 enquanto o botão é premido (como um botão de arranque).' },
+  { id: 'nc', label: 'NC', hint: 'Repousa a 1 e cai a 0 enquanto premido (como um botão Stop ou de emergência).' },
   { id: 'latch', label: 'Encravamento', hint: 'Cada clique liga ou desliga e mantém o estado (como um interruptor).' },
 ]
 

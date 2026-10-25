@@ -25,6 +25,11 @@
 .vio-panel.is-compact .vio-switch b { font-size: 12px; letter-spacing: -0.02em; }
 .vio-head-m { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line, #d6dae1); }
 .vio-switch.is-push { border-style: dashed; }
+/* Botão NC (ex.: Stop): contacto fechado em repouso → verde a 1; premido cai a 0. Borda a ponto-traço distingue-o do NO. */
+.vio-switch.is-nc { border-style: dotted; border-width: 2px; padding: 5px 7px; }
+.vio-switch.is-nc i { border-radius: 3px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+.vio-switch.is-nc:not(.is-on) { border-color: #dc2626; background: #fee2e2; }
+.vio-switch.is-nc:not(.is-on) i { background: #dc2626; box-shadow: 0 0 6px #ef4444; }
 .vio-switch.is-push i { border-radius: 3px; }
 .vio-switch:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
 

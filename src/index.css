@@ -1418,6 +1418,14 @@ input[type='color'] {
     transition: width 120ms linear;
   }
   small.is-done .ladder-meter i { background: #1caa69; }
+  .ladder-live-words { display: inline-flex; align-items: center; gap: 4px; }
+  .ladder-live-word { display: inline-flex; align-items: center; gap: 0; border: 1px solid #d3dcea; border-radius: 999px; background: #f7f9fd; color: #51607a; font-size: 10px; cursor: pointer; padding: 0; overflow: hidden; }
+  .ladder-live-word b { padding: 2px 7px; font-weight: 600; max-width: 84px; overflow: hidden; text-overflow: ellipsis; }
+  .ladder-live-word span { padding: 2px 8px; font-family: ui-monospace, monospace; font-weight: 700; background: #e8eef7; color: #2c3a52; min-width: 20px; text-align: center; }
+  .ladder-live-word.is-nonzero span { background: #dcfce7; color: #166534; }
+  .ladder-live-word:hover { border-color: #8fa3c0; }
+  .ladder-live-more { font-size: 10px; color: #7b899d; font-style: normal; }
+  .ladder-scan-count { font-size: 10px; color: #7b899d; font-variant-numeric: tabular-nums; }
   .ladder-status-reset {
     align-self: flex-start;
     margin-top: 2px;
@@ -2791,6 +2799,19 @@ input[list]:focus::-webkit-calendar-picker-indicator {
 .pdf-export-expand { color: #52627a !important; }
 .pdf-export-rungs { margin: 6px 0 4px 26px; padding: 9px 12px; border: 1px solid #e3e9f3; border-radius: 9px; background: #fff; display: grid; grid-template-columns: 1fr 1fr; gap: 5px 14px; max-height: 190px; overflow: auto; }
 .pdf-export-rungs label { font-size: 11.5px; }
+.pdfx-toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid #d9e4fa; border-radius: 12px; background: linear-gradient(180deg, #f4f8ff, #eef4ff); }
+.pdfx-brand { display: inline-flex; margin-right: 2px; }
+.pdfx-toolbar-label { font-size: 11px; font-weight: 700; color: #3b4a68; margin-right: 4px; }
+.pdfx-toolbar button { border: 1px solid #cfddfa; background: #fff; color: #1d3fae; font-size: 11px; font-weight: 600; padding: 4px 11px; border-radius: 999px; cursor: pointer; transition: background .12s, border-color .12s; }
+.pdfx-toolbar button:hover { background: #eaf0ff; border-color: #2655e5; }
+.pdfx-pages { margin-left: auto; font-size: 11px; font-weight: 700; color: #2655e5; background: #fff; border: 1px solid #cfddfa; padding: 3px 10px; border-radius: 999px; }
+.pdf-export-body label.is-empty { opacity: .55; cursor: not-allowed; }
+.pdf-export-notice.is-ok { background: #effaf3; border-color: #bfe8cd; color: #1d5b36; }
+.pdf-export-notice.is-error { background: #fff1f1; border-color: #f5c2c2; color: #8a1f1f; }
+.pdf-export-notice.is-busy { display: flex; align-items: center; gap: 9px; }
+.pdfx-spinner { width: 13px; height: 13px; border-radius: 50%; border: 2px solid #cfddfa; border-top-color: #2655e5; animation: pdfx-spin .8s linear infinite; flex: none; }
+@keyframes pdfx-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pdfx-spinner { animation: none; } }
 .pdf-export-notice { margin: 0; padding: 9px 12px; border-radius: 9px; background: #eef4ff; border: 1px solid #cfddfa; color: #33416b; font-size: 11.5px; }
 
 /* estados vazios do painel de estado */

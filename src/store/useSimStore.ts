@@ -528,6 +528,8 @@ function runOneTick(state: Store, dtMs: number) {
   const selectedId = plcs.some((p) => p.id === state.activePlcId) ? state.activePlcId : plcs[0]?.id
   if (!plcs.length) {
     // Sem PLC no esquema: as entradas vêm do painel de entradas virtuais.
+    // Botões NC ainda não tocados repousam a 1 (contacto fechado).
+    for (const [address, mode] of Object.entries(state.virtualInputModes)) if (mode === 'nc' && !(address in state.virtualInputs)) state.runtime.table[address] = true
     for (const [address, on] of Object.entries(state.virtualInputs)) state.runtime.table[address] = on
     const generalFiles = state.projectFiles._general ?? []
     // Como no TIA Portal: os OBs de arranque correm UMA vez antes do primeiro scan do Main;
@@ -700,7 +702,8 @@ export const WIRE_KIND_COLOR: Record<Wire['kind'], WireColor> = {
   bus: 'violet',
 }
 
-export type VirtualInputMode = 'latch' | 'push'
+/** latch = interruptor · push = botão NO (1 enquanto premido) · nc = botão NC (1 em repouso, 0 enquanto premido) */
+export type VirtualInputMode = 'latch' | 'push' | 'nc'
 
 export const useSimStore = create<Store>((set, get) => ({
   components: [],
@@ -865,8 +868,10 @@ export const useSimStore = create<Store>((set, get) => ({
   virtualInputModes: {},
   setVirtualInputMode: (address, mode) => {
     set((st) => ({ virtualInputModes: { ...st.virtualInputModes, [address]: mode }, dirty: true }))
-    // Ao passar para botão de pressão, a entrada volta ao repouso.
+    // Ao passar para botão de pressão (NO), a entrada volta ao repouso (0);
+    // um botão NC repousa a 1 (contacto fechado) e só cai a 0 enquanto premido.
     if (mode === 'push' && get().virtualInputs[address]) get().setVirtualInput(address, false)
+    if (mode === 'nc' && !get().virtualInputs[address]) get().setVirtualInput(address, true)
   },
   setVirtualInputName: (address, rawName) => {
     const addr = address.toUpperCase()
@@ -888,8 +893,11 @@ export const useSimStore = create<Store>((set, get) => ({
   setVirtualOutputCount: (count) => set({ virtualOutputCount: Math.max(1, Math.min(32, Math.round(count))) }),
   setVirtualMemoryCount: (count) => set({ virtualMemoryCount: Math.max(0, Math.min(32, Math.round(count))) }),
   clearVirtualInputs: () => {
-    set({ virtualInputs: {} })
-    for (const key of Object.keys(get().runtime.table)) if (/^I\d+\.\d+$/.test(key)) get().runtime.table[key] = false
+    // Repouso: botões NO/interruptores a 0; botões NC (ex.: Stop) a 1.
+    const rest: Record<string, boolean> = {}
+    for (const [address, mode] of Object.entries(get().virtualInputModes)) if (mode === 'nc') rest[address] = true
+    set({ virtualInputs: rest })
+    for (const key of Object.keys(get().runtime.table)) if (/^I\d+\.\d+$/.test(key)) get().runtime.table[key] = !!rest[key]
     if (get().sim.runState !== 'running') get().step()
   },
   resetMemory: () => {

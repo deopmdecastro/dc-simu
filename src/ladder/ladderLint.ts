@@ -53,6 +53,27 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
     if (rung.move) addWrite(rung.move.target, rung.id, name, 'move')
     if (rung.math) addWrite(rung.math.out, rung.id, name, 'math')
   })
+  // Máquinas de estados em %MW: cada valor escrito por um MOVE deve ser testado por um comparador (==)
+  // e cada comparação (== k) deve ter quem a escreva — senão há um estado inalcançável (saída que nunca liga).
+  const mwWrites = new Map<string, Map<number, { rungId: string; rung: string }>>()
+  const mwTests = new Map<string, Map<number, { rungId: string; rung: string }>>()
+  const mwKey = (raw: string) => raw.trim().toUpperCase().replace(/^%/, '')
+  rungs.forEach((rung, index) => {
+    const name = rung.name || `Network ${index + 1}`
+    if (rung.move && /^MW\d+$/.test(mwKey(rung.move.target)) && /^[+-]?\d+$/.test(rung.move.source.trim())) {
+      const m = mwWrites.get(mwKey(rung.move.target)) ?? new Map(); m.set(Number(rung.move.source), { rungId: rung.id, rung: name }); mwWrites.set(mwKey(rung.move.target), m)
+    }
+    for (const branch of rung.branches) for (const el of branch.elements) {
+      if (el.contactType !== 'CMP' || (el.compareOp ?? '==') !== '==' || !/^MW\d+$/.test(mwKey(el.address)) || !/^[+-]?\d+$/.test((el.compareValue ?? '').trim())) continue
+      const m = mwTests.get(mwKey(el.address)) ?? new Map(); m.set(Number(el.compareValue), { rungId: rung.id, rung: name }); mwTests.set(mwKey(el.address), m)
+    }
+  })
+  for (const [word, tests] of mwTests) {
+    const writes = mwWrites.get(word)
+    if (!writes) continue
+    for (const [value, where] of tests) if (value !== 0 && !writes.has(value)) issues.push({ id: `mw-test:${word}:${value}`, level: 'warning', message: `${where.rung}: testa %${word} == ${value}, mas nenhum MOVE escreve ${value} em %${word} — esta condição nunca fica verdadeira.`, rungId: where.rungId })
+    for (const [value, where] of writes) if (!tests.has(value)) issues.push({ id: `mw-write:${word}:${value}`, level: 'info', message: `${where.rung}: %${word} passa a ${value}, mas nenhum comparador testa %${word} == ${value} — verifique se este estado é usado (pode estar noutro bloco).`, rungId: where.rungId })
+  }
   for (const [address, list] of writers) {
     const plain = list.filter((w) => w.type === 'COIL')
     if (plain.length > 1) issues.push({ id: `dup:${address}`, level: 'error', message: `${address} tem ${plain.length} bobinas simples (${plain.map((w) => w.rung).join(', ')}): a última network vence — use SET/RESET ou junte os ramos.`, rungId: plain[1].rungId })

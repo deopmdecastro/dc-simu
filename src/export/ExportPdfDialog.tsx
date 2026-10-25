@@ -98,6 +98,26 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
   const nothing =
     !opts.cover && !opts.info && !opts.tags && !opts.schematic && !opts.grafcet && networksPicked === 0
 
+  const schematicEmpty = state.components.length === 0
+  const grafcetEmpty = state.grafcet.steps.length === 0
+
+  // Estimativa de páginas: capa/info/tags/esquema/GRAFCET = 1 cada; ladder ≈ 4 networks por página.
+  const pageEstimate =
+    (opts.cover ? 1 : 0) + (opts.info ? 1 : 0) + (opts.tags ? Math.max(1, Math.ceil(state.tags.length / 40)) : 0) +
+    (opts.schematic && !schematicEmpty ? 1 : 0) +
+    (opts.grafcet && !grafcetEmpty ? Math.max(1, opts.grafcetCharts.length || charts.length) : 0) +
+    blocks.reduce((n, b) => { const k = (opts.ladder[b.id] ?? []).length; return n + (k ? Math.ceil(k / 4) : 0) }, 0)
+
+  const preset = (kind: 'all' | 'ladder' | 'none') => {
+    const ladder: Record<string, number[]> = {}
+    for (const b of blocks) ladder[b.id] = kind === 'none' ? [] : b.rungs.map((_, i) => i)
+    setOpts({
+      ...opts, ladder,
+      cover: kind === 'all', info: kind === 'all', tags: kind === 'all',
+      schematic: kind === 'all', grafcet: kind === 'all',
+    })
+  }
+
   const run = async () => {
     setBusy(true)
     setNotice('')
@@ -134,10 +154,18 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
       title="Exportar para PDF" subtitle="Escolhe os conteúdos — o documento usa o desenho real do editor"
       onClose={onClose} onSave={() => void run()}
       saveLabel={busy ? 'A gerar…' : 'Exportar PDF'} saveDisabled={busy || nothing}
-      closeLabel="Fechar" footerHint={`${networksPicked}/${networksTotal} networks de ladder escolhidas`}
+      closeLabel="Fechar" footerHint={`${networksPicked}/${networksTotal} networks de ladder · ≈ ${pageEstimate} pág. · Ctrl/⌘ Enter exporta`}
       className="pdf-export-dialog is-wide"
     >
       <div className="pdf-export-body">
+        <div className="pdfx-toolbar" role="group" aria-label="Seleção rápida">
+          <span className="pdfx-brand" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 64 64"><rect x="3" y="3" width="58" height="58" rx="14" fill="#2655e5" /><path d="M35 10 17 35h12l-3 19 21-29H34z" fill="#fff" stroke="#fff" strokeLinejoin="round" strokeWidth="2" /></svg></span>
+          <span className="pdfx-toolbar-label">Seleção rápida</span>
+          <button type="button" onClick={() => preset('all')}>Tudo</button>
+          <button type="button" onClick={() => preset('ladder')}>Só ladder</button>
+          <button type="button" onClick={() => preset('none')}>Nada</button>
+          <span className="pdfx-pages" title="Estimativa — o número final depende do tamanho dos diagramas">≈ {pageEstimate} página{pageEstimate === 1 ? '' : 's'}</span>
+        </div>
         <div className="pdf-export-grid">
           <Section title="Documento" hint="Estrutura e dados do projeto">
             <label><input type="checkbox" checked={opts.cover} onChange={() => toggle('cover')} /> <span>Capa com a marca DC-Simu e estatísticas</span></label>
@@ -145,8 +173,8 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
             <label><input type="checkbox" checked={opts.tags} onChange={() => toggle('tags')} /> <span>Tabela de tags <em>({state.tags.length})</em></span></label>
           </Section>
           <Section title="Diagramas" hint="Capturados tal como estão no editor">
-            <label><input type="checkbox" checked={opts.schematic} onChange={() => toggle('schematic')} /> <span>Esquema elétrico — vista 3D atual <em>({state.components.length} componentes)</em></span></label>
-            <label><input type="checkbox" checked={opts.grafcet} onChange={() => toggle('grafcet')} /> <span><strong>GRAFCET</strong> <em>({state.grafcet.steps.length} etapas)</em></span></label>
+            <label className={schematicEmpty ? 'is-empty' : ''} title={schematicEmpty ? 'Sem componentes no esquema — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.schematic && !schematicEmpty} disabled={schematicEmpty} onChange={() => toggle('schematic')} /> <span>Esquema elétrico — vista 3D atual <em>({schematicEmpty ? 'vazio — omitido' : `${state.components.length} componentes`})</em></span></label>
+            <label className={grafcetEmpty ? 'is-empty' : ''} title={grafcetEmpty ? 'Sem etapas GRAFCET — esta página seria omitida' : undefined}><input type="checkbox" checked={opts.grafcet && !grafcetEmpty} disabled={grafcetEmpty} onChange={() => toggle('grafcet')} /> <span><strong>GRAFCET</strong> <em>({grafcetEmpty ? 'vazio — omitido' : `${state.grafcet.steps.length} etapas`})</em></span></label>
             {charts.length > 1 && opts.grafcet && (
               <div className="pdf-export-sub">
                 Páginas:
@@ -203,7 +231,8 @@ export default function ExportPdfDialog({ open, onClose }: { open: boolean; onCl
             })}
           </ul>
         </Section>
-        {notice && <p className="pdf-export-notice">{notice}</p>}
+        {busy && <p className="pdf-export-notice is-busy" role="status"><span className="pdfx-spinner" aria-hidden="true" /> A desenhar networks e diagramas do editor… pode demorar alguns segundos.</p>}
+        {!busy && notice && <p className={`pdf-export-notice ${/^Falha/.test(notice) ? 'is-error' : 'is-ok'}`} role="status">{notice}</p>}
       </div>
     </PropertyDialog>
   )
