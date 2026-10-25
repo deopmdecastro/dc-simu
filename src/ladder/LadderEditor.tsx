@@ -1848,7 +1848,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
                   <span className="ladder-live-words" role="group" aria-label="Palavras de memória em tempo real">
                     {live.slice(0, 4).map(([key, entry]) => (
                       <button type="button" key={key} className={`ladder-live-word ${entry.value !== 0 && entry.value !== false ? 'is-nonzero' : ''}`} title={`${nameOf(key) ?? key} · %${key} = ${String(entry.value)} (${entry.type}) — abrir a aba Memórias`} aria-label={`${nameOf(key) ?? key}, %${key}, valor ${String(entry.value)}. Abrir a aba Memórias`} onClick={() => { setStatusTab('memory'); setShowStatus(true) }}>
-                        <b>{nameOf(key) ?? key}</b><small>%{key}</small><span>{String(entry.value)}</span>
+                        <b>{nameOf(key) ?? key}</b><small className="ladder-live-word-sub">%{key}</small><span className="ladder-live-word-value">{String(entry.value)}</span>
                       </button>
                     ))}
                     {live.length > 4 && <em className="ladder-live-more">+{live.length - 4}</em>}
