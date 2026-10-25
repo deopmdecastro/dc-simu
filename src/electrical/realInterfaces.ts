@@ -170,29 +170,29 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
   ],
   /**
    * Siemens LOGO! 12/24RC (72×90×55 mm). O GLB tem 11 parafusos na régua de
-   * cima (L+, M, I1…I8 e o terminal livre X1) e 8 na de baixo: cada saída a
-   * relé Q1…Q4 ocupa dois parafusos (contacto seco).
+   * cima (L+, M, I0.0…I0.7 e o terminal livre X1) e 8 na de baixo: cada saída a
+   * relé Q0.0…Q0.3 ocupa dois parafusos (contacto seco).
    */
   plcSiemensLogo1224RC: [
     { label: 'L+', face: 'top', x: 0.121, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
     { label: 'M', face: 'top', x: 0.191, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'I1', face: 'top', x: 0.262, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'I2', face: 'top', x: 0.336, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I3', face: 'top', x: 0.406, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I4', face: 'top', x: 0.477, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I5', face: 'top', x: 0.547, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I6', face: 'top', x: 0.617, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I7', face: 'top', x: 0.687, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I8', face: 'top', x: 0.762, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
+    { label: 'I0.0', face: 'top', x: 0.262, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
+    { label: 'I0.1', face: 'top', x: 0.336, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
+    { label: 'I0.2', face: 'top', x: 0.406, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
+    { label: 'I0.3', face: 'top', x: 0.477, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
+    { label: 'I0.4', face: 'top', x: 0.547, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
+    { label: 'I0.5', face: 'top', x: 0.617, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
+    { label: 'I0.6', face: 'top', x: 0.687, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
+    { label: 'I0.7', face: 'top', x: 0.762, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
     { label: 'X1', face: 'top', x: 0.832, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q1', face: 'bottom', x: 0.148, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q1.2', face: 'bottom', x: 0.219, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q2', face: 'bottom', x: 0.355, y: 1, z: 0.461, diameterMm: 3.1, holeDepthMm: 6.5 },
-    { label: 'Q2.2', face: 'bottom', x: 0.426, y: 1, z: 0.461, diameterMm: 3.1, holeDepthMm: 6.5 },
-    { label: 'Q3', face: 'bottom', x: 0.562, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q3.2', face: 'bottom', x: 0.633, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q4', face: 'bottom', x: 0.766, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q4.2', face: 'bottom', x: 0.840, y: 1, z: 0.461, diameterMm: 3.1, holeDepthMm: 6.5 },
+    { label: 'Q0.0', face: 'bottom', x: 0.148, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
+    { label: 'Q0.0·2', face: 'bottom', x: 0.219, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
+    { label: 'Q0.1', face: 'bottom', x: 0.355, y: 1, z: 0.461, diameterMm: 3.1, holeDepthMm: 6.5 },
+    { label: 'Q0.1·2', face: 'bottom', x: 0.426, y: 1, z: 0.461, diameterMm: 3.1, holeDepthMm: 6.5 },
+    { label: 'Q0.2', face: 'bottom', x: 0.562, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
+    { label: 'Q0.2·2', face: 'bottom', x: 0.633, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
+    { label: 'Q0.3', face: 'bottom', x: 0.766, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
+    { label: 'Q0.3·2', face: 'bottom', x: 0.840, y: 1, z: 0.461, diameterMm: 3.1, holeDepthMm: 6.5 },
   ],
   /**
    * Chinfa DRAN120-24A (124,5×64×123,6 mm, ficha p. 4): entrada ⏚ · L · N na

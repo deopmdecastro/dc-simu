@@ -5,8 +5,8 @@ Gerado por `npm run audit:terminals`. Posições manuais são preservadas; borne
 | Componente | Bornes | Superfície | Tipologia explícita | Estado |
 |---|---:|---|---|---|
 | Disjuntor Schneider Easy9 EZ9 · 1P (`breaker1p`) | 2 | medido no GLB | OK | ✅ |
-| Disjuntor WEG MDW-C10-3 · 3P 10 A curva C (`breakerWegMdwC10`) | 6 | medido no GLB | OK | ✅ |
 | Disjuntor Steck SD C25 · 1P 25 A curva C (`breakerSteckSdC25`) | 2 | medido no GLB | OK | ✅ |
+| Disjuntor-motor Eaton/Moeller PKZM C-10 · 3P 6,3-10 A (`motorBreakerPkzmC10`) | 6 | medido no GLB | OK | ✅ |
 | Disjuntor Schneider Easy9 EZ9 · 2P (`breaker2p`) | 4 | medido no GLB | OK | ✅ |
 | Disjuntor Schneider Easy9 EZ9 · 3P (`breaker3p`) | 6 | medido no GLB | OK | ✅ |
 | Phoenix Contact EC 1 12DC/1A S-R · 3000760 (`phoenixEcb3000760`) | 5 | medido no GLB | OK | ✅ |

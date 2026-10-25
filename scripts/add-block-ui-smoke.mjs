@@ -7,7 +7,7 @@ import { chromium } from 'playwright'
 const baseURL = process.env.BLOCK_TEST_URL || 'http://127.0.0.1:5175'
 const output = process.env.BLOCK_TEST_OUTPUT
 if (output) await mkdir(output, { recursive: true })
-const browser = await chromium.launch({ channel: process.env.BLOCK_TEST_CHANNEL || 'chrome' })
+const browser = await chromium.launch(process.env.BLOCK_TEST_CHANNEL ? { channel: process.env.BLOCK_TEST_CHANNEL } : {})
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
 await context.route('**/*', (route) => {
   const url = new URL(route.request().url())

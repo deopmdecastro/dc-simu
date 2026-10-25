@@ -10,10 +10,10 @@ export function logoTerminalLocal(c: ElectricalComponent, t: Terminal): { x: num
   const ordinary = { x: t.x * c.w, y: t.y * c.h }
   if (c.type !== 'plcSiemensLogo1224RC') return ordinary
 
-  const top = ['L+', 'M', 'I1', 'I2', 'I3', 'I4', 'I5', 'I6', 'I7', 'I8', 'X1']
+  const top = ['L+', 'M', 'I0.0', 'I0.1', 'I0.2', 'I0.3', 'I0.4', 'I0.5', 'I0.6', 'I0.7', 'X1']
   const topIndex = top.indexOf(t.label)
-  const bottomIndex = ['Q1', 'Q2', 'Q3', 'Q4'].indexOf(t.label.replace(/\.2$/, ''))
-  const secondScrew = t.label.endsWith('.2')
+  const bottomIndex = ['Q0.0', 'Q0.1', 'Q0.2', 'Q0.3'].indexOf(t.label.replace(/·2$/, ''))
+  const secondScrew = t.label.endsWith('·2')
   const isTopDefault = topIndex >= 0 && Math.abs(t.x - (topIndex === 10 ? 0.98 : 0.06 + topIndex * 0.88 / 9)) < 0.002 && Math.abs(t.y) < 0.002
   const isBottomDefault = bottomIndex >= 0 && Math.abs(t.x - ((secondScrew ? 0.21 : 0.16) + bottomIndex * 0.24)) < 0.002 && Math.abs(t.y - 1) < 0.002
   if (!isTopDefault && !isBottomDefault) return ordinary

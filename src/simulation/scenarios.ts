@@ -78,16 +78,16 @@ export function buildDirectStartScenario(): Scenario {
     wire(T(M1, 'PE')!, T(BPE, 'PE2')!, 'green-yellow', '2.5mm²', 'PE', 'earth'),
 
     wire(T(QF1, '2')!, T(S1, '21')!, 'orange', '1mm²', 'L-ctrl'),
-    wire(T(S1, '22')!, T(PLC1, 'I1')!, 'orange', '1mm²'),
+    wire(T(S1, '22')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
     wire(T(QF1, '2')!, T(S2, '13')!, 'orange', '1mm²'),
-    wire(T(S2, '14')!, T(PLC1, 'I2')!, 'orange', '1mm²'),
+    wire(T(S2, '14')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
     wire(T(QF1, '2')!, T(PLC1, 'L')!, 'orange', '1mm²'),
     wire(T(XN, 'N1')!, T(PLC1, 'N')!, 'blue', '1mm²', undefined, 'neutral'),
 
-    wire(T(PLC1, 'Q1')!, T(KM1, 'A1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.0')!, T(KM1, 'A1')!, 'grey', '1mm²'),
     wire(T(KM1, 'A2')!, T(XN, 'N2')!, 'blue', '1mm²', undefined, 'neutral'),
 
-    wire(T(PLC1, 'Q1')!, T(H1, 'X1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.0')!, T(H1, 'X1')!, 'grey', '1mm²'),
     wire(T(H1, 'X2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
     wire(T(RT1, '97')!, T(H2, 'X1')!, 'gray' as WireColor, '1mm²'),
     wire(T(H2, 'X2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
@@ -97,18 +97,18 @@ export function buildDirectStartScenario(): Scenario {
     rungs: [
       {
         id: nanoid(6), name: 'Rung 1: Partida com selo', enabled: true,
-        branches: [branch(contact('I1', 'NO'), contact('I2', 'NO')), branch(contact('I1', 'NO'), contact('M1', 'NO'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'M1', coilType: 'COIL' }],
+        branches: [branch(contact('I0.0', 'NO'), contact('I0.1', 'NO')), branch(contact('I0.0', 'NO'), contact('M0.0', 'NO'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'M0.0', coilType: 'COIL' }],
       },
       {
         id: nanoid(6), name: 'Rung 2: Saída para KM1', enabled: true,
-        branches: [branch(contact('M1', 'NO'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q1', coilType: 'COIL' }],
+        branches: [branch(contact('M0.0', 'NO'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q0.0', coilType: 'COIL' }],
       },
     ],
   }
 
-  return { id: 'direct-start', name: 'Partida Direta com Selo', description: 'STOP (I1) + START (I2) com selo por M1, acionando Q1 → KM1 → Motor.', components, wires, ladder }
+  return { id: 'direct-start', name: 'Partida Direta com Selo', description: 'STOP (I0.0) + START (I0.1) com selo por M0.0, acionando Q0.0 → KM1 → Motor.', components, wires, ladder }
 }
 
 // ---------------------------------------------------------------------------
@@ -158,22 +158,22 @@ export function buildReversalScenario(): Scenario {
 
     wire(T(BR, '2')!, T(S0, '21')!, 'orange', '1mm²'),
     wire(T(S0, '22')!, T(S1, '21')!, 'orange', '1mm²'),
-    wire(T(S1, '22')!, T(PLC1, 'I1')!, 'orange', '1mm²'),
+    wire(T(S1, '22')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
     wire(T(BR, '2')!, T(S2, '13')!, 'orange', '1mm²'),
-    wire(T(S2, '14')!, T(PLC1, 'I2')!, 'orange', '1mm²'),
+    wire(T(S2, '14')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
     wire(T(BR, '2')!, T(S3, '13')!, 'orange', '1mm²'),
-    wire(T(S3, '14')!, T(PLC1, 'I3')!, 'orange', '1mm²'),
+    wire(T(S3, '14')!, T(PLC1, 'I0.2')!, 'orange', '1mm²'),
     wire(T(BR, '2')!, T(PLC1, 'L')!, 'orange', '1mm²'),
     wire(T(XN, 'N1')!, T(PLC1, 'N')!, 'blue', '1mm²', undefined, 'neutral'),
 
-    wire(T(PLC1, 'Q1')!, T(KM1, 'A1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.0')!, T(KM1, 'A1')!, 'grey', '1mm²'),
     wire(T(KM1, 'A2')!, T(XN, 'N2')!, 'blue', '1mm²', undefined, 'neutral'),
-    wire(T(PLC1, 'Q2')!, T(KM2, 'A1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.1')!, T(KM2, 'A1')!, 'grey', '1mm²'),
     wire(T(KM2, 'A2')!, T(XN, 'N2')!, 'blue', '1mm²', undefined, 'neutral'),
 
-    wire(T(PLC1, 'Q1')!, T(H1, 'X1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.0')!, T(H1, 'X1')!, 'grey', '1mm²'),
     wire(T(H1, 'X2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
-    wire(T(PLC1, 'Q2')!, T(H2, 'X1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.1')!, T(H2, 'X1')!, 'grey', '1mm²'),
     wire(T(H2, 'X2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
     wire(T(S0, '22')!, T(H3, 'X1')!, 'grey', '1mm²'),
     wire(T(H3, 'X2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
@@ -183,23 +183,23 @@ export function buildReversalScenario(): Scenario {
     rungs: [
       {
         id: nanoid(6), name: 'Rung 1: Avanço (selo)', enabled: true,
-        branches: [branch(contact('I1', 'NO'), contact('I2', 'NO'), contact('Q2', 'NC')), branch(contact('I1', 'NO'), contact('M1', 'NO'), contact('Q2', 'NC'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'M1', coilType: 'COIL' }],
+        branches: [branch(contact('I0.0', 'NO'), contact('I0.1', 'NO'), contact('Q0.1', 'NC')), branch(contact('I0.0', 'NO'), contact('M0.0', 'NO'), contact('Q0.1', 'NC'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'M0.0', coilType: 'COIL' }],
       },
       {
         id: nanoid(6), name: 'Rung 2: Saída KM1', enabled: true,
-        branches: [branch(contact('M1', 'NO'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q1', coilType: 'COIL' }],
+        branches: [branch(contact('M0.0', 'NO'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q0.0', coilType: 'COIL' }],
       },
       {
         id: nanoid(6), name: 'Rung 3: Reversão (selo)', enabled: true,
-        branches: [branch(contact('I1', 'NO'), contact('I3', 'NO'), contact('Q1', 'NC')), branch(contact('I1', 'NO'), contact('M2', 'NO'), contact('Q1', 'NC'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'M2', coilType: 'COIL' }],
+        branches: [branch(contact('I0.0', 'NO'), contact('I0.2', 'NO'), contact('Q0.0', 'NC')), branch(contact('I0.0', 'NO'), contact('M0.1', 'NO'), contact('Q0.0', 'NC'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'M0.1', coilType: 'COIL' }],
       },
       {
         id: nanoid(6), name: 'Rung 4: Saída KM2', enabled: true,
-        branches: [branch(contact('M2', 'NO'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q2', coilType: 'COIL' }],
+        branches: [branch(contact('M0.1', 'NO'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q0.1', coilType: 'COIL' }],
       },
     ],
   }
@@ -254,22 +254,22 @@ export function buildStarDeltaScenario(): Scenario {
     wire(T(M1, 'PE')!, T(BPE, 'PE2')!, 'green-yellow', '2.5mm²', 'PE', 'earth'),
 
     wire(T(BR, '2')!, T(S1, '21')!, 'orange', '1mm²'),
-    wire(T(S1, '22')!, T(PLC1, 'I1')!, 'orange', '1mm²'),
+    wire(T(S1, '22')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
     wire(T(BR, '2')!, T(S2, '13')!, 'orange', '1mm²'),
-    wire(T(S2, '14')!, T(PLC1, 'I2')!, 'orange', '1mm²'),
+    wire(T(S2, '14')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
     wire(T(BR, '2')!, T(PLC1, 'L')!, 'orange', '1mm²'),
     wire(T(XN, 'N1')!, T(PLC1, 'N')!, 'blue', '1mm²', undefined, 'neutral'),
 
-    wire(T(PLC1, 'Q1')!, T(KM1, 'A1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.0')!, T(KM1, 'A1')!, 'grey', '1mm²'),
     wire(T(KM1, 'A2')!, T(XN, 'N2')!, 'blue', '1mm²', undefined, 'neutral'),
-    wire(T(PLC1, 'Q2')!, T(KM2, 'A1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.1')!, T(KM2, 'A1')!, 'grey', '1mm²'),
     wire(T(KM2, 'A2')!, T(XN, 'N2')!, 'blue', '1mm²', undefined, 'neutral'),
-    wire(T(PLC1, 'Q3')!, T(KM3, 'A1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.2')!, T(KM3, 'A1')!, 'grey', '1mm²'),
     wire(T(KM3, 'A2')!, T(XN, 'N2')!, 'blue', '1mm²', undefined, 'neutral'),
 
-    wire(T(PLC1, 'Q1')!, T(H1, 'X1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.0')!, T(H1, 'X1')!, 'grey', '1mm²'),
     wire(T(H1, 'X2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
-    wire(T(PLC1, 'Q3')!, T(H2, 'X1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.2')!, T(H2, 'X1')!, 'grey', '1mm²'),
     wire(T(H2, 'X2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
     wire(T(RT1, '97')!, T(H3, 'X1')!, 'gray' as WireColor, '1mm²'),
     wire(T(H3, 'X2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
@@ -279,17 +279,17 @@ export function buildStarDeltaScenario(): Scenario {
     rungs: [
       {
         id: nanoid(6), name: 'Rung 1: Selo de partida', enabled: true,
-        branches: [branch(contact('I1', 'NO'), contact('I2', 'NO')), branch(contact('I1', 'NO'), contact('M1', 'NO'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'M1', coilType: 'COIL' }],
+        branches: [branch(contact('I0.0', 'NO'), contact('I0.1', 'NO')), branch(contact('I0.0', 'NO'), contact('M0.0', 'NO'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'M0.0', coilType: 'COIL' }],
       },
       {
         id: nanoid(6), name: 'Rung 2: Principal KM1', enabled: true,
-        branches: [branch(contact('M1', 'NO'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q1', coilType: 'COIL' }],
+        branches: [branch(contact('M0.0', 'NO'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q0.0', coilType: 'COIL' }],
       },
       {
         id: nanoid(6), name: 'Rung 3: Estrela (temporizada)', enabled: true,
-        branches: [branch(contact('M1', 'NO'))],
+        branches: [branch(contact('M0.0', 'NO'))],
         // o rung do temporizador não usa bobina com o MESMO endereço do timer:
         // o próprio bloco escreve o bit T1 (Done), e uma bobina T1 o sobrescreveria.
         coils: [],
@@ -297,13 +297,13 @@ export function buildStarDeltaScenario(): Scenario {
       },
       {
         id: nanoid(6), name: 'Rung 4: KM2 estrela enquanto T1 não fechar', enabled: true,
-        branches: [branch(contact('M1', 'NO'), contact('T1', 'NC'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q2', coilType: 'COIL' }],
+        branches: [branch(contact('M0.0', 'NO'), contact('T1', 'NC'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q0.1', coilType: 'COIL' }],
       },
       {
         id: nanoid(6), name: 'Rung 5: KM3 triângulo após T1', enabled: true,
-        branches: [branch(contact('M1', 'NO'), contact('T1', 'NO'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q3', coilType: 'COIL' }],
+        branches: [branch(contact('M0.0', 'NO'), contact('T1', 'NO'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q0.2', coilType: 'COIL' }],
       },
     ],
   }
@@ -356,25 +356,25 @@ export function buildSequentialScenario(): Scenario {
     wire(T(KM2, '6T3')!, T(M2, 'W1')!, 'black', '2.5mm²', undefined, 'power'),
 
     wire(T(BR, '2')!, T(S1, '21')!, 'orange', '1mm²'),
-    wire(T(S1, '22')!, T(PLC1, 'I1')!, 'orange', '1mm²'),
+    wire(T(S1, '22')!, T(PLC1, 'I0.0')!, 'orange', '1mm²'),
     wire(T(BR, '2')!, T(S2, '13')!, 'orange', '1mm²'),
-    wire(T(S2, '14')!, T(PLC1, 'I2')!, 'orange', '1mm²'),
+    wire(T(S2, '14')!, T(PLC1, 'I0.1')!, 'orange', '1mm²'),
     wire(T(BR, '2')!, T(PLC1, 'L')!, 'orange', '1mm²'),
     wire(T(XN, 'N1')!, T(PLC1, 'N')!, 'blue', '1mm²', undefined, 'neutral'),
     wire(T(BR, '2')!, T(B1, 'V+')!, 'brown' as WireColor, '0.5mm²'),
     wire(T(XN, 'N2')!, T(B1, '0V')!, 'blue', '0.5mm²', undefined, 'neutral'),
-    wire(T(B1, 'OUT')!, T(PLC1, 'I3')!, 'black', '0.5mm²', undefined, 'signal'),
+    wire(T(B1, 'OUT')!, T(PLC1, 'I0.2')!, 'black', '0.5mm²', undefined, 'signal'),
 
-    wire(T(PLC1, 'Q1')!, T(KM1, 'A1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.0')!, T(KM1, 'A1')!, 'grey', '1mm²'),
     wire(T(KM1, 'A2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
-    wire(T(PLC1, 'Q2')!, T(KM2, 'A1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.1')!, T(KM2, 'A1')!, 'grey', '1mm²'),
     wire(T(KM2, 'A2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
-    wire(T(PLC1, 'Q3')!, T(T1, 'A1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.2')!, T(T1, 'A1')!, 'grey', '1mm²'),
     wire(T(T1, 'A2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
 
-    wire(T(PLC1, 'Q1')!, T(H1, 'X1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.0')!, T(H1, 'X1')!, 'grey', '1mm²'),
     wire(T(H1, 'X2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
-    wire(T(PLC1, 'Q2')!, T(H2, 'X1')!, 'grey', '1mm²'),
+    wire(T(PLC1, 'Q0.1')!, T(H2, 'X1')!, 'grey', '1mm²'),
     wire(T(H2, 'X2')!, T(XN, 'N3')!, 'blue', '1mm²', undefined, 'neutral'),
   ]
 
@@ -382,32 +382,32 @@ export function buildSequentialScenario(): Scenario {
     rungs: [
       {
         id: nanoid(6), name: 'Rung 1: Habilita ciclo', enabled: true,
-        branches: [branch(contact('I1', 'NO'), contact('I2', 'NO')), branch(contact('I1', 'NO'), contact('M1', 'NO'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'M1', coilType: 'COIL' }],
+        branches: [branch(contact('I0.0', 'NO'), contact('I0.1', 'NO')), branch(contact('I0.0', 'NO'), contact('M0.0', 'NO'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'M0.0', coilType: 'COIL' }],
       },
       {
         id: nanoid(6), name: 'Rung 2: M1 imediato', enabled: true,
-        branches: [branch(contact('M1', 'NO'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q1', coilType: 'COIL' }],
+        branches: [branch(contact('M0.0', 'NO'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q0.0', coilType: 'COIL' }],
       },
       {
-        // o rung do temporizador depende apenas do ciclo habilitado (I1 + M1):
+        // o rung do temporizador depende apenas do ciclo habilitado (I0.0 + M0.0):
         // o bloco escreve o bit T1, e o rung seguinte usa T1 para dar a partida em M2.
         id: nanoid(6), name: 'Rung 3: Temporiza M2 (TON 3 s)', enabled: true,
-        branches: [branch(contact('I1', 'NO'), contact('M1', 'NO'))],
+        branches: [branch(contact('I0.0', 'NO'), contact('M0.0', 'NO'))],
         coils: [],
         timer: { kind: 'timer', id: nanoid(6), address: 'T1', timerType: 'TON', presetMs: 3000 },
       },
       {
         id: nanoid(6), name: 'Rung 4: M2 após 3 s', enabled: true,
-        branches: [branch(contact('M1', 'NO'), contact('T1', 'NO'))],
-        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q2', coilType: 'COIL' }],
+        branches: [branch(contact('M0.0', 'NO'), contact('T1', 'NO'))],
+        coils: [{ kind: 'coil', id: nanoid(6), address: 'Q0.1', coilType: 'COIL' }],
       },
       {
         id: nanoid(6), name: 'Rung 5: Contagem de peças (CTU 5)', enabled: true,
-        branches: [branch(contact('I3', 'RISING'))],
+        branches: [branch(contact('I0.2', 'RISING'))],
         coils: [],
-        counter: { kind: 'counter', id: nanoid(6), address: 'C1', counterType: 'CTU', preset: 5, resetAddress: 'M9' },
+        counter: { kind: 'counter', id: nanoid(6), address: 'C1', counterType: 'CTU', preset: 5, resetAddress: 'M1.0' },
       },
     ],
   }

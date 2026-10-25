@@ -343,14 +343,14 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
       { id: 's0', name: 'Espera', initial: true, action: '', condition: '', actions: [{ id: 'n', address: '1', condition: '1', kind: 'N' as const }, { id: 'f', address: '4', condition: '1', kind: 'C' as const }, { id: 'd', address: '2', condition: '1', kind: 'DA' as const }] },
       { id: 's1', name: 'Fim', initial: false, action: '', condition: '' },
     ],
-    transitions: [{ id: 't0', from: ['s0'], to: ['s1'], condition: 'I1' }],
+    transitions: [{ id: 't0', from: ['s0'], to: ['s1'], condition: 'I0.0' }],
     freeActions: [{ id: 'free', address: '9', condition: '1', kind: 'N' as const, x: 0, y: 0 }],
   }
-  const table: AddressTable = { I1: false }
+  const table: AddressTable = { 'I0.0': false }
   let state = scanGrafcet(program, emptyGrafcetRuntime(), table)
   check('ação «1» sem prefixo liga Q1 na etapa', table.Q1 === true)
   check('comando forçado (C) liga a saída enquanto a etapa está ativa', table.Q4 === true && table.Q2 === false)
-  table.I1 = true
+  table['I0.0'] = true
   state = scanGrafcet(program, state, table)
   check('pulso ao desativar (DA) liga Q2 só ao sair da etapa', table.Q2 === true && table.Q1 === false)
   state = scanGrafcet(program, state, table)
@@ -361,45 +361,45 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* GRAFCET: transições síncronas, ações e endereços abandonados. */
 {
   const program = { steps: [
-    { id: 's0', name: 'Espera', initial: true, action: 'Q1', condition: 'I1' },
-    { id: 's1', name: 'Trabalho', initial: false, action: 'M1', condition: '!I1' },
+    { id: 's0', name: 'Espera', initial: true, action: 'Q0.0', condition: 'I0.0' },
+    { id: 's1', name: 'Trabalho', initial: false, action: 'M0.0', condition: '!I0.0' },
   ] }
-  const table: AddressTable = { I1: false }
+  const table: AddressTable = { 'I0.0': false }
   let state = scanGrafcet(program, emptyGrafcetRuntime(), table)
-  check('GRAFCET ativa etapa inicial e respetiva ação', state.active.includes('s0') && table.Q1 === true && table.M1 === false)
-  table.I1 = true
+  check('GRAFCET ativa etapa inicial e respetiva ação', state.active.includes('s0') && table['Q0.0'] === true && table['M0.0'] === false)
+  table['I0.0'] = true
   state = scanGrafcet(program, state, table)
-  check('GRAFCET avança uma etapa por scan e atualiza saídas', state.active.includes('s1') && !state.active.includes('s0') && table.Q1 === false && table.M1 === true)
+  check('GRAFCET avança uma etapa por scan e atualiza saídas', state.active.includes('s1') && !state.active.includes('s0') && table['Q0.0'] === false && table['M0.0'] === true)
   state = scanGrafcet(program, state, table)
   check('GRAFCET não regressa antes da transição', state.active.includes('s1'))
-  table.I1 = false
+  table['I0.0'] = false
   state = scanGrafcet(program, state, table)
-  check('GRAFCET regressa ao início com transição negada', state.active.includes('s0') && table.Q1 === true)
+  check('GRAFCET regressa ao início com transição negada', state.active.includes('s0') && table['Q0.0'] === true)
   state = scanGrafcet({ steps: [] }, state, table)
-  check('GRAFCET limpa saídas de programa removido', table.Q1 === false && table.M1 === false)
+  check('GRAFCET limpa saídas de programa removido', table['Q0.0'] === false && table['M0.0'] === false)
   check('condição inválida não dispara', !evalCondition('MOVE', table))
 }
 
 /* Divergência/convergência AND, ações condicionadas e expressões compostas. */
 {
-  const steps = ['s0', 's1', 's2', 's3'].map((id, i) => ({ id, name: id, initial: i === 0, action: '', condition: '0', actions: i === 1 ? [{ id: 'a', address: 'Q1', condition: 'I2 & !I3' }] : [] }))
+  const steps = ['s0', 's1', 's2', 's3'].map((id, i) => ({ id, name: id, initial: i === 0, action: '', condition: '0', actions: i === 1 ? [{ id: 'a', address: 'Q0.0', condition: 'I0.1 & !I0.2' }] : [] }))
   const program = { steps, transitions: [
-    { id: 'fork', from: ['s0'], to: ['s1', 's2'], condition: 'I1 & !M1' },
-    { id: 'join', from: ['s1', 's2'], to: ['s3'], condition: 'I4 | M1' },
+    { id: 'fork', from: ['s0'], to: ['s1', 's2'], condition: 'I0.0 & !M0.0' },
+    { id: 'join', from: ['s1', 's2'], to: ['s3'], condition: 'I0.3 | M0.0' },
     { id: 'return', from: ['s3'], to: ['s0'], condition: '1' },
   ] }
-  const table: AddressTable = { I1: true, I2: true, I3: false, I4: false, M1: false }
+  const table: AddressTable = { 'I0.0': true, 'I0.1': true, 'I0.2': false, 'I0.3': false, 'M0.0': false }
   let runtime = scanGrafcet(program, emptyGrafcetRuntime(), table)
-  check('divergência AND ativa duas etapas', runtime.active.includes('s1') && runtime.active.includes('s2') && table.Q1)
-  table.I3 = true
+  check('divergência AND ativa duas etapas', runtime.active.includes('s1') && runtime.active.includes('s2') && table['Q0.0'])
+  table['I0.2'] = true
   runtime = scanGrafcet(program, runtime, table)
-  check('ação condicionada desliga sem sair da etapa', !table.Q1 && runtime.active.length === 2)
-  table.I4 = true
+  check('ação condicionada desliga sem sair da etapa', !table['Q0.0'] && runtime.active.length === 2)
+  table['I0.3'] = true
   runtime = scanGrafcet(program, runtime, table)
   check('convergência AND espera e consome ambas as origens', runtime.active.length === 1 && runtime.active[0] === 's3')
   runtime = scanGrafcet(program, runtime, table)
   check('retorno no scan seguinte (sem cascata)', runtime.active.length === 1 && runtime.active[0] === 's0')
-  check('expressões rejeitam sintaxe incorreta', !validCondition('I1 && I2') && !validCondition('I1 | (I2') && validCondition('(I1 & !I2) | M1'))
+  check('expressões rejeitam sintaxe incorreta', !validCondition('I0.0 && I0.1') && !validCondition('I0.0 | (I0.1') && validCondition('(I0.0 & !I0.1) | M0.0'))
 }
 
 /* Cabo livre não cria uma ligação fantasma entre bornes de outros componentes. */
@@ -424,11 +424,11 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 {
   const logo = createComponent('plcSiemensLogo1224RC')
   check('LOGO! tem 19 parafusos/bornes visíveis', logo.terminals.length === 19)
-  const legacy = { ...logo, terminals: logo.terminals.filter((t) => !t.label.endsWith('.2') && t.label !== 'X1') }
+  const legacy = { ...logo, terminals: logo.terminals.filter((t) => !t.label.endsWith('·2') && t.label !== 'X1') }
   check('projetos antigos recebem os segundos contactos sem duplicar', upgradeLogoTerminals(legacy).terminals.length === 19 && upgradeLogoTerminals(logo).terminals.length === 19 && upgradeLogoTerminals({ ...logo, terminals: logo.terminals.filter((t) => t.label !== 'X1') }).terminals.length === 19)
-  const switched = { ...logo, state: { ...logo.state, powered: true, outputs: { Q1: true, Q2: false, Q3: false, Q4: false } } }
+  const switched = { ...logo, state: { ...logo.state, powered: true, outputs: { 'Q0.0': true, 'Q0.1': false, 'Q0.2': false, 'Q0.3': false } } }
   const bridges = internalBridges(switched)
-  check('relé Q1 liga somente os seus dois parafusos, não L+', bridges.length === 1 && bridges[0].includes(terminalByLabel(logo, 'Q1')!.id) && bridges[0].includes(terminalByLabel(logo, 'Q1.2')!.id))
+  check('relé Q0.0 liga somente os seus dois parafusos, não L+', bridges.length === 1 && bridges[0].includes(terminalByLabel(logo, 'Q0.0')!.id) && bridges[0].includes(terminalByLabel(logo, 'Q0.0·2')!.id))
   check('sem alimentação o relé não fecha', internalBridges({ ...switched, state: { ...switched.state, powered: false } }).length === 0)
   const ps = createComponent('powerSupply')
   const lPlus = terminalByLabel(logo, 'L+')!
@@ -441,28 +441,28 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const minusWire = wire(terminalByLabel(ps, '-V')!.id, m.id)
   check('L+ isolado não alimenta o LOGO!', !logoElectricalInputs(logo, [ps, logo], [plusWire]).powered)
   check('L+ e M alimentados permitem executar o LOGO!', logoElectricalInputs(logo, [ps, logo], [plusWire, minusWire]).powered)
-  const inputWire = wire(terminalByLabel(ps, '+V')!.id, terminalByLabel(logo, 'I1')!.id)
-  check('I1 lê 1 apenas na rede positiva', logoElectricalInputs(logo, [ps, logo], [plusWire, minusWire, inputWire]).positive.has(terminalByLabel(logo, 'I1')!.id))
+  const inputWire = wire(terminalByLabel(ps, '+V')!.id, terminalByLabel(logo, 'I0.0')!.id)
+  check('I0.0 lê 1 apenas na rede positiva', logoElectricalInputs(logo, [ps, logo], [plusWire, minusWire, inputWire]).positive.has(terminalByLabel(logo, 'I0.0')!.id))
   const l = logoTerminalLocal(logo, terminalByLabel(logo, 'L+')!)
-  const i8 = logoTerminalLocal(logo, terminalByLabel(logo, 'I8')!)
-  const q1 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q1')!)
-  const q4 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q4')!)
-  const q4Second = logoTerminalLocal(logo, terminalByLabel(logo, 'Q4.2')!)
+  const i8 = logoTerminalLocal(logo, terminalByLabel(logo, 'I0.7')!)
+  const q1 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q0.0')!)
+  const q4 = logoTerminalLocal(logo, terminalByLabel(logo, 'Q0.3')!)
+  const q4Second = logoTerminalLocal(logo, terminalByLabel(logo, 'Q0.3·2')!)
   check('bornes superiores do LOGO! estão sobre o modelo', l.y > 0 && l.y < logo.h * 0.2 && i8.x > l.x && i8.x < logo.w * 0.8)
   check('saídas do LOGO! estão sobre os contactos inferiores', q1.y > logo.h * 0.8 && q4.x > q1.x && q4Second.x > q4.x && q4Second.x < logo.w * 0.85)
   // A imagem PNG original mede 560×720; estes alvos foram aferidos visualmente
   // sobre os centros dos parafusos da captura, sem depender do zoom do esquema.
   const fullImage = { ...logo, w: 560, h: 720 }
   const topScrew = logoTerminalLocal(fullImage, terminalByLabel(logo, 'L+')!)
-  const lastTop = logoTerminalLocal(fullImage, terminalByLabel(logo, 'I8')!)
+  const lastTop = logoTerminalLocal(fullImage, terminalByLabel(logo, 'I0.7')!)
   const extraTop = logoTerminalLocal(fullImage, terminalByLabel(logo, 'X1')!)
-  const firstBottom = logoTerminalLocal(fullImage, terminalByLabel(logo, 'Q1')!)
-  const lastBottom = logoTerminalLocal(fullImage, terminalByLabel(logo, 'Q4.2')!)
+  const firstBottom = logoTerminalLocal(fullImage, terminalByLabel(logo, 'Q0.0')!)
+  const lastBottom = logoTerminalLocal(fullImage, terminalByLabel(logo, 'Q0.3·2')!)
   check('alinhamento fino dos parafusos do PNG real',
     Math.abs(topScrew.x - 86) < 2 && Math.abs(lastTop.x - 413) < 2 && Math.abs(extraTop.x - 450) < 2 &&
     Math.abs(topScrew.y - 73) < 2 && Math.abs(firstBottom.x - 100) < 2 &&
     Math.abs(lastBottom.x - 454) < 2 && Math.abs(lastBottom.y - 629) < 2)
-  const edited = { ...terminalByLabel(logo, 'Q1')!, x: 0.3, y: 0.7 }
+  const edited = { ...terminalByLabel(logo, 'Q0.0')!, x: 0.3, y: 0.7 }
   const moved = logoTerminalLocal(logo, edited)
   check('posição personalizada de borne é respeitada', Math.abs(moved.x - logo.w * 0.3) < 0.01 && Math.abs(moved.y - logo.h * 0.7) < 0.01)
 }
@@ -581,12 +581,12 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('classificação não muda traçado sem pontos', withoutWaypoints.d === wireGeometryForWire({ ...base, waypoints: [], flexibility: 'flexible' }, a, b).d)
 }
 
-/* Cada PLC tem OB1, FC e tabela de saídas próprios, mesmo com Q1 comum. */
+/* Cada PLC tem OB1, FC e tabela de saídas próprios, mesmo com Q0.0 comum. */
 {
   const first = createComponent('plcCompact')
   const second = createComponent('plcCompact', undefined, undefined, 0, 300, 0)
-  const on: LadderRung = { id: 'plc-a-on', name: 'Liga Q1', enabled: true, branches: [{ id: 'b', elements: [] }], coils: [{ kind: 'coil', id: 'q', address: 'Q1', coilType: 'COIL' }] }
-  const off: LadderRung = { id: 'plc-b-off', name: 'Desliga Q1', enabled: false, branches: [{ id: 'b2', elements: [] }], coils: [{ kind: 'coil', id: 'q2', address: 'Q1', coilType: 'COIL' }] }
+  const on: LadderRung = { id: 'plc-a-on', name: 'Liga Q0.0', enabled: true, branches: [{ id: 'b', elements: [] }], coils: [{ kind: 'coil', id: 'q', address: 'Q0.0', coilType: 'COIL' }] }
+  const off: LadderRung = { id: 'plc-b-off', name: 'Desliga Q0.0', enabled: false, branches: [{ id: 'b2', elements: [] }], coils: [{ kind: 'coil', id: 'q2', address: 'Q0.0', coilType: 'COIL' }] }
   useSimStore.setState({ components: [first, second], wires: [], ladder: { rungs: [on] },
     activePlcId: first.id, plcPrograms: {}, fcBlocks: { fc1: [on], fc2: [] }, history: [], future: [] })
   const store = useSimStore.getState()
@@ -595,7 +595,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   check('novo PLC abre OB1 e FC vazios sem clonar programa', !useSimStore.getState().ladder.rungs.length && !useSimStore.getState().fcBlocks.fc1.length)
   useSimStore.setState({ ladder: { rungs: [off] } })
   store.step()
-  check('programas distintos executam saídas Q1 independentes', !!useSimStore.getState().components[0].state.outputs.Q1 && !useSimStore.getState().components[1].state.outputs.Q1)
+  check('programas distintos executam saídas Q0.0 independentes', !!useSimStore.getState().components[0].state.outputs['Q0.0'] && !useSimStore.getState().components[1].state.outputs['Q0.0'])
   store.setActivePlc(first.id)
   check('voltar ao PLC restaura OB1 e FC originais', useSimStore.getState().ladder.rungs[0]?.id === on.id && useSimStore.getState().fcBlocks.fc1[0]?.id === on.id)
   const parsed = JSON.parse(store.saveJSON())
@@ -617,10 +617,10 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const compact = createComponent('plcCompact')
   const logo = createComponent('plcSiemensLogo1224RC', undefined, undefined, 0, 300, 0)
   const source = createComponent('powerSupplyProauto24A', undefined, undefined, 0, 600, 0)
-  const i1 = terminalByLabel(compact, 'I1')!
+  const i1 = terminalByLabel(compact, 'I0.0')!
   const out = terminalByLabel(source, '+V1')!
   const cable = { id: 'real-link', fromTerminalId: out.id, toTerminalId: i1.id, color: 'red', gauge: '1.5mm²', kind: 'power', route: 'orthogonal', bend: .5, flexibility: 'rigid', energized: false } as Wire
-  const inputRows = plcIoRows(compact, 'I', { I1: true }, [cable], [compact, source], [])
+  const inputRows = plcIoRows(compact, 'I', { 'I0.0': true }, [cable], [compact, source], [])
   check('CLP modular mostra 12 entradas reais, nome e destino do fio', inputRows.length === 12 && inputRows[0].on && inputRows[0].destinations.includes(`${source.ref}.${out.label}`))
   check('LOGO mostra 8 entradas e 4 saídas agrupando parafusos duplos', plcIoRows(logo, 'I', {}, [], [logo], []).length === 8 && plcIoRows(logo, 'Q', {}, [], [logo], []).length === 4)
   check('capacidade derivada dos bornes do PLC e não do padrão fixo 8/4', plcIoCapacity(compact).inputs === 12 && plcIoCapacity(compact).outputs === 8)
@@ -718,13 +718,13 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const b = createComponent('plcCompact', undefined, undefined, 0, 320, 0)
   const program: LadderRung = { id: 'db-rung', name: 'DB', enabled: true,
     branches: [{ id: 'db-branch', elements: [{ kind: 'contact', id: 'db-contact', address: 'DB1.ENABLED', contactType: 'NO' }] }],
-    coils: [{ kind: 'coil', id: 'db-q1', address: 'Q1', coilType: 'COIL' }], move: { source: '12', target: 'DB1.COUNT' } }
+    coils: [{ kind: 'coil', id: 'db-q1', address: 'Q0.0', coilType: 'COIL' }], move: { source: '12', target: 'DB1.COUNT' } }
   const file = (enabled: boolean) => ({ id: `db-${enabled}`, folder: 'dataBlocks' as const, name: 'DB1', createdAt: '', content: JSON.stringify({ enabled: { type: 'BOOL', value: enabled }, count: { type: 'INT', value: 0 } }) })
   useSimStore.setState({ components: [a,b], wires: [], activePlcId: a.id, ladder: { rungs: [program] }, plcPrograms: { [b.id]: { rungs: [program], fc1: [], fc2: [] } },
     projectFiles: { [a.id]: [file(true)], [b.id]: [file(false)] }, runtime: { ...useSimStore.getState().runtime, plcRuntime: {} } })
   useSimStore.getState().step()
   const current = useSimStore.getState()
-  check('DB BOOL alimenta contacto sem cruzar valores entre PLCs', !!current.components[0].state.outputs.Q1 && !current.components[1].state.outputs.Q1)
+  check('DB BOOL alimenta contacto sem cruzar valores entre PLCs', !!current.components[0].state.outputs['Q0.0'] && !current.components[1].state.outputs['Q0.0'])
   check('MOVE INT escreve apenas DB do PLC onde o rung está ativo', current.runtime.plcRuntime[a.id].db['DB1.COUNT'].value === 12 && current.runtime.plcRuntime[b.id].db['DB1.COUNT'].value === 0)
 }
 
@@ -959,7 +959,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const motor = createComponent('motor3ph')
   check('classificação inferida distingue DC, AC, rede e contactos secos',
     terminalElectricalClassOf(logo, terminalByLabel(logo, 'L+')!) === 'dc'
-    && terminalElectricalClassOf(logo, terminalByLabel(logo, 'Q1')!) === 'other'
+    && terminalElectricalClassOf(logo, terminalByLabel(logo, 'Q0.0')!) === 'other'
     && terminalElectricalClassOf(source, terminalByLabel(source, 'L')!) === 'ac'
     && terminalElectricalClassOf(source, terminalByLabel(source, '+V1')!) === 'dc'
     && terminalElectricalClassOf(motor, terminalByLabel(motor, 'PE')!) === 'other')
@@ -2250,16 +2250,16 @@ console.log('\n— Tabela de sinais dinâmica —')
     freeActions: [{ id: 'f1', address: 'Q1', condition: '1' }],
   }
   const usage = signalUsage(program)
-  check('uso: I1 lido em 2 transições', usage.get('I1')?.transitions === 2)
-  check('uso: Q1 escrito em 2 ações (etapa + solta)', usage.get('Q1')?.actions === 2)
-  check('uso: condição da ação conta como uso (I3, M1)', usage.get('I3')?.actions === 1 && usage.get('M1')?.actions === 1)
+  check('uso: I0.0 lido em 2 transições', usage.get('I0.0')?.transitions === 2)
+  check('uso: Q0.0 escrito em 2 ações (etapa + solta)', usage.get('Q0.0')?.actions === 2)
+  check('uso: condição da ação conta como uso (I0.2, M0.0)', usage.get('I0.2')?.actions === 1 && usage.get('M0.0')?.actions === 1)
   check('uso: T(2s) não é endereço', !usage.has('T') && !usage.has('T2'))
   const tags: any[] = [{ id: 'x', address: 'i1', name: 'Start', dataType: 'Bool' }, { id: 'y', address: 'Q1', name: 'Motor', dataType: 'Bool' }]
   const missing = undeclaredSignals(program, tags)
-  check('não declarados: só os que faltam, ordenados I→Q→M', missing.join() === 'I2,I3,Q2,M1')
+  check('não declarados: só os que faltam, ordenados I→Q→M', missing.join() === 'I0.1,I0.2,Q0.1,M0.0')
   let k = 0
   const created = tagsToDeclare(tags, ['I2', 'i2', 'I1', 'zz', 'M1'], () => `n${++k}`)
-  check('declarar: ignora duplicados, já existentes e inválidos', created.map((t) => t.address).join() === 'I2,M1')
+  check('declarar: ignora duplicados, já existentes e inválidos', created.map((t) => t.address).join() === 'I0.1,M0.0')
   check('declarar: cria Bool sem nome', created.every((t) => t.dataType === 'Bool' && t.name === ''))
   check('cursor: palavra completa sob o cursor', JSON.stringify(tokenAtCursor('I1 * mot', 8)) === JSON.stringify({ start: 5, end: 8, text: 'mot' }))
   check('cursor: no meio da palavra apanha a palavra toda', tokenAtCursor('Motor1 * I2', 3)?.text === 'Motor1')
@@ -2318,7 +2318,7 @@ console.log('\n— Tabela de sinais dinâmica —')
 /* GRAFCET: modelos IEC (ramos AND, temporizações S/R/D, etapa de falha) válidos e simuláveis. */
 {
   const iec = GRAFCET_TEMPLATES.filter((t) => t.id.startsWith('iec-'))
-  check('modelos IEC existem (simples, motores, processo)', iec.length === 3)
+  check('modelos IEC existem (simples, motores, processo, seleção e semáforos)', iec.length === 5)
   for (const t of iec) {
     const errors = validateGrafcet(t.program).filter((i) => i.level === 'error')
     check(`modelo «${t.name}» sem erros de validação`, errors.length === 0)

@@ -132,8 +132,8 @@ function relayTerminals(extraContacts: number): TerminalTemplate[] {
 
 /**
  * Bornes do Siemens LOGO! 12/24RC (8 entradas digitais DC + 4 saídas a relé),
- * seguindo a disposição real do dispositivo: tira superior L+/M/I1..I8 e tira
- * inferior com dois parafusos independentes para cada relé Q1..Q4. O
+ * seguindo a disposição real do dispositivo: tira superior L+/M/I0.0..I0.7 e tira
+ * inferior com dois parafusos independentes para cada relé Q0.0..Q0.3. O
  * parafuso extra sem legenda na extremidade superior é X1 (19 no total).
  * Todos os bornes são do tipo parafuso, como no equipamento
  * físico.
@@ -627,7 +627,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
     terminals: plcTerminals(12, 8),
     defaultState: {
       inputs: {},
-      outputs: { Q1: false, Q2: false, Q3: false, Q4: false, Q5: false, Q6: false, Q7: false, Q8: false },
+      outputs: { 'Q0.0': false, 'Q0.1': false, 'Q0.2': false, 'Q0.3': false, 'Q0.4': false, 'Q0.5': false, 'Q0.6': false, 'Q0.7': false },
       memories: {},
     },
   },
@@ -936,14 +936,19 @@ export function upgradeLogoTerminals(c: ElectricalComponent): ElectricalComponen
   if (c.type !== 'plcSiemensLogo1224RC') return c
   const extra: Terminal[] = []
   // Projeto com 14 bornes: recuperar os quatro segundos parafusos dos relés.
-  if (!c.terminals.some((t) => /^Q[1-4]\.2$/.test(t.label))) {
-    for (let i = 1; i <= 4; i++) {
-      const old = c.terminals.find((t) => t.label === `Q${i}`)
-      if (old) extra.push({ ...old, id: `${c.id}-Q${i}.2`, label: `Q${i}.2`, x: 0.21 + (i - 1) * 0.24, y: 1, energized: false })
+  if (!c.terminals.some((t) => /^Q(?:[1-4]\.2|0\.[0-3]·2)$/.test(t.label))) {
+    for (let i = 0; i < 4; i++) {
+      const canonical = `Q0.${i}`
+      const legacy = `Q${i + 1}`
+      const old = c.terminals.find((t) => t.label === canonical || t.label === legacy)
+      if (old) {
+        const label = old.label === legacy ? `${legacy}.2` : `${canonical}·2`
+        extra.push({ ...old, id: `${c.id}-${label}`, label, x: 0.21 + i * 0.24, y: 1, energized: false })
+      }
     }
   }
   // Projeto com 14/18 bornes: recuperar o parafuso sem legenda do topo.
-  if (!c.terminals.some((t) => t.label === 'X1') && c.terminals.some((t) => t.label === 'I8')) {
+  if (!c.terminals.some((t) => t.label === 'X1') && c.terminals.some((t) => t.label === 'I0.7' || t.label === 'I8')) {
     extra.push({ id: `${c.id}-X1`, componentId: c.id, label: 'X1', kind: 'io', terminalType: 'screw', color: '#94a3b8', x: 0.98, y: 0, energized: false })
   }
   return extra.length ? { ...c, terminals: [...c.terminals, ...extra] } : c

@@ -300,9 +300,17 @@ export function referencedSteps(expression: string): number[] {
 
 function parseCondition(expression: string, ctx: ConditionContext): boolean | null {
   // Leitura canónica da tabela: aceita bits antigos (I3) e novos (I0.2).
+  // Projetos já migrados usam a chave canónica; fixtures, integrações e sessões
+  // ainda em memória podem expor apenas o alias legado, por isso ele é o fallback.
   const bitOf = (t: string) => normalizeBitAddress(t) ?? t
-  const readBit = (t: string) => { const k = bitOf(t); return !!(ctx.table[k] ?? ctx.table[k.toUpperCase()] ?? ctx.table[k.toLowerCase()]) }
-  const readPrev = (t: string) => { const k = bitOf(t); return !!(ctx.prev?.[k] ?? ctx.prev?.[k.toUpperCase()] ?? ctx.prev?.[k.toLowerCase()]) }
+  const read = (table: Record<string, boolean> | undefined, token: string) => {
+    const raw = token.trim().replace(/^%/, '')
+    const canonical = bitOf(raw)
+    return !!(table?.[canonical] ?? table?.[canonical.toUpperCase()] ?? table?.[canonical.toLowerCase()]
+      ?? table?.[raw] ?? table?.[raw.toUpperCase()] ?? table?.[raw.toLowerCase()])
+  }
+  const readBit = (t: string) => read(ctx.table, t)
+  const readPrev = (t: string) => read(ctx.prev, t)
   const src = stripGrafcetPrefix(expression).trim()
   if (!src) return null
   if (DISALLOWED_VARS.has(src.toUpperCase())) return null

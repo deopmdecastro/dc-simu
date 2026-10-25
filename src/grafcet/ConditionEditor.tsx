@@ -29,6 +29,9 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
   const searchRef = useRef<HTMLInputElement>(null)
   const pickerRef = useRef<HTMLDivElement>(null)
   const selectionRef = useRef({ start: value.length, end: value.length })
+  // Protect the saved range while opening the picker: moving focus can emit a
+  // final, collapsed select event before the picker has rendered.
+  const pickerOpeningRef = useRef(false)
   const defaultOneRef = useRef(initialDefaultOne ?? value === '1')
   const valueRef = useRef(value)
   valueRef.current = value
@@ -90,17 +93,22 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
 
   const rememberSelection = () => {
     const input = inputRef.current
-    if (input && document.activeElement === input) selectionRef.current = { start: input.selectionStart ?? value.length, end: input.selectionEnd ?? value.length }
+    // A pointer press can move focus to a toolbar button before React receives
+    // its handler. The input still retains its range, so do not depend on focus.
+    if (input) selectionRef.current = { start: input.selectionStart ?? value.length, end: input.selectionEnd ?? value.length }
   }
   const focusAt = (position: number) => requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(position, position) })
   const insert = (token: string, variable = false) => {
-    rememberSelection()
+    // The picker captured the range before it moved focus. Re-reading here
+    // would replace it with the browser's collapsed blur selection.
+    if (!pickerOpeningRef.current) rememberSelection()
     const replaceDefault = variable && defaultOneRef.current && value === '1'
     const start = replaceDefault ? 0 : Math.min(selectionRef.current.start, value.length)
     const end = replaceDefault ? value.length : Math.min(selectionRef.current.end, value.length)
     onChange(value.slice(0, start) + token + value.slice(end))
     defaultOneRef.current = false
     selectionRef.current = { start: start + token.length, end: start + token.length }
+    pickerOpeningRef.current = false
     setPickerOpen(false)
     focusAt(start + token.length)
   }
@@ -111,6 +119,7 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
     focusAt(expression.length)
   }
   const closePicker = () => {
+    pickerOpeningRef.current = false
     setPickerOpen(false)
     const selection = { ...selectionRef.current }
     // Restore before the picker unmounts: a second Escape must reach the parent dialog.
@@ -161,8 +170,14 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
             setTypeaheadOpen(false)
           }
         }}
-        onSelect={(event) => { rememberSelection(); setCursor(event.currentTarget.selectionStart ?? value.length) }}
-        onBlur={() => { rememberSelection(); setTypeaheadOpen(false) }} placeholder="Ex.: I1 * /I2 — escreva um nome ou endereço para sugestões" autoComplete="off" spellCheck={false} aria-invalid={!!error} aria-describedby={`${id}-status${error ? ` ${errorId}` : ''}`} />
+        onSelect={(event) => {
+          // Browsers can emit one final select event as focus moves into the
+          // picker, with a collapsed range. Keep the range captured on open.
+          if (pickerOpeningRef.current || document.activeElement !== event.currentTarget) return
+          rememberSelection()
+          setCursor(event.currentTarget.selectionStart ?? value.length)
+        }}
+        onBlur={() => { setTypeaheadOpen(false) }} placeholder="Ex.: I1 * /I2 — escreva um nome ou endereço para sugestões" autoComplete="off" spellCheck={false} aria-invalid={!!error} aria-describedby={`${id}-status${error ? ` ${errorId}` : ''}`} />
       {typeaheadItems.length > 0 && <ul className="grafcet-typeahead" id={`${id}-typeahead`} role="listbox" aria-label="Sugestões da tabela de sinais">
         {typeaheadItems.map((entry, index) => <li key={entry.address} id={typeaheadOptionId(index)} role="option" aria-selected={index === typeaheadActive} className={index === typeaheadActive ? 'is-active' : ''}
           onMouseDown={(event) => { event.preventDefault(); acceptTypeahead(entry.address) }} onMouseEnter={() => setTypeaheadIndex(index)}>
@@ -173,7 +188,7 @@ export default function ConditionEditor({ id, value, onChange, signals = [], ava
       </div>
       <div className="grafcet-condition-tools" role="group" aria-label="Inserir operadores na posição do cursor">
         {OPERATORS.map((operator) => <button key={operator.label} type="button" onMouseDown={(event) => { rememberSelection(); event.preventDefault() }} onClick={() => insert(operator.token)} title={operator.hint} aria-label={`Inserir ${operator.label}`}>{operator.token === '^' ? <IconArrowUp size={12} /> : operator.token === '\\' ? <IconArrowDown size={12} /> : operator.label}</button>)}
-        <button type="button" className="grafcet-insert-variable" aria-expanded={pickerOpen} aria-controls={pickerOpen ? `${id}-picker` : undefined} onMouseDown={rememberSelection} onClick={() => setPickerOpen((open) => !open)}>Inserir variável</button>
+        <button type="button" className="grafcet-insert-variable" aria-expanded={pickerOpen} aria-controls={pickerOpen ? `${id}-picker` : undefined} onMouseDown={(event) => { pickerOpeningRef.current = true; rememberSelection(); event.preventDefault() }} onClick={() => { rememberSelection(); setPickerOpen((open) => { if (open) pickerOpeningRef.current = false; return !open }) }}>Inserir variável</button>
       </div>
       <p id={`${id}-status`} className={`grafcet-condition-status ${valid ? 'is-valid' : 'is-incomplete'}`} role="status" aria-live="polite">{valid ? <IconCheck size={12} /> : <IconWarning size={12} />}{valid ? 'Sintaxe válida' : 'Expressão incompleta ou inválida'}</p>
       {undeclared.length ? <p className="grafcet-signal-undeclared">Fora da tabela: {undeclared.join(', ')}. Pode usar a expressão manual ou <button type="button" className="grafcet-link-button" onClick={() => declareSignals(undeclared)} title="Acrescenta estes endereços à tabela de variáveis, para passarem a ser sugeridos">Declarar na tabela</button>.</p> : !signals.length && <p className="grafcet-property-note">Adicione sinais em «Variáveis» para obter sugestões; também pode escrever a expressão.</p>}
