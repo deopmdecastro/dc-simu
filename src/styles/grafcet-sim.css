@@ -119,3 +119,17 @@
 
 /* Diagram states and label contrast are shared with the canvas. */
 .grafcet-graph-link text { paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; font-variant-numeric: tabular-nums; }
+
+/* ───── Entradas do simulador · v2 (seletor de tipo legível, cards arejados) ───── */
+.gsim-inputs { gap: 12px; }
+.gsim-input { gap: 12px; padding: 12px; border-radius: 10px; }
+.gsim-input-main { gap: 10px; }
+.gsim-actuator { min-height: 40px; padding: 6px 12px; gap: 9px; border-radius: 8px; }
+.gsim-actuator-state { font-size: 10.5px; }
+/* o seletor ocupa a linha toda, com 3 colunas iguais (antes eram 2 colunas e o 3.º botão quebrava) */
+.gsim-input-row { gap: 10px; flex-direction: column; align-items: stretch; }
+.gsim-seg { grid-template-columns: repeat(3, minmax(0, 1fr)); flex: none; width: 100%; padding: 3px; gap: 3px; border-radius: 8px; }
+.gsim-seg button { min-height: 32px; padding: 4px 6px; border-radius: 6px; font-size: 11px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gsim-uses { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 2px; color: #64758c; font-size: 11px; }
+.gsim-uses button { min-height: 24px; padding: 0 9px; border-radius: 999px; }
+@media (max-width: 420px) { .gsim-seg button { font-size: 10.5px; padding: 4px 3px; } }

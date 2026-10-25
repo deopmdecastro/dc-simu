@@ -181,3 +181,27 @@
   .ladder-bottom-actions .ladder-live-word { height: 28px; }
 }
 @media (prefers-reduced-motion: reduce) { .ladder-bottom-actions * { transition: none !important; } }
+
+/* ───── Painel de E/S · v4 (chips arejados, etiqueta de tipo dentro do cartão) ───── */
+.vio-panel { gap: 18px; padding: 14px 18px 16px; }
+.vio-cols { gap: 20px 40px; }
+.vio-col { gap: 14px; }
+.vio-head { gap: 8px 12px; padding-bottom: 10px; border-bottom: 1px solid #edf1f8; }
+.vio-head-m { margin-top: 16px; padding-top: 14px; border-top: 1px dashed #d6dae1; border-bottom: 1px solid #edf1f8; }
+.vio-inputs { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 12px; }
+.vio-switch { min-height: 56px; padding: 10px 12px; gap: 4px 8px; border-radius: 10px; }
+.vio-switch b { font-size: 13px; }
+.vio-switch small { font-size: 11px; }
+/* a etiqueta INT/NO/NC deixa de sair do cartão: fica dentro, no canto superior direito */
+.vio-mode { top: 8px; right: 8px; height: 18px; min-width: 30px; padding: 0 6px; font-size: 9.5px; line-height: 16px; }
+.vio-cell > .vio-switch { padding-right: 46px; }
+.vio-outputs { gap: 10px; }
+.vio-lamp { gap: 8px; padding: 7px 14px; font-size: 12.5px; }
+.vio-lamp i { width: 12px; height: 12px; }
+.vio-lamp small { font-size: 10.5px; }
+.vio-hint { margin-top: 2px; line-height: 1.6; }
+.vio-empty-row { padding: 6px 0; }
+/* palavras MW em tempo real (barra de separadores) */
+.ladder-live-words { gap: 8px; }
+.ladder-live-word { gap: 8px; padding: 4px 12px; }
+@media (max-width: 640px) { .vio-panel { padding: 12px; } .vio-inputs { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; } }
