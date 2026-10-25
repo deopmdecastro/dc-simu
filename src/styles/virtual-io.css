@@ -205,3 +205,39 @@
 .ladder-live-words { gap: 8px; }
 .ladder-live-word { gap: 8px; padding: 4px 12px; }
 @media (max-width: 640px) { .vio-panel { padding: 12px; } .vio-inputs { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; } }
+
+/* ───── Painel de E/S · v5 (grelha ordenada, cabeçalho respirável) ───── */
+/* A barra de separadores deixa de sufocar quando há palavras MW ao vivo */
+.ladder-bottom-tabs { flex-wrap: wrap; row-gap: 4px; align-items: center; }
+.ladder-bottom-actions { flex-wrap: wrap; row-gap: 4px; }
+.ladder-live-words { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.ladder-live-word span { border-left: 1px solid #e5e9f2; background: #f8fafc; border-radius: 0 6px 6px 0; }
+.ladder-live-word.is-nonzero span { background: #dcf6e5; color: #166534; font-weight: 700; }
+
+/* Saídas e memórias em grelha de cartões (em vez de pílulas soltas) */
+.vio-outputs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; }
+.vio-lamp { justify-content: flex-start; min-height: 38px; padding: 6px 12px; border-radius: 9px; font-size: 12.5px; min-width: 0; }
+.vio-lamp b { font-weight: 700; }
+.vio-lamp small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.vio-lamp.is-on { box-shadow: 0 0 0 1px #16a34a33, 0 1px 4px #16a34a22; }
+.vio-panel.is-compact .vio-outputs { grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); }
+
+/* Cartões de entrada: estado ligado com anel duplo como os botões TIA */
+.vio-switch.is-on { box-shadow: 0 0 0 1px #16a34a55, 0 2px 6px -2px #16a34a33; }
+.vio-switch.is-on b { color: #14532d; }
+.vio-switch:not(.is-on) small { color: #94a3b8; }
+/* Sem nome (—): fantasma itálico, distinto de um nome real */
+.vio-switch .vio-name-empty { font-style: italic; color: #b6c2d3 !important; }
+
+/* Cabeçalhos com respiro consistente entre colunas */
+.vio-head { min-height: 30px; }
+.vio-head-m { margin-top: 4px; }
+
+/* Estados vazios centrados e com tom amigável */
+.vio-empty-row { justify-content: center; text-align: center; padding: 12px 14px; gap: 10px; background: linear-gradient(180deg, #fbfcfe, #fafbfd); }
+.vio-empty-row .vio-empty { flex-basis: 100%; }
+
+@media (max-width: 640px) {
+  .vio-outputs { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+}
+@media (pointer: coarse) { .vio-lamp { min-height: 44px; } }

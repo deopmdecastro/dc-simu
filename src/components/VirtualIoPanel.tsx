@@ -56,7 +56,7 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
     const mode: VirtualInputMode = modes[address] ?? 'latch'
     return <div key={address} className="vio-cell">
       <VirtualInputButton address={address} className="vio-switch" title={`${address}${name ? ` · ${name}` : ''}`}>
-        <i /><b>{address}</b><small>{name ?? '—'}</small>
+        <i /><b>{address}</b><small className={name ? 'vio-name' : 'vio-name-empty'}>{name ?? '—'}</small>
       </VirtualInputButton>
       <button type="button" className={`vio-mode is-${mode}`} onClick={() => setMode(address, MODE_NEXT[mode])}
         title={`${address}: ${MODE_NAME[mode]} — clique para mudar o tipo`} aria-label={`Tipo de ${address}: ${MODE_NAME[mode]}. Mudar tipo`}>{MODE_LABEL[mode]}</button>
