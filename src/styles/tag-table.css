@@ -1,0 +1,73 @@
+/* ---------- Tabelas de variáveis/sinais — pele partilhada Ladder + GRAFCET ----------
+   Uma única UI: nota curta em cima, barra de ferramentas (pesquisa + ações),
+   separadores por área com sublinhado, cabeçalho de secção com «Adicionar» à
+   direita e grelha de linhas com inputs. */
+
+.tag-table-dialog { width: min(1060px, 100%); }
+
+.tagtable { display: flex; flex-direction: column; gap: 16px; padding: 22px 24px; min-width: 0; font-size: 12.5px; color: #34405a; }
+.tagtable .grafcet-property-note { margin: 0; }
+
+/* Barra de ferramentas: pesquisa à esquerda (cresce), ações à direita */
+.tagtable-toolbar { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.tagtable-search { display: flex; flex-direction: column; gap: 5px; flex: 1 1 260px; min-width: 200px; max-width: 480px; }
+.tagtable-search > label { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #526681; }
+.tagtable-search-field { position: relative; display: flex; align-items: center; }
+.tagtable-search-field svg { position: absolute; left: 10px; color: #94a3b8; pointer-events: none; }
+.tagtable-search-field input { width: 100%; min-height: 38px; padding: 8px 34px 8px 32px; }
+.tagtable-search-field button { position: absolute; right: 6px; display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 6px; background: transparent; color: #94a3b8; cursor: pointer; }
+.tagtable-search-field button:hover { background: #eef2f8; color: #334155; }
+.tagtable-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.tagtable-actions .dc-btn, .tagtable-actions .dc-btn-secondary { min-height: 38px; padding: 0 14px; white-space: nowrap; font-weight: 600; }
+.tagtable-actions > div { display: flex; gap: 8px; }
+
+/* Separadores por área: sublinhado azul no ativo, contador em chip */
+.tagtable-tabs { display: flex; gap: 4px; border-bottom: 1px solid #dce4ef; overflow-x: auto; }
+.tagtable-tabs button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; min-height: 40px; border: 0; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; background: transparent; color: #526681; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background .12s, color .12s; }
+.tagtable-tabs button:hover { background: #f3f7fd; color: #1944b8; }
+.tagtable-tabs button[aria-selected="true"], .tagtable-tabs button.is-active { background: #eff4ff; border-bottom-color: #2455d8; color: #1944b8; }
+.tagtable-tabs button span { min-width: 20px; padding: 2px 6px; border-radius: 5px; background: #e7edf6; color: #435773; font-size: 10px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.tagtable-tabs button[aria-selected="true"] span, .tagtable-tabs button.is-active span { background: #d9e5fb; color: #1944b8; }
+
+/* Cabeçalho de secção: título + pista à esquerda, «Adicionar» à direita */
+.tagtable-section { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.tagtable-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tagtable-section-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.tagtable-section-title strong { font-size: 13.5px; font-weight: 750; color: #25344c; }
+.tagtable-section-title > span { padding: 1px 8px; border-radius: 999px; background: #eef2f8; color: #526681; font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tagtable-section-title small { color: #67809b; font-size: 11px; }
+.tagtable-add { min-height: 32px; padding: 0 12px; white-space: nowrap; }
+
+/* Grelha: cabeçalho fixo, linhas com inputs alinhados */
+.tagtable-grid { min-width: 0; border: 1px solid #dce4ef; border-radius: 8px; overflow: hidden; background: #fff; }
+.tagtable-grid table { width: 100%; border-collapse: collapse; }
+.tagtable-grid th { padding: 9px 10px; background: #f4f7fb; color: #526681; text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.tagtable-grid th:nth-child(1) { width: 118px; }
+.tagtable-grid th:nth-child(2) { width: 24%; }
+.tagtable-grid th:nth-child(4) { width: 96px; }
+.tagtable-grid th:last-child { width: 44px; }
+.tagtable-grid td { vertical-align: middle; padding: 7px 10px; border-top: 1px solid #ecf0f6; }
+.tagtable-grid tr.is-preserved { background: #fcfaf4; }
+.tagtable-grid tr.is-preserved .dc-input { background: #fbf9f3; color: #637187; }
+.tagtable-grid .dc-input, .tagtable-grid .dc-select { width: 100%; min-height: 34px; }
+.tagtable-grid .grafcet-code-input, .tagtable-cell-address { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tagtable-type-readonly { display: inline-block; color: #526681; font: 11px ui-monospace, Consolas, monospace; }
+.tagtable-type-readonly + small { display: block; margin-top: 3px; font-size: 9px; color: #6b5e44; }
+.tagtable-remove { display: grid; place-items: center; width: 26px; height: 26px; margin-left: auto; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #a2aec0; font-size: 13px; cursor: pointer; transition: color .12s, background .12s, border-color .12s; }
+.tagtable-remove:hover:not(:disabled) { border-color: #f3c4ca; background: #fff1f3; color: #c11107; }
+.tagtable-remove:disabled { color: #c3ccd9; cursor: not-allowed; }
+.tagtable-remove:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+
+.tagtable-empty { margin: 0; padding: 26px 18px; text-align: center; font-size: 12px; line-height: 1.7; color: #526681; }
+.tagtable-empty-state { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 30px 16px; border: 1px dashed #cbd5e4; border-radius: 10px; background: #fff; color: #7a879c; text-align: center; }
+.tagtable-empty-state strong { color: #25344c; }
+.tagtable-notice { min-height: 17px; margin: 0; color: #435773; font-size: 11px; line-height: 1.6; }
+.tagtable-notice strong { color: #1944b8; }
+
+@media (max-width: 720px) {
+  .tagtable { padding: 16px; gap: 14px; }
+  .tagtable-toolbar { align-items: stretch; flex-direction: column; }
+  .tagtable-search, .tagtable-actions { max-width: none; margin-left: 0; }
+  .tagtable-actions { justify-content: flex-start; }
+  .tagtable-section-head { align-items: flex-start; flex-direction: column; }
+}
