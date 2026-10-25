@@ -26,7 +26,7 @@ export type RungSelection =
 export const LADDER_GRID = 20
 const COL_W = 100 // largura de uma célula de contato (5 × 20)
 const ROW_H = 80 // altura de um ramo (4 × 20)
-const TOP = 10
+const TOP = 20
 const CY_OFF = 50 // linha de corrente dentro da linha → y = 60, 140, 220…
 const RAIL_X = 20
 const BOX_W = 120
@@ -36,6 +36,7 @@ const OUT_H = 60 // bobinas / CALL: mais compacto que os ramos de contactos (ROW
 const C_OFF = '#1f2a3d' // offline (sem simulação)
 const C_ON = '#16a34a' // fluxo de corrente
 const C_IDLE = '#2f6fe4' // online sem fluxo (tracejado)
+const C_ADDR = '#0f8b8d' // endereços (%I0.0, %Q0.0, %MW0…) — verde-azulado, como no comparador
 
 function fmtTime(ms: number) {
   if (ms >= 1000 && ms % 1000 === 0) return `T#${ms / 1000}S`
@@ -341,7 +342,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const TIA = { head: '#a9b1bd', headText: '#28303c', body: '#e9ebf0', edge: '#79828f', pin: '#44505f', cnst: '#1d4ed8', addr: '#0f8b8d', tag: '#b45309', value: '#1a7f37' } as const
   /** Cabeça cinzenta com cantos superiores redondos + título centrado, como no TIA Portal. */
   const tiaChrome = (x: number, y: number, w: number, h: number, title: string, extraTitle?: string) => <>
-    <rect x={x} y={y} width={w} height={h} rx={3} fill={TIA.body} stroke={TIA.edge} strokeWidth={1.3} />
+    <rect x={x} y={y} width={w} height={h} rx={3} fill={rungOut ? '#e3f4e9' : TIA.body} stroke={rungOut ? C_ON : TIA.edge} strokeWidth={rungOut ? 1.8 : 1.3} />
     <path d={`M ${x} ${y + 3} Q ${x} ${y} ${x + 3} ${y} L ${x + w - 3} ${y} Q ${x + w} ${y} ${x + w} ${y + 3} L ${x + w} ${y + 24} L ${x} ${y + 24} Z`} fill={TIA.head} />
     {label(x + w / 2, y + 16, title, { bold: true, size: 11, fill: TIA.headText })}
     {extraTitle && label(x + w / 2, y + 24, extraTitle, { size: 7.5, fill: TIA.headText })}
@@ -441,7 +442,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           <line x1={cx + 10} y1={cy - 13} x2={cx + 10} y2={cy + 13} stroke={online && conducts ? C_ON : C_OFF} strokeWidth={2} />
           {el.contactType === 'NC' && <line x1={cx - 13} y1={cy + 12} x2={cx + 13} y2={cy - 12} stroke={online && conducts ? C_ON : C_OFF} strokeWidth={1.6} />}
           {(el.contactType === 'RISING' || el.contactType === 'FALLING') && label(cx, cy + 4, el.contactType === 'RISING' ? 'P' : 'N', { bold: true, size: 11 })}
-          {label(cx, cy - 20, `%${el.address}`, { bold: true })}
+          {label(cx, cy - 20, `%${el.address}`, { bold: true, fill: C_ADDR })}
           {name && label(cx, cy - 33, `"${name}"`, { fill: TIA.tag, italic: true, size: 9 })}
           {online && label(cx + 16, cy + 24, rawContact(el) ? '1' : '0', { anchor: 'start', size: 9, grey: !rawContact(el) })}
         </g>,
@@ -517,8 +518,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         <g key="timer">
           {isSel && selBox(boxX - 8, top - 22, BOX_W + 16, 108, 'timer-sel')}
           {wire(OJ, cy, boxX, cy, rungOut)}
-          {label(boxX + BOX_W / 2, top - 7, `%${t.address}`, { bold: true })}
-          <rect x={boxX} y={top} width={BOX_W} height={80} fill="#fff" stroke={online && done ? C_ON : '#5b6b84'} strokeWidth={1.3} />
+          {label(boxX + BOX_W / 2, top - 7, `%${t.address}`, { bold: true, fill: C_ADDR })}
+          {tagName(t.address) && label(boxX + BOX_W / 2, top - 20, `"${tagName(t.address)}"`, { fill: TIA.tag, italic: true, size: 9 })}
+          <rect x={boxX} y={top} width={BOX_W} height={80} fill={rungOut ? '#f0fdf4' : '#fff'} stroke={online && (rungOut || done) ? C_ON : '#5b6b84'} strokeWidth={rungOut ? 1.8 : 1.3} />
           <rect x={boxX} y={top} width={BOX_W} height={30} fill="#eef3fb" />
           {label(boxX + BOX_W / 2, top + 13, t.timerType === 'STAR_DELTA' ? 'Y-Δ' : t.timerType, { bold: true, size: 11 })}
           {label(boxX + BOX_W / 2, top + 25, 'Time', { grey: true, size: 9 })}
@@ -573,8 +575,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         <g key="counter">
           {isSel && selBox(boxX - 8, top - 22, BOX_W + 16, 108, 'counter-sel')}
           {wire(OJ, cy, boxX, cy, rungOut)}
-          {label(boxX + BOX_W / 2, top - 7, `%${c.address}`, { bold: true })}
-          <rect x={boxX} y={top} width={BOX_W} height={80} fill="#fff" stroke={online && done ? C_ON : '#5b6b84'} strokeWidth={1.3} />
+          {label(boxX + BOX_W / 2, top - 7, `%${c.address}`, { bold: true, fill: C_ADDR })}
+          {tagName(c.address) && label(boxX + BOX_W / 2, top - 20, `"${tagName(c.address)}"`, { fill: TIA.tag, italic: true, size: 9 })}
+          <rect x={boxX} y={top} width={BOX_W} height={80} fill={rungOut ? '#f0fdf4' : '#fff'} stroke={online && (rungOut || done) ? C_ON : '#5b6b84'} strokeWidth={rungOut ? 1.8 : 1.3} />
           <rect x={boxX} y={top} width={BOX_W} height={30} fill="#eef3fb" />
           {label(boxX + BOX_W / 2, top + 13, c.counterType, { bold: true, size: 11 })}
           {label(boxX + BOX_W / 2, top + 25, 'Int', { grey: true, size: 9 })}
@@ -630,7 +633,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       const callNameShort = callName.length > maxChars ? `${callName.slice(0, maxChars - 1).trimEnd()}…` : callName
       // Mesmo estilo dos blocos TON/CTU/MOVE: caixa branca quadrada + faixa «#eef3fb».
       svg.push(<g key="call-block">{isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 72, 'call-sel')}{wire(OJ, cy, boxX, cy, rungOut)}
-        <rect x={boxX} y={top} width={BOX_W} height={58} fill="#fff" stroke={rungOut ? C_ON : '#5b6b84'} strokeWidth={1.3} />
+        <rect x={boxX} y={top} width={BOX_W} height={58} fill={rungOut ? '#f0fdf4' : '#fff'} stroke={rungOut ? C_ON : '#5b6b84'} strokeWidth={rungOut ? 1.8 : 1.3} />
         <rect x={boxX} y={top} width={BOX_W} height={26} fill="#eef3fb" />
         {label(boxX + BOX_W / 2, top + 13, 'CALL', { bold: true, size: 11 })}
         <text x={boxX + BOX_W / 2} y={top + 44} textAnchor="middle" fontSize={9.5} fill="#25344c" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">{callNameShort}<title>{callName}</title></text>
@@ -651,7 +654,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       svg.push(<g key="move-block">
         {isSel && selBox(boxX - 8, top - 8, BOX_W + 16, 100, 'move-sel')}
         {wire(OJ, cy, boxX, cy, rungOut)}
-        <rect x={boxX} y={top} width={BOX_W} height={80} fill="#fff" stroke={online && rungOut ? C_ON : '#5b6b84'} strokeWidth={1.3} />
+        <rect x={boxX} y={top} width={BOX_W} height={80} fill={rungOut ? '#f0fdf4' : '#fff'} stroke={rungOut ? C_ON : '#5b6b84'} strokeWidth={rungOut ? 1.8 : 1.3} />
         <rect x={boxX} y={top} width={BOX_W} height={30} fill="#eef3fb" />
         {label(boxX + BOX_W / 2, top + 14, 'MOVE', { bold: true, size: 11 })}
         {label(boxX + 6, cy + 3, 'EN', { anchor: 'start', size: 9 })}
@@ -724,7 +727,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           <path d={`M ${coilCX - 6} ${cy - 13} Q ${coilCX - 15} ${cy} ${coilCX - 6} ${cy + 13}`} fill="none" stroke={stroke} strokeWidth={2} />
           <path d={`M ${coilCX + 6} ${cy - 13} Q ${coilCX + 15} ${cy} ${coilCX + 6} ${cy + 13}`} fill="none" stroke={stroke} strokeWidth={2} />
           {c.coilType !== 'COIL' && label(coilCX, cy + 4, c.coilType === 'SET' ? 'S' : 'R', { bold: true, size: 11 })}
-          {label(coilCX, cy - 20, `%${c.address}`, { bold: true })}
+          {label(coilCX, cy - 20, `%${c.address}`, { bold: true, fill: C_ADDR })}
           {name && label(coilCX, cy - 33, `"${name}"`, { fill: TIA.tag, italic: true, size: 9 })}
         </g>,
       )

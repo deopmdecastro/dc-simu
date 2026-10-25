@@ -104,3 +104,18 @@ console.log('[ladder-compare] botão NC OK')
   assert.equal(useSimStore.getState().autoDetectTags(), 0, 'segunda deteção não duplica')
 }
 console.log('[ladder-compare] tags automáticas OK')
+
+// 9) RLO das networks de um bloco chamado por CALL: tem de chegar ao editor (fios/blocos verdes)
+{
+  const { runScan, emptyTable } = await import('../src/ladder/ladderEngine')
+  const fcRung = rung('fcr', { branches: [{ id: 'fb', elements: [cmp('MW0', '==', '5')] }], coils: [{ kind: 'coil', id: 'fk', address: 'Q0.1', coilType: 'COIL' }] })
+  const main = rung('m1', { branches: [{ id: 'mb', elements: [] }], call: { targetId: 'fc2' } as any })
+  const table = emptyTable(8, 8)
+  const db: any = { MW0: { type: 'INT', value: 5 } }
+  const scan = runScan({ rungs: [main] }, table, {}, {}, 10, { fc2: [fcRung] }, [], db)
+  assert.equal(scan.rungPowered['fcr'], true, 'network do FC com a comparação verdadeira fica com corrente')
+  db.MW0.value = 1
+  const off = runScan({ rungs: [main] }, emptyTable(8, 8), {}, {}, 10, { fc2: [fcRung] }, [], db)
+  assert.equal(off.rungPowered['fcr'], false, 'comparação falsa → sem corrente')
+}
+console.log('[ladder-compare] RLO em blocos CALL OK')

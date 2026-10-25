@@ -213,8 +213,12 @@ export function runScan(
     if (rung.call && powered) {
       const id = rung.call.targetId
       // Impede ciclos A→B→A e chamadas recursivas descontroladas.
-      if (functions[id] && !stack.includes(id) && stack.length < 16)
-        runScan({ rungs: functions[id] }, table, timers, counters, dtMs, functions, [...stack, id], db, edges)
+      if (functions[id] && !stack.includes(id) && stack.length < 16) {
+        const inner = runScan({ rungs: functions[id] }, table, timers, counters, dtMs, functions, [...stack, id], db, edges)
+        // As networks do bloco chamado também têm RLO: sem isto nunca ficavam «com corrente» no editor
+        // (fios e blocos ficavam a azul tracejado mesmo com contactos e bobinas ativos).
+        for (const [rungId, on] of Object.entries(inner.rungPowered)) rungPowered[rungId] = rungPowered[rungId] || on
+      }
     }
   }
 
