@@ -3,6 +3,7 @@ import { MATH_OPS } from './ladderMath'
 import { formatPresetMs, parseAddress, parseCounterPreset, parsePresetMs, type InlineResult } from './ladderInlineEdit'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import { EDITOR_THEME } from '../ui/editorTheme'
 import type { LadderContact, LadderRung } from '../types'
 import {
   CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, LADDER_MOVE_MIME, applyKind, getLadderDrag, isContactKind, putContact, setLadderDrag, takeContact,
@@ -75,6 +76,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const powered = preview ? preview.powered : storePowered
   const simRunning = useSimStore((s) => s.sim.runState !== 'stopped')
   const gridEnabled = useSimStore((s) => s.grid.enabled)
+  const gridStyle = useSimStore((s) => s.grid.style)
   const tags = useSimStore((s) => s.tags)
   const updateRungStore = useSimStore((s) => s.updateRung)
   const updateRung: RungUpdater = updateRungProp ?? updateRungStore
@@ -848,10 +850,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="absolute inset-0" aria-hidden>
         <defs>
           <pattern id={`lnet-grid-${rung.id}`} width={LADDER_GRID} height={LADDER_GRID} patternUnits="userSpaceOnUse">
-            <circle cx={0} cy={0} r={0.9} fill="#c9d3e3" />
-            <circle cx={LADDER_GRID} cy={0} r={0.9} fill="#c9d3e3" />
-            <circle cx={0} cy={LADDER_GRID} r={0.9} fill="#c9d3e3" />
-            <circle cx={LADDER_GRID} cy={LADDER_GRID} r={0.9} fill="#c9d3e3" />
+            {gridStyle === 'lines'
+              ? <path d={`M ${LADDER_GRID} 0 L 0 0 0 ${LADDER_GRID}`} fill="none" stroke={EDITOR_THEME.line} strokeWidth={1} />
+              : <circle cx={1} cy={1} r={1} fill={EDITOR_THEME.dot} />}
           </pattern>
         </defs>
         {gridEnabled && <rect width={W} height={H} fill={`url(#lnet-grid-${rung.id})`} />}

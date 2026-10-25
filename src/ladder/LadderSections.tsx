@@ -303,7 +303,7 @@ function Settings() {
           <h3>Malha</h3>
           <Toggle checked={grid.enabled} onChange={(v) => setGrid({ enabled: v })} title="Mostrar malha" hint="Grelha de fundo na área das networks" />
           <Toggle checked={grid.snap} onChange={(v) => setGrid({ snap: v })} title="Ajustar à malha" hint="Ativa o encaixe à grelha nas vistas de edição" />
-          <Segmented value={grid.size} onChange={(v) => setGrid({ size: v })} options={[10, 20, 25, 40]} title="Espaçamento" format={(v) => `${v}px`} />
+          <Segmented value={grid.size} onChange={(v) => setGrid({ size: v })} options={[5, 10, 20, 25, 50]} title="Espaçamento" format={(v) => `${v}px`} />
         </section>
         <section className="ls-panel">
           <h3>Simulação</h3>

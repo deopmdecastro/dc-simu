@@ -1,7 +1,7 @@
 /**
- * Aspeto comum do espaço de edição: o mesmo fundo, a mesma grelha e as mesmas
- * cores de chão no esquema 2D, nas visualizações 3D e no editor de componentes
- * do Admin. Alterar aqui muda os três de uma só vez.
+ * Aspeto comum do espaço de edição: o mesmo fundo, passo, pontos e linhas no
+ * Esquema, Painel 3D, GRAFCET, Ladder e editor de componentes do Admin.
+ * Alterar aqui mantém os canvases e simuladores visualmente consistentes.
  */
 
 /** Passo comum da grelha dos editores (px no Esquema/GRAFCET; mm no editor 3D). */

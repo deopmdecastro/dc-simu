@@ -1,6 +1,6 @@
 /* grafcet-editor.css — estilos do editor (grafcet), extraídos de index.css. Usa os tokens --dx-* de dx.css. */
 
-.grafcet-editor { display:flex; flex-direction:column; flex:1; min-height:0; background:#f8fafd; color:#25344c; font-size:11px; }
+.grafcet-editor { display:flex; flex-direction:column; flex:1; min-height:0; background:var(--editor-grid-background,#f7f9fc); color:#25344c; font-size:11px; }
 .grafcet-header { display:flex; align-items:center; justify-content:space-between; padding:12px; background:white; border-bottom:1px solid #dce4ef; }
 .grafcet-header strong { display:block; color:#2455d8; font-size:14px; letter-spacing:.05em; }
 .grafcet-header small { color:#68778d; }
@@ -38,12 +38,15 @@
   flex: 1;
   min-width: 0;
   overflow: auto;
-  background-color: #fbfcfe;
-  background-image: radial-gradient(#dbe3ed .8px, transparent .8px);
-  background-size: var(--editor-grid-step, 20px) var(--editor-grid-step, 20px);
+  background-color: var(--editor-grid-background,#f7f9fc);
+  background-image: radial-gradient(circle at 1px 1px, var(--editor-grid-dot,#c9d3e3) 1px, transparent 1px);
+  background-size: var(--editor-grid-step,20px) var(--editor-grid-step,20px);
   padding: 18px;
   cursor: default;
   position: relative;
+}
+.grafcet-canvas.grid-lines {
+  background-image: linear-gradient(to right, var(--editor-grid-line,#e4eaf2) 1px, transparent 1px), linear-gradient(to bottom, var(--editor-grid-line,#e4eaf2) 1px, transparent 1px);
 }
 @media (prefers-reduced-motion: reduce) {
   .grafcet-transition-step-option input[type="checkbox"]::before { transition:none; }

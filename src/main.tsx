@@ -25,9 +25,13 @@ import './styles/virtual-io.css'
 import './styles/grafcet-sim.css'
 import './styles/tag-table.css'
 import './styles/sheet-transfer.css'
-import { EDITOR_GRID_STEP } from './ui/editorTheme'
+import { EDITOR_GRID_STEP, EDITOR_THEME } from './ui/editorTheme'
 
-document.documentElement.style.setProperty('--editor-grid-step', `${EDITOR_GRID_STEP}px`)
+const editorRootStyle = document.documentElement.style
+editorRootStyle.setProperty('--editor-grid-step', `${EDITOR_GRID_STEP}px`)
+editorRootStyle.setProperty('--editor-grid-background', EDITOR_THEME.background)
+editorRootStyle.setProperty('--editor-grid-dot', EDITOR_THEME.dot)
+editorRootStyle.setProperty('--editor-grid-line', EDITOR_THEME.line)
 installStaleBuildRecovery()
 startCatalogAutoUpdate()
 

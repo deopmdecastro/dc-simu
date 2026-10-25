@@ -70,6 +70,7 @@ import GrafcetContextMenu, { type ContextMenuItem } from './GrafcetContextMenu'
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView, type Pos, type AlignMode, type DistributeAxis, type SubDiagram } from './selection'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import { useGrafcetUi, type GrafcetBusAction } from './grafcetBus'
+import { EDITOR_THEME } from '../ui/editorTheme'
 import {
   GRID,
   SPINE_X,
@@ -251,6 +252,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   const table = useSimStore((state) => state.runtime.table)
   const tags = useSimStore((state) => state.tags)
   const setGrafcet = useSimStore((state) => state.setGrafcet)
+  const sharedGridStyle = useSimStore((state) => state.grid.style)
   const running = useSimStore((state) => state.sim.runState === 'running')
 
   // ── Páginas do GRAFCET (charts IEC 60848): cada página mostra as suas etapas,
@@ -2976,25 +2978,20 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
         {/* CANVAS CENTRAL COM O DIAGRAMA VERTICAL ROBUSTO */}
         <div
           ref={viewportRef}
-          className={`grafcet-canvas ${activeTool === 'pan' ? 'is-pan-mode' : activeTool === 'connect' ? 'is-connect-mode' : 'is-select-mode'} ${isSpacePan ? 'is-space-pan' : ''} ${dropActive ? 'is-palette-drop' : ''} ${isDragging ? 'is-dragging' : ''} ${wireDraft ? 'is-wiring' : ''}`}
+          className={`grafcet-canvas ${sharedGridStyle === 'lines' ? 'grid-lines' : ''} ${activeTool === 'pan' ? 'is-pan-mode' : activeTool === 'connect' ? 'is-connect-mode' : 'is-select-mode'} ${isSpacePan ? 'is-space-pan' : ''} ${dropActive ? 'is-palette-drop' : ''} ${isDragging ? 'is-dragging' : ''} ${wireDraft ? 'is-wiring' : ''}`}
           aria-label="Diagrama GRAFCET"
           style={
             full
               ? gridOn
                 ? {
-                    // A grelha acompanha pan/zoom e coincide com o encaixe (origem no eixo central e no topo da 1.ª etapa).
-                    backgroundColor: '#f6f8fc',
-                    backgroundImage: [
-                      `radial-gradient(circle, #8da2c0 ${scale < 0.6 ? 0.9 : 1.25}px, transparent ${scale < 0.6 ? 1.1 : 1.5}px)`,
-                      'linear-gradient(to right, rgba(88, 118, 168, .16) 1px, transparent 1px)',
-                      'linear-gradient(to bottom, rgba(88, 118, 168, .16) 1px, transparent 1px)',
-                    ].join(', '),
-                    backgroundSize: `${gridSpacing}px ${gridSpacing}px, ${gridSpacing * 5}px ${gridSpacing * 5}px, ${gridSpacing * 5}px ${gridSpacing * 5}px`,
-                    backgroundPosition: [
-                      `${position.x + SPINE_X * scale - gridSpacing / 2}px ${position.y + START_Y * scale - gridSpacing / 2}px`,
-                      `${position.x + SPINE_X * scale - gridSpacing / 2}px ${position.y + START_Y * scale - gridSpacing / 2}px`,
-                      `${position.x + SPINE_X * scale - gridSpacing / 2}px ${position.y + START_Y * scale - gridSpacing / 2}px`,
-                    ].join(', '),
+                    // A grelha acompanha pan/zoom e coincide com o encaixe. Usa os mesmos
+                    // fundo e pontos de 1 px dos restantes editores, sem linhas maiores próprias.
+                    backgroundColor: EDITOR_THEME.background,
+                    backgroundImage: sharedGridStyle === 'lines'
+                      ? `linear-gradient(to right, ${EDITOR_THEME.line} 1px, transparent 1px), linear-gradient(to bottom, ${EDITOR_THEME.line} 1px, transparent 1px)`
+                      : `radial-gradient(circle at 1px 1px, ${EDITOR_THEME.dot} 1px, transparent 1px)`,
+                    backgroundSize: `${gridSpacing}px ${gridSpacing}px`,
+                    backgroundPosition: `${position.x + SPINE_X * scale - gridSpacing / 2}px ${position.y + START_Y * scale - gridSpacing / 2}px`,
                   }
                 : { backgroundImage: 'none' }
               : undefined

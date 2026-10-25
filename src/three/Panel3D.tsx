@@ -1735,16 +1735,27 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMod
 
 /** Textura repetível da grelha. Mipmaps e filtragem anisotrópica evitam o
  * efeito moiré em leque que surgia no Safari ao inclinar milhares de pontos. */
-function dotGridTexture(color: string, radius: number, repeatX: number, repeatY: number, anisotropy: number) {
+function editorGridTexture(style: 'dots' | 'lines', color: string, repeatX: number, repeatY: number, anisotropy: number) {
   const canvas = document.createElement('canvas')
   canvas.width = 64
   canvas.height = 64
   const context = canvas.getContext('2d')!
   context.clearRect(0, 0, 64, 64)
-  context.fillStyle = color
-  context.beginPath()
-  context.arc(32, 32, radius, 0, Math.PI * 2)
-  context.fill()
+  if (style === 'lines') {
+    context.strokeStyle = color
+    context.lineWidth = 1
+    context.beginPath()
+    context.moveTo(.5, 0)
+    context.lineTo(.5, 64)
+    context.moveTo(0, .5)
+    context.lineTo(64, .5)
+    context.stroke()
+  } else {
+    context.fillStyle = color
+    context.beginPath()
+    context.arc(1.5, 1.5, 1, 0, Math.PI * 2)
+    context.fill()
+  }
   const texture = new THREE.CanvasTexture(canvas)
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
@@ -1758,10 +1769,9 @@ function dotGridTexture(color: string, radius: number, repeatX: number, repeatY:
   return texture
 }
 
-/** Grelha partilhada do Esquema: pontos pequenos e discretos, só sobre a chapa
- * (sem pontos grandes “a flutuar” no mundo 3D). Mipmaps e filtragem anisotrópica
- * evitam o efeito moiré ao inclinar a vista. */
-function DotGrid({ size, dark, bounds }: { size: number; dark: boolean; bounds: PlateBounds | null }) {
+/** Grelha partilhada do Esquema: usa o mesmo passo, pontos ou linhas e paleta
+ * das superfícies 2D. Mipmaps e filtragem anisotrópica evitam moiré em 3D. */
+function DotGrid({ size, style, dark, bounds }: { size: number; style: 'dots' | 'lines'; dark: boolean; bounds: PlateBounds | null }) {
   const { gl } = useThree()
   const material = useRef<THREE.MeshBasicMaterial>(null)
   const cameraDirection = useMemo(() => new THREE.Vector3(), [])
@@ -1776,11 +1786,11 @@ function DotGrid({ size, dark, bounds }: { size: number; dark: boolean; bounds: 
   const height = bounds ? Math.min(fullH, bounds.maxY - bounds.minY) : fullH
   const texture = useMemo(() => {
     const anisotropy = gl.capabilities.getMaxAnisotropy()
-    const t = dotGridTexture(dark ? '#a9b8cf' : '#3f4f68', 2.9, (width / fullW) * (widthPx / step), (height / fullH) * (heightPx / step), anisotropy)
-    // Mantém os pontos alinhados com a grelha de encaixe do Esquema, mesmo com a chapa recortada.
+    const t = editorGridTexture(style, dark ? EDITOR_THEME.dotDark : EDITOR_THEME.dot, (width / fullW) * (widthPx / step), (height / fullH) * (heightPx / step), anisotropy)
+    // Mantém a grelha alinhada com o encaixe do Esquema, mesmo com a chapa recortada.
     t.offset.set(((cx - width / 2 + fullW / 2) / fullW) * (widthPx / step), ((cy - height / 2 + fullH / 2) / fullH) * (heightPx / step))
     return t
-  }, [dark, gl, step, width, height, cx, cy, fullW, fullH])
+  }, [style, dark, gl, step, width, height, cx, cy, fullW, fullH])
   useEffect(() => () => texture.dispose(), [texture])
   const z = PLATE_Z + PLATE_THICKNESS / 2 + 0.004
   // Uma grelha plana deixa de representar distâncias quando vista de perfil: o fade
@@ -2525,7 +2535,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {/* A grelha de edição partilhada permanece montada em todas as vistas 3D.
             A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}
         {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} />}
-        {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} dark={backgroundMode === 'dark'} bounds={frontEdit ? null : plateBounds} />}
+        {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} style={gridSettings.style} dark={backgroundMode === 'dark'} bounds={frontEdit ? null : plateBounds} />}
         {frontEdit && placingType && hasComponent3DModel(placingType) && <PlacementPlane step={gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0} onPlace={(x, y) => {
           const step = gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0
           const snapTo = (value: number) => step ? Math.round(value / step) * step : Math.round(value)

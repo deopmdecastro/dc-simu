@@ -237,9 +237,9 @@ input[type='color'] {
     min-height: 0;
     height: 100%;
     overflow: hidden;
-    background-color: #f7f9fc;
-    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
-    background-size: 20px 20px;
+    background-color: var(--editor-grid-background,#f7f9fc);
+    background-image: radial-gradient(circle at 1px 1px, var(--editor-grid-dot,#c9d3e3) 1px, transparent 1px);
+    background-size: var(--editor-grid-step,20px) var(--editor-grid-step,20px);
     color: #25324a;
     font-size: 12px;
   }
@@ -546,13 +546,13 @@ input[type='color'] {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-    background-color: #f8fafd;
-    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
-    background-size: 20px 20px;
+    background-color: var(--editor-grid-background,#f7f9fc);
+    background-image: radial-gradient(circle at 1px 1px, var(--editor-grid-dot,#c9d3e3) 1px, transparent 1px);
+    background-size: var(--editor-grid-step,20px) var(--editor-grid-step,20px);
   }
   .compact-ladder-canvas.grid-off { background-image: none; }
   .compact-ladder-canvas.grid-lines {
-    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
+    background-image: linear-gradient(to right, var(--editor-grid-line,#e4eaf2) 1px, transparent 1px), linear-gradient(to bottom, var(--editor-grid-line,#e4eaf2) 1px, transparent 1px);
   }
   .compact-ladder-scale {
     min-width: 520px;
@@ -713,15 +713,15 @@ input[type='color'] {
     overflow-y: hidden;
     padding-bottom: 2px;
     border-radius: 5px;
-    background-color: #f8fafd;
-    background-size: 20px 20px;
+    background-color: var(--editor-grid-background,#f7f9fc);
+    background-size: var(--editor-grid-step,20px) var(--editor-grid-step,20px);
     transition: background-color .12s;
   }
   .ladder-diagram-scroll.grid-dots {
-    background-image: radial-gradient(circle at 1px 1px, #ccd5e3 1px, transparent 1px);
+    background-image: radial-gradient(circle at 1px 1px, var(--editor-grid-dot,#c9d3e3) 1px, transparent 1px);
   }
   .ladder-diagram-scroll.grid-lines {
-    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
+    background-image: linear-gradient(to right, var(--editor-grid-line,#e4eaf2) 1px, transparent 1px), linear-gradient(to bottom, var(--editor-grid-line,#e4eaf2) 1px, transparent 1px);
   }
   .ladder-diagram-scroll.grid-off { background-image: none; }
   .ladder-diagram {
@@ -1035,9 +1035,9 @@ input[type='color'] {
     overflow: auto;
     padding: 10px;
     position: relative;
-    background-color: #f8fafd;
-    background-image: radial-gradient(circle at 1px 1px, #ccd5e3 1px, transparent 1px);
-    background-size: 20px 20px;
+    background-color: var(--editor-grid-background,#f7f9fc);
+    background-image: radial-gradient(circle at 1px 1px, var(--editor-grid-dot,#c9d3e3) 1px, transparent 1px);
+    background-size: var(--editor-grid-step,20px) var(--editor-grid-step,20px);
   }
   .ladder-networks.grid-off { background-image: none; }
   /* Hint flutuante quando um bloco da árvore paira sobre a área vazia do canvas */
@@ -1069,7 +1069,7 @@ input[type='color'] {
     outline-color: #1f55e0;
   }
   .ladder-networks.grid-lines {
-    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
+    background-image: linear-gradient(to right, var(--editor-grid-line,#e4eaf2) 1px, transparent 1px), linear-gradient(to bottom, var(--editor-grid-line,#e4eaf2) 1px, transparent 1px);
   }
   .ladder-networks-scale {
     min-width: 560px;
@@ -1175,9 +1175,9 @@ input[type='color'] {
     min-height: 0;
     overflow: auto;
     padding: 14px;
-    background-color: #f7f9fc;
-    background-image: radial-gradient(circle, #c9d3e3 1px, transparent 1px);
-    background-size: 20px 20px;
+    background-color: var(--editor-grid-background,#f7f9fc);
+    background-image: radial-gradient(circle at 1px 1px, var(--editor-grid-dot,#c9d3e3) 1px, transparent 1px);
+    background-size: var(--editor-grid-step,20px) var(--editor-grid-step,20px);
   }
   .ladder-folder-header {
     display: flex;
