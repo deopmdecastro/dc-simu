@@ -1185,7 +1185,7 @@ function BlockProgramView({ id, notify, registerInsert }: {
         <span className="ladder-block-subtitle">{subtitle}</span>
         <span className="ladder-toolbar-separator" />
         {rungs.length > 1 && (
-          <button type="button" className="ladder-toolbar-button" onClick={() => setCollapsedIds(allCollapsed ? new Set() : new Set(rungs.map((rung) => rung.id)))} title="Recolher ou expandir todas as networks">
+          <button type="button" className="dc-tool-btn" onClick={() => setCollapsedIds(allCollapsed ? new Set() : new Set(rungs.map((rung) => rung.id)))} title="Recolher ou expandir todas as networks">
             {allCollapsed ? 'Expandir tudo' : 'Recolher tudo'}
           </button>
         )}
@@ -1724,13 +1724,13 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           {isMainOpen && programTab === 'program' && rungs.length > 1 && (
             <>
               <span className="ladder-toolbar-separator" />
-              <button className="ladder-toolbar-button" onClick={() => setCollapsedIds((cur) => (cur.size >= rungs.length ? new Set() : new Set(rungs.map((r) => r.id))))} title="Recolher / expandir todas (Ctrl+Shift+E)">
+              <button className="dc-tool-btn" onClick={() => setCollapsedIds((cur) => (cur.size >= rungs.length ? new Set() : new Set(rungs.map((r) => r.id))))} title="Recolher / expandir todas (Ctrl+Shift+E)">
                 {collapsedIds.size >= rungs.length ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}<span>{collapsedIds.size >= rungs.length ? 'Expandir tudo' : 'Recolher tudo'}</span>
               </button>
             </>
           )}
-          <button className="ladder-toolbar-button" onClick={() => setBlockDialog('OB')} title="Adicionar bloco ao projeto (OB/FB/FC/DB)" aria-label="Adicionar bloco"><IconPlus size={13} /> <span className="ml-1 text-[10px]">Bloco</span></button>
-          <button className="ladder-toolbar-button ml-auto" onClick={() => setHelpOpen(true)} title="Atalhos de teclado (?)" aria-label="Atalhos de teclado"><IconHelp size={14} /> <span className="ml-1 text-[10px]">Atalhos</span></button>
+          <button className="dc-tool-btn" onClick={() => setBlockDialog('OB')} title="Adicionar bloco ao projeto (OB/FB/FC/DB)" aria-label="Adicionar bloco"><IconPlus size={13} /><span>Bloco</span></button>
+          <button className="dc-tool-btn ml-auto" onClick={() => setHelpOpen(true)} title="Atalhos de teclado (?)" aria-label="Atalhos de teclado"><IconHelp size={13} /><span className="hidden lg:inline">Atalhos</span></button>
           {isMainOpen && <button onClick={() => { const id = addRung(); focusRung(id) }} className="ladder-primary-button" title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>}
         </div>
         {programTab === 'program' && isMainOpen && (

@@ -1,6 +1,7 @@
 import { isTabletDesktop } from '../../ui/device'
 import { uiConfirm } from '../../ui/dialogs'
 import Select from '../../ui/Select'
+import { HistoryGroup, ViewControls } from '../../ui/toolbarKit'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -130,10 +131,7 @@ function ToolRibbon() {
   // são as mesmas da barra do simulador).
   const compact = useCompactView()
 
-  const groupHistory = <div className="dc-seg" role="group" aria-label="Histórico">
-    <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().undo()} disabled={!canUndo} title="Desfazer [Ctrl+Z]" aria-label="Desfazer"><IconUndo size={13} /></button>
-    <button className="dc-tool-btn !px-2" onClick={() => useEditorStore.getState().redo()} disabled={!canRedo} title="Refazer [Ctrl+Y]" aria-label="Refazer"><IconRedo size={13} /></button>
-  </div>
+  const groupHistory = <HistoryGroup role="group" onUndo={() => useEditorStore.getState().undo()} onRedo={() => useEditorStore.getState().redo()} canUndo={canUndo} canRedo={canRedo} />
 
   const groupTools = <div className="dc-seg" role="group" aria-label="Ferramenta">
     {RIBBON.map((item) => {
@@ -170,6 +168,12 @@ function ToolRibbon() {
     <button className="dc-tool-btn" onClick={centerOnOrigin} title="Centrar o modelo na origem (X/Z)"><IconAlignCenterH size={14} /><span className="ce-mobile-label">Centrar</span></button>
   </div>
 
+  const viewGrid = useEditorStore((st) => st.view.grid)
+  const snapState = useEditorStore((st) => st.snap)
+  const groupGrid = <ViewControls
+    grid={{ on: viewGrid, toggle: () => useEditorStore.getState().setView({ grid: !viewGrid }), title: 'Mostrar/ocultar a malha do chão' }}
+    snap={{ on: snapState.on, toggle: () => set({ snap: { ...snapState, on: !snapState.on } }), title: 'Encaixar à malha (ímã)' }} />
+
   const groupView = <div className="dc-seg" role="group" aria-label="Vista">
     <button className="dc-tool-btn" onClick={() => useEditorStore.getState().cameraTo('fit')} title="Enquadrar o modelo [F]"><IconFocus size={14} /><span className="ce-mobile-label">Enquadrar</span></button>
     <button className="dc-tool-btn" disabled={!hasFocus} onClick={() => useEditorStore.getState().cameraTo('fitSel')} title="Enquadrar a seleção (peça, borne ou cabo) [Shift+F]"><span className="hidden xl:inline">Seleção</span><span className="xl:hidden">Sel.</span></button>
@@ -200,6 +204,7 @@ function ToolRibbon() {
     </div>
     <div className="ce-ribbon ce-ribbon-row2 toolbar-scroll" role="toolbar" aria-label="Ferramentas">
       {groupHistory}
+      {groupGrid}
       {groupTools}
       {groupGizmo}
       {groupEdit}
@@ -210,6 +215,7 @@ function ToolRibbon() {
   return <div className="ce-ribbon" role="toolbar" aria-label="Ferramentas">
     {groupHistory}
     <span className="ce-ribbon-sep" />
+    {groupGrid}
     {groupTools}
     {editing && <><span className="ce-ribbon-sep" />{groupGizmo}</>}
     {editing && <><span className="ce-ribbon-sep" />{shapes}{groupEdit}{groupPosition}</>}
