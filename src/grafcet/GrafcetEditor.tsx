@@ -3053,6 +3053,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   <button className="dc-btn" onClick={() => setTemplatesOpen(true)}>
                     ★ Modelos industriais
                   </button>
+                  <button className="dc-btn" onClick={() => setImportOpen(true)} title="Importar GRAFCET FluidSIM 4 (.ct), JSON ou .grafcet">
+                    Importar GRAFCET
+                  </button>
                   <button className="dc-btn" onClick={loadExample}>
                     Abrir exemplo de 3 etapas
                   </button>
