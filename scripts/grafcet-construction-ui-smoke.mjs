@@ -98,6 +98,29 @@ try {
   await undo()
   check(!(await read()).linkBends?.t1?.length, 'Desfazer remove a dobra criada num único gesto')
 
+  const cycle = fixture()
+  cycle.steps.find((item) => item.id === 'c').x = 180
+  cycle.transitions.push({ id: 't3', name: 'T3', from: ['c'], to: ['a'], condition: 'I3' })
+  await set(cycle)
+  await page.evaluate(async () => { const { useGrafcetUi } = await import('/src/grafcet/grafcetBus.ts'); useGrafcetUi.getState().setTool('select') })
+  const returnSegment = page.locator('.grafcet-editable-segment').nth(1)
+  const returnPoint = await returnSegment.evaluate((element) => {
+    const path = element
+    const point = path.getPointAtLength(path.getTotalLength() * 0.6)
+    const screen = path.ownerSVGElement.createSVGPoint()
+    screen.x = point.x; screen.y = point.y
+    const result = screen.matrixTransform(path.getScreenCTM())
+    return { x: result.x, y: result.y }
+  })
+  await page.mouse.move(returnPoint.x, returnPoint.y)
+  await page.mouse.down()
+  await page.mouse.move(returnPoint.x + 42, returnPoint.y + 28, { steps: 8 })
+  await page.mouse.up()
+  program = await read()
+  const returnPath = await returnSegment.getAttribute('d')
+  check(program.linkBends?.t3?.length > 1 && returnPath?.includes('180 502') && returnPath.includes('67 76'), 'arrastar a linha de retorno preserva o trilho e mantém a dobra ligada às duas etapas')
+  if (output) await page.screenshot({ path: path.join(output, 'construction-return-link-drag.png') })
+
   await set()
   await page.locator('.grafcet-graph-link').first().locator('text').first().click()
   await port('branch-out', 't1').waitFor()

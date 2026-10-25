@@ -366,7 +366,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   } | null>(null)
   const [transDragPos, setTransDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
   const [bendDragLive, setBendDragLive] = useState<{ tid: string; index: number; x: number; y: number; insert?: boolean } | null>(null)
-  const bendDragRef = useRef<{ tid: string; index: number; x: number; y: number; moved: boolean; insert?: boolean; startX?: number; startY?: number } | null>(null)
+  const bendDragRef = useRef<{ tid: string; index: number; x: number; y: number; moved: boolean; insert?: boolean; startX?: number; startY?: number; baseBends?: Point[] } | null>(null)
   const transDragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
   /** Etapa candidata a receber a transição solta que está a ser arrastada. */
   const [transDropStep, setTransDropStep] = useState<string | null>(null)
@@ -1303,7 +1303,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     const stored = program.linkBends?.[tid] ?? []
     if (bendDragLive?.tid === tid) {
       const point = { x: bendDragLive.x, y: bendDragLive.y }
-      if (bendDragLive.insert) return [...stored.slice(0, bendDragLive.index), point, ...stored.slice(bendDragLive.index)]
+      if (bendDragLive.insert) {
+        const base = bendDragRef.current?.tid === tid ? bendDragRef.current.baseBends ?? stored : stored
+        return [...base.slice(0, bendDragLive.index), point, ...base.slice(bendDragLive.index)]
+      }
       return stored.map((bend, index) => index === bendDragLive.index ? point : bend)
     }
     return stored
@@ -1367,16 +1370,17 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     if (!drag.moved) return
     const stored = program.linkBends?.[tid] ?? []
     const point = { x: live.x, y: live.y }
-    commitBends(tid, drag.insert ? [...stored.slice(0, index), point, ...stored.slice(index)] : stored.map((bend, i) => i === index ? point : bend))
+    const base = drag.insert ? drag.baseBends ?? stored : stored
+    commitBends(tid, drag.insert ? [...base.slice(0, index), point, ...base.slice(index)] : base.map((bend, i) => i === index ? point : bend))
     suppressClickRef.current = true
   }
   /** Arrastar diretamente um troço cria uma dobra apenas ao largar, numa única operação de histórico. */
-  const startSegmentDrag = (tid: string, points: Point[], e: React.PointerEvent) => {
+  const startSegmentDrag = (tid: string, points: Point[], e: React.PointerEvent, baseBends: Point[] = points.slice(1, -1)) => {
     if (!full || activeTool !== 'select' || isSpacePan || e.button !== 0 || running) return
     e.stopPropagation()
     const point = clientToWorld(e.clientX, e.clientY)
     const index = bendInsertIndex(points, point)
-    bendDragRef.current = { tid, index, ...point, startX: point.x, startY: point.y, moved: false, insert: true }
+    bendDragRef.current = { tid, index, ...point, startX: point.x, startY: point.y, moved: false, insert: true, baseBends }
     setSelected(tid)
     setSelectedActionId(null)
     setTab('transitions')
@@ -3660,8 +3664,20 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     const trackX = Math.min(sourceX, targetX) - 97 - (transitionIndex % 3) * 16
                     // Pontos de quebra (duplo clique na linha): o percurso passa por eles, com ângulos retos.
                     const bends = bendsOf(transition.id)
-                    const linkPoints: Point[] = [{ x: sourceX, y: sBottom }, ...bends, { x: targetX, y: tTop }]
-                    const returnPath = bends.length ? routeThrough(linkPoints) : `M ${sourceX} ${sBottom} V ${sBottom + 48} H ${trackX} V ${tTop - 24} H ${targetX} V ${tTop}`
+                    const autoReturnPoints: Point[] = [
+                      { x: sourceX, y: sBottom },
+                      { x: sourceX, y: sBottom + 48 },
+                      { x: trackX, y: sBottom + 48 },
+                      { x: trackX, y: tTop - 24 },
+                      { x: targetX, y: tTop - 24 },
+                      { x: targetX, y: tTop },
+                    ]
+                    // Usa o trilho automático como geometria inicial da edição. Ao arrastar uma perna,
+                    // preserva os restantes cotovelos em vez de colapsar o retorno numa ligação direta.
+                    const linkPoints: Point[] = bends.length
+                      ? [{ x: sourceX, y: sBottom }, ...bends, { x: targetX, y: tTop }]
+                      : autoReturnPoints
+                    const returnPath = routeThrough(linkPoints)
                     const barMid = bends.length ? polylineMidpoint(linkPoints) : null
                     const tx = barMid?.x ?? sourceX
                     const ty = barMid?.y ?? sBottom + 24
@@ -3695,7 +3711,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           stroke="transparent"
                           strokeWidth="18"
                           onDoubleClick={(e) => addLinkBend(transition.id, linkPoints, e)}
-                          onPointerDown={(e) => startSegmentDrag(transition.id, linkPoints, e)}
+                          onPointerDown={(e) => startSegmentDrag(transition.id, linkPoints, e, bends.length ? bends : autoReturnPoints.slice(1, -1))}
                           onPointerMove={(e) => moveSegment(transition.id, e)}
                           onPointerUp={(e) => finishSegment(transition.id, e)}
                           onPointerCancel={cancelBendDrag}
