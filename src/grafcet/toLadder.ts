@@ -4,7 +4,7 @@ import { COMPARE_TOKEN, actionsOfStep, normalizeActionVariable, parseCompareToke
 import type { LadderCompareOp } from '../types'
 
 /** Árvore booleana de uma condição GRAFCET. */
-type Node =
+export type Node =
   | { t: 'lit'; address: string; edge?: 'R' | 'F' }
   | { t: 'const'; value: boolean }
   | { t: 'and' | 'or'; a: Node; b: Node }
@@ -13,9 +13,9 @@ type Node =
   | { t: 'step'; index: number }
   | { t: 'cmp'; left: string; op: LadderCompareOp; right: string }
 
-const TOKEN_REGEX = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:\d+(?:\.\d+)?(?:MS|S)?\/X[A-Za-z0-9_]*)|X\d{1,3}|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|↑|↓|[A-Za-z][A-Za-z0-9_]*`, 'gi')
+const TOKEN_REGEX = new RegExp(COMPARE_TOKEN + '|' + String.raw`T\(\d+(?:\.\d+)?(?:MS|S)?\)|(?:\d+(?:\.\d+)?(?:MS|S)?\/X[A-Za-z0-9_]*)|X\d{1,3}|[IQM]\d{1,4}\.[0-7]|[IQM]\d{1,2}|[!&|()01^\\]|\*|\+|NOT|AND|OR|\/|_|↑|↓|[A-Za-z][A-Za-z0-9_]*`, 'gi')
 
-function parse(expression: string): Node | null {
+export function parse(expression: string): Node | null {
   const src = stripGrafcetPrefix(expression).trim()
   if (!src) return null
   const rawTokens = src.match(TOKEN_REGEX)
@@ -88,12 +88,12 @@ function parse(expression: string): Node | null {
 }
 
 /** Literal de um contacto: endereço, negado ou não, com flanco opcional. */
-interface Literal { address: string; neg: boolean; edge?: 'R' | 'F'; cmp?: { op: LadderCompareOp; right: string } }
+export interface Literal { address: string; neg: boolean; edge?: 'R' | 'F'; cmp?: { op: LadderCompareOp; right: string } }
 const NEGATED_OP: Record<LadderCompareOp, LadderCompareOp> = { '==': '<>', '<>': '==', '>=': '<', '<': '>=', '>': '<=', '<=': '>' }
 const MAX_CONJUNCTIONS = 16
 
 /** Converte em forma normal disjuntiva (lista de conjunções de literais). `null` = demasiado grande. */
-function toDnf(node: Node, neg: boolean, resolve: (n: Node) => string | null): Literal[][] | null {
+export function toDnf(node: Node, neg: boolean, resolve: (n: Node) => string | null): Literal[][] | null {
   switch (node.t) {
     case 'const': return node.value !== neg ? [[]] : []
     case 'not': return toDnf(node.a, !neg, resolve)
@@ -124,6 +124,12 @@ export interface LadderFromGrafcet {
   stepBits: Record<string, string>
   tags: GeneratedTag[]
   warnings: string[]
+  /** Método usado: 'bit' (SET/RESET por etapa) ou 'word' (registo de etapa em MW + FCs). */
+  method?: 'bit' | 'word'
+  /** Método 'bit' usado por o GRAFCET não caber no registo de etapa: o motivo. */
+  fallbackReason?: string
+  /** Método 'word': blocos FC gerados (nome-base → networks). */
+  blocks?: Array<{ label: string; rungs: LadderRung[] }>
 }
 
 export interface GrafcetToLadderOptions {

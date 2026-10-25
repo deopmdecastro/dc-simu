@@ -2,9 +2,11 @@ import { nanoid } from 'nanoid'
 import type { LadderRung, LadderTag } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
-import { blockDisplayName } from '../ladder/blockCatalog'
+import { blockDisplayName, suggestNumber } from '../ladder/blockCatalog'
+import type { ProjectFile } from '../ladder/projectFiles'
 import { transitionsOf, validateGrafcet, type GrafcetProgram } from './engine'
 import { grafcetToLadder, type LadderFromGrafcet } from './toLadder'
+import { WORD_FC_GRAFCET, WORD_FC_OUTPUTS, WORD_REGISTER_COMMENT, WORD_REGISTER_NAME, grafcetToLadderWord, wordMethodBlocker } from './toLadderWord'
 
 export type LadderSyncStatus = 'none' | 'synced' | 'stale' | 'blocked'
 
@@ -19,8 +21,24 @@ const isRestartRung = (r: LadderRung) => r.name.startsWith(RESTART_PREFIX)
 /** Memória/temporizador criado pelo gerador: é refeito a cada atualização. */
 const isGeneratedBit = (t: LadderTag) => /^[MT]\d{1,2}$/i.test(t.address.trim()) && GENERATED_BIT_NAME.test(t.name) && GENERATED_COMMENT.test(t.comment ?? '')
 
-/** Assinatura de networks sem ids (os ids mudam em cada geração). */
-const signature = (rungs: LadderRung[]) => JSON.stringify(rungs, (key, value) => (key === 'id' ? undefined : value))
+/** Registo de etapa (G0 = %MW) criado pelo método «registo de etapa»: refeito a cada atualização. */
+const isGeneratedWord = (t: LadderTag) => /^MW\d+$/i.test(t.address.trim().replace(/^%/, '')) && t.name === WORD_REGISTER_NAME && t.comment === WORD_REGISTER_COMMENT
+
+const WORD_FC_LABELS = [WORD_FC_GRAFCET, WORD_FC_OUTPUTS]
+/** FC gerado pelo método «registo de etapa»: «Grafcet [FC n]» / «Outputs [FC n]». */
+const generatedFcOf = (files: ProjectFile[], label: string) =>
+  files.find((f) => f.folder === 'programBlocks' && !f.exec && new RegExp(`^${label}\\s*\\[FC\\s*\\d+\\]$`, 'i').test(f.name.trim()))
+const plcFilesOf = (state: ReturnType<typeof useSimStore.getState>): ProjectFile[] => state.projectFiles[state.activePlcId ?? '_general'] ?? []
+
+/** Assinatura de networks sem ids (os ids mudam em cada geração); o alvo de um CALL conta pelo nome do FC gerado. */
+const signature = (rungs: LadderRung[], files: ProjectFile[] = []) => JSON.stringify(rungs, (key, value) => {
+  if (key === 'id') return undefined
+  if (key === 'targetId' && typeof value === 'string') {
+    const file = files.find((f) => f.id === value)
+    return (file && WORD_FC_LABELS.find((label) => generatedFcOf([file], label))) || value
+  }
+  return value
+})
 
 function restartFileOf(state: ReturnType<typeof useSimStore.getState>) {
   const plcId = state.activePlcId ?? '_general'
@@ -46,10 +64,19 @@ function plan(program: GrafcetProgram): Plan {
   const keptMain = state.ladder.rungs.filter((r) => !isMainRung(r))
   const keptRestart = (restartFile?.rungs ?? []).filter((r) => !isRestartRung(r))
   const generatedBits = state.tags.filter(isGeneratedBit)
-  const baseTags = state.tags.filter((t) => !isGeneratedBit(t))
+  const baseTags = state.tags.filter((t) => !isGeneratedBit(t) && !isGeneratedWord(t))
   // Endereços usados à mão ou já declarados pelo utilizador ficam reservados.
   const reserved = [...collectUsedAddresses({ rungs: keptMain }), ...collectUsedAddresses({ rungs: keptRestart }), ...baseTags.map((t) => t.address)]
-  const result = grafcetToLadder({ ...program, transitions: transitionsOf(program) }, reserved, { startupBlock: true, existingTags: generatedBits, name: program.name })
+  const full = { ...program, transitions: transitionsOf(program) }
+  // Sequências simples → registo de etapa (G0 em %MW + FC Grafcet/Outputs); o resto → bits de etapa com SET/RESET.
+  const blocker = wordMethodBlocker(full)
+  let result: LadderFromGrafcet
+  if (!blocker) {
+    const word = grafcetToLadderWord(full, { reserved, tags: baseTags, name: program.name })
+    const blocks = [{ label: WORD_FC_GRAFCET, rungs: word.grafcetRungs }, { label: WORD_FC_OUTPUTS, rungs: word.outputRungs }].filter((b) => b.rungs.length)
+    const call = (label: string): LadderRung => ({ id: nanoid(6), name: `${MAIN_PREFIX} Chamar ${label}`, branches: [{ id: nanoid(6), elements: [] }], coils: [], enabled: true, call: { targetId: label } })
+    result = { rungs: blocks.map((b) => call(b.label)), startupRungs: word.startupRungs, stepBits: {}, tags: word.tags, warnings: word.warnings, method: 'word', blocks }
+  } else result = { ...grafcetToLadder(full, reserved, { startupBlock: true, existingTags: generatedBits, name: program.name }), method: 'bit', fallbackReason: blocker }
   return { result, keptRestart, restartFileId: restartFile?.id ?? null, baseTags }
 }
 
@@ -60,9 +87,16 @@ export function ladderSyncStatus(program: GrafcetProgram): LadderSyncStatus {
   const state = useSimStore.getState()
   const { result, restartFileId } = plan(program)
   const restart = restartFileId ? (state.projectFiles[state.activePlcId ?? '_general'] ?? []).find((f) => f.id === restartFileId)?.rungs ?? [] : []
-  const sameMain = signature(state.ladder.rungs.filter(isMainRung)) === signature(result.rungs)
+  const files = plcFilesOf(state)
+  const sameMain = signature(state.ladder.rungs.filter(isMainRung), files) === signature(result.rungs)
   const sameRestart = signature(restart.filter(isRestartRung)) === signature(result.startupRungs)
-  return sameMain && sameRestart ? 'synced' : 'stale'
+  const wanted = new Map((result.blocks ?? []).map((b) => [b.label, b.rungs]))
+  const sameBlocks = WORD_FC_LABELS.every((label) => {
+    const file = generatedFcOf(files, label)
+    const rungs = wanted.get(label)
+    return rungs ? !!file && signature(file.rungs ?? []) === signature(rungs) : !file
+  })
+  return sameMain && sameRestart && sameBlocks ? 'synced' : 'stale'
 }
 
 /** Pré-visualização para a confirmação da primeira geração. */
@@ -74,7 +108,21 @@ export function previewLadder(program: GrafcetProgram): LadderFromGrafcet {
 export function applyLadderFromGrafcet(program: GrafcetProgram): LadderFromGrafcet {
   const { result, keptRestart, restartFileId, baseTags } = plan(program)
   const state = useSimStore.getState()
-  state.replaceGeneratedRungs(result.rungs)
+  // FC do método «registo de etapa»: cria ou atualiza; se o GRAFCET deixou de caber no método, apaga os que sobram.
+  const targetIds = new Map<string, string>()
+  for (const label of WORD_FC_LABELS) {
+    const block = (result.blocks ?? []).find((b) => b.label === label)
+    const files = plcFilesOf(useSimStore.getState())
+    const file = generatedFcOf(files, label)
+    if (!block) { if (file) useSimStore.getState().deleteProjectFile(file.id); continue }
+    let id = file?.id ?? null
+    if (!id) id = useSimStore.getState().addProjectFile('programBlocks', blockDisplayName('FC', label, suggestNumber(files, 'FC')))
+    if (!id) continue
+    useSimStore.getState().updateProjectFile(id, { rungs: block.rungs })
+    targetIds.set(label, id)
+  }
+  const mainRungs = result.rungs.map((r) => (r.call && targetIds.has(r.call.targetId) ? { ...r, call: { targetId: targetIds.get(r.call.targetId)! } } : r))
+  useSimStore.getState().replaceGeneratedRungs(mainRungs)
 
   const restartRungs = [...result.startupRungs, ...keptRestart]
   if (restartFileId) useSimStore.getState().updateProjectFile(restartFileId, { rungs: restartRungs, exec: 'obStartup' })

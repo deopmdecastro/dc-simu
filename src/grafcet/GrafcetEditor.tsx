@@ -655,9 +655,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     if (!updating) {
       const preview = previewLadder({ ...program, transitions })
       const note = preview.warnings.length ? `\n\nAvisos:\n- ${preview.warnings.join('\n- ')}` : ''
+      const what = preview.method === 'word'
+        ? `• Registo de etapa: G0 (%MW) guarda o número da etapa ativa\n• Complete restart [OB 100]: ${preview.startupRungs.length} network(s) (G0 = etapa inicial)\n• FC Grafcet: ${preview.blocks?.find((b) => b.label === 'Grafcet')?.rungs.length ?? 0} networks (uma por transição, com MOVE)\n• FC Outputs: ${preview.blocks?.find((b) => b.label === 'Outputs')?.rungs.length ?? 0} networks (saídas por etapa)\n• Main [OB 1]: chama os FC Grafcet e Outputs\n• Tabela de variáveis: ${preview.tags.length} novas entradas, saídas e registo`
+        : `• Complete restart [OB 100]: ${preview.startupRungs.length} networks (repõe e ativa as etapas iniciais)\n• Main [OB 1]: ${preview.rungs.length} networks (funções do GRAFCET e saídas)\n• Tabela de variáveis: ${preview.tags.length} entradas, saídas e memórias\n\n(Método de bits de etapa: ${preview.fallbackReason ?? 'GRAFCET fora do registo de etapa'}.)`
       if (
         !(await uiConfirm(
-          `Gerar o Ladder deste GRAFCET?\n\n• Complete restart [OB 100]: ${preview.startupRungs.length} networks (repõe e ativa as etapas iniciais)\n• Main [OB 1]: ${preview.rungs.length} networks (funções do GRAFCET e saídas)\n• Tabela de variáveis: ${preview.tags.length} entradas, saídas e memórias\n\nDepois de gerado, o botão passa a «Atualizar Ladder» e o Ladder acompanha o GRAFCET. As suas networks ficam como estão.${note}`
+          `Gerar o Ladder deste GRAFCET?\n\n${what}\n\nDepois de gerado, o botão passa a «Atualizar Ladder» e o Ladder acompanha o GRAFCET. As suas networks ficam como estão.${note}`
         ))
       )
         return
@@ -667,7 +670,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     const warn = result.warnings.length ? ` · ${result.warnings.length} aviso${result.warnings.length === 1 ? '' : 's'}: ${result.warnings[0]}` : ''
     // Projeto só GRAFCET, primeira geração: o editor Ladder passa a existir — abrir para o utilizador o ver.
     const opensLadder = !updating && !allowedViews(useSimStore.getState().projectKind).includes('ladder')
-    notify(`Ladder ${updating ? 'atualizado' : 'gerado'}: Complete restart (${result.startupRungs.length}), Main (${result.rungs.length}) e ${result.tags.length} variáveis${warn}${opensLadder ? ' — a abrir o editor Ladder…' : ''}`)
+    notify(`Ladder ${updating ? 'atualizado' : 'gerado'}${result.method === 'word' ? ' (registo de etapa G0)' : ''}: Complete restart (${result.startupRungs.length}), ${result.method === 'word' ? 'FC Grafcet e Outputs' : `Main (${result.rungs.length})`} e ${result.tags.length} variáveis${warn}${opensLadder ? ' — a abrir o editor Ladder…' : ''}`)
     if (opensLadder) {
       window.clearTimeout(openLadderTimer.current)
       openLadderTimer.current = window.setTimeout(() => onOpenLadder?.(), 900)
