@@ -7,7 +7,9 @@ import { chromium } from 'playwright'
 const baseURL = process.env.GRAFCET_TEST_URL || 'http://127.0.0.1:5175'
 const output = process.env.GRAFCET_TEST_OUTPUT
 if (output) await mkdir(output, { recursive: true })
-const browser = await chromium.launch(process.env.GRAFCET_TEST_CHANNEL ? { channel: process.env.GRAFCET_TEST_CHANNEL } : {})
+const browser = await chromium.launch(process.env.GRAFCET_TEST_EXECUTABLE
+  ? { executablePath: process.env.GRAFCET_TEST_EXECUTABLE }
+  : process.env.GRAFCET_TEST_CHANNEL ? { channel: process.env.GRAFCET_TEST_CHANNEL } : {})
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 await context.route('**/*', (route) => {
   const url = new URL(route.request().url())
@@ -25,6 +27,12 @@ const read = () => page.evaluate(async () => {
   const { useSimStore } = await import('/src/store/useSimStore.ts')
   return JSON.parse(JSON.stringify(useSimStore.getState().grafcet))
 })
+const chooseImportFile = async (file) => {
+  await page.getByRole('button', { name: /^Importar GRAFCET: FluidSIM 4/ }).click()
+  const input = page.locator('input[type="file"][accept*=".ct"]').first()
+  await input.waitFor({ state: 'attached' })
+  await input.setInputFiles(file)
+}
 const set = (program = fixture()) => page.evaluate(async (program) => {
   const { useSimStore } = await import('/src/store/useSimStore.ts')
   const { useGrafcetUi } = await import('/src/grafcet/grafcetBus.ts')
@@ -101,17 +109,16 @@ try {
 
   await set({ ...fixture(), charts: [{ id: 'p1', name: 'Página 1', title: 'Página 1' }, { id: 'p2', name: 'Página 2', title: 'Página 2' }], activeChart: 'p1' })
   const previous = JSON.stringify(await read())
-  const fileInput = page.locator('input[type="file"][accept*=".ct"]').first()
-  await fileInput.setInputFiles({ name: 'invalido.json', mimeType: 'application/json', buffer: Buffer.from('{"steps":[null]}') })
+  await chooseImportFile({ name: 'invalido.json', mimeType: 'application/json', buffer: Buffer.from('{"steps":[null]}') })
   await page.locator('.grafcet-toast').waitFor()
   check(JSON.stringify(await read()) === previous, 'uma importação inválida preserva o programa atual')
   const imported = { steps: [step('imported', '9', 200, 100, true)], transitions: [], comments: [], freeActions: [] }
   const payload = { name: 'programa.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) }
-  await fileInput.setInputFiles(payload)
+  await chooseImportFile(payload)
   await page.getByRole('alertdialog', { name: 'Importar GRAFCET' }).waitFor()
   await page.getByRole('button', { name: 'Cancelar', exact: true }).click()
   check(JSON.stringify(await read()) === previous, 'cancelar a confirmação conserva as páginas e o diagrama')
-  await fileInput.setInputFiles(payload)
+  await chooseImportFile(payload)
   await page.getByRole('button', { name: 'Importar', exact: true }).click()
   await wait(() => document.querySelector('[data-port-id="imported"]') !== null)
   check((await read()).steps.length === 1 && !(await read()).charts?.length, 'confirmar substitui o programa inteiro sem conservar páginas antigas')
@@ -119,14 +126,16 @@ try {
   check((await read()).steps.length === 3 && (await read()).charts.length === 2, 'Desfazer restaura também as páginas anteriores à importação')
 
   if (process.env.GRAFCET_FLUIDSIM_SAMPLE) {
+    const expectedSteps = Number(process.env.GRAFCET_EXPECT_STEPS) || 5
+    const expectedTransitions = Number(process.env.GRAFCET_EXPECT_TRANSITIONS) || 7
     const sample = await readFile(process.env.GRAFCET_FLUIDSIM_SAMPLE)
-    await fileInput.setInputFiles({ name: 'exemplo.ct', mimeType: 'application/octet-stream', buffer: sample })
+    await chooseImportFile({ name: path.basename(process.env.GRAFCET_FLUIDSIM_SAMPLE), mimeType: 'application/octet-stream', buffer: sample })
     await page.getByRole('alertdialog', { name: 'Importar GRAFCET' }).waitFor()
-    check((await page.getByRole('dialog').textContent()).includes('5 etapas'), 'a confirmação do CT real apresenta as etapas recuperadas')
+    check((await page.getByRole('alertdialog').textContent()).includes(`${expectedSteps} etapas`), 'a confirmação do CT real apresenta as etapas recuperadas')
     await page.getByRole('button', { name: 'Importar', exact: true }).click()
-    await wait(() => document.querySelectorAll('.grafcet-graph-node').length === 5)
+    await page.waitForFunction((count) => document.querySelectorAll('.grafcet-graph-node').length === count, expectedSteps)
     program = await read()
-    check(program.steps.length === 5 && program.transitions.length === 7, 'o exemplo FluidSIM fornecido importa através do seletor real')
+    check(program.steps.length === expectedSteps && program.transitions.length === expectedTransitions, 'o exemplo FluidSIM fornecido importa através do seletor real')
     if (output) await page.screenshot({ path: path.join(output, 'fluidsim-import-canvas.png') })
   }
   check(errors.length === 0, `sem erros JavaScript: ${errors.join('; ')}`)

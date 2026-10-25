@@ -53,6 +53,9 @@ check('ligação por referência ao número original', () => {
 check('condição OR simbólica sem espaços é normalizada', () => {
   assert.equal(parseFluidSim4Text(fixture.replace(' S COND S I1', ' S COND S a+NOT b')).program.transitions![0].condition, 'a + NOT b')
 })
+check('espaços repetidos em torno do OR são normalizados', () => {
+  assert.equal(parseFluidSim4Text(fixture.replace(' S COND S I1', ' S COND S a  +   b')).program.transitions![0].condition, 'a + b')
+})
 check('referências externas são preservadas e reportadas', () => {
   const result = parseFluidSim4Text(fixture.replace(' S COND S I1', ' S COND S G2X125'))
   assert.equal(result.program.transitions![0].condition, 'G2X125'); assert.match(result.warnings[0], /G2X125/)

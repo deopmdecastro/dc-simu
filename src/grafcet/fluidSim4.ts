@@ -182,7 +182,7 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
     // FluidSIM permits adjacent symbolic operands such as a+NOT b. In the
     // current engine a trailing '+' can also be part of a pneumatic variable;
     // separating the boolean operator removes that lexical ambiguity.
-    const result = (value?.trim() || '1').replace(/\+(?=\s*(?:NOT\b|[A-Za-z_(01]))/gi, ' + ')
+    const result = (value?.trim() || '1').replace(/\s*\+(?=\s*(?:NOT\b|[A-Za-z_(01]))\s*/gi, ' + ')
     if (!validCondition(result)) fail(`condição não suportada em ${context}: ${result}.`)
     for (const match of result.matchAll(/\bG\d+\s*(?:<=>\s*)?X\d+\b/gi)) external.add(match[0])
     return result
