@@ -23,6 +23,7 @@ import TestWires from './WiresView'
 import { wireModel } from './wirePath'
 import { MeasureController } from './MeasureTool'
 import { dragState } from './dragState'
+import { ContextLossGuard, ContextLossNotice } from '../../three/ContextLossGuard'
 
 const DEG = 180 / Math.PI
 let lastDragEnd = 0
@@ -582,9 +583,11 @@ function BoundsBox({ root }: { root: THREE.Object3D }) {
 
 export default function Viewport() {
   const select = useEditorStore((s) => s.select)
-  return <Canvas frameloop="demand" shadows dpr={[1, 2]} gl={{ alpha: true }} camera={{ position: [150, 110, 190], fov: 35, near: 1, far: 4000 }}
+  const [lost, setLost] = useState(false)
+  return <div style={{ position: 'relative', width: '100%', height: '100%' }}><ContextLossNotice lost={lost} /><Canvas frameloop="demand" shadows dpr={[1, 2]} gl={{ alpha: true }} camera={{ position: [150, 110, 190], fov: 35, near: 1, far: 4000 }}
     style={{ cursor: undefined }}
     onPointerMissed={() => { if (dragRecent()) return; const state = useEditorStore.getState(); if (state.selectedWire && state.ribbon === 'select') state.set({ selectedWire: null }); if (!state.placing && state.mode === 'edit' && state.ribbon === 'select') select(null) }}>
+    <ContextLossGuard onChange={setLost} />
     <Scene />
-  </Canvas>
+  </Canvas></div>
 }

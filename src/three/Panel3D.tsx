@@ -8,6 +8,7 @@ import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp from '../ui/ShortcutHelp'
+import { ContextLossGuard, ContextLossNotice } from './ContextLossGuard'
 import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
 import { IconClose, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '../types'
@@ -1909,6 +1910,7 @@ function PlacementPlane({ onPlace, step, size = 80 }: { onPlace: (x: number, y: 
 /** Visualização 3D do Esquema: mesmo projeto, à escala real, em sintonia com o Esquema 2D. */
 export default function Panel3D({ initialCamera = null, onInitialCameraUsed, frontEdit = false }: { initialCamera?: ViewCubeRequest | null; onInitialCameraUsed?: () => void; /** Edição frontal: mesma cena 3D, vista frontal por prioridade e grelha por pontos do Esquema. */ frontEdit?: boolean } = {}) {
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
+  const [glLost, setGlLost] = useState(false)
   const gridSettings = useSimStore((s) => s.grid)
   const placingType = useSimStore((s) => s.placingType)
   const setPlacingType = useSimStore((s) => s.setPlacingType)
@@ -2527,7 +2529,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       <ComponentViewEditor />
       </div>
       </div>
+      <ContextLossNotice lost={glLost} />
       <Canvas shadows gl={{ alpha: true }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
+        <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />

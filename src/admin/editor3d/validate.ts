@@ -12,8 +12,37 @@ export function validateDefinition(def: ComponentDefinition, meta: CatalogMeta):
   def.terminals.forEach((terminal) => labels.set(terminal.label, (labels.get(terminal.label) ?? 0) + 1))
   for (const [label, count] of labels) if (count > 1) issues.push({ level: 'error', text: `O rótulo de borne «${label}» está repetido ${count}×. Os rótulos têm de ser únicos.` })
   def.terminals.forEach((terminal) => { if (!terminal.label.trim()) issues.push({ level: 'error', text: `O borne «${terminal.name}» não tem rótulo.` }) })
+  const finite = (v: readonly number[]) => v.length === 3 && v.every((n) => Number.isFinite(n))
+  const termIds = new Map<string, number>()
+  def.terminals.forEach((terminal) => termIds.set(terminal.id, (termIds.get(terminal.id) ?? 0) + 1))
+  for (const [id, count] of termIds) if (count > 1) issues.push({ level: 'error', text: `Há ${count} bornes com o mesmo identificador interno «${id}»: os cabos ligar-se-iam ao borne errado.` })
+  def.terminals.forEach((terminal) => {
+    const who = terminal.label.trim() || terminal.name
+    if (!finite(terminal.position)) issues.push({ level: 'error', text: `O borne «${who}» tem uma posição inválida.` })
+    if (!finite(terminal.normal) || Math.hypot(...terminal.normal) < 1e-6) issues.push({ level: 'warn', text: `O borne «${who}» não tem direção de saída (normal nula): o cabo não sabe por onde sair.` })
+    if (terminal.diameterMm !== undefined && !(terminal.diameterMm > 0)) issues.push({ level: 'warn', text: `O borne «${who}» tem diâmetro de encaixe inválido.` })
+  })
+  const overlapped = new Set<string>()
+  for (let i = 0; i < def.terminals.length; i++) for (let j = i + 1; j < def.terminals.length; j++) {
+    const a = def.terminals[i], b = def.terminals[j]
+    if (finite(a.position) && finite(b.position) && Math.hypot(a.position[0] - b.position[0], a.position[1] - b.position[1], a.position[2] - b.position[2]) < 1) {
+      overlapped.add(a.label || a.name); overlapped.add(b.label || b.name)
+    }
+  }
+  if (overlapped.size) {
+    const names = [...overlapped]
+    issues.push({ level: 'warn', text: `${names.length} bornes estão sobrepostos a menos de 1 mm de outro (${names.slice(0, 4).map((n) => `«${n}»`).join(', ')}${names.length > 4 ? '…' : ''}): confirme se já foram posicionados.` })
+  }
   if (def.terminals.length === 0) issues.push({ level: 'warn', text: 'Sem bornes: o componente não poderá ser ligado com cabos.' })
   const partIds = new Set(def.parts.map((part) => part.id))
+  if (partIds.size !== def.parts.length) issues.push({ level: 'error', text: 'Há peças com o mesmo identificador interno.' })
+  def.parts.forEach((part) => {
+    if (!finite(part.position) || !finite(part.rotation) || !finite(part.scale) || !finite(part.size)) issues.push({ level: 'error', text: `A peça «${part.name}» tem valores numéricos inválidos (posição, rotação, escala ou tamanho).` })
+    else if (part.kind !== 'group' && (part.scale.some((n) => n === 0) || part.size.some((n) => n <= 0))) issues.push({ level: 'warn', text: `A peça «${part.name}» tem tamanho ou escala nula: fica invisível.` })
+    if (part.parentId !== null && !partIds.has(part.parentId)) issues.push({ level: 'error', text: `A peça «${part.name}» tem um pai inexistente.` })
+  })
+  const materialIds = new Set(def.materials.map((m) => m.id))
+  def.parts.forEach((part) => { if (part.materialId && !materialIds.has(part.materialId)) issues.push({ level: 'warn', text: `A peça «${part.name}» usa um material que já não existe.` }) })
   def.lights.forEach((light) => { if (!partIds.has(light.partId)) issues.push({ level: 'error', text: `A zona luminosa «${light.name}» aponta para uma peça inexistente.` }) })
   const stateIds = new Set(def.states.map((state) => state.id))
   def.interactions.forEach((item) => {
