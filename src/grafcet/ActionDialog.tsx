@@ -25,6 +25,8 @@ interface ActionDialogProps {
 type AssignationType = 'simple' | 'conditional'
 
 const QUALIFIERS: GrafcetActionKind[] = ['N', 'S', 'R', 'D', 'L']
+/** Rótulos curtos (sem «(set)»/«(reset)») para os cartões N/S/R/D/L, como no select anterior. */
+const QUALIFIER_LABELS: Record<string, string> = { N: 'Contínua', S: 'Memorizada', R: 'Reposição', D: 'Retardada', L: 'Limitada' }
 
 /** Símbolo IEC 60848 da ação (o mesmo do diagrama) — miniatura nos tipos e pré-visualização grande. */
 function ActionGlyph({ assignation, allocation, qualifier, text, condition, seconds, mini = false }: {
@@ -33,7 +35,7 @@ function ActionGlyph({ assignation, allocation, qualifier, text, condition, seco
   const shape = { conditional: assignation === 'conditional', allocation, qualifier: qualifier && ['S', 'R', 'D', 'L'].includes(qualifier) && allocation === 'continuous' ? qualifier : null }
   return mini ? (
     <svg viewBox="0 0 72 46" width="72" height="46" aria-hidden="true" focusable="false">
-      <ActionSymbol mini x={12} y={13} w={50} h={21} shape={shape} label="" stroke="#1e293b" strokeWidth={1.4} />
+      <ActionSymbol mini x={12} y={13} w={50} h={21} shape={shape} label="" stroke="#1e293b" strokeWidth={1.4} qualifierW={shape.qualifier ? 16 : 32} />
     </svg>
   ) : (
     <svg viewBox="0 0 210 96" width="100%" height="104" aria-hidden="true" focusable="false" className="grafcet-preview-svg">
@@ -172,13 +174,13 @@ export default function ActionDialog({ open, action, signals = [], availableStep
           {allocation === 'continuous' && (
             <div className="grafcet-step-block">
               <h3 className="grafcet-step-heading"><span>3</span>Qualificador</h3>
-              <div className="grafcet-property-field">
-                <label htmlFor="action-qualifier-select">Qualificador IEC</label>
-                <select id="action-qualifier-select" className="dc-select grafcet-qualifier-select" value={kind} onChange={(e) => setKind(e.target.value as GrafcetActionKind)}>
-                  {ACTION_KINDS.filter((item) => QUALIFIERS.includes(item.id)).map((item) => <option key={item.id} value={item.id}>{item.id} — {item.label.split(' · ')[1].replace(' (set)', '').replace(' (reset)', '')}</option>)}
-                </select>
+              <div className="grafcet-type-box" role="group" aria-label="Qualificador IEC">
+                <fieldset className="grafcet-type-group">
+                  <legend>Qualificador IEC</legend>
+                  {ACTION_KINDS.filter((item) => QUALIFIERS.includes(item.id)).map((item) => typeCard('qualifier', kind === item.id, () => setKind(item.id), `${item.id} — ${QUALIFIER_LABELS[item.id] ?? item.label}`, item.hint,
+                    <ActionGlyph mini assignation={assignation} allocation="continuous" qualifier={item.id === 'N' ? undefined : item.id} />))}
+                </fieldset>
               </div>
-              <p className="grafcet-property-note">{selectedKind?.hint}</p>
               {timed && <div className="grafcet-property-field">
                 <label htmlFor="action-time-input">{effectiveKind === 'D' ? 'Atraso' : 'Duração máxima'} <span className="grafcet-optional">segundos</span></label>
                 <input id="action-time-input" type="number" step="any" min="0" className="dc-input grafcet-code-input" value={duration} onChange={(e) => setDuration(e.target.value)} aria-invalid={submitted && !!timeError} aria-describedby={submitted && timeError ? 'action-time-error' : undefined} />

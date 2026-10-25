@@ -67,14 +67,16 @@ export default function ActionSymbol({
       {qualifier && (
         <g>
           <line x1={x + qualifierW} y1={y} x2={x + qualifierW} y2={y + h} stroke={stroke} strokeWidth={strokeWidth} />
-          {!mini && (qualifier === 'D' || qualifier === 'L' ? (
+          {mini ? (
+            <text x={x + qualifierW / 2} y={midY + 3.5} textAnchor="middle" fill={stroke} fontSize="10.5" fontWeight="700">{qualifier}</text>
+          ) : qualifier === 'D' || qualifier === 'L' ? (
             <>
               <text x={x + qualifierW / 2} y={y + 13} textAnchor="middle" fill={stroke} fontSize="9.5" fontWeight="700">{qualifier}</text>
               <text x={x + qualifierW / 2} y={y + 24} textAnchor="middle" fill={stroke} fontSize="8" fontWeight="600">{timeSeconds ?? 2}s</text>
             </>
           ) : (
             <text x={x + qualifierW / 2} y={y + 19} textAnchor="middle" fill={stroke} fontSize="12" fontWeight="700">{qualifier}</text>
-          ))}
+          )}
         </g>
       )}
       {allocation === 'activation' && (
