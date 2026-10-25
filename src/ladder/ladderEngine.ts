@@ -248,10 +248,18 @@ export function nextAddress(prefix: 'I' | 'Q' | 'M' | 'T' | 'C', table: AddressT
 
 /** Tipo de dados padrão sugerido para cada família de endereço (TIA-like). */
 export function defaultDataTypeFor(address: string): 'Bool' | 'Time' | 'Int' {
-  const prefix = address.trim().toUpperCase()[0]
+  const upper = address.trim().toUpperCase().replace(/^%/, '')
+  if (/^MW\d+$/.test(upper)) return 'Int'
+  const prefix = upper[0]
   if (prefix === 'T') return 'Time'
   if (prefix === 'C') return 'Int'
   return 'Bool'
+}
+
+/** Endereço completo e válido (bit I/Q/M, palavra MW, temporizador T, contador C).
+ *  Exclui literais («2»), nomes simbólicos e endereços ainda a meio de escrever («Q0.»). */
+export function isDeclarableAddress(address: string): boolean {
+  return /^(?:[IQM]\d+\.[0-7]|MW\d+|T\d+|C\d+)$/.test(address.trim().toUpperCase())
 }
 
 /**

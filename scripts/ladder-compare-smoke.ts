@@ -88,3 +88,19 @@ console.log('[ladder-compare] lint MW OK')
   assert.equal(useSimStore.getState().virtualInputs['I0.1'], true, 'Limpar repõe o NC a 1')
 }
 console.log('[ladder-compare] botão NC OK')
+
+// 8) tags automáticas: saídas (Q) usadas no programa aparecem na tabela, sem literais nem endereços incompletos
+{
+  const { useSimStore } = await import('../src/store/useSimStore')
+  const q = (id: string, address: string) => ({ ...rung(id, { branches: [{ id: id + 'b', elements: [cmp('MW0', '==', '1')] }], coils: [{ kind: 'coil', id: id + 'k', address, coilType: 'COIL' }] }) })
+  useSimStore.setState({ tags: [], ladder: { rungs: [q('t1', 'Q0.0'), q('t2', 'Q0.1'), q('t3', 'Q0.')] }, fcBlocks: { fc1: [q('t4', 'Q1.2')], fc2: [] } })
+  await new Promise((r) => setTimeout(r, 800))
+  const tags = useSimStore.getState().tags
+  const byAddr = Object.fromEntries(tags.map((t) => [t.address, t]))
+  assert.ok(byAddr['Q0.0'] && byAddr['Q0.1'], 'saídas Q0.0/Q0.1 criadas automaticamente')
+  assert.ok(byAddr['Q1.2'], 'saída usada num bloco FC também é detetada')
+  assert.ok(!byAddr['Q0.'], 'endereço incompleto não gera tag')
+  assert.equal(byAddr['MW0']?.dataType, 'Int', 'MW0 é Int')
+  assert.equal(useSimStore.getState().autoDetectTags(), 0, 'segunda deteção não duplica')
+}
+console.log('[ladder-compare] tags automáticas OK')

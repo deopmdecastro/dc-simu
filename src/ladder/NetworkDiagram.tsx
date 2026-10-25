@@ -147,7 +147,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   // Espaço extra só quando a linha paralela vai para o FIM (entre linhas não alarga a network).
   const extraRow = drop?.kind === 'newBranch' && (drop.beforeIndex === undefined || drop.beforeIndex >= branches.length) ? 1 : 0
   const branchesBottom = TOP + (branches.length + extraRow) * ROW_H
-  const H = Math.max(branchesBottom, oy) + 10
+  // O «＋» do fim da calha fica ~17px abaixo do último ramo: reserva espaço para não ser cortado pelo card.
+  const addBtnRoom = readonly ? 0 : 16
+  const H = Math.max(branchesBottom + addBtnRoom, oy) + 10
   const minCoil = OJ + (hasBox ? 80 + BOX_W + 100 : 120)
   const W = Math.ceil(Math.max(minWidth, availableWidth, minCoil + 60) / LADDER_GRID) * LADDER_GRID
   const coilCX = W - 60
@@ -808,7 +810,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           role="button"
           tabIndex={0}
           className="lnet-branch-add"
-          style={{ left: RAIL_X - 8, top: y - 9 }}
+          style={{ left: RAIL_X - 8, top: y - 8 }}
           title={enabledTip}
           aria-label={enabledTip}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); insertParallel(g) } }}

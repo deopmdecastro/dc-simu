@@ -36,7 +36,7 @@ import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRIC
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
-import { runScan, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, defaultDataTypeFor } from '../ladder/ladderEngine'
+import { runScan, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradePhysicalFootprint, upgradeProauto24A, upgradeProtectionTerminalPositions } from '../electrical/factory'
@@ -356,7 +356,7 @@ interface Store extends CircuitState {
   removeTag: (id: string) => void
   /** Varre o programa Ladder e cria uma tag (nome = endereço) para cada
    *  endereço já usado no programa que ainda não tenha uma tag. */
-  autoDetectTags: (historyMode?: 'force' | 'skip') => void
+  autoDetectTags: (historyMode?: 'force' | 'skip') => number
 
   // --- arquivo ---
   saveJSON: () => string
@@ -2362,9 +2362,13 @@ export const useSimStore = create<Store>((set, get) => ({
 
   autoDetectTags: (historyMode = 'force') => {
     const state = get()
-    const known = new Set(state.tags.map((tag) => tag.address))
-    const used = collectUsedAddresses(state.ladder).filter((address) => !known.has(address))
-    if (!used.length) return
+    const norm = (a: string) => a.trim().replace(/^%/, '').toUpperCase()
+    const known = new Set(state.tags.map((tag) => norm(tag.address)))
+    // Main + blocos FC: antes só a Main era varrida, por isso saídas usadas num FC nunca apareciam.
+    const programs = [state.ladder, { rungs: state.fcBlocks.fc1 }, { rungs: state.fcBlocks.fc2 }]
+    const used = [...new Set(programs.flatMap((program) => collectUsedAddresses(program)))]
+      .filter((address) => isDeclarableAddress(address) && !known.has(address))
+    if (!used.length) return 0
     if (historyMode === 'force') { state.commitHistory(); resetGroupedEdit() }
     const added: LadderTag[] = used.map((address) => ({
       id: nanoid(6),
@@ -2373,7 +2377,12 @@ export const useSimStore = create<Store>((set, get) => ({
       dataType: defaultDataTypeFor(address) as LadderDataType,
       comment: '',
     }))
-    set((s) => ({ tags: [...s.tags, ...added], ...(historyMode === 'force' ? { dirty: true } : {}) }))
+    set((s) => ({
+      tags: [...s.tags, ...added],
+      ...(state.activePlcId ? { plcTags: { ...s.plcTags, [state.activePlcId]: [...s.tags, ...added] } } : {}),
+      ...(historyMode === 'force' ? { dirty: true } : {}),
+    }))
+    return added.length
   },
 
   // ------------------------------------------------------------------ arquivo
@@ -2649,4 +2658,14 @@ export { nextAddress }
 setGrafcetNumericReader((operand) => {
   const { runtime } = useSimStore.getState()
   return readOperand(operand, { db: runtime.db, timers: runtime.timers, counters: runtime.counters })
+})
+
+// Tags automáticas: quando o programa muda (contacto, bobina, MOVE…), cria as tags em falta
+// (entradas, SAÍDAS, memórias, T, C). Espera que o utilizador pare de escrever e ignora
+// endereços incompletos, para não deixar «Q0.» ou «Q0.1» intermédios na tabela.
+let tagSyncTimer: ReturnType<typeof setTimeout> | undefined
+useSimStore.subscribe((state, prev) => {
+  if (state.ladder === prev.ladder && state.fcBlocks === prev.fcBlocks) return
+  if (tagSyncTimer) clearTimeout(tagSyncTimer)
+  tagSyncTimer = setTimeout(() => { tagSyncTimer = undefined; useSimStore.getState().autoDetectTags('skip') }, 600)
 })

@@ -95,8 +95,8 @@ export default function TagTable() {
           <button
             type="button"
             className="dc-btn"
-            title="Cria uma tag (nome = endereço) para todo endereço já usado no programa que ainda não tenha uma"
-            onClick={() => { autoDetectTags(); setTransferNotice('Endereços usados no programa verificados.'); }}
+            title="Cria uma tag (nome = endereço) para todo endereço já usado na Main e nos FC que ainda não tenha uma. Também acontece automaticamente ao editar o programa."
+            onClick={() => { const n = autoDetectTags(); setTransferNotice(n ? `${n} tag(s) criada(s) a partir do programa.` : 'Todos os endereços usados no programa já têm tag.') }}
           >
             ⟲ Detetar no programa
           </button>
