@@ -3,7 +3,8 @@ import { useSimStore, type VirtualInputMode } from '../store/useSimStore'
 
 /** Botão de uma entrada virtual.
  *  - Encravamento (latch): cada clique liga/desliga e mantém o estado.
- *  - Pressão (push): só está a 1 enquanto o botão é premido (rato, toque ou Espaço/Enter).
+ *  - Pressão (push, NO): só está a 1 enquanto o botão é premido (rato, toque ou Espaço/Enter).
+ *  - NC (nc): repousa a 1 e cai a 0 enquanto o botão é premido (ex.: botão Stop/emergência).
  *  Com Shift premido, uma entrada com encravamento comporta-se como pressão (atalho histórico). */
 export default function VirtualInputButton({
   address,
@@ -26,18 +27,22 @@ export default function VirtualInputButton({
   /** o clique que se segue a um premir momentâneo não deve alternar o estado */
   const swallowClick = useRef(false)
 
+  // Botões momentâneos: NO repousa a 0 e vai a 1 premido; NC repousa a 1 e vai a 0 premido.
+  const momentary = mode === 'push' || mode === 'nc'
+  const rest = mode === 'nc'
+  const active = mode !== 'nc'
   const press = (event: PointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0 || !(mode === 'push' || event.shiftKey)) return
+    if (event.button !== 0 || !(momentary || event.shiftKey)) return
     event.preventDefault()
     event.currentTarget.setPointerCapture?.(event.pointerId)
     held.current = true
     swallowClick.current = true
-    setInput(address, true)
+    setInput(address, active)
   }
   const release = () => {
     if (!held.current) return
     held.current = false
-    setInput(address, false)
+    setInput(address, rest)
   }
   const click = () => {
     if (swallowClick.current) {
@@ -45,28 +50,30 @@ export default function VirtualInputButton({
       return
     }
     // Em modo pressão, um clique sem pointerdown (ex.: leitor de ecrã) dá um pulso curto.
-    if (mode === 'push') {
-      setInput(address, true)
-      window.setTimeout(() => setInput(address, false), 150)
+    if (momentary) {
+      setInput(address, active)
+      window.setTimeout(() => setInput(address, rest), 150)
       return
     }
     setInput(address, !useSimStore.getState().virtualInputs[address])
   }
   const keyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (mode !== 'push' || (event.key !== ' ' && event.key !== 'Enter') || event.repeat) return
+    if (!momentary || (event.key !== ' ' && event.key !== 'Enter') || event.repeat) return
     event.preventDefault()
-    setInput(address, true)
+    setInput(address, active)
   }
   const keyUp = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (mode !== 'push' || (event.key !== ' ' && event.key !== 'Enter')) return
+    if (!momentary || (event.key !== ' ' && event.key !== 'Enter')) return
     event.preventDefault()
-    setInput(address, false)
+    setInput(address, rest)
   }
 
   const hint =
     mode === 'push'
-      ? 'Botão de pressão: mantenha premido para ligar'
-      : `Botão com encravamento: clique para ${on ? 'desligar' : 'ligar'} (Shift = pressão)`
+      ? 'Botão de pressão (NO): mantenha premido para ligar · botão direito muda o tipo'
+      : mode === 'nc'
+        ? 'Botão NC (ex.: Stop): em repouso está a 1, premido passa a 0 · botão direito muda o tipo'
+          : `Interruptor: clique para ${on ? 'desligar' : 'ligar'} (Shift = pressão · botão direito muda o tipo)`
 
   return (
     <button
@@ -83,11 +90,11 @@ export default function VirtualInputButton({
       onKeyDown={keyDown}
       onKeyUp={keyUp}
       onBlur={() => {
-        if (mode === 'push' && useSimStore.getState().virtualInputs[address]) setInput(address, false)
+        if (momentary && useSimStore.getState().virtualInputs[address] === active) setInput(address, rest)
       }}
       onContextMenu={(event) => {
         event.preventDefault()
-        setMode(address, mode === 'push' ? 'latch' : 'push')
+        setMode(address, mode === 'latch' ? 'push' : mode === 'push' ? 'nc' : 'latch')
       }}
     >
       {children}

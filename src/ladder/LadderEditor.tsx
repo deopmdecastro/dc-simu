@@ -1252,6 +1252,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const timers = useSimStore((s) => s.runtime.timers)
   const counters = useSimStore((s) => s.runtime.counters)
   const dbWords = useSimStore((s) => s.runtime.db)
+  const scanCount = useSimStore((s) => s.sim.scanCount)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
   const resetMemory = useSimStore((s) => s.resetMemory)
@@ -1791,6 +1792,22 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
               ))
             })()}
             <div className="ladder-bottom-actions">
+              {(() => {
+                // Valores vivos das palavras MW (ex.: o G0 de uma máquina de estados) — sem abrir a aba «Memórias».
+                const live = Object.entries(dbWords).filter(([key]) => /^MW\d+$/i.test(key)).sort(([a], [b]) => Number(a.slice(2)) - Number(b.slice(2)))
+                const nameOf = (key: string) => tags.find((t) => t.address.toUpperCase() === key.toUpperCase() || t.address.toUpperCase() === `%${key.toUpperCase()}`)?.name
+                return live.length ? (
+                  <span className="ladder-live-words" role="group" aria-label="Palavras de memória em tempo real">
+                    {live.slice(0, 4).map(([key, entry]) => (
+                      <button type="button" key={key} className={`ladder-live-word ${entry.value !== 0 && entry.value !== false ? 'is-nonzero' : ''}`} title={`${nameOf(key) ?? key} · %${key} = ${String(entry.value)} — abrir a aba Memórias`} onClick={() => { setStatusTab('memory'); setShowStatus(true) }}>
+                        <b>{nameOf(key) ?? key}</b><span>{String(entry.value)}</span>
+                      </button>
+                    ))}
+                    {live.length > 4 && <em className="ladder-live-more">+{live.length - 4}</em>}
+                  </span>
+                ) : null
+              })()}
+              {running && <span className="ladder-scan-count" title="Ciclos de scan executados desde que a simulação arrancou">{scanCount.toLocaleString('pt-PT')} ciclos</span>}
               <span className={`ladder-run-pill ${running ? 'is-running' : ''}`} role="status"><i /> {running ? 'Simulação ativa' : 'Pronto'}</span>
               <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)">Repor memórias</button>
               <button

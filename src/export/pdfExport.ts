@@ -95,13 +95,25 @@ const shortDate = () => {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
+/** Logótipo DC-Simu desenhado em vetor (mesmo símbolo de ui/Brand.tsx): nítido a qualquer
+ *  zoom, sem ficheiros de imagem e funciona também sem DOM. `onBrand` = sobre fundo azul. */
+function drawLogo(doc: jsPDF, x: number, y: number, size: number, onBrand = true) {
+  const k = size / 64
+  doc.setFillColor(onBrand ? '#ffffff' : BRAND)
+  doc.roundedRect(x + 3 * k, y + 3 * k, 58 * k, 58 * k, 14 * k, 14 * k, 'F')
+  doc.setFillColor(onBrand ? BRAND : '#ffffff')
+  // raio: M35 10 L17 35 h12 l-3 19 L47 25 H34 z
+  doc.lines([[-18 * k, 25 * k], [12 * k, 0], [-3 * k, 19 * k], [21 * k, -29 * k], [-13 * k, 0]], x + 35 * k, y + 10 * k, [1, 1], 'F', true)
+}
+
 function header(doc: jsPDF, section: string, projectName: string) {
   doc.setFillColor(BRAND)
   doc.rect(0, 0, PAGE_W, 30, 'F')
+  drawLogo(doc, MARGIN, 5, 20)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.setTextColor('#ffffff')
-  doc.text('DC-Simu · Simulador de Automação Industrial', MARGIN, 19)
+  doc.text('DC-Simu · Simulador de Automação Industrial', MARGIN + 27, 19)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.text(section, PAGE_W - MARGIN, 19, { align: 'right' })
@@ -114,30 +126,34 @@ function header(doc: jsPDF, section: string, projectName: string) {
   doc.line(MARGIN, 64, PAGE_W - MARGIN, 64)
 }
 
-function footers(doc: jsPDF) {
+function footers(doc: jsPDF, projectName: string) {
   const pages = doc.getNumberOfPages()
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i)
+    doc.setDrawColor('#e4eaf4'); doc.setLineWidth(0.6)
+    doc.line(MARGIN, PAGE_H - 30, PAGE_W - MARGIN, PAGE_H - 30)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
     doc.setTextColor(MUTED)
     doc.text(`Gerado por DC-Simu · ${shortDate()}`, MARGIN, PAGE_H - 18)
+    if (i > 1) doc.text(projectName.length > 48 ? `${projectName.slice(0, 47)}…` : projectName, PAGE_W / 2, PAGE_H - 18, { align: 'center' })
     doc.text(`Página ${i} de ${pages}`, PAGE_W - MARGIN, PAGE_H - 18, { align: 'right' })
   }
   doc.setTextColor(INK)
 }
 
-function coverPage(doc: jsPDF, src: PdfProjectSource) {
+function coverPage(doc: jsPDF, src: PdfProjectSource, contents: string[]) {
   // banda superior da marca
   doc.setFillColor(BRAND)
   doc.rect(0, 0, PAGE_W, 150, 'F')
+  drawLogo(doc, MARGIN, 42, 64)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor('#ffffff')
   doc.setFontSize(26)
-  doc.text('DC-Simu', MARGIN, 72)
+  doc.text('DC-Simu', MARGIN + 80, 76)
   doc.setFontSize(12)
   doc.setFont('helvetica', 'normal')
-  doc.text('Simulador de Automação Industrial — Documentação do Projeto', MARGIN, 94)
+  doc.text('Simulador de Automação Industrial — Documentação do Projeto', MARGIN + 80, 96)
 
   doc.setTextColor(INK)
   doc.setFontSize(30)
@@ -183,6 +199,19 @@ function coverPage(doc: jsPDF, src: PdfProjectSource) {
   doc.setTextColor(MUTED)
   doc.text('Documento gerado automaticamente pela plataforma DC-Simu.', MARGIN, y + 32)
   doc.text('Inclui os conteúdos escolhidos no diálogo de exportação.', MARGIN, y + 46)
+
+  if (contents.length) {
+    let cy = y + 86
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(BRAND)
+    doc.text('Conteúdo deste documento', MARGIN, cy)
+    cy += 18
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(INK)
+    for (const item of contents.slice(0, Math.max(0, Math.floor((PAGE_H - 60 - cy) / 15)))) {
+      doc.setFillColor(BRAND); doc.circle(MARGIN + 3, cy - 3, 1.8, 'F')
+      doc.text(item, MARGIN + 14, cy)
+      cy += 15
+    }
+  }
 }
 
 function infoPage(doc: jsPDF, src: PdfProjectSource) {
@@ -205,23 +234,29 @@ function infoPage(doc: jsPDF, src: PdfProjectSource) {
 function tagsPage(doc: jsPDF, src: PdfProjectSource) {
   header(doc, 'Tabela de tags', src.projectName)
   let y = 92
-  const cols: Array<[string, number]> = [['Nome', 0], ['Endereço', 150], ['Tipo', 240], ['Comentário', 310]]
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(MUTED)
-  for (const [h, dx] of cols) doc.text(h, MARGIN + dx, y)
-  y += 6
-  doc.setDrawColor('#d7deeb'); doc.setLineWidth(0.8); doc.line(MARGIN, y, PAGE_W - MARGIN, y)
-  y += 14
+  const cols: Array<[string, number]> = [['Nome', 8], ['Endereço', 158], ['Tipo', 248], ['Comentário', 318]]
+  const tableHead = () => {
+    doc.setFillColor('#eef3ff'); doc.rect(MARGIN, y - 12, CONTENT_W, 20, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(BRAND)
+    for (const [h, dx] of cols) doc.text(h, MARGIN + dx, y + 1)
+    y += 22
+  }
+  tableHead()
   doc.setFont('helvetica', 'normal'); doc.setTextColor(INK)
   const sorted = [...src.tags].sort((a, b) => a.address.localeCompare(b.address, undefined, { numeric: true }))
   if (!sorted.length) { doc.setTextColor(MUTED); doc.text('Sem tags definidas no projeto.', MARGIN, y); return }
-  for (const t of sorted) {
-    if (y > PAGE_H - 60) { doc.addPage(); header(doc, 'Tabela de tags', src.projectName); y = 92 }
-    doc.text(t.name || '—', MARGIN, y)
-    doc.text(`%${t.address}`, MARGIN + 150, y)
-    doc.text(t.dataType || '—', MARGIN + 240, y)
-    doc.setTextColor(MUTED); doc.text(t.comment || '', MARGIN + 310, y); doc.setTextColor(INK)
-    y += 14
-  }
+  sorted.forEach((t, i) => {
+    const note = doc.splitTextToSize(t.comment || '', CONTENT_W - 326) as string[]
+    const rowH = Math.max(18, note.length * 11 + 7)
+    if (y + rowH > PAGE_H - 50) { doc.addPage(); header(doc, 'Tabela de tags', src.projectName); y = 92; tableHead() }
+    if (i % 2 === 0) { doc.setFillColor('#f7f9fd'); doc.rect(MARGIN, y - 11, CONTENT_W, rowH, 'F') }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(INK)
+    doc.text(t.name || '—', MARGIN + 8, y + 2)
+    doc.setFont('courier', 'normal'); doc.text(`%${t.address}`, MARGIN + 158, y + 2)
+    doc.setFont('helvetica', 'normal'); doc.text(t.dataType || '—', MARGIN + 248, y + 2)
+    doc.setTextColor(MUTED); doc.text(note, MARGIN + 318, y + 2); doc.setTextColor(INK)
+    y += rowH
+  })
 }
 
 /** Insere uma imagem JPEG dimensionada à largura útil; devolve a altura ocupada. */
@@ -270,11 +305,24 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
   let first = true
   const newPage = () => { if (first) first = false; else doc.addPage() }
 
-  if (opts.cover) { newPage(); coverPage(doc, src); sections.push('Capa') }
+  if (opts.cover) {
+    const blocksPlan = collectLadderBlocks(src).filter((b) => (opts.ladder[b.id] ?? []).length > 0)
+    const contents = [
+      opts.info && 'Informações do projeto',
+      opts.tags && `Tabela de tags (${src.tags.length})`,
+      opts.schematic && src.components.length > 0 && 'Esquema elétrico',
+      opts.grafcet && (src.grafcet?.steps?.length ?? 0) > 0 && `GRAFCET (${src.grafcet.steps.length} etapas)`,
+      ...blocksPlan.map((b) => `Ladder — ${b.title} (${(opts.ladder[b.id] ?? []).length} networks)`),
+    ].filter(Boolean) as string[]
+    newPage(); coverPage(doc, src, contents); sections.push('Capa')
+  }
   if (opts.info) { newPage(); infoPage(doc, src); sections.push('Informações do projeto') }
   if (opts.tags) { newPage(); tagsPage(doc, src); sections.push('Tabela de tags') }
 
-  if (opts.schematic) {
+  if (opts.schematic && src.components.length === 0) {
+    // Sem componentes a captura seria uma grelha vazia: não gasta uma página.
+    skippedImages.push('Esquema elétrico (o projeto não tem componentes no esquema)')
+  } else if (opts.schematic) {
     const shot = schematicImage ?? (canRaster() ? captureCover() : null)
     if (shot) {
       newPage(); header(doc, 'Esquema elétrico (vista 3D)', src.projectName)
@@ -400,6 +448,6 @@ export async function generateProjectPdf(src: PdfProjectSource, opts: PdfExportO
     sections.push(`Ladder — ${block.title}`)
   }
 
-  footers(doc)
+  footers(doc, src.projectName || 'Projeto')
   return { blob: doc.output('blob'), pages: doc.getNumberOfPages(), sections, skippedImages }
 }
