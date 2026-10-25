@@ -90,7 +90,7 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
 
   const terminals = component.terminals
   const selected = terminals.find((terminal) => terminal.id === editor.activeTerminalId) ?? terminals[0]
-  const [face, setFace] = useState<Terminal3DFace>(() => (selected ? facesOfTerminal(selected)[0] ?? nearestFace(terminal3DPositionOf(selected)) : 'front'))
+  const [face, setFace] = useState<Terminal3DFace>(() => (selected ? facesOfTerminal(selected, component.type)[0] ?? nearestFace(terminal3DPositionOf(selected)) : 'front'))
   const [tool, setTool] = useState<Tool>('move')
   const [zoom, setZoom] = useState(1)
   const [showLabels, setShowLabels] = useState(true)
@@ -125,7 +125,7 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
   useEffect(() => {
     const current = terminals.find((terminal) => terminal.id === selectedId)
     if (!current) return
-    const faces = facesOfTerminal(current)
+    const faces = facesOfTerminal(current, component.type)
     if (faces.length > 0 && !faces.includes(face)) setFace(faces[0])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId])
@@ -136,9 +136,9 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
   const canvasH = fit * zoom
   const canvasW = canvasH * aspect
 
-  const onFace = useMemo(() => terminals.filter((terminal) => facesOfTerminal(terminal).includes(face)), [terminals, face])
-  const counts = useMemo(() => Object.fromEntries(FACE_ORDER.map((id) => [id, terminals.filter((terminal) => facesOfTerminal(terminal).includes(id)).length])) as Record<Terminal3DFace, number>, [terminals])
-  const offSurface = useMemo(() => terminals.filter((terminal) => facesOfTerminal(terminal).length === 0), [terminals])
+  const onFace = useMemo(() => terminals.filter((terminal) => facesOfTerminal(terminal, component.type).includes(face)), [terminals, face, component.type])
+  const counts = useMemo(() => Object.fromEntries(FACE_ORDER.map((id) => [id, terminals.filter((terminal) => facesOfTerminal(terminal, component.type).includes(id)).length])) as Record<Terminal3DFace, number>, [terminals, component.type])
+  const offSurface = useMemo(() => terminals.filter((terminal) => facesOfTerminal(terminal, component.type).length === 0), [terminals, component.type])
   const wireCount = useCallback((terminal: Terminal) => wires.filter((wire) => wire.fromTerminalId === terminal.id || wire.toTerminalId === terminal.id).length, [wires])
 
   const pointerToUV = (event: { clientX: number; clientY: number }) => {
@@ -205,7 +205,7 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
     if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); removeTerminal(selected); return }
     const delta: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
     const move = delta[event.key]
-    if (!move || !facesOfTerminal(selected).includes(face)) return
+    if (!move || !facesOfTerminal(selected, component.type).includes(face)) return
     event.preventDefault()
     const step = (event.shiftKey ? 5 : 1) * NUDGE
     const point = faceUV(face, terminal3DPositionOf(selected))
@@ -221,13 +221,13 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
 
   const selectFromList = (terminal: Terminal) => {
     setActive(terminal.id)
-    const faces = facesOfTerminal(terminal)
+    const faces = facesOfTerminal(terminal, component.type)
     if (faces.length > 0 && !faces.includes(face)) setFace(faces[0])
     else if (faces.length === 0) setFace(nearestFace(terminal3DPositionOf(terminal)))
   }
 
   const moveToFace = (terminal: Terminal, target: Terminal3DFace) => {
-    if (facesOfTerminal(terminal).length === 1 && facesOfTerminal(terminal)[0] === target) { setFace(target); return }
+    if (facesOfTerminal(terminal, component.type).length === 1 && facesOfTerminal(terminal, component.type)[0] === target) { setFace(target); return }
     const others = { ...component, terminals: terminals.filter((item) => item.id !== terminal.id) }
     setDefinition(terminal.id, { position3D: defaultFacePosition(others, target) })
     setFace(target)
@@ -235,7 +235,7 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
 
   const snapAll = () => offSurface.forEach((terminal) => setDefinition(terminal.id, { position3D: snapToNearestSurface(terminal3DPositionOf(terminal)) }))
 
-  const selectedFaces = selected ? facesOfTerminal(selected) : []
+  const selectedFaces = selected ? facesOfTerminal(selected, component.type) : []
   const selectedPoint = selected && selectedFaces.length > 0 ? faceUV(selectedFaces.includes(face) ? face : selectedFaces[0], terminal3DPositionOf(selected)) : null
   const detailFace = selected && selectedFaces.length > 0 ? (selectedFaces.includes(face) ? face : selectedFaces[0]) : face
   const detailSize = faceSizeMm(component, detailFace)
@@ -372,7 +372,7 @@ export default function TerminalFaceEditor({ component }: { component: Electrica
 
     {terminals.length > 0 && <ul className="tfe-list" aria-label="Bornes do componente">
       {terminals.map((terminal) => {
-        const faces = facesOfTerminal(terminal)
+        const faces = facesOfTerminal(terminal, component.type)
         const linked = wireCount(terminal)
         const active = terminal.id === selected?.id
         return <li key={terminal.id}>

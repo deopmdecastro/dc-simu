@@ -1,4 +1,5 @@
 import type { ComponentType } from '../types'
+import { getComponentPhysicalSizeMm } from '../three/modelPaths'
 
 /**
  * Interfaces REAIS dos modelos 3D: onde ficam mesmo os encaixes dos cabos em
@@ -11,8 +12,8 @@ import type { ComponentType } from '../types'
  *
  * Coordenadas normalizadas na caixa do componente, como `position3D`:
  *   x: 0 = esquerda, 1 = direita · y: 0 = TOPO, 1 = base (medido de cima para baixo) · z: 0 = trás, 1 = frente.
- * ATENÇÃO: o `position3D` do borne usa y = 1 no topo; `factory.ts` (surfacePosition) inverte o y e fixa o
- * borne na superfície da face. Estes valores NÃO se copiam diretamente para `position3D`.
+ * ATENÇÃO: o `position3D` do borne usa y = 1 no topo; `realTerminalPosition` inverte o y e recua o
+ * borne para dentro do furo. Estes valores NÃO se copiam diretamente para `position3D`.
  */
 export interface RealTerminalSpot {
   label: string
@@ -25,7 +26,7 @@ export interface RealTerminalSpot {
   diameterMm?: number
   /**
    * Profundidade do furo/cavidade medida no modelo (mm). O borne é recuado
-   * para dentro do furo (metade da profundidade, no máximo 6 mm), para o cabo
+   * para dentro do furo (um terço da profundidade, entre 1 e 3 mm), para o cabo
    * entrar mesmo no encaixe em vez de ficar colado à superfície.
    */
   holeDepthMm?: number
@@ -40,7 +41,7 @@ export function terminalInsetMm(spot: RealTerminalSpot): number {
   return Math.min(3, Math.max(1, (spot.holeDepthMm ?? 5) / 3))
 }
 
-/** Normal da face virada para fora, em coordenadas normalizadas (x, y com 0 = topo, z). */
+/** Normal da face virada para dentro, em coordenadas normalizadas (x, y com 0 = topo, z). */
 export const FACE_INWARD: Record<RealTerminalSpot['face'], [number, number, number]> = {
   top: [0, 1, 0],
   bottom: [0, -1, 0],
@@ -48,6 +49,19 @@ export const FACE_INWARD: Record<RealTerminalSpot['face'], [number, number, numb
   back: [0, 0, 1],
   left: [1, 0, 0],
   right: [-1, 0, 0],
+}
+
+/** Ponto de ligação dentro do encaixe medido, na convenção 3D (Y=1 no topo). */
+export function realTerminalPosition(type: ComponentType, spot: RealTerminalSpot): { x: number; y: number; z: number } {
+  const size = getComponentPhysicalSizeMm(type)
+  const inset = size ? terminalInsetMm(spot) : 0
+  const [nx, ny, nz] = FACE_INWARD[spot.face]
+  const clamp = (value: number) => Math.min(1, Math.max(0, value))
+  return {
+    x: clamp(spot.x + (size ? nx * inset / size.width : 0)),
+    y: 1 - clamp(spot.y + (size ? ny * inset / size.height : 0)),
+    z: clamp(spot.z + (size ? nz * inset / size.depth : 0)),
+  }
 }
 
 /** Peça do GLB que se mexe (manípulo, botão) e que deve ser operável por omissão. */

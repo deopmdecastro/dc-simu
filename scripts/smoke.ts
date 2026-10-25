@@ -33,9 +33,8 @@ import { wireGeometryForWire } from '../src/schematic/wireGeometry'
 import { isProgrammablePlc } from '../src/ladder/plcPrograms'
 import { plcIoRows, plcIoCapacity } from '../src/ladder/plcIo'
 import { PROJECT_FOLDERS } from '../src/ladder/projectFiles'
-import type { LadderRung } from '../src/types'
+import type { ComponentType, LadderRung } from '../src/types'
 import { BUILTIN_ORIGIN_PREFIX, builtinComponents, builtinTypeOf } from '../src/admin/editor3d/builtinComponents'
-import { TEMPLATES } from '../src/electrical/factory'
 import { evaluateWire, wireChain, wireCurve } from '../src/admin/editor3d/wirePath'
 import { cableOuterDiameterMm, styleFor, DEFAULT_WIRE_DEFAULTS } from '../src/admin/editor3d/wireStyle'
 import { useSimStore } from '../src/store/useSimStore'
@@ -474,6 +473,29 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const ps = createComponent('powerSupplyProauto24A')
   const phase = createComponent('busbarPhase')
   const neutral = createComponent('busbarNeutral')
+  const measuredInterfaces = REAL_TERMINALS.powerSupplyProauto24A!
+  const measuredTop = measuredInterfaces.find((spot) => spot.label === '-V2')!
+  const measuredBottom = measuredInterfaces.find((spot) => spot.label === 'PE')!
+  const actualTop = terminalByLabel(ps, '-V2')!.position3D!
+  const actualBottom = terminalByLabel(ps, 'PE')!.position3D!
+  check('bornes Proauto usam o centro X medido e ficam recuados dentro dos furos',
+    Math.abs(actualTop.x - measuredTop.x) < 1e-4 && actualTop.y < 1 && actualTop.y > 0.95 &&
+    Math.abs(actualBottom.x - measuredBottom.x) < 1e-4 && actualBottom.y > 0 && actualBottom.y < 0.1)
+  const surfaceVersion = {
+    ...ps,
+    terminals: ps.terminals.map((terminal) => {
+      const spot = measuredInterfaces.find((item) => item.label === terminal.label)!
+      return { ...terminal, position3D: { x: spot.x, y: spot.face === 'top' ? 1 : 0, z: spot.z } }
+    }),
+  }
+  const migratedSurface = upgradeRealInterfacePositions(surfaceVersion)
+  check('projetos com bornes na superfície são migrados para o interior do furo',
+    migratedSurface.terminals.every((terminal) => {
+      const expected = terminalByLabel(ps, terminal.label)!.position3D!
+      return Math.abs(terminal.position3D!.x - expected.x) < 1e-4 &&
+        Math.abs(terminal.position3D!.y - expected.y) < 1e-4 &&
+        Math.abs(terminal.position3D!.z - expected.z) < 1e-4
+    }))
   const link = (id: string, a: string, b: string): Wire => ({
     id, fromTerminalId: a, toTerminalId: b, color: 'red', gauge: '1.5mm²',
     kind: 'power', route: 'direct', bend: 0.5, flexibility: 'rigid', energized: false, number: 1, z: 0,
@@ -2371,24 +2393,56 @@ console.log('\n— Tabela de sinais dinâmica —')
 
 
 
-/* Bornes medidos no GLB: y medido do topo é convertido para position3D (y = 1 no topo) e fica na superfície da face. */
+/* Bornes medidos no GLB: y medido do topo é convertido para position3D (y = 1 no topo) e recuado no furo. */
 {
   const ps = createComponent('powerSupplyProauto24A')
   const outs = ['-V2', '-V1', '+V2', '+V1', 'RDY2', 'RDY1']
   const ins = ['PE', 'L', 'N']
-  check('Fonte Proauto: -V/+V/RDY estão na face de TOPO (y = 1, vista Topo)', outs.every((l) => facesOfTerminal(terminalByLabel(ps, l)!).includes('top') && terminalByLabel(ps, l)!.position3D!.y === 1))
-  check('Fonte Proauto: PE/L/N estão na face de BASE (y = 0, vista Base)', ins.every((l) => facesOfTerminal(terminalByLabel(ps, l)!).includes('bottom') && terminalByLabel(ps, l)!.position3D!.y === 0))
-  check('Fonte Proauto: nenhum borne fica fora de uma face nem na frente', ps.terminals.every((t) => { const f = facesOfTerminal(t); return f.length > 0 && !f.includes('front') }))
+  check('Fonte Proauto: -V/+V/RDY ficam dentro dos furos da face de TOPO', outs.every((l) => facesOfTerminal(terminalByLabel(ps, l)!, ps.type).includes('top') && terminalByLabel(ps, l)!.position3D!.y! < 1 && terminalByLabel(ps, l)!.position3D!.y! > 0.95))
+  check('Fonte Proauto: PE/L/N ficam dentro dos furos da face de BASE', ins.every((l) => facesOfTerminal(terminalByLabel(ps, l)!, ps.type).includes('bottom') && terminalByLabel(ps, l)!.position3D!.y! > 0 && terminalByLabel(ps, l)!.position3D!.y! < 0.06))
+  check('Fonte Proauto: nenhum borne fica fora de uma face nem na frente', ps.terminals.every((t) => { const f = facesOfTerminal(t, ps.type); return f.length > 0 && !f.includes('front') }))
   const logo = createComponent('plcSiemensLogo1224RC')
-  check('LOGO!: entradas I em cima e saídas Q em baixo', facesOfTerminal(terminalByLabel(logo, 'I0.0')!).includes('top') && facesOfTerminal(terminalByLabel(logo, 'Q0.0')!).includes('bottom'))
-  check('Esquema 2D: +V1 no topo e PE na base da fonte', terminalPos(ps, terminalByLabel(ps, '+V1')!).y < 1 && terminalPos(ps, terminalByLabel(ps, 'PE')!).y > ps.h - 1)
-  // Projeto guardado com a posição legada (invertida e recuada): migra; um borne movido à mão fica intacto.
+  check('LOGO!: entradas I em cima e saídas Q em baixo', facesOfTerminal(terminalByLabel(logo, 'I0.0')!, logo.type).includes('top') && facesOfTerminal(terminalByLabel(logo, 'Q0.0')!, logo.type).includes('bottom'))
+  check('Esquema 2D: +V1 no topo e PE na base da fonte', terminalPos(ps, terminalByLabel(ps, '+V1')!).y < ps.h * 0.2 && terminalPos(ps, terminalByLabel(ps, 'PE')!).y > ps.h * 0.8)
+  // Projeto guardado com a posição legada: migra; um borne movido à mão fica intacto.
   const legacy = { ...ps, terminals: ps.terminals.map((t) => t.label === '+V1' ? { ...t, position3D: { x: 0.57, y: 0.0214190093708166, z: 0.848 } }
     : t.label === 'PE' ? { ...t, position3D: { x: 0.5, y: 0.5, z: 0.5 } } : t) }
   const migrated = upgradeRealInterfacePositions(legacy)
-  check('Migração: borne com posição legada passa para a face de topo', terminalByLabel(migrated, '+V1')!.position3D!.y === 1)
+  check('Migração: borne com posição legada passa para dentro do furo de topo', terminalByLabel(migrated, '+V1')!.position3D!.y! < 1 && terminalByLabel(migrated, '+V1')!.position3D!.y! > 0.95)
   check('Migração: borne movido à mão não é alterado', terminalByLabel(migrated, 'PE')!.position3D!.y === 0.5)
   check('Migração: é idempotente', upgradeRealInterfacePositions(migrated) === migrated)
+
+  const original = terminalByLabel(ps, '+V1')!
+  const movedFront = { ...original, position3D: { x: 0.5, y: 0.5, z: 1 } }
+  const movedInside = { ...original, position3D: { x: 0.5, y: 0.5, z: 0.5 } }
+  check('Faces: borne medido movido à mão para a frente segue a nova face', facesOfTerminal(movedFront, ps.type).join() === 'front')
+  check('Faces: borne medido movido para o interior não fica associado ao encaixe antigo', facesOfTerminal(movedInside, ps.type).length === 0)
+
+  const measuredComponents = (Object.keys(REAL_TERMINALS) as ComponentType[]).map((type) => createComponent(type))
+  check('Interfaces medidas: todos os bornes aparecem na face do respetivo encaixe', measuredComponents.every((component) =>
+    REAL_TERMINALS[component.type]!.every((spot) => facesOfTerminal(terminalByLabel(component, spot.label)!, component.type).join() === spot.face)))
+  check('Interfaces medidas: componentes atuais conservam a identidade ao carregar', measuredComponents.every((component) => upgradeRealInterfacePositions(component) === component))
+  const migratedComponents = measuredComponents.map((component) => {
+    const surface = { ...component, terminals: component.terminals.map((terminal) => {
+      const spot = REAL_TERMINALS[component.type]!.find((item) => item.label === terminal.label)!
+      const position3D = { x: spot.x, y: 1 - spot.y, z: spot.z }
+      if (spot.face === 'top') position3D.y = 1
+      else if (spot.face === 'bottom') position3D.y = 0
+      else if (spot.face === 'front') position3D.z = 1
+      else if (spot.face === 'back') position3D.z = 0
+      else if (spot.face === 'left') position3D.x = 0
+      else position3D.x = 1
+      return { ...terminal, position3D }
+    }) }
+    return { current: component, migrated: upgradeRealInterfacePositions(surface) }
+  })
+  check('Migração: todas as interfaces de superfície passam para os encaixes sem mudar IDs nem coordenadas 2D', migratedComponents.every(({ current, migrated }) =>
+    current.id === migrated.id && current.terminals.every((terminal, index) => {
+      const actual = migrated.terminals[index]
+      return terminal.id === actual.id && terminal.x === actual.x && terminal.y === actual.y &&
+        JSON.stringify(terminal.position3D) === JSON.stringify(actual.position3D)
+    })))
+  check('Migração: todas as interfaces migradas são idempotentes', migratedComponents.every(({ migrated }) => upgradeRealInterfacePositions(migrated) === migrated))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

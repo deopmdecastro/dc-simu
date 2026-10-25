@@ -1,4 +1,5 @@
-import type { ComponentViewOrientation, ElectricalComponent, Terminal } from '../types'
+import type { ComponentType, ComponentViewOrientation, ElectricalComponent, Terminal } from '../types'
+import { REAL_TERMINALS, realTerminalPosition } from '../electrical/realInterfaces'
 import { CAPTURE_FRAME_PADDING } from './captureFrame'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
 import {
@@ -12,8 +13,8 @@ import {
 } from './terminal3D'
 
 /**
- * Bornes por face: cada borne vive na SUPERFÍCIE de uma (ou, na aresta, de duas)
- * faces do volume do componente. A vista de uma face é a captura ortográfica real
+ * Bornes por face: cada borne vive na superfície ou num encaixe medido de uma
+ * face (na aresta pode pertencer a duas). A vista é a captura ortográfica real
  * do GLB vista de fora, com a face virada para o utilizador. Estas funções
  * convertem entre um ponto dessa imagem e a posição física normalizada (0..1).
  */
@@ -46,7 +47,19 @@ export function facesOfPosition(position: Terminal3DPosition, eps = SURFACE_EPS)
   return faces
 }
 
-export const facesOfTerminal = (terminal: Terminal) => facesOfPosition(terminal3DPositionOf(terminal))
+export function facesOfTerminal(terminal: Terminal, componentType?: ComponentType): Terminal3DFace[] {
+  const measured = componentType
+    ? REAL_TERMINALS[componentType]?.find((spot) => spot.label.toLocaleUpperCase() === terminal.label.toLocaleUpperCase())
+    : undefined
+  const position = terminal3DPositionOf(terminal)
+  if (measured && componentType) {
+    // Cavidades reais podem estar recuadas em relação à caixa exterior do GLB;
+    // associa à face medida apenas enquanto o borne continuar no encaixe original.
+    const expected = realTerminalPosition(componentType, measured)
+    if (Math.hypot(position.x - expected.x, position.y - expected.y, position.z - expected.z) <= 1e-3) return [measured.face]
+  }
+  return facesOfPosition(position)
+}
 
 /** Face mais próxima (para fixar à superfície um borne que ficou no interior). */
 export function nearestFace(position: Terminal3DPosition): Terminal3DFace {
@@ -108,7 +121,7 @@ export function faceSizeMm(component: ElectricalComponent, face: Terminal3DFace)
 
 /** Posição inicial de um novo borne, distribuída na face escolhida. */
 export function defaultFacePosition(component: ElectricalComponent, face: Terminal3DFace): Terminal3DPosition {
-  const occupied = component.terminals.filter((terminal) => facesOfTerminal(terminal).includes(face)).length
+  const occupied = component.terminals.filter((terminal) => facesOfTerminal(terminal, component.type).includes(face)).length
   return terminalFaceCreationPosition(face, occupied)
 }
 
