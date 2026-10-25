@@ -2836,7 +2836,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   <div className="grafcet-toolbox-empty">Nenhum componente encontrado.</div>
                 )}
               </div>
-              <p className="grafcet-toolbox-tip">Clique ou arraste componentes para a tela. Etapas nascem sem transição; transições e ações soltas ligam-se por arrasto ou com a ferramenta Ligar [L].</p>
+              <p className="grafcet-toolbox-tip">Clique ou arraste componentes para a tela. Etapas nascem sem transição; transições e ações soltas ligam-se por arrasto ou com a ferramenta Ligar [L]. Para selecionar várias etapas, arraste um retângulo no fundo (Shift/Ctrl+clique também soma); Ctrl+C/V copia e cola, Ctrl+A seleciona tudo, Del apaga.</p>
             </aside>
           ) : (
             <button className="grafcet-toolbox-restore" onClick={() => setShowPalette(true)} title="Mostrar componentes (Ctrl+B)">
@@ -4706,6 +4706,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
               <button type="button" onClick={() => distributeGroup('h')} disabled={groupIds.length < 3} title="Espaçamento horizontal igual (mín. 3 etapas)">Distribuir ↔</button>
               <button type="button" onClick={() => distributeGroup('v')} disabled={groupIds.length < 3} title="Espaçamento vertical igual (mín. 3 etapas)">Distribuir ↕</button>
               <span className="grafcet-canvas-hud-sep" />
+              <button type="button" onClick={() => copySelection()} title="Copiar o grupo com as ações e as transições internas (Ctrl+C)">Copiar</button>
               <button type="button" onClick={duplicateSelected} title="Duplicar o grupo com as transições internas (Ctrl+D)">Duplicar</button>
               <button type="button" onClick={zoomToSelection} title="Ampliar a vista ao grupo (Z)">Ampliar</button>
               <button type="button" className="is-danger" onClick={() => void requestDelete()} title="Eliminar as etapas selecionadas (Del)">Eliminar</button>
@@ -4730,7 +4731,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
           {/* HUD flutuante de navegação estilo grafcet.io */}
           {full && steps.length > 0 && (
             <div className="grafcet-canvas-hud" role="toolbar" aria-label="Navegação e zoom da tela">
-              <span className="grafcet-hud-tool" title={activeTool === 'connect' ? 'Relacione saídas e destinos; Escape cancela a ligação.' : activeTool === 'pan' || isSpacePan ? 'Arraste para deslocar a vista.' : 'Selecione um elemento; duplo clique abre as propriedades.'}>
+              <span className="grafcet-hud-tool" title={activeTool === 'connect' ? 'Relacione saídas e destinos; Escape cancela a ligação.' : activeTool === 'pan' || isSpacePan ? 'Arraste para deslocar a vista.' : 'Clique seleciona; duplo clique abre propriedades; arrasto no vazio seleciona por área.'}>
                 {activeTool === 'connect' ? <IconWire size={13} /> : activeTool === 'pan' || isSpacePan ? <IconHand size={13} /> : <IconCursor size={13} />}
                 <span>{activeTool === 'connect' ? (wireDraft ? 'Escolha o destino' : 'Ligar · escolha a saída') : activeTool === 'pan' || isSpacePan ? 'Arrastar vista' : 'Selecionar'}</span>
               </span>
@@ -5049,8 +5050,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   }
                   return (
                     <p className="grafcet-hint">
-                      Selecione uma etapa no diagrama ou na lista para editar ações e propriedades. Elementos soltos
-                      (transições e ações) ligam-se por arrasto ou com a ferramenta Ligar [L].
+                      Selecione um elemento no diagrama ou na lista para editar. Para vários, arraste um retângulo no
+                      fundo da tela (ou Shift/Ctrl+clique) — depois arraste qualquer etapa para mover todas, Ctrl+C/V
+                      copia e cola com ligações, Ctrl+A seleciona tudo, Del apaga. Elementos soltos (transições e ações)
+                      ligam-se por arrasto ou com a ferramenta Ligar [L].
                     </p>
                   )
                 })()}
