@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Tipos, testes e build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run test:ci
+      - run: npm run test:server
+      - run: npx vite build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+      - name: Auditoria de dependências de produção
+        run: npm audit --omit=dev --audit-level=high
+
+  ui:
+    name: Testes de interface (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Informativo até haver histórico de execuções estáveis; passa a bloqueante quando estabilizar.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Servidor de desenvolvimento
+        run: |
+          npx vite --host 127.0.0.1 --port 5175 > vite.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:5175 >/dev/null && exit 0; sleep 1; done
+          cat vite.log; exit 1
+      - run: npm run test:grafcet-ui
+        env:
+          GRAFCET_TEST_URL: http://127.0.0.1:5175
+      - run: npm run test:grafcet-construction-ui
+        env:
+          GRAFCET_TEST_URL: http://127.0.0.1:5175

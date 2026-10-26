@@ -2,7 +2,7 @@ import { uiConfirm } from '../ui/dialogs'
 import { Kbd, TbButton, HistoryGroup, ViewControls, type ViewControlsProps } from '../ui/toolbarKit'
 import Select from '../ui/Select'
 import type React from 'react'
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useSimStore } from '../store/useSimStore'
 import type { EditorTool, WireColor, WireEndType } from '../types'
@@ -18,7 +18,6 @@ import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { validateGrafcet } from '../grafcet/engine'
 import { ladderSyncStatus } from '../grafcet/ladderSync'
 import ComponentTableDialog from './ComponentTableDialog'
-import ExportPdfDialog from '../export/ExportPdfDialog'
 import { IconCheck, IconWarning,
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
@@ -27,6 +26,9 @@ import { IconCheck, IconWarning,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp,
   IconTemplates, IconImport, IconLink,
 } from '../ui/icons'
+
+/** jsPDF e html2canvas (centenas de KB) só são descarregados quando o utilizador abre «Exportar PDF». */
+const ExportPdfDialog = lazy(() => import('../export/ExportPdfDialog'))
 
 type AlignEdge = 'left' | 'right' | 'top' | 'bottom' | 'centerX' | 'centerY'
 
@@ -697,7 +699,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           </button>
         </div>
       {componentTableOpen && <ComponentTableDialog onClose={() => setComponentTableOpen(false)} />}
-      {pdfOpen && <ExportPdfDialog open={pdfOpen} onClose={() => setPdfOpen(false)} />}
+      {pdfOpen && (
+        <Suspense fallback={null}>
+          <ExportPdfDialog open={pdfOpen} onClose={() => setPdfOpen(false)} />
+        </Suspense>
+      )}
     </div>
   )
 }
