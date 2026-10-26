@@ -5,15 +5,31 @@ const LIMITS = { left: [230, 340], right: [300, 420] }
 const clamp = (value: number, side: 'left' | 'right') => Math.min(LIMITS[side][1], Math.max(LIMITS[side][0], value))
 
 export function usePanelWidths() {
-  const [widths, setWidths] = useState(() => {
+  const [panels, setPanels] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('dcsimu:ce:panels') ?? '{}')
-      return { left: clamp(Number(stored.left) || DEFAULT.left, 'left'), right: clamp(Number(stored.right) || DEFAULT.right, 'right') }
-    } catch { return DEFAULT }
+      return {
+        left: clamp(Number(stored.left) || DEFAULT.left, 'left'),
+        right: clamp(Number(stored.right) || DEFAULT.right, 'right'),
+        collapsedLeft: stored.collapsedLeft === true,
+        collapsedRight: stored.collapsedRight === true,
+      }
+    } catch { return { ...DEFAULT, collapsedLeft: false, collapsedRight: false } }
   })
-  useEffect(() => { try { localStorage.setItem('dcsimu:ce:panels', JSON.stringify(widths)) } catch { /* preferência opcional */ } }, [widths])
-  const change = (side: 'left' | 'right', value: number) => setWidths((current) => ({ ...current, [side]: clamp(value, side) }))
-  return { widths, change, style: { '--ce-left-width': `${widths.left}px`, '--ce-right-width': `${widths.right}px` } as CSSProperties }
+  useEffect(() => { try { localStorage.setItem('dcsimu:ce:panels', JSON.stringify(panels)) } catch { /* preferência opcional */ } }, [panels])
+  const change = (side: 'left' | 'right', value: number) => setPanels((current) => ({ ...current, [side]: clamp(value, side) }))
+  const toggle = (side: 'left' | 'right') => setPanels((current) => ({ ...current, [side === 'left' ? 'collapsedLeft' : 'collapsedRight']: !current[side === 'left' ? 'collapsedLeft' : 'collapsedRight'] }))
+  return {
+    widths: { left: panels.left, right: panels.right },
+    collapsed: { left: panels.collapsedLeft, right: panels.collapsedRight },
+    change,
+    toggle,
+    style: {
+      '--ce-left-width': `${panels.left}px`, '--ce-right-width': `${panels.right}px`,
+      '--ce-left-current-width': `${panels.collapsedLeft ? 48 : panels.left}px`,
+      '--ce-right-current-width': `${panels.collapsedRight ? 48 : panels.right}px`,
+    } as CSSProperties,
+  }
 }
 
 export function PanelResizer({ side, width, onChange }: { side: 'left' | 'right'; width: number; onChange: (width: number) => void }) {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ControlDef, DisplayDef, PartDef, Vec3 } from '../../catalog/types'
 import * as THREE from 'three'
-import { IconChevronDown, IconChevronRight, IconClose, IconSearch, IconGrid, IconLayers, IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
+import { IconArrowLeft, IconChevronDown, IconChevronLeft, IconChevronRight, IconClose, IconSearch, IconGrid, IconLayers, IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
 import { patchPart, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
 import { faceOfNormal } from './terminalOps'
@@ -76,7 +76,7 @@ function ElementSection({ id, title, count, visible, searching, active, actions,
   </section>
 }
 
-export default function Hierarchy() {
+export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle, onMobileClose }: { collapsed?: boolean; onToggle: () => void; onMobileClose: () => void }) {
   const def = useEditorStore((s) => s.def)
   const selection = useEditorStore((s) => s.selection)
   const mode = useEditorStore((s) => s.mode)
@@ -172,9 +172,12 @@ export default function Hierarchy() {
     if (result.def !== current) edit(() => result.def)
   }
 
-  return <aside className="ce-left" aria-label="Hierarquia">
+  return <aside className={`ce-left${panelCollapsed ? ' is-collapsed' : ''}`} aria-label="Hierarquia">
     <div className="ce-hierarchy-title"><div><strong>Elementos</strong><small>Modelo e interface física</small></div><span>{counts.all}</span>
-      <button className="ce-icon" title={cards ? 'Ver em lista' : 'Ver em cartões com miniatura'} aria-label={cards ? 'Ver em lista' : 'Ver em cartões'} onClick={() => chooseCards(!cards)}>{cards ? <IconLayers size={13} /> : <IconGrid size={13} />}</button>
+      <span className="ce-collapsed-label"><IconLayers size={15} /><span>Elementos</span></span>
+      <button className="ce-mobile-panel-close" type="button" aria-label="Fechar hierarquia e voltar ao canvas" title="Fechar hierarquia e voltar ao canvas" onClick={onMobileClose}><IconArrowLeft size={13} /><span>Canvas</span></button>
+      <button className="ce-panel-collapse" type="button" aria-label={panelCollapsed ? 'Expandir hierarquia' : 'Recolher hierarquia'} aria-expanded={!panelCollapsed} title={panelCollapsed ? 'Expandir hierarquia' : 'Recolher hierarquia'} onClick={onToggle}>{panelCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}</button>
+      <button className="ce-icon ce-viewmode-toggle" title={cards ? 'Ver em lista' : 'Ver em cartões com miniatura'} aria-label={cards ? 'Ver em lista' : 'Ver em cartões'} onClick={() => chooseCards(!cards)}>{cards ? <IconLayers size={13} /> : <IconGrid size={13} />}</button>
     </div>
     <div className="ce-search">
       <IconSearch size={11} />

@@ -692,12 +692,12 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     </header>
     <ToolRibbon />
     <nav className="ce-mobile-panes" aria-label="Área do editor">
-      <button className={mobilePane === 'canvas' ? 'is-on' : ''} onClick={() => setMobilePane('canvas')}>Canvas 3D</button>
-      <button className={mobilePane === 'objects' ? 'is-on' : ''} onClick={() => setMobilePane('objects')}>Objetos</button>
-      <button className={mobilePane === 'inspector' ? 'is-on' : ''} onClick={() => setMobilePane('inspector')}>Propriedades</button>
+      <button type="button" className={mobilePane === 'canvas' ? 'is-on' : ''} aria-pressed={mobilePane === 'canvas'} title="Mostrar o canvas 3D" onClick={() => setMobilePane('canvas')}>Canvas 3D</button>
+      <button type="button" className={mobilePane === 'objects' ? 'is-on' : ''} aria-pressed={mobilePane === 'objects'} title="Abrir a hierarquia de objetos" onClick={() => setMobilePane('objects')}>Objetos</button>
+      <button type="button" className={mobilePane === 'inspector' ? 'is-on' : ''} aria-pressed={mobilePane === 'inspector'} title="Abrir o inspetor de propriedades" onClick={() => setMobilePane('inspector')}>Propriedades</button>
     </nav>
-    <div className={`ce-body ce-mobile-${mobilePane}`} style={panels.style}>
-      <Hierarchy />
+    <div className={`ce-body ce-mobile-${mobilePane}${panels.collapsed.left ? ' is-left-collapsed' : ''}${panels.collapsed.right ? ' is-right-collapsed' : ''}`} style={panels.style}>
+      <Hierarchy collapsed={panels.collapsed.left} onToggle={() => panels.toggle('left')} onMobileClose={() => setMobilePane('canvas')} />
       <PanelResizer side="left" width={panels.widths.left} onChange={(value) => panels.change('left', value)} />
       <main className={`ce-stage is-tool-${activeRibbon}${view.grid ? '' : ' no-grid'}${view.dark ? ' is-dark' : ''}${dropping ? ' is-dropping' : ''}${libraryOpen && mode === 'edit' ? ' lib-open' : ''}`}
         onDragOver={(event) => { if (mode === 'edit' && (event.dataTransfer.types.includes(DND_PROFILE) || event.dataTransfer.types.includes(DND_TERMINAL))) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; if (!dropping) setDropping(true) } }}
@@ -732,8 +732,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
           <button className="ce-chip" onClick={() => set({ editState: BASE_STATE })}>Voltar à pose base</button></div>}
       </main>
       <PanelResizer side="right" width={panels.widths.right} onChange={(value) => panels.change('right', value)} />
-      <aside className="ce-right" aria-label="Inspetor">
-        <InspectorNavigation />
+      <aside className={`ce-right${panels.collapsed.right ? ' is-collapsed' : ''}`} aria-label="Inspetor">
+        <InspectorNavigation collapsed={panels.collapsed.right} onToggle={() => panels.toggle('right')} onMobileClose={() => setMobilePane('canvas')} />
         <div className="ce-inspector">
           {tab === 'object' && <ObjectTab />}{tab === 'materials' && <MaterialsTab />}{tab === 'terminals' && <TerminalsTab />}
           {tab === 'wires' && <WiresTab />}{tab === 'lights' && <LightsTab />}{tab === 'states' && <StatesTab />}{tab === 'interactions' && <InteractionsTab />}{tab === 'controls' && <ControlsTab />}{tab === 'displays' && <DisplaysTab />}{tab === 'component' && <ComponentTab />}
