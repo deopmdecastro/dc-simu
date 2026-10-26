@@ -4,6 +4,7 @@ import { PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from './modelPaths'
 import { componentHalfExtents, PLATE_THICKNESS, PLATE_Z } from './panelBounds'
 import { panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { terminalNormalWorld3D, terminalWorld3D } from './terminal3D'
+import { REAL_TERMINALS } from '../electrical/realInterfaces'
 
 /**
  * Geometria física dos cabos no Painel 3D: extremidades (bornes ou pontas livres),
@@ -79,7 +80,8 @@ export function wireEndpoint3D(
       terminalColor: terminal.color,
       // `diameter` usa unidades do esquema; a escala física partilhada converte-o
       // para mm. 82% representa a abertura útil dentro do aro desenhado.
-      socketDiameterMm: Math.max(1, Math.min(14, ((terminal.diameter ?? 9) / SCHEMATIC_PX_PER_MM) * 0.82)),
+      socketDiameterMm: REAL_TERMINALS[component.type]?.find((spot) => spot.label === terminal.label)?.diameterMm
+        ?? Math.max(1, Math.min(14, ((terminal.diameter ?? 9) / SCHEMATIC_PX_PER_MM) * 0.82)),
       free: false,
     }
   }

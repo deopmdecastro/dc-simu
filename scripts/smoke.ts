@@ -20,7 +20,8 @@ import { applyKind } from '../src/ladder/ladderDnd'
 import { parseDataBlocks, moveValue } from '../src/ladder/dataBlocks'
 import type { CounterTable, AddressTable, TimerTable, EdgeTable } from '../src/ladder/ladderEngine'
 import { createComponent, terminalByLabel, TEMPLATES, upgradeLogoTerminals, upgradeProauto24A } from '../src/electrical/factory'
-import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
+import { REAL_TERMINALS, realTerminalPosition } from '../src/electrical/realInterfaces'
+import { LEGACY_REAL_TERMINALS } from '../src/electrical/legacyRealInterfaces'
 import { upgradeRealInterfacePositions } from '../src/electrical/factory'
 import { facesOfTerminal } from '../src/three/terminalFaces'
 import { logoTerminalLocal } from '../src/schematic/logoTerminalGeometry'
@@ -1913,7 +1914,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     && bottom.every((label) => weg.find((spot) => spot.label === label)?.face === 'bottom'))
   check('Contator WEG: bocas de ligação alinhadas nas cinco colunas medidas no GLB',
     top.every((label, i) => Math.abs(weg.find((spot) => spot.label === label)!.x - weg.find((spot) => spot.label === bottom[i])!.x) < 1e-6)
-    && weg.every((spot) => Math.abs(spot.z - 0.828) < 1e-6 && (spot.holeDepthMm ?? 0) > 5))
+    && weg.every((spot) => Math.abs(spot.z - 0.828) < 1e-6 && (spot.holeDepthMm ?? 0) > 3.5 && (spot.holeDepthMm ?? 0) < 4.5))
 }
 
 
@@ -2443,6 +2444,35 @@ console.log('\n— Tabela de sinais dinâmica —')
         JSON.stringify(terminal.position3D) === JSON.stringify(actual.position3D)
     })))
   check('Migração: todas as interfaces migradas são idempotentes', migratedComponents.every(({ migrated }) => upgradeRealInterfacePositions(migrated) === migrated))
+
+  const historical = measuredComponents.filter((component) => component.type !== 'multimeterDm20').map((current) => {
+    const old = { ...current, terminals: current.terminals.map((terminal) => {
+      const spot = LEGACY_REAL_TERMINALS[current.type]!.find((spot) => spot.label === terminal.label)!
+      return { ...terminal, position3D: realTerminalPosition(current.type, spot) }
+    }) }
+    return { current, old, migrated: upgradeRealInterfacePositions(old) }
+  })
+  check('Migração: posições do commit 13896bc passam para os furos corrigidos, conservando IDs e 2D', historical.every(({ current, migrated }) =>
+    current.terminals.every((terminal, i) => terminal.id === migrated.terminals[i].id && terminal.x === migrated.terminals[i].x && terminal.y === migrated.terminals[i].y && JSON.stringify(terminal.position3D) === JSON.stringify(migrated.terminals[i].position3D))))
+  const pinned = { ...historical[0].old, terminals: historical[0].old.terminals.map((terminal) => ({ ...terminal, pinned: true })) }
+  check('Migração: bornes fixados não são reposicionados mesmo quando coincidem com valores antigos', upgradeRealInterfacePositions(pinned) === pinned)
+  const meter = createComponent('multimeterDm20')
+  const oldMeter = { ...meter, terminals: LEGACY_REAL_TERMINALS.multimeterDm20!.map((spot) => ({
+    ...terminalByLabel(meter, spot.label === 'VΩmA' ? 'VΩ' : spot.label)!, label: spot.label, position3D: realTerminalPosition(meter.type, spot),
+  })) }
+  const repairedMeter = upgradeRealInterfacePositions(oldMeter)
+  check('Multímetro: quatro tomadas recuperadas com identidades COM/VΩ/mA/10A', meter.terminals.length === 4 && repairedMeter.terminals.length === 4 && ['COM','VΩ','mA','10A'].every((label) => !!terminalByLabel(repairedMeter, label)))
+  check('Multímetro: migração conserva IDs das ligações antigas e não duplica ao repetir', oldMeter.terminals.every((terminal) => repairedMeter.terminals.some((next) => terminal.id === next.id)) && upgradeRealInterfacePositions(repairedMeter) === repairedMeter)
+  const fixture = JSON.parse(useSimStore.getState().saveJSON())
+  const adjustedBreaker = createComponent('breaker1p')
+  adjustedBreaker.terminals[0] = { ...adjustedBreaker.terminals[0], pinned: true, position3D: { x: .35, y: .45, z: .55 } }
+  adjustedBreaker.terminals[1] = { ...adjustedBreaker.terminals[1], position3D: { x: .4, y: .5, z: .6 } }
+  useSimStore.getState().loadJSON(JSON.stringify({ ...fixture, components: [adjustedBreaker], wires: [] }))
+  const loaded = useSimStore.getState().components[0]
+  check('Carregamento completo: conserva os bornes fixados e os ajustes manuais', loaded.id === adjustedBreaker.id && loaded.terminals.every((terminal, i) => JSON.stringify(terminal.position3D) === JSON.stringify(adjustedBreaker.terminals[i].position3D)))
+  useSimStore.getState().loadJSON(JSON.stringify({ ...fixture, components: [oldMeter], wires: [] }))
+  check('Carregamento completo: recupera quatro tomadas sem perder as ligações antigas', useSimStore.getState().components[0].terminals.length === 4 && oldMeter.terminals.every((terminal) => useSimStore.getState().components[0].terminals.some((next) => next.id === terminal.id)))
+  useSimStore.getState().loadJSON(JSON.stringify(fixture))
 }
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)

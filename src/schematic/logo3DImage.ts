@@ -30,8 +30,8 @@ export function getLogo3DImages() {
   if (imagePromise) return imagePromise
   const spec = getComponentModelSpec('plcSiemensLogo1224RC')!
   imagePromise = Promise.all([
-    captureOrthographicModelImage({ path: spec.path, rotation: spec.rotation, flipDepth: spec.flipDepth, configureObject: screenState(false) }),
-    captureOrthographicModelImage({ path: spec.path, rotation: spec.rotation, flipDepth: spec.flipDepth, configureObject: screenState(true) }),
+    captureOrthographicModelImage({ ...spec, configureObject: screenState(false) }),
+    captureOrthographicModelImage({ ...spec, configureObject: screenState(true) }),
   ]).then(([off, on]) => ({ off, on })).catch((error) => {
     imagePromise = undefined
     throw error

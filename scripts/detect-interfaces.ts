@@ -14,6 +14,7 @@ import { detectHoles } from '../src/catalog/holeDetect'
 import type { Face } from '../src/catalog/terminalProfiles'
 import { COMPONENT_PHYSICAL_SIZE_MM, getComponentModelSpec } from '../src/three/modelPaths'
 import type { ComponentType } from '../src/types'
+import { cloneModelScene, fitComponentModel } from '../src/three/modelFit'
 
 const FACES: Face[] = ['top', 'bottom', 'front', 'back', 'left', 'right']
 
@@ -25,21 +26,8 @@ export async function loadModelMm(type: ComponentType) {
   const buf = fs.readFileSync(file)
   const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
   const gltf = await new Promise<any>((resolve, reject) => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).parse(ab, '', resolve, reject))
-  const scene: THREE.Object3D = gltf.scene
-  scene.rotation.set(...spec.rotation)
-  scene.updateMatrixWorld(true)
-  const size = new THREE.Box3().setFromObject(scene, true).getSize(new THREE.Vector3())
-  const phys = COMPONENT_PHYSICAL_SIZE_MM[type]!
-  const scale = Math.exp((Math.log(phys.width / size.x) + Math.log(phys.height / size.y) + Math.log(phys.depth / size.z)) / 3)
-  const root = new THREE.Group()
-  root.add(scene)
-  root.scale.setScalar(scale)
-  root.updateMatrixWorld(true)
-  // centrar como o editor (origem no centro da caixa)
-  const box = new THREE.Box3().setFromObject(root, true)
-  const centre = box.getCenter(new THREE.Vector3())
-  root.position.sub(centre)
-  root.updateMatrixWorld(true)
+  const phys = spec.physicalSizeMm
+  const root = fitComponentModel(cloneModelScene(gltf.scene), spec, 1)
   return { root, box: new THREE.Box3().setFromObject(root, true), phys }
 }
 

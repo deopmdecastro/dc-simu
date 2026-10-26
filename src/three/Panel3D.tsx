@@ -13,7 +13,7 @@ import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
 import { IconClose, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '../types'
 import * as THREE from 'three'
-import { cloneModelScene } from './modelFit'
+import { cloneModelScene, fitComponentModel } from './modelFit'
 import { finishCadMaterial } from './catalogMaterials'
 import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
@@ -21,7 +21,7 @@ import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAI
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
 import { PANEL_UNITS_PER_PX, componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
-import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
+import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalMarkerRadius, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
 import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from './panel3DEditing'
@@ -183,7 +183,6 @@ function Contactor3D({ c, x }: { c: ElectricalComponent; x: number }) {
 /* ---------- Siemens LOGO! 12/24RC — modelo 3D real (GLTF/GLB) ---------- */
 const LOGO_1224RC_SPEC = getComponentModelSpec('plcSiemensLogo1224RC')!
 const LOGO_1224RC_MODEL_URL = LOGO_1224RC_SPEC.path
-const LOGO_1224RC_ROTATION = LOGO_1224RC_SPEC.rotation
 const LOGO_1224RC_TARGET_HEIGHT = LOGO_1224RC_SPEC.targetHeight
 
 function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['view3DRenderMode'], bodyColor?: string) {
@@ -237,6 +236,7 @@ function EditableTerminal3D({ component, terminal, active }: { component: Electr
   const setPosition3D = useSimStore((state) => state.setViewTerminalPosition3D)
   const labelsMode = useSimStore((state) => state.viewOrientationEditor?.trackingLabels ?? 'active')
   const [hover, setHover] = useState(false)
+  const radius = terminalMarkerRadius(component, terminal) * (active ? 1.1 : hover ? 1.05 : 1)
   const position = terminalLocal3D(component, terminal)
   useEffect(() => () => dragCleanup.current?.(), [])
 
@@ -299,12 +299,12 @@ function EditableTerminal3D({ component, terminal, active }: { component: Electr
     onPointerOut={() => { setHover(false); if (!dragCleanup.current) gl.domElement.style.cursor = '' }}
   >
     <mesh renderOrder={31}>
-      <sphereGeometry args={[(active ? 0.06 : hover ? 0.052 : 0.042) * k, 18, 18]} />
-      <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : '#000000'} emissiveIntensity={active ? 0.7 : 0} metalness={0.2} roughness={0.35} depthTest={false} />
+      <sphereGeometry args={[radius, 18, 18]} />
+      <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : '#000000'} emissiveIntensity={active ? 0.7 : 0} metalness={0.2} roughness={0.35} />
     </mesh>
     {active && <mesh renderOrder={30}>
-      <sphereGeometry args={[0.095 * k, 18, 18]} />
-      <meshBasicMaterial color="#22d3ee" transparent opacity={0.22} depthTest={false} depthWrite={false} />
+      <sphereGeometry args={[radius * 1.2, 18, 18]} />
+      <meshBasicMaterial color="#22d3ee" transparent opacity={0.22} depthWrite={false} />
     </mesh>}
     {showLabel && <Text position={[0, 0.05 + 0.035 * k, 0]} fontSize={0.06} color={active ? '#0e7490' : '#1e293b'} anchorX="center" anchorY="bottom" depthOffset={-2}>{terminal.label}</Text>}
   </group>
@@ -318,16 +318,16 @@ function ConnectionTerminal3D({ component, terminal, active }: {
   const position = terminalLocal3D(component, terminal)
   const k = terminalMarkerScale(terminal)
   const [hover, setHover] = useState(false)
-  const radius = (active ? 0.052 : hover ? 0.043 : 0.034) * k
+  const radius = terminalMarkerRadius(component, terminal) * (active ? 1.1 : hover ? 1.05 : 1)
   return <group position={position}
     onPointerDown={(event) => event.stopPropagation()}
     onPointerOver={(event) => { event.stopPropagation(); setHover(true) }}
     onPointerOut={() => setHover(false)}>
     <mesh renderOrder={30}>
       <sphereGeometry args={[radius, 16, 16]} />
-      <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : terminal.color} emissiveIntensity={active ? 1 : hover ? 0.45 : 0.2} depthTest={false} />
+      <meshStandardMaterial color={active ? '#22d3ee' : terminal.color} emissive={active ? '#0891b2' : terminal.color} emissiveIntensity={active ? 1 : hover ? 0.45 : 0.2} />
     </mesh>
-    <mesh><sphereGeometry args={[Math.max(0.058, radius * 1.8), 10, 10]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
+    <mesh><sphereGeometry args={[Math.max(0.012, radius * 1.8), 10, 10]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
     {(active || hover) && <Text position={[0, 0.045 + 0.035 * k, 0]} fontSize={0.048} color="#0f172a" anchorX="center" anchorY="bottom" depthOffset={-3}>{terminal.label}</Text>}
   </group>
 }
@@ -572,20 +572,7 @@ function LogoSiemens1224RCMesh({ c, x }: { c: ElectricalComponent; x: number }) 
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((mat) => finishCadMaterial(mat, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    obj.rotation.set(...LOGO_1224RC_ROTATION)
-    obj.updateMatrixWorld(true)
-
-    const rawBox = new THREE.Box3().setFromObject(obj, true)
-    const rawHeight = rawBox.max.y - rawBox.min.y
-    const scale = rawHeight > 0 ? LOGO_1224RC_TARGET_HEIGHT / rawHeight : 1
-    obj.scale.setScalar(scale)
-    obj.updateMatrixWorld(true)
-
-    const box = new THREE.Box3().setFromObject(obj, true)
-    const center = box.getCenter(new THREE.Vector3())
-    obj.position.set(-center.x, -box.min.y, -center.z)
-
-    return obj
+    return fitComponentModel(obj, getComponentModelSpec(c.type)!, PANEL_UNITS_PER_MM, 'bottom')
   }, [scene])
 
   const on = !!c.state.powered
@@ -634,17 +621,7 @@ function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    obj.rotation.set(...spec.rotation)
-    obj.updateMatrixWorld(true)
-    const bounds = new THREE.Box3().setFromObject(obj, true)
-    const height = bounds.max.y - bounds.min.y
-    const scale = height > 0 ? spec.targetHeight / height : 1
-    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
-    obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj, true)
-    const center = box.getCenter(new THREE.Vector3())
-    obj.position.set(-center.x, -box.min.y, -center.z)
-    return obj
+    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
   }, [scene, spec])
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
@@ -663,17 +640,7 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((mat) => finishCadMaterial(mat, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    obj.rotation.set(...spec.rotation)
-    obj.updateMatrixWorld(true)
-    const bounds = new THREE.Box3().setFromObject(obj, true)
-    const height = bounds.max.y - bounds.min.y
-    const scale = height > 0 ? spec.targetHeight / height : 1
-    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
-    obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj, true)
-    const center = box.getCenter(new THREE.Vector3())
-    obj.position.set(-center.x, -box.min.y, -center.z)
-    return obj
+    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
   }, [scene, spec])
   const en = !!c.state.energized
   const armature = useMemo(() => model.getObjectByName('Node10'), [model])
@@ -727,17 +694,7 @@ function CadComponentReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    obj.rotation.set(...spec.rotation)
-    obj.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(obj, true)
-    const height = raw.max.y - raw.min.y
-    const scale = height > 0 ? spec.targetHeight / height : 1
-    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
-    obj.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(obj, true)
-    const center = box.getCenter(new THREE.Vector3())
-    obj.position.set(-center.x, -box.min.y, -center.z)
-    return obj
+    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
   }, [scene, spec])
   const active = !!(c.state.energized || c.state.powered)
   const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
@@ -834,16 +791,7 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    obj.rotation.set(...spec.rotation)
-    obj.updateMatrixWorld(true)
-    const bounds = new THREE.Box3().setFromObject(obj, true)
-    const size = bounds.getSize(new THREE.Vector3())
-    const scale = size.y > 0 ? spec.targetHeight / size.y : 1
-    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
-    obj.updateMatrixWorld(true)
-    const fitted = new THREE.Box3().setFromObject(obj, true)
-    obj.position.sub(fitted.getCenter(new THREE.Vector3()))
-    return obj
+    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'center')
   }, [scene, spec])
   const pressed = !!c.state.pressed
   const keyOperated = c.type === 'emergencyButtonKeyP20ACR'
@@ -906,15 +854,7 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    obj.rotation.set(...spec.rotation)
-    obj.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(obj, true)
-    const size = raw.getSize(new THREE.Vector3())
-    const scale = spec.targetHeight / (size.y || 1)
-    obj.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
-    obj.updateMatrixWorld(true)
-    obj.position.sub(new THREE.Box3().setFromObject(obj, true).getCenter(new THREE.Vector3()))
-    return obj
+    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'center')
   }, [scene, spec])
   /* As tampas são encontradas pela cor do material do GLB, não pelo nome do nó:
    * o `Node8` (vermelho) nem sempre é o que se vê, e era por isso que só o
@@ -1085,15 +1025,7 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
       mesh.castShadow = true
       mesh.receiveShadow = true
     })
-    object.rotation.set(...spec.rotation)
-    object.updateMatrixWorld(true)
-    const rawSize = new THREE.Box3().setFromObject(object, true).getSize(new THREE.Vector3())
-    const faceDiameter = Math.max(rawSize.x, rawSize.y)
-    const scale = faceDiameter > 0 ? spec.targetHeight / faceDiameter : 1
-    object.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
-    object.updateMatrixWorld(true)
-    object.position.sub(new THREE.Box3().setFromObject(object, true).getCenter(new THREE.Vector3()))
-    return object
+    return fitComponentModel(object, spec, PANEL_UNITS_PER_MM, 'center')
   }, [scene, spec])
   const on = !!c.state.on
   const color = typeof c.state.color === 'string' ? c.state.color : '#ef4444'
@@ -1257,17 +1189,7 @@ function MotorSewDrn80Mk4B3Real3D({ c, x }: { c: ElectricalComponent; x: number 
       mesh.castShadow = true
       mesh.receiveShadow = true
     })
-    object.rotation.set(...spec.rotation)
-    object.updateMatrixWorld(true)
-    const raw = new THREE.Box3().setFromObject(object, true)
-    const height = raw.max.y - raw.min.y
-    const scale = height > 0 ? spec.targetHeight / height : 1
-    object.scale.set(scale, scale, spec.flipDepth ? -scale : scale)
-    object.updateMatrixWorld(true)
-    const fitted = new THREE.Box3().setFromObject(object, true)
-    const center = fitted.getCenter(new THREE.Vector3())
-    object.position.set(-center.x, -fitted.min.y, -center.z)
-    return object
+    return fitComponentModel(object, spec, PANEL_UNITS_PER_MM, 'bottom')
   }, [scene, spec])
   const running = !!c.state.running
   const direction = c.state.direction

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { cloneModelScene } from '../three/modelFit'
+import { cloneModelScene, fitComponentModel } from '../three/modelFit'
+import type { ComponentModelSpec } from '../three/modelPaths'
 import { createGltfLoader } from '../three/gltfLoader'
 import { CAPTURE_FRAME_PADDING as FRAME_PADDING } from '../three/captureFrame'
 
@@ -10,6 +11,7 @@ export interface OrthographicModelImageOptions {
    * Somar ângulos de Euler não é o mesmo que compor rotações. */
   viewRotation?: [number, number, number]
   flipDepth?: boolean
+  physicalSizeMm?: ComponentModelSpec['physicalSizeMm']
   /** Alterações visuais da captura (por exemplo, ecrã ligado do LOGO!). */
   configureObject?: (object: THREE.Object3D) => void
 }
@@ -80,10 +82,15 @@ async function capture(options: OrthographicModelImageOptions): Promise<string> 
   })
   options.configureObject?.(inner)
 
-  inner.rotation.set(...options.rotation)
-  if (options.flipDepth) inner.scale.z = -1
+  let fitted: THREE.Object3D = inner
+  if (options.physicalSizeMm) {
+    fitted = fitComponentModel(inner, { ...options, physicalSizeMm: options.physicalSizeMm, placement: 'machine', targetHeight: options.physicalSizeMm.height }, 1)
+  } else {
+    inner.rotation.set(...options.rotation)
+    if (options.flipDepth) inner.scale.z = -1
+  }
   const model = new THREE.Group()
-  model.add(inner)
+  model.add(fitted)
   if (options.viewRotation) model.rotation.set(...options.viewRotation)
   model.updateMatrixWorld(true)
 
@@ -132,6 +139,7 @@ async function capture(options: OrthographicModelImageOptions): Promise<string> 
     if (!mesh.isMesh) return
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     materials.forEach((material) => material.dispose())
+    if (mesh.userData.generatedTerminalSocket) mesh.geometry.dispose()
   })
   return image
 }

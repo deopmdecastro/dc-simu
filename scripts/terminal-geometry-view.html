@@ -1,0 +1,22 @@
+<!doctype html><html lang="pt"><meta charset="utf-8"><title>Verificação geométrica de bornes</title>
+<style>body{margin:0;font:14px system-ui;background:#eef2f7;color:#17213a}header{padding:12px;position:sticky;top:0;background:#fff;z-index:1}button,select{padding:8px;margin:3px}#views{display:flex;flex-wrap:wrap}figure{margin:8px;background:white}figcaption{padding:8px}canvas{display:block}#point{white-space:pre}</style>
+<header><select id="type"></select><button data-view="front">Frente</button><button data-view="top">Topo</button><button data-view="bottom">Base</button><button data-view="left">Esquerda</button><button data-view="right">Direita</button><button data-view="back">Trás</button><button data-view="iso">ISO</button><span id="point"></span></header><div id="views"></div>
+<script type="module">
+import * as THREE from '/node_modules/.vite/deps/three.js';
+import {GLTFLoader} from '/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
+import {MeshoptDecoder} from '/node_modules/three/examples/jsm/libs/meshopt_decoder.module.js';
+import {getComponentModelSpec} from '/src/three/modelPaths.ts';
+import {cloneModelScene,fitComponentModel} from '/src/three/modelFit.ts';
+import {REAL_TERMINALS} from '/src/electrical/realInterfaces.ts';
+import {createComponent} from '/src/electrical/factory.ts';
+import {terminalLocal3D,terminalMarkerRadius} from '/src/three/terminal3D.ts';
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(440,440);renderer.setPixelRatio(1);renderer.setClearColor('#eef2f7');
+const loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);const models=new Map();
+const dirs={front:[0,0,1],back:[0,0,-1],top:[0,1,0],bottom:[0,-1,0],left:[-1,0,0],right:[1,0,0],iso:[2,1,3]};
+for(const type of Object.keys(REAL_TERMINALS)){const opt=new Option(type,type);document.querySelector('select').add(opt)}
+async function model(type){if(models.has(type))return models.get(type);const spec=getComponentModelSpec(type);const source=await loader.loadAsync(spec.path);const root=fitComponentModel(cloneModelScene(source.scene),spec);models.set(type,root);return root}
+window.draw=async(type=document.querySelector('select').value,view='iso')=>{document.querySelector('select').value=type;const root=await model(type);const scene=new THREE.Scene();scene.add(root);scene.add(new THREE.HemisphereLight(0xffffff,0x64748b,2));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(2,4,6);scene.add(light);const c=createComponent(type);for(const t of c.terminals){const m=new THREE.Mesh(new THREE.SphereGeometry(terminalMarkerRadius(c,t),12,12),new THREE.MeshBasicMaterial({color:'#f59e0b'}));m.renderOrder=100;m.position.copy(terminalLocal3D(c,t));scene.add(m)}
+const box=new THREE.Box3().setFromObject(root,true),size=box.getSize(new THREE.Vector3());const span=Math.max(size.x,size.y,size.z)*1.12;const camera=new THREE.OrthographicCamera(-span/2,span/2,span/2,-span/2,.001,span*10);camera.position.copy(new THREE.Vector3(...dirs[view]).normalize().multiplyScalar(span*3));if(view==='top')camera.up.set(0,0,-1);if(view==='bottom')camera.up.set(0,0,1);camera.lookAt(0,0,0);renderer.render(scene,camera);const canvas=document.createElement('canvas');canvas.width=440;canvas.height=440;canvas.getContext('2d').drawImage(renderer.domElement,0,0);const fig=document.createElement('figure');const cap=document.createElement('figcaption');cap.textContent=type+' · '+view;fig.append(canvas,cap);document.querySelector('#views').prepend(fig);
+canvas.onclick=e=>{const rect=canvas.getBoundingClientRect(),ray=new THREE.Raycaster();ray.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);const hit=ray.intersectObject(root,true)[0];if(hit){const p=hit.point;const frac=[(p.x-box.min.x)/size.x,(box.max.y-p.y)/size.y,(p.z-box.min.z)/size.z];document.querySelector('#point').textContent=JSON.stringify(frac.map(n=>+n.toFixed(5)));window.lastPoint=frac}};window.auditScene={root,box,camera,size,component:c};return {type,view};};
+for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>window.draw(undefined,b.dataset.view);document.querySelector('select').onchange=()=>window.draw();await window.draw('terminalPhoenixPti6','iso');window.ready=true;
+</script></html>

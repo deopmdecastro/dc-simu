@@ -8,6 +8,7 @@ import { createComponent } from '../electrical/factory'
 import type { ComponentType, ElectricalComponent, Terminal } from '../types'
 import { getComponentModelSpec } from './modelPaths'
 import { terminalWorld3D } from './terminal3D'
+import { fitComponentModel } from './modelFit'
 import { brushedMetal, galvanizedSteel, matteWall, polishedConcrete } from './proceduralTextures'
 
 const UNIT = 0.0055
@@ -118,20 +119,7 @@ function terminal(device: DeviceKey, label: string): { point: THREE.Vector3; ter
 function preparedModel(type: ComponentType, source: THREE.Object3D) {
   const spec = getComponentModelSpec(type)
   if (!spec) throw new Error(`Modelo 3D em falta para ${type}`)
-  const scene = skeletonClone(source)
-  scene.position.set(0, 0, 0)
-  scene.rotation.set(...spec.rotation)
-  scene.scale.set(1, 1, spec.flipDepth ? -1 : 1)
-  scene.updateMatrixWorld(true)
-  const initial = new THREE.Box3().setFromObject(scene)
-  const size = initial.getSize(new THREE.Vector3())
-  const scale = size.y > 0 ? spec.targetHeight / size.y : 1
-  scene.scale.multiplyScalar(scale)
-  scene.updateMatrixWorld(true)
-  const normalized = new THREE.Box3().setFromObject(scene)
-  const center = normalized.getCenter(new THREE.Vector3())
-  scene.position.set(-center.x, -center.y, -center.z)
-  scene.updateMatrixWorld(true)
+  const scene = fitComponentModel(skeletonClone(source), spec)
   const finalBox = new THREE.Box3().setFromObject(scene)
   return { scene, targetHeight: spec.targetHeight, depth: finalBox.getSize(new THREE.Vector3()).z }
 }

@@ -13,6 +13,7 @@
 
 import { hiddenCatalogTypes } from '../catalog/hidden'
 import { FACE_INWARD, terminalInsetMm, realTerminalPosition, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
+import { LEGACY_REAL_TERMINALS } from './legacyRealInterfaces'
 import { parseCatalogType } from '../catalog/types'
 import { railWidthPx } from '../three/railMount'
 import { nanoid } from 'nanoid'
@@ -798,20 +799,33 @@ export function upgradeRealInterfacePositions(c: ElectricalComponent): Electrica
   const spots = REAL_TERMINALS[c.type]
   if (!spots?.length) return c
   let changed = false
+  const repairMeter = c.type === 'multimeterDm20' && c.terminals.length === 2 && c.terminals.some((terminal) => terminal.label === 'VΩmA')
   const terminals = c.terminals.map((terminal) => {
-    const spot = spots.find((item) => item.label.toLocaleUpperCase() === terminal.label.toLocaleUpperCase())
+    const label = repairMeter && terminal.label === 'VΩmA' ? 'VΩ' : terminal.label
+    const canonical = label === terminal.label ? terminal : { ...terminal, label, defId: 'dm20-volt' }
+    if (canonical !== terminal) changed = true
+    const spot = spots.find((item) => item.label.toLocaleUpperCase() === label.toLocaleUpperCase())
+    const previous = LEGACY_REAL_TERMINALS[c.type]?.find((item) => item.label.toLocaleUpperCase() === terminal.label.toLocaleUpperCase())
     const at = terminal.position3D
-    if (!spot || !at) return terminal
+    if (!spot || !at || terminal.pinned) return canonical
     const target = realTerminalPosition(c.type, spot)
-    if (Math.hypot(at.x - target.x, at.y - target.y, at.z - target.z) < 1e-9) return terminal
-    const legacy = legacyInsetIntoHole(c.type, spot)
-    const surface = surfacePosition(spot)
+    if (Math.hypot(at.x - target.x, at.y - target.y, at.z - target.z) < 1e-9) return canonical
+    const legacy = legacyInsetIntoHole(c.type, previous ?? spot)
+    const surface = surfacePosition(previous ?? spot)
+    const inset = realTerminalPosition(c.type, previous ?? spot)
     const matches = (position: { x: number; y: number; z: number }) =>
       Math.abs(at.x - position.x) <= 1e-3 && Math.abs(at.y - position.y) <= 1e-3 && Math.abs(at.z - position.z) <= 1e-3
-    if (!matches(legacy) && !matches(surface)) return terminal
+    if (!matches(legacy) && !matches(surface) && !matches(inset) && !matches(surfacePosition(spot))) return canonical
     changed = true
-    return { ...terminal, position3D: target }
+    return { ...terminal, label, ...(repairMeter ? { defId: label === 'COM' ? 'dm20-com' : 'dm20-volt' } : {}), position3D: target }
   })
+  if (repairMeter) {
+    for (const template of TEMPLATES.multimeterDm20.terminals) {
+      if (terminals.some((terminal) => terminal.label === template.label)) continue
+      terminals.push({ ...createTerminal(c.id, template.label, template.kind), ...template })
+    }
+    changed = true
+  }
   return changed ? { ...c, terminals } : c
 }
 
@@ -989,19 +1003,22 @@ export function upgradeLogoTerminals(c: ElectricalComponent): ElectricalComponen
   return extra.length ? { ...c, terminals: [...c.terminals, ...extra] } : c
 }
 
-/** Migra a fonte 24B provisória para a variante de parafuso 24A sem perder cabos. */
+/** Completa projetos anteriores às posições físicas. Posições existentes são
+ * tratadas pela migração versionada, para não apagar ajustes manuais. */
 export function upgradeProtectionTerminalPositions(c: ElectricalComponent): ElectricalComponent {
   if (!['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'phoenixEcb3000760', 'multimeterDm20'].includes(c.type)) return c
   // Uma revisão feita no editor tem prioridade sobre os novos padrões.
   if ((c.editorVersion ?? 1) > 1) return c
   const defaults = TEMPLATES[c.type].terminals
-  return {
-    ...c,
-    terminals: c.terminals.map((terminal) => {
+  let changed = false
+  const terminals = c.terminals.map((terminal) => {
+      if (terminal.pinned || terminal.position3D) return terminal
       const calibrated = defaults.find((item) => item.label === terminal.label)
-      return calibrated?.position3D ? { ...terminal, position3D: { ...calibrated.position3D }, terminalType: calibrated.terminalType ?? terminal.terminalType, diameter: calibrated.diameter ?? terminal.diameter } : terminal
-    }),
-  }
+      if (!calibrated?.position3D) return terminal
+      changed = true
+      return { ...terminal, position3D: { ...calibrated.position3D }, terminalType: calibrated.terminalType ?? terminal.terminalType, diameter: calibrated.diameter ?? terminal.diameter }
+    })
+  return changed ? { ...c, terminals } : c
 }
 
 export function upgradeProauto24A(c: ElectricalComponent): ElectricalComponent {

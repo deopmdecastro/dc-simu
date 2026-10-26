@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { createGltfLoader } from './gltfLoader'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { ComponentType } from '../types'
-import { cloneModelScene } from './modelFit'
+import { cloneModelScene, fitComponentModel } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
 import { finishCadMaterial } from './catalogMaterials'
 
@@ -104,9 +104,7 @@ async function renderRow(type: ComponentType, pitchIndex: number): Promise<Compo
   scene.add(turntable)
 
   // A clonagem mantém o CAD de origem imutável e partilha apenas buffers de leitura.
-  const object = cloneModelScene(source)
-  object.rotation.set(...spec.rotation)
-  if (spec.flipDepth) object.rotateY(Math.PI)
+  const object = fitComponentModel(cloneModelScene(source), spec, 1)
   normalizeObject(object)
   enhanceTurntableMaterials(object)
   turntable.add(object)
@@ -157,6 +155,7 @@ async function renderRow(type: ComponentType, pitchIndex: number): Promise<Compo
     object.traverse((child) => {
       const mesh = child as THREE.Mesh
       if (mesh.isMesh && mesh.material) disposeMaterial(mesh.material)
+      if (mesh.isMesh && mesh.userData.generatedTerminalSocket) mesh.geometry.dispose()
       if (child.userData.turntableOutline) {
         const line = child as THREE.LineSegments
         line.geometry.dispose()

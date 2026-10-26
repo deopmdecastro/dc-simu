@@ -15,6 +15,7 @@ export function getCad3DImage(type: ComponentType): Promise<string> {
     path: spec.path,
     rotation: spec.rotation,
     flipDepth: spec.flipDepth,
+    physicalSizeMm: spec.physicalSizeMm,
   }).catch((error) => {
     imagePromises.delete(type)
     throw error

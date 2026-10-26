@@ -13,6 +13,10 @@ U1/V1/W1.
 
 O editor GRAFCET aceita ficheiros `.ct` do FluidSIM 4, com leitura local de etapas, transições, ações contínuas/condicionadas e ligações. A confirmação mostra o resumo e os avisos antes de substituir o diagrama; a operação permite desfazer. Consulte [compatibilidade, limites e testes](docs/FLUIDSIM-IMPORT.md), incluindo referências a gráficos externos.
 
+## Bornes dentro dos encaixes 3D
+
+As 142 ligações dos 20 equipamentos integrados com bornes são verificadas contra as cavidades da geometria renderizada. O editor usa a mesma escala física do CAD, limita o marcador ao espaço do furo e migra posições automáticas antigas. Consulte [calibração, réguas complementares e verificações](docs/TERMINAL-GEOMETRY.md); execute `npm run test:terminal-geometry` para verificar os GLB locais.
+
 ## Novidades — v5.1 (grelha comum e reforço de segurança)
 
 - **Grelha alinhada**: Esquema 2D, GRAFCET, fundo do editor 3D Admin e grelha física do editor 3D usam o mesmo passo de referência de 20 unidades (20 px nos editores planos; 20 mm no chão 3D). O GRAFCET continua a adaptar a densidade visível ao zoom sem alterar o encaixe.

@@ -24,6 +24,7 @@ export function getOrientedComponentImage(
     rotation: spec.rotation,
     viewRotation: [orientation.x * radians, orientation.y * radians, orientation.z * radians],
     flipDepth: spec.flipDepth,
+    physicalSizeMm: spec.physicalSizeMm,
   }).catch((error) => {
     cache.delete(key)
     throw error

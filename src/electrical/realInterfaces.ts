@@ -5,9 +5,11 @@ import { getComponentPhysicalSizeMm } from '../three/modelPaths'
  * Interfaces REAIS dos modelos 3D: onde ficam mesmo os encaixes dos cabos em
  * cada aparelho, e que peça do GLB se mexe quando o aparelho é operado.
  *
- * As posições foram medidas no próprio GLB por `npx tsx scripts/detect-interfaces.ts`
- * (varredura por raios que encontra os furos/cavidades reais de cada face) e os
- * rótulos vêm das fichas técnicas dos fabricantes. É o valor por omissão global:
+ * Posições verificadas por raios contra o GLB no referencial final de modelFit.
+ * SafetyRelay e PLC LS incluem réguas vazadas acrescentadas ao CAD; o motor usa
+ * a caixa funcional de sete ligações. `test:terminal-geometry` verifica cada encaixe.
+ * A associação entre rótulo e ligação mantém o contrato elétrico existente.
+ * É o valor por omissão global:
  * qualquer componente novo nasce já com os bornes nos sítios certos.
  *
  * Coordenadas normalizadas na caixa do componente, como `position3D`:
@@ -76,234 +78,187 @@ export interface RealControlSpot {
 }
 
 export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> = {
-  /**
-   * Steck SD C25 1P (17,8×79,6×72,6 mm, do STEP do fabricante). A caixa de
-   * ligação é aberta em cima (1, entrada) e em baixo (2, saída), com cerca de
-   * 11 mm de largura e 4,5–5 mm de profundidade, a meio da profundidade
-   * (z ≈ 0,39). Os parafusos de aperto ficam acessíveis pela frente.
-   */
   breakerSteckSdC25: [
-    { label: '1', face: 'top', x: 0.5, y: 0.006, z: 0.389, diameterMm: 11.3, holeDepthMm: 4.5 },
-    { label: '2', face: 'bottom', x: 0.5, y: 0.984, z: 0.39, diameterMm: 11.3, holeDepthMm: 5 },
+    {"label":"1","face":"top","x":0.501124,"y":0.011678,"z":0.367237,"diameterMm":11.3,"holeDepthMm":13.494},
+    {"label":"2","face":"bottom","x":0.501124,"y":0.978464,"z":0.368237,"diameterMm":11.3,"holeDepthMm":13.494},
   ],
-  /**
-   * Eaton/Moeller PKZM C-10 (44,7 × 91,8 × 75,5 mm, do STEP do fabricante). Os seis blocos de
-   * ligação (10,27 mm de largura) ficam a 19 %, 50 % e 81 % da largura, abertos na face de cima
-   * (1/L1 · 3/L2 · 5/L3) e na de baixo (2/T1 · 4/T2 · 6/T3), a meio da profundidade (z ≈ 0,497),
-   * 5 mm abaixo do topo da caixa (y ≈ 0,054). O parafuso de aperto é acessível pela mesma face.
-   */
   motorBreakerPkzmC10: [
-    { label: '1', face: 'top', x: 0.19, y: 0.054, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
-    { label: '3', face: 'top', x: 0.5, y: 0.054, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
-    { label: '5', face: 'top', x: 0.81, y: 0.054, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
-    { label: '2', face: 'bottom', x: 0.19, y: 0.946, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
-    { label: '4', face: 'bottom', x: 0.5, y: 0.946, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
-    { label: '6', face: 'bottom', x: 0.81, y: 0.946, z: 0.497, diameterMm: 9, holeDepthMm: 10 },
+    {"label":"1","face":"top","x":0.19,"y":0.017667,"z":0.497,"diameterMm":9,"holeDepthMm":6.537},
+    {"label":"3","face":"top","x":0.5,"y":0.017667,"z":0.497,"diameterMm":9,"holeDepthMm":6.528},
+    {"label":"5","face":"top","x":0.81,"y":0.017667,"z":0.497,"diameterMm":9,"holeDepthMm":6.537},
+    {"label":"2","face":"bottom","x":0.19,"y":0.982333,"z":0.497,"diameterMm":9,"holeDepthMm":6.537},
+    {"label":"4","face":"bottom","x":0.5,"y":0.982333,"z":0.497,"diameterMm":9,"holeDepthMm":6.528},
+    {"label":"6","face":"bottom","x":0.81,"y":0.982333,"z":0.497,"diameterMm":9,"holeDepthMm":6.537},
   ],
-  /**
-   * Schneider Easy9 (EZ9) 1P/2P/3P, medido nos STEP do fabricante (84,5 mm de altura, passo de 17,7 mm).
-   * Cada polo tem a entrada de cabo aberta na face de cima (1/3/5) e na de baixo (2/4/6), centrada em
-   * x = 13,5 mm do polo e a 21,4 mm da traseira (z ≈ 0,285 da profundidade), com ≈ 10 × 21 mm e ≈ 3 mm de
-   * fundo. O parafuso de aperto (Ø7,2 mm) é acessível pela frente, por cima do manípulo e por baixo dele.
-   * Topo do corpo = topo da caixa (y = 0); a base do corpo fica 2,5 mm acima do patim (y ≈ 0,970).
-   */
   breaker1p: [
-    { label: '1', face: 'top', x: 0.5, y: 0.0, z: 0.287, diameterMm: 9, holeDepthMm: 3 },
-    { label: '2', face: 'bottom', x: 0.5, y: 0.97, z: 0.287, diameterMm: 9, holeDepthMm: 3 },
+    {"label":"1","face":"top","x":0.5,"y":0.011834,"z":0.287,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.5,"y":0.95858,"z":0.287,"diameterMm":9,"holeDepthMm":15},
   ],
   breaker2p: [
-    { label: '1', face: 'top', x: 0.254, y: 0.0, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
-    { label: '3', face: 'top', x: 0.746, y: 0.0, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
-    { label: '2', face: 'bottom', x: 0.254, y: 0.97, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
-    { label: '4', face: 'bottom', x: 0.746, y: 0.97, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+    {"label":"1","face":"top","x":0.254,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"3","face":"top","x":0.746,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.254,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"4","face":"bottom","x":0.746,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
   ],
   breaker3p: [
-    { label: '1', face: 'top', x: 0.169, y: 0.0, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
-    { label: '3', face: 'top', x: 0.497, y: 0.0, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
-    { label: '5', face: 'top', x: 0.825, y: 0.0, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
-    { label: '2', face: 'bottom', x: 0.169, y: 0.97, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
-    { label: '4', face: 'bottom', x: 0.497, y: 0.97, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
-    { label: '6', face: 'bottom', x: 0.825, y: 0.97, z: 0.284, diameterMm: 9, holeDepthMm: 3 },
+    {"label":"1","face":"top","x":0.169,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"3","face":"top","x":0.497,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"5","face":"top","x":0.825,"y":0.011834,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"2","face":"bottom","x":0.169,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"4","face":"bottom","x":0.497,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
+    {"label":"6","face":"bottom","x":0.825,"y":0.95858,"z":0.284,"diameterMm":9,"holeDepthMm":15},
   ],
-  /**
-   * Phoenix Contact EC 1 12DC/1A S-R (12,4×80×81,7 mm): Line+ no topo,
-   * LOAD+ na base e os sinais (0V, Reset, Status) na frente.
-   */
   phoenixEcb3000760: [
-    { label: 'Line+', face: 'top', x: 0.5, y: 0.01, z: 0.254, diameterMm: 10.8, holeDepthMm: 6 },
-    { label: 'LOAD+', face: 'bottom', x: 0.5, y: 0.99, z: 0.254, diameterMm: 10.8, holeDepthMm: 6 },
-    { label: '0V', face: 'front', x: 0.5, y: 0.757, z: 1, diameterMm: 5.1, holeDepthMm: 6 },
-    { label: 'RESET', face: 'front', x: 0.3, y: 0.229, z: 1, diameterMm: 4, holeDepthMm: 6 },
-    { label: 'STATUS', face: 'front', x: 0.703, y: 0.228, z: 1, diameterMm: 4, holeDepthMm: 6 },
+    {"label":"Line+","face":"top","x":0.5,"y":0,"z":0.254,"diameterMm":10.8,"holeDepthMm":12.75},
+    {"label":"LOAD+","face":"bottom","x":0.5,"y":1,"z":0.254,"diameterMm":10.8,"holeDepthMm":12.75},
+    {"label":"0V","face":"front","x":0.5,"y":0.757,"z":0.970962,"diameterMm":5.1,"holeDepthMm":7.283},
+    {"label":"RESET","face":"front","x":0.3,"y":0.229,"z":0.969549,"diameterMm":4,"holeDepthMm":7.168},
+    {"label":"STATUS","face":"front","x":0.703,"y":0.228,"z":0.969468,"diameterMm":4,"holeDepthMm":7.161},
   ],
-  /**
-   * NHD NPB22-D11 (botoneira dupla 22 mm, 1NA + 1NF): os quatro parafusos
-   * ficam atrás do corpo, dois por bloco de contactos (13/14 verde, 21/22 vermelho).
-   */
   dualPushButtonNpb22D11: [
-    { label: '13', face: 'left', x: 0.145, y: 0.176, z: 0.871, diameterMm: 7.3, holeDepthMm: 7 },
-    { label: '14', face: 'left', x: 0.145, y: 0.836, z: 0.871, diameterMm: 7.1, holeDepthMm: 7 },
-    { label: '21', face: 'right', x: 0.831, y: 0.176, z: 0.871, diameterMm: 7.3, holeDepthMm: 7 },
-    { label: '22', face: 'right', x: 0.831, y: 0.836, z: 0.871, diameterMm: 7.1, holeDepthMm: 7 },
+    {"label":"13","face":"left","x":0.144468,"y":0.176,"z":0.129,"diameterMm":7.3,"holeDepthMm":4.202},
+    {"label":"14","face":"left","x":0.144932,"y":0.836,"z":0.129,"diameterMm":7.1,"holeDepthMm":4.18},
+    {"label":"21","face":"right","x":0.830946,"y":0.176,"z":0.129,"diameterMm":7.3,"holeDepthMm":4.202},
+    {"label":"22","face":"right","x":0.830482,"y":0.836,"z":0.129,"diameterMm":7.1,"holeDepthMm":4.18},
   ],
-  /** Botão de emergência P20AKR (1NF): os dois parafusos do bloco, atrás. */
   emergencyButton: [
-    { label: '21', face: 'back', x: 0.728, y: 0.754, z: 0, diameterMm: 7.3, holeDepthMm: 7 },
-    { label: '22', face: 'back', x: 0.728, y: 0.333, z: 0, diameterMm: 7.3, holeDepthMm: 7 },
+    {"label":"21","face":"front","x":0.728,"y":0.754,"z":0.998682,"diameterMm":7.3,"holeDepthMm":3.507},
+    {"label":"22","face":"front","x":0.728,"y":0.333,"z":0.998682,"diameterMm":7.3,"holeDepthMm":3.507},
   ],
-  /** Emergência com rearme por chave P20ACR (1NF). */
   emergencyButtonKeyP20ACR: [
-    { label: '21', face: 'back', x: 0.724, y: 0.754, z: 0, diameterMm: 7.2, holeDepthMm: 7 },
-    { label: '22', face: 'back', x: 0.724, y: 0.333, z: 0, diameterMm: 7.2, holeDepthMm: 7 },
+    {"label":"21","face":"back","x":0.724,"y":0.754,"z":0.001035,"diameterMm":7.2,"holeDepthMm":3.514},
+    {"label":"22","face":"back","x":0.724,"y":0.333,"z":0.001035,"diameterMm":7.2,"holeDepthMm":3.514},
   ],
-  /** Sinaleiro AD22-22DS 24 V: dois terminais atrás (X1 +, X2 −). */
   pilotLightAd22: [
-    { label: 'X1', face: 'back', x: 0.346, y: 0.5, z: 0.012, diameterMm: 5.8, holeDepthMm: 6 },
-    { label: 'X2', face: 'back', x: 0.654, y: 0.5, z: 0.012, diameterMm: 5.8, holeDepthMm: 6 },
+    {"label":"X1","face":"back","x":0.346,"y":0.5,"z":0,"diameterMm":5.8,"holeDepthMm":7.2},
+    {"label":"X2","face":"back","x":0.654,"y":0.5,"z":0,"diameterMm":5.8,"holeDepthMm":7.2},
   ],
-  /**
-   * Contator WEG CWC0 9 A (código 12679840, 3 NA de força + 1 NA auxiliar),
-   * 45,48 × 58 × 52,01 mm.
-   *
-   * Como no aparelho real, os cabos entram **pelo topo e pela base**, não pela
-   * frente: a varredura do GLB encontra em cada uma dessas faces cinco bocas
-   * de ligação (duas ranhuras por borne, ~8,2 mm de profundidade) centradas a
-   * x = 0,133 · 0,320 · 0,510 · 0,697 · 0,886 e a z ≈ 0,83 (junto à frente).
-   * Serigrafia WEG (diagrama CWC0): em cima 1 · 3 · 5 · 13 · A1 e, em baixo,
-   * 2 · 4 · 6 · 14 · A2. Os parafusos de aperto é que são acessíveis pela frente.
-   */
   contactorWegCWC09: [
-    { label: '1L1', face: 'top', x: 0.133, y: 0.105, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
-    { label: '3L2', face: 'top', x: 0.32, y: 0.105, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
-    { label: '5L3', face: 'top', x: 0.51, y: 0.105, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
-    { label: '13', face: 'top', x: 0.697, y: 0.105, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
-    { label: 'A1', face: 'top', x: 0.886, y: 0.105, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
-    { label: '2T1', face: 'bottom', x: 0.133, y: 0.895, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
-    { label: '4T2', face: 'bottom', x: 0.32, y: 0.895, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
-    { label: '6T3', face: 'bottom', x: 0.51, y: 0.895, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
-    { label: '14', face: 'bottom', x: 0.697, y: 0.895, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
-    { label: 'A2', face: 'bottom', x: 0.886, y: 0.895, z: 0.828, diameterMm: 5, holeDepthMm: 8.2 },
+    {"label":"1L1","face":"top","x":0.133,"y":0.09861,"z":0.828,"diameterMm":5,"holeDepthMm":4.283},
+    {"label":"3L2","face":"top","x":0.32,"y":0.09861,"z":0.828,"diameterMm":5,"holeDepthMm":4.282},
+    {"label":"5L3","face":"top","x":0.51,"y":0.09861,"z":0.828,"diameterMm":5,"holeDepthMm":4.287},
+    {"label":"13","face":"top","x":0.697,"y":0.09861,"z":0.828,"diameterMm":5,"holeDepthMm":4.283},
+    {"label":"A1","face":"top","x":0.886,"y":0.09861,"z":0.828,"diameterMm":5,"holeDepthMm":4.287},
+    {"label":"2T1","face":"bottom","x":0.133,"y":0.90139,"z":0.828,"diameterMm":5,"holeDepthMm":4.084},
+    {"label":"4T2","face":"bottom","x":0.32,"y":0.90139,"z":0.828,"diameterMm":5,"holeDepthMm":4.081},
+    {"label":"6T3","face":"bottom","x":0.51,"y":0.90139,"z":0.828,"diameterMm":5,"holeDepthMm":4.087},
+    {"label":"14","face":"bottom","x":0.697,"y":0.90139,"z":0.828,"diameterMm":5,"holeDepthMm":4.084},
+    {"label":"A2","face":"bottom","x":0.886,"y":0.90139,"z":0.828,"diameterMm":5,"holeDepthMm":4.087},
   ],
-  /**
-   * Siemens LOGO! 12/24RC (72×90×55 mm). O GLB tem 11 parafusos na régua de
-   * cima (L+, M, I0.0…I0.7 e o terminal livre X1) e 8 na de baixo: cada saída a
-   * relé Q0.0…Q0.3 ocupa dois parafusos (contacto seco).
-   */
   plcSiemensLogo1224RC: [
-    { label: 'L+', face: 'top', x: 0.121, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'M', face: 'top', x: 0.191, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'I0.0', face: 'top', x: 0.262, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'I0.1', face: 'top', x: 0.336, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I0.2', face: 'top', x: 0.406, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I0.3', face: 'top', x: 0.477, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I0.4', face: 'top', x: 0.547, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I0.5', face: 'top', x: 0.617, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I0.6', face: 'top', x: 0.687, y: 0, z: 0.465, diameterMm: 2.5, holeDepthMm: 6.5 },
-    { label: 'I0.7', face: 'top', x: 0.762, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'X1', face: 'top', x: 0.832, y: 0, z: 0.465, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q0.0', face: 'bottom', x: 0.148, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q0.0·2', face: 'bottom', x: 0.219, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q0.1', face: 'bottom', x: 0.355, y: 1, z: 0.461, diameterMm: 3.1, holeDepthMm: 6.5 },
-    { label: 'Q0.1·2', face: 'bottom', x: 0.426, y: 1, z: 0.461, diameterMm: 3.1, holeDepthMm: 6.5 },
-    { label: 'Q0.2', face: 'bottom', x: 0.562, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q0.2·2', face: 'bottom', x: 0.633, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q0.3', face: 'bottom', x: 0.766, y: 1, z: 0.461, diameterMm: 2.8, holeDepthMm: 6.5 },
-    { label: 'Q0.3·2', face: 'bottom', x: 0.840, y: 1, z: 0.461, diameterMm: 3.1, holeDepthMm: 6.5 },
+    {"label":"L+","face":"top","x":0.121,"y":0,"z":0.465,"diameterMm":2.8,"holeDepthMm":7.027},
+    {"label":"M","face":"top","x":0.191,"y":0,"z":0.465,"diameterMm":2.8,"holeDepthMm":7.023},
+    {"label":"I0.0","face":"top","x":0.262,"y":0,"z":0.465,"diameterMm":2.8,"holeDepthMm":7.023},
+    {"label":"I0.1","face":"top","x":0.336,"y":0,"z":0.465,"diameterMm":2.5,"holeDepthMm":7.015},
+    {"label":"I0.2","face":"top","x":0.406,"y":0,"z":0.465,"diameterMm":2.5,"holeDepthMm":7.022},
+    {"label":"I0.3","face":"top","x":0.477,"y":0,"z":0.465,"diameterMm":2.5,"holeDepthMm":7.022},
+    {"label":"I0.4","face":"top","x":0.547,"y":0,"z":0.465,"diameterMm":2.5,"holeDepthMm":7.028},
+    {"label":"I0.5","face":"top","x":0.617,"y":0,"z":0.465,"diameterMm":2.5,"holeDepthMm":7.021},
+    {"label":"I0.6","face":"top","x":0.687,"y":0,"z":0.465,"diameterMm":2.5,"holeDepthMm":7.015},
+    {"label":"I0.7","face":"top","x":0.762,"y":0,"z":0.465,"diameterMm":2.8,"holeDepthMm":7.017},
+    {"label":"X1","face":"top","x":0.832,"y":0,"z":0.465,"diameterMm":2.8,"holeDepthMm":7.024},
+    {"label":"Q0.0","face":"bottom","x":0.148,"y":1,"z":0.461,"diameterMm":2.8,"holeDepthMm":5},
+    {"label":"Q0.0·2","face":"bottom","x":0.219,"y":1,"z":0.461,"diameterMm":2.8,"holeDepthMm":5},
+    {"label":"Q0.1","face":"bottom","x":0.355,"y":1,"z":0.461,"diameterMm":3.1,"holeDepthMm":5},
+    {"label":"Q0.1·2","face":"bottom","x":0.426,"y":1,"z":0.461,"diameterMm":3.1,"holeDepthMm":5},
+    {"label":"Q0.2","face":"bottom","x":0.562,"y":1,"z":0.461,"diameterMm":2.8,"holeDepthMm":5},
+    {"label":"Q0.2·2","face":"bottom","x":0.633,"y":1,"z":0.461,"diameterMm":2.8,"holeDepthMm":5},
+    {"label":"Q0.3","face":"bottom","x":0.766,"y":1,"z":0.461,"diameterMm":2.8,"holeDepthMm":5},
+    {"label":"Q0.3·2","face":"bottom","x":0.84,"y":1,"z":0.461,"diameterMm":3.1,"holeDepthMm":5},
   ],
-  /**
-   * Chinfa DRAN120-24A (124,5×64×123,6 mm, ficha p. 4): entrada ⏚ · L · N na
-   * régua de baixo (três cavidades Ø8,1 mm medidas no GLB) e saída
-   * −V · +V mais o contacto RDY na régua de cima, à mesma distância da frente.
-   */
   powerSupplyProauto24A: [
-    { label: '-V2', face: 'top', x: 0.18, y: 0, z: 0.848, diameterMm: 8.1, holeDepthMm: 8 },
-    { label: '-V1', face: 'top', x: 0.31, y: 0, z: 0.848, diameterMm: 8.1, holeDepthMm: 8 },
-    { label: '+V2', face: 'top', x: 0.44, y: 0, z: 0.848, diameterMm: 8.1, holeDepthMm: 8 },
-    { label: '+V1', face: 'top', x: 0.57, y: 0, z: 0.848, diameterMm: 8.1, holeDepthMm: 8 },
-    { label: 'RDY2', face: 'top', x: 0.70, y: 0, z: 0.848, diameterMm: 8.1, holeDepthMm: 8 },
-    { label: 'RDY1', face: 'top', x: 0.83, y: 0, z: 0.848, diameterMm: 8.1, holeDepthMm: 8 },
-    { label: 'PE', face: 'bottom', x: 0.352, y: 0.97, z: 0.848, diameterMm: 8.1, holeDepthMm: 8 },
-    { label: 'L', face: 'bottom', x: 0.5, y: 0.97, z: 0.848, diameterMm: 8.1, holeDepthMm: 8 },
-    { label: 'N', face: 'bottom', x: 0.648, y: 0.97, z: 0.848, diameterMm: 8.1, holeDepthMm: 8 },
+    {"label":"-V2","face":"top","x":0.246875,"y":0,"z":0.851618,"diameterMm":8.1,"holeDepthMm":2.911},
+    {"label":"-V1","face":"top","x":0.353125,"y":0.007793,"z":0.851618,"diameterMm":8.1,"holeDepthMm":1.94},
+    {"label":"+V2","face":"top","x":0.446875,"y":0.007793,"z":0.851618,"diameterMm":8.1,"holeDepthMm":1.94},
+    {"label":"+V1","face":"top","x":0.546875,"y":0.007793,"z":0.851618,"diameterMm":8.1,"holeDepthMm":1.94},
+    {"label":"RDY2","face":"top","x":0.646875,"y":0.007793,"z":0.851618,"diameterMm":8.1,"holeDepthMm":1.94},
+    {"label":"RDY1","face":"top","x":0.746875,"y":0,"z":0.851618,"diameterMm":8.1,"holeDepthMm":2.911},
+    {"label":"PE","face":"bottom","x":0.351062,"y":0.97025,"z":0.847515,"diameterMm":8.1,"holeDepthMm":1.94},
+    {"label":"L","face":"bottom","x":0.499063,"y":0.97025,"z":0.847515,"diameterMm":8.1,"holeDepthMm":1.94},
+    {"label":"N","face":"bottom","x":0.647063,"y":0.97025,"z":0.847515,"diameterMm":8.1,"holeDepthMm":1.94},
   ],
-  /**
-   * Allen-Bradley Guardmaster MSR127TP (22,6 mm de largura): dois blocos
-   * amovíveis, um em cima e outro em baixo, cada um com 8 parafusos em duas
-   * colunas. Ordem da documentação MSR127 (frente → trás):
-   * cima A1 · S11 · S52 · S12 e 13 · 23 · 33 · 41; baixo A2 · S21 · S22 · S34
-   * e 14 · 24 · 34 · 42.
-   */
   safetyRelay: [
-    { label: 'A1', face: 'top', x: 0.3, y: 0, z: 0.82, diameterMm: 4, holeDepthMm: 6 },
-    { label: 'S11', face: 'top', x: 0.3, y: 0, z: 0.62, diameterMm: 4, holeDepthMm: 6 },
-    { label: 'S52', face: 'top', x: 0.3, y: 0, z: 0.42, diameterMm: 4, holeDepthMm: 6 },
-    { label: 'S12', face: 'top', x: 0.3, y: 0, z: 0.22, diameterMm: 4, holeDepthMm: 6 },
-    { label: '13', face: 'top', x: 0.7, y: 0, z: 0.82, diameterMm: 4, holeDepthMm: 6 },
-    { label: '23', face: 'top', x: 0.7, y: 0, z: 0.62, diameterMm: 4, holeDepthMm: 6 },
-    { label: '33', face: 'top', x: 0.7, y: 0, z: 0.42, diameterMm: 4, holeDepthMm: 6 },
-    { label: '41', face: 'top', x: 0.7, y: 0, z: 0.22, diameterMm: 4, holeDepthMm: 6 },
-    { label: 'A2', face: 'bottom', x: 0.3, y: 1, z: 0.82, diameterMm: 4, holeDepthMm: 6 },
-    { label: 'S21', face: 'bottom', x: 0.3, y: 1, z: 0.62, diameterMm: 4, holeDepthMm: 6 },
-    { label: 'S22', face: 'bottom', x: 0.3, y: 1, z: 0.42, diameterMm: 4, holeDepthMm: 6 },
-    { label: 'S34', face: 'bottom', x: 0.3, y: 1, z: 0.22, diameterMm: 4, holeDepthMm: 6 },
-    { label: '14', face: 'bottom', x: 0.7, y: 1, z: 0.82, diameterMm: 4, holeDepthMm: 6 },
-    { label: '24', face: 'bottom', x: 0.7, y: 1, z: 0.62, diameterMm: 4, holeDepthMm: 6 },
-    { label: '34', face: 'bottom', x: 0.7, y: 1, z: 0.42, diameterMm: 4, holeDepthMm: 6 },
-    { label: '42', face: 'bottom', x: 0.7, y: 1, z: 0.22, diameterMm: 4, holeDepthMm: 6 },
+    {"label":"A1","face":"top","x":0.3,"y":0,"z":0.82,"diameterMm":4,"holeDepthMm":6},
+    {"label":"S11","face":"top","x":0.3,"y":0,"z":0.62,"diameterMm":4,"holeDepthMm":6},
+    {"label":"S52","face":"top","x":0.3,"y":0,"z":0.42,"diameterMm":4,"holeDepthMm":6},
+    {"label":"S12","face":"top","x":0.3,"y":0,"z":0.22,"diameterMm":4,"holeDepthMm":6},
+    {"label":"13","face":"top","x":0.7,"y":0,"z":0.82,"diameterMm":4,"holeDepthMm":6},
+    {"label":"23","face":"top","x":0.7,"y":0,"z":0.62,"diameterMm":4,"holeDepthMm":6},
+    {"label":"33","face":"top","x":0.7,"y":0,"z":0.42,"diameterMm":4,"holeDepthMm":6},
+    {"label":"41","face":"top","x":0.7,"y":0,"z":0.22,"diameterMm":4,"holeDepthMm":6},
+    {"label":"A2","face":"bottom","x":0.3,"y":1,"z":0.82,"diameterMm":4,"holeDepthMm":6},
+    {"label":"S21","face":"bottom","x":0.3,"y":1,"z":0.62,"diameterMm":4,"holeDepthMm":6},
+    {"label":"S22","face":"bottom","x":0.3,"y":1,"z":0.42,"diameterMm":4,"holeDepthMm":6},
+    {"label":"S34","face":"bottom","x":0.3,"y":1,"z":0.22,"diameterMm":4,"holeDepthMm":6},
+    {"label":"14","face":"bottom","x":0.7,"y":1,"z":0.82,"diameterMm":4,"holeDepthMm":6},
+    {"label":"24","face":"bottom","x":0.7,"y":1,"z":0.62,"diameterMm":4,"holeDepthMm":6},
+    {"label":"34","face":"bottom","x":0.7,"y":1,"z":0.42,"diameterMm":4,"holeDepthMm":6},
+    {"label":"42","face":"bottom","x":0.7,"y":1,"z":0.22,"diameterMm":4,"holeDepthMm":6},
   ],
-  /**
-   * Siemens TS Adapter IE Basic (6ES7972-0EB00-0XA0): alimentação de 24 V por
-   * bornes na traseira (L+ / M / ⏚), RJ45 Ethernet em cima (Ø17,3 medido) e a
-   * tomada de serviço na traseira, em baixo.
-   */
   siemensTsAdapterIeBasic: [
-    { label: 'L+', face: 'back', x: 0.5, y: 0.735, z: 0, diameterMm: 7.8, holeDepthMm: 4 },
-    { label: 'M', face: 'back', x: 0.5, y: 0.812, z: 0, diameterMm: 7.4, holeDepthMm: 4 },
-    { label: 'ETH', face: 'top', x: 0.541, y: 0.024, z: 0.643, diameterMm: 17.3, holeDepthMm: 4 },
-    { label: 'SERVICE', face: 'back', x: 0.5, y: 0.334, z: 0, diameterMm: 7.2, holeDepthMm: 4 },
+    {"label":"L+","face":"back","x":0.504,"y":0.730075,"z":0.000672,"diameterMm":7.8,"holeDepthMm":4.95},
+    {"label":"M","face":"back","x":0.552,"y":0.812379,"z":0.000666,"diameterMm":7.4,"holeDepthMm":4.95},
+    {"label":"ETH","face":"top","x":0.448333,"y":0.052853,"z":0.643266,"diameterMm":17.3,"holeDepthMm":10},
+    {"label":"SERVICE","face":"back","x":0.449333,"y":0.333242,"z":0.000666,"diameterMm":7.2,"holeDepthMm":4.95},
   ],
-  /**
-   * SEW DRN80MK4/B3: a caixa de bornes está na face direita do modelo. Placa
-   * padrão SEW: fila de cima W2 · U2 · V2, fila de baixo U1 · V1 · W1 e o
-   * parafuso de terra por baixo da placa.
-   */
   motor3ph: [
-    { label: 'W2', face: 'right', x: 0.913, y: 0.445, z: 0.273, diameterMm: 4.8, holeDepthMm: 21 },
-    { label: 'U2', face: 'right', x: 0.913, y: 0.445, z: 0.5, diameterMm: 4.8, holeDepthMm: 21 },
-    { label: 'V2', face: 'right', x: 0.913, y: 0.445, z: 0.727, diameterMm: 4.8, holeDepthMm: 21 },
-    { label: 'U1', face: 'right', x: 0.913, y: 0.786, z: 0.272, diameterMm: 4.8, holeDepthMm: 21 },
-    { label: 'V1', face: 'right', x: 0.913, y: 0.786, z: 0.5, diameterMm: 4.8, holeDepthMm: 21 },
-    { label: 'W1', face: 'right', x: 0.913, y: 0.786, z: 0.728, diameterMm: 4.8, holeDepthMm: 21 },
-    { label: 'PE', face: 'right', x: 0.913, y: 0.953, z: 0.5, diameterMm: 3.9, holeDepthMm: 21 },
+    {"label":"W2","face":"top","x":0.4318181818181818,"y":0,"z":0.5576923076923077,"diameterMm":4.8,"holeDepthMm":5.4},
+    {"label":"U2","face":"top","x":0.5,"y":0,"z":0.5576923076923077,"diameterMm":4.8,"holeDepthMm":5.4},
+    {"label":"V2","face":"top","x":0.5681818181818181,"y":0,"z":0.5576923076923077,"diameterMm":4.8,"holeDepthMm":5.4},
+    {"label":"U1","face":"top","x":0.4318181818181818,"y":0,"z":0.4423076923076923,"diameterMm":4.8,"holeDepthMm":5.4},
+    {"label":"V1","face":"top","x":0.5,"y":0,"z":0.4423076923076923,"diameterMm":4.8,"holeDepthMm":5.4},
+    {"label":"W1","face":"top","x":0.5681818181818181,"y":0,"z":0.4423076923076923,"diameterMm":4.8,"holeDepthMm":5.4},
+    {"label":"PE","face":"top","x":0.6,"y":0,"z":0.5,"diameterMm":3.9,"holeDepthMm":5.4},
   ],
-  /**
-   * LS Electric XGB XBM-DN32S (82×97,5×30,2 mm): 16 entradas DC na régua de
-   * cima e 16 saídas a transístor na de baixo, mais a alimentação de 24 V.
-   * Posições distribuídas pela régua medida no GLB (passo regular).
-   */
   plcLsXbmDn32s: [
-    { label: 'L+', face: 'top', x: 0.04, y: 0, z: 0.5, diameterMm: 3, holeDepthMm: 5 },
-    { label: 'M', face: 'bottom', x: 0.04, y: 1, z: 0.5, diameterMm: 3, holeDepthMm: 5 },
-    ...Array.from({ length: 16 }, (_, i) => ({ label: `I${Math.floor(i / 8)}.${i % 8}`, face: 'top' as const, x: 0.12 + i * (0.84 / 15), y: 0, z: 0.5, diameterMm: 3, holeDepthMm: 5 })),
-    ...Array.from({ length: 16 }, (_, i) => ({ label: `Q${Math.floor(i / 8)}.${i % 8}`, face: 'bottom' as const, x: 0.12 + i * (0.84 / 15), y: 1, z: 0.5, diameterMm: 3, holeDepthMm: 5 })),
+    {"label":"L+","face":"top","x":0.04,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"M","face":"bottom","x":0.04,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I0.0","face":"top","x":0.12,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I0.1","face":"top","x":0.176,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I0.2","face":"top","x":0.23199999999999998,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I0.3","face":"top","x":0.28800000000000003,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I0.4","face":"top","x":0.344,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I0.5","face":"top","x":0.4,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I0.6","face":"top","x":0.456,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I0.7","face":"top","x":0.512,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I1.0","face":"top","x":0.5680000000000001,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I1.1","face":"top","x":0.624,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I1.2","face":"top","x":0.68,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I1.3","face":"top","x":0.736,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I1.4","face":"top","x":0.792,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I1.5","face":"top","x":0.848,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I1.6","face":"top","x":0.904,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"I1.7","face":"top","x":0.96,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q0.0","face":"bottom","x":0.12,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q0.1","face":"bottom","x":0.176,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q0.2","face":"bottom","x":0.23199999999999998,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q0.3","face":"bottom","x":0.28800000000000003,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q0.4","face":"bottom","x":0.344,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q0.5","face":"bottom","x":0.4,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q0.6","face":"bottom","x":0.456,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q0.7","face":"bottom","x":0.512,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q1.0","face":"bottom","x":0.5680000000000001,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q1.1","face":"bottom","x":0.624,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q1.2","face":"bottom","x":0.68,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q1.3","face":"bottom","x":0.736,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q1.4","face":"bottom","x":0.792,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q1.5","face":"bottom","x":0.848,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q1.6","face":"bottom","x":0.904,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
+    {"label":"Q1.7","face":"bottom","x":0.96,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
   ],
-  /**
-   * Phoenix Contact PTI 6 (3213972): borne de passagem push-in, uma entrada de
-   * condutor em cima e outra em baixo, ambas viradas para a frente.
-   */
   terminalPhoenixPti6: [
-    { label: '1', face: 'front', x: 0.5, y: 0.2, z: 0.78, diameterMm: 4.2, holeDepthMm: 8 },
-    { label: '2', face: 'front', x: 0.5, y: 0.8, z: 0.78, diameterMm: 4.2, holeDepthMm: 8 },
+    {"label":"1","face":"front","x":0.387117,"y":0.089818,"z":0.763696,"diameterMm":4.2,"holeDepthMm":8.832},
+    {"label":"2","face":"front","x":0.387117,"y":0.764876,"z":0.734725,"diameterMm":4.2,"holeDepthMm":8.123},
   ],
-  /** Borne de terra (mesma caixa do borne de passagem): duas entradas PE. */
   terminalPE: [
-    { label: 'PE1', face: 'front', x: 0.5, y: 0.2, z: 0.78, diameterMm: 4.2, holeDepthMm: 8 },
-    { label: 'PE2', face: 'front', x: 0.5, y: 0.8, z: 0.78, diameterMm: 4.2, holeDepthMm: 8 },
+    {"label":"PE1","face":"front","x":0.476699,"y":0.112469,"z":1,"diameterMm":4.2,"holeDepthMm":9.35},
+    {"label":"PE2","face":"front","x":0.476699,"y":0.892469,"z":1,"diameterMm":4.2,"holeDepthMm":9.35},
   ],
-  /** Multímetro RGK DM-20: fichas banana Ø7 mm na frente (V/Ω/mA e COM). */
   multimeterDm20: [
-    { label: 'COM', face: 'front', x: 0.23, y: 0.83, z: 0.886, diameterMm: 7, holeDepthMm: 12 },
-    { label: 'VΩmA', face: 'front', x: 0.77, y: 0.83, z: 0.886, diameterMm: 7, holeDepthMm: 12 },
+    {"label":"COM","face":"front","x":0.769777,"y":0.930647,"z":0.917167,"diameterMm":7,"holeDepthMm":8.419},
+    {"label":"VΩ","face":"front","x":0.786597,"y":0.830007,"z":0.883824,"diameterMm":7,"holeDepthMm":12.58},
+    {"label":"mA","face":"front","x":0.208857,"y":0.830007,"z":0.878921,"diameterMm":7,"holeDepthMm":12.317},
+    {"label":"10A","face":"front","x":0.230223,"y":0.930647,"z":0.917167,"diameterMm":7,"holeDepthMm":8.419},
   ],
 }
 
