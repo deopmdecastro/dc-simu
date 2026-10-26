@@ -17,6 +17,7 @@ import { finishCadMaterial } from './catalogMaterials'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
+import { logoRuntimeVars } from './logoRuntime'
 
 const EMPTY_PARTS: string[] = []
 
@@ -76,6 +77,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
   const scanCount = useSimStore((s) => s.sim.scanCount)
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const systemVars = useMemo(() => ({
+    ...(builtin === 'plcSiemensLogo1224RC' ? logoRuntimeVars(c, runState, diagnostics) : {}),
     '$powered': c.state?.powered !== false,
     '$run': runState === 'running' && !diagnostics.some((item) => item.level === 'error'),
     '$stop': runState === 'stopped', '$pause': runState === 'paused',
@@ -83,7 +85,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     '$warning': diagnostics.some((item) => item.level === 'warning'),
     '$communication': runState === 'running' && scanCount % 6 < 2,
     '$tripped': !!c.state?.tripped,
-  }), [c.state?.powered, c.state?.tripped, runState, scanCount, diagnostics])
+  }), [c, builtin, runState, scanCount, diagnostics])
   const displayVars = useMemo(() => ({ ...vars, ...systemVars, ...Object.fromEntries(Object.entries((c.state?.catalogColors as Record<string, string> | undefined) ?? {}).map(([id, color]) => [`color.${id}`, color])) }), [vars, systemVars, c.state?.catalogColors])
   useEffect(() => {
     if (!version) { animator.current = null; rig.current = null; return }

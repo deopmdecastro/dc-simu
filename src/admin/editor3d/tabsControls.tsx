@@ -206,7 +206,7 @@ export function ControlsTab() {
   const bindOptions: Array<[string, string]> = control?.bindVar && !varOptions.some(([id]) => id === control.bindVar) ? [...varOptions, [control.bindVar, control.bindVar]] : varOptions
   return <>
     <MeterSection />
-    <Section title="Botões, interruptores e seletores">
+    <Section title={`Botões, interruptores e seletores (${controls.length})`} open={!control}>
       <Group tone="auto" title="Acionamentos prontos"
         hint="Cada atalho cria o controlo já com variável, ação e animação. Depois é só apontar os objetos móveis do GLB e afinar eixo, curso ou ângulos.">
         <div className="ce-preset-grid">
@@ -226,7 +226,7 @@ export function ControlsTab() {
       </Group>
       {controls.length === 0 && <Empty>Sem controlos. Use um acionamento pronto, crie um do zero ou aplique o modelo de multímetro.</Empty>}
       <div className="ce-list">{controls.map((item) => <button key={item.id} className={`ce-list-item${control?.id === item.id ? ' is-on' : ''}`} onClick={() => set({ selection: { kind: 'control', id: item.id } })}>
-        <b>{item.name}</b><small>{item.kind === 'selector' ? `Seletor · ${item.positions.length} posições` : item.kind === 'toggle' ? 'Interruptor' : 'Botão'} · {def.parts.find((part) => part.id === item.partId)?.name ?? '—'}{item.nodes?.length ? ` · ${item.nodes.length} objeto(s)` : item.nodes ? ' · sem objeto' : ''}</small></button>)}</div>
+        <b>{item.name}</b><small>{item.kind === 'selector' ? `Seletor · ${item.positions.length} posições` : item.kind === 'toggle' ? 'Interruptor' : 'Botão'} · {def.parts.find((part) => part.id === item.partId)?.name ?? '—'}{item.hitArea ? ' · área de clique' : item.nodes?.length ? ` · ${item.nodes.length} objeto(s)` : item.nodes ? ' · sem objeto' : ''}</small></button>)}</div>
     </Section>
     {control && <>
       <Section title="Controlo">
@@ -235,9 +235,14 @@ export function ControlsTab() {
         {control.kind !== 'selector' && <Field label="Retorno" hint="Mola: a variável só fica ativa enquanto se mantém premido (botoneira NA/NF). Retenção: alterna e fica (disjuntor, emergência travada, interruptor).">
           <Select value={control.returnMode ?? 'latch'} onChange={(returnMode) => patch({ returnMode: returnMode as ControlReturnMode })} options={[['spring', 'Mola (impulso)'], ['latch', 'Retenção (mantém)']]} /></Field>}
         <Field label="Peça"><Select value={control.partId} onChange={(partId) => patch({ partId, nodes: def.parts.find((part) => part.id === partId)?.kind === 'glb' ? [] : undefined })} options={drawable.map((part): [string, string] => [part.id, part.name])} /></Field>
-        <NodePicker partId={control.partId} nodes={control.nodes} pickKind="control" id={control.id} onChange={(nodes) => patch({ nodes })} />
+        {control.hitArea ? <p className="ce-hint">Área de clique independente sobre o modelo. Pode ajustar a posição e o tamanho sem deslocar o corpo do aparelho.</p> : <NodePicker partId={control.partId} nodes={control.nodes} pickKind="control" id={control.id} onChange={(nodes) => patch({ nodes })} />}
       </Section>
-      <Section title="Movimento">
+      {control.hitArea && <Section title="Área de clique">
+        <Vec3Input label="Posição" value={control.hitArea.position} unit="mm" step={0.5} onChange={(position) => patch({ hitArea: { ...control.hitArea!, position } }, 'hit-position')} />
+        <Vec3Input label="Dimensões" value={control.hitArea.size} unit="mm" min={0.1} step={0.5} onChange={(size) => patch({ hitArea: { ...control.hitArea!, size } }, 'hit-size')} />
+        <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { useEditorStore.getState().cameraTo('fitSel'); window.dispatchEvent(new CustomEvent('ce-open-canvas')) }}>Enquadrar área</button>
+      </Section>}
+      {!control.hitArea && <Section title="Movimento">
         {control.kind === 'selector' ? <Field label="Eixo de rotação" hint="Ângulos positivos rodam no sentido horário visto de quem olha ao longo do eixo.">
           <Select value={axisKey(control.axis)} onChange={(key) => patch({ axis: AXES.find(([id]) => id === key)![2] })} options={AXES.map(([id, label]): [string, string] => [id, label])} /></Field>
           : <MotionFields control={control} patch={patch} />}
@@ -253,7 +258,7 @@ export function ControlsTab() {
           </div>)}
           <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => patch({ positions: [...control.positions, { id: `p${control.positions.length + 1}`, label: `Posição ${control.positions.length + 1}`, angle: (control.positions[control.positions.length - 1]?.angle ?? 0) + 30 }] })}>+ Posição</button>
         </>}
-      </Section>
+      </Section>}
       {control.kind !== 'selector' && <>
         <Section title="Ações ao clicar"><ActionList def={def} actions={control.actions} onChange={(actions) => patch({ actions })} />
           <div className="ce-actions"><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => triggerEditorControl(control, 'press')}>Testar clique</button></div></Section>
@@ -292,7 +297,7 @@ export function DisplaysTab() {
   }
   const varOptions: Array<[string, string]> = [['', '— sempre —'], ...varDefsOf(def).map((item): [string, string] => [item.id, item.name])]
   return <>
-    <Section title="Ecrãs (áreas de visualização)">
+    <Section title={`Ecrãs (${displays.length})`} open={!display}>
       <Group tone="auto" title="Ecrãs prontos"
         hint="Já vêm com fundo, cor e tipo de leitura configurados para o uso mais comum.">
         <div className="ce-preset-grid">
@@ -336,7 +341,9 @@ export function DisplaysTab() {
       </Section>
       {display.kind === 'text' && <Section title="Conteúdo" actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => patch({ lines: [...display.lines, { id: newId('ln_'), text: 'Texto', x: 0.5, y: 0.5, size: 0.3, align: 'center' }] })}>+ Linha</button>}>
         <p className="ce-hint">Use <code>{'{state}'}</code> = nome do estado, <code>{'{id}'}</code> = valor de uma variável. Posição e tamanho em fração do ecrã (0–1).</p>
-        {display.lines.map((line) => <div key={line.id} className="ce-action-card">
+        {display.lines.map((line, index) => <details key={line.id} className="ce-action-card ce-display-line">
+          <summary><span>{index + 1}</span><strong>{line.text || 'Linha vazia'}</strong>{line.when && <small>{String(line.when.value)}</small>}</summary>
+          <div className="ce-display-line-fields">
           <div className="ce-action-head"><Text value={line.text} onChange={(text) => patchLine(line.id, { text }, 'txt')} />
             <button className="ce-linkbtn" aria-label="Remover linha" onClick={() => patch({ lines: display.lines.filter((item) => item.id !== line.id) })}><IconClose size={12} /></button></div>
           <Field label="Posição X / Y"><span className="ce-inline"><Num value={line.x} min={0} max={1} step={0.05} onChange={(x) => patchLine(line.id, { x }, 'x')} /><Num value={line.y} min={0} max={1} step={0.05} onChange={(y) => patchLine(line.id, { y }, 'y')} /></span></Field>
@@ -344,7 +351,8 @@ export function DisplaysTab() {
           <Field label="Alinhamento"><Select value={line.align} onChange={(align) => patchLine(line.id, { align }, 'al')} options={[['left', 'Esquerda'], ['center', 'Centro'], ['right', 'Direita']]} /></Field>
           <Field label="Cor"><Color value={line.color ?? display.foreground} onChange={(color) => patchLine(line.id, { color }, 'col')} /></Field>
           {whenFields(def, line.when, (when) => patchLine(line.id, { when }, 'when'))}
-        </div>)}
+          </div>
+        </details>)}
       </Section>}
       <Section title="Ações"><Confirm label="Eliminar ecrã" className="dx-btn dx-btn-danger dx-btn-sm" onConfirm={() => { edit((state) => ({ ...state, displays: (state.displays ?? []).filter((item) => item.id !== display.id) })); set({ selection: null, placingDisplay: null, displayCorner: null }) }} /></Section>
     </>}

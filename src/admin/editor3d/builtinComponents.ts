@@ -10,6 +10,7 @@ import type { ComponentType } from '../../types'
 import { REAL_TERMINALS, terminalInsetMm } from '../../electrical/realInterfaces'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_FAN, MOTOR_STUD, motorBridges, motorCadToCentered } from '../../three/motorTerminalLayout'
+import { seedLogoPanel } from './seedLogoPanel'
 
 /** Componentes que já vêm com a plataforma (Biblioteca do simulador), listados também na Biblioteca 3D do Admin. */
 export interface BuiltinInfo {
@@ -237,6 +238,7 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
     seedMultimeterDm20(next, cache)
     changed = (next.controls ?? []).length > 0
   }
+  if (type === 'plcSiemensLogo1224RC' && seedLogoPanel(next, cache)) changed = true
   if (type === 'motor3ph') {
     if (!next.parts.some((part) => part.name === MOTOR_BOARD_GROUP)) { seedMotorTerminalBoard(next, cache); changed = true }
     if (migrateMotorDraft(next, cache)) changed = true
@@ -447,6 +449,7 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   // O multímetro DM-20 chega ao editor completo: seletor, botões e LCD já
   // ligados aos objetos reais do modelo, visíveis na lista como elementos.
   if (type === 'multimeterDm20') seedMultimeterDm20(def, cache)
+  if (type === 'plcSiemensLogo1224RC') seedLogoPanel(def, cache)
   if (type === 'motor3ph') { seedMotorTerminalBoard(def, cache); seedMotorFan(def) }
   const meta: CatalogMeta = {
     ...DEFAULT_META,

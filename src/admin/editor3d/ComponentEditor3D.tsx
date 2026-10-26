@@ -15,7 +15,10 @@ import { BUILTIN_PROFILES, defaultParams, FACES, specsFromTerminals, type Termin
 import { allProfiles, useProfileStore } from '../../catalog/profileStore'
 import { applyProfile, faceCounts } from './terminalOps'
 import Hierarchy from './Hierarchy'
-import { BASE_STATE, glbCache, useEditorStore, type InspectorTab, type Ribbon } from './editorStore'
+import { BASE_STATE, glbCache, useEditorStore, type Ribbon } from './editorStore'
+import InspectorNavigation from './InspectorNavigation'
+import { PanelResizer, usePanelWidths } from './PanelResizer'
+import EditorActionMenu from './EditorActionMenu'
 import { ComponentTab, InteractionsTab, LightsTab, StatesTab, TerminalsTab } from './tabs2'
 import { MaterialsTab, ObjectTab } from './tabs1'
 import { ControlsTab, DisplaysTab } from './tabsControls'
@@ -35,7 +38,6 @@ import type { PartDef } from '../../catalog/types'
 const Viewport = lazy(() => import('./Viewport'))
 const AUTO_UPDATE_KEY = 'dcsimu:editor:auto-update'
 
-const TABS: Array<[InspectorTab, string]> = [['object', 'Objeto'], ['materials', 'Materiais'], ['terminals', 'Bornes'], ['wires', 'Cabos'], ['lights', 'Luzes'], ['states', 'Estados'], ['interactions', 'Interações'], ['controls', 'Botões'], ['displays', 'Ecrãs'], ['component', 'Componente']]
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
 
 const EDITOR3D_HELP: ShortcutHelpExtra[] = [
@@ -79,25 +81,11 @@ function useActiveRibbon(): Ribbon {
 
 /** Menu «Formas»: reúne as primitivas e o GLB numa só entrada (poupa espaço na barra). */
 function ShapeMenu({ onImport }: { onImport: () => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const close = (event: PointerEvent) => { if (!ref.current?.contains(event.target as Node)) setOpen(false) }
-    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
-    window.addEventListener('pointerdown', close); window.addEventListener('keydown', key)
-    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', key) }
-  }, [open])
-  return <div className="ce-menu" ref={ref}>
-    <button className={`dc-tool-btn${open ? ' dc-tool-active' : ''}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} title="Adicionar uma forma ou modelo GLB">
-      <IconBox size={14} /><span>Formas</span><IconChevronDown size={11} />
-    </button>
-    {open && <div className="ce-menu-pop" role="menu">
-      {OBJECTS.map(([kind, label, Icon]) => <button key={kind} role="menuitem" className="ce-menu-item" onClick={() => { addPartAction(kind); setOpen(false) }}><Icon size={14} />{label}</button>)}
+  return <EditorActionMenu label="Adicionar forma" icon={<IconBox size={14} />}>
+      {OBJECTS.map(([kind, label, Icon]) => <button key={kind} className="ce-menu-item" onClick={() => addPartAction(kind)}><Icon size={14} />{label}</button>)}
       <span className="ce-menu-sep" />
-      <button role="menuitem" className="ce-menu-item" onClick={() => { onImport(); setOpen(false) }}><IconModel size={14} />Importar GLB…</button>
-    </div>}
-  </div>
+      <button className="ce-menu-item" onClick={onImport}><IconModel size={14} />Importar GLB…</button>
+  </EditorActionMenu>
 }
 
 /** Barra de ferramentas principal — mesma linguagem visual da barra do simulador, agora por grupos. */
@@ -155,12 +143,12 @@ function ToolRibbon() {
   </>
 
   const groupEdit = editing && <div className="dc-seg" role="group" aria-label="Edição">
-    <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a seleção [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /></button>
-    <button className="dc-tool-btn !px-2" disabled={!hasPart} onClick={groupSelection} title="Agrupar as peças selecionadas [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /></button>
-    <button className="dc-tool-btn !px-2" disabled={!hasGroup} onClick={ungroupSelection} title="Desagrupar: devolve as peças ao nível de cima [Ctrl+Shift+G]" aria-label="Desagrupar"><IconUngroup size={14} /></button>
+    <button className="dc-tool-btn" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a seleção [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /><span>Duplicar</span><kbd>Ctrl+D</kbd></button>
+    <button className="dc-tool-btn" disabled={!hasPart} onClick={groupSelection} title="Agrupar as peças selecionadas [Ctrl+G]" aria-label="Agrupar"><IconGroup size={14} /><span>Agrupar</span><kbd>Ctrl+G</kbd></button>
+    <button className="dc-tool-btn" disabled={!hasGroup} onClick={ungroupSelection} title="Desagrupar: devolve as peças ao nível de cima [Ctrl+Shift+G]" aria-label="Desagrupar"><IconUngroup size={14} /><span>Desagrupar</span></button>
     <button className="dc-tool-btn" disabled={!hasGlb} onClick={(event) => explodeGlbPart(event.shiftKey ? 'meshes' : 'smart')} title="Separar partes: o modelo passa a peças editáveis (manípulo, tampa, botões…), agrupando o que está encostado. Shift+clique separa malha a malha."><IconModel size={13} /><span className="hidden xl:inline">Separar partes</span></button>
     {hasPieces && <button className="dc-tool-btn" onClick={mergeGlbParts} title="Juntar partes: volta a reunir o modelo separado"><IconGroup size={13} /><span className="hidden xl:inline">Juntar partes</span></button>}
-    <button className="dc-tool-btn !px-2" disabled={!hasSelection} onClick={deleteSelection} title="Eliminar a seleção [Del]" aria-label="Eliminar"><IconDelete size={14} /></button>
+    <button className="dc-tool-btn" disabled={!hasSelection} onClick={deleteSelection} title="Eliminar a seleção [Del]" aria-label="Eliminar"><IconDelete size={14} /><span>Eliminar seleção</span><kbd>Del</kbd></button>
   </div>
 
   const groupPosition = editing && <div className="dc-seg" role="group" aria-label="Posição">
@@ -192,38 +180,19 @@ function ToolRibbon() {
     {wireCount > 0 && <button className={`dc-tool-btn ${useEditorStore.getState().tab === 'wires' ? 'dc-tool-active' : ''}`} onClick={() => set({ tab: 'wires' })} title="Editar cabos de teste: cor, secção e terminais"><IconWire size={13} /><span className="hidden xl:inline">Cabos</span><b className="ce-badge">{wireCount}</b></button>}
   </div>
 
-  // Telemóvel: linha 1 = painéis/vista com nome · linha 2 = ferramentas (desliza).
-  if (compact) return <>
-    <div className="ce-ribbon ce-ribbon-row1 dc-toolbar-main" role="toolbar" aria-label="Painéis e vista">
-      <div className="dc-mobile-panel-tools" role="group" aria-label="Painéis">
-        {shapes}
-        {groupTerminals}
-        {groupView}
-        {groupPosition}
-      </div>
-    </div>
-    <div className="ce-ribbon ce-ribbon-row2 toolbar-scroll" role="toolbar" aria-label="Ferramentas">
+  return <div className={`ce-toolbars${compact ? ' is-compact' : ''}`}>
+    <div className="ce-ribbon ce-ribbon-primary" role="toolbar" aria-label="Ferramentas">
       {groupHistory}
-      {groupGrid}
       {groupTools}
       {groupGizmo}
-      {groupEdit}
-      {groupClear}
+      {shapes}
     </div>
-  </>
-
-  return <div className="ce-ribbon" role="toolbar" aria-label="Ferramentas">
-    {groupHistory}
-    <span className="ce-ribbon-sep" />
-    {groupGrid}
-    {groupTools}
-    {editing && <><span className="ce-ribbon-sep" />{groupGizmo}</>}
-    {editing && <><span className="ce-ribbon-sep" />{shapes}{groupEdit}{groupPosition}</>}
-    <span className="ce-ribbon-sep" />
-    {groupView}
-    {editing && <><span className="ce-ribbon-sep" />{groupTerminals}</>}
-    {groupClear && <><span className="ce-ribbon-sep" />{groupClear}</>}
-    <span className="ce-ribbon-hint" aria-live="polite">{RIBBON.find((item) => item.id === active)?.hint}</span>
+    <div className="ce-ribbon ce-ribbon-secondary" role="toolbar" aria-label="Modelo e vista">
+      <span className="ce-toolbar-caption">Vista</span>{groupGrid}{groupView}
+      {editing && <>{groupTerminals}<EditorActionMenu label="Organizar" icon={<IconLayers size={13} />}>{groupEdit}{groupPosition}</EditorActionMenu></>}
+      {groupClear}
+      <span className="ce-ribbon-hint" aria-live="polite">{RIBBON.find((item) => item.id === active)?.hint}</span>
+    </div>
   </div>
 }
 
@@ -274,9 +243,22 @@ function ViewToolbar() {
   const snap = useEditorStore((s) => s.snap)
   const set = useEditorStore((s) => s.set)
   const mode = useEditorStore((s) => s.mode)
-  const compact = useCompactView()
+  const compactWindow = useCompactView()
+  const [narrowCanvas, setNarrowCanvas] = useState(false)
+  const compact = compactWindow || narrowCanvas
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const stage = menuRef.current?.closest('.ce-stage')
+    const canvas = stage?.querySelector('.ce-canvas') ?? stage
+    if (!canvas) return
+    // Os painéis redimensionáveis podem estreitar o canvas sem mudar a janela.
+    const update = () => { const width = canvas.getBoundingClientRect().width; setNarrowCanvas(width > 0 && width < 720) }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(canvas)
+    return () => observer.disconnect()
+  }, [])
   useEffect(() => {
     if (!open) return
     const close = (event: PointerEvent) => { if (!menuRef.current?.contains(event.target as Node)) setOpen(false) }
@@ -325,7 +307,7 @@ function ViewToolbar() {
     </div>
   }
 
-  return <div className="ce-viewbar" role="toolbar" aria-label="Vista 3D">
+  return <div className="ce-viewbar" role="toolbar" aria-label="Vista 3D" ref={menuRef}>
     {camera}
     <div className="ce-group" aria-label="Cena">
       {scene.map(([key, label, hint]) => <button key={key} className={`ce-tool${view[key] ? ' is-on' : ''}`} title={hint} onClick={() => setView({ [key]: !view[key] } as Partial<typeof view>)}>{label}</button>)}
@@ -473,6 +455,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
   const [helpOpen, setHelpOpen] = useState(false)
   const [dropping, setDropping] = useState(false)
   const [mobilePane, setMobilePane] = useState<'canvas' | 'objects' | 'inspector'>('canvas')
+  const panels = usePanelWidths()
   useEffect(() => {
     const openInspector = () => setMobilePane('inspector')
     window.addEventListener('ce-open-inspector', openInspector)
@@ -713,8 +696,9 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       <button className={mobilePane === 'objects' ? 'is-on' : ''} onClick={() => setMobilePane('objects')}>Objetos</button>
       <button className={mobilePane === 'inspector' ? 'is-on' : ''} onClick={() => setMobilePane('inspector')}>Propriedades</button>
     </nav>
-    <div className={`ce-body ce-mobile-${mobilePane}`}>
+    <div className={`ce-body ce-mobile-${mobilePane}`} style={panels.style}>
       <Hierarchy />
+      <PanelResizer side="left" width={panels.widths.left} onChange={(value) => panels.change('left', value)} />
       <main className={`ce-stage is-tool-${activeRibbon}${view.grid ? '' : ' no-grid'}${view.dark ? ' is-dark' : ''}${dropping ? ' is-dropping' : ''}${libraryOpen && mode === 'edit' ? ' lib-open' : ''}`}
         onDragOver={(event) => { if (mode === 'edit' && (event.dataTransfer.types.includes(DND_PROFILE) || event.dataTransfer.types.includes(DND_TERMINAL))) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; if (!dropping) setDropping(true) } }}
         onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropping(false) }}
@@ -747,8 +731,9 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         {mode === 'edit' && editState !== BASE_STATE && <div className="ce-simbar"><span>Estados:</span>
           <button className="ce-chip" onClick={() => set({ editState: BASE_STATE })}>Voltar à pose base</button></div>}
       </main>
+      <PanelResizer side="right" width={panels.widths.right} onChange={(value) => panels.change('right', value)} />
       <aside className="ce-right" aria-label="Inspetor">
-        <div className="ce-tabs" role="tablist">{TABS.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'is-on' : ''} onClick={() => set({ tab: key })}>{label}</button>)}</div>
+        <InspectorNavigation />
         <div className="ce-inspector">
           {tab === 'object' && <ObjectTab />}{tab === 'materials' && <MaterialsTab />}{tab === 'terminals' && <TerminalsTab />}
           {tab === 'wires' && <WiresTab />}{tab === 'lights' && <LightsTab />}{tab === 'states' && <StatesTab />}{tab === 'interactions' && <InteractionsTab />}{tab === 'controls' && <ControlsTab />}{tab === 'displays' && <DisplaysTab />}{tab === 'component' && <ComponentTab />}

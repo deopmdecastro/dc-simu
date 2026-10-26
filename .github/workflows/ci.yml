@@ -55,3 +55,6 @@ jobs:
       - run: npm run test:grafcet-construction-ui
         env:
           GRAFCET_TEST_URL: http://127.0.0.1:5175
+      - run: npm run test:logo-editor-ui
+        env:
+          LOGO_EDITOR_TEST_URL: http://127.0.0.1:5175

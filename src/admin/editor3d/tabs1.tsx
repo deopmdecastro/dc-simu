@@ -20,19 +20,19 @@ function Overview() {
   const wires = useEditorStore((s) => s.testWires.length)
   const setRibbon = useEditorStore((s) => s.setRibbon)
   const cameraTo = useEditorStore((s) => s.cameraTo)
+  const set = useEditorStore((s) => s.set)
   const issues = useMemo(() => validateDefinition(def, meta), [def, meta])
   const errors = issues.filter((issue) => issue.level === 'error').length
   const size = useMemo(() => { const box = boundsMm(def, glbCache); const v = box.getSize(box.min.clone()); return `${v.x.toFixed(0)} × ${v.y.toFixed(0)} × ${v.z.toFixed(0)}` }, [def.parts, def.assets, glbRevision])
   return <div className="ce-overview">
-    <p className="ce-empty">Selecione uma peça na hierarquia ou no viewport para editar posição, rotação, escala e material.</p>
+    <div className="ce-overview-intro"><strong>Resumo do componente</strong><p>Selecione uma peça, borne, botão ou ecrã para editar as suas propriedades.</p></div>
     <div className="ce-overview-grid">
       <div className="ce-stat"><b>{def.parts.length}</b><span>peças</span></div>
       <div className="ce-stat"><b>{def.terminals.length}</b><span>bornes</span></div>
-      <div className="ce-stat"><b>{size}</b><span>mm (L × A × P)</span></div>
-      <div className="ce-stat"><b>{wires}</b><span>cabos de teste</span></div>
-      <div className={`ce-stat${errors ? ' is-err' : ''}`}><b>{errors}</b><span>erros</span></div>
-      <div className={`ce-stat${issues.length - errors ? ' is-warn' : ''}`}><b>{issues.length - errors}</b><span>avisos</span></div>
+      <button className="ce-stat" onClick={() => set({ tab: 'controls', selection: def.controls?.[0] ? { kind: 'control', id: def.controls[0].id } : null })}><b>{def.controls?.length ?? 0}</b><span>botões e seletores</span></button>
+      <button className="ce-stat" onClick={() => set({ tab: 'displays', selection: def.displays?.[0] ? { kind: 'display', id: def.displays[0].id } : null })}><b>{def.displays?.length ?? 0}</b><span>LCDs e ecrãs</span></button>
     </div>
+    <div className="ce-overview-meta"><span>{size} mm</span><span>{wires} cabos de teste</span><span className={errors ? 'is-err' : ''}>{errors} erros · {issues.length - errors} avisos</span></div>
     <div className="ce-overview-actions">
       {mode === 'edit' && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => setRibbon('terminal')}>Adicionar borne [2]</button>}
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => setRibbon('wire')}>Ligar cabo [3]</button>

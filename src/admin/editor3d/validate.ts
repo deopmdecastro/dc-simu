@@ -1,6 +1,7 @@
 import type { CatalogMeta, ComponentDefinition } from '../../catalog/types'
 import { varDefsOf } from '../../catalog/behavior'
 import { isHexColor } from '../../catalog/lightLook'
+import { localControlArea } from '../../catalog/controlArea'
 
 export interface Issue { level: 'error' | 'warn'; text: string }
 
@@ -67,6 +68,7 @@ export function validateDefinition(def: ComponentDefinition, meta: CatalogMeta):
   const varIds = new Set([...(def.vars ?? []).map((item) => item.id), ...(def.behavior ? ['dial', 'cont', 'hold', 'light', 'sleep'] : [])])
   ;(def.controls ?? []).forEach((control) => {
     if (!partIds.has(control.partId)) issues.push({ level: 'error', text: `O controlo «${control.name}» aponta para uma peça inexistente.` })
+    if (control.hitArea && !localControlArea(control)) issues.push({ level: 'error', text: `O controlo «${control.name}» tem uma área de clique inválida: use posição finita e dimensões positivas.` })
     if (control.kind === 'selector' && control.positions.length < 2) issues.push({ level: 'warn', text: `O seletor «${control.name}» tem menos de 2 posições.` })
     if (control.kind === 'selector' && control.bindVar && !varIds.has(control.bindVar)) issues.push({ level: 'warn', text: `O seletor «${control.name}» escreve numa variável que não existe.` })
     if (control.kind !== 'selector' && control.actions.length === 0) issues.push({ level: 'warn', text: `O botão «${control.name}» não tem ações.` })

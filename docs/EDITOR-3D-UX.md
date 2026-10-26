@@ -2,6 +2,22 @@
 
 ## Editor de componentes
 
+A barra «Elementos» reúne pesquisa e filtros com contagens para Peças, Bornes, Controlos, Ecrãs e Luzes. As secções podem ser recolhidas; o LCD e os controlos aparecem antes da lista de bornes. O inspetor acompanha a seleção e organiza as propriedades em Construção, Funcionamento e Componente. Em desktop, arraste os separadores laterais ou use as setas para ajustar a largura; `Home` ou duplo clique repõe o valor inicial. A preferência fica guardada no browser.
+
+As ferramentas principais ficam na primeira linha. Vista, biblioteca de bornes e «Organizar» ficam na segunda. O menu Organizar reúne duplicar, agrupar, separar/juntar partes, eliminar, pousar e centrar; os atalhos mantêm-se. Os menus abrem por cima da barra para continuarem acessíveis quando esta tem deslocamento horizontal.
+
+### PLC Siemens LOGO!
+
+Ao importar o LOGO! 12/24RC, o editor cria um LCD de texto e seis teclas — ESC, OK e quatro cursores — além dos 19 bornes. Selecionar o LCD abre Ecrãs; selecionar uma tecla abre Botões. É possível selecionar ambos diretamente no modelo, alterar o texto e aspeto do visor e ajustar as áreas de clique das teclas.
+
+Na pré-visualização, OK e os cursores percorrem as páginas; ESC regressa ao início. As variáveis do LCD podem ser editadas no componente. Nas instâncias do catálogo derivadas do LOGO, o visor recebe alimentação, estado RUN/STOP/PAUSE, bits I/O e diagnósticos do PLC. A navegação do visor não programa o firmware do equipamento físico.
+
+Rascunhos anteriores sem estes elementos recebem-nos ao abrir, preservando peças, bornes e IDs. Controlos ou ecrãs personalizados são conservados. O importador regista que introduziu os elementos para não recriar aqueles que o autor eliminar depois.
+
+O CAD junta várias teclas na mesma malha. Cada tecla usa uma área de clique local à peça, independente das restantes; premir a tecla não desloca o corpo do PLC. As dimensões/posição dessa área ficam nas propriedades do controlo, e uma área inválida é assinalada na validação.
+
+### Operações gerais
+
 - A pesquisa da hierarquia encontra objetos, bornes, botões, luzes e ecrãs, sem distinguir acentos. `Esc` limpa o filtro.
 - As linhas da hierarquia têm foco de teclado. `Enter` ou espaço seleciona; as setas percorrem objetos e expandem/recolhem grupos. A seleção de um borne abre as suas propriedades em ecrãs pequenos.
 - «Enquadrar seleção» inclui todas as peças selecionadas e também serve para bornes, controlos, luzes, ecrãs e cabos de teste.
@@ -28,6 +44,7 @@ A preparação para o catálogo conserva a posição interior, o tamanho do enca
 
 ```powershell
 npm run test:editor3d-functional
+npm run test:logo-editor
 npm run test:terminal-geometry
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
@@ -38,6 +55,9 @@ Noutro terminal, com Chrome instalado:
 $env:EDITOR3D_TEST_URL = 'http://127.0.0.1:5173'
 $env:EDITOR3D_TEST_CHANNEL = 'chrome'
 npm run test:editor3d-ui
+$env:LOGO_EDITOR_TEST_URL = 'http://127.0.0.1:5173'
+$env:LOGO_EDITOR_TEST_CHANNEL = 'chrome'
+npm run test:logo-editor-ui
 ```
 
 O teste UI usa um contexto descartável, bloqueia API, serviços remotos e atualização de versão, e permite apenas os recursos locais e as fontes do renderizador. Use uma execução Vite sem alterações de código pendentes para evitar módulos duplicados por HMR. `EDITOR3D_TEST_OUTPUT` permite guardar capturas num diretório local de evidências.

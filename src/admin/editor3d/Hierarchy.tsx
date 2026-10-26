@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { DisplayDef, PartDef } from '../../catalog/types'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import type { ControlDef, DisplayDef, PartDef, Vec3 } from '../../catalog/types'
+import * as THREE from 'three'
 import { IconChevronDown, IconChevronRight, IconClose, IconSearch, IconGrid, IconLayers, IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
 import { patchPart, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
@@ -7,7 +8,7 @@ import { faceOfNormal } from './terminalOps'
 import { deleteSelection } from './partActions'
 import { ancestorsOf, isPartLocked, normalizeText, rangeBetween, visibleRows } from './selectionOps'
 import { areaThumbnail, partThumbnail } from './partThumb'
-import { reparentPartPreservingWorld } from './partTransforms'
+import { partWorldMatrix, reparentPartPreservingWorld } from './partTransforms'
 
 /** Miniatura 3D da peça (cai para o ícone da forma quando não há imagem). */
 function PartThumb({ partId, kind, size }: { partId: string; kind: PartDef['kind']; size: number }) {
@@ -20,10 +21,24 @@ function PartThumb({ partId, kind, size }: { partId: string; kind: PartDef['kind
 }
 
 /** Miniatura 3D de um controlo (botão, seletor) a partir dos nós que move. */
-function ControlThumb({ partId, nodes, size = 34 }: { partId: string; nodes?: string[]; size?: number }) {
+function ControlThumb({ partId, nodes, hitArea, size = 34 }: { partId: string; nodes?: string[]; hitArea?: ControlDef['hitArea']; size?: number }) {
   const def = useEditorStore((s) => s.def)
   const glbRevision = useEditorStore((s) => s.glbRevision)
-  const url = useMemo(() => (partId ? partThumbnail(def, partId, nodes, glbRevision) : null), [def, partId, nodes, glbRevision])
+  const url = useMemo(() => {
+    if (!partId) return null
+    if (hitArea) {
+      try {
+        const matrix = partWorldMatrix(def, partId)
+        const position = new THREE.Vector3(...hitArea.position).applyMatrix4(matrix).toArray() as Vec3
+        const normal = new THREE.Vector3(0, 0, 1).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(matrix)).toArray() as Vec3
+        const linear = new THREE.Matrix3().setFromMatrix4(matrix)
+        const width = new THREE.Vector3(hitArea.size[0], 0, 0).applyMatrix3(linear).length()
+        const height = new THREE.Vector3(0, hitArea.size[1], 0).applyMatrix3(linear).length()
+        return areaThumbnail(def, position, normal, width, height, glbRevision)
+      } catch { return null }
+    }
+    return partThumbnail(def, partId, nodes, glbRevision)
+  }, [def, partId, nodes, hitArea, glbRevision])
   if (!url) return <i className="ce-row-kind" style={{ width: size, height: size }}><IconFocus size={13} /></i>
   return <img className="ce-row-thumb" src={url} alt="" width={size} height={size} loading="lazy" />
 }
@@ -41,6 +56,26 @@ const FACE_ORDER: Face[] = ['front', 'back', 'left', 'right', 'top', 'bottom']
 const FACE_LABEL: Record<Face, string> = { front: 'Frente', back: 'Trás', left: 'Esquerda', right: 'Direita', top: 'Topo', bottom: 'Base' }
 const KIND_ICON: Record<PartDef['kind'], typeof IconBox> = { group: IconGroup, box: IconBox, cylinder: IconCylinder, sphere: IconSphere, cone: IconCone, torus: IconTorus, glb: IconModel }
 
+type ElementCategory = 'all' | 'parts' | 'terminals' | 'controls' | 'displays' | 'lights'
+const CATEGORIES: Array<[ElementCategory, string]> = [['all', 'Todos'], ['parts', 'Peças'], ['terminals', 'Bornes'], ['controls', 'Controlos'], ['displays', 'Ecrãs'], ['lights', 'Luzes']]
+
+function ElementSection({ id, title, count, visible, searching, active, actions, children }: {
+  id: string; title: string; count: number; visible: boolean; searching: boolean; active: string | false; actions?: ReactNode; children: ReactNode
+}) {
+  const [collapsed, setCollapsed] = useState(false)
+  useEffect(() => { if (active) setCollapsed(false) }, [active])
+  const expanded = searching || !collapsed
+  return <section className={`ce-element-section ce-elements-${id}`} hidden={!visible} aria-label={title}>
+    <div className="ce-panel-head ce-element-head">
+      <button className="ce-section-toggle" aria-expanded={expanded} aria-controls={`ce-elements-${id}`} onClick={() => setCollapsed((value) => !value)}>
+        {expanded ? <IconChevronDown size={11} /> : <IconChevronRight size={11} />}<strong>{title}</strong><span>{count}</span>
+      </button>
+      {actions}
+    </div>
+    {expanded && <div id={`ce-elements-${id}`}>{children}</div>}
+  </section>
+}
+
 export default function Hierarchy() {
   const def = useEditorStore((s) => s.def)
   const selection = useEditorStore((s) => s.selection)
@@ -50,10 +85,11 @@ export default function Hierarchy() {
   const [renaming, setRenaming] = useState<string | null>(null)
   // Filtro por nome e grupos recolhidos: um GLB separado chega a dezenas de peças.
   const [query, setQuery] = useState('')
+  const [category, setCategory] = useState<ElementCategory>('all')
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
   const treeRef = useRef<HTMLDivElement>(null)
   // Lista compacta ou cartões com a miniatura de cada peça.
-  const [cards, setCards] = useState<boolean>(() => { try { return localStorage.getItem('dcsimu:ce:objcards') !== '0' } catch { return true } })
+  const [cards, setCards] = useState<boolean>(() => { try { return localStorage.getItem('dcsimu:ce:objcards') === '1' } catch { return false } })
   const chooseCards = (value: boolean) => { setCards(value); try { localStorage.setItem('dcsimu:ce:objcards', value ? '1' : '0') } catch { /* ignorar */ } }
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
@@ -69,6 +105,16 @@ export default function Hierarchy() {
   const filtering = needle.length > 0
   const matches = (...values: Array<string | undefined>) => !needle || normalizeText(values.filter(Boolean).join(' ')).includes(needle)
   const matchingTerminals = def.terminals.filter((terminal) => matches(terminal.name, terminal.label, terminal.group, terminal.id))
+  const matchingControls = (def.controls ?? []).filter((control) => matches(control.name, control.id))
+  const matchingDisplays = (def.displays ?? []).filter((display) => matches(display.name, display.id))
+  const matchingLights = def.lights.filter((light) => matches(light.name, light.id))
+  const counts: Record<ElementCategory, number> = { all: def.parts.length + def.terminals.length + (def.controls?.length ?? 0) + (def.displays?.length ?? 0) + def.lights.length, parts: def.parts.length, terminals: def.terminals.length, controls: def.controls?.length ?? 0, displays: def.displays?.length ?? 0, lights: def.lights.length }
+  const show = (kind: ElementCategory) => category === 'all' || category === kind
+  useEffect(() => {
+    if (!selection) return
+    const selectedCategory: ElementCategory = selection.kind === 'part' ? 'parts' : selection.kind === 'terminal' ? 'terminals' : selection.kind === 'control' ? 'controls' : selection.kind === 'display' ? 'displays' : 'lights'
+    setCategory((current) => current === 'all' || current === selectedCategory ? current : selectedCategory)
+  }, [selection?.kind, selection?.id])
   const termGroups = useMemo(() => {
     const map = new Map<string, typeof def.terminals>()
     for (const terminal of matchingTerminals) {
@@ -127,18 +173,23 @@ export default function Hierarchy() {
   }
 
   return <aside className="ce-left" aria-label="Hierarquia">
-    <div className="ce-panel-head"><strong>Objetos</strong><span>{def.parts.length}</span>
+    <div className="ce-hierarchy-title"><div><strong>Elementos</strong><small>Modelo e interface física</small></div><span>{counts.all}</span>
       <button className="ce-icon" title={cards ? 'Ver em lista' : 'Ver em cartões com miniatura'} aria-label={cards ? 'Ver em lista' : 'Ver em cartões'} onClick={() => chooseCards(!cards)}>{cards ? <IconLayers size={13} /> : <IconGrid size={13} />}</button>
     </div>
     <div className="ce-search">
       <IconSearch size={11} />
-      <input className="dx-input" type="search" value={query} placeholder="Pesquisar objetos e bornes…" aria-label="Pesquisar na hierarquia"
+      <input className="dx-input" type="search" value={query} placeholder="Pesquisar qualquer elemento…" aria-label="Pesquisar na hierarquia"
         onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape' && query) { event.preventDefault(); event.stopPropagation(); setQuery('') } }} />
       {query && <button className="ce-icon" aria-label="Limpar filtro" title="Limpar filtro" onClick={() => setQuery('')}><IconClose size={11} /></button>}
       {!cards && !filtering && groupIds.length > 0 && <button className="ce-icon" aria-label={allCollapsed ? 'Expandir todos os grupos' : 'Recolher todos os grupos'} title={allCollapsed ? 'Expandir todos os grupos' : 'Recolher todos os grupos'}
         onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(groupIds))}>{allCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}</button>}
     </div>
+    <div className="ce-element-filters" role="group" aria-label="Filtrar elementos">
+      {CATEGORIES.map(([key, label]) => <button key={key} aria-pressed={category === key} className={category === key ? 'is-on' : ''} onClick={() => setCategory(key)}>{label}<span>{counts[key]}</span></button>)}
+    </div>
     {selection && <div className="ce-selection-actions"><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={focusSelection}><IconFocus size={13} />Enquadrar seleção</button><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={openProperties}>Propriedades</button></div>}
+    <div className="ce-hierarchy-scroll">
+    <ElementSection id="parts" title="Peças do modelo" count={rows.length} visible={show('parts')} searching={filtering} active={selection?.kind === 'part' && selection.id}>
     <div ref={treeRef} className={`ce-tree${cards ? ' is-cards' : ''}`} role="tree" aria-label="Objetos do componente" aria-multiselectable="true" onDragOver={(event) => { if (dragId) event.preventDefault() }} onDrop={() => { if (dragId) reparent(dragId, null); setDragId(null); setOverId(null) }}>
       {rows.length === 0 && <p className="ce-empty">{filtering ? `Nenhuma peça corresponde a «${query.trim()}».` : 'Sem peças. Adicione uma forma na barra de ferramentas.'}</p>}
       {rows.map(({ part, depth, hasChildren }) => {
@@ -187,12 +238,25 @@ export default function Hierarchy() {
       {/* Duplicar, agrupar e separar partes vivem na barra de ferramentas. */}
       <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={deleteSelection}>Eliminar{selectedCount > 1 ? ` (${selectedCount})` : ''}</button>
     </div>}
+    </ElementSection>
     <div className="ce-left-lists">
-      <div className="ce-panel-head">
-        <strong>Bornes</strong><span>{def.terminals.length}</span>
-        {def.terminals.length > 0 && <button className="ce-icon ce-head-eye" aria-label={allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes'} title={allHidden ? 'Mostrar todos os bornes [H]' : 'Ocultar todos os bornes [H]'}
-          onClick={() => setTerminalsHidden(def.terminals.map((item) => item.id), !allHidden)}>{allHidden ? <IconEyeOff size={13} /> : <IconEye size={13} />}</button>}
+      <ElementSection id="displays" title="LCDs e ecrãs" count={matchingDisplays.length} visible={show('displays') && (category !== 'all' || counts.displays > 0)} searching={filtering} active={selection?.kind === 'display' && selection.id}>
+      {matchingDisplays.map((display) => <button key={display.id} aria-pressed={selection?.kind === 'display' && selection.id === display.id} className={`ce-row ce-row-btn${selection?.kind === 'display' && selection.id === display.id ? ' is-active' : ''}`}
+        onClick={() => { useEditorStore.getState().set({ selection: { kind: 'display', id: display.id }, tab: 'displays' }); openProperties() }}>
+        <DisplayThumb display={display} /><span className="ce-row-name">{display.name}</span><small>{display.kind === 'lcd' ? 'LCD' : 'Texto'}</small>
+      </button>)}
+      {matchingDisplays.length === 0 && <p className="ce-empty">{filtering ? 'Nenhum ecrã corresponde à pesquisa.' : 'Sem ecrãs. Crie um no separador Ecrãs do inspetor.'}</p>}
+      </ElementSection>
+      <ElementSection id="controls" title="Botões e seletores" count={matchingControls.length} visible={show('controls') && (category !== 'all' || counts.controls > 0)} searching={filtering} active={selection?.kind === 'control' && selection.id}>
+      <div className="ce-interface-grid">
+      {matchingControls.map((control) => <button key={control.id} aria-pressed={selection?.kind === 'control' && selection.id === control.id} className={`ce-row ce-row-btn${selection?.kind === 'control' && selection.id === control.id ? ' is-active' : ''}`}
+        onClick={() => { useEditorStore.getState().set({ selection: { kind: 'control', id: control.id }, tab: 'controls' }); openProperties() }}>
+        <ControlThumb partId={control.partId} nodes={control.nodes} hitArea={control.hitArea} size={26} /><span className="ce-row-name">{control.name}</span>
+      </button>)}
       </div>
+      {matchingControls.length === 0 && <p className="ce-empty">{filtering ? 'Nenhum controlo corresponde à pesquisa.' : 'Sem controlos. Crie um no separador Botões do inspetor.'}</p>}
+      </ElementSection>
+      <ElementSection id="terminals" title="Bornes" count={matchingTerminals.length} visible={show('terminals')} searching={filtering} active={selection?.kind === 'terminal' && selection.id} actions={def.terminals.length > 0 && <button className="ce-icon ce-head-eye" aria-label={allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes'} title={allHidden ? 'Mostrar todos os bornes [H]' : 'Ocultar todos os bornes [H]'} onClick={() => setTerminalsHidden(def.terminals.map((item) => item.id), !allHidden)}>{allHidden ? <IconEyeOff size={13} /> : <IconEye size={13} />}</button>}>
       {def.terminals.length > 1 && <div className="ce-seg" role="group" aria-label="Agrupar bornes por">
         <button className={groupBy === 'view' ? 'is-on' : ''} aria-pressed={groupBy === 'view'} onClick={() => chooseGroupBy('view')} title="Separar os bornes pela face/vista onde saem">Por vista</button>
         <button className={groupBy === 'group' ? 'is-on' : ''} aria-pressed={groupBy === 'group'} onClick={() => chooseGroupBy('group')} title="Separar os bornes pelo grupo funcional">Por grupo</button>
@@ -206,32 +270,23 @@ export default function Hierarchy() {
             {items.every((item) => hiddenTerminals.includes(item.id)) ? <IconEyeOff size={12} /> : <IconEye size={12} />}</button></div>}
         {items.map((terminal) => {
           const hidden = hiddenTerminals.includes(terminal.id)
-          return <div key={terminal.id} role="button" tabIndex={0} className={`ce-row ce-row-btn${selection?.kind === 'terminal' && selection.id === terminal.id ? ' is-active' : ''}${hidden ? ' is-hidden' : ''}`}
+          return <div key={terminal.id} role="button" aria-pressed={selection?.kind === 'terminal' && selection.id === terminal.id} tabIndex={0} className={`ce-row ce-row-btn${selection?.kind === 'terminal' && selection.id === terminal.id ? ' is-active' : ''}${hidden ? ' is-hidden' : ''}`}
             onClick={() => { useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, selectedWire: null, tab: 'terminals' }); openProperties() }}
             onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, selectedWire: null, tab: 'terminals' }); openProperties() } }}>
-            <i className="ce-dot" style={{ background: terminal.color }} /><span className="ce-row-name">{terminal.label} · {terminal.name}</span>
+            <i className="ce-dot" style={{ background: terminal.color }} /><span className="ce-row-name">{terminal.label}{terminal.name && terminal.name !== terminal.label && <small> · {terminal.name}</small>}</span>
             <button className="ce-icon" title={hidden ? 'Mostrar borne' : 'Ocultar borne'} aria-label={hidden ? `Mostrar borne ${terminal.label}` : `Ocultar borne ${terminal.label}`}
               onClick={(event) => { event.stopPropagation(); toggleTerminalHidden(terminal.id) }}>{hidden ? <IconEyeOff size={13} /> : <IconEye size={13} />}</button>
           </div>
         })}
       </div>)}
       {matchingTerminals.length === 0 && <p className="ce-empty">{filtering ? `Nenhum borne corresponde a «${query.trim()}».` : 'Sem bornes.'}</p>}
-      <div className="ce-panel-head"><strong>Botões e seletores</strong><span>{(def.controls ?? []).length}</span></div>
-      {(def.controls ?? []).filter((control) => matches(control.name, control.id)).map((control) => <button key={control.id} className={`ce-row ce-row-btn${selection?.kind === 'control' && selection.id === control.id ? ' is-active' : ''}`}
-        onClick={() => { useEditorStore.getState().set({ selection: { kind: 'control', id: control.id }, tab: 'controls' }); openProperties() }}>
-        <ControlThumb partId={control.partId} nodes={control.nodes} /><span className="ce-row-name">{control.name}</span><small>{control.kind === 'selector' ? 'Seletor' : control.kind === 'toggle' ? 'Liga/desliga' : 'Botão'}</small>
-      </button>)}
-      {(def.controls ?? []).length === 0 && <p className="ce-empty">Sem botões ou seletores.</p>}
-      <div className="ce-panel-head"><strong>Luzes</strong><span>{def.lights.length}</span></div>
-      {def.lights.filter((light) => matches(light.name, light.id)).map((light) => <button key={light.id} className={`ce-row ce-row-btn${selection?.kind === 'light' && selection.id === light.id ? ' is-active' : ''}`}
+      </ElementSection>
+      <ElementSection id="lights" title="Luzes" count={matchingLights.length} visible={show('lights') && (category !== 'all' || counts.lights > 0)} searching={filtering} active={selection?.kind === 'light' && selection.id}>
+      {matchingLights.map((light) => <button key={light.id} aria-pressed={selection?.kind === 'light' && selection.id === light.id} className={`ce-row ce-row-btn${selection?.kind === 'light' && selection.id === light.id ? ' is-active' : ''}`}
         onClick={() => { useEditorStore.getState().set({ selection: { kind: 'light', id: light.id }, tab: 'lights' }); openProperties() }}><i className="ce-dot" style={{ background: light.color }} /><span className="ce-row-name">{light.name}</span></button>)}
-      {def.lights.length === 0 && <p className="ce-empty">Sem zonas luminosas.</p>}
-      <div className="ce-panel-head"><strong>LCDs e ecrãs</strong><span>{(def.displays ?? []).length}</span></div>
-      {(def.displays ?? []).filter((display) => matches(display.name, display.id)).map((display) => <button key={display.id} className={`ce-row ce-row-btn${selection?.kind === 'display' && selection.id === display.id ? ' is-active' : ''}`}
-        onClick={() => { useEditorStore.getState().set({ selection: { kind: 'display', id: display.id }, tab: 'displays' }); openProperties() }}>
-        <DisplayThumb display={display} /><span className="ce-row-name">{display.name}</span><small>{display.kind === 'lcd' ? 'LCD' : 'Texto'}</small>
-      </button>)}
-      {(def.displays ?? []).length === 0 && <p className="ce-empty">Sem LCDs ou ecrãs.</p>}
+      {matchingLights.length === 0 && <p className="ce-empty">{filtering ? 'Nenhuma luz corresponde à pesquisa.' : 'Sem zonas luminosas. Crie uma no separador Luzes do inspetor.'}</p>}
+      </ElementSection>
+    </div>
     </div>
   </aside>
 }

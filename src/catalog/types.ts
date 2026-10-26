@@ -237,8 +237,11 @@ export interface ControlDef {
   name: string
   kind: 'button' | 'toggle' | 'selector'
   partId: string
-  /** Nomes dos nós dentro do GLB que se movem juntos (vazio = a peça inteira). */
+  /** Nomes dos nós dentro do GLB que se movem juntos (omisso = peça inteira; [] = sem malha móvel). */
   nodes?: string[]
+  /** Área de clique independente, no espaço local da peça (mm).
+   * Permite teclas distintas num CAD que junta vários botões na mesma malha. */
+  hitArea?: { position: Vec3; size: Vec3 }
   /** Eixo de rotação (seletor) ou de deslocação (botão), no espaço do componente. */
   axis: Vec3
   /** Curso do botão em mm (positivo = para dentro, contra o eixo). */
@@ -309,6 +312,8 @@ export interface AssetDef {
 }
 
 export interface ComponentDefinition {
+  /** Elementos integrados já introduzidos; evita recriar elementos apagados pelo autor. */
+  builtinSeeds?: string[]
   schemaVersion: 1
   mount: 'din-rail' | 'panel-front' | 'machine'
   parts: PartDef[]

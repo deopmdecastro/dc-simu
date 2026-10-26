@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { ComponentDefinition } from '../../catalog/types'
 import type { Selection, TestWire } from './editorStore'
 import { wireModel } from './wirePath'
+import { controlAreaBox } from '../../catalog/controlArea'
 
 /** Caixa conjunta de tudo o que a interface anuncia como selecionado. */
 export function editorSelectionBounds(def: ComponentDefinition, root: THREE.Object3D, selection: Selection, multi: string[], selectedWire: string | null, wires: TestWire[]): THREE.Box3 {
@@ -19,7 +20,11 @@ export function editorSelectionBounds(def: ComponentDefinition, root: THREE.Obje
     if (terminal) box.setFromCenterAndSize(new THREE.Vector3(...terminal.position), new THREE.Vector3(12, 12, 12))
   } else if (selection?.kind === 'control') {
     const control = def.controls?.find((control) => control.id === selection.id)
-    if (control) includePart(control.partId, control.nodes)
+    if (control) {
+      const area = controlAreaBox(root, control)
+      if (area) box.union(area)
+      else includePart(control.partId, control.nodes)
+    }
   } else if (selection?.kind === 'light') {
     const light = def.lights.find((light) => light.id === selection.id)
     if (light) includePart(light.partId, light.nodes)

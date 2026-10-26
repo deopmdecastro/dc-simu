@@ -4,6 +4,7 @@ import { displayPixelSize, drawDisplay } from './displayCanvas'
 import { motionAngle, normalizeMotion, pivotFromBox, stepSpring } from './controlMotion'
 import type { StateAnimator } from './stateAnimator'
 import type { ComponentDefinition, ControlDef, DisplayDef, SpinDef } from './types'
+import { controlAreaBox, localControlArea } from './controlArea'
 
 /** Nó (peça ou nó dentro do GLB) a que um controlo está ligado. */
 export function controlNodes(root: THREE.Object3D, control: { partId: string; nodes?: string[] }): THREE.Object3D[] {
@@ -118,10 +119,11 @@ export class ComponentRig {
     root.updateWorldMatrix(true, true)
     const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert()
     for (const control of def.controls ?? []) {
-      const nodes = controlNodes(root, control)
-      if (!nodes.length) continue
-      const box = new THREE.Box3()
-      for (const node of nodes) box.expandByObject(node, true)
+      const nodes = control.hitArea && control.nodes === undefined ? [] : controlNodes(root, control)
+      const area = controlAreaBox(root, control)
+      if (!nodes.length && !area) continue
+      const box = area ?? new THREE.Box3()
+      if (!area) for (const node of nodes) box.expandByObject(node, true)
       const restBox = new THREE.Box3()
       if (!box.isEmpty()) for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) restBox.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(rootInverse))
       const tilt = control.kind !== 'selector' && control.motion?.mode === 'tilt'
@@ -133,7 +135,7 @@ export class ComponentRig {
       const moving = nodes.map((node): Moving => ({ node, local0: node.matrix.clone(), parentToRoot: new THREE.Matrix4().multiplyMatrices(rootInverse, node.parent ? node.parent.matrixWorld : root.matrixWorld) }))
       this.items.set(control.id, { control, moving, pivot, axis, value: 0, target: 0, velocity: 0, held: false, restBox })
       for (const node of nodes) node.traverse((child) => this.owner.set(child, control.id))
-      if (control.nodes !== undefined) this.addProxy(control, box)
+      if (control.nodes !== undefined || control.hitArea) this.addProxy(control, box)
     }
     for (const part of def.parts) {
       if (!part.spin) continue
@@ -157,14 +159,17 @@ export class ComponentRig {
     const part = this.root.getObjectByName(control.partId)
     if (!part || worldBox.isEmpty()) return
     const inverse = new THREE.Matrix4().copy(part.matrixWorld).invert()
-    const local = new THREE.Box3()
-    for (const x of [worldBox.min.x, worldBox.max.x]) for (const y of [worldBox.min.y, worldBox.max.y]) for (const z of [worldBox.min.z, worldBox.max.z]) local.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(inverse))
+    const area = localControlArea(control)
+    const local = area ?? new THREE.Box3()
+    if (!area) for (const x of [worldBox.min.x, worldBox.max.x]) for (const y of [worldBox.min.y, worldBox.max.y]) for (const z of [worldBox.min.z, worldBox.max.z]) local.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(inverse))
     const size = local.getSize(new THREE.Vector3()).addScalar(0.2)
     size.z = Math.max(size.z, 0.6); size.x = Math.max(size.x, 0.6); size.y = Math.max(size.y, 0.6)
     const proxy = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), new THREE.MeshBasicMaterial({ visible: false }))
     proxy.position.copy(local.getCenter(new THREE.Vector3()))
     proxy.name = `hit:${control.id}`
     proxy.userData.hitProxy = true
+    proxy.userData.controlId = control.id
+    proxy.userData.hitArea = !!control.hitArea
     part.add(proxy)
     this.proxies.push(proxy)
     this.owner.set(proxy, control.id)
@@ -172,9 +177,14 @@ export class ComponentRig {
   }
 
   /** As zonas de clique só valem quando os controlos se usam (simulação); ao editar não tapam a geometria. */
-  setHitProxies(on: boolean) {
+  setHitProxies(on: boolean, hitAreasOn = false) {
     this.proxiesOn = on
-    for (const proxy of this.proxies) proxy.raycast = on ? THREE.Mesh.prototype.raycast : () => {}
+    for (const proxy of this.proxies) proxy.raycast = on || (hitAreasOn && proxy.userData.hitArea) ? THREE.Mesh.prototype.raycast : () => {}
+  }
+
+  /** No editor o LCD pode ser selecionado; no simulador deixa passar os gestos. */
+  setDisplayPicking(on: boolean) {
+    for (const item of this.displays) item.mesh.raycast = on ? THREE.Mesh.prototype.raycast : () => {}
   }
 
   private addDisplay(display: DisplayDef) {

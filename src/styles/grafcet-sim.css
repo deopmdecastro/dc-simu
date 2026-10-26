@@ -49,7 +49,10 @@
 .gsim-inputs, .gsim-transitions { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; min-width: 0; }
 .gsim-input { display: grid; gap: 6px; min-width: 0; padding: 8px; border: 1px solid #cbd7e6; border-radius: 8px; background: #fff; transition: border-color .12s, background .12s; }
 .gsim-input.is-on { border-color: #8bc9a2; background: #f1faf4; }
-.gsim-input-main { display: grid; grid-template-columns: 68px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; }
+.gsim-input-main { display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; }
+.gsim-input-main > input { min-width: 0; width: 100%; box-sizing: border-box; }
+.gsim-input { container-type: inline-size; }
+@container (max-width: 260px) { .gsim-input-main { grid-template-columns: minmax(0, 1fr); } }
 .gsim-input.is-symbol .gsim-input-main { grid-template-columns: minmax(0, 1fr); }
 .gsim-actuator { display: flex; align-items: center; justify-content: flex-start; gap: 7px; width: 100%; min-width: 0; min-height: 36px; padding: 5px 8px; border: 1px solid #cbd7e7; border-radius: 6px; background: #f2f5fa; color: #23344e; font: inherit; cursor: pointer; touch-action: none; user-select: none; transition: background .12s, border-color .12s; }
 .gsim-actuator i { flex: none; width: 13px; height: 13px; border: 2px solid #fff; border-radius: 50%; background: #8b9bb1; box-shadow: 0 0 0 1px #c2cedd; }

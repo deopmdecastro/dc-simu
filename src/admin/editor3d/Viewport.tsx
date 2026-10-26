@@ -19,6 +19,7 @@ import { BASE_STATE, glbCache, posePart, patchTerminal, useEditorStore } from '.
 import { isPartLocked, removeSelectionFrom } from './selectionOps'
 import { editorSelectionBounds } from './viewportSelection'
 import { editorTerminalRadiusMm } from '../../catalog/terminalGeometry'
+import { controlAreaBox } from '../../catalog/controlArea'
 import { addTerminalAt, defBounds, faceCenter } from './terminalOps'
 import { addTerminalInHole, snapPointToHole } from './holeOps'
 import { registerCapture, renderCapture } from './capture'
@@ -178,16 +179,18 @@ function Scene() {
   const vars = useMemo(() => mergeVars(def, previewVars), [def.vars, def.controls, def.behavior, previewVars])
   const reading = useMemo(() => (def.behavior ? multimeterReading(vars, meterTest, 0) : null), [def.behavior, vars, meterTest])
   const liveControlTest = mode === 'simulate' || (mode === 'edit' && tab === 'controls' && ribbon === 'select' && !pick && !placing)
+  const pickControlAreas = mode === 'edit' && ribbon === 'select' && !pick && !placing
   useEffect(() => {
     rig.current = new ComponentRig(def, root, animator.current)
     rig.current.setVars(vars, reading, resolveState(def, previewState).name)
-    rig.current.setHitProxies(liveControlTest)
+    rig.current.setHitProxies(liveControlTest, pickControlAreas)
+    rig.current.setDisplayPicking(pickControlAreas)
     rig.current.snap()
     invalidate()
     return () => { rig.current?.dispose(); rig.current = null }
   }, [root, def.controls, def.displays, def.lights, def.states, def.behavior])
   useEffect(() => { rig.current?.setVars(vars, reading, resolveState(def, previewState).name); invalidate() }, [vars, reading, previewState])
-  useEffect(() => { rig.current?.setHitProxies(liveControlTest) }, [liveControlTest])
+  useEffect(() => { rig.current?.setHitProxies(liveControlTest, pickControlAreas); rig.current?.setDisplayPicking(pickControlAreas) }, [liveControlTest, pickControlAreas])
   useEffect(() => { setBeep(mode === 'simulate' && !!reading?.beep); return () => setBeep(false) }, [reading?.beep, mode])
   // Rotação contínua (pás): só no modo Simular — na edição a peça fica na pose para o gizmo.
   useEffect(() => { rig.current?.setSpinEnabled(mode === 'simulate'); invalidate() }, [mode, root, def.controls, def.displays, def.lights, def.states, def.behavior])
@@ -307,6 +310,13 @@ function Scene() {
   const highlightPart = selection?.kind === 'part' ? selection.id : selection?.kind === 'light' ? def.lights.find((light) => light.id === selection.id)?.partId : undefined
   const highlightNode = highlightPart ? root.getObjectByName(highlightPart) ?? null : null
   const helper = useMemo(() => (highlightNode ? new THREE.BoxHelper(highlightNode, '#2655e5') : null), [highlightNode, root])
+  const areaOutline = useMemo(() => {
+    if (selection?.kind !== 'control') return null
+    const control = def.controls?.find((item) => item.id === selection.id)
+    const box = control && controlAreaBox(root, control)
+    return box ? new THREE.Box3Helper(box, '#2655e5') : null
+  }, [selection, def.controls, root])
+  useEffect(() => () => { areaOutline?.geometry.dispose(); if (areaOutline) (areaOutline.material as THREE.Material).dispose() }, [areaOutline])
   // Caixas das restantes peças da seleção múltipla.
   const multi = useEditorStore((s) => s.multi)
   const multiHelpers = useMemo(() => multi
@@ -314,7 +324,14 @@ function Scene() {
     .map((id) => root.getObjectByName(id))
     .filter((node): node is THREE.Object3D => !!node)
     .map((node) => new THREE.BoxHelper(node, '#2655e5')), [multi, highlightPart, root])
-  useFrame(() => { helper?.update(); multiHelpers.forEach((item) => item.update()) })
+  useFrame(() => {
+    helper?.update(); multiHelpers.forEach((item) => item.update())
+    if (areaOutline && selection?.kind === 'control') {
+      const control = def.controls?.find((item) => item.id === selection.id)
+      const box = control && controlAreaBox(root, control)
+      if (box) areaOutline.box.copy(box)
+    }
+  })
 
   const gizmoEnabled = mode === 'edit' && !placing && ribbon === 'select'
   const partGizmo = gizmoEnabled && selectedPart && !isPartLocked(def, selectedPart.id) && selectedNode
@@ -340,9 +357,11 @@ function Scene() {
     if (st.pick) { pickNodeAt(event); return }
     if (st.placingDisplay && event.face) { placeDisplayClick(event.point.toArray() as Vec3, event.face.normal.clone().transformDirection(event.object.matrixWorld).toArray() as Vec3); return }
     if (st.placingLed && event.face) { addLedAt(event.point.toArray() as Vec3, event.face.normal.clone().transformDirection(event.object.matrixWorld).toArray() as Vec3); return }
+    const displayId = event.object.userData.display as string | undefined
+    if (mode === 'edit' && ribbon === 'select' && displayId) { st.set({ selection: { kind: 'display', id: displayId }, tab: 'displays' }); return }
     const controlHit = rig.current?.controlFromHits(event.intersections, 3)
     if (mode === 'simulate' && controlHit) return
-    if (mode === 'edit' && controlHit && ribbon === 'select' && !placing && st.tab === 'controls') { st.set({ selection: { kind: 'control', id: controlHit } }); return }
+    if (mode === 'edit' && controlHit && ribbon === 'select' && !placing && (st.tab === 'controls' || rig.current?.controlById(controlHit)?.hitArea)) { st.set({ selection: { kind: 'control', id: controlHit }, tab: 'controls' }); return }
     if (mode === 'simulate') {
       const hit = partIdOf(event.object, known)
       const result = runInteractions(interactionsFor(def, 'click', hit), previewState)
@@ -491,6 +510,7 @@ function Scene() {
       onPointerOut={() => { if (hover) setHover(null); if (useEditorStore.getState().hoverNode) useEditorStore.getState().set({ hoverNode: null }) }}
     />
     {helper && mode === 'edit' && <primitive object={helper} />}
+    {areaOutline && mode === 'edit' && <primitive object={areaOutline} raycast={() => null} />}
     {mode === 'edit' && multiHelpers.map((item, index) => <primitive key={index} object={item} />)}
     {view.bounds && <BoundsBox root={root} />}
 

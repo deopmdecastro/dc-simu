@@ -583,12 +583,14 @@
    Telemóvel: barra da vista reduzida a «Enquadrar · ISO · Vista»,
    com as opções da cena num painel próprio (nada corta, nada desliza).
    -------------------------------------------------------------------------- */
-.ce-viewbar.is-compact { position:absolute; display:flex; flex-wrap:wrap; gap:6px; pointer-events:none; }
+.ce-stage { container-type:inline-size; }
+.ce-viewbar.is-compact { position:absolute; left:8px; right:136px; display:flex; flex-wrap:wrap; align-content:flex-start; gap:5px; pointer-events:none; }
 .ce-viewbar.is-compact > .ce-group { pointer-events:auto; flex:0 0 auto; padding:2px; }
 .ce-viewbar.is-compact .ce-tool { padding:5px 9px; font-size:12px; display:inline-flex; align-items:center; gap:5px; }
 .ce-vm-count { background:var(--dx-brand); color:#fff; border-radius:99px; font-size:10px; line-height:1; padding:2px 5px; font-weight:700; }
 .ce-viewmenu {
   pointer-events:auto; position:absolute; top:calc(100% + 6px); left:0; width:min(320px, calc(100vw - 24px));
+  max-width:calc(100cqw - 16px); max-height:min(420px,calc(100vh - 240px)); overflow:auto;
   background:rgba(255,255,255,.98); border:1px solid var(--dx-line); border-radius:12px; padding:10px;
   box-shadow:0 12px 32px rgba(15,23,42,.18); display:grid; gap:8px; z-index:40;
 }
@@ -666,6 +668,99 @@
   .ce-mobile-panes button { min-height:40px; }
 }
 .ce-list-item.is-warn { border-color:#e5c27f; background:#fffbf2; } .ce-list-item.is-warn small { color:#92400e; }
+
+/* Elementos físicos, navegação contextual e ferramentas em duas linhas. */
+.ce-left { overflow:hidden; }
+.ce-hierarchy-title { flex:none; display:flex; align-items:center; gap:8px; padding:10px 10px 6px; }
+.ce-hierarchy-title > div { min-width:0; flex:1; display:flex; flex-direction:column; gap:2px; }
+.ce-hierarchy-title strong { font-size:13px; color:var(--dx-ink); }
+.ce-hierarchy-title small { font-size:10.5px; color:var(--dx-ink-3); }
+.ce-hierarchy-title > span { font-size:11px; font-weight:700; padding:2px 6px; background:var(--dx-surface-2); border-radius:5px; }
+.ce-element-filters { flex:none; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; padding:0 8px 8px; }
+.ce-element-filters button { min-width:0; display:flex; align-items:center; justify-content:space-between; gap:3px; border:1px solid var(--dx-line); border-radius:5px; padding:5px 6px; background:var(--dx-surface); color:var(--dx-ink-3); font:inherit; font-size:10.5px; cursor:pointer; }
+.ce-element-filters button span { font-size:10px; opacity:.8; font-variant-numeric:tabular-nums; }
+.ce-element-filters button.is-on { background:var(--dx-brand-soft); border-color:var(--dx-brand-line); color:var(--dx-brand-700); font-weight:700; }
+.ce-hierarchy-scroll { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; padding-bottom:12px; }
+.ce-element-section[hidden] { display:none !important; }
+.ce-left-lists { display:flex; flex-direction:column; }
+.ce-elements-displays { order:1; }
+.ce-elements-controls { order:2; }
+.ce-elements-terminals { order:3; }
+.ce-elements-lights { order:4; }
+.ce-element-head { padding:0 7px; min-height:32px; gap:4px; }
+.ce-section-toggle { flex:1; min-width:0; display:flex; align-items:center; gap:6px; padding:7px 0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.ce-section-toggle strong { flex:1; font-size:10px; letter-spacing:.05em; text-transform:uppercase; }
+.ce-section-toggle span { flex:none; font-size:10px; padding:0 5px; }
+.ce-element-head .ce-icon { flex:none; min-width:25px; min-height:28px; }
+.ce-interface-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:3px; padding:5px; }
+.ce-interface-grid .ce-row-btn { border:1px solid var(--dx-line-soft); padding:5px; gap:5px; min-height:40px; }
+.ce-interface-grid .ce-row-name { font-size:11px; white-space:normal; line-height:1.3; }
+.ce-interface-grid .ce-row-thumb { width:26px; height:26px; }
+.ce-hierarchy-scroll .ce-row-name small { font-size:inherit; color:var(--dx-ink-3); }
+.ce-hierarchy-scroll .ce-row { border-radius:4px; }
+.ce-hierarchy-scroll .ce-tree:not(.is-cards) .ce-row { min-height:38px; }
+.ce-hierarchy-scroll .ce-left-actions { padding:5px 8px; }
+.ce-selection-actions { padding:5px 8px; flex:none; }
+.ce-selection-actions .dx-btn { min-height:28px; font-size:10.5px; }
+.ce-inspector-context { flex:none; display:flex; align-items:center; gap:8px; min-height:59px; padding:9px 11px; border-bottom:1px solid var(--dx-line-soft); }
+.ce-inspector-symbol { flex:none; display:grid; place-items:center; width:30px; height:32px; background:var(--dx-surface-2); border:1px solid var(--dx-line-soft); border-radius:6px; color:var(--dx-ink-3); }
+.ce-inspector-context > div { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.ce-inspector-context small { color:var(--dx-ink-3); font-size:10px; }
+.ce-inspector-context strong { color:var(--dx-ink); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ce-inspector-context .ce-icon { min-width:28px; min-height:30px; }
+.ce-inspector-groups { flex:none; display:grid; grid-template-columns:1fr 1.15fr 1fr; gap:3px; padding:6px; background:var(--dx-surface); }
+.ce-inspector-groups button { display:flex; align-items:center; justify-content:center; gap:4px; min-width:0; min-height:30px; border:1px solid transparent; border-radius:5px; padding:4px 5px; font:inherit; font-size:10.5px; font-weight:600; background:var(--dx-surface-2); color:var(--dx-ink-3); cursor:pointer; }
+.ce-inspector-groups button.is-on { background:var(--dx-brand-soft); border-color:var(--dx-brand-line); color:var(--dx-brand-700); }
+.ce-right .ce-tabs { flex-wrap:nowrap; overflow-x:auto; }
+.ce-right .ce-tabs button { flex:1 0 auto; min-width:0; padding:8px 7px; font-size:11px; }
+.ce-inspector { overscroll-behavior:contain; scrollbar-width:thin; }
+.ce-overview-intro { padding:12px 12px 8px; }
+.ce-overview-intro strong { font-size:12px; color:var(--dx-ink-2); }
+.ce-overview-intro p { margin:5px 0 0; font-size:12px; line-height:1.55; color:var(--dx-ink-3); }
+.ce-overview button.ce-stat { text-align:left; cursor:pointer; background:var(--dx-surface); font:inherit; }
+.ce-overview button.ce-stat:hover { background:var(--dx-brand-soft); border-color:var(--dx-brand-line); }
+.ce-overview-meta { display:flex; flex-wrap:wrap; gap:5px 10px; padding:2px 12px 12px; color:var(--dx-ink-3); font-size:11px; }
+.ce-overview-meta .is-err { color:var(--dx-danger); }
+.ce-display-line { padding:0; }
+.ce-display-line > summary { display:flex; align-items:center; gap:7px; padding:9px 8px; list-style:none; cursor:pointer; }
+.ce-display-line > summary::-webkit-details-marker { display:none; }
+.ce-display-line > summary > span { flex:none; width:18px; font-size:10px; color:var(--dx-ink-3); }
+.ce-display-line > summary > strong { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:inherit; font-size:11px; }
+.ce-display-line > summary > small { flex:none; max-width:70px; overflow:hidden; text-overflow:ellipsis; font-size:9px; color:var(--dx-ink-3); }
+.ce-display-line[open] > summary { background:var(--dx-surface-2); border-bottom:1px solid var(--dx-line-soft); }
+.ce-display-line-fields { display:flex; flex-direction:column; gap:8px; padding:8px; }
+.ce-toolbars { flex:none; min-width:0; }
+.ce-toolbars .ce-ribbon { flex-wrap:nowrap; gap:8px; padding:5px 9px; min-height:38px; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; }
+.ce-toolbars .ce-ribbon > * { flex:none; }
+.ce-toolbars .ce-ribbon-primary { background:var(--dx-surface); }
+.ce-toolbars .ce-ribbon-secondary { background:var(--dx-surface-2); }
+.ce-toolbars .ce-ribbon-secondary .ce-ribbon-hint { flex:0 1 auto; }
+.ce-toolbar-caption { color:var(--dx-ink-3); font-size:10px; text-transform:uppercase; letter-spacing:.05em; padding-right:2px; }
+.ce-toolbars .ce-ribbon-hint { font-size:10.5px; max-width:50ch; }
+.ce-command-popover { position:fixed; z-index:100; width:248px; max-width:calc(100vw - 16px); max-height:min(430px,70vh); overflow:auto; padding:5px; border:1px solid var(--dx-line); border-radius:8px; background:var(--dx-surface,#fff); box-shadow:0 8px 26px #1f345a26; color:var(--dx-ink); font-family:var(--dx-font); }
+.ce-command-title { display:block; padding:5px 7px 7px; color:var(--dx-ink-3); font-size:10px; text-transform:uppercase; letter-spacing:.06em; }
+.ce-command-popover .dc-seg { display:flex; flex-direction:column; align-items:stretch; border:0; border-radius:0; box-shadow:none; padding:0; background:none; }
+.ce-command-popover .dc-seg + .dc-seg { margin-top:4px; padding-top:4px; border-top:1px solid var(--dx-line-soft); }
+.ce-command-popover button { display:flex; align-items:center; gap:8px; width:100%; min-height:32px; padding:6px 8px !important; border:0; border-radius:4px; background:transparent; color:var(--dx-ink-2); text-align:left; font:inherit; font-size:12px; cursor:pointer; }
+.ce-command-popover button:hover:not(:disabled) { background:var(--dx-surface-2); }
+.ce-command-popover button:disabled { color:var(--dx-ink-4); opacity:.55; cursor:not-allowed; }
+.ce-command-popover button > span { display:inline !important; }
+.ce-command-popover kbd { margin-left:auto; font:inherit; font-size:10px; color:var(--dx-ink-3); }
+.ce-panel-resizer { position:relative; cursor:col-resize; touch-action:none; background:var(--dx-surface-2); }
+.ce-panel-resizer::after { content:''; position:absolute; top:0; bottom:0; left:2px; width:1px; background:var(--dx-line); }
+.ce-panel-resizer:hover::after, .ce-panel-resizer:focus-visible::after { width:3px; left:1px; background:var(--dx-brand); }
+@media (min-width:1025px) { .ce-body { grid-template-columns:minmax(230px,var(--ce-left-width,274px)) 5px minmax(320px,1fr) 5px minmax(300px,var(--ce-right-width,360px)); } }
+@media (max-width:1024px), (pointer:coarse) and (max-height:700px) {
+  .ce-panel-resizer { display:none; }
+  .ce-toolbars .ce-ribbon { min-height:42px; padding:4px 6px; gap:6px; scrollbar-width:none; }
+  .ce-toolbars .ce-ribbon .dc-tool-btn { min-height:32px; }
+  .ce-element-filters { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .ce-element-filters button, .ce-section-toggle { min-height:36px; }
+  .ce-inspector-groups button { min-height:38px; font-size:11px; }
+  .ce-right .ce-tabs button { min-height:38px; }
+  .ce-command-popover button { min-height:40px; }
+  .ce-selection-actions .dx-btn { min-height:36px; }
+}
 .ce-list li:has(> .ce-linkbtn) { display:flex; align-items:center; gap:6px; } .ce-list li:has(> .ce-linkbtn) > .ce-list-item { flex:1; min-width:0; }
 
 /* Biblioteca de texturas reais (separador Materiais) */
