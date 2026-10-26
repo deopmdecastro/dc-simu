@@ -2,7 +2,7 @@
  * Verificações da deteção automática de objetos interativos (`src/catalog/interactables.ts`).
  * Módulo puro: corre sem navegador nem Three.js — `npm run test:interactables`.
  */
-import { axisName, classifyNode, controlFromSuggestion, displayFromSuggestion, inferReturnMode, suggestFromNodes, thinAxis, type NodeBox } from '../src/catalog/interactables'
+import { axisName, classifyNode, controlFromSuggestion, displayFromSuggestion, inferReturnMode, suggestFromNodes, variableFromSuggestion, thinAxis, type NodeBox } from '../src/catalog/interactables'
 import { isSpringReturn, springHold } from '../src/catalog/behavior'
 
 let failures = 0
@@ -30,6 +30,24 @@ const { suggestions, ignored } = suggestFromNodes([
   { name: 'led_run', meshes: 1, centre: [10, 20, 30], size: [3, 3, 1] },
   { name: 'Node2', meshes: 4, centre: [0, 0, 0], size: [60, 80, 60] },
 ])
+
+// PKZM C-10: manípulo marcado (dcsimu_handle_*) com categoria de disjuntor-motor →
+// botão ROTATIVO: bascula 90° à volta da normal da face (Z), como no aparelho real.
+const pkz = suggestFromNodes(
+  [
+    { name: 'dcsimu_handle_1', meshes: 2, centre: [0, 52, 38], size: [16, 10, 6] },
+    { name: 'pkzm_test_1', meshes: 1, centre: [-14, 30, 38], size: [8, 8, 4] },
+  ],
+  { bounds: { centre: [0, 45, 0], size: [67, 92, 76] }, category: 'Proteção Disjuntor-motor Eaton/Moeller PKZM C-10' },
+)
+const pkzHandle = pkz.suggestions.find((item) => item.node === 'dcsimu_handle_1')
+check('PKZM: manípulo → interruptor com retenção', pkzHandle?.kind === 'toggle' && pkzHandle?.returnMode === 'latch')
+check('PKZM: teste é botão com mola', pkz.suggestions.find((item) => item.node === 'pkzm_test_1')?.returnMode === 'spring')
+if (pkzHandle) {
+  const ctrl = controlFromSuggestion('part1', pkzHandle, 'c1')
+  check('PKZM: rotação de 90° à volta do eixo da face (Z), OFF=pose do CAD',
+    ctrl.motion?.angleOff === 0 && ctrl.motion?.angleOn === -90 && ctrl.axis[2] === 1, `axis=${ctrl.axis} off=${ctrl.motion?.angleOff} on=${ctrl.motion?.angleOn}`)
+}
 check('2 sugestões e 1 ignorado', suggestions.length === 2 && ignored.length === 1, `${suggestions.length} sugestões / ${ignored.length} ignorados`)
 
 const handle = suggestions.find((item) => item.node === 'WEG_Handle')
@@ -38,6 +56,33 @@ check('manípulo gera ação «alternar variável»', handle?.kind === 'toggle' 
 
 const led = suggestions.find((item) => item.node === 'led_run')
 check('LED RUN liga-se à variável do simulador ($run)', led?.runtimeVar === '$run')
+
+// ——— componentes com nós genéricos (export CAD), deteção pela forma + cor + contexto ———
+// Cogumelo de emergência Metaltex P20AKR: cabeça vermelha grande na frente → botão com retenção.
+const emergency = suggestFromNodes(
+  [{ name: 'P20AKR-1-solid1', meshes: 3, centre: [0, 0, 30], size: [40, 40, 16], color: '#d92626' }],
+  { bounds: { centre: [0, 0, 0], size: [52, 52, 72] }, category: 'Comando Botão de emergência Metaltex P20AKR' },
+)
+const mushroom = emergency.suggestions.find((item) => item.kind === 'button')
+check('P20AKR: cabeça vermelha grande → botão (não seletor)', !!mushroom, mushroom?.reason)
+check('P20AKR: retenção até rodar/rearmar (não mola)', mushroom?.returnMode === 'latch', mushroom?.returnReason)
+
+// Seletor de chave Metaltex P20ACR: disco escuro médio à face → seletor (mantém a posição).
+const keyed = suggestFromNodes(
+  [{ name: 'P20ACR-R-1B-1-solid2', meshes: 2, centre: [0, 0, 28], size: [22, 22, 14], color: '#2c2c30' }],
+  { bounds: { centre: [0, 0, 0], size: [52, 52, 72] }, category: 'Comando Botão de emergência Metaltex P20ACR chave' },
+)
+check('P20ACR: disco escuro → seletor rotativo', keyed.suggestions.some((item) => item.kind === 'selector'), keyed.suggestions.map((item) => `${item.kind}:${item.reason}`).join(' · '))
+
+// Sinaleiro AD22-22DS: lente vermelha translúcida na frente → luz que segue $powered.
+const pilot = suggestFromNodes(
+  [{ name: 'Node0', meshes: 1, centre: [0, 0, 26], size: [29, 29, 8], color: '#ff0000' }],
+  { bounds: { centre: [0, 0, 0], size: [50, 70, 60] }, category: 'Sinalização Sinaleiro LED AD22-22DS' },
+)
+const lens = pilot.suggestions.find((item) => item.kind === 'led')
+check('AD22: lente vermelha → indicador luminoso', !!lens, lens?.reason)
+check('AD22: liga-se a $powered (acende quando alimentado)', lens?.runtimeVar === '$powered')
+check('AD22: sem variável nova (usa a de execução)', !lens || variableFromSuggestion(lens) === null)
 check('LED RUN fica verde', led?.color === '#22c55e')
 
 const selector = suggestFromNodes([{ name: 'Seletor_Funcao', meshes: 2, centre: [0, 20, 30], size: [18, 18, 5] }]).suggestions[0]

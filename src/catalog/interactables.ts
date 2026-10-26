@@ -69,6 +69,8 @@ export interface Suggestion {
   screen?: { position: Vec3; widthMm: number; heightMm: number; light?: boolean }
   /** Bornes: ponto à face do objeto (o editor depois encaixa-o no furo). */
   point?: Vec3
+  /** Categoria/nome do equipamento (para afinar o controlo: p.ex. manípulo rotativo do PKZM). */
+  device?: string
 }
 
 /** Normaliza para comparar: minúsculas e sem acentos. */
@@ -160,6 +162,16 @@ const greenish = (hex?: string) => {
   const n = parseInt(m[1], 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
   return g > r * 1.15 && g > b * 0.9 && g > 60
 }
+/** Canal dominante da cor (#rrggbb), para reconhecer cogumelos vermelhos e lentes de sinalizadores. */
+const channelLook = (hex: string | undefined) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex ?? '')
+  if (!m) return null
+  const n = parseInt(m[1], 16)
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+}
+const reddish = (hex?: string) => { const c = channelLook(hex); return !!c && c.r > 120 && c.r > c.g * 1.6 && c.r > c.b * 1.6 }
+const bluish = (hex?: string) => { const c = channelLook(hex); return !!c && c.b > 110 && c.b > c.r * 1.3 && c.b > c.g * 1.15 }
+const amberish = (hex?: string) => { const c = channelLook(hex); return !!c && c.r > 140 && c.g > 80 && c.g < c.r * 0.85 && c.b < c.g * 0.6 }
 
 /** Caixa do componente: a fornecida ou a união dos objetos. */
 function boundsOf(nodes: NodeBox[], context: DetectContext): { centre: Vec3; size: Vec3; min: Vec3; max: Vec3 } {
@@ -187,15 +199,12 @@ function mountFace(node: NodeBox, box: ReturnType<typeof boundsOf>, axis: 0 | 1 
  * Classifica um objeto pela forma, quando o nome não diz nada: placa fina à face → ecrã;
  * cilindro pequeno que sobressai → botão; disco maior → seletor; peça pequena emissiva → LED.
  */
-export function classifyGeometry(node: NodeBox, box: ReturnType<typeof boundsOf>): { kind: InteractableKind; confidence: number; reason: string; axis: 0 | 1 | 2 } | null {
+export function classifyGeometry(node: NodeBox, box: ReturnType<typeof boundsOf>, context: DetectContext = {}): { kind: InteractableKind; confidence: number; reason: string; axis: 0 | 1 | 2 } | null {
   const key = fold(node.name ?? '')
   if (BODY.test(key)) return null
   const extent = Math.max(...box.size)
   if (!(extent > 0)) return null
   const [sx, sy, sz] = node.size
-  // o próprio corpo (ou quase): ocupa a maior parte da caixa em dois eixos
-  const big = [sx / (box.size[0] || 1), sy / (box.size[1] || 1), sz / (box.size[2] || 1)].filter((ratio) => ratio > 0.6).length
-  if (big >= 2) return null
   const axis = thinAxis(node.size)
   const t = node.size[axis]
   const others = [0, 1, 2].filter((i) => i !== axis).map((i) => node.size[i]).sort((a, b) => a - b)
@@ -204,6 +213,20 @@ export function classifyGeometry(node: NodeBox, box: ReturnType<typeof boundsOf>
   // tem de estar à face (até 25 % da profundidade da caixa ou 4 mm)
   // (ecrãs atrás de uma janela/moldura podem estar mais recuados)
   if (face.gap > Math.max(4, box.size[axis] * 0.4)) return null
+  const deviceCat = fold(context.category ?? '')
+  const deviceSignaling = /sinaliza|signaling|signalling/.test(deviceCat)
+  const roundish = b / Math.max(a, 0.01) <= 1.35
+  const redd = reddish(node.color)
+  const saturated = redd || greenish(node.color) || bluish(node.color) || amberish(node.color)
+  // Cabeças vistosas quase tão largas como a frente do equipamento (cogumelo de emergência,
+  // lente de sinaleiro) — reconhecidas pela cor ANTES do filtro «ocupa a caixa inteira».
+  if (roundish && t >= 1.6 && b >= 24 && b <= 75 && t <= b * 0.95) {
+    if (deviceSignaling && saturated) return { kind: 'led', confidence: 0.45, reason: `lente Ø${b.toFixed(0)} mm colorida à face de sinalizador`, axis }
+    if (redd) return { kind: 'button', confidence: 0.5, reason: `cabeça vermelha Ø${b.toFixed(0)} mm à face (cogumelo de emergência)`, axis }
+  }
+  // o próprio corpo (ou quase): ocupa a maior parte da caixa em dois eixos
+  const big = [sx / (box.size[0] || 1), sy / (box.size[1] || 1), sz / (box.size[2] || 1)].filter((ratio) => ratio > 0.6).length
+  if (big >= 2) return null
   const light = luminance(node.color)
   if (node.emissive && Math.max(a, b) <= 12) return { kind: 'led', confidence: 0.45, reason: 'peça pequena emissiva à face', axis }
   // ecrã: placa fina, retangular, área razoável, não cobre a face inteira
@@ -218,7 +241,11 @@ export function classifyGeometry(node: NodeBox, box: ReturnType<typeof boundsOf>
   const round = b / Math.max(a, 0.01) <= 1.35
   const small = b <= faceDims[0] * 0.6
   if (round && small && t >= 1.2 && b >= 4) {
-    if (b >= 22 && b <= 70 && t <= b * 0.8) return { kind: 'selector', confidence: 0.35, reason: `disco Ø${b.toFixed(0)} mm à face`, axis }
+    // sinaleiros com lente pequena (LED embutido Ø6–20), mesmo sem material emissivo
+    if (deviceSignaling && saturated && b >= 6 && t <= b * 0.95) {
+      return { kind: 'led', confidence: 0.45, reason: `lente Ø${b.toFixed(0)} mm colorida à face de sinalizador`, axis }
+    }
+    if (b >= 22 && b <= 70 && t <= b * 0.8 && !redd) return { kind: 'selector', confidence: 0.35, reason: `disco Ø${b.toFixed(0)} mm à face`, axis }
     if (b <= 30) return { kind: 'button', confidence: 0.35, reason: `cilindro Ø${b.toFixed(0)} mm a sobressair`, axis }
   }
   return null
@@ -234,7 +261,8 @@ export function inferReturnMode(name: string, kind: InteractableKind, category =
   const key = fold(name ?? '')
   const device = fold(category)
   if (kind === 'toggle') return { mode: 'latch', reason: LATCHING_DEVICE.test(device) || /breaker|disjunt|handle|manipul|alavanca|lever/.test(key) ? 'manípulo de disjuntor: fica em ON/OFF' : 'interruptor: mantém a posição', tilt: true }
-  if (/emerg|cogumelo|mushroom|e_?stop|estop|lock|trav|reten|latch|bloq|encrav|park/.test(key)) return { mode: 'latch', reason: 'emergência/encravamento: fica premido até rearmar', tilt: false }
+  if (/emerg|e_?stop|estop/.test(device) && kind === 'button') return { mode: 'latch', reason: 'botão no equipamento de emergência: fica premido até rodar/rearmar', tilt: false }
+  if (/emerg|cogumelo|mushroom|e_?stop|estop|lock|trav|reten|latch|bloq|encrav|park|p20ak/.test(key)) return { mode: 'latch', reason: 'emergência/encravamento: fica premido até rearmar', tilt: false }
   if (/trip|dispar|test|teste|reset|rearm/.test(key) && LATCHING_DEVICE.test(device)) return { mode: 'spring', reason: 'botão de teste/rearme do disjuntor: volta por mola', tilt: false }
   if (/on|off|liga|deslig|toggle|alterna/.test(key) && LATCHING_DEVICE.test(device)) return { mode: 'latch', reason: 'tecla ON/OFF de equipamento de retenção', tilt: false }
   if (PUSH_DEVICE.test(device) || /push|pulsador|impulso|start|stop|marcha|paragem|botao|button|btn|tecla|key/.test(key)) return { mode: 'spring', reason: 'botoneira de impulso: volta por mola ao largar', tilt: false }
@@ -249,7 +277,7 @@ export function suggestFromNodes(nodes: NodeBox[], context: DetectContext = {}):
   const box = boundsOf(nodes, context)
   for (const node of nodes) {
     const named = classifyNode(node.name)
-    const shaped = named || context.namesOnly ? null : classifyGeometry(node, box)
+    const shaped = named || context.namesOnly ? null : classifyGeometry(node, box, context)
     const hit = named ? { ...named, source: 'name' as const } : shaped ? { ...shaped, source: 'geometry' as const } : null
     if (!hit) { ignored.push(node.name); continue }
     const index = shaped?.axis ?? thinAxis(node.size)
@@ -275,9 +303,10 @@ export function suggestFromNodes(nodes: NodeBox[], context: DetectContext = {}):
       angle: 35,
       color: kind === 'led' ? LED_COLORS.find(([re]) => re.test(key))?.[1] ?? '#22c55e' : '#22c55e',
       variable: kind === 'led' ? `led_${base}` : kind === 'display' ? `scr_${base}` : kind === 'terminal' ? base : `ctrl_${base}`,
-      runtimeVar: kind === 'led' ? RUNTIME_LEDS.find(([re]) => re.test(key))?.[1] : undefined,
+      runtimeVar: kind === 'led' ? RUNTIME_LEDS.find(([re]) => re.test(key))?.[1] ?? (/sinaliza|signaling|signalling/.test(fold(context.category ?? '')) ? '$powered' : undefined) : undefined,
       source: hit.source,
       normal,
+      device: context.category,
       ...(ret ? { returnMode: ret.mode, returnReason: ret.reason, tilt: ret.tilt } : {}),
       ...(kind === 'display' ? { screen: { position: surface.map((n, i) => round(i === index ? n + sign * 0.05 : n)) as Vec3, widthMm: round(node.size[u]), heightMm: round(node.size[v]), light: (luminance(node.color) ?? 0) > 0.55 } } : {}),
       ...(kind === 'terminal' ? { point: surface.map(round) as Vec3 } : {}),
@@ -296,13 +325,19 @@ export function controlFromSuggestion(partId: string, suggestion: Suggestion, id
     }
   }
   const toggle = suggestion.kind === 'toggle'
+  // Disjuntores-motor de botão rotativo (Moeller/Eaton PKZM, Siemens 3RV…): o manípulo RODA um
+  // quarto de volta à volta da normal da face (OFF = pose do CAD, ON = −90°), em vez de bascular.
+  const rotary = toggle && /pkz|moeller|eaton|disjuntor.?motor|motor.?(breaker|principa)/.test(fold(suggestion.device ?? `${suggestion.node}`))
   return {
     id, name: suggestion.label, kind: toggle ? 'toggle' : 'button', partId, nodes: [suggestion.node],
     axis: suggestion.axis, travelMm: suggestion.travelMm, positions: [], actions: [{ type: 'toggleVar', var: variable }],
     returnMode: suggestion.returnMode ?? (toggle ? 'latch' : 'spring'),
     // manípulos de disjuntor basculam sobre um pivô (afinável em «Movimento»)
     // (eixo de rotação: ao longo da fila de polos, X; se o manípulo estiver montado na face lateral, Z)
-    ...(toggle && suggestion.tilt ? { axis: (suggestion.axis[0] ? [0, 0, 1] : [1, 0, 0]) as Vec3, travelMm: 0, motion: { ...DEFAULT_TILT } } : {}),
+    ...(toggle && suggestion.tilt && rotary
+      ? { axis: suggestion.axis, travelMm: 0, motion: { mode: 'tilt' as const, angleOff: 0, angleOn: -90, pivotRel: [0.5, 0.5, 0.5] as Vec3, feel: 'snap' as const, durationMs: 280 } }
+      : {}),
+    ...(toggle && suggestion.tilt && !rotary ? { axis: (suggestion.axis[0] ? [0, 0, 1] : [1, 0, 0]) as Vec3, travelMm: 0, motion: { ...DEFAULT_TILT } } : {}),
   }
 }
 
