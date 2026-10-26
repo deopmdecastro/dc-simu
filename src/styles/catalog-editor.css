@@ -888,3 +888,40 @@
 
 /* ---- hierarquia/cartões: hover e ativo nos tons da marca ---- */
 .ce-row.is-active { background:#eef3fc; border-color:var(--dx-brand-line); }
+
+/* ==========================================================================
+   Barras e painéis iguais ao resto do simulador (pedido do utilizador)
+   ========================================================================== */
+
+/* ---- ribbon: exatamente a pele das outras barras (26 px, sem chips [1]) --- */
+.ce-toolbars .ce-ribbon { background:#fff; }
+.ce-toolbars .ce-ribbon-secondary { background:#f8fafd; border-bottom-color:var(--dx-line-soft); }
+.ce-toolbars .ce-kbd { display:none; }           /* as outras barras não mostram a tecla; fica no tooltip */
+.ce-toolbars .dc-tool-btn { border-radius:6px; }
+.ce-toolbars .ce-toolbar-caption { font-size:10px; letter-spacing:.07em; color:var(--dx-ink-4); }
+.ce-toolbars .ce-ribbon-sep { width:1px; height:16px; background:var(--dx-line); margin:0 2px; }
+.ce-toolbars .dc-seg { border-radius:6px; }
+
+/* ---- Elementos · Modelo e interface física: âmbito da hierarquia ---- */
+.ce-hierarchy-title { padding:8px 12px 6px; }
+.ce-hierarchy-title strong { font-size:12px; font-weight:650; }
+.ce-hierarchy-title small { font-size:10px; color:var(--dx-ink-4); }
+.ce-hierarchy-title > span { font-size:10.5px; font-weight:650; padding:2px 8px; background:var(--dx-surface-2); border:1px solid var(--dx-line-soft); color:var(--dx-ink-3); border-radius:9px; }
+
+/* filtro de tipos (Objetos/Bornes/…) com a pele segmentada suave da app */
+.ce-element-filters { display:flex; gap:2px; padding:3px; margin:0 8px 4px; background:var(--dx-surface-2); border:1px solid var(--dx-line-soft); border-radius:8px; }
+.ce-element-filters button { display:inline-flex; align-items:center; gap:5px; flex:1 1 auto; justify-content:center; min-height:22px; padding:2px 6px; border:0; border-radius:6px; background:transparent; font:inherit; font-size:11px; font-weight:550; color:var(--dx-ink-3); cursor:pointer; }
+.ce-element-filters button span { font-size:9.5px; font-weight:650; padding:1px 5px; border-radius:9px; background:var(--dx-line-soft); color:var(--dx-ink-3); }
+.ce-element-filters button:hover:not(.is-on) { color:var(--dx-ink); }
+.ce-element-filters button.is-on { background:#fff; color:var(--dx-brand-700); box-shadow:0 1px 2px rgba(15,23,42,.08), 0 0 0 1px var(--dx-line-soft); }
+.ce-element-filters button.is-on span { background:var(--dx-brand-soft); color:var(--dx-brand-700); }
+
+/* ---- Propriedades do componente (painel direito) ---- */
+.ce-inspector-context { min-height:56px; padding:8px 12px; }
+.ce-inspector-symbol { border-radius:8px; }
+.ce-inspector-context small { text-transform:uppercase; letter-spacing:.06em; font-size:9.5px; }
+.ce-inspector-context strong { font-size:12.5px; font-weight:650; }
+.ce-inspector .ce-field, .ce-inspector .ce-vec { margin:6px 0; }
+.ce-inspector textarea.dx-input { border-radius:8px; padding:6px 10px; min-height:56px; }
+.ce-inspector .dx-input { font-size:12.5px; }
+.ce-inspector .ce-file-row { gap:8px; }
