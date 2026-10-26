@@ -27,7 +27,7 @@ import { IconCheck, IconWarning,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
-  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools,
+  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
   IconTemplates, IconImport, IconLink,
 } from '../ui/icons'
 
@@ -388,6 +388,21 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 <IconTools size={13} /><span>Compilar</span>
                 {compileState !== 'none' && <span className="ladder-compile-dot" aria-label={compileState === 'ok' ? 'Compilado' : compileState === 'warning' ? 'Compilado com avisos' : compileState === 'stale' ? 'Alterado desde a última compilação' : 'Com erros'} />}
               </button>
+            )}
+            {mode === 'ladder' && (
+              <>
+                <span className="tb-sep" />
+                <button type="button" className="dc-tool-btn !gap-1.5" data-ladder-add-block
+                  onClick={() => useLadderUi.getState().emit('addBlock')}
+                  title="Adicionar bloco ao projeto (OB/FB/FC/DB)" aria-label="Adicionar bloco">
+                  <IconPlus size={12} /><span>Bloco</span>
+                </button>
+                <button type="button" className="dc-tool-btn ladder-add-network-tb !gap-1.5" data-ladder-add-network
+                  onClick={() => useLadderUi.getState().emit('addNetwork')}
+                  title="Criar network no programa aberto (Insert)" aria-label="Nova network">
+                  <IconPlus size={12} /><span>Nova network</span>
+                </button>
+              </>
             )}
           </>
         )}

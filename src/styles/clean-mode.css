@@ -405,7 +405,6 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
   flex-wrap: nowrap !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
-  scrollbar-width: thin;
   overscroll-behavior-x: contain;
 }
 .dc-toolbar-row2,
@@ -416,8 +415,27 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
 .dc-grafcet-toolbar .grafcet-toolbar-more { display: none !important; }
 .dc-grafcet-toolbar:not(.is-expanded) .grafcet-toolbar-secondary { display: flex !important; }
 .dc-grafcet-toolbar .dc-seg[aria-label="Ferramentas GRAFCET"] { flex-wrap: nowrap; max-width: none; }
-.dc-toolbar-row2::-webkit-scrollbar, .dc-toolbar-main::-webkit-scrollbar, .ladder-editor-toolbar::-webkit-scrollbar, .grafcet-pages::-webkit-scrollbar { height: 4px; }
-.dc-toolbar-row2::-webkit-scrollbar-thumb, .dc-toolbar-main::-webkit-scrollbar-thumb, .ladder-editor-toolbar::-webkit-scrollbar-thumb, .grafcet-pages::-webkit-scrollbar-thumb { background: #c7d2e3; border-radius: 4px; }
+/* TOOLBAR-SCROLL-02: a barra de deslocamento das barras de ferramentas é a MESMA das outras
+   (index.css: 10 px, polegar slate-300 arredondado com margem transparente, slate-400 ao passar, sem setas).
+   Atenção: `scrollbar-width`/`scrollbar-color` fazem o Chrome ≥ 121 ignorar ::-webkit-scrollbar e
+   mostrar a barra nativa (escura, com setas) — por isso ficam em `auto` aqui e só o Firefox usa a versão padrão. */
+@media (min-width: 801px) {
+  .dc-toolbar-main, .dc-toolbar-row2, .dc-toolbar-row2.dc-grafcet-toolbar, .toolbar-scroll, .ladder-editor-toolbar, .grafcet-pages { scrollbar-width: auto; scrollbar-color: auto; }
+  .dc-toolbar-main::-webkit-scrollbar, .dc-toolbar-row2::-webkit-scrollbar, .ladder-editor-toolbar::-webkit-scrollbar, .grafcet-pages::-webkit-scrollbar { width: 10px; height: 10px; }
+  .dc-toolbar-main::-webkit-scrollbar-thumb, .dc-toolbar-row2::-webkit-scrollbar-thumb, .ladder-editor-toolbar::-webkit-scrollbar-thumb, .grafcet-pages::-webkit-scrollbar-thumb { background-color: #cbd5e1; background-clip: padding-box; border: 2px solid transparent; border-radius: 9999px; }
+  .dc-toolbar-main::-webkit-scrollbar-thumb:hover, .dc-toolbar-row2::-webkit-scrollbar-thumb:hover, .ladder-editor-toolbar::-webkit-scrollbar-thumb:hover, .grafcet-pages::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+  .dc-toolbar-main::-webkit-scrollbar-track, .dc-toolbar-row2::-webkit-scrollbar-track, .ladder-editor-toolbar::-webkit-scrollbar-track, .grafcet-pages::-webkit-scrollbar-track { background: transparent; }
+  .dc-toolbar-main::-webkit-scrollbar-button, .dc-toolbar-row2::-webkit-scrollbar-button, .ladder-editor-toolbar::-webkit-scrollbar-button, .grafcet-pages::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+}
+@supports not selector(::-webkit-scrollbar) {
+  @media (min-width: 801px) {
+    .dc-toolbar-main, .dc-toolbar-row2, .dc-toolbar-row2.dc-grafcet-toolbar, .toolbar-scroll, .ladder-editor-toolbar, .grafcet-pages { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+  }
+}
+/* Ecrãs pequenos/toque (≤ 800 px): as barras deslizam com o dedo, sem barra visível (regras em cima). */
+/* «Nova network» na barra: ação principal do Ladder, com o azul da marca. */
+.dc-toolbar-row2 .ladder-add-network-tb { color: #1d4ed8; font-weight: 600; }
+.dc-toolbar-row2 .ladder-add-network-tb svg { color: #2563eb; }
 @media (max-width: 1100px) {
   .dc-toolbar-main { gap: 8px; padding-top: 0; padding-bottom: 0; }
   .dc-toolbar-main .dc-views-container { order: 0; flex-basis: auto; }

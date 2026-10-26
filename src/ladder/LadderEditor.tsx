@@ -1,3 +1,4 @@
+import { withEmptyNetworkBelow } from './autoNetwork'
 import { useLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } from './ladderZoom'
 import { pinchZoom, usePinchZoom } from '../ui/usePinchZoom'
 import { useLadderUi } from './ladderBus'
@@ -1142,9 +1143,11 @@ function useLadderPinch(ref: React.RefObject<HTMLDivElement | null>) {
  * mesmo RungRow/NetworkDiagram (drag&drop, seleção, edição rápida, diálogo de propriedades),
  * paleta e atalhos encaminham para este bloco enquanto estiver aberto.
  */
-function BlockProgramView({ id, notify, registerInsert }: {
+function BlockProgramView({ id, notify, registerInsert, registerAddRung }: {
   id: 'fc1' | 'fc2' | `file:${string}`
   notify?: (text: string) => void
+  /** Regista quem cria networks neste bloco (botão «Nova network» da barra de ferramentas). */
+  registerAddRung?: (fn: (() => string) | null) => void
   /** Regista quem insere elementos neste bloco (paleta/atalhos/drops do editor completo). */
   registerInsert?: (fn: ((kind: PaletteKind) => void) | null) => void
 }) {
@@ -1177,7 +1180,8 @@ function BlockProgramView({ id, notify, registerInsert }: {
     const st = useSimStore.getState()
     return id.startsWith('file:') ? st.projectFiles[st.activePlcId ?? '_general']?.find((f) => `file:${f.id}` === id)?.rungs ?? [] : st.fcBlocks[id as 'fc1' | 'fc2']
   }
-  const setRungs = (next: LadderRung[]) => {
+  const setRungs = (proposed: LadderRung[]) => {
+    const next = withEmptyNetworkBelow(getRungs(), proposed, () => newEmptyRung())
     if (id.startsWith('file:')) useSimStore.getState().updateProjectFile(id.slice(5), { rungs: next })
     else useSimStore.getState().updateFc(id as 'fc1' | 'fc2', next)
   }
@@ -1244,6 +1248,13 @@ function BlockProgramView({ id, notify, registerInsert }: {
   }
   const quickAddRef = useRef(quickAdd)
   quickAddRef.current = quickAdd
+  const addRungLocalRef = useRef(addRungLocal)
+  addRungLocalRef.current = addRungLocal
+  useEffect(() => {
+    registerAddRung?.(() => addRungLocalRef.current())
+    return () => registerAddRung?.(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, registerAddRung])
   useEffect(() => {
     registerInsert?.((kind) => quickAddRef.current(kind))
     return () => registerInsert?.(null)
@@ -1279,7 +1290,6 @@ function BlockProgramView({ id, notify, registerInsert }: {
             {allCollapsed ? 'Expandir tudo' : 'Recolher tudo'}
           </button>
         )}
-        <button type="button" className="ladder-primary-button" onClick={() => addRungLocal()} title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>
       </div>
       <div className="ladder-program-summary" aria-label="Resumo do bloco">
         <LadderMetric label="Networks" value={rungs.length} />
@@ -1421,6 +1431,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     useLadderUi.getState().setActionHandler((action) => {
       if (action === 'openVariables') openVariablesTable()
       if (action === 'compile') compileRef.current()
+      if (action === 'addNetwork') addNetworkRef.current()
+      if (action === 'addBlock') setBlockDialog('OB')
     })
     return () => useLadderUi.getState().setActionHandler(undefined)
   }, [openVariablesTable])
@@ -1430,6 +1442,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const [helpOpen, setHelpOpen] = useState(false)
   useShortcutsRequest('ladder', () => setHelpOpen(true))
   const compileRef = useRef<() => void>(() => {})
+  const addNetworkRef = useRef<() => void>(() => {})
   // o onDrop das networks faz stopPropagation: sem isto a moldura de largada ficava presa
   useEffect(() => {
     const reset = () => setDragOver(false)
@@ -1773,6 +1786,17 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
 
   /** Quando um bloco (FC/FB/ficheiro) está aberto, paleta/atalhos inserem NESSE bloco (como no TIA Portal). */
   const blockInsertRef = useRef<((kind: PaletteKind) => void) | null>(null)
+  /** «Nova network» da barra de ferramentas: no bloco aberto (FC/FB/ficheiro) ou no Main. */
+  const blockAddRungRef = useRef<(() => string) | null>(null)
+  addNetworkRef.current = () => {
+    if (isFcOpen && blockAddRungRef.current) { blockAddRungRef.current(); notify('Nova network criada'); return }
+    setSection('Projeto')
+    setActiveProjectNode('main')
+    setProgramTab('program')
+    const created = addRung()
+    requestAnimationFrame(() => focusRung(created))
+    notify('Nova network criada')
+  }
   /** Nome do bloco de programa em arraste sobre o canvas (para o hint «nova network»). */
   const [dragBlockHint, setDragBlockHint] = useState<string | null>(null)
   /** Profundidade de enter/leave no canvas — `relatedTarget` é null durante o drag nativo do browser. */
@@ -1880,8 +1904,6 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
               </button>
             </>
           )}
-          <button className="dc-tool-btn" onClick={() => setBlockDialog('OB')} title="Adicionar bloco ao projeto (OB/FB/FC/DB)" aria-label="Adicionar bloco"><IconPlus size={13} /><span>Bloco</span></button>
-          {isMainOpen && <button style={{ marginLeft: 'auto' }} onClick={() => { const id = addRung(); focusRung(id) }} className="ladder-primary-button" title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>}
         </div>
         {programTab === 'program' && isMainOpen && (
           <div className="ladder-program-summary">
@@ -1901,7 +1923,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         ) : blackBox && isMainOpen ? (
           <BlackBoxState />
         ) : isFcOpen ? (
-          <BlockProgramView id={activeProjectNode as 'fc1' | 'fc2' | `file:${string}`} notify={notify} registerInsert={(fn) => { blockInsertRef.current = fn }} />
+          <BlockProgramView id={activeProjectNode as 'fc1' | 'fc2' | `file:${string}`} notify={notify} registerInsert={(fn) => { blockInsertRef.current = fn }} registerAddRung={(fn) => { blockAddRungRef.current = fn }} />
         ) : selectedFile ? (
           <ProjectFileView file={selectedFile} table={table} onDelete={() => deleteFile(selectedFile)} />
         ) : !isMainOpen ? (

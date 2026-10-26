@@ -91,6 +91,27 @@ try {
   const compile = page.locator('.dc-toolbar-row2 [data-compile]')
   check(await compile.count() === 1, '«Compilar» do Ladder está na barra de ferramentas')
   check(await page.locator('.ladder-editor-toolbar [data-compile]').count() === 0, '«Compilar» já não está na barra do programa')
+  // «+ Bloco» e «Nova network» na barra de ferramentas; network vazia automática
+  const addNet = page.locator('.dc-toolbar-row2 [data-ladder-add-network]')
+  const addBlock = page.locator('.dc-toolbar-row2 [data-ladder-add-block]')
+  check(await addNet.count() === 1 && await addBlock.count() === 1, '«+ Bloco» e «Nova network» estão na barra de ferramentas')
+  check(await page.locator('.ladder-editor-toolbar').getByRole('button', { name: /Nova network|Bloco/ }).count() === 0, '«+ Bloco» e «Nova network» saíram da barra do programa')
+  const rungCount = () => sim((store) => store.getState().ladder.rungs.length)
+  const netsBefore = await rungCount()
+  await addNet.click(); await page.waitForTimeout(250)
+  check(await rungCount() === netsBefore + 1, '«Nova network» da barra cria uma network no Main')
+  await page.locator('.ladder-palette-item').first().click(); await page.waitForTimeout(300)
+  const after = await sim((store) => store.getState().ladder.rungs.map((r) => r.branches.some((b) => b.elements.length) || r.coils.length > 0))
+  check(after.length === netsBefore + 2 && after[after.length - 2] && !after[after.length - 1], `Elemento numa network vazia → nova network vazia em baixo (${after.length} networks)`)
+  await page.locator('.ladder-palette-item').first().click(); await page.waitForTimeout(250)
+  check(await rungCount() === netsBefore + 2, 'Mais elementos na mesma network não criam outra')
+  await capture('ladder-network-automatica')
+  await addBlock.click()
+  const blockDialog = page.getByRole('dialog', { name: /Adicionar novo bloco/ })
+  await blockDialog.waitFor({ timeout: 8000 })
+  check(true, '«+ Bloco» da barra abre «Adicionar novo bloco»')
+  await page.keyboard.press('Escape')
+  await blockDialog.waitFor({ state: 'detached', timeout: 8000 })
   await sim((store) => store.setState({ ladder: { ...store.getState().ladder, rungs: [{ id: 'r1', name: 'Arranque', branches: [{ id: 'b1', elements: [{ id: 'c1', address: 'I0.0', contactType: 'NO' }] }], coils: [{ id: 'q', address: 'Q0.0', coilType: 'COIL' }], enabled: true, collapsed: false }] } }))
   await page.waitForTimeout(600)
   await compile.click()
@@ -154,13 +175,26 @@ try {
   await openView('Monitor')
   await expectShortcuts('monitor', /Monitor/)
 
-  // 5) Barras com muitos botões: deslocamento horizontal, sem passar para baixo
+  // 5) Barra de deslocamento das barras de ferramentas igual às outras (computador: > 800 px)
+  await page.setViewportSize({ width: 1024, height: 900 })
+  for (const [index, view] of ['Esquema', 'Ladder', 'GRAFCET'].entries()) {
+    await tabs().getByRole('tab').nth(index).click(); await page.waitForTimeout(300)
+    const sb = await page.locator('.dc-toolbar-row2').evaluate((el) => {
+      const thumb = getComputedStyle(el, '::-webkit-scrollbar-thumb')
+      return { sbw: getComputedStyle(el).scrollbarWidth, thumb: thumb.backgroundColor, radius: thumb.borderTopLeftRadius }
+    })
+    check(sb.sbw === 'auto' && sb.thumb === 'rgb(203, 213, 225)', `${view}: barra de deslocamento personalizada como as outras (${sb.thumb}, raio ${sb.radius}), não a nativa`)
+  }
+  // voltar ao Esquema antes de estreitar (no GRAFCET estreito os componentes abrem como painel sobreposto)
+  await page.keyboard.press('Escape')
+  await tabs().getByRole('tab').nth(0).dispatchEvent('click'); await page.waitForTimeout(300)
+  // 6) Barras com muitos botões: deslocamento horizontal, sem passar para baixo
   await page.setViewportSize({ width: 760, height: 900 })
   for (const [index, view] of ['Esquema', 'Ladder', 'GRAFCET'].entries()) {
     await tabs().getByRole('tab').nth(index).click()
     await page.waitForTimeout(350)
     await capture(`barra-estreita-${view.toLowerCase()}`)
-    const m = await page.locator('.dc-toolbar-row2').evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, h: el.getBoundingClientRect().height, ox: getComputedStyle(el).overflowX, wrap: getComputedStyle(el).flexWrap }))
+    const m = await page.locator('.dc-toolbar-row2').evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, h: el.getBoundingClientRect().height, ox: getComputedStyle(el).overflowX, wrap: getComputedStyle(el).flexWrap, sbw: getComputedStyle(el).scrollbarWidth, thumb: getComputedStyle(el, '::-webkit-scrollbar-thumb').backgroundColor }))
     check(m.wrap === 'nowrap' && ['auto', 'scroll'].includes(m.ox) && m.h < 56, `${view}: barra numa só linha com deslocamento (${m.sw}/${m.cw} px, altura ${Math.round(m.h)} px)`)
     if (view === 'Ladder') check(m.sw > m.cw, 'Ladder: a barra estreita tem mais conteúdo do que largura (desloca-se)')
   }

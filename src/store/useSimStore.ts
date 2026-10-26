@@ -47,6 +47,7 @@ import { blankPlcProgram, fcPresentOf, isProgrammablePlc, programsForSave, type 
 import { compileGateEnabled, compileInputOf, compileLadder } from '../ladder/ladderCompile'
 import { autoExecRungs, callableBlocks, defaultProjectFileContent, type ProjectFile, type ProjectFolder } from '../ladder/projectFiles'
 import { plcIoCapacity } from '../ladder/plcIo'
+import { withEmptyNetworkBelow } from '../ladder/autoNetwork'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
 import { hasComponent3DModel, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
@@ -2478,7 +2479,11 @@ export const useSimStore = create<Store>((set, get) => ({
   updateRung: (rungId, updater, historyMode = 'auto') => {
     if (historyMode === 'force' || (historyMode === 'auto' && shouldCommitGroupedEdit(`rung:${rungId}`))) get().commitHistory()
     if (historyMode === 'force') resetGroupedEdit()
-    set((s) => ({ ladder: { rungs: s.ladder.rungs.map((r) => (r.id === rungId ? updater(r) : r)) }, dirty: true }))
+    set((s) => {
+      const next = s.ladder.rungs.map((r) => (r.id === rungId ? updater(r) : r))
+      const rungs = withEmptyNetworkBelow(s.ladder.rungs, next, (index) => ({ id: nanoid(6), name: `Rung ${index + 1}`, branches: [{ id: nanoid(6), elements: [] }], coils: [], enabled: true }))
+      return { ladder: { rungs }, dirty: true }
+    })
     get().step()
   },
 
