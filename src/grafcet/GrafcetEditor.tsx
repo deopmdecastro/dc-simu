@@ -69,6 +69,7 @@ import GrafcetMinimap from './GrafcetMinimap'
 import GrafcetContextMenu, { type ContextMenuItem } from './GrafcetContextMenu'
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView, type Pos, type AlignMode, type DistributeAxis, type SubDiagram } from './selection'
 import { useEditorShortcuts } from '../ui/shortcuts'
+import { pinchPan, usePinchZoom } from '../ui/usePinchZoom'
 import { useGrafcetUi, type GrafcetBusAction } from './grafcetBus'
 import { EDITOR_THEME } from '../ui/editorTheme'
 import {
@@ -245,6 +246,9 @@ export const nextFreeStepNumber = (steps: readonly GrafcetStep[]): number => {
   while (used.has(String(n))) n++
   return n
 }
+
+/** Zoom máximo do diagrama (roda do rato, botões e pinça): suficiente para ler os textos num telemóvel. */
+const GRAFCET_ZOOM_MAX = 5
 
 export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder }: { full?: boolean; onOpenEditor?: () => void; onOpenLadder?: () => void }) {
   const program = useSimStore((state) => state.grafcet)
@@ -1968,13 +1972,29 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   // Thin the visible grid by powers of two when zoomed out; snap geometry stays at GRID.
   const gridSpacing = GRID * scale * 2 ** Math.max(0, Math.ceil(Math.log2(16 / (GRID * scale))))
   const position = pan ?? { x: (viewport.width - width * scale) / 2, y: full ? 38 : 22 }
-  const clamp = (value: number) => Math.max(full ? 0.15 : 0.25, Math.min(2.5, value))
+  const clamp = (value: number) => Math.max(full ? 0.15 : 0.25, Math.min(GRAFCET_ZOOM_MAX, value))
 
   const zoomAt = (value: number, point: { x: number; y: number }) => {
     const next = clamp(value)
     setPan({ x: point.x - ((point.x - position.x) * next) / scale, y: point.y - ((point.y - position.y) * next) / scale })
     setZoom(next)
   }
+
+  // Zoom com dois dedos (telemóvel/tablet): o ponto sob os dedos acompanha-os, e mover os dedos desloca a vista.
+  const pinchStartRef = useRef<{ zoom: number; pos: { x: number; y: number } } | null>(null)
+  usePinchZoom(viewportRef, {
+    swallowPointers: true,
+    enabled: steps.length > 0,
+    onStart: () => { pinchStartRef.current = { zoom: scale, pos: position } },
+    onChange: ({ ratio, center, startCenter }) => {
+      const start = pinchStartRef.current
+      if (!start) return
+      const next = clamp(start.zoom * ratio)
+      setPan(pinchPan(start.pos, start.zoom, next, startCenter, center))
+      setZoom(next)
+    },
+    onEnd: () => { pinchStartRef.current = null },
+  })
 
   const resetView = () => {
     setZoom(null)

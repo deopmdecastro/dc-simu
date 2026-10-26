@@ -1,4 +1,5 @@
-import { useLadderZoom, LADDER_ZOOM_STEP } from './ladderZoom'
+import { useLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } from './ladderZoom'
+import { pinchZoom, usePinchZoom } from '../ui/usePinchZoom'
 import { useLadderUi } from './ladderBus'
 import VirtualIoPanel from '../components/VirtualIoPanel'
 import { lintLadder } from './ladderLint'
@@ -11,7 +12,7 @@ import { PROJECT_FOLDERS, defaultProjectFileContent, type ProjectFile, type Proj
 import { plcIoRows } from './plcIo'
 import { parseDataBlocks } from './dataBlocks'
 import { collectUsedAddresses } from './ladderEngine'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import TagTable from './TagTable'
 import type { LadderRung, LadderContactType, ComponentType, ElectricalComponent } from '../types'
@@ -397,8 +398,8 @@ function CompactLadderEditor() {
             </button>
           )}
           {tab === 'program' && <button type="button" onClick={() => setLadderZoom(1)} className="inline-flex items-center gap-1 text-[9px] font-mono text-ink-400 mr-1 hover:text-brand-600" title="Repor escala a 100%"><IconReset size={10} />{Math.round(ladderZoom * 100)}%</button>}
-          {tab === 'program' && <button disabled={ladderZoom <= 0.75} onClick={() => setLadderZoom((z) => Math.max(0.75, Number((z - 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Reduzir escala do Ladder"><IconZoomOut size={11} /></button>}
-          {tab === 'program' && <button disabled={ladderZoom >= 1.35} onClick={() => setLadderZoom((z) => Math.min(1.35, Number((z + 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Aumentar escala do Ladder"><IconZoomIn size={11} /></button>}
+          {tab === 'program' && <button disabled={ladderZoom <= LADDER_ZOOM_MIN} onClick={() => setLadderZoom((z) => Math.max(LADDER_ZOOM_MIN, Number((z - 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Reduzir escala do Ladder"><IconZoomOut size={11} /></button>}
+          {tab === 'program' && <button disabled={ladderZoom >= LADDER_ZOOM_MAX} onClick={() => setLadderZoom((z) => Math.min(LADDER_ZOOM_MAX, Number((z + 0.1).toFixed(2))))} className="dc-icon-btn !h-6 !w-6" title="Aumentar escala do Ladder"><IconZoomIn size={11} /></button>}
           {tab === 'program' && <button onClick={addRung} className="dc-btn-primary dc-btn !h-6 !text-[11px] ml-1"><IconPlus size={11} /> Rung</button>}
         </div>
       </div>
@@ -1051,6 +1052,40 @@ function EmptyFolderMessage({ text }: { text: string }) {
 }
 
 /**
+ * Zoom com dois dedos nas networks do Ladder (telemóvel/tablet). A escala é CSS `zoom` no contentor interno,
+ * por isso o deslocamento da barra de rolagem é ajustado para o ponto sob os dedos acompanhar o gesto.
+ */
+function useLadderPinch(ref: React.RefObject<HTMLDivElement | null>) {
+  const setLadderZoom = useLadderZoom((state) => state.setZoom)
+  const zoom = useLadderZoom((state) => state.zoom)
+  const startRef = useRef<{ zoom: number; left: number; top: number } | null>(null)
+  const pendingRef = useRef<{ left: number; top: number } | null>(null)
+  usePinchZoom(ref, {
+    onStart: () => {
+      const el = ref.current
+      if (el) startRef.current = { zoom: useLadderZoom.getState().zoom, left: el.scrollLeft, top: el.scrollTop }
+    },
+    onChange: ({ ratio, center, startCenter }) => {
+      const start = startRef.current
+      if (!start) return
+      setLadderZoom(pinchZoom(start.zoom, ratio, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX))
+      const factor = useLadderZoom.getState().zoom / start.zoom
+      pendingRef.current = { left: (start.left + startCenter.x) * factor - center.x, top: (start.top + startCenter.y) * factor - center.y }
+    },
+    onEnd: () => { startRef.current = null },
+  })
+  // A rolagem só pode ser corrigida depois de o React aplicar a nova escala ao layout.
+  useLayoutEffect(() => {
+    const el = ref.current
+    const pending = pendingRef.current
+    if (!el || !pending) return
+    pendingRef.current = null
+    // `.ladder-networks` tem scroll-behavior: smooth; durante a pinça a rolagem tem de ser imediata.
+    el.scrollTo({ left: Math.max(0, pending.left), top: Math.max(0, pending.top), behavior: 'instant' as ScrollBehavior })
+  }, [zoom, ref])
+}
+
+/**
  * Editor de programa de um bloco (FC1/FC2/ficheiro do projeto) — paridade TOTAL com a Main:
  * mesmo RungRow/NetworkDiagram (drag&drop, seleção, edição rápida, diálogo de propriedades),
  * paleta e atalhos encaminham para este bloco enquanto estiver aberto.
@@ -1071,6 +1106,8 @@ function BlockProgramView({ id, notify, registerInsert }: {
   const running = useSimStore((s) => s.sim.runState === 'running')
   const grid = useSimStore((s) => s.grid)
   const ladderZoom = useLadderZoom((state) => state.zoom)
+  const networksRef = useRef<HTMLDivElement>(null)
+  useLadderPinch(networksRef)
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
   const [dragOver, setDragOver] = useState(false)
@@ -1204,6 +1241,7 @@ function BlockProgramView({ id, notify, registerInsert }: {
         </div>
       </div>
       <div
+        ref={networksRef}
         className={`ladder-networks ladder-block-network-canvas ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'} drop-zone ${dragOver ? 'drag-over' : ''}`}
         style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
         onDragOver={(e) => {
@@ -1314,6 +1352,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const [filter, setFilter] = useState('')
   const ladderZoom = useLadderZoom((state) => state.zoom)
   const setLadderZoom = useLadderZoom((state) => state.setZoom)
+  const mainNetworksRef = useRef<HTMLDivElement>(null)
+  useLadderPinch(mainNetworksRef)
   const [showProjectPane, setShowProjectPane] = useState(() => !isSmallScreen())
   const [showPalette, setShowPalette] = useState(() => !isSmallScreen())
   const [activeProjectNode, setActiveProjectNode] = useState<ProjectNodeId>('main')
@@ -1760,6 +1800,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           <ProjectDataView activeNode={activeProjectNode} files={files} onCreate={createFile} onOpen={(id) => setActiveProjectNode(`file:${id}`)} />
           ) : (
           <div
+            ref={mainNetworksRef}
             className={`ladder-networks ${grid.enabled ? (grid.style === 'lines' ? 'grid-lines' : '') : 'grid-off'} drop-zone ${dragOver ? 'drag-over' : ''}`}
             style={grid.enabled ? { backgroundSize: `${grid.size}px ${grid.size}px` } : undefined}
             onDragOver={(e) => {

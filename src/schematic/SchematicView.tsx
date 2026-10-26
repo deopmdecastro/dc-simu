@@ -32,6 +32,9 @@ type SchematicCanvasMode = '2d' | '3d'
 
 /** O Esquema e o Painel usam o mesmo renderer físico no modo 3D: não há
  * cópia de componentes, bornes, cabos ou estado elétrico. */
+/** Mantém-se igual ao limite do store (`setZoom`): permite ler os símbolos num telemóvel. */
+const MAX_SCHEMATIC_ZOOM = 5
+
 export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
   const placingType = useSimStore((state) => state.placingType)
   // Editor SVG antigo, mantido como alternativa (localStorage 'dc-simu:classic2d' = '1' ou ?classic2d na URL).
@@ -848,7 +851,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     e.preventDefault()
     const [a, b] = [e.touches[0], e.touches[1]]
     const original = pinchRef.current
-    const nextZoom = Math.min(3, Math.max(0.25, original.zoom * Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) / Math.max(1, original.distance)))
+    const nextZoom = Math.min(MAX_SCHEMATIC_ZOOM, Math.max(0.25, original.zoom * Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) / Math.max(1, original.distance)))
     const rect = svgRef.current.getBoundingClientRect()
     setZoom(nextZoom)
     setPan((a.clientX + b.clientX) / 2 - rect.left - original.worldX * nextZoom, (a.clientY + b.clientY) / 2 - rect.top - original.worldY * nextZoom)

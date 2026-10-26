@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 /** Escala do diagrama Ladder: partilhada entre o editor e a barra de ferramentas (única fonte de verdade). */
 export const LADDER_ZOOM_MIN = 0.7
-export const LADDER_ZOOM_MAX = 1.5
+export const LADDER_ZOOM_MAX = 3
 export const LADDER_ZOOM_STEP = 0.1
 const KEY = 'dcsimu:ladder:zoom:v2'
 
