@@ -308,3 +308,10 @@
 .ladder-force-row small { flex: 1; color: #64748b; }
 .ladder-force-val { min-width: 22px; text-align: center; font-weight: 700; }
 .ladder-force-warn { margin: 0; font-size: 12px; color: #b45309; }
+
+/* Simulador de sinais do PLC (bornes reais) */
+.plc-sim .plc-sim-cell { position: relative; }
+.plc-sim select.plc-sim-mode { appearance: none; -webkit-appearance: none; cursor: pointer; text-align: center; text-align-last: center; padding-right: 4px; }
+.plc-sim-state { position: absolute; left: 6px; bottom: -7px; padding: 0 5px; border-radius: 999px; font: 600 9px/13px ui-monospace, monospace; background: #e2e8f0; color: #475569; pointer-events: auto; }
+.plc-sim-state.is-on { background: #16a34a; color: #fff; }
+.ladder-status-grid > .plc-sim { grid-column: 1 / -1; padding: 4px 0 8px; border-bottom: 1px dashed var(--line, #d6dae3); }

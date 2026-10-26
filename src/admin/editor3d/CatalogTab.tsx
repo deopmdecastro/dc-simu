@@ -16,6 +16,7 @@ import { createComponentCatalogBackup, downloadComponentCatalogBackup, parseComp
 import { buildBuiltinDraft, builtinComponents, builtinTypeOf, upgradeBuiltinDraft, type BuiltinInfo } from './builtinComponents'
 import ComponentEditor3D from './ComponentEditor3D'
 import CrashBoundary from '../../ui/CrashBoundary'
+import SyncPanel from './SyncPanel'
 
 /** Separador "Biblioteca 3D": lista os componentes oficiais e abre o editor 3D. */
 export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpened, account }: { account?: ReactNode; onNotice: (message: string) => void; onError: (message: string) => void; onCreate: () => void; openId?: string | null; onOpened?: () => void }) {
@@ -30,6 +31,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
   const builtins = useMemo(() => builtinComponents(), [])
   const [covers, setCovers] = useState<Record<string, string>>({})
   const [backupBusy, setBackupBusy] = useState(false)
+  const [syncOpen, setSyncOpen] = useState(false)
   const backupInput = useRef<HTMLInputElement>(null)
 
   const reload = useCallback(async () => {
@@ -148,8 +150,10 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
       <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => void exportBackup()}>{backupBusy ? 'A processar…' : 'Guardar backup'}</button>
       <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => backupInput.current?.click()}>Recuperar backup</button>
       <input ref={backupInput} type="file" accept=".json,.dcs-components.json,application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importBackup(file) }} />
+      <button className="dx-btn dx-btn-secondary" aria-pressed={syncOpen} data-sync-toggle onClick={() => setSyncOpen((open) => !open)} title="Compara o editor com a biblioteca do simulador 3D">Sincronização</button>
       <button className="dx-btn dx-btn-primary" onClick={onCreate}>+ Novo componente 3D</button>
     </div>
+    {syncOpen && <SyncPanel onNotice={onNotice} onError={onError} onChanged={() => void reload()} onOpen={openEditor} />}
     {entries === null && <div className="dx-admin-empty">A carregar…</div>}
     {entries && visible.length === 0 && builtinVisible.length === 0 && <div className="dx-admin-empty">{entries.length === 0 ? 'Ainda não há componentes 3D. Clique em «+ Novo componente 3D» para criar o primeiro.' : 'Nenhum componente corresponde ao filtro.'}</div>}
     <div className="ce-cards">
@@ -188,12 +192,12 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
         {builtinVisible.map((item) => <article key={item.type} className="ce-card ce-card-builtin">
           <div className="ce-card-cover">
             <LazyThumb type={item.type} size={150} />
-            <span className="ce-card-badges"><span className="ce-pill is-builtin">Integrado</span></span>
+            <span className="ce-card-badges"><span className="ce-pill is-builtin">Integrado</span>{!item.hasModel && <span className="ce-pill is-locked" data-builtin-locked title="Sem modelo GLB: bloqueado na biblioteca do simulador até ser publicado a partir do editor">Bloqueado no simulador</span>}</span>
           </div>
           <div className="ce-card-body">
             <h3 className="ce-card-title" title={item.name}>{item.name}</h3>
             <div className="ce-card-meta"><span className="ce-chip">{item.group}</span><span>{item.tag} · {item.terminals} borne{item.terminals === 1 ? '' : 's'}</span></div>
-            <p className="ce-card-desc">{item.hasModel ? 'Modelo 3D CAD da plataforma.' : 'Sem modelo CAD: abre como volume com as dimensões físicas.'}</p>
+            <p className="ce-card-desc">{item.hasModel ? 'Modelo 3D CAD da plataforma.' : 'Sem modelo CAD: abre como volume com as dimensões físicas. Publique-o para o desbloquear no simulador.'}</p>
           </div>
           <div className="ce-card-actions">
             <button className="dx-btn dx-btn-primary dx-btn-sm" disabled={importing !== null} onClick={() => void openBuiltin(item)}>{importing === item.type ? 'A importar…' : 'Editar no 3D'}</button>

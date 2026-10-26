@@ -4,6 +4,8 @@ import CatalogInspector from '../catalog/CatalogInspector'
 import { useCatalogStore } from '../catalog/registry'
 import { hiddenCatalogTypes } from '../catalog/hidden'
 import { parseCatalogType } from '../catalog/types'
+import PlcSignalPanel from './PlcSignalPanel'
+import { isProgrammablePlc } from '../ladder/plcPrograms'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import TerminalLibrary from './TerminalLibrary'
@@ -496,11 +498,12 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
               </div></details>
               <OptionalPartsGroup component={selectedComponent} />
+              {isProgrammablePlc(selectedComponent) && <details className="dc-inspector-group" data-plc-sim-group><summary>Simular sinais (entradas)</summary><div className="dc-inspector-group-body"><PlcSignalPanel plcId={selectedComponent.id} compact /></div></details>}
               {/* estado rápido conforme o tipo */}
               <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body space-y-1">
                 {Object.entries(selectedComponent.state).map(([k, v]) => {
                   if (isMountingRail(selectedComponent.type) && k === 'lengthMm') return null
-                  if (k === 'showFan' || k === 'hiddenParts') return null
+                  if (k === 'showFan' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes') return null
                   if (typeof v === 'boolean') {
                     return (
                       <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">

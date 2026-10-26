@@ -241,7 +241,51 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
     if (!next.parts.some((part) => part.name === MOTOR_BOARD_GROUP)) { seedMotorTerminalBoard(next, cache); changed = true }
     if (migrateMotorDraft(next, cache)) changed = true
   }
+  if (fixFlippedTerminals(type, next, cache).length) changed = true
   return changed ? next : null
+}
+
+/** Caixa do modelo original do integrado (só a peça GLB de origem), em mm. */
+function builtinBox(type: ComponentType, def: ComponentDefinition, cache: GlbCache): THREE.Box3 {
+  const part = def.parts.find((item) => item.kind === 'glb' && item.asset && def.assets[item.asset]?.builtinType === type)
+  return boundsMm(part ? { ...def, parts: [{ ...part, parentId: null }] } : def, cache)
+}
+
+/**
+ * Bornes espelhados em Y (ou Y+Z) face ao integrado — rascunhos antigos do LOGO!
+ * ficaram com I0.x/L+/M em baixo e Q0.x em cima. Só corrige bornes cuja posição
+ * é exatamente o espelho da posição correta; bornes editados à mão ficam como estão.
+ * Devolve as etiquetas corrigidas (o `def` é alterado no lugar).
+ */
+export function fixFlippedTerminals(type: ComponentType, def: ComponentDefinition, cache: GlbCache): string[] {
+  const tpl = TEMPLATES[type]
+  if (!tpl || !def.terminals.length) return []
+  const box = builtinBox(type, def, cache)
+  if (box.isEmpty()) return []
+  const fresh = new Map(terminalsFor(type, tpl.terminals, box).map((terminal) => [terminal.label, terminal]))
+  const fixed: string[] = []
+  def.terminals = def.terminals.map((terminal) => {
+    const right = fresh.get(terminal.label)
+    if (!right) return terminal
+    const [x, y, z] = terminal.position, [fx, fy, fz] = right.position
+    const far = Math.hypot(x - fx, y - fy, z - fz) > 5
+    const mirrorY = box.min.y + box.max.y - fy, mirrorZ = box.min.z + box.max.z - fz
+    const flipped = far && Math.abs(x - fx) <= 2 && Math.abs(y - mirrorY) <= 2 && (Math.abs(z - fz) <= 2 || Math.abs(z - mirrorZ) <= 2)
+    if (!flipped) return terminal
+    fixed.push(terminal.label)
+    return { ...terminal, position: right.position, normal: right.normal, diameterMm: right.diameterMm ?? terminal.diameterMm, socketDepthMm: right.socketDepthMm ?? terminal.socketDepthMm, socketInsetMm: right.socketInsetMm ?? terminal.socketInsetMm }
+  })
+  return fixed
+}
+
+/** Bornes de uma versão publicada (posição normalizada 0..1) espelhados em Y face ao integrado. */
+export function flippedRuntimeTerminals(type: ComponentType, terminals: { label: string; position3D?: { x: number; y: number; z: number } }[]): string[] {
+  const tpl = TEMPLATES[type]
+  if (!tpl) return []
+  return terminals.filter((terminal) => {
+    const right = tpl.terminals.find((item) => item.label === terminal.label)?.position3D, p = terminal.position3D
+    return !!right && !!p && Math.abs(p.y - right.y) > .1 && Math.abs(p.y - (1 - right.y)) < .04 && Math.abs(p.x - right.x) < .04
+  }).map((terminal) => terminal.label)
 }
 
 const MOTOR_BOARD_GROUP = 'Placa de bornes'

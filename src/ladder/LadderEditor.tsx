@@ -2,6 +2,7 @@ import { useLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } fro
 import { pinchZoom, usePinchZoom } from '../ui/usePinchZoom'
 import { useLadderUi } from './ladderBus'
 import VirtualIoPanel from '../components/VirtualIoPanel'
+import PlcSignalPanel from '../components/PlcSignalPanel'
 import { lintLadder } from './ladderLint'
 import { uiConfirm, uiPrompt } from '../ui/dialogs'
 import Select from '../ui/Select'
@@ -2023,7 +2024,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           </div>
           {showStatus && <div className="ladder-status-grid" role="tabpanel">
             {statusTab === 'io' && !activePlc && <VirtualIoPanel compact />}
-            {statusTab === 'io' && !!activePlc && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
+            {statusTab === 'io' && !!activePlc && <><PlcSignalPanel plcId={activePlc.id} compact /><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
             {statusTab === 'force' && <ForcePanel />}
             {statusTab === 'debug' && (canDebug ? <LadderDebugPanel rungs={rungs} /> : <PlanLocked feature="ladderDebug" compact />)}
             {statusTab === 'compile' && <div className="ladder-compile">

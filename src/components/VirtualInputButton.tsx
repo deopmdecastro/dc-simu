@@ -1,6 +1,17 @@
 import { useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { useSimStore, type VirtualInputMode } from '../store/useSimStore'
 
+const EMPTY_INPUTS: Record<string, boolean> = {}
+const EMPTY_MODES: Record<string, VirtualInputMode> = {}
+/** Sinais injetados e tipo de contacto de cada entrada de um PLC (em `plc.state`). */
+export function readPlcSim(s: ReturnType<typeof useSimStore.getState>, plcId: string) {
+  const state = s.components.find((c) => c.id === plcId)?.state
+  return {
+    inputs: (state?.simInputs as Record<string, boolean> | undefined) ?? EMPTY_INPUTS,
+    modes: (state?.simInputModes as Record<string, VirtualInputMode> | undefined) ?? EMPTY_MODES,
+  }
+}
+
 /** Botão de uma entrada virtual.
  *  - Encravamento (latch): cada clique liga/desliga e mantém o estado.
  *  - Pressão (push, NO): só está a 1 enquanto o botão é premido (rato, toque ou Espaço/Enter).
@@ -12,6 +23,7 @@ export default function VirtualInputButton({
   children,
   title,
   disabled = false,
+  plcId,
 }: {
   address: string
   className?: string
@@ -19,11 +31,18 @@ export default function VirtualInputButton({
   title?: string
   /** Simulador parado (STOP): a entrada não responde — ligá-la com Run. */
   disabled?: boolean
+  /** Simulador de sinais de um PLC do esquema (entrada física); sem isto, entradas virtuais globais. */
+  plcId?: string
 }) {
-  const on = useSimStore((s) => !!s.virtualInputs[address])
-  const mode: VirtualInputMode = useSimStore((s) => s.virtualInputModes[address] ?? 'latch')
-  const setInput = useSimStore((s) => s.setVirtualInput)
-  const setMode = useSimStore((s) => s.setVirtualInputMode)
+  const on = useSimStore((s) => plcId ? !!readPlcSim(s, plcId).inputs[address] : !!s.virtualInputs[address])
+  const mode: VirtualInputMode = useSimStore((s) => (plcId ? readPlcSim(s, plcId).modes[address] : s.virtualInputModes[address]) ?? 'latch')
+  const setGlobal = useSimStore((s) => s.setVirtualInput)
+  const setGlobalMode = useSimStore((s) => s.setVirtualInputMode)
+  const setPlc = useSimStore((s) => s.setPlcSimInput)
+  const setPlcMode = useSimStore((s) => s.setPlcSimInputMode)
+  const setInput = (addr: string, value: boolean) => plcId ? setPlc(plcId, addr, value) : setGlobal(addr, value)
+  const setMode = (addr: string, value: VirtualInputMode) => plcId ? setPlcMode(plcId, addr, value) : setGlobalMode(addr, value)
+  const current = () => { const st = useSimStore.getState(); return plcId ? !!readPlcSim(st, plcId).inputs[address] : !!st.virtualInputs[address] }
 
   /** true enquanto um premir momentâneo (rato/toque) está a decorrer */
   const held = useRef(false)
@@ -59,7 +78,7 @@ export default function VirtualInputButton({
       window.setTimeout(() => setInput(address, rest), 150)
       return
     }
-    setInput(address, !useSimStore.getState().virtualInputs[address])
+    setInput(address, !current())
   }
   const keyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (disabled || !momentary || (event.key !== ' ' && event.key !== 'Enter') || event.repeat) return
@@ -95,7 +114,7 @@ export default function VirtualInputButton({
       onKeyDown={keyDown}
       onKeyUp={keyUp}
       onBlur={() => {
-        if (momentary && useSimStore.getState().virtualInputs[address] === active) setInput(address, rest)
+        if (momentary && current() === active) setInput(address, rest)
       }}
       onContextMenu={(event) => {
         event.preventDefault()

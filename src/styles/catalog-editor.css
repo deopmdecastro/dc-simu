@@ -681,3 +681,23 @@
 .ce-tex-new { position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; border:1px solid var(--dx-line); background:var(--dx-surface); color:var(--dx-ink-2); font-size:13px; line-height:16px; padding:0; cursor:pointer; opacity:.85; }
 .ce-tex-new:hover, .ce-tex-new:focus-visible { opacity:1; border-color:var(--dx-brand); color:var(--dx-brand); }
 .ce-swatch i.has-tex { background-size:cover !important; background-blend-mode:multiply; }
+
+/* Sincronização editor ↔ simulador (BUILTIN-SYNC-01) */
+.ce-pill.is-locked { color:#b45309; border-color:#f6c98a; background:rgba(255,244,230,.95); }
+.ce-sync { margin: 12px 0 18px; padding: 14px 16px; border: 1px solid var(--dx-line, #d0d7de); border-radius: 10px; background: var(--dx-surface, #fff); }
+.ce-sync-head { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
+.ce-sync-head h3 { margin: 0 0 4px; font-size: 15px; }
+.ce-sync-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ce-sync-summary { margin: 10px 0; font-size: 13px; }
+.ce-sync-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ce-sync-table th, .ce-sync-table td { text-align: left; vertical-align: top; padding: 7px 8px; border-top: 1px solid var(--dx-line, #e5e7eb); }
+.ce-sync-table td small, .ce-sync-locked small { display: block; opacity: .65; font-family: ui-monospace, monospace; font-size: 11px; }
+.ce-sync-table ul { margin: 0; padding-left: 16px; }
+.ce-sync-table li { margin: 2px 0; }
+.ce-sync-table li.is-severe b { color: #dc2626; }
+.ce-sync-fix { white-space: nowrap; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.ce-sync-link { background: none; border: 0; padding: 0; color: var(--dx-brand, #2563eb); cursor: pointer; font-weight: 600; text-align: left; }
+.ce-sync-locked { margin-top: 10px; font-size: 12.5px; }
+.ce-sync-locked summary { cursor: pointer; font-weight: 600; }
+.ce-sync-locked ul { columns: 2; padding-left: 18px; }
+.ce-sync-locked small { display: inline; }

@@ -202,6 +202,14 @@ interface Store extends CircuitState {
   ladderStepScan: () => void
   setVirtualInputCount: (count: number) => void
   clearVirtualInputs: () => void
+  /**
+   * Simulador de sinais de um PLC do esquema: injeta 1 numa entrada física
+   * (como um botão virtual ligado entre L+ e o borne), somado ao que chega pelos
+   * cabos. Guardado em `plc.state.simInputs` / `simInputModes` (vai com o projeto).
+   */
+  setPlcSimInput: (plcId: string, address: string, on: boolean) => void
+  setPlcSimInputMode: (plcId: string, address: string, mode: VirtualInputMode) => void
+  clearPlcSimInputs: (plcId: string) => void
   /** Repõe a memória de trabalho (Q, M, MW, temporizadores e contadores) a 0
    *  sem parar a simulação nem tocar nas entradas — o «MRES» do simulador. */
   resetMemory: () => void
@@ -592,6 +600,15 @@ function runOneTick(state: Store, dtMs: number) {
         ? powered && logo.positive.has(t.id)
         : pass1.energizedTerminals.has(t.id)
     }
+    // Simulador de sinais: um sinal injetado soma-se ao que chega pelos cabos
+    // (equivale a um botão virtual em paralelo). NC por tocar repousa a 1.
+    const simInputs = plc.state.simInputs as Record<string, boolean> | undefined
+    const simModes = plc.state.simInputModes as Record<string, VirtualInputMode> | undefined
+    if (simInputs || simModes) for (const t of plc.terminals) {
+      if (!/^I\d+\.\d+$/.test(t.label)) continue
+      const injected = simInputs?.[t.label] ?? simModes?.[t.label] === 'nc'
+      if (injected) table[t.label] = true
+    }
     const program = plc.id === state.activePlcId ? ladder.rungs
       : state.plcPrograms[plc.id]?.rungs ?? (state.activePlcId === null && plc.id === plcs[0].id ? ladder.rungs : [])
     const fc = plc.id === state.activePlcId ? state.fcBlocks : state.plcPrograms[plc.id]
@@ -978,6 +995,38 @@ export const useSimStore = create<Store>((set, get) => ({
   setVirtualInputCount: (count) => set({ virtualInputCount: Math.max(1, Math.min(32, Math.round(count))) }),
   setVirtualOutputCount: (count) => set({ virtualOutputCount: Math.max(1, Math.min(32, Math.round(count))) }),
   setVirtualMemoryCount: (count) => set({ virtualMemoryCount: Math.max(0, Math.min(32, Math.round(count))) }),
+  setPlcSimInput: (plcId, address, on) => {
+    const plc = get().components.find((c) => c.id === plcId)
+    if (!plc) return
+    // Sem histórico (como as entradas virtuais): premir um botão não é uma edição do esquema.
+    plc.state = { ...plc.state, simInputs: { ...(plc.state.simInputs as Record<string, boolean> | undefined), [address]: on } }
+    const rt = get().runtime.plcRuntime[plcId]
+    if (rt && on) rt.table[address] = true
+    set((st) => ({ components: [...st.components], dirty: true }))
+    if (get().sim.runState !== 'running') get().step()
+  },
+  setPlcSimInputMode: (plcId, address, mode) => {
+    const plc = get().components.find((c) => c.id === plcId)
+    if (!plc) return
+    const modes = { ...(plc.state.simInputModes as Record<string, VirtualInputMode> | undefined), [address]: mode }
+    const inputs = { ...(plc.state.simInputs as Record<string, boolean> | undefined) }
+    // NO volta ao repouso 0; NC repousa a 1 (contacto fechado); interruptor mantém.
+    if (mode === 'push') inputs[address] = false
+    if (mode === 'nc') inputs[address] = true
+    plc.state = { ...plc.state, simInputModes: modes, simInputs: inputs }
+    set((st) => ({ components: [...st.components], dirty: true }))
+    if (get().sim.runState !== 'running') get().step()
+  },
+  clearPlcSimInputs: (plcId) => {
+    const plc = get().components.find((c) => c.id === plcId)
+    if (!plc) return
+    const modes = (plc.state.simInputModes as Record<string, VirtualInputMode> | undefined) ?? {}
+    const rest: Record<string, boolean> = {}
+    for (const [address, mode] of Object.entries(modes)) if (mode === 'nc') rest[address] = true
+    plc.state = { ...plc.state, simInputs: rest }
+    set((st) => ({ components: [...st.components], dirty: true }))
+    if (get().sim.runState !== 'running') get().step()
+  },
   clearVirtualInputs: () => {
     // Repouso: botões NO/interruptores a 0; botões NC (ex.: Stop) a 1.
     const rest: Record<string, boolean> = {}

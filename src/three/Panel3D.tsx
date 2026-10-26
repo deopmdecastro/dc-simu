@@ -14,6 +14,7 @@ import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
 import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '../types'
 import * as THREE from 'three'
+import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoScreen'
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { finishCadMaterial } from './catalogMaterials'
 import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
@@ -509,16 +510,29 @@ type LogoPage = 'home' | 'io' | 'clock' | 'diagnostics'
 const LOGO_PAGES: LogoPage[] = ['home', 'io', 'clock', 'diagnostics']
 
 /** Painel frontal funcional do LOGO!: LCD, seis teclas e LEDs ligados ao runtime. */
-function LogoFrontPanel({ c, interactive = true }: { c: ElectricalComponent; interactive?: boolean }) {
+/**
+ * Geometria da face frontal do LOGO! 12/24RC medida no CAD (unidades do painel,
+ * modelo ajustado com a base em y = 0): janela do LCD (malha verde do GLB),
+ * cruz de cursores e teclas ESC/OK (malha azul). O ecrã desenhado assenta
+ * exatamente sobre a janela verde, sem flutuar nem tapar o corpo.
+ */
+const LOGO_KEYS = { esc: [0.163, 0.289], ok: [0.276, 0.289], up: [0.218, 0.458], down: [0.218, 0.355], left: [0.166, 0.406], right: [0.27, 0.406], z: 0.276 } as const
+
+function LogoFrontPanel({ c, interactive = true, screen = LOGO_SCREEN_FALLBACK }: { c: ElectricalComponent; interactive?: boolean; screen?: LogoFaceRect }) {
   const runState = useSimStore((s) => s.sim.runState)
   const scanCount = useSimStore((s) => s.sim.scanCount)
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const [page, setPage] = useState<LogoPage>('home')
-  const canvas = useMemo(() => { const node = document.createElement('canvas'); node.width = 384; node.height = 192; return node }, [])
+  // Margem de 1,5 mm dentro da janela (a moldura do visor fica à vista).
+  const inset = 0.015
+  const width = Math.max(0.05, screen.maxX - screen.minX - inset * 2)
+  const height = Math.max(0.05, screen.maxY - screen.minY - inset * 2)
+  const cx = (screen.minX + screen.maxX) / 2, cy = (screen.minY + screen.maxY) / 2
+  const canvas = useMemo(() => { const node = document.createElement('canvas'); node.width = 384; node.height = Math.round(384 * height / width); return node }, [width, height])
   const texture = useMemo(() => { const value = new THREE.CanvasTexture(canvas); value.colorSpace = THREE.SRGBColorSpace; value.anisotropy = 4; return value }, [canvas])
   const powered = !!c.state.powered
   const inputs = c.terminals.filter((t) => /^I\d+\.\d+$/i.test(t.label)).map((t) => !!t.energized)
-  const outputs = c.terminals.filter((t) => /^Q\d+\.\d+$/i.test(t.label)).map((t) => !!t.energized)
+  const outputs = c.terminals.filter((t) => /^Q\d+\.\d+$/i.test(t.label) && !t.label.includes('·')).map((t) => !!c.state.outputs?.[t.label])
   const errors = diagnostics.filter((item) => item.level === 'error').length
   const warnings = diagnostics.filter((item) => item.level === 'warning').length
   const running = powered && runState === 'running' && errors === 0
@@ -526,44 +540,48 @@ function LogoFrontPanel({ c, interactive = true }: { c: ElectricalComponent; int
 
   useEffect(() => {
     const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = powered ? '#b9c99a' : '#283226'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+    const W = canvas.width, H = canvas.height
+    // LCD monocromático com retroiluminação: verde-amarelado aceso, quase negro apagado.
+    ctx.fillStyle = powered ? '#a9c28a' : '#1a221b'; ctx.fillRect(0, 0, W, H)
     if (!powered) { texture.needsUpdate = true; return }
-    ctx.fillStyle = '#18251b'; ctx.font = 'bold 25px monospace'; ctx.textBaseline = 'top'
-    const text = (value: string, y: number, size = 25) => { ctx.font = `bold ${size}px monospace`; ctx.fillText(value, 18, y) }
+    const grad = ctx.createLinearGradient(0, 0, 0, H); grad.addColorStop(0, 'rgba(255,255,255,.12)'); grad.addColorStop(1, 'rgba(0,0,0,.08)')
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H)
+    // 4 linhas × 12 carateres, como o visor do LOGO! 0BA6.
+    const lineH = H / 4.4, size = Math.min(lineH * 0.78, W / 12 / 0.62)
+    ctx.fillStyle = '#16231a'; ctx.textBaseline = 'middle'; ctx.font = `bold ${size}px ui-monospace, monospace`
+    const line = (value: string, row: number) => ctx.fillText(value.slice(0, 12), W * 0.05, lineH * (row + 0.7))
+    const bits = (list: boolean[], n: number) => Array.from({ length: n }, (_, i) => list[i] ? '1' : '0').join('')
     if (page === 'home') {
-      text('SIEMENS LOGO!', 14, 28); text(running ? 'RUN' : runState === 'paused' ? 'PAUSE' : 'STOP', 55, 34)
-      text(`SCAN ${String(scanCount).padStart(6, '0')}`, 103, 24); text(errors ? `ERROR ${errors}` : warnings ? `WARN  ${warnings}` : 'SYSTEM OK', 143, 24)
+      line('LOGO! 12/24', 0); line(running ? '> RUN' : runState === 'paused' ? '> PAUSE' : '> STOP', 1)
+      line(`I ${bits(inputs, 8)}`, 2); line(`Q ${bits(outputs, 4)}`, 3)
     } else if (page === 'io') {
-      text('I: 12345678', 12, 25); text(`   ${inputs.slice(0, 8).map((v) => v ? '1' : '0').join('') || '--------'}`, 49, 28)
-      text('Q: 1234', 94, 25); text(`   ${outputs.slice(0, 4).map((v) => v ? '1' : '0').join('') || '----'}`, 131, 28)
+      line('I 12345678', 0); line(`  ${bits(inputs, 8)}`, 1); line('Q 1234', 2); line(`  ${bits(outputs, 4)}`, 3)
     } else if (page === 'clock') {
-      const now = new Date(); text('DATE / TIME', 16, 27); text(now.toLocaleDateString('pt-PT'), 65, 30); text(now.toLocaleTimeString('pt-PT'), 112, 34)
+      const now = new Date(); const days = ['Do', 'Se', 'Te', 'Qa', 'Qi', 'Sx', 'Sa']
+      line(`${days[now.getDay()]} ${now.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}`, 0); line(now.toLocaleDateString('pt-PT'), 1)
+      line(`SCAN ${String(scanCount % 1e6).padStart(6, '0')}`, 3)
     } else {
-      text('DIAGNOSTICS', 14, 27); text(`ERRORS   ${errors}`, 60, 27); text(`WARNINGS ${warnings}`, 101, 27); text(`COM ${communication ? 'ACTIVE' : running ? 'READY' : 'OFF'}`, 143, 25)
+      line('DIAGNOSTICO', 0); line(`ERROS  ${errors}`, 1); line(`AVISOS ${warnings}`, 2); line(`COM ${communication ? 'ATIVA' : running ? 'PRONTA' : 'OFF'}`, 3)
     }
     texture.needsUpdate = true
   }, [canvas, texture, powered, page, running, runState, scanCount, errors, warnings, communication, inputs.join(''), outputs.join('')])
 
   useEffect(() => () => { texture.dispose() }, [texture])
   const move = (step: number) => setPage((current) => LOGO_PAGES[(LOGO_PAGES.indexOf(current) + step + LOGO_PAGES.length) % LOGO_PAGES.length])
-  const button = (id: string, px: number, py: number, action: () => void) => <mesh key={id} position={[px, py, 0.326]}
-    onPointerDown={(event) => { if (interactive) event.stopPropagation() }}
-    onPointerUp={(event) => { if (!interactive) return; event.stopPropagation(); action() }}>
-    <circleGeometry args={[0.052, 18]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} />
-  </mesh>
-  const led = (px: number, py: number, color: string, on: boolean) => <group key={`${px}-${py}`} position={[px, py, 0.329]}>
-    <mesh><circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={on ? color : '#334155'} emissive={on ? color : '#000'} emissiveIntensity={on ? 2.4 : 0} toneMapped={!on} /></mesh>
-    <GlowHalo color={color} on={on} radius={0.018} kind="led" position={[0, 0, 0.01]} />
-  </group>
+  const key = (id: keyof typeof LOGO_KEYS, radius: number, action: () => void) => {
+    const [px, py] = LOGO_KEYS[id] as readonly [number, number]
+    return <mesh key={id} name={`logo-tecla-${id}`} position={[px, py, LOGO_KEYS.z + 0.002]}
+      onPointerDown={(event) => { if (interactive) event.stopPropagation() }}
+      onPointerUp={(event) => { if (!interactive) return; event.stopPropagation(); action() }}>
+      <circleGeometry args={[radius, 18]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  }
 
   return <group>
-    <mesh position={[0, 0.585, 0.322]}><planeGeometry args={[0.49, 0.245]} /><meshBasicMaterial map={texture} color={powered ? '#ffffff' : '#708070'} toneMapped={false} /></mesh>
-    {button('esc', -0.225, 0.385, () => setPage('home'))}
-    {button('up', 0, 0.425, () => move(-1))}{button('down', 0, 0.345, () => move(1))}
-    {button('left', -0.08, 0.385, () => move(-1))}{button('right', 0.08, 0.385, () => move(1))}
-    {button('ok', 0.225, 0.385, () => setPage(page === 'home' ? 'io' : page))}
-    {led(0.245, 0.72, '#22c55e', running)}{led(0.245, 0.675, '#f59e0b', powered && !running && errors === 0)}
-    {led(0.245, 0.63, '#ef4444', powered && errors > 0)}{led(0.245, 0.585, '#38bdf8', communication)}
+    <mesh name="logo-lcd" position={[cx, cy, screen.z + 0.0012]}><planeGeometry args={[width, height]} /><meshBasicMaterial map={texture} toneMapped={false} polygonOffset polygonOffsetFactor={-2} /></mesh>
+    {key('esc', 0.045, () => setPage('home'))}{key('ok', 0.045, () => setPage(page === 'home' ? 'io' : page))}
+    {key('up', 0.035, () => move(-1))}{key('down', 0.035, () => move(1))}
+    {key('left', 0.035, () => move(-1))}{key('right', 0.035, () => move(1))}
   </group>
 }
 
@@ -585,6 +603,7 @@ function LogoSiemens1224RCMesh({ c, x, interactive = true }: { c: ElectricalComp
     })
     return fitComponentModel(obj, getComponentModelSpec(c.type)!, PANEL_UNITS_PER_MM, 'bottom')
   }, [scene])
+  const screen = useMemo(() => logoScreenRect(model), [model])
 
   const on = !!c.state.powered
 
@@ -604,9 +623,10 @@ function LogoSiemens1224RCMesh({ c, x, interactive = true }: { c: ElectricalComp
         const isScreenMaterial = std.color && std.color.g > 0.85 && std.color.r < 0.15 && std.color.b < 0.15
         const isScreenName = nameHint.includes('screen') || nameHint.includes('display') || nameHint.includes('ecra')
         if (isScreenMaterial || isScreenName) {
-          std.color = new THREE.Color(on ? '#22c55e' : '#173b24')
-          std.emissive = new THREE.Color(on ? '#22c55e' : '#052e16')
-          std.emissiveIntensity = on ? 1.1 : 0.15
+          // A janela verde do CAD passa a moldura escura do visor; o LCD desenhado assenta por cima.
+          std.color = new THREE.Color('#1c2620')
+          std.emissive = new THREE.Color(on ? '#3f5f35' : '#000000')
+          std.emissiveIntensity = on ? 0.35 : 0
         }
       }
     })
@@ -615,7 +635,7 @@ function LogoSiemens1224RCMesh({ c, x, interactive = true }: { c: ElectricalComp
   return (
     <group position={[x, RAIL_Y, 0]}>
       <primitive object={model} castShadow receiveShadow />
-      <LogoFrontPanel c={c} interactive={interactive && !c.locked} />
+      <LogoFrontPanel c={c} interactive={interactive && !c.locked} screen={screen} />
       <Label text={c.ref} position={[0, LOGO_1224RC_TARGET_HEIGHT + 0.14, 0.22]} color="#e2e8f0" />
     </group>
   )
