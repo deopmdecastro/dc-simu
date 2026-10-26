@@ -135,6 +135,18 @@ export default function GrafcetSimPanel({
 
   const activeSteps = program.steps.filter((step) => activeIds.has(step.id))
   const firedCount = runtime.fired ?? 0
+  const conflicts = runtime.conflicts ?? []
+  const history = [...(runtime.history ?? [])].reverse()
+  const transitionIndex = new Map(transitionsOf(program).map((t, index) => [t.id, index]))
+  const transitionName = (id: string) => {
+    const index = transitionIndex.get(id)
+    const detected = detection.transitions.find((t) => t.id === id)
+    return index === undefined ? 'transição removida' : detected?.name || `T${index + 1}`
+  }
+  const stepList = (ids: string[]) => ids.map((id) => stepLabel(id)).join(', ')
+  const forceTransition = (id: string) => {
+    useSimStore.getState().fireGrafcetTransition(id)
+  }
 
   return (
     <div className="gsim">
@@ -159,6 +171,20 @@ export default function GrafcetSimPanel({
           <p className="gsim-state-none">Nenhuma etapa ativa. Prima Run para começar.</p>
         )}
       </section>
+
+      {conflicts.length > 0 && (
+        <section className="gsim-conflicts" role="alert" aria-label="Conflitos de ações">
+          <h4>Conflito de ações</h4>
+          <ul>
+            {conflicts.map((conflict) => (
+              <li key={conflict.address}>
+                <code>{conflict.address}</code>
+                <span>SET em {stepList(conflict.setBy)} e RESET em {stepList(conflict.resetBy)} no mesmo instante — o simulador aplica o RESET. Torne as etapas exclusivas ou use uma só ação.</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="gsim-section" aria-label="Entradas usadas nas transições">
         <header className="gsim-head">
@@ -267,6 +293,11 @@ export default function GrafcetSimPanel({
                       onCommit={(next) => onRenameTransition(t.id, next)}
                     />
                     <span className={`gsim-badge is-${status.id}`}>{status.text}</span>
+                    {status.id === 'waiting' && !stopped && (
+                      <button type="button" className="gsim-btn gsim-force" onClick={() => forceTransition(t.id)} title="Dispara já esta transição, sem esperar pela receptividade (forçagem de teste)">
+                        Forçar
+                      </button>
+                    )}
                   </div>
                   <button type="button" className="gsim-cond" onClick={() => onOpenTransition(t.id)} title={`Abrir transição · ${t.condition.trim() || 'sem condição'}`}>
                     <span>Receptividade</span>
@@ -276,6 +307,33 @@ export default function GrafcetSimPanel({
               )
             })}
           </ul>
+        )}
+      </section>
+
+      <section className="gsim-section" aria-label="Histórico de disparos">
+        <header className="gsim-head">
+          <div className="gsim-heading">
+            <div>
+              <h4>Histórico <span className="gsim-count">{history.length}</span></h4>
+            </div>
+          </div>
+        </header>
+        {history.length === 0 ? (
+          <div className="gsim-empty">
+            <strong>Ainda sem disparos</strong>
+            <span>Cada transição disparada aparece aqui, com o instante e as etapas de origem e destino.</span>
+          </div>
+        ) : (
+          <ol className="gsim-history">
+            {history.map((entry, index) => (
+              <li key={`${entry.transitionId}-${entry.atMs}-${index}`} className={entry.forced ? 'is-forced' : ''}>
+                <em>{(entry.atMs / 1000).toFixed(1)} s</em>
+                <button type="button" onClick={() => onOpenTransition(entry.transitionId)} title="Abrir transição">{transitionName(entry.transitionId)}</button>
+                <span>{stepList(entry.from)} → {stepList(entry.to)}</span>
+                {entry.forced && <b>forçada</b>}
+              </li>
+            ))}
+          </ol>
         )}
       </section>
 

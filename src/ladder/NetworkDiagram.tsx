@@ -434,13 +434,22 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     b.elements.forEach((el, j) => {
       const x0 = RAIL_X + j * COL_W
       const cx = x0 + COL_W / 2
-      const conducts = pass(el)
+      const isNot = el.contactType === 'NOT'
       const pIn = p
-      const pOut = pIn && conducts
+      const conducts = isNot ? !pIn : pass(el)
+      const pOut = isNot ? !pIn : pIn && conducts
       const isSel = selection?.type === 'contact' && selection.elementId === el.id
       const name = tagName(el.address)
       svg.push(
-        el.contactType === 'CMP' ? renderCompare(el, x0, cx, cy, pIn, pOut, conducts, isSel, name ?? '') : <g key={el.id}>
+        el.contactType === 'CMP' ? renderCompare(el, x0, cx, cy, pIn, pOut, conducts, isSel, name ?? '') : isNot ? <g key={el.id}>
+          {isSel && selBox(x0 + 10, cy - 46, COL_W - 20, 66, `${el.id}-sel`)}
+          {wire(x0, cy, cx - 16, cy, online && pIn)}
+          {wire(cx + 16, cy, x0 + COL_W, cy, online && pOut)}
+          {online && pOut && <rect x={cx - 16} y={cy - 12} width={32} height={24} fill={C_ON} fillOpacity={0.16} />}
+          <line x1={cx - 16} y1={cy - 13} x2={cx - 16} y2={cy + 13} stroke={online && pOut ? C_ON : C_OFF} strokeWidth={2} />
+          <line x1={cx + 16} y1={cy - 13} x2={cx + 16} y2={cy + 13} stroke={online && pOut ? C_ON : C_OFF} strokeWidth={2} />
+          {label(cx, cy + 4, 'NOT', { bold: true, size: 10 })}
+        </g> : <g key={el.id}>
           {isSel && selBox(x0 + 10, cy - 46, COL_W - 20, 66, `${el.id}-sel`)}
           {wire(x0, cy, cx - 10, cy, online && pIn)}
           {wire(cx + 10, cy, x0 + COL_W, cy, online && pOut)}
@@ -472,10 +481,10 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
             onClick={(e) => { e.stopPropagation(); onSelect({ type: 'contact', branchId: b.id, elementId: el.id }) }}
             onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'contact', branchId: b.id, elementId: el.id }) }}
             onContextMenu={(e) => { e.preventDefault(); removeContact(b.id, el.id) }}
-            title={`%${el.address}${name ? ` "${name}"` : ''} — clique no texto: editar valor · duplo clique: propriedades e nome · arraste para mover · Del/botão direito remove`}
+            title={isNot ? 'NOT — inverte o RLO à esquerda · duplo clique: propriedades · arraste para mover · Del/botão direito remove' : `%${el.address}${name ? ` "${name}"` : ''} — clique no texto: editar valor · duplo clique: propriedades e nome · arraste para mover · Del/botão direito remove`}
           />,
         )
-      {
+      if (!isNot) {
         const isCmp = el.contactType === 'CMP'
         textHit(`c-${el.id}`, cx - 32, cy - (isCmp ? 35 : 31), 64, el.address, (v) => {
           const r = parseAddress(v, isCmp ? 'compare' : 'address')
@@ -587,14 +596,18 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           <rect x={boxX} y={top} width={BOX_W} height={80} fill={rungOut ? '#f0fdf4' : '#fff'} stroke={online && (rungOut || done) ? C_ON : '#5b6b84'} strokeWidth={rungOut ? 1.8 : 1.3} />
           <rect x={boxX} y={top} width={BOX_W} height={30} fill="#eef3fb" />
           {label(boxX + BOX_W / 2, top + 13, c.counterType, { bold: true, size: 11 })}
-          {label(boxX + BOX_W / 2, top + 25, 'Int', { grey: true, size: 9 })}
-          {label(boxX + 6, cy + 3, c.counterType === 'CTU' ? 'CU' : 'CD', { anchor: 'start', size: 9 })}
-          {label(boxX + 6, cy + 19, c.counterType === 'CTU' ? 'R' : 'LD', { anchor: 'start', size: 9 })}
-          {label(boxX + 6, cy + 35, 'PV', { anchor: 'start', size: 9 })}
+          {label(boxX + BOX_W / 2, top + 25, c.counterType === 'CTUD' ? `Int · PV ${c.preset}` : 'Int', { grey: true, size: 9 })}
+          {label(boxX + 6, cy + 3, c.counterType === 'CTD' ? 'CD' : 'CU', { anchor: 'start', size: 9 })}
+          {label(boxX + 6, cy + 19, c.counterType === 'CTUD' ? 'CD' : c.counterType === 'CTU' ? 'R' : 'LD', { anchor: 'start', size: 9 })}
+          {label(boxX + 6, cy + 35, c.counterType === 'CTUD' ? 'R' : 'PV', { anchor: 'start', size: 9 })}
           <line x1={boxX - 14} y1={cy + 16} x2={boxX} y2={cy + 16} stroke="#5b6b84" strokeWidth={1} />
           <line x1={boxX - 14} y1={cy + 32} x2={boxX} y2={cy + 32} stroke="#5b6b84" strokeWidth={1} />
-          {label(boxX - 16, cy + 19, c.resetAddress ? `%${c.resetAddress}` : '…', { anchor: 'end', size: 9, grey: true })}
-          {label(boxX - 16, cy + 35, String(c.preset), { anchor: 'end', size: 9, grey: true })}
+          {c.counterType === 'CTUD'
+            ? label(boxX - 16, cy + 19, c.downAddress ? `%${c.downAddress}` : '…', { anchor: 'end', size: 9, grey: true })
+            : label(boxX - 16, cy + 19, c.resetAddress ? `%${c.resetAddress}` : '…', { anchor: 'end', size: 9, grey: true })}
+          {c.counterType === 'CTUD'
+            ? label(boxX - 16, cy + 35, c.resetAddress ? `%${c.resetAddress}` : '…', { anchor: 'end', size: 9, grey: true })
+            : label(boxX - 16, cy + 35, String(c.preset), { anchor: 'end', size: 9, grey: true })}
           {label(boxX + BOX_W - 6, cy + 3, 'Q', { anchor: 'end', size: 9 })}
           {label(boxX + BOX_W - 6, cy + 19, 'CV', { anchor: 'end', size: 9 })}
           {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, online && done)}
@@ -619,13 +632,19 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
         if (r.ok) updateRung(rung.id, (x) => (x.counter ? { ...x, counter: { ...x.counter, address: r.value } } : x), 'force')
         return r
       }, 'Endereço do contador', `%${c.address}`)
-      textHit('n-reset', boxX - 16 - 64, cy + 8, 64, c.resetAddress ?? '', (v) => {
+      if (c.counterType === 'CTUD') textHit('n-down', boxX - 16 - 64, cy + 8, 64, c.downAddress ?? '', (v) => {
+        const empty = !v.trim()
+        const r = empty ? { ok: true as const, value: '' } : parseAddress(v)
+        if (r.ok) updateRung(rung.id, (x) => (x.counter ? { ...x, counter: { ...x.counter, downAddress: r.value || undefined } } : x), 'force')
+        return r
+      }, 'Entrada de contagem decrescente (CD)')
+      textHit('n-reset', boxX - 16 - 64, c.counterType === 'CTUD' ? cy + 24 : cy + 8, 64, c.resetAddress ?? '', (v) => {
         const empty = !v.trim()
         const r = empty ? { ok: true as const, value: '' } : parseAddress(v)
         if (r.ok) updateRung(rung.id, (x) => (x.counter ? { ...x, counter: { ...x.counter, resetAddress: r.value || undefined } } : x), 'force')
         return r
-      }, c.counterType === 'CTU' ? 'Endereço de reset (R)' : 'Endereço de carga (LD)')
-      textHit('n-pv', boxX - 16 - 64, cy + 24, 64, String(c.preset), (v) => {
+      }, c.counterType === 'CTD' ? 'Endereço de carga (LD)' : 'Endereço de reset (R)')
+      if (c.counterType !== 'CTUD') textHit('n-pv', boxX - 16 - 64, cy + 24, 64, String(c.preset), (v) => {
         const r = parseCounterPreset(v)
         if (r.ok) updateRung(rung.id, (x) => (x.counter ? { ...x, counter: { ...x.counter, preset: r.value } } : x), 'force')
         return r
@@ -733,7 +752,10 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           {on && <ellipse cx={coilCX} cy={cy} rx={10} ry={12} fill={C_ON} fillOpacity={0.16} />}
           <path d={`M ${coilCX - 6} ${cy - 13} Q ${coilCX - 15} ${cy} ${coilCX - 6} ${cy + 13}`} fill="none" stroke={stroke} strokeWidth={2} />
           <path d={`M ${coilCX + 6} ${cy - 13} Q ${coilCX + 15} ${cy} ${coilCX + 6} ${cy + 13}`} fill="none" stroke={stroke} strokeWidth={2} />
-          {c.coilType !== 'COIL' && label(coilCX, cy + 4, c.coilType === 'SET' ? 'S' : 'R', { bold: true, size: 11 })}
+          {(c.coilType === 'SR' || c.coilType === 'RS')
+            ? label(coilCX, cy + 4, c.coilType, { bold: true, size: 8 })
+            : c.coilType !== 'COIL' && label(coilCX, cy + 4, c.coilType === 'SET' ? 'S' : 'R', { bold: true, size: 11 })}
+          {(c.coilType === 'SR' || c.coilType === 'RS') && label(coilCX - 18, cy + 16, `R: ${c.resetAddress ? `%${c.resetAddress}` : '…'}`, { anchor: 'end', size: 9, grey: true })}
           {label(coilCX, cy - 20, `%${c.address}`, { bold: true, fill: C_ADDR })}
           {name && label(coilCX, cy - 33, `"${name}"`, { fill: TIA.tag, italic: true, size: 9 })}
         </g>,

@@ -25,7 +25,7 @@ import { componentOrientationOf, orientationRadians } from './componentOrientati
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalMarkerRadius, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
 import ComponentViewEditor from '../components/ComponentViewEditor'
 import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
-import { wireEnergyEffectVisible } from './panel3DEditing'
+import { floorGridVisible, wireEnergyEffectVisible } from './panel3DEditing'
 import { registerCoverCapture } from './coverCapture'
 import { WireEnd3D } from './WireEnd3D'
 import { GlowHalo } from './GlowHalo'
@@ -1817,11 +1817,11 @@ function CoverSnapshotBridge({ bounds, background }: { bounds: PlateBounds | nul
   return null
 }
 
-function WorldBackdrop({ center, floorY, dark }: { center: [number, number, number]; floorY: number; dark: boolean }) {
+function WorldBackdrop({ center, floorY, dark, showFloor = true }: { center: [number, number, number]; floorY: number; dark: boolean; showFloor?: boolean }) {
   const { floorMain: main, floorSub: sub } = editorPalette(dark)
   return (
     <group>
-      <gridHelper args={[40, 80, main, sub]} position={[center[0], floorY, 0]} />
+      {showFloor && <gridHelper args={[40, 80, main, sub]} position={[center[0], floorY, 0]} />}
       <gridHelper args={[40, 80, main, sub]} position={[center[0], center[1], PLATE_Z - 1.4]} rotation={[Math.PI / 2, 0, 0]} />
     </group>
   )
@@ -2530,7 +2530,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       <ComponentViewEditor />
       </div>
       </div>
-      {!hasComponents && <div className="panel3d-empty"><strong>O esquema 3D está vazio</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
+      {!hasComponents && <div className="panel3d-empty"><strong>{frontEdit ? 'O esquema está vazio' : 'O esquema 3D está vazio'}</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
       <ContextLossNotice lost={glLost} />
       <Canvas shadows gl={{ alpha: true }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
         <ContextLossGuard onChange={setGlLost} />
@@ -2540,7 +2540,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <directionalLight position={[-5, 3, -4]} intensity={0.35} />
         {/* A grelha de edição partilhada permanece montada em todas as vistas 3D.
             A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}
-        {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} />}
+        {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} showFloor={floorGridVisible(cameraStats.pitch)} />}
         {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} style={gridSettings.style} dark={backgroundMode === 'dark'} bounds={frontEdit ? null : plateBounds} />}
         {frontEdit && placingType && hasComponent3DModel(placingType) && <PlacementPlane step={gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0} onPlace={(x, y) => {
           const step = gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0

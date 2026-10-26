@@ -2127,10 +2127,11 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
     rung('r7', [c('I1')], [], { timer: { kind: 'timer', id: 't2', address: 'T1', timerType: 'TON', presetMs: 1000 } }),
   ] }
   const ids = lintLadder(bad as any).map((i) => i.id)
-  check('lint Ladder: bobina duplicada', ids.includes('dup:Q1'))
+  // Os ids usam a forma canónica (I1 ≡ I0.0): os aliases antigos e os endereços Siemens contam como o mesmo bit.
+  check('lint Ladder: bobina duplicada', ids.includes('dup:Q0.0'))
   check('lint Ladder: escrita numa entrada', ids.some((i) => i.endsWith(':input')))
-  check('lint Ladder: lido sem escrita', ids.includes('unwritten:M5'))
-  check('lint Ladder: SET sem RESET', ids.includes('set:Q2'))
+  check('lint Ladder: lido sem escrita', ids.includes('unwritten:M0.4'))
+  check('lint Ladder: SET sem RESET', ids.includes('set:Q0.1'))
   check('lint Ladder: network sem saída', ids.includes('r5:no-output'))
   check('lint Ladder: temporizador repetido', ids.includes('timer:T1'))
   const good = { rungs: [rung('a', [c('I1'), c('Q1', 'NC')], [k('Q1', 'SET')]), rung('b', [c('I2')], [k('Q1', 'RESET')])] }

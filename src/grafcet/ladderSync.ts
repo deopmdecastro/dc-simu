@@ -99,6 +99,93 @@ export function ladderSyncStatus(program: GrafcetProgram): LadderSyncStatus {
   return sameMain && sameRestart && sameBlocks ? 'synced' : 'stale'
 }
 
+export interface RungDiff {
+  added: string[]
+  removed: string[]
+  changed: string[]
+  unchanged: number
+}
+
+export interface LadderDiff {
+  /** Main [OB1], Complete restart [OB100] e FCs gerados, por esta ordem. */
+  sections: Array<{ label: string; diff: RungDiff }>
+  tagsAdded: string[]
+  tagsRemoved: string[]
+  /** true quando nada muda — atualizar seria um no-op. */
+  empty: boolean
+}
+
+const rungKey = (rung: LadderRung, seen: Map<string, number>) => {
+  const base = rung.name.trim() || '(sem nome)'
+  const n = (seen.get(base) ?? 0) + 1
+  seen.set(base, n)
+  return n > 1 ? `${base} #${n}` : base
+}
+
+/** Compara duas listas de networks pelo nome (ids mudam em cada geração) e pelo conteúdo. */
+export function diffRungs(before: LadderRung[], after: LadderRung[], files: ProjectFile[] = []): RungDiff {
+  const index = (rungs: LadderRung[], withFiles: boolean) => {
+    const seen = new Map<string, number>()
+    return new Map(rungs.map((rung) => [rungKey(rung, seen), signature([rung], withFiles ? files : [])]))
+  }
+  const old = index(before, true)
+  const next = index(after, false)
+  const diff: RungDiff = { added: [], removed: [], changed: [], unchanged: 0 }
+  for (const [key, sig] of next) {
+    if (!old.has(key)) diff.added.push(key)
+    else if (old.get(key) !== sig) diff.changed.push(key)
+    else diff.unchanged++
+  }
+  for (const key of old.keys()) if (!next.has(key)) diff.removed.push(key)
+  return diff
+}
+
+/** GRAFCET-LADDER-DIFF-01 — o que «Atualizar Ladder» vai mudar, antes de substituir. */
+export function diffGeneratedLadder(program: GrafcetProgram): LadderDiff {
+  const state = useSimStore.getState()
+  const { result, restartFileId, baseTags } = plan(program)
+  const files = plcFilesOf(state)
+  const restart = restartFileId ? files.find((f) => f.id === restartFileId)?.rungs ?? [] : []
+  const sections: LadderDiff['sections'] = [
+    { label: 'Main [OB 1]', diff: diffRungs(state.ladder.rungs.filter(isMainRung), result.rungs, files) },
+    { label: 'Complete restart [OB 100]', diff: diffRungs(restart.filter(isRestartRung), result.startupRungs) },
+  ]
+  const wanted = new Map((result.blocks ?? []).map((b) => [b.label, b.rungs]))
+  for (const label of WORD_FC_LABELS) {
+    const file = generatedFcOf(files, label)
+    const rungs = wanted.get(label)
+    if (!file && !rungs) continue
+    sections.push({ label: `FC ${label}`, diff: diffRungs(file?.rungs ?? [], rungs ?? []) })
+  }
+  const current = new Set(state.tags.map((t) => t.address.toUpperCase()))
+  const kept = new Set(baseTags.map((t) => t.address.toUpperCase()))
+  const generated = new Set(result.tags.map((t) => t.address.toUpperCase()))
+  const tagsAdded = [...generated].filter((a) => !current.has(a)).sort()
+  const tagsRemoved = state.tags.filter((t) => !kept.has(t.address.toUpperCase()) && !generated.has(t.address.toUpperCase())).map((t) => t.address.toUpperCase()).sort()
+  const empty = sections.every(({ diff }) => !diff.added.length && !diff.removed.length && !diff.changed.length) && !tagsAdded.length && !tagsRemoved.length
+  return { sections, tagsAdded, tagsRemoved, empty }
+}
+
+const MAX_LISTED = 4
+const listNames = (names: string[]) => names.length <= MAX_LISTED ? names.join(', ') : `${names.slice(0, MAX_LISTED).join(', ')} e mais ${names.length - MAX_LISTED}`
+
+/** Texto legível do diff para a confirmação. */
+export function describeLadderDiff(diff: LadderDiff): string {
+  if (diff.empty) return 'Nada muda: o Ladder já corresponde ao GRAFCET.'
+  const lines: string[] = []
+  for (const { label, diff: d } of diff.sections) {
+    if (!d.added.length && !d.removed.length && !d.changed.length) continue
+    lines.push(`${label}:`)
+    if (d.added.length) lines.push(`  + ${d.added.length} nova(s): ${listNames(d.added)}`)
+    if (d.changed.length) lines.push(`  ~ ${d.changed.length} alterada(s): ${listNames(d.changed)}`)
+    if (d.removed.length) lines.push(`  − ${d.removed.length} removida(s): ${listNames(d.removed)}`)
+    if (d.unchanged) lines.push(`  = ${d.unchanged} sem alterações`)
+  }
+  if (diff.tagsAdded.length) lines.push(`Variáveis novas: ${listNames(diff.tagsAdded)}`)
+  if (diff.tagsRemoved.length) lines.push(`Variáveis geradas que saem: ${listNames(diff.tagsRemoved)}`)
+  return lines.join('\n')
+}
+
 /** Pré-visualização para a confirmação da primeira geração. */
 export function previewLadder(program: GrafcetProgram): LadderFromGrafcet {
   return plan(program).result

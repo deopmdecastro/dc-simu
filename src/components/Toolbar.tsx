@@ -403,9 +403,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                     className="dc-tool-btn !gap-1.5"
                     title={
                       ladderSync === 'none' ? 'Gera o programa Ladder equivalente no PLC'
-                        : ladderSync === 'synced' ? 'Ladder sincronizado com o GRAFCET (clique para forçar a atualização)'
+                        : ladderSync === 'synced' ? 'Ladder sincronizado com o GRAFCET (clique para confirmar que não há diferenças)'
                         : ladderSync === 'blocked' ? 'Corrija os erros do GRAFCET para atualizar o Ladder'
-                        : 'O GRAFCET mudou: atualiza o Ladder gerado'
+                        : 'O GRAFCET mudou: mostra as diferenças e atualiza o Ladder gerado'
                     }
                   >
                     {ladderSync === 'none'

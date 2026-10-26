@@ -485,6 +485,8 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('41', 'aux-nc', 0.84, 0, { terminalType: 'screw' }),
       T('42', 'aux-nc', 0.96, 0, { terminalType: 'screw' }),
       T('A2', 'coil-minus', 0.06, 1, { terminalType: 'screw' }),
+      // S52 (reset monitorizado) existe no CAD; sem posição própria no esquema ficava a 3 px de S12.
+      T('S52', 'io', 0.15, 1, { terminalType: 'screw' }),
       T('13', 'aux-no', 0.24, 1, { terminalType: 'screw' }),
       T('14', 'aux-no', 0.36, 1, { terminalType: 'screw' }),
       T('23', 'aux-no', 0.49, 1, { terminalType: 'screw' }),
@@ -820,6 +822,18 @@ export function upgradeRealInterfacePositions(c: ElectricalComponent): Electrica
     changed = true
     return { ...terminal, label, ...(repairMeter ? { defId: label === 'COM' ? 'dm20-com' : 'dm20-volt' } : {}), position3D: target }
   })
+  // 3D-DATA-01: S52 do relé de segurança nascia com a posição 3D (x 0,3) como posição 2D, por cima de S12,
+  // e com o tipo «power-in». Projetos guardados com essa posição automática passam para a do modelo.
+  if (c.type === 'safetyRelay') {
+    const template = TEMPLATES.safetyRelay.terminals.find((item) => item.label === 'S52')
+    terminals.forEach((terminal, index) => {
+      if (!template || terminal.label !== 'S52' || terminal.pinned) return
+      const legacy = Math.abs((terminal.x ?? 0) - 0.3) < 1e-6 && (terminal.y ?? 0) === 0
+      if (!legacy && terminal.kind !== 'power-in') return
+      terminals[index] = { ...terminal, ...(legacy ? { x: template.x, y: template.y } : {}), kind: 'io' }
+      changed = true
+    })
+  }
   if (repairMeter) {
     for (const template of TEMPLATES.multimeterDm20.terminals) {
       if (terminals.some((terminal) => terminal.label === template.label)) continue

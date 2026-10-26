@@ -1127,7 +1127,8 @@ input[type='color'] {
     background: #f2f6ff;
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.75);
   }
-  .ladder-empty-state svg { color: var(--ladder-blue); }
+  .ladder-empty-state .ladder-empty-icon svg { color: var(--ladder-blue); }
+  .ladder-empty-state .ladder-primary-button svg { color: currentColor; }
   .ladder-empty-state strong { color: #334057; font-size: 14px; }
   .ladder-empty-state span { max-width: 340px; font-size: 10px; line-height: 1.45; }
   .ladder-empty-actions {

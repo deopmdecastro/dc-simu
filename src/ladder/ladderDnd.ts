@@ -16,6 +16,7 @@ export type PaletteKind =
   | 'TONR'
   | 'CTU'
   | 'CTD'
+  | 'CTUD'
   | 'MOVE'
   | 'CALL'
   | 'COMPARE'
@@ -60,11 +61,11 @@ export interface MovePayload {
 }
 
 export const isCompareKind = (k: PaletteKind): k is CompareKind => k in COMPARE_KIND_OP
-export const isContactKind = (k: PaletteKind): k is LadderContactType => k === 'NO' || k === 'NC' || k === 'RISING' || k === 'FALLING'
-export const isCoilKind = (k: PaletteKind): k is LadderCoilType => k === 'COIL' || k === 'SET' || k === 'RESET'
+export const isContactKind = (k: PaletteKind): k is LadderContactType => k === 'NO' || k === 'NC' || k === 'RISING' || k === 'FALLING' || k === 'NOT'
+export const isCoilKind = (k: PaletteKind): k is LadderCoilType => k === 'COIL' || k === 'SET' || k === 'RESET' || k === 'SR' || k === 'RS'
 export const isTimerKind = (k: PaletteKind): k is 'TON' | 'TOF' | 'TP' | 'TONR' => k === 'TON' || k === 'TOF' || k === 'TP' || k === 'TONR'
 export const isMathKind = (k: PaletteKind): k is LadderMathOp => k === 'ADD' || k === 'SUB' || k === 'MUL' || k === 'DIV' || k === 'MOD'
-export const isCounterKind = (k: PaletteKind): k is 'CTU' | 'CTD' => k === 'CTU' || k === 'CTD'
+export const isCounterKind = (k: PaletteKind): k is 'CTU' | 'CTD' | 'CTUD' => k === 'CTU' || k === 'CTD' || k === 'CTUD'
 
 const uid = (p: string) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
 
@@ -116,7 +117,7 @@ export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarge
   if (isContactKind(kind) || isCompareKind(kind)) {
     const el: LadderContact = isCompareKind(kind)
       ? { kind: 'contact', id: uid(`${rung.id}-c`), address: nextWord(rung), contactType: 'CMP', compareOp: COMPARE_KIND_OP[kind], compareType: 'Int', compareValue: '0' }
-      : { kind: 'contact', id: uid(`${rung.id}-c`), address: nextAddr(rung, 'I'), contactType: kind as LadderContactType }
+      : { kind: 'contact', id: uid(`${rung.id}-c`), address: kind === 'NOT' ? '' : nextAddr(rung, 'I'), contactType: kind as LadderContactType }
     let branches = rung.branches.length ? [...rung.branches] : [{ id: `${rung.id}-b0`, elements: [] }]
     let bi = 0
     let idx = branches[0].elements.length
@@ -137,7 +138,8 @@ export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarge
   }
   if (isCoilKind(kind)) {
     const coilId = uid(`${rung.id}-k`)
-    return { rung: { ...rung, coils: [...rung.coils, { kind: 'coil', id: coilId, address: nextAddr(rung, 'Q'), coilType: kind }] }, created: { type: 'coil', coilId } }
+    const bistable = kind === 'SR' || kind === 'RS'
+    return { rung: { ...rung, coils: [...rung.coils, { kind: 'coil', id: coilId, address: nextAddr(rung, 'Q'), coilType: kind, ...(bistable ? { resetAddress: nextAddr(rung, 'I') } : {}) }] }, created: { type: 'coil', coilId } }
   }
   if (isTimerKind(kind)) {
     return {
@@ -147,7 +149,7 @@ export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarge
   }
   if (isCounterKind(kind)) {
     return {
-      rung: { ...rung, counter: { kind: 'counter', id: rung.counter?.id ?? `${rung.id}-n`, address: rung.counter?.address ?? 'C1', counterType: kind, preset: rung.counter?.preset ?? 5, resetAddress: rung.counter?.resetAddress ?? 'M9' } },
+      rung: { ...rung, counter: { kind: 'counter', id: rung.counter?.id ?? `${rung.id}-n`, address: rung.counter?.address ?? 'C1', counterType: kind, preset: rung.counter?.preset ?? 5, resetAddress: rung.counter?.resetAddress ?? 'M9', ...(kind === 'CTUD' ? { downAddress: rung.counter?.downAddress ?? nextAddr(rung, 'I') } : {}) } },
       created: { type: 'counter' },
     }
   }

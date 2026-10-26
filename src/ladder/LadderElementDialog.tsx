@@ -31,6 +31,10 @@ type Draft = {
   counterType: NonNullable<LadderRung['counter']>['counterType']
   counterPreset: string
   resetAddress: string
+  /** CTUD: entrada CD. */
+  downAddress: string
+  /** SR/RS: entrada de reset da bobina biestável. */
+  coilReset: string
   source: string
   target: string
   mathOp: LadderMathOp
@@ -57,6 +61,8 @@ const EMPTY: Draft = {
   counterType: 'CTU',
   counterPreset: '5',
   resetAddress: '',
+  downAddress: '',
+  coilReset: '',
   source: 'I0.0',
   target: 'M1',
   mathOp: 'ADD',
@@ -149,9 +155,9 @@ export default function LadderElementDialog({
       comment: tag?.comment ?? ('comment' in entity ? entity.comment ?? '' : ''),
       ...('contactType' in entity ? { contactType: entity.contactType } : {}),
       ...('contactType' in entity && entity.contactType === 'CMP' ? { compareOp: entity.compareOp ?? '==', compareType: entity.compareType ?? 'Int', compareValue: entity.compareValue ?? '0' } : {}),
-      ...('coilType' in entity ? { coilType: entity.coilType } : {}),
+      ...('coilType' in entity ? { coilType: entity.coilType, coilReset: entity.resetAddress ?? '' } : {}),
       ...('timerType' in entity ? { timerType: entity.timerType, presetMs: String(entity.presetMs), preset2Ms: String(entity.preset2Ms ?? 50), resetAddress: entity.resetAddress ?? '' } : {}),
-      ...('counterType' in entity ? { counterType: entity.counterType, counterPreset: String(entity.preset), resetAddress: entity.resetAddress ?? '' } : {}),
+      ...('counterType' in entity ? { counterType: entity.counterType, counterPreset: String(entity.preset), resetAddress: entity.resetAddress ?? '', downAddress: entity.downAddress ?? '' } : {}),
       ...('source' in entity ? { source: entity.source, target: entity.target } : {}),
       ...('in1' in entity ? { mathOp: entity.op, in1: entity.in1, in2: entity.in2, out: entity.out } : {}),
       ...('targetId' in entity ? { targetId: entity.targetId } : {}),
@@ -175,6 +181,10 @@ export default function LadderElementDialog({
   const patch = (next: Partial<Draft>) => setDraft((current) => ({ ...current, ...next }))
   const normalizedAddress = draft.address.trim().replace(/^%/, '').toUpperCase()
   const isCompare = draft.kind === 'contact' && draft.contactType === 'CMP'
+  /** NOT não tem operando: só inverte o RLO. */
+  const isNot = draft.kind === 'contact' && draft.contactType === 'NOT'
+  const bistable = draft.kind === 'coil' && (draft.coilType === 'SR' || draft.coilType === 'RS')
+  const cleanAddr = (value: string) => value.trim().replace(/^%/, '').toUpperCase()
   const compareValueNorm = draft.compareValue.trim().replace(/^%/, '').toUpperCase()
   // Monitorização ao vivo (estilo TIA «monitorizar»): valores atuais e resultado,
   // mesmo antes de aplicar — usa o rascunho em edição.
@@ -214,6 +224,8 @@ export default function LadderElementDialog({
     } else if (isCompare) {
       if (!COMPARE_OPERAND_RE.test(normalizedAddress)) return setError('IN1 inválido. Use MW0, C1, T1, DB1.Variavel ou um número.')
       if (!COMPARE_OPERAND_RE.test(compareValueNorm)) return setError('IN2 inválido. Use um número, MW2, C1, T1 ou DB1.Variavel.')
+    } else if (isNot) {
+      // sem operando
     } else if (draft.kind !== 'call' && !ADDRESS_RE.test(normalizedAddress)) {
       return setError('Use um endereço válido, por exemplo I0.0, Q0.1, M0.2, T1, C1 ou DB1.Variavel.')
     }
@@ -225,18 +237,18 @@ export default function LadderElementDialog({
         ...current,
         branches: current.branches.map((branch) => branch.id === selection.branchId ? {
           ...branch,
-          elements: branch.elements.map((element) => element.id === selection.elementId ? { ...element, address: normalizedAddress, contactType: draft.contactType, comment: draft.comment.trim(), ...(isCompare ? { compareOp: draft.compareOp, compareType: draft.compareType, compareValue: compareValueNorm } : {}) } : element),
+          elements: branch.elements.map((element) => element.id === selection.elementId ? { ...element, address: isNot ? '' : normalizedAddress, contactType: draft.contactType, comment: draft.comment.trim(), ...(isCompare ? { compareOp: draft.compareOp, compareType: draft.compareType, compareValue: compareValueNorm } : {}) } : element),
         } : branch),
       }
-      if (selection.type === 'coil') return { ...current, coils: current.coils.map((coil) => coil.id === selection.coilId ? { ...coil, address: normalizedAddress, coilType: draft.coilType, comment: draft.comment.trim() } : coil) }
+      if (selection.type === 'coil') return { ...current, coils: current.coils.map((coil) => coil.id === selection.coilId ? { ...coil, address: normalizedAddress, coilType: draft.coilType, comment: draft.comment.trim(), resetAddress: bistable ? (cleanAddr(draft.coilReset) || undefined) : undefined } : coil) }
       if (selection.type === 'timer' && current.timer) return { ...current, timer: { ...current.timer, address: normalizedAddress, timerType: draft.timerType, presetMs: Math.max(0, Number(draft.presetMs) || 0), preset2Ms: Math.max(0, Number(draft.preset2Ms) || 0), resetAddress: draft.timerType === 'TONR' ? (draft.resetAddress.trim().replace(/^%/, '').toUpperCase() || undefined) : undefined } }
-      if (selection.type === 'counter' && current.counter) return { ...current, counter: { ...current.counter, address: normalizedAddress, counterType: draft.counterType, preset: Math.max(0, Math.trunc(Number(draft.counterPreset) || 0)), resetAddress: draft.resetAddress.trim().replace(/^%/, '').toUpperCase() } }
+      if (selection.type === 'counter' && current.counter) return { ...current, counter: { ...current.counter, address: normalizedAddress, counterType: draft.counterType, preset: Math.max(0, Math.trunc(Number(draft.counterPreset) || 0)), resetAddress: draft.resetAddress.trim().replace(/^%/, '').toUpperCase(), downAddress: draft.counterType === 'CTUD' ? (cleanAddr(draft.downAddress) || undefined) : undefined } }
       if (selection.type === 'move' && current.move) return { ...current, move: { source: draft.source.trim().toUpperCase(), target: draft.target.trim().toUpperCase() } }
       if (selection.type === 'math' && current.math) return { ...current, math: { op: draft.mathOp, in1: draft.in1.trim().toUpperCase(), in2: draft.in2.trim().toUpperCase(), out: draft.out.trim().toUpperCase() } }
       if (selection.type === 'call' && current.call) return { ...current, call: { targetId: draft.targetId } }
       return current
     }, 'force')
-    if (draft.kind !== 'move' && draft.kind !== 'math' && draft.kind !== 'call' && 'address' in entity) syncTag(entity.address, normalizedAddress)
+    if (draft.kind !== 'move' && draft.kind !== 'math' && draft.kind !== 'call' && !isNot && 'address' in entity) syncTag(entity.address, normalizedAddress)
     onClose()
   }
 
@@ -257,7 +269,7 @@ export default function LadderElementDialog({
     onClose()
   }
 
-  const commonFields = draft.kind !== 'move' && draft.kind !== 'math' && draft.kind !== 'call'
+  const commonFields = draft.kind !== 'move' && draft.kind !== 'math' && draft.kind !== 'call' && !isNot
   // Comunicação com a Tabela de variáveis (como no diálogo de sinais do GRAFCET):
   const linkedTag = tags.find((item) => item.address === normalizedAddress)
   const addressish = /^(?:%)?(?:I|Q|M|MW|MB|MD|T|C)\d+/i.test(normalizedAddress)
@@ -283,8 +295,8 @@ export default function LadderElementDialog({
           </section>}
 
           {draft.kind === 'contact' && !isCompare && <section className="ladder-dialog-section"><h3>Comportamento do contato</h3><div className="ladder-choice-grid">
-            {([['NO', 'NA', 'Normal aberto'], ['NC', 'NF', 'Normal fechado'], ['RISING', 'P', 'Borda de subida'], ['FALLING', 'N', 'Borda de descida']] as const).map(([value, label, detail]) => <button type="button" key={value} className={draft.contactType === value ? 'is-selected' : ''} onClick={() => patch({ contactType: value })}><strong>{label}</strong><small>{detail}</small></button>)}
-          </div></section>}
+            {([['NO', 'NA', 'Normal aberto'], ['NC', 'NF', 'Normal fechado'], ['RISING', 'P', 'Borda de subida'], ['FALLING', 'N', 'Borda de descida'], ['NOT', 'NOT', 'Inverte o RLO']] as const).map(([value, label, detail]) => <button type="button" key={value} className={draft.contactType === value ? 'is-selected' : ''} onClick={() => patch({ contactType: value })}><strong>{label}</strong><small>{detail}</small></button>)}
+          </div>{isNot && <p className="ladder-dialog-help">O NOT não tem endereço: inverte o resultado lógico (RLO) dos contactos à sua esquerda neste ramo.</p>}</section>}
 
 {isCompare && <section className="ladder-dialog-section"><h3>Comparação</h3><div className="ladder-choice-grid is-three">
             {COMPARE_OPS.map(({ op, label, detail }) => <button type="button" key={op} className={draft.compareOp === op ? 'is-selected' : ''} onClick={() => patch({ compareOp: op })}><strong>{label}</strong><small>{detail}</small></button>)}
@@ -294,8 +306,10 @@ export default function LadderElementDialog({
           </div>{compareMonitor && <p className="ladder-compare-monitor" role="status">{compareMonitor}</p>}<p className="ladder-dialog-help">Resultado: IN1 {draft.compareOp} IN2. Aceita números, 16#FF, MWn, contadores (Cn), tempo decorrido de temporizadores (Tn, em ms) e DB1.variável. Escreva em MWn com o bloco MOVE.</p></section>}
 
           {draft.kind === 'coil' && <section className="ladder-dialog-section"><h3>Modo da bobina</h3><div className="ladder-choice-grid is-three">
-            {([['COIL', 'Bobina', 'Segue o RLO'], ['SET', 'SET', 'Retém em 1'], ['RESET', 'RESET', 'Repõe em 0']] as const).map(([value, label, detail]) => <button type="button" key={value} className={draft.coilType === value ? 'is-selected' : ''} onClick={() => patch({ coilType: value })}><strong>{label}</strong><small>{detail}</small></button>)}
-          </div></section>}
+            {([['COIL', 'Bobina', 'Segue o RLO'], ['SET', 'SET', 'Retém em 1'], ['RESET', 'RESET', 'Repõe em 0'], ['SR', 'SR', 'Biestável · SET domina'], ['RS', 'RS', 'Biestável · RESET domina']] as const).map(([value, label, detail]) => <button type="button" key={value} className={draft.coilType === value ? 'is-selected' : ''} onClick={() => patch({ coilType: value })}><strong>{label}</strong><small>{detail}</small></button>)}
+          </div>{bistable && <><div className="ladder-dialog-grid">
+            <label><span>Entrada de reset ({draft.coilType === 'SR' ? 'R' : 'R1'})</span><input list="ladder-tag-addresses" value={draft.coilReset} onChange={(event) => patch({ coilReset: event.target.value.toUpperCase() })} placeholder="I0.1" /></label>
+          </div><p className="ladder-dialog-help">O RLO da network é a entrada SET. {draft.coilType === 'SR' ? 'SR: com SET e RESET ativos ao mesmo tempo, a saída fica a 1.' : 'RS: com SET e RESET ativos ao mesmo tempo, a saída fica a 0.'}</p></>}</section>}
 
           {draft.kind === 'timer' && <section className="ladder-dialog-section"><h3>Temporização</h3><div className="ladder-dialog-grid">
             <label><span>Função</span><Select value={draft.timerType} onChange={(event) => patch({ timerType: event.target.value as Draft['timerType'] })}><option value="TON">TON — atraso à ligação</option><option value="TOF">TOF — atraso à desligação</option><option value="TP">TP — pulso</option><option value="TONR">TONR — atraso retentivo</option><option value="STAR_DELTA">Estrela–Triângulo</option></Select></label>
@@ -305,9 +319,10 @@ export default function LadderElementDialog({
           </div><div className="ladder-preset-row"><span>Presets:</span>{[100, 500, 1000, 3000, 5000, 10000].map((value) => <button type="button" key={value} className={Number(draft.presetMs) === value ? 'is-selected' : ''} onClick={() => patch({ presetMs: String(value) })}>{value >= 1000 ? `${value / 1000}s` : `${value}ms`}</button>)}</div></section>}
 
           {draft.kind === 'counter' && <section className="ladder-dialog-section"><h3>Contagem</h3><div className="ladder-dialog-grid">
-            <label><span>Função</span><Select value={draft.counterType} onChange={(event) => patch({ counterType: event.target.value as Draft['counterType'] })}><option value="CTU">CTU — crescente</option><option value="CTD">CTD — decrescente</option></Select></label>
+            <label><span>Função</span><Select value={draft.counterType} onChange={(event) => patch({ counterType: event.target.value as Draft['counterType'] })}><option value="CTU">CTU — crescente</option><option value="CTD">CTD — decrescente</option><option value="CTUD">CTUD — crescente/decrescente</option></Select></label>
             <label><span>Preset PV</span><input type="number" min="0" step="1" value={draft.counterPreset} onChange={(event) => patch({ counterPreset: event.target.value })} /></label>
             <label><span>Entrada de reset</span><input list="ladder-tag-addresses" value={draft.resetAddress} onChange={(event) => patch({ resetAddress: event.target.value.toUpperCase() })} placeholder="M1" /></label>
+            {draft.counterType === 'CTUD' && <label><span>Contagem decrescente (CD)</span><input list="ladder-tag-addresses" value={draft.downAddress} onChange={(event) => patch({ downAddress: event.target.value.toUpperCase() })} placeholder="I0.1" /></label>}
           </div><div className="ladder-preset-row"><span>Presets:</span>{[1, 5, 10, 25, 50, 100].map((value) => <button type="button" key={value} className={Number(draft.counterPreset) === value ? 'is-selected' : ''} onClick={() => patch({ counterPreset: String(value) })}>{value}</button>)}</div></section>}
 
           {draft.kind === 'move' && <section className="ladder-dialog-section"><h3>Operadores</h3><div className="ladder-dialog-grid">

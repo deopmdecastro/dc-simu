@@ -21,7 +21,7 @@ import LadderElementDialog from './LadderElementDialog'
 import AddBlockDialog from './AddBlockDialog'
 import type { BlockKind } from './blockCatalog'
 import { bitAddressOrder } from './addresses'
-import { CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, COMPARE_KIND_OP, applyKind, getLadderDrag, isCompareKind, isContactKind, onOpenLadderBlock, setLadderDrag, type CallBlockPayload, type PaletteKind } from './ladderDnd'
+import { CALL_BLOCK_MIME, COMPONENT_TO_LADDER, LADDER_MIME, COMPARE_KIND_OP, applyKind, getLadderDrag, isCoilKind, isCompareKind, isContactKind, onOpenLadderBlock, setLadderDrag, type CallBlockPayload, type PaletteKind } from './ladderDnd'
 import { insertIntoRungs, newEmptyRung } from './ladderInsert'
 
 /** Lê o payload de um bloco do projeto em arraste (dataTransfer + fallback do drag ativo). */
@@ -477,6 +477,7 @@ const PALETTE_GROUPS: Array<{
       { kind: 'NC', label: 'NF', detail: 'Normal Fechado', icon: 'contact' },
       { kind: 'RISING', label: 'Borda de Subida', detail: 'Pulso positivo', icon: 'contact' },
       { kind: 'FALLING', label: 'Borda de Descida', detail: 'Pulso negativo', icon: 'contact' },
+      { kind: 'NOT', label: 'NOT', detail: 'Inverte o RLO', icon: 'contact' },
     ],
   },
   {
@@ -485,6 +486,8 @@ const PALETTE_GROUPS: Array<{
       { kind: 'COIL', label: 'Bobina', detail: 'Saída normal', icon: 'coil' },
       { kind: 'SET', label: 'Bobina Set', detail: 'Retentiva', icon: 'coil' },
       { kind: 'RESET', label: 'Bobina Reset', detail: 'Retentiva', icon: 'coil' },
+      { kind: 'SR', label: 'SR', detail: 'Biestável · prioridade SET', icon: 'coil' },
+      { kind: 'RS', label: 'RS', detail: 'Biestável · prioridade RESET', icon: 'coil' },
     ],
   },
   {
@@ -526,6 +529,7 @@ const PALETTE_GROUPS: Array<{
     items: [
       { kind: 'CTU', label: 'CTU', detail: 'Contador UP', icon: 'counter' },
       { kind: 'CTD', label: 'CTD', detail: 'Contador DOWN', icon: 'counter' },
+      { kind: 'CTUD', label: 'CTUD', detail: 'Contador UP/DOWN', icon: 'counter' },
     ],
   },
 
@@ -539,7 +543,14 @@ export function LadderGlyph({ kind, size = 26 }: { kind: PaletteKind; size?: num
     <text x="20" y="16" fontSize="9" fontWeight="700" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">{t}</text>
   )
   let body: JSX.Element
-  if (isContactKind(kind)) {
+  if (kind === 'NOT') {
+    body = (
+      <g {...common}>
+        <path d="M0 12H10M30 12H40M10 4V20M30 4V20" />
+        <text x="20" y="15" fontSize="7.5" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">NOT</text>
+      </g>
+    )
+  } else if (isContactKind(kind)) {
     body = (
       <g {...common}>
         <path d="M0 12H14M26 12H40M14 4V20M26 4V20" />
@@ -556,11 +567,13 @@ export function LadderGlyph({ kind, size = 26 }: { kind: PaletteKind; size?: num
         <text x="20" y="19" fontSize="5.5" fontWeight="700" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">Int</text>
       </g>
     )
-  } else if (kind === 'COIL' || kind === 'SET' || kind === 'RESET') {
+  } else if (isCoilKind(kind)) {
     body = (
       <g {...common}>
         <path d="M0 12H12M28 12H40M15 4Q9 12 15 20M25 4Q31 12 25 20" />
-        {kind !== 'COIL' && text(kind === 'SET' ? 'S' : 'R')}
+        {kind === 'SR' || kind === 'RS'
+          ? <text x="20" y="15" fontSize="7" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">{kind}</text>
+          : kind !== 'COIL' && text(kind === 'SET' ? 'S' : 'R')}
       </g>
     )
   } else if (kind === 'BRANCH') {
@@ -1344,7 +1357,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const addRung = useSimStore((s) => s.addRung)
   const updateRung = useSimStore((s) => s.updateRung)
   const [activeRungId, setActiveRungId] = useState<string | null>(null)
-  const lintIssues = useMemo(() => lintLadder({ rungs }, { physicalInputs: plcs.length > 0 }), [rungs, plcs.length])
+  const lintIssues = useMemo(() => lintLadder({ rungs }, { physicalInputs: plcs.length > 0, tags }), [rungs, plcs.length, tags])
   const lintCount = lintIssues.filter((issue) => issue.level !== 'info').length
   const forcedAddrs = useSimStore((s) => s.forces)
   const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'force' | 'lint'>('io')

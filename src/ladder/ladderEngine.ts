@@ -4,10 +4,10 @@
 // da esquerda para a direita, e escreve bobinas / temporizadores / contadores.
 //
 // Blocos suportados:
-//   contatos  NO, NC, RISING (P), FALLING (N)
-//   bobinas   COIL, SET, RESET
+//   contatos  NO, NC, RISING (P), FALLING (N), NOT (inverte o RLO)
+//   bobinas   COIL, SET, RESET, SR (prioridade SET), RS (prioridade RESET)
 //   timers    TON, TOF, TP, STAR_DELTA (estrela→triângulo com tempo de transição)
-//   contadores CTU (crescente), CTD (decrescente) com preset e reset
+//   contadores CTU (crescente), CTD (decrescente), CTUD (crescente/decrescente) com preset e reset
 // ============================================================================
 
 import { bitAddresses, migrateBitAddress } from './addresses'
@@ -19,7 +19,10 @@ import { evalCompare } from './compare'
 export type AddressTable = Record<string, boolean>
 export interface TimerValue { elapsedMs: number; presetMs: number; done: boolean; running: boolean; prevInput?: boolean; transitionMs?: number; starDone?: boolean; deltaDone?: boolean }
 export type TimerTable = Record<string, TimerValue>
-export interface CounterValue { count: number; preset: number; done: boolean; prevPulse: boolean }
+export interface CounterValue { count: number; preset: number; done: boolean; prevPulse: boolean; prevDown?: boolean }
+
+/** Limite de contagem do CTUD (INT de 16 bits, como no TIA Portal). */
+export const CTUD_MAX = 32767
 export type CounterTable = Record<string, CounterValue>
 /**
  * Memória de flanco (RISING/FALLING) por contacto, indexada pelo id e guardada
@@ -30,6 +33,7 @@ export type EdgeTable = Record<string, boolean>
 
 function evalContact(el: LadderContact, table: AddressTable, db: DbTable, edges: EdgeTable, timers: TimerTable, counters: CounterTable): boolean {
   if (el.contactType === 'CMP') return evalCompare(el, { db, timers, counters })
+  if (el.contactType === 'NOT') return true
   const key = el.address.toUpperCase()
   const v = db[key]?.type === 'BOOL' ? db[key].value === true : !!table[key]
   switch (el.contactType) {
@@ -47,11 +51,25 @@ function evalContact(el: LadderContact, table: AddressTable, db: DbTable, edges:
       edges[el.id] = v
       return !v && prev
     }
+    default:
+      return false
   }
 }
 
-function evalBranch(branch: LadderBranch, table: AddressTable, db: DbTable, edges: EdgeTable, timers: TimerTable, counters: CounterTable): boolean {
-  return branch.elements.every((el) => evalContact(el, table, db, edges, timers, counters))
+/**
+ * RLO de um ramo, da esquerda para a direita. Todos os contactos são avaliados
+ * em cada scan (sem curto-circuito): assim a memória de flanco P/N acompanha o
+ * operando mesmo quando um contacto anterior está aberto — senão um flanco
+ * antigo era «visto» quando o ramo voltava a conduzir. NOT inverte o RLO acumulado.
+ */
+export function evalBranch(branch: LadderBranch, table: AddressTable, db: DbTable, edges: EdgeTable, timers: TimerTable, counters: CounterTable): boolean {
+  let rlo = true
+  for (const el of branch.elements) {
+    if (el.contactType === 'NOT') { rlo = !rlo; continue }
+    const pass = evalContact(el, table, db, edges, timers, counters)
+    rlo = rlo && pass
+  }
+  return rlo
 }
 
 function evalRung(rung: LadderRung, table: AddressTable, db: DbTable, edges: EdgeTable, timers: TimerTable, counters: CounterTable): boolean {
@@ -61,7 +79,9 @@ function evalRung(rung: LadderRung, table: AddressTable, db: DbTable, edges: Edg
   if (rung.branches.length === 0) return false
   const anyEmpty = rung.branches.some((b) => b.elements.length === 0)
   if (anyEmpty) return true
-  return rung.branches.some((b) => evalBranch(b, table, db, edges, timers, counters))
+  // Avalia todos os ramos (sem curto-circuito) para manter os flancos P/N coerentes.
+  const results = rung.branches.map((b) => evalBranch(b, table, db, edges, timers, counters))
+  return results.some(Boolean)
 }
 
 /** Forçar valores (diagnóstico PLC): endereço (maiúsculas) → 0/1 imposto durante o RUN. */
@@ -193,15 +213,23 @@ export function runScan(
       cv.preset = rung.counter.preset
       const pulse = powered && !cv.prevPulse
       cv.prevPulse = powered
-      if (pulse) {
-        if (rung.counter.counterType === 'CTU') cv.count = Math.min(cv.preset, cv.count + 1)
+      const type = rung.counter.counterType
+      if (type === 'CTUD') {
+        const downKey = rung.counter.downAddress ? migrateBitAddress(rung.counter.downAddress.trim().toUpperCase()) : ''
+        const down = !!downKey && !!table[downKey]
+        const downPulse = down && !cv.prevDown
+        cv.prevDown = down
+        if (pulse) cv.count = Math.min(CTUD_MAX, cv.count + 1)
+        if (downPulse) cv.count = Math.max(-CTUD_MAX, cv.count - 1)
+      } else if (pulse) {
+        if (type === 'CTU') cv.count = Math.min(cv.preset, cv.count + 1)
         else cv.count = Math.max(0, cv.count - 1)
       }
       const resetAddr = rung.counter.resetAddress
       if (resetAddr && table[resetAddr]) {
-        cv.count = rung.counter.counterType === 'CTD' ? cv.preset : 0
+        cv.count = type === 'CTD' ? cv.preset : 0
       }
-      cv.done = rung.counter.counterType === 'CTU' ? cv.count >= cv.preset : cv.count <= 0
+      cv.done = type === 'CTD' ? cv.count <= 0 : cv.count >= cv.preset
       table[addr] = cv.done
     }
 
@@ -217,6 +245,15 @@ export function runScan(
         case 'RESET':
           if (powered) table[coil.address] = false
           break
+        case 'SR':
+        case 'RS': {
+          const resetKey = coil.resetAddress ? migrateBitAddress(coil.resetAddress.trim().toUpperCase()) : ''
+          const reset = !!resetKey && !!table[resetKey]
+          const q = !!table[coil.address]
+          // SR: Q = S1 OR (NOT R AND Q) · RS: Q = NOT R1 AND (S OR Q)
+          table[coil.address] = coil.coilType === 'SR' ? powered || (!reset && q) : !reset && (powered || q)
+          break
+        }
       }
     }
     if (rung.move && powered) moveValue(rung.move.source, rung.move.target, table, db)
@@ -252,7 +289,8 @@ export function emptyTable(inputs: number, outputs: number, memories = 16, timer
 
 /** Verifica se um endereço é válido para a sintaxe aceita (I/Q/M/T/C + número). */
 export function isValidAddress(addr: string): boolean {
-  return /^[IQMTC]\d{1,2}$/.test(addr.trim().toUpperCase())
+  const text = addr.trim().replace(/^%/, '').toUpperCase()
+  return /^[IQM]\d{1,4}\.[0-7]$/.test(text) || /^[IQMTC]\d{1,3}$/.test(text)
 }
 
 /** Sugere o próximo endereço livre de uma família (I, Q, M, T, C). */
@@ -291,16 +329,17 @@ export function collectUsedAddresses(program: LadderProgram): string[] {
   for (const rung of program.rungs) {
     for (const branch of rung.branches) {
       for (const el of branch.elements) {
-        set.add(el.address.toUpperCase())
+        if (el.contactType !== 'NOT' && el.address) set.add(el.address.toUpperCase())
       }
     }
-    for (const coil of rung.coils) set.add(coil.address.toUpperCase())
+    for (const coil of rung.coils) { set.add(coil.address.toUpperCase()); if (coil.resetAddress) set.add(coil.resetAddress.toUpperCase()) }
     if (rung.move) { set.add(rung.move.source.toUpperCase()); set.add(rung.move.target.toUpperCase()) }
     if (rung.math) { set.add(rung.math.in1.toUpperCase()); set.add(rung.math.in2.toUpperCase()); set.add(rung.math.out.toUpperCase()) }
     if (rung.timer) { set.add(rung.timer.address.toUpperCase()); if (rung.timer.resetAddress) set.add(rung.timer.resetAddress.toUpperCase()) }
     if (rung.counter) {
       set.add(rung.counter.address.toUpperCase())
       if (rung.counter.resetAddress) set.add(rung.counter.resetAddress.toUpperCase())
+      if (rung.counter.downAddress) set.add(rung.counter.downAddress.toUpperCase())
     }
   }
   return [...set].sort((a, b) => {

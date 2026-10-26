@@ -135,10 +135,37 @@ export interface GrafcetRuntime {
   fired?: number
   /** última transição disparada (id) e quando (nº do scan) */
   lastFired?: string[]
+  /** Histórico dos últimos disparos (mais recente no fim), limitado a GRAFCET_HISTORY_LIMIT. */
+  history?: GrafcetFiring[]
+  /** Conflitos de ações detetados na última varredura (S e R à mesma saída no mesmo instante). */
+  conflicts?: GrafcetActionConflict[]
 }
 
+export interface GrafcetFiring {
+  transitionId: string
+  from: string[]
+  to: string[]
+  /** tempo simulado (ms) do disparo */
+  atMs: number
+  /** true quando foi disparada à mão (forçagem), sem avaliar a receptividade */
+  forced?: boolean
+}
+
+export interface GrafcetActionConflict {
+  address: string
+  /** etapas que pediram SET (memorizar a 1) */
+  setBy: string[]
+  /** etapas que pediram RESET (memorizar a 0) */
+  resetBy: string[]
+}
+
+export const GRAFCET_HISTORY_LIMIT = 30
+
+const pushHistory = (history: GrafcetFiring[] | undefined, entries: GrafcetFiring[]): GrafcetFiring[] =>
+  [...(history ?? []), ...entries].slice(-GRAFCET_HISTORY_LIMIT)
+
 export const emptyGrafcet = (): GrafcetProgram => ({ steps: [], transitions: [], comments: [] })
-export const emptyGrafcetRuntime = (): GrafcetRuntime => ({ active: [], owned: [], elapsed: {}, prev: {}, stored: {}, simTimeMs: 0, fired: 0, lastFired: [] })
+export const emptyGrafcetRuntime = (): GrafcetRuntime => ({ active: [], owned: [], elapsed: {}, prev: {}, stored: {}, simTimeMs: 0, fired: 0, lastFired: [], history: [], conflicts: [] })
 
 export const validBit = (address: string) => !!normalizeBitAddress(address)
 
@@ -514,6 +541,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
   const next = new Set(current)
   const consumed = new Set<string>()
   const firedNow: string[] = []
+  const firings: GrafcetFiring[] = []
   const entered = new Set<string>()
 
   const simTimeMs = (runtime.simTimeMs ?? 0) + dtMs
@@ -541,6 +569,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
     transition.from.forEach((id) => { next.delete(id); consumed.add(id) })
     transition.to.forEach((id) => { next.add(id); elapsed[id] = 0; entered.add(id) })
     firedNow.push(transition.id)
+    firings.push({ transitionId: transition.id, from: [...transition.from], to: [...transition.to], atMs: simTimeMs })
   }
 
   const stored = { ...(runtime.stored ?? {}) }
@@ -552,10 +581,13 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
   const nextIndexes = new Set([...next].map((id) => indexOf.get(id)!))
   const nextStepNames = new Set([...next].map((id) => stepById.get(id)?.name.trim()).filter((n): n is string => !!n))
 
+  const conflicts: GrafcetActionConflict[] = []
   for (const address of owned) {
     const mine = actions.filter((a) => normAddress(a.address || a.variable || '') === address)
     const kindOf = (a: Flat) => a.kind ?? 'N'
     let continuous = false
+    const setBy: string[] = []
+    const resetBy: string[] = []
     for (const a of mine) {
       const kind = kindOf(a)
       if (kind === 'DA') {
@@ -585,9 +617,14 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
       else if (kind === 'D' && holds && (elapsed[a.stepId] ?? 0) >= time) continuous = true
       else if (kind === 'L' && holds && (elapsed[a.stepId] ?? 0) < Math.max(time, 1)) continuous = true
       else if (kind === 'A' && holds && (justActivated.has(a.stepId) || starting)) continuous = true
-      else if (kind === 'S' && holds && (justActivated.has(a.stepId) || starting)) stored[address] = true
-      else if (kind === 'R' && holds && (justActivated.has(a.stepId) || starting)) stored[address] = false
+      else if (kind === 'S' && holds && (justActivated.has(a.stepId) || starting)) setBy.push(a.stepId)
+      else if (kind === 'R' && holds && (justActivated.has(a.stepId) || starting)) resetBy.push(a.stepId)
     }
+    // S e R no mesmo instante: a IEC 60848 deixa o resultado indeterminado. O simulador
+    // dá prioridade ao RESET (determinístico, independente da ordem das etapas) e regista o conflito.
+    if (resetBy.length) stored[address] = false
+    else if (setBy.length) stored[address] = true
+    if (setBy.length && resetBy.length) conflicts.push({ address, setBy: [...new Set(setBy)], resetBy: [...new Set(resetBy)] })
     table[address] = continuous || !!stored[address]
   }
 
@@ -605,6 +642,8 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
     simTimeMs,
     fired: (runtime.fired ?? 0) + firedNow.length,
     lastFired: firedNow,
+    history: firings.length ? pushHistory(runtime.history, firings) : (runtime.history ?? []),
+    conflicts,
   }
 }
 
@@ -654,7 +693,8 @@ export function fireTransition(program: GrafcetProgram, runtime: GrafcetRuntime,
   const elapsed = { ...(runtime.elapsed ?? {}) }
   transition.from.forEach((id) => delete elapsed[id])
   transition.to.forEach((id) => { elapsed[id] = 0 })
-  return { ...runtime, active: [...active], elapsed, fired: (runtime.fired ?? 0) + 1, lastFired: [transition.id] }
+  const firing: GrafcetFiring = { transitionId: transition.id, from: [...transition.from], to: [...transition.to], atMs: runtime.simTimeMs ?? 0, forced: true }
+  return { ...runtime, active: [...active], elapsed, fired: (runtime.fired ?? 0) + 1, lastFired: [transition.id], history: pushHistory(runtime.history, [firing]) }
 }
 
 export type GrafcetIssueLevel = 'error' | 'warning'

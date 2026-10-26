@@ -36,7 +36,7 @@ import { renderConditionTspans } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
 import GrafcetSimBar from './GrafcetSimBar'
 import GrafcetTemplatesDialog from './GrafcetTemplatesDialog'
-import { applyLadderFromGrafcet, hasGeneratedLadder, ladderSyncStatus, previewLadder } from './ladderSync'
+import { applyLadderFromGrafcet, describeLadderDiff, diffGeneratedLadder, hasGeneratedLadder, ladderSyncStatus, previewLadder } from './ladderSync'
 import {
   IconChevronRight,
   IconChevronLeft,
@@ -716,6 +716,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
         ))
       )
         return
+    } else {
+      // GRAFCET-LADDER-DIFF-01: mostrar o que muda antes de substituir as networks geradas.
+      const diff = diffGeneratedLadder({ ...program, transitions })
+      if (diff.empty) {
+        useGrafcetUi.getState().setLadderSync('synced')
+        return notify('O Ladder já corresponde ao GRAFCET — nada a atualizar')
+      }
+      if (!(await uiConfirm(`Atualizar o Ladder gerado?\n\n${describeLadderDiff(diff)}\n\nSó mudam as networks «GRAFCET ·», «Complete restart ·» e os FC gerados. As suas networks ficam como estão.`))) return
     }
     const result = applyLadderFromGrafcet({ ...program, transitions })
     useGrafcetUi.getState().setLadderSync('synced')
@@ -5110,7 +5118,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                       </div>
                     )
                   })}
-                  {!filteredSteps.length && <p className="grafcet-list-empty">Nenhuma etapa corresponde ao filtro.</p>}
+                  {!filteredSteps.length && <p className="grafcet-list-empty">{query ? 'Nenhuma etapa corresponde ao filtro.' : 'Ainda não há etapas. Crie a etapa inicial no diagrama.'}</p>}
                 </div>
 
                 {freeActions.length > 0 && (
@@ -5525,7 +5533,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                       </div>
                     )
                   })}
-                  {!filteredTransitions.length && <p className="grafcet-list-empty">Nenhuma transição corresponde ao filtro.</p>}
+                  {!filteredTransitions.length && <p className="grafcet-list-empty">{query ? 'Nenhuma transição corresponde ao filtro.' : 'Ainda não há transições. Ligue duas etapas para criar a primeira.'}</p>}
                 </div>
 
                 {!selectedTransition && (

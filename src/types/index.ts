@@ -425,11 +425,13 @@ export interface Wire {
 // Ladder
 // ---------------------------------------------------------------------------
 
-export type LadderContactType = 'NO' | 'NC' | 'RISING' | 'FALLING' | 'CMP'
+/** 'NOT' inverte o RLO acumulado à sua esquerda no ramo (sem operando, como no TIA Portal). */
+export type LadderContactType = 'NO' | 'NC' | 'RISING' | 'FALLING' | 'CMP' | 'NOT'
 /** Operador de um comparador: ==, <>, >=, <=, >, <. */
 export type LadderCompareOp = '==' | '<>' | '>=' | '<=' | '>' | '<'
 export type LadderCompareType = 'Int' | 'Word' | 'Real'
-export type LadderCoilType = 'COIL' | 'SET' | 'RESET'
+/** SR = biestável com prioridade ao SET; RS = biestável com prioridade ao RESET (IEC 61131-3). */
+export type LadderCoilType = 'COIL' | 'SET' | 'RESET' | 'SR' | 'RS'
 /** Operação do bloco matemático (ADD, SUB, MUL, DIV, MOD). */
 export type LadderMathOp = 'ADD' | 'SUB' | 'MUL' | 'DIV' | 'MOD'
 export type LadderBlockKind =
@@ -462,6 +464,8 @@ export interface LadderCoilEl {
   address: string
   coilType: LadderCoilType
   comment?: string
+  /** SR/RS: endereço lido como entrada de reset (R/R1); o RLO da network é o SET (S1/S). */
+  resetAddress?: string
 }
 
 export interface LadderTimer {
@@ -480,8 +484,10 @@ export interface LadderCounter {
   kind: 'counter'
   id: string
   address: string
-  counterType: 'CTU' | 'CTD'
+  counterType: 'CTU' | 'CTD' | 'CTUD'
   preset: number
+  /** CTUD: endereço lido como entrada de contagem decrescente (CD); o RLO é a CU. */
+  downAddress?: string
   /** endereço do pulso de reset (R) */
   resetAddress?: string
 }
