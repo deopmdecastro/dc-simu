@@ -28,7 +28,24 @@ export function topNodeOf(object: THREE.Object3D, part: THREE.Object3D): THREE.O
   return node && node.parent === container ? node : null
 }
 
-export interface GlbNodeInfo { name: string; meshes: number; centre: [number, number, number]; size: [number, number, number] }
+export interface GlbNodeInfo { name: string; meshes: number; centre: [number, number, number]; size: [number, number, number]; color?: string; emissive?: boolean }
+
+/** Cor do material com mais área (aprox.: mais vértices) e se algum material emite luz. */
+function materialLook(node: THREE.Object3D): { color?: string; emissive?: boolean } {
+  const weight = new Map<string, number>()
+  let emissive = false
+  node.traverse((child) => {
+    const mesh = child as THREE.Mesh
+    if (!mesh.isMesh) return
+    const count = (mesh.geometry as THREE.BufferGeometry | undefined)?.attributes?.position?.count ?? 1
+    for (const material of (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) as Array<THREE.Material & { color?: THREE.Color; emissive?: THREE.Color; emissiveIntensity?: number }>) {
+      if (material?.color) weight.set(`#${material.color.getHexString()}`, (weight.get(`#${material.color.getHexString()}`) ?? 0) + count)
+      if (material?.emissive && material.emissive.getHex() !== 0 && (material.emissiveIntensity ?? 1) > 0) emissive = true
+    }
+  })
+  const color = [...weight.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+  return { ...(color ? { color } : {}), ...(emissive ? { emissive } : {}) }
+}
 
 /** Objetos de um GLB (nomes, nº de malhas, centro e tamanho no espaço da peça). */
 export function listGlbNodes(part: THREE.Object3D): GlbNodeInfo[] {
@@ -39,7 +56,7 @@ export function listGlbNodes(part: THREE.Object3D): GlbNodeInfo[] {
     const box = new THREE.Box3().setFromObject(child, true)
     const centre = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3())
     const round = (v: THREE.Vector3): [number, number, number] => [v.x, v.y, v.z].map((n) => Math.round(n * 100) / 100) as [number, number, number]
-    return { name: child.name, meshes, centre: round(centre), size: round(size) }
+    return { name: child.name, meshes, centre: round(centre), size: round(size), ...materialLook(child) }
   }).sort((a, b) => a.name.localeCompare(b.name))
 }
 

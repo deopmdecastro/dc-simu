@@ -10,11 +10,13 @@ import { validateDefinition } from './validate'
 import { FACE_NORMAL, SUGGESTED_PROFILES, defaultParams, inferFromFunction, type Face } from '../../catalog/terminalProfiles'
 import { allProfiles, useProfileStore } from '../../catalog/profileStore'
 import { applyProfile, defBounds, faceCenter, faceOfNormal } from './terminalOps'
-import { addTerminalInHole, addTerminalsInAllHoles, clearHoles, scanHoles } from './holeOps'
+import { addTerminalInHole, addTerminalsInAllHoles, auditSeats, clearHoles, fixSeats, scanHoles } from './holeOps'
+import { SEAT_LABEL, type SeatReport } from '../../catalog/terminalSeat'
 import { Check, Color, Confirm, Empty, Field, Group, Num, PresetCard, Section, Select, Slider, Text, Vec3Input } from './ui'
 import { IconCamera, IconEye, IconEyeOff, IconCheck, IconClose, IconCube, IconImage, IconLayers, IconPlus } from '../../ui/icons'
 import FaceChooser from './FaceChooser'
 import { NodePicker, whenFields } from './tabsControls'
+import { AutoDetectSection } from './AutoDetectPanel'
 import { currentSizeMm, setRealSize } from './sizeOps'
 import { captureCover, type CaptureView } from './capture'
 
@@ -25,6 +27,46 @@ const normalKey = (normal: Vec3) => NORMALS.find(([, , value]) => value.every((c
 const KINDS: Array<[TerminalDef['kind'], string]> = [['io', 'Entrada/saída'], ['power-in', 'Alimentação (entrada)'], ['power-out', 'Alimentação (saída)'], ['coil-plus', 'Bobina +'], ['coil-minus', 'Bobina −'], ['aux-no', 'Contacto NA'], ['aux-nc', 'Contacto NF'], ['neutral', 'Neutro'], ['earth', 'Terra (PE)'], ['analog', 'Analógico'], ['bus', 'Comunicação']]
 const TYPES: Array<[TerminalDef['terminalType'], string]> = [['screw', 'Parafuso'], ['spring', 'Mola'], ['plug', 'Ficha'], ['faston', 'Faston'], ['fastonMale', 'Faston macho'], ['fastonFemale', 'Faston fêmea'], ['ring', 'Olhal'], ['fork', 'Forquilha'], ['pin', 'Pino'], ['conical', 'Cónico'], ['claw', 'Garra'], ['tubular', 'Tubular'], ['bar', 'Barra']]
 const POLARITY: Array<[TerminalDef['polarity'], string]> = [['none', 'Sem polaridade'], ['positive', 'Positivo (+)'], ['negative', 'Negativo (−)'], ['ac', 'Fase CA'], ['neutral', 'Neutro'], ['earth', 'Terra']]
+
+/** Confirma no modelo que cada borne está mesmo dentro da cavidade do furo (e corrige os que não estão). */
+function SeatChecker() {
+  const terminals = useEditorStore((s) => s.def.terminals)
+  const set = useEditorStore((s) => s.set)
+  const [reports, setReports] = useState<SeatReport[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  const later = (work: () => void) => { setBusy(true); window.setTimeout(() => { try { work() } finally { setBusy(false) } }, 30) }
+  const check = () => later(() => {
+    const result = auditSeats()
+    setReports(result)
+    const bad = result.filter((report) => report.status !== 'seated').length
+    setMessage(result.length ? (bad ? `${bad} de ${result.length} borne(s) fora da cavidade.` : `Os ${result.length} bornes estão dentro das cavidades.`) : 'Sem bornes para verificar.')
+  })
+  const fix = (ids?: string[]) => later(() => {
+    const { fixed, left } = fixSeats(ids)
+    setReports(auditSeats())
+    setMessage(fixed ? `${fixed} borne(s) encaixado(s) no furo.${left.length ? ` ${left.length} sem furo próximo: confirme a posição à mão.` : ''}` : 'Nada a corrigir automaticamente (sem furo próximo na mesma face).')
+  })
+  const bad = (reports ?? []).filter((report) => report.status !== 'seated')
+  return <Section title="Encaixe dos bornes">
+    <p className="ce-hint">Mede o modelo com raios ao longo da normal de cada borne: o ponto de ligação tem de ficar entre a boca e o fundo do furo — nem à frente da superfície, nem enterrado no material.</p>
+    <div className="ce-actions">
+      <button className="dx-btn dx-btn-primary dx-btn-sm" disabled={busy || !terminals.length} onClick={check}>{busy ? 'A medir…' : 'Verificar encaixe'}</button>
+      {bad.length > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={busy} onClick={() => fix()}>Encaixar todos</button>}
+    </div>
+    {message && <p className="ce-hint" role="status">{message}</p>}
+    {reports && reports.length > 0 && <ul className="ce-list" aria-label="Encaixe dos bornes">
+      {reports.map((report) => <li key={report.id}>
+        <button type="button" className={`ce-list-item${report.status === 'seated' ? '' : ' is-warn'}`} title={report.message}
+          onClick={() => set({ selection: { kind: 'terminal', id: report.id } })}>
+          <span>{report.status === 'seated' ? <IconCheck size={11} /> : <IconClose size={11} />} {report.label} · {SEAT_LABEL[report.status]}</span>
+          <small>{report.message}</small>
+        </button>
+        {report.status !== 'seated' && <button type="button" className="ce-linkbtn" disabled={busy} onClick={() => fix([report.id])}>Encaixar</button>}
+      </li>)}
+    </ul>}
+  </Section>
+}
 
 /** Procura furos no modelo e põe bornes dentro deles. */
 function HoleFinder() {
@@ -129,7 +171,9 @@ export function TerminalsTab() {
         <button className="dx-btn dx-btn-sm ce-linkbtn" onClick={() => set({ libraryOpen: true })}>Mais perfis…</button>
       </Group>
     </Section>
+    <AutoDetectSection />
     <HoleFinder />
+    <SeatChecker />
     {!terminal && <Empty>Selecione um borne na lista à esquerda ou no viewport.</Empty>}
     {terminal && <>
       <Section title="Identificação">

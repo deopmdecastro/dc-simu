@@ -2,7 +2,8 @@
  * Verificações da deteção automática de objetos interativos (`src/catalog/interactables.ts`).
  * Módulo puro: corre sem navegador nem Three.js — `npm run test:interactables`.
  */
-import { axisName, classifyNode, suggestFromNodes, thinAxis } from '../src/catalog/interactables'
+import { axisName, classifyNode, controlFromSuggestion, displayFromSuggestion, inferReturnMode, suggestFromNodes, thinAxis, type NodeBox } from '../src/catalog/interactables'
+import { isSpringReturn, springHold } from '../src/catalog/behavior'
 
 let failures = 0
 function check(label: string, ok: boolean, extra = '') {
@@ -42,6 +43,56 @@ check('LED RUN fica verde', led?.color === '#22c55e')
 const selector = suggestFromNodes([{ name: 'Seletor_Funcao', meshes: 2, centre: [0, 20, 30], size: [18, 18, 5] }]).suggestions[0]
 check('seletor tem duas posições simétricas', selector?.kind === 'selector' && selector?.angle === 35)
 check('seletor usa o eixo fino (Z)', selector?.axis[2] === 1)
+
+/* -------------------------------------------- ecrãs, bornes, geometria e retorno (mola/retenção) */
+check('«LCD_Display» → ecrã', classifyNode('LCD_Display')?.kind === 'display')
+check('«Visor_7seg» → ecrã', classifyNode('Visor_7seg')?.kind === 'display')
+check('«Terminal_A1» → borne', classifyNode('Terminal_A1')?.kind === 'terminal')
+check('«borne_13» → borne', classifyNode('borne_13')?.kind === 'terminal')
+check('«terminal_cover» não é borne', classifyNode('terminal_cover')?.kind !== 'terminal')
+
+check('botão START → mola', inferReturnMode('Botao_Start', 'button', 'command')?.mode === 'spring')
+check('emergência → retenção', inferReturnMode('Emergencia_Cogumelo', 'button', 'command')?.mode === 'latch')
+check('manípulo de disjuntor → retenção a bascular', (() => { const r = inferReturnMode('dcsimu_handle_1', 'toggle', 'protection breaker'); return r?.mode === 'latch' && r.tilt })())
+check('botão TEST de disjuntor → mola', inferReturnMode('pkzm_test_1', 'button', 'motorBreakerPkzmC10')?.mode === 'spring')
+check('seletor sem retorno', inferReturnMode('Seletor', 'selector') === null)
+
+// Modelo com nomes genéricos: corpo 80×120×40, ecrã fino à frente, dois botões e um disco seletor.
+const generic: NodeBox[] = [
+  { name: 'Mesh_0', meshes: 1, centre: [0, 0, 0], size: [80, 120, 40], color: '#222222' },
+  { name: 'Mesh_1', meshes: 1, centre: [0, 35, 20.1], size: [50, 30, 0.2], color: '#1a2a1f' },
+  { name: 'Mesh_2', meshes: 1, centre: [-20, 0, 22], size: [9, 9, 6], color: '#22c55e' },
+  { name: 'Mesh_3', meshes: 1, centre: [20, 0, 22], size: [9, 9, 6], color: '#ef4444' },
+  { name: 'Mesh_4', meshes: 1, centre: [0, -30, 24], size: [32, 32, 10], color: '#111111' },
+  { name: 'Text_1', meshes: 1, centre: [0, -50, 20.05], size: [30, 8, 0.1], color: '#ffffff' },
+  { name: 'Mesh_5', meshes: 1, centre: [0, 0, 0], size: [8, 8, 6], color: '#888888' },
+]
+const g = suggestFromNodes(generic, { category: 'command' })
+const kindOf = (node: string) => g.suggestions.find((item) => item.node === node)?.kind
+check('geometria: corpo ignorado', !kindOf('Mesh_0'))
+check('geometria: placa fina à face → ecrã', kindOf('Mesh_1') === 'display')
+check('geometria: cilindros pequenos à face → botões', kindOf('Mesh_2') === 'button' && kindOf('Mesh_3') === 'button')
+check('geometria: disco Ø32 → seletor', kindOf('Mesh_4') === 'selector')
+check('geometria: serigrafia não é ecrã', !kindOf('Text_1'))
+check('geometria: peça escondida no interior ignorada', !kindOf('Mesh_5'))
+check('geometria: confiança baixa (vem desmarcada)', g.suggestions.every((item) => item.source !== 'geometry' || item.confidence < 0.5 || item.kind === 'display'))
+const screen = g.suggestions.find((item) => item.node === 'Mesh_1')!
+check('ecrã: 50 × 30 mm à face +Z', screen.screen?.widthMm === 50 && screen.screen?.heightMm === 30 && screen.normal?.[2] === 1 && (screen.screen?.position[2] ?? 0) > 20.1)
+const display = displayFromSuggestion(screen, 'd1', 'l1')
+check('ecrã → DisplayDef com normal e tamanho', !!display && display.widthMm === 50 && display.normal[2] === 1)
+const namesOnly = suggestFromNodes(generic, { namesOnly: true })
+check('só nomes: nada nos nomes genéricos', namesOnly.suggestions.length === 0)
+
+// Botão com mola: ativo só enquanto premido; retenção alterna e fica.
+const pushSuggestion = g.suggestions.find((item) => item.node === 'Mesh_2')!
+const push = controlFromSuggestion('p1', pushSuggestion, 'c1', 'start')
+check('botão detetado vem com mola', push.returnMode === 'spring' && isSpringReturn(push))
+const down = springHold(push, { start: false }, 'off', true)
+const up = springHold(push, down.vars, down.state, false, { start: false })
+check('mola: premido → ativo; largado → repouso', down.vars.start === true && up.vars.start === false)
+const breakerHandle = suggestFromNodes([{ name: 'dcsimu_handle_1', meshes: 1, centre: [0, 10, 30], size: [12, 18, 10] }], { category: 'protection' }).suggestions[0]
+const lever = controlFromSuggestion('p1', breakerHandle, 'c2', 'closed')
+check('manípulo de disjuntor: retenção + basculante', lever.returnMode === 'latch' && lever.motion?.mode === 'tilt' && !isSpringReturn(lever))
 
 if (failures) throw new Error(`${failures} verificação(ões) falharam`)
 console.log('\nDeteção automática: todas as verificações passaram.')

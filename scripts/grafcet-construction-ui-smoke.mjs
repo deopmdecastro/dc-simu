@@ -112,13 +112,16 @@ try {
     const result = screen.matrixTransform(path.getScreenCTM())
     return { x: result.x, y: result.y }
   })
+  const returnBefore = await returnSegment.getAttribute('d')
+  // x do troço vertical antes do arrasto (independente do zoom/enquadramento).
+  const verticalX = (d) => { const pts = d.replace('M ', '').split(' L ').map((p) => p.split(' ').map(Number)); const seg = pts.findIndex((p, i) => i && p[0] === pts[i - 1][0] && Math.abs(p[1] - pts[i - 1][1]) > 200); return seg > 0 ? pts[seg][0] : NaN }
   await page.mouse.move(returnPoint.x, returnPoint.y)
   await page.mouse.down()
   await page.mouse.move(returnPoint.x + 42, returnPoint.y + 28, { steps: 8 })
   await page.mouse.up()
   program = await read()
   const returnPath = await returnSegment.getAttribute('d')
-  check(program.linkBends?.t3?.length > 1 && returnPath?.includes('180 502') && returnPath.includes('67 76') && !/ [LM] [-\d.]+ [-\d.]+ L/.test('') && returnPath.split(' L ').slice(1).every((seg, i, all) => { const [x, y] = seg.split(' ').map(Number); const [px, py] = (i ? all[i - 1] : returnPath.split(' L ')[0].replace('M ', '')).split(' ').map(Number); return x === px || y === py }), 'arrastar a linha de retorno desliza o troço, mantém ângulos retos e as ligações às duas etapas')
+  check(program.linkBends?.t3?.length > 1 && returnPath?.startsWith('M 180 454') && returnPath.endsWith('180 100') && verticalX(returnPath) > verticalX(returnBefore) && returnPath.split(' L ').slice(1).every((seg, i, all) => { const [x, y] = seg.split(' ').map(Number); const [px, py] = (i ? all[i - 1] : returnPath.split(' L ')[0].replace('M ', '')).split(' ').map(Number); return x === px || y === py }), 'arrastar a linha de retorno desliza o troço, mantém ângulos retos e as ligações às duas etapas')
   if (output) await page.screenshot({ path: path.join(output, 'construction-return-link-drag.png') })
 
   await set()

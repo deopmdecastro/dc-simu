@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { MULTIMETER_VARS, mergeVars, multimeterReading, selectorValue, varDefsOf } from '../../catalog/behavior'
 import { listGlbNodes } from '../../catalog/componentRig'
 import { newId } from '../../catalog/definition'
-import type { BehaviorEvent, ComponentDefinition, ControlAction, ControlDef, DisplayDef, DisplayLine, VarDef, VarValue, Vec3, WhenDef } from '../../catalog/types'
+import type { BehaviorEvent, ComponentDefinition, ControlAction, ControlDef, ControlReturnMode, DisplayDef, DisplayLine, VarDef, VarValue, Vec3, WhenDef } from '../../catalog/types'
 import { IconClose } from '../../ui/icons'
 import { AutoDetectSection } from './AutoDetectPanel'
 import { glbCache, useEditorStore } from './editorStore'
@@ -193,10 +193,10 @@ export function ControlsTab() {
     const variable = preset === 'breaker' && !varDefsOf(def).some((item) => item.id === 'closed') ? 'closed' : `control_${(def.controls ?? []).length + 1}`
     const handles = preset === 'breaker' && created.nodes?.length === 0 ? detectHandleNodes(def, partId) : []
     const configured: ControlDef = preset === 'breaker'
-      ? { ...created, name: 'Manípulo do disjuntor', ...tiltControlPatch(breakerAxesOf(def), created.axis), travelMm: 0, nodes: handles.length ? handles : created.nodes, bindVar: variable, actions: [{ type: 'toggleVar', var: variable }] }
+      ? { ...created, name: 'Manípulo do disjuntor', ...tiltControlPatch(breakerAxesOf(def), created.axis), travelMm: 0, nodes: handles.length ? handles : created.nodes, bindVar: variable, actions: [{ type: 'toggleVar', var: variable }], returnMode: 'latch' }
       : preset === 'selector'
       ? { ...created, name: 'Chave seletora', bindVar: variable, positions: [{ id: 'off', label: '0 · Desligado', angle: -45 }, { id: 'on', label: '1 · Ligado', angle: 45 }] }
-      : { ...created, name: preset === 'emergency' ? 'Emergência com retenção' : 'Botão de pressão', travelMm: preset === 'push' ? 1.2 : 2, actions: [{ type: 'toggleVar', var: variable }] }
+      : { ...created, name: preset === 'emergency' ? 'Emergência com retenção' : 'Botão de pressão', travelMm: preset === 'push' ? 1.2 : 2, actions: [{ type: 'toggleVar', var: variable }], returnMode: preset === 'push' ? 'spring' : 'latch' }
     edit((state) => ({ ...state, controls: [...(state.controls ?? []), configured], vars: [...(state.vars ?? []), { id: variable, name: configured.name, type: preset === 'selector' ? 'text' : 'bool', initial: preset === 'selector' ? 'off' : variable === 'closed' }] }), `control:preset:${preset}`)
     // manípulo já detetado pelo nome: não é preciso entrar no modo «escolher no modelo»
     set({ selection: { kind: 'control', id: configured.id }, tab: 'controls', pick: handles.length ? null : { kind: 'control', id: configured.id } })
@@ -231,7 +231,9 @@ export function ControlsTab() {
     {control && <>
       <Section title="Controlo">
         <Field label="Nome"><Text value={control.name} onChange={(name) => patch({ name }, 'name')} /></Field>
-        <Field label="Tipo"><Select value={control.kind} onChange={(kind) => patch({ kind, positions: kind === 'selector' && control.positions.length < 2 ? [{ id: 'p1', label: 'Posição 1', angle: 0 }, { id: 'p2', label: 'Posição 2', angle: 45 }] : control.positions, travelMm: kind === 'selector' ? 0 : control.travelMm || 0.6 })} options={[['button', 'Botão (momentâneo)'], ['toggle', 'Interruptor (mantém)'], ['selector', 'Seletor rotativo']]} /></Field>
+        <Field label="Tipo"><Select value={control.kind} onChange={(kind) => patch({ kind, returnMode: kind === 'button' ? 'spring' : kind === 'toggle' ? 'latch' : undefined, positions: kind === 'selector' && control.positions.length < 2 ? [{ id: 'p1', label: 'Posição 1', angle: 0 }, { id: 'p2', label: 'Posição 2', angle: 45 }] : control.positions, travelMm: kind === 'selector' ? 0 : control.travelMm || 0.6 })} options={[['button', 'Botão (momentâneo)'], ['toggle', 'Interruptor (mantém)'], ['selector', 'Seletor rotativo']]} /></Field>
+        {control.kind !== 'selector' && <Field label="Retorno" hint="Mola: a variável só fica ativa enquanto se mantém premido (botoneira NA/NF). Retenção: alterna e fica (disjuntor, emergência travada, interruptor).">
+          <Select value={control.returnMode ?? 'latch'} onChange={(returnMode) => patch({ returnMode: returnMode as ControlReturnMode })} options={[['spring', 'Mola (impulso)'], ['latch', 'Retenção (mantém)']]} /></Field>}
         <Field label="Peça"><Select value={control.partId} onChange={(partId) => patch({ partId, nodes: def.parts.find((part) => part.id === partId)?.kind === 'glb' ? [] : undefined })} options={drawable.map((part): [string, string] => [part.id, part.name])} /></Field>
         <NodePicker partId={control.partId} nodes={control.nodes} pickKind="control" id={control.id} onChange={(nodes) => patch({ nodes })} />
       </Section>

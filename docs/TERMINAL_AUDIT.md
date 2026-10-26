@@ -24,6 +24,6 @@ Gerado por `npm run audit:terminals`. Posições manuais são preservadas; borne
 | Borne de terra (verde/amarelo) (`terminalPE`) | 2 | medido no GLB | OK | ✅ |
 | Calha DIN perfurada 15×5,5 mm (galvanizada) · 1 m (`dinRail15x55`) | 0 | OK | OK | ✅ |
 | Fonte Proauto / DRAN120-24A · 24V 5A (`powerSupplyProauto24A`) | 9 | medido no GLB | OK | ✅ |
-| Multímetro digital RGK DM-20 (`multimeterDm20`) | 2 | medido no GLB | OK | ✅ |
+| Multímetro digital RGK DM-20 (`multimeterDm20`) | 4 | medido no GLB | OK | ✅ |
 
-**21 modelos GLB auditados · 140 bornes.**
+**21 modelos GLB auditados · 142 bornes.**

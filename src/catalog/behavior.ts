@@ -86,6 +86,34 @@ export function runControlActions(actions: ControlAction[], vars: Vars, state: s
   return { vars: current, state: nextState, delayed, changed }
 }
 
+/** Botão de impulso com mola: só fica ativo enquanto está premido. */
+export const isSpringReturn = (control: Pick<ControlDef, 'kind' | 'returnMode'>): boolean => control.kind !== 'selector' && control.returnMode === 'spring'
+
+/** Variáveis seguradas pela mola (as das ações «alternar/definir variável» ou, em falta, `bindVar`). */
+export function springVariables(control: ControlDef): string[] {
+  const vars = control.actions.flatMap((action) => (action.type === 'toggleVar' || action.type === 'setVar' ? [action.var] : []))
+  if (!vars.length && control.bindVar) vars.push(control.bindVar)
+  return [...new Set(vars)]
+}
+
+/**
+ * Premir (`down = true`) ou largar um botão com mola: ao premir as variáveis ficam ativas e as restantes
+ * ações correm uma vez; ao largar a mola devolve as variáveis ao valor de repouso (`rest`, omisso = falso).
+ */
+export function springHold(control: ControlDef, vars: Vars, state: string, down: boolean, rest: Vars = {}): ControlResult {
+  const current = { ...vars }
+  const others: ControlAction[] = []
+  const restOf = (name: string): VarValue => (name in rest ? rest[name] : false)
+  for (const action of control.actions) {
+    if (action.type === 'toggleVar') current[action.var] = down ? true : restOf(action.var)
+    else if (action.type === 'setVar') current[action.var] = down ? action.value : restOf(action.var)
+    else if (down) others.push(action)
+  }
+  if (!control.actions.some((action) => action.type === 'toggleVar' || action.type === 'setVar') && control.bindVar) current[control.bindVar] = down ? true : restOf(control.bindVar)
+  const result = runControlActions(others, current, state)
+  return { ...result, changed: result.state !== state || JSON.stringify(result.vars) !== JSON.stringify(vars) }
+}
+
 /** Seletor: escolhe a posição `positionId` (ou a seguinte/anterior). */
 export function selectorStep(control: ControlDef, vars: Vars, delta: 1 | -1): string | null {
   if (!control.positions.length) return null

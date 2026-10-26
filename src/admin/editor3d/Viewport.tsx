@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { buildDefinitionObject, resolveState } from '../../catalog/definition'
 import { StateAnimator } from '../../catalog/stateAnimator'
 import { ComponentRig, topNodeOf } from '../../catalog/componentRig'
-import { mergeVars, multimeterReading } from '../../catalog/behavior'
+import { isSpringReturn, mergeVars, multimeterReading } from '../../catalog/behavior'
 import { setBeep } from '../../catalog/beep'
 import { addLedAt, placeDisplayClick, setPivotFromPoint, triggerEditorControl } from './controlOps'
 import { relFromPoint } from '../../catalog/controlMotion'
@@ -408,12 +408,15 @@ function Scene() {
     if (control.kind === 'selector') { triggerEditorControl(control, { step: event.shiftKey ? -1 : 1 }); return }
     held.current = { id, at: performance.now() }
     rig.current?.hold(id, true); invalidate()
+    const spring = isSpringReturn(control)
+    if (spring) triggerEditorControl(control, 'down')
     const release = () => {
       window.removeEventListener('pointerup', release)
       const press = held.current
       held.current = null
       rig.current?.hold(id, false); invalidate()
-      if (press) triggerEditorControl(control, performance.now() - press.at >= 600 ? 'long' : 'press')
+      if (spring) triggerEditorControl(control, 'up')
+      else if (press) triggerEditorControl(control, performance.now() - press.at >= 600 ? 'long' : 'press')
     }
     window.addEventListener('pointerup', release)
   }

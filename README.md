@@ -24,7 +24,7 @@ As 142 ligações dos 20 equipamentos integrados com bornes são verificadas con
 - **Proxy n8n protegido**: `/api/n8n/trigger` e `/api/n8n/test` exigem sessão. O proxy de disparo aceita destinos apenas da configuração do servidor, limita payloads e distingue execução real de falha; a rota de teste apenas consulta o workflow.
 - **Contas SQLite**: em bases novas, defina `ADMIN_INITIAL_PASSWORD` e `USER_INITIAL_PASSWORD` (mínimo 16 caracteres, maiúsculas/minúsculas/números). São usadas só para criar contas inexistentes; o arranque seguinte nunca repõe a palavra-passe guardada. O menu da conta permite alterá-la, renova a sessão atual e termina as restantes sessões.
 - **Defesas da API**: validação de Origin nas mutações, `Cache-Control: no-store`, cabeçalhos de segurança, verificação de palavra-passe com custo constante para contas inexistentes, limites de tamanho e rate limit que não confia em `X-Forwarded-For` salvo configuração explícita do proxy (`TRUST_PROXY=1`).
-- **Dependências de build**: Vite 7, plugin PWA atualizado e correções das dependências transitivas; `npm audit` e `pnpm audit` sem vulnerabilidades conhecidas na validação desta versão. Docker e desenvolvimento usam Node `>=22.12.0`.
+- **Dependências de build**: Vite 7, plugin PWA atualizado e correções das dependências transitivas; `npm audit` e `pnpm audit` sem vulnerabilidades conhecidas na validação desta versão. Docker e desenvolvimento usam Node `^22.22.2 || ^24.15.0 || >=26` (exigido pelo jsdom 30 e pelo undici 8 dos testes).
 - Credenciais que tenham sido expostas em código, logs ou conversas devem ser **revogadas/rodadas**. Remover uma chave do código atual não a remove do histórico Git.
 
 ## Novidades — v5.0 (administração completa)

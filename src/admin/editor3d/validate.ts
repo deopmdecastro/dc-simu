@@ -35,6 +35,8 @@ export function validateDefinition(def: ComponentDefinition, meta: CatalogMeta):
     const names = [...overlapped]
     issues.push({ level: 'warn', text: `${names.length} bornes estão sobrepostos a menos de 1 mm de outro (${names.slice(0, 4).map((n) => `«${n}»`).join(', ')}${names.length > 4 ? '…' : ''}): confirme se já foram posicionados.` })
   }
+  const unmeasured = def.terminals.filter((terminal) => terminal.diameterMm !== undefined && !(terminal.socketDepthMm && terminal.socketInsetMm))
+  if (unmeasured.length) issues.push({ level: 'warn', text: `${unmeasured.length} borne(s) com encaixe mas sem profundidade medida (${unmeasured.slice(0, 4).map((terminal) => `«${terminal.label}»`).join(', ')}${unmeasured.length > 4 ? '…' : ''}): no esquema 3D ficam na face exterior. Use «Bornes › Encaixe dos bornes › Encaixar todos».` })
   if (def.terminals.length === 0) issues.push({ level: 'warn', text: 'Sem bornes: o componente não poderá ser ligado com cabos.' })
   const partIds = new Set(def.parts.map((part) => part.id))
   if (partIds.size !== def.parts.length) issues.push({ level: 'error', text: 'Há peças com o mesmo identificador interno.' })
@@ -68,6 +70,7 @@ export function validateDefinition(def: ComponentDefinition, meta: CatalogMeta):
     if (control.kind === 'selector' && control.positions.length < 2) issues.push({ level: 'warn', text: `O seletor «${control.name}» tem menos de 2 posições.` })
     if (control.kind === 'selector' && control.bindVar && !varIds.has(control.bindVar)) issues.push({ level: 'warn', text: `O seletor «${control.name}» escreve numa variável que não existe.` })
     if (control.kind !== 'selector' && control.actions.length === 0) issues.push({ level: 'warn', text: `O botão «${control.name}» não tem ações.` })
+    if (control.returnMode === 'spring' && control.kind !== 'selector' && !control.actions.some((action) => action.type === 'toggleVar' || action.type === 'setVar') && !control.bindVar) issues.push({ level: 'warn', text: `O botão com mola «${control.name}» não altera nenhuma variável: ao largar não há nada para repor.` })
     if (control.kind !== 'selector' && control.motion?.mode === 'tilt') {
       if (Math.abs(control.motion.angleOn - control.motion.angleOff) < 1) issues.push({ level: 'warn', text: `O manípulo «${control.name}» tem os mesmos ângulos em ON e OFF: não vai mexer.` })
       if (control.nodes !== undefined && control.nodes.length === 0) issues.push({ level: 'warn', text: `O manípulo «${control.name}» não tem objeto do modelo associado: vai bascular a peça inteira.` })

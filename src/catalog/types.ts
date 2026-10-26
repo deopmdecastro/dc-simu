@@ -224,7 +224,15 @@ export interface ControlDef {
   longActions?: ControlAction[]
   /** Botão/interruptor: tipo de animação (deslizar ou bascular sobre um pivô). */
   motion?: ControlMotion
+  /**
+   * Retorno do botão depois de largar: `spring` = impulso com mola (a variável só fica
+   * ativa enquanto se mantém premido, como numa botoneira NA/NF); `latch` = retenção
+   * (alterna e fica, como um disjuntor ou uma emergência de encravamento). Omisso = `latch`.
+   */
+  returnMode?: ControlReturnMode
 }
+
+export type ControlReturnMode = 'spring' | 'latch'
 
 /** Ecrã de tamanho próprio, colado à superfície do modelo. */
 export interface DisplayLine { id: string; text: string; x: number; y: number; size: number; align: 'left' | 'center' | 'right'; color?: string; when?: WhenDef }

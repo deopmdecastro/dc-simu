@@ -1,10 +1,13 @@
 import * as THREE from 'three'
-import { MULTIMETER_VARS, initialVars, mergeVars, runControlActions, selectorStep, setSelector, varDefsOf, type Vars } from '../../catalog/behavior'
+import { MULTIMETER_VARS, initialVars, isSpringReturn, mergeVars, runControlActions, selectorStep, setSelector, springHold, varDefsOf, type Vars } from '../../catalog/behavior'
 import { boundsMm, buildDefinitionObject, newId } from '../../catalog/definition'
 import { listGlbNodes } from '../../catalog/componentRig'
-import { classifyNode, controlFromSuggestion, lightFromSuggestion, variableFromSuggestion, type Suggestion } from '../../catalog/interactables'
+import { classifyNode, controlFromSuggestion, displayFromSuggestion, lightFromSuggestion, suggestFromNodes, variableFromSuggestion, type Suggestion } from '../../catalog/interactables'
+import { specToTerminal } from '../../catalog/terminalLayout'
+import { faceOfNormal } from '../../catalog/terminalSeat'
+import { fixSeats } from './holeOps'
 import { applyPreset, BUILTIN_PRESETS, inferBreakerAxes, presetFromControl, tiltControlPatch, type BreakerAxes, type MotionPreset } from '../../catalog/controlMotion'
-import type { BehaviorDef, ComponentDefinition, ControlDef, DisplayDef, LightZoneDef, MaterialDef, PartDef, VarDef, Vec3 } from '../../catalog/types'
+import type { BehaviorDef, ComponentDefinition, ControlDef, DisplayDef, LightZoneDef, MaterialDef, PartDef, TerminalDef, VarDef, Vec3 } from '../../catalog/types'
 import { glbCache, useEditorStore } from './editorStore'
 import { setRealSize } from './sizeOps'
 
@@ -13,7 +16,7 @@ import { setRealSize } from './sizeOps'
 const timers: number[] = []
 
 /** Gesto num controlo na pré-visualização do editor (botões/seletores mudam as variáveis de teste). */
-export function triggerEditorControl(control: ControlDef, gesture: 'press' | 'long' | { select: string } | { step: 1 | -1 }) {
+export function triggerEditorControl(control: ControlDef, gesture: 'press' | 'long' | 'down' | 'up' | { select: string } | { step: 1 | -1 }) {
   const store = useEditorStore.getState()
   let vars: Vars = mergeVars(store.def, store.previewVars)
   let state = store.previewState
@@ -22,7 +25,18 @@ export function triggerEditorControl(control: ControlDef, gesture: 'press' | 'lo
     const target = typeof gesture === 'object' && 'select' in gesture ? gesture.select : selectorStep(control, vars, typeof gesture === 'object' && 'step' in gesture ? gesture.step : 1)
     if (!target) return
     vars = setSelector(control, vars, target)
+  } else if (isSpringReturn(control)) {
+    // Botão com mola: «Testar clique» gera um impulso curto; o viewport usa down/up reais.
+    if (gesture === 'press' || gesture === 'long') {
+      triggerEditorControl(control, 'down')
+      timers.push(window.setTimeout(() => triggerEditorControl(control, 'up'), 250))
+      return
+    }
+    if (gesture !== 'down' && gesture !== 'up') return
+    const result = springHold(control, vars, state, gesture === 'down', initialVars(store.def))
+    vars = result.vars; state = result.state; delayed.push(...result.delayed)
   } else {
+    if (gesture === 'down' || gesture === 'up') return
     const result = runControlActions(gesture === 'long' && control.longActions?.length ? control.longActions : control.actions, vars, state)
     vars = result.vars; state = result.state; delayed.push(...result.delayed)
   }
@@ -152,6 +166,7 @@ export function newControl(def: ComponentDefinition, kind: ControlDef['kind'], p
     positions: kind === 'selector' ? [{ id: 'p1', label: 'Posição 1', angle: 0 }, { id: 'p2', label: 'Posição 2', angle: 45 }] : [],
     bindVar: kind === 'selector' ? 'pos' : undefined,
     actions: kind === 'selector' ? [] : [{ type: 'toggleVar', var: 'on' }],
+    ...(kind === 'button' ? { returnMode: 'spring' as const } : kind === 'toggle' ? { returnMode: 'latch' as const } : {}),
   }
 }
 
@@ -236,11 +251,27 @@ export function applyAutoInteractions(partId: string, chosen: Suggestion[]): str
   const takenNames = new Set([...(def.controls ?? []).map((control) => control.name), ...def.lights.map((light) => light.name)])
   const controls: ControlDef[] = []
   const lights: LightZoneDef[] = []
+  const displays: DisplayDef[] = []
+  const terminals: TerminalDef[] = []
   const vars: VarDef[] = []
   let skipped = 0
   for (const suggestion of chosen) {
     if (used.has(suggestion.node)) { skipped += 1; continue }
     used.add(suggestion.node)
+    if (suggestion.kind === 'terminal') {
+      // borne à face do objeto; a seguir é encaixado no furo mais próximo (fixSeats)
+      const point = suggestion.point ?? suggestion.axis
+      const normal = suggestion.normal ?? suggestion.axis
+      const existing = [...def.terminals, ...terminals]
+      const label = suggestion.node.replace(/^.*?(?:terminal|borne|klemme|clamp)[_\s-]*/i, '').replace(/[^A-Za-z0-9+-]/g, '').slice(0, 6) || String(existing.length + 1)
+      terminals.push(specToTerminal({ label, name: `Borne ${label}`, fn: '', kind: 'io', polarity: 'none', electricalClass: 'other', direction: 'io', terminalType: 'screw', color: '#cbd5e1', face: faceOfNormal(normal) }, point, normal, existing, () => newId('t_')))
+      continue
+    }
+    if (suggestion.kind === 'display') {
+      const display = displayFromSuggestion({ ...suggestion, label: `Ecrã ${(def.displays ?? []).length + displays.length + 1}` }, newId('d_'), newId('ln_'))
+      if (display) displays.push(display)
+      continue
+    }
     let variable = suggestion.variable
     while (takenVars.has(variable)) variable = `${variable}_2`
     takenVars.add(variable)
@@ -262,15 +293,23 @@ export function applyAutoInteractions(partId: string, chosen: Suggestion[]): str
     ...current,
     controls: [...(current.controls ?? []), ...controls],
     lights: [...current.lights, ...lights],
+    displays: [...(current.displays ?? []), ...displays],
+    terminals: [...current.terminals, ...terminals],
     vars: [...(current.vars ?? []), ...vars.filter((item) => !(current.vars ?? []).some((existing) => existing.id === item.id))],
   }), 'auto:interactions')
+  // bornes detetados pelo nome vão para dentro do furo do equipamento
+  const seated = terminals.length ? fixSeats(terminals.map((item) => item.id)) : null
   if (controls[0]) store.set({ tab: 'controls', selection: { kind: 'control', id: controls[0].id } })
   else if (lights[0]) store.set({ tab: 'lights', selection: { kind: 'light', id: lights[0].id } })
+  else if (terminals[0]) store.set({ tab: 'terminals', selection: { kind: 'terminal', id: terminals[0].id } })
   const created: string[] = []
-  if (controls.length) created.push(`${controls.length} controlo(s)`)
+  const springs = controls.filter((item) => item.returnMode === 'spring').length
+  if (controls.length) created.push(`${controls.length} controlo(s)${springs ? ` (${springs} com mola, ${controls.length - springs} com retenção)` : ''}`)
   if (lights.length) created.push(`${lights.length} indicador(es)`)
+  if (displays.length) created.push(`${displays.length} ecrã(s)`)
+  if (terminals.length) created.push(`${terminals.length} borne(s)${seated ? ` — ${terminals.length - seated.left.length} dentro do furo` : ''}`)
   const extra = skipped ? ` ${skipped} objeto(s) já ligados foram ignorados.` : ''
-  return `${created.join(' e ')} criado(s). Afine o eixo, o curso e os ângulos em «Controlo › Movimento».${extra}`
+  return `${created.join(', ')} criado(s). Afine o eixo, o curso e os ângulos em «Controlo › Movimento».${extra}`
 }
 
 /* ---------------------------------------------------------- modelo de multímetro */
@@ -356,4 +395,20 @@ export function applyMultimeterPreset(): string {
   const notes = [isDm20 ? `Modelo RGK DM-20 reconhecido: seletor, botões e LCD já estão ligados aos objetos do GLB.${resized}` : 'Modelo desconhecido: escolha no modelo os objetos do seletor e dos botões e marque o LCD no separador Ecrãs.']
   if (missing.length) notes.push(`Ligue as fichas em falta no separador Multímetro: ${missing.join(', ')}.`)
   return notes.join(' ')
+}
+
+/**
+ * Analisa uma peça GLB no espaço do componente (posições reais, incluindo escala/posição da peça):
+ * nome + geometria + tipo de equipamento → botões, manípulos, seletores, LEDs, ecrãs e bornes.
+ */
+export function scanInteractables(partId: string, options: { namesOnly?: boolean } = {}): { suggestions: Suggestion[]; ignored: string[] } | null {
+  const { def, meta } = useEditorStore.getState()
+  const root = buildDefinitionObject(def, glbCache)
+  root.updateMatrixWorld(true)
+  const holder = root.getObjectByName(partId)
+  if (!holder) return null
+  const box = new THREE.Box3().setFromObject(root, true)
+  const centre = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3())
+  const category = [meta.category, meta.group, meta.name, meta.reference, ...(meta.tags ?? [])].filter(Boolean).join(' ')
+  return suggestFromNodes(listGlbNodes(holder), { bounds: { centre: centre.toArray() as Vec3, size: size.toArray() as Vec3 }, category, namesOnly: options.namesOnly })
 }

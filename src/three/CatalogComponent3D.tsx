@@ -10,6 +10,7 @@ import { interactionsFor, runInteractions } from '../catalog/interactions'
 import { StateAnimator } from '../catalog/stateAnimator'
 import { ComponentRig } from '../catalog/componentRig'
 import { triggerControl, useCatalogMeter } from '../catalog/runtimeControls'
+import { isSpringReturn } from '../catalog/behavior'
 import { setBeep } from '../catalog/beep'
 import { cloneModelScene } from './modelFit'
 import { finishCadMaterial } from './catalogMaterials'
@@ -110,12 +111,16 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     if (control.kind === 'selector') { triggerControl(version.definition, c.id, control, { step: event.shiftKey ? -1 : 1 }); return true }
     pressed.current = { id, at: performance.now() }
     rig.current?.hold(id, true); invalidate()
+    // Botão com mola: a variável fica ativa enquanto o dedo/rato o mantém premido.
+    const spring = isSpringReturn(control)
+    if (spring) triggerControl(version.definition, c.id, control, 'down')
     const release = () => {
       window.removeEventListener('pointerup', release)
       const press = pressed.current
       pressed.current = null
       rig.current?.hold(id, false); invalidate()
-      if (press) triggerControl(version.definition, c.id, control, performance.now() - press.at >= 600 ? 'long' : 'press')
+      if (spring) triggerControl(version.definition, c.id, control, 'up')
+      else if (press) triggerControl(version.definition, c.id, control, performance.now() - press.at >= 600 ? 'long' : 'press')
     }
     window.addEventListener('pointerup', release)
     return true

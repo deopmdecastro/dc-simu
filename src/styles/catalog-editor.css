@@ -665,3 +665,5 @@
   .ce-mobile-panes { height:48px; }
   .ce-mobile-panes button { min-height:40px; }
 }
+.ce-list-item.is-warn { border-color:#e5c27f; background:#fffbf2; } .ce-list-item.is-warn small { color:#92400e; }
+.ce-list li:has(> .ce-linkbtn) { display:flex; align-items:center; gap:6px; } .ce-list li:has(> .ce-linkbtn) > .ce-list-item { flex:1; min-width:0; }

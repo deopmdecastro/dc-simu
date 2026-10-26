@@ -2,10 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { meterBridgeFor, meterInputFor } from '../electrical/meterModel'
 import type { ElectricalComponent } from '../types'
-import { EMPTY_METER_INPUT, mergeVars, multimeterReading, runControlActions, selectorStep, setSelector, type MeterReading, type Vars } from './behavior'
+import { EMPTY_METER_INPUT, initialVars, isSpringReturn, mergeVars, multimeterReading, runControlActions, selectorStep, setSelector, springHold, type MeterReading, type Vars } from './behavior'
 import type { ComponentDefinition, ControlDef } from './types'
 
-export type ControlGesture = 'press' | 'long' | { select: string } | { step: 1 | -1 }
+/** `down`/`up`: premir e largar um botão com mola (`returnMode: 'spring'`). */
+export type ControlGesture = 'press' | 'long' | 'down' | 'up' | { select: string } | { step: 1 | -1 }
+
+/** Duração do impulso quando um botão com mola é acionado por clique simples (inspetor, teclado). */
+export const SPRING_PULSE_MS = 250
 
 const timers = new Map<string, number[]>()
 
@@ -21,7 +25,18 @@ export function triggerControl(def: ComponentDefinition, componentId: string, co
     const target = typeof gesture === 'object' && 'select' in gesture ? gesture.select : selectorStep(control, vars, typeof gesture === 'object' && 'step' in gesture ? gesture.step : 1)
     if (!target) return
     vars = setSelector(control, vars, target)
+  } else if (isSpringReturn(control)) {
+    // Mola: ativo só enquanto premido. Um clique simples gera um impulso curto.
+    if (gesture === 'press' || gesture === 'long') {
+      triggerControl(def, componentId, control, 'down')
+      window.setTimeout(() => triggerControl(def, componentId, control, 'up'), SPRING_PULSE_MS)
+      return
+    }
+    if (gesture !== 'down' && gesture !== 'up') return
+    const result = springHold(control, vars, state, gesture === 'down', initialVars(def))
+    vars = result.vars; state = result.state; delayed.push(...result.delayed)
   } else {
+    if (gesture === 'down' || gesture === 'up') return
     const actions = gesture === 'long' && control.longActions?.length ? control.longActions : control.actions
     const result = runControlActions(actions, vars, state)
     vars = result.vars; state = result.state; delayed.push(...result.delayed)

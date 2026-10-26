@@ -44,3 +44,17 @@ npm run test:terminal-geometry-ui
 ```
 
 O servidor Vite de teste deve arrancar com as integrações remotas desativadas. Reiniciá-lo depois de alterar módulos de estado evita testar instâncias duplicadas pelo HMR. O script bloqueia API, service workers e consulta de versão; permite apenas os servidores de fontes usados na interface, incluindo os dados do resolvedor Unicode do texto 3D. `TERMINAL_TEST_OUTPUT` permite guardar capturas numa pasta de evidências sintéticas.
+
+## Encaixe dos bornes criados no editor
+
+O editor de componentes usa o mesmo método por raios (`src/catalog/terminalSeat.ts`) para os bornes que o administrador cria:
+
+- **Bornes › Encaixe dos bornes › Verificar encaixe** mede, para cada borne, a boca (anel de 12 raios a 0,65 × Ø) e o fundo (raio central) ao longo da normal, e classifica: dentro da cavidade, à boca do furo, fora do modelo, dentro do material, face plana ou sem superfície.
+- **Encaixar / Encaixar todos** move o borne para o furo livre mais próximo na mesma face (até 1,5 × Ø ou 5 mm) ou recua-o para dentro da cavidade que já tem por baixo, e grava `socketDepthMm`/`socketInsetMm`.
+- Os bornes criados a partir de furos (`addTerminalInHole`) já nascem recuados, com a profundidade e o recuo medidos; antes ficavam à boca do furo e, sem estes campos, o simulador projetava-os na face exterior da caixa.
+
+Verificação automática: `npm run test:terminal-seat` (142 bornes integrados dentro das cavidades, correção «boca → cavidade» em cada modelo, bornes criados a partir dos furos detetados) e `npm run test:editor3d-autodetect-ui` no editor completo.
+
+## Deteção automática e retorno (mola/retenção)
+
+**Botões › Deteção automática no modelo** (também na aba Bornes) propõe bornes, botões, manípulos, seletores, ecrãs e LEDs pelo nome dos objetos do GLB e, para nomes genéricos de CAD, pela forma (placa fina à face → ecrã; cilindro pequeno a sobressair → botão; disco Ø ≥ 22 mm → seletor; peça pequena emissiva → LED). Para cada botão é inferido o retorno (`ControlDef.returnMode`): mola nas botoneiras de impulso e nos botões TEST/rearme; retenção nos manípulos de disjuntor (basculante, «clique com mola») e nas emergências travadas. Com mola, a variável só fica ativa enquanto o botão está premido. Cobertura: `test:interactables` e `test:auto-detect-models` (GLB reais).
