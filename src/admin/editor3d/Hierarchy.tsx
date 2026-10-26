@@ -173,7 +173,7 @@ export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle,
   }
 
   return <aside className={`ce-left${panelCollapsed ? ' is-collapsed' : ''}`} aria-label="Hierarquia">
-    <div className="ce-hierarchy-title"><div><strong>Elementos</strong><small>Modelo e interface física</small></div><span>{counts.all}</span>
+    <div className="ce-hierarchy-title"><div><strong>Elementos</strong><small>Modelo e interface física</small></div><span className="ce-hierarchy-count" aria-label={`${counts.all} elementos`}>{counts.all}</span>
       <span className="ce-collapsed-label"><IconLayers size={15} /><span>Elementos</span></span>
       <button className="ce-mobile-panel-close" type="button" aria-label="Fechar hierarquia e voltar ao canvas" title="Fechar hierarquia e voltar ao canvas" onClick={onMobileClose}><IconArrowLeft size={13} /><span>Canvas</span></button>
       <button className="ce-panel-collapse" type="button" aria-label={panelCollapsed ? 'Expandir hierarquia' : 'Recolher hierarquia'} aria-expanded={!panelCollapsed} title={panelCollapsed ? 'Expandir hierarquia' : 'Recolher hierarquia'} onClick={onToggle}>{panelCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}</button>

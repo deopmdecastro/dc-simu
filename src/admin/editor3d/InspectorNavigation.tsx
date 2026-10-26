@@ -30,7 +30,7 @@ export default function InspectorNavigation({ collapsed = false, onToggle, onMob
           : selection?.kind === 'light' ? def.lights.find((item) => item.id === selection.id)?.name : undefined
   const kind = selection?.kind === 'part' ? 'Peça' : selection?.kind === 'terminal' ? 'Borne' : selection?.kind === 'control' ? 'Controlo' : selection?.kind === 'display' ? 'Ecrã' : selection?.kind === 'light' ? 'Luz' : 'Componente'
   return <>
-    <div ref={context} className="ce-inspector-context"><span className="ce-inspector-symbol"><IconLayers size={16} /></span><div><small>{kind}</small><strong title={name}>{name || 'Propriedades do componente'}</strong></div>
+    <div ref={context} className="ce-inspector-context"><span className="ce-inspector-symbol"><IconLayers size={16} /></span><div><small><i className="ce-inspector-status" aria-hidden="true" />{kind}</small><strong title={name}>{name || 'Propriedades do componente'}</strong></div>
       {selection && <button className="ce-icon" aria-label="Enquadrar elemento" title="Enquadrar elemento" onClick={() => { useEditorStore.getState().cameraTo('fitSel'); window.dispatchEvent(new CustomEvent('ce-open-canvas')) }}><IconFocus size={15} /></button>}
       <button className="ce-panel-collapse" type="button" aria-label={collapsed ? 'Expandir inspetor' : 'Recolher inspetor'} aria-expanded={!collapsed} title={collapsed ? 'Expandir inspetor' : 'Recolher inspetor'} onClick={onToggle}>{collapsed ? <IconChevronLeft size={15} /> : <IconChevronRight size={15} />}</button>
       <button className="ce-mobile-panel-close" type="button" aria-label="Fechar propriedades e voltar ao canvas" title="Fechar propriedades e voltar ao canvas" onClick={onMobileClose}><IconArrowLeft size={13} /><span>Canvas</span></button>
