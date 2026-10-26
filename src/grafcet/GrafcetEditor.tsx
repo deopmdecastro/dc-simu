@@ -351,7 +351,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
    * Porta de ligação por linha: saída/entrada de etapa (transições), saída-ação da etapa
    * (ligar ações), entrada de transição solta, entrada de ação solta e "etapa como destino de ação".
    */
-  type PortRef = { kind: 'step-out' | 'step-in' | 'trans-out' | 'trans-in' | 'step-action' | 'action-in' | 'step-attach' | 'branch-out'; id: string }
+  type PortRef = { kind: 'step-out' | 'step-in' | 'trans-out' | 'trans-in' | 'step-action' | 'action-in' | 'step-attach' | 'branch-out'; id: string; side?: 'l' | 'r' | 't' | 'b' }
   const [wireDraft, setWireDraft] = useState<{ start: PortRef; x: number; y: number; moved: boolean } | null>(null)
   const [wireHover, setWireHover] = useState<PortRef | null>(null)
   const wireDraftRef = useRef<typeof wireDraft>(null)
@@ -1292,6 +1292,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     maxRight = Math.max(maxRight, p.x + ACTION_W + 46)
     maxBottom = Math.max(maxBottom, p.y + ACTION_H + 36)
   })
+  // Os pontos de quebra das linhas (laços de retorno, desvios) também contam para a área do diagrama.
+  Object.values(program.linkBends ?? {}).forEach((points) => points.forEach((point) => {
+    maxRight = Math.max(maxRight, point.x + 40)
+    maxBottom = Math.max(maxBottom, point.y + 40)
+  }))
   const width = maxRight
   const height = Math.max(280, maxBottom)
 
@@ -1488,6 +1493,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     const source = transition?.from.find(existsStep)
     return source ? { x: stepX(source), y: stepY(source) + STEP_H + 24 } : { x: SPINE_X, y: cursorY }
   }
+  /** Posição de cada face (esquerda, direita, topo, base) de uma ação solta onde nasce/termina um fio. */
+  const actionPortAt = (pos: { x: number; y: number }, side: 'l' | 'r' | 't' | 'b'): { x: number; y: number } => {
+    if (side === 'r') return { x: pos.x + ACTION_FREE_W + 14, y: pos.y + ACTION_FREE_H / 2 }
+    if (side === 't') return { x: pos.x + ACTION_FREE_W / 2, y: pos.y - 14 }
+    if (side === 'b') return { x: pos.x + ACTION_FREE_W / 2, y: pos.y + ACTION_FREE_H + 14 }
+    return { x: pos.x - 14, y: pos.y + ACTION_FREE_H / 2 }
+  }
   /** Posição mundo de um porto. */
   const portPosOf = (p: PortRef): { x: number; y: number } => {
     if (p.kind === 'branch-out') return branchPointOf(p.id)
@@ -1498,7 +1510,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       const a = freeActions.find((value) => value.id === p.id)
       if (!a) return { x: ACTION_X, y: cursorY }
       const pos = actionXY(a)
-      return { x: pos.x - 30, y: pos.y + ACTION_FREE_H / 2 }
+      return actionPortAt(pos, p.side ?? 'l')
     }
     const t = transitions.find((tr) => tr.id === p.id)
     if (!t) return { x: SPINE_X, y: cursorY }
@@ -1518,6 +1530,15 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     if (start.kind === 'step-out') for (const t of transitions) compatible.push({ kind: 'trans-in', id: t.id })
     if (start.kind === 'step-in') for (const t of transitions) compatible.push({ kind: 'trans-out', id: t.id })
     if (start.kind === 'step-action') for (const action of freeActions) compatible.push({ kind: 'action-in', id: action.id })
+    if (start.kind === 'step-action') {
+      // Largar sobre qualquer face (ou sobre o corpo) de uma ação solta liga-a à etapa.
+      const margin = 18
+      const hit = freeActions.find((action) => {
+        const pos = actionXY(action)
+        return wx >= pos.x - margin && wx <= pos.x + ACTION_FREE_W + margin && wy >= pos.y - margin && wy <= pos.y + ACTION_FREE_H + margin
+      })
+      if (hit) return { kind: 'action-in', id: hit.id }
+    }
     const distance = (p: PortRef) => { const at = portPosOf(p); return Math.hypot(wx - at.x, wy - at.y) }
     const target = compatible.filter((p) => p.kind !== start.kind || p.id !== start.id).sort((a, b) => distance(a) - distance(b))[0]
     if (target && distance(target) <= Math.max(14, Math.min(32, 22 / scale))) return target
@@ -1645,18 +1666,19 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     setWireHover(null)
   }
   const renderWirePort = (port: PortRef, at: Point, label: string) => {
-    const armed = wireDraft?.start.kind === port.kind && wireDraft.start.id === port.id
-    const target = wireHover?.kind === port.kind && wireHover.id === port.id
+    const armed = wireDraft?.start.kind === port.kind && wireDraft.start.id === port.id && (wireDraft.start.side ?? '') === (port.side ?? '')
+    const target = wireHover?.kind === port.kind && wireHover.id === port.id && (port.kind !== 'action-in' || !port.side || wireHover.side === undefined || wireHover.side === port.side)
     const origin = wireDraft?.start.kind
     const compatible = !!origin && (
       (['step-out', 'trans-out', 'branch-out'].includes(origin) && port.kind === 'step-in') ||
       (origin === 'step-out' && port.kind === 'trans-in') ||
       (['step-in', 'trans-in'].includes(origin) && port.kind === 'step-out') ||
       (origin === 'step-in' && port.kind === 'trans-out') ||
-      (origin === 'action-in' && port.kind === 'step-action')
+      (origin === 'action-in' && port.kind === 'step-action') ||
+      (origin === 'step-action' && port.kind === 'action-in')
     )
-    return <g key={`${port.kind}-${port.id}`} className={`grafcet-construction-port ${armed ? 'is-armed' : ''} ${compatible ? 'is-compatible' : ''} ${target ? 'is-target' : ''}`}
-      role="button" tabIndex={0} aria-label={label} data-port-kind={port.kind} data-port-id={port.id}
+    return <g key={`${port.kind}-${port.id}-${port.side ?? ''}`} className={`grafcet-construction-port ${armed ? 'is-armed' : ''} ${compatible ? 'is-compatible' : ''} ${target ? 'is-target' : ''}`}
+      role="button" tabIndex={0} aria-label={label} data-port-kind={port.kind} data-port-id={port.id} data-port-side={port.side}
       onPointerDown={(event) => startQuickWire(port, event)} onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); activatePort(port) } }}>
@@ -3128,7 +3150,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                 ref={svgRef}
                 width={width}
                 height={height}
-                style={{ width, height }}
+                style={{ width, height, overflow: 'visible' }}
                 viewBox={`0 0 ${width} ${height}`}
                 fontFamily="Inter, Segoe UI, system-ui, -apple-system, sans-serif"
                 role="img"
@@ -4670,9 +4692,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                       {/* Halo transparente para agarrar com facilidade (rato e toque) */}
                       <rect x={x - 36} y={y - 18} width={ACTION_FREE_W + 72} height={ACTION_FREE_H + 36} fill="transparent" />
 
-                      {/* Stub e porto à esquerda — ponto de ligação por linha */}
+                      {/* Stubs tracejados nas quatro faces — os círculos de ligação ficam abaixo, depois do símbolo */}
                       <line x1={x - 14} y1={midY} x2={x} y2={midY} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
-                      <circle className="grafcet-free-port" cx={x - 14} cy={midY} r="5" fill="#ffffff" stroke="#d97706" strokeWidth="2" />
+                      {full && activeTool !== 'pan' && !running && <>
+                        <line x1={x + ACTION_FREE_W} y1={midY} x2={x + ACTION_FREE_W + 14} y2={midY} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
+                        <line x1={x + ACTION_FREE_W / 2} y1={y - 14} x2={x + ACTION_FREE_W / 2} y2={y} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
+                        <line x1={x + ACTION_FREE_W / 2} y1={y + ACTION_FREE_H} x2={x + ACTION_FREE_W / 2} y2={y + ACTION_FREE_H + 14} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
+                      </>}
 
                       {/* Halo de hover/seleção (ver .grafcet-hover-halo) */}
                       {full && <rect className="grafcet-hover-halo" x={x} y={y} width={ACTION_FREE_W} height={ACTION_FREE_H} rx="2" pointerEvents="none" />}
@@ -4694,6 +4720,15 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                         label={diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : 13)}
                       />
 
+                      {/* Círculos de ligação em cada face da ação: arraste de qualquer um até uma etapa (ou largue o fio da etapa sobre a ação) */}
+                      {full && activeTool !== 'pan' && !running && <g className={`grafcet-action-ports grafcet-step-ports ${activeTool === 'connect' || isThisActionSelected || isThisActionHovered || focusedActionId === action.id || wireDraft ? 'is-emphasized' : 'is-idle'}`}>
+                        {(['l', 'r', 't', 'b'] as const).map((side) => renderWirePort(
+                          { kind: 'action-in', id: action.id, side },
+                          actionPortAt({ x, y }, side),
+                          `Porto ${side === 'l' ? 'esquerdo' : side === 'r' ? 'direito' : side === 't' ? 'superior' : 'inferior'} da ação solta ${action.variable || action.address || ''}: arraste um fio até uma etapa`,
+                        ))}
+                      </g>}
+
                       {/* A marca permanece fora da caixa para não colidir com controlos ou texto. */}
                       <g className="grafcet-detached-status grafcet-action-detached-status" transform={`translate(${x - 50}, ${y - 11})`} pointerEvents="none">
                         <rect width="64" height="15" rx="4" />
@@ -4702,7 +4737,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
 
                       {/* Dica contextual */}
                       {full && (isThisActionHovered || isThisActionSelected || focusedActionId === action.id) && (
-                        <text className="grafcet-detached-hint" x={x + ACTION_FREE_W / 2} y={y + ACTION_FREE_H + 15} textAnchor="middle" pointerEvents="none">
+                        <text className="grafcet-detached-hint" x={x + ACTION_FREE_W / 2} y={y + ACTION_FREE_H + 36} textAnchor="middle" pointerEvents="none">
                           arraste para etapa · Ligar [L]
                         </text>
                       )}
@@ -4762,34 +4797,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                         </>
                       )}
 
-                      {/* Porto de entrada no modo Ligar: o fio vem do porto de ação da etapa */}
-                      {full && activeTool === 'connect' && (
-                        <g
-                          className={`grafcet-port is-in ${
-                            wireDraft?.start.kind === 'step-action'
-                              ? wireHover?.kind === 'action-in' && wireHover.id === action.id
-                                ? 'is-hover'
-                                : 'is-compatible'
-                              : ''
-                          }`}
-                          onPointerDown={(e) => {
-                            e.stopPropagation()
-                            startWire({ kind: 'action-in', id: action.id }, e.clientX, e.clientY)
-                          }}
-                          role="button"
-                          aria-label={`Entrada da ação solta ${action.variable || action.address || ''}: arraste um fio até uma etapa`}
-                        >
-                          <circle cx={x - 30} cy={midY} r="13" fill="transparent" />
-                          <circle
-                            cx={x - 30}
-                            cy={midY}
-                            r="5"
-                            fill={wireDraft?.start.kind === 'step-action' && wireHover?.kind === 'action-in' && wireHover.id === action.id ? '#bbf7d0' : '#ffffff'}
-                            stroke={wireDraft?.start.kind === 'step-action' ? '#16a34a' : wireDraft?.start.kind === 'action-in' && wireDraft.start.id === action.id ? '#7c3aed' : '#d97706'}
-                            strokeWidth="2.2"
-                          />
-                        </g>
-                      )}
                     </g>
                   )
                 })}
