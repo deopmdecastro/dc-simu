@@ -28,6 +28,8 @@ import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } f
 import { wireEnergyEffectVisible } from './panel3DEditing'
 import { registerCoverCapture } from './coverCapture'
 import { WireEnd3D } from './WireEnd3D'
+import { GlowHalo } from './GlowHalo'
+import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorShaftFan3D from './MotorShaftFan3D'
@@ -174,8 +176,9 @@ function Contactor3D({ c, x }: { c: ElectricalComponent; x: number }) {
       </mesh>
       <mesh position={[0.2, 0.34, 0.24]}>
         <sphereGeometry args={[0.05, 16, 16]} />
-        <meshStandardMaterial color={en ? '#22c55e' : '#334155'} emissive={en ? '#22c55e' : '#000000'} emissiveIntensity={en ? 1.2 : 0} />
+        <meshStandardMaterial color={en ? '#22c55e' : '#334155'} emissive={en ? '#22c55e' : '#000000'} emissiveIntensity={en ? 2.2 : 0} toneMapped={!en} />
       </mesh>
+      <GlowHalo color="#22c55e" on={en} radius={0.05} kind="led" position={[0.2, 0.34, 0.3]} />
       <Label text={c.ref} position={[0, 0.52, 0.23]} />
     </group>
   )
@@ -547,7 +550,10 @@ function LogoFrontPanel({ c, interactive = true }: { c: ElectricalComponent; int
     onPointerUp={(event) => { if (!interactive) return; event.stopPropagation(); action() }}>
     <circleGeometry args={[0.052, 18]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} />
   </mesh>
-  const led = (px: number, py: number, color: string, on: boolean) => <mesh position={[px, py, 0.329]}><circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={on ? color : '#334155'} emissive={on ? color : '#000'} emissiveIntensity={on ? 1.8 : 0} /></mesh>
+  const led = (px: number, py: number, color: string, on: boolean) => <group key={`${px}-${py}`} position={[px, py, 0.329]}>
+    <mesh><circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={on ? color : '#334155'} emissive={on ? color : '#000'} emissiveIntensity={on ? 2.4 : 0} toneMapped={!on} /></mesh>
+    <GlowHalo color={color} on={on} radius={0.018} kind="led" position={[0, 0, 0.01]} />
+  </group>
 
   return <group>
     <mesh position={[0, 0.585, 0.322]}><planeGeometry args={[0.49, 0.245]} /><meshBasicMaterial map={texture} color={powered ? '#ffffff' : '#708070'} toneMapped={false} /></mesh>
@@ -682,9 +688,12 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
     : safety
       ? [{ c: '#22c55e', on: powered && !error }, { c: '#ef4444', on: error }]
       : [{ c: '#22c55e', on: powered && !c.state.tripped }, { c: '#ef4444', on: !!c.state.tripped }]
-  return <group position={[0.24, height * 0.64, 0.34]}>{lights.map((light, index) => <mesh key={index} position={[0, -index * 0.055, 0]} raycast={() => null}>
-    <circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={light.on ? light.c : '#334155'} emissive={light.on ? light.c : '#000'} emissiveIntensity={light.on ? 2 : 0} />
-  </mesh>)}</group>
+  return <group position={[0.24, height * 0.64, 0.34]}>{lights.map((light, index) => <group key={index} position={[0, -index * 0.055, 0]}>
+    <mesh raycast={() => null}>
+      <circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={light.on ? light.c : '#334155'} emissive={light.on ? light.c : '#000'} emissiveIntensity={light.on ? 2.4 : 0} toneMapped={!light.on} />
+    </mesh>
+    <GlowHalo color={light.c} on={light.on} radius={0.018} kind="led" position={[0, 0, 0.012]} />
+  </group>)}</group>
 }
 
 /** CAD genérico de calha DIN, normalizado a partir da especificação partilhada. */
@@ -1008,9 +1017,9 @@ function Lamp3D({ c, x }: { c: ElectricalComponent; x: number }) {
     <group position={[x, RAIL_Y + 1.15, 0.12]}>
       <mesh castShadow>
         <cylinderGeometry args={[0.115, 0.115, 0.14, 24]} />
-        <meshStandardMaterial color={on ? color : '#374151'} emissive={on ? color : '#000000'} emissiveIntensity={on ? 1.6 : 0} />
+        <meshStandardMaterial color={on ? color : '#374151'} emissive={on ? color : '#000000'} emissiveIntensity={on ? 2.2 : 0} roughness={on ? 0.25 : 0.5} toneMapped={!on} />
       </mesh>
-      {on && <pointLight color={color} intensity={0.8} distance={1.6} position={[0, 0.12, 0.25]} />}
+      <GlowHalo color={color} on={on} radius={0.115} kind="lamp" position={[0, 0.02, 0.14]} />
       <Label text={c.ref} position={[0, 0.22, 0]} />
     </group>
   )
@@ -1053,7 +1062,7 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
   }, [color, model, on])
   return <group position={[x, RAIL_Y + 1.05, 0.4]}>
     <primitive object={model} />
-    {on && <pointLight color={color} intensity={0.9} distance={1.7} position={[0, 0, 0.46]} />}
+    <GlowHalo color={color} on={on} radius={0.12} kind="lamp" position={[0, 0, 0.5]} />
     <Label text={`${c.ref} · AD22`} position={[0, 0.3, 0.08]} color="#334155" />
   </group>
 }
@@ -1067,10 +1076,13 @@ function TowerLight3D({ c, x }: { c: ElectricalComponent; x: number }) {
   return (
     <group position={[x, RAIL_Y + 1.3, 0.12]}>
       {bulbs.map(([col, on], i) => (
-        <mesh key={i} position={[0, 0.22 - i * 0.2, 0]}>
-          <cylinderGeometry args={[0.12, 0.12, 0.16, 20]} />
-          <meshStandardMaterial color={on ? col : '#334155'} emissive={on ? col : '#000'} emissiveIntensity={on ? 1.4 : 0} />
-        </mesh>
+        <group key={i} position={[0, 0.22 - i * 0.2, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.12, 0.12, 0.16, 20]} />
+            <meshStandardMaterial color={on ? col : '#334155'} emissive={on ? col : '#000'} emissiveIntensity={on ? 2 : 0} toneMapped={!on} />
+          </mesh>
+          <GlowHalo color={col} on={on} radius={0.12} kind="tower" castLight={false} position={[0, 0, 0.12]} />
+        </group>
       ))}
       <Label text={c.ref} position={[0, 0.42, 0]} />
     </group>
@@ -1110,6 +1122,15 @@ function PushButton3D({ c, x, onPress }: { c: ElectricalComponent; x: number; on
   const isNC = c.type === 'buttonNC'
   const color = isEmg ? '#dc2626' : isNC ? '#ef4444' : c.type === 'buttonNO' ? '#22c55e' : '#eab308'
   const r = isEmg ? 0.17 : 0.1
+  // Curso com mola: afunda depressa, regressa com ligeiro ressalto (emergência mantém-se travada em baixo).
+  const cap = useRef<THREE.Mesh>(null)
+  const spring = useRef<SpringState>({ value: pressed ? 1 : 0, velocity: 0 })
+  useFrame((_, delta) => {
+    if (!cap.current) return
+    const latched = isEmg && pressed
+    stepSpring(spring.current, pressed || latched ? 1 : 0, delta, pressed ? 'smooth' : 'snap', pressed ? 70 : 220)
+    cap.current.position.y = -0.05 * spring.current.value
+  })
   return (
     <group position={[x, RAIL_Y + 1.05, 0.4]}>
       <mesh castShadow position={[0, -0.06, -0.05]}>
@@ -1117,12 +1138,13 @@ function PushButton3D({ c, x, onPress }: { c: ElectricalComponent; x: number; on
         <meshStandardMaterial color="#111827" />
       </mesh>
       <mesh
+        ref={cap}
         position={[0, pressed ? -0.05 : 0, 0]}
         onPointerDown={(event) => pressWhileHeld(event, () => onPress(true), () => onPress(false))}
         onPointerOut={() => pressed && onPress(false)}
       >
         <cylinderGeometry args={[r, r, 0.1, 24]} />
-        <meshStandardMaterial color={color} emissive={pressed ? color : '#000'} emissiveIntensity={pressed ? 0.6 : 0} />
+        <meshStandardMaterial color={color} emissive={pressed ? color : '#000'} emissiveIntensity={pressed ? 0.6 : 0} roughness={0.35} metalness={0.05} />
       </mesh>
       <Label text={c.ref} position={[0, 0.17, 0]} />
     </group>
@@ -1250,7 +1272,8 @@ function EnergyFlow3D({ points, cableRadius }: { points: Array<[number, number, 
   const particleRadius = Math.max(0.009, cableRadius * 0.72)
   return <group>{Array.from({ length: 6 }).map((_, index) => <mesh key={index} ref={(mesh) => { refs.current[index] = mesh }} renderOrder={25}>
     <sphereGeometry args={[particleRadius, 10, 10]} />
-    <meshBasicMaterial color="#fde047" transparent opacity={0.95} depthTest={false} />
+    <meshBasicMaterial color="#fde047" transparent opacity={0.95} depthTest={false} toneMapped={false} />
+    <GlowHalo color="#fbbf24" on radius={particleRadius * 1.6} kind="led" />
   </mesh>)}</group>
 }
 
@@ -1485,7 +1508,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
       </mesh>}
       <mesh castShadow receiveShadow renderOrder={19} raycast={() => null}>
         <tubeGeometry args={[curve, segments, radius, 12, false]} />
-        <meshStandardMaterial color={wireColor} roughness={0.52} metalness={0.03} emissive={flowing ? '#7c5b05' : '#000000'} emissiveIntensity={flowing ? 0.28 : 0} />
+        <meshPhysicalMaterial color={wireColor} roughness={0.46} metalness={0.02} clearcoat={0.4} clearcoatRoughness={0.38} emissive={flowing ? '#7c5b05' : '#000000'} emissiveIntensity={flowing ? 0.28 : 0} />
       </mesh>
       {/* Volume transparente maior: seleção fiável (clique) e curvas novas (duplo clique) sem falsificar a secção visível. */}
       <mesh userData={{ wireHit: true }}

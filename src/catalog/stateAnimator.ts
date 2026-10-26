@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { applyEasing, posedPart, resolveState } from './definition'
 import { evalWhen, type Vars } from './behavior'
 import type { ComponentDefinition, LightZoneDef, StateDef, Vec3 } from './types'
+import { GLOW_SPECS, glowFrame, glowTexture, stepGlow } from '../three/glow'
 
 const DEG = Math.PI / 180
 /** Estado sintético: a pose base das peças, sem diferenças. */
@@ -25,8 +26,11 @@ export class StateAnimator {
   private clock = 0
   private vars: Vars = {}
   private readonly ledNodes = new Map<string, THREE.Object3D[]>()
+  private readonly root: THREE.Object3D
+  private readonly halos = new Map<string, { sprite: THREE.Sprite; level: number; radius: number }>()
 
   constructor(private readonly def: ComponentDefinition, root: THREE.Object3D, stateId?: string) {
+    this.root = root
     root.traverse((node) => { if (node.name && def.parts.some((part) => part.id === node.name)) this.nodes.set(node.name, node) })
     this.target = stateId === BASE_STATE ? BASE : resolveState(def, stateId)
     this.snap()
@@ -116,7 +120,60 @@ export class StateAnimator {
       this.lightsDirty = false
       active = active || blinking
     }
+    if (this.updateHalos(deltaSeconds)) active = true
     return active
+  }
+
+  /** Estado luminoso de uma zona (estado do componente + condição `when`). */
+  private lightStatus(light: LightZoneDef) {
+    const state = this.target.lights[light.id] ?? { on: false }
+    const byVar = !!light.when && evalWhen(light.when, this.vars)
+    const selected = this.vars[`color.${light.id}`]
+    const chosen = typeof selected === 'string' && light.userPalette?.some((color) => color.toLowerCase() === selected.toLowerCase()) ? selected : light.color
+    return { on: state.on || byVar, blink: !!state.blink || (byVar && !!light.blink), color: state.on ? state.color ?? chosen : chosen }
+  }
+
+  /** Halo aditivo («brilho real») sobre cada zona luminosa, com subida/descida suaves e pisca. Devolve true enquanto muda. */
+  private updateHalos(dt: number): boolean {
+    const texture = glowTexture(THREE)
+    if (!texture) return false
+    let busy = false
+    const rootScale = Math.max(1e-6, this.root.getWorldScale(new THREE.Vector3()).x)
+    for (const light of this.def.lights) {
+      const lightNodes = this.lightNodes(light)
+      if (!lightNodes.length) continue
+      let halo = this.halos.get(light.id)
+      if (!halo) {
+        const box = new THREE.Box3()
+        for (const node of lightNodes) box.expandByObject(node)
+        if (box.isEmpty()) continue
+        const size = box.getSize(new THREE.Vector3())
+        const center = this.root.worldToLocal(box.getCenter(new THREE.Vector3()))
+        const material = new THREE.SpriteMaterial({ map: texture, color: light.color, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })
+        const sprite = new THREE.Sprite(material)
+        sprite.position.copy(center)
+        sprite.renderOrder = 40
+        sprite.visible = false
+        sprite.userData.noPick = true
+        sprite.raycast = () => undefined
+        this.root.add(sprite)
+        halo = { sprite, level: 0, radius: Math.max(size.x, size.y, size.z) / 2 / rootScale }
+        this.halos.set(light.id, halo)
+      }
+      const status = this.lightStatus(light)
+      const spec = GLOW_SPECS[light.kind === 'lamp' ? 'lamp' : 'led']
+      const previous = halo.level
+      halo.level = stepGlow(halo.level, status.on, dt, light.kind === 'lamp' ? 0.09 : 0.04, light.kind === 'lamp' ? 0.28 : 0.1)
+      const frame = glowFrame(spec, halo.level, this.clock, status.blink)
+      const material = halo.sprite.material as THREE.SpriteMaterial
+      material.color.set(status.color)
+      material.opacity = Math.min(1, frame.haloOpacity)
+      const size = Math.max(halo.radius, 1e-4) * frame.haloScale
+      halo.sprite.scale.set(size, size, 1)
+      halo.sprite.visible = frame.haloOpacity > 0.004
+      if (halo.level !== previous || (status.on && status.blink)) busy = true
+    }
+    return busy
   }
 
   /** Variáveis do componente: as zonas com condição (`when`) acendem/apagam em função delas. */
@@ -155,7 +212,8 @@ export class StateAnimator {
         for (const item of list as THREE.MeshStandardMaterial[]) {
           if (!item.isMeshStandardMaterial) continue
           if (light.tintMaterial && light.userPalette?.length) item.color.set(chosenColor)
-          if (isOn) { item.emissive.set(state.on ? state.color ?? chosenColor : chosenColor); item.emissiveIntensity = (state.on ? state.intensity ?? light.intensity : light.intensity) * pulse }
+          item.toneMapped = !isOn
+          if (isOn) { item.emissive.set(state.on ? state.color ?? chosenColor : chosenColor); item.emissiveIntensity = Math.max(1.6, state.on ? state.intensity ?? light.intensity : light.intensity) * pulse }
           else { item.emissive.set(light.nodes?.length ? '#000000' : material?.emissive ?? '#000000'); item.emissiveIntensity = light.nodes?.length ? 0 : material?.emissiveIntensity ?? 0 }
         }
       }
