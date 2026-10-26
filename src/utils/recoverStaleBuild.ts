@@ -50,7 +50,7 @@ export function installStaleBuildRecovery(): void {
   const check = (message: unknown) => { const text = String(message ?? ''); if (STALE.test(text)) void recoverStaleBuild(text) }
   // Vite avisa quando um chunk pré-carregado falha.
   window.addEventListener('vite:preloadError', (event) => {
-    const viteEvent = event as CustomEvent<{ message?: string; payload?: { message?: string } }> & { payload?: { message?: string } }
+    const viteEvent = event as unknown as CustomEvent<{ message?: string; payload?: { message?: string } }> & { payload?: { message?: string } }
     const message = viteEvent.detail?.message ?? viteEvent.detail?.payload?.message ?? viteEvent.payload?.message ?? 'Failed to fetch dynamically imported module'
     if (STALE.test(String(message))) event.preventDefault()
     check(message)
