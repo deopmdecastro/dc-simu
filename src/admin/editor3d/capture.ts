@@ -1,3 +1,4 @@
+import { boundsWithoutGlow } from '../../three/glow'
 import * as THREE from 'three'
 
 /**
@@ -106,7 +107,7 @@ function frameCamera(box: THREE.Box3, view: CaptureView, aspect: number): THREE.
 export function renderCapture(renderer: THREE.WebGLRenderer, root: THREE.Object3D, options: CaptureOptions): string | null {
   const { width, height } = options
   root.updateMatrixWorld(true)
-  const box = new THREE.Box3().setFromObject(root, true)
+  const box = boundsWithoutGlow(root, true)
   if (box.isEmpty()) return null
 
   const parent = root.parent

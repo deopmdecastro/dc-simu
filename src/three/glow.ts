@@ -4,6 +4,8 @@
  * (o ecrã não tem «bloom»), sem dependências extra nem luzes dinâmicas adicionais.
  */
 
+import * as THREE from 'three'
+
 export type GlowKind = 'led' | 'lamp' | 'tower'
 
 export interface GlowSpec {
@@ -59,8 +61,8 @@ export function glowFrame(spec: GlowSpec, level: number, timeSeconds: number, bl
 
 let cached: unknown = null
 /** Textura radial (centro quente → bordo transparente), partilhada por todos os halos. */
-export function glowTexture(THREE: typeof import('three')): import('three').Texture | null {
-  if (cached) return cached as import('three').Texture
+export function glowTexture(lib: typeof THREE = THREE): THREE.Texture | null {
+  if (cached) return cached as THREE.Texture
   if (typeof document === 'undefined') return null
   const size = 128
   const canvas = document.createElement('canvas')
@@ -75,8 +77,23 @@ export function glowTexture(THREE: typeof import('three')): import('three').Text
   gradient.addColorStop(1, 'rgba(255,255,255,0)')
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, size, size)
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
+  const texture = new lib.CanvasTexture(canvas)
+  texture.colorSpace = lib.SRGBColorSpace
   cached = texture
   return texture
+}
+
+/** Marca de um halo na árvore de objetos (excluído de caixas envolventes, enquadramentos e capturas). */
+export const GLOW_HALO_FLAG = 'glowHalo'
+
+/**
+ * Caixa envolvente sem os halos: um sprite aceso é bem maior que o LED e falsearia o enquadramento
+ * do editor, as capturas e o plano de desenho de cabos. Retira os halos durante o cálculo e repõe-nos.
+ */
+export function boundsWithoutGlow(root: THREE.Object3D, precise = true): THREE.Box3 {
+  const halos: Array<{ node: THREE.Object3D; parent: THREE.Object3D }> = []
+  root.traverse((node) => { if (node.userData?.[GLOW_HALO_FLAG] && node.parent) halos.push({ node, parent: node.parent }) })
+  for (const { node, parent } of halos) parent.remove(node)
+  try { return new THREE.Box3().setFromObject(root, precise) }
+  finally { for (const { node, parent } of halos) parent.add(node) }
 }

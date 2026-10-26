@@ -1,3 +1,4 @@
+import { boundsWithoutGlow } from '../../three/glow'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Html, OrbitControls, TransformControls, useCursor } from '@react-three/drei'
@@ -196,7 +197,7 @@ function Scene() {
   // por isso componentes pequenos (bornes) e grandes (quadros) ficam igualmente centrados e com a mesma navegação
   const modelBox = () => {
     root.updateMatrixWorld(true)
-    const box = new THREE.Box3().setFromObject(root, true)
+    const box = boundsWithoutGlow(root, true)
     if (box.isEmpty()) box.set(new THREE.Vector3(-30, 0, -30), new THREE.Vector3(30, 60, 30))
     return box
   }
@@ -577,7 +578,7 @@ function NodeHighlights({ root }: { root: THREE.Object3D }) {
 }
 
 function BoundsBox({ root }: { root: THREE.Object3D }) {
-  const box = useMemo(() => new THREE.Box3Helper(new THREE.Box3().setFromObject(root), '#f59e0b'), [root])
+  const box = useMemo(() => new THREE.Box3Helper(boundsWithoutGlow(root, false), '#f59e0b'), [root])
   return <primitive object={box} />
 }
 

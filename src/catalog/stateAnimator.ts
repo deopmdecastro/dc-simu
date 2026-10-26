@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { applyEasing, posedPart, resolveState } from './definition'
 import { evalWhen, type Vars } from './behavior'
 import type { ComponentDefinition, LightZoneDef, StateDef, Vec3 } from './types'
-import { GLOW_SPECS, glowFrame, glowTexture, stepGlow } from '../three/glow'
+import { GLOW_HALO_FLAG, GLOW_SPECS, glowFrame, glowTexture, stepGlow } from '../three/glow'
 
 const DEG = Math.PI / 180
 /** Estado sintético: a pose base das peças, sem diferenças. */
@@ -155,6 +155,7 @@ export class StateAnimator {
         sprite.renderOrder = 40
         sprite.visible = false
         sprite.userData.noPick = true
+        sprite.userData[GLOW_HALO_FLAG] = true
         sprite.raycast = () => undefined
         this.root.add(sprite)
         halo = { sprite, level: 0, radius: Math.max(size.x, size.y, size.z) / 2 / rootScale }

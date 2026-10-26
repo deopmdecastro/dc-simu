@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { GLOW_SPECS, blinkFactor, glowFrame, stepGlow } from '../src/three/glow'
+import * as THREE from 'three'
+import { GLOW_HALO_FLAG, GLOW_SPECS, blinkFactor, boundsWithoutGlow, glowFrame, stepGlow } from '../src/three/glow'
 
 let checks = 0
 const ok = (cond: unknown, msg: string) => { assert.ok(cond, msg); checks += 1 }
@@ -32,4 +33,15 @@ ok(on.haloOpacity > 0.8 && on.emissive >= 2 && on.light > 0, 'aceso: halo, emiss
 ok(glowFrame(GLOW_SPECS.led, 1, 1, false).light === 0, 'LED pequeno não projeta luz dinâmica')
 ok(glowFrame(lamp, 1, 0.1, true).haloOpacity > glowFrame(lamp, 1, 0.6, true).haloOpacity * 5, 'pisca altera o halo')
 ok(glowFrame(lamp, 0.5, 1, false).emissive < on.emissive, 'meio brilho < brilho total')
+// o halo não entra na caixa envolvente e é reposto no sítio
+const root = new THREE.Group()
+root.add(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10)))
+const halo = new THREE.Sprite(new THREE.SpriteMaterial())
+halo.userData[GLOW_HALO_FLAG] = true
+halo.scale.set(80, 80, 1)
+root.add(halo)
+root.updateMatrixWorld(true)
+ok(new THREE.Box3().setFromObject(root, true).getSize(new THREE.Vector3()).x > 50, 'sem filtro o halo inflaciona a caixa')
+ok(boundsWithoutGlow(root, true).getSize(new THREE.Vector3()).x <= 10.001, 'com filtro a caixa é só a do modelo')
+ok(halo.parent === root, 'halo reposto após o cálculo')
 console.log(`${checks} verificações de brilho passaram.`)

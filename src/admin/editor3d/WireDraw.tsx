@@ -1,3 +1,4 @@
+import { boundsWithoutGlow } from '../../three/glow'
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
@@ -72,7 +73,7 @@ export function WireDrawController({ active, root }: { active: boolean; root: TH
       const last = state.wirePoints[state.wirePoints.length - 1]
         ?? (state.wireFrom ? state.def.terminals.find((item) => item.id === state.wireFrom)?.position : undefined)
         ?? state.wireStart ?? undefined
-      const box = new THREE.Box3().setFromObject(rootRef.current)
+      const box = boundsWithoutGlow(rootRef.current, false)
       const anchor = new THREE.Vector3(...(last ?? (box.isEmpty() ? [0, 0, 0] as Vec3 : box.getCenter(new THREE.Vector3()).toArray() as Vec3)))
       const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()), anchor)
       const point = raycaster.ray.intersectPlane(plane, new THREE.Vector3()) ?? anchor
