@@ -1,4 +1,6 @@
 import type { CatalogMeta, ComponentDefinition } from '../../catalog/types'
+import { varDefsOf } from '../../catalog/behavior'
+import { isHexColor } from '../../catalog/lightLook'
 
 export interface Issue { level: 'error' | 'warn'; text: string }
 
@@ -44,6 +46,13 @@ export function validateDefinition(def: ComponentDefinition, meta: CatalogMeta):
   const materialIds = new Set(def.materials.map((m) => m.id))
   def.parts.forEach((part) => { if (part.materialId && !materialIds.has(part.materialId)) issues.push({ level: 'warn', text: `A peça «${part.name}» usa um material que já não existe.` }) })
   def.lights.forEach((light) => { if (!partIds.has(light.partId)) issues.push({ level: 'error', text: `A zona luminosa «${light.name}» aponta para uma peça inexistente.` }) })
+  const knownVars = new Set(varDefsOf(def).map((item) => item.id))
+  def.lights.forEach((light) => {
+    for (const rule of light.colorRules ?? []) {
+      if (!isHexColor(rule.color)) issues.push({ level: 'error', text: `A zona luminosa «${light.name}» tem uma regra com cor inválida («${rule.color}»).` })
+      if (!rule.when?.var || (!knownVars.has(rule.when.var) && !rule.when.var.startsWith('$'))) issues.push({ level: 'warn', text: `A zona luminosa «${light.name}» tem uma regra que depende de uma variável inexistente («${rule.when?.var ?? ''}»).` })
+    }
+  })
   const stateIds = new Set(def.states.map((state) => state.id))
   def.interactions.forEach((item) => {
     if (item.partId && !partIds.has(item.partId)) issues.push({ level: 'error', text: `A interação «${item.name}» aponta para uma peça inexistente.` })

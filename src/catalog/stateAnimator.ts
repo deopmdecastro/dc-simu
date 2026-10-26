@@ -3,6 +3,7 @@ import { applyEasing, posedPart, resolveState } from './definition'
 import { evalWhen, type Vars } from './behavior'
 import type { ComponentDefinition, LightZoneDef, StateDef, Vec3 } from './types'
 import { GLOW_HALO_FLAG, GLOW_SPECS, glowFrame, glowTexture, stepGlow } from '../three/glow'
+import { chosenColor as chosenColorOf, glowSettings, resolveLightLook } from './lightLook'
 
 const DEG = Math.PI / 180
 /** Estado sintético: a pose base das peças, sem diferenças. */
@@ -114,7 +115,7 @@ export class StateAnimator {
       this.apply(applyEasing(this.target.easing, this.progress))
       active = true
     }
-    const blinking = this.def.lights.some((light) => (this.target.lights[light.id]?.blink && this.target.lights[light.id]?.on) || (light.blink && !!light.when && evalWhen(light.when, this.vars)))
+    const blinking = this.def.lights.some((light) => resolveLightLook(light, this.target.lights[light.id], this.vars).on && resolveLightLook(light, this.target.lights[light.id], this.vars).blink)
     if (this.lightsDirty || blinking) {
       this.updateLights()
       this.lightsDirty = false
@@ -126,11 +127,7 @@ export class StateAnimator {
 
   /** Estado luminoso de uma zona (estado do componente + condição `when`). */
   private lightStatus(light: LightZoneDef) {
-    const state = this.target.lights[light.id] ?? { on: false }
-    const byVar = !!light.when && evalWhen(light.when, this.vars)
-    const selected = this.vars[`color.${light.id}`]
-    const chosen = typeof selected === 'string' && light.userPalette?.some((color) => color.toLowerCase() === selected.toLowerCase()) ? selected : light.color
-    return { on: state.on || byVar, blink: !!state.blink || (byVar && !!light.blink), color: state.on ? state.color ?? chosen : chosen }
+    return resolveLightLook(light, this.target.lights[light.id], this.vars)
   }
 
   /** Halo aditivo («brilho real») sobre cada zona luminosa, com subida/descida suaves e pisca. Devolve true enquanto muda. */
@@ -162,14 +159,15 @@ export class StateAnimator {
         this.halos.set(light.id, halo)
       }
       const status = this.lightStatus(light)
+      const settings = glowSettings(light)
       const spec = GLOW_SPECS[light.kind === 'lamp' ? 'lamp' : 'led']
       const previous = halo.level
-      halo.level = stepGlow(halo.level, status.on, dt, light.kind === 'lamp' ? 0.09 : 0.04, light.kind === 'lamp' ? 0.28 : 0.1)
+      halo.level = stepGlow(halo.level, status.on && settings.enabled, dt, settings.riseMs / 1000, settings.fallMs / 1000)
       const frame = glowFrame(spec, halo.level, this.clock, status.blink)
       const material = halo.sprite.material as THREE.SpriteMaterial
       material.color.set(status.color)
       material.opacity = Math.min(1, frame.haloOpacity)
-      const size = Math.max(halo.radius, 1e-4) * frame.haloScale
+      const size = Math.max(halo.radius, 1e-4) * frame.haloScale * settings.size
       halo.sprite.scale.set(size, size, 1)
       halo.sprite.visible = frame.haloOpacity > 0.004
       if (halo.level !== previous || (status.on && status.blink)) busy = true
@@ -199,22 +197,19 @@ export class StateAnimator {
     for (const light of this.def.lights) {
       const lightNodes = this.lightNodes(light)
       if (!lightNodes.length) continue
-      const state = this.target.lights[light.id] ?? { on: false }
-      const byVar = !!light.when && evalWhen(light.when, this.vars)
-      const isOn = state.on || byVar
-      const blinks = !!state.blink || (byVar && !!light.blink)
+      const look = this.lightStatus(light)
+      const isOn = look.on
       const part = this.def.parts.find((item) => item.id === light.partId)
       const material = this.def.materials.find((item) => item.id === (this.materialOf.get(light.partId) ?? part?.materialId))
-      const pulse = blinks ? (Math.sin(this.clock * 6) > 0 ? 1 : 0.1) : 1
-      const selected = this.vars[`color.${light.id}`]
-      const chosenColor = typeof selected === 'string' && light.userPalette?.some((color) => color.toLowerCase() === selected.toLowerCase()) ? selected : light.color
+      const pulse = look.blink ? (Math.sin(this.clock * 6) > 0 ? 1 : 0.1) : 1
+      const chosenColor = chosenColorOf(light, this.vars)
       for (const mesh of lightNodes.flatMap((node) => this.meshesOf(node))) {
         const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
         for (const item of list as THREE.MeshStandardMaterial[]) {
           if (!item.isMeshStandardMaterial) continue
           if (light.tintMaterial && light.userPalette?.length) item.color.set(chosenColor)
           item.toneMapped = !isOn
-          if (isOn) { item.emissive.set(state.on ? state.color ?? chosenColor : chosenColor); item.emissiveIntensity = Math.max(1.6, state.on ? state.intensity ?? light.intensity : light.intensity) * pulse }
+          if (isOn) { item.emissive.set(look.color); item.emissiveIntensity = Math.max(1.6, look.intensity) * pulse }
           else { item.emissive.set(light.nodes?.length ? '#000000' : material?.emissive ?? '#000000'); item.emissiveIntensity = light.nodes?.length ? 0 : material?.emissiveIntensity ?? 0 }
         }
       }

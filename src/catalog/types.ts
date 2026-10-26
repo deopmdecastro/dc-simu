@@ -108,6 +108,24 @@ export interface LightZoneDef {
   /** A zona acende quando a condição se verifica (além do que o estado definir). */
   when?: WhenDef
   blink?: boolean
+  /**
+   * Várias cores para a mesma luz: a primeira regra cuja condição se verifica acende a luz com a sua cor
+   * (e pisca, se definido). Ex.: verde em RUN, âmbar em STOP, vermelho em ERROR, na mesma lente.
+   */
+  colorRules?: LightColorRule[]
+  /** Brilho (halo) e luz projetada. Omisso = halo ligado, tamanho 1, tempos do tipo (LED rápido, lâmpada lenta). */
+  glow?: LightGlowDef
+}
+
+export interface LightColorRule { id: string; when: WhenDef; color: string; blink?: boolean }
+
+export interface LightGlowDef {
+  enabled?: boolean
+  /** Multiplicador do tamanho do halo (0,2–3). */
+  size?: number
+  /** Tempo de subida e de descida do brilho (ms). */
+  riseMs?: number
+  fallMs?: number
 }
 
 export interface StateOverride {
@@ -230,6 +248,9 @@ export interface DisplayDef {
   /** Variável que liga/desliga o ecrã (vazio = sempre ligado) e a que acende a retroiluminação. */
   powerVar?: string
   backlightVar?: string
+  /** Cor e força (0–1) da retroiluminação acesa. Omisso = verde-menta a 50 %. */
+  backlightColor?: string
+  backlightStrength?: number
   /** Nós do GLB (da peça `hideNodesPart`) escondidos porque este ecrã os substitui (ex.: dígitos pintados no modelo). */
   hideNodesPart?: string
   hideNodes?: string[]

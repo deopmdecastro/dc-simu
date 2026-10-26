@@ -1,7 +1,9 @@
 import { uiAlert } from '../../ui/dialogs'
 import { useMemo, useRef, useState } from 'react'
 import { newId, resolveState } from '../../catalog/definition'
-import type { ActionDef, InteractionDef, LightZoneDef, StateDef, TerminalDef, TriggerName, Vec3 } from '../../catalog/types'
+import type { ActionDef, InteractionDef, LightColorRule, LightZoneDef, StateDef, TerminalDef, TriggerName, Vec3 } from '../../catalog/types'
+import { varDefsOf } from '../../catalog/behavior'
+import { glowSettings, lightColors } from '../../catalog/lightLook'
 import type { ComponentCategory } from '../../types'
 import { BASE_STATE, newTerminal, patchTerminal, useEditorStore } from './editorStore'
 import { validateDefinition } from './validate'
@@ -168,6 +170,45 @@ export function TerminalsTab() {
 
 const USER_COLOR_PALETTE = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ffffff', '#111827']
 
+type ComponentDefLike = Parameters<typeof varDefsOf>[0]
+type LightPatch = (value: Partial<LightZoneDef>, key: string) => void
+
+/** Várias cores para a mesma luz: a primeira regra cuja condição se verifica manda. */
+function LightColorRules({ def, light, patch }: { def: ComponentDefLike; light: LightZoneDef; patch: LightPatch }) {
+  const rules = light.colorRules ?? []
+  const setRule = (id: string, value: Partial<LightColorRule>, key: string) => patch({ colorRules: rules.map((rule) => (rule.id === id ? { ...rule, ...value } : rule)) }, `rule:${id}:${key}`)
+  const vars = varDefsOf(def)
+  const palette = lightColors(light)
+  return <Section title="Cores por condição" open={rules.length > 0} actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={!vars.length}
+    onClick={() => patch({ colorRules: [...rules, { id: newId('r_'), when: { var: vars[0].id, op: 'eq', value: true }, color: '#22c55e' }] }, 'rule-add')}>+ Cor</button>}>
+    <p className="ce-hint">A mesma luz pode mostrar várias cores: a 1.ª condição verdadeira decide. Cores definidas num estado têm prioridade; sem regra verdadeira vale «Acende quando».{!vars.length ? ' Crie variáveis para usar regras.' : ''}</p>
+    {palette.length > 1 && <span className="ce-actions-inline" aria-label="Cores desta luz">{palette.map((color) => <i key={color} title={color} style={{ width: 16, height: 16, borderRadius: 999, background: color, border: '1px solid #94a3b8', display: 'inline-block' }} />)}</span>}
+    {rules.map((rule, index) => <div key={rule.id} className="ce-action-card">
+      <div className="ce-action-head"><b>Regra {index + 1}</b>
+        <button className="ce-linkbtn" aria-label="Subir regra" disabled={index === 0} onClick={() => patch({ colorRules: rules.map((item, i) => (i === index - 1 ? rules[index] : i === index ? rules[index - 1] : item)) }, 'rule-up')}>↑</button>
+        <button className="ce-linkbtn" aria-label="Remover regra" onClick={() => patch({ colorRules: rules.filter((item) => item.id !== rule.id) }, 'rule-del')}><IconClose size={12} /></button></div>
+      {whenFields(def, rule.when, (when) => when && setRule(rule.id, { when }, 'when'))}
+      <Field label="Cor"><Color value={rule.color} onChange={(color) => setRule(rule.id, { color }, 'color')} /></Field>
+      <Check checked={!!rule.blink} label="Pisca nesta cor" onChange={(blink) => setRule(rule.id, { blink }, 'blink')} />
+    </div>)}
+  </Section>
+}
+
+/** Brilho (halo) e tempos de subida/descida: o que o utilizador vê na simulação 3D. */
+function LightGlowFields({ light, patch }: { light: LightZoneDef; patch: LightPatch }) {
+  const glow = glowSettings(light)
+  const set = (value: Partial<NonNullable<LightZoneDef['glow']>>, key: string) => patch({ glow: { ...light.glow, ...value } }, `glow:${key}`)
+  return <Section title="Brilho" open={!!light.glow}>
+    <Check checked={glow.enabled} label="Halo luminoso quando acesa" onChange={(enabled) => set({ enabled }, 'on')} />
+    {glow.enabled && <>
+      <Field label="Tamanho do halo" hint="1 = predefinição do tipo."><Slider value={glow.size} min={0.2} max={3} step={0.05} onChange={(size) => set({ size }, 'size')} /></Field>
+      <Field label="Acender em"><Num value={glow.riseMs} min={0} max={3000} step={10} unit="ms" onChange={(riseMs) => set({ riseMs }, 'rise')} /></Field>
+      <Field label="Apagar em" hint="Lâmpadas demoram mais a apagar que LEDs."><Num value={glow.fallMs} min={0} max={5000} step={10} unit="ms" onChange={(fallMs) => set({ fallMs }, 'fall')} /></Field>
+    </>}
+    {light.glow && <button type="button" className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => patch({ glow: undefined }, 'glow-reset')}>Repor predefinição</button>}
+  </Section>
+}
+
 export function LightsTab() {
   const def = useEditorStore((s) => s.def)
   const mode = useEditorStore((s) => s.mode)
@@ -216,14 +257,16 @@ export function LightsTab() {
       <NodePicker partId={light.partId} nodes={light.nodes} pickKind="light" id={light.id} onChange={(nodes) => patch({ nodes: nodes.length ? nodes : undefined }, 'nodes')} />
       <Field label="Cor"><Color value={light.color} onChange={(color) => patch({ color }, 'color')} /></Field>
       <Check checked={!!light.userPalette?.length} label="Utilizador pode escolher a cor desta zona" onChange={(enabled) => patch({ userPalette: enabled ? (light.userPalette?.length ? light.userPalette : USER_COLOR_PALETTE.slice(0, 7)) : undefined, tintMaterial: enabled || light.tintMaterial }, 'userPalette')} />
-      {!!light.userPalette?.length && <Field label="Paleta do utilizador" hint="Clique para permitir ou remover uma cor."><span className="ce-actions-inline">{USER_COLOR_PALETTE.map((color) => {
+      {!!light.userPalette?.length && <Field label="Paleta do utilizador" hint="Clique para permitir ou remover uma cor. Use «+ cor» para juntar qualquer cor."><span className="ce-actions-inline">{[...USER_COLOR_PALETTE, ...light.userPalette.filter((color) => !USER_COLOR_PALETTE.includes(color))].map((color) => {
         const active = light.userPalette!.includes(color)
         return <button key={color} type="button" aria-pressed={active} title={active ? 'Remover cor' : 'Permitir cor'} onClick={() => patch({ userPalette: active ? light.userPalette!.filter((item) => item !== color) : [...light.userPalette!, color] }, 'palette')} style={{ width: 24, height: 24, borderRadius: 999, background: color, border: active ? '3px solid #2563eb' : '1px solid #94a3b8' }} />
-      })}</span></Field>}
+      })}<label className="dx-btn dx-btn-secondary dx-btn-sm" style={{ cursor: 'pointer' }}>+ cor<input type="color" aria-label="Juntar cor à paleta" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} onChange={(event) => { const color = event.target.value; if (!light.userPalette!.some((item) => item.toLowerCase() === color.toLowerCase())) patch({ userPalette: [...light.userPalette!, color] }, 'palette-add') }} /></label></span></Field>}
       {!!light.userPalette?.length && <Check checked={light.tintMaterial !== false} label="Pintar botão/lente e a luz emitida" onChange={(tintMaterial) => patch({ tintMaterial }, 'tint')} />}
       <Field label="Intensidade"><Slider value={light.intensity} max={6} step={0.1} onChange={(intensity) => patch({ intensity }, 'int')} /></Field>
       {whenFields(def, light.when, (when) => patch({ when }, 'when'))}
       <Check checked={!!light.blink} label="Pisca quando acende por variável" onChange={(blink) => patch({ blink }, 'blink')} />
+      <LightColorRules def={def} light={light} patch={patch} />
+      <LightGlowFields light={light} patch={patch} />
       {mode === 'simulate' && light.when?.var && <div className="ce-actions"><button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => set({ previewVars: { ...previewVars, [light.when!.var]: !previewVars[light.when!.var] } })}>{previewVars[light.when.var] ? 'Apagar no teste' : 'Acender no teste'}</button></div>}
       {mode === 'simulate' && !light.when?.var && <p className="ce-hint">Esta luz não tem condição: permanece acesa na simulação.</p>}
       <Confirm label="Eliminar zona" className="dx-btn dx-btn-danger dx-btn-sm" onConfirm={() => { edit((state) => ({ ...state, lights: state.lights.filter((item) => item.id !== light.id), states: state.states.map((s) => ({ ...s, lights: Object.fromEntries(Object.entries(s.lights).filter(([id]) => id !== light.id)) })) })); set({ selection: null }) }} />
@@ -272,6 +315,11 @@ export function StatesTab() {
           return <div key={light.id} className="ce-lightrow">
             <Check checked={value.on} label={light.name} onChange={(on) => setLight({ on })} />
             <Check checked={!!value.blink} label="Pisca" onChange={(blink) => setLight({ blink })} />
+            {value.on && <>
+              <Field label="Cor neste estado" hint="Vazio = cor da zona."><span className="ce-inline"><Color value={value.color ?? light.color} onChange={(color) => setLight({ color })} />
+                {value.color && <button type="button" className="ce-linkbtn" aria-label="Usar a cor da zona" onClick={() => setLight({ color: undefined })}><IconClose size={12} /></button>}</span></Field>
+              <Field label="Intensidade neste estado"><Slider value={value.intensity ?? light.intensity} max={6} step={0.1} onChange={(intensity) => setLight({ intensity })} /></Field>
+            </>}
           </div>
         })}
       </Section>

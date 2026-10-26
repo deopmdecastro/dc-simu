@@ -122,7 +122,9 @@ export function drawDisplay(canvas: HTMLCanvasElement, display: DisplayDef, vars
   if (!ctx) return
   const powered = !display.powerVar || Boolean(vars[display.powerVar]) || (display.kind === 'lcd' && display.powerVar === undefined)
   const backlit = display.backlightVar ? Boolean(vars[display.backlightVar]) : Boolean(reading?.backlight)
-  const bg = backlit ? mix(display.background, '#9cf0b4', 0.5) : display.background
+  const backlightColor = /^#[0-9a-f]{6}$/i.test(display.backlightColor ?? '') ? display.backlightColor! : '#9cf0b4'
+  const backlightStrength = Math.min(1, Math.max(0, Number.isFinite(display.backlightStrength) ? display.backlightStrength! : 0.5))
+  const bg = backlit ? mix(display.background, backlightColor, backlightStrength) : display.background
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.fillStyle = powered || display.kind === 'lcd' ? bg : mix(bg, '#000000', 0.7)
   ctx.fillRect(0, 0, canvas.width, canvas.height)

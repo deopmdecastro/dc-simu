@@ -11,7 +11,7 @@ import { applyMultimeterPreset, breakerAxesOf, detectHandleNodes, guessBehavior,
 import { tiltControlPatch } from '../../catalog/controlMotion'
 import { BreakerAutomation, MotionFields } from './MotionPanel'
 import { defBounds } from './terminalOps'
-import { Check, Color, Confirm, Empty, Field, Group, Num, PresetCard, Section, Select, Text, Vec3Input } from './ui'
+import { Check, Color, Confirm, Empty, Field, Group, Num, PresetCard, Section, Select, Slider, Text, Vec3Input } from './ui'
 
 const AXES: Array<[string, string, Vec3]> = [
   ['z+', 'Frente (+Z)', [0, 0, 1]], ['z-', 'Trás (−Z)', [0, 0, -1]], ['x+', 'Direita (+X)', [1, 0, 0]], ['x-', 'Esquerda (−X)', [-1, 0, 0]], ['y+', 'Topo (+Y)', [0, 1, 0]], ['y-', 'Base (−Y)', [0, -1, 0]],
@@ -327,6 +327,8 @@ export function DisplaysTab() {
         {display.kind === 'text' && <>
           <Field label="Ligado quando" hint="Se escolher uma variável, o ecrã só mostra conteúdo quando ela for verdadeira."><Select value={display.powerVar ?? ''} onChange={(powerVar) => patch({ powerVar: powerVar || undefined })} options={varOptions} /></Field>
           <Field label="Retroiluminação"><Select value={display.backlightVar ?? ''} onChange={(backlightVar) => patch({ backlightVar: backlightVar || undefined })} options={varOptions} /></Field>
+          <Field label="Cor da retroiluminação"><Color value={display.backlightColor ?? '#9cf0b4'} onChange={(backlightColor) => patch({ backlightColor }, 'blc')} /></Field>
+          <Field label="Força da retroiluminação" hint="Quanto a cor mistura com o fundo quando acesa."><Slider value={display.backlightStrength ?? 0.5} min={0} max={1} step={0.05} onChange={(backlightStrength) => patch({ backlightStrength }, 'bls')} /></Field>
         </>}
         {!!display.hideNodes?.length && <Field label="Objetos escondidos" hint="Texto/dígitos pintados no modelo que este ecrã substitui."><span className="ce-inline"><code>{display.hideNodes.length}</code><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => patch({ hideNodes: [] })}>Mostrar de novo</button></span></Field>}
       </Section>

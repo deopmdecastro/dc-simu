@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
+import { glowSettings, lightColors, resolveLightLook } from '../src/catalog/lightLook'
+import type { LightZoneDef } from '../src/catalog/types'
 import { GLOW_HALO_FLAG, GLOW_SPECS, blinkFactor, boundsWithoutGlow, glowFrame, stepGlow } from '../src/three/glow'
 
 let checks = 0
@@ -44,4 +46,35 @@ root.updateMatrixWorld(true)
 ok(new THREE.Box3().setFromObject(root, true).getSize(new THREE.Vector3()).x > 50, 'sem filtro o halo inflaciona a caixa')
 ok(boundsWithoutGlow(root, true).getSize(new THREE.Vector3()).x <= 10.001, 'com filtro a caixa é só a do modelo')
 ok(halo.parent === root, 'halo reposto após o cálculo')
+// --- uma luz, várias cores
+const lamp1: LightZoneDef = {
+  id: 'l1', name: 'Estado', partId: 'p', color: '#ffffff', intensity: 2, kind: 'lamp',
+  colorRules: [
+    { id: 'r1', when: { var: 'error', op: 'eq', value: true }, color: '#ef4444', blink: true },
+    { id: 'r2', when: { var: 'run', op: 'eq', value: true }, color: '#22c55e' },
+    { id: 'r3', when: { var: 'mode', op: 'eq', value: 'stop' }, color: '#f59e0b' },
+  ],
+}
+ok(!resolveLightLook(lamp1, undefined, {}).on, 'sem regra verdadeira fica apagada')
+const green = resolveLightLook(lamp1, undefined, { run: true })
+ok(green.on && green.color === '#22c55e' && !green.blink, 'regra RUN: verde fixo')
+const red = resolveLightLook(lamp1, undefined, { run: true, error: true })
+ok(red.color === '#ef4444' && red.blink && red.rule === 'r1', 'a 1.ª regra verdadeira ganha e pode piscar')
+ok(resolveLightLook(lamp1, undefined, { mode: 'stop' }).color === '#f59e0b', 'regra com valor de texto')
+const byState = resolveLightLook(lamp1, { on: true, color: '#3b82f6', intensity: 4 }, { run: true })
+ok(byState.color === '#3b82f6' && byState.intensity === 4, 'a cor do estado tem prioridade sobre as regras')
+ok(resolveLightLook(lamp1, { on: true, color: 'azul' }, {}).color === '#ffffff', 'cor de estado inválida usa a cor base')
+ok(resolveLightLook({ ...lamp1, colorRules: [{ id: 'x', when: { var: 'run' }, color: 'nope' }] }, undefined, { run: true }).color === '#ffffff', 'regra com cor inválida usa a cor base')
+const simple: LightZoneDef = { id: 'l2', name: 'S', partId: 'p', color: '#22c55e', intensity: 2, when: { var: 'hold', op: 'eq', value: true }, blink: true }
+ok(resolveLightLook(simple, undefined, { hold: true }).blink, 'condição simples mantém o pisca')
+const pal: LightZoneDef = { ...simple, userPalette: ['#ef4444', '#3b82f6'] }
+ok(resolveLightLook(pal, undefined, { hold: true, 'color.l2': '#3b82f6' }).color === '#3b82f6', 'cor escolhida pelo utilizador')
+ok(resolveLightLook(pal, undefined, { hold: true, 'color.l2': '#000001' }).color === '#22c55e', 'cor fora da paleta é ignorada')
+ok(lightColors(lamp1).length === 4, 'lista as 4 cores distintas da luz')
+
+// --- brilho configurável
+const defaults = glowSettings({ kind: 'led' })
+ok(defaults.enabled && defaults.size === 1 && defaults.riseMs < glowSettings({ kind: 'lamp' }).riseMs, 'predefinições: LED mais rápido que lâmpada')
+const custom = glowSettings({ kind: 'lamp', glow: { enabled: false, size: 99, riseMs: -5, fallMs: Number.NaN } })
+ok(!custom.enabled && custom.size === 3 && custom.riseMs === 0 && custom.fallMs === 280, 'valores fora de limites são corrigidos')
 console.log(`${checks} verificações de brilho passaram.`)
