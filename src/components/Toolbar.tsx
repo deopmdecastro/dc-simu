@@ -1,5 +1,5 @@
 import { uiConfirm } from '../ui/dialogs'
-import { Kbd, TbButton, HistoryGroup, ViewControls, type ViewControlsProps } from '../ui/toolbarKit'
+import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestShortcuts, useSimUi } from '../ui/simUi'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { VIEW_SHORTCUTS } from '../ui/shortcutLists'
@@ -374,13 +374,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         {(mode === 'schematic' || mode === 'ladder') && (
           <>
             <span className="tb-sep" />
-            <button type="button" className={`dc-tool-btn grafcet-sim-tool dc-sim-tool !gap-1.5 ${simPanelOn ? 'is-on' : ''}`} aria-pressed={simPanelOn} aria-label="Simulação" data-sim-toggle={mode}
-              onClick={() => useSimUi.getState().toggleSimPanel(mode)}
+            <SimToggleButton on={simPanelOn} scope={mode} onClick={() => useSimUi.getState().toggleSimPanel(mode)}
               title={mode === 'ladder'
                 ? (simPanelOn ? 'Fechar a simulação (E/S, sinais do PLC, memórias, compilação)' : 'Abrir a simulação: pode acionar entradas e dispositivos; Run inicia a execução contínua')
-                : (simPanelOn ? 'Fechar o modo de simulação' : 'Simular: acionar dispositivos e entradas; Run inicia a execução contínua')}>
-              <IconPlay size={12} /><span>Simulação</span>
-            </button>
+                : (simPanelOn ? 'Fechar o modo de simulação' : 'Simular: acionar dispositivos e entradas; Run inicia a execução contínua')} />
             {mode === 'ladder' && (
               <button type="button" className={`dc-tool-btn ladder-compile-tb !gap-1.5 ${compileState === 'none' ? '' : `is-${compileState === 'warning' ? 'ok' : compileState}`}`} data-compile data-compile-state={compileState}
                 onClick={() => useLadderUi.getState().emit('compile')}
@@ -411,7 +408,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           <>
             <span className="tb-sep" />
             <button type="button" className={`dc-tool-btn grafcet-palette-tool !gap-1.5 ${grafcetPalette ? 'is-on' : ''}`} aria-pressed={grafcetPalette} aria-label="Componentes" onClick={() => useGrafcetUi.getState().emit('togglePalette')} title="Mostrar/ocultar os componentes (Ctrl+B)"><IconLayers size={13} /><span>Componentes</span></button>
-            <button type="button" className={`dc-tool-btn grafcet-sim-tool !gap-1.5 ${grafcetSimVisible ? 'is-on' : ''}`} aria-pressed={grafcetSimVisible} aria-label="Simulação" data-sim-toggle="grafcet" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'}><IconPlay size={12} /><span>Simulação</span></button>
+            <SimToggleButton on={grafcetSimVisible} scope="grafcet" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'} />
             <span className="tb-sep" />
             <div className="dc-seg" role="toolbar" aria-label="Ferramentas de seleção e navegação">
               {GRAFCET_TOOLS.map(({ id, label, icon: Icon, key, title }) => (
@@ -717,16 +714,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
               <span className="tb-sep" />
 
-              <button
-                type="button"
-                className="dc-tool-btn !px-2 shrink-0"
-                data-shortcuts-button="grafcet"
-                onClick={() => useGrafcetUi.getState().emit('openShortcuts')}
-                title="Atalhos de teclado do GRAFCET (?)"
-              >
-                <IconHelp size={13} />
-                <span className="hidden xl:inline">Atalhos</span>
-              </button>
+              <ShortcutsButton scope="grafcet" onClick={() => useGrafcetUi.getState().emit('openShortcuts')} title="Atalhos de teclado do GRAFCET (?)" />
 
               <span className="tb-sep" />
             </div>
@@ -734,12 +722,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
           {/* atalhos de teclado do simulador ativo (o GRAFCET tem o seu junto à validação) */}
           {mode !== 'grafcet' && (
-            <button type="button" className="dc-tool-btn !px-2 shrink-0" data-shortcuts-button={mode}
-              onClick={() => mode === 'monitor' ? setMonitorHelp(true) : requestShortcuts(mode)}
-              title={`Atalhos de teclado — ${mode === 'schematic' ? 'Esquema 2D/3D' : mode === 'ladder' ? 'Ladder' : 'Monitor'} (?)`}>
-              <IconHelp size={13} />
-              <span className="hidden xl:inline">Atalhos</span>
-            </button>
+            <ShortcutsButton scope={mode} onClick={() => (mode === 'monitor' ? setMonitorHelp(true) : requestShortcuts(mode))}
+              title={`Atalhos de teclado — ${mode === 'schematic' ? 'Esquema 2D/3D' : mode === 'ladder' ? 'Ladder' : 'Monitor'} (?)`} />
           )}
 
           {/* vista: malha e zoom — grupo comum a todos os módulos */}

@@ -24,3 +24,19 @@ Data: 2026-10-26 · Smoke: `npm run test:toolbar-ui` (37 verificações)
 
 - Validação manual pelo utilizador em ecrã tátil (deslocamento das barras com o dedo).
 - O painel «Simulação» do Esquema é estreito (312 px) em portáteis com a biblioteca e o painel direito abertos.
+
+## Base comum e ferramentas por ambiente (2026-10-26)
+
+`src/ui/toolbarKit.tsx` é a base partilhada. Cada ambiente usa os mesmos blocos e acrescenta apenas as suas ferramentas em `src/components/Toolbar.tsx`.
+
+| Bloco comum | Componente |
+| --- | --- |
+| Desfazer / Refazer | `HistoryGroup` |
+| Simulação (mostrar/esconder painel) | `SimToggleButton` (`data-sim-toggle`) |
+| Atalhos | `ShortcutsButton` (`data-shortcuts-button`) |
+| Malha · ímã · passo · zoom | `ViewControls` |
+| Botão, grupo, separador | `TbButton`, `ToolSeg`, `ToolSep` |
+
+Para acrescentar uma ferramenta a um ambiente: usar `TbButton` dentro do bloco `mode === '<ambiente>'` da segunda linha. Não duplicar o markup dos blocos comuns.
+
+Ferramentas específicas atuais: Ladder (Compilar, Bloco, Nova network, secções), GRAFCET (Componentes, ferramentas de seleção, modelos, disposição, ficheiro), Esquema (ferramentas de cabo, alinhamento, diagnóstico).

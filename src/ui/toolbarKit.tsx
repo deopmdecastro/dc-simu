@@ -1,7 +1,7 @@
 import type React from 'react'
 import type { ReactNode } from 'react'
 import Select from './Select'
-import { IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp } from './icons'
+import { IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp, IconPlay } from './icons'
 
 /**
  * Elementos comuns das barras de ferramentas: Esquema/Painel 3D, GRAFCET, Ladder
@@ -50,11 +50,21 @@ export function HistoryGroup({ onUndo, onRedo, canUndo, canRedo, role = 'toolbar
   )
 }
 
-/** Botão «Atalhos» comum (abre a ajuda de teclado do editor). */
-export function ShortcutsButton({ onClick, className = '' }: { onClick: () => void; className?: string }) {
+/** Botão «Atalhos» comum (abre a ajuda de teclado do editor). `scope` marca a vista para testes e para o pedido de atalhos. */
+export function ShortcutsButton({ onClick, scope, title = 'Atalhos de teclado (?)', className = '' }: { onClick: () => void; scope?: string; title?: string; className?: string }) {
   return (
-    <button type="button" className={`dc-tool-btn ${className}`} onClick={onClick} title="Atalhos de teclado (?)" aria-label="Atalhos de teclado">
-      <IconHelp size={13} /><span className="hidden lg:inline">Atalhos</span>
+    <button type="button" className={`dc-tool-btn !px-2 shrink-0 ${className}`} data-shortcuts-button={scope} onClick={onClick} title={title} aria-label="Atalhos de teclado">
+      <IconHelp size={13} /><span className="hidden xl:inline">Atalhos</span>
+    </button>
+  )
+}
+
+/** Botão «Simulação» comum: mostra/esconde o painel de simulação do editor (Esquema, Ladder, GRAFCET). */
+export function SimToggleButton({ on, onClick, scope, title }: { on: boolean; onClick: () => void; scope: string; title?: string }) {
+  return (
+    <button type="button" className={`dc-tool-btn grafcet-sim-tool dc-sim-tool !gap-1.5 ${on ? 'is-on' : ''}`} aria-pressed={on} aria-label="Simulação" data-sim-toggle={scope}
+      onClick={onClick} title={title ?? (on ? 'Esconder a simulação' : 'Mostrar a simulação')}>
+      <IconPlay size={12} /><span>Simulação</span>
     </button>
   )
 }
