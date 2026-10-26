@@ -1,6 +1,6 @@
 # Motor SEW DRN80: pá de três pás, caixa de bornes real e biblioteca de texturas
 
-Versão #56 · 26/10/2026
+26/10/2026 · carimbo de publicação #57 ou posterior
 
 ## Diagnóstico (antes)
 
