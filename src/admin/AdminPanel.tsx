@@ -160,7 +160,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
       </div>
       {disabledCount > 0 && <p className="cb-note cb-banner">{disabledCount} componente(s) bloqueado(s) na biblioteca. <button className="cb-link" onClick={() => setTab('components')}>Gerir componentes</button></p>}
       <div className="dx-admin-section"><h2>Atividade recente</h2><button className="cb-link" onClick={() => { setLogActor(''); setTab('logs') }}>Ver todos os registos →</button></div>
-      <div className="dx-admin-table">
+      <div className="dx-admin-table ce-recent-activity">
         {recentLogs.length === 0 && <div className="dx-admin-empty">Ainda não há atividade registada.</div>}
         {recentLogs.map((entry) => <div key={entry.id}><span><strong>{actionLabel(entry.action)}</strong> · {entry.actorEmail || entry.actorName || 'sistema'}{entry.targetLabel ? ` · ${entry.targetLabel}` : ''}</span><span className="dx-chip">{formatDate(entry.at)}</span></div>)}
       </div>

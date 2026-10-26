@@ -1461,11 +1461,21 @@ button.dx-notification-item:hover {
   color: var(--dx-ink-4);
   font-size: var(--dx-t-sm);
 }
+.ce-recent-activity > div:not(.dx-admin-empty) {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:start;
+  gap:12px;
+}
+.ce-recent-activity > div > span:first-child { min-width:0; overflow-wrap:anywhere; }
+.ce-recent-activity .dx-chip { justify-self:end; white-space:nowrap; }
 @media (max-width: 600px) {
   .dx-admin-table > div {
     flex-direction: column;
     align-items: flex-start;
   }
+  .ce-recent-activity > div:not(.dx-admin-empty) { grid-template-columns:minmax(0,1fr); gap:6px; }
+  .ce-recent-activity .dx-chip { justify-self:start; }
 }
 
 /* ==========================================================================

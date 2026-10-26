@@ -139,19 +139,25 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     </div>, document.body)
   }
 
-  return <>
+  return <div className="ce-catalog">
     <div className="dx-admin-section"><h2>Biblioteca de componentes 3D</h2><span>{entries ? `${visible.length + builtinVisible.length}/${entries.length + builtins.length - imported.size}` : '…'}</span></div>
     <p className="cb-note">Crie componentes oficiais no editor 3D, publique versões e deixe os utilizadores atualizarem quando quiserem. Os projetos existentes nunca são alterados sem confirmação. Os componentes que já vêm com a plataforma aparecem no fim da lista: «Editar no 3D» cria uma cópia editável (modelo + bornes) sem alterar o original.</p>
     <div className="ce-list-tools">
-      <input className="dx-input cb-search" type="search" placeholder="Pesquisar por nome, grupo ou referência…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar componentes 3D" />
-      <Select className="dx-input" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} aria-label="Filtrar por estado">
-        <option value="all">Todos</option><option value="draft">Só rascunhos</option><option value="published">Publicados</option><option value="archived">Arquivados</option><option value="builtin">Integrados</option>
-      </Select>
-      <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => void exportBackup()}>{backupBusy ? 'A processar…' : 'Guardar backup'}</button>
-      <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => backupInput.current?.click()}>Recuperar backup</button>
-      <input ref={backupInput} type="file" accept=".json,.dcs-components.json,application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importBackup(file) }} />
-      <button className="dx-btn dx-btn-secondary" aria-pressed={syncOpen} data-sync-toggle onClick={() => setSyncOpen((open) => !open)} title="Compara o editor com a biblioteca do simulador 3D">Sincronização</button>
-      <button className="dx-btn dx-btn-primary" onClick={onCreate}>+ Novo componente 3D</button>
+      <div className="ce-list-filters">
+        <input className="dx-input cb-search" type="search" placeholder="Pesquisar por nome, grupo ou referência…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar componentes 3D" />
+        <Select className="dx-input ce-list-state" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} aria-label="Filtrar por estado">
+          <option value="all">Todos</option><option value="draft">Só rascunhos</option><option value="published">Publicados</option><option value="archived">Arquivados</option><option value="builtin">Integrados</option>
+        </Select>
+      </div>
+      <div className="ce-list-actions">
+        <div className="ce-list-secondary-actions" role="group" aria-label="Ações secundárias">
+          <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => void exportBackup()}>{backupBusy ? 'A processar…' : 'Guardar backup'}</button>
+          <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => backupInput.current?.click()}>Recuperar backup</button>
+          <input ref={backupInput} type="file" accept=".json,.dcs-components.json,application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importBackup(file) }} />
+          <button className="dx-btn dx-btn-secondary" aria-pressed={syncOpen} data-sync-toggle onClick={() => setSyncOpen((open) => !open)} title="Compara o editor com a biblioteca do simulador 3D">Sincronização</button>
+        </div>
+        <button className="dx-btn dx-btn-primary ce-list-create" onClick={onCreate}>+ Novo componente 3D</button>
+      </div>
     </div>
     {syncOpen && <SyncPanel onNotice={onNotice} onError={onError} onChanged={() => void reload()} onOpen={openEditor} />}
     {entries === null && <div className="dx-admin-empty">A carregar…</div>}
@@ -205,7 +211,7 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
         </article>)}
       </div>
     </>}
-  </>
+  </div>
 }
 
 /** Miniatura 3D só quando o cartão fica visível (evita criar dezenas de contextos WebGL de uma vez). */

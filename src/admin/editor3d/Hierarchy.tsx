@@ -188,7 +188,7 @@ export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle,
         onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(groupIds))}>{allCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}</button>}
     </div>
     <div className="ce-element-filters" role="group" aria-label="Filtrar elementos">
-      {CATEGORIES.map(([key, label]) => <button key={key} aria-pressed={category === key} className={category === key ? 'is-on' : ''} onClick={() => setCategory(key)}>{label}<span>{counts[key]}</span></button>)}
+      {CATEGORIES.map(([key, label]) => <button key={key} type="button" aria-pressed={category === key} className={category === key ? 'is-on' : ''} onClick={() => setCategory(key)}><span className="ce-filter-label">{label}</span><span className="ce-filter-count">{counts[key]}</span></button>)}
     </div>
     {selection && <div className="ce-selection-actions"><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={focusSelection}><IconFocus size={13} />Enquadrar seleção</button><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={openProperties}>Propriedades</button></div>}
     <div className="ce-hierarchy-scroll">
