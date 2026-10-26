@@ -6,7 +6,7 @@ Na barra do editor GRAFCET, **Importar** abre o seletor de ficheiros para `.ct` 
 
 - Etapas simples e iniciais, com números originais e posição relativa.
 - Transições e condições booleanas, incluindo ligações por referência ao número da etapa.
-- Operadores OR são normalizados para um espaço antes e depois de `+`, evitando espaços duplicados vindos do ficheiro de origem.
+- Condições normalizadas para a sintaxe do DC-Simu: `NOT` → `/`, `AND` → `*`, `OR` → `+`, com um espaço de cada lado de ` + ` e ` * ` (ver «Ficheiros mistos, orientação e normalização»).
 - Ações contínuas e condicionadas, incluindo condições `1Hz`, `2Hz` e `NOT 1Hz`.
 - Ligações explícitas e contactos coincidentes das portas nativas, incluindo derivações OR e cadeias de ações.
 - Os identificadores `O<n>` antigos podem conter lacunas. O leitor resolve as ligações pela tabela ordenada de objetos usada pelos registos `gate` e `CON`.
@@ -30,7 +30,7 @@ O leitor encontra o marcador `COMPRESS` no cabeçalho legado, descodifica o bloc
 | Comprimento codificado 1 | Repetição de um byte; o índice indica a contagem |
 | Comprimento codificado 2 no cabeçalho expandido | Comprimento efetivo no byte seguinte |
 
-O dicionário reinicia a posição de escrita conforme as regras do formato; não é uma janela circular comum. Os registos semânticos são lidos depois de `END_FSPREVIEW`, ignorando a pré-visualização WMF. O texto nativo usa Windows-1252. A normalização de `a+NOT b` para `a + NOT b` evita a ambiguidade com nomes pneumáticos terminados em `+` no analisador atual.
+O dicionário reinicia a posição de escrita conforme as regras do formato; não é uma janela circular comum. Os registos semânticos são lidos depois de `END_FSPREVIEW` ou `ENDPREVIEW`, ignorando a pré-visualização WMF. O texto nativo usa Windows-1252. A normalização de `a+NOT b` para `a + /b` evita a ambiguidade com nomes pneumáticos terminados em `+` no analisador atual.
 
 Limites: ficheiro de entrada até 5 MB, expansão até 32 MB e até 10 000 objetos nativos. Blocos truncados, configurações desconhecidas, portas inválidas e estruturas incompletas falham antes de alterar o projeto.
 
@@ -42,6 +42,8 @@ npm run test:grafcet-construction-ui
 npm run typecheck
 npm run build
 ```
+
+Com `FLUIDSIM_MONTA_CARGA=caminho/para/Monta-Carga.ct`, o `test:fluidsim` verifica também o ficheiro real: relações, condições, ações, retorno e comentário.
 
 O teste `test:fluidsim` usa registos sintéticos próprios, sem redistribuir circuitos ou bibliotecas do fabricante. Para exercitar o seletor real com um CT local e contagens diferentes das do exemplo de referência, configure:
 
@@ -60,7 +62,17 @@ npm run test:grafcet-construction-ui
 
 O exemplo anterior foi recuperado com **5 etapas, 7 transições e 7 ações**, incluindo o ramo cuja condição estava cortada na imagem TIFF. As sete relações entre etapas foram verificadas, assim como as condições e os avisos sobre referências externas.
 
-Foi também validado um ficheiro CT de referência adicional, mantido fora do repositório: **4 etapas, 4 transições e 2 ações**, com relações `5→1`, `10→5`, `15→10` e `1→15`. As ações ficaram associadas às etapas 5 e 15; as condições coincidiram com a referência visual e a importação não gerou avisos. Espaços repetidos em torno do OR foram reduzidos a um espaço. Não foi guardada uma cópia do ficheiro no repositório.
+Foi também validado um ficheiro CT de referência adicional (`Monta-Carga.ct`, 2026-10-26), mantido fora do repositório: **4 etapas, 4 transições e 2 ações**. As relações corretas são `1→5`, `5→10`, `10→15` e o retorno `15→1`, como no diagrama original. Uma nota anterior registava `5→1`, `10→5`, `15→10` e `1→15` como corretas; estava errada, porque o leitor ignorava o bit `FLIPPED` (ver abaixo) e invertia o fluxo. As condições importadas ficam `(SappelN1 + SenvoiN1) * SfdcPF`, `FdcN2`, `(SappelN1 + SenvoiN1) * SfdcPF` e `FdcN1`; as ações `Q_Monter` e `Q_Descendre` ficam nas etapas 5 e 15. Não foi guardada uma cópia do ficheiro no repositório.
+
+## Ficheiros mistos, orientação e normalização (2026-10-26)
+
+- **Pré-visualização `PREVIEW <n>`**: alguns ficheiros começam com `PREVIEW <n>`, seguido de 4 bytes com o tamanho e de um WMF binário até `ENDPREVIEW`. O leitor salta esse bloco pelo tamanho indicado antes de procurar o texto nativo.
+- **Ficheiros mistos**: um CT pode juntar o GRAFCET a um circuito elétrico (DDEInput/DDEOutput EasyPort, `E_K001`, `E_S011`, `E_Y001`, polos, `EConnection`, linhas `CON ELine`, registos `text` e um bloco `BEGINSYM…ENDSYM` com conteúdo). Esses registos ficam na tabela de objetos, para os índices não se desalinharem, mas não são importados. Um aviso indica quantos elementos não GRAFCET foram ignorados.
+- **Orientação (`FLIPPED`)**: em etapas e transições espelhadas (`FLIPPED I 2`), as portas 1 e 2 trocam de posição. A entrada passou a ser a porta que está geometricamente em cima e a saída a que está em baixo; se a geometria não for conclusiva, usa-se o bit 2 de `FLIPPED`. Ver DC-ADR-024 no cofre.
+- **Retornos**: as ligações de retorno (destino acima da origem) mantêm o traçado nativo dos segmentos `L` do FluidSIM, convertido para `linkBends`. O editor desenha a seta ▲ no troço vertical ascendente mais longo, como no GRAFCET normalizado.
+- **Comentários**: os registos `text` junto ao diagrama (por exemplo, o título `Q1`) são importados como comentários do GRAFCET. O editor passou a desenhá-los.
+- **Condições no formato do DC-Simu**: `NOT x` e `!x` passam a `/x`; `AND` e `&` passam a `*`; `OR` e `|` passam a `+`. Há sempre um espaço de cada lado de ` + ` e ` * ` e nenhum espaço depois de `/` ou dentro de parênteses. Um `+` final num nome pneumático (por exemplo `1A+`) é mantido. Exemplo: `NOT a AND (b OR c)` → `/a * (b + c)`.
+- **Variáveis de ações**: os acentos são removidos e os caracteres que não são letras, dígitos ou `_` passam a `_`. Um nome que comece por um dígito recebe o prefixo `V`, e um `+` ou `-` final é mantido. Cada renomeação gera um aviso com o nome original.
 
 O exemplo `Monta Carga.ct`, acompanhado de TIFF, contém três diagramas lado a lado. O leitor separa-os em três páginas, cada uma com 4 etapas e 4 transições, mantendo números de etapa repetidos em páginas diferentes. As etapas encapsulantes e as macroetapas E/M/S são reconhecidas. A página 2 não tem etapa inicial e é assinalada como parcial; a página 3 tem duas etapas iniciais e pede confirmação. Três qualificadores de ação ainda não mapeados geram avisos para revisão antes de simular. Os ficheiros de origem permanecem fora do repositório.
 

@@ -1,4 +1,5 @@
 import { evalCompare } from './compare'
+import { LABEL_RE } from './ladderLint'
 import { MATH_OPS } from './ladderMath'
 import { formatPresetMs, parseAddress, parseCounterPreset, parsePresetMs, type InlineResult } from './ladderInlineEdit'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
@@ -19,6 +20,10 @@ export type RungSelection =
   | { type: 'math' }
   | { type: 'call' }
   | { type: 'counter' }
+  | { type: 'limit' }
+  | { type: 'scale' }
+  | { type: 'jump' }
+  | { type: 'label' }
   | null
 
 /* ------------------------------------------------------------------ grelha
@@ -126,7 +131,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   const contactsEnd = RAIL_X + nCols * COL_W
   const OJ = contactsEnd + 40 // junção das saídas (paralelo)
   const boxX = OJ + 80
-  const hasBox = !!(rung.timer || rung.counter || rung.move || rung.math || rung.call)
+  const hasBox = !!(rung.timer || rung.counter || rung.move || rung.math || rung.call || rung.limit || rung.scale)
   const cyOf = (row: number) => TOP + row * ROW_H + CY_OFF
 
   type Out =
@@ -135,6 +140,9 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     | { type: 'move'; cy: number }
     | { type: 'math'; cy: number }
     | { type: 'call'; cy: number }
+    | { type: 'limit'; cy: number }
+    | { type: 'scale'; cy: number }
+    | { type: 'jump'; cy: number }
     | { type: 'coil'; cy: number; coil: LadderRung['coils'][number] }
     | { type: 'placeholder'; cy: number }
   const outputs: Out[] = []
@@ -143,9 +151,12 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   if (rung.counter) { outputs.push({ type: 'counter', cy: oy + CY_OFF }); oy += BOX_SLOT }
   if (rung.move) { outputs.push({ type: 'move', cy: oy + CY_OFF }); oy += BOX_SLOT }
   if (rung.math) { outputs.push({ type: 'math', cy: oy + CY_OFF }); oy += BOX_SLOT + 20 }
+  if (rung.limit) { outputs.push({ type: 'limit', cy: oy + CY_OFF }); oy += BOX_SLOT + 20 }
+  if (rung.scale) { outputs.push({ type: 'scale', cy: oy + CY_OFF }); oy += BOX_SLOT + 80 }
   if (rung.call) { outputs.push({ type: 'call', cy: oy + CY_OFF }); oy += OUT_H + 20 }
   rung.coils.forEach((coil) => { outputs.push({ type: 'coil', cy: oy + CY_OFF, coil }); oy += OUT_H })
-  if (!rung.coils.length && !hasBox) { outputs.push({ type: 'placeholder', cy: oy + CY_OFF }); oy += ROW_H }
+  if (rung.jump) { outputs.push({ type: 'jump', cy: oy + CY_OFF }); oy += OUT_H }
+  if (!rung.coils.length && !hasBox && !rung.jump) { outputs.push({ type: 'placeholder', cy: oy + CY_OFF }); oy += ROW_H }
 
   // Espaço extra só quando a linha paralela vai para o FIM (entre linhas não alarga a network).
   const extraRow = drop?.kind === 'newBranch' && (drop.beforeIndex === undefined || drop.beforeIndex >= branches.length) ? 1 : 0
@@ -159,7 +170,10 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
 
   // ------------------------------------------------------------- estado
   const rawContact = (el: LadderContact) => db[el.address.toUpperCase()]?.type === 'BOOL' ? db[el.address.toUpperCase()].value === true : !!table[el.address]
-  const pass = (el: LadderContact) => el.contactType === 'CMP' ? evalCompare(el, { db, timers, counters }) : el.contactType === 'NC' ? !rawContact(el) : rawContact(el)
+  const bitOf = (raw: string) => { const k = raw.trim().replace(/^%/, '').toUpperCase(); return db[k]?.type === 'BOOL' ? db[k].value === true : !!table[k] }
+  const pass = (el: LadderContact) => el.contactType === 'CMP' ? evalCompare(el, { db, timers, counters })
+    : el.contactType === 'XOR' ? bitOf(el.address) !== bitOf(el.xorAddress ?? '')
+      : el.contactType === 'NC' ? !rawContact(el) : rawContact(el)
   const rungOut = online && powered
   // A condução local (contacto a contacto) serve as halos e o detalhe por elemento;
   // para as LINHAS manda o RLO do motor (`powered`): quando a network está energizada
@@ -321,6 +335,10 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
     else if (selection?.type === 'move') updateRung(rung.id, (r) => ({ ...r, move: undefined }), 'force')
     else if (selection?.type === 'math') updateRung(rung.id, (r) => ({ ...r, math: undefined }), 'force')
     else if (selection?.type === 'call') updateRung(rung.id, (r) => ({ ...r, call: undefined }), 'force')
+    else if (selection?.type === 'limit') updateRung(rung.id, (r) => ({ ...r, limit: undefined }), 'force')
+    else if (selection?.type === 'scale') updateRung(rung.id, (r) => ({ ...r, scale: undefined }), 'force')
+    else if (selection?.type === 'jump') updateRung(rung.id, (r) => ({ ...r, jump: undefined }), 'force')
+    else if (selection?.type === 'label') updateRung(rung.id, (r) => ({ ...r, label: undefined }), 'force')
     else return
     e.preventDefault()
     e.stopPropagation()
@@ -449,6 +467,18 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           <line x1={cx - 16} y1={cy - 13} x2={cx - 16} y2={cy + 13} stroke={online && pOut ? C_ON : C_OFF} strokeWidth={2} />
           <line x1={cx + 16} y1={cy - 13} x2={cx + 16} y2={cy + 13} stroke={online && pOut ? C_ON : C_OFF} strokeWidth={2} />
           {label(cx, cy + 4, 'NOT', { bold: true, size: 10 })}
+        </g> : el.contactType === 'XOR' ? <g key={el.id}>
+          {isSel && selBox(x0 + 6, cy - 46, COL_W - 12, 88, `${el.id}-sel`)}
+          {wire(x0, cy, cx - 16, cy, online && pIn)}
+          {wire(cx + 16, cy, x0 + COL_W, cy, online && pOut)}
+          {online && conducts && <rect x={cx - 16} y={cy - 12} width={32} height={24} fill={C_ON} fillOpacity={0.16} />}
+          <line x1={cx - 16} y1={cy - 13} x2={cx - 16} y2={cy + 13} stroke={online && conducts ? C_ON : C_OFF} strokeWidth={2} />
+          <line x1={cx + 16} y1={cy - 13} x2={cx + 16} y2={cy + 13} stroke={online && conducts ? C_ON : C_OFF} strokeWidth={2} />
+          {label(cx, cy + 4, 'XOR', { bold: true, size: 9.5 })}
+          {label(cx, cy - 20, `%${el.address}`, { bold: true, fill: C_ADDR })}
+          {name && label(cx, cy - 33, `"${name}"`, { fill: TIA.tag, italic: true, size: 9 })}
+          {label(cx, cy + 28, el.xorAddress ? `%${el.xorAddress}` : '…', { bold: !!el.xorAddress, fill: el.xorAddress ? C_ADDR : undefined, grey: !el.xorAddress })}
+          {online && label(cx + 20, cy + 14, `${bitOf(el.address) ? 1 : 0}/${bitOf(el.xorAddress ?? '') ? 1 : 0}`, { anchor: 'start', size: 8.5, grey: !conducts })}
         </g> : <g key={el.id}>
           {isSel && selBox(x0 + 10, cy - 46, COL_W - 20, 66, `${el.id}-sel`)}
           {wire(x0, cy, cx - 10, cy, online && pIn)}
@@ -468,7 +498,7 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           <div
             key={`${el.id}-hit`}
             className="lnet-hit"
-            style={el.contactType === 'CMP' ? { left: x0 + 6, top: cy - 50, width: COL_W - 12, height: 88 } : { left: x0 + 10, top: cy - 46, width: COL_W - 20, height: 66 }}
+            style={el.contactType === 'CMP' || el.contactType === 'XOR' ? { left: x0 + 6, top: cy - 50, width: COL_W - 12, height: 88 } : { left: x0 + 10, top: cy - 46, width: COL_W - 20, height: 66 }}
             draggable
             onDragStart={(e) => {
               const payload: MovePayload = { rungId: rung.id, branchId: b.id, elementId: el.id }
@@ -496,6 +526,11 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
           if (r.ok) patchContact(b.id, el.id, { compareValue: r.value })
           return r
         }, 'IN2 da comparação')
+        if (el.contactType === 'XOR') textHit(`cx-${el.id}`, cx - 32, cy + 17, 64, el.xorAddress ?? '', (v) => {
+          const r = parseAddress(v, 'address')
+          if (r.ok) patchContact(b.id, el.id, { xorAddress: r.value })
+          return r
+        }, '2.º operando do XOR', el.xorAddress ? `%${el.xorAddress}` : '…')
       }
       p = pOut
     })
@@ -521,6 +556,25 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
   svg.push(<g key="link">{wire(contactsEnd, cyOf(0), OJ, cyOf(0), rungOut)}</g>)
   if (outputs.length > 1) svg.push(<g key="out-join">{wire(OJ, outputs[0].cy, OJ, outputs[outputs.length - 1].cy, rungOut)}</g>)
   railBottom = Math.max(railBottom, cyOf(0))
+
+  const setLimit = (patch: Partial<NonNullable<LadderRung['limit']>>) => updateRung(rung.id, (x) => (x.limit ? { ...x, limit: { ...x.limit, ...patch } } : x), 'force')
+  const setScale = (patch: Partial<NonNullable<LadderRung['scale']>>) => updateRung(rung.id, (x) => (x.scale ? { ...x, scale: { ...x.scale, ...patch } } : x), 'force')
+  // LBL: etiqueta no canto superior esquerdo da network (destino dos JMP/JMPN).
+  if (rung.label) {
+    const isSel = selection?.type === 'label'
+    const w = Math.max(44, rung.label.length * 7 + 24)
+    svg.push(<g key="lbl">
+      {isSel && selBox(RAIL_X - 2, 0, w + 8, 20, 'lbl-sel')}
+      <rect x={RAIL_X + 2} y={2} width={w} height={15} rx={3} fill="#f3e8ff" stroke="#7c3aed" strokeWidth={1.1} />
+      {label(RAIL_X + 8, 13, 'LBL', { anchor: 'start', size: 7.5, bold: true, fill: '#7c3aed' })}
+      {label(RAIL_X + 28, 13.5, rung.label, { anchor: 'start', size: 9.5, bold: true, fill: '#4c1d95' })}
+    </g>)
+    if (!readonly) hits.push(<div key="lbl-hit" className="lnet-hit" style={{ left: RAIL_X, top: 0, width: w + 4, height: 19 }}
+      onClick={(e) => { e.stopPropagation(); onSelect({ type: 'label' }) }}
+      onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'label' }) }}
+      onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, label: undefined }), 'force') }}
+      title={`Etiqueta ${rung.label} (LBL) — destino de JMP/JMPN · duplo clique: renomear · Del/botão direito remove`} />)
+  }
 
   outputs.forEach((o, k) => {
     const cy = o.cy
@@ -739,6 +793,67 @@ export default function NetworkDiagram({ rung, selection = null, onSelect = () =
       textHit('a-in1', boxX - 16 - 64, cy + 5, 64, mt.in1, (v) => { const r = parseAddress(v, 'compare'); if (r.ok) setMath({ in1: r.value }); return r }, 'IN1')
       textHit('a-in2', boxX - 16 - 64, cy + 24, 64, mt.in2, (v) => { const r = parseAddress(v, 'compare'); if (r.ok) setMath({ in2: r.value }); return r }, 'IN2')
       textHit('a-out', boxX + BOX_W + 18, cy + 5, 64, mt.out, (v) => { const r = parseAddress(v, 'mathTarget'); if (r.ok) setMath({ out: r.value }); return r }, 'OUT')
+    } else if ((o.type === 'limit' && rung.limit) || (o.type === 'scale' && rung.scale)) {
+      // LIMIT / SCALE: mesma caixa TIA dos blocos matemáticos, com N entradas à esquerda.
+      const isLimit = o.type === 'limit'
+      const pins: Array<[string, string, (v: string) => void]> = isLimit && rung.limit
+        ? [['MN', rung.limit.mn, (v) => setLimit({ mn: v })], ['IN', rung.limit.in, (v) => setLimit({ in: v })], ['MX', rung.limit.mx, (v) => setLimit({ mx: v })]]
+        : [['IN', rung.scale!.in, (v) => setScale({ in: v })], ['IN_MIN', rung.scale!.inMin, (v) => setScale({ inMin: v })], ['IN_MAX', rung.scale!.inMax, (v) => setScale({ inMax: v })], ['OUT_MIN', rung.scale!.outMin, (v) => setScale({ outMin: v })], ['OUT_MAX', rung.scale!.outMax, (v) => setScale({ outMax: v })]]
+      const outOp = isLimit ? rung.limit!.out : rung.scale!.out
+      const selType = o.type
+      const top = cy - 40
+      const boxH = 54 + pins.length * 16
+      const isSel = selection?.type === selType
+      const title = isLimit ? 'LIMIT' : 'SCALE'
+      svg.push(<g key={`${selType}-block`}>
+        {isSel && selBox(boxX - 8, top - 8, BOX_W + 16, boxH + 20, `${selType}-sel`)}
+        {wire(OJ, cy, boxX, cy, rungOut)}
+        {tiaChrome(boxX, top, BOX_W, boxH, title, isLimit ? 'Int' : 'Int  lin.')}
+        {label(boxX + 6, cy + 3, 'EN', { anchor: 'start', size: 9, fill: TIA.pin })}
+        {label(boxX + BOX_W - 6, cy + 3, 'ENO', { anchor: 'end', size: 9, fill: TIA.pin })}
+        {label(boxX + BOX_W - 6, cy + 19, 'OUT', { anchor: 'end', size: 9, fill: TIA.pin })}
+        {pins.map(([pin, op], i) => <g key={pin}>
+          {label(boxX + 6, cy + 19 + i * 16, pin, { anchor: 'start', size: 8.5, fill: TIA.pin })}
+          <line x1={boxX - 14} y1={cy + 16 + i * 16} x2={boxX} y2={cy + 16 + i * 16} stroke={TIA.edge} strokeWidth={1} />
+          {pinText(op, boxX - 16, cy + 19 + i * 16, 'end', false)}
+        </g>)}
+        {wire(boxX + BOX_W, cy, boxX + BOX_W + 16, cy, rungOut)}
+        <line x1={boxX + BOX_W} y1={cy + 16} x2={boxX + BOX_W + 14} y2={cy + 16} stroke={TIA.edge} strokeWidth={1} />
+        {pinText(outOp, boxX + BOX_W + 18, cy + 19, 'start')}
+      </g>)
+      if (!readonly) hits.push(<div key={`${selType}-hit`} className="lnet-hit" style={{ left: boxX - 8, top: top - 8, width: BOX_W + 16, height: boxH + 20 }}
+        onClick={(e) => { e.stopPropagation(); onSelect(isSel ? null : { type: selType }) }}
+        onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: selType }) }}
+        onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, [selType]: undefined }), 'force') }}
+        title={`${title} — clique no texto: editar valor · duplo clique: operandos · Del/botão direito remove`} />)
+      pins.forEach(([pin, op, setter]) => textHit(`${selType}-${pin}`, boxX - 16 - 64, cy + 5 + pins.findIndex(([p]) => p === pin) * 16, 64, op, (v) => { const r = parseAddress(v, 'compare'); if (r.ok) setter(r.value); return r }, `${pin} do ${title}`))
+      textHit(`${selType}-out`, boxX + BOX_W + 18, cy + 5, 64, outOp, (v) => { const r = parseAddress(v, 'mathTarget'); if (r.ok) (isLimit ? setLimit : setScale)({ out: r.value }); return r }, `OUT do ${title}`)
+    } else if (o.type === 'jump' && rung.jump) {
+      // JMP/JMPN como bobina (estilo TIA Portal): etiqueta de destino por cima.
+      const j = rung.jump
+      const fires = online && (j.mode === 'JMPN' ? !powered : powered)
+      const isSel = selection?.type === 'jump'
+      const stroke = fires ? C_ON : C_OFF
+      svg.push(<g key="jump">
+        {isSel && selBox(coilCX - 44, cy - 46, 88, 66, 'jump-sel')}
+        {wire(OJ, cy, coilCX - 16, cy, rungOut)}
+        {fires && <ellipse cx={coilCX} cy={cy} rx={14} ry={12} fill={C_ON} fillOpacity={0.16} />}
+        <path d={`M ${coilCX - 9} ${cy - 13} Q ${coilCX - 19} ${cy} ${coilCX - 9} ${cy + 13}`} fill="none" stroke={stroke} strokeWidth={2} />
+        <path d={`M ${coilCX + 9} ${cy - 13} Q ${coilCX + 19} ${cy} ${coilCX + 9} ${cy + 13}`} fill="none" stroke={stroke} strokeWidth={2} />
+        {label(coilCX, cy + 3.5, j.mode, { bold: true, size: j.mode === 'JMPN' ? 7.5 : 8.5 })}
+        {label(coilCX, cy - 20, j.label || '…', { bold: true, fill: '#7c3aed', grey: !j.label })}
+      </g>)
+      if (!readonly) hits.push(<div key="jump-hit" className="lnet-hit" style={{ left: coilCX - 44, top: cy - 46, width: 88, height: 66 }}
+        onClick={(e) => { e.stopPropagation(); onSelect({ type: 'jump' }) }}
+        onDoubleClick={(e) => { e.stopPropagation(); onEdit({ type: 'jump' }) }}
+        onContextMenu={(e) => { e.preventDefault(); updateRung(rung.id, (r) => ({ ...r, jump: undefined }), 'force') }}
+        title={`${j.mode} → ${j.label} — ${j.mode === 'JMP' ? 'salta com RLO = 1' : 'salta com RLO = 0'} · duplo clique: editar · Del/botão direito remove`} />)
+      textHit('jump-lbl', coilCX - 32, cy - 31, 64, j.label, (v) => {
+        const t = v.trim().toUpperCase()
+        if (!LABEL_RE.test(t)) return { ok: false as const, error: 'Etiqueta inválida (ex.: M001).' }
+        updateRung(rung.id, (x) => (x.jump ? { ...x, jump: { ...x.jump, label: t } } : x), 'force')
+        return { ok: true as const, value: t }
+      }, 'Etiqueta de destino do salto')
     } else if (o.type === 'coil') {
       const c = o.coil
       const on = online && !!table[c.address]

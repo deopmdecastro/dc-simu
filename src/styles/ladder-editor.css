@@ -323,3 +323,37 @@
 .lnet-inline-input { position:absolute; z-index:6; height:20px; padding:0 6px; border:1.5px solid #2f6fe4; border-radius:5px; background:#fff; color:#1f2a3d; font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace; text-align:center; text-transform:uppercase; outline:none; box-shadow:0 4px 14px rgba(47,111,228,.25); }
 .lnet-inline-input.is-invalid { border-color:#dc2626; box-shadow:0 4px 14px rgba(220,38,38,.22); }
 .lnet-inline-error { position:absolute; z-index:6; max-width:240px; padding:3px 8px; border-radius:5px; background:#7f1d1d; color:#fff; font-size:10px; font-weight:600; line-height:1.3; pointer-events:none; }
+
+/* ---- Depuração Ladder: pontos de paragem, passo a passo e saltos (LADDER-SIM-02/03) ---- */
+.ladder-bp-btn { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; border:1px solid transparent; border-radius:50%; background:transparent; cursor:pointer; padding:0; flex:none; }
+.ladder-bp-btn i { width:10px; height:10px; border-radius:50%; border:1.5px dashed #c2c9d6; display:block; }
+.ladder-bp-btn:hover i { border-color:#dc2626; background:#fee2e2; }
+.ladder-bp-btn.is-set i { border:1.5px solid #b91c1c; background:#dc2626; }
+.ladder-bp-btn:focus-visible { outline:2px solid #2563eb; outline-offset:1px; }
+.ladder-rung-card.is-break-hit { border-color:#dc2626; box-shadow:0 0 0 2px rgba(220,38,38,.25); }
+.ladder-rung-card.is-break-hit .ladder-rung-header { background:linear-gradient(180deg,#fff1f1 0%,#fde2e2 100%); }
+.ladder-rung-card.is-trace-cursor { border-color:#7c3aed; box-shadow:0 0 0 2px rgba(124,58,237,.22); }
+.ladder-rung-card.is-break-hit.is-trace-cursor { border-color:#dc2626; box-shadow:0 0 0 2px rgba(220,38,38,.25), 0 0 0 4px rgba(124,58,237,.18); }
+.ladder-rung-card.is-skipped .lnet-scroll { opacity:.55; }
+.ladder-chip.is-label { background:#f3e8ff; border-color:#d8b4fe; color:#5b21b6; }
+.ladder-chip.is-break { background:#fee2e2; border-color:#fca5a5; color:#991b1b; font-weight:700; }
+.ladder-debug { display:flex; flex-direction:column; gap:8px; padding:8px 10px; min-width:0; grid-column:1 / -1; }
+.ladder-debug-bar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.ladder-debug-bar .dc-btn { height:26px; padding:0 10px; font-size:12px; }
+.ladder-debug-toggle { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#374151; margin-left:4px; }
+.ladder-debug-scan { margin-left:auto; font-size:11.5px; color:#4b5563; font-variant-numeric:tabular-nums; }
+.ladder-debug-hit { margin:0; padding:6px 9px; border-radius:6px; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; font-size:12px; }
+.ladder-debug-cols { display:grid; grid-template-columns:minmax(220px,1fr) minmax(260px,2fr); gap:12px; }
+@media (max-width: 760px) { .ladder-debug-cols { grid-template-columns:1fr; } }
+.ladder-debug-col { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.ladder-debug-col .ladder-status-title { display:flex; align-items:center; gap:8px; }
+.ladder-debug-bp { display:flex; align-items:center; gap:6px; font-size:12px; }
+.ladder-debug-bp select { font-size:11.5px; height:24px; border:1px solid #d1d5db; border-radius:5px; background:#fff; color:#111827; }
+.ladder-debug-link { border:0; background:none; color:#1d4ed8; cursor:pointer; font-size:12px; padding:0; text-decoration:underline; text-underline-offset:2px; }
+.ladder-debug-link.is-danger { color:#b91c1c; text-decoration:none; font-size:15px; line-height:1; }
+.ladder-debug-trace { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:3px; max-height:180px; overflow:auto; }
+.ladder-debug-step { width:100%; text-align:left; display:grid; grid-template-columns:minmax(120px,auto) 1fr; column-gap:10px; align-items:baseline; padding:3px 8px; border:1px solid #e5e7eb; border-radius:5px; background:#fff; color:#1f2937; font-size:12px; cursor:pointer; }
+.ladder-debug-step small { grid-column:1 / -1; color:#4b5563; font-family:ui-monospace, monospace; font-size:11px; }
+.ladder-debug-step.is-on { border-color:#86efac; background:#f0fdf4; }
+.ladder-debug-step.is-skipped { color:#6b7280; background:#f9fafb; border-style:dashed; }
+.ladder-debug-step.is-cursor { border-color:#7c3aed; background:#f5f3ff; box-shadow:0 0 0 1px #7c3aed; }

@@ -37,12 +37,13 @@ import {
   IconPlus, IconDelete, IconCopy, IconClose,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder,
   IconFunction, IconChevronDown, IconChevronRight, IconShield, IconSearch,
-  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp, IconReset, IconCheck, IconTimer, IconCounter
+  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp, IconReset, IconCheck, IconTimer, IconCounter, IconStep
 } from '../ui/icons'
 import { useLadderPrefs } from './ladderPrefs'
 import { ELEMENT_KEYS } from './ladderShortcuts'
 import ShortcutsDialog from './ShortcutsDialog'
 import ForcePanel from './ForcePanel'
+import LadderDebugPanel from './LadderDebugPanel'
 import { useEditorShortcuts } from '../ui/shortcuts'
 
 /* ------------------------------------------------------------------ helpers */
@@ -95,7 +96,14 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
   // Seletor booleano: re-render só quando ESTA network muda de estado
   // (subscrever o mapa inteiro forçava repintar todas as networks a cada scan).
   const powered = useSimStore((s) => !!s.runtime.rungPowered[rung.id])
-  const running = useSimStore((s) => s.sim.runState === 'running')
+  // Em pausa (passo a passo / ponto de paragem) o estado do último ciclo continua visível.
+  const running = useSimStore((s) => s.sim.runState !== 'stopped')
+  const isMain = !ops
+  const breakMode = useSimStore((s) => (isMain ? s.ladderBreakpoints[rung.id] : undefined))
+  const setBreakpoint = useSimStore((s) => s.setLadderBreakpoint)
+  const isBreakHit = useSimStore((s) => isMain && s.ladderBreakHit?.rungId === rung.id && s.sim.runState === 'paused')
+  const isCursor = useSimStore((s) => isMain && s.ladderTraceCursor !== null && s.runtime.rungTrace?.[s.ladderTraceCursor]?.rungId === rung.id)
+  const skipped = useSimStore((s) => !!s.runtime.rungSkipped?.[rung.id])
   // Actions da store (referências estáveis) como fallback das ops do bloco —
   // evita `useSimStore()` (subscrição ao estado completo → re-render a cada tick).
   const deleteRungStore = useSimStore((s) => s.deleteRung)
@@ -120,14 +128,14 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
     deleteRung(rung.id)
   }
   const contactCount = rung.branches.reduce((n, b) => n + b.elements.length, 0)
-  const outputCount = rung.coils.length + (rung.timer ? 1 : 0) + (rung.counter ? 1 : 0) + (rung.call ? 1 : 0) + (rung.move ? 1 : 0) + (rung.math ? 1 : 0)
-  const blockKinds = [rung.timer?.timerType, rung.counter?.counterType, rung.move ? 'MOVE' : '', rung.math?.op ?? '', rung.call ? 'CALL' : ''].filter(Boolean)
+  const outputCount = rung.coils.length + (rung.timer ? 1 : 0) + (rung.counter ? 1 : 0) + (rung.call ? 1 : 0) + (rung.move ? 1 : 0) + (rung.math ? 1 : 0) + (rung.limit ? 1 : 0) + (rung.scale ? 1 : 0) + (rung.jump ? 1 : 0)
+  const blockKinds = [rung.timer?.timerType, rung.counter?.counterType, rung.move ? 'MOVE' : '', rung.math?.op ?? '', rung.limit ? 'LIMIT' : '', rung.scale ? 'SCALE' : '', rung.jump ? `${rung.jump.mode} ${rung.jump.label}` : '', rung.call ? 'CALL' : ''].filter(Boolean)
 
   const plcId = useSimStore((st) => st.activePlcId)
   const fcFiles = useSimStore((st) => st.projectFiles[plcId ?? '_general'] ?? [])
 
   return (
-    <div id={`rung-${rung.id}`} className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''} ${active ? 'is-active' : ''} ${rung.enabled ? '' : 'is-disabled'}`}>
+    <div id={`rung-${rung.id}`} className={`ladder-rung-card ${powered && running ? 'is-powered' : ''} ${collapsed ? 'is-collapsed' : ''} ${active ? 'is-active' : ''} ${rung.enabled ? '' : 'is-disabled'} ${isBreakHit ? 'is-break-hit' : ''} ${isCursor ? 'is-trace-cursor' : ''} ${skipped && running ? 'is-skipped' : ''}`}>
       {/* cabeçalho da network — estilo TIA Portal: "Network n: título" */}
       <div className="ladder-rung-header" onDoubleClick={() => toggleCollapsed()}>
         <button
@@ -137,6 +145,15 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
         >
           {collapsed ? <IconChevronRight size={11} /> : <IconChevronDown size={11} />}
         </button>
+        {isMain && <button
+          type="button"
+          className={`ladder-bp-btn ${breakMode ? 'is-set' : ''}`}
+          aria-pressed={!!breakMode}
+          aria-label={breakMode ? `Remover o ponto de paragem da network ${index + 1}` : `Pôr um ponto de paragem na network ${index + 1}`}
+          title={breakMode ? `Ponto de paragem: ${breakMode === 'rising' ? 'pára quando a network passa a conduzir' : breakMode === 'on' ? 'pára enquanto a network conduz' : 'pára em cada ciclo'} — clique para remover (condição no separador Depuração)` : 'Pôr ponto de paragem (F9): a simulação pausa quando esta network passa a conduzir'}
+          onClick={(e) => { e.stopPropagation(); setBreakpoint(rung.id) }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        ><i /></button>}
         <span className={`ladder-network-no ${powered && running ? 'is-on' : ''}`} title="Número da network">
           Network {index + 1}:
         </span>
@@ -157,6 +174,9 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
           {rung.branches.length > 1 && <span className="ladder-chip is-info">{rung.branches.length} <small>ramos</small></span>}
           {!!blockKinds.length && <span className="ladder-chip is-info">{blockKinds.join(' · ')}</span>}
           {!rung.enabled && <span className="ladder-chip is-off">desativada</span>}
+          {rung.label && <span className="ladder-chip is-label" title="Etiqueta (LBL) — destino de JMP/JMPN">LBL {rung.label}</span>}
+          {skipped && running && <span className="ladder-chip is-off" title="Não executada no último ciclo por causa de um salto JMP/JMPN">saltada</span>}
+          {isBreakHit && <span className="ladder-chip is-break" role="status">parou aqui</span>}
         </span>
         <label className="ladder-switch" title="Network habilitada para execução (Ctrl+Shift+A)" onDoubleClick={(e) => e.stopPropagation()}>
           <input type="checkbox" checked={rung.enabled} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, enabled: e.target.checked }), 'force')} />
@@ -478,6 +498,7 @@ const PALETTE_GROUPS: Array<{
       { kind: 'RISING', label: 'Borda de Subida', detail: 'Pulso positivo', icon: 'contact' },
       { kind: 'FALLING', label: 'Borda de Descida', detail: 'Pulso negativo', icon: 'contact' },
       { kind: 'NOT', label: 'NOT', detail: 'Inverte o RLO', icon: 'contact' },
+      { kind: 'XOR', label: 'XOR', detail: 'Ou exclusivo de 2 bits', icon: 'contact' },
     ],
   },
   {
@@ -501,7 +522,20 @@ const PALETTE_GROUPS: Array<{
   },
   {
     title: 'Operações',
-    items: [{ kind: 'MOVE', label: 'MOVE', detail: 'BOOL/INT/REAL via DB', icon: 'move' }, { kind: 'CALL', label: 'CALL FC', detail: 'Invocar bloco', icon: 'function' }],
+    items: [
+      { kind: 'MOVE', label: 'MOVE', detail: 'BOOL/INT/REAL via DB', icon: 'move' },
+      { kind: 'LIMIT', label: 'LIMIT', detail: 'Limitar a [MN, MX]', icon: 'move' },
+      { kind: 'SCALE', label: 'SCALE', detail: 'Escala linear (analógica)', icon: 'move' },
+      { kind: 'CALL', label: 'CALL FC', detail: 'Invocar bloco', icon: 'function' },
+    ],
+  },
+  {
+    title: 'Controlo do programa',
+    items: [
+      { kind: 'JMP', label: 'JMP', detail: 'Salta se RLO = 1', icon: 'function' },
+      { kind: 'JMPN', label: 'JMPN', detail: 'Salta se RLO = 0', icon: 'function' },
+      { kind: 'LBL', label: 'LBL', detail: 'Etiqueta de destino', icon: 'function' },
+    ],
   },
   {
     title: 'Matemática',
@@ -543,11 +577,11 @@ export function LadderGlyph({ kind, size = 26 }: { kind: PaletteKind; size?: num
     <text x="20" y="16" fontSize="9" fontWeight="700" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">{t}</text>
   )
   let body: JSX.Element
-  if (kind === 'NOT') {
+  if (kind === 'NOT' || kind === 'XOR') {
     body = (
       <g {...common}>
         <path d="M0 12H10M30 12H40M10 4V20M30 4V20" />
-        <text x="20" y="15" fontSize="7.5" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">NOT</text>
+        <text x="20" y="15" fontSize="7.5" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">{kind}</text>
       </g>
     )
   } else if (isContactKind(kind)) {
@@ -1360,7 +1394,9 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const lintIssues = useMemo(() => lintLadder({ rungs }, { physicalInputs: plcs.length > 0, tags }), [rungs, plcs.length, tags])
   const lintCount = lintIssues.filter((issue) => issue.level !== 'info').length
   const forcedAddrs = useSimStore((s) => s.forces)
-  const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'force' | 'lint'>('io')
+  const breakpointCount = useSimStore((s) => Object.keys(s.ladderBreakpoints).filter((id) => s.ladder.rungs.some((r) => r.id === id)).length)
+  const breakHit = useSimStore((s) => s.ladderBreakHit)
+  const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'force' | 'debug' | 'lint'>('io')
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
   const [filter, setFilter] = useState('')
   const ladderZoom = useLadderZoom((state) => state.zoom)
@@ -1425,6 +1461,15 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     try { localStorage.setItem('dcsimu:ladder:status-open', showStatus ? '1' : '0') } catch { /* navegação privada */ }
   }, [showStatus])
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
+  // Ponto de paragem atingido: abre «Depuração», expande e mostra a network.
+  useEffect(() => {
+    if (!breakHit || !rungs.some((r) => r.id === breakHit.rungId)) return
+    setStatusTab('debug')
+    setShowStatus(true)
+    setCollapsedIds((prev) => { if (!prev.has(breakHit.rungId)) return prev; const next = new Set(prev); next.delete(breakHit.rungId); return next })
+    window.requestAnimationFrame(() => document.getElementById(`rung-${breakHit.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [breakHit])
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -1554,6 +1599,19 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
       if (!mod && key === 'PageDown') { event.preventDefault(); go((idx < 0 ? 0 : idx) + 1); return }
       if (!mod && !event.altKey && key === 'Home') { event.preventDefault(); go(0); return }
       if (!mod && !event.altKey && key === 'End') { event.preventDefault(); go(list.length - 1); return }
+
+      // ---- depuração: F9 ponto de paragem na network ativa · F10 passo (1 ciclo)
+      if (!mod && !event.altKey && key === 'F9') {
+        event.preventDefault()
+        if (idx >= 0) {
+          const st = useSimStore.getState()
+          const had = !!st.ladderBreakpoints[list[idx].id]
+          st.setLadderBreakpoint(list[idx].id)
+          notify(`Ponto de paragem ${had ? 'removido da' : 'na'} network ${idx + 1}`)
+        }
+        return
+      }
+      if (!mod && !event.altKey && key === 'F10') { event.preventDefault(); useSimStore.getState().ladderStepScan(); setStatusTab('debug'); setShowStatus(true); return }
 
       // ---- recolher / ativar
       if (mod && lower === 'e') {
@@ -1771,7 +1829,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
           </button>
           <button className={`ladder-project-tab ${programTab === 'tags' ? 'is-active' : ''}`} onClick={() => { setProgramTab('tags'); setActiveProjectNode('plcVariables') }}><IconTag size={13} />Tabela de Tags</button>
           <span className="ml-auto flex items-center gap-2 text-[10px] text-slate-400">
-            <span className={`ladder-connection-dot ${running ? 'is-live' : ''}`} /> {running ? 'Simulação ativa' : 'Parado'}
+            <span className={`ladder-connection-dot ${running ? 'is-live' : ''}`} /> {running ? 'Simulação ativa' : paused ? 'Em pausa' : 'Parado'}
           </span>
         </div>
         <div className="ladder-editor-toolbar">
@@ -1888,12 +1946,13 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             {(() => {
               const activeBits = Object.entries(table).filter(([key, value]) => value && /^[IQM]\d+\.\d$/.test(key)).length
               const badge: Record<string, number> = { io: activeBits, timers: Object.keys(timers).length, counters: Object.keys(counters).length }
-              const statusTabs: Array<{ id: 'io' | 'memory' | 'timers' | 'counters' | 'force' | 'lint'; label: ReactNode }> = [
+              const statusTabs: Array<{ id: 'io' | 'memory' | 'timers' | 'counters' | 'force' | 'debug' | 'lint'; label: ReactNode }> = [
                 { id: 'io', label: <><IconSchematic size={11} />Entradas/Saídas</> },
                 { id: 'memory', label: <><IconTag size={11} />Memórias</> },
                 { id: 'timers', label: <><IconTimer size={11} />Temporizadores</> },
                 { id: 'counters', label: <><IconCounter size={11} />Contadores</> },
                 { id: 'force', label: <><IconShield size={11} />Forçar{Object.keys(forcedAddrs).length ? ` (${Object.keys(forcedAddrs).length})` : ''}</> },
+                { id: 'debug', label: <><IconStep size={11} />Depuração{breakpointCount ? ` (${breakpointCount})` : ''}</> },
                 { id: 'lint', label: lintCount ? <><IconShield size={11} />Verificação ({lintCount})</> : <><IconCheck size={10} className="ui-ck" />Verificação</> },
               ]
               return statusTabs.map(({ id, label }) => (
@@ -1936,6 +1995,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             {statusTab === 'io' && !activePlc && <VirtualIoPanel compact />}
             {statusTab === 'io' && !!activePlc && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
             {statusTab === 'force' && <ForcePanel />}
+            {statusTab === 'debug' && <LadderDebugPanel rungs={rungs} />}
             {statusTab === 'lint' && <div className="ladder-lint" role="list">
               {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <span className="ladder-status-empty is-ok"><IconCheck size={11} className="ui-ck" /> Nenhum problema encontrado — o programa está limpo.</span>}
             </div>}

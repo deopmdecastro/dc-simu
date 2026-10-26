@@ -425,8 +425,9 @@ export interface Wire {
 // Ladder
 // ---------------------------------------------------------------------------
 
-/** 'NOT' inverte o RLO acumulado à sua esquerda no ramo (sem operando, como no TIA Portal). */
-export type LadderContactType = 'NO' | 'NC' | 'RISING' | 'FALLING' | 'CMP' | 'NOT'
+/** 'NOT' inverte o RLO acumulado à sua esquerda no ramo (sem operando, como no TIA Portal).
+ *  'XOR' conduz quando exatamente um dos dois operandos (`address`, `xorAddress`) está a 1. */
+export type LadderContactType = 'NO' | 'NC' | 'RISING' | 'FALLING' | 'CMP' | 'NOT' | 'XOR'
 /** Operador de um comparador: ==, <>, >=, <=, >, <. */
 export type LadderCompareOp = '==' | '<>' | '>=' | '<=' | '>' | '<'
 export type LadderCompareType = 'Int' | 'Word' | 'Real'
@@ -456,6 +457,8 @@ export interface LadderContact {
   compareType?: LadderCompareType
   /** 2.º operando (IN2): constante, MWn, Cn, Tn ou DBx.variável. */
   compareValue?: string
+  /** Só para contactType 'XOR': 2.º bit (o 1.º é `address`). */
+  xorAddress?: string
 }
 
 export interface LadderCoilEl {
@@ -512,6 +515,14 @@ export interface LadderRung {
   math?: { op: LadderMathOp; in1: string; in2: string; out: string }
   /** Chamada explícita de um FC do mesmo PLC. */
   call?: { targetId: string }
+  /** LIMIT (TIA): OUT = IN limitado a [MN, MX] quando a network está ativa. */
+  limit?: { mn: string; in: string; mx: string; out: string }
+  /** SCALE (NORM_X + SCALE_X): OUT = OUT_MIN + (IN − IN_MIN)·(OUT_MAX − OUT_MIN)/(IN_MAX − IN_MIN), IN limitado à gama. */
+  scale?: { in: string; inMin: string; inMax: string; outMin: string; outMax: string; out: string }
+  /** LBL: etiqueta de destino de saltos (no início da network, como no TIA Portal). */
+  label?: string
+  /** JMP (salta com RLO = 1) / JMPN (salta com RLO = 0) para a network com a etiqueta indicada, sempre para a frente. */
+  jump?: { label: string; mode: 'JMP' | 'JMPN' }
   enabled: boolean
   comment?: string
 }

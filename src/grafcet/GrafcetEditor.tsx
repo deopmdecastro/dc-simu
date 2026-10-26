@@ -1300,6 +1300,10 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     maxRight = Math.max(maxRight, p.x + ACTION_W + 46)
     maxBottom = Math.max(maxBottom, p.y + ACTION_H + 36)
   })
+  comments.forEach((c) => {
+    maxRight = Math.max(maxRight, c.x + c.text.length * (c.fontSize ?? 13) * 0.7 + 20)
+    maxBottom = Math.max(maxBottom, c.y + (c.fontSize ?? 13) + 20)
+  })
   // Os pontos de quebra das linhas (laços de retorno, desvios) também contam para a área do diagrama.
   Object.values(program.linkBends ?? {}).forEach((points) => points.forEach((point) => {
     maxRight = Math.max(maxRight, point.x + 40)
@@ -3743,12 +3747,20 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                       ? [{ x: sourceX, y: sBottom }, ...bends, { x: targetX, y: tTop }]
                       : autoReturnPoints
                     const returnPath = routeThrough(linkPoints)
-                    const barMid = bends.length ? polylineMidpoint(linkPoints) : null
+                    // IEC 60848 / FluidSIM: a transição de um retorno fica logo abaixo da etapa de origem.
+                    // Com cotovelos, mantém-se aí enquanto a primeira perna descer a direito da etapa.
+                    const firstLegDown = bends.length > 0 && bends[0].x === sourceX && bends[0].y >= sBottom + 36
+                    const barMid = bends.length && !firstLegDown ? polylineMidpoint(linkPoints) : null
                     const tx = barMid?.x ?? sourceX
                     const ty = barMid?.y ?? sBottom + 24
+                    // Seta de subida no troço vertical ascendente mais longo (o «barramento» do retorno).
+                    const upLeg = linkPoints.slice(1).map((p, i) => ({ a: linkPoints[i], b: p }))
+                      .filter(({ a, b }) => a.x === b.x && b.y < a.y - 40)
+                      .sort((m, n) => (m.a.y - m.b.y) - (n.a.y - n.b.y)).pop()
                     transitionAnchors.set(transition.id, { x: tx, y: ty })
                     const delX = bends.length ? tx - 18 : trackX
                     const delY = bends.length ? ty - 12 : (sBottom + tTop) / 2 - 16
+                    const arrowAt = bends.length ? (upLeg ? { x: upLeg.a.x, y: (upLeg.a.y + upLeg.b.y) / 2 } : null) : { x: trackX, y: (sBottom + tTop) / 2 }
 
                     return (
                       <g
@@ -3787,9 +3799,9 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                         </path>
 
                         {/* Seta direcional subindo no barramento à esquerda (só no traçado automático) */}
-                        {!bends.length && (
+                        {arrowAt && (
                           <path
-                            d={`M ${trackX - 4} ${(sBottom + tTop) / 2 + 5} L ${trackX} ${(sBottom + tTop) / 2 - 2} L ${trackX + 4} ${(sBottom + tTop) / 2 + 5}`}
+                            d={`M ${arrowAt.x - 4} ${arrowAt.y + 5} L ${arrowAt.x} ${arrowAt.y - 2} L ${arrowAt.x + 4} ${arrowAt.y + 5}`}
                             fill="none"
                             stroke={linkColor}
                             strokeWidth="2"
@@ -4048,6 +4060,22 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     </g>
                   )
                 })}
+
+                {/* COMENTÁRIOS / LEGENDAS (ex.: títulos importados do FluidSIM) */}
+                {comments.map((comment) => (
+                  <text
+                    key={comment.id}
+                    className="grafcet-comment"
+                    x={comment.x}
+                    y={comment.y + (comment.fontSize ?? 13)}
+                    fontSize={comment.fontSize ?? 13}
+                    fontWeight={comment.fontWeight ?? 600}
+                    fill="#334155"
+                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                  >
+                    {comment.text}
+                  </text>
+                ))}
 
                 {/* ETAPAS E AÇÕES ATRELADAS */}
                 {steps.map((step, index) => {

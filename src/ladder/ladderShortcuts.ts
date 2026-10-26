@@ -49,6 +49,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'collapse', group: 'networks', keys: ['Ctrl', 'E'], label: 'Recolher / expandir a network ativa' },
   { id: 'collapse-all', group: 'networks', keys: ['Ctrl', 'Shift', 'E'], label: 'Recolher / expandir todas' },
   { id: 'toggle', group: 'networks', keys: ['Ctrl', 'Shift', 'A'], label: 'Ativar / desativar a network' },
+  { id: 'breakpoint', group: 'networks', keys: ['F9'], label: 'Pôr / tirar ponto de paragem na network ativa' },
+  { id: 'step-scan', group: 'networks', keys: ['F10'], label: 'Passo a passo: pausa e executa um ciclo de scan' },
 
   ...ELEMENT_KEYS.map((e, i): ShortcutDef => ({ id: `el-${i}`, group: 'elements', keys: e.shift ? ['Shift', e.key.toUpperCase()] : [e.key.toUpperCase()], label: e.label })),
 

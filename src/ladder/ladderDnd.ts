@@ -22,6 +22,11 @@ export type PaletteKind =
   | 'COMPARE'
   | CompareKind
   | LadderMathOp
+  | 'LIMIT'
+  | 'SCALE'
+  | 'JMP'
+  | 'JMPN'
+  | 'LBL'
   | 'BRANCH'
 
 /** MIME do arrastar de elementos da paleta Ladder. */
@@ -61,7 +66,8 @@ export interface MovePayload {
 }
 
 export const isCompareKind = (k: PaletteKind): k is CompareKind => k in COMPARE_KIND_OP
-export const isContactKind = (k: PaletteKind): k is LadderContactType => k === 'NO' || k === 'NC' || k === 'RISING' || k === 'FALLING' || k === 'NOT'
+export const isContactKind = (k: PaletteKind): k is LadderContactType => k === 'NO' || k === 'NC' || k === 'RISING' || k === 'FALLING' || k === 'NOT' || k === 'XOR'
+export const isJumpKind = (k: PaletteKind): k is 'JMP' | 'JMPN' => k === 'JMP' || k === 'JMPN'
 export const isCoilKind = (k: PaletteKind): k is LadderCoilType => k === 'COIL' || k === 'SET' || k === 'RESET' || k === 'SR' || k === 'RS'
 export const isTimerKind = (k: PaletteKind): k is 'TON' | 'TOF' | 'TP' | 'TONR' => k === 'TON' || k === 'TOF' || k === 'TP' || k === 'TONR'
 export const isMathKind = (k: PaletteKind): k is LadderMathOp => k === 'ADD' || k === 'SUB' || k === 'MUL' || k === 'DIV' || k === 'MOD'
@@ -89,6 +95,13 @@ function nextAddr(rung: LadderRung, prefix: 'I' | 'Q' | 'M') {
   return `${prefix}0.0`
 }
 
+/** 2.º endereço livre (para o XOR nascer com dois operandos distintos). */
+function nextAddrAfter(rung: LadderRung, prefix: 'I' | 'Q' | 'M') {
+  const first = nextAddr(rung, prefix)
+  const probe: LadderRung = { ...rung, branches: [...rung.branches, { id: '_probe', elements: [{ kind: 'contact', id: '_p', address: first, contactType: 'NO' }] }] }
+  return nextAddr(probe, prefix)
+}
+
 export type DropTarget =
   | { kind: 'branch'; branchIndex: number; index: number }
   | { kind: 'newBranch'; beforeIndex?: number }
@@ -98,9 +111,13 @@ export type DropTarget =
  * Aplica um elemento da paleta numa network, na posição indicada.
  * Devolve a network atualizada e o id do elemento criado (para selecionar).
  */
-export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarget = { kind: 'output' }): { rung: LadderRung; created?: { type: 'contact'; branchId: string; elementId: string } | { type: 'coil'; coilId: string } | { type: 'timer' } | { type: 'counter' } | { type: 'math' } } {
+export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarget = { kind: 'output' }): { rung: LadderRung; created?: { type: 'contact'; branchId: string; elementId: string } | { type: 'coil'; coilId: string } | { type: 'timer' } | { type: 'counter' } | { type: 'math' } | { type: 'limit' } | { type: 'scale' } | { type: 'jump' } | { type: 'label' } } {
   if (kind === 'CALL') return { rung: { ...rung, call: rung.call ?? { targetId: 'fc1' } } }
   if (kind === 'MOVE') return { rung: { ...rung, move: rung.move ?? { source: 'I1', target: 'M1' } } }
+  if (kind === 'LIMIT') return { rung: { ...rung, limit: rung.limit ?? { mn: '0', in: 'MW0', mx: '100', out: 'MW2' } }, created: { type: 'limit' } }
+  if (kind === 'SCALE') return { rung: { ...rung, scale: rung.scale ?? { in: 'MW0', inMin: '0', inMax: '27648', outMin: '0', outMax: '100', out: 'MW4' } }, created: { type: 'scale' } }
+  if (isJumpKind(kind)) return { rung: { ...rung, jump: { label: rung.jump?.label ?? 'M001', mode: kind } }, created: { type: 'jump' } }
+  if (kind === 'LBL') return { rung: { ...rung, label: rung.label || 'M001' }, created: { type: 'label' } }
   if (isMathKind(kind)) return { rung: { ...rung, math: { in1: 'MW0', in2: '1', out: 'MW2', ...rung.math, op: kind } }, created: { type: 'math' } }
   if (kind === 'BRANCH') {
     // Linha paralela (estilo TIA Portal «abrir ramo»): nasce com um contacto NA pronto a editar,
@@ -117,7 +134,9 @@ export function applyKind(rung: LadderRung, kind: PaletteKind, target: DropTarge
   if (isContactKind(kind) || isCompareKind(kind)) {
     const el: LadderContact = isCompareKind(kind)
       ? { kind: 'contact', id: uid(`${rung.id}-c`), address: nextWord(rung), contactType: 'CMP', compareOp: COMPARE_KIND_OP[kind], compareType: 'Int', compareValue: '0' }
-      : { kind: 'contact', id: uid(`${rung.id}-c`), address: kind === 'NOT' ? '' : nextAddr(rung, 'I'), contactType: kind as LadderContactType }
+      : kind === 'XOR'
+        ? { kind: 'contact', id: uid(`${rung.id}-c`), address: nextAddr(rung, 'I'), contactType: 'XOR', xorAddress: nextAddrAfter(rung, 'I') }
+        : { kind: 'contact', id: uid(`${rung.id}-c`), address: kind === 'NOT' ? '' : nextAddr(rung, 'I'), contactType: kind as LadderContactType }
     let branches = rung.branches.length ? [...rung.branches] : [{ id: `${rung.id}-b0`, elements: [] }]
     let bi = 0
     let idx = branches[0].elements.length

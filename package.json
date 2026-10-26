@@ -31,6 +31,7 @@
     "test:interactables": "tsx scripts/interactables-smoke.ts",
     "test:terminal-seat": "tsx scripts/terminal-seat-smoke.ts",
     "test:editors-sweep": "tsx scripts/editors-sweep-smoke.ts",
+    "test:ladder-blocks": "tsx scripts/ladder-blocks-smoke.ts",
     "test:auto-detect-models": "tsx scripts/auto-detect-models-smoke.ts",
     "audit:terminals": "tsx scripts/audit-terminals.ts",
     "test:terminal-geometry": "tsx scripts/terminal-geometry-smoke.ts",
@@ -41,7 +42,7 @@
     "test:server": "node scripts/server-e2e.mjs",
     "test:n8n-client": "tsx scripts/n8n-client-smoke.ts",
     "test:pinch": "tsx scripts/pinch-zoom-smoke.ts && tsx scripts/pinch-dom-smoke.ts",
-    "test:ci": "npm test && npm run -s test:editors-sweep && npm run -s test:pinch && npm run -s test:ladder-compare && npm run -s test:ladder-math && npm run -s test:ladder-force && npm run -s test:component-validate && npm run -s test:diagnostics && npm run -s test:grafcet-signals && npm run -s test:grafcet-ladder-sync && npm run -s test:grafcet-ladder-word && npm run -s test:grafcet-links && npm run -s test:grafcet-dialogs && npm run -s test:fluidsim && npm run -s test:ladder-rename && npm run -s test:project-names && npm run -s test:style && npm run -s test:interactables && npm run -s test:auto-detect-models && npm run -s test:terminal-geometry && npm run -s test:terminal-seat && npm run -s test:editor3d-functional && npm run -s test:n8n-client && npm run -s test:motion && npm run -s test:glow && npm run -s test:excel && npm run -s test:ladder-integration && npm run -s test:flow-cover && npm run -s test:pdf-export && npm run -s test:sheets",
+    "test:ci": "npm test && npm run -s test:editors-sweep && npm run -s test:ladder-blocks && npm run -s test:pinch && npm run -s test:ladder-compare && npm run -s test:ladder-math && npm run -s test:ladder-force && npm run -s test:component-validate && npm run -s test:diagnostics && npm run -s test:grafcet-signals && npm run -s test:grafcet-ladder-sync && npm run -s test:grafcet-ladder-word && npm run -s test:grafcet-links && npm run -s test:grafcet-dialogs && npm run -s test:fluidsim && npm run -s test:ladder-rename && npm run -s test:project-names && npm run -s test:style && npm run -s test:interactables && npm run -s test:auto-detect-models && npm run -s test:terminal-geometry && npm run -s test:terminal-seat && npm run -s test:editor3d-functional && npm run -s test:n8n-client && npm run -s test:motion && npm run -s test:glow && npm run -s test:excel && npm run -s test:ladder-integration && npm run -s test:flow-cover && npm run -s test:pdf-export && npm run -s test:sheets",
     "typecheck": "tsc -b",
     "start": "node server/index.mjs",
     "test:motion": "tsx scripts/motion-smoke.ts",
@@ -51,7 +52,8 @@
     "test:flow-cover": "tsx scripts/flow-cover-smoke.ts",
     "test:pdf-export": "tsx scripts/pdf-export-smoke.ts",
     "test:sheets": "tsx scripts/sheets-smoke.ts",
-    "test:editors-sweep-ui": "node scripts/editors-sweep-ui-smoke.mjs"
+    "test:editors-sweep-ui": "node scripts/editors-sweep-ui-smoke.mjs",
+    "test:ladder-blocks-ui": "node scripts/ladder-blocks-ui-smoke.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",

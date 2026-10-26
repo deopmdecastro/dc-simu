@@ -118,7 +118,10 @@ export function ladderCoverSvg(rungs: LadderRung[], title = 'Ladder'): string | 
     if (rung.counter) blocks.push({ end: 100, draw: (yy) => blockSymbol(rung.counter!.counterType, rung.counter!.address, outX, yy, 38) })
     if (rung.move) blocks.push({ end: 100, draw: (yy) => blockSymbol('MOVE', rung.move!.target, outX, yy, 38) })
     if (rung.math) blocks.push({ end: 100, draw: (yy) => blockSymbol(rung.math!.op, rung.math!.out, outX, yy, 38) })
+    if (rung.limit) blocks.push({ end: 100, draw: (yy) => blockSymbol('LIMIT', rung.limit!.out, outX, yy, 38) })
+    if (rung.scale) blocks.push({ end: 100, draw: (yy) => blockSymbol('SCALE', rung.scale!.out, outX, yy, 38) })
     if (rung.call) blocks.push({ end: 100, draw: (yy) => blockSymbol('CALL', 'FC', outX, yy, 38) })
+    if (rung.jump) blocks.push({ end: 100, draw: (yy) => blockSymbol(rung.jump!.mode, rung.jump!.label, outX, yy, 38) })
     rung.coils.slice(0, 3).forEach((coil) => blocks.push({ end: 66, draw: (yy) => coilSymbol(coil.address, coil.coilType, outX + 24, yy) }))
     const shown = blocks.slice(0, 3)
     const stackH = Math.max(shown.length, 1) * rowH

@@ -36,7 +36,8 @@ import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRIC
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
-import { runScan, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
+import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBreakMode } from '../ladder/ladderDebug'
+import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
 import { detectDiagnostics } from '../utils/errorDetection'
 import { buildMeasurements } from '../utils/measurements'
 import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, upgradeLogoTerminals, upgradePhysicalFootprint, upgradeProauto24A, upgradeRealInterfacePositions, upgradeProtectionTerminalPositions } from '../electrical/factory'
@@ -97,6 +98,10 @@ interface RuntimeExtras {
   timers: TimerTable
   counters: CounterTable
   rungPowered: Record<string, boolean>
+  /** Rasto do último scan do programa na vista (uma entrada por network, pela ordem de execução). */
+  rungTrace?: RungTraceEntry[]
+  /** Networks saltadas por JMP/JMPN no último scan. */
+  rungSkipped?: Record<string, boolean>
   db: DbTable
   /** mesma memória de flanco do PlcScanRuntime, para o programa geral (sem PLC) */
   edges: EdgeTable
@@ -179,6 +184,21 @@ interface Store extends CircuitState {
   /** value null remove o forçar desse endereço. */
   setForce: (address: string, value: boolean | null) => void
   clearForces: () => void
+  /** Depuração Ladder (só em memória, como o forçar): pontos de paragem por network. */
+  ladderBreakpoints: Record<string, LadderBreakMode>
+  /** null remove; sem modo alterna entre «ao ligar» e nenhum. */
+  setLadderBreakpoint: (rungId: string, mode?: LadderBreakMode | null) => void
+  clearLadderBreakpoints: () => void
+  /** Liga/desliga a paragem automática (os pontos ficam marcados). */
+  ladderBreakEnabled: boolean
+  setLadderBreakEnabled: (on: boolean) => void
+  /** Último ponto de paragem que pausou a simulação. */
+  ladderBreakHit: LadderBreakHit | null
+  /** Network em foco no passo a passo (índice no rasto do último scan). */
+  ladderTraceCursor: number | null
+  setLadderTraceCursor: (index: number | null) => void
+  /** Passo a passo: pausa (se estiver em RUN) e executa exatamente um ciclo de scan. */
+  ladderStepScan: () => void
   setVirtualInputCount: (count: number) => void
   clearVirtualInputs: () => void
   /** Repõe a memória de trabalho (Q, M, MW, temporizadores e contadores) a 0
@@ -550,10 +570,13 @@ function runOneTick(state: Store, dtMs: number) {
     }
     const declared = parseDataBlocks(generalFiles).values
     const db = { ...declared, ...state.runtime.db } // a memória persiste durante todo o RUN (como no TIA): palavras escritas em execução sobrevivem entre scans
-    const scan = runScan({ rungs: [...scheduled, ...ladder.rungs, ...autoExecRungs(generalFiles, 'obCyclic')] }, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs, functions, [], db, state.runtime.edges, state.forces)
+    const trace: RungTraceEntry[] = []
+    const scan = runScan({ rungs: [...scheduled, ...ladder.rungs, ...autoExecRungs(generalFiles, 'obCyclic')] }, state.runtime.table, state.runtime.timers, state.runtime.counters, dtMs, functions, [], db, state.runtime.edges, state.forces, { trace })
     state.runtime.db = db
     state.runtime.startupDone = true
     state.runtime.rungPowered = scan.rungPowered
+    state.runtime.rungTrace = trace
+    state.runtime.rungSkipped = Object.fromEntries(scan.skipped.map((id) => [id, true]))
   }
   for (const plc of plcs) {
     const prior = state.runtime.plcRuntime[plc.id] ?? { table: emptyTable(plcIoCapacity(plc).inputs, plcIoCapacity(plc).outputs), timers: {}, counters: {}, rungPowered: {}, db: {}, edges: {} }
@@ -578,8 +601,13 @@ function runOneTick(state: Store, dtMs: number) {
     const scheduled = prior.startupDone ? [] : autoExecRungs(files, 'obStartup')
     const declared = parseDataBlocks(files).values
     prior.db = { ...declared, ...prior.db } // idem: o valor de execução prevalece sobre o inicial do DB
-    const scan = runScan({ rungs: [...scheduled, ...program, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db, prior.edges, plc.id === selectedId ? state.forces : {})
+    const trace: RungTraceEntry[] | undefined = plc.id === selectedId ? [] : undefined
+    const scan = runScan({ rungs: [...scheduled, ...program, ...autoExecRungs(files, 'obCyclic')] }, table, prior.timers, prior.counters, dtMs, functions, [], prior.db, prior.edges, plc.id === selectedId ? state.forces : {}, { trace })
     state.runtime.plcRuntime[plc.id] = { ...prior, startupDone: true, rungPowered: scan.rungPowered }
+    if (trace) {
+      state.runtime.rungTrace = trace
+      state.runtime.rungSkipped = Object.fromEntries(scan.skipped.map((id) => [id, true]))
+    }
     for (const key of Object.keys(plc.state.outputs)) plc.state.outputs[key] = powered && !!scan.table[key]
   }
   if (selectedId) {
@@ -903,6 +931,26 @@ export const useSimStore = create<Store>((set, get) => ({
     set({ forces: {} })
     if (get().sim.runState !== 'running') get().step()
   },
+  ladderBreakpoints: {},
+  setLadderBreakpoint: (rungId, mode) => set((st) => {
+    const ladderBreakpoints = { ...st.ladderBreakpoints }
+    const next = mode === undefined ? (ladderBreakpoints[rungId] ? null : 'rising') : mode
+    if (next === null) delete ladderBreakpoints[rungId]
+    else ladderBreakpoints[rungId] = next
+    return { ladderBreakpoints }
+  }),
+  clearLadderBreakpoints: () => set({ ladderBreakpoints: {}, ladderBreakHit: null }),
+  ladderBreakEnabled: true,
+  setLadderBreakEnabled: (on) => set({ ladderBreakEnabled: on }),
+  ladderBreakHit: null,
+  ladderTraceCursor: null,
+  setLadderTraceCursor: (index) => set({ ladderTraceCursor: index }),
+  ladderStepScan: () => {
+    if (get().sim.runState === 'running') get().pause()
+    if (get().sim.runState === 'stopped') set((s) => ({ sim: { ...s.sim, runState: 'paused' } }))
+    get().step()
+    set({ ladderBreakHit: null, ladderTraceCursor: 0 })
+  },
   setVirtualInputMode: (address, mode) => {
     set((st) => ({ virtualInputModes: { ...st.virtualInputModes, [address]: mode }, dirty: true }))
     // Ao passar para botão de pressão (NO), a entrada volta ao repouso (0);
@@ -980,7 +1028,9 @@ export const useSimStore = create<Store>((set, get) => ({
     const existing = get()._intervalId
     if (existing) return
     // RUN a partir de STOP: GRAFCET reinicia e os OBs de arranque voltam a correr uma vez.
-    if (get().sim.runState === 'stopped') set((s) => ({
+    // Para os pontos de paragem «ao ligar», o 1.º ciclo depois de STOP parte de RLO = 0 em todas as networks.
+    let fromStop = get().sim.runState === 'stopped'
+    if (fromStop) set((s) => ({
       grafcetRuntime: emptyGrafcetRuntime(),
       runtime: {
         ...s.runtime,
@@ -992,10 +1042,24 @@ export const useSimStore = create<Store>((set, get) => ({
     const iv = window.setInterval(() => {
       const st = get()
       const dt = (st.sim.mode === 'turbo' ? 50 : 100) * st.sim.speed
+      const prevPowered = fromStop ? {} : st.runtime.rungPowered
+      fromStop = false
       runOneTick(st as unknown as Store, dt)
       pushRuntime(set, st)
+      // Pontos de paragem: avaliados no fim do scan (o ciclo nunca fica a meio).
+      if (st.ladderBreakEnabled && Object.keys(st.ladderBreakpoints).length) {
+        const trace = st.runtime.rungTrace ?? []
+        const hit = findBreakpointHit(st.ladderBreakpoints, prevPowered, trace, st.sim.scanCount)
+        if (hit) {
+          get().pause()
+          const networkNo = st.ladder.rungs.findIndex((r) => r.id === hit.rungId) + 1 || hit.index + 1
+          const cursor = trace.findIndex((t) => t.rungId === hit.rungId)
+          set({ ladderBreakHit: hit, ladderTraceCursor: cursor >= 0 ? cursor : null })
+          get().pushEvent('warning', describeBreakHit(hit, networkNo))
+        }
+      }
     }, interval)
-    set((s) => ({ sim: { ...s.sim, runState: 'running' }, _intervalId: iv }))
+    set((s) => ({ sim: { ...s.sim, runState: 'running' }, _intervalId: iv, ladderBreakHit: null }))
   },
 
   pause: () => {
@@ -1047,6 +1111,8 @@ export const useSimStore = create<Store>((set, get) => ({
         events: [{ id: nanoid(6), ts: Date.now(), level: 'info' as const, message: 'Simulação reiniciada sem alterar o projeto.' }, ...state.sim.events].slice(0, 120),
       },
       _intervalId: null,
+      ladderBreakHit: null,
+      ladderTraceCursor: null,
     })
   },
 

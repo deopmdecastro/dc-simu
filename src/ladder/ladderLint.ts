@@ -16,6 +16,8 @@ export function isLadderBitAddress(raw: string): boolean {
 }
 
 const isValid = (address: string) => isLadderBitAddress(address)
+/** Nome de etiqueta LBL aceite (estilo TIA Portal). */
+export const LABEL_RE = /^[A-Za-z_][A-Za-z0-9_]{0,15}$/
 
 /** Verificações estáticas ao programa Ladder. Não executa nada: só analisa a estrutura. */
 export function lintLadder(program: LadderProgram, options: { physicalInputs?: boolean; /** Tabela de Tags do projeto (LADDER-LINT-02). */ tags?: LadderTag[] } = {}): LadderIssue[] {
@@ -40,9 +42,16 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
   }
   rungs.forEach((rung, index) => {
     const name = rung.name || `Network ${index + 1}`
-    const hasOutput = rung.coils.length > 0 || !!rung.timer || !!rung.counter || !!rung.move || !!rung.math || !!rung.call
+    const hasOutput = rung.coils.length > 0 || !!rung.timer || !!rung.counter || !!rung.move || !!rung.math || !!rung.call || !!rung.limit || !!rung.scale || !!rung.jump
     for (const branch of rung.branches) for (const el of branch.elements) {
       if (el.contactType === 'NOT') continue
+      if (el.contactType === 'XOR') {
+        const second = el.xorAddress ?? ''
+        if (second.trim()) read.add(canon(second))
+        if (!second.trim()) issues.push({ id: `${el.id}:xor-b`, level: 'error', message: `${name}: o contacto XOR ${el.address} não tem o 2.º operando.`, rungId: rung.id })
+        else if (!isValid(second) && !/^DB/i.test(second)) issues.push({ id: `${el.id}:xor-addr`, level: 'error', message: `${name}: endereço inválido «${second}» no XOR.`, rungId: rung.id })
+        else if (canonicalAddress(second) === canonicalAddress(el.address)) issues.push({ id: `${el.id}:xor-same`, level: 'warning', message: `${name}: XOR de ${show(canon(el.address))} com ele próprio nunca conduz.`, rungId: rung.id })
+      }
       if (el.contactType === 'CMP') {
         if (!COMPARE_OPERAND_RE.test(el.address) || !COMPARE_OPERAND_RE.test(el.compareValue ?? '0')) issues.push({ id: `${el.id}:cmp`, level: 'error', message: `${name}: operando inválido num comparador (${el.address} ${el.compareOp ?? '=='} ${el.compareValue ?? '0'}).`, rungId: rung.id })
         continue
@@ -76,6 +85,21 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
       if (!COMPARE_OPERAND_RE.test(rung.math.in1) || !COMPARE_OPERAND_RE.test(rung.math.in2)) issues.push({ id: `${rung.id}:math-in`, level: 'error', message: `${name}: operando inválido no bloco ${rung.math.op}.`, rungId: rung.id })
       if ((rung.math.op === 'DIV' || rung.math.op === 'MOD') && /^[+-]?0+(\.0+)?$/.test(rung.math.in2.trim())) issues.push({ id: `${rung.id}:math-div0`, level: 'error', message: `${name}: ${rung.math.op} por zero nunca é executado.`, rungId: rung.id })
     }
+    const numConst = (raw: string) => (/^[+-]?\d+(?:\.\d+)?$/.test(raw.trim()) ? Number(raw) : undefined)
+    if (rung.limit) {
+      const { mn, mx } = rung.limit
+      for (const op of [mn, rung.limit.in, mx]) read.add(canon(op))
+      if (![mn, rung.limit.in, mx].every((op) => COMPARE_OPERAND_RE.test(op))) issues.push({ id: `${rung.id}:limit-in`, level: 'error', message: `${name}: operando inválido no bloco LIMIT.`, rungId: rung.id })
+      const a = numConst(mn), b = numConst(mx)
+      if (a !== undefined && b !== undefined && a > b) issues.push({ id: `${rung.id}:limit-range`, level: 'error', message: `${name}: LIMIT com MN (${a}) maior do que MX (${b}) — o bloco não limita e o ENO fica a 0.`, rungId: rung.id })
+    }
+    if (rung.scale) {
+      const sc = rung.scale
+      for (const op of [sc.in, sc.inMin, sc.inMax, sc.outMin, sc.outMax]) read.add(canon(op))
+      if (![sc.in, sc.inMin, sc.inMax, sc.outMin, sc.outMax].every((op) => COMPARE_OPERAND_RE.test(op))) issues.push({ id: `${rung.id}:scale-in`, level: 'error', message: `${name}: operando inválido no bloco SCALE.`, rungId: rung.id })
+      const a = numConst(sc.inMin), b = numConst(sc.inMax)
+      if (a !== undefined && b !== undefined && a === b) issues.push({ id: `${rung.id}:scale-range`, level: 'error', message: `${name}: SCALE com IN_MIN = IN_MAX (${a}) — divisão por zero, o bloco nunca escreve.`, rungId: rung.id })
+    }
     if (!hasOutput && rung.enabled) issues.push({ id: `${rung.id}:no-output`, level: 'warning', message: `${name}: não tem nenhuma saída (bobina, temporizador, contador ou MOVE).`, rungId: rung.id })
     if (hasOutput && rung.enabled && rung.branches.every((b) => b.elements.length > 0) === false && rung.branches.length > 1) issues.push({ id: `${rung.id}:empty-branch`, level: 'info', message: `${name}: existe um ramo vazio — a network fica sempre ativa.`, rungId: rung.id })
     if (!rung.enabled) issues.push({ id: `${rung.id}:disabled`, level: 'info', message: `${name}: está desativada e não é executada.`, rungId: rung.id })
@@ -100,6 +124,28 @@ export function lintLadder(program: LadderProgram, options: { physicalInputs?: b
     }
     if (rung.move) addWrite(rung.move.target, rung.id, name, 'move')
     if (rung.math) addWrite(rung.math.out, rung.id, name, 'math')
+    if (rung.limit) addWrite(rung.limit.out, rung.id, name, 'limit')
+    if (rung.scale) addWrite(rung.scale.out, rung.id, name, 'scale')
+  })
+  // Saltos (JMP/JMPN → LBL): etiqueta válida e única, destino existente e sempre para a frente.
+  const labels = new Map<string, number[]>()
+  rungs.forEach((rung, index) => {
+    const l = rung.label?.trim()
+    if (!l) return
+    const name = rung.name || `Network ${index + 1}`
+    if (!LABEL_RE.test(l)) issues.push({ id: `${rung.id}:lbl-name`, level: 'error', message: `${name}: etiqueta «${l}» inválida — use letras, dígitos ou _, a começar por letra (máx. 16).`, rungId: rung.id })
+    labels.set(l.toUpperCase(), [...(labels.get(l.toUpperCase()) ?? []), index])
+  })
+  for (const [l, at] of labels) if (at.length > 1) issues.push({ id: `lbl-dup:${l}`, level: 'error', message: `A etiqueta ${l} aparece em ${at.length} networks (${at.map((i) => i + 1).join(', ')}) — cada LBL tem de ser única.`, rungId: rungs[at[1]].id })
+  rungs.forEach((rung, index) => {
+    if (!rung.jump) return
+    const name = rung.name || `Network ${index + 1}`
+    const l = rung.jump.label.trim()
+    const target = labels.get(l.toUpperCase())?.[0]
+    if (!l) issues.push({ id: `${rung.id}:jmp-empty`, level: 'error', message: `${name}: ${rung.jump.mode} sem etiqueta de destino.`, rungId: rung.id })
+    else if (target === undefined) issues.push({ id: `${rung.id}:jmp-missing`, level: 'error', message: `${name}: ${rung.jump.mode} para ${l}, mas nenhuma network tem a etiqueta ${l} — o salto é ignorado.`, rungId: rung.id })
+    else if (target <= index) issues.push({ id: `${rung.id}:jmp-back`, level: 'error', message: `${name}: ${rung.jump.mode} para ${l} (Network ${target + 1}) salta para trás — só são permitidos saltos para a frente; o salto é ignorado.`, rungId: rung.id })
+    else if (target === index + 1) issues.push({ id: `${rung.id}:jmp-next`, level: 'info', message: `${name}: ${rung.jump.mode} para ${l} salta para a network seguinte — não salta nada.`, rungId: rung.id })
   })
   // Máquinas de estados em %MW: cada valor escrito por um MOVE deve ser testado por um comparador (==)
   // e cada comparação (== k) deve ter quem a escreva — senão há um estado inalcançável (saída que nunca liga).

@@ -45,3 +45,51 @@ export function execMath(math: { op: LadderMathOp; in1: string; in2: string; out
   entry.value = result
   return true
 }
+
+/** Escreve um valor numérico numa palavra/variável (cria MWn como INT). Devolve false (ENO = 0) se o destino não aceita números ou há overflow Int. */
+export function writeNumeric(out: string, value: number, ctx: NumericContext & { db: DbTable }): boolean {
+  const dst = out.trim().toUpperCase().replace(/^%/, '')
+  if (/^MW\d+$/.test(dst) && !ctx.db[dst]) ctx.db[dst] = { type: 'INT', value: 0 }
+  const entry = ctx.db[dst]
+  if (!entry || entry.type === 'BOOL' || !Number.isFinite(value)) return false
+  const v = entry.type === 'INT' ? Math.round(value) : value
+  if (entry.type === 'INT' && (v < INT_MIN || v > INT_MAX)) return false
+  entry.value = v
+  return true
+}
+
+/** LIMIT (TIA Portal): OUT = MIN(MAX(IN, MN), MX). Com MN > MX o bloco não limita (OUT = IN) e ENO = 0. */
+export function computeLimit(mn: number, value: number, mx: number): { value: number; ok: boolean } {
+  if (mn > mx) return { value, ok: false }
+  return { value: Math.min(Math.max(value, mn), mx), ok: true }
+}
+
+export function execLimit(limit: { mn: string; in: string; mx: string; out: string }, ctx: NumericContext & { db: DbTable }): boolean {
+  const mn = readOperand(limit.mn, ctx)
+  const value = readOperand(limit.in, ctx)
+  const mx = readOperand(limit.mx, ctx)
+  if (mn === undefined || value === undefined || mx === undefined) return false
+  const r = computeLimit(mn, value, mx)
+  return writeNumeric(limit.out, r.value, ctx) && r.ok
+}
+
+/**
+ * SCALE (NORM_X + SCALE_X numa caixa): IN é limitado a [IN_MIN, IN_MAX] e convertido
+ * linearmente para [OUT_MIN, OUT_MAX] (aceita gamas invertidas). IN_MIN = IN_MAX → ENO = 0.
+ */
+export function computeScale(value: number, inMin: number, inMax: number, outMin: number, outMax: number): number | undefined {
+  if (inMax === inMin) return undefined
+  const lo = Math.min(inMin, inMax)
+  const hi = Math.max(inMin, inMax)
+  const x = Math.min(Math.max(value, lo), hi)
+  return outMin + (x - inMin) * (outMax - outMin) / (inMax - inMin)
+}
+
+export function execScale(scale: { in: string; inMin: string; inMax: string; outMin: string; outMax: string; out: string }, ctx: NumericContext & { db: DbTable }): boolean {
+  const vals = [scale.in, scale.inMin, scale.inMax, scale.outMin, scale.outMax].map((op) => readOperand(op, ctx))
+  if (vals.some((v) => v === undefined)) return false
+  const [value, inMin, inMax, outMin, outMax] = vals as number[]
+  const result = computeScale(value, inMin, inMax, outMin, outMax)
+  if (result === undefined) return false
+  return writeNumeric(scale.out, result, ctx)
+}

@@ -4,15 +4,17 @@
 // da esquerda para a direita, e escreve bobinas / temporizadores / contadores.
 //
 // Blocos suportados:
-//   contatos  NO, NC, RISING (P), FALLING (N), NOT (inverte o RLO)
+//   contatos  NO, NC, RISING (P), FALLING (N), NOT (inverte o RLO), XOR (dois bits)
 //   bobinas   COIL, SET, RESET, SR (prioridade SET), RS (prioridade RESET)
 //   timers    TON, TOF, TP, STAR_DELTA (estrela→triângulo com tempo de transição)
 //   contadores CTU (crescente), CTD (decrescente), CTUD (crescente/decrescente) com preset e reset
+//   numéricos  MOVE, ADD/SUB/MUL/DIV/MOD, LIMIT, SCALE
+//   programa   LBL (etiqueta) + JMP/JMPN (salto para a frente; as networks saltadas não correm)
 // ============================================================================
 
 import { bitAddresses, migrateBitAddress } from './addresses'
 import { moveValue, type DbTable } from './dataBlocks'
-import { execMath } from './ladderMath'
+import { execLimit, execMath, execScale } from './ladderMath'
 import type { LadderProgram, LadderRung, LadderBranch, LadderContact } from '../types'
 import { evalCompare } from './compare'
 
@@ -34,6 +36,8 @@ export type EdgeTable = Record<string, boolean>
 function evalContact(el: LadderContact, table: AddressTable, db: DbTable, edges: EdgeTable, timers: TimerTable, counters: CounterTable): boolean {
   if (el.contactType === 'CMP') return evalCompare(el, { db, timers, counters })
   if (el.contactType === 'NOT') return true
+  const bit = (raw: string) => { const k = raw.trim().replace(/^%/, '').toUpperCase(); return db[k]?.type === 'BOOL' ? db[k].value === true : !!table[k] }
+  if (el.contactType === 'XOR') return bit(el.address) !== bit(el.xorAddress ?? '')
   const key = el.address.toUpperCase()
   const v = db[key]?.type === 'BOOL' ? db[key].value === true : !!table[key]
   switch (el.contactType) {
@@ -97,6 +101,48 @@ export interface ScanResult {
   rungPowered: Record<string, boolean>
   timers: TimerTable
   counters: CounterTable
+  /** Networks (do nível de topo) não executadas neste scan por causa de um JMP/JMPN. */
+  skipped: string[]
+}
+
+/** Uma entrada do rasto do scan (modo passo a passo): o que a network fez, pela ordem de execução. */
+export interface RungTraceEntry {
+  rungId: string
+  /** posição da network na lista executada (0 = primeira) */
+  index: number
+  powered: boolean
+  skipped: boolean
+  /** salto executado por esta network (etiqueta de destino) */
+  jumpedTo?: string
+  /** valores dos operandos escritos por esta network, logo a seguir à sua execução */
+  writes: Record<string, boolean | number>
+}
+
+/** Operandos que uma network escreve (bobinas, blocos e saídas numéricas) — para o rasto do scan. */
+export function rungWriteTargets(rung: LadderRung): string[] {
+  const out = new Set<string>()
+  const add = (raw?: string) => { const k = raw?.trim().replace(/^%/, '').toUpperCase(); if (k) out.add(k) }
+  for (const c of rung.coils) add(c.address)
+  add(rung.timer?.address)
+  add(rung.counter?.address)
+  add(rung.move?.target)
+  add(rung.math?.out)
+  add(rung.limit?.out)
+  add(rung.scale?.out)
+  return [...out]
+}
+
+function snapshotValue(key: string, table: AddressTable, db: DbTable, timers: TimerTable, counters: CounterTable): boolean | number {
+  const entry = db[key]
+  if (entry) return typeof entry.value === 'number' ? entry.value : entry.value === true
+  if (/^T\d+$/.test(key) && timers[key]) return timers[key].done
+  if (/^C\d+$/.test(key) && counters[key]) return counters[key].count
+  return !!table[key]
+}
+
+export interface ScanOptions {
+  /** Quando presente, recebe uma entrada por network do nível de topo (modo passo a passo). */
+  trace?: RungTraceEntry[]
 }
 
 /** Executa um ciclo de varredura completo do programa. dtMs = tempo simulado desde o último scan. */
@@ -111,12 +157,27 @@ export function runScan(
   db: DbTable = {},
   edges: EdgeTable = {},
   forces: ForceTable = {},
+  options: ScanOptions = {},
 ): ScanResult {
   const rungPowered: Record<string, boolean> = {}
+  const skipped: string[] = []
   // As entradas forçadas valem já na leitura do 1.º rung (imagem de processo).
   applyForces(table, forces)
 
-  for (const rung of program.rungs) {
+  const rungs = program.rungs
+  // LBL → índice; só se salta para a frente (como no TIA: saltos para trás ficam por conta do lint).
+  const labelAt = new Map<string, number>()
+  rungs.forEach((r, i) => { const l = r.label?.trim().toUpperCase(); if (l && !labelAt.has(l)) labelAt.set(l, i) })
+  let jumpTo = -1
+  for (let i = 0; i < rungs.length; i++) {
+    const rung = rungs[i]
+    if (i < jumpTo) {
+      // Network saltada: nada é avaliado nem escrito (as saídas mantêm o último valor).
+      rungPowered[rung.id] = false
+      skipped.push(rung.id)
+      options.trace?.push({ rungId: rung.id, index: i, powered: false, skipped: true, writes: {} })
+      continue
+    }
     const powered = evalRung(rung, table, db, edges, timers, counters)
     rungPowered[rung.id] = powered
 
@@ -258,6 +319,8 @@ export function runScan(
     }
     if (rung.move && powered) moveValue(rung.move.source, rung.move.target, table, db)
     if (rung.math && powered) execMath(rung.math, { db, timers, counters })
+    if (rung.limit && powered) execLimit(rung.limit, { db, timers, counters })
+    if (rung.scale && powered) execScale(rung.scale, { db, timers, counters })
     if (rung.call && powered) {
       const id = rung.call.targetId
       // Impede ciclos A→B→A e chamadas recursivas descontroladas.
@@ -270,10 +333,21 @@ export function runScan(
     }
     // O forçar vale também para as escritas deste rung: os seguintes já leem o valor imposto.
     applyForces(table, forces)
+    let jumpedTo: string | undefined
+    if (rung.jump && rung.enabled) {
+      const fire = rung.jump.mode === 'JMPN' ? !powered : powered
+      const target = labelAt.get(rung.jump.label.trim().toUpperCase())
+      if (fire && target !== undefined && target > i) { jumpTo = target; jumpedTo = rung.jump.label.trim() }
+    }
+    if (options.trace) {
+      const writes: Record<string, boolean | number> = {}
+      for (const key of rungWriteTargets(rung)) writes[key] = snapshotValue(key, table, db, timers, counters)
+      options.trace.push({ rungId: rung.id, index: i, powered, skipped: false, ...(jumpedTo ? { jumpedTo } : {}), writes })
+    }
   }
 
   applyForces(table, forces)
-  return { table, rungPowered, timers, counters }
+  return { table, rungPowered, timers, counters, skipped }
 }
 
 /** Cria a tabela inicial de endereços a partir dos blocos de I/O declarados. */
@@ -330,11 +404,14 @@ export function collectUsedAddresses(program: LadderProgram): string[] {
     for (const branch of rung.branches) {
       for (const el of branch.elements) {
         if (el.contactType !== 'NOT' && el.address) set.add(el.address.toUpperCase())
+        if (el.contactType === 'XOR' && el.xorAddress) set.add(el.xorAddress.toUpperCase())
       }
     }
     for (const coil of rung.coils) { set.add(coil.address.toUpperCase()); if (coil.resetAddress) set.add(coil.resetAddress.toUpperCase()) }
     if (rung.move) { set.add(rung.move.source.toUpperCase()); set.add(rung.move.target.toUpperCase()) }
     if (rung.math) { set.add(rung.math.in1.toUpperCase()); set.add(rung.math.in2.toUpperCase()); set.add(rung.math.out.toUpperCase()) }
+    if (rung.limit) for (const op of [rung.limit.mn, rung.limit.in, rung.limit.mx, rung.limit.out]) set.add(op.toUpperCase())
+    if (rung.scale) for (const op of [rung.scale.in, rung.scale.inMin, rung.scale.inMax, rung.scale.outMin, rung.scale.outMax, rung.scale.out]) set.add(op.toUpperCase())
     if (rung.timer) { set.add(rung.timer.address.toUpperCase()); if (rung.timer.resetAddress) set.add(rung.timer.resetAddress.toUpperCase()) }
     if (rung.counter) {
       set.add(rung.counter.address.toUpperCase())

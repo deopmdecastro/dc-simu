@@ -1,6 +1,7 @@
 import { COMPARE_OPERAND_RE, COMPARE_OPS, COMPARE_TYPES, compareNumbers, readOperand } from './compare'
 import { ADDRESS_RE, MATH_TARGET_RE, MOVE_TARGET_RE, OPERAND_RE } from './ladderInlineEdit'
 import { MATH_OPS } from './ladderMath'
+import { LABEL_RE } from './ladderLint'
 import { uiConfirm } from '../ui/dialogs'
 import Select from '../ui/Select'
 import AddBlockDialog from './AddBlockDialog'
@@ -42,6 +43,21 @@ type Draft = {
   in2: string
   out: string
   targetId: string
+  /** XOR: 2.º operando. */
+  xorAddress: string
+  limMn: string
+  limIn: string
+  limMx: string
+  limOut: string
+  scIn: string
+  scInMin: string
+  scInMax: string
+  scOutMin: string
+  scOutMax: string
+  scOut: string
+  jumpLabel: string
+  jumpMode: 'JMP' | 'JMPN'
+  lblName: string
 }
 
 const EMPTY: Draft = {
@@ -70,6 +86,20 @@ const EMPTY: Draft = {
   in2: '1',
   out: 'MW2',
   targetId: 'fc1',
+  xorAddress: '',
+  limMn: '0',
+  limIn: 'MW0',
+  limMx: '100',
+  limOut: 'MW2',
+  scIn: 'MW0',
+  scInMin: '0',
+  scInMax: '27648',
+  scOutMin: '0',
+  scOutMax: '100',
+  scOut: 'MW2',
+  jumpLabel: '',
+  jumpMode: 'JMP',
+  lblName: '',
 }
 
 
@@ -80,6 +110,11 @@ function selectedEntity(rung: LadderRung, selection: EditableSelection) {
   if (selection.type === 'counter') return rung.counter
   if (selection.type === 'move') return rung.move
   if (selection.type === 'math') return rung.math
+  if (selection.type === 'limit') return rung.limit
+  if (selection.type === 'scale') return rung.scale
+  if (selection.type === 'jump') return rung.jump
+  // A etiqueta é um texto da network: embrulhada num objeto (o diálogo usa `'campo' in entity`).
+  if (selection.type === 'label') return rung.label !== undefined ? { lbl: rung.label } : undefined
   return rung.call
 }
 
@@ -103,6 +138,10 @@ function titleFor(kind: Draft['kind']) {
   if (kind === 'counter') return 'Preset do contador'
   if (kind === 'move') return 'Operação MOVE'
   if (kind === 'math') return 'Operação matemática'
+  if (kind === 'limit') return 'Bloco LIMIT'
+  if (kind === 'scale') return 'Bloco SCALE'
+  if (kind === 'jump') return 'Salto (JMP/JMPN)'
+  if (kind === 'label') return 'Etiqueta (LBL)'
   return 'Chamada de função'
 }
 
@@ -111,7 +150,8 @@ function KindIcon({ kind }: { kind: Draft['kind'] }) {
   if (kind === 'coil') return <IconCoil size={17} />
   if (kind === 'timer') return <IconTimer size={17} />
   if (kind === 'counter') return <IconCounter size={17} />
-  if (kind === 'move' || kind === 'math') return <IconMove size={17} />
+  if (kind === 'move' || kind === 'math' || kind === 'limit' || kind === 'scale') return <IconMove size={17} />
+  if (kind === 'jump' || kind === 'label') return <IconArrowRight size={17} />
   return <IconFunction size={17} />
 }
 
@@ -154,6 +194,11 @@ export default function LadderElementDialog({
       dataType: tag?.dataType ?? defaultDataType(address),
       comment: tag?.comment ?? ('comment' in entity ? entity.comment ?? '' : ''),
       ...('contactType' in entity ? { contactType: entity.contactType } : {}),
+      ...('contactType' in entity && entity.contactType === 'XOR' ? { xorAddress: entity.xorAddress ?? '' } : {}),
+      ...(selection.type === 'limit' && 'mx' in entity ? { limMn: entity.mn, limIn: entity.in, limMx: entity.mx, limOut: entity.out } : {}),
+      ...(selection.type === 'scale' && 'inMin' in entity ? { scIn: entity.in, scInMin: entity.inMin, scInMax: entity.inMax, scOutMin: entity.outMin, scOutMax: entity.outMax, scOut: entity.out } : {}),
+      ...(selection.type === 'jump' && 'mode' in entity ? { jumpLabel: entity.label, jumpMode: entity.mode } : {}),
+      ...(selection.type === 'label' && 'lbl' in entity ? { lblName: entity.lbl } : {}),
       ...('contactType' in entity && entity.contactType === 'CMP' ? { compareOp: entity.compareOp ?? '==', compareType: entity.compareType ?? 'Int', compareValue: entity.compareValue ?? '0' } : {}),
       ...('coilType' in entity ? { coilType: entity.coilType, coilReset: entity.resetAddress ?? '' } : {}),
       ...('timerType' in entity ? { timerType: entity.timerType, presetMs: String(entity.presetMs), preset2Ms: String(entity.preset2Ms ?? 50), resetAddress: entity.resetAddress ?? '' } : {}),
@@ -183,6 +228,9 @@ export default function LadderElementDialog({
   const isCompare = draft.kind === 'contact' && draft.contactType === 'CMP'
   /** NOT não tem operando: só inverte o RLO. */
   const isNot = draft.kind === 'contact' && draft.contactType === 'NOT'
+  const isXor = draft.kind === 'contact' && draft.contactType === 'XOR'
+  /** Blocos sem endereço próprio (sem tag/nome simbólico). */
+  const noTagKind = draft.kind === 'move' || draft.kind === 'math' || draft.kind === 'call' || draft.kind === 'limit' || draft.kind === 'scale' || draft.kind === 'jump' || draft.kind === 'label'
   const bistable = draft.kind === 'coil' && (draft.coilType === 'SR' || draft.coilType === 'RS')
   const cleanAddr = (value: string) => value.trim().replace(/^%/, '').toUpperCase()
   const compareValueNorm = draft.compareValue.trim().replace(/^%/, '').toUpperCase()
@@ -224,8 +272,23 @@ export default function LadderElementDialog({
     } else if (isCompare) {
       if (!COMPARE_OPERAND_RE.test(normalizedAddress)) return setError('IN1 inválido. Use MW0, C1, T1, DB1.Variavel ou um número.')
       if (!COMPARE_OPERAND_RE.test(compareValueNorm)) return setError('IN2 inválido. Use um número, MW2, C1, T1 ou DB1.Variavel.')
+    } else if (draft.kind === 'limit') {
+      if (![draft.limMn, draft.limIn, draft.limMx].every((v) => COMPARE_OPERAND_RE.test(cleanAddr(v)))) return setError('MN, IN e MX aceitam números, MWn, Cn, Tn ou DB1.Variavel.')
+      if (!MATH_TARGET_RE.test(cleanAddr(draft.limOut))) return setError('OUT deve ser uma palavra MWn ou uma variável DB numérica.')
+      const a = Number(draft.limMn), b = Number(draft.limMx)
+      if (/^[+-]?\d+(\.\d+)?$/.test(draft.limMn.trim()) && /^[+-]?\d+(\.\d+)?$/.test(draft.limMx.trim()) && a > b) return setError('MN não pode ser maior do que MX.')
+    } else if (draft.kind === 'scale') {
+      if (![draft.scIn, draft.scInMin, draft.scInMax, draft.scOutMin, draft.scOutMax].every((v) => COMPARE_OPERAND_RE.test(cleanAddr(v)))) return setError('IN e os limites aceitam números, MWn, Cn, Tn ou DB1.Variavel.')
+      if (!MATH_TARGET_RE.test(cleanAddr(draft.scOut))) return setError('OUT deve ser uma palavra MWn ou uma variável DB numérica.')
+      if (draft.scInMin.trim() === draft.scInMax.trim()) return setError('IN_MIN e IN_MAX têm de ser diferentes.')
+    } else if (draft.kind === 'jump') {
+      if (!LABEL_RE.test(draft.jumpLabel.trim())) return setError('Etiqueta de destino inválida: letras, dígitos ou _, a começar por letra (máx. 16).')
+    } else if (draft.kind === 'label') {
+      if (draft.lblName.trim() && !LABEL_RE.test(draft.lblName.trim())) return setError('Etiqueta inválida: letras, dígitos ou _, a começar por letra (máx. 16).')
     } else if (isNot) {
       // sem operando
+    } else if (isXor && !ADDRESS_RE.test(cleanAddr(draft.xorAddress))) {
+      return setError('O XOR precisa de dois endereços de bit válidos (ex.: I0.0 e I0.1).')
     } else if (draft.kind !== 'call' && !ADDRESS_RE.test(normalizedAddress)) {
       return setError('Use um endereço válido, por exemplo I0.0, Q0.1, M0.2, T1, C1 ou DB1.Variavel.')
     }
@@ -237,7 +300,7 @@ export default function LadderElementDialog({
         ...current,
         branches: current.branches.map((branch) => branch.id === selection.branchId ? {
           ...branch,
-          elements: branch.elements.map((element) => element.id === selection.elementId ? { ...element, address: isNot ? '' : normalizedAddress, contactType: draft.contactType, comment: draft.comment.trim(), ...(isCompare ? { compareOp: draft.compareOp, compareType: draft.compareType, compareValue: compareValueNorm } : {}) } : element),
+          elements: branch.elements.map((element) => element.id === selection.elementId ? { ...element, address: isNot ? '' : normalizedAddress, contactType: draft.contactType, comment: draft.comment.trim(), xorAddress: isXor ? cleanAddr(draft.xorAddress) : undefined, ...(isCompare ? { compareOp: draft.compareOp, compareType: draft.compareType, compareValue: compareValueNorm } : {}) } : element),
         } : branch),
       }
       if (selection.type === 'coil') return { ...current, coils: current.coils.map((coil) => coil.id === selection.coilId ? { ...coil, address: normalizedAddress, coilType: draft.coilType, comment: draft.comment.trim(), resetAddress: bistable ? (cleanAddr(draft.coilReset) || undefined) : undefined } : coil) }
@@ -246,9 +309,13 @@ export default function LadderElementDialog({
       if (selection.type === 'move' && current.move) return { ...current, move: { source: draft.source.trim().toUpperCase(), target: draft.target.trim().toUpperCase() } }
       if (selection.type === 'math' && current.math) return { ...current, math: { op: draft.mathOp, in1: draft.in1.trim().toUpperCase(), in2: draft.in2.trim().toUpperCase(), out: draft.out.trim().toUpperCase() } }
       if (selection.type === 'call' && current.call) return { ...current, call: { targetId: draft.targetId } }
+      if (selection.type === 'limit' && current.limit) return { ...current, limit: { mn: cleanAddr(draft.limMn), in: cleanAddr(draft.limIn), mx: cleanAddr(draft.limMx), out: cleanAddr(draft.limOut) } }
+      if (selection.type === 'scale' && current.scale) return { ...current, scale: { in: cleanAddr(draft.scIn), inMin: cleanAddr(draft.scInMin), inMax: cleanAddr(draft.scInMax), outMin: cleanAddr(draft.scOutMin), outMax: cleanAddr(draft.scOutMax), out: cleanAddr(draft.scOut) } }
+      if (selection.type === 'jump' && current.jump) return { ...current, jump: { label: draft.jumpLabel.trim().toUpperCase(), mode: draft.jumpMode } }
+      if (selection.type === 'label') return { ...current, label: draft.lblName.trim().toUpperCase() || undefined }
       return current
     }, 'force')
-    if (draft.kind !== 'move' && draft.kind !== 'math' && draft.kind !== 'call' && !isNot && 'address' in entity) syncTag(entity.address, normalizedAddress)
+    if (!noTagKind && !isNot && 'address' in entity) syncTag(entity.address, normalizedAddress)
     onClose()
   }
 
@@ -264,12 +331,17 @@ export default function LadderElementDialog({
       if (selection.type === 'counter') return { ...current, counter: undefined }
       if (selection.type === 'move') return { ...current, move: undefined }
       if (selection.type === 'math') return { ...current, math: undefined }
+      if (selection.type === 'limit') return { ...current, limit: undefined }
+      if (selection.type === 'scale') return { ...current, scale: undefined }
+      if (selection.type === 'jump') return { ...current, jump: undefined }
+      if (selection.type === 'label') return { ...current, label: undefined }
       return { ...current, call: undefined }
     }, 'force')
     onClose()
   }
 
-  const commonFields = draft.kind !== 'move' && draft.kind !== 'math' && draft.kind !== 'call' && !isNot
+  const commonFields = !noTagKind && !isNot
+  const programLabels = [...new Set(useSimStore.getState().ladder.rungs.map((r) => r.label?.trim()).filter((l): l is string => !!l))]
   // Comunicação com a Tabela de variáveis (como no diálogo de sinais do GRAFCET):
   const linkedTag = tags.find((item) => item.address === normalizedAddress)
   const addressish = /^(?:%)?(?:I|Q|M|MW|MB|MD|T|C)\d+/i.test(normalizedAddress)
@@ -295,8 +367,10 @@ export default function LadderElementDialog({
           </section>}
 
           {draft.kind === 'contact' && !isCompare && <section className="ladder-dialog-section"><h3>Comportamento do contato</h3><div className="ladder-choice-grid">
-            {([['NO', 'NA', 'Normal aberto'], ['NC', 'NF', 'Normal fechado'], ['RISING', 'P', 'Borda de subida'], ['FALLING', 'N', 'Borda de descida'], ['NOT', 'NOT', 'Inverte o RLO']] as const).map(([value, label, detail]) => <button type="button" key={value} className={draft.contactType === value ? 'is-selected' : ''} onClick={() => patch({ contactType: value })}><strong>{label}</strong><small>{detail}</small></button>)}
-          </div>{isNot && <p className="ladder-dialog-help">O NOT não tem endereço: inverte o resultado lógico (RLO) dos contactos à sua esquerda neste ramo.</p>}</section>}
+            {([['NO', 'NA', 'Normal aberto'], ['NC', 'NF', 'Normal fechado'], ['RISING', 'P', 'Borda de subida'], ['FALLING', 'N', 'Borda de descida'], ['NOT', 'NOT', 'Inverte o RLO'], ['XOR', 'XOR', 'Exatamente um dos dois']] as const).map(([value, label, detail]) => <button type="button" key={value} className={draft.contactType === value ? 'is-selected' : ''} onClick={() => patch({ contactType: value })}><strong>{label}</strong><small>{detail}</small></button>)}
+          </div>{isNot && <p className="ladder-dialog-help">O NOT não tem endereço: inverte o resultado lógico (RLO) dos contactos à sua esquerda neste ramo.</p>}
+          {isXor && <><div className="ladder-dialog-grid"><label><span>2.º operando (B)</span><input list="ladder-tag-addresses" value={draft.xorAddress} onChange={(event) => patch({ xorAddress: event.target.value.toUpperCase() })} placeholder="I0.1" aria-label="2.º operando do XOR" /></label></div>
+          <p className="ladder-dialog-help">XOR conduz quando exatamente um dos dois bits está a 1 (A = {normalizedAddress || '?'}, B = {cleanAddr(draft.xorAddress) || '?'}): 0/0 e 1/1 não conduzem. Em série com outros contactos faz E lógico com o RLO à esquerda.</p></>}</section>}
 
 {isCompare && <section className="ladder-dialog-section"><h3>Comparação</h3><div className="ladder-choice-grid is-three">
             {COMPARE_OPS.map(({ op, label, detail }) => <button type="button" key={op} className={draft.compareOp === op ? 'is-selected' : ''} onClick={() => patch({ compareOp: op })}><strong>{label}</strong><small>{detail}</small></button>)}
@@ -337,6 +411,37 @@ export default function LadderElementDialog({
             <label><span>IN2 — segundo operando</span><input list="ladder-tag-addresses" value={draft.in2} onChange={(event) => patch({ in2: event.target.value.toUpperCase() })} placeholder="1" /></label>
             <label className="is-wide"><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.out} onChange={(event) => patch({ out: event.target.value.toUpperCase() })} placeholder="MW2 ou DB1.Valor" /></label>
           </div><p className="ladder-dialog-help">OUT = IN1 {MATH_OPS.find((m) => m.op === draft.mathOp)?.symbol} IN2, executado quando o resultado lógico da network é verdadeiro. Em destinos Int, o resultado é truncado e o overflow (fora de −32768…32767) ou a divisão por zero não escrevem nada.</p></section>}
+
+          {draft.kind === 'limit' && <section className="ladder-dialog-section"><h3>Limites</h3><div className="ladder-dialog-grid">
+            <label><span>MN — mínimo</span><input autoFocus list="ladder-tag-addresses" value={draft.limMn} onChange={(event) => patch({ limMn: event.target.value.toUpperCase() })} placeholder="0" /></label>
+            <label><span>IN — valor</span><input list="ladder-tag-addresses" value={draft.limIn} onChange={(event) => patch({ limIn: event.target.value.toUpperCase() })} placeholder="MW0" /></label>
+            <label><span>MX — máximo</span><input list="ladder-tag-addresses" value={draft.limMx} onChange={(event) => patch({ limMx: event.target.value.toUpperCase() })} placeholder="100" /></label>
+            <label><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.limOut} onChange={(event) => patch({ limOut: event.target.value.toUpperCase() })} placeholder="MW2" /></label>
+          </div><p className="ladder-dialog-help">OUT = IN limitado a [MN, MX], executado quando o RLO da network é 1 (como o LIMIT do TIA Portal). Com MN &gt; MX o bloco não limita e o ENO fica a 0.</p></section>}
+
+          {draft.kind === 'scale' && <section className="ladder-dialog-section"><h3>Escala linear</h3><div className="ladder-dialog-grid">
+            <label><span>IN — valor bruto</span><input autoFocus list="ladder-tag-addresses" value={draft.scIn} onChange={(event) => patch({ scIn: event.target.value.toUpperCase() })} placeholder="MW0" /></label>
+            <label><span>OUT — destino</span><input list="ladder-tag-addresses" value={draft.scOut} onChange={(event) => patch({ scOut: event.target.value.toUpperCase() })} placeholder="MW2" /></label>
+            <label><span>IN_MIN</span><input value={draft.scInMin} onChange={(event) => patch({ scInMin: event.target.value.toUpperCase() })} placeholder="0" /></label>
+            <label><span>IN_MAX</span><input value={draft.scInMax} onChange={(event) => patch({ scInMax: event.target.value.toUpperCase() })} placeholder="27648" /></label>
+            <label><span>OUT_MIN</span><input value={draft.scOutMin} onChange={(event) => patch({ scOutMin: event.target.value.toUpperCase() })} placeholder="0" /></label>
+            <label><span>OUT_MAX</span><input value={draft.scOutMax} onChange={(event) => patch({ scOutMax: event.target.value.toUpperCase() })} placeholder="100" /></label>
+          </div><div className="ladder-preset-row"><span>Gamas:</span>
+            <button type="button" onClick={() => patch({ scInMin: '0', scInMax: '27648' })}>0…27648 (analógica S7)</button>
+            <button type="button" onClick={() => patch({ scInMin: '0', scInMax: '32767' })}>0…32767</button>
+            <button type="button" onClick={() => patch({ scOutMin: '0', scOutMax: '100' })}>saída 0…100 %</button>
+          </div><p className="ladder-dialog-help">OUT = OUT_MIN + (IN − IN_MIN)·(OUT_MAX − OUT_MIN)/(IN_MAX − IN_MIN), com IN limitado à gama de entrada (NORM_X + SCALE_X numa só caixa). Em destinos Int o resultado é arredondado.</p></section>}
+
+          {draft.kind === 'jump' && <section className="ladder-dialog-section"><h3>Salto</h3><div className="ladder-choice-grid">
+            {([['JMP', 'JMP', 'Salta com RLO = 1'], ['JMPN', 'JMPN', 'Salta com RLO = 0']] as const).map(([value, label, detail]) => <button type="button" key={value} className={draft.jumpMode === value ? 'is-selected' : ''} onClick={() => patch({ jumpMode: value })}><strong>{label}</strong><small>{detail}</small></button>)}
+          </div><div className="ladder-dialog-grid">
+            <label><span>Etiqueta de destino (LBL)</span><input autoFocus list="ladder-jump-labels" value={draft.jumpLabel} onChange={(event) => patch({ jumpLabel: event.target.value.toUpperCase() })} placeholder="M001" /></label>
+            <datalist id="ladder-jump-labels">{programLabels.map((l) => <option key={l} value={l} />)}</datalist>
+          </div><p className="ladder-dialog-help">As networks entre o salto e a etiqueta não são executadas nesse ciclo: as saídas mantêm o último valor e os temporizadores ficam parados. Só são permitidos saltos para a frente (para uma network mais abaixo).</p></section>}
+
+          {draft.kind === 'label' && <section className="ladder-dialog-section"><h3>Etiqueta</h3><div className="ladder-dialog-grid">
+            <label><span>Nome da etiqueta (LBL)</span><input autoFocus value={draft.lblName} onChange={(event) => patch({ lblName: event.target.value.toUpperCase() })} placeholder="M001" /></label>
+          </div><p className="ladder-dialog-help">Destino de um JMP/JMPN. Cada etiqueta tem de ser única no bloco; deixe vazio para a remover.</p></section>}
 
           {draft.kind === 'call' && <section className="ladder-dialog-section"><h3>Bloco chamado</h3><label className="ladder-dialog-full-label"><span>Função FC</span><Select autoFocus value={draft.targetId} onChange={(event) => patch({ targetId: event.target.value })}>{(['fc1', 'fc2'] as const).map((fid) => <option key={fid} value={fid}>{`${fcNamesMap[fid]?.trim() || fid.toUpperCase()} [${fid.toUpperCase()}]`}</option>)}{functionFiles.filter((file) => file.folder === 'programBlocks').map((file) => <option key={file.id} value={file.id}>{file.name}</option>)}</Select></label>
           <p className="ladder-dialog-help">O bloco é executado quando o RLO da network é 1. Chamadas recursivas são bloqueadas.</p>

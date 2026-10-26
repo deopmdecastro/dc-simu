@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { expandFluidSim4, importFluidSim4, parseFluidSim4Text } from '../src/grafcet/fluidSim4'
+import { expandFluidSim4, importFluidSim4, normalizeFluidSimCondition, normalizeFluidSimVariable, parseFluidSim4Text } from '../src/grafcet/fluidSim4'
+import { validCondition } from '../src/grafcet/engine'
 import { readGrafcetFile, MAX_GRAFCET_IMPORT_BYTES } from '../src/grafcet/importFile'
 
 const header = () => Uint8Array.from([1, 0, 0, 0, 14, 0, 0, 8, 16, 0, 11, 0, 0x9a, 0])
@@ -59,7 +60,7 @@ check('ligação por referência ao número original', () => {
   assert.deepEqual(t.to, ['fs4-step-7']); assert.equal(t.wireless, true)
 })
 check('condição OR simbólica sem espaços é normalizada', () => {
-  assert.equal(parseFluidSim4Text(fixture.replace(' S COND S I1', ' S COND S a+NOT b')).program.transitions![0].condition, 'a + NOT b')
+  assert.equal(parseFluidSim4Text(fixture.replace(' S COND S I1', ' S COND S a+NOT b')).program.transitions![0].condition, 'a + /b')
 })
 check('espaços repetidos em torno do OR são normalizados', () => {
   assert.equal(parseFluidSim4Text(fixture.replace(' S COND S I1', ' S COND S a  +   b')).program.transitions![0].condition, 'a + b')
@@ -88,6 +89,78 @@ check('dados truncados e parâmetros inválidos são rejeitados', () => {
   assert.throws(() => importFluidSim4(literalCt(fixture.slice(0, -60))), /incompleta/)
   assert.throws(() => expandFluidSim4(Uint8Array.of(0, 1, 2)), /não reconhecido/)
 })
+check('símbolos espelhados (FLIPPED 2) mantêm o sentido de cima para baixo', () => {
+  // As portas 1/2 ficam trocadas no desenho: a entrada passa a ser a porta 2 (em cima).
+  const flipped = fixture
+    .replace('gate1 # 0 1\ngate2 # 0 2', 'gate1 # 0 2\ngate2 # 0 1')
+    .replace('gate1 # 4 5\ngate2 # 4 6', 'gate1 # 4 6\ngate2 # 4 5')
+    .replace('gate1 # 7 8\ngate2 # 7 9', 'gate1 # 7 9\ngate2 # 7 8')
+    .replace(/ S mod_flag I (0|1)\n/g, ' S mod_flag I $1\n S FLIPPED I 2\n')
+  const t = parseFluidSim4Text(flipped).program.transitions![0]
+  assert.deepEqual([t.from, t.to], [['fs4-step-0'], ['fs4-step-7']])
+})
+check('ficheiro misto: pré-visualização binária, circuito elétrico e símbolos são ignorados', () => {
+  const extra = record('E_K001', 200, 9000, 0, 30, 30) + ' S dxf_prim_list V 0\n F label_pos x_offset I 0\n' +
+    record('EConnection', 201, 9010, -5, 10, 10) + 'L 5 5 -5 -40\n S description S A1\n' +
+    record('text', 202, -10, -40, 20, 16) + ' S text S Q1\n S height I 16\n S font_name S Arial Black\n' +
+    record('DDEInput', 203, 9500, 0, 100, 60) + ' S OPC_ITEM S EasyPort1.InputPort1\n'
+  const body = fixture.slice('BEGIN_FSPREVIEW\nEND_FSPREVIEW\n'.length)
+    .replace('0 0 0 # 0 0 0 0 0 0\n', extra + '0 0 0 # 0 0 0 0 0 0\n')
+    .replace('CON GLine 3 15\n', 'CON GLine 3 15\ngate1 # 16 17\nCON ELine 17 19\n S COLOR I 0\n')
+    .replace('BEGINSYM\nENDSYM\n', 'BEGINSYM\nSYM 0\n1 0 0 10 10\n7 5 5 24 1 3 0 0 FluidSIM In\nENDSYM\n')
+  const wmf = Buffer.from([0xd7, 0xcd, 0x0a, 0x0d, 0x00, 0x1a])
+  const size = Buffer.alloc(4); size.writeUInt32LE(wmf.length)
+  const text = Buffer.concat([Buffer.from(`PREVIEW ${wmf.length}\r\n`), size, wmf, Buffer.from('\r\nENDPREVIEW\r\n'), Buffer.from(body.replace(/\n/g, '\r\n'), 'latin1')])
+  const data: number[] = []
+  for (let i = 0; i < text.length; i += 127) data.push(128 + Math.min(127, text.length - i), ...text.subarray(i, i + 127))
+  const result = importFluidSim4(container(data))
+  assert.equal(result.program.steps.length, 2); assert.equal(result.program.transitions!.length, 1)
+  assert.match(result.warnings.join('\n'), /não são GRAFCET \(DDEInput, E_K001\)/)
+  assert.deepEqual(result.program.comments!.map(c => [c.text, c.fontWeight]), [['Q1', '700']])
+  assert.ok(result.program.comments!.every(c => c.y >= 0), 'o título acima da etapa inicial não fica com y negativo')
+})
+check('condições: NOT → /, espaços em + e *, AND/OR → * e +', () => {
+  const cases: Array<[string, string]> = [
+    ['(SappelN1+SenvoiN1)*SfdcPF', '(SappelN1 + SenvoiN1) * SfdcPF'],
+    ['NOT a*NOT(b+c)', '/a * /(b + c)'],
+    ['a AND NOT b OR c', 'a * /b + c'],
+    ['a+!b', 'a + /b'],
+    ['  x  *y ', 'x * y'],
+    ['5s/X3 * NOT b', '5s/X3 * /b'],
+    ['a * ( b+c )', 'a * (b + c)'],
+    ['', '1'],
+  ]
+  for (const [input, expected] of cases) { assert.equal(normalizeFluidSimCondition(input), expected); assert.ok(validCondition(expected), expected) }
+})
+check('variáveis de ação passam ao formato aceite pelo simulador', () => {
+  assert.equal(normalizeFluidSimVariable('Q_Monter'), 'Q_Monter')
+  assert.equal(normalizeFluidSimVariable('Motor Subir'), 'Motor_Subir')
+  assert.equal(normalizeFluidSimVariable('Válvula-1'), 'Valvula_1')
+  assert.equal(normalizeFluidSimVariable('1A+'), 'V1A+')
+  const result = parseFluidSim4Text(fixture.replace(' S VAR S Q1', ' S VAR S Motor Subir'))
+  assert.equal(result.program.steps[0].actions![0].variable, 'Motor_Subir')
+  assert.match(result.warnings.join('\n'), /Motor Subir.*Motor_Subir/)
+})
+check('o retorno segue o percurso desenhado no FluidSIM (pontos de quebra)', () => {
+  const U = 1024
+  type P = { x: number; y: number }
+  const port = (label: number, c: P) => record('GConnection', label, (c.x - 5) * U, (c.y - 5) * U, 10 * U, 10 * U)
+  const L = (owner: P, a: P, b: P) => `L ${(a.x - owner.x + 5) * U} ${(a.y - owner.y + 5) * U} ${(b.x - owner.x - 5) * U} ${(b.y - owner.y - 5) * U}\n`
+  const route: P[] = [{ x: 18, y: 144 }, { x: 18, y: 160 }, { x: -30, y: 160 }, { x: -30, y: -16 }, { x: 18, y: -16 }, { x: 18, y: 0 }]
+  const text =
+    record('GRAPHRECT', 1, 0, 0, 36 * U, 36 * U) + ' S graph_type I 1\n S NAME S 1\n S mod_flag I 1\n' + port(2, { x: 18, y: 0 }) + port(3, { x: 18, y: 36 }) +
+    record('GRAPHRECT', 4, 6 * U, 36 * U, 24 * U, 36 * U) + ' S graph_type I 3\n S COND S a\n S mod_flag I 0\n' + port(5, { x: 18, y: 36 }) + port(6, { x: 18, y: 72 }) +
+    record('GRAPHRECT', 7, 0, 72 * U, 36 * U, 36 * U) + ' S graph_type I 1\n S NAME S 2\n S mod_flag I 0\n' + port(8, { x: 18, y: 72 }) + port(9, { x: 18, y: 108 }) +
+    record('GRAPHRECT', 10, 6 * U, 108 * U, 24 * U, 36 * U) + ' S graph_type I 3\n S COND S b\n S mod_flag I 0\n' + port(11, { x: 18, y: 108 }) +
+    port(12, route[0]) + route.slice(1).map((p, i) => L(route[0], route[i], p)).join('') +
+    '0 0 0 # 0 0 0 0 0 0\n' +
+    'gate1 # 0 1\ngate2 # 0 2\ngate1 # 3 4\ngate2 # 3 5\ngate1 # 6 7\ngate2 # 6 8\ngate1 # 9 10\ngate2 # 9 11\nCON GLine 11 1\nENDCT\n'
+  const result = parseFluidSim4Text(text)
+  const back = result.program.transitions!.find(t => t.condition === 'b')!
+  assert.deepEqual([result.program.steps.find(s => s.id === back.from[0])!.name, result.program.steps.find(s => s.id === back.to[0])!.name], ['2', '1'])
+  assert.deepEqual(result.program.linkBends?.[back.id], [{ x: 200, y: 320 }, { x: 128, y: 320 }, { x: 128, y: 56 }, { x: 200, y: 56 }])
+  assert.equal(Object.keys(result.program.linkBends ?? {}).length, 1, 'ligações diretas não recebem pontos de quebra')
+})
 const fakeFile = (name: string, content: Uint8Array) => ({ name, size: content.length, arrayBuffer: async () => Uint8Array.from(content).buffer })
 await assert.rejects(() => readGrafcetFile({ name: 'large.ct', size: MAX_GRAFCET_IMPORT_BYTES + 1, arrayBuffer: async () => { throw new Error('must not read') } }), /5 MB/)
 await assert.rejects(() => readGrafcetFile(fakeFile('bad.json', Buffer.from('{"steps":[null]}'))), /estrutura das etapas/)
@@ -104,10 +177,26 @@ if (process.argv[2]) {
   assert.equal(result.program.steps.filter(s => s.initial).length, 1)
   assert.equal(result.program.steps.flatMap(s => s.actions ?? []).length, 7)
   assert.deepEqual(result.program.transitions?.map(t => [names.get(t.from[0]), names.get(t.to[0])]), [['1','5'],['5','6'],['5','7'],['7','5'],['1','3'],['3','1'],['6','1']])
-  assert.match(result.program.transitions![4].condition, /NOT fc_ao \+ NOT fc_bo/)
-  assert.equal(result.program.steps.find(s => s.name === '6')!.actions![0].condition, 'NOT 1Hz')
+  assert.match(result.program.transitions![4].condition, /\/fc_ao \+ \/fc_bo/)
+  assert.equal(result.program.steps.find(s => s.name === '6')!.actions![0].condition, '/1Hz')
   assert.match(result.warnings.join('\n'), /G2X125/)
   console.log('PASS — exemplo fornecido: 5 etapas, 7 transições, 7 ações, ligações e condições recuperadas')
+  checks++
+}
+if (process.env.FLUIDSIM_MONTA_CARGA) {
+  // Amostra real (GRAFCET + circuito elétrico EasyPort), mantida fora do repositório.
+  const result = importFluidSim4(readFileSync(process.env.FLUIDSIM_MONTA_CARGA))
+  const names = new Map(result.program.steps.map(s => [s.id, s.name]))
+  assert.deepEqual(result.program.transitions?.map(t => [names.get(t.from[0]), names.get(t.to[0]), t.condition]), [
+    ['1', '5', '(SappelN1 + SenvoiN1) * SfdcPF'], ['5', '10', 'FdcN2'], ['10', '15', '(SappelN1 + SenvoiN1) * SfdcPF'], ['15', '1', 'FdcN1']])
+  assert.deepEqual(result.program.steps.map(s => [s.name, s.initial, s.actions!.map(a => a.variable).join()]), [['1', true, ''], ['5', false, 'Q_Monter'], ['10', false, ''], ['15', false, 'Q_Descendre']])
+  const back = result.program.transitions![3]
+  const bends = result.program.linkBends?.[back.id] ?? []
+  const s15 = result.program.steps[3], s1 = result.program.steps[0]
+  assert.equal(bends.length, 4); assert.ok(bends[1].x < s1.x! - 50 && bends[0].y > s15.y! + 54 && bends[3].y < s1.y!, 'retorno pela esquerda, por baixo de 15 e por cima de 1')
+  assert.deepEqual(result.program.comments?.map(c => c.text), ['Q1'])
+  assert.match(result.warnings.join('\n'), /não são GRAFCET/)
+  console.log('PASS — Monta-Carga: 1→5→10→15→1, ações Q_Monter/Q_Descendre, retorno desenhado e título Q1')
   checks++
 }
 console.log(`${checks} verificações de importação FluidSIM passaram.`)
