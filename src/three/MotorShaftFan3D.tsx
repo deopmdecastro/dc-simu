@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
+import { MOTOR_FAN } from './motorTerminalLayout'
 
 /**
  * Pá (ventoinha de ensaio) montada no veio do motor.
@@ -32,10 +33,10 @@ const MM = 0.01
 
 export default function MotorShaftFan3D({
   component,
-  diameterMm = 110,
-  hubDiameterMm = 34,
-  blades = 5,
-  pitchDeg = 28,
+  diameterMm = MOTOR_FAN.diameter,
+  hubDiameterMm = MOTOR_FAN.hubDiameter,
+  blades = MOTOR_FAN.blades,
+  pitchDeg = MOTOR_FAN.pitchDeg,
   color = '#1d4ed8',
 }: MotorShaftFanProps) {
   const spinner = useRef<THREE.Group>(null)
@@ -44,7 +45,7 @@ export default function MotorShaftFan3D({
   const radius = (diameterMm / 2) * MM
   const hubRadius = (hubDiameterMm / 2) * MM
   const bladeLength = Math.max(0.02, radius - hubRadius * 0.85)
-  const bladeWidth = Math.max(0.03, radius * 0.42)
+  const bladeWidth = Math.max(0.03, (MOTOR_FAN.bladeWidth * MM) * diameterMm / MOTOR_FAN.diameter)
   const bladeThickness = Math.max(0.008, radius * 0.055)
 
   const bladeAngles = useMemo(
@@ -68,10 +69,10 @@ export default function MotorShaftFan3D({
     <group>
       {/* cubo de aperto ao veio */}
       <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-        <cylinderGeometry args={[hubRadius, hubRadius, 26 * MM, 24]} />
+        <cylinderGeometry args={[hubRadius, hubRadius, MOTOR_FAN.hubLength * MM, 24]} />
         <meshStandardMaterial color="#334155" metalness={0.7} roughness={0.35} />
       </mesh>
-      <mesh position={[14 * MM, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+      <mesh position={[(MOTOR_FAN.hubLength / 2 + 2) * MM, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[hubRadius * 0.45, hubRadius * 0.45, 6 * MM, 18]} />
         <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.25} />
       </mesh>
@@ -81,8 +82,9 @@ export default function MotorShaftFan3D({
           <group key={index} rotation={[angle, 0, 0]}>
             <group position={[0, hubRadius * 0.85 + bladeLength / 2, 0]}>
               {/* a pá é radial em Y; o ângulo de ataque é uma torção em torno desse eixo */}
-              <mesh rotation={[0, (pitchDeg * Math.PI) / 180, 0]} castShadow>
-                <boxGeometry args={[bladeWidth, bladeLength, bladeThickness]} />
+              {/* pá elíptica (perfil de ventoinha) — esfera achatada */}
+              <mesh rotation={[0, (pitchDeg * Math.PI) / 180, 0]} scale={[bladeWidth / 2, bladeLength / 2, bladeThickness / 2]} castShadow>
+                <sphereGeometry args={[1, 28, 14]} />
                 <meshStandardMaterial color={color} metalness={0.35} roughness={0.42} side={THREE.DoubleSide} />
               </mesh>
             </group>

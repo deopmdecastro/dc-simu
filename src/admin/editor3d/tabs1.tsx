@@ -1,7 +1,8 @@
 import { uiAlert } from '../../ui/dialogs'
 import { useMemo } from 'react'
 import { newId, defaultMaterial, posedPart, boundsMm } from '../../catalog/definition'
-import type { MaterialDef, PartDef, Vec3 } from '../../catalog/types'
+import type { MaterialDef, PartDef, SpinDef, Vec3 } from '../../catalog/types'
+import { TEXTURE_CATEGORIES, TEXTURE_LIBRARY, libraryAssetId, textureLibraryEntry, type TextureLibraryEntry } from '../../three/textureLibrary'
 import { BASE_STATE, descendantsOf, glbCache, patchMaterial, patchPart, posePart, useEditorStore } from './editorStore'
 import { validateDefinition } from './validate'
 import { Check, Color, Field, Num, Section, Select, Slider, Text, Vec3Input, Confirm } from './ui'
@@ -87,12 +88,56 @@ export function ObjectTab() {
     </Section>
     {part.kind !== 'group' && <Section title="Material">
       <Field label={base ? 'Material' : 'Material neste estado'}>
-        <Select value={pose.materialId ?? ''} onChange={(materialId) => writePose({ materialId }, 'mat')} options={[['', '— predefinido —'], ...def.materials.map((item): [string, string] => [item.id, item.name])]} disabled={part.kind === 'glb'} />
+        <Select value={pose.materialId ?? ''} onChange={(materialId) => writePose({ materialId }, 'mat')} options={[['', '— predefinido —'], ...def.materials.map((item): [string, string] => [item.id, item.name])]} disabled={part.kind === 'glb' && !part.overrideMaterial} />
       </Field>
-      {part.kind === 'glb' && <p className="ce-hint">Peças GLB mantêm os materiais do modelo importado.</p>}
+      {part.kind === 'glb' && <>
+        <Check checked={!!part.overrideMaterial} label="Substituir os materiais do CAD" onChange={(overrideMaterial) => edit((current) => patchPart(current, part.id, { overrideMaterial, materialId: overrideMaterial ? (part.materialId ?? current.materials[0]?.id ?? null) : part.materialId }))} />
+        <p className="ce-hint">{part.overrideMaterial ? 'Todo o modelo usa o material escolhido (ex.: textura real). A ferragem dos bornes mantém-se.' : 'Peças GLB mantêm os materiais do modelo importado.'}</p>
+      </>}
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => set({ tab: 'materials' })}>Editar materiais…</button>
     </Section>}
+    {base && <SpinSection part={part} />}
+    {base && <Section title="No projeto" open={!!(part.optional || part.editorOnly)}>
+      <div className="ce-checks">
+        <Check checked={!!part.optional} label="Peça opcional (olho)" onChange={(optional) => edit((current) => patchPart(current, part.id, { optional }))} />
+        <Check checked={!!part.editorOnly} label="Só no editor" onChange={(editorOnly) => edit((current) => patchPart(current, part.id, { editorOnly }))} />
+      </div>
+      <p className="ce-hint">Opcional: no projeto, o utilizador mostra ou oculta esta peça com o olho (👁) nas propriedades do componente. O «Visível» acima é o estado inicial. «Só no editor»: pré-visualização que não entra no modelo publicado.</p>
+    </Section>}
   </>
+}
+
+/** Rotação contínua comandada por uma variável (pá do veio, rolos, discos). */
+function SpinSection({ part }: { part: PartDef }) {
+  const def = useEditorStore((s) => s.def)
+  const edit = useEditorStore((s) => s.edit)
+  const mode = useEditorStore((s) => s.mode)
+  const previewVars = useEditorStore((s) => s.previewVars)
+  const set = useEditorStore((s) => s.set)
+  const spin = part.spin
+  const write = (patch: Partial<SpinDef> | null) => edit((current) => patchPart(current, part.id, { spin: patch === null ? undefined : { axis: 'x', turnsPerSecond: 1.5, source: '$rpm', ...spin, ...patch } }), `spin:${part.id}`)
+  const sources: Array<[string, string]> = [['$rpm', 'Velocidade do motor ($rpm, com sentido)'], ['$run', 'Simulação em RUN ($run)'], ...(def.vars ?? []).filter((item) => item.type === 'bool' || item.type === 'number').map((item): [string, string] => [item.id, `${item.name || item.id} (${item.id})`])]
+  const testing = spin?.source === '$rpm' || !spin?.source ? Number(previewVars.$rpm ?? 0) > 0 : !!previewVars[spin.source]
+  const test = () => {
+    if (!spin) return
+    const key = spin.source || '$rpm'
+    const on = !testing
+    set({ mode: 'simulate', previewVars: { ...previewVars, [key]: key === '$rpm' ? (on ? 1 : 0) : on } })
+  }
+  return <Section title="Rotação contínua" open={!!spin}>
+    <Check checked={!!spin} label="Rodar continuamente (pá, rolo, disco…)" onChange={(on) => write(on ? {} : null)} />
+    {spin && <>
+      <Field label="Eixo (da peça)"><Select value={spin.axis} onChange={(axis) => write({ axis: axis as SpinDef['axis'] })} options={[['x', 'X'], ['y', 'Y'], ['z', 'Z']]} /></Field>
+      <Field label="Voltas/s (máx.)"><Num value={spin.turnsPerSecond} min={0} max={30} step={0.1} onChange={(turnsPerSecond) => write({ turnsPerSecond })} /></Field>
+      <Field label="Comandada por"><Select value={spin.source || '$rpm'} onChange={(source) => write({ source })} options={sources} /></Field>
+      <Check checked={!!spin.reverse} label="Sentido inverso" onChange={(reverse) => write({ reverse })} />
+      <div className="ce-actions">
+        <button className="dx-btn dx-btn-primary dx-btn-sm" data-spin-test onClick={test}>{testing && mode === 'simulate' ? 'Parar teste' : 'Testar rotação'}</button>
+        {(spin.source === '$rpm' || !spin.source) && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => set({ previewVars: { ...previewVars, $dir: previewVars.$dir === 'ccw' ? 'cw' : 'ccw' } })}>Sentido: {previewVars.$dir === 'ccw' ? 'anti-horário ↺' : 'horário ↻'}</button>}
+      </div>
+      <p className="ce-hint">Roda em torno da origem da peça. No projeto, «$rpm» segue a velocidade simulada do motor (0 → 1, com rampa) e «$dir» o sentido. A rotação só se vê no modo Simular.</p>
+    </>}
+  </Section>
 }
 
 const TEXTURE_LIMIT = 700 * 1024
@@ -125,7 +170,7 @@ export function MaterialsTab() {
   return <>
     <Section title="Materiais" actions={<button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { const item = defaultMaterial(`Material ${def.materials.length + 1}`); edit((state) => ({ ...state, materials: [...state.materials, item] })); choose(item.id) }}>+ Novo</button>}>
       <div className="ce-swatches">
-        {def.materials.map((item) => <button key={item.id} className={`ce-swatch${item.id === chosenId ? ' is-on' : ''}`} onClick={() => choose(item.id)} title={item.name}><i style={{ background: item.color, opacity: item.opacity }} /><span>{item.name}</span></button>)}
+        {def.materials.map((item) => <button key={item.id} className={`ce-swatch${item.id === chosenId ? ' is-on' : ''}`} onClick={() => choose(item.id)} title={item.name}><i className={item.library ? 'has-tex' : undefined} style={{ backgroundColor: item.color, opacity: item.opacity, ...(textureLibraryEntry(item.library) ? { backgroundImage: `url(${textureLibraryEntry(item.library)!.thumb})` } : {}) }} /><span>{item.name}</span></button>)}
       </div>
     </Section>
     {material && <>
@@ -138,6 +183,7 @@ export function MaterialsTab() {
         <Field label="Emissão"><Color value={material.emissive} onChange={(emissive) => patch({ emissive }, 'emissive')} /></Field>
         <Field label="Intensidade"><Slider value={material.emissiveIntensity} max={5} step={0.05} onChange={(emissiveIntensity) => patch({ emissiveIntensity }, 'ei')} /></Field>
       </Section>
+      <TextureLibrarySection material={material} part={part} />
       <Section title="Texturas" open={false}>
         {(['map', 'normalMap'] as const).map((field) => <Field key={field} label={field === 'map' ? 'Cor (imagem)' : 'Relevo (normal)'}>
           <span className="ce-file">
@@ -146,11 +192,13 @@ export function MaterialsTab() {
             {material[field] && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => patch({ [field]: undefined }, field)}>Remover</button>}
           </span>
         </Field>)}
-        <p className="ce-hint">Máx. 700 KB por imagem. As texturas ficam embebidas no modelo publicado.</p>
+        <Field label="Padrão (mm)"><Num value={material.tileMm ?? 0} min={0} step={10} unit="mm" onChange={(value) => patch({ tileMm: value > 0 ? value : undefined }, 'tile')} /></Field>
+        <Field label="Relevo"><Slider value={material.normalScale ?? 1} max={3} step={0.05} onChange={(normalScale) => patch({ normalScale }, 'ns')} /></Field>
+        <p className="ce-hint">Máx. 700 KB por imagem. As texturas ficam embebidas no modelo publicado. «Padrão» &gt; 0 projeta a textura à escala real (não estica com o tamanho da peça).</p>
       </Section>
       <Section title="Ações">
         <div className="ce-actions">
-          {part && part.kind !== 'group' && part.kind !== 'glb' && <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => edit((state) => patchPart(state, part.id, { materialId: material.id }))}>Aplicar a «{part.name}»</button>}
+          {part && part.kind !== 'group' && <button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => edit((state) => patchPart(state, part.id, { materialId: material.id, ...(part.kind === 'glb' ? { overrideMaterial: true } : {}) }))}>Aplicar a «{part.name}»</button>}
           <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { const copy = { ...material, id: newId('m_'), name: `${material.name} (cópia)` }; edit((state) => ({ ...state, materials: [...state.materials, copy] })); choose(copy.id) }}>Duplicar</button>
           <Confirm label="Eliminar" className="dx-btn dx-btn-danger dx-btn-sm" title={usage ? `Usado em ${usage} peça(s): passam ao material predefinido` : undefined}
             onConfirm={async () => { if (def.materials.length <= 1) return await uiAlert('Tem de existir pelo menos um material.'); edit((state) => ({ ...state, materials: state.materials.filter((item) => item.id !== material.id), parts: state.parts.map((item) => item.materialId === material.id ? { ...item, materialId: state.materials.find((other) => other.id !== material.id)?.id ?? null } : item) })) }} />
@@ -159,4 +207,71 @@ export function MaterialsTab() {
       </Section>
     </>}
   </>
+}
+
+/** Aplica uma textura da biblioteca a um material (os mapas ficam como assets com o endereço do ficheiro). */
+export function applyLibraryTexture(state: import('../../catalog/types').ComponentDefinition, materialId: string, entry: TextureLibraryEntry) {
+  const assets = { ...state.assets }
+  const ids: Partial<Record<'map' | 'normalMap' | 'roughnessMap' | 'metalnessMap', string>> = {}
+  const add = (key: keyof TextureLibraryEntry['maps'], field: keyof typeof ids) => {
+    const url = entry.maps[key]
+    if (!url) return
+    const id = libraryAssetId(entry.id, key)
+    assets[id] = { name: `${entry.name} · ${key}`, mime: 'image/jpeg', data: url }
+    ids[field] = id
+  }
+  add('color', 'map'); add('normal', 'normalMap'); add('roughness', 'roughnessMap'); add('metalness', 'metalnessMap')
+  const current = state.materials.find((item) => item.id === materialId)
+  const keepColor = entry.tint && current && current.library && textureLibraryEntry(current.library)?.tint
+  return {
+    ...patchMaterial({ ...state, assets }, materialId, {
+      map: ids.map, normalMap: ids.normalMap, roughnessMap: ids.roughnessMap, metalnessMap: ids.metalnessMap,
+      library: entry.id, tileMm: entry.tileMm, normalScale: entry.normalScale,
+      roughness: entry.roughness, metalness: entry.metalness,
+      color: keepColor ? current!.color : entry.color,
+    }),
+  }
+}
+
+/** Remove os mapas da biblioteca de um material (os assets sem uso saem na limpeza ao publicar). */
+function clearLibraryTexture(material: MaterialDef): Partial<MaterialDef> {
+  return { map: undefined, normalMap: undefined, roughnessMap: undefined, metalnessMap: undefined, library: undefined, tileMm: undefined, normalScale: undefined }
+}
+
+function TextureLibrarySection({ material, part }: { material: MaterialDef; part: PartDef | undefined }) {
+  const edit = useEditorStore((s) => s.edit)
+  const set = useEditorStore((s) => s.set)
+  const current = textureLibraryEntry(material.library)
+  const apply = (entry: TextureLibraryEntry, asNew = false) => edit((state) => {
+    let next = state
+    let id = material.id
+    if (asNew) {
+      const created = { ...defaultMaterial(entry.name), id: newId('m_') }
+      next = { ...state, materials: [...state.materials, created] }
+      id = created.id
+      queueMicrotask(() => set({ materialId: id }))
+    }
+    next = applyLibraryTexture(next, id, entry)
+    if (part && part.kind !== 'group' && asNew) next = patchPart(next, part.id, { materialId: id, ...(part.kind === 'glb' ? { overrideMaterial: true } : {}) })
+    return next
+  })
+  return <Section title={<>Biblioteca de texturas reais {current && <em className="ce-tex-current">· {current.name}</em>}</>}>
+    <p className="ce-hint">Materiais PBR fotografados (ambientCG, CC0): cor, relevo, rugosidade e metal, à escala real. Clique para aplicar a «{material.name}»; ⊕ cria um material novo{part && part.kind !== 'group' ? ` e aplica-o a «${part.name}»` : ''}.</p>
+    {TEXTURE_CATEGORIES.map((category) => <div key={category} className="ce-tex-group">
+      <b>{category}</b>
+      <div className="ce-tex-grid">
+        {TEXTURE_LIBRARY.filter((item) => item.category === category).map((item) => <div key={item.id} className={`ce-tex${material.library === item.id ? ' is-on' : ''}`} data-texture={item.id}>
+          <button type="button" className="ce-tex-pick" title={`${item.name} — ${item.hint}${item.tint ? ' (tingível: use a cor do material)' : ''}\n${item.source}`} onClick={() => apply(item)}>
+            <img src={item.thumb} alt="" loading="lazy" width={56} height={56} />
+            <span>{item.name}</span>
+          </button>
+          <button type="button" className="ce-tex-new" title="Novo material com esta textura" aria-label={`Novo material ${item.name}`} onClick={() => apply(item, true)}>⊕</button>
+        </div>)}
+      </div>
+    </div>)}
+    {current && <div className="ce-actions">
+      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => edit((state) => patchMaterial(state, material.id, clearLibraryTexture(material)))}>Remover textura</button>
+      {current.tint && <span className="ce-hint">Tingível: mude a «Cor» acima (ex.: RAL 3000 vermelho, 7035 cinzento).</span>}
+    </div>}
+  </Section>
 }

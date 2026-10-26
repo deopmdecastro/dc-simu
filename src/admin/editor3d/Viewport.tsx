@@ -189,6 +189,8 @@ function Scene() {
   useEffect(() => { rig.current?.setVars(vars, reading, resolveState(def, previewState).name); invalidate() }, [vars, reading, previewState])
   useEffect(() => { rig.current?.setHitProxies(liveControlTest) }, [liveControlTest])
   useEffect(() => { setBeep(mode === 'simulate' && !!reading?.beep); return () => setBeep(false) }, [reading?.beep, mode])
+  // Rotação contínua (pás): só no modo Simular — na edição a peça fica na pose para o gizmo.
+  useEffect(() => { rig.current?.setSpinEnabled(mode === 'simulate'); invalidate() }, [mode, root, def.controls, def.displays, def.lights, def.states, def.behavior])
   useFrame((_, delta) => { const a = animator.current?.update(Math.min(delta, 0.1)); const b = rig.current?.update(Math.min(delta, 0.1)); if (a || b) invalidate() })
   useEffect(() => { invalidate() }, [def, selection, pick, hoverNodeState, placingDisplay, displayCorner, placingLed, view, mode, tool, ribbon, hover, placing, testWiresState, wireFromState, wirePointsState, selectedWireState, hiddenTerminals, measurementsState])
   useEffect(() => () => { timers.current.forEach((id) => window.clearTimeout(id)) }, [])

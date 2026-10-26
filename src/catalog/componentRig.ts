@@ -3,7 +3,7 @@ import { selectorValue, toggleIsOn, type MeterReading, type Vars } from './behav
 import { displayPixelSize, drawDisplay } from './displayCanvas'
 import { motionAngle, normalizeMotion, pivotFromBox, stepSpring } from './controlMotion'
 import type { StateAnimator } from './stateAnimator'
-import type { ComponentDefinition, ControlDef, DisplayDef } from './types'
+import type { ComponentDefinition, ControlDef, DisplayDef, SpinDef } from './types'
 
 /** Nó (peça ou nó dentro do GLB) a que um controlo está ligado. */
 export function controlNodes(root: THREE.Object3D, control: { partId: string; nodes?: string[] }): THREE.Object3D[] {
@@ -82,7 +82,28 @@ interface DisplayItem { def: DisplayDef; canvas: HTMLCanvasElement; texture: THR
  * Faz mexer os botões/seletores e desenha os ecrãs de um componente construído a partir da definição
  * (editor e painel 3D do simulador). O estado vem de fora (`setVars`); a rig só o representa.
  */
+interface Spinner { node: THREE.Object3D; spin: SpinDef; axis: THREE.Vector3; base: THREE.Quaternion; last: THREE.Quaternion; angle: number }
+
+/** Velocidade (voltas/s, com sinal) de uma peça com rotação contínua, a partir das variáveis. */
+export function spinRate(spin: SpinDef, vars: Vars): number {
+  const tps = Math.max(0, Number(spin.turnsPerSecond) || 0)
+  const sign = spin.reverse ? -1 : 1
+  if (!spin.source || spin.source === '$rpm') {
+    const rpm = Math.max(0, Math.min(1, Number(vars.$rpm ?? 0) || 0))
+    const dir = vars.$dir === 'ccw' || vars.$dir === -1 ? -1 : 1
+    return tps * rpm * dir * sign
+  }
+  const value = vars[spin.source]
+  if (typeof value === 'boolean') return value ? tps * sign : 0
+  const n = Number(value)
+  return Number.isFinite(n) ? tps * Math.max(-1, Math.min(1, n)) * sign : 0
+}
+
 export class ComponentRig {
+  private readonly spinners: Spinner[] = []
+  private hiddenParts: THREE.Object3D[] = []
+  /** Variáveis que mudam a cada frame (velocidade do motor): não passam pelo `setVars`. */
+  private readonly live: Vars = {}
   private readonly items = new Map<string, Item>()
   private readonly displays: DisplayItem[] = []
   private readonly owner = new Map<THREE.Object3D, string>()
@@ -113,6 +134,13 @@ export class ComponentRig {
       this.items.set(control.id, { control, moving, pivot, axis, value: 0, target: 0, velocity: 0, held: false, restBox })
       for (const node of nodes) node.traverse((child) => this.owner.set(child, control.id))
       if (control.nodes !== undefined) this.addProxy(control, box)
+    }
+    for (const part of def.parts) {
+      if (!part.spin) continue
+      const node = root.getObjectByName(part.id)
+      if (!node) continue
+      const axis = new THREE.Vector3(part.spin.axis === 'x' ? 1 : 0, part.spin.axis === 'y' ? 1 : 0, part.spin.axis === 'z' ? 1 : 0)
+      this.spinners.push({ node, spin: part.spin, axis, base: node.quaternion.clone(), last: node.quaternion.clone(), angle: 0 })
     }
     for (const display of def.displays ?? []) {
       this.addDisplay(display)
@@ -259,9 +287,50 @@ export class ComponentRig {
     }
   }
 
+  /** `$rpm` (0…1) e `$dir` ('cw'/'ccw') do motor, lidos a cada frame. */
+  setLive(vars: Vars) { Object.assign(this.live, vars) }
+
+  private spinOn = true
+  /** No modo de edição a rotação pára e a peça volta à pose (o gizmo edita a pose real). */
+  setSpinEnabled(on: boolean) {
+    if (this.spinOn === on) return
+    this.spinOn = on
+    if (!on) for (const item of this.spinners) { item.node.quaternion.copy(item.base); item.last.copy(item.base); item.angle = 0 }
+  }
+
+  /** Há peças com rotação contínua? */
+  get hasSpinners() { return this.spinners.length > 0 }
+
+  /** Peças opcionais ocultas pelo utilizador no projeto (olho nas propriedades). */
+  setHiddenParts(ids: readonly string[]) {
+    for (const node of this.hiddenParts) node.visible = true
+    this.hiddenParts = ids.map((id) => this.root.getObjectByName(id)).filter((node): node is THREE.Object3D => !!node)
+    for (const node of this.hiddenParts) node.visible = false
+  }
+
+  /** Rotação contínua (pás, rolos): compõe com a pose dos estados sem a destruir. */
+  private updateSpinners(delta: number): boolean {
+    let moving = false
+    if (!this.spinOn) return false
+    const q = new THREE.Quaternion()
+    for (const item of this.spinners) {
+      // O animador pode ter reposto a pose: essa passa a ser a nova base.
+      if (!item.node.quaternion.equals(item.last)) item.base.copy(item.node.quaternion)
+      const rate = spinRate(item.spin, { ...this.vars, ...this.live })
+      if (rate === 0) continue
+      item.angle = (item.angle + rate * Math.PI * 2 * delta) % (Math.PI * 2)
+      item.node.quaternion.copy(item.base).multiply(q.setFromAxisAngle(item.axis, item.angle))
+      item.last.copy(item.node.quaternion)
+      moving = true
+    }
+    return moving
+  }
+
   /** Devolve true enquanto algo se mexe (para a vista pedir novo frame). */
   update(delta: number): boolean {
+    const spinning = this.updateSpinners(delta)
     let moving = false
+    for (const node of this.hiddenParts) node.visible = false
     const k = 1 - Math.exp(-delta * 14)
     for (const item of this.items.values()) {
       if (item.control.kind !== 'selector') {
@@ -274,12 +343,16 @@ export class ComponentRig {
       if (Math.abs(diff) > 0.05) { item.value += diff * k; moving = true } else if (diff !== 0) { item.value = item.target; moving = true }
     }
     if (moving) this.apply()
-    return moving
+    return moving || spinning
   }
 
   dispose() {
     for (const item of this.items.values()) for (const entry of item.moving) { entry.node.matrix.copy(entry.local0); entry.local0.decompose(entry.node.position, entry.node.quaternion, entry.node.scale) }
     this.hidden.forEach((node) => { node.visible = true }); this.hidden.length = 0
+    for (const item of this.spinners) item.node.quaternion.copy(item.base)
+    this.spinners.length = 0
+    for (const node of this.hiddenParts) node.visible = true
+    this.hiddenParts = []
     for (const display of this.displays) { this.root.remove(display.mesh); display.mesh.geometry.dispose(); (display.mesh.material as THREE.Material).dispose(); display.texture.dispose() }
     this.proxies.forEach((proxy) => { proxy.removeFromParent(); proxy.geometry.dispose(); (proxy.material as THREE.Material).dispose() }); this.proxies.length = 0
     this.displays.length = 0; this.items.clear(); this.owner.clear()

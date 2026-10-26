@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { getComponentModelSpec, type ComponentModelSpec } from './modelPaths'
 import type { ComponentType } from '../types'
 import { REAL_TERMINALS } from '../electrical/realInterfaces'
+import { buildMotorTerminalBox, MOTOR_FLOOR_Y, MOTOR_CAD } from './motorTerminalBox'
 
 /** CAD sem réguas completas: tampas funcionais com cavidades reais para cada ligação. */
 export const SOCKET_BLOCK_TYPES: ComponentType[] = ['safetyRelay', 'plcLsXbmDn32s', 'motor3ph']
@@ -60,6 +61,24 @@ export function addTerminalSocketBlocks(model: THREE.Group, spec: ComponentModel
   model.updateMatrixWorld(true)
   const box = new THREE.Box3().setFromObject(model, true)
   const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3())
+  if (type === 'motor3ph') {
+    // Motor: retira a tampa da caixa de bornes e constrói o compartimento real
+    // (paredes, fundo, placa isolante, bornes M4, PE e bucim) no sítio da caixa do CAD.
+    const cut = box.min.y + (MOTOR_FLOOR_Y - MOTOR_CAD.minY) * units
+    const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), cut)
+    let body: THREE.Material | null = null, most = 0
+    model.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      const count = mesh.geometry.attributes.position?.count ?? 0
+      if (count > most && !Array.isArray(mesh.material)) { most = count; body = mesh.material }
+      mesh.geometry = clipGeometry(mesh.geometry, [plane.clone().applyMatrix4(mesh.matrixWorld.clone().invert())])
+      mesh.userData.generatedTerminalSocket = true
+    })
+    model.add(buildMotorTerminalBox(box.min, units, body))
+    model.updateMatrixWorld(true)
+    return
+  }
   const depth = CAP_MM * units
   const faces = [...new Set(spots.map((spot) => spot.face))].filter((face) => face === 'top' || face === 'bottom')
   const planes = faces.map((face) => face === 'top'
@@ -75,8 +94,8 @@ export function addTerminalSocketBlocks(model: THREE.Group, spec: ComponentModel
   })
   for (const face of faces) {
     const shape = new THREE.Shape()
-    const halfW = type === 'motor3ph' ? 35 * units : size.x / 2
-    const halfD = type === 'motor3ph' ? 32.5 * units : size.z / 2
+    const halfW = size.x / 2
+    const halfD = size.z / 2
     shape.moveTo(-halfW, -halfD); shape.lineTo(halfW, -halfD); shape.lineTo(halfW, halfD); shape.lineTo(-halfW, halfD); shape.closePath()
     for (const spot of spots.filter((spot) => spot.face === face)) {
       const hole = new THREE.Path()
@@ -85,7 +104,7 @@ export function addTerminalSocketBlocks(model: THREE.Group, spec: ComponentModel
     }
     const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 20 })
     geometry.rotateX(-Math.PI / 2)
-    const shell = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: type === 'motor3ph' ? '#343a40' : '#4a535b', roughness: .65 }))
+    const shell = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: '#4a535b', roughness: .65 }))
     shell.position.set(center.x, face === 'top' ? box.max.y - depth : box.min.y, center.z)
     shell.userData.generatedTerminalSocket = true
     model.add(shell)

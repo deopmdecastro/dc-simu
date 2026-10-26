@@ -1,25 +1,29 @@
-import { Text } from '@react-three/drei'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
-import { getComponentModelSpec } from './modelPaths'
+import { PANEL_UNITS_PER_MM } from './modelPaths'
+import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_STUD, motorBridges, motorCadToCentered } from './motorTerminalLayout'
 
-/** Caixa de seis bornes IEC do motor: pontes reais Y/Δ selecionáveis. */
-export default function MotorTerminalBoard3D({ c, interactive = true, position = [0, getComponentModelSpec('motor3ph')!.targetHeight, 0] }: { c: ElectricalComponent; interactive?: boolean; position?: [number, number, number] }) {
-  const connection = String(c.state.motorConnection ?? 'star')
-  const xs = [-0.18, 0, 0.18]
-  const zs = [-0.09, 0.09]
+/**
+ * Pontes de latão Y/Δ da caixa de bornes do motor (a placa, os pernos e a
+ * marcação fazem parte da geometria do modelo — `motorTerminalBox.ts`).
+ *
+ * Desenha no referencial do componente: centrado em X/Z, base em Y = 0, em
+ * unidades de cena (`unitsPerMm`). Clicar na placa troca Y → Δ → sem pontes.
+ */
+export default function MotorTerminalBoard3D({ c, interactive = true, unitsPerMm = PANEL_UNITS_PER_MM }: { c: ElectricalComponent; interactive?: boolean; unitsPerMm?: number }) {
+  const connection = (String(c.state.motorConnection ?? 'star') as 'star' | 'delta' | 'none')
   const next = connection === 'none' ? 'star' : connection === 'star' ? 'delta' : 'none'
-  const stud = (x: number, z: number, label: string) => <group key={label} position={[x, 0.004, z]}>
-    <Text position={[0, 0, z < 0 ? -0.055 : 0.055]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.035} color="#f1f5f9" anchorX="center">{label}</Text>
-  </group>
-  const bar = (key: string, x: number, z: number, w: number, d: number) => <mesh key={key} position={[x, 0.008, z]}>
-    <boxGeometry args={[w, 0.018, d]} /><meshStandardMaterial color="#d59f2a" metalness={0.9} roughness={0.2} /></mesh>
-  return <group position={position} onClick={(event) => { if (!interactive) return; event.stopPropagation(); useSimStore.getState().setComponentState(c.id, { motorConnection: next }) }}>
-    {/* Os encaixes vazados pertencem à geometria comum do modelo. */}
-    <mesh><boxGeometry args={[0.70, 0.002, 0.65]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
-    {stud(xs[0], zs[0], 'U1')}{stud(xs[1], zs[0], 'V1')}{stud(xs[2], zs[0], 'W1')}
-    {stud(xs[0], zs[1], 'W2')}{stud(xs[1], zs[1], 'U2')}{stud(xs[2], zs[1], 'V2')}
-    {connection === 'star' && <>{bar('ys1', -0.09, zs[1], 0.22, 0.052)}{bar('ys2', 0.09, zs[1], 0.22, 0.052)}</>}
-    {connection === 'delta' && <>{bar('d1', xs[0], 0, 0.052, 0.22)}{bar('d2', xs[1], 0, 0.052, 0.22)}{bar('d3', xs[2], 0, 0.052, 0.22)}</>}
+  const u = unitsPerMm
+  const board = motorCadToCentered([MOTOR_BOARD.cx, MOTOR_BOARD_TOP + 4, MOTOR_BOARD.cz]).map((v) => v * u) as [number, number, number]
+  return <group onClick={(event) => { if (!interactive) return; event.stopPropagation(); useSimStore.getState().setComponentState(c.id, { motorConnection: next }) }}>
+    {/* alvo de clique invisível sobre a placa */}
+    <mesh position={board}><boxGeometry args={[MOTOR_BOARD.w * u, 8 * u, MOTOR_BOARD.d * u]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
+    {motorBridges(connection).map((bridge) => {
+      const center = motorCadToCentered(bridge.center).map((v) => v * u) as [number, number, number]
+      const size: [number, number, number] = bridge.along === 'x' ? [bridge.length * u, (MOTOR_STUD.washer + .2) * u, 7 * u] : [7 * u, (MOTOR_STUD.washer + .2) * u, bridge.length * u]
+      return <mesh key={bridge.key} position={center} castShadow>
+        <boxGeometry args={size} /><meshStandardMaterial color="#d2a33a" metalness={0.9} roughness={0.25} />
+      </mesh>
+    })}
   </group>
 }

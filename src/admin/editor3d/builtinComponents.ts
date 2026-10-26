@@ -9,6 +9,7 @@ import { BREAKER_HANDLE_RIG, getComponentModelSpec, getComponentPhysicalSizeMm }
 import type { ComponentType } from '../../types'
 import { REAL_TERMINALS, terminalInsetMm } from '../../electrical/realInterfaces'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
+import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_FAN, MOTOR_STUD, motorBridges, motorCadToCentered } from '../../three/motorTerminalLayout'
 
 /** Componentes que já vêm com a plataforma (Biblioteca do simulador), listados também na Biblioteca 3D do Admin. */
 export interface BuiltinInfo {
@@ -193,12 +194,9 @@ function seedMultimeterDm20(def: ComponentDefinition, cache: GlbCache) {
 function seedMotorTerminalBoard(def: ComponentDefinition, cache: GlbCache) {
   if (def.parts.some((part) => part.name === 'Placa de bornes')) return
   if (Object.values(def.assets).some((asset) => asset.builtinType === 'motor3ph')) {
-    // Os sete encaixes já pertencem ao CAD partilhado. Acrescentar apenas as
-    // pontes editáveis, em mm reais, sem uma segunda placa gigante sobre o motor.
-    const brass = defaultMaterial('Latão', '#c79532')
-    const group = { ...defaultPart('group', null, 'Placa de bornes'), position: [0, getComponentPhysicalSizeMm('motor3ph')!.height, 0] as Vec3 }
-    def.materials.push(brass)
-    def.parts.push(group, ...[-9, 9].map((x, index) => ({ ...defaultPart('box', brass.id, index ? 'Ponte estrela U2-V2' : 'Ponte estrela W2-U2'), parentId: group.id, size: [22, 1.8, 5.2] as Vec3, position: [x, .8, 9] as Vec3 })))
+    // A placa, os pernos M4, o PE e o bucim pertencem ao CAD partilhado (motorTerminalBox.ts).
+    // Aqui só as pontes Y de pré-visualização (no projeto seguem a ligação Y/Δ escolhida).
+    seedMotorBridges(def)
     return
   }
   const box = boundsMm(def, cache)
@@ -239,11 +237,90 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
     seedMultimeterDm20(next, cache)
     changed = (next.controls ?? []).length > 0
   }
-  if (type === 'motor3ph' && !next.parts.some((part) => part.name === 'Placa de bornes')) {
-    seedMotorTerminalBoard(next, cache)
-    changed = true
+  if (type === 'motor3ph') {
+    if (!next.parts.some((part) => part.name === MOTOR_BOARD_GROUP)) { seedMotorTerminalBoard(next, cache); changed = true }
+    if (migrateMotorDraft(next, cache)) changed = true
   }
   return changed ? next : null
+}
+
+const MOTOR_BOARD_GROUP = 'Placa de bornes'
+const MOTOR_FAN_NAME = 'Pá do veio (3 pás)'
+const FAN_MATERIAL = 'Pá (polímero azul)'
+
+/** Pontes Y (latão) sobre a placa real, só no editor — o projeto desenha-as conforme Y/Δ. */
+function seedMotorBridges(def: ComponentDefinition) {
+  let brass = def.materials.find((item) => item.name === 'Latão')
+  if (!brass) { brass = { ...defaultMaterial('Latão', '#c9a24a'), roughness: .3, metalness: .9 }; def.materials.push(brass) }
+  const origin = motorCadToCentered([MOTOR_BOARD.cx, MOTOR_BOARD_TOP, MOTOR_BOARD.cz])
+  const group = { ...defaultPart('group', null, MOTOR_BOARD_GROUP), position: origin, editorOnly: true }
+  def.parts.push(group, ...motorBridges('star').map((bridge) => {
+    const c = motorCadToCentered(bridge.center)
+    return { ...defaultPart('box', brass!.id, bridge.name), parentId: group.id, size: [bridge.length, MOTOR_STUD.washer + .2, 7] as Vec3, position: [c[0] - origin[0], c[1] - origin[1], c[2] - origin[2]] as Vec3 }
+  }))
+}
+
+/** Pá de três pás no veio: peça opcional (olho no projeto) com rotação contínua comandada por `$rpm`. */
+export function seedMotorFan(def: ComponentDefinition) {
+  // Uma vez semeada, a pá pertence ao utilizador: se a eliminar, não volta (o material fica como marca).
+  if (def.parts.some((part) => part.name === MOTOR_FAN_NAME) || def.materials.some((item) => item.name === FAN_MATERIAL)) return
+  const blade = { ...defaultMaterial(FAN_MATERIAL, '#1d4ed8'), roughness: .42, metalness: .2 }
+  const hubMat = { ...defaultMaterial('Cubo da pá', '#334155'), roughness: .35, metalness: .7 }
+  const mark = { ...defaultMaterial('Marca de sentido', '#f59e0b'), emissive: '#b45309', emissiveIntensity: .35 }
+  def.materials.push(blade, hubMat, mark)
+  const group = { ...defaultPart('group', null, MOTOR_FAN_NAME), position: motorCadToCentered([MOTOR_FAN.hubX, 0, 0]), optional: true, spin: { axis: 'x' as const, turnsPerSecond: 1.5, source: '$rpm' } }
+  const hubR = MOTOR_FAN.hubDiameter / 2
+  const length = MOTOR_FAN.diameter / 2 - hubR * .85
+  const parts = [group,
+    { ...defaultPart('cylinder', hubMat.id, 'Cubo de aperto'), parentId: group.id, size: [MOTOR_FAN.hubDiameter, MOTOR_FAN.hubLength, MOTOR_FAN.hubDiameter] as Vec3, position: [0, 0, 0] as Vec3, rotation: [0, 0, 90] as Vec3 },
+    ...Array.from({ length: MOTOR_FAN.blades }, (_, index) => {
+      const angle = index * 360 / MOTOR_FAN.blades
+      const r = hubR * .85 + length / 2, a = angle * Math.PI / 180
+      // pá elíptica: esfera achatada (largura × comprimento × espessura); radial em Y local, torção = passo
+      return { ...defaultPart('sphere', blade.id, `Pá ${index + 1}`), parentId: group.id, size: [MOTOR_FAN.bladeWidth, MOTOR_FAN.bladeWidth, MOTOR_FAN.bladeWidth] as Vec3,
+        scale: [1, length / MOTOR_FAN.bladeWidth, 3 / MOTOR_FAN.bladeWidth] as Vec3,
+        position: [0, Math.round(r * Math.cos(a) * 100) / 100, Math.round(r * Math.sin(a) * 100) / 100] as Vec3, rotation: [angle, MOTOR_FAN.pitchDeg, 0] as Vec3 }
+    }),
+    { ...defaultPart('sphere', mark.id, 'Marca de sentido'), parentId: group.id, size: [7, 7, 7] as Vec3, position: [0, Math.round((hubR * .85 + length * .82) * 100) / 100, 0] as Vec3 },
+  ]
+  def.parts.push(...parts)
+}
+
+/**
+ * Rascunhos do motor criados antes da correção da caixa de bornes: bornes e pontes
+ * estavam no centro do motor (x = 0) e a caixa do CAD está 31 mm para trás.
+ * Move só o que coincide com a disposição antiga (nunca bornes editados à mão).
+ */
+function migrateMotorDraft(def: ComponentDefinition, cache: GlbCache): boolean {
+  let changed = false
+  const glbPart = def.parts.find((part) => part.kind === 'glb' && part.asset && def.assets[part.asset]?.builtinType === 'motor3ph')
+  const tpl = TEMPLATES.motor3ph
+  if (glbPart && tpl) {
+    const box = boundsMm({ ...def, parts: [glbPart] }, cache)
+    const fresh = new Map(terminalsFor('motor3ph', tpl.terminals, box).map((terminal) => [terminal.label, terminal]))
+    def.terminals = def.terminals.map((terminal) => {
+      const next = fresh.get(terminal.label)
+      const [x, y, z] = terminal.position
+      if (!next || Math.abs(x) > 27.5 || Math.abs(z) > 19 || y < 190) return terminal
+      if (Math.hypot(x - next.position[0], y - next.position[1], z - next.position[2]) < .5) return terminal
+      changed = true
+      return { ...terminal, position: next.position, normal: next.normal, diameterMm: next.diameterMm, socketDepthMm: next.socketDepthMm, socketInsetMm: next.socketInsetMm }
+    })
+  }
+  const group = def.parts.find((part) => part.kind === 'group' && part.name === MOTOR_BOARD_GROUP)
+  if (group && Math.abs(group.position[0]) < .5 && Math.abs(group.position[2]) < 1 && group.position[1] > 200) {
+    const children = def.parts.filter((part) => part.parentId === group.id)
+    if (children.every((part) => /^Ponte estrela/.test(part.name))) {
+      const ids = new Set([group.id, ...children.map((part) => part.id)])
+      def.parts = def.parts.filter((part) => !ids.has(part.id))
+      seedMotorBridges(def)
+      changed = true
+    }
+  }
+  const before = def.parts.length
+  seedMotorFan(def)
+  if (def.parts.length !== before) changed = true
+  return changed
 }
 
 /** Reconhece apenas o importador antigo intacto. Rascunhos modelados à mão,
@@ -326,7 +403,7 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   // O multímetro DM-20 chega ao editor completo: seletor, botões e LCD já
   // ligados aos objetos reais do modelo, visíveis na lista como elementos.
   if (type === 'multimeterDm20') seedMultimeterDm20(def, cache)
-  if (type === 'motor3ph') seedMotorTerminalBoard(def, cache)
+  if (type === 'motor3ph') { seedMotorTerminalBoard(def, cache); seedMotorFan(def) }
   const meta: CatalogMeta = {
     ...DEFAULT_META,
     name: tpl.paletteName, description: `Componente integrado da plataforma, importado como ponto de partida editável${usedModel ? '' : ' (sem modelo CAD: volume com as dimensões físicas)'}.`,

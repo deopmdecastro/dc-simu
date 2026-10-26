@@ -4,6 +4,7 @@ import { createGltfLoader } from '../three/gltfLoader'
 import { nanoid } from 'nanoid'
 import { fitComponentModel } from '../three/modelFit'
 import { getComponentModelSpec } from '../three/modelPaths'
+import { textureLibraryEntry } from '../three/textureLibrary'
 import type {
   CatalogMeta, ComponentDefinition, EasingName, LightState, MaterialDef, PartDef, RuntimeSpec, RuntimeTerminal, StateDef, StateOverride, Vec3,
 } from './types'
@@ -73,17 +74,56 @@ export const applyEasing = (name: EasingName, t: number) => EASINGS[name]?.(Math
 
 const textureCache = new Map<string, THREE.Texture>()
 const textureLoader = new THREE.TextureLoader()
-function textureFor(def: ComponentDefinition, assetId: string | undefined, srgb: boolean): THREE.Texture | null {
-  if (!assetId || !def.assets[assetId]) return null
-  const key = `${assetId}:${def.assets[assetId].data.length}:${srgb}`
+type MapKey = 'map' | 'normalMap' | 'roughnessMap' | 'metalnessMap'
+const LIBRARY_MAP: Record<MapKey, 'color' | 'normal' | 'roughness' | 'metalness'> = { map: 'color', normalMap: 'normal', roughnessMap: 'roughness', metalnessMap: 'metalness' }
+
+/** Endereço da imagem de um mapa: o asset da definição ou, sem ele (versões publicadas
+ *  não trazem assets), o ficheiro da biblioteca de texturas de onde o material veio. */
+export function materialMapUrl(def: ComponentDefinition, material: MaterialDef, key: MapKey): string | null {
+  const id = material[key]
+  if (id && def.assets[id]?.data) return def.assets[id].data
+  const entry = textureLibraryEntry(material.library)
+  if (!entry || !id) return null
+  return entry.maps[LIBRARY_MAP[key]] ?? null
+}
+
+function textureKey(url: string, srgb: boolean) { return `${url.length > 400 ? `${url.length}:${url.slice(-64)}` : url}:${srgb}` }
+function prepareTexture(texture: THREE.Texture, url: string, srgb: boolean) {
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+  texture.anisotropy = 8
+  if (srgb) texture.colorSpace = THREE.SRGBColorSpace
+  // O exportador GLB guarda em JPEG (as fotografias em PNG ficavam 4–5× maiores).
+  if (/\.jpe?g$/i.test(url) || url.startsWith('data:image/jpeg')) texture.userData.mimeType = 'image/jpeg'
+  return texture
+}
+function textureForUrl(url: string | null, srgb: boolean): THREE.Texture | null {
+  if (!url) return null
+  const key = textureKey(url, srgb)
   let texture = textureCache.get(key)
   if (!texture) {
-    texture = textureLoader.load(def.assets[assetId].data)
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping
-    if (srgb) texture.colorSpace = THREE.SRGBColorSpace
+    texture = prepareTexture(textureLoader.load(url), url, srgb)
     textureCache.set(key, texture)
   }
   return texture
+}
+
+/** Carrega (e espera) todas as texturas — necessário antes de exportar o GLB. */
+export async function preloadDefinitionTextures(def: ComponentDefinition): Promise<void> {
+  const jobs: Promise<unknown>[] = []
+  for (const material of def.materials) for (const key of Object.keys(LIBRARY_MAP) as MapKey[]) {
+    const url = materialMapUrl(def, material, key)
+    if (!url) continue
+    const srgb = key === 'map'
+    const cacheKey = textureKey(url, srgb)
+    const cached = textureCache.get(cacheKey)
+    if (cached?.image) continue
+    jobs.push(textureLoader.loadAsync(url).then((texture) => { textureCache.set(cacheKey, prepareTexture(texture, url, srgb)) }).catch(() => undefined))
+  }
+  await Promise.all(jobs)
+}
+
+export function materialHasTextures(material: MaterialDef | undefined): boolean {
+  return !!material && !!(material.map || material.normalMap || material.roughnessMap || material.metalnessMap)
 }
 
 export function makeMaterial(def: ComponentDefinition, material: MaterialDef | undefined): THREE.MeshStandardMaterial {
@@ -92,12 +132,48 @@ export function makeMaterial(def: ComponentDefinition, material: MaterialDef | u
     color: m.color, roughness: m.roughness, metalness: m.metalness, emissive: m.emissive, emissiveIntensity: m.emissiveIntensity,
     transparent: m.opacity < 1, opacity: m.opacity, side: THREE.DoubleSide,
   })
-  const map = textureFor(def, m.map, true)
+  const map = textureForUrl(materialMapUrl(def, m, 'map'), true)
   if (map) result.map = map
-  const normal = textureFor(def, m.normalMap, false)
-  if (normal) result.normalMap = normal
+  const normal = textureForUrl(materialMapUrl(def, m, 'normalMap'), false)
+  if (normal) { result.normalMap = normal; const k = m.normalScale ?? 1; result.normalScale.set(k, k) }
+  const rough = textureForUrl(materialMapUrl(def, m, 'roughnessMap'), false)
+  if (rough) result.roughnessMap = rough
+  const metal = textureForUrl(materialMapUrl(def, m, 'metalnessMap'), false)
+  if (metal) result.metalnessMap = metal
   result.name = m.name
   return result
+}
+
+/**
+ * UVs por projeção em caixa, à escala real (`tileMm` por repetição): cada face usa
+ * o plano do eixo dominante da normal. Assim o padrão (pintura, escovado, xadrez)
+ * tem o mesmo tamanho em peças grandes e pequenas e não estica.
+ * `matrix` leva os vértices para o referencial da peça (mm).
+ */
+export function boxProjectUv(source: THREE.BufferGeometry, tileMm: number, scale: Vec3 = [1, 1, 1], matrix?: THREE.Matrix4): THREE.BufferGeometry {
+  const geometry = source.index ? source.toNonIndexed() : source.clone()
+  if (!geometry.attributes.normal) geometry.computeVertexNormals()
+  const pos = geometry.attributes.position, nor = geometry.attributes.normal
+  const uv = new Float32Array(pos.count * 2)
+  const p = new THREE.Vector3(), n = new THREE.Vector3()
+  const normalMatrix = matrix ? new THREE.Matrix3().getNormalMatrix(matrix) : null
+  const tile = Math.max(1, tileMm)
+  // triângulo a triângulo: os três vértices usam o mesmo plano (sem costuras dentro da face)
+  for (let i = 0; i < pos.count; i += 3) {
+    n.set(0, 0, 0)
+    for (let k = 0; k < 3 && i + k < pos.count; k++) n.add(new THREE.Vector3(nor.getX(i + k), nor.getY(i + k), nor.getZ(i + k)))
+    if (normalMatrix) n.applyMatrix3(normalMatrix)
+    const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z)
+    for (let k = 0; k < 3 && i + k < pos.count; k++) {
+      p.set(pos.getX(i + k) * scale[0], pos.getY(i + k) * scale[1], pos.getZ(i + k) * scale[2])
+      if (matrix) p.applyMatrix4(matrix)
+      const [u, v] = ax >= ay && ax >= az ? [p.z * Math.sign(n.x || 1), p.y] : ay >= az ? [p.x, p.z * -Math.sign(n.y || 1)] : [p.x * Math.sign(n.z || 1), p.y]
+      uv[(i + k) * 2] = u / tile
+      uv[(i + k) * 2 + 1] = v / tile
+    }
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+  return geometry
 }
 
 function geometryFor(part: PartDef): THREE.BufferGeometry | null {
@@ -256,12 +332,20 @@ export function glbPieceList(root: THREE.Object3D, options: { maxPieces?: number
 }
 
 /** Constrói a árvore Three (em mm). Os nomes dos nós são os ids das peças. */
-export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = new Map(), options: { includeHidden?: boolean } = {}): THREE.Group {
+export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = new Map(), options: { includeHidden?: boolean; forBake?: boolean } = {}): THREE.Group {
   const root = new THREE.Group()
   root.name = 'component'
   const materials = new Map(def.materials.map((material) => [material.id, material]))
   const nodes = new Map<string, THREE.Object3D>()
+  // Modelo publicado: sem peças só de editor (e descendentes); opcionais vão sempre (o projeto oculta-as).
+  const skipped = new Set<string>()
+  if (options.forBake) {
+    const byId = new Map(def.parts.map((part) => [part.id, part]))
+    const editorOnly = (part: PartDef | undefined, depth = 0): boolean => !!part && depth < 64 && (!!part.editorOnly || editorOnly(part.parentId ? byId.get(part.parentId) : undefined, depth + 1))
+    for (const part of def.parts) if (editorOnly(part)) skipped.add(part.id)
+  }
   for (const part of def.parts) {
+    if (skipped.has(part.id)) continue
     let node: THREE.Object3D
     if (part.kind === 'glb') {
       const source = part.asset ? glb.get(part.asset) : undefined
@@ -269,6 +353,19 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
       if (source) {
         const clone = source.clone(true)
         clone.traverse((child) => { const mesh = child as THREE.Mesh; if (mesh.isMesh) mesh.material = Array.isArray(mesh.material) ? mesh.material.map((item) => item.clone()) : mesh.material.clone() })
+        // Material escolhido sobre o CAD (ex.: textura real): fica fora a ferragem gerada da caixa de bornes.
+        const override = part.overrideMaterial && part.materialId ? materials.get(part.materialId) : undefined
+        if (override) {
+          clone.updateMatrixWorld(true)
+          const material = makeMaterial(def, override)
+          clone.traverse((child) => {
+            const mesh = child as THREE.Mesh
+            if (!mesh.isMesh) return
+            if (mesh.userData.generatedTerminalSocket && !/^caixa-(paredes|fundo)$/.test(mesh.name)) return
+            mesh.material = material
+            if (override.tileMm && materialHasTextures(override)) mesh.geometry = boxProjectUv(mesh.geometry, override.tileMm, [1, 1, 1], mesh.matrixWorld)
+          })
+        }
         // Peça ligada a uma parte do modelo (manípulo, tampa…): usa só esse nó,
         // preservando a posição que ele tinha dentro do GLB original.
         const picked = part.glbNode ? pickGlbNode(clone, part.glbNode) : clone
@@ -285,17 +382,21 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
       }
     } else if (part.kind === 'group') node = new THREE.Group()
     else {
-      const mesh = new THREE.Mesh(geometryFor(part)!, makeMaterial(def, part.materialId ? materials.get(part.materialId) : undefined))
+      const materialDef = part.materialId ? materials.get(part.materialId) : undefined
+      let geometry = geometryFor(part)!
+      if (materialDef?.tileMm && materialHasTextures(materialDef)) geometry = boxProjectUv(geometry, materialDef.tileMm, part.scale)
+      const mesh = new THREE.Mesh(geometry, makeMaterial(def, materialDef))
       mesh.castShadow = mesh.receiveShadow = true
       node = mesh
     }
     node.name = part.id
     node.userData.partId = part.id
-    node.visible = options.includeHidden ? true : part.visible
+    node.visible = options.includeHidden || (options.forBake && part.optional) ? true : part.visible
     nodes.set(part.id, node)
   }
   for (const part of def.parts) {
-    const node = nodes.get(part.id)!
+    const node = nodes.get(part.id)
+    if (!node) continue
     node.position.set(...part.position)
     node.rotation.set(THREE.MathUtils.degToRad(part.rotation[0]), THREE.MathUtils.degToRad(part.rotation[1]), THREE.MathUtils.degToRad(part.rotation[2]))
     node.scale.set(...part.scale)
@@ -429,7 +530,8 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 /** GLB da versão publicada: geometria + materiais na pose base (os estados animam por cima em tempo de execução); nós nomeados pelos ids das peças. Y para cima, frente em +Z. */
 export async function bakeGlb(def: ComponentDefinition, glb: GlbCache): Promise<string> {
   await loadGlbAssets(def, glb)
-  const root = buildDefinitionObject(def, glb, { includeHidden: false })
+  await preloadDefinitionTextures(def)
+  const root = buildDefinitionObject(def, glb, { includeHidden: false, forBake: true })
   const initial = resolveState(def, def.initialState)
   const byId = new Map<string, THREE.Object3D>()
   root.traverse((node) => { if (node.userData.partId) byId.set(node.userData.partId, node) })

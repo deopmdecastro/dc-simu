@@ -33,6 +33,7 @@ import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorShaftFan3D from './MotorShaftFan3D'
+import { MOTOR_FAN, motorCadToCentered } from './motorTerminalLayout'
 import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
 import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
@@ -1183,9 +1184,9 @@ function Motor3D({ c, x, interactive = true }: { c: ElectricalComponent; x: numb
           <meshStandardMaterial color="#334155" metalness={0.5} />
         </mesh>
       ))}
-      <group position={[0.78, 0, 0]}>
+      {c.state.showFan !== false && <group position={[0.78, 0, 0]}>
         <MotorShaftFan3D component={c} diameterMm={120} />
-      </group>
+      </group>}
       <mesh position={[0.68, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
         <cylinderGeometry args={[0.09, 0.09, 0.32, 14]} />
         <meshStandardMaterial color="#94a3b8" metalness={0.65} />
@@ -1231,10 +1232,11 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
     <group position={[0, -spec.targetHeight / 2, 0]}>
       <primitive object={model} />
       <MotorTerminalBoard3D c={c} interactive={interactive && !c.locked} />
-      {/* Pá de ensaio no veio: faz parte do motor (predefinição), roda com a velocidade simulada. */}
-      <group position={[0.88 * MOTOR_SCALE_RATIO, 0.4 * MOTOR_SCALE_RATIO, 0]}>
+      {/* Pá de três pás no veio (Ø19, x = 241…264 mm do CAD): roda com a velocidade simulada.
+          Mostrar/ocultar: olho «Pá do veio» nas propriedades (state.showFan). */}
+      {c.state.showFan !== false && <group position={motorCadToCentered([MOTOR_FAN.hubX, 0, 0]).map((v) => v * PANEL_UNITS_PER_MM) as [number, number, number]}>
         <MotorShaftFan3D component={c} />
-      </group>
+      </group>}
       <group ref={shaftIndicator} position={[0.67 * MOTOR_SCALE_RATIO, 0.4 * MOTOR_SCALE_RATIO, 0]}>
         <mesh><boxGeometry args={[0.018, 0.1, 0.02]} /><meshStandardMaterial color={markerColor} emissive={running ? markerColor : '#000000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
       </group>

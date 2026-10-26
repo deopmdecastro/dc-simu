@@ -27,6 +27,26 @@ export interface MaterialDef {
   /** id em `assets` (imagem). */
   map?: string
   normalMap?: string
+  /** id em `assets` — rugosidade (canal de cinzento) e metalização. */
+  roughnessMap?: string
+  metalnessMap?: string
+  /** Intensidade do relevo (normal map). Predefinição 1. */
+  normalScale?: number
+  /** Tamanho real do padrão em mm: as UVs passam a projeção em caixa à escala real
+   *  (o padrão não estica com o tamanho da peça). Sem valor: UVs da forma (0…1 por face). */
+  tileMm?: number
+  /** Textura da biblioteca (`three/textureLibrary.ts`) de onde vieram os mapas. */
+  library?: string
+}
+
+/** Rotação contínua de uma peça (pá, rolo, disco…), em torno da origem da peça. */
+export interface SpinDef {
+  axis: 'x' | 'y' | 'z'
+  /** Voltas por segundo à velocidade máxima (o motor real a 1435 rpm é visualmente estroboscópico). */
+  turnsPerSecond: number
+  /** Variável que comanda: `$rpm` (velocidade do motor 0…1, com sentido `$dir`) ou uma variável booleana/numérica. */
+  source: string
+  reverse?: boolean
 }
 
 export interface PartDef {
@@ -50,6 +70,14 @@ export interface PartDef {
    *  Permite separar um GLB importado em objetos editáveis (manípulos, tampas, botões…). */
   glbNode?: string
   clickable?: boolean
+  /** Rotação contínua comandada por uma variável (ex.: pá do veio com `$rpm`). */
+  spin?: SpinDef
+  /** Peça opcional: no projeto, o utilizador mostra/oculta-a com o olho (state.hiddenParts). */
+  optional?: boolean
+  /** Só existe no editor (pré-visualização) — não entra no modelo publicado. */
+  editorOnly?: boolean
+  /** Peça GLB: substitui os materiais do CAD pelo material escolhido (ex.: textura real). */
+  overrideMaterial?: boolean
 }
 
 export type TerminalPolarity = 'none' | 'positive' | 'negative' | 'ac' | 'neutral' | 'earth'

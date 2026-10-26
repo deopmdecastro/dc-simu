@@ -3,6 +3,7 @@ import Select from '../ui/Select'
 import CatalogInspector from '../catalog/CatalogInspector'
 import { useCatalogStore } from '../catalog/registry'
 import { hiddenCatalogTypes } from '../catalog/hidden'
+import { parseCatalogType } from '../catalog/types'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import TerminalLibrary from './TerminalLibrary'
@@ -23,7 +24,7 @@ import { hasComponent3DModel, isMountingRail, MISSING_3D_MODEL_MESSAGE } from '.
 import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRailGeometry'
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
-import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck } from '../ui/icons'
+import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
 
 const label = 'dc-field-label'
 const STATE_LABELS: Record<string, string> = {
@@ -494,10 +495,12 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               </div>
 
               </div></details>
+              <OptionalPartsGroup component={selectedComponent} />
               {/* estado rápido conforme o tipo */}
               <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body space-y-1">
                 {Object.entries(selectedComponent.state).map(([k, v]) => {
                   if (isMountingRail(selectedComponent.type) && k === 'lengthMm') return null
+                  if (k === 'showFan' || k === 'hiddenParts') return null
                   if (typeof v === 'boolean') {
                     return (
                       <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
@@ -943,4 +946,40 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
       )}
     </div>
   )
+}
+
+
+/**
+ * «Peças visíveis»: peças opcionais que se mostram/ocultam com o olho (pá do
+ * veio do motor integrado, ou peças marcadas «Peça opcional» no editor de
+ * elementos). O estado vive no componente, por isso fica guardado no projeto.
+ */
+function OptionalPartsGroup({ component }: { component: { id: string; type: string; locked?: boolean; state: Record<string, unknown> } }) {
+  const entries = useCatalogStore((s) => s.entries)
+  const link = parseCatalogType(component.type)
+  const rows = useMemo(() => {
+    if (component.type === 'motor3ph') return [{ key: 'showFan', name: 'Pá do veio (3 pás)', visible: component.state.showFan !== false }]
+    if (!link) return []
+    const def = entries.find((entry) => entry.id === link.id)?.versions.find((item) => item.version === link.version)?.definition
+    const hidden = new Set((component.state.hiddenParts as string[] | undefined) ?? [])
+    return (def?.parts ?? []).filter((part) => part.optional && !part.editorOnly).map((part) => ({ key: part.id, name: part.name, visible: !hidden.has(part.id) }))
+  }, [component.type, component.state.showFan, component.state.hiddenParts, entries, link?.id, link?.version])
+  if (!rows.length) return null
+  const toggle = (key: string, visible: boolean) => {
+    const store = useSimStore.getState()
+    if (key === 'showFan') { store.setComponentState(component.id, { showFan: !visible }); return }
+    const hidden = new Set((component.state.hiddenParts as string[] | undefined) ?? [])
+    if (visible) hidden.add(key); else hidden.delete(key)
+    store.setComponentState(component.id, { hiddenParts: [...hidden] })
+  }
+  return <details className="dc-inspector-group" open data-optional-parts><summary>Peças visíveis</summary><div className="dc-inspector-group-body space-y-1">
+    {rows.map((row) => <div key={row.key} className="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
+      <span className={row.visible ? 'text-ink-700' : 'text-ink-400 line-through'}>{row.name}</span>
+      <button type="button" className="dc-btn dc-btn-sm !px-1.5" data-part-eye={row.key} aria-pressed={row.visible}
+        disabled={component.locked} title={row.visible ? 'Ocultar esta peça' : 'Mostrar esta peça'}
+        aria-label={`${row.visible ? 'Ocultar' : 'Mostrar'} ${row.name}`} onClick={() => toggle(row.key, row.visible)}>
+        {row.visible ? <IconEye size={13} /> : <IconEyeOff size={13} />}
+      </button>
+    </div>)}
+  </div></details>
 }

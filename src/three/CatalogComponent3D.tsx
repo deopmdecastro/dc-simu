@@ -18,6 +18,8 @@ import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 
+const EMPTY_PARTS: string[] = []
+
 /** Procura a peça (nome do nó = id da peça) a partir do objeto atingido. */
 function partIdOf(object: THREE.Object3D | null, known: Set<string>): string {
   for (let node: THREE.Object3D | null = object; node; node = node.parent) if (known.has(node.name)) return node.name
@@ -97,7 +99,13 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
 
   const stateId = String(c.state?.catalogState ?? version?.definition.initialState ?? '')
   useEffect(() => { animator.current?.setState(stateId); invalidate() }, [stateId])
-  useFrame((_, delta) => { const a = animator.current?.update(Math.min(delta, 0.1)); const b = rig.current?.update(Math.min(delta, 0.1)); if (a || b) invalidate() })
+  // Peças com rotação contínua (pá do veio…) seguem a velocidade simulada do motor.
+  const hiddenParts = (c.state?.hiddenParts as string[] | undefined) ?? EMPTY_PARTS
+  useEffect(() => { rig.current?.setHiddenParts(hiddenParts); invalidate() }, [hiddenParts, version, model])
+  useFrame((_, delta) => {
+    rig.current?.setLive({ $rpm: Number(c.state?.rpmVisual ?? (c.state?.running ? 1 : 0)) || 0, $dir: c.state?.direction === 'ccw' ? 'ccw' : 'cw', $motor: !!c.state?.running })
+    const a = animator.current?.update(Math.min(delta, 0.1)); const b = rig.current?.update(Math.min(delta, 0.1)); if (a || b) invalidate()
+  })
 
   const known = useMemo(() => new Set(version?.definition.parts.map((part) => part.id) ?? []), [version])
   /** Botões/seletores do modelo: premir (visual), largar (ação) e rodar o seletor. */
@@ -148,7 +156,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
   >
     <primitive object={model} />
     {builtin === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
-    {builtin === 'motor3ph' && <MotorTerminalBoard3D c={c} interactive={interactive && !c.locked} position={[0, topY * 0.82, 0.08]} />}
+    {builtin === 'motor3ph' && <group position={[model.position.x, model.position.y, model.position.z]}><MotorTerminalBoard3D c={c} interactive={interactive && !c.locked} /></group>}
     {children?.(topY)}
   </group>
 }

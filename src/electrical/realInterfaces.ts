@@ -1,4 +1,5 @@
 import type { ComponentType } from '../types'
+import { MOTOR_SOCKET_DEPTH, MOTOR_STUD, MOTOR_TERMINAL_ORDER, motorTerminalFraction } from '../three/motorTerminalLayout'
 import { getComponentPhysicalSizeMm } from '../three/modelPaths'
 
 /**
@@ -201,15 +202,9 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"ETH","face":"top","x":0.448333,"y":0.052853,"z":0.643266,"diameterMm":17.3,"holeDepthMm":10},
     {"label":"SERVICE","face":"back","x":0.449333,"y":0.333242,"z":0.000666,"diameterMm":7.2,"holeDepthMm":4.95},
   ],
-  motor3ph: [
-    {"label":"W2","face":"top","x":0.4318181818181818,"y":0,"z":0.5576923076923077,"diameterMm":4.8,"holeDepthMm":5.4},
-    {"label":"U2","face":"top","x":0.5,"y":0,"z":0.5576923076923077,"diameterMm":4.8,"holeDepthMm":5.4},
-    {"label":"V2","face":"top","x":0.5681818181818181,"y":0,"z":0.5576923076923077,"diameterMm":4.8,"holeDepthMm":5.4},
-    {"label":"U1","face":"top","x":0.4318181818181818,"y":0,"z":0.4423076923076923,"diameterMm":4.8,"holeDepthMm":5.4},
-    {"label":"V1","face":"top","x":0.5,"y":0,"z":0.4423076923076923,"diameterMm":4.8,"holeDepthMm":5.4},
-    {"label":"W1","face":"top","x":0.5681818181818181,"y":0,"z":0.4423076923076923,"diameterMm":4.8,"holeDepthMm":5.4},
-    {"label":"PE","face":"top","x":0.6,"y":0,"z":0.5,"diameterMm":3.9,"holeDepthMm":5.4},
-  ],
+  // Medido na caixa de bornes do CAD (ver three/motorTerminalLayout.ts): seis bornes M4
+  // com porca-luva sobre a placa isolante e o PE num grampo próprio junto ao bucim.
+  motor3ph: MOTOR_TERMINAL_ORDER.map((label) => ({ label, face: 'top' as const, ...motorTerminalFraction(label), diameterMm: label === 'PE' ? 4.2 : MOTOR_STUD.bore, holeDepthMm: MOTOR_SOCKET_DEPTH })),
   plcLsXbmDn32s: [
     {"label":"L+","face":"top","x":0.04,"y":0,"z":0.5,"diameterMm":3,"holeDepthMm":5},
     {"label":"M","face":"bottom","x":0.04,"y":1,"z":0.5,"diameterMm":3,"holeDepthMm":5},
