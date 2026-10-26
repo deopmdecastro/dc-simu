@@ -83,3 +83,19 @@ repetido). A migração:
 Se mudar as palavras-passe das contas fixas, atualize-as também nesse ficheiro antes de o executar.
 Para o login funcionar, desative **Confirm email** em *Authentication → Providers → Email*
 (os utilizadores novos registados pela app precisam disso, as contas fixas não).
+
+## Planos SaaS, preços e comentários
+
+Execute `migrations/20261026120000_saas_plans_comments.sql` no SQL Editor (pode ser repetido),
+depois da migração de contas. A migração:
+
+- acrescenta `profiles.plan`, `plan_expires_at`, `admin_note` e `active`; o utilizador não
+  consegue mudar o próprio plano (trigger `protect_profile_role`), o administrador sim;
+- cria `platform_settings` (chave `pricing`, leitura pública para a landing page),
+  `plan_requests` (pedidos de mudança de plano) e `project_comments` (com RLS por
+  proprietário/membro do projeto);
+- acrescenta `component_settings.status` (ativo/bloqueado/arquivado/eliminado) e `min_plan`;
+- aplica o limite de projetos do plano num trigger `BEFORE INSERT` em `projects`.
+
+Não há gateway de pagamento: o administrador aprova o pedido de plano depois de confirmar
+o pagamento por fora. Sem esta migração a app continua a funcionar com os planos por omissão.

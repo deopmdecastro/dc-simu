@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState, type CSSProperties } from 'react'
 import Logo, { LogoMark } from '../ui/Brand'
+import LandingPricing, { PLAN_INTENT_KEY, landingPlans, usePublicPricing } from './LandingPricing'
 import { InteractiveComponentThumb } from '../three/componentThumbnails'
 import { hasComponent3DModel } from '../three/modelPaths'
 import type { ComponentType } from '../types'
@@ -80,6 +81,7 @@ const LINKS: [string, string][] = [
   ['#biblioteca', 'Biblioteca'],
   ['#fluxo', 'Como funciona'],
   ['#para-quem', 'Para quem'],
+  ['#precos', 'Preços'],
   ['#faq', 'FAQ'],
 ]
 
@@ -364,6 +366,8 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
   const [scrolled, setScrolled] = useState(false)
   const [active, setActive] = useState('')
   useReveal()
+  const { pricing } = usePublicPricing()
+  const showPricing = landingPlans(pricing).length > 0
 
   // navegação: sombra/borda depois de sair do topo
   useEffect(() => {
@@ -386,12 +390,12 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
         }),
       { rootMargin: '-45% 0px -50% 0px' },
     )
-    LINKS.forEach(([href]) => {
+    LINKS.filter(([href]) => href !== '#precos' || showPricing).forEach(([href]) => {
       const el = document.getElementById(href.slice(1))
       if (el) io.observe(el)
     })
     return () => io.disconnect()
-  }, [])
+  }, [showPricing])
 
   // Esc fecha o menu móvel
   useEffect(() => {
@@ -401,7 +405,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
     return () => window.removeEventListener('keydown', onKey)
   }, [menu])
 
-  const links = LINKS
+  const links = LINKS.filter(([href]) => href !== '#precos' || showPricing)
   const pickCat = (c: string) => {
     if (c === cat) return
     setCat(c)
@@ -709,6 +713,12 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
           </div>
         </div>
       </section>
+
+      {/* ---------------------------------------------------------- PREÇOS */}
+      <LandingPricing pricing={pricing} onChoose={(plan, period) => {
+        try { sessionStorage.setItem(PLAN_INTENT_KEY, JSON.stringify({ plan: plan.id, period })) } catch { /* armazenamento indisponível */ }
+        if (plan.id === 'free') onAccess(); else onLogin()
+      }} />
 
       {/* -------------------------------------------------------------- FAQ */}
       <section className="dx-section dx-faq" id="faq">

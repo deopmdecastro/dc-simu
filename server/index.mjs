@@ -5,6 +5,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node
 import { resolve } from 'node:path'
 import { passwordProblem, registerAdmin } from './admin.mjs'
 import { registerCatalog } from './catalog.mjs'
+import { migrateSaas, registerSaas } from './saas.mjs'
 
 const dir = process.env.DATA_DIR || './data'
 mkdirSync(dir, { recursive: true })
@@ -66,6 +67,7 @@ addColumn('sessions', 'created_at', 'TEXT')
 addColumn('sessions', 'last_seen', 'TEXT')
 addColumn('sessions', 'ip', 'TEXT')
 addColumn('sessions', 'agent', 'TEXT')
+migrateSaas(db)
 // req.ip ignora X-Forwarded-For por omissão; só passa a confiar no proxy com TRUST_PROXY=1.
 const clientIp = req => String(req.ip || req.socket?.remoteAddress || '').slice(0, 80)
 /** Registo de auditoria: nunca deve impedir a operação que está a registar. */
@@ -112,7 +114,7 @@ app.use('/api', (req, res, next) => {
     }
   }
   const token = cookie(req)
-  const sessionUser = token ? db.prepare('SELECT users.id,users.email,users.name,users.role FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>? AND users.active=1').get(hash(token), Date.now()) : null
+  const sessionUser = token ? db.prepare('SELECT users.id,users.email,users.name,users.role,users.plan,users.plan_expires_at planExpiresAt FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>? AND users.active=1').get(hash(token), Date.now()) : null
   req.user = sessionUser || null
   if (sessionUser) { const now = Date.now(), seen = db.prepare('SELECT last_seen FROM sessions WHERE token=?').get(hash(token))?.last_seen; if (!seen || now - Date.parse(seen) > 60000) db.prepare('UPDATE sessions SET last_seen=? WHERE token=?').run(new Date(now).toISOString(), hash(token)) }
   next()
@@ -191,6 +193,7 @@ app.post('/api/logout',auth,(req,res)=>{
   res.setHeader('Set-Cookie', `dc_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${req.secure ? '; Secure' : ''}`)
   res.json({ok:true})
 })
+const saas = registerSaas({ app, db, auth, admin, project, fail, id, auditReq })
 // Miniatura real do projeto: geometria leve (componentes + fios) extraída do conteúdo guardado.
 const previewCache=new Map()
 function buildPreview(content){
@@ -224,7 +227,7 @@ app.get('/api/projects',auth,(req,res)=>{
   return {...row,preview}
  }))
 })
-app.post('/api/projects',auth,(req,res)=>{
+app.post('/api/projects',auth,saas.projectLimit,(req,res)=>{
  const name=String(req.body.name||'').trim();if (!name||name.length>120)return fail(res,400,'Nome inválido')
  const p={id:id(),name,owner_id:req.user.id,content:JSON.stringify(req.body.content??{}),updated_at:new Date().toISOString()}
  if(p.content.length>7_000_000)return fail(res,413,'Projeto demasiado grande')
@@ -251,7 +254,7 @@ app.put('/api/projects/:id',auth,project,(req,res)=>{
 })
 app.delete('/api/projects/:id',auth,project,(req,res)=>{if(req.project.role!=='owner')return fail(res,403,'Apenas o proprietário pode eliminar');db.prepare('DELETE FROM projects WHERE id=?').run(req.project.id);auditReq(req,'project.delete',{type:'project',id:req.project.id,label:req.project.name});res.json({ok:true})})
 app.get('/api/projects/:id/members',auth,project,(req,res)=>res.json({members:db.prepare('SELECT u.name,u.email FROM members m JOIN users u ON u.id=m.user_id WHERE m.project_id=?').all(req.project.id)}))
-app.post('/api/projects/:id/invitations',auth,project,(req,res)=>{
+app.post('/api/projects/:id/invitations',auth,project,saas.inviteLimit,(req,res)=>{
  if(req.project.role!=='owner')return fail(res,403,'Apenas o proprietário pode convidar')
  const targetEmail=String(req.body.email||'').trim().toLowerCase()
  const u=db.prepare('SELECT id FROM users WHERE email=? AND active=1').get(targetEmail)
@@ -271,7 +274,7 @@ app.post('/api/invitations/:id/:action',auth,(req,res)=>{
 })
 // Rotas administrativas separadas das rotas normais de projeto: o papel
 // admin não contorna implicitamente as permissões de leitura/escrita do editor.
-registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, auditReq, clientIp, fixedAccounts, contribDir, dataDir: dir, attempts })
+registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, auditReq, clientIp, fixedAccounts, contribDir, dataDir: dir, attempts, saas })
 registerCatalog({ app, db, auth, admin, fail, auditReq, dataDir: dir })
 
 // ---------------------------------------------------------------------------

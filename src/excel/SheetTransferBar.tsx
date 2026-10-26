@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { uiAlert } from '../ui/dialogs'
+import { requireFeature } from '../saas/usePlan'
 import { downloadWorkbook, readWorkbookFile, type RawSheet, type SheetData } from './sheetIO'
 
 interface SheetTransferBarProps {
@@ -21,6 +22,8 @@ export default function SheetTransferBar({ fileName, template, current, onImport
   const [busy, setBusy] = useState(false)
 
   const run = async (task: () => Promise<void>) => {
+    // SAAS-PLANS-01: importar/exportar Excel depende do plano.
+    if (!requireFeature('excelExport')) return
     setBusy(true)
     try { await task() } catch (error) { await uiAlert(error instanceof Error ? error.message : 'Não foi possível concluir a operação.', { title: 'Excel' }) } finally { setBusy(false) }
   }
@@ -29,7 +32,7 @@ export default function SheetTransferBar({ fileName, template, current, onImport
     <div className={`sheet-bar ${className}`} role="group" aria-label="Tabela em Excel">
       <button type="button" className="dc-btn" disabled={busy} title="Descarrega um .xlsx de exemplo com instruções" onClick={() => run(() => downloadWorkbook(`${fileName}-modelo`, template()))}>Modelo</button>
       <button type="button" className="dc-btn" disabled={busy} title="Exporta a tabela atual para .xlsx" onClick={() => run(() => downloadWorkbook(fileName, current()))}>Exportar</button>
-      <button type="button" className="dc-btn" disabled={busy || disabled} title="Importa uma tabela de um ficheiro .xlsx" onClick={() => input.current?.click()}>Importar</button>
+      <button type="button" className="dc-btn" disabled={busy || disabled} title="Importa uma tabela de um ficheiro .xlsx" onClick={() => { if (requireFeature('excelExport')) input.current?.click() }}>Importar</button>
       <input ref={input} type="file" hidden accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         onChange={(event) => {
           const file = event.target.files?.[0]

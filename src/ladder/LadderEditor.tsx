@@ -37,13 +37,16 @@ import {
   IconPlus, IconDelete, IconCopy, IconClose,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder,
   IconFunction, IconChevronDown, IconChevronRight, IconShield, IconSearch,
-  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp, IconReset, IconCheck, IconTimer, IconCounter, IconStep
+  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp, IconReset, IconCheck, IconTimer, IconCounter, IconStep, IconTools
 } from '../ui/icons'
+import { COMPILE_GATE_KEY, compileGateEnabled, compileHash, compileInputOf, compileLadder, compileSummary, type CompileResult } from './ladderCompile'
 import { useLadderPrefs } from './ladderPrefs'
 import { ELEMENT_KEYS } from './ladderShortcuts'
 import ShortcutsDialog from './ShortcutsDialog'
 import ForcePanel from './ForcePanel'
 import LadderDebugPanel from './LadderDebugPanel'
+import PlanLocked from '../saas/PlanLocked'
+import { canUseFeature, requireFeature, useCan } from '../saas/usePlan'
 import { useEditorShortcuts } from '../ui/shortcuts'
 
 /* ------------------------------------------------------------------ helpers */
@@ -151,7 +154,7 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
           aria-pressed={!!breakMode}
           aria-label={breakMode ? `Remover o ponto de paragem da network ${index + 1}` : `Pôr um ponto de paragem na network ${index + 1}`}
           title={breakMode ? `Ponto de paragem: ${breakMode === 'rising' ? 'pára quando a network passa a conduzir' : breakMode === 'on' ? 'pára enquanto a network conduz' : 'pára em cada ciclo'} — clique para remover (condição no separador Depuração)` : 'Pôr ponto de paragem (F9): a simulação pausa quando esta network passa a conduzir'}
-          onClick={(e) => { e.stopPropagation(); setBreakpoint(rung.id) }}
+          onClick={(e) => { e.stopPropagation(); if (requireFeature('ladderDebug')) setBreakpoint(rung.id) }}
           onDoubleClick={(e) => e.stopPropagation()}
         ><i /></button>}
         <span className={`ladder-network-no ${powered && running ? 'is-on' : ''}`} title="Número da network">
@@ -1396,7 +1399,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const forcedAddrs = useSimStore((s) => s.forces)
   const breakpointCount = useSimStore((s) => Object.keys(s.ladderBreakpoints).filter((id) => s.ladder.rungs.some((r) => r.id === id)).length)
   const breakHit = useSimStore((s) => s.ladderBreakHit)
-  const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'force' | 'debug' | 'lint'>('io')
+  const canDebug = useCan('ladderDebug')
+  const [statusTab, setStatusTab] = useState<'io' | 'memory' | 'timers' | 'counters' | 'force' | 'debug' | 'lint' | 'compile'>('io')
   const [programTab, setProgramTab] = useState<'program' | 'tags'>('program')
   const [filter, setFilter] = useState('')
   const ladderZoom = useLadderZoom((state) => state.zoom)
@@ -1494,6 +1498,27 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const fcNames = useSimStore((s) => s.fcNames)
   const fcAdded = useSimStore((s) => s.fcAdded)
   const isMainOpen = activeProjectNode === 'main'
+  // LADDER-COMPILE-01: compilar o PLC ativo (Main + FCs + blocos) e detetar alterações posteriores.
+  const [compileResult, setCompileResult] = useState<CompileResult | null>(null)
+  const [compileGate, setCompileGate] = useState(compileGateEnabled)
+  const tagsAll = useSimStore((s) => s.tags)
+  const fcBlocksAll = useSimStore((s) => s.fcBlocks)
+  const currentCompileHash = useMemo(() => compileHash(compileInputOf({ ladder: { rungs }, fcBlocks: fcBlocksAll, fcAdded, fcNames, projectFiles: { [activePlcId ?? '_general']: files }, activePlcId, tags: tagsAll }, plcs.length > 0)),
+    [rungs, fcBlocksAll, fcAdded, fcNames, files, activePlcId, tagsAll, plcs.length])
+  const compileStale = !!compileResult && compileResult.hash !== currentCompileHash
+  const runCompile = useCallback(() => {
+    const state = useSimStore.getState()
+    const result = compileLadder(compileInputOf(state, state.components.some(isProgrammablePlc)))
+    setCompileResult(result)
+    setStatusTab('compile'); setShowStatus(true)
+    state.pushEvent(result.ok ? (result.warnings ? 'warning' : 'info') : 'error', compileSummary(result))
+  }, [])
+  const goToIssue = useCallback((blockId: string, rungId?: string) => {
+    if (!rungId) return
+    const node = (blockId === 'main' ? 'main' : blockId === 'fc1' || blockId === 'fc2' ? blockId : `file:${blockId}`) as ProjectNodeId
+    setActiveProjectNode(node)
+    window.setTimeout(() => document.getElementById(`rung-${rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
+  }, [])
   const isFcOpen = activeProjectNode === 'fc1' || activeProjectNode === 'fc2' || (activeProjectNode.startsWith('file:') && files.some((f) => `file:${f.id}` === activeProjectNode && f.folder === 'programBlocks'))
   const isProgramView = isMainOpen || isFcOpen
   const activePlc = plcs.find((c) => c.id === activePlcId)
@@ -1563,6 +1588,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
 
       // ---- os restantes só fazem sentido no programa Ladder principal
       if (section !== 'Projeto') return
+      if (mod && event.shiftKey && lower === 'b') { event.preventDefault(); runCompile(); return }
       if (mod && lower === 'b') { event.preventDefault(); setShowPalette((v) => !v); return }
       if (mod && lower === 'j') { event.preventDefault(); setShowStatus((v) => !v); return }
       if (mod && lower === 'f') { event.preventDefault(); setShowPalette(true); requestAnimationFrame(() => searchRef.current?.focus()); return }
@@ -1601,6 +1627,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
       if (!mod && !event.altKey && key === 'End') { event.preventDefault(); go(list.length - 1); return }
 
       // ---- depuração: F9 ponto de paragem na network ativa · F10 passo (1 ciclo)
+      if (!mod && !event.altKey && (key === 'F9' || key === 'F10') && !canUseFeature('ladderDebug')) { event.preventDefault(); requireFeature('ladderDebug', notify); return }
       if (!mod && !event.altKey && key === 'F9') {
         event.preventDefault()
         if (idx >= 0) {
@@ -1834,9 +1861,11 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         </div>
         <div className="ladder-editor-toolbar">
           <span className="text-[10px] text-slate-400">{isProgramView ? 'Programa Ladder' : activeTitle}</span>
+          <button type="button" className={`dc-tool-btn ladder-compile-tb ${compileResult ? (compileResult.ok ? (compileStale ? 'is-stale' : 'is-ok') : 'is-error') : ''}`} onClick={runCompile} title="Compilar o programa do PLC ativo (Ctrl+Shift+B): Main, FC, blocos, CALL e referências cruzadas" data-compile>
+            <IconTools size={13} /><span>Compilar</span>
+          </button>
           {isMainOpen && programTab === 'program' && rungs.length > 1 && (
             <>
-              <span className="ladder-toolbar-separator" />
               <button className="dc-tool-btn" onClick={() => setCollapsedIds((cur) => (cur.size >= rungs.length ? new Set() : new Set(rungs.map((r) => r.id))))} title="Recolher / expandir todas (Ctrl+Shift+E)">
                 {collapsedIds.size >= rungs.length ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}<span>{collapsedIds.size >= rungs.length ? 'Expandir tudo' : 'Recolher tudo'}</span>
               </button>
@@ -1946,13 +1975,14 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             {(() => {
               const activeBits = Object.entries(table).filter(([key, value]) => value && /^[IQM]\d+\.\d$/.test(key)).length
               const badge: Record<string, number> = { io: activeBits, timers: Object.keys(timers).length, counters: Object.keys(counters).length }
-              const statusTabs: Array<{ id: 'io' | 'memory' | 'timers' | 'counters' | 'force' | 'debug' | 'lint'; label: ReactNode }> = [
+              const statusTabs: Array<{ id: 'io' | 'memory' | 'timers' | 'counters' | 'force' | 'debug' | 'lint' | 'compile'; label: ReactNode }> = [
                 { id: 'io', label: <><IconSchematic size={11} />Entradas/Saídas</> },
                 { id: 'memory', label: <><IconTag size={11} />Memórias</> },
                 { id: 'timers', label: <><IconTimer size={11} />Temporizadores</> },
                 { id: 'counters', label: <><IconCounter size={11} />Contadores</> },
                 { id: 'force', label: <><IconShield size={11} />Forçar{Object.keys(forcedAddrs).length ? ` (${Object.keys(forcedAddrs).length})` : ''}</> },
                 { id: 'debug', label: <><IconStep size={11} />Depuração{breakpointCount ? ` (${breakpointCount})` : ''}</> },
+                { id: 'compile', label: <><IconTools size={11} />Compilação{compileResult ? (compileStale ? ' (desatualizada)' : compileResult.ok ? (compileResult.warnings ? ` (${compileResult.warnings} !)` : ' ✓') : ` (${compileResult.errors} ✖)`) : ''}</> },
                 { id: 'lint', label: lintCount ? <><IconShield size={11} />Verificação ({lintCount})</> : <><IconCheck size={10} className="ui-ck" />Verificação</> },
               ]
               return statusTabs.map(({ id, label }) => (
@@ -1995,7 +2025,26 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             {statusTab === 'io' && !activePlc && <VirtualIoPanel compact />}
             {statusTab === 'io' && !!activePlc && <><NetworkStatus table={table} prefix="I" label="Entradas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /><NetworkStatus table={table} prefix="Q" label="Saídas" plc={activePlc} wires={wires} components={components} tags={tags} rungs={rungs} /></>}
             {statusTab === 'force' && <ForcePanel />}
-            {statusTab === 'debug' && <LadderDebugPanel rungs={rungs} />}
+            {statusTab === 'debug' && (canDebug ? <LadderDebugPanel rungs={rungs} /> : <PlanLocked feature="ladderDebug" compact />)}
+            {statusTab === 'compile' && <div className="ladder-compile">
+              <div className="ladder-compile-head">
+                <button type="button" className="ladder-compile-btn" onClick={runCompile} title="Compilar o PLC ativo (Ctrl+Shift+B)"><IconTools size={12} />Compilar</button>
+                {compileResult
+                  ? <span className={`ladder-compile-summary ${compileResult.ok ? (compileResult.warnings ? 'is-warning' : 'is-ok') : 'is-error'}`} role="status">
+                    {compileSummary(compileResult)} · {new Date(compileResult.compiledAt).toLocaleTimeString('pt-PT')}
+                    {compileStale && <em> · programa alterado desde a última compilação</em>}
+                  </span>
+                  : <span className="ladder-status-empty">Ainda não compilou este programa. A compilação verifica o Main, os FC e os blocos de programa, as chamadas CALL e as referências cruzadas.</span>}
+                <label className="ladder-compile-gate" title="Com esta opção, o botão RUN recusa arrancar enquanto houver erros de compilação">
+                  <input type="checkbox" checked={compileGate} onChange={(event) => { setCompileGate(event.target.checked); try { localStorage.setItem(COMPILE_GATE_KEY, event.target.checked ? '1' : '0') } catch { /* navegação privada */ } }} />
+                  Bloquear RUN com erros
+                </label>
+              </div>
+              {compileResult && <div className="ladder-lint" role="list">
+                {compileResult.issues.length ? compileResult.issues.map((issue) => <button type="button" role="listitem" key={`${issue.blockId}:${issue.id}`} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => goToIssue(issue.blockId, issue.rungId)}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>)
+                  : <span className="ladder-status-empty is-ok"><IconCheck size={11} className="ui-ck" /> Compilação sem erros nem avisos.</span>}
+              </div>}
+            </div>}
             {statusTab === 'lint' && <div className="ladder-lint" role="list">
               {lintIssues.length ? lintIssues.map((issue) => <button type="button" role="listitem" key={issue.id} className={`ladder-lint-row is-${issue.level}`} disabled={!issue.rungId} onClick={() => issue.rungId && document.getElementById(`rung-${issue.rungId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><b>{issue.level === 'error' ? '✖' : issue.level === 'warning' ? '!' : 'i'}</b><span>{issue.message}</span></button>) : <span className="ladder-status-empty is-ok"><IconCheck size={11} className="ui-ck" /> Nenhum problema encontrado — o programa está limpo.</span>}
             </div>}

@@ -12,9 +12,12 @@ import { isSupabaseConfigured } from '../supabase/supabaseClient'
 import N8nModal from '../components/N8nModal'
 import { isN8nConfigured } from '../n8n/n8nClient'
 import { SupabaseLogo, N8nLogo } from '../ui/BrandLogos'
+import AccountPlanCard from '../saas/AccountPlanCard'
+import ProjectComments from '../comments/ProjectComments'
+import { canUseFeature, currentLimit, currentLimitMessage, featureBlockedMessage, usePlanStore } from '../saas/usePlan'
 
 export type { ProjectPreviewData }
-export type User = { id: string; name: string; email: string; role: 'admin' | 'user' }
+export type User = { id: string; name: string; email: string; role: 'admin' | 'user'; plan?: import('../saas/platformCore.mjs').PlanId; planExpiresAt?: string | null }
 export type Project = { id: string; name: string; revision: number; owner: string; role: 'owner' | 'editor'; updated_at: string; preview?: ProjectPreviewData }
 export type Invite = { id: string; project: string; sender: string }
 
@@ -160,6 +163,10 @@ export default function Dashboard({
   const [closing, setClosing] = useState(false)
   const [supabaseModalOpen, setSupabaseModalOpen] = useState(false)
   const [n8nModalOpen, setN8nModalOpen] = useState(false)
+  /** Aviso de plano (limite de projetos, partilha fora do plano). */
+  const [planGate, setPlanGate] = useState('')
+  const [commentsFor, setCommentsFor] = useState<Project | null>(null)
+  usePlanStore((s) => s.plan)
   const [sort, setSort] = useState<SortKey>('recent')
   const [view, setViewState] = useState<ViewKey>(() => (typeof localStorage !== 'undefined' && localStorage.getItem('dc.dash.view') === 'list' ? 'list' : 'grid'))
   const setView = (v: ViewKey) => {
@@ -192,6 +199,11 @@ export default function Dashboard({
   }
 
   const openModal = (type: 'create' | 'invite' | 'delete', project?: Project) => {
+    // SAAS-PLANS-01: a interface avisa antes; o servidor volta a validar (HTTP 402).
+    const projectLimit = currentLimit('projects')
+    if (type === 'create' && projectLimit !== null && owned >= projectLimit) { setPlanGate(currentLimitMessage('projects')); return }
+    if (type === 'invite' && !canUseFeature('sharing')) { setPlanGate(featureBlockedMessage('sharing')); return }
+    setPlanGate('')
     const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null
     returnFocusRef.current = activeElement?.closest('.dx-menu-wrap')?.querySelector<HTMLElement>('button') ?? activeElement
     setClosing(false)
@@ -287,7 +299,19 @@ export default function Dashboard({
   }, [menu])
 
   const renderMenu = (p: Project) =>
-    p.role === 'owner' ? (
+    p.role !== 'owner' ? (
+      <div className="dx-menu-wrap" onClick={(e) => e.stopPropagation()}>
+        <button className="dx-icon-btn" aria-label={`Opções de ${p.name}`} aria-expanded={menu === p.id} onClick={() => setMenu(menu === p.id ? null : p.id)}>
+          ⋯
+        </button>
+        {menu === p.id && (
+          <div className="dx-menu" role="menu">
+            <button onClick={() => { setMenu(null); setCommentsFor(p) }}>Comentários</button>
+            <button onClick={() => { setExpanded(expanded === p.id ? null : p.id); setMenu(null) }}>Ver membros</button>
+          </div>
+        )}
+      </div>
+    ) : (
       <div className="dx-menu-wrap" onClick={(e) => e.stopPropagation()}>
         <button className="dx-icon-btn" aria-label={`Opções de ${p.name}`} aria-expanded={menu === p.id} onClick={() => setMenu(menu === p.id ? null : p.id)}>
           ⋯
@@ -295,6 +319,7 @@ export default function Dashboard({
         {menu === p.id && (
           <div className="dx-menu" role="menu">
             <button onClick={() => openModal('invite', p)}>Convidar editor</button>
+            <button onClick={() => { setMenu(null); setCommentsFor(p) }}>Comentários</button>
             <button
               onClick={() => {
                 setExpanded(expanded === p.id ? null : p.id)
@@ -315,7 +340,7 @@ export default function Dashboard({
           </div>
         )}
       </div>
-    ) : null
+    )
 
   const today = new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -368,6 +393,13 @@ export default function Dashboard({
           </button>
         </div>
       </div>
+
+      <AccountPlanCard ownedProjects={owned} />
+      {commentsFor && user && <ProjectComments projectId={commentsFor.id} projectName={commentsFor.name} projectRole={commentsFor.role} viewer={user} onClose={() => setCommentsFor(null)} />}
+      {planGate && <div className="dx-plan-gate" role="alert">
+        <span>{planGate}</span>
+        <button className="dx-btn dx-btn-ghost dx-btn-sm" onClick={() => setPlanGate('')}>Fechar</button>
+      </div>}
 
       <div className="dx-metrics">
         <Metric icon={IconLayers} value={projects.length} label="Projetos acessíveis" />

@@ -23,6 +23,8 @@ import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { EDITOR_THEME } from '../ui/editorTheme'
 import Panel3D from '../three/Panel3D'
+import PlanLocked from '../saas/PlanLocked'
+import { useCan } from '../saas/usePlan'
 import SelectionBar from '../components/SelectionBar'
 import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
@@ -63,8 +65,11 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
     if (placingType && canvasMode === '3d') chooseMode('2d')
   }, [placingType, canvasMode, chooseMode])
 
+  const can3D = useCan('view3d')
   return <div className="schematic-view-shell" data-canvas-mode={canvasMode}>
-    {canvasMode === '3d'
+    {canvasMode === '3d' && !can3D
+      ? <PlanLocked feature="view3d" />
+      : canvasMode === '3d'
       ? <Panel3D initialCamera={pendingCamera} onInitialCameraUsed={() => setPendingCamera(null)} />
       : classic2D
         ? <Schematic2DView libraryCollapsed={libraryCollapsed} onOpen3DView={open3DView} />

@@ -18,6 +18,20 @@ import {
   supabaseRegister,
   supabaseReplyInvitation,
   supabaseSetComponent,
+  supabaseGetAdminComponents,
+  supabaseGetPricing,
+  supabaseSetPricing,
+  supabaseAccountPlan,
+  supabaseRequestPlan,
+  supabaseCancelPlanRequest,
+  supabaseListPlanRequests,
+  supabaseDecidePlanRequest,
+  supabaseAdminUsers,
+  supabaseAdminUpdateUser,
+  supabaseListComments,
+  supabaseAddComment,
+  supabaseUpdateComment,
+  supabaseDeleteComment,
   supabaseRenameProject,
   supabaseUpdateProject,
 } from '../supabase/supabaseBackend'
@@ -127,9 +141,28 @@ async function supabaseApi<T>(url: string, verb: string, body?: unknown): Promis
   }
 
   const matchComp = url.match(/^\/admin\/components\/([^/]+)$/)
-  if (matchComp && verb === 'PUT') {
-    const payload = (body ?? {}) as { enabled: boolean; note?: string }
-    return (await supabaseSetComponent(matchComp[1], payload.enabled, payload.note)) as T
+  if (matchComp && verb === 'PUT') return (await supabaseSetComponent(matchComp[1], body)) as T
+  if (url === '/admin/components' && verb === 'GET') return (await supabaseGetAdminComponents()) as T
+  // SaaS: planos, pedidos de plano, utilizadores e comentários (SAAS-PLANS-01, PROJ-COMMENTS-01).
+  const payload = (body ?? {}) as Record<string, unknown>
+  if (url === '/pricing' && verb === 'GET') return (await supabaseGetPricing()) as T
+  if (url === '/admin/pricing' && verb === 'PUT') return (await supabaseSetPricing(body)) as T
+  if (url === '/account/plan' && verb === 'GET') return (await supabaseAccountPlan()) as T
+  if (url === '/account/plan-request' && verb === 'POST') return (await supabaseRequestPlan(payload)) as T
+  if (url === '/account/plan-request' && verb === 'DELETE') return (await supabaseCancelPlanRequest()) as T
+  if (url.split('?')[0] === '/admin/plan-requests' && verb === 'GET') return (await supabaseListPlanRequests(new URLSearchParams(url.split('?')[1] || '').get('status') || '')) as T
+  const matchDecide = url.match(/^\/admin\/plan-requests\/([^/]+)$/)
+  if (matchDecide && verb === 'POST') return (await supabaseDecidePlanRequest(matchDecide[1], payload)) as T
+  if (url === '/admin/users' && verb === 'GET') return (await supabaseAdminUsers()) as T
+  const matchUser = url.match(/^\/admin\/users\/([^/]+)$/)
+  if (matchUser && verb === 'PATCH') return (await supabaseAdminUpdateUser(matchUser[1], payload)) as T
+  const matchComments = url.match(/^\/projects\/([^/]+)\/comments(?:\/([^/]+))?$/)
+  if (matchComments) {
+    const [, projectId, commentId] = matchComments
+    if (!commentId && verb === 'GET') return (await supabaseListComments(projectId)) as T
+    if (!commentId && verb === 'POST') return (await supabaseAddComment(projectId, payload)) as T
+    if (commentId && verb === 'PATCH') return (await supabaseUpdateComment(projectId, commentId, payload)) as T
+    if (commentId && verb === 'DELETE') return (await supabaseDeleteComment(projectId, commentId)) as T
   }
 
   if (url === '/admin/projects' && verb === 'GET') {

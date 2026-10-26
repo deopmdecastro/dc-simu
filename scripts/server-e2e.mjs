@@ -121,6 +121,9 @@ try {
   // login do novo utilizador + contribuições + projeto
   check('novo utilizador entra', (await other.login('ana@exemplo.pt', 'Segredo12345')).status === 200)
   check('palavra-passe errada falha', (await new Client().login('ana@exemplo.pt', 'errada')).status === 401)
+  // SAAS-PLANS-01: no plano Free não há partilha; o administrador atribui o plano Pro.
+  check('plano por omissão é free', created.data.plan === 'free')
+  check('admin atribui plano Pro', (await admin.call('PATCH', `/admin/users/${created.data.id}`, { plan: 'pro' })).data.plan === 'pro')
   const project = await other.call('POST', '/projects', { name: 'Projeto da Ana', content: { a: 1 } })
   check('novo utilizador cria projeto', project.status === 201)
   const contrib = await other.call('POST', '/contributions', { kind: 'datasheet', title: 'Ficha teste', description: '', componentType: 'contactor', fileName: 'a.pdf', size: 10 })
@@ -232,6 +235,92 @@ try {
   check('utilizador não vê o sistema', (await user.call('GET', '/admin/system')).status === 403)
   const exported = (await admin.call('GET', '/admin/export')).data
   check('exportação sem segredos', exported.users.length === 3 && !JSON.stringify(exported).match(/"password"|scrypt|Dcsimu2026!/i) && exported.logs.length > 0)
+
+  // ---- SaaS: planos, limites, pedidos de plano, componentes e comentários ----
+  {
+    const pub = await new Client().call('GET', '/pricing')
+    check('saas: preços públicos sem sessão', pub.status === 200 && pub.data.plans.length === 4 && pub.data.plans.some(p => p.id === 'pro' && p.highlighted) && !('updatedBy' in pub.data && pub.data.updatedBy))
+    check('saas: utilizador não altera preços', (await user.call('PUT', '/admin/pricing', pub.data)).status === 403)
+    check('saas: preço inválido recusado', (await admin.call('PUT', '/admin/pricing', { ...pub.data, plans: pub.data.plans.map(p => p.id === 'pro' ? { ...p, priceMonthly: -5 } : p) })).status === 400)
+    check('saas: dois destaques recusados', (await admin.call('PUT', '/admin/pricing', { ...pub.data, plans: pub.data.plans.map(p => ({ ...p, highlighted: true })) })).status === 400)
+    const edited = await admin.call('PUT', '/admin/pricing', { ...pub.data, plans: pub.data.plans.map(p => p.id === 'pro' ? { ...p, priceMonthly: 15, priceYearly: 150 } : p.id === 'escola' ? { ...p, showOnLanding: false } : p.id === 'free' ? { ...p, limits: { ...p.limits, projects: 2 } } : p) })
+    const after = (await new Client().call('GET', '/pricing')).data
+    check('saas: admin altera preços e cartões', edited.status === 200 && after.plans.find(p => p.id === 'pro').priceMonthly === 15 && after.plans.find(p => p.id === 'escola').showOnLanding === false)
+    const settings = (await user.call('GET', '/settings')).data
+    check('saas: definições trazem plano e preços', settings.plan === 'free' && settings.pricing.plans.length === 4 && Array.isArray(settings.components))
+    // limite de projetos do Free (2)
+    const plan0 = (await user.call('GET', '/account/plan')).data
+    for (let i = plan0.projects; i < 2; i++) await user.call('POST', '/projects', { name: 'Free ' + i, content: {} })
+    const over = await user.call('POST', '/projects', { name: 'Excesso', content: {} })
+    check('saas: limite de projetos do Free aplicado no servidor', over.status === 402 && /2 projeto/.test(over.data.error))
+    const mine = (await user.call('GET', '/projects')).data.filter(p => p.role === 'owner')
+    check('saas: Free não partilha projetos', (await user.call('POST', `/projects/${mine[0].id}/invitations`, { email: 'admin@dcsimu.local' })).status === 402)
+    const cFree = await user.call('GET', `/projects/${mine[0].id}/comments`)
+    check('saas: Free lê mas não escreve comentários', cFree.status === 200 && cFree.data.canWrite === false && (await user.call('POST', `/projects/${mine[0].id}/comments`, { body: 'olá' })).status === 402)
+    // pedido de plano → aprovação
+    check('saas: admin não pede plano', (await admin.call('POST', '/account/plan-request', { plan: 'pro' })).status === 400)
+    check('saas: plano inválido recusado', (await user.call('POST', '/account/plan-request', { plan: 'ouro' })).status === 400)
+    const req1 = await user.call('POST', '/account/plan-request', { plan: 'pro', period: 'yearly', message: 'Para a turma' })
+    check('saas: pedido de plano criado', req1.status === 201 && req1.data.status === 'pending')
+    check('saas: pedido duplicado recusado', (await user.call('POST', '/account/plan-request', { plan: 'pro' })).status === 409)
+    const pending = (await admin.call('GET', '/admin/plan-requests?status=pending')).data
+    check('saas: admin vê pedidos pendentes', pending.length === 1 && pending[0].userEmail === 'user@dcsimu.local')
+    check('saas: utilizador não aprova', (await user.call('POST', `/admin/plan-requests/${req1.data.id}`, { action: 'approve' })).status === 403)
+    const approved = await admin.call('POST', `/admin/plan-requests/${req1.data.id}`, { action: 'approve', note: 'Pagamento confirmado' })
+    const planNow = (await user.call('GET', '/account/plan')).data
+    const days = (Date.parse(planNow.planExpiresAt) - Date.now()) / 86400000
+    check('saas: aprovação aplica o plano com fim anual', approved.data.status === 'approved' && planNow.plan === 'pro' && days > 360 && days < 370 && planNow.pending === null)
+    check('saas: pedido decidido não se decide outra vez', (await admin.call('POST', `/admin/plan-requests/${req1.data.id}`, { action: 'reject' })).status === 409)
+    check('saas: Pro cria acima do limite Free', (await user.call('POST', '/projects', { name: 'Pro 3', content: {} })).status === 201)
+    // conta fixa: plano editável, resto protegido
+    const fixedU = (await admin.call('GET', '/admin/users')).data.find(u => u.email === 'user@dcsimu.local')
+    check('saas: lista de utilizadores traz o plano', fixedU.plan === 'pro' && !!fixedU.planExpiresAt)
+    check('saas: conta fixa continua protegida no nome', (await admin.call('PATCH', `/admin/users/${fixedU.id}`, { name: 'Outro', plan: 'free' })).status === 403)
+    check('saas: plano inválido no PATCH', (await admin.call('PATCH', `/admin/users/${fixedU.id}`, { plan: 'ouro' })).status === 400)
+    const expired = await admin.call('PATCH', `/admin/users/${fixedU.id}`, { planExpiresAt: '2000-01-01', adminNote: 'Cliente piloto' })
+    check('saas: plano expirado volta ao Free', expired.status === 200 && expired.data.adminNote === 'Cliente piloto' && (await user.call('GET', '/settings')).data.plan === 'free')
+    await admin.call('PATCH', `/admin/users/${fixedU.id}`, { plan: 'pro', planExpiresAt: null })
+    // comentários num projeto partilhado: convidado Free comenta porque o dono é Pro
+    const rui = (await admin.call('POST', '/admin/users', { name: 'Rui Free', email: 'rui@exemplo.pt', password: 'Segredo12345' })).data
+    const ruiC = new Client()
+    await ruiC.login('rui@exemplo.pt', 'Segredo12345')
+    const shared = mine[0]
+    check('saas: Pro convida', (await user.call('POST', `/projects/${shared.id}/invitations`, { email: 'rui@exemplo.pt' })).status === 201)
+    check('saas: não membro não lê comentários', (await ruiC.call('GET', `/projects/${shared.id}/comments`)).status >= 403)
+    const invR = (await ruiC.call('GET', '/invitations')).data[0]
+    await ruiC.call('POST', `/invitations/${invR.id}/accept`)
+    const c1 = await user.call('POST', `/projects/${shared.id}/comments`, { body: '  Revê o KM1, por favor.  ', anchor: 'ladder' })
+    check('saas: dono comenta', c1.status === 201 && c1.data.body === 'Revê o KM1, por favor.' && c1.data.anchor === 'ladder')
+    const c2 = await ruiC.call('POST', `/projects/${shared.id}/comments`, { body: 'Feito, troquei o contacto.' })
+    check('saas: convidado Free comenta em projeto Pro', c2.status === 201 && c2.data.authorName === 'Rui Free')
+    check('saas: comentário vazio recusado', (await ruiC.call('POST', `/projects/${shared.id}/comments`, { body: '   ' })).status === 400)
+    check('saas: comentário longo recusado', (await ruiC.call('POST', `/projects/${shared.id}/comments`, { body: 'x'.repeat(2001) })).status === 400)
+    check('saas: convidado não edita comentário alheio', (await ruiC.call('PATCH', `/projects/${shared.id}/comments/${c1.data.id}`, { body: 'hack' })).status === 403)
+    check('saas: convidado não apaga comentário alheio', (await ruiC.call('DELETE', `/projects/${shared.id}/comments/${c1.data.id}`)).status === 403)
+    const ed = await ruiC.call('PATCH', `/projects/${shared.id}/comments/${c2.data.id}`, { body: 'Feito: troquei o contacto NA.' })
+    check('saas: autor edita o seu comentário', ed.status === 200 && !!ed.data.editedAt)
+    check('saas: dono resolve comentário', (await user.call('PATCH', `/projects/${shared.id}/comments/${c2.data.id}`, { resolved: true })).data.resolved === true)
+    const list = (await ruiC.call('GET', `/projects/${shared.id}/comments`)).data
+    check('saas: ambos veem a conversa', list.comments.length === 2 && list.canWrite === true && list.comments[0].id === c1.data.id)
+    check('saas: dono apaga comentário do convidado', (await user.call('DELETE', `/projects/${shared.id}/comments/${c2.data.id}`)).status === 200)
+    // componentes: arquivar, eliminar, plano mínimo
+    check('saas: bloquear exige motivo', (await admin.call('PUT', '/admin/components/timer', { status: 'blocked' })).status === 400)
+    check('saas: estado inválido cai para ativo e plano inválido recusado', (await admin.call('PUT', '/admin/components/timer', { status: 'active', minPlan: 'ouro' })).status === 400)
+    const arch = await admin.call('PUT', '/admin/components/timer', { status: 'archived', note: 'Substituído' })
+    const del = await admin.call('PUT', '/admin/components/lamp', { status: 'deleted' })
+    const prem = await admin.call('PUT', '/admin/components/vfd', { status: 'active', minPlan: 'pro' })
+    const blk = await admin.call('PUT', '/admin/components/contactor', { status: 'blocked', note: 'Recolha' })
+    const sets = (await ruiC.call('GET', '/settings')).data
+    const st = Object.fromEntries(sets.components.map(c => [c.type, c]))
+    check('saas: estados de componentes publicados', arch.data.status === 'archived' && del.data.status === 'deleted' && prem.data.minPlan === 'pro' && st.timer.status === 'archived' && st.lamp.status === 'deleted' && st.vfd.minPlan === 'pro' && st.contactor.status === 'blocked')
+    check('saas: compatibilidade disabledComponents só com bloqueados', sets.disabledComponents.length === 1 && sets.disabledComponents[0].type === 'contactor')
+    const restored = await admin.call('PUT', '/admin/components/timer', { status: 'active' })
+    check('saas: repor componente arquivado', restored.data.status === 'active' && !(await ruiC.call('GET', '/settings')).data.components.some(c => c.type === 'timer'))
+    const logs = new Set((await admin.call('GET', '/admin/logs?limit=500')).data.items.map(i => i.action))
+    for (const action of ['pricing.update', 'plan.request', 'plan.approve', 'user.plan', 'comment.create', 'comment.update', 'comment.resolve', 'comment.delete', 'component.archive', 'component.delete', 'component.plan', 'component.block', 'component.restore']) check('saas: registo ' + action, logs.has(action))
+    // eliminar conta com comentários não falha (FK em cascata)
+    check('saas: eliminar conta com comentários', (await admin.call('DELETE', `/admin/users/${rui.id}?force=1`)).status === 200)
+  }
 } catch (error) {
   failures++
   console.log('FAIL exceção', error)

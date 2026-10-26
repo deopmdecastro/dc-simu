@@ -18,6 +18,7 @@ import { useGrafcetUi } from '../grafcet/grafcetBus'
 import { validateGrafcet } from '../grafcet/engine'
 import { ladderSyncStatus } from '../grafcet/ladderSync'
 import ComponentTableDialog from './ComponentTableDialog'
+import { requireFeature } from '../saas/usePlan'
 import { IconCheck, IconWarning,
   IconFile, IconSave, IconOpen, IconCursor, IconWire, IconProbe, IconErase, IconPan,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
@@ -267,7 +268,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button onClick={downloadBOM} disabled={!components.length} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 disabled:opacity-50 disabled:hover:bg-transparent" title="Exportar lista de materiais (CSV)">
               <IconDownload size={14} /> <span className="hidden xl:inline text-[11px] font-medium">BOM</span>
             </button>
-            <button onClick={() => setPdfOpen(true)} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Exportar o projeto em PDF (capa, esquema 3D, GRAFCET e ladder à escolha)">
+            <button onClick={() => { if (requireFeature('pdfExport')) setPdfOpen(true) }} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Exportar o projeto em PDF (capa, esquema 3D, GRAFCET e ladder à escolha)">
               <IconFile size={14} /> <span className="hidden xl:inline text-[11px] font-medium">PDF</span>
             </button>
           </div>

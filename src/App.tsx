@@ -12,6 +12,8 @@ import GrafcetEditor from './grafcet/GrafcetEditor'
 import SchematicView from './schematic/SchematicView'
 import { ComponentEditorDock } from './components/ComponentViewEditor'
 import MonitorPanel from './components/MonitorPanel'
+import PlanLocked from './saas/PlanLocked'
+import { useCan } from './saas/usePlan'
 import { useSimStore } from './store/useSimStore'
 import { allowedViews, coerceView, defaultView } from './project/kind'
 import { hasGeneratedLadder } from './grafcet/ladderSync'
@@ -30,6 +32,8 @@ function SheetHeader({ title, onClose }: { title: string; onClose: () => void })
 
 export default function App({ onBack }: { onBack: () => void }) {
   const projectKind = useSimStore((s) => s.projectKind)
+  const canLadder = useCan('ladder')
+  const canGrafcet = useCan('grafcet')
   const ladderRungs = useSimStore((s) => s.ladder.rungs)
   const projectFiles = useSimStore((s) => s.projectFiles)
   // Um projeto só GRAFCET ganha o editor Ladder quando tem Ladder gerado
@@ -222,8 +226,10 @@ export default function App({ onBack }: { onBack: () => void }) {
         <div className="flex-1 min-w-0 flex flex-col relative">
           {mode === 'schematic' && !showLibrary && <button className="dc-dock-open is-left" onClick={() => { setShowLadder(false); setShowLibrary(true) }} title="Mostrar biblioteca e inspetor"><IconLayers size={12} /> Biblioteca</button>}
           {mode === 'schematic' && <SchematicView libraryCollapsed={!showLibrary} />}
-          {mode === 'ladder' && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}
-          {mode === 'grafcet' && <GrafcetEditor full onOpenLadder={() => setMode('ladder')} />}
+          {mode === 'ladder' && !canLadder && <PlanLocked feature="ladder" />}
+          {mode === 'grafcet' && !canGrafcet && <PlanLocked feature="grafcet" />}
+          {mode === 'ladder' && canLadder && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}
+          {mode === 'grafcet' && canGrafcet && <GrafcetEditor full onOpenLadder={() => setMode('ladder')} />}
           {mode === 'monitor' && <MonitorPanel />}
         </div>
         {mode === 'schematic' && <ComponentEditorDock />}

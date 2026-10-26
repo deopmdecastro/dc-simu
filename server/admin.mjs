@@ -1,5 +1,6 @@
 import { statSync, rmSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { componentStatusOf, effectivePlanId, isDefaultComponentSetting, isPlanId, sanitizeComponentChange } from '../src/saas/platformCore.mjs'
 
 /**
  * Rotas de administração: utilizadores, projetos, componentes, registos de
@@ -26,7 +27,7 @@ const CATEGORIES = {
 }
 const escapeLike = value => value.replace(/[\\%_]/g, m => '\\' + m)
 
-export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, auditReq, clientIp, fixedAccounts, contribDir, dataDir }) {
+export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, auditReq, clientIp, fixedAccounts, contribDir, dataDir, saas }) {
   const fixed = new Set(fixedAccounts.map(a => a.email))
   const startedAt = new Date().toISOString()
   const target = user => ({ type: 'user', id: user.id, label: user.email })
@@ -34,8 +35,9 @@ export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, audi
     id: row.id, name: row.name, email: row.email, role: row.role, active: !!row.active, fixed: fixed.has(row.email),
     createdAt: row.created_at || undefined, lastLogin: row.last_login || undefined,
     projects: row.projects, contributions: row.contributions, sessions: row.sessions,
+    plan: isPlanId(row.plan) ? row.plan : 'free', planExpiresAt: row.plan_expires_at || null, adminNote: row.admin_note || undefined,
   })
-  const USER_SELECT = `SELECT u.id,u.email,u.name,u.role,u.active,u.created_at,u.last_login,
+  const USER_SELECT = `SELECT u.id,u.email,u.name,u.role,u.active,u.created_at,u.last_login,u.plan,u.plan_expires_at,u.admin_note,
     (SELECT count(*) FROM projects p WHERE p.owner_id=u.id) projects,
     (SELECT count(*) FROM contributions c WHERE c.author_id=u.id AND c.file_ready=1) contributions,
     (SELECT count(*) FROM sessions s WHERE s.user_id=u.id AND s.expires>?) sessions FROM users u`
@@ -43,9 +45,16 @@ export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, audi
   const revokeSessions = userId => db.prepare('DELETE FROM sessions WHERE user_id=?').run(userId).changes
 
   // Definições públicas (para o simulador esconder componentes desativados).
-  app.get('/api/settings', auth, (_req, res) => {
-    const rows = db.prepare('SELECT type,note FROM component_settings WHERE enabled=0 ORDER BY type').all()
-    res.json({ disabledComponents: rows.map(r => ({ type: r.type, note: r.note || undefined })) })
+  // Inclui o estado de cada componente (bloqueado/arquivado/eliminado/plano mínimo),
+  // a configuração de planos e o plano em vigor do utilizador (SAAS-PLANS-01).
+  app.get('/api/settings', auth, (req, res) => {
+    const rows = db.prepare('SELECT type,enabled,status,note,min_plan FROM component_settings ORDER BY type').all()
+    const components = rows.map(r => ({ type: r.type, status: componentStatusOf({ status: r.status, enabled: !!r.enabled }), note: r.note || undefined, minPlan: r.min_plan || null }))
+    const pricing = saas.pricing()
+    res.json({
+      disabledComponents: components.filter(c => c.status === 'blocked').map(c => ({ type: c.type, note: c.note })),
+      components, pricing, plan: req.user.role === 'admin' ? null : effectivePlanId(req.user, pricing),
+    })
   })
 
   // ---- Utilizadores ----
@@ -67,18 +76,35 @@ export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, audi
     res.status(201).json(userOut(loadUser(userId)))
   })
 
-  const editable = (req, res) => {
+  const editable = (req, res, { allowFixed = false } = {}) => {
     const row = db.prepare('SELECT * FROM users WHERE id=?').get(req.params.id)
     if (!row) { fail(res, 404, 'Utilizador não encontrado'); return null }
-    if (fixed.has(row.email)) { fail(res, 403, 'As duas contas fixas não podem ser alteradas nem eliminadas.'); return null }
+    if (fixed.has(row.email) && !allowFixed) { fail(res, 403, 'As duas contas fixas não podem ser alteradas nem eliminadas.'); return null }
     if (row.id === req.user.id) { fail(res, 400, 'Não pode alterar a sua própria conta por aqui.'); return null }
     return row
   }
 
   app.patch('/api/admin/users/:id', auth, admin, (req, res) => {
-    const row = editable(req, res); if (!row) return
     const body = req.body || {}, changes = []
+    // Plano e nota interna podem ser alterados também na conta fixa «User» (nunca na própria conta).
+    const onlyPlan = Object.keys(body).every(k => ['plan', 'planExpiresAt', 'adminNote'].includes(k))
+    const row = editable(req, res, { allowFixed: onlyPlan }); if (!row) return
     let name = row.name, role = row.role, active = row.active
+    let plan = row.plan || 'free', planExpiresAt = row.plan_expires_at || null, adminNote = row.admin_note || ''
+    if (body.plan !== undefined) {
+      if (!isPlanId(body.plan)) return fail(res, 400, 'Plano inválido.')
+      plan = body.plan
+      if (plan !== (row.plan || 'free')) changes.push(`plano: ${row.plan || 'free'} → ${plan}`)
+    }
+    if (body.planExpiresAt !== undefined) {
+      if (body.planExpiresAt === null || body.planExpiresAt === '') planExpiresAt = null
+      else { const t = Date.parse(String(body.planExpiresAt)); if (!Number.isFinite(t)) return fail(res, 400, 'Data de fim do plano inválida.'); planExpiresAt = new Date(t).toISOString() }
+      if (planExpiresAt !== (row.plan_expires_at || null)) changes.push(`fim do plano: ${planExpiresAt ? planExpiresAt.slice(0, 10) : 'sem fim'}`)
+    }
+    if (body.adminNote !== undefined) {
+      adminNote = String(body.adminNote || '').trim().slice(0, 500)
+      if (adminNote !== (row.admin_note || '')) changes.push('nota interna alterada')
+    }
     if (body.name !== undefined) {
       name = String(body.name).trim()
       if (name.length < 2 || name.length > 60) return fail(res, 400, 'O nome deve ter entre 2 e 60 caracteres.')
@@ -94,9 +120,10 @@ export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, audi
       if (active !== row.active) changes.push(active ? 'conta ativada' : 'conta desativada')
     }
     if (!changes.length) return res.json(userOut(loadUser(row.id)))
-    db.prepare('UPDATE users SET name=?,role=?,active=? WHERE id=?').run(name, role, active, row.id)
+    db.prepare('UPDATE users SET name=?,role=?,active=?,plan=?,plan_expires_at=?,admin_note=? WHERE id=?').run(name, role, active, plan, planExpiresAt, adminNote || null, row.id)
     if (!active) revokeSessions(row.id)
-    auditReq(req, active !== row.active ? (active ? 'user.enable' : 'user.disable') : 'user.update', target(row), changes.join('; '))
+    const action = active !== row.active ? (active ? 'user.enable' : 'user.disable') : onlyPlan && body.plan === undefined && body.planExpiresAt === undefined ? 'user.note' : onlyPlan ? 'user.plan' : 'user.update'
+    auditReq(req, action, target(row), changes.join('; '))
     res.json(userOut(loadUser(row.id)))
   })
 
@@ -154,19 +181,25 @@ export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, audi
 
   // ---- Componentes ----
   app.get('/api/admin/components', auth, admin, (_req, res) => {
-    res.json(db.prepare('SELECT type,enabled,note,updated_at,updated_by FROM component_settings ORDER BY type').all()
-      .map(r => ({ type: r.type, enabled: !!r.enabled, note: r.note || undefined, updatedAt: r.updated_at, updatedBy: r.updated_by || undefined })))
+    res.json(db.prepare('SELECT type,enabled,status,note,min_plan,updated_at,updated_by FROM component_settings ORDER BY type').all()
+      .map(r => { const status = componentStatusOf({ status: r.status, enabled: !!r.enabled }); return { type: r.type, enabled: status === 'active', status, minPlan: r.min_plan || null, note: r.note || undefined, updatedAt: r.updated_at, updatedBy: r.updated_by || undefined } }))
   })
   app.put('/api/admin/components/:type', auth, admin, (req, res) => {
     const type = req.params.type
     if (!COMPONENT_TYPE.test(type)) return fail(res, 400, 'Tipo de componente inválido')
-    const enabled = req.body?.enabled === false ? 0 : 1, note = String(req.body?.note || '').trim().slice(0, 300)
-    if (!enabled && !note) return fail(res, 400, 'Indique o motivo para desativar o componente.')
+    let change
+    try { change = sanitizeComponentChange(req.body) } catch (error) { return fail(res, 400, error.message) }
+    const previous = db.prepare('SELECT enabled,status,min_plan FROM component_settings WHERE type=?').get(type)
+    const before = componentStatusOf(previous ? { status: previous.status, enabled: !!previous.enabled } : null)
     const now = new Date().toISOString()
-    if (enabled) db.prepare('DELETE FROM component_settings WHERE type=?').run(type)
-    else db.prepare('INSERT INTO component_settings(type,enabled,note,updated_at,updated_by) VALUES (?,0,?,?,?) ON CONFLICT(type) DO UPDATE SET enabled=0,note=excluded.note,updated_at=excluded.updated_at,updated_by=excluded.updated_by').run(type, note, now, req.user.name)
-    auditReq(req, enabled ? 'component.enable' : 'component.disable', { type: 'component', id: type, label: type }, note)
-    res.json({ type, enabled: !!enabled, note: note || undefined, updatedAt: now, updatedBy: req.user.name })
+    if (isDefaultComponentSetting(change)) db.prepare('DELETE FROM component_settings WHERE type=?').run(type)
+    else db.prepare('INSERT INTO component_settings(type,enabled,status,note,min_plan,updated_at,updated_by) VALUES (?,?,?,?,?,?,?) ON CONFLICT(type) DO UPDATE SET enabled=excluded.enabled,status=excluded.status,note=excluded.note,min_plan=excluded.min_plan,updated_at=excluded.updated_at,updated_by=excluded.updated_by')
+      .run(type, change.status === 'active' ? 1 : 0, change.status, change.note || null, change.minPlan, now, req.user.name)
+    const action = change.status !== before
+      ? { active: before === 'blocked' ? 'component.enable' : 'component.restore', blocked: req.body?.status === undefined ? 'component.disable' : 'component.block', archived: 'component.archive', deleted: 'component.delete' }[change.status]
+      : 'component.plan'
+    auditReq(req, action, { type: 'component', id: type, label: type }, [change.note, change.minPlan ? `plano mínimo: ${change.minPlan}` : ''].filter(Boolean).join(' · '))
+    res.json({ type, enabled: change.status === 'active', status: change.status, minPlan: change.minPlan, note: change.note || undefined, updatedAt: now, updatedBy: req.user.name })
   })
 
   // ---- Registos de auditoria ----

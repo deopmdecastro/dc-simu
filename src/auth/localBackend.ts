@@ -3,6 +3,11 @@ import type { Invite, Project, User } from '../dashboard/Dashboard'
 import { buildProjectPreview, type ProjectPreviewData } from '../dashboard/projectPreview'
 import type { AdminProject as AdminProjectRow, AdminUser as AdminUserRow, ComponentSetting, LogQuery, SystemInfo } from '../admin/adminTypes'
 import { purgeLocalAudit, queryLocalAudit, readLocalAudit, recordLocalAudit } from './auditLocal'
+import { dropLocalComments, localPlanRecord, localPricing, localSaasApi, localSubject, setLocalPlanRecord } from './localSaas'
+import {
+  canUse, componentStatusOf, effectivePlanId, isDefaultComponentSetting, isPlanId, limitFor, limitMessage,
+  sanitizeComponentChange, upgradeMessage,
+} from '../saas/platformCore.mjs'
 
 const SESSION_KEY = 'dcsimu:account:session:v1'
 const DATA_KEY = 'dcsimu:account:data:v1'
@@ -72,7 +77,8 @@ function contributionCount() {
 const LOCAL_ONLY = 'Esta operação só está disponível quando a aplicação corre com o servidor (Docker/SQLite). Sem servidor existem apenas as duas contas fixas.'
 
 function publicUser(account: Account): User {
-  return { id: account.id, name: account.name, email: account.email, role: account.role }
+  const record = localPlanRecord(account.id)
+  return { id: account.id, name: account.name, email: account.email, role: account.role, plan: record.plan, planExpiresAt: record.planExpiresAt }
 }
 
 function accountById(id: string) {
@@ -232,6 +238,9 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     return { user } as T
   }
 
+  // Público: a landing page lê os cartões de preços sem sessão.
+  if (url === '/pricing' && verb === 'GET') { const { updatedBy: _hidden, ...config } = localPricing(); return config as T }
+
   if (url === '/register') throw new Error('O registo está desativado. Utilize uma das duas contas autorizadas.')
   if (url === '/me' && verb === 'GET') return { user: requireSession() } as T
   if (url === '/logout' && verb === 'POST') {
@@ -252,6 +261,9 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   }
 
   if (url === '/projects' && verb === 'POST') {
+    const pricing = localPricing(), subject = localSubject(user)
+    const max = limitFor(subject, pricing, 'projects')
+    if (max !== null && data.projects.filter((project) => project.ownerId === user.id).length >= max) throw new Error(limitMessage(pricing, subject, 'projects'))
     const name = String(payload.name || '').trim()
     if (!name || name.length > 120) throw new Error('Nome inválido')
     const project: StoredProject = {
@@ -308,6 +320,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     data.projects = data.projects.filter((entry) => entry.id !== project.id)
     data.invitations = data.invitations.filter((entry) => entry.projectId !== project.id)
     writeData(data)
+    dropLocalComments(project.id)
     recordLocalAudit(user, 'project.delete', { type: 'project', id: project.id, label: project.name })
     return { ok: true } as T
   }
@@ -324,6 +337,13 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   if (parts[0] === 'projects' && parts[1] && parts[2] === 'invitations' && verb === 'POST') {
     const project = accessibleProject(data, parts[1], user.id)
     if (project.ownerId !== user.id) throw new Error('Apenas o proprietário pode convidar')
+    {
+      const pricing = localPricing(), subject = localSubject(user)
+      if (!canUse(subject, pricing, 'sharing')) throw new Error(upgradeMessage(pricing, 'sharing'))
+      const max = limitFor(subject, pricing, 'collaborators')
+      const used = project.memberIds.length + data.invitations.filter((invite) => invite.projectId === project.id).length
+      if (max !== null && used >= max) throw new Error(limitMessage(pricing, subject, 'collaborators'))
+    }
     const target = accountByEmail(String(payload.email || ''))
     if (!target) throw new Error('Só é possível convidar uma das duas contas autorizadas')
     if (target.id === user.id) throw new Error('Já é proprietário')
@@ -366,8 +386,23 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     if (handled !== undefined) return handled as T
   }
 
+  {
+    const handled = localSaasApi({
+      parts, url, verb, payload, user,
+      project: (projectId) => { const project = accessibleProject(data, projectId, user.id); return { id: project.id, name: project.name, ownerId: project.ownerId, role: roleFor(project, user.id) || 'editor' } },
+      accountName: (accountId) => accountById(accountId)?.name,
+      accountEmail: (accountId) => accountById(accountId)?.email,
+    })
+    if (handled !== undefined) return handled as T
+  }
+
   if (url === '/settings' && verb === 'GET') {
-    return { disabledComponents: readSettings().filter((entry) => !entry.enabled).map((entry) => ({ type: entry.type, note: entry.note })) } as T
+    const components = readSettings().map((entry) => ({ type: entry.type, status: componentStatusOf(entry), note: entry.note, minPlan: entry.minPlan ?? null }))
+    const pricing = localPricing()
+    return {
+      disabledComponents: components.filter((entry) => entry.status === 'blocked').map((entry) => ({ type: entry.type, note: entry.note })),
+      components, pricing, plan: user.role === 'admin' ? null : effectivePlanId(localSubject(user), pricing),
+    } as T
   }
 
   if (url === '/admin/users' && verb === 'GET') {
@@ -381,8 +416,39 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
       projects: data.projects.filter((project) => project.ownerId === account.id).length,
       contributions: 0,
       sessions: getLocalSession()?.id === account.id ? 1 : 0,
+      adminNote: localPlanRecord(account.id).adminNote,
       lastLogin: audit.find((entry) => entry.action === 'login.success' && entry.actorId === account.id)?.at,
     })) as T
+  }
+
+  // Modo local: só o plano, o fim do período e a nota interna da conta «User» são editáveis.
+  if (parts[0] === 'admin' && parts[1] === 'users' && parts[2] && !parts[3] && verb === 'PATCH') {
+    const admin = requireAdmin()
+    const account = accountById(parts[2])
+    if (!account) throw new Error('Utilizador não encontrado')
+    if (account.id === admin.id) throw new Error('Não pode alterar a sua própria conta por aqui.')
+    const keys = Object.keys(payload)
+    if (!keys.length || !keys.every((key) => ['plan', 'planExpiresAt', 'adminNote'].includes(key))) throw new Error(LOCAL_ONLY)
+    const before = localPlanRecord(account.id), changes: string[] = []
+    const patch: Parameters<typeof setLocalPlanRecord>[1] = {}
+    if (payload.plan !== undefined) {
+      if (!isPlanId(payload.plan)) throw new Error('Plano inválido.')
+      patch.plan = payload.plan
+      if (payload.plan !== before.plan) changes.push(`plano: ${before.plan} → ${payload.plan}`)
+    }
+    if (payload.planExpiresAt !== undefined) {
+      if (payload.planExpiresAt === null || payload.planExpiresAt === '') patch.planExpiresAt = null
+      else { const t = Date.parse(String(payload.planExpiresAt)); if (!Number.isFinite(t)) throw new Error('Data de fim do plano inválida.'); patch.planExpiresAt = new Date(t).toISOString() }
+      if (patch.planExpiresAt !== before.planExpiresAt) changes.push(`fim do plano: ${patch.planExpiresAt ? patch.planExpiresAt.slice(0, 10) : 'sem fim'}`)
+    }
+    if (payload.adminNote !== undefined) {
+      patch.adminNote = String(payload.adminNote || '').trim().slice(0, 500)
+      if (patch.adminNote !== (before.adminNote || '')) changes.push('nota interna alterada')
+    }
+    setLocalPlanRecord(account.id, patch)
+    if (changes.length) recordLocalAudit(admin, payload.plan === undefined && payload.planExpiresAt === undefined ? 'user.note' : 'user.plan', { type: 'user', id: account.id, label: account.email }, changes.join('; '))
+    const rows = await localApi<AdminUserRow[]>('/admin/users')
+    return rows.find((row) => row.id === account.id) as T
   }
 
   if (parts[0] === 'admin' && parts[1] === 'users' && (verb === 'POST' || verb === 'PATCH' || verb === 'DELETE')) {
@@ -412,26 +478,31 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     data.projects = data.projects.filter((entry) => entry.id !== parts[2])
     data.invitations = data.invitations.filter((invite) => invite.projectId !== parts[2])
     writeData(data)
+    dropLocalComments(project.id)
     recordLocalAudit(admin, 'project.delete', { type: 'project', id: project.id, label: project.name }, 'pelo administrador')
     return { ok: true } as T
   }
 
   if (url === '/admin/components' && verb === 'GET') {
     requireAdmin()
-    return readSettings() as T
+    return readSettings().map((entry) => { const status = componentStatusOf(entry); return { ...entry, status, enabled: status === 'active', minPlan: entry.minPlan ?? null } }) as T
   }
 
   if (parts[0] === 'admin' && parts[1] === 'components' && parts[2] && verb === 'PUT') {
     const admin = requireAdmin()
     const type = parts[2]
     if (!/^[A-Za-z0-9]{1,60}$/.test(type)) throw new Error('Tipo de componente inválido')
-    const enabled = payload.enabled !== false
-    const note = String(payload.note || '').trim().slice(0, 300)
-    if (!enabled && !note) throw new Error('Indique o motivo para desativar o componente.')
-    const others = readSettings().filter((entry) => entry.type !== type)
-    const setting: ComponentSetting = { type, enabled, note: note || undefined, updatedAt: new Date().toISOString(), updatedBy: admin.name }
-    writeSettings(enabled ? others : [...others, setting])
-    recordLocalAudit(admin, enabled ? 'component.enable' : 'component.disable', { type: 'component', id: type, label: type }, note)
+    const change = sanitizeComponentChange(payload)
+    const all = readSettings()
+    const before = componentStatusOf(all.find((entry) => entry.type === type))
+    const others = all.filter((entry) => entry.type !== type)
+    const setting: ComponentSetting = { type, enabled: change.status === 'active', status: change.status, minPlan: change.minPlan, note: change.note || undefined, updatedAt: new Date().toISOString(), updatedBy: admin.name }
+    writeSettings(isDefaultComponentSetting(change) ? others : [...others, setting])
+    const legacy = payload.status === undefined
+    const action = change.status !== before
+      ? ({ active: before === 'blocked' ? 'component.enable' : 'component.restore', blocked: legacy ? 'component.disable' : 'component.block', archived: 'component.archive', deleted: 'component.delete' } as const)[change.status]
+      : 'component.plan'
+    recordLocalAudit(admin, action, { type: 'component', id: type, label: type }, [change.note, change.minPlan ? `plano mínimo: ${change.minPlan}` : ''].filter(Boolean).join(' · '))
     return setting as T
   }
 

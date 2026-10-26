@@ -44,6 +44,7 @@ import { createComponent, createTerminal, nextRef, TEMPLATES, terminalByLabel, u
 import { terminalPos } from '../schematic/symbols'
 import { connectNearWireEnds } from '../schematic/terminalSnap'
 import { blankPlcProgram, fcPresentOf, isProgrammablePlc, programsForSave, type PlcProgram } from '../ladder/plcPrograms'
+import { compileGateEnabled, compileInputOf, compileLadder } from '../ladder/ladderCompile'
 import { autoExecRungs, callableBlocks, defaultProjectFileContent, type ProjectFile, type ProjectFolder } from '../ladder/projectFiles'
 import { plcIoCapacity } from '../ladder/plcIo'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
@@ -1027,6 +1028,15 @@ export const useSimStore = create<Store>((set, get) => ({
   play: () => {
     const existing = get()._intervalId
     if (existing) return
+    // LADDER-COMPILE-01: com a opção ativa, um programa com erros de compilação não entra em RUN.
+    if (compileGateEnabled() && get().sim.runState === 'stopped') {
+      const state = get()
+      const result = compileLadder(compileInputOf(state, state.components.some(isProgrammablePlc)))
+      if (!result.ok) {
+        get().pushEvent('error', `RUN bloqueado: a compilação do Ladder tem ${result.errors} erro(s). Corrija-os (separador «Compilação») ou desative «Bloquear RUN com erros».`)
+        return
+      }
+    }
     // RUN a partir de STOP: GRAFCET reinicia e os OBs de arranque voltam a correr uma vez.
     // Para os pontos de paragem «ao ligar», o 1.º ciclo depois de STOP parte de RLO = 0 em todas as networks.
     let fromStop = get().sim.runState === 'stopped'

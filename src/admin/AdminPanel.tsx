@@ -8,7 +8,9 @@ import AccountControls from '../components/AccountControls'
 import { activeAccountBackend } from '../auth/accountApi'
 import { useComponentSettings } from './componentSettings'
 import { adminApi } from './adminApi'
-import { actionLabel, type AdminProject, type AdminUser, type AuditEntry, type ComponentSetting } from './adminTypes'
+import { actionLabel, type AdminProject, type AdminUser, type AuditEntry, type ComponentSetting, type PlanRequest } from './adminTypes'
+import PlansTab from './PlansTab'
+import { usePlanStore } from '../saas/usePlan'
 import ComponentsTab from './ComponentsTab'
 import CatalogTab from './editor3d/CatalogTab'
 import NewComponentDialog from './editor3d/NewComponentDialog'
@@ -20,7 +22,7 @@ import { COMPONENT_OPTIONS, ContributionRow, formatBytes, formatDate } from '../
 import { KIND_LABEL, STATUS_LABEL, type Contribution, type ContributionKind, type ContributionStatus, type ContribStats } from '../contrib/types'
 import { IconArrowLeft, IconClose } from '../ui/icons'
 
-type Tab = 'overview' | 'contributions' | 'components' | 'library3d' | 'projects' | 'users' | 'logs' | 'system'
+type Tab = 'overview' | 'contributions' | 'components' | 'library3d' | 'projects' | 'users' | 'plans' | 'logs' | 'system'
 
 /** Painel de gestão do administrador: resumo, revisão de contribuições, projetos e contas. */
 export default function AdminPanel({ onBack, currentUser, initialTab = 'overview', invites = [], onLogout }: { onBack: () => void; currentUser: User; initialTab?: Tab; invites?: Invite[]; onLogout?: () => void }) {
@@ -35,6 +37,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
   const [stats, setStats] = useState<ContribStats | null>(null)
   const [settings, setSettings] = useState<ComponentSetting[]>([])
   const [recentLogs, setRecentLogs] = useState<AuditEntry[]>([])
+  const [planRequests, setPlanRequests] = useState<PlanRequest[]>([])
   const [logActor, setLogActor] = useState('')
   const [projectQuery, setProjectQuery] = useState('')
   const [error, setError] = useState('')
@@ -64,13 +67,17 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
         adminApi.users(), adminApi.projects(), contribApi.list(), contribApi.stats(), adminApi.components(), adminApi.logs({ limit: 6 }),
       ])
       setUsers(userList); setProjects(projectList); setContributions(contributionList); setStats(statistics); setSettings(componentList); setRecentLogs(logs.items)
+      // Planos e pedidos: falham de forma isolada (ex.: Supabase sem a migração SaaS).
+      const [pricing, requests] = await Promise.all([adminApi.pricing().catch(() => null), adminApi.planRequests().catch(() => [] as PlanRequest[])])
+      if (pricing) usePlanStore.setState({ pricing })
+      setPlanRequests(requests)
       // O simulador aberto neste navegador reflete logo as alterações.
-      void useComponentSettings.getState().load()
+      void useComponentSettings.getState().load(currentUser)
       setError('')
     } catch (value) {
       setError(value instanceof Error ? value.message : 'Falha na administração')
     }
-  }, [])
+  }, [currentUser])
   useEffect(() => { void reload() }, [reload])
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 5000); return () => window.clearTimeout(timer) }, [notice])
 
@@ -107,8 +114,9 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
   }, [contributions])
 
   const pendingCount = stats?.pending ?? 0
-  const disabledCount = settings.filter((entry) => !entry.enabled).length
-  const tabs: Array<[Tab, string, number | undefined]> = [['overview', 'Resumo', undefined], ['contributions', 'Contribuições', pendingCount || undefined], ['components', 'Componentes', disabledCount || undefined], ['library3d', 'Biblioteca 3D', undefined], ['projects', 'Projetos', projects.length], ['users', 'Utilizadores', users.length], ['logs', 'Registos', undefined], ['system', 'Sistema', undefined]]
+  const disabledCount = settings.filter((entry) => (entry.status ?? (entry.enabled ? 'active' : 'blocked')) === 'blocked').length
+  const pendingPlans = planRequests.filter((request) => request.status === 'pending').length
+  const tabs: Array<[Tab, string, number | undefined]> = [['overview', 'Resumo', undefined], ['contributions', 'Contribuições', pendingCount || undefined], ['components', 'Componentes', disabledCount || undefined], ['library3d', 'Biblioteca 3D', undefined], ['projects', 'Projetos', projects.length], ['users', 'Utilizadores', users.length], ['plans', 'Planos e preços', pendingPlans || undefined], ['logs', 'Registos', undefined], ['system', 'Sistema', undefined]]
   const shownProjects = projects.filter((project) => `${project.name} ${project.owner}`.toLowerCase().includes(projectQuery.trim().toLowerCase()))
 
   return <section className="dx dx-admin cb-panel">
@@ -148,8 +156,9 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
         <div><strong>{stats ? formatBytes(stats.bytes) : '—'}</strong><span>{stats ? `${stats.datasheets} PDF · ${stats.models} GLB` : 'Armazenamento'}</span></div>
         <div><strong>{projects.length}</strong><span>Projetos</span></div>
         <div><strong>{users.length}</strong><span>Contas</span></div>
+        <div className={pendingPlans ? 'is-attention' : ''}><strong>{pendingPlans}</strong><span>Pedidos de plano</span><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => setTab('plans')}>Planos e preços</button></div>
       </div>
-      {disabledCount > 0 && <p className="cb-note cb-banner">{disabledCount} componente(s) desativado(s) na biblioteca. <button className="cb-link" onClick={() => setTab('components')}>Gerir componentes</button></p>}
+      {disabledCount > 0 && <p className="cb-note cb-banner">{disabledCount} componente(s) bloqueado(s) na biblioteca. <button className="cb-link" onClick={() => setTab('components')}>Gerir componentes</button></p>}
       <div className="dx-admin-section"><h2>Atividade recente</h2><button className="cb-link" onClick={() => { setLogActor(''); setTab('logs') }}>Ver todos os registos →</button></div>
       <div className="dx-admin-table">
         {recentLogs.length === 0 && <div className="dx-admin-empty">Ainda não há atividade registada.</div>}
@@ -206,7 +215,9 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
       </div>
     </>}
 
-    {tab === 'users' && <UsersTab users={users} currentUserId={currentUser.id} onChanged={afterChange} onError={onError} onOpenLogs={(actor) => { setLogActor(actor); setTab('logs') }} />}
+    {tab === 'users' && <UsersTab users={users} planRequests={planRequests} currentUserId={currentUser.id} onChanged={afterChange} onError={onError} onOpenLogs={(actor) => { setLogActor(actor); setTab('logs') }} />}
+
+    {tab === 'plans' && <PlansTab users={users} planRequests={planRequests} onChanged={afterChange} onError={onError} />}
 
     {tab === 'logs' && <LogsTab initialActor={logActor} onChanged={afterChange} onError={onError} />}
 

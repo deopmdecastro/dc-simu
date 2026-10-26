@@ -20,6 +20,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { guardedDestination } from './routing/guards'
 import { pageFromPath, projectIdFromPath, ROUTES, type AppPage } from './routing/routes'
 import { IconArrowLeft, IconClose } from './ui/icons'
+import ProjectComments from './comments/ProjectComments'
 import { initSupabaseFromBackend } from './supabase/supabaseClient'
 
 const App = lazy(() => import('./App'))
@@ -56,6 +57,8 @@ export default function Account() {
   const [invites, setInvites] = useState<Invite[]>([])
   const [loaded, setLoaded] = useState(false)
   const [open, setOpen] = useState<Open | null>(null)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [commentCount, setCommentCount] = useState<number | null>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
@@ -104,7 +107,7 @@ export default function Account() {
 
   // Componentes desativados pelo administrador: recarrega ao entrar e ao abrir o editor.
   useEffect(() => {
-    if (user) void useComponentSettings.getState().load()
+    if (user) void useComponentSettings.getState().load(user)
     else useComponentSettings.getState().reset()
   }, [user?.id, page === 'editor'])
 
@@ -277,7 +280,7 @@ export default function Account() {
     }
     useSimStore.getState().stop()
     openRef.current = null
-    setOpen(null)
+    setOpen(null); setCommentsOpen(false); setCommentCount(null)
     setPage('dashboard')
     setMessage('')
     refresh().catch(error)
@@ -325,7 +328,7 @@ export default function Account() {
       await api('/logout', 'POST')
       useSimStore.getState().newProject()
       setUser(null)
-      setOpen(null)
+      setOpen(null); setCommentsOpen(false); setCommentCount(null)
       openRef.current = null
       setProjects([])
       setInvites([])
@@ -359,6 +362,7 @@ export default function Account() {
     <EditorTopbar projectName={open.name} dirty={editorDirty} message={message}
       onRename={open.role === 'editor' ? undefined : (name) => void renameProject(name)} actions={<>
       <button className="account-project-action" onClick={() => void leave()}><IconArrowLeft size={12} /> Projetos</button>
+      <button className={`account-project-action ${commentsOpen ? 'is-active' : ''}`} onClick={() => setCommentsOpen(!commentsOpen)} aria-pressed={commentsOpen} title="Comentários do projeto (proprietário e editores)">Comentários{commentCount ? ` (${commentCount})` : ''}</button>
       <button className="account-project-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
       {user && <AccountControls user={user} invites={invites} context="editor" dirty={editorDirty}
         errors={notificationErrors} warnings={notificationWarnings} onProjects={() => void leave()}
@@ -366,6 +370,7 @@ export default function Account() {
     </>} />
     <div className="dx-editor-in" style={{ height: 'calc(100vh - 42px)' }}>
       <Suspense fallback={<RouteLoading label={loadingLabel} />}><App onBack={() => void leave()} /></Suspense>
+      {commentsOpen && user && <ProjectComments key={open.id} projectId={open.id} projectName={open.name} projectRole={open.role ?? 'owner'} viewer={user} onClose={() => setCommentsOpen(false)} onCount={setCommentCount} />}
     </div>
   </>
 

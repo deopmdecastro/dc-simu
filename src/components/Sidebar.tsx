@@ -197,10 +197,12 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   useEffect(() => { if (inspectorRef.current) inspectorRef.current.scrollTop = 0 }, [selectedIds[0], selectedWireId, selectedTerminalId])
 
   const catalogRevision = useCatalogStore((s) => s.revision)
-  const groups = useMemo(() => paletteGroups(), [catalogRevision])
   const disabledComponents = useComponentSettings((s) => s.disabled)
-  const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => hasComponent3DModel(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type)).length, [disabledComponents, catalogRevision])
-  const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type)).length - modelReadyCount
+  // ADMIN-COMP-01: arquivados/eliminados saem da biblioteca, recentes e favoritos.
+  const hiddenComponents = useComponentSettings((s) => s.hidden)
+  const groups = useMemo(() => paletteGroups().map((g) => ({ ...g, items: g.items.filter((it) => !hiddenComponents[it.type]) })).filter((g) => g.items.length > 0), [catalogRevision, hiddenComponents])
+  const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => hasComponent3DModel(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length, [disabledComponents, hiddenComponents, catalogRevision])
+  const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length - modelReadyCount
   const selectedComponent = components.find((c) => c.id === selectedIds[0])
   const selectedWire = wires.find((w) => w.id === selectedWireId)
   const wireFromTerminal = selectedWire ? components.flatMap((c) => c.terminals).find((t) => t.id === selectedWire.fromTerminalId) : undefined
@@ -315,8 +317,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           </div>
           {placingType && <div className="p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center"><span className="flex-1">A posicionar: {TEMPLATES[placingType]?.paletteName ?? placingType}</span><button className="dc-btn !h-6" onClick={() => useSimStore.getState().setPlacingType(null)}>Cancelar</button></div>}
           <div className="flex-1 overflow-y-auto p-2 min-h-0 dc-library-scroll">
-            {recent.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">◴ Recentes <span>{recent.length}</span></div><div className="dc-library-recent">{recent.map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
-            {favorites.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">★ Favoritos <span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
+            {recent.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">◴ Recentes <span>{recent.length}</span></div><div className="dc-library-recent">{recent.filter((type) => !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
+            {favorites.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">★ Favoritos <span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type] && !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
             {!filtered.length && (
               <div className="dc-empty-state">
                 <span className="dc-empty-state-icon"><IconSearch size={18} /></span>

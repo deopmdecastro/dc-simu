@@ -1,4 +1,5 @@
 import type { ComponentType } from '../types'
+import type { ComponentStatus, PlanId } from '../saas/platformCore.mjs'
 
 export type Role = 'admin' | 'user'
 
@@ -15,6 +16,39 @@ export interface AdminUser {
   projects: number
   contributions: number
   sessions: number
+  /** Plano SaaS atribuído (SAAS-PLANS-01). */
+  plan?: PlanId
+  /** Fim do período pago; depois disso aplica-se o plano por omissão. */
+  planExpiresAt?: string | null
+  /** Nota interna do administrador (nunca mostrada ao utilizador). */
+  adminNote?: string
+}
+
+export interface PlanRequest {
+  id: string
+  userId: string
+  userName?: string
+  userEmail?: string
+  plan: PlanId
+  period: 'monthly' | 'yearly'
+  message?: string
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  createdAt: string
+  decidedAt?: string
+  decidedBy?: string
+  decisionNote?: string
+}
+
+export interface ProjectComment {
+  id: string
+  projectId: string
+  authorId: string
+  authorName: string
+  body: string
+  anchor: 'geral' | 'esquema' | '3d' | 'ladder' | 'grafcet'
+  resolved: boolean
+  createdAt: string
+  editedAt?: string | null
 }
 
 export interface AdminProject {
@@ -30,6 +64,10 @@ export interface AdminProject {
 export interface ComponentSetting {
   type: ComponentType | string
   enabled: boolean
+  /** ADMIN-COMP-01: ativo · bloqueado · arquivado · eliminado. */
+  status?: ComponentStatus
+  /** Plano mínimo para inserir o componente (null = todos). */
+  minPlan?: PlanId | null
   note?: string
   updatedAt?: string
   updatedBy?: string
@@ -86,6 +124,10 @@ export const ACTION_LABEL: Record<string, string> = {
   'contribution.create': 'Contribuição criada', 'contribution.upload': 'Ficheiro enviado', 'contribution.update': 'Contribuição editada', 'contribution.delete': 'Contribuição eliminada',
   'contribution.approved': 'Contribuição aprovada', 'contribution.rejected': 'Contribuição rejeitada', 'contribution.pending': 'Contribuição reposta em revisão',
   'component.enable': 'Componente ativado', 'component.disable': 'Componente desativado',
+  'component.block': 'Componente bloqueado', 'component.archive': 'Componente arquivado', 'component.delete': 'Componente eliminado', 'component.restore': 'Componente reposto', 'component.plan': 'Plano mínimo do componente alterado',
+  'user.plan': 'Plano alterado', 'user.note': 'Nota interna alterada', 'plan.request': 'Pedido de plano', 'plan.approve': 'Pedido de plano aprovado', 'plan.reject': 'Pedido de plano recusado', 'plan.cancel': 'Pedido de plano cancelado',
+  'pricing.update': 'Planos e preços alterados',
+  'comment.create': 'Comentário criado', 'comment.update': 'Comentário editado', 'comment.delete': 'Comentário eliminado', 'comment.resolve': 'Comentário resolvido',
   'component.catalog.create': 'Componente 3D criado', 'component.catalog.save': 'Rascunho 3D guardado', 'component.catalog.publish': 'Componente 3D publicado',
   'component.catalog.archive': 'Componente 3D arquivado', 'component.catalog.restore': 'Componente 3D reposto', 'component.catalog.delete': 'Componente 3D eliminado', 'component.profile.save': 'Perfil de bornes guardado', 'component.profile.delete': 'Perfil de bornes eliminado',
   'logs.purge': 'Registos antigos apagados', 'export.data': 'Dados exportados',
@@ -99,13 +141,15 @@ export function categoryOf(action: string): LogCategory {
   if (action.startsWith('project.') || action.startsWith('invite.')) return 'project'
   if (action.startsWith('contribution.')) return 'contribution'
   if (action.startsWith('component.')) return 'component'
+  if (action.startsWith('plan.') || action.startsWith('pricing.')) return 'user'
+  if (action.startsWith('comment.')) return 'project'
   return 'system'
 }
 
 /** Gravidade visual: falhas e ações destrutivas destacam-se. */
 export function severityOf(action: string): 'info' | 'warn' | 'danger' {
   if (['login.failed', 'login.blocked', 'login.denied'].includes(action)) return 'danger'
-  if (/\.(delete|disable|purge|rejected|revoke)$/.test(action) || action === 'session.revoke') return 'warn'
+  if (/\.(delete|disable|purge|rejected|revoke|block|archive|reject)$/.test(action) || action === 'session.revoke') return 'warn'
   return 'info'
 }
 

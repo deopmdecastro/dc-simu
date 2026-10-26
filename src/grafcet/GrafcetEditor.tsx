@@ -88,6 +88,7 @@ import { applySegmentDrag, beginSegmentDrag, bendInsertIndex, expandPolyline, fi
 import { foldText } from '../utils/text'
 import { readGrafcetFile } from './importFile'
 import GrafcetImportDialog from './GrafcetImportDialog'
+import { requireFeature } from '../saas/usePlan'
 import '../styles/grafcet-construction.css'
 
 const id = () => crypto.randomUUID()
@@ -2536,6 +2537,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     try {
       const result = await readGrafcetFile(file)
       if (!stillCurrent()) return
+      if (result.source === 'fluidsim4' && !requireFeature('fluidsimImport', notify)) return
       const imported = result.program
       const actionCount = imported.steps.reduce((total, step) => total + (step.actions?.length ?? 0), 0) + (imported.freeActions?.length ?? 0)
       const summary = `${file.name}\n${imported.steps.length} etapas · ${imported.transitions?.length ?? 0} transições · ${actionCount} ações`
