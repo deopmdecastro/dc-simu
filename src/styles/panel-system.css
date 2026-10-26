@@ -1,0 +1,103 @@
+/* ---------------------------------------------------------------------------
+   Sistema de painéis — um só desenho para todos os painéis dos editores.
+
+   Painéis abrangidos
+     esquerda  : hierarquia do editor de componentes (.ce-left), componentes do GRAFCET (.grafcet-toolbox)
+     direita   : inspetor de componentes (.ce-right), propriedades do GRAFCET (.grafcet-properties),
+                 simulação do Esquema (.schematic-sim-dock)
+     em baixo  : estado do PLC no Ladder (.ladder-bottom-panel)
+
+   Anatomia comum: cabeçalho (título + subtítulo + ação) · separadores · corpo com
+   secções · rodapé. Só visual: tamanhos e posições de cada painel mantêm-se.
+   Para um painel novo, usar as mesmas variáveis --pn-* ou acrescentar o seletor
+   às listas abaixo.
+--------------------------------------------------------------------------- */
+:root {
+  --pn-bg: var(--dx-surface, #fff);
+  --pn-bg-2: var(--dx-surface-2, #f6f8fb);
+  --pn-line: var(--dx-line, #d3dbe5);
+  --pn-line-soft: var(--dx-line-soft, #e2e8f0);
+  --pn-ink: var(--dx-ink, #17202e);
+  --pn-ink-2: var(--dx-ink-2, #3d4b5e);
+  --pn-ink-3: var(--dx-ink-3, #64748b);
+  --pn-brand: var(--dx-brand, #2655e5);
+  --pn-brand-ink: var(--dx-brand-700, #1e42d3);
+  --pn-brand-soft: var(--dx-brand-soft, #eef4ff);
+  --pn-pad: 14px;
+  --pn-gap: 12px;
+  --pn-head-h: 46px;
+  --pn-tab-h: 36px;
+  --pn-radius: 8px;
+  --pn-focus: 0 0 0 2px var(--dx-focus-ring, rgba(38, 85, 229, .22));
+}
+
+/* ===== Contentor ===== */
+.ce-left, .ce-right, .grafcet-toolbox, .grafcet-properties, .schematic-sim-dock, .ladder-bottom-panel { background: var(--pn-bg); }
+.ce-left, .grafcet-toolbox { border-right: 1px solid var(--pn-line); }
+.ce-right, .grafcet-properties, .schematic-sim-dock { border-left: 1px solid var(--pn-line); }
+.ce-left, .ce-right, .ce-hierarchy-scroll, .ce-inspector, .grafcet-properties, .grafcet-toolbox-list,
+.schematic-sim-dock-body, .ladder-status-grid, .ladder-bottom-tabs { scrollbar-width: thin; scrollbar-color: #c4cfdf transparent; }
+
+/* ===== Cabeçalho do painel ===== */
+.ce-hierarchy-title, .ce-inspector-context, .grafcet-toolbox-head, .schematic-sim-dock-head {
+  min-height: var(--pn-head-h); padding: 8px var(--pn-pad); box-sizing: border-box;
+  background: var(--pn-bg); border-bottom: 1px solid var(--pn-line-soft);
+}
+.ce-hierarchy-title strong, .grafcet-toolbox-head strong, .grafcet-properties-summary strong, .schematic-sim-dock-head strong {
+  font-size: 13px; line-height: 18px; font-weight: 650; color: var(--pn-ink);
+}
+.ce-hierarchy-title small, .grafcet-toolbox-head small, .grafcet-properties-summary small {
+  font-size: 10.5px; line-height: 14px; color: var(--pn-ink-3);
+}
+.schematic-sim-dock-head { gap: 8px; }
+
+/* ===== Etiqueta de secção ===== */
+.ce-panel-head, .grafcet-inspector-group > h4, .ladder-status-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--pn-ink-3);
+}
+.ce-panel-head { position: sticky; top: 0; z-index: 3; padding: 9px var(--pn-pad); background: var(--pn-bg-2); border-bottom: 1px solid var(--pn-line-soft); }
+
+/* ===== Separadores ===== */
+.ce-tabs, .ladder-bottom-tabs { gap: 2px; padding: 0 8px; background: var(--pn-bg-2); border-bottom: 1px solid var(--pn-line-soft); }
+.ce-tabs button, .ladder-bottom-tabs > button:not(.ladder-bottom-toggle):not(.ladder-status-reset) {
+  min-height: var(--pn-tab-h); padding: 0 11px; font-size: 12px; font-weight: 600; color: var(--pn-ink-3);
+  border-radius: 6px 6px 0 0; border-bottom: 2px solid transparent; transition: background .12s, color .12s;
+}
+.ce-tabs button:not(.is-on):hover, .ladder-bottom-tabs > button:not(.is-active):not(.ladder-bottom-toggle):not(.ladder-status-reset):hover { background: var(--pn-bg); color: var(--pn-ink-2); }
+.ce-tabs button.is-on, .ladder-bottom-tabs > button.is-active { background: var(--pn-bg); color: var(--pn-brand-ink); border-bottom-color: var(--pn-brand); font-weight: 700; }
+.ce-tabs button:focus-visible, .ladder-bottom-tabs > button:focus-visible { outline: none; box-shadow: inset var(--pn-focus); }
+/* Ladder: muitos separadores → uma só linha com deslocamento, ações fixas à direita */
+.ladder-bottom-tabs { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+.ladder-bottom-tabs > button { flex: none; white-space: nowrap; }
+.ladder-bottom-actions { flex: none; flex-wrap: nowrap; position: sticky; right: 0; padding-left: 20px; background: linear-gradient(90deg, transparent, var(--pn-bg-2) 16px); }
+
+/* ===== Corpo ===== */
+.ce-inspector { padding: var(--pn-pad) var(--pn-pad) 28px; }
+.ce-hierarchy-scroll { padding: 0 6px 14px; }
+.grafcet-toolbox-list { padding: 4px 10px 14px; }
+.schematic-sim-dock-body { padding: var(--pn-pad); gap: var(--pn-gap); }
+.ladder-bottom-panel .ladder-status-grid { padding: var(--pn-pad) 16px 20px; gap: 10px 28px; }
+.ce-hierarchy-scroll .ce-row, .grafcet-toolbox-item { transition: background .12s, border-color .12s; }
+.ce-hierarchy-scroll .ce-row:hover { background: var(--pn-bg-2); }
+.ce-hierarchy-scroll .ce-row:focus-visible { outline: none; box-shadow: inset var(--pn-focus); }
+
+/* ===== Barra de controlos do painel de simulação ===== */
+.schematic-sim-dock-controls { padding: 8px var(--pn-pad); gap: 6px; background: var(--pn-bg-2); border-bottom: 1px solid var(--pn-line-soft); }
+
+/* ===== Rodapé / dicas ===== */
+.ce-left-actions, .grafcet-toolbox-tip { padding: 10px var(--pn-pad); background: var(--pn-bg-2); border-top: 1px solid var(--pn-line-soft); }
+.ce-left-actions { gap: 8px; }
+
+/* ===== Cartões dentro dos painéis ===== */
+.schematic-sim-dock-grafcet { border-color: var(--pn-line); border-radius: var(--pn-radius); }
+
+/* ===== GRAFCET: propriedades (ecrãs largos; em ecrãs pequenos mantém-se o painel recolhível) ===== */
+@media (min-width: 701px) {
+  .grafcet-properties { padding: 0 var(--pn-pad) 16px; gap: var(--pn-gap); }
+  .grafcet-properties-summary { position: sticky; top: 0; z-index: 3; margin: 0 calc(var(--pn-pad) * -1); padding: 8px var(--pn-pad); min-height: var(--pn-head-h); background: var(--pn-bg); border-bottom: 1px solid var(--pn-line-soft); }
+  .grafcet-inspector-group { padding-bottom: 12px; border-bottom: 1px solid var(--pn-line-soft); }
+  .grafcet-inspector-group:last-child { border-bottom: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ce-hierarchy-scroll .ce-row, .grafcet-toolbox-item, .ce-tabs button, .ladder-bottom-tabs > button { transition: none; }
+}

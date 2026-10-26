@@ -49,4 +49,18 @@ O botão «Atalhos» (`data-shortcuts-button="component"`, F1) passou do cabeça
 
 - `src/styles/toolbar-spacing.css`: grupos `dc-seg` com moldura e botões planos separados por 3 px; 10 px entre grupos; separadores com margem maior. Aplica-se a todas as barras.
 - Cubo de vistas: `top` de 14 px e sem margem negativa no palco, para a seta de cima não ficar sob a barra (`clean-mode.css`).
-- `src/styles/panels-polish.css`: editor de componentes (cabeçalhos fixos, separadores e linhas com hover/foco), Ladder (separadores do painel de baixo numa só linha deslizante, ações fixas à direita) e GRAFCET (cabeçalho fixo e secções separadas no painel de propriedades, ecrãs largos).
+- `src/styles/panel-system.css`: ver secção «Sistema de painéis» abaixo (substitui o antigo `panels-polish.css`).
+
+## Sistema de painéis (2026-10-26)
+
+`src/styles/panel-system.css` dá o mesmo desenho a todos os painéis, com variáveis `--pn-*` (fundo, linhas, tinta, margem 14 px, cabeçalho 46 px, separador 36 px, raio 8 px, anel de foco).
+
+| Elemento | Regra comum |
+| --- | --- |
+| Cabeçalho | 46 px, título 13 px/650 + subtítulo 10,5 px, linha inferior suave |
+| Etiqueta de secção | 10,5 px, maiúsculas, espaçamento 0,06 em |
+| Separadores | 36 px, ativo com fundo do painel, cor da marca e linha inferior de 2 px |
+| Corpo | margem 14 px, intervalo 12 px, deslocamento fino |
+| Rodapé / dicas | fundo secundário, linha superior suave |
+
+Painéis abrangidos: hierarquia e inspetor do editor de componentes, componentes e propriedades do GRAFCET, simulação do Esquema e estado do PLC no Ladder. Um painel novo usa as variáveis `--pn-*` ou acrescenta o seu seletor às listas do ficheiro.
