@@ -112,3 +112,109 @@ export function findClearSpot(want: Point, occupied: Point[], box = BOX): Point 
   }
   return base
 }
+
+// ---------------------------------------------------------------------------
+// Arrasto ortogonal de troços
+// ---------------------------------------------------------------------------
+const same = (a: number, b: number) => Math.round(a) === Math.round(b)
+
+/** Remove pontos repetidos e colineares; os extremos (ancoragens) nunca se perdem. */
+export function simplifyOrthogonal(points: readonly Point[]): Point[] {
+  const deduped: Point[] = []
+  for (const p of points) {
+    const last = deduped[deduped.length - 1]
+    if (!last || !same(last.x, p.x) || !same(last.y, p.y)) deduped.push({ x: p.x, y: p.y })
+  }
+  const out: Point[] = []
+  for (let i = 0; i < deduped.length; i++) {
+    const prev = out[out.length - 1]
+    const next = deduped[i + 1]
+    const cur = deduped[i]
+    if (prev && next && ((same(prev.x, cur.x) && same(cur.x, next.x)) || (same(prev.y, cur.y) && same(cur.y, next.y)))) continue
+    out.push(cur)
+  }
+  return out
+}
+
+/** Troço (índice i = pontos[i]→pontos[i+1]) mais próximo de `clicked`, num percurso já ortogonal. */
+export function nearestLeg(points: readonly Point[], clicked: Point): number {
+  let best = 0
+  let bestDist = Infinity
+  for (let i = 0; i < points.length - 1; i++) {
+    const dist = distSeg(clicked, points[i], points[i + 1])
+    if (dist < bestDist) { bestDist = dist; best = i }
+  }
+  return best
+}
+
+export interface SegmentDrag {
+  /** Percurso ortogonal completo (com ancoragens) no início do gesto, já com os troços de saída/entrada separados. */
+  base: Point[]
+  /** Índice do troço arrastado em `base` (base[leg] → base[leg + 1]). */
+  leg: number
+  /** Eixo em que o troço se move: 'x' para troços verticais, 'y' para horizontais. */
+  axis: 'x' | 'y'
+}
+
+/**
+ * Prepara o arrasto do troço `leg` de um percurso ortogonal. Se o troço toca numa ancoragem
+ * (saída da etapa de origem ou entrada na de destino), separa um pequeno troço fixo junto à
+ * ancoragem para que ela nunca se mova e o percurso continue ligado às etapas.
+ */
+export function beginSegmentDrag(path: readonly Point[], leg: number, stub = 12): SegmentDrag | null {
+  const pts = simplifyOrthogonal(path)
+  if (pts.length < 2 || leg < 0 || leg >= pts.length - 1) return null
+  const a = pts[leg]
+  const b = pts[leg + 1]
+  const vertical = same(a.x, b.x)
+  if (!vertical && !same(a.y, b.y)) return null
+  const axis: 'x' | 'y' = vertical ? 'x' : 'y'
+  const length = Math.hypot(b.x - a.x, b.y - a.y)
+  const cut = Math.min(stub, length / 2)
+  const along = (from: Point, to: Point, d: number): Point => {
+    const len = Math.hypot(to.x - from.x, to.y - from.y) || 1
+    return { x: from.x + ((to.x - from.x) / len) * d, y: from.y + ((to.y - from.y) / len) * d }
+  }
+  const base = pts.map((p) => ({ ...p }))
+  let index = leg
+  // Duplica o ponto de corte: um fica fixo junto à ancoragem e o outro desliza com o troço,
+  // o que dá um degrau ortogonal em vez de uma diagonal. Separa primeiro o fim (não desloca o início).
+  if (leg + 1 === pts.length - 1) {
+    const c = along(b, a, cut)
+    base.splice(leg + 1, 0, { ...c }, { ...c })
+  }
+  if (leg === 0) {
+    const c = along(a, b, cut)
+    base.splice(1, 0, { ...c }, { ...c })
+    index = 2
+  }
+  return { base, leg: index, axis }
+}
+
+/** Percurso resultante de deslocar o troço `delta` unidades (no seu eixo livre); vizinhos esticam, mantendo ângulos retos. */
+export function applySegmentDrag(drag: SegmentDrag, delta: number): Point[] {
+  const out = drag.base.map((p) => ({ ...p }))
+  for (const i of [drag.leg, drag.leg + 1]) out[i][drag.axis] += delta
+  return out
+}
+
+/** Pontos interiores (os que se guardam como «quebras») de um percurso com ancoragens nos extremos. */
+export function interiorBends(path: readonly Point[]): Point[] {
+  return simplifyOrthogonal(path).slice(1, -1).map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }))
+}
+
+/**
+ * Move a quebra `index` para `p` e arrasta os vizinhos interiores que partilhavam o seu eixo,
+ * para os troços continuarem retos. Os extremos (ancoragens) não fazem parte da lista.
+ */
+export function moveBendOrthogonal(bends: readonly Point[], index: number, p: Point): Point[] {
+  const old = bends[index]
+  if (!old) return bends.map((b) => ({ ...b }))
+  return bends.map((b, i) => {
+    if (i === index) return { x: p.x, y: p.y }
+    if (Math.abs(i - index) !== 1) return { ...b }
+    if (same(b.x, old.x)) return { x: p.x, y: b.y }
+    if (same(b.y, old.y)) return { x: b.x, y: p.y }
+    return { ...b }
+  })
+}

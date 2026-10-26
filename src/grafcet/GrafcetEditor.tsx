@@ -83,7 +83,7 @@ import {
   stepPitch,
 } from './layout'
 
-import { bendInsertIndex, findClearSpot, polylineMidpoint, routeThrough, routeVertical, type Point } from './links'
+import { applySegmentDrag, beginSegmentDrag, bendInsertIndex, expandPolyline, findClearSpot, interiorBends, moveBendOrthogonal, nearestLeg, polylineMidpoint, routeThrough, routeVertical, simplifyOrthogonal, type Point, type SegmentDrag } from './links'
 import { foldText } from '../utils/text'
 import { readGrafcetFile } from './importFile'
 import GrafcetImportDialog from './GrafcetImportDialog'
@@ -365,8 +365,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     moved: boolean
   } | null>(null)
   const [transDragPos, setTransDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
-  const [bendDragLive, setBendDragLive] = useState<{ tid: string; index: number; x: number; y: number; insert?: boolean } | null>(null)
-  const bendDragRef = useRef<{ tid: string; index: number; x: number; y: number; moved: boolean; insert?: boolean; startX?: number; startY?: number; baseBends?: Point[] } | null>(null)
+  const [bendDragLive, setBendDragLive] = useState<{ tid: string; index: number; x: number; y: number } | null>(null)
+  /** Percurso ortogonal ao vivo enquanto se arrasta um troço inteiro (só se guarda ao largar). */
+  const [segDragLive, setSegDragLive] = useState<{ tid: string; points: Point[] } | null>(null)
+  const bendDragRef = useRef<{ tid: string; index: number; x: number; y: number; moved: boolean } | null>(null)
+  const segDragRef = useRef<{ tid: string; drag: SegmentDrag; startX: number; startY: number; moved: boolean; points: Point[] } | null>(null)
   const transDragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
   /** Etapa candidata a receber a transição solta que está a ser arrastada. */
   const [transDropStep, setTransDropStep] = useState<string | null>(null)
@@ -1301,14 +1304,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   /** Quebras guardadas daquela ligação, com a posição ao vivo enquanto se arrasta. */
   const bendsOf = (tid: string): Point[] => {
     const stored = program.linkBends?.[tid] ?? []
-    if (bendDragLive?.tid === tid) {
-      const point = { x: bendDragLive.x, y: bendDragLive.y }
-      if (bendDragLive.insert) {
-        const base = bendDragRef.current?.tid === tid ? bendDragRef.current.baseBends ?? stored : stored
-        return [...base.slice(0, bendDragLive.index), point, ...base.slice(bendDragLive.index)]
-      }
-      return stored.map((bend, index) => index === bendDragLive.index ? point : bend)
-    }
+    if (segDragLive?.tid === tid) return interiorBends(segDragLive.points)
+    if (bendDragLive?.tid === tid) return moveBendOrthogonal(stored, bendDragLive.index, { x: bendDragLive.x, y: bendDragLive.y })
     return stored
   }
   const commitBends = (tid: string, bends: Point[]) => {
@@ -1349,12 +1346,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     const drag = bendDragRef.current
     if (!drag || drag.tid !== tid || drag.index !== index) return
     const w = clientToWorld(e.clientX, e.clientY)
-    if (drag.insert && !drag.moved && Math.hypot(w.x - (drag.startX ?? drag.x), w.y - (drag.startY ?? drag.y)) < 5 / scale) return
     drag.moved = true
     const p = snapOn && !e.altKey ? { x: snapToGrid(w.x, SPINE_X), y: snapToGrid(w.y, START_Y) } : { x: Math.round(w.x), y: Math.round(w.y) }
     drag.x = p.x
     drag.y = p.y
-    setBendDragLive({ tid, index, x: p.x, y: p.y, insert: drag.insert })
+    setBendDragLive({ tid, index, x: p.x, y: p.y })
   }
   const onBendPointerUp = (tid: string, index: number, e: React.PointerEvent) => {
     const drag = bendDragRef.current
@@ -1368,33 +1364,52 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     const live = { index, x: drag.x, y: drag.y }
     setBendDragLive(null)
     if (!drag.moved) return
-    const stored = program.linkBends?.[tid] ?? []
-    const point = { x: live.x, y: live.y }
-    const base = drag.insert ? drag.baseBends ?? stored : stored
-    commitBends(tid, drag.insert ? [...base.slice(0, index), point, ...base.slice(index)] : base.map((bend, i) => i === index ? point : bend))
+    commitBends(tid, moveBendOrthogonal(program.linkBends?.[tid] ?? [], index, { x: live.x, y: live.y }))
     suppressClickRef.current = true
   }
-  /** Arrastar diretamente um troço cria uma dobra apenas ao largar, numa única operação de histórico. */
-  const startSegmentDrag = (tid: string, points: Point[], e: React.PointerEvent, baseBends: Point[] = points.slice(1, -1)) => {
+  /**
+   * Arrastar um troço desliza-o na perpendicular (como no FluidSIM): os vizinhos esticam e os ângulos
+   * continuam retos; as ancoragens nas etapas não se movem. Guarda-se uma só vez, ao largar.
+   * `rendered` é o percurso ortogonal que está desenhado neste momento.
+   */
+  const startSegmentDrag = (tid: string, rendered: Point[], e: React.PointerEvent) => {
     if (!full || activeTool !== 'select' || isSpacePan || e.button !== 0 || running) return
     e.stopPropagation()
     const point = clientToWorld(e.clientX, e.clientY)
-    const index = bendInsertIndex(points, point)
-    bendDragRef.current = { tid, index, ...point, startX: point.x, startY: point.y, moved: false, insert: true, baseBends }
+    const path = simplifyOrthogonal(expandPolyline(rendered))
+    const drag = beginSegmentDrag(path, nearestLeg(path, point))
     setSelected(tid)
     setSelectedActionId(null)
     setTab('transitions')
+    if (!drag) return
+    segDragRef.current = { tid, drag, startX: point.x, startY: point.y, moved: false, points: drag.base }
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* captura indisponível */ }
   }
   const moveSegment = (tid: string, e: React.PointerEvent) => {
-    const drag = bendDragRef.current
-    if (drag?.tid === tid && drag.insert) onBendPointerMove(tid, drag.index, e)
+    const state = segDragRef.current
+    if (!state || state.tid !== tid) return
+    const w = clientToWorld(e.clientX, e.clientY)
+    if (!state.moved && Math.hypot(w.x - state.startX, w.y - state.startY) < 5 / scale) return
+    state.moved = true
+    const { drag } = state
+    const at = drag.base[drag.leg][drag.axis]
+    const raw = drag.axis === 'x' ? w.x : w.y
+    const target = snapOn && !e.altKey ? snapToGrid(raw, drag.axis === 'x' ? SPINE_X : START_Y) : Math.round(raw)
+    // O gesto só desloca o troço no seu eixo livre: ignora o movimento ao longo do troço.
+    state.points = applySegmentDrag(drag, target - at)
+    setSegDragLive({ tid, points: state.points })
   }
   const finishSegment = (tid: string, e: React.PointerEvent) => {
-    const drag = bendDragRef.current
-    if (drag?.tid === tid && drag.insert) onBendPointerUp(tid, drag.index, e)
+    const state = segDragRef.current
+    if (!state || state.tid !== tid) return
+    segDragRef.current = null
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* noop */ }
+    setSegDragLive(null)
+    if (!state.moved) return
+    commitBends(tid, interiorBends(state.points))
+    suppressClickRef.current = true
   }
-  const cancelBendDrag = () => { bendDragRef.current = null; setBendDragLive(null) }
+  const cancelBendDrag = () => { bendDragRef.current = null; segDragRef.current = null; setBendDragLive(null); setSegDragLive(null) }
   const removeLinkBend = (tid: string, index: number, e: React.MouseEvent) => {
     e.stopPropagation()
     const stored = program.linkBends?.[tid] ?? []
@@ -3540,7 +3555,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           stroke="transparent"
                           strokeWidth="18"
                           onDoubleClick={(e) => addLinkBend(transition.id, linkPoints, e)}
-                          onPointerDown={(e) => startSegmentDrag(transition.id, linkPoints, e)}
+                          onPointerDown={(e) => startSegmentDrag(transition.id, bends.length ? linkPoints : bent ? [{ x: sourceX, y: sBottom }, { x: sourceX, y: midY }, { x: targetX, y: midY }, { x: targetX, y: tTop }] : linkPoints, e)}
                           onPointerMove={(e) => moveSegment(transition.id, e)}
                           onPointerUp={(e) => finishSegment(transition.id, e)}
                           onPointerCancel={cancelBendDrag}
@@ -3711,7 +3726,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           stroke="transparent"
                           strokeWidth="18"
                           onDoubleClick={(e) => addLinkBend(transition.id, linkPoints, e)}
-                          onPointerDown={(e) => startSegmentDrag(transition.id, linkPoints, e, bends.length ? bends : autoReturnPoints.slice(1, -1))}
+                          onPointerDown={(e) => startSegmentDrag(transition.id, linkPoints, e)}
                           onPointerMove={(e) => moveSegment(transition.id, e)}
                           onPointerUp={(e) => finishSegment(transition.id, e)}
                           onPointerCancel={cancelBendDrag}

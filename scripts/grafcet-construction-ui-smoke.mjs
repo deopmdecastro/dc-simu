@@ -94,7 +94,7 @@ try {
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 4)
   await page.mouse.down(); await page.mouse.move(bounds.x + bounds.width / 2 + 55, bounds.y + bounds.height / 4 + 25, { steps: 10 }); await page.mouse.up()
   program = await read()
-  check(program.linkBends?.t1?.length === 1, 'arrastar a linha cria uma dobra persistente')
+  check(program.linkBends?.t1?.length >= 1, 'arrastar a linha cria uma dobra persistente')
   await undo()
   check(!(await read()).linkBends?.t1?.length, 'Desfazer remove a dobra criada num único gesto')
 
@@ -118,7 +118,7 @@ try {
   await page.mouse.up()
   program = await read()
   const returnPath = await returnSegment.getAttribute('d')
-  check(program.linkBends?.t3?.length > 1 && returnPath?.includes('180 502') && returnPath.includes('67 76'), 'arrastar a linha de retorno preserva o trilho e mantém a dobra ligada às duas etapas')
+  check(program.linkBends?.t3?.length > 1 && returnPath?.includes('180 502') && returnPath.includes('67 76') && !/ [LM] [-\d.]+ [-\d.]+ L/.test('') && returnPath.split(' L ').slice(1).every((seg, i, all) => { const [x, y] = seg.split(' ').map(Number); const [px, py] = (i ? all[i - 1] : returnPath.split(' L ')[0].replace('M ', '')).split(' ').map(Number); return x === px || y === py }), 'arrastar a linha de retorno desliza o troço, mantém ângulos retos e as ligações às duas etapas')
   if (output) await page.screenshot({ path: path.join(output, 'construction-return-link-drag.png') })
 
   await set()

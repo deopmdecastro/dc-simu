@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { bendInsertIndex, expandPolyline, polylineMidpoint, routeThrough } from '../src/grafcet/links'
+import { applySegmentDrag, beginSegmentDrag, bendInsertIndex, expandPolyline, interiorBends, nearestLeg, polylineMidpoint, routeThrough, simplifyOrthogonal } from '../src/grafcet/links'
 import { emptyGrafcetRuntime, scanGrafcet, stepNumberOf, validateGrafcet, type GrafcetProgram } from '../src/grafcet/engine'
 import { useSimStore } from '../src/store/useSimStore'
 
@@ -22,6 +22,29 @@ check(true, 'ponto médio de um «L» cai no canto quando os troços medem o mes
 check(bendInsertIndex([{ x: 0, y: 0 }, { x: 0, y: 100 }], { x: 2, y: 20 }) === 0, 'sem quebras, insere no único troço')
 check(bendInsertIndex([{ x: 0, y: 0 }, { x: 0, y: 50 }, { x: 0, y: 100 }], { x: 4, y: 74 }) === 1, 'clique no segundo troço insere depois da primeira quebra')
 check(bendInsertIndex([{ x: 0, y: 0 }, { x: 0, y: 50 }, { x: 100, y: 50 }, { x: 100, y: 120 }], { x: 52, y: 45 }) === 1, 'clique perto do troço horizontal insere nesse troço')
+
+// ---------------------------------------------------------------------------
+// Arrasto ortogonal de troços (linha de retorno): sem desvios nem saltos
+// ---------------------------------------------------------------------------
+const ret = [{ x: 67, y: 76 }, { x: 67, y: 124 }, { x: -30, y: 124 }, { x: -30, y: 452 }, { x: 67, y: 452 }, { x: 67, y: 476 }]
+const isOrtho = (pts: { x: number; y: number }[]) => pts.slice(1).every((p, i) => p.x === pts[i].x || p.y === pts[i].y)
+const legMid = nearestLeg(ret, { x: -28, y: 300 })
+check(legMid === 2, 'troço vertical do trilho de retorno é identificado pelo clique')
+const mid = beginSegmentDrag(ret, legMid)!
+const movedMid = applySegmentDrag(mid, 40)
+check(isOrtho(movedMid) && movedMid.length === ret.length, 'mover o trilho mantém todos os troços ortogonais e o número de pontos')
+check(movedMid[0].x === 67 && movedMid[0].y === 76 && movedMid.at(-1)!.x === 67 && movedMid.at(-1)!.y === 476, 'as ancoragens nas etapas não se movem')
+check(movedMid[2].x === 10 && movedMid[3].x === 10, 'só o troço arrastado desliza no seu eixo')
+const first = beginSegmentDrag(ret, 0)!
+const movedFirst = applySegmentDrag(first, 30)
+check(isOrtho(movedFirst) && movedFirst[0].x === 67 && movedFirst[0].y === 76 && movedFirst.length === ret.length + 2, 'arrastar a saída da etapa cria um pequeno degrau e preserva a ancoragem')
+const last = beginSegmentDrag(ret, ret.length - 2)!
+const movedLast = applySegmentDrag(last, -30)
+check(isOrtho(movedLast) && movedLast.at(-1)!.x === 67 && movedLast.at(-1)!.y === 476, 'arrastar a entrada na etapa preserva a ancoragem final')
+check(interiorBends(applySegmentDrag(mid, 0)).length === ret.length - 2, 'largar sem mover não altera o percurso')
+check(interiorBends(movedMid).every((p) => Number.isInteger(p.x) && Number.isInteger(p.y)), 'as quebras guardadas são inteiras')
+check(simplifyOrthogonal([{ x: 0, y: 0 }, { x: 0, y: 50 }, { x: 0, y: 100 }]).length === 2, 'pontos colineares são fundidos')
+check(simplifyOrthogonal(applySegmentDrag(mid, 97)).length === 2, 'trilho alinhado com a espinha funde-se numa reta, sem desvios')
 
 // ---------------------------------------------------------------------------
 // Ligação por referência (sem linha) e quebras: dados e simulação intactos
