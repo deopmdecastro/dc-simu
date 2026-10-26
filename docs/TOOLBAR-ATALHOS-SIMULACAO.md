@@ -44,3 +44,9 @@ Ferramentas específicas atuais: Ladder (Compilar, Bloco, Nova network, secçõe
 ### Editor de componentes 3D
 
 O botão «Atalhos» (`data-shortcuts-button="component"`, F1) passou do cabeçalho para o fim da barra secundária e usa o `ShortcutsButton` comum. «Editar/Simular» mantém-se como separadores de modo no cabeçalho.
+
+## Espaçamento, cubo de vistas e painéis (2026-10-26)
+
+- `src/styles/toolbar-spacing.css`: grupos `dc-seg` com moldura e botões planos separados por 3 px; 10 px entre grupos; separadores com margem maior. Aplica-se a todas as barras.
+- Cubo de vistas: `top` de 14 px e sem margem negativa no palco, para a seta de cima não ficar sob a barra (`clean-mode.css`).
+- `src/styles/panels-polish.css`: editor de componentes (cabeçalhos fixos, separadores e linhas com hover/foco), Ladder (separadores do painel de baixo numa só linha deslizante, ações fixas à direita) e GRAFCET (cabeçalho fixo e secções separadas no painel de propriedades, ecrãs largos).

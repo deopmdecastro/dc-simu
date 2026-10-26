@@ -1,14 +1,14 @@
 /* ---------------------------------------------------------------------------
    Cubo de vista mais acima (Esquema 2D, Visualização 3D e editores)
 --------------------------------------------------------------------------- */
-.vcube-floating { top: 2px; right: 10px; }
-.vcube-floating.vcube-below-command { top: 54px; }
-.vcube-floating .vcube-stage { margin-top: -6px; }
+.vcube-floating { top: 14px; right: 10px; }
+.vcube-floating.vcube-below-command { top: 62px; }
+.vcube-floating .vcube-stage { margin-top: 0; }
 @media (max-width: 700px) {
   /* Folga para a seta de cima não ficar por baixo da barra de ferramentas. */
   .vcube-floating:not(.vcube-shifted):not(.vcube-below-command) { top: 12px; right: 4px; }
   .vcube-floating.vcube-below-command { top: 58px; }
-  .vcube-floating .vcube-stage { margin-top: -2px; }
+  .vcube-floating .vcube-stage { margin-top: 0; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
 
 /* O Esquema (Panel3D em edição frontal) fixava o cubo a 96px do topo no telemóvel; fica encostado ao topo. */
 @media (max-width: 700px) {
-  .panel3d-stage[data-front-edit="true"] .vcube-floating:not(.vcube-shifted) { top: 6px; right: 4px; }
+  .panel3d-stage[data-front-edit="true"] .vcube-floating:not(.vcube-shifted) { top: 14px; right: 4px; }
 }
 
 /* ---------------------------------------------------------------------------

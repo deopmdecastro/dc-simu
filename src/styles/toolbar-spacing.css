@@ -1,0 +1,21 @@
+/* ---------------------------------------------------------------------------
+   Barras de ferramentas: mais respiração entre botões e grupos.
+   Carregado por último para valer em todos os editores (Esquema, 3D, Ladder,
+   GRAFCET e editor de componentes).
+--------------------------------------------------------------------------- */
+
+/* Grupo segmentado: moldura do grupo + botões planos com intervalo entre si. */
+.dc-seg { gap: 3px; padding: 2px; }
+.dc-seg > * + * { border-left-width: 0; }
+.dc-seg > .dc-tool-btn,
+.dc-seg > button.dc-tool-btn { border-color: transparent; box-shadow: none; }
+.dc-seg > .dc-tool-btn:hover:not(:disabled):not(.dc-tool-active) { border-color: var(--dx-line, #d6deea); }
+.dc-seg > .dc-tool-btn[aria-pressed="true"]:not(.dc-tool-active) { border-color: var(--dx-brand-soft, #cfe0ff); }
+
+/* Distância entre grupos e separadores. */
+.dc-toolbar-main, .dc-toolbar-row2, .ladder-editor-toolbar, .dc-grafcet-toolbar { column-gap: 10px; }
+.tb-sep { margin-inline: 6px; }
+.ce-ribbon { gap: 10px; }
+.ce-ribbon-row1 { gap: 8px; }
+.panel3d-tool-context { gap: 8px; }
+.panel3d-tool-context .dc-tool-btn + .dc-tool-btn { margin-left: 2px; }
