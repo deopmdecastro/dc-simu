@@ -1,3 +1,4 @@
+import GrafcetStatusCard from './components/GrafcetStatusCard'
 import { isTabletDesktop } from './ui/device'
 import { IconChevronLeft, IconChevronRight, IconClose, IconLayers } from './ui/icons'
 import { useEffect, useMemo, useState } from 'react'
@@ -317,7 +318,10 @@ export default function App({ onBack }: { onBack: () => void }) {
             aria-label={`${warnings} avisos; abrir diagnósticos no Monitor`}
           >{warnings} aviso(s)</button>
         </span>
-        <span className="ml-auto font-mono tabular-nums text-ink-500">scan #{scanCount}</span>
+        <span className="ml-auto inline-flex items-center gap-2 min-w-0">
+          <GrafcetStatusCard onOpen={() => setMode('grafcet')} />
+          <span className="font-mono tabular-nums text-ink-500 shrink-0">scan #{scanCount}</span>
+        </span>
         <InstallApp />
       </footer>
     </div>

@@ -40,3 +40,34 @@
 }
 .schematic-tilt-note { position:absolute; z-index:21; left:50%; bottom:64px; transform:translateX(-50%); max-width:calc(100% - 24px); padding:7px 14px; border:1px solid var(--float-border,#dbe4f0); border-radius:999px; color:#41536d; background:#fffffff2; box-shadow:var(--float-shadow,0 8px 22px #1b2d491f); font:600 11px ui-sans-serif,system-ui,sans-serif; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .schematic-tilt-note b { color:#1d4ed8; }
+
+/* SIM-PANEL-01: painel «Simulação» do Esquema 2D/3D (igual ao do GRAFCET) */
+.schematic-canvas-area { position:relative; width:100%; height:100%; min-width:0; min-height:0; }
+.schematic-view-shell[data-sim-dock="true"] { display:flex; }
+.schematic-view-shell[data-sim-dock="true"] > .schematic-canvas-area { flex:1 1 auto; width:auto; }
+.schematic-sim-dock { flex:0 0 312px; display:flex; flex-direction:column; min-height:0; border-left:1px solid #dbe4f0; background:#fbfcfe; }
+.schematic-sim-dock-head { display:flex; align-items:center; gap:8px; padding:9px 10px 7px 12px; border-bottom:1px solid #e3e9f4; }
+.schematic-sim-dock-head strong { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:#1e2a44; }
+.schematic-sim-dock-head strong svg { color:#16a34a; }
+.schematic-sim-dock-state { font:700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.04em; padding:3px 6px; border-radius:4px; background:#eef2f8; color:#52617a; }
+.schematic-sim-dock-state.is-running { background:#dcfce7; color:#15803d; }
+.schematic-sim-dock-state.is-paused { background:#fef3c7; color:#b45309; }
+.schematic-sim-dock-close { margin-left:auto; display:grid; place-items:center; width:26px; height:26px; border:0; border-radius:6px; background:transparent; color:#6b7a93; cursor:pointer; }
+.schematic-sim-dock-close:hover { background:#eef2f8; color:#1e2a44; }
+.schematic-sim-dock-controls { display:flex; gap:4px; padding:8px 10px; border-bottom:1px solid #e3e9f4; }
+.schematic-sim-dock-controls button { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-width:32px; height:28px; padding:0 8px; border:1px solid #d5deeb; border-radius:6px; background:#fff; color:#3b4763; font-size:11.5px; cursor:pointer; }
+.schematic-sim-dock-controls button.is-run { color:#15803d; font-weight:700; }
+.schematic-sim-dock-controls button:disabled { opacity:.45; cursor:default; }
+.schematic-sim-dock-body { flex:1 1 auto; min-height:0; overflow:auto; padding:10px; display:flex; flex-direction:column; gap:10px; }
+.schematic-sim-dock-plc { display:flex; align-items:center; gap:8px; font-size:11px; color:#52617a; }
+.schematic-sim-dock-plc .dc-select { flex:1; min-width:0; }
+.schematic-sim-dock-grafcet { border:1px solid #dbe4f0; border-radius:8px; background:#fff; padding:8px 10px; }
+.schematic-sim-dock-grafcet h4 { margin:0 0 6px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#52617a; }
+.schematic-sim-dock-grafcet ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:3px; }
+.schematic-sim-dock-grafcet li { display:flex; gap:6px; font-size:11.5px; }
+.schematic-sim-dock-grafcet li b { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; color:#15803d; }
+.schematic-sim-dock-grafcet p { margin:0; font-size:11px; color:#8494ab; }
+@media (max-width:800px) {
+  .schematic-view-shell[data-sim-dock="true"] { flex-direction:column; }
+  .schematic-sim-dock { flex:0 0 46%; border-left:0; border-top:1px solid #dbe4f0; }
+}

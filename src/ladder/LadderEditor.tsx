@@ -1,6 +1,7 @@
 import { useLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } from './ladderZoom'
 import { pinchZoom, usePinchZoom } from '../ui/usePinchZoom'
 import { useLadderUi } from './ladderBus'
+import { useShortcutsRequest, useSimUi } from '../ui/simUi'
 import VirtualIoPanel from '../components/VirtualIoPanel'
 import PlcSignalPanel from '../components/PlcSignalPanel'
 import { lintLadder } from './ladderLint'
@@ -1419,6 +1420,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   useEffect(() => {
     useLadderUi.getState().setActionHandler((action) => {
       if (action === 'openVariables') openVariablesTable()
+      if (action === 'compile') compileRef.current()
     })
     return () => useLadderUi.getState().setActionHandler(undefined)
   }, [openVariablesTable])
@@ -1426,6 +1428,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const [expandedNodes, setExpandedNodes] = useState<Set<ProjectNodeId>>(() => new Set(['plc', 'programBlocks']))
   const [dragOver, setDragOver] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  useShortcutsRequest('ladder', () => setHelpOpen(true))
+  const compileRef = useRef<() => void>(() => {})
   // o onDrop das networks faz stopPropagation: sem isto a moldura de largada ficava presa
   useEffect(() => {
     const reset = () => setDragOver(false)
@@ -1459,12 +1463,12 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
-  const [showStatus, setShowStatus] = useState(() => {
-    try { const saved = localStorage.getItem('dcsimu:ladder:status-open'); return saved === null ? !isSmallScreen() : saved !== '0' } catch { return !isSmallScreen() }
-  })
-  useEffect(() => {
-    try { localStorage.setItem('dcsimu:ladder:status-open', showStatus ? '1' : '0') } catch { /* navegação privada */ }
-  }, [showStatus])
+  // «Simulação» na barra de ferramentas = painel inferior (E/S, memórias, compilação…).
+  const showStatus = useSimUi((s) => s.ladder)
+  const setShowStatus = useCallback((next: boolean | ((value: boolean) => boolean)) => {
+    const ui = useSimUi.getState()
+    ui.setSimPanel('ladder', typeof next === 'function' ? next(ui.ladder) : next)
+  }, [])
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
   // Ponto de paragem atingido: abre «Depuração», expande e mostra a network.
   useEffect(() => {
@@ -1513,7 +1517,14 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     setCompileResult(result)
     setStatusTab('compile'); setShowStatus(true)
     state.pushEvent(result.ok ? (result.warnings ? 'warning' : 'info') : 'error', compileSummary(result))
-  }, [])
+  }, [setShowStatus])
+  compileRef.current = runCompile
+  // O botão «Compilar» vive na barra de ferramentas: espelha o estado da última compilação.
+  useEffect(() => {
+    const state = !compileResult ? 'none' : compileStale ? 'stale' : !compileResult.ok ? 'error' : compileResult.warnings ? 'warning' : 'ok'
+    useLadderUi.getState().setCompileState(state, compileResult ? `${compileSummary(compileResult)}${compileStale ? ' · programa alterado desde a última compilação' : ''}` : '')
+  }, [compileResult, compileStale])
+  useEffect(() => () => useLadderUi.getState().setCompileState('none', ''), [])
   const goToIssue = useCallback((blockId: string, rungId?: string) => {
     if (!rungId) return
     const node = (blockId === 'main' ? 'main' : blockId === 'fc1' || blockId === 'fc2' ? blockId : `file:${blockId}`) as ProjectNodeId
@@ -1862,9 +1873,6 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         </div>
         <div className="ladder-editor-toolbar">
           <span className="text-[10px] text-slate-400">{isProgramView ? 'Programa Ladder' : activeTitle}</span>
-          <button type="button" className={`dc-tool-btn ladder-compile-tb ${compileResult ? (compileResult.ok ? (compileStale ? 'is-stale' : 'is-ok') : 'is-error') : ''}`} onClick={runCompile} title="Compilar o programa do PLC ativo (Ctrl+Shift+B): Main, FC, blocos, CALL e referências cruzadas" data-compile>
-            <IconTools size={13} /><span>Compilar</span>
-          </button>
           {isMainOpen && programTab === 'program' && rungs.length > 1 && (
             <>
               <button className="dc-tool-btn" onClick={() => setCollapsedIds((cur) => (cur.size >= rungs.length ? new Set() : new Set(rungs.map((r) => r.id))))} title="Recolher / expandir todas (Ctrl+Shift+E)">
@@ -1873,8 +1881,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             </>
           )}
           <button className="dc-tool-btn" onClick={() => setBlockDialog('OB')} title="Adicionar bloco ao projeto (OB/FB/FC/DB)" aria-label="Adicionar bloco"><IconPlus size={13} /><span>Bloco</span></button>
-          <button className="dc-tool-btn ml-auto" onClick={() => setHelpOpen(true)} title="Atalhos de teclado (?)" aria-label="Atalhos de teclado"><IconHelp size={13} /><span className="hidden lg:inline">Atalhos</span></button>
-          {isMainOpen && <button onClick={() => { const id = addRung(); focusRung(id) }} className="ladder-primary-button" title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>}
+          {isMainOpen && <button style={{ marginLeft: 'auto' }} onClick={() => { const id = addRung(); focusRung(id) }} className="ladder-primary-button" title="Criar network (Insert)"><IconPlus size={12} /> Nova network</button>}
         </div>
         {programTab === 'program' && isMainOpen && (
           <div className="ladder-program-summary">

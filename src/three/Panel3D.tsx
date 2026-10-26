@@ -8,7 +8,9 @@ import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { TbButton } from '../ui/toolbarKit'
 import { useEditorShortcuts } from '../ui/shortcuts'
-import ShortcutHelp from '../ui/ShortcutHelp'
+import ShortcutHelp, { type ShortcutHelpExtra } from '../ui/ShortcutHelp'
+import { SCHEMATIC_TOOL_SHORTCUTS, VIEW_SHORTCUTS } from '../ui/shortcutLists'
+import { useShortcutsRequest } from '../ui/simUi'
 import { ContextLossGuard, ContextLossNotice } from './ContextLossGuard'
 import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
 import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
@@ -516,6 +518,26 @@ const LOGO_PAGES: LogoPage[] = ['home', 'io', 'clock', 'diagnostics']
  * cruz de cursores e teclas ESC/OK (malha azul). O ecrã desenhado assenta
  * exatamente sobre a janela verde, sem flutuar nem tapar o corpo.
  */
+const PANEL3D_SHORTCUTS: ShortcutHelpExtra[] = [
+  SCHEMATIC_TOOL_SHORTCUTS,
+  { title: 'Vista e câmara', items: [
+    { keys: 'Home', action: 'Enquadrar tudo' },
+    { keys: 'F', action: 'Enquadrar a seleção' },
+    { keys: 'Num 1 · Num 3 · Num 7', action: 'Vista de frente · direita · superior (Ctrl inverte: trás · esquerda · inferior)' },
+    { keys: 'Num 5', action: 'Vista isométrica' },
+    { keys: 'G', action: 'Mostrar / ocultar a malha' },
+    { keys: 'B', action: 'Mudar o fundo' },
+    { keys: 'Botão do meio · Alt+arrastar', action: 'Mover a vista' },
+    { keys: 'Roda do rato', action: 'Zoom' },
+  ] },
+  { title: 'Cabos', items: [
+    { keys: 'Esc', action: 'Terminar o cabo / voltar a Selecionar' },
+    { keys: 'Delete', action: 'Apagar o ponto de passagem selecionado' },
+    { keys: 'Duplo clique no cabo', action: 'Criar uma curva (ponto de passagem)' },
+  ] },
+  VIEW_SHORTCUTS,
+]
+
 const LOGO_KEYS = { esc: [0.163, 0.289], ok: [0.276, 0.289], up: [0.218, 0.458], down: [0.218, 0.355], left: [0.166, 0.406], right: [0.27, 0.406], z: 0.276 } as const
 
 function LogoFrontPanel({ c, interactive = true, screen = LOGO_SCREEN_FALLBACK }: { c: ElectricalComponent; interactive?: boolean; screen?: LogoFaceRect }) {
@@ -1884,6 +1906,7 @@ function PlacementPlane({ onPlace, step, size = 80 }: { onPlace: (x: number, y: 
 /** Visualização 3D do Esquema: mesmo projeto, à escala real, em sintonia com o Esquema 2D. */
 export default function Panel3D({ initialCamera = null, onInitialCameraUsed, frontEdit = false }: { initialCamera?: ViewCubeRequest | null; onInitialCameraUsed?: () => void; /** Edição frontal: mesma cena 3D, vista frontal por prioridade e grelha por pontos do Esquema. */ frontEdit?: boolean } = {}) {
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
+  useShortcutsRequest('schematic', () => setShortcutHelpOpen(true))
   const [glLost, setGlLost] = useState(false)
   const gridSettings = useSimStore((s) => s.grid)
   const placingType = useSimStore((s) => s.placingType)
@@ -2448,6 +2471,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       else if (event.key.toLowerCase() === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey && selectedTarget) { event.preventDefault(); focusSelection() }
       else if (event.key.toLowerCase() === 'g' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); toggleGrid() }
       else if (event.key.toLowerCase() === 'b' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); cycleBackground() }
+      else if (/^Digit[1-5]$/.test(event.code) && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+        // Mesmas teclas que a barra mostra: 1 Selecionar · 2 Cabo · 3 Sonda · 4 Apagar · 5 Mover vista
+        event.preventDefault()
+        useSimStore.getState().setTool((['select', 'wire', 'probe', 'erase', 'pan'] as const)[Number(event.code.slice(5)) - 1])
+      }
 
     }
     window.addEventListener('keydown', onKey)
@@ -2703,7 +2731,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         >
           <IconKeyboard size={13} />
         </button>
-        <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor="Painel 3D" />
+        <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor={frontEdit ? 'Esquema 2D' : 'Esquema 3D'} extra={PANEL3D_SHORTCUTS} />
       </div>
     </div>
   )

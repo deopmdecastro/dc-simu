@@ -1,5 +1,8 @@
 import { uiConfirm } from '../ui/dialogs'
 import { Kbd, TbButton, HistoryGroup, ViewControls, type ViewControlsProps } from '../ui/toolbarKit'
+import { requestShortcuts, useSimUi } from '../ui/simUi'
+import ShortcutHelp from '../ui/ShortcutHelp'
+import { VIEW_SHORTCUTS } from '../ui/shortcutLists'
 import Select from '../ui/Select'
 import type React from 'react'
 import { Suspense, lazy, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -24,7 +27,7 @@ import { IconCheck, IconWarning,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
-  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp,
+  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools,
   IconTemplates, IconImport, IconLink,
 } from '../ui/icons'
 
@@ -133,6 +136,10 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
 export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder', 'grafcet', 'monitor'], ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects }: { mode: ViewMode; setMode: (m: ViewMode) => void; views?: ViewMode[]; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void }) {
   const [clean, setClean] = useCleanMode()
   const [grafcetMoreOpen, setGrafcetMoreOpen] = useState(false)
+  const [monitorHelp, setMonitorHelp] = useState(false)
+  const simPanelOn = useSimUi((s) => (mode === 'schematic' ? s.schematic : mode === 'ladder' ? s.ladder : false))
+  const compileState = useLadderUi((s) => s.compileState)
+  const compileLabel = useLadderUi((s) => s.compileLabel)
   const [componentTableOpen, setComponentTableOpen] = useState(false)
   const [pdfOpen, setPdfOpen] = useState(false)
   const {
@@ -363,11 +370,33 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         {/* desfazer / refazer — comum a todas as vistas */}
         <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />
 
+        {/* «Simulação» igual ao do GRAFCET: mostra/esconde o painel de simulação da vista */}
+        {(mode === 'schematic' || mode === 'ladder') && (
+          <>
+            <span className="tb-sep" />
+            <button type="button" className={`dc-tool-btn grafcet-sim-tool dc-sim-tool !gap-1.5 ${simPanelOn ? 'is-on' : ''}`} aria-pressed={simPanelOn} aria-label="Simulação" data-sim-toggle={mode}
+              onClick={() => useSimUi.getState().toggleSimPanel(mode)}
+              title={mode === 'ladder'
+                ? (simPanelOn ? 'Esconder a simulação (E/S, sinais do PLC, memórias, compilação)' : 'Mostrar a simulação: E/S virtuais, sinais do PLC, memórias, temporizadores e compilação')
+                : (simPanelOn ? 'Esconder o painel de simulação' : 'Mostrar o painel de simulação: sinais do PLC, E/S virtuais e GRAFCET ativo')}>
+              <IconPlay size={12} /><span>Simulação</span>
+            </button>
+            {mode === 'ladder' && (
+              <button type="button" className={`dc-tool-btn ladder-compile-tb !gap-1.5 ${compileState === 'none' ? '' : `is-${compileState === 'warning' ? 'ok' : compileState}`}`} data-compile data-compile-state={compileState}
+                onClick={() => useLadderUi.getState().emit('compile')}
+                title={`Compilar o programa do PLC ativo (Ctrl+Shift+B): Main, FC, blocos, CALL e referências cruzadas${compileLabel ? `\n${compileLabel}` : ''}`}>
+                <IconTools size={13} /><span>Compilar</span>
+                {compileState !== 'none' && <span className="ladder-compile-dot" aria-label={compileState === 'ok' ? 'Compilado' : compileState === 'warning' ? 'Compilado com avisos' : compileState === 'stale' ? 'Alterado desde a última compilação' : 'Com erros'} />}
+              </button>
+            )}
+          </>
+        )}
+
         {mode === 'grafcet' && (
           <>
             <span className="tb-sep" />
             <button type="button" className={`dc-tool-btn grafcet-palette-tool !gap-1.5 ${grafcetPalette ? 'is-on' : ''}`} aria-pressed={grafcetPalette} aria-label="Componentes" onClick={() => useGrafcetUi.getState().emit('togglePalette')} title="Mostrar/ocultar os componentes (Ctrl+B)"><IconLayers size={13} /><span>Componentes</span></button>
-            <button type="button" className={`dc-tool-btn grafcet-sim-tool !gap-1.5 ${grafcetSimVisible ? 'is-on' : ''}`} aria-pressed={grafcetSimVisible} aria-label="Simulação" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'}><IconPlay size={12} /><span>Simulação</span></button>
+            <button type="button" className={`dc-tool-btn grafcet-sim-tool !gap-1.5 ${grafcetSimVisible ? 'is-on' : ''}`} aria-pressed={grafcetSimVisible} aria-label="Simulação" data-sim-toggle="grafcet" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'}><IconPlay size={12} /><span>Simulação</span></button>
             <span className="tb-sep" />
             <div className="dc-seg" role="toolbar" aria-label="Ferramentas de seleção e navegação">
               {GRAFCET_TOOLS.map(({ id, label, icon: Icon, key, title }) => (
@@ -675,7 +704,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
               <button
                 type="button"
-                className="dc-tool-btn !px-2"
+                className="dc-tool-btn !px-2 shrink-0"
+                data-shortcuts-button="grafcet"
                 onClick={() => useGrafcetUi.getState().emit('openShortcuts')}
                 title="Atalhos de teclado do GRAFCET (?)"
               >
@@ -685,6 +715,16 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
               <span className="tb-sep" />
             </div>
+          )}
+
+          {/* atalhos de teclado do simulador ativo (o GRAFCET tem o seu junto à validação) */}
+          {mode !== 'grafcet' && (
+            <button type="button" className="dc-tool-btn !px-2 shrink-0" data-shortcuts-button={mode}
+              onClick={() => mode === 'monitor' ? setMonitorHelp(true) : requestShortcuts(mode)}
+              title={`Atalhos de teclado — ${mode === 'schematic' ? 'Esquema 2D/3D' : mode === 'ladder' ? 'Ladder' : 'Monitor'} (?)`}>
+              <IconHelp size={13} />
+              <span className="hidden xl:inline">Atalhos</span>
+            </button>
           )}
 
           {/* vista: malha e zoom — grupo comum a todos os módulos */}
@@ -700,6 +740,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           </button>
         </div>
       {componentTableOpen && <ComponentTableDialog onClose={() => setComponentTableOpen(false)} />}
+      {monitorHelp && <ShortcutHelp open editor="Monitor" onClose={() => setMonitorHelp(false)} extra={[VIEW_SHORTCUTS]} />}
       {pdfOpen && (
         <Suspense fallback={null}>
           <ExportPdfDialog open={pdfOpen} onClose={() => setPdfOpen(false)} />

@@ -390,3 +390,72 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
     grid-column: 2;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   TOOLBAR-SCROLL-01: as barras de ferramentas nunca passam para uma 2.ª linha.
+   Com muitos botões, deslizam na horizontal (roda do rato, trackpad ou toque).
+   Os menus suspensos usam position:fixed, por isso não ficam cortados.
+--------------------------------------------------------------------------- */
+.dc-toolbar-main,
+.dc-toolbar-row2,
+.dc-toolbar-row2.dc-grafcet-toolbar,
+.dc-toolbar-row2.dc-grafcet-toolbar.is-expanded,
+.ladder-editor-toolbar,
+.grafcet-pages {
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+.dc-toolbar-row2,
+.dc-toolbar-row2.dc-grafcet-toolbar,
+.dc-toolbar-row2.dc-grafcet-toolbar.is-expanded { height: 40px !important; min-height: 40px; max-height: 40px !important; padding-top: 0; padding-bottom: 0; }
+.dc-toolbar-main > *, .dc-toolbar-row2 > *, .dc-toolbar-row2 .dc-seg, .ladder-editor-toolbar > *, .grafcet-pages > * { flex-shrink: 0; }
+.dc-toolbar-row2 .dc-tool-btn, .ladder-editor-toolbar .dc-tool-btn { white-space: nowrap; }
+.dc-grafcet-toolbar .grafcet-toolbar-more { display: none !important; }
+.dc-grafcet-toolbar:not(.is-expanded) .grafcet-toolbar-secondary { display: flex !important; }
+.dc-grafcet-toolbar .dc-seg[aria-label="Ferramentas GRAFCET"] { flex-wrap: nowrap; max-width: none; }
+.dc-toolbar-row2::-webkit-scrollbar, .dc-toolbar-main::-webkit-scrollbar, .ladder-editor-toolbar::-webkit-scrollbar, .grafcet-pages::-webkit-scrollbar { height: 4px; }
+.dc-toolbar-row2::-webkit-scrollbar-thumb, .dc-toolbar-main::-webkit-scrollbar-thumb, .ladder-editor-toolbar::-webkit-scrollbar-thumb, .grafcet-pages::-webkit-scrollbar-thumb { background: #c7d2e3; border-radius: 4px; }
+@media (max-width: 1100px) {
+  .dc-toolbar-main { gap: 8px; padding-top: 0; padding-bottom: 0; }
+  .dc-toolbar-main .dc-views-container { order: 0; flex-basis: auto; }
+}
+
+/* Botão «Compilar» do Ladder na barra (estado da última compilação) */
+.ladder-compile-tb { position: relative; }
+.ladder-compile-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.ladder-compile-tb.is-error .ladder-compile-dot { background: #dc2626; }
+.ladder-compile-tb.is-stale .ladder-compile-dot { background: #d97706; }
+.ladder-compile-tb.is-ok .ladder-compile-dot { background: #16a34a; }
+.ladder-compile-tb[data-compile-state="warning"] .ladder-compile-dot { background: #d97706; }
+
+/* Barra de estado: GRAFCET em execução e etapa ativa, ao lado do ciclo */
+.dc-grafcet-status { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 420px; height: 18px; padding: 0 8px; border: 1px solid #d5deeb; border-radius: 5px; background: #fff; color: #52617a; font-size: 10.5px; line-height: 1; cursor: pointer; }
+.dc-grafcet-status:hover { border-color: #9db8f2; background: #f3f7ff; }
+.dc-grafcet-status svg { color: #2455d8; flex: none; }
+.dc-grafcet-status-name { font-weight: 700; color: #1e2a44; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: 160px; }
+.dc-grafcet-status-page { padding: 1px 5px; border-radius: 4px; background: #eef2f8; color: #52617a; white-space: nowrap; }
+.dc-grafcet-status-sep { color: #a3b1c6; }
+.dc-grafcet-status-step { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; min-width: 0; }
+.dc-grafcet-status-step b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #1d4ed8; }
+.dc-grafcet-status-step em { font-style: normal; color: #6b7a93; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.dc-grafcet-status-step small { padding: 0 4px; border-radius: 999px; background: #e6eeff; color: #1d4ed8; font-size: 9.5px; font-weight: 700; }
+.dc-grafcet-status-step.is-idle { color: #8494ab; }
+.dc-grafcet-status.is-running.has-active { border-color: #86d4a4; background: #effaf3; }
+.dc-grafcet-status.is-running.has-active svg, .dc-grafcet-status.is-running.has-active .dc-grafcet-status-step b { color: #15803d; }
+@media (max-width: 700px) { .dc-grafcet-status-name, .dc-grafcet-status-page, .dc-grafcet-status-step em { display: none; } }
+
+/* INLINE-RENAME-01: nomes editáveis no sítio (título do GRAFCET, páginas, folhas) */
+.dc-inline-name { min-width:0; }
+.dc-inline-name .dc-inline-name-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+.dc-inline-name.is-empty .dc-inline-name-text { color:#8494ab; font-style:italic; font-weight:500; }
+.dc-inline-name-input { font:inherit; font-size:11.5px; padding:3px 7px; border:1px solid #2655e5; border-radius:6px; outline:none; box-shadow:0 0 0 3px rgba(38,85,229,.14); background:#fff; color:#1e2a44; min-width:90px; }
+.grafcet-title-edit { display:inline-flex; align-items:center; flex:0 0 auto; padding-right:10px; margin-right:4px; border-right:1px solid #dbe4f0; }
+.grafcet-title-edit > .dc-inline-name { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid transparent; border-radius:7px; background:transparent; font-size:12.5px; font-weight:700; color:#1e2a44; cursor:text; }
+.grafcet-title-edit > .dc-inline-name:hover { border-color:#d5deeb; background:#fff; }
+.grafcet-title-edit > .dc-inline-name svg { color:#8494ab; flex:0 0 auto; }
+.grafcet-title-edit > .dc-inline-name-input { font-size:12.5px; font-weight:700; }
+.grafcet-page-chip.is-active > .dc-inline-name, .schematic-sheet-chip.is-active > .dc-inline-name { cursor:text; }
+.grafcet-page-chip > .dc-inline-name-input, .schematic-sheet-chip > .dc-inline-name-input { border-radius:7px; margin:1px; }

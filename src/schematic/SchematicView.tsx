@@ -1,3 +1,5 @@
+import SimulationDock from '../components/SimulationDock'
+import { useSimUi } from '../ui/simUi'
 import { isTabletDesktop } from '../ui/device'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -28,6 +30,7 @@ import { useCan } from '../saas/usePlan'
 import SelectionBar from '../components/SelectionBar'
 import ViewCube, { type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { wireEnergyEffectVisible } from '../three/panel3DEditing'
+import { InlineName } from '../ui/InlineName'
 
 const SCHEMATIC_CANVAS_MODE_KEY = 'dc-simu:schematic-canvas-mode:v1'
 type SchematicCanvasMode = '2d' | '3d'
@@ -66,7 +69,9 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   }, [placingType, canvasMode, chooseMode])
 
   const can3D = useCan('view3d')
-  return <div className="schematic-view-shell" data-canvas-mode={canvasMode}>
+  const simOpen = useSimUi((state) => state.schematic)
+  return <div className="schematic-view-shell" data-canvas-mode={canvasMode} data-sim-dock={simOpen ? 'true' : undefined}>
+    <div className="schematic-canvas-area">
     {canvasMode === '3d' && !can3D
       ? <PlanLocked feature="view3d" />
       : canvasMode === '3d'
@@ -84,6 +89,8 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       </button>
       {canvasMode === '3d' && <span><i />Sincronizado</span>}
     </div>
+    </div>
+    {simOpen && <SimulationDock onClose={() => useSimUi.getState().setSimPanel('schematic', false)} />}
   </div>
 }
 
@@ -1317,12 +1324,18 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           const isActive = sh.id === activeSheet
           return (
             <span key={sh.id} className={`schematic-sheet-chip ${isActive ? 'is-active' : ''}`}>
-              <button
-                type="button" role="tab" aria-selected={isActive}
-                onClick={() => !isActive && setActiveSheet(sh.id)}
-                onDoubleClick={() => { const name = window.prompt('Nome da folha:', sh.name); if (name?.trim()) renameSheet(sh.id, name) }}
-                title={`${sh.name} — duplo clique: renomear. Fios entre folhas ligam-se por etiquetas de rede (pontas soltas).`}
-              >{sh.name}</button>
+              <InlineName
+                role="tab"
+                ariaSelected={isActive}
+                value={sh.name}
+                label="Nome da folha"
+                editOnClick={isActive}
+                onIdleClick={() => setActiveSheet(sh.id)}
+                showIcon={false}
+                dataAttr="sheet-name"
+                title={`${sh.name} — ${isActive ? 'clique no nome para o mudar' : 'clique para abrir; duplo clique para mudar o nome'}. Fios entre folhas ligam-se por etiquetas de rede (pontas soltas).`}
+                onCommit={(next) => renameSheet(sh.id, next)}
+              />
               {sheets.length > 1 && <button type="button" className="schematic-sheet-del" aria-label={`Eliminar ${sh.name}`} title="Eliminar folha (só se estiver vazia)" onClick={() => removeSheet(sh.id)}>×</button>}
             </span>
           )

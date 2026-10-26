@@ -1,0 +1,26 @@
+# Barra de ferramentas: Atalhos, Compilar, Simulação e nomes editáveis
+
+Data: 2026-10-26 · Smoke: `npm run test:toolbar-ui` (37 verificações)
+
+## O que mudou
+
+| Código | Alteração |
+|---|---|
+| TOOLBAR-SHORTCUTS-01 | Botão **Atalhos** na barra de ferramentas em todos os simuladores (Esquema 2D/3D, Ladder, GRAFCET, Monitor). Cada um abre a sua lista: o Esquema inclui ferramentas (teclas 1–5), câmara, cabos e vistas; o Monitor mostra as teclas de vista (Ctrl+1…4, F1/F2/F5/F4). O pedido segue pelo evento `dcsimu:shortcuts` (`src/ui/simUi.ts`). |
+| LADDER-COMPILE-TB-01 | **Compilar** saiu da barra do programa e passou para a barra de ferramentas (segunda linha). Um ponto colorido mostra o estado da última compilação: ok, aviso, erro ou desatualizada (programa alterado depois de compilar). Estado partilhado em `useLadderUi.compileState`. |
+| STATUS-GRAFCET-01 | Cartão na barra de estado, ao lado do `scan #`: nome do GRAFCET, página (se houver várias) e **Etapa Xn** ativa com comentário e «+N» quando há várias ativas. Clicar abre a vista GRAFCET (`src/components/GrafcetStatusCard.tsx`). |
+| TOOLBAR-SCROLL-01 | As barras com muitos botões ficam numa só linha com deslocamento horizontal (sem passar para baixo): barra principal, segunda linha (incluindo GRAFCET), barra do programa Ladder e barra de páginas do GRAFCET. Os menus usam `position: fixed`, por isso o deslocamento não os corta. |
+| SIM-PANEL-01 | Botão **Simulação** (igual ao do GRAFCET) no Ladder e no Esquema 2D/3D. No Ladder mostra/esconde o painel inferior de simulação; no Esquema abre um painel lateral com RUN/pausa/passo/parar/repor, sinais do PLC (ou entradas/saídas virtuais sem PLC) e etapas GRAFCET ativas (`src/components/SimulationDock.tsx`). O estado fica guardado no navegador. |
+| INLINE-RENAME-01 | Nomes editáveis «no sítio», como o nome do documento: sem `window.prompt`. Um clique no nome da página ativa (ou duplo clique noutra) abre um campo; Enter grava, Escape cancela. A linha separada «Nome do GRAFCET» foi substituída por um título editável no início da barra de páginas (marcador «GRAFCET sem nome»). As folhas do Esquema 2D usam o mesmo componente (`src/ui/InlineName.tsx`). |
+
+## Evidência
+
+- `npx tsc -b` limpo; `vite build` concluído.
+- `npm run test:ci` e `npm run test:server` (166) a passar.
+- `npm run test:toolbar-ui` (37 PASS): atalhos nas 4 vistas, Compilar na barra e estado desatualizado, Simulação no Ladder/Esquema/3D, cartão GRAFCET com «Etapa X0», barras a 760 px com 40 px de altura e `scrollWidth > clientWidth`, renomear sem caixas nativas, sem erros de página.
+- UI smokes de regressão a passar: editor3d, terminal-geometry, editor3d-autodetect, editors-sweep, motor, plc-signals, admin-saas, ladder-blocks, grafcet, grafcet-modals, grafcet-construction, blocks, grid.
+
+## Pendente
+
+- Validação manual pelo utilizador em ecrã tátil (deslocamento das barras com o dedo).
+- O painel «Simulação» do Esquema é estreito (312 px) em portáteis com a biblioteca e o painel direito abertos.

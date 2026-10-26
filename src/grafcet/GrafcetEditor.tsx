@@ -90,6 +90,7 @@ import { readGrafcetFile } from './importFile'
 import GrafcetImportDialog from './GrafcetImportDialog'
 import { requireFeature } from '../saas/usePlan'
 import '../styles/grafcet-construction.css'
+import { InlineName } from '../ui/InlineName'
 
 const id = () => crypto.randomUUID()
 
@@ -517,12 +518,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     setMulti([])
     setGrafcet({ ...program, activeChart: id }, 'skip', 'grafcet:pages:switch')
   }
-  const renamePage = async (id: string) => {
+  const renamePage = (id: string, next: string) => {
+    const name = next.trim()
     const chart = pageCharts.find((c) => c.id === id)
-    if (!chart) return
-    const next = window.prompt('Nome da página:', chart.title || chart.name)
-    if (!next || !next.trim() || next.trim() === chart.title) return
-    save({ charts: pageCharts.map((c) => (c.id === id ? { ...c, name: next.trim(), title: next.trim() } : c)) }, 'force', 'grafcet:pages:rename')
+    if (!name || (chart && name === (chart.title || chart.name))) return
+    const base = pageCharts.length ? pageCharts : [{ id, name: 'Página 1', title: 'Página 1' } as GrafcetChart]
+    save({ charts: base.map((c) => (c.id === id ? { ...c, name, title: name } : c)) }, 'force', 'grafcet:pages:rename')
   }
   const deletePage = async (id: string) => {
     const chartSteps = allSteps.filter((s) => chartOf(s) === id)
@@ -2931,34 +2932,38 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       )}
 
       {full && (
-        <div className="grafcet-namebar">
-          <label htmlFor="grafcet-name">Nome do GRAFCET</label>
-          <input
-            id="grafcet-name"
-            type="text"
-            value={program.name ?? ''}
-            maxLength={60}
-            placeholder="Ex.: Enchimento do depósito"
-            onChange={(event) => save({ name: event.target.value }, 'auto', 'grafcet:name')}
-            title="Aparece no editor e nos comentários do Ladder gerado"
-          />
-        </div>
-      )}
-
-      {full && (
         <div className="grafcet-pages" role="tablist" aria-label="Páginas do GRAFCET">
+          <span className="grafcet-title-edit">
+            <InlineName
+              value={program.name ?? ''}
+              placeholder="GRAFCET sem nome"
+              label="Nome do GRAFCET"
+              allowEmpty
+              maxLength={60}
+              dataAttr="grafcet-name"
+              title="Clique para mudar o nome do GRAFCET (aparece no editor, na barra de estado e nos comentários do Ladder gerado)"
+              onCommit={(next) => save({ name: next }, 'force', 'grafcet:name')}
+            />
+          </span>
           <span className="grafcet-pages-label">Páginas</span>
           {(pageCharts.length ? pageCharts : [{ id: 'chart-p1', name: 'Página 1', title: 'Página 1' } as GrafcetChart]).map((chart) => {
             const isActive = chart.id === (pageActive ?? chart.id)
             const count = allSteps.filter((s) => (s.chart ?? (pageCharts[0]?.id ?? 'chart-p1')) === chart.id).length
             return (
               <span key={chart.id} className={`grafcet-page-chip ${isActive ? 'is-active' : ''}`}>
-                <button
-                  type="button" role="tab" aria-selected={isActive}
-                  onClick={() => !isActive && switchPage(chart.id)}
-                  onDoubleClick={() => void renamePage(chart.id)}
-                  title={`${chart.title || chart.name} — ${count} etapa(s). Duplo clique: renomear. As páginas comunicam por sinais, ações S/R, referências X e ligações sem fio.`}
-                >{chart.title || chart.name}<em>{count}</em></button>
+                <InlineName
+                  role="tab"
+                  ariaSelected={isActive}
+                  value={chart.title || chart.name}
+                  label="Nome da página"
+                  editOnClick={isActive}
+                  onIdleClick={() => switchPage(chart.id)}
+                  showIcon={false}
+                  dataAttr="grafcet-page-name"
+                  title={`${chart.title || chart.name} — ${count} etapa(s). ${isActive ? 'Clique no nome para o mudar.' : 'Clique para abrir; duplo clique para mudar o nome.'} As páginas comunicam por sinais, ações S/R, referências X e ligações sem fio.`}
+                  after={<em>{count}</em>}
+                  onCommit={(next) => renamePage(chart.id, next)}
+                />
                 {pageCharts.length > 1 && (
                   <button type="button" className="grafcet-page-del" aria-label={`Eliminar ${chart.title || chart.name}`} title="Eliminar página" onClick={() => void deletePage(chart.id)}><IconClose size={11} /></button>
                 )}

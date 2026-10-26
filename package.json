@@ -51,6 +51,7 @@
     "test:builtin-sync": "tsx scripts/builtin-sync-smoke.ts",
     "test:plc-signals": "tsx scripts/plc-signal-sim-smoke.ts",
     "test:plc-signals-ui": "node scripts/plc-signals-sync-ui-smoke.mjs",
+    "test:toolbar-ui": "node scripts/toolbar-shortcuts-sim-ui-smoke.mjs",
     "test:motor-ui": "node scripts/motor-fan-textures-ui-smoke.mjs",
     "test:motion": "tsx scripts/motion-smoke.ts",
     "test:glow": "tsx scripts/glow-smoke.ts",
