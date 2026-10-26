@@ -26,3 +26,8 @@
 @media (max-width: 600px) {
   .grafcet-construction-guide { top: 8px; left: 8px; max-width: calc(100% - 16px); font-size: 10px; padding: 6px 8px; }
 }
+
+/* Círculos permanentes nas faces das etapas (topo, base, direita), como nos editores de diagramas. */
+.grafcet-step-ports.is-idle .grafcet-port-ring { r: 3.5px; stroke-width: 1.2; opacity: .8; }
+.grafcet-step-ports.is-idle .grafcet-port-core { display: none; }
+.grafcet-step-ports.is-idle .grafcet-construction-port:hover .grafcet-port-ring { r: 5px; opacity: 1; }

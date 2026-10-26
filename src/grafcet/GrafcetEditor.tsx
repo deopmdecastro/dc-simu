@@ -4250,12 +4250,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                         </g>
                       )}
 
-                      {/* Portos diretos: disponíveis na seleção, ao passar e durante qualquer ligação. */}
-                      {full && activeTool !== 'pan' && (activeTool === 'connect' || isThisStepSelected || hoveredStepId === step.id || focusedStepId === step.id || wireDraft) && <>
+                      {/* Portos diretos nas faces (topo, base, direita): sempre visíveis em edição, realçados ao selecionar, passar ou ligar. */}
+                      {full && activeTool !== 'pan' && !running && <g className={`grafcet-step-ports ${activeTool === 'connect' || isThisStepSelected || hoveredStepId === step.id || focusedStepId === step.id || wireDraft ? 'is-emphasized' : 'is-idle'}`}>
                         {renderWirePort({ kind: 'step-in', id: step.id }, { x: SPINE_X, y }, `Entrada da etapa ${stepNumber}`)}
                         {renderWirePort({ kind: 'step-out', id: step.id }, { x: SPINE_X, y: y + STEP_H }, `Saída da etapa ${stepNumber}: arraste um fio para uma etapa ou transição`)}
                         {renderWirePort({ kind: 'step-action', id: step.id }, { x: SPINE_X + 32, y: y + STEP_H / 2 }, `Porto de ação da etapa ${stepNumber}: arraste um fio para uma ação solta`)}
-                      </>}
+                      </g>}
 
                       {/* Caixa interna de etapa inicial normalizada IEC */}
                       {isInitial && (
