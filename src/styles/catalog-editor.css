@@ -658,7 +658,6 @@
   .ce-header-actions { grid-column:1 / -1; width:100%; overflow-x:auto; overscroll-behavior-x:contain; gap:5px; padding-bottom:1px; scrollbar-width:thin; }
   .ce-top .ce-header-actions > * { flex:none; }
   .ce-top .account-project-action { min-height:40px; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:5px 10px; }
-  .ce-top .ce-header-help { order:4; min-width:40px; }
   .ce-top .dx-account-controls { order:5; }
   .ce-top .ce-flash { grid-column:1 / -1; order:6; max-width:100%; font-size:11px; white-space:normal; }
   .ce-selection-actions .dx-btn { min-height:40px; }

@@ -40,3 +40,7 @@ Data: 2026-10-26 · Smoke: `npm run test:toolbar-ui` (37 verificações)
 Para acrescentar uma ferramenta a um ambiente: usar `TbButton` dentro do bloco `mode === '<ambiente>'` da segunda linha. Não duplicar o markup dos blocos comuns.
 
 Ferramentas específicas atuais: Ladder (Compilar, Bloco, Nova network, secções), GRAFCET (Componentes, ferramentas de seleção, modelos, disposição, ficheiro), Esquema (ferramentas de cabo, alinhamento, diagnóstico).
+
+### Editor de componentes 3D
+
+O botão «Atalhos» (`data-shortcuts-button="component"`, F1) passou do cabeçalho para o fim da barra secundária e usa o `ShortcutsButton` comum. «Editar/Simular» mantém-se como separadores de modo no cabeçalho.

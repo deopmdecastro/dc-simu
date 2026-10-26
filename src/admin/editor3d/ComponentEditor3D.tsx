@@ -1,6 +1,6 @@
 import { uiConfirm } from '../../ui/dialogs'
 import Select from '../../ui/Select'
-import { HistoryGroup, ViewControls } from '../../ui/toolbarKit'
+import { HistoryGroup, ViewControls, ShortcutsButton } from '../../ui/toolbarKit'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -24,7 +24,7 @@ import { MaterialsTab, ObjectTab } from './tabs1'
 import { ControlsTab, DisplaysTab } from './tabsControls'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
-import { IconAlignCenterH, IconArrowLeft, IconBox, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconUngroup, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler, IconSave, IconHelp } from '../../ui/icons'
+import { IconAlignCenterH, IconArrowLeft, IconBox, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconUngroup, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler, IconSave } from '../../ui/icons'
 import { chooseFace } from './FaceChooser'
 import { useEditorShortcuts } from '../../ui/shortcuts'
 import ShortcutHelp, { type ShortcutHelpExtra } from '../../ui/ShortcutHelp'
@@ -89,7 +89,7 @@ function ShapeMenu({ onImport }: { onImport: () => void }) {
 }
 
 /** Barra de ferramentas principal — mesma linguagem visual da barra do simulador, agora por grupos. */
-function ToolRibbon() {
+function ToolRibbon({ onHelp }: { onHelp: () => void }) {
   const mode = useEditorStore((s) => s.mode)
   const tool = useEditorStore((s) => s.tool)
   const set = useEditorStore((s) => s.set)
@@ -192,6 +192,7 @@ function ToolRibbon() {
       {editing && <>{groupTerminals}<EditorActionMenu label="Organizar" icon={<IconLayers size={13} />}>{groupEdit}{groupPosition}</EditorActionMenu></>}
       {groupClear}
       <span className="ce-ribbon-hint" aria-live="polite">{RIBBON.find((item) => item.id === active)?.hint}</span>
+      <ShortcutsButton scope="component" onClick={onHelp} title="Atalhos de teclado (F1)" />
     </div>
   </div>
 }
@@ -684,13 +685,12 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       </div>
       <div className="ce-spacer" />
       {message && <span className="ce-flash" role="status">{message}</span>}
-      <div className="ce-header-actions"><button className="account-project-action ce-header-help" onClick={() => setHelpOpen(true)} title="Atalhos de teclado (F1)" aria-label="Atalhos de teclado"><IconHelp size={14} /></button>
-      <button className="account-project-action" onClick={() => leave()}><IconArrowLeft size={13} /><span>Biblioteca</span></button>
+      <div className="ce-header-actions"><button className="account-project-action" onClick={() => leave()}><IconArrowLeft size={13} /><span>Biblioteca</span></button>
       <button className="account-project-action" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)" aria-label="Guardar rascunho"><IconSave size={13} /><span>{saving ? 'A guardar…' : 'Guardar'}</span></button>
       <button className="account-project-action dx-bar-primary" onClick={() => setPublishing(true)}>Publicar…</button>
       {account}</div>
     </header>
-    <ToolRibbon />
+    <ToolRibbon onHelp={() => setHelpOpen(true)} />
     <nav className="ce-mobile-panes" aria-label="Área do editor">
       <button type="button" className={mobilePane === 'canvas' ? 'is-on' : ''} aria-pressed={mobilePane === 'canvas'} title="Mostrar o canvas 3D" onClick={() => setMobilePane('canvas')}>Canvas 3D</button>
       <button type="button" className={mobilePane === 'objects' ? 'is-on' : ''} aria-pressed={mobilePane === 'objects'} title="Abrir a hierarquia de objetos" onClick={() => setMobilePane('objects')}>Objetos</button>
