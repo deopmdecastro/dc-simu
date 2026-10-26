@@ -1,4 +1,4 @@
-import type { ComponentCategory, TerminalElectricalClass, TerminalKind, TerminalType } from '../types'
+import type { ComponentCategory, ComponentType, TerminalElectricalClass, TerminalKind, TerminalType } from '../types'
 
 /**
  * Catálogo oficial de componentes criados no Editor 3D do Admin.
@@ -75,6 +75,9 @@ export interface TerminalDef {
   color: string
   /** Diâmetro visual/físico do encaixe em mm. Omisso = 6 mm. */
   diameterMm?: number
+  /** Profundidade disponível e recuo do ponto de ligação dentro de uma cavidade medida. */
+  socketDepthMm?: number
+  socketInsetMm?: number
   /** Função do borne no circuito (L1, N, PE, +24V, A1, I0.0…). Opcional: componentes antigos não a têm. */
   fn?: string
   /** Contacto: NA (NO), NF (NC) ou comum (COM). */
@@ -242,7 +245,11 @@ export interface BehaviorDef {
   amp: string
 }
 
-export interface AssetDef { name: string; mime: string; data: string }
+export interface AssetDef {
+  name: string; mime: string; data: string
+  /** Modelo integrado no referencial físico partilhado, sem duplicar o GLB no rascunho. */
+  builtinType?: ComponentType
+}
 
 export interface ComponentDefinition {
   schemaVersion: 1

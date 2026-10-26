@@ -41,6 +41,7 @@ export interface TerminalTemplate {
   defId?: string
   electricalClass?: import('../types').TerminalElectricalClass
   position3D?: { x: number; y: number; z: number }
+  socket3D?: Terminal['socket3D']
   rules?: { polarity: string; direction: string; accepts: string }
   displayName?: string
 }
@@ -914,6 +915,7 @@ export function createComponent(
     ...(t.defId ? { defId: t.defId } : {}),
     ...(t.electricalClass && t.electricalClass !== 'other' ? { electricalClass: t.electricalClass } : {}),
     ...(t.position3D ? { position3D: { ...t.position3D } } : {}),
+    ...(t.socket3D ? { socket3D: { ...t.socket3D, normal: [...t.socket3D.normal], position: { ...t.socket3D.position } } } : {}),
     ...(t.rules ? { catalogRules: { ...t.rules } } : {}),
     ...(t.displayName ? { displayName: t.displayName } : {}),
     ...(t.diameter ? { diameter: t.diameter } : {}),

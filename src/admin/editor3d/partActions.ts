@@ -2,6 +2,7 @@ import { boundsMm, defaultPart, glbNodeList, glbPieceList, loadGlbAssets, newId 
 import type { PartDef, Vec3 } from '../../catalog/types'
 import { addPart, duplicatePart, glbCache, patchPart, useEditorStore } from './editorStore'
 import { removeSelectionFrom, splitLocked, topmostIds } from './selectionOps'
+import { partWorldMatrix, reparentPartPreservingWorld } from './partTransforms'
 
 export const MAX_GLB_BYTES = 4 * 1024 * 1024
 
@@ -84,18 +85,20 @@ export function groupSelection() {
   const state = useEditorStore.getState()
   const ids = topmostIds(state.def, state.selectedParts())
   if (!ids.length) return
+  if (splitLocked(state.def, ids).locked.length) { flash('Desbloqueie as peças selecionadas antes de agrupar.'); return }
   const parts = state.def.parts.filter((item) => ids.includes(item.id))
   const first = parts[0]
   if (!first) return
-  // O grupo nasce na posição da primeira peça; as outras mantêm-se onde estão.
-  const origin = [...first.position] as Vec3
-  const group = { ...defaultPart('group', null, 'Grupo'), parentId: first.parentId, position: origin }
-  state.edit((current) => ({
-    ...current,
-    parts: [...current.parts.map((item) => (ids.includes(item.id)
-      ? { ...item, parentId: group.id, position: [item.position[0] - origin[0], item.position[1] - origin[1], item.position[2] - origin[2]] as Vec3 }
-      : item)), group],
-  }))
+  const commonParent = parts.every((part) => part.parentId === first.parentId) ? first.parentId : null
+  const origin = commonParent === first.parentId ? [...first.position] as Vec3 : partWorldMatrix(state.def, first.id).elements.slice(12, 15) as Vec3
+  const group = { ...defaultPart('group', null, 'Grupo'), parentId: commonParent, position: origin }
+  let next = { ...state.def, parts: [...state.def.parts, group] }
+  for (const id of ids) {
+    const result = reparentPartPreservingWorld(next, id, group.id)
+    if (result.error) { flash(result.error); return }
+    next = result.def
+  }
+  state.edit(() => next)
   state.set({ selection: { kind: 'part', id: group.id }, multi: [] })
   flash(ids.length > 1 ? `${ids.length} peças agrupadas.` : 'Peça agrupada.')
 }
@@ -104,25 +107,29 @@ export function groupSelection() {
 export function ungroupSelection() {
   const state = useEditorStore.getState()
   const ids = state.selectedParts()
-  const groups = state.def.parts.filter((item) => ids.includes(item.id) && item.kind === 'group')
+  const top = topmostIds(state.def, ids)
+  const groups = state.def.parts.filter((item) => top.includes(item.id) && item.kind === 'group')
   if (!groups.length) { flash('Selecione um grupo para desagrupar.'); return }
+  if (splitLocked(state.def, groups.map((group) => group.id)).locked.length) { flash('Desbloqueie o grupo antes de desagrupar.'); return }
+  if (groups.some((group) => [...state.def.lights, ...(state.def.controls ?? []), ...state.def.interactions].some((item) => item.partId === group.id))) {
+    flash('O grupo tem luzes ou ações associadas. Associe-as a uma peça antes de desagrupar.'); return
+  }
   const freed: string[] = []
-  state.edit((current) => {
-    let next = current
-    for (const group of groups) {
-      const children = next.parts.filter((item) => item.parentId === group.id)
-      next = {
-        ...next,
-        parts: next.parts
-          .filter((item) => item.id !== group.id)
-          .map((item) => (item.parentId === group.id
-            ? { ...item, parentId: group.parentId, position: [item.position[0] + group.position[0], item.position[1] + group.position[1], item.position[2] + group.position[2]] as Vec3 }
-            : item)),
-      }
-      freed.push(...children.map((item) => item.id))
+  let next = state.def
+  for (const group of groups) {
+    const children = next.parts.filter((item) => item.parentId === group.id)
+    for (const child of children) {
+      const result = reparentPartPreservingWorld(next, child.id, group.parentId)
+      if (result.error) { flash(result.error); return }
+      next = result.def
     }
-    return next
-  })
+    next = { ...next, parts: next.parts.filter((part) => part.id !== group.id), states: next.states.map((state) => {
+      const parts = { ...state.parts }; delete parts[group.id]
+      return { ...state, parts }
+    }) }
+    freed.push(...children.map((item) => item.id))
+  }
+  state.edit(() => next)
   state.set({ selection: freed.length ? { kind: 'part', id: freed[0] } : null, multi: freed.slice(1) })
   flash(groups.length > 1 ? `${groups.length} grupos desfeitos.` : 'Grupo desfeito.')
 }

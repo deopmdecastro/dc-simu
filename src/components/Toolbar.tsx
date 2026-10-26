@@ -45,7 +45,7 @@ const TOOLS: Array<{ id: EditorTool; label: string; icon: typeof IconCursor; hin
   { id: 'select', label: 'Selecionar', icon: IconCursor, hint: 'Selecionar / arrastar componentes', key: '1' },
   { id: 'wire', label: 'Cabo', icon: IconWire, hint: 'Desenhar cabo entre bornes', key: '2' },
   { id: 'probe', label: 'Sonda', icon: IconProbe, hint: 'Medir continuidade entre dois pontos', key: '3' },
-  { id: 'erase', label: 'Apagar', icon: IconErase, hint: 'Apagar cabo/borne sob o cursor', key: '4' },
+  { id: 'erase', label: 'Apagar', icon: IconErase, hint: 'Apagar componente, cabo ou borne sob o cursor', key: '4' },
   { id: 'pan', label: 'Mover vista', icon: IconPan, hint: 'Mover a vista (ou botão do meio / Alt+arrastar)', key: '5' },
 ]
 

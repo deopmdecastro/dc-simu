@@ -4,7 +4,7 @@ import { useSimStore } from '../store/useSimStore'
 import { getComponentModelSpec } from './modelPaths'
 
 /** Caixa de seis bornes IEC do motor: pontes reais Y/Δ selecionáveis. */
-export default function MotorTerminalBoard3D({ c, position = [0, getComponentModelSpec('motor3ph')!.targetHeight, 0] }: { c: ElectricalComponent; position?: [number, number, number] }) {
+export default function MotorTerminalBoard3D({ c, interactive = true, position = [0, getComponentModelSpec('motor3ph')!.targetHeight, 0] }: { c: ElectricalComponent; interactive?: boolean; position?: [number, number, number] }) {
   const connection = String(c.state.motorConnection ?? 'star')
   const xs = [-0.18, 0, 0.18]
   const zs = [-0.09, 0.09]
@@ -14,7 +14,7 @@ export default function MotorTerminalBoard3D({ c, position = [0, getComponentMod
   </group>
   const bar = (key: string, x: number, z: number, w: number, d: number) => <mesh key={key} position={[x, 0.008, z]}>
     <boxGeometry args={[w, 0.018, d]} /><meshStandardMaterial color="#d59f2a" metalness={0.9} roughness={0.2} /></mesh>
-  return <group position={position} onClick={(event) => { event.stopPropagation(); useSimStore.getState().setComponentState(c.id, { motorConnection: next }) }}>
+  return <group position={position} onClick={(event) => { if (!interactive) return; event.stopPropagation(); useSimStore.getState().setComponentState(c.id, { motorConnection: next }) }}>
     {/* Os encaixes vazados pertencem à geometria comum do modelo. */}
     <mesh><boxGeometry args={[0.70, 0.002, 0.65]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
     {stud(xs[0], zs[0], 'U1')}{stud(xs[1], zs[0], 'V1')}{stud(xs[2], zs[0], 'W1')}

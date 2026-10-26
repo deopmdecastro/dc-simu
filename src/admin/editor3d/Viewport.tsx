@@ -14,13 +14,15 @@ import type { Vec3 } from '../../catalog/types'
 import { EDITOR_THEME } from '../../ui/editorTheme'
 import { checkConnection } from '../../catalog/terminalCompat'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
-import { BASE_STATE, glbCache, posePart, patchTerminal, removeParts, useEditorStore } from './editorStore'
+import { BASE_STATE, glbCache, posePart, patchTerminal, useEditorStore } from './editorStore'
+import { isPartLocked, removeSelectionFrom } from './selectionOps'
+import { editorSelectionBounds } from './viewportSelection'
+import { editorTerminalRadiusMm } from '../../catalog/terminalGeometry'
 import { addTerminalAt, defBounds, faceCenter } from './terminalOps'
 import { addTerminalInHole, snapPointToHole } from './holeOps'
 import { registerCapture, renderCapture } from './capture'
 import { WireDrawController } from './WireDraw'
 import TestWires from './WiresView'
-import { wireModel } from './wirePath'
 import { MeasureController } from './MeasureTool'
 import { dragState } from './dragState'
 import { ContextLossGuard, ContextLossNotice } from '../../three/ContextLossGuard'
@@ -62,8 +64,7 @@ function TerminalMarker({ id, selected, hidden, onRef }: { id: string; selected:
   // com um cabo em curso, os restantes bornes mostram o veredicto de compatibilidade
   const verdict = origin ? checkConnection(origin, terminal).level : null
   const base = pending ? '#f59e0b' : verdict ? WIRE_COLOR[verdict] : selected ? '#2655e5' : terminal.color
-  const physicalRadius = Math.max(1, Math.min(13, (terminal.diameterMm ?? 6) / 2))
-  const radius = physicalRadius * (selected ? 0.82 : 0.65) + (pending || hovered ? 0.8 : 0) + (verdict ? 0.4 : 0)
+  const radius = editorTerminalRadiusMm(terminal) * (selected || hovered ? 1.1 : 1)
   const lift = new THREE.Vector3(...terminal.normal).multiplyScalar(1.6)
   return <group ref={onRef} position={terminal.position}>
     {/* zona de clique generosa e à frente da superfície: o modelo nunca "rouba" o clique ao borne */}
@@ -74,18 +75,18 @@ function TerminalMarker({ id, selected, hidden, onRef }: { id: string; selected:
       <sphereGeometry args={[4.4, 12, 10]} />
       <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} />
     </mesh>
-    <mesh renderOrder={5} position={lift}>
+    <mesh renderOrder={5}>
       <sphereGeometry args={[radius, 16, 12]} />
-      <meshBasicMaterial color={base} depthTest={false} transparent opacity={0.95} />
+      <meshBasicMaterial color={base} transparent opacity={0.95} />
     </mesh>
-    {(pending || verdict || hovered) && <mesh renderOrder={4} position={lift}>
-      <ringGeometry args={[radius + 1, radius + 1.8, 28]} />
-      <meshBasicMaterial color={base} depthTest={false} transparent opacity={0.55} side={THREE.DoubleSide} />
+    {(pending || verdict || hovered) && <mesh renderOrder={4} quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(...terminal.normal).normalize())}>
+      <ringGeometry args={[radius * 1.05, radius * 1.2, 28]} />
+      <meshBasicMaterial color={base} transparent opacity={0.55} side={THREE.DoubleSide} />
     </mesh>}
-    <mesh position={new THREE.Vector3(0, 4, 0).applyQuaternion(quaternion)} quaternion={quaternion} renderOrder={4}>
+    {selected && <mesh position={new THREE.Vector3(0, 4, 0).applyQuaternion(quaternion)} quaternion={quaternion} renderOrder={4}>
       <cylinderGeometry args={[0.35, 0.35, 8, 6]} />
       <meshBasicMaterial color={selected ? '#2655e5' : '#475569'} depthTest={false} transparent opacity={0.8} />
-    </mesh>
+    </mesh>}
     {showLabel && <Html center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }} position={new THREE.Vector3(...terminal.normal).multiplyScalar(6.5)}>
       <span className={`ce-term-tag${selected ? ' is-on' : ''}`}>{terminal.label}</span>
     </Html>}
@@ -247,14 +248,7 @@ function Scene() {
     }
     if (viewCommand.kind === 'fitSel') {
       const state = useEditorStore.getState()
-      const picked = new THREE.Box3()
-      if (state.selection?.kind === 'part') { const node = root.getObjectByName(state.selection.id); if (node) picked.setFromObject(node, true) }
-      else if (state.selection?.kind === 'terminal') { const terminal = state.def.terminals.find((item) => item.id === state.selection!.id); if (terminal) picked.setFromCenterAndSize(new THREE.Vector3(...terminal.position), new THREE.Vector3(24, 24, 24)) }
-      else if (state.selectedWire) {
-        const wire = state.testWires.find((item) => item.id === state.selectedWire)
-        const chain = wire ? wireModel(state.def.terminals, wire)?.chain : undefined
-        chain?.forEach((point) => picked.expandByPoint(point))
-      }
+      const picked = editorSelectionBounds(state.def, root, state.selection, state.multi, state.selectedWire, state.testWires)
       if (!picked.isEmpty()) {
         const direction = camera.position.clone().sub((controls as unknown as { target: THREE.Vector3 } | null)?.target ?? new THREE.Vector3()).normalize()
         frameBox(picked, direction, 1.25)
@@ -320,7 +314,7 @@ function Scene() {
   useFrame(() => { helper?.update(); multiHelpers.forEach((item) => item.update()) })
 
   const gizmoEnabled = mode === 'edit' && !placing && ribbon === 'select'
-  const partGizmo = gizmoEnabled && selectedPart && !selectedPart.locked && selectedNode
+  const partGizmo = gizmoEnabled && selectedPart && !isPartLocked(def, selectedPart.id) && selectedNode
   const selectedTerminal = selection?.kind === 'terminal' ? def.terminals.find((terminal) => terminal.id === selection.id) : undefined
   const terminalGizmo = gizmoEnabled && selectedTerminal && markerObject && !hiddenTerminals.includes(selectedTerminal.id)
 
@@ -356,7 +350,12 @@ function Scene() {
     if (ribbon === 'wire' || ribbon === 'pan' || ribbon === 'measure') return
     if (ribbon === 'delete') {
       const target = partIdOf(event.object, known)
-      if (target) { const state = useEditorStore.getState(); state.edit((current) => removeParts(current, [target])); state.select(null) }
+      if (target) {
+        const state = useEditorStore.getState()
+        const result = removeSelectionFrom(state.def, { kind: 'part', id: target }, [target])
+        if (result.removed) { state.edit(() => result.def); state.select(null) }
+        else if (result.skippedLocked) window.dispatchEvent(new CustomEvent('ce-flash', { detail: 'Peça bloqueada — desbloqueie-a para a eliminar.' }))
+      }
       return
     }
     if (placing && event.face) {
@@ -420,6 +419,7 @@ function Scene() {
 
   const commitPart = () => {
     if (!selectedPart || !selectedNode) return
+    if (isPartLocked(useEditorStore.getState().def, selectedPart.id)) return
     lastDragEnd = performance.now()
     const state = useEditorStore.getState()
     const position = selectedNode.position.toArray().map(r2) as Vec3

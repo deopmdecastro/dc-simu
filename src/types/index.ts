@@ -173,6 +173,12 @@ export interface Terminal {
   /** Posição física normalizada no volume 3D do componente.
    * X = esquerda/direita, Y = baixo/cima, Z = trás/frente (0..1). */
   position3D?: { x: number; y: number; z: number }
+  /** Encaixe medido do catálogo: conserva o tamanho e a saída do cabo no 3D. */
+  socket3D?: {
+    diameterMm: number; depthMm: number; insetMm: number
+    normal: [number, number, number]
+    position: { x: number; y: number; z: number }
+  }
   /** Diâmetro do borne no Esquema 2D (unidades do canvas). Omisso = tamanho padrão do símbolo. */
   diameter?: number
   /** Fixado pelo usuário — impede reposicionamento automático */

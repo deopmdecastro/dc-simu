@@ -32,6 +32,8 @@
     "audit:terminals": "tsx scripts/audit-terminals.ts",
     "test:terminal-geometry": "tsx scripts/terminal-geometry-smoke.ts",
     "test:terminal-geometry-ui": "node scripts/terminal-geometry-ui-smoke.mjs",
+    "test:editor3d-functional": "tsx scripts/editor3d-functional-smoke.ts",
+    "test:editor3d-ui": "node scripts/editor3d-ux-ui-smoke.mjs",
     "test:server": "node scripts/server-e2e.mjs",
     "test:n8n-client": "tsx scripts/n8n-client-smoke.ts",
     "typecheck": "tsc -b",

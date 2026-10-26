@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { createGltfLoader } from '../three/gltfLoader'
 import { nanoid } from 'nanoid'
+import { fitComponentModel } from '../three/modelFit'
+import { getComponentModelSpec } from '../three/modelPaths'
 import type {
   CatalogMeta, ComponentDefinition, EasingName, LightState, MaterialDef, PartDef, RuntimeSpec, RuntimeTerminal, StateDef, StateOverride, Vec3,
 } from './types'
@@ -312,6 +314,12 @@ export async function loadGlbAssets(def: ComponentDefinition, cache: GlbCache): 
     try {
       const buffer = await (await fetch(asset.data)).arrayBuffer()
       const gltf = await new Promise<{ scene: THREE.Object3D }>((resolve, reject) => loader.parse(buffer, '', resolve as never, reject))
+      const builtin = asset.builtinType ? getComponentModelSpec(asset.builtinType) : undefined
+      if (builtin && asset.data === builtin.path) {
+        cache.set(part.asset, fitComponentModel(gltf.scene, builtin, 1, 'bottom'))
+        changed = true
+        continue
+      }
       // normaliza para ≈ 50 mm de maior dimensão (o utilizador ajusta com a escala)
       gltf.scene.updateMatrixWorld(true)
       const box = new THREE.Box3().setFromObject(gltf.scene, true)
@@ -373,10 +381,12 @@ export function runtimeSpec(def: ComponentDefinition, box: THREE.Box3): RuntimeS
     const [fx, fy, fz] = terminal.normal
     const axis = Math.abs(fx) >= Math.abs(fy) && Math.abs(fx) >= Math.abs(fz) ? 'x' : Math.abs(fy) >= Math.abs(fz) ? 'y' : 'z'
     const position3D = { x: nx, y: ny, z: nz }
-    // a face do borne é um dos 6 lados do volume: a normal decide qual
-    if (axis === 'x') position3D.x = fx >= 0 ? 1 : 0
-    else if (axis === 'y') position3D.y = fy >= 0 ? 1 : 0
-    else position3D.z = fz >= 0 ? 1 : 0
+    // Encaixes medidos conservam o recuo físico; bornes genéricos continuam na face.
+    if (!(terminal.socketDepthMm && terminal.socketInsetMm)) {
+      if (axis === 'x') position3D.x = fx >= 0 ? 1 : 0
+      else if (axis === 'y') position3D.y = fy >= 0 ? 1 : 0
+      else position3D.z = fz >= 0 ? 1 : 0
+    }
     return { ...terminal, position3D, x: clamp(nx), y: clamp(1 - ny) }
   })
   return { widthMm: width, heightMm: height, depthMm: depth, originMm: [(box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2], terminals }

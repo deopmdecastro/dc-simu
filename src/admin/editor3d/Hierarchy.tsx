@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DisplayDef, PartDef } from '../../catalog/types'
 import { IconChevronDown, IconChevronRight, IconClose, IconSearch, IconGrid, IconLayers, IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
-import { descendantsOf, patchPart, useEditorStore } from './editorStore'
+import { patchPart, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
 import { faceOfNormal } from './terminalOps'
 import { deleteSelection } from './partActions'
 import { ancestorsOf, isPartLocked, normalizeText, rangeBetween, visibleRows } from './selectionOps'
 import { areaThumbnail, partThumbnail } from './partThumb'
+import { reparentPartPreservingWorld } from './partTransforms'
 
 /** Miniatura 3D da peça (cai para o ícone da forma quando não há imagem). */
 function PartThumb({ partId, kind, size }: { partId: string; kind: PartDef['kind']; size: number }) {
@@ -64,16 +65,20 @@ export default function Hierarchy() {
   // bornes agrupados por vista (face onde saem) ou por grupo funcional
   const [groupBy, setGroupBy] = useState<'view' | 'group'>(() => { try { return localStorage.getItem('dcsimu:ce:tgroup') === 'group' ? 'group' : 'view' } catch { return 'view' } })
   const chooseGroupBy = (value: 'view' | 'group') => { setGroupBy(value); try { localStorage.setItem('dcsimu:ce:tgroup', value) } catch { /* ignorar */ } }
+  const needle = normalizeText(query.trim())
+  const filtering = needle.length > 0
+  const matches = (...values: Array<string | undefined>) => !needle || normalizeText(values.filter(Boolean).join(' ')).includes(needle)
+  const matchingTerminals = def.terminals.filter((terminal) => matches(terminal.name, terminal.label, terminal.group, terminal.id))
   const termGroups = useMemo(() => {
     const map = new Map<string, typeof def.terminals>()
-    for (const terminal of def.terminals) {
+    for (const terminal of matchingTerminals) {
       const key = groupBy === 'view' ? faceOfNormal(terminal.normal) : terminal.group ?? ''
       map.set(key, [...(map.get(key) ?? []), terminal])
     }
     const entries = [...map.entries()]
     if (groupBy === 'view') entries.sort((a, b) => FACE_ORDER.indexOf(a[0] as Face) - FACE_ORDER.indexOf(b[0] as Face))
     return entries
-  }, [def.terminals, groupBy])
+  }, [def.terminals, groupBy, needle])
   const groupName = (key: string) => groupBy === 'view' ? FACE_LABEL[key as Face] : key || 'Sem grupo'
   const selectedPart = selection?.kind === 'part' ? def.parts.find((part) => part.id === selection.id) : undefined
   const openProperties = () => window.dispatchEvent(new CustomEvent('ce-open-inspector'))
@@ -81,8 +86,6 @@ export default function Hierarchy() {
   const multi = useEditorStore((s) => s.multi)
   const selectedCount = selectedPart ? 1 + multi.filter((id) => id !== selectedPart.id).length : 0
 
-  const needle = normalizeText(query.trim())
-  const filtering = needle.length > 0
   const rows = useMemo(() => visibleRows(def, { collapsed, needle, allowCollapse: !cards }), [def, collapsed, needle, cards])
   const groupIds = useMemo(() => def.parts.filter((part) => def.parts.some((child) => child.parentId === part.id)).map((part) => part.id), [def.parts])
   const allCollapsed = groupIds.length > 0 && groupIds.every((id) => collapsed.has(id))
@@ -102,7 +105,7 @@ export default function Hierarchy() {
     return () => window.removeEventListener('ce-rename', handler)
   }, [])
 
-  const onRowClick = (event: React.MouseEvent, part: PartDef) => {
+  const onRowClick = (event: Pick<React.MouseEvent, 'shiftKey' | 'ctrlKey' | 'metaKey'>, part: PartDef) => {
     // Shift+clique = intervalo na lista; Ctrl/⌘+clique = acrescenta ou retira uma peça.
     if (event.shiftKey && selectedPart) {
       const ids = rangeBetween(rows.map((row) => row.part.id), selectedPart.id, part.id)
@@ -112,33 +115,54 @@ export default function Hierarchy() {
     select({ kind: 'part', id: part.id }, event.ctrlKey || event.metaKey)
   }
 
+  const focusSelection = () => {
+    useEditorStore.getState().cameraTo('fitSel')
+    window.dispatchEvent(new CustomEvent('ce-open-canvas'))
+  }
   const reparent = (id: string, parentId: string | null) => {
-    if (id === parentId) return
-    if (isPartLocked(def, id)) { window.dispatchEvent(new CustomEvent('ce-flash', { detail: 'Peça bloqueada — desbloqueie-a para a mover na hierarquia.' })); return }
-    if (parentId && descendantsOf(def, id).includes(parentId)) return
-    edit((current) => patchPart(current, id, { parentId }))
+    const current = useEditorStore.getState().def
+    const result = reparentPartPreservingWorld(current, id, parentId)
+    if (result.error) { window.dispatchEvent(new CustomEvent('ce-flash', { detail: result.error })); return }
+    if (result.def !== current) edit(() => result.def)
   }
 
   return <aside className="ce-left" aria-label="Hierarquia">
     <div className="ce-panel-head"><strong>Objetos</strong><span>{def.parts.length}</span>
       <button className="ce-icon" title={cards ? 'Ver em lista' : 'Ver em cartões com miniatura'} aria-label={cards ? 'Ver em lista' : 'Ver em cartões'} onClick={() => chooseCards(!cards)}>{cards ? <IconLayers size={13} /> : <IconGrid size={13} />}</button>
     </div>
-    {def.parts.length > 6 && <div className="ce-search">
+    <div className="ce-search">
       <IconSearch size={11} />
-      <input className="dx-input" type="search" value={query} placeholder="Filtrar objetos…" aria-label="Filtrar objetos pelo nome"
-        onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape' && query) { event.stopPropagation(); setQuery('') } }} />
+      <input className="dx-input" type="search" value={query} placeholder="Pesquisar objetos e bornes…" aria-label="Pesquisar na hierarquia"
+        onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape' && query) { event.preventDefault(); event.stopPropagation(); setQuery('') } }} />
       {query && <button className="ce-icon" aria-label="Limpar filtro" title="Limpar filtro" onClick={() => setQuery('')}><IconClose size={11} /></button>}
       {!cards && !filtering && groupIds.length > 0 && <button className="ce-icon" aria-label={allCollapsed ? 'Expandir todos os grupos' : 'Recolher todos os grupos'} title={allCollapsed ? 'Expandir todos os grupos' : 'Recolher todos os grupos'}
         onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(groupIds))}>{allCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}</button>}
-    </div>}
-    <div ref={treeRef} className={`ce-tree${cards ? ' is-cards' : ''}`} role="tree" onDragOver={(event) => { if (dragId) event.preventDefault() }} onDrop={() => { if (dragId) reparent(dragId, null); setDragId(null); setOverId(null) }}>
+    </div>
+    {selection && <div className="ce-selection-actions"><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={focusSelection}><IconFocus size={13} />Enquadrar seleção</button><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={openProperties}>Propriedades</button></div>}
+    <div ref={treeRef} className={`ce-tree${cards ? ' is-cards' : ''}`} role="tree" aria-label="Objetos do componente" aria-multiselectable="true" onDragOver={(event) => { if (dragId) event.preventDefault() }} onDrop={() => { if (dragId) reparent(dragId, null); setDragId(null); setOverId(null) }}>
       {rows.length === 0 && <p className="ce-empty">{filtering ? `Nenhuma peça corresponde a «${query.trim()}».` : 'Sem peças. Adicione uma forma na barra de ferramentas.'}</p>}
       {rows.map(({ part, depth, hasChildren }) => {
         const active = selection?.kind === 'part' && (selection.id === part.id || multi.includes(part.id))
-        return <div key={part.id} role="treeitem" aria-selected={active} draggable={!readOnly}
+        return <div key={part.id} role="treeitem" tabIndex={0} aria-label={part.name} aria-selected={active} draggable={!readOnly && !isPartLocked(def, part.id)}
           className={`ce-row${active ? ' is-active' : ''}${overId === part.id ? ' is-over' : ''}${part.visible ? '' : ' is-hidden'}`} style={{ paddingLeft: 6 + depth * 14 }}
           aria-expanded={hasChildren && !cards ? !collapsed.has(part.id) || filtering : undefined}
           onClick={(event) => onRowClick(event, part)}
+          onDoubleClick={(event) => { if (!(event.target as HTMLElement).closest('button,input')) { onRowClick(event, part); focusSelection() } }}
+          onKeyDown={(event) => {
+            if (event.target !== event.currentTarget) return
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onRowClick(event, part); if (event.key === 'Enter') openProperties() }
+            else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+              event.preventDefault(); event.stopPropagation()
+              if (hasChildren) setCollapsed((current) => { const next = new Set(current); if (event.key === 'ArrowLeft') next.add(part.id); else next.delete(part.id); return next })
+            }
+            else if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+              event.preventDefault(); event.stopPropagation()
+              const items = Array.from(treeRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? [])
+              const index = items.indexOf(event.currentTarget)
+              const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : Math.max(0, Math.min(items.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)))
+              items[next]?.focus()
+            }
+          }}
           onDragStart={() => setDragId(part.id)} onDragEnd={() => { setDragId(null); setOverId(null) }}
           onDragOver={(event) => { if (dragId) { event.preventDefault(); event.stopPropagation(); setOverId(part.id) } }}
           onDrop={(event) => { event.stopPropagation(); if (dragId) reparent(dragId, part.id); setDragId(null); setOverId(null) }}>
@@ -152,7 +176,7 @@ export default function Hierarchy() {
             ? <input autoFocus className="dx-input ce-rename" defaultValue={part.name} onClick={(event) => event.stopPropagation()}
                 onBlur={(event) => { edit((current) => patchPart(current, part.id, { name: event.target.value.trim() || part.name })); setRenaming(null) }}
                 onKeyDown={(event) => { if (event.key === 'Enter') (event.target as HTMLInputElement).blur(); if (event.key === 'Escape') setRenaming(null) }} />
-            : <span className="ce-row-name" onDoubleClick={() => !readOnly && setRenaming(part.id)} title="Duplo clique para renomear">{part.name}</span>}
+            : <span className="ce-row-name" title={readOnly ? part.name : `${part.name} · F2 para renomear`}>{part.name}</span>}
           {def.lights.some((light) => light.partId === part.id) && <i className="ce-row-badge" title="Zona luminosa"><IconSparkle size={12} /></i>}
           <button className="ce-icon" title={part.visible ? 'Ocultar' : 'Mostrar'} aria-label={part.visible ? 'Ocultar' : 'Mostrar'} disabled={readOnly} onClick={(event) => { event.stopPropagation(); edit((current) => patchPart(current, part.id, { visible: !part.visible })) }}>{part.visible ? <IconEye size={13} /> : <IconEyeOff size={13} />}</button>
           <button className="ce-icon" title={part.locked ? 'Desbloquear' : 'Bloquear'} aria-label={part.locked ? 'Desbloquear' : 'Bloquear'} disabled={readOnly} onClick={(event) => { event.stopPropagation(); edit((current) => patchPart(current, part.id, { locked: !part.locked })) }}>{part.locked ? <IconLock size={13} /> : <IconUnlock size={13} />}</button>
@@ -184,26 +208,26 @@ export default function Hierarchy() {
           const hidden = hiddenTerminals.includes(terminal.id)
           return <div key={terminal.id} role="button" tabIndex={0} className={`ce-row ce-row-btn${selection?.kind === 'terminal' && selection.id === terminal.id ? ' is-active' : ''}${hidden ? ' is-hidden' : ''}`}
             onClick={() => { useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, selectedWire: null, tab: 'terminals' }); openProperties() }}
-            onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, selectedWire: null, tab: 'terminals' }) } }}>
+            onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); useEditorStore.getState().set({ selection: { kind: 'terminal', id: terminal.id }, selectedWire: null, tab: 'terminals' }); openProperties() } }}>
             <i className="ce-dot" style={{ background: terminal.color }} /><span className="ce-row-name">{terminal.label} · {terminal.name}</span>
             <button className="ce-icon" title={hidden ? 'Mostrar borne' : 'Ocultar borne'} aria-label={hidden ? `Mostrar borne ${terminal.label}` : `Ocultar borne ${terminal.label}`}
               onClick={(event) => { event.stopPropagation(); toggleTerminalHidden(terminal.id) }}>{hidden ? <IconEyeOff size={13} /> : <IconEye size={13} />}</button>
           </div>
         })}
       </div>)}
-      {def.terminals.length === 0 && <p className="ce-empty">Sem bornes.</p>}
+      {matchingTerminals.length === 0 && <p className="ce-empty">{filtering ? `Nenhum borne corresponde a «${query.trim()}».` : 'Sem bornes.'}</p>}
       <div className="ce-panel-head"><strong>Botões e seletores</strong><span>{(def.controls ?? []).length}</span></div>
-      {(def.controls ?? []).map((control) => <button key={control.id} className={`ce-row ce-row-btn${selection?.kind === 'control' && selection.id === control.id ? ' is-active' : ''}`}
+      {(def.controls ?? []).filter((control) => matches(control.name, control.id)).map((control) => <button key={control.id} className={`ce-row ce-row-btn${selection?.kind === 'control' && selection.id === control.id ? ' is-active' : ''}`}
         onClick={() => { useEditorStore.getState().set({ selection: { kind: 'control', id: control.id }, tab: 'controls' }); openProperties() }}>
         <ControlThumb partId={control.partId} nodes={control.nodes} /><span className="ce-row-name">{control.name}</span><small>{control.kind === 'selector' ? 'Seletor' : control.kind === 'toggle' ? 'Liga/desliga' : 'Botão'}</small>
       </button>)}
       {(def.controls ?? []).length === 0 && <p className="ce-empty">Sem botões ou seletores.</p>}
       <div className="ce-panel-head"><strong>Luzes</strong><span>{def.lights.length}</span></div>
-      {def.lights.map((light) => <button key={light.id} className={`ce-row ce-row-btn${selection?.kind === 'light' && selection.id === light.id ? ' is-active' : ''}`}
+      {def.lights.filter((light) => matches(light.name, light.id)).map((light) => <button key={light.id} className={`ce-row ce-row-btn${selection?.kind === 'light' && selection.id === light.id ? ' is-active' : ''}`}
         onClick={() => { useEditorStore.getState().set({ selection: { kind: 'light', id: light.id }, tab: 'lights' }); openProperties() }}><i className="ce-dot" style={{ background: light.color }} /><span className="ce-row-name">{light.name}</span></button>)}
       {def.lights.length === 0 && <p className="ce-empty">Sem zonas luminosas.</p>}
       <div className="ce-panel-head"><strong>LCDs e ecrãs</strong><span>{(def.displays ?? []).length}</span></div>
-      {(def.displays ?? []).map((display) => <button key={display.id} className={`ce-row ce-row-btn${selection?.kind === 'display' && selection.id === display.id ? ' is-active' : ''}`}
+      {(def.displays ?? []).filter((display) => matches(display.name, display.id)).map((display) => <button key={display.id} className={`ce-row ce-row-btn${selection?.kind === 'display' && selection.id === display.id ? ' is-active' : ''}`}
         onClick={() => { useEditorStore.getState().set({ selection: { kind: 'display', id: display.id }, tab: 'displays' }); openProperties() }}>
         <DisplayThumb display={display} /><span className="ce-row-name">{display.name}</span><small>{display.kind === 'lcd' ? 'LCD' : 'Texto'}</small>
       </button>)}

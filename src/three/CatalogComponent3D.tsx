@@ -27,8 +27,9 @@ function partIdOf(object: THREE.Object3D | null, known: Set<string>): string {
  * Componente do catálogo oficial no painel 3D: carrega o GLB assado, aplica estados/animações
  * (escritos pelo Admin) e executa as interações. O estado fica em `component.state.catalogState`.
  */
-export default function CatalogComponent3D({ c, position, anchor, children }: {
+export default function CatalogComponent3D({ c, position, anchor, children, interactive = true }: {
   c: ElectricalComponent
+  interactive?: boolean
   position: [number, number, number]
   anchor: 'bottom' | 'center'
   children?: (topY: number) => ReactNode
@@ -100,6 +101,7 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
   const known = useMemo(() => new Set(version?.definition.parts.map((part) => part.id) ?? []), [version])
   /** Botões/seletores do modelo: premir (visual), largar (ação) e rodar o seletor. */
   const controlDown = (event: ThreeEvent<PointerEvent>) => {
+    if (!interactive || c.locked) return false
     if (event.intersections[0]?.object !== event.object) return false
     const id = rig.current?.controlFromHits(event.intersections, 3 * PANEL_UNITS_PER_MM)
     const control = id ? rig.current?.controlById(id) : undefined
@@ -119,7 +121,7 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
     return true
   }
   const fire = (event: ThreeEvent<MouseEvent | PointerEvent>, trigger: TriggerName) => {
-    if (!version) return
+    if (!interactive || c.locked || !version) return
     if (trigger !== 'pressDown' && rig.current?.controlFromHits(event.intersections, 3 * PANEL_UNITS_PER_MM)) return
     const interactions = interactionsFor(version.definition, trigger, partIdOf(event.object, known))
     if (!interactions.length) return
@@ -140,8 +142,8 @@ export default function CatalogComponent3D({ c, position, anchor, children }: {
     onPointerUp={(event) => fire(event, 'pressUp')}
   >
     <primitive object={model} />
-    {builtin === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} />}
-    {builtin === 'motor3ph' && <MotorTerminalBoard3D c={c} position={[0, topY * 0.82, 0.08]} />}
+    {builtin === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
+    {builtin === 'motor3ph' && <MotorTerminalBoard3D c={c} interactive={interactive && !c.locked} position={[0, topY * 0.82, 0.08]} />}
     {children?.(topY)}
   </group>
 }

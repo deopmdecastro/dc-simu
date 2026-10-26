@@ -44,6 +44,10 @@ function templateOf(entry: CatalogEntry, version: CatalogVersion): ComponentTemp
       label: terminal.label, kind: terminal.kind, x: terminal.x, y: terminal.y, terminalType: terminal.terminalType, color: terminal.color,
       diameter: terminal.diameterMm ? terminal.diameterMm * SCHEMATIC_PX_PER_MM : undefined,
       defId: terminal.id, electricalClass: terminal.electricalClass, position3D: terminal.position3D, displayName: terminal.name && terminal.name !== terminal.label ? terminal.name : undefined,
+      ...(terminal.socketDepthMm && terminal.socketInsetMm ? { socket3D: {
+        diameterMm: terminal.diameterMm ?? 6, depthMm: terminal.socketDepthMm, insetMm: terminal.socketInsetMm,
+        normal: terminal.normal, position: terminal.position3D,
+      } } : {}),
       rules: { polarity: terminal.polarity, direction: terminal.direction, accepts: terminal.accepts },
     })),
     defaultState: { catalogState: version.definition.initialState },

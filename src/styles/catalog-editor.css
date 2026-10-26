@@ -433,7 +433,7 @@
 
 /* No telefone o editor deixa de comprimir três painéis desktop lado a lado. */
 .ce-mobile-panes { display:none; }
-@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 1024px), (pointer: coarse) and (max-height: 700px) {
   .ce-root { width:100vw; height:100%; overflow:hidden; }
   /* Cabeçalho: nada de linha cortada por baixo do título. Deixa envolver em
      duas linhas e mostra-as por inteiro (antes tinha altura fixa + overflow). */
@@ -567,7 +567,7 @@
 /* --------------------------------------------------------------------------
    Telemóvel: barra da vista 3D numa só linha deslizante, sem tapar o cubo
    -------------------------------------------------------------------------- */
-@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+@media (max-width: 1024px), (pointer: coarse) and (max-height: 700px) {
   .ce-viewbar { top:6px; left:6px; right:84px; flex-wrap:wrap; gap:5px; overflow:visible; pointer-events:none; }
   .ce-viewbar::-webkit-scrollbar { display:none; }
   .ce-viewbar > .ce-group { flex:0 0 auto; padding:2px; }
@@ -631,3 +631,37 @@
 .ce-search input.dx-input { flex:1; min-width:0; height:26px; padding:2px 8px; font-size:12px; }
 .ce-twirl { flex:0 0 14px; width:14px; height:14px; display:inline-flex; align-items:center; justify-content:center; padding:0; }
 .ce-row[aria-selected="true"] .ce-twirl { opacity:.9; }
+
+/* Ações e pesquisa mantêm o contexto junto do objeto, também por teclado. */
+.ce-header-actions { display:flex; align-items:center; gap:6px; flex:none; min-width:0; }
+.ce-selection-actions { display:flex; flex-wrap:wrap; gap:5px; padding:7px 8px; border-bottom:1px solid var(--dx-line-soft); }
+.ce-search { flex:none; }
+.ce-search input.dx-input { height:32px; }
+.ce-row[role="treeitem"]:focus-visible, .ce-row[role="button"]:focus-visible { outline:2px solid var(--dx-brand); outline-offset:-2px; }
+.ce-row[role="treeitem"] { cursor:pointer; }
+.ce-selection-actions .dx-btn { display:inline-flex; align-items:center; justify-content:center; gap:5px; }
+@media (max-width:1100px) and (min-width:1025px) {
+  .ce-top.account-bar { gap:6px; }
+  .ce-top.account-bar .ce-title strong { max-width:160px; }
+  .ce-top .ce-autosave { display:none; }
+  .ce-header-actions { gap:4px; }
+}
+@media (max-width:1024px), (pointer:coarse) and (max-height:700px) {
+  .ce-top.account-bar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 6px !important; padding:4px 6px !important; }
+  .ce-top.account-bar .ce-title { min-width:0; display:flex; flex-wrap:wrap; gap:2px 6px; }
+  .ce-top.account-bar .ce-title strong { min-width:0; max-width:100%; width:100%; font-size:12px; line-height:15px; }
+  .ce-top .ce-title .ce-status { font-size:9px; padding:1px 4px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ce-top .ce-modes { grid-column:2; grid-row:1; order:0; }
+  .ce-top .ce-modes button { min-height:40px; padding:5px 8px; }
+  .ce-header-actions { grid-column:1 / -1; width:100%; overflow-x:auto; overscroll-behavior-x:contain; gap:5px; padding-bottom:1px; scrollbar-width:thin; }
+  .ce-top .ce-header-actions > * { flex:none; }
+  .ce-top .account-project-action { min-height:40px; display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:5px 10px; }
+  .ce-top .ce-header-help { order:4; min-width:40px; }
+  .ce-top .dx-account-controls { order:5; }
+  .ce-top .ce-flash { grid-column:1 / -1; order:6; max-width:100%; font-size:11px; white-space:normal; }
+  .ce-selection-actions .dx-btn { min-height:40px; }
+  .ce-search input.dx-input { min-height:40px; }
+  .ce-search .ce-icon { min-width:40px; min-height:40px; }
+  .ce-mobile-panes { height:48px; }
+  .ce-mobile-panes button { min-height:40px; }
+}

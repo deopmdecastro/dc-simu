@@ -22,7 +22,7 @@ export const DM20_DEFINITION = {
   controls: [selector, selectButton, powerButton, holdButton], vars: [], displays: [],
 } as ComponentDefinition
 
-export default function MultimeterDm20Panel({ component, model }: { component: ElectricalComponent; model?: THREE.Object3D }) {
+export default function MultimeterDm20Panel({ component, model, interactive = true }: { component: ElectricalComponent; model?: THREE.Object3D; interactive?: boolean }) {
   const { vars, reading } = useCatalogMeter(component, DM20_DEFINITION)
   const [pressed, setPressed] = useState('')
   const canvas = useMemo(() => { const c = document.createElement('canvas'); c.width = 320; c.height = 150; return c }, [])
@@ -88,12 +88,12 @@ export default function MultimeterDm20Panel({ component, model }: { component: E
   })
   const act = (control: ControlDef, gesture: 'press' | { step: 1 | -1 }) => triggerControl(DM20_DEFINITION, component.id, control, gesture)
   const hit = (id: string, x: number, y: number, control: ControlDef) => <mesh position={[x, y, 0.18]}
-    onPointerDown={(e) => { e.stopPropagation(); setPressed(id) }} onPointerUp={(e) => { e.stopPropagation(); setPressed(''); act(control, 'press') }} onPointerOut={() => setPressed('')}>
+    onPointerDown={(e) => { if (!interactive) return; e.stopPropagation(); setPressed(id) }} onPointerUp={(e) => { if (!interactive) return; e.stopPropagation(); setPressed(''); act(control, 'press') }} onPointerOut={() => setPressed('')}>
     <circleGeometry args={[0.075, 20]} /><meshStandardMaterial transparent opacity={pressed === id ? 0.35 : 0.03} color="#94a3b8" /></mesh>
   return <group>
     {/* Tamanho e posição vêm diretamente da caixa do vidro LCD no próprio GLB. */}
     <mesh position={lcdFit.position} renderOrder={4}><planeGeometry args={lcdFit.size} /><meshBasicMaterial map={texture} toneMapped={false} polygonOffset polygonOffsetFactor={-4} polygonOffsetUnits={-4} /></mesh>
-    <mesh position={[0, 0.67, 0.18]} onPointerDown={(e) => { e.stopPropagation(); act(selector, { step: e.shiftKey ? -1 : 1 }) }}>
+    <mesh position={[0, 0.67, 0.18]} onPointerDown={(e) => { if (!interactive) return; e.stopPropagation(); act(selector, { step: e.shiftKey ? -1 : 1 }) }}>
       <circleGeometry args={[0.21, 28]} /><meshBasicMaterial transparent opacity={0.025} depthWrite={false} />
     </mesh>
     {hit('sel', -0.22, 1.14, selectButton)}{hit('off', 0, 1.14, powerButton)}{hit('hold', 0.22, 1.14, holdButton)}

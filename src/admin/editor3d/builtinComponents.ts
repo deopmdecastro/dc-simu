@@ -7,6 +7,8 @@ import { DEFAULT_META } from '../../catalog/definition'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, TerminalDef, Vec3 } from '../../catalog/types'
 import { BREAKER_HANDLE_RIG, getComponentModelSpec, getComponentPhysicalSizeMm } from '../../three/modelPaths'
 import type { ComponentType } from '../../types'
+import { REAL_TERMINALS, terminalInsetMm } from '../../electrical/realInterfaces'
+import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 
 /** Componentes que já vêm com a plataforma (Biblioteca do simulador), listados também na Biblioteca 3D do Admin. */
 export interface BuiltinInfo {
@@ -48,7 +50,7 @@ function rotationDeg(base: [number, number, number], flipDepth?: boolean): Vec3 
 }
 
 /** Bornes do modelo integrado, colocados sobre a caixa envolvente (topo, base ou frente conforme a posição no esquema). */
-function terminalsFor(list: TerminalTemplate[], box: THREE.Box3): TerminalDef[] {
+function legacyTerminalsFor(list: TerminalTemplate[], box: THREE.Box3): TerminalDef[] {
   const size = box.getSize(new THREE.Vector3())
   const center = box.getCenter(new THREE.Vector3())
   const used = new Set<string>()
@@ -87,6 +89,26 @@ function terminalsFor(list: TerminalTemplate[], box: THREE.Box3): TerminalDef[] 
       kind: item.kind, terminalType: item.terminalType ?? 'screw', polarity, electricalClass: item.electricalClass ?? inferred.electricalClass, direction,
       accepts: item.rules?.accepts ?? '', color: item.color ?? inferred.color ?? '#cbd5e1', fn: item.label, contact: inferred.contact,
       ...(item.diameter ? { diameterMm: item.diameter } : {}),
+    }
+  })
+}
+
+/** Conserva o ponto físico no interior do furo, sem o projetar para a caixa. */
+function terminalsFor(type: ComponentType, list: TerminalTemplate[], box: THREE.Box3): TerminalDef[] {
+  const size = box.getSize(new THREE.Vector3())
+  return legacyTerminalsFor(list, box).map((terminal, index) => {
+    const item = list[index], p = item.position3D
+    if (!p) return terminal
+    const spot = REAL_TERMINALS[type]?.find((spot) => spot.label === item.label)
+    const nearest = [
+      { distance: 1 - p.z, normal: [0, 0, 1] }, { distance: p.z, normal: [0, 0, -1] },
+      { distance: 1 - p.y, normal: [0, 1, 0] }, { distance: p.y, normal: [0, -1, 0] },
+      { distance: p.x, normal: [-1, 0, 0] }, { distance: 1 - p.x, normal: [1, 0, 0] },
+    ].sort((a, b) => a.distance - b.distance)[0].normal as Vec3
+    return { ...terminal,
+      position: [box.min.x + p.x * size.x, box.min.y + p.y * size.y, box.min.z + p.z * size.z],
+      normal: spot ? [...FACE_NORMAL[spot.face]] : nearest,
+      ...(spot ? { diameterMm: spot.diameterMm, socketDepthMm: spot.holeDepthMm, socketInsetMm: terminalInsetMm(spot) } : {}),
     }
   })
 }
@@ -170,6 +192,15 @@ function seedMultimeterDm20(def: ComponentDefinition, cache: GlbCache) {
  */
 function seedMotorTerminalBoard(def: ComponentDefinition, cache: GlbCache) {
   if (def.parts.some((part) => part.name === 'Placa de bornes')) return
+  if (Object.values(def.assets).some((asset) => asset.builtinType === 'motor3ph')) {
+    // Os sete encaixes já pertencem ao CAD partilhado. Acrescentar apenas as
+    // pontes editáveis, em mm reais, sem uma segunda placa gigante sobre o motor.
+    const brass = defaultMaterial('Latão', '#c79532')
+    const group = { ...defaultPart('group', null, 'Placa de bornes'), position: [0, getComponentPhysicalSizeMm('motor3ph')!.height, 0] as Vec3 }
+    def.materials.push(brass)
+    def.parts.push(group, ...[-9, 9].map((x, index) => ({ ...defaultPart('box', brass.id, index ? 'Ponte estrela U2-V2' : 'Ponte estrela W2-U2'), parentId: group.id, size: [22, 1.8, 5.2] as Vec3, position: [x, .8, 9] as Vec3 })))
+    return
+  }
   const box = boundsMm(def, cache)
   const widthMm = Math.max(40, box.max.x - box.min.x)
   const k = widthMm // o modelo publicado desenha a placa em unidades do componente
@@ -198,10 +229,12 @@ function seedMotorTerminalBoard(def: ComponentDefinition, cache: GlbCache) {
  * não há nada a acrescentar ou quando o utilizador já criou os seus.
  */
 export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDefinition): Promise<ComponentDefinition | null> {
-  const next: ComponentDefinition = JSON.parse(JSON.stringify(def))
+  let next: ComponentDefinition = JSON.parse(JSON.stringify(def))
   const cache: GlbCache = new Map()
   await loadGlbAssets(next, cache)
-  let changed = false
+  const upgraded = await upgradeUneditedGeometry(type, next, cache)
+  let changed = !!upgraded
+  if (upgraded) next = upgraded
   if (type === 'multimeterDm20' && (next.controls ?? []).length === 0 && (next.displays ?? []).length === 0) {
     seedMultimeterDm20(next, cache)
     changed = (next.controls ?? []).length > 0
@@ -211,6 +244,40 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
     changed = true
   }
   return changed ? next : null
+}
+
+/** Reconhece apenas o importador antigo intacto. Rascunhos modelados à mão,
+ * peças separadas ou estados personalizados nunca são substituídos. */
+async function upgradeUneditedGeometry(type: ComponentType, def: ComponentDefinition, cache: GlbCache): Promise<ComponentDefinition | null> {
+  const spec = getComponentModelSpec(type), part = def.parts[0]
+  if (!spec || def.parts.length !== 1 || part.kind !== 'glb' || !part.asset || part.glbNode || part.locked) return null
+  const asset = def.assets[part.asset]
+  if (!asset || asset.builtinType || asset.data !== spec.path) return null
+  if (def.lights.length || (def.displays ?? []).length || def.states.some((state) => Object.keys(state.parts).length)) return null
+  const close = (a: number[], b: number[]) => a.every((n, i) => Math.abs(n - b[i]) < .02)
+  const rotation = rotationDeg(spec.rotation, spec.flipDepth)
+  const raw: ComponentDefinition = { ...def, parts: [{ ...part, rotation, position: [0, 0, 0], scale: [1, 1, 1] }] }
+  const height = boundsMm(raw, cache).getSize(new THREE.Vector3()).y
+  const k = spec.physicalSizeMm.height / height
+  const scaled: ComponentDefinition = { ...raw, parts: [{ ...raw.parts[0], scale: [k, k, k] }] }
+  const box = boundsMm(scaled, cache), center = box.getCenter(new THREE.Vector3())
+  if (!close(part.rotation, rotation) || !close(part.scale, [k, k, k]) || !close(part.position, [-center.x, -box.min.y, -center.z])) return null
+  const existingBox = boundsMm(def, cache)
+  const expected = legacyTerminalsFor(TEMPLATES[type].terminals, existingBox)
+  if (def.terminals.length !== expected.length || !expected.every((terminal) => {
+    const actual = def.terminals.find((item) => item.label === terminal.label)
+    return actual && close(actual.position, terminal.position) && close(actual.normal, terminal.normal)
+  })) return null
+  const id = newId('a_')
+  const next: ComponentDefinition = { ...def, assets: { ...def.assets, [id]: { ...asset, builtinType: type } }, parts: [{ ...part, asset: id, rotation: [0, 0, 0], scale: [1, 1, 1], position: [0, 0, 0] }] }
+  await loadGlbAssets(next, cache)
+  if (!cache.has(id)) return null
+  const terminals = terminalsFor(type, TEMPLATES[type].terminals, boundsMm(next, cache))
+  next.terminals = def.terminals.map((terminal) => {
+    const updated = terminals.find((item) => item.label === terminal.label)!
+    return { ...terminal, position: updated.position, normal: updated.normal, diameterMm: updated.diameterMm, socketDepthMm: updated.socketDepthMm, socketInsetMm: updated.socketInsetMm }
+  })
+  return next
 }
 
 /** Rascunho editável a partir de um componente integrado: modelo GLB (ou volume físico) + bornes + metadados. */
@@ -226,18 +293,11 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   let usedModel = false
   if (spec) {
     const assetId = newId('a_')
-    const part = { ...defaultPart('glb', null, tpl.paletteName.slice(0, 40)), asset: assetId, rotation: rotationDeg(spec.rotation, spec.flipDepth) }
-    const draft: ComponentDefinition = { ...def, parts: [part], assets: { [assetId]: { name: spec.path.split('/').pop() ?? 'modelo.glb', mime: 'model/gltf-binary', data: spec.path } } }
+    const part = { ...defaultPart('glb', null, tpl.paletteName.slice(0, 40)), asset: assetId }
+    const draft: ComponentDefinition = { ...def, parts: [part], assets: { [assetId]: { name: spec.path.split('/').pop() ?? 'modelo.glb', mime: 'model/gltf-binary', data: spec.path, builtinType: type } } }
     await loadGlbAssets(draft, cache)
     if (cache.has(assetId)) {
-      // escala uniforme pela altura física (igual ao Painel 3D) e base em Y = 0, centrado em X/Z
-      const raw = boundsMm(draft, cache)
-      const k = raw.getSize(new THREE.Vector3()).y > 1e-6 ? physical.height / raw.getSize(new THREE.Vector3()).y : 1
-      const scaled: ComponentDefinition = { ...draft, parts: [{ ...part, scale: [k, k, k] as Vec3 }] }
-      const box = boundsMm(scaled, cache)
-      const c = box.getCenter(new THREE.Vector3())
-      scaled.parts = [{ ...scaled.parts[0], position: [-c.x, -box.min.y, -c.z] as Vec3 }]
-      Object.assign(def, scaled, { materials: [material] })
+      Object.assign(def, draft, { materials: [material] })
       usedModel = true
     }
   }
@@ -245,7 +305,7 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
     def.parts = [{ ...defaultPart('box', material.id, 'Corpo'), size: [physical.width, physical.height, physical.depth] as Vec3, position: [0, physical.height / 2, 0] as Vec3 }]
   }
   const box = boundsMm(def, cache)
-  def.terminals = terminalsFor(tpl.terminals, box)
+  def.terminals = terminalsFor(type, tpl.terminals, box)
   // Proteções importadas chegam ao editor já testáveis: o manípulo original do
   // GLB (malhas `dcsimu_handle_*`) é o próprio atuador, com a charneira medida no CAD.
   if (['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(type)) {

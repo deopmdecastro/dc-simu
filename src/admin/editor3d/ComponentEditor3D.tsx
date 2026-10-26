@@ -1,4 +1,3 @@
-import { isTabletDesktop } from '../../ui/device'
 import { uiConfirm } from '../../ui/dialogs'
 import Select from '../../ui/Select'
 import { HistoryGroup, ViewControls } from '../../ui/toolbarKit'
@@ -6,7 +5,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { bakeGlb, boundsMm, describeChanges, loadGlbAssets, resolveState, runtimeSpec } from '../../catalog/definition'
-import { upgradeBuiltinDraft } from './builtinComponents'
+import { builtinTypeOf, upgradeBuiltinDraft } from './builtinComponents'
+import type { ComponentType } from '../../types'
 import { catalogApi } from '../../catalog/catalogApi'
 import { useCatalogStore } from '../../catalog/registry'
 import ViewCube, { type ViewCubeFace } from '../../components/ViewCube'
@@ -21,7 +21,7 @@ import { MaterialsTab, ObjectTab } from './tabs1'
 import { ControlsTab, DisplaysTab } from './tabsControls'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
-import { IconAlignCenterH, IconArrowLeft, IconBox, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconUngroup, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler } from '../../ui/icons'
+import { IconAlignCenterH, IconArrowLeft, IconBox, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconUngroup, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler, IconSave, IconHelp } from '../../ui/icons'
 import { chooseFace } from './FaceChooser'
 import { useEditorShortcuts } from '../../ui/shortcuts'
 import ShortcutHelp, { type ShortcutHelpExtra } from '../../ui/ShortcutHelp'
@@ -137,7 +137,7 @@ function ToolRibbon() {
     {RIBBON.map((item) => {
       const Icon = item.icon
       const disabled = !editing && !item.simulate
-      return <button key={item.id} className={`dc-tool-btn ${active === item.id ? 'dc-tool-active' : ''}`} disabled={disabled} aria-pressed={active === item.id} onClick={() => setRibbon(item.id)} title={`${item.hint} [${item.key}]`}>
+      return <button key={item.id} className={`dc-tool-btn ${active === item.id ? 'dc-tool-active' : ''}`} disabled={disabled} aria-label={item.label} aria-pressed={active === item.id} onClick={() => setRibbon(item.id)} title={`${item.hint} [${item.key}]`}>
         <Icon size={13} /><span className="hidden lg:inline">{item.label}</span><kbd className="ce-kbd">{item.key}</kbd>
       </button>
     })}
@@ -145,7 +145,7 @@ function ToolRibbon() {
 
   const groupGizmo = editing && <div className="dc-seg" role="group" aria-label="Manipulador" style={active === 'select' ? undefined : { opacity: 0.45 }}>
     {([['translate', 'Mover', 'W', IconMove], ['rotate', 'Rodar', 'E', IconRotate], ['scale', 'Escala', 'R', IconPlus]] as const).map(([id, label, key, Icon]) =>
-      <button key={id} className={`dc-tool-btn ${tool === id ? 'dc-tool-active' : ''}`} disabled={active !== 'select'} aria-pressed={tool === id} onClick={() => set({ tool: id })} title={`${label} [${key}]`}><Icon size={13} /><span className="hidden xl:inline">{label}</span><kbd className="ce-kbd">{key}</kbd></button>)}
+      <button key={id} className={`dc-tool-btn ${tool === id ? 'dc-tool-active' : ''}`} disabled={active !== 'select'} aria-label={label} aria-pressed={tool === id} onClick={() => set({ tool: id })} title={`${label} [${key}]`}><Icon size={13} /><span className="hidden xl:inline">{label}</span><kbd className="ce-kbd">{key}</kbd></button>)}
     <button className="dc-tool-btn" disabled={active !== 'select'} aria-pressed={gizmoSpace === 'world'} onClick={() => set({ gizmoSpace: gizmoSpace === 'local' ? 'world' : 'local' })} title="Eixos do manipulador: locais (da peça) ou globais (do mundo) [X]">{gizmoSpace === 'local' ? 'Local' : 'Global'}</button>
   </div>
 
@@ -164,8 +164,8 @@ function ToolRibbon() {
   </div>
 
   const groupPosition = editing && <div className="dc-seg" role="group" aria-label="Posição">
-    <button className="dc-tool-btn" onClick={dropToFloor} title="Pousar o modelo no chão (base a Y = 0; os bornes acompanham)"><IconGround size={14} /><span className="ce-mobile-label">Pousar</span></button>
-    <button className="dc-tool-btn" onClick={centerOnOrigin} title="Centrar o modelo na origem (X/Z)"><IconAlignCenterH size={14} /><span className="ce-mobile-label">Centrar</span></button>
+    <button className="dc-tool-btn" onClick={dropToFloor} aria-label="Pousar modelo" title="Pousar o modelo no chão (base a Y = 0; os bornes acompanham)"><IconGround size={14} /><span className="ce-mobile-label">Pousar</span></button>
+    <button className="dc-tool-btn" onClick={centerOnOrigin} aria-label="Centrar modelo" title="Centrar o modelo na origem (X/Z)"><IconAlignCenterH size={14} /><span className="ce-mobile-label">Centrar</span></button>
   </div>
 
   const viewGrid = useEditorStore((st) => st.view.grid)
@@ -175,8 +175,8 @@ function ToolRibbon() {
     snap={{ on: snapState.on, toggle: () => set({ snap: { ...snapState, on: !snapState.on } }), title: 'Encaixar à malha (ímã)' }} />
 
   const groupView = <div className="dc-seg" role="group" aria-label="Vista">
-    <button className="dc-tool-btn" onClick={() => useEditorStore.getState().cameraTo('fit')} title="Enquadrar o modelo [F]"><IconFocus size={14} /><span className="ce-mobile-label">Enquadrar</span></button>
-    <button className="dc-tool-btn" disabled={!hasFocus} onClick={() => useEditorStore.getState().cameraTo('fitSel')} title="Enquadrar a seleção (peça, borne ou cabo) [Shift+F]"><span className="hidden xl:inline">Seleção</span><span className="xl:hidden">Sel.</span></button>
+    <button className="dc-tool-btn" onClick={() => useEditorStore.getState().cameraTo('fit')} aria-label="Enquadrar modelo" title="Enquadrar o modelo [F]"><IconFocus size={14} /><span className="ce-mobile-label">Enquadrar</span></button>
+    <button className="dc-tool-btn" disabled={!hasFocus} onClick={() => useEditorStore.getState().cameraTo('fitSel')} aria-label="Enquadrar seleção" title="Enquadrar a seleção (peça, borne ou cabo) [Shift+F]"><span className="hidden xl:inline">Seleção</span><span className="xl:hidden">Sel.</span></button>
   </div>
 
   const groupTerminals = editing && <div className="dc-seg" role="group" aria-label="Bornes">
@@ -256,10 +256,10 @@ function StatusBar() {
 
 /** Ecrã estreito/telemóvel: a barra da vista passa a um menu só. */
 function useCompactView(): boolean {
-  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && !isTabletDesktop() && window.matchMedia('(max-width: 720px), (pointer: coarse) and (max-height: 700px)').matches)
+  const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px), (pointer: coarse) and (max-height: 700px)').matches)
   useEffect(() => {
-    const query = window.matchMedia('(max-width: 720px), (pointer: coarse) and (max-height: 700px)')
-    const update = () => setCompact(!isTabletDesktop() && query.matches)
+    const query = window.matchMedia('(max-width: 1024px), (pointer: coarse) and (max-height: 700px)')
+    const update = () => setCompact(query.matches)
     update()
     query.addEventListener('change', update)
     return () => query.removeEventListener('change', update)
@@ -498,11 +498,10 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
           controls: [{ id: 'builtin-breaker-toggle', name: 'Liga / desliga', kind: 'toggle', partId, axis: [0, 1, 0], travelMm: 0, bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }],
         } }
       }
-      // Multímetro e motor importados antes: acrescenta botões, LCD e a placa
-      // de bornes aos rascunhos que ainda não os têm.
-      if (loaded.draft && /multimeterDm20|motor3ph/.test(origin)) {
-        const type = /multimeterDm20/.test(origin) ? 'multimeterDm20' : 'motor3ph'
-        const upgraded = await upgradeBuiltinDraft(type, loaded.draft)
+      // Atualiza rascunhos integrados antigos, preservando os ajustes manuais.
+      const builtinType = builtinTypeOf(loaded)
+      if (loaded.draft && builtinType) {
+        const upgraded = await upgradeBuiltinDraft(builtinType as ComponentType, loaded.draft)
         if (cancelled) return
         if (upgraded) loaded = { ...loaded, draft: upgraded }
       }
@@ -606,6 +605,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return
       const state = useEditorStore.getState()
       const mod = event.ctrlKey || event.metaKey
       if (mod && event.key.toLowerCase() === 's') { event.preventDefault(); void save(); return }
@@ -625,7 +625,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       if (drafting && key === 'escape') { state.cancelWire(); return }
       if (drafting && key === 'enter') { event.preventDefault(); const problem = state.finishWireFree(); if (problem) setMessage(problem); return }
       if (drafting && (key === 'backspace' || key === 'delete')) { event.preventDefault(); state.undoWirePoint(); return }
-      if (state.mode !== 'edit') return
+      if (state.mode !== 'edit' || mod) return
+      if (event.altKey && !event.key.startsWith('Arrow')) return
       if (key === 'f2') { event.preventDefault(); window.dispatchEvent(new CustomEvent('ce-rename')) }
       else if (key === 'w') state.set({ tool: 'translate' })
       else if (key === 'e') state.set({ tool: 'rotate' })
@@ -669,6 +670,12 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
     return () => { document.title = previous }
   }, [id, meta.name, location.pathname, navigate])
 
+  useEffect(() => {
+    const openCanvas = () => setMobilePane('canvas')
+    window.addEventListener('ce-open-canvas', openCanvas)
+    return () => window.removeEventListener('ce-open-canvas', openCanvas)
+  }, [])
+
   const dims = useMemo(() => {
     const box = boundsMm(def, glbCache)
     const size = box.getSize(box.min.clone())
@@ -694,11 +701,11 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       </div>
       <div className="ce-spacer" />
       {message && <span className="ce-flash" role="status">{message}</span>}
-      <button className="account-project-action" onClick={() => setHelpOpen(true)} title="Atalhos de teclado (F1)" aria-label="Atalhos de teclado">?</button>
-      <button className="account-project-action" onClick={() => leave()}><IconArrowLeft size={13} />Biblioteca</button>
-      <button className="account-project-action" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)">{saving ? 'A guardar…' : 'Guardar rascunho'}</button>
+      <div className="ce-header-actions"><button className="account-project-action ce-header-help" onClick={() => setHelpOpen(true)} title="Atalhos de teclado (F1)" aria-label="Atalhos de teclado"><IconHelp size={14} /></button>
+      <button className="account-project-action" onClick={() => leave()}><IconArrowLeft size={13} /><span>Biblioteca</span></button>
+      <button className="account-project-action" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)" aria-label="Guardar rascunho"><IconSave size={13} /><span>{saving ? 'A guardar…' : 'Guardar'}</span></button>
       <button className="account-project-action dx-bar-primary" onClick={() => setPublishing(true)}>Publicar…</button>
-      {account}
+      {account}</div>
     </header>
     <ToolRibbon />
     <nav className="ce-mobile-panes" aria-label="Área do editor">

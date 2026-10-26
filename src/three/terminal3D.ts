@@ -3,6 +3,7 @@ import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import { orientationRadians } from './componentOrientation'
 import * as THREE from 'three'
 import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../electrical/realInterfaces'
+import { editorTerminalRadiusMm } from '../catalog/terminalGeometry'
 
 export type Terminal3DFace = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom'
 export type Terminal3DPosition = { x: number; y: number; z: number }
@@ -10,6 +11,10 @@ export type Terminal3DPosition = { x: number; y: number; z: number }
 /** O marcador cabe no diâmetro e na profundidade do encaixe físico.
  * `terminal.diameter` pertence ao esquema 2D e não é uma medida em mm. */
 export function terminalMarkerRadius(component: ElectricalComponent, terminal: Terminal): number {
+  if (terminal.socket3D) {
+    const socket = terminal.socket3D
+    return editorTerminalRadiusMm({ diameterMm: socket.diameterMm, socketDepthMm: socket.depthMm, socketInsetMm: socket.insetMm }) * PANEL_UNITS_PER_MM
+  }
   const spot = REAL_TERMINALS[component.type]?.find((spot) => spot.label === terminal.label)
   if (!spot) return .014
   return Math.max(.001, Math.min((spot.diameterMm ?? 4) * .003, (spot.holeDepthMm ?? 5) * .002, terminalInsetMm(spot) * .0065))
@@ -141,7 +146,10 @@ export function terminalNormalWorld3D(component: ElectricalComponent, terminal: 
   const expected = spot ? realTerminalPosition(component.type, spot) : null
   const atMeasuredSocket = expected && Math.hypot(p.x - expected.x, p.y - expected.y, p.z - expected.z) <= 1e-3
   const normals = { front: [0, 0, 1], back: [0, 0, -1], left: [-1, 0, 0], right: [1, 0, 0], top: [0, 1, 0], bottom: [0, -1, 0] } as const
-  const normal = atMeasuredSocket && spot ? new THREE.Vector3(...normals[spot.face]) : faces.sort((a, b) => a[0] - b[0])[0][1].clone()
+  const socket = terminal.socket3D
+  const atCatalogSocket = socket && Math.hypot(p.x - socket.position.x, p.y - socket.position.y, p.z - socket.position.z) <= 1e-3
+  const normal = atCatalogSocket ? new THREE.Vector3(...socket.normal).normalize()
+    : atMeasuredSocket && spot ? new THREE.Vector3(...normals[spot.face]) : faces.sort((a, b) => a[0] - b[0])[0][1].clone()
   const [x, y, z] = orientationRadians(component.viewOrientation)
   normal.applyEuler(new THREE.Euler(x, y, z, 'XYZ'))
   if (component.mirrored) normal.x *= -1
