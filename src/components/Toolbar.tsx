@@ -377,8 +377,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button type="button" className={`dc-tool-btn grafcet-sim-tool dc-sim-tool !gap-1.5 ${simPanelOn ? 'is-on' : ''}`} aria-pressed={simPanelOn} aria-label="Simulação" data-sim-toggle={mode}
               onClick={() => useSimUi.getState().toggleSimPanel(mode)}
               title={mode === 'ladder'
-                ? (simPanelOn ? 'Esconder a simulação (E/S, sinais do PLC, memórias, compilação)' : 'Mostrar a simulação: E/S virtuais, sinais do PLC, memórias, temporizadores e compilação')
-                : (simPanelOn ? 'Esconder o painel de simulação' : 'Mostrar o painel de simulação: sinais do PLC, E/S virtuais e GRAFCET ativo')}>
+                ? (simPanelOn ? 'Fechar a simulação (E/S, sinais do PLC, memórias, compilação)' : 'Abrir a simulação: pode acionar entradas e dispositivos; Run inicia a execução contínua')
+                : (simPanelOn ? 'Fechar o modo de simulação' : 'Simular: acionar dispositivos e entradas; Run inicia a execução contínua')}>
               <IconPlay size={12} /><span>Simulação</span>
             </button>
             {mode === 'ladder' && (

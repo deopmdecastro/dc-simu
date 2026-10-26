@@ -39,7 +39,7 @@ export default function PlcSignalPanel({ plcId, compact = false }: { plcId: stri
   const hasSignals = Object.values(sim.inputs).some(Boolean)
 
   return <section className={`vio-panel plc-sim ${compact ? 'is-compact' : ''} ${stopped ? 'is-stopped' : ''}`} aria-label={`Simulador de sinais de ${plc.ref}`} data-plc-sim={plc.id}>
-    {stopped && <p className="vio-note is-info" role="status"><b>Simulador parado (STOP).</b> Prima <b>Run</b> para os sinais atuarem no programa.</p>}
+    {stopped && <p className="vio-note is-info" role="status"><b>STOP.</b> Pode acionar os sinais: cada alteração calcula um ciclo. Use <b>Run</b> para execução contínua.</p>}
     {!powered && <p className="vio-note" role="status"><b>{plc.ref} sem alimentação</b> (L+/M): o programa lê os sinais, mas as saídas ficam a 0 até ligar a alimentação.</p>}
     <div className="vio-cols">
       <div className="vio-col">
@@ -54,7 +54,7 @@ export default function PlcSignalPanel({ plcId, compact = false }: { plcId: stri
             const mode: VirtualInputMode = sim.modes[row.address] ?? 'latch'
             const wired = row.connectionState === 'connected'
             return <div key={row.address} className="vio-cell plc-sim-cell" data-plc-input={row.address}>
-              <VirtualInputButton plcId={plc.id} address={row.address} className="vio-switch" disabled={stopped}
+              <VirtualInputButton plcId={plc.id} address={row.address} className="vio-switch"
                 title={`${row.address}${row.name ? ` · ${row.name}` : ''}`}>
                 <i /><b>{row.address}</b><small className={row.name ? 'vio-name' : 'vio-name-empty'}>{row.name || '—'}</small>
               </VirtualInputButton>

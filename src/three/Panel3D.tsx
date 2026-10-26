@@ -6,6 +6,7 @@ import { OrbitControls, Text, TransformControls, Edges, useGLTF } from '@react-t
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
+import { useSimUi } from '../ui/simUi'
 import { TbButton } from '../ui/toolbarKit'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp, { type ShortcutHelpExtra } from '../ui/ShortcutHelp'
@@ -1927,7 +1928,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
   const [operate, setOperate] = useState(false)
-  const interactive = operate && tool === 'select' && !viewOrientationEditor
+  const simulationMode = useSimUi((s) => s.schematic)
+  const interactive = (operate || simulationMode) && tool === 'select' && !viewOrientationEditor
   const probeA = useSimStore((state) => state.probeA)
   const probeResult = useSimStore((state) => state.probeResult)
   const [reconnect, setReconnect] = useState<{ wireId: string; end: 'from' | 'to' } | null>(null)
@@ -2539,10 +2541,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         />
       <div className="panel3d-hud-top">
       <div className="panel3d-tool-context" role="region" aria-label="Contexto da ferramenta 3D">
-        <span><strong>{tool === 'wire' ? 'Cabo' : tool === 'erase' ? 'Apagar' : tool === 'probe' ? 'Sonda' : tool === 'pan' ? 'Mover vista' : interactive ? 'Manobrar' : 'Selecionar'}</strong>
-          <small>{tool === 'erase' ? 'Clique num componente ou cabo · Ctrl+Z desfaz' : tool === 'probe' ? (probeA ? 'Escolha o segundo borne' : 'Escolha o primeiro borne') : tool === 'wire' ? 'Escolha bornes para ligar · Esc termina' : tool === 'pan' ? 'Arraste para deslocar a vista' : interactive ? 'Clique nos controlos para os acionar' : selectedIds.length ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''} · F enquadra` : 'Clique para selecionar · arraste para mover'}</small>
+        <span><strong>{tool === 'wire' ? 'Cabo' : tool === 'erase' ? 'Apagar' : tool === 'probe' ? 'Sonda' : tool === 'pan' ? 'Mover vista' : simulationMode && interactive ? 'Simulação' : interactive ? 'Manobrar' : 'Selecionar'}</strong>
+          <small>{tool === 'erase' ? 'Clique num componente ou cabo · Ctrl+Z desfaz' : tool === 'probe' ? (probeA ? 'Escolha o segundo borne' : 'Escolha o primeiro borne') : tool === 'wire' ? 'Escolha bornes para ligar · Esc termina' : tool === 'pan' ? 'Arraste para deslocar a vista' : simulationMode && interactive ? 'Clique nos dispositivos para os acionar · sair pela barra Simulação' : interactive ? 'Clique nos controlos para os acionar' : selectedIds.length ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''} · F enquadra` : 'Clique para selecionar · arraste para mover'}</small>
         </span>
-        {tool === 'select' && !viewOrientationEditor && <TbButton pressed={operate} onClick={() => setOperate((value) => !value)} title="Alternar entre seleção e manobra dos controlos" aria-label="Manobrar controlos">Manobrar</TbButton>}
+        {tool === 'select' && !viewOrientationEditor && !simulationMode && <TbButton pressed={operate} onClick={() => setOperate((value) => !value)} title="Alternar entre seleção e manobra dos controlos" aria-label="Manobrar controlos">Manobrar</TbButton>}
         {selectedTarget && <TbButton onClick={focusSelection} title="Enquadrar seleção [F]" aria-label="Enquadrar seleção"><IconFocus size={13} /></TbButton>}
         {tool === 'probe' && probeResult && <small className="panel3d-probe-result" role="status">{probeResult.note}{probeResult.b ? ` · ${probeResult.voltage}` : ''}</small>}
       </div>
