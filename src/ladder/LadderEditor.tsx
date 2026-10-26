@@ -905,7 +905,7 @@ function NetworkStatus({ table, prefix, label, plc, wires, components, tags, run
       <span className="font-mono text-brand-700">{address}</span><span className="truncate text-slate-500">{tags.find((t) => t.address === address)?.name || 'Memória'}</span>
       <span className={`ladder-status-dot ${table[address] ? 'is-on' : ''}`} />
     </div>)}
-    {!(prefix === 'M' ? memory.length : physical.length) && <span className="text-[10px] text-slate-400">{prefix === 'M' ? 'Nenhuma memória usada neste programa — adiciona um contacto/bobina M0.0 (ou SET/RESET M) para a veres aqui em tempo real.' : 'Este PLC não tem bornes desta categoria.'}</span>}
+    {!(prefix === 'M' ? memory.length : physical.length) && <span className="ladder-status-empty">{prefix === 'M' ? 'Nenhuma memória usada neste programa — adiciona um contacto/bobina M0.0 (ou SET/RESET M) para a veres aqui em tempo real.' : 'Este PLC não tem bornes desta categoria.'}</span>}
   </div>
 }
 
@@ -2042,7 +2042,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
                     {compileSummary(compileResult)} · {new Date(compileResult.compiledAt).toLocaleTimeString('pt-PT')}
                     {compileStale && <em> · programa alterado desde a última compilação</em>}
                   </span>
-                  : <span className="ladder-status-empty">Ainda não compilou este programa. A compilação verifica o Main, os FC e os blocos de programa, as chamadas CALL e as referências cruzadas.</span>}
+                  : <span className="ladder-status-empty is-inline">Ainda não compilou este programa. A compilação verifica o Main, os FC e os blocos de programa, as chamadas CALL e as referências cruzadas.</span>}
                 <label className="ladder-compile-gate" title="Com esta opção, o botão RUN recusa arrancar enquanto houver erros de compilação">
                   <input type="checkbox" checked={compileGate} onChange={(event) => { setCompileGate(event.target.checked); try { localStorage.setItem(COMPILE_GATE_KEY, event.target.checked ? '1' : '0') } catch { /* navegação privada */ } }} />
                   Bloquear RUN com erros
