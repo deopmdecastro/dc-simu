@@ -11,9 +11,9 @@
  * completa: caches do Workbox + service workers + recarregar sem cache.
  */
 
-const FLAG = 'dcsimu:stale-build-recovered'
+const FLAG = `dcsimu:stale-build-recovered:${__APP_BUILD_ID__}`
 
-const STALE = /(Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS|ChunkLoadError|'text\/html' is not a valid JavaScript MIME type)/i
+const STALE = /(Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS|ChunkLoadError|bad-precaching-response|'text\/html' is not a valid JavaScript MIME type)/i
 
 let running = false
 
@@ -49,10 +49,17 @@ export function installStaleBuildRecovery(): void {
   if (typeof window === 'undefined') return
   const check = (message: unknown) => { const text = String(message ?? ''); if (STALE.test(text)) void recoverStaleBuild(text) }
   // Vite avisa quando um chunk pré-carregado falha.
-  window.addEventListener('vite:preloadError', (event) => { check((event as unknown as { payload?: { message?: string } }).payload?.message ?? 'Failed to fetch dynamically imported module') })
+  window.addEventListener('vite:preloadError', (event) => {
+    const viteEvent = event as CustomEvent<{ message?: string; payload?: { message?: string } }> & { payload?: { message?: string } }
+    const message = viteEvent.detail?.message ?? viteEvent.detail?.payload?.message ?? viteEvent.payload?.message ?? 'Failed to fetch dynamically imported module'
+    if (STALE.test(String(message))) event.preventDefault()
+    check(message)
+  })
   window.addEventListener('error', (event) => { check(event.message || (event.error as Error | undefined)?.message) })
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason as { message?: string } | string | undefined
-    check(typeof reason === 'string' ? reason : reason?.message)
+    const message = typeof reason === 'string' ? reason : reason?.message
+    if (STALE.test(String(message ?? ''))) event.preventDefault()
+    check(message)
   })
 }

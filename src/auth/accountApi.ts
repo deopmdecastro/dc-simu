@@ -222,6 +222,7 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
         mode = 'supabase'
         return result as T
       } catch (err) {
+        if (__APP_STATIC_DEPLOY__) throw err
         // Tenta fallback para o servidor SQLite se existir
         try {
           const serverResponse = await serverApi<{ user: User }>(url, verb, body)
@@ -231,6 +232,11 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
           throw err
         }
       }
+    }
+
+    if (__APP_STATIC_DEPLOY__) {
+      mode = 'local'
+      return localApi<T>(url, verb, body)
     }
 
     try {
@@ -253,6 +259,11 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
         mode = 'supabase'
         return { user: sbUser } as T
       }
+    }
+
+    if (__APP_STATIC_DEPLOY__) {
+      mode = 'local'
+      return localApi<T>(url, verb)
     }
 
     try {

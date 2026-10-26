@@ -141,6 +141,8 @@ export async function testSupabaseConnection(override?: SupabaseConfig): Promise
 /** Tenta auto-descobrir as credenciais do Supabase a partir do servidor caso configuradas no ambiente. */
 export async function initSupabaseFromBackend(): Promise<boolean> {
   if (isSupabaseConfigured()) return true
+  // A publicação Vercel é estática; aí não existe endpoint de descoberta.
+  if (__APP_STATIC_DEPLOY__) return false
   try {
     const res = await fetch('/api/supabase/config')
     if (res.ok) {

@@ -41,6 +41,8 @@ export default defineConfig({
   define: {
     __APP_BUILD_ID__: JSON.stringify(buildId),
     __APP_BUILT_AT__: JSON.stringify(builtAt),
+    // A publicação Vercel é estática e não disponibiliza as rotas /api.
+    __APP_STATIC_DEPLOY__: JSON.stringify(process.env.VERCEL === '1'),
   },
   plugins: [
     react(),
