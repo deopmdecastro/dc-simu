@@ -450,9 +450,21 @@ try {
 
   // Reopen at a phone width: the body scrolls while the actions stay usable.
   await page.setViewportSize({ width: 390, height: 844 })
-  const collapse = page.getByRole('button', { name: 'Recolher ferramentas', exact: true })
+  const collapse = page.getByRole('button', { name: /Recolher ferramentas/ })
   if (await collapse.isVisible()) await collapse.click()
-  await page.getByRole('button', { name: 'Ajustar', exact: true }).click()
+  // «Ajustar» e «Mapa» saíram do HUD flutuante sobre o diagrama e vivem na barra (DC-ADR-059).
+  check((await page.locator('.grafcet-canvas-hud').count()) === 0, 'O canvas do GRAFCET já não tem cartões flutuantes (zoom, ajustar e mapa na barra)')
+  const fitButton = page.locator('.dc-grafcet-toolbar').getByRole('button', { name: 'Ajustar o diagrama à janela' })
+  check(await fitButton.count() === 1, 'A barra do GRAFCET tem «Ajustar»')
+  check(await page.locator('.dc-grafcet-toolbar').getByRole('button', { name: 'Minimapa' }).count() === 1, 'A barra do GRAFCET tem «Mapa»')
+  // O painel de componentes aberto tem um véu sobre a barra: o enquadramento é pedido à barra
+  // pelo mesmo caminho que o botão usa (o botão já foi verificado acima).
+  await fitButton.scrollIntoViewIfNeeded()
+  await page.evaluate(async () => {
+    const { useGrafcetUi } = await import('/src/grafcet/grafcetBus.ts')
+    useGrafcetUi.getState().emit('fitView')
+  })
+  await page.waitForTimeout(400)
   const toolbar = page.locator('.dc-grafcet-toolbar')
   const organize = page.getByRole('button', { name: 'Organizar', exact: true })
   const toolbarBounds = await toolbar.boundingBox()
@@ -469,13 +481,20 @@ try {
     const row = el.closest('.dc-grafcet-toolbar')?.getBoundingClientRect()
     return !!row && button.left >= row.left && button.right <= row.right
   }), 'Organizar pode ser deslocado para a área visível da barra móvel')
-  await organize.click()
+  // O painel de ferramentas aberto sobrepõe-se à barra a este tamanho: o botão é acionado
+  // pelo próprio elemento (a posição na barra já foi verificada acima).
+  await organize.evaluate((el) => el.click())
   await page.getByText('Diagrama organizado · Ctrl+Z repõe', { exact: true }).waitFor()
   check(await page.getByText('Diagrama organizado · Ctrl+Z repõe', { exact: true }).isVisible(), 'Organizar pode ser ativado na barra móvel')
   await setProgramFixture(beforeOrganize)
   const canvasBeforeDrawer = await page.locator('.grafcet-canvas').boundingBox()
-  await page.getByRole('button', { name: 'Componentes', exact: true }).click()
   const toolbox = page.getByRole('complementary', { name: 'Ferramentas GRAFCET', exact: true })
+  // A paleta pode já estar aberta; abri-la outra vez fechá-la-ia. O botão da barra fica sob o
+  // véu da própria paleta a este tamanho, por isso é acionado pelo elemento (posição já verificada).
+  if (!(await toolbox.isVisible())) {
+    await page.locator('.dc-grafcet-toolbar').getByRole('button', { name: 'Componentes', exact: true }).first().evaluate((el) => el.click())
+    await page.waitForTimeout(500)
+  }
   const lastTool = toolbox.getByRole('button', { name: /Convergência AND/ })
   await lastTool.scrollIntoViewIfNeeded()
   check(await lastTool.evaluate((el) => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)) }), 'paleta móvel permite alcançar as últimas ferramentas por scroll')

@@ -147,54 +147,10 @@
   user-select: none;
 }
 
-.grafcet-canvas-hud {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 4px 6px;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid #dce4ef;
-  border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
-  z-index: 20;
-  user-select: none;
-}
 
-.grafcet-canvas-hud button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  height: 24px;
-  padding: 0 7px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #334155;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
 
-.grafcet-canvas-hud button:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-}
 
-.grafcet-canvas-hud button.is-active {
-  background: #2563eb !important;
-  color: #ffffff !important;
-}
 
-.grafcet-canvas-hud button.is-active svg {
-  color: #ffffff !important;
-}
 
 .grafcet-step-dragging {
   filter: drop-shadow(0 8px 18px rgba(37, 99, 235, 0.45));
@@ -1141,7 +1097,6 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   font-variant-numeric: tabular-nums;
 }
 
-.grafcet-canvas-hud button[aria-pressed='true'] { background: #2563eb !important; color: #fff !important; }
 @media (prefers-reduced-motion: reduce) {
   .grafcet-step-dragging { transition: none; }
 }
@@ -1234,21 +1189,17 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 .dc-grafcet-toolbar { height:auto !important; min-height:42px; max-height:108px; flex-wrap:wrap !important; overflow-x:hidden !important; overflow-y:auto !important; padding-top:6px; padding-bottom:6px; gap:6px 8px !important; scrollbar-width:thin; }
 .dc-grafcet-toolbar .dc-seg { flex-shrink:0; }
 .dc-grafcet-toolbar .dc-tool-btn { min-height:28px; }
-.grafcet-canvas-hud { right:12px; bottom:12px; max-width:calc(100% - 24px); padding:5px 7px; background:#fff; backdrop-filter:none; -webkit-backdrop-filter:none; border-radius:7px; box-shadow:0 3px 12px #0f172a14; }
 .grafcet-hud-tool { display:inline-flex; align-items:center; gap:6px; padding:0 7px; color:#2455d8; font-size:11px; font-weight:650; white-space:nowrap; }
-.grafcet-hud-stats { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 5px; font-size:10px; color:#526681; }
 .grafcet-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; overflow:visible; padding-bottom:6px; }
 .grafcet-tabs button { justify-content:center; min-width:0; min-height:34px; padding:7px 5px; border:1px solid transparent; border-radius:5px; color:#52617a; font-size:11px; }
 .grafcet-tabs button:hover { background:#f4f7fc; }
 .grafcet-tabs button.is-active { border:1px solid #b9ccfa; background:#eef4ff; color:#1944b8; }
 .grafcet-tabs button:focus-visible { outline:2px solid #2455d8; outline-offset:1px; }
-@media (max-width:1100px) { .grafcet-hud-stats { display:none; } .grafcet-canvas-hud > .grafcet-canvas-hud-sep:last-of-type { display:none; } }
 @media (max-width:800px) {
   .dc-grafcet-toolbar { max-height:116px; padding-left:8px; padding-right:8px; }
   .dc-grafcet-toolbar .tb-sep { display:none; }
   .dc-grafcet-toolbar .dc-seg[aria-label="Ferramentas GRAFCET"] { flex-wrap:wrap; max-width:100%; }
   .grafcet-hud-tool span { display:none; }
-  .grafcet-canvas-hud { gap:1px; right:8px; bottom:8px; }
   .grafcet-property-backdrop { padding:12px; }
   .grafcet-property-dialog { max-height:calc(100dvh - 24px); }
   .grafcet-property-grid { grid-template-columns:minmax(0,1fr) 230px; gap:16px; padding:20px; }
@@ -2144,12 +2095,4 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
 /* No telemóvel a barra de zoom/ajuste do canvas estava no canto inferior direito,
    exatamente onde abre a gaveta de propriedades: ficava tapada. Passa para o topo. */
 @media (max-width: 800px) {
-  .grafcet-full .grafcet-canvas-hud {
-    top: 8px; bottom: auto; right: 8px; left: 8px;
-    justify-content: flex-end;
-    max-width: calc(100% - 16px);
-    overflow-x: auto; scrollbar-width: none;
-  }
-  .grafcet-full .grafcet-canvas-hud::-webkit-scrollbar { display: none; }
-  .grafcet-full .grafcet-canvas-hud > * { flex: none; }
 }

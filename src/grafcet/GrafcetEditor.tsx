@@ -433,6 +433,13 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       /* navegação privada */
     }
   }, [minimapOn])
+  // O canvas já não tem HUD flutuante: o botão «Mapa» e o resumo do diagrama vivem na barra
+  // de ferramentas, que só vê o estado que lhe for espelhado (DC-ADR-059).
+  useEffect(() => { useGrafcetUi.getState().setMinimapOn(minimapOn) }, [minimapOn])
+  useEffect(() => {
+    const total = steps.reduce((acc, step) => acc + actionsOf(step).length, 0) + freeActions.length
+    useGrafcetUi.getState().setStats(`${steps.length} etapas · ${transitions.length} transições · ${total} ações${freeActions.length > 0 ? ` (${freeActions.length} soltas)` : ''}`)
+  }, [steps, transitions, freeActions])
   /** Área de transferência interna do editor (Ctrl+C / Ctrl+V). */
   const clipboardRef = useRef<{ ids: string[]; steps: GrafcetStep[]; transitions: GrafcetTransition[]; pos: Map<string, { x: number; y: number }>; pastes: number } | null>(null)
 
@@ -2852,6 +2859,12 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
         case 'autoLayout':
           organizeLayout()
           break
+        case 'toggleMinimap':
+          setMinimapOn((value) => !value)
+          break
+        case 'fitView':
+          resetView()
+          break
       }
     })
     return () => {
@@ -4950,62 +4963,6 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
             />
           )}
 
-          {/* HUD flutuante de navegação estilo grafcet.io */}
-          {full && steps.length > 0 && (
-            <div className="grafcet-canvas-hud" role="toolbar" aria-label="Navegação e zoom da tela">
-              <span className="grafcet-hud-tool" title={activeTool === 'connect' ? 'Relacione saídas e destinos; Escape cancela a ligação.' : activeTool === 'pan' || isSpacePan ? 'Arraste para deslocar a vista.' : 'Clique seleciona; duplo clique abre propriedades; arrasto no vazio seleciona por área.'}>
-                {activeTool === 'connect' ? <IconWire size={13} /> : activeTool === 'pan' || isSpacePan ? <IconHand size={13} /> : <IconCursor size={13} />}
-                <span>{activeTool === 'connect' ? (wireDraft ? 'Escolha o destino' : 'Ligar · escolha a saída') : activeTool === 'pan' || isSpacePan ? 'Arrastar vista' : 'Selecionar'}</span>
-              </span>
-              <span className="grafcet-canvas-hud-sep" />
-              <button
-                type="button"
-                onClick={() => zoomAt(scale / 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}
-                title="Diminuir zoom (Roda do rato / -)"
-                aria-label="Diminuir zoom"
-              >
-                <IconZoomOut size={13} />
-              </button>
-              <button
-                type="button"
-                className="grafcet-canvas-hud-pct"
-                onClick={resetView}
-                title="Ajustar escala (Ctrl+0)"
-                aria-label="Zoom automático"
-              >
-                <IconReset size={12} /><span>{Math.round(scale * 100)}%</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => zoomAt(scale * 1.2, { x: viewport.width / 2, y: viewport.height / 2 })}
-                title="Aumentar zoom (Roda do rato / +)"
-                aria-label="Aumentar zoom"
-              >
-                <IconZoomIn size={13} />
-              </button>
-              <span className="grafcet-canvas-hud-sep" />
-              <button
-                type="button"
-                onClick={resetView}
-                title="Ajustar diagrama à janela (Ctrl+0 / Duplo clique no fundo)"
-              >
-                <IconFocus size={12} /><span>Ajustar</span>
-              </button>
-              <button
-                type="button"
-                className={minimapOn ? 'is-active' : ''}
-                onClick={() => setMinimapOn((value) => !value)}
-                title="Mostrar/ocultar o minimapa"
-                aria-pressed={minimapOn}
-              >
-                <IconGrid size={12} /><span>Mapa</span>
-              </button>
-              <span className="grafcet-canvas-hud-sep" />
-              <span className="grafcet-hud-stats">
-                {steps.length} etapas · {transitions.length} transições · {steps.reduce((acc, s) => acc + actionsOf(s).length, 0) + freeActions.length} ações{freeActions.length > 0 ? ` (${freeActions.length} soltas)` : ''}{groupIds.length >= 2 ? ` · ${groupIds.length} selecionadas` : ''}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* PAINEL DE PROPRIEDADES À DIREITA (Estrutura e Abas Clássicas: Etapas, Transições, Simulador, Diagnóstico) */}

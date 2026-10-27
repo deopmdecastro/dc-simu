@@ -12,7 +12,7 @@ import { useWireActionSlot } from '../ui/wireActionSlot'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp, { type ShortcutHelpExtra } from '../ui/ShortcutHelp'
 import { SCHEMATIC_TOOL_SHORTCUTS, VIEW_SHORTCUTS } from '../ui/shortcutLists'
-import { useShortcutsRequest } from '../ui/simUi'
+import { useCanvasAction, useShortcutsRequest, useSimUi } from '../ui/simUi'
 import { ContextLossGuard, ContextLossNotice } from './ContextLossGuard'
 import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
 import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
@@ -28,7 +28,6 @@ import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
 import { PANEL_UNITS_PER_PX, componentPanelXY, dropOnSchematic, panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalLocal3D, terminalMarkerRadius, terminalPositionFromLocal3D, terminalWorld3D } from './terminal3D'
-import ComponentViewEditor from '../components/ComponentViewEditor'
 import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } from '../components/ViewCube'
 import { floorGridVisible, wireEnergyEffectVisible } from './panel3DEditing'
 import { registerCoverCapture } from './coverCapture'
@@ -2040,7 +2039,6 @@ function PlacementPlane({ onPlace, step, size = 80 }: { onPlace: (x: number, y: 
 export default function Panel3D({ initialCamera = null, onInitialCameraUsed, frontEdit = false }: { initialCamera?: ViewCubeRequest | null; onInitialCameraUsed?: () => void; /** Edição frontal: mesma cena 3D, vista frontal por prioridade e grelha por pontos do Esquema. */ frontEdit?: boolean } = {}) {
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
   /** Telemóvel: a explicação da ferramenta fica a um toque (o cartão ocupava um quarto do ecrã). */
-  const [hintOpen, setHintOpen] = useState(false)
   useShortcutsRequest('schematic', () => setShortcutHelpOpen(true))
   const [glLost, setGlLost] = useState(false)
   const gridSettings = useSimStore((s) => s.grid)
@@ -2145,23 +2143,25 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     return next
   })
 
-  const [showHints, setShowHints] = useState(() => {
-    try {
-      const saved = localStorage.getItem('dc-simu:showHints')
-      return saved === null ? (isTabletDesktop() || !window.matchMedia('(max-width: 700px), (pointer: coarse)').matches) : saved === '1'
-    } catch {
-      return true
-    }
+  /* As dicas e o enquadramento vivem na barra de ferramentas: o canvas não tem cartões
+   * flutuantes (DC-ADR-059). Este componente publica a dica da ferramenta ativa (a barra
+   * mostra-a) e executa os pedidos de enquadramento que ela envia. */
+  const setCanvasHint = useSimUi((state) => state.setCanvasHint)
+  const canvasHint = useMemo(() => {
+    const base = tool === 'wire' ? 'Cabo: clique nos bornes para ligar · Esc termina'
+      : tool === 'erase' ? 'Apagar: clique num componente ou cabo · Ctrl+Z desfaz'
+      : tool === 'probe' ? (probeA ? 'Sonda: escolha o segundo borne' : 'Sonda: escolha o primeiro borne')
+      : tool === 'pan' ? 'Mover vista: arraste o desenho'
+      : interactive ? 'Simulação: clique nos dispositivos para os acionar'
+      : selectedIds.length ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''} · F enquadra`
+      : 'Selecionar: clique para escolher · arraste para mover'
+    return probeResult ? `${base} · ${probeResult.note}${probeResult.b ? ` · ${probeResult.voltage}` : ''}` : base
+  }, [tool, probeA, probeResult, interactive, selectedIds.length])
+  useEffect(() => { setCanvasHint(canvasHint) }, [canvasHint, setCanvasHint])
+  useCanvasAction((action) => {
+    if (action === 'fit') moveCamera('fit')
+    else if (action === 'focusSelection' && selectedTarget) focusSelection()
   })
-  const toggleHints = () => {
-    setShowHints((v) => {
-      const next = !v
-      try {
-        localStorage.setItem('dc-simu:showHints', next ? '1' : '0')
-      } catch {}
-      return next
-    })
-  }
 
   // ao trocar de ferramenta na barra principal, larga qualquer ligação/edição a meio
   const resetInteraction = () => {
@@ -2671,16 +2671,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           note={cubeNote}
           placement="top"
         />
-      <div className="panel3d-hud-top">
-      <div className={`panel3d-tool-context${hintOpen ? ' is-hint-open' : ''}${tool === 'select' && !hintOpen ? ' is-minimal' : ''}`} role="region" aria-label="Contexto da ferramenta 3D">
-        {(tool !== 'select' || hintOpen) && <span><strong>{tool === 'wire' ? 'Cabo' : tool === 'erase' ? 'Apagar' : tool === 'probe' ? 'Sonda' : tool === 'pan' ? 'Mover vista' : interactive ? 'Simulação' : 'Selecionar'}</strong>
-          <small id="panel3d-tool-hint">{tool === 'erase' ? 'Clique num componente ou cabo · Ctrl+Z desfaz' : tool === 'probe' ? (probeA ? 'Escolha o segundo borne' : 'Escolha o primeiro borne') : tool === 'wire' ? 'Escolha bornes para ligar · Esc termina' : tool === 'pan' ? 'Arraste para deslocar a vista' : interactive ? 'Clique nos dispositivos para os acionar · sair pela barra Simulação' : selectedIds.length ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''} · F enquadra` : 'Clique para selecionar · arraste para mover'}</small>
-        </span>}
-        <TbButton className="dc-tool-btn panel3d-hint-toggle" pressed={hintOpen} onClick={() => setHintOpen((value) => !value)} title="Mostrar/ocultar a explicação da ferramenta" aria-label="Explicação da ferramenta" aria-expanded={hintOpen} aria-controls="panel3d-tool-hint"><IconHelp size={13} /></TbButton>
-        {selectedTarget && <TbButton onClick={focusSelection} title="Enquadrar seleção [F]" aria-label="Enquadrar seleção"><IconFocus size={13} /></TbButton>}
-        {tool === 'probe' && probeResult && <small className="panel3d-probe-result" role="status">{probeResult.note}{probeResult.b ? ` · ${probeResult.voltage}` : ''}</small>}
-      </div>
-      <div className="panel3d-hud-row">
       {selectedWire && wireActionSlot && createPortal(<div className="panel3d-wire-actions-panel" role="region" aria-label="Traçado do cabo no esquema 3D">
         <div className="panel3d-wire-actions-head">
           <strong>{selectedWire.number || 'Cabo'}</strong>
@@ -2703,9 +2693,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         </div>
         <small className="panel3d-wire-actions-hint">{moveAllWire ? 'Arraste o cubo roxo para mover o cabo.' : reconnect ? 'Clique no novo borne da ponta.' : 'Arraste as bolas no esquema 3D para curvar · duplo clique no cabo cria um ponto · cor, secção e terminações acima'}</small>
       </div>, wireActionSlot)}
-      <ComponentViewEditor />
-      </div>
-      </div>
       {!hasComponents && <div className="panel3d-empty"><strong>{frontEdit ? 'O esquema está vazio' : 'O esquema 3D está vazio'}</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
       <ContextLossNotice lost={glLost} />
       <Canvas shadows gl={{ alpha: true }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
@@ -2836,31 +2823,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       </div>
 
       {/* overlay HTML normal (fora do Canvas) — evita que o drei <Html> projete o botão para o centro do ecrã */}
-      <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
-        {showHints && (
-          <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
-            <div>{frontEdit ? 'Navegar: arraste = mover vista · botão direito = orbitar · scroll = zoom' : 'Navegar: arraste = orbitar · scroll = zoom'}</div>
-            <div>Ferramenta Cabo (2): clique nos bornes para ligar · clique num cabo para o editar (duplo clique cria curvas)</div>
-            <div>O fluxo de energia nos cabos aparece apenas em RUN.</div>
-          </div>
-        )}
-        <button
-          onClick={toggleHints}
-          className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
-          title={showHints ? 'Esconder dicas' : 'Mostrar dicas'}
-        >
-          <IconHelp size={13} />
-        </button>
-        <button
-          onClick={() => setShortcutHelpOpen(true)}
-          className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-[11px] font-semibold text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
-          title="Atalhos de teclado (F1)"
-          aria-label="Atalhos de teclado"
-        >
-          <IconKeyboard size={13} />
-        </button>
-        <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor={frontEdit ? 'Esquema 2D' : 'Esquema 3D'} extra={PANEL3D_SHORTCUTS} />
-      </div>
+      <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor={frontEdit ? 'Esquema 2D' : 'Esquema 3D'} extra={PANEL3D_SHORTCUTS} />
     </div>
   )
 }

@@ -1,10 +1,9 @@
 import SimulationDock from '../components/SimulationDock'
-import { useSimUi } from '../ui/simUi'
-import { isTabletDesktop } from '../ui/device'
+import { useCanvasAction, useSimUi } from '../ui/simUi'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
-import { IconCube, IconFocus, IconGrid, IconHelp, IconLock, IconProbe, IconSchematic, IconZoomIn } from '../ui/icons'
+import { IconCube, IconLock, IconProbe, IconSchematic } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
@@ -16,7 +15,6 @@ import { componentOrientationOf, isOriginalComponentOrientation } from '../three
 import { componentTerminalLocal, orientedImageFrame } from './componentTerminalViews'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
 import DinRail2D from './DinRail2D'
-import ComponentViewEditor from '../components/ComponentViewEditor'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
@@ -420,26 +418,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const [railResize, setRailResize] = useState<{ id: string; side: 'left' | 'right' } | null>(null)
   const [terminalViewDrag, setTerminalViewDrag] = useState<{ componentId: string; terminalId: string } | null>(null)
   const [cursorPos, setCursorPos] = useState<Pt | null>(null)
-  const [showHints, setShowHints] = useState(() => {
-    try {
-      const saved = localStorage.getItem('dc-simu:showHints')
-      return saved === null ? (isTabletDesktop() || !window.matchMedia('(max-width: 700px), (pointer: coarse)').matches) : saved === '1'
-    } catch {
-      return true
-    }
-  })
-
-  const toggleHints = () => {
-    setShowHints((v) => {
-      const next = !v
-      try {
-        localStorage.setItem('dc-simu:showHints', next ? '1' : '0')
-      } catch {
-        /* localStorage indisponível (modo privado, etc.) — ignora */
-      }
-      return next
-    })
-  }
+  // As dicas do canvas vivem na barra de ferramentas (DC-ADR-059).
+  const showHints = useSimUi((state) => state.hints)
+  const setCanvasHint = useSimUi((state) => state.setCanvasHint)
 
   const displayComponents = useMemo(() => components.map((component) => viewOrientationEditor?.componentId === component.id ? {
     ...component,
@@ -515,6 +496,16 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     setZoom(nextZoom)
     setPan(svg.clientWidth / 2 - centerX * nextZoom, svg.clientHeight / 2 - centerY * nextZoom)
   }, [components, wires, setPan, setZoom])
+
+  useEffect(() => {
+    setCanvasHint(gridDragEnabled ? 'Arrastar malha: o desenho desloca-se sem mudar a ferramenta'
+      : tool === 'select' ? 'Selecionar: arraste para mover · shift+clique seleciona vários'
+      : tool === 'wire' ? 'Cabo: cada clique prolonga o traço · Esc termina · shift+clique liga em cadeia'
+      : tool === 'probe' ? 'Sonda: escolha os dois bornes para medir'
+      : tool === 'erase' ? 'Apagar: clique no que quer remover · Ctrl+Z desfaz'
+      : 'Mover vista: arraste o desenho')
+  }, [gridDragEnabled, tool, setCanvasHint])
+  useCanvasAction((action) => { if (action === 'fit') fitContent() })
 
   // ---------------------------------------------------------------- teclado
   useEffect(() => {
@@ -1342,7 +1333,6 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         })}
         <button type="button" className="schematic-sheet-add" onClick={() => addSheet()} title="Nova folha do esquema. Ex.: potência numa folha, comando noutra — ligadas por etiquetas de rede.">+ Folha</button>
       </div>
-      <ComponentViewEditor />
       {onOpen3DView && <Schematic2DViewCube tilt={tilt} onTilt={setTilt} placement="top" />}
       {isTilted && <button type="button" className="schematic-tilt-note" onClick={() => setTilt({ yaw: 0, pitch: 0 })} title="Voltar à vista frontal para editar">Vista inclinada · <b>Voltar a Frente</b> para editar</button>}
       <svg
@@ -1557,18 +1547,6 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         </div>
       )}
 
-      {/* Estado do editor num único HUD compacto. Não se sobrepõe ao botão Biblioteca. */}
-      <div className={`schematic-hud ${libraryCollapsed ? 'is-library-collapsed' : ''}`} role="status" aria-label="Estado do editor de esquema">
-        <span className="schematic-hud-tool"><i /> {gridDragEnabled ? 'Arrastar malha' : tool === 'select' ? 'Selecionar' : tool === 'wire' ? 'Desenhar fio' : tool === 'probe' ? 'Sonda' : tool === 'erase' ? 'Apagar' : 'Mover vista'}</span>
-        <span className="schematic-hud-separator" />
-        <span title={`Malha ${grid.enabled ? `${grid.size}px, encaixe ${grid.snap ? 'ativo' : 'inativo'}` : 'desligada'}`}><IconGrid size={11} /> {grid.enabled ? `${grid.size}px${grid.snap ? ' · ímã' : ''}` : 'off'}</span>
-        <span className="schematic-hud-separator" />
-        <button type="button" className="schematic-hud-action" onClick={() => { setZoom(1); setPan(0, 0) }} title="Restaurar zoom e posição"><IconZoomIn size={11} /> {Math.round(zoom * 100)}%</button>
-        <button type="button" className="schematic-hud-action" onClick={fitContent} title="Enquadrar todos os componentes e fios (Home)"><IconFocus size={11} /> Ajustar</button>
-        <span className="schematic-hud-separator" />
-        <span title="Quantidade de componentes e cabos no projeto">{components.length} comp. · {wires.length} fios</span>
-      </div>
-
       {/* ligação inteligente: cadeia de bornes acumulada por shift+clique */}
       {tool === 'wire' && chain.length > 0 && (
         <div className="absolute left-1/2 -translate-x-1/2 top-2 flex items-center gap-2 text-[11px] rounded-md border border-lime-500 bg-white px-3 py-1.5 text-ink-900 shadow-md">
@@ -1608,42 +1586,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         </div>
       )}
 
-      {tool === 'wire' && !gridDragEnabled && <div className="absolute right-3 top-3 z-10 dc-wire-guide">
-        <strong>Desenhar fio</strong><span>{wireFrom || freeStart ? 'Clique para continuar a desenhar; Esc termina. Clique num borne para ligar a ponta.' : 'Clique num borne ou no espaço vazio para começar.'}</span>
-        <small>Cada clique prolonga o cabo rígido · bornes ligam a ponta · Esc termina o desenho.</small>
-
-      </div>}
-      <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
-        {showHints && (
-          <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
-            <div>arraste = mover · shift+clique = multi-seleção</div>
-            <div>biblioteca: clique ou arraste → pré-visualização real → solte para posicionar</div>
-            <div>clique no cabo = editar (cor, condutor, terminal) · duplo clique = ponto de curva</div>
-            <div>duplo clique num ponto de curva = remover · duplo no borne = alternar</div>
-            <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>
-            <div>ferramenta Cabo: clique prolonga · Esc termina e conserva o traçado</div>
-            <div>rígido e flexível têm o mesmo percurso ortogonal · arraste os pontos para ajustar</div>
-            <div>Ctrl+] avança · Ctrl+[ recua · Ctrl+Shift+]/[ frente/trás</div>
-            <div>1–5 ferramentas · Home ajusta a vista · R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>
-          </div>
-        )}
-        <button
-          onClick={toggleHints}
-          className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
-          title={showHints ? 'Esconder dicas' : 'Mostrar dicas'}
-        >
-          <IconHelp size={13} />
-        </button>
-        <button
-          onClick={() => setShortcutHelpOpen(true)}
-          className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-[11px] font-semibold text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
-          title="Atalhos de teclado (F1)"
-          aria-label="Atalhos de teclado"
-        >
-          ?
-        </button>
-        <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor="Esquema" />
-      </div>
+      <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor="Esquema" />
     </div>
   )
 }

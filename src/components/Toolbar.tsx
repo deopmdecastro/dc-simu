@@ -1,6 +1,6 @@
 import { uiConfirm } from '../ui/dialogs'
 import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, type ViewControlsProps } from '../ui/toolbarKit'
-import { requestShortcuts, useSimUi } from '../ui/simUi'
+import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { VIEW_SHORTCUTS } from '../ui/shortcutLists'
 import Select from '../ui/Select'
@@ -160,6 +160,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const grafcetGrid = useGrafcetUi((state) => state.gridOn)
   const grafcetSnap = useGrafcetUi((state) => state.snapOn)
   const grafcetPalette = useGrafcetUi((state) => state.paletteOpen)
+  const grafcetMinimap = useGrafcetUi((state) => state.minimapOn)
+  const grafcetStats = useGrafcetUi((state) => state.stats)
   const grafcetSimVisible = useGrafcetUi((state) => state.simVisible)
   const ladderSync = useGrafcetUi((state) => state.ladderSync)
   const grafcetAutoSync = useGrafcetUi((state) => state.autoSync)
@@ -243,7 +245,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       grid: { on: grid.enabled, toggle: () => setGrid({ enabled: !grid.enabled }) },
       snap: { on: grid.snap, toggle: () => setGrid({ snap: !grid.snap }) },
       step: { value: grid.size, options: [5, 10, 20, 25, 50], onChange: (size) => setGrid({ size }) },
-      zoom: { percent: Math.round(zoom * 100), onOut: () => setZoom(zoom * 0.9), onIn: () => setZoom(zoom * 1.1), onReset: () => { setZoom(1); useSimStore.getState().setPan(0, 0) } },
+      zoom: {
+        percent: Math.round(zoom * 100), onOut: () => setZoom(zoom * 0.9), onIn: () => setZoom(zoom * 1.1), onReset: () => { setZoom(1); useSimStore.getState().setPan(0, 0) },
+        onFit: () => requestCanvasAction('fit'), fitTitle: 'Enquadrar tudo o que está no canvas (Home)',
+      },
     } : mode === 'ladder' ? {
       grid: { on: grid.enabled, toggle: () => setGrid({ enabled: !grid.enabled }), title: 'Mostrar/ocultar malha (as networks usam sempre 20px)' },
       zoom: {
@@ -264,6 +269,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     } : null
   const isCanvas = mode === 'schematic'
   const sel = selectedComponentIds.length
+  // Ações do componente selecionado: antes eram botões flutuantes sobre o canvas (DC-ADR-059).
+  const singleSelection = useSimStore((state) => (state.selectedComponentIds.length === 1 ? state.components.find((c) => c.id === state.selectedComponentIds[0]) : undefined))
+  const hintsOn = useSimUi((state) => state.hints)
+  const canvasHint = useSimUi((state) => state.canvasHint)
 
   return (
     <div className="shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20">
@@ -708,6 +717,41 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             </>
           )}
 
+          {/* componente selecionado: editar modelo e bornes (antes: cartões sobre o canvas) */}
+          {isCanvas && singleSelection && (
+            <>
+              <span className="tb-sep" />
+              <div className="dc-seg" role="group" aria-label={`Editar ${singleSelection.ref}`}>
+                <button type="button" className="dc-tool-btn !gap-1.5" onClick={() => useSimStore.getState().openViewOrientationEditor(singleSelection.id)}
+                  title={`Editar o modelo 3D de ${singleSelection.ref}`} aria-label={`Editar componente 3D ${singleSelection.ref}`}>
+                  <IconCube size={13} /><span className="hidden xl:inline">Componente</span>
+                </button>
+                <button type="button" className="dc-tool-btn !gap-1.5" onClick={() => useSimStore.getState().openViewOrientationEditor(singleSelection.id, 'terminals')}
+                  title={`${singleSelection.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'} de ${singleSelection.ref}`} aria-label={`${singleSelection.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'} de ${singleSelection.ref}`}>
+                  <IconProbe size={13} /><span className="hidden xl:inline">Bornes</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* dicas da ferramenta ativa: faixa da barra, não um cartão sobre o desenho */}
+          {isCanvas && (
+            <>
+              <span className="tb-sep" />
+              <button type="button" className={`dc-tool-btn !px-2 ${hintsOn ? 'dc-tool-active' : ''}`} aria-pressed={hintsOn}
+                onClick={() => useSimUi.getState().toggleHints()} title={hintsOn ? 'Esconder as dicas do canvas' : 'Mostrar as dicas do canvas'} aria-label="Dicas do canvas">
+                <IconHelp size={13} />
+              </button>
+              {hintsOn && canvasHint && <span className="tb-hint" role="status">{canvasHint}</span>}
+            </>
+          )}
+
+          {isCanvas && sel > 0 && (
+            <button type="button" className="dc-btn" onClick={() => requestCanvasAction('focusSelection')} title="Enquadrar a vista na seleção (F)" aria-label="Enquadrar a vista na seleção">
+              <IconFocus size={13} /> <span className="hidden lg:inline">Enquadrar</span>
+            </button>
+          )}
+
           <div className="flex-1 min-w-[8px]" />
 
           {/* vista GRAFCET: validação, zoom e atalhos */}
@@ -725,6 +769,23 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   ? <><IconWarning size={11} />{grafcetIssues.length} aviso{grafcetIssues.length === 1 ? '' : 's'}</>
                   : <><IconCheck size={11} className="ui-ck" />Validado</>}
               </button>
+
+              <span className="tb-sep" />
+
+            {/* Enquadrar e minimapa: antes eram um HUD flutuante sobre o diagrama (DC-ADR-059) */}
+            <div className="dc-seg" role="group" aria-label="Navegação do diagrama">
+              <button type="button" className="dc-tool-btn !gap-1.5" onClick={() => useGrafcetUi.getState().emit('fitView')}
+                title="Ajustar o diagrama à janela (Ctrl+0 / duplo clique no fundo)" aria-label="Ajustar o diagrama à janela">
+                <IconFocus size={13} /><span className="hidden xl:inline">Ajustar</span>
+              </button>
+              <button type="button" className={`dc-tool-btn !gap-1.5 ${grafcetMinimap ? 'dc-tool-active' : ''}`} aria-pressed={grafcetMinimap}
+                onClick={() => useGrafcetUi.getState().emit('toggleMinimap')}
+                title="Mostrar/ocultar o minimapa (canto inferior esquerdo)" aria-label="Minimapa">
+                <IconGrid size={13} /><span className="hidden xl:inline">Mapa</span>
+              </button>
+            </div>
+
+              {grafcetStats && <span className="tb-hint hidden 2xl:inline" role="status">{grafcetStats}</span>}
 
               <span className="tb-sep" />
 

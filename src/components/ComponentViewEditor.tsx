@@ -11,7 +11,7 @@ import { getComponentModelSpec, hasComponent3DVisual } from '../three/modelPaths
 import { component3DDimensions } from '../three/terminal3D'
 import TerminalFaceEditor from './TerminalFaceEditor'
 import { ViewCubeDial, orientationFacingFace, type ViewCubeCorner } from './ViewCube'
-import { IconCube, IconEye, IconProbe, IconRotate, IconSave } from '../ui/icons'
+import { IconCube, IconEye, IconRotate, IconSave } from '../ui/icons'
 import type { Component3DRenderMode, ComponentViewOrientation, ElectricalComponent } from '../types'
 import { componentEditorChangeLabels, componentEditorSnapshotEquals, componentEditorSnapshotOf, componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 
@@ -198,21 +198,6 @@ function ComponentVersionsEditor({
       <p>Ao <strong>Aplicar</strong>, a revisão é guardada no componente. Use <strong>Guardar projeto</strong> para que os utilizadores com acesso recebam os novos dados; a atualização PWA continua automática.</p>
       <button type="button" onClick={exportDefinition}>Exportar definição JSON</button>
     </section>
-  </div>
-}
-
-/** Botões de entrada (na barra da vista). O editor em si vive no painel dedicado. */
-export default function ComponentViewEditor() {
-  const components = useSimStore((state) => state.components)
-  const selectedIds = useSimStore((state) => state.selectedComponentIds)
-  const editor = useSimStore((state) => state.viewOrientationEditor)
-  const running = useSimStore((state) => state.sim.runState === 'running')
-  const open = useSimStore((state) => state.openViewOrientationEditor)
-  const selected = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
-  if (editor || !selected || running) return null
-  return <div className="component-view-command">
-    <button type="button" aria-label={`Editar componente 3D ${selected.ref}`} onClick={() => open(selected.id)} title={`Editar componente 3D ${selected.ref}`}><IconCube size={14} /></button>
-    <button type="button" aria-label={`${selected.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'} de ${selected.ref}`} onClick={() => open(selected.id, 'terminals')} title={`Adicionar, classificar e posicionar os bornes de ${selected.ref}`}><IconProbe size={14} /></button>
   </div>
 }
 
