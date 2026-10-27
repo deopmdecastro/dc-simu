@@ -277,7 +277,10 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const [orientedImages, setOrientedImages] = useState<Record<string, { requestKey: string; image: string }>>({})
   const [modelErrors, setModelErrors] = useState<Record<string, string>>({})
   const viewOrientationEditor = useSimStore((state) => state.viewOrientationEditor)
-  const hasProauto = components.some((c) => c.type === 'powerSupplyProauto24A')
+  const placingType = useSimStore((s) => s.placingType)
+  const dragType = useSimStore((s) => s.dragType)
+  const ghostType = dragType ?? placingType
+  const hasProauto = components.some((c) => c.type === 'powerSupplyProauto24A') || ghostType === 'powerSupplyProauto24A'
   useEffect(() => {
     if (!hasProauto) return
     let active = true
@@ -288,7 +291,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     })
     return () => { active = false }
   }, [hasProauto])
-  const hasWegContactor = components.some((c) => c.type === 'contactorWegCWC09')
+  const hasWegContactor = components.some((c) => c.type === 'contactorWegCWC09') || ghostType === 'contactorWegCWC09'
   useEffect(() => {
     if (!hasWegContactor) return
     let active = true
@@ -299,7 +302,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     })
     return () => { active = false }
   }, [hasWegContactor])
-  const hasLogo = components.some((c) => c.type === 'plcSiemensLogo1224RC')
+  const hasLogo = components.some((c) => c.type === 'plcSiemensLogo1224RC') || ghostType === 'plcSiemensLogo1224RC'
   useEffect(() => {
     if (!hasLogo) return
     let active = true
@@ -311,7 +314,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     return () => { active = false }
   }, [hasLogo])
   const dedicatedImageTypes: ComponentType[] = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09', 'dinRail15x55']
-  const cadTypesKey = [...new Set(components.map((c) => c.type).filter((type) => hasComponent3DVisual(type) && !dedicatedImageTypes.includes(type)))].sort().join('|')
+  const cadTypesKey = [...new Set([...components.map((c) => c.type), ...(ghostType ? [ghostType] : [])].filter((type) => hasComponent3DVisual(type) && !dedicatedImageTypes.includes(type)))].sort().join('|')
   useEffect(() => {
     const types = cadTypesKey ? cadTypesKey.split('|') as ComponentType[] : []
     if (!types.length) return
@@ -371,11 +374,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const panX = useSimStore((s) => s.panX)
   const panY = useSimStore((s) => s.panY)
   const probeResult = useSimStore((s) => s.probeResult)
-  const placingType = useSimStore((s) => s.placingType)
   const setPlacingType = useSimStore((s) => s.setPlacingType)
-  const dragType = useSimStore((s) => s.dragType)
   /** fantasma real do componente (clique-para-posicionar ou arraste da biblioteca) */
-  const ghostType = dragType ?? placingType
   const ghost = useMemo(() => (ghostType ? createComponent(ghostType) : null), [ghostType])
 
   const {
@@ -1185,13 +1185,15 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     })
   })
 
+  const modelImageFor = (c: ElectricalComponent) => c.type === 'plcSiemensLogo1224RC'
+    ? logoImages ? (c.state.powered ? logoImages.on : logoImages.off) : null
+    : c.type === 'powerSupplyProauto24A' ? proautoImage
+      : c.type === 'contactorWegCWC09' ? wegImage
+        : cadImages[c.type] ?? null
+
   const renderComponentEl = (c: ElectricalComponent) => {
     const selected = selectedIds.includes(c.id)
-    const cadImage = cadImages[c.type]
-    const baseModelImage = c.type === 'plcSiemensLogo1224RC' ? (logoImages ? (c.state.powered ? logoImages.on : logoImages.off) : null)
-      : c.type === 'powerSupplyProauto24A' ? proautoImage
-        : c.type === 'contactorWegCWC09' ? wegImage
-          : cadImage
+    const baseModelImage = modelImageFor(c)
     const orientation = componentOrientationOf(c)
     const needsOrientedImage = !isOriginalComponentOrientation(orientation)
     const orientedRequestKey = `${c.type}:${orientation.x}:${orientation.y}:${orientation.z}`
@@ -1519,8 +1521,23 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
            {ghost && cursorPos && (
              <g style={{ pointerEvents: 'none' }}>
                <g transform={`translate(${snap(cursorPos.x - ghost.w / 2)},${snap(cursorPos.y - ghost.h / 2)})`} opacity={0.62}>
-                 <rect x={-6} y={-6} width={ghost.w + 12} height={ghost.h + 12} rx={6} fill="#2f6bff" fillOpacity={0.06} stroke="#2f6bff" strokeWidth={1.2} strokeDasharray="6 3" />
-                 <SymbolGlyph c={ghost} selected={false} />
+                 {ghost.type === 'dinRail15x55' ? <DinRail2D c={ghost} /> : hasComponent3DVisual(ghost.type) ? (() => {
+                   const image = modelImageFor(ghost)
+                   const frame = modelBounds(ghost, image)
+                   return <>
+                     {image
+                       ? <image x={frame.x} y={frame.y} width={frame.w} height={frame.h} href={image} preserveAspectRatio="xMidYMid meet" />
+                       : <g>
+                           <rect x={frame.x} y={frame.y} width={frame.w} height={frame.h} rx={5} fill="#dce5f0" stroke="#8da0b8" strokeDasharray="4 3" />
+                           <text x={ghost.w / 2} y={ghost.h / 2} textAnchor="middle" fontSize={8} fill="#64748b">A carregar modelo 3D…</text>
+                         </g>}
+                     <rect x={frame.x - 6} y={frame.y - 6} width={frame.w + 12} height={frame.h + 12} rx={6} fill="#2f6bff" fillOpacity={0.06} stroke="#2f6bff" strokeWidth={1.2} strokeDasharray="6 3" />
+                     <ComponentTerminals c={ghost} />
+                   </>
+                 })() : <>
+                   <rect x={-6} y={-6} width={ghost.w + 12} height={ghost.h + 12} rx={6} fill="#2f6bff" fillOpacity={0.06} stroke="#2f6bff" strokeWidth={1.2} strokeDasharray="6 3" />
+                   <SymbolGlyph c={ghost} selected={false} />
+                 </>}
                  <text x={0} y={-12} className="dc-ghost-label">{ghost.label}</text>
                </g>
              </g>
