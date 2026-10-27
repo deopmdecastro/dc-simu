@@ -107,6 +107,19 @@ try {
   // 6) os separadores são os comuns (mesma espessura usada no simulador)
   check(primary.separators >= 1, 'A linha de ferramentas usa os separadores comuns (tb-sep)')
 
+  // 7) cabeçalho numa só linha e faixa de painéis fina (como a linha de páginas do GRAFCET)
+  const chrome = await page.evaluate(() => {
+    const top = document.querySelector('.ce-top')?.getBoundingClientRect().height ?? 0
+    const panes = document.querySelector('.ce-mobile-panes')
+    const strip = panes?.getBoundingClientRect().height ?? 0
+    const chipHeights = [...(panes?.querySelectorAll(':scope > button') ?? [])].map((b) => Math.round(b.getBoundingClientRect().height))
+    return { top: Math.round(top), strip: Math.round(strip), chipHeights }
+  })
+  check(chrome.top > 0 && chrome.top <= 60, `Cabeçalho numa só linha (${chrome.top} px)`)
+  check(chrome.strip > 0 && chrome.strip <= 46 && chrome.chipHeights.every((h) => h <= 32), `Faixa de painéis fina, com etiquetas pequenas (${chrome.strip} px; ${chrome.chipHeights.join(', ')})`)
+  const standalone = await page.locator('.ce-ribbon-end .tm-trigger').first().evaluate((el) => Math.round(el.getBoundingClientRect().height))
+  check(standalone === 36, `Botão isolado («Mais») com os 36 px dos botões do simulador (${standalone} px)`)
+
   if (errors.length) throw new Error('Erros de página: ' + errors.join(' | '))
   console.log('PASS — Barra do editor de componentes alinhada com as do simulador (390 px)')
 } finally { await browser.close() }

@@ -781,6 +781,15 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
   const status = entry.latestVersion === 0 ? 'Rascunho' : dirty ? `v${entry.latestVersion} · alterações por publicar` : `Publicado v${entry.latestVersion}`
   const stateName = editState === BASE_STATE ? 'Pose base' : def.states.find((state) => state.id === editState)?.name
 
+  /* O seletor Editar/Simular vive no cabeçalho (ecrã largo) e na faixa de
+     painéis (telemóvel), para o cabeçalho caber numa só linha como no simulador. */
+  const modeSwitch = (where: string) => (
+    <div className={`ce-modes ${where}`} role="tablist" aria-label="Modo">
+      <button role="tab" aria-selected={mode === 'edit'} className={mode === 'edit' ? 'is-on' : ''} onClick={() => set({ mode: 'edit', placing: false })}>Editar</button>
+      <button role="tab" aria-selected={mode === 'simulate'} className={mode === 'simulate' ? 'is-on' : ''} onClick={() => set({ mode: 'simulate', previewState: previewState || def.initialState, placing: false, ribbon: useEditorStore.getState().ribbon === 'terminal' || useEditorStore.getState().ribbon === 'delete' ? 'select' : useEditorStore.getState().ribbon })}>Simular</button>
+    </div>
+  )
+
   return <div className="ce-root" role="application" aria-label="Editor 3D de componentes">
     <header className="ce-top account-bar">
       <Logo size={22} tagline={false} />
@@ -789,19 +798,18 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         <span className={`ce-autosave is-${autosave.state}${dirty ? ' is-pending' : ''}`} title="O rascunho é guardado automaticamente 5 s depois da última alteração">
           {autosave.state === 'saving' ? 'A guardar…' : autosave.state === 'error' ? 'Falha ao guardar — nova tentativa na próxima alteração' : dirty ? 'Por guardar…' : autosave.at ? `Guardado ${new Date(autosave.at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}` : ''}
         </span></div>
-      <div className="ce-modes" role="tablist" aria-label="Modo">
-        <button role="tab" aria-selected={mode === 'edit'} className={mode === 'edit' ? 'is-on' : ''} onClick={() => set({ mode: 'edit', placing: false })}>Editar</button>
-        <button role="tab" aria-selected={mode === 'simulate'} className={mode === 'simulate' ? 'is-on' : ''} onClick={() => set({ mode: 'simulate', previewState: previewState || def.initialState, placing: false, ribbon: useEditorStore.getState().ribbon === 'terminal' || useEditorStore.getState().ribbon === 'delete' ? 'select' : useEditorStore.getState().ribbon })}>Simular</button>
-      </div>
+      {modeSwitch('ce-modes-header')}
       <div className="ce-spacer" />
       {message && <span className="ce-flash" role="status">{message}</span>}
-      <div className="ce-header-actions">      <button className="account-project-action" onClick={() => leave()}><IconArrowLeft size={13} /><span>Biblioteca</span></button>
-      <button className="account-project-action" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)" aria-label="Guardar rascunho"><IconSave size={13} /><span>{saving ? 'A guardar…' : 'Guardar'}</span></button>
+      <div className="ce-header-actions">      <button className="account-project-action" onClick={() => leave()} aria-label="Voltar à biblioteca" title="Voltar à biblioteca"><IconArrowLeft size={13} /><span className="ce-action-label">Biblioteca</span></button>
+      <button className="account-project-action" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)" aria-label="Guardar rascunho"><IconSave size={13} /><span className="ce-action-label">{saving ? 'A guardar…' : 'Guardar'}</span></button>
       <button className="account-project-action dx-bar-primary" onClick={() => setPublishing(true)}>Publicar…</button>
       {account}</div>
     </header>
     <ToolRibbon onHelp={() => setHelpOpen(true)} />
     <nav className="ce-mobile-panes" aria-label="Área do editor">
+      {modeSwitch('ce-modes-strip')}
+      <span className="tb-sep" aria-hidden="true" />
       <button type="button" className={mobilePane === 'canvas' ? 'is-on' : ''} aria-pressed={mobilePane === 'canvas'} title="Mostrar o canvas 3D" onClick={() => setMobilePane('canvas')}>Canvas 3D</button>
       <button type="button" className={mobilePane === 'objects' ? 'is-on' : ''} aria-pressed={mobilePane === 'objects'} title="Abrir a hierarquia de objetos" onClick={() => setMobilePane('objects')}>Objetos</button>
       <button type="button" className={mobilePane === 'inspector' ? 'is-on' : ''} aria-pressed={mobilePane === 'inspector'} title="Abrir o inspetor de propriedades" onClick={() => setMobilePane('inspector')}>Propriedades</button>

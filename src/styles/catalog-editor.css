@@ -1084,3 +1084,65 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ce-contextbar .ce-ribbon-hint b { color: var(--dx-ink-2); font-weight: 700; }
+
+/* v5.4 · telemóvel: a barra do editor de componentes passa a ser a mesma família
+   das barras do Esquema, Ladder e GRAFCET (medidas reais lidas no browser):
+     cabeçalho  uma só linha (título · voltar · guardar · publicar · conta);
+     linha 1    42 px, fundo branco;   linha 2   40 px, fundo suave;
+     botões isolados  36 px, borda 1 px, sombra fina, 12 px / 600, raio 6;
+     botões dentro de grupos  30 px sem borda (grupo com borda e raio 6);
+     faixa de painéis  como a linha de páginas do GRAFCET: etiquetas pequenas
+     com contorno, em vez de três botões grandes a preencher a largura. */
+@media (max-width: 1024px), (pointer: coarse) and (max-height: 700px) {
+  /* ---- cabeçalho numa linha ---- */
+  .ce-top.account-bar {
+    display: flex; flex-wrap: nowrap; align-items: center; gap: 8px !important;
+    min-height: 52px; padding: 6px 8px !important;
+  }
+  .ce-top.account-bar .ce-title { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+  .ce-top.account-bar .ce-title strong { width: auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; line-height: 17px; }
+  .ce-top .ce-title .ce-status { font-size: 10px; padding: 0 6px; }
+  .ce-top .ce-modes-header { display: none; }
+  .ce-header-actions { grid-column: auto; width: auto; flex: none; overflow: visible; gap: 6px; padding: 0; }
+  .ce-top .account-project-action {
+    height: 36px; min-height: 36px; border-radius: 8px !important; padding: 0 12px !important;
+    font-size: 12px !important; gap: 6px;
+  }
+  .ce-top .ce-header-actions .account-project-action:not(.dx-bar-primary) { width: 36px; padding: 0 !important; }
+  .ce-top .ce-action-label { display: none; }
+  .ce-top .account-project-action:first-child { font-size: 12px !important; }
+
+  /* ---- botões isolados: iguais ao «Componentes»/«Simulação» do simulador ---- */
+  .ce-toolbars.is-compact .ce-ribbon .dc-tool-btn {
+    min-height: 36px; padding-inline: 10px; gap: 6px;
+    font-size: 12px; font-weight: 600; color: var(--toolbar-ink, #64748b);
+    border: 1px solid var(--toolbar-border, #d3dbe5); border-radius: 6px;
+    background: #fff; box-shadow: 0 1px 1px rgba(23, 32, 46, .06);
+  }
+  .ce-toolbars.is-compact .ce-ribbon .dc-seg .dc-tool-btn {
+    min-height: 30px; padding-inline: 7px; font-weight: 600;
+    border-color: transparent; background: transparent; box-shadow: none;
+  }
+  .ce-toolbars.is-compact .ce-ribbon .dc-seg .dc-tool-btn.is-active,
+  .ce-toolbars.is-compact .ce-ribbon .dc-seg .dc-tool-btn[aria-pressed="true"] { background: var(--dx-brand); color: #fff; }
+  .ce-toolbars.is-compact .ce-ribbon .dc-seg .dc-tool-btn:disabled { opacity: .45; }
+  .ce-toolbars.is-compact .ce-ribbon-end .tm-trigger { min-height: 36px; font-weight: 600; }
+
+  /* ---- faixa de painéis (igual à linha de páginas do GRAFCET) ---- */
+  .ce-mobile-panes {
+    display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 8px;
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+    background: var(--toolbar-surface, #f8fafc); border-bottom: 1px solid var(--toolbar-border, #d3dbe5);
+  }
+  .ce-mobile-panes::-webkit-scrollbar { display: none; }
+  .ce-mobile-panes > * { flex: none; }
+  .ce-mobile-panes > button {
+    height: 30px; min-height: 30px; padding: 0 8px; border-radius: 8px;
+    border: 1px solid var(--toolbar-border, #d3dbe5); background: #fff; color: var(--dx-ink-3);
+    font-size: 12px; font-weight: 600;
+  }
+  .ce-mobile-panes > button.is-on { background: #eef3ff; border-color: var(--dx-brand); color: #1d3fae; font-weight: 700; }
+  .ce-mobile-panes .tb-sep { align-self: center; height: 20px; margin: 0 -1px; }
+  .ce-mobile-panes .ce-modes-strip { padding: 2px; border-radius: 6px; background: #fff; border: 1px solid var(--toolbar-border, #d3dbe5); }
+  .ce-mobile-panes .ce-modes-strip button { min-height: 24px; height: 24px; padding: 0 8px; font-size: 12px; border-radius: 4px; }
+}
