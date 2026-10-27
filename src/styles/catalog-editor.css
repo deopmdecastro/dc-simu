@@ -1218,3 +1218,106 @@
   .ce-mobile-panes .ce-modes-strip { padding: 2px; border-radius: 6px; background: #fff; border: 1px solid var(--toolbar-border, #d3dbe5); }
   .ce-mobile-panes .ce-modes-strip button { min-height: 24px; height: 24px; padding: 0 8px; font-size: 12px; border-radius: 4px; }
 }
+
+/* v5.5 · painéis de hierarquia e propriedades em telefones estreitos. */
+@media (max-width: 600px), (pointer: coarse) and (max-height: 700px) {
+  .ce-mobile-panes {
+    position: relative;
+    z-index: 2;
+    min-height: 48px;
+    padding-inline: max(10px, env(safe-area-inset-left));
+    gap: 7px;
+    box-shadow: 0 2px 5px rgba(26, 48, 82, .06);
+  }
+  .ce-mobile-panes > button {
+    min-height: 38px;
+    padding-inline: 12px;
+    font-size: 13px;
+    scroll-margin-inline: 10px;
+  }
+  .ce-mobile-panes > button:focus-visible,
+  .ce-element-filters button:focus-visible,
+  .ce-inspector-groups button:focus-visible,
+  .ce-right .ce-tabs button:focus-visible {
+    outline: 2px solid var(--dx-focus-ring);
+    outline-offset: 1px;
+  }
+
+  /* Manter controlos de orientação visíveis e deixar só a árvore deslizar. */
+  .ce-left { min-height: 0; }
+  .ce-hierarchy-title { min-height: 54px; padding: 8px 12px; }
+  .ce-hierarchy-title .dc-side-panel-copy { min-width: 0; }
+  .ce-hierarchy-title .dc-side-panel-copy small { display: none; }
+  .ce-search { min-height: 42px; margin: 8px 10px 6px; padding-inline: 10px; gap: 7px; }
+  .ce-search input.dx-input { min-width: 0; min-height: 40px; font-size: 14px; }
+  .ce-search .ce-icon { width: 36px; height: 36px; }
+  .ce-element-filters { gap: 5px; margin: 0 10px 7px; padding: 5px; }
+  .ce-element-filters button { min-height: 40px; padding-inline: 9px; font-size: 12px; }
+  .ce-element-filters button .ce-filter-count { min-width: 19px; text-align: center; font-size: 10px; }
+  .ce-selection-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 10px 7px; padding: 7px; }
+  .ce-selection-actions .dx-btn { flex: 1 1 auto; min-height: 40px; justify-content: center; font-size: 12px; }
+  .ce-hierarchy-scroll { flex: 1 1 0; min-height: 0; overscroll-behavior: contain; scrollbar-width: thin; }
+  .ce-hierarchy-scroll .ce-row { min-height: 48px; margin: 2px 8px; gap: 7px; padding-right: 5px; }
+  .ce-hierarchy-scroll .ce-row .ce-row-name { min-width: 0; font-size: 13px; }
+  .ce-hierarchy-scroll .ce-row .ce-icon { flex: 0 0 36px; width: 36px; height: 36px; }
+  .ce-hierarchy-scroll .ce-row .ce-twirl { flex: 0 0 20px; }
+  .ce-element-head { min-height: 42px; padding-inline: 12px; }
+  .ce-element-head .ce-section-toggle { min-height: 42px; }
+  .ce-element-head .ce-icon { min-width: 36px; min-height: 36px; }
+  .ce-left-actions { padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); }
+  .ce-left-actions .dx-btn { min-height: 42px; }
+
+  /* Inspetor: contexto compacto, navegação horizontal sem encolher os rótulos. */
+  .ce-inspector-context { min-height: 58px; padding: 8px 12px; gap: 8px; }
+  .ce-inspector-context strong { font-size: 13px; }
+  .ce-inspector-context .ce-mobile-panel-close { min-height: 40px; }
+  .ce-inspector-groups { grid-template-columns: 1fr 1.15fr 1fr; gap: 5px; padding: 7px 9px; }
+  .ce-inspector-groups button { min-height: 42px; padding-inline: 5px; font-size: 11.5px; white-space: nowrap; }
+  .ce-right .ce-tabs { flex: 0 0 auto; min-height: 44px; gap: 3px; padding-inline: 8px; scroll-padding-inline: 8px; overscroll-behavior-x: contain; }
+  .ce-right .ce-tabs button { min-height: 42px; padding-inline: 12px; font-size: 12px; }
+  .ce-inspector { min-height: 0; padding-bottom: calc(24px + env(safe-area-inset-bottom)); overscroll-behavior: contain; }
+  .ce-section > summary { min-height: 44px; padding-inline: 12px; }
+  .ce-section-body { padding: 10px 12px 16px; }
+  .ce-field { min-width: 0; }
+  .ce-field .dx-input, .ce-section .dx-input { min-width: 0; min-height: 40px; font-size: 14px; }
+  .ce-field input[type="checkbox"] { width: 18px; height: 18px; }
+  .ce-inspector button, .ce-inspector select { touch-action: manipulation; }
+
+  /* O bloco «Novo cabo» mantém controlos legíveis quando partilha o painel. */
+  .ce-wirepanel { gap: 9px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); }
+  .ce-wirepanel-head { min-height: 44px; }
+  .ce-wp-new { gap: 10px; padding: 10px; border-radius: 10px; }
+  .ce-wp-new-head { flex-wrap: wrap; gap: 6px; }
+  .ce-wp-new-head strong { font-size: 13px; }
+  .ce-wp-new-head span { flex: 1 1 100%; margin-left: 14px; font-size: 12px; }
+  .ce-wirepanel .wo-fields { gap: 12px; }
+  .ce-wirepanel .wo-group { min-width: 0; }
+  .ce-wirepanel .wo-label { min-height: 28px; font-size: 12px; }
+  .ce-wirepanel .wo-swatches { gap: 8px; }
+  .ce-wirepanel .wo-swatch { width: 28px; height: 28px; flex: 0 0 28px; }
+  .ce-wirepanel .wo-choices { grid-template-columns:repeat(2,minmax(0,1fr)); gap: 7px; }
+  .ce-wirepanel .wo-choice { min-height: 104px; align-items: center; padding: 9px 7px; text-align: center; }
+  .ce-wirepanel .wo-choice strong { font-size: 12px; }
+  .ce-wirepanel .wo-choice small { font-size: 10px; line-height: 1.35; }
+  .ce-wirepanel .wo-gauges { grid-template-columns:repeat(3,minmax(0,1fr)); gap: 6px; }
+  .ce-wirepanel .wo-gauge { min-height: 40px; }
+  .ce-wirepanel .wo-ends { grid-template-columns:repeat(2,minmax(0,1fr)); gap: 6px; }
+  .ce-wirepanel .wo-end { min-height: 64px; justify-content: center; gap: 4px; font-size: 11px; }
+  .ce-wirepanel .wo-end span { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+  .ce-wirepanel .wo-note { font-size: 11px; line-height: 1.4; }
+  .ce-wirepanel .ce-wp-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ce-wirepanel .ce-wp-actions .dx-btn { min-height: 40px; flex: 1 1 auto; justify-content: center; }
+  .ce-wirepanel .ce-wrow { min-height: 48px; flex-wrap: wrap; gap: 5px 7px; padding: 7px; }
+  .ce-wirepanel .ce-wrow-name { flex: 1 1 calc(100% - 62px); font-size: 12px; }
+  .ce-wirepanel .ce-wrow .ce-wire-meta { flex: 1 1 auto; font-size: 11px; }
+  .ce-wirepanel .ce-wrow .ce-icon { flex: 0 0 36px; width: 36px; height: 36px; }
+  .ce-inspector .ce-endgrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap: 7px; }
+  .ce-inspector .ce-endgrid .ce-endopt { min-height: 68px; padding: 8px 5px; font-size: 11px; }
+  .ce-inspector .ce-conductor { grid-template-columns:repeat(2,minmax(0,1fr)); gap: 7px; }
+  .ce-inspector .ce-conductor .ce-endopt { min-height: 88px; padding: 8px 5px; font-size: 11px; }
+  .ce-inspector .ce-endlabel { min-height: 36px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+  .ce-inspector .ce-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+  .ce-inspector .ce-actions .dx-btn { min-height: 40px; flex: 1 1 auto; justify-content: center; }
+  .ce-inspector .ce-pointrow { grid-template-columns:22px repeat(3,minmax(0,1fr)) 36px; gap: 6px; }
+  .ce-inspector .ce-pointrow .ce-icon { min-width:36px; min-height:36px; }
+}

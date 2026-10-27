@@ -1954,6 +1954,61 @@ button:disabled { cursor:not-allowed; }
   .dc-inspector-state-input { width:100%; max-width:none; }
 }
 
+/* Cabos no inspetor do simulador: controlos dimensionados para toque. */
+@media (max-width: 600px) {
+  .dc-inspector-scroll:has(.dc-wire-new) { padding: 10px !important; }
+  .dc-wire-new { gap: 12px !important; padding: 10px; border: 1px solid #dce5f1; border-radius: 10px; background: #fff; }
+  .dc-wire-new > header { flex-wrap: wrap; align-items: flex-start; gap: 4px 8px; padding-bottom: 8px; }
+  .dc-wire-new > header strong { font-size: 13px; }
+  .dc-wire-new > header span { flex: 1 1 100%; font-size: 11px; }
+  .dc-wire-new .wo-fields { gap: 14px; }
+  .dc-wire-new .wo-group { min-width: 0; gap: 7px; }
+  .dc-wire-new .wo-label { min-height: 30px; font-size: 11px; }
+  .dc-wire-new .wo-auto { min-height: 30px; padding-inline: 10px; }
+  .dc-wire-new .wo-swatches { gap: 8px; }
+  .dc-wire-new .wo-swatch { width: 30px; height: 30px; }
+  .dc-wire-new .wo-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .dc-wire-new .wo-choice { min-height: 106px; align-items: center; justify-content: center; padding: 9px 6px; text-align: center; }
+  .dc-wire-new .wo-choice strong { font-size: 12px; }
+  .dc-wire-new .wo-choice small { font-size: 10px; line-height: 1.35; }
+  .dc-wire-new .wo-gauges { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  .dc-wire-new .wo-gauge { min-height: 42px; font-size: 12px; }
+  .dc-wire-new .wo-ends { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .dc-wire-new .wo-end { min-height: 64px; justify-content: center; padding: 7px 5px; font-size: 11px; }
+  .dc-wire-new .wo-end span { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+  .dc-wire-new .wo-note { font-size: 11px; line-height: 1.45; }
+  .dc-wire-new kbd { white-space: nowrap; }
+
+  .dc-inspector-scroll:has(.dc-wire-inspector) { padding: 10px !important; }
+  .dc-wire-inspector { min-width: 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .dc-wire-inspector > header { min-height: 44px; padding: 6px 0; }
+  .dc-wire-inspector > header > span:first-child { min-width: 0; overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; font-size: 13px; }
+  .dc-wire-inspector > header .dc-chip { flex: none; font-size: 9px; }
+  .dc-wire-inspector .dc-wire-3d-actions { max-width: 100%; overflow-x: auto; }
+  .dc-wire-inspector > .grid.grid-cols-2 { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .dc-wire-inspector > .grid.grid-cols-2 > .col-span-2 { grid-column: auto; }
+  .dc-wire-inspector label { display: block; margin-bottom: 5px; font-size: 11px; line-height: 1.35; }
+  .dc-wire-inspector .dc-select,
+  .dc-wire-inspector .dc-input { width: 100%; min-width: 0; min-height: 42px; font-size: 14px; }
+  .dc-wire-inspector input[type="range"] { min-height: 36px; }
+  .dc-wire-inspector .grid.grid-cols-2 > div > .grid.grid-cols-2 { gap: 7px; }
+  .dc-wire-inspector .grid.grid-cols-2 > div > .grid.grid-cols-2 button { min-height: 44px; align-items: center; padding: 6px; }
+  .dc-wire-inspector .dc-card { min-width: 0; padding: 10px; }
+  .dc-wire-inspector .dc-card > label { min-height: 34px; font-size: 12px; }
+  .dc-wire-inspector .dc-card [class~="rounded"][class~="border"] { min-width: 0; padding: 8px; }
+  .dc-wire-inspector .dc-card [class~="rounded"][class~="border"] > .flex.items-center.justify-between { flex-wrap: wrap; }
+  .dc-wire-inspector .dc-card [class~="rounded"][class~="border"] [role="group"] button { min-height: 36px; padding-inline: 9px; font-size: 11px; }
+  .dc-wire-inspector .dc-card [class~="rounded"][class~="border"] > .grid.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .dc-wire-inspector .dc-card [class~="rounded"][class~="border"] > .grid.grid-cols-2 button { min-width: 0; min-height: 52px; gap: 5px; padding: 6px; font-size: 11px; }
+  .dc-wire-inspector .dc-card [class~="rounded"][class~="border"] > .grid.grid-cols-2 button svg { width: 26px; height: 26px; }
+  .dc-wire-inspector .dc-card [class~="rounded"][class~="border"] > .grid.grid-cols-2 button span { min-width: 0; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+  .dc-wire-inspector .dc-card [class~="rounded"][class~="border"] > .flex.items-center.gap-2 { flex-wrap: wrap; min-height: 40px; }
+  .dc-wire-inspector .dc-card [class~="rounded"][class~="border"] > .flex.items-center.gap-2 input[type="color"] { width: 44px; height: 38px; }
+  .dc-wire-inspector > label.flex.items-center { align-items: center; flex-wrap: wrap; }
+  .dc-wire-inspector > label.flex.items-center .dc-input { flex: 1 1 120px; }
+  .dc-wire-inspector > .dc-btn-danger { min-height: 44px; justify-content: center; }
+}
+
 /* Gestos de zoom reservados aos editores; a interface não amplia com pinça. */
 
 /* OrbitControls recebe os gestos diretamente na área 3D. */

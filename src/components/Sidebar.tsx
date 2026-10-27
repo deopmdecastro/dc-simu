@@ -731,7 +731,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
           {/* ------------------------------------------------------ cabo */}
           {selectedWire && (
-            <section className="space-y-2.5">
+            <section className="dc-wire-inspector space-y-2.5">
               <header className="flex items-center justify-between sticky top-0 bg-surface-panel py-1 z-10 border-b border-line">
                 <span className="font-semibold text-ink-900">Cabo {selectedWire.number ?? selectedWire.id}</span>
                 <span className={`dc-chip ${selectedWire.energized ? '!border-amber-300 !bg-amber-50 !text-energy-deep' : ''}`}>
