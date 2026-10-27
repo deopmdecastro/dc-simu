@@ -38,7 +38,6 @@ import GrafcetSimBar from './GrafcetSimBar'
 import GrafcetTemplatesDialog from './GrafcetTemplatesDialog'
 import { applyLadderFromGrafcet, describeLadderDiff, diffGeneratedLadder, hasGeneratedLadder, ladderSyncStatus, previewLadder } from './ladderSync'
 import {
-  IconChevronRight,
   IconChevronLeft,
   IconCopy,
   IconCursor,
@@ -62,8 +61,10 @@ import {
   IconZoomIn,
   IconZoomOut,
   IconReset,
-  IconGrid
+  IconGrid,
+  IconTools
 } from '../ui/icons'
+import CollapsedPanelRail from '../components/CollapsedPanelRail'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
 import GrafcetContextMenu, { type ContextMenuItem } from './GrafcetContextMenu'
@@ -3054,9 +3055,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
               <p className="grafcet-toolbox-tip">Clique ou arraste componentes para a tela. Etapas nascem sem transição; transições e ações soltas ligam-se por arrasto ou com a ferramenta Ligar [L]. Para selecionar várias etapas, arraste um retângulo no fundo (Shift/Ctrl+clique também soma); Ctrl+C/V copia e cola, Ctrl+A seleciona tudo, Del apaga.</p>
             </aside>
           ) : (
-            <button className="grafcet-toolbox-restore" onClick={() => setShowPalette(true)} title="Mostrar componentes (Ctrl+B)">
-              <IconChevronRight size={11} /> Ferramentas
-            </button>
+            <CollapsedPanelRail className="grafcet-toolbox-restore" label="Ferramentas" side="left" icon={<IconTools size={15} />} onExpand={() => setShowPalette(true)} />
           ))}
 
         {/* CANVAS CENTRAL COM O DIAGRAMA VERTICAL ROBUSTO */}

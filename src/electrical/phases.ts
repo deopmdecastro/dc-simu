@@ -41,6 +41,22 @@ export function computePhaseLabels(components: ElectricalComponent[], wires: Wir
       seed(t('L2'), 'L2')
       seed(t('L3'), 'L3')
     }
+    if (c.type === 'powerSource1ph') {
+      seed(t('PE'), 'PE')
+      if (c.state.on !== false) {
+        seed(t('L'), 'L1')
+        seed(t('N'), 'N')
+      }
+    }
+    if (c.type === 'powerSource3ph') {
+      seed(t('PE'), 'PE')
+      if (c.state.on !== false) {
+        seed(t('L1'), 'L1')
+        seed(t('L2'), 'L2')
+        seed(t('L3'), 'L3')
+        seed(t('N'), 'N')
+      }
+    }
     if (c.type === 'busbarNeutral' || c.type === 'powerSupply') seed(c.terminals.find((x) => x.label === 'N')?.id, 'N')
     if (c.type === 'earthBar' || c.type === 'terminalPE') c.terminals.forEach((x) => seed(x.id, 'PE'))
     if (c.type === 'breaker3p' || c.type === 'breaker4p' || c.type === 'motorBreaker' || c.type === 'residualBreaker' || c.type === 'thermalRelay') {

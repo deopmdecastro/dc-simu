@@ -31,6 +31,28 @@
   --pn-focus: 0 0 0 2px var(--dx-focus-ring, rgba(38, 85, 229, .22));
 }
 
+/* Faixa comum para reabrir painéis laterais recolhidos nos editores. */
+.pn-collapsed-rail {
+  position: relative; z-index: 12; box-sizing: border-box; flex: 0 0 48px; width: 48px; min-width: 48px;
+  min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 10px 5px; overflow: hidden; border: 0; background: var(--pn-bg); color: var(--pn-ink-3);
+  cursor: pointer; transition: color .12s ease, background-color .12s ease;
+}
+.pn-collapsed-rail-left { border-right: 1px solid var(--pn-line); }
+.pn-collapsed-rail-right { border-left: 1px solid var(--pn-line); }
+.pn-collapsed-rail:hover { color: var(--pn-brand-ink); background: var(--pn-bg-2); }
+.pn-collapsed-rail:focus-visible { outline: none; box-shadow: inset var(--pn-focus); z-index: 13; }
+.pn-collapsed-rail-icon { display: grid; place-items: center; width: 26px; height: 26px; flex: none; color: var(--pn-ink-3); }
+.pn-collapsed-rail-label { writing-mode: vertical-rl; transform: rotate(180deg); color: var(--pn-ink-2); font-size: 10px; line-height: 1.2; font-weight: 650; letter-spacing: .015em; }
+.pn-collapsed-rail-chevron { display: grid; place-items: center; width: 34px; height: 34px; flex: none; margin-top: 1px; border: 1px solid var(--pn-line); border-radius: 6px; background: var(--pn-bg); color: var(--pn-ink-3); }
+.pn-collapsed-rail:hover .pn-collapsed-rail-chevron { border-color: #b8c9e8; color: var(--pn-brand); background: #f7f9ff; }
+@media (prefers-reduced-motion: reduce) { .pn-collapsed-rail { transition: none; } }
+@media (max-width: 1199px) {
+  .mobile-grafcet-panel .pn-shell-rail { flex-basis: 36px; width: 36px; min-width: 36px; padding-right: 3px; padding-left: 3px; }
+  .mobile-grafcet-panel .pn-shell-rail .pn-collapsed-rail-icon { width: 24px; }
+  .mobile-grafcet-panel .pn-shell-rail .pn-collapsed-rail-chevron { width: 28px; height: 32px; }
+}
+
 /* ===== Contentor ===== */
 .ce-left, .ce-right, .grafcet-toolbox, .grafcet-properties, .schematic-sim-dock, .ladder-bottom-panel { background: var(--pn-bg); }
 .ce-left, .grafcet-toolbox { border-right: 1px solid var(--pn-line); }

@@ -100,8 +100,12 @@ export type ComponentType =
   | 'busbarPhase'
   | 'busbarNeutral'
   | 'earthBar'
+  | 'terminalSet1ph'
+  | 'terminalSet3ph'
   | 'transformer'
   | 'powerSupply'
+  | 'powerSource1ph'
+  | 'powerSource3ph'
   | 'powerSupplyProauto24A'
   | 'analogAmmeter'
   // --- Aparelhos de medir ----------------------------------------------

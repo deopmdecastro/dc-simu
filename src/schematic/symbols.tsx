@@ -630,17 +630,22 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       case 'terminalPE':
       case 'busbarPhase':
       case 'busbarNeutral':
-      case 'earthBar': {
+      case 'earthBar':
+      case 'terminalSet1ph':
+      case 'terminalSet3ph': {
         return (
           <g>
-            <rect x={2} y={h / 2 - 14} width={w - 4} height={28} rx={4} fill="#1f2937" stroke={s} />
+            <rect x={2} y={h / 2 - 17} width={w - 4} height={34} rx={4} fill="#334155" stroke={s} />
+            <rect x={5} y={h / 2 - 3} width={w - 10} height={6} rx={2} fill="#64748b" />
             {c.terminals.map((t, i) => {
-              const count = c.terminals.length
-              const x = ((i + 1) * w) / (count + 1)
+              const x = (t.x * (w - 12)) + 6
+              const conductorLabel = t.label.replace(/-(IN|OUT)$/, '')
+              const isEarth = conductorLabel === 'PE' || t.kind === 'earth'
               return (
                 <g key={t.id}>
+                  {isEarth && <rect x={x - 5} y={h / 2 - 15} width={10} height={30} fill="#facc15" opacity={0.88} rx={2} />}
                   <TerminalGlyph x={x} y={h / 2} type={t.terminalType} color={t.color} energized={t.energized} r={terminalGlyphRadius(t, 6)} />
-                  <text x={x - 8} y={h / 2 + 20} fontSize={8} fill="#94a3b8">{t.label}</text>
+                  <text x={x} y={t.y < 0.5 ? h / 2 - 20 : h / 2 + 25} textAnchor="middle" fontSize={7} fill="#e2e8f0">{conductorLabel}</text>
                 </g>
               )
             })}
@@ -683,6 +688,19 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
             {label(6, 12, c.ref, 10, '#93c5fd')}
           </g>
         )
+      }
+      case 'powerSource1ph':
+      case 'powerSource3ph': {
+        const on = c.state.on !== false
+        const threePhase = c.type === 'powerSource3ph'
+        return <g>
+          <rect x={4} y={8} width={w - 8} height={h - 16} rx={7} fill="#e2e8f0" stroke={on ? '#2563eb' : s} strokeWidth={2} />
+          <rect x={10} y={h * 0.36} width={w - 20} height={h * 0.37} rx={4} fill="#f8fafc" stroke="#94a3b8" />
+          <text x={w / 2} y={h * 0.52} textAnchor="middle" fontSize={12} fill="#0f172a" fontWeight="bold">{`${threePhase ? '3~' : '1~'} ${c.state.nominalV ?? (threePhase ? 400 : 230)} V`}</text>
+          <text x={w / 2} y={h * 0.64} textAnchor="middle" fontSize={8} fill="#475569">{c.state.frequencyHz ?? 50} Hz AC</text>
+          <circle cx={w - 14} cy={17} r={4} fill={on ? '#16a34a' : '#94a3b8'} />
+          {label(7, 15, c.ref, 9, '#334155')}
+        </g>
       }
       case 'analogAmmeter': {
         return (

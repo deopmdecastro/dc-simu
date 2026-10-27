@@ -14,7 +14,7 @@ export const RAIL_MOUNT_TYPE_PREFIXES = [
   'breaker', 'motorBreaker', 'residualBreaker', 'fuse', 'surgeProtector', 'thermalRelay', 'contactor', 'auxRelay',
   'timerRelay', 'timerRelayStarDelta', 'counterRelay', 'safetyRelay', 'plcLogo', 'plcCompact', 'plcSiemensLogo1224RC',
   'vfd', 'softStarter', 'transformer', 'powerSupply', 'powerSupplyProauto24A', 'terminalBlock', 'terminalPE',
-  'busbarPhase', 'busbarNeutral', 'earthBar', 'fuseHolder', 'auxContactBlock',
+  'busbarPhase', 'busbarNeutral', 'earthBar', 'terminalSet', 'powerSource', 'fuseHolder', 'auxContactBlock',
 ] as const
 
 export const isDinRail = (component: Pick<ElectricalComponent, 'type'>): boolean => component.type === 'dinRail15x55'

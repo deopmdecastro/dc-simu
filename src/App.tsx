@@ -1,6 +1,7 @@
 import GrafcetStatusCard from './components/GrafcetStatusCard'
 import { isTabletDesktop } from './ui/device'
 import { IconChevronLeft, IconChevronRight, IconClose, IconLayers } from './ui/icons'
+import CollapsedPanelRail from './components/CollapsedPanelRail'
 import { useEffect, useMemo, useState } from 'react'
 import { uiConfirm } from './ui/dialogs'
 import InstallApp from './components/InstallApp'
@@ -224,8 +225,8 @@ export default function App({ onBack }: { onBack: () => void }) {
             />
           </>
         )}
+        {mode === 'schematic' && !showLibrary && <CollapsedPanelRail className="pn-shell-rail" label="Biblioteca" side="left" icon={<IconLayers size={15} />} onExpand={() => { setShowLadder(false); setShowLibrary(true) }} />}
         <div className="flex-1 min-w-0 flex flex-col relative">
-          {mode === 'schematic' && !showLibrary && <button className="dc-dock-open is-left" onClick={() => { setShowLadder(false); setShowLibrary(true) }} title="Mostrar biblioteca e inspetor"><IconLayers size={12} /> Biblioteca</button>}
           {mode === 'schematic' && <SchematicView libraryCollapsed={!showLibrary} />}
           {mode === 'ladder' && !canLadder && <PlanLocked feature="ladder" />}
           {mode === 'grafcet' && !canGrafcet && <PlanLocked feature="grafcet" />}
@@ -236,7 +237,7 @@ export default function App({ onBack }: { onBack: () => void }) {
         {mode === 'schematic' && <ComponentEditorDock />}
         {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
           <div
-            className={`${showLadder ? 'min-w-[320px]' : 'w-9'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} ${compact && showLadder ? 'dc-mobile-fullscreen-panel' : ''} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
+            className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} ${compact && showLadder ? 'dc-mobile-fullscreen-panel' : ''} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder && !compact ? { width: panelSizes.ladder } : undefined}
           >
             {showLadder ? (
@@ -256,13 +257,7 @@ export default function App({ onBack }: { onBack: () => void }) {
                 {rightTab === 'grafcet' ? <GrafcetEditor onOpenEditor={() => setMode('grafcet')} /> : <ProjectObjects />}
               </>
             ) : (
-              <button
-                onClick={() => { setShowLibrary(false); setShowLadder(true) }}
-                className="dc-dock-open is-right"
-                title="Mostrar GRAFCET e objetos do projeto"
-              >
-                <IconChevronLeft size={11} /> GRAFCET · Objetos
-              </button>
+              <CollapsedPanelRail className="pn-shell-rail" label="GRAFCET e objetos" side="right" icon={<IconLayers size={15} />} onExpand={() => { setShowLibrary(false); setShowLadder(true) }} />
             )}
           </div>
         )}

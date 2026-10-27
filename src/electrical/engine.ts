@@ -245,10 +245,19 @@ export function internalBridges(c: ElectricalComponent): Array<[string, string]>
     case 'terminalBlock':
     case 'terminalPhoenixPti6':
     case 'terminalPE':
-    case 'busbarPhase':
     case 'busbarNeutral':
     case 'earthBar': {
       for (let i = 0; i < c.terminals.length - 1; i++) bridges.push([c.terminals[i].id, c.terminals[i + 1].id])
+      break
+    }
+    case 'busbarPhase': {
+      // L1/L2/L3 são condutores distintos; o barramento apenas os disponibiliza.
+      break
+    }
+    case 'terminalSet1ph':
+    case 'terminalSet3ph': {
+      const conductors = c.type === 'terminalSet1ph' ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
+      for (const conductor of conductors) pair(la(`${conductor}-IN`), la(`${conductor}-OUT`))
       break
     }
 
@@ -318,6 +327,18 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
     }
     // fontes locais
     if (c.type === 'powerSupply' && c.state.on) push('+V')
+    if (c.type === 'powerSource1ph') {
+      push('PE')
+      if (c.state.on !== false) { push('L'); push('N') }
+    }
+    if (c.type === 'powerSource3ph') {
+      push('PE')
+      if (c.state.on !== false) {
+        push('L1')
+        if (!faults?.phaseLoss) { push('L2'); push('L3') }
+        push('N')
+      }
+    }
     if (c.type === 'powerSupplyProauto24A' && c.state.powered && c.state.on) { push('+V1'); push('+V2') }
     if (c.type === 'transformer' && !c.state.failed) push('S1')
   }

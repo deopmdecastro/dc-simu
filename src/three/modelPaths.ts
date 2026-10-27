@@ -130,7 +130,9 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
 
   // O P20AKR tem o eixo longo em Z; identidade mostra a cabeça circular frontal.
   emergencyButton: spec('emergencyButton', MODEL_PATHS.emergencyButtonP20AKR, [0, 0, 0], 'panel-front', true),
-  emergencyButtonKeyP20ACR: spec('emergencyButtonKeyP20ACR', MODEL_PATHS.emergencyButtonKeyP20ACR, [Math.PI / 2, 0, 0], 'panel-front'),
+  // P20ACR tem o eixo do cogumelo ao longo de Z, tal como o P20AKR.
+  // Rodá-lo em X deixava a traseira do contacto voltada para a câmara e ocultava a cabeça vermelha.
+  emergencyButtonKeyP20ACR: spec('emergencyButtonKeyP20ACR', MODEL_PATHS.emergencyButtonKeyP20ACR, [0, 0, 0], 'panel-front'),
   dualPushButtonNpb22D11: spec('dualPushButtonNpb22D11', MODEL_PATHS.dualPushButtonNpb22D11, [0, 0, 0], 'panel-front', true),
 
   safetyRelay: spec('safetyRelay', MODEL_PATHS.safetyRelayMsr127Tp, [0, 0, Math.PI / 2], 'din-rail', true),

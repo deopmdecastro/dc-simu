@@ -40,8 +40,9 @@ import {
   IconPlus, IconDelete, IconCopy, IconClose,
   IconZoomIn, IconZoomOut, IconSchematic, IconLadder,
   IconFunction, IconChevronDown, IconChevronRight, IconShield, IconSearch,
-  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconHelp, IconReset, IconCheck, IconTimer, IconCounter, IconStep, IconTools
+  IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconLayers, IconHelp, IconReset, IconCheck, IconTimer, IconCounter, IconStep, IconTools
 } from '../ui/icons'
+import CollapsedPanelRail from '../components/CollapsedPanelRail'
 import { COMPILE_GATE_KEY, compileGateEnabled, compileHash, compileInputOf, compileLadder, compileSummary, type CompileResult } from './ladderCompile'
 import { useLadderPrefs } from './ladderPrefs'
 import { ELEMENT_KEYS } from './ladderShortcuts'
@@ -1913,9 +1914,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         />
         </>
       ) : (
-        <button className="ladder-collapsed-pane-button" onClick={() => { setShowProjectPane(true); if (isSmallScreen()) setShowPalette(false) }} title="Mostrar projeto">
-          Projeto
-        </button>
+        <CollapsedPanelRail label="Projeto" side="left" icon={<IconProjects size={15} />} onExpand={() => { setShowProjectPane(true); if (isSmallScreen()) setShowPalette(false) }} />
       ))}
       <main className="ladder-main-pane" ref={mainPaneRef}>
         <div className="ladder-plc-target flex items-center gap-2 px-3 py-1.5 border-b border-line bg-white text-[11px] shrink-0">
@@ -2201,9 +2200,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
       </aside>
       </>
       ) : (
-        <button className="ladder-collapsed-pane-button is-right" onClick={() => { setShowPalette(true); if (isSmallScreen()) setShowProjectPane(false) }} title="Mostrar elementos">
-          Elementos
-        </button>
+        <CollapsedPanelRail label="Elementos" side="right" icon={<IconLayers size={15} />} onExpand={() => { setShowPalette(true); if (isSmallScreen()) setShowProjectPane(false) }} />
       ))}
       <ShortcutsDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
       {blockDialog && (

@@ -665,7 +665,7 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   },
   terminalPE: {
     category: 'terminal', paletteName: 'Borne de terra (verde/amarelo)', group: 'Bornes e barras', tag: 'XPE', w: 70, h: 50,
-    terminals: [T('PE1', 'earth', 0.3, 0.5), T('PE2', 'earth', 0.7, 0.5)],
+    terminals: [T('PE1', 'earth', 0.3, 0.5, { color: '#27834a' }), T('PE2', 'earth', 0.7, 0.5, { color: '#27834a' })],
     defaultState: { bridged: true },
   },
   dinRail15x55: {
@@ -676,9 +676,9 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   busbarPhase: {
     category: 'terminal', paletteName: 'Barramento de fases L1/L2/L3', group: 'Bornes e barras', tag: 'BL', w: 220, h: 50,
     terminals: [
-      T('L1', 'power-in', 0.2, 0.5, { color: '#ef4444' }),
-      T('L2', 'power-in', 0.5, 0.5, { color: '#f8fafc' }),
-      T('L3', 'power-in', 0.8, 0.5, { color: '#1d4ed8' }),
+      T('L1', 'power-in', 0.2, 0.5, { color: '#171717' }),
+      T('L2', 'power-in', 0.5, 0.5, { color: '#8b4513' }),
+      T('L3', 'power-in', 0.8, 0.5, { color: '#6b7280' }),
     ],
     defaultState: { source: true },
   },
@@ -694,11 +694,31 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   earthBar: {
     category: 'terminal', paletteName: 'Barra de terra (PE)', group: 'Bornes e barras', tag: 'BPE', w: 180, h: 50,
     terminals: [
-      T('PE1', 'earth', 0.3, 0.5),
-      T('PE2', 'earth', 0.6, 0.5),
-      T('PE3', 'earth', 0.85, 0.5),
+      T('PE1', 'earth', 0.3, 0.5, { color: '#27834a' }),
+      T('PE2', 'earth', 0.6, 0.5, { color: '#27834a' }),
+      T('PE3', 'earth', 0.85, 0.5, { color: '#27834a' }),
     ],
     defaultState: { source: true },
+  },
+  terminalSet1ph: {
+    category: 'terminal', paletteName: 'Conjunto de bornes monofásico · L/N/PE', group: 'Bornes e barras', tag: 'X', w: 135, h: 86,
+    terminals: [
+      T('L-IN', 'power-in', 0.12, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.12, y: 1, z: 1 } }), T('L-OUT', 'power-out', 0.12, 1, { color: '#171717', terminalType: 'screw', position3D: { x: 0.12, y: 0, z: 1 } }),
+      T('N-IN', 'neutral', 0.50, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.50, y: 1, z: 1 } }), T('N-OUT', 'neutral', 0.50, 1, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.50, y: 0, z: 1 } }),
+      T('PE-IN', 'earth', 0.88, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.88, y: 1, z: 1 } }), T('PE-OUT', 'earth', 0.88, 1, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.88, y: 0, z: 1 } }),
+    ],
+    defaultState: {},
+  },
+  terminalSet3ph: {
+    category: 'terminal', paletteName: 'Conjunto de bornes trifásico · L1/L2/L3/N/PE', group: 'Bornes e barras', tag: 'X', w: 200, h: 86,
+    terminals: [
+      T('L1-IN', 'power-in', 0.10, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.10, y: 1, z: 1 } }), T('L1-OUT', 'power-out', 0.10, 1, { color: '#171717', terminalType: 'screw', position3D: { x: 0.10, y: 0, z: 1 } }),
+      T('L2-IN', 'power-in', 0.30, 0, { color: '#8b4513', terminalType: 'screw', position3D: { x: 0.30, y: 1, z: 1 } }), T('L2-OUT', 'power-out', 0.30, 1, { color: '#8b4513', terminalType: 'screw', position3D: { x: 0.30, y: 0, z: 1 } }),
+      T('L3-IN', 'power-in', 0.50, 0, { color: '#6b7280', terminalType: 'screw', position3D: { x: 0.50, y: 1, z: 1 } }), T('L3-OUT', 'power-out', 0.50, 1, { color: '#6b7280', terminalType: 'screw', position3D: { x: 0.50, y: 0, z: 1 } }),
+      T('N-IN', 'neutral', 0.70, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.70, y: 1, z: 1 } }), T('N-OUT', 'neutral', 0.70, 1, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.70, y: 0, z: 1 } }),
+      T('PE-IN', 'earth', 0.90, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.90, y: 1, z: 1 } }), T('PE-OUT', 'earth', 0.90, 1, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.90, y: 0, z: 1 } }),
+    ],
+    defaultState: {},
   },
 
   // ---------------- Fontes ----------------
@@ -738,6 +758,26 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
       T('PE', 'earth', 0.85, 0.5),
     ],
     defaultState: { on: true, outV: 24, amp: 5, rippleMv: 50 },
+  },
+  powerSource1ph: {
+    category: 'power', paletteName: 'Fonte AC monofásica · L/N/PE', group: 'Fontes', tag: 'QG', w: 135, h: 95,
+    terminals: [
+      T('L', 'power-in', 0.18, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.18, y: 1, z: 1 } }),
+      T('N', 'neutral', 0.50, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.50, y: 1, z: 1 } }),
+      T('PE', 'earth', 0.82, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.82, y: 1, z: 1 } }),
+    ],
+    defaultState: { on: true, nominalV: 230, frequencyHz: 50 },
+  },
+  powerSource3ph: {
+    category: 'power', paletteName: 'Fonte AC trifásica · L1/L2/L3/N/PE', group: 'Fontes', tag: 'QG', w: 205, h: 105,
+    terminals: [
+      T('L1', 'power-in', 0.10, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.10, y: 1, z: 1 } }),
+      T('L2', 'power-in', 0.30, 0, { color: '#8b4513', terminalType: 'screw', position3D: { x: 0.30, y: 1, z: 1 } }),
+      T('L3', 'power-in', 0.50, 0, { color: '#6b7280', terminalType: 'screw', position3D: { x: 0.50, y: 1, z: 1 } }),
+      T('N', 'neutral', 0.70, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.70, y: 1, z: 1 } }),
+      T('PE', 'earth', 0.90, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.90, y: 1, z: 1 } }),
+    ],
+    defaultState: { on: true, nominalV: 400, frequencyHz: 50 },
   },
   analogAmmeter: {
     category: 'power', paletteName: 'Amperímetro analógico', group: 'Fontes', tag: 'PI', w: 80, h: 80,
