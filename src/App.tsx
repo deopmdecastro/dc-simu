@@ -1,12 +1,13 @@
 import GrafcetStatusCard from './components/GrafcetStatusCard'
 import { isTabletDesktop } from './ui/device'
-import { IconChevronLeft, IconChevronRight, IconClose, IconLayers } from './ui/icons'
+import { IconLayers } from './ui/icons'
 import CollapsedPanelRail from './components/CollapsedPanelRail'
 import { useEffect, useMemo, useState } from 'react'
 import { uiConfirm } from './ui/dialogs'
 import InstallApp from './components/InstallApp'
 import Toolbar, { type ViewMode } from './components/Toolbar'
 import Sidebar from './components/Sidebar'
+import SidePanelHeader from './components/SidePanelHeader'
 import ProjectObjects from './components/ProjectObjects'
 import LadderEditor from './ladder/LadderEditor'
 import type { LadderSection } from './ladder/LadderSections'
@@ -21,15 +22,8 @@ import { allowedViews, coerceView, defaultView } from './project/kind'
 import { hasGeneratedLadder } from './grafcet/ladderSync'
 
 /** Cabeçalho das folhas em ecrã inteiro (só aparece em telemóveis): título + botão «Fechar» bem visível. */
-function SheetHeader({ title, onClose }: { title: string; onClose: () => void }) {
-  return (
-    <div className="dc-sheet-head">
-      <strong>{title}</strong>
-      <button type="button" className="dc-sheet-close" onClick={onClose} aria-label={`Fechar ${title}`}>
-        <IconClose size={13} /> Fechar
-      </button>
-    </div>
-  )
+function SheetHeader({ title, onClose, side = 'right' }: { title: string; onClose: () => void; side?: 'left' | 'right' }) {
+  return <SidePanelHeader eyebrow={side === 'left' ? 'BIBLIOTECA' : 'PROJETO'} title={title} side={side} onToggle={onClose} toggleLabel={`Recolher ${title}`} />
 }
 
 export default function App({ onBack }: { onBack: () => void }) {
@@ -210,9 +204,7 @@ export default function App({ onBack }: { onBack: () => void }) {
         {mode === 'schematic' && showLibrary && (
           <>
             <div className={`mobile-library-panel relative shrink-0 flex flex-col ${compact ? 'dc-mobile-fullscreen-panel' : ''}`} style={compact ? undefined : { width: panelSizes.sidebar }}>
-              <SheetHeader title="Biblioteca e inspetor" onClose={() => setShowLibrary(false)} />
-              <Sidebar width={compact ? window.innerWidth : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} />
-              <button className="dc-dock-close" onClick={() => setShowLibrary(false)} title="Recolher biblioteca e inspetor" aria-label="Recolher biblioteca e inspetor"><IconChevronLeft size={12} /></button>
+              <Sidebar width={compact ? window.innerWidth : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} onCollapse={() => setShowLibrary(false)} />
             </div>
             <div
               className="dc-resize-handle"
@@ -242,14 +234,7 @@ export default function App({ onBack }: { onBack: () => void }) {
           >
             {showLadder ? (
               <>
-                <SheetHeader title="GRAFCET e objetos do projeto" onClose={() => setShowLadder(false)} />
-                <button
-                  onClick={() => setShowLadder(false)}
-                  className="dc-dock-collapse"
-                  title="Recolher o painel direito"
-                >
-                  <IconChevronRight size={12} />
-                </button>
+                <SheetHeader title="GRAFCET e objetos do projeto" side="right" onClose={() => setShowLadder(false)} />
                 <div className="dc-dock-tabs" role="tablist" aria-label="Painel direito">
                   <button role="tab" aria-selected={rightTab === 'grafcet'} className={rightTab === 'grafcet' ? 'is-on' : ''} onClick={() => setRightTab('grafcet')}>GRAFCET</button>
                   <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')}>Objetos</button>

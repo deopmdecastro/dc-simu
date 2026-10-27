@@ -65,6 +65,7 @@ import {
   IconTools
 } from '../ui/icons'
 import CollapsedPanelRail from '../components/CollapsedPanelRail'
+import SidePanelHeader from '../components/SidePanelHeader'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
 import GrafcetContextMenu, { type ContextMenuItem } from './GrafcetContextMenu'
@@ -2986,15 +2987,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
         {full &&
           (showPalette ? (
             <aside className="grafcet-toolbox" aria-label="Ferramentas GRAFCET">
-              <div className="grafcet-toolbox-head">
-                <div>
-                  <strong>Componentes</strong>
-                  <small>Construa e ligue a sequência</small>
-                </div>
-                <button title="Recolher ferramentas (Ctrl+B)" aria-label="Recolher ferramentas" onClick={() => setShowPalette(false)}>
-                  <IconChevronLeft size={13} />
-                </button>
-              </div>
+              <SidePanelHeader eyebrow="GRAFCET" title="Componentes" detail="Construa e ligue a sequência" side="left" onToggle={() => setShowPalette(false)} toggleLabel="Recolher ferramentas (Ctrl+B)" />
 
               <div className="grafcet-toolbox-search">
                 <IconSearch size={13} />
@@ -5018,59 +5011,34 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
         {/* PAINEL DE PROPRIEDADES À DIREITA (Estrutura e Abas Clássicas: Etapas, Transições, Simulador, Diagnóstico) */}
         {full && (
           <aside className={`grafcet-properties ${propsOpen ? 'is-open' : ''} ${propsTall ? 'is-tall' : ''} ${tab === 'io' && simVisible ? 'is-simulator' : ''}`}>
-            <div className="grafcet-properties-summary" onClick={() => setPropsOpen((value) => !value)}>
-              <div>
-                <strong>
-                  {selectedStep && selectedAction
-                    ? (() => {
-                        const { stepNumber } = getStepDisplayInfo(selectedStep, steps.indexOf(selectedStep))
-                        return `Ação: ${selectedAction.variable || selectedAction.address || 'Ação'} · Etapa ${stepNumber}`
-                      })()
-                    : selectedStep
-                    ? (() => {
-                        const { stepNumber, comment } = getStepDisplayInfo(selectedStep, steps.indexOf(selectedStep))
-                        return `Etapa ${stepNumber}${comment ? `: ${comment}` : ''}`
-                      })()
-                    : selectedTransition
-                    ? `Transição T${transitions.indexOf(selectedTransition) + 1}`
-                    : 'Propriedades'}
-                </strong>
-                {simVisible && (
-                  <small>
-                    {running ? '● Simulação ativa' : '○ Simulação parada'}
-                    {runtime.active.length > 0 &&
-                      ` · Etapas ativas: ${runtime.active
-                        .map((value) => {
-                          const index = steps.findIndex((step) => step.id === value)
-                          return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber
-                        })
-                        .join(', ')}`}
-                  </small>
-                )}
-              </div>
-              {propsOpen && (
-                <button type="button" className="grafcet-properties-tall" aria-pressed={propsTall} aria-label={propsTall ? 'Reduzir painel' : 'Ampliar painel'} title={propsTall ? 'Reduzir painel' : 'Ampliar painel'}
-                  onClick={(event) => { event.stopPropagation(); setPropsTall((value) => !value) }}>
+            <SidePanelHeader
+              className="grafcet-properties-summary"
+              eyebrow="GRAFCET"
+              title={selectedStep && selectedAction
+                ? (() => { const { stepNumber } = getStepDisplayInfo(selectedStep, steps.indexOf(selectedStep)); return `Ação: ${selectedAction.variable || selectedAction.address || 'Ação'} · Etapa ${stepNumber}` })()
+                : selectedStep
+                ? (() => { const { stepNumber, comment } = getStepDisplayInfo(selectedStep, steps.indexOf(selectedStep)); return `Etapa ${stepNumber}${comment ? `: ${comment}` : ''}` })()
+                : selectedTransition
+                ? `Transição T${transitions.indexOf(selectedTransition) + 1}`
+                : 'Propriedades'}
+              detail={simVisible ? `${running ? '● Simulação ativa' : '○ Simulação parada'}${runtime.active.length ? ` · Etapas ativas: ${runtime.active.map((value) => { const index = steps.findIndex((step) => step.id === value); return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber }).join(', ')}` : ''}` : undefined}
+              side="right"
+              expanded={propsOpen}
+              onToggle={() => setPropsOpen((value) => !value)}
+              toggleTitle
+              toggleLabel={propsOpen ? 'Recolher propriedades' : 'Abrir propriedades'}
+              actions={<div className="grafcet-selection-actions">
+                {propsOpen && <button type="button" className="grafcet-properties-tall" aria-pressed={propsTall} aria-label={propsTall ? 'Reduzir painel' : 'Ampliar painel'} title={propsTall ? 'Reduzir painel' : 'Ampliar painel'} onClick={() => setPropsTall((value) => !value)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     {propsTall ? <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" /> : <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />}
                   </svg>
-                </button>
-              )}
-              <button type="button" className="grafcet-properties-toggle" aria-expanded={propsOpen} aria-label={propsOpen ? 'Recolher propriedades' : 'Abrir propriedades'}
-                onClick={(event) => { event.stopPropagation(); setPropsOpen((value) => !value) }}>
-                <IconChevronDown size={14} className={propsOpen ? '' : 'rotate-180'} />
-              </button>
-              {selected && (
-                <div className="grafcet-selection-actions" onClick={(event) => event.stopPropagation()}>
-                  <button onClick={duplicateSelected} title={selectedActionId ? 'Duplicar ação (Ctrl+D)' : 'Duplicar (Ctrl+D)'} aria-label="Duplicar seleção">
-                    <IconCopy size={13} />
-                  </button>
-                  <button className="is-danger" onClick={requestDelete} title={selectedActionId ? 'Eliminar ação (Del)' : 'Eliminar (Del)'} aria-label="Eliminar seleção">
-                    <IconDelete size={13} />
-                  </button>
-                </div>
-              )}
-            </div>
+                </button>}
+                {selected && <>
+                  <button type="button" onClick={duplicateSelected} title={selectedActionId ? 'Duplicar ação (Ctrl+D)' : 'Duplicar (Ctrl+D)'} aria-label="Duplicar seleção"><IconCopy size={13} /></button>
+                  <button type="button" className="is-danger" onClick={requestDelete} title={selectedActionId ? 'Eliminar ação (Del)' : 'Eliminar (Del)'} aria-label="Eliminar seleção"><IconDelete size={13} /></button>
+                </>}
+              </div>}
+            />
 
             <div className="grafcet-tabs" role="tablist" aria-label="Painel GRAFCET">
               <button role="tab" aria-selected={tab === 'steps'} className={tab === 'steps' ? 'is-active' : ''} onClick={() => setTab('steps')}>

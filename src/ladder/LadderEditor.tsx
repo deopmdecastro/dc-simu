@@ -43,6 +43,7 @@ import {
   IconGrid, IconTag, IconMonitor, IconSave, IconFile, IconOpen, IconProjects, IconCube, IconLayers, IconHelp, IconReset, IconCheck, IconTimer, IconCounter, IconStep, IconTools
 } from '../ui/icons'
 import CollapsedPanelRail from '../components/CollapsedPanelRail'
+import SidePanelHeader from '../components/SidePanelHeader'
 import { COMPILE_GATE_KEY, compileGateEnabled, compileHash, compileInputOf, compileLadder, compileSummary, type CompileResult } from './ladderCompile'
 import { useLadderPrefs } from './ladderPrefs'
 import { ELEMENT_KEYS } from './ladderShortcuts'
@@ -836,10 +837,15 @@ function ProjectTreePane({
 
   return (
     <aside className="ladder-project-pane">
-      <div className="ladder-pane-heading">
-        <span>Projeto</span>
-        <span className="ladder-pane-heading-actions">
-          {hiddenFolders.length > 0 && <Select
+      <SidePanelHeader
+        eyebrow="LADDER"
+        title="Projeto"
+        detail={activePlc?.ref ?? 'Programa geral'}
+        icon={<IconProjects size={16} />}
+        side="left"
+        onToggle={onClose}
+        toggleLabel="Recolher projeto"
+        actions={hiddenFolders.length > 0 ? <Select
             aria-label="Restaurar pasta eliminada"
             title="Restaurar pasta eliminada"
             value=""
@@ -847,10 +853,8 @@ function ProjectTreePane({
           >
             <option value="">＋ Pasta</option>
             {hiddenFolders.map((folder) => <option key={folder} value={folder}>{folderLabels[folder]?.trim() || NODE_TITLES[folder]}</option>)}
-          </Select>}
-          <button className="ladder-ghost-button" title="Recolher projeto" onClick={onClose}>×</button>
-        </span>
-      </div>
+          </Select> : undefined}
+      />
       <div className="ladder-project-tree">
         {renderNode({ ...projectTree, label: activePlc?.ref ?? 'Programa geral', detail: activePlc?.label ?? 'Sem PLC no esquema' })}
       </div>
@@ -2152,13 +2156,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
       {/* gaveta em ecrã pequeno: toque fora fecha os painéis laterais (visível só até 1199px) */}
       <button type="button" className="ladder-pane-scrim" aria-label="Fechar painel de elementos" onClick={() => setShowPalette(false)} />
       <aside className="ladder-palette">
-        <div className="ladder-palette-header">
-          <div>
-            <strong>Elementos Ladder</strong>
-            <small>Network ativa: {activeId ? rungs.findIndex((r) => r.id === activeId) + 1 : '—'}</small>
-          </div>
-          <button className="ladder-ghost-button" onClick={() => setShowPalette(false)} title="Recolher elementos">›</button>
-        </div>
+        <SidePanelHeader eyebrow="LADDER" title="Elementos" detail={`Network ativa: ${activeId ? rungs.findIndex((r) => r.id === activeId) + 1 : '—'}`} side="right" onToggle={() => setShowPalette(false)} toggleLabel="Recolher elementos" />
         <div className="ladder-palette-search-wrap">
           <input ref={searchRef} type="search" className="ladder-palette-search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Pesquisar elemento…  ( / )" aria-label="Pesquisar elementos Ladder" onKeyDown={(e) => { if (e.key === 'Escape') { setFilter(''); (e.target as HTMLInputElement).blur() } }} />
           <span className="ladder-search-icon" aria-hidden="true"><IconSearch size={13} /></span>
