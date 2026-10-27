@@ -2085,14 +2085,14 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
               {(running || paused) && <span className="ladder-scan-count" title="Ciclos de scan executados desde que a simulação arrancou">{scanCount.toLocaleString('pt-PT')} ciclos</span>}
               <span className={`ladder-run-pill ${running ? 'is-running' : paused ? 'is-paused' : ''}`} role="status" title={running ? 'A simulação está a correr' : paused ? 'A simulação está em pausa' : 'Simulação parada — carregue em Run para arrancar'}><i /> {running ? 'Simulação ativa' : paused ? 'Em pausa' : 'Pronto'}</span>
               <span className="ladder-actions-sep" aria-hidden="true" />
-              <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)"><IconReset size={11} /> Repor memórias</button>
+              <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)"><IconReset size={11} /> <span className="ladder-btn-label">Repor memórias</span></button>
               <button
                 className="ladder-bottom-toggle"
                 onClick={() => setShowStatus((v) => !v)}
                 aria-expanded={showStatus}
                 title={`${showStatus ? 'Esconder' : 'Mostrar'} painel de estado (Ctrl+J)`}
               >
-                <IconChevronDown size={12} className={showStatus ? '' : 'is-flipped'} /> {showStatus ? 'Esconder' : 'Mostrar'}
+                <IconChevronDown size={12} className={showStatus ? '' : 'is-flipped'} /> <span className="ladder-btn-label">{showStatus ? 'Esconder' : 'Mostrar'}</span>
               </button>
             </div>
           </div>
