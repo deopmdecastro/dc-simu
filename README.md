@@ -17,6 +17,27 @@ O editor GRAFCET aceita ficheiros `.ct` do FluidSIM 4, com leitura local de etap
 
 As 142 ligações dos 20 equipamentos integrados com bornes são verificadas contra as cavidades da geometria renderizada. O editor usa a mesma escala física do CAD, limita o marcador ao espaço do furo e migra posições automáticas antigas. Consulte [calibração, réguas complementares e verificações](docs/TERMINAL-GEOMETRY.md); execute `npm run test:terminal-geometry` para verificar os GLB locais.
 
+## Novidades — v5.3 (administração em ecrãs pequenos)
+
+- **As nove secções da administração passam a estar ao alcance no telemóvel.** Em vez de uma faixa
+  que deslizava (medidos 1 087 px de conteúdo em 350 px visíveis — só se viam três secções), a
+  secção atual aparece num seletor único que abre uma folha inferior com todas, agrupadas em Geral ·
+  Conteúdo · Gestão · Sistema, com ícone, contador «por tratar» e a secção atual marcada.
+- **Tablet:** as nove secções passam a duas linhas (antes deslizavam na horizontal, com seis
+  escondidas). **Portátil:** a lista de componentes e os filtros das contas deixam de empurrar a
+  página para fora do ecrã (31 px e 114 px medidos a 1024 px).
+- **Cada componente ocupa 129 px em vez de ≈ 170 px** no telefone: ficam à mão o plano mínimo, a ação
+  do estado atual e **Mais ações** (arquivar, eliminar, contribuições com o efeito explicado). A nota
+  «O que faz bloquear, arquivar e eliminar» começa fechada no telemóvel e aberta na secretária.
+- **Cabeçalho da administração** de 250 px para 131 px; **barra «Guardar planos»** com versão estreita
+  (Guardar + Mais) e o conteúdo a reservar espaço, em vez de tapar os últimos campos.
+- **Registos:** «De» e «Até» com nome visível (os campos de data nativos apareciam como
+  `mm/dd/yyyy`); paginação e limpeza de registos arrumadas. **Utilizadores:** ações da conta numa
+  grelha de duas colunas, com altura de toque.
+- **Verificação:** `npm run test:admin-ui` (novo, 43 verificações a 390, 768, 1024 e 1440 px),
+  `test:admin-saas-ui`, `test:saas` (58), `test:style`, `test:editor3d-ui`, `npm test` e `tsc -b`.
+  Detalhe em [administração em ecrãs pequenos](docs/ADMIN-ECRAS-PEQUENOS.md).
+
 ## Novidades — v5.2 (barra do editor e telemóvel)
 
 - **Barra do editor de componentes arrumada para o polegar.** As seis ferramentas (Selecionar ·

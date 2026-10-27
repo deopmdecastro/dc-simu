@@ -75,8 +75,14 @@ export default function LogsTab({ initialActor = '', onChanged, onError }: { ini
         <option value="">Todas as ações</option>
         {Object.entries(ACTION_LABEL).filter(([key]) => !category || categoryOf(key) === category).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
       </Select>
-      <input className="dx-input" type="date" value={from} max={to || undefined} onChange={(event) => reset(() => setFrom(event.target.value))} aria-label="Desde" title="Desde" />
-      <input className="dx-input" type="date" value={to} min={from || undefined} onChange={(event) => reset(() => setTo(event.target.value))} aria-label="Até" title="Até" />
+      {/* Com nome visível: um campo de data nativo sozinho mostra «mm/dd/yyyy» e
+          não se percebe qual é o início e qual é o fim do intervalo. */}
+      <label className="cb-date-field"><span className="dx-label">De</span>
+        <input className="dx-input" type="date" value={from} max={to || undefined} onChange={(event) => reset(() => setFrom(event.target.value))} aria-label="Desde" title="Desde" />
+      </label>
+      <label className="cb-date-field"><span className="dx-label">Até</span>
+        <input className="dx-input" type="date" value={to} min={from || undefined} onChange={(event) => reset(() => setTo(event.target.value))} aria-label="Até" title="Até" />
+      </label>
     </div>
     {actor && <div className="cb-chipbar"><span className="cb-badge">Utilizador: {actor}<button aria-label="Remover filtro de utilizador" onClick={() => reset(() => setActor(''))}><IconClose size={10} /></button></span></div>}
 
@@ -124,6 +130,7 @@ export default function LogsTab({ initialActor = '', onChanged, onError }: { ini
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void load()}>Atualizar</button>
       <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => void exportCsv()} disabled={data.total === 0}>Exportar CSV ({Math.min(data.total, 5000)})</button>
       <span className="cb-logtools-purge">
+        <span className="cb-logtools-purge-label">Limpar registos</span>
         <Select className="dx-input" value={purgeDays} onChange={(event) => setPurgeDays(Number(event.target.value))} aria-label="Antiguidade a apagar">
           {[30, 90, 180, 365].map((days) => <option key={days} value={days}>mais de {days} dias</option>)}
         </Select>

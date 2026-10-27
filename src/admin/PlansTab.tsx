@@ -3,6 +3,8 @@ import Select from '../ui/Select'
 import { adminApi } from './adminApi'
 import type { AdminUser, PlanRequest } from './adminTypes'
 import { usePlanStore } from '../saas/usePlan'
+import RowMenu, { MenuItem } from './RowMenu'
+import { useNarrowMenu } from '../ui/toolbarKit'
 import {
   DEFAULT_PRICING, FEATURES, LIMIT_KEYS, LIMIT_LABEL, effectivePlanId, planById, sanitizePricing,
   type FeatureKey, type LimitKey, type PlanConfig, type PlanId, type PricingConfig,
@@ -33,6 +35,7 @@ export default function PlansTab({ users, planRequests, onChanged, onError }: Pr
   const [requestFilter, setRequestFilter] = useState<'pending' | 'all'>('pending')
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [extrasText, setExtrasText] = useState<Record<string, string>>({})
+  const narrow = useNarrowMenu()
 
   useEffect(() => { setDraft(clone(stored)); setExtrasText({}) }, [stored])
 
@@ -140,12 +143,24 @@ export default function PlansTab({ users, planRequests, onChanged, onError }: Pr
       </article>)}
     </div>
 
-    <div className="cb-save-bar">
+    <div className={`cb-save-bar${narrow ? ' is-narrow' : ''}`}>
       {problem && <span className="cb-note is-error" role="alert">{problem}</span>}
       {!problem && dirty && <span className="cb-note">Alterações por guardar.</span>}
-      <button className="dx-btn dx-btn-secondary" disabled={busy || !dirty} onClick={() => { setDraft(clone(stored)); setExtrasText({}) }}>Descartar</button>
-      <button className="dx-btn dx-btn-secondary" disabled={busy} onClick={() => { setDraft(clone(DEFAULT_PRICING)); setExtrasText({}) }} title="Carrega os valores de fábrica no rascunho (é preciso guardar)">Repor valores de fábrica</button>
-      <button className="dx-btn dx-btn-primary" disabled={busy || !dirty || !!problem} onClick={() => void save()}>Guardar planos</button>
+      {narrow
+        ? <>
+            <RowMenu label="Mais">
+              {(close) => <>
+                <MenuItem disabled={!dirty} hint="Ainda não há alterações" onClick={() => { close(); setDraft(clone(stored)); setExtrasText({}) }}>Descartar alterações</MenuItem>
+                <MenuItem onClick={() => { close(); setDraft(clone(DEFAULT_PRICING)); setExtrasText({}) }} hint="Carrega os valores de fábrica no rascunho; é preciso guardar">Repor valores de fábrica</MenuItem>
+              </>}
+            </RowMenu>
+            <button className="dx-btn dx-btn-primary" disabled={busy || !dirty || !!problem} onClick={() => void save()}>Guardar planos</button>
+          </>
+        : <>
+            <button className="dx-btn dx-btn-secondary" disabled={busy || !dirty} onClick={() => { setDraft(clone(stored)); setExtrasText({}) }}>Descartar</button>
+            <button className="dx-btn dx-btn-secondary" disabled={busy} onClick={() => { setDraft(clone(DEFAULT_PRICING)); setExtrasText({}) }} title="Carrega os valores de fábrica no rascunho (é preciso guardar)">Repor valores de fábrica</button>
+            <button className="dx-btn dx-btn-primary" disabled={busy || !dirty || !!problem} onClick={() => void save()}>Guardar planos</button>
+          </>}
     </div>
 
     <div className="dx-admin-section"><h2>Pedidos de plano</h2>

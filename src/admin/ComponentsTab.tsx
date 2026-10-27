@@ -9,6 +9,8 @@ import { adminApi } from './adminApi'
 import type { ComponentSetting } from './adminTypes'
 import { usePlanStore } from '../saas/usePlan'
 import { COMPONENT_STATUS_LABEL, componentStatusOf, type ComponentStatus, type PlanId } from '../saas/platformCore.mjs'
+import RowMenu, { MenuItem } from './RowMenu'
+import { useNarrowMenu } from '../ui/toolbarKit'
 
 type Props = {
   settings: ComponentSetting[]
@@ -40,6 +42,10 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
   const [sort, setSort] = useState<SortKey>('group')
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
   const pricing = usePlanStore((s) => s.pricing)
+  /* Até 1180 px a linha não tem largura para cinco ações em fila: fica a ação do
+     estado atual, o plano mínimo e «Mais ações» (menu). Abaixo de 720 px, além
+     disso, a linha passa a duas filas — é o mesmo componente, só muda a arrumação. */
+  const narrow = useNarrowMenu('(max-width: 1180px)')
 
   const settingMap = useMemo(() => new Map(settings.map((entry) => [String(entry.type), entry])), [settings])
   const groups = useMemo(() => [...new Set(COMPONENT_OPTIONS.map((option) => option.group))], [])
@@ -160,7 +166,10 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
 
   return <>
     <div className="dx-admin-section"><h2>Componentes</h2><span>{counts.active} ativos · {counts.blocked} bloqueados · {counts.archived} arquivados · {counts.deleted} eliminados · {premiumCount} com plano mínimo · {no3d} sem modelo 3D</span></div>
-    <p className="cb-note cb-banner"><strong>Bloquear</strong> mantém o componente visível com cadeado; <strong>arquivar</strong> retira-o da biblioteca; <strong>eliminar</strong> retira-o do catálogo (fica no filtro «Eliminados» e pode ser reposto). O <strong>plano mínimo</strong> reserva o componente a utilizadores desse plano ou superior. Os projetos que já usam o componente continuam sempre a abrir.</p>
+    <details className="adm-help" open={!narrow}>
+      <summary>O que faz bloquear, arquivar e eliminar</summary>
+      <p className="cb-note cb-banner"><strong>Bloquear</strong> mantém o componente visível com cadeado; <strong>arquivar</strong> retira-o da biblioteca; <strong>eliminar</strong> retira-o do catálogo (fica no filtro «Eliminados» e pode ser reposto). O <strong>plano mínimo</strong> reserva o componente a utilizadores desse plano ou superior. Os projetos que já usam o componente continuam sempre a abrir.</p>
+    </details>
 
     <div className="cb-filters cb-filters-components">
       <input className="dx-input" type="search" placeholder="Pesquisar componente…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar componentes" />
@@ -207,7 +216,10 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
           {row.pending > 0 && <span className="cb-badge is-warn">{row.pending} em revisão</span>}
         </div>
         <div className="cb-actions">
-          {(row.datasheets + row.models + row.pending) > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => onOpenContributions(row.type)}>Ver contribuições</button>}
+          {/* No telefone ficam duas ações à mão (a do estado atual) e o resto no
+              menu «Mais ações»: cinco botões por componente não cabiam sem
+              empurrar a lista para três ecrãs de altura. */}
+          {!narrow && (row.datasheets + row.models + row.pending) > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => onOpenContributions(row.type)}>Ver contribuições</button>}
           {row.status !== 'deleted' && <Select className="dx-input dx-input-sm" value={row.minPlan ?? ''} disabled={busy} aria-label={`Plano mínimo de ${row.label}`} onChange={(event) => void setMinPlan(row, (event.target.value || null) as PlanId | null)}>
             <option value="">Todos os planos</option>
             {pricing.plans.filter((p) => p.id !== 'free').map((p) => <option key={p.id} value={p.id}>A partir de {p.name}</option>)}
@@ -215,11 +227,18 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
           {row.status === 'active'
             ? <>
               <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={busy} onClick={() => setPending({ types: [row.type], status: 'blocked', note: '' })}>Bloquear…</button>
-              <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={busy} onClick={() => setPending({ types: [row.type], status: 'archived', note: '' })}>Arquivar…</button>
+              {!narrow && <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={busy} onClick={() => setPending({ types: [row.type], status: 'archived', note: '' })}>Arquivar…</button>}
             </>
             : <button className="dx-btn dx-btn-primary dx-btn-sm" disabled={busy} onClick={() => void applyStatus([row.type], 'active')}>{row.status === 'blocked' ? 'Desbloquear' : 'Repor'}</button>}
-          {row.status === 'blocked' && <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={busy} onClick={() => setPending({ types: [row.type], status: 'archived', note: '' })}>Arquivar…</button>}
-          {row.status !== 'deleted' && <button className="dx-btn dx-btn-danger dx-btn-sm" disabled={busy} onClick={() => setPending({ types: [row.type], status: 'deleted', note: '' })}>Eliminar…</button>}
+          {!narrow && row.status === 'blocked' && <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={busy} onClick={() => setPending({ types: [row.type], status: 'archived', note: '' })}>Arquivar…</button>}
+          {!narrow && row.status !== 'deleted' && <button className="dx-btn dx-btn-danger dx-btn-sm" disabled={busy} onClick={() => setPending({ types: [row.type], status: 'deleted', note: '' })}>Eliminar…</button>}
+          {narrow && <RowMenu label="Mais ações">
+            {(close) => <>
+              {(row.datasheets + row.models + row.pending) > 0 && <MenuItem onClick={() => { close(); onOpenContributions(row.type) }}>Ver contribuições<small style={{ display: 'block' }}>{row.datasheets} ficha(s) · {row.models} modelo(s) · {row.pending} em revisão</small></MenuItem>}
+              {row.status !== 'deleted' && row.status !== 'archived' && <MenuItem onClick={() => { close(); setPending({ types: [row.type], status: 'archived', note: '' }) }} hint="Sai da biblioteca e da pesquisa; os projetos que já o usam continuam a abrir">Arquivar…</MenuItem>}
+              {row.status !== 'deleted' && <MenuItem danger onClick={() => { close(); setPending({ types: [row.type], status: 'deleted', note: '' }) }}>Eliminar…</MenuItem>}
+            </>}
+          </RowMenu>}
         </div>
         {confirmBar([row.type])}
       </article>)}

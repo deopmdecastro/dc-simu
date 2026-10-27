@@ -286,3 +286,165 @@
 .adm-tile { gap: 4px; padding: 16px 18px; border-color: var(--dx-line-soft); border-radius: 12px; }
 .adm-tile strong { font-size: 28px; }
 .adm-tablewrap, .dx-admin .cb-logs { border-color: var(--dx-line-soft); border-radius: 12px; }
+
+/* ==========================================================================
+   Telemóvel e ecrãs estreitos (≤ 720 px) — 2026-10-27
+   --------------------------------------------------------------------------
+   Problemas medidos a 390 px antes destas regras: a faixa de nove secções
+   deslizava na horizontal e só se viam três (sem sinal de que havia mais); o
+   cabeçalho gastava 250 px em todos os separadores; cada componente ocupava
+   170 px (cinco linhas de botões); a barra «Guardar planos» tapava os últimos
+   campos; e os dois campos de data apareciam como «mm/dd/yyyy», sem nome.
+   Regras só com tokens --dx-*; a ordem dos botões não muda entre tamanhos.
+   ========================================================================== */
+
+/* ---------- cabeçalho: título, estado e ações numa faixa baixa ---------- */
+@media (max-width: 720px) {
+  .dx-admin.adm { padding: var(--dx-3) var(--dx-3) var(--dx-6); }
+  .adm-head { align-items: flex-start; gap: 10px; margin-bottom: var(--dx-3); padding-bottom: 10px; }
+  .adm-head h1 { font-size: 20px; letter-spacing: -0.02em; }
+  .adm-head p { display: none; }
+  .adm-head-side { width: 100%; gap: 8px; }
+  .adm-env { height: 30px; padding: 0 10px; font-size: 11.5px; }
+  .dx-admin-head-actions { flex: 1; gap: 8px; }
+  .dx-admin-head-actions .dx-btn { flex: 1; height: 38px; justify-content: center; padding: 0 10px; font-size: 13px; }
+  .dx-admin-head-actions .dx-btn-primary { flex: 1.4; }
+}
+
+/* ---------- navegação: secção atual + folha com todas ---------- */
+.adm-picker { display: grid; gap: 3px; }
+.adm-picker-label { padding: 0 3px; color: var(--dx-ink-4); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.adm-picker .tm-trigger {
+  display: flex; align-items: center; justify-content: flex-start; gap: 8px;
+  width: 100%; height: 44px; padding: 0 14px; border: 1px solid var(--dx-line); border-radius: 12px;
+  background: var(--dx-surface); color: var(--dx-ink); font-size: 14.5px; font-weight: 650; box-shadow: var(--dx-sh-xs);
+}
+.adm-picker .tm-trigger:hover:not(.dc-tool-active) { border-color: var(--dx-brand-line); background: var(--dx-surface); color: var(--dx-ink); }
+.adm-picker .tm-trigger.dc-tool-active { border-color: var(--dx-brand-line); background: var(--dx-brand-soft); color: var(--dx-brand-700); }
+.adm-picker .tm-trigger > svg:last-of-type { margin-left: auto; color: var(--dx-ink-4); }
+.adm-picker-name { flex: 1; min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.adm-picker .tm-trigger b { min-width: 22px; padding: 1px 7px; border-radius: var(--dx-r-pill); background: var(--dx-surface-2); color: var(--dx-ink-3); font-size: 11.5px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.adm-picker .tm-trigger b.is-attention { background: var(--dx-warn); color: #fff; }
+
+/* ---------- nota explicativa: fecha em telemóvel ---------- */
+.adm-help { margin: 0 0 var(--dx-3); border: 1px solid var(--dx-line-soft); border-radius: 12px; background: var(--dx-surface); box-shadow: var(--dx-sh-xs); }
+.adm-help > summary { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; color: var(--dx-ink-3); font-size: 12.5px; font-weight: 650; cursor: pointer; list-style: none; }
+.adm-help > summary::-webkit-details-marker { display: none; }
+.adm-help > summary::after { content: '⌄'; margin-left: auto; color: var(--dx-ink-4); font-size: 13px; transition: transform var(--dx-fast); }
+.adm-help[open] > summary::after { transform: rotate(180deg); }
+.adm-help > summary:hover { color: var(--dx-ink); }
+.adm-help > summary:focus-visible { outline: none; border-radius: 12px; box-shadow: var(--dx-focus); }
+.adm-help[open] > summary { border-bottom: 1px solid var(--dx-line-soft); color: var(--dx-ink-2); }
+.dx-admin .adm-help .cb-note.cb-banner { margin: 0; border: 0; border-radius: 0 0 12px 12px; background: transparent; box-shadow: none; }
+
+/* ---------- componentes: duas linhas de ação em vez de quatro ---------- */
+@media (max-width: 720px) {
+  .dx-admin .cb-components { border-radius: 12px; }
+  .dx-admin .cb-component { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px 12px 10px; }
+  .dx-admin .cb-component-main { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: 0 8px; }
+  .dx-admin .cb-component-main strong { font-size: 14px; line-height: 1.3; }
+  .dx-admin .cb-component-main small { grid-column: 2; font-size: 11.5px; }
+  .dx-admin .cb-component-main .cb-component-note { grid-column: 2; }
+  .dx-admin .cb-component-chips { gap: 5px; padding-left: 30px; }
+  .dx-admin .cb-badge { height: 21px; padding: 0 7px; font-size: 11px; }
+  .dx-admin .cb-component > .cb-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 6px; }
+  .dx-admin .cb-component > .cb-actions .dcx-select { width: 100%; min-width: 0; }
+  .dx-admin .cb-component > .cb-actions .dx-btn { height: 34px; padding: 0 10px; white-space: nowrap; }
+  .dx-admin .cb-component > .cb-actions .adm-menu { justify-self: end; }
+  .dx-admin .cb-component > .cb-actions .adm-menu > .dx-btn { height: 34px; }
+  /* ações em lote: barra com uma linha de botões que cabe */
+  .dx-admin .cb-bulk { flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
+  .dx-admin .cb-bulk .dx-btn { height: 32px; }
+  .dx-admin .cb-filters-components { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .dx-admin .cb-filters-components > :first-child { grid-column: 1 / -1; }
+}
+
+/* ---------- planos: barra de gravação fina e conteúdo com folga ---------- */
+.dx-admin .adm-main:has(.cb-save-bar) { padding-bottom: 84px; }
+@media (max-width: 720px) {
+  .dx-admin .cb-plan-grid { gap: 10px; }
+  .dx-admin .cb-plan-card { gap: 10px; padding: 14px; }
+  .dx-admin .cb-plan-features { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .cb-save-bar.is-narrow { left: 8px; right: 8px; bottom: 8px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 8px; border-radius: 14px; }
+  .cb-save-bar.is-narrow .cb-note { grid-column: 1 / -1; margin: 0 2px; }
+  .cb-save-bar.is-narrow .cb-note:empty { display: none; }
+  .cb-save-bar.is-narrow .dx-btn { height: 40px; }
+  .cb-save-bar.is-narrow .adm-menu { order: 0; }
+  .cb-save-bar.is-narrow > .dx-btn-primary { order: 1; }
+  .cb-save-bar.is-narrow .adm-menu-list { top: auto; bottom: calc(100% + 8px); }
+}
+
+/* ---------- registos: datas com nome, ferramentas de limpeza arrumadas ---------- */
+.dx-admin .cb-date-field { display: grid; gap: 2px; min-width: 0; }
+.dx-admin .cb-date-field .dx-label { padding-left: 2px; font-size: 11px; font-weight: 650; color: var(--dx-ink-4); }
+.dx-admin .cb-filters-logs { grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)) minmax(0, 1fr) minmax(0, 1fr); align-items: end; }
+.dx-admin .cb-date-field .dx-input { height: 36px; min-height: 36px; }
+.cb-logtools-purge-label { color: var(--dx-ink-4); font-size: 11.5px; font-weight: 650; }
+@media (max-width: 960px) {
+  .dx-admin .cb-filters-logs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dx-admin .cb-filters-logs > :first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .dx-admin .cb-pager { gap: 6px; }
+  .dx-admin .cb-pager .dx-btn { flex: 1; justify-content: center; height: 36px; }
+  .cb-logtools { flex-wrap: wrap; gap: 8px; }
+  .cb-logtools .dx-btn { height: 36px; }
+  .cb-logtools-purge { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; width: 100%; margin-left: 0; padding-top: 8px; border-top: 1px solid var(--dx-line-soft); }
+  .cb-logtools-purge-label { grid-column: 1 / -1; }
+  .cb-logtools-purge .dx-input { width: 100%; }
+  .cb-logtools-purge .dx-btn { height: 36px; }
+}
+
+/* ---------- resumo: ligações e atalhos com altura de toque ---------- */
+@media (max-width: 720px) {
+  .dx-admin .adm-cols .cb-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; margin-left: auto; border-radius: var(--dx-r-pill); background: var(--dx-surface-2); }
+  .dx-admin .adm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .adm-tile { padding: 12px 14px; }
+  .adm-tile strong { font-size: 24px; }
+  .adm-attn-row, .adm-clear { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .adm-attn-row .dx-btn { height: 34px; }
+  .dx-admin .cb-plan-pill { padding: 8px 10px; }
+}
+
+/* ---------- utilizadores: ações da conta numa grelha de uma linha ---------- */
+@media (max-width: 720px) {
+  .dx-admin .cb-user { padding: 14px; }
+  .dx-admin .cb-user-actions,
+  .dx-admin .cb-user-actions.cb-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  @media (min-width: 440px) { .dx-admin .cb-user-actions.cb-actions { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); } }
+  .dx-admin .cb-user-actions > .dx-btn,
+  .dx-admin .cb-user-actions > .adm-menu > .dx-btn { width: 100%; height: 34px; justify-content: center; padding: 0 8px; white-space: nowrap; }
+  .dx-admin .cb-user-actions > .adm-menu { min-width: 0; }
+  .dx-admin .cb-user-actions > .adm-menu-list { right: auto; left: 0; }
+  .dx-admin .cb-user-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; padding: 10px; }
+  .dx-admin .cb-user-badges, .dx-admin .cb-badges { justify-content: flex-start; margin-left: 0; }
+}
+
+/* ---------- tablet (721–960 px): as nove secções quebram em duas linhas ----------
+   Nesta largura a navegação lateral já desapareceu e a faixa deslizava na
+   horizontal: ficavam três secções à vista e as outras seis escondidas atrás de
+   um deslize que ninguém adivinha. Em duas linhas cabem todas, sem tocar em nada. */
+@media (min-width: 721px) and (max-width: 960px) {
+  .adm-shell .adm-tablist { flex-wrap: wrap; row-gap: 4px; overflow: visible; }
+  .adm-shell .adm-tab { flex: 0 0 auto; }
+}
+
+/* ---------- largura intermédia (721–1180 px) ----------
+   Com a navegação lateral visível, a coluna de conteúdo estreita e as mesmas
+   cinco ações por componente deixavam de caber: medido a 1024 px, a lista
+   empurrava a página 31 px para fora do ecrã e os utilizadores 114 px. Aqui a
+   linha de ações pode quebrar e os filtros das contas passam a três colunas. */
+@media (max-width: 1180px) {
+  .dx-admin .cb-filters-users { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dx-admin .cb-filters-users > :first-child { grid-column: 1 / -1; }
+  .dx-admin .cb-filters-users > .dx-btn { justify-content: center; }
+  .dx-admin .cb-filters-components { grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)) auto; }
+  .dx-admin .cb-filters-components > .dx-btn { justify-content: center; }
+  .dx-admin .cb-component > .cb-actions { flex-wrap: wrap; row-gap: 6px; }
+  /* a caixa de seleção fica na mesma linha do nome, sem ficar sozinha em cima */
+  .dx-admin .cb-component-main { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: 0 8px; }
+  .dx-admin .cb-component-main strong { font-size: 14px; }
+  .dx-admin .cb-component-main small, .dx-admin .cb-component-main .cb-component-note { grid-column: 2; }
+  .dx-admin .cb-component > .cb-actions .dcx-select { min-width: 150px; }
+  .dx-admin .cb-user-actions { flex-wrap: wrap; row-gap: 6px; }
+}

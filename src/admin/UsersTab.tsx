@@ -204,7 +204,7 @@ export default function UsersTab({ users, planRequests = [], currentUserId, onCh
       <Select className="dx-input" value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} aria-label="Ordenar utilizadores">
         <option value="name">Ordenar: nome</option><option value="recent">Ordenar: mais recentes</option><option value="lastLogin">Ordenar: último acesso</option><option value="projects">Ordenar: n.º de projetos</option>
       </Select>
-      <button className="dx-btn dx-btn-primary" disabled={!serverMode} onClick={() => setCreating(!creating)}>{creating ? 'Cancelar' : '+ Nova conta'}</button>
+      <button className="dx-btn dx-btn-primary" disabled={!serverMode} title={serverMode ? 'Criar uma conta no servidor' : 'Criar contas exige o servidor (Docker/SQLite) ou o Supabase; no modo local só existem as contas fixas'} onClick={() => setCreating(!creating)}>{creating ? 'Cancelar' : '+ Nova conta'}</button>
     </div>
 
     {creating && <form className="cb-form cb-form-wide" onSubmit={(event) => void create(event)}>

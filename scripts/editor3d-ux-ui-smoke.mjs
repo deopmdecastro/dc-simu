@@ -124,11 +124,15 @@ try {
   await clickCanvas('component')
   check(await sim((store) => store.getState().components[0].state.closed) === closed, 'Clique de seleção mantém o estado do disjuntor')
   check(await page.getByRole('button', { name: 'Manobrar controlos', exact: true }).count() === 0, 'Não existe botão Manobrar: só a simulação aciona os equipamentos')
+  // «Manobrar» deixou de ser um interruptor do painel: os equipamentos acionam-se
+  // quando a simulação está a correr (RUN). O teste acompanha esse modelo.
   await page.evaluate(async () => { const { useSimUi } = await import('/src/ui/simUi.ts'); useSimUi.setState({ schematic: true }) })
+  await sim((store) => store.getState().play())
   await page.waitForTimeout(300)
   check(await page.locator('.panel3d-stage').getAttribute('data-operating') === 'true', 'Simulação ativa permite manobrar')
   await clickCanvas('component')
   check(await sim((store) => store.getState().components[0].state.closed) !== closed, 'Simulação permite acionar o disjuntor pelo canvas')
+  await sim((store) => store.getState().stop())
   await page.evaluate(async () => { const { useSimUi } = await import('/src/ui/simUi.ts'); useSimUi.setState({ schematic: false }) })
   await page.waitForTimeout(300)
   check(await page.locator('.panel3d-stage').getAttribute('data-operating') === 'false', 'Sair da simulação volta a seleção')

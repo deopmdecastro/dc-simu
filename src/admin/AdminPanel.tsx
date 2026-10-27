@@ -20,7 +20,8 @@ import UsersTab from './UsersTab'
 import { contribApi } from '../contrib/contribApi'
 import { COMPONENT_OPTIONS, ContributionRow, formatBytes, formatDate } from '../contrib/ContribParts'
 import { KIND_LABEL, STATUS_LABEL, type Contribution, type ContributionKind, type ContributionStatus, type ContribStats } from '../contrib/types'
-import { IconArrowLeft, IconClose } from '../ui/icons'
+import { IconArrowLeft, IconChevronDown, IconClose, IconCube, IconFileUpload, IconGrid, IconLayers, IconMonitor, IconOrganize, IconProjects, IconTag, IconTools, IconUser } from '../ui/icons'
+import { ToolMenu, useNarrowMenu, type ToolMenuSection } from '../ui/toolbarKit'
 
 type Tab = 'overview' | 'contributions' | 'components' | 'library3d' | 'projects' | 'users' | 'plans' | 'logs' | 'system'
 
@@ -138,6 +139,38 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
     disabledCount > 0 && { key: 'components', text: `${disabledCount} ${disabledCount === 1 ? 'componente bloqueado' : 'componentes bloqueados'} na biblioteca`, cta: 'Gerir componentes', run: () => setTab('components') },
   ].filter((item): item is { key: string; text: string; cta: string; run: () => void } => !!item)
   const shownProjects = projects.filter((project) => `${project.name} ${project.owner}`.toLowerCase().includes(projectQuery.trim().toLowerCase()))
+  /* Telemóvel: nove secções não cabem numa faixa que desliza sem ninguém dar por
+     isso. Em vez disso, um botão com a secção atual abre a lista completa (folha
+     inferior, ver ToolMenu) — o mesmo padrão dos editores. A partir de 721 px
+     mantém-se a faixa horizontal e, na secretária, a navegação lateral. */
+  const narrow = useNarrowMenu()
+  const flatNav = navGroups.flatMap((group) => group.tabs.map((item) => ({ ...item, group: group.label })))
+  const currentNav = flatNav.find((item) => item.id === tab) ?? flatNav[0]
+  const NAV_ICON: Record<Tab, typeof IconGrid> = {
+    overview: IconGrid, contributions: IconFileUpload, components: IconLayers, library3d: IconCube,
+    projects: IconProjects, users: IconUser, plans: IconTag, logs: IconMonitor, system: IconTools,
+  }
+  const navMenu: ToolMenuSection[] = navGroups.map((group) => ({
+    id: group.label,
+    title: group.label,
+    items: group.tabs.map((item) => {
+      const Icon = NAV_ICON[item.id]
+      return {
+        id: item.id,
+        label: item.label,
+        icon: <Icon size={15} />,
+        hint: item.count
+          ? item.id === 'contributions' ? `${item.count} por revisão`
+            : item.id === 'users' ? `${item.count} conta${item.count === 1 ? '' : 's'}`
+              : item.id === 'plans' ? `${item.count} pedido${item.count === 1 ? '' : 's'} por decidir`
+                : `${item.count} registado${item.count === 1 ? '' : 's'}`
+          : undefined,
+        pressed: tab === item.id,
+        onSelect: () => setTab(item.id),
+      }
+    }),
+  }))
+
 
   return <section className="dx dx-admin cb-panel adm">
     <header className="adm-head">
@@ -157,7 +190,23 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
 
     <div className={`adm-shell ${tab === 'library3d' ? 'is-wide' : ''}`}>
     <nav className="adm-nav" aria-label="Secções da administração">
-      <div className="adm-tablist" role="tablist" aria-orientation="vertical" aria-label="Gestão do administrador">
+      {narrow
+        ? <div className="adm-picker">
+            <span className="adm-picker-label">{currentNav.group}</span>
+            <ToolMenu
+              label={`Secção: ${currentNav.label}`}
+              title="Secções da administração"
+              icon={<IconOrganize size={14} />}
+              sections={navMenu}
+              className="adm-picker-button"
+              trigger={() => <>
+                <span className="adm-picker-name">{currentNav.label}</span>
+                {currentNav.count !== undefined && <b className={currentNav.attention ? 'is-attention' : ''}>{currentNav.count}</b>}
+                <IconChevronDown size={12} />
+              </>}
+            />
+          </div>
+        : <div className="adm-tablist" role="tablist" aria-orientation="vertical" aria-label="Gestão do administrador">
         {navGroups.map((group) => <div key={group.label} className="adm-nav-group" role="presentation">
           <span className="adm-nav-label" role="presentation">{group.label}</span>
           {group.tabs.map((item) => <button key={item.id} role="tab" aria-selected={tab === item.id} className={`adm-tab ${tab === item.id ? 'is-active' : ''}`} onClick={() => setTab(item.id)}>
@@ -165,7 +214,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
             {item.count !== undefined && <b className={item.attention ? 'is-attention' : ''} title={item.attention ? 'Por tratar' : undefined}>{item.count}</b>}
           </button>)}
         </div>)}
-      </div>
+        </div>}
     </nav>
     <div className="adm-main">
     {error && <div className="dx-alert" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Fechar"><IconClose size={11} /></button></div>}
