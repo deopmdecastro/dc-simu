@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import type React from 'react'
 import type { ReactNode } from 'react'
 import Select from './Select'
-import { IconChevronDown, IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp, IconFocus, IconPlay } from './icons'
+import { IconChevronDown, IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp, IconFocus, IconPlay, IconPause, IconStop, IconStep, IconReset } from './icons'
 
 /**
  * Elementos comuns das barras de ferramentas: Esquema/Painel 3D, GRAFCET, Ladder
@@ -306,4 +306,49 @@ export function ToolMenu({ label, icon, sections, title, className = '', badge, 
           <footer className="tm-foot">{enabled.length} de {items.length} ações disponíveis</footer>
         </div>, document.body)}
   </>
+}
+
+/* ---------------------------------------------------------------------------
+   Controlo de transporte da simulação (Run / Pausa / Passo / Stop / Reiniciar)
+   Usado pelo SimulationDock (Esquema), GrafcetSimBar e, no futuro, Ladder.
+   --------------------------------------------------------------------------- */
+
+export type SimTransportProps = {
+  running: boolean
+  stopped: boolean
+  onPlay: () => void
+  onPause: () => void
+  onStep: () => void
+  onStop: () => void
+  onReset: () => void
+  /** Variante visual: 'dock' (compacto) | 'bar' (com etiquetas) */
+  variant?: 'dock' | 'bar'
+  className?: string
+}
+
+/** Botões de transporte da simulação — layout único para todos os editores. */
+export function SimTransportControls({
+  running, stopped, onPlay, onPause, onStep, onStop, onReset,
+  variant = 'bar', className = '',
+}: SimTransportProps) {
+  const showLabels = variant === 'bar'
+  return (
+    <div className={`sim-transport sim-transport-${variant} ${className}`.trim()} role="group" aria-label="Controlo da simulação">
+      <button type="button" onClick={onPlay} disabled={running} className="is-run" title="Iniciar simulação (RUN)" aria-label="Run">
+        <IconPlay size={variant === 'dock' ? 13 : 15} />{showLabels && <span>Run</span>}
+      </button>
+      <button type="button" onClick={onPause} disabled={!running} className="is-pause" title="Pausar" aria-label="Pausar">
+        <IconPause size={variant === 'dock' ? 13 : 15} />{showLabels && <span>Pausa</span>}
+      </button>
+      <button type="button" onClick={onStep} className="is-step" title="Avançar um ciclo" aria-label="Passo">
+        <IconStep size={variant === 'dock' ? 13 : 15} />{showLabels && <span>Passo</span>}
+      </button>
+      <button type="button" onClick={onStop} disabled={stopped} className="is-stop" title="Parar (STOP)" aria-label="Stop">
+        <IconStop size={variant === 'dock' ? 13 : 15} />{showLabels && <span>Stop</span>}
+      </button>
+      <button type="button" onClick={onReset} className="is-reset" title="Reiniciar a simulação" aria-label="Reiniciar">
+        <IconReset size={variant === 'dock' ? 13 : 15} />{showLabels && <span>Reiniciar</span>}
+      </button>
+    </div>
+  )
 }

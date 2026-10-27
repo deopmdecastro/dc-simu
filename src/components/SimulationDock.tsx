@@ -5,7 +5,8 @@ import { stepNumberOf } from '../grafcet/engine'
 import PlcSignalPanel from './PlcSignalPanel'
 import VirtualIoPanel from './VirtualIoPanel'
 import Select from '../ui/Select'
-import { IconPlay, IconPause, IconStop, IconStep, IconReset, IconClose } from '../ui/icons'
+import { IconClose } from '../ui/icons'
+import { SimTransportControls } from '../ui/toolbarKit'
 
 /**
  * Painel «Simulação» do Esquema 2D/3D — o mesmo conceito do botão «Simulação» do GRAFCET:
@@ -38,13 +39,17 @@ export default function SimulationDock({ onClose }: { onClose: () => void }) {
         <span className={`schematic-sim-dock-state ${running ? 'is-running' : stopped ? '' : 'is-paused'}`}>{running ? 'RUN' : stopped ? 'STOP' : 'PAUSA'} · ciclo #{sim.scanCount}</span>
         <button type="button" className="schematic-sim-dock-close" onClick={onClose} title="Fechar a simulação" aria-label="Fechar a simulação"><IconClose size={13} /></button>
       </header>
-      <div className="schematic-sim-dock-controls" role="group" aria-label="Controlo da simulação">
-        <button type="button" onClick={play} disabled={running} className="is-run" title="Iniciar simulação (RUN)"><IconPlay size={13} /><span>Run</span></button>
-        <button type="button" onClick={pause} disabled={!running} title="Pausar"><IconPause size={13} /></button>
-        <button type="button" onClick={step} title="Avançar um ciclo"><IconStep size={13} /></button>
-        <button type="button" onClick={stop} disabled={stopped} title="Parar (STOP)"><IconStop size={13} /></button>
-        <button type="button" onClick={reset} title="Reiniciar a simulação"><IconReset size={13} /></button>
-      </div>
+      <SimTransportControls
+        running={running}
+        stopped={stopped}
+        onPlay={play}
+        onPause={pause}
+        onStep={step}
+        onStop={stop}
+        onReset={reset}
+        variant="dock"
+        className="schematic-sim-dock-controls"
+      />
       <div className="schematic-sim-dock-body">
         {plc ? <>
           {plcs.length > 1 && (

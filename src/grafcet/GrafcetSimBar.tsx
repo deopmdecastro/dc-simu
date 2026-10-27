@@ -1,6 +1,6 @@
 import { useSimStore } from '../store/useSimStore'
 import Select from '../ui/Select'
-import { IconPlay, IconPause, IconStop, IconStep, IconReset } from '../ui/icons'
+import { SimTransportControls } from '../ui/toolbarKit'
 
 /** Controlos da simulação dentro do painel do GRAFCET (sempre à mão no telemóvel). */
 export default function GrafcetSimBar() {
@@ -15,13 +15,17 @@ export default function GrafcetSimBar() {
         <strong className={running ? 'is-running' : stopped ? '' : 'is-paused'}>{label}</strong>
         <small className="grafcet-simbar-cycle">ciclo #{sim.scanCount}</small>
       </div>
-      <div className="grafcet-simbar-buttons">
-        <button type="button" onClick={play} disabled={running} className="is-run" title="Iniciar simulação (RUN)"><IconPlay size={15} /><span>Run</span></button>
-        <button type="button" onClick={pause} disabled={!running} className="is-pause" title="Pausar"><IconPause size={15} /><span>Pausa</span></button>
-        <button type="button" onClick={step} className="is-step" title="Avançar um ciclo"><IconStep size={15} /><span>Passo</span></button>
-        <button type="button" onClick={stop} disabled={stopped} className="is-stop" title="Parar (STOP)"><IconStop size={15} /><span>Stop</span></button>
-        <button type="button" onClick={reset} className="is-reset" title="Reiniciar a simulação"><IconReset size={15} /><span>Reiniciar</span></button>
-      </div>
+      <SimTransportControls
+        running={running}
+        stopped={stopped}
+        onPlay={play}
+        onPause={pause}
+        onStep={step}
+        onStop={stop}
+        onReset={reset}
+        variant="bar"
+        className="grafcet-simbar-buttons"
+      />
       <div className="grafcet-simbar-opts">
         <Select value={sim.mode} onChange={(e) => setMode(e.target.value as any)} className="dc-select" title="Modo de execução" aria-label="Modo de execução">
           <option value="realtime">Tempo real</option>

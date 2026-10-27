@@ -211,3 +211,8 @@
   .ce-toolbars.is-compact .dc-tool-btn { min-height: var(--toolbar-control-height); border-radius: 6px; }
   .ce-toolbars.is-compact .ce-ribbon { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
 }
+
+/* Transporte de simulação partilhado (SimTransportControls) */
+.sim-transport { display: flex; align-items: center; gap: 4px; }
+.sim-transport-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+.sim-transport button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
