@@ -198,10 +198,10 @@ export const BREAKER_HANDLE_RIG: Partial<Record<ComponentType, BreakerHandleRig>
   breaker3p: { hinge: { y: 0.667, z: 0.285 }, throwDeg: EZ9_THROW_DEG, nodes: ez9Nodes(3) },
   // Steck: o cubo redondo (centro y −8,25 mm, z 61,45 mm no STEP) fica a 58,7 % da altura e 32,8 % da profundidade
   breakerSteckSdC25: { hinge: { y: 0.587, z: 0.328 }, throwDeg: 40, nodes: ['dcsimu_handle_2', 'dcsimu_handle_3'] },
-  /* PKZM C-10: botão rotativo. O eixo medido nas faces cilíndricas do STEP fica em x = 2,6 mm e
-   * y = −4,6 mm (coordenadas do CAD), ou seja a 42,6 % da largura e a 50 % da altura da caixa do
-   * botão. OFF = pose do CAD («O», manípulo deitado); ON roda 90° («I»). */
-  motorBreakerPkzmC10: { hinge: { x: 0.426, y: 0.5, z: 0.5 }, throwDeg: 90, axis: 'z', nodes: ['dcsimu_handle_1', 'dcsimu_handle_2'] },
+  /* PKZM C-10: `extractBreakerHandle` espera frações dentro da caixa conjunta do manípulo, não do corpo.
+   * O eixo medido no STEP (x=42,6 %, y=50 % do corpo) converte-se para x=22,75 %, y=70,91 % do manípulo.
+   * OFF = pose do CAD («O»); ON roda 90° à volta da normal da face («I»). */
+  motorBreakerPkzmC10: { hinge: { x: 0.2275, y: 0.7091, z: 0.5 }, throwDeg: 90, axis: 'z', nodes: ['dcsimu_handle_1', 'dcsimu_handle_2'] },
 }
 
 /** Especificação GLB única consumida pelo editor, esquema, painel e landing. */

@@ -288,16 +288,30 @@ export function extractKeyBarrel(model: THREE.Object3D, frame: THREE.Object3D): 
   const radius = Math.min(size.x, size.y) / 2
   if (radius <= 0) return null
 
-  // Cilindro da chave: até 70 % do raio da cabeça (deixa de fora a tampa larga)
-  // e só o que está encostado à face frontal.
-  const zCut = total.max.z - radius * 1.4
+  // O canhão fica junto ao centro, mas a palheta da chave sai radialmente para
+  // fora. Capturá-la só pelo raio central fazia o canhão rodar sem a chave.
+  // A palheta é estreita, está na face frontal e usa material neutro; o aro
+  // vermelho e a caixa são largos/vermelhos e ficam fixos.
+  const zCut = total.max.z - radius * 0.7
   const selected = parts.filter((part) => {
     if (part.box.max.z <= zCut) return false
-    const far = Math.max(
+    const dx = part.box.max.x - part.box.min.x
+    const dy = part.box.max.y - part.box.min.y
+    const radialExtent = Math.max(
       Math.hypot(part.box.max.x - center.x, part.box.max.y - center.y),
       Math.hypot(part.box.min.x - center.x, part.box.min.y - center.y),
     )
-    return far <= radius * 0.7
+    if (radialExtent <= radius * 0.7) return true
+
+    // A lâmina metálica é uma peça estreita que parte do canhão. Evita incluir
+    // o aro/tampa exterior, que ocupa uma área larga e pode ter a mesma frente.
+    const narrow = Math.min(dx, dy) <= radius * 0.5 && Math.max(dx, dy) <= radius * 2.2
+    const materials = Array.isArray(part.mesh.material) ? part.mesh.material : [part.mesh.material]
+    const isRed = materials.some((material) => {
+      const color = (material as THREE.Material & { color?: THREE.Color }).color
+      return !!color && color.r > color.g * 1.25 && color.r > color.b * 1.2 && color.r > 0.35
+    })
+    return narrow && !isRed && radialExtent <= radius * 1.9
   })
   if (selected.length === 0) return null
 

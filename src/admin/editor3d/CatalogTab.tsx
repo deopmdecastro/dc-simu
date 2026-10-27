@@ -17,6 +17,7 @@ import { buildBuiltinDraft, builtinComponents, builtinTypeOf, upgradeBuiltinDraf
 import ComponentEditor3D from './ComponentEditor3D'
 import CrashBoundary from '../../ui/CrashBoundary'
 import SyncPanel from './SyncPanel'
+import { buildBuiltinDraftWithModel, MAX_MODEL_IMPORT_BYTES } from './importBuiltinModel'
 
 /** Separador "Biblioteca 3D": lista os componentes oficiais e abre o editor 3D. */
 export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpened, account }: { account?: ReactNode; onNotice: (message: string) => void; onError: (message: string) => void; onCreate: () => void; openId?: string | null; onOpened?: () => void }) {
@@ -28,6 +29,9 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'draft' | 'published' | 'archived' | 'builtin'>('all')
   const [importing, setImporting] = useState<string | null>(null)
+  const [modelTarget, setModelTarget] = useState<BuiltinInfo | null>(null)
+  const [modelFile, setModelFile] = useState<File | null>(null)
+  const [modelError, setModelError] = useState('')
   const builtins = useMemo(() => builtinComponents(), [])
   const [covers, setCovers] = useState<Record<string, string>>({})
   const [backupBusy, setBackupBusy] = useState(false)
@@ -98,6 +102,22 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
       await reload()
       openEditor(id, meta.name)
     } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao importar o componente integrado') }
+    finally { setImporting(null) }
+  }
+  async function importBuiltinModel() {
+    if (!modelTarget || !modelFile || importing) return
+    const item = modelTarget
+    setModelError('')
+    setImporting(item.type)
+    try {
+      const { meta, def } = await buildBuiltinDraftWithModel(item.type, modelFile)
+      const id = newId('c')
+      await catalogApi.save(id, meta, def)
+      onNotice(`Modelo importado para «${item.name}». O rascunho está pronto para ajustes no editor 3D.`)
+      setModelTarget(null); setModelFile(null)
+      await reload()
+      openEditor(id, meta.name)
+    } catch (value) { setModelError(value instanceof Error ? value.message : 'Falha ao importar o modelo.') }
     finally { setImporting(null) }
   }
   async function archive(entry: CatalogEntry) {
@@ -207,10 +227,37 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
           </div>
           <div className="ce-card-actions">
             <button className="dx-btn dx-btn-primary dx-btn-sm" disabled={importing !== null} onClick={() => void openBuiltin(item)}>{importing === item.type ? 'A importar…' : 'Editar no 3D'}</button>
+            {!item.hasModel && <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={importing !== null} onClick={() => { setModelError(''); setModelFile(null); setModelTarget(item) }}>Substituir modelo</button>}
           </div>
         </article>)}
       </div>
     </>}
+    {modelTarget && createPortal(<div className="ce-modal ce-modal-fixed ce-model-import" role="dialog" aria-modal="true" aria-labelledby="ce-model-import-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !importing) { setModelTarget(null); setModelFile(null) } }} onKeyDown={(event) => { if (event.key === 'Escape' && !importing) { setModelTarget(null); setModelFile(null) } }}>
+      <form className="ce-modal-card" onSubmit={(event) => { event.preventDefault(); void importBuiltinModel() }}>
+        <span className="ce-model-import-kicker">Modelo CAD · rascunho independente</span>
+        <h2 id="ce-model-import-title">Substituir volume de referência</h2>
+        <p className="ce-hint">Importe um modelo para <strong>{modelTarget.name}</strong>. Os bornes, controlos e dados do componente integrado serão preservados; o original não é alterado.</p>
+        <label className="ce-model-import-picker">
+          <input type="file" accept=".glb,.step,.stp,model/gltf-binary,application/octet-stream" disabled={!!importing} onChange={(event) => {
+            const file = event.target.files?.[0] ?? null
+            const extension = file?.name.split('.').pop()?.toLowerCase()
+            setModelError(!file ? '' : !['glb', 'step', 'stp'].includes(extension ?? '') ? 'Escolha um ficheiro .glb, .step ou .stp.' : file.size === 0 ? 'O ficheiro está vazio.' : file.size > MAX_MODEL_IMPORT_BYTES ? 'O ficheiro excede 4 MB. Simplifique o modelo e tente novamente.' : '')
+            setModelFile(file && file.size > 0 && file.size <= MAX_MODEL_IMPORT_BYTES && ['glb', 'step', 'stp'].includes(extension ?? '') ? file : null)
+            if (file && (file.size === 0 || file.size > MAX_MODEL_IMPORT_BYTES || !['glb', 'step', 'stp'].includes(extension ?? ''))) event.currentTarget.value = ''
+          }} />
+          <span className="ce-model-import-icon"><IconCube size={24} /></span>
+          <strong>{modelFile ? modelFile.name : 'Escolher ficheiro 3D'}</strong>
+          <span>GLB, STEP ou STP · máximo 4 MB</span>
+        </label>
+        <p className="ce-model-import-local">Os ficheiros STEP são convertidos localmente neste navegador. Não são enviados para um servidor.</p>
+        {modelError && <p className="ce-model-import-error" role="alert">{modelError}</p>}
+        {importing === modelTarget.type && <p className="ce-model-import-progress" role="status">A converter e preparar o modelo…</p>}
+        <div className="ce-modal-actions">
+          <button type="button" className="dx-btn dx-btn-secondary" disabled={!!importing} onClick={() => { setModelTarget(null); setModelFile(null) }}>Cancelar</button>
+          <button type="submit" className="dx-btn dx-btn-primary" disabled={!modelFile || !!importing}>{importing === modelTarget.type ? 'A importar…' : 'Importar e abrir editor'}</button>
+        </div>
+      </form>
+    </div>, document.body)}
   </div>
 }
 

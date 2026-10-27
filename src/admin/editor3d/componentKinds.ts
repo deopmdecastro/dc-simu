@@ -1,7 +1,7 @@
 import type { ComponentCategory } from '../../types'
 import type { ComponentDefinition } from '../../catalog/types'
 
-export const CATEGORIES: Array<[ComponentCategory, string]> = [['protection', 'Proteção'], ['command', 'Comando'], ['sensor', 'Sensor'], ['measurement', 'Aparelho de medir'], ['contactor', 'Contactor'], ['relay', 'Relé'], ['signaling', 'Sinalização'], ['motor', 'Motor'], ['drive', 'Variador'], ['controller', 'Controlador / PLC'], ['terminal', 'Terminal / borneira'], ['power', 'Fonte / potência']]
+export const CATEGORIES: Array<[ComponentCategory, string]> = [['protection', 'Proteção'], ['command', 'Comando'], ['sensor', 'Sensor'], ['measurement', 'Aparelho de medir'], ['contactor', 'Contactor'], ['relay', 'Relé'], ['signaling', 'Sinalização'], ['motor', 'Motor'], ['drive', 'Variador'], ['controller', 'Controlador / PLC / HMI'], ['terminal', 'Terminal / borneira'], ['power', 'Fonte / potência']]
 
 export interface ComponentKind {
   id: string
@@ -23,7 +23,8 @@ export const COMPONENT_KINDS: ComponentKind[] = [
   { id: 'instrument', label: 'Aparelho de medir', category: 'measurement', tag: 'P', mount: 'machine', hint: 'Multímetros, osciloscópios, ponteiras de teste' },
   { id: 'motor', label: 'Motor', category: 'motor', tag: 'M', mount: 'machine', hint: 'Motores e atuadores' },
   { id: 'drive', label: 'Variador / arrancador', category: 'drive', tag: 'U', mount: 'din-rail', hint: 'Variadores de frequência, soft-starters' },
-  { id: 'plc', label: 'PLC / controlador', category: 'controller', tag: 'A', mount: 'din-rail', hint: 'PLC, módulos de E/S, HMI' },
+  { id: 'plc', label: 'PLC / controlador', category: 'controller', tag: 'A', mount: 'din-rail', hint: 'PLC e módulos de entradas/saídas' },
+  { id: 'hmi', label: 'HMI / interface homem-máquina', category: 'controller', tag: 'HMI', mount: 'panel-front', hint: 'Painéis táteis e consolas de operador' },
   { id: 'terminal', label: 'Borne / borneira', category: 'terminal', tag: 'X', mount: 'din-rail', hint: 'Blocos de terminais' },
   { id: 'power', label: 'Fonte / transformador', category: 'power', tag: 'G', mount: 'din-rail', hint: 'Fontes de alimentação e transformadores' },
   { id: 'other', label: 'Outro', category: 'command', tag: 'X', mount: 'din-rail', hint: 'Qualquer outro componente' },

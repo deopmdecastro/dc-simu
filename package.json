@@ -73,6 +73,7 @@
     "@fortawesome/react-fontawesome": "^3.5.0",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
+    "@sunbox/occt-import-js": "^0.0.29",
     "@supabase/supabase-js": "^2.118.0",
     "better-sqlite3": "^12.11.1",
     "exceljs": "^4.4.0",

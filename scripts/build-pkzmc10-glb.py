@@ -105,6 +105,11 @@ def main(src, out):
     # Medições para o código
     hinge = np.array([2.6, -4.6, 0.0]) - origin  # eixo do botão, medido nas faces cilíndricas
     term = [p for p in parts if p["role"] == "terminal"]
+    handle = [p for p in parts if p["role"] in ("knob", "collar")]
+    handle_vertices = np.concatenate([p["v"] for p in handle])
+    handle_min = handle_vertices.min(axis=0)
+    handle_size = handle_vertices.max(axis=0) - handle_min
+    handle_hinge_fraction = (hinge - handle_min) / handle_size
     tops = sorted([p for p in term if p["v"][:, 1].mean() > size[1] / 2], key=lambda p: p["v"][:, 0].mean())
     bots = sorted([p for p in term if p["v"][:, 1].mean() <= size[1] / 2], key=lambda p: p["v"][:, 0].mean())
 
@@ -121,6 +126,8 @@ def main(src, out):
         "size_mm": {"width": round(float(size[0]), 2), "height": round(float(size[1]), 2), "depth": round(float(size[2]), 2)},
         "hinge_mm": {"x": round(float(hinge[0]), 2), "y": round(float(hinge[1]), 2)},
         "hinge_fraction": {"x": round(float(hinge[0] / size[0]), 3), "y": round(float(hinge[1] / size[1]), 3)},
+        # O eixo de rotação é Z; só X/Y definem a posição do pivô no plano da face.
+        "handle_hinge_fraction": {axis: round(float(handle_hinge_fraction[index]), 4) for index, axis in enumerate(("x", "y"))},
         "terminals_top": [frac(p) for p in tops],
         "terminals_bottom": [frac(p) for p in bots],
         "roles": {k: v for k, v in sorted(counters.items())},

@@ -843,13 +843,64 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
     const obj = cloneModelScene(scene)
+    const grainSize = 64
+    const grain = new Uint8Array(grainSize * grainSize * 4)
+    let seed = 2048
+    for (let i = 0; i < grainSize * grainSize; i += 1) {
+      seed = (seed * 1664525 + 1013904223) >>> 0
+      const shade = 224 + (seed >>> 24) % 32
+      grain.set([shade, shade, shade, 255], i * 4)
+    }
+    const polymerGrain = new THREE.DataTexture(grain, grainSize, grainSize, THREE.RGBAFormat)
+    polymerGrain.wrapS = polymerGrain.wrapT = THREE.RepeatWrapping
+    polymerGrain.repeat.set(8, 8)
+    polymerGrain.generateMipmaps = true
+    polymerGrain.minFilter = THREE.LinearMipmapLinearFilter
+    polymerGrain.magFilter = THREE.LinearFilter
+    polymerGrain.needsUpdate = true
+    obj.userData.polymerGrain = polymerGrain
     obj.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
-      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
+      const finish = (source: THREE.Material) => {
+        const material = finishCadMaterial(source, { envMapIntensity: 1.1 })
+        if (!(material instanceof THREE.MeshStandardMaterial)) return material
+        const color = material.color
+        const redPolymer = color.r > color.g * 1.35 && color.r > color.b * 1.25
+        const darkPolymer = color.getHSL({ h: 0, s: 0, l: 0 }).l < 0.42 && !redPolymer
+        if (redPolymer) {
+          material.roughness = 0.34
+          material.metalness = 0.025
+          material.roughnessMap = polymerGrain
+          material.bumpMap = polymerGrain
+          material.bumpScale = 0.00018
+        } else if (darkPolymer) {
+          material.roughness = 0.72
+          material.metalness = 0.035
+          material.roughnessMap = polymerGrain
+          material.bumpMap = polymerGrain
+          material.bumpScale = 0.00024
+        } else if (color.r > color.g * 1.02 && color.g > color.b * 1.08) {
+          // Terminais e ferragens em latão: brilho metálico discreto, sem mudar a cor CAD.
+          material.roughness = 0.32
+          material.metalness = 0.62
+        } else {
+          const hsl = color.getHSL({ h: 0, s: 0, l: 0 })
+          if (hsl.s < 0.12 && hsl.l > 0.4) {
+            // Acabamento acetinado nas partes metálicas claras, sem alterar o tom CAD.
+            material.roughness = 0.4
+            material.metalness = 0.34
+          }
+        }
+        return material
+      }
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(finish) : finish(mesh.material)
     })
-    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'center')
+    const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'center')
+    fitted.userData.polymerGrain = polymerGrain
+    return fitted
   }, [scene, spec])
+  useEffect(() => () => { (model.userData.polymerGrain as THREE.Texture | undefined)?.dispose() }, [model])
   const pressed = !!c.state.pressed
   const keyOperated = c.type === 'emergencyButtonKeyP20ACR'
   const actuator = useMemo(() => model.getObjectByName(keyOperated ? 'P20ACR-R-1B-1-solid1' : 'P20AKR-1-solid1'), [model, keyOperated])
@@ -887,8 +938,8 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
   })
   return <group
     position={[x, RAIL_Y + 1.05, 0.4]}
-    onClick={(event) => { event.stopPropagation(); onPress(!pressed) }}
-    onContextMenu={(event) => { event.stopPropagation(); event.nativeEvent.preventDefault(); if (pressed) onPress(false) }}
+    onClick={(event) => { event.stopPropagation(); onPress(c.state.latched ? true : !pressed) }}
+    onContextMenu={(event) => { event.stopPropagation(); event.nativeEvent.preventDefault(); if (pressed) onPress(c.state.latched ? true : false) }}
   >
     <primitive object={model} castShadow receiveShadow />
     <Label text={c.ref} position={[0, spec.targetHeight / 2 + 0.12, 0.08]} />
