@@ -8,7 +8,7 @@ import type { CatalogEntry, CatalogMeta, ComponentDefinition, TerminalDef, Vec3 
 import { BREAKER_HANDLE_RIG, getComponentModelSpec, getComponentPhysicalSizeMm, hasComponent3DVisual } from '../../three/modelPaths'
 import { isTerminalAssemblyComponent, terminalAssemblyLayout } from '../../three/terminalAssembly'
 import type { ComponentType } from '../../types'
-import { REAL_TERMINALS, terminalInsetMm } from '../../electrical/realInterfaces'
+import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../../electrical/realInterfaces'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_FAN, MOTOR_STUD, motorBridges, motorCadToCentered } from '../../three/motorTerminalLayout'
 import { seedLogoPanel } from './seedLogoPanel'
