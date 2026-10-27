@@ -981,12 +981,52 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   // nunca mexeu na ordem.
   type DrawEntry = { kind: 'wire'; wire: (typeof wires)[number] } | { kind: 'component'; comp: ElectricalComponent }
   const drawOrder = useMemo(() => {
+    // Cabos não atravessam o corpo dos elementos: se o traçado cruza a caixa
+    // de um componente (exceto os dos seus próprios bornes), o cabo fica
+    // inteiro atrás ou à frente desse componente — nunca a meio.
+    const pathBounds = (w: (typeof wires)[number]) => {
+      const a = w.fromPoint ?? terminalIndex.get(w.fromTerminalId)
+      const b = w.toPoint ?? terminalIndex.get(w.toTerminalId)
+      if (!a || !b) return null
+      const pts = [a, ...(w.waypoints ?? []), b]
+      let left = pts[0].x, right = pts[0].x, top = pts[0].y, bottom = pts[0].y
+      for (const p of pts) {
+        if (p.x < left) left = p.x
+        if (p.x > right) right = p.x
+        if (p.y < top) top = p.y
+        if (p.y > bottom) bottom = p.y
+      }
+      const pad = wireStrokeWidth(w.gauge) * 0.5 + 1
+      return { left: left - pad, right: right + pad, top: top - pad, bottom: bottom + pad }
+    }
+    const wireZ = new Map<string, number>()
+    for (const w of wires) {
+      let z = w.z ?? 0
+      const bounds = pathBounds(w)
+      if (bounds) {
+        const connected = new Set<string>()
+        for (const c of displayComponents) {
+          if (c.terminals.some((t) => t.id === w.fromTerminalId || t.id === w.toTerminalId)) connected.add(c.id)
+        }
+        const preferFront = ((w.fromEndLayer ?? 'back') === 'front') || ((w.toEndLayer ?? 'back') === 'front')
+        for (const c of displayComponents) {
+          if (connected.has(c.id)) continue
+          const cb = { left: c.schematicX, right: c.schematicX + c.w, top: c.schematicY, bottom: c.schematicY + c.h }
+          const crosses = bounds.left < cb.right && bounds.right > cb.left && bounds.top < cb.bottom && bounds.bottom > cb.top
+          if (!crosses) continue
+          const cz = c.z ?? 0
+          if (preferFront) z = Math.max(z, cz + 1)
+          else z = Math.min(z, cz - 1)
+        }
+      }
+      wireZ.set(w.id, z)
+    }
     const entries: (DrawEntry & { z: number; idx: number })[] = []
-    wires.forEach((w, i) => entries.push({ kind: 'wire', wire: w, z: w.z ?? 0, idx: i }))
+    wires.forEach((w, i) => entries.push({ kind: 'wire', wire: w, z: wireZ.get(w.id) ?? w.z ?? 0, idx: i }))
     displayComponents.forEach((c, i) => entries.push({ kind: 'component', comp: c, z: c.z ?? 0, idx: i + wires.length }))
     entries.sort((a, b) => a.z - b.z || a.idx - b.idx)
     return entries
-  }, [wires, displayComponents])
+  }, [wires, displayComponents, terminalIndex])
 
   // Nos modelos reais o centro do parafuso fica dentro da fotografia.
   // Sair perpendicularmente do corpo antes do primeiro cotovelo evita que

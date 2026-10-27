@@ -34,17 +34,18 @@ export function gaugeMm(gauge: string | undefined): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1.5
 }
 
-const MIN_WIDTH = 1.3
-const MAX_WIDTH = 6.2
+const MIN_WIDTH = 1.6
+const MAX_WIDTH = 8.5
 const MIN_GAUGE = 0.5
 const MAX_GAUGE = 16
 
 /**
  * Espessura do cabo no desenho (px do esquema).
  *
- * 0,5 mm² → ~1,3 px · 1,5 mm² → ~2,7 px · 16 mm² → ~6,2 px. Cresce com a raiz
- * da secção e satura nos extremos, para o traçado continuar a acompanhar a
- * grelha de 20 px e o tamanho dos componentes.
+ * Escala aproximada aos elementos do painel (bornes ~6–8 px, disjuntor ~60 px):
+ * 0,5 mm² → ~1,6 px · 1,5 mm² → ~3,4 px · 16 mm² → ~8,5 px. Cresce com a raiz
+ * da secção (diâmetro físico) e satura nos extremos para o traçado continuar
+ * legível junto à grelha e aos componentes.
  */
 export function wireStrokeWidth(gauge: string | undefined): number {
   const mm = Math.min(MAX_GAUGE, Math.max(MIN_GAUGE, gaugeMm(gauge)))
@@ -54,9 +55,9 @@ export function wireStrokeWidth(gauge: string | undefined): number {
 
 /**
  * Escala das ponteiras e dos terminais desenhados nas pontas do cabo.
- * Acompanha a espessura (1,0 em 0,5 mm² até ~1,45 em 16 mm²) para que o
- * terminal não fique desproporcionado em relação ao condutor.
+ * Acompanha a espessura (≈1,0 em 0,5 mm² até ≈1,55 em 16 mm²) para que o
+ * terminal acompanhe o condutor e a escala dos bornes dos componentes.
  */
 export function wireEndScale(gauge: string | undefined): number {
-  return Math.round((0.92 + (wireStrokeWidth(gauge) / MAX_WIDTH) * 0.55) * 100) / 100
+  return Math.round((0.95 + (wireStrokeWidth(gauge) / MAX_WIDTH) * 0.6) * 100) / 100
 }

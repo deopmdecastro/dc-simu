@@ -64,11 +64,19 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
   const body = (() => {
     switch (geometry.type) {
       case 'ferrule': {
+        // Ponteira tubular isolada: manga metálica + colarinho plástico
+        // aproximadamente quadrado (como as ponteiras isoladas comerciais).
         const sleeve = embed || 8 * U
-        const collar = 6 * U
+        const collar = 6.5 * U
+        const side = collarR * 1.9
         return <>
           <Cyl y={-sleeve / 2} length={sleeve} radius={socketR * 0.98} color={METAL} metalness={0.85} roughness={0.25} />
-          <Cyl y={collar / 2} length={collar} radius={collarR} color={color} roughness={0.68} />
+          <mesh position={[0, collar / 2, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <boxGeometry args={[side, collar, side]} />
+            <meshStandardMaterial color={color} roughness={0.72} metalness={0.05} />
+          </mesh>
+          {/* Arredondamento visual: cilindro fino no topo do colar */}
+          <Cyl y={collar - 0.6 * U} length={1.2 * U} radius={collarR * 0.95} color={color} roughness={0.7} />
         </>
       }
       case 'ferruleDouble': {
