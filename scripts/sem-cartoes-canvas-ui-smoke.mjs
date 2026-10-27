@@ -134,7 +134,7 @@ try {
     check(errors.length === 0, `Sem exceções de JavaScript (${label}): ${errors.join(' | ')}`)
     await context.close()
   }
-  console.log(`\n${checks} verificações — o canvas não tem cartões flutuantes (DC-ADR-059)`)
+  console.log(`\n${checks} verificações — o canvas não tem cartões flutuantes (DC-ADR-060)`)
 } finally {
   await browser.close()
 }

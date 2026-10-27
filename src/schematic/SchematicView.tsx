@@ -17,6 +17,7 @@ import { getOrientedComponentImage } from '../three/orientedComponentImage'
 import DinRail2D from './DinRail2D'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
+import { wireEndScale, wireStrokeWidth } from './wireMetrics'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
 import { isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
 import { useEditorShortcuts } from '../ui/shortcuts'
@@ -105,7 +106,7 @@ function endDir(pts: Pt[], atStart: boolean): Pt {
 }
 
 /** Desenho do terminal crimpado na ponta do cabo (ponteira, olhal, forquilha…). */
-function WireEnd({ p, dir, type, color }: { p: Pt; dir: Pt; type: WireEndType; color: string }) {
+function WireEnd({ p, dir, type, color, scale = 1 }: { p: Pt; dir: Pt; type: WireEndType; color: string; scale?: number }) {
   if (type === 'none') return null
   const ang = (Math.atan2(dir.y, dir.x) * 180) / Math.PI
   const metal = '#c3ccd8'
@@ -170,8 +171,9 @@ function WireEnd({ p, dir, type, color }: { p: Pt; dir: Pt; type: WireEndType; c
     default:
       body = <line x1={0} y1={0} x2={6} y2={0} stroke="#aeb8c6" strokeWidth={2.2} strokeLinecap="round" />
   }
+  // A ponteira acompanha a secção do condutor (0,5 mm² ≈ 0,92 · 16 mm² ≈ 1,47).
   return (
-    <g transform={`translate(${p.x},${p.y}) rotate(${ang})`} pointerEvents="none">
+    <g transform={`translate(${p.x},${p.y}) rotate(${ang}) scale(${scale})`} pointerEvents="none">
       {body}
     </g>
   )
@@ -1027,7 +1029,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const flexible = w.flexibility === 'flexible'
     const selected = selectedWireId === w.id
     const { d, handle } = display.geometry
-    const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
+    const width = wireStrokeWidth(w.gauge)
     const cap = 'square'
     const join = 'miter'
     const showEnergyFlow = wireEnergyEffectVisible(simRunState, w.energized)
@@ -1154,7 +1156,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const display = wireDisplay(w)
     if (!display) return []
     const color = WIRE_COLORS[w.color] ?? '#94a3b8'
-    const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
+    const width = wireStrokeWidth(w.gauge)
     return (['from', 'to'] as const).map((side) => {
       const endLayer = (side === 'from' ? w.fromEndLayer : w.toEndLayer) ?? 'back'
       if (endLayer !== layer) return null
@@ -1170,8 +1172,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} />
           <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke={color} strokeWidth={width} />
         </>}
-        <WireEnd p={point} dir={dir} type={type} color={endColor} />
-        {type === 'none' && <circle cx={point.x} cy={point.y} r={2.7} fill={endColor} stroke="white" strokeWidth={0.8} />}
+        <WireEnd p={point} dir={dir} type={type} color={endColor} scale={wireEndScale(w.gauge)} />
+        {type === 'none' && <circle cx={point.x} cy={point.y} r={2.7 * wireEndScale(w.gauge)} fill={endColor} stroke="white" strokeWidth={0.8} />}
       </g>
     })
   })
@@ -1402,7 +1404,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               const point = side === 'from' ? d.a : d.b
               if (!lead) return null
               return <path key={`${w.id}-${side}-insert`} d={`M ${lead.x},${lead.y} L ${point.x},${point.y}`}
-                fill="none" stroke={WIRE_COLORS[w.color] ?? '#94a3b8'} strokeWidth={Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)} pointerEvents="none" />
+                fill="none" stroke={WIRE_COLORS[w.color] ?? '#94a3b8'} strokeWidth={wireStrokeWidth(w.gauge)} pointerEvents="none" />
             })
           })}
           {displayComponents.flatMap((c) => c.terminals.filter((t) => wires.some((w) => (!w.fromPoint && w.fromTerminalId === t.id) || (!w.toPoint && w.toTerminalId === t.id))).map((t) => {
