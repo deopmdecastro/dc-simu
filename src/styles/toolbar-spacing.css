@@ -19,3 +19,190 @@
 .ce-ribbon-row1 { gap: 8px; }
 .panel3d-tool-context { gap: 8px; }
 .panel3d-tool-context .dc-tool-btn + .dc-tool-btn { margin-left: 2px; }
+
+/* Acabamento comum das barras: alturas, fundo, foco e estados iguais em todos os editores. */
+:root {
+  --toolbar-height: 40px;
+  --toolbar-control-height: 30px;
+  --toolbar-gap: 8px;
+  --toolbar-border: #d5deeb;
+  --toolbar-surface: #f8fafc;
+}
+
+.dc-toolbar-main {
+  min-height: 46px;
+  gap: var(--toolbar-gap);
+  background: #fff;
+}
+
+.dc-toolbar-row2,
+.ladder-editor-toolbar,
+.dc-grafcet-toolbar {
+  min-height: var(--toolbar-height);
+  height: var(--toolbar-height);
+  padding-block: 0;
+  gap: var(--toolbar-gap);
+  background: var(--toolbar-surface);
+  scrollbar-gutter: stable;
+}
+
+.dc-toolbar-row2,
+.dc-toolbar-row2.dc-grafcet-toolbar,
+.dc-toolbar-row2.dc-grafcet-toolbar.is-expanded {
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-inline: contain;
+}
+
+.dc-toolbar-main > *,
+.dc-toolbar-row2 > *,
+.ladder-editor-toolbar > *,
+.ce-ribbon-row1 > *,
+.ce-ribbon-row2 > *,
+.ce-toolbars .ce-ribbon > *,
+.dc-grafcet-toolbar .dc-seg,
+.panel3d-viewbar-group {
+  flex-shrink: 0;
+}
+
+.dc-toolbar-main button,
+.ladder-editor-toolbar button { min-height: var(--toolbar-control-height); }
+
+.dc-toolbar-main .dc-tool-btn,
+.dc-toolbar-row2 .dc-tool-btn,
+.ladder-editor-toolbar .dc-tool-btn,
+.dc-grafcet-toolbar .dc-tool-btn,
+.panel3d-viewbar button,
+.panel3d-edit-context button {
+  min-height: var(--toolbar-control-height);
+  border-radius: 6px;
+  font-weight: 600;
+  transition: color .14s ease, background-color .14s ease, border-color .14s ease, box-shadow .14s ease;
+}
+
+.dc-toolbar-main .dc-tool-btn:focus-visible,
+.dc-toolbar-row2 .dc-tool-btn:focus-visible,
+.ladder-editor-toolbar button:focus-visible,
+.dc-grafcet-toolbar button:focus-visible,
+.panel3d-viewbar button:focus-visible,
+.panel3d-edit-context button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  z-index: 1;
+}
+
+.dc-seg {
+  gap: 2px;
+  padding: 3px;
+  border-color: var(--toolbar-border);
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 1px 2px #0f172a0a;
+}
+
+.dc-seg > .dc-tool-btn,
+.dc-seg > button.dc-tool-btn {
+  min-height: 28px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+
+.dc-seg > .dc-tool-btn:hover:not(:disabled):not(.dc-tool-active),
+.dc-seg > button.dc-tool-btn:hover:not(:disabled):not(.dc-tool-active) {
+  border-color: #cbd8ec;
+  background: #f4f7fb;
+}
+
+.dc-seg > .dc-tool-active,
+.dc-seg > button[aria-pressed="true"] {
+  border-color: #2455e5;
+  color: #fff;
+  background: #2f5bea;
+  box-shadow: 0 1px 3px #1d4ed82c;
+}
+
+.tb-sep { height: 22px; margin-inline: 2px; border-left: 1px solid #d6dfec; }
+
+.panel3d-viewbar,
+.panel3d-edit-context {
+  gap: 4px;
+  padding: 5px;
+  border-color: var(--toolbar-border);
+  border-radius: 8px;
+  background: #fffffff7;
+  box-shadow: 0 3px 12px #243b631a;
+}
+
+.panel3d-viewbar-group { gap: 3px; padding-inline: 5px; }
+.panel3d-viewbar-group + .panel3d-viewbar-group { margin-left: 0; }
+.panel3d-viewbar button { min-height: 30px; padding-inline: 9px; border-radius: 5px; font-size: 10px; }
+.panel3d-viewbar button.is-active,
+.panel3d-viewbar button[aria-pressed="true"] { border-color: #bfd0fb; color: #1d4ed8; background: #eef4ff; }
+.panel3d-viewbar button.is-edit-active { border-color: #2455e5; color: #fff; background: #2f5bea; }
+.panel3d-edit-context button { min-height: 30px; padding-inline: 9px; border-radius: 5px; font-size: 10px; }
+
+/* As duas ribbons do editor de componentes partilham o mesmo tratamento,
+   preservando a compactação própria e o scroll horizontal já definidos. */
+.ce-toolbars .ce-ribbon,
+.ce-ribbon-row1,
+.ce-ribbon-row2 {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  align-items: center;
+  border-bottom-color: var(--toolbar-border);
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ce-toolbars .ce-ribbon-primary,
+.ce-ribbon-row1 { min-height: var(--toolbar-height); }
+.ce-toolbars .ce-ribbon-secondary,
+.ce-ribbon-row2 { min-height: var(--toolbar-height); }
+
+.ce-toolbars .ce-ribbon .dc-tool-btn,
+.ce-ribbon-row1 .dc-tool-btn,
+.ce-ribbon-row2 .dc-tool-btn {
+  min-height: var(--toolbar-control-height);
+  border-radius: 6px;
+}
+
+.ce-toolbars .ce-ribbon .dc-tool-btn:focus-visible,
+.ce-ribbon-row1 .dc-tool-btn:focus-visible,
+.ce-ribbon-row2 .dc-tool-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  z-index: 1;
+}
+
+@media (pointer: coarse) {
+  .dc-toolbar-main .dc-tool-btn,
+  .dc-toolbar-row2 .dc-tool-btn,
+  .ladder-editor-toolbar .dc-tool-btn,
+  .dc-grafcet-toolbar .dc-tool-btn,
+  .panel3d-viewbar button,
+  .panel3d-edit-context button { min-height: 36px; }
+  .dc-toolbar-row2, .ladder-editor-toolbar, .dc-grafcet-toolbar { min-height: 44px; height: 44px; }
+}
+
+@media (max-width: 800px) {
+  .dc-toolbar-main,
+  .dc-toolbar-row2,
+  .ladder-editor-toolbar { scrollbar-width: none; }
+  .dc-toolbar-main::-webkit-scrollbar,
+  .dc-toolbar-row2::-webkit-scrollbar,
+  .ladder-editor-toolbar::-webkit-scrollbar { display: none; }
+  .dc-toolbar-main .dc-tool-btn,
+  .dc-toolbar-row2 .dc-tool-btn,
+  .ladder-editor-toolbar .dc-tool-btn { min-height: 36px; }
+  .dc-toolbar-row2 { gap: 6px; }
+  .ce-ribbon-row1 .dc-tool-btn,
+  .ce-ribbon-row2 .dc-tool-btn { min-height: 36px; }
+}
+
+@media (max-width: 1024px), (pointer: coarse) and (max-height: 700px) {
+  .ce-toolbars.is-compact .ce-ribbon-primary { min-height: 48px; }
+  .ce-toolbars.is-compact .ce-ribbon-secondary { min-height: 0; overflow: visible; }
+  .ce-toolbars.is-compact .dc-tool-btn { min-height: 40px; border-radius: 7px; }
+}
