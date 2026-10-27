@@ -128,8 +128,13 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   motorBreakerPkzmC10: spec('motorBreakerPkzmC10', MODEL_PATHS.eatonPkzmC10, [0, 0, 0], 'din-rail'),
   phoenixEcb3000760: spec('phoenixEcb3000760', MODEL_PATHS.phoenixEcb3000760, [Math.PI / 2, 0, 0], 'din-rail'),
 
-  // O P20AKR tem o eixo longo em Z; identidade mostra a cabeça circular frontal.
-  emergencyButton: spec('emergencyButton', MODEL_PATHS.emergencyButtonP20AKR, [0, 0, 0], 'panel-front', true),
+  /*
+   * P20AKR: o CAD já vem na pose de painel — a cabeça (cogumelo) aponta para +Z e o
+   * bloco de contactos fica atrás, do lado da chapa. Estava com `flipDepth`, o que
+   * espelhava a profundidade e mostrava o bloco de bornes à frente e o cogumelo
+   * virado para trás (era o que aparecia no editor como «pose base»).
+   */
+  emergencyButton: spec('emergencyButton', MODEL_PATHS.emergencyButtonP20AKR, [0, 0, 0], 'panel-front'),
   // No GLB do P20ACR o eixo do botão está em Y; roda-se para Z antes de aplicar as dimensões físicas.
   // Sem esta base, o ajuste por eixo comprime a altura e estica a profundidade do conjunto.
   emergencyButtonKeyP20ACR: spec('emergencyButtonKeyP20ACR', MODEL_PATHS.emergencyButtonKeyP20ACR, [-Math.PI / 2, 0, 0], 'panel-front'),

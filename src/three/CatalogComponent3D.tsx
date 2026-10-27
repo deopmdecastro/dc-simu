@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import type { ElectricalComponent } from '../types'
 import { useSimStore } from '../store/useSimStore'
 import { builtinOriginType, useCatalogStore } from '../catalog/registry'
-import { parseCatalogType, type TriggerName } from '../catalog/types'
+import { parseCatalogType, type ComponentDefinition, type TriggerName } from '../catalog/types'
 import { interactionsFor, runInteractions } from '../catalog/interactions'
 import { StateAnimator } from '../catalog/stateAnimator'
 import { ComponentRig } from '../catalog/componentRig'
+import { prepareActuatorHead } from './actuatorHead'
 import { triggerControl, useCatalogMeter } from '../catalog/runtimeControls'
 import { isSpringReturn } from '../catalog/behavior'
 import { setBeep } from '../catalog/beep'
 import { cloneModelScene } from './modelFit'
+import { normalizeDefinition } from '../catalog/definition'
 import { finishCadMaterial } from './catalogMaterials'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
@@ -31,6 +33,8 @@ function partIdOf(object: THREE.Object3D | null, known: Set<string>): string {
  * Componente do catálogo oficial no painel 3D: carrega o GLB assado, aplica estados/animações
  * (escritos pelo Admin) e executa as interações. O estado fica em `component.state.catalogState`.
  */
+const EMPTY_DEFINITION: ComponentDefinition = normalizeDefinition(undefined)
+
 export default function CatalogComponent3D({ c, position, anchor, children, interactive = true }: {
   c: ElectricalComponent
   interactive?: boolean
@@ -54,6 +58,9 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
   const timers = useRef<number[]>([])
 
   const origin = version?.runtime.originMm
+  /** Definição efetiva: a cabeça do botão de emergência é separada do corpo e o
+   *  curso do controlo passa às unidades do painel (o modelo está a 1/100). */
+  const [prepared, setPrepared] = useState<{ definition: ComponentDefinition; model: THREE.Object3D | null }>({ definition: version?.definition ?? EMPTY_DEFINITION, model: null })
   const { model, topY } = useMemo(() => {
     const object = cloneModelScene(scene)
     object.traverse((node) => {
@@ -72,6 +79,15 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     return { model: object, topY: anchor === 'bottom' ? height : height / 2 }
   }, [scene, origin, anchor])
 
+  // Cabeça móvel do botão de emergência (só nos tipos que a têm): o controlo
+  // `dcsimu_head` só existe depois de separar a peça do corpo.
+  useEffect(() => {
+    if (!version) { setPrepared((current) => (current.model ? { definition: EMPTY_DEFINITION, model: null } : current)); return }
+    const next = prepareActuatorHead(model, version.definition, PANEL_UNITS_PER_MM)
+    setPrepared({ definition: next.definition, model })
+  }, [model, version])
+  const effective = version && prepared.model === model ? prepared.definition : version?.definition
+
   const { vars, reading } = useCatalogMeter(c, version?.definition)
   const runState = useSimStore((s) => s.sim.runState)
   const scanCount = useSimStore((s) => s.sim.scanCount)
@@ -89,13 +105,13 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
   const displayVars = useMemo(() => ({ ...vars, ...systemVars, ...Object.fromEntries(Object.entries((c.state?.catalogColors as Record<string, string> | undefined) ?? {}).map(([id, color]) => [`color.${id}`, color])) }), [vars, systemVars, c.state?.catalogColors])
   useEffect(() => {
     if (!version) { animator.current = null; rig.current = null; return }
-    animator.current = new StateAnimator(version.definition, model, c.state?.catalogState ?? version.definition.initialState)
-    rig.current = new ComponentRig(version.definition, model, animator.current)
-    rig.current.setVars(displayVars, reading, version.definition.states.find((item) => item.id === (c.state?.catalogState ?? version.definition.initialState))?.name ?? '')
+    animator.current = new StateAnimator(effective!, model, c.state?.catalogState ?? effective!.initialState)
+    rig.current = new ComponentRig(effective!, model, animator.current)
+    rig.current.setVars(displayVars, reading, effective!.states.find((item) => item.id === (c.state?.catalogState ?? effective!.initialState))?.name ?? '')
     rig.current.snap()
     invalidate()
     return () => { timers.current.forEach((id) => window.clearTimeout(id)); timers.current = []; rig.current?.dispose(); rig.current = null }
-  }, [version, model])
+  }, [version, model, effective])
   useEffect(() => { rig.current?.setVars(displayVars, reading); invalidate() }, [displayVars, reading])
   useEffect(() => { setBeep(!!reading?.beep); return () => setBeep(false) }, [reading?.beep])
 

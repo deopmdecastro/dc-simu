@@ -763,7 +763,9 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 {
   const emergency = createComponent('emergencyButton')
   const cad = getCommandModelSpec('emergencyButton')
-  check('Botão de emergência usa a face frontal do CAD Metaltex P20AKR', cad?.path === '/models/comando/P20AKR-1.glb' && cad.rotation.every((angle) => angle === 0) && cad.flipDepth)
+  // O CAD já vem na pose de painel (cogumelo em +Z, contactos atrás): sem espelho de profundidade.
+  // Com `flipDepth` o bloco de bornes ficava à frente e o cogumelo virado para a chapa.
+  check('Botão de emergência usa a face frontal do CAD Metaltex P20AKR', cad?.path === '/models/comando/P20AKR-1.glb' && cad.rotation.every((angle) => angle === 0) && !cad.flipDepth)
   check('Botão de emergência CAD mantém os dois bornes NF 21/22', emergency.terminals.some((t) => t.label === '21' && t.kind === 'aux-nc') && emergency.terminals.some((t) => t.label === '22' && t.kind === 'aux-nc'))
 }
 

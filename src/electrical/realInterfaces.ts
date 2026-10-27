@@ -122,9 +122,11 @@ export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> 
     {"label":"21","face":"right","x":0.830946,"y":0.176,"z":0.129,"diameterMm":7.3,"holeDepthMm":4.202},
     {"label":"22","face":"right","x":0.830482,"y":0.836,"z":0.129,"diameterMm":7.1,"holeDepthMm":4.18},
   ],
+  // P20AKR: os parafusos 21/22 estão no bloco de contactos, ATRÁS da chapa (a cabeça
+  // opera pela frente). Com a profundidade já não espelhada, o bloco fica em z ≈ 0.
   emergencyButton: [
-    {"label":"21","face":"front","x":0.728,"y":0.754,"z":0.998682,"diameterMm":7.3,"holeDepthMm":3.507},
-    {"label":"22","face":"front","x":0.728,"y":0.333,"z":0.998682,"diameterMm":7.3,"holeDepthMm":3.507},
+    {"label":"21","face":"back","x":0.728,"y":0.754,"z":0.001318,"diameterMm":7.3,"holeDepthMm":3.507},
+    {"label":"22","face":"back","x":0.728,"y":0.333,"z":0.001318,"diameterMm":7.3,"holeDepthMm":3.507},
   ],
   emergencyButtonKeyP20ACR: [
     {"label":"21","face":"back","x":0.724,"y":0.754,"z":0.001035,"diameterMm":7.2,"holeDepthMm":3.514},

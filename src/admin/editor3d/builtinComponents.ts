@@ -11,6 +11,7 @@ import { REAL_TERMINALS, terminalInsetMm } from '../../electrical/realInterfaces
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
 import { MOTOR_BOARD, MOTOR_BOARD_TOP, MOTOR_FAN, MOTOR_STUD, motorBridges, motorCadToCentered } from '../../three/motorTerminalLayout'
 import { seedLogoPanel } from './seedLogoPanel'
+import { ACTUATOR_HEAD_NAME, ACTUATOR_HEAD_TYPES } from '../../three/actuatorHead'
 
 /** Componentes que já vêm com a plataforma (Biblioteca do simulador), listados também na Biblioteca 3D do Admin. */
 export interface BuiltinInfo {
@@ -239,6 +240,7 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
     changed = (next.controls ?? []).length > 0
   }
   if (type === 'plcSiemensLogo1224RC' && seedLogoPanel(next, cache)) changed = true
+  if (seedEmergencyActuator(next, type)) changed = true
   if (type === 'motor3ph') {
     if (!next.parts.some((part) => part.name === MOTOR_BOARD_GROUP)) { seedMotorTerminalBoard(next, cache); changed = true }
     if (migrateMotorDraft(next, cache)) changed = true
@@ -403,6 +405,37 @@ async function upgradeUneditedGeometry(type: ComponentType, def: ComponentDefini
   return next
 }
 
+/** Marca do seed do botão de emergência (não volta a mexer em rascunhos já publicados). */
+const SEED_EMERGENCY_ACTUATOR = 'emergency-actuator-v1'
+/** Curso do cogumelo no aparelho real (mm): o botão afunda ~4 mm até engatar. */
+export const EMERGENCY_ACTUATOR_TRAVEL_MM = 4
+
+/**
+ * Botão de emergência utilizável: a cabeça (`dcsimu_head`, separada do corpo em
+ * `loadGlbAssets`) afunda quando o botão é premido e fica retida, como o
+ * aparelho real. Sem este controlo o modelo era só um desenho — clicar não
+ * fazia nada e não havia animação nenhuma.
+ */
+function seedEmergencyActuator(def: ComponentDefinition, type: ComponentType): boolean {
+  if (!ACTUATOR_HEAD_TYPES.includes(type)) return false
+  if (def.builtinSeeds?.includes(SEED_EMERGENCY_ACTUATOR)) return false
+  const partId = def.parts[0]?.id
+  if (!partId) return false
+  const variable = 'pressed'
+  if (!(def.vars ?? []).some((item) => item.id === variable)) {
+    def.vars = [...(def.vars ?? []), { id: variable, name: 'Botão premido', type: 'bool', initial: false }]
+  }
+  def.controls = [...(def.controls ?? []), {
+    id: newId('ctl_'), name: 'Botão de emergência', kind: 'button', partId,
+    nodes: [ACTUATOR_HEAD_NAME], axis: [0, 0, 1] as Vec3, travelMm: EMERGENCY_ACTUATOR_TRAVEL_MM,
+    motion: { mode: 'slide', angleOff: 0, angleOn: 0, pivotRel: [0.5, 0.5, 0.5] as Vec3, feel: 'snap', durationMs: 220 },
+    bindVar: variable, positions: [], returnMode: 'latch',
+    actions: [{ type: 'toggleVar', var: variable }],
+  }]
+  def.builtinSeeds = [...(def.builtinSeeds ?? []), SEED_EMERGENCY_ACTUATOR]
+  return true
+}
+
 /** Rascunho editável a partir de um componente integrado: modelo GLB (ou volume físico) + bornes + metadados. */
 export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: CatalogMeta; def: ComponentDefinition; usedModel: boolean }> {
   const tpl = TEMPLATES[type]
@@ -452,6 +485,7 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   // O multímetro DM-20 chega ao editor completo: seletor, botões e LCD já
   // ligados aos objetos reais do modelo, visíveis na lista como elementos.
   if (type === 'multimeterDm20') seedMultimeterDm20(def, cache)
+  seedEmergencyActuator(def, type)
   if (type === 'plcSiemensLogo1224RC') seedLogoPanel(def, cache)
   if (type === 'motor3ph') { seedMotorTerminalBoard(def, cache); seedMotorFan(def) }
   const meta: CatalogMeta = {

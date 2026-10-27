@@ -182,12 +182,13 @@ function Scene() {
   const pickControlAreas = mode === 'edit' && ribbon === 'select' && !pick && !placing
   useEffect(() => {
     rig.current = new ComponentRig(def, root, animator.current)
+    if (import.meta.env.DEV) (window as unknown as { __ceRig?: ComponentRig | null }).__ceRig = rig.current
     rig.current.setVars(vars, reading, resolveState(def, previewState).name)
     rig.current.setHitProxies(liveControlTest, pickControlAreas)
     rig.current.setDisplayPicking(pickControlAreas)
     rig.current.snap()
     invalidate()
-    return () => { rig.current?.dispose(); rig.current = null }
+    return () => { rig.current?.dispose(); rig.current = null; if (import.meta.env.DEV) (window as unknown as { __ceRig?: ComponentRig | null }).__ceRig = null }
   }, [root, def.controls, def.displays, def.lights, def.states, def.behavior])
   useEffect(() => { rig.current?.setVars(vars, reading, resolveState(def, previewState).name); invalidate() }, [vars, reading, previewState])
   useEffect(() => { rig.current?.setHitProxies(liveControlTest, pickControlAreas); rig.current?.setDisplayPicking(pickControlAreas) }, [liveControlTest, pickControlAreas])

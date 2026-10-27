@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ACTUATOR_HEAD_TYPES, extractActuatorHead } from '../three/actuatorHead'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { createGltfLoader } from '../three/gltfLoader'
 import { nanoid } from 'nanoid'
@@ -417,7 +418,11 @@ export async function loadGlbAssets(def: ComponentDefinition, cache: GlbCache): 
       const gltf = await new Promise<{ scene: THREE.Object3D }>((resolve, reject) => loader.parse(buffer, '', resolve as never, reject))
       const builtin = asset.builtinType ? getComponentModelSpec(asset.builtinType) : undefined
       if (builtin && asset.data === builtin.path) {
-        cache.set(part.asset, fitComponentModel(gltf.scene, builtin, 1, 'bottom'))
+        const fitted = fitComponentModel(gltf.scene, builtin, 1, 'bottom')
+        // Botões de emergência: a cabeça (cogumelo/fole) passa a ser um nó próprio
+        // (`dcsimu_head`) para o controlo a afundar sem arrastar a carcaça.
+        if (asset.builtinType && ACTUATOR_HEAD_TYPES.includes(asset.builtinType)) extractActuatorHead(fitted, fitted)
+        cache.set(part.asset, fitted)
         changed = true
         continue
       }
