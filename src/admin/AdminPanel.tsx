@@ -116,63 +116,105 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
   const pendingCount = stats?.pending ?? 0
   const disabledCount = settings.filter((entry) => (entry.status ?? (entry.enabled ? 'active' : 'blocked')) === 'blocked').length
   const pendingPlans = planRequests.filter((request) => request.status === 'pending').length
-  const tabs: Array<[Tab, string, number | undefined]> = [['overview', 'Resumo', undefined], ['contributions', 'Contribuições', pendingCount || undefined], ['components', 'Componentes', disabledCount || undefined], ['library3d', 'Biblioteca 3D', undefined], ['projects', 'Projetos', projects.length], ['users', 'Utilizadores', users.length], ['plans', 'Planos e preços', pendingPlans || undefined], ['logs', 'Registos', undefined], ['system', 'Sistema', undefined]]
+  const serverMode = activeAccountBackend() === 'server'
+  type NavTab = { id: Tab; label: string; count?: number; attention?: boolean }
+  const navGroups: Array<{ label: string; tabs: NavTab[] }> = [
+    { label: 'Geral', tabs: [{ id: 'overview', label: 'Resumo' }] },
+    { label: 'Conteúdo', tabs: [
+      { id: 'contributions', label: 'Contribuições', count: pendingCount || undefined, attention: true },
+      { id: 'components', label: 'Componentes', count: disabledCount || undefined },
+      { id: 'library3d', label: 'Biblioteca 3D' },
+    ] },
+    { label: 'Gestão', tabs: [
+      { id: 'projects', label: 'Projetos', count: projects.length },
+      { id: 'users', label: 'Utilizadores', count: users.length },
+      { id: 'plans', label: 'Planos e preços', count: pendingPlans || undefined, attention: true },
+    ] },
+    { label: 'Sistema', tabs: [{ id: 'logs', label: 'Registos' }, { id: 'system', label: 'Sistema' }] },
+  ]
+  const attention = [
+    pendingCount > 0 && { key: 'contributions', text: `${pendingCount} ${pendingCount === 1 ? 'contribuição à espera de revisão' : 'contribuições à espera de revisão'}`, cta: 'Rever agora', run: () => { setStatusFilter('pending'); setTab('contributions') } },
+    pendingPlans > 0 && { key: 'plans', text: `${pendingPlans} ${pendingPlans === 1 ? 'pedido de plano por decidir' : 'pedidos de plano por decidir'}`, cta: 'Ver pedidos', run: () => setTab('plans') },
+    disabledCount > 0 && { key: 'components', text: `${disabledCount} ${disabledCount === 1 ? 'componente bloqueado' : 'componentes bloqueados'} na biblioteca`, cta: 'Gerir componentes', run: () => setTab('components') },
+  ].filter((item): item is { key: string; text: string; cta: string; run: () => void } => !!item)
   const shownProjects = projects.filter((project) => `${project.name} ${project.owner}`.toLowerCase().includes(projectQuery.trim().toLowerCase()))
 
-  return <section className="dx dx-admin cb-panel">
-    <div className="dx-admin-head">
-      <div>
-        <span className="dx-over"><i />Acesso restrito</span>
+  return <section className="dx dx-admin cb-panel adm">
+    <header className="adm-head">
+      <div className="adm-head-text">
         <h1>Administração.</h1>
-        <p>Reveja as contribuições da comunidade, gira contas, componentes e projetos, e acompanhe a atividade do sistema. {activeAccountBackend() === 'server' ? 'Dados no servidor (SQLite).' : 'Dados guardados neste navegador.'}</p>
+        <p>Contribuições, contas, componentes, projetos e atividade do sistema.</p>
       </div>
-      <div className="dx-admin-head-actions">
-        <button className="dx-btn dx-btn-primary" onClick={() => setCreating3D(true)} title="Criar um componente no editor 3D">+ Novo componente 3D</button>
-        <button className="dx-btn dx-btn-secondary" onClick={onBack}><IconArrowLeft size={12} /> Projetos</button>
+      <div className="adm-head-side">
+        <span className={`adm-env ${serverMode ? 'is-server' : 'is-local'}`} title={serverMode ? 'Os dados estão guardados no servidor (SQLite).' : 'Os dados estão guardados apenas neste navegador.'}><i aria-hidden />{serverMode ? 'Servidor · SQLite' : 'Modo local · só neste navegador'}</span>
+        <div className="dx-admin-head-actions">
+          <button className="dx-btn dx-btn-primary" onClick={() => setCreating3D(true)} title="Criar um componente no editor 3D">+ Novo componente 3D</button>
+          <button className="dx-btn dx-btn-secondary" onClick={onBack}><IconArrowLeft size={12} /> Projetos</button>
+        </div>
       </div>
-    </div>
+    </header>
     {creating3D && <NewComponentDialog onCancel={() => setCreating3D(false)} onError={onError} onCreated={(id, name) => { setCreating3D(false); setNotice(`«${name}» criado como rascunho. Modele-o e publique quando estiver pronto.`); setEditorOpenId(id); setTab('library3d'); navigate(ROUTES.adminEditor(id, name)) }} />}
 
-    <div className="cb-tabs" role="tablist" aria-label="Gestão do administrador">
-      {tabs.map(([id, label, count]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>
-        {label}{count !== undefined && (id === 'contributions' ? <em title="Em revisão">{count}</em> : <span>{count}</span>)}
-      </button>)}
-    </div>
+    <div className={`adm-shell ${tab === 'library3d' ? 'is-wide' : ''}`}>
+    <nav className="adm-nav" aria-label="Secções da administração">
+      <div className="adm-tablist" role="tablist" aria-orientation="vertical" aria-label="Gestão do administrador">
+        {navGroups.map((group) => <div key={group.label} className="adm-nav-group" role="presentation">
+          <span className="adm-nav-label" role="presentation">{group.label}</span>
+          {group.tabs.map((item) => <button key={item.id} role="tab" aria-selected={tab === item.id} className={`adm-tab ${tab === item.id ? 'is-active' : ''}`} onClick={() => setTab(item.id)}>
+            <span>{item.label}</span>
+            {item.count !== undefined && <b className={item.attention ? 'is-attention' : ''} title={item.attention ? 'Por tratar' : undefined}>{item.count}</b>}
+          </button>)}
+        </div>)}
+      </div>
+    </nav>
+    <div className="adm-main">
     {error && <div className="dx-alert" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Fechar"><IconClose size={11} /></button></div>}
-    {notice && <div className="cb-toast" role="status">{notice}<button onClick={() => setNotice('')} aria-label="Fechar"><IconClose size={11} /></button></div>}
+    {notice && <div className="cb-toast adm-toast" role="status"><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Fechar"><IconClose size={11} /></button></div>}
 
     {tab === 'overview' && <>
+      <section className="adm-attn" aria-label="Pendências">
+        {attention.length === 0
+          ? <p className="adm-clear"><i aria-hidden />Sem pendências: não há nada à espera de revisão ou decisão.</p>
+          : attention.map((item) => <div key={item.key} className="adm-attn-row">
+            <i aria-hidden />
+            <span>{item.text}</span>
+            <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={item.run}>{item.cta}</button>
+          </div>)}
+      </section>
+      <div className="adm-tiles">
+        <button type="button" className="adm-tile" onClick={() => { setStatusFilter('pending'); setTab('contributions') }}><span>Em revisão</span><strong>{stats?.pending ?? '—'}</strong><small>contribuições</small></button>
+        <button type="button" className="adm-tile" onClick={() => { setStatusFilter('approved'); setTab('contributions') }}><span>Aprovadas</span><strong>{stats?.approved ?? '—'}</strong><small>contribuições</small></button>
+        <button type="button" className="adm-tile" onClick={() => { setStatusFilter('rejected'); setTab('contributions') }}><span>Rejeitadas</span><strong>{stats?.rejected ?? '—'}</strong><small>contribuições</small></button>
+        <button type="button" className="adm-tile" onClick={() => setTab('projects')}><span>Projetos</span><strong>{projects.length}</strong><small>em todas as contas</small></button>
+        <button type="button" className="adm-tile" onClick={() => setTab('users')}><span>Contas</span><strong>{users.length}</strong><small>{users.filter((entry) => entry.active).length} ativas</small></button>
+        <button type="button" className="adm-tile" onClick={() => setTab('system')}><span>Armazenamento</span><strong>{stats ? formatBytes(stats.bytes) : '—'}</strong><small>{stats ? `${stats.datasheets} PDF · ${stats.models} GLB` : 'ficheiros'}</small></button>
+      </div>
+      <div className="adm-cols">
+        <section>
+          <div className="dx-admin-section"><h2>Atividade recente</h2><button className="cb-link" onClick={() => { setLogActor(''); setTab('logs') }}>Ver todos os registos</button></div>
+          <div className="dx-admin-table ce-recent-activity">
+            {recentLogs.length === 0 && <div className="dx-admin-empty">Ainda não há atividade registada.</div>}
+            {recentLogs.map((entry) => <div key={entry.id}><span><strong>{actionLabel(entry.action)}</strong> · {entry.actorEmail || entry.actorName || 'sistema'}{entry.targetLabel ? ` · ${entry.targetLabel}` : ''}</span><span className="dx-chip">{formatDate(entry.at)}</span></div>)}
+          </div>
+        </section>
+        <section>
+          <div className="dx-admin-section"><h2>Últimas contribuições</h2><span>{contributions.length}</span></div>
+          <div className="dx-admin-table">
+            {contributions.length === 0 && <div className="dx-admin-empty">Nenhuma contribuição enviada.</div>}
+            {contributions.slice(0, 5).map((item) => <div key={item.id}><span><strong>{item.title}</strong> · {KIND_LABEL[item.kind]} · {item.authorName} · {formatDate(item.updatedAt)}</span><span className={`cb-status is-${item.status}`}>{STATUS_LABEL[item.status]}</span></div>)}
+          </div>
+          <div className="dx-admin-section"><h2>Cobertura da biblioteca</h2><span>componentes com ficheiros aprovados</span></div>
+          <div className="dx-admin-table">
+            {coverage.length === 0 && <div className="dx-admin-empty">Ainda não há contribuições aprovadas.</div>}
+            {coverage.map((entry) => <div key={entry.type}><span><strong>{entry.label}</strong> · {entry.group}</span><span className="dx-chip">{entry.datasheets} datasheet(s) · {entry.models} modelo(s) 3D</span></div>)}
+          </div>
+        </section>
+      </div>
       <div className="ce-cta">
         <div><strong>Editor 3D de componentes</strong><span>Crie componentes oficiais com modelo 3D, bornes, estados e animações. O assistente pergunta o que é, a categoria, o nome e se já tem datasheet.</span></div>
         <div className="ce-cta-actions">
-          <button className="dx-btn dx-btn-primary" onClick={() => setCreating3D(true)}>+ Novo componente 3D</button>
           <button className="dx-btn dx-btn-secondary" onClick={() => setTab('library3d')}>Abrir biblioteca 3D</button>
         </div>
-      </div>
-      <div className="cb-stats">
-        <div className={pendingCount ? 'is-attention' : ''}><strong>{stats?.pending ?? '—'}</strong><span>Em revisão</span><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { setStatusFilter('pending'); setTab('contributions') }}>Rever agora</button></div>
-        <div><strong>{stats?.approved ?? '—'}</strong><span>Aprovadas</span></div>
-        <div><strong>{stats?.rejected ?? '—'}</strong><span>Rejeitadas</span></div>
-        <div><strong>{stats ? formatBytes(stats.bytes) : '—'}</strong><span>{stats ? `${stats.datasheets} PDF · ${stats.models} GLB` : 'Armazenamento'}</span></div>
-        <div><strong>{projects.length}</strong><span>Projetos</span></div>
-        <div><strong>{users.length}</strong><span>Contas</span></div>
-        <div className={pendingPlans ? 'is-attention' : ''}><strong>{pendingPlans}</strong><span>Pedidos de plano</span><button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => setTab('plans')}>Planos e preços</button></div>
-      </div>
-      {disabledCount > 0 && <p className="cb-note cb-banner">{disabledCount} componente(s) bloqueado(s) na biblioteca. <button className="cb-link" onClick={() => setTab('components')}>Gerir componentes</button></p>}
-      <div className="dx-admin-section"><h2>Atividade recente</h2><button className="cb-link" onClick={() => { setLogActor(''); setTab('logs') }}>Ver todos os registos →</button></div>
-      <div className="dx-admin-table ce-recent-activity">
-        {recentLogs.length === 0 && <div className="dx-admin-empty">Ainda não há atividade registada.</div>}
-        {recentLogs.map((entry) => <div key={entry.id}><span><strong>{actionLabel(entry.action)}</strong> · {entry.actorEmail || entry.actorName || 'sistema'}{entry.targetLabel ? ` · ${entry.targetLabel}` : ''}</span><span className="dx-chip">{formatDate(entry.at)}</span></div>)}
-      </div>
-      <div className="dx-admin-section"><h2>Cobertura da biblioteca</h2><span>componentes com ficheiros aprovados</span></div>
-      <div className="dx-admin-table">
-        {coverage.length === 0 && <div className="dx-admin-empty">Ainda não há contribuições aprovadas.</div>}
-        {coverage.map((entry) => <div key={entry.type}><span><strong>{entry.label}</strong> · {entry.group}</span><span className="dx-chip">{entry.datasheets} datasheet(s) · {entry.models} modelo(s) 3D</span></div>)}
-      </div>
-      <div className="dx-admin-section"><h2>Últimas contribuições</h2><span>{contributions.length}</span></div>
-      <div className="dx-admin-table">
-        {contributions.length === 0 && <div className="dx-admin-empty">Nenhuma contribuição enviada.</div>}
-        {contributions.slice(0, 5).map((item) => <div key={item.id}><span><strong>{item.title}</strong> · {KIND_LABEL[item.kind]} · {item.authorName} · {formatDate(item.updatedAt)}</span><span className={`cb-status is-${item.status}`}>{STATUS_LABEL[item.status]}</span></div>)}
       </div>
     </>}
 
@@ -206,13 +248,20 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
     {tab === 'projects' && <>
       <div className="dx-admin-section"><h2>Projetos</h2><span>{shownProjects.length}/{projects.length}</span></div>
       <input className="dx-input cb-search" type="search" placeholder="Pesquisar projeto ou proprietário…" value={projectQuery} onChange={(event) => setProjectQuery(event.target.value)} aria-label="Pesquisar projetos" />
-      <div className="dx-admin-table">
-        {shownProjects.length === 0 && <div className="dx-admin-empty">{projects.length ? 'Nenhum projeto com esta pesquisa.' : 'Ainda não há projetos criados.'}</div>}
-        {shownProjects.map((project) => <div key={project.id}>
-          <span><strong>{project.name}</strong> · {project.owner} · {project.members ?? 0} membro(s) · {project.size !== undefined ? formatBytes(project.size) : '—'} · rev. {project.revision ?? 0} · {formatDate(project.updated_at)}</span>
-          <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={() => removeProject(project)}>Eliminar projeto</button>
-        </div>)}
-      </div>
+      {shownProjects.length === 0
+        ? <div className="dx-admin-table"><div className="dx-admin-empty">{projects.length ? 'Nenhum projeto com esta pesquisa.' : 'Ainda não há projetos criados.'}</div></div>
+        : <div className="adm-tablewrap"><table className="adm-table">
+          <thead><tr><th scope="col">Projeto</th><th scope="col">Proprietário</th><th scope="col" className="is-num">Membros</th><th scope="col" className="is-num">Tamanho</th><th scope="col" className="is-num">Rev.</th><th scope="col">Atualizado</th><th scope="col"><span className="adm-vh">Ações</span></th></tr></thead>
+          <tbody>{shownProjects.map((project) => <tr key={project.id}>
+            <th scope="row" data-label="Projeto">{project.name}</th>
+            <td data-label="Proprietário">{project.owner}</td>
+            <td data-label="Membros" className="is-num">{project.members ?? 0}</td>
+            <td data-label="Tamanho" className="is-num">{project.size !== undefined ? formatBytes(project.size) : '—'}</td>
+            <td data-label="Rev." className="is-num">{project.revision ?? 0}</td>
+            <td data-label="Atualizado">{formatDate(project.updated_at)}</td>
+            <td className="is-actions"><button className="dx-btn dx-btn-danger dx-btn-sm" onClick={() => removeProject(project)} aria-label={`Eliminar projeto ${project.name}`}>Eliminar</button></td>
+          </tr>)}</tbody>
+        </table></div>}
     </>}
 
     {tab === 'users' && <UsersTab users={users} planRequests={planRequests} currentUserId={currentUser.id} onChanged={afterChange} onError={onError} onOpenLogs={(actor) => { setLogActor(actor); setTab('logs') }} />}
@@ -222,5 +271,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
     {tab === 'logs' && <LogsTab initialActor={logActor} onChanged={afterChange} onError={onError} />}
 
     {tab === 'system' && <SystemTab onError={onError} />}
+    </div>
+    </div>
   </section>
 }

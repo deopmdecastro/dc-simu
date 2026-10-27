@@ -5,6 +5,7 @@ import { activeAccountBackend } from '../auth/accountApi'
 import { formatDate } from '../contrib/ContribParts'
 import { adminApi } from './adminApi'
 import { EMAIL_PATTERN, generatePassword, passwordProblem, type AdminUser, type PlanRequest, type Role } from './adminTypes'
+import RowMenu, { MenuItem } from './RowMenu'
 import { usePlanStore } from '../saas/usePlan'
 import { effectivePlanId, planById, type PlanId } from '../saas/platformCore.mjs'
 
@@ -309,15 +310,21 @@ export default function UsersTab({ users, planRequests = [], currentUserId, onCh
           <div className="cb-actions cb-user-actions">
             {user.role !== 'admin' && <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={self || busy} title={self ? why : 'Plano, fim do período e nota interna'} onClick={() => setPlanEdit({ id: user.id, plan: (user.plan ?? 'free') as PlanId, until: dateInput(user.planExpiresAt), note: user.adminNote ?? '' })}>Plano…</button>}
             <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => setDetails(details === user.id ? null : user.id)} aria-expanded={details === user.id}>{details === user.id ? 'Ocultar detalhes' : 'Detalhes'}</button>
-            <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={locked || !serverMode || busy} title={why} onClick={() => setEditing({ id: user.id, name: user.name, role: user.role })}>Editar</button>
-            <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={locked || !serverMode || busy} title={why} onClick={() => setResetting({ id: user.id, password: '' })}>Repor palavra-passe</button>
-            <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={locked || !profileMode || busy} title={why || 'Bloquear impede o login e termina as sessões'} onClick={() => void (async () => {
-              if (user.active && !(await uiConfirm(`Bloquear a conta ${user.email}? A pessoa deixa de conseguir entrar e as sessões abertas terminam.`, { title: 'Bloquear utilizador', confirmLabel: 'Bloquear', cancelLabel: 'Cancelar', danger: true }))) return
-              await run(() => adminApi.updateUser(user.id, { active: !user.active }), user.active ? `Conta ${user.email} bloqueada.` : `Conta ${user.email} desbloqueada.`)
-            })()}>{user.active ? 'Bloquear' : 'Desbloquear'}</button>
-            <button className="dx-btn dx-btn-secondary dx-btn-sm" disabled={self || !serverMode || busy || user.sessions === 0} title={self ? why : user.sessions ? '' : 'Sem sessões ativas'} onClick={() => void run(() => adminApi.revokeSessions(user.id), 'Sessões terminadas.')}>Terminar sessões</button>
             <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => onOpenLogs(user.email)}>Ver atividade</button>
-            <button className="dx-btn dx-btn-danger dx-btn-sm" disabled={locked || !serverMode || busy} title={why} onClick={() => void remove(user)}>Eliminar</button>
+            <RowMenu>{(close) => <>
+              <MenuItem disabled={locked || !serverMode || busy} hint={why || (!serverMode ? 'Requer o servidor' : '')} onClick={() => { close(); setEditing({ id: user.id, name: user.name, role: user.role }) }}>Editar nome e papel</MenuItem>
+              <MenuItem disabled={locked || !serverMode || busy} hint={why || (!serverMode ? 'Requer o servidor' : '')} onClick={() => { close(); setResetting({ id: user.id, password: '' }) }}>Repor palavra-passe</MenuItem>
+              <MenuItem disabled={locked || !profileMode || busy} hint={why || (!profileMode ? 'Requer o servidor ou o Supabase' : 'Impede o login e termina as sessões')} onClick={() => {
+                close()
+                void (async () => {
+                  if (user.active && !(await uiConfirm(`Bloquear a conta ${user.email}? A pessoa deixa de conseguir entrar e as sessões abertas terminam.`, { title: 'Bloquear utilizador', confirmLabel: 'Bloquear', cancelLabel: 'Cancelar', danger: true }))) return
+                  await run(() => adminApi.updateUser(user.id, { active: !user.active }), user.active ? `Conta ${user.email} bloqueada.` : `Conta ${user.email} desbloqueada.`)
+                })()
+              }}>{user.active ? 'Bloquear conta' : 'Desbloquear conta'}</MenuItem>
+              <MenuItem disabled={self || !serverMode || busy || user.sessions === 0} hint={self ? why : !serverMode ? 'Requer o servidor' : user.sessions === 0 ? 'Sem sessões ativas' : ''} onClick={() => { close(); void run(() => adminApi.revokeSessions(user.id), 'Sessões terminadas.') }}>Terminar sessões</MenuItem>
+              <hr />
+              <MenuItem danger disabled={locked || !serverMode || busy} hint={why || (!serverMode ? 'Requer o servidor' : '')} onClick={() => { close(); void remove(user) }}>Eliminar conta…</MenuItem>
+            </>}</RowMenu>
           </div>
         </article>
       })}

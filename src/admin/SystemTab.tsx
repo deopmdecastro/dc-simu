@@ -37,23 +37,31 @@ export default function SystemTab({ onError }: { onError: (message: string) => v
       <div><strong>{info.counts.logs}</strong><span>Eventos registados</span></div>
       <div><strong>{info.counts.disabledComponents}</strong><span>Componentes desativados</span></div>
     </div>
-    <div className="dx-admin-table">
-      <div><span><strong>Base de dados</strong> · {server ? 'ficheiro SQLite' : 'armazenamento local do navegador'}</span><span className="dx-chip">{formatBytes(info.databaseBytes)}</span></div>
-      <div><span><strong>Conteúdo dos projetos</strong></span><span className="dx-chip">{formatBytes(info.projectBytes)}</span></div>
-      <div><span><strong>Ficheiros de contribuições</strong> (PDF e GLB)</span><span className="dx-chip">{formatBytes(info.filesBytes)}</span></div>
-      {server && <>
-        <div><span><strong>Versão da aplicação</strong></span><span className="dx-chip">{info.version ?? '—'}</span></div>
-        <div><span><strong>Node.js</strong></span><span className="dx-chip">{info.node ?? '—'}</span></div>
-        <div><span><strong>Em execução desde</strong> · {info.startedAt ? formatDate(info.startedAt) : '—'}</span><span className="dx-chip">{uptime(info.uptimeSec)}</span></div>
-        <div><span><strong>Memória do processo</strong></span><span className="dx-chip">{info.memoryMb} MB</span></div>
-      </>}
+    <div className="adm-group">
+      <h3>Armazenamento</h3>
+      <div className="dx-admin-table">
+        <div><span><strong>Base de dados</strong> · {server ? 'ficheiro SQLite' : 'armazenamento local do navegador'}</span><span className="dx-chip">{formatBytes(info.databaseBytes)}</span></div>
+        <div><span><strong>Conteúdo dos projetos</strong></span><span className="dx-chip">{formatBytes(info.projectBytes)}</span></div>
+        <div><span><strong>Ficheiros de contribuições</strong> (PDF e GLB)</span><span className="dx-chip">{formatBytes(info.filesBytes)}</span></div>
+      </div>
+    </div>
+    <div className="adm-group">
+      <h3>Aplicação</h3>
+      <div className="dx-admin-table">
+        <div><span><strong>Versão carregada neste navegador</strong> · limpeza automática de caches a cada commit</span><span className="dx-chip">{String(__APP_BUILD_ID__).slice(0, 7)}…{String(__APP_BUILD_ID__).split('.').slice(-2).join('.')}</span></div>
+        {server && <>
+          <div><span><strong>Versão do servidor</strong></span><span className="dx-chip">{info.version ?? '—'}</span></div>
+          <div><span><strong>Node.js</strong></span><span className="dx-chip">{info.node ?? '—'}</span></div>
+          <div><span><strong>Em execução desde</strong> · {info.startedAt ? formatDate(info.startedAt) : '—'}</span><span className="dx-chip">{uptime(info.uptimeSec)}</span></div>
+          <div><span><strong>Memória do processo</strong></span><span className="dx-chip">{info.memoryMb} MB</span></div>
+        </>}
+      </div>
     </div>
     <div className="cb-actions">
       <button className="dx-btn dx-btn-secondary" onClick={() => void exportData()}>Exportar dados (JSON)</button>
       <button className="dx-btn dx-btn-secondary" onClick={() => void load()}>Atualizar</button>
       <button className="dx-btn dx-btn-secondary" onClick={async () => { if (await uiConfirm('Limpar as caches deste navegador e recarregar a última versão? Os projetos e a sessão não são apagados.')) void hardRefresh() }}>Limpar cache e recarregar</button>
     </div>
-    <div className="dx-admin-table"><div><span><strong>Versão carregada neste navegador</strong> · limpeza automática de caches a cada commit</span><span className="dx-chip">{String(__APP_BUILD_ID__).slice(0, 7)}…{String(__APP_BUILD_ID__).split('.').slice(-2).join('.')}</span></div></div>
     <p className="cb-note">A exportação inclui contas, projetos (metadados), contribuições, definições de componentes e registos. Não inclui palavras-passe nem o conteúdo dos projetos ou dos ficheiros. Para uma cópia de segurança completa guarde a pasta de dados do servidor (<code>DATA_DIR</code>).</p>
   </>
 }
