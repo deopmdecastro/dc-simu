@@ -211,17 +211,21 @@ export function getComponentGlbSpec(type: ComponentType): ComponentModelSpec | u
   return MODEL_SPECS[type]
 }
 
+/** Conjuntos compostos apenas por instâncias de GLB reais. */
+const COMPOSITE_GLB_COMPONENTS_3D = new Set<ComponentType>([
+  'powerSource1ph', 'powerSource3ph', 'terminalSet1ph', 'terminalSet3ph',
+])
+
 export function hasComponent3DModel(type: ComponentType): boolean {
   return !!getComponentGlbSpec(type)
 }
 
-/** Tipos sem GLB que têm renderizador 3D procedural próprio e podem ser inseridos. */
-const PROCEDURAL_COMPONENTS_3D = new Set<ComponentType>([
-  'powerSource1ph', 'powerSource3ph', 'terminalSet1ph', 'terminalSet3ph',
-])
+export function hasComponent3DVisual(type: ComponentType): boolean {
+  return hasComponent3DModel(type) || COMPOSITE_GLB_COMPONENTS_3D.has(type)
+}
 
 export function canInsertComponent3D(type: ComponentType): boolean {
-  return hasComponent3DModel(type) || PROCEDURAL_COMPONENTS_3D.has(type)
+  return hasComponent3DVisual(type)
 }
 
 export const MISSING_3D_MODEL_MESSAGE = 'Bloqueado: modelo GLB ou representação 3D ainda não disponível.'

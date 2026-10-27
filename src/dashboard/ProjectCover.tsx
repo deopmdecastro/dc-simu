@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { ComponentType } from '../types'
 import { WIRE_COLORS } from '../schematic/symbols'
-import { hasComponent3DModel } from '../three/modelPaths'
+import { hasComponent3DVisual } from '../three/modelPaths'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
 import type { ProjectPreviewData, PreviewComponent } from './projectPreview'
 
@@ -27,7 +27,7 @@ function useCoverImages(components: PreviewComponent[], active: boolean) {
     ;(async () => {
       for (const [key, c] of wanted) {
         if (cancelled) return
-        if (!hasComponent3DModel(c.t as ComponentType)) continue
+        if (!hasComponent3DVisual(c.t as ComponentType)) continue
         try {
           const url = await getOrientedComponentImage(c.t as ComponentType, c.o ? { x: c.o[0], y: c.o[1], z: c.o[2] } : null)
           if (!cancelled) setImages((prev) => (prev[key] ? prev : { ...prev, [key]: url }))

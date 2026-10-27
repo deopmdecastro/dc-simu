@@ -69,6 +69,19 @@ export function captureOrthographicModelImage(options: OrthographicModelImageOpt
   return job
 }
 
+/** Captura uma composição de modelos já montada, mantendo o mesmo renderizador e enquadramento. */
+export function captureOrthographicObjectImage(object: THREE.Object3D, viewRotation?: [number, number, number]): Promise<string> {
+  const job = queue.then(() => {
+    const model = new THREE.Group()
+    model.add(object)
+    if (viewRotation) model.rotation.set(...viewRotation)
+    model.updateMatrixWorld(true)
+    return renderModelImage(model)
+  })
+  queue = job.catch(() => undefined)
+  return job
+}
+
 async function capture(options: OrthographicModelImageOptions): Promise<string> {
   const source = await loadSource(options.path)
   const inner = cloneModelScene(source)
@@ -94,8 +107,12 @@ async function capture(options: OrthographicModelImageOptions): Promise<string> 
   if (options.viewRotation) model.rotation.set(...options.viewRotation)
   model.updateMatrixWorld(true)
 
+  return renderModelImage(model)
+}
+
+function renderModelImage(model: THREE.Group): string {
   const initialBounds = new THREE.Box3().setFromObject(model, true)
-  if (initialBounds.isEmpty()) throw new Error(`Modelo sem geometria: ${options.path}`)
+  if (initialBounds.isEmpty()) throw new Error('Modelo sem geometria.')
   model.position.sub(initialBounds.getCenter(new THREE.Vector3()))
   model.updateMatrixWorld(true)
 

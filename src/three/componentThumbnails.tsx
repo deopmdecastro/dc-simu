@@ -39,6 +39,7 @@ const NEUTRAL_BLUE = '#5b7fb5'
 const PE_GREEN = '#3f9142'
 const SCREEN_GREEN = '#22c55e'
 const SCREEN_BLUE = '#4fc3f7'
+const GLB_TERMINAL_COMPOSITES = new Set<ComponentType>(['terminalSet1ph', 'terminalSet3ph', 'powerSource1ph', 'powerSource3ph'])
 
 let renderer: THREE.WebGLRenderer | null = null
 let scene: THREE.Scene | null = null
@@ -240,18 +241,7 @@ function buildController(g: THREE.Group, type: string) {
 
 function buildTerminal(g: THREE.Group, type: string) {
   if (type === 'terminalSet1ph' || type === 'terminalSet3ph') {
-    const conductors = type === 'terminalSet1ph' ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
-    const colors: Record<string, string> = { L: BLACK, L1: BLACK, L2: '#8b4513', L3: '#6b7280', N: '#2563eb', PE: PE_GREEN }
-    const step = conductors.length === 3 ? 0.36 : 0.28
-    conductors.forEach((conductor, index) => {
-      const x = (index - (conductors.length - 1) / 2) * step
-      const color = colors[conductor]
-      box(g, 0.24, 0.64, 0.28, color, x, 0, 0, { roughness: 0.74 })
-      box(g, 0.16, 0.09, 0.025, BRASS, x, 0.12, 0.155, { metalness: 0.58, roughness: 0.38 })
-      cyl(g, 0.055, 0.055, 0.035, METAL, x, 0.245, 0.02, { metalness: 0.68, roughness: 0.3 }, 12)
-      if (conductor === 'PE') box(g, 0.04, 0.64, 0.01, '#facc15', x, 0, 0.146)
-    })
-    box(g, conductors.length * step + 0.12, 0.07, 0.34, '#64748b', 0, -0.36, 0, { metalness: 0.2 })
+    // A miniatura chega por getCad3DImage e usa instâncias do GLB PTI6.
     return
   }
   if (type.startsWith('busbar') || type === 'earthBar') {
@@ -265,18 +255,7 @@ function buildTerminal(g: THREE.Group, type: string) {
 
 function buildPower(g: THREE.Group, type: string) {
   if (type === 'powerSource1ph' || type === 'powerSource3ph') {
-    const conductors = type === 'powerSource1ph' ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
-    const colors: Record<string, string> = { L: BLACK, L1: BLACK, L2: '#8b4513', L3: '#6b7280', N: '#2563eb', PE: PE_GREEN }
-    const width = conductors.length === 3 ? 0.92 : 1.28
-    box(g, width, 0.8, 0.4, '#cbd5e1')
-    box(g, width - 0.18, 0.56, 0.025, '#f1f5f9', 0, 0.02, 0.215)
-    const step = width / (conductors.length + 0.4)
-    conductors.forEach((conductor, index) => {
-      const x = (index - (conductors.length - 1) / 2) * step
-      box(g, 0.16, 0.14, 0.15, colors[conductor], x, 0.44, 0.18, { roughness: 0.74 })
-      box(g, 0.09, 0.04, 0.02, BRASS, x, 0.45, 0.265, { metalness: 0.58, roughness: 0.38 })
-      if (conductor === 'PE') box(g, 0.025, 0.14, 0.008, '#facc15', x, 0.44, 0.258)
-    })
+    // A miniatura chega por getCad3DImage e usa instâncias do GLB PTI6.
     return
   }
   if (type === 'powerSupplyProauto24A') {
@@ -405,7 +384,7 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
     return () => { active = false }
   }, [type])
   useEffect(() => {
-    if (!getComponentModelSpec(type) || ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)) return
+    if ((!getComponentModelSpec(type) && !GLB_TERMINAL_COMPOSITES.has(type)) || ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)) return
     let active = true
     setCadSrc(null)
     getCad3DImage(type).then((image) => { if (active) setCadSrc(image) }).catch(() => { /* reserva procedural */ })
@@ -414,7 +393,8 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
   const src = type === 'plcSiemensLogo1224RC' ? logoSrc ?? fallback
     : type === 'powerSupplyProauto24A' ? proautoSrc ?? fallback
       : type === 'contactorWegCWC09' ? wegSrc ?? fallback
-        : getComponentModelSpec(type) ? cadSrc ?? fallback
+        : GLB_TERMINAL_COMPOSITES.has(type) ? cadSrc
+          : getComponentModelSpec(type) ? cadSrc ?? fallback
           : fallback
   if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken" />
   return (

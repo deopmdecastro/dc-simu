@@ -1929,6 +1929,33 @@ button:disabled { cursor:not-allowed; }
 .dc-inspector-terminal-status.is-on { color:#15803d; font-weight:700; }
 .dc-inspector-hero { top:0; }
 
+/* Controlos compactos para cor e estado no inspetor estreito. */
+.dc-color-field { display:flex; flex-direction:column; gap:8px; padding:9px; border:1px solid #d8e2f0; border-radius:8px; background:#fff; box-shadow:0 1px 2px #14274b0a; }
+.dc-color-field-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; color:#334155; font-size:10px; font-weight:700; }
+.dc-color-field-current { color:#64748b; font:600 10px ui-monospace,SFMono-Regular,Consolas,monospace; letter-spacing:.02em; }
+.dc-color-swatches { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; }
+.dc-color-swatch { position:relative; height:25px; min-width:0; border:1px solid #64748b66; border-radius:6px; box-shadow:inset 0 1px 1px #ffffff50,0 1px 2px #0f172a14; cursor:pointer; transition:transform .12s,border-color .12s,box-shadow .12s; }
+.dc-color-swatch:hover { transform:translateY(-1px); border-color:#334155; box-shadow:0 2px 5px #0f172a24; }
+.dc-color-swatch:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
+.dc-color-swatch.is-selected { border:2px solid #1d4ed8; box-shadow:0 0 0 2px #bfdbfe; }
+.dc-color-hex-row { display:flex; align-items:center; justify-content:space-between; gap:8px; color:#64748b; font-size:10px; font-weight:600; }
+.dc-color-hex-input-wrap { display:flex; align-items:center; gap:6px; min-width:0; }
+.dc-color-preview { width:17px; height:17px; flex:none; border:1px solid #64748b88; border-radius:4px; box-shadow:inset 0 1px 2px #0f172a18; }
+.dc-color-hex-input { width:88px; height:27px; padding:3px 7px; color:#1e293b; font:600 11px ui-monospace,SFMono-Regular,Consolas,monospace; text-transform:uppercase; }
+.dc-color-hex-input[aria-invalid="true"] { border-color:#dc2626; background:#fff7f7; }
+.dc-inspector-state-list { display:flex; flex-direction:column; gap:5px; }
+.dc-inspector-state-row { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:34px; padding:4px 7px; border:1px solid #e5ebf3; border-radius:6px; background:#fff; }
+.dc-inspector-state-row:focus-within { border-color:#93b4ff; box-shadow:0 0 0 2px #dbeafe; }
+.dc-inspector-state-row.is-toggle { min-height:36px; }
+.dc-inspector-state-label { min-width:0; color:#334155; font-size:10px; font-weight:600; line-height:1.35; }
+.dc-inspector-state-input { width:112px; max-width:52%; min-width:78px; height:27px; padding:3px 6px; font-size:11px; }
+.dc-inspector-state-row input[type="checkbox"] { width:16px; height:16px; flex:none; accent-color:#2563eb; cursor:pointer; }
+.dc-inspector-state-row input[type="checkbox"]:disabled { cursor:not-allowed; opacity:.55; }
+@media (max-width:360px) {
+  .dc-inspector-state-row { align-items:flex-start; flex-direction:column; gap:4px; }
+  .dc-inspector-state-input { width:100%; max-width:none; }
+}
+
 /* Gestos de zoom reservados aos editores; a interface não amplia com pinça. */
 
 /* OrbitControls recebe os gestos diretamente na área 3D. */

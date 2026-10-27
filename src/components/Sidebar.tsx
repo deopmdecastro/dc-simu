@@ -47,7 +47,60 @@ const PILOT_LIGHT_COLORS = [
   { name: 'Amarelo', value: '#eab308' }, { name: 'Azul', value: '#3b82f6' },
   { name: 'Branco', value: '#f8fafc' }, { name: 'Laranja', value: '#f97316' },
 ] as const
-const stateLabel = (key: string) => STATE_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2')
+const EXTRA_STATE_LABELS: Record<string, string> = {
+  pressed: 'Premido', latched: 'Encravamento', resetMethod: 'Método de rearme',
+  mountingMm: 'Diâmetro de montagem (mm)', ithA: 'Corrente térmica Ith (A)',
+  momentary: 'Retorno por mola', maintain: 'Posição mantida', startPressed: 'Botão START', stopPressed: 'Botão STOP',
+  hold: 'Manter leitura', backlight: 'Iluminação do visor', relative: 'Modo relativo', selector: 'Posição do seletor',
+  rampMs: 'Tempo de rampa (ms)', primaryV: 'Tensão primária (V)', secondaryV: 'Tensão secundária (V)',
+  nominalV: 'Tensão nominal (V)', outV: 'Tensão de saída (V)', amp: 'Corrente de saída (A)',
+}
+const stateLabel = (key: string) => STATE_LABELS[key] ?? EXTRA_STATE_LABELS[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2')
+
+const BODY_COLOR_OPTIONS = [
+  { name: 'Grafite', value: '#344054' }, { name: 'Antracite', value: '#1f2937' },
+  { name: 'Cinza claro', value: '#cbd5e1' }, { name: 'Branco', value: '#f8fafc' },
+  { name: 'Vermelho', value: '#e11d48' }, { name: 'Laranja', value: '#f97316' },
+  { name: 'Amarelo', value: '#facc15' }, { name: 'Verde', value: '#16a34a' },
+  { name: 'Azul', value: '#2563eb' }, { name: 'Castanho', value: '#8b4513' },
+] as const
+
+function ColorPaletteField({ value, options, ariaLabel, fieldLabel, onChange }: {
+  value: string
+  options: readonly { name: string; value: string }[]
+  ariaLabel: string
+  fieldLabel: string
+  onChange: (value: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+  const valid = /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(draft)
+  const normalize = (hex: string) => hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`.toLowerCase() : hex.toLowerCase()
+  const apply = (hex: string) => {
+    setDraft(hex)
+    if (/^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(hex)) onChange(normalize(hex))
+  }
+
+  return <div className="dc-color-field">
+    <div className="dc-color-field-heading"><span>{fieldLabel}</span><span className="dc-color-field-current" title={value}>{value.toUpperCase()}</span></div>
+    <div className="dc-color-swatches" role="group" aria-label={`Cores predefinidas: ${ariaLabel}`}>
+      {options.map((option) => <button key={option.value} type="button"
+        className={`dc-color-swatch${value.toLowerCase() === option.value.toLowerCase() ? ' is-selected' : ''}`}
+        style={{ backgroundColor: option.value }} title={`${option.name} (${option.value})`} aria-label={option.name}
+        aria-pressed={value.toLowerCase() === option.value.toLowerCase()}
+        onClick={() => apply(option.value)} />)}
+    </div>
+    <label className="dc-color-hex-row">
+      <span>Ajustar HEX</span>
+      <span className="dc-color-hex-input-wrap">
+        <span className="dc-color-preview" style={{ backgroundColor: valid ? normalize(draft) : value }} aria-hidden="true" />
+        <input className="dc-input dc-color-hex-input" type="text" value={draft} maxLength={7} spellCheck={false}
+          aria-label={`Valor HEX de ${ariaLabel}`} aria-invalid={!valid} placeholder="#RRGGBB"
+          onChange={(event) => apply(event.target.value)} onBlur={() => { if (!valid) setDraft(value) }} />
+      </span>
+    </label>
+  </div>
+}
 
 
 /**
@@ -428,13 +481,13 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                     ))}
                   </Select>
                 </div>
-                <div>
-                  <label className={label}>Cor do corpo</label>
-                  <input
-                    type="color"
-                    className="w-full h-[26px] rounded-[5px] border border-line cursor-pointer"
+                <div className="col-span-2">
+                  <ColorPaletteField
                     value={selectedComponent.bodyColor ?? '#e2e8f0'}
-                    onChange={(e) => useSimStore.getState().updateComponent(selectedComponent.id, { bodyColor: e.target.value })}
+                    options={BODY_COLOR_OPTIONS}
+                    ariaLabel="cor do corpo"
+                    fieldLabel="Cor do corpo"
+                    onChange={(value) => useSimStore.getState().updateComponent(selectedComponent.id, { bodyColor: value })}
                   />
                 </div>
               </div>
@@ -502,14 +555,14 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               <OptionalPartsGroup component={selectedComponent} />
               {isProgrammablePlc(selectedComponent) && <details className="dc-inspector-group" data-plc-sim-group><summary>Simular sinais (entradas)</summary><div className="dc-inspector-group-body"><PlcSignalPanel plcId={selectedComponent.id} compact /></div></details>}
               {/* estado rápido conforme o tipo */}
-              <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body space-y-1">
+              <details className="dc-inspector-group" open><summary>Estado e parâmetros</summary><div className="dc-inspector-group-body dc-inspector-state-list">
                 {Object.entries(selectedComponent.state).map(([k, v]) => {
                   if (isMountingRail(selectedComponent.type) && k === 'lengthMm') return null
                   if (k === 'showFan' || k === 'hiddenParts' || k === 'simInputs' || k === 'simInputModes') return null
                   if (typeof v === 'boolean') {
                     return (
-                      <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5 rounded hover:bg-slate-50">
-                        <span className="text-ink-500" title={k}>{stateLabel(k)}</span>
+                      <label key={k} className="dc-inspector-state-row is-toggle">
+                        <span className="dc-inspector-state-label" title={k}>{stateLabel(k)}</span>
                         <input
                           type="checkbox"
                           checked={v}
@@ -522,49 +575,52 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   }
                   if (typeof v === 'number') {
                     return (
-                      <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5">
-                        <span className="text-ink-500" title={k}>{stateLabel(k)}</span>
+                      <label key={k} className="dc-inspector-state-row">
+                        <span className="dc-inspector-state-label" title={k}>{stateLabel(k)}</span>
                         <input
                           type="number"
-                          className="dc-input !w-24 text-right"
+                          className="dc-input dc-inspector-state-input text-right"
                           value={v}
                           onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: Number(e.target.value) })}
                         />
                       </label>
                     )
                   }
-                  if (selectedComponent.type === 'pilotLightAd22' && k === 'color' && typeof v === 'string') {
-                    return (
-                      <div key={k} className="rounded-md border border-line-soft bg-surface-sunken/50 p-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-ink-500" title={k}>{stateLabel(k)}</span>
-                          <input type="color" className="h-7 w-12 cursor-pointer rounded border border-line bg-white p-0.5"
-                            value={v} aria-label="Escolher uma cor personalizada para a luz"
-                            onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { color: e.target.value })} />
-                        </div>
-                        <div className="mt-2 grid grid-cols-6 gap-1" aria-label="Cores predefinidas">
-                          {PILOT_LIGHT_COLORS.map((option) => <button key={option.value} type="button"
-                            className={`h-6 rounded border ${v.toLowerCase() === option.value ? 'border-brand-600 ring-1 ring-brand-300' : 'border-line'}`}
-                            style={{ backgroundColor: option.value }} title={option.name} aria-label={option.name}
-                            aria-pressed={v.toLowerCase() === option.value}
-                            onClick={() => useSimStore.getState().setComponentState(selectedComponent.id, { color: option.value })} />)}
-                        </div>
-                      </div>
-                    )
+                  if (k === 'color' && typeof v === 'string') {
+                    return <ColorPaletteField key={k} value={v}
+                      options={selectedComponent.type === 'pilotLightAd22' ? PILOT_LIGHT_COLORS : BODY_COLOR_OPTIONS}
+                      ariaLabel={stateLabel(k).toLowerCase()} fieldLabel={stateLabel(k)}
+                      onChange={(value) => useSimStore.getState().setComponentState(selectedComponent.id, { color: value })} />
                   }
                   if (selectedComponent.type === 'motor3ph' && k === 'motorConnection' && typeof v === 'string') {
-                    return <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5">
-                      <span className="text-ink-500">{stateLabel(k)}</span>
-                      <Select className="dc-input !w-32" value={v} onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { motorConnection: e.target.value })}>
+                    return <label key={k} className="dc-inspector-state-row">
+                      <span className="dc-inspector-state-label">{stateLabel(k)}</span>
+                      <Select className="dc-input dc-inspector-state-input" value={v} onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { motorConnection: e.target.value })}>
                         <option value="none">Sem pontes</option><option value="star">Estrela (Y)</option><option value="delta">Triângulo (Δ)</option>
+                      </Select>
+                    </label>
+                  }
+                  if (k === 'resetMethod' && typeof v === 'string') {
+                    return <label key={k} className="dc-inspector-state-row">
+                      <span className="dc-inspector-state-label" title={k}>{stateLabel(k)}</span>
+                      <Select className="dc-input dc-inspector-state-input" value={v} onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { resetMethod: e.target.value })}>
+                        <option value="giro">Rodar para rearmar</option><option value="chave">Rearmar com chave</option>
+                      </Select>
+                    </label>
+                  }
+                  if (k === 'direction' && typeof v === 'string') {
+                    return <label key={k} className="dc-inspector-state-row">
+                      <span className="dc-inspector-state-label" title={k}>{stateLabel(k)}</span>
+                      <Select className="dc-input dc-inspector-state-input" value={v} onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { direction: e.target.value })}>
+                        <option value="stopped">Parado</option><option value="cw">Horário</option><option value="ccw">Anti-horário</option>
                       </Select>
                     </label>
                   }
                   if (typeof v === 'string') {
                     return (
-                      <label key={k} className="flex items-center justify-between gap-2 px-1 py-0.5">
-                        <span className="text-ink-500" title={k}>{stateLabel(k)}</span>
-                        <input className="dc-input !w-28" value={v} onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: e.target.value })} />
+                      <label key={k} className="dc-inspector-state-row">
+                        <span className="dc-inspector-state-label" title={k}>{stateLabel(k)}</span>
+                        <input className="dc-input dc-inspector-state-input" value={v} onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: e.target.value })} />
                       </label>
                     )
                   }

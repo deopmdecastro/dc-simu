@@ -703,9 +703,9 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   terminalSet1ph: {
     category: 'terminal', paletteName: 'Conjunto de bornes monofásico · L/N/PE', group: 'Bornes e barras', tag: 'X', w: 135, h: 86,
     terminals: [
-      T('L-IN', 'power-in', 0.12, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.12, y: 1, z: 1 } }), T('L-OUT', 'power-out', 0.12, 1, { color: '#171717', terminalType: 'screw', position3D: { x: 0.12, y: 0, z: 1 } }),
+      T('L-IN', 'power-in', 1 / 6, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 1 / 6, y: 1, z: 1 } }), T('L-OUT', 'power-out', 1 / 6, 1, { color: '#171717', terminalType: 'screw', position3D: { x: 1 / 6, y: 0, z: 1 } }),
       T('N-IN', 'neutral', 0.50, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.50, y: 1, z: 1 } }), T('N-OUT', 'neutral', 0.50, 1, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.50, y: 0, z: 1 } }),
-      T('PE-IN', 'earth', 0.88, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.88, y: 1, z: 1 } }), T('PE-OUT', 'earth', 0.88, 1, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.88, y: 0, z: 1 } }),
+      T('PE-IN', 'earth', 5 / 6, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 5 / 6, y: 1, z: 1 } }), T('PE-OUT', 'earth', 5 / 6, 1, { color: '#27834a', terminalType: 'screw', position3D: { x: 5 / 6, y: 0, z: 1 } }),
     ],
     defaultState: {},
   },
@@ -762,9 +762,9 @@ export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
   powerSource1ph: {
     category: 'power', paletteName: 'Fonte AC monofásica · L/N/PE', group: 'Fontes', tag: 'QG', w: 135, h: 95,
     terminals: [
-      T('L', 'power-in', 0.18, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 0.18, y: 1, z: 1 } }),
+      T('L', 'power-in', 1 / 6, 0, { color: '#171717', terminalType: 'screw', position3D: { x: 1 / 6, y: 1, z: 1 } }),
       T('N', 'neutral', 0.50, 0, { color: '#2563eb', terminalType: 'screw', position3D: { x: 0.50, y: 1, z: 1 } }),
-      T('PE', 'earth', 0.82, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 0.82, y: 1, z: 1 } }),
+      T('PE', 'earth', 5 / 6, 0, { color: '#27834a', terminalType: 'screw', position3D: { x: 5 / 6, y: 1, z: 1 } }),
     ],
     defaultState: { on: true, nominalV: 230, frequencyHz: 50 },
   },
@@ -1096,6 +1096,29 @@ export function upgradeProauto24A(c: ElectricalComponent): ElectricalComponent {
       }
     }),
   }
+}
+
+/** Atualiza os passos monofásicos antigos para encaixarem os bornes PTI6 lado a lado. */
+export function upgradeTerminalAssemblyPositions(c: ElectricalComponent): ElectricalComponent {
+  if (!['terminalSet1ph', 'powerSource1ph'].includes(c.type) || (c.editorVersion ?? 1) > 1) return c
+  const legacy = c.type === 'terminalSet1ph'
+    ? { L: 0.12, N: 0.5, PE: 0.88 }
+    : { L: 0.18, N: 0.5, PE: 0.82 }
+  const current = { L: 1 / 6, N: 0.5, PE: 5 / 6 }
+  let changed = false
+  const terminals = c.terminals.map((terminal) => {
+    if (terminal.pinned) return terminal
+    const label = terminal.label.toUpperCase()
+    const conductor = (['L', 'N', 'PE'] as const).find((name) => label === name || label.startsWith(`${name}-`))
+    if (!conductor) return terminal
+    const oldX = legacy[conductor]
+    if (Math.abs((terminal.position3D?.x ?? terminal.x) - oldX) > 0.002) return terminal
+    changed = true
+    const position3D = terminal.position3D ? { ...terminal.position3D, x: current[conductor] } : undefined
+    const x = Math.abs(terminal.x - oldX) <= 0.002 ? current[conductor] : terminal.x
+    return { ...terminal, x, ...(position3D ? { position3D } : {}) }
+  })
+  return changed ? { ...c, terminals } : c
 }
 
 export function terminalByLabel(c: ElectricalComponent, label: string): Terminal | undefined {

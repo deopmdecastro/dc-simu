@@ -11,7 +11,7 @@ import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
 import { getWeg3DImage } from './weg3DImage'
 import { getCad3DImage } from './cad3DImage'
-import { canInsertComponent3D, getComponentModelSpec, hasComponent3DModel, MIN_SCHEMATIC_HIT_WIDTH, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import { canInsertComponent3D, getComponentModelSpec, hasComponent3DVisual, MIN_SCHEMATIC_HIT_WIDTH, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { componentOrientationOf, isOriginalComponentOrientation } from '../three/componentOrientation'
 import { componentTerminalLocal, orientedImageFrame } from './componentTerminalViews'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
@@ -311,7 +311,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     return () => { active = false }
   }, [hasLogo])
   const dedicatedImageTypes: ComponentType[] = ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09', 'dinRail15x55']
-  const cadTypesKey = [...new Set(components.map((c) => c.type).filter((type) => !!getComponentModelSpec(type) && !dedicatedImageTypes.includes(type)))].sort().join('|')
+  const cadTypesKey = [...new Set(components.map((c) => c.type).filter((type) => hasComponent3DVisual(type) && !dedicatedImageTypes.includes(type)))].sort().join('|')
   useEffect(() => {
     const types = cadTypesKey ? cadTypesKey.split('|') as ComponentType[] : []
     if (!types.length) return
@@ -328,7 +328,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     return () => { active = false }
   }, [cadTypesKey])
   const orientedRequests = components.flatMap((component) => {
-    if (!hasComponent3DModel(component.type) || component.type === 'dinRail15x55') return []
+    if (!hasComponent3DVisual(component.type) || component.type === 'dinRail15x55') return []
     const orientation = viewOrientationEditor?.componentId === component.id ? viewOrientationEditor.draft : componentOrientationOf(component)
     return isOriginalComponentOrientation(orientation) ? [] : [{ id: component.id, type: component.type, orientation }]
   })
@@ -1154,7 +1154,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   }
 
   const modelBounds = (c: ElectricalComponent, _model?: string | null) => {
-    if (!hasComponent3DModel(c.type)) return { x: 0, y: 0, w: c.w, h: c.h }
+    if (!hasComponent3DVisual(c.type)) return { x: 0, y: 0, w: c.w, h: c.h }
     // Retângulo único da imagem orientada — o mesmo referencial dos bornes.
     return orientedImageFrame(c, componentOrientationOf(c))
   }
@@ -1299,7 +1299,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             </>}
             <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
-        ) : hasComponent3DModel(c.type) ? (
+        ) : hasComponent3DVisual(c.type) ? (
           <g data-model-state={modelError ? 'error' : 'loading'}>
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} rx={7}
               fill={modelError ? '#fff1f2' : '#edf2f8'} stroke={modelError ? '#dc2626' : '#b8c5d6'}

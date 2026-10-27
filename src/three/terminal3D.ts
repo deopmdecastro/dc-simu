@@ -82,6 +82,15 @@ export function component3DDimensions(component: ElectricalComponent): Terminal3
     y: physical.height * PANEL_UNITS_PER_MM,
     z: physical.depth * PANEL_UNITS_PER_MM,
   }
+  if (['terminalSet1ph', 'terminalSet3ph', 'powerSource1ph', 'powerSource3ph'].includes(component.type)) {
+    const terminal = getComponentModelSpec('terminalPhoenixPti6')!.physicalSizeMm
+    const count = component.type.endsWith('1ph') ? 3 : 5
+    return {
+      x: terminal.width * count * PANEL_UNITS_PER_MM,
+      y: terminal.height * PANEL_UNITS_PER_MM,
+      z: terminal.depth * PANEL_UNITS_PER_MM,
+    }
+  }
   return {
     x: Math.max(0.18, component.w / 150),
     y: Math.max(0.24, component.h / 150),

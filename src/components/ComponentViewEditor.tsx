@@ -6,7 +6,7 @@ import {
   normalizeComponentOrientation,
   type ComponentViewPreset,
 } from '../three/componentOrientation'
-import { getComponentModelSpec, hasComponent3DModel } from '../three/modelPaths'
+import { getComponentModelSpec, hasComponent3DVisual } from '../three/modelPaths'
 
 import { component3DDimensions } from '../three/terminal3D'
 import TerminalFaceEditor from './TerminalFaceEditor'
@@ -341,7 +341,7 @@ export function ComponentEditorDock() {
           {section === 'versions' && <ComponentVersionsEditor component={component} note={revisionNote} onNoteChange={setRevisionNote} onRestore={(version) => setRevisionNote(`Restauro da versão ${version}`)} />}
 
           <label className="component-view-default"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} /><span>Guardar apresentação como padrão<small>Novas instâncias usarão orientação, escala, renderização e mapas de bornes.</small></span></label>
-          {!hasComponent3DModel(component.type) && <p className="component-view-warning">Este tipo não dispõe de GLB e permanece bloqueado para novas inserções.</p>}
+          {!hasComponent3DVisual(component.type) && <p className="component-view-warning">Este tipo não dispõe de GLB e permanece bloqueado para novas inserções.</p>}
           <p className="component-view-note">A edição é individual: posições 2D/3D, referências, dados elétricos e GLB de origem não mudam. Bornes existentes conservam o ID; ao aplicar uma remoção, apenas os cabos ligados ao borne eliminado são limpos em segurança.</p>
         </div>
 

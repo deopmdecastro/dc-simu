@@ -1,5 +1,6 @@
 import type { ComponentType, ComponentViewOrientation } from '../types'
 import { captureOrthographicModelImage } from '../schematic/orthographicModelImage'
+import { getCad3DImage } from '../schematic/cad3DImage'
 import { getComponentGlbSpec } from './modelPaths'
 import { normalizeComponentOrientation } from './componentOrientation'
 
@@ -15,6 +16,12 @@ export function getOrientedComponentImage(
   const key = `${type}:${orientation.x}:${orientation.y}:${orientation.z}`
   const existing = cache.get(key)
   if (existing) return existing
+
+  if (['terminalSet1ph', 'terminalSet3ph', 'powerSource1ph', 'powerSource3ph'].includes(type)) {
+    const composite = getCad3DImage(type)
+    cache.set(key, composite)
+    return composite
+  }
 
   const spec = getComponentGlbSpec(type)
   if (!spec) return Promise.reject(new Error(`Sem GLB para ${type}`))

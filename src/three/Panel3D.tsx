@@ -1028,28 +1028,14 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
 /** Caixa procedural de reserva; o GLB Proauto ainda não foi disponibilizado. */
 function PowerSupply3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const powered = c.type === 'powerSupplyProauto24A' ? !!c.state.powered : !!c.state.on
-  const isACSource = c.type === 'powerSource1ph' || c.type === 'powerSource3ph'
-  if (isACSource) return <TerminalAssembly3D c={c} x={x} source />
-  const acWidth = c.type === 'powerSource3ph' ? 1.36 : 0.9
-  const title = c.type === 'powerSource3ph' ? `3~ ${c.state.nominalV ?? 400} V AC` : c.type === 'powerSource1ph' ? `1~ ${c.state.nominalV ?? 230} V AC` : c.type === 'powerSupplyProauto24A' ? '24V / 5A' : '24V'
+  if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph') return <TerminalAssembly3D c={c} x={x} />
+  const title = c.type === 'powerSupplyProauto24A' ? '24V / 5A' : '24V'
   return <group position={[x, RAIL_Y + 0.48, 0]}>
-    <mesh castShadow><boxGeometry args={[isACSource ? acWidth : 0.85, 0.96, 0.48]} /><meshStandardMaterial color={isACSource ? '#cbd5e1' : '#46515c'} metalness={0.18} roughness={0.72} /></mesh>
-    <mesh position={[0, 0.04, 0.25]}><boxGeometry args={[isACSource ? acWidth - 0.24 : 0.68, 0.65, 0.015]} /><meshStandardMaterial color={isACSource ? '#f1f5f9' : '#d9e0e4'} roughness={0.8} /></mesh>
-    <mesh position={[isACSource ? 0.48 : 0.22, -0.14, 0.27]}><sphereGeometry args={[0.045, 12, 12]} /><meshStandardMaterial color={powered ? '#16a34a' : '#64748b'} emissive={powered ? '#16a34a' : '#000000'} emissiveIntensity={powered ? 0.8 : 0} /></mesh>
-    {isACSource && c.terminals.map((terminal) => {
-      const conductor = terminal.label
-      const terminalColor = TERMINAL_BODY_COLORS[conductor] ?? terminal.color
-      const px = (terminal.x - 0.5) * acWidth
-      const earth = conductor === 'PE'
-      return <group key={terminal.id} position={[px, 0.51, 0.16]}>
-        <mesh castShadow><boxGeometry args={[0.13, 0.13, 0.18]} /><meshStandardMaterial color={terminalColor} roughness={0.74} /></mesh>
-        {earth && <mesh position={[0, 0, 0.092]}><boxGeometry args={[0.025, 0.13, 0.006]} /><meshStandardMaterial color="#facc15" /></mesh>}
-        <mesh position={[0, -0.02, 0.096]}><boxGeometry args={[0.075, 0.035, 0.012]} /><meshStandardMaterial color="#c49245" roughness={0.42} metalness={0.62} /></mesh>
-        <Label text={conductor} position={[0, 0.105, 0.1]} size={0.07} color="#0f172a" />
-      </group>
-    })}
-    <Label text={title} position={[0, 0.1, 0.27]} size={0.1} color={isACSource ? '#172554' : '#0f172a'} />
-    <Label text={c.ref} position={[0, 0.56, 0.22]} color={isACSource ? '#334155' : '#e2e8f0'} />
+    <mesh castShadow><boxGeometry args={[0.85, 0.96, 0.48]} /><meshStandardMaterial color="#46515c" metalness={0.18} roughness={0.72} /></mesh>
+    <mesh position={[0, 0.04, 0.25]}><boxGeometry args={[0.68, 0.65, 0.015]} /><meshStandardMaterial color="#d9e0e4" roughness={0.8} /></mesh>
+    <mesh position={[0.22, -0.14, 0.27]}><sphereGeometry args={[0.045, 12, 12]} /><meshStandardMaterial color={powered ? '#16a34a' : '#64748b'} emissive={powered ? '#16a34a' : '#000000'} emissiveIntensity={powered ? 0.8 : 0} /></mesh>
+    <Label text={title} position={[0, 0.1, 0.27]} size={0.1} />
+    <Label text={c.ref} position={[0, 0.56, 0.22]} color="#e2e8f0" />
   </group>
 }
 
@@ -1058,15 +1044,13 @@ const TERMINAL_BODY_COLORS: Record<string, string> = {
 }
 
 /** Conjunto modular de bornes de passagem com isolamento, ponte metálica e marcação visível. */
-function TerminalAssembly3D({ c, x, source = false }: { c: ElectricalComponent; x: number; source?: boolean }) {
-  return <TerminalAssemblyReal3D c={c} x={x} source={source} />
+function TerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  return <TerminalAssemblyReal3D c={c} x={x} />
 }
 
 /** Um borne real do catálogo; só a cor do corpo isolante é alterada por fase. */
 function RealTerminalModule3D({ conductor, position }: { conductor: string; position: [number, number, number] }) {
-  const isPE = conductor === 'PE'
-  const type: ComponentType = isPE ? 'terminalPE' : 'terminalPhoenixPti6'
-  const spec = getComponentModelSpec(type)!
+  const spec = getComponentModelSpec('terminalPhoenixPti6')!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
     const object = cloneModelScene(scene)
@@ -1085,7 +1069,7 @@ function RealTerminalModule3D({ conductor, position }: { conductor: string; posi
       if (!mesh.isMesh || !mesh.material) return
       const materials = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).map((material) => {
         const copy = finishCadMaterial(material) as THREE.MeshStandardMaterial
-        if (!isPE && copy.color) {
+        if (copy.color) {
           const hsl = { h: 0, s: 0, l: 0 }
           copy.color.getHSL(hsl)
           // Os dois cinzentos do PTI6 são o polímero; o material cor de cobre fica intacto.
@@ -1097,65 +1081,25 @@ function RealTerminalModule3D({ conductor, position }: { conductor: string; posi
       mesh.castShadow = mesh.receiveShadow = true
     })
     return object
-  }, [scene, spec, conductor, isPE])
+  }, [scene, spec, conductor])
   return <group position={position}><primitive object={model} /></group>
 }
 
 /** Monta os bornes PTI6 e PE reais do catálogo em fonte ou conjunto de ligações. */
-function TerminalAssemblyReal3D({ c, x, source = false }: { c: ElectricalComponent; x: number; source?: boolean }) {
+function TerminalAssemblyReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const conductors = c.type === 'terminalSet1ph' || c.type === 'powerSource1ph' ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
   const fallbackStep = conductors.length === 3 ? 0.34 : 0.265
   const positions = conductors.map((name, index) => {
     const terminal = c.terminals.find((item) => item.label === name || item.label.startsWith(`${name}-`))
     return terminal ? terminalLocal3D(c, terminal).x : (index - (conductors.length - 1) / 2) * fallbackStep
   })
-  const width = Math.max(...positions) - Math.min(...positions) + 0.14
-  const title = c.type === 'powerSource3ph' ? `3~ ${c.state.nominalV ?? 400} V AC` : `1~ ${c.state.nominalV ?? 230} V AC`
   return <group position={[x, RAIL_Y + 0.48, 0.12]}>
     {conductors.map((conductor, i) => {
       const px = positions[i]
-      const height = conductor === 'PE' ? 0.486 : 0.6602
       return <group key={conductor}>
-        <RealTerminalModule3D conductor={conductor} position={[px, -0.34, 0]} />
-        <Label text={conductor} position={[px, -0.34 + height + 0.025, 0.27]} size={0.075} color="#f8fafc" />
+        <RealTerminalModule3D conductor={conductor} position={[px, -0.3301, 0]} />
       </group>
     })}
-    <mesh position={[0, -0.37, -0.025]} castShadow receiveShadow>
-      <boxGeometry args={[width, 0.06, 0.48]} />
-      <meshStandardMaterial color="#334155" metalness={0.28} roughness={0.58} />
-    </mesh>
-    {source && <>
-      <mesh position={[0, -0.335, 0.22]}><boxGeometry args={[width * 0.82, 0.055, 0.018]} /><meshStandardMaterial color="#e2e8f0" roughness={0.85} /></mesh>
-      <Label text={title} position={[0, -0.335, 0.232]} size={0.045} color="#172554" />
-      <mesh position={[width / 2 - 0.045, -0.335, 0.235]}><sphereGeometry args={[0.012, 12, 12]} /><meshStandardMaterial color={c.state.on ? '#16a34a' : '#64748b'} emissive={c.state.on ? '#16a34a' : '#000'} emissiveIntensity={c.state.on ? 0.8 : 0} /></mesh>
-    </>}
-    <Label text={c.ref} position={[0, 0.39, 0.27]} size={0.085} color="#0f172a" />
-  </group>
-}
-
-function LegacyTerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
-  const conductors = c.type === 'terminalSet1ph' ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
-  const step = conductors.length === 3 ? 0.34 : 0.265
-  const width = conductors.length === 3 ? 0.22 : 0.2
-  return <group position={[x, RAIL_Y + 0.48, 0.12]}>
-    {conductors.map((conductor, i) => {
-      const px = (i - (conductors.length - 1) / 2) * step
-      const body = TERMINAL_BODY_COLORS[conductor] ?? '#64748b'
-      const isPE = conductor === 'PE'
-      return <group key={conductor} position={[px, 0, 0]}>
-        <mesh castShadow receiveShadow><boxGeometry args={[width, 0.72, 0.32]} /><meshStandardMaterial color={body} roughness={0.76} metalness={0.08} /></mesh>
-        {isPE && <mesh position={[0, 0, 0.163]}><boxGeometry args={[width * 0.22, 0.72, 0.006]} /><meshStandardMaterial color="#facc15" roughness={0.82} /></mesh>}
-        <mesh position={[0, 0.11, 0.17]} castShadow><boxGeometry args={[width * 0.62, 0.14, 0.018]} /><meshStandardMaterial color="#c49245" metalness={0.65} roughness={0.38} /></mesh>
-        {[0.26, -0.26].map((py) => <group key={py} position={[0, py, 0.165]} rotation={[Math.PI / 2, 0, 0]}>
-          <mesh><cylinderGeometry args={[0.044, 0.044, 0.012, 16]} /><meshStandardMaterial color="#26313b" roughness={0.9} /></mesh>
-          <mesh position={[0, 0, 0.007]}><cylinderGeometry args={[0.024, 0.024, 0.014, 12]} /><meshStandardMaterial color="#9ca3af" metalness={0.58} roughness={0.4} /></mesh>
-        </group>)}
-        <mesh position={[0, -0.12, 0.174]}><boxGeometry args={[width * 0.78, 0.09, 0.025]} /><meshStandardMaterial color="#58636d" roughness={0.72} /></mesh>
-        <Label text={conductor} position={[0, 0.43, 0.18]} size={0.073} color="#f8fafc" />
-      </group>
-    })}
-    <mesh position={[0, -0.39, -0.03]}><boxGeometry args={[conductors.length * step + 0.1, 0.06, 0.4]} /><meshStandardMaterial color="#64748b" roughness={0.65} metalness={0.2} /></mesh>
-    <Label text={c.ref} position={[0, 0.57, 0.18]} size={0.085} color="#0f172a" />
   </group>
 }
 
