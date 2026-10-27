@@ -103,12 +103,17 @@ def main(src, out):
     (Path(out) / OUT_NAME).write_bytes(glb)
 
     # Medições para o código
-    hinge = np.array([2.6, -4.6, 0.0]) - origin  # eixo do botão, medido nas faces cilíndricas
     term = [p for p in parts if p["role"] == "terminal"]
+    collar = [p for p in parts if p["role"] == "collar"]
     handle = [p for p in parts if p["role"] in ("knob", "collar")]
     handle_vertices = np.concatenate([p["v"] for p in handle])
     handle_min = handle_vertices.min(axis=0)
     handle_size = handle_vertices.max(axis=0) - handle_min
+    # Eixo do botão = centro do aro/cubo redondo. Medido na própria malha do aro em vez de um ponto
+    # transcrito à mão: a alavanca verde estica a caixa do manípulo para a direita e para cima e um
+    # ponto aproximado fazia o botão orbitar em vez de girar sobre o cubo (ver `DC-ADR-058`).
+    collar_vertices = np.concatenate([p["v"] for p in collar])
+    hinge = (collar_vertices.min(axis=0) + collar_vertices.max(axis=0)) / 2
     handle_hinge_fraction = (hinge - handle_min) / handle_size
     tops = sorted([p for p in term if p["v"][:, 1].mean() > size[1] / 2], key=lambda p: p["v"][:, 0].mean())
     bots = sorted([p for p in term if p["v"][:, 1].mean() <= size[1] / 2], key=lambda p: p["v"][:, 0].mean())

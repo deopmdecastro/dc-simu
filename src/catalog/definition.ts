@@ -3,6 +3,7 @@ import { ACTUATOR_HEAD_TYPES, extractActuatorHead } from '../three/actuatorHead'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { createGltfLoader } from '../three/gltfLoader'
 import { nanoid } from 'nanoid'
+import { stampBasePose } from './basePose'
 import { fitComponentModel } from '../three/modelFit'
 import { getComponentModelSpec } from '../three/modelPaths'
 import { textureLibraryEntry } from '../three/textureLibrary'
@@ -403,6 +404,8 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
     node.scale.set(...part.scale)
     ;(part.parentId ? nodes.get(part.parentId) ?? root : root).add(node)
   }
+  // Pose de repouso de todos os nós, antes de qualquer animação (ver `DC-ADR-058`).
+  stampBasePose(root)
   return root
 }
 

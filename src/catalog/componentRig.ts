@@ -5,6 +5,7 @@ import { motionAngle, normalizeMotion, pivotFromBox, stepSpring } from './contro
 import type { StateAnimator } from './stateAnimator'
 import type { ComponentDefinition, ControlDef, DisplayDef, SpinDef } from './types'
 import { controlAreaBox, localControlArea } from './controlArea'
+import { restoreBasePose } from './basePose'
 
 /** Nó (peça ou nó dentro do GLB) a que um controlo está ligado. */
 export function controlNodes(root: THREE.Object3D, control: { partId: string; nodes?: string[] }): THREE.Object3D[] {
@@ -61,6 +62,26 @@ export function listGlbNodes(part: THREE.Object3D): GlbNodeInfo[] {
   }).sort((a, b) => a.name.localeCompare(b.name))
 }
 
+/**
+ * Matriz de `node` no espaço da raiz, montada a partir das matrizes **locais**.
+ *
+ * `matrixWorld` pode estar desatualizado quando a rig é construída (o modelo foi
+ * acabado de montar ou de reescalar no painel); a caixa medida a partir daí dava
+ * um eixo de rotação deslocado. Com as matrizes locais a medição é sempre a da
+ * pose atual — ver `DC-ADR-058`.
+ */
+function matrixToRoot(node: THREE.Object3D, root: THREE.Object3D): THREE.Matrix4 {
+  const chain: THREE.Object3D[] = []
+  for (let current: THREE.Object3D | null = node; current && current !== root; current = current.parent) chain.push(current)
+  const matrix = new THREE.Matrix4()
+  for (let index = chain.length - 1; index >= 0; index -= 1) {
+    const entry = chain[index]
+    if (entry.matrixAutoUpdate) entry.updateMatrix()
+    matrix.multiply(entry.matrix)
+  }
+  return matrix
+}
+
 const _m = new THREE.Matrix4()
 interface Moving { node: THREE.Object3D; local0: THREE.Matrix4; parentToRoot: THREE.Matrix4 }
 interface Item {
@@ -75,6 +96,8 @@ interface Item {
   held: boolean
   /** Caixa dos objetos do controlo na pose de repouso (espaço do componente). */
   restBox: THREE.Box3
+  /** Nós ligados ao controlo (para medir a caixa de repouso com matrizes locais). */
+  nodes: THREE.Object3D[]
 }
 
 interface DisplayItem { def: DisplayDef; canvas: HTMLCanvasElement; texture: THREE.CanvasTexture; mesh: THREE.Mesh; signature: string }
@@ -116,24 +139,25 @@ export class ComponentRig {
   private stateName = ''
 
   constructor(private readonly def: ComponentDefinition, private readonly root: THREE.Object3D, private readonly animator?: StateAnimator | null) {
-    root.updateWorldMatrix(true, true)
-    const rootInverse = new THREE.Matrix4().copy(root.matrixWorld).invert()
     for (const control of def.controls ?? []) {
       const nodes = control.hitArea && control.nodes === undefined ? [] : controlNodes(root, control)
+      // A pose de repouso tem de vir do GLB, não do que estiver no nó agora: a rig é
+      // reconstruída sempre que o modelo é remontado e os nós ainda trazem a rotação
+      // da animação anterior. Guardar a base no `userData` sobrevive a `clone()`.
+      for (const node of nodes) restoreBasePose(node)
       const area = controlAreaBox(root, control)
       if (!nodes.length && !area) continue
       const box = area ?? new THREE.Box3()
       if (!area) for (const node of nodes) box.expandByObject(node, true)
-      const restBox = new THREE.Box3()
-      if (!box.isEmpty()) for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) restBox.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(rootInverse))
+      const restBox = this.measureRestBox(nodes, box)
       const tilt = control.kind !== 'selector' && control.motion?.mode === 'tilt'
       const pivot = box.isEmpty() ? new THREE.Vector3()
         : tilt ? new THREE.Vector3(...pivotFromBox(restBox.min.toArray() as [number, number, number], restBox.max.toArray() as [number, number, number], normalizeMotion(control.motion).pivotRel))
-        : box.getCenter(new THREE.Vector3()).applyMatrix4(rootInverse)
+        : this.centreOf(nodes, box)
       const axis = new THREE.Vector3(...control.axis).normalize()
       if (axis.lengthSq() < 0.5) axis.set(0, 1, 0)
-      const moving = nodes.map((node): Moving => ({ node, local0: node.matrix.clone(), parentToRoot: new THREE.Matrix4().multiplyMatrices(rootInverse, node.parent ? node.parent.matrixWorld : root.matrixWorld) }))
-      this.items.set(control.id, { control, moving, pivot, axis, value: 0, target: 0, velocity: 0, held: false, restBox })
+      const moving = nodes.map((node): Moving => ({ node, local0: node.matrix.clone(), parentToRoot: matrixToRoot(node.parent ?? root, root) }))
+      this.items.set(control.id, { control, moving, nodes, pivot, axis, value: 0, target: 0, velocity: 0, held: false, restBox })
       for (const node of nodes) node.traverse((child) => this.owner.set(child, control.id))
       if (control.nodes !== undefined || control.hitArea) this.addProxy(control, box)
     }
@@ -295,6 +319,36 @@ export class ComponentRig {
         entry.node.updateMatrix()
       }
     }
+  }
+
+  /**
+   * Caixa das peças de um controlo no espaço da raiz, medida com as matrizes locais
+   * (independe de `matrixWorld` estar atualizado). É a caixa que define o eixo de
+   * rotação dos manípulos, por isso não pode apanhar transformações antigas.
+   */
+  private measureRestBox(nodes: THREE.Object3D[], fallback: THREE.Box3): THREE.Box3 {
+    if (!nodes.length) return fallback.clone()
+    const box = new THREE.Box3()
+    for (const node of nodes) {
+      node.traverse((child) => {
+        const mesh = child as THREE.Mesh
+        const geometry = mesh.geometry
+        if (!mesh.isMesh || !geometry) return
+        geometry.computeBoundingBox()
+        const local = geometry.boundingBox
+        if (!local) return
+        const toRoot = matrixToRoot(child, this.root)
+        for (const x of [local.min.x, local.max.x])
+          for (const y of [local.min.y, local.max.y])
+            for (const z of [local.min.z, local.max.z]) box.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(toRoot))
+      })
+    }
+    return box.isEmpty() ? fallback.clone() : box
+  }
+
+  /** Centro da caixa de repouso de um controlo (espaço da raiz). */
+  private centreOf(nodes: THREE.Object3D[], fallback: THREE.Box3): THREE.Vector3 {
+    return this.measureRestBox(nodes, fallback).getCenter(new THREE.Vector3())
   }
 
   /** `$rpm` (0…1) e `$dir` ('cw'/'ccw') do motor, lidos a cada frame. */

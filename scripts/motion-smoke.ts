@@ -4,6 +4,8 @@
  */
 import * as THREE from 'three'
 import { ComponentRig } from '../src/catalog/componentRig'
+import { extractBreakerHandle } from '../src/three/breakerHandle'
+import { BREAKER_HANDLE_RIG } from '../src/three/modelPaths'
 import {
   applyPreset, BUILTIN_PRESETS, DEFAULT_TILT, inferBreakerAxes, motionAngle, normalizeMotion, pivotFromBox, relFromPoint, stepSpring, tiltControlPatch,
 } from '../src/catalog/controlMotion'
@@ -116,6 +118,72 @@ function buildRig(control: Partial<ControlDef>) {
   while (rig.update(1 / 60) && frames < 600) { peak = Math.max(peak, topWorld().x); frames += 1 }
   check('transição OFF→ON anima várias frames, ultrapassa e assenta', frames > 5 && frames < 120 && peak > target && near(topWorld().x, target), `${frames} frames, pico x=${peak.toFixed(2)} (alvo ${target.toFixed(2)})`)
   check('dispose repõe a pose original do modelo', (() => { rig.dispose(); return near(topWorld().x, 0) && near(topWorld().y, 10) })())
+}
+
+{ // manípulo com cubo fora do centro da caixa (PKZM C-10, ver `DC-ADR-058`)
+  const root = new THREE.Group()
+  const part = new THREE.Group(); part.name = 'p'
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(30, 20, 8), new THREE.MeshBasicMaterial())
+  bar.name = 'H'; bar.position.set(0, 0, 0) // caixa x ∈ [-15, 15], y ∈ [-10, 10]
+  part.add(bar); root.add(part)
+  const def = {
+    controls: [{
+      id: 'c', name: 'Liga / desliga', kind: 'toggle', partId: 'p', nodes: ['H'], axis: [0, 0, 1], travelMm: 0, positions: [], bindVar: 'closed',
+      actions: [{ type: 'toggleVar', var: 'closed' }],
+      // cubo a (5, 0): 66,67 % em x, 50 % em y
+      motion: { mode: 'tilt', angleOff: 0, angleOn: 90, pivotRel: [2 / 3, 0.5, 0.5], durationMs: 280, feel: 'snap' },
+    }],
+    displays: [], parts: [], terminals: [], lights: [], materials: [],
+  } as unknown as ComponentDefinition
+  const rig = new ComponentRig(def, root)
+  const hub = new THREE.Vector3(5, 0, 0)
+  const hubWorld = () => { root.updateMatrixWorld(true); return bar.localToWorld(hub.clone()) }
+  const before = hubWorld()
+  rig.setVars({ closed: true }); rig.snap()
+  const after = hubWorld()
+  check('cubo fora do centro: o cubo fica no sítio ao rodar 90°', near(after.x, before.x, 0.01) && near(after.y, before.y, 0.01), `(${after.x.toFixed(2)}, ${after.y.toFixed(2)})`)
+  check('cubo fora do centro: o braço roda mesmo (topo vai para o lado)', (() => { root.updateMatrixWorld(true); const tip = bar.localToWorld(new THREE.Vector3(15, 0, 0)); return near(tip.x, 5, 0.01) && near(tip.y, 10, 0.01) })(), '')
+}
+
+{ // a rig é reconstruída sobre um modelo já animado (o bug do manípulo a orbitar)
+  const { rig, handle } = buildRig({ motion: { ...DEFAULT_TILT, pivotRel: [0.5, 0.3, 0.5] } })
+  const first = rig.pivotOf('c')!.clone()
+  const firstBox = rig.restBox('c')!.clone()
+  rig.setVars({ closed: true }); rig.snap()
+  const def = (rig as unknown as { def: ComponentDefinition }).def
+  const root = (rig as unknown as { root: THREE.Object3D }).root
+  const again = new ComponentRig(def, root)
+  const second = again.pivotOf('c')!
+  const secondBox = again.restBox('c')!
+  check('rig reconstruída sobre modelo animado mede o mesmo pivô', near(second.x, first.x) && near(second.y, first.y) && near(second.z, first.z), `${first.toArray().map((n) => n.toFixed(2))} vs ${second.toArray().map((n) => n.toFixed(2))}`)
+  check('rig reconstruída sobre modelo animado mede a mesma caixa de repouso', near(secondBox.min.y, firstBox.min.y) && near(secondBox.max.x, firstBox.max.x), `${firstBox.min.y.toFixed(2)} vs ${secondBox.min.y.toFixed(2)}`)
+  check('o manípulo continua pousado na pose de repouso ao reconstruir', (() => { root.updateMatrixWorld(true); const centre = handle.localToWorld(new THREE.Vector3(0, 0, 0)); return near(centre.y, 5) })())
+}
+
+{ // painel 3D: a charneira do manípulo marcado é o cubo, não o centro da caixa do manípulo
+  const frame = new THREE.Group()
+  const model = new THREE.Group()
+  frame.add(model)
+  const add = (name: string, size: [number, number, number], position: [number, number, number]) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), new THREE.MeshStandardMaterial())
+    mesh.name = name; mesh.position.set(...position); model.add(mesh)
+    return mesh
+  }
+  add('body', [40, 90, 10], [0, 0, 5])
+  // Proporções do PKZM C-10: alavanca 29,755 × 22 mm com o cubo (15,5 mm) a 42,6 % da caixa,
+  // logo 2,22 mm à esquerda do centro da caixa conjunta do manípulo.
+  add('dcsimu_handle_1', [29.755, 22, 8], [0, 0, 14])
+  const collar = add('dcsimu_handle_2', [15.5, 15.5, 8.2], [-2.22, 0, 14])
+  model.updateMatrixWorld(true)
+  const hubBefore = new THREE.Box3().setFromObject(collar).getCenter(new THREE.Vector3())
+  const handle = extractBreakerHandle(model, frame, BREAKER_HANDLE_RIG.motorBreakerPkzmC10?.hinge)
+  check('painel 3D: a charneira fica no cubo redondo, não no centro da alavanca', !!handle && near(handle.pivot.position.x, hubBefore.x, 0.05), handle ? `charneira x=${handle.pivot.position.x.toFixed(2)}, cubo x=${hubBefore.x.toFixed(2)}` : '')
+  if (handle) {
+    handle.pivot.rotation.z = Math.PI / 2
+    frame.updateMatrixWorld(true)
+    const hubAfter = new THREE.Box3().setFromObject(collar).getCenter(new THREE.Vector3())
+    check('painel 3D: rodar 90° mantém o cubo no sítio', near(hubAfter.x, hubBefore.x, 0.05) && near(hubAfter.y, hubBefore.y, 0.05), `(${hubAfter.x.toFixed(2)}, ${hubAfter.y.toFixed(2)})`)
+  }
 }
 
 /* ------------------------------------------------------------------ automação */
