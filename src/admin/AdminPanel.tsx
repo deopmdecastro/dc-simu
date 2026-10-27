@@ -238,6 +238,14 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
         <button type="button" className="adm-tile" onClick={() => setTab('users')}><span>Contas</span><strong>{users.length}</strong><small>{users.filter((entry) => entry.active).length} ativas</small></button>
         <button type="button" className="adm-tile" onClick={() => setTab('system')}><span>Armazenamento</span><strong>{stats ? formatBytes(stats.bytes) : '—'}</strong><small>{stats ? `${stats.datasheets} PDF · ${stats.models} GLB` : 'ficheiros'}</small></button>
       </div>
+      <section className="adm-quick-actions" aria-labelledby="admin-quick-actions-title">
+        <div className="dx-admin-section"><h2 id="admin-quick-actions-title">Acesso rápido</h2><span>Continue o trabalho mais comum</span></div>
+        <div className="adm-quick-grid">
+          <button type="button" onClick={() => setTab('library3d')}><span className="adm-quick-icon"><IconCube size={16} /></span><span><strong>Biblioteca 3D</strong><small>Gerir modelos e componentes</small></span><IconArrowLeft className="adm-quick-arrow" size={14} /></button>
+          <button type="button" onClick={() => setTab('projects')}><span className="adm-quick-icon"><IconProjects size={16} /></span><span><strong>Projetos</strong><small>Acompanhar quadros e atividade</small></span><IconArrowLeft className="adm-quick-arrow" size={14} /></button>
+          <button type="button" onClick={() => setTab('logs')}><span className="adm-quick-icon"><IconMonitor size={16} /></span><span><strong>Registos do sistema</strong><small>Auditar alterações recentes</small></span><IconArrowLeft className="adm-quick-arrow" size={14} /></button>
+        </div>
+      </section>
       <div className="adm-cols">
         <section>
           <div className="dx-admin-section"><h2>Atividade recente</h2><button className="cb-link" onClick={() => { setLogActor(''); setTab('logs') }}>Ver todos os registos</button></div>

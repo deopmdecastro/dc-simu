@@ -81,6 +81,22 @@
 .adm-tile span { color: var(--dx-ink-3); font-size: 12.5px; font-weight: 600; }
 .adm-tile strong { font-size: 24px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .adm-tile small { color: var(--dx-ink-4); font-size: 12px; }
+.adm-tile { position:relative; overflow:hidden; background:linear-gradient(145deg,var(--dx-surface),var(--dx-surface-2)); }
+.adm-tile::after { content:''; position:absolute; right:-22px; bottom:-30px; width:92px; height:92px; border-radius:50%; background:var(--dx-brand-soft); opacity:.45; pointer-events:none; }
+.adm-tile strong, .adm-tile small, .adm-tile span { position:relative; z-index:1; }
+.adm-quick-actions { margin:var(--dx-5) 0 0; padding:16px; border:1px solid var(--dx-line); border-radius:var(--dx-r-lg); background:var(--dx-surface); box-shadow:var(--dx-sh-xs); }
+.adm-quick-actions .dx-admin-section { margin:0 0 12px; }
+.adm-quick-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.adm-quick-grid button { display:flex; align-items:center; gap:10px; min-width:0; padding:12px; border:1px solid var(--dx-line-soft); border-radius:var(--dx-r); background:var(--dx-surface-2); color:var(--dx-ink); font:inherit; text-align:left; cursor:pointer; transition:transform var(--dx-fast), border-color var(--dx-fast), background var(--dx-fast), box-shadow var(--dx-fast); }
+.adm-quick-grid button:hover { transform:translateY(-1px); border-color:var(--dx-brand-line); background:var(--dx-brand-soft-2); box-shadow:var(--dx-sh-xs); }
+.adm-quick-grid button:focus-visible { outline:none; box-shadow:var(--dx-focus); }
+.adm-quick-icon { display:grid; place-items:center; flex:none; width:32px; height:32px; border-radius:9px; background:var(--dx-brand-soft); color:var(--dx-brand-700); }
+.adm-quick-grid button > span:nth-child(2) { display:grid; gap:2px; min-width:0; }
+.adm-quick-grid strong { font-size:13px; }
+.adm-quick-grid small { overflow:hidden; color:var(--dx-ink-4); font-size:11.5px; text-overflow:ellipsis; white-space:nowrap; }
+.adm-quick-arrow { flex:none; margin-left:auto; transform:rotate(180deg); color:var(--dx-ink-4); }
+@media (max-width: 800px) { .adm-quick-grid { grid-template-columns:1fr; } }
+@media (prefers-reduced-motion:reduce) { .adm-quick-grid button { transition:none; } .adm-quick-grid button:hover { transform:none; } }
 
 .adm-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--dx-5); }
 .adm-cols > section > .dx-admin-section:first-child { margin-top: 0; }
