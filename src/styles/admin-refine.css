@@ -193,3 +193,96 @@
 
 /* Listas pendentes pequenas dentro de linhas de ações: largura própria, não a da linha */
 .dx-admin .cb-actions > .dcx-select.dx-input-sm { width: auto; min-width: 170px; }
+
+/* ==========================================================================
+   Polimento visual (2026-10-27) — hierarquia, densidade e listas agrupadas
+   Só tokens --dx-*; sem barras laterais de destaque.
+   ========================================================================== */
+
+/* cabeçalho: título mais firme, subtítulo discreto, ações alinhadas */
+.adm-head { align-items: center; padding-bottom: var(--dx-5); }
+.adm-head h1 { font-size: 26px; font-weight: 750; letter-spacing: -0.025em; color: var(--dx-ink); }
+.adm-head p { margin-top: 2px; }
+.adm-head-side .dx-btn { height: 36px; }
+.adm-env { height: 36px; background: var(--dx-surface-2); border-color: var(--dx-line-soft); }
+.adm-env i { box-shadow: 0 0 0 3px var(--dx-warn-soft); }
+.adm-env.is-server i { box-shadow: 0 0 0 3px var(--dx-run-soft); }
+
+/* navegação lateral: cartão próprio, grupos com respiro, contador discreto */
+.adm-shell:not(.is-wide) .adm-tablist { gap: var(--dx-3); padding: 10px; border: 1px solid var(--dx-line-soft); border-radius: 14px; background: var(--dx-surface); box-shadow: var(--dx-sh-xs); }
+.adm-shell:not(.is-wide) .adm-nav-group + .adm-nav-group { padding-top: var(--dx-3); border-top: 1px solid var(--dx-line-soft); }
+.adm-nav-label { padding: 0 10px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.adm-tab { min-height: 34px; padding: 0 10px; font-weight: 550; }
+.adm-tab.is-active { background: var(--dx-brand-soft); color: var(--dx-brand-700); font-weight: 650; box-shadow: inset 0 0 0 1px var(--dx-brand-line); }
+.adm-tab b { background: var(--dx-surface-2); }
+@media (max-width: 960px) { .adm-shell:not(.is-wide) .adm-tablist { flex-direction: row; padding: 4px; } .adm-shell:not(.is-wide) .adm-nav-group + .adm-nav-group { padding-top: 0; border-top: 0; } }
+
+/* títulos de secção: título forte + contagens em linha mais calma */
+.dx-admin .dx-admin-section { align-items: baseline; gap: 4px 12px; margin: 0 0 var(--dx-3); }
+.adm-main > .dx-admin-section:first-child, .adm-main > :first-child .dx-admin-section:first-child { margin-top: 0; }
+.dx-admin .dx-admin-section h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.015em; }
+.dx-admin .dx-admin-section span { color: var(--dx-ink-4); font-size: 12.5px; }
+
+/* nota explicativa: discreta, com ícone «i», sem caixa azul pesada */
+.dx-admin .cb-note.cb-banner { position: relative; max-width: 88ch; margin-bottom: var(--dx-4); padding: 10px 14px 10px 40px; border: 1px solid var(--dx-line-soft); border-radius: var(--dx-r-lg); background: var(--dx-surface); color: var(--dx-ink-3); font-size: 12.5px; line-height: 1.55; }
+.dx-admin .cb-note.cb-banner::before { content: 'i'; position: absolute; left: 14px; top: 11px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--dx-brand-soft-2); color: var(--dx-brand-700); font: 700 11px/1 var(--dx-font); font-style: italic; }
+.dx-admin .cb-note.cb-banner b, .dx-admin .cb-note.cb-banner strong { color: var(--dx-ink-2); }
+
+/* filtros: uma barra única, controlos da mesma altura */
+.dx-admin .cb-filters-users, .dx-admin .cb-filters-components { gap: 8px; margin-bottom: 10px; padding: 8px; border: 1px solid var(--dx-line-soft); border-radius: 12px; background: var(--dx-surface); box-shadow: var(--dx-sh-xs); }
+.dx-admin .cb-filters > .dx-input, .dx-admin .cb-filters > .dcx-select, .dx-admin .cb-filters > .dx-btn { height: 36px; min-height: 36px; }
+.dx-admin .cb-filters > .dx-input { border-color: var(--dx-line-soft); background: var(--dx-surface-2); }
+.dx-admin .cb-filters > .dx-input:focus { background: var(--dx-surface); }
+
+/* ações em lote: barra fina, ganha destaque só com seleção */
+.dx-admin .cb-bulk { min-height: 40px; margin-bottom: 0; padding: 6px 14px; border: 1px solid var(--dx-line-soft); border-bottom: 0; border-radius: 12px 12px 0 0; background: var(--dx-surface-2); color: var(--dx-ink-3); font-size: 12.5px; font-weight: 600; }
+.dx-admin .cb-bulk + .cb-components { border-top-left-radius: 0; border-top-right-radius: 0; }
+
+/* componentes: lista agrupada, linhas com divisória em vez de cartões soltos */
+.dx-admin .cb-components { gap: 0; overflow: hidden; border: 1px solid var(--dx-line-soft); border-radius: 12px; background: var(--dx-surface); box-shadow: var(--dx-sh-xs); }
+.dx-admin .cb-component { align-items: center; gap: 6px 20px; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--dx-line-soft); border-radius: 0; background: transparent; box-shadow: none; transition: background var(--dx-fast); }
+.dx-admin .cb-component:last-child { border-bottom: 0; }
+.dx-admin .cb-component:hover { background: var(--dx-surface-2); }
+.dx-admin .cb-component:has(.cb-select input:checked) { background: var(--dx-brand-soft); }
+.dx-admin .cb-component.is-archived, .dx-admin .cb-component.is-deleted { background: var(--dx-surface-2); opacity: .85; }
+.dx-admin .cb-component-main { gap: 2px 10px; }
+.dx-admin .cb-component-main strong { font-size: 14.5px; font-weight: 650; color: var(--dx-ink); }
+.dx-admin .cb-component-main small { color: var(--dx-ink-4); font-size: 12px; }
+.dx-admin .cb-component-main code { padding: 1px 6px; border-radius: var(--dx-r-sm); background: var(--dx-surface-2); color: var(--dx-ink-3); font-size: 11.5px; }
+.dx-admin .cb-component-chips { padding-left: 28px; gap: 6px; }
+.dx-admin .cb-component > .cb-actions { gap: 6px; }
+.dx-admin .cb-component > .cb-actions .dx-btn, .dx-admin .cb-component > .cb-actions .dcx-select { height: 32px; min-height: 32px; }
+.dx-admin .cb-component > .cb-actions .dx-btn-danger { margin-left: 4px; }
+@media (max-width: 860px) { .dx-admin .cb-component-chips { padding-left: 0; } }
+
+/* etiquetas: mais compactas, ponto de cor + texto (a cor nunca é a única pista) */
+.dx-admin .cb-badge { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: var(--dx-r-pill); font-size: 11.5px; font-weight: 600; line-height: 1; }
+.dx-admin .cb-badge.cb-status::before, .dx-admin .cb-badge.is-ok::before, .dx-admin .cb-badge.is-off::before, .dx-admin .cb-badge.is-warn::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .8; }
+.dx-admin .cb-badge.is-off { border-color: var(--dx-line-soft); background: var(--dx-surface-2); color: var(--dx-ink-3); }
+.dx-admin .cb-badge.is-off::before { background: var(--dx-danger); }
+
+/* utilizadores: resumo por plano como faixa de métricas */
+.dx-admin .cb-plan-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: var(--dx-3); }
+.dx-admin .cb-plan-pill { display: grid; justify-items: start; gap: 0; height: auto; padding: 10px 14px; border: 1px solid var(--dx-line-soft); border-radius: 12px; background: var(--dx-surface); box-shadow: var(--dx-sh-xs); text-align: left; cursor: pointer; transition: border-color var(--dx-fast), box-shadow var(--dx-fast); }
+.dx-admin .cb-plan-pill strong { font-size: 20px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--dx-ink); }
+.dx-admin .cb-plan-pill span { order: -1; color: var(--dx-ink-4); font-size: 12px; font-weight: 600; }
+.dx-admin .cb-plan-pill:hover { border-color: var(--dx-brand-line); }
+.dx-admin .cb-plan-pill.is-active { border-color: var(--dx-brand); background: var(--dx-brand-soft); box-shadow: 0 0 0 3px var(--dx-brand-soft-2); }
+
+/* utilizadores: cartões mais limpos, métricas em grelha */
+.dx-admin .cb-users { gap: 10px; }
+.dx-admin .cb-user { gap: 12px; padding: 16px 18px; border: 1px solid var(--dx-line-soft); border-radius: 12px; background: var(--dx-surface); box-shadow: var(--dx-sh-xs); transition: border-color var(--dx-fast), box-shadow var(--dx-fast); }
+.dx-admin .cb-user:hover { border-color: var(--dx-line); box-shadow: var(--dx-sh-sm); }
+.dx-admin .cb-avatar { width: 40px; height: 40px; background: linear-gradient(135deg, var(--dx-brand-soft-2), var(--dx-brand-soft)); color: var(--dx-brand-800); font-weight: 700; box-shadow: inset 0 0 0 1px var(--dx-brand-line); }
+.dx-admin .cb-user-id strong { font-size: 15px; font-weight: 650; }
+.dx-admin .cb-user-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; padding: 10px 12px; border-radius: var(--dx-r-lg); background: var(--dx-surface-2); }
+.dx-admin .cb-user-meta div { display: grid; gap: 1px; }
+.dx-admin .cb-user-meta dt { font-size: 11.5px; }
+.dx-admin .cb-user-meta dt::after { content: none; }
+.dx-admin .cb-user-meta dd { margin: 0; color: var(--dx-ink); font-size: 13px; font-weight: 600; }
+.dx-admin .cb-user-actions { gap: 6px; padding-top: 0; border-top: 0; }
+
+/* resumo: métricas com mais presença */
+.adm-tile { gap: 4px; padding: 16px 18px; border-color: var(--dx-line-soft); border-radius: 12px; }
+.adm-tile strong { font-size: 28px; }
+.adm-tablewrap, .dx-admin .cb-logs { border-color: var(--dx-line-soft); border-radius: 12px; }
