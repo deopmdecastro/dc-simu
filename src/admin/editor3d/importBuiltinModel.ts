@@ -3,6 +3,7 @@ import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { boundsMm, loadGlbAssets, newId, type GlbCache } from '../../catalog/definition'
 import type { ComponentDefinition, PartDef } from '../../catalog/types'
 import type { ComponentType } from '../../types'
+import { isTerminalAssemblyComponent } from '../../three/terminalAssembly'
 import { buildBuiltinDraft } from './builtinComponents'
 
 export const MAX_MODEL_IMPORT_BYTES = 4 * 1024 * 1024
@@ -73,11 +74,20 @@ export async function buildBuiltinDraftWithModel(type: ComponentType, file: File
   if (usedModel) throw new Error('Este componente já possui um modelo CAD real.')
   const placeholder = def.parts[0]
   if (!placeholder) throw new Error('Não foi encontrado o volume de referência para substituir.')
+  const compositeParts = isTerminalAssemblyComponent(type)
+    ? def.parts.filter((part) => part.parentId === placeholder.id && !!part.neutralTintColor)
+    : []
+  const compositePartIds = new Set(compositeParts.map((part) => part.id))
+  const remainingParts = def.parts.filter((part) => !compositePartIds.has(part.id))
+  const assets = { ...def.assets }
+  for (const assetId of new Set(compositeParts.map((part) => part.asset).filter((id): id is string => !!id))) {
+    if (!remainingParts.some((part) => part.asset === assetId)) delete assets[assetId]
+  }
   const assetId = newId('a_')
   // A geometria do GLB é recentrada pelo loader; tirar também a posição Y do
   // volume procedural antes de medir para a nova origem ficar pousada em Y=0.
   const replacement: PartDef = { ...placeholder, name: 'Modelo importado', kind: 'glb', asset: assetId, materialId: null, position: [0, 0, 0], scale: [1, 1, 1], rotation: [0, 0, 0] }
-  const draft: ComponentDefinition = { ...def, parts: def.parts.map((part) => part.id === placeholder.id ? replacement : part), assets: { ...def.assets, [assetId]: { name: model.name, mime: 'model/gltf-binary', data: model.data } } }
+  const draft: ComponentDefinition = { ...def, parts: remainingParts.map((part) => part.id === placeholder.id ? replacement : part), assets: { ...assets, [assetId]: { name: model.name, mime: 'model/gltf-binary', data: model.data } } }
   const cache: GlbCache = new Map()
   await loadGlbAssets(draft, cache)
   if (!cache.has(assetId)) throw new Error('Não foi possível interpretar este modelo. Exporte novamente como GLB simples ou verifique o STEP.')
@@ -88,5 +98,5 @@ export async function buildBuiltinDraftWithModel(type: ComponentType, file: File
   const centerX = (box.min.x + box.max.x) / 2, centerZ = (box.min.z + box.max.z) / 2
   const placed = { ...replacement, scale: [factor, factor, factor] as [number, number, number], position: [-centerX * factor, -box.min.y * factor, -centerZ * factor] as [number, number, number] }
   const final = { ...draft, parts: draft.parts.map((part) => part.id === placeholder.id ? placed : part) }
-  return { meta: { ...meta, description: `${meta.description.replace(/ \(sem modelo CAD: volume com as dimensões físicas\)/, '')} — modelo CAD importado localmente.` }, def: final, usedModel: true }
+  return { meta: { ...meta, description: `${meta.description.replace(/ \((?:sem modelo CAD: volume com as dimensões físicas|bornes reais; corpo sem CAD)\)/, '')} — modelo CAD importado localmente.` }, def: final, usedModel: true, usedComposite: false }
 }

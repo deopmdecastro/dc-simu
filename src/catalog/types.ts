@@ -78,6 +78,8 @@ export interface PartDef {
   editorOnly?: boolean
   /** Peça GLB: substitui os materiais do CAD pelo material escolhido (ex.: textura real). */
   overrideMaterial?: boolean
+  /** Peça GLB: tinge só os materiais neutros (usado nos bornes compostos por fase). */
+  neutralTintColor?: string
 }
 
 export type TerminalPolarity = 'none' | 'positive' | 'negative' | 'ac' | 'neutral' | 'earth'

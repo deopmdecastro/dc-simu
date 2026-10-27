@@ -95,10 +95,10 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     }
     setImporting(item.type)
     try {
-      const { meta, def, usedModel } = await buildBuiltinDraft(item.type)
+      const { meta, def, usedModel, usedComposite } = await buildBuiltinDraft(item.type)
       const id = newId('c')
       await catalogApi.save(id, meta, def)
-      onNotice(usedModel ? `«${item.name}» importado com o modelo 3D e os bornes: edite à vontade (o componente integrado do simulador não é alterado).` : `«${item.name}» importado como volume com as dimensões físicas e os bornes (sem modelo CAD).`)
+      onNotice(usedModel || usedComposite ? `«${item.name}» importado com a representação 3D e os bornes: edite à vontade (o componente integrado do simulador não é alterado).` : `«${item.name}» importado como volume com as dimensões físicas e os bornes (sem modelo CAD).`)
       await reload()
       openEditor(id, meta.name)
     } catch (value) { onError(value instanceof Error ? value.message : 'Falha ao importar o componente integrado') }
@@ -218,12 +218,12 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
         {builtinVisible.map((item) => <article key={item.type} className="ce-card ce-card-builtin">
           <div className="ce-card-cover">
             <LazyThumb type={item.type} size={150} />
-            <span className="ce-card-badges"><span className="ce-pill is-builtin">Integrado</span>{!item.hasModel && <span className="ce-pill is-locked" data-builtin-locked title="Sem modelo GLB: bloqueado na biblioteca do simulador até ser publicado a partir do editor">Bloqueado no simulador</span>}</span>
+            <span className="ce-card-badges"><span className="ce-pill is-builtin">Integrado</span>{!item.hasVisual && <span className="ce-pill is-locked" data-builtin-locked title="Sem representação 3D: bloqueado na biblioteca do simulador até ser publicado a partir do editor">Bloqueado no simulador</span>}</span>
           </div>
           <div className="ce-card-body">
             <h3 className="ce-card-title" title={item.name}>{item.name}</h3>
             <div className="ce-card-meta"><span className="ce-chip">{item.group}</span><span>{item.tag} · {item.terminals} borne{item.terminals === 1 ? '' : 's'}</span></div>
-            <p className="ce-card-desc">{item.hasModel ? 'Modelo 3D CAD da plataforma.' : 'Sem modelo CAD: abre como volume com as dimensões físicas. Publique-o para o desbloquear no simulador.'}</p>
+            <p className="ce-card-desc">{item.hasModel ? 'Modelo 3D CAD da plataforma.' : item.hasVisual ? 'Conjunto composto por bornes CAD reais; o corpo do equipamento não tem modelo CAD.' : 'Sem modelo CAD: abre como volume com as dimensões físicas. Publique-o para o desbloquear no simulador.'}</p>
           </div>
           <div className="ce-card-actions">
             <button className="dx-btn dx-btn-primary dx-btn-sm" disabled={importing !== null} onClick={() => void openBuiltin(item)}>{importing === item.type ? 'A importar…' : 'Editar no 3D'}</button>

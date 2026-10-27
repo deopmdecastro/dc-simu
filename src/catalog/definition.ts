@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid'
 import { stampBasePose } from './basePose'
 import { fitComponentModel } from '../three/modelFit'
 import { getComponentModelSpec } from '../three/modelPaths'
+import { tintTerminalBodyMaterials } from '../three/terminalAssembly'
 import { textureLibraryEntry } from '../three/textureLibrary'
 import type {
   CatalogMeta, ComponentDefinition, EasingName, LightState, MaterialDef, PartDef, RuntimeSpec, RuntimeTerminal, StateDef, StateOverride, Vec3,
@@ -368,6 +369,7 @@ export function buildDefinitionObject(def: ComponentDefinition, glb: GlbCache = 
             if (override.tileMm && materialHasTextures(override)) mesh.geometry = boxProjectUv(mesh.geometry, override.tileMm, [1, 1, 1], mesh.matrixWorld)
           })
         }
+        if (part.neutralTintColor) tintTerminalBodyMaterials(clone, part.neutralTintColor)
         // Peça ligada a uma parte do modelo (manípulo, tampa…): usa só esse nó,
         // preservando a posição que ele tinha dentro do GLB original.
         const picked = part.glbNode ? pickGlbNode(clone, part.glbNode) : clone

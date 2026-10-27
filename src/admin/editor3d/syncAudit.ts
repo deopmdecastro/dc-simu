@@ -102,11 +102,12 @@ export function auditBuiltins(entries: CatalogEntry[], settings: SyncSettings): 
   return builtinComponents().flatMap((info) => {
     if (imported.has(info.type)) return []
     const issues: SyncIssue[] = []
-    if (!info.hasModel) issues.push({ kind: 'builtin-locked', text: 'Sem modelo GLB: aparece no editor mas está bloqueado no simulador. Importe-o no editor e publique-o para o desbloquear.' })
+    if (!info.hasVisual) issues.push({ kind: 'builtin-locked', text: 'Sem representação 3D: aparece no editor mas está bloqueado no simulador. Importe um modelo no editor e publique-o para o desbloquear.' })
     if (settings.hidden[info.type]) issues.push({ kind: 'blocked', text: 'Ocultado nas definições de componentes.' })
     else if (settings.disabled[info.type]) issues.push({ kind: 'blocked', text: `Bloqueado nas definições: ${settings.disabled[info.type]}` })
     if (!issues.length) return []
-    return [{ key: `builtin:${info.type}`, name: info.name, builtin: info.type, editor: info.hasModel ? 'Integrado (GLB)' : 'Integrado (volume, sem GLB)', simulator: info.hasModel ? 'Integrado' : 'Bloqueado (sem GLB)', issues, canUpgrade: false, needsPublish: false }]
+    const editor = info.hasModel ? 'Integrado (GLB)' : info.hasVisual ? 'Integrado (conjunto de bornes)' : 'Integrado (volume, sem GLB)'
+    return [{ key: `builtin:${info.type}`, name: info.name, builtin: info.type, editor, simulator: info.hasVisual ? 'Integrado' : 'Bloqueado (sem GLB)', issues, canUpgrade: false, needsPublish: false }]
   })
 }
 

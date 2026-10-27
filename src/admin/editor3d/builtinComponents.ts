@@ -5,7 +5,8 @@ import { boundsMm, buildDefinitionObject, defaultDefinition, defaultMaterial, de
 import { inferFromFunction } from '../../catalog/terminalProfiles'
 import { DEFAULT_META } from '../../catalog/definition'
 import type { CatalogEntry, CatalogMeta, ComponentDefinition, TerminalDef, Vec3 } from '../../catalog/types'
-import { BREAKER_HANDLE_RIG, getComponentModelSpec, getComponentPhysicalSizeMm } from '../../three/modelPaths'
+import { BREAKER_HANDLE_RIG, getComponentModelSpec, getComponentPhysicalSizeMm, hasComponent3DVisual } from '../../three/modelPaths'
+import { isTerminalAssemblyComponent, terminalAssemblyLayout } from '../../three/terminalAssembly'
 import type { ComponentType } from '../../types'
 import { REAL_TERMINALS, terminalInsetMm } from '../../electrical/realInterfaces'
 import { FACE_NORMAL } from '../../catalog/terminalProfiles'
@@ -22,6 +23,7 @@ export interface BuiltinInfo {
   tag: string
   terminals: number
   hasModel: boolean
+  hasVisual: boolean
 }
 
 export const BUILTIN_ORIGIN_PREFIX = 'Integrado · '
@@ -29,7 +31,7 @@ export const BUILTIN_ORIGIN_PREFIX = 'Integrado · '
 export function builtinComponents(): BuiltinInfo[] {
   return (Object.entries(TEMPLATES) as Array<[ComponentType, ComponentTemplate]>)
     .filter(([type]) => !String(type).startsWith('cat:'))
-    .map(([type, tpl]) => ({ type, name: tpl.paletteName, group: tpl.group, category: tpl.category, tag: tpl.tag, terminals: tpl.terminals.length, hasModel: !!getComponentModelSpec(type) }))
+    .map(([type, tpl]) => ({ type, name: tpl.paletteName, group: tpl.group, category: tpl.category, tag: tpl.tag, terminals: tpl.terminals.length, hasModel: !!getComponentModelSpec(type), hasVisual: hasComponent3DVisual(type) }))
 }
 
 /** Tipo integrado de que um componente do catálogo foi importado (ou null). */
@@ -232,9 +234,14 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
   let next: ComponentDefinition = JSON.parse(JSON.stringify(def))
   const cache: GlbCache = new Map()
   await loadGlbAssets(next, cache)
+  const assemblyUpgrade = await upgradeTerminalAssemblyPlaceholder(type, next)
+  let changed = !!assemblyUpgrade
+  if (assemblyUpgrade) {
+    next = assemblyUpgrade
+    await loadGlbAssets(next, cache)
+  }
   const upgraded = await upgradeUneditedGeometry(type, next, cache)
-  let changed = !!upgraded
-  if (upgraded) next = upgraded
+  if (upgraded) { next = upgraded; changed = true }
   if (type === 'multimeterDm20' && (next.controls ?? []).length === 0 && (next.displays ?? []).length === 0) {
     seedMultimeterDm20(next, cache)
     changed = (next.controls ?? []).length > 0
@@ -371,8 +378,72 @@ function migrateMotorDraft(def: ComponentDefinition, cache: GlbCache): boolean {
   return changed
 }
 
-/** Reconhece apenas o importador antigo intacto. Rascunhos modelados à mão,
- * peças separadas ou estados personalizados nunca são substituídos. */
+/** Cria a mesma composição PTI6 da capa e do simulador dentro do editor. */
+function seedTerminalAssembly(type: ComponentType, def: ComponentDefinition, root: ComponentDefinition['parts'][number]): string | null {
+  const spec = getComponentModelSpec('terminalPhoenixPti6')
+  if (!spec || !isTerminalAssemblyComponent(type)) return null
+  const assetId = newId('a_')
+  const rootGroup = {
+    ...root, kind: 'group' as const, name: 'Conjunto de bornes', materialId: null,
+    position: [0, 0, 0] as Vec3, rotation: [0, 0, 0] as Vec3, scale: [1, 1, 1] as Vec3,
+  }
+  const modules = terminalAssemblyLayout(type, spec.physicalSizeMm.width).map(({ conductor, x, color }) => ({
+    ...defaultPart('glb', null, `Borne ${conductor}`),
+    parentId: root.id,
+    position: [x, 0, 0] as Vec3,
+    asset: assetId,
+    neutralTintColor: color,
+  }))
+  def.parts = [rootGroup, ...modules]
+  def.assets = {
+    ...def.assets,
+    [assetId]: { name: spec.path.split('/').pop() ?? 'phoenix-pti6.glb', mime: 'model/gltf-binary', data: spec.path, builtinType: 'terminalPhoenixPti6' },
+  }
+  return assetId
+}
+
+function isUntouchedTerminalAssemblyPlaceholder(type: ComponentType, def: ComponentDefinition): boolean {
+  const tpl = TEMPLATES[type], part = def.parts[0]
+  if (!tpl || !part || def.parts.length !== 1 || part.kind !== 'box' || part.name !== 'Corpo' || Object.keys(def.assets).length) return false
+  if (def.controls?.length || def.displays?.length || def.lights.length) return false
+  if (def.states.some((state) => state.parts[part.id])) return false
+  const physical = getComponentPhysicalSizeMm(type) ?? {
+    width: Math.max(8, Math.round(tpl.w / 1.5)),
+    height: Math.max(8, Math.round(tpl.h / 1.5)),
+    depth: 45,
+  }
+  const same = (a: Vec3, b: Vec3) => a.every((value, index) => Math.abs(value - b[index]) < 0.01)
+  if (!same(part.size, [physical.width, physical.height, physical.depth])
+    || !same(part.position, [0, physical.height / 2, 0])
+    || !same(part.rotation, [0, 0, 0])
+    || !same(part.scale, [1, 1, 1])) return false
+  const expected = terminalsFor(type, tpl.terminals, boundsMm(def))
+  return def.terminals.length === expected.length && expected.every((terminal) => {
+    const current = def.terminals.find((item) => item.label === terminal.label)
+    return current && same(current.position, terminal.position) && same(current.normal, terminal.normal)
+  })
+}
+
+async function upgradeTerminalAssemblyPlaceholder(type: ComponentType, def: ComponentDefinition): Promise<ComponentDefinition | null> {
+  if (!isTerminalAssemblyComponent(type) || !isUntouchedTerminalAssemblyPlaceholder(type, def)) return null
+  const next: ComponentDefinition = JSON.parse(JSON.stringify(def))
+  const tpl = TEMPLATES[type]
+  const root = next.parts[0]
+  if (!root || !tpl) return null
+  const assetId = seedTerminalAssembly(type, next, root)
+  if (!assetId) return null
+  const cache: GlbCache = new Map()
+  await loadGlbAssets(next, cache)
+  if (!cache.has(assetId)) return null
+  const updated = terminalsFor(type, tpl.terminals, boundsMm(next, cache))
+  next.terminals = updated.map((terminal) => {
+    const current = def.terminals.find((item) => item.label === terminal.label)
+    return current ? { ...terminal, ...current, position: terminal.position, normal: terminal.normal } : terminal
+  })
+  return next
+}
+
+/** Reconhece apenas o importador GLB antigo intacto; preserva modelos ajustados à mão. */
 async function upgradeUneditedGeometry(type: ComponentType, def: ComponentDefinition, cache: GlbCache): Promise<ComponentDefinition | null> {
   const spec = getComponentModelSpec(type), part = def.parts[0]
   if (!spec || def.parts.length !== 1 || part.kind !== 'glb' || !part.asset || part.glbNode || part.locked) return null
@@ -437,7 +508,7 @@ function seedEmergencyActuator(def: ComponentDefinition, type: ComponentType): b
 }
 
 /** Rascunho editável a partir de um componente integrado: modelo GLB (ou volume físico) + bornes + metadados. */
-export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: CatalogMeta; def: ComponentDefinition; usedModel: boolean }> {
+export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: CatalogMeta; def: ComponentDefinition; usedModel: boolean; usedComposite: boolean }> {
   const tpl = TEMPLATES[type]
   if (!tpl) throw new Error('Componente integrado desconhecido.')
   const spec = getComponentModelSpec(type)
@@ -447,6 +518,7 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   const def: ComponentDefinition = { ...base, mount: spec?.placement === 'rail' ? 'din-rail' : spec?.placement && spec.placement !== 'din-rail' ? spec.placement : MOUNT[tpl.category] ?? 'din-rail', materials: [material], parts: [], terminals: [], assets: {} }
   const cache: GlbCache = new Map()
   let usedModel = false
+  let usedComposite = false
   if (spec) {
     const assetId = newId('a_')
     const part = { ...defaultPart('glb', null, tpl.paletteName.slice(0, 40)), asset: assetId }
@@ -457,7 +529,16 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
       usedModel = true
     }
   }
-  if (!usedModel) {
+  if (!usedModel && isTerminalAssemblyComponent(type)) {
+    const fallback = { ...defaultPart('box', material.id, 'Corpo'), size: [physical.width, physical.height, physical.depth] as Vec3, position: [0, physical.height / 2, 0] as Vec3 }
+    const assetId = seedTerminalAssembly(type, def, fallback)
+    if (assetId) {
+      await loadGlbAssets(def, cache)
+      usedComposite = cache.has(assetId)
+      if (!usedComposite) { def.parts = [fallback]; def.assets = {} }
+    }
+  }
+  if (!usedModel && !usedComposite) {
     def.parts = [{ ...defaultPart('box', material.id, 'Corpo'), size: [physical.width, physical.height, physical.depth] as Vec3, position: [0, physical.height / 2, 0] as Vec3 }]
   }
   const box = boundsMm(def, cache)
@@ -490,9 +571,9 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
   if (type === 'motor3ph') { seedMotorTerminalBoard(def, cache); seedMotorFan(def) }
   const meta: CatalogMeta = {
     ...DEFAULT_META,
-    name: tpl.paletteName, description: `Componente integrado da plataforma, importado como ponto de partida editável${usedModel ? '' : ' (sem modelo CAD: volume com as dimensões físicas)'}.`,
+    name: tpl.paletteName, description: `Componente integrado da plataforma, importado como ponto de partida editável${usedModel ? '' : usedComposite ? ' (bornes reais; corpo sem CAD)' : ' (sem modelo CAD: volume com as dimensões físicas)'}.`,
     category: tpl.category, group: tpl.group, tag: tpl.tag.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'X', tags: [],
     properties: [{ key: 'Origem', value: `${BUILTIN_ORIGIN_PREFIX}${type}` }],
   }
-  return { meta, def, usedModel }
+  return { meta, def, usedModel, usedComposite }
 }

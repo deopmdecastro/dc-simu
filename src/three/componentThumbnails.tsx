@@ -16,6 +16,7 @@ import { getProauto3DImage } from '../schematic/proauto3DImage'
 import { getWeg3DImage } from '../schematic/weg3DImage'
 import { getCad3DImage } from '../schematic/cad3DImage'
 import { getComponentModelSpec } from './modelPaths'
+import { isTerminalAssemblyComponent } from './terminalAssembly'
 import { defaultComponentTurntablePitch, getComponentTurntableFrames } from './componentTurntable'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
@@ -39,8 +40,6 @@ const NEUTRAL_BLUE = '#5b7fb5'
 const PE_GREEN = '#3f9142'
 const SCREEN_GREEN = '#22c55e'
 const SCREEN_BLUE = '#4fc3f7'
-const GLB_TERMINAL_COMPOSITES = new Set<ComponentType>(['terminalSet1ph', 'terminalSet3ph', 'powerSource1ph', 'powerSource3ph'])
-
 let renderer: THREE.WebGLRenderer | null = null
 let scene: THREE.Scene | null = null
 let camera: THREE.PerspectiveCamera | null = null
@@ -384,7 +383,7 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
     return () => { active = false }
   }, [type])
   useEffect(() => {
-    if ((!getComponentModelSpec(type) && !GLB_TERMINAL_COMPOSITES.has(type)) || ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)) return
+    if ((!getComponentModelSpec(type) && !isTerminalAssemblyComponent(type)) || ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)) return
     let active = true
     setCadSrc(null)
     getCad3DImage(type).then((image) => { if (active) setCadSrc(image) }).catch(() => { /* reserva procedural */ })
@@ -393,7 +392,7 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
   const src = type === 'plcSiemensLogo1224RC' ? logoSrc ?? fallback
     : type === 'powerSupplyProauto24A' ? proautoSrc ?? fallback
       : type === 'contactorWegCWC09' ? wegSrc ?? fallback
-        : GLB_TERMINAL_COMPOSITES.has(type) ? cadSrc
+        : isTerminalAssemblyComponent(type) ? cadSrc
           : getComponentModelSpec(type) ? cadSrc ?? fallback
           : fallback
   if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken" />

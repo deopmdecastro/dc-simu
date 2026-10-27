@@ -2,7 +2,9 @@ import * as THREE from 'three'
 import { buildDefinitionObject, loadGlbAssets, type GlbCache } from '../../catalog/definition'
 import { catalogApi } from '../../catalog/catalogApi'
 import type { CatalogEntry } from '../../catalog/types'
+import type { ComponentType } from '../../types'
 import { renderCapture } from './capture'
+import { builtinTypeOf, upgradeBuiltinDraft } from './builtinComponents'
 
 /**
  * Capas dos cartões da Biblioteca 3D geradas a partir do rascunho atual (ou da última versão publicada),
@@ -21,8 +23,12 @@ export function generateCover(entry: CatalogEntry): Promise<string | null> {
   if (hit) return Promise.resolve(hit)
   const job = chain.then(async () => {
     const full = await catalogApi.adminGet(entry.id)
-    const def = full.draft ?? full.versions[full.versions.length - 1]?.definition
+    let def = full.draft ?? full.versions[full.versions.length - 1]?.definition
     if (!def) return null
+    // A capa acompanha a mesma migração que o editor aplica ao abrir rascunhos
+    // integrados antigos, para não continuar a mostrar o volume inicial.
+    const origin = builtinTypeOf(full)
+    if (full.draft && origin) def = await upgradeBuiltinDraft(origin as ComponentType, def) ?? def
     const cache: GlbCache = new Map()
     await loadGlbAssets(def, cache)
     const root = buildDefinitionObject(def, cache)

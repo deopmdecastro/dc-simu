@@ -1,4 +1,5 @@
 import type { ComponentType } from '../types'
+import { isTerminalAssemblyComponent } from './terminalAssembly'
 
 export const MODEL_PATHS = {
   plcSiemensLogo1224RC: '/models/controladores/logo-siemens-1224rc.glb',
@@ -219,16 +220,12 @@ export function getComponentGlbSpec(type: ComponentType): ComponentModelSpec | u
 }
 
 /** Conjuntos compostos apenas por instâncias de GLB reais. */
-const COMPOSITE_GLB_COMPONENTS_3D = new Set<ComponentType>([
-  'powerSource1ph', 'powerSource3ph', 'terminalSet1ph', 'terminalSet3ph',
-])
-
 export function hasComponent3DModel(type: ComponentType): boolean {
   return !!getComponentGlbSpec(type)
 }
 
 export function hasComponent3DVisual(type: ComponentType): boolean {
-  return hasComponent3DModel(type) || COMPOSITE_GLB_COMPONENTS_3D.has(type)
+  return hasComponent3DModel(type) || isTerminalAssemblyComponent(type)
 }
 
 export function canInsertComponent3D(type: ComponentType): boolean {

@@ -3,6 +3,7 @@ import { captureOrthographicModelImage } from '../schematic/orthographicModelIma
 import { getCad3DImage } from '../schematic/cad3DImage'
 import { getComponentGlbSpec } from './modelPaths'
 import { normalizeComponentOrientation } from './componentOrientation'
+import { isTerminalAssemblyComponent } from './terminalAssembly'
 
 // v2: orientação composta sobre a rotação base (igual ao Painel 3D).
 const cache = new Map<string, Promise<string>>()
@@ -17,7 +18,7 @@ export function getOrientedComponentImage(
   const existing = cache.get(key)
   if (existing) return existing
 
-  if (['terminalSet1ph', 'terminalSet3ph', 'powerSource1ph', 'powerSource3ph'].includes(type)) {
+  if (isTerminalAssemblyComponent(type)) {
     const composite = getCad3DImage(type)
     cache.set(key, composite)
     return composite
