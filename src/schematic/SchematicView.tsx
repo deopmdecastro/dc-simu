@@ -1,10 +1,9 @@
 import SimulationDock from '../components/SimulationDock'
-import { useSimUi } from '../ui/simUi'
-import { isTabletDesktop } from '../ui/device'
+import { useCanvasAction, useSimUi } from '../ui/simUi'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
-import { IconCube, IconFocus, IconGrid, IconHelp, IconLock, IconProbe, IconSchematic, IconZoomIn } from '../ui/icons'
+import { IconCube, IconLock, IconProbe, IconSchematic } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, WireEndType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getLogo3DImages } from './logo3DImage'
@@ -16,9 +15,9 @@ import { componentOrientationOf, isOriginalComponentOrientation } from '../three
 import { componentTerminalLocal, orientedImageFrame } from './componentTerminalViews'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
 import DinRail2D from './DinRail2D'
-import ComponentViewEditor from '../components/ComponentViewEditor'
 import { nearestTerminal, nearestModelTerminal } from './terminalSnap'
 import { wireEndColor } from './wireEndColor'
+import { wireEndScale, wireStrokeWidth } from './wireMetrics'
 import { wireGeometry, wireGeometryForWire, type Pt } from './wireGeometry'
 import { isTypingTarget, releaseTypingFocus } from '../ui/editorKeys'
 import { useEditorShortcuts } from '../ui/shortcuts'
@@ -107,7 +106,7 @@ function endDir(pts: Pt[], atStart: boolean): Pt {
 }
 
 /** Desenho do terminal crimpado na ponta do cabo (ponteira, olhal, forquilha…). */
-function WireEnd({ p, dir, type, color }: { p: Pt; dir: Pt; type: WireEndType; color: string }) {
+function WireEnd({ p, dir, type, color, scale = 1 }: { p: Pt; dir: Pt; type: WireEndType; color: string; scale?: number }) {
   if (type === 'none') return null
   const ang = (Math.atan2(dir.y, dir.x) * 180) / Math.PI
   const metal = '#c3ccd8'
@@ -172,8 +171,9 @@ function WireEnd({ p, dir, type, color }: { p: Pt; dir: Pt; type: WireEndType; c
     default:
       body = <line x1={0} y1={0} x2={6} y2={0} stroke="#aeb8c6" strokeWidth={2.2} strokeLinecap="round" />
   }
+  // A ponteira acompanha a secção do condutor (0,5 mm² ≈ 0,92 · 16 mm² ≈ 1,47).
   return (
-    <g transform={`translate(${p.x},${p.y}) rotate(${ang})`} pointerEvents="none">
+    <g transform={`translate(${p.x},${p.y}) rotate(${ang}) scale(${scale})`} pointerEvents="none">
       {body}
     </g>
   )
@@ -420,26 +420,9 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   const [railResize, setRailResize] = useState<{ id: string; side: 'left' | 'right' } | null>(null)
   const [terminalViewDrag, setTerminalViewDrag] = useState<{ componentId: string; terminalId: string } | null>(null)
   const [cursorPos, setCursorPos] = useState<Pt | null>(null)
-  const [showHints, setShowHints] = useState(() => {
-    try {
-      const saved = localStorage.getItem('dc-simu:showHints')
-      return saved === null ? (isTabletDesktop() || !window.matchMedia('(max-width: 700px), (pointer: coarse)').matches) : saved === '1'
-    } catch {
-      return true
-    }
-  })
-
-  const toggleHints = () => {
-    setShowHints((v) => {
-      const next = !v
-      try {
-        localStorage.setItem('dc-simu:showHints', next ? '1' : '0')
-      } catch {
-        /* localStorage indisponível (modo privado, etc.) — ignora */
-      }
-      return next
-    })
-  }
+  // As dicas do canvas vivem na barra de ferramentas (DC-ADR-059).
+  const showHints = useSimUi((state) => state.hints)
+  const setCanvasHint = useSimUi((state) => state.setCanvasHint)
 
   const displayComponents = useMemo(() => components.map((component) => viewOrientationEditor?.componentId === component.id ? {
     ...component,
@@ -515,6 +498,16 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     setZoom(nextZoom)
     setPan(svg.clientWidth / 2 - centerX * nextZoom, svg.clientHeight / 2 - centerY * nextZoom)
   }, [components, wires, setPan, setZoom])
+
+  useEffect(() => {
+    setCanvasHint(gridDragEnabled ? 'Arrastar malha: o desenho desloca-se sem mudar a ferramenta'
+      : tool === 'select' ? 'Selecionar: arraste para mover · shift+clique seleciona vários'
+      : tool === 'wire' ? 'Cabo: cada clique prolonga o traço · Esc termina · shift+clique liga em cadeia'
+      : tool === 'probe' ? 'Sonda: escolha os dois bornes para medir'
+      : tool === 'erase' ? 'Apagar: clique no que quer remover · Ctrl+Z desfaz'
+      : 'Mover vista: arraste o desenho')
+  }, [gridDragEnabled, tool, setCanvasHint])
+  useCanvasAction((action) => { if (action === 'fit') fitContent() })
 
   // ---------------------------------------------------------------- teclado
   useEffect(() => {
@@ -988,12 +981,52 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   // nunca mexeu na ordem.
   type DrawEntry = { kind: 'wire'; wire: (typeof wires)[number] } | { kind: 'component'; comp: ElectricalComponent }
   const drawOrder = useMemo(() => {
+    // Cabos não atravessam o corpo dos elementos: se o traçado cruza a caixa
+    // de um componente (exceto os dos seus próprios bornes), o cabo fica
+    // inteiro atrás ou à frente desse componente — nunca a meio.
+    const pathBounds = (w: (typeof wires)[number]) => {
+      const a = w.fromPoint ?? terminalIndex.get(w.fromTerminalId)
+      const b = w.toPoint ?? terminalIndex.get(w.toTerminalId)
+      if (!a || !b) return null
+      const pts = [a, ...(w.waypoints ?? []), b]
+      let left = pts[0].x, right = pts[0].x, top = pts[0].y, bottom = pts[0].y
+      for (const p of pts) {
+        if (p.x < left) left = p.x
+        if (p.x > right) right = p.x
+        if (p.y < top) top = p.y
+        if (p.y > bottom) bottom = p.y
+      }
+      const pad = wireStrokeWidth(w.gauge) * 0.5 + 1
+      return { left: left - pad, right: right + pad, top: top - pad, bottom: bottom + pad }
+    }
+    const wireZ = new Map<string, number>()
+    for (const w of wires) {
+      let z = w.z ?? 0
+      const bounds = pathBounds(w)
+      if (bounds) {
+        const connected = new Set<string>()
+        for (const c of displayComponents) {
+          if (c.terminals.some((t) => t.id === w.fromTerminalId || t.id === w.toTerminalId)) connected.add(c.id)
+        }
+        const preferFront = ((w.fromEndLayer ?? 'back') === 'front') || ((w.toEndLayer ?? 'back') === 'front')
+        for (const c of displayComponents) {
+          if (connected.has(c.id)) continue
+          const cb = { left: c.schematicX, right: c.schematicX + c.w, top: c.schematicY, bottom: c.schematicY + c.h }
+          const crosses = bounds.left < cb.right && bounds.right > cb.left && bounds.top < cb.bottom && bounds.bottom > cb.top
+          if (!crosses) continue
+          const cz = c.z ?? 0
+          if (preferFront) z = Math.max(z, cz + 1)
+          else z = Math.min(z, cz - 1)
+        }
+      }
+      wireZ.set(w.id, z)
+    }
     const entries: (DrawEntry & { z: number; idx: number })[] = []
-    wires.forEach((w, i) => entries.push({ kind: 'wire', wire: w, z: w.z ?? 0, idx: i }))
+    wires.forEach((w, i) => entries.push({ kind: 'wire', wire: w, z: wireZ.get(w.id) ?? w.z ?? 0, idx: i }))
     displayComponents.forEach((c, i) => entries.push({ kind: 'component', comp: c, z: c.z ?? 0, idx: i + wires.length }))
     entries.sort((a, b) => a.z - b.z || a.idx - b.idx)
     return entries
-  }, [wires, displayComponents])
+  }, [wires, displayComponents, terminalIndex])
 
   // Nos modelos reais o centro do parafuso fica dentro da fotografia.
   // Sair perpendicularmente do corpo antes do primeiro cotovelo evita que
@@ -1036,7 +1069,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const flexible = w.flexibility === 'flexible'
     const selected = selectedWireId === w.id
     const { d, handle } = display.geometry
-    const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
+    const width = wireStrokeWidth(w.gauge)
     const cap = 'square'
     const join = 'miter'
     const showEnergyFlow = wireEnergyEffectVisible(simRunState, w.energized)
@@ -1163,7 +1196,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const display = wireDisplay(w)
     if (!display) return []
     const color = WIRE_COLORS[w.color] ?? '#94a3b8'
-    const width = Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)
+    const width = wireStrokeWidth(w.gauge)
     return (['from', 'to'] as const).map((side) => {
       const endLayer = (side === 'from' ? w.fromEndLayer : w.toEndLayer) ?? 'back'
       if (endLayer !== layer) return null
@@ -1179,8 +1212,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} />
           <path d={`M ${point.x},${point.y} L ${lead.x},${lead.y}`} fill="none" stroke={color} strokeWidth={width} />
         </>}
-        <WireEnd p={point} dir={dir} type={type} color={endColor} />
-        {type === 'none' && <circle cx={point.x} cy={point.y} r={2.7} fill={endColor} stroke="white" strokeWidth={0.8} />}
+        <WireEnd p={point} dir={dir} type={type} color={endColor} scale={wireEndScale(w.gauge)} />
+        {type === 'none' && <circle cx={point.x} cy={point.y} r={2.7 * wireEndScale(w.gauge)} fill={endColor} stroke="white" strokeWidth={0.8} />}
       </g>
     })
   })
@@ -1235,49 +1268,24 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               </g>
             ))}
           </>
-        ) : c.type === 'contactorWegCWC09' && model ? (
+        ) : model ? (
           <>
-            {/* vista do mesmo GLB usado no Painel 3D — não é um SVG */}
+            {/* GLB-only: vista ortográfica do mesmo modelo usado no Painel 3D — nunca SVG simbólico. */}
             <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
-            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
-          </>
-        ) : c.type === 'powerSupplyProauto24A' && model ? (
-          <>
-            <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
-            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
-            <ComponentTerminals c={c} />
-            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
-          </>
-        ) : c.type === 'plcSiemensLogo1224RC' && model ? (
-          <>
-            <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
-            {/* Alvos de seleção e bornes mantêm-se nas coordenadas reais do esquema. */}
-            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
-            <ComponentTerminals c={c} />
-            {/* Zonas dos botões do modelo: continuam operacionais na vista frontal. */}
-            {isOriginalComponentOrientation(orientation) && (['up', 'down', 'left', 'right', 'ESC', 'OK'] as const).map((button) => {
+            {/* Zonas interativas do LOGO! (botões) — só na orientação original. */}
+            {c.type === 'plcSiemensLogo1224RC' && isOriginalComponentOrientation(orientation) && (['up', 'down', 'left', 'right', 'ESC', 'OK'] as const).map((button) => {
               const imageW = c.w
               const imageH = c.h
-              const x0 = 0
-              const y0 = 0
               const coords = { up: [0.8, 0.45], down: [0.8, 0.63], left: [0.68, 0.54], right: [0.92, 0.54], ESC: [0.72, 0.72], OK: [0.88, 0.72] }
               const [bx, by] = coords[button]
-              return <rect key={button} x={x0 + (bx - 0.055) * imageW} y={y0 + (by - 0.035) * imageH} width={imageW * 0.11} height={imageH * 0.07} rx={3} fill={c.state.pressedButton === button ? '#38bdf8' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
+              return <rect key={button} x={(bx - 0.055) * imageW} y={(by - 0.035) * imageH} width={imageW * 0.11} height={imageH * 0.07} rx={3} fill={c.state.pressedButton === button ? '#38bdf8' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
                 onMouseDown={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { pressedButton: button }) }}
                 onMouseUp={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
                 onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.pressedButton === button) useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>{button}</title></rect>
             })}
-            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
-          </>
-        ) : model ? (
-          <>
-            {/* Mesmo CAD e materiais, com orientação visual específica desta instância. */}
-            <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
-            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
-            <ComponentTerminals c={c} />
             {c.type === 'pilotLightAd22' && isOriginalComponentOrientation(orientation) && <g pointerEvents="none">
               <circle cx={c.w / 2} cy={c.h / 2} r={Math.min(c.w, c.h) * 0.17}
                 fill={String(c.state.color ?? '#ef4444')} fillOpacity={c.state.on ? 0.78 : 0.34}
@@ -1302,6 +1310,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
         ) : hasComponent3DVisual(c.type) ? (
+          /* GLB-only: nunca cair em SymbolGlyph/SVG simbólico para tipos com modelo 3D.
+             Placeholder enquanto a captura ortográfica do GLB não está pronta ou falhou. */
           <g data-model-state={modelError ? 'error' : 'loading'}>
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} rx={7}
               fill={modelError ? '#fff1f2' : '#edf2f8'} stroke={modelError ? '#dc2626' : '#b8c5d6'}
@@ -1344,7 +1354,6 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         })}
         <button type="button" className="schematic-sheet-add" onClick={() => addSheet()} title="Nova folha do esquema. Ex.: potência numa folha, comando noutra — ligadas por etiquetas de rede.">+ Folha</button>
       </div>
-      <ComponentViewEditor />
       {onOpen3DView && <Schematic2DViewCube tilt={tilt} onTilt={setTilt} placement="top" />}
       {isTilted && <button type="button" className="schematic-tilt-note" onClick={() => setTilt({ yaw: 0, pitch: 0 })} title="Voltar à vista frontal para editar">Vista inclinada · <b>Voltar a Frente</b> para editar</button>}
       <svg
@@ -1414,7 +1423,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               const point = side === 'from' ? d.a : d.b
               if (!lead) return null
               return <path key={`${w.id}-${side}-insert`} d={`M ${lead.x},${lead.y} L ${point.x},${point.y}`}
-                fill="none" stroke={WIRE_COLORS[w.color] ?? '#94a3b8'} strokeWidth={Math.min(4.4, 1.2 + Math.sqrt(parseFloat(w.gauge) || 1.5) * 0.95)} pointerEvents="none" />
+                fill="none" stroke={WIRE_COLORS[w.color] ?? '#94a3b8'} strokeWidth={wireStrokeWidth(w.gauge)} pointerEvents="none" />
             })
           })}
           {displayComponents.flatMap((c) => c.terminals.filter((t) => wires.some((w) => (!w.fromPoint && w.fromTerminalId === t.id) || (!w.toPoint && w.toTerminalId === t.id))).map((t) => {
@@ -1574,18 +1583,6 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         </div>
       )}
 
-      {/* Estado do editor num único HUD compacto. Não se sobrepõe ao botão Biblioteca. */}
-      <div className={`schematic-hud ${libraryCollapsed ? 'is-library-collapsed' : ''}`} role="status" aria-label="Estado do editor de esquema">
-        <span className="schematic-hud-tool"><i /> {gridDragEnabled ? 'Arrastar malha' : tool === 'select' ? 'Selecionar' : tool === 'wire' ? 'Desenhar fio' : tool === 'probe' ? 'Sonda' : tool === 'erase' ? 'Apagar' : 'Mover vista'}</span>
-        <span className="schematic-hud-separator" />
-        <span title={`Malha ${grid.enabled ? `${grid.size}px, encaixe ${grid.snap ? 'ativo' : 'inativo'}` : 'desligada'}`}><IconGrid size={11} /> {grid.enabled ? `${grid.size}px${grid.snap ? ' · ímã' : ''}` : 'off'}</span>
-        <span className="schematic-hud-separator" />
-        <button type="button" className="schematic-hud-action" onClick={() => { setZoom(1); setPan(0, 0) }} title="Restaurar zoom e posição"><IconZoomIn size={11} /> {Math.round(zoom * 100)}%</button>
-        <button type="button" className="schematic-hud-action" onClick={fitContent} title="Enquadrar todos os componentes e fios (Home)"><IconFocus size={11} /> Ajustar</button>
-        <span className="schematic-hud-separator" />
-        <span title="Quantidade de componentes e cabos no projeto">{components.length} comp. · {wires.length} fios</span>
-      </div>
-
       {/* ligação inteligente: cadeia de bornes acumulada por shift+clique */}
       {tool === 'wire' && chain.length > 0 && (
         <div className="absolute left-1/2 -translate-x-1/2 top-2 flex items-center gap-2 text-[11px] rounded-md border border-lime-500 bg-white px-3 py-1.5 text-ink-900 shadow-md">
@@ -1625,42 +1622,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
         </div>
       )}
 
-      {tool === 'wire' && !gridDragEnabled && <div className="absolute right-3 top-3 z-10 dc-wire-guide">
-        <strong>Desenhar fio</strong><span>{wireFrom || freeStart ? 'Clique para continuar a desenhar; Esc termina. Clique num borne para ligar a ponta.' : 'Clique num borne ou no espaço vazio para começar.'}</span>
-        <small>Cada clique prolonga o cabo rígido · bornes ligam a ponta · Esc termina o desenho.</small>
-
-      </div>}
-      <div className="absolute left-2 bottom-2 flex flex-col items-start gap-1.5 z-10">
-        {showHints && (
-          <div className="text-[10px] text-ink-400 text-left leading-relaxed rounded-md bg-white/95 border border-line shadow-xs px-2 py-1.5 max-w-[260px]">
-            <div>arraste = mover · shift+clique = multi-seleção</div>
-            <div>biblioteca: clique ou arraste → pré-visualização real → solte para posicionar</div>
-            <div>clique no cabo = editar (cor, condutor, terminal) · duplo clique = ponto de curva</div>
-            <div>duplo clique num ponto de curva = remover · duplo no borne = alternar</div>
-            <div>ferramenta Cabo: shift+clique nos bornes = ligação inteligente em cadeia</div>
-            <div>ferramenta Cabo: clique prolonga · Esc termina e conserva o traçado</div>
-            <div>rígido e flexível têm o mesmo percurso ortogonal · arraste os pontos para ajustar</div>
-            <div>Ctrl+] avança · Ctrl+[ recua · Ctrl+Shift+]/[ frente/trás</div>
-            <div>1–5 ferramentas · Home ajusta a vista · R gira · D duplica · Del apaga · Ctrl+Z desfaz</div>
-          </div>
-        )}
-        <button
-          onClick={toggleHints}
-          className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
-          title={showHints ? 'Esconder dicas' : 'Mostrar dicas'}
-        >
-          <IconHelp size={13} />
-        </button>
-        <button
-          onClick={() => setShortcutHelpOpen(true)}
-          className="w-6 h-6 flex items-center justify-center rounded-full border border-line bg-white/95 shadow-xs text-[11px] font-semibold text-ink-500 hover:text-brand-600 hover:border-brand-300 transition-colors"
-          title="Atalhos de teclado (F1)"
-          aria-label="Atalhos de teclado"
-        >
-          ?
-        </button>
-        <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor="Esquema" />
-      </div>
+      <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} editor="Esquema" />
     </div>
   )
 }

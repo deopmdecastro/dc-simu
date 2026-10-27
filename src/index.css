@@ -1601,6 +1601,10 @@ input[type='color'] {
   .tb-label {
     @apply shrink-0 text-[9px] font-bold uppercase tracking-[0.1em] text-ink-300 select-none mr-0.5;
   }
+  /* Dica da ferramenta ativa: uma linha na barra, sem cartão sobre o canvas. */
+  .tb-hint {
+    @apply shrink-0 max-w-[42ch] truncate text-[11px] text-ink-400 select-none;
+  }
   .tb-menu {
     @apply absolute z-50 mt-1 min-w-[190px] rounded-md border border-line bg-white p-1 shadow-lg;
     max-height: calc(100dvh - 16px);
@@ -1823,9 +1827,6 @@ button:disabled { cursor:not-allowed; }
 /* O painel lateral é um visualizador; só a página GRAFCET contém comandos de edição. */
 
 /* Pan/zoom do visualizador: os controlos ficam fixos, só o diagrama se move. */
-.dc-wire-guide { display:flex; flex-direction:column; align-items:flex-start; gap:4px; width:min(285px,45%); padding:10px 12px; border:1px solid #c5d6f7; border-radius:9px; background:#ffffffeb; box-shadow:0 5px 20px #1e3a5f20; backdrop-filter:blur(8px); color:#334155; font-size:11px; }
-.dc-wire-guide strong { color:#1d4ed8; font-size:12px; }
-.dc-wire-guide small { color:var(--dx-ink-3); line-height:1.4; }
 
 /* Biblioteca: miniaturas maiores, ações separadas e alvos clicáveis claros. */
 .dc-library-item { display:flex; align-items:center; gap:2px; min-height:60px; border:1px solid transparent; border-radius:9px; transition:background-color .16s,border-color .16s,box-shadow .16s; }
@@ -1852,9 +1853,6 @@ button:disabled { cursor:not-allowed; }
    usa apenas o espaço restante e nunca passa por baixo dele. */
 @media(max-width:760px) { .panel3d-model-badge { top:82px; max-width:180px; } .panel3d-axis-hud { right:7px; bottom:7px; } .panel3d-axis-hud > div { display:none; } }
 
-@media(max-width:700px) { .schematic-hud { gap:5px; font-size:9px; padding:4px 6px; } .schematic-hud span:last-child { display:none; } }
-@container (max-width:510px) { .schematic-hud span:last-child,.schematic-hud span:nth-last-child(2) { display:none; } }
-@container (max-width:330px) { .schematic-hud span[title^="Malha"],.schematic-hud span:nth-child(2) { display:none; } }
 
 /* Página de edição GRAFCET: canvas navegável, diagrama centrado e propriedades claras. */
 @media(max-width:800px) { .grafcet-full .grafcet-properties { width:100%; max-height:45%; } }

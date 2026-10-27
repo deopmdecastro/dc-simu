@@ -168,3 +168,48 @@
 .pn-page { padding: var(--pn-pad); gap: var(--pn-gap); background: var(--dx-bg, #edf0f5); scrollbar-width: thin; scrollbar-color: #c4cfdf transparent; }
 .pn-card { padding: var(--pn-pad); background: var(--pn-bg); border: 1px solid var(--pn-line); border-radius: var(--pn-radius); }
 @media (prefers-reduced-motion: reduce) { .pn-tabs .dc-tab { transition: none; } }
+
+
+/* ===== Segmentos / filtros (Admin lista + filtros de painel) ===== */
+.pn-segment {
+  display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px;
+  padding: 3px; min-height: var(--pn-tab-h); border: 1px solid var(--pn-line-soft);
+  border-radius: var(--pn-radius); background: var(--pn-bg-2);
+}
+.pn-segment > button {
+  appearance: none; border: 0; margin: 0; padding: 0 10px; min-height: 28px;
+  border-radius: calc(var(--pn-radius) - 2px); background: transparent;
+  color: var(--pn-ink-3); font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.pn-segment > button:hover { color: var(--pn-ink); background: color-mix(in srgb, var(--pn-bg) 70%, transparent); }
+.pn-segment > button.is-on { color: var(--pn-brand-ink); background: var(--pn-bg); box-shadow: 0 1px 2px rgba(15, 23, 42, .06); font-weight: 700; }
+.pn-segment > button:focus-visible { outline: none; box-shadow: var(--pn-focus); }
+
+/* Lista Admin (Biblioteca 3D) no idioma dos painéis */
+.ce-catalog .ce-list-tools { gap: var(--pn-gap); }
+.ce-catalog .ce-list-filters { gap: 8px; }
+.ce-catalog .pn-segment.ce-list-state { width: 100%; }
+@container ce-catalog (min-width: 621px) {
+  .ce-catalog .pn-segment.ce-list-state { width: auto; flex-wrap: nowrap; }
+}
+.ce-catalog .ce-cards { gap: var(--pn-gap); }
+.ce-catalog .ce-card {
+  border-color: var(--pn-line); border-radius: calc(var(--pn-radius) + 2px);
+  background: var(--pn-bg);
+}
+.ce-catalog .ce-card-title { color: var(--pn-ink); font-weight: 650; }
+.ce-catalog .ce-card-meta { color: var(--pn-ink-3); }
+
+/* Títulos de estado (Ladder bottom) alinhados ao eyebrow dos painéis */
+.ladder-bottom-panel .ladder-status-title {
+  color: var(--pn-ink-3); font-size: 9.5px; font-weight: 650;
+  letter-spacing: .055em; text-transform: uppercase; line-height: 12px;
+}
+.ladder-bottom-panel .ladder-status-row {
+  border-radius: calc(var(--pn-radius) - 2px);
+}
+.ladder-bottom-panel .ladder-status-empty:not(.is-ok):not(.is-inline) {
+  border-color: var(--pn-line); background: var(--pn-bg-2); color: var(--pn-ink-3);
+  border-radius: var(--pn-radius);
+}

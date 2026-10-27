@@ -47,8 +47,12 @@
 .schematic-view-shell[data-sim-dock="true"] > .schematic-canvas-area { flex:1 1 auto; width:auto; }
 .schematic-sim-dock { flex:0 0 312px; display:flex; flex-direction:column; min-height:0; border-left:1px solid #dbe4f0; background:#fbfcfe; }
 .schematic-sim-dock-head { display:flex; align-items:center; gap:8px; padding:9px 10px 7px 12px; border-bottom:1px solid #e3e9f4; }
+.schematic-sim-dock-head.dc-side-panel-head { min-height:46px; }
+.schematic-sim-dock-head .dc-side-panel-copy { flex:1; min-width:0; }
+.schematic-sim-dock-head .dc-side-panel-icon { color:#16a34a; }
 .schematic-sim-dock-head strong { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:#1e2a44; }
 .schematic-sim-dock-head strong svg { color:#16a34a; }
+.schematic-sim-dock-head .dc-side-panel-actions { margin-left:auto; }
 .schematic-sim-dock-state { font:700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing:.04em; padding:3px 6px; border-radius:4px; background:#eef2f8; color:#52617a; }
 .schematic-sim-dock-state.is-running { background:#dcfce7; color:#15803d; }
 .schematic-sim-dock-state.is-paused { background:#fef3c7; color:#b45309; }

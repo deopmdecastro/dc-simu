@@ -261,8 +261,6 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
     border: 1px solid #c9d8ee; border-radius: 8px; background: #fff; color: #2455d8;
   }
   .grafcet-full .grafcet-properties.is-open.is-tall { max-height: 84%; }
-  .grafcet-canvas-hud { padding: 3px 5px; }
-  .grafcet-canvas-hud button { min-width: 34px; min-height: 34px; }
   .grafcet-simbar { position: sticky; top: 0; z-index: 3; box-shadow: 0 6px 10px -8px #0f172a33; }
 }
 

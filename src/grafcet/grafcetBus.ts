@@ -39,6 +39,8 @@ export type GrafcetBusAction =
   | 'openShortcuts'
   | 'openDiagnostics'
   | 'autoLayout'
+  | 'toggleMinimap'
+  | 'fitView'
   | 'setToolSelect'
   | 'setToolPan'
   | 'setToolConnect'
@@ -54,6 +56,12 @@ interface GrafcetUiState {
   /** Painel «Componentes» aberto (espelhado do editor, para o botão da barra). */
   paletteOpen: boolean
   setPaletteOpen: (open: boolean) => void
+  /** Minimapa visível (espelhado do editor, para o botão «Mapa» da barra). */
+  minimapOn: boolean
+  setMinimapOn: (on: boolean) => void
+  /** Resumo do diagrama mostrado na barra (etapas, transições e ações). */
+  stats: string
+  setStats: (text: string) => void
   /** Mostrar controlos e painel de simulação no GRAFCET. */
   simVisible: boolean
   toggleSim: () => void
@@ -81,6 +89,11 @@ export const useGrafcetUi = create<GrafcetUiState>((set, get) => ({
   snapOn: readFlag('dcsimu:grafcet:snap', true),
   paletteOpen: false,
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  // O minimapa aparece só a pedido: é um cartão sobre o desenho (DC-ADR-059).
+  minimapOn: readFlag('dcsimu:grafcet:minimap', false),
+  setMinimapOn: (minimapOn) => { writeFlag('dcsimu:grafcet:minimap', minimapOn); set({ minimapOn }) },
+  stats: '',
+  setStats: (stats) => { if (get().stats !== stats) set({ stats }) },
   simVisible: readFlag('dcsimu:grafcet:simvisible', true),
   toggleSim: () =>
     set((state) => {

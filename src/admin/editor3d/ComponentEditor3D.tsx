@@ -1,5 +1,4 @@
 import { uiConfirm } from '../../ui/dialogs'
-import Select from '../../ui/Select'
 import { HistoryGroup, ShortcutsButton, ToolMenu, ViewControls, type ToolMenuItem, type ToolMenuSection } from '../../ui/toolbarKit'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
@@ -9,7 +8,6 @@ import { builtinTypeOf, upgradeBuiltinDraft } from './builtinComponents'
 import type { ComponentType } from '../../types'
 import { catalogApi } from '../../catalog/catalogApi'
 import { useCatalogStore } from '../../catalog/registry'
-import ViewCube, { type ViewCubeFace } from '../../components/ViewCube'
 import TerminalLibrary, { DND_PROFILE, DND_TERMINAL } from '../../components/TerminalLibrary'
 import { BUILTIN_PROFILES, defaultParams, FACES, specsFromTerminals, type TerminalSpec } from '../../catalog/terminalProfiles'
 import { allProfiles, useProfileStore } from '../../catalog/profileStore'
@@ -342,99 +340,6 @@ function useCompactView(): boolean {
     return () => query.removeEventListener('change', update)
   }, [])
   return compact
-}
-
-function ViewToolbar() {
-  const view = useEditorStore((s) => s.view)
-  const setView = useEditorStore((s) => s.setView)
-  const cameraTo = useEditorStore((s) => s.cameraTo)
-  const snap = useEditorStore((s) => s.snap)
-  const set = useEditorStore((s) => s.set)
-  const mode = useEditorStore((s) => s.mode)
-  const compactWindow = useCompactView()
-  const [narrowCanvas, setNarrowCanvas] = useState(false)
-  const compact = compactWindow || narrowCanvas
-  const [open, setOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const stage = menuRef.current?.closest('.ce-stage')
-    const canvas = stage?.querySelector('.ce-canvas') ?? stage
-    if (!canvas) return
-    // Os painéis redimensionáveis podem estreitar o canvas sem mudar a janela.
-    const update = () => { const width = canvas.getBoundingClientRect().width; setNarrowCanvas(width > 0 && width < 720) }
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(canvas)
-    return () => observer.disconnect()
-  }, [])
-  useEffect(() => {
-    if (!open) return
-    const close = (event: PointerEvent) => { if (!menuRef.current?.contains(event.target as Node)) setOpen(false) }
-    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
-    window.addEventListener('pointerdown', close); window.addEventListener('keydown', key)
-    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', key) }
-  }, [open])
-  useEffect(() => { if (!compact) setOpen(false) }, [compact])
-
-  const scene: Array<[keyof typeof view, string, string]> = [
-    ['grid', 'Grelha', 'Grelha de pontos do fundo (como no simulador)'],
-    ['floor', 'Chão', 'Chão com escala de 10 mm'],
-    ['axes', 'Eixos', 'Eixos X/Y/Z na origem'],
-    ['terminals', 'Rótulos', 'Nomes dos bornes sobre o modelo'],
-    ['bounds', 'Caixa', 'Caixa envolvente com as dimensões reais'],
-    ['dark', 'Fundo escuro', 'Fundo escuro para peças claras'],
-  ]
-  const camera = <div className="ce-group" aria-label="Câmara">
-    {([['fit', 'Enquadrar'], ['iso', 'ISO']] as const).map(([kind, label]) => <button key={kind} className="ce-tool" onClick={() => cameraTo(kind)} title={kind === 'fit' ? 'Enquadrar o modelo (F)' : 'Vista isométrica'}>{label}</button>)}
-  </div>
-  const snapControls = mode === 'edit' && <>
-    <button className={`ce-tool${snap.on ? ' is-on' : ''}`} onClick={() => set({ snap: { ...snap, on: !snap.on } })} title="Ajuste a incrementos">Snap</button>
-    <Select className="ce-mini" value={snap.mm} onChange={(event) => set({ snap: { ...snap, mm: Number(event.target.value) } })} aria-label="Passo em mm">{[0.5, 1, 2, 5, 10].map((value) => <option key={value} value={value}>{value} mm</option>)}</Select>
-    <Select className="ce-mini" value={snap.deg} onChange={(event) => set({ snap: { ...snap, deg: Number(event.target.value) } })} aria-label="Passo angular">{[1, 5, 15, 45, 90].map((value) => <option key={value} value={value}>{value}°</option>)}</Select>
-  </>
-
-  // Telemóvel: só «Enquadrar/ISO» e um botão «Vista» que abre as opções em
-  // painel — acabou a fila apertada que deslizava por baixo do cubo.
-  if (compact) {
-    const active = scene.filter(([key]) => view[key]).length
-    // Em telemóvel «Enquadrar» e «ISO» já estão na barra principal: aqui fica só
-    // o menu da cena (malha, chão, eixos, rótulos, caixa, fundo) e o ajuste.
-    return <div className="ce-viewbar is-compact" role="toolbar" aria-label="Vista 3D" ref={menuRef}>
-      <div className="ce-group">
-        <button className={`ce-tool${open ? ' is-on' : ''}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>Vista{active > 0 && <b className="ce-vm-count">{active}</b>}</button>
-      </div>
-      {open && <div className="ce-viewmenu" role="dialog" aria-label="Opções da vista">
-        <div className="ce-vm-title">Cena</div>
-        <div className="ce-vm-grid">
-          {scene.map(([key, label, hint]) => <button key={key} className={`ce-vm-item${view[key] ? ' is-on' : ''}`} title={hint} onClick={() => setView({ [key]: !view[key] } as Partial<typeof view>)}>{label}</button>)}
-        </div>
-        {mode === 'edit' && <>
-          <div className="ce-vm-title">Ajuste</div>
-          <div className="ce-vm-row">{snapControls}</div>
-        </>}
-      </div>}
-    </div>
-  }
-
-  return <div className="ce-viewbar" role="toolbar" aria-label="Vista 3D" ref={menuRef}>
-    {camera}
-    <div className="ce-group" aria-label="Cena">
-      {scene.map(([key, label, hint]) => <button key={key} className={`ce-tool${view[key] ? ' is-on' : ''}`} title={hint} onClick={() => setView({ [key]: !view[key] } as Partial<typeof view>)}>{label}</button>)}
-    </div>
-    {mode === 'edit' && <div className="ce-group" aria-label="Ajuste">{snapControls}</div>}
-  </div>
-}
-
-
-/** Cubo de vista igual ao do simulador: arrastar orbita, clicar numa face enquadra-a. */
-function CubeOverlay() {
-  const angles = useEditorStore((s) => s.camAngles)
-  const set = useEditorStore((s) => s.set)
-  const cameraTo = useEditorStore((s) => s.cameraTo)
-  return <ViewCube yaw={angles.yaw} pitch={angles.pitch} placement="top"
-    onPick={(view: ViewCubeFace) => cameraTo(view === 'isometric' ? 'iso' : view)}
-    onAngles={(yaw, pitch) => set({ viewCommand: { kind: 'angles', n: Date.now(), yaw, pitch } })}
-    onOrbit={(dx, dy) => set({ viewCommand: { kind: 'orbit', n: Date.now(), dx, dy } })} />
 }
 
 /** Barra compacta «Bornes por vista» sobre o viewport (a versão com miniaturas está no separador Bornes). */
@@ -831,8 +736,6 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
           const profile = allProfiles(useProfileStore.getState().custom).find((item) => item.id === id) ?? BUILTIN_PROFILES.find((item) => item.id === id)
           if (profile) { const n = applyProfile(profile, { ...defaultParams(profile), ...params }, false); setMessage(`${profile.name}: ${n} bornes adicionados.`) }
         }}>
-        <ViewToolbar />
-        <CubeOverlay />
         {mode === 'edit' && tab !== 'terminals' && (placing || faceLock) && <FaceBar />}
         {libraryOpen && mode === 'edit' && <LibraryPanel />}
         <div className="ce-canvas"><Suspense fallback={<div className="ce-loading">A carregar o motor 3D…</div>}><Viewport /></Suspense></div>

@@ -55,6 +55,34 @@
   .adm-head-side { width: 100%; justify-content: space-between; }
 }
 
+/* Admin listas alinhadas ao sistema de painéis */
+.dx-admin .cb-filters {
+  gap: var(--pn-gap, 12px);
+  padding: 10px 12px;
+  border: 1px solid var(--pn-line-soft, #e2e8f0);
+  border-radius: var(--pn-radius, 8px);
+  background: var(--pn-bg-2, #f6f8fb);
+}
+.dx-admin .cb-filters .dx-input {
+  border-radius: calc(var(--pn-radius, 8px) - 2px);
+  border-color: var(--pn-line, #d3dbe5);
+}
+.dx-admin .adm-tablist {
+  border-color: var(--pn-line, #d3dbe5);
+  background: var(--pn-bg, #fff);
+}
+.dx-admin .adm-tab.is-active {
+  color: var(--pn-brand-ink, #1e42d3);
+  background: var(--pn-brand-soft, #eef4ff);
+}
+.dx-admin .adm-nav-label {
+  color: var(--pn-ink-3, #64748b);
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
 /* ---------- avisos: o resultado de uma ação não empurra o conteúdo ---------- */
 .dx-admin .adm-toast { position: fixed; left: 50%; bottom: 24px; z-index: 90; width: max-content; max-width: min(560px, calc(100vw - 32px)); margin: 0; transform: translateX(-50%); box-shadow: var(--dx-sh); animation: adm-toast-in 220ms var(--dx-ease-out) both; }
 @keyframes adm-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }

@@ -350,7 +350,7 @@ function Scene() {
   const selectedNode = selectedPart ? root.getObjectByName(selectedPart.id) ?? null : null
   const highlightPart = selection?.kind === 'part' ? selection.id : selection?.kind === 'light' ? def.lights.find((light) => light.id === selection.id)?.partId : undefined
   const highlightNode = highlightPart ? root.getObjectByName(highlightPart) ?? null : null
-  const helper = useMemo(() => (highlightNode ? new THREE.BoxHelper(highlightNode, '#2655e5') : null), [highlightNode, root])
+  const helper = useMemo(() => (highlightNode ? new THREE.Box3Helper(new THREE.Box3(), '#2655e5') : null), [highlightNode, root])
   const areaOutline = useMemo(() => {
     if (selection?.kind !== 'control') return null
     const control = def.controls?.find((item) => item.id === selection.id)
@@ -364,9 +364,13 @@ function Scene() {
     .filter((id) => id !== highlightPart)
     .map((id) => root.getObjectByName(id))
     .filter((node): node is THREE.Object3D => !!node)
-    .map((node) => new THREE.BoxHelper(node, '#2655e5')), [multi, highlightPart, root])
+    .map(() => new THREE.Box3Helper(new THREE.Box3(), '#2655e5')), [multi, highlightPart, root])
   useFrame(() => {
-    helper?.update(); multiHelpers.forEach((item) => item.update())
+    if (helper && highlightNode) helper.box.copy(boundsWithoutGlow(highlightNode, true))
+    multiHelpers.forEach((item, index) => {
+      const node = multi.filter((id) => id !== highlightPart).map((id) => root.getObjectByName(id)).filter((candidate): candidate is THREE.Object3D => !!candidate)[index]
+      if (node) item.box.copy(boundsWithoutGlow(node, true))
+    })
     if (areaOutline && selection?.kind === 'control') {
       const control = def.controls?.find((item) => item.id === selection.id)
       const box = control && controlAreaBox(root, control)

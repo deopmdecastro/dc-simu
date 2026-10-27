@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { IconCheck, IconClose, IconWarning } from '../../ui/icons'
+import { IconCheck, IconClose, IconWarning, IconLayers } from '../../ui/icons'
+import SidePanelHeader from '../../components/SidePanelHeader'
 import { useEditorStore } from './editorStore'
 import { endLabel, evaluateWire } from './wirePath'
 import { useWireInfo } from './WireDraw'
@@ -31,12 +32,18 @@ export default function WirePanel() {
   const setDefaults = (patch: Partial<typeof defaults>) => set({ wireDefaults: { ...defaults, ...patch } })
 
   return <div className={`ce-wirepanel${open ? '' : ' is-collapsed'}`} role="status">
-    <div className="ce-wirepanel-head">
-      <strong>Cabos de teste</strong>
-      {wires.length > 0 && <span className="ce-wp-count">{wires.length}</span>}
-      <span className="ce-wp-spacer" />
-      <button className="ce-icon ce-wp-toggle" onClick={() => setOpen(!open)} aria-expanded={open} title={open ? 'Recolher' : 'Expandir'}>{open ? '–' : '+'}</button>
-    </div>
+    <SidePanelHeader
+      className="ce-wirepanel-head"
+      eyebrow="CABOS"
+      title="Cabos de teste"
+      icon={<IconLayers size={16} />}
+      side="left"
+      collapsed={!open}
+      onToggle={() => setOpen(!open)}
+      toggleLabel={open ? 'Recolher cabos de teste' : 'Expandir cabos de teste'}
+      toggleClassName="ce-wp-toggle"
+      detail={wires.length > 0 ? `${wires.length} cabo${wires.length === 1 ? '' : 's'}` : undefined}
+    />
     {open && <>
       {/* Opções dos cabos e ponteiras no painel lateral (o mesmo bloco do simulador). */}
       <div className="ce-wp-new" aria-label="Opções dos cabos novos">

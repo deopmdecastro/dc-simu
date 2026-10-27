@@ -82,6 +82,9 @@
 .ladder-bottom-panel .ladder-status-title { position: static; margin: 0 0 6px; padding: 0; background: none; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
 .ladder-bottom-panel .ladder-status-row { height: 26px; grid-template-columns: 52px minmax(0, 1fr) 12px; gap: 8px; padding: 0 6px; border-radius: 6px; font-size: 12px; }
 .ladder-bottom-panel .ladder-status-row:hover { background: #f4f7fb; }
+.ladder-bottom-tabs > button:focus-visible, .ladder-bottom-actions button:focus-visible { outline: 3px solid rgba(47,111,228,.22); outline-offset: 1px; }
+.ladder-bottom-panel .ladder-status-row { transition: background .15s ease, border-color .15s ease; }
+@media (prefers-reduced-motion: reduce) { .ladder-bottom-panel .ladder-status-row { transition: none; } }
 .ladder-bottom-panel .ladder-status-row:has(.ladder-status-detail) { height: 34px; }
 .ladder-bottom-panel .ladder-status-detail { display: block; overflow: hidden; color: #8493a8; font-size: 9px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .ladder-bottom-panel .ladder-status-dot { width: 10px; height: 10px; }

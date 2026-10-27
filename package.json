@@ -70,7 +70,8 @@
     "test:sheets": "tsx scripts/sheets-smoke.ts",
     "test:editors-sweep-ui": "node scripts/editors-sweep-ui-smoke.mjs",
     "test:ladder-blocks-ui": "node scripts/ladder-blocks-ui-smoke.mjs",
-    "test:wire-options-ui": "node scripts/wire-options-panel-ui-smoke.mjs"
+    "test:wire-options-ui": "node scripts/wire-options-panel-ui-smoke.mjs",
+    "test:sem-cartoes-canvas": "node scripts/sem-cartoes-canvas-ui-smoke.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",
