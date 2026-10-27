@@ -206,12 +206,13 @@ export default function ComponentViewEditor() {
   const components = useSimStore((state) => state.components)
   const selectedIds = useSimStore((state) => state.selectedComponentIds)
   const editor = useSimStore((state) => state.viewOrientationEditor)
+  const running = useSimStore((state) => state.sim.runState === 'running')
   const open = useSimStore((state) => state.openViewOrientationEditor)
   const selected = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
-  if (editor || !selected) return null
+  if (editor || !selected || running) return null
   return <div className="component-view-command">
-    <button type="button" aria-label={`Editar componente 3D ${selected.ref}`} onClick={() => open(selected.id)} title={`Editar componente 3D ${selected.ref}`}><IconCube size={14} /><span className="component-command-long">Editar componente 3D</span><span className="component-command-short">Componente</span></button>
-    <button type="button" aria-label={`${selected.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'} de ${selected.ref}`} onClick={() => open(selected.id, 'terminals')} title={`Adicionar, classificar e posicionar os bornes de ${selected.ref}`}><IconProbe size={14} /><span className="component-command-long">{selected.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'}</span><span className="component-command-short">Bornes</span></button>
+    <button type="button" aria-label={`Editar componente 3D ${selected.ref}`} onClick={() => open(selected.id)} title={`Editar componente 3D ${selected.ref}`}><IconCube size={14} /></button>
+    <button type="button" aria-label={`${selected.terminals.length > 0 ? 'Editar bornes' : 'Adicionar borne'} de ${selected.ref}`} onClick={() => open(selected.id, 'terminals')} title={`Adicionar, classificar e posicionar os bornes de ${selected.ref}`}><IconProbe size={14} /></button>
   </div>
 }
 

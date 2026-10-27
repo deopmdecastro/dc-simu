@@ -22,7 +22,7 @@ import { wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
-import { hasComponent3DModel, isMountingRail, MISSING_3D_MODEL_MESSAGE } from '../three/modelPaths'
+import { canInsertComponent3D, isMountingRail, MISSING_3D_MODEL_MESSAGE } from '../three/modelPaths'
 import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRailGeometry'
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
@@ -77,7 +77,7 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
   onPick: () => void; onQuickAdd: () => void; onFavorite: () => void; onRecent: () => void
 }) {
   const disabledNote = useComponentSettings((s) => disabledReason(s.disabled, type))
-  const available = hasComponent3DModel(type) && !disabledNote
+  const available = canInsertComponent3D(type) && !disabledNote
   const touchStart = useRef<{ at: number; x: number; y: number; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
   const lockMessage = disabledNote ?? MISSING_3D_MODEL_MESSAGE
@@ -163,7 +163,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const [terminalLibOpen, setTerminalLibOpen] = useState(false)
   const inspectorRef = useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState('')
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(paletteGroups().map((g) => g.group).filter((g) => !['protection', 'command'].includes(g))))
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(paletteGroups().map((g) => g.group).filter((g) => !['protection', 'command', 'Bornes e barras'].includes(g))))
   const [favorites, setFavorites] = useState<ComponentType[]>(() => {
     try { return (JSON.parse(localStorage.getItem('dcsimu:library:favorites') ?? '[]') as ComponentType[]).map((type) => (type as string) === 'powerSupplyProauto24B' ? 'powerSupplyProauto24A' : type) }
     catch { return [] }
@@ -204,7 +204,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   // ADMIN-COMP-01: arquivados/eliminados saem da biblioteca, recentes e favoritos.
   const hiddenComponents = useComponentSettings((s) => s.hidden)
   const groups = useMemo(() => paletteGroups().map((g) => ({ ...g, items: g.items.filter((it) => !hiddenComponents[it.type]) })).filter((g) => g.items.length > 0), [catalogRevision, hiddenComponents])
-  const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => hasComponent3DModel(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length, [disabledComponents, hiddenComponents, catalogRevision])
+  const modelReadyCount = useMemo(() => (Object.keys(TEMPLATES) as ComponentType[]).filter((type) => canInsertComponent3D(type) && !(type in disabledComponents) && !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length, [disabledComponents, hiddenComponents, catalogRevision])
   const lockedCount = Object.keys(TEMPLATES).filter((type) => !hiddenCatalogTypes.has(type) && !hiddenComponents[type]).length - modelReadyCount
   const selectedComponent = components.find((c) => c.id === selectedIds[0])
   const selectedWire = wires.find((w) => w.id === selectedWireId)
@@ -250,7 +250,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   }
 
   const placingType = useSimStore((s) => s.placingType)
-  const canInsert = (type: ComponentType) => hasComponent3DModel(type) && !(type in disabledComponents)
+  const canInsert = (type: ComponentType) => canInsertComponent3D(type) && !(type in disabledComponents)
 
   /** Clique = modo "posicionar com o mouse" (fantasma segue o cursor no
    *  esquema). Clique novamente no mesmo item cancela. */
@@ -312,7 +312,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           </div>
           <div className="dc-library-model-notice" role="note">
             <IconLock size={13} />
-            <span><strong>{lockedCount} componentes bloqueados.</strong> Sem GLB 3D real ou desativados pelo administrador, não podem ser inseridos.</span>
+            <span><strong>{lockedCount} componentes bloqueados.</strong> Itens sem GLB ou representação 3D disponível, e os desativados pelo administrador, não podem ser inseridos.</span>
           </div>
           <div className="pn-section is-compact flex items-center justify-between text-[10px] text-ink-500">
             <span>{filteredReadyCount} com 3D · {filteredLockedCount} bloqueados{filter ? ' na pesquisa' : ''}</span>
@@ -340,8 +340,8 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
               </section>
             })}
              <p className="text-ink-400 text-[10px] leading-relaxed mt-2 p-2 bg-surface-sunken/60 rounded-md border border-line-soft">
-               Nos itens <b className="text-ink-500">com GLB 3D</b>, clique ou arraste: o componente aparece em pré-visualização no esquema
-               e fica onde <b className="text-ink-500">soltar/clicar</b> (encaixa na malha). O cadeado indica que o modelo 3D ainda falta e bloqueia a inserção.
+               Nos itens <b className="text-ink-500">disponíveis</b>, clique ou arraste: o componente aparece em pré-visualização no esquema
+               e fica onde <b className="text-ink-500">soltar/clicar</b> (encaixa na malha). O cadeado indica que falta uma representação 3D ou que o item foi desativado.
                Duplo clique insere já no esquema · Shift+clique posiciona vários · Esc cancela.
              </p>
           </div>

@@ -215,7 +215,16 @@ export function hasComponent3DModel(type: ComponentType): boolean {
   return !!getComponentGlbSpec(type)
 }
 
-export const MISSING_3D_MODEL_MESSAGE = 'Bloqueado: modelo 3D GLB ainda não disponível.'
+/** Tipos sem GLB que têm renderizador 3D procedural próprio e podem ser inseridos. */
+const PROCEDURAL_COMPONENTS_3D = new Set<ComponentType>([
+  'powerSource1ph', 'powerSource3ph', 'terminalSet1ph', 'terminalSet3ph',
+])
+
+export function canInsertComponent3D(type: ComponentType): boolean {
+  return hasComponent3DModel(type) || PROCEDURAL_COMPONENTS_3D.has(type)
+}
+
+export const MISSING_3D_MODEL_MESSAGE = 'Bloqueado: modelo GLB ou representação 3D ainda não disponível.'
 
 export function hasDinRailModel(type: ComponentType): boolean {
   return getComponentGlbSpec(type)?.placement === 'din-rail'

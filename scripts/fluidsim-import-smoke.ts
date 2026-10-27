@@ -199,4 +199,28 @@ if (process.env.FLUIDSIM_MONTA_CARGA) {
   console.log('PASS — Monta-Carga: 1→5→10→15→1, ações Q_Monter/Q_Descendre, retorno desenhado e título Q1')
   checks++
 }
+if (process.env.FLUIDSIM_EXTRA_SAMPLE) {
+  const samplePath = process.env.FLUIDSIM_EXTRA_SAMPLE
+  const sample = readFileSync(samplePath)
+  const expectedError = process.env.FLUIDSIM_EXTRA_EXPECT_ERROR
+  if (expectedError) {
+    assert.throws(() => importFluidSim4(sample), new RegExp(expectedError))
+    console.log('PASS — ' + samplePath + ': recusa explícita esperada (' + expectedError + ')')
+  } else {
+    const result = importFluidSim4(sample)
+    const counts = {
+      steps: result.program.steps.length,
+      transitions: result.program.transitions?.length ?? 0,
+      actions: result.program.steps.flatMap(step => step.actions ?? []).length,
+      charts: result.program.charts?.length ?? 1,
+    }
+    for (const [key, value] of Object.entries(counts)) {
+      const expected = process.env['FLUIDSIM_EXTRA_EXPECT_' + key.toUpperCase()]
+      if (expected) assert.equal(value, Number(expected), 'contagem de ' + key)
+    }
+    console.log('PASS — ' + samplePath + ': ' + counts.steps + ' etapas, ' + counts.transitions + ' transições, ' + counts.actions + ' ações, ' + counts.charts + ' páginas')
+  }
+  checks++
+}
+
 console.log(`${checks} verificações de importação FluidSIM passaram.`)

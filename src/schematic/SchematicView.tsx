@@ -11,7 +11,7 @@ import { getLogo3DImages } from './logo3DImage'
 import { getProauto3DImage } from './proauto3DImage'
 import { getWeg3DImage } from './weg3DImage'
 import { getCad3DImage } from './cad3DImage'
-import { getComponentModelSpec, hasComponent3DModel, MIN_SCHEMATIC_HIT_WIDTH, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import { canInsertComponent3D, getComponentModelSpec, hasComponent3DModel, MIN_SCHEMATIC_HIT_WIDTH, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import { componentOrientationOf, isOriginalComponentOrientation } from '../three/componentOrientation'
 import { componentTerminalLocal, orientedImageFrame } from './componentTerminalViews'
 import { getOrientedComponentImage } from '../three/orientedComponentImage'
@@ -646,7 +646,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     // modo "posicionar componente": clique esquerdo posiciona (Shift = vários),
     // clique direito ou Esc cancela
     if (placingType) {
-      if (!hasComponent3DModel(placingType)) {
+      if (!canInsertComponent3D(placingType)) {
         setPlacingType(null)
         return
       }
@@ -874,7 +874,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const compType = (e.dataTransfer.getData('application/dc-simu-component') || e.dataTransfer.getData('application/x-dcsimu-component') || e.dataTransfer.getData('text/plain')) as ComponentType
     useSimStore.getState().setDragType(null)
     setCursorPos(null)
-    if (!compType || compType.includes(':') || !hasComponent3DModel(compType)) return
+    if (!compType || compType.includes(':') || !canInsertComponent3D(compType)) return
     const p = toCanvas(e.clientX, e.clientY)
     const g = createComponent(compType)
     selectWire(null)

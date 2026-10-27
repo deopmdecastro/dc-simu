@@ -77,3 +77,22 @@ Foi também validado um ficheiro CT de referência adicional (`Monta-Carga.ct`, 
 O exemplo `Monta Carga.ct`, acompanhado de TIFF, contém três diagramas lado a lado. O leitor separa-os em três páginas, cada uma com 4 etapas e 4 transições, mantendo números de etapa repetidos em páginas diferentes. As etapas encapsulantes e as macroetapas E/M/S são reconhecidas. A página 2 não tem etapa inicial e é assinalada como parcial; a página 3 tem duas etapas iniciais e pede confirmação. Três qualificadores de ação ainda não mapeados geram avisos para revisão antes de simular. Os ficheiros de origem permanecem fora do repositório.
 
 O [manual oficial do FluidSIM 4](https://www.art-systems.de/www/files/fluidsim/downloads/v4/hb-eng-p4.pdf) descreve GRAFCET e a exportação TIFF/DXF. A opção de guardar XML sem compressão pertence a versões posteriores; não é um requisito deste leitor CT.
+
+
+## Exemplo adicional: três GRAFCETs FluidSIM (2026-10-27)
+
+O ficheiro local `Grafcet.ct`, acompanhado pela imagem `Grafcet.tif`, é um novo caso de treino. A imagem mostra os diagramas de controlo, funcionamento e reset. O CT contém 34 etapas e 40 registos de transição. Os ficheiros permanecem na pasta fornecida pelo utilizador e não são copiados para o repositório.
+
+A importação ainda é recusada: a transição 9 (`NOT Emerg_NF`) não tem uma etapa de origem ligada. O leitor pára aqui para evitar inventar uma ligação e alterar a sequência. O caso também contém referências entre gráficos, que exigem revisão semântica antes de uma importação fiel. A imagem serve para comparar o resultado visual; não determina por si só as ligações do modelo.
+
+Para reproduzir a recusa esperada no teste focado do leitor:
+
+```powershell
+$env:FLUIDSIM_EXTRA_SAMPLE = 'C:\Users\Deogracia de Castro\Downloads\Grafcet.ct'
+$env:FLUIDSIM_EXTRA_EXPECT_ERROR = 'a transi..o 9 tem liga..es incompletas'
+npm run test:fluidsim
+Remove-Item Env:FLUIDSIM_EXTRA_SAMPLE
+Remove-Item Env:FLUIDSIM_EXTRA_EXPECT_ERROR
+```
+
+Para outro CT que já importe, omita `FLUIDSIM_EXTRA_EXPECT_ERROR`; pode definir `FLUIDSIM_EXTRA_EXPECT_STEPS`, `FLUIDSIM_EXTRA_EXPECT_TRANSITIONS`, `FLUIDSIM_EXTRA_EXPECT_ACTIONS` e `FLUIDSIM_EXTRA_EXPECT_CHARTS` para fixar as contagens esperadas. Este exemplo é um teste de limite conhecido, ainda não um exemplo de importação concluída.

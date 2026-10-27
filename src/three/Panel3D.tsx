@@ -6,7 +6,6 @@ import { OrbitControls, Text, TransformControls, Edges, useGLTF } from '@react-t
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
-import { useSimUi } from '../ui/simUi'
 import { TbButton } from '../ui/toolbarKit'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp, { type ShortcutHelpExtra } from '../ui/ShortcutHelp'
@@ -20,7 +19,7 @@ import * as THREE from 'three'
 import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoScreen'
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { finishCadMaterial } from './catalogMaterials'
-import { getCommandModelSpec, getComponentModelSpec, hasComponent3DModel, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
+import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
 import { RAIL_MOUNT_TYPE_PREFIXES } from './railMount'
@@ -2024,10 +2023,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const wireDefaults = useSimStore((s) => s.wireDefaults)
   const viewOrientationEditor = useSimStore((s) => s.viewOrientationEditor)
   const tool = useSimStore((s) => s.tool)
+  const runState = useSimStore((s) => s.sim.runState)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
-  const simulationMode = useSimUi((s) => s.schematic)
-  const interactive = simulationMode && tool === 'select' && !viewOrientationEditor
+  const interactive = runState === 'running' && tool === 'select' && !viewOrientationEditor
   const probeA = useSimStore((state) => state.probeA)
   const probeResult = useSimStore((state) => state.probeResult)
   const [reconnect, setReconnect] = useState<{ wireId: string; end: 'from' | 'to' } | null>(null)
@@ -2314,7 +2313,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       onTerminalPick={pickConnectionTerminal}
     >{content}</OrientedInstance>
   }
-  const selectedComponent = selectedIds.length === 1 ? components.find((component) => component.id === selectedIds[0]) : undefined
   const selectedWire = selectedWireId ? wires.find((wire) => wire.id === selectedWireId) : undefined
   useEffect(() => {
     wireEditBaselineRef.current = selectedWire ? { id: selectedWire.id, wire: structuredClone(selectedWire) } : null
@@ -2333,7 +2331,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const focusSelection = () => {
     if (selectedTarget && selectionSphere) setCameraCommand((current) => ({ id: current.id + 1, view: 'focus', target: selectedTarget, radius: selectionSphere.radius }))
   }
-  const selectedDimensions = selectedComponent ? getComponentModelSpec(selectedComponent.type)?.physicalSizeMm : undefined
   const beginWireEdit = (wire: Wire) => {
     const store = useSimStore.getState()
     if (!wireEditDirty || wireEditBaselineRef.current?.id !== wire.id) {
@@ -2620,7 +2617,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
        onDrop={(e) => {
          e.preventDefault()
          const compType = e.dataTransfer.getData('text/plain') as ComponentType
-         if (!compType || !hasComponent3DModel(compType)) return
+         if (!compType || !canInsertComponent3D(compType)) return
          // Entra no centro da vista atual, à escala real, e o imã fixa-o à calha se ficar ao alcance.
          const [cx, cy] = sceneCenterRef.current
          const id = addComponent(compType, Math.round(panelToSchematicX(cx) - 40), Math.round(panelToSchematicY(cy) - 40))
@@ -2637,10 +2634,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           placement="top"
         />
       <div className="panel3d-hud-top">
-      <div className={`panel3d-tool-context${hintOpen ? ' is-hint-open' : ''}`} role="region" aria-label="Contexto da ferramenta 3D">
-        <span><strong>{tool === 'wire' ? 'Cabo' : tool === 'erase' ? 'Apagar' : tool === 'probe' ? 'Sonda' : tool === 'pan' ? 'Mover vista' : simulationMode && interactive ? 'Simulação' : 'Selecionar'}</strong>
-          <small id="panel3d-tool-hint">{tool === 'erase' ? 'Clique num componente ou cabo · Ctrl+Z desfaz' : tool === 'probe' ? (probeA ? 'Escolha o segundo borne' : 'Escolha o primeiro borne') : tool === 'wire' ? 'Escolha bornes para ligar · Esc termina' : tool === 'pan' ? 'Arraste para deslocar a vista' : simulationMode && interactive ? 'Clique nos dispositivos para os acionar · sair pela barra Simulação' : selectedIds.length ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''} · F enquadra` : 'Clique para selecionar · arraste para mover'}</small>
-        </span>
+      <div className={`panel3d-tool-context${hintOpen ? ' is-hint-open' : ''}${tool === 'select' && !hintOpen ? ' is-minimal' : ''}`} role="region" aria-label="Contexto da ferramenta 3D">
+        {(tool !== 'select' || hintOpen) && <span><strong>{tool === 'wire' ? 'Cabo' : tool === 'erase' ? 'Apagar' : tool === 'probe' ? 'Sonda' : tool === 'pan' ? 'Mover vista' : interactive ? 'Simulação' : 'Selecionar'}</strong>
+          <small id="panel3d-tool-hint">{tool === 'erase' ? 'Clique num componente ou cabo · Ctrl+Z desfaz' : tool === 'probe' ? (probeA ? 'Escolha o segundo borne' : 'Escolha o primeiro borne') : tool === 'wire' ? 'Escolha bornes para ligar · Esc termina' : tool === 'pan' ? 'Arraste para deslocar a vista' : interactive ? 'Clique nos dispositivos para os acionar · sair pela barra Simulação' : selectedIds.length ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''} · F enquadra` : 'Clique para selecionar · arraste para mover'}</small>
+        </span>}
         <TbButton className="dc-tool-btn panel3d-hint-toggle" pressed={hintOpen} onClick={() => setHintOpen((value) => !value)} title="Mostrar/ocultar a explicação da ferramenta" aria-label="Explicação da ferramenta" aria-expanded={hintOpen} aria-controls="panel3d-tool-hint"><IconHelp size={13} /></TbButton>
         {selectedTarget && <TbButton onClick={focusSelection} title="Enquadrar seleção [F]" aria-label="Enquadrar seleção"><IconFocus size={13} /></TbButton>}
         {tool === 'probe' && probeResult && <small className="panel3d-probe-result" role="status">{probeResult.note}{probeResult.b ? ` · ${probeResult.voltage}` : ''}</small>}
@@ -2669,13 +2666,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           <small className="panel3d-wire-hint">{moveAllWire ? 'Arraste o cubo roxo para mover o cabo.' : reconnect ? 'Clique no novo borne da ponta.' : 'Arraste as bolas para curvar · duplo clique no cabo cria um ponto · ◆ = pontas · cor, secção e terminações no Inspetor'}</small>
         </div>
       </div>}
-      {selectedComponent && editMode === 'navigate' && <div className="panel3d-model-badge">
-        <span><i />MODELO 3D<strong>{selectedComponent.ref} · {selectedComponent.label}</strong></span>
-        <small>
-          {selectedDimensions ? `${selectedDimensions.width} × ${selectedDimensions.height} × ${selectedDimensions.depth} mm · ` : ''}
-          Escala {Math.round(component3DScaleOf(selectedComponent).x * 100)}·{Math.round(component3DScaleOf(selectedComponent).y * 100)}·{Math.round(component3DScaleOf(selectedComponent).z * 100)}% · {selectedComponent.view3DRenderMode === 'wireframe' ? 'Arame' : selectedComponent.view3DRenderMode === 'xray' ? 'Raio-X' : 'Sólido'}
-        </small>
-      </div>}
       <ComponentViewEditor />
       </div>
       </div>
@@ -2691,7 +2681,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}
         {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} showFloor={floorGridVisible(cameraStats.pitch)} />}
         {showGrid && gridSettings.enabled && <DotGrid size={gridSettings.size} style={gridSettings.style} dark={backgroundMode === 'dark'} bounds={frontEdit ? null : plateBounds} />}
-        {frontEdit && placingType && hasComponent3DModel(placingType) && <PlacementPlane step={gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0} onPlace={(x, y) => {
+        {frontEdit && placingType && canInsertComponent3D(placingType) && <PlacementPlane step={gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0} onPlace={(x, y) => {
           const step = gridSettings.enabled && gridSettings.snap && gridSettings.size > 0 ? gridSettings.size : 0
           const snapTo = (value: number) => step ? Math.round(value / step) * step : Math.round(value)
           const id = addComponent(placingType, snapTo(panelToSchematicX(x) - 40), snapTo(panelToSchematicY(y) - 40))

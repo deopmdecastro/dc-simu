@@ -239,6 +239,21 @@ function buildController(g: THREE.Group, type: string) {
 }
 
 function buildTerminal(g: THREE.Group, type: string) {
+  if (type === 'terminalSet1ph' || type === 'terminalSet3ph') {
+    const conductors = type === 'terminalSet1ph' ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
+    const colors: Record<string, string> = { L: BLACK, L1: BLACK, L2: '#8b4513', L3: '#6b7280', N: '#2563eb', PE: PE_GREEN }
+    const step = conductors.length === 3 ? 0.36 : 0.28
+    conductors.forEach((conductor, index) => {
+      const x = (index - (conductors.length - 1) / 2) * step
+      const color = colors[conductor]
+      box(g, 0.24, 0.64, 0.28, color, x, 0, 0, { roughness: 0.74 })
+      box(g, 0.16, 0.09, 0.025, BRASS, x, 0.12, 0.155, { metalness: 0.58, roughness: 0.38 })
+      cyl(g, 0.055, 0.055, 0.035, METAL, x, 0.245, 0.02, { metalness: 0.68, roughness: 0.3 }, 12)
+      if (conductor === 'PE') box(g, 0.04, 0.64, 0.01, '#facc15', x, 0, 0.146)
+    })
+    box(g, conductors.length * step + 0.12, 0.07, 0.34, '#64748b', 0, -0.36, 0, { metalness: 0.2 })
+    return
+  }
   if (type.startsWith('busbar') || type === 'earthBar') {
     const color = type === 'busbarPhase' ? BRASS : type === 'busbarNeutral' ? NEUTRAL_BLUE : PE_GREEN
     box(g, 1.3, 0.12, 0.12, color, 0, 0, 0, { metalness: 0.5, roughness: 0.35 })
@@ -249,6 +264,21 @@ function buildTerminal(g: THREE.Group, type: string) {
 }
 
 function buildPower(g: THREE.Group, type: string) {
+  if (type === 'powerSource1ph' || type === 'powerSource3ph') {
+    const conductors = type === 'powerSource1ph' ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
+    const colors: Record<string, string> = { L: BLACK, L1: BLACK, L2: '#8b4513', L3: '#6b7280', N: '#2563eb', PE: PE_GREEN }
+    const width = conductors.length === 3 ? 0.92 : 1.28
+    box(g, width, 0.8, 0.4, '#cbd5e1')
+    box(g, width - 0.18, 0.56, 0.025, '#f1f5f9', 0, 0.02, 0.215)
+    const step = width / (conductors.length + 0.4)
+    conductors.forEach((conductor, index) => {
+      const x = (index - (conductors.length - 1) / 2) * step
+      box(g, 0.16, 0.14, 0.15, colors[conductor], x, 0.44, 0.18, { roughness: 0.74 })
+      box(g, 0.09, 0.04, 0.02, BRASS, x, 0.45, 0.265, { metalness: 0.58, roughness: 0.38 })
+      if (conductor === 'PE') box(g, 0.025, 0.14, 0.008, '#facc15', x, 0.44, 0.258)
+    })
+    return
+  }
   if (type === 'powerSupplyProauto24A') {
     box(g, 0.62, 0.95, 0.42, '#485561')
     box(g, 0.49, 0.61, 0.025, '#dce3e7', 0, 0.03, 0.23)

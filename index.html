@@ -6,18 +6,21 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <script>
-      // Se um HTML antigo de uma PWA apontar para um CSS já removido no deploy,
+      // Se um HTML antigo de uma PWA apontar para assets já removidos no deploy,
       // invalida as caches e volta a pedir a página atualizada uma única vez.
       (function () {
-        var key = 'dcsimu:stylesheet-recovered:v1'
+        var key = 'dcsimu:startup-asset-recovered:v2'
         var recovering = false
         document.addEventListener('error', function (event) {
-          var link = event.target
-          if (!(link instanceof HTMLLinkElement) || link.rel !== 'stylesheet') return
+          var target = event.target
+          var failedUrl = null
+          if (target instanceof HTMLLinkElement && target.rel === 'stylesheet') failedUrl = target.href
+          if (target instanceof HTMLScriptElement && target.type === 'module') failedUrl = target.src
+          if (!failedUrl) return
           if (recovering) return
           try {
-            if (sessionStorage.getItem(key) === link.href) return
-            sessionStorage.setItem(key, link.href)
+            if (sessionStorage.getItem(key) === failedUrl) return
+            sessionStorage.setItem(key, failedUrl)
           } catch (_) { /* armazenamento indisponível */ }
           recovering = true
           Promise.all([

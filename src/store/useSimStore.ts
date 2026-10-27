@@ -50,7 +50,7 @@ import { plcIoCapacity } from '../ladder/plcIo'
 import { withEmptyNetworkBelow } from '../ladder/autoNetwork'
 import { parseDataBlocks, type DbTable } from '../ladder/dataBlocks'
 import { saveProject, loadProject, deleteProject, setLastOpened } from '../utils/persistence'
-import { hasComponent3DModel, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
+import { canInsertComponent3D, PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from '../three/modelPaths'
 import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
@@ -1258,11 +1258,11 @@ export const useSimStore = create<Store>((set, get) => ({
 
   placingType: null,
   setPlacingType: (t) => {
-    const availableType = t && hasComponent3DModel(t) ? t : null
+    const availableType = t && canInsertComponent3D(t) ? t : null
     set({ placingType: availableType, tool: availableType ? 'select' : get().tool })
   },
   dragType: null,
-  setDragType: (t) => set({ dragType: t && hasComponent3DModel(t) ? t : null }),
+  setDragType: (t) => set({ dragType: t && canInsertComponent3D(t) ? t : null }),
   viewOrientationEditor: null,
   openViewOrientationEditor: (componentId, section = 'orientation') => {
     const component = get().components.find((item) => item.id === componentId)
@@ -1573,8 +1573,8 @@ export const useSimStore = create<Store>((set, get) => ({
   setWireDefaults: (patch) => set((s) => ({ wireDefaults: { ...s.wireDefaults, ...patch } })),
 
   addComponent: (type, x, y) => {
-    if (!hasComponent3DModel(type)) {
-      get().pushEvent('warning', `Componente bloqueado: o modelo 3D GLB de ${TEMPLATES[type]?.paletteName ?? type} ainda não está disponível.`)
+    if (!canInsertComponent3D(type)) {
+      get().pushEvent('warning', `Componente bloqueado: não existe representação 3D disponível para ${TEMPLATES[type]?.paletteName ?? type}.`)
       return null
     }
     get().commitHistory()
@@ -1656,7 +1656,7 @@ export const useSimStore = create<Store>((set, get) => ({
   duplicateComponents: (ids) => {
     const allowedIds = ids.filter((id) => {
       const source = get().components.find((component) => component.id === id)
-      return source ? hasComponent3DModel(source.type) : false
+      return source ? canInsertComponent3D(source.type) : false
     })
     if (allowedIds.length === 0) {
       if (ids.length > 0) get().pushEvent('warning', 'Duplicação bloqueada: o componente selecionado ainda não possui modelo 3D GLB.')

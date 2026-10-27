@@ -336,3 +336,26 @@
   .panel3d-stage .panel3d-tool-context .dc-tool-btn { min-height: 30px; min-width: 30px; padding-inline: 6px; font-size: 10.5px; }
   .panel3d-stage .panel3d-tool-context .dc-tool-btn.panel3d-hint-toggle { min-width: 28px; }
 }
+
+/* Em seleção, mantém só os atalhos por ícone; os cartões de contexto repetiam
+   o nome e o estado já visíveis no inspetor e na barra do simulador. */
+.panel3d-stage .panel3d-tool-context.is-minimal {
+  width: max-content !important;
+  max-width: none;
+  gap: 4px;
+  padding: 0 !important;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.panel3d-stage .panel3d-tool-context.is-minimal > span { display: none; }
+.panel3d-stage .panel3d-tool-context.is-minimal .dc-tool-btn {
+  min-width: 30px;
+  min-height: 30px;
+  padding-inline: 5px;
+  border: 1px solid var(--dx-line);
+  border-radius: 7px;
+  background: var(--dx-surface);
+}
