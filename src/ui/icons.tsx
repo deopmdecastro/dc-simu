@@ -31,6 +31,9 @@ import {
   faCamera,
   faCaretUp,
   faCheck,
+  faCircleCheck,
+  faCircleXmark,
+  faClockRotateLeft,
   faCommentDots,
   faChevronDown,
   faChevronLeft,
@@ -59,6 +62,10 @@ import {
   faFile,
   faFileArrowUp,
   faFileImport,
+  faFilePdf,
+  faHardDrive,
+  faHourglassHalf,
+  faInbox,
   faShapes,
   faFloppyDisk,
   faFolder,
@@ -103,6 +110,7 @@ import {
   faTriangleExclamation,
   faUpDownLeftRight,
   faUser,
+  faUsers,
   faWandMagicSparkles,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons'
@@ -188,6 +196,14 @@ export const IconMath = fa(faCalculator)
 export const IconFunction = fa(faSquareRootVariable)
 export const IconClose = fa(faXmark)
 export const IconCheck = fa(faCheck)
+export const IconCheckCircle = fa(faCircleCheck)
+export const IconXCircle = fa(faCircleXmark)
+export const IconPending = fa(faHourglassHalf)
+export const IconUsers = fa(faUsers)
+export const IconStorage = fa(faHardDrive)
+export const IconInbox = fa(faInbox)
+export const IconHistory = fa(faClockRotateLeft)
+export const IconPdf = fa(faFilePdf)
 /** Comentários do projeto (bolha com pontos). */
 export const IconComment = fa(faCommentDots)
 export const IconWarning = fa(faTriangleExclamation)

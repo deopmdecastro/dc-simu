@@ -1,5 +1,5 @@
 import Select from '../ui/Select'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { uiConfirm } from '../ui/dialogs'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { adminComponentIdFromPath, isAdminEditorPath, ROUTES } from '../routing/routes'
@@ -8,7 +8,7 @@ import AccountControls from '../components/AccountControls'
 import { activeAccountBackend } from '../auth/accountApi'
 import { useComponentSettings } from './componentSettings'
 import { adminApi } from './adminApi'
-import { actionLabel, type AdminProject, type AdminUser, type AuditEntry, type ComponentSetting, type PlanRequest } from './adminTypes'
+import { actionLabel, categoryOf, severityOf, type AdminProject, type AdminUser, type AuditEntry, type ComponentSetting, type PlanRequest } from './adminTypes'
 import PlansTab from './PlansTab'
 import { usePlanStore } from '../saas/usePlan'
 import ComponentsTab from './ComponentsTab'
@@ -20,10 +20,74 @@ import UsersTab from './UsersTab'
 import { contribApi } from '../contrib/contribApi'
 import { COMPONENT_OPTIONS, ContributionRow, formatBytes, formatDate } from '../contrib/ContribParts'
 import { KIND_LABEL, STATUS_LABEL, type Contribution, type ContributionKind, type ContributionStatus, type ContribStats } from '../contrib/types'
-import { IconArrowLeft, IconChevronDown, IconClose, IconCube, IconFileUpload, IconGrid, IconLayers, IconMonitor, IconOrganize, IconProjects, IconTag, IconTools, IconUser } from '../ui/icons'
+import { IconArrowLeft, IconArrowRight, IconCheckCircle, IconChevronDown, IconClose, IconCube, IconFileUpload, IconGrid, IconHistory, IconInbox, IconLayers, IconMonitor, IconOrganize, IconPdf, IconPending, IconPlus, IconProjects, IconShield, IconStorage, IconTag, IconTools, IconUser, IconUsers, IconWarning, IconXCircle } from '../ui/icons'
 import { ToolMenu, useNarrowMenu, type ToolMenuSection } from '../ui/toolbarKit'
 
 type Tab = 'overview' | 'contributions' | 'components' | 'library3d' | 'projects' | 'users' | 'plans' | 'logs' | 'system'
+
+type AdmIcon = typeof IconGrid
+
+/**
+ * Linha de contexto de um registo de atividade, sem repetir a mesma
+ * identificação: nas capturas de 2026-10-27 o e-mail aparecia duas vezes
+ * («Admin · admin@…» e outra vez «admin@…») porque o alvo da sessão é o
+ * próprio ator. Cada valor entra uma só vez, pela ordem ator → alvo → detalhe.
+ */
+function activityMeta(entry: AuditEntry): string {
+  const seen = new Set([entry.actorName ?? '', entry.actorEmail ?? ''])
+  const extras: string[] = []
+  for (const extra of [entry.targetLabel, entry.detail]) {
+    const value = extra?.trim()
+    if (value && !seen.has(value)) { extras.push(value); seen.add(value) }
+  }
+  // Com alvo (ex.: o projeto criado), ele tem prioridade sobre repetir o
+  // e-mail do ator: «Admin · Teste» cabe e diz mais do que o e-mail cortado.
+  const actor = extras.length === 0 && entry.actorName && entry.actorEmail && entry.actorName !== entry.actorEmail
+    ? `${entry.actorName} · ${entry.actorEmail}`
+    : (entry.actorName || entry.actorEmail || 'Sistema')
+  return [actor, ...extras].join(' · ')
+}
+
+const ACTIVITY_ICON: Record<ReturnType<typeof categoryOf>, AdmIcon> = {
+  auth: IconShield, user: IconUser, project: IconProjects,
+  contribution: IconFileUpload, component: IconLayers, system: IconTools,
+}
+
+/** Métrica do resumo: ícone + rótulo, valor e detalhe; o cartão inteiro é a ação. */
+function OverviewTile({ tone, icon: Icon, label, value, detail, action, onClick }: {
+  tone: string; icon: AdmIcon; label: string; value: ReactNode; detail: string; action: string; onClick: () => void
+}) {
+  return <button type="button" className={`adm-tile adm-tile-${tone}`} onClick={onClick} aria-label={`${label}: ${typeof value === 'string' || typeof value === 'number' ? value : ''} ${detail}. ${action}`}>
+    <span className="adm-tile-top"><span className="adm-tile-icon"><Icon size={15} /></span><span className="adm-tile-label">{label}</span></span>
+    <strong>{value}</strong>
+    <span className="adm-tile-foot"><small>{detail}</small><span className="adm-tile-go" aria-hidden><IconArrowRight size={10} /></span></span>
+  </button>
+}
+
+/**
+ * Cartão de secção do resumo (cabeçalho + corpo + uma única ação).
+ * Uma só ação por cartão: a captura anterior tinha «Ver fila» no topo e
+ * «Abrir contribuições» no corpo, para o mesmo destino.
+ */
+function OverviewCard({ title, subtitle, actionLabel: cta, onAction, children }: {
+  title: string; subtitle: string; actionLabel?: string; onAction?: () => void; children: ReactNode
+}) {
+  return <section className="adm-card">
+    <header className="adm-card-head">
+      <div className="adm-card-titles"><h2>{title}</h2><span>{subtitle}</span></div>
+      {cta && onAction && <button type="button" className="adm-card-action" onClick={onAction}>{cta}<IconArrowRight size={11} /></button>}
+    </header>
+    <div className="adm-card-body">{children}</div>
+  </section>
+}
+
+/** Estado vazio de um cartão do resumo: ícone, frase e (opcional) explicação curta. */
+function OverviewEmpty({ icon: Icon, text, hint }: { icon: AdmIcon; text: string; hint?: string }) {
+  return <div className="adm-empty">
+    <span className="adm-empty-icon"><Icon size={16} /></span>
+    <span className="adm-empty-text"><strong>{text}</strong>{hint && <small>{hint}</small>}</span>
+  </div>
+}
 
 /** Painel de gestão do administrador: resumo, revisão de contribuições, projetos e contas. */
 export default function AdminPanel({ onBack, currentUser, initialTab = 'overview', invites = [], onLogout }: { onBack: () => void; currentUser: User; initialTab?: Tab; invites?: Invite[]; onLogout?: () => void }) {
@@ -181,7 +245,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
       <div className="adm-head-side">
         <span className={`adm-env ${serverMode ? 'is-server' : 'is-local'}`} title={serverMode ? 'Os dados estão guardados no servidor (SQLite).' : 'Os dados estão guardados apenas neste navegador.'}><i aria-hidden />{serverMode ? 'Servidor · SQLite' : 'Modo local · só neste navegador'}</span>
         <div className="dx-admin-head-actions">
-          <button className="dx-btn dx-btn-primary" onClick={() => setCreating3D(true)} title="Criar um componente no editor 3D">+ Novo componente 3D</button>
+          <button className="dx-btn dx-btn-primary" onClick={() => setCreating3D(true)} title="Criar um componente no editor 3D"><IconPlus size={12} /> Novo componente 3D</button>
           <button className="dx-btn dx-btn-secondary" onClick={onBack}><IconArrowLeft size={12} /> Projetos</button>
         </div>
       </div>
@@ -199,20 +263,21 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
               icon={<IconOrganize size={14} />}
               sections={navMenu}
               className="adm-picker-button"
-              trigger={() => <>
+              trigger={() => { const CurrentIcon = NAV_ICON[currentNav.id]; return <>
+                <span className="adm-picker-icon"><CurrentIcon size={14} /></span>
                 <span className="adm-picker-name">{currentNav.label}</span>
                 {currentNav.count !== undefined && <b className={currentNav.attention ? 'is-attention' : ''}>{currentNav.count}</b>}
                 <IconChevronDown size={12} />
-              </>}
+              </> }}
             />
           </div>
         : <div className="adm-tablist" role="tablist" aria-orientation="vertical" aria-label="Gestão do administrador">
         {navGroups.map((group) => <div key={group.label} className="adm-nav-group" role="presentation">
           <span className="adm-nav-label" role="presentation">{group.label}</span>
-          {group.tabs.map((item) => <button key={item.id} role="tab" aria-selected={tab === item.id} className={`adm-tab ${tab === item.id ? 'is-active' : ''}`} onClick={() => setTab(item.id)}>
-            <span>{item.label}</span>
+          {group.tabs.map((item) => { const ItemIcon = NAV_ICON[item.id]; return <button key={item.id} role="tab" aria-selected={tab === item.id} className={`adm-tab ${tab === item.id ? 'is-active' : ''}`} onClick={() => setTab(item.id)}>
+            <span className="adm-tab-main"><ItemIcon size={13} /><span>{item.label}</span></span>
             {item.count !== undefined && <b className={item.attention ? 'is-attention' : ''} title={item.attention ? 'Por tratar' : undefined}>{item.count}</b>}
-          </button>)}
+          </button> })}
         </div>)}
         </div>}
     </nav>
@@ -223,54 +288,73 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
     {tab === 'overview' && <>
       <section className="adm-attn" aria-label="Pendências">
         {attention.length === 0
-          ? <p className="adm-clear"><i aria-hidden />Sem pendências: não há nada à espera de revisão ou decisão.</p>
+          ? <p className="adm-clear"><span className="adm-attn-icon" aria-hidden><IconCheckCircle size={16} /></span><span className="adm-attn-text"><strong>Sem pendências</strong><small>Não há nada à espera de revisão ou decisão.</small></span></p>
           : attention.map((item) => <div key={item.key} className="adm-attn-row">
-            <i aria-hidden />
-            <span>{item.text}</span>
-            <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={item.run}>{item.cta}</button>
+            <span className="adm-attn-icon" aria-hidden><IconWarning size={15} /></span>
+            <span className="adm-attn-text"><strong>{item.text}</strong></span>
+            <button className="dx-btn dx-btn-secondary dx-btn-sm adm-attn-cta" onClick={item.run}>{item.cta}<IconArrowRight size={11} /></button>
           </div>)}
       </section>
-      <div className="adm-tiles">
-        <button type="button" className="adm-tile adm-tile-pending" onClick={() => { setStatusFilter('pending'); setTab('contributions') }}><span>Em revisão</span><strong>{stats?.pending ?? '—'}</strong><small>contribuições</small></button>
-        <button type="button" className="adm-tile adm-tile-approved" onClick={() => { setStatusFilter('approved'); setTab('contributions') }}><span>Aprovadas</span><strong>{stats?.approved ?? '—'}</strong><small>contribuições</small></button>
-        <button type="button" className="adm-tile adm-tile-rejected" onClick={() => { setStatusFilter('rejected'); setTab('contributions') }}><span>Rejeitadas</span><strong>{stats?.rejected ?? '—'}</strong><small>contribuições</small></button>
-        <button type="button" className="adm-tile adm-tile-projects" onClick={() => setTab('projects')}><span>Projetos</span><strong>{projects.length}</strong><small>em todas as contas</small></button>
-        <button type="button" className="adm-tile adm-tile-accounts" onClick={() => setTab('users')}><span>Contas</span><strong>{users.length}</strong><small>{users.filter((entry) => entry.active).length} ativas</small></button>
-        <button type="button" className="adm-tile adm-tile-storage" onClick={() => setTab('system')}><span>Armazenamento</span><strong>{stats ? formatBytes(stats.bytes) : '—'}</strong><small>{stats ? `${stats.datasheets} PDF · ${stats.models} GLB` : 'ficheiros'}</small></button>
-      </div>
-      <section className="adm-quick-actions" aria-labelledby="admin-quick-actions-title">
-        <div className="dx-admin-section"><h2 id="admin-quick-actions-title">Acesso rápido</h2><span>Continue o trabalho mais comum</span></div>
-        <div className="adm-quick-grid">
-          <button type="button" onClick={() => setTab('library3d')}><span className="adm-quick-icon"><IconCube size={16} /></span><span><strong>Biblioteca 3D</strong><small>Gerir modelos e componentes</small></span><IconArrowLeft className="adm-quick-arrow" size={14} /></button>
-          <button type="button" onClick={() => setTab('projects')}><span className="adm-quick-icon"><IconProjects size={16} /></span><span><strong>Projetos</strong><small>Acompanhar quadros e atividade</small></span><IconArrowLeft className="adm-quick-arrow" size={14} /></button>
-          <button type="button" onClick={() => setTab('logs')}><span className="adm-quick-icon"><IconMonitor size={16} /></span><span><strong>Registos do sistema</strong><small>Auditar alterações recentes</small></span><IconArrowLeft className="adm-quick-arrow" size={14} /></button>
+
+      <section aria-labelledby="admin-indicators-title">
+        <div className="dx-admin-section adm-section-head"><h2 id="admin-indicators-title">Indicadores</h2><span>Resumo atual da administração</span></div>
+        <div className="adm-tiles">
+          <OverviewTile tone="pending" icon={IconPending} label="Em revisão" value={stats?.pending ?? '—'} detail="contribuições" action="Abrir a fila de revisão" onClick={() => { setStatusFilter('pending'); setTab('contributions') }} />
+          <OverviewTile tone="approved" icon={IconCheckCircle} label="Aprovadas" value={stats?.approved ?? '—'} detail="contribuições" action="Ver as aprovadas" onClick={() => { setStatusFilter('approved'); setTab('contributions') }} />
+          <OverviewTile tone="rejected" icon={IconXCircle} label="Rejeitadas" value={stats?.rejected ?? '—'} detail="contribuições" action="Ver as rejeitadas" onClick={() => { setStatusFilter('rejected'); setTab('contributions') }} />
+          <OverviewTile tone="projects" icon={IconProjects} label="Projetos" value={projects.length} detail="em todas as contas" action="Abrir os projetos" onClick={() => setTab('projects')} />
+          <OverviewTile tone="accounts" icon={IconUsers} label="Contas" value={users.length} detail={`${users.filter((entry) => entry.active).length} ativas`} action="Abrir as contas" onClick={() => setTab('users')} />
+          <OverviewTile tone="storage" icon={IconStorage} label="Armazenamento" value={stats ? formatBytes(stats.bytes) : '—'} detail={stats ? `${stats.datasheets} PDF · ${stats.models} GLB` : 'ficheiros'} action="Abrir o sistema" onClick={() => setTab('system')} />
         </div>
       </section>
+      <OverviewCard title="Acesso rápido" subtitle="Abra as áreas de trabalho mais usadas">
+        <div className="adm-quick-grid">
+          <button type="button" onClick={() => { setStatusFilter('pending'); setTab('contributions') }}><span className="adm-quick-icon"><IconFileUpload size={16} /></span><span className="adm-quick-text"><strong>Contribuições</strong><small>Fila por rever</small></span><IconArrowRight className="adm-quick-arrow" size={13} /></button>
+          <button type="button" onClick={() => setTab('projects')}><span className="adm-quick-icon"><IconProjects size={16} /></span><span className="adm-quick-text"><strong>Projetos</strong><small>Quadros e atividade</small></span><IconArrowRight className="adm-quick-arrow" size={13} /></button>
+          <button type="button" onClick={() => setTab('logs')}><span className="adm-quick-icon"><IconMonitor size={16} /></span><span className="adm-quick-text"><strong>Registos</strong><small>Atividade e alterações</small></span><IconArrowRight className="adm-quick-arrow" size={13} /></button>
+          <button type="button" onClick={() => setTab('library3d')}><span className="adm-quick-icon"><IconCube size={16} /></span><span className="adm-quick-text"><strong>Biblioteca 3D</strong><small>Modelos e componentes</small></span><IconArrowRight className="adm-quick-arrow" size={13} /></button>
+        </div>
+      </OverviewCard>
       <div className="adm-cols">
-        <section>
-          <div className="dx-admin-section"><h2>Atividade recente</h2><button className="cb-link" onClick={() => { setLogActor(''); setTab('logs') }}>Ver todos os registos</button></div>
-          <div className="dx-admin-table ce-recent-activity">
-            {recentLogs.length === 0 && <div className="dx-admin-empty">Ainda não há atividade registada.</div>}
-            {recentLogs.map((entry) => <div key={entry.id}><span><strong>{actionLabel(entry.action)}</strong> · {entry.actorEmail || entry.actorName || 'sistema'}{entry.targetLabel ? ` · ${entry.targetLabel}` : ''}</span><span className="dx-chip">{formatDate(entry.at)}</span></div>)}
-          </div>
-        </section>
-        <section>
-          <div className="dx-admin-section"><h2>Últimas contribuições</h2><span>{contributions.length}</span></div>
-          <div className="dx-admin-table">
-            {contributions.length === 0 && <div className="dx-admin-empty">Nenhuma contribuição enviada.</div>}
-            {contributions.slice(0, 5).map((item) => <div key={item.id}><span><strong>{item.title}</strong> · {KIND_LABEL[item.kind]} · {item.authorName} · {formatDate(item.updatedAt)}</span><span className={`cb-status is-${item.status}`}>{STATUS_LABEL[item.status]}</span></div>)}
-          </div>
-          <div className="dx-admin-section"><h2>Cobertura da biblioteca</h2><span>componentes com ficheiros aprovados</span></div>
-          <div className="dx-admin-table">
-            {coverage.length === 0 && <div className="dx-admin-empty">Ainda não há contribuições aprovadas.</div>}
-            {coverage.map((entry) => <div key={entry.type}><span><strong>{entry.label}</strong> · {entry.group}</span><span className="dx-chip">{entry.datasheets} datasheet(s) · {entry.models} modelo(s) 3D</span></div>)}
-          </div>
-        </section>
+        <OverviewCard title="Atividade recente" subtitle="Últimos eventos registados" actionLabel="Ver registos" onAction={() => { setLogActor(''); setTab('logs') }}>
+          {recentLogs.length === 0
+            ? <OverviewEmpty icon={IconHistory} text="Ainda não há atividade registada." hint="Os eventos de contas, projetos e componentes aparecem aqui." />
+            : <ul className="adm-activity">
+              {recentLogs.map((entry) => { const ActivityIcon = ACTIVITY_ICON[categoryOf(entry.action)]; const meta = activityMeta(entry); return <li key={entry.id} className={`adm-activity-row is-${severityOf(entry.action)}`}>
+                <span className="adm-activity-icon" aria-hidden><ActivityIcon size={13} /></span>
+                <span className="adm-activity-text"><strong>{actionLabel(entry.action)}</strong><small title={meta}>{meta}</small></span>
+                <time className="adm-activity-time" dateTime={entry.at}>{formatDate(entry.at)}</time>
+              </li> })}
+            </ul>}
+        </OverviewCard>
+        <div className="adm-col-stack">
+          <OverviewCard title="Últimas contribuições" subtitle={`${contributions.length} no total`} actionLabel="Ver fila" onAction={() => setTab('contributions')}>
+            {contributions.length === 0
+              ? <OverviewEmpty icon={IconInbox} text="Ainda não foram enviadas contribuições." hint="Datasheets e modelos 3D enviados ficam aqui à espera de revisão." />
+              : <ul className="adm-list">
+                {contributions.slice(0, 5).map((item) => <li key={item.id} className="adm-list-row">
+                  <span className="adm-list-text"><strong>{item.title}</strong><small>{KIND_LABEL[item.kind]} · {item.authorName} · {formatDate(item.updatedAt)}</small></span>
+                  <span className={`cb-status is-${item.status}`}>{STATUS_LABEL[item.status]}</span>
+                </li>)}
+              </ul>}
+          </OverviewCard>
+          <OverviewCard title="Cobertura da biblioteca" subtitle="Ficheiros aprovados por componente" actionLabel="Componentes" onAction={() => setTab('components')}>
+            {coverage.length === 0
+              ? <OverviewEmpty icon={IconLayers} text="Ainda não há ficheiros aprovados." hint="A cobertura aparece quando houver datasheets ou modelos aprovados." />
+              : <ul className="adm-list">
+                {coverage.map((entry) => <li key={entry.type} className="adm-list-row">
+                  <span className="adm-list-text"><strong>{entry.label}</strong><small>{entry.group}</small></span>
+                  <span className="adm-cover-chips"><span className="dx-chip"><IconPdf size={11} /> {entry.datasheets}</span><span className="dx-chip"><IconCube size={11} /> {entry.models}</span></span>
+                </li>)}
+              </ul>}
+          </OverviewCard>
+        </div>
       </div>
-      <div className="ce-cta">
-        <div><strong>Editor 3D de componentes</strong><span>Crie componentes oficiais com modelo 3D, bornes, estados e animações. O assistente pergunta o que é, a categoria, o nome e se já tem datasheet.</span></div>
+      <div className="ce-cta adm-editor-cta">
+        <span className="adm-editor-cta-icon" aria-hidden><IconCube size={18} /></span>
+        <div className="adm-editor-cta-text"><strong>Editor 3D de componentes</strong><span>Crie componentes oficiais com modelo 3D, bornes, estados e animações. O assistente pergunta o que é, a categoria, o nome e se já tem datasheet.</span></div>
         <div className="ce-cta-actions">
-          <button className="dx-btn dx-btn-secondary" onClick={() => setTab('library3d')}>Abrir biblioteca 3D</button>
+          <button className="dx-btn dx-btn-secondary" onClick={() => setTab('library3d')}>Abrir biblioteca 3D<IconArrowRight size={11} /></button>
         </div>
       </div>
     </>}
