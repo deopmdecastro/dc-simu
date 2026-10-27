@@ -101,7 +101,8 @@ Os testes de UI exigem um servidor Vite (`npm run dev`) e um Chromium do Playwri
 ## Limites conhecidos
 
 - `npm run build` exige memória: no ambiente desta alteração (2 GB) o processo foi terminado pelo
-  sistema (137); o registo de ENV-01 no cofre já documenta a necessidade de 3 GiB. Tipos e testes
-  passaram, o build de produção continua por confirmar num runner com memória suficiente.
+  sistema (137); o registo de ENV-01 no cofre já documenta a necessidade de 3 GiB. O build de
+  produção **foi confirmado na Vercel** a partir deste commit (`buildId` `53ade78…`, 2026-10-27) —
+  falta apenas reproduzi-lo localmente num runner com memória suficiente.
 - O editor de componentes não foi revisto visualmente num dispositivo físico; as capturas são de
   Chromium headless a 390 × 844.
