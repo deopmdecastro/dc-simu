@@ -231,12 +231,12 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
           </div>)}
       </section>
       <div className="adm-tiles">
-        <button type="button" className="adm-tile" onClick={() => { setStatusFilter('pending'); setTab('contributions') }}><span>Em revisão</span><strong>{stats?.pending ?? '—'}</strong><small>contribuições</small></button>
-        <button type="button" className="adm-tile" onClick={() => { setStatusFilter('approved'); setTab('contributions') }}><span>Aprovadas</span><strong>{stats?.approved ?? '—'}</strong><small>contribuições</small></button>
-        <button type="button" className="adm-tile" onClick={() => { setStatusFilter('rejected'); setTab('contributions') }}><span>Rejeitadas</span><strong>{stats?.rejected ?? '—'}</strong><small>contribuições</small></button>
-        <button type="button" className="adm-tile" onClick={() => setTab('projects')}><span>Projetos</span><strong>{projects.length}</strong><small>em todas as contas</small></button>
-        <button type="button" className="adm-tile" onClick={() => setTab('users')}><span>Contas</span><strong>{users.length}</strong><small>{users.filter((entry) => entry.active).length} ativas</small></button>
-        <button type="button" className="adm-tile" onClick={() => setTab('system')}><span>Armazenamento</span><strong>{stats ? formatBytes(stats.bytes) : '—'}</strong><small>{stats ? `${stats.datasheets} PDF · ${stats.models} GLB` : 'ficheiros'}</small></button>
+        <button type="button" className="adm-tile adm-tile-pending" onClick={() => { setStatusFilter('pending'); setTab('contributions') }}><span>Em revisão</span><strong>{stats?.pending ?? '—'}</strong><small>contribuições</small></button>
+        <button type="button" className="adm-tile adm-tile-approved" onClick={() => { setStatusFilter('approved'); setTab('contributions') }}><span>Aprovadas</span><strong>{stats?.approved ?? '—'}</strong><small>contribuições</small></button>
+        <button type="button" className="adm-tile adm-tile-rejected" onClick={() => { setStatusFilter('rejected'); setTab('contributions') }}><span>Rejeitadas</span><strong>{stats?.rejected ?? '—'}</strong><small>contribuições</small></button>
+        <button type="button" className="adm-tile adm-tile-projects" onClick={() => setTab('projects')}><span>Projetos</span><strong>{projects.length}</strong><small>em todas as contas</small></button>
+        <button type="button" className="adm-tile adm-tile-accounts" onClick={() => setTab('users')}><span>Contas</span><strong>{users.length}</strong><small>{users.filter((entry) => entry.active).length} ativas</small></button>
+        <button type="button" className="adm-tile adm-tile-storage" onClick={() => setTab('system')}><span>Armazenamento</span><strong>{stats ? formatBytes(stats.bytes) : '—'}</strong><small>{stats ? `${stats.datasheets} PDF · ${stats.models} GLB` : 'ficheiros'}</small></button>
       </div>
       <section className="adm-quick-actions" aria-labelledby="admin-quick-actions-title">
         <div className="dx-admin-section"><h2 id="admin-quick-actions-title">Acesso rápido</h2><span>Continue o trabalho mais comum</span></div>
