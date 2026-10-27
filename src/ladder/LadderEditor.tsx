@@ -1,5 +1,5 @@
 import { withEmptyNetworkBelow } from './autoNetwork'
-import { useLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } from './ladderZoom'
+import { useLadderZoom, fitLadderZoom, LADDER_ZOOM_STEP, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX } from './ladderZoom'
 import { pinchZoom, usePinchZoom } from '../ui/usePinchZoom'
 import { useLadderUi } from './ladderBus'
 import { useShortcutsRequest, useSimUi } from '../ui/simUi'
@@ -1121,6 +1121,8 @@ function useLadderPinch(ref: React.RefObject<HTMLDivElement | null>) {
     onChange: ({ ratio, center, startCenter }) => {
       const start = startRef.current
       if (!start) return
+      // Avisa o editor de que a escala passou a ser escolhida à mão (sem auto-ajuste).
+      window.dispatchEvent(new CustomEvent('ladder-zoom-manual'))
       setLadderZoom(pinchZoom(start.zoom, ratio, LADDER_ZOOM_MIN, LADDER_ZOOM_MAX))
       const factor = useLadderZoom.getState().zoom / start.zoom
       pendingRef.current = { left: (start.left + startCenter.x) * factor - center.x, top: (start.top + startCenter.y) * factor - center.y }
@@ -1419,6 +1421,46 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const setLadderZoom = useLadderZoom((state) => state.setZoom)
   const mainNetworksRef = useRef<HTMLDivElement>(null)
   useLadderPinch(mainNetworksRef)
+  /* «Ajustar à largura»: uma network tem 720 px e num telefone (390 px) a bobina
+     ficava fora do ecrã. A escala passa a caber a largura visível; a pinça e os
+     botões de zoom continuam a mandar depois do primeiro ajuste manual. */
+  const fitToWidth = useCallback((force = true) => {
+    const host = mainNetworksRef.current
+    if (!host) return
+    const scale = host.querySelector<HTMLElement>('.ladder-networks-scale')
+    if (!scale) return
+    const current = useLadderZoom.getState().zoom * ZOOM_BASE
+    const natural = current > 0 ? scale.scrollWidth / current : scale.scrollWidth
+    const fit = fitLadderZoom(natural, host.clientWidth)
+    // O ajuste automático mostra a network inteira (bobina incluída) e não desce
+    // abaixo de 45 %, mantendo o texto legível o suficiente para ler endereços.
+    // O ajuste automático mostra a network inteira e nunca desce abaixo do
+    // mínimo do editor (40 %): a 40 % a network de 720 px cabe num telefone.
+    const next = force ? fit : Math.max(LADDER_ZOOM_MIN, fit)
+    if (!force && Math.abs(next - useLadderZoom.getState().zoom) < 0.02) return
+    useLadderZoom.getState().setZoom(next)
+  }, [])
+  const manualZoom = useRef(false)
+  useEffect(() => {
+    const fit = () => { manualZoom.current = true; fitToWidth(true) }
+    const manual = () => { manualZoom.current = true }
+    window.addEventListener('ladder-fit', fit)
+    window.addEventListener('ladder-zoom-manual', manual)
+    return () => { window.removeEventListener('ladder-fit', fit); window.removeEventListener('ladder-zoom-manual', manual) }
+  }, [fitToWidth])
+  // Ecrãs estreitos: ajusta à largura sempre que o programa ou a janela mudam,
+  // até o utilizador escolher a escala à mão (pinça ou botões de zoom).
+  useEffect(() => {
+    if (manualZoom.current) return
+    if (!window.matchMedia('(max-width: 900px), (pointer: coarse)').matches) return
+    if (!rungs.length) return
+    // Duas passagens: a primeira mede o diagrama antes de o desenho assentar.
+    const first = window.setTimeout(() => { if (!manualZoom.current) fitToWidth(false) }, 120)
+    const second = window.setTimeout(() => { if (!manualZoom.current) fitToWidth(false) }, 620)
+    const onResize = () => { if (!manualZoom.current) fitToWidth(false) }
+    window.addEventListener('resize', onResize)
+    return () => { window.clearTimeout(first); window.clearTimeout(second); window.removeEventListener('resize', onResize) }
+  }, [rungs.length, fitToWidth])
   const [showProjectPane, setShowProjectPane] = useState(() => !isSmallScreen())
   const [showPalette, setShowPalette] = useState(() => !isSmallScreen())
   const [activeProjectNode, setActiveProjectNode] = useState<ProjectNodeId>('main')
@@ -1876,7 +1918,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         </button>
       ))}
       <main className="ladder-main-pane" ref={mainPaneRef}>
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-line bg-white text-[11px] shrink-0">
+        <div className="ladder-plc-target flex items-center gap-2 px-3 py-1.5 border-b border-line bg-white text-[11px] shrink-0">
           <label htmlFor="ladder-target-plc" className="font-semibold text-ink-600 whitespace-nowrap">PLC a programar</label>
           <Select id="ladder-target-plc" className="dc-select !w-auto max-w-[280px]" value={plcs.some((c) => c.id === activePlcId) ? activePlcId! : ''}
             disabled={!plcs.length} onChange={(e) => setActivePlc(e.target.value)}>

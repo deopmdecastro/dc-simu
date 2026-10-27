@@ -23,7 +23,7 @@ check(near(still.x, startPos.x) && near(still.y, startPos.y), 'sem alteração d
 const panOnly = pinchPan(startPos, 1.5, 1.5, startCenter, { x: startCenter.x + 30, y: startCenter.y - 10 })
 check(near(panOnly.x, startPos.x + 30) && near(panOnly.y, startPos.y - 10), 'mover os dedos sem mudar a escala desloca a vista')
 
-check(LADDER_ZOOM_MAX >= 3 && LADDER_ZOOM_MIN <= 0.7, 'o Ladder permite ampliar até 3× e reduzir até 0,7×')
+check(LADDER_ZOOM_MAX >= 3 && LADDER_ZOOM_MIN <= 0.4, 'o Ladder permite ampliar até 3× e reduzir até 0,4× (network inteira num telefone)')
 useLadderZoom.getState().setZoom(99)
 check(useLadderZoom.getState().zoom === LADDER_ZOOM_MAX, 'o store do Ladder limita ao máximo')
 useLadderZoom.getState().setZoom(0)

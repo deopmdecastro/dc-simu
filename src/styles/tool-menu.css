@@ -1,0 +1,87 @@
+/* ===========================================================================
+   Menus de barra de ferramentas (toolbarKit · ToolMenu)
+   ---------------------------------------------------------------------------
+   Usados pelas barras do simulador, GRAFCET, Ladder e editor de componentes.
+   Em ecrãs largos abre como popover junto ao botão; em telemóvel como folha
+   inferior (mais fácil de alcançar e nunca cortada pela borda do ecrã).
+   =========================================================================== */
+
+.tm-trigger { position: relative; }
+.tm-badge {
+  position: absolute; top: 0; right: 0; transform: translate(30%, -30%);
+  min-width: 15px; height: 15px; padding: 0 4px; border-radius: 99px;
+  background: var(--dx-brand, #2655e5); color: #fff; font-size: 9px; font-weight: 800;
+  line-height: 15px; text-align: center;
+}
+
+.tm-panel {
+  position: fixed; z-index: 120;
+  max-height: min(440px, calc(100dvh - 16px));
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--dx-surface, #fff);
+  border: 1px solid var(--dx-line, #d0d7de);
+  border-radius: 10px;
+  box-shadow: 0 14px 38px rgba(15, 23, 42, .18);
+  color: var(--dx-ink, #0f172a);
+  font-family: var(--dx-font, inherit);
+  overflow: hidden;
+}
+.tm-title { padding: 9px 12px 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--dx-ink-4, #64748b); }
+.tm-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 6px 6px; }
+.tm-section { display: block; }
+.tm-section + .tm-section { margin-top: 3px; padding-top: 4px; border-top: 1px solid var(--dx-line-soft, #e6ebf2); }
+.tm-section h3 { margin: 0; padding: 6px 7px 4px; font-size: 9.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--dx-ink-4, #64748b); }
+
+.tm-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  min-height: 32px; padding: 5px 8px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--dx-ink-2, #334155);
+  font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+}
+.tm-item:hover:not(:disabled) { background: var(--dx-surface-2, #f4f7fb); }
+.tm-item:focus-visible { outline: 2px solid var(--dx-focus-ring, #2655e5); outline-offset: -1px; }
+.tm-item:disabled { cursor: not-allowed; color: var(--dx-ink-4, #94a3b8); }
+.tm-item.is-on { background: var(--dx-brand-soft, #eaf0ff); color: var(--dx-brand-700, #1e40af); }
+.tm-item.is-primary { font-weight: 650; color: var(--dx-ink, #0f172a); }
+.tm-item.is-danger { color: #b42318; }
+.tm-item.is-danger:hover:not(:disabled) { background: #fef3f2; }
+.tm-item-icon { flex: none; display: grid; place-items: center; width: 18px; height: 18px; color: inherit; opacity: .9; }
+.tm-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tm-item-text strong { font-weight: 650; font-size: 12px; line-height: 1.25; }
+.tm-item-text small { font-size: 10.5px; line-height: 1.3; color: var(--dx-ink-4, #64748b); white-space: normal; }
+.tm-item:disabled .tm-item-text small { color: #b45309; }
+.tm-item kbd { flex: none; font-family: var(--dx-mono, ui-monospace); font-size: 9.5px; color: var(--dx-ink-4, #94a3b8); background: var(--dx-surface-2, #f4f7fb); border-radius: 4px; padding: 1px 4px; }
+.tm-item-dot { flex: none; width: 6px; height: 6px; border-radius: 99px; background: var(--dx-brand, #2655e5); }
+.tm-foot { padding: 6px 12px 8px; border-top: 1px solid var(--dx-line-soft, #e6ebf2); font-size: 10px; color: var(--dx-ink-4, #94a3b8); background: var(--dx-surface-2, #f8fafd); }
+
+/* Telemóvel: folha inferior com área segura para a barra do sistema. */
+.tm-backdrop {
+  position: fixed; inset: 0; z-index: 119;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(15, 23, 42, .34);
+  animation: tm-fade .14s ease-out;
+}
+.tm-panel.is-sheet {
+  position: static; width: 100%; max-width: 560px;
+  max-height: min(78dvh, 620px);
+  border-radius: 16px 16px 0 0; border-bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -12px 34px rgba(15, 23, 42, .26);
+  animation: tm-rise .18s ease-out;
+}
+.tm-panel.is-sheet .tm-body { padding: 0 8px 10px; }
+.tm-panel.is-sheet .tm-item { min-height: 46px; padding: 8px 9px; border-radius: 8px; }
+.tm-panel.is-sheet .tm-item-text strong { font-size: 13px; }
+.tm-panel.is-sheet .tm-item-text small { font-size: 11px; }
+.tm-grab { display: block; width: 38px; height: 4px; margin: 7px auto 3px; border-radius: 99px; background: #cbd5e1; }
+.tm-head { display: flex; align-items: center; gap: 8px; padding: 4px 10px 6px 14px; }
+.tm-head strong { flex: 1; font-size: 13px; font-weight: 750; }
+.tm-close { width: 34px; height: 34px; border: 1px solid var(--dx-line, #d0d7de); border-radius: 8px; background: var(--dx-surface, #fff); color: var(--dx-ink-3, #475569); font-size: 17px; line-height: 1; cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-backdrop, .tm-panel.is-sheet { animation: none; }
+}
+@keyframes tm-fade { from { opacity: 0 } to { opacity: 1 } }
+/* Só desvanecer: um deslocamento durante a animação punha a folha fora do ecrã
+   no primeiro fotograma (e qualquer medição de posição apanhava-a a meio). */
+@keyframes tm-rise { from { opacity: .55 } to { opacity: 1 } }

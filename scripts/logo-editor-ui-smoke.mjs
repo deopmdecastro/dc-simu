@@ -190,9 +190,20 @@ try {
         check(await page.getByRole('button', { name: 'Canvas 3D', exact: true }).getAttribute('aria-pressed') === 'true', 'Fechar propriedades no telemóvel restaura o canvas')
       }
     }
-    await page.getByRole('button', { name: 'Organizar', exact: true }).click()
-    const menu = page.getByRole('dialog', { name: 'Organizar', exact: true })
-    check(await menu.evaluate((el) => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight }), 'Menu Organizar cabe no ecrã a ' + width + ' px')
+    // O menu «Mais» reúne todas as ações que não cabem na barra: em ecrãs largos
+    // é o «Organizar»; no telemóvel inclui também formas, manipulador e vista.
+    const organization = width > 1024
+      ? page.getByRole('button', { name: 'Organizar', exact: true })
+      : page.getByRole('button', { name: 'Mais', exact: true })
+    await organization.click()
+    const menu = width > 1024
+      ? page.getByRole('dialog', { name: 'Organizar', exact: true })
+      : page.getByRole('menu', { name: 'Ferramentas e opções' })
+    check(await menu.evaluate((el) => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight }), 'Menu ' + (width > 1024 ? 'Organizar' : 'Mais') + ' cabe no ecrã a ' + width + ' px')
+    if (width <= 1024) {
+      check(await menu.locator('[data-tm-item^="shape-"]').count() >= 6, 'Menu «Mais» oferece as seis formas do modelo a ' + width + ' px')
+      check(await menu.locator('[data-tm-item="delete"]').count() === 1, 'Menu «Mais» inclui a eliminação da seleção a ' + width + ' px')
+    }
     await page.keyboard.press('Escape')
     check(await menu.count() === 0, 'Escape fecha o menu a ' + width + ' px')
     await capture('logo-' + width)

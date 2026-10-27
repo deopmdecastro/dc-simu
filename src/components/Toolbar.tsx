@@ -246,7 +246,17 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       zoom: { percent: Math.round(zoom * 100), onOut: () => setZoom(zoom * 0.9), onIn: () => setZoom(zoom * 1.1), onReset: () => { setZoom(1); useSimStore.getState().setPan(0, 0) } },
     } : mode === 'ladder' ? {
       grid: { on: grid.enabled, toggle: () => setGrid({ enabled: !grid.enabled }), title: 'Mostrar/ocultar malha (as networks usam sempre 20px)' },
-      zoom: { percent: Math.round(ladderZoom * 100), onOut: () => setLadderZoom((z) => z - LADDER_ZOOM_STEP), onIn: () => setLadderZoom((z) => z + LADDER_ZOOM_STEP), onReset: () => setLadderZoom(1), canOut: ladderZoom > LADDER_ZOOM_MIN, canIn: ladderZoom < LADDER_ZOOM_MAX },
+      zoom: {
+        percent: Math.round(ladderZoom * 100),
+        onOut: () => setLadderZoom((z) => z - LADDER_ZOOM_STEP),
+        onIn: () => setLadderZoom((z) => z + LADDER_ZOOM_STEP),
+        onReset: () => setLadderZoom(1),
+        // «Ajustar à largura»: no telemóvel a network (720 px) não cabe no ecrã.
+        onFit: () => window.dispatchEvent(new CustomEvent('ladder-fit')),
+        fitTitle: 'Ajustar à largura: reduz a escala para a network caber no ecrã',
+        canOut: ladderZoom > LADDER_ZOOM_MIN,
+        canIn: ladderZoom < LADDER_ZOOM_MAX,
+      },
     } : mode === 'grafcet' ? {
       grid: { on: grafcetGrid, toggle: () => useGrafcetUi.getState().toggleGrid(), title: 'Mostrar/ocultar a grelha' },
       snap: { on: grafcetSnap, toggle: () => useGrafcetUi.getState().toggleSnap(), title: 'Encaixar à grelha ao arrastar (Alt = livre)' },
@@ -369,6 +379,16 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       <div className={`dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
         {/* desfazer / refazer — comum a todas as vistas */}
         <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />
+
+        {/* Telemóvel: os painéis de ecrã inteiro vêm a seguir ao histórico — antes
+            ficavam no fim de uma faixa que desliza e eram os primeiros a ficar fora
+            de vista, apesar de serem as ações mais usadas no esquema. */}
+                  {mode === 'schematic' && <div className="dc-mobile-panel-tools" role="group" aria-label="Painéis">
+            <button className="dc-tool-btn" onClick={onOpenLibrary} title="Abrir biblioteca em ecrã inteiro"><IconCube size={14} /><span>Biblioteca</span></button>
+            <button className="dc-tool-btn" onClick={onOpenGrafcet} title="Abrir GRAFCET em ecrã inteiro"><IconStep size={14} /><span>GRAFCET</span></button>
+            <button className="dc-tool-btn" onClick={onOpenObjects} title="Ver os objetos do projeto"><IconLayers size={14} /><span>Objetos</span></button>
+          </div>}
+
 
         {/* «Simulação» igual ao do GRAFCET: mostra/esconde o painel de simulação da vista */}
         {(mode === 'schematic' || mode === 'ladder') && (
@@ -508,12 +528,6 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             </div>
           </>
         )}
-
-          {mode === 'schematic' && <div className="dc-mobile-panel-tools" role="group" aria-label="Painéis">
-            <button className="dc-tool-btn" onClick={onOpenLibrary} title="Abrir biblioteca em ecrã inteiro"><IconCube size={14} /><span>Biblioteca</span></button>
-            <button className="dc-tool-btn" onClick={onOpenGrafcet} title="Abrir GRAFCET em ecrã inteiro"><IconStep size={14} /><span>GRAFCET</span></button>
-            <button className="dc-tool-btn" onClick={onOpenObjects} title="Ver os objetos do projeto"><IconLayers size={14} /><span>Objetos</span></button>
-          </div>}
 
           {mode === 'ladder' && <>
             <span className="tb-sep" />

@@ -2096,3 +2096,58 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   .grafcet-import-format-list article { flex-direction:row; align-items:flex-start; border-right:0; border-bottom:1px solid #e3eaf3; }
   .grafcet-import-format-list article:last-child { border-bottom:0; }
 }
+
+/* ===========================================================================
+   v5.2 · GRAFCET no telemóvel: o diagrama deixa de ser esmagado
+   ---------------------------------------------------------------------------
+   A gaveta de propriedades ocupava 48 % da altura (num telefone de 844 px o
+   canvas ficava com 352 px) e ainda empurrava o diagrama para fora do centro.
+   Passa a ser uma folha flutuante sobre o canvas: quando abre, o diagrama
+   mantém a altura toda; quando fecha, fica só a barra de resumo no fundo.
+   =========================================================================== */
+@media (max-width: 800px) {
+  .grafcet-full .grafcet-designer-body { position: relative; }
+
+  /* Recolhida: barra de resumo fina, encostada ao fundo do diagrama. */
+  .grafcet-full .grafcet-properties:not(.is-open) {
+    width: 100%; max-height: none; padding: 0 10px;
+    border-top: 1px solid #dce4ef;
+  }
+  .grafcet-full .grafcet-properties:not(.is-open) .grafcet-properties-summary { min-height: 40px; }
+
+  /* Aberta: folha sobre o diagrama, com canto arredondado e sombra. */
+  .grafcet-full .grafcet-properties.is-open {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 26;
+    width: 100%; max-height: 46%;
+    border-top: 1px solid #cfdcf0; border-left: 0;
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -12px 30px rgba(15, 23, 42, .18);
+    overscroll-behavior: contain;
+  }
+  .grafcet-full .grafcet-properties.is-open::before {
+    content: ''; display: block; width: 40px; height: 4px; margin: -2px auto 6px;
+    border-radius: 99px; background: #cbd5e1;
+  }
+  /* Enquanto a folha está aberta, o canvas não deve receber toques por baixo. */
+  .grafcet-full .grafcet-properties.is-open .grafcet-entity-list { max-height: 132px; }
+  .grafcet-full .grafcet-properties-summary strong { font-size: 12.5px; }
+  .grafcet-full .grafcet-selection-actions button { width: 32px; height: 32px; }
+
+  /* Menos cromado no topo: quando não há ligação em curso, a guia de construção
+     (que repetia «arraste os pontos para ligar») desaparece do telefone. */
+  .grafcet-full .grafcet-construction-guide:not(.is-active) { display: none; }
+  .grafcet-full .grafcet-construction-guide { left: 8px; right: 8px; font-size: 10.5px; }
+}
+
+/* No telemóvel a barra de zoom/ajuste do canvas estava no canto inferior direito,
+   exatamente onde abre a gaveta de propriedades: ficava tapada. Passa para o topo. */
+@media (max-width: 800px) {
+  .grafcet-full .grafcet-canvas-hud {
+    top: 8px; bottom: auto; right: 8px; left: 8px;
+    justify-content: flex-end;
+    max-width: calc(100% - 16px);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .grafcet-full .grafcet-canvas-hud::-webkit-scrollbar { display: none; }
+  .grafcet-full .grafcet-canvas-hud > * { flex: none; }
+}

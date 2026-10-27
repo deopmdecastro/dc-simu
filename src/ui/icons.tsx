@@ -31,6 +31,7 @@ import {
   faCamera,
   faCaretUp,
   faCheck,
+  faCommentDots,
   faChevronDown,
   faChevronLeft,
   faChevronRight,
@@ -187,6 +188,8 @@ export const IconMath = fa(faCalculator)
 export const IconFunction = fa(faSquareRootVariable)
 export const IconClose = fa(faXmark)
 export const IconCheck = fa(faCheck)
+/** Comentários do projeto (bolha com pontos). */
+export const IconComment = fa(faCommentDots)
 export const IconWarning = fa(faTriangleExclamation)
 export const IconLink = fa(faLink)
 export const IconEye = fa(faEye)

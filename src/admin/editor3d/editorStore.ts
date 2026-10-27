@@ -14,7 +14,9 @@ export type Tool = 'translate' | 'rotate' | 'scale'
 /** Ferramentas da barra principal (como no simulador): 1 Selecionar · 2 Borne · 3 Cabo · 4 Apagar · 5 Arrastar malha. */
 export type Ribbon = 'select' | 'terminal' | 'wire' | 'delete' | 'pan' | 'measure'
 export type InspectorTab = 'object' | 'materials' | 'terminals' | 'lights' | 'states' | 'interactions' | 'controls' | 'displays' | 'wires' | 'component'
-export type ViewCommand = { kind: 'fit' | 'fitSel' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'iso' | 'angles' | 'orbit'; n: number; yaw?: number; pitch?: number; dx?: number; dy?: number }
+export type ViewCommand = { kind: 'fit' | 'fitSel' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'iso' | 'angles' | 'orbit' | 'zoom'; n: number; yaw?: number; pitch?: number; dx?: number; dy?: number }
+/** Estado da câmara para a barra: ângulos e zoom honesto (100 % = modelo enquadrado). */
+export type CamStats = { yaw: number; pitch: number; /** distância de enquadramento em mm (referência do zoom) */ fit: number; /** percentagem de zoom inteira */ zoom: number }
 /** Cabo de teste entre dois bornes (modo Simular): serve para validar a compatibilidade. */
 export interface TestWire extends WireStyle {
   id: string
@@ -83,6 +85,8 @@ interface EditorStore {
   /** Furos encontrados na última varredura do modelo (encaixe de bornes). */
   holes: DetectedHole[]
   camAngles: { yaw: number; pitch: number }
+  /** Distância atual e de enquadramento — origem da percentagem de zoom da barra. */
+  camStats: CamStats
   testWires: TestWire[]
   /** Cabo em desenho: borne de origem (ou ponto livre em `wireStart`) e pontos intermédios. */
   wireFrom: string | null
@@ -121,6 +125,9 @@ interface EditorStore {
   set: (patch: Partial<EditorStore>) => void
   setView: (patch: Partial<EditorStore['view']>) => void
   cameraTo: (kind: ViewCommand['kind']) => void
+  /** Aproxima (`factor` > 1) ou afasta (`factor` < 1) a câmara do alvo, como a roda do rato. */
+  zoom: (factor: number) => void
+  setCamStats: (patch: Partial<CamStats>) => void
   undo: () => void
   redo: () => void
   bumpGlb: () => void
@@ -149,7 +156,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   def: normalizeDefinition(undefined),
   baseline: null,
   selection: null, multi: [], tool: 'translate', ribbon: 'select', snap: { on: true, mm: 1, deg: 15 }, mode: 'edit',
-  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, previewVars: {}, meterTest: { ...EMPTY_METER_INPUT, vdc: 12.34, vac: 230, ohm: 4700 }, pick: null, pickPivot: null, hoverNode: null, placingDisplay: null, displayCorner: null, placingLed: false, holes: [], camAngles: { yaw: 35, pitch: 25 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
+  editState: BASE_STATE, previewState: 'off', placing: false, placingSpec: null, faceLock: null, dropRequest: null, libraryOpen: false, previewVars: {}, meterTest: { ...EMPTY_METER_INPUT, vdc: 12.34, vac: 230, ohm: 4700 }, pick: null, pickPivot: null, hoverNode: null, placingDisplay: null, displayCorner: null, placingLed: false, holes: [], camAngles: { yaw: 35, pitch: 25 }, camStats: { yaw: 35, pitch: 25, fit: 0, zoom: 100 }, testWires: [], wireFrom: null, wireStart: null, wirePoints: [], wireDefaults: DEFAULT_WIRE_DEFAULTS, hoverWire: null, selectedWire: null, hiddenTerminals: [], measurements: [], measureFrom: null, gizmoSpace: 'local', tab: 'object', materialId: null,
   view: { grid: true, floor: true, axes: true, terminals: true, dark: false, bounds: false },
   viewCommand: { kind: 'iso', n: 0 }, glbRevision: 0,
   dirty: false, past: [], future: [], lastKey: '', lastAt: 0,
@@ -203,6 +210,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   set: (patch) => set(patch as never),
   setView: (patch) => set((state) => ({ view: { ...state.view, ...patch } })),
   cameraTo: (kind) => set({ viewCommand: { kind, n: Date.now() } }),
+  zoom: (factor) => set({ viewCommand: { kind: 'zoom', n: Date.now(), dx: factor } }),
+  setCamStats: (patch) => {
+    const current = get().camStats
+    const next = { ...current, ...patch }
+    if (current.yaw === next.yaw && current.pitch === next.pitch && current.fit === next.fit && current.zoom === next.zoom) return
+    set({ camStats: next })
+  },
   undo() {
     const { past, def, meta, future } = get()
     const previous = past[past.length - 1]

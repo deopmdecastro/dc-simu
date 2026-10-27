@@ -220,13 +220,37 @@ function Scene() {
     const persp = camera as THREE.PerspectiveCamera
     const vFov = (persp.fov * Math.PI) / 180
     const hFov = 2 * Math.atan(Math.tan(vFov / 2) * (persp.aspect || 1))
-    const distance = (radius * padding) / Math.sin(Math.min(vFov, hFov) / 2)
+    /* Enquadramento justo: mede a caixa no plano da câmara (direita/cima) em vez
+       de usar a esfera. Num telefone ao alto a esfera deixava metade do ecrã
+       vazio — o modelo ficava pequeno e o zoom de 100 % não enchia o canvas. */
+    const forward = direction.clone().normalize()
+    const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), forward)
+    if (right.lengthSq() < 1e-6) right.set(1, 0, 0)
+    right.normalize()
+    const up = new THREE.Vector3().crossVectors(forward, right).normalize()
+    let halfW = 0, halfH = 0, halfD = 0
+    for (let index = 0; index < 8; index += 1) {
+      const corner = new THREE.Vector3(
+        index & 1 ? box.max.x : box.min.x,
+        index & 2 ? box.max.y : box.min.y,
+        index & 4 ? box.max.z : box.min.z,
+      ).sub(sphere.center)
+      halfW = Math.max(halfW, Math.abs(corner.dot(right)))
+      halfH = Math.max(halfH, Math.abs(corner.dot(up)))
+      halfD = Math.max(halfD, Math.abs(corner.dot(forward)))
+    }
+    const distance = Math.max(
+      (Math.max(halfH, 1) * padding) / Math.tan(vFov / 2),
+      (Math.max(halfW, 1) * padding) / Math.tan(hFov / 2),
+    ) + halfD
     const modelRadius = Math.max(radius, modelBox().getBoundingSphere(new THREE.Sphere()).radius)
     applyLimits(modelRadius)
     camera.position.copy(sphere.center).addScaledVector(direction, distance)
     camera.lookAt(sphere.center)
     const orbit = controls as unknown as { target: THREE.Vector3; update: () => void } | null
     if (orbit) { orbit.target.copy(sphere.center); orbit.update() }
+    // Referência do zoom da barra: 100 % = modelo enquadrado (a distância de encaixe).
+    useEditorStore.getState().setCamStats({ fit: Math.round(distance * 10) / 10, zoom: 100 })
     reportAngles(); invalidate()
   }
   // enquadra sozinho enquanto o utilizador não mexer na câmara: o GLB carrega depois de abrir o editor e muda o tamanho do modelo
@@ -242,7 +266,18 @@ function Scene() {
   useEffect(() => {
     if (!viewCommand.n) return
     if (viewCommand.kind !== 'fit') autoFit.current = false
-    const orbit = controls as unknown as { target: THREE.Vector3; update: () => void } | null
+    const orbit = controls as unknown as { target: THREE.Vector3; update: () => void; minDistance?: number; maxDistance?: number } | null
+    if (viewCommand.kind === 'zoom' && orbit) {
+      // Aproximar/afastar sem tocar na orientação: mesma convenção da roda do rato.
+      const factor = Math.max(0.1, Math.min(10, Math.abs(viewCommand.dx ?? 1) || 1))
+      const offset = camera.position.clone().sub(orbit.target)
+      const current = offset.length()
+      const next = Math.min(orbit.maxDistance ?? current, Math.max(orbit.minDistance ?? 0.001, current / factor))
+      camera.position.copy(orbit.target).addScaledVector(offset.normalize(), next)
+      camera.lookAt(orbit.target)
+      orbit.update(); reportAngles(); invalidate()
+      return
+    }
     if (viewCommand.kind === 'orbit' && orbit) {
       const spherical = new THREE.Spherical().setFromVector3(camera.position.clone().sub(orbit.target))
       spherical.theta -= ((viewCommand.dx ?? 0) * Math.PI) / 180 * 0.8
@@ -282,6 +317,11 @@ function Scene() {
     const pitch = Math.round(Math.asin(Math.max(-1, Math.min(1, offset.y / distance))) * DEG * 2) / 2
     const current = useEditorStore.getState().camAngles
     if (current.yaw !== yaw || current.pitch !== pitch) useEditorStore.setState({ camAngles: { yaw, pitch } })
+    // Percentagem de zoom da barra: distância de enquadramento / distância atual.
+    // Guardada como inteiro, para o arrasto da câmara não escrever no estado a cada fotograma.
+    const { fit } = useEditorStore.getState().camStats
+    const zoom = fit > 0 ? Math.max(5, Math.min(2000, Math.round((fit / distance) * 100))) : 100
+    useEditorStore.getState().setCamStats({ yaw, pitch, zoom })
   }
   useEffect(() => { reportAngles() }, [controls])
 

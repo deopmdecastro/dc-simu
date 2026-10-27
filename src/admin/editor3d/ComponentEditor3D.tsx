@@ -1,6 +1,6 @@
 import { uiConfirm } from '../../ui/dialogs'
 import Select from '../../ui/Select'
-import { HistoryGroup, ViewControls, ShortcutsButton } from '../../ui/toolbarKit'
+import { HistoryGroup, ShortcutsButton, ToolMenu, ViewControls, type ToolMenuItem, type ToolMenuSection } from '../../ui/toolbarKit'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -24,7 +24,7 @@ import { MaterialsTab, ObjectTab } from './tabs1'
 import { ControlsTab, DisplaysTab } from './tabsControls'
 import { validateDefinition } from './validate'
 import Logo from '../../ui/Brand'
-import { IconAlignCenterH, IconArrowLeft, IconBox, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconUngroup, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler, IconSave } from '../../ui/icons'
+import { IconAlignCenterH, IconArrowLeft, IconBox, IconClose, IconCone, IconCopy, IconCursor, IconCylinder, IconDelete, IconErase, IconFocus, IconGround, IconGroup, IconLayers, IconModel, IconMove, IconHand, IconPlus, IconRedo, IconRotate, IconSphere, IconTorus, IconUndo, IconUngroup, IconWire, IconEye, IconEyeOff, IconChevronDown, IconRuler, IconSave, IconHelp, IconCube, IconTools } from '../../ui/icons'
 import { chooseFace } from './FaceChooser'
 import { useEditorShortcuts } from '../../ui/shortcuts'
 import ShortcutHelp, { type ShortcutHelpExtra } from '../../ui/ShortcutHelp'
@@ -60,13 +60,13 @@ const EDITOR3D_HELP: ShortcutHelpExtra[] = [
   ] },
 ]
 
-const RIBBON: Array<{ id: Ribbon; label: string; hint: string; key: string; icon: typeof IconCursor; simulate: boolean }> = [
-  { id: 'select', label: 'Selecionar', hint: 'Selecionar e mover peças, bornes e cabos (clique num cabo para o editar)', key: '1', icon: IconCursor, simulate: true },
-  { id: 'terminal', label: 'Borne', hint: 'Clicar na superfície do modelo para criar bornes (escolha a face em «Bornes por vista»)', key: '2', icon: IconPlus, simulate: false },
-  { id: 'wire', label: 'Cabo', hint: 'Ligar dois bornes e validar a compatibilidade (cor, secção e terminais em «Novo cabo»)', key: '3', icon: IconWire, simulate: true },
-  { id: 'delete', label: 'Apagar', hint: 'Apagar a peça, o borne ou o cabo sob o cursor', key: '4', icon: IconErase, simulate: false },
-  { id: 'pan', label: 'Arrastar malha', hint: 'Arrastar a malha com a mão sem rodar a vista (o botão direito também desloca)', key: '5', icon: IconHand, simulate: true },
-  { id: 'measure', label: 'Medir', hint: 'Dois cliques (superfície ou borne) medem a distância em mm · Esc cancela', key: '6', icon: IconRuler, simulate: true },
+const RIBBON: Array<{ id: Ribbon; label: string; short: string; hint: string; key: string; icon: typeof IconCursor; simulate: boolean }> = [
+  { id: 'select', label: 'Selecionar', short: 'Seleção', hint: 'Selecionar e mover peças, bornes e cabos (clique num cabo para o editar)', key: '1', icon: IconCursor, simulate: true },
+  { id: 'terminal', label: 'Borne', short: 'Borne', hint: 'Clicar na superfície do modelo para criar bornes (escolha a face em «Bornes por vista»)', key: '2', icon: IconPlus, simulate: false },
+  { id: 'wire', label: 'Cabo', short: 'Cabo', hint: 'Ligar dois bornes e validar a compatibilidade (cor, secção e terminais em «Novo cabo»)', key: '3', icon: IconWire, simulate: true },
+  { id: 'delete', label: 'Apagar', short: 'Apagar', hint: 'Apagar a peça, o borne ou o cabo sob o cursor', key: '4', icon: IconErase, simulate: false },
+  { id: 'pan', label: 'Arrastar malha', short: 'Mover vista', hint: 'Arrastar a malha com a mão sem rodar a vista (o botão direito também desloca)', key: '5', icon: IconHand, simulate: true },
+  { id: 'measure', label: 'Medir', short: 'Medir', hint: 'Dois cliques (superfície ou borne) medem a distância em mm · Esc cancela', key: '6', icon: IconRuler, simulate: true },
 ]
 const RIBBON_KEYS: Ribbon[] = ['select', 'terminal', 'wire', 'delete', 'pan', 'measure']
 
@@ -88,7 +88,15 @@ function ShapeMenu({ onImport }: { onImport: () => void }) {
   </EditorActionMenu>
 }
 
-/** Barra de ferramentas principal — mesma linguagem visual da barra do simulador, agora por grupos. */
+/**
+ * Barra de ferramentas principal — mesma linguagem visual da barra do simulador, agora por grupos.
+ *
+ * Regras da arrumação (telemóvel incluído):
+ *  - linha 1: histórico · as seis ferramentas (a ativa mostra o nome) · «Mais»;
+ *  - linha 2: vista (malha, ímã, zoom), enquadrar, bornes e a dica da ferramenta;
+ *  - tudo o que não cabe na largura do telefone fica no menu «Mais», com nome,
+ *    atalho e motivo de bloqueio — nunca desaparece sem alternativa.
+ */
 function ToolRibbon({ onHelp }: { onHelp: () => void }) {
   const mode = useEditorStore((s) => s.mode)
   const tool = useEditorStore((s) => s.tool)
@@ -113,34 +121,83 @@ function ToolRibbon({ onHelp }: { onHelp: () => void }) {
   const hasPieces = useEditorStore((s) => !!selectedPartDef?.asset && s.def.parts.some((part) => part.parentId === selectedPartDef?.id && !!part.glbNode))
   const hasFocus = useEditorStore((s) => !!s.selection || !!s.selectedWire)
   const allHidden = terminalCount > 0 && hiddenCount >= terminalCount
-  // Telemóvel: mesma arrumação do simulador — duas linhas. Em cima os painéis
-  // (Formas, Bornes, Enquadrar…) com nome; em baixo as ferramentas, numa faixa
-  // que desliza na horizontal (classes `toolbar-scroll`/`dc-mobile-panel-tools`
-  // são as mesmas da barra do simulador).
+  const view = useEditorStore((s) => s.view)
+  const snap = useEditorStore((s) => s.snap)
+  const zoom = useEditorStore((s) => s.camStats.zoom)
+  const tab = useEditorStore((s) => s.tab)
   const compact = useCompactView()
+  const current = RIBBON.find((item) => item.id === active) ?? RIBBON[0]
+  const flash = (text: string) => window.dispatchEvent(new CustomEvent('ce-flash', { detail: text }))
+
+  const pickFile = () => fileRef.current?.click()
+  const fileInput = <input ref={fileRef} type="file" accept=".glb,model/gltf-binary" hidden onChange={(event) => { void importGlbAction(event.target.files?.[0]).then((error) => error && flash(error)); event.target.value = '' }} />
 
   const groupHistory = <HistoryGroup role="group" onUndo={() => useEditorStore.getState().undo()} onRedo={() => useEditorStore.getState().redo()} canUndo={canUndo} canRedo={canRedo} />
 
-  const groupTools = <div className="dc-seg" role="group" aria-label="Ferramenta">
+  const groupTools = <div className="dc-seg ce-tools" role="group" aria-label="Ferramenta">
     {RIBBON.map((item) => {
       const Icon = item.icon
       const disabled = !editing && !item.simulate
-      return <button key={item.id} className={`dc-tool-btn ${active === item.id ? 'dc-tool-active' : ''}`} disabled={disabled} aria-label={item.label} aria-pressed={active === item.id} onClick={() => setRibbon(item.id)} title={`${item.hint} [${item.key}]`}>
-        <Icon size={13} /><span className="hidden lg:inline">{item.label}</span><kbd className="ce-kbd">{item.key}</kbd>
+      const isActive = active === item.id
+      return <button key={item.id} className={`dc-tool-btn ${isActive ? 'dc-tool-active' : ''}`} disabled={disabled} aria-label={item.label} aria-pressed={isActive}
+        onClick={() => setRibbon(item.id)} title={`${item.hint} [${item.key}]`}>
+        <Icon size={14} /><span className="ce-tool-name">{compact && isActive ? item.short : item.label}</span><kbd className="ce-kbd">{item.key}</kbd>
       </button>
     })}
   </div>
 
-  const groupGizmo = editing && <div className="dc-seg" role="group" aria-label="Manipulador" style={active === 'select' ? undefined : { opacity: 0.45 }}>
+  const groupGizmo = editing && <div className="dc-seg" role="group" aria-label="Manipulador">
     {([['translate', 'Mover', 'W', IconMove], ['rotate', 'Rodar', 'E', IconRotate], ['scale', 'Escala', 'R', IconPlus]] as const).map(([id, label, key, Icon]) =>
-      <button key={id} className={`dc-tool-btn ${tool === id ? 'dc-tool-active' : ''}`} disabled={active !== 'select'} aria-label={label} aria-pressed={tool === id} onClick={() => set({ tool: id })} title={`${label} [${key}]`}><Icon size={13} /><span className="hidden xl:inline">{label}</span><kbd className="ce-kbd">{key}</kbd></button>)}
-    <button className="dc-tool-btn" disabled={active !== 'select'} aria-pressed={gizmoSpace === 'world'} onClick={() => set({ gizmoSpace: gizmoSpace === 'local' ? 'world' : 'local' })} title="Eixos do manipulador: locais (da peça) ou globais (do mundo) [X]">{gizmoSpace === 'local' ? 'Local' : 'Global'}</button>
+      <button key={id} className={`dc-tool-btn ${tool === id ? 'dc-tool-active' : ''}`} disabled={active !== 'select'} aria-label={label} aria-pressed={tool === id}
+        onClick={() => set({ tool: id })} title={`${label} [${key}]${active !== 'select' ? ' — disponível na ferramenta Selecionar' : ''}`}>
+        <Icon size={13} /><span className="hidden xl:inline">{label}</span><kbd className="ce-kbd">{key}</kbd></button>)}
+    <button className="dc-tool-btn" disabled={active !== 'select'} aria-pressed={gizmoSpace === 'world'} onClick={() => set({ gizmoSpace: gizmoSpace === 'local' ? 'world' : 'local' })}
+      title="Eixos do manipulador: locais (da peça) ou globais (do mundo) [X]">{gizmoSpace === 'local' ? 'Local' : 'Global'}</button>
   </div>
 
-  const shapes = editing && <>
-    <ShapeMenu onImport={() => fileRef.current?.click()} />
-    <input ref={fileRef} type="file" accept=".glb,model/gltf-binary" hidden onChange={(event) => { void importGlbAction(event.target.files?.[0]).then((error) => error && window.dispatchEvent(new CustomEvent('ce-flash', { detail: error }))); event.target.value = '' }} />
-  </>
+  const shapes = editing && <ShapeMenu onImport={pickFile} />
+
+  const groupTerminals = editing && <div className="dc-seg" role="group" aria-label="Bornes">
+    <button className={`dc-tool-btn ${libraryOpen ? 'dc-tool-active' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} aria-pressed={libraryOpen}
+      title="Biblioteca de bornes e perfis de ligação" aria-label="Biblioteca de bornes">
+      <IconLayers size={13} /><span className="hidden xl:inline">Biblioteca de bornes</span><span className="xl:hidden">Bornes</span>
+    </button>
+    {!compact && <button className="dc-tool-btn !px-2" disabled={terminalCount === 0} aria-pressed={allHidden}
+      onClick={() => useEditorStore.getState().setTerminalsHidden(useEditorStore.getState().def.terminals.map((item) => item.id), !allHidden)}
+      title={allHidden ? 'Mostrar todos os bornes' : hiddenCount ? `Ocultar todos os bornes (${hiddenCount} já oculto${hiddenCount > 1 ? 's' : ''}) [H]` : 'Ocultar todos os bornes [H]'}
+      aria-label={allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes'}>
+      {allHidden ? <IconEyeOff size={14} /> : <IconEye size={14} />}{hiddenCount > 0 && !allHidden && <b className="ce-badge">{hiddenCount}</b>}
+    </button>}
+  </div>
+
+  const groupClear = (measurements > 0 || wireCount > 0) && <div className="dc-seg" role="group" aria-label="Limpar">
+    {measurements > 0 && <button className="dc-tool-btn" onClick={() => set({ measurements: [], measureFrom: null })} title="Apagar todas as medições" aria-label="Limpar medições">
+      <IconRuler size={13} /><span className="hidden xl:inline">Limpar medições</span><b className="ce-badge">{measurements}</b></button>}
+    {wireCount > 0 && <button className={`dc-tool-btn ${tab === 'wires' ? 'dc-tool-active' : ''}`} onClick={() => set({ tab: 'wires' })} title="Editar cabos de teste: cor, secção e terminais" aria-label="Cabos de teste">
+      <IconWire size={13} /><span className="hidden xl:inline">Cabos</span><b className="ce-badge">{wireCount}</b></button>}
+  </div>
+
+  const groupGrid = <ViewControls
+    grid={{ on: view.grid, toggle: () => useEditorStore.getState().setView({ grid: !view.grid }), title: 'Mostrar/ocultar a malha do chão' }}
+    snap={{ on: snap.on, toggle: () => set({ snap: { ...snap, on: !snap.on } }), title: 'Encaixar à malha (ímã)' }}
+    zoom={{
+      percent: zoom,
+      onOut: () => useEditorStore.getState().zoom(1 / 1.3),
+      onReset: () => useEditorStore.getState().cameraTo('fit'),
+      onIn: () => useEditorStore.getState().zoom(1.3),
+      canOut: zoom > 15,
+      canIn: zoom < 800,
+      title: 'Zoom: 100 % = modelo enquadrado · clique no valor para enquadrar (F)',
+      unit: 'roda do rato · pinça no ecrã',
+    }} />
+
+  const groupView = <div className="dc-seg" role="group" aria-label="Vista">
+    <button className="dc-tool-btn" onClick={() => useEditorStore.getState().cameraTo('fit')} aria-label="Enquadrar modelo" title="Enquadrar o modelo [F]">
+      <IconFocus size={14} /><span className="ce-mobile-label">Enquadrar</span></button>
+    {!compact && <button className="dc-tool-btn" disabled={!hasFocus} onClick={() => useEditorStore.getState().cameraTo('fitSel')}
+      aria-label="Enquadrar seleção" title={hasFocus ? 'Enquadrar a seleção (peça, borne ou cabo) [Shift+F]' : 'Selecione uma peça, um borne ou um cabo para enquadrar'}>
+      <span className="hidden xl:inline">Seleção</span><span className="xl:hidden">Sel.</span></button>}
+  </div>
 
   const groupEdit = editing && <div className="dc-seg" role="group" aria-label="Edição">
     <button className="dc-tool-btn" disabled={!hasPart} onClick={duplicateSelection} title="Duplicar a seleção [Ctrl+D]" aria-label="Duplicar"><IconCopy size={14} /><span>Duplicar</span><kbd>Ctrl+D</kbd></button>
@@ -156,43 +213,88 @@ function ToolRibbon({ onHelp }: { onHelp: () => void }) {
     <button className="dc-tool-btn" onClick={centerOnOrigin} aria-label="Centrar modelo" title="Centrar o modelo na origem (X/Z)"><IconAlignCenterH size={14} /><span className="ce-mobile-label">Centrar</span></button>
   </div>
 
-  const viewGrid = useEditorStore((st) => st.view.grid)
-  const snapState = useEditorStore((st) => st.snap)
-  const groupGrid = <ViewControls
-    grid={{ on: viewGrid, toggle: () => useEditorStore.getState().setView({ grid: !viewGrid }), title: 'Mostrar/ocultar a malha do chão' }}
-    snap={{ on: snapState.on, toggle: () => set({ snap: { ...snapState, on: !snapState.on } }), title: 'Encaixar à malha (ímã)' }} />
+  /* ---------- menu «Mais»: o que não cabe na largura do telefone ---------- */
+  const scene: Array<[keyof typeof view, string, string]> = [
+    ['grid', 'Malha do fundo', 'Grelha de pontos do fundo (como no simulador)'],
+    ['floor', 'Chão', 'Chão com escala de 10 mm'],
+    ['axes', 'Eixos', 'Eixos X/Y/Z na origem'],
+    ['terminals', 'Rótulos dos bornes', 'Nomes dos bornes sobre o modelo'],
+    ['bounds', 'Caixa envolvente', 'Caixa com as dimensões reais'],
+    ['dark', 'Fundo escuro', 'Fundo escuro para peças claras'],
+  ]
+  const entrySections: ToolMenuSection[] = [
+    ...(editing ? [{
+      id: 'model', title: 'Modelo', items: [
+        ...OBJECTS.map(([kind, label, Icon]) => ({ id: `shape-${kind}`, label, icon: <Icon size={14} />, hint: 'Adicionar primitiva ao modelo', onSelect: () => addPartAction(kind) })),
+        { id: 'import-glb', label: 'Importar GLB…', icon: <IconModel size={14} />, hint: 'Modelo CAD até 4 MB (glTF 2.0)', onSelect: pickFile },
+        { id: 'drop', label: 'Pousar no chão', icon: <IconGround size={14} />, kbd: '', hint: 'Base a Y = 0; os bornes acompanham', onSelect: dropToFloor },
+        { id: 'center', label: 'Centrar na origem', icon: <IconAlignCenterH size={14} />, hint: 'Alinha o modelo em X/Z', onSelect: centerOnOrigin },
+      ] as ToolMenuItem[],
+    }, {
+      id: 'edit', title: 'Edição', items: [
+        { id: 'duplicate', label: 'Duplicar', icon: <IconCopy size={14} />, kbd: 'Ctrl+D', disabled: !hasPart, disabledReason: 'Selecione uma peça do modelo', onSelect: duplicateSelection },
+        { id: 'group', label: 'Agrupar', icon: <IconGroup size={14} />, kbd: 'Ctrl+G', disabled: !hasPart, disabledReason: 'Selecione as peças a agrupar', onSelect: groupSelection },
+        { id: 'ungroup', label: 'Desagrupar', icon: <IconUngroup size={14} />, kbd: 'Ctrl+Shift+G', disabled: !hasGroup, disabledReason: 'A seleção não é um grupo', onSelect: ungroupSelection },
+        { id: 'explode', label: 'Separar partes do GLB', icon: <IconModel size={14} />, disabled: !hasGlb, disabledReason: 'Selecione a peça do modelo importado', hint: 'Cada manípulo/tampa passa a peça editável', onSelect: () => explodeGlbPart('smart') },
+        ...(hasPieces ? [{ id: 'merge', label: 'Juntar partes', icon: <IconGroup size={14} />, hint: 'Volta a reunir o modelo separado', onSelect: mergeGlbParts }] : []),
+        { id: 'delete', label: 'Eliminar seleção', icon: <IconDelete size={14} />, kbd: 'Del', danger: true, disabled: !hasSelection, disabledReason: 'Nada selecionado', onSelect: deleteSelection },
+      ] as ToolMenuItem[],
+    }, {
+      id: 'gizmo', title: 'Manipulador', items: [
+        { id: 'translate', label: 'Mover', icon: <IconMove size={14} />, kbd: 'W', pressed: tool === 'translate', onSelect: () => set({ tool: 'translate' }) },
+        { id: 'rotate', label: 'Rodar', icon: <IconRotate size={14} />, kbd: 'E', pressed: tool === 'rotate', onSelect: () => set({ tool: 'rotate' }) },
+        { id: 'scale', label: 'Escalar', icon: <IconPlus size={14} />, kbd: 'R', pressed: tool === 'scale', onSelect: () => set({ tool: 'scale' }) },
+        { id: 'space', label: 'Eixos ' + (gizmoSpace === 'local' ? 'locais' : 'globais'), icon: <IconMove size={14} />, kbd: 'X', pressed: gizmoSpace === 'world', hint: 'Alterna entre os eixos da peça e os do mundo', onSelect: () => set({ gizmoSpace: gizmoSpace === 'local' ? 'world' : 'local' }) },
+      ] as ToolMenuItem[],
+    }, {
+      id: 'terminals', title: 'Bornes', items: [
+        { id: 'library', label: 'Biblioteca de bornes', icon: <IconLayers size={14} />, pressed: libraryOpen, hint: 'Perfis e ligação dos bornes', onSelect: () => set({ libraryOpen: !libraryOpen }) },
+        { id: 'hide-terminals', label: allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes', icon: allHidden ? <IconEye size={14} /> : <IconEyeOff size={14} />, kbd: 'H', disabled: terminalCount === 0, disabledReason: 'O modelo ainda não tem bornes', onSelect: () => useEditorStore.getState().setTerminalsHidden(useEditorStore.getState().def.terminals.map((item) => item.id), !allHidden) },
+        ...FACES.map(([face, label]) => ({ id: `face-${face}`, label: `Ver ${label.toLowerCase()} e adicionar bornes`, icon: <IconPlus size={14} />, onSelect: () => chooseFace(face) } as ToolMenuItem)),
+      ] as ToolMenuItem[],
+    }] : []),
+    {
+      id: 'scene', title: 'Vista', items: [
+        ...scene.map(([key, label, hint]) => ({ id: `scene-${key}`, label, hint, pressed: view[key], onSelect: () => useEditorStore.getState().setView({ [key]: !view[key] } as Partial<typeof view>) } as ToolMenuItem)),
+        { id: 'fit', label: 'Enquadrar modelo', icon: <IconFocus size={14} />, kbd: 'F', onSelect: () => useEditorStore.getState().cameraTo('fit') },
+        { id: 'iso', label: 'Vista isométrica', icon: <IconCube size={14} />, onSelect: () => useEditorStore.getState().cameraTo('iso') },
+        { id: 'fit-sel', label: 'Enquadrar seleção', icon: <IconFocus size={14} />, kbd: 'Shift+F', disabled: !hasFocus, disabledReason: 'Nada selecionado', onSelect: () => useEditorStore.getState().cameraTo('fitSel') },
+      ] as ToolMenuItem[],
+    },
+    {
+      id: 'help', title: 'Ajuda', items: [
+        { id: 'shortcuts', label: 'Atalhos de teclado', icon: <IconHelp size={14} />, kbd: '?', hint: 'Lista completa do editor de componentes', onSelect: () => window.dispatchEvent(new CustomEvent('ce-help')) },
+      ] as ToolMenuItem[],
+    },
+    ...((measurements > 0 || wireCount > 0) ? [{
+      id: 'clean', title: 'Medições e cabos', items: [
+        ...(measurements > 0 ? [{ id: 'clear-measure', label: `Apagar medições (${measurements})`, icon: <IconRuler size={14} />, onSelect: () => set({ measurements: [], measureFrom: null }) } as ToolMenuItem] : []),
+        ...(wireCount > 0 ? [{ id: 'wires', label: `Cabos de teste (${wireCount})`, icon: <IconWire size={14} />, pressed: tab === 'wires', hint: 'Cor, secção e terminais', onSelect: () => set({ tab: 'wires' }) } as ToolMenuItem] : []),
+      ] as ToolMenuItem[],
+    }] : []),
+  ]
 
-  const groupView = <div className="dc-seg" role="group" aria-label="Vista">
-    <button className="dc-tool-btn" onClick={() => useEditorStore.getState().cameraTo('fit')} aria-label="Enquadrar modelo" title="Enquadrar o modelo [F]"><IconFocus size={14} /><span className="ce-mobile-label">Enquadrar</span></button>
-    <button className="dc-tool-btn" disabled={!hasFocus} onClick={() => useEditorStore.getState().cameraTo('fitSel')} aria-label="Enquadrar seleção" title="Enquadrar a seleção (peça, borne ou cabo) [Shift+F]"><span className="hidden xl:inline">Seleção</span><span className="xl:hidden">Sel.</span></button>
-  </div>
-
-  const groupTerminals = editing && <div className="dc-seg" role="group" aria-label="Bornes">
-    <button className={`dc-tool-btn ${libraryOpen ? 'dc-tool-active' : ''}`} onClick={() => set({ libraryOpen: !libraryOpen })} title="Biblioteca de bornes e perfis de ligação"><IconLayers size={13} /><span className="hidden xl:inline">Biblioteca de bornes</span><span className="xl:hidden">Bornes</span></button>
-    <button className="dc-tool-btn !px-2" disabled={terminalCount === 0} aria-pressed={allHidden} onClick={() => useEditorStore.getState().setTerminalsHidden(useEditorStore.getState().def.terminals.map((item) => item.id), !allHidden)}
-      title={allHidden ? 'Mostrar todos os bornes' : hiddenCount ? `Ocultar todos os bornes (${hiddenCount} já oculto${hiddenCount > 1 ? 's' : ''}) [H]` : 'Ocultar todos os bornes [H]'} aria-label={allHidden ? 'Mostrar todos os bornes' : 'Ocultar todos os bornes'}>
-      {allHidden ? <IconEyeOff size={14} /> : <IconEye size={14} />}{hiddenCount > 0 && !allHidden && <b className="ce-badge">{hiddenCount}</b>}
-    </button>
-  </div>
-
-  const groupClear = (measurements > 0 || wireCount > 0) && <div className="dc-seg" role="group" aria-label="Limpar">
-    {measurements > 0 && <button className="dc-tool-btn" onClick={() => set({ measurements: [], measureFrom: null })} title="Apagar todas as medições"><IconRuler size={13} /><span className="hidden xl:inline">Limpar medições</span><b className="ce-badge">{measurements}</b></button>}
-    {wireCount > 0 && <button className={`dc-tool-btn ${useEditorStore.getState().tab === 'wires' ? 'dc-tool-active' : ''}`} onClick={() => set({ tab: 'wires' })} title="Editar cabos de teste: cor, secção e terminais"><IconWire size={13} /><span className="hidden xl:inline">Cabos</span><b className="ce-badge">{wireCount}</b></button>}
-  </div>
+  const moreMenu = <ToolMenu label="Mais" title="Ferramentas e opções" icon={<IconTools size={14} />} sections={entrySections} align="end" className="ce-more" />
 
   return <div className={`ce-toolbars${compact ? ' is-compact' : ''}`}>
     <div className="ce-ribbon ce-ribbon-primary" role="toolbar" aria-label="Ferramentas">
       {groupHistory}
+      <span className="tb-sep" />
       {groupTools}
-      {groupGizmo}
-      {shapes}
+      {!compact && <><span className="tb-sep" />{groupGizmo}{shapes}</>}
+      <div className="ce-ribbon-end">
+        {compact ? moreMenu : <><EditorActionMenu label="Organizar" icon={<IconLayers size={13} />}>{groupEdit}{groupPosition}</EditorActionMenu>{groupClear}</>}
+      </div>
+      {fileInput}
     </div>
     <div className="ce-ribbon ce-ribbon-secondary" role="toolbar" aria-label="Modelo e vista">
-      <span className="ce-toolbar-caption">Vista</span>{groupGrid}{groupView}
-      {editing && <>{groupTerminals}<EditorActionMenu label="Organizar" icon={<IconLayers size={13} />}>{groupEdit}{groupPosition}</EditorActionMenu></>}
-      {groupClear}
-      <span className="ce-ribbon-hint" aria-live="polite">{RIBBON.find((item) => item.id === active)?.hint}</span>
-      <ShortcutsButton scope="component" onClick={onHelp} title="Atalhos de teclado (F1)" />
+      {!compact && <span className="ce-toolbar-caption">Vista</span>}
+      {groupGrid}
+      {groupView}
+      {editing && !compact && groupTerminals}
+      {compact && <>{groupTerminals}</>}
+      {!compact && <ShortcutsButton scope="component" onClick={onHelp} title="Atalhos de teclado (F1)" />}
+      <span className="ce-ribbon-hint" aria-live="polite"><b>{current.short}</b> · {current.hint}</span>
     </div>
   </div>
 }
@@ -290,8 +392,9 @@ function ViewToolbar() {
   // painel — acabou a fila apertada que deslizava por baixo do cubo.
   if (compact) {
     const active = scene.filter(([key]) => view[key]).length
+    // Em telemóvel «Enquadrar» e «ISO» já estão na barra principal: aqui fica só
+    // o menu da cena (malha, chão, eixos, rótulos, caixa, fundo) e o ajuste.
     return <div className="ce-viewbar is-compact" role="toolbar" aria-label="Vista 3D" ref={menuRef}>
-      {camera}
       <div className="ce-group">
         <button className={`ce-tool${open ? ' is-on' : ''}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(!open)}>Vista{active > 0 && <b className="ce-vm-count">{active}</b>}</button>
       </div>
@@ -468,6 +571,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
   const libraryOpen = useEditorStore((s) => s.libraryOpen)
   const activeRibbon = useActiveRibbon()
   useEffect(() => { const handler = (event: Event) => setMessage(String((event as CustomEvent).detail)); window.addEventListener('ce-flash', handler); return () => window.removeEventListener('ce-flash', handler) }, [])
+  // A ajuda também se abre pelo menu «Mais» (o teclado não existe em telemóvel).
+  useEffect(() => { const handler = () => setHelpOpen(true); window.addEventListener('ce-help', handler); return () => window.removeEventListener('ce-help', handler) }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -685,7 +790,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       </div>
       <div className="ce-spacer" />
       {message && <span className="ce-flash" role="status">{message}</span>}
-      <div className="ce-header-actions"><button className="account-project-action" onClick={() => leave()}><IconArrowLeft size={13} /><span>Biblioteca</span></button>
+      <div className="ce-header-actions">      <button className="account-project-action" onClick={() => leave()}><IconArrowLeft size={13} /><span>Biblioteca</span></button>
       <button className="account-project-action" onClick={() => void save()} disabled={saving || !dirty} title="Guardar rascunho (Ctrl+S)" aria-label="Guardar rascunho"><IconSave size={13} /><span>{saving ? 'A guardar…' : 'Guardar'}</span></button>
       <button className="account-project-action dx-bar-primary" onClick={() => setPublishing(true)}>Publicar…</button>
       {account}</div>

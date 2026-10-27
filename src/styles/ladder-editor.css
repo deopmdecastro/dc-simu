@@ -357,3 +357,74 @@
 .ladder-debug-step.is-on { border-color:#86efac; background:#f0fdf4; }
 .ladder-debug-step.is-skipped { color:#6b7280; background:#f9fafb; border-style:dashed; }
 .ladder-debug-step.is-cursor { border-color:#7c3aed; background:#f5f3ff; box-shadow:0 0 0 1px #7c3aed; }
+
+/* ===========================================================================
+   v5.2 · Ladder no telemóvel: menos cromado, mais programa à vista
+   ---------------------------------------------------------------------------
+   Antes: uma linha inteira só com «Programa Ladder», o resumo em grelha que
+   cortava «Bobinas» e «Timers/Counters» na borda, o cartão de estado vazio com
+   quase 300 px de altura e duas réguas verticais (34 px cada) a roubar largura
+   ao diagrama. Agora: resumo numa faixa deslizante de pastilhas, a linha
+   redundante desaparece, o estado vazio encolhe e as réguas ficam finas.
+   =========================================================================== */
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  /* Resumo: uma linha de pastilhas que desliza (nada é cortado sem sinal). */
+  .ladder-program-summary {
+    display: flex; grid-template-columns: none;
+    gap: 5px; padding: 6px 8px;
+    overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+  .ladder-program-summary::-webkit-scrollbar { display: none; }
+  .ladder-program-summary > * { flex: 0 0 auto; }
+  .ladder-program-summary .ladder-metric,
+  .ladder-program-summary .ladder-live-bus {
+    display: inline-flex; align-items: baseline; gap: 5px;
+    padding: 4px 9px; border-radius: 99px;
+  }
+  .ladder-program-summary .ladder-metric span,
+  .ladder-program-summary .ladder-live-bus span {
+    display: inline; margin: 0; font-size: 9px; letter-spacing: .04em;
+  }
+  .ladder-program-summary .ladder-metric strong,
+  .ladder-program-summary .ladder-live-bus strong {
+    display: inline; margin: 0; font-size: 12px; line-height: 1;
+  }
+
+  /* A linha «Programa Ladder» repetia o separador que está logo acima. */
+  .ladder-editor-toolbar:not(.ladder-block-toolbar) { display: none; }
+
+  /* Estado vazio compacto: o CTA fica à vista sem empurrar o programa. */
+  .ladder-empty-state { padding: 22px 16px; gap: 8px; margin: 14px auto; border-radius: 10px; }
+  .ladder-empty-state h3 { font-size: 15px; }
+  .ladder-empty-state p { font-size: 11.5px; line-height: 1.5; max-width: 32ch; }
+  .ladder-empty-icon { width: 44px; height: 44px; }
+  .ladder-empty-state .dc-btn, .ladder-empty-state .ladder-primary-button { min-height: 38px; }
+
+  /* Réguas recolhidas: 24 px em vez de 34 px (mais 20 px de diagrama). */
+  .ladder-collapsed-pane-button { flex-basis: 24px; font-size: 9px; letter-spacing: .04em; }
+
+  /* Separadores do projeto: alvos de toque confortáveis, sem transbordar. */
+  .ladder-project-tabs { height: 38px; padding: 0 6px; overflow-x: auto; scrollbar-width: none; }
+  .ladder-project-tabs::-webkit-scrollbar { display: none; }
+  .ladder-project-tab { height: 38px; padding: 0 10px; font-size: 11px; white-space: nowrap; }
+}
+
+/* Alvo do programa: no telemóvel o rótulo e a ajuda desaparecem (o select já
+   diz qual é o PLC) e a barra deixa de mostrar texto cortado a meio. */
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  .ladder-plc-target { padding: 5px 8px !important; gap: 6px !important; }
+  .ladder-plc-target > label, .ladder-plc-target > span:last-child { display: none; }
+  .ladder-plc-target > .dc-select { flex: 1 1 auto; max-width: none; width: 100%; min-height: 32px; font-size: 11.5px; }
+}
+
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  /* Sem PLC no esquema, a linha do alvo não tem nada a dizer: sai de cena. */
+  .ladder-plc-target:has(.dc-select:disabled) { display: none; }
+}
+/* O cartão de estado vazio não precisa de altura mínima: encolhe com o conteúdo
+   e o «Criar primeira network» fica muito acima do fundo do ecrã. */
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  .ladder-empty-state, .ladder-empty-state.is-compact { min-height: 0 !important; max-width: 100%; padding: 18px 14px; margin: 10px; }
+}

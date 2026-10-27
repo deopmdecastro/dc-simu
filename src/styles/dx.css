@@ -1498,3 +1498,38 @@ button.dx-notification-item:hover {
     transform: none;
   }
 }
+
+/* ===========================================================================
+   v5.2 · Cabeçalho do editor no telemóvel: o nome do projeto tem de caber
+   ---------------------------------------------------------------------------
+   Com o logótipo, o separador e as ações todas na mesma linha, o nome ficava
+   reduzido a uma letra («E.»). Agora o nome recebe a largura disponível, corta
+   com «…» e o logótipo/separador saem de cena (já estão na barra superior).
+   =========================================================================== */
+@media (max-width: 720px) {
+  .account-bar .dx-logo { display: none; }
+  .account-bar .dx-bar-sep { display: none; }
+  .account-bar { gap: 6px !important; padding-inline: 8px !important; }
+  .account-bar .dx-project-context {
+    flex: 1 1 auto; min-width: 0;
+    flex-direction: column; align-items: flex-start; gap: 0;
+  }
+  .account-bar .dx-project-context strong { max-width: 100%; font-size: 12.5px; }
+  .account-bar .dx-project-context small { font-size: 9.5px; }
+  .account-bar .dx-project-rename { max-width: 100%; padding: 2px 0; }
+  .account-bar-actions { flex: none; }
+}
+
+/* No telemóvel: «Projetos» e «Comentários» passam a ícone (o nome do projeto
+   fica com a largura disponível); o número de comentários mantém-se visível. */
+.account-action-count {
+  display: inline-grid; place-items: center; min-width: 15px; height: 15px;
+  padding: 0 4px; border-radius: 99px;
+  background: var(--dx-brand); color: #fff; font-size: 9px; font-weight: 800; line-height: 1;
+}
+@media (max-width: 720px) {
+  .account-bar .account-project-action { padding: 5px 8px; gap: 4px; }
+  .account-bar .account-action-text { display: none; }
+  .account-bar .account-comments-action { position: relative; }
+  .account-bar .account-project-action.dx-bar-primary { padding-inline: 12px; }
+}

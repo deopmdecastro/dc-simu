@@ -443,7 +443,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   const propsFirstRun = useRef(true)
   useEffect(() => {
     if (propsFirstRun.current) { propsFirstRun.current = false; return }
-    if (selected) setPropsOpen(true)
+    // No telemóvel a gaveta não abre sozinha: tapar o diagrama a cada seleção
+    // esconde justamente o que se acabou de tocar. O resumo mostra o elemento
+    // selecionado e um botão abre as propriedades.
+    const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 800px)').matches
+    if (selected && !narrow) setPropsOpen(true)
   }, [selected])
 
   const isStepSelected = (stepId: string) => (selected === stepId && !selectedActionId) || multi.includes(stepId)
