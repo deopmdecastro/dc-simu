@@ -1598,6 +1598,85 @@ html:has(.dx-landing) {
   }
 }
 
+
+/* ═══ Landing v4.8 · CTAs e showcase em viewports estreitos ═══ */
+@media (max-width: 560px) {
+  .dx-lhero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .dx-lhero-actions .dx-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+  .dx-nav-cta .dx-btn-primary {
+    min-height: 40px;
+  }
+  .dx-mobile-cta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .dx-mobile-cta .dx-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+  .dx-lhero-meta {
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+  .dx-cta-band .dx-cta-actions,
+  .dx-cta-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .dx-cta-actions .dx-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+}
+@media (max-width: 720px) {
+  .dx-showcase-wrap {
+    min-height: clamp(320px, 56svh, 480px);
+    border-radius: 12px;
+  }
+  .dx-showcase-controls {
+    gap: 8px;
+    padding: 8px;
+    background: color-mix(in srgb, #0f172a 72%, transparent);
+    border-radius: 10px;
+    backdrop-filter: blur(8px);
+  }
+  .dx-showcase-controls button {
+    min-height: 44px;
+    font-size: 13px;
+    font-weight: 650;
+  }
+  .dx-showcase-state {
+    max-width: min(200px, 58%);
+    z-index: 2;
+  }
+  .dx-showcase-legend {
+    z-index: 2;
+  }
+  /* Hero 3D: prioridade visual em telemóvel — viewport antes do texto longo */
+  .dx-lhero-in {
+    display: flex;
+    flex-direction: column;
+  }
+  .dx-lhero-copy {
+    order: 1;
+  }
+  .dx-lhero .dx-window,
+  .dx-lhero-in > :last-child {
+    order: 0;
+  }
+}
+
 /* ═══ Landing v4.7 · 3D maior e legível em qualquer largura ═══ */
 .dx-showcase-wrap { min-height: 260px; touch-action: pan-y; }
 .dx-showcase-state, .dx-showcase-legend { font-variant-numeric: tabular-nums; }

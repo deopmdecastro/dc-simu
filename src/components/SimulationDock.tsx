@@ -5,7 +5,8 @@ import { stepNumberOf } from '../grafcet/engine'
 import PlcSignalPanel from './PlcSignalPanel'
 import VirtualIoPanel from './VirtualIoPanel'
 import Select from '../ui/Select'
-import { IconClose } from '../ui/icons'
+import { IconClose, IconPlay } from '../ui/icons'
+import SidePanelHeader from './SidePanelHeader'
 import { SimTransportControls } from '../ui/toolbarKit'
 
 /**
@@ -34,11 +35,15 @@ export default function SimulationDock({ onClose }: { onClose: () => void }) {
 
   return (
     <aside className="schematic-sim-dock" aria-label="Simulação" data-sim-dock-panel>
-      <header className="schematic-sim-dock-head">
-        <strong><IconPlay size={12} /> Simulação</strong>
-        <span className={`schematic-sim-dock-state ${running ? 'is-running' : stopped ? '' : 'is-paused'}`}>{running ? 'RUN' : stopped ? 'STOP' : 'PAUSA'} · ciclo #{sim.scanCount}</span>
-        <button type="button" className="schematic-sim-dock-close" onClick={onClose} title="Fechar a simulação" aria-label="Fechar a simulação"><IconClose size={13} /></button>
-      </header>
+      <SidePanelHeader
+        className="schematic-sim-dock-head"
+        eyebrow="ESQUEMA"
+        title="Simulação"
+        icon={<IconPlay size={16} />}
+        side="right"
+        detail={<span className={`schematic-sim-dock-state ${running ? 'is-running' : stopped ? '' : 'is-paused'}`}>{running ? 'RUN' : stopped ? 'STOP' : 'PAUSA'} · ciclo #{sim.scanCount}</span>}
+        actions={<button type="button" className="schematic-sim-dock-close" onClick={onClose} title="Fechar a simulação" aria-label="Fechar a simulação"><IconClose size={13} /></button>}
+      />
       <SimTransportControls
         running={running}
         stopped={stopped}

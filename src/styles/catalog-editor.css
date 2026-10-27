@@ -307,7 +307,12 @@
 
 /* ---- cabos de teste: painel melhorado, auto-guardar e resumo do componente ---- */
 .ce-wirepanel-head { display:flex; align-items:center; gap:6px; }
+.ce-wirepanel-head.dc-side-panel-head { min-height:40px; padding:4px 0; border:0; background:transparent; }
+.ce-wirepanel-head .dc-side-panel-copy { flex:1; min-width:0; }
+.ce-wirepanel-head .dc-side-panel-icon { width:26px; height:28px; }
 .ce-wirepanel-head strong { font-size:13px; }
+.ce-wirepanel.is-collapsed .ce-wirepanel-head > .dc-side-panel-actions { display:none; }
+.ce-wirepanel.is-collapsed .ce-wirepanel-head > .dc-side-panel-collapsed-label { display:none; } /* toggle já mostra estado */
 .ce-wp-spacer { flex:1; }
 .ce-wp-count { background:var(--dx-brand-soft-2); color:var(--dx-brand-700); border-radius:99px; padding:0 7px; font-size:11px; font-weight:700; }
 .ce-wp-toggle { width:20px; height:20px; border:1px solid var(--dx-line); border-radius:6px; background:#fff; cursor:pointer; font-size:13px; line-height:1; }
