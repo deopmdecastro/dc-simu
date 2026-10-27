@@ -1427,6 +1427,16 @@ button.dx-notification-item:hover {
   font-weight: 600;
   color: var(--dx-ink-4);
 }
+.dx-admin-head {
+  padding-bottom:var(--dx-5);
+  border-bottom:1px solid var(--dx-line-soft);
+}
+.dx-admin-head-actions { display:flex; align-items:center; gap:8px; }
+.dx-admin-head-actions .dx-btn { min-height:34px; }
+.dx-admin-table > div { transition:background .15s ease; }
+.dx-admin-table > div:focus-within { background:var(--dx-brand-soft); }
+.dx-admin-section h2 { letter-spacing:-.01em; }
+@media (prefers-reduced-motion:reduce) { .dx-admin-table > div { transition:none; } }
 .dx-admin-table {
   border: 1px solid var(--dx-line);
   border-radius: var(--dx-r-lg);
