@@ -11,6 +11,8 @@ import { usePlanStore } from '../saas/usePlan'
 import { COMPONENT_STATUS_LABEL, componentStatusOf, type ComponentStatus, type PlanId } from '../saas/platformCore.mjs'
 import RowMenu, { MenuItem } from './RowMenu'
 import { useNarrowMenu } from '../ui/toolbarKit'
+import { ComponentThumb } from '../three/componentThumbnails'
+import { IconDownload, IconSearch } from '../ui/icons'
 
 type Props = {
   settings: ComponentSetting[]
@@ -172,7 +174,7 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
     </details>
 
     <div className="cb-filters cb-filters-components">
-      <input className="dx-input" type="search" placeholder="Pesquisar componente…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar componentes" />
+      <label className="cb-component-search"><IconSearch size={14} aria-hidden="true" /><input className="dx-input" type="search" placeholder="Pesquisar componente…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar componentes" /></label>
       <Select className="dx-input" value={group} onChange={(event) => setGroup(event.target.value)} aria-label="Filtrar por grupo">
         <option value="all">Todos os grupos</option>{groups.map((name) => <option key={name} value={name}>{name}</option>)}
       </Select>
@@ -182,7 +184,7 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
       <Select className="dx-input" value={sort} onChange={(event) => setSort(event.target.value as SortKey)} aria-label="Ordenar componentes">
         <option value="group">Ordenar: grupo</option><option value="name">Ordenar: nome</option><option value="state">Ordenar: estado (bloqueados primeiro)</option><option value="completeness">Ordenar: menos completos primeiro</option>
       </Select>
-      <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={exportCsv} title="Exporta o catálogo completo (CSV)">Exportar CSV</button>
+      <button className="dx-btn dx-btn-secondary dx-btn-sm cb-export" onClick={exportCsv} title="Exporta o catálogo completo (CSV)"><IconDownload size={13} />Exportar CSV</button>
     </div>
 
     <div className="cb-bulk" role="toolbar" aria-label="Ações em lote">
@@ -202,9 +204,11 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
       {visible.map((row) => <article key={row.type} className={`cb-component ${row.status !== 'active' ? 'is-disabled' : ''} is-${row.status}`} data-status={row.status}>
         <div className="cb-component-main">
           <label className="cb-select"><input type="checkbox" checked={selected.has(row.type)} onChange={() => toggle(row.type)} aria-label={`Selecionar ${row.label}`} /></label>
-          <strong>{row.label}</strong>
-          <small>{row.group} · <code>{row.type}</code></small>
-          {row.setting && row.status !== 'active' && <small className="cb-component-note">{COMPONENT_STATUS_LABEL[row.status]}{row.setting.updatedBy ? ` por ${row.setting.updatedBy}` : ''}{row.setting.updatedAt ? ` · ${formatDate(row.setting.updatedAt)}` : ''}{row.setting.note ? ` — ${row.setting.note}` : ''}</small>}
+          <span className="cb-component-thumb" aria-hidden="true"><ComponentThumb type={row.type as ComponentType} size={42} /></span>
+          <span className="cb-component-identity"><strong>{row.label}</strong>
+            <small>{row.group} · <code>{row.type}</code></small>
+            {row.setting && row.status !== 'active' && <small className="cb-component-note">{COMPONENT_STATUS_LABEL[row.status]}{row.setting.updatedBy ? ` por ${row.setting.updatedBy}` : ''}{row.setting.updatedAt ? ` · ${formatDate(row.setting.updatedAt)}` : ''}{row.setting.note ? ` — ${row.setting.note}` : ''}</small>}
+          </span>
         </div>
         <div className="cb-component-chips">
           <span className={`cb-badge cb-status is-${row.status}`}>{COMPONENT_STATUS_LABEL[row.status]}</span>
