@@ -10,18 +10,26 @@ export type SupabaseConfig = {
 let cachedClient: SupabaseClient | null = null
 let cachedConfigKey = ''
 
+const isStaticDeploy = () => typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__
+
 /**
  * Obtém a configuração do Supabase:
- * 1. Primeiro verifica variáveis de ambiente (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY)
+ * 1. Primeiro verifica variáveis de ambiente (URL e chave publicável/anon)
  * 2. Se não existirem, verifica o localStorage (permite configurar diretamente pela UI)
  */
 export function getSupabaseConfig(): SupabaseConfig {
   const envUrl = (import.meta.env?.VITE_SUPABASE_URL as string | undefined)?.trim() ?? ''
-  const envKey = (import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? ''
+  const publishableKey = (import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)?.trim() ?? ''
+  const anonKey = (import.meta.env?.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? ''
+  const envKey = publishableKey || anonKey
 
   if (envUrl && envKey) {
     return { url: envUrl, anonKey: envKey }
   }
+
+  // Em produção estática, a configuração tem de vir do ambiente de build.
+  // Não aceitar valores guardados num navegador partilhado como configuração da plataforma.
+  if (isStaticDeploy()) return { url: '', anonKey: '' }
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -41,11 +49,12 @@ export function getSupabaseConfig(): SupabaseConfig {
 /** Verifica se o Supabase está com URL e Chave configurados. */
 export function isSupabaseConfigured(): boolean {
   const { url, anonKey } = getSupabaseConfig()
-  return Boolean(url && anonKey && url.startsWith('http'))
+  return Boolean(url && anonKey && (isStaticDeploy() ? url.startsWith('https://') : url.startsWith('http')))
 }
 
 /** Guarda a configuração no localStorage (configuração dinâmica via interface). */
 export function saveSupabaseConfig(url: string, anonKey: string): void {
+  if (isStaticDeploy()) return
   const cleanUrl = url.trim()
   const cleanKey = anonKey.trim()
   try {
@@ -64,6 +73,7 @@ export function saveSupabaseConfig(url: string, anonKey: string): void {
 
 /** Remove a configuração guardada no navegador. */
 export function clearSupabaseConfig(): void {
+  if (isStaticDeploy()) return
   try {
     localStorage.removeItem(STORAGE_KEY)
   } catch {
@@ -104,7 +114,7 @@ export function getSupabase(): SupabaseClient | null {
 export async function testSupabaseConnection(override?: SupabaseConfig): Promise<{ ok: boolean; message: string }> {
   const config = override ?? getSupabaseConfig()
   if (!config.url || !config.anonKey) {
-    return { ok: false, message: 'URL ou Chave Anon do Supabase não fornecidos.' }
+    return { ok: false, message: 'URL ou chave publicável/anon do Supabase não fornecidos.' }
   }
 
   if (!config.url.startsWith('https://') && !config.url.startsWith('http://')) {

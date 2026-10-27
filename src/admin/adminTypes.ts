@@ -101,16 +101,16 @@ export interface LogQuery {
 }
 
 export interface SystemInfo {
-  backend: 'server' | 'local'
+  backend: 'server' | 'local' | 'supabase'
   version?: string
   node?: string
   startedAt?: string
   uptimeSec?: number
   memoryMb?: number
-  databaseBytes: number
+  databaseBytes?: number
   filesBytes: number
   projectBytes: number
-  counts: { users: number; activeUsers: number; projects: number; contributions: number; sessions: number; logs: number; disabledComponents: number }
+  counts: { users: number; activeUsers: number; projects: number; contributions: number; sessions?: number; logs: number; disabledComponents: number }
 }
 
 export const CATEGORY_LABEL: Record<LogCategory, string> = {

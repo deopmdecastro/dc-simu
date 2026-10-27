@@ -1,0 +1,1 @@
+-- Reservado para dados de desenvolvimento locais. Não inserir segredos.

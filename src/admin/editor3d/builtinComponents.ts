@@ -187,21 +187,12 @@ function upgradeTerminalAssemblyTerminals(type: ComponentType, def: ComponentDef
 
 function isSeededTerminalAssembly(type: ComponentType, def: ComponentDefinition): boolean {
   if (!isTerminalAssemblyComponent(type)) return false
-  const root = def.parts.find((part) => part.kind === 'group' && part.name === 'Conjunto de bornes')
-  if (!root) return false
-  const spec = getComponentModelSpec('terminalPhoenixPti6')
-  const physical = spec?.physicalSizeMm
-  if (!spec || !physical) return false
-  const layout = terminalAssemblyLayout(type, physical.width)
-  const children = def.parts.filter((part) => part.parentId === root.id)
-  if (children.length !== layout.length) return false
-  const same = (a: Vec3, b: Vec3) => a.every((value, index) => Math.abs(value - b[index]) < 0.02)
-  return layout.every(({ conductor, x, color }, index) => {
-    const part = children[index]
-    const asset = part?.asset ? def.assets[part.asset] : null
-    return part?.kind === 'glb' && part.name === `Borne ${conductor}`
-      && part.neutralTintColor === color && same(part.position, [x, 0, 0])
-      && asset?.builtinType === 'terminalPhoenixPti6' && asset.data === spec.path
+  const spec = getComponentModelSpec(type)
+  if (!spec) return false
+  return def.parts.some((part) => {
+    if (part.kind !== 'glb' || !part.asset) return false
+    const asset = def.assets[part.asset]
+    return asset?.builtinType === type && asset.data === spec.path
   })
 }
 
@@ -466,26 +457,16 @@ function migrateMotorDraft(def: ComponentDefinition, cache: GlbCache): boolean {
   return changed
 }
 
-/** Cria a mesma composição PTI6 da capa e do simulador dentro do editor. */
+/** Insere no editor o GLB nativo completo do conjunto de bornes. */
 function seedTerminalAssembly(type: ComponentType, def: ComponentDefinition, root: ComponentDefinition['parts'][number]): string | null {
-  const spec = getComponentModelSpec('terminalPhoenixPti6')
+  const spec = getComponentModelSpec(type)
   if (!spec || !isTerminalAssemblyComponent(type)) return null
   const assetId = newId('a_')
-  const rootGroup = {
-    ...root, kind: 'group' as const, name: 'Conjunto de bornes', materialId: null,
-    position: [0, 0, 0] as Vec3, rotation: [0, 0, 0] as Vec3, scale: [1, 1, 1] as Vec3,
-  }
-  const modules = terminalAssemblyLayout(type, spec.physicalSizeMm.width).map(({ conductor, x, color }) => ({
-    ...defaultPart('glb', null, `Borne ${conductor}`),
-    parentId: root.id,
-    position: [x, 0, 0] as Vec3,
-    asset: assetId,
-    neutralTintColor: color,
-  }))
-  def.parts = [rootGroup, ...modules]
+  const part = { ...defaultPart('glb', null, 'Conjunto de bornes nativo'), id: root.id, asset: assetId }
+  def.parts = [part]
   def.assets = {
     ...def.assets,
-    [assetId]: { name: spec.path.split('/').pop() ?? 'phoenix-pti6.glb', mime: 'model/gltf-binary', data: spec.path, builtinType: 'terminalPhoenixPti6' },
+    [assetId]: { name: spec.path.split('/').pop() ?? 'conjunto-bornes.glb', mime: 'model/gltf-binary', data: spec.path, builtinType: type },
   }
   return assetId
 }

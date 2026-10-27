@@ -1054,68 +1054,16 @@ function PowerSupply3D({ c, x }: { c: ElectricalComponent; x: number }) {
   </group>
 }
 
-const TERMINAL_BODY_COLORS: Record<string, string> = {
-  L: '#171717', L1: '#171717', L2: '#8b4513', L3: '#6b7280', N: '#2563eb', PE: '#27834a',
-}
-
-/** Conjunto modular de bornes de passagem com isolamento, ponte metálica e marcação visível. */
+/** Conjunto nativo completo, carregado do GLB composto pelos bornes originais. */
 function TerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
-  return <TerminalAssemblyReal3D c={c} x={x} />
-}
-
-/** Um borne real do catálogo; só a cor do corpo isolante é alterada por fase. */
-function RealTerminalModule3D({ conductor, position }: { conductor: string; position: [number, number, number] }) {
-  const spec = getComponentModelSpec('terminalPhoenixPti6')!
+  const spec = getComponentModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const object = cloneModelScene(scene)
-    object.rotation.set(...spec.rotation)
-    object.updateMatrixWorld(true)
-    const bounds = new THREE.Box3().setFromObject(object, true)
-    const size = bounds.getSize(new THREE.Vector3())
-    const physical = spec.physicalSizeMm
-    object.scale.set(physical.width * PANEL_UNITS_PER_MM / size.x, physical.height * PANEL_UNITS_PER_MM / size.y, physical.depth * PANEL_UNITS_PER_MM / size.z)
-    object.updateMatrixWorld(true)
-    const fitted = new THREE.Box3().setFromObject(object, true)
-    const center = fitted.getCenter(new THREE.Vector3())
-    object.position.set(-center.x, -fitted.min.y, -center.z)
-    object.traverse((node) => {
-      const mesh = node as THREE.Mesh
-      if (!mesh.isMesh || !mesh.material) return
-      const materials = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).map((material) => {
-        const copy = finishCadMaterial(material) as THREE.MeshStandardMaterial
-        if (copy.color) {
-          const hsl = { h: 0, s: 0, l: 0 }
-          copy.color.getHSL(hsl)
-          // Os dois cinzentos do PTI6 são o polímero; o material cor de cobre fica intacto.
-          if (hsl.s < 0.16 && hsl.l > 0.42) copy.color.set(TERMINAL_BODY_COLORS[conductor] ?? '#6b7280')
-        }
-        return copy
-      })
-      mesh.material = Array.isArray(mesh.material) ? materials : materials[0]
-      mesh.castShadow = mesh.receiveShadow = true
-    })
+    const object = fitComponentModel(cloneModelScene(scene), spec, PANEL_UNITS_PER_MM, 'bottom')
+    object.traverse((node) => { const mesh = node as THREE.Mesh; if (mesh.isMesh) mesh.castShadow = mesh.receiveShadow = true })
     return object
-  }, [scene, spec, conductor])
-  return <group position={position}><primitive object={model} /></group>
-}
-
-/** Monta os bornes PTI6 e PE reais do catálogo em fonte ou conjunto de ligações. */
-function TerminalAssemblyReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
-  const conductors = c.type === 'terminalSet1ph' || c.type === 'powerSource1ph' ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
-  const fallbackStep = conductors.length === 3 ? 0.34 : 0.265
-  const positions = conductors.map((name, index) => {
-    const terminal = c.terminals.find((item) => item.label === name || item.label.startsWith(`${name}-`))
-    return terminal ? terminalLocal3D(c, terminal).x : (index - (conductors.length - 1) / 2) * fallbackStep
-  })
-  return <group position={[x, RAIL_Y + 0.48, 0.12]}>
-    {conductors.map((conductor, i) => {
-      const px = positions[i]
-      return <group key={conductor}>
-        <RealTerminalModule3D conductor={conductor} position={[px, -0.3301, 0]} />
-      </group>
-    })}
-  </group>
+  }, [scene, spec])
+  return <group position={[x, RAIL_Y + 0.48, 0.12]}><primitive object={model} /></group>
 }
 
 function PLCBox3D({ c, x }: { c: ElectricalComponent; x: number }) {

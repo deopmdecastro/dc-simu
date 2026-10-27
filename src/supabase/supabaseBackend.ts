@@ -1,6 +1,9 @@
 import type { Invite, Project, User } from '../dashboard/Dashboard'
+import type { StoredProfile } from '../catalog/terminalProfiles'
+import type { CatalogEntry, CatalogMeta, CatalogVersion, ComponentDefinition } from '../catalog/types'
 import { getSupabase } from './supabaseClient'
-import type { AdminUser, ComponentSetting, PlanRequest, ProjectComment } from '../admin/adminTypes'
+import type { AdminUser, AuditEntry, ComponentSetting, LogQuery, PlanRequest, ProjectComment, SystemInfo } from '../admin/adminTypes'
+import { categoryOf } from '../admin/adminTypes'
 import {
   canCommentOn, commentPermissions, componentStatusOf, effectivePlanId, isDefaultComponentSetting, isPlanId, periodEnd, readPricing,
   sanitizeCommentAnchor, sanitizeCommentBody, sanitizeComponentChange, sanitizePricing, upgradeMessage,
@@ -666,4 +669,214 @@ export async function supabaseGetAdminProjects(): Promise<Array<{ id: string; na
     size: 0,
     members: 0,
   }))
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo 3D e perfis de bornes (migração 20261027150000_catalog_storage.sql)
+// ---------------------------------------------------------------------------
+
+function catalogVersionOut(row: any): CatalogVersion {
+  return {
+    version: row.version, publishedAt: row.published_at, publishedBy: row.published_by || undefined,
+    note: row.note || '', changes: Array.isArray(row.changes) ? row.changes : [],
+    definition: row.definition, runtime: row.runtime,
+  }
+}
+
+function catalogEntryOut(row: any, withDraft = false): CatalogEntry {
+  const versions = Array.isArray(row.catalog_versions) ? row.catalog_versions : []
+  return {
+    id: row.id, meta: row.meta, status: row.status, latestVersion: row.latest_version,
+    archived: !!row.archived, updatedAt: row.updated_at, updatedBy: row.updated_by || undefined,
+    versions: versions.sort((a: any, b: any) => a.version - b.version).map(catalogVersionOut),
+    ...(withDraft ? { draft: row.draft } : {}),
+  }
+}
+
+export async function supabaseCatalogList(): Promise<CatalogEntry[]> {
+  const { data, error } = await clientOrThrow().from('catalog_components')
+    .select('*, catalog_versions(*)').gt('latest_version', 0).order('updated_at', { ascending: false })
+  if (error) throw new Error(`Erro ao carregar o catálogo Supabase: ${error.message}`)
+  return (data ?? []).map((row: any) => catalogEntryOut(row))
+}
+
+export async function supabaseCatalogAdminList(): Promise<CatalogEntry[]> {
+  const { data, error } = await clientOrThrow().from('catalog_components')
+    .select('*, catalog_versions(*)').order('updated_at', { ascending: false })
+  if (error) throw new Error(`Erro ao carregar a administração do catálogo: ${error.message}`)
+  return (data ?? []).map((row: any) => catalogEntryOut(row))
+}
+
+export async function supabaseCatalogAdminGet(id: string): Promise<CatalogEntry> {
+  const { data, error } = await clientOrThrow().from('catalog_components')
+    .select('*, catalog_versions(*)').eq('id', id).maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) throw new Error('Componente não encontrado.')
+  return catalogEntryOut(data, true)
+}
+
+export async function supabaseCatalogSave(id: string, meta: CatalogMeta, draft: ComponentDefinition): Promise<CatalogEntry> {
+  if (!/^[A-Za-z0-9_-]{3,40}$/.test(id)) throw new Error('Identificador de componente inválido.')
+  if (!meta || typeof meta.name !== 'string' || !Array.isArray(draft?.parts)) throw new Error('Definição de componente inválida.')
+  const client = clientOrThrow()
+  const { data: { user } } = await client.auth.getUser()
+  const now = new Date().toISOString()
+  const { error } = await client.from('catalog_components').upsert({
+    id, meta: { ...meta, name: meta.name.trim().slice(0, 80) || 'Novo componente' }, draft,
+    updated_at: now, updated_by: user?.email || 'admin',
+  }, { onConflict: 'id' })
+  if (error) throw new Error(`Erro ao guardar o componente: ${error.message}`)
+  return supabaseCatalogAdminGet(id)
+}
+
+export async function supabaseCatalogPublish(id: string, body: { note: string; changes: string[]; runtime: CatalogVersion['runtime']; glb: string }): Promise<CatalogEntry> {
+  const client = clientOrThrow()
+  if (!body?.glb || body.glb.length > 6_000_000) throw new Error('Modelo 3D em falta ou demasiado grande (máx. ≈ 4,5 MB).')
+  if (!body.runtime || !Array.isArray(body.runtime.terminals)) throw new Error('Dados de execução em falta.')
+  const source = await supabaseCatalogAdminGet(id)
+  if (!source.draft) throw new Error('Componente sem rascunho.')
+  const version = source.latestVersion + 1
+  const storagePath = `${id}/${version}.glb`
+  const bytes = Uint8Array.from(atob(body.glb), (char) => char.charCodeAt(0))
+  const definition = { ...source.draft, assets: {} }
+  const uploaded = await client.storage.from('catalog-models').upload(storagePath, new Blob([bytes], { type: 'model/gltf-binary' }), {
+    contentType: 'model/gltf-binary', upsert: true,
+  })
+  if (uploaded.error) throw new Error(`Erro ao guardar o modelo 3D: ${uploaded.error.message}`)
+  const { error } = await client.rpc('publish_catalog_component', {
+    p_component_id: id, p_note: String(body.note || '').slice(0, 300),
+    p_changes: (Array.isArray(body.changes) ? body.changes : []).map(String).slice(0, 30),
+    p_definition: definition, p_runtime: body.runtime, p_storage_path: storagePath,
+  })
+  if (error) {
+    await client.storage.from('catalog-models').remove([storagePath])
+    throw new Error(`Erro ao publicar o componente: ${error.message}`)
+  }
+  return supabaseCatalogAdminGet(id)
+}
+
+export async function supabaseCatalogArchive(id: string, archived: boolean): Promise<CatalogEntry> {
+  const { error } = await clientOrThrow().from('catalog_components')
+    .update({ archived, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw new Error(error.message)
+  return supabaseCatalogAdminGet(id)
+}
+
+export async function supabaseCatalogRemove(id: string): Promise<{ ok: true }> {
+  const current = await supabaseCatalogAdminGet(id)
+  if (current.latestVersion > 0) throw new Error('Componentes publicados não se eliminam; arquive-o.')
+  const { error } = await clientOrThrow().from('catalog_components').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  return { ok: true }
+}
+
+export async function supabaseCatalogGlbUrl(id: string, version: number): Promise<{ url: string }> {
+  if (!/^[A-Za-z0-9_-]{3,40}$/.test(id) || !Number.isInteger(version) || version < 1) throw new Error('Modelo 3D inválido.')
+  const { data, error } = await clientOrThrow().storage.from('catalog-models').createSignedUrl(`${id}/${version}.glb`, 3600)
+  if (error || !data?.signedUrl) throw new Error(`Modelo 3D indisponível: ${error?.message || 'sem URL assinada'}`)
+  return { url: data.signedUrl }
+}
+
+export async function supabaseTerminalProfiles(): Promise<StoredProfile[]> {
+  const { data, error } = await clientOrThrow().from('terminal_profiles').select('*').order('updated_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row: any) => ({ ...row.data, updatedAt: row.updated_at, updatedBy: row.updated_by || undefined }))
+}
+
+export async function supabaseSaveTerminalProfile(profile: Omit<StoredProfile, 'updatedAt' | 'updatedBy'>): Promise<StoredProfile> {
+  if (!/^[A-Za-z0-9_-]{3,40}$/.test(profile.id) || !Array.isArray(profile.specs) || !profile.specs.length || profile.specs.length > 200) throw new Error('Perfil de bornes inválido.')
+  const client = clientOrThrow()
+  const { data: { user } } = await client.auth.getUser()
+  const updatedAt = new Date().toISOString()
+  const { error } = await client.from('terminal_profiles').upsert({ id: profile.id, data: profile, updated_at: updatedAt, updated_by: user?.email || 'admin' })
+  if (error) throw new Error(error.message)
+  return { ...profile, updatedAt, updatedBy: user?.email || 'admin' }
+}
+
+export async function supabaseDeleteTerminalProfile(id: string): Promise<{ ok: true }> {
+  const { error } = await clientOrThrow().from('terminal_profiles').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  return { ok: true }
+}
+
+// ---------------------------------------------------------------------------
+// Administração Supabase (auditoria e estado gerido)
+// ---------------------------------------------------------------------------
+
+function auditOut(row: any): AuditEntry {
+  return {
+    id: row.id, at: row.at, actorId: row.actor_id || undefined, actorName: row.actor_name || undefined,
+    actorEmail: row.actor_email || undefined, action: row.action, targetType: row.target_type || undefined,
+    targetId: row.target_id || undefined, targetLabel: row.target_label || undefined,
+    detail: row.detail || undefined, ip: row.ip || undefined,
+  }
+}
+
+export async function supabaseAdminLogs(query: LogQuery): Promise<{ items: AuditEntry[]; total: number }> {
+  const { data, error } = await clientOrThrow().from('audit_log').select('*').order('at', { ascending: false }).limit(1000)
+  if (error) throw new Error(error.message)
+  const q = (query.q || '').trim().toLowerCase()
+  const from = query.from ? Date.parse(query.from) : NaN
+  const to = query.to ? Date.parse(query.to) : NaN
+  const matched = (data ?? []).map(auditOut).filter((entry) => {
+    if (query.category && categoryOf(entry.action) !== query.category) return false
+    if (query.action && entry.action !== query.action) return false
+    if (query.actor && entry.actorEmail !== query.actor && entry.actorId !== query.actor) return false
+    const at = Date.parse(entry.at)
+    if (Number.isFinite(from) && at < from) return false
+    if (Number.isFinite(to) && at > to) return false
+    if (q && !`${entry.actorEmail ?? ''} ${entry.actorName ?? ''} ${entry.targetLabel ?? ''} ${entry.detail ?? ''} ${entry.action}`.toLowerCase().includes(q)) return false
+    return true
+  })
+  const offset = Math.max(0, Number(query.offset) || 0), limit = Math.min(200, Math.max(1, Number(query.limit) || 50))
+  return { items: matched.slice(offset, offset + limit), total: matched.length }
+}
+
+export async function supabaseAdminPurgeLogs(olderThanDays: number): Promise<{ removed: number }> {
+  if (!Number.isInteger(olderThanDays) || olderThanDays < 30 || olderThanDays > 3650) throw new Error('Indique entre 30 e 3650 dias.')
+  const before = new Date(Date.now() - olderThanDays * 86400000).toISOString()
+  const { data, error } = await clientOrThrow().from('audit_log').delete().lt('at', before).select('id')
+  if (error) throw new Error(error.message)
+  return { removed: data?.length ?? 0 }
+}
+
+async function countRows(table: string): Promise<number> {
+  const { count, error } = await clientOrThrow().from(table).select('id', { count: 'exact', head: true })
+  if (error) throw new Error(error.message)
+  return count ?? 0
+}
+
+export async function supabaseAdminSystem(): Promise<SystemInfo> {
+  const client = clientOrThrow()
+  const [users, projects, contributions, logs, disabled, projectRows, contributionRows] = await Promise.all([
+    countRows('profiles'), countRows('projects'), countRows('contributions'), countRows('audit_log'),
+    client.from('component_settings').select('type,status,enabled'),
+    client.from('projects').select('content').limit(1000), client.from('contributions').select('size'),
+  ])
+  if (disabled.error) throw new Error(disabled.error.message)
+  if (projectRows.error) throw new Error(projectRows.error.message)
+  if (contributionRows.error) throw new Error(contributionRows.error.message)
+  const profileRows = await client.from('profiles').select('active')
+  if (profileRows.error) throw new Error(profileRows.error.message)
+  const projectBytes = (projectRows.data ?? []).reduce((sum: number, row: any) => sum + new TextEncoder().encode(JSON.stringify(row.content ?? {})).length, 0)
+  const filesBytes = (contributionRows.data ?? []).reduce((sum: number, row: any) => sum + (Number(row.size) || 0), 0)
+  const disabledComponents = (disabled.data ?? []).filter((row: any) => row.status ? row.status !== 'active' : row.enabled === false).length
+  return {
+    backend: 'supabase', filesBytes, projectBytes,
+    counts: {
+      users, activeUsers: (profileRows.data ?? []).filter((row: any) => row.active !== false).length,
+      projects, contributions, logs, disabledComponents,
+    },
+  }
+}
+
+export async function supabaseAdminExport(): Promise<Record<string, unknown>> {
+  const client = clientOrThrow()
+  const tables = ['profiles', 'projects', 'contributions', 'component_settings', 'platform_settings', 'catalog_components', 'terminal_profiles', 'audit_log']
+  const entries = await Promise.all(tables.map(async (table) => {
+    const { data, error } = await client.from(table).select('*').limit(5000)
+    if (error) throw new Error(`Falha ao exportar ${table}: ${error.message}`)
+    return [table, data ?? []] as const
+  }))
+  return { exportedAt: new Date().toISOString(), backend: 'supabase', data: Object.fromEntries(entries) }
 }

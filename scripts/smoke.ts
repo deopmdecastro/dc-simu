@@ -53,7 +53,7 @@ import { automaticTerminalViewPositions, componentTerminalLocal, projectedCompon
 import { logoElectricalInputs } from '../src/electrical/logoPower'
 import { inferTerminalElectricalClass, terminalClassesCompatible, terminalElectricalClassOf } from '../src/electrical/terminalClassification'
 import { proautoInputPowered } from '../src/electrical/proautoPower'
-import { fixedAccountEmails, isFixedAccount, localApi, verifyFixedCredentials } from '../src/auth/localBackend'
+import { fixedAccountEmails, isFixedAccount, isFixedAdminEmail, localApi, verifyFixedCredentials } from '../src/auth/localBackend'
 import { accountApi, readableApiError } from '../src/auth/accountApi'
 import { ACTION_LABEL, categoryOf, generatePassword, logsToCsv, passwordProblem, queryAudit, severityOf, type AuditEntry } from '../src/admin/adminTypes'
 import type { ElectricalComponent, Wire, FaultState } from '../src/types'
@@ -949,7 +949,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 21 componentes com GLB real (inclui o disjuntor 3P e o PKZM C-10)', availableTypes.length === 21 && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 25 componentes com GLB real (inclui os conjuntos nativos de bornes e fontes)', availableTypes.length === 25 && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
@@ -1329,6 +1329,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const unknown = await verifyFixedCredentials('outra@dcsimu.local', 'AdminDcsimu2026!')
   check('allowlist local contém exatamente Admin e User', emails.length === 2
     && emails.includes('admin@dcsimu.local') && emails.includes('user@dcsimu.local'))
+  check('a conta Admin fixa é identificada para exigir autenticação na base de dados', isFixedAdminEmail('ADMIN@DCSIMU.LOCAL') && !isFixedAdminEmail('user@dcsimu.local'))
   check('credenciais fixas atribuem os papéis corretos', admin?.role === 'admin' && user?.role === 'user')
   check('senha incorreta e terceira conta nunca autenticam', wrongPassword === null && unknown === null)
 
@@ -1341,15 +1342,19 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 
   const originalFetch = globalThis.fetch
   let apiRequests = 0
-  globalThis.fetch = async () => {
+  globalThis.fetch = async (_input, init) => {
     apiRequests++
-    return new Response(JSON.stringify({ error: { code: 'STATIC_NOT_FOUND' } }), {
-      status: 404,
+    const payload = JSON.parse(String(init?.body ?? '{}')) as { email?: string }
+    const admin = payload.email?.toLowerCase() === 'admin@dcsimu.local'
+    return new Response(JSON.stringify({ user: { id: admin ? 'db-admin' : 'db-user', name: admin ? 'Admin DB' : 'User DB', email: admin ? 'admin@dcsimu.local' : 'user@dcsimu.local', role: admin ? 'admin' : 'user' } }), {
+      status: 200,
       headers: { 'content-type': 'application/json' },
     })
   }
   const fixedLogin = await accountApi<{ user: { role: string } }>('/login', 'POST', { email: 'ADMIN@DCSIMU.LOCAL', password: 'AdminDcsimu2026!' })
-  check('conta Admin fixa autentica localmente antes de um /api estático', fixedLogin.user.role === 'admin' && apiRequests === 0)
+  check('conta Admin fixa autentica no servidor e não no navegador', fixedLogin.user.role === 'admin' && apiRequests === 1 && !memory.has('dcsimu:account:session:v1'))
+  const fixedUserLogin = await accountApi<{ user: { role: string } }>('/login', 'POST', { email: 'user@dcsimu.local', password: 'UserDcsimu2026!' })
+  check('conta User fixa também usa a base de dados quando o servidor está disponível', fixedUserLogin.user.role === 'user' && apiRequests === 2)
   check('erro JSON em objeto nunca aparece como [object Object]', readableApiError({ code: 'STATIC_NOT_FOUND' }, 'Falha no servidor (404)') === 'Falha no servidor (404)')
   globalThis.fetch = originalFetch
 

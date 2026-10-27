@@ -2,7 +2,7 @@
 
 As 142 ligações dos 20 equipamentos integrados com bornes usam o mesmo volume físico que o CAD renderizado. A calha DIN não tem ligações elétricas. Componentes importados pelo utilizador mantêm a geometria e a calibração da respetiva definição.
 
-`fitComponentModel` aplica a rotação base, o espelho definido pelo modelo, as três dimensões físicas e a ancoragem. Painel 3D, capturas por face, catálogo, landing e o leitor de medições usam esta normalização. Os GLB originais não são modificados.
+`fitComponentModel` aplica a rotação base, o espelho definido pelo modelo, as três dimensões físicas e a ancoragem. Painel 3D, capturas por face, catálogo, landing e o leitor de medições usam esta normalização. Correções à forma ou à geometria de um elemento devem ser feitas no GLB original em `public/models/`, para que todos os usos do modelo recebam a correção. Transformações locais podem continuar a definir orientação e escala física; não substituem uma correção do objeto de origem.
 
 `src/electrical/realInterfaces.ts` contém as bocas dos encaixes na convenção Y=0 no topo. `realTerminalPosition` converte para Y=1 no topo e coloca o centro da ligação no interior da cavidade. A normal da ligação usa a face do encaixe medido; escolher apenas a face mais próxima da caixa exterior dá uma direção errada em cavidades recuadas, como as do Phoenix PTI 6.
 

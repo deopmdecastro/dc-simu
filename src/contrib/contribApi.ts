@@ -1,6 +1,7 @@
 import { activeAccountBackend } from '../auth/accountApi'
 import { localContrib } from './localContrib'
 import { serverContrib } from './serverContrib'
+import { supabaseContrib } from './supabaseContrib'
 import type { Contribution, ContributionFilter, ContributionInput, ContributionStatus, ContribStats } from './types'
 
 export interface ContribBackend {
@@ -15,7 +16,7 @@ export interface ContribBackend {
   stats(): Promise<ContribStats>
 }
 
-/** Usa a API SQLite quando a sessão é do servidor (Docker) e o armazenamento local no deploy estático. */
+/** Usa o backend da sessão atual; não envia dados de produção para armazenamento local. */
 export const contribApi: ContribBackend = {
   list: (filter) => backend().list(filter),
   submit: (input, file) => backend().submit(input, file),
@@ -27,7 +28,13 @@ export const contribApi: ContribBackend = {
 }
 
 function backend(): ContribBackend {
-  return activeAccountBackend() === 'server' ? serverContrib : localContrib
+  const mode = activeAccountBackend()
+  if (mode === 'server') return serverContrib
+  if (mode === 'supabase') return supabaseContrib
+  if (typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__) {
+    throw new Error('As contribuições de produção exigem uma sessão Supabase ativa.')
+  }
+  return localContrib
 }
 
 /** Descarrega um ficheiro de contribuição com o nome original. */

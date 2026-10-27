@@ -71,7 +71,7 @@ As 142 ligações dos 20 equipamentos integrados com bornes são verificadas con
 ## Novidades — v5.1 (grelha comum e reforço de segurança)
 
 - **Grelha alinhada**: Esquema 2D, GRAFCET, fundo do editor 3D Admin e grelha física do editor 3D usam o mesmo passo de referência de 20 unidades (20 px nos editores planos; 20 mm no chão 3D). O GRAFCET continua a adaptar a densidade visível ao zoom sem alterar o encaixe.
-- **Segredos fora do cliente**: `/api/supabase/config` só devolve a chave anon/public; nunca usa service-role/secret como fallback. A chave da API n8n saiu do código frontend; `N8N_API_KEY` é configuração exclusiva do servidor. Uma chave pessoal de teste nunca é guardada no navegador.
+- **Segredos fora do cliente**: `/api/supabase/config` só devolve a chave publishable/anon; nunca usa service-role/secret como fallback. A chave da API n8n saiu do código frontend; `N8N_API_KEY` é configuração exclusiva do servidor. Uma chave pessoal de teste nunca é guardada no navegador.
 - **Proxy n8n protegido**: `/api/n8n/trigger` e `/api/n8n/test` exigem sessão. O proxy de disparo aceita destinos apenas da configuração do servidor, limita payloads e distingue execução real de falha; a rota de teste apenas consulta o workflow.
 - **Contas SQLite**: em bases novas, defina `ADMIN_INITIAL_PASSWORD` e `USER_INITIAL_PASSWORD` (mínimo 16 caracteres, maiúsculas/minúsculas/números). São usadas só para criar contas inexistentes; o arranque seguinte nunca repõe a palavra-passe guardada. O menu da conta permite alterá-la, renova a sessão atual e termina as restantes sessões.
 - **Defesas da API**: validação de Origin nas mutações, `Cache-Control: no-store`, cabeçalhos de segurança, verificação de palavra-passe com custo constante para contas inexistentes, limites de tamanho e rate limit que não confia em `X-Forwarded-For` salvo configuração explícita do proxy (`TRUST_PROXY=1`).
@@ -732,13 +732,16 @@ O registo está desativado. Só existem estas identidades:
 - `admin@dcsimu.local` — papel `admin`;
 - `user@dcsimu.local` — papel `user`.
 
-As palavras-passe fixas são as definidas para a instalação. Num deploy estático
-como o Vercel, a validação ocorre no cliente e a sessão guarda apenas o ID da
-conta no `localStorage`; nenhum token nem palavra-passe é persistido. Projetos,
-revisões, convites entre as duas contas e a lista administrativa ficam também
-no navegador. O logout remove o marcador da sessão, mas não apaga projetos.
-Os projetos da ferramenta local antiga continuam nas respetivas chaves e no
-menu **Projetos** do editor; a atualização não os elimina nem reescreve.
+As palavras-passe das contas no servidor são as definidas para a instalação.
+Com a API Docker disponível, Admin e User autenticam no SQLite; administração,
+definições dos elementos, catálogo, projetos e restantes dados partilhados usam
+a base de dados. O frontend não cria uma sessão local de Admin nem permite que
+uma sessão Admin antiga continue a administrar dados locais. Num deploy estático,
+Admin exige Supabase configurado; sem backend, apenas User pode usar o modo local.
+Nesse modo local, projetos, revisões, convites e definições ficam neste navegador.
+O logout remove o marcador da sessão, mas não apaga projetos. Os projetos da
+ferramenta local antiga continuam nas respetivas chaves e no menu **Projetos**;
+a atualização não os elimina nem reescreve.
 
 Este modo permite trabalhar sem servidor, mas não é autenticação forte contra
 o dono do dispositivo: uma aplicação estática e o seu armazenamento podem ser
@@ -752,9 +755,10 @@ Antes da primeira execução, copie `.env.example` para `.env` e defina
 Defina também o `PUBLIC_ORIGIN` real se a aplicação estiver atrás de um proxy
 HTTPS. Depois execute `docker compose up --build -d` e abra
 `http://localhost:3000`. Quando a API está disponível, o frontend usa
-automaticamente SQLite no volume `dcsimu_data`, preservando os projetos
-partilhados entre dispositivos. Sem a API, muda para a persistência local
-(descrita acima). Não elimine o volume sem backup.
+automaticamente SQLite no volume `dcsimu_data`, preservando os projetos, as
+contas, a administração e os elementos partilhados entre dispositivos. Se a API
+estiver indisponível, a conta Admin recusa o modo local; o fallback local
+continua disponível para User. Não elimine o volume sem backup.
 
 No servidor, as contas fixas Admin e User só são criadas se ainda não existirem;
 as palavras-passe iniciais são derivadas com scrypt e **não são repostas nos

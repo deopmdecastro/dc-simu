@@ -555,3 +555,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
 export function fixedAccountEmails() {
   return ACCOUNTS.map((account) => account.email)
 }
+
+export function isFixedAdminEmail(email: string) {
+  return accountByEmail(email)?.role === 'admin'
+}

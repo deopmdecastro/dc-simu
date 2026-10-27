@@ -34,8 +34,23 @@ import {
   supabaseDeleteComment,
   supabaseRenameProject,
   supabaseUpdateProject,
+  supabaseCatalogList,
+  supabaseCatalogAdminList,
+  supabaseCatalogAdminGet,
+  supabaseCatalogSave,
+  supabaseCatalogPublish,
+  supabaseCatalogArchive,
+  supabaseCatalogRemove,
+  supabaseCatalogGlbUrl,
+  supabaseTerminalProfiles,
+  supabaseSaveTerminalProfile,
+  supabaseDeleteTerminalProfile,
+  supabaseAdminLogs,
+  supabaseAdminPurgeLogs,
+  supabaseAdminSystem,
+  supabaseAdminExport,
 } from '../supabase/supabaseBackend'
-import { fixedAccountEmails, getLocalSession, isFixedAccount, localApi, rememberFixedSession } from './localBackend'
+import { fixedAccountEmails, getLocalSession, isFixedAccount, isFixedAdminEmail, localApi, rememberFixedSession } from './localBackend'
 
 export type BackendMode = 'unknown' | 'local' | 'server' | 'supabase'
 let mode: BackendMode = 'unknown'
@@ -143,6 +158,28 @@ async function supabaseApi<T>(url: string, verb: string, body?: unknown): Promis
   const matchComp = url.match(/^\/admin\/components\/([^/]+)$/)
   if (matchComp && verb === 'PUT') return (await supabaseSetComponent(matchComp[1], body)) as T
   if (url === '/admin/components' && verb === 'GET') return (await supabaseGetAdminComponents()) as T
+  // Catálogo oficial 3D e modelos publicados em Supabase Storage privado.
+  if (url === '/catalog' && verb === 'GET') return (await supabaseCatalogList()) as T
+  if (url === '/terminal-profiles' && verb === 'GET') return (await supabaseTerminalProfiles()) as T
+  const matchCatalogGlb = url.match(/^\/catalog\/([^/]+)\/glb\/(\d+)$/)
+  if (matchCatalogGlb && verb === 'GET') return (await supabaseCatalogGlbUrl(matchCatalogGlb[1], Number(matchCatalogGlb[2]))) as T
+  if (url === '/admin/catalog' && verb === 'GET') return (await supabaseCatalogAdminList()) as T
+  const matchCatalogPublish = url.match(/^\/admin\/catalog\/([^/]+)\/publish$/)
+  if (matchCatalogPublish && verb === 'POST') return (await supabaseCatalogPublish(matchCatalogPublish[1], body as Parameters<typeof supabaseCatalogPublish>[1])) as T
+  const matchCatalogArchive = url.match(/^\/admin\/catalog\/([^/]+)\/archive$/)
+  if (matchCatalogArchive && verb === 'POST') return (await supabaseCatalogArchive(matchCatalogArchive[1], (body as { archived?: boolean } | undefined)?.archived !== false)) as T
+  const matchCatalog = url.match(/^\/admin\/catalog\/([^/]+)$/)
+  if (matchCatalog) {
+    if (verb === 'GET') return (await supabaseCatalogAdminGet(matchCatalog[1])) as T
+    if (verb === 'PUT') {
+      const payload = body as { meta: import('../catalog/types').CatalogMeta; draft: import('../catalog/types').ComponentDefinition }
+      return (await supabaseCatalogSave(matchCatalog[1], payload.meta, payload.draft)) as T
+    }
+    if (verb === 'DELETE') return (await supabaseCatalogRemove(matchCatalog[1])) as T
+  }
+  const matchProfile = url.match(/^\/admin\/terminal-profiles\/([^/]+)$/)
+  if (matchProfile && verb === 'PUT') return (await supabaseSaveTerminalProfile({ ...(body as Omit<import('../catalog/terminalProfiles').StoredProfile, 'updatedAt' | 'updatedBy'>), id: matchProfile[1] })) as T
+  if (matchProfile && verb === 'DELETE') return (await supabaseDeleteTerminalProfile(matchProfile[1])) as T
   // SaaS: planos, pedidos de plano, utilizadores e comentários (SAAS-PLANS-01, PROJ-COMMENTS-01).
   const payload = (body ?? {}) as Record<string, unknown>
   if (url === '/pricing' && verb === 'GET') return (await supabaseGetPricing()) as T
@@ -168,9 +205,18 @@ async function supabaseApi<T>(url: string, verb: string, body?: unknown): Promis
   if (url === '/admin/projects' && verb === 'GET') {
     return (await supabaseGetAdminProjects()) as T
   }
+  if (url.split('?')[0] === '/admin/logs' && verb === 'GET') {
+    const params = new URLSearchParams(url.split('?')[1] || '')
+    return (await supabaseAdminLogs(Object.fromEntries(params.entries()) as import('../admin/adminTypes').LogQuery)) as T
+  }
+  if (url.split('?')[0] === '/admin/logs' && verb === 'DELETE') {
+    const days = Number(new URLSearchParams(url.split('?')[1] || '').get('olderThanDays'))
+    return (await supabaseAdminPurgeLogs(days)) as T
+  }
+  if (url === '/admin/system' && verb === 'GET') return (await supabaseAdminSystem()) as T
+  if (url === '/admin/export' && verb === 'GET') return (await supabaseAdminExport()) as T
 
-  // Operações de administração que não envolvam Supabase recaem no backend local
-  return localApi<T>(url, verb, body)
+  throw new Error(`A operação ${verb} ${url} ainda não está disponível no backend Supabase.`)
 }
 
 /**
@@ -189,6 +235,9 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
         return (await supabaseRegister(payload.email, payload.password, payload.name || 'Utilizador')) as T
       }
     }
+    if (typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__) {
+      throw new Error('Supabase não está configurado nesta versão de produção. Defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no ambiente de build.')
+    }
     return localApi<T>(url, verb, body)
   }
 
@@ -198,8 +247,51 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
     const email = String(payload.email ?? '').trim().toLowerCase()
     const password = String(payload.password ?? '')
 
-    // As duas contas autorizadas são deliberadamente locais primeiro
+    // A conta Admin nunca autentica localmente: a sessão tem de vir da base de dados.
+    // Em Docker usa SQLite; num deploy estático, usa Supabase quando configurado.
+    if (isFixedAdminEmail(email)) {
+      const staticDeploy = typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__
+      if (!staticDeploy) {
+        try {
+          const serverResponse = await serverApi<{ user: User }>(url, verb, body)
+          mode = 'server'
+          return serverResponse as T
+        } catch (error) {
+          // Credenciais rejeitadas não podem ser mascaradas por um login local.
+          if (!(error instanceof ApiUnavailable)) throw error
+          if (!isSupabaseConfigured()) throw new Error('A conta Admin exige uma ligação ativa à base de dados (Docker/SQLite ou Supabase).')
+        }
+      }
+      if (isSupabaseConfigured()) {
+        const result = await supabaseLogin(email, password)
+        mode = 'supabase'
+        return result as T
+      }
+      throw new Error('A conta Admin exige uma ligação ativa à base de dados (Docker/SQLite ou Supabase).')
+    }
+
+    const staticDeploy = typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__
+    if (staticDeploy) {
+      if (!isSupabaseConfigured()) throw new Error('Supabase não está configurado nesta versão de produção. Defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no ambiente de build.')
+      const result = await supabaseLogin(email, password)
+      mode = 'supabase'
+      return result as T
+    }
+
+    // As contas fixas usam primeiro a base de dados em Docker, para ler e alterar
+    // os mesmos elementos e definições em todos os dispositivos. User ainda pode
+    // trabalhar localmente se não existir backend; Admin nunca pode.
     if (fixedAccountEmails().some((fixedEmail) => fixedEmail === email)) {
+      if (!staticDeploy) {
+        try {
+          const serverResponse = await serverApi<{ user: User }>(url, verb, body)
+          if (isFixedAccount(serverResponse.user) && serverResponse.user.role !== 'admin') rememberFixedSession(serverResponse.user)
+          mode = 'server'
+          return serverResponse as T
+        } catch (error) {
+          if (!(error instanceof ApiUnavailable)) throw error
+        }
+      }
       mode = 'local'
       // A palavra-passe é sempre validada localmente (funciona offline)…
       const localResult = await localApi<{ user: User }>(url, verb, body)
@@ -234,14 +326,14 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
       }
     }
 
-    if (__APP_STATIC_DEPLOY__) {
+    if (typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__) {
       mode = 'local'
       return localApi<T>(url, verb, body)
     }
 
     try {
       const serverResponse = await serverApi<{ user: User }>(url, verb, body)
-      if (isFixedAccount(serverResponse.user)) rememberFixedSession(serverResponse.user)
+      if (isFixedAccount(serverResponse.user) && serverResponse.user.role !== 'admin') rememberFixedSession(serverResponse.user)
       mode = 'server'
       return serverResponse as T
     } catch (error) {
@@ -261,14 +353,13 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
       }
     }
 
-    if (__APP_STATIC_DEPLOY__) {
-      mode = 'local'
-      return localApi<T>(url, verb)
+    if (typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__) {
+      throw new Error('Não foi encontrada uma sessão Supabase. Inicie sessão com uma conta registada na base de dados.')
     }
 
     try {
       const response = await serverApi<{ user: User }>(url, verb)
-      const user = isFixedAccount(response.user) ? rememberFixedSession(response.user) : response.user
+      const user = isFixedAccount(response.user) && response.user.role !== 'admin' ? rememberFixedSession(response.user) : response.user
       mode = 'server'
       return { user } as T
     } catch (error) {
@@ -276,6 +367,7 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
         mode = 'server'
         throw error
       }
+      if (getLocalSession()?.role === 'admin') throw new Error('A sessão Admin exige uma ligação ativa à base de dados. Confirme que o servidor Docker está disponível.')
       mode = 'local'
       return localApi<T>(url, verb)
     }
@@ -315,6 +407,12 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
   }
 
   if (mode === 'server') return serverApi<T>(url, verb, body)
+  if (typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__) {
+    throw new Error('Supabase é obrigatório em produção. Confirme VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY e inicie sessão novamente.')
+  }
+  if (mode === 'local' && getLocalSession()?.role === 'admin') {
+    throw new Error('A conta Admin não pode usar o modo local. Inicie sessão através da base de dados.')
+  }
   mode = 'local'
   return localApi<T>(url, verb, body)
 }

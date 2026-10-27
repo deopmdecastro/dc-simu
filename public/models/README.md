@@ -46,10 +46,14 @@ Os CAD integrados pelo renderizador comum de `src/schematic/cad3DImage.ts` e pel
 | CLP LS XBM-DN32S | `controladores/ls-xbm-dn32s.glb` | Calha DIN |
 | Siemens TS Adapter IE Basic | `controladores/siemens-ts-adapter-ie-basic.glb` | Calha DIN |
 | Phoenix Contact PTI 6 | `bornes-e-barras/phoenix-pti6-3213972.glb` | Calha DIN |
+| Conjunto nativo monofásico · L/N/PE | `bornes-e-barras/conjunto-bornes-monofasico.glb` | Calha DIN |
+| Conjunto nativo trifásico · L1/L2/L3/N/PE | `bornes-e-barras/conjunto-bornes-trifasico.glb` | Calha DIN |
 | Borne PE genérico | `bornes-e-barras/terminal-pe.glb` | Calha DIN |
 | Motor SEW-EURODRIVE DRN80MK4/B3 | `motores/DRN80MK4-B3.glb` | Máquina / montagem com pés B3 |
 | Sinaleiro LED AD22-22DS | `sinalizacao/ad22-22ds-24v.glb` | Frente do painel · furação 22 mm |
 | Multímetro digital RGK DM-20 | `aparelhos-de-medir/rgk-dm20-multimetro.glb` | Aparelho portátil / bancada |
+
+Os tipos nativos `terminalSet1ph`/`powerSource1ph` usam o GLB monofásico; `terminalSet3ph`/`powerSource3ph` usam o GLB trifásico. Ambos são gerados a partir do PTI 6 original, com materiais de cada condutor gravados no próprio GLB. Para os regenerar após alterar o objeto de origem, execute `npm run build:native-terminal-assemblies`. A fonte Proauto e o PTI 6 isolado mantêm os seus GLBs próprios.
 
 O sinaleiro AD22-22DS mede aproximadamente 29,3 × 29,3 × 51,5 mm no CAD recebido. O eixo já aponta
 para +Z e a face fica frontal sem correção de origem. A lente vermelha está isolada no material

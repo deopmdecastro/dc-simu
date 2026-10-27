@@ -27,11 +27,12 @@ export default function SystemTab({ onError }: { onError: (message: string) => v
 
   if (!info) return <div className="dx-admin-empty">A carregar…</div>
   const server = info.backend === 'server'
+  const supabase = info.backend === 'supabase'
   return <>
-    <div className="dx-admin-section"><h2>Sistema</h2><span>{server ? 'Servidor (SQLite)' : 'Navegador (sem servidor)'}</span></div>
+    <div className="dx-admin-section"><h2>Sistema</h2><span>{server ? 'Servidor (SQLite)' : supabase ? 'Supabase (PostgreSQL)' : 'Navegador (sem servidor)'}</span></div>
     <div className="cb-stats">
       <div><strong>{info.counts.activeUsers}/{info.counts.users}</strong><span>Contas ativas</span></div>
-      <div><strong>{info.counts.sessions}</strong><span>Sessões ativas</span></div>
+      <div><strong>{info.counts.sessions ?? '—'}</strong><span>Sessões ativas</span></div>
       <div><strong>{info.counts.projects}</strong><span>Projetos</span></div>
       <div><strong>{info.counts.contributions}</strong><span>Contribuições</span></div>
       <div><strong>{info.counts.logs}</strong><span>Eventos registados</span></div>
@@ -40,9 +41,9 @@ export default function SystemTab({ onError }: { onError: (message: string) => v
     <div className="adm-group">
       <h3>Armazenamento</h3>
       <div className="dx-admin-table">
-        <div><span><strong>Base de dados</strong> · {server ? 'ficheiro SQLite' : 'armazenamento local do navegador'}</span><span className="dx-chip">{formatBytes(info.databaseBytes)}</span></div>
+        <div><span><strong>Base de dados</strong> · {server ? 'ficheiro SQLite' : supabase ? 'gerida pelo Supabase' : 'armazenamento local do navegador'}</span><span className="dx-chip">{info.databaseBytes === undefined ? '—' : formatBytes(info.databaseBytes)}</span></div>
         <div><span><strong>Conteúdo dos projetos</strong></span><span className="dx-chip">{formatBytes(info.projectBytes)}</span></div>
-        <div><span><strong>Ficheiros de contribuições</strong> (PDF e GLB)</span><span className="dx-chip">{formatBytes(info.filesBytes)}</span></div>
+        <div><span><strong>Ficheiros de contribuições</strong> (PDF e GLB) · {supabase ? 'Storage' : ''}</span><span className="dx-chip">{formatBytes(info.filesBytes)}</span></div>
       </div>
     </div>
     <div className="adm-group">
@@ -62,6 +63,6 @@ export default function SystemTab({ onError }: { onError: (message: string) => v
       <button className="dx-btn dx-btn-secondary" onClick={() => void load()}>Atualizar</button>
       <button className="dx-btn dx-btn-secondary" onClick={async () => { if (await uiConfirm('Limpar as caches deste navegador e recarregar a última versão? Os projetos e a sessão não são apagados.')) void hardRefresh() }}>Limpar cache e recarregar</button>
     </div>
-    <p className="cb-note">A exportação inclui contas, projetos (metadados), contribuições, definições de componentes e registos. Não inclui palavras-passe nem o conteúdo dos projetos ou dos ficheiros. Para uma cópia de segurança completa guarde a pasta de dados do servidor (<code>DATA_DIR</code>).</p>
+    <p className="cb-note">A exportação inclui os registos disponíveis nas tabelas da plataforma, sem palavras-passe nem os ficheiros no Storage. Para restaurar o catálogo 3D, inclua também um backup próprio dos componentes. {supabase ? 'As cópias de segurança completas do PostgreSQL e Storage são geridas no painel do Supabase.' : 'Para uma cópia de segurança completa do SQLite, guarde a pasta de dados do servidor (DATA_DIR).'}</p>
   </>
 }

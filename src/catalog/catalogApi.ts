@@ -16,6 +16,10 @@ export const catalogApi = {
   /** URL carregável pelo useGLTF: rota do servidor, ou blob local. */
   async glbUrl(id: string, version: number): Promise<string> {
     if (activeAccountBackend() === 'server') return `/api/catalog/${id}/glb/${version}`
+    if (activeAccountBackend() === 'supabase') {
+      const { url } = await accountApi<{ url: string }>(`/catalog/${id}/glb/${version}`)
+      return url
+    }
     const { data } = await accountApi<{ data: string }>(`/catalog/${id}/glb/${version}`)
     const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0))
     return URL.createObjectURL(new Blob([bytes], { type: 'model/gltf-binary' }))

@@ -13,18 +13,29 @@ Este documento explica como configurar o Supabase como base de dados na nuvem (P
 
 ---
 
-## 2. Executar o Script SQL
+## 2. Criar o esquema e as migrações
 1. No menu lateral do Supabase, clique em **SQL Editor** (ícone do terminal `>_`).
 2. Clique em **"New query"**.
-3. Abra o arquivo `supabase/schema.sql` deste projeto, copie todo o seu conteúdo e cole no editor.
+3. Abra `supabase/migrations/20261017000000_initial_schema.sql`, copie o conteúdo e cole no editor.
 4. Clique no botão **"Run"** (no canto inferior direito).
-5. O script criará:
+5. O script inicial cria:
    - Tabela `projects` (armazenamento do esquema elétrico, Ladder e GRAFCET em JSONB)
    - Tabela `profiles` (perfis de utilizadores sincronizados com `auth.users`)
    - Tabelas `project_members` e `project_invitations` (colaboração multi-utilizador)
    - Tabela `contributions` (modelos 3D e datasheets)
    - Tabela `audit_log` e `component_settings`
    - Políticas RLS (Row Level Security) ativadas e configuradas.
+
+Depois execute, pela ordem indicada, no SQL Editor:
+
+1. `migrations/20261024120000_accounts_in_database.sql`
+2. `migrations/20261026120000_saas_plans_comments.sql`
+3. `migrations/20261027150000_catalog_storage.sql`
+
+A terceira migração cria o catálogo de componentes 3D, perfis de bornes, os buckets
+privados `catalog-models` e `contribution-files`, as respetivas políticas RLS e a
+função transacional de publicação. Os GLB publicados e ficheiros de contribuição
+são servidos com URLs assinadas a utilizadores autorizados.
 
 ---
 
@@ -37,9 +48,43 @@ No painel do Supabase:
 
 ---
 
-## 4. Configurar no DC-SIMU
+## 4. Configurar o DC-SIMU
 
-Você tem **duas formas** fáceis de configurar:
+### Produção (Vercel)
+
+No projeto de produção da Vercel, defina estas variáveis em **Settings → Environment
+Variables**, pelo menos para **Production** (e Preview se for usado para validação):
+
+```env
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
+Volte a construir/publicar a aplicação depois de guardar as variáveis. O build de
+produção passa a exigir Supabase para autenticação e persistência; não usa valores
+de Supabase guardados no navegador nem recorre ao modo local. Use apenas a chave
+publicável no frontend (ou `VITE_SUPABASE_ANON_KEY` para projetos antigos). **Nunca** coloque `service_role`, `secret key` ou a
+palavra-passe da base de dados numa variável `VITE_*`.
+
+Antes de publicar, aplique as migrações acima no projeto Supabase de produção,
+confirme que as contas pretendidas existem em **Authentication → Users** e promova
+manualmente o perfil da conta administrativa pelo SQL Editor. A migração nunca
+cria contas nem define palavras-passe. Exemplo (substitua pelo endereço verificado
+do administrador):
+
+```sql
+UPDATE public.profiles
+SET role = 'admin'
+WHERE email = lower('admin@exemplo.pt');
+```
+
+Confirme que a consulta alterou exatamente um perfil. Todas as contas novas recebem
+o papel `user`; os metadados enviados pelo cliente não podem promover uma conta.
+
+### Desenvolvimento local
+
+É possível configurar Supabase pela interface durante desenvolvimento, ou por
+variáveis de ambiente:
 
 ### Opção A: Diretamente na Interface (Sem reiniciar)
 1. Abra o DC-SIMU no navegador.
@@ -52,9 +97,18 @@ Você tem **duas formas** fáceis de configurar:
 Crie ou edite o arquivo `.env` na raiz do projeto:
 ```env
 VITE_SUPABASE_URL=https://xyzabcdefghijk.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
-Reinicie o servidor com `npm run dev`. O DC-SIMU detectará o Supabase automaticamente!
+Reinicie o servidor com `npm run dev`. O DC-SIMU deteta o Supabase automaticamente.
+No build local, a interface também permite configurar temporariamente o projeto.
+
+### Supabase local (desenvolvimento)
+
+Com o Docker Desktop ativo, inicie a stack local com
+`node_modules/.bin/supabase start` (no PowerShell: `.\node_modules\.bin\supabase.cmd start`).
+O Studio fica em `http://127.0.0.1:55423` e a API local em `http://127.0.0.1:55421`;
+as migrações são aplicadas ao Postgres local no arranque. Esta stack é independente
+do projeto hospedado e não altera dados de produção.
 
 ## Registos de saúde do n8n
 
@@ -73,16 +127,14 @@ Na credencial Supabase do n8n, use como Host a URL da API do projeto
 Execute `migrations/20261024120000_accounts_in_database.sql` no SQL Editor (pode ser
 repetido). A migração:
 
-- cria as contas fixas `admin@dcsimu.local` e `user@dcsimu.local` no Supabase Auth, para
-  que o login delas também fique guardado na base de dados e os projetos sejam gravados lá;
+- cria perfis em falta para utilizadores Auth já existentes e atribui `user` às novas contas;
 - passa a decidir o papel (`admin`/`user`) apenas no servidor: deixa de ser possível
   registar-se como administrador através dos metadados, ou alterar o próprio papel em `profiles`;
-- acrescenta `profiles.last_login` e a função `touch_login()`;
-- cria perfis em falta para contas já existentes.
+- acrescenta `profiles.last_login` e a função `touch_login()`.
 
-Se mudar as palavras-passe das contas fixas, atualize-as também nesse ficheiro antes de o executar.
-Para o login funcionar, desative **Confirm email** em *Authentication → Providers → Email*
-(os utilizadores novos registados pela app precisam disso, as contas fixas não).
+Crie primeiro a conta do administrador em Authentication ou através do registo da app;
+depois promova apenas esse endereço com a instrução SQL acima. Configure a confirmação
+de email em *Authentication → Providers → Email* conforme o processo de registo pretendido.
 
 ## Planos SaaS, preços e comentários
 

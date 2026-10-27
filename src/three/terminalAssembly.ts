@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { ComponentType } from '../types'
 
-/** Tipos compostos pelos bornes Phoenix PTI6 usados na capa e no Painel 3D. */
+/** Tipos nativos com GLBs compostos a partir do borne Phoenix PTI6 original. */
 export const TERMINAL_ASSEMBLY_TYPES = new Set<ComponentType>([
   'powerSource1ph', 'powerSource3ph', 'terminalSet1ph', 'terminalSet3ph',
 ])

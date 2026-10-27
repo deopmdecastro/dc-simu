@@ -121,7 +121,9 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
   const pendingCount = stats?.pending ?? 0
   const disabledCount = settings.filter((entry) => (entry.status ?? (entry.enabled ? 'active' : 'blocked')) === 'blocked').length
   const pendingPlans = planRequests.filter((request) => request.status === 'pending').length
-  const serverMode = activeAccountBackend() === 'server'
+  const backendMode = activeAccountBackend()
+  const serverMode = backendMode === 'server'
+  const databaseMode = serverMode || backendMode === 'supabase'
   type NavTab = { id: Tab; label: string; count?: number; attention?: boolean }
   const navGroups: Array<{ label: string; tabs: NavTab[] }> = [
     { label: 'Geral', tabs: [{ id: 'overview', label: 'Resumo' }] },
@@ -183,7 +185,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
         <p>Contribuições, contas, componentes, projetos e atividade do sistema.</p>
       </div>
       <div className="adm-head-side">
-        <span className={`adm-env ${serverMode ? 'is-server' : 'is-local'}`} title={serverMode ? 'Os dados estão guardados no servidor (SQLite).' : 'Os dados estão guardados apenas neste navegador.'}><i aria-hidden />{serverMode ? 'Servidor · SQLite' : 'Modo local · só neste navegador'}</span>
+        <span className={`adm-env ${databaseMode ? 'is-server' : 'is-local'}`} title={serverMode ? 'Os dados estão guardados no servidor (SQLite).' : backendMode === 'supabase' ? 'Os dados estão guardados no Supabase (PostgreSQL).' : 'Os dados estão guardados apenas neste navegador.'}><i aria-hidden />{serverMode ? 'Servidor · SQLite' : backendMode === 'supabase' ? 'Supabase · PostgreSQL' : 'Modo local · só neste navegador'}</span>
         <div className="dx-admin-head-actions">
           <button className="dx-btn dx-btn-primary" onClick={() => setCreating3D(true)} title="Criar um componente no editor 3D">+ Novo componente 3D</button>
           <button className="dx-btn dx-btn-secondary" onClick={onBack}><IconArrowLeft size={12} /> Projetos</button>

@@ -46,7 +46,7 @@ export function getCad3DImage(type: ComponentType): Promise<string> {
   const spec = getComponentModelSpec(type)
   if (!spec && !isTerminalAssemblyComponent(type)) return Promise.reject(new Error(`Sem modelo CAD para ${type}`))
 
-  const promise = (isTerminalAssemblyComponent(type) ? captureTerminalAssemblyImage(type) : captureOrthographicModelImage({
+  const promise = (isTerminalAssemblyComponent(type) && !spec ? captureTerminalAssemblyImage(type) : captureOrthographicModelImage({
     path: spec!.path,
     rotation: spec!.rotation,
     flipDepth: spec!.flipDepth,
