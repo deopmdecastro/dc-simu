@@ -103,6 +103,10 @@ function terminalsFor(type: ComponentType, list: TerminalTemplate[], box: THREE.
   const size = box.getSize(new THREE.Vector3())
   return legacyTerminalsFor(list, box).map((terminal, index) => {
     const item = list[index], p = item.position3D
+    if (isTerminalAssemblyComponent(type)) {
+      const fitted = terminalAssemblyTerminal(type, item)
+      if (fitted) return { ...terminal, ...fitted }
+    }
     if (!p) return terminal
     const spot = REAL_TERMINALS[type]?.find((spot) => spot.label === item.label)
     const nearest = [
@@ -115,6 +119,89 @@ function terminalsFor(type: ComponentType, list: TerminalTemplate[], box: THREE.
       normal: spot ? [...FACE_NORMAL[spot.face]] : nearest,
       ...(spot ? { diameterMm: spot.diameterMm, socketDepthMm: spot.holeDepthMm, socketInsetMm: terminalInsetMm(spot) } : {}),
     }
+  })
+}
+
+/** Centro dos furos medidos no PTI6, transformado para o referencial da montagem. */
+function terminalAssemblyTerminal(type: ComponentType, item: TerminalTemplate): Pick<TerminalDef, 'position' | 'normal' | 'diameterMm' | 'socketDepthMm' | 'socketInsetMm'> | null {
+  if (!isTerminalAssemblyComponent(type)) return null
+  const match = /^(L1|L2|L3|L|N|PE)(?:-(IN|OUT))?$/.exec(item.label)
+  if (!match) return null
+  const [, conductor, direction] = match
+  const layout = terminalAssemblyLayout(type, getComponentPhysicalSizeMm('terminalPhoenixPti6')!.width)
+    .find((entry) => entry.conductor === conductor)
+  const physical = getComponentPhysicalSizeMm('terminalPhoenixPti6')
+  const spot = REAL_TERMINALS.terminalPhoenixPti6?.find((entry) => entry.label === (direction === 'OUT' ? '2' : '1'))
+  if (!layout || !physical || !spot) return null
+  const point = realTerminalPosition('terminalPhoenixPti6', spot)
+  return {
+    position: [layout.x + (point.x - 0.5) * physical.width, point.y * physical.height, (point.z - 0.5) * physical.depth],
+    normal: [...FACE_NORMAL[spot.face]] as Vec3,
+    diameterMm: spot.diameterMm,
+    socketDepthMm: spot.holeDepthMm,
+    socketInsetMm: terminalInsetMm(spot),
+  }
+}
+
+/** Reconhece a composição PTI6 sem alterações e corrige apenas bornes que ainda
+ * estejam nas posições automáticas antigas; ajustes manuais ficam intactos. */
+function upgradeTerminalAssemblyTerminals(type: ComponentType, def: ComponentDefinition, cache: GlbCache): boolean {
+  if (!isSeededTerminalAssembly(type, def)) return false
+  const tpl = TEMPLATES[type]
+  if (!tpl) return false
+  const previousSize = getComponentPhysicalSizeMm(type) ?? {
+    width: Math.max(8, Math.round(tpl.w / 1.5)),
+    height: Math.max(8, Math.round(tpl.h / 1.5)),
+    depth: 45,
+  }
+  const previousBox = new THREE.Box3(
+    new THREE.Vector3(-previousSize.width / 2, 0, -previousSize.depth / 2),
+    new THREE.Vector3(previousSize.width / 2, previousSize.height, previousSize.depth / 2),
+  )
+  const box = boundsMm(def, cache)
+  // Rascunhos antigos foram criados tanto antes como depois de a composição
+  // PTI6 ser semeada; reconhece os dois conjuntos de posições automáticas.
+  const previousPositions = [legacyTerminalsFor(tpl.terminals, previousBox), legacyTerminalsFor(tpl.terminals, box)]
+  const calibrated = terminalsFor(type, tpl.terminals, box)
+  const same = (a: Vec3, b: Vec3) => a.every((value, index) => Math.abs(value - b[index]) < 0.02)
+  let changed = false
+  def.terminals = def.terminals.map((current) => {
+    const next = calibrated.find((terminal) => terminal.label === current.label)
+    const automatic = previousPositions.some((positions) => {
+      const old = positions.find((terminal) => terminal.label === current.label)
+      return !!old && same(current.position, old.position)
+    })
+    if (!automatic || !next || same(current.position, next.position)) return current
+    changed = true
+    return {
+      ...current,
+      position: next.position,
+      normal: next.normal,
+      diameterMm: next.diameterMm,
+      socketDepthMm: next.socketDepthMm,
+      socketInsetMm: next.socketInsetMm,
+    }
+  })
+  return changed
+}
+
+function isSeededTerminalAssembly(type: ComponentType, def: ComponentDefinition): boolean {
+  if (!isTerminalAssemblyComponent(type)) return false
+  const root = def.parts.find((part) => part.kind === 'group' && part.name === 'Conjunto de bornes')
+  if (!root) return false
+  const spec = getComponentModelSpec('terminalPhoenixPti6')
+  const physical = spec?.physicalSizeMm
+  if (!spec || !physical) return false
+  const layout = terminalAssemblyLayout(type, physical.width)
+  const children = def.parts.filter((part) => part.parentId === root.id)
+  if (children.length !== layout.length) return false
+  const same = (a: Vec3, b: Vec3) => a.every((value, index) => Math.abs(value - b[index]) < 0.02)
+  return layout.every(({ conductor, x, color }, index) => {
+    const part = children[index]
+    const asset = part?.asset ? def.assets[part.asset] : null
+    return part?.kind === 'glb' && part.name === `Borne ${conductor}`
+      && part.neutralTintColor === color && same(part.position, [x, 0, 0])
+      && asset?.builtinType === 'terminalPhoenixPti6' && asset.data === spec.path
   })
 }
 
@@ -240,6 +327,7 @@ export async function upgradeBuiltinDraft(type: ComponentType, def: ComponentDef
     next = assemblyUpgrade
     await loadGlbAssets(next, cache)
   }
+  if (upgradeTerminalAssemblyTerminals(type, next, cache)) changed = true
   const upgraded = await upgradeUneditedGeometry(type, next, cache)
   if (upgraded) { next = upgraded; changed = true }
   if (type === 'multimeterDm20' && (next.controls ?? []).length === 0 && (next.displays ?? []).length === 0) {

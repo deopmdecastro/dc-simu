@@ -908,6 +908,39 @@ function applyRealInterfaces() {
 
 applyRealInterfaces()
 
+/** Aplica aos conjuntos e fontes a calibração dos furos do PTI6 usado em cada módulo. */
+function applyTerminalAssemblyInterfaces() {
+  const types: ComponentType[] = ['terminalSet1ph', 'terminalSet3ph', 'powerSource1ph', 'powerSource3ph']
+  const module = getComponentPhysicalSizeMm('terminalPhoenixPti6')
+  const spots = REAL_TERMINALS.terminalPhoenixPti6
+  if (!module || !spots?.length) return
+  for (const type of types) {
+    const template = TEMPLATES[type]
+    const conductors = type.endsWith('1ph') ? ['L', 'N', 'PE'] : ['L1', 'L2', 'L3', 'N', 'PE']
+    for (const terminal of template.terminals) {
+      const match = /^(L1|L2|L3|L|N|PE)(?:-(IN|OUT))?$/.exec(terminal.label)
+      if (!match) continue
+      const [, conductor, direction] = match
+      const index = conductors.indexOf(conductor)
+      if (index < 0) continue
+      const spot = spots.find((item) => item.label === (direction === 'OUT' ? '2' : '1'))
+      if (!spot) continue
+      const position = realTerminalPosition('terminalPhoenixPti6', spot)
+      const normalized = { x: (index + position.x) / conductors.length, y: position.y, z: position.z }
+      terminal.position3D = normalized
+      terminal.socket3D = {
+        diameterMm: spot.diameterMm ?? 4.2,
+        depthMm: spot.holeDepthMm ?? 5,
+        insetMm: terminalInsetMm(spot),
+        normal: [0, 0, 1],
+        position: normalized,
+      }
+    }
+  }
+}
+
+applyTerminalAssemblyInterfaces()
+
 /**
  * Calibração conservadora dos bornes dos CAD integrados. Posições manuais já
  * existentes têm prioridade; os restantes são projetados para a superfície
