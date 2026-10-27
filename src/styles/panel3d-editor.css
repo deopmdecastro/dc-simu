@@ -310,3 +310,29 @@
   .panel3d-stage .panel3d-hud-top .panel3d-model-badge span strong,
   .panel3d-stage .panel3d-hud-top .panel3d-model-badge small { overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* ===========================================================================
+   v5.2 · Cartão de contexto da ferramenta 3D no telemóvel
+   ---------------------------------------------------------------------------
+   O cartão ocupava um quarto do canvas (nome + duas linhas de explicação +
+   botão). Passa a uma linha: ferramenta, «Manobrar» e enquadrar. A explicação
+   fica a um toque no «?» — e continua sempre legível em ecrãs largos.
+   =========================================================================== */
+.panel3d-hint-toggle { display: none !important; }
+.panel3d-tool-context.is-hint-open small#panel3d-tool-hint { display: block; }
+@media (max-width: 760px), (pointer: coarse) and (max-height: 700px) {
+  .panel3d-stage .panel3d-tool-context {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+    width: 100%; padding: 4px 6px;
+  }
+  .panel3d-stage .panel3d-tool-context > span {
+    flex: 1 1 auto; flex-direction: row; align-items: center; gap: 6px; min-width: 0;
+  }
+  .panel3d-stage .panel3d-tool-context > span strong { font-size: 12px; line-height: 18px; white-space: nowrap; }
+  /* A explicação só aparece depois de tocar no «?». */
+  .panel3d-stage .panel3d-tool-context small#panel3d-tool-hint { display: none; flex-basis: 100%; font-size: 10.5px; line-height: 1.35; }
+  .panel3d-hint-toggle { display: inline-flex !important; }
+  .panel3d-stage .panel3d-tool-context .dc-tool-btn.panel3d-hint-toggle { min-width: 30px; min-height: 30px; padding-inline: 4px; color: var(--dx-ink-3); }
+  .panel3d-stage .panel3d-tool-context .dc-tool-btn { min-height: 30px; min-width: 30px; padding-inline: 6px; font-size: 10.5px; }
+  .panel3d-stage .panel3d-tool-context .dc-tool-btn.panel3d-hint-toggle { min-width: 28px; }
+}

@@ -24,7 +24,7 @@ function Bit({ label: name, tagName, value, onToggle }: { label: string; tagName
 
 function SectionTitle({ children, icon: Icon }: { children: string; icon?: typeof IconTimer }) {
   return (
-    <h3 className="flex items-center gap-1.5 dc-panel-title mb-1.5">
+    <h3 className="pn-label flex items-center gap-1.5 mb-2">
       {Icon && <Icon size={11} />}
       {children}
     </h3>
@@ -72,9 +72,9 @@ export default function MonitorPanel() {
   }
 
   return (
-    <div className="p-4 flex flex-col gap-5 overflow-y-auto h-full bg-surface-app min-h-0">
+    <div className="pn-page flex flex-col overflow-y-auto h-full min-h-0">
       {components.length === 0 && (
-        <section className="rounded-md border border-line bg-white p-4 shadow-xs">
+        <section className="pn-card">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-sm font-bold text-ink-900">Monitor pronto para simular</h2>
@@ -86,7 +86,7 @@ export default function MonitorPanel() {
         </section>
       )}
 
-      <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <section className="pn-card grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div>
           <SectionTitle>Entradas físicas</SectionTitle>
           <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-1.5">
@@ -142,7 +142,7 @@ export default function MonitorPanel() {
         </div>
       </section>
 
-      <section>
+      <section className="pn-card">
         <SectionTitle icon={IconSearch}>Medições (calculadas do circuito)</SectionTitle>
         <div className="grid grid-cols-2 xl:grid-cols-3 gap-1.5 text-xs font-mono">
           {measurements.map((m) => (
@@ -155,7 +155,7 @@ export default function MonitorPanel() {
         </div>
       </section>
 
-      <section>
+      <section className="pn-card">
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <SectionTitle icon={IconShield}>Injeção de falhas (para treino de diagnóstico)</SectionTitle>
           <button type="button" className="dc-btn !h-6 !text-[10px]" onClick={clearFaults} disabled={!activeFaultCount} title="Desativar todas as falhas injetadas">Repor falhas{activeFaultCount ? ` (${activeFaultCount})` : ''}</button>
@@ -183,7 +183,7 @@ export default function MonitorPanel() {
         </div>
       </section>
 
-      <section>
+      <section className="pn-card">
         <SectionTitle>Dispositivos</SectionTitle>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-1.5 text-xs font-mono">
           {components
@@ -211,7 +211,7 @@ export default function MonitorPanel() {
         </div>
       </section>
 
-      <section>
+      <section className="pn-card">
         <SectionTitle>Diagnósticos</SectionTitle>
         {diagnostics.length === 0 && (
           <div className="text-xs text-ink-400 border border-line-soft border-dashed rounded-md px-3 py-2 bg-white/60">Nenhum erro ou aviso no circuito atual.</div>
@@ -234,7 +234,7 @@ export default function MonitorPanel() {
         </div>
       </section>
 
-      <section>
+      <section className="pn-card">
         <SectionTitle>Registro de eventos</SectionTitle>
         <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto dc-card p-2">
           {events.length === 0 && <div className="text-xs text-ink-400">Sem eventos.</div>}

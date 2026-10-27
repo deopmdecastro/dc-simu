@@ -23,7 +23,15 @@ const store = (fn, argument) => page.evaluate(async ({ source, argument }) => {
   const { useEditorStore } = await import('/src/admin/editor3d/editorStore.ts')
   return Function('store', 'argument', 'return (' + source + ')(store, argument)')(useEditorStore, argument)
 }, { source: fn.toString(), argument })
-const tab = (name) => page.locator('.ce-tabs').getByRole('tab', { name, exact: true }).click()
+/* O inspetor está organizado em três áreas (Construção · Funcionamento · Componente):
+   os separadores só aparecem na área a que pertencem, por isso é preciso abrir a
+   área antes de clicar no separador. */
+const AREA = { Objeto: 'Construção', Materiais: 'Construção', Bornes: 'Construção', Cabos: 'Construção', Botões: 'Funcionamento', Ecrãs: 'Funcionamento', Luzes: 'Funcionamento', Estados: 'Funcionamento', Interações: 'Funcionamento', Componente: 'Componente' }
+const tab = async (name) => {
+  const area = page.locator('.ce-inspector-groups').getByRole('button', { name: AREA[name] ?? 'Construção', exact: true })
+  if (!(await area.getAttribute('aria-pressed') === 'true')) await area.click()
+  await page.locator('.ce-tabs').getByRole('tab', { name, exact: true }).click()
+}
 
 try {
   await page.goto(baseURL + '/dashboard')

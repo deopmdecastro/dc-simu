@@ -17,6 +17,31 @@ O editor GRAFCET aceita ficheiros `.ct` do FluidSIM 4, com leitura local de etap
 
 As 142 ligações dos 20 equipamentos integrados com bornes são verificadas contra as cavidades da geometria renderizada. O editor usa a mesma escala física do CAD, limita o marcador ao espaço do furo e migra posições automáticas antigas. Consulte [calibração, réguas complementares e verificações](docs/TERMINAL-GEOMETRY.md); execute `npm run test:terminal-geometry` para verificar os GLB locais.
 
+## Novidades — v5.2 (barra do editor e telemóvel)
+
+- **Barra do editor de componentes arrumada para o polegar.** As seis ferramentas (Selecionar ·
+  Borne · Cabo · Apagar · Arrastar malha · Medir) cabem na largura do telemóvel; a segunda faixa
+  fica com malha, ímã, **zoom real**, enquadrar, bornes e a dica da ferramenta ativa. Tudo o que não
+  cabe passa para o menu **Mais** — uma folha inferior com nome, descrição, atalho e o motivo de
+  bloqueio de cada ação. Deixou de haver botões cortados na borda sem alternativa.
+- **Zoom com referência honesta no 3D.** 100 % = modelo enquadrado; −/+ aproximam e afastam,
+  clicar no valor enquadra. O enquadramento mede a caixa projetada nos eixos da câmara (antes usava
+  a esfera envolvente), pelo que num ecrã ao alto o modelo passa de ≈ 1/3 para ≈ 70 % da altura do
+  canvas. Ver [interface em ecrãs pequenos](docs/UI-ECRAS-PEQUENOS.md).
+- **Esquema 3D no telemóvel:** o cartão de contexto ocupa uma linha (a explicação abre no «?») e
+  «Biblioteca», «GRAFCET» e «Objetos» passam para o início da faixa, onde se alcançam.
+- **Ladder:** escala mínima de 40 % e botão **Ajustar à largura**, ajuste automático em ecrãs
+  estreitos (até o utilizador escolher a escala à mão), resumo em pastilhas que não corta métricas e
+  estado vazio compacto — a network inteira, bobina incluída, cabe no telefone.
+- **GRAFCET:** a gaveta de propriedades passou a folha flutuante (o canvas deixou de ficar com
+  352 px de altura), já não abre sozinha ao selecionar e a barra de zoom/ajuste saiu de baixo dela.
+- **Cabeçalho do editor:** o nome do projeto ocupa a largura livre (antes ficava reduzido a «E.»);
+  «Projetos» e «Comentários» passam a ícones com contador no telemóvel.
+- **Verificação:** `npm run typecheck`, `npm test` (núcleo), `npm run test:editor3d-toolbar` (novo,
+  22 verificações a 390 px), `test:editor3d-ui`, `test:logo-editor-ui` (62), `test:toolbar-ui`,
+  `test:pinch`, `test:grafcet-ui`, `test:ladder-blocks-ui`. O build de produção não correu no
+  ambiente desta alteração (2 GB de memória; o projeto pede 3 GiB — ver ENV-01 no cofre).
+
 ## Novidades — v5.1 (grelha comum e reforço de segurança)
 
 - **Grelha alinhada**: Esquema 2D, GRAFCET, fundo do editor 3D Admin e grelha física do editor 3D usam o mesmo passo de referência de 20 unidades (20 px nos editores planos; 20 mm no chão 3D). O GRAFCET continua a adaptar a densidade visível ao zoom sem alterar o encaixe.

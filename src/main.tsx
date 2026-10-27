@@ -22,11 +22,15 @@ import './styles/catalog-editor.css'
 import './styles/terminal-library.css'
 import './styles/clean-mode.css'
 import './styles/select.css'
+/* Menus das barras de ferramentas (toolbarKit · ToolMenu) — comuns a todos os editores. */
+import './styles/tool-menu.css'
 import './styles/virtual-io.css'
 import './styles/status-panel-refine.css'
 import './styles/grafcet-sim.css'
 import './styles/tag-table.css'
 import './styles/sheet-transfer.css'
+import './styles/toolbar-spacing.css'
+import './styles/panel-system.css'
 import { EDITOR_GRID_STEP, EDITOR_THEME } from './ui/editorTheme'
 
 const editorRootStyle = document.documentElement.style

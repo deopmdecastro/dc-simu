@@ -19,7 +19,7 @@ import { AppTopbar, EditorTopbar } from './components/AppTopbar'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { guardedDestination } from './routing/guards'
 import { pageFromPath, projectIdFromPath, ROUTES, type AppPage } from './routing/routes'
-import { IconArrowLeft, IconClose } from './ui/icons'
+import { IconArrowLeft, IconClose, IconComment } from './ui/icons'
 import ProjectComments from './comments/ProjectComments'
 import { initSupabaseFromBackend } from './supabase/supabaseClient'
 
@@ -361,8 +361,13 @@ export default function Account() {
   if (page === 'editor' && open) return <>
     <EditorTopbar projectName={open.name} dirty={editorDirty} message={message}
       onRename={open.role === 'editor' ? undefined : (name) => void renameProject(name)} actions={<>
-      <button className="account-project-action" onClick={() => void leave()}><IconArrowLeft size={12} /> Projetos</button>
-      <button className={`account-project-action ${commentsOpen ? 'is-active' : ''}`} onClick={() => setCommentsOpen(!commentsOpen)} aria-pressed={commentsOpen} title="Comentários do projeto (proprietário e editores)">Comentários{commentCount ? ` (${commentCount})` : ''}</button>
+      <button className="account-project-action" onClick={() => void leave()} title="Voltar aos projetos"><IconArrowLeft size={12} /> <span className="account-action-text">Projetos</span></button>
+      {/* No telemóvel o rótulo «Comentários» roubava a largura do nome do
+          projeto: fica só o ícone (com o número) e o nome aparece no title. */}
+      <button className={`account-project-action account-comments-action ${commentsOpen ? 'is-active' : ''}`} onClick={() => setCommentsOpen(!commentsOpen)} aria-pressed={commentsOpen}
+        aria-label={`Comentários do projeto${commentCount ? ` (${commentCount})` : ''}`} title="Comentários do projeto (proprietário e editores)">
+        <IconComment size={12} /> <span className="account-action-text">Comentários</span>{commentCount ? <span className="account-action-count">{commentCount}</span> : null}
+      </button>
       <button className="account-project-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
       {user && <AccountControls user={user} invites={invites} context="editor" dirty={editorDirty}
         errors={notificationErrors} warnings={notificationWarnings} onProjects={() => void leave()}
