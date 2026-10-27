@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ControlDef, DisplayDef, PartDef, Vec3 } from '../../catalog/types'
 import * as THREE from 'three'
 import { IconArrowLeft, IconChevronDown, IconChevronLeft, IconChevronRight, IconClose, IconSearch, IconGrid, IconLayers, IconBox, IconCylinder, IconEye, IconEyeOff, IconFocus, IconGroup, IconLock, IconModel, IconSparkle, IconMonitor, IconSphere, IconCone, IconTorus, IconUnlock } from '../../ui/icons'
+import SidePanelHeader from '../../components/SidePanelHeader'
 import { patchPart, useEditorStore } from './editorStore'
 import type { Face } from '../../catalog/terminalProfiles'
 import { faceOfNormal } from './terminalOps'
@@ -179,19 +180,23 @@ export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle,
   }
 
   return <aside className={`ce-left${panelCollapsed ? ' is-collapsed' : ''}`} aria-label="Hierarquia">
-    <div className="ce-hierarchy-title">
-      {!panelCollapsed && <span className="ce-inspector-symbol" aria-hidden="true"><IconLayers size={16} /></span>}
-      <div>
-        <small style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--dx-ink-3)', fontSize: 9.5, letterSpacing: '.06em', textTransform: 'uppercase' }}><i className="ce-inspector-status" aria-hidden="true" />Hierarquia</small>
-        <strong>Elementos</strong>
-        <small>Modelo e interface física</small>
-      </div>
-      <span className="ce-hierarchy-count" aria-label={`${counts.all} elementos`}>{counts.all}</span>
-      <span className="ce-collapsed-label"><IconLayers size={15} /><span>Elementos</span></span>
-      <button className="ce-mobile-panel-close" type="button" aria-label="Fechar hierarquia e voltar ao canvas" title="Fechar hierarquia e voltar ao canvas" onClick={onMobileClose}><IconArrowLeft size={13} /><span>Canvas</span></button>
-      <button className="ce-panel-collapse" type="button" aria-label={panelCollapsed ? 'Expandir hierarquia' : 'Recolher hierarquia'} aria-expanded={!panelCollapsed} title={panelCollapsed ? 'Expandir hierarquia' : 'Recolher hierarquia'} onClick={onToggle}>{panelCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}</button>
-      <button className="ce-icon ce-viewmode-toggle" title={cards ? 'Ver em lista' : 'Ver em cartões com miniatura'} aria-label={cards ? 'Ver em lista' : 'Ver em cartões'} onClick={() => chooseCards(!cards)}>{cards ? <IconLayers size={13} /> : <IconGrid size={13} />}</button>
-    </div>
+    <SidePanelHeader
+      className="ce-hierarchy-title"
+      eyebrow="Hierarquia"
+      title="Elementos"
+      detail="Modelo e interface física"
+      icon={<IconLayers size={16} />}
+      side="left"
+      collapsed={panelCollapsed}
+      onToggle={onToggle}
+      toggleClassName="ce-panel-collapse"
+      toggleLabel={panelCollapsed ? 'Expandir hierarquia' : 'Recolher hierarquia'}
+      actions={<>
+        <span className="ce-hierarchy-count" aria-label={`${counts.all} elementos`}>{counts.all}</span>
+        <button className="ce-icon ce-viewmode-toggle" title={cards ? 'Ver em lista' : 'Ver em cartões com miniatura'} aria-label={cards ? 'Ver em lista' : 'Ver em cartões'} onClick={() => chooseCards(!cards)}>{cards ? <IconLayers size={13} /> : <IconGrid size={13} />}</button>
+        <button className="ce-mobile-panel-close" type="button" aria-label="Fechar hierarquia e voltar ao canvas" title="Fechar hierarquia e voltar ao canvas" onClick={onMobileClose}><IconArrowLeft size={13} /><span>Canvas</span></button>
+      </>}
+    />
     {wireSlot && !panelCollapsed && <div className="ce-left-wires">{wireSlot}</div>}
     <div className="ce-search">
       <IconSearch size={11} />
