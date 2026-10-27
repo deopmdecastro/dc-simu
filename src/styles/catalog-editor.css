@@ -1038,7 +1038,9 @@
 }
 .ce-catalog { container-type:inline-size; container-name:ce-catalog; min-width:0; }
 .ce-list-tools { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:10px; min-width:0; }
-.ce-list-filters { display:grid; grid-template-columns:minmax(0,1fr) minmax(150px,200px); gap:8px; min-width:0; }
+.ce-list-filters { display:grid; grid-template-columns:minmax(0,1fr) minmax(150px,1fr); gap:8px; min-width:0; align-items:center; }
+.ce-list-filters .pn-segment { min-width:0; }
+.ce-list-filters .pn-segment > button { flex:1 1 auto; justify-content:center; }
 .ce-list-tools .cb-search { width:100%; min-width:0; margin:0; }
 .ce-list-tools .ce-list-state { width:100%; min-width:0; }
 .ce-list-actions { display:flex; align-items:flex-start; justify-content:flex-end; flex-wrap:wrap; gap:8px; min-width:0; }

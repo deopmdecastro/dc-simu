@@ -428,3 +428,16 @@
 @media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
   .ladder-empty-state, .ladder-empty-state.is-compact { min-height: 0 !important; max-width: 100%; padding: 18px 14px; margin: 10px; }
 }
+
+/* Ladder bottom + overlays no idioma visual dos painéis */
+.ladder-bottom-panel {
+  border-color: var(--pn-line, #d3dbe5);
+  background: var(--pn-bg, #fff);
+}
+.ladder-bottom-tabs {
+  background: var(--pn-bg-2, #f6f8fb);
+  border-bottom: 1px solid var(--pn-line-soft, #e2e8f0);
+}
+.ladder-status-dot {
+  box-shadow: 0 0 0 2px var(--pn-bg, #fff);
+}

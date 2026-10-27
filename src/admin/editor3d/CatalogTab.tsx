@@ -1,5 +1,4 @@
 import { uiConfirm } from '../../ui/dialogs'
-import Select from '../../ui/Select'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../routing/routes'
@@ -165,9 +164,24 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
     <div className="ce-list-tools">
       <div className="ce-list-filters">
         <input className="dx-input cb-search" type="search" placeholder="Pesquisar por nome, grupo ou referência…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar componentes 3D" />
-        <Select className="dx-input ce-list-state" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} aria-label="Filtrar por estado">
-          <option value="all">Todos</option><option value="draft">Só rascunhos</option><option value="published">Publicados</option><option value="archived">Arquivados</option><option value="builtin">Integrados</option>
-        </Select>
+        <div className="pn-segment ce-list-state" role="tablist" aria-label="Filtrar por estado">
+          {([
+            ['all', 'Todos'],
+            ['draft', 'Rascunhos'],
+            ['published', 'Publicados'],
+            ['archived', 'Arquivados'],
+            ['builtin', 'Integrados'],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={filter === id}
+              className={filter === id ? 'is-on' : ''}
+              onClick={() => setFilter(id)}
+            >{label}</button>
+          ))}
+        </div>
       </div>
       <div className="ce-list-actions">
         <div className="ce-list-secondary-actions" role="group" aria-label="Ações secundárias">

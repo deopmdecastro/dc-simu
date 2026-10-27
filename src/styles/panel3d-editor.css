@@ -268,3 +268,39 @@
 @media (max-width:560px) {
   .panel3d-wire-actions button { min-height:30px; font-size:10px; }
 }
+
+
+/* Overlays Esquema 3D — mesmo idioma visual dos painéis laterais */
+.panel3d-axis-hud {
+  background: color-mix(in srgb, var(--pn-bg, #fff) 92%, transparent);
+  border: 1px solid var(--pn-line, #d3dbe5);
+  border-radius: var(--pn-radius, 8px);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+  backdrop-filter: blur(8px);
+}
+.panel3d-viewbar {
+  border: 1px solid var(--pn-line-soft, #e2e8f0);
+  border-radius: var(--pn-radius, 8px);
+  background: color-mix(in srgb, var(--pn-bg, #fff) 94%, transparent);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+.panel3d-viewbar button {
+  border-radius: calc(var(--pn-radius, 8px) - 2px);
+  color: var(--pn-ink-2, #3d4b5e);
+}
+.panel3d-viewbar button.is-on,
+.panel3d-viewbar button[aria-pressed="true"] {
+  color: var(--pn-brand-ink, #1e42d3);
+  background: var(--pn-brand-soft, #eef4ff);
+}
+.panel3d-edit-context {
+  border: 1px solid var(--pn-line-soft, #e2e8f0);
+  border-radius: var(--pn-radius, 8px);
+  background: color-mix(in srgb, var(--pn-bg, #fff) 94%, transparent);
+}
+.schematic-hud {
+  border-color: var(--pn-line-soft, #e2e8f0);
+  background: color-mix(in srgb, var(--pn-bg, #fff) 94%, transparent);
+  color: var(--pn-ink-2, #3d4b5e);
+  border-radius: var(--pn-radius, 8px);
+}
