@@ -45,6 +45,7 @@
     "test:editor3d-autodetect-ui": "node scripts/editor3d-autodetect-ui-smoke.mjs",
     "test:editor3d-ui": "node scripts/editor3d-ux-ui-smoke.mjs",
     "test:editor3d-toolbar": "node scripts/editor3d-toolbar-ui-smoke.mjs",
+    "test:barras-padrao": "node scripts/barra-padrao-ui-smoke.mjs",
     "test:server": "node scripts/server-e2e.mjs",
     "test:n8n-client": "tsx scripts/n8n-client-smoke.ts",
     "test:pinch": "tsx scripts/pinch-zoom-smoke.ts && tsx scripts/pinch-dom-smoke.ts",

@@ -201,8 +201,13 @@
   .ce-ribbon-row2 .dc-tool-btn { min-height: 36px; }
 }
 
+/* Editor de componentes em ecrã pequeno: usa as MESMAS medidas desta folha
+   (42 px em cima, 40 px em baixo, controlos a 30 px, raio 6). A versão anterior
+   tinha uma barra própria — 48 px, botões de 40 px e raio 7, com a segunda faixa
+   a quebrar em três linhas porque `min-height: 0` desligava a altura comum. */
 @media (max-width: 1024px), (pointer: coarse) and (max-height: 700px) {
-  .ce-toolbars.is-compact .ce-ribbon-primary { min-height: 48px; }
-  .ce-toolbars.is-compact .ce-ribbon-secondary { min-height: 0; overflow: visible; }
-  .ce-toolbars.is-compact .dc-tool-btn { min-height: 40px; border-radius: 7px; }
+  .ce-toolbars.is-compact .ce-ribbon-primary { min-height: 42px; }
+  .ce-toolbars.is-compact .ce-ribbon-secondary { min-height: 40px; }
+  .ce-toolbars.is-compact .dc-tool-btn { min-height: var(--toolbar-control-height); border-radius: 6px; }
+  .ce-toolbars.is-compact .ce-ribbon { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
 }

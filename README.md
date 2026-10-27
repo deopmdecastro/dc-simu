@@ -58,6 +58,11 @@ As 142 ligações dos 20 equipamentos integrados com bornes são verificadas con
   352 px de altura), já não abre sozinha ao selecionar e a barra de zoom/ajuste saiu de baixo dela.
 - **Cabeçalho do editor:** o nome do projeto ocupa a largura livre (antes ficava reduzido a «E.»);
   «Projetos» e «Comentários» passam a ícones com contador no telemóvel.
+- **Barra igual às do simulador (correção de 2026-10-27):** a arrumação para telemóvel tinha ficado
+  com medidas próprias — faixas de 48 px, botões de 40 px com raio 7 e a segunda faixa a quebrar em
+  três linhas (127 px). Passa a usar as medidas comuns de `toolbar-spacing.css`: 42 px em cima, 40 px
+  em baixo, controlos de 30 px com raio 6, tudo numa linha que desliza; a dica da ferramenta muda-se
+  para uma faixa fina por baixo. `npm run test:barras-padrao` compara-a com a barra do simulador.
 - **Verificação:** `npm run typecheck`, `npm test` (núcleo), `npm run test:editor3d-toolbar` (novo,
   22 verificações a 390 px), `test:editor3d-ui`, `test:logo-editor-ui` (62), `test:toolbar-ui`,
   `test:pinch`, `test:grafcet-ui`, `test:ladder-blocks-ui`. O build de produção não correu no

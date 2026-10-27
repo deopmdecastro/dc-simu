@@ -294,8 +294,13 @@ function ToolRibbon({ onHelp }: { onHelp: () => void }) {
       {editing && !compact && groupTerminals}
       {compact && <>{groupTerminals}</>}
       {!compact && <ShortcutsButton scope="component" onClick={onHelp} title="Atalhos de teclado (F1)" />}
-      <span className="ce-ribbon-hint" aria-live="polite"><b>{current.short}</b> · {current.hint}</span>
+      {!compact && <span className="ce-ribbon-hint ce-hint-wide" aria-live="polite"><b>{current.short}</b> · {current.hint}</span>}
     </div>
+    {/* Telemóvel: a dica vive numa faixa própria e fina (como a linha de páginas
+        do GRAFCET), em vez de esticar a segunda barra com uma terceira linha. */}
+    {compact && <div className="ce-contextbar">
+      <span className="ce-ribbon-hint ce-hint-compact" aria-live="polite"><b>{current.short}</b> · {current.hint}</span>
+    </div>}
   </div>
 }
 
