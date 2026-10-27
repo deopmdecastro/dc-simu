@@ -815,7 +815,8 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
       <button type="button" className={mobilePane === 'inspector' ? 'is-on' : ''} aria-pressed={mobilePane === 'inspector'} title="Abrir o inspetor de propriedades" onClick={() => setMobilePane('inspector')}>Propriedades</button>
     </nav>
     <div className={`ce-body ce-mobile-${mobilePane}${panels.collapsed.left ? ' is-left-collapsed' : ''}${panels.collapsed.right ? ' is-right-collapsed' : ''}`} style={panels.style}>
-      <Hierarchy collapsed={panels.collapsed.left} onToggle={() => panels.toggle('left')} onMobileClose={() => setMobilePane('canvas')} />
+      <Hierarchy collapsed={panels.collapsed.left} onToggle={() => panels.toggle('left')} onMobileClose={() => setMobilePane('canvas')}
+        wireSlot={(mode === 'simulate' || activeRibbon === 'wire') ? <WirePanel /> : null} />
       <PanelResizer side="left" width={panels.widths.left} onChange={(value) => panels.change('left', value)} />
       <main className={`ce-stage is-tool-${activeRibbon}${view.grid ? '' : ' no-grid'}${view.dark ? ' is-dark' : ''}${dropping ? ' is-dropping' : ''}${libraryOpen && mode === 'edit' ? ' lib-open' : ''}`}
         onDragOver={(event) => { if (mode === 'edit' && (event.dataTransfer.types.includes(DND_PROFILE) || event.dataTransfer.types.includes(DND_TERMINAL))) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; if (!dropping) setDropping(true) } }}
@@ -833,7 +834,6 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         <ViewToolbar />
         <CubeOverlay />
         {mode === 'edit' && tab !== 'terminals' && (placing || faceLock) && <FaceBar />}
-        {(mode === 'simulate' || activeRibbon === 'wire') && <WirePanel />}
         {libraryOpen && mode === 'edit' && <LibraryPanel />}
         <div className="ce-canvas"><Suspense fallback={<div className="ce-loading">A carregar o motor 3D…</div>}><Viewport /></Suspense></div>
         <div className="ce-stage-info">

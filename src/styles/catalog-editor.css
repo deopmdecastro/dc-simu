@@ -204,7 +204,9 @@
 .ce-face.is-on b { background:var(--dx-brand); color:#fff; }
 .ce-face-add.is-on { background:#fef3c7; border-color:#f59e0b; color:#92400e; }
 .ce-facebar-sep { width:1px; align-self:stretch; background:var(--dx-line); margin:0 3px; }
-.ce-wirepanel { position:absolute; left:10px; top:56px; z-index:25; width:min(300px,calc(100% - 20px)); display:flex; flex-direction:column; gap:5px; background:rgba(255,255,255,.96); border:1px solid var(--dx-line); border-radius:10px; padding:9px 11px; box-shadow:0 8px 24px rgba(15,23,42,.14); font-size:12px; }
+/* Cabos de teste no painel lateral esquerdo (nunca num cartão sobre o canvas). */
+.ce-left-wires { flex:0 1 auto; min-height:0; max-height:min(48%,430px); display:flex; flex-direction:column; border-bottom:1px solid var(--dx-line); background:var(--dx-surface-2,#f8fafc); }
+.ce-wirepanel { display:flex; min-height:0; flex-direction:column; gap:6px; padding:8px 10px; overflow-y:auto; scrollbar-width:thin; background:transparent; font-size:12px; }
 .ce-wirepanel small { color:var(--dx-ink-4); }
 .ce-wire { display:flex; flex-direction:column; border:1px solid var(--dx-line); padding:5px 8px; border-radius:6px; }
 .ce-wire.is-ok { border-color:#8bc9a2; background:#f2faf5; } .ce-wire.is-warn { border-color:#e5c27f; background:#fffbf2; } .ce-wire.is-error { border-color:#e7a4a4; background:#fff7f7; }
@@ -260,7 +262,6 @@
 
 /* Barra «Bornes por vista» e viewbar passam a ficar abaixo da barra de ferramentas */
 .ce-viewbar { top:8px; }
-.ce-wirepanel { top:54px; }
 
 /* ---- ícones nos botões e títulos ---- */
 .ce-btn-icon { display:inline-flex; align-items:center; gap:5px; }
@@ -305,13 +306,12 @@
 .ce-wire-link { opacity:.5; }
 
 /* ---- cabos de teste: painel melhorado, auto-guardar e resumo do componente ---- */
-.ce-wirepanel { max-height:calc(100% - 120px); overflow-y:auto; }
 .ce-wirepanel-head { display:flex; align-items:center; gap:6px; }
 .ce-wirepanel-head strong { font-size:13px; }
 .ce-wp-spacer { flex:1; }
 .ce-wp-count { background:var(--dx-brand-soft-2); color:var(--dx-brand-700); border-radius:99px; padding:0 7px; font-size:11px; font-weight:700; }
 .ce-wp-toggle { width:20px; height:20px; border:1px solid var(--dx-line); border-radius:6px; background:#fff; cursor:pointer; font-size:13px; line-height:1; }
-.ce-wirepanel.is-collapsed { padding-bottom:7px; }
+.ce-wirepanel.is-collapsed { padding-bottom:8px; }
 .ce-wp-live { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; background:var(--dx-brand-soft-2); border-radius:8px; padding:6px 8px; font-size:11.5px; color:var(--dx-brand-700); }
 .ce-wp-live em { font-style:normal; color:var(--dx-ink-3); }
 .ce-wp-actions, .ce-wp-options { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:space-between; }
@@ -369,13 +369,10 @@
 .ce-pointrow b { color:var(--dx-brand-700); text-align:center; }
 .ce-pointrow .ce-num .dx-input { padding:2px 4px; }
 .ce-wire-foot { justify-content:space-between; padding:6px 12px 14px; }
-.ce-wp-new { border:1px solid var(--dx-line); border-radius:8px; padding:5px 8px; background:var(--dx-surface); font-size:12px; }
-.ce-wp-new summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:5px; font-weight:600; }
-.ce-wp-new summary::-webkit-details-marker { display:none; }
-.ce-wp-new summary > svg { flex:none; color:var(--dx-ink-3); transition:transform .12s; }
-.ce-wp-new[open] summary > svg { transform:rotate(90deg); }
-.ce-wp-new summary span { font-weight:400; color:var(--dx-ink-4); font-size:11px; }
-.ce-wp-new[open] { display:flex; flex-direction:column; gap:7px; }
+.ce-wp-new { display:flex; flex-direction:column; gap:8px; border:1px solid var(--dx-line); border-radius:9px; padding:7px 9px; background:var(--dx-surface,#fff); font-size:12px; }
+.ce-wp-new-head { display:flex; align-items:center; gap:5px; }
+.ce-wp-new-head strong { font-size:12px; font-weight:700; }
+.ce-wp-new-head span { min-width:0; overflow:hidden; font-weight:400; color:var(--dx-ink-4); font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
 .ce-wp-row { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:6px; }
 .ce-wp-row label { display:flex; flex-direction:column; gap:2px; font-size:10.5px; color:var(--dx-ink-3); }
 .ce-wp-row .dx-input { height:28px; padding:2px 6px; font-size:12px; }

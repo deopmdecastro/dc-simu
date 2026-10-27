@@ -28,6 +28,8 @@ import { clampRailLengthMm, DIN_RAIL_15X55, railSlotCount } from '../three/dinRa
 import { isRailMountable } from '../three/railMount'
 import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/componentRevisions'
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
+import { WireOptionsFields } from '../ui/WireOptions'
+import { setWireActionSlot } from '../ui/wireActionSlot'
 
 const label = 'dc-field-label'
 const STATE_LABELS: Record<string, string> = {
@@ -214,6 +216,14 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const selectedWireId = useSimStore((s) => s.selectedWireId)
   const selectedTerminalId = useSimStore((s) => s.selectedTerminalId)
   const [tab, setTab] = useState<'library' | 'inspector'>('library')
+  // Ferramenta ativa e valores dos cabos novos: com a ferramenta Cabo, o painel
+  // lateral esquerdo passa a mostrar as opções (cor, condutor, secção, terminal)
+  // em vez de as esconder num cartão sobre o canvas.
+  const tool = useSimStore((s) => s.tool)
+  const wireDefaults = useSimStore((s) => s.wireDefaults)
+  const setWireDefaults = useSimStore((s) => s.setWireDefaults)
+  const wireTool = tool === 'wire'
+  useEffect(() => { if (wireTool) setTab('inspector') }, [wireTool])
   const [terminalLibOpen, setTerminalLibOpen] = useState(false)
   const inspectorRef = useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState('')
@@ -342,7 +352,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
   return (
     <div className="pn-panel shrink-0 flex flex-col h-full min-h-0" style={{ width }}>
-      <SidePanelHeader eyebrow={tab === 'library' ? 'ESQUEMA' : 'COMPONENTE'} title={tab === 'library' ? 'Elementos' : 'Propriedades do componente'} side="left" onToggle={onCollapse} toggleLabel="Recolher biblioteca e inspetor" />
+      <SidePanelHeader eyebrow={tab === 'library' ? 'ESQUEMA' : wireTool ? 'CABO' : 'COMPONENTE'} title={tab === 'library' ? 'Elementos' : wireTool ? 'Novo cabo' : 'Propriedades do componente'} side="left" onToggle={onCollapse} toggleLabel="Recolher biblioteca e inspetor" />
       {/* abas */}
       <div className="pn-tabs flex items-end">
         <button onClick={() => setTab('library')} className={`dc-tab ${tab === 'library' ? 'dc-tab-active' : ''}`}>
@@ -411,7 +421,20 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
       </div>, document.body)}
       {tab === 'inspector' && (
         <div ref={inspectorRef} className="dc-inspector-scroll flex-1 overflow-y-auto p-3 text-xs text-ink-700 space-y-3 min-h-0">
-          {!selectedComponent && !selectedWire && !selectedTerminal && (
+          {wireTool && (
+            <section className="dc-wire-new space-y-2" aria-label="Opções dos cabos novos">
+              <header className="flex items-baseline justify-between gap-2 border-b border-line pb-1">
+                <strong className="text-[11px] font-semibold text-ink-900">Cabos e ponteiras</strong>
+                <span className="text-[9px] text-ink-400">aplicado aos próximos cabos</span>
+              </header>
+              <WireOptionsFields value={wireDefaults} onChange={setWireDefaults} />
+              <p className="text-[10px] leading-relaxed text-ink-400">
+                Clique num borne para começar o cabo e noutro para terminar; <kbd>Esc</kbd> termina a ligação.
+                As mesmas opções aparecem no inspetor de cada cabo já desenhado.
+              </p>
+            </section>
+          )}
+          {!wireTool && !selectedComponent && !selectedWire && !selectedTerminal && (
             <div className="h-full flex items-center justify-center">
               <div className="dc-empty-state">
                 <span className="dc-empty-state-icon"><IconLayers size={18} /></span>
@@ -716,6 +739,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                   {selectedWire.energized ? 'ENERGIZADO' : 'SEM TENSÃO'}
                 </span>
               </header>
+
+              {/* Traçado 3D: o painel 3D monta aqui as ações (pontos, mover, religar). */}
+              <div ref={setWireActionSlot} className="dc-wire-3d-actions" data-slot="wire-3d" />
 
               <div className={`rounded-md border px-2 py-2 ${wireEditDirty ? 'border-blue-200 bg-blue-50' : 'border-emerald-200 bg-emerald-50/70'}`}>
                 <div className="flex items-center justify-between gap-2">

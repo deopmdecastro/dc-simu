@@ -4,9 +4,11 @@ import { isCatalogType } from '../catalog/types'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Text, TransformControls, Edges, useGLTF } from '@react-three/drei'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { TbButton } from '../ui/toolbarKit'
+import { useWireActionSlot } from '../ui/wireActionSlot'
 import { useEditorShortcuts } from '../ui/shortcuts'
 import ShortcutHelp, { type ShortcutHelpExtra } from '../ui/ShortcutHelp'
 import { SCHEMATIC_TOOL_SHORTCUTS, VIEW_SHORTCUTS } from '../ui/shortcutLists'
@@ -38,6 +40,7 @@ import MotorTerminalBoard3D from './MotorTerminalBoard3D'
 import MotorShaftFan3D from './MotorShaftFan3D'
 import { MOTOR_FAN, motorCadToCentered } from './motorTerminalLayout'
 import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
+import { extractActuatorHead } from './actuatorHead'
 import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
 import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D } from './wireGeometry3D'
@@ -902,7 +905,20 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
   useEffect(() => () => { (model.userData.polymerGrain as THREE.Texture | undefined)?.dispose() }, [model])
   const pressed = !!c.state.pressed
   const keyOperated = c.type === 'emergencyButtonKeyP20ACR'
-  const actuator = useMemo(() => model.getObjectByName(keyOperated ? 'P20ACR-R-1B-1-solid1' : 'P20AKR-1-solid1'), [model, keyOperated])
+
+  /* Cabeça do botão (cogumelo + fole) separada do corpo pela geometria: é a única
+   * peça que se afunda. Antes mexia-se o nó `…-solid1` inteiro, o que arrastava a
+   * carcaça e o aro de fixação para dentro da chapa — a animação acontecia no
+   * sítio errado. */
+  const [head, setHead] = useState<ReturnType<typeof extractActuatorHead>>(null)
+  useEffect(() => {
+    if (keyOperated) { setHead(null); return }
+    const frame = model.parent
+    if (!frame) return
+    const extracted = extractActuatorHead(model, frame)
+    setHead(extracted)
+    return () => { if (extracted) extracted.pivot.removeFromParent() }
+  }, [model, keyOperated])
 
   /* Chave seletora (P20ACR): não se carrega, roda-se.
    * A peça que roda é descoberta pela geometria — tudo o que sai à frente da
@@ -928,12 +944,12 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
       keyHandle.pivot.updateMatrixWorld(true)
       return
     }
-    if (!actuator) return
-    actuator.userData.pushBaseZ ??= actuator.position.z
-    // Move suavemente o conjunto mecânico real; o bloco de contactos fica fixo.
-    const target = Number(actuator.userData.pushBaseZ) + (pressed ? -0.0035 : 0)
-    actuator.position.z = THREE.MathUtils.damp(actuator.position.z, target, 22, delta)
-    actuator.updateMatrixWorld(true)
+    if (!head) return
+    head.pivot.userData.restZ ??= head.pivot.position.z
+    // Só a cabeça se afunda, no eixo do próprio botão (Z). 1 mm = PANEL_UNITS_PER_MM.
+    const target = Number(head.pivot.userData.restZ) - (pressed ? head.travelMm * PANEL_UNITS_PER_MM : 0)
+    head.pivot.position.z = THREE.MathUtils.damp(head.pivot.position.z, target, 16, delta)
+    head.pivot.updateMatrixWorld(true)
   })
   return <group
     position={[x, RAIL_Y + 1.05, 0.4]}
@@ -2062,6 +2078,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
   const wireEditBaselineRef = useRef<{ id: string; wire: Wire } | null>(null)
   const [wireEditDirty, setWireEditDirty] = useState(false)
+  // As ações do traçado do cabo vivem no painel lateral esquerdo (ver ui/wireActionSlot).
+  const wireActionSlot = useWireActionSlot()
   const components = useMemo(() => storedComponents.map((component) => viewOrientationEditor?.componentId === component.id ? {
     ...component,
     viewOrientation: viewOrientationEditor.draft,
@@ -2663,29 +2681,28 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         {tool === 'probe' && probeResult && <small className="panel3d-probe-result" role="status">{probeResult.note}{probeResult.b ? ` · ${probeResult.voltage}` : ''}</small>}
       </div>
       <div className="panel3d-hud-row">
-      {selectedWire && <div className="panel3d-edit-context panel3d-wire-context panel3d-wire-bar" role="region" aria-label="Cabo selecionado">
-        <div className="panel3d-wire-inspector">
-          <header>
-            <span><strong>{selectedWire.number || 'Cabo'}</strong><small>{selectedWire.gauge} · Ø {cableOuterDiameterMm(selectedWire.gauge).toFixed(1)} mm{selectedWirePath ? ` · ≈ ${wireLengthMm(selectedWirePath)} mm` : ''}</small></span>
-            <i className={wireEditDirty ? 'is-dirty' : ''}>{wireEditDirty ? 'Alterado' : 'Sincronizado'}</i>
-          </header>
-          <footer className="is-compact">
-            <button type="button" onClick={addWireWaypoint} title="Adiciona um ponto de curva (também: duplo clique sobre o cabo)"><IconPlus size={10} />Ponto</button>
-            <button type="button" disabled={activeWaypointIndex === null} onClick={removeWireWaypoint} title="Remove o ponto ativo (Delete, ou duplo clique no ponto)"><IconDelete size={10} />Ponto</button>
-            <button type="button" className={moveAllWire ? 'is-active' : ''} aria-pressed={moveAllWire} onClick={() => { setMoveAllWire((value) => !value); setActiveWaypointIndex(null); setActiveEnd(null) }} title="Desloca o cabo inteiro com o manipulador 3D"><IconMove size={10} />Mover cabo</button>
-            {activeEnd && <>
-              <button type="button" onClick={() => startReconnect(activeEnd)} title="Escolher outro borne para esta ponta"><IconLink size={10} />Religar {activeEnd === 'from' ? 'A' : 'B'}</button>
-              <button type="button" onClick={() => detachWireEnd(activeEnd)} title="Soltar a ponta do borne (fica livre no espaço)"><IconUnlock size={10} />Soltar {activeEnd === 'from' ? 'A' : 'B'}</button>
-            </>}
-            {wireEditDirty && <>
-              <button type="button" onClick={cancelWireEdit}><IconClose size={10} />Cancelar</button>
-              <button type="button" className="is-primary" onClick={saveWireEdit}><IconSave size={10} />Guardar</button>
-            </>}
-            <button type="button" className="is-danger" onClick={() => { deleteWire(selectedWire.id); setActiveWaypointIndex(null); setActiveEnd(null) }}><IconDelete size={10} />Eliminar</button>
-          </footer>
-          <small className="panel3d-wire-hint">{moveAllWire ? 'Arraste o cubo roxo para mover o cabo.' : reconnect ? 'Clique no novo borne da ponta.' : 'Arraste as bolas para curvar · duplo clique no cabo cria um ponto · ◆ = pontas · cor, secção e terminações no Inspetor'}</small>
+      {selectedWire && wireActionSlot && createPortal(<div className="panel3d-wire-actions-panel" role="region" aria-label="Traçado do cabo no esquema 3D">
+        <div className="panel3d-wire-actions-head">
+          <strong>{selectedWire.number || 'Cabo'}</strong>
+          <small>{selectedWire.gauge} · Ø {cableOuterDiameterMm(selectedWire.gauge).toFixed(1)} mm{selectedWirePath ? ` · ≈ ${wireLengthMm(selectedWirePath)} mm` : ''}</small>
+          <i className={wireEditDirty ? 'is-dirty' : ''}>{wireEditDirty ? 'Alterado' : 'Sincronizado'}</i>
         </div>
-      </div>}
+        <div className="panel3d-wire-actions">
+          <button type="button" onClick={addWireWaypoint} title="Adiciona um ponto de curva (também: duplo clique sobre o cabo)"><IconPlus size={11} />Ponto</button>
+          <button type="button" disabled={activeWaypointIndex === null} onClick={removeWireWaypoint} title="Remove o ponto ativo (Delete, ou duplo clique no ponto)"><IconDelete size={11} />Ponto</button>
+          <button type="button" className={moveAllWire ? 'is-active' : ''} aria-pressed={moveAllWire} onClick={() => { setMoveAllWire((value) => !value); setActiveWaypointIndex(null); setActiveEnd(null) }} title="Desloca o cabo inteiro com o manipulador 3D"><IconMove size={11} />Mover cabo</button>
+          {activeEnd && <>
+            <button type="button" onClick={() => startReconnect(activeEnd)} title="Escolher outro borne para esta ponta"><IconLink size={11} />Religar {activeEnd === 'from' ? 'A' : 'B'}</button>
+            <button type="button" onClick={() => detachWireEnd(activeEnd)} title="Soltar a ponta do borne (fica livre no espaço)"><IconUnlock size={11} />Soltar {activeEnd === 'from' ? 'A' : 'B'}</button>
+          </>}
+          {wireEditDirty && <>
+            <button type="button" onClick={cancelWireEdit}><IconClose size={11} />Repor traçado</button>
+            <button type="button" className="is-primary" onClick={saveWireEdit}><IconSave size={11} />Fixar traçado</button>
+          </>}
+          <button type="button" className="is-danger" onClick={() => { deleteWire(selectedWire.id); setActiveWaypointIndex(null); setActiveEnd(null) }}><IconDelete size={11} />Eliminar cabo</button>
+        </div>
+        <small className="panel3d-wire-actions-hint">{moveAllWire ? 'Arraste o cubo roxo para mover o cabo.' : reconnect ? 'Clique no novo borne da ponta.' : 'Arraste as bolas no esquema 3D para curvar · duplo clique no cabo cria um ponto · cor, secção e terminações acima'}</small>
+      </div>, wireActionSlot)}
       <ComponentViewEditor />
       </div>
       </div>

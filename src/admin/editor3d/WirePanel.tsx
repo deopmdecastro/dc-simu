@@ -1,14 +1,11 @@
-import Select from '../../ui/Select'
 import { useMemo, useState } from 'react'
-import { WIRE_END_OPTIONS } from '../../schematic/wireEnds'
-import { IconCheck, IconChevronRight, IconClose, IconWarning } from '../../ui/icons'
+import { IconCheck, IconClose, IconWarning } from '../../ui/icons'
 import { useEditorStore } from './editorStore'
 import { endLabel, evaluateWire } from './wirePath'
 import { useWireInfo } from './WireDraw'
 import { WireRow } from './WireInspector'
-import { ColorSwatches } from './WireControls'
-import { WIRE_COLOR_HEX, WIRE_GAUGES } from './wireStyle'
-import type { WireEndType } from '../../types'
+import { WIRE_COLOR_HEX } from './wireStyle'
+import { WireOptionsFields } from '../../ui/WireOptions'
 
 const KEYS: Array<[string, string]> = [['Clique', 'larga um ponto'], ['Duplo clique / Enter', 'ponta livre'], ['Backspace', 'desfaz ponto'], ['Esc', 'cancela'], ['Shift', 'trava o eixo'], ['Alt', 'sem snap']]
 
@@ -41,6 +38,15 @@ export default function WirePanel() {
       <button className="ce-icon ce-wp-toggle" onClick={() => setOpen(!open)} aria-expanded={open} title={open ? 'Recolher' : 'Expandir'}>{open ? '–' : '+'}</button>
     </div>
     {open && <>
+      {/* Opções dos cabos e ponteiras no painel lateral (o mesmo bloco do simulador). */}
+      <div className="ce-wp-new" aria-label="Opções dos cabos novos">
+        <div className="ce-wp-new-head">
+          <i className="ce-dot" style={{ background: defaults.autoColor ? '#94a3b8' : WIRE_COLOR_HEX[defaults.color] }} />
+          <strong>Novo cabo</strong>
+          <span>{defaults.autoColor ? 'cor automática' : defaults.color} · {defaults.gauge.replace('mm²', ' mm²')}</span>
+        </div>
+        <WireOptionsFields value={defaults} onChange={setDefaults} />
+      </div>
       {drafting
         ? <div className="ce-wp-live" aria-live="polite">
             <b>{wireFrom ? `Origem ${endLabel(terminals, wireFrom)}` : 'Origem livre'}</b>
@@ -54,16 +60,6 @@ export default function WirePanel() {
         {points.length > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { const problem = useEditorStore.getState().finishWireFree(); if (problem) window.dispatchEvent(new CustomEvent('ce-flash', { detail: problem })) }}>Terminar aqui</button>}
         {points.length > 0 && <button className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => state.cancelWire()}>Cancelar</button>}
       </div>}
-      <details className="ce-wp-new">
-        <summary><IconChevronRight size={11} />Novo cabo <i className="ce-dot" style={{ background: defaults.autoColor ? '#94a3b8' : WIRE_COLOR_HEX[defaults.color] }} /><span>{defaults.autoColor ? 'cor automática' : defaults.color} · {defaults.gauge.replace('mm²', ' mm²')}</span></summary>
-        <label className="ce-check"><input type="checkbox" checked={defaults.autoColor} onChange={(event) => setDefaults({ autoColor: event.target.checked })} />Cor automática pela função (IEC 60204-1)</label>
-        <ColorSwatches value={defaults.color} disabled={defaults.autoColor} onChange={(color) => setDefaults({ color })} />
-        <div className="ce-wp-row">
-          <label>Secção<Select className="dx-input" value={defaults.gauge} onChange={(event) => setDefaults({ gauge: event.target.value })}>{WIRE_GAUGES.map((gauge) => <option key={gauge} value={gauge}>{gauge.replace('mm²', ' mm²')}</option>)}</Select></label>
-          <label>Condutor<Select className="dx-input" value={defaults.flexibility} onChange={(event) => setDefaults({ flexibility: event.target.value as 'rigid' | 'flexible' })}><option value="flexible">Flexível</option><option value="rigid">Rígido</option></Select></label>
-          <label>Terminal<Select className="dx-input" value={defaults.endType} onChange={(event) => setDefaults({ endType: event.target.value as WireEndType })}>{WIRE_END_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}</Select></label>
-        </div>
-      </details>
       <div className="ce-wp-options">
         <button className="ce-linkbtn" onClick={() => setKeys(!keys)}>{keys ? 'Esconder atalhos' : 'Atalhos'}</button>
         {wires.length > 0 && <button className="ce-linkbtn" onClick={() => set({ tab: 'wires' })}>Abrir editor de cabos</button>}

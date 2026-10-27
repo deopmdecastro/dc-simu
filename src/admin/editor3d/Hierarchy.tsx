@@ -76,7 +76,13 @@ function ElementSection({ id, title, count, visible, searching, active, actions,
   </section>
 }
 
-export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle, onMobileClose }: { collapsed?: boolean; onToggle: () => void; onMobileClose: () => void }) {
+export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle, onMobileClose, wireSlot }: {
+  collapsed?: boolean
+  onToggle: () => void
+  onMobileClose: () => void
+  /** Painel dos cabos no próprio painel esquerdo (em vez de um cartão sobre o canvas). */
+  wireSlot?: ReactNode
+}) {
   const def = useEditorStore((s) => s.def)
   const selection = useEditorStore((s) => s.selection)
   const mode = useEditorStore((s) => s.mode)
@@ -186,6 +192,7 @@ export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle,
       <button className="ce-panel-collapse" type="button" aria-label={panelCollapsed ? 'Expandir hierarquia' : 'Recolher hierarquia'} aria-expanded={!panelCollapsed} title={panelCollapsed ? 'Expandir hierarquia' : 'Recolher hierarquia'} onClick={onToggle}>{panelCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}</button>
       <button className="ce-icon ce-viewmode-toggle" title={cards ? 'Ver em lista' : 'Ver em cartões com miniatura'} aria-label={cards ? 'Ver em lista' : 'Ver em cartões'} onClick={() => chooseCards(!cards)}>{cards ? <IconLayers size={13} /> : <IconGrid size={13} />}</button>
     </div>
+    {wireSlot && !panelCollapsed && <div className="ce-left-wires">{wireSlot}</div>}
     <div className="ce-search">
       <IconSearch size={11} />
       <input className="dx-input" type="search" value={query} placeholder="Pesquisar qualquer elemento…" aria-label="Pesquisar na hierarquia"
