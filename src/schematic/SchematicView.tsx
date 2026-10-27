@@ -1226,49 +1226,24 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               </g>
             ))}
           </>
-        ) : c.type === 'contactorWegCWC09' && model ? (
+        ) : model ? (
           <>
-            {/* vista do mesmo GLB usado no Painel 3D — não é um SVG */}
+            {/* GLB-only: vista ortográfica do mesmo modelo usado no Painel 3D — nunca SVG simbólico. */}
             <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
             <ComponentTerminals c={c} />
-            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
-          </>
-        ) : c.type === 'powerSupplyProauto24A' && model ? (
-          <>
-            <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
-            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
-            <ComponentTerminals c={c} />
-            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
-          </>
-        ) : c.type === 'plcSiemensLogo1224RC' && model ? (
-          <>
-            <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
-            {/* Alvos de seleção e bornes mantêm-se nas coordenadas reais do esquema. */}
-            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
-            <ComponentTerminals c={c} />
-            {/* Zonas dos botões do modelo: continuam operacionais na vista frontal. */}
-            {isOriginalComponentOrientation(orientation) && (['up', 'down', 'left', 'right', 'ESC', 'OK'] as const).map((button) => {
+            {/* Zonas interativas do LOGO! (botões) — só na orientação original. */}
+            {c.type === 'plcSiemensLogo1224RC' && isOriginalComponentOrientation(orientation) && (['up', 'down', 'left', 'right', 'ESC', 'OK'] as const).map((button) => {
               const imageW = c.w
               const imageH = c.h
-              const x0 = 0
-              const y0 = 0
               const coords = { up: [0.8, 0.45], down: [0.8, 0.63], left: [0.68, 0.54], right: [0.92, 0.54], ESC: [0.72, 0.72], OK: [0.88, 0.72] }
               const [bx, by] = coords[button]
-              return <rect key={button} x={x0 + (bx - 0.055) * imageW} y={y0 + (by - 0.035) * imageH} width={imageW * 0.11} height={imageH * 0.07} rx={3} fill={c.state.pressedButton === button ? '#38bdf8' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
+              return <rect key={button} x={(bx - 0.055) * imageW} y={(by - 0.035) * imageH} width={imageW * 0.11} height={imageH * 0.07} rx={3} fill={c.state.pressedButton === button ? '#38bdf8' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
                 onMouseDown={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { pressedButton: button }) }}
                 onMouseUp={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
                 onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.pressedButton === button) useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>{button}</title></rect>
             })}
-            <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
-          </>
-        ) : model ? (
-          <>
-            {/* Mesmo CAD e materiais, com orientação visual específica desta instância. */}
-            <image x={imageBounds.x} y={imageBounds.y} width={imageBounds.w} height={imageBounds.h} href={model} preserveAspectRatio="xMidYMid meet" pointerEvents="none" />
-            <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} fill="transparent" />
-            <ComponentTerminals c={c} />
             {c.type === 'pilotLightAd22' && isOriginalComponentOrientation(orientation) && <g pointerEvents="none">
               <circle cx={c.w / 2} cy={c.h / 2} r={Math.min(c.w, c.h) * 0.17}
                 fill={String(c.state.color ?? '#ef4444')} fillOpacity={c.state.on ? 0.78 : 0.34}
