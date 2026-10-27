@@ -1782,12 +1782,14 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
   const strokeSmall = wireStrokeWidth('0.5mm²')
   const strokeMid = wireStrokeWidth('1.5mm²')
   const strokeBig = wireStrokeWidth('16mm²')
+  // Limites da escala intencional de wireMetrics.ts (0,5 mm² → 1,6 px · 16 mm² → 8,5 px);
+  // o teste manteve os limites da escala anterior quando esta foi aproximada aos elementos.
   check('esquema: o cabo grosso desenha-se mais grosso e a espessura fica dentro dos limites',
-    strokeSmall < strokeMid && strokeMid < strokeBig && strokeSmall >= 1.3 && strokeBig <= 6.2)
+    strokeSmall < strokeMid && strokeMid < strokeBig && strokeSmall >= 1.5 && strokeBig <= 8.5)
   check('esquema: secção em falta ou inválida cai no valor de 1,5 mm²',
     gaugeMm(undefined) === 1.5 && gaugeMm('xx') === 1.5 && gaugeMm('2.5mm²') === 2.5)
   check('esquema: a ponteira acompanha a secção do condutor (maior em 16 mm² do que em 0,5 mm²)',
-    wireEndScale('0.5mm²') < wireEndScale('16mm²') && wireEndScale('1.5mm²') >= 0.9 && wireEndScale('16mm²') <= 1.5)
+    wireEndScale('0.5mm²') < wireEndScale('16mm²') && wireEndScale('1.5mm²') >= 0.9 && wireEndScale('16mm²') <= 1.6)
   check('cabo (editor): diâmetro exterior cresce com a secção e há cor/terminal automáticos', cableOuterDiameterMm('10mm²') > cableOuterDiameterMm('1.5mm²') && styleFor(DEFAULT_WIRE_DEFAULTS).gauge === '1.5mm²')
   {
     const t = [{ id: 'a', label: '1', name: 'L', position: [0, 0, 0], normal: [0, 1, 0], fn: 'L1', kind: 'power-in', polarity: 'ac', electricalClass: 'ac', direction: 'io' }, { id: 'b', label: '2', name: 'M', position: [0, 0, 0], normal: [0, 1, 0], fn: 'V', kind: 'io', polarity: 'none', electricalClass: 'other', direction: 'in', group: 'Medição' }] as never
