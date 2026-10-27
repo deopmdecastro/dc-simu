@@ -101,3 +101,18 @@
 @media (prefers-reduced-motion: reduce) {
   .ce-hierarchy-scroll .ce-row, .grafcet-toolbox-item, .ce-tabs button, .ladder-bottom-tabs > button { transition: none; }
 }
+
+/* ===== Biblioteca do Esquema (Sidebar) e Monitor: mesmas regras, marcadas com pn-* ===== */
+.pn-panel { background: var(--pn-bg); border-right: 1px solid var(--pn-line); }
+.pn-tabs { gap: 2px; padding: 0 8px; background: var(--pn-bg-2); border-bottom: 1px solid var(--pn-line-soft); }
+.pn-tabs .dc-tab { height: var(--pn-tab-h); padding: 0 11px; font-size: 12px; font-weight: 600; color: var(--pn-ink-3); border-radius: 6px 6px 0 0; transition: background .12s, color .12s; }
+.pn-tabs .dc-tab:hover { background: var(--pn-bg); color: var(--pn-ink-2); }
+.pn-tabs .dc-tab.dc-tab-active { background: var(--pn-bg); color: var(--pn-brand-ink); font-weight: 700; }
+.pn-tabs .dc-tab:focus-visible { outline: none; box-shadow: inset var(--pn-focus); }
+.pn-section { padding: 10px var(--pn-pad); border-bottom: 1px solid var(--pn-line-soft); }
+.pn-section.is-compact { padding: 8px var(--pn-pad); }
+.pn-body { padding: var(--pn-pad); scrollbar-width: thin; scrollbar-color: #c4cfdf transparent; }
+.pn-label { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--pn-ink-3); }
+.pn-page { padding: var(--pn-pad); gap: var(--pn-gap); background: var(--dx-bg, #edf0f5); scrollbar-width: thin; scrollbar-color: #c4cfdf transparent; }
+.pn-card { padding: var(--pn-pad); background: var(--pn-bg); border: 1px solid var(--pn-line); border-radius: var(--pn-radius); }
+@media (prefers-reduced-motion: reduce) { .pn-tabs .dc-tab { transition: none; } }

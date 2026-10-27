@@ -287,9 +287,9 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
   const filteredLockedCount = filteredItems.length - filteredReadyCount
 
   return (
-    <div className="shrink-0 border-r border-line bg-surface-panel flex flex-col h-full min-h-0" style={{ width }}>
+    <div className="pn-panel shrink-0 flex flex-col h-full min-h-0" style={{ width }}>
       {/* abas */}
-      <div className="flex items-end border-b border-line bg-surface-rail px-1 pt-1">
+      <div className="pn-tabs flex items-end">
         <button onClick={() => setTab('library')} className={`dc-tab ${tab === 'library' ? 'dc-tab-active' : ''}`}>
           Biblioteca <span className="text-ink-300 font-normal">({modelReadyCount}/{Object.keys(TEMPLATES).length})</span>
         </button>
@@ -300,26 +300,26 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
 
       {tab === 'library' && (
         <>
-          <div className="p-2 border-b border-line">
+          <div className="pn-section">
             <div className="relative">
               <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Pesquisar nome, tipo ou categoria…" aria-label="Pesquisar componentes" className="dc-input !pl-7 !pr-7" />
               {filter && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-500" title="Limpar pesquisa" onClick={() => setFilter('')}>×</button>}
               <IconSearch size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none" />
             </div>
           </div>
-          <div className="px-2 py-1 border-b border-line">
+          <div className="pn-section is-compact">
             <button type="button" className="dc-btn w-full justify-center" onClick={() => setTerminalLibOpen(true)} title="Consulte os perfis de bornes e ligações usados nos componentes (L, N, PE, A1/A2, 13/14…)">Biblioteca de bornes e perfis de ligação</button>
           </div>
           <div className="dc-library-model-notice" role="note">
             <IconLock size={13} />
             <span><strong>{lockedCount} componentes bloqueados.</strong> Sem GLB 3D real ou desativados pelo administrador, não podem ser inseridos.</span>
           </div>
-          <div className="flex items-center justify-between px-2 py-1 border-b border-line text-[10px] text-ink-500">
+          <div className="pn-section is-compact flex items-center justify-between text-[10px] text-ink-500">
             <span>{filteredReadyCount} com 3D · {filteredLockedCount} bloqueados{filter ? ' na pesquisa' : ''}</span>
             <span className="flex gap-2"><button onClick={() => setCollapsedGroups(new Set())}>Expandir</button><button onClick={() => setCollapsedGroups(new Set(groups.map((g) => g.group)))}>Recolher</button></span>
           </div>
           {placingType && <div className="p-2 bg-brand-50 text-brand-700 text-[11px] flex gap-2 items-center"><span className="flex-1">A posicionar: {TEMPLATES[placingType]?.paletteName ?? placingType}</span><button className="dc-btn !h-6" onClick={() => useSimStore.getState().setPlacingType(null)}>Cancelar</button></div>}
-          <div className="flex-1 overflow-y-auto p-2 min-h-0 dc-library-scroll">
+          <div className="pn-body flex-1 overflow-y-auto min-h-0 dc-library-scroll">
             {recent.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">◴ Recentes <span>{recent.length}</span></div><div className="dc-library-recent">{recent.filter((type) => !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite={favorites.includes(type)} placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
             {favorites.length > 0 && !filter && <section className="dc-library-section"><div className="dc-library-section-title">★ Favoritos <span>{favorites.length}</span></div><div className="dc-library-grid">{favorites.filter((type) => TEMPLATES[type] && !hiddenComponents[type]).map((type) => <LibraryTile key={type} type={type} name={TEMPLATES[type].paletteName} favorite placing={placingType === type} onPick={() => pickFromLibrary(type)} onQuickAdd={() => addImmediate(type)} onFavorite={() => toggleFavorite(type)} onRecent={() => markRecent(type)} />)}</div></section>}
             {!filtered.length && (

@@ -64,3 +64,7 @@ O botão «Atalhos» (`data-shortcuts-button="component"`, F1) passou do cabeça
 | Rodapé / dicas | fundo secundário, linha superior suave |
 
 Painéis abrangidos: hierarquia e inspetor do editor de componentes, componentes e propriedades do GRAFCET, simulação do Esquema e estado do PLC no Ladder. Um painel novo usa as variáveis `--pn-*` ou acrescenta o seu seletor às listas do ficheiro.
+
+### Classes `pn-*` para componentes em Tailwind
+
+A biblioteca do Esquema (`Sidebar.tsx`) e o Monitor (`MonitorPanel.tsx`) usam classes `pn-*` do mesmo ficheiro: `pn-panel` (contentor lateral), `pn-tabs`, `pn-section` (`is-compact`), `pn-body`, `pn-label`, `pn-page` (página com fundo) e `pn-card` (cartão). Novos painéis em Tailwind devem usá-las em vez de repetir bordas, fundos e margens.
