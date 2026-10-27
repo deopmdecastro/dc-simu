@@ -1293,6 +1293,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             <text x={c.w / 2} y={imageBounds.y + imageBounds.h + 14} textAnchor="middle" fontSize={11} fill="#334155" pointerEvents="none">{c.ref}</text>
           </>
         ) : hasComponent3DVisual(c.type) ? (
+          /* GLB-only: nunca cair em SymbolGlyph/SVG simbólico para tipos com modelo 3D.
+             Placeholder enquanto a captura ortográfica do GLB não está pronta ou falhou. */
           <g data-model-state={modelError ? 'error' : 'loading'}>
             <rect x={bounds.x} y={bounds.y} width={bounds.w} height={bounds.h} rx={7}
               fill={modelError ? '#fff1f2' : '#edf2f8'} stroke={modelError ? '#dc2626' : '#b8c5d6'}
