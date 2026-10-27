@@ -31,6 +31,7 @@ import './styles/tag-table.css'
 import './styles/sheet-transfer.css'
 import './styles/toolbar-spacing.css'
 import './styles/panel-system.css'
+import './styles/admin-refine.css'
 import { EDITOR_GRID_STEP, EDITOR_THEME } from './ui/editorTheme'
 
 const editorRootStyle = document.documentElement.style

@@ -81,6 +81,13 @@ export default function LogsTab({ initialActor = '', onChanged, onError }: { ini
     {actor && <div className="cb-chipbar"><span className="cb-badge">Utilizador: {actor}<button aria-label="Remover filtro de utilizador" onClick={() => reset(() => setActor(''))}><IconClose size={10} /></button></span></div>}
 
     <div className="cb-logs" role="table" aria-label="Registos de atividade">
+      {data.items.length > 0 && <div className="cb-log-head" role="row">
+        <span role="columnheader" aria-label="Gravidade" />
+        <span role="columnheader">Data</span>
+        <span role="columnheader">Ação</span>
+        <span role="columnheader">Utilizador</span>
+        <span role="columnheader">Alvo e detalhe</span>
+      </div>}
       {data.items.length === 0 && <div className="dx-admin-empty">{loading ? 'A carregar…' : 'Nenhum evento com este filtro.'}</div>}
       {data.items.map((entry) => {
         const severity = severityOf(entry.action)

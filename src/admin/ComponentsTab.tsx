@@ -202,8 +202,8 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
           {row.minPlan && <span className="cb-badge is-plan">Plano {pricing.plans.find((p) => p.id === row.minPlan)?.name ?? row.minPlan}+</span>}
           <span className={`cb-badge ${row.official3d ? 'is-ok' : 'is-off'}`}>{row.official3d ? (row.sized ? '3D com escala real' : '3D oficial') : 'Sem modelo 3D'}</span>
           <span className={`cb-badge ${row.score === 3 ? 'is-ok' : row.score === 0 ? 'is-off' : ''}`} title="Modelo 3D + escala real + ficha técnica">{row.score}/3 completo</span>
-          <span className="cb-badge">{row.datasheets} ficha(s)</span>
-          <span className="cb-badge">{row.models} modelo(s) da comunidade</span>
+          {row.datasheets > 0 && <span className="cb-badge">{row.datasheets} ficha(s)</span>}
+          {row.models > 0 && <span className="cb-badge">{row.models} modelo(s) da comunidade</span>}
           {row.pending > 0 && <span className="cb-badge is-warn">{row.pending} em revisão</span>}
         </div>
         <div className="cb-actions">

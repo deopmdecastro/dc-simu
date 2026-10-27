@@ -116,8 +116,10 @@ export default function PlansTab({ users, planRequests, onChanged, onError }: Pr
         <small className="cb-note">Pré-visualização: {plan.priceMonthly === null ? 'Sob consulta' : `${money(plan.priceMonthly, draft.currency)}/mês`} · {plan.priceYearly === null ? 'Sob consulta' : `${money(plan.priceYearly, draft.currency)}/ano`}. Vazio = «Sob consulta».</small>
         <div className="cb-plan-toggles">
           <label className="cb-switch"><input type="checkbox" checked={plan.showOnLanding} onChange={(event) => patchPlan(plan.id, { showOnLanding: event.target.checked })} aria-label={`Mostrar ${plan.name} na página inicial`} /> Cartão visível na página inicial</label>
-          <label className="cb-switch"><input type="radio" name="highlighted-plan" checked={plan.highlighted} onChange={() => patchPlan(plan.id, { highlighted: true })} aria-label={`Destacar ${plan.name}`} /> Destacado («Recomendado»)</label>
-          {plan.highlighted && <button type="button" className="cb-link" onClick={() => patchPlan(plan.id, { highlighted: false })}>Remover destaque</button>}
+          <div className="cb-plan-highlight">
+            <label className="cb-switch"><input type="radio" name="highlighted-plan" checked={plan.highlighted} onChange={() => patchPlan(plan.id, { highlighted: true })} aria-label={`Destacar ${plan.name}`} /> Destacado («Recomendado»)</label>
+            {plan.highlighted && <button type="button" className="cb-link" onClick={() => patchPlan(plan.id, { highlighted: false })}>Remover destaque</button>}
+          </div>
         </div>
         <label className="dx-field"><span className="dx-label">Texto do botão</span><input className="dx-input dx-input-sm" value={plan.ctaLabel} maxLength={40} onChange={(event) => patchPlan(plan.id, { ctaLabel: event.target.value })} aria-label={`Texto do botão ${plan.name}`} /></label>
         <fieldset className="cb-plan-features"><legend>Funcionalidades</legend>
