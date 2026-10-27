@@ -440,10 +440,13 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
       // (±9° ao centro da caixa) faria a alavanca orbitar em vez de rodar sobre o cubo.
       const rig = BREAKER_HANDLE_RIG[type]
       const tilt = rig ? tiltControlPatch(inferBreakerAxes(def.terminals.map((terminal) => terminal.position)), [0, 0, 1]) : null
+      // Botão rotativo (PKZM): gira à volta da normal da frente (Z), no eixo medido no CAD, e «I» é +90°
+      // (o mesmo sentido do painel 3D). As alavancas (Easy9, Steck) basculam à volta de X, com ângulo negativo.
+      const rotary = rig?.axis === 'z'
       const motion = rig && tilt
-        ? { ...tilt.motion, mode: 'tilt' as const, angleOff: 0, angleOn: -rig.throwDeg, pivotRel: [0.5, rig.hinge.y, rig.hinge.z] as Vec3, feel: 'snap' as const, durationMs: 280 }
+        ? { ...tilt.motion, mode: 'tilt' as const, angleOff: 0, angleOn: rotary ? rig.throwDeg : -rig.throwDeg, pivotRel: [rig.hinge.x ?? 0.5, rig.hinge.y, rig.hinge.z] as Vec3, feel: 'snap' as const, durationMs: 280 }
         : tilt?.motion
-      def.controls = [{ id: newId('ctl_'), name: 'Liga / desliga', kind: 'toggle', partId, nodes: rig ? rig.nodes : undefined, axis: rig ? [1, 0, 0] as Vec3 : tilt?.axis ?? [0, 1, 0], travelMm: 0, ...(motion ? { motion } : {}), bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }]
+      def.controls = [{ id: newId('ctl_'), name: 'Liga / desliga', kind: 'toggle', partId, nodes: rig ? rig.nodes : undefined, axis: rig ? (rotary ? [0, 0, 1] as Vec3 : [1, 0, 0] as Vec3) : tilt?.axis ?? [0, 1, 0], travelMm: 0, ...(motion ? { motion } : {}), bindVar: 'closed', positions: [], actions: [{ type: 'toggleVar', var: 'closed' }] }]
     }
   }
   // O multímetro DM-20 chega ao editor completo: seletor, botões e LCD já

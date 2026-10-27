@@ -720,8 +720,8 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const plc = ['plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(c.type)
   const safety = c.type === 'safetyRelay'
-  const breaker = ['phoenixEcb3000760', 'breakerSteckSdC25', 'motorBreakerPkzmC10'].includes(c.type)
-  if (!plc && !safety && !breaker) return null
+  // Disjuntores não têm LEDs reais: o estado vê-se na posição do manípulo, não em luzes inventadas.
+  if (!plc && !safety) return null
   const error = diagnostics.some((item) => item.level === 'error') || !!c.state.tripped
   const powered = c.state.powered !== false
   const run = powered && runState === 'running' && !error
@@ -730,7 +730,7 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
     ? [{ c: '#22c55e', on: run }, { c: '#ef4444', on: error }, { c: '#38bdf8', on: comm }]
     : safety
       ? [{ c: '#22c55e', on: powered && !error }, { c: '#ef4444', on: error }]
-      : [{ c: '#22c55e', on: powered && !c.state.tripped }, { c: '#ef4444', on: !!c.state.tripped }]
+      : []
   return <group position={[0.24, height * 0.64, 0.34]}>{lights.map((light, index) => <group key={index} position={[0, -index * 0.055, 0]}>
     <mesh raycast={() => null}>
       <circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={light.on ? light.c : '#334155'} emissive={light.on ? light.c : '#000'} emissiveIntensity={light.on ? 2.4 : 0} toneMapped={!light.on} />
@@ -831,7 +831,7 @@ function CadComponentReal3D({ c, x, interactive = true }: { c: ElectricalCompone
     <primitive object={model} castShadow receiveShadow />
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
-    {active && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
+    {active && !breaker && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
     <Label text={c.ref} position={[0, spec.targetHeight + 0.1, 0.22]} color={active ? '#4ade80' : '#e2e8f0'} />
   </group>
 }
