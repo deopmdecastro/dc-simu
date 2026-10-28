@@ -14,6 +14,7 @@ import type { GrafcetProgram, GrafcetStep, GrafcetTransition } from '../grafcet/
 import { autoLayout, SPINE_X, START_Y, STEP_H } from '../grafcet/layout'
 import { nanoid } from 'nanoid'
 import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
+import { bakeNativeRouting } from './nativeRouting'
 
 /** Identificador estável — não muda entre deploys. */
 export const NATIVE_PARTIDA_ID = 'native-partida-direta-v1'
@@ -210,9 +211,12 @@ export function buildNativePartidaDireta(): Built {
     add(plc, `${output}·2`, target, positive, 'orange')
     add(target, negative, psu, '-V2', 'blue')
   }
+  const components = [rail, source, main, psu, plc, qm, km, control, push, green, red, motor]
   return {
-    components: [rail, source, main, psu, plc, qm, km, control, push, green, red, motor],
-    wires, ladder: { rungs: buildNativeLadder() }, grafcet: buildNativeGrafcet(),
+    components,
+    // Traçado cozido na semente: cada cabo contorna os equipamentos e partilha
+    // faixas com afastamento (ver `nativeRouting`). O editor mantém os pontos editáveis.
+    wires: bakeNativeRouting(components, wires), ladder: { rungs: buildNativeLadder() }, grafcet: buildNativeGrafcet(),
     tags: [
       { id:'t1',address:'I0.0',name:'STOP',dataType:'Bool',comment:'Contacto NF fechado em repouso' },
       { id:'t2',address:'I0.1',name:'START',dataType:'Bool',comment:'Botão START (NA)' },

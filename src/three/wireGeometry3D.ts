@@ -241,8 +241,39 @@ export function clearObstacles(controls: V3[], outerMm: number, obstacles: WireO
   return out
 }
 
+/** Faixas «calha» horizontais livres entre as filas de equipamentos (unidades do painel).
+ * Cabos automáticos correm nestas calhas, como num quadro real, em vez de cada
+ * um descer ao seu próprio nível — o resultado é organizado e legível. */
+export function trunkLaneHints(obstacles: WireObstacle[]): number[] {
+  if (obstacles.length === 0) return []
+  const bands: Array<{ y0: number; y1: number }> = []
+  const sorted = [...obstacles].sort((a, b) => a.min.y - b.min.y)
+  for (const box of sorted) {
+    const last = bands[bands.length - 1]
+    // Equipamentos da mesma fila partilham a banda (tolerância de 0,3 → 30 mm).
+    if (last && box.min.y <= last.y1 + 0.3) last.y1 = Math.max(last.y1, box.max.y)
+    else bands.push({ y0: box.min.y, y1: box.max.y })
+  }
+  if (bands.length === 0) return []
+  const lanes: number[] = []
+  for (let i = 0; i < bands.length - 1; i++) {
+    const gap = bands[i + 1].y0 - bands[i].y1
+    if (gap > 0.12) lanes.push((bands[i].y1 + bands[i + 1].y0) / 2)
+  }
+  lanes.push(bands[0].y0 - 0.16, bands[bands.length - 1].y1 + 0.16)
+  return lanes.sort((a, b) => a - b)
+}
+
+/** Afastamento estável por cabo dentro da calha (cabo paralelo não pisa o vizinho). */
+const trunkSpread = (wire: Wire): number => {
+  const key = wire.number || wire.id
+  let h = 0
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) & 0xffff
+  return (h % 5 - 2) * 0.016 // ±3,2 cm → 5 faixas por calha
+}
+
 /** Pontos de controlo (sem terminações) entre as duas pontas, respeitando traçado, flexibilidade e curva manual. */
-export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, leads: WireLeads = {}, obstacles: WireObstacle[] = []): V3[] {
+export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, leads: WireLeads = {}, obstacles: WireObstacle[] = [], trunkY?: number): V3[] {
   const manual = wire.waypoints3D?.map((point) => [point.x, point.y, point.z] as V3) ?? []
   let controls: V3[]
   let smooth = wire.flexibility === 'flexible' || wire.route === 'arc'
@@ -250,7 +281,8 @@ export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, lead
   else if (wire.route === 'direct') { controls = [a, b]; smooth = false }
   else {
     const drop = -0.55 - Math.min(0.7, Math.abs(a[0] - b[0]) * 0.04)
-    const channelY = THREE.MathUtils.lerp(a[1], b[1], Math.max(0, Math.min(1, wire.bend ?? 0.5))) + drop
+    let channelY = THREE.MathUtils.lerp(a[1], b[1], Math.max(0, Math.min(1, wire.bend ?? 0.5))) + drop
+    if (trunkY !== undefined) channelY = trunkY + trunkSpread(wire)
     if (wire.route === 'arc' || wire.flexibility === 'flexible') {
       const mid: V3 = [(a[0] + b[0]) / 2, wire.route === 'arc' ? channelY + (wire.curveOffset ?? 0) * 0.01 : Math.min(a[1], b[1]) + drop * 1.3, (a[2] + b[2]) / 2]
       controls = [a, mid, b]
@@ -331,10 +363,20 @@ const endTypeOf = (wire: Wire, side: 'from' | 'to'): WireEndType =>
 /** Traçado completo: cada terminação ocupa o início/fim do percurso e o cabo isolado liga as duas cabeças. */
 export function buildWirePath3D(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D, obstacles: WireObstacle[] = []): WirePath3D {
   const outerMm = cableOuterDiameterMm(wire.gauge)
-  const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles)
+  // Calha mais próxima do nível médio das pontas: o corpo do cabo corre na calha
+  // e nunca atravessa equipamentos (o `clearObstacles` trata da profundidade).
+  let trunkHint: number | undefined
+  if (!wire.waypoints3D?.length && obstacles.length > 0 && wire.route !== 'direct' && wire.flexibility !== 'flexible' && wire.route !== 'arc') {
+    const lanes = trunkLaneHints(obstacles)
+    if (lanes.length > 0) {
+      const mid = (from.position[1] + to.position[1]) / 2 - 0.4
+      trunkHint = lanes.reduce((best, y) => (Math.abs(y - mid) < Math.abs(best - mid) ? y : best), lanes[0])
+    }
+  }
+  const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles, trunkHint)
   const a = endHead(from, endTypeOf(wire, 'from'), preliminary[Math.min(1, preliminary.length - 1)])
   const b = endHead(to, endTypeOf(wire, 'to'), preliminary[Math.max(0, preliminary.length - 2)])
-  const points = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles)
+  const points = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles, trunkHint)
   return { points, starts: [a.geometry, b.geometry] }
 }
 

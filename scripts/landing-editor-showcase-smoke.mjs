@@ -88,6 +88,22 @@ assert('CSS de respiro da demo: barras mais altas e ar entre grupos', css.includ
 
 assert('Ladder: undo/redo e mutações por teclado travados na demo', ladder2.includes("!demoMode && mod && !event.altKey && lower === 'z'") && ladder2.includes('if (demoMode) return'))
 
+// Vista limpa da demonstração (revisão: «ambiente de visualização, sem muitas ferramentas»)
+assert('Toolbar demo: viewControls só com zoom (sem grelha/ímã/passo)', tb.includes('Demonstração (landing): vista limpa') && tb.includes('const viewControls: ViewControlsProps | null = demo ? ('))
+
+const sv = read('src/schematic/SchematicView.tsx')
+assert('Esquema demo abre em vista isométrica', sv.includes("(demoMode ? { yaw: -45, pitch: 35 }"))
+
+const panel = read('src/three/Panel3D.tsx')
+assert('Painel 3D: botão «+ Comentário» fora da demo', panel.includes('{!demoMode && <button type="button" onClick={addNote}'))
+assert('Painel 3D: DPR limitado (render mais leve)', panel.includes('dpr={[1, 1.5]}'))
+
+const wg3d = read('src/three/wireGeometry3D.ts')
+assert('Cabos 3D correm em calhas entre as filas de equipamentos', wg3d.includes('export function trunkLaneHints') && wg3d.includes('trunkY !== undefined'))
+
+const nproj = read('src/project/nativeProjects.ts')
+assert('Projeto nativo: routing cozido sem atravessar equipamentos', nproj.includes("import { bakeNativeRouting } from './nativeRouting'") && nproj.includes('wires: bakeNativeRouting(components, wires)'))
+
 if (failures) {
   console.error(`\n❌ ${failures} falha(s) no contrato editor-real na landing`)
   process.exit(1)

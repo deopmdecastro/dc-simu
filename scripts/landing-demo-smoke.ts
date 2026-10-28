@@ -111,6 +111,16 @@ assert('Nomes nativos cobrem a tabela', Object.keys(nativeDemoTable(true, true))
   assert('Backend Supabase: insere a semente na base', backendSrc.includes("if (!errSeed && created) rows.unshift(created)"))
 }
 
+// ── 6. Traçado dos cabos: nunca atravessa equipamentos ──────────────────────
+{
+  const { nativeWireCrossesFree } = await import('../src/project/nativeRouting')
+  const built = buildNativePartidaDireta()
+  const bad = nativeWireCrossesFree(built.components, built.wires)
+  assert('Cabos do nativo: nenhum atravessa equipamentos', bad.length === 0, bad.join(','))
+  const baked = built.wires.filter((w) => (w.waypoints?.length ?? 0) > 0)
+  assert('Cabos do nativo: waypoints cozidos na semente (editáveis no editor)', baked.length === built.wires.length)
+}
+
 if (failures) {
   console.error(`\n❌ ${failures} falha(s) no contrato da demonstração da landing`)
   process.exit(1)

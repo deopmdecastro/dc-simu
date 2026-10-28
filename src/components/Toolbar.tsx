@@ -271,8 +271,26 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const runBadge = RUN_LABEL[sim.runState] ?? RUN_LABEL.stopped
   const ladderZoom = useLadderZoom((state) => state.zoom)
   const setLadderZoom = useLadderZoom((state) => state.setZoom)
-  const viewControls: ViewControlsProps | null =
+  // Demonstração (landing): vista limpa — só zoom; grelha/encaixe/passo ficam no editor completo.
+  const viewControls: ViewControlsProps | null = demo ? (
     mode === 'schematic' ? {
+      zoom: {
+        percent: Math.round(zoom * 100), onOut: () => setZoom(zoom * 0.9), onIn: () => setZoom(zoom * 1.1), onReset: () => { setZoom(1); useSimStore.getState().setPan(0, 0) },
+        onFit: () => requestCanvasAction('fit'), fitTitle: 'Enquadrar tudo o que está no canvas (Home)',
+      },
+    } : mode === 'ladder' ? {
+      zoom: {
+        percent: Math.round(ladderZoom * 100),
+        onOut: () => setLadderZoom((z) => z - LADDER_ZOOM_STEP),
+        onIn: () => setLadderZoom((z) => z + LADDER_ZOOM_STEP),
+        onReset: () => setLadderZoom(1),
+        onFit: () => window.dispatchEvent(new CustomEvent('ladder-fit')),
+        fitTitle: 'Ajustar à largura',
+        canOut: ladderZoom > LADDER_ZOOM_MIN,
+        canIn: ladderZoom < LADDER_ZOOM_MAX,
+      },
+    } : null
+  ) : mode === 'schematic' ? {
       grid: { on: grid.enabled, toggle: () => setGrid({ enabled: !grid.enabled }) },
       snap: { on: grid.snap, toggle: () => setGrid({ snap: !grid.snap }) },
       step: { value: grid.size, options: [5, 10, 20, 25, 50], onChange: (size) => setGrid({ size }) },

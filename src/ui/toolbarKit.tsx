@@ -72,7 +72,7 @@ export function SimToggleButton({ on, onClick, scope, title }: { on: boolean; on
 }
 
 export interface ViewControlsProps {
-  grid: { on: boolean; toggle: () => void; title?: string }
+  grid?: { on: boolean; toggle: () => void; title?: string }
   snap?: { on: boolean; toggle: () => void; title?: string }
   step?: { value: number; options: number[]; onChange: (n: number) => void }
   zoom?: { percent: number; onOut: () => void; onReset: () => void; onIn: () => void; /** Ajusta a escala para caber a largura visível. */ onFit?: () => void; fitTitle?: string; canOut?: boolean; canIn?: boolean; unit?: string; title?: string }
@@ -85,9 +85,11 @@ export function ViewControls({ grid, snap, step, zoom }: ViewControlsProps) {
   return (
     <div className="flex items-center gap-1 shrink-0" role="group" aria-label="Vista">
       <div className="dc-seg" role="group" aria-label="Malha">
+        {grid && (
         <button type="button" onClick={grid.toggle} aria-pressed={grid.on} className={`${seg(false)} !px-2 ${on(grid.on)}`} title={grid.title ?? 'Mostrar/ocultar malha'}>
           <IconGrid size={13} />
         </button>
+        )}
         {snap && (
           <button type="button" onClick={snap.toggle} aria-pressed={snap.on} className={`${seg(false)} !px-2 ${on(snap.on)}`} title={snap.title ?? 'Encaixar na malha (ímã)'}>
             <IconMagnet size={13} />

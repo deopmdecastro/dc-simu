@@ -2052,6 +2052,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   } : component), [storedComponents, viewOrientationEditor])
   const sceneCenterRef = useRef<[number, number, number]>([0, 0, 0.3])
   const [cameraCommand, setCameraCommand] = useState<PanelCameraCommand>({ id: 0, view: 'isometric', target: [0, 0, 0.3] })
+  const demoMode = useSimStore((s) => s.demoMode)
   const [showGrid, setShowGrid] = useState(() => {
     try { return localStorage.getItem('dc-simu:panel3d:grid') !== '0' } catch { return true }
   })
@@ -2672,7 +2673,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       </div>, wireActionSlot)}
       {!hasComponents && <div className="panel3d-empty"><strong>{frontEdit ? 'O esquema está vazio' : 'O esquema 3D está vazio'}</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
       <ContextLossNotice lost={glLost} />
-      <Canvas shadows gl={{ alpha: true }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
+      <Canvas shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
         <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
         <ambientLight intensity={0.6} />
@@ -2790,7 +2791,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} />
       </Canvas>
 
-      <button type="button" onClick={addNote} title="Adicionar comentário no canvas" aria-label="Adicionar comentário no canvas" style={{ position: 'absolute', top: 12, left: 12, zIndex: 8, minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid #f59e0b', background: '#fff7ed', color: '#9a3412', fontWeight: 700, cursor: 'pointer' }}>+ Comentário</button>
+      {!demoMode && <button type="button" onClick={addNote} title="Adicionar comentário no canvas" aria-label="Adicionar comentário no canvas" style={{ position: 'absolute', top: 12, left: 12, zIndex: 8, minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid #f59e0b', background: '#fff7ed', color: '#9a3412', fontWeight: 700, cursor: 'pointer' }}>+ Comentário</button>}
       <div className="panel3d-axis-hud" aria-label="Orientação da câmara 3D">
         <svg viewBox="0 0 64 64" aria-hidden="true">
           <circle cx="30" cy="34" r="3" fill="#334155" />

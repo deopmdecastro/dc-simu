@@ -252,7 +252,9 @@ function WireNetFlag({ x, y, col, net, selected, onEdit }: { x: number; y: numbe
 
 function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCollapsed?: boolean; onOpen3DView?: (request: ViewCubeRequest) => void }) {
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false)
-  const [tilt, setTilt] = useState<Tilt2D>({ yaw: 0, pitch: 0 })
+  // Na demonstração da landing o esquema abre já em vista isométrica (preview 3D do motor/painel).
+  const demoMode = useSimStore((s) => s.demoMode)
+  const [tilt, setTilt] = useState<Tilt2D>(() => (demoMode ? { yaw: -45, pitch: 35 } : { yaw: 0, pitch: 0 }))
   const isTilted = Math.abs(tilt.yaw) > 0.5 || Math.abs(tilt.pitch) > 0.5
   const allComponents = useSimStore((s) => s.components)
   const sheets = useSimStore((s) => s.sheets)

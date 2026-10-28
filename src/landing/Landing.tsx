@@ -169,7 +169,7 @@ function HeroViewport() {
             <div className="dx-stage-skeleton" role="status">
               <span className="dx-spin" aria-hidden />
               A carregar o motor 3D…
-            </span>
+            </div>
           }
         >
           <LandingMotorHero />
