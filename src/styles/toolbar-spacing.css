@@ -216,3 +216,24 @@
 .sim-transport { display: flex; align-items: center; gap: 4px; }
 .sim-transport-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
 .sim-transport button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+
+/* ---------------------------------------------------------------------------
+   Mais ar entre botões (2026-10-28): 3 → 6 px dentro dos grupos, 8 → 12 px entre
+   grupos e 6 → 12 px entre separadores, no telemóvel e no ambiente de trabalho.
+--------------------------------------------------------------------------- */
+:root { --toolbar-gap: 12px; --toolbar-seg-gap: 6px; }
+.dc-seg { gap: var(--toolbar-seg-gap); padding: 3px; }
+.dc-toolbar-main, .dc-toolbar-row2, .ladder-editor-toolbar, .dc-grafcet-toolbar { gap: var(--toolbar-gap); column-gap: var(--toolbar-gap); }
+.tb-sep { margin-inline: 8px; }
+.sim-transport { gap: 6px; }
+.sim-transport-bar { gap: 8px; }
+.ce-ribbon { gap: 12px; }
+.ce-ribbon-row1 { gap: 10px; }
+.panel3d-tool-context { gap: 10px; }
+.panel3d-tool-context .dc-tool-btn + .dc-tool-btn { margin-left: 4px; }
+.panel3d-viewbar, .panel3d-edit-context { gap: 6px; }
+@media (max-width: 800px) {
+  .dc-toolbar-row2 { gap: 10px; }
+  .dc-toolbar-main { gap: 10px; }
+}
+
