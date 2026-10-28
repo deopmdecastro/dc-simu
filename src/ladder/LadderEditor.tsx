@@ -111,6 +111,7 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
   const setBreakpoint = useSimStore((s) => s.setLadderBreakpoint)
   const isBreakHit = useSimStore((s) => isMain && s.ladderBreakHit?.rungId === rung.id && s.sim.runState === 'paused')
   const isCursor = useSimStore((s) => isMain && s.ladderTraceCursor !== null && s.runtime.rungTrace?.[s.ladderTraceCursor]?.rungId === rung.id)
+  const demoMode = useSimStore((s) => s.demoMode)
   const skipped = useSimStore((s) => !!s.runtime.rungSkipped?.[rung.id])
   // Actions da store (referências estáveis) como fallback das ops do bloco —
   // evita `useSimStore()` (subscrição ao estado completo → re-render a cada tick).
@@ -186,17 +187,17 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
           {skipped && running && <span className="ladder-chip is-off" title="Não executada no último ciclo por causa de um salto JMP/JMPN">saltada</span>}
           {isBreakHit && <span className="ladder-chip is-break" role="status">parou aqui</span>}
         </span>
-        <label className="ladder-switch" title="Network habilitada para execução (Ctrl+Shift+A)" onDoubleClick={(e) => e.stopPropagation()}>
+        {!demoMode && <label className="ladder-switch" title="Network habilitada para execução (Ctrl+Shift+A)" onDoubleClick={(e) => e.stopPropagation()}>
           <input type="checkbox" checked={rung.enabled} onChange={(e) => updateRung(rung.id, (r) => ({ ...r, enabled: e.target.checked }), 'force')} />
           <span className="ladder-switch-track"><i /></span>
           <span className="ladder-switch-text">ativa</span>
-        </label>
-        <div className="ladder-rung-actions" onDoubleClick={(e) => e.stopPropagation()}>
+        </label>}
+        {!demoMode && <div className="ladder-rung-actions" onDoubleClick={(e) => e.stopPropagation()}>
           <button className="ladder-rung-action" title="Mover para cima (Alt+Shift+↑)" aria-label="Mover network para cima" disabled={index === 0} onClick={() => moveRung(rung.id, -1)}>↑</button>
           <button className="ladder-rung-action" title="Mover para baixo (Alt+Shift+↓)" aria-label="Mover network para baixo" disabled={index >= total - 1} onClick={() => moveRung(rung.id, 1)}>↓</button>
           <button className="ladder-rung-action" title="Duplicar network (Ctrl+D)" aria-label="Duplicar network" onClick={() => duplicateRung(rung.id)}><IconCopy size={11} /></button>
           <button className="ladder-rung-action is-danger" title="Eliminar network (Ctrl+Del)" aria-label="Eliminar network" onClick={requestDelete}><IconDelete size={11} /></button>
-        </div>
+        </div>}
       </div>
 
       {/* comentário da network — linha cinza itálica, como no TIA Portal */}
@@ -205,7 +206,8 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
           className="ladder-network-comment"
           value={rung.comment ?? ''}
           placeholder="Comentário…"
-          onChange={(e) => updateRung(rung.id, (r) => ({ ...r, comment: e.target.value }))}
+          readOnly={demoMode}
+          onChange={(e) => { if (!demoMode) updateRung(rung.id, (r) => ({ ...r, comment: e.target.value })) }}
         />
       )}
 
@@ -1892,7 +1894,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
       {/* Uma única fonte de sugestões para Main e blocos FC/FB: a tabela importada
           fica disponível imediatamente nos diálogos de qualquer network aberta. */}
       <TagAddressDatalist />
-      {section === 'Projeto' && (showProjectPane ? (
+      {section === 'Projeto' && !demoMode && (showProjectPane ? (
         <>
         {/* gaveta em ecrã pequeno: toque fora fecha (visível só até 1199px) */}
         <button type="button" className="ladder-pane-scrim" aria-label="Fechar painel de projeto" onClick={() => setShowProjectPane(false)} />

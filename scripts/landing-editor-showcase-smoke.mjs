@@ -104,6 +104,17 @@ assert('Cabos 3D correm em calhas entre as filas de equipamentos', wg3d.includes
 const nproj = read('src/project/nativeProjects.ts')
 assert('Projeto nativo: routing cozido sem atravessar equipamentos', nproj.includes("import { bakeNativeRouting } from './nativeRouting'") && nproj.includes('wires: bakeNativeRouting(components, wires)'))
 
+// Demo simplificada ao essencial (revisão 2: «ambiente de visualização»)
+assert('Ladder demo: painel do Projeto e Ferramentas fora', ladder2.includes("{section === 'Projeto' && !demoMode && (showProjectPane ? ("))
+assert('Ladder demo: ações e interruptor «ativa» da network fora', ladder2.includes('{!demoMode && <label className="ladder-switch"') && ladder2.includes('{!demoMode && <div className="ladder-rung-actions"'))
+assert('Ladder demo: comentário da network só de leitura', ladder2.includes('readOnly={demoMode}'))
+
+assert('GRAFCET demo: paleta Componentes fora', grafed.includes('{full && !demoMode &&') && grafed.includes('className="grafcet-toolbox"'))
+assert('GRAFCET demo: «Nova página» e apagar página fora', grafed.includes('{!demoMode && <button type="button" className="grafcet-page-add"') && grafed.includes('pageCharts.length > 1 && !demoMode && ('))
+assert('GRAFCET demo: «Editar propriedades» fora', grafed.includes('{!demoMode && <button') && grafed.includes('setEditingTransition(selectedTransition)'))
+assert('GRAFCET demo: dica do canvas orientada à visualização', grafed.includes("demoMode ? 'Selecione etapas e ligações"))
+assert('Toolbar GRAFCET demo: Modelos/Ladder, Organizar e Ficheiro fora', tb.includes('{!demo && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Modelos e Ladder">') && tb.includes('aria-label="Disposição">') && tb.includes('aria-label="Ficheiro">'))
+
 if (failures) {
   console.error(`\n❌ ${failures} falha(s) no contrato editor-real na landing`)
   process.exit(1)

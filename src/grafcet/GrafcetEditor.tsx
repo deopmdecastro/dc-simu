@@ -3003,21 +3003,21 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   after={<em>{count}</em>}
                   onCommit={(next) => renamePage(chart.id, next)}
                 />
-                {pageCharts.length > 1 && (
+                {pageCharts.length > 1 && !demoMode && (
                   <button type="button" className="grafcet-page-del" aria-label={`Eliminar ${chart.title || chart.name}`} title="Eliminar página" onClick={() => void deletePage(chart.id)}><IconClose size={11} /></button>
                 )}
               </span>
             )
           })}
-          <button type="button" className="grafcet-page-add" onClick={addPage} title="Nova página (chart). Ex.: um GRAFCET por estação, a comunicarem por sinais e referências X."><IconPlus size={12} />Nova página</button>
+          {!demoMode && <button type="button" className="grafcet-page-add" onClick={addPage} title="Nova página (chart). Ex.: um GRAFCET por estação, a comunicarem por sinais e referências X."><IconPlus size={12} />Nova página</button>}
         </div>
       )}
 
       {/* CORPO DO DESIGNER: Painel de Ferramentas à Esquerda + Canvas no Centro + Propriedades à Direita */}
       <div className="grafcet-designer-body">
-        {full && showPalette && <button type="button" className="grafcet-toolbox-backdrop" aria-label="Fechar componentes" onClick={() => setShowPalette(false)} />}
+        {full && showPalette && !demoMode && <button type="button" className="grafcet-toolbox-backdrop" aria-label="Fechar componentes" onClick={() => setShowPalette(false)} />}
         {/* PALETA DE COMPONENTES (Layout clássico com busca e recolher) */}
-        {full &&
+        {full && !demoMode &&
           (showPalette ? (
             <aside className="grafcet-toolbox" aria-label="Ferramentas GRAFCET">
               <SidePanelHeader eyebrow="GRAFCET" title="Componentes" detail="Construa e ligue a sequência" side="left" onToggle={() => setShowPalette(false)} toggleLabel="Recolher ferramentas (Ctrl+B)" />
@@ -4945,7 +4945,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
             <span className="grafcet-construction-indicator" aria-hidden="true" />
             <span role="status" aria-live="polite">{wireDraft
               ? wireHover ? 'Solte para ligar · Esc cancela' : wireDraft.start.kind === 'branch-out' ? 'Escolha uma etapa para o novo ramo · Esc cancela' : 'Escolha outro ponto para ligar · Esc cancela'
-              : 'Arraste os pontos para ligar · arraste uma linha para a dobrar'}</span>
+              : demoMode ? 'Selecione etapas e ligações · arraste o fundo para ajustar a vista' : 'Arraste os pontos para ligar · arraste uma linha para a dobrar'}</span>
             {wireDraft && <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => cancelWire()} aria-label="Cancelar ligação em curso"><IconClose size={12} />Cancelar</button>}
           </div>}
 
@@ -5153,14 +5153,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                           <h3>
                             Ação Solta: {freeAct.variable || freeAct.address || 'Ação'}
                           </h3>
-                          <button
+                          {!demoMode && <button
                             className="dc-btn"
                             style={{ fontSize: '11px', padding: '2px 8px' }}
                             onClick={() => setEditingAction({ step: null, action: freeAct })}
                             title="Editar propriedades da ação" aria-label="Editar propriedades da ação solta"
                           >
                             Editar propriedades
-                          </button>
+                          </button>}
                         </div>
 
                         <div className="grafcet-field" style={{ marginTop: '10px' }}>
@@ -5534,14 +5534,14 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                   <div className="grafcet-form grafcet-transition-inspector">
                     <div className="grafcet-form-heading">
                       <h3>Transição T{transitions.indexOf(selectedTransition) + 1}</h3>
-                      <button
+                      {!demoMode && <button
                         className="dc-btn"
                         style={{ fontSize: '11px', padding: '2px 8px' }}
                         onClick={() => setEditingTransition(selectedTransition)}
                         title="Editar propriedades da transição" aria-label="Editar propriedades da transição"
                       >
                         Editar propriedades
-                      </button>
+                      </button>}
                     </div>
 
                     <section className="grafcet-inspector-group is-condition" aria-label="Condição da transição">

@@ -522,7 +522,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
             <span className="tb-sep" />
 
-            <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Modelos e Ladder">
+            {!demo && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Modelos e Ladder">
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('openTemplates')}
@@ -563,11 +563,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   )}
                 </>
               )}
-            </div>
+            </div>}
 
             <span className="tb-sep" />
 
-            <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Disposição">
+            {!demo && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Disposição">
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('autoLayout')}
@@ -576,11 +576,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               >
                 <IconOrganize size={13} /><span>Organizar</span>
               </button>
-            </div>
+            </div>}
 
             <span className="tb-sep" />
 
-            <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Ficheiro">
+            {!demo && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Ficheiro">
               <button type="button" onClick={() => useGrafcetUi.getState().emit('exportSvg')} className="dc-tool-btn !gap-1.5" title="Exportar diagrama em formato SVG vetorial">
                 <IconDownload size={13} /><span>SVG</span>
               </button>
@@ -599,7 +599,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               >
                 <IconRotate size={13} />
               </button>
-            </div>
+            </div>}
           </>
         )}
 
