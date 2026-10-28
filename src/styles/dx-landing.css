@@ -2282,3 +2282,42 @@ html:has(.dx-landing) {
     justify-content: center;
   }
 }
+
+/* GRAFCET demo — workspace igual ao editor + pan */
+.dx-grafcet-demo-canvas.grafcet-workspace {
+  position: relative;
+  background: #fbfcfe;
+  cursor: grab;
+  min-height: 380px;
+}
+.dx-grafcet-demo-canvas.grafcet-workspace:active {
+  cursor: grabbing;
+}
+.dx-grafcet-demo-svg.grafcet-canvas {
+  width: 100%;
+  height: min(52vh, 440px);
+  max-width: none;
+  display: block;
+  touch-action: none;
+}
+.dx-grafcet-demo-hint {
+  color: #94a3b8;
+  font-size: 11px;
+}
+.dx-grafcet-demo .grafcet-step-box {
+  filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.06));
+}
+.dx-grafcet-demo .ladder-icon-button {
+  min-width: 36px;
+  min-height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.dx-grafcet-demo .ladder-icon-button:hover {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}

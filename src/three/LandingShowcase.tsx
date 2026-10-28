@@ -10,6 +10,7 @@ import { getComponentModelSpec } from './modelPaths'
 import { terminalWorld3D } from './terminal3D'
 import { fitComponentModel } from './modelFit'
 import { brushedMetal, galvanizedSteel, matteWall, polishedConcrete } from './proceduralTextures'
+import MotorShaftFan3D from './MotorShaftFan3D'
 
 const UNIT = 0.0055
 
@@ -135,7 +136,7 @@ function cloneMaterials(root: THREE.Object3D) {
     mesh.castShadow = true
     mesh.receiveShadow = true
     const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    const materials = list.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 }))
+    const materials = list.map((material) => finishCadMaterial(material, { envMapIntensity: 1.35 }))
     mesh.material = Array.isArray(mesh.material) ? materials : materials[0]
   })
 }
@@ -196,6 +197,50 @@ function ComponentModel({ type, position, active = false, lightColor, onClick }:
       onClick={(event) => { if (onClick) { event.stopPropagation(); onClick() } }}
     >
       <primitive object={prepared.scene} />
+    </group>
+  )
+}
+
+/** Motor 3D com pá no veio — mesma geometria do editor (MotorShaftFan3D). */
+function MotorWithFan({ position, active }: { position: Point3; active: boolean }) {
+  const type = 'motor3ph' as ComponentType
+  const spec = getComponentModelSpec(type)!
+  const gltf = useGLTF(spec.path)
+  const prepared = useMemo(() => {
+    const result = preparedModel(type, gltf.scene)
+    cloneMaterials(result.scene)
+    applyModelState(result.scene, active, type)
+    return result
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gltf.scene, type])
+
+  useEffect(() => {
+    applyModelState(prepared.scene, active, type)
+  }, [active, prepared.scene, type])
+
+  const fanComponent = useMemo(() => {
+    const component = createComponent('motor3ph', 'M1')
+    component.state = { ...component.state, rpmVisual: active ? 0.85 : 0, direction: 'cw' }
+    return component
+  }, [active])
+
+  // Atualiza rpm em tempo real sem recriar o objeto
+  useEffect(() => {
+    fanComponent.state.rpmVisual = active ? 0.85 : 0
+  }, [active, fanComponent])
+
+  const cx = position[0]
+  const cy = position[1] + prepared.targetHeight / 2
+  const cz = position[2] + prepared.depth / 2
+  // Pá no veio (lado direito do motor, eixo X)
+  const fanOffset: Point3 = [prepared.targetHeight * 0.42, 0, 0]
+
+  return (
+    <group position={[cx, cy, cz]}>
+      <primitive object={prepared.scene} />
+      <group position={fanOffset} scale={0.55}>
+        <MotorShaftFan3D component={fanComponent} diameterMm={110} />
+      </group>
     </group>
   )
 }
@@ -350,7 +395,7 @@ function useShowcaseFit(touched: MutableRefObject<boolean>) {
   return fit
 }
 
-function ShowcaseScene({ plcRunning, motorOn, onStartMotor, onStopMotor }: Omit<Props, 'compact'>) {
+function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor, onStopMotor }: Omit<Props, 'compact'>) {
   const plcActive = plcRunning ?? true
   const motorActive = plcActive && (motorOn ?? true)
   const stoppedActive = plcActive && !motorActive
@@ -367,14 +412,23 @@ function ShowcaseScene({ plcRunning, motorOn, onStartMotor, onStopMotor }: Omit<
       <FixedPanel />
 
       <ComponentModel type="powerSupplyProauto24A" position={PLACEMENTS.psu.position} active={plcActive} />
-      <ComponentModel type="dualPushButtonNpb22D11" position={PLACEMENTS.push.position} active={motorActive} onClick={motorActive ? onStopMotor : onStartMotor} />
+      <ComponentModel
+        type="dualPushButtonNpb22D11"
+        position={PLACEMENTS.push.position}
+        active={motorActive}
+        onClick={() => {
+          if (!plcActive) onRunPlc?.()
+          else if (motorActive) onStopMotor?.()
+          else onStartMotor?.()
+        }}
+      />
       <ComponentModel type="pilotLightAd22" position={PLACEMENTS.green.position} active={motorActive} lightColor="#22c55e" />
       <ComponentModel type="pilotLightAd22" position={PLACEMENTS.red.position} active={stoppedActive} lightColor="#ef4444" />
-      <ComponentModel type="plcSiemensLogo1224RC" position={PLACEMENTS.plc.position} active={plcActive} />
+      <ComponentModel type="plcSiemensLogo1224RC" position={PLACEMENTS.plc.position} active={plcActive} onClick={plcActive ? onStopPlc : onRunPlc} />
       <ComponentModel type="breaker2p" position={PLACEMENTS.breaker.position} active={plcActive} />
       <ComponentModel type="motorBreakerPkzmC10" position={PLACEMENTS.motorBreaker.position} active={plcActive || motorActive} />
       <ComponentModel type="contactorWegCWC09" position={PLACEMENTS.contactor.position} active={motorActive} />
-      <ComponentModel type="motor3ph" position={PLACEMENTS.motor.position} active={motorActive} />
+      <MotorWithFan position={PLACEMENTS.motor.position} active={motorActive} />
 
       {CABLES.map((definition) => {
         const energized = definition.energized === 'plc'
@@ -419,7 +473,7 @@ export default function LandingShowcase(props: Props) {
   return (
     <div className="dx-showcase-wrap">
       <Canvas
-        frameloop="demand"
+        frameloop={(props.plcRunning !== false && (props.motorOn ?? true)) ? "always" : "demand"}
         dpr={[1, props.compact ? 1.25 : 1.5]}
         camera={{ position: props.compact ? [1.45, 3.15, 10.15] : [1.45, 3.00, 7.75], fov: props.compact ? 41 : 35, near: 0.1, far: 100 }}
         gl={{ antialias: false, alpha: false, powerPreference: 'low-power' }}
