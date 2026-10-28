@@ -430,3 +430,5 @@
   }
 }
 /* force-rebuild 20261028152457 */
+
+.vio-panel { --force-rebuild: 1; }

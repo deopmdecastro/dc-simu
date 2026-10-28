@@ -1616,3 +1616,11 @@ button.dx-notification-item:hover {
   }
 }
 /* force-rebuild 20261028152457 */
+
+/* rebuild-force */
+.dx-profile-menu nav button { min-height: 48px !important; }
+@media (max-width: 720px), (pointer: coarse) {
+  .dx-profile-menu nav button { min-height: 48px !important; padding: 0 14px; font-size: 14px; }
+  .vio-switch { min-height: 56px !important; }
+  .dc-side-panel-actions > button { min-width: 40px; min-height: 40px; }
+}

@@ -274,3 +274,5 @@
   }
 }
 /* force-rebuild 20261028152457 */
+
+.dc-side-panel-head { --force-rebuild: 1; }
