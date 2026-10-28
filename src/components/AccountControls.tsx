@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { Invite, User } from '../dashboard/Dashboard'
-import { IconAccount, IconBell, IconChevronRight, IconCube, IconKey, IconLogout, IconProjects, IconShield, IconUser } from '../ui/icons'
+import { IconAccount, IconBell, IconChevronRight, IconCube, IconKey, IconLogout, IconProjects, IconShield } from '../ui/icons'
 import Avatar from '../ui/Avatar'
 import SupabaseModal from './SupabaseModal'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
@@ -45,20 +45,37 @@ export default function AccountControls({
   const [showN8n, setShowN8n] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const root = useRef<HTMLDivElement>(null)
+  const profileTrigger = useRef<HTMLButtonElement>(null)
+  const profileMenu = useRef<HTMLElement>(null)
+  const profileMenuId = useId()
   const total = invites.length + (dirty ? 1 : 0) + errors + warnings
+  const backend = activeAccountBackend()
+  const supabaseConfigured = isSupabaseConfigured()
+  const n8nConfigured = isN8nConfigured()
+  const sessionLabel = backend === 'server' ? 'Sessão no servidor'
+    : backend === 'supabase' ? 'Sessão Supabase'
+      : backend === 'local' ? 'Sessão neste navegador' : 'Sessão ativa'
 
   useEffect(() => {
     if (!open) return
     const close = (event: MouseEvent) => {
       if (!root.current?.contains(event.target as Node)) setOpen(null)
     }
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(null)
+    const closeOnFocus = (event: FocusEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(null)
     }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setOpen(null)
+      if (open === 'profile') profileTrigger.current?.focus({ preventScroll: true })
+    }
+    if (open === 'profile') profileMenu.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
     window.addEventListener('mousedown', close)
+    window.addEventListener('focusin', closeOnFocus)
     window.addEventListener('keydown', escape)
     return () => {
       window.removeEventListener('mousedown', close)
+      window.removeEventListener('focusin', closeOnFocus)
       window.removeEventListener('keydown', escape)
     }
   }, [open])
@@ -121,45 +138,52 @@ export default function AccountControls({
     <div className="dx-account-popover-anchor">
       <button
         type="button"
+        ref={profileTrigger}
         className={`dx-account-trigger ${open === 'profile' ? 'is-active' : ''}`}
         onClick={() => setOpen((current) => current === 'profile' ? null : 'profile')}
         aria-label={`Conta de ${user.name}`}
         aria-haspopup="dialog"
         aria-expanded={open === 'profile'}
+        aria-controls={open === 'profile' ? profileMenuId : undefined}
       >
         <Avatar name={user.name} email={user.email} src={user.avatar} size="sm" className="dx-account-avatar" />
         <span className="dx-account-trigger-copy"><strong>{user.name}</strong><small>{user.role === 'admin' ? 'Administrador' : 'Utilizador'}</small></span>
       </button>
-      {open === 'profile' && <section className="dx-account-popover dx-profile-menu" aria-label="Menu da conta">
+      {open === 'profile' && <section ref={profileMenu} id={profileMenuId} className="dx-account-popover dx-profile-menu" role="dialog" aria-label="Menu da conta">
         <header>
-          <Avatar name={user.name} email={user.email} src={user.avatar} size="md" />
-          <span><strong>{user.name}</strong><small>{user.email}</small></span>
+          <Avatar name={user.name} email={user.email} src={user.avatar} size="lg" />
+          <div className="dx-profile-identity">
+            <strong title={user.name}>{user.name}</strong>
+            <small title={user.email}>{user.email}</small>
+            <span className="dx-profile-role"><IconShield size={11} />{user.role === 'admin' ? 'Administrador' : 'Utilizador'}</span>
+          </div>
         </header>
-        <div className="dx-profile-role"><IconShield size={13} />{user.role === 'admin' ? 'Conta de administrador' : 'Conta de utilizador'}</div>
-        <nav>
-          {onAccount && context !== 'account' && <button type="button" className="is-primary" onClick={() => { setOpen(null); onAccount() }}><IconAccount size={15} /><span>Gerir conta</span><IconChevronRight size={13} /></button>}
-          {onProjects && context !== 'dashboard' && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Os meus projetos</span><IconChevronRight size={13} /></button>}
-          {onContribute && context !== 'contribute' && <button type="button" onClick={() => { setOpen(null); onContribute() }}><IconCube size={15} /><span>Contribuir (datasheets e 3D)</span><IconChevronRight size={13} /></button>}
-          {onAdmin && user.role === 'admin' && context !== 'admin' && <button type="button" onClick={() => { setOpen(null); onAdmin() }}><IconShield size={15} /><span>Administração</span><IconChevronRight size={13} /></button>}
-          {['server', 'supabase'].includes(activeAccountBackend()) && <button type="button" onClick={() => { setOpen(null); setShowPassword(true) }}><IconKey size={15} /><span>Alterar palavra-passe</span><IconChevronRight size={13} /></button>}
-          {(context === 'admin' || context === 'contribute' || context === 'account') && onProjects && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Voltar aos projetos</span><IconChevronRight size={13} /></button>}
-          <button type="button" onClick={() => { setOpen(null); setShowSupabase(true) }}>
-            <span style={{ display: 'inline-flex', flex: '0 0 auto', width: '15px', justifyContent: 'center', opacity: isSupabaseConfigured() ? 1 : 0.45 }}>
-              <SupabaseLogo size={15} title="" />
-            </span>
-            <span>Base de Dados (Supabase)</span>
-            <IconChevronRight size={13} />
-          </button>
-          <button type="button" onClick={() => { setOpen(null); setShowN8n(true) }}>
-            <span style={{ display: 'inline-flex', flex: '0 0 auto', width: '15px', justifyContent: 'center', opacity: isN8nConfigured() ? 1 : 0.45 }}>
-              <N8nLogo size={15} title="" />
-            </span>
-            <span>Automação (n8n Workflow)</span>
-            <IconChevronRight size={13} />
-          </button>
-          <button type="button" className="is-logout" onClick={() => { setOpen(null); onLogout() }}><IconLogout size={15} /><span>Sair da conta</span></button>
+        <nav aria-label="Ações da conta">
+          <div className="dx-profile-group">
+            {onAccount && context !== 'account' && <button type="button" className="dx-profile-action is-primary" onClick={() => { setOpen(null); onAccount() }}><span className="dx-profile-action-icon"><IconAccount size={17} /></span><span className="dx-profile-action-copy"><strong>Gerir conta</strong><small>Perfil e segurança</small></span><IconChevronRight className="dx-profile-chevron" size={14} /></button>}
+            {onProjects && context !== 'dashboard' && <button type="button" className="dx-profile-action" onClick={showProjects}><span className="dx-profile-action-icon"><IconProjects size={17} /></span><span className="dx-profile-action-copy"><strong>Os meus projetos</strong></span><IconChevronRight className="dx-profile-chevron" size={14} /></button>}
+            {onContribute && context !== 'contribute' && <button type="button" className="dx-profile-action" onClick={() => { setOpen(null); onContribute() }}><span className="dx-profile-action-icon"><IconCube size={17} /></span><span className="dx-profile-action-copy"><strong>Contribuir</strong><small>Fichas técnicas e modelos 3D</small></span><IconChevronRight className="dx-profile-chevron" size={14} /></button>}
+            {onAdmin && user.role === 'admin' && context !== 'admin' && <button type="button" className="dx-profile-action" onClick={() => { setOpen(null); onAdmin() }}><span className="dx-profile-action-icon"><IconShield size={17} /></span><span className="dx-profile-action-copy"><strong>Administração</strong></span><IconChevronRight className="dx-profile-chevron" size={14} /></button>}
+            {['server', 'supabase'].includes(backend) && <button type="button" className="dx-profile-action" onClick={() => { setOpen(null); setShowPassword(true) }}><span className="dx-profile-action-icon"><IconKey size={17} /></span><span className="dx-profile-action-copy"><strong>Alterar palavra-passe</strong></span><IconChevronRight className="dx-profile-chevron" size={14} /></button>}
+          </div>
+          <div className="dx-profile-group dx-profile-connections">
+            <h3>Ligações</h3>
+            <button type="button" className="dx-profile-action is-integration" onClick={() => { setOpen(null); setShowSupabase(true) }}>
+              <span className="dx-profile-action-icon is-supabase"><SupabaseLogo size={20} title="" /></span>
+              <span className="dx-profile-action-copy"><strong>Base de dados</strong><small>Supabase</small></span>
+              <span className={`dx-profile-config ${supabaseConfigured ? 'is-set' : ''}`}>{supabaseConfigured ? 'Configurado' : 'Configurar'}</span>
+              <IconChevronRight className="dx-profile-chevron" size={14} />
+            </button>
+            <button type="button" className="dx-profile-action is-integration" onClick={() => { setOpen(null); setShowN8n(true) }}>
+              <span className="dx-profile-action-icon is-n8n"><N8nLogo size={20} title="" /></span>
+              <span className="dx-profile-action-copy"><strong>Automação</strong><small>n8n Workflow</small></span>
+              <span className={`dx-profile-config ${n8nConfigured ? 'is-set' : ''}`}>{n8nConfigured ? 'Configurado' : 'Configurar'}</span>
+              <IconChevronRight className="dx-profile-chevron" size={14} />
+            </button>
+          </div>
         </nav>
-        <footer><IconUser size={12} />{isSupabaseConfigured() ? 'Conectado ao Supabase' : 'Sessão local protegida'}</footer>
+        <div className="dx-profile-exit"><button type="button" className="dx-profile-action is-logout" onClick={() => { setOpen(null); onLogout() }}><span className="dx-profile-action-icon"><IconLogout size={17} /></span><span className="dx-profile-action-copy"><strong>Sair da conta</strong></span></button></div>
+        <footer><span className="dx-profile-session-dot" aria-hidden="true" />{sessionLabel}</footer>
       </section>}
     </div>
 
