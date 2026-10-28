@@ -25,7 +25,7 @@ assert('Pá montada no sítio real do veio (MOTOR_FAN.hubX do editor)', hero.inc
 assert('Usa o GLB real do motor3ph (catálogo)', hero.includes("'motor3ph'") && hero.includes('getComponentModelSpec') && hero.includes('useGLTF(spec.path)'))
 assert('Mesmo acabamento CAD do showcase (helpers partilhados)', /preparedModel, cloneMaterials, applyModelState[\s\S]*from '\.\/LandingShowcase'/.test(hero))
 assert('Pás do veio sempre em marcha e em sentido horário', hero.includes('MotorShaftFan3D') && /rpmVisual:\s*0\.9/.test(hero) && hero.includes("direction: 'cw'"))
-assert('Vista isométrica por omissão', /camera=\{\{\s*position:\s*\[1\.4,\s*1\.05,\s*1\.4\]/.test(hero))
+assert('Vista isométrica por omissão (FitIsoCamera, direção 1,0.82,1)', hero.includes('FitIsoCamera') && /ISO_DIR\s*=\s*new THREE\.Vector3\(1,\s*0\.82,\s*1\)/.test(hero))
 assert('Vistas giráveis por arraste (OrbitControls, sem zoom/pan)', hero.includes('<OrbitControls') && hero.includes('enablePan={false}') && hero.includes('enableZoom={false}'))
 assert('A câmara não roda sozinha — só o utilizador gira (sem autoRotate)', !hero.includes('autoRotate'))
 assert('Dica «Arraste para girar»', hero.includes('dx-motor-hero-hint'))

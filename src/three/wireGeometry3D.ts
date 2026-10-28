@@ -279,7 +279,9 @@ const trunkSpread = (wire: Wire): number => ((wireHash(wire) % 9) - 4) * 0.012
 const trunkLayer = (wire: Wire): number => Math.floor(wireHash(wire) / 9) % 3
 
 /** Pontos de controlo (sem terminações) entre as duas pontas, respeitando traçado, flexibilidade e curva manual. */
-export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, leads: WireLeads = {}, obstacles: WireObstacle[] = [], trunkY?: number): V3[] {
+export type TrunkPlan = { laneA: number; laneB: number; riserX?: number }
+
+export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, leads: WireLeads = {}, obstacles: WireObstacle[] = [], trunkY?: number, plan?: TrunkPlan): V3[] {
   const manual = wire.waypoints3D?.map((point) => [point.x, point.y, point.z] as V3) ?? []
   let controls: V3[]
   let smooth = wire.flexibility === 'flexible' || wire.route === 'arc'
@@ -295,7 +297,20 @@ export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, lead
     } else {
       // Camadas em profundidade só quando a calha é partilhada (trunkY): diâmetro + folga por camada.
       const layerZ = trunkY !== undefined ? trunkLayer(wire) * (outerMm * 0.01 * 1.15) : 0
-      controls = [a, [a[0], channelY, a[2] + layerZ], [b[0], channelY, b[2] + layerZ], b]
+      if (plan) {
+        // Calha encostada à chapa (como uma calha real): o troço horizontal corre rente
+        // à placa, em camadas; mudanças de fila sobem por uma calha vertical lateral.
+        const ductZ = wireFrontLimit(outerMm) + 0.012 + layerZ
+        const spread = trunkSpread(wire)
+        const yA = plan.laneA + spread
+        const yB = plan.laneB + spread
+        if (plan.riserX === undefined || Math.abs(plan.laneA - plan.laneB) < 1e-6) {
+          controls = [a, [a[0], yA, ductZ], [b[0], yA, ductZ], b]
+        } else {
+          const rx = plan.riserX + spread
+          controls = [a, [a[0], yA, ductZ], [rx, yA, ductZ], [rx, yB, ductZ], [b[0], yB, ductZ], b]
+        }
+      } else controls = [a, [a[0], channelY, a[2] + layerZ], [b[0], channelY, b[2] + layerZ], b]
     }
   }
   // sólidos: a chapa e os corpos dos componentes não se atravessam
@@ -376,17 +391,41 @@ export function buildWirePath3D(wire: Wire, from: WireEndpoint3D, to: WireEndpoi
   // Calha mais próxima do nível médio das pontas: o corpo do cabo corre na calha
   // e nunca atravessa equipamentos (o `clearObstacles` trata da profundidade).
   let trunkHint: number | undefined
+  let plan: TrunkPlan | undefined
   if (!wire.waypoints3D?.length && obstacles.length > 0 && wire.route !== 'direct' && wire.flexibility !== 'flexible' && wire.route !== 'arc') {
     const lanes = trunkLaneHints(obstacles)
     if (lanes.length > 0) {
-      const mid = (from.position[1] + to.position[1]) / 2 - 0.4
-      trunkHint = lanes.reduce((best, y) => (Math.abs(y - mid) < Math.abs(best - mid) ? y : best), lanes[0])
+      const laneFor = (end: WireEndpoint3D): number => {
+        const y = end.position[1]
+        const ny = end.normal?.[1] ?? 0
+        // borne virado para cima → calha acima; para baixo → calha abaixo; senão a mais próxima
+        const candidates = ny > 0.5 ? lanes.filter((l) => l > y) : ny < -0.5 ? lanes.filter((l) => l < y) : lanes
+        const near = candidates.filter((l) => Math.abs(l - y) < 0.8)
+        const pool = near.length > 0 ? near : candidates.length > 0 ? candidates : lanes
+        return pool.reduce((best, l) => (Math.abs(l - y) < Math.abs(best - y) ? l : best), pool[0])
+      }
+      const laneA = laneFor(from)
+      const laneB = laneFor(to)
+      trunkHint = laneA
+      plan = { laneA, laneB }
+      if (Math.abs(laneA - laneB) > 1e-6) {
+        // calha vertical: na lateral livre mais próxima dos equipamentos entre as duas calhas
+        const lo = Math.min(laneA, laneB)
+        const hi = Math.max(laneA, laneB)
+        const between = obstacles.filter((box) => box.max.y > lo && box.min.y < hi && box.min.y > lo - 0.5)
+        const midX = (from.position[0] + to.position[0]) / 2
+        if (between.length > 0) {
+          const left = Math.min(...between.map((box) => box.min.x)) - 0.05
+          const right = Math.max(...between.map((box) => box.max.x)) + 0.05
+          plan.riserX = Math.abs(midX - left) <= Math.abs(midX - right) ? left : right
+        } else plan.riserX = midX
+      }
     }
   }
-  const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles, trunkHint)
+  const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles, trunkHint, plan)
   const a = endHead(from, endTypeOf(wire, 'from'), preliminary[Math.min(1, preliminary.length - 1)])
   const b = endHead(to, endTypeOf(wire, 'to'), preliminary[Math.max(0, preliminary.length - 2)])
-  const points = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles, trunkHint)
+  const points = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles, trunkHint, plan)
   return { points, starts: [a.geometry, b.geometry] }
 }
 

@@ -181,6 +181,35 @@ function HeroViewport() {
   )
 }
 
+/** O editor completo (App + modelos CAD) só é descarregado quando a secção se aproxima do ecrã:
+ *  antes carregava logo na abertura da landing e era o maior custo da página. */
+function DeferredEditorShowcase({ onAccess }: { onAccess: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const node = ref.current
+    if (!node) return
+    if (!('IntersectionObserver' in window)) return setVisible(true)
+    const io = new IntersectionObserver(
+      (e) => {
+        if (e[0]?.isIntersecting) {
+          setVisible(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: '400px 0px' },
+    )
+    io.observe(node)
+    return () => io.disconnect()
+  }, [])
+  const skeleton = <div className="dx-stage-skeleton" role="status">A carregar o editor…</div>
+  return (
+    <div ref={ref} style={{ minHeight: visible ? undefined : 560 }}>
+      {visible ? <Suspense fallback={skeleton}><LandingEditorShowcase onAccess={onAccess} /></Suspense> : skeleton}
+    </div>
+  )
+}
+
 /* ================================================================ página */
 
 export default function Landing({ onAccess, onLogin }: { onAccess: () => void; onLogin: () => void }) {
@@ -384,9 +413,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
           </div>
           <div className="dx-studio-grid">
             <div data-rv>
-            <Suspense fallback={<div className="dx-stage-skeleton" role="status">A carregar o editor…</div>}>
-              <LandingEditorShowcase onAccess={onAccess} />
-            </Suspense>
+            <DeferredEditorShowcase onAccess={onAccess} />
             </div>
             <ul className="dx-studio-side" data-rv>
               <li>

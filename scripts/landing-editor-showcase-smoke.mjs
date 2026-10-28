@@ -24,7 +24,7 @@ const showcasePath = 'src/landing/LandingEditorShowcase.tsx'
 assert('LandingEditorShowcase existe', existsSync(resolve(root, showcasePath)))
 const show = existsSync(resolve(root, showcasePath)) ? read(showcasePath) : ''
 assert('Carrega o projeto publicado (fallback nativo)', show.includes("'/landing/published'") && show.includes('nativeLandingPayload'))
-assert('Hidrata a loja com o conteúdo da obra', show.includes('loadJSON(JSON.stringify(payload.content))'))
+assert('Hidrata a loja com o conteúdo da obra', show.includes('loadJSON(JSON.stringify(tidyDemoWires(payload.content)))'))
 assert('Ativa o modo demo na loja', show.includes('setDemoMode(true)'))
 assert('Monta o editor real em modo demo', /<App demo\b/.test(show))
 assert('Restaura o instantâneo ao desmontar', show.includes('saveJSON()') && show.includes('current.loadJSON(snapshot)') && show.includes('setDemoMode(wasDemo)'))
@@ -57,7 +57,7 @@ assert('Planos (PlanLocked) não trancam a demonstração', app.includes('!demo 
 
 // ── Landing ─────────────────────────────────────────────────────────────────
 const landing = read('src/landing/Landing.tsx')
-assert('Secção editor monta o showcase real', landing.includes('<LandingEditorShowcase onAccess={onAccess} />'))
+assert('Secção editor monta o showcase real', landing.includes('<LandingEditorShowcase onAccess={onAccess} />') && landing.includes('function DeferredEditorShowcase'))
 assert('Anatomia antiga (mock) removida', !landing.includes('EditorAnatomy'))
 assert('CSS de enquadre da demonstração', read('src/styles/dx-landing.css').includes('.landing-editor-embed'))
 

@@ -45,7 +45,7 @@ function wire(from: string, to: string, color: WireColor, number: string): Wire 
     color,
     gauge: '1.5mm²',
     kind: 'control',
-    flexibility: 'flexible',
+    flexibility: 'rigid',
     endType: 'ferrule',
     fromEndType: 'ferrule',
     toEndType: 'ferrule',
@@ -174,7 +174,7 @@ export function buildNativePartidaDireta(): Built {
   green.state.color = '#22c55e'
   const red = place('pilotLightAd22', 'native-h2', 'H2', 'PARADO', 0.1, 1.7)
   red.state.color = '#ef4444'
-  const motor = place('motor3ph', 'native-m1', 'M1', 'Motor SEW 3~', 1.0, -1.55)
+  const motor = place('motor3ph', 'native-m1', 'M1', 'Motor SEW 3~', 2.7, -1.25)
   const wires: Wire[] = []
   const add = (a: ElectricalComponent, al: string, b: ElectricalComponent, bl: string, color: WireColor, power = false) => {
     const next = wire(term(a, al), term(b, bl), color, `W${wires.length + 1}`)

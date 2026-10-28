@@ -16,6 +16,18 @@ const App = lazy(() => import('../App'))
  * carrega-se o projeto da demonstração e ativa-se `demoMode`; ao desmontar,
  * tudo regressa ao estado anterior.
  */
+/** Na demonstração os cabos sem traçado 3D manual seguem as calhas (rígidos): os
+ *  flexíveis pendiam em laço à frente dos equipamentos e tornavam o quadro confuso. */
+function tidyDemoWires(content: unknown): unknown {
+  if (!content || typeof content !== 'object') return content
+  const data = content as { wires?: Array<Record<string, unknown>> }
+  if (!Array.isArray(data.wires)) return content
+  return {
+    ...data,
+    wires: data.wires.map((w) => (Array.isArray(w.waypoints3D) && w.waypoints3D.length > 0 ? w : { ...w, flexibility: 'rigid', route: w.route === 'arc' || w.route === 'direct' ? 'orthogonal' : w.route })),
+  }
+}
+
 export default function LandingEditorShowcase({ onAccess }: { onAccess: () => void }) {
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -40,7 +52,7 @@ export default function LandingEditorShowcase({ onAccess }: { onAccess: () => vo
           /* sem rede/backend: fica o nativo */
         }
         if (!mounted.current) return
-        store.loadJSON(JSON.stringify(payload.content))
+        store.loadJSON(JSON.stringify(tidyDemoWires(payload.content)))
         store.setCurrentProjectName(payload.name)
         store.setDemoMode(true)
         setReady(true)
