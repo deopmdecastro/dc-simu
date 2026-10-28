@@ -9,6 +9,7 @@ import Toolbar, { type ViewMode } from './components/Toolbar'
 import Sidebar from './components/Sidebar'
 import SidePanelHeader from './components/SidePanelHeader'
 import ProjectObjects from './components/ProjectObjects'
+import SimulationDock from './components/SimulationDock'
 import LadderEditor from './ladder/LadderEditor'
 import type { LadderSection } from './ladder/LadderSections'
 import GrafcetEditor from './grafcet/GrafcetEditor'
@@ -20,6 +21,7 @@ import { useCan } from './saas/usePlan'
 import { useSimStore } from './store/useSimStore'
 import { allowedViews, coerceView, defaultView } from './project/kind'
 import { hasGeneratedLadder } from './grafcet/ladderSync'
+import { useSimUi } from './ui/simUi'
 
 /** Cabeçalho das folhas em ecrã inteiro (só aparece em telemóveis): título + botão «Fechar» bem visível. */
 function SheetHeader({ title, onClose, side = 'right' }: { title: string; onClose: () => void; side?: 'left' | 'right' }) {
@@ -61,8 +63,8 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   // Os dois painéis laterais precisam de pelo menos ~1080 px para deixar
   // espaço útil ao canvas; abaixo de 1200 px (tablets, portáteis pequenos) passam a gavetas sobrepostas.
   const compactWorkspace = () => !isTabletDesktop() && (window.innerWidth < 1200 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches)
-  const [showLadder, setShowLadder] = useState(() => !compactWorkspace())
-  const [rightTab, setRightTab] = useState<'grafcet' | 'objects'>('grafcet')
+  const [showLadder, setShowLadder] = useState(() => useSimUi.getState().schematic || !compactWorkspace())
+  const [rightTab, setRightTab] = useState<'grafcet' | 'signals' | 'objects'>(() => useSimUi.getState().schematic ? 'signals' : 'grafcet')
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())
   const compact = compactWorkspace()
 
@@ -91,6 +93,9 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   }, [panelSizes])
   const [resizing, setResizing] = useState<{ target: 'sidebar' | 'ladder'; startX: number; startSize: number } | null>(null)
   const editingComponent = useSimStore((s) => !!s.viewOrientationEditor)
+  const schematicSimPanelOn = showLadder && rightTab === 'signals' && !editingComponent
+  // O botão representa a folha de E/S visível; RUN/STOP não depende da folha aberta.
+  useEffect(() => { useSimUi.getState().setSimPanel('schematic', schematicSimPanelOn) }, [schematicSimPanelOn])
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const scanCount = useSimStore((s) => s.sim.scanCount)
   const runState = useSimStore((s) => s.sim.runState)
@@ -191,6 +196,11 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   return (
     <div className={`h-full ${demo ? 'w-full dc-demo-root' : 'w-screen'} flex flex-col bg-surface-app text-ink-900 overflow-hidden`}>
       <Toolbar onBack={onBack} mode={mode} setMode={setMode} views={views} ladderSection={ladderSection} setLadderSection={setLadderSection} demo={demo} onEnterEditor={onEnterEditor}
+        schematicSimPanelOn={schematicSimPanelOn}
+        onToggleSchematicSim={() => {
+          if (schematicSimPanelOn) setShowLadder(false)
+          else { if (compact) setShowLibrary(false); setRightTab('signals'); setShowLadder(true) }
+        }}
         onOpenLibrary={() => { setShowLadder(false); setShowLibrary(true) }}
         onOpenGrafcet={() => { setShowLibrary(false); setRightTab('grafcet'); setShowLadder(true) }}
         onOpenObjects={() => { setShowLibrary(false); setRightTab('objects'); setShowLadder(true) }} />
@@ -236,15 +246,16 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
           >
             {showLadder ? (
               <>
-                <SheetHeader title="GRAFCET e objetos do projeto" side="right" onClose={() => setShowLadder(false)} />
+                <SheetHeader title="GRAFCET, sinais e objetos" side="right" onClose={() => setShowLadder(false)} />
                 <div className="dc-dock-tabs" role="tablist" aria-label="Painel direito">
                   <button role="tab" aria-selected={rightTab === 'grafcet'} className={rightTab === 'grafcet' ? 'is-on' : ''} onClick={() => setRightTab('grafcet')}>GRAFCET</button>
+                  <button role="tab" aria-selected={rightTab === 'signals'} className={rightTab === 'signals' ? 'is-on' : ''} onClick={() => setRightTab('signals')}>Entradas/Saídas</button>
                   <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')}>Objetos</button>
                 </div>
-                {rightTab === 'grafcet' ? <GrafcetEditor onOpenEditor={() => setMode('grafcet')} /> : <ProjectObjects />}
+                {rightTab === 'grafcet' ? <GrafcetEditor onOpenEditor={() => setMode('grafcet')} /> : rightTab === 'signals' ? <SimulationDock embedded /> : <ProjectObjects />}
               </>
             ) : (
-              <CollapsedPanelRail className="pn-shell-rail" label="GRAFCET e objetos" side="right" icon={<IconLayers size={15} />} onExpand={() => { setShowLibrary(false); setShowLadder(true) }} />
+              <CollapsedPanelRail className="pn-shell-rail" label="GRAFCET, sinais e objetos" side="right" icon={<IconLayers size={15} />} onExpand={() => { setShowLibrary(false); setShowLadder(true) }} />
             )}
           </div>
         )}

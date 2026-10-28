@@ -14,7 +14,7 @@ import { SimTransportControls } from '../ui/toolbarKit'
  * controlos RUN/STOP, sinais do PLC (INT/NO/NC) ou E/S virtuais e o GRAFCET ativo,
  * sem sair do esquema.
  */
-export default function SimulationDock({ onClose }: { onClose: () => void }) {
+export default function SimulationDock({ onClose, embedded = false }: { onClose?: () => void; embedded?: boolean }) {
   const components = useSimStore((s) => s.components)
   const selectedId = useSimStore((s) => (s.selectedComponentIds.length === 1 ? s.selectedComponentIds[0] : null))
   const activePlcId = useSimStore((s) => s.activePlcId)
@@ -34,15 +34,15 @@ export default function SimulationDock({ onClose }: { onClose: () => void }) {
   }).filter(Boolean) as Array<{ id: string; number: string; comment: string }>, [active, grafcet.steps])
 
   return (
-    <aside className="schematic-sim-dock" aria-label="Simulação" data-sim-dock-panel>
+    <section className={`schematic-sim-dock${embedded ? ' is-embedded' : ''}`} aria-label="Entradas e saídas" data-sim-signals-panel>
       <SidePanelHeader
         className="schematic-sim-dock-head"
-        eyebrow="ESQUEMA"
-        title="Simulação"
+        eyebrow={embedded ? 'SIMULAÇÃO' : 'ESQUEMA'}
+        title={embedded ? 'Entradas e saídas' : 'Simulação'}
         icon={<IconPlay size={16} />}
         side="right"
         detail={<span className={`schematic-sim-dock-state ${running ? 'is-running' : stopped ? '' : 'is-paused'}`}>{running ? 'RUN' : stopped ? 'STOP' : 'PAUSA'} · ciclo #{sim.scanCount}</span>}
-        actions={<button type="button" className="schematic-sim-dock-close" onClick={onClose} title="Fechar a simulação" aria-label="Fechar a simulação"><IconClose size={13} /></button>}
+        actions={onClose && <button type="button" className="schematic-sim-dock-close" onClick={onClose} title="Fechar a simulação" aria-label="Fechar a simulação"><IconClose size={13} /></button>}
       />
       <SimTransportControls
         running={running}
@@ -76,6 +76,6 @@ export default function SimulationDock({ onClose }: { onClose: () => void }) {
           </section>
         )}
       </div>
-    </aside>
+    </section>
   )
 }

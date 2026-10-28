@@ -46,6 +46,9 @@
 .schematic-view-shell[data-sim-dock="true"] { display:flex; }
 .schematic-view-shell[data-sim-dock="true"] > .schematic-canvas-area { flex:1 1 auto; width:auto; }
 .schematic-sim-dock { flex:0 0 312px; display:flex; flex-direction:column; min-height:0; border-left:1px solid #dbe4f0; background:#fbfcfe; }
+.mobile-grafcet-panel .schematic-sim-dock.is-embedded { flex:1 1 auto; min-width:0; width:100%; overflow:hidden; border:0; }
+.mobile-grafcet-panel .dc-dock-tabs { flex-shrink:0; }
+.mobile-grafcet-panel .dc-dock-tabs button { flex:1 1 auto; min-width:0; padding-inline:6px; white-space:nowrap; }
 .schematic-sim-dock-head { display:flex; align-items:center; gap:8px; padding:9px 10px 7px 12px; border-bottom:1px solid #e3e9f4; }
 .schematic-sim-dock-head.dc-side-panel-head { min-height:46px; }
 .schematic-sim-dock-head .dc-side-panel-copy { flex:1; min-width:0; }

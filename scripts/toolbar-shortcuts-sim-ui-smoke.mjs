@@ -19,10 +19,15 @@ await context.route('**/*', (route) => {
 })
 await context.addInitScript(() => {
   localStorage.removeItem('dcsimu:supabase:config:v1')
-  localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin')
   localStorage.setItem('dcsimu:ladder:status-open', '1')
   localStorage.setItem('dcsimu:schematic:sim-open', '0')
+  localStorage.setItem('dcsimu:workspace:view', 'schematic')
 })
+// Monta os componentes reais sem passar por contas, projetos remotos ou configuração Supabase.
+await context.route('**/__toolbar-fixture__', (route) => route.fulfill({
+  contentType: 'text/html',
+  body: '<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>',
+}))
 const page = await context.newPage()
 const errors = []
 const nativeDialogs = []
@@ -50,11 +55,36 @@ const expectShortcuts = async (view, text) => {
 
 try {
   if (output) await fs.mkdir(output, { recursive: true })
-  await page.goto(baseURL + '/dashboard')
-  await page.getByRole('button', { name: /(?:Novo|Criar) projeto/i }).first().click()
-  const create = page.getByRole('dialog', { name: 'Criar novo projeto' })
-  await create.getByRole('textbox', { name: 'Nome do projeto', exact: true }).fill('Barra e atalhos')
-  await create.getByRole('button', { name: 'Criar projeto', exact: true }).click()
+  await page.goto(baseURL + '/__toolbar-fixture__')
+  await page.evaluate(async () => {
+    const refresh = (await import('/@react-refresh')).default
+    refresh.injectIntoGlobalHook(window)
+    window.$RefreshReg$ = () => {}
+    window.$RefreshSig$ = () => (type) => type
+    window.__vite_plugin_react_preamble_installed__ = true
+    const main = await (await fetch('/src/main.tsx')).text()
+    const dependency = (name) => {
+      const match = main.match(new RegExp('"([^"\\n]*\\/' + name + '\\.js\\?v=[^"\\n]+)"'))
+      if (!match) throw new Error('Dependência Vite não encontrada: ' + name)
+      return match[1]
+    }
+    await Promise.all([...main.matchAll(/import "([^"\n]+\.css(?:\?[^"\n]*)?)"/g)].map((match) => import(match[1])))
+    const React = (await import(dependency('react'))).default
+    const ReactDOM = (await import(dependency('react-dom_client'))).default
+    const { BrowserRouter } = await import(dependency('react-router-dom'))
+    const { default: App } = await import('/src/App.tsx')
+    const { default: DialogHost } = await import('/src/ui/dialogs.tsx')
+    const { useSimStore } = await import('/src/store/useSimStore.ts')
+    const { usePlanStore } = await import('/src/saas/usePlan.ts')
+    usePlanStore.getState().set({ role: 'admin', plan: null })
+    useSimStore.getState().newProject()
+    useSimStore.getState().setCurrentProjectName('Barra e atalhos')
+    document.documentElement.style.height = '100%'
+    document.body.style.height = '100%'
+    document.getElementById('root').style.height = '100%'
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(BrowserRouter, null,
+      React.createElement(React.Fragment, null, React.createElement(App, { onBack: () => {} }), React.createElement(DialogHost))))
+  })
   await tabs().waitFor()
 
   // 1) Esquema: Atalhos, Simulação e folhas com nome editável no sítio
@@ -63,27 +93,49 @@ try {
   const schemSim = page.locator('[data-sim-toggle="schematic"]')
   check(await schemSim.count() === 1, 'Botão «Simulação» no Esquema')
   await schemSim.click()
-  await page.locator('[data-sim-dock-panel]').waitFor({ timeout: 8000 })
-  check(await schemSim.getAttribute('aria-pressed') === 'true', '«Simulação» abre o painel de simulação do Esquema')
+  const rightPanel = page.locator('.mobile-grafcet-panel')
+  const signals = rightPanel.locator('[data-sim-signals-panel]')
+  await signals.waitFor({ timeout: 8000 })
+  check(await schemSim.getAttribute('aria-pressed') === 'true', '«Simulação» abre Entradas/Saídas no painel do projeto')
+  check(await rightPanel.getByRole('tab', { name: 'Entradas/Saídas', exact: true }).getAttribute('aria-selected') === 'true', 'Separador Entradas/Saídas selecionado')
+  check(await page.locator('.schematic-canvas-area [data-sim-signals-panel], [data-sim-dock-panel]').count() === 0, 'O canvas já não tem um segundo painel de simulação')
   const canvasW = await page.locator('.schematic-canvas-area').evaluate((el) => el.getBoundingClientRect().width)
-  const dockBox = await page.locator('[data-sim-dock-panel]').boundingBox()
+  const dockBox = await rightPanel.boundingBox()
   await capture('esquema-simulacao')
-  check(dockBox && dockBox.width > 240 && canvasW > 300, `Painel ao lado da tela, sem a tapar (tela ${Math.round(canvasW)} px, painel ${Math.round(dockBox?.width ?? 0)} px)`)
-  await capture('esquema-simulacao')
-  await page.locator('[data-sim-dock-panel]').getByRole('button', { name: /RUN|Executar|Iniciar/i }).first().click()
-  await page.waitForFunction(async () => (await import('/src/store/useSimStore.ts')).useSimStore.getState().running === true, null, { timeout: 8000 })
+  check(dockBox && dockBox.width > 240 && canvasW > 300, `E/S no único painel direito (tela ${Math.round(canvasW)} px, painel ${Math.round(dockBox?.width ?? 0)} px)`)
+  await signals.locator('.vio-switch').first().click()
+  check(await sim((store) => Boolean(store.getState().runtime.table['I0.0'])), 'Entrada virtual funciona no separador integrado')
+  await signals.getByRole('button', { name: /RUN|Executar|Iniciar/i }).first().click()
+  await page.waitForFunction(async () => (await import('/src/store/useSimStore.ts')).useSimStore.getState().sim.runState === 'running', null, { timeout: 8000 })
   check(true, 'RUN no painel arranca a simulação')
-  await page.locator('[data-sim-dock-panel]').getByRole('button', { name: /Parar|STOP/i }).first().click()
+  await rightPanel.getByRole('tab', { name: 'GRAFCET', exact: true }).click()
+  check(await schemSim.getAttribute('aria-pressed') === 'false', 'Trocar para GRAFCET desativa o botão do separador E/S')
+  check(await sim((store) => store.getState().sim.runState === 'running'), 'Trocar de separador mantém a simulação em RUN')
+  await schemSim.click()
+  await signals.waitFor()
+  check(await sim((store) => store.getState().sim.runState === 'running'), 'Reabrir as E/S mantém o estado da simulação')
+  await signals.getByRole('button', { name: /Parar|STOP/i }).first().click()
 
   // 3D: o mesmo painel
   await page.getByRole('button', { name: 'Visualização 3D' }).first().click().catch(() => {})
   await page.waitForTimeout(1200)
-  check(await page.locator('[data-sim-dock-panel]').count() === 1, '«Simulação» mantém-se no Esquema 3D')
+  check(await signals.count() === 1, 'Entradas/Saídas mantém-se no painel do projeto em 3D')
   await capture('esquema3d-simulacao')
   await expectShortcuts('schematic', /Esquema 3D|Esquema 2D/)
   await schemSim.click()
-  await page.locator('[data-sim-dock-panel]').waitFor({ state: 'detached', timeout: 8000 })
-  check(true, '«Simulação» volta a esconder o painel')
+  await signals.waitFor({ state: 'detached', timeout: 8000 })
+  check(await schemSim.getAttribute('aria-pressed') === 'false', '«Simulação» recolhe o painel direito e desativa o botão')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await schemSim.click()
+  await signals.waitFor()
+  const mobileTabs = await rightPanel.locator('.dc-dock-tabs').evaluate((el) => ({ client: el.clientWidth, scroll: el.scrollWidth }))
+  check(mobileTabs.scroll <= mobileTabs.client, 'Os três separadores cabem na gaveta do telemóvel')
+  await capture('esquema3d-sinais-mobile')
+  await page.keyboard.press('Escape')
+  await signals.waitFor({ state: 'detached' })
+  check(await schemSim.getAttribute('aria-pressed') === 'false', 'Escape fecha a gaveta E/S e atualiza o botão')
+  await page.setViewportSize({ width: 1440, height: 1000 })
 
   // 2) Ladder: Compilar na barra, Simulação = painel de baixo, Atalhos
   await openView('Ladder')

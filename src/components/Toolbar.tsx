@@ -133,11 +133,12 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
   )
 }
 
-export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder', 'grafcet', 'monitor'], ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects, demo = false, onEnterEditor }: { mode: ViewMode; setMode: (m: ViewMode) => void; views?: ViewMode[]; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void; /** Modo demonstração (landing): só vistas + controlos de simulação; sem ações de ficheiro nem de edição. */ demo?: boolean; /** CTA da demonstração para abrir o editor completo (autenticação). */ onEnterEditor?: () => void }) {
+export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder', 'grafcet', 'monitor'], ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects, schematicSimPanelOn = false, onToggleSchematicSim, demo = false, onEnterEditor }: { mode: ViewMode; setMode: (m: ViewMode) => void; views?: ViewMode[]; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void; schematicSimPanelOn?: boolean; onToggleSchematicSim?: () => void; /** Modo demonstração (landing): só vistas + controlos de simulação; sem ações de ficheiro nem de edição. */ demo?: boolean; /** CTA da demonstração para abrir o editor completo (autenticação). */ onEnterEditor?: () => void }) {
   const [clean, setClean] = useCleanMode()
   const [grafcetMoreOpen, setGrafcetMoreOpen] = useState(false)
   const [monitorHelp, setMonitorHelp] = useState(false)
-  const simPanelOn = useSimUi((s) => (mode === 'schematic' ? s.schematic : mode === 'ladder' ? s.ladder : false))
+  const ladderSimPanelOn = useSimUi((s) => s.ladder)
+  const simPanelOn = mode === 'schematic' ? schematicSimPanelOn : mode === 'ladder' && ladderSimPanelOn
   const compileState = useLadderUi((s) => s.compileState)
   const compileLabel = useLadderUi((s) => s.compileLabel)
   const [componentTableOpen, setComponentTableOpen] = useState(false)
@@ -468,10 +469,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         {(mode === 'schematic' || mode === 'ladder') && (
           <>
             <span className="tb-sep" />
-            <SimToggleButton on={simPanelOn} scope={mode} onClick={() => useSimUi.getState().toggleSimPanel(mode)}
+            <SimToggleButton on={simPanelOn} scope={mode} onClick={() => mode === 'schematic' ? onToggleSchematicSim?.() : useSimUi.getState().toggleSimPanel('ladder')}
               title={mode === 'ladder'
                 ? (simPanelOn ? 'Fechar a simulação (E/S, sinais do PLC, memórias, compilação)' : 'Abrir a simulação: pode acionar entradas e dispositivos; Run inicia a execução contínua')
-                : (simPanelOn ? 'Fechar o modo de simulação' : 'Simular: acionar dispositivos e entradas; Run inicia a execução contínua')} />
+                : (simPanelOn ? 'Recolher as entradas e saídas' : 'Abrir entradas e saídas no painel do projeto; Run inicia a execução contínua')} />
             {mode === 'ladder' && (
               <button type="button" className={`dc-tool-btn ladder-compile-tb !gap-1.5 ${compileState === 'none' ? '' : `is-${compileState === 'warning' ? 'ok' : compileState}`}`} data-compile data-compile-state={compileState}
                 onClick={() => useLadderUi.getState().emit('compile')}

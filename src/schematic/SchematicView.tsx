@@ -1,4 +1,3 @@
-import SimulationDock from '../components/SimulationDock'
 import { useCanvasAction, useSimUi } from '../ui/simUi'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -68,8 +67,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   }, [placingType, canvasMode, chooseMode])
 
   const can3D = useCan('view3d')
-  const simOpen = useSimUi((state) => state.schematic)
-  return <div className="schematic-view-shell" data-canvas-mode={canvasMode} data-sim-dock={simOpen ? 'true' : undefined}>
+  return <div className="schematic-view-shell" data-canvas-mode={canvasMode}>
     <div className="schematic-canvas-area">
     {canvasMode === '3d' && !can3D
       ? <PlanLocked feature="view3d" />
@@ -89,7 +87,6 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
       {canvasMode === '3d' && <span><i />Sincronizado</span>}
     </div>
     </div>
-    {simOpen && <SimulationDock onClose={() => useSimUi.getState().setSimPanel('schematic', false)} />}
   </div>
 }
 
