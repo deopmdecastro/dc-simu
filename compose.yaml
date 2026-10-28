@@ -1,6 +1,9 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        APP_BUILD_COMMIT: ${APP_BUILD_COMMIT:-}
     ports:
       - "3000:3000"
     environment:

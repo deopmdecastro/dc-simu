@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 
 function gitCommit() {
   if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA
+  if (process.env.APP_BUILD_COMMIT) return process.env.APP_BUILD_COMMIT
   try {
     return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
   } catch {

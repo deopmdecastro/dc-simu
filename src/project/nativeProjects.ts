@@ -93,7 +93,6 @@ export function buildNativeGrafcet(): GrafcetProgram {
   ]
   const pos = autoLayout(steps, transitions)
   return {
-    id: 'native-grafcet-partida',
     name: 'Partida direta com selo',
     steps: steps.map((step) => {
       const at = pos.get(step.id)

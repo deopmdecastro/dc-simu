@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useCallback, type PointerEvent as ReactPointerEvent } from 'react'
 import { IconPlay } from '../ui/icons'
 import { SPINE_X, START_Y, STEP_H } from '../grafcet/layout'
-import type { GrafcetStep } from '../grafcet/engine'
+import { transitionsOf, type GrafcetStep } from '../grafcet/engine'
 import { buildNativeGrafcet, NATIVE_PARTIDA_NAME } from '../project/nativeProjects'
 import '../styles/grafcet-editor.css'
 
@@ -163,7 +163,7 @@ export default function LandingGrafcetDemo({
             </defs>
 
             {/* Transições — barra + condição */}
-            {program.transitions.map((tr, index) => {
+            {transitionsOf(program).map((tr, index) => {
               const from = program.steps.find((s) => s.id === tr.from[0])
               if (!from) return null
               const p = stepPos(from)
