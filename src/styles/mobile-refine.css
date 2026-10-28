@@ -174,7 +174,10 @@
   .dc-btn:hover:not(:disabled), .dc-tool-btn:hover:not(:disabled) { transform: none; }
 }
 
-/* ===== 9. GRAFCET: componentes como painel lateral (≤1199 px) =====
+/* ===== 9. GRAFCET: componentes como gaveta lateral (≤1199 px, telemóvel incluído) =====
+   Igual ao Ladder: gaveta de min(320px, 88%) por cima do diagrama, cortina que fecha ao toque
+   e cabeçalho com a seta de recolher sempre visível. Nunca folha de ecrã inteiro: ficava por
+   baixo da barra do projeto e escondia o botão de recolher.
    Antes: botão «Componentes» na barra + modal ao centro. Agora, como no Ladder:
    régua fina à esquerda (reabre com um toque) e folha lateral por cima do diagrama.
    O botão sai da barra de ferramentas; Ctrl+B continua a funcionar. */
@@ -192,21 +195,13 @@
     box-shadow: 8px 0 28px -10px rgba(15, 23, 42, .35);
     animation: mr-sheet-in-left .18s ease-out;
   }
-  .grafcet-full .grafcet-toolbox-list { overscroll-behavior: contain; }
+  .grafcet-full .grafcet-toolbox-list { overscroll-behavior: contain; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  /* a gaveta tem ≤ 320 px: uma coluna e sem o texto de ajuda (como a gaveta de Elementos do Ladder) */
+  .grafcet-full .grafcet-toolbox-list section { grid-template-columns: 1fr; }
+  .grafcet-full .grafcet-toolbox-tip { display: none; }
 }
 @keyframes mr-sheet-in-left { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .grafcet-designer.grafcet-full .grafcet-toolbox { animation: none; } }
-
-/* GRAFCET ≤720 px: igual à Biblioteca do Esquema — folha de ecrã inteiro (.dc-mobile-fullscreen-panel). */
-@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
-  .grafcet-designer.grafcet-full .grafcet-toolbox {
-    position: fixed; inset: 0; width: 100%; max-width: none; height: 100%;
-    border: 0; border-radius: 0; box-shadow: none; z-index: 80; animation: none;
-    background: var(--color-surface-panel, #fff);
-  }
-  .grafcet-full .grafcet-toolbox-backdrop { display: none; }
-  .grafcet-full .grafcet-toolbox-list { padding-bottom: 8px; }
-}
 
 /* ===== 10. Administração: Registos, Planos e Componentes (mobile + desktop) =====
    Capturas 2026-10-28: campos de data a sair do cartão, linhas de registo com colunas
