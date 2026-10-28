@@ -2420,7 +2420,7 @@ html:has(.dx-landing) {
   width: 100%;
   align-self: stretch;
   min-width: 0;
-  height: clamp(300px, 33vw, 540px);
+  height: clamp(340px, 38vw, 620px);
   border-radius: 18px;
   overflow: hidden;
   contain: layout paint;

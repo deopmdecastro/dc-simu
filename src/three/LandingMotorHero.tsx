@@ -1,5 +1,5 @@
 import { Canvas, useThree } from '@react-three/fiber'
-import { ContactShadows, Environment, Lightformer, OrbitControls, useGLTF } from '@react-three/drei'
+import { ContactShadows, Environment, Lightformer, OrbitControls, PerformanceMonitor, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { ComponentType } from '../types'
@@ -23,7 +23,7 @@ import MotorShaftFan3D from './MotorShaftFan3D'
 /** Direção isométrica (do alvo para a câmara): 45° em azimute, ~35,3° de elevação. */
 const ISO_DIR = new THREE.Vector3(1, 0.82, 1).normalize()
 /** Fração da altura útil que o motor ocupa (bounding sphere); o resto é respiro. */
-const FILL = 0.6
+const FILL = 0.74
 
 function FitIsoCamera({ box }: { box: THREE.Box3 }) {
   const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera
@@ -94,7 +94,7 @@ function MotorRunning() {
         </group>
       </group>
       <FitIsoCamera box={fan.box} />
-      <ContactShadows position={[center.x, fan.box.min.y - 0.005, center.z]} opacity={0.38} scale={Math.max(size.x, size.z) * 3} blur={2.6} far={Math.max(size.y, 0.2) * 1.6} resolution={128} />
+      <ContactShadows position={[center.x, fan.box.min.y - 0.005, center.z]} opacity={0.38} scale={Math.max(size.x, size.z) * 3} blur={2.6} far={Math.max(size.y, 0.2) * 1.6} resolution={256} frames={1} />
     </>
   )
 }
@@ -115,6 +115,8 @@ function StudioEnvironment() {
 export default function LandingMotorHero() {
   const hostRef = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(true)
+  // Resolução adaptativa: sobe a 1,5 em máquinas folgadas e desce a 1 se o FPS cair.
+  const [dpr, setDpr] = useState(1.25)
 
   // Sem render fora do ecrã: poupa GPU/bateria enquanto o utilizador lê o resto da página.
   useEffect(() => {
@@ -129,10 +131,11 @@ export default function LandingMotorHero() {
     <div ref={hostRef} className="dx-motor-hero" role="img" aria-label="Motor SEW DRN80MK4 em 3D com a ventoinha do veio a rodar; arraste para girar a vista">
       <Canvas
         frameloop={active ? 'always' : 'never'}
-        dpr={[1, 1.25]}
-        gl={{ antialias: true, powerPreference: 'low-power' }}
+        dpr={dpr}
+        gl={{ antialias: true, powerPreference: 'default', stencil: false }}
         camera={{ position: [2, 1.6, 2], fov: 30, near: 0.05, far: 40 }}
       >
+        <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(1.5)} flipflops={2} onFallback={() => setDpr(1)} />
         <ambientLight intensity={0.5} />
         <directionalLight position={[3.5, 5, 3.5]} intensity={0.9} />
         <Suspense fallback={null}>
