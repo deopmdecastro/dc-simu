@@ -1,0 +1,63 @@
+/* HEADER-REFINE-01 — cabeçalho do projeto e barras do editor: alturas únicas, sem controlos cortados,
+   área segura (entalhe/barra do Safari) e prioridade ao nome do projeto. Carrega por último. */
+:root {
+  --hdr-h: 48px;
+  --hdr-ctl: 34px;
+  --hdr-gap: 8px;
+  --hdr-safe-top: env(safe-area-inset-top, 0px);
+  --hdr-total: calc(var(--hdr-h) + var(--hdr-safe-top));
+}
+
+.account-bar {
+  box-sizing: border-box;
+  height: var(--hdr-total) !important;
+  padding-top: var(--hdr-safe-top) !important;
+  padding-inline: max(14px, env(safe-area-inset-left, 0px)) max(14px, env(safe-area-inset-right, 0px)) !important;
+  gap: 10px !important;
+  overflow: visible;
+}
+.dx-editor-in { height: calc(100vh - var(--hdr-total)); height: calc(100dvh - var(--hdr-total)); }
+
+.account-bar-actions { gap: var(--hdr-gap); min-width: 0; flex: 0 0 auto; }
+.account-bar .account-project-action {
+  box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: var(--hdr-ctl); min-width: var(--hdr-ctl); line-height: 1;
+}
+.account-bar .account-project-action svg { flex: 0 0 auto; }
+.account-bar .dx-account-controls { gap: var(--hdr-gap); }
+.account-bar .dx-account-icon,
+.account-bar .dx-account-trigger { box-sizing: border-box; height: var(--hdr-ctl); min-width: var(--hdr-ctl); }
+.account-bar .dx-account-icon { width: var(--hdr-ctl); display: inline-grid; place-items: center; border-radius: 9px; }
+
+/* O nome do projeto cede só depois de tudo o resto. */
+.account-bar .dx-project-context { min-width: 0; flex: 1 1 auto; }
+.account-bar .dx-project-context strong,
+.account-bar .dx-project-rename strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+/* Menu da conta: «Gerir conta» em destaque, alvos confortáveis. */
+.dx-profile-menu nav button.is-primary { font-weight: 650; color: var(--dx-brand-700); background: var(--dx-brand-soft); }
+.dx-profile-menu nav button { min-height: 40px; }
+
+/* Barras do editor: botão «Ficheiro» (ecrãs estreitos) alinhado com o resto. */
+.dc-toolbar-main .dc-file-menu { flex: 0 0 auto; }
+.dc-toolbar-main .dc-file-menu > button { min-height: var(--toolbar-control-height, 30px); gap: 6px; font-weight: 600; }
+
+@media (max-width: 720px) {
+  :root { --hdr-h: 52px; --hdr-ctl: 38px; --hdr-gap: 6px; }
+  .account-bar { gap: 8px !important; padding-inline: max(10px, env(safe-area-inset-left, 0px)) max(10px, env(safe-area-inset-right, 0px)) !important; }
+  .account-bar .dx-bar-sep, .account-bar .dx-bar-msg { display: none; }
+  .account-bar .account-action-text { display: none; }
+  .account-bar .account-project-action { padding: 0 !important; width: var(--hdr-ctl); }
+  .account-bar .account-project-action.dx-bar-primary { width: auto; padding: 0 14px !important; }
+  .account-bar .dx-account-trigger-copy { display: none; }
+  .account-bar .dx-account-trigger { padding: 0 !important; width: var(--hdr-ctl); justify-content: center; border-radius: 50%; }
+  .account-bar .dx-project-context small { display: none; } /* o estado de gravação já vive no botão e nas notificações */
+  .dc-toolbar-main { padding-inline: max(8px, env(safe-area-inset-left, 0px)) !important; }
+}
+@media (max-width: 420px) {
+  .account-bar .dx-logo-text, .account-bar .dx-brand-name { display: none; } /* ícone da marca fica; o nome do projeto ganha a largura */
+}
+@media (pointer: coarse) {
+  .dc-toolbar-main .dc-tool-btn, .dc-toolbar-row2 .dc-tool-btn { min-height: 36px; }
+}

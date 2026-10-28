@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Invite, User } from '../dashboard/Dashboard'
-import { IconBell, IconChevronRight, IconCube, IconLogout, IconProjects, IconShield, IconUser } from '../ui/icons'
+import { IconAccount, IconBell, IconChevronRight, IconCube, IconKey, IconLogout, IconProjects, IconShield, IconUser } from '../ui/icons'
+import Avatar from '../ui/Avatar'
 import SupabaseModal from './SupabaseModal'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
 import N8nModal from './N8nModal'
@@ -12,19 +13,16 @@ import ChangePasswordModal from './ChangePasswordModal'
 type AccountControlsProps = {
   user: User
   invites: Invite[]
-  context: 'dashboard' | 'editor' | 'admin' | 'contribute'
+  context: 'dashboard' | 'editor' | 'admin' | 'contribute' | 'account'
   dirty?: boolean
   errors?: number
   warnings?: number
   onProjects?: () => void
   onAdmin?: () => void
   onContribute?: () => void
+  onAccount?: () => void
   onLogout: () => void
   onOpenInvites?: () => void
-}
-
-function initials(name: string) {
-  return name.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('') || 'U'
 }
 
 /** Avatar e centro de notificações partilhados pelo Dashboard e pelo simulador. */
@@ -38,6 +36,7 @@ export default function AccountControls({
   onProjects,
   onAdmin,
   onContribute,
+  onAccount,
   onLogout,
   onOpenInvites,
 }: AccountControlsProps) {
@@ -128,21 +127,22 @@ export default function AccountControls({
         aria-haspopup="dialog"
         aria-expanded={open === 'profile'}
       >
-        <span className="dx-avatar">{initials(user.name)}</span>
+        <Avatar name={user.name} email={user.email} src={user.avatar} size="sm" className="dx-account-avatar" />
         <span className="dx-account-trigger-copy"><strong>{user.name}</strong><small>{user.role === 'admin' ? 'Administrador' : 'Utilizador'}</small></span>
       </button>
       {open === 'profile' && <section className="dx-account-popover dx-profile-menu" aria-label="Menu da conta">
         <header>
-          <span className="dx-avatar is-large">{initials(user.name)}</span>
+          <Avatar name={user.name} email={user.email} src={user.avatar} size="md" />
           <span><strong>{user.name}</strong><small>{user.email}</small></span>
         </header>
         <div className="dx-profile-role"><IconShield size={13} />{user.role === 'admin' ? 'Conta de administrador' : 'Conta de utilizador'}</div>
         <nav>
+          {onAccount && context !== 'account' && <button type="button" className="is-primary" onClick={() => { setOpen(null); onAccount() }}><IconAccount size={15} /><span>Gerir conta</span><IconChevronRight size={13} /></button>}
           {onProjects && context !== 'dashboard' && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Os meus projetos</span><IconChevronRight size={13} /></button>}
           {onContribute && context !== 'contribute' && <button type="button" onClick={() => { setOpen(null); onContribute() }}><IconCube size={15} /><span>Contribuir (datasheets e 3D)</span><IconChevronRight size={13} /></button>}
           {onAdmin && user.role === 'admin' && context !== 'admin' && <button type="button" onClick={() => { setOpen(null); onAdmin() }}><IconShield size={15} /><span>Administração</span><IconChevronRight size={13} /></button>}
-          {['server', 'supabase'].includes(activeAccountBackend()) && <button type="button" onClick={() => { setOpen(null); setShowPassword(true) }}><IconShield size={15} /><span>Alterar palavra-passe</span><IconChevronRight size={13} /></button>}
-          {(context === 'admin' || context === 'contribute') && onProjects && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Voltar aos projetos</span><IconChevronRight size={13} /></button>}
+          {['server', 'supabase'].includes(activeAccountBackend()) && <button type="button" onClick={() => { setOpen(null); setShowPassword(true) }}><IconKey size={15} /><span>Alterar palavra-passe</span><IconChevronRight size={13} /></button>}
+          {(context === 'admin' || context === 'contribute' || context === 'account') && onProjects && <button type="button" onClick={showProjects}><IconProjects size={15} /><span>Voltar aos projetos</span><IconChevronRight size={13} /></button>}
           <button type="button" onClick={() => { setOpen(null); setShowSupabase(true) }}>
             <span style={{ display: 'inline-flex', flex: '0 0 auto', width: '15px', justifyContent: 'center', opacity: isSupabaseConfigured() ? 1 : 0.45 }}>
               <SupabaseLogo size={15} title="" />

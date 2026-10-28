@@ -78,9 +78,33 @@ function contributionCount() {
 
 const LOCAL_ONLY = 'Esta operação só está disponível quando a aplicação corre com o servidor (Docker/SQLite). Sem servidor existem apenas as duas contas fixas.'
 
+const PROFILE_KEY = 'dcsimu:account:profile:v1'
+type LocalProfile = { name?: string; avatar?: string | null }
+
+function readProfiles(): Record<string, LocalProfile> {
+  try { return JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}') as Record<string, LocalProfile> } catch { return {} }
+}
+
+/** Contas locais são fixas (e-mail e palavra-passe não mudam); nome e avatar ficam só neste navegador. */
+export function updateLocalProfile(userId: string, change: LocalProfile): User {
+  const account = accountById(userId)
+  if (!account) throw new Error('Conta não encontrada')
+  const all = readProfiles()
+  const next: LocalProfile = { ...all[userId] }
+  if (change.name !== undefined) {
+    const name = change.name.trim().replace(/\s+/g, ' ')
+    if (name.length < 2 || name.length > 80) throw new Error('O nome deve ter entre 2 e 80 caracteres')
+    next.name = name
+  }
+  if (change.avatar !== undefined) next.avatar = change.avatar
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify({ ...all, [userId]: next })) } catch { throw new Error('Não foi possível guardar neste navegador. Verifique o espaço disponível.') }
+  return publicUser(account)
+}
+
 function publicUser(account: Account): User {
   const record = localPlanRecord(account.id)
-  return { id: account.id, name: account.name, email: account.email, role: account.role, plan: record.plan, planExpiresAt: record.planExpiresAt }
+  const profile = readProfiles()[account.id] ?? {}
+  return { id: account.id, name: profile.name || account.name, email: account.email, role: account.role, avatar: profile.avatar ?? null, plan: record.plan, planExpiresAt: record.planExpiresAt }
 }
 
 function accountById(id: string) {
@@ -310,6 +334,14 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
 
   if (url === '/register') throw new Error('O registo está desativado. Utilize uma das duas contas autorizadas.')
   if (url === '/me' && verb === 'GET') return { user: requireSession() } as T
+  if (url === '/account/profile' && verb === 'PATCH') {
+    const current = requireSession()
+    const change = (body ?? {}) as { name?: string; email?: string; avatar?: string | null }
+    if (change.email !== undefined && change.email.trim().toLowerCase() !== current.email) throw new Error('As contas locais são fixas: o e-mail só muda com o servidor ou o Supabase ligados.')
+    const user = updateLocalProfile(current.id, { name: change.name, avatar: change.avatar })
+    recordLocalAudit(user, 'user.profile.self', { type: 'user', id: user.id, label: user.email }, 'Atualizou o perfil local')
+    return { user } as T
+  }
   if (url === '/logout' && verb === 'POST') {
     const leaving = requireSession()
     recordLocalAudit(leaving, 'logout', { type: 'user', id: leaving.id, label: leaving.email })

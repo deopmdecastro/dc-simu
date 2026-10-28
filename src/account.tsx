@@ -28,6 +28,7 @@ const Landing = lazy(() => import('./landing/Landing'))
 const Dashboard = lazy(() => import('./dashboard/Dashboard'))
 const AdminPanel = lazy(() => import('./admin/AdminPanel'))
 const ContributorPanel = lazy(() => import('./contrib/ContributorPanel'))
+const AccountPage = lazy(() => import('./components/AccountPage'))
 
 type Open = { id: string; name: string; revision: number; role?: 'owner' | 'editor' }
 
@@ -50,6 +51,7 @@ export default function Account() {
         : next === 'dashboard' ? ROUTES.dashboard
           : next === 'admin' ? ROUTES.admin
             : next === 'contribute' ? ROUTES.contribute
+              : next === 'account' ? ROUTES.account
               : openRef.current ? ROUTES.editor(openRef.current.id) : ROUTES.dashboard
     navigate(target)
   }, [navigate])
@@ -293,6 +295,11 @@ export default function Account() {
     window.setTimeout(() => document.getElementById('dashboard-invites')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80)
   }
 
+  async function openAccount() {
+    if (page === 'editor' && !(await leave())) return
+    setPage('account')
+  }
+
   async function invite(id: string, email: string) {
     await api(`/projects/${id}/invitations`, 'POST', { email })
     setMessage('Convite enviado dentro da aplicação.')
@@ -370,10 +377,10 @@ export default function Account() {
       </button>
       <button className="account-project-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
       {user && <AccountControls user={user} invites={invites} context="editor" dirty={editorDirty}
-        errors={notificationErrors} warnings={notificationWarnings} onProjects={() => void leave()}
+        errors={notificationErrors} warnings={notificationWarnings} onProjects={() => void leave()} onAccount={() => void openAccount()}
         onOpenInvites={() => void openInvitations()} onLogout={() => void logout()} />}
     </>} />
-    <div className="dx-editor-in" style={{ height: 'calc(100vh - 42px)' }}>
+    <div className="dx-editor-in">
       <Suspense fallback={<RouteLoading label={loadingLabel} />}><App onBack={() => void leave()} /></Suspense>
       {commentsOpen && user && <ProjectComments key={open.id} projectId={open.id} projectName={open.name} projectRole={open.role ?? 'owner'} viewer={user} onClose={() => setCommentsOpen(false)} onCount={setCommentCount} />}
     </div>
@@ -385,13 +392,14 @@ export default function Account() {
 
   return <main className="account-shell dx">
     {page !== 'login' && user && <AppTopbar user={user} invites={invites}
-      section={page === 'admin' ? 'admin' : page === 'contribute' ? 'contribute' : 'dashboard'}
+      section={page === 'admin' ? 'admin' : page === 'contribute' ? 'contribute' : page === 'account' ? 'account' : 'dashboard'}
       onProjects={() => setPage('dashboard')} onAdmin={() => setPage('admin')}
-      onContribute={() => setPage('contribute')} onInvites={() => void openInvitations()}
+      onContribute={() => setPage('contribute')} onAccount={() => void openAccount()} onInvites={() => void openInvitations()}
       onLogout={() => void logout()} />}
     {page === 'login' && <AuthScreen form={form} setForm={setForm} busy={busy} message={message} clearMessage={() => setMessage('')} onSubmit={authenticate} onHome={() => { setMessage(''); setPage('landing') }} />}
     {page === 'admin' && user?.role === 'admin' && <Suspense fallback={<RouteLoading label={loadingLabel} />}><AdminPanel currentUser={user} invites={invites} onLogout={() => void logout()} onBack={() => setPage('dashboard')} /></Suspense>}
     {page === 'contribute' && user && <Suspense fallback={<RouteLoading label={loadingLabel} />}><ContributorPanel user={user} onBack={() => setPage('dashboard')} /></Suspense>}
+    {page === 'account' && user && <Suspense fallback={<RouteLoading label={loadingLabel} />}><AccountPage user={user} ownedProjects={projects.filter((project) => project.role === 'owner').length} onUser={setUser} onBack={() => setPage('dashboard')} /></Suspense>}
     {page === 'dashboard' && <Suspense fallback={<RouteLoading label={loadingLabel} />}><Dashboard user={user} projects={projects} invites={invites} loading={!loaded} onCreate={create} onOpen={load} onInvite={invite} onReply={reply} onDelete={remove} fetchMembers={fetchMembers} /></Suspense>}
     {message && page !== 'login' && <div className="dx-toast" role="status">{message}<button onClick={() => setMessage('')} aria-label="Fechar"><IconClose size={11} /></button></div>}
   </main>
@@ -404,6 +412,7 @@ function pageLoadingLabel(page: AppPage): string {
     case 'editor': return 'A carregar o editor…'
     case 'admin': return 'A carregar a administração…'
     case 'contribute': return 'A carregar a área de contribuição…'
+    case 'account': return 'A carregar a sua conta…'
     case 'dashboard': return 'A preparar os seus projetos…'
   }
 }

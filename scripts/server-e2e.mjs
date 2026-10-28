@@ -91,6 +91,22 @@ try {
   check('palavra-passe anterior deixa de funcionar', (await new Client().login('user@dcsimu.local', 'UserSeed2026!Secure')).status === 401)
   check('palavra-passe nova permite iniciar sessão', (await new Client().login('user@dcsimu.local', 'UserRotated2026!Secure')).status === 200)
   {
+    // Perfil do criador (ACCOUNT-PAGE-01): nome, avatar e e-mail com confirmação da palavra-passe.
+    const pass = 'UserRotated2026!Secure'
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+    check('perfil: nome muda e aparece em /me', (await user.call('PATCH', '/account/profile', { name: '  Criador   Teste ' })).status === 200 && (await user.call('GET', '/me')).data.user.name === 'Criador Teste')
+    check('perfil: nome curto é recusado', (await user.call('PATCH', '/account/profile', { name: 'A' })).status === 400)
+    check('perfil: avatar PNG é aceite e devolvido', (await user.call('PATCH', '/account/profile', { avatar: png })).status === 200 && (await user.call('GET', '/me')).data.user.avatar === png)
+    check('perfil: avatar que não é imagem raster é recusado', (await user.call('PATCH', '/account/profile', { avatar: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=' })).status === 400 && (await user.call('PATCH', '/account/profile', { avatar: 'https://exemplo.pt/a.png' })).status === 400)
+    check('perfil: avatar removido volta a null', (await user.call('PATCH', '/account/profile', { avatar: null })).status === 200 && (await user.call('GET', '/me')).data.user.avatar === null)
+    check('perfil: e-mail inválido é recusado', (await user.call('PATCH', '/account/profile', { email: 'sem-arroba' })).status === 400)
+    check('perfil: mudar e-mail exige a palavra-passe atual', (await user.call('PATCH', '/account/profile', { email: 'novo@exemplo.pt' })).status === 401 && (await user.call('PATCH', '/account/profile', { email: 'novo@exemplo.pt', currentPassword: 'errada' })).status === 401)
+    check('perfil: e-mail já em uso é recusado', (await user.call('PATCH', '/account/profile', { email: 'admin@dcsimu.local', currentPassword: pass })).status === 409)
+    check('perfil: e-mail muda com a palavra-passe e o login segue o novo', (await user.call('PATCH', '/account/profile', { email: 'novo@exemplo.pt', currentPassword: pass })).status === 200 && (await new Client().login('novo@exemplo.pt', pass)).status === 200 && (await new Client().login('user@dcsimu.local', pass)).status === 401)
+    check('perfil: e-mail volta ao original (testes seguintes)', (await user.call('PATCH', '/account/profile', { email: 'user@dcsimu.local', currentPassword: pass })).status === 200 && (await new Client().login('user@dcsimu.local', pass)).status === 200)
+    check('perfil: sem sessão é recusado', (await new Client().call('PATCH', '/account/profile', { name: 'Intruso' })).status === 401)
+  }
+  {
     const profile = { name: 'Meu perfil', category: 'Proteção', description: 'teste', specs: [{ label: '1', name: 'Entrada', fn: 'L', kind: 'power-in', polarity: 'ac', electricalClass: 'ac', direction: 'in', terminalType: 'screw', color: '#92400e', face: 'top' }] }
     check('perfis de bornes: utilizador não grava', (await user.call('PUT', '/admin/terminal-profiles/p_teste1', profile)).status === 403)
     check('perfis de bornes: admin grava', (await admin.call('PUT', '/admin/terminal-profiles/p_teste1', profile)).status === 200)

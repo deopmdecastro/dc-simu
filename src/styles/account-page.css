@@ -1,0 +1,33 @@
+/* ACCOUNT-PAGE-01 — página de gestão da conta. Só tokens --dx-*; sem barras laterais de destaque. */
+.acp { width: min(1040px, 100%); margin: 0 auto; padding: 24px 20px 48px; display: grid; gap: 20px; }
+.acp-head { display: flex; align-items: center; gap: 14px; }
+.acp-back { flex: 0 0 auto; gap: 6px; }
+.acp-title h1 { margin: 0; font-size: 22px; line-height: 1.2; color: var(--dx-ink); }
+.acp-title p { margin: 2px 0 0; font-size: 13px; color: var(--dx-ink-3); }
+.acp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.acp-card { display: grid; gap: 14px; padding: 18px; background: var(--dx-surface); border: 1px solid var(--dx-line); border-radius: 12px; min-width: 0; }
+.acp-card h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 700; color: var(--dx-ink); }
+.acp-card h2 svg { color: var(--dx-brand); }
+.acp-plan { grid-column: 1 / -1; }
+.acp-plan .dx-plan-card { margin: 0; box-shadow: none; }
+.acp-avatar-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.acp-avatar.ui-avatar { width: 72px; height: 72px; font-size: 24px; flex: 0 0 auto; }
+.acp-avatar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.acp-field { display: grid; gap: 6px; }
+.acp-field > span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; color: var(--dx-ink-2); }
+.acp-hint { font-size: 11.5px; line-height: 1.45; color: var(--dx-ink-3); }
+.acp-text { margin: 0; font-size: 13px; line-height: 1.5; color: var(--dx-ink-2); }
+.acp-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.acp-notice { margin: 0; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; }
+.acp-notice.is-error { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+
+@media (max-width: 760px) {
+  .acp { padding: 16px 12px 40px; gap: 14px; }
+  .acp-grid { grid-template-columns: minmax(0, 1fr); }
+  .acp-card { padding: 14px; }
+  .acp-title h1 { font-size: 19px; }
+  .acp-back span { display: none; }
+  .acp-back { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  .acp-actions .dx-btn, .acp-avatar-actions .dx-btn { min-height: 44px; flex: 1 1 auto; justify-content: center; }
+  .acp-field .dx-input { min-height: 44px; font-size: 16px; } /* 16 px evita o zoom automático do iOS */
+}

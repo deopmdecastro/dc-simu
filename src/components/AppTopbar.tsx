@@ -4,13 +4,14 @@ import Logo from '../ui/Brand'
 import { IconEdit } from '../ui/icons'
 import AccountControls from './AccountControls'
 
-export function AppTopbar({ user, invites, section, onProjects, onAdmin, onContribute, onInvites, onLogout }: {
+export function AppTopbar({ user, invites, section, onProjects, onAdmin, onContribute, onAccount, onInvites, onLogout }: {
   user: User
   invites: Invite[]
-  section: 'dashboard' | 'admin' | 'contribute'
+  section: 'dashboard' | 'admin' | 'contribute' | 'account'
   onProjects: () => void
   onAdmin: () => void
   onContribute: () => void
+  onAccount: () => void
   onInvites: () => void
   onLogout: () => void
 }) {
@@ -22,7 +23,7 @@ export function AppTopbar({ user, invites, section, onProjects, onAdmin, onContr
       <AccountControls user={user} invites={invites} context={section}
         onProjects={section !== 'dashboard' ? onProjects : undefined}
         onAdmin={user.role === 'admin' ? onAdmin : undefined}
-        onContribute={onContribute} onOpenInvites={onInvites} onLogout={onLogout} />
+        onContribute={onContribute} onAccount={onAccount} onOpenInvites={onInvites} onLogout={onLogout} />
     </div>
   </header>
 }

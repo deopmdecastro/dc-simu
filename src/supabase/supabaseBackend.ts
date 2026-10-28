@@ -69,6 +69,7 @@ export async function supabaseGetCurrentUser(): Promise<User | null> {
       email: user.email ?? '',
       name,
       role,
+      avatar: typeof metadata.avatar === 'string' ? metadata.avatar : null,
     }
   } catch (error) {
     if (error instanceof BlockedAccountError) return null
@@ -80,6 +81,34 @@ export async function supabaseGetCurrentUser(): Promise<User | null> {
 export async function supabaseChangePassword(password: string): Promise<void> {
   const { error } = await clientOrThrow().auth.updateUser({ password })
   if (error) throw new Error(error.message || 'Não foi possível alterar a palavra-passe no Supabase.')
+}
+
+/** Atualiza nome, avatar e/ou e-mail da conta Supabase. O e-mail novo pode exigir confirmação por ligação. */
+export async function supabaseUpdateProfile(change: { name?: string; email?: string; avatar?: string | null }): Promise<{ user: User; emailPending: boolean }> {
+  const client = clientOrThrow()
+  const { data: current } = await client.auth.getUser()
+  if (!current.user) throw new Error('Inicie sessão')
+  const data: Record<string, unknown> = {}
+  if (change.name !== undefined) data.name = change.name
+  if (change.avatar !== undefined) {
+    // Os metadados seguem no JWT de cada pedido: só miniaturas pequenas.
+    if (change.avatar !== null && (!/^data:image\/(png|jpe?g|webp);base64,/.test(change.avatar) || change.avatar.length > 12_000)) throw new Error('Imagem demasiado grande para o Supabase (máx. 12 KB; use a fotografia reduzida pela aplicação).')
+    data.avatar = change.avatar
+  }
+  const emailChanged = !!change.email && change.email !== current.user.email
+  const { data: updated, error } = await client.auth.updateUser({ ...(emailChanged ? { email: change.email } : {}), ...(Object.keys(data).length ? { data } : {}) })
+  if (error || !updated.user) throw new Error(error?.message || 'Não foi possível atualizar a conta no Supabase.')
+  const metadata = updated.user.user_metadata ?? {}
+  return {
+    emailPending: emailChanged && updated.user.email !== change.email,
+    user: {
+      id: updated.user.id,
+      email: updated.user.email ?? '',
+      name: (metadata.name as string) || updated.user.email?.split('@')[0] || 'Utilizador',
+      role: await resolveRole(updated.user.id),
+      avatar: typeof metadata.avatar === 'string' ? metadata.avatar : null,
+    },
+  }
 }
 
 /** Login com email e palavra-passe no Supabase */
@@ -102,6 +131,7 @@ export async function supabaseLogin(email: string, password: string): Promise<{ 
       email: data.user.email ?? '',
       name,
       role,
+      avatar: typeof metadata.avatar === 'string' ? metadata.avatar : null,
     },
   }
 }

@@ -55,6 +55,7 @@ const verify = (password, saved) => {
 const DUMMY_PASSWORD_HASH = pwd(randomBytes(24).toString('base64url'))
 // Migração não destrutiva das bases existentes.
 const addColumn = (table, column, ddl) => { if (!db.prepare(`PRAGMA table_info(${table})`).all().some(c => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`) }
+addColumn('users', 'avatar', 'TEXT')
 addColumn('users', 'role', "TEXT NOT NULL DEFAULT 'user'")
 // Contas anteriores ao painel de utilizadores estavam bloqueadas (só as duas fixas entravam):
 // mantêm-se desativadas até o administrador as reativar.
@@ -114,7 +115,7 @@ app.use('/api', (req, res, next) => {
     }
   }
   const token = cookie(req)
-  const sessionUser = token ? db.prepare('SELECT users.id,users.email,users.name,users.role,users.plan,users.plan_expires_at planExpiresAt FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>? AND users.active=1').get(hash(token), Date.now()) : null
+  const sessionUser = token ? db.prepare('SELECT users.id,users.email,users.name,users.role,users.avatar,users.plan,users.plan_expires_at planExpiresAt FROM sessions JOIN users ON users.id=sessions.user_id WHERE token=? AND expires>? AND users.active=1').get(hash(token), Date.now()) : null
   req.user = sessionUser || null
   if (sessionUser) { const now = Date.now(), seen = db.prepare('SELECT last_seen FROM sessions WHERE token=?').get(hash(token))?.last_seen; if (!seen || now - Date.parse(seen) > 60000) db.prepare('UPDATE sessions SET last_seen=? WHERE token=?').run(new Date(now).toISOString(), hash(token)) }
   next()
@@ -158,7 +159,7 @@ function login(email,password,req,res) {
   db.prepare('DELETE FROM sessions WHERE expires<=?').run(Date.now())
   audit(user, 'login.success', { type: 'user', id: user.id, label: user.email }, '', ip)
   res.setHeader('Set-Cookie', `dc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000${req.secure ? '; Secure' : ''}`)
-  res.json({user:{id:user.id,name:user.name,email:user.email,role:user.role}})
+  res.json({user:{id:user.id,name:user.name,email:user.email,role:user.role,avatar:user.avatar||null}})
 }
 app.post('/api/login', (req, res) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
@@ -167,6 +168,41 @@ app.post('/api/login', (req, res) => {
   login(email, password, req, res)
 })
 app.get('/api/me',auth,(req,res)=>res.json({user:req.user}))
+const AVATAR_PREFIX = /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/
+app.patch('/api/account/profile', auth, (req, res) => {
+  const body = req.body ?? {}
+  const current = db.prepare('SELECT id,email,name,avatar,password FROM users WHERE id=?').get(req.user.id)
+  if (!current) return fail(res, 404, 'Conta não encontrada')
+  const next = { name: current.name, email: current.email, avatar: current.avatar ?? null }
+  const changed = []
+  if (body.name !== undefined) {
+    const name = typeof body.name === 'string' ? body.name.trim().replace(/\s+/g, ' ') : ''
+    if (name.length < 2 || name.length > 80) return fail(res, 400, 'O nome deve ter entre 2 e 80 caracteres')
+    if (name !== current.name) { next.name = name; changed.push('nome') }
+  }
+  if (body.email !== undefined) {
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail(res, 400, 'Indique um e-mail válido')
+    if (email !== current.email) {
+      // Mudar o e-mail muda a credencial de acesso: exige a palavra-passe atual.
+      if (typeof body.currentPassword !== 'string' || body.currentPassword.length > 200 || !verify(body.currentPassword, current.password)) return fail(res, 401, 'Confirme a palavra-passe atual para mudar o e-mail')
+      if (db.prepare('SELECT 1 FROM users WHERE email=? AND id<>?').get(email, current.id)) return fail(res, 409, 'Esse e-mail já está em uso')
+      next.email = email; changed.push('e-mail')
+    }
+  }
+  if (body.avatar !== undefined) {
+    if (body.avatar === null) { if (next.avatar) changed.push('avatar'); next.avatar = null }
+    else {
+      // Imagem já reduzida no cliente (≤ 256 px); aqui só se limita o formato e o tamanho.
+      if (typeof body.avatar !== 'string' || body.avatar.length > 200_000 || !AVATAR_PREFIX.test(body.avatar)) return fail(res, 400, 'Imagem inválida: use PNG, JPEG ou WebP até 150 KB')
+      next.avatar = body.avatar; changed.push('avatar')
+    }
+  }
+  if (!changed.length) return res.json({ user: { ...req.user, ...next } })
+  db.prepare('UPDATE users SET name=?,email=?,avatar=? WHERE id=?').run(next.name, next.email, next.avatar, current.id)
+  auditReq(req, 'user.profile.self', { type: 'user', id: current.id, label: next.email }, `Atualizou: ${changed.join(', ')}`)
+  res.json({ user: { id: current.id, name: next.name, email: next.email, role: req.user.role, avatar: next.avatar, plan: req.user.plan, planExpiresAt: req.user.planExpiresAt } })
+})
 app.post('/api/account/password', auth, (req, res) => {
   const currentPassword = req.body?.currentPassword
   const newPassword = req.body?.newPassword
