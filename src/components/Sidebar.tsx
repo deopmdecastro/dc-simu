@@ -208,7 +208,7 @@ function LibraryTile({ type, name, favorite, placing, onPick, onQuickAdd, onFavo
  * Painel esquerdo: biblioteca de componentes (clique adiciona ao esquema) e
  * inspetor completo do que está selecionado (componente, borne ou cabo).
  */
-export default function Sidebar({ width = 300, quickAddOnPick = false, onComponentAdded, onCollapse }: { width?: number; quickAddOnPick?: boolean; onComponentAdded?: () => void; onCollapse?: () => void }) {
+export default function Sidebar({ width = 300, quickAddOnPick = false, onComponentAdded, onCollapse }: { width?: number | string; quickAddOnPick?: boolean; onComponentAdded?: () => void; onCollapse?: () => void }) {
   const components = useSimStore((s) => s.components)
   const grid = useSimStore((s) => s.grid)
   const wires = useSimStore((s) => s.wires)

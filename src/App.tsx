@@ -203,8 +203,8 @@ export default function App({ onBack }: { onBack: () => void }) {
         )}
         {mode === 'schematic' && showLibrary && (
           <>
-            <div className={`mobile-library-panel relative shrink-0 flex flex-col ${compact ? 'dc-mobile-fullscreen-panel' : ''}`} style={compact ? undefined : { width: panelSizes.sidebar }}>
-              <Sidebar width={compact ? window.innerWidth : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} onCollapse={() => setShowLibrary(false)} />
+            <div className="mobile-library-panel relative shrink-0 flex flex-col" style={compact ? undefined : { width: panelSizes.sidebar }}>
+              <Sidebar width={compact ? '100%' : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} onCollapse={() => setShowLibrary(false)} />
             </div>
             <div
               className="dc-resize-handle"
@@ -229,7 +229,7 @@ export default function App({ onBack }: { onBack: () => void }) {
         {mode === 'schematic' && <ComponentEditorDock />}
         {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
           <div
-            className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} ${compact && showLadder ? 'dc-mobile-fullscreen-panel' : ''} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
+            className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder && !compact ? { width: panelSizes.ladder } : undefined}
           >
             {showLadder ? (

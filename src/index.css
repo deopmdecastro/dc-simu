@@ -2398,7 +2398,6 @@ footer > span.truncate { flex-shrink:1; min-width:0; }
   }
   .dc-workspace .dc-mobile-fullscreen-panel .dc-dock-close,
   .dc-workspace .dc-mobile-fullscreen-panel .dc-dock-collapse { position:absolute; z-index:5; top:8px; right:8px; }
-  .dc-mobile-backdrop { display:none !important; }
   .dc-dock-open.is-left, .dc-dock-open.is-right { display:none !important; }
 }
 
