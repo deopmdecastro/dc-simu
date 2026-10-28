@@ -90,7 +90,8 @@ export function migrateLegacyAddresses(parsed: AnyRecord): AnyRecord {
       comp.terminals = (c.terminals as AnyRecord[]).map((t) => {
         if (!t || typeof t !== 'object' || typeof t.label !== 'string') return t
         const label = t.label as string
-        const relay2 = label.match(/^Q(\d+)\.2$/)
+        // Só o LOGO! tem o legado «Qn.2» (n = 1…4); noutros PLCs (ex.: XBM, Q1.2) e no Q0.2 canónico o rótulo é válido.
+        const relay2 = c.type === 'plcSiemensLogo1224RC' ? label.match(/^Q([1-4])\.2$/) : null
         const next = relay2 ? `${migrateBitAddress(`Q${Number(relay2[1])}`)}·2` : migrateBitAddress(label)
         return next !== label ? { ...t, label: next } : t
       })

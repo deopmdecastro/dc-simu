@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { ElectricalComponent, SpatialPoint3D, Wire, WireColor, WireEndType } from '../types'
 import { PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM } from './modelPaths'
-import { componentHalfExtents, PLATE_THICKNESS, PLATE_Z } from './panelBounds'
+import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from './panelBounds'
 import { panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { terminalNormalWorld3D, terminalWorld3D } from './terminal3D'
 import { REAL_TERMINALS } from '../electrical/realInterfaces'
@@ -178,7 +178,8 @@ function leadPoint(head: V3, axis: V3, next: V3, outerMm: number): V3 | null {
 /* ----------------------------------------------- obstáculos (chapa e corpos) */
 
 /** Volume sólido a contornar: caixa envolvente de um componente, em unidades da cena. */
-export type WireObstacle = THREE.Box3
+/** `hard`: máquina fora do quadro (motor) — o cabo contorna-a, nunca passa à frente dela. */
+export type WireObstacle = THREE.Box3 & { hard?: boolean }
 
 /** Caixas envolventes dos componentes do painel (o que o cabo tem de contornar). */
 export function componentObstacles(components: ElectricalComponent[], pivots: Record<string, THREE.Vector3>): WireObstacle[] {
@@ -187,10 +188,12 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
     const pivot = pivots[component.id]
     if (!pivot) continue
     const half = componentHalfExtents(component)
-    boxes.push(new THREE.Box3(
+    const box: WireObstacle = new THREE.Box3(
       new THREE.Vector3(pivot.x - half.x, pivot.y - half.y, pivot.z - half.z),
       new THREE.Vector3(pivot.x + half.x, pivot.y + half.y, pivot.z + half.z),
-    ))
+    )
+    if (!isPanelBound(component)) box.hard = true
+    boxes.push(box)
   }
   return boxes
 }
@@ -334,6 +337,106 @@ export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, lead
   return roundCorners(controls, outerMm)
 }
 
+/* ------------------------------------------------------- máquinas (obstáculos duros) */
+
+/** Folga (u = 100 mm) entre o cabo e a máquina na projeção frontal. */
+const HARD_CLEARANCE = 0.05
+/** Raio à volta da própria ponta (no motor) onde o cabo pode entrar na máquina. */
+const HARD_END_SKIRT = 0.7
+
+/** Quantos pontos do traçado caem dentro da projeção X/Y de uma máquina (vista de frente, à frente ou por dentro). */
+function hardHits(points: V3[], hard: WireObstacle[], ends: V3[]): number {
+  if (hard.length === 0) return 0
+  let hits = 0
+  const p = new THREE.Vector3()
+  for (const box of hard) {
+    const own = ends.filter((end) => end[0] > box.min.x - 0.1 && end[0] < box.max.x + 0.1 && end[1] > box.min.y - 0.1 && end[1] < box.max.y + 0.1 && end[2] > box.min.z - 0.1 && end[2] < box.max.z + 0.1)
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const a = v(points[i])
+      const b = v(points[i + 1])
+      for (let step = 0; step <= 16; step += 1) {
+        p.lerpVectors(a, b, step / 16)
+        if (p.x <= box.min.x - HARD_CLEARANCE || p.x >= box.max.x + HARD_CLEARANCE || p.y <= box.min.y - HARD_CLEARANCE || p.y >= box.max.y + HARD_CLEARANCE) continue
+        if (own.some((end) => Math.hypot(end[0] - p.x, end[1] - p.y, end[2] - p.z) < HARD_END_SKIRT)) continue
+        hits += 1
+      }
+    }
+  }
+  return hits
+}
+
+/**
+ * Procura calhas e coluna vertical que deixam o cabo fora das máquinas (motor). Gera
+ * combinações de calhas (as do quadro e uma acima de cada máquina) e de colunas
+ * (laterais, entre aparelhos e junto às máquinas) e fica com a mais curta sem colisão.
+ * Devolve `undefined` se o traçado base já está livre ou se nada serve (mantém o base).
+ */
+function planAroundMachines(
+  wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D, outerMm: number,
+  obstacles: WireObstacle[], base: TrunkPlan | undefined, baseHint: number | undefined, lanes: number[],
+): { plan: TrunkPlan; hint: number } | undefined {
+  const hard = obstacles.filter((box) => box.hard)
+  if (hard.length === 0) return undefined
+  const ends: V3[] = [from.position, to.position]
+  const soft = obstacles.filter((box) => !box.hard)
+  // Aparelhos onde o cabo nasce/termina não contam; passar à frente dos restantes custa 5× o comprimento coberto.
+  const foreign = soft.filter((box) => !ends.some((end) => end[0] > box.min.x - 0.1 && end[0] < box.max.x + 0.1 && end[1] > box.min.y - 0.1 && end[1] < box.max.y + 0.1))
+  const frontCover = (points: V3[]): number => {
+    let covered = 0
+    const p = new THREE.Vector3()
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const a = v(points[i])
+      const b = v(points[i + 1])
+      const stepMm = (a.distanceTo(b) / U) / 12
+      for (let step = 0; step < 12; step += 1) {
+        p.lerpVectors(a, b, (step + 0.5) / 12)
+        if (foreign.some((box) => p.x > box.min.x && p.x < box.max.x && p.y > box.min.y && p.y < box.max.y)) covered += stepMm
+      }
+    }
+    return covered
+  }
+  const evaluate = (plan: TrunkPlan, hint: number): { cost: number; hits: number; cover: number } => {
+    const points = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles, hint, plan)
+    const cover = frontCover(points)
+    return { cost: polylineLengthMm(points) + 5 * cover, hits: hardHits(points, hard, ends), cover }
+  }
+  const baseEval = base && baseHint !== undefined ? evaluate(base, baseHint) : undefined
+  // Base livre da máquina e sem passar à frente de aparelhos: mantém.
+  if (baseEval && baseEval.hits === 0 && baseEval.cover < 1) return undefined
+
+  const xs = new Set<number>()
+  const sortedSoft = [...soft].sort((a, b) => a.min.x - b.min.x)
+  let reach = -Infinity
+  for (const box of sortedSoft) {
+    if (reach !== -Infinity && box.min.x - reach > 0.2) xs.add((reach + box.min.x) / 2)
+    reach = Math.max(reach, box.max.x)
+  }
+  if (sortedSoft.length > 0) { xs.add(sortedSoft[0].min.x - 0.12); xs.add(reach + 0.12) }
+  for (const box of hard) { xs.add(box.min.x - 0.12); xs.add(box.max.x + 0.12) }
+  xs.add((from.position[0] + to.position[0]) / 2)
+
+  const wrongSide = (end: WireEndpoint3D, lane: number) => {
+    const ny = end.normal?.[1] ?? 0
+    return (ny > 0.5 && lane < end.position[1]) || (ny < -0.5 && lane > end.position[1]) ? 1 : 0
+  }
+  let best: { plan: TrunkPlan; hint: number; score: number } | undefined
+  for (const laneA of lanes) {
+    for (const laneB of lanes) {
+      const risers: Array<number | undefined> = Math.abs(laneA - laneB) < 1e-6 ? [undefined] : [...xs]
+      for (const riserX of risers) {
+        const plan: TrunkPlan = riserX === undefined ? { laneA, laneB } : { laneA, laneB, riserX }
+        const { cost, hits } = evaluate(plan, laneA)
+        if (hits > 0) continue
+        const score = cost + (wrongSide(from, laneA) + wrongSide(to, laneB)) * 400
+        // só troca um traçado base válido por um claramente melhor
+        if (baseEval && baseEval.hits === 0 && score >= baseEval.cost - 20) continue
+        if (!best || score < best.score) best = { plan, hint: laneA, score }
+      }
+    }
+  }
+  return best ? { plan: best.plan, hint: best.hint } : undefined
+}
+
 /** Condutor rígido: cantos em arco de círculo com raio mínimo (≈ 4× o diâmetro). Nunca vincos agudos.
  * Em voltas muito fechadas o raio só encolhe quando os troços não deixam espaço; as pontas têm troço de saída próprio. */
 export function roundCorners(points: V3[], outerMm: number): V3[] {
@@ -393,7 +496,9 @@ export function buildWirePath3D(wire: Wire, from: WireEndpoint3D, to: WireEndpoi
   let trunkHint: number | undefined
   let plan: TrunkPlan | undefined
   if (!wire.waypoints3D?.length && obstacles.length > 0 && wire.route !== 'direct' && wire.flexibility !== 'flexible' && wire.route !== 'arc') {
-    const lanes = trunkLaneHints(obstacles)
+    const hardBoxes = obstacles.filter((box) => box.hard)
+    // As calhas vêm só dos aparelhos do quadro; cada máquina ganha a sua calha, logo acima do topo.
+    const lanes = [...new Set([...trunkLaneHints(obstacles.filter((box) => !box.hard)), ...hardBoxes.map((box) => box.max.y + 0.18)])].sort((a, b) => a - b)
     if (lanes.length > 0) {
       const laneFor = (end: WireEndpoint3D): number => {
         const y = end.position[1]
@@ -420,6 +525,8 @@ export function buildWirePath3D(wire: Wire, from: WireEndpoint3D, to: WireEndpoi
           plan.riserX = Math.abs(midX - left) <= Math.abs(midX - right) ? left : right
         } else plan.riserX = midX
       }
+      const around = planAroundMachines(wire, from, to, outerMm, obstacles, plan, trunkHint, lanes)
+      if (around) { plan = around.plan; trunkHint = around.hint }
     }
   }
   const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles, trunkHint, plan)

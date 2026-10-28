@@ -2053,6 +2053,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const sceneCenterRef = useRef<[number, number, number]>([0, 0, 0.3])
   const [cameraCommand, setCameraCommand] = useState<PanelCameraCommand>({ id: 0, view: 'isometric', target: [0, 0, 0.3] })
   const demoMode = useSimStore((s) => s.demoMode)
+  // O projeto nativo (motor fora do painel) abre sempre em isométrica; a frontal deixa o motor enorme junto da câmara.
+  const isoFirst = useSimStore((s) => s.demoMode || !!s.nativeId)
   const [showGrid, setShowGrid] = useState(() => {
     try { return localStorage.getItem('dc-simu:panel3d:grid') !== '0' } catch { return true }
   })
@@ -2097,7 +2099,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const fittedRef = useRef(false)
   const initialCameraRef = useRef(initialCamera)
   useEffect(() => {
-    if (frontEdit && !demoMode && !initialCameraRef.current) moveCamera('front')
+    if (frontEdit && !isoFirst && !initialCameraRef.current) moveCamera('front')
     if (!initialCameraRef.current) return
     onInitialCameraUsed?.()
     // Sem equipamento ainda, aplica já a vista para o cubo refletir o pedido.
@@ -2110,9 +2112,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (!fittedRef.current) {
       fittedRef.current = true
       // Vista pedida no cubo do Esquema 2D (frontal por omissão) tem prioridade sobre a isométrica.
-      if (initialCameraRef.current) applyCubeRequest(initialCameraRef.current)
-      // Demonstração (só simulação): isométrica; a frontal deixa o motor, fora do painel, enorme junto da câmara.
-      else moveCamera(frontEdit && !demoMode ? 'front' : 'isometric')
+      if (initialCameraRef.current && !isoFirst) applyCubeRequest(initialCameraRef.current)
+      // Demonstração e projeto nativo: isométrica; a frontal deixa o motor, fora do painel, enorme junto da câmara.
+      else moveCamera(frontEdit && !isoFirst ? 'front' : 'isometric')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasComponents])

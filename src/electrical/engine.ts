@@ -339,7 +339,13 @@ export function sourceTerminalIds(components: ElectricalComponent[], faults?: Fa
         push('N')
       }
     }
-    if (c.type === 'powerSupplyProauto24A' && c.state.powered && c.state.on) { push('+V1'); push('+V2') }
+    if (c.type === 'powerSupplyProauto24A' && c.state.powered && c.state.on) {
+      push('+V1'); push('+V2')
+      // O retorno 0 V também é referência do circuito: bobinas e sinaleiros só ficam
+      // «energizados» quando AMBOS os bornes (A1/A2, X1/X2) estão no grafo. Os bornes
+      // -V são kind 'neutral', pelo que não contaminam o positivo da alimentação do PLC.
+      push('-V1'); push('-V2')
+    }
     if (c.type === 'transformer' && !c.state.failed) push('S1')
   }
   return ids

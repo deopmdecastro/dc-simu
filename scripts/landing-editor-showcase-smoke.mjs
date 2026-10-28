@@ -96,7 +96,7 @@ assert('Esquema demo abre em vista isométrica', sv.includes("(demoMode ? { yaw:
 
 const panel = read('src/three/Panel3D.tsx')
 assert('Painel 3D: botão «+ Comentário» fora da demo', panel.includes('{!demoMode && <button type="button" onClick={addNote}'))
-assert('Painel 3D: demo abre em isométrica (motor fora do painel não fica gigante)', panel.includes("moveCamera(frontEdit && !demoMode ? 'front' : 'isometric')") && panel.includes("frontEdit && !demoMode && !initialCameraRef.current"))
+assert('Painel 3D: demo e projeto nativo abrem em isométrica (motor fora do painel não fica gigante)', panel.includes("moveCamera(frontEdit && !isoFirst ? 'front' : 'isometric')") && panel.includes("frontEdit && !isoFirst && !initialCameraRef.current") && panel.includes('s.demoMode || !!s.nativeId'))
 assert('Painel 3D: DPR limitado (render mais leve)', panel.includes('dpr={[1, 1.5]}'))
 
 const wg3d = read('src/three/wireGeometry3D.ts')
