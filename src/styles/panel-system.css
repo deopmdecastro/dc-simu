@@ -213,3 +213,63 @@
   border-color: var(--pn-line); background: var(--pn-bg-2); color: var(--pn-ink-3);
   border-radius: var(--pn-radius);
 }
+
+/* ───── 2026-10-28 refine: SidePanelHeader actions & mobile polish ───── */
+.dc-side-panel-actions {
+  gap: 6px;
+}
+.dc-side-panel-actions > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid var(--pn-line-soft);
+  border-radius: 8px;
+  background: var(--pn-bg);
+  color: var(--pn-ink-3);
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+.dc-side-panel-actions > button:hover:not(:disabled) {
+  border-color: #b8c9e8;
+  color: var(--pn-brand);
+  background: #f7f9ff;
+}
+.dc-side-panel-actions > button:focus-visible {
+  outline: none;
+  box-shadow: var(--pn-focus);
+}
+.dc-side-panel-actions > button:active {
+  background: color-mix(in srgb, var(--pn-brand-soft) 60%, white);
+}
+@media (max-width: 720px), (pointer: coarse) {
+  .dc-side-panel-head {
+    min-height: 58px;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .dc-side-panel-icon {
+    width: 36px;
+    height: 38px;
+    border-radius: 9px;
+  }
+  .dc-side-panel-actions > button {
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 10px;
+  }
+  .dc-side-panel-toggle {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .dc-side-panel-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  .dc-side-panel-copy strong {
+    font-size: 14px;
+    line-height: 1.25;
+  }
+}
