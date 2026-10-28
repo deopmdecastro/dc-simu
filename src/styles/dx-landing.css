@@ -2192,6 +2192,17 @@ html:has(.dx-landing) {
   border-bottom: 1px solid #e2e8f0;
   background: #fff;
 }
+.dx-grafcet-demo .ladder-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  height: auto;
+  gap: 6px;
+  padding: 0;
+}
+.dx-grafcet-demo .ladder-editor-toolbar > button {
+  min-height: 40px;
+}
 .dx-grafcet-demo-status {
   display: inline-flex;
   flex-wrap: wrap;

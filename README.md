@@ -784,6 +784,20 @@ contas, a administração e os elementos partilhados entre dispositivos. Se a AP
 estiver indisponível, a conta Admin recusa o modo local; o fallback local
 continua disponível para User. Não elimine o volume sem backup.
 
+Para aplicar alterações de código, reconstrua a imagem: `docker compose restart`
+reutiliza o build anterior. Na pasta da aplicação, em PowerShell:
+
+```powershell
+$env:APP_BUILD_COMMIT = git rev-parse HEAD
+docker compose up -d --build app
+Invoke-RestMethod http://localhost:3000/version.json
+```
+
+O `buildId` devolvido deve começar pelo commit usado no build. O volume
+`dcsimu_data` mantém-se entre recriações. O smoke da landing é
+`npm run test:landing-ui`; aceita `LANDING_TEST_URL`, `LANDING_UI_TEST_OUTPUT`
+e `EDITOR3D_TEST_CHANNEL` para escolher endereço, capturas e navegador.
+
 No servidor, as contas fixas Admin e User só são criadas se ainda não existirem;
 as palavras-passe iniciais são derivadas com scrypt e **não são repostas nos
 arranques seguintes**. Se atualizar uma instalação antiga que usava as

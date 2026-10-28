@@ -17,6 +17,7 @@
     "test:saas": "tsx scripts/saas-smoke.ts",
     "test:admin-saas-ui": "node scripts/admin-saas-ui-smoke.mjs",
     "test:admin-ui": "node scripts/admin-ui-smoke.mjs",
+    "test:landing-ui": "node scripts/landing-ui-smoke.mjs",
     "test:ladder-math": "tsx scripts/ladder-math-smoke.ts",
     "test:ladder-force": "tsx scripts/ladder-force-smoke.ts",
     "test:component-validate": "tsx scripts/component-validate-smoke.ts",
