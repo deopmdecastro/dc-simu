@@ -650,7 +650,7 @@ function runOneTick(state: Store, dtMs: number) {
 
   // 6) Coils (contator / relé / temporizador / soft-starter)
   for (const c of components) {
-    if (c.type === 'contactor' || c.type === 'contactor4p' || c.type === 'auxRelay' || c.type === 'auxRelay4' || c.type === 'timerRelayTON' || c.type === 'timerRelayTOF' || c.type === 'counterRelay' || c.type === 'safetyRelay' || c.type === 'softStarter') {
+    if (c.type === 'contactor' || c.type === 'contactorWegCWC09' || c.type === 'contactor4p' || c.type === 'auxRelay' || c.type === 'auxRelay4' || c.type === 'timerRelayTON' || c.type === 'timerRelayTOF' || c.type === 'counterRelay' || c.type === 'safetyRelay' || c.type === 'softStarter') {
       const wants = isCoilPowered(c, pass2.energizedTerminals)
       let finalEnergized = wants
       if (wants && c.state.interlockWith) {

@@ -13,6 +13,7 @@ import type { LadderRung } from '../types'
 import type { GrafcetProgram, GrafcetStep, GrafcetTransition } from '../grafcet/engine'
 import { autoLayout, SPINE_X, START_Y, STEP_H } from '../grafcet/layout'
 import { nanoid } from 'nanoid'
+import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 
 /** Identificador estável — não muda entre deploys. */
 export const NATIVE_PARTIDA_ID = 'native-partida-direta-v1'
@@ -26,7 +27,7 @@ type Built = {
   ladder: { rungs: LadderRung[] }
   grafcet: GrafcetProgram
   tags: Array<{ id: string; address: string; name: string; dataType: string; comment: string }>
-  projectKind: 'full'
+  projectKind: 'all'
 }
 
 function term(comp: ElectricalComponent, label: string): string {
@@ -88,8 +89,8 @@ export function buildNativeGrafcet(): GrafcetProgram {
     },
   ]
   const transitions: GrafcetTransition[] = [
-    { id: 'native-t1', name: 'T1', from: [s0], to: [s1], condition: 'I0.1', description: 'START' },
-    { id: 'native-t2', name: 'T2', from: [s1], to: [s0], condition: 'I0.0', description: 'STOP' },
+    { id: 'native-t1', name: 'T1', from: [s0], to: [s1], condition: 'I0.0*I0.1', description: 'STOP fechado e START' },
+    { id: 'native-t2', name: 'T2', from: [s1], to: [s0], condition: '!I0.0', description: 'STOP' },
   ]
   const pos = autoLayout(steps, transitions)
   return {
@@ -121,8 +122,8 @@ export function buildNativeLadder(): LadderRung[] {
       comment: 'STOP + START + retenção de KM1',
       enabled: true,
       branches: [
-        { id: 'n1a', elements: [contact('c1', 'I0.0', 'NC'), contact('c2', 'I0.1', 'NO')] },
-        { id: 'n1b', elements: [contact('c3', 'Q0.0', 'NO')] },
+        { id: 'n1a', elements: [contact('c1', 'I0.0', 'NO'), contact('c2', 'I0.1', 'NO')] },
+        { id: 'n1b', elements: [contact('c1b', 'I0.0', 'NO'), contact('c3', 'Q0.0', 'NO')] },
       ],
       coils: [coil('k1', 'Q0.0')],
     },
@@ -147,101 +148,79 @@ export function buildNativeLadder(): LadderRung[] {
 
 /** Monta o conteúdo completo do projeto nativo (esquema + 3D + Ladder + GRAFCET). */
 export function buildNativePartidaDireta(): Built {
-  // Calha DIN de suporte
-  const rail = createComponent('dinRail15x55', 'TR1', 'Calha DIN', 0, 40, 200, { lengthMm: 350 })
-  rail.id = 'native-rail'
-  rail.railId = undefined
-
-  const place = (
-    type: Parameters<typeof createComponent>[0],
-    ref: string,
-    label: string,
-    schematicX: number,
-    schematicY: number,
-    railOffsetMm: number,
-    panel3D?: { x: number; y: number; z: number },
-  ) => {
-    const c = createComponent(type, ref, label, 0, schematicX, schematicY)
-    c.railId = rail.id
-    c.railOffsetMm = railOffsetMm
-    if (panel3D) c.panel3DPosition = panel3D
+  const place = (type: Parameters<typeof createComponent>[0], id: string, ref: string, label: string, x: number, y: number) => {
+    const c = createComponent(type, ref, label)
+    c.id = id
+    c.schematicX = Math.round(panelToSchematicX(x) - c.w / 2)
+    c.schematicY = Math.round(panelToSchematicY(y) - c.h / 2)
+    c.terminals = c.terminals.map(t => ({ ...t, componentId: id, id: `${id}-${t.label}` }))
     return c
   }
-
-  const psu = place('powerSupplyProauto24A', 'PS1', 'Fonte 24 V', 60, 80, 10, { x: -2.4, y: 0.56, z: 0.34 })
-  const push = place('dualPushButtonNpb22D11', 'S1', 'START/STOP', 200, 80, 55, { x: -1.9, y: 1.44, z: 0.38 })
-  const green = place('pilotLightAd22', 'H1', 'H1 MARCHA', 280, 80, 95, { x: -1.4, y: 1.47, z: 0.4 })
-  const red = place('pilotLightAd22', 'H2', 'H2 PARADO', 340, 80, 120, { x: -1.0, y: 1.47, z: 0.4 })
-  const plc = place('plcSiemensLogo1224RC', 'PLC1', 'LOGO! 12/24RC', 420, 80, 160, { x: -0.4, y: 0.56, z: 0.34 })
-  const breaker = place('breaker2p', 'Q0', 'Disjuntor 2P', 60, 280, 210, { x: 0.25, y: 0.58, z: 0.34 })
-  const qm = place('motorBreakerPkzmC10', 'QM1', 'Disjuntor-motor PKZM', 160, 280, 250, { x: 0.75, y: 0.58, z: 0.34 })
-  const km = place('contactorWegCWC09', 'KM1', 'Contactor KM1', 280, 280, 300, { x: 1.25, y: 0.58, z: 0.34 })
-  const motor = place('motor3ph', 'M1', 'Motor 3~', 420, 280, 0, { x: 2.1, y: 0.5, z: 0.32 })
-  motor.railId = undefined
-  motor.railOffsetMm = undefined
-
-  // IDs estáveis para o projeto nativo (cabos e reaberturas)
-  psu.id = 'native-psu'
-  push.id = 'native-push'
-  green.id = 'native-h1'
-  red.id = 'native-h2'
-  plc.id = 'native-plc'
-  breaker.id = 'native-q0'
-  qm.id = 'native-qm1'
-  km.id = 'native-km1'
-  motor.id = 'native-m1'
-  for (const c of [psu, push, green, red, plc, breaker, qm, km, motor, rail]) {
-    c.terminals = c.terminals.map((t) => ({ ...t, componentId: c.id, id: `${c.id}-${t.label}` }))
-  }
-
+  const rail = place('dinRail15x55', 'native-rail', 'TR1', 'Calha DIN', -0.65, 0.35)
+  rail.state.lengthMm = 500
+  rail.w = 750
+  rail.schematicX = Math.round(panelToSchematicX(-0.65) - rail.w / 2)
+  const source = place('powerSource3ph', 'native-source', 'XG', 'Entrada L1/L2/L3/N/PE', -2.75, 0.35)
+  const main = place('breaker3p', 'native-qg', 'QG', 'Disjuntor geral', -2.15, 0.35)
+  const psu = place('powerSupplyProauto24A', 'native-psu', 'PS1', 'Fonte 24 V', -1.4, 0.35)
+  const plc = place('plcSiemensLogo1224RC', 'native-plc', 'PLC1', 'LOGO! 12/24RC', -0.5, 0.35)
+  const qm = place('motorBreakerPkzmC10', 'native-qm1', 'QM1', 'Disjuntor-motor PKZM', 0.25, 0.35)
+  qm.state.closed = true
+  const km = place('contactorWegCWC09', 'native-km1', 'KM1', 'Contactor KM1', 0.85, 0.35)
+  const control = place('breaker2p', 'native-q0', 'Q0', 'Proteção do comando', 1.4, 0.35)
+  const push = place('dualPushButtonNpb22D11', 'native-push', 'S1', 'START/STOP', -1.3, 1.7)
+  const green = place('pilotLightAd22', 'native-h1', 'H1', 'MARCHA', -0.5, 1.7)
+  green.state.color = '#22c55e'
+  const red = place('pilotLightAd22', 'native-h2', 'H2', 'PARADO', 0.1, 1.7)
+  red.state.color = '#ef4444'
+  const motor = place('motor3ph', 'native-m1', 'M1', 'Motor SEW 3~', 1.0, -1.55)
   const wires: Wire[] = []
-  let n = 1
-  const add = (a: ElectricalComponent, al: string, b: ElectricalComponent, bl: string, color: WireColor) => {
-    try {
-      wires.push(wire(term(a, al), term(b, bl), color, `W${n++}`))
-    } catch {
-      /* borne opcional em algum modelo */
-    }
+  const add = (a: ElectricalComponent, al: string, b: ElectricalComponent, bl: string, color: WireColor, power = false) => {
+    const next = wire(term(a, al), term(b, bl), color, `W${wires.length + 1}`)
+    next.id = `native-wire-${wires.length + 1}`
+    if (power) { next.kind = 'power'; next.gauge = '2.5mm²' }
+    wires.push(next)
   }
-
-  // Alimentação PLC
+  for (const [phase, input, output, poleIn, poleOut, motorIn, color] of [
+    ['L1','1','2','1L1','2T1','U1','black'],
+    ['L2','3','4','3L2','4T2','V1','brown'],
+    ['L3','5','6','5L3','6T3','W1','grey'],
+  ] as const) {
+    add(source, phase, main, input, color, true)
+    add(main, output, qm, input, color, true)
+    add(qm, output, km, poleIn, color, true)
+    add(km, poleOut, motor, motorIn, color, true)
+  }
+  add(main, '2', control, '1', 'black')
+  add(source, 'N', control, '3', 'blue')
+  add(control, '2', psu, 'L', 'black')
+  add(control, '4', psu, 'N', 'blue')
+  add(source, 'PE', psu, 'PE', 'green-yellow')
+  add(source, 'PE', motor, 'PE', 'green-yellow', true)
   add(psu, '+V1', plc, 'L+', 'red')
   add(psu, '-V1', plc, 'M', 'blue')
-  // STOP / START → entradas
   add(psu, '+V2', push, '21', 'red')
   add(push, '22', plc, 'I0.0', 'violet')
   add(psu, '+V2', push, '13', 'red')
   add(push, '14', plc, 'I0.1', 'violet')
-  // Saída Q0.0 → bobina KM1
-  add(psu, '+V1', plc, 'Q0.0', 'red')
-  add(plc, 'Q0.0·2', km, 'A1', 'orange')
-  add(km, 'A2', psu, '-V2', 'blue')
-  // H1 / H2
-  add(psu, '+V1', plc, 'Q0.1', 'red')
-  add(plc, 'Q0.1·2', green, 'X1', 'green')
-  add(green, 'X2', psu, '-V1', 'blue')
-  add(psu, '+V1', plc, 'Q0.2', 'red')
-  add(plc, 'Q0.2·2', red, 'X1', 'red')
-  add(red, 'X2', psu, '-V2', 'blue')
-  // Potência motor (simplificado: contactor → motor)
-  add(km, '2T1', motor, 'U1', 'red')
-  add(km, '4T2', motor, 'V1', 'grey')
-  add(km, '6T3', motor, 'W1', 'blue')
-  add(motor, 'PE', psu, 'PE', 'green-yellow')
-
+  for (const [output, target, positive, negative] of [
+    ['Q0.0', km, 'A1', 'A2'], ['Q0.1', green, 'X1', 'X2'], ['Q0.2', red, 'X1', 'X2'],
+  ] as const) {
+    add(psu, '+V1', plc, output, 'red')
+    add(plc, `${output}·2`, target, positive, 'orange')
+    add(target, negative, psu, '-V2', 'blue')
+  }
   return {
-    components: [rail, psu, push, green, red, plc, breaker, qm, km, motor],
-    wires,
-    ladder: { rungs: buildNativeLadder() },
-    grafcet: buildNativeGrafcet(),
+    components: [rail, source, main, psu, plc, qm, km, control, push, green, red, motor],
+    wires, ladder: { rungs: buildNativeLadder() }, grafcet: buildNativeGrafcet(),
     tags: [
-      { id: 't1', address: 'I0.0', name: 'STOP', dataType: 'Bool', comment: 'Botão STOP (NF)' },
-      { id: 't2', address: 'I0.1', name: 'START', dataType: 'Bool', comment: 'Botão START (NA)' },
-      { id: 't3', address: 'Q0.0', name: 'KM1', dataType: 'Bool', comment: 'Contactor' },
-      { id: 't4', address: 'Q0.1', name: 'H1', dataType: 'Bool', comment: 'Lâmpada marcha' },
-      { id: 't5', address: 'Q0.2', name: 'H2', dataType: 'Bool', comment: 'Lâmpada parado' },
+      { id:'t1',address:'I0.0',name:'STOP',dataType:'Bool',comment:'Contacto NF fechado em repouso' },
+      { id:'t2',address:'I0.1',name:'START',dataType:'Bool',comment:'Botão START (NA)' },
+      { id:'t3',address:'Q0.0',name:'KM1',dataType:'Bool',comment:'Contactor' },
+      { id:'t4',address:'Q0.1',name:'H1',dataType:'Bool',comment:'Lâmpada marcha' },
+      { id:'t5',address:'Q0.2',name:'H2',dataType:'Bool',comment:'Lâmpada parado' },
     ],
-    projectKind: 'full',
+    projectKind: 'all',
   }
 }
 
