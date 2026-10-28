@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from '../supabase/supabaseClient'
 import {
   supabaseCreateProject,
   supabaseChangePassword,
+  supabaseUpdateProfile,
   supabaseDeleteProject,
   supabaseFetchProjectMembers,
   supabaseGetCurrentUser,
@@ -307,6 +308,16 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
       return { ok: true, sessionsClosed: 0 } as T
     }
     throw new Error('Alterar a palavra-passe exige uma sessão de servidor ou Supabase.')
+  }
+
+  // 5b. Perfil (nome, e-mail, avatar): cada backend aplica as suas regras.
+  if (url === '/account/profile' && verb === 'PATCH') {
+    if (mode === 'server') return serverApi<T>(url, verb, body)
+    if (mode === 'supabase') {
+      const result = await supabaseUpdateProfile((body ?? {}) as { name?: string; email?: string; avatar?: string | null })
+      return { user: result.user, emailPending: result.emailPending } as T
+    }
+    return localApi<T>(url, verb, body)
   }
 
   // 6. Restantes rotas para projetos e dados

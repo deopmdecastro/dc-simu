@@ -17,7 +17,7 @@ import ProjectComments from '../comments/ProjectComments'
 import { canUseFeature, currentLimit, currentLimitMessage, featureBlockedMessage, usePlanStore } from '../saas/usePlan'
 
 export type { ProjectPreviewData }
-export type User = { id: string; name: string; email: string; role: 'admin' | 'user'; plan?: import('../saas/platformCore.mjs').PlanId; planExpiresAt?: string | null }
+export type User = { id: string; name: string; email: string; role: 'admin' | 'user'; avatar?: string | null; plan?: import('../saas/platformCore.mjs').PlanId; planExpiresAt?: string | null }
 export type Project = { id: string; name: string; revision: number; owner: string; role: 'owner' | 'editor'; updated_at: string; preview?: ProjectPreviewData }
 export type Invite = { id: string; project: string; sender: string }
 

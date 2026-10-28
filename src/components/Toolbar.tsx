@@ -1,5 +1,5 @@
 import { uiConfirm } from '../ui/dialogs'
-import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, type ViewControlsProps } from '../ui/toolbarKit'
+import { Kbd, TbButton, HistoryGroup, ViewControls, ShortcutsButton, SimToggleButton, ToolMenu, useNarrowMenu, type ToolMenuSection, type ViewControlsProps } from '../ui/toolbarKit'
 import { requestCanvasAction, requestShortcuts, useSimUi } from '../ui/simUi'
 import ShortcutHelp from '../ui/ShortcutHelp'
 import { VIEW_SHORTCUTS } from '../ui/shortcutLists'
@@ -28,7 +28,7 @@ import { IconCheck, IconWarning,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
-  IconTemplates, IconImport, IconLink,
+  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconRotate,
 } from '../ui/icons'
 
 /** jsPDF e html2canvas (centenas de KB) só são descarregados quando o utilizador abre «Exportar PDF». */
@@ -58,7 +58,7 @@ const TOOLS: Array<{ id: EditorTool; label: string; icon: typeof IconCursor; hin
 const VIEWS: Array<{ id: ViewMode; label: string; icon: typeof IconSchematic; key: string }> = [
   { id: 'schematic', label: 'Esquema', icon: IconSchematic, key: 'F1' },
   { id: 'ladder', label: 'Ladder', icon: IconLadder, key: 'F2' },
-  { id: 'grafcet', label: 'GRAFCET', icon: IconStep, key: 'F5' },
+  { id: 'grafcet', label: 'GRAFCET', icon: IconGrafcet, key: 'F5' },
   { id: 'monitor', label: 'Monitor', icon: IconMonitor, key: 'F4' },
 ]
 
@@ -165,7 +165,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const grafcetSimVisible = useGrafcetUi((state) => state.simVisible)
   const ladderSync = useGrafcetUi((state) => state.ladderSync)
   const grafcetAutoSync = useGrafcetUi((state) => state.autoSync)
-  const showSimControls = mode !== 'grafcet' || grafcetSimVisible
+  const showSimControls = true // Run/Pausa/Stop/Passo/Reiniciar em todas as vistas (GRAFCET incluído)
   const ladderGrafcetStatus = useMemo(
     () => ladderSyncStatus(grafcet),
     [grafcet, ladderRungs, ladderTags, projectFiles, activePlcId],
@@ -245,6 +245,22 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     reader.readAsText(file)
   }
 
+  const narrowBar = useNarrowMenu()
+  const fileSections: ToolMenuSection[] = [{
+    id: 'file', title: 'Projeto',
+    items: [
+      { id: 'new', label: 'Novo projeto', hint: 'Volta aos projetos para criar um em branco', icon: <IconPlus size={15} />, onSelect: createNewProject },
+      { id: 'open', label: 'Abrir ficheiro', hint: 'Escolhe um projeto .json do dispositivo', icon: <IconOpen size={15} />, onSelect: () => fileRef.current?.click() },
+      { id: 'save', label: 'Guardar em ficheiro', hint: dirty ? 'Há alterações por guardar' : 'Descarrega o projeto em .json', icon: <IconSave size={15} />, onSelect: download, primary: dirty },
+    ],
+  }, {
+    id: 'export', title: 'Exportar',
+    items: [
+      { id: 'bom', label: 'Lista de materiais (CSV)', hint: 'Componentes e cabos do esquema', icon: <IconDownload size={15} />, onSelect: downloadBOM, disabled: !components.length, disabledReason: 'Adicione componentes ao esquema' },
+      { id: 'pdf', label: 'Exportar PDF', hint: 'Capa, esquema 3D, GRAFCET e ladder à escolha', icon: <IconPdf size={15} />, onSelect: () => { if (requireFeature('pdfExport')) setPdfOpen(true) } },
+    ],
+  }]
+
   const segBtn = (active: boolean) => `dc-tool-btn ${active ? 'dc-tool-active' : ''}`
 
   const RUN_LABEL: Record<string, { text: string; cls: string }> = {
@@ -295,9 +311,12 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       <div ref={mainBarRef} className="flex items-center gap-2 px-3 min-h-[46px] border-b border-line-soft dc-toolbar-main">
         {/* arquivo — ações frequentes; conta/projeto permanecem na barra superior única */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {narrowBar
+            ? <ToolMenu label="Ficheiro" title="Ficheiro e exportação" icon={<IconOpen size={14} />} sections={fileSections} className="dc-file-menu" badge={dirty ? 1 : undefined} />
+            : (
           <div className="flex items-center gap-1.5 bg-surface-sunken border border-line rounded-lg p-1">
-            <button onClick={createNewProject} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Novo projeto em branco">
-              <IconFile size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Novo</span>
+            <button onClick={createNewProject} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Novo projeto em branco" aria-label="Novo projeto">
+              <IconPlus size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Novo</span>
             </button>
             <button onClick={() => fileRef.current?.click()} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Abrir projeto (.json)">
               <IconOpen size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Abrir</span>
@@ -309,10 +328,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button onClick={downloadBOM} disabled={!components.length} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900 disabled:opacity-50 disabled:hover:bg-transparent" title="Exportar lista de materiais (CSV)">
               <IconDownload size={14} /> <span className="hidden xl:inline text-[11px] font-medium">BOM</span>
             </button>
-            <button onClick={() => { if (requireFeature('pdfExport')) setPdfOpen(true) }} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Exportar o projeto em PDF (capa, esquema 3D, GRAFCET e ladder à escolha)">
-              <IconFile size={14} /> <span className="hidden xl:inline text-[11px] font-medium">PDF</span>
+            <button onClick={() => { if (requireFeature('pdfExport')) setPdfOpen(true) }} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Exportar o projeto em PDF (capa, esquema 3D, GRAFCET e ladder à escolha)" aria-label="Exportar PDF">
+              <IconPdf size={14} /> <span className="hidden xl:inline text-[11px] font-medium">PDF</span>
             </button>
           </div>
+            )}
           <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={upload} />
         </div>
 
@@ -409,7 +429,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             de vista, apesar de serem as ações mais usadas no esquema. */}
                   {mode === 'schematic' && <div className="dc-mobile-panel-tools" role="group" aria-label="Painéis">
             <button className="dc-tool-btn" onClick={onOpenLibrary} title="Abrir biblioteca em ecrã inteiro"><IconCube size={14} /><span>Biblioteca</span></button>
-            <button className="dc-tool-btn" onClick={onOpenGrafcet} title="Abrir GRAFCET em ecrã inteiro"><IconStep size={14} /><span>GRAFCET</span></button>
+            <button className="dc-tool-btn" onClick={onOpenGrafcet} title="Abrir GRAFCET em ecrã inteiro"><IconGrafcet size={14} /><span>GRAFCET</span></button>
             <button className="dc-tool-btn" onClick={onOpenObjects} title="Ver os objetos do projeto"><IconLayers size={14} /><span>Objetos</span></button>
           </div>}
 
@@ -547,7 +567,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 title="Reiniciar a sequência nas etapas iniciais"
                 aria-label="Reiniciar sequência"
               >
-                <IconReset size={13} />
+                <IconRotate size={13} />
               </button>
             </div>
           </>

@@ -37,6 +37,8 @@ import './styles/admin-polish.css'
 import './styles/wire-options.css'
 import './styles/mobile-refine.css'
 import './styles/panel-drawer.css'
+import './styles/account-page.css'
+import './styles/header-refine.css'
 import { EDITOR_GRID_STEP, EDITOR_THEME } from './ui/editorTheme'
 
 const editorRootStyle = document.documentElement.style

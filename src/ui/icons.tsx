@@ -113,6 +113,12 @@ import {
   faUsers,
   faWandMagicSparkles,
   faXmark,
+  faStairs,
+  faIdCard,
+  faCreditCard,
+  faKey,
+  faEnvelope,
+  faUserGear,
 } from '@fortawesome/free-solid-svg-icons'
 
 export type IconProps = { size?: number; className?: string; title?: string }
@@ -233,3 +239,11 @@ export const IconSwap = fa(faRightLeft)
 export const IconFocus = fa(faCrosshairs)
 export const IconGround = fa(faDownLeftAndUpRightToCenter)
 export const IconRuler = fa(faRulerCombined)
+
+/* Ícones próprios de função (evitam repetir o mesmo símbolo em botões diferentes). */
+export const IconGrafcet = fa(faStairs)
+export const IconAccount = fa(faUserGear)
+export const IconIdCard = fa(faIdCard)
+export const IconCard = fa(faCreditCard)
+export const IconKey = fa(faKey)
+export const IconMail = fa(faEnvelope)
