@@ -62,8 +62,7 @@
 /* ---------- cabeçalho: ação principal e voltar ---------- */
 .adm-head-actions { display: flex; align-items: stretch; gap: 10px; }
 .adm-head-actions .adm-cta, .adm-head-actions .adm-back { height: 44px; border-radius: 12px; }
-.adm-cta { display: inline-flex; align-items: center; gap: 10px; padding: 0 18px 0 8px; text-align: left; box-shadow: 0 1px 2px rgb(24 40 120 / .22), 0 8px 16px -8px rgb(51 85 224 / .55); transition: transform var(--dx-fast), box-shadow var(--dx-fast), background var(--dx-fast); }
-.adm-cta:hover:not(:disabled) { box-shadow: 0 1px 2px rgb(24 40 120 / .25), 0 10px 20px -8px rgb(51 85 224 / .65); }
+.adm-cta { display: inline-flex; align-items: center; gap: 10px; padding: 0 18px 0 8px; text-align: left; transition: transform var(--dx-fast), background var(--dx-fast); }
 .adm-cta:active:not(:disabled) { transform: translateY(1px); }
 .adm-cta-icon { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 9px; background: rgb(255 255 255 / .2); }
 .adm-cta-text { display: grid; line-height: 1.15; }
