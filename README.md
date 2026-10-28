@@ -17,6 +17,30 @@ O editor GRAFCET aceita ficheiros `.ct` do FluidSIM 4, com leitura local de etap
 
 As 142 ligações dos 20 equipamentos integrados com bornes são verificadas contra as cavidades da geometria renderizada. O editor usa a mesma escala física do CAD, limita o marcador ao espaço do furo e migra posições automáticas antigas. Consulte [calibração, réguas complementares e verificações](docs/TERMINAL-GEOMETRY.md); execute `npm run test:terminal-geometry` para verificar os GLB locais.
 
+## Novidades — v5.4 (resumo da administração responsivo)
+
+- **Indicadores com ícone e significado.** Cada métrica do Resumo (Em revisão · Aprovadas ·
+  Rejeitadas · Projetos · Contas · Armazenamento) é um cartão-botão com ícone do sistema único
+  (`src/ui/icons.tsx`), valor, detalhe e seta; os tons passam a seguir o significado (aprovadas
+  verde, rejeitadas vermelho — estavam trocados) e a cor nunca é a única pista.
+- **Cabeçalho no telemóvel arrumado:** o estado («Modo local») fica em linha própria e
+  «Novo componente 3D» / «Projetos» ficam lado a lado com 44 px de toque (antes empilhavam na
+  metade direita do ecrã). O banner «Sem pendências» passa a ícone em círculo + título + frase,
+  sem o ponto órfão por cima do texto.
+- **Atividade recente compacta e sem repetições:** ícone por categoria de evento, uma linha de
+  contexto sem repetir o e-mail do ator (o alvo — ex.: o projeto — tem prioridade) e a data à
+  direita, também no telemóvel: ≈50 px por evento em vez de ≈110 px.
+- **Cartões com uma única ação** (Acesso rápido, Últimas contribuições, Cobertura): botão-pílula
+  com seta no cabeçalho em vez de duas ligações sublinhadas para o mesmo destino; estados vazios
+  com ícone e explicação curta. Acesso rápido passa a quatro áreas (inclui Contribuições), com
+  descrição em até duas linhas, sem corte a meio da palavra.
+- **Navegação com ícones em todos os tamanhos:** lateral (secretária), faixa compacta em duas
+  linhas (tablet) e seletor com o ícone da secção atual (telemóvel).
+- **Verificação:** `npm run test:admin-ui` (**58 verificações** a 390, 768, 1024 e 1440 px),
+  `test:admin-saas-ui` (22), `test:saas` (58), `test:style`, `npm test` e `tsc -b`. O build de
+  produção não correu neste ambiente (2 GB; ENV-01 pede 3 GiB — a Vercel constrói a partir do
+  `main`). Detalhe em [resumo da administração responsivo](docs/ADMIN-RESUMO-RESPONSIVO.md).
+
 ## Novidades — v5.3 (administração em ecrãs pequenos)
 
 - **As nove secções da administração passam a estar ao alcance no telemóvel.** Em vez de uma faixa

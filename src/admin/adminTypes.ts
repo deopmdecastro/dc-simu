@@ -1,3 +1,4 @@
+import type { ProjectPreviewData } from '../dashboard/projectPreview'
 import type { ComponentType } from '../types'
 import type { ComponentStatus, PlanId } from '../saas/platformCore.mjs'
 
@@ -22,6 +23,8 @@ export interface AdminUser {
   planExpiresAt?: string | null
   /** Nota interna do administrador (nunca mostrada ao utilizador). */
   adminNote?: string
+  /** Fotografia de perfil (URL ou data URL); sem ela usam-se as iniciais. */
+  avatarUrl?: string
 }
 
 export interface PlanRequest {
@@ -59,6 +62,10 @@ export interface AdminProject {
   revision?: number
   size?: number
   members?: number
+  /** Composição do esquema para a capa do projeto (como no painel de projetos). */
+  preview?: ProjectPreviewData
+  /** Publicado na landing page (apenas um de cada vez). */
+  isPublished?: boolean
 }
 
 export interface ComponentSetting {

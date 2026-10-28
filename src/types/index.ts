@@ -632,6 +632,19 @@ export interface GridSettings {
   railMagnet?: boolean
 }
 
+export type CanvasNoteView = 'schematic' | '3d'
+
+export interface CanvasNote {
+  id: string
+  text: string
+  view: CanvasNoteView
+  x: number
+  y: number
+  z?: number
+  color?: string
+  createdAt: string
+}
+
 export interface CircuitState {
   components: ElectricalComponent[]
   wires: Wire[]

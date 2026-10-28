@@ -16,6 +16,9 @@ export const adminApi = {
   deleteUser: (id: string, force = false) => api<{ ok: true }>(`/admin/users/${id}${force ? '?force=1' : ''}`, 'DELETE'),
 
   projects: () => api<AdminProject[]>('/admin/projects'),
+  landingPublish: () => api<{ projectId: string; name: string; owner: string }>('/admin/landing/publish'),
+  setLandingPublish: (projectId: string | null) =>
+    api<{ projectId: string; name?: string; owner?: string; isNative?: boolean }>('/admin/landing/publish', 'PUT', { projectId }),
   deleteProject: (id: string) => api<{ ok: true }>(`/admin/projects/${id}`, 'DELETE'),
 
   components: () => api<ComponentSetting[]>('/admin/components'),

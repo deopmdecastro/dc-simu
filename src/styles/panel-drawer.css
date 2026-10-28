@@ -1,0 +1,61 @@
+/* ==========================================================================
+   Gavetas laterais — UMA especificação para todos os painéis (≤ 1199 px)
+   --------------------------------------------------------------------------
+   Esquema · Biblioteca (esq.)        .mobile-library-panel
+   Esquema · GRAFCET e objetos (dir.)  .mobile-grafcet-panel
+   GRAFCET · Componentes (esq.)        .grafcet-toolbox
+   Ladder  · Projeto (esq.)            .ladder-project-pane
+   Ladder  · Elementos (dir.)          .ladder-palette
+
+   Todos abrem da mesma forma: gaveta por baixo das barras do projeto e de
+   ferramentas, largura --pn-drawer-w, cantos retos (como o Ladder),
+   a mesma sombra, a mesma cortina (toque fora fecha) e o cabeçalho comum
+   (SidePanelHeader) com a seta de recolher sempre visível. Nenhum painel
+   ocupa o ecrã inteiro. Carrega depois de todas as outras folhas: é a única
+   fonte de verdade para este comportamento. Ver Design-Principles no cofre.
+   ========================================================================== */
+:root {
+  --pn-drawer-w: min(340px, 88vw);
+  --pn-drawer-scrim: rgba(15, 23, 42, .32);
+  --pn-drawer-shadow: 0 16px 40px -8px rgba(15, 23, 42, .38);
+  --pn-drawer-radius: 0;
+}
+
+@media (max-width: 1199px) {
+  /* gavetas da esquerda */
+  .dc-workspace .mobile-library-panel,
+  .grafcet-designer.grafcet-full .grafcet-toolbox,
+  .ladder-workspace .ladder-project-pane {
+    position: absolute; top: 0; bottom: 0; left: 0; right: auto; z-index: 41;
+    width: var(--pn-drawer-w) !important; min-width: 0; max-width: none; height: auto; max-height: none; flex: none; transform: none;
+    border: 0; border-right: 1px solid var(--pn-line, #d3dbe5); border-radius: 0 var(--pn-drawer-radius) var(--pn-drawer-radius) 0;
+    box-shadow: var(--pn-drawer-shadow); background: var(--pn-bg, #fff);
+    animation: pn-drawer-in-left .18s ease-out;
+  }
+  /* gavetas da direita (o carril fechado do Esquema não é gaveta) */
+  .dc-workspace .mobile-grafcet-panel:not(.mobile-grafcet-closed),
+  .ladder-workspace .ladder-palette {
+    position: absolute; top: 0; bottom: 0; right: 0; left: auto; z-index: 41;
+    width: var(--pn-drawer-w) !important; min-width: 0; max-width: none; height: auto; max-height: none; flex: none; transform: none;
+    border: 0; border-left: 1px solid var(--pn-line, #d3dbe5); border-radius: var(--pn-drawer-radius) 0 0 var(--pn-drawer-radius);
+    box-shadow: var(--pn-drawer-shadow); background: var(--pn-bg, #fff);
+    animation: pn-drawer-in-right .18s ease-out;
+  }
+  /* cortina: a mesma em todos; tocar fora fecha */
+  .dc-workspace .dc-mobile-backdrop,
+  .ladder-workspace .ladder-pane-scrim,
+  .grafcet-full .grafcet-toolbox-backdrop {
+    position: absolute; inset: 0; z-index: 40; display: block; margin: 0; padding: 0; border: 0;
+    background: var(--pn-drawer-scrim); backdrop-filter: none; cursor: default;
+  }
+  /* Ladder · Elementos: o cabeçalho é de lado a lado, como nas outras gavetas */
+  .ladder-workspace .ladder-palette { padding: 0; }
+  .ladder-workspace .ladder-palette > .ladder-palette-search-wrap { margin: 10px 12px 8px; }
+  .ladder-workspace .ladder-palette > .ladder-palette-scroll { padding-inline: 12px; }
+  .grafcet-full .grafcet-toolbox-list, .ladder-palette-scroll { overscroll-behavior: contain; }
+}
+@keyframes pn-drawer-in-left { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pn-drawer-in-right { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .dc-workspace .mobile-library-panel, .dc-workspace .mobile-grafcet-panel, .grafcet-toolbox, .ladder-project-pane, .ladder-palette { animation: none !important; }
+}

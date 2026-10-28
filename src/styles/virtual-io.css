@@ -318,3 +318,117 @@
 .plc-sim-state { position: absolute; left: 6px; bottom: -7px; padding: 0 5px; border-radius: 999px; font: 600 9px/13px ui-monospace, monospace; background: #e2e8f0; color: #475569; pointer-events: auto; }
 .plc-sim-state.is-on { background: #16a34a; color: #fff; }
 .ladder-status-grid > .plc-sim { grid-column: 1 / -1; padding: 4px 0 8px; border-bottom: 1px dashed var(--line, #d6dae3); }
+
+/* ───── 2026-10-28 refine: mobile + desktop polish for Virtual IO ───── */
+@media (max-width: 720px), (pointer: coarse) {
+  .vio-panel {
+    padding: 12px 14px 16px;
+    gap: 12px;
+  }
+  .vio-note {
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    border-radius: 10px;
+  }
+  .vio-head {
+    min-height: 40px;
+    gap: 8px;
+  }
+  .vio-head strong {
+    font-size: 12px;
+    letter-spacing: 0.03em;
+  }
+  .vio-actions {
+    gap: 6px;
+  }
+  .vio-actions button,
+  .vio-stepper button {
+    min-width: 40px;
+    min-height: 40px;
+    height: 40px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .vio-clear {
+    min-width: auto;
+    padding: 0 14px;
+  }
+  .vio-inputs {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    padding-top: 12px;
+  }
+  .vio-switch {
+    min-height: 56px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    gap: 4px 8px;
+  }
+  .vio-switch i {
+    width: 14px;
+    height: 14px;
+  }
+  .vio-switch b {
+    font-size: 13px;
+  }
+  .vio-mode {
+    height: 20px;
+    min-width: 32px;
+    font-size: 10px;
+    line-height: 18px;
+    border-radius: 8px;
+    top: -8px;
+    right: -4px;
+  }
+  .vio-outputs {
+    gap: 8px;
+  }
+  .vio-lamp {
+    min-height: 44px;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+  .vio-lamp i {
+    width: 12px;
+    height: 12px;
+  }
+  .vio-cols {
+    gap: 16px;
+  }
+  .vio-col + .vio-col {
+    padding-top: 16px;
+    border-top: 1px solid var(--pn-line-soft, #e2e8f0);
+  }
+}
+
+/* Desktop polish: slightly more generous spacing without density loss */
+@media (min-width: 721px) {
+  .vio-panel:not(.is-compact) {
+    padding: 12px 16px 14px;
+    gap: 10px;
+  }
+  .vio-inputs {
+    gap: 8px;
+  }
+  .vio-switch {
+    border-radius: 10px;
+    transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+  }
+  .vio-switch:hover:not(:disabled) {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+  }
+  .vio-actions button:hover:not(:disabled),
+  .vio-stepper button:hover:not(:disabled) {
+    border-color: var(--pn-brand, #2563eb);
+    color: var(--pn-brand-ink, #1e42d3);
+    background: var(--pn-brand-soft, #eef4ff);
+  }
+}
+/* force-rebuild 20261028152457 */
+
+.vio-panel { --force-rebuild: 1; }

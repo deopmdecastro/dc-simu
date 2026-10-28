@@ -26,6 +26,9 @@ import {
   supabaseCancelPlanRequest,
   supabaseListPlanRequests,
   supabaseDecidePlanRequest,
+  supabaseGetLandingPublished,
+  supabaseGetLandingPublishAdmin,
+  supabaseSetLandingPublish,
   supabaseAdminUsers,
   supabaseAdminUpdateUser,
   supabaseListComments,
@@ -216,6 +219,18 @@ async function supabaseApi<T>(url: string, verb: string, body?: unknown): Promis
   if (url === '/admin/system' && verb === 'GET') return (await supabaseAdminSystem()) as T
   if (url === '/admin/export' && verb === 'GET') return (await supabaseAdminExport()) as T
 
+  if (url === '/admin/landing/publish' && verb === 'GET') {
+    return (await supabaseGetLandingPublishAdmin()) as T
+  }
+  if (url === '/admin/landing/publish' && verb === 'PUT') {
+    const payload = (body ?? {}) as { projectId?: string | null }
+    return (await supabaseSetLandingPublish(payload.projectId ?? null)) as T
+  }
+
+  if (url === '/landing/published' && verb === 'GET') {
+    return (await supabaseGetLandingPublished()) as T
+  }
+
   throw new Error(`A operação ${verb} ${url} ainda não está disponível no backend Supabase.`)
 }
 
@@ -225,6 +240,18 @@ async function supabaseApi<T>(url: string, verb: string, body?: unknown): Promis
  */
 export async function accountApi<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
   const verb = method.toUpperCase()
+
+  // Público: projeto da landing (sem sessão).
+  if (url === '/landing/published' && verb === 'GET') {
+    if (isSupabaseConfigured()) {
+      try {
+        return (await supabaseGetLandingPublished()) as T
+      } catch {
+        /* fallback local */
+      }
+    }
+    return localApi<T>(url, verb, body)
+  }
 
   // 1. Registo de nova conta
   if (url === '/register') {

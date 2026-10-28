@@ -54,6 +54,31 @@ try {
   {
     const { context, page, errors } = await session(390, 844)
 
+    // 0) resumo: indicadores com ícone, cabeçalho sem botões empilhados,
+    //    pendências sem ponto órfão e atividade sem identificações repetidas
+    const tiles = page.locator('.adm-tile')
+    check(await tiles.count() === 6, 'Telemóvel: o resumo mostra os seis indicadores')
+    check(await tiles.locator('.adm-tile-icon svg').count() === 6, 'Telemóvel: cada indicador tem o seu ícone')
+    const tileBox = await tiles.evaluateAll((list) => list.map((el) => { const r = el.getBoundingClientRect(); return { left: Math.round(r.left), height: Math.round(r.height) } }))
+    check(new Set(tileBox.map((t) => t.left)).size === 2, 'Telemóvel: indicadores em duas colunas')
+    check(Math.max(...tileBox.map((t) => t.height)) <= 132, `Telemóvel: indicador ≤ 132 px (medido: ${tileBox.map((t) => t.height).join(', ')})`)
+    const clear = page.locator('.adm-clear')
+    if (await clear.count() === 1) {
+      const clearBox = await clear.evaluate((el) => { const icon = el.querySelector('.adm-attn-icon').getBoundingClientRect(); const text = el.querySelector('.adm-attn-text').getBoundingClientRect(); return { iconTop: Math.round(icon.top), textTop: Math.round(text.top) } })
+      check(Math.abs(clearBox.iconTop - clearBox.textTop) <= 14, 'Telemóvel: o ícone de «Sem pendências» fica ao lado do texto, não numa linha própria')
+    }
+    const headBtns = await page.locator('.dx-admin-head-actions .dx-btn').evaluateAll((list) => list.map((el) => { const r = el.getBoundingClientRect(); return { top: Math.round(r.top), height: Math.round(r.height) } }))
+    check(headBtns.length === 2 && headBtns[0].top === headBtns[1].top && Math.min(...headBtns.map((b) => b.height)) >= 40, 'Telemóvel: «Novo componente 3D» e «Projetos» lado a lado, com altura de toque')
+    const quick = page.locator('.adm-quick-grid button')
+    check(await quick.count() === 4, 'Telemóvel: acesso rápido com as quatro áreas mais usadas')
+    const quickLeft = await quick.evaluateAll((list) => list.map((el) => Math.round(el.getBoundingClientRect().left)))
+    check(new Set(quickLeft).size === 2, 'Telemóvel: acesso rápido em duas colunas')
+    const dupMeta = await page.locator('.adm-activity-text small').evaluateAll((list) => list.filter((el) => { const parts = el.textContent.split('·').map((p) => p.trim()).filter(Boolean); return new Set(parts).size !== parts.length }).length)
+    check(dupMeta === 0, 'Resumo: a atividade não repete a mesma identificação na mesma linha')
+    check(await page.locator('.adm-card-action').count() >= 3, 'Resumo: cada cartão tem uma única ação no cabeçalho')
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Telemóvel: resumo sem deslocamento horizontal')
+    await capture(page, 'adm-telefone-resumo')
+
     // 1) navegação: um seletor com todas as secções, não uma faixa que desliza
     check(await page.locator('.adm-picker .tm-trigger').count() === 1, 'Telemóvel: a secção atual aparece num seletor único')
     check(await page.locator('.adm-tablist').count() === 0, 'Telemóvel: a faixa de nove separadores deixou de existir')
@@ -166,6 +191,13 @@ try {
   {
     const { context, page, errors } = await session(1440, 900)
     check(await page.locator('.adm-tablist').count() === 1 && await page.locator('.adm-picker').count() === 0, 'Secretária: mantém-se a navegação lateral')
+    check(await page.locator('.adm-tab .adm-tab-main svg').count() === 9, 'Secretária: as nove secções têm ícone na navegação lateral')
+    const deskTiles = await page.locator('.adm-tile').evaluateAll((list) => list.map((el) => Math.round(el.getBoundingClientRect().left)))
+    check(new Set(deskTiles).size === 3, 'Secretária: indicadores em três colunas')
+    const deskQuick = await page.locator('.adm-quick-grid button').evaluateAll((list) => list.map((el) => Math.round(el.getBoundingClientRect().left)))
+    check(new Set(deskQuick).size === 4, 'Secretária: acesso rápido em quatro colunas')
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Secretária: resumo sem deslocamento horizontal')
+    await capture(page, 'adm-desktop-resumo')
     const side = await page.locator('.adm-tablist').boundingBox()
     check(Boolean(side) && side.width <= 240, `Secretária: navegação lateral estreita (${Math.round(side.width)} px)`)
     await openSection(page, 'Planos e preços')

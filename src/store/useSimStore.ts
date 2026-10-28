@@ -30,6 +30,7 @@ import type {
   Terminal,
   ProbeResult,
   SpatialPoint3D,
+  CanvasNote,
 } from '../types'
 import { logoElectricalInputs } from '../electrical/logoPower'
 import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
@@ -115,6 +116,10 @@ interface RuntimeExtras {
 }
 
 interface Store extends CircuitState {
+  canvasNotes: CanvasNote[]
+  addCanvasNote: (note: Omit<CanvasNote, 'id' | 'createdAt'>) => void
+  updateCanvasNote: (id: string, patch: Partial<CanvasNote>) => void
+  removeCanvasNote: (id: string) => void
   runtime: RuntimeExtras
   showEmptyWelcome: boolean
   dismissEmptyWelcome: () => void
@@ -789,6 +794,10 @@ export const useSimStore = create<Store>((set, get) => ({
   panX: 0,
   panY: 0,
   dirty: false,
+  canvasNotes: [],
+  addCanvasNote: (note) => set((s) => ({ canvasNotes: [...s.canvasNotes, { ...note, id: nanoid(10), createdAt: new Date().toISOString() }], dirty: true })),
+  updateCanvasNote: (id, patch) => set((s) => ({ canvasNotes: s.canvasNotes.map((note) => note.id === id ? { ...note, ...patch } : note), dirty: true })),
+  removeCanvasNote: (id) => set((s) => ({ canvasNotes: s.canvasNotes.filter((note) => note.id !== id), dirty: true })),
   runtime: EMPTY_RUNTIME(),
   showEmptyWelcome: true,
   dismissEmptyWelcome: () => set({ showEmptyWelcome: false }),
@@ -2584,6 +2593,7 @@ export const useSimStore = create<Store>((set, get) => ({
         activeSheetId: s.activeSheetId,
         grid: s.grid,
         activeScenario: s.activeScenario,
+        canvasNotes: s.canvasNotes,
       },
       null,
       2,
@@ -2640,6 +2650,7 @@ export const useSimStore = create<Store>((set, get) => ({
         virtualMemoryCount: typeof parsed.virtualMemoryCount === 'number' ? Math.max(0, Math.min(32, parsed.virtualMemoryCount)) : 0,
         sheets: Array.isArray(parsed.sheets) && parsed.sheets.length ? parsed.sheets : [{ id: 'sheet-1', name: 'Página 1' }],
         activeSheetId: typeof parsed.activeSheetId === 'string' ? parsed.activeSheetId : 'sheet-1',
+        canvasNotes: Array.isArray(parsed.canvasNotes) ? parsed.canvasNotes.filter((note: CanvasNote) => note && typeof note.id === 'string' && typeof note.text === 'string') : [],
         tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
         grid: parsed.grid ? { ...parsed.grid, background: EDITOR_THEME.background } : get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',
@@ -2666,6 +2677,7 @@ export const useSimStore = create<Store>((set, get) => ({
       projectRevision: get().projectRevision + 1,
       sheets: [{ id: 'sheet-1', name: 'Página 1' }],
       activeSheetId: 'sheet-1',
+      canvasNotes: [],
       components: [],
       wires: [],
       showEmptyWelcome: true,

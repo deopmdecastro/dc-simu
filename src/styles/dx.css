@@ -1543,3 +1543,84 @@ button.dx-notification-item:hover {
   .account-bar .account-comments-action { position: relative; }
   .account-bar .account-project-action.dx-bar-primary { padding-inline: 12px; }
 }
+
+/* ───── 2026-10-28 refine: Account menu & controls polish ───── */
+.dx-profile-menu nav button {
+  min-height: 44px;
+  padding: 0 12px;
+  gap: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.dx-profile-menu nav button span {
+  flex: 1;
+  text-align: left;
+}
+.dx-profile-menu nav button.is-logout {
+  margin-top: 6px;
+  color: #b91c1c;
+  font-weight: 600;
+}
+.dx-profile-menu nav button.is-logout:hover {
+  background: #fef2f2;
+  color: #991b1b;
+}
+.dx-profile-role {
+  margin: 0 12px 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--dx-brand-soft, #eef4ff);
+  color: var(--dx-brand-700, #1e42d3);
+  font-size: 11.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dx-account-popover > header {
+  padding: 14px 16px;
+}
+.dx-avatar.is-large {
+  width: 44px;
+  height: 44px;
+  font-size: 15px;
+}
+@media (max-width: 720px), (pointer: coarse) {
+  .dx-account-popover {
+    width: min(340px, calc(100vw - 16px));
+    max-height: min(80vh, 560px);
+    border-radius: 14px;
+  }
+  .dx-profile-menu nav {
+    padding: 8px;
+    gap: 2px;
+  }
+  .dx-profile-menu nav button {
+    min-height: 48px;
+    padding: 0 14px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+  .dx-profile-menu footer {
+    padding: 12px 16px;
+    font-size: 11.5px;
+  }
+  .dx-account-icon,
+  .dx-account-trigger {
+    min-height: 40px;
+  }
+  .dx-account-trigger .dx-avatar {
+    width: 32px;
+    height: 32px;
+  }
+}
+/* force-rebuild 20261028152457 */
+
+/* rebuild-force */
+.dx-profile-menu nav button { min-height: 48px !important; }
+@media (max-width: 720px), (pointer: coarse) {
+  .dx-profile-menu nav button { min-height: 48px !important; padding: 0 14px; font-size: 14px; }
+  .vio-switch { min-height: 56px !important; }
+  .dc-side-panel-actions > button { min-width: 40px; min-height: 40px; }
+}

@@ -71,6 +71,17 @@ function Label({ text, position, color = '#0f172a', size = 0.085 }: { text: stri
   )
 }
 
+function CanvasNoteLayer({ notes, view, onEdit, onRemove }: { notes: Array<{ id: string; text: string; view: 'schematic' | '3d'; x: number; y: number; z?: number }>; view: 'schematic' | '3d'; onEdit: (note: { id: string; text: string }) => void; onRemove: (id: string) => void }) {
+  return <>{notes.filter((note) => note.view === view).map((note, index) => {
+    const position: [number, number, number] = [note.x, note.y, note.z ?? 0.3]
+    return <group key={note.id} position={position} onDoubleClick={(event) => { event.stopPropagation(); onEdit(note) }} onContextMenu={(event) => { event.stopPropagation(); event.nativeEvent.preventDefault(); onRemove(note.id) }}>
+      <mesh position={[-0.08, 0.1, 0]} raycast={() => null}><sphereGeometry args={[0.065, 16, 16]} /><meshBasicMaterial color="#f59e0b" /></mesh>
+      <Text position={[-0.08, 0.1, 0.02]} fontSize={0.06} color="#ffffff" anchorX="center" anchorY="middle" raycast={() => null}>{String(index + 1)}</Text>
+      <Text position={[0, 0, 0]} fontSize={0.11} color="#7c2d12" anchorX="left" anchorY="top" maxWidth={1.8} outlineWidth={0.012} outlineColor="#fff7ed">{note.text}</Text>
+    </group>
+  })}</>
+}
+
 /** Retângulo (unidades de cena) ocupado pela chapa de montagem no plano do painel. */
 interface PlateBounds { minX: number; maxX: number; minY: number; maxY: number }
 
@@ -1993,6 +2004,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const placingType = useSimStore((s) => s.placingType)
   const setPlacingType = useSimStore((s) => s.setPlacingType)
   const storedComponents = useSimStore((s) => s.components)
+  const canvasNotes = useSimStore((s) => s.canvasNotes)
+  const addCanvasNote = useSimStore((s) => s.addCanvasNote)
+  const updateCanvasNote = useSimStore((s) => s.updateCanvasNote)
+  const removeCanvasNote = useSimStore((s) => s.removeCanvasNote)
   const pressButton = useSimStore((s) => s.pressButton)
   const setComponentState = useSimStore((s) => s.setComponentState)
   const addComponent = useSimStore((s) => s.addComponent)
@@ -2047,6 +2062,20 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     } catch { return 'technical' }
   })
   const [cameraStats, setCameraStats] = useState({ yaw: 0, pitch: 0, zoom: 100 })
+  const addNote = () => {
+    const text = window.prompt('Texto do comentário ou anotação:')?.trim()
+    if (!text) return
+    const [x, y, z] = sceneCenterRef.current
+    addCanvasNote({ text, view: frontEdit ? 'schematic' : '3d', x, y, z })
+  }
+  const editNote = (note: { id: string; text: string }) => {
+    const text = window.prompt('Editar comentário:', note.text)?.trim()
+    if (!text) return
+    updateCanvasNote(note.id, { text })
+  }
+  const removeNote = (id: string) => {
+    if (window.confirm('Eliminar este comentário?')) removeCanvasNote(id)
+  }
   const cycleBackground = () => setBackgroundMode((current) => {
     const next = current === 'technical' ? 'white' : current === 'white' ? 'dark' : 'technical'
     try { localStorage.setItem('dc-simu:panel3d:background', next) } catch {}
@@ -2662,6 +2691,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }} />}
 
         {plateBounds && <MountingPlate bounds={plateBounds} />}
+        <CanvasNoteLayer notes={canvasNotes} view={frontEdit ? 'schematic' : '3d'} onEdit={editNote} onRemove={removeNote} />
         {railComponents.map((c) => {
           const x = positions[c.id].x
           let content: ReactNode
@@ -2760,6 +2790,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} />
       </Canvas>
 
+      <button type="button" onClick={addNote} title="Adicionar comentário no canvas" aria-label="Adicionar comentário no canvas" style={{ position: 'absolute', top: 12, left: 12, zIndex: 8, minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid #f59e0b', background: '#fff7ed', color: '#9a3412', fontWeight: 700, cursor: 'pointer' }}>+ Comentário</button>
       <div className="panel3d-axis-hud" aria-label="Orientação da câmara 3D">
         <svg viewBox="0 0 64 64" aria-hidden="true">
           <circle cx="30" cy="34" r="3" fill="#334155" />

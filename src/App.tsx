@@ -203,8 +203,8 @@ export default function App({ onBack }: { onBack: () => void }) {
         )}
         {mode === 'schematic' && showLibrary && (
           <>
-            <div className={`mobile-library-panel relative shrink-0 flex flex-col ${compact ? 'dc-mobile-fullscreen-panel' : ''}`} style={compact ? undefined : { width: panelSizes.sidebar }}>
-              <Sidebar width={compact ? window.innerWidth : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} onCollapse={() => setShowLibrary(false)} />
+            <div className="mobile-library-panel relative shrink-0 flex flex-col" style={compact ? undefined : { width: panelSizes.sidebar }}>
+              <Sidebar width={compact ? '100%' : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} onCollapse={() => setShowLibrary(false)} />
             </div>
             <div
               className="dc-resize-handle"
@@ -229,7 +229,7 @@ export default function App({ onBack }: { onBack: () => void }) {
         {mode === 'schematic' && <ComponentEditorDock />}
         {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
           <div
-            className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} ${compact && showLadder ? 'dc-mobile-fullscreen-panel' : ''} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
+            className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder && !compact ? { width: panelSizes.ladder } : undefined}
           >
             {showLadder ? (
@@ -261,9 +261,9 @@ export default function App({ onBack }: { onBack: () => void }) {
 
       {/* ============================================== barra de estado */}
       <footer className="dc-statusbar shrink-0 flex items-center gap-2 px-3 h-[26px] border-t border-line bg-surface-rail text-[11px] text-ink-500 select-none">
-        <span className="text-ink-400 font-semibold tracking-wide">DC·SIMU <span className="font-normal">v4.6</span></span>
-        <span className="h-3.5 w-px bg-line" />
-        <span className="truncate max-w-[280px]" title="Ctrl+S guarda · Ctrl+Shift+O reabre a lista de projetos guardados neste navegador">
+        <span className="dc-sb-brand text-ink-400 font-semibold tracking-wide">DC·SIMU <span className="font-normal">v4.6</span></span>
+        <span className="dc-sb-sep h-3.5 w-px bg-line" />
+        <span className="dc-sb-project truncate max-w-[280px]" title="Ctrl+S guarda · Ctrl+Shift+O reabre a lista de projetos guardados neste navegador">
           {currentProjectName ? (
             <>
               <span className="text-ink-400">Projeto:</span> <span className="text-ink-900 font-medium">{currentProjectName}</span>
@@ -273,7 +273,7 @@ export default function App({ onBack }: { onBack: () => void }) {
             <span className="text-ink-400">Projeto sem nome</span>
           )}
         </span>
-        <span className="h-3.5 w-px bg-line" />
+        <span className="dc-sb-sep h-3.5 w-px bg-line" />
         <button
           className={`inline-flex items-center gap-1.5 h-[18px] px-2 rounded-[4px] font-mono text-[10px] font-bold tracking-[0.08em] ${state.cls}`}
           title={`Estado do PLC: ${state.label}${hasErrorState ? ' — existem erros/falhas ativos' : ''}`}
@@ -281,7 +281,7 @@ export default function App({ onBack }: { onBack: () => void }) {
           <span className={`inline-block h-1.5 w-1.5 rounded-full ${state.dot}`} />
           {state.label}
         </button>
-        <span className="ml-1 inline-flex items-center gap-1">
+        <span className="dc-sb-diag ml-1 inline-flex items-center gap-1">
           <button
             type="button"
             onClick={() => setMode('monitor')}
@@ -300,7 +300,7 @@ export default function App({ onBack }: { onBack: () => void }) {
         </span>
         <span className="ml-auto inline-flex items-center gap-2 min-w-0">
           <GrafcetStatusCard onOpen={() => setMode('grafcet')} />
-          <span className="font-mono tabular-nums text-ink-500 shrink-0">scan #{scanCount}</span>
+          <span className="dc-sb-scan font-mono tabular-nums text-ink-500 shrink-0">scan #{scanCount}</span>
         </span>
         <InstallApp />
       </footer>

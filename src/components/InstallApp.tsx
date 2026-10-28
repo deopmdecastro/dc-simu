@@ -23,7 +23,7 @@ export default function InstallApp() {
     } else setOpen(true)
   }
   return <>
-    <button type="button" onClick={install} className="ml-2 whitespace-nowrap text-brand-600 font-semibold hover:underline" title="Instalar como aplicação no computador ou telemóvel">⬇ Instalar app</button>
+    <button type="button" onClick={install} className="dc-install-btn ml-2 whitespace-nowrap text-brand-600 font-semibold hover:underline" title="Instalar como aplicação no computador ou telemóvel" aria-label="Instalar app"><span aria-hidden="true">⬇</span><span className="dc-install-label"> Instalar app</span></button>
     {open && <div role="dialog" aria-modal="true" aria-label="Instalar DC-SIMU" className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
       <div className="max-w-sm rounded-lg bg-white p-5 shadow-xl text-sm leading-relaxed text-ink-900" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-base font-bold mb-3">Instalar DC-SIMU</h2>

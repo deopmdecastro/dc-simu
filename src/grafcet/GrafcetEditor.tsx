@@ -23,6 +23,7 @@ import {
   type GrafcetTransition,
   type GrafcetBranchType,
   type GrafcetProgram,
+  type GrafcetComment,
 } from './engine'
 import StepDialog from './StepDialog'
 import ActionDialog from './ActionDialog'
@@ -62,9 +63,11 @@ import {
   IconZoomOut,
   IconReset,
   IconGrid,
-  IconTools
+  IconTools,
+  IconLayers
 } from '../ui/icons'
 import CollapsedPanelRail from '../components/CollapsedPanelRail'
+import { useNarrowMenu } from '../ui/toolbarKit'
 import SidePanelHeader from '../components/SidePanelHeader'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
@@ -448,6 +451,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   const selectedAction = selectedStep ? (actionsOf(selectedStep).find((a) => a.id === selectedActionId) ?? null) : null
   /** Mobile: Propriedades é uma gaveta recolhida; abre ao selecionar algo (no desktop é sempre visível). */
   const [propsOpen, setPropsOpen] = useState(false)
+  /* Até 800 px o inspetor é uma gaveta no fundo (index.css): as setas apontam para cima/baixo, não para os lados. */
+  const propsAtBottom = useNarrowMenu('(max-width: 800px)')
   const [propsTall, setPropsTall] = useState(false)
   const propsFirstRun = useRef(true)
   useEffect(() => {
@@ -645,6 +650,17 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     setTab('steps')
     notify('Ação solta criada — arraste-a sobre uma etapa ou ligue por linha (L)')
   }
+
+  const addComment = (at?: { x: number; y: number }) => {
+    const text = window.prompt('Texto solto do GRAFCET:')?.trim()
+    if (!text) return
+    const pos = at ?? { x: SPINE_X + 260, y: START_Y }
+    const comment: GrafcetComment = { id: id(), text, x: Math.round(pos.x / GRID) * GRID, y: Math.round(pos.y / GRID) * GRID, fontSize: 13, fontWeight: '600', ...(activeChart ? { chart: activeChart } : {}) }
+    save({ comments: [...allComments, comment] }, 'force', `grafcet:comment:${comment.id}`)
+    notify('Comentário criado — duplo clique para editar')
+  }
+
+  const removeComment = (commentId: string) => save({ comments: allComments.filter((comment) => comment.id !== commentId) }, 'force', `grafcet:comment:remove:${commentId}`)
 
   const removeFreeAction = (actionId: string) => {
     save({ freeActions: freeActions.filter((action) => action.id !== actionId) })
@@ -2482,6 +2498,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
       { label: 'Nova etapa aqui', onSelect: () => addStep(place()) },
       { label: 'Nova transição solta aqui', onSelect: () => addFreeTransition(place()) },
       { label: 'Nova ação solta aqui', onSelect: () => addFreeAction(false, place()) },
+      { label: 'Novo comentário aqui', onSelect: () => addComment(place()) },
       sep,
       { label: 'Colar', hint: 'Ctrl+V', disabled: !clipboardRef.current, onSelect: pasteClipboard },
       { label: 'Selecionar tudo', hint: 'Ctrl+A', disabled: !steps.length, onSelect: selectAllSteps },
@@ -3061,7 +3078,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
               <p className="grafcet-toolbox-tip">Clique ou arraste componentes para a tela. Etapas nascem sem transição; transições e ações soltas ligam-se por arrasto ou com a ferramenta Ligar [L]. Para selecionar várias etapas, arraste um retângulo no fundo (Shift/Ctrl+clique também soma); Ctrl+C/V copia e cola, Ctrl+A seleciona tudo, Del apaga.</p>
             </aside>
           ) : (
-            <CollapsedPanelRail className="grafcet-toolbox-restore" label="Ferramentas" side="left" icon={<IconTools size={15} />} onExpand={() => setShowPalette(true)} />
+            <CollapsedPanelRail className="grafcet-toolbox-restore" label="Componentes" side="left" icon={<IconLayers size={15} />} onExpand={() => setShowPalette(true)} />
           ))}
 
         {/* CANVAS CENTRAL COM O DIAGRAMA VERTICAL ROBUSTO */}
@@ -4087,8 +4104,15 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                     fontSize={comment.fontSize ?? 13}
                     fontWeight={comment.fontWeight ?? 600}
                     fill="#334155"
-                    style={{ pointerEvents: 'none', userSelect: 'none' }}
+                    style={{ pointerEvents: 'auto', userSelect: 'none', cursor: 'pointer' }}
+                    onDoubleClick={(event) => {
+                      event.stopPropagation()
+                      const text = window.prompt('Editar comentário:', comment.text)?.trim()
+                      if (text) save({ comments: allComments.map((item) => item.id === comment.id ? { ...item, text } : item) }, 'force', `grafcet:comment:${comment.id}`)
+                    }}
+                    onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); removeComment(comment.id) }}
                   >
+                    <title>Duplo clique edita · botão direito elimina</title>
                     {comment.text}
                   </text>
                 ))}
@@ -4979,7 +5003,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                 ? `Transição T${transitions.indexOf(selectedTransition) + 1}`
                 : 'Propriedades'}
               detail={simVisible ? `${running ? '● Simulação ativa' : '○ Simulação parada'}${runtime.active.length ? ` · Etapas ativas: ${runtime.active.map((value) => { const index = steps.findIndex((step) => step.id === value); return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber }).join(', ')}` : ''}` : undefined}
-              side="right"
+              side={propsAtBottom ? 'bottom' : 'right'}
               expanded={propsOpen}
               onToggle={() => setPropsOpen((value) => !value)}
               toggleTitle

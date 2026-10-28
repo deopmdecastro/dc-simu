@@ -27,7 +27,7 @@ const CATEGORIES = {
 }
 const escapeLike = value => value.replace(/[\\%_]/g, m => '\\' + m)
 
-export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, auditReq, clientIp, fixedAccounts, contribDir, dataDir, saas }) {
+export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, auditReq, clientIp, fixedAccounts, contribDir, dataDir, saas, previewFor }) {
   const fixed = new Set(fixedAccounts.map(a => a.email))
   const startedAt = new Date().toISOString()
   const target = user => ({ type: 'user', id: user.id, label: user.email })
@@ -168,8 +168,10 @@ export function registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, audi
 
   // ---- Projetos ----
   app.get('/api/admin/projects', auth, admin, (_req, res) => {
-    res.json(db.prepare(`SELECT p.id,p.name,p.updated_at,p.revision,length(p.content) size,u.email owner,
-      (SELECT count(*) FROM members m WHERE m.project_id=p.id) members FROM projects p JOIN users u ON u.id=p.owner_id ORDER BY p.updated_at DESC`).all())
+    const rows = db.prepare(`SELECT p.id,p.name,p.updated_at,p.revision,p.content,length(p.content) size,u.email owner,
+      (SELECT count(*) FROM members m WHERE m.project_id=p.id) members FROM projects p JOIN users u ON u.id=p.owner_id ORDER BY p.updated_at DESC`).all()
+    // A capa vem da mesma pré-visualização do painel de projetos (em cache por revisão); o conteúdo bruto nunca sai.
+    res.json(rows.map(({ content, ...row }) => { let preview; try { preview = previewFor ? previewFor({ ...row, content }) : undefined } catch { preview = undefined } return { ...row, preview } }))
   })
   app.delete('/api/admin/projects/:id', auth, admin, (req, res) => {
     const row = db.prepare('SELECT id,name FROM projects WHERE id=?').get(req.params.id)

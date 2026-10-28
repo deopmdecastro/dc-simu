@@ -1,0 +1,315 @@
+/* ---------------------------------------------------------------------------
+   Refinamento mobile + desktop (2026-10-27) — carrega por último.
+
+   Origem: capturas do telemóvel (GRAFCET, Ladder vazio, painéis Projeto/Elementos,
+   inspetor de bornes e de cabos). Problemas medidos a ~390 px:
+     1. rodapé de estado com 6 itens a transbordar («Instalar» cortado);
+     2. duas réguas de 48 px a roubar ~25 % da largura ao Ladder;
+     3. painel de estado/compilação a ocupar mais de metade da altura;
+     4. inspetor de bornes com texto de 9–10 px e controlos de 22–24 px
+        (abaixo do alvo de toque de 40 px);
+     5. cartão do componente a «flutuar» com conteúdo visível por trás.
+
+   Regras: só tokens --pn-* / --dx-*; sem barras laterais de destaque;
+   tudo o que sai do ecrã vai para menu ou passa a ícone com nome acessível.
+--------------------------------------------------------------------------- */
+
+:root {
+  --mr-touch: 40px;
+  --mr-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ===== 1. Rodapé de estado ===== */
+.dc-statusbar { min-width: 0; overflow: hidden; white-space: nowrap; }
+.dc-statusbar > * { flex-shrink: 0; }
+.dc-statusbar > .dc-sb-project { flex: 0 1 auto; min-width: 0; }
+.dc-statusbar > .ml-auto { flex: 1 1 auto; justify-content: flex-end; min-width: 0; overflow: hidden; }
+.dc-install-btn { display: inline-flex; align-items: center; gap: 3px; }
+
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  .dc-statusbar {
+    height: auto !important; min-height: 30px;
+    padding-bottom: var(--mr-safe-bottom); padding-inline: 10px; gap: 8px !important;
+  }
+  /* Versão e contador de ciclos são ruído no telemóvel; o resto cabe numa linha. */
+  .dc-statusbar .dc-sb-brand,
+  .dc-statusbar .dc-sb-scan { display: none; }
+  .dc-statusbar .dc-sb-brand + .dc-sb-sep { display: none; }
+  .dc-statusbar .dc-sb-project { max-width: 34vw; }
+  /* Instalar passa a ícone (o nome acessível mantém-se). */
+  .dc-install-btn { margin-left: 4px !important; min-width: 32px; min-height: 28px; justify-content: center; }
+  .dc-install-label { display: none; }
+  /* «0 erro(s) · 0 aviso(s)» compacta-se em «0 · 0» com ícone de cor. */
+  .dc-statusbar .dc-sb-diag { font-variant-numeric: tabular-nums; }
+}
+@media (max-width: 420px) {
+  .dc-statusbar .dc-sb-project { display: none; }
+  .dc-statusbar .dc-sb-project + .dc-sb-sep { display: none; }
+}
+
+/* ===== 2. Réguas recolhidas: finas no telemóvel ===== */
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  .pn-collapsed-rail.pn-collapsed-rail {
+    flex: 0 0 30px; width: 30px; min-width: 30px; gap: 8px; padding: 10px 3px;
+  }
+  .pn-collapsed-rail.pn-collapsed-rail .pn-collapsed-rail-icon { width: 24px; height: 24px; }
+  /* A seta ocupava 34 px de altura sem acrescentar nada: o toque na régua inteira já reabre. */
+  .pn-collapsed-rail.pn-collapsed-rail .pn-collapsed-rail-chevron { display: none; }
+  .pn-collapsed-rail.pn-collapsed-rail .pn-collapsed-rail-label { font-size: 9.5px; letter-spacing: .03em; }
+}
+
+/* ===== 3. Ladder: painel de estado e compilação ===== */
+.ladder-btn-label { white-space: nowrap; }
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  /* Nunca mais de ~38 % da altura visível: o diagrama continua a ser o protagonista. */
+  .ladder-bottom-panel:not(.is-collapsed) { max-height: 38dvh; min-height: 0; }
+  .ladder-bottom-tabs {
+    display: flex; flex-wrap: nowrap; align-items: stretch; gap: 2px;
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  }
+  .ladder-bottom-tabs::-webkit-scrollbar { display: none; }
+  .ladder-bottom-tabs > button { flex: 0 0 auto; min-height: 38px; padding-inline: 10px; white-space: nowrap; }
+  /* Ações do painel: só o essencial, em ícone (o texto fica no nome acessível/title). */
+  .ladder-bottom-actions { flex: 0 0 auto; position: sticky; right: 0; gap: 4px; padding-left: 6px; background: var(--pn-bg-2, #f6f8fb); }
+  .ladder-bottom-actions .ladder-live-words,
+  .ladder-bottom-actions .ladder-scan-count,
+  .ladder-bottom-actions .ladder-actions-sep { display: none; }
+  .ladder-bottom-actions .ladder-btn-label { display: none; }
+  .ladder-bottom-actions .ladder-status-reset,
+  .ladder-bottom-actions .ladder-bottom-toggle { min-width: 36px; min-height: 36px; justify-content: center; padding-inline: 8px; }
+
+  /* Compilação: resumo em cima, opção por baixo, avisos em cartões legíveis. */
+  .ladder-compile-head { padding: 8px 10px 0; gap: 6px 10px; }
+  .ladder-compile-btn { min-height: var(--mr-touch); padding-inline: 14px; font-size: 13px; }
+  .ladder-compile-summary { flex: 1 1 100%; font-size: 12.5px; line-height: 1.4; }
+  .ladder-compile-gate { margin-left: 0; flex: 1 1 100%; min-height: 36px; font-size: 12.5px; }
+  .ladder-compile-gate input { width: 18px; height: 18px; }
+}
+
+/* Estado vazio do Ladder: composição mais calma e botão principal com a largura do cartão. */
+.ladder-empty-state .ladder-primary-button,
+.ladder-empty-state .dc-btn-primary { border-radius: 8px; font-weight: 650; }
+@media (max-width: 720px) {
+  .ladder-empty-state .ladder-primary-button,
+  .ladder-empty-state .dc-btn-primary { width: 100%; justify-content: center; min-height: var(--mr-touch); font-size: 13px; }
+}
+
+/* ===== 4. Inspetor de componentes (Sidebar) — alvos de toque e leitura ===== */
+.dc-inspector-group-body > .flex.items-center.justify-between { gap: 8px; }
+.dc-inspector-terminal { box-shadow: 0 1px 0 rgba(15, 23, 42, .03); }
+.dc-inspector-terminal-status { display: inline-flex; align-items: center; gap: 4px; }
+
+@media (max-width: 720px), (pointer: coarse) {
+  .dc-inspector-group > summary { min-height: 42px; font-size: 12px; }
+  .dc-inspector-group-body { padding: 12px; gap: 10px; }
+
+  .dc-inspector-terminal { padding: 10px !important; border-radius: 10px !important; }
+  /* Linha 1: rótulo + biblioteca + função; linha 2 (acções) abaixo, sem apertar nada. */
+  .dc-inspector-terminal > .flex.items-center.gap-1 {
+    display: grid; grid-template-columns: 64px 40px minmax(0, 1fr) 40px; gap: 8px; align-items: center;
+  }
+  .dc-inspector-terminal > .flex.items-center.gap-1 > input[type="color"] { width: 40px; height: 40px; padding: 3px; border-radius: 8px; }
+  .dc-inspector-terminal > .flex.items-center.gap-1 > .dc-input,
+  .dc-inspector-terminal > .flex.items-center.gap-1 > .dc-select,
+  .dc-inspector-terminal > .flex.items-center.gap-1 .dc-select { height: var(--mr-touch) !important; min-height: var(--mr-touch); font-size: 14px !important; }
+  .dc-inspector-terminal > .flex.items-center.gap-1 > .dc-input { width: 100% !important; }
+  .dc-inspector-terminal > .flex.items-center.gap-1 > button:not(.dc-icon-btn) {
+    grid-column: 1 / span 3; height: 38px !important; font-size: 12px !important; border-radius: 8px;
+  }
+  .dc-inspector-terminal > .flex.items-center.gap-1 > .dc-icon-btn { grid-column: 4; height: 38px; width: 40px; }
+  .dc-inspector-terminal label > span { font-size: 11px !important; }
+  .dc-inspector-terminal .dc-select,
+  .dc-inspector-terminal-details .dc-input { height: var(--mr-touch) !important; font-size: 14px !important; }
+  /* Tipo grande, X / Y / Ø em quatro colunas iguais por baixo. */
+  .dc-inspector-terminal-details { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+  .dc-inspector-terminal-details > label:first-child { grid-column: 1 / -1; }
+  .dc-inspector-terminal-details > label span { font-size: 10.5px; letter-spacing: .04em; }
+  .dc-inspector-terminal-status { margin-top: 8px; font-size: 11.5px; }
+  .dc-inspector-group-body > p { font-size: 11.5px !important; line-height: 1.5 !important; padding: 8px 10px !important; }
+  .dc-inspector-group-body .dc-btn { min-height: 36px; font-size: 12px !important; padding-inline: 12px !important; }
+}
+
+/* Cabo: cartões de estado/compatibilidade mais legíveis e botões com altura de toque. */
+@media (max-width: 720px), (pointer: coarse) {
+  .dc-wire-3d-actions button, .dc-wire-3d-actions .dc-btn { min-height: 40px; }
+}
+
+/* ===== 5. Cabeçalho/cartão fixo do componente: opaco, compacto e com sombra suave ===== */
+.dc-inspector-hero {
+  top: 0; background: var(--pn-bg, #fff);
+  /* A «aba» de 12 px acima do cartão deixava ver o conteúdo a passar por trás. */
+  box-shadow: 0 -14px 0 0 var(--pn-bg, #fff), 0 4px 12px -6px rgba(15, 23, 42, .28);
+}
+.dc-inspector-hero time { font-size: 10px; }
+.ce-inspector-context { background: var(--pn-bg, #fff); }
+@media (max-width: 720px), (pointer: coarse) {
+  .dc-inspector-hero { gap: 10px; min-height: 64px; padding: 10px 12px; border-radius: 10px; }
+  .dc-inspector-hero strong { font-size: 15px; }
+  .dc-inspector-hero strong span { font-size: 11px; }
+  .dc-inspector-hero > div > span { font-size: 12px; }
+  .dc-inspector-hero time { font-size: 10.5px; }
+  .dc-inspector-component > div.font-mono { font-size: 11px; }
+}
+
+/* ===== 6. Barras horizontais: sinal de que há mais conteúdo ===== */
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  .ladder-project-tabs,
+  .ladder-program-summary {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+  }
+}
+
+/* ===== 7. Desktop largo: respiro e leitura ===== */
+@media (min-width: 1280px) {
+  .ladder-status-grid { font-size: 12px; }
+  .ladder-compile-head { padding: 10px 14px 0; }
+}
+
+/* ===== 8. Preferências do sistema ===== */
+/* ===== 11. Toolbar, atalhos e ações principais ===== */
+.lk-modal-intro { display:flex; align-items:center; gap:9px; margin:0 0 12px; padding:10px 12px; border:1px solid var(--dx-line-soft, #dbe4f2); border-radius:10px; background:var(--dx-brand-soft-2, #f5f8ff); color:var(--dx-ink-3, #687894); font-size:12px; line-height:1.4; }
+.lk-modal-intro-dot { width:7px; height:7px; border-radius:999px; background:var(--dx-brand, #2f5ee5); box-shadow:0 0 0 4px color-mix(in srgb, var(--dx-brand, #2f5ee5) 13%, transparent); flex:none; }
+.lk-row { min-height:44px; gap:16px; padding:9px 0; }
+.lk-row > span:first-child { min-width:0; line-height:1.35; }
+.lk-keys { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px; }
+.lk-key { border:1px solid #cbd6e6; border-bottom-width:2px; border-radius:7px; background:#f8fafd; padding:4px 8px; color:#30415d; font-size:11px; font-weight:700; white-space:nowrap; }
+.account-project-action { min-height:40px; border-radius:10px; }
+.ce-list-create { min-height:44px; border-radius:10px; }
+@media (max-width:720px) {
+  .dc-modal-backdrop { padding:0; align-items:end; }
+  .dc-modal { width:100%; max-height:92dvh; border-radius:18px 18px 0 0; }
+  .dc-modal-header { padding:16px; gap:10px; }
+  .dc-modal-body { padding:14px 16px calc(18px + env(safe-area-inset-bottom, 0px)); overflow:auto; }
+  .dc-modal-heading h2 { font-size:18px; }
+  .lk-modal-intro { font-size:11.5px; }
+  .lk-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:10px; min-height:48px; }
+  .lk-row > span:first-child { font-size:13px; }
+  .lk-key { padding:5px 7px; font-size:10px; }
+  .account-project-action { min-height:44px; padding-inline:12px; }
+  .account-action-text { display:none; }
+  .dx-account-controls { gap:7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dc-btn, .dc-tool-btn, .dc-tab { transition: none; }
+  .dc-btn:hover:not(:disabled), .dc-tool-btn:hover:not(:disabled) { transform: none; }
+}
+
+/* ===== 9. GRAFCET: componentes como gaveta lateral (≤1199 px, telemóvel incluído) =====
+   Igual ao Ladder: gaveta de min(320px, 88%) por cima do diagrama, cortina que fecha ao toque
+   e cabeçalho com a seta de recolher sempre visível. Nunca folha de ecrã inteiro: ficava por
+   baixo da barra do projeto e escondia o botão de recolher.
+   Antes: botão «Componentes» na barra + modal ao centro. Agora, como no Ladder:
+   régua fina à esquerda (reabre com um toque) e folha lateral por cima do diagrama.
+   O botão sai da barra de ferramentas; Ctrl+B continua a funcionar. */
+@media (max-width: 1199px) {
+  .grafcet-palette-tool { display: none !important; }
+  .grafcet-full .grafcet-toolbox-restore { display: flex; }
+  .grafcet-designer-body { position: relative; }
+  .grafcet-full .grafcet-toolbox-backdrop {
+    position: absolute; inset: 0; z-index: 40; background: rgba(15, 23, 42, .32); backdrop-filter: none;
+  }
+  .grafcet-designer.grafcet-full .grafcet-toolbox {
+    position: absolute; top: 0; bottom: 0; left: 0; inset-inline-end: auto; transform: none;
+    width: min(320px, 88%); height: auto; max-height: none; z-index: 41;
+    border: 0; border-right: 1px solid var(--pn-line, #d3dbe5); border-radius: 0;
+    box-shadow: 8px 0 28px -10px rgba(15, 23, 42, .35);
+    animation: mr-sheet-in-left .18s ease-out;
+  }
+  .grafcet-full .grafcet-toolbox-list { overscroll-behavior: contain; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  /* a gaveta tem ≤ 320 px: uma coluna e sem o texto de ajuda (como a gaveta de Elementos do Ladder) */
+  .grafcet-full .grafcet-toolbox-list section { grid-template-columns: 1fr; }
+  .grafcet-full .grafcet-toolbox-tip { display: none; }
+}
+@keyframes mr-sheet-in-left { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .grafcet-designer.grafcet-full .grafcet-toolbox { animation: none; } }
+
+/* ===== 10. Administração: Registos, Planos e Componentes (mobile + desktop) =====
+   Capturas 2026-10-28: campos de data a sair do cartão, linhas de registo com colunas
+   de 1 letra («P.», «S.»), filtros de Componentes truncados («Todos o…», «Ord…»),
+   barra de gravar sem margem de segurança. Prefixo .dx-admin para ganhar a ordem de
+   carregamento sem !important. */
+.dx-admin .cb-log-main:focus-visible,
+.dx-admin .cb-component:focus-within { outline: 2px solid var(--dx-focus-ring, rgba(38, 85, 229, .35)); outline-offset: -2px; }
+
+@media (max-width: 720px) {
+  /* Filtros: 2 colunas iguais, pesquisa e ações em linha inteira, altura de toque. */
+  .dx-admin .cb-filters-logs,
+  .dx-admin .cb-filters-users,
+  .dx-admin .cb-filters-components { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 10px; padding: 10px; }
+  .dx-admin .cb-filters > :first-child,
+  .dx-admin .cb-filters-components > .dx-btn,
+  .dx-admin .cb-filters-users > .dx-btn { grid-column: 1 / -1; }
+  .dx-admin .cb-filters > .dx-input,
+  .dx-admin .cb-filters > .dcx-select,
+  .dx-admin .cb-filters > .dx-btn,
+  .dx-admin .cb-date-field .dx-input { height: 42px; min-height: 42px; font-size: 14px; }
+  .dx-admin .cb-filters select, .dx-admin .cb-filters .dcx-select { text-overflow: ellipsis; }
+
+  /* Datas: o campo nativo do iOS tem largura mínima própria e saía do cartão. */
+  .dx-admin .cb-date-field { min-width: 0; }
+  .dx-admin .cb-date-field .dx-label { font-size: 12px; }
+  .dx-admin .cb-date-field input[type="date"] {
+    display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%;
+    -webkit-min-logical-width: 0; text-align: left; padding-inline: 10px;
+  }
+  .dx-admin .cb-date-field input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
+
+  /* Linha de registo: ação + data na 1.ª linha, utilizador na 2.ª, alvo/detalhe na 3.ª. */
+  .dx-admin .cb-log-main {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    grid-template-areas: 'dot action time' '. who who' '. target target';
+    gap: 2px 10px; align-items: start; padding: 12px 14px;
+  }
+  .dx-admin .cb-log-main > span { white-space: normal; }
+  .dx-admin .cb-log-dot { grid-area: dot; margin-top: 6px; }
+  .dx-admin .cb-log-action { grid-area: action; }
+  .dx-admin .cb-log-action strong { font-size: 14px; }
+  .dx-admin .cb-log-time { grid-area: time; padding-top: 2px; font-size: 11.5px; white-space: nowrap; }
+  .dx-admin .cb-log-who { grid-area: who; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+  .dx-admin .cb-log-target { grid-area: target; font-size: 13px; }
+  .dx-admin .cb-log-target small { white-space: normal; }
+  .dx-admin .cb-log-detail { padding: 10px 14px 14px; }
+
+  /* Componentes: plano em linha própria; Bloquear e Mais ações lado a lado. */
+  .dx-admin .cb-component { padding: 14px; gap: 8px; }
+  .dx-admin .cb-component > .cb-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .dx-admin .cb-component > .cb-actions > :first-child { grid-column: 1 / -1; }
+  .dx-admin .cb-component > .cb-actions .dx-btn,
+  .dx-admin .cb-component > .cb-actions .dx-input,
+  .dx-admin .cb-component > .cb-actions .dcx-select { width: 100%; height: 40px; min-height: 40px; justify-content: center; }
+  .dx-admin .cb-bulk { flex-wrap: wrap; gap: 8px; }
+  .dx-admin .cb-bulk .dx-btn { min-height: 38px; }
+
+  /* Barra de gravar: acima da barra do Safari, com vidro suave e sem tapar o último campo. */
+  .dx-admin .cb-save-bar.is-narrow {
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--dx-surface, #fff) 94%, transparent);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  .dx-admin .adm-main:has(.cb-save-bar) { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Planos: campos em coluna única legível, rótulos maiores. */
+  .dx-admin .cb-grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+  .dx-admin .cb-grid-2 .dx-label, .dx-admin .dx-label { font-size: 12.5px; }
+  .dx-admin .dx-input, .dx-admin .dcx-select { min-height: 42px; font-size: 14px; }
+}
+
+/* Desktop: leitura das listas e barra de gravar alinhada ao conteúdo. */
+@media (min-width: 1025px) {
+  .dx-admin .cb-log-main { padding-block: 11px; }
+  .dx-admin .cb-log-main:hover { background: var(--dx-brand-soft, #eef4ff); }
+  .dx-admin .cb-component:hover { background: color-mix(in srgb, var(--dx-brand-soft, #eef4ff) 45%, var(--dx-surface, #fff)); }
+  .dx-admin .cb-save-bar:not(.is-narrow) { max-width: 960px; margin-inline: auto; }
+}
+
+/* GRAFCET — «Componentes» recolhido: a mesma régua vertical dos outros painéis
+   (Ladder, Esquema, editor 3D), encostada à esquerda em toda a altura. Antes era um
+   botão quadrado flutuante sobre o diagrama. O corpo ganha 48 px de reserva à esquerda,
+   por isso o diagrama e a gaveta de propriedades não ficam tapados. */
+@media (max-width: 1199px) {
+  .grafcet-full .grafcet-designer-body:has(> .grafcet-toolbox-restore) { box-sizing: border-box; padding-left: 48px; }
+  .grafcet-full .grafcet-designer-body > .grafcet-toolbox-restore { position: absolute; inset: 0 auto 0 0; height: auto; }
+}

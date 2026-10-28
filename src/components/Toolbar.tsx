@@ -176,6 +176,21 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   // (sem PLC nem programa Ladder) a primeira geração cria o editor Ladder para o projeto.
   const canGenerateLadder = projectKind !== 'ladder'
   const fileRef = useRef<HTMLInputElement>(null)
+  const mainBarRef = useRef<HTMLDivElement>(null)
+  const row2BarRef = useRef<HTMLDivElement>(null)
+  /* Ao trocar de vista (Esquema · Ladder · GRAFCET · Monitor) as barras voltam ao início, onde está o seletor de vistas:
+     o scroll horizontal de uma vista não pode transitar para a seguinte. */
+  useEffect(() => {
+    const toStart = () => {
+      const main = mainBarRef.current
+      main?.scrollTo({ left: 0 })
+      main?.querySelector<HTMLElement>('.dc-views-container')?.scrollTo({ left: 0 })
+      row2BarRef.current?.scrollTo({ left: 0 })
+    }
+    toStart()
+    const frame = requestAnimationFrame(toStart) // depois de a nova vista pintar os seus botões
+    return () => cancelAnimationFrame(frame)
+  }, [mode])
   const visibleViews = VIEWS.filter((view) => views.includes(view.id))
 
   // atalhos F1/F2/F4/F5 (ou Ctrl+1…4) para as vistas
@@ -277,10 +292,10 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   return (
     <div className="shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20">
       {/* ============================ linha 1 — projeto · vistas · simulação */}
-      <div className="flex items-center gap-2 px-3 min-h-[46px] border-b border-line-soft dc-toolbar-main">
+      <div ref={mainBarRef} className="flex items-center gap-2 px-3 min-h-[46px] border-b border-line-soft dc-toolbar-main">
         {/* arquivo — ações frequentes; conta/projeto permanecem na barra superior única */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex items-center gap-0.5 bg-surface-sunken border border-line rounded-lg p-1">
+          <div className="flex items-center gap-1.5 bg-surface-sunken border border-line rounded-lg p-1">
             <button onClick={createNewProject} className="dc-file-extra flex items-center gap-1.5 px-2 py-1 hover:bg-white hover:shadow-sm rounded transition-all text-ink-600 hover:text-ink-900" title="Novo projeto em branco">
               <IconFile size={14} /> <span className="hidden xl:inline text-[11px] font-medium">Novo</span>
             </button>
@@ -303,7 +318,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
         {/* vistas — centralizadas */}
         <div className="flex-1 flex justify-center min-w-0 dc-views-container">
-          <div className="flex items-center rounded-lg p-1 gap-1 bg-surface-sunken border border-line shadow-inner" role="tablist" aria-label="Vistas">
+          <div className="flex items-center rounded-lg p-1 gap-1.5 bg-surface-sunken border border-line shadow-inner" role="tablist" aria-label="Vistas">
             {visibleViews.map(({ id, label, icon: Icon, key }) => (
               <button
                 key={id}
@@ -385,7 +400,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       </div>
 
       {/* ============================ linha 2 — contextual à vista ativa */}
-      <div className={`dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
+      <div ref={row2BarRef} className={`dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
         {/* desfazer / refazer — comum a todas as vistas */}
         <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />
 
@@ -735,16 +750,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           )}
 
           {/* dicas da ferramenta ativa: faixa da barra, não um cartão sobre o desenho */}
-          {isCanvas && (
-            <>
-              <span className="tb-sep" />
-              <button type="button" className={`dc-tool-btn !px-2 ${hintsOn ? 'dc-tool-active' : ''}`} aria-pressed={hintsOn}
-                onClick={() => useSimUi.getState().toggleHints()} title={hintsOn ? 'Esconder as dicas do canvas' : 'Mostrar as dicas do canvas'} aria-label="Dicas do canvas">
-                <IconHelp size={13} />
-              </button>
-              {hintsOn && canvasHint && <span className="tb-hint" role="status">{canvasHint}</span>}
-            </>
-          )}
+
 
           {isCanvas && sel > 0 && (
             <button type="button" className="dc-btn" onClick={() => requestCanvasAction('focusSelection')} title="Enquadrar a vista na seleção (F)" aria-label="Enquadrar a vista na seleção">

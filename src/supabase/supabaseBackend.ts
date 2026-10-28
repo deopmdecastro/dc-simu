@@ -880,3 +880,80 @@ export async function supabaseAdminExport(): Promise<Record<string, unknown>> {
   }))
   return { exportedAt: new Date().toISOString(), backend: 'supabase', data: Object.fromEntries(entries) }
 }
+
+
+/** Projeto publicado na landing (público). */
+export async function supabaseGetLandingPublished() {
+  const client = getSupabase()
+  if (!client) {
+    const { nativeLandingPayload } = await import('../project/landingPublish')
+    return nativeLandingPayload()
+  }
+  const { data: setting } = await client.from('platform_settings').select('value').eq('key', 'landing_published_project').maybeSingle()
+  const projectId = (setting?.value as { projectId?: string } | null)?.projectId
+  if (!projectId) {
+    const { nativeLandingPayload } = await import('../project/landingPublish')
+    return nativeLandingPayload()
+  }
+  const { data: project, error } = await client
+    .from('projects')
+    .select('id, name, revision, updated_at, owner_id, content, profiles:owner_id(email)')
+    .eq('id', projectId)
+    .maybeSingle()
+  if (error || !project) {
+    const { nativeLandingPayload } = await import('../project/landingPublish')
+    return nativeLandingPayload()
+  }
+  const owner = (project as { profiles?: { email?: string } }).profiles?.email || 'utilizador'
+  return {
+    projectId: project.id,
+    name: project.name,
+    owner,
+    revision: project.revision ?? 0,
+    updatedAt: project.updated_at,
+    isNative: false,
+    content: (project.content && typeof project.content === 'object' ? project.content : {}) as Record<string, unknown>,
+  }
+}
+
+export async function supabaseGetLandingPublishAdmin() {
+  const client = clientOrThrow()
+  const { data: setting } = await client.from('platform_settings').select('value').eq('key', 'landing_published_project').maybeSingle()
+  const projectId = (setting?.value as { projectId?: string } | null)?.projectId
+  if (!projectId) return { projectId: '', name: '(nativo / nenhum)', owner: '' }
+  const { data: project } = await client.from('projects').select('id, name, profiles:owner_id(email)').eq('id', projectId).maybeSingle()
+  return {
+    projectId,
+    name: project?.name || projectId,
+    owner: (project as { profiles?: { email?: string } } | null)?.profiles?.email || '',
+  }
+}
+
+export async function supabaseSetLandingPublish(projectId: string | null) {
+  const client = clientOrThrow()
+  const { data: { user } } = await client.auth.getUser()
+  const now = new Date().toISOString()
+  if (!projectId) {
+    await client.from('platform_settings').upsert({
+      key: 'landing_published_project',
+      value: { projectId: null },
+      updated_at: now,
+      updated_by: user?.email || 'admin',
+    })
+    return { projectId: '', isNative: true }
+  }
+  const { data: project } = await client.from('projects').select('id, name, profiles:owner_id(email)').eq('id', projectId).maybeSingle()
+  if (!project) throw new Error('Projeto não encontrado')
+  await client.from('platform_settings').upsert({
+    key: 'landing_published_project',
+    value: { projectId },
+    updated_at: now,
+    updated_by: user?.email || 'admin',
+  })
+  return {
+    projectId: project.id,
+    name: project.name,
+    owner: (project as { profiles?: { email?: string } }).profiles?.email || '',
+    isNative: false,
+  }
+}
