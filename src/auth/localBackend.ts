@@ -148,12 +148,18 @@ function newId() {
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
+function contentHasComponents(content: unknown): boolean {
+  if (!content || typeof content !== 'object') return false
+  const list = (content as { components?: unknown }).components
+  return Array.isArray(list) && list.length > 0
+}
+
 function ensureNativeProjects(data: LocalData): LocalData {
   const seeds = nativeProjectSeeds()
   let changed = false
   for (const seed of seeds) {
-    const exists = data.projects.some((project) => project.id === seed.id)
-    if (!exists) {
+    const index = data.projects.findIndex((project) => project.id === seed.id)
+    if (index < 0) {
       data.projects = [
         {
           id: seed.id,
@@ -166,6 +172,20 @@ function ensureNativeProjects(data: LocalData): LocalData {
         },
         ...data.projects,
       ]
+      changed = true
+      continue
+    }
+    // Projeto nativo antigo sem componentes (capa vazia): repõe o conteúdo real
+    // da semente para a capa mostrar o esquema como nos restantes projetos.
+    const current = data.projects[index]
+    if (!contentHasComponents(current.content)) {
+      data.projects[index] = {
+        ...current,
+        name: seed.name,
+        content: seed.content,
+        revision: Math.max(current.revision, seed.revision),
+        updatedAt: seed.updatedAt,
+      }
       changed = true
     }
   }
@@ -251,7 +271,14 @@ function previewFor(project: StoredProject): ProjectPreviewData {
   const key = `${project.id}:${project.revision}:${project.updatedAt}`
   let preview = previewCache.get(key)
   if (!preview) {
-    preview = buildProjectPreview(project.content)
+    let content = project.content
+    // Nativo sem geometria guardada: usar a semente embutida para a capa
+    // mostrar o projeto real (como nos restantes cartões).
+    if (project.id === NATIVE_PARTIDA_ID && !contentHasComponents(content)) {
+      const seed = nativeProjectSeeds().find((item) => item.id === project.id)
+      if (seed) content = seed.content
+    }
+    preview = buildProjectPreview(content)
     previewCache.set(key, preview)
     if (previewCache.size > 200) previewCache.delete(previewCache.keys().next().value as string)
   }
