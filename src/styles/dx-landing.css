@@ -1675,6 +1675,10 @@ html:has(.dx-landing) {
   .dx-lhero-in > :last-child {
     order: 0;
   }
+  .dx-lhero .dx-window {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 /* ═══ Landing v4.7 · 3D maior e legível em qualquer largura ═══ */
