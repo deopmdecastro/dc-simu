@@ -134,6 +134,9 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     const control = id ? rig.current?.controlById(id) : undefined
     if (!id || !control || !version) return false
     event.stopPropagation()
+    // Atuar o controlo também seleciona o componente: em RUN, premir um botão
+    // continua a mostrar o dispositivo no Inspetor (o stopPropagation engolia o clique).
+    useSimStore.getState().selectComponents([c.id])
     if (control.kind === 'selector') { triggerControl(version.definition, c.id, control, { step: event.shiftKey ? -1 : 1 }); return true }
     pressed.current = { id, at: performance.now() }
     rig.current?.hold(id, true); invalidate()

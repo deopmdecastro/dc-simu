@@ -42,7 +42,7 @@ import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
 import { extractActuatorHead } from './actuatorHead'
 import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
-import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D } from './wireGeometry3D'
+import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
 
 const PANEL_FLOOR_Y = -2.6
 /** Margem (1 = 100 mm) da chapa à volta do equipamento. */
@@ -607,7 +607,7 @@ function LogoFrontPanel({ c, interactive = true, screen = LOGO_SCREEN_FALLBACK }
     const [px, py] = LOGO_KEYS[id] as readonly [number, number]
     return <mesh key={id} name={`logo-tecla-${id}`} position={[px, py, LOGO_KEYS.z + 0.002]}
       onPointerDown={(event) => { if (interactive) event.stopPropagation() }}
-      onPointerUp={(event) => { if (!interactive) return; event.stopPropagation(); action() }}>
+      onPointerUp={(event) => { if (!interactive) return; event.stopPropagation(); useSimStore.getState().selectComponents([c.id]); action() }}>
       <circleGeometry args={[radius, 18]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} />
     </mesh>
   }
@@ -1538,6 +1538,30 @@ type WireEditHandlers = {
   terminals: DrawTerminal[]
 }
 
+/* Cache de geometria de cabos (caminho + curva + nº de segmentos):
+ * a chave cobre posições das pontas, waypoints manuais e opções de traçado;
+ * a simulação muda apenas bandeiras energéticas e não entra na chave. */
+type WireGeom = { path: WirePath3D; curve: THREE.Curve<THREE.Vector3>; segments: number; points: V3[] }
+const wireGeomCache = new Map<string, WireGeom>()
+function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D, obstacles: WireObstacle[]): WireGeom {
+  const round = (n: number) => n.toFixed(4)
+  const key = [
+    wire.id, wire.route, wire.bend, wire.curveOffset, wire.gauge, wire.flexibility,
+    wire.fromEndType, wire.toEndType, wire.endType,
+    from.position.map(round).join(','), to.position.map(round).join(','),
+    (wire.waypoints3D ?? []).map((p) => `${round(p.x)},${round(p.y)},${round(p.z)}`).join(';'),
+  ].join('|')
+  const hit = wireGeomCache.get(key)
+  if (hit) return hit
+  const path = buildWirePath3D(wire, from, to, obstacles)
+  const points = path.points
+  const curve = cableCurve3D(points, wire.flexibility === 'flexible' || wire.route === 'arc')
+  const geom: WireGeom = { path, curve, segments: Math.max(18, points.length * 10), points }
+  if (wireGeomCache.size > 400) wireGeomCache.clear()
+  wireGeomCache.set(key, geom)
+  return geom
+}
+
 function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
   pivots: Record<string, THREE.Vector3>
   editMode: Panel3DEditMode
@@ -1554,8 +1578,14 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     view3DScale: editor.scale3D,
   } : component), [storedComponents, editor])
 
-  // sólidos a contornar: os cabos passam à frente dos componentes, nunca por dentro
-  const obstacles = useMemo(() => componentObstacles(components, pivots), [components, pivots])
+  // sólidos a contornar: os cabos passam à frente dos componentes, nunca por dentro.
+  // A chave posicional mantém as caixas estáveis durante os ticks da simulação
+  // (RUN muda c.state, não as posições): sem isto, cada scan re-gerava as caixas.
+  const obstaclesKey = useMemo(() => components.map((c) => {
+    const p = pivots[c.id]
+    return p ? `${c.id}:${p.x.toFixed(4)},${p.y.toFixed(4)},${p.z.toFixed(4)}:${c.state.lengthMm ?? 0}:${c.rotation ?? 0}` : ''
+  }).join('|'), [components, pivots])
+  const obstacles = useMemo(() => componentObstacles(components, pivots), [obstaclesKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   type LiveDrag = { wireId: string; kind: 'waypoint' | 'end' | 'all'; index?: number; side?: 'from' | 'to'; point: V3; origin?: V3 }
   const [drag, setDrag] = useState<LiveDrag | null>(null)
@@ -1603,13 +1633,13 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     const wire = applyDrag(storedWire, { from: baseFrom, to: baseTo })
     const from = wireEndpoint3D(wire, 'from', components, pivots) ?? baseFrom
     const to = wireEndpoint3D(wire, 'to', components, pivots) ?? baseTo
-    const path = buildWirePath3D(wire, from, to, obstacles)
-    const points = path.points
+    // Geometria do cabo em cache: durante RUN as bandeiras energizadas mudam em
+    // cada scan, mas posições/traçado não — sem cache, cada tick reconstruía a
+    // curva e os 3-4 TubeGeometry (centenas de segmentos) por cabo. Era o peso.
+    const { path, curve, segments, points } = cachedWireGeometry(wire, from, to, obstacles)
     const selected = wire.id === selectedWireId
     const outerDiameterMm = cableOuterDiameterMm(wire.gauge)
     const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
-    const curve = cableCurve3D(points, wire.flexibility === 'flexible' || wire.route === 'arc')
-    const segments = Math.max(18, points.length * 10)
     const flowing = wireEnergyEffectVisible(runState, wire.energized)
     const wireColor = WIRE_3D_COLORS[wire.color]
     const editing = selected && (editMode === 'navigate' || editMode === 'connect')
@@ -1682,6 +1712,19 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
 
 type PanelCameraView = 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'isometric' | 'focus' | 'orbit' | 'angles'
 type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number]; dx?: number; dy?: number; yaw?: number; pitch?: number; radius?: number }
+
+/** Sombras sob pedido: o shadow map só é recalculado quando a cena muda e nos
+ * primeiros segundos após o mount (os GLBs entram via Suspense já depois). */
+function ShadowsOnDemand({ watch }: { watch: string }) {
+  const gl = useThree((state) => state.gl)
+  useEffect(() => { gl.shadowMap.needsUpdate = true }, [gl, watch])
+  useEffect(() => {
+    gl.shadowMap.needsUpdate = true
+    const timers = [150, 450, 1000, 2000, 3500, 6000].map((ms) => window.setTimeout(() => { gl.shadowMap.needsUpdate = true }, ms))
+    return () => timers.forEach((t) => window.clearTimeout(t))
+  }, [gl])
+  return null
+}
 
 /** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
 function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMode = false }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void; frontEdit?: boolean; panMode?: boolean }) {
@@ -1818,7 +1861,7 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMod
   const touches = panMode
     ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN }
     : frontEdit ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : undefined
-  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} enablePan enableRotate enableZoom enableDamping dampingFactor={0.08} rotateSpeed={0.82} panSpeed={0.72} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning />
+  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} enablePan enableRotate enableZoom rotateSpeed={0.82} panSpeed={0.72} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning autoRotate={false} />
 }
 
 /** Textura repetível da grelha. Mipmaps e filtragem anisotrópica evitam o
@@ -2225,6 +2268,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       panelPivots[component.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM + half.z)
     }
   }
+  /** Só geometria/posições contam para sombras: RUN mexe estados, não posições. */
+  const shadowWatch = useMemo(() => {
+    const pos = components.map((c) => { const p = panelPivots[c.id]; return p ? `${c.id}:${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}:${c.rotation ?? 0}` : c.id }).join('|')
+    return `${pos}#${wires.length}#${runState}`
+    // panelPivots é objecto novo em cada render; a chave deriva de valores, não da identidade.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [components, wires.length, runState])
 
   // Chapa e enquadramento derivados do conteúdo real.
   const sceneBounds = (() => {
@@ -2298,7 +2348,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const currentTool = useSimStore.getState().tool
     if (currentTool === 'erase') { removePanelComponent(component.id); return }
     if (currentTool !== 'select') return
-    if (interactive && !component.locked) action()
+    if (interactive && !component.locked) {
+      // Em RUN, atuar um botão/disjuntor também o seleciona: o utilizador continua a
+      // ver o dispositivo correto no Inspetor que selecionou e poder dar seguimento.
+      selectComponents([component.id])
+      action()
+    }
     else selectComponents([component.id])
   }
   const wrapOriented = (component: ElectricalComponent, content: ReactNode) => {
@@ -2676,7 +2731,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       </div>, wireActionSlot)}
       {!hasComponents && <div className="panel3d-empty"><strong>{frontEdit ? 'O esquema está vazio' : 'O esquema 3D está vazio'}</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
       <ContextLossNotice lost={glLost} />
-      <Canvas shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}>
+      <Canvas shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}
+        onCreated={({ gl }) => {
+          // Sombras calculadas só quando a cena muda (não a cada frame): durante o
+          // RUN a re-sombra contínua era a maior fatia do custo de renderização.
+          gl.shadowMap.autoUpdate = false
+          gl.shadowMap.needsUpdate = true
+        }}>
+        <ShadowsOnDemand watch={shadowWatch} />
         <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
         <ambientLight intensity={0.6} />
@@ -2718,6 +2780,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           if (isBreaker) content = <group onClick={(event) => {
             if (!interactive || c.locked) return
             event.stopPropagation()
+            // Atuar e selecionar: em RUN um clique no disjuntor liga/desliga E
+            // traz o componente para o Inspetor (como fora da simulação).
+            useSimStore.getState().selectComponents([c.id])
             const closed = !!c.state.closed && !c.state.tripped
             useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
           }}>{content}</group>

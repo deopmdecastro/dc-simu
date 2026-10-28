@@ -117,6 +117,15 @@ assert('GRAFCET demo: «Editar propriedades» fora', grafed.includes('{!demoMode
 assert('GRAFCET demo: dica do canvas orientada à visualização', grafed.includes("demoMode ? 'Selecione etapas e ligações"))
 assert('Toolbar GRAFCET demo: Modelos/Ladder, Organizar e Ficheiro fora', tb.includes('{!demo && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Modelos e Ladder">') && tb.includes('aria-label="Disposição">') && tb.includes('aria-label="Ficheiro">'))
 
+// Revisão: render leve, sem rotação automática e seleção possível durante o RUN
+assert('Painel 3D: sem amortecimento nem rotação automática', panel.includes('screenSpacePanning autoRotate={false} />') && !panel.includes('enableDamping dampingFactor'))
+assert('Painel 3D: shadow map sob pedido (não por frame)', panel.includes('gl.shadowMap.autoUpdate = false') && panel.includes('function ShadowsOnDemand') && panel.includes('<ShadowsOnDemand watch={shadowWatch} />'))
+assert('Painel 3D: geometria dos cabos em cache (não reconstrói por scan)', panel.includes('cachedWireGeometry(wire, from, to, obstacles)') && panel.includes('wireGeomCache.set(key, geom)'))
+assert('Painel 3D: caixas de obstáculos estáveis durante o RUN', panel.includes('const obstaclesKey = useMemo'))
+assert('RUN: atuar um dispositivo também o seleciona', panel.includes('selectComponents([component.id])\n      action()') && panel.includes('useSimStore.getState().selectComponents([c.id])'))
+const cat3d = read('src/three/CatalogComponent3D.tsx')
+assert('RUN: premir botão de catálogo também seleciona', cat3d.includes('useSimStore.getState().selectComponents([c.id])'))
+
 if (failures) {
   console.error(`\n❌ ${failures} falha(s) no contrato editor-real na landing`)
   process.exit(1)
