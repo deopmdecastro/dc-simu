@@ -10,6 +10,10 @@ import {
   NATIVE_DEMO_NAMES,
   nativeDemoTable,
 } from '../project/nativeProjects'
+import { sliceLandingDemo, nativeLandingPayload, type LandingDemoSlice } from '../project/landingPublish'
+import { accountApi } from '../auth/accountApi'
+import type { LadderRung } from '../types'
+import type { GrafcetProgram } from '../grafcet/engine'
 import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight, IconChevronDown, IconZoomIn, IconZoomOut, IconUndo, IconRedo } from '../ui/icons'
 
 /** Viewport 3D real do produto — carregado só quando entra em vista (performance). */
@@ -141,6 +145,7 @@ function useReveal() {
 
 /** Carrega a cena WebGL apenas quando o viewport fica visível. */
 function HeroViewport() {
+  const projectTitle = NATIVE_PARTIDA_NAME
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
   const [plcRunning, setPlcRunning] = useState(true)
@@ -169,7 +174,7 @@ function HeroViewport() {
     <div className="dx-window" ref={ref}>
       <div className="dx-window-bar">
         <LogoMark size={18} />
-        <span className="dx-window-path">{'/projetos/' + NATIVE_PARTIDA_NAME}</span>
+        <span className="dx-window-path">{'/projetos/' + projectTitle}</span>
         <div className="dx-window-tabs">
           <span>Esquema</span>
           <span>Ladder</span>
@@ -207,7 +212,7 @@ function HeroViewport() {
         <b>
           <i aria-hidden /> {plcRunning ? (motorOn ? 'Motor em marcha' : 'PLC em RUN') : 'PLC em STOP'}
         </b>
-        <span>Projeto nativo admin · START/STOP · LOGO! · KM1 · M1 · H1/H2</span>
+        <span>{projectTitle} · publicado na landing · Ladder · GRAFCET · 3D</span>
         <span className="end">9 equipamentos reais · disjuntor + PKZM</span>
       </div>
     </div>
@@ -216,19 +221,32 @@ function HeroViewport() {
 
 const NetworkDiagram = lazy(() => import('../ladder/NetworkDiagram'))
 
-const DEMO_RUNGS = buildNativeLadder()
-const DEMO_NAMES = NATIVE_DEMO_NAMES
-
-
-/** Pré-visualização funcional da vista Ladder do simulador. */
+/** Pré-visualização funcional — conteúdo = projeto publicado pelo admin (fallback nativo). */
 function EditorAnatomy() {
+  const [demo, setDemo] = useState<LandingDemoSlice>(() => sliceLandingDemo(nativeLandingPayload()))
   const [plcRunning, setPlcRunning] = useState(false)
   const [motorOn, setMotorOn] = useState(false)
   const [zoom, setZoom] = useState(100)
   const [view, setView] = useState<'ladder' | 'grafcet' | 'panel3d'>('ladder')
   const powered = plcRunning && motorOn
   const stoppedIndication = plcRunning && !motorOn
-  const demoTable = nativeDemoTable(plcRunning, motorOn)
+  const demoTable = demo.demoTable(plcRunning, motorOn)
+  const DEMO_RUNGS = demo.ladder
+  const DEMO_NAMES = demo.names
+  const projectTitle = demo.meta.name || NATIVE_PARTIDA_NAME
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const payload = await accountApi<import('../project/landingPublish').LandingPublishedPayload>('/landing/published')
+        if (!cancelled && payload?.content) setDemo(sliceLandingDemo(payload))
+      } catch {
+        /* mantém nativo */
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
   const networksRef = useRef<HTMLDivElement>(null)
   const [fit, setFit] = useState(1)
   useEffect(() => {
@@ -256,7 +274,7 @@ function EditorAnatomy() {
     <div className="dx-window dx-ladder-demo">
       <div className="dx-window-bar">
         <LogoMark size={18} />
-        <span className="dx-window-path">{'/projetos/' + NATIVE_PARTIDA_NAME}</span>
+        <span className="dx-window-path">{'/projetos/' + projectTitle}</span>
         <div className="dx-window-tabs is-switcher" role="tablist" aria-label="Vista da demonstração">
           <button type="button" role="tab" aria-selected={view === 'ladder'} className={view === 'ladder' ? 'on' : ''} onClick={() => setView('ladder')}>Ladder</button>
           <button type="button" role="tab" aria-selected={view === 'grafcet'} className={view === 'grafcet' ? 'on' : ''} onClick={() => setView('grafcet')}>GRAFCET</button>
@@ -352,6 +370,8 @@ function EditorAnatomy() {
           onStopPlc={stopPlc}
           onStartMotor={startMotor}
           onStopMotor={stopMotor}
+          program={demo.grafcet}
+          projectName={projectTitle}
         />
       </Suspense>
       ) : <div className="dx-ladder-panel3d" role="tabpanel" aria-label="Partida direta na Visualização 3D">

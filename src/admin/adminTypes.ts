@@ -64,6 +64,8 @@ export interface AdminProject {
   members?: number
   /** Composição do esquema para a capa do projeto (como no painel de projetos). */
   preview?: ProjectPreviewData
+  /** Publicado na landing page (apenas um de cada vez). */
+  isPublished?: boolean
 }
 
 export interface ComponentSetting {

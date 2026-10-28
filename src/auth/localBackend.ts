@@ -9,6 +9,7 @@ import {
   sanitizeComponentChange, upgradeMessage,
 } from '../saas/platformCore.mjs'
 import { nativeProjectSeeds, NATIVE_PARTIDA_ID } from '../project/nativeProjects'
+import { nativeLandingPayload } from '../project/landingPublish'
 
 const SESSION_KEY = 'dcsimu:account:session:v1'
 const DATA_KEY = 'dcsimu:account:data:v1'
@@ -52,7 +53,7 @@ type StoredInvitation = {
   senderId: string
   createdAt: string
 }
-type LocalData = { projects: StoredProject[]; invitations: StoredInvitation[] }
+type LocalData = { projects: StoredProject[]; invitations: StoredInvitation[]; publishedProjectId?: string | null }
 
 const SETTINGS_KEY = 'dcsimu:components:v1'
 
@@ -154,6 +155,7 @@ function readData(): LocalData {
     const data: LocalData = {
       projects: Array.isArray(parsed.projects) ? parsed.projects : [],
       invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
+      publishedProjectId: typeof parsed.publishedProjectId === 'string' ? parsed.publishedProjectId : parsed.publishedProjectId === null ? null : undefined,
     }
     return ensureNativeProjects(data)
   } catch {
@@ -265,8 +267,46 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     return { user } as T
   }
 
+
   // Público: a landing page lê os cartões de preços sem sessão.
   if (url === '/pricing' && verb === 'GET') { const { updatedBy: _hidden, ...config } = localPricing(); return config as T }
+
+  // Público: projeto publicado na landing (um de cada vez; fallback = nativo).
+  if (url === '/landing/published' && verb === 'GET') {
+    const data = readData()
+    const publishedId = data.publishedProjectId
+    if (!publishedId || publishedId === NATIVE_PARTIDA_ID) {
+      const fallback = nativeLandingPayload()
+      // Se o nativo existir na store, usa o conteúdo guardado (edições do admin).
+      const native = data.projects.find((project) => project.id === NATIVE_PARTIDA_ID)
+      if (native && native.content && typeof native.content === 'object') {
+        return {
+          projectId: native.id,
+          name: native.name,
+          owner: accountById(native.ownerId)?.email || 'admin@dcsimu.local',
+          revision: native.revision,
+          updatedAt: native.updatedAt,
+          isNative: true,
+          content: native.content as Record<string, unknown>,
+        } as T
+      }
+      return fallback as T
+    }
+    const project = data.projects.find((entry) => entry.id === publishedId)
+    if (!project) {
+      return nativeLandingPayload() as T
+    }
+    return {
+      projectId: project.id,
+      name: project.name,
+      owner: accountById(project.ownerId)?.email || 'desconhecido',
+      revision: project.revision,
+      updatedAt: project.updatedAt,
+      isNative: project.id === NATIVE_PARTIDA_ID,
+      content: (project.content && typeof project.content === 'object' ? project.content : {}) as Record<string, unknown>,
+    } as T
+  }
+
 
   if (url === '/register') throw new Error('O registo está desativado. Utilize uma das duas contas autorizadas.')
   if (url === '/me' && verb === 'GET') return { user: requireSession() } as T
@@ -496,8 +536,48 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
     throw new Error(LOCAL_ONLY)
   }
 
+
+  if (url === '/admin/landing/publish' && verb === 'GET') {
+    requireAdmin()
+    const data = readData()
+    const id = data.publishedProjectId ?? NATIVE_PARTIDA_ID
+    const project = data.projects.find((entry) => entry.id === id)
+    return {
+      projectId: id,
+      name: project?.name ?? (id === NATIVE_PARTIDA_ID ? 'Partida direta (nativo)' : id),
+      owner: project ? (accountById(project.ownerId)?.email || '') : 'admin@dcsimu.local',
+    } as T
+  }
+
+  if (url === '/admin/landing/publish' && verb === 'PUT') {
+    const admin = requireAdmin()
+    const data = readData()
+    const projectId = payload.projectId === null || payload.projectId === '' || payload.projectId === undefined
+      ? null
+      : String(payload.projectId)
+    if (projectId === null) {
+      data.publishedProjectId = null
+      writeData(data)
+      recordLocalAudit(admin, 'landing.unpublish', { type: 'project', label: 'landing' }, 'fallback nativo')
+      return { projectId: NATIVE_PARTIDA_ID, isNative: true } as T
+    }
+    const project = data.projects.find((entry) => entry.id === projectId)
+    if (!project) throw new Error('Projeto não encontrado')
+    data.publishedProjectId = projectId
+    writeData(data)
+    recordLocalAudit(admin, 'landing.publish', { type: 'project', id: project.id, label: project.name }, `owner=${accountById(project.ownerId)?.email || project.ownerId}`)
+    return {
+      projectId: project.id,
+      name: project.name,
+      owner: accountById(project.ownerId)?.email || '',
+      isNative: project.id === NATIVE_PARTIDA_ID,
+    } as T
+  }
+
   if (url === '/admin/projects' && verb === 'GET') {
     requireAdmin()
+    const data = readData()
+    const publishedId = data.publishedProjectId ?? NATIVE_PARTIDA_ID
     return [...data.projects]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .map((project): AdminProjectRow => ({
@@ -509,13 +589,16 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
         size: JSON.stringify(project.content ?? {}).length,
         members: project.memberIds.length,
         preview: buildProjectPreview(project.content),
+        isPublished: project.id === publishedId,
       })) as T
   }
 
   if (parts[0] === 'admin' && parts[1] === 'projects' && parts[2] && verb === 'DELETE') {
     const admin = requireAdmin()
+    const data = readData()
     const project = data.projects.find((entry) => entry.id === parts[2])
     if (!project) throw new Error('Projeto não encontrado')
+    if (data.publishedProjectId === project.id) data.publishedProjectId = null
     data.projects = data.projects.filter((entry) => entry.id !== parts[2])
     data.invitations = data.invitations.filter((invite) => invite.projectId !== parts[2])
     writeData(data)

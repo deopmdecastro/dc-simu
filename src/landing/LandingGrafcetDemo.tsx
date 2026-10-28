@@ -12,6 +12,8 @@ type Props = {
   onStopPlc: () => void
   onStartMotor: () => void
   onStopMotor: () => void
+  program?: import('../grafcet/engine').GrafcetProgram
+  projectName?: string
 }
 
 /**
@@ -26,9 +28,13 @@ export default function LandingGrafcetDemo({
   onStopPlc,
   onStartMotor,
   onStopMotor,
+  program: programProp,
+  projectName,
 }: Props) {
-  const program = useMemo(() => buildNativeGrafcet(), [])
-  const activeStepId = !plcRunning ? null : motorOn ? 'native-s1' : 'native-s0'
+  const program = useMemo(() => programProp ?? buildNativeGrafcet(), [programProp])
+  const initialStep = program.steps.find((step) => step.initial || step.stepType === 'initial')?.id
+  const runStep = program.steps.find((step) => !step.initial && step.stepType !== 'initial')?.id
+  const activeStepId = !plcRunning ? null : motorOn ? (runStep ?? null) : (initialStep ?? null)
   const [pan, setPan] = useState({ x: 20, y: 12 })
   const [scale, setScale] = useState(1)
   const drag = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null)
@@ -84,11 +90,9 @@ export default function LandingGrafcetDemo({
         <div className="dx-grafcet-demo-status">
           <span className={plcRunning ? 'is-run' : 'is-stop'}>{plcRunning ? 'PLC RUN' : 'PLC STOP'}</span>
           <span>
-            {activeStepId === 'native-s1'
-              ? 'Etapa X1 ativa · KM1 / H1'
-              : activeStepId === 'native-s0'
-                ? 'Etapa X0 ativa · H2'
-                : 'Sem etapa ativa'}
+            {activeStepId
+              ? `Etapa ${program.steps.find((s) => s.id === activeStepId)?.name ?? activeStepId} · ${program.steps.find((s) => s.id === activeStepId)?.description ?? ''}`.trim()
+              : 'Sem etapa ativa'}
           </span>
           <small className="dx-grafcet-demo-hint">Arraste para mover · pinça ou ± para zoom</small>
         </div>
@@ -99,7 +103,7 @@ export default function LandingGrafcetDemo({
           className="dx-grafcet-demo-svg grafcet-canvas"
           viewBox="0 0 420 420"
           role="img"
-          aria-label={`GRAFCET — ${NATIVE_PARTIDA_NAME}`}
+          aria-label={`GRAFCET — ${projectName || NATIVE_PARTIDA_NAME}`}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}

@@ -167,6 +167,22 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
     }
   }
 
+  const publishProject = async (project: AdminProject) => {
+    if (project.isPublished) {
+      if (!(await uiConfirm('Remover este projeto da landing page? A demonstração pública volta ao projeto nativo.', { title: 'Remover da landing', confirmLabel: 'Remover', cancelLabel: 'Cancelar' }))) return
+      void act(async () => {
+        await adminApi.setLandingPublish(null)
+        setProjects((list) => list.map((item) => ({ ...item, isPublished: false })))
+      }, 'Landing a usar o projeto nativo.')
+      return
+    }
+    if (!(await uiConfirm(`Publicar «${project.name}» na landing page? Substitui o projeto atualmente em destaque (apenas um de cada vez). Pode ser de qualquer utilizador.`, { title: 'Publicar na landing', confirmLabel: 'Publicar', cancelLabel: 'Cancelar' }))) return
+    void act(async () => {
+      await adminApi.setLandingPublish(project.id)
+      setProjects((list) => list.map((item) => ({ ...item, isPublished: item.id === project.id })))
+    }, `«${project.name}» publicado na landing.`)
+  }
+
   const visible = useMemo(() => contributions.filter((item) => (statusFilter === 'all' || item.status === statusFilter)
     && (kindFilter === 'all' || item.kind === kindFilter)
     && `${item.title} ${item.fileName} ${item.authorName} ${item.authorEmail} ${item.customName ?? ''} ${item.componentType ?? ''}`.toLowerCase().includes(query.trim().toLowerCase())), [contributions, statusFilter, kindFilter, query])
@@ -394,11 +410,12 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
 
     {tab === 'projects' && <>
       <div className="dx-admin-section"><h2>Projetos</h2><span>{shownProjects.length}/{projects.length}</span></div>
+      <p className="cb-note">Apenas um projeto de cada vez na landing page. Pode publicar projetos de qualquer utilizador; a edição no editor (Ladder, GRAFCET, 3D) reflete-se na landing após guardar e republicar se necessário.</p>
       <input className="dx-input cb-search" type="search" placeholder="Pesquisar projeto ou proprietário…" value={projectQuery} onChange={(event) => setProjectQuery(event.target.value)} aria-label="Pesquisar projetos" />
       {shownProjects.length === 0
         ? <div className="dx-admin-table"><div className="dx-admin-empty">{projects.length ? 'Nenhum projeto com esta pesquisa.' : 'Ainda não há projetos criados.'}</div></div>
         : <div className="adm-tablewrap"><table className="adm-table adm-table-projects">
-          <thead><tr><th scope="col">Projeto</th><th scope="col">Proprietário</th><th scope="col" className="is-num">Membros</th><th scope="col" className="is-num">Tamanho</th><th scope="col" className="is-num">Rev.</th><th scope="col">Atualizado</th><th scope="col"><span className="adm-vh">Ações</span></th></tr></thead>
+          <thead><tr><th scope="col">Projeto</th><th scope="col">Proprietário</th><th scope="col" className="is-num">Membros</th><th scope="col" className="is-num">Tamanho</th><th scope="col" className="is-num">Rev.</th><th scope="col">Atualizado</th><th scope="col">Landing</th><th scope="col"><span className="adm-vh">Ações</span></th></tr></thead>
           <tbody>{shownProjects.map((project) => <tr key={project.id}>
             <th scope="row" data-label="Projeto"><span className="adm-project-cell"><ProjectThumb name={project.name} preview={project.preview} /><span className="adm-project-name"><strong>{project.name}</strong><small>{project.revision ? `Revisão ${project.revision}` : 'Sem revisões'}</small></span></span></th>
             <td data-label="Proprietário" className="is-owner"><span className="adm-person"><Avatar email={project.owner} name={project.owner} size="sm" /><span>{project.owner}</span></span></td>
@@ -406,7 +423,18 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
             <td data-label="Tamanho" className="is-num">{project.size !== undefined ? formatBytes(project.size) : '—'}</td>
             <td data-label="Rev." className="is-num">{project.revision ?? 0}</td>
             <td data-label="Atualizado">{formatDate(project.updated_at)}</td>
-            <td className="is-actions"><button className="dx-btn dx-btn-danger dx-btn-sm" onClick={() => removeProject(project)} aria-label={`Eliminar projeto ${project.name}`}><IconDelete size={12} /> Eliminar</button></td>
+            <td data-label="Landing">{project.isPublished ? <span className="ce-pill is-builtin" title="Este projeto é o que a landing page mostra">Na landing</span> : <span className="adm-muted">—</span>}</td>
+            <td className="is-actions" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className={`dx-btn dx-btn-sm ${project.isPublished ? 'dx-btn-secondary' : 'dx-btn-primary'}`}
+                onClick={() => publishProject(project)}
+                aria-label={project.isPublished ? `Remover ${project.name} da landing` : `Publicar ${project.name} na landing`}
+              >
+                {project.isPublished ? 'Remover da landing' : 'Publicar na landing'}
+              </button>
+              <button className="dx-btn dx-btn-danger dx-btn-sm" onClick={() => removeProject(project)} aria-label={`Eliminar projeto ${project.name}`}><IconDelete size={12} /> Eliminar</button>
+            </td>
           </tr>)}</tbody>
         </table></div>}
     </>}
