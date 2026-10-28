@@ -10,15 +10,13 @@ import {
   NATIVE_DEMO_NAMES,
   nativeDemoTable,
 } from '../project/nativeProjects'
-import { sliceLandingDemo, nativeLandingPayload, type LandingDemoSlice } from '../project/landingPublish'
-import { accountApi } from '../auth/accountApi'
 import type { LadderRung } from '../types'
 import type { GrafcetProgram } from '../grafcet/engine'
 import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight, IconChevronDown, IconZoomIn, IconZoomOut, IconUndo, IconRedo } from '../ui/icons'
 
 /** Viewport 3D real do produto — carregado só quando entra em vista (performance). */
 const LandingShowcase = lazy(() => import('../three/LandingShowcase'))
-const LandingGrafcetDemo = lazy(() => import('./LandingGrafcetDemo'))
+const LandingEditorShowcase = lazy(() => import('./LandingEditorShowcase'))
 
 /* ============================================================ conteúdo */
 
@@ -219,186 +217,6 @@ function HeroViewport() {
   )
 }
 
-const NetworkDiagram = lazy(() => import('../ladder/NetworkDiagram'))
-
-/** Pré-visualização funcional — conteúdo = projeto publicado pelo admin (fallback nativo). */
-function EditorAnatomy() {
-  const [demo, setDemo] = useState<LandingDemoSlice>(() => sliceLandingDemo(nativeLandingPayload()))
-  const [plcRunning, setPlcRunning] = useState(false)
-  const [motorOn, setMotorOn] = useState(false)
-  const [zoom, setZoom] = useState(100)
-  const [view, setView] = useState<'ladder' | 'grafcet' | 'panel3d'>('ladder')
-  const powered = plcRunning && motorOn
-  const stoppedIndication = plcRunning && !motorOn
-  const demoTable = demo.demoTable(plcRunning, motorOn)
-  const DEMO_RUNGS = demo.ladder
-  const DEMO_NAMES = demo.names
-  const projectTitle = demo.meta.name || NATIVE_PARTIDA_NAME
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const payload = await accountApi<import('../project/landingPublish').LandingPublishedPayload>('/landing/published')
-        if (!cancelled && payload?.content) setDemo(sliceLandingDemo(payload))
-      } catch {
-        /* mantém nativo */
-      }
-    })()
-    return () => { cancelled = true }
-  }, [])
-  const networksRef = useRef<HTMLDivElement>(null)
-  const [fit, setFit] = useState(1)
-  useEffect(() => {
-    const el = networksRef.current
-    if (!el) return
-    const update = () => setFit(Math.max(0.5, Math.min(1, (el.clientWidth - 16) / 470)))
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [view])
-
-  const runPlc = () => setPlcRunning(true)
-  const stopPlc = () => {
-    setPlcRunning(false)
-    setMotorOn(false)
-  }
-  const startMotor = () => {
-    if (plcRunning) setMotorOn(true)
-  }
-  const stopMotor = () => setMotorOn(false)
-  const changeZoom = (step: number) => setZoom((current) => Math.max(75, Math.min(150, current + step)))
-
-  return (
-    <div className="dx-window dx-ladder-demo">
-      <div className="dx-window-bar">
-        <LogoMark size={18} />
-        <span className="dx-window-path">{'/projetos/' + projectTitle}</span>
-        <div className="dx-window-tabs is-switcher" role="tablist" aria-label="Vista da demonstração">
-          <button type="button" role="tab" aria-selected={view === 'ladder'} className={view === 'ladder' ? 'on' : ''} onClick={() => setView('ladder')}>Ladder</button>
-          <button type="button" role="tab" aria-selected={view === 'grafcet'} className={view === 'grafcet' ? 'on' : ''} onClick={() => setView('grafcet')}>GRAFCET</button>
-          <button type="button" role="tab" aria-selected={view === 'panel3d'} className={view === 'panel3d' ? 'on' : ''} onClick={() => setView('panel3d')}>Visualização 3D</button>
-        </div>
-      </div>
-
-      {view === 'ladder' ? <div className="dx-ladder-demo-body ladder-workspace">
-        <aside className="ladder-project-pane" aria-label="Árvore do projeto Ladder">
-          <div className="ladder-pane-heading"><span>Árvore do projeto</span><span>×</span></div>
-          <div className="ladder-project-tree">
-            <div className="tree-row tree-depth-0 tree-folder"><IconChevronDown size={11} /><IconProjects size={12} className="tree-glyph" /><span className="tree-label">CLP Siemens LOGO!</span></div>
-            <div className="tree-row tree-depth-1 tree-folder"><IconChevronDown size={11} /><IconLadder size={12} className="tree-glyph tree-glyph-block" /><span className="tree-label">Blocos do programa</span></div>
-            <div className="tree-row tree-depth-2 tree-selected"><IconFile size={12} className="tree-glyph tree-glyph-block" /><span className="tree-label">OB1</span><small>principal</small></div>
-            <div className="tree-row tree-depth-2"><IconFile size={12} className="tree-glyph tree-glyph-block" /><span className="tree-label">FC1</span><small>motor</small></div>
-            <div className="tree-row tree-depth-1"><IconFile size={12} className="tree-glyph tree-glyph-data" /><span className="tree-label">Tabela de tags</span></div>
-          </div>
-        </aside>
-
-        <main className="ladder-main-pane">
-          <div className="ladder-project-tabs">
-            <span className="ladder-project-tab is-active"><IconLadder size={12} /> OB1 <span>×</span></span>
-            <span className="ladder-project-tab">FC1 <span>×</span></span>
-          </div>
-          <div className="ladder-editor-toolbar" aria-label="Controlos da demonstração Ladder">
-            <button type="button" className="ladder-toolbar-button dx-history-control" disabled title="Desfazer"><IconUndo size={12} /></button>
-            <button type="button" className="ladder-toolbar-button dx-history-control" disabled title="Refazer"><IconRedo size={12} /></button>
-            <i className="ladder-toolbar-separator dx-history-control" />
-            <button type="button" className="ladder-toolbar-button" onClick={() => changeZoom(-25)} disabled={zoom <= 75} aria-label="Diminuir zoom"><IconZoomOut size={12} /></button>
-            <span className="ladder-zoom-label" aria-live="polite">{zoom}%</span>
-            <button type="button" className="ladder-toolbar-button" onClick={() => changeZoom(25)} disabled={zoom >= 150} aria-label="Aumentar zoom"><IconZoomIn size={12} /></button>
-            <i className="ladder-toolbar-separator" />
-            <button type="button" className="ladder-primary-button" onClick={runPlc} disabled={plcRunning}><IconPlay size={11} /> RUN</button>
-            <button type="button" className="ladder-stop-button" onClick={stopPlc} disabled={!plcRunning}><span aria-hidden>■</span> STOP</button>
-          </div>
-          <div className="ladder-program-summary" aria-live="polite">
-            <div className={`ladder-metric ${plcRunning ? 'is-run' : 'is-stop'}`}><span>Estado</span><strong>{plcRunning ? 'RUN' : 'STOP'}</strong></div>
-            <div className="ladder-metric"><span>Networks</span><strong>03</strong></div>
-            <div className="ladder-metric"><span>Scan</span><strong>{plcRunning ? '4 ms' : '—'}</strong></div>
-            <div className="ladder-live-bus"><span>PLC</span><strong>{plcRunning ? 'LOGO! ativo' : 'CPU parada'}</strong></div>
-          </div>
-          <div className="dx-ladder-operator" aria-label="Comandos do motor">
-            <div>
-              <span>Comando de campo</span>
-              <strong>{powered ? 'KM1 ligado · selo ativo' : plcRunning ? 'Pronto para arrancar' : 'Execute o PLC primeiro'}</strong>
-            </div>
-            <button type="button" className="dx-operator-start" onClick={startMotor} disabled={!plcRunning || motorOn}><i aria-hidden /> START <small>I0.1</small></button>
-            <button type="button" className="dx-operator-stop" onClick={stopMotor} disabled={!motorOn}><i aria-hidden /> STOP <small>I0.0</small></button>
-          </div>
-          <div className="ladder-networks grid-lines" ref={networksRef}>
-            <div className="dx-ladder-demo-scale" style={{ zoom: fit * zoom / 100 }}>
-              {DEMO_RUNGS.map((rung, index) => {
-                const live = index === 2 ? stoppedIndication : powered
-                return (
-                  <div key={rung.id} className={`ladder-rung-card${live ? ' is-powered' : ''}`}>
-                    <div className="ladder-rung-header">
-                      <span className="ladder-collapse-btn"><IconChevronDown size={11} /></span>
-                      <span className={`ladder-network-no${live ? ' is-on' : ''}`}>Network {index + 1}:</span>
-                      <span className="ladder-network-title">{rung.name}</span>
-                      <span className={`ladder-rung-live${live ? ' is-on' : ''}`}><i />RLO = {live ? '1' : '0'}</span>
-                    </div>
-                    <div className="ladder-network-comment">{rung.comment}</div>
-                    <div className="ladder-rung-body">
-                      <div className="lnet-scroll">
-                        <Suspense fallback={<div style={{ height: 150 }} />}>
-                          <NetworkDiagram rung={rung} readonly minWidth={460} preview={{ online: plcRunning, powered: live, table: demoTable, names: DEMO_NAMES }} />
-                        </Suspense>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </main>
-
-        <aside className="ladder-element-pane" aria-label="Paleta de elementos Ladder">
-          <div className="ladder-pane-heading"><span>Elementos</span><span>⌄</span></div>
-          <div className="ladder-tools-heading">INSTRUÇÕES</div>
-          <div className="dx-ladder-elements" aria-hidden="true">
-            <span>—| |—<small>Contato NA</small></span>
-            <span>—|/|—<small>Contato NF</small></span>
-            <span>—( )—<small>Bobina</small></span>
-            <span>[ TON ]<small>Temporizador</small></span>
-          </div>
-        </aside>
-      </div> : view === 'grafcet' ? (
-      <Suspense fallback={<div className="dx-stage-skeleton" role="status">A carregar GRAFCET…</div>}>
-        <LandingGrafcetDemo
-          plcRunning={plcRunning}
-          motorOn={motorOn}
-          onRunPlc={runPlc}
-          onStopPlc={stopPlc}
-          onStartMotor={startMotor}
-          onStopMotor={stopMotor}
-          program={demo.grafcet}
-          projectName={projectTitle}
-        />
-      </Suspense>
-      ) : <div className="dx-ladder-panel3d" role="tabpanel" aria-label="Partida direta na Visualização 3D">
-        <Suspense fallback={<div className="dx-stage-skeleton" role="status">A carregar componentes reais…</div>}>
-          <LandingShowcase
-            compact
-            plcRunning={plcRunning}
-            motorOn={motorOn}
-            onRunPlc={runPlc}
-            onStopPlc={stopPlc}
-            onStartMotor={startMotor}
-            onStopMotor={stopMotor}
-          />
-        </Suspense>
-      </div>}
-      <div className={`dx-window-foot${plcRunning ? ' is-running' : ' is-stopped'}`} aria-live="polite">
-        <b><i aria-hidden /> PLC em {plcRunning ? 'RUN' : 'STOP'}</b>
-        <span>{powered
-          ? (view === 'panel3d' ? 'Q0·QM1·KM1 · M1 em marcha · H1 verde' : view === 'grafcet' ? 'Etapa X1 ativa · KM1 e H1' : 'Q0.0/KM1 e Q0.1/H1 energizados')
-          : stoppedIndication
-            ? (view === 'panel3d' ? 'KM1 desligado · M1 parado · H2 vermelho' : view === 'grafcet' ? 'Etapa X0 · H2 parado' : 'Q0.2/H2 energizado · motor parado')
-            : 'Saídas desenergizadas · proteções prontas'}</span>
-        <span className="end">{view === 'grafcet' ? 'IEC 60848' : 'IEC 61131-3'} · {plcRunning ? 'scan 4 ms' : 'CPU parada'}</span>
-      </div>
-    </div>
-  )
-}
 /* ================================================================ página */
 
 export default function Landing({ onAccess, onLogin }: { onAccess: () => void; onLogin: () => void }) {
@@ -602,7 +420,9 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
           </div>
           <div className="dx-studio-grid">
             <div data-rv>
-              <EditorAnatomy />
+            <Suspense fallback={<div className="dx-stage-skeleton" role="status">A carregar o editor…</div>}>
+              <LandingEditorShowcase onAccess={onAccess} />
+            </Suspense>
             </div>
             <ul className="dx-studio-side" data-rv>
               <li>

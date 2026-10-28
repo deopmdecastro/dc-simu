@@ -4,6 +4,7 @@ import { nextDeclaredTagAddress } from '../grafcet/signals'
 import { normalizeBitAddress } from '../ladder/addresses'
 import { migrateLegacyAddresses } from './migrations'
 import { normalizeKind, type ProjectKind } from '../project/kind'
+import { syncDemoMode } from './demoMode'
 import { readOperand } from '../ladder/compare'
 import { emptyGrafcet, emptyGrafcetRuntime, scanGrafcet, setGrafcetNumericReader, forceSteps, fireTransition, type GrafcetProgram, type GrafcetRuntime } from '../grafcet/engine'
 import { nanoid } from 'nanoid'
@@ -224,6 +225,10 @@ interface Store extends CircuitState {
   fireGrafcetTransition: (transitionId: string) => boolean
   restartGrafcet: () => void
   setCurrentProjectName: (name: string | null) => void
+  /** Modo demonstração: a landing monta o editor real sobre um projeto
+   *  publicado/nativo, só com controlos de simulação e sem persistência. */
+  demoMode: boolean
+  setDemoMode: (on: boolean) => void
   /** Guarda o projeto atual no navegador (localStorage) sob este nome, criando
    *  ou sobrescrevendo. Usado pelo Ctrl+S e pelo painel "Projetos". */
   saveProjectAs: (name: string) => boolean
@@ -1261,7 +1266,12 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   // ------------------------------------------------------------------ edição
-  setTool: (t) => set({ tool: t, gridDragEnabled: false, selectedWireId: t === 'select' ? get().selectedWireId : null, selectedTerminalId: null }),
+  setTool: (t) => {
+    // Demonstração da landing: só Selecionar/Mover vista — as outras
+    // ferramentas editam o projeto e estão escondidas da barra.
+    if (get().demoMode && t !== 'select' && t !== 'pan') return
+    set({ tool: t, gridDragEnabled: false, selectedWireId: t === 'select' ? get().selectedWireId : null, selectedTerminalId: null })
+  },
   gridDragEnabled: false,
   setGridDragEnabled: (enabled) => set({ gridDragEnabled: enabled }),
 
@@ -2712,6 +2722,8 @@ export const useSimStore = create<Store>((set, get) => ({
 
   // ----------------------------------------------------- projetos (navegador)
   setCurrentProjectName: (name) => set({ currentProjectName: name }),
+  demoMode: false,
+  setDemoMode: (on) => { syncDemoMode(on); set({ demoMode: on }) },
 
   saveProjectAs: (name) => {
     const trimmed = name.trim()

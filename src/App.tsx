@@ -26,7 +26,7 @@ function SheetHeader({ title, onClose, side = 'right' }: { title: string; onClos
   return <SidePanelHeader eyebrow={side === 'left' ? 'BIBLIOTECA' : 'PROJETO'} title={title} side={side} onToggle={onClose} toggleLabel={`Recolher ${title}`} />
 }
 
-export default function App({ onBack }: { onBack: () => void }) {
+export default function App({ onBack, demo = false, onEnterEditor }: { onBack: () => void; /** Modo demonstração (landing): vistas do editor com controlos de simulação apenas. */ demo?: boolean; /** CTA para abrir o editor completo (autenticação). */ onEnterEditor?: () => void }) {
   const projectKind = useSimStore((s) => s.projectKind)
   const canLadder = useCan('ladder')
   const canGrafcet = useCan('grafcet')
@@ -35,7 +35,9 @@ export default function App({ onBack }: { onBack: () => void }) {
   // Um projeto só GRAFCET ganha o editor Ladder quando tem Ladder gerado
   // (gravado no projeto, logo mantém-se ao guardar e reabrir).
   const hasLadderProgram = useMemo(() => hasGeneratedLadder(), [ladderRungs, projectFiles])
-  const views = allowedViews(projectKind, hasLadderProgram)
+  const viewsAll = allowedViews(projectKind, hasLadderProgram)
+  // Demonstração: apenas as vistas de projeto (o Monitor de diagnóstico fica para o editor completo).
+  const views = demo ? viewsAll.filter((v) => v !== 'monitor') : viewsAll
   const [mode, setModeRaw] = useState<ViewMode>(() => {
     const kind = useSimStore.getState().projectKind
     const hasLadder = hasGeneratedLadder()
@@ -187,8 +189,8 @@ export default function App({ onBack }: { onBack: () => void }) {
         : { label: 'STOP', cls: 'bg-state-stop text-white', dot: 'bg-white' }
 
   return (
-    <div className="h-full w-screen flex flex-col bg-surface-app text-ink-900 overflow-hidden">
-      <Toolbar onBack={onBack} mode={mode} setMode={setMode} views={views} ladderSection={ladderSection} setLadderSection={setLadderSection}
+    <div className={`h-full ${demo ? 'w-full dc-demo-root' : 'w-screen'} flex flex-col bg-surface-app text-ink-900 overflow-hidden`}>
+      <Toolbar onBack={onBack} mode={mode} setMode={setMode} views={views} ladderSection={ladderSection} setLadderSection={setLadderSection} demo={demo} onEnterEditor={onEnterEditor}
         onOpenLibrary={() => { setShowLadder(false); setShowLibrary(true) }}
         onOpenGrafcet={() => { setShowLibrary(false); setRightTab('grafcet'); setShowLadder(true) }}
         onOpenObjects={() => { setShowLibrary(false); setRightTab('objects'); setShowLadder(true) }} />
@@ -220,10 +222,10 @@ export default function App({ onBack }: { onBack: () => void }) {
         {mode === 'schematic' && !showLibrary && <CollapsedPanelRail className="pn-shell-rail" label="Biblioteca" side="left" icon={<IconLayers size={15} />} onExpand={() => { setShowLadder(false); setShowLibrary(true) }} />}
         <div className="flex-1 min-w-0 flex flex-col relative">
           {mode === 'schematic' && <SchematicView libraryCollapsed={!showLibrary} />}
-          {mode === 'ladder' && !canLadder && <PlanLocked feature="ladder" />}
-          {mode === 'grafcet' && !canGrafcet && <PlanLocked feature="grafcet" />}
-          {mode === 'ladder' && canLadder && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}
-          {mode === 'grafcet' && canGrafcet && <GrafcetEditor full onOpenLadder={() => setMode('ladder')} />}
+          {mode === 'ladder' && !canLadder && !demo && <PlanLocked feature="ladder" />}
+          {mode === 'grafcet' && !canGrafcet && !demo && <PlanLocked feature="grafcet" />}
+          {mode === 'ladder' && (canLadder || demo) && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}
+          {mode === 'grafcet' && (canGrafcet || demo) && <GrafcetEditor full onOpenLadder={() => setMode('ladder')} />}
           {mode === 'monitor' && <MonitorPanel />}
         </div>
         {mode === 'schematic' && <ComponentEditorDock />}

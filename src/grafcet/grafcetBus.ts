@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { isDemoMode } from '../store/demoMode'
 
 export type GrafcetCanvasTool = 'select' | 'pan' | 'connect'
 
@@ -118,7 +119,11 @@ export const useGrafcetUi = create<GrafcetUiState>((set, get) => ({
       writeFlag('dcsimu:grafcet:snap', !state.snapOn)
       return { snapOn: !state.snapOn }
     }),
-  setTool: (tool) => set({ tool }),
+  setTool: (tool) => {
+    // Em modo demonstração (landing), «Ligar» permanece escondido e sem efeito.
+    if (isDemoMode() && tool === 'connect') return
+    set({ tool })
+  },
   setZoom: (zoom) => set({ zoom }),
   setSelectedStepId: (selectedStepId) => set({ selectedStepId }),
   emit: (action) => {

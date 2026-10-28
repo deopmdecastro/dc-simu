@@ -133,7 +133,7 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
   )
 }
 
-export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder', 'grafcet', 'monitor'], ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects }: { mode: ViewMode; setMode: (m: ViewMode) => void; views?: ViewMode[]; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void }) {
+export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder', 'grafcet', 'monitor'], ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects, demo = false, onEnterEditor }: { mode: ViewMode; setMode: (m: ViewMode) => void; views?: ViewMode[]; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void; /** Modo demonstração (landing): só vistas + controlos de simulação; sem ações de ficheiro nem de edição. */ demo?: boolean; /** CTA da demonstração para abrir o editor completo (autenticação). */ onEnterEditor?: () => void }) {
   const [clean, setClean] = useCleanMode()
   const [grafcetMoreOpen, setGrafcetMoreOpen] = useState(false)
   const [monitorHelp, setMonitorHelp] = useState(false)
@@ -311,7 +311,19 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       <div ref={mainBarRef} className="flex items-center gap-2 px-3 min-h-[46px] border-b border-line-soft dc-toolbar-main">
         {/* arquivo — ações frequentes; conta/projeto permanecem na barra superior única */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {narrowBar
+          {demo && (
+            <>
+              <span className="dc-demo-pill inline-flex items-center gap-1.5 h-[28px] px-2.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-[11px] font-semibold whitespace-nowrap" title="Demonstração interativa da landing: o editor real com apenas os controlos de simulação. As alterações não são guardadas.">
+                Demonstração
+              </span>
+              {onEnterEditor && (
+                <button type="button" className="dc-tool-btn !gap-1.5 !bg-brand-600 !text-white hover:!bg-brand-700" onClick={onEnterEditor} title="Criar conta gratuita e abrir este projeto no editor completo">
+                  <IconPlus size={13} /><span className="hidden md:inline">Abrir no editor</span>
+                </button>
+              )}
+            </>
+          )}
+          {!demo && (narrowBar
             ? <ToolMenu label="Ficheiro" title="Ficheiro e exportação" icon={<IconOpen size={14} />} sections={fileSections} className="dc-file-menu" badge={dirty ? 1 : undefined} />
             : (
           <div className="flex items-center gap-1.5 bg-surface-sunken border border-line rounded-lg p-1">
@@ -332,7 +344,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               <IconPdf size={14} /> <span className="hidden xl:inline text-[11px] font-medium">PDF</span>
             </button>
           </div>
-            )}
+            ))}
           <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={upload} />
         </div>
 
@@ -421,13 +433,13 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
       {/* ============================ linha 2 — contextual à vista ativa */}
       <div ref={row2BarRef} className={`dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
-        {/* desfazer / refazer — comum a todas as vistas */}
-        <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />
+        {/* desfazer / refazer — comum a todas as vistas (fora da demonstração) */}
+        {!demo && <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />}
 
         {/* Telemóvel: os painéis de ecrã inteiro vêm a seguir ao histórico — antes
             ficavam no fim de uma faixa que desliza e eram os primeiros a ficar fora
             de vista, apesar de serem as ações mais usadas no esquema. */}
-                  {mode === 'schematic' && <div className="dc-mobile-panel-tools" role="group" aria-label="Painéis">
+                  {mode === 'schematic' && !demo && <div className="dc-mobile-panel-tools" role="group" aria-label="Painéis">
             <button className="dc-tool-btn" onClick={onOpenLibrary} title="Abrir biblioteca em ecrã inteiro"><IconCube size={14} /><span>Biblioteca</span></button>
             <button className="dc-tool-btn" onClick={onOpenGrafcet} title="Abrir GRAFCET em ecrã inteiro"><IconGrafcet size={14} /><span>GRAFCET</span></button>
             <button className="dc-tool-btn" onClick={onOpenObjects} title="Ver os objetos do projeto"><IconLayers size={14} /><span>Objetos</span></button>
@@ -450,7 +462,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 {compileState !== 'none' && <span className="ladder-compile-dot" aria-label={compileState === 'ok' ? 'Compilado' : compileState === 'warning' ? 'Compilado com avisos' : compileState === 'stale' ? 'Alterado desde a última compilação' : 'Com erros'} />}
               </button>
             )}
-            {mode === 'ladder' && (
+            {mode === 'ladder' && !demo && (
               <>
                 <span className="tb-sep" />
                 <button type="button" className="dc-tool-btn !gap-1.5" data-ladder-add-block
@@ -471,11 +483,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         {mode === 'grafcet' && (
           <>
             <span className="tb-sep" />
-            <button type="button" className={`dc-tool-btn grafcet-palette-tool !gap-1.5 ${grafcetPalette ? 'is-on' : ''}`} aria-pressed={grafcetPalette} aria-label="Componentes" onClick={() => useGrafcetUi.getState().emit('togglePalette')} title="Mostrar/ocultar os componentes (Ctrl+B)"><IconLayers size={13} /><span>Componentes</span></button>
+            {!demo && <button type="button" className={`dc-tool-btn grafcet-palette-tool !gap-1.5 ${grafcetPalette ? 'is-on' : ''}`} aria-pressed={grafcetPalette} aria-label="Componentes" onClick={() => useGrafcetUi.getState().emit('togglePalette')} title="Mostrar/ocultar os componentes (Ctrl+B)"><IconLayers size={13} /><span>Componentes</span></button>}
             <SimToggleButton on={grafcetSimVisible} scope="grafcet" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'} />
             <span className="tb-sep" />
             <div className="dc-seg" role="toolbar" aria-label="Ferramentas de seleção e navegação">
-              {GRAFCET_TOOLS.map(({ id, label, icon: Icon, key, title }) => (
+              {(demo ? GRAFCET_TOOLS.filter((t) => t.id !== 'connect') : GRAFCET_TOOLS).map(({ id, label, icon: Icon, key, title }) => (
                 <TbButton key={id} className={segBtn(grafcetTool === id)} pressed={grafcetTool === id} aria-label={label} title={title} kbd={key}
                   onClick={() => useGrafcetUi.getState().setTool(id)}>
                   <Icon size={13} />
@@ -484,11 +496,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               ))}
             </div>
 
-            <span className="tb-sep" />
-            <button type="button" className="dc-tool-btn grafcet-signals-tool !gap-1.5" aria-label="Tabela de entradas, saídas e memórias" onClick={() => useGrafcetUi.getState().emit('openSignals')} title="Declarar e organizar os sinais usados nas sugestões"><IconTag size={13} /><span>Variáveis</span></button>
-            <button type="button" className="grafcet-toolbar-more dc-tool-btn" aria-expanded={grafcetMoreOpen} onClick={() => setGrafcetMoreOpen((value) => !value)} title="Ficheiros, disposição, modelos e mais ferramentas">
+            {!demo && <span className="tb-sep" />}
+            {!demo && <button type="button" className="dc-tool-btn grafcet-signals-tool !gap-1.5" aria-label="Tabela de entradas, saídas e memórias" onClick={() => useGrafcetUi.getState().emit('openSignals')} title="Declarar e organizar os sinais usados nas sugestões"><IconTag size={13} /><span>Variáveis</span></button>}
+            {!demo && <button type="button" className="grafcet-toolbar-more dc-tool-btn" aria-expanded={grafcetMoreOpen} onClick={() => setGrafcetMoreOpen((value) => !value)} title="Ficheiros, disposição, modelos e mais ferramentas">
               {grafcetMoreOpen ? 'Menos' : 'Mais'} <IconChevronDown size={12} className={grafcetMoreOpen ? 'rotate-180' : ''} />
-            </button>
+            </button>}
 
             <span className="tb-sep" />
 
@@ -573,7 +585,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           </>
         )}
 
-          {mode === 'ladder' && <>
+          {mode === 'ladder' && !demo && <>
             <span className="tb-sep" />
             <nav className="dc-seg" aria-label="Secções do editor Ladder">
               {([
@@ -626,7 +638,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <>
               <span className="tb-sep" />
               <div className="dc-seg" role="toolbar" aria-label="Ferramentas de edição">
-                {TOOLS.map((t) => {
+                {(demo ? TOOLS.filter((t) => t.id === 'select' || t.id === 'pan') : TOOLS).map((t) => {
                   const Icon = t.icon
                   return (
                     <button key={t.id} onClick={() => setTool(t.id)} className={segBtn(tool === t.id)} title={`${t.hint} [${t.key}]`}>
@@ -710,7 +722,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             </>
           )}
 
-          {mode === 'schematic' && (
+          {mode === 'schematic' && !demo && (
             <>
               <span className="tb-sep" />
               <Dropdown label={<span className="hidden lg:inline">Organizar</span>} icon={<IconOrganize size={13} />} title="Alinhar, distribuir e organizar cabos">
@@ -753,7 +765,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           )}
 
           {/* componente selecionado: editar modelo e bornes (antes: cartões sobre o canvas) */}
-          {isCanvas && singleSelection && (
+          {isCanvas && singleSelection && !demo && (
             <>
               <span className="tb-sep" />
               <div className="dc-seg" role="group" aria-label={`Editar ${singleSelection.ref}`}>
@@ -831,13 +843,13 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           {viewControls && <ViewControls {...viewControls} />}
 
           {/* ferramentas de diagnóstico do projeto atual */}
-          <button
+          {!demo && <button
             onClick={() => useSimStore.getState().toggleBlackBox()}
             className={`dc-btn ${sim.blackBox ? '!border-amber-300 !bg-amber-50 !text-amber-700' : ''}`}
             title="Modo caixa-preta: esconde o ladder e força diagnóstico por medição"
           >
             <IconLock size={13} /> <span className="hidden xl:inline">{sim.blackBox ? 'Caixa-preta ON' : 'Caixa-preta'}</span>
-          </button>
+          </button>}
         </div>
       {componentTableOpen && <ComponentTableDialog onClose={() => setComponentTableOpen(false)} />}
       {monitorHelp && <ShortcutHelp open editor="Monitor" onClose={() => setMonitorHelp(false)} extra={[VIEW_SHORTCUTS]} />}
