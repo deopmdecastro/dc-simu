@@ -1,5 +1,5 @@
-import { Canvas, useThree } from '@react-three/fiber'
-import { Environment, OrbitControls, useGLTF } from '@react-three/drei'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { ContactShadows, Environment, OrbitControls, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { finishCadMaterial } from './catalogMaterials'
@@ -11,6 +11,7 @@ import { terminalWorld3D } from './terminal3D'
 import { fitComponentModel } from './modelFit'
 import { brushedMetal, galvanizedSteel, matteWall, polishedConcrete } from './proceduralTextures'
 import MotorShaftFan3D from './MotorShaftFan3D'
+import { GlowHalo } from './GlowHalo'
 
 const UNIT = 0.0055
 
@@ -136,7 +137,20 @@ function cloneMaterials(root: THREE.Object3D) {
     mesh.castShadow = true
     mesh.receiveShadow = true
     const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    const materials = list.map((material) => finishCadMaterial(material, { envMapIntensity: 1.35 }))
+    const materials = list.map((material) => {
+      const finished = finishCadMaterial(material, { envMapIntensity: 1.45 })
+      if (finished instanceof THREE.MeshStandardMaterial) {
+        finished.envMapIntensity = Math.max(finished.envMapIntensity ?? 1, 1.25)
+        // Plásticos técnicos ligeiramente mais suaves; metais mais respondentes
+        if (finished.metalness > 0.55) {
+          finished.roughness = Math.min(finished.roughness, 0.42)
+          finished.metalness = Math.min(1, finished.metalness + 0.05)
+        } else if (finished.metalness < 0.2) {
+          finished.roughness = THREE.MathUtils.clamp(finished.roughness * 0.95, 0.28, 0.85)
+        }
+      }
+      return finished
+    })
     mesh.material = Array.isArray(mesh.material) ? materials : materials[0]
   })
 }
@@ -284,24 +298,47 @@ function DemoCable({ definition, energized }: { definition: CableDefinition; ene
     return { from, to, curve }
   }, [definition])
 
+  const glowMat = useRef<THREE.MeshBasicMaterial>(null)
+  const pulse = useRef<THREE.Mesh>(null)
+  const pulseMat = useRef<THREE.MeshBasicMaterial>(null)
+
+  useFrame(({ clock }) => {
+    if (!energized) {
+      if (glowMat.current) glowMat.current.opacity = 0
+      if (pulse.current) pulse.current.visible = false
+      return
+    }
+    const t = clock.elapsedTime
+    if (glowMat.current) glowMat.current.opacity = 0.18 + Math.sin(t * 3.2) * 0.08
+    if (pulse.current && pulseMat.current) {
+      pulse.current.visible = true
+      const u = (t * 0.55 + (definition.depth % 1)) % 1
+      const point = geometry.curve.getPoint(u)
+      pulse.current.position.copy(point)
+      pulseMat.current.opacity = 0.55 + Math.sin(t * 8) * 0.2
+    }
+  })
+
   return (
     <group>
-      {/* Cabos físicos: tubos finos com profundidade real. Ao contrário das linhas
-          sempre visíveis, ficam corretamente ocultos atrás de equipamentos. */}
+      {/* Bainha exterior escura + isolamento colorido com resposta PBR */}
       <mesh castShadow receiveShadow>
-        <tubeGeometry args={[geometry.curve, 32, 0.019, 5, false]} />
-        <meshStandardMaterial color="#101722" metalness={0.04} roughness={0.42} />
+        <tubeGeometry args={[geometry.curve, 40, 0.02, 7, false]} />
+        <meshStandardMaterial color="#0b1220" metalness={0.08} roughness={0.55} envMapIntensity={0.6} />
       </mesh>
       <mesh castShadow>
-        <tubeGeometry args={[geometry.curve, 32, 0.014, 5, false]} />
-        <meshStandardMaterial color={definition.color} metalness={0.03} roughness={0.34} envMapIntensity={0.8} />
+        <tubeGeometry args={[geometry.curve, 40, 0.0145, 7, false]} />
+        <meshStandardMaterial color={definition.color} metalness={0.06} roughness={0.32} envMapIntensity={1.05} />
       </mesh>
-      {energized && (
-        <mesh renderOrder={15}>
-          <tubeGeometry args={[geometry.curve, 32, 0.021, 5, false]} />
-          <meshBasicMaterial color="#fbbf24" transparent opacity={0.28} depthTest depthWrite={false} />
-        </mesh>
-      )}
+      <mesh renderOrder={15}>
+        <tubeGeometry args={[geometry.curve, 40, 0.022, 7, false]} />
+        <meshBasicMaterial ref={glowMat} color="#fbbf24" transparent opacity={0} depthTest depthWrite={false} />
+      </mesh>
+      {/* Partícula de corrente ao longo do cabo quando energizado */}
+      <mesh ref={pulse} renderOrder={16} visible={false}>
+        <sphereGeometry args={[0.028, 12, 12]} />
+        <meshBasicMaterial ref={pulseMat} color="#fde68a" transparent opacity={0.6} depthWrite={false} toneMapped={false} />
+      </mesh>
       <Ferrule point={geometry.from.point} toward={geometry.curve.getPoint(0.04)} color={geometry.from.terminal.color} />
       <Ferrule point={geometry.to.point} toward={geometry.curve.getPoint(0.96)} color={geometry.to.terminal.color} />
     </group>
@@ -395,7 +432,94 @@ function useShowcaseFit(touched: MutableRefObject<boolean>) {
   return fit
 }
 
+
+/** Sinaleiro com lente emissiva + halo aditivo realista (mesmo GlowHalo do editor). */
+function PilotLightWithGlow({ position, active, color }: { position: Point3; active: boolean; color: string; label?: string }) {
+  const group = useRef<THREE.Group>(null)
+  return (
+    <group ref={group} position={[0, 0, 0]}>
+      <ComponentModel type="pilotLightAd22" position={position} active={active} lightColor={color} />
+      {/* Halo à frente da lente */}
+      <group position={[position[0], position[1] + 0.12, position[2] + 0.22]}>
+        <GlowHalo color={color} on={active} radius={0.09} kind="lamp" castLight />
+      </group>
+    </group>
+  )
+}
+
+/** LCD monocromático do LOGO! — texto RUN/STOP e saídas, como no painel real. */
+function PlcLcdOverlay({ position, plcActive, motorActive }: { position: Point3; plcActive: boolean; motorActive: boolean }) {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 256
+    canvas.height = 128
+    const ctx = canvas.getContext('2d')!
+    const draw = (running: boolean, motor: boolean) => {
+      ctx.fillStyle = running ? '#1a3d18' : '#0a120a'
+      ctx.fillRect(0, 0, 256, 128)
+      // scanlines
+      ctx.fillStyle = 'rgba(0,0,0,0.15)'
+      for (let y = 0; y < 128; y += 3) ctx.fillRect(0, y, 256, 1)
+      ctx.font = 'bold 28px ui-monospace, monospace'
+      ctx.fillStyle = running ? '#b6f5a8' : '#3d5c3a'
+      ctx.fillText(running ? 'RUN' : 'STOP', 16, 40)
+      ctx.font = '18px ui-monospace, monospace'
+      ctx.fillStyle = running ? '#8fdc82' : '#2f4a2d'
+      ctx.fillText(running ? (motor ? 'Q1 Q2  ON' : 'Q3 ON') : 'Q1..Q3 OFF', 16, 72)
+      ctx.fillText(running ? (motor ? 'M1 MARCHA' : 'M1 PARADO') : 'CPU STOP', 16, 100)
+    }
+    draw(plcActive, motorActive)
+    const map = new THREE.CanvasTexture(canvas)
+    map.colorSpace = THREE.SRGBColorSpace
+    map.needsUpdate = true
+    ;(map as THREE.CanvasTexture & { __draw?: typeof draw }).__draw = draw
+    return map
+  }, [])
+
+  useEffect(() => {
+    const draw = (texture as THREE.CanvasTexture & { __draw?: (r: boolean, m: boolean) => void }).__draw
+    if (!draw) return
+    const canvas = texture.image as HTMLCanvasElement
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    draw(plcActive, motorActive)
+    texture.needsUpdate = true
+  }, [plcActive, motorActive, texture])
+
+  // Posição aproximada do visor no LOGO! 12/24RC (frente +Z)
+  const spec = getComponentModelSpec('plcSiemensLogo1224RC')!
+  const cx = position[0]
+  const cy = position[1] + spec.targetHeight * 0.62
+  const cz = position[2] + 0.22
+  return (
+    <mesh position={[cx, cy, cz]} renderOrder={20}>
+      <planeGeometry args={[0.28, 0.14]} />
+      <meshBasicMaterial map={texture} toneMapped={false} />
+    </mesh>
+  )
+}
+
+/** Contactor: micro-vibração e pulso de emissivo quando engatado. */
+function ContactorLive({ position, active }: { position: Point3; active: boolean }) {
+  const group = useRef<THREE.Group>(null)
+  useFrame(({ clock }) => {
+    if (!group.current) return
+    if (active) {
+      const buzz = Math.sin(clock.elapsedTime * 48) * 0.0018
+      group.current.position.y = position[1] + buzz
+    } else {
+      group.current.position.y = position[1]
+    }
+  })
+  return (
+    <group ref={group} position={[position[0], position[1], position[2]]}>
+      <ComponentModel type="contactorWegCWC09" position={[0, 0, 0]} active={active} />
+    </group>
+  )
+}
+
 function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor, onStopMotor }: Omit<Props, 'compact'>) {
+
   const plcActive = plcRunning ?? true
   const motorActive = plcActive && (motorOn ?? true)
   const stoppedActive = plcActive && !motorActive
@@ -422,12 +546,13 @@ function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor,
           else onStartMotor?.()
         }}
       />
-      <ComponentModel type="pilotLightAd22" position={PLACEMENTS.green.position} active={motorActive} lightColor="#22c55e" />
-      <ComponentModel type="pilotLightAd22" position={PLACEMENTS.red.position} active={stoppedActive} lightColor="#ef4444" />
+      <PilotLightWithGlow position={PLACEMENTS.green.position} active={motorActive} color="#22c55e" label="H1" />
+      <PilotLightWithGlow position={PLACEMENTS.red.position} active={stoppedActive} color="#ef4444" label="H2" />
       <ComponentModel type="plcSiemensLogo1224RC" position={PLACEMENTS.plc.position} active={plcActive} onClick={plcActive ? onStopPlc : onRunPlc} />
+      <PlcLcdOverlay position={PLACEMENTS.plc.position} plcActive={plcActive} motorActive={motorActive} />
       <ComponentModel type="breaker2p" position={PLACEMENTS.breaker.position} active={plcActive} />
       <ComponentModel type="motorBreakerPkzmC10" position={PLACEMENTS.motorBreaker.position} active={plcActive || motorActive} />
-      <ComponentModel type="contactorWegCWC09" position={PLACEMENTS.contactor.position} active={motorActive} />
+      <ContactorLive position={PLACEMENTS.contactor.position} active={motorActive} />
       <MotorWithFan position={PLACEMENTS.motor.position} active={motorActive} />
 
       {CABLES.map((definition) => {
@@ -441,7 +566,16 @@ function ShowcaseScene({ plcRunning, motorOn, onRunPlc, onStopPlc, onStartMotor,
         return <DemoCable key={definition.id} definition={definition} energized={energized} />
       })}
 
-      <Environment preset="warehouse" environmentIntensity={1} />
+      <Environment preset="warehouse" environmentIntensity={1.15} />
+      <ContactShadows
+        position={[0, 0.01, 0.6]}
+        opacity={0.45}
+        scale={12}
+        blur={2.4}
+        far={8}
+        resolution={512}
+        color="#1e293b"
+      />
       <OrbitControls
         makeDefault
         enablePan={false}
@@ -473,14 +607,14 @@ export default function LandingShowcase(props: Props) {
   return (
     <div className="dx-showcase-wrap">
       <Canvas
-        frameloop={(props.plcRunning !== false && (props.motorOn ?? true)) ? "always" : "demand"}
+        frameloop={(props.plcRunning !== false) ? "always" : "demand"}
         dpr={[1, props.compact ? 1.25 : 1.5]}
         camera={{ position: props.compact ? [1.45, 3.15, 10.15] : [1.45, 3.00, 7.75], fov: props.compact ? 41 : 35, near: 0.1, far: 100 }}
         gl={{ antialias: false, alpha: false, powerPreference: 'low-power' }}
         onCreated={({ gl }) => {
           gl.outputColorSpace = THREE.SRGBColorSpace
           gl.toneMapping = THREE.ACESFilmicToneMapping
-          gl.toneMappingExposure = 0.94
+          gl.toneMappingExposure = 1.02
         }}
       >
         <Suspense fallback={null}>
