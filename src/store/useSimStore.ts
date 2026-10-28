@@ -902,6 +902,9 @@ export const useSimStore = create<Store>((set, get) => ({
   grafcet: emptyGrafcet(),
   grafcetRuntime: emptyGrafcetRuntime(),
   setGrafcet: (program, historyMode = 'force', historyKey = 'grafcet') => {
+    // Demonstração da landing: o GRAFCET é só de visualização/simulação —
+    // navegar entre páginas é inofensivo, editar etapas/transições não.
+    if (get().demoMode && !historyKey.startsWith('grafcet:pages')) return
     if (historyMode === 'force' || (historyMode === 'auto' && shouldCommitGroupedEdit(historyKey))) get().commitHistory()
     if (historyMode === 'force') resetGroupedEdit()
     set({ grafcet: program, dirty: true })
@@ -1784,6 +1787,8 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   moveComponent: (id, x, y, movingIds) => {
+    // Demonstração da landing: arrastar componentes edita a obra — bloqueado.
+    if (get().demoMode) return
     set((s) => {
       const moved = s.components.find((component) => component.id === id)
       if (!moved) return {}

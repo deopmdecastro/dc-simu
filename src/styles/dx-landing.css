@@ -2402,3 +2402,13 @@ html:has(.dx-landing) {
 @media (max-width: 640px) {
   .dx-window-chip { display: none; }
 }
+
+/* ---------------------------------------------------------- demo: simular apenas */
+/* A vista do editor embutida respira melhor: barras mais altas, mais ar entre
+   grupos e menos controlos (edição toda fora — ver modo demo no App). */
+.dc-demo-root .dc-toolbar-main { min-height: 52px; padding-top: 4px; padding-bottom: 4px; }
+.dc-demo-root .dc-toolbar-row2 { height: 46px; gap: 8px; }
+.dc-demo-root .dc-seg { gap: 3px; padding: 4px; }
+.dc-demo-root .dc-tool-btn { height: 30px; }
+.dc-demo-root .dc-statusbar { height: 30px; }
+.dc-demo-root .dx-input { font-size: 12.5px; }

@@ -258,6 +258,7 @@ export const nextFreeStepNumber = (steps: readonly GrafcetStep[]): number => {
 const GRAFCET_ZOOM_MAX = 5
 
 export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder }: { full?: boolean; onOpenEditor?: () => void; onOpenLadder?: () => void }) {
+  const demoMode = useSimStore((state) => state.demoMode)
   const program = useSimStore((state) => state.grafcet)
   const runtime = useSimStore((state) => state.grafcetRuntime)
   const table = useSimStore((state) => state.runtime.table)
@@ -2483,7 +2484,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
     if (menu.kind === 'step') {
       const target = menu.stepId ? stepById.get(menu.stepId) : undefined
       return [
-        { label: 'Editar etapa…', hint: 'Enter', disabled: !target, onSelect: () => target && setEditingStep(target) },
+        { label: 'Editar etapa…', hint: 'Enter', disabled: demoMode || !target, onSelect: () => !demoMode && target && setEditingStep(target) },
         { label: 'Criar etapa ligada abaixo', disabled: !target, onSelect: () => addConnectedStep(target) },
         sep,
         { label: 'Copiar', hint: 'Ctrl+C', onSelect: () => copySelection() },
@@ -2711,18 +2712,18 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
           const act = actionsOf(selectedStep).find((a) => a.id === selectedActionId)
           if (act) {
             event.preventDefault()
-            setEditingAction({ step: selectedStep, action: act })
+            if (!demoMode) setEditingAction({ step: selectedStep, action: act })
             return
           }
         }
         if (selectedStep) {
           event.preventDefault()
-          setEditingStep(selectedStep)
+          if (!demoMode) setEditingStep(selectedStep)
           return
         }
         if (selectedTransition) {
           event.preventDefault()
-          setEditingTransition(selectedTransition)
+          if (!demoMode) setEditingTransition(selectedTransition)
           return
         }
       }
@@ -2961,9 +2962,11 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
               {steps.length} etapas · {transitions.length} transições · {runtime.active.length} ativas
             </small>
           </div>
+          {!demoMode && (
           <button className="dc-btn-primary dc-btn" onClick={onOpenEditor}>
             <IconOpen size={13} />Abrir editor
           </button>
+          )}
         </header>
       )}
 

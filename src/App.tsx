@@ -195,7 +195,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
         onOpenGrafcet={() => { setShowLibrary(false); setRightTab('grafcet'); setShowLadder(true) }}
         onOpenObjects={() => { setShowLibrary(false); setRightTab('objects'); setShowLadder(true) }} />
       <div className="flex-1 flex min-h-0 dc-workspace relative" data-component-editing={mode === 'schematic' && editingComponent ? 'true' : 'false'}>
-        {mode === 'schematic' && (showLibrary || showLadder) && (
+        {mode === 'schematic' && !demo && (showLibrary || showLadder) && (
           <button
             type="button"
             className="dc-mobile-backdrop"
@@ -203,7 +203,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             onClick={() => { setShowLibrary(false); setShowLadder(false) }}
           />
         )}
-        {mode === 'schematic' && showLibrary && (
+        {mode === 'schematic' && showLibrary && !demo && (
           <>
             <div className="mobile-library-panel relative shrink-0 flex flex-col" style={compact ? undefined : { width: panelSizes.sidebar }}>
               <Sidebar width={compact ? '100%' : panelSizes.sidebar} quickAddOnPick={compact} onComponentAdded={() => compact && setShowLibrary(false)} onCollapse={() => setShowLibrary(false)} />
@@ -219,9 +219,9 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             />
           </>
         )}
-        {mode === 'schematic' && !showLibrary && <CollapsedPanelRail className="pn-shell-rail" label="Biblioteca" side="left" icon={<IconLayers size={15} />} onExpand={() => { setShowLadder(false); setShowLibrary(true) }} />}
+        {mode === 'schematic' && !showLibrary && !demo && <CollapsedPanelRail className="pn-shell-rail" label="Biblioteca" side="left" icon={<IconLayers size={15} />} onExpand={() => { setShowLadder(false); setShowLibrary(true) }} />}
         <div className="flex-1 min-w-0 flex flex-col relative">
-          {mode === 'schematic' && <SchematicView libraryCollapsed={!showLibrary} />}
+          {mode === 'schematic' && <SchematicView libraryCollapsed={demo || !showLibrary} />}
           {mode === 'ladder' && !canLadder && !demo && <PlanLocked feature="ladder" />}
           {mode === 'grafcet' && !canGrafcet && !demo && <PlanLocked feature="grafcet" />}
           {mode === 'ladder' && (canLadder || demo) && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}

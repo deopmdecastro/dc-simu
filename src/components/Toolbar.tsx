@@ -388,12 +388,12 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button onClick={stop} disabled={sim.runState === 'stopped'} className={`${segBtn(false)} !px-2 !text-ink-700`} title="Parar (STOP)">
               <IconStop size={13} />
             </button>
-            <button onClick={step} className={`${segBtn(false)} !px-2 !text-brand-600`} title="Avançar um ciclo de varredura">
+            {!demo && <button onClick={step} className={`${segBtn(false)} !px-2 !text-brand-600`} title="Avançar um ciclo de varredura">
               <IconStep size={13} />
-            </button>
-            <button onClick={reset} className={`${segBtn(false)} !px-2`} title="Reiniciar a simulação sem alterar o projeto">
+            </button>}
+            {!demo && <button onClick={reset} className={`${segBtn(false)} !px-2`} title="Reiniciar a simulação sem alterar o projeto">
               <IconReset size={13} />
-            </button>
+            </button>}
           </div>
           <Select
             value={sim.mode}
@@ -427,7 +427,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           </span>
             </>
           )}
-          <button type="button" className={`dc-tool-btn dc-clean-toggle ${clean ? 'is-on' : ''}`} aria-pressed={clean} onClick={() => setClean(!clean)} title={clean ? 'Sair do modo clean (mostrar todas as barras)' : 'Modo clean: esconde barras e painéis secundários'}><IconFocus size={13} /><span className="hidden lg:inline">Clean</span></button>
+          {!demo && <button type="button" className={`dc-tool-btn dc-clean-toggle ${clean ? 'is-on' : ''}`} aria-pressed={clean} onClick={() => setClean(!clean)} title={clean ? 'Sair do modo clean (mostrar todas as barras)' : 'Modo clean: esconde barras e painéis secundários'}><IconFocus size={13} /><span className="hidden lg:inline">Clean</span></button>}
         </div>
       </div>
 
@@ -634,7 +634,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             })()}
           </>}
 
-          {isCanvas && (
+          {isCanvas && !demo && (
             <>
               <span className="tb-sep" />
               <div className="dc-seg" role="toolbar" aria-label="Ferramentas de edição">
@@ -827,14 +827,14 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
               <span className="tb-sep" />
 
-              <ShortcutsButton scope="grafcet" onClick={() => useGrafcetUi.getState().emit('openShortcuts')} title="Atalhos de teclado do GRAFCET (?)" />
+              {!demo && <ShortcutsButton scope="grafcet" onClick={() => useGrafcetUi.getState().emit('openShortcuts')} title="Atalhos de teclado do GRAFCET (?)" />}
 
               <span className="tb-sep" />
             </div>
           )}
 
           {/* atalhos de teclado do simulador ativo (o GRAFCET tem o seu junto à validação) */}
-          {mode !== 'grafcet' && (
+          {mode !== 'grafcet' && !demo && (
             <ShortcutsButton scope={mode} onClick={() => (mode === 'monitor' ? setMonitorHelp(true) : requestShortcuts(mode))}
               title={`Atalhos de teclado — ${mode === 'schematic' ? 'Esquema 2D/3D' : mode === 'ladder' ? 'Ladder' : 'Monitor'} (?)`} />
           )}

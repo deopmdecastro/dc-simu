@@ -1486,6 +1486,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   useEffect(() => { setActiveProjectNode('main'); setProgramTab('program') }, [activePlcId])
   const [expandedNodes, setExpandedNodes] = useState<Set<ProjectNodeId>>(() => new Set(['plc', 'programBlocks']))
   const [dragOver, setDragOver] = useState(false)
+  const demoMode = useSimStore((s) => s.demoMode)
   const [helpOpen, setHelpOpen] = useState(false)
   useShortcutsRequest('ladder', () => setHelpOpen(true))
   const compileRef = useRef<() => void>(() => {})
@@ -1655,8 +1656,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
       }
 
       // Desfazer/refazer cobre todo o projeto Ladder (networks, tags e árvore).
-      if (mod && !event.altKey && lower === 'z') { event.preventDefault(); if (event.shiftKey) doRedo(); else doUndo(); return }
-      if (mod && !event.altKey && lower === 'y') { event.preventDefault(); doRedo(); return }
+      if (!demoMode && mod && !event.altKey && lower === 'z') { event.preventDefault(); if (event.shiftKey) doRedo(); else doUndo(); return }
+      if (!demoMode && mod && !event.altKey && lower === 'y') { event.preventDefault(); doRedo(); return }
 
       // ---- os restantes só fazem sentido no programa Ladder principal
       if (section !== 'Projeto') return
@@ -1673,6 +1674,9 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
       const idx = list.findIndex((r) => r.id === activeId)
 
       // ---- criar / duplicar / eliminar / mover
+      // Demonstração da landing: a estrutura do programa é fixa; navegação e
+      // simulação continuam a funcionar abaixo.
+      if (demoMode) return
       if (key === 'Insert' || (mod && event.shiftKey && lower === 'n')) {
         event.preventDefault()
         const created = addRung(); focusRung(created); notify('Nova network criada'); return
@@ -2151,7 +2155,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         </div>
         </>}
       </main>
-      {section === 'Projeto' && (showPalette ? (
+      {section === 'Projeto' && !demoMode && (showPalette ? (
       <>
       {/* gaveta em ecrã pequeno: toque fora fecha os painéis laterais (visível só até 1199px) */}
       <button type="button" className="ladder-pane-scrim" aria-label="Fechar painel de elementos" onClick={() => setShowPalette(false)} />
