@@ -162,33 +162,21 @@ function HeroViewport() {
     return () => io.disconnect()
   }, [])
   return (
-    <div className="dx-window dx-window-motor" ref={ref}>
-      <div className="dx-window-bar">
-        <LogoMark size={18} />
-        <span className="dx-window-path">SEW DRN80MK4 · motor real em 3D</span>
-        <span className="dx-window-chip" title="Este modelo vem da biblioteca real do editor">Modelo GLB da biblioteca</span>
-      </div>
-      <div className="dx-window-stage">
-        {visible ? (
-          <Suspense
-            fallback={
-              <div className="dx-stage-skeleton" role="status">
-                <span className="dx-spin" aria-hidden />
-                A carregar o motor 3D…
-              </div>
-            }
-          >
-            <LandingMotorHero />
-          </Suspense>
-        ) : (
-          <div className="dx-stage-skeleton" aria-hidden />
-        )}
-      </div>
-      <div className="dx-window-foot is-running">
-        <b><i aria-hidden /> Ventoinha do veio em marcha</b>
-        <span>Vista isométrica · arraste na horizontal e na vertical para girar em torno do motor</span>
-        <span className="end">A mesma geometria anima dentro do editor</span>
-      </div>
+    <div className="dx-hero-motor" ref={ref}>
+      {visible ? (
+        <Suspense
+          fallback={
+            <div className="dx-stage-skeleton" role="status">
+              <span className="dx-spin" aria-hidden />
+              A carregar o motor 3D…
+            </span>
+          }
+        >
+          <LandingMotorHero />
+        </Suspense>
+      ) : (
+        <div className="dx-stage-skeleton" aria-hidden />
+      )}
     </div>
   )
 }

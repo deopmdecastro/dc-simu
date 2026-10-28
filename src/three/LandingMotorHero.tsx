@@ -1,17 +1,19 @@
 import { Canvas } from '@react-three/fiber'
 import { ContactShadows, Environment, OrbitControls, useGLTF } from '@react-three/drei'
-import { Suspense, useEffect, useMemo } from 'react'
+import { Suspense, useMemo } from 'react'
+import * as THREE from 'three'
 import type { ComponentType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getComponentModelSpec } from './modelPaths'
 import { preparedModel, cloneMaterials, applyModelState } from './LandingShowcase'
+import { MOTOR_FAN, MOTOR_SIZE, MOTOR_CAD } from './motorTerminalLayout'
 import MotorShaftFan3D from './MotorShaftFan3D'
 
 /**
- * Motor trifásico SEW (DRN80MK4-B3) sozinho, em vista isométrica, com a pá do
- * veio sempre em rotação. É o mesmo GLB e a mesma geometria de ventoinha do
- * editor — sem painel, sem simulação: só o equipamento em marcha, a rodar com
- * ponteiro (arraste para girar) e auto-rotação suave em repouso.
+ * Motor trifásico SEW (DRN80MK4-B3) isolado, sem cartão nem HUD: a peça e a pá
+ * do veio, montada exatamente onde o editor a coloca (MOTOR_FAN.hubX no CAD —
+ * veio em +X, Ø19 de x=241…264 mm). As pás giram sempre, em sentido horário;
+ * a câmara só se mexe quando o utilizador arrasta (sem auto-rotação).
  */
 function MotorRunning() {
   const type = 'motor3ph' as ComponentType
@@ -31,37 +33,46 @@ function MotorRunning() {
     return component
   }, [])
 
-  const fanOffset: [number, number, number] = [prepared.targetHeight * 0.42, 0, 0]
+  // Posição e escala da pá medidas sobre a caixa REAL do modelo já ajustado
+  // (mm do CAD → unidades da cena), tal como o Panel3D faz com
+  // motorCadToCentered([MOTOR_FAN.hubX, 0, 0]).
+  const fan = useMemo(() => {
+    const box = new THREE.Box3().setFromObject(prepared.scene)
+    const size = box.getSize(new THREE.Vector3())
+    const unitScale = size.y / (MOTOR_SIZE.height * 0.01)
+    const x = box.min.x + ((MOTOR_FAN.hubX - MOTOR_CAD.minX) / MOTOR_SIZE.width) * size.x
+    const y = box.min.y + ((0 - MOTOR_CAD.minY) / MOTOR_SIZE.height) * size.y
+    const z = box.min.z + ((0 - MOTOR_CAD.minZ) / MOTOR_SIZE.depth) * size.z
+    return { position: [x, y, z] as [number, number, number], scale: unitScale, box }
+  }, [prepared])
+
+  const center = useMemo(() => fan.box.getCenter(new THREE.Vector3()), [fan])
 
   return (
-    <group position-y={prepared.targetHeight / 2 + 0.02}>
-      <primitive object={prepared.scene} />
-      <group position={fanOffset} scale={0.55}>
-        <MotorShaftFan3D component={fanComponent} diameterMm={110} />
+    <>
+      <group>
+        <primitive object={prepared.scene} />
+        <group position={fan.position} scale={fan.scale}>
+          <MotorShaftFan3D component={fanComponent} />
+        </group>
       </group>
-    </group>
+      <ContactShadows position={[center.x, fan.box.min.y - 0.015, center.z]} opacity={0.4} scale={4.5} blur={2.8} far={1.2} resolution={512} />
+    </>
   )
 }
 
 export default function LandingMotorHero() {
   return (
-    <div className="dx-motor-hero">
+    <div className="dx-motor-hero" role="img" aria-label="Motor SEW DRN80MK4 em 3D com a ventoinha do veio a rodar; arraste para girar a vista">
       <Canvas
         shadows
         dpr={[1, 2]}
-        camera={{ position: [2.5, 2.1, 2.5], fov: 30, near: 0.1, far: 40 }}
-        onCreated={({ camera }) => camera.lookAt(0, 0.55, 0)}
+        camera={{ position: [1.4, 1.05, 1.4], fov: 32, near: 0.05, far: 40 }}
       >
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[4, 6, 4]} intensity={1.05} castShadow shadow-mapSize={[1024, 1024]} />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[3.5, 5, 3.5]} intensity={1.0} castShadow shadow-mapSize={[1024, 1024]} />
         <Suspense fallback={null}>
           <MotorRunning />
-          {/* plinta discreta sob o motor — apenas para assentar o modelo no cenário */}
-          <mesh position={[0, -0.06, 0]} receiveShadow>
-            <boxGeometry args={[2.4, 0.12, 1.6]} />
-            <meshStandardMaterial color="#e2e8f0" roughness={0.9} metalness={0.05} />
-          </mesh>
-          <ContactShadows position={[0, 0.012, 0]} opacity={0.42} scale={5} blur={2.6} far={1.4} resolution={512} />
           <Environment preset="city" />
         </Suspense>
         <OrbitControls
@@ -70,11 +81,9 @@ export default function LandingMotorHero() {
           enableZoom={false}
           enableDamping
           dampingFactor={0.08}
-          autoRotate
-          autoRotateSpeed={0.7}
-          target={[0, 0.55, 0]}
-          minPolarAngle={Math.PI * 0.24}
-          maxPolarAngle={Math.PI * 0.55}
+          target={[0.12, -0.02, 0]}
+          minPolarAngle={Math.PI * 0.12}
+          maxPolarAngle={Math.PI * 0.62}
         />
       </Canvas>
       <span className="dx-motor-hero-hint" aria-hidden>Arraste para girar</span>

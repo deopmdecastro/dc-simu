@@ -2412,3 +2412,11 @@ html:has(.dx-landing) {
 .dc-demo-root .dc-tool-btn { height: 30px; }
 .dc-demo-root .dc-statusbar { height: 30px; }
 .dc-demo-root .dx-input { font-size: 12.5px; }
+
+/* Hero: motor 3D solto, sem cartão/moldura — só a peça contra o fundo. */
+.dx-hero-motor {
+  position: relative;
+  height: clamp(380px, 33vw, 540px);
+  border-radius: 18px;
+  overflow: hidden;
+}
