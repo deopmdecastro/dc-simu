@@ -207,3 +207,82 @@
   .grafcet-full .grafcet-toolbox-backdrop { display: none; }
   .grafcet-full .grafcet-toolbox-list { padding-bottom: 8px; }
 }
+
+/* ===== 10. Administração: Registos, Planos e Componentes (mobile + desktop) =====
+   Capturas 2026-10-28: campos de data a sair do cartão, linhas de registo com colunas
+   de 1 letra («P.», «S.»), filtros de Componentes truncados («Todos o…», «Ord…»),
+   barra de gravar sem margem de segurança. Prefixo .dx-admin para ganhar a ordem de
+   carregamento sem !important. */
+.dx-admin .cb-log-main:focus-visible,
+.dx-admin .cb-component:focus-within { outline: 2px solid var(--dx-focus-ring, rgba(38, 85, 229, .35)); outline-offset: -2px; }
+
+@media (max-width: 720px) {
+  /* Filtros: 2 colunas iguais, pesquisa e ações em linha inteira, altura de toque. */
+  .dx-admin .cb-filters-logs,
+  .dx-admin .cb-filters-users,
+  .dx-admin .cb-filters-components { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 10px; padding: 10px; }
+  .dx-admin .cb-filters > :first-child,
+  .dx-admin .cb-filters-components > .dx-btn,
+  .dx-admin .cb-filters-users > .dx-btn { grid-column: 1 / -1; }
+  .dx-admin .cb-filters > .dx-input,
+  .dx-admin .cb-filters > .dcx-select,
+  .dx-admin .cb-filters > .dx-btn,
+  .dx-admin .cb-date-field .dx-input { height: 42px; min-height: 42px; font-size: 14px; }
+  .dx-admin .cb-filters select, .dx-admin .cb-filters .dcx-select { text-overflow: ellipsis; }
+
+  /* Datas: o campo nativo do iOS tem largura mínima própria e saía do cartão. */
+  .dx-admin .cb-date-field { min-width: 0; }
+  .dx-admin .cb-date-field .dx-label { font-size: 12px; }
+  .dx-admin .cb-date-field input[type="date"] {
+    display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%;
+    -webkit-min-logical-width: 0; text-align: left; padding-inline: 10px;
+  }
+  .dx-admin .cb-date-field input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; }
+
+  /* Linha de registo: ação + data na 1.ª linha, utilizador na 2.ª, alvo/detalhe na 3.ª. */
+  .dx-admin .cb-log-main {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    grid-template-areas: 'dot action time' '. who who' '. target target';
+    gap: 2px 10px; align-items: start; padding: 12px 14px;
+  }
+  .dx-admin .cb-log-main > span { white-space: normal; }
+  .dx-admin .cb-log-dot { grid-area: dot; margin-top: 6px; }
+  .dx-admin .cb-log-action { grid-area: action; }
+  .dx-admin .cb-log-action strong { font-size: 14px; }
+  .dx-admin .cb-log-time { grid-area: time; padding-top: 2px; font-size: 11.5px; white-space: nowrap; }
+  .dx-admin .cb-log-who { grid-area: who; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+  .dx-admin .cb-log-target { grid-area: target; font-size: 13px; }
+  .dx-admin .cb-log-target small { white-space: normal; }
+  .dx-admin .cb-log-detail { padding: 10px 14px 14px; }
+
+  /* Componentes: plano em linha própria; Bloquear e Mais ações lado a lado. */
+  .dx-admin .cb-component { padding: 14px; gap: 8px; }
+  .dx-admin .cb-component > .cb-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .dx-admin .cb-component > .cb-actions > :first-child { grid-column: 1 / -1; }
+  .dx-admin .cb-component > .cb-actions .dx-btn,
+  .dx-admin .cb-component > .cb-actions .dx-input,
+  .dx-admin .cb-component > .cb-actions .dcx-select { width: 100%; height: 40px; min-height: 40px; justify-content: center; }
+  .dx-admin .cb-bulk { flex-wrap: wrap; gap: 8px; }
+  .dx-admin .cb-bulk .dx-btn { min-height: 38px; }
+
+  /* Barra de gravar: acima da barra do Safari, com vidro suave e sem tapar o último campo. */
+  .dx-admin .cb-save-bar.is-narrow {
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--dx-surface, #fff) 94%, transparent);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  .dx-admin .adm-main:has(.cb-save-bar) { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Planos: campos em coluna única legível, rótulos maiores. */
+  .dx-admin .cb-grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+  .dx-admin .cb-grid-2 .dx-label, .dx-admin .dx-label { font-size: 12.5px; }
+  .dx-admin .dx-input, .dx-admin .dcx-select { min-height: 42px; font-size: 14px; }
+}
+
+/* Desktop: leitura das listas e barra de gravar alinhada ao conteúdo. */
+@media (min-width: 1025px) {
+  .dx-admin .cb-log-main { padding-block: 11px; }
+  .dx-admin .cb-log-main:hover { background: var(--dx-brand-soft, #eef4ff); }
+  .dx-admin .cb-component:hover { background: color-mix(in srgb, var(--dx-brand-soft, #eef4ff) 45%, var(--dx-surface, #fff)); }
+  .dx-admin .cb-save-bar:not(.is-narrow) { max-width: 960px; margin-inline: auto; }
+}
