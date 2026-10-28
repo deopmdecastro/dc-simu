@@ -62,7 +62,8 @@ import {
   IconZoomOut,
   IconReset,
   IconGrid,
-  IconTools
+  IconTools,
+  IconLayers
 } from '../ui/icons'
 import CollapsedPanelRail from '../components/CollapsedPanelRail'
 import SidePanelHeader from '../components/SidePanelHeader'
@@ -3061,7 +3062,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
               <p className="grafcet-toolbox-tip">Clique ou arraste componentes para a tela. Etapas nascem sem transição; transições e ações soltas ligam-se por arrasto ou com a ferramenta Ligar [L]. Para selecionar várias etapas, arraste um retângulo no fundo (Shift/Ctrl+clique também soma); Ctrl+C/V copia e cola, Ctrl+A seleciona tudo, Del apaga.</p>
             </aside>
           ) : (
-            <CollapsedPanelRail className="grafcet-toolbox-restore" label="Ferramentas" side="left" icon={<IconTools size={15} />} onExpand={() => setShowPalette(true)} />
+            <CollapsedPanelRail className="grafcet-toolbox-restore" label="Componentes" side="left" icon={<IconLayers size={15} />} onExpand={() => setShowPalette(true)} />
           ))}
 
         {/* CANVAS CENTRAL COM O DIAGRAMA VERTICAL ROBUSTO */}

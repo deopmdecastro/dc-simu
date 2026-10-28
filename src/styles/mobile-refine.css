@@ -196,3 +196,14 @@
 }
 @keyframes mr-sheet-in-left { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .grafcet-designer.grafcet-full .grafcet-toolbox { animation: none; } }
+
+/* GRAFCET ≤720 px: igual à Biblioteca do Esquema — folha de ecrã inteiro (.dc-mobile-fullscreen-panel). */
+@media (max-width: 720px), (pointer: coarse) and (max-height: 700px) {
+  .grafcet-designer.grafcet-full .grafcet-toolbox {
+    position: fixed; inset: 0; width: 100%; max-width: none; height: 100%;
+    border: 0; border-radius: 0; box-shadow: none; z-index: 80; animation: none;
+    background: var(--color-surface-panel, #fff);
+  }
+  .grafcet-full .grafcet-toolbox-backdrop { display: none; }
+  .grafcet-full .grafcet-toolbox-list { padding-bottom: 8px; }
+}
