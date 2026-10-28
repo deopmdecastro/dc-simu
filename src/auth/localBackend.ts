@@ -468,6 +468,7 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
         revision: project.revision,
         size: JSON.stringify(project.content ?? {}).length,
         members: project.memberIds.length,
+        preview: buildProjectPreview(project.content),
       })) as T
   }
 

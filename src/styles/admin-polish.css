@@ -1,0 +1,127 @@
+/* ==========================================================================
+   Administração — acabamento: avatares, capas, ações do cabeçalho, sistema
+   --------------------------------------------------------------------------
+   Carrega depois de admin-refine.css (e antes de mobile-refine.css). Só tokens
+   --dx-*; sem barras laterais de destaque (guarda `test:style`).
+   Peças novas: <Avatar> (src/ui/Avatar.tsx), <ProjectThumb> e <ComponentCover>
+   (src/admin/AdminCovers.tsx). Ver Design-Principles no cofre BrainNet.
+   ========================================================================== */
+
+/* ---------- avatar ---------- */
+.ui-avatar { position: relative; display: inline-grid; place-items: center; flex: none; border-radius: 50%; font-weight: 700; letter-spacing: .01em; line-height: 1; user-select: none; box-shadow: inset 0 0 0 1px rgb(15 23 42 / .07); }
+.ui-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.ui-avatar.is-xs { width: 20px; height: 20px; font-size: 9px; }
+.ui-avatar.is-sm { width: 28px; height: 28px; font-size: 11px; }
+.ui-avatar.is-md { width: 36px; height: 36px; font-size: 13px; }
+.ui-avatar.is-lg { width: 44px; height: 44px; font-size: 15px; }
+.ui-avatar-dot { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border: 2px solid var(--dx-surface); border-radius: 50%; background: var(--dx-run); }
+.ui-avatar-dot.is-off { background: var(--dx-ink-4); }
+.ui-avatar.is-xs .ui-avatar-dot, .ui-avatar.is-sm .ui-avatar-dot { width: 9px; height: 9px; border-width: 1.5px; }
+.av-t0 { background: hsl(222 90% 94%); color: hsl(222 62% 32%); }
+.av-t1 { background: hsl(160 60% 90%); color: hsl(162 70% 22%); }
+.av-t2 { background: hsl(36 95% 90%); color: hsl(28 80% 28%); }
+.av-t3 { background: hsl(340 85% 94%); color: hsl(340 65% 33%); }
+.av-t4 { background: hsl(268 85% 94%); color: hsl(268 50% 36%); }
+.av-t5 { background: hsl(190 75% 90%); color: hsl(192 80% 22%); }
+.av-t6 { background: hsl(12 90% 93%); color: hsl(10 70% 33%); }
+.av-t7 { background: hsl(96 55% 89%); color: hsl(100 60% 22%); }
+.dx-admin .cb-user-head > .ui-avatar { box-shadow: inset 0 0 0 1px rgb(15 23 42 / .07), 0 1px 2px rgb(15 23 42 / .06); }
+.adm-person { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.adm-person > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.adm-list-row.has-avatar { align-items: center; gap: 10px; }
+
+/* ---------- capas (projetos e componentes) ---------- */
+.adm-cover { position: relative; display: grid; place-items: center; flex: none; overflow: hidden; border: 1px solid var(--dx-line-soft); border-radius: 10px; background: var(--dx-surface-2); color: var(--dx-ink-4); }
+.adm-cover-project.is-md { width: 64px; height: 44px; }
+.adm-cover-project.is-lg { width: 96px; height: 64px; }
+.adm-cover-project.is-plain { border-color: transparent; }
+.adm-cover-project.has-art > .dx-cover { width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; border: 0; border-radius: 0; box-shadow: none; }
+.adm-cover-project.has-art .dx-cover svg, .adm-cover-project.has-art .dx-cover img { width: 100%; height: 100%; }
+.adm-cover-project .dx-cover-empty span, .adm-cover-project .dx-cover-empty small { display: none; }
+.adm-cover-component { background: #fff; }
+.adm-cover-component.is-md { width: 52px; height: 52px; }
+.adm-cover-component.is-lg { width: 68px; height: 68px; }
+.adm-cover-component img { width: 100%; height: 100%; border: 0; border-radius: 0; background: transparent; }
+
+/* células de projeto: capa + nome + revisão */
+.adm-project-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.adm-project-name { display: grid; gap: 1px; min-width: 0; }
+.adm-project-name strong { overflow: hidden; color: var(--dx-ink); font-size: 14px; font-weight: 650; text-overflow: ellipsis; }
+.adm-project-name small { color: var(--dx-ink-4); font-size: 12px; font-weight: 500; }
+.adm-table-projects tbody th { min-width: 240px; }
+.adm-table-projects tbody td { color: var(--dx-ink-2); }
+.adm-table-projects td.is-owner { max-width: 260px; }
+
+/* linhas de componente: caixa de seleção · capa · título */
+.dx-admin .cb-component-main { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 2px 12px; }
+.dx-admin .cb-component-main .cb-select { margin: 0; align-self: center; }
+.cb-component-title { display: grid; gap: 2px; min-width: 0; }
+.cb-component-title strong { overflow: hidden; text-overflow: ellipsis; }
+.dx-admin .cb-component-main > .cb-component-note { grid-column: 1 / -1; }
+
+/* ---------- cabeçalho: ação principal e voltar ---------- */
+.adm-head-actions { display: flex; align-items: stretch; gap: 10px; }
+.adm-head-actions .adm-cta, .adm-head-actions .adm-back { height: 44px; border-radius: 12px; }
+.adm-cta { display: inline-flex; align-items: center; gap: 10px; padding: 0 18px 0 8px; text-align: left; box-shadow: 0 1px 2px rgb(24 40 120 / .22), 0 8px 16px -8px rgb(51 85 224 / .55); transition: transform var(--dx-fast), box-shadow var(--dx-fast), background var(--dx-fast); }
+.adm-cta:hover:not(:disabled) { box-shadow: 0 1px 2px rgb(24 40 120 / .25), 0 10px 20px -8px rgb(51 85 224 / .65); }
+.adm-cta:active:not(:disabled) { transform: translateY(1px); }
+.adm-cta-icon { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 9px; background: rgb(255 255 255 / .2); }
+.adm-cta-text { display: grid; line-height: 1.15; }
+.adm-cta-text strong { font-size: 13.5px; font-weight: 700; }
+.adm-cta-text small { font-size: 11px; font-weight: 500; opacity: .82; }
+.adm-back { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; font-weight: 650; }
+.adm-back:hover:not(:disabled) > svg:first-child { transform: translateX(-2px); }
+.adm-back > svg { transition: transform var(--dx-fast); }
+
+/* ---------- Sistema: indicadores e linhas com ícone ---------- */
+.sys-stats .sys-stat { position: relative; }
+.sys-stat-icon { display: grid !important; place-items: center; order: -2 !important; width: 30px; height: 30px; margin-bottom: 8px; border-radius: 9px; background: var(--dx-brand-soft-2); color: var(--dx-brand-700) !important; }
+.sys-stat.is-sessions .sys-stat-icon { background: hsl(160 60% 90%); color: hsl(162 70% 24%) !important; }
+.sys-stat.is-contrib .sys-stat-icon { background: hsl(36 95% 90%); color: hsl(28 80% 30%) !important; }
+.sys-stat.is-logs .sys-stat-icon { background: hsl(268 85% 94%); color: hsl(268 50% 38%) !important; }
+.sys-stat.is-blocked .sys-stat-icon { background: hsl(12 90% 93%); color: hsl(10 70% 35%) !important; }
+.sys-row { display: flex; align-items: center; gap: 12px; }
+.sys-row-icon { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 9px; background: var(--dx-surface-2); color: var(--dx-ink-3); }
+.sys-row-text { flex: 1; min-width: 0; }
+.sys-actions .dx-btn { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ---------- Biblioteca 3D: botões com ícone ---------- */
+.ce-list-actions .dx-btn { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ---------- telemóvel ---------- */
+@media (max-width: 720px) {
+  .dx-admin-head-actions.adm-head-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .adm-head-actions .adm-cta, .adm-head-actions .adm-back { height: 48px; }
+  .adm-head-actions .adm-cta { justify-content: flex-start; padding: 0 14px 0 8px; font-size: 13px; }
+  .adm-head-actions .adm-back { padding: 0 14px; }
+
+  /* tabela de projetos → cartões com capa */
+  .adm-table-projects tbody tr { display: grid; gap: 4px; padding: 12px 14px 12px; }
+  .adm-table-projects tbody th { min-width: 0; padding: 0 0 8px; border-bottom: 1px solid var(--dx-line-soft); }
+  .adm-table-projects .adm-cover-project.is-md { width: 72px; height: 50px; }
+  .adm-table-projects td.is-owner { max-width: none; }
+  .adm-table-projects td.is-owner .adm-person { justify-content: flex-end; max-width: 70%; }
+  .adm-table-projects .is-actions { padding-top: 8px; }
+  .adm-table-projects .is-actions .dx-btn { width: 100%; height: 40px; justify-content: center; }
+
+  /* componentes: capa mais pequena para não roubar largura ao título */
+  .adm-cover-component.is-md { width: 44px; height: 44px; }
+  .dx-admin .cb-component-main { grid-template-columns: auto auto minmax(0, 1fr); gap: 2px 10px; }
+  .dx-admin .cb-component-main .cb-component-title small { grid-column: auto; }
+
+  /* Sistema */
+  .sys-row { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: start; gap: 4px 12px; }
+  .sys-row > .dx-chip { grid-column: 2; justify-self: start; }
+  .sys-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .sys-actions .dx-btn { width: 100%; height: 44px; justify-content: center; }
+
+  /* Biblioteca 3D: a ação principal já está no cabeçalho */
+  .ce-list-actions .ce-list-create { display: none; }
+  .ce-list-secondary-actions .dx-btn { height: 44px; }
+}
+@media (max-width: 380px) {
+  .adm-cta-text small { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm-cta, .adm-back > svg { transition: none; }
+}

@@ -7,7 +7,7 @@ import { catalogApi } from '../../catalog/catalogApi'
 import { newId } from '../../catalog/definition'
 import { useCatalogStore } from '../../catalog/registry'
 import type { CatalogEntry } from '../../catalog/types'
-import { IconCube } from '../../ui/icons'
+import { IconCube, IconDownload, IconFileUpload, IconPlus, IconRotate } from '../../ui/icons'
 import { ComponentThumb } from '../../three/componentThumbnails'
 import type { ComponentType } from '../../types'
 import { generateCover } from './coverGen'
@@ -185,12 +185,12 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
       </div>
       <div className="ce-list-actions">
         <div className="ce-list-secondary-actions" role="group" aria-label="Ações secundárias">
-          <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => void exportBackup()}>{backupBusy ? 'A processar…' : 'Guardar backup'}</button>
-          <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => backupInput.current?.click()}>Recuperar backup</button>
+          <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => void exportBackup()}><IconDownload size={13} /> {backupBusy ? 'A processar…' : 'Guardar backup'}</button>
+          <button className="dx-btn dx-btn-secondary" disabled={backupBusy} onClick={() => backupInput.current?.click()}><IconFileUpload size={13} /> Recuperar backup</button>
           <input ref={backupInput} type="file" accept=".json,.dcs-components.json,application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importBackup(file) }} />
-          <button className="dx-btn dx-btn-secondary" aria-pressed={syncOpen} data-sync-toggle onClick={() => setSyncOpen((open) => !open)} title="Compara o editor com a biblioteca do simulador 3D">Sincronização</button>
+          <button className="dx-btn dx-btn-secondary" aria-pressed={syncOpen} data-sync-toggle onClick={() => setSyncOpen((open) => !open)} title="Compara o editor com a biblioteca do simulador 3D"><IconRotate size={13} /> Sincronização</button>
         </div>
-        <button className="dx-btn dx-btn-primary ce-list-create" onClick={onCreate}>+ Novo componente 3D</button>
+        <button className="dx-btn dx-btn-primary ce-list-create" onClick={onCreate}><IconPlus size={13} /> Novo componente 3D</button>
       </div>
     </div>
     {syncOpen && <SyncPanel onNotice={onNotice} onError={onError} onChanged={() => void reload()} onOpen={openEditor} />}

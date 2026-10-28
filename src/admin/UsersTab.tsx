@@ -1,4 +1,5 @@
 import Select from '../ui/Select'
+import Avatar from '../ui/Avatar'
 import { useMemo, useState } from 'react'
 import { uiConfirm } from '../ui/dialogs'
 import { activeAccountBackend } from '../auth/accountApi'
@@ -250,7 +251,7 @@ export default function UsersTab({ users, planRequests = [], currentUserId, onCh
         return <article key={user.id} className={`cb-user ${user.active ? '' : 'is-disabled'}`} data-user={user.email}>
           <div className="cb-user-head">
             {selectable(user) && <label className="cb-select"><input type="checkbox" checked={selected.has(user.id)} onChange={() => toggle(user.id)} aria-label={`Selecionar ${user.email}`} /></label>}
-            <span className="cb-avatar" aria-hidden>{user.name.slice(0, 1).toUpperCase()}</span>
+            <Avatar name={user.name} email={user.email} src={user.avatarUrl} size="lg" status={user.active ? 'active' : 'off'} />
             <div className="cb-user-id">
               <strong>{user.name}{self && <em> (você)</em>}</strong>
               <small>{user.email}</small>

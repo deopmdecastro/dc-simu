@@ -274,7 +274,8 @@ app.post('/api/invitations/:id/:action',auth,(req,res)=>{
 })
 // Rotas administrativas separadas das rotas normais de projeto: o papel
 // admin não contorna implicitamente as permissões de leitura/escrita do editor.
-registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, auditReq, clientIp, fixedAccounts, contribDir, dataDir: dir, attempts, saas })
+const previewFor=(row)=>{const key=row.id+':'+row.revision+':'+row.updated_at;let preview=previewCache.get(key);if(!preview){preview=buildPreview(row.content);previewCache.set(key,preview);if(previewCache.size>200)previewCache.delete(previewCache.keys().next().value)}return preview}
+registerAdmin({ app, db, auth, admin, fail, id, pwd, audit, auditReq, clientIp, fixedAccounts, contribDir, dataDir: dir, attempts, saas, previewFor })
 registerCatalog({ app, db, auth, admin, fail, auditReq, dataDir: dir })
 
 // ---------------------------------------------------------------------------

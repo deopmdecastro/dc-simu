@@ -20,8 +20,10 @@ import UsersTab from './UsersTab'
 import { contribApi } from '../contrib/contribApi'
 import { COMPONENT_OPTIONS, ContributionRow, formatBytes, formatDate } from '../contrib/ContribParts'
 import { KIND_LABEL, STATUS_LABEL, type Contribution, type ContributionKind, type ContributionStatus, type ContribStats } from '../contrib/types'
-import { IconArrowLeft, IconArrowRight, IconCheckCircle, IconChevronDown, IconClose, IconCube, IconFileUpload, IconGrid, IconHistory, IconInbox, IconLayers, IconMonitor, IconOrganize, IconPdf, IconPending, IconPlus, IconProjects, IconShield, IconStorage, IconTag, IconTools, IconUser, IconUsers, IconWarning, IconXCircle } from '../ui/icons'
+import { IconArrowLeft, IconArrowRight, IconCheckCircle, IconChevronDown, IconClose, IconCube, IconDelete, IconFileUpload, IconGrid, IconHistory, IconInbox, IconLayers, IconMonitor, IconOrganize, IconPdf, IconPending, IconPlus, IconProjects, IconShield, IconStorage, IconTag, IconTools, IconUser, IconUsers, IconWarning, IconXCircle } from '../ui/icons'
 import { ToolMenu, useNarrowMenu, type ToolMenuSection } from '../ui/toolbarKit'
+import Avatar from '../ui/Avatar'
+import { ProjectThumb } from './AdminCovers'
 
 type Tab = 'overview' | 'contributions' | 'components' | 'library3d' | 'projects' | 'users' | 'plans' | 'logs' | 'system'
 
@@ -244,9 +246,12 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
       </div>
       <div className="adm-head-side">
         <span className={`adm-env ${serverMode ? 'is-server' : 'is-local'}`} title={serverMode ? 'Os dados estão guardados no servidor (SQLite).' : 'Os dados estão guardados apenas neste navegador.'}><i aria-hidden />{serverMode ? 'Servidor · SQLite' : 'Modo local · só neste navegador'}</span>
-        <div className="dx-admin-head-actions">
-          <button className="dx-btn dx-btn-primary" onClick={() => setCreating3D(true)} title="Criar um componente no editor 3D"><IconPlus size={12} /> Novo componente 3D</button>
-          <button className="dx-btn dx-btn-secondary" onClick={onBack}><IconArrowLeft size={12} /> Projetos</button>
+        <div className="dx-admin-head-actions adm-head-actions">
+          <button className="dx-btn dx-btn-primary adm-cta" onClick={() => setCreating3D(true)} title="Criar um componente no editor 3D">
+            <span className="adm-cta-icon" aria-hidden><IconPlus size={13} /></span>
+            <span className="adm-cta-text"><strong>Novo componente 3D</strong><small>Abrir o assistente</small></span>
+          </button>
+          <button className="dx-btn dx-btn-secondary adm-back" onClick={onBack} title="Voltar à lista de projetos" aria-label="Voltar aos projetos"><IconArrowLeft size={13} /><span>Projetos</span></button>
         </div>
       </div>
     </header>
@@ -332,7 +337,8 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
             {contributions.length === 0
               ? <OverviewEmpty icon={IconInbox} text="Ainda não foram enviadas contribuições." hint="Datasheets e modelos 3D enviados ficam aqui à espera de revisão." />
               : <ul className="adm-list">
-                {contributions.slice(0, 5).map((item) => <li key={item.id} className="adm-list-row">
+                {contributions.slice(0, 5).map((item) => <li key={item.id} className="adm-list-row has-avatar">
+                  <Avatar name={item.authorName} email={item.authorEmail} size="sm" />
                   <span className="adm-list-text"><strong>{item.title}</strong><small>{KIND_LABEL[item.kind]} · {item.authorName} · {formatDate(item.updatedAt)}</small></span>
                   <span className={`cb-status is-${item.status}`}>{STATUS_LABEL[item.status]}</span>
                 </li>)}
@@ -391,16 +397,16 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
       <input className="dx-input cb-search" type="search" placeholder="Pesquisar projeto ou proprietário…" value={projectQuery} onChange={(event) => setProjectQuery(event.target.value)} aria-label="Pesquisar projetos" />
       {shownProjects.length === 0
         ? <div className="dx-admin-table"><div className="dx-admin-empty">{projects.length ? 'Nenhum projeto com esta pesquisa.' : 'Ainda não há projetos criados.'}</div></div>
-        : <div className="adm-tablewrap"><table className="adm-table">
+        : <div className="adm-tablewrap"><table className="adm-table adm-table-projects">
           <thead><tr><th scope="col">Projeto</th><th scope="col">Proprietário</th><th scope="col" className="is-num">Membros</th><th scope="col" className="is-num">Tamanho</th><th scope="col" className="is-num">Rev.</th><th scope="col">Atualizado</th><th scope="col"><span className="adm-vh">Ações</span></th></tr></thead>
           <tbody>{shownProjects.map((project) => <tr key={project.id}>
-            <th scope="row" data-label="Projeto">{project.name}</th>
-            <td data-label="Proprietário">{project.owner}</td>
+            <th scope="row" data-label="Projeto"><span className="adm-project-cell"><ProjectThumb name={project.name} preview={project.preview} /><span className="adm-project-name"><strong>{project.name}</strong><small>{project.revision ? `Revisão ${project.revision}` : 'Sem revisões'}</small></span></span></th>
+            <td data-label="Proprietário" className="is-owner"><span className="adm-person"><Avatar email={project.owner} name={project.owner} size="sm" /><span>{project.owner}</span></span></td>
             <td data-label="Membros" className="is-num">{project.members ?? 0}</td>
             <td data-label="Tamanho" className="is-num">{project.size !== undefined ? formatBytes(project.size) : '—'}</td>
             <td data-label="Rev." className="is-num">{project.revision ?? 0}</td>
             <td data-label="Atualizado">{formatDate(project.updated_at)}</td>
-            <td className="is-actions"><button className="dx-btn dx-btn-danger dx-btn-sm" onClick={() => removeProject(project)} aria-label={`Eliminar projeto ${project.name}`}>Eliminar</button></td>
+            <td className="is-actions"><button className="dx-btn dx-btn-danger dx-btn-sm" onClick={() => removeProject(project)} aria-label={`Eliminar projeto ${project.name}`}><IconDelete size={12} /> Eliminar</button></td>
           </tr>)}</tbody>
         </table></div>}
     </>}

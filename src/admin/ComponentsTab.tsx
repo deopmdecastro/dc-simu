@@ -11,6 +11,7 @@ import { usePlanStore } from '../saas/usePlan'
 import { COMPONENT_STATUS_LABEL, componentStatusOf, type ComponentStatus, type PlanId } from '../saas/platformCore.mjs'
 import RowMenu, { MenuItem } from './RowMenu'
 import { useNarrowMenu } from '../ui/toolbarKit'
+import { ComponentCover } from './AdminCovers'
 
 type Props = {
   settings: ComponentSetting[]
@@ -202,8 +203,11 @@ export default function ComponentsTab({ settings, contributions, onChanged, onEr
       {visible.map((row) => <article key={row.type} className={`cb-component ${row.status !== 'active' ? 'is-disabled' : ''} is-${row.status}`} data-status={row.status}>
         <div className="cb-component-main">
           <label className="cb-select"><input type="checkbox" checked={selected.has(row.type)} onChange={() => toggle(row.type)} aria-label={`Selecionar ${row.label}`} /></label>
-          <strong>{row.label}</strong>
-          <small>{row.group} · <code>{row.type}</code></small>
+          <ComponentCover type={row.type} />
+          <span className="cb-component-title">
+            <strong>{row.label}</strong>
+            <small>{row.group} · <code>{row.type}</code></small>
+          </span>
           {row.setting && row.status !== 'active' && <small className="cb-component-note">{COMPONENT_STATUS_LABEL[row.status]}{row.setting.updatedBy ? ` por ${row.setting.updatedBy}` : ''}{row.setting.updatedAt ? ` · ${formatDate(row.setting.updatedAt)}` : ''}{row.setting.note ? ` — ${row.setting.note}` : ''}</small>}
         </div>
         <div className="cb-component-chips">
