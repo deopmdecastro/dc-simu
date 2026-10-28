@@ -66,6 +66,7 @@ import {
   IconLayers
 } from '../ui/icons'
 import CollapsedPanelRail from '../components/CollapsedPanelRail'
+import { useNarrowMenu } from '../ui/toolbarKit'
 import SidePanelHeader from '../components/SidePanelHeader'
 import GrafcetShortcutsDialog from './GrafcetShortcutsDialog'
 import GrafcetMinimap from './GrafcetMinimap'
@@ -449,6 +450,8 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
   const selectedAction = selectedStep ? (actionsOf(selectedStep).find((a) => a.id === selectedActionId) ?? null) : null
   /** Mobile: Propriedades é uma gaveta recolhida; abre ao selecionar algo (no desktop é sempre visível). */
   const [propsOpen, setPropsOpen] = useState(false)
+  /* Até 800 px o inspetor é uma gaveta no fundo (index.css): as setas apontam para cima/baixo, não para os lados. */
+  const propsAtBottom = useNarrowMenu('(max-width: 800px)')
   const [propsTall, setPropsTall] = useState(false)
   const propsFirstRun = useRef(true)
   useEffect(() => {
@@ -4980,7 +4983,7 @@ export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder
                 ? `Transição T${transitions.indexOf(selectedTransition) + 1}`
                 : 'Propriedades'}
               detail={simVisible ? `${running ? '● Simulação ativa' : '○ Simulação parada'}${runtime.active.length ? ` · Etapas ativas: ${runtime.active.map((value) => { const index = steps.findIndex((step) => step.id === value); return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber }).join(', ')}` : ''}` : undefined}
-              side="right"
+              side={propsAtBottom ? 'bottom' : 'right'}
               expanded={propsOpen}
               onToggle={() => setPropsOpen((value) => !value)}
               toggleTitle

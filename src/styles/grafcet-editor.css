@@ -1246,9 +1246,6 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   .grafcet-full .grafcet-toolbox-item { min-height:52px; }
   .grafcet-full .grafcet-toolbox-tip { display:none; }
   .grafcet-full .grafcet-toolbox-backdrop { display:block; position:absolute; inset:0; z-index:30; background:#0f172a3d; }
-  .grafcet-full .grafcet-toolbox-restore { position:absolute; top:8px; left:8px; z-index:21; display:inline-flex; flex-direction:row; align-items:center; gap:6px; width:auto; min-width:0; height:40px; min-height:40px; padding:0 10px; border:1px solid #c9d8ee; border-radius:6px; box-shadow:0 2px 8px #0f172a0d; }
-  .grafcet-full .grafcet-toolbox-restore .pn-collapsed-rail-label { writing-mode:horizontal-tb; transform:none; }
-  .grafcet-full .grafcet-toolbox-restore .pn-collapsed-rail-chevron { width:26px; height:26px; margin:0; }
   .grafcet-full .grafcet-canvas { padding:0; }
 }
 @media (max-width:800px) {
@@ -1258,7 +1255,6 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
   .dc-grafcet-toolbar .dc-tool-btn { min-height:34px; }
   .dc-grafcet-toolbar.is-expanded { max-height:42dvh; overflow-y:auto !important; }
   .dc-grafcet-toolbar.is-expanded .grafcet-toolbar-more { background:#e6eeff; }
-  .grafcet-full .grafcet-toolbox-restore { min-height:40px; }
 }
 @media (max-width:600px) {
   .grafcet-property-chips { gap:6px; }

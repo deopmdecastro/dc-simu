@@ -1,11 +1,12 @@
 import type { ReactNode, Ref } from 'react'
-import { IconChevronLeft, IconChevronRight, IconLayers } from '../ui/icons'
+import { IconChevronDown, IconChevronLeft, IconChevronRight, IconChevronUp, IconLayers } from '../ui/icons'
 
 type SidePanelHeaderProps = {
   eyebrow: string
   title: string
   icon?: ReactNode
-  side?: 'left' | 'right'
+  /** `bottom`: gaveta inferior — aberta aponta para baixo (recolher), fechada para cima (abrir). */
+  side?: 'left' | 'right' | 'bottom'
   detail?: ReactNode
   actions?: ReactNode
   collapsed?: boolean
@@ -42,7 +43,9 @@ export default function SidePanelHeader({
     {detail && <small>{detail}</small>}
   </>
   const pointLeft = side === 'left' ? isExpanded : !isExpanded
-  const Chevron = pointLeft ? IconChevronLeft : IconChevronRight
+  const Chevron = side === 'bottom'
+    ? (isExpanded ? IconChevronDown : IconChevronUp)
+    : (pointLeft ? IconChevronLeft : IconChevronRight)
   const label = toggleLabel ?? `${onToggle ? 'Recolher' : 'Abrir'} ${title}`
 
   return (

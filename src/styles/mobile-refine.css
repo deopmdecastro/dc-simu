@@ -286,3 +286,12 @@
   .dx-admin .cb-component:hover { background: color-mix(in srgb, var(--dx-brand-soft, #eef4ff) 45%, var(--dx-surface, #fff)); }
   .dx-admin .cb-save-bar:not(.is-narrow) { max-width: 960px; margin-inline: auto; }
 }
+
+/* GRAFCET — «Componentes» recolhido: a mesma régua vertical dos outros painéis
+   (Ladder, Esquema, editor 3D), encostada à esquerda em toda a altura. Antes era um
+   botão quadrado flutuante sobre o diagrama. O corpo ganha 48 px de reserva à esquerda,
+   por isso o diagrama e a gaveta de propriedades não ficam tapados. */
+@media (max-width: 1199px) {
+  .grafcet-full .grafcet-designer-body:has(> .grafcet-toolbox-restore) { box-sizing: border-box; padding-left: 48px; }
+  .grafcet-full .grafcet-designer-body > .grafcet-toolbox-restore { position: absolute; inset: 0 auto 0 0; height: auto; }
+}
