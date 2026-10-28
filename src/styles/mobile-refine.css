@@ -173,3 +173,26 @@
   .dc-btn, .dc-tool-btn, .dc-tab { transition: none; }
   .dc-btn:hover:not(:disabled), .dc-tool-btn:hover:not(:disabled) { transform: none; }
 }
+
+/* ===== 9. GRAFCET: componentes como painel lateral (≤1199 px) =====
+   Antes: botão «Componentes» na barra + modal ao centro. Agora, como no Ladder:
+   régua fina à esquerda (reabre com um toque) e folha lateral por cima do diagrama.
+   O botão sai da barra de ferramentas; Ctrl+B continua a funcionar. */
+@media (max-width: 1199px) {
+  .grafcet-palette-tool { display: none !important; }
+  .grafcet-full .grafcet-toolbox-restore { display: flex; }
+  .grafcet-designer-body { position: relative; }
+  .grafcet-full .grafcet-toolbox-backdrop {
+    position: absolute; inset: 0; z-index: 40; background: rgba(15, 23, 42, .32); backdrop-filter: none;
+  }
+  .grafcet-designer.grafcet-full .grafcet-toolbox {
+    position: absolute; top: 0; bottom: 0; left: 0; inset-inline-end: auto; transform: none;
+    width: min(320px, 88%); height: auto; max-height: none; z-index: 41;
+    border: 0; border-right: 1px solid var(--pn-line, #d3dbe5); border-radius: 0 14px 14px 0;
+    box-shadow: 8px 0 28px -10px rgba(15, 23, 42, .35);
+    animation: mr-sheet-in-left .18s ease-out;
+  }
+  .grafcet-full .grafcet-toolbox-list { overscroll-behavior: contain; }
+}
+@keyframes mr-sheet-in-left { from { transform: translateX(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .grafcet-designer.grafcet-full .grafcet-toolbox { animation: none; } }
