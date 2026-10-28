@@ -49,6 +49,10 @@ export default function ShortcutHelp({ open, onClose, editor, extra = [] }: Prop
       subtitle={`${editor} · no macOS use ⌘ em vez de Ctrl`}
       icon={<span className="dc-modal-ico-badge"><IconHelp size={13} /></span>}
     >
+      <div className="lk-modal-intro" role="note">
+        <span className="lk-modal-intro-dot" aria-hidden="true" />
+        <span>Use estes atalhos para navegar e editar sem tirar as mãos do teclado.</span>
+      </div>
       <div className="lk-query">
         <IconSearch size={13} />
         <input

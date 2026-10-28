@@ -169,6 +169,29 @@
 }
 
 /* ===== 8. Preferências do sistema ===== */
+/* ===== 11. Toolbar, atalhos e ações principais ===== */
+.lk-modal-intro { display:flex; align-items:center; gap:9px; margin:0 0 12px; padding:10px 12px; border:1px solid var(--dx-line-soft, #dbe4f2); border-radius:10px; background:var(--dx-brand-soft-2, #f5f8ff); color:var(--dx-ink-3, #687894); font-size:12px; line-height:1.4; }
+.lk-modal-intro-dot { width:7px; height:7px; border-radius:999px; background:var(--dx-brand, #2f5ee5); box-shadow:0 0 0 4px color-mix(in srgb, var(--dx-brand, #2f5ee5) 13%, transparent); flex:none; }
+.lk-row { min-height:44px; gap:16px; padding:9px 0; }
+.lk-row > span:first-child { min-width:0; line-height:1.35; }
+.lk-keys { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px; }
+.lk-key { border:1px solid #cbd6e6; border-bottom-width:2px; border-radius:7px; background:#f8fafd; padding:4px 8px; color:#30415d; font-size:11px; font-weight:700; white-space:nowrap; }
+.account-project-action { min-height:40px; border-radius:10px; }
+.ce-list-create { min-height:44px; border-radius:10px; }
+@media (max-width:720px) {
+  .dc-modal-backdrop { padding:0; align-items:end; }
+  .dc-modal { width:100%; max-height:92dvh; border-radius:18px 18px 0 0; }
+  .dc-modal-header { padding:16px; gap:10px; }
+  .dc-modal-body { padding:14px 16px calc(18px + env(safe-area-inset-bottom, 0px)); overflow:auto; }
+  .dc-modal-heading h2 { font-size:18px; }
+  .lk-modal-intro { font-size:11.5px; }
+  .lk-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:10px; min-height:48px; }
+  .lk-row > span:first-child { font-size:13px; }
+  .lk-key { padding:5px 7px; font-size:10px; }
+  .account-project-action { min-height:44px; padding-inline:12px; }
+  .account-action-text { display:none; }
+  .dx-account-controls { gap:7px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .dc-btn, .dc-tool-btn, .dc-tab { transition: none; }
   .dc-btn:hover:not(:disabled), .dc-tool-btn:hover:not(:disabled) { transform: none; }

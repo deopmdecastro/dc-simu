@@ -750,16 +750,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           )}
 
           {/* dicas da ferramenta ativa: faixa da barra, não um cartão sobre o desenho */}
-          {isCanvas && (
-            <>
-              <span className="tb-sep" />
-              <button type="button" className={`dc-tool-btn !px-2 ${hintsOn ? 'dc-tool-active' : ''}`} aria-pressed={hintsOn}
-                onClick={() => useSimUi.getState().toggleHints()} title={hintsOn ? 'Esconder as dicas do canvas' : 'Mostrar as dicas do canvas'} aria-label="Dicas do canvas">
-                <IconHelp size={13} />
-              </button>
-              {hintsOn && canvasHint && <span className="tb-hint" role="status">{canvasHint}</span>}
-            </>
-          )}
+
 
           {isCanvas && sel > 0 && (
             <button type="button" className="dc-btn" onClick={() => requestCanvasAction('focusSelection')} title="Enquadrar a vista na seleção (F)" aria-label="Enquadrar a vista na seleção">
