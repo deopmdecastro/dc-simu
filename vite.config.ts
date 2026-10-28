@@ -70,16 +70,67 @@ export default defineConfig({
       },
       workbox: {
         importScripts: ['/sw-migration.js'],
-        globPatterns: ['**/*.{js,css,html,svg,png,webp,glb,pdf}'],
-        // O modelo Allen-Bradley MSR127TP é maior que 5 MiB; mantê-lo em cache evita falha no build PWA.
-        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        // Precache só da aplicação (shell). Modelos GLB, PDFs e texturas pesam ~38 MB: ficam fora do
+        // precache (a primeira visita deixa de descarregar tudo) e entram em cache ao primeiro uso.
+        globPatterns: ['**/*.{js,css,html,svg,png,webp}'],
+        globIgnores: ['models/**', 'datasheets/**', 'textures/**', '**/*.glb', '**/*.pdf'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: false,
         navigateFallback: 'index.html',
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/models/') || url.pathname.endsWith('.glb'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'dcsimu-models-v1',
+              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 60 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/textures/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'dcsimu-textures-v1',
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 60 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/datasheets/'),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'dcsimu-datasheets-v1',
+              expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+        ],
       },
     }),
   ],
+  build: {
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Helpers partilhados (interop CommonJS / Babel) ficam no chunk base para não arrastarem o r3f.
+          if (id.includes('commonjsHelpers') || id.includes('@babel/runtime') || id.includes('vite/preload-helper') || id.includes('modulepreload-polyfill')) return 'vendor-react'
+          if (id.includes('/zustand/') || id.includes('use-sync-external-store')) return 'vendor-react'
+          if (!id.includes('node_modules')) return undefined
+          // O arranque só precisa do núcleo do three (matemática na store/catálogo); fiber/drei/stdlib ficam
+          // num chunk à parte, carregado apenas quando uma vista 3D é aberta.
+          if (id.includes('@react-three') || id.includes('three-stdlib') || id.includes('three-mesh-bvh') || id.includes('/maath/') || id.includes('/camera-controls/') || id.includes('/meshline/')) return 'vendor-r3f'
+          if (id.includes('/node_modules/three/')) return 'vendor-three'
+          if (id.includes('/react-dom/') || id.includes('/react/') || id.includes('/scheduler/') || id.includes('react-router')) return 'vendor-react'
+          if (id.includes('@supabase')) return 'vendor-supabase'
+          return undefined
+        },
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     allowedHosts: true,

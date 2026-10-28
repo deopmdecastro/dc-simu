@@ -2416,7 +2416,12 @@ html:has(.dx-landing) {
 /* Hero: motor 3D solto, sem cartão/moldura — só a peça contra o fundo. */
 .dx-hero-motor {
   position: relative;
-  height: clamp(380px, 33vw, 540px);
+  /* largura explícita: em telemóvel o contentor pai é flex em coluna com align-items:center e encolhia a 0 */
+  width: 100%;
+  align-self: stretch;
+  min-width: 0;
+  height: clamp(300px, 33vw, 540px);
   border-radius: 18px;
   overflow: hidden;
+  contain: layout paint;
 }

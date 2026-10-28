@@ -17,6 +17,8 @@
           if (target instanceof HTMLLinkElement && target.rel === 'stylesheet') failedUrl = target.href
           if (target instanceof HTMLScriptElement && target.type === 'module') failedUrl = target.src
           if (!failedUrl) return
+          // Só assets do próprio domínio indicam um deploy antigo; fontes/CDNs externos em falha não devem apagar caches.
+          try { if (new URL(failedUrl, location.href).origin !== location.origin) return } catch (_) { return }
           if (recovering) return
           try {
             if (sessionStorage.getItem(key) === failedUrl) return
@@ -76,10 +78,8 @@
     <title>DC-SIMU — Quadros elétricos em 3D</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" /></noscript>
   </head>
   <body>
     <div id="root"></div>
