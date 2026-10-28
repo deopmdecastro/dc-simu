@@ -8,6 +8,7 @@ import {
   canUse, componentStatusOf, effectivePlanId, isDefaultComponentSetting, isPlanId, limitFor, limitMessage,
   sanitizeComponentChange, upgradeMessage,
 } from '../saas/platformCore.mjs'
+import { nativeProjectSeeds, NATIVE_PARTIDA_ID } from '../project/nativeProjects'
 
 const SESSION_KEY = 'dcsimu:account:session:v1'
 const DATA_KEY = 'dcsimu:account:data:v1'
@@ -122,15 +123,41 @@ function newId() {
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
+function ensureNativeProjects(data: LocalData): LocalData {
+  const seeds = nativeProjectSeeds()
+  let changed = false
+  for (const seed of seeds) {
+    const exists = data.projects.some((project) => project.id === seed.id)
+    if (!exists) {
+      data.projects = [
+        {
+          id: seed.id,
+          name: seed.name,
+          ownerId: seed.ownerId,
+          memberIds: seed.memberIds,
+          content: seed.content,
+          revision: seed.revision,
+          updatedAt: seed.updatedAt,
+        },
+        ...data.projects,
+      ]
+      changed = true
+    }
+  }
+  if (changed) writeData(data)
+  return data
+}
+
 function readData(): LocalData {
   try {
     const parsed = JSON.parse(localStorage.getItem(DATA_KEY) || '{}') as Partial<LocalData>
-    return {
+    const data: LocalData = {
       projects: Array.isArray(parsed.projects) ? parsed.projects : [],
       invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
     }
+    return ensureNativeProjects(data)
   } catch {
-    return { projects: [], invitations: [] }
+    return ensureNativeProjects({ projects: [], invitations: [] })
   }
 }
 
@@ -317,6 +344,19 @@ export async function localApi<T>(url: string, method = 'GET', body?: unknown): 
   if (parts[0] === 'projects' && parts[1] && parts.length === 2 && verb === 'DELETE') {
     const project = accessibleProject(data, parts[1], user.id)
     if (project.ownerId !== user.id) throw new Error('Apenas o proprietário pode eliminar')
+    // Projetos nativos: em vez de apagar, repõe o conteúdo de fábrica.
+    if (project.id === NATIVE_PARTIDA_ID) {
+      const seed = nativeProjectSeeds().find((item) => item.id === project.id)
+      if (seed) {
+        project.content = seed.content
+        project.name = seed.name
+        project.revision = 0
+        project.updatedAt = new Date().toISOString()
+        writeData(data)
+        recordLocalAudit(user, 'project.reset-native', { type: 'project', id: project.id, label: project.name })
+        return { ok: true } as T
+      }
+    }
     data.projects = data.projects.filter((entry) => entry.id !== project.id)
     data.invitations = data.invitations.filter((entry) => entry.projectId !== project.id)
     writeData(data)
