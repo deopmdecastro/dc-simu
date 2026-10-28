@@ -31,7 +31,7 @@ type ModelProps = {
   onClick?: () => void
 }
 
-type DeviceKey = 'psu' | 'push' | 'green' | 'red' | 'plc' | 'contactor' | 'motor'
+type DeviceKey = 'psu' | 'push' | 'green' | 'red' | 'plc' | 'breaker' | 'motorBreaker' | 'contactor' | 'motor'
 type Point3 = [number, number, number]
 
 type CableDefinition = {
@@ -45,13 +45,15 @@ type CableDefinition = {
 }
 
 const PLACEMENTS: Record<DeviceKey, { type: ComponentType; position: Point3 }> = {
-  psu: { type: 'powerSupplyProauto24A', position: [-2.34, 0.56, 0.34] },
-  push: { type: 'dualPushButtonNpb22D11', position: [-1.92, 1.44, 0.38] },
-  green: { type: 'pilotLightAd22', position: [-1.38, 1.47, 0.40] },
-  red: { type: 'pilotLightAd22', position: [-0.98, 1.47, 0.40] },
-  plc: { type: 'plcSiemensLogo1224RC', position: [-0.48, 0.56, 0.34] },
-  contactor: { type: 'contactorWegCWC09', position: [0.68, 0.58, 0.34] },
-  motor: { type: 'motor3ph', position: [1.72, 0.50, 0.32] },
+  psu: { type: 'powerSupplyProauto24A', position: [-2.55, 0.56, 0.34] },
+  push: { type: 'dualPushButtonNpb22D11', position: [-2.05, 1.44, 0.38] },
+  green: { type: 'pilotLightAd22', position: [-1.48, 1.47, 0.40] },
+  red: { type: 'pilotLightAd22', position: [-1.08, 1.47, 0.40] },
+  plc: { type: 'plcSiemensLogo1224RC', position: [-0.55, 0.56, 0.34] },
+  breaker: { type: 'breaker2p', position: [0.22, 0.58, 0.34] },
+  motorBreaker: { type: 'motorBreakerPkzmC10', position: [0.72, 0.58, 0.34] },
+  contactor: { type: 'contactorWegCWC09', position: [1.22, 0.58, 0.34] },
+  motor: { type: 'motor3ph', position: [2.15, 0.50, 0.32] },
 }
 
 function demoComponent(type: ComponentType, ref: string, panelTerminal = false) {
@@ -72,6 +74,8 @@ const DEMO_COMPONENTS: Record<DeviceKey, ElectricalComponent> = {
   green: demoComponent('pilotLightAd22', 'H1', true),
   red: demoComponent('pilotLightAd22', 'H2', true),
   plc: demoComponent('plcSiemensLogo1224RC', 'PLC1'),
+  breaker: demoComponent('breaker2p', 'Q0'),
+  motorBreaker: demoComponent('motorBreakerPkzmC10', 'QM1'),
   contactor: demoComponent('contactorWegCWC09', 'KM1'),
   motor: demoComponent('motor3ph', 'M1'),
 }
@@ -367,6 +371,8 @@ function ShowcaseScene({ plcRunning, motorOn, onStartMotor, onStopMotor }: Omit<
       <ComponentModel type="pilotLightAd22" position={PLACEMENTS.green.position} active={motorActive} lightColor="#22c55e" />
       <ComponentModel type="pilotLightAd22" position={PLACEMENTS.red.position} active={stoppedActive} lightColor="#ef4444" />
       <ComponentModel type="plcSiemensLogo1224RC" position={PLACEMENTS.plc.position} active={plcActive} />
+      <ComponentModel type="breaker2p" position={PLACEMENTS.breaker.position} active={plcActive} />
+      <ComponentModel type="motorBreakerPkzmC10" position={PLACEMENTS.motorBreaker.position} active={plcActive || motorActive} />
       <ComponentModel type="contactorWegCWC09" position={PLACEMENTS.contactor.position} active={motorActive} />
       <ComponentModel type="motor3ph" position={PLACEMENTS.motor.position} active={motorActive} />
 
@@ -429,8 +435,8 @@ export default function LandingShowcase(props: Props) {
       </Canvas>
       <div className="dx-showcase-state" data-running={motorActive ? 'true' : 'false'} aria-live="polite">
         <b>LOGO! {plcActive ? 'RUN' : 'STOP'}</b>
-        <span>{motorActive ? 'Q1 · KM1 · M1 ativos' : stoppedActive ? 'Q3 · H2 motor parado' : 'saídas desenergizadas'}</span>
-        <small>{motorActive ? 'H1 verde ligado' : stoppedActive ? 'H2 vermelho ligado' : 'H1/H2 desligados'}</small>
+        <span>{motorActive ? 'Q0 · QM1 · KM1 · M1 ativos' : stoppedActive ? 'Q3 · H2 motor parado' : 'saídas desenergizadas'}</span>
+        <small>{motorActive ? 'H1 verde · disjuntor-motor ligado' : stoppedActive ? 'H2 vermelho · proteções prontas' : 'H1/H2 desligados'}</small>
       </div>
       <div className="dx-showcase-legend" aria-label="Estado dos sinaleiros">
         <span className="is-green" data-on={motorActive ? 'true' : 'false'}><i />H1 · MARCHA</span>

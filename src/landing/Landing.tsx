@@ -136,6 +136,8 @@ function useReveal() {
 function HeroViewport() {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
+  const [plcRunning, setPlcRunning] = useState(true)
+  const [motorOn, setMotorOn] = useState(true)
   useEffect(() => {
     const node = ref.current
     if (!node) return
@@ -152,6 +154,10 @@ function HeroViewport() {
     io.observe(node)
     return () => io.disconnect()
   }, [])
+  const runPlc = () => setPlcRunning(true)
+  const stopPlc = () => { setPlcRunning(false); setMotorOn(false) }
+  const startMotor = () => { if (plcRunning) setMotorOn(true) }
+  const stopMotor = () => setMotorOn(false)
   return (
     <div className="dx-window" ref={ref}>
       <div className="dx-window-bar">
@@ -160,8 +166,8 @@ function HeroViewport() {
         <div className="dx-window-tabs">
           <span>Esquema</span>
           <span>Ladder</span>
+          <span>GRAFCET</span>
           <span className="on">Visualização 3D</span>
-          <span>Monitor</span>
         </div>
       </div>
       <div className="dx-window-stage">
@@ -175,19 +181,27 @@ function HeroViewport() {
             }
           >
             <div className="dx-stage-in">
-              <LandingShowcase compact />
+              <LandingShowcase
+                compact
+                plcRunning={plcRunning}
+                motorOn={motorOn}
+                onRunPlc={runPlc}
+                onStopPlc={stopPlc}
+                onStartMotor={startMotor}
+                onStopMotor={stopMotor}
+              />
             </div>
           </Suspense>
         ) : (
           <div className="dx-stage-skeleton" aria-hidden />
         )}
       </div>
-      <div className="dx-window-foot">
+      <div className={`dx-window-foot${plcRunning ? ' is-running' : ' is-stopped'}`}>
         <b>
-          <i aria-hidden /> Simulação ativa
+          <i aria-hidden /> {plcRunning ? (motorOn ? 'Motor em marcha' : 'PLC em RUN') : 'PLC em STOP'}
         </b>
-        <span>START/STOP → LOGO! → KM1/M1 + H1/H2</span>
-        <span className="end">7 equipamentos reais</span>
+        <span>START/STOP · LOGO! · Q0 · QM1 · KM1 · M1 · H1/H2</span>
+        <span className="end">9 equipamentos reais · disjuntor + PKZM</span>
       </div>
     </div>
   )
@@ -215,7 +229,7 @@ function EditorAnatomy() {
   const [plcRunning, setPlcRunning] = useState(false)
   const [motorOn, setMotorOn] = useState(false)
   const [zoom, setZoom] = useState(100)
-  const [view, setView] = useState<'ladder' | 'panel3d'>('ladder')
+  const [view, setView] = useState<'ladder' | 'grafcet' | 'panel3d'>('ladder')
   const powered = plcRunning && motorOn
   const stoppedIndication = plcRunning && !motorOn
   const demoTable = { I1: false, I2: false, Q1: powered, Q2: powered, Q3: stoppedIndication }
@@ -249,6 +263,7 @@ function EditorAnatomy() {
         <span className="dx-window-path">/programa/OB1 — Comando do motor</span>
         <div className="dx-window-tabs is-switcher" role="tablist" aria-label="Vista da demonstração">
           <button type="button" role="tab" aria-selected={view === 'ladder'} className={view === 'ladder' ? 'on' : ''} onClick={() => setView('ladder')}>Ladder</button>
+          <button type="button" role="tab" aria-selected={view === 'grafcet'} className={view === 'grafcet' ? 'on' : ''} onClick={() => setView('grafcet')}>GRAFCET</button>
           <button type="button" role="tab" aria-selected={view === 'panel3d'} className={view === 'panel3d' ? 'on' : ''} onClick={() => setView('panel3d')}>Visualização 3D</button>
         </div>
       </div>
@@ -332,7 +347,66 @@ function EditorAnatomy() {
             <span>[ TON ]<small>Temporizador</small></span>
           </div>
         </aside>
-      </div> : <div className="dx-ladder-panel3d" role="tabpanel" aria-label="Partida direta na Visualização 3D">
+      </div> : view === 'grafcet' ? (
+      <div className="dx-grafcet-demo" role="tabpanel" aria-label="Partida direta em GRAFCET">
+        <div className="dx-grafcet-demo-toolbar">
+          <div className="ladder-editor-toolbar" aria-label="Controlos da demonstração GRAFCET">
+            <button type="button" className="ladder-primary-button" onClick={runPlc} disabled={plcRunning}><IconPlay size={11} /> RUN</button>
+            <button type="button" className="ladder-stop-button" onClick={stopPlc} disabled={!plcRunning}><span aria-hidden>■</span> STOP</button>
+            <span className="ladder-toolbar-sep" aria-hidden />
+            <button type="button" className="dx-operator-start" onClick={startMotor} disabled={!plcRunning || motorOn}><i aria-hidden /> START</button>
+            <button type="button" className="dx-operator-stop" onClick={stopMotor} disabled={!motorOn}><i aria-hidden /> STOP</button>
+          </div>
+          <div className="dx-grafcet-demo-status">
+            <span className={plcRunning ? 'is-run' : 'is-stop'}>{plcRunning ? 'PLC RUN' : 'PLC STOP'}</span>
+            <span>{powered ? 'Etapa X1 ativa · KM1/H1' : stoppedIndication ? 'Etapa X0 · H2 parado' : 'Sem etapa ativa'}</span>
+          </div>
+        </div>
+        <div className="dx-grafcet-demo-canvas" aria-hidden={false}>
+          <svg viewBox="0 0 360 420" className="dx-grafcet-demo-svg" role="img" aria-label="GRAFCET de partida direta com selo">
+            <defs>
+              <marker id="g-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="#64748b" />
+              </marker>
+            </defs>
+            {/* Vertical spine */}
+            <line x1="180" y1="36" x2="180" y2="380" stroke="#cbd5e1" strokeWidth="2" />
+            {/* X0 initial */}
+            <rect x="132" y="28" width="96" height="52" rx="4" fill={stoppedIndication || (!plcRunning && !powered) ? '#dcfce7' : '#fff'} stroke={stoppedIndication ? '#16a34a' : '#94a3b8'} strokeWidth="2.5" />
+            <rect x="138" y="34" width="84" height="40" rx="2" fill="none" stroke={stoppedIndication ? '#16a34a' : '#94a3b8'} strokeWidth="1.5" />
+            <text x="180" y="52" textAnchor="middle" fontSize="15" fontWeight="700" fill="#0f172a">X0</text>
+            <text x="180" y="68" textAnchor="middle" fontSize="10" fill="#64748b">Inicial</text>
+            {/* Action H2 on X0 when stopped */}
+            <rect x="240" y="36" width="88" height="36" rx="6" fill={stoppedIndication ? '#fef2f2' : '#f8fafc'} stroke={stoppedIndication ? '#ef4444' : '#e2e8f0'} />
+            <text x="284" y="58" textAnchor="middle" fontSize="11" fontWeight="600" fill={stoppedIndication ? '#b91c1c' : '#94a3b8'}>H2 PARADO</text>
+            {/* T1 START */}
+            <line x1="160" y1="118" x2="200" y2="118" stroke={powered ? '#16a34a' : '#475569'} strokeWidth="3" />
+            <text x="210" y="122" fontSize="12" fontWeight="600" fill={powered ? '#15803d' : '#334155'}>START · I2</text>
+            <line x1="180" y1="80" x2="180" y2="118" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#g-arrow)" />
+            {/* X1 running */}
+            <rect x="132" y="150" width="96" height="52" rx="4" fill={powered ? '#dcfce7' : '#fff'} stroke={powered ? '#16a34a' : '#94a3b8'} strokeWidth="2.5" />
+            <text x="180" y="174" textAnchor="middle" fontSize="15" fontWeight="700" fill="#0f172a">X1</text>
+            <text x="180" y="190" textAnchor="middle" fontSize="10" fill="#64748b">Marcha</text>
+            <rect x="240" y="148" width="88" height="28" rx="6" fill={powered ? '#dcfce7' : '#f8fafc'} stroke={powered ? '#16a34a' : '#e2e8f0'} />
+            <text x="284" y="166" textAnchor="middle" fontSize="11" fontWeight="600" fill={powered ? '#166534' : '#94a3b8'}>KM1 · H1</text>
+            <rect x="240" y="180" width="88" height="24" rx="6" fill={powered ? '#eff6ff' : '#f8fafc'} stroke={powered ? '#3b82f6' : '#e2e8f0'} />
+            <text x="284" y="196" textAnchor="middle" fontSize="10" fontWeight="600" fill={powered ? '#1d4ed8' : '#94a3b8'}>M1 RUN</text>
+            {/* T2 STOP */}
+            <line x1="180" y1="202" x2="180" y2="250" stroke="#94a3b8" strokeWidth="2" />
+            <line x1="160" y1="250" x2="200" y2="250" stroke={!motorOn && plcRunning ? '#dc2626' : '#475569'} strokeWidth="3" />
+            <text x="210" y="254" fontSize="12" fontWeight="600" fill={!motorOn && plcRunning ? '#b91c1c' : '#334155'}>STOP · I1</text>
+            {/* return arc */}
+            <path d="M180 250 C 90 250, 90 54, 180 54" fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#g-arrow)" />
+            <text x="70" y="160" fontSize="11" fill="#64748b" transform="rotate(-90 70 160)">retorno</text>
+            {/* legend */}
+            <text x="24" y="320" fontSize="11" fontWeight="700" fill="#0f172a">Partida direta com selo</text>
+            <text x="24" y="338" fontSize="10" fill="#64748b">X0 inicial · START (I2) → X1 (KM1+H1)</text>
+            <text x="24" y="354" fontSize="10" fill="#64748b">STOP (I1) regressa a X0 com H2</text>
+            <text x="24" y="380" fontSize="10" fill="#94a3b8">IEC 60848 · mesmo circuito do Ladder e 3D</text>
+          </svg>
+        </div>
+      </div>
+      ) : <div className="dx-ladder-panel3d" role="tabpanel" aria-label="Partida direta na Visualização 3D">
         <Suspense fallback={<div className="dx-stage-skeleton" role="status">A carregar componentes reais…</div>}>
           <LandingShowcase
             compact
@@ -348,11 +422,11 @@ function EditorAnatomy() {
       <div className={`dx-window-foot${plcRunning ? ' is-running' : ' is-stopped'}`} aria-live="polite">
         <b><i aria-hidden /> PLC em {plcRunning ? 'RUN' : 'STOP'}</b>
         <span>{powered
-          ? (view === 'panel3d' ? 'KM1 ligado · M1 em marcha · H1 verde aceso' : 'Q1/KM1 e Q2/H1 energizados')
+          ? (view === 'panel3d' ? 'Q0·QM1·KM1 · M1 em marcha · H1 verde' : view === 'grafcet' ? 'Etapa X1 ativa · KM1 e H1' : 'Q1/KM1 e Q2/H1 energizados')
           : stoppedIndication
-            ? (view === 'panel3d' ? 'KM1 desligado · M1 parado · H2 vermelho aceso' : 'Q3/H2 energizado · motor parado')
-            : 'Saídas Q1, Q2 e Q3 desenergizadas'}</span>
-        <span className="end">IEC 61131-3 · {plcRunning ? 'scan 4 ms' : 'CPU parada'}</span>
+            ? (view === 'panel3d' ? 'KM1 desligado · M1 parado · H2 vermelho' : view === 'grafcet' ? 'Etapa X0 · H2 parado' : 'Q3/H2 energizado · motor parado')
+            : 'Saídas desenergizadas · proteções prontas'}</span>
+        <span className="end">{view === 'grafcet' ? 'IEC 60848' : 'IEC 61131-3'} · {plcRunning ? 'scan 4 ms' : 'CPU parada'}</span>
       </div>
     </div>
   )

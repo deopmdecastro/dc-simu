@@ -2170,3 +2170,115 @@ html:has(.dx-landing) {
 .dx-ladder-demo .ladder-diagram-scroll, .dx-ladder-demo .lnet-scroll { overflow-x:auto; overflow-y:hidden; }
 .dx-ladder-demo-scale { width:100% !important; transition:none; }
 .dx-ladder-demo .lnet { pointer-events:none; }
+
+/* ───── 2026-10-28: GRAFCET demo + showcase polish on landing ───── */
+.dx-grafcet-demo {
+  display: flex;
+  flex-direction: column;
+  min-height: 360px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+.dx-grafcet-demo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+}
+.dx-grafcet-demo-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 12px;
+  color: #64748b;
+}
+.dx-grafcet-demo-status .is-run {
+  color: #166534;
+  font-weight: 700;
+  background: #dcfce7;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.dx-grafcet-demo-status .is-stop {
+  color: #9a3412;
+  font-weight: 700;
+  background: #ffedd5;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.dx-grafcet-demo-canvas {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 12px 8px 20px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.dx-grafcet-demo-svg {
+  width: min(100%, 360px);
+  height: auto;
+  max-height: 420px;
+  filter: drop-shadow(0 8px 24px rgba(15, 23, 42, 0.06));
+}
+
+/* Ladder demo: permitir mover/arrastar horizontalmente as networks */
+.dx-ladder-demo .lnet-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  cursor: grab;
+  touch-action: pan-x;
+}
+.dx-ladder-demo .lnet-scroll:active {
+  cursor: grabbing;
+}
+.dx-ladder-demo .dx-ladder-demo-scale {
+  min-width: 0;
+}
+.dx-ladder-demo .ladder-networks {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Showcase controls more touch-friendly on landing */
+.dx-showcase-controls {
+  gap: 8px;
+}
+.dx-showcase-controls button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-weight: 650;
+}
+.dx-showcase-state {
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+.dx-showcase-legend span {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+@media (max-width: 720px) {
+  .dx-window-tabs.is-switcher {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .dx-window-tabs.is-switcher::-webkit-scrollbar { display: none; }
+  .dx-window-tabs.is-switcher button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .dx-grafcet-demo { min-height: 320px; }
+  .dx-showcase-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
