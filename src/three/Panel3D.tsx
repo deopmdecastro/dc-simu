@@ -2097,7 +2097,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const fittedRef = useRef(false)
   const initialCameraRef = useRef(initialCamera)
   useEffect(() => {
-    if (frontEdit && !initialCameraRef.current) moveCamera('front')
+    if (frontEdit && !demoMode && !initialCameraRef.current) moveCamera('front')
     if (!initialCameraRef.current) return
     onInitialCameraUsed?.()
     // Sem equipamento ainda, aplica já a vista para o cubo refletir o pedido.
@@ -2111,7 +2111,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       fittedRef.current = true
       // Vista pedida no cubo do Esquema 2D (frontal por omissão) tem prioridade sobre a isométrica.
       if (initialCameraRef.current) applyCubeRequest(initialCameraRef.current)
-      else moveCamera(frontEdit ? 'front' : 'isometric')
+      // Demonstração (só simulação): isométrica; a frontal deixa o motor, fora do painel, enorme junto da câmara.
+      else moveCamera(frontEdit && !demoMode ? 'front' : 'isometric')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasComponents])

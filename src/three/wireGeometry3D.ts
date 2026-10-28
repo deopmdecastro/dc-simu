@@ -264,13 +264,19 @@ export function trunkLaneHints(obstacles: WireObstacle[]): number[] {
   return lanes.sort((a, b) => a - b)
 }
 
-/** Afastamento estável por cabo dentro da calha (cabo paralelo não pisa o vizinho). */
-const trunkSpread = (wire: Wire): number => {
+/** Hash estável por cabo (número ou id). */
+const wireHash = (wire: Wire): number => {
   const key = wire.number || wire.id
   let h = 0
   for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) & 0xffff
-  return (h % 5 - 2) * 0.016 // ±3,2 cm → 5 faixas por calha
+  return h
 }
+
+/** Afastamento estável por cabo dentro da calha (cabo paralelo não pisa o vizinho): 9 faixas de 1,2 cm. */
+const trunkSpread = (wire: Wire): number => ((wireHash(wire) % 9) - 4) * 0.012
+
+/** Camada de profundidade (0–2) do troço de calha: cabos vizinhos correm a níveis diferentes e deixam de se fundir. */
+const trunkLayer = (wire: Wire): number => Math.floor(wireHash(wire) / 9) % 3
 
 /** Pontos de controlo (sem terminações) entre as duas pontas, respeitando traçado, flexibilidade e curva manual. */
 export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, leads: WireLeads = {}, obstacles: WireObstacle[] = [], trunkY?: number): V3[] {
@@ -286,7 +292,11 @@ export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, lead
     if (wire.route === 'arc' || wire.flexibility === 'flexible') {
       const mid: V3 = [(a[0] + b[0]) / 2, wire.route === 'arc' ? channelY + (wire.curveOffset ?? 0) * 0.01 : Math.min(a[1], b[1]) + drop * 1.3, (a[2] + b[2]) / 2]
       controls = [a, mid, b]
-    } else controls = [a, [a[0], channelY, a[2]], [b[0], channelY, b[2]], b]
+    } else {
+      // Camadas em profundidade só quando a calha é partilhada (trunkY): diâmetro + folga por camada.
+      const layerZ = trunkY !== undefined ? trunkLayer(wire) * (outerMm * 0.01 * 1.15) : 0
+      controls = [a, [a[0], channelY, a[2] + layerZ], [b[0], channelY, b[2] + layerZ], b]
+    }
   }
   // sólidos: a chapa e os corpos dos componentes não se atravessam
   controls = manual.length > 0

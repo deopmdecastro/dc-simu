@@ -96,12 +96,14 @@ assert('Esquema demo abre em vista isométrica', sv.includes("(demoMode ? { yaw:
 
 const panel = read('src/three/Panel3D.tsx')
 assert('Painel 3D: botão «+ Comentário» fora da demo', panel.includes('{!demoMode && <button type="button" onClick={addNote}'))
+assert('Painel 3D: demo abre em isométrica (motor fora do painel não fica gigante)', panel.includes("moveCamera(frontEdit && !demoMode ? 'front' : 'isometric')") && panel.includes("frontEdit && !demoMode && !initialCameraRef.current"))
 assert('Painel 3D: DPR limitado (render mais leve)', panel.includes('dpr={[1, 1.5]}'))
 
 const wg3d = read('src/three/wireGeometry3D.ts')
 assert('Cabos 3D correm em calhas entre as filas de equipamentos', wg3d.includes('export function trunkLaneHints') && wg3d.includes('trunkY !== undefined'))
 
 const nproj = read('src/project/nativeProjects.ts')
+assert('Cabos 3D: 9 faixas + 3 camadas de profundidade por calha', wg3d.includes('trunkLayer') && wg3d.includes('% 9) - 4'))
 assert('Projeto nativo: routing cozido sem atravessar equipamentos', nproj.includes("import { bakeNativeRouting } from './nativeRouting'") && nproj.includes('wires: bakeNativeRouting(components, wires)'))
 
 // Demo simplificada ao essencial (revisão 2: «ambiente de visualização»)
