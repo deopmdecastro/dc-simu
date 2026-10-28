@@ -828,9 +828,9 @@ function CadComponentReal3D({ c, x, interactive = true }: { c: ElectricalCompone
        * nó espelhado, e o mesmo ângulo aparece ao contrário — daí o sinal. */
       const sense = spec.flipDepth ? 1 : -1
       if (rig?.axis === 'z') {
-        // Botão rotativo (PKZM): «O» = pose do CAD (manípulo deitado), «I» = um quarto de volta
-        // com o manípulo levantado, como no aparelho real. 0,55 pára a meio: posição de disparado.
-        handle.pivot.rotation.z = (value * rig.throwDeg * Math.PI) / 180
+        // Botão rotativo (PKZM): sentido invertido face ao CAD para coincidir com o aparelho real
+        // (OFF = pose CAD «O»; ON = 90° no sentido correto até «I»). 0,55 = disparado a meio.
+        handle.pivot.rotation.z = (-value * rig.throwDeg * Math.PI) / 180
       } else if (rig) {
         // O CAD vem na posição DESLIGADA (alavanca para baixo, marcação legível): OFF = pose do CAD (0°) e
         // ON levanta a alavanca `throwDeg` graus à volta do cubo, em vez de oscilar simetricamente à volta da
@@ -1394,7 +1394,7 @@ function cableCurve3D(points: Array<[number, number, number]>, smooth: boolean):
   return path
 }
 
-function EnergyFlow3D({ points, cableRadius }: { points: Array<[number, number, number]>; cableRadius: number }) {
+function EnergyFlow3D({ points, cableRadius, color = '#fde047' }: { points: Array<[number, number, number]>; cableRadius: number; color?: string }) {
   const refs = useRef<Array<THREE.Mesh | null>>([])
   const curve = useMemo(() => new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point))), [points])
   useFrame(({ clock }) => {
@@ -1405,10 +1405,11 @@ function EnergyFlow3D({ points, cableRadius }: { points: Array<[number, number, 
     })
   })
   const particleRadius = Math.max(0.009, cableRadius * 0.72)
+  // Efeito de corrente na cor do próprio cabo (fase, neutro, terra, sinal…).
   return <group>{Array.from({ length: 6 }).map((_, index) => <mesh key={index} ref={(mesh) => { refs.current[index] = mesh }} renderOrder={25}>
     <sphereGeometry args={[particleRadius, 10, 10]} />
-    <meshBasicMaterial color="#fde047" transparent opacity={0.95} depthTest={false} toneMapped={false} />
-    <GlowHalo color="#fbbf24" on radius={particleRadius * 1.6} kind="led" />
+    <meshBasicMaterial color={color} transparent opacity={0.95} depthTest={false} toneMapped={false} />
+    <GlowHalo color={color} on radius={particleRadius * 1.6} kind="led" />
   </mesh>)}</group>
 }
 
@@ -1690,7 +1691,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
       </mesh>
       <WireEnd3D geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} />
       <WireEnd3D geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} />
-      {flowing && <EnergyFlow3D points={points} cableRadius={radius} />}
+      {flowing && <EnergyFlow3D points={points} cableRadius={radius} color={wireColor} />}
       {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
         onSelect={handlers.onSelectWaypoint}
         onLive={(waypointIndex, next) => setDrag(next ? { wireId: wire.id, kind: 'waypoint', index: waypointIndex, point: next } : null)}
@@ -2067,6 +2068,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
   const interactive = runState === 'running' && tool === 'select' && !viewOrientationEditor
+  const simLocked = (runState === 'running' || runState === 'paused') && !viewOrientationEditor
   const probeA = useSimStore((state) => state.probeA)
   const probeResult = useSimStore((state) => state.probeResult)
   const [reconnect, setReconnect] = useState<{ wireId: string; end: 'from' | 'to' } | null>(null)
@@ -2349,12 +2351,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (currentTool === 'erase') { removePanelComponent(component.id); return }
     if (currentTool !== 'select') return
     if (interactive && !component.locked) {
-      // Em RUN, atuar um botão/disjuntor também o seleciona: o utilizador continua a
-      // ver o dispositivo correto no Inspetor que selecionou e poder dar seguimento.
-      selectComponents([component.id])
+      // Em RUN: só intervenções (botões / liga-desliga). Não alterar a seleção.
       action()
     }
-    else selectComponents([component.id])
+    else if (!interactive) selectComponents([component.id])
   }
   const wrapOriented = (component: ElectricalComponent, content: ReactNode) => {
     const source = basePivots[component.id]
@@ -2368,13 +2368,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       selected={selectedIds.includes(component.id)}
       editingTerminals={viewOrientationEditor?.componentId === component.id}
       movable={false}
-      draggable={tool === 'select' && !interactive && !gridDragEnabled && !component.locked && !viewOrientationEditor && !reconnect}
+      draggable={tool === 'select' && !simLocked && !gridDragEnabled && !component.locked && !viewOrientationEditor && !reconnect}
       connectionMode={editMode === 'connect' || tool === 'probe' || reconnect !== null}
       probing={tool === 'probe'}
       connectionStartId={tool === 'probe' ? probeA : draft && 'terminalId' in draft.from ? draft.from.terminalId : null}
       onSelect={(additive) => {
         if (tool === 'erase') { removePanelComponent(component.id); return }
         if (tool !== 'select') return
+        // Em RUN/PAUSA a seleção está bloqueada — só botões e liga/desliga respondem.
+        if (simLocked) return
         // Ctrl/Shift + clique: seleção múltipla, como no esquema 2D e no Admin.
         const current = useSimStore.getState().selectedComponentIds
         if (additive && current.includes(component.id)) selectComponents(current.filter((id) => id !== component.id))

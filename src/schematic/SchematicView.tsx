@@ -660,12 +660,12 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       return
     }
     if (e.button === 2 && tool === 'wire') return
-    if (tool === 'select') {
+    if (tool === 'select' && simRunState === 'stopped') {
       const p = toCanvas(e.clientX, e.clientY)
       setMarquee({ x0: p.x, y0: p.y, x1: p.x, y1: p.y })
       if (!e.shiftKey && !e.ctrlKey && !e.metaKey) selectComponents([])
     }
-    if (tool === 'wire' && e.button === 0) {
+    if (tool === 'wire' && e.button === 0 && simRunState === 'stopped') {
       const p = toCanvas(e.clientX, e.clientY)
       // Testar proximidade ANTES de encaixar à malha: o parafuso pode estar
       // entre pontos de grelha e nunca deve ser aproximado a 20px.
@@ -882,8 +882,12 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     else setPan(panX - e.deltaX, panY - e.deltaY)
   }
 
+  const simLocked = simRunState === 'running' || simRunState === 'paused'
   const startDrag = (e: React.MouseEvent, c: ElectricalComponent) => {
     if (tool !== 'select') return
+    // Em RUN/PAUSA não se seleciona nem se move componentes: só intervenção em
+    // botões / liga-desliga (toggleField no double-click e handlers de START/STOP).
+    if (simLocked) return
     releaseTypingFocus()
     e.stopPropagation()
     const p = toCanvas(e.clientX, e.clientY)
@@ -1089,13 +1093,13 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           <path d={d} stroke="#3b82f6" strokeWidth={width + 9} opacity={0.18} />
           <path d={d} stroke="#60a5fa" strokeWidth={width + 4} opacity={0.42} />
         </g>}
-        {showEnergyFlow && <path d={d} fill="none" stroke="#fbbf24" strokeWidth={width + 6} opacity={0.35} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
+        {showEnergyFlow && <path d={d} fill="none" stroke={col} strokeWidth={width + 6} opacity={0.32} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
         {/* contorno escuro fino: dá leitura a cores claras (branco, amarelo, azul-claro) */}
         <path d={d} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
         <path d={d} fill="none" stroke={col} strokeWidth={width} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
         {/* O acabamento do fio é igual para rígido e flexível. */}
         <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={Math.max(0.6, width * 0.26)} strokeLinecap="butt" strokeLinejoin="miter" pointerEvents="none" />
-        {showEnergyFlow && <path d={d} fill="none" stroke="#fde047" strokeWidth={Math.max(1, width * 0.45)} strokeDasharray="4 10" className="dc-flow" strokeLinecap="round" pointerEvents="none" />}
+        {showEnergyFlow && <path d={d} fill="none" stroke={col} strokeWidth={Math.max(1, width * 0.45)} strokeDasharray="4 10" className="dc-flow" strokeLinecap="round" pointerEvents="none" opacity={0.95} />}
         {/* área de clique larga (clique seleciona · duplo clique adiciona ponto de curva) */}
         <path
           d={d}

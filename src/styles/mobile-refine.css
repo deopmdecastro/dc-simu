@@ -313,3 +313,87 @@
   .grafcet-full .grafcet-designer-body:has(> .grafcet-toolbox-restore) { box-sizing: border-box; padding-left: 48px; }
   .grafcet-full .grafcet-designer-body > .grafcet-toolbox-restore { position: absolute; inset: 0 auto 0 0; height: auto; }
 }
+
+/* ===== 2026-10-28: Vistas de simulação (GRAFCET / Ladder / 3D) — capturas Partida direta com selo =====
+   Objetivo: alvos ≥ 40 px, status STOP/erros/avisos legível e compacto, barras de transporte
+   consistentes, ViewCube e toggle 2D/3D usáveis em mobile. Desktop: refinamentos de hover. */
+
+@media (max-width: 720px), (pointer: coarse) {
+  .dc-statusbar .dc-sb-diag,
+  .grafcet-status-bar,
+  .ladder-status-bar,
+  .schematic-sim-status {
+    font-size: 12px;
+    gap: 6px;
+    min-height: var(--mr-touch);
+    align-items: center;
+  }
+  .dc-statusbar [data-stop],
+  .grafcet-status-bar .stop-pill,
+  button[aria-label*="STOP"],
+  .sim-stop-btn {
+    min-width: var(--mr-touch);
+    min-height: var(--mr-touch);
+    padding: 0 12px;
+    border-radius: 999px;
+    font-weight: 700;
+  }
+  .grafcet-simbar-buttons,
+  .schematic-sim-dock-controls,
+  .sim-transport-bar {
+    gap: 8px;
+  }
+  .grafcet-simbar-buttons button,
+  .schematic-sim-dock-controls button,
+  .sim-transport-bar button {
+    min-width: var(--mr-touch);
+    min-height: var(--mr-touch);
+    border-radius: 10px;
+  }
+  .grafcet-simbar-opts .dc-select,
+  .schematic-sim-dock .dc-select {
+    min-height: 40px;
+    font-size: 13px;
+  }
+  .ladder-network-head,
+  .ladder-section-tabs {
+    min-height: 40px;
+    gap: 6px;
+    padding-inline: 8px;
+  }
+  .ladder-network-head button,
+  .ladder-section-tabs button {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 12.5px;
+  }
+  .view-mode-toggle,
+  .esquema-3d-toggle {
+    min-height: var(--mr-touch);
+    gap: 6px;
+    padding: 4px;
+    border-radius: 12px;
+  }
+  .view-mode-toggle button,
+  .esquema-3d-toggle button {
+    min-height: 36px;
+    min-width: 88px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .view-cube button,
+  .viewcube-face {
+    min-width: 36px;
+    min-height: 36px;
+  }
+}
+
+@media (min-width: 721px) {
+  .grafcet-simbar-buttons button:hover,
+  .schematic-sim-dock-controls button:hover {
+    background: var(--dx-brand-soft, #eef4ff);
+  }
+  .view-mode-toggle button:hover {
+    background: color-mix(in srgb, var(--dx-brand, #2455d8) 12%, #fff);
+  }
+}

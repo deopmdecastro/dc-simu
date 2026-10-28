@@ -220,7 +220,13 @@ export function clearObstacles(controls: V3[], outerMm: number, obstacles: WireO
   if (controls.length < 3) return controls
   const out = controls.map((point) => [...point] as V3)
   const frontZ = wireFrontLimit(outerMm)
+  // Nunca atravessar a chapa de montagem: todos os pontos intermédios ficam
+  // à frente do plano da chapa (mais a meia espessura do cabo).
   for (let index = 1; index < out.length - 1; index += 1) out[index][2] = Math.max(out[index][2], frontZ)
+  // Clamp final de segurança em todos os controlos (exceto pontas nos bornes).
+  for (let index = 1; index < out.length - 1; index += 1) {
+    if (out[index][2] < frontZ) out[index][2] = frontZ
+  }
   if (obstacles.length === 0) return out
   const pad = (outerMm / 2) * U + 0.02
   const grown = obstacles.map((box) => box.clone().expandByScalar(pad))
@@ -322,6 +328,14 @@ export function wireBodyPoints3D(wire: Wire, a: V3, b: V3, outerMm: number, lead
       ? point
       : [point[0], point[1], Math.max(point[2], wireFrontLimit(outerMm))] as V3))
     : clearObstacles(controls, outerMm, obstacles)
+  // Garantia final: nenhum ponto intermédio fica atrás ou dentro da chapa.
+  {
+    const frontZ = wireFrontLimit(outerMm)
+    controls = controls.map((point, index) =>
+      index === 0 || index === controls.length - 1
+        ? point
+        : [point[0], point[1], Math.max(point[2], frontZ)] as V3)
+  }
   // saída reta de cada terminação antes de curvar
   if (controls.length >= 2) {
     const first = leads.a ? leadPoint(a, leads.a, controls[1], outerMm) : null
