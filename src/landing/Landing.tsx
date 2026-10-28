@@ -15,7 +15,7 @@ import type { GrafcetProgram } from '../grafcet/engine'
 import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight, IconChevronDown, IconZoomIn, IconZoomOut, IconUndo, IconRedo } from '../ui/icons'
 
 /** Viewport 3D real do produto — carregado só quando entra em vista (performance). */
-const LandingShowcase = lazy(() => import('../three/LandingShowcase'))
+const LandingMotorHero = lazy(() => import('../three/LandingMotorHero'))
 const LandingEditorShowcase = lazy(() => import('./LandingEditorShowcase'))
 
 /* ============================================================ conteúdo */
@@ -143,11 +143,8 @@ function useReveal() {
 
 /** Carrega a cena WebGL apenas quando o viewport fica visível. */
 function HeroViewport() {
-  const projectTitle = NATIVE_PARTIDA_NAME
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
-  const [plcRunning, setPlcRunning] = useState(true)
-  const [motorOn, setMotorOn] = useState(true)
   useEffect(() => {
     const node = ref.current
     if (!node) return
@@ -164,21 +161,12 @@ function HeroViewport() {
     io.observe(node)
     return () => io.disconnect()
   }, [])
-  const runPlc = () => setPlcRunning(true)
-  const stopPlc = () => { setPlcRunning(false); setMotorOn(false) }
-  const startMotor = () => { if (plcRunning) setMotorOn(true) }
-  const stopMotor = () => setMotorOn(false)
   return (
-    <div className="dx-window" ref={ref}>
+    <div className="dx-window dx-window-motor" ref={ref}>
       <div className="dx-window-bar">
         <LogoMark size={18} />
-        <span className="dx-window-path">{'/projetos/' + projectTitle}</span>
-        <div className="dx-window-tabs">
-          <span>Esquema</span>
-          <span>Ladder</span>
-          <span>GRAFCET</span>
-          <span className="on">Visualização 3D</span>
-        </div>
+        <span className="dx-window-path">SEW DRN80MK4 · motor real em 3D</span>
+        <span className="dx-window-chip" title="Este modelo vem da biblioteca real do editor">Modelo GLB da biblioteca</span>
       </div>
       <div className="dx-window-stage">
         {visible ? (
@@ -186,32 +174,20 @@ function HeroViewport() {
             fallback={
               <div className="dx-stage-skeleton" role="status">
                 <span className="dx-spin" aria-hidden />
-                A carregar modelos 3D…
+                A carregar o motor 3D…
               </div>
             }
           >
-            <div className="dx-stage-in">
-              <LandingShowcase
-                compact
-                plcRunning={plcRunning}
-                motorOn={motorOn}
-                onRunPlc={runPlc}
-                onStopPlc={stopPlc}
-                onStartMotor={startMotor}
-                onStopMotor={stopMotor}
-              />
-            </div>
+            <LandingMotorHero />
           </Suspense>
         ) : (
           <div className="dx-stage-skeleton" aria-hidden />
         )}
       </div>
-      <div className={`dx-window-foot${plcRunning ? ' is-running' : ' is-stopped'}`}>
-        <b>
-          <i aria-hidden /> {plcRunning ? (motorOn ? 'Motor em marcha' : 'PLC em RUN') : 'PLC em STOP'}
-        </b>
-        <span>{projectTitle} · publicado na landing · Ladder · GRAFCET · 3D</span>
-        <span className="end">9 equipamentos reais · disjuntor + PKZM</span>
+      <div className="dx-window-foot is-running">
+        <b><i aria-hidden /> Ventoinha do veio em marcha</b>
+        <span>Vista isométrica · arraste na horizontal e na vertical para girar em torno do motor</span>
+        <span className="end">A mesma geometria anima dentro do editor</span>
       </div>
     </div>
   )

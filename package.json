@@ -75,7 +75,8 @@
     "test:wire-options-ui": "node scripts/wire-options-panel-ui-smoke.mjs",
     "test:sem-cartoes-canvas": "node scripts/sem-cartoes-canvas-ui-smoke.mjs",
     "test:landing-demo": "tsx scripts/landing-demo-smoke.ts",
-    "test:landing-editor": "node scripts/landing-editor-showcase-smoke.mjs"
+    "test:landing-editor": "node scripts/landing-editor-showcase-smoke.mjs",
+    "test:landing-hero": "node scripts/landing-hero-motor-smoke.mjs"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.3.1",

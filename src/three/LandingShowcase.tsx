@@ -122,7 +122,7 @@ function terminal(device: DeviceKey, label: string): { point: THREE.Vector3; ter
   return { point: terminalWorld3D(component, target, pivot), terminal: target }
 }
 
-function preparedModel(type: ComponentType, source: THREE.Object3D) {
+export function preparedModel(type: ComponentType, source: THREE.Object3D) {
   const spec = getComponentModelSpec(type)
   if (!spec) throw new Error(`Modelo 3D em falta para ${type}`)
   const scene = fitComponentModel(skeletonClone(source), spec)
@@ -130,7 +130,7 @@ function preparedModel(type: ComponentType, source: THREE.Object3D) {
   return { scene, targetHeight: spec.targetHeight, depth: finalBox.getSize(new THREE.Vector3()).z }
 }
 
-function cloneMaterials(root: THREE.Object3D) {
+export function cloneMaterials(root: THREE.Object3D) {
   root.traverse((object) => {
     const mesh = object as THREE.Mesh
     if (!mesh.isMesh) return
@@ -157,7 +157,7 @@ function cloneMaterials(root: THREE.Object3D) {
 
 /** Atualiza apenas uniforms dos materiais. O CAD pesado não é clonado sempre
  * que START/STOP muda, o que mantém a interação fluida também em iPhone. */
-function applyModelState(root: THREE.Object3D, active: boolean, type: ComponentType, lightColor?: string) {
+export function applyModelState(root: THREE.Object3D, active: boolean, type: ComponentType, lightColor?: string) {
   root.traverse((object) => {
     const mesh = object as THREE.Mesh
     if (!mesh.isMesh) return

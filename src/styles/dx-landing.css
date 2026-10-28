@@ -2358,3 +2358,47 @@ html:has(.dx-landing) {
 @media (max-width: 820px) {
   .landing-editor-embed { height: auto; min-height: 560px; max-height: 82vh; }
 }
+
+/* ---------------------------------------------------------- hero: motor 3D a rodar */
+.dx-motor-hero {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  touch-action: none;
+}
+.dx-motor-hero:active { cursor: grabbing; }
+.dx-motor-hero canvas { display: block; }
+
+.dx-motor-hero-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+/* Moldura do hero sem tabs de simulação: chip informativo à direita. */
+.dx-window-motor .dx-window-bar { gap: 10px; }
+.dx-window-chip {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .dx-window-chip { display: none; }
+}
