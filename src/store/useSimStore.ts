@@ -161,6 +161,10 @@ interface Store extends CircuitState {
   /** Nome do projeto guardado no navegador atualmente aberto (null = projeto
    *  sem nome / carregado de arquivo / cenário pronto — ainda não guardado). */
   currentProjectName: string | null
+  /** Marca de projeto nativo (semente embutida, ex.: «Partida direta»).
+   *  Persiste no conteúdo do ficheiro («nativeId») para que os backends possam
+   *  reimplantar a semente só quando não existir nenhuma cópia materializada. */
+  nativeId: string | null
   /** Ephemeral document identity; prevents drafts from writing into a newly loaded project. */
   projectRevision: number
   projectKind: ProjectKind
@@ -918,6 +922,7 @@ export const useSimStore = create<Store>((set, get) => ({
   probeA: null,
   clipboard: null,
   currentProjectName: null,
+  nativeId: null,
   projectRevision: 0,
   projectKind: 'all' as ProjectKind,
   virtualInputs: {},
@@ -2580,6 +2585,7 @@ export const useSimStore = create<Store>((set, get) => ({
         version: 6,
         projectKind: s.projectKind,
         savedAt: new Date().toISOString(),
+        ...(s.nativeId ? { nativeId: s.nativeId } : {}),
         components: s.components,
         wires: s.wires,
         ladder: s.ladder,
@@ -2631,6 +2637,7 @@ export const useSimStore = create<Store>((set, get) => ({
       set({
         projectRevision: get().projectRevision + 1,
         projectKind: normalizeKind(parsed.projectKind),
+        nativeId: typeof parsed.nativeId === 'string' ? parsed.nativeId : null,
         // Estado das entradas virtuais guardado no ficheiro (já migrado para byte.bit):
         // restitui-o para o projeto continuar a simular exatamente onde ficou.
         virtualInputs: (() => {
@@ -2713,6 +2720,7 @@ export const useSimStore = create<Store>((set, get) => ({
       future: [],
       dirty: false,
       currentProjectName: null,
+      nativeId: null,
       virtualInputs: {},
       virtualInputModes: {},
       projectKind: normalizeKind(kind),

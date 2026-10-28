@@ -15,6 +15,7 @@
 import {
   NATIVE_PARTIDA_ID,
   NATIVE_PARTIDA_NAME,
+  nativePartidaDiretaContent,
   buildNativePartidaDireta,
   nativeProjectSeeds,
   nativeDemoTable,
@@ -88,6 +89,27 @@ assert('PLC STOP: saídas todas desligadas', !parado['Q0.0'] && !parado['Q0.1'] 
 assert('RUN sem marcha: H2 ativo, KM1/H1 off', parar['Q0.2'] === true && parar['Q0.0'] === false && parar['Q0.1'] === false)
 assert('Marcha: KM1+H1 on e H2 off', marcha['Q0.0'] === true && marcha['Q0.1'] === true && marcha['Q0.2'] === false)
 assert('Nomes nativos cobrem a tabela', Object.keys(nativeDemoTable(true, true)).every((a) => NATIVE_DEMO_NAMES[a]), '')
+
+
+// ── 5. Semente na conta (Espaço de trabalho do Admin) ────────────────────────
+{
+  const { useSimStore } = await import('../src/store/useSimStore')
+  const store = useSimStore.getState()
+  store.loadJSON(JSON.stringify(nativePartidaDiretaContent()))
+  assert('Loja: loadJSON da semente nativa regista nativeId', useSimStore.getState().nativeId === NATIVE_PARTIDA_ID)
+  const saved = JSON.parse(store.saveJSON()) as { nativeId?: string }
+  assert('Loja: saveJSON preserva a marca nativeId', saved.nativeId === NATIVE_PARTIDA_ID)
+  useSimStore.getState().newProject()
+  assert('Loja: newProject limpa a marca nativeId', useSimStore.getState().nativeId === null)
+  // restaura a marca para não influenciar outros testes da sessão
+  store.loadJSON(JSON.stringify(nativePartidaDiretaContent()))
+  assert('Loja: edições mantêm a marca (readópção do content nativo)', useSimStore.getState().nativeId === NATIVE_PARTIDA_ID)
+
+  const backendSrc = (await import('node:fs')).readFileSync(new URL('../src/supabase/supabaseBackend.ts', import.meta.url), 'utf8')
+  assert('Backend Supabase: semente nativa reservada a admin', /resolveRole\(user\.id\)'\) === 'admin'/.test(backendSrc.replace(/\s+/g, ' ')) || backendSrc.includes("=== 'admin'"))
+  assert('Backend Supabase: dedup por content.nativeId', backendSrc.includes('content?.nativeId === seed.nativeId'))
+  assert('Backend Supabase: insere a semente na base', backendSrc.includes("if (!errSeed && created) rows.unshift(created)"))
+}
 
 if (failures) {
   console.error(`\n❌ ${failures} falha(s) no contrato da demonstração da landing`)

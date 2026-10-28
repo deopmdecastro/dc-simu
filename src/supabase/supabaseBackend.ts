@@ -216,7 +216,31 @@ export async function supabaseGetProjects(): Promise<Project[]> {
     throw new Error(`Erro ao carregar projetos do Supabase: ${errOwned.message}`)
   }
 
-  return (ownedProjects || []).map((row) => ({
+  const rows = [...(ownedProjects || [])]
+
+  // Projetos nativos (ex.: «Partida direta (nativo)» — alimenta a landing):
+  // na conta de um administrador materializa-se uma cópia editável, marcada com
+  // content.nativeId para nunca duplicar (idempotente também depois de editar —
+  // a marca viaja no content através do saveJSON da loja).
+  if ((await resolveRole(user.id)) === 'admin') {
+    const { nativeProjectSeeds } = await import('../project/nativeProjects')
+    for (const seed of nativeProjectSeeds()) {
+      const exists = rows.some((row) => {
+        const content = row.content && typeof row.content === 'object' ? (row.content as Record<string, unknown>) : null
+        return content?.nativeId === seed.nativeId
+      })
+      if (exists) continue
+      const { data: created, error: errSeed } = await client
+        .from('projects')
+        .insert({ name: seed.name, owner_id: user.id, content: seed.content, revision: 0, updated_at: seed.updatedAt })
+        .select('id, name, revision, updated_at, content, owner_id')
+        .single()
+      if (!errSeed && created) rows.unshift(created)
+      else if (errSeed) console.error('[native-seed] Falha ao semear projeto nativo:', errSeed.message)
+    }
+  }
+
+  return rows.map((row) => ({
     id: row.id,
     name: row.name,
     revision: row.revision ?? 0,
