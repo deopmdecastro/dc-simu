@@ -191,7 +191,7 @@
   .grafcet-designer.grafcet-full .grafcet-toolbox {
     position: absolute; top: 0; bottom: 0; left: 0; inset-inline-end: auto; transform: none;
     width: min(320px, 88%); height: auto; max-height: none; z-index: 41;
-    border: 0; border-right: 1px solid var(--pn-line, #d3dbe5); border-radius: 0 14px 14px 0;
+    border: 0; border-right: 1px solid var(--pn-line, #d3dbe5); border-radius: 0;
     box-shadow: 8px 0 28px -10px rgba(15, 23, 42, .35);
     animation: mr-sheet-in-left .18s ease-out;
   }

@@ -8,7 +8,7 @@
    Ladder  · Elementos (dir.)          .ladder-palette
 
    Todos abrem da mesma forma: gaveta por baixo das barras do projeto e de
-   ferramentas, largura --pn-drawer-w, cantos arredondados no lado de dentro,
+   ferramentas, largura --pn-drawer-w, cantos retos (como o Ladder),
    a mesma sombra, a mesma cortina (toque fora fecha) e o cabeçalho comum
    (SidePanelHeader) com a seta de recolher sempre visível. Nenhum painel
    ocupa o ecrã inteiro. Carrega depois de todas as outras folhas: é a única
@@ -18,7 +18,7 @@
   --pn-drawer-w: min(340px, 88vw);
   --pn-drawer-scrim: rgba(15, 23, 42, .32);
   --pn-drawer-shadow: 0 16px 40px -8px rgba(15, 23, 42, .38);
-  --pn-drawer-radius: 16px;
+  --pn-drawer-radius: 0;
 }
 
 @media (max-width: 1199px) {
