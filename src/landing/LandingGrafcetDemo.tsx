@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState, useCallback, type PointerEvent as ReactPointerEvent } from 'react'
 import { IconPlay } from '../ui/icons'
-import { autoLayout, SPINE_X, START_Y, STEP_H } from '../grafcet/layout'
-import type { GrafcetProgram, GrafcetStep, GrafcetTransition } from '../grafcet/engine'
+import { SPINE_X, START_Y, STEP_H } from '../grafcet/layout'
+import type { GrafcetStep } from '../grafcet/engine'
+import { buildNativeGrafcet, NATIVE_PARTIDA_NAME } from '../project/nativeProjects'
 import '../styles/grafcet-editor.css'
 
 type Props = {
@@ -11,65 +12,6 @@ type Props = {
   onStopPlc: () => void
   onStartMotor: () => void
   onStopMotor: () => void
-}
-
-const uid = () => `demo-${Math.random().toString(36).slice(2, 9)}`
-
-/** Programa GRAFCET da partida direta com selo — mesma lógica do Ladder da landing. */
-function buildProgram(): GrafcetProgram {
-  const s0 = 's0'
-  const s1 = 's1'
-  const t1 = 't1'
-  const t2 = 't2'
-  const steps: GrafcetStep[] = [
-    {
-      id: s0,
-      name: '0',
-      initial: true,
-      stepType: 'initial',
-      action: '',
-      condition: '',
-      description: 'Inicial',
-      actions: [
-        { id: uid(), address: 'Q3', variable: 'H2', description: 'H2 PARADO', condition: '1', kind: 'N', displayDescription: true },
-      ],
-    },
-    {
-      id: s1,
-      name: '1',
-      initial: false,
-      stepType: 'simple',
-      action: '',
-      condition: '',
-      description: 'Marcha',
-      actions: [
-        { id: uid(), address: 'Q1', variable: 'KM1', description: 'KM1', condition: '1', kind: 'N', displayDescription: true },
-        { id: uid(), address: 'Q2', variable: 'H1', description: 'H1 MARCHA', condition: '1', kind: 'N', displayDescription: true },
-      ],
-    },
-  ]
-  const transitions: GrafcetTransition[] = [
-    { id: t1, name: 'T1', from: [s0], to: [s1], condition: 'I2', description: 'START' },
-    { id: t2, name: 'T2', from: [s1], to: [s0], condition: 'I1', description: 'STOP' },
-  ]
-  const pos = autoLayout(steps, transitions)
-  return {
-    id: 'landing-demo',
-    name: 'Partida direta com selo',
-    steps: steps.map((step) => {
-      const at = pos.get(step.id)
-      return at ? { ...step, x: at.x, y: at.y, pinned: true } : step
-    }),
-    transitions: transitions.map((tr, index) => ({
-      ...tr,
-      x: SPINE_X,
-      y: index === 0 ? START_Y + STEP_H + 28 : START_Y + STEP_H + 28 + 140,
-    })),
-    comments: [
-      { id: uid(), text: 'Partida direta com selo', x: 40, y: 24, fontSize: 14, fontWeight: '700' },
-      { id: uid(), text: 'Mesmo circuito do Ladder e 3D · IEC 60848', x: 40, y: 380, fontSize: 11, fontWeight: '500' },
-    ],
-  }
 }
 
 /**
@@ -85,8 +27,8 @@ export default function LandingGrafcetDemo({
   onStartMotor,
   onStopMotor,
 }: Props) {
-  const program = useMemo(() => buildProgram(), [])
-  const activeStepId = !plcRunning ? null : motorOn ? 's1' : 's0'
+  const program = useMemo(() => buildNativeGrafcet(), [])
+  const activeStepId = !plcRunning ? null : motorOn ? 'native-s1' : 'native-s0'
   const [pan, setPan] = useState({ x: 20, y: 12 })
   const [scale, setScale] = useState(1)
   const drag = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null)
@@ -142,9 +84,9 @@ export default function LandingGrafcetDemo({
         <div className="dx-grafcet-demo-status">
           <span className={plcRunning ? 'is-run' : 'is-stop'}>{plcRunning ? 'PLC RUN' : 'PLC STOP'}</span>
           <span>
-            {activeStepId === 's1'
+            {activeStepId === 'native-s1'
               ? 'Etapa X1 ativa · KM1 / H1'
-              : activeStepId === 's0'
+              : activeStepId === 'native-s0'
                 ? 'Etapa X0 ativa · H2'
                 : 'Sem etapa ativa'}
           </span>
@@ -157,7 +99,7 @@ export default function LandingGrafcetDemo({
           className="dx-grafcet-demo-svg grafcet-canvas"
           viewBox="0 0 420 420"
           role="img"
-          aria-label="GRAFCET de partida direta com selo"
+          aria-label={`GRAFCET — ${NATIVE_PARTIDA_NAME}`}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}

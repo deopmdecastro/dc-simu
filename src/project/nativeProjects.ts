@@ -57,7 +57,7 @@ function wire(from: string, to: string, color: WireColor, number: string): Wire 
   }
 }
 
-function buildGrafcet(): GrafcetProgram {
+export function buildNativeGrafcet(): GrafcetProgram {
   const s0 = 'native-s0'
   const s1 = 'native-s1'
   const steps: GrafcetStep[] = [
@@ -110,7 +110,7 @@ function buildGrafcet(): GrafcetProgram {
   }
 }
 
-function buildLadder(): LadderRung[] {
+export function buildNativeLadder(): LadderRung[] {
   const contact = (id: string, address: string, contactType: 'NO' | 'NC') =>
     ({ kind: 'contact' as const, id, address, contactType })
   const coil = (id: string, address: string) =>
@@ -233,8 +233,8 @@ export function buildNativePartidaDireta(): Built {
   return {
     components: [rail, psu, push, green, red, plc, breaker, qm, km, motor],
     wires,
-    ladder: { rungs: buildLadder() },
-    grafcet: buildGrafcet(),
+    ladder: { rungs: buildNativeLadder() },
+    grafcet: buildNativeGrafcet(),
     tags: [
       { id: 't1', address: 'I0.0', name: 'STOP', dataType: 'Bool', comment: 'Botão STOP (NF)' },
       { id: 't2', address: 'I0.1', name: 'START', dataType: 'Bool', comment: 'Botão START (NA)' },
@@ -290,6 +290,29 @@ export type NativeProjectSeed = {
 }
 
 /** Semente a inserir no backend local se ainda não existir. */
+
+/** Nomes simbólicos alinhados com as tags do projeto nativo (para a landing). */
+export const NATIVE_DEMO_NAMES: Record<string, string> = {
+  'I0.0': 'STOP',
+  'I0.1': 'START',
+  'Q0.0': 'KM1',
+  'Q0.1': 'H1',
+  'Q0.2': 'H2',
+}
+
+/** Tabela online da landing: espelha o estado partilhado PLC/motor. */
+export function nativeDemoTable(plcRunning: boolean, motorOn: boolean): Record<string, boolean> {
+  const powered = plcRunning && motorOn
+  const stopped = plcRunning && !motorOn
+  return {
+    'I0.0': false,
+    'I0.1': false,
+    'Q0.0': powered,
+    'Q0.1': powered,
+    'Q0.2': stopped,
+  }
+}
+
 export function nativeProjectSeeds(): NativeProjectSeed[] {
   return [
     {

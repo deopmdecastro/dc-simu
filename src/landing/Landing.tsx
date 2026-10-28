@@ -4,6 +4,12 @@ import LandingPricing, { PLAN_INTENT_KEY, landingPlans, usePublicPricing } from 
 import { InteractiveComponentThumb } from '../three/componentThumbnails'
 import { hasComponent3DModel } from '../three/modelPaths'
 import type { ComponentType } from '../types'
+import {
+  NATIVE_PARTIDA_NAME,
+  buildNativeLadder,
+  NATIVE_DEMO_NAMES,
+  nativeDemoTable,
+} from '../project/nativeProjects'
 import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight, IconChevronDown, IconZoomIn, IconZoomOut, IconUndo, IconRedo } from '../ui/icons'
 
 /** Viewport 3D real do produto — carregado só quando entra em vista (performance). */
@@ -163,7 +169,7 @@ function HeroViewport() {
     <div className="dx-window" ref={ref}>
       <div className="dx-window-bar">
         <LogoMark size={18} />
-        <span className="dx-window-path">/projetos/quadro-motor-01.dcs</span>
+        <span className="dx-window-path">{'/projetos/' + NATIVE_PARTIDA_NAME}</span>
         <div className="dx-window-tabs">
           <span>Esquema</span>
           <span>Ladder</span>
@@ -201,7 +207,7 @@ function HeroViewport() {
         <b>
           <i aria-hidden /> {plcRunning ? (motorOn ? 'Motor em marcha' : 'PLC em RUN') : 'PLC em STOP'}
         </b>
-        <span>START/STOP · LOGO! · Q0 · QM1 · KM1 · M1 · H1/H2</span>
+        <span>Projeto nativo admin · START/STOP · LOGO! · KM1 · M1 · H1/H2</span>
         <span className="end">9 equipamentos reais · disjuntor + PKZM</span>
       </div>
     </div>
@@ -210,20 +216,9 @@ function HeroViewport() {
 
 const NetworkDiagram = lazy(() => import('../ladder/NetworkDiagram'))
 
-type DemoRung = import('../types').LadderRung
-const demoContact = (id: string, address: string, contactType: 'NO' | 'NC') => ({ kind: 'contact' as const, id, address, contactType })
-const demoCoil = (id: string, address: string) => ({ kind: 'coil' as const, id, address, coilType: 'COIL' as const })
-/** As mesmas networks do simulador: partida direta com selo e sinalizações H1/H2. */
-const DEMO_RUNGS: DemoRung[] = [
-  { id: 'demo-n1', name: 'Partida direta com selo', comment: 'STOP + START + retenção de KM1', enabled: true,
-    branches: [{ id: 'n1a', elements: [demoContact('c1', 'I1', 'NC'), demoContact('c2', 'I2', 'NO')] }, { id: 'n1b', elements: [demoContact('c3', 'Q1', 'NO')] }],
-    coils: [demoCoil('k1', 'Q1')] },
-  { id: 'demo-n2', name: 'Sinalização de marcha', comment: 'Contacto NA de KM1 comanda a lâmpada verde H1', enabled: true,
-    branches: [{ id: 'n2a', elements: [demoContact('c4', 'Q1', 'NO')] }], coils: [demoCoil('k2', 'Q2')] },
-  { id: 'demo-n3', name: 'Sinalização de motor parado', comment: 'Contacto NF de KM1 comanda a lâmpada vermelha H2', enabled: true,
-    branches: [{ id: 'n3a', elements: [demoContact('c5', 'Q1', 'NC')] }], coils: [demoCoil('k3', 'Q3')] },
-]
-const DEMO_NAMES = { I1: 'STOP', I2: 'START', Q1: 'KM1', Q2: 'H1', Q3: 'H2' }
+const DEMO_RUNGS = buildNativeLadder()
+const DEMO_NAMES = NATIVE_DEMO_NAMES
+
 
 /** Pré-visualização funcional da vista Ladder do simulador. */
 function EditorAnatomy() {
@@ -233,7 +228,7 @@ function EditorAnatomy() {
   const [view, setView] = useState<'ladder' | 'grafcet' | 'panel3d'>('ladder')
   const powered = plcRunning && motorOn
   const stoppedIndication = plcRunning && !motorOn
-  const demoTable = { I1: false, I2: false, Q1: powered, Q2: powered, Q3: stoppedIndication }
+  const demoTable = nativeDemoTable(plcRunning, motorOn)
   const networksRef = useRef<HTMLDivElement>(null)
   const [fit, setFit] = useState(1)
   useEffect(() => {
@@ -261,7 +256,7 @@ function EditorAnatomy() {
     <div className="dx-window dx-ladder-demo">
       <div className="dx-window-bar">
         <LogoMark size={18} />
-        <span className="dx-window-path">/programa/OB1 — Comando do motor</span>
+        <span className="dx-window-path">{'/projetos/' + NATIVE_PARTIDA_NAME}</span>
         <div className="dx-window-tabs is-switcher" role="tablist" aria-label="Vista da demonstração">
           <button type="button" role="tab" aria-selected={view === 'ladder'} className={view === 'ladder' ? 'on' : ''} onClick={() => setView('ladder')}>Ladder</button>
           <button type="button" role="tab" aria-selected={view === 'grafcet'} className={view === 'grafcet' ? 'on' : ''} onClick={() => setView('grafcet')}>GRAFCET</button>
@@ -308,8 +303,8 @@ function EditorAnatomy() {
               <span>Comando de campo</span>
               <strong>{powered ? 'KM1 ligado · selo ativo' : plcRunning ? 'Pronto para arrancar' : 'Execute o PLC primeiro'}</strong>
             </div>
-            <button type="button" className="dx-operator-start" onClick={startMotor} disabled={!plcRunning || motorOn}><i aria-hidden /> START <small>I2</small></button>
-            <button type="button" className="dx-operator-stop" onClick={stopMotor} disabled={!motorOn}><i aria-hidden /> STOP <small>I1</small></button>
+            <button type="button" className="dx-operator-start" onClick={startMotor} disabled={!plcRunning || motorOn}><i aria-hidden /> START <small>I0.1</small></button>
+            <button type="button" className="dx-operator-stop" onClick={stopMotor} disabled={!motorOn}><i aria-hidden /> STOP <small>I0.0</small></button>
           </div>
           <div className="ladder-networks grid-lines" ref={networksRef}>
             <div className="dx-ladder-demo-scale" style={{ zoom: fit * zoom / 100 }}>
@@ -375,9 +370,9 @@ function EditorAnatomy() {
       <div className={`dx-window-foot${plcRunning ? ' is-running' : ' is-stopped'}`} aria-live="polite">
         <b><i aria-hidden /> PLC em {plcRunning ? 'RUN' : 'STOP'}</b>
         <span>{powered
-          ? (view === 'panel3d' ? 'Q0·QM1·KM1 · M1 em marcha · H1 verde' : view === 'grafcet' ? 'Etapa X1 ativa · KM1 e H1' : 'Q1/KM1 e Q2/H1 energizados')
+          ? (view === 'panel3d' ? 'Q0·QM1·KM1 · M1 em marcha · H1 verde' : view === 'grafcet' ? 'Etapa X1 ativa · KM1 e H1' : 'Q0.0/KM1 e Q0.1/H1 energizados')
           : stoppedIndication
-            ? (view === 'panel3d' ? 'KM1 desligado · M1 parado · H2 vermelho' : view === 'grafcet' ? 'Etapa X0 · H2 parado' : 'Q3/H2 energizado · motor parado')
+            ? (view === 'panel3d' ? 'KM1 desligado · M1 parado · H2 vermelho' : view === 'grafcet' ? 'Etapa X0 · H2 parado' : 'Q0.2/H2 energizado · motor parado')
             : 'Saídas desenergizadas · proteções prontas'}</span>
         <span className="end">{view === 'grafcet' ? 'IEC 60848' : 'IEC 61131-3'} · {plcRunning ? 'scan 4 ms' : 'CPU parada'}</span>
       </div>
