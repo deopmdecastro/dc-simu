@@ -158,7 +158,7 @@ function ensureNativeProjects(data: LocalData): LocalData {
   const seeds = nativeProjectSeeds()
   let changed = false
   // Remove sementes antigas quando existe a versão atual (v4 — grupos força/comando).
-  const legacyIds = ['native-partida-direta-v1', 'native-partida-direta-v2', 'native-partida-direta-v3']
+  const legacyIds = ['native-partida-direta-v1', 'native-partida-direta-v2', 'native-partida-direta-v3', 'native-partida-direta-v4']
   const before = data.projects.length
   data.projects = data.projects.filter((project) => !legacyIds.includes(project.id))
   if (data.projects.length !== before) changed = true

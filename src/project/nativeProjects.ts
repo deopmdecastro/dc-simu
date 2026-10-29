@@ -313,6 +313,9 @@ export function buildNativePartidaDireta(): Built {
     // Preferir saída/chegada pela face traseira (calha / canaletas) para não cobrir a frente dos aparelhos.
     next.fromEndLayer = 'back'
     next.toEndLayer = 'back'
+    // Bornes do motor: olhal sob a porca (não ponteira tubular).
+    if (a.type === 'motor3ph') next.fromEndType = 'ring'
+    if (b.type === 'motor3ph') next.toEndType = 'ring'
     wires.push(next)
   }
   // Cadeia de força L1/L2/L3 (2,5 mm²)

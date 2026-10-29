@@ -37,7 +37,8 @@ export function buildMotorTerminalBox(origin: THREE.Vector3, units: number, body
   const steel = new THREE.MeshStandardMaterial({ color: '#5b6168', roughness: .45, metalness: .8 })
   const black = new THREE.MeshStandardMaterial({ color: '#16181b', roughness: .6, metalness: 0 })
 
-  // Paredes: contorno exterior do CAD com 5 mm de espessura, do fundo novo até ao rebordo original.
+  // Paredes: contorno exterior do CAD com 5 mm de espessura. A parede da frente
+  // é construída à parte com o furo circular do bucim M20 (passagem real dos cabos).
   const rounded = (path: THREE.Path, x0: number, z0: number, x1: number, z1: number, r: number) => {
     // Forma no plano (x, -z): depois de rodar −90° em X o eixo da forma "y" passa a −z.
     path.moveTo(x0 + r, -z0)
@@ -47,18 +48,48 @@ export function buildMotorTerminalBox(origin: THREE.Vector3, units: number, body
     path.lineTo(x0, -z0 - r); path.quadraticCurveTo(x0, -z0, x0 + r, -z0)
   }
   const w = MOTOR_BOX.wall
-  const outline = new THREE.Shape()
-  rounded(outline, MOTOR_BOX.x0, MOTOR_BOX.z0, MOTOR_BOX.x1, MOTOR_BOX.z1, MOTOR_BOX.corner)
-  const hole = new THREE.Path()
-  rounded(hole, MOTOR_BOX.x0 + w, MOTOR_BOX.z0 + w, MOTOR_BOX.x1 - w, MOTOR_BOX.z1 - w, MOTOR_BOX.corner - 3)
-  outline.holes.push(hole)
   const wallHeight = MOTOR_BOX.top - MOTOR_FLOOR_Y
+  // Contorno completo menos a faixa da frente (essa faixa é a parede com furo).
+  const outline = new THREE.Shape()
+  rounded(outline, MOTOR_BOX.x0, MOTOR_BOX.z0, MOTOR_BOX.x1, MOTOR_BOX.z1 - w, MOTOR_BOX.corner)
+  const hole = new THREE.Path()
+  rounded(hole, MOTOR_BOX.x0 + w, MOTOR_BOX.z0 + w, MOTOR_BOX.x1 - w, MOTOR_BOX.z1 - w, Math.max(1, MOTOR_BOX.corner - 3))
+  outline.holes.push(hole)
   const walls = new THREE.ExtrudeGeometry(outline, { depth: wallHeight, bevelEnabled: false, curveSegments: 6 })
   walls.rotateX(-Math.PI / 2)
   walls.scale(units, units, units)
   const wallMesh = add(new THREE.Mesh(walls, paint), 'caixa-paredes')
   const base = at(0, MOTOR_FLOOR_Y, 0)
   wallMesh.position.set(origin.x - MOTOR_CAD.minX * units, base.y, origin.z - MOTOR_CAD.minZ * units)
+
+  // Parede frontal (plano XY) com furo circular do bucim — extrudida em Z.
+  const frontShape = new THREE.Shape()
+  frontShape.moveTo(MOTOR_BOX.x0, MOTOR_FLOOR_Y)
+  frontShape.lineTo(MOTOR_BOX.x1, MOTOR_FLOOR_Y)
+  frontShape.lineTo(MOTOR_BOX.x1, MOTOR_BOX.top)
+  frontShape.lineTo(MOTOR_BOX.x0, MOTOR_BOX.top)
+  frontShape.closePath()
+  const glandHole = new THREE.Path()
+  const gR = MOTOR_GLAND.diameter / 2
+  for (let i = 0; i <= 32; i++) {
+    const a = -(i / 32) * Math.PI * 2 // sentido horário = furo
+    const px = MOTOR_GLAND.x + gR * Math.cos(a)
+    const py = MOTOR_GLAND.y + gR * Math.sin(a)
+    if (i === 0) glandHole.moveTo(px, py)
+    else glandHole.lineTo(px, py)
+  }
+  frontShape.holes.push(glandHole)
+  const frontGeo = new THREE.ExtrudeGeometry(frontShape, { depth: w, bevelEnabled: false, curveSegments: 8 })
+  frontGeo.scale(units, units, units)
+  // ExtrudeGeometry cresce em +Z local; posicionar na face frontal.
+  const frontMesh = add(new THREE.Mesh(frontGeo, paint), 'caixa-parede-frente')
+  frontMesh.position.copy(at(0, 0, MOTOR_BOX.z1 - w))
+  // Compensar origem do shape (x,y em mm do CAD → mundo).
+  frontMesh.position.set(
+    origin.x - MOTOR_CAD.minX * units,
+    origin.y - MOTOR_CAD.minY * units,
+    at(0, 0, MOTOR_BOX.z1 - w).z,
+  )
 
   // Fundo do compartimento (fecha o corte da tampa).
   const innerW = MOTOR_BOX.x1 - MOTOR_BOX.x0 - 2 * w, innerD = MOTOR_BOX.z1 - MOTOR_BOX.z0 - 2 * w
@@ -122,11 +153,50 @@ export function buildMotorTerminalBox(origin: THREE.Vector3, units: number, body
   const earth = earthPlane(units)
   if (earth) { earth.position.copy(at(MOTOR_PE.x + 14, MOTOR_FLOOR_Y + .05, MOTOR_PE.z)); add(earth, 'borne-PE-simbolo') }
 
-  // Bucim M20 na parede da frente.
-  const gland = add(new THREE.Mesh(new THREE.CylinderGeometry(MOTOR_GLAND.diameter / 2 * units, MOTOR_GLAND.diameter / 2 * units, 9 * units, 6), black), 'bucim-porca')
-  gland.rotation.x = Math.PI / 2
-  gland.position.copy(at(MOTOR_GLAND.x, MOTOR_GLAND.y, MOTOR_BOX.z1 + 4.5))
-  const cap = add(new THREE.Mesh(new THREE.CylinderGeometry(7.5 * units, 8.5 * units, 7 * units, 24), black), 'bucim-cupula')
+  // Bucim M20 com furo real: tubo oco que atravessa a parede (5 mm) + porca
+  // exterior + cúpula. O interior do tubo fica visível de dentro da caixa.
+  const glandRi = (MOTOR_GLAND.diameter / 2 - 2.4) * units
+  const glandRo = (MOTOR_GLAND.diameter / 2 + 0.8) * units
+  const glandLen = (w + 16) * units // atravessa a parede e sobressai para fora
+  // Perfil do tubo (Lathe): anel oco ao longo de Z.
+  const tubeProfile = new THREE.Shape()
+  tubeProfile.moveTo(glandRi / units, -glandLen / (2 * units))
+  tubeProfile.lineTo(glandRo / units, -glandLen / (2 * units))
+  tubeProfile.lineTo(glandRo / units, glandLen / (2 * units))
+  tubeProfile.lineTo(glandRi / units, glandLen / (2 * units))
+  tubeProfile.closePath()
+  // Usamos dois cilindros (exterior + furo interior) — mais estável que Lathe aqui.
+  const tubeOuter = add(new THREE.Mesh(
+    new THREE.CylinderGeometry(glandRo, glandRo, glandLen, 28, 1, true),
+    black,
+  ), 'bucim-tubo')
+  tubeOuter.rotation.x = Math.PI / 2
+  // Centro do tubo a meio da parede + saliência exterior.
+  tubeOuter.position.copy(at(MOTOR_GLAND.x, MOTOR_GLAND.y, MOTOR_BOX.z1 - w * 0.5 + 5))
+  const tubeInner = add(new THREE.Mesh(
+    new THREE.CylinderGeometry(glandRi, glandRi, glandLen + 0.5 * units, 24, 1, true),
+    new THREE.MeshStandardMaterial({ color: '#0c0d10', roughness: 0.9, metalness: 0, side: THREE.BackSide }),
+  ), 'bucim-furo')
+  tubeInner.rotation.x = Math.PI / 2
+  tubeInner.position.copy(tubeOuter.position)
+  // Aro interior (boca do furo vista de dentro da caixa).
+  const innerRing = add(new THREE.Mesh(
+    new THREE.TorusGeometry((glandRi + glandRo) * 0.5, (glandRo - glandRi) * 0.5, 8, 28),
+    black,
+  ), 'bucim-aro-interior')
+  innerRing.position.copy(at(MOTOR_GLAND.x, MOTOR_GLAND.y, MOTOR_BOX.z1 - w - 0.4))
+  // Porca sextavada exterior.
+  const glandNut = add(new THREE.Mesh(
+    new THREE.CylinderGeometry((MOTOR_GLAND.diameter / 2 + 2.8) * units, (MOTOR_GLAND.diameter / 2 + 2.8) * units, 3.2 * units, 6),
+    black,
+  ), 'bucim-porca')
+  glandNut.rotation.x = Math.PI / 2
+  glandNut.position.copy(at(MOTOR_GLAND.x, MOTOR_GLAND.y, MOTOR_BOX.z1 + 8))
+  // Cúpula / prensa-cabos.
+  const cap = add(new THREE.Mesh(
+    new THREE.CylinderGeometry(7.0 * units, 8.0 * units, 5.5 * units, 24),
+    black,
+  ), 'bucim-cupula')
   cap.rotation.x = Math.PI / 2
   cap.position.copy(at(MOTOR_GLAND.x, MOTOR_GLAND.y, MOTOR_BOX.z1 + 12.5))
   return group

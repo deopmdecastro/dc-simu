@@ -5,7 +5,7 @@ import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from './
 import { panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalNormalWorld3D, terminalWorld3D } from './terminal3D'
 import { componentOrientationOf, orientationRadians } from './componentOrientation'
-import { MOTOR_CAD, MOTOR_GLAND, MOTOR_SIZE } from './motorTerminalLayout'
+import { MOTOR_BOX, MOTOR_CAD, MOTOR_GLAND, MOTOR_SIZE } from './motorTerminalLayout'
 import { REAL_TERMINALS } from '../electrical/realInterfaces'
 import { sharedFerrulePort } from '../electrical/sharedFerrules'
 import { keepWireOutsideSolids, segmentEntersBox, OrientedWireBox } from './solidWireRouting'
@@ -902,53 +902,40 @@ function buildMotorGlandBody3D(
     )
   }
 
-  // Entrada pelo bucim M20: caminho axial limpo (boca → cúpula → interior).
-  const entryLeft = cad(-38, MOTOR_GLAND.y + dy, 100 + idx * 6)
-  const frontSweep = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 100 + idx * 6)
-  const glandMouth = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 86)
-  const glandCap = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 72)
-  const glandInner = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 52)
+  // Entrada pelo furo real do bucim M20: eixo do tubo → interior → borne.
+  // Offsets laterais mínimos para não sobrepor cabos no mesmo furo.
+  const gx = MOTOR_GLAND.x + dx * 0.35
+  const gy = MOTOR_GLAND.y + dy * 0.35
+  const boxZ1 = MOTOR_BOX.z1
+  const wall = MOTOR_BOX.wall
+  const approach = cad(-20 + idx * 5, gy, boxZ1 + 28 + idx * 2.5)
+  const glandOutside = cad(gx, gy, boxZ1 + 14)
+  const glandMouth = cad(gx, gy, boxZ1 + 6)
+  const glandThru = cad(gx, gy, boxZ1 - wall * 0.5)
+  const glandInside = cad(gx, gy, boxZ1 - wall - 8)
 
-  // Dentro da caixa: curva suave do bucim até ao borne (evita ziguezagues e
-  // sobreposições nas ponteiras). Um ponto intermédio + aproximação axial.
-  const approach = cad(headCad.x, headCad.y + 7, headCad.z)
-  const midY = (MOTOR_GLAND.y + headCad.y) * 0.5
-  const innerBoxPoints: V3[] = label === 'PE'
-    ? [cad(headCad.x * 0.55 + MOTOR_GLAND.x * 0.45, midY, 50), approach]
-    : label === 'U1' || label === 'W2'
-      ? [cad(headCad.x * 0.5 + MOTOR_GLAND.x * 0.5, midY + 6, 36), approach]
-      : label === 'V1' || label === 'U2'
-        ? [cad(headCad.x * 0.55 + MOTOR_GLAND.x * 0.45, midY + 3, 34), approach]
-        : [cad(headCad.x * 0.5 + MOTOR_GLAND.x * 0.5, midY, 32), approach]
+  // Dentro da caixa: transição suave + aproximação axial ao borne.
+  const fanX = headCad.x * 0.72 + gx * 0.28
+  const fanY = headCad.y * 0.55 + gy * 0.45
+  const fanZ = Math.min(headCad.z + 14, (boxZ1 - wall - 8) - 4)
+  const preTerminal = cad(fanX, fanY, fanZ)
+  const nearTerminal = cad(headCad.x, headCad.y + 0.8, Math.max(headCad.z + 5, 24))
 
   const rawControls: V3[] = [
     ...panelChain,
     [panelRightX, bottomDuctY, ductZ],
-    [entryLeft[0], bottomDuctY, Math.max(ductZ, (ductZ + entryLeft[2]) * 0.5)],
-    entryLeft,
-    frontSweep,
+    [approach[0], bottomDuctY, Math.max(ductZ, (ductZ + approach[2]) * 0.45)],
+    approach,
+    glandOutside,
     glandMouth,
-    glandCap,
-    glandInner,
-    ...innerBoxPoints,
+    glandThru,
+    glandInside,
+    preTerminal,
+    nearTerminal,
     motorHead,
   ]
   const deduped = rawControls.filter((pt, i) => i === 0 || v(pt).distanceTo(v(rawControls[i - 1])) > 1e-4)
-  return { points: keepInFrontOfPlate(roundCorners(deduped, outerMm, 3.6), outerMm), entry: entryLeft }
-}
-
-/** Corrige os sólidos só no troço exterior; a passagem física no motor é fixa. */
-function clearPathSolids(points: V3[], outerMm: number, obstacles: WireObstacle[], exits: Parameters<typeof keepWireOutsideSolids>[3], minZ: number, track: number, motorRoute?: WirePath3D['motorRoute']): V3[] {
-  if (!motorRoute) return keepWireOutsideSolids(points, outerMm, obstacles, exits, minZ, track)
-  const fixed = motorRoute.points
-  const tail = motorRoute.side === 'to'
-  const outer = tail ? points.slice(0, points.length - fixed.length + 1) : points.slice(fixed.length - 1)
-  // O troço exterior contorna também o motor. Só a cauda física já validada
-  // pode passar pelo seu bucim, incluindo quando se roda ou espelha o motor.
-  const outerExits = exits.map(exit => ({ ...exit, glandBypass: false })) as typeof exits
-  const safe = keepWireOutsideSolids(outer, outerMm, obstacles, outerExits, minZ, track)
-  if (safe === outer) return points
-  return !safe.length ? [] : tail ? [...safe.slice(0, -1), ...fixed] : [...fixed, ...safe.slice(1)]
+  return keepInFrontOfPlate(roundCorners(deduped, outerMm, 4.2), outerMm)
 }
 
 /** Traçado individual de um cabo (compatível com chamadas isoladas e edição ao vivo). */
