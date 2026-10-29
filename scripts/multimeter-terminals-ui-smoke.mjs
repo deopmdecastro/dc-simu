@@ -78,7 +78,10 @@ try {
     const {createGltfLoader}=await import('/src/three/gltfLoader.ts')
     const {orientationRadians}=await import('/src/three/componentOrientation.ts')
     const {terminalWorld3D}=await import('/src/three/terminal3D.ts')
-    const state=[..._roots.values()].map(root=>root.store.getState()).find(root=>root.scene.getObjectByName('occurrence_of_Cube002_Material008_0'))
+    const state=[..._roots.values()].map(root=>root.store.getState()).find(root=> {
+      let connected=false; root.scene.traverse(node=>{if(node.userData.wireEndType)connected=true})
+      return connected&&root.scene.getObjectByName('occurrence_of_Cube002_Material008_0')
+    })
     const glass=state.scene.getObjectByName('occurrence_of_Cube002_Material008_0')
     state.scene.updateMatrixWorld(true)
     let instance=glass.parent
@@ -128,12 +131,11 @@ try {
   await page.waitForFunction(async()=> {
     const source=await(await fetch('/src/three/Panel3D.tsx')).text()
     const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
-    const scene=[..._roots.values()][0]?.store.getState().scene
-    let probes=0,bananas=0
-    scene?.traverse(node=>{if(node.userData.wireEndType==='probe')probes++;if(node.userData.wireEndType==='banana')bananas++})
-    return probes===2&&bananas===2
+    let probes=0,bananas=0,doubles=0,ports=0
+    for(const root of _roots.values())root.store.getState().scene.traverse(node=>{if(node.userData.wireEndType==='probe')probes++;if(node.userData.wireEndType==='banana')bananas++;if(node.userData.wireEndType==='ferruleDouble')doubles++;if(node.userData.ferrulePort)ports++})
+    return probes===2&&bananas===2&&doubles===2&&ports===4
   },null,{timeout:30000})
-  check(true,'Nativo renderiza duas fichas banana e duas ponteiras de teste')
+  check(true,'Nativo renderiza duas fichas banana, duas sondas e dois colares duplos com quatro entradas')
   await page.keyboard.press('Home')
   await page.waitForTimeout(200)
   await page.evaluate(async()=> {
@@ -154,12 +156,23 @@ try {
   await page.evaluate(async()=> {
     const source=await(await fetch('/src/three/Panel3D.tsx')).text()
     const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
-    const state=[..._roots.values()][0].store.getState(),controls=state.controls
+    const state=[..._roots.values()].map(root=>root.store.getState()).find(s=>{let probe=false;s.scene.traverse(n=>{if(n.userData.wireEndType==='probe')probe=true});return probe}),controls=state.controls
     state.camera.position.copy(controls.target).add({x:9,y:1,z:0.8})
     state.camera.lookAt(controls.target);controls.update();state.invalidate()
   })
   await page.waitForTimeout(150)
   await capture('native-motor-meter-side')
+  await page.evaluate(async()=> {
+    const source=await(await fetch('/src/three/Panel3D.tsx')).text()
+    const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
+    const state=[..._roots.values()].map(root=>root.store.getState()).find(s=>{let probe=false;s.scene.traverse(n=>{if(n.userData.wireEndType==='probe')probe=true});return probe})
+    state.scene.updateMatrixWorld(true)
+    const ends=[];state.scene.traverse(n=>{if(n.userData.wireEndType==='probe')ends.push(n.getWorldPosition(state.camera.position.clone()))})
+    const center=ends[0].clone().add(ends[1]).multiplyScalar(0.5);center.y+=0.65
+    state.controls.target.copy(center);state.camera.position.copy(center).add({x:2.2,y:1.5,z:3.4});state.camera.zoom=1.7;state.camera.updateProjectionMatrix();state.controls.update();state.invalidate()
+  })
+  await page.waitForTimeout(200)
+  await capture('native-motor-double-ferrule-detail')
   await state(store=>store.getState().stop())
   check(errors.length===0,'Sem erros JavaScript')
 } catch(error) {

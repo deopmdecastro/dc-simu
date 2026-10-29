@@ -1621,12 +1621,12 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
   }
 
   return <group userData={{ noPick: true }}>{wires.map((storedWire) => {
-    const baseFrom = wireEndpoint3D(storedWire, 'from', components, pivots)
-    const baseTo = wireEndpoint3D(storedWire, 'to', components, pivots)
+    const baseFrom = wireEndpoint3D(storedWire, 'from', components, pivots, wires)
+    const baseTo = wireEndpoint3D(storedWire, 'to', components, pivots, wires)
     if (!baseFrom || !baseTo) return null
     const wire = applyDrag(storedWire, { from: baseFrom, to: baseTo })
-    const from = wireEndpoint3D(wire, 'from', components, pivots) ?? baseFrom
-    const to = wireEndpoint3D(wire, 'to', components, pivots) ?? baseTo
+    const from = wireEndpoint3D(wire, 'from', components, pivots, wires) ?? baseFrom
+    const to = wireEndpoint3D(wire, 'to', components, pivots, wires) ?? baseTo
     // Geometria do cabo em cache: durante RUN as bandeiras energizadas mudam em
     // cada scan, mas posições/traçado não — sem cache, cada tick reconstruía a
     // curva e os 3-4 TubeGeometry (centenas de segmentos) por cabo. Era o peso.
@@ -2518,8 +2518,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     store.pushEvent('info', 'Edição 3D do cabo cancelada; os valores anteriores foram repostos.')
   }
   const wireEnds = (wire: Wire) => {
-    const from = wireEndpoint3D(wire, 'from', components, panelPivots)
-    const to = wireEndpoint3D(wire, 'to', components, panelPivots)
+    const from = wireEndpoint3D(wire, 'from', components, panelPivots, wires)
+    const to = wireEndpoint3D(wire, 'to', components, panelPivots, wires)
     return from && to ? { from, to } : null
   }
   const selectedWirePath = (() => {

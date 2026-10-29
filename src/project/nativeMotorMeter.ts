@@ -4,6 +4,18 @@ import { componentPanelXY, panelToSchematicX, panelToSchematicY } from '../three
 
 export const NATIVE_PARTIDA_ID = 'native-partida-direta-v3'
 export const NATIVE_MOTOR_METER_FEATURE = 'motor-voltage-meter-v1'
+export const NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE = 'motor-meter-double-ferrule-v1'
+
+/** Só os cabos de alimentação que partilham o borne com as sondas recebem colar duplo. */
+export function withMotorMeterFerrules(wires: Wire[], leads: Wire[]): Wire[] {
+  const terminals = new Set(leads.map(wire => wire.toTerminalId))
+  return wires.map(wire => {
+    if (leads.some(lead => lead.id === wire.id)) return wire
+    const from = terminals.has(wire.fromTerminalId) && !wire.fromPoint
+    const to = terminals.has(wire.toTerminalId) && !wire.toPoint
+    return from || to ? { ...wire, ...(from ? { fromEndType: 'ferruleDouble' as const } : {}), ...(to ? { toEndType: 'ferruleDouble' as const } : {}) } : wire
+  })
+}
 
 export function buildNativeMotorMeter(motor: ElectricalComponent): { meter: ElectricalComponent; leads: Wire[] } {
   const center = componentPanelXY(motor)
@@ -28,14 +40,18 @@ export function buildNativeMotorMeter(motor: ElectricalComponent): { meter: Elec
 export function upgradeNativeMotorMeter<T extends Record<string, any>>(content: T): T {
   if (content.nativeId !== NATIVE_PARTIDA_ID || !Array.isArray(content.components) || !Array.isArray(content.wires)) return content
   const features: string[] = Array.isArray(content.nativeFeatures) ? content.nativeFeatures.filter((v: unknown) => typeof v === 'string') : []
-  if (features.includes(NATIVE_MOTOR_METER_FEATURE)) return content
+  if (features.includes(NATIVE_MOTOR_METER_FEATURE)) {
+    if (features.includes(NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE)) return content
+    const leads = content.wires.filter((w: Wire) => ['native-meter-red', 'native-meter-black'].includes(w.id) && w.toEndType === 'probe' && !w.toPoint)
+    return { ...content, wires: withMotorMeterFerrules(content.wires, leads), nativeFeatures: [...features, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE] }
+  }
   const motor = content.components.find((c: ElectricalComponent) => c.id === 'native-m1' && c.type === 'motor3ph')
   if (!motor || !terminalByLabel(motor, 'U1') || !terminalByLabel(motor, 'V1')) return content
-  if (content.components.some((c: ElectricalComponent) => c.id === 'native-mm1')) return { ...content, nativeFeatures: [...features, NATIVE_MOTOR_METER_FEATURE] }
+  if (content.components.some((c: ElectricalComponent) => c.id === 'native-mm1')) return upgradeNativeMotorMeter({ ...content, nativeFeatures: [...features, NATIVE_MOTOR_METER_FEATURE] })
   const { meter, leads } = buildNativeMotorMeter(motor)
   const refs = new Set(content.components.map((c: ElectricalComponent) => c.ref.toUpperCase()))
   let index = 1
   while (refs.has(`MM${index}`)) index++
   meter.ref = `MM${index}`
-  return { ...content, components: [...content.components, meter], wires: [...content.wires, ...leads], nativeFeatures: [...features, NATIVE_MOTOR_METER_FEATURE] }
+  return { ...content, components: [...content.components, meter], wires: [...withMotorMeterFerrules(content.wires, leads), ...leads], nativeFeatures: [...features, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE] }
 }

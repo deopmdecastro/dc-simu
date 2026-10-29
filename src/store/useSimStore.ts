@@ -2741,7 +2741,7 @@ export const useSimStore = create<Store>((set, get) => ({
         dirty: parsed !== original || footprintUpgraded || componentMetadataUpgraded || alignedWires.some((wire, i) => wire !== loadedWires[i]),
       })
       get().pushEvent('info', 'Projeto carregado de arquivo JSON.')
-      if (parsed !== original) get().pushEvent('info', 'Nativo atualizado com multímetro e ponteiras na entrada do motor. Guarde o projeto para conservar a atualização.')
+      if (parsed !== original) get().pushEvent('info', 'Ligações do multímetro atualizadas com ponteiras duplas na entrada do motor. Guarde o projeto para conservar a atualização.')
       get().step()
     } catch (e) {
       get().pushEvent('error', 'Falha ao carregar o JSON: arquivo inválido.')

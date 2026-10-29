@@ -23,7 +23,7 @@ import type { ProjectFile } from '../ladder/projectFiles'
 import { nanoid } from 'nanoid'
 import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
-import { buildNativeMotorMeter, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE } from './nativeMotorMeter'
+import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE } from './nativeMotorMeter'
 
 /** Blocos de programa do método «registo de etapa» (FC + OB100 + CALL na Main). */
 const NATIVE_PLC_ID = 'native-plc'
@@ -338,7 +338,7 @@ export function buildNativePartidaDireta(): Built {
     components,
     // Traçado cozido na semente: cada cabo contorna os equipamentos e partilha
     // faixas com afastamento (ver `nativeRouting`). O editor mantém os pontos editáveis.
-    wires: bakeNativeRouting(components, wires),
+    wires: bakeNativeRouting(components, withMotorMeterFerrules(wires, leads)),
     ladder: { rungs: wordProgram.mainRungs },
     grafcet,
     tags: wordProgram.tags,
@@ -356,7 +356,7 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     version: 6,
     projectKind: built.projectKind,
     nativeId: NATIVE_PARTIDA_ID,
-    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE],
+    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE],
     savedAt: new Date().toISOString(),
     components: built.components,
     wires: built.wires,

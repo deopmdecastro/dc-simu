@@ -38,6 +38,14 @@ const v = (p: V3) => new THREE.Vector3(p[0], p[1], p[2])
 const arr = (p: THREE.Vector3): V3 => [p.x, p.y, p.z]
 const U = PANEL_UNITS_PER_MM
 
+export const DOUBLE_FERRULE_PORT_MM = 2.4
+/** Eixo lateral comum ao desenho do colar e às suas duas entradas. */
+function doubleFerruleSide(axis: THREE.Vector3): THREE.Vector3 {
+  const normal = new THREE.Vector3(0, 0, 1).addScaledVector(axis, -axis.z)
+  if (normal.lengthSq() < 1e-6) normal.set(0, 1, 0).addScaledVector(axis, -axis.y)
+  return new THREE.Vector3().crossVectors(axis, normal.normalize()).normalize()
+}
+
 /* ------------------------------------------------------------- extremidades */
 
 export type WireEndpoint3D = {
@@ -62,6 +70,7 @@ export function wireEndpoint3D(
   side: 'from' | 'to',
   components: ElectricalComponent[],
   pivots: Record<string, THREE.Vector3>,
+  wires: Wire[] = [],
 ): WireEndpoint3D | null {
   const terminalId = side === 'from' ? wire.fromTerminalId : wire.toTerminalId
   const point2D = side === 'from' ? wire.fromPoint : wire.toPoint
@@ -83,9 +92,15 @@ export function wireEndpoint3D(
     const spanX = xs.length > 1 ? Math.max(...xs) - Math.min(...xs) : 0
     const localY = terminal.position3D?.y ?? (spanY > 4 ? 1 - (terminal.y - Math.min(...ys)) / spanY : 0.5)
     const localX = terminal.position3D?.x ?? (spanX > 4 ? (terminal.x - Math.min(...xs)) / spanX : 0.5)
+    const position = terminalWorld3D(component, terminal, pivot)
+    const normal = terminalNormalWorld3D(component, terminal)
+    // A sonda toca a segunda entrada do colar, acima da manga comum no borne.
+    const shared = endTypeOf(wire, side) === 'probe' && wires.some(other => other.id !== wire.id &&
+      (['from', 'to'] as const).some(s => !(s === 'from' ? other.fromPoint : other.toPoint) && (s === 'from' ? other.fromTerminalId : other.toTerminalId) === terminalId && endTypeOf(other, s) === 'ferruleDouble'))
+    if (shared) position.addScaledVector(normal, 10 * U).addScaledVector(doubleFerruleSide(normal), DOUBLE_FERRULE_PORT_MM * U)
     return {
-      position: arr(terminalWorld3D(component, terminal, pivot)),
-      normal: arr(terminalNormalWorld3D(component, terminal)),
+      position: arr(position),
+      normal: arr(normal),
       terminalColor: terminal.color,
       socketDiameterMm: REAL_TERMINALS[component.type]?.find((spot) => spot.label === terminal.label)?.diameterMm
         ?? Math.max(1, Math.min(14, ((terminal.diameter ?? 9) / SCHEMATIC_PX_PER_MM) * 0.82)),
@@ -157,6 +172,7 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
   const origin = tip.clone().add(lift)
   if (origin.z < plateSafeZ) origin.z = plateSafeZ
   const head = origin.clone().addScaledVector(axis, length)
+  if (type === 'ferruleDouble') head.addScaledVector(doubleFerruleSide(axis), -DOUBLE_FERRULE_PORT_MM * U)
   if (head.z < plateSafeZ) head.z = plateSafeZ
   return {
     head: arr(head),
@@ -333,6 +349,12 @@ export function wireBodyPoints3D(
 
   if (manual.length > 0) {
     controls = [a, ...manual, b]
+  } else if (leads.a && leads.b && (endTypeOf(wire, 'from') === 'probe' || endTypeOf(wire, 'to') === 'probe')) {
+    // Cabo de ensaio solto: tangentes axiais ao sair da ficha e do punho,
+    // com folga para uma curva contínua, em vez de canais ortogonais do painel.
+    const reach = Math.max(0.45, v(a).distanceTo(v(b)) * 0.55)
+    const curve = new THREE.CubicBezierCurve3(v(a), v(a).addScaledVector(v(leads.a), reach), v(b).addScaledVector(v(leads.b), reach), v(b))
+    return keepInFrontOfPlate(curve.getPoints(96).map(arr), outerMm)
   } else if (wire.route === 'direct') {
     controls = [a, b]
     smooth = false
@@ -669,6 +691,28 @@ export type WirePath3D = {
 const endTypeOf = (wire: Wire, side: 'from' | 'to'): WireEndType =>
   (side === 'from' ? wire.fromEndType : wire.toEndType) ?? wire.endType ?? 'none'
 
+function finishWireBody(points: V3[], wire: Wire, outerMm: number, obstacles: WireObstacle[], exits: Parameters<typeof keepWireOutsideSolids>[3]): V3[] {
+  const minZ = wireFrontLimit(outerMm)
+  const instrument = endTypeOf(wire, 'from') === 'probe' || endTypeOf(wire, 'to') === 'probe'
+  const safe = keepWireOutsideSolids(points, outerMm, obstacles, exits, minZ, wireHash(wire))
+  if (!instrument || safe === points || safe.length < 3) return safe
+  // Reservar espaço para a curva antes de calcular o desvio. Arredondar apenas
+  // depois de contornar a caixa, sem voltar a cortar pelo corpo do aparelho.
+  const roomy = keepWireOutsideSolids(points, outerMm + 40, obstacles, exits, minZ, wireHash(wire))
+  const source = roomy.length > 2 ? roomy : safe
+  const controls = source.filter((point, i) => {
+    if (i === 0 || i === source.length - 1) return true
+    const a = v(point).sub(v(source[i - 1])).normalize()
+    const b = v(source[i + 1]).sub(v(point)).normalize()
+    return a.dot(b) < 0.99999
+  })
+  for (const factor of [18, 12, 8, 4]) {
+    const rounded = roundCorners(controls, outerMm, factor)
+    if (keepWireOutsideSolids(rounded, outerMm, obstacles, exits, minZ, wireHash(wire)) === rounded) return rounded
+  }
+  return safe
+}
+
 /** Traçado individual de um cabo (compatível com chamadas isoladas e edição ao vivo). */
 export function buildWirePath3D(
   wire: Wire,
@@ -684,8 +728,8 @@ export function buildWirePath3D(
   const a = endHead(from, endTypeOf(wire, 'from'), preliminary[Math.min(1, preliminary.length - 1)], outerMm)
   const b = endHead(to, endTypeOf(wire, 'to'), preliminary[Math.max(0, preliminary.length - 2)], outerMm)
   const body = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles, trunkHint, effectivePlan)
-  const safe = keepWireOutsideSolids(keepInFrontOfPlate(body, outerMm), outerMm, obstacles,
-    [{ componentId: from.componentId, axis: a.geometry.axis }, { componentId: to.componentId, axis: b.geometry.axis }], wireFrontLimit(outerMm), wireHash(wire))
+  const safe = finishWireBody(keepInFrontOfPlate(body, outerMm), wire, outerMm, obstacles,
+    [{ componentId: from.componentId, axis: a.geometry.axis }, { componentId: to.componentId, axis: b.geometry.axis }])
   return { points: safe, starts: [a.geometry, b.geometry] }
 }
 
@@ -771,8 +815,8 @@ export function buildAllWirePaths3D(
   }
   const entries: Entry[] = []
   for (const wire of wires) {
-    const from = wireEndpoint3D(wire, 'from', components, pivots)
-    const to = wireEndpoint3D(wire, 'to', components, pivots)
+    const from = wireEndpoint3D(wire, 'from', components, pivots, wires)
+    const to = wireEndpoint3D(wire, 'to', components, pivots, wires)
     if (!from || !to) continue
     const outerMm = cableOuterDiameterMm(wire.gauge)
     const { plan } = computeBasePlan(wire, from, to, outerMm, obstacles)

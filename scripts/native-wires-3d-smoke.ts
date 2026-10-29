@@ -40,9 +40,22 @@ const plateOffenders: string[] = []
 const offenders: string[] = []
 const coordinated = buildAllWirePaths3D(built.wires, built.components, pivots, obstacles)
 check('Todos os cabos têm traçado visível', built.wires.every(w => (coordinated.get(w.id)?.points.length ?? 0) >= 2), built.wires.filter(w => (coordinated.get(w.id)?.points.length ?? 0) < 2).map(w => w.number).join(', '))
+for (const lead of built.wires.filter(w => w.id.startsWith('native-meter-'))) {
+  const path = coordinated.get(lead.id)!
+  const points = path.points.map(p => new THREE.Vector3(...p))
+  const directions = points.slice(1).map((p, i) => p.clone().sub(points[i]).normalize())
+  check(`${lead.number}: cabo sai axialmente da ficha e do punho`, directions[0].dot(new THREE.Vector3(...path.starts[0].axis)) > 0.995 && directions.at(-1)!.clone().negate().dot(new THREE.Vector3(...path.starts[1].axis)) > 0.995)
+  check(`${lead.number}: curva contínua sem cotovelos agudos`, directions.slice(1).every((d, i) => d.angleTo(directions[i]) < Math.PI / 9))
+  const feed = built.wires.find(w => w.id !== lead.id && w.toTerminalId === lead.toTerminalId)!
+  const ferrule = coordinated.get(feed.id)!.starts[1]
+  const axis = new THREE.Vector3(...ferrule.axis)
+  const offset = new THREE.Vector3(...path.starts[1].origin).sub(new THREE.Vector3(...ferrule.origin))
+  check(`${lead.number}: sonda na segunda entrada da ponteira dupla`, ferrule.type === 'ferruleDouble' && Math.abs(offset.dot(axis) - 0.1) < 1e-8 && Math.abs(offset.clone().cross(axis).length() - 0.024) < 1e-8)
+  check(`${lead.number}: alimentação separada da sonda`, new THREE.Vector3(...coordinated.get(feed.id)!.points.at(-1)!).distanceTo(new THREE.Vector3(...path.starts[1].origin)) > 0.048)
+}
 for (const wire of built.wires) {
-  const from = wireEndpoint3D(wire, 'from', built.components, pivots)
-  const to = wireEndpoint3D(wire, 'to', built.components, pivots)
+  const from = wireEndpoint3D(wire, 'from', built.components, pivots, built.wires)
+  const to = wireEndpoint3D(wire, 'to', built.components, pivots, built.wires)
   if (!from || !to) continue
   const { points, starts } = coordinated.get(wire.id) ?? buildWirePath3D(wire, from, to, obstacles)
   for (const obstacle of obstacles) {

@@ -5,7 +5,7 @@ import { meterInputFor } from '../src/electrical/meterModel'
 import { DM20_DEFINITION } from '../src/three/MultimeterDm20Panel'
 import { multimeterReading } from '../src/catalog/behavior'
 import { nativePartidaDiretaContent } from '../src/project/nativeProjects'
-import { upgradeNativeMotorMeter } from '../src/project/nativeMotorMeter'
+import { upgradeNativeMotorMeter, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE } from '../src/project/nativeMotorMeter'
 import { useSimStore } from '../src/store/useSimStore'
 import { buildWirePath3D, componentObstacles, wireEndpoint3D, cableOuterDiameterMm, type WireObstacle } from '../src/three/wireGeometry3D'
 import { pathEntersBoxes, segmentEntersBox, keepWireOutsideSolids } from '../src/three/solidWireRouting'
@@ -50,6 +50,27 @@ assert.equal(upgradeNativeMotorMeter(ordinary), ordinary, 'outros projetos perma
 const withMeterRef = { ...old, components: old.components.map((c:any,i:number)=>i===0?{...c,ref:'MM1'}:c) }
 assert.equal(upgradeNativeMotorMeter(withMeterRef).components.at(-1).ref,'MM2','evita duplicar uma referência já usada pelo utilizador')
 console.log('PASS — Nativo guardado: atualização aditiva, persistência, edições preservadas e sem duplicação')
+
+const v1 = { ...seed, nativeFeatures: [NATIVE_MOTOR_METER_FEATURE], wires: seed.wires.map((w: Wire) => w.toEndType === 'ferruleDouble' ? { ...w, toEndType: 'ferrule', toEndColor: '#445566', waypoints3D: [{ x: 1, y: 2, z: 3 }] } : w) }
+const v2 = upgradeNativeMotorMeter(v1)
+assert.equal(v2.components, v1.components, 'a atualização dos colares preserva os aparelhos e a sua posição')
+const changed = v2.wires.filter((w: Wire, i: number) => w !== v1.wires[i])
+assert.equal(changed.length, 2, 'apenas a alimentação em U1/V1 recebe ponteira dupla')
+for (const w of changed) {
+  assert.equal(w.toEndType, 'ferruleDouble')
+  const original = v1.wires.find((old: Wire) => old.id === w.id)
+  assert.equal(w.waypoints3D, original.waypoints3D, 'preserva o traçado manual')
+  assert.equal(w.toEndColor, original.toEndColor, 'preserva a cor da ponteira')
+}
+assert.ok(v2.nativeFeatures.includes(NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE))
+assert.equal(upgradeNativeMotorMeter(v2), v2)
+const noProbes = { ...v1, wires: v1.wires.filter((w: Wire) => !w.id.startsWith('native-meter-')) }
+assert.deepEqual(upgradeNativeMotorMeter(noProbes).wires, noProbes.wires, 'não repõe sondas removidas')
+store().loadJSON(JSON.stringify(v1))
+assert.ok(store().dirty, 'abrir a versão anterior assinala os colares por guardar')
+store().loadJSON(store().saveJSON())
+assert.equal(store().wires.filter(w => w.toEndType === 'ferruleDouble').length, 2)
+console.log('PASS — Ponteiras duplas: migração v1, duas entradas, traçados/cores preservados e guardar/reabrir')
 
 // Reproduz o cabo que regressava pelo próprio corpo, incluindo waypoints manuais.
 for (const angle of [0, -35, 45]) {

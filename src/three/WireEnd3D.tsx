@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
 import type { WireEndGeometry } from './wireGeometry3D'
+import { DOUBLE_FERRULE_PORT_MM } from './wireGeometry3D'
 
 const U = PANEL_UNITS_PER_MM
 const METAL = '#cfd6e0'
@@ -100,12 +101,14 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
       case 'ferruleDouble': {
         const sleeve = embed || 8 * U
         const collar = 8 * U
-        const tubeR = socketR * 0.48
-        const off = socketR * 0.48
+        const off = DOUBLE_FERRULE_PORT_MM * U
+        const radius = Math.max(collarR, R + 0.5 * U)
         return <group>
-          <group position={[-off, 0, 0]}><Cyl y={-sleeve / 2} length={sleeve} radius={tubeR} color={METAL} metalness={0.85} roughness={0.25} /></group>
-          <group position={[off, 0, 0]}><Cyl y={-sleeve / 2} length={sleeve} radius={tubeR} color={METAL} metalness={0.85} roughness={0.25} /></group>
-          <Cyl y={collar / 2} length={collar} radius={collarR} scaleX={1.55} color={color} roughness={0.68} />
+          <Cyl y={-sleeve / 2} length={sleeve} radius={socketR * 0.98} color={METAL} metalness={0.85} roughness={0.25} />
+          <Cyl y={collar / 2} length={collar} radius={radius} scaleX={(off + radius) / radius} color={color} roughness={0.68} />
+          {[-off, off].map(x => <group key={x} position={[x, collar, 0]} userData={{ ferrulePort: true }}>
+            <Cyl y={0} length={0.2 * U} radius={R * 1.08} color="#20252c" roughness={0.9} />
+          </group>)}
         </group>
       }
       case 'pin': {
