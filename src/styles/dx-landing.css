@@ -2472,3 +2472,20 @@ html:has(.dx-landing) {
   overflow: hidden;
   contain: layout paint;
 }
+
+/* Demo landing: só simular — esconder chrome secundário */
+.dc-demo-root .dc-statusbar { display: none !important; }
+.dc-demo-root .ladder-bottom-panel { display: none !important; }
+.dc-demo-root .ladder-plc-target { display: none !important; }
+.dc-demo-root .grafcet-inspector,
+.dc-demo-root .grafcet-bottom-dock,
+.dc-demo-root .grafcet-selection-bar,
+.dc-demo-root .grafcet-selbar,
+.dc-demo-root .grafcet-properties,
+.dc-demo-root .grafcet-live-status,
+.dc-demo-root .grafcet-preview-status,
+.dc-demo-root .grafcet-toolbox { display: none !important; }
+.dc-demo-root .dc-demo-pill { display: none !important; }
+/* Mais zoom visual no canvas da demo */
+.dc-demo-root .schematic-viewport,
+.dc-demo-root .panel3d-host { transform-origin: center center; }

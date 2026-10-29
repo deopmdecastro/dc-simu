@@ -404,9 +404,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <button onClick={pause} disabled={sim.runState !== 'running'} className={`${segBtn(false)} !px-2 !text-state-pause`} title="Pausar">
               <IconPause size={13} />
             </button>
-            <button onClick={stop} disabled={sim.runState === 'stopped'} className={`${segBtn(false)} !px-2 !text-ink-700`} title="Parar (STOP)">
+            {!demo && <button onClick={stop} disabled={sim.runState === 'stopped'} className={`${segBtn(false)} !px-2 !text-ink-700`} title="Parar (STOP)">
               <IconStop size={13} />
-            </button>
+            </button>}
             {!demo && <button onClick={step} className={`${segBtn(false)} !px-2 !text-brand-600`} title="Avançar um ciclo de varredura">
               <IconStep size={13} />
             </button>}
@@ -414,6 +414,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               <IconReset size={13} />
             </button>}
           </div>
+          {!demo && (
+            <>
           <Select
             value={sim.mode}
             onChange={(e) => setSimMode(e.target.value as any)}
@@ -429,6 +431,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               <option key={v} value={v}>{v}×</option>
             ))}
           </Select>
+            </>
+          )}
           <span className="tb-sep" />
           <span
             className={`inline-flex items-center gap-1.5 h-[24px] px-2.5 rounded-[5px] font-mono text-[11px] font-bold tracking-[0.08em] text-white whitespace-nowrap ${runBadge.cls}`}
@@ -466,7 +470,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
 
         {/* «Simulação» igual ao do GRAFCET: mostra/esconde o painel de simulação da vista */}
-        {(mode === 'schematic' || mode === 'ladder') && (
+        {(mode === 'schematic' || mode === 'ladder') && !demo && (
           <>
             <span className="tb-sep" />
             <SimToggleButton on={simPanelOn} scope={mode} onClick={() => mode === 'schematic' ? onToggleSchematicSim?.() : useSimUi.getState().toggleSimPanel('ladder')}
@@ -503,7 +507,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           <>
             <span className="tb-sep" />
             {!demo && <button type="button" className={`dc-tool-btn grafcet-palette-tool !gap-1.5 ${grafcetPalette ? 'is-on' : ''}`} aria-pressed={grafcetPalette} aria-label="Componentes" onClick={() => useGrafcetUi.getState().emit('togglePalette')} title="Mostrar/ocultar os componentes (Ctrl+B)"><IconLayers size={13} /><span>Componentes</span></button>}
-            <SimToggleButton on={grafcetSimVisible} scope="grafcet" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'} />
+            {!demo && <SimToggleButton on={grafcetSimVisible} scope="grafcet" onClick={() => useGrafcetUi.getState().toggleSim()} title={grafcetSimVisible ? 'Esconder a simulação' : 'Mostrar a simulação'} />}
             <span className="tb-sep" />
             <div className="dc-seg" role="toolbar" aria-label="Ferramentas de seleção e navegação">
               {(demo ? GRAFCET_TOOLS.filter((t) => t.id !== 'connect') : GRAFCET_TOOLS).map(({ id, label, icon: Icon, key, title }) => (

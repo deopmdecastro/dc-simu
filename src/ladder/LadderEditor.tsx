@@ -1168,6 +1168,10 @@ function BlockProgramView({ id, notify, registerInsert, registerAddRung }: {
   const table = useSimStore((s) => s.runtime.table)
   const rungPowered = useSimStore((s) => s.runtime.rungPowered)
   const running = useSimStore((s) => s.sim.runState === 'running')
+  const demoModeBlock = useSimStore((s) => s.demoMode)
+  const visibleBlockRungs = demoModeBlock && running
+    ? (rungs.filter((rung) => rungPowered[rung.id]).length ? rungs.filter((rung) => rungPowered[rung.id]) : rungs)
+    : rungs
   const grid = useSimStore((s) => s.grid)
   const ladderZoom = useLadderZoom((state) => state.zoom)
   const networksRef = useRef<HTMLDivElement>(null)
@@ -1348,8 +1352,8 @@ function BlockProgramView({ id, notify, registerInsert, registerAddRung }: {
             <em>→ nova network</em>
           </div>
         )}
-        <div className={`ladder-networks-scale ${rungs.length ? '' : 'is-empty'}`} style={{ zoom: ladderZoom * ZOOM_BASE }}>
-          {rungs.map((r, i) => (
+        <div className={`ladder-networks-scale ${visibleBlockRungs.length ? '' : 'is-empty'}`} style={{ zoom: ladderZoom * ZOOM_BASE }}>
+          {visibleBlockRungs.map((r, i) => (
             <div
               key={r.id}
               id={`ladder-net-${r.id}`}
@@ -1610,6 +1614,13 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
     }
     return blocks
   }, [demoMode, files])
+
+  /** Demo: em RUN só networks energizadas; parado mostra todas. */
+  const visibleRungs = useMemo(() => {
+    if (!demoMode || !running) return rungs
+    const powered = rungs.filter((r) => rungPowered[r.id])
+    return powered.length ? powered : rungs
+  }, [demoMode, running, rungs, rungPowered])
 
   const focusRung = useCallback((id: string | undefined) => {
     if (!id) return
@@ -2045,8 +2056,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
                 <em>→ nova network</em>
               </div>
             )}
-            <div className={`ladder-networks-scale ${rungs.length ? '' : 'is-empty'}`} style={{ zoom: ladderZoom * ZOOM_BASE }}>
-              {rungs.map((r, i) => (
+            <div className={`ladder-networks-scale ${(demoMode ? visibleRungs : rungs).length ? '' : 'is-empty'}`} style={{ zoom: ladderZoom * ZOOM_BASE }}>
+              {(demoMode ? visibleRungs : rungs).map((r, i) => (
                 <div
                   key={r.id}
                   id={`ladder-net-${r.id}`}

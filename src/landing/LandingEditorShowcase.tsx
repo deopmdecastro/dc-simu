@@ -54,6 +54,12 @@ export default function LandingEditorShowcase({ onAccess }: { onAccess: () => vo
         if (!mounted.current) return
         store.loadJSON(JSON.stringify(tidyDemoWires(payload.content)))
         store.setCurrentProjectName(payload.name)
+        // Demo focada: mais zoom no esquema/painel e no Ladder
+        store.setZoom(1.35)
+        try {
+          const { useLadderZoom } = await import('../ladder/ladderZoom')
+          useLadderZoom.getState().setZoom(1.15)
+        } catch { /* ignore */ }
         store.setDemoMode(true)
         setReady(true)
       } catch {

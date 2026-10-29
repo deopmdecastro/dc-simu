@@ -273,7 +273,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
       </div>
 
       {/* ============================================== barra de estado */}
-      <footer className="dc-statusbar shrink-0 flex items-center gap-2 px-3 h-[26px] border-t border-line bg-surface-rail text-[11px] text-ink-500 select-none">
+      {!demo && <footer className="dc-statusbar shrink-0 flex items-center gap-2 px-3 h-[26px] border-t border-line bg-surface-rail text-[11px] text-ink-500 select-none">
         <span className="dc-sb-brand text-ink-400 font-semibold tracking-wide">DC·SIMU <span className="font-normal">v4.6</span></span>
         <span className="dc-sb-sep h-3.5 w-px bg-line" />
         <span className="dc-sb-project truncate max-w-[280px]" title="Ctrl+S guarda · Ctrl+Shift+O reabre a lista de projetos guardados neste navegador">
@@ -316,7 +316,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
           <span className="dc-sb-scan font-mono tabular-nums text-ink-500 shrink-0">scan #{scanCount}</span>
         </span>
         <InstallApp />
-      </footer>
+      </footer>}
     </div>
   )
 }
