@@ -204,7 +204,7 @@ function DeferredEditorShowcase({ onAccess }: { onAccess: () => void }) {
   }, [])
   const skeleton = <div className="dx-stage-skeleton" role="status">A carregar o editor…</div>
   return (
-    <div ref={ref} style={{ minHeight: visible ? undefined : 560 }}>
+    <div ref={ref} style={{ minHeight: visible ? undefined : 380 }}>
       {visible ? <Suspense fallback={skeleton}><LandingEditorShowcase onAccess={onAccess} /></Suspense> : skeleton}
     </div>
   )
