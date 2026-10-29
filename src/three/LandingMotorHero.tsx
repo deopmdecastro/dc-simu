@@ -24,7 +24,7 @@ import { applyEditorMotorTextures } from './motorEditorTextures'
 /** Direção isométrica (do alvo para a câmara): 45° em azimute, ~35,3° de elevação. */
 const ISO_DIR = new THREE.Vector3(1, 0.82, 1).normalize()
 /** Fração da altura útil que o motor ocupa (bounding sphere); o resto é respiro. */
-const FILL = 0.74
+const FILL = 0.88
 
 
 function FitIsoCamera({ box }: { box: THREE.Box3 }) {
@@ -135,8 +135,8 @@ function StudioEnvironment() {
 export default function LandingMotorHero() {
   const hostRef = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(true)
-  // Resolução adaptativa: sobe a 1,5 em máquinas folgadas e desce a 1 se o FPS cair.
-  const [dpr, setDpr] = useState(1.25)
+  // Resolução adaptativa: começa mais baixa para landing leve; sobe a 1.5 só se FPS permitir.
+  const [dpr, setDpr] = useState(1.0)
 
   // Sem render fora do ecrã: poupa GPU/bateria enquanto o utilizador lê o resto da página.
   useEffect(() => {

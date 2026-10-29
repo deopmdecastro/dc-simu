@@ -1166,7 +1166,8 @@ function Lamp3D({ c, x }: { c: ElectricalComponent; x: number }) {
         <cylinderGeometry args={[0.115, 0.115, 0.14, 24]} />
         <meshStandardMaterial color={on ? color : '#374151'} emissive={on ? color : '#000000'} emissiveIntensity={on ? 2.2 : 0} roughness={on ? 0.25 : 0.5} toneMapped={!on} />
       </mesh>
-      <GlowHalo color={color} on={on} radius={0.115} kind="lamp" position={[0, 0.02, 0.14]} />
+      {/* Halo encostado ao vidro/lente superior do cilindro */}
+      <GlowHalo color={color} on={on} radius={0.115} kind="lamp" position={[0, 0.08, 0.02]} />
       <Label text={c.ref} position={[0, 0.22, 0]} />
     </group>
   )
@@ -1209,7 +1210,8 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
   }, [color, model, on])
   return <group position={[x, RAIL_Y + 1.05, 0.4]}>
     <primitive object={model} />
-    <GlowHalo color={color} on={on} radius={0.12} kind="lamp" position={[0, 0, 0.5]} />
+    {/* Halo encostado à lente frontal (vidro) — z ~0.06–0.09 em unidades de painel */}
+    <GlowHalo color={color} on={on} radius={0.11} kind="lamp" position={[0, 0, 0.075]} />
     <Label text={`${c.ref} · AD22`} position={[0, 0.3, 0.08]} color="#334155" />
   </group>
 }

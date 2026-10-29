@@ -104,7 +104,13 @@ export function applyEditorMotorTextures(root: THREE.Object3D) {
       }
 
       material.roughness = entry.roughness
-      material.metalness = entry.metalness
+      // Metais: metalness mais alta e roughness um pouco mais baixa para aspeto real metálico no hero.
+      if (entry.metal) {
+        material.metalness = Math.max(entry.metalness ?? 0.85, 0.92)
+        material.roughness = Math.min(entry.roughness ?? 0.35, 0.28)
+      } else {
+        material.metalness = entry.metalness
+      }
       if (entry.tint) {
         if (keepColor) material.color.copy(keepColor)
         else material.color.set(entry.color)
@@ -117,7 +123,7 @@ export function applyEditorMotorTextures(root: THREE.Object3D) {
           Math.min(keepColor.b, 0.1),
         )
       }
-      material.envMapIntensity = Math.max(material.envMapIntensity ?? 1, 1.35)
+      material.envMapIntensity = Math.max(material.envMapIntensity ?? 1, entry.metal ? 1.6 : 1.35)
       material.needsUpdate = true
       return material
     })
