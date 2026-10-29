@@ -12,6 +12,11 @@
  *
  * Corre com `npx tsx scripts/emergency-actuator-smoke.ts`.
  */
+/** Ambiente Node: o GLTFLoader do Three precisa de `self` para descarregar imagens embutidas no GLB. */
+if (typeof (globalThis as { self?: unknown }).self === 'undefined') {
+  ;(globalThis as { self: typeof globalThis }).self = globalThis
+}
+
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as THREE from 'three'
