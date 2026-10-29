@@ -57,10 +57,12 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
 
   const R = wireRadius
   const embed = geometry.embedMm * U
-  const socketR = geometry.socketDiameterMm ? (geometry.socketDiameterMm * U) / 2 : R * 0.72
-  // A abertura define apenas o metal e o colar da terminação. O raio do cabo
-  // continua a vir exclusivamente da secção escolhida.
-  const collarR = Math.max(R * 1.17, socketR * 1.08)
+  // Manga metálica proporcional ao furo do borne, mas limitada pelo cabo
+  // (evita ponteiras enormes em bornes M4/M5 ou estojos do motor).
+  const socketR = geometry.socketDiameterMm ? (geometry.socketDiameterMm * U) / 2 : R * 0.85
+  const sleeveR = Math.min(Math.max(R * 0.95, socketR * 0.72), R * 1.35)
+  // Colar isolante redondo: ~1.4× o raio do cabo (DIN 46228-4 típico).
+  const collarR = Math.max(R * 1.38, sleeveR * 1.08)
   // As ponteiras entram `embed` no borne: o referencial começa nesse recuo.
   const body = (() => {
     switch (geometry.type) {
@@ -72,61 +74,47 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
           <Cyl y={19 * U} length={2 * U} radius={2 * U} color={color} />
         </>
       case 'probe':
+        // Ponta de prova: agulha fina centrada no eixo, corpo cónico e cabo
+        // alinhados — a ponta assenta no borne sem «flutuar».
         return <>
-          <Cyl y={5 * U} length={14 * U} radius={0.8 * U} color={METAL} metalness={0.9} roughness={0.24} />
-          <mesh position={[0, 18 * U, 0]} raycast={() => null}>
-            <cylinderGeometry args={[4.5 * U, 1.6 * U, 12 * U, 20]} /><meshStandardMaterial color={color} roughness={0.66} />
+          <Cyl y={4 * U} length={12 * U} radius={0.55 * U} color={METAL} metalness={0.92} roughness={0.18} />
+          <mesh position={[0, 14 * U, 0]} raycast={() => null}>
+            <cylinderGeometry args={[3.6 * U, 0.9 * U, 10 * U, 20]} /><meshStandardMaterial color={color} roughness={0.62} />
           </mesh>
-          <Cyl y={26 * U} length={4 * U} radius={8 * U} color={color} roughness={0.8} />
-          <Cyl y={60 * U} length={64 * U} radius={4.8 * U} color={color} roughness={0.75} />
-          {[38, 46, 54, 62, 70, 78].map(y => <Cyl key={y} y={y * U} length={1.4 * U} radius={5.1 * U} color={color} roughness={0.9} />)}
-          <Cyl y={100 * U} length={16 * U} radius={2.7 * U} color={color} roughness={0.8} />
+          <Cyl y={22 * U} length={3.5 * U} radius={6.5 * U} color={color} roughness={0.78} />
+          <Cyl y={52 * U} length={56 * U} radius={4.2 * U} color={color} roughness={0.72} />
+          {[34, 42, 50, 58, 66].map(y => <Cyl key={y} y={y * U} length={1.2 * U} radius={4.5 * U} color={color} roughness={0.88} />)}
+          <Cyl y={88 * U} length={12 * U} radius={2.4 * U} color={color} roughness={0.8} />
         </>
       case 'ferrule': {
-        // Ponteira tubular isolada DIN 46228-4: manga metálica + colarinho
-        // plástico com secção quase quadrada (como as comerciais).
-        const sleeve = embed || 7.5 * U
-        const collar = 7 * U
-        const side = Math.max(collarR * 1.85, R * 2.2)
+        // Ponteira tubular isolada REDONDA (comando e força): manga metálica +
+        // colar cilíndrico proporcional ao cabo — nunca um bloco quadrado.
+        const sleeve = Math.min(embed || 6 * U, 8 * U)
+        const collar = 6 * U
         return <>
-          <Cyl y={-sleeve / 2} length={sleeve} radius={socketR * 0.96} color={METAL} metalness={0.88} roughness={0.22} />
-          <mesh position={[0, collar / 2, 0]} userData={{ noPick: true }} raycast={() => null}>
-            <boxGeometry args={[side, collar, side]} />
-            <meshStandardMaterial color={color} roughness={0.62} metalness={0.04} />
-          </mesh>
-          {/* Chanfro superior do colar + boca do cabo */}
-          <Cyl y={collar - 0.55 * U} length={1.1 * U} radius={collarR * 0.92} color={color} roughness={0.66} />
-          <Cyl y={collar + 0.15 * U} length={0.5 * U} radius={R * 1.05} color="#1e2430" roughness={0.9} />
+          <Cyl y={-sleeve / 2} length={sleeve} radius={sleeveR} color={METAL} metalness={0.88} roughness={0.22} />
+          <Cyl y={collar / 2} length={collar} radius={collarR} color={color} roughness={0.6} />
+          <Cyl y={collar - 0.4 * U} length={0.9 * U} radius={collarR * 0.92} color={color} roughness={0.64} />
+          <Cyl y={collar + 0.2 * U} length={0.45 * U} radius={R * 1.02} color="#1e2430" roughness={0.9} />
         </>
       }
       case 'ferruleDouble': {
-        // Colar duplo/múltiplo: corpo retangular único + mangas metálicas partilhadas
-        // e entradas bem separadas (evita o «bolo» de cabos empilhados no borne).
-        const sleeve = embed || 7.5 * U
-        const collar = 8.5 * U
+        // Colar duplo: corpo oval/cilíndrico compacto com bocas redondas.
+        const sleeve = Math.min(embed || 6 * U, 8 * U)
+        const collar = 7 * U
         const nPorts = Math.min(4, Math.max(2, geometry.portCount ?? 2))
-        const step = DOUBLE_FERRULE_PORT_MM * 1.85 * U
+        const step = DOUBLE_FERRULE_PORT_MM * 1.55 * U
         const halfSpan = ((nPorts - 1) * step) / 2
-        const bodyW = halfSpan * 2 + collarR * 2.1
-        const bodyD = collarR * 1.95
         const ports = Array.from({ length: nPorts }, (_, idx) => (idx - (nPorts - 1) / 2) * step)
+        const bodyR = collarR * 0.95
+        const scaleX = (halfSpan + bodyR) / bodyR
         return <group>
-          {/* Manga metálica única no borne */}
-          <Cyl y={-sleeve / 2} length={sleeve} radius={socketR * 0.96} color={METAL} metalness={0.88} roughness={0.22} />
-          {/* Corpo isolante retangular (não elipse esticada) */}
-          <mesh position={[0, collar / 2, 0]} userData={{ noPick: true }} raycast={() => null}>
-            <boxGeometry args={[bodyW, collar, bodyD]} />
-            <meshStandardMaterial color={color} roughness={0.58} metalness={0.04} />
-          </mesh>
-          {/* Filete superior + entradas dos condutores */}
-          <mesh position={[0, collar - 0.4 * U, 0]} userData={{ noPick: true }} raycast={() => null}>
-            <boxGeometry args={[bodyW * 0.96, 0.9 * U, bodyD * 0.96]} />
-            <meshStandardMaterial color={color} roughness={0.64} metalness={0.03} />
-          </mesh>
+          <Cyl y={-sleeve / 2} length={sleeve} radius={sleeveR} color={METAL} metalness={0.88} roughness={0.22} />
+          <Cyl y={collar / 2} length={collar} radius={bodyR} scaleX={scaleX} color={color} roughness={0.58} />
+          <Cyl y={collar - 0.35 * U} length={0.8 * U} radius={bodyR * 0.94} scaleX={scaleX} color={color} roughness={0.62} />
           {ports.map((x, idx) => (
-            <group key={idx} position={[x, collar + 0.1 * U, 0]} userData={{ ferrulePort: true }}>
-              <Cyl y={0} length={0.55 * U} radius={R * 1.12} color="#1a1f28" roughness={0.92} />
-              <Cyl y={0.35 * U} length={0.35 * U} radius={R * 0.95} color="#2a3140" roughness={0.88} />
+            <group key={idx} position={[x, collar + 0.08 * U, 0]} userData={{ ferrulePort: true }}>
+              <Cyl y={0} length={0.5 * U} radius={R * 1.05} color="#1a1f28" roughness={0.92} />
             </group>
           ))}
         </group>

@@ -187,15 +187,15 @@ export const FLAT_LUG_TYPES: WireEndType[] = ['ring', 'fork', 'faston']
 /** Comprimento físico de cada terminação (mm), da ponta ao início do cabo isolado. */
 export function wireEndLengthMm(type: WireEndType): number {
   switch (type) {
-    case 'ferrule': return 14
-    case 'ferruleDouble': return 16
-    case 'pin': return 15
+    case 'ferrule': return 12
+    case 'ferruleDouble': return 14
+    case 'pin': return 14
     case 'ring':
     case 'fork':
-    case 'faston': return 20
+    case 'faston': return 18
     case 'tinned': return 8
-    case 'banana': return 24
-    case 'probe': return 110
+    case 'banana': return 22
+    case 'probe': return 96
     default: return 7
   }
 }
@@ -217,8 +217,10 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
   const dir = toWire.lengthSq() > 1e-8 ? toWire.clone().normalize() : new THREE.Vector3(0, -1, 0)
   const normal = endpoint.normal ? v(endpoint.normal) : null
   const flat = FLAT_LUG_TYPES.includes(type)
-  const embedMm = normal && type === 'banana' ? 4 : normal && type === 'probe' ? 2
-    : normal && !flat && (type === 'ferrule' || type === 'ferruleDouble' || type === 'pin') ? 8 : 0
+  // Probe: embed curto para a ponta assentar no borne; ferrules mais curtas
+  // para não «saltar» fora do furo em bornes pequenos.
+  const embedMm = normal && type === 'banana' ? 4 : normal && type === 'probe' ? 3
+    : normal && !flat && (type === 'ferrule' || type === 'ferruleDouble' || type === 'pin') ? 5 : 0
   const length = Math.max(0.01, (wireEndLengthMm(type) - embedMm) * U)
   const plateSafeZ = PLATE_Z + PLATE_THICKNESS / 2 + (outerMm / 2) * U + 0.016
   let axis = dir.clone()
@@ -246,7 +248,7 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
     const pIdx = Math.min(nPorts - 1, endpoint.portIndex ?? 0)
     // Mesmo passo lateral do modelo 3D da ponteira (WireEnd3D) para o cabo
     // alinhar com a boca certa e não empilhar no centro.
-    const lateral = (pIdx - (nPorts - 1) / 2) * (DOUBLE_FERRULE_PORT_MM * 1.85 * U)
+    const lateral = (pIdx - (nPorts - 1) / 2) * (DOUBLE_FERRULE_PORT_MM * 1.55 * U)
     const side = doubleFerruleSide(axis)
     origin.addScaledVector(side, lateral)
     head.addScaledVector(side, lateral)
@@ -886,19 +888,24 @@ function buildMotorGlandBody3D(
     )
   }
 
-  const entryLeft = cad(-38 + idx * 8, MOTOR_GLAND.y + dy * 2.4, 94 + idx * 5.5)
-  const frontSweep = cad(66 + dx * 2.2, MOTOR_GLAND.y + dy * 2.0, 98 + idx * 5.0)
-  const glandMouth = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 88)
-  const glandCap = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 73)
-  const glandInner = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 50)
+  // Entrada pelo bucim M20: caminho axial limpo (boca → cúpula → interior).
+  const entryLeft = cad(-38 + idx * 6, MOTOR_GLAND.y + dy * 1.6, 92 + idx * 3.5)
+  const frontSweep = cad(MOTOR_GLAND.x + dx * 1.2, MOTOR_GLAND.y + dy * 1.2, 96 + idx * 3.0)
+  const glandMouth = cad(MOTOR_GLAND.x + dx * 0.6, MOTOR_GLAND.y + dy * 0.6, 86)
+  const glandCap = cad(MOTOR_GLAND.x + dx * 0.4, MOTOR_GLAND.y + dy * 0.4, 72)
+  const glandInner = cad(MOTOR_GLAND.x + dx * 0.3, MOTOR_GLAND.y + dy * 0.3, 52)
 
+  // Dentro da caixa: curva suave do bucim até ao borne (evita ziguezagues e
+  // sobreposições nas ponteiras). Um ponto intermédio + aproximação axial.
+  const approachZ = Math.max(headCad.z + 6, 28)
+  const midY = (MOTOR_GLAND.y + headCad.y) * 0.5
   const innerBoxPoints: V3[] = label === 'PE'
-    ? [cad(114, 122.5, 44), cad(headCad.x, Math.max(126.0, headCad.y + 1.5), headCad.z + 4)]
+    ? [cad(headCad.x * 0.55 + MOTOR_GLAND.x * 0.45, midY + 4, 42), cad(headCad.x, headCad.y + 1.2, approachZ)]
     : label === 'U1' || label === 'W2'
-      ? [cad(98, 120.5, 32), cad(headCad.x, Math.max(127.0, headCad.y + 2.2), headCad.z + 10)]
+      ? [cad(headCad.x * 0.5 + MOTOR_GLAND.x * 0.5, midY + 2, 36), cad(headCad.x, headCad.y + 1.5, approachZ)]
       : label === 'V1' || label === 'U2'
-        ? [cad(112, 115.5, 25), cad(headCad.x, Math.max(126.2, headCad.y + 1.8), headCad.z + 8)]
-        : [cad(124, 111.5, 22), cad(headCad.x, Math.max(125.5, headCad.y + 1.5), headCad.z + 7)]
+        ? [cad(headCad.x * 0.55 + MOTOR_GLAND.x * 0.45, midY + 1, 34), cad(headCad.x, headCad.y + 1.2, approachZ)]
+        : [cad(headCad.x * 0.5 + MOTOR_GLAND.x * 0.5, midY, 32), cad(headCad.x, headCad.y + 1.2, approachZ)]
 
   const rawControls: V3[] = [
     ...panelChain,
