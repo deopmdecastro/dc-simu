@@ -236,6 +236,21 @@ export function buildNativeWordProgram(grafcet: GrafcetProgram, baseTags: Built[
   return { mainRungs, files, tags, warnings: word.warnings }
 }
 
+/** Ladder da Main [OB1] do projeto nativo (CALL Grafcet + CALL Outputs).
+ *  Mantido para a landing / publish quando o content ainda não traz networks. */
+export function buildNativeLadder(): LadderRung[] {
+  const grafcet = buildNativeGrafcet()
+  const baseTags: Built['tags'] = [
+    { id: 't1', address: 'I0.0', name: 'EMERG', dataType: 'Bool', comment: '' },
+    { id: 't2', address: 'I0.1', name: 'START', dataType: 'Bool', comment: '' },
+    { id: 't3', address: 'I0.2', name: 'STOP', dataType: 'Bool', comment: '' },
+    { id: 't4', address: 'Q0.0', name: 'KM1', dataType: 'Bool', comment: '' },
+    { id: 't5', address: 'Q0.1', name: 'H1', dataType: 'Bool', comment: '' },
+    { id: 't6', address: 'Q0.2', name: 'H2', dataType: 'Bool', comment: '' },
+  ]
+  return buildNativeWordProgram(grafcet, baseTags).mainRungs
+}
+
 /** Monta o conteúdo completo do projeto nativo (esquema + 3D + Ladder + GRAFCET). */
 export function buildNativePartidaDireta(): Built {
   const place = (type: Parameters<typeof createComponent>[0], id: string, ref: string, label: string, x: number, y: number) => {

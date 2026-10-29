@@ -6,7 +6,6 @@ import { hasComponent3DModel } from '../three/modelPaths'
 import type { ComponentType } from '../types'
 import {
   NATIVE_PARTIDA_NAME,
-  buildNativeLadder,
   NATIVE_DEMO_NAMES,
   nativeDemoTable,
 } from '../project/nativeProjects'
