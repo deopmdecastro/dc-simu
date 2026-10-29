@@ -29,7 +29,7 @@ import { IconCheck, IconWarning,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
   IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconRotate,
-} from '../ui/icons'
+ IconText } from '../ui/icons'
 
 /** jsPDF e html2canvas (centenas de KB) só são descarregados quando o utilizador abre «Exportar PDF». */
 const ExportPdfDialog = lazy(() => import('../export/ExportPdfDialog'))
@@ -505,6 +505,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
             {!demo && <span className="tb-sep" />}
             {!demo && <button type="button" className="dc-tool-btn grafcet-signals-tool !gap-1.5" aria-label="Tabela de entradas, saídas e memórias" onClick={() => useGrafcetUi.getState().emit('openSignals')} title="Declarar e organizar os sinais usados nas sugestões"><IconTag size={13} /><span>Variáveis</span></button>}
+            {!demo && <button type="button" className="dc-tool-btn grafcet-text-tool !gap-1.5" aria-label="Texto livre" onClick={() => useGrafcetUi.getState().emit('addText')} title="Texto livre: clique no diagrama para o colocar; arrasta-se e formata-se (tipo de letra, tamanho, cor)"><IconText size={13} /><span>Texto</span></button>}
             {!demo && <button type="button" className="grafcet-toolbar-more dc-tool-btn" aria-expanded={grafcetMoreOpen} onClick={() => setGrafcetMoreOpen((value) => !value)} title="Ficheiros, disposição, modelos e mais ferramentas">
               {grafcetMoreOpen ? 'Menos' : 'Mais'} <IconChevronDown size={12} className={grafcetMoreOpen ? 'rotate-180' : ''} />
             </button>}

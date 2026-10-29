@@ -634,14 +634,55 @@ export interface GridSettings {
 
 export type CanvasNoteView = 'schematic' | '3d'
 
+/** Mensagem de um comentário do canvas (a conversa vive dentro da nota). */
+export interface CanvasNoteMessage {
+  id: string
+  text: string
+  author?: string
+  authorId?: string
+  createdAt: string
+  editedAt?: string
+}
+
 export interface CanvasNote {
   id: string
+  /** Título visível no canvas (projetos antigos: o texto da nota). */
   text: string
   view: CanvasNoteView
   x: number
   y: number
   z?: number
+  /** Cor da nota (amarelo, laranja, rosa, verde, azul, lilás). */
   color?: string
+  messages?: CanvasNoteMessage[]
+  resolved?: boolean
+  createdAt: string
+}
+
+/** Família tipográfica dos textos livres (mapeada para pilhas de fontes do sistema/app). */
+export type CanvasTextFont = 'sans' | 'serif' | 'mono' | 'rounded' | 'hand'
+
+export interface CanvasTextStyle {
+  font: CanvasTextFont
+  /** Tamanho: mm no Esquema/3D; px do desenho no GRAFCET. */
+  size: number
+  color: string
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  align?: 'left' | 'center' | 'right'
+  /** Fundo opcional (etiqueta); vazio = transparente. */
+  background?: string
+}
+
+/** Texto livre posicionado no canvas do Esquema/3D. */
+export interface CanvasText extends CanvasTextStyle {
+  id: string
+  view: CanvasNoteView
+  text: string
+  x: number
+  y: number
+  z?: number
   createdAt: string
 }
 

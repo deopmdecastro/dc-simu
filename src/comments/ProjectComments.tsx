@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { accountApi } from '../auth/accountApi'
 import type { ProjectComment } from '../admin/adminTypes'
 import { uiConfirm } from '../ui/dialogs'
-import Select from '../ui/Select'
 import { COMMENT_ANCHORS, COMMENT_MAX, commentPermissions, type CommentAnchor } from '../saas/platformCore.mjs'
 
 export const ANCHOR_LABEL: Record<CommentAnchor, string> = { geral: 'Geral', esquema: 'Esquema', '3d': '3D', ladder: 'Ladder', grafcet: 'GRAFCET' }
+/** Cada vista tem a sua cor de nota (a mesma paleta das notas do canvas). */
+const ANCHOR_NOTE: Record<CommentAnchor, string> = { geral: '#fde68a', esquema: '#93c5fd', '3d': '#c4b5fd', ladder: '#86efac', grafcet: '#fdba74' }
 
 type Viewer = { id: string; role: 'admin' | 'user' }
 type ListResponse = { comments: ProjectComment[]; canWrite: boolean; reason: string | null }
@@ -84,13 +85,11 @@ export default function ProjectComments({ projectId, projectName, projectRole, v
       </div>
       <button type="button" className="dx-btn dx-btn-ghost dx-btn-sm" onClick={onClose} aria-label="Fechar comentários">Fechar</button>
     </header>
-    <div className="dx-comments-filter" role="group" aria-label="Filtrar comentários">
-      <Select className="dx-input dx-input-sm" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} aria-label="Filtrar comentários">
-        <option value="open">Por resolver</option>
-        <option value="all">Todos</option>
-        {COMMENT_ANCHORS.map((key) => <option key={key} value={key}>Vista: {ANCHOR_LABEL[key]}</option>)}
-      </Select>
-      <button type="button" className="dx-btn dx-btn-ghost dx-btn-sm" onClick={() => void load()} disabled={busy}>Atualizar</button>
+    <div className="dx-comments-filter" role="radiogroup" aria-label="Filtrar comentários">
+      {([['open', 'Por resolver'], ['all', 'Todos'], ...COMMENT_ANCHORS.map((key) => [key, ANCHOR_LABEL[key]])] as Array<[typeof filter, string]>).map(([key, label]) =>
+        <button key={key} type="button" role="radio" aria-checked={filter === key} className="dx-comments-chip" onClick={() => setFilter(key)}
+          style={key in ANCHOR_NOTE ? { ['--chip-note' as string]: ANCHOR_NOTE[key as CommentAnchor] } : undefined}>{label}</button>)}
+      <button type="button" className="dx-comments-chip is-refresh" onClick={() => void load()} disabled={busy} title="Atualizar">Atualizar</button>
     </div>
     {error && <p className="dx-comments-error" role="alert">{error}</p>}
     <div className="dx-comments-list" ref={listRef}>
@@ -99,7 +98,7 @@ export default function ProjectComments({ projectId, projectName, projectRole, v
       {shown.map((comment) => {
         const perms = commentPermissions(comment, viewer, projectRole)
         const mine = comment.authorId === viewer.id
-        return <article key={comment.id} className={`dx-comment ${comment.resolved ? 'is-resolved' : ''} ${mine ? 'is-mine' : ''}`} data-comment={comment.id}>
+        return <article key={comment.id} className={`dx-comment ${comment.resolved ? 'is-resolved' : ''} ${mine ? 'is-mine' : ''}`} data-comment={comment.id} style={{ ['--note' as string]: ANCHOR_NOTE[comment.anchor as CommentAnchor] ?? ANCHOR_NOTE.geral }}>
           <span className="dx-comment-avatar" aria-hidden>{initials(comment.authorName)}</span>
           <div className="dx-comment-body">
             <div className="dx-comment-meta">
@@ -131,13 +130,13 @@ export default function ProjectComments({ projectId, projectName, projectRole, v
     </div>
     {data && !data.canWrite
       ? <p className="dx-comments-locked">{data.reason ?? 'Não pode comentar neste projeto.'}</p>
-      : <form className="dx-comments-form" onSubmit={(event) => void send(event)}>
+      : <form className="dx-comments-form" onSubmit={(event) => void send(event)} style={{ ['--note' as string]: ANCHOR_NOTE[anchor] }}>
         <textarea className="dx-input" rows={3} maxLength={COMMENT_MAX} placeholder="Escreva um comentário… (Ctrl+Enter para enviar)" value={body} onChange={(event) => setBody(event.target.value)}
           onKeyDown={(event) => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) void send(event) }} aria-label="Novo comentário" />
         <div>
-          <Select className="dx-input dx-input-sm" value={anchor} onChange={(event) => setAnchor(event.target.value as CommentAnchor)} aria-label="Vista do comentário">
-            {COMMENT_ANCHORS.map((key) => <option key={key} value={key}>{ANCHOR_LABEL[key]}</option>)}
-          </Select>
+          <span className="dx-comments-anchors" role="radiogroup" aria-label="Vista do comentário">
+            {COMMENT_ANCHORS.map((key) => <button key={key} type="button" role="radio" aria-checked={anchor === key} className="dx-comments-chip" style={{ ['--chip-note' as string]: ANCHOR_NOTE[key] }} onClick={() => setAnchor(key)}>{ANCHOR_LABEL[key]}</button>)}
+          </span>
           <small>{body.length}/{COMMENT_MAX}</small>
           <button type="submit" className="dx-btn dx-btn-primary dx-btn-sm" disabled={busy || !body.trim() || !data}>Comentar</button>
         </div>

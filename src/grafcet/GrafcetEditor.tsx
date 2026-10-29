@@ -36,6 +36,10 @@ import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
 import { renderConditionTspans } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
 import GrafcetSimDock from './GrafcetSimDock'
+import GrafcetFreeText from './GrafcetFreeText'
+import TextStyleBar from '../ui/TextStyleBar'
+import { DEFAULT_TEXT_STYLE_GRAFCET } from '../ui/textStyle'
+import type { CanvasTextStyle } from '../types'
 import GrafcetTemplatesDialog from './GrafcetTemplatesDialog'
 import { applyLadderFromGrafcet, describeLadderDiff, diffGeneratedLadder, hasGeneratedLadder, ladderSyncStatus, previewLadder } from './ladderSync'
 import {
@@ -661,16 +665,65 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     notify('Ação solta criada — arraste-a sobre uma etapa ou ligue por linha (L)')
   }
 
+  /* Texto livre: criado no sítio (sem caixa do sistema), já selecionado e em edição. */
+  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [placingText, setPlacingText] = useState(false)
   const addComment = (at?: { x: number; y: number }) => {
-    const text = window.prompt('Texto solto do GRAFCET:')?.trim()
-    if (!text) return
     const pos = at ?? { x: SPINE_X + 260, y: START_Y }
-    const comment: GrafcetComment = { id: id(), text, x: Math.round(pos.x / GRID) * GRID, y: Math.round(pos.y / GRID) * GRID, fontSize: 13, fontWeight: '600', ...(activeChart ? { chart: activeChart } : {}) }
+    const style = DEFAULT_TEXT_STYLE_GRAFCET
+    const comment: GrafcetComment = {
+      id: id(), text: 'Texto', x: Math.round(pos.x), y: Math.round(pos.y),
+      fontSize: style.size, fontWeight: style.bold ? '700' : '400', font: style.font, color: style.color, align: style.align,
+      ...(activeChart ? { chart: activeChart } : {}),
+    }
     save({ comments: [...allComments, comment] }, 'force', `grafcet:comment:${comment.id}`)
-    notify('Comentário criado — duplo clique para editar')
+    setPlacingText(false)
+    setSelectedCommentId(comment.id)
+    setEditingCommentId(comment.id)
   }
+  const patchComment = (commentId: string, patch: Partial<GrafcetComment>, key = 'style') =>
+    save({ comments: allComments.map((item) => item.id === commentId ? { ...item, ...patch } : item) }, 'auto', `grafcet:comment:${commentId}:${key}`)
+  const commentStyle = (comment: GrafcetComment): CanvasTextStyle => ({
+    font: comment.font ?? 'sans', size: comment.fontSize ?? 13, color: comment.color ?? '#334155',
+    bold: Number(comment.fontWeight ?? 600) >= 600, italic: !!comment.italic, underline: !!comment.underline, align: comment.align ?? 'left', background: comment.background ?? '',
+  })
+  const styleToComment = (patch: Partial<CanvasTextStyle>): Partial<GrafcetComment> => ({
+    ...(patch.font !== undefined ? { font: patch.font } : {}),
+    ...(patch.size !== undefined ? { fontSize: patch.size } : {}),
+    ...(patch.color !== undefined ? { color: patch.color } : {}),
+    ...(patch.bold !== undefined ? { fontWeight: patch.bold ? '700' : '400' } : {}),
+    ...(patch.italic !== undefined ? { italic: patch.italic } : {}),
+    ...(patch.underline !== undefined ? { underline: patch.underline } : {}),
+    ...(patch.align !== undefined ? { align: patch.align } : {}),
+    ...(patch.background !== undefined ? { background: patch.background || undefined } : {}),
+  })
 
-  const removeComment = (commentId: string) => save({ comments: allComments.filter((comment) => comment.id !== commentId) }, 'force', `grafcet:comment:remove:${commentId}`)
+  useEffect(() => {
+    if (!placingText && !selectedCommentId) return
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
+      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); setPlacingText(false); setSelectedCommentId(null); setEditingCommentId(null); return }
+      if (!selectedCommentId) return
+      if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); event.stopImmediatePropagation(); removeComment(selectedCommentId); return }
+      if (event.key === 'Enter' || event.key === 'F2') { event.preventDefault(); event.stopImmediatePropagation(); setEditingCommentId(selectedCommentId); return }
+      if ((event.ctrlKey || event.metaKey) && ['b', 'i', 'u'].includes(event.key.toLowerCase())) {
+        event.preventDefault(); event.stopImmediatePropagation()
+        const item = allComments.find((comment) => comment.id === selectedCommentId)
+        if (!item) return
+        const style = commentStyle(item)
+        const key = event.key.toLowerCase() === 'b' ? 'bold' : event.key.toLowerCase() === 'i' ? 'italic' : 'underline'
+        patchComment(selectedCommentId, styleToComment({ [key]: !style[key] }))
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
+
+  const removeComment = (commentId: string) => {
+    save({ comments: allComments.filter((comment) => comment.id !== commentId) }, 'force', `grafcet:comment:remove:${commentId}`)
+    if (selectedCommentId === commentId) { setSelectedCommentId(null); setEditingCommentId(null) }
+  }
 
   const removeFreeAction = (actionId: string) => {
     save({ freeActions: freeActions.filter((action) => action.id !== actionId) })
@@ -2086,6 +2139,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const clickStartRef = useRef<{ x: number; y: number } | null>(null)
 
   const onPreviewDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (placingText && event.button === 0) {
+      event.preventDefault()
+      const w = clientToWorld(event.clientX, event.clientY)
+      addComment(snapOn && !event.altKey ? { x: snapToGrid(w.x, SPINE_X), y: snapToGrid(w.y, START_Y) } : w)
+      return
+    }
+    // Clique no fundo larga o texto livre selecionado.
+    if (selectedCommentId && !(event.target as Element).closest('[data-grafcet-text]')) { setSelectedCommentId(null); setEditingCommentId(null) }
     if (!steps.length) return
     clickStartRef.current = { x: event.clientX, y: event.clientY }
     // Botão do meio (1), ou ferramenta 'pan' (Arrastar), ou espaço pressionado:
@@ -2508,7 +2569,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       { label: 'Nova etapa aqui', onSelect: () => addStep(place()) },
       { label: 'Nova transição solta aqui', onSelect: () => addFreeTransition(place()) },
       { label: 'Nova ação solta aqui', onSelect: () => addFreeAction(false, place()) },
-      { label: 'Novo comentário aqui', onSelect: () => addComment(place()) },
+      { label: 'Novo texto aqui', onSelect: () => addComment(place()) },
       sep,
       { label: 'Colar', hint: 'Ctrl+V', disabled: !clipboardRef.current, onSelect: pasteClipboard },
       { label: 'Selecionar tudo', hint: 'Ctrl+A', disabled: !steps.length, onSelect: selectAllSteps },
@@ -2825,6 +2886,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         case 'setToolConnect':
           setCanvasTool('connect')
           break
+        case 'addText':
+          setPlacingText((value) => !value)
+          notify('Clique no diagrama para colocar o texto · Esc cancela')
+          break
         case 'addConnectedStep':
           addConnectedStep()
           break
@@ -3097,7 +3162,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         <div className={full ? 'grafcet-canvas-col' : 'grafcet-canvas-col is-preview'}>
         <div
           ref={viewportRef}
-          className={`grafcet-canvas ${sharedGridStyle === 'lines' ? 'grid-lines' : ''} ${activeTool === 'pan' ? 'is-pan-mode' : activeTool === 'connect' ? 'is-connect-mode' : 'is-select-mode'} ${isSpacePan ? 'is-space-pan' : ''} ${dropActive ? 'is-palette-drop' : ''} ${isDragging ? 'is-dragging' : ''} ${wireDraft ? 'is-wiring' : ''}`}
+          className={`grafcet-canvas ${placingText ? 'is-text-placing' : ''} ${sharedGridStyle === 'lines' ? 'grid-lines' : ''} ${activeTool === 'pan' ? 'is-pan-mode' : activeTool === 'connect' ? 'is-connect-mode' : 'is-select-mode'} ${isSpacePan ? 'is-space-pan' : ''} ${dropActive ? 'is-palette-drop' : ''} ${isDragging ? 'is-dragging' : ''} ${wireDraft ? 'is-wiring' : ''}`}
           aria-label="Diagrama GRAFCET"
           style={
             full
@@ -4107,27 +4172,22 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   )
                 })}
 
-                {/* COMENTÁRIOS / LEGENDAS (ex.: títulos importados do FluidSIM) */}
+                {/* TEXTOS LIVRES / LEGENDAS (ex.: títulos importados do FluidSIM) */}
                 {comments.map((comment) => (
-                  <text
+                  <GrafcetFreeText
                     key={comment.id}
-                    className="grafcet-comment"
-                    x={comment.x}
-                    y={comment.y + (comment.fontSize ?? 13)}
-                    fontSize={comment.fontSize ?? 13}
-                    fontWeight={comment.fontWeight ?? 600}
-                    fill="#334155"
-                    style={{ pointerEvents: 'auto', userSelect: 'none', cursor: 'pointer' }}
-                    onDoubleClick={(event) => {
-                      event.stopPropagation()
-                      const text = window.prompt('Editar comentário:', comment.text)?.trim()
-                      if (text) save({ comments: allComments.map((item) => item.id === comment.id ? { ...item, text } : item) }, 'force', `grafcet:comment:${comment.id}`)
-                    }}
-                    onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); removeComment(comment.id) }}
-                  >
-                    <title>Duplo clique edita · botão direito elimina</title>
-                    {comment.text}
-                  </text>
+                    comment={comment}
+                    interactive={full && !demoMode && activeTool === 'select' && !isSpacePan}
+                    selected={selectedCommentId === comment.id}
+                    editing={editingCommentId === comment.id}
+                    toWorld={clientToWorld}
+                    snap={(point, free) => (snapOn && !free ? { x: snapToGrid(point.x, SPINE_X), y: snapToGrid(point.y, START_Y) } : point)}
+                    onSelect={() => { setSelectedCommentId(comment.id); setSelected(null); setSelectedActionId(null) }}
+                    onEdit={(editing) => setEditingCommentId(editing ? comment.id : null)}
+                    onMove={(x, y) => patchComment(comment.id, { x, y }, 'move')}
+                    onText={(text) => (text.trim() ? patchComment(comment.id, { text }, 'text') : removeComment(comment.id))}
+                    onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); setSelectedCommentId(comment.id) }}
+                  />
                 ))}
 
                 {/* ETAPAS E AÇÕES ATRELADAS */}
@@ -5001,6 +5061,17 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           )}
 
         </div>
+        {full && !demoMode && (() => {
+          const comment = selectedCommentId ? allComments.find((item) => item.id === selectedCommentId) : undefined
+          if (!comment) return null
+          return <div className="grafcet-textbar-slot">
+            <TextStyleBar style={commentStyle(comment)} unit="px"
+              onChange={(patch) => patchComment(comment.id, styleToComment(patch))}
+              onEdit={() => setEditingCommentId(comment.id)}
+              onDelete={() => removeComment(comment.id)}
+              onDone={() => { setSelectedCommentId(null); setEditingCommentId(null) }} />
+          </div>
+        })()}
         {full && (
           <GrafcetSimDock
             extraBits={liveBitsAll}

@@ -15,13 +15,17 @@ import { SCHEMATIC_TOOL_SHORTCUTS, VIEW_SHORTCUTS } from '../ui/shortcutLists'
 import { useCanvasAction, useShortcutsRequest, useSimUi } from '../ui/simUi'
 import { ContextLossGuard, ContextLossNotice } from './ContextLossGuard'
 import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
-import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
+import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconNote, IconPlus, IconText, IconSave, IconUnlock } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '../types'
 import * as THREE from 'three'
 import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoScreen'
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
 import { applyCadSurfaceTextures, onCadTexturesReady } from './cadSurface'
+import CanvasAnnotations3D from './CanvasAnnotations3D'
+import NeonCurrent3D from './NeonCurrent3D'
+import TextStyleBar from '../ui/TextStyleBar'
+import { DEFAULT_TEXT_STYLE_3D, NOTE_COLORS } from '../ui/textStyle'
 import { getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './studioEnvironment'
 import { applyEditorMotorTextures } from './motorEditorTextures'
 import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
@@ -72,17 +76,6 @@ function Label({ text, position, color = '#0f172a', size = 0.085 }: { text: stri
       {text}
     </Text>
   )
-}
-
-function CanvasNoteLayer({ notes, view, onEdit, onRemove }: { notes: Array<{ id: string; text: string; view: 'schematic' | '3d'; x: number; y: number; z?: number }>; view: 'schematic' | '3d'; onEdit: (note: { id: string; text: string }) => void; onRemove: (id: string) => void }) {
-  return <>{notes.filter((note) => note.view === view).map((note, index) => {
-    const position: [number, number, number] = [note.x, note.y, note.z ?? 0.3]
-    return <group key={note.id} position={position} onDoubleClick={(event) => { event.stopPropagation(); onEdit(note) }} onContextMenu={(event) => { event.stopPropagation(); event.nativeEvent.preventDefault(); onRemove(note.id) }}>
-      <mesh position={[-0.08, 0.1, 0]} raycast={() => null}><sphereGeometry args={[0.065, 16, 16]} /><meshBasicMaterial color="#f59e0b" /></mesh>
-      <Text position={[-0.08, 0.1, 0.02]} fontSize={0.06} color="#ffffff" anchorX="center" anchorY="middle" raycast={() => null}>{String(index + 1)}</Text>
-      <Text position={[0, 0, 0]} fontSize={0.11} color="#7c2d12" anchorX="left" anchorY="top" maxWidth={1.8} outlineWidth={0.012} outlineColor="#fff7ed">{note.text}</Text>
-    </group>
-  })}</>
 }
 
 /** Retângulo (unidades de cena) ocupado pela chapa de montagem no plano do painel. */
@@ -1379,25 +1372,6 @@ function cableCurve3D(points: Array<[number, number, number]>, smooth: boolean):
   return spline
 }
 
-function EnergyFlow3D({ points, cableRadius, color = '#fde047' }: { points: Array<[number, number, number]>; cableRadius: number; color?: string }) {
-  const refs = useRef<Array<THREE.Mesh | null>>([])
-  const curve = useMemo(() => new THREE.CatmullRomCurve3(points.map((point) => new THREE.Vector3(...point))), [points])
-  useFrame(({ clock }) => {
-    refs.current.forEach((mesh, index) => {
-      if (!mesh) return
-      const point = curve.getPoint((clock.elapsedTime * 0.38 + index / 6) % 1)
-      mesh.position.copy(point)
-    })
-  })
-  const particleRadius = Math.max(0.009, cableRadius * 0.72)
-  // Efeito de corrente na cor do próprio cabo (fase, neutro, terra, sinal…).
-  return <group>{Array.from({ length: 6 }).map((_, index) => <mesh key={index} ref={(mesh) => { refs.current[index] = mesh }} renderOrder={25}>
-    <sphereGeometry args={[particleRadius, 10, 10]} />
-    <meshBasicMaterial color={color} transparent opacity={0.95} depthTest={false} toneMapped={false} />
-    <GlowHalo color={color} on radius={particleRadius * 1.6} kind="led" />
-  </mesh>)}</group>
-}
-
 /** Pega genérica para editar cabos: arrasta-se diretamente (sem gizmo) num plano virado para a câmara, com resposta em tempo real. */
 function DragHandle3D({ position, onPress, onLive, onCommit, snap, onDoubleClick, children }: {
   position: V3
@@ -1674,13 +1648,9 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
         <tubeGeometry args={[curve, segments, radius + 0.014, 10, false]} />
         <meshBasicMaterial color="#60a5fa" transparent opacity={0.34} depthWrite={false} />
       </mesh>}
-      {flowing && <mesh renderOrder={17} raycast={() => null}>
-        <tubeGeometry args={[curve, segments, radius * 1.55, 10, false]} />
-        <meshBasicMaterial color="#fbbf24" transparent opacity={0.28} depthWrite={false} />
-      </mesh>}
       <mesh castShadow receiveShadow renderOrder={19} raycast={() => null}>
         <tubeGeometry args={[curve, segments, radius, 14, false]} />
-        <meshPhysicalMaterial color={wireColor} roughness={0.32} metalness={0.03} clearcoat={0.55} clearcoatRoughness={0.24} envMapIntensity={1.15} emissive={flowing ? '#7c5b05' : '#000000'} emissiveIntensity={flowing ? 0.28 : 0} />
+        <meshPhysicalMaterial color={wireColor} roughness={0.32} metalness={0.03} clearcoat={0.55} clearcoatRoughness={0.24} envMapIntensity={1.15} emissive={flowing ? wireColor : '#000000'} emissiveIntensity={flowing ? 0.22 : 0} />
       </mesh>
       {/* Volume transparente maior: seleção fiável (clique) e curvas novas (duplo clique) sem falsificar a secção visível. */}
       <mesh userData={{ wireHit: true }}
@@ -1697,7 +1667,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
       </mesh>
       <WireEnd3D geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} />
       <WireEnd3D geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} />
-      {flowing && <EnergyFlow3D points={points} cableRadius={radius} color={wireColor} />}
+      {flowing && <NeonCurrent3D curve={curve} segments={segments} radius={radius} color={wireColor} />}
       {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
         onSelect={handlers.onSelectWaypoint}
         onLive={(waypointIndex, next) => setDrag(next ? { wireId: wire.id, kind: 'waypoint', index: waypointIndex, point: next } : null)}
@@ -2082,10 +2052,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const placingType = useSimStore((s) => s.placingType)
   const setPlacingType = useSimStore((s) => s.setPlacingType)
   const storedComponents = useSimStore((s) => s.components)
-  const canvasNotes = useSimStore((s) => s.canvasNotes)
   const addCanvasNote = useSimStore((s) => s.addCanvasNote)
   const updateCanvasNote = useSimStore((s) => s.updateCanvasNote)
-  const removeCanvasNote = useSimStore((s) => s.removeCanvasNote)
+  const canvasTexts = useSimStore((s) => s.canvasTexts)
+  const updateCanvasText = useSimStore((s) => s.updateCanvasText)
+  const removeCanvasText = useSimStore((s) => s.removeCanvasText)
   const pressButton = useSimStore((s) => s.pressButton)
   const setComponentState = useSimStore((s) => s.setComponentState)
   const addComponent = useSimStore((s) => s.addComponent)
@@ -2167,20 +2138,48 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     } catch { return 'technical' }
   })
   const [cameraStats, setCameraStats] = useState({ yaw: 0, pitch: 0, zoom: 100 })
+  /* Anotações: comentário em nota (abre já para escrever, sem caixa do sistema) e texto livre (clicar para colocar). */
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null)
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
+  const [editingTextId, setEditingTextId] = useState<string | null>(null)
+  const [placingText, setPlacingText] = useState(false)
+  const annotationView = frontEdit ? 'schematic' as const : '3d' as const
+  const textPlaneZ = PLATE_Z + PLATE_THICKNESS / 2 + 0.004
   const addNote = () => {
-    const text = window.prompt('Texto do comentário ou anotação:')?.trim()
-    if (!text) return
     const [x, y, z] = sceneCenterRef.current
-    addCanvasNote({ text, view: frontEdit ? 'schematic' : '3d', x, y, z })
+    const before = new Set(useSimStore.getState().canvasNotes.map((note) => note.id))
+    addCanvasNote({ text: '', view: annotationView, x, y, z, color: NOTE_COLORS[0].id, messages: [] })
+    const created = useSimStore.getState().canvasNotes.find((note) => !before.has(note.id))
+    setPlacingText(false)
+    if (created) setOpenNoteId(created.id)
   }
-  const editNote = (note: { id: string; text: string }) => {
-    const text = window.prompt('Editar comentário:', note.text)?.trim()
-    if (!text) return
-    updateCanvasNote(note.id, { text })
+  const placeText = (point: [number, number, number]) => {
+    const id = useSimStore.getState().addCanvasText({ ...DEFAULT_TEXT_STYLE_3D, view: annotationView, text: 'Texto', x: point[0], y: point[1], z: point[2] })
+    setPlacingText(false)
+    setSelectedTextId(id)
+    setEditingTextId(id)
   }
-  const removeNote = (id: string) => {
-    if (window.confirm('Eliminar este comentário?')) removeCanvasNote(id)
-  }
+  const selectedText = canvasTexts.find((item) => item.id === selectedTextId) ?? null
+  useEffect(() => {
+    if (!placingText && !selectedTextId) return
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
+      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); setPlacingText(false); setSelectedTextId(null); return }
+      if (selectedTextId && (event.key === 'Delete' || event.key === 'Backspace')) {
+        event.preventDefault(); event.stopImmediatePropagation()
+        removeCanvasText(selectedTextId); setSelectedTextId(null)
+      }
+      if (selectedTextId && (event.ctrlKey || event.metaKey) && ['b', 'i', 'u'].includes(event.key.toLowerCase())) {
+        event.preventDefault(); event.stopImmediatePropagation()
+        const item = useSimStore.getState().canvasTexts.find((text) => text.id === selectedTextId)
+        if (!item) return
+        const key = event.key.toLowerCase() === 'b' ? 'bold' : event.key.toLowerCase() === 'i' ? 'italic' : 'underline'
+        updateCanvasText(selectedTextId, { [key]: !item[key] })
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [placingText, selectedTextId, removeCanvasText, updateCanvasText])
   const cycleBackground = () => setBackgroundMode((current) => {
     const next = current === 'technical' ? 'white' : current === 'white' ? 'dark' : 'technical'
     try { localStorage.setItem('dc-simu:panel3d:background', next) } catch {}
@@ -2835,7 +2834,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }} />}
 
         {plateBounds && <MountingPlate bounds={plateBounds} />}
-        <CanvasNoteLayer notes={canvasNotes} view={frontEdit ? 'schematic' : '3d'} onEdit={demoMode ? () => {} : editNote} onRemove={demoMode ? () => {} : removeNote} />
+        <CanvasAnnotations3D view={annotationView} readOnly={demoMode} placeZ={textPlaneZ}
+          openNoteId={openNoteId} setOpenNoteId={setOpenNoteId}
+          selectedTextId={selectedTextId} setSelectedTextId={setSelectedTextId}
+          editingTextId={editingTextId} setEditingTextId={setEditingTextId}
+          placingText={placingText} onPlaceText={placeText} />
         {railComponents.map((c) => {
           const x = positions[c.id].x
           let content: ReactNode
@@ -2936,7 +2939,22 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} />
       </Canvas>
 
-      {!demoMode && <button type="button" onClick={addNote} title="Adicionar comentário no canvas" aria-label="Adicionar comentário no canvas" style={{ position: 'absolute', top: 12, left: 12, zIndex: 8, minHeight: 44, padding: '0 12px', borderRadius: 8, border: '1px solid #f59e0b', background: '#fff7ed', color: '#9a3412', fontWeight: 700, cursor: 'pointer' }}>+ Comentário</button>}
+      {!demoMode && !selectedText && <div className="canvas-annotate" role="toolbar" aria-label="Anotar o desenho">
+        <button type="button" className="canvas-annotate-btn is-note" onClick={addNote} title="Novo comentário: nota com título e conversa, que se arrasta no desenho">
+          <IconNote size={13} /><span>Comentário</span>
+        </button>
+        <button type="button" className={`canvas-annotate-btn is-text${placingText ? ' is-on' : ''}`} aria-pressed={placingText} onClick={() => { setPlacingText((value) => !value); setSelectedTextId(null) }} title="Texto livre: clique no desenho para o colocar (Esc cancela)">
+          <IconText size={13} /><span>Texto</span>
+        </button>
+        {placingText && <span className="canvas-annotate-hint" role="status">Clique no desenho para colocar o texto · Esc cancela</span>}
+      </div>}
+      {!demoMode && selectedText && <div className="canvas-textbar-slot">
+        <TextStyleBar style={selectedText} unit="mm"
+          onChange={(patch) => updateCanvasText(selectedText.id, patch)}
+          onEdit={() => setEditingTextId(selectedText.id)}
+          onDelete={() => { removeCanvasText(selectedText.id); setSelectedTextId(null) }}
+          onDone={() => { setSelectedTextId(null); setEditingTextId(null) }} />
+      </div>}
       <div className="panel3d-axis-hud" aria-label="Orientação da câmara 3D">
         <svg viewBox="0 0 64 64" aria-hidden="true">
           <circle cx="30" cy="34" r="3" fill="#334155" />

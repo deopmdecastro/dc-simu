@@ -90,13 +90,21 @@ export interface GrafcetTransition {
   chart?: string
 }
 
+/** Texto livre do GRAFCET (legendas, títulos, notas de projeto). */
 export interface GrafcetComment {
   id: string
   text: string
+  /** Ponto de ancoragem: esquerda/centro/direita conforme `align`, topo da 1.ª linha. */
   x: number
   y: number
   fontSize?: number
   fontWeight?: string
+  font?: 'sans' | 'serif' | 'mono' | 'rounded' | 'hand'
+  color?: string
+  italic?: boolean
+  underline?: boolean
+  align?: 'left' | 'center' | 'right'
+  background?: string
   chart?: string
 }
 

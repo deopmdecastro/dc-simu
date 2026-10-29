@@ -32,6 +32,7 @@ import type {
   ProbeResult,
   SpatialPoint3D,
   CanvasNote,
+  CanvasText,
 } from '../types'
 import { logoElectricalInputs } from '../electrical/logoPower'
 import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
@@ -121,6 +122,10 @@ interface Store extends CircuitState {
   addCanvasNote: (note: Omit<CanvasNote, 'id' | 'createdAt'>) => void
   updateCanvasNote: (id: string, patch: Partial<CanvasNote>) => void
   removeCanvasNote: (id: string) => void
+  canvasTexts: CanvasText[]
+  addCanvasText: (text: Omit<CanvasText, 'id' | 'createdAt'>) => string
+  updateCanvasText: (id: string, patch: Partial<CanvasText>) => void
+  removeCanvasText: (id: string) => void
   runtime: RuntimeExtras
   showEmptyWelcome: boolean
   dismissEmptyWelcome: () => void
@@ -807,6 +812,14 @@ export const useSimStore = create<Store>((set, get) => ({
   addCanvasNote: (note) => set((s) => ({ canvasNotes: [...s.canvasNotes, { ...note, id: nanoid(10), createdAt: new Date().toISOString() }], dirty: true })),
   updateCanvasNote: (id, patch) => set((s) => ({ canvasNotes: s.canvasNotes.map((note) => note.id === id ? { ...note, ...patch } : note), dirty: true })),
   removeCanvasNote: (id) => set((s) => ({ canvasNotes: s.canvasNotes.filter((note) => note.id !== id), dirty: true })),
+  canvasTexts: [],
+  addCanvasText: (text) => {
+    const id = nanoid(10)
+    set((s) => ({ canvasTexts: [...s.canvasTexts, { ...text, id, createdAt: new Date().toISOString() }], dirty: true }))
+    return id
+  },
+  updateCanvasText: (id, patch) => set((s) => ({ canvasTexts: s.canvasTexts.map((item) => item.id === id ? { ...item, ...patch } : item), dirty: true })),
+  removeCanvasText: (id) => set((s) => ({ canvasTexts: s.canvasTexts.filter((item) => item.id !== id), dirty: true })),
   runtime: EMPTY_RUNTIME(),
   showEmptyWelcome: true,
   dismissEmptyWelcome: () => set({ showEmptyWelcome: false }),
@@ -2644,6 +2657,7 @@ export const useSimStore = create<Store>((set, get) => ({
         grid: s.grid,
         activeScenario: s.activeScenario,
         canvasNotes: s.canvasNotes,
+        canvasTexts: s.canvasTexts,
       },
       null,
       2,
@@ -2708,6 +2722,7 @@ export const useSimStore = create<Store>((set, get) => ({
         sheets: Array.isArray(parsed.sheets) && parsed.sheets.length ? parsed.sheets : [{ id: 'sheet-1', name: 'Página 1' }],
         activeSheetId: typeof parsed.activeSheetId === 'string' ? parsed.activeSheetId : 'sheet-1',
         canvasNotes: Array.isArray(parsed.canvasNotes) ? parsed.canvasNotes.filter((note: CanvasNote) => note && typeof note.id === 'string' && typeof note.text === 'string') : [],
+        canvasTexts: Array.isArray(parsed.canvasTexts) ? parsed.canvasTexts.filter((item: CanvasText) => item && typeof item.id === 'string' && typeof item.text === 'string' && Number.isFinite(item.x) && Number.isFinite(item.y)) : [],
         tags: (loadedActiveId && parsed.plcTags?.[loadedActiveId]) ?? parsed.tags ?? [],
         grid: parsed.grid ? { ...parsed.grid, background: EDITOR_THEME.background } : get().grid,
         activeScenario: parsed.activeScenario ?? 'custom',
@@ -2735,6 +2750,7 @@ export const useSimStore = create<Store>((set, get) => ({
       sheets: [{ id: 'sheet-1', name: 'Página 1' }],
       activeSheetId: 'sheet-1',
       canvasNotes: [],
+      canvasTexts: [],
       components: [],
       wires: [],
       showEmptyWelcome: true,

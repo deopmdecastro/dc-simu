@@ -6,6 +6,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Logo from './ui/Brand'
 import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight } from './ui/icons'
 import type { User, Project, Invite } from './dashboard/Dashboard'
+import { setViewer } from './auth/viewer'
 import { canCaptureCover, captureCover, hasStoredCover, setStoredCover } from './three/coverCapture'
 import { flowCoverDataUrl } from './dashboard/flowCover'
 import { useSimStore } from './store/useSimStore'
@@ -39,6 +40,7 @@ async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
 
 export default function Account() {
   const [user, setUser] = useState<User | null>(null)
+  useEffect(() => { setViewer(user ? { id: user.id, name: user.name || user.email } : null) }, [user])
   const [ready, setReady] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()

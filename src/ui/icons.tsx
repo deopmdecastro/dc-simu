@@ -11,6 +11,13 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import {
+  faBold,
+  faItalic,
+  faUnderline,
+  faFont,
+  faNoteSticky,
+  faPalette,
+  faPaperPlane,
   faAlignCenter,
   faAlignLeft,
   faAlignRight,
@@ -247,3 +254,14 @@ export const IconIdCard = fa(faIdCard)
 export const IconCard = fa(faCreditCard)
 export const IconKey = fa(faKey)
 export const IconMail = fa(faEnvelope)
+
+/* Anotações: texto livre e comentários do canvas. */
+export const IconBold = fa(faBold)
+export const IconItalic = fa(faItalic)
+export const IconUnderline = fa(faUnderline)
+export const IconText = fa(faFont)
+export const IconNote = fa(faNoteSticky)
+export const IconPalette = fa(faPalette)
+export const IconSend = fa(faPaperPlane)
+/** Alinhamento de texto (o centro do texto não é o «alinhar ao eixo» dos componentes). */
+export const IconTextCenter = fa(faAlignCenter)
