@@ -51,11 +51,19 @@ const withMeterRef = { ...old, components: old.components.map((c:any,i:number)=>
 assert.equal(upgradeNativeMotorMeter(withMeterRef).components.at(-1).ref,'MM2','evita duplicar uma referência já usada pelo utilizador')
 console.log('PASS — Nativo guardado: atualização aditiva, persistência, edições preservadas e sem duplicação')
 
-const v1 = { ...seed, nativeFeatures: [NATIVE_MOTOR_METER_FEATURE], wires: seed.wires.map((w: Wire) => w.toEndType === 'ferruleDouble' ? { ...w, toEndType: 'ferrule', toEndColor: '#445566', waypoints3D: [{ x: 1, y: 2, z: 3 }] } : w) }
+const v1 = {
+  ...seed,
+  nativeFeatures: [NATIVE_MOTOR_METER_FEATURE],
+  wires: seed.wires.map((w: Wire) =>
+    (w.toTerminalId === 'native-m1-U1' || w.toTerminalId === 'native-m1-V1') && w.toEndType === 'ferruleDouble'
+      ? { ...w, toEndType: 'ferrule', toEndColor: '#445566', waypoints3D: [{ x: 1, y: 2, z: 3 }] }
+      : w,
+  ),
+}
 const v2 = upgradeNativeMotorMeter(v1)
 assert.equal(v2.components, v1.components, 'a atualização dos colares preserva os aparelhos e a sua posição')
 const changed = v2.wires.filter((w: Wire, i: number) => w !== v1.wires[i])
-assert.equal(changed.length, 2, 'apenas a alimentação em U1/V1 recebe ponteira dupla')
+assert.equal(changed.length, 2, 'apenas a alimentação em U1/V1 recebe ponteira dupla na migração do multímetro')
 for (const w of changed) {
   assert.equal(w.toEndType, 'ferruleDouble')
   const original = v1.wires.find((old: Wire) => old.id === w.id)
@@ -69,8 +77,34 @@ assert.deepEqual(upgradeNativeMotorMeter(noProbes).wires, noProbes.wires, 'não 
 store().loadJSON(JSON.stringify(v1))
 assert.ok(store().dirty, 'abrir a versão anterior assinala os colares por guardar')
 store().loadJSON(store().saveJSON())
-assert.equal(store().wires.filter(w => w.toEndType === 'ferruleDouble').length, 2)
-console.log('PASS — Ponteiras duplas: migração v1, duas entradas, traçados/cores preservados e guardar/reabrir')
+assert.equal(
+  store().wires.filter(w => (w.toTerminalId === 'native-m1-U1' || w.toTerminalId === 'native-m1-V1') && w.toEndType === 'ferruleDouble').length,
+  2,
+  'bornes U1/V1 do motor mantêm ponteira dupla',
+)
+const doubleEndsCount = store().wires.reduce(
+  (sum, w) => sum + (w.fromEndType === 'ferruleDouble' ? 1 : 0) + (w.toEndType === 'ferruleDouble' ? 1 : 0),
+  0,
+)
+assert.equal(doubleEndsCount, 20, 'todos os 11 bornes partilhados recebem ponteira dupla automaticamente (20 pontas ferruleDouble)')
+// Verificação dinâmica: borne com 1 cabo (ferrule) passa automaticamente a ferruleDouble ao adicionar 2.º cabo e reverte ao remover
+const singleBefore = store().wires.filter(w => w.fromTerminalId === 'native-q0-2' || w.toTerminalId === 'native-q0-2')
+assert.equal(singleBefore.length, 1)
+assert.equal(singleBefore[0].fromTerminalId === 'native-q0-2' ? singleBefore[0].fromEndType : singleBefore[0].toEndType, 'ferrule')
+const beforeIds = new Set(store().wires.map(w => w.id))
+store().addWire('native-q0-2', 'native-h2-X1')
+const addedWire = store().wires.find(w => !beforeIds.has(w.id))
+assert.ok(addedWire, 'adiciona segundo cabo no borne Q0.2')
+const sharedNow = store().wires.filter(w => w.fromTerminalId === 'native-q0-2' || w.toTerminalId === 'native-q0-2')
+assert.equal(sharedNow.length, 2)
+for (const w of sharedNow) {
+  assert.equal(w.fromTerminalId === 'native-q0-2' ? w.fromEndType : w.toEndType, 'ferruleDouble', 'borne com 2 cabos vira ponteira dupla')
+}
+store().deleteWire(addedWire!.id)
+const reverted = store().wires.filter(w => w.fromTerminalId === 'native-q0-2' || w.toTerminalId === 'native-q0-2')
+assert.equal(reverted.length, 1)
+assert.equal(reverted[0].fromTerminalId === 'native-q0-2' ? reverted[0].fromEndType : reverted[0].toEndType, 'ferrule', 'ao remover 2.º cabo volta a ponteira simples')
+console.log('PASS — Ponteiras duplas universais: migração v1, conversão automática 1↔2 cabos e guardar/reabrir')
 
 // Reproduz o cabo que regressava pelo próprio corpo, incluindo waypoints manuais.
 for (const angle of [0, -35, 45]) {

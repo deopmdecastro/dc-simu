@@ -8,7 +8,8 @@ import { componentPanelXY } from '../src/three/panelLayout'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from '../src/three/panelBounds'
 import { DIN_RAIL_15X55 } from '../src/three/dinRailGeometry'
 import { PANEL_UNITS_PER_MM, isMountingRail } from '../src/three/modelPaths'
-import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, keepInFrontOfPlate, wireEndpoint3D } from '../src/three/wireGeometry3D'
+import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, keepInFrontOfPlate, wireEndpoint3D, worldToMotorCad } from '../src/three/wireGeometry3D'
+import { MOTOR_BOX, MOTOR_FLOOR_Y, MOTOR_GLAND } from '../src/three/motorTerminalLayout'
 import { componentOrientationOf, MOTOR_ISOMETRIC_ORIENTATION } from '../src/three/componentOrientation'
 import { segmentEntersBox } from '../src/three/solidWireRouting'
 
@@ -72,28 +73,37 @@ for (const wire of built.wires) {
     if (s.origin[2] < plateFront - 1e-6 || tipZ < plateFront - 1e-6) ferruleBehindPlate++
   }
   const endsOnMotor = [wire.fromTerminalId, wire.toTerminalId].some((id) => id.startsWith(motor.id))
-  // zona de chegada ao borne do motor: 0,25 u (25 mm) à volta da ponta que lá está
+  const isProbeLead = wire.id.startsWith('native-meter-')
   const motorEnds = [from, to].filter((_, i) => (i === 0 ? wire.fromTerminalId : wire.toTerminalId).startsWith(motor.id)).map((e) => new THREE.Vector3(...e.position))
   const inner = motorBox.clone().expandByScalar(-0.02)
+  const inMotorAllowedCorridor = (p: THREE.Vector3) => {
+    if (!endsOnMotor) return false
+    if (isProbeLead) return motorEnds.some((e) => e.distanceTo(p) < 0.6)
+    const cadPt = worldToMotorCad(motor, pivots[motor.id], p)
+    // À frente da caixa/motor (aproximação exterior ao bucim)
+    if (cadPt.z >= 72.5) return true
+    // Passagem pelo interior do bucim M20 (x=128, y=114, r_interno=7.5 mm)
+    if (cadPt.z >= 50 && Math.hypot(cadPt.x - MOTOR_GLAND.x, cadPt.y - MOTOR_GLAND.y) <= 7.5) return true
+    // Interior livre da caixa de ligação acima do piso cerâmico (sem tocar na carcaça)
+    if (cadPt.x >= MOTOR_BOX.x0 + 4 && cadPt.x <= MOTOR_BOX.x1 - 4 && cadPt.y >= MOTOR_FLOOR_Y + 4 && cadPt.z >= MOTOR_BOX.z0 + 4 && cadPt.z <= MOTOR_BOX.z1 + 1) return true
+    return false
+  }
   let hit = false
   for (let i = 0; i < points.length - 1 && !hit; i++) {
     const a = new THREE.Vector3(...points[i]); const b = new THREE.Vector3(...points[i + 1])
     for (let s = 0; s <= 40; s++) {
       const p = a.clone().lerp(b, s / 40)
       if (!inner.containsPoint(p)) continue
-      if (endsOnMotor && motorEnds.some((e) => e.distanceTo(p) < 0.6)) continue
+      if (inMotorAllowedCorridor(p)) continue
       hit = true; break
     }
-    // vista de frente: troço que passa por cima do motor (x/y dentro da caixa) mesmo à frente dele
   }
-  // projeção frontal: qualquer ponto do cabo (fora da zona do borne) dentro do retângulo x/y do motor
-  if (!hit) {
+  if (!hit && !endsOnMotor) {
     for (let i = 0; i < points.length - 1 && !hit; i++) {
       const a = new THREE.Vector3(...points[i]); const b = new THREE.Vector3(...points[i + 1])
       for (let s = 0; s <= 40; s++) {
         const p = a.clone().lerp(b, s / 40)
         if (p.x > motorBox.min.x + 0.02 && p.x < motorBox.max.x - 0.02 && p.y > motorBox.min.y + 0.02 && p.y < motorBox.max.y - 0.02) {
-          if (endsOnMotor && motorEnds.some((e) => e.distanceTo(p) < 0.6)) continue
           hit = true; break
         }
       }
@@ -101,7 +111,16 @@ for (const wire of built.wires) {
   }
   if (hit) { crossing++; offenders.push(`${wire.number} ${wire.fromTerminalId}->${wire.toTerminalId}`) }
 }
-check('Nenhum cabo 3D passa pelo motor (nem à frente dele)', crossing === 0, crossing ? `${crossing}: ${offenders.slice(0, 6).join(' | ')}` : '')
+const motorFeeders = built.wires.filter((w) => [w.fromTerminalId, w.toTerminalId].some((id) => id.startsWith(motor.id)) && !w.id.startsWith('native-meter-'))
+const feedersThroughGland = motorFeeders.every((w) => {
+  const pts = coordinated.get(w.id)?.points ?? []
+  return pts.some((pt) => {
+    const cadPt = worldToMotorCad(motor, pivots[motor.id], new THREE.Vector3(...pt))
+    return cadPt.z >= 54 && cadPt.z <= 75 && Math.hypot(cadPt.x - MOTOR_GLAND.x, cadPt.y - MOTOR_GLAND.y) <= 6.5
+  })
+})
+check('Nenhum cabo 3D passa pela carcaça do motor (nem cabos alheios à frente dele)', crossing === 0, crossing ? `${crossing}: ${offenders.slice(0, 6).join(' | ')}` : '')
+check('Todos os 4 cabos de força/PE entram no motor pelo bucim M20 (MOTOR_GLAND)', motorFeeders.length === 4 && feedersThroughGland)
 check('Nenhum cabo 3D atravessa a chapa do painel (z ≥ face frontal)', behindPlate === 0, behindPlate ? `${behindPlate}: ${plateOffenders.slice(0, 6).join(' | ')}` : `z mínimo ${minZ.toFixed(3)} ≥ ${plateFront.toFixed(3)}`)
 check('Nenhuma ponteira/terminal atravessa a chapa do painel', ferruleBehindPlate === 0)
 check('Todos os cabos contornam os outros aparelhos e a calha com a sua espessura física', solidOffenders.length === 0, solidOffenders.join(', '))

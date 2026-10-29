@@ -3,8 +3,11 @@ import type { ElectricalComponent, SpatialPoint3D, Wire, WireColor, WireEndType 
 import { PANEL_UNITS_PER_MM, SCHEMATIC_PX_PER_MM, isMountingRail } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from './panelBounds'
 import { panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
-import { terminalNormalWorld3D, terminalWorld3D } from './terminal3D'
+import { component3DDimensions, component3DScaleOf, component3DVolumeCenter, schematicRotationRadians, terminalNormalWorld3D, terminalWorld3D } from './terminal3D'
+import { componentOrientationOf, orientationRadians } from './componentOrientation'
+import { MOTOR_CAD, MOTOR_GLAND, MOTOR_SIZE } from './motorTerminalLayout'
 import { REAL_TERMINALS } from '../electrical/realInterfaces'
+import { sharedFerrulePort } from '../electrical/sharedFerrules'
 import { keepWireOutsideSolids, segmentEntersBox } from './solidWireRouting'
 
 /**
@@ -62,6 +65,61 @@ export type WireEndpoint3D = {
   /** Posição horizontal normalizada no próprio aparelho (0 = esq, 1 = dir). */
   localX?: number
   componentId?: string
+  componentType?: ElectricalComponent['type']
+  terminalLabel?: string
+  /** Índice de canal na ponteira dupla partilhada (0..portCount-1). */
+  portIndex?: number
+  /** Total de entradas na ponteira dupla partilhada. */
+  portCount?: number
+  /** Verdadeiro nas pontas secundárias que reutilizam o colar físico 3D do condutor líder. */
+  sharedFollower?: boolean
+  /** Contexto geométrico para encaminhar cabos de potência pelo bucim M20 do motor. */
+  motorContext?: { component: ElectricalComponent; pivot: V3; terminalLabel: string }
+}
+
+/** Converte coordenadas CAD (mm) do motor SEW para coordenadas mundiais do Painel 3D. */
+export function motorCadToWorld(
+  motor: ElectricalComponent,
+  pivot: THREE.Vector3,
+  cadX: number,
+  cadY: number,
+  cadZ: number,
+): THREE.Vector3 {
+  const nx = (cadX - MOTOR_CAD.minX) / MOTOR_SIZE.width
+  const ny = (cadY - MOTOR_CAD.minY) / MOTOR_SIZE.height
+  const nz = (cadZ - MOTOR_CAD.minZ) / MOTOR_SIZE.depth
+  const size = component3DDimensions(motor)
+  const scale = component3DScaleOf(motor)
+  const local = new THREE.Vector3((nx - 0.5) * size.x, (ny - 0.5) * size.y, (nz - 0.5) * size.z)
+    .add(component3DVolumeCenter(motor))
+    .multiply(new THREE.Vector3(scale.x, scale.y, scale.z))
+  const [rx, ry, rz] = orientationRadians(componentOrientationOf(motor))
+  local.applyEuler(new THREE.Euler(rx, ry, rz, 'XYZ'))
+  if (motor.mirrored) local.x *= -1
+  return local.applyEuler(new THREE.Euler(0, 0, schematicRotationRadians(motor), 'XYZ')).add(pivot)
+}
+
+/** Inversa exata de `motorCadToWorld`: devolve coordenadas CAD (mm) do motor SEW. */
+export function worldToMotorCad(
+  motor: ElectricalComponent,
+  pivot: THREE.Vector3,
+  worldPoint: THREE.Vector3,
+): THREE.Vector3 {
+  const local = worldPoint.clone().sub(pivot)
+  local.applyEuler(new THREE.Euler(0, 0, -schematicRotationRadians(motor), 'XYZ'))
+  if (motor.mirrored) local.x *= -1
+  const [rx, ry, rz] = orientationRadians(componentOrientationOf(motor))
+  const invQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, 'XYZ')).invert()
+  local.applyQuaternion(invQuat)
+  const scale = component3DScaleOf(motor)
+  local.divide(new THREE.Vector3(scale.x || 1, scale.y || 1, scale.z || 1))
+  local.sub(component3DVolumeCenter(motor))
+  const size = component3DDimensions(motor)
+  return new THREE.Vector3(
+    (local.x / size.x + 0.5) * MOTOR_SIZE.width + MOTOR_CAD.minX,
+    (local.y / size.y + 0.5) * MOTOR_SIZE.height + MOTOR_CAD.minY,
+    (local.z / size.z + 0.5) * MOTOR_SIZE.depth + MOTOR_CAD.minZ,
+  )
 }
 
 /** Posição física de uma ponta do cabo: borne real ou ponto livre. */
@@ -94,10 +152,14 @@ export function wireEndpoint3D(
     const localX = terminal.position3D?.x ?? (spanX > 4 ? (terminal.x - Math.min(...xs)) / spanX : 0.5)
     const position = terminalWorld3D(component, terminal, pivot)
     const normal = terminalNormalWorld3D(component, terminal)
+    const endKind = endTypeOf(wire, side)
     // A sonda toca a segunda entrada do colar, acima da manga comum no borne.
-    const shared = endTypeOf(wire, side) === 'probe' && wires.some(other => other.id !== wire.id &&
+    const sharedProbe = endKind === 'probe' && wires.some(other => other.id !== wire.id &&
       (['from', 'to'] as const).some(s => !(s === 'from' ? other.fromPoint : other.toPoint) && (s === 'from' ? other.fromTerminalId : other.toTerminalId) === terminalId && endTypeOf(other, s) === 'ferruleDouble'))
-    if (shared) position.addScaledVector(normal, 10 * U).addScaledVector(doubleFerruleSide(normal), DOUBLE_FERRULE_PORT_MM * U)
+    if (sharedProbe) position.addScaledVector(normal, 10 * U).addScaledVector(doubleFerruleSide(normal), DOUBLE_FERRULE_PORT_MM * U)
+    const portInfo = endKind === 'ferruleDouble' && wires.length > 0
+      ? sharedFerrulePort(wires, wire.id, side)
+      : { shared: false, portIndex: 0, portCount: 2, isLeader: true }
     return {
       position: arr(position),
       normal: arr(normal),
@@ -108,6 +170,12 @@ export function wireEndpoint3D(
       localY,
       localX,
       componentId: component.id,
+      componentType: component.type,
+      terminalLabel: terminal.label,
+      portIndex: portInfo.portIndex,
+      portCount: portInfo.portCount,
+      sharedFollower: portInfo.shared && !portInfo.isLeader,
+      motorContext: component.type === 'motor3ph' ? { component, pivot: arr(pivot), terminalLabel: terminal.label } : undefined,
     }
   }
   return null
@@ -140,6 +208,7 @@ export type WireEndGeometry = {
   embedMm: number
   socketDiameterMm?: number
   length: number
+  portCount?: number
 }
 
 function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerMm = 2.8): { head: V3; geometry: WireEndGeometry } {
@@ -159,7 +228,7 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
       axis = projected.lengthSq() > 1e-6 ? projected.normalize() : new THREE.Vector3().crossVectors(normal, new THREE.Vector3(0, 1, 0)).normalize()
       if (axis.lengthSq() < 0.5) axis = new THREE.Vector3(1, 0, 0)
     } else if (normal.z < -0.35 && tip.z + normal.z * length < plateSafeZ) {
-      // Borne traseiro junto à chapa (botoneiras/sinalizadores): saída ortogonal limpa sem furar a chapa.
+      // Borne traseiro junto à chapa (botoneiras/sinalizadores): saída ortogonal limpa sem sobrepor bornes superior/inferior do mesmo bloco.
       axis = Math.abs(dir.x) > Math.abs(dir.y) * 1.8 && Math.abs(dir.x) > 0.1
         ? new THREE.Vector3(Math.sign(dir.x), 0, 0)
         : new THREE.Vector3(0, endpoint.localY !== undefined ? (endpoint.localY >= 0.5 ? 1 : -1) : (dir.y > 0.25 ? 1 : -1), 0)
@@ -172,11 +241,16 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
   const origin = tip.clone().add(lift)
   if (origin.z < plateSafeZ) origin.z = plateSafeZ
   const head = origin.clone().addScaledVector(axis, length)
-  if (type === 'ferruleDouble') head.addScaledVector(doubleFerruleSide(axis), -DOUBLE_FERRULE_PORT_MM * U)
+  const nPorts = Math.max(2, endpoint.portCount ?? 2)
+  if (type === 'ferruleDouble') {
+    const pIdx = endpoint.portIndex ?? 0
+    const lateral = (pIdx - (nPorts - 1) / 2) * (DOUBLE_FERRULE_PORT_MM * 2 * U)
+    head.addScaledVector(doubleFerruleSide(axis), lateral)
+  }
   if (head.z < plateSafeZ) head.z = plateSafeZ
   return {
     head: arr(head),
-    geometry: { type, origin: arr(origin), axis: arr(axis), normal: arr(thick), embedMm, socketDiameterMm: endpoint.socketDiameterMm, length },
+    geometry: { type, origin: arr(origin), axis: arr(axis), normal: arr(thick), embedMm, socketDiameterMm: endpoint.socketDiameterMm, length, portCount: type === 'ferruleDouble' ? nPorts : undefined },
   }
 }
 
@@ -488,7 +562,6 @@ function terminalVerticalBias(end: WireEndpoint3D): -1 | 0 | 1 {
   const nz = end.normal?.[2] ?? 0
   if (ny > 0.45) return 1
   if (ny < -0.45) return -1
-  // Bornes traseiros de painel (botoneiras / sinalizadores) saem para a calha adjacente sem viés forçado.
   if (nz < -0.35) return 0
   if (end.localY !== undefined) {
     if (end.localY >= 0.56) return 1
@@ -545,7 +618,7 @@ function planAroundMachines(
   const sortedSoft = [...soft].sort((a, b) => a.min.x - b.min.x)
   let reach = -Infinity
   for (const box of sortedSoft) {
-    if (reach !== -Infinity && box.min.x - reach > 0.28) xs.add((reach + box.min.x) / 2)
+    if (reach !== -Infinity && box.min.x - reach > 0.14) xs.add((reach + box.min.x) / 2)
     reach = Math.max(reach, box.max.x)
   }
   if (sortedSoft.length > 0) { xs.add(sortedSoft[0].min.x - 0.18); xs.add(reach + 0.18) }
@@ -609,7 +682,7 @@ function computeBasePlan(
       ]
       let reach = between[0].max.x
       for (let i = 1; i < between.length; i += 1) {
-        if (between[i].min.x - reach >= riserClearance * 1.9) {
+        if (between[i].min.x - reach >= 0.14) {
           candidates.push((reach + between[i].min.x) / 2)
         }
         reach = Math.max(reach, between[i].max.x)
@@ -691,7 +764,13 @@ export type WirePath3D = {
 const endTypeOf = (wire: Wire, side: 'from' | 'to'): WireEndType =>
   (side === 'from' ? wire.fromEndType : wire.toEndType) ?? wire.endType ?? 'none'
 
-function finishWireBody(points: V3[], wire: Wire, outerMm: number, obstacles: WireObstacle[], exits: Parameters<typeof keepWireOutsideSolids>[3]): V3[] {
+function finishWireBody(
+  points: V3[],
+  wire: Wire,
+  outerMm: number,
+  obstacles: WireObstacle[],
+  exits: Parameters<typeof keepWireOutsideSolids>[3],
+): V3[] {
   const minZ = wireFrontLimit(outerMm)
   const instrument = endTypeOf(wire, 'from') === 'probe' || endTypeOf(wire, 'to') === 'probe'
   const safe = keepWireOutsideSolids(points, outerMm, obstacles, exits, minZ, wireHash(wire))
@@ -713,6 +792,126 @@ function finishWireBody(points: V3[], wire: Wire, outerMm: number, obstacles: Wi
   return safe
 }
 
+function isMotorGlandEligible(end: WireEndpoint3D, endType: WireEndType): boolean {
+  return Boolean(end.motorContext && endType !== 'probe' && endType !== 'banana')
+}
+
+/**
+ * Encaminha um cabo de alimentação/terra do quadro até ao borne do motor SEW
+ * entrando axialmente pelo bucim M20 frontal (`MOTOR_GLAND`) da caixa de ligação.
+ */
+function buildMotorGlandBody3D(
+  panelEnd: WireEndpoint3D,
+  panelHead: V3,
+  panelAxis: V3,
+  motorEnd: WireEndpoint3D,
+  motorHead: V3,
+  outerMm: number,
+  obstacles: WireObstacle[],
+): V3[] {
+  const ctx = motorEnd.motorContext!
+  const mPivot = v(ctx.pivot)
+  const label = ctx.terminalLabel.toUpperCase()
+  const slotMap: Record<string, { idx: number; dx: number; dy: number }> = {
+    PE: { idx: 0, dx: -2.6, dy: -2.6 },
+    U1: { idx: 1, dx: -2.6, dy: 2.6 },
+    W2: { idx: 1, dx: -2.6, dy: 2.6 },
+    V1: { idx: 2, dx: 2.6, dy: 2.6 },
+    U2: { idx: 2, dx: 2.6, dy: 2.6 },
+    W1: { idx: 3, dx: 2.6, dy: -2.6 },
+    V2: { idx: 3, dx: 2.6, dy: -2.6 },
+  }
+  const { idx, dx, dy } = slotMap[label] ?? { idx: 1, dx: 0, dy: 0 }
+  const cad = (cx: number, cy: number, cz: number): V3 => arr(motorCadToWorld(ctx.component, mPivot, cx, cy, cz))
+  const headCad = worldToMotorCad(ctx.component, mPivot, v(motorHead))
+
+  const frontZ = wireFrontLimit(outerMm)
+  const panelAllBoxes = obstacles.filter((b) => b.componentId !== ctx.component.id && b.max.x < mPivot.x - 1.0 && !b.hard)
+  const softBoxes = panelAllBoxes.filter((b) => !b.rail)
+  const railBoxes = panelAllBoxes.filter((b) => b.rail)
+  const railFrontZ = railBoxes.length > 0 ? Math.max(...railBoxes.map((b) => b.max.z)) + (outerMm / 2) * U + 0.045 : frontZ + 0.08
+  const bottomDuctY = (softBoxes.length > 0 ? Math.min(...softBoxes.map((b) => b.min.y)) : Math.min(panelHead[1], 0)) - 0.15 - idx * 0.036
+  const panelRightX = (softBoxes.length > 0 ? Math.max(...softBoxes.map((b) => b.max.x)) : panelHead[0]) + 0.12 + idx * 0.038
+  const ductZ = Math.max(frontZ + 0.024, 0.01) + idx * 0.038
+
+  const ownBox = obstacles.find((b) => b.componentId === panelEnd.componentId)
+  const clearance = (outerMm / 2) * U + 0.045
+  let leadStep = Math.max(outerMm * 3.0 * U, 0.05)
+  if (ownBox) {
+    if (panelAxis[2] > 0.5) leadStep = Math.max(leadStep, ownBox.max.z + clearance - panelHead[2])
+    else if (panelAxis[1] > 0.5) leadStep = Math.max(leadStep, ownBox.max.y + clearance - panelHead[1])
+    else if (panelAxis[1] < -0.5) leadStep = Math.max(leadStep, panelHead[1] - (ownBox.min.y - clearance))
+    else if (panelAxis[0] > 0.5) leadStep = Math.max(leadStep, ownBox.max.x + clearance - panelHead[0])
+    else if (panelAxis[0] < -0.5) leadStep = Math.max(leadStep, panelHead[0] - (ownBox.min.x - clearance))
+  }
+  const exitPanel: V3 = [
+    panelHead[0] + panelAxis[0] * leadStep,
+    panelHead[1] + panelAxis[1] * leadStep,
+    Math.max(frontZ, panelHead[2] + panelAxis[2] * leadStep),
+  ]
+
+  const panelChain: V3[] = [panelHead]
+  if (v(exitPanel).distanceTo(v(panelHead)) > 1e-4) panelChain.push(exitPanel)
+
+  if (panelAxis[2] > 0.5 || panelAxis[1] > 0.35 || (panelEnd.localY !== undefined && panelEnd.localY > 0.6)) {
+    // Borne superior/frontal (ex.: XG.PE): contorna pela margem esquerda do quadro (fora da calha DIN) até à calha inferior.
+    const leftX = (panelAllBoxes.length > 0 ? Math.min(...panelAllBoxes.map((b) => b.min.x)) : panelHead[0]) - 0.14 - idx * 0.03
+    const safeCrossZ = Math.max(ductZ + 0.05, railFrontZ, exitPanel[2])
+    if (panelAxis[2] > 0.5) {
+      panelChain.push(
+        [leftX, exitPanel[1], safeCrossZ],
+        [leftX, bottomDuctY, safeCrossZ],
+        [leftX, bottomDuctY, ductZ],
+      )
+    } else {
+      const topClearY = (softBoxes.length > 0
+        ? Math.max(...softBoxes.filter((b) => b.min.x <= exitPanel[0] + 0.05).map((b) => b.max.y), exitPanel[1])
+        : exitPanel[1]) + 0.10
+      panelChain.push(
+        [exitPanel[0], Math.max(exitPanel[1], topClearY), safeCrossZ],
+        [leftX, Math.max(exitPanel[1], topClearY), safeCrossZ],
+        [leftX, bottomDuctY, safeCrossZ],
+        [leftX, bottomDuctY, ductZ],
+      )
+    }
+  } else {
+    const dropZ = Math.max(exitPanel[2], ductZ + 0.04)
+    panelChain.push(
+      [exitPanel[0], bottomDuctY, dropZ],
+      [exitPanel[0], bottomDuctY, ductZ],
+    )
+  }
+
+  const entryLeft = cad(-38 + idx * 8, MOTOR_GLAND.y + dy * 2.4, 94 + idx * 5.5)
+  const frontSweep = cad(66 + dx * 2.2, MOTOR_GLAND.y + dy * 2.0, 98 + idx * 5.0)
+  const glandMouth = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 88)
+  const glandCap = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 73)
+  const glandInner = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 50)
+
+  const innerBoxPoints: V3[] = label === 'PE'
+    ? [cad(114, 122.5, 44), cad(headCad.x, Math.max(126.0, headCad.y + 1.5), headCad.z + 4)]
+    : label === 'U1' || label === 'W2'
+      ? [cad(98, 120.5, 32), cad(headCad.x, Math.max(127.0, headCad.y + 2.2), headCad.z + 10)]
+      : label === 'V1' || label === 'U2'
+        ? [cad(112, 115.5, 25), cad(headCad.x, Math.max(126.2, headCad.y + 1.8), headCad.z + 8)]
+        : [cad(124, 111.5, 22), cad(headCad.x, Math.max(125.5, headCad.y + 1.5), headCad.z + 7)]
+
+  const rawControls: V3[] = [
+    ...panelChain,
+    [panelRightX, bottomDuctY, ductZ],
+    [entryLeft[0], bottomDuctY, Math.max(ductZ, (ductZ + entryLeft[2]) * 0.5)],
+    entryLeft,
+    frontSweep,
+    glandMouth,
+    glandCap,
+    glandInner,
+    ...innerBoxPoints,
+    motorHead,
+  ]
+  const deduped = rawControls.filter((pt, i) => i === 0 || v(pt).distanceTo(v(rawControls[i - 1])) > 1e-4)
+  return keepInFrontOfPlate(roundCorners(deduped, outerMm, 3.6), outerMm)
+}
+
 /** Traçado individual de um cabo (compatível com chamadas isoladas e edição ao vivo). */
 export function buildWirePath3D(
   wire: Wire,
@@ -722,11 +921,39 @@ export function buildWirePath3D(
   slotOverride?: WireSlotOverride,
 ): WirePath3D {
   const outerMm = cableOuterDiameterMm(wire.gauge)
+  const fromType = endTypeOf(wire, 'from')
+  const toType = endTypeOf(wire, 'to')
+  const manual = (wire.waypoints3D?.length ?? 0) > 0
+  const fromMotorGland = !manual && isMotorGlandEligible(from, fromType) && !to.motorContext
+  const toMotorGland = !manual && isMotorGlandEligible(to, toType) && !from.motorContext
+
+  if (toMotorGland || fromMotorGland) {
+    const { trunkHint, plan } = computeBasePlan(wire, from, to, outerMm, obstacles)
+    const effectivePlan = plan ? (slotOverride ? { ...plan, slot: slotOverride } : plan) : undefined
+    const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles, trunkHint, effectivePlan)
+    const a = endHead(from, fromType, preliminary[Math.min(1, preliminary.length - 1)], outerMm)
+    const b = endHead(to, toType, preliminary[Math.max(0, preliminary.length - 2)], outerMm)
+    const glandBody = toMotorGland
+      ? buildMotorGlandBody3D(from, a.head, a.geometry.axis, to, b.head, outerMm, obstacles)
+      : buildMotorGlandBody3D(to, b.head, b.geometry.axis, from, a.head, outerMm, obstacles).slice().reverse()
+    const safe = finishWireBody(
+      glandBody,
+      wire,
+      outerMm,
+      obstacles,
+      [
+        { componentId: from.componentId, axis: a.geometry.axis, glandBypass: fromMotorGland },
+        { componentId: to.componentId, axis: b.geometry.axis, glandBypass: toMotorGland },
+      ],
+    )
+    return { points: safe, starts: [a.geometry, b.geometry] }
+  }
+
   const { trunkHint, plan } = computeBasePlan(wire, from, to, outerMm, obstacles)
   const effectivePlan = plan ? (slotOverride ? { ...plan, slot: slotOverride } : plan) : undefined
   const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles, trunkHint, effectivePlan)
-  const a = endHead(from, endTypeOf(wire, 'from'), preliminary[Math.min(1, preliminary.length - 1)], outerMm)
-  const b = endHead(to, endTypeOf(wire, 'to'), preliminary[Math.max(0, preliminary.length - 2)], outerMm)
+  const a = endHead(from, fromType, preliminary[Math.min(1, preliminary.length - 1)], outerMm)
+  const b = endHead(to, toType, preliminary[Math.max(0, preliminary.length - 2)], outerMm)
   const body = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles, trunkHint, effectivePlan)
   const safe = finishWireBody(keepInFrontOfPlate(body, outerMm), wire, outerMm, obstacles,
     [{ componentId: from.componentId, axis: a.geometry.axis }, { componentId: to.componentId, axis: b.geometry.axis }])
@@ -780,17 +1007,6 @@ function segSegClosest3D(
   const c1 = p1.clone().addScaledVector(u, s)
   const c2 = p2.clone().addScaledVector(wv, t)
   return { dist: c1.distanceTo(c2), s, t, c1, c2 }
-}
-
-/** Suaviza ligeiramente os pontos interiores sem mover as extremidades nem violar a chapa. */
-function laplacianSmoothInterior(pts: THREE.Vector3[], minZ: number, alpha = 0.28) {
-  if (pts.length <= 4) return
-  const copy = pts.map((p) => p.clone())
-  for (let i = 2; i < pts.length - 2; i += 1) {
-    pts[i].x = copy[i].x * (1 - alpha) + (copy[i - 1].x + copy[i + 1].x) * 0.5 * alpha
-    pts[i].y = copy[i].y * (1 - alpha) + (copy[i - 1].y + copy[i + 1].y) * 0.5 * alpha
-    pts[i].z = Math.max(minZ, copy[i].z * (1 - alpha) + (copy[i - 1].z + copy[i + 1].z) * 0.5 * alpha)
-  }
 }
 
 /**
@@ -938,10 +1154,31 @@ export function buildAllWirePaths3D(
   // 4) Construir os traçados suaves iniciais com os canais atribuídos.
   const builtPaths = entries.map((e) => {
     const path = buildWirePath3D(e.wire, e.from, e.to, obstacles, slots.get(e.wire.id))
+    const manual = (e.wire.waypoints3D?.length ?? 0) > 0
+    const fromGland = !manual && isMotorGlandEligible(e.from, endTypeOf(e.wire, 'from')) && !e.to.motorContext
+    const toGland = !manual && isMotorGlandEligible(e.to, endTypeOf(e.wire, 'to')) && !e.from.motorContext
+    const pts = path.points.map((p) => new THREE.Vector3(p[0], p[1], p[2]))
+    const pinned = pts.map((pt, idx) => {
+      if (idx <= 1 || idx >= pts.length - 2) return true
+      if (toGland && e.to.motorContext) {
+        const cadPt = worldToMotorCad(e.to.motorContext.component, v(e.to.motorContext.pivot), pt)
+        if (cadPt.z < 78 && cadPt.x > 46) return true
+      }
+      if (fromGland && e.from.motorContext) {
+        const cadPt = worldToMotorCad(e.from.motorContext.component, v(e.from.motorContext.pivot), pt)
+        if (cadPt.z < 78 && cadPt.x > 46) return true
+      }
+      return false
+    })
     return {
       entry: e,
       starts: path.starts,
-      pts: path.points.map((p) => new THREE.Vector3(p[0], p[1], p[2])),
+      pts,
+      pinned,
+      exits: [
+        { componentId: e.from.componentId, axis: path.starts[0].axis, glandBypass: fromGland },
+        { componentId: e.to.componentId, axis: path.starts[1].axis, glandBypass: toGland },
+      ] as Parameters<typeof keepWireOutsideSolids>[3],
       minZ: wireFrontLimit(e.outerMm),
     }
   })
@@ -984,59 +1221,67 @@ export function buildAllWirePaths3D(
             const hit = segSegClosest3D(a0, a1, b0, b1)
             if (hit.dist >= reqDist) continue
             if (sharedPositions.some((sp) => sp.distanceTo(hit.c1) < 0.22 || sp.distanceTo(hit.c2) < 0.22)) continue
+            if (A.pinned[s1] && A.pinned[s1 + 1] && B.pinned[s2] && B.pinned[s2 + 1]) continue
 
             anyCollision = true
             const overlap = reqDist - hit.dist + 0.003
             const sep = hit.c1.clone().sub(hit.c2)
             if (sep.lengthSq() < 1e-8) {
-              // Se os eixos coincidem, separa prioritariamente em +Z (cabo de índice maior passa à frente).
               sep.set(0, 0, i > j ? 1 : -1)
             } else {
               sep.normalize()
             }
 
-            const pushChain = (pts: THREE.Vector3[], segIdx: number, dir: THREE.Vector3, amount: number, minZ: number) => {
+            const pushChain = (pts: THREE.Vector3[], pinned: boolean[], segIdx: number, dir: THREE.Vector3, amount: number, minZ: number) => {
               const centerIdx = Math.min(pts.length - 2, Math.max(1, segIdx))
               for (let k = -kHalf; k <= kHalf; k += 1) {
                 const idx = centerIdx + k
-                if (idx <= 0 || idx >= pts.length - 1) continue
+                if (idx <= 0 || idx >= pts.length - 1 || pinned[idx]) continue
                 const w = kernel[k + kHalf] * amount
                 pts[idx].x += dir.x * w
                 pts[idx].y += dir.y * w
-                // Nunca empurrar para trás da chapa: se dir.z < 0 atingir minZ, compensa o outro cabo em +Z.
                 const nextZ = pts[idx].z + dir.z * w
                 pts[idx].z = Math.max(minZ, nextZ)
               }
             }
 
             if (sep.z < -0.25 && A.pts[Math.max(1, s1)].z - overlap * 0.6 <= A.minZ + 0.005) {
-              // A já está encostado ao limite frontal da chapa → empurra apenas B para +Z.
-              pushChain(B.pts, s2, new THREE.Vector3(-sep.x * 0.4, -sep.y * 0.4, Math.abs(sep.z) + 0.6).normalize(), overlap * 1.05, B.minZ)
+              pushChain(B.pts, B.pinned, s2, new THREE.Vector3(-sep.x * 0.4, -sep.y * 0.4, Math.abs(sep.z) + 0.6).normalize(), overlap * 1.05, B.minZ)
             } else if (sep.z > 0.25 && B.pts[Math.max(1, s2)].z - overlap * 0.6 <= B.minZ + 0.005) {
-              pushChain(A.pts, s1, new THREE.Vector3(sep.x * 0.4, sep.y * 0.4, Math.abs(sep.z) + 0.6).normalize(), overlap * 1.05, A.minZ)
+              pushChain(A.pts, A.pinned, s1, new THREE.Vector3(sep.x * 0.4, sep.y * 0.4, Math.abs(sep.z) + 0.6).normalize(), overlap * 1.05, A.minZ)
             } else {
-              pushChain(A.pts, s1, sep, overlap * 0.55, A.minZ)
-              pushChain(B.pts, s2, sep.clone().negate(), overlap * 0.55, B.minZ)
+              pushChain(A.pts, A.pinned, s1, sep, overlap * 0.55, A.minZ)
+              pushChain(B.pts, B.pinned, s2, sep.clone().negate(), overlap * 0.55, B.minZ)
             }
           }
         }
       }
     }
     if (pass < maxPasses - 4) {
-      for (const item of builtPaths) laplacianSmoothInterior(item.pts, item.minZ, 0.18)
+      for (const item of builtPaths) {
+        const copy = item.pts.map((p) => p.clone())
+        for (let idx = 2; idx < item.pts.length - 2; idx += 1) {
+          if (item.pinned[idx]) continue
+          item.pts[idx].x = copy[idx].x * 0.82 + (copy[idx - 1].x + copy[idx + 1].x) * 0.09
+          item.pts[idx].y = copy[idx].y * 0.82 + (copy[idx - 1].y + copy[idx + 1].y) * 0.09
+          item.pts[idx].z = Math.max(item.minZ, copy[idx].z * 0.82 + (copy[idx - 1].z + copy[idx + 1].z) * 0.09)
+        }
+      }
     }
     for (const item of builtPaths) {
       const current = item.pts.map(arr)
-      const safe = keepWireOutsideSolids(current, item.entry.outerMm, obstacles,
-        [{componentId:item.entry.from.componentId,axis:item.starts[0].axis},{componentId:item.entry.to.componentId,axis:item.starts[1].axis}], item.minZ, wireHash(item.entry.wire))
-      if (safe !== current) { item.pts = safe.map(v); anyCollision = true }
+      const safe = keepWireOutsideSolids(current, item.entry.outerMm, obstacles, item.exits, item.minZ, wireHash(item.entry.wire))
+      if (safe !== current) {
+        item.pts = safe.map(v)
+        item.pinned = item.pts.map((_, idx) => idx <= 1 || idx >= item.pts.length - 2)
+        anyCollision = true
+      }
     }
     if (!anyCollision) break
   }
 
   for (const item of builtPaths) {
-    const cleanPoints = keepWireOutsideSolids(keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm), item.entry.outerMm, obstacles,
-      [{ componentId: item.entry.from.componentId, axis: item.starts[0].axis }, { componentId: item.entry.to.componentId, axis: item.starts[1].axis }], wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire))
+    const cleanPoints = keepWireOutsideSolids(keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm), item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire))
     result.set(item.entry.wire.id, { points: cleanPoints, starts: item.starts })
   }
   return result

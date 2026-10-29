@@ -16,6 +16,7 @@ const timers = new Map<string, number[]>()
 /** Aplica o gesto de um botão/seletor a um componente do simulador (variáveis, estado, ponte de corrente). */
 export function triggerControl(def: ComponentDefinition, componentId: string, control: ControlDef, gesture: ControlGesture) {
   const store = useSimStore.getState()
+  if (store.sim.runState === 'stopped') return
   const live = store.components.find((item) => item.id === componentId)
   if (!live) return
   let vars: Vars = mergeVars(def, live.state?.catalogVars as Vars | undefined)
@@ -53,24 +54,29 @@ export function useCatalogMeter(component: ElectricalComponent | undefined, def:
   const components = useSimStore((s) => s.components)
   const wires = useSimStore((s) => s.wires)
   const energized = useSimStore((s) => s.runtime.energizedTerminals)
+  const runState = useSimStore((s) => s.sim.runState)
   const stored = component?.state?.catalogVars as Vars | undefined
   const vars = useMemo(() => (def ? mergeVars(def, stored) : {}), [def, stored])
   const isMeter = def?.behavior?.type === 'multimeter'
   const [noise, setNoise] = useState(0)
   useEffect(() => {
-    if (!isMeter) return
+    if (!isMeter || runState === 'stopped') return
     const id = window.setInterval(() => setNoise(Math.random() * 2 - 1), 250)
     return () => window.clearInterval(id)
-  }, [isMeter])
+  }, [isMeter, runState])
   const frozen = useRef<MeterReading | null>(null)
   const reading = useMemo(() => {
     if (!def || !component || !isMeter) return null
     const input = meterInputFor(def, component, components, wires, energized, vars)
     const live = multimeterReading(vars, input, noise)
+    if (runState === 'stopped') {
+      frozen.current = null
+      return { ...live, on: false, backlight: false, beep: false }
+    }
     if (vars.hold && live.on) { frozen.current = frozen.current ?? live; return { ...frozen.current, hold: true, backlight: live.backlight, beep: false } }
     frozen.current = null
     return live
-  }, [def, component, components, wires, energized, vars, noise, isMeter])
+  }, [def, component, components, wires, energized, vars, noise, isMeter, runState])
   return { vars, reading }
 }
 export { EMPTY_METER_INPUT }

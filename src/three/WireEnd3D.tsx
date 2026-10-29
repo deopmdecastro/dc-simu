@@ -101,12 +101,15 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
       case 'ferruleDouble': {
         const sleeve = embed || 8 * U
         const collar = 8 * U
-        const off = DOUBLE_FERRULE_PORT_MM * U
+        const nPorts = Math.max(2, geometry.portCount ?? 2)
+        const step = DOUBLE_FERRULE_PORT_MM * 2 * U
+        const halfSpan = ((nPorts - 1) * step) / 2
         const radius = Math.max(collarR, R + 0.5 * U)
+        const ports = Array.from({ length: nPorts }, (_, idx) => (idx - (nPorts - 1) / 2) * step)
         return <group>
           <Cyl y={-sleeve / 2} length={sleeve} radius={socketR * 0.98} color={METAL} metalness={0.85} roughness={0.25} />
-          <Cyl y={collar / 2} length={collar} radius={radius} scaleX={(off + radius) / radius} color={color} roughness={0.68} />
-          {[-off, off].map(x => <group key={x} position={[x, collar, 0]} userData={{ ferrulePort: true }}>
+          <Cyl y={collar / 2} length={collar} radius={radius} scaleX={(halfSpan + radius) / radius} color={color} roughness={0.68} />
+          {ports.map((x, idx) => <group key={idx} position={[x, collar, 0]} userData={{ ferrulePort: true }}>
             <Cyl y={0} length={0.2 * U} radius={R * 1.08} color="#20252c" roughness={0.9} />
           </group>)}
         </group>

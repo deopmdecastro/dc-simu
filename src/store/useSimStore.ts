@@ -36,6 +36,7 @@ import type {
   CanvasText,
 } from '../types'
 import { logoElectricalInputs } from '../electrical/logoPower'
+import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
@@ -783,7 +784,59 @@ export const WIRE_KIND_COLOR: Record<Wire['kind'], WireColor> = {
 /** latch = interruptor · push = botão NO (1 enquanto premido) · nc = botão NC (1 em repouso, 0 enquanto premido) */
 export type VirtualInputMode = 'latch' | 'push' | 'nc'
 
-export const useSimStore = create<Store>((set, get) => ({
+/** Desenergiza estado elétrico transitório ao carregar projeto ou entrar em STOP, preservando ajustes mecânicos (disjuntores, seletores, cores). */
+function deenergizeComponents(components: ElectricalComponent[]): ElectricalComponent[] {
+  return components.map((component) => {
+    const nextState = { ...component.state }
+    for (const key of ['energized', 'running', 'done', 'powered', 'powerReady', 'startPressed', 'stopPressed']) {
+      if (key in nextState) nextState[key] = false
+    }
+    if (
+      component.type === 'ledGreen' ||
+      component.type === 'ledRed' ||
+      component.type === 'ledYellow' ||
+      component.type === 'ledWhite' ||
+      component.type === 'pilotLightAd22' ||
+      component.type === 'buzzer' ||
+      component.type === 'hmi'
+    ) {
+      nextState.on = false
+    }
+    if (component.type === 'towerLight') {
+      nextState.red = false
+      nextState.yellow = false
+      nextState.green = false
+      nextState.on = false
+    }
+    if (!nextState.latched && 'pressed' in nextState) nextState.pressed = false
+    if ('pressedButton' in nextState) nextState.pressedButton = null
+    for (const key of ['elapsedMs', 'rpmVisual', 'reading', 'frequencyHz']) {
+      if (key in nextState) nextState[key] = 0
+    }
+    if ('direction' in nextState) nextState.direction = 'stopped'
+    for (const key of ['inputs', 'outputs']) {
+      const table = nextState[key]
+      if (table && typeof table === 'object') nextState[key] = Object.fromEntries(Object.keys(table).map((address) => [address, false]))
+    }
+    return {
+      ...component,
+      state: nextState,
+      terminals: component.terminals.map((terminal) => ({ ...terminal, energized: false })),
+    }
+  })
+}
+
+export const useSimStore = create<Store>((set, get) => {
+  /** Reavalia um scan apenas quando a simulação já foi iniciada (pausa ou passo a passo; nunca em STOP puro). */
+  const recomputeIfPaused = () => {
+    const { runState, scanCount } = get().sim
+    if (runState === 'paused' || (runState === 'stopped' && scanCount > 0)) get().step()
+  }
+  const recomputeIfActive = () => {
+    const { runState, scanCount } = get().sim
+    if (runState !== 'stopped' || scanCount > 0) get().step()
+  }
+  return ({
   components: [],
   wires: [],
   ladder: { rungs: [] },
@@ -912,7 +965,7 @@ export const useSimStore = create<Store>((set, get) => ({
     set({ activePlcId: id, plcPrograms: programs, plcTags, tags: plcTags[id] ?? (state.activePlcId === null && Object.keys(plcTags).length === 0 ? state.tags : []), ladder: { rungs: prior.rungs }, fcBlocks: { fc1: prior.fc1, fc2: prior.fc2 }, fcAdded: priorFcAdded,
       runtime: { ...state.runtime, table: nextRuntime?.table ?? emptyTable(16, 16), timers: nextRuntime?.timers ?? {}, counters: nextRuntime?.counters ?? {}, rungPowered: nextRuntime?.rungPowered ?? {}, db: nextRuntime?.db ?? {} },
       history: [], future: [], dirty: true })
-    get().step()
+    recomputeIfActive()
   },
   grafcet: emptyGrafcet(),
   grafcetRuntime: emptyGrafcetRuntime(),
@@ -981,12 +1034,12 @@ export const useSimStore = create<Store>((set, get) => ({
       return { forces }
     })
     if (value !== null) get().runtime.table[key] = value
-    if (get().sim.runState !== 'running') get().step()
+    recomputeIfPaused()
   },
   clearForces: () => {
     if (!Object.keys(get().forces).length) return
     set({ forces: {} })
-    if (get().sim.runState !== 'running') get().step()
+    recomputeIfPaused()
   },
   ladderBreakpoints: {},
   setLadderBreakpoint: (rungId, mode) => set((st) => {
@@ -1027,9 +1080,8 @@ export const useSimStore = create<Store>((set, get) => ({
   },
   setVirtualInput: (address, on) => {
     set((st) => ({ virtualInputs: { ...st.virtualInputs, [address]: on } }))
-    // Reflete logo na tabela (mesmo com a simulação parada/pausada) e avalia um scan.
     get().runtime.table[address] = on
-    if (get().sim.runState !== 'running') get().step()
+    recomputeIfPaused()
   },
   setVirtualInputCount: (count) => set({ virtualInputCount: Math.max(1, Math.min(32, Math.round(count))) }),
   setVirtualOutputCount: (count) => set({ virtualOutputCount: Math.max(1, Math.min(32, Math.round(count))) }),
@@ -1040,9 +1092,9 @@ export const useSimStore = create<Store>((set, get) => ({
     // Sem histórico (como as entradas virtuais): premir um botão não é uma edição do esquema.
     plc.state = { ...plc.state, simInputs: { ...(plc.state.simInputs as Record<string, boolean> | undefined), [address]: on } }
     const rt = get().runtime.plcRuntime[plcId]
-    if (rt && on) rt.table[address] = true
+    if (rt) rt.table[address] = on
     set((st) => ({ components: [...st.components], dirty: true }))
-    if (get().sim.runState !== 'running') get().step()
+    recomputeIfPaused()
   },
   setPlcSimInputMode: (plcId, address, mode) => {
     const plc = get().components.find((c) => c.id === plcId)
@@ -1054,7 +1106,7 @@ export const useSimStore = create<Store>((set, get) => ({
     if (mode === 'nc') inputs[address] = true
     plc.state = { ...plc.state, simInputModes: modes, simInputs: inputs }
     set((st) => ({ components: [...st.components], dirty: true }))
-    if (get().sim.runState !== 'running') get().step()
+    recomputeIfPaused()
   },
   clearPlcSimInputs: (plcId) => {
     const plc = get().components.find((c) => c.id === plcId)
@@ -1064,7 +1116,7 @@ export const useSimStore = create<Store>((set, get) => ({
     for (const [address, mode] of Object.entries(modes)) if (mode === 'nc') rest[address] = true
     plc.state = { ...plc.state, simInputs: rest }
     set((st) => ({ components: [...st.components], dirty: true }))
-    if (get().sim.runState !== 'running') get().step()
+    recomputeIfPaused()
   },
   clearVirtualInputs: () => {
     // Repouso: botões NO/interruptores a 0; botões NC (ex.: Stop) a 1.
@@ -1072,7 +1124,7 @@ export const useSimStore = create<Store>((set, get) => ({
     for (const [address, mode] of Object.entries(get().virtualInputModes)) if (mode === 'nc') rest[address] = true
     set({ virtualInputs: rest })
     for (const key of Object.keys(get().runtime.table)) if (/^I\d+\.\d+$/.test(key)) get().runtime.table[key] = !!rest[key]
-    if (get().sim.runState !== 'running') get().step()
+    recomputeIfPaused()
   },
   resetMemory: () => {
     // Constrói objetos novos (table/timers/…) para os subscritores React verem a mudança.
@@ -1095,19 +1147,19 @@ export const useSimStore = create<Store>((set, get) => ({
     const st = get()
     set({ grafcetRuntime: forceSteps(st.grafcet, st.grafcetRuntime, stepIds) })
     get().pushEvent('info', 'GRAFCET: etapas forçadas.')
-    if (get().sim.runState !== 'running') get().step()
+    recomputeIfPaused()
   },
   fireGrafcetTransition: (transitionId) => {
     const st = get()
     const next = fireTransition(st.grafcet, st.grafcetRuntime, transitionId)
     if (!next) return false
     set({ grafcetRuntime: next })
-    if (get().sim.runState !== 'running') get().step()
+    recomputeIfPaused()
     return true
   },
   restartGrafcet: () => {
     set({ grafcetRuntime: emptyGrafcetRuntime() })
-    if (get().sim.runState !== 'running') get().step()
+    recomputeIfPaused()
   },
   setProjectKind: (kind) => set({ projectKind: normalizeKind(kind), dirty: true }),
   _intervalId: null,
@@ -1136,8 +1188,14 @@ export const useSimStore = create<Store>((set, get) => ({
         plcRuntime: Object.fromEntries(Object.entries(s.runtime.plcRuntime).map(([id, rt]) => [id, { ...rt, startupDone: false }])),
       },
     }))
-    const interval = get().sim.mode === 'turbo' ? 30 : 100
-    const iv = window.setInterval(() => {
+    let rafGate = false
+    const releaseRafGate = () => { rafGate = false }
+    const tickCycle = () => {
+      if (rafGate) return false
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function' && (typeof document === 'undefined' || !document.hidden)) {
+        rafGate = true
+        window.requestAnimationFrame(releaseRafGate)
+      }
       const st = get()
       const dt = (st.sim.mode === 'turbo' ? 50 : 100) * st.sim.speed
       const prevPowered = fromStop ? {} : st.runtime.rungPowered
@@ -1154,10 +1212,16 @@ export const useSimStore = create<Store>((set, get) => ({
           const cursor = trace.findIndex((t) => t.rungId === hit.rungId)
           set({ ladderBreakHit: hit, ladderTraceCursor: cursor >= 0 ? cursor : null })
           get().pushEvent('warning', describeBreakHit(hit, networkNo))
+          return true
         }
       }
-    }, interval)
+      return false
+    }
+    const interval = get().sim.mode === 'turbo' ? 30 : 100
+    const iv = window.setInterval(tickCycle, interval)
     set((s) => ({ sim: { ...s.sim, runState: 'running' }, _intervalId: iv, ladderBreakHit: null }))
+    // Executa imediatamente o 1.º scan ao clicar Start (sem atraso inicial).
+    tickCycle()
   },
 
   pause: () => {
@@ -1169,7 +1233,16 @@ export const useSimStore = create<Store>((set, get) => ({
   stop: () => {
     const iv = get()._intervalId
     if (iv) window.clearInterval(iv)
-    set((s) => ({ sim: { ...s.sim, runState: 'stopped' }, _intervalId: null }))
+    set((s) => ({
+      components: deenergizeComponents(s.components),
+      wires: s.wires.map((wire) => (wire.energized ? { ...wire, energized: false } : wire)),
+      runtime: EMPTY_RUNTIME(),
+      grafcetRuntime: emptyGrafcetRuntime(),
+      sim: { ...s.sim, runState: 'stopped', scanCount: 0, diagnostics: [], measurements: [] },
+      _intervalId: null,
+      ladderBreakHit: null,
+      ladderTraceCursor: null,
+    }))
   },
 
   reset: () => {
@@ -1223,6 +1296,16 @@ export const useSimStore = create<Store>((set, get) => ({
   toggleStepMode: () => set((s) => ({ sim: { ...s.sim, stepMode: !s.sim.stepMode, mode: !s.sim.stepMode ? 'step' : 'realtime' } })),
 
   step: () => {
+    if (get().sim.runState === 'stopped' && get().sim.scanCount === 0) {
+      set((s) => ({
+        grafcetRuntime: emptyGrafcetRuntime(),
+        runtime: {
+          ...s.runtime,
+          startupDone: false,
+          plcRuntime: Object.fromEntries(Object.entries(s.runtime.plcRuntime).map(([id, rt]) => [id, { ...rt, startupDone: false }])),
+        },
+      }))
+    }
     const st = get()
     runOneTick(st as unknown as Store, 100)
     pushRuntime(set, st)
@@ -1230,7 +1313,7 @@ export const useSimStore = create<Store>((set, get) => ({
 
   setFaults: (patch) => {
     set((s) => ({ sim: { ...s.sim, faults: { ...s.sim.faults, ...patch } } }))
-    get().step()
+    recomputeIfActive()
   },
 
   toggleBlackBox: () => set((s) => ({ sim: { ...s.sim, blackBox: !s.sim.blackBox } })),
@@ -1245,6 +1328,7 @@ export const useSimStore = create<Store>((set, get) => ({
 
   // ------------------------------------------------------------- acionamento
   pressButton: (componentId, pressed) => {
+    if (get().sim.runState === 'stopped') return
     set((s) => {
       const c = s.components.find((x) => x.id === componentId)
       if (c) {
@@ -1257,7 +1341,7 @@ export const useSimStore = create<Store>((set, get) => ({
       }
       return { components: [...s.components], dirty: true }
     })
-    get().step()
+    recomputeIfActive()
   },
 
   setComponentState: (componentId, patch) => {
@@ -1267,10 +1351,11 @@ export const useSimStore = create<Store>((set, get) => ({
       if (c) c.state = { ...c.state, ...patch }
       return { components: [...s.components], dirty: true }
     })
-    get().step()
+    recomputeIfActive()
   },
 
   toggleTerminal: (terminalId) => {
+    if (get().sim.runState === 'stopped') return
     set((s) => {
       for (const c of s.components) {
         const t = c.terminals.find((x) => x.id === terminalId)
@@ -1286,7 +1371,7 @@ export const useSimStore = create<Store>((set, get) => ({
       }
       return { components: [...s.components], dirty: true }
     })
-    get().step()
+    recomputeIfActive()
   },
 
   // ------------------------------------------------------------------ edição
@@ -1602,7 +1687,7 @@ export const useSimStore = create<Store>((set, get) => ({
         }),
       } : item) : state.components,
       wires: changed && removedTerminalIds.size > 0
-        ? state.wires.filter((wire) => !removedTerminalIds.has(wire.fromTerminalId) && !removedTerminalIds.has(wire.toTerminalId))
+        ? syncSharedTerminalFerrules(state.wires.filter((wire) => !removedTerminalIds.has(wire.fromTerminalId) && !removedTerminalIds.has(wire.toTerminalId)))
         : state.wires,
       selectedWireId: state.selectedWireId && state.wires.some((wire) => wire.id === state.selectedWireId && !removedTerminalIds.has(wire.fromTerminalId) && !removedTerminalIds.has(wire.toTerminalId)) ? state.selectedWireId : null,
       selectedTerminalId: state.selectedTerminalId && validTerminalIds.has(state.selectedTerminalId) ? state.selectedTerminalId : null,
@@ -1639,7 +1724,7 @@ export const useSimStore = create<Store>((set, get) => ({
     get().pushEvent('info', `Componente ${comp.ref} (${comp.label}) adicionado ao esquema.`)
     if (free.displaced) get().pushEvent('warning', `${comp.ref} foi colocado na posição livre mais próxima para evitar sobreposição.`)
     if (get().grid.railMagnet !== false) get().snapToRails([comp.id])
-    get().step()
+    recomputeIfActive()
     return comp.id
   },
 
@@ -1694,7 +1779,7 @@ export const useSimStore = create<Store>((set, get) => ({
     set({ components, selectedComponentIds: touched, selectedWireId: null, dirty: true })
     if (railTargets.length) get().snapToRails(railTargets)
     get().pushEvent('info', `Tabela de componentes aplicada: ${created} criado(s), ${updated} atualizado(s).`)
-    get().step()
+    recomputeIfActive()
     return { created, updated }
   },
 
@@ -1760,7 +1845,7 @@ export const useSimStore = create<Store>((set, get) => ({
       }
       return { components: [...s.components, ...clones], selectedComponentIds: clones.map((c) => c.id), dirty: true }
     })
-    get().step()
+    recomputeIfActive()
   },
 
   updateComponent: (id, patch) => {
@@ -1802,7 +1887,7 @@ export const useSimStore = create<Store>((set, get) => ({
       }
       return { components, dirty: true }
     })
-    get().step()
+    recomputeIfActive()
   },
 
   moveComponent: (id, x, y, movingIds) => {
@@ -1904,7 +1989,7 @@ export const useSimStore = create<Store>((set, get) => ({
     }
     get().commitHistory()
     set((s) => ({ components: s.components.map((component) => (component.id === id ? candidate : component)), dirty: true }))
-    get().step()
+    recomputeIfActive()
   },
 
   mirrorComponent: (id) => {
@@ -1933,7 +2018,7 @@ export const useSimStore = create<Store>((set, get) => ({
     set((s) => {
       const remaining = s.components.filter((c) => !ids.includes(c.id))
       const deadTerminals = new Set(s.components.filter((c) => ids.includes(c.id)).flatMap((c) => c.terminals.map((t) => t.id)))
-      const wires = s.wires.filter((w) => !deadTerminals.has(w.fromTerminalId) && !deadTerminals.has(w.toTerminalId))
+      const wires = syncSharedTerminalFerrules(s.wires.filter((w) => !deadTerminals.has(w.fromTerminalId) && !deadTerminals.has(w.toTerminalId)))
       const living = remaining.filter(isProgrammablePlc)
       const programs = programsForSave(s.plcPrograms, s.activePlcId, s.ladder.rungs, s.fcBlocks, s.fcAdded)
       const keptPrograms = Object.fromEntries(Object.entries(programs).filter(([id]) => living.some((p) => p.id === id)))
@@ -1950,7 +2035,7 @@ export const useSimStore = create<Store>((set, get) => ({
         ...(nextProgram ? { tags: keptTags[nextId!] ?? [], ladder: { rungs: nextProgram.rungs }, fcBlocks: { fc1: nextProgram.fc1, fc2: nextProgram.fc2 }, fcAdded: fcPresentOf(nextProgram.fcAdded, nextProgram), history: [], future: [] } : {}),
       }
     })
-    get().step()
+    recomputeIfActive()
   },
 
 
@@ -2042,18 +2127,18 @@ export const useSimStore = create<Store>((set, get) => ({
       })),
       dirty: true,
     }))
-    get().step()
+    recomputeIfActive()
   },
 
   deleteTerminal: (terminalId) => {
     get().commitHistory()
     set((s) => ({
       components: s.components.map((c) => ({ ...c, terminals: c.terminals.filter((t) => t.id !== terminalId) })),
-      wires: s.wires.filter((w) => w.fromTerminalId !== terminalId && w.toTerminalId !== terminalId),
+      wires: syncSharedTerminalFerrules(s.wires.filter((w) => w.fromTerminalId !== terminalId && w.toTerminalId !== terminalId)),
       selectedTerminalId: null,
       dirty: true,
     }))
-    get().step()
+    recomputeIfActive()
   },
 
   addWire: (fromTerminalId, toTerminalId, color, waypoints) => {
@@ -2120,12 +2205,12 @@ export const useSimStore = create<Store>((set, get) => ({
     // neutro azul-claro, PE verde-amarelo, sinal laranja, bus violeta
     if (!color && defs.autoColor) wire.color = WIRE_KIND_COLOR[wire.kind]
 
-    set((s) => ({ wires: [...s.wires, wire], selectedWireId: wire.id, dirty: true }))
+    set((s) => ({ wires: syncSharedTerminalFerrules([...s.wires, wire]), selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo ${wire.number} criado (${a?.comp.ref ?? '?'} → ${b?.comp.ref ?? '?'}).`)
     if (a && b && !terminalClassesCompatible(a.electricalClass, b.electricalClass)) {
       get().pushEvent('warning', `Verifique ${wire.number}: ${TERMINAL_ELECTRICAL_CLASS_LABEL[a.electricalClass]} ligado a ${TERMINAL_ELECTRICAL_CLASS_LABEL[b.electricalClass]}.`)
     }
-    get().step()
+    recomputeIfActive()
   },
 
   addFreeWire: (from, to, waypoints) => {
@@ -2141,9 +2226,9 @@ export const useSimStore = create<Store>((set, get) => ({
       fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0,
       number: `W${get().wires.length + 1}`, energized: false,
     }
-    set((state) => ({ wires: [...state.wires, wire], selectedWireId: wire.id, dirty: true }))
+    set((state) => ({ wires: syncSharedTerminalFerrules([...state.wires, wire]), selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo livre ${wire.number} criado (sem continuidade elétrica até ligar ambas as pontas).`)
-    get().step()
+    recomputeIfActive()
   },
 
   addWire3D: (from, to, waypoints3D) => {
@@ -2180,15 +2265,19 @@ export const useSimStore = create<Store>((set, get) => ({
       fromEndLayer: 'back', toEndLayer: 'back', route: 'orthogonal', bend: 0.5, curveOffset: 0,
       number: `W${get().wires.length + 1}`, energized: false,
     }
-    set((state) => ({ wires: [...state.wires, wire], selectedWireId: wire.id, dirty: true }))
+    set((state) => ({ wires: syncSharedTerminalFerrules([...state.wires, wire]), selectedWireId: wire.id, dirty: true }))
     get().pushEvent('info', `Cabo livre ${wire.number} desenhado no 3D (sem continuidade elétrica até ligar ambas as pontas).`)
-    get().step()
+    recomputeIfActive()
     return wire.id
   },
 
   updateWire: (id, patch) => {
     if (get().demoMode) return
-    set((s) => ({ wires: s.wires.map((w) => (w.id === id ? { ...w, ...patch } : w)), dirty: true }))
+    set((s) => {
+      const updated = s.wires.map((w) => (w.id === id ? { ...w, ...patch } : w))
+      const needsSync = 'fromTerminalId' in patch || 'toTerminalId' in patch
+      return { wires: needsSync ? syncSharedTerminalFerrules(updated) : updated, dirty: true }
+    })
   },
 
   deleteWire: (id) => {
@@ -2199,8 +2288,8 @@ export const useSimStore = create<Store>((set, get) => ({
       return
     }
     get().commitHistory()
-    set((s) => ({ wires: s.wires.filter((w) => w.id !== id), selectedWireId: null, dirty: true }))
-    get().step()
+    set((s) => ({ wires: syncSharedTerminalFerrules(s.wires.filter((w) => w.id !== id)), selectedWireId: null, dirty: true }))
+    recomputeIfActive()
   },
 
   connectChain: (terminalIds) => {
@@ -2343,7 +2432,7 @@ export const useSimStore = create<Store>((set, get) => ({
     }
     get().commitHistory()
     set({ components: next, dirty: true })
-    get().step()
+    recomputeIfActive()
   },
 
   distributeSelection: (axis) => {
@@ -2379,7 +2468,7 @@ export const useSimStore = create<Store>((set, get) => ({
     get().commitHistory()
     set({ components: next, dirty: true })
     get().pushEvent('info', `Distribuição ${axis === 'horizontal' ? 'horizontal' : 'vertical'} aplicada a ${sorted.length} componentes.`)
-    get().step()
+    recomputeIfActive()
   },
 
   // ------------------------------------------------------------ camadas
@@ -2449,7 +2538,7 @@ export const useSimStore = create<Store>((set, get) => ({
       future: [...s.future, snapshot(s)],
       dirty: true,
     })
-    get().step()
+    recomputeIfActive()
   },
 
   redo: () => {
@@ -2474,7 +2563,7 @@ export const useSimStore = create<Store>((set, get) => ({
       history: [...s.history, snapshot(s)],
       dirty: true,
     })
-    get().step()
+    recomputeIfActive()
   },
 
   // ------------------------------------------------------------------- ladder
@@ -2487,7 +2576,7 @@ export const useSimStore = create<Store>((set, get) => ({
       ladder: { rungs: [...s.ladder.rungs, { id: rungId, name: `Rung ${s.ladder.rungs.length + 1}`, branches: [{ id: nanoid(6), elements: [] }], coils: [], enabled: true }] },
       dirty: true,
     }))
-    get().step()
+    recomputeIfActive()
     return rungId
   },
 
@@ -2497,7 +2586,7 @@ export const useSimStore = create<Store>((set, get) => ({
     resetGroupedEdit()
     set((s) => ({ ladder: { rungs: [...s.ladder.rungs, ...rungs] }, dirty: true }))
     get().autoDetectTags('skip')
-    get().step()
+    recomputeIfActive()
   },
 
   replaceGeneratedRungs: (rungs) => {
@@ -2505,14 +2594,14 @@ export const useSimStore = create<Store>((set, get) => ({
     resetGroupedEdit()
     set((s) => ({ ladder: { rungs: [...s.ladder.rungs.filter((r) => !r.name.startsWith('GRAFCET ·')), ...rungs] }, dirty: true }))
     get().autoDetectTags('skip')
-    get().step()
+    recomputeIfActive()
   },
 
   deleteRung: (rungId) => {
     if (get().demoMode) return
     get().commitHistory()
     set((s) => ({ ladder: { rungs: s.ladder.rungs.filter((r) => r.id !== rungId) }, dirty: true }))
-    get().step()
+    recomputeIfActive()
   },
 
   duplicateRung: (rungId) => {
@@ -2528,7 +2617,7 @@ export const useSimStore = create<Store>((set, get) => ({
       rungs.splice(idx + 1, 0, clone)
       return { ladder: { rungs }, dirty: true }
     })
-    get().step()
+    recomputeIfActive()
   },
 
   moveRung: (rungId, dir) => {
@@ -2542,7 +2631,7 @@ export const useSimStore = create<Store>((set, get) => ({
       ;[rungs[index], rungs[swapWith]] = [rungs[swapWith], rungs[index]]
       return { ladder: { rungs }, dirty: true }
     })
-    get().step()
+    recomputeIfActive()
   },
 
   renameRung: (rungId, name) => {
@@ -2558,7 +2647,7 @@ export const useSimStore = create<Store>((set, get) => ({
       const rungs = withEmptyNetworkBelow(s.ladder.rungs, next, (index) => ({ id: nanoid(6), name: `Rung ${index + 1}`, branches: [{ id: nanoid(6), elements: [] }], coils: [], enabled: true }))
       return { ladder: { rungs }, dirty: true }
     })
-    get().step()
+    recomputeIfActive()
   },
 
   // ------------------------------------------------------------- tabela de tags
@@ -2689,7 +2778,10 @@ export const useSimStore = create<Store>((set, get) => ({
       const footprintUpgraded = loadedComponents.some((component, index) => component.w !== sourceComponents[index]?.w || component.h !== sourceComponents[index]?.h)
       const loadedWires = (parsed.wires ?? []) as Wire[]
       const alignedWires = connectNearWireEnds(loadedComponents, loadedWires)
-      const plcIds = loadedComponents.filter(isProgrammablePlc).map((c) => c.id)
+      const snapDirty = alignedWires.some((wire, i) => wire !== loadedWires[i])
+      const cleanComponents = deenergizeComponents(loadedComponents)
+      const cleanWires = syncSharedTerminalFerrules(alignedWires.map((wire) => (wire.energized ? { ...wire, energized: false } : wire)))
+      const plcIds = cleanComponents.filter(isProgrammablePlc).map((c) => c.id)
       const loadedActiveId = plcIds.includes(parsed.activePlcId) ? parsed.activePlcId : plcIds[0] ?? null
       const programs = (parsed.plcPrograms ?? {}) as Record<string, PlcProgram>
       const activeProgram = loadedActiveId && programs[loadedActiveId]
@@ -2706,9 +2798,9 @@ export const useSimStore = create<Store>((set, get) => ({
           return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([key, value]) => /^I\d+\.\d+$/.test(key) && typeof value === 'boolean')) as Record<string, boolean>
         })(),
         virtualInputModes: (parsed.virtualInputModes && typeof parsed.virtualInputModes === 'object' ? parsed.virtualInputModes : {}) as Record<string, VirtualInputMode>,
-        components: loadedComponents,
+        components: cleanComponents,
         showEmptyWelcome: false,
-        wires: alignedWires,
+        wires: cleanWires,
         ladder: { rungs: activeProgram?.rungs ?? parsed.ladder?.rungs ?? [] },
         fcBlocks: { fc1: activeProgram?.fc1 ?? parsed.fcBlocks?.fc1 ?? [], fc2: activeProgram?.fc2 ?? parsed.fcBlocks?.fc2 ?? [] },
         fcAdded: fcPresentOf((parsed.fcAdded ?? activeProgram?.fcAdded) as { fc1?: boolean; fc2?: boolean } | undefined,
@@ -2738,11 +2830,10 @@ export const useSimStore = create<Store>((set, get) => ({
         viewOrientationEditor: null,
         history: [],
         future: [],
-        dirty: parsed !== original || footprintUpgraded || componentMetadataUpgraded || alignedWires.some((wire, i) => wire !== loadedWires[i]),
+        dirty: parsed !== original || footprintUpgraded || componentMetadataUpgraded || snapDirty,
       })
       get().pushEvent('info', 'Projeto carregado de arquivo JSON.')
       if (parsed !== original) get().pushEvent('info', 'Ligações do multímetro atualizadas com ponteiras duplas na entrada do motor. Guarde o projeto para conservar a atualização.')
-      get().step()
     } catch (e) {
       get().pushEvent('error', 'Falha ao carregar o JSON: arquivo inválido.')
       console.error(e)
@@ -2894,15 +2985,16 @@ export const useSimStore = create<Store>((set, get) => ({
 
     set((s) => ({
       components: [...s.components, ...newComponents],
-      wires: [...s.wires, ...newWires],
+      wires: syncSharedTerminalFerrules([...s.wires, ...newWires]),
       selectedComponentIds: newComponents.map((c) => c.id),
       selectedWireId: null,
       dirty: true,
     }))
     get().pushEvent('info', `Colado(s) ${newComponents.length} componente(s)${newWires.length ? ` e ${newWires.length} cabo(s)` : ''}.`)
-    get().step()
+    recomputeIfActive()
   },
-}))
+  })
+})
 
 function pushRuntime(set: (partial: Partial<Store>) => void, st: Store) {
   set({

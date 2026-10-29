@@ -106,11 +106,12 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
   const diagnostics = useSimStore((s) => s.sim.diagnostics)
   const systemVars = useMemo(() => ({
     ...(builtin === 'plcSiemensLogo1224RC' ? logoRuntimeVars(c, runState, diagnostics) : {}),
-    '$powered': c.state?.powered !== false,
+    '$simStopped': runState === 'stopped',
+    '$powered': runState !== 'stopped' && Boolean(c.state?.powered || c.state?.on || c.state?.energized || c.state?.running),
     '$run': runState === 'running' && !diagnostics.some((item) => item.level === 'error'),
     '$stop': runState === 'stopped', '$pause': runState === 'paused',
-    '$error': diagnostics.some((item) => item.level === 'error') || !!c.state?.tripped,
-    '$warning': diagnostics.some((item) => item.level === 'warning'),
+    '$error': runState !== 'stopped' && (diagnostics.some((item) => item.level === 'error') || !!c.state?.tripped),
+    '$warning': runState !== 'stopped' && diagnostics.some((item) => item.level === 'warning'),
     '$communication': runState === 'running' && scanCount % 6 < 2,
     '$tripped': !!c.state?.tripped,
   }), [c, builtin, runState, scanCount, diagnostics])
@@ -121,10 +122,11 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     rig.current = new ComponentRig(effective!, model, animator.current)
     rig.current.setVars(displayVars, reading, effective!.states.find((item) => item.id === (c.state?.catalogState ?? effective!.initialState))?.name ?? '')
     rig.current.snap()
+    animator.current.update(0)
     invalidate()
     return () => { timers.current.forEach((id) => window.clearTimeout(id)); timers.current = []; rig.current?.dispose(); rig.current = null }
   }, [version, model, effective])
-  useEffect(() => { rig.current?.setVars(displayVars, reading); invalidate() }, [displayVars, reading])
+  useEffect(() => { rig.current?.setVars(displayVars, reading); animator.current?.update(0); invalidate() }, [displayVars, reading])
   useEffect(() => { setBeep(!!reading?.beep); return () => setBeep(false) }, [reading?.beep])
 
   const stateId = String(c.state?.catalogState ?? version?.definition.initialState ?? '')

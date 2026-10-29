@@ -24,6 +24,7 @@ import { nanoid } from 'nanoid'
 import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
 import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE } from './nativeMotorMeter'
+import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 
 /** Blocos de programa do método «registo de etapa» (FC + OB100 + CALL na Main). */
 const NATIVE_PLC_ID = 'native-plc'
@@ -282,7 +283,7 @@ export function buildNativePartidaDireta(): Built {
   const red = place('pilotLightAd22', 'native-h2', 'H2', 'PARADO', 0.3, 1.7)
   red.state.color = '#ef4444'
   const motor = place('motor3ph', 'native-m1', 'M1', 'Motor SEW 3~', 3.5, -1.25)
-  const wires: Wire[] = []
+  let wires: Wire[] = []
   const add = (a: ElectricalComponent, al: string, b: ElectricalComponent, bl: string, color: WireColor, power = false) => {
     const next = wire(term(a, al), term(b, bl), color, `W${wires.length + 1}`)
     next.id = `native-wire-${wires.length + 1}`
@@ -307,20 +308,25 @@ export function buildNativePartidaDireta(): Built {
   add(source, 'PE', motor, 'PE', 'green-yellow', true)
   add(psu, '+V1', plc, 'L+', 'red')
   add(psu, '-V1', plc, 'M', 'blue')
-  // Entradas: B0 emergência → I0.0 · B1 START → I0.1 · B1 STOP → I0.2
+  // +24 V comando em ponte local com ponteira dupla: PS1.+V2 → B0.21 → B1.13 → B1.21
   add(psu, '+V2', emerg, '21', 'red')
+  add(emerg, '21', push, '13', 'red')
+  add(push, '13', push, '21', 'red')
+  // Entradas: B0 emergência → I0.0 · B1 START → I0.1 · B1 STOP → I0.2
   add(emerg, '22', plc, 'I0.0', 'violet')
-  add(psu, '+V2', push, '13', 'red')
   add(push, '14', plc, 'I0.1', 'violet')
-  add(psu, '+V2', push, '21', 'red')
   add(push, '22', plc, 'I0.2', 'violet')
-  for (const [output, target, positive, negative] of [
-    ['Q0.0', km, 'A1', 'A2'], ['Q0.1', green, 'X1', 'X2'], ['Q0.2', red, 'X1', 'X2'],
-  ] as const) {
-    add(psu, '+V1', plc, output, 'red')
-    add(plc, `${output}·2`, target, positive, 'orange')
-    add(target, negative, psu, '-V2', 'blue')
-  }
+  // Alimentação +24 V das saídas de relé em ponte local com ponteira dupla: PS1.+V1 → Q0.0 → Q0.1 → Q0.2
+  add(psu, '+V1', plc, 'Q0.0', 'red')
+  add(plc, 'Q0.0', plc, 'Q0.1', 'red')
+  add(plc, 'Q0.1', plc, 'Q0.2', 'red')
+  add(plc, 'Q0.0·2', km, 'A1', 'orange')
+  add(plc, 'Q0.1·2', green, 'X1', 'orange')
+  add(plc, 'Q0.2·2', red, 'X1', 'orange')
+  // Retorno 0 V DC organizado: H2.X2 → H1.X2 → PS1.-V2 e KM1.A2 → PS1.-V2
+  add(km, 'A2', psu, '-V2', 'blue')
+  add(red, 'X2', green, 'X2', 'blue')
+  add(green, 'X2', psu, '-V2', 'blue')
   const { meter, leads } = buildNativeMotorMeter(motor)
   wires.push(...leads)
   const components = [rail, source, main, psu, plc, qm, km, control, emerg, push, green, red, motor, meter]
@@ -334,11 +340,12 @@ export function buildNativePartidaDireta(): Built {
   ]
   const grafcet = buildNativeGrafcet()
   const wordProgram = buildNativeWordProgram(grafcet, baseTags)
+  wires = syncSharedTerminalFerrules(withMotorMeterFerrules(wires, leads))
   return {
     components,
-    // Traçado cozido na semente: cada cabo contorna os equipamentos e partilha
-    // faixas com afastamento (ver `nativeRouting`). O editor mantém os pontos editáveis.
-    wires: bakeNativeRouting(components, withMotorMeterFerrules(wires, leads)),
+    // Traçado cozido na semente: cada cabo contorna os equipamentos e aplica
+    // ponteiras duplas DIN 46228-4 em todos os bornes partilhados.
+    wires: bakeNativeRouting(components, wires),
     ladder: { rungs: wordProgram.mainRungs },
     grafcet,
     tags: wordProgram.tags,

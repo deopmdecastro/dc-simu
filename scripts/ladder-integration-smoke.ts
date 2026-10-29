@@ -59,9 +59,12 @@ store().loadJSON(JSON.stringify({
   },
 }))
 
-// ---- SCAN 1 (o próprio loadJSON executa um scan, igual ao RUN no editor) ----
-// Ordem TIA: o arranque corre PRIMEIRO (MW0 vazio = 0 → MOVE 1→MW0) e só depois o Main:
-// a «Saída» vê MW0==1 no MESMO scan e liga Q1. Com a ordem antiga Q1 ficaria a 0.
+// ---- EM STOP AO CARREGAR: nada energiza nem corre antes de Start / Step ----
+ok('loadJSON mantém simulação desenergizada em STOP antes de Start',
+  store().sim.runState === 'stopped' && !store().runtime.table['Q0.0'] && store().runtime.db.MW0 === undefined)
+
+// ---- SCAN 1 (ao iniciar simulação / step): arranque corre PRIMEIRO (MW0 vazio = 0 → MOVE 1→MW0) e só depois o Main ----
+store().step()
 ok('scan único: arranque antes do Main (MW0=1) e Saída já ativa (Q1=1)',
   store().runtime.db.MW0?.value === 1 && store().runtime.table['Q0.0'] === true)
 ok('arranque contado exatamente 1 vez (MW3=1)', store().runtime.db.MW3?.value === 1)
@@ -78,11 +81,14 @@ store().setVirtualInput('I0.1', true)
 ok('ciclo completo: MW0 volta a 1 e Q1 religa', store().runtime.db.MW0?.value === 1 && store().runtime.table['Q0.0'] === true)
 ok('arranque continua sem repetir (MW3=1)', store().runtime.db.MW3?.value === 1)
 
-// ---- STOP + novo RUN (via save/load, integração com o ficheiro): arranque volta a correr UMA vez e primeiro
+// ---- STOP + novo RUN (via save/load, integração com o ficheiro): em STOP fica desenergizado; ao arrancar repete UMA vez
 store().stop()
 store().clearVirtualInputs()
 store().loadJSON(store().saveJSON())
-ok('reload preserva o programa e repete o arranque UMA vez, antes do Main (MW0=1, Q1=1)',
+ok('reload mantém STOP desenergizado até novo Start',
+  store().sim.runState === 'stopped' && !store().runtime.table['Q0.0'])
+store().step()
+ok('novo Start após reload repete o arranque UMA vez, antes do Main (MW0=1, Q1=1)',
   store().runtime.db.MW0?.value === 1 && store().runtime.table['Q0.0'] === true && store().runtime.db.MW3?.value === 1)
 store().step()
 ok('scan seguinte do novo RUN não volta a correr o arranque (MW3=1)', store().runtime.db.MW3?.value === 1)
@@ -100,7 +106,8 @@ store().loadJSON(JSON.stringify({
 ok('contacto legado I1 migrado para I0.0', store().ladder.rungs.find((r) => r.id === 'lg')?.branches[0].elements[0]?.address === 'I0.0')
 ok('bobina legada Q1 migrada para Q0.0', store().ladder.rungs.find((r) => r.id === 'lg')?.coils[0]?.address === 'Q0.0')
 ok('tag legada I1 migrada para I0.0', store().tags[0]?.address === 'I0.0')
-ok('entrada virtual legada I1 continua a desenhar a lógica (Q0.0 = 1)', store().runtime.table['Q0.0'] === true)
+store().step()
+ok('entrada virtual legada I1 desenha a lógica ao arrancar (Q0.0 = 1)', store().runtime.table['Q0.0'] === true)
 store().step()
 ok('scan com dados migrados estável', store().runtime.table['Q0.0'] === true)
 

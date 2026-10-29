@@ -133,9 +133,14 @@ try {
     const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
     let probes=0,bananas=0,doubles=0,ports=0
     for(const root of _roots.values())root.store.getState().scene.traverse(node=>{if(node.userData.wireEndType==='probe')probes++;if(node.userData.wireEndType==='banana')bananas++;if(node.userData.wireEndType==='ferruleDouble')doubles++;if(node.userData.ferrulePort)ports++})
-    return probes===2&&bananas===2&&doubles===2&&ports===4
+    return probes===2&&bananas===2&&doubles===11&&ports===22
   },null,{timeout:30000})
-  check(true,'Nativo renderiza duas fichas banana, duas sondas e dois colares duplos com quatro entradas')
+  check(true,'Nativo renderiza duas fichas banana, duas sondas e onze ponteiras duplas com vinte e duas entradas')
+  const stopClean=await state(store=>{
+    const s=store.getState()
+    return s.sim.runState==='stopped' && s.grafcetRuntime.active.length===0 && s.components.every(c=>!c.state.lit&&!c.state.energized&&!c.state.running)
+  })
+  check(stopClean,'Em STOP inicial tudo permanece desligado (sinalizadores, GRAFCET e motor)')
   await page.keyboard.press('Home')
   await page.waitForTimeout(200)
   await page.evaluate(async()=> {

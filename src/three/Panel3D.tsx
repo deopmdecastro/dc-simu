@@ -175,7 +175,8 @@ function ThermalRelay3D({ c, x }: { c: ElectricalComponent; x: number }) {
 }
 
 function Contactor3D({ c, x }: { c: ElectricalComponent; x: number }) {
-  const en = !!c.state.energized
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const en = simActive && !!c.state.energized
   const poles = c.terminals.filter((t) => t.kind === 'power-in').length || 1
   return (
     <group position={[x, RAIL_Y + 0.4, 0]}>
@@ -563,7 +564,7 @@ function LogoFrontPanel({ c, interactive = true, screen = LOGO_SCREEN_FALLBACK }
   const cx = (screen.minX + screen.maxX) / 2, cy = (screen.minY + screen.maxY) / 2
   const canvas = useMemo(() => { const node = document.createElement('canvas'); node.width = 384; node.height = Math.round(384 * height / width); return node }, [width, height])
   const texture = useMemo(() => { const value = new THREE.CanvasTexture(canvas); value.colorSpace = THREE.SRGBColorSpace; value.anisotropy = 4; return value }, [canvas])
-  const powered = !!c.state.powered
+  const powered = runState !== 'stopped' && !!c.state.powered
   const inputs = c.terminals.filter((t) => /^I\d+\.\d+$/i.test(t.label)).map((t) => !!t.energized)
   const outputs = c.terminals.filter((t) => /^Q\d+\.\d+$/i.test(t.label) && !t.label.includes('·')).map((t) => !!c.state.outputs?.[t.label])
   const errors = diagnostics.filter((item) => item.level === 'error').length
@@ -719,7 +720,8 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
     void applyCadSurfaceTextures(fitted)
     return fitted
   }, [scene, spec])
-  const en = !!c.state.energized
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const en = simActive && !!c.state.energized
   const armature = useMemo(() => model.getObjectByName('Node10'), [model])
   useFrame((_, delta) => {
     if (!armature) return
@@ -747,7 +749,7 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
   // Disjuntores não têm LEDs reais: o estado vê-se na posição do manípulo, não em luzes inventadas.
   if (!plc && !safety) return null
   const error = diagnostics.some((item) => item.level === 'error') || !!c.state.tripped
-  const powered = c.state.powered !== false
+  const powered = runState !== 'stopped' && !!c.state.powered
   const run = powered && runState === 'running' && !error
   const comm = plc && run && scanCount % 6 < 2
   const lights = plc
@@ -783,7 +785,8 @@ function CadComponentReal3D({ c, x, position, interactive = true }: { c: Electri
     void applyCadSurfaceTextures(fitted)
     return fitted
   }, [scene, spec, centered])
-  const active = !!(c.state.energized || c.state.powered)
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const active = simActive && !!(c.state.energized || c.state.powered)
   const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
   /** Manípulo marcado no GLB (`dcsimu_handle_*`): charneira e curso medidos no CAD. */
   const rig = BREAKER_HANDLE_RIG[c.type]
@@ -1019,7 +1022,8 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
 
 /** Caixa procedural de reserva; o GLB Proauto ainda não foi disponibilizado. */
 function PowerSupply3D({ c, x }: { c: ElectricalComponent; x: number }) {
-  const powered = c.type === 'powerSupplyProauto24A' ? !!c.state.powered : !!c.state.on
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const powered = simActive && (c.type === 'powerSupplyProauto24A' ? !!c.state.powered : !!c.state.on)
   if (c.type === 'powerSource1ph' || c.type === 'powerSource3ph') return <TerminalAssembly3D c={c} x={x} />
   const title = c.type === 'powerSupplyProauto24A' ? '24V / 5A' : '24V'
   return <group position={[x, RAIL_Y + 0.48, 0]}>
@@ -1119,8 +1123,9 @@ function Drive3D({ c, x }: { c: ElectricalComponent; x: number }) {
 }
 
 function Lamp3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const color = c.state.color ?? (c.type === 'ledGreen' ? '#22c55e' : c.type === 'ledRed' ? '#ef4444' : '#eab308')
-  const on = !!c.state.on
+  const on = simActive && !!c.state.on
   return (
     <group position={[x, RAIL_Y + 1.15, 0.12]}>
       <mesh castShadow>
@@ -1151,7 +1156,8 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
     void applyCadSurfaceTextures(fitted)
     return fitted
   }, [scene, spec])
-  const on = !!c.state.on
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
+  const on = simActive && !!c.state.on
   const color = typeof c.state.color === 'string' ? c.state.color : '#ef4444'
   useEffect(() => {
     const selected = new THREE.Color(color)
@@ -1180,10 +1186,11 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
 }
 
 function TowerLight3D({ c, x }: { c: ElectricalComponent; x: number }) {
+  const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const bulbs: Array<[string, boolean]> = [
-    ['#ef4444', !!c.state.red],
-    ['#eab308', !!c.state.yellow],
-    ['#22c55e', !!c.state.green],
+    ['#ef4444', simActive && !!c.state.red],
+    ['#eab308', simActive && !!c.state.yellow],
+    ['#22c55e', simActive && !!c.state.green],
   ]
   return (
     <group position={[x, RAIL_Y + 1.3, 0.12]}>
@@ -1526,7 +1533,7 @@ function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D
   const path = prebuiltPath ?? buildWirePath3D(wire, from, to, obstacles)
   const points = path.points
   const curve = cableCurve3D(points, wire.route === 'arc')
-  const geom: WireGeom = { path, curve, segments: Math.max(28, points.length * 4), points }
+  const geom: WireGeom = { path, curve, segments: Math.min(180, Math.max(28, Math.round(points.length * 1.25))), points }
   if (wireGeomCache.size > 400) wireGeomCache.clear()
   wireGeomCache.set(key, geom)
   return geom
@@ -1665,7 +1672,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
       </mesh>}
       <mesh castShadow receiveShadow renderOrder={19} raycast={() => null}>
         <tubeGeometry args={[curve, segments, radius, 14, false]} />
-        <meshPhysicalMaterial color={wireColor} roughness={0.32} metalness={0.03} clearcoat={0.55} clearcoatRoughness={0.24} envMapIntensity={1.15} emissive={flowing ? wireColor : '#000000'} emissiveIntensity={flowing ? 0.22 : 0} />
+        <meshPhysicalMaterial color={wireColor} roughness={0.32} metalness={0.03} clearcoat={0.55} clearcoatRoughness={0.24} envMapIntensity={1.15} emissive={flowing ? wireColor : '#000000'} emissiveIntensity={flowing ? 0.07 : 0} />
       </mesh>
       {/* Volume transparente maior: seleção fiável (clique) e curvas novas (duplo clique) sem falsificar a secção visível. */}
       <mesh userData={{ wireHit: true }}
@@ -1677,11 +1684,11 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
           const onCable = closestPointOnPolyline(points, hit)
           handlers.onInsertWaypoint(wire.id, waypointInsertIndex(chain, onCable), toSpatial(onCable))
         }}>
-        <tubeGeometry args={[curve, segments, Math.max(0.04, radius * 2.5), 8, false]} />
+        <tubeGeometry args={[curve, Math.min(96, segments), Math.max(0.04, radius * 2.5), 8, false]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      <WireEnd3D geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} />
-      <WireEnd3D geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} />
+      {!from.sharedFollower && <WireEnd3D geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} />}
+      {!to.sharedFollower && <WireEnd3D geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} />}
       {flowing && <NeonCurrent3D curve={curve} segments={segments} radius={radius} color={wireColor} />}
       {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
         onSelect={handlers.onSelectWaypoint}
@@ -1731,12 +1738,55 @@ function StudioEnvironment() {
  * primeiros segundos após o mount (os GLBs entram via Suspense já depois). */
 function ShadowsOnDemand({ watch }: { watch: string }) {
   const gl = useThree((state) => state.gl)
-  useEffect(() => { gl.shadowMap.needsUpdate = true }, [gl, watch])
+  useEffect(() => { if (gl.shadowMap.enabled) gl.shadowMap.needsUpdate = true }, [gl, watch])
   useEffect(() => {
+    if (!gl.shadowMap.enabled) return
     gl.shadowMap.needsUpdate = true
-    const timers = [150, 450, 1000, 2000, 3500, 6000].map((ms) => window.setTimeout(() => { gl.shadowMap.needsUpdate = true }, ms))
+    const timers = [150, 450, 1000, 2000, 3500, 6000].map((ms) => window.setTimeout(() => { if (gl.shadowMap.enabled) gl.shadowMap.needsUpdate = true }, ms))
     return () => timers.forEach((t) => window.clearTimeout(t))
   }, [gl])
+  return null
+}
+
+const IS_SOFTWARE_WEBGL = (() => {
+  if (typeof document === 'undefined') return false
+  try {
+    const probe = document.createElement('canvas')
+    const ctx = (probe.getContext('webgl2') || probe.getContext('webgl')) as WebGLRenderingContext | null
+    if (!ctx) return false
+    const dbg = ctx.getExtension('WEBGL_debug_renderer_info')
+    const name = String((dbg ? ctx.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : ctx.getParameter(ctx.RENDERER)) ?? '')
+    ctx.getExtension('WEBGL_lose_context')?.loseContext()
+    return /swiftshader|llvmpipe|software|lavapipe/i.test(name)
+  } catch {
+    return false
+  }
+})()
+
+/** Em rasterizadores WebGL por software (SwiftShader / llvmpipe em CI), reduz DPR e cadencia frames em RUN sem bloquear o compositor. */
+function SoftwareRunInvalidator({ active }: { active: boolean }) {
+  const invalidate = useThree((state) => state.invalidate)
+  const setDpr = useThree((state) => state.setDpr)
+  useEffect(() => {
+    if (IS_SOFTWARE_WEBGL) setDpr(0.5)
+  }, [setDpr])
+  useEffect(() => {
+    if (!active) return
+    let cancelled = false
+    let timer = 0
+    const step = () => {
+      if (cancelled) return
+      invalidate()
+      requestAnimationFrame(() => {
+        if (!cancelled) timer = window.setTimeout(step, 220)
+      })
+    }
+    step()
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [active, invalidate])
   return null
 }
 
@@ -2063,6 +2113,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   /** Telemóvel: a explicação da ferramenta fica a um toque (o cartão ocupava um quarto do ecrã). */
   useShortcutsRequest('schematic', () => setShortcutHelpOpen(true))
   const [glLost, setGlLost] = useState(false)
+  const [softwareGl, setSoftwareGl] = useState(IS_SOFTWARE_WEBGL)
   const gridSettings = useSimStore((s) => s.grid)
   const placingType = useSimStore((s) => s.placingType)
   const setPlacingType = useSimStore((s) => s.setPlacingType)
@@ -2088,9 +2139,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const demoMode = useSimStore((s) => s.demoMode)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = demoMode ? 'navigate' : tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
-  // Atuar botões/disjuntores: sempre com ferramenta Selecionar (STOP ou RUN, inclusive na demonstração).
-  // Bloquear seleção/arrasto/edição durante RUN/PAUSA e sempre em modo demonstração.
-  const canActuate = (demoMode || tool === 'select') && !viewOrientationEditor
+  // Atuar botões, disjuntores e seletores apenas quando a simulação está ativa (RUN ou PAUSA).
+  // Em STOP mantém-se apenas seleção/edição (e visualização estática na demonstração).
+  const canActuate = runState !== 'stopped' && (demoMode || tool === 'select') && !viewOrientationEditor
   const interactive = canActuate
   const simLocked = demoMode || ((runState === 'running' || runState === 'paused') && !viewOrientationEditor)
 
@@ -2828,7 +2879,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       </div>, wireActionSlot)}
       {!hasComponents && <div className="panel3d-empty"><strong>{frontEdit ? 'O esquema está vazio' : 'O esquema 3D está vazio'}</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
       <ContextLossNotice lost={glLost} />
-      <Canvas frameloop={!stageVisible ? 'never' : (runState === 'running' || burstActive) ? 'always' : 'demand'} shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (!demoMode && editMode !== 'connect') selectComponents([]) }}
+      <Canvas frameloop={!stageVisible ? 'never' : (!softwareGl && (runState === 'running' || burstActive)) ? 'always' : 'demand'} shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: !IS_SOFTWARE_WEBGL, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (!demoMode && editMode !== 'connect') selectComponents([]) }}
         onCreated={({ gl }) => {
           gl.toneMapping = STUDIO_TONE_MAPPING
           gl.toneMappingExposure = STUDIO_EXPOSURE
@@ -2836,8 +2887,20 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           // RUN a re-sombra contínua era a maior fatia do custo de renderização.
           gl.shadowMap.autoUpdate = false
           gl.shadowMap.needsUpdate = true
+          try {
+            const ctx = gl.getContext()
+            const dbg = ctx.getExtension('WEBGL_debug_renderer_info')
+            const rendererName = String((dbg ? ctx.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : ctx.getParameter(ctx.RENDERER)) ?? '')
+            if (/swiftshader|llvmpipe|software|lavapipe/i.test(rendererName)) {
+              gl.setPixelRatio(1)
+              gl.shadowMap.enabled = false
+              gl.shadowMap.needsUpdate = false
+              setSoftwareGl(true)
+            }
+          } catch { /* ignore */ }
         }}>
         <StudioEnvironment />
+        <SoftwareRunInvalidator active={softwareGl && stageVisible && (runState === 'running' || burstActive)} />
         <ShadowsOnDemand watch={shadowWatch} />
         <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
@@ -2882,9 +2945,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else content = <Breaker3D c={c} x={x} />
           const isBreaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
           if (isBreaker) content = <group onClick={(event) => {
-            if (!canActuate || c.locked) return
+            if (c.locked) return
+            if (!canActuate) {
+              if (!simLocked && useSimStore.getState().tool === 'select') {
+                event.stopPropagation()
+                useSimStore.getState().selectComponents([c.id])
+              }
+              return
+            }
             event.stopPropagation()
-            // Liga/desliga em STOP e em RUN; seleção só fora da simulação.
             if (!simLocked) useSimStore.getState().selectComponents([c.id])
             const closed = !!c.state.closed && !c.state.tripped
             useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })

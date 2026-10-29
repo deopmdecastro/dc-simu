@@ -520,6 +520,7 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
         const pressed = c.state.pressedButton as string | undefined
         const pressBtn = (name: string) => (e: React.MouseEvent) => {
           e.stopPropagation()
+          if (useSimStore.getState().sim.runState === 'stopped') return
           useSimStore.getState().setComponentState(c.id, { pressedButton: name })
         }
         const releaseBtn = (e: React.MouseEvent) => {

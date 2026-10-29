@@ -2,7 +2,7 @@ import * as THREE from 'three'
 
 type Point = [number, number, number]
 export type SolidWireBox = THREE.Box3 & { componentId?: string; rail?: boolean }
-export type SocketExit = { componentId?: string; axis: Point }
+export type SocketExit = { componentId?: string; axis: Point; glandBypass?: boolean }
 const vec = (p: Point) => new THREE.Vector3(...p)
 const tuple = (p: THREE.Vector3): Point => [p.x, p.y, p.z]
 
@@ -33,6 +33,9 @@ function clearWithSockets(points: Point[], boxes: SolidWireBox[], exits: [Socket
       && (reverse ? a.dot(axis) >= b.dot(axis) - 1e-6 : b.dot(axis) >= a.dot(axis) - 1e-6)
   }
   for (const box of boxes) {
+    if (box.componentId && ((box.componentId === exits[0].componentId && exits[0].glandBypass) || (box.componentId === exits[1].componentId && exits[1].glandBypass))) {
+      continue
+    }
     const grown = box.clone().expandByScalar(pad)
     for (let i = 1; i < points.length; i++) {
       const a = points[i-1], b = points[i]
@@ -101,27 +104,26 @@ export function keepWireOutsideSolids(points: Point[], outerMm: number, obstacle
   const solids = obstacles
   const pad = outerMm * 0.005 + 0.025
   if (clearWithSockets(points,solids,exits,pad)) return points
-  const boxes = solids.map(box => box.clone().expandByScalar(pad))
-  const a = socketEscape(points[0], exits[0], solids, pad)
-  const b = socketEscape(points[points.length - 1], exits[1], solids, pad)
+  const activeSolids = solids.filter(box => !(box.componentId && ((box.componentId === exits[0].componentId && exits[0].glandBypass) || (box.componentId === exits[1].componentId && exits[1].glandBypass))))
+  const boxes = activeSolids.map(box => box.clone().expandByScalar(pad))
+  const ownA = !exits[0].glandBypass ? solids.find(box => box.componentId === exits[0].componentId)?.clone().expandByScalar(pad) : undefined
+  const ownB = !exits[1].glandBypass ? solids.find(box => box.componentId === exits[1].componentId)?.clone().expandByScalar(pad) : undefined
+  const a = exits[0].glandBypass ? points[0] : socketEscape(points[0], exits[0], solids, pad)
+  const b = exits[1].glandBypass ? points[points.length - 1] : socketEscape(points[points.length - 1], exits[1], solids, pad)
   // A primeira/última saída é axial; as curvas nunca herdam uma zona de exclusão
   // esférica que permita regressar ao interior do próprio aparelho.
-  const ownA = solids.find(box => box.componentId === exits[0].componentId)?.clone().expandByScalar(pad)
-  const ownB = solids.find(box => box.componentId === exits[1].componentId)?.clone().expandByScalar(pad)
   let first = 1, last = points.length - 2
   while (first <= last && ownA?.containsPoint(vec(points[first]))) first++
   while (last >= first && ownB?.containsPoint(vec(points[last]))) last--
   const middle = [a, ...points.slice(first, last + 1), b]
   const finish = (path: Point[]) => {
-    const departure = Array.from({length:10},(_,i)=>tuple(vec(points[0]).lerp(vec(a),i/10)))
-    const arrival = Array.from({length:10},(_,i)=>tuple(vec(b).lerp(vec(points[points.length-1]),i/10)))
+    const departure = exits[0].glandBypass ? [] : Array.from({length:10},(_,i)=>tuple(vec(points[0]).lerp(vec(a),i/10)))
+    const arrival = exits[1].glandBypass ? [] : Array.from({length:10},(_,i)=>tuple(vec(b).lerp(vec(points[points.length-1]),i/10)))
     const result = [...departure,...path,...arrival,points[points.length-1]].filter((p,i,all)=>i===0||vec(p).distanceToSquared(vec(all[i-1]))>1e-10)
     return clearWithSockets(result,solids,exits,pad) ? result : []
   }
   if (pathEntersBoxes(middle, boxes)) {
     const detour = routeOutside(a, b, boxes, minZ, track)
-    // Pontos livres dentro de um sólido/volumes sobrepostos não têm um desvio
-    // fisicamente válido. Não desenhar um cabo através do corpo como alternativa.
     if (!detour.length) return []
     return finish(detour)
   }

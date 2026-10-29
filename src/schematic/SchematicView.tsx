@@ -922,6 +922,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'motorBreaker', 'residualBreaker'].includes(c.type)
 
   const toggleField = (c: ElectricalComponent, down: boolean) => {
+    if (useSimStore.getState().sim.runState === 'stopped') return
     if (isToggleBreaker(c)) {
       const closed = !!c.state.closed && !c.state.tripped
       useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
@@ -1103,13 +1104,13 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
           <path d={d} stroke="#3b82f6" strokeWidth={width + 9} opacity={0.18} />
           <path d={d} stroke="#60a5fa" strokeWidth={width + 4} opacity={0.42} />
         </g>}
-        {showEnergyFlow && <path d={d} fill="none" stroke={col} strokeWidth={width + 6} opacity={0.32} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
+        {showEnergyFlow && <path d={d} fill="none" stroke={col} strokeWidth={width + 2.4} opacity={0.14} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" />}
         {/* contorno escuro fino: dá leitura a cores claras (branco, amarelo, azul-claro) */}
         <path d={d} fill="none" stroke="#1e293b" strokeOpacity={0.35} strokeWidth={width + 1.4} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
         <path d={d} fill="none" stroke={col} strokeWidth={width} strokeLinecap={cap} strokeLinejoin={join} pointerEvents="none" />
         {/* O acabamento do fio é igual para rígido e flexível. */}
         <path d={d} fill="none" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={Math.max(0.6, width * 0.26)} strokeLinecap="butt" strokeLinejoin="miter" pointerEvents="none" />
-        {showEnergyFlow && <path d={d} fill="none" stroke={col} strokeWidth={Math.max(1, width * 0.45)} strokeDasharray="4 10" className="dc-flow" strokeLinecap="round" pointerEvents="none" opacity={0.95} />}
+        {showEnergyFlow && <path d={d} fill="none" stroke="#ffffff" strokeWidth={Math.max(1.1, width * 0.36)} strokeDasharray="3 14" className="dc-flow" strokeLinecap="round" pointerEvents="none" opacity={0.76} />}
         {/* área de clique larga (clique seleciona · duplo clique adiciona ponto de curva) */}
         <path
           d={d}
@@ -1305,8 +1306,8 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
               const coords = { up: [0.8, 0.45], down: [0.8, 0.63], left: [0.68, 0.54], right: [0.92, 0.54], ESC: [0.72, 0.72], OK: [0.88, 0.72] }
               const [bx, by] = coords[button]
               return <rect key={button} x={(bx - 0.055) * imageW} y={(by - 0.035) * imageH} width={imageW * 0.11} height={imageH * 0.07} rx={3} fill={c.state.pressedButton === button ? '#38bdf8' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
-                onMouseDown={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { pressedButton: button }) }}
-                onMouseUp={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
+                onMouseDown={(e) => { e.stopPropagation(); if (useSimStore.getState().sim.runState !== 'stopped') useSimStore.getState().setComponentState(c.id, { pressedButton: button }) }}
+                onMouseUp={(e) => { e.stopPropagation(); if (c.state.pressedButton) useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
                 onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.pressedButton === button) useSimStore.getState().setComponentState(c.id, { pressedButton: null }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>{button}</title></rect>
             })}
@@ -1320,14 +1321,14 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
             {c.type === 'dualPushButtonNpb22D11' && isOriginalComponentOrientation(orientation) && <>
               <rect x={c.w * 0.12} y={c.h * 0.18} width={c.w * 0.34} height={c.h * 0.55} rx={6}
                 fill={c.state.stopPressed ? '#ef4444' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
-                onMouseDown={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { stopPressed: true }) }}
-                onMouseUp={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { stopPressed: false }) }}
+                onMouseDown={(e) => { e.stopPropagation(); if (useSimStore.getState().sim.runState !== 'stopped') useSimStore.getState().setComponentState(c.id, { stopPressed: true }) }}
+                onMouseUp={(e) => { e.stopPropagation(); if (c.state.stopPressed) useSimStore.getState().setComponentState(c.id, { stopPressed: false }) }}
                 onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.stopPressed) useSimStore.getState().setComponentState(c.id, { stopPressed: false }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>STOP · contacto NF 21–22</title></rect>
               <rect x={c.w * 0.54} y={c.h * 0.18} width={c.w * 0.34} height={c.h * 0.55} rx={6}
                 fill={c.state.startPressed ? '#22c55e' : 'transparent'} fillOpacity={0.2} style={{ cursor: 'pointer' }}
-                onMouseDown={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { startPressed: true }) }}
-                onMouseUp={(e) => { e.stopPropagation(); useSimStore.getState().setComponentState(c.id, { startPressed: false }) }}
+                onMouseDown={(e) => { e.stopPropagation(); if (useSimStore.getState().sim.runState !== 'stopped') useSimStore.getState().setComponentState(c.id, { startPressed: true }) }}
+                onMouseUp={(e) => { e.stopPropagation(); if (c.state.startPressed) useSimStore.getState().setComponentState(c.id, { startPressed: false }) }}
                 onMouseLeave={() => { if (useSimStore.getState().components.find((item) => item.id === c.id)?.state.startPressed) useSimStore.getState().setComponentState(c.id, { startPressed: false }) }}
                 onDoubleClick={(e) => e.stopPropagation()}><title>START · contacto NA 13–14</title></rect>
             </>}

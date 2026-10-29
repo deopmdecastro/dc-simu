@@ -125,8 +125,9 @@ export class StateAnimator {
     return active
   }
 
-  /** Estado luminoso de uma zona (estado do componente + condição `when`). */
+  /** Estado luminoso de uma zona (estado do componente + condição `when`). Em STOP da simulação (`$simStopped`), permanece desligada. */
   private lightStatus(light: LightZoneDef) {
+    if (this.vars['$simStopped']) return { on: false, blink: false, color: chosenColorOf(light, this.vars), intensity: 0 }
     return resolveLightLook(light, this.target.lights[light.id], this.vars)
   }
 

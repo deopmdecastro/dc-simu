@@ -98,7 +98,7 @@ const orient = read('src/three/componentOrientation.ts')
 assert('Apenas o motor usa orientação isométrica por omissão no simulador', orient.includes('MOTOR_ISOMETRIC_ORIENTATION') && orient.includes("type === 'motor3ph' || type === 'motor1ph'") && orient.includes('if (isIsometricMotorType(type)) return { ...MOTOR_ISOMETRIC_ORIENTATION }'))
 
 const panel = read('src/three/Panel3D.tsx')
-assert('Painel 3D: botão «+ Comentário» fora da demo', panel.includes('{!demoMode && !selectedText && <div className="canvas-annotate"') && panel.includes('onClick={addNote}'))
+assert('Painel 3D: botão «+ Comentário» fora da demo', panel.includes("if (demoMode && (action === 'addNote' || action === 'addText')) return") && panel.includes('else if (action === \'addNote\') addNote()'))
 assert('Painel 3D: abre em vista frontal por omissão (apenas o motor é isométrico)', panel.includes("view: 'front'") && panel.includes("moveCamera('front')") && !panel.includes('isoFirst'))
 assert('Painel 3D: DPR limitado e pausa offscreen / demand em repouso', panel.includes('dpr={[1, 1.5]}') && panel.includes("frameloop={!stageVisible ? 'never'"))
 
