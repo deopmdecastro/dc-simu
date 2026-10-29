@@ -72,7 +72,8 @@ export function EditorTopbar({ projectName, dirty, message, onRename, actions }:
           className="dx-project-rename"
           onClick={() => onRename && setEditing(true)}
           disabled={!onRename}
-          title={onRename ? 'Clique para mudar o nome do projeto' : undefined}
+          title={onRename ? `${projectName} · clique para mudar o nome` : projectName}
+          aria-label={onRename ? `Mudar nome do projeto: ${projectName}` : projectName}
         >
           <strong>{projectName}</strong>
           {onRename && <IconEdit size={11} />}

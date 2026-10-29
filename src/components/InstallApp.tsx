@@ -1,5 +1,5 @@
-import { IconDownload } from '../ui/icons'
 import { useEffect, useState } from 'react'
+import { IconDownload } from '../ui/icons'
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
 

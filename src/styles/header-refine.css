@@ -61,3 +61,110 @@
 @media (pointer: coarse) {
   .dc-toolbar-main .dc-tool-btn, .dc-toolbar-row2 .dc-tool-btn { min-height: 36px; }
 }
+
+/* UI-REFINE-20261029 — as barras compactas reservam espaço para todas as ações
+   principais; as restantes ficam nos menus, com nome e descrição. */
+.dc-toolbar-shell.is-compact .dc-toolbar-main {
+  min-height: 46px !important; height: 46px; max-height: 46px; gap: 8px !important;
+  flex-wrap: nowrap !important; overflow: visible !important;
+}
+.dc-toolbar-shell.is-compact .dc-project-file-tools,
+.dc-toolbar-shell.is-compact .dc-runtime-setting,
+.dc-toolbar-shell.is-compact .dc-runtime-sep,
+.dc-toolbar-shell.is-compact .dc-run-badge,
+.dc-toolbar-shell.is-compact .dc-clean-toggle { display: none !important; }
+.dc-toolbar-shell.is-compact .dc-views-container {
+  min-width: 0; flex: 1 1 auto !important; justify-content: flex-start !important; overflow: visible !important;
+}
+.dc-toolbar-shell.is-compact .dc-transport-tools { flex: 0 0 auto; gap: 0 !important; }
+.dc-toolbar-shell.is-compact .dc-transport-tools > .dc-seg {
+  display: flex; flex-wrap: nowrap; gap: 0 !important; padding: 0; border: 1px solid var(--pn-line, #d6dde8);
+  background: white; border-radius: 8px;
+}
+.dc-toolbar-shell.is-compact .dc-transport-tools > .dc-seg > button {
+  min-width: 40px; min-height: 40px; height: 40px; justify-content: center; padding-inline: 8px !important;
+  border: 0; background: transparent; box-shadow: none;
+}
+.dc-toolbar-shell .dc-toolbar-row2.dc-toolbar-compact {
+  display: flex !important; align-items: center; flex-wrap: nowrap !important;
+  height: 46px !important; min-height: 46px !important; max-height: 46px !important;
+  gap: 6px !important; padding: 3px 8px; overflow: visible !important; white-space: nowrap;
+  background: var(--pn-bg-2, #f6f8fb);
+}
+.dc-toolbar-compact > * { flex: 0 0 auto; }
+.dc-toolbar-compact .dc-sim-tool { min-height: 40px; padding-inline: 10px; font-weight: 650; }
+.dc-toolbar-compact > .dc-seg { gap: 0 !important; padding: 0; border: 0; }
+.dc-toolbar-compact > .dc-seg > button { min-width: 36px; min-height: 40px; padding-inline: 8px !important; }
+.dc-toolbar-compact .tm-trigger { min-height: 40px; }
+.dc-toolbar-compact .dc-compact-more { margin-left: auto; }
+.dc-toolbar-shell button:focus-visible,
+.account-bar button:focus-visible,
+.dc-statusbar button:focus-visible { outline: 2px solid var(--dx-brand-600, #2854e8); outline-offset: 2px; }
+.dc-sb-diag button { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.dc-sb-diag button > svg { flex: none; }
+.dc-install-btn > svg { flex: none; }
+.dc-toolbar-shell .dc-sim-tool > svg { color: var(--dx-brand-600, #2854e8); }
+
+@media (max-width: 600px) {
+  .dc-toolbar-shell.is-compact .dc-toolbar-main { padding-inline: 6px !important; gap: 6px !important; }
+  .dc-toolbar-shell.is-compact .dc-views-container { flex: 1 1 144px !important; }
+  .dc-toolbar-shell.is-compact .dc-views-container > [role="tablist"] {
+    gap: 0 !important; padding: 2px !important; border-radius: 8px; box-shadow: none;
+  }
+  .dc-toolbar-shell.is-compact .dc-views-container [role="tab"] {
+    min-width: 34px; width: 34px; min-height: 38px; height: 38px; padding: 0 !important; justify-content: center; box-shadow: none;
+  }
+  .dc-toolbar-shell.is-compact .dc-views-container [role="tab"] > span,
+  .dc-toolbar-shell.is-compact .dc-transport-tools > .dc-seg > button > span { display: none !important; }
+  .dc-toolbar-compact .dc-compact-menu { width: 38px; min-width: 38px; justify-content: center; padding-inline: 6px !important; }
+  .dc-toolbar-compact .dc-compact-menu > span,
+  .dc-toolbar-compact .dc-compact-menu > svg:last-child:not(:first-child) { display: none; }
+  .dc-toolbar-compact .dc-sim-tool { font-size: 11px; padding-inline: 9px !important; }
+  .account-bar .account-save-action.dx-bar-primary { width: var(--hdr-ctl); padding: 0 !important; }
+  .account-bar .dx-project-context { overflow: hidden; }
+  .account-bar .dx-project-rename { width: 100%; min-width: 0; gap: 5px; }
+  .account-bar .dx-project-rename > svg { display: none; }
+  .account-bar-actions { gap: 5px !important; }
+  .account-bar .dx-account-controls { gap: 5px; padding-left: 5px; }
+  .account-bar .account-comments-action { position: relative; }
+  .account-bar .account-action-count { position: absolute; top: -4px; right: -3px; min-width: 14px; height: 14px; font-size: 9px; }
+  .account-bar .dx-brand { display: none; }
+  .dc-statusbar .dc-sb-diag-label,
+  .dc-statusbar .dc-sb-diag > span { display: none; }
+  .dc-statusbar .dc-sb-diag { gap: 7px; margin-left: 0; min-height: 0; }
+  .dc-statusbar .dc-sb-diag button { gap: 3px; min-height: 28px; }
+  .dc-statusbar button:focus-visible { outline-offset: -2px; }
+  .dc-statusbar { gap: 6px !important; padding-inline: 8px !important; }
+  .dc-statusbar .dc-install-btn { min-width: 28px; margin-left: 0 !important; }
+}
+
+.account-bar .dx-logo { flex: 0 0 auto; }
+.account-bar .dx-logo-text { white-space: nowrap; }
+@media (min-width: 1101px) and (max-width: 1800px) {
+  .dc-grafcet-toolbar > [aria-label="Ferramentas de seleção e navegação"] button > span { display: none; }
+  .dc-grafcet-toolbar > .tb-sep { display: none; }
+  .dc-grafcet-toolbar .grafcet-toolbar-secondary { gap: 6px !important; }
+}
+@media (min-width: 721px) and (max-width: 1000px) {
+  .account-bar .account-action-text { display: none; }
+  .account-bar .account-project-action { padding-inline: 8px; }
+  .account-bar .dx-bar-msg, .account-bar .dx-project-context small { display: none; }
+  .account-bar .dx-account-trigger-copy { display: none; }
+  .account-bar .dx-account-trigger { width: var(--hdr-ctl); padding: 0; justify-content: center; }
+}
+@media (min-width: 1101px) and (max-width: 1800px) {
+  .dc-toolbar-row2 [aria-label="Ferramentas de edição"] button > span,
+  .dc-toolbar-row2 [aria-label="Secções do editor Ladder"] button > span,
+  .dc-toolbar-row2 .dc-blackbox-toggle > span { display: none; }
+  .dc-toolbar-row2 .dc-blackbox-toggle { min-width: 30px; padding-inline: 8px; }
+}
+.dc-toolbar-shell:not(.is-compact) .dc-toolbar-row2 { gap: 6px; column-gap: 6px; }
+.dc-toolbar-shell:not(.is-compact) .dc-toolbar-row2 > .tb-sep { margin-inline: 0; }
+@media (min-width: 1280px) and (max-width: 1400px) {
+  .dc-grafcet-toolbar .grafcet-palette-tool > span,
+  .dc-grafcet-toolbar .grafcet-signals-tool > span,
+  .dc-grafcet-toolbar .dc-grafcet-tools-menu > span { display: none; }
+}
+/* Os separadores de grupos removidos não deixam espaço vazio na faixa. */
+.dc-grafcet-toolbar > .tb-sep { display: none; }
+.dc-grafcet-toolbar .tb-hint { display: none !important; }

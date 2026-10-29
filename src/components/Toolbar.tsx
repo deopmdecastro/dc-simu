@@ -28,8 +28,8 @@ import { IconCheck, IconWarning,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
-  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconRotate,
- IconText } from '../ui/icons'
+  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconRotate, IconMore, IconText,
+} from '../ui/icons'
 
 /** jsPDF e html2canvas (centenas de KB) só são descarregados quando o utilizador abre «Exportar PDF». */
 const ExportPdfDialog = lazy(() => import('../export/ExportPdfDialog'))
@@ -248,6 +248,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   }
 
   const narrowBar = useNarrowMenu()
+  const compactBar = useNarrowMenu('(max-width: 1279px), (pointer: coarse) and (max-height: 720px)')
+  // Modelos e importação/exportação ficam agrupados mesmo num ecrã grande.
+  const desktopGrafcetMenu = mode === 'grafcet'
   const fileSections: ToolMenuSection[] = [{
     id: 'file', title: 'Projeto',
     items: [
@@ -307,13 +310,82 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const hintsOn = useSimUi((state) => state.hints)
   const canvasHint = useSimUi((state) => state.canvasHint)
 
+  // As ações que não cabem passam para menus com nome e atalho. O transporte
+  // e a abertura das E/S continuam sempre visíveis, sem deslocar a barra.
+  const panelSections: ToolMenuSection[] = mode === 'schematic' ? [{ title: 'Painéis do projeto', items: [
+    { id: 'library', label: 'Biblioteca', icon: <IconCube size={15} />, onSelect: () => onOpenLibrary?.() },
+    { id: 'grafcet', label: 'Visualizar GRAFCET', icon: <IconGrafcet size={15} />, onSelect: () => onOpenGrafcet?.() },
+    { id: 'objects', label: 'Objetos do projeto', icon: <IconLayers size={15} />, onSelect: () => onOpenObjects?.() },
+  ] }] : mode === 'ladder' ? [{ title: 'Secções do Ladder', items: (['Projeto', 'Biblioteca', 'Dispositivos', 'Diagnóstico', 'Configurações'] as const).map((name) => ({ id: name, label: name, icon: <IconProjects size={15} />, pressed: ladderSection === name, onSelect: () => setLadderSection(name) })) }] : [{ title: 'Painéis GRAFCET', items: [
+    { id: 'palette', label: 'Componentes', icon: <IconLayers size={15} />, pressed: grafcetPalette, kbd: 'Ctrl+B', onSelect: () => useGrafcetUi.getState().emit('togglePalette') },
+    { id: 'signals', label: 'Tabela de variáveis', icon: <IconTag size={15} />, onSelect: () => useGrafcetUi.getState().emit('openSignals') },
+    { id: 'diagnostics', label: 'Diagnóstico', icon: <IconShield size={15} />, onSelect: () => useGrafcetUi.getState().emit('openDiagnostics') },
+  ] }]
+  const toolSections: ToolMenuSection[] = mode === 'schematic' ? [{ title: 'Ferramentas do esquema', items: TOOLS.map(({ id, label, icon: Icon, hint, key }) => ({ id, label, hint, icon: <Icon size={15} />, kbd: key, pressed: tool === id, onSelect: () => setTool(id) })) }, {
+    title: 'Disposição', items: [
+      ...ALIGN_BUTTONS.map(({ edge, icon: Icon, hint }) => ({ id: edge, label: hint, icon: <Icon size={15} />, disabled: sel < 2, disabledReason: 'Selecione pelo menos dois componentes', onSelect: () => alignSelection(edge) })),
+      { id: 'distribute-h', label: 'Distribuir na horizontal', disabled: sel < 3, disabledReason: 'Selecione pelo menos três componentes', onSelect: () => distributeSelection('horizontal') },
+      { id: 'distribute-v', label: 'Distribuir na vertical', disabled: sel < 3, disabledReason: 'Selecione pelo menos três componentes', onSelect: () => distributeSelection('vertical') },
+      { id: 'organize-wires', label: 'Organizar cabos', icon: <IconOrganize size={15} />, disabled: !wires.length, disabledReason: 'Ligue os componentes com cabos', onSelect: () => organizeWires() },
+      { id: 'number-wires', label: 'Numerar cabos sem número', icon: <IconTag size={15} />, disabled: !wires.length, disabledReason: 'Ligue os componentes com cabos', onSelect: () => autoNumberWires('missing') },
+      { id: 'renumber-wires', label: 'Renumerar todos os cabos', icon: <IconTag size={15} />, disabled: !wires.length, disabledReason: 'Ligue os componentes com cabos', onSelect: () => autoNumberWires('all') },
+      { id: 'grid-drag', label: 'Arrastar malha', icon: <IconHand size={15} />, pressed: gridDragEnabled, onSelect: () => setGridDragEnabled(!gridDragEnabled) },
+      { id: 'component-table', label: 'Tabela de componentes', icon: <IconGrid size={15} />, onSelect: () => setComponentTableOpen(true) },
+      ...(singleSelection ? [
+        { id: 'edit-model', label: `Editar modelo de ${singleSelection.ref}`, icon: <IconCube size={15} />, onSelect: () => useSimStore.getState().openViewOrientationEditor(singleSelection.id) },
+        { id: 'edit-terminals', label: `Editar bornes de ${singleSelection.ref}`, icon: <IconProbe size={15} />, onSelect: () => useSimStore.getState().openViewOrientationEditor(singleSelection.id, 'terminals') },
+      ] : []),
+    ],
+  }] : mode === 'ladder' ? [{ title: 'Programa Ladder', items: [
+    { id: 'compile', label: 'Compilar', hint: compileLabel || 'Verifica Main, blocos e referências', kbd: 'Ctrl+Shift+B', icon: <IconTools size={15} />, onSelect: () => useLadderUi.getState().emit('compile') },
+    { id: 'add-block', label: 'Adicionar bloco', icon: <IconPlus size={15} />, onSelect: () => useLadderUi.getState().emit('addBlock') },
+    { id: 'add-network', label: 'Nova network', kbd: 'Insert', icon: <IconLadder size={15} />, onSelect: () => useLadderUi.getState().emit('addNetwork') },
+    { id: 'variables', label: 'Tabela de variáveis', icon: <IconTag size={15} />, onSelect: () => { setLadderSection('Projeto'); useLadderUi.getState().emit('openVariables') } },
+    ...(ladderGrafcetStatus !== 'none' ? [{ id: 'open-grafcet', label: 'Abrir GRAFCET', icon: <IconGrafcet size={15} />, onSelect: () => setMode('grafcet') }] : []),
+  ] }] : mode === 'grafcet' ? [{ title: 'Ferramentas GRAFCET', items: GRAFCET_TOOLS.map(({ id, label, icon: Icon, key, title }) => ({ id, label, hint: title, icon: <Icon size={15} />, kbd: key, pressed: grafcetTool === id, onSelect: () => useGrafcetUi.getState().setTool(id) })) }, { title: 'Sequência', items: [
+    { id: 'add-text', label: 'Texto livre', hint: 'Clique no diagrama para colocar texto', icon: <IconText size={15} />, onSelect: () => useGrafcetUi.getState().emit('addText') },
+    { id: 'templates', label: 'Modelos GRAFCET', icon: <IconTemplates size={15} />, onSelect: () => useGrafcetUi.getState().emit('openTemplates') },
+    { id: 'auto-layout', label: 'Organizar diagrama', icon: <IconOrganize size={15} />, onSelect: () => useGrafcetUi.getState().emit('autoLayout') },
+    { id: 'restart-sequence', label: 'Reiniciar sequência', hint: 'Volta às etapas iniciais', icon: <IconRotate size={15} />, onSelect: () => useGrafcetUi.getState().emit('restart') },
+    ...(canGenerateLadder ? [{ id: 'generate-ladder', label: ladderSync === 'none' ? 'Gerar Ladder' : 'Atualizar Ladder', icon: <IconLadder size={15} />, onSelect: () => useGrafcetUi.getState().emit('generateLadder') }] : []),
+    ...(ladderSync !== 'none' ? [{ id: 'auto-sync', label: 'Sincronização automática', icon: <IconLink size={15} />, pressed: grafcetAutoSync, onSelect: () => useGrafcetUi.getState().toggleAutoSync() }] : []),
+    { id: 'export-svg', label: 'Exportar SVG', icon: <IconDownload size={15} />, onSelect: () => useGrafcetUi.getState().emit('exportSvg') },
+    { id: 'export-grafcet', label: 'Exportar GRAFCET JSON', icon: <IconDownload size={15} />, onSelect: () => useGrafcetUi.getState().emit('exportJson') },
+    { id: 'import-grafcet', label: 'Importar GRAFCET', hint: 'FluidSIM 4 (.ct), JSON ou .grafcet', icon: <IconImport size={15} />, onSelect: () => useGrafcetUi.getState().emit('importJson') },
+  ] }] : []
+  const compactMoreSections: ToolMenuSection[] = [
+    ...fileSections,
+    { title: 'Execução', items: [
+      ...(['realtime', 'turbo', 'step'] as const).map((value, index) => ({ id: `mode-${value}`, label: ['Tempo real', 'Turbo', 'Passo a passo'][index], icon: <IconPlay size={15} />, pressed: sim.mode === value, onSelect: () => setSimMode(value) })),
+      ...[0.25, 0.5, 1, 2, 4, 10].map((value) => ({ id: `speed-${value}`, label: `Velocidade ${value}×`, pressed: sim.speed === value, onSelect: () => setSpeed(value) })),
+    ] },
+    { title: 'Vista', items: [
+      ...(viewControls?.grid ? [{ id: 'grid', label: 'Mostrar malha', icon: <IconGrid size={15} />, pressed: viewControls.grid.on, onSelect: viewControls.grid.toggle }] : []),
+      ...(viewControls?.snap ? [{ id: 'snap', label: 'Encaixar na malha', icon: <IconMagnet size={15} />, pressed: viewControls.snap.on, onSelect: viewControls.snap.toggle }] : []),
+      ...(viewControls?.step ? viewControls.step.options.map((value) => ({ id: `grid-${value}`, label: `Passo da malha: ${value} px`, pressed: viewControls.step!.value === value, onSelect: () => viewControls.step!.onChange(value) })) : []),
+      ...(viewControls?.zoom ? [
+        { id: 'zoom-out', label: 'Reduzir zoom', icon: <IconZoomOut size={15} />, onSelect: viewControls.zoom.onOut },
+        { id: 'zoom-reset', label: `Zoom ${viewControls.zoom.percent}% · repor`, icon: <IconFocus size={15} />, onSelect: viewControls.zoom.onReset },
+        { id: 'zoom-in', label: 'Ampliar zoom', icon: <IconZoomIn size={15} />, onSelect: viewControls.zoom.onIn },
+        ...(viewControls.zoom.onFit ? [{ id: 'fit', label: 'Enquadrar conteúdo', icon: <IconFocus size={15} />, onSelect: viewControls.zoom.onFit }] : []),
+      ] : []),
+      ...(mode === 'grafcet' ? [
+        { id: 'fit-grafcet', label: 'Enquadrar GRAFCET', icon: <IconFocus size={15} />, onSelect: () => useGrafcetUi.getState().emit('fitView') },
+        { id: 'minimap', label: 'Minimapa', icon: <IconGrid size={15} />, pressed: grafcetMinimap, onSelect: () => useGrafcetUi.getState().emit('toggleMinimap') },
+      ] : []),
+      { id: 'clean', label: 'Modo clean', icon: <IconFocus size={15} />, pressed: clean, onSelect: () => setClean(!clean) },
+      { id: 'black-box', label: 'Modo caixa-preta', icon: <IconLock size={15} />, pressed: sim.blackBox, onSelect: () => useSimStore.getState().toggleBlackBox() },
+      { id: 'shortcuts', label: 'Atalhos de teclado', kbd: '?', icon: <IconHelp size={15} />, onSelect: () => mode === 'grafcet' ? useGrafcetUi.getState().emit('openShortcuts') : mode === 'monitor' ? setMonitorHelp(true) : requestShortcuts(mode) },
+    ] },
+  ]
+
   return (
-    <div className="shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20">
+    <div className={`dc-toolbar-shell shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20${compactBar && !demo ? ' is-compact' : ''}`}>
       {/* ============================ linha 1 — projeto · vistas · simulação */}
       <div ref={mainBarRef} className={`flex items-center gap-2 px-3 min-h-[46px] ${demo ? 'justify-between' : 'border-b border-line-soft'} dc-toolbar-main`}>
         {/* arquivo — ações frequentes; na demonstração a barra fica só com Play/Pause + 3D/Ladder/GRAFCET */}
         {!demo && (
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="dc-project-file-tools flex items-center gap-1.5 shrink-0">
           {narrowBar
             ? <ToolMenu label="Ficheiro" title="Ficheiro e exportação" icon={<IconOpen size={14} />} sections={fileSections} className="dc-file-menu" badge={dirty ? 1 : undefined} />
             : (
@@ -350,6 +422,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                 <button
                   key={id}
                   role="tab"
+                  aria-label={displayLabel}
                   aria-selected={mode === id}
                   onClick={() => setMode(id)}
                   className={`inline-flex items-center gap-1.5 h-[30px] ${demo ? 'px-2.5 sm:px-3.5' : 'px-4'} rounded-[6px] text-xs font-semibold transition-all ${
@@ -366,7 +439,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
         </div>
 
         {/* simulação + estado — canto direito */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="dc-transport-tools flex items-center gap-1.5 shrink-0">
           {showSimControls && (
             <>
           <div className="dc-seg" role="toolbar" aria-label="Controle de simulação">
@@ -403,19 +476,19 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           <Select
             value={sim.mode}
             onChange={(e) => setSimMode(e.target.value as any)}
-            className="dc-select !w-auto hidden lg:block"
+            className="dc-runtime-setting dc-select !w-auto hidden lg:block"
             title="Modo de execução: tempo real = 100 ms por ciclo; turbo = ciclos acelerados; passo a passo = um ciclo por clique"
           >
             <option value="realtime">Tempo real</option>
             <option value="turbo">Turbo</option>
             <option value="step">Passo a passo</option>
           </Select>
-          <Select value={sim.speed} onChange={(e) => setSpeed(Number(e.target.value))} className="dc-select !w-[62px]" title="Velocidade da simulação">
+          <Select value={sim.speed} onChange={(e) => setSpeed(Number(e.target.value))} className="dc-runtime-setting dc-select !w-[62px]" title="Velocidade da simulação">
             {[0.25, 0.5, 1, 2, 4, 10].map((v) => (
               <option key={v} value={v}>{v}×</option>
             ))}
           </Select>
-          <span className="tb-sep" />
+          <span className="tb-sep dc-runtime-sep" />
           <span
             className={`dc-run-badge inline-flex items-center gap-1.5 h-[24px] px-2.5 rounded-[5px] font-mono text-[11px] font-bold tracking-[0.08em] text-white whitespace-nowrap ${runBadge.cls}`}
             title={`Estado do simulador: ${runBadge.text} · scan #${sim.scanCount}`}
@@ -439,7 +512,16 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
       </div>
 
       {/* ============================ linha 2 — contextual à vista ativa (oculta na demonstração) */}
-      {!demo && <div ref={row2BarRef} className={`dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
+      {!demo && compactBar && <div ref={row2BarRef} className="dc-toolbar-row2 dc-toolbar-compact" aria-label="Ferramentas do projeto">
+        {mode !== 'monitor' && <SimToggleButton on={mode === 'grafcet' ? grafcetSimVisible : simPanelOn} scope={mode}
+          onClick={() => mode === 'grafcet' ? useGrafcetUi.getState().toggleSim() : mode === 'schematic' ? onToggleSchematicSim?.() : useSimUi.getState().toggleSimPanel('ladder')}
+          title="Abrir controlos de simulação e entradas/saídas" />}
+        <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />
+        {toolSections.length > 0 && <ToolMenu label="Ferramentas" icon={<IconTools size={15} />} sections={toolSections} className="dc-compact-menu" />}
+        {mode !== 'monitor' && <ToolMenu label="Painéis" icon={<IconLayers size={15} />} sections={panelSections} className="dc-compact-menu" />}
+        <ToolMenu label="Mais" title="Opções do projeto e da vista" icon={<IconMore size={15} />} sections={compactMoreSections} className="dc-compact-menu dc-compact-more" align="end" />
+      </div>}
+      {!demo && !compactBar && <div ref={row2BarRef} className={`dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
         {/* desfazer / refazer — comum a todas as vistas (fora da demonstração) */}
         {!demo && <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />}
 
@@ -506,13 +588,14 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             {!demo && <span className="tb-sep" />}
             {!demo && <button type="button" className="dc-tool-btn grafcet-signals-tool !gap-1.5" aria-label="Tabela de entradas, saídas e memórias" onClick={() => useGrafcetUi.getState().emit('openSignals')} title="Declarar e organizar os sinais usados nas sugestões"><IconTag size={13} /><span>Variáveis</span></button>}
             {!demo && <button type="button" className="dc-tool-btn grafcet-text-tool !gap-1.5" aria-label="Texto livre" onClick={() => useGrafcetUi.getState().emit('addText')} title="Texto livre: clique no diagrama para o colocar; arrasta-se e formata-se (tipo de letra, tamanho, cor)"><IconText size={13} /><span>Texto</span></button>}
-            {!demo && <button type="button" className="grafcet-toolbar-more dc-tool-btn" aria-expanded={grafcetMoreOpen} onClick={() => setGrafcetMoreOpen((value) => !value)} title="Ficheiros, disposição, modelos e mais ferramentas">
+            {!demo && desktopGrafcetMenu && <ToolMenu label="Mais GRAFCET" title="Sequência, modelos e ficheiros GRAFCET" icon={<IconMore size={14} />} sections={toolSections.slice(1)} className="dc-grafcet-tools-menu" />}
+            {!demo && !desktopGrafcetMenu && <button type="button" className="grafcet-toolbar-more dc-tool-btn" aria-expanded={grafcetMoreOpen} onClick={() => setGrafcetMoreOpen((value) => !value)} title="Ficheiros, disposição, modelos e mais ferramentas">
               {grafcetMoreOpen ? 'Menos' : 'Mais'} <IconChevronDown size={12} className={grafcetMoreOpen ? 'rotate-180' : ''} />
             </button>}
 
             <span className="tb-sep" />
 
-            {!demo && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Modelos e Ladder">
+            {!demo && !desktopGrafcetMenu && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Modelos e Ladder">
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('openTemplates')}
@@ -557,7 +640,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
             <span className="tb-sep" />
 
-            {!demo && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Disposição">
+            {!demo && !desktopGrafcetMenu && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Disposição">
               <button
                 type="button"
                 onClick={() => useGrafcetUi.getState().emit('autoLayout')}
@@ -570,7 +653,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
             <span className="tb-sep" />
 
-            {!demo && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Ficheiro">
+            {!demo && !desktopGrafcetMenu && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Ficheiro">
               <button type="button" onClick={() => useGrafcetUi.getState().emit('exportSvg')} className="dc-tool-btn !gap-1.5" title="Exportar diagrama em formato SVG vetorial">
                 <IconDownload size={13} /><span>SVG</span>
               </button>
@@ -853,7 +936,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           {/* ferramentas de diagnóstico do projeto atual */}
           {!demo && <button
             onClick={() => useSimStore.getState().toggleBlackBox()}
-            className={`dc-btn ${sim.blackBox ? '!border-amber-300 !bg-amber-50 !text-amber-700' : ''}`}
+            className={`dc-blackbox-toggle dc-btn ${sim.blackBox ? '!border-amber-300 !bg-amber-50 !text-amber-700' : ''}`}
             title="Modo caixa-preta: esconde o ladder e força diagnóstico por medição"
           >
             <IconLock size={13} /> <span className="hidden xl:inline">{sim.blackBox ? 'Caixa-preta ON' : 'Caixa-preta'}</span>

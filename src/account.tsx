@@ -20,7 +20,7 @@ import { AppTopbar, EditorTopbar } from './components/AppTopbar'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { guardedDestination } from './routing/guards'
 import { pageFromPath, projectIdFromPath, ROUTES, type AppPage } from './routing/routes'
-import { IconArrowLeft, IconClose, IconComment } from './ui/icons'
+import { IconArrowLeft, IconClose, IconComment, IconSave } from './ui/icons'
 import ProjectComments from './comments/ProjectComments'
 import { initSupabaseFromBackend } from './supabase/supabaseClient'
 
@@ -377,7 +377,7 @@ export default function Account() {
         aria-label={`Comentários do projeto${commentCount ? ` (${commentCount})` : ''}`} title="Comentários do projeto (proprietário e editores)">
         <IconComment size={12} /> <span className="account-action-text">Comentários</span>{commentCount ? <span className="account-action-count">{commentCount}</span> : null}
       </button>
-      <button className="account-project-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)">Guardar</button>
+      <button className="account-project-action account-save-action dx-bar-primary" onClick={() => void save()} title="Guardar (Ctrl+S)" aria-label="Guardar projeto"><IconSave size={14} /><span className="account-action-text">Guardar</span></button>
       {user && <AccountControls user={user} invites={invites} context="editor" dirty={editorDirty}
         errors={notificationErrors} warnings={notificationWarnings} onProjects={() => void leave()} onAccount={() => void openAccount()}
         onOpenInvites={() => void openInvitations()} onLogout={() => void logout()} />}

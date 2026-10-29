@@ -1,6 +1,6 @@
 import GrafcetStatusCard from './components/GrafcetStatusCard'
 import { isTabletDesktop } from './ui/device'
-import { IconGrafcet, IconLayers, IconSchematic } from './ui/icons'
+import { IconGrafcet, IconLayers, IconSchematic, IconWarning, IconXCircle } from './ui/icons'
 import CollapsedPanelRail from './components/CollapsedPanelRail'
 import { useEffect, useMemo, useState } from 'react'
 import { uiConfirm } from './ui/dialogs'
@@ -302,7 +302,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             className={`${errors ? 'text-state-error font-semibold' : 'text-ink-400'} hover:underline focus-visible:underline`}
             title="Abrir os diagnósticos no Monitor"
             aria-label={`${errors} erros; abrir diagnósticos no Monitor`}
-          >{errors} erro(s)</button>
+          ><IconXCircle size={11} /><span>{errors}<span className="dc-sb-diag-label"> erro(s)</span></span></button>
           <span className="text-ink-300" aria-hidden="true">·</span>
           <button
             type="button"
@@ -310,7 +310,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             className={`${warnings ? 'text-state-pause font-semibold' : 'text-ink-400'} hover:underline focus-visible:underline`}
             title="Abrir os diagnósticos no Monitor"
             aria-label={`${warnings} avisos; abrir diagnósticos no Monitor`}
-          >{warnings} aviso(s)</button>
+          ><IconWarning size={11} /><span>{warnings}<span className="dc-sb-diag-label"> aviso(s)</span></span></button>
         </span>
         <span className="ml-auto inline-flex items-center gap-2 min-w-0">
           <GrafcetStatusCard onOpen={() => setMode('grafcet')} />

@@ -2091,6 +2091,14 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             onKeyDown={(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); setStatusH((h) => clampStatusH(h + 24)) } else if (e.key === 'ArrowDown') { e.preventDefault(); setStatusH((h) => clampStatusH(h - 24)) } }}
           />}
           <div className="ladder-bottom-tabs">
+            <label className="ladder-panel-picker"><span>Painel</span>
+              <select aria-label="Secção do estado do PLC" value={statusTab} onChange={(event) => { setStatusTab(event.target.value as typeof statusTab); setShowStatus(true) }}>
+                <option value="io">Entradas/Saídas</option><option value="memory">Memórias</option>
+                <option value="timers">Temporizadores</option><option value="counters">Contadores</option>
+                <option value="force">Forçar</option><option value="debug">Depuração</option>
+                <option value="compile">Compilação</option><option value="lint">Verificação</option>
+              </select>
+            </label>
             <div className="ladder-bottom-tablist" role="tablist" aria-label="Estado do PLC">
             {(() => {
               const activeBits = Object.entries(table).filter(([key, value]) => value && /^[IQM]\d+\.\d$/.test(key)).length

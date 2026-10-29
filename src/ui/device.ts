@@ -1,3 +1,3 @@
-/** Tablet com o layout do PC: o `index.html` marca <html data-tablet="true"> e fixa o viewport em 1200px. */
+/** Um tablet só usa painéis de desktop quando tem largura real para os apresentar. */
 export const isTabletDesktop = (): boolean =>
-  typeof document !== 'undefined' && document.documentElement.dataset.tablet === 'true'
+  typeof document !== 'undefined' && document.documentElement.dataset.tablet === 'true' && window.innerWidth >= 1200

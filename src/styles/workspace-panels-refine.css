@@ -1,0 +1,30 @@
+/* Complementos locais compatíveis com o painel inferior GRAFCET. */
+.gsim-custom-inputs > summary { min-height:32px; padding:6px 0; color:var(--pn-ink-3); font-size:11px; font-weight:650; cursor:pointer; }
+.gsim-custom-inputs[open] > summary { margin-bottom:8px; }
+.simulation-signals { min-width:0; }
+.simulation-signals > .vio-panel { padding:0; }
+.vio-help { border:1px solid var(--pn-line-soft); border-radius:6px; background:var(--pn-bg-2); color:var(--pn-ink-2); font-size:11px; }
+.vio-help.is-info { background:var(--dx-brand-soft,#eef4ff); color:var(--dx-brand-700,#1e42d3); }
+.vio-help.is-warning { background:#fff8e8; color:#8a5a06; border-color:#f0dba8; }
+.vio-help summary { padding:6px 8px; min-height:30px; cursor:pointer; }
+.vio-help p { margin:0; padding:0 8px 8px; line-height:1.4; }
+
+.ladder-panel-picker { display:flex; align-items:center; gap:8px; min-width:0; color:var(--pn-ink-3); font-size:11px; }
+.ladder-panel-picker select { flex:1; width:100%; min-width:0; height:34px; padding:0 8px; border:1px solid var(--pn-line); border-radius:6px; background:var(--pn-bg); color:var(--pn-ink); font:inherit; font-weight:650; }
+.ladder-bottom-panel { container: workspace-ladder-status / inline-size; }
+.ladder-bottom-panel .ladder-bottom-tabs { min-height:44px; height:auto; flex-wrap:nowrap; overflow:visible; padding:4px 10px; }
+.ladder-bottom-panel .ladder-bottom-actions { flex:none; min-width:0; margin-left:auto; }
+.ladder-bottom-panel .ladder-status-grid { min-height:0; overflow:auto; overscroll-behavior:contain; }
+@container workspace-ladder-status (max-width:1250px) {
+  .ladder-bottom-panel .ladder-bottom-tablist { display:none; }
+  .ladder-panel-picker { display:flex; flex:1; max-width:280px; }
+  .ladder-bottom-actions .ladder-live-words, .ladder-bottom-actions .ladder-scan-count { display:none; }
+}
+@container workspace-ladder-status (max-width:600px) {
+  .ladder-bottom-actions .ladder-run-pill, .ladder-bottom-actions .ladder-status-reset, .ladder-bottom-actions .ladder-actions-sep { display:none; }
+  .ladder-panel-picker > span { display:none; }
+  .ladder-panel-picker { max-width:none; }
+}
+
+@container workspace-ladder-status (min-width:1251px) { .ladder-panel-picker { display:none; } }
+@media (max-width:720px), (pointer:coarse) { .ladder-panel-picker select { height:40px; } .vio-help summary { min-height:40px; display:flex; align-items:center; gap:4px; } .vio-panel .vio-cell .vio-mode { min-height:40px; } }

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSimStore, type VirtualInputMode } from '../store/useSimStore'
 import VirtualInputButton from '../components/VirtualInputButton'
-import VirtualIoPanel from '../components/VirtualIoPanel'
+import { SimulationSignals } from '../components/SimulationDock'
+import { isProgrammablePlc } from '../ladder/plcPrograms'
 import { transitionReceptivity, transitionsOf, type GrafcetProgram, type GrafcetRuntime } from './engine'
 import { detectGrafcetIo, type DetectedTransition } from './inputDetect'
-import { IconChevronRight } from '../ui/icons'
 
 /** Campo de texto que só grava ao sair (blur) ou com Enter; Esc repõe o valor anterior. */
 function InlineName({
@@ -102,10 +102,11 @@ export default function GrafcetSimPanel({
   const setName = useSimStore((s) => s.setVirtualInputName)
   const clear = useSimStore((s) => s.clearVirtualInputs)
   const runState = useSimStore((s) => s.sim.runState)
-  // Comportamento «PLC em STOP»: entradas congeladas até ao Run.
+  const hasPlc = useSimStore((s) => s.components.some(isProgrammablePlc))
   const stopped = runState === 'stopped'
 
   const detection = useMemo(() => detectGrafcetIo(program, stepLabel), [program, stepLabel])
+  const supplementalInputs = detection.inputs.filter((input) => !hasPlc || input.symbol)
 
   // Garante que todas as entradas usadas nas condições existem no painel.
   useEffect(() => {
@@ -186,7 +187,7 @@ export default function GrafcetSimPanel({
         </section>
       )}
 
-      <section className="gsim-section" aria-label="Entradas usadas nas transições">
+      {supplementalInputs.length > 0 && <details className="gsim-custom-inputs"><summary>Sinais usados nas transições</summary><section className="gsim-section" aria-label="Entradas usadas nas transições">
         <header className="gsim-head">
           <div className="gsim-heading">
             <span className="gsim-heading-icon is-input" aria-hidden="true">
@@ -196,30 +197,29 @@ export default function GrafcetSimPanel({
               </svg>
             </span>
             <div>
-              <h4>Entradas <span className="gsim-count">{detection.inputs.length}</span></h4>
+              <h4>Entradas <span className="gsim-count">{supplementalInputs.length}</span></h4>
             </div>
           </div>
-          {stopped && <span className="gsim-stop-hint" role="status">STOP — prime Run para ativar as entradas</span>}
-          <button type="button" className="gsim-link" onClick={clear} disabled={stopped} title={stopped ? 'Simulador parado (STOP) — prime Run' : 'Desligar todas as entradas'}>
+          <button type="button" className="gsim-link" onClick={clear} title="Desligar todas as entradas">
             Desligar tudo
           </button>
         </header>
 
-        {detection.inputs.length === 0 ? (
+        {supplementalInputs.length === 0 ? (
           <div className="gsim-empty">
             <strong>Nenhuma entrada em uso</strong>
             <span>Escreva uma condição como <code>I1</code>, <code>I1*!I2</code> ou <code>Start</code> numa transição e o botão correspondente surge aqui.</span>
           </div>
         ) : (
           <ul className="gsim-inputs">
-            {detection.inputs.map((input) => {
+            {supplementalInputs.map((input) => {
               const mode = modes[input.address] ?? 'latch'
               const name = input.symbol ? '' : nameOf(input.address)
               const title = input.symbol ? input.address : name || input.address
               return (
                 <li key={input.address} className={`gsim-input${input.symbol ? ' is-symbol' : ''}${virtualInputs[input.address] ? ' is-on' : ''}`}>
                   <div className="gsim-input-main">
-                    <VirtualInputButton address={input.address} className={`gsim-actuator${input.symbol ? ' is-symbol' : ''}`} title={stopped ? `${title} · STOP: prime Run` : title} disabled={stopped}>
+                    <VirtualInputButton address={input.address} className={`gsim-actuator${input.symbol ? ' is-symbol' : ''}`} title={title}>
                       <i aria-hidden="true" />
                       <b>{input.address}</b>
                       <span className="gsim-actuator-state" aria-hidden="true">
@@ -236,7 +236,7 @@ export default function GrafcetSimPanel({
                     )}
                   </div>
                   <div className="gsim-input-row">
-                    <ModeToggle address={input.address} mode={mode} disabled={stopped} />
+                    <ModeToggle address={input.address} mode={mode} />
                     <div className="gsim-uses" aria-label={`Transições que usam ${input.address}`}>
                       <span>Em</span>
                       {input.transitions.map((use) => (
@@ -251,7 +251,7 @@ export default function GrafcetSimPanel({
             })}
           </ul>
         )}
-      </section>
+      </section></details>}
 
       <section className="gsim-section" aria-label="Transições">
         <header className="gsim-head">
@@ -337,10 +337,6 @@ export default function GrafcetSimPanel({
         )}
       </section>
 
-      <details className="gsim-all">
-        <summary><IconChevronRight size={11} />Todas as entradas e saídas</summary>
-        <VirtualIoPanel compact extraBits={extraBits} />
-      </details>
     </div>
   )
 }

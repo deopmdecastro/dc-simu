@@ -227,28 +227,27 @@ try {
   await openView('Monitor')
   await expectShortcuts('monitor', /Monitor/)
 
-  // 5) Barra de deslocamento das barras de ferramentas igual às outras (computador: > 800 px)
-  await page.setViewportSize({ width: 1024, height: 900 })
-  for (const [index, view] of ['Esquema', 'Ladder', 'GRAFCET'].entries()) {
-    await tabs().getByRole('tab').nth(index).click(); await page.waitForTimeout(300)
-    const sb = await page.locator('.dc-toolbar-row2').evaluate((el) => {
-      const thumb = getComputedStyle(el, '::-webkit-scrollbar-thumb')
-      return { sbw: getComputedStyle(el).scrollbarWidth, thumb: thumb.backgroundColor, radius: thumb.borderTopLeftRadius }
-    })
-    check(sb.sbw === 'auto' && sb.thumb === 'rgb(203, 213, 225)', `${view}: barra de deslocamento personalizada como as outras (${sb.thumb}, raio ${sb.radius}), não a nativa`)
-  }
-  // voltar ao Esquema antes de estreitar (no GRAFCET estreito os componentes abrem como painel sobreposto)
-  await page.keyboard.press('Escape')
-  await tabs().getByRole('tab').nth(0).dispatchEvent('click'); await page.waitForTimeout(300)
-  // 6) Barras com muitos botões: deslocamento horizontal, sem passar para baixo
-  await page.setViewportSize({ width: 760, height: 900 })
-  for (const [index, view] of ['Esquema', 'Ladder', 'GRAFCET'].entries()) {
-    await tabs().getByRole('tab').nth(index).click()
-    await page.waitForTimeout(350)
-    await capture(`barra-estreita-${view.toLowerCase()}`)
-    const m = await page.locator('.dc-toolbar-row2').evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, h: el.getBoundingClientRect().height, ox: getComputedStyle(el).overflowX, wrap: getComputedStyle(el).flexWrap, sbw: getComputedStyle(el).scrollbarWidth, thumb: getComputedStyle(el, '::-webkit-scrollbar-thumb').backgroundColor }))
-    check(m.wrap === 'nowrap' && ['auto', 'scroll'].includes(m.ox) && m.h < 56, `${view}: barra numa só linha com deslocamento (${m.sw}/${m.cw} px, altura ${Math.round(m.h)} px)`)
-    if (view === 'Ladder') check(m.sw > m.cw, 'Ladder: a barra estreita tem mais conteúdo do que largura (desloca-se)')
+  // 5) Tablet e telemóvel: menus em vez de ferramentas cortadas ou scroll oculto.
+  for (const width of [375,390,760,1024]) {
+    await page.setViewportSize({ width, height: 900 })
+    for (const [index, view] of ['Esquema', 'Ladder', 'GRAFCET'].entries()) {
+      await tabs().getByRole('tab').nth(index).click()
+      await page.waitForTimeout(250)
+      const metrics = await page.locator('.dc-toolbar-row2').evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, h: el.getBoundingClientRect().height, wrap: getComputedStyle(el).flexWrap }))
+      const main = await page.locator('.dc-toolbar-main').evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }))
+      check(metrics.sw <= metrics.cw + 1 && main.sw <= main.cw + 1 && metrics.wrap === 'nowrap' && metrics.h < 56, `${view} a ${width}px: barras sem cortes nem transbordo`)
+      const simulation = await page.locator('[data-sim-toggle]').boundingBox()
+      check(simulation && simulation.x >= 0 && simulation.x + simulation.width <= width, `${view} a ${width}px: Simulação sempre visível`)
+      await page.getByRole('button', { name: 'Mais', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Tempo real', exact: true }).waitFor()
+      check(true, `${view} a ${width}px: opções de execução acessíveis no menu Mais`)
+      await page.keyboard.press('Escape')
+      await page.getByRole('button', { name: 'Ferramentas', exact: true }).click()
+      await page.getByRole('menu').waitFor()
+      check(true, `${view} a ${width}px: ferramentas acessíveis no menu`)
+      await page.keyboard.press('Escape')
+      await capture(`barra-${width}-${view.toLowerCase()}`)
+    }
   }
   check(errors.length === 0, 'Sem erros na página' + (errors.length ? ': ' + errors.join(' | ') : ''))
   console.log('OK — barra, atalhos, simulação, cartão GRAFCET e nomes no sítio')

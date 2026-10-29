@@ -1,7 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { isProgrammablePlc } from '../ladder/plcPrograms'
-import PlcSignalPanel from '../components/PlcSignalPanel'
+import { SimulationSignals } from '../components/SimulationDock'
 import VirtualIoPanel from '../components/VirtualIoPanel'
 import { SimTransportControls } from '../ui/toolbarKit'
 import { IconChevronDown, IconGrafcet, IconHistory, IconSchematic } from '../ui/icons'
@@ -28,14 +28,10 @@ export default function GrafcetSimDock({ extraBits, activeLabels, sequence }: {
   const toggle = useGrafcetUi((s) => s.toggleSim)
   const sim = useSimStore((s) => s.sim)
   const table = useSimStore((s) => s.runtime.table)
-  const components = useSimStore((s) => s.components)
-  const activePlcId = useSimStore((s) => s.activePlcId)
   const { play, pause, stop, step, reset } = useSimStore.getState()
   const [tab, setTabRaw] = useState<DockTab>(readTab)
   const setTab = (next: DockTab) => { setTabRaw(next); try { localStorage.setItem(TAB_KEY, next) } catch { /* navegação privada */ } }
 
-  const plcs = useMemo(() => components.filter(isProgrammablePlc), [components])
-  const plc = plcs.find((item) => item.id === activePlcId) ?? plcs[0]
   const running = sim.runState === 'running'
   const paused = sim.runState === 'paused'
   const stopped = sim.runState === 'stopped'
@@ -74,7 +70,7 @@ export default function GrafcetSimDock({ extraBits, activeLabels, sequence }: {
       </div>
       {open && (
         <div className="gdock-body" role="tabpanel" aria-label={tab === 'io' ? 'Entradas e saídas' : 'Sequência'}>
-          {tab === 'io' && (plc ? <PlcSignalPanel plcId={plc.id} compact /> : <VirtualIoPanel compact extraBits={extraBits} />)}
+          {tab === 'io' && <SimulationSignals extraBits={extraBits} />}
           {tab === 'sequence' && sequence}
         </div>
       )}

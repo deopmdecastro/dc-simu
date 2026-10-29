@@ -125,6 +125,8 @@ import {
   faCreditCard,
   faKey,
   faEnvelope,
+  faEllipsis,
+  faSliders,
   faUserGear,
 } from '@fortawesome/free-solid-svg-icons'
 
@@ -265,3 +267,5 @@ export const IconPalette = fa(faPalette)
 export const IconSend = fa(faPaperPlane)
 /** Alinhamento de texto (o centro do texto não é o «alinhar ao eixo» dos componentes). */
 export const IconTextCenter = fa(faAlignCenter)
+export const IconMore = fa(faEllipsis)
+export const IconSignals = fa(faSliders)

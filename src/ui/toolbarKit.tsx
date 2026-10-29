@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import type React from 'react'
 import type { ReactNode } from 'react'
 import Select from './Select'
-import { IconChevronDown, IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp, IconFocus, IconPlay, IconPause, IconStop, IconStep, IconReset } from './icons'
+import { IconChevronDown, IconUndo, IconRedo, IconGrid, IconMagnet, IconZoomIn, IconZoomOut, IconHelp, IconFocus, IconPlay, IconPause, IconStop, IconStep, IconReset, IconSignals } from './icons'
 
 /**
  * Elementos comuns das barras de ferramentas: Esquema/Painel 3D, GRAFCET, Ladder
@@ -66,7 +66,7 @@ export function SimToggleButton({ on, onClick, scope, title }: { on: boolean; on
   return (
     <button type="button" className={`dc-tool-btn grafcet-sim-tool dc-sim-tool !gap-1.5 ${on ? 'is-on' : ''}`} aria-pressed={on} aria-label="Simulação" data-sim-toggle={scope}
       onClick={onClick} title={title ?? (on ? 'Esconder a simulação' : 'Mostrar a simulação')}>
-      <IconPlay size={12} /><span>Simulação</span>
+      <IconSignals size={13} /><span>Simulação</span>
     </button>
   )
 }

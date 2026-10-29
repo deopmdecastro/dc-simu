@@ -14,18 +14,31 @@ import { SimTransportControls } from '../ui/toolbarKit'
  * controlos RUN/STOP, sinais do PLC (INT/NO/NC) ou E/S virtuais e o GRAFCET ativo,
  * sem sair do esquema.
  */
-export default function SimulationDock({ onClose, embedded = false }: { onClose?: () => void; embedded?: boolean }) {
+export function SimulationSignals({ extraBits = [] }: { extraBits?: string[] }) {
   const components = useSimStore((s) => s.components)
   const selectedId = useSimStore((s) => (s.selectedComponentIds.length === 1 ? s.selectedComponentIds[0] : null))
   const activePlcId = useSimStore((s) => s.activePlcId)
   const setActivePlc = useSimStore((s) => s.setActivePlc)
+  const plcs = useMemo(() => components.filter(isProgrammablePlc), [components])
+  const selectedPlc = plcs.find((plc) => plc.id === selectedId)
+  const plc = selectedPlc ?? plcs.find((item) => item.id === activePlcId) ?? plcs[0]
+  return <div className="simulation-signals" data-simulation-signals>
+    {plc ? <>
+      {plcs.length > 1 && <label className="schematic-sim-dock-plc"><span>PLC</span>
+        <Select value={plc.id} onChange={(event) => { useSimStore.getState().selectComponents([]); setActivePlc(event.target.value) }} className="dc-select" aria-label="PLC a simular">
+          {plcs.map((item) => <option key={item.id} value={item.id}>{item.ref} · {item.label || item.type}</option>)}
+        </Select>
+      </label>}
+      <PlcSignalPanel plcId={plc.id} compact />
+    </> : <VirtualIoPanel compact extraBits={extraBits} />}
+  </div>
+}
+
+export default function SimulationDock({ onClose, embedded = false }: { onClose?: () => void; embedded?: boolean }) {
   const sim = useSimStore((s) => s.sim)
   const { play, pause, stop, step, reset } = useSimStore.getState()
   const grafcet = useSimStore((s) => s.grafcet)
   const active = useSimStore((s) => s.grafcetRuntime.active)
-  const plcs = useMemo(() => components.filter(isProgrammablePlc), [components])
-  const selectedPlc = plcs.find((plc) => plc.id === selectedId)
-  const plc = selectedPlc ?? plcs.find((item) => item.id === activePlcId) ?? plcs[0]
   const running = sim.runState === 'running', stopped = sim.runState === 'stopped'
   const activeSteps = useMemo(() => active.map((id) => {
     const index = grafcet.steps.findIndex((item) => item.id === id)
@@ -66,17 +79,7 @@ export default function SimulationDock({ onClose, embedded = false }: { onClose?
       />
       </>)}
       <div className="schematic-sim-dock-body">
-        {plc ? <>
-          {plcs.length > 1 && (
-            <label className="schematic-sim-dock-plc">
-              <span>PLC</span>
-              <Select value={plc.id} onChange={(event) => setActivePlc(event.target.value)} className="dc-select" aria-label="PLC a simular">
-                {plcs.map((item) => <option key={item.id} value={item.id}>{item.ref} · {item.label || item.type}</option>)}
-              </Select>
-            </label>
-          )}
-          <PlcSignalPanel plcId={plc.id} compact />
-        </> : <VirtualIoPanel compact />}
+        <SimulationSignals />
         {grafcet.steps.length > 0 && (
           <section className="schematic-sim-dock-grafcet" aria-label="GRAFCET ativo">
             <h4>GRAFCET · {(grafcet.name || '').trim() || 'sem nome'}</h4>

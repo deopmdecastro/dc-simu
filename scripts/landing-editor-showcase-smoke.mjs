@@ -11,7 +11,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const root = resolve(process.cwd())
-const read = (p) => readFileSync(resolve(root, p), 'utf8')
+const read = (p) => readFileSync(resolve(root, p), 'utf8').replace(/\r\n/g, '\n')
 
 let failures = 0
 const assert = (note, cond) => {
@@ -41,11 +41,11 @@ assert('GRAFCET demo: «Ligar» inibido', bus.includes("isDemoMode() && tool ===
 // ── Toolbar ─────────────────────────────────────────────────────────────────
 const tb = read('src/components/Toolbar.tsx')
 assert('Toolbar aceita prop demo', tb.includes('demo?: boolean'))
-assert('Barra da demo minimalista: apenas Play/Pause + 3D/Ladder/GRAFCET (sem linha 2 nem pill)', tb.includes("demo && id === 'schematic' ? '3D' : label") && tb.includes('aria-label="Play"') && tb.includes('aria-label="Pause"') && tb.includes('{!demo && <div ref={row2BarRef}'))
+assert('Barra da demo minimalista: apenas Play/Pause + 3D/Ladder/GRAFCET (sem linha 2 nem pill)', tb.includes("demo && id === 'schematic' ? '3D' : label") && tb.includes('aria-label="Play"') && tb.includes('aria-label="Pause"') && /\{!demo && compactBar && <div ref=\{row2BarRef\}/.test(tb) && /\{!demo && !compactBar && <div ref=\{row2BarRef\}/.test(tb))
 assert('Ações de ficheiro fora da demo', tb.includes('{!demo && (\n        <div className="flex items-center gap-1.5 shrink-0">') || tb.includes('{!demo && <HistoryGroup'))
 assert('Histórico undo/redo fora da demo', /\{!demo && <HistoryGroup/.test(tb))
 assert('Nova network/bloco só no editor', tb.includes("{mode === 'ladder' && !demo && ("))
-assert('GRAFCET sem «connect»/edição na demo', tb.includes("GRAFCET_TOOLS.filter((t) => t.id !== 'connect')") && tb.includes('{!demo && <button type="button" className="grafcet-toolbar-more'))
+assert('GRAFCET sem «connect»/edição na demo', tb.includes("GRAFCET_TOOLS.filter((t) => t.id !== 'connect')") && tb.includes('{!demo && !desktopGrafcetMenu && <button type="button" className="grafcet-toolbar-more'))
 assert('Esquema: grupo de ferramentas de edição completamente fora da demo', tb.includes("{isCanvas && !demo && (") && tb.includes("role=\"toolbar\" aria-label=\"Ferramentas de edição\""))
 assert('Caixa-preta fora da demo', /\{!demo && <button\n\s+onClick=\{\(\) => useSimStore\.getState\(\)\.toggleBlackBox\(\)\}/.test(tb))
 
@@ -98,7 +98,7 @@ const orient = read('src/three/componentOrientation.ts')
 assert('Apenas o motor usa orientação isométrica por omissão no simulador', orient.includes('MOTOR_ISOMETRIC_ORIENTATION') && orient.includes("type === 'motor3ph' || type === 'motor1ph'") && orient.includes('if (isIsometricMotorType(type)) return { ...MOTOR_ISOMETRIC_ORIENTATION }'))
 
 const panel = read('src/three/Panel3D.tsx')
-assert('Painel 3D: botão «+ Comentário» fora da demo', panel.includes('{!demoMode && <button type="button" onClick={addNote}'))
+assert('Painel 3D: botão «+ Comentário» fora da demo', panel.includes('{!demoMode && !selectedText && <div className="canvas-annotate"') && panel.includes('onClick={addNote}'))
 assert('Painel 3D: abre em vista frontal por omissão (apenas o motor é isométrico)', panel.includes("view: 'front'") && panel.includes("moveCamera('front')") && !panel.includes('isoFirst'))
 assert('Painel 3D: DPR limitado e pausa offscreen / demand em repouso', panel.includes('dpr={[1, 1.5]}') && panel.includes("frameloop={!stageVisible ? 'never'"))
 
@@ -118,7 +118,7 @@ assert('GRAFCET demo: paleta Componentes fora', grafed.includes('{full && !demoM
 assert('GRAFCET demo: «Nova página» e apagar página fora', grafed.includes('{!demoMode && <button type="button" className="grafcet-page-add"') && grafed.includes('pageCharts.length > 1 && !demoMode && ('))
 assert('GRAFCET demo: «Editar propriedades» fora', grafed.includes('{!demoMode && <button') && grafed.includes('setEditingTransition(selectedTransition)'))
 assert('GRAFCET demo: dica do canvas orientada à visualização', grafed.includes("demoMode ? 'Selecione etapas e ligações"))
-assert('Toolbar GRAFCET demo: Modelos/Ladder, Organizar e Ficheiro fora', tb.includes('{!demo && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Modelos e Ladder">') && tb.includes('aria-label="Disposição">') && tb.includes('aria-label="Ficheiro">'))
+assert('Toolbar GRAFCET demo: Modelos/Ladder, Organizar e Ficheiro fora', tb.includes('{!demo && !desktopGrafcetMenu && <div className="dc-seg grafcet-toolbar-secondary" role="toolbar" aria-label="Modelos e Ladder">') && tb.includes('aria-label="Disposição">') && tb.includes('aria-label="Ficheiro">'))
 
 // Revisão: render leve, sem rotação automática e seleção possível durante o RUN
 assert('Painel 3D: sem amortecimento nem rotação automática', panel.includes('screenSpacePanning autoRotate={false} />') && !panel.includes('enableDamping dampingFactor'))

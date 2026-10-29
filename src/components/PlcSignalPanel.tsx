@@ -39,8 +39,8 @@ export default function PlcSignalPanel({ plcId, compact = false }: { plcId: stri
   const hasSignals = Object.values(sim.inputs).some(Boolean)
 
   return <section className={`vio-panel plc-sim ${compact ? 'is-compact' : ''} ${stopped ? 'is-stopped' : ''}`} aria-label={`Simulador de sinais de ${plc.ref}`} data-plc-sim={plc.id}>
-    {stopped && <p className="vio-note is-info" role="status"><b>STOP.</b> Pode acionar os sinais: cada alteração calcula um ciclo. Use <b>Run</b> para execução contínua.</p>}
-    {!powered && <p className="vio-note" role="status"><b>{plc.ref} sem alimentação</b> (L+/M): o programa lê os sinais, mas as saídas ficam a 0 até ligar a alimentação.</p>}
+    {stopped && <details className="vio-help is-info"><summary><b>STOP</b> · Pode testar as entradas</summary><p>Cada alteração calcula um ciclo. Use Run para execução contínua.</p></details>}
+    {!powered && <details className="vio-help is-warning"><summary>{plc.ref} sem alimentação</summary><p>Ligue L+/M. O programa lê os sinais, mas as saídas ficam a 0 até ligar a alimentação.</p></details>}
     <div className="vio-cols">
       <div className="vio-col">
         <div className="vio-head">

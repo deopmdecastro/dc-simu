@@ -23,10 +23,10 @@ export default function GrafcetSimBar() {
         onStep={step}
         onStop={stop}
         onReset={reset}
-        variant="bar"
+        variant="dock"
         className="grafcet-simbar-buttons"
       />
-      <div className="grafcet-simbar-opts">
+      <details className="grafcet-simbar-settings"><summary>Opções</summary><div className="grafcet-simbar-opts">
         <Select value={sim.mode} onChange={(e) => setMode(e.target.value as any)} className="dc-select" title="Modo de execução" aria-label="Modo de execução">
           <option value="realtime">Tempo real</option>
           <option value="turbo">Turbo</option>
@@ -37,7 +37,7 @@ export default function GrafcetSimBar() {
             <option key={v} value={v}>{v}×</option>
           ))}
         </Select>
-      </div>
+      </div></details>
     </div>
   )
 }

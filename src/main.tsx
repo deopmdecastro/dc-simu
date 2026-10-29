@@ -41,6 +41,7 @@ import './styles/account-page.css'
 import './styles/header-refine.css'
 import './styles/sim-dock-refine.css'
 import './styles/canvas-annotations.css'
+import './styles/workspace-panels-refine.css'
 import { EDITOR_GRID_STEP, EDITOR_THEME } from './ui/editorTheme'
 
 const editorRootStyle = document.documentElement.style

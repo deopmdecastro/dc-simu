@@ -73,7 +73,7 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
   }
 
   return <section className={`vio-panel ${compact ? 'is-compact' : ''} ${stopped ? 'is-stopped' : ''}`} aria-label="Entradas e saídas virtuais">
-    {stopped && <p className="vio-note is-info" role="status"><b>STOP.</b> Pode acionar as entradas: cada alteração calcula um ciclo. Use <b>Run</b> para execução contínua.</p>}
+    {stopped && <details className="vio-help is-info"><summary><b>STOP</b> · Pode testar as entradas</summary><p>Cada alteração calcula um ciclo. Use Run para execução contínua.</p></details>}
     {hasPlc && <p className="vio-note">Há um PLC no esquema: as entradas vêm dos seus bornes. Estas entradas só atuam em projetos sem PLC.</p>}
     <div className="vio-cols">
       <div className="vio-col">

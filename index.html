@@ -41,29 +41,14 @@
       })()
     </script>
     <script>
-      /* Tablet = mesmo layout do PC: em ecrãs tácteis com lado curto >= 600px o viewport passa a ter
-         1200px de largura (limiar do modo compacto) e o navegador reduz a escala para caber. */
+      /* Identifica tablets sem reduzir a escala da interface: o layout adapta-se
+         à largura real do dispositivo, mantendo texto e alvos de toque legíveis. */
       (function () {
-        var DESKTOP_W = 1200
-        var meta = document.querySelector('meta[name="viewport"]')
-        if (!meta || !window.matchMedia) return
-        var phoneContent = meta.getAttribute('content')
+        if (!window.matchMedia) return
         function apply() {
           var shortSide = Math.min(screen.width, screen.height)
-          var longSide = Math.max(screen.width, screen.height)
           var tablet = window.matchMedia('(pointer: coarse)').matches && shortSide >= 600
           document.documentElement.setAttribute('data-tablet', tablet ? 'true' : 'false')
-          if (!tablet) { if (meta.getAttribute('content') !== phoneContent) meta.setAttribute('content', phoneContent); return }
-          var landscape = window.matchMedia('(orientation: landscape)').matches
-          var deviceW = landscape ? longSide : shortSide
-          var next
-          if (deviceW >= DESKTOP_W) {
-            next = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
-          } else {
-            var scale = Math.round((deviceW / DESKTOP_W) * 1000) / 1000
-            next = 'width=' + DESKTOP_W + ', initial-scale=' + scale + ', minimum-scale=' + scale + ', maximum-scale=' + scale + ', user-scalable=no, viewport-fit=cover'
-          }
-          if (meta.getAttribute('content') !== next) meta.setAttribute('content', next)
         }
         apply()
         window.addEventListener('orientationchange', function () { setTimeout(apply, 150) })
