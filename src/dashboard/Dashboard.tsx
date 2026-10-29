@@ -7,6 +7,8 @@ import { IconSearch, IconLayers, IconFile, IconProjects, IconTag, IconPlus, Icon
 
 import ProjectCover from './ProjectCover'
 import type { ProjectPreviewData } from './projectPreview'
+import { buildProjectPreview, isEmptyPreview, isNativeProjectMeta } from './projectPreview'
+import { nativePartidaDiretaContent } from '../project/nativeProjects'
 import SupabaseModal from '../components/SupabaseModal'
 import { isSupabaseConfigured } from '../supabase/supabaseClient'
 import N8nModal from '../components/N8nModal'
@@ -38,11 +40,24 @@ function relTime(iso: string) {
   return rtf.format(Math.round(diff / (86400 * 365)), 'year')
 }
 
+/** Capa e contagens: se o nativo vier vazio do backend, usa a semente embutida. */
+let nativeSeedPreview: ProjectPreviewData | null = null
+function nativeFallbackPreview(): ProjectPreviewData {
+  if (!nativeSeedPreview) nativeSeedPreview = buildProjectPreview(nativePartidaDiretaContent())
+  return nativeSeedPreview
+}
+
+function withNativeCover(p: Project): Project {
+  if (!isNativeProjectMeta(p.id, p.name) || !isEmptyPreview(p.preview)) return p
+  return { ...p, preview: nativeFallbackPreview() }
+}
+
 function statsOf(p: Project) {
-  const s = p.preview?.stats
+  const enriched = withNativeCover(p)
+  const s = enriched.preview?.stats
   return {
-    components: s?.components ?? p.preview?.components.length ?? 0,
-    wires: s?.wires ?? p.preview?.wires.length ?? 0,
+    components: s?.components ?? enriched.preview?.components.length ?? 0,
+    wires: s?.wires ?? enriched.preview?.wires.length ?? 0,
     rungs: s?.rungs ?? 0,
   }
 }
@@ -479,8 +494,8 @@ export default function Dashboard({
               if (!(e.target as HTMLElement).closest('button')) void open(hero.id)
             }}
           >
-            <ProjectCover preview={hero.preview} large />
-            <span className="dx-proj-badge">{hero.role === 'owner' ? 'Meu projeto' : 'Partilhado'}{hero.preview?.kind && hero.preview.kind !== 'all' ? ` · ${kindLabel(hero.preview.kind)}` : ''}</span>
+            <ProjectCover preview={withNativeCover(hero).preview} large />
+            <span className="dx-proj-badge">{hero.role === 'owner' ? 'Meu projeto' : 'Partilhado'}{(() => { const k = withNativeCover(hero).preview?.kind; return k && k !== 'all' ? ` · ${kindLabel(k)}` : '' })()}</span>
             {renderMenu(hero)}
           </div>
           <div className="dx-hero-body">
@@ -570,7 +585,7 @@ export default function Dashboard({
                     if (!(e.target as HTMLElement).closest('button')) void open(p.id)
                   }}
                 >
-                  <ProjectCover preview={p.preview} />
+                  <ProjectCover preview={withNativeCover(p).preview} />
                   <span className="dx-proj-badge">{p.role === 'owner' ? 'Meu projeto' : 'Partilhado'}{p.preview?.kind && p.preview.kind !== 'all' ? ` · ${kindLabel(p.preview.kind)}` : ''}</span>
                   {renderMenu(p)}
                   {st.components > 0 && (

@@ -191,7 +191,11 @@ function ensureNativeProjects(data: LocalData): LocalData {
         name: seed.name,
         content: seed.content,
         revision: Math.max(current.revision, seed.revision),
-        updatedAt: seed.updatedAt,
+        updatedAt: new Date().toISOString(),
+      }
+      // Invalidar capas em cache do nativo (evita «Projeto vazio» após reseed).
+      for (const key of [...previewCache.keys()]) {
+        if (key.startsWith(`${seed.id}:`)) previewCache.delete(key)
       }
       changed = true
     }

@@ -121,13 +121,16 @@ export default function ProjectCover({ preview, large = false }: { preview?: Pro
   if (!geom || !preview) {
     return (
       <div className="dx-cover dx-cover-empty" ref={hostRef} aria-hidden="true">
-        <svg viewBox="0 0 120 80" className="dx-cover-ghost">
-          <rect x="14" y="30" width="92" height="6" rx="2" />
-          <rect x="22" y="40" width="22" height="26" rx="3" />
-          <rect x="50" y="40" width="22" height="26" rx="3" />
-          <rect x="78" y="40" width="22" height="26" rx="3" />
-          <path d="M33 40V18H89V40" fill="none" />
-        </svg>
+        {/* Logo na mesma paleta do ghost SVG (#c4cfde stroke / #e1e8f1 fill). */}
+        <span className="dx-cover-empty-logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="44" height="44">
+            <rect width="32" height="32" rx="8" fill="#e1e8f1" />
+            <path
+              d="M18.2 6.5 11 16.8h4.2l-1.6 8.7L21 14.2h-4.1l1.3-7.7Z"
+              fill="#c4cfde"
+            />
+          </svg>
+        </span>
         <span>Projeto vazio</span>
         <small>Abra o editor para adicionar componentes</small>
       </div>

@@ -706,6 +706,8 @@
 .dx-cover-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #7a889c; text-align: center; }
 .dx-cover-empty span { font-size: 13px; font-weight: 650; color: #5d6b80; }
 .dx-cover-empty small { font-size: 11.5px; color: #8b98ab; }
+.dx-cover-empty-logo { display: grid; place-items: center; margin-bottom: 2px; opacity: 0.95; }
+.dx-cover-empty-logo svg { display: block; }
 .dx-cover-ghost { width: 88px; height: auto; margin-bottom: 4px; fill: #e1e8f1; stroke: #c4cfde; stroke-width: 1.4; }
 
 .dx-proj-chips {

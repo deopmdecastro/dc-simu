@@ -33,6 +33,21 @@ export function previewCoverOf(data: unknown): string | undefined {
   return typeof value === 'string' && value.startsWith('data:image/jpeg;base64,') && value.length <= 420_000 ? value : undefined
 }
 
+/** Identifica o projeto nativo (id estável ou nome com «(nativo)»). */
+export function isNativeProjectMeta(id: string, name?: string): boolean {
+  if (id.startsWith('native-partida')) return true
+  return typeof name === 'string' && /\(nativo\)/i.test(name)
+}
+
+/** True quando o preview não tem geometria útil para a capa. */
+export function isEmptyPreview(preview?: ProjectPreviewData | null): boolean {
+  if (!preview) return true
+  if (preview.cover) return false
+  if ((preview.components?.length ?? 0) > 0) return false
+  if ((preview.stats?.components ?? 0) > 0) return false
+  return true
+}
+
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d)
 type Json = Record<string, unknown>
 const isObj = (v: unknown): v is Json => !!v && typeof v === 'object'
