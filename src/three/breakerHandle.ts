@@ -263,10 +263,12 @@ export function extractBreakerHandle(
 /**
  * Conjunto da chave de um botão/seletor com segredo (ex.: Metaltex P20ACR).
  *
- * Não roda só a palheta da chave: roda o cilindro todo — a chave e o canhão
- * onde ela entra —, que é o que acontece no aparelho real. O conjunto é
- * apanhado pela geometria (um cilindro estreito centrado no eixo do botão,
- * junto à face frontal), nunca pelo nome do nó.
+ * Roda o mecanismo completo (canhão + disco metálico + palheta da chave) como
+ * uma unidade. A seleção é por geometria e cor — nunca pelo nome do nó.
+ *
+ * Critério: tudo o que está na face frontal, NÃO é o corpo vermelho (cogumelo)
+ * e cabe num cilindro centrado no eixo (canhão + lâmina). Assim a chave não
+ * «parte» — a palheta e o canhão partilham o mesmo pivot.
  */
 export function extractKeyBarrel(model: THREE.Object3D, frame: THREE.Object3D): { pivot: THREE.Group } | null {
   frame.updateMatrixWorld(true)
@@ -288,44 +290,57 @@ export function extractKeyBarrel(model: THREE.Object3D, frame: THREE.Object3D): 
   const radius = Math.min(size.x, size.y) / 2
   if (radius <= 0) return null
 
-  // O canhão fica junto ao centro, mas a palheta da chave sai radialmente para
-  // fora. Capturá-la só pelo raio central fazia o canhão rodar sem a chave
-  // (efeito visual de «partir» a chave). Incluímos:
-  //  1) peças centradas (canhão/cilindro do mecanismo)
-  //  2) a lâmina metálica estreita que parte do canhão
-  // Excluímos o aro/tampa exterior (largo e/ou vermelho) e a caixa traseira.
-  const zCut = total.max.z - radius * 0.85
+  const isRedPart = (mesh: THREE.Mesh) => {
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    return materials.some((material) => {
+      const color = (material as THREE.Material & { color?: THREE.Color }).color
+      return !!color && color.r > color.g * 1.2 && color.r > color.b * 1.15 && color.r > 0.32
+    })
+  }
+
+  // Face frontal: tudo acima de ~40 % da profundidade do modelo.
+  const zFront = total.min.z + size.z * 0.4
+  // Cilindro do mecanismo: um pouco maior que o canhão para capturar a palheta.
+  const barrelR = radius * 0.72
+
   const selected = parts.filter((part) => {
-    if (part.box.max.z <= zCut) return false
-    const dx = part.box.max.x - part.box.min.x
-    const dy = part.box.max.y - part.box.min.y
+    // Caixa traseira / contactos ficam fora.
+    if (part.box.max.z < zFront) return false
+    // Cogumelo vermelho (corpo exterior) não roda.
+    if (isRedPart(part.mesh)) return false
+
     const partCenter = part.box.getCenter(new THREE.Vector3())
+    const distFromAxis = Math.hypot(partCenter.x - center.x, partCenter.y - center.y)
     const radialExtent = Math.max(
       Math.hypot(part.box.max.x - center.x, part.box.max.y - center.y),
       Math.hypot(part.box.min.x - center.x, part.box.min.y - center.y),
     )
-    const distFromAxis = Math.hypot(partCenter.x - center.x, partCenter.y - center.y)
-    // Canhão / cilindro do mecanismo: centrado no eixo do botão.
-    if (distFromAxis <= radius * 0.55 && radialExtent <= radius * 1.15) return true
-    // Peças muito centrais na face frontal (mesmo que um pouco mais largas).
-    if (radialExtent <= radius * 0.85) return true
+    const dx = part.box.max.x - part.box.min.x
+    const dy = part.box.max.y - part.box.min.y
+    const minSide = Math.min(dx, dy)
+    const maxSide = Math.max(dx, dy)
 
-    // A lâmina metálica é uma peça estreita que parte do canhão. Evita incluir
-    // o aro/tampa exterior, que ocupa uma área larga e pode ter a mesma frente.
-    const narrow = Math.min(dx, dy) <= radius * 0.55 && Math.max(dx, dy) <= radius * 2.4
-    const materials = Array.isArray(part.mesh.material) ? part.mesh.material : [part.mesh.material]
-    const isRed = materials.some((material) => {
-      const color = (material as THREE.Material & { color?: THREE.Color }).color
-      return !!color && color.r > color.g * 1.25 && color.r > color.b * 1.2 && color.r > 0.35
-    })
-    return narrow && !isRed && radialExtent <= radius * 2.1
+    // 1) Canhão / disco metálico centrado no eixo.
+    if (distFromAxis <= barrelR * 0.9 && radialExtent <= barrelR * 1.35) return true
+    // 2) Qualquer peça metálica cuja maior parte esteja dentro do cilindro do mecanismo.
+    if (radialExtent <= barrelR * 1.5) return true
+    // 3) Lâmina da chave: peça estreita que sai do canhão (pode ultrapassar o raio).
+    const isBlade = minSide <= radius * 0.4 && maxSide <= radius * 2.6 && distFromAxis <= radius * 1.1
+    if (isBlade) return true
+
+    return false
   })
   if (selected.length === 0) return null
+
+  // Pivot no eixo do botão, ao nível da face frontal do canhão.
+  const barrelBox = new THREE.Box3()
+  for (const part of selected) barrelBox.union(part.box)
+  const barrelCenter = barrelBox.getCenter(new THREE.Vector3())
 
   const pivot = new THREE.Group()
   pivot.name = 'dcsimu-key-barrel'
   frame.add(pivot)
-  pivot.position.set(center.x, center.y, 0)
+  pivot.position.set(barrelCenter.x, barrelCenter.y, 0)
   frame.updateMatrixWorld(true)
   // `attach` preserva a posição no mundo: as peças passam para o pivot sem saltar.
   for (const part of selected) pivot.attach(part.mesh)

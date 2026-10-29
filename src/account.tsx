@@ -423,10 +423,8 @@ function RouteLoading({ label }: { label: string }) {
   return (
     <div className="dx dx-route-loading" role="status" aria-live="polite" aria-busy="true">
       <div className="dx-route-loading-card">
-        <div className="dx-route-loading-brand">
-          <Logo size={40} />
-          <span className="dx-route-loading-tag">Electrical Panel Studio</span>
-        </div>
+        {/* Mesmo Logo da navbar (mark + wordmark + tagline). */}
+        <Logo size={32} tagline />
         <div className="dx-route-loading-bar" aria-hidden>
           <span className="dx-route-loading-bar-fill" />
         </div>

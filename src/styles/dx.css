@@ -230,7 +230,7 @@
   animation: dx-spin 640ms linear infinite;
 }
 
-/* Ecrã de carregamento de rotas (editor, dashboard, admin…) */
+/* Ecrã de carregamento de rotas — logo idêntico à navbar */
 .dx-route-loading {
   min-height: 100%;
   display: grid;
@@ -241,35 +241,30 @@
     var(--dx-bg, #f4f6fa);
 }
 .dx-route-loading-card {
-  display: grid;
-  gap: 18px;
-  justify-items: center;
-  width: min(320px, 100%);
-  padding: 28px 24px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: min(300px, 100%);
+  padding: 32px 28px 24px;
   border: 1px solid var(--dx-line-soft, #e2e8f0);
   border-radius: 16px;
-  background: color-mix(in srgb, var(--dx-surface, #fff) 92%, transparent);
-  box-shadow: 0 12px 40px -18px rgba(15, 23, 42, 0.18);
+  background: color-mix(in srgb, var(--dx-surface, #fff) 94%, transparent);
+  box-shadow: 0 12px 40px -18px rgba(15, 23, 42, 0.16);
   backdrop-filter: blur(8px);
   animation: dx-fade 320ms var(--dx-ease-out, ease-out) both;
 }
-.dx-route-loading-brand {
-  display: grid;
-  gap: 6px;
-  justify-items: center;
-  text-align: center;
-}
-.dx-route-loading-tag {
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--dx-ink-3, #64748b);
+/* Logo centrado: o mesmo .dx-logo da navbar */
+.dx-route-loading-card > .dx-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
 }
 .dx-route-loading-bar {
   position: relative;
   width: 100%;
-  height: 4px;
+  height: 3.5px;
   border-radius: 99px;
   background: var(--dx-line-soft, #e2e8f0);
   overflow: hidden;
@@ -277,7 +272,7 @@
 .dx-route-loading-bar-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 42%;
+  width: 40%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--dx-brand, #2655e5), color-mix(in srgb, var(--dx-brand, #2655e5) 55%, #7c3aed));
   animation: dx-route-loading-slide 1.15s var(--dx-ease-out, ease-out) infinite;
