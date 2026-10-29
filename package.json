@@ -45,6 +45,7 @@
     "test:canvas-annotations": "tsx scripts/canvas-annotations-smoke.ts",
     "test:cad-surface": "tsx scripts/cad-surface-smoke.ts",
     "test:terminal-geometry-ui": "node scripts/terminal-geometry-ui-smoke.mjs",
+    "test:multimeter-ui": "node scripts/multimeter-terminals-ui-smoke.mjs",
     "test:editor3d-functional": "tsx scripts/editor3d-functional-smoke.ts",
     "test:logo-editor": "tsx scripts/logo-editor-smoke.ts",
     "test:logo-editor-ui": "node scripts/logo-editor-ui-smoke.mjs",

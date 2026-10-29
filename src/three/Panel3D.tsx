@@ -766,8 +766,9 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
 }
 
 /** CAD genérico de calha DIN, normalizado a partir da especificação partilhada. */
-function CadComponentReal3D({ c, x, interactive = true }: { c: ElectricalComponent; x: number; interactive?: boolean }) {
+function CadComponentReal3D({ c, x, position, interactive = true }: { c: ElectricalComponent; x: number; position?: [number, number, number]; interactive?: boolean }) {
   const spec = getComponentModelSpec(c.type)!
+  const centered = !!position
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
     const obj = cloneModelScene(scene)
@@ -776,10 +777,10 @@ function CadComponentReal3D({ c, x, interactive = true }: { c: ElectricalCompone
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
+    const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, centered ? 'center' : 'bottom')
     void applyCadSurfaceTextures(fitted)
     return fitted
-  }, [scene, spec])
+  }, [scene, spec, centered])
   const active = !!(c.state.energized || c.state.powered)
   const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
   /** Manípulo marcado no GLB (`dcsimu_handle_*`): charneira e curso medidos no CAD. */
@@ -855,12 +856,12 @@ function CadComponentReal3D({ c, x, interactive = true }: { c: ElectricalCompone
     }
     handle.pivot.updateMatrixWorld(true)
   })
-  return <group position={[x, RAIL_Y, 0]}>
+  return <group position={position ?? [x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
     {active && !breaker && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
-    <Label text={c.ref} position={[0, spec.targetHeight + 0.1, 0.22]} color={active ? '#4ade80' : '#e2e8f0'} />
+    <Label text={c.ref} position={[0, spec.targetHeight * (centered ? 0.5 : 1) + 0.1, 0.22]} color={active ? '#4ade80' : '#e2e8f0'} />
   </group>
 }
 
@@ -2882,7 +2883,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             const [px, py, pz] = frontPivot(c)
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><CatalogComponent3D c={c} interactive={interactive && !c.locked} position={[x + px, py, pz]} anchor="center">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.1]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'multimeterDm20') {
-            content = <Model3DErrorBoundary fallback={<Sensor3D c={c} x={x} onToggle={() => {}} />}><Suspense fallback={<Sensor3D c={c} x={x} onToggle={() => {}} />}><CadComponentReal3D c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
+            // O CAD e os bornes usam o mesmo pivô central também fora da calha.
+            // A antiga montagem pela base deslocava o corpo 40 mm em profundidade.
+            const [px, py, pz] = frontPivot(c)
+            content = <Model3DErrorBoundary fallback={<Sensor3D c={c} x={x} onToggle={() => {}} />}><Suspense fallback={<Sensor3D c={c} x={x} onToggle={() => {}} />}><CadComponentReal3D c={c} x={x} position={[x + px, py, pz]} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'pilotLightAd22') {
             const fallback = <Lamp3D c={c} x={x} />
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><PilotLightAd22Real3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
