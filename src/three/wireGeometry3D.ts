@@ -935,7 +935,32 @@ function buildMotorGlandBody3D(
     motorHead,
   ]
   const deduped = rawControls.filter((pt, i) => i === 0 || v(pt).distanceTo(v(rawControls[i - 1])) > 1e-4)
-  return keepInFrontOfPlate(roundCorners(deduped, outerMm, 4.2), outerMm)
+  return {
+    points: keepInFrontOfPlate(roundCorners(deduped, outerMm, 4.2), outerMm),
+    entry: approach,
+  }
+}
+
+/** Corrige os sólidos só no troço exterior; a passagem física no motor é fixa. */
+function clearPathSolids(
+  points: V3[],
+  outerMm: number,
+  obstacles: WireObstacle[],
+  exits: Parameters<typeof keepWireOutsideSolids>[3],
+  minZ: number,
+  track: number,
+  motorRoute?: WirePath3D['motorRoute'],
+): V3[] {
+  if (!motorRoute) return keepWireOutsideSolids(points, outerMm, obstacles, exits, minZ, track)
+  const fixed = motorRoute.points
+  const tail = motorRoute.side === 'to'
+  const outer = tail ? points.slice(0, points.length - fixed.length + 1) : points.slice(fixed.length - 1)
+  // O troço exterior contorna também o motor. Só a cauda física já validada
+  // pode passar pelo seu bucim, incluindo quando se roda ou espelha o motor.
+  const outerExits = exits.map(exit => ({ ...exit, glandBypass: false })) as typeof exits
+  const safe = keepWireOutsideSolids(outer, outerMm, obstacles, outerExits, minZ, track)
+  if (safe === outer) return points
+  return !safe.length ? [] : tail ? [...safe.slice(0, -1), ...fixed] : [...fixed, ...safe.slice(1)]
 }
 
 /** Traçado individual de um cabo (compatível com chamadas isoladas e edição ao vivo). */
