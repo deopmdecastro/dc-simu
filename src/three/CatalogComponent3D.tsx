@@ -16,6 +16,7 @@ import { setBeep } from '../catalog/beep'
 import { cloneModelScene } from './modelFit'
 import { normalizeDefinition } from '../catalog/definition'
 import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
+import { applyCadSurfaceTextures } from './cadSurface'
 import { applyEditorMotorTextures } from './motorEditorTextures'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
@@ -79,6 +80,8 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     }
     object.scale.setScalar(PANEL_UNITS_PER_MM)
     object.updateMatrixWorld(true)
+    // O GLB do catálogo está em mm: UV físicas no referencial do próprio modelo.
+    if (builtin !== 'motor3ph') void applyCadSurfaceTextures(object, { unitsPerMm: 1 })
     const box = new THREE.Box3().setFromObject(object, true)
     const height = box.max.y - box.min.y
     const cx = origin ? origin[0] * PANEL_UNITS_PER_MM : (box.min.x + box.max.x) / 2

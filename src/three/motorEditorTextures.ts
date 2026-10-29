@@ -6,21 +6,33 @@ import { textureLibraryEntry } from './textureLibrary'
 const textureLoader = new THREE.TextureLoader()
 const mapCache = new Map<string, THREE.Texture>()
 const pendingMaterials = new Set<THREE.Material>()
+const pendingLoads = new Set<Promise<void>>()
+
+/** Resolve quando todos os mapas do motor já pedidos estão carregados (para as capturas). */
+export function waitMotorTextures(): Promise<void> {
+  return Promise.all([...pendingLoads]).then(() => undefined)
+}
 
 function libraryMap(url: string, srgb: boolean, repeat: number): THREE.Texture {
   const key = `${url}:${srgb ? 'srgb' : 'linear'}:${repeat.toFixed(3)}`
   let texture = mapCache.get(key)
   if (!texture) {
+    let settle: () => void = () => undefined
+    const ready = new Promise<void>((resolve) => { settle = resolve })
+    pendingLoads.add(ready)
+    void ready.then(() => pendingLoads.delete(ready))
     texture = textureLoader.load(
       url,
       (loaded) => {
         loaded.needsUpdate = true
         loaded.userData.ready = true
         for (const mat of pendingMaterials) mat.needsUpdate = true
+        settle()
       },
       undefined,
       () => {
         console.warn(`[motor-textures] falhou o mapa ${url}`)
+        settle()
       },
     )
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping

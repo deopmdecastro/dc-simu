@@ -86,10 +86,11 @@ export function finishCadMaterial(source: THREE.Material, options: FinishOptions
     physical.roughness = THREE.MathUtils.clamp(source.roughness >= 0.8 ? 0.25 : source.roughness * 0.62, 0.18, 0.34)
     physical.envMapIntensity = envIntensity * 1.18
   } else if (!source.map && hsl.h >= 0.54 && hsl.h <= 0.66 && hsl.s >= 0.5 && hsl.l >= 0.16 && hsl.l <= 0.52) {
-    // Caixas industriais anodizadas/pintadas em azul técnico (ex.: fonte Proauto/Chinfa, LOGO! detalhe)
-    physical.metalness = 0.28
-    physical.roughness = 0.30
-    physical.clearcoat = useClearcoat ? 0.38 : 0
+    // Caixas pintadas em azul técnico (ex.: fonte Proauto/Chinfa, LOGO! detalhe): pintura em pó sobre
+    // chapa — metalização baixa, senão a caixa reflete o estúdio e escurece em vez de mostrar a cor.
+    physical.metalness = 0.1
+    physical.roughness = 0.34
+    physical.clearcoat = useClearcoat ? 0.32 : 0
     physical.clearcoatRoughness = 0.22
     physical.envMapIntensity = envIntensity * 1.12
   } else if (!source.map && hsl.s >= 0.58 && hsl.l >= 0.22 && hsl.l <= 0.68) {

@@ -166,16 +166,31 @@ function plcTerminals(inputs: number, outputs: number): TerminalTemplate[] {
   return list
 }
 
-/** LS Electric XGB XBM-DN32S: 16 entradas DC e 16 saídas transistor NPN. */
+/**
+ * LS Electric XGB XBM-DN32S: 16 entradas DC e 16 saídas transistor NPN.
+ * Vista frontal real (corpo slim de 30 mm): L+ em cima, M em baixo; entradas nas
+ * metades de cima das duas arestas (I0.x à esquerda, I1.x à direita) e saídas nas de baixo.
+ */
+export function lsXbmTerminalLayout(label: string): { x: number; y: number } | null {
+  if (label === 'L+') return { x: 0.5, y: 0 }
+  if (label === 'M') return { x: 0.5, y: 1 }
+  const match = /^([IQ])([01])\.([0-7])$/.exec(label)
+  if (!match) return null
+  const [, area, byte, bit] = match
+  const top = area === 'I' ? 0.08 : 0.56
+  return { x: byte === '0' ? 0 : 1, y: top + Number(bit) * (0.36 / 7) }
+}
+
 function plcLsXbmDn32sTerminals(): TerminalTemplate[] {
+  const at = (label: string) => lsXbmTerminalLayout(label)!
   const list: TerminalTemplate[] = [
-    T('L+', 'power-in', 0.02, 0.5, { terminalType: 'screw', color: '#ef4444' }),
-    T('M', 'neutral', 0.98, 0.5, { terminalType: 'screw', color: '#3b82f6' }),
+    T('L+', 'power-in', at('L+').x, at('L+').y, { terminalType: 'screw', color: '#ef4444' }),
+    T('M', 'neutral', at('M').x, at('M').y, { terminalType: 'screw', color: '#3b82f6' }),
   ]
   for (let i = 0; i < 16; i++) {
-    const x = 0.06 + i * (0.88 / 15)
-    list.push(T(`I${Math.floor(i / 8)}.${i % 8}`, 'io', x, 0, { terminalType: 'screw' }))
-    list.push(T(`Q${Math.floor(i / 8)}.${i % 8}`, 'io', x, 1, { terminalType: 'screw' }))
+    const input = `I${Math.floor(i / 8)}.${i % 8}`, output = `Q${Math.floor(i / 8)}.${i % 8}`
+    list.push(T(input, 'io', at(input).x, at(input).y, { terminalType: 'screw' }))
+    list.push(T(output, 'io', at(output).x, at(output).y, { terminalType: 'screw' }))
   }
   return list
 }
@@ -1052,6 +1067,29 @@ export function upgradePhysicalFootprint(c: ElectricalComponent): ElectricalComp
   const footprint = getSchematicPhysicalFootprint(c.type)
   if (!template || !footprint || c.w !== template.w || c.h !== template.h) return c
   return { ...c, w: footprint.w, h: footprint.h }
+}
+
+/**
+ * XBM-DN32S guardado com a vista antiga (o lado do corpo, 82 mm de largura): passa para a
+ * frente real (30 mm). Só mexe no footprint e na posição 2D dos bornes não fixados à mão;
+ * IDs, cabos, estado e posição no esquema ficam intactos.
+ */
+export function upgradeLsXbmFront(c: ElectricalComponent): ElectricalComponent {
+  if (c.type !== 'plcLsXbmDn32s') return c
+  const footprint = getSchematicPhysicalFootprint(c.type)
+  const legacyWidth = Math.round(82.03 * 1.5)
+  if (!footprint || Math.round(c.w) !== legacyWidth || c.w === footprint.w) return c
+  const centerX = c.schematicX + c.w / 2
+  return {
+    ...c,
+    schematicX: Math.round(centerX - footprint.w / 2),
+    w: footprint.w,
+    h: footprint.h,
+    terminals: c.terminals.map((terminal) => {
+      const at = terminal.pinned ? null : lsXbmTerminalLayout(terminal.label)
+      return at ? { ...terminal, x: at.x, y: at.y } : terminal
+    }),
+  }
 }
 
 /** Cria um borne novo (usado pelo editor ao adicionar bornes). */

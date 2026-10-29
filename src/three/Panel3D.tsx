@@ -3,7 +3,6 @@ import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Text, TransformControls, Edges, useGLTF } from '@react-three/drei'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
@@ -22,6 +21,8 @@ import * as THREE from 'three'
 import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoScreen'
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
+import { applyCadSurfaceTextures, onCadTexturesReady } from './cadSurface'
+import { getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './studioEnvironment'
 import { applyEditorMotorTextures } from './motorEditorTextures'
 import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
@@ -645,7 +646,9 @@ function LogoSiemens1224RCMesh({ c, x, interactive = true }: { c: ElectricalComp
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((mat) => finishCadMaterial(mat, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    return fitComponentModel(obj, getComponentModelSpec(c.type)!, PANEL_UNITS_PER_MM, 'bottom')
+    const fitted = fitComponentModel(obj, getComponentModelSpec(c.type)!, PANEL_UNITS_PER_MM, 'bottom')
+    void applyCadSurfaceTextures(fitted)
+    return fitted
   }, [scene])
   const screen = useMemo(() => logoScreenRect(model), [model])
 
@@ -696,7 +699,9 @@ function ProautoReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
+    const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
+    void applyCadSurfaceTextures(fitted)
+    return fitted
   }, [scene, spec])
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
@@ -715,7 +720,9 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((mat) => finishCadMaterial(mat, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
+    const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
+    void applyCadSurfaceTextures(fitted)
+    return fitted
   }, [scene, spec])
   const en = !!c.state.energized
   const armature = useMemo(() => model.getObjectByName('Node10'), [model])
@@ -753,8 +760,11 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
     : safety
       ? [{ c: '#22c55e', on: powered && !error }, { c: '#ef4444', on: error }]
       : []
-  const halfDepth = ((getComponentModelSpec(c.type)?.physicalSizeMm.depth ?? 68) * PANEL_UNITS_PER_MM) / 2
-  return <group position={[0.24, height * 0.64, halfDepth + 0.002]}>{lights.map((light, index) => <group key={index} position={[0, -index * 0.055, 0]}>
+  const physical = getComponentModelSpec(c.type)?.physicalSizeMm
+  const halfDepth = ((physical?.depth ?? 68) * PANEL_UNITS_PER_MM) / 2
+  // Dentro da face frontal: os três aparelhos são slim (22–30 mm); a 24 mm fixos os LED ficavam no ar.
+  const ledX = (physical?.width ?? 60) * PANEL_UNITS_PER_MM * 0.24
+  return <group position={[ledX, height * 0.64, halfDepth + 0.002]}>{lights.map((light, index) => <group key={index} position={[0, -index * 0.055, 0]}>
     <mesh raycast={() => null}>
       <circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={light.on ? light.c : '#334155'} emissive={light.on ? light.c : '#000'} emissiveIntensity={light.on ? 2.4 : 0} toneMapped={!light.on} />
     </mesh>
@@ -773,7 +783,9 @@ function CadComponentReal3D({ c, x, interactive = true }: { c: ElectricalCompone
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
+    const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'bottom')
+    void applyCadSurfaceTextures(fitted)
+    return fitted
   }, [scene, spec])
   const active = !!(c.state.energized || c.state.powered)
   const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
@@ -866,6 +878,7 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
   const model = useMemo(() => {
     const fitted = fitComponentModel(cloneModelScene(scene), spec, PANEL_UNITS_PER_MM, 'center')
     applyEmergencyButtonFinish(fitted, c.type)
+    void applyCadSurfaceTextures(fitted)
     return fitted
   }, [scene, spec, c.type])
   const pressed = !!c.state.pressed
@@ -942,7 +955,9 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
       if (!mesh.isMesh) return
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
-    return fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'center')
+    const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'center')
+    void applyCadSurfaceTextures(fitted)
+    return fitted
   }, [scene, spec])
   /* As tampas são encontradas pela cor do material do GLB, não pelo nome do nó:
    * o `Node8` (vermelho) nem sempre é o que se vê, e era por isso que só o
@@ -1034,6 +1049,7 @@ function TerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
         : finishCadMaterial(mesh.material, { envMapIntensity: 1.3 })
       mesh.castShadow = mesh.receiveShadow = true
     })
+    void applyCadSurfaceTextures(object)
     return object
   }, [scene, spec])
   return <group position={[x, RAIL_Y + 0.48, 0.12]}><primitive object={model} /></group>
@@ -1135,7 +1151,9 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
       mesh.castShadow = true
       mesh.receiveShadow = true
     })
-    return fitComponentModel(object, spec, PANEL_UNITS_PER_MM, 'center')
+    const fitted = fitComponentModel(object, spec, PANEL_UNITS_PER_MM, 'center')
+    void applyCadSurfaceTextures(fitted)
+    return fitted
   }, [scene, spec])
   const on = !!c.state.on
   const color = typeof c.state.color === 'string' ? c.state.color : '#ef4444'
@@ -1702,22 +1720,23 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
 type PanelCameraView = 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'isometric' | 'focus' | 'orbit' | 'angles'
 type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number]; dx?: number; dy?: number; yaw?: number; pitch?: number; radius?: number }
 
-/** Iluminação PBR de estúdio gerada uma só vez (sem rede) para reflexos metálicos realistas no motor e na calha. */
+/** Estúdio de fotografia de produto gerado localmente (caixas de luz, sem HDR externo):
+ *  brilho especular nítido nos termoplásticos e reflexos nos metais. Redesenha quando
+ *  os mapas reais das superfícies CAD acabam de carregar (frameloop a pedido). */
 function StudioEnvironment() {
   const { gl, scene, invalidate } = useThree()
   useEffect(() => {
-    const pmrem = new THREE.PMREMGenerator(gl)
-    const room = new RoomEnvironment()
-    const rt = pmrem.fromScene(room, 0.04)
     const prevEnv = scene.environment
-    scene.environment = rt.texture
-    if ('environmentIntensity' in scene) (scene as THREE.Scene & { environmentIntensity: number }).environmentIntensity = 1.18
-    room.dispose()
-    pmrem.dispose()
+    scene.environment = getStudioEnvironment(gl)
+    if ('environmentIntensity' in scene) (scene as THREE.Scene & { environmentIntensity: number }).environmentIntensity = 1
     invalidate()
+    const stop = onCadTexturesReady(() => {
+      gl.shadowMap.needsUpdate = true
+      invalidate()
+    })
     return () => {
-      if (scene.environment === rt.texture) scene.environment = prevEnv
-      rt.dispose()
+      stop()
+      if (scene.environment !== prevEnv) scene.environment = prevEnv
     }
   }, [gl, scene, invalidate])
   return null
@@ -2789,8 +2808,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       <ContextLossNotice lost={glLost} />
       <Canvas frameloop={!stageVisible ? 'never' : (runState === 'running' || burstActive) ? 'always' : 'demand'} shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (!demoMode && editMode !== 'connect') selectComponents([]) }}
         onCreated={({ gl }) => {
-          gl.toneMapping = THREE.ACESFilmicToneMapping
-          gl.toneMappingExposure = 1.06
+          gl.toneMapping = STUDIO_TONE_MAPPING
+          gl.toneMappingExposure = STUDIO_EXPOSURE
           // Sombras calculadas só quando a cena muda (não a cada frame): durante o
           // RUN a re-sombra contínua era a maior fatia do custo de renderização.
           gl.shadowMap.autoUpdate = false
@@ -2800,9 +2819,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <ShadowsOnDemand watch={shadowWatch} />
         <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
-        <hemisphereLight args={['#f8fafc', '#cbd5e1', 0.52]} />
-        <directionalLight position={[4.2, 7.5, 6.2]} intensity={1.36} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003} />
-        <directionalLight position={[-5.2, 3.8, 3.6]} intensity={0.5} />
+        <hemisphereLight args={['#f8fafc', '#3b4350', 0.38]} />
+        <directionalLight position={[-3.2, 7.5, 6.2]} intensity={1.25} color="#fff7ee" castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003} />
+        <directionalLight position={[5.8, 3.2, 2.4]} intensity={0.45} color="#e8f0ff" />
         {/* A grelha de edição partilhada permanece montada em todas as vistas 3D.
             A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}
         {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} showFloor={floorGridVisible(cameraStats.pitch)} />}

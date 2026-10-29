@@ -70,7 +70,8 @@ export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalS
   emergencyButtonKeyP20ACR: { width: 40, height: 44, depth: 97 },
   dualPushButtonNpb22D11: { width: 48.8, height: 30.2, depth: 61.8 },
   safetyRelay: { width: 22.65, height: 99.1, depth: 112.73 },
-  plcLsXbmDn32s: { width: 82.03, height: 97.49, depth: 30.2 },
+  /** Medido no CAD já de frente: corpo slim de 30,2 mm, 97,5 mm de altura e 82 mm de profundidade (com os ganchos da calha). */
+  plcLsXbmDn32s: { width: 30.2, height: 97.49, depth: 82.03 },
   siemensTsAdapterIeBasic: { width: 30, height: 105.58, depth: 75.1 },
   terminalPhoenixPti6: { width: 8.15, height: 66.02, depth: 48.5 },
   terminalSet1ph: { width: 24.45, height: 66.02, depth: 48.5 },
@@ -150,7 +151,13 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
   dualPushButtonNpb22D11: spec('dualPushButtonNpb22D11', MODEL_PATHS.dualPushButtonNpb22D11, [0, 0, 0], 'panel-front', true),
 
   safetyRelay: spec('safetyRelay', MODEL_PATHS.safetyRelayMsr127Tp, [0, 0, Math.PI / 2], 'din-rail', true),
-  plcLsXbmDn32s: spec('plcLsXbmDn32s', MODEL_PATHS.plcLsXbmDn32s, [Math.PI / 2, 0, 0], 'din-rail'),
+  /*
+   * LS XBM-DN32S: com só +90° em X a face com «EXPANSION CONNECTOR» (o lado do corpo) ficava à frente
+   * e os ganchos da calha DIN saíam para a esquerda — o PLC aparecia montado de lado. A face de serviço
+   * (fecho da calha em baixo) está no +X do CAD: +90° em Z leva-a para +Z e os ganchos para a chapa.
+   * Equivale a Ry(−90°)·Rx(+90°), escrito em ângulos de Euler XYZ.
+   */
+  plcLsXbmDn32s: spec('plcLsXbmDn32s', MODEL_PATHS.plcLsXbmDn32s, [Math.PI / 2, 0, Math.PI / 2], 'din-rail'),
   siemensTsAdapterIeBasic: spec('siemensTsAdapterIeBasic', MODEL_PATHS.siemensTsAdapterIeBasic, [Math.PI / 2, 0, 0], 'din-rail'),
   terminalPhoenixPti6: spec('terminalPhoenixPti6', MODEL_PATHS.phoenixTerminalPti6, [Math.PI / 2, 0, 0], 'din-rail'),
   terminalSet1ph: spec('terminalSet1ph', MODEL_PATHS.terminalSet1ph, [0, 0, 0], 'din-rail'),

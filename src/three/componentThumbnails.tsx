@@ -11,13 +11,10 @@
  * guardada em cache e o respetivo contexto é libertado imediatamente.
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import { getLogo3DImages } from '../schematic/logo3DImage'
-import { getProauto3DImage } from '../schematic/proauto3DImage'
-import { getWeg3DImage } from '../schematic/weg3DImage'
 import { getCad3DImage } from '../schematic/cad3DImage'
-import { getComponentModelSpec } from './modelPaths'
+import { getComponentGlbSpec } from './modelPaths'
 import { isTerminalAssemblyComponent } from './terminalAssembly'
-import { defaultComponentTurntablePitch, getComponentTurntableFrames, getComponentTurntableHero } from './componentTurntable'
+import { defaultComponentTurntablePitch, getComponentCoverImage, getComponentTurntableFrames, getComponentTurntableHero } from './componentTurntable'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -355,47 +352,30 @@ export function getComponentThumbnail(type: ComponentType): string {
   return url
 }
 
-/** Miniatura 3D real de um componente da biblioteca (renderizada uma vez, depois é apenas uma imagem). */
+/**
+ * Capa do elemento: fotografia de produto a 3/4 do GLB real (mesmo acabamento e estúdio do
+ * Painel 3D). Antes era a vista frontal ortográfica com os materiais em bruto do CAD —
+ * plana, «fosca», e errada em alguns casos (cabeça do botão de emergência cinzenta,
+ * calha DIN reduzida a uma linha, sinaleiro reduzido a um disco).
+ */
 export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?: number }) {
-  const [logoSrc, setLogoSrc] = useState<string | null>(null)
-  const [proautoSrc, setProautoSrc] = useState<string | null>(null)
-  const [wegSrc, setWegSrc] = useState<string | null>(null)
-  const [cadSrc, setCadSrc] = useState<string | null>(null)
-  const fallback = useMemo(() => getComponentThumbnail(type), [type])
+  const hasGlb = !!getComponentGlbSpec(type)
+  const assemblyOnly = !hasGlb && isTerminalAssemblyComponent(type)
+  const [coverSrc, setCoverSrc] = useState<string | null>(null)
+  const fallback = useMemo(() => (hasGlb || assemblyOnly ? '' : getComponentThumbnail(type)), [assemblyOnly, hasGlb, type])
   useEffect(() => {
-    if (type !== 'plcSiemensLogo1224RC') return
+    if (!hasGlb && !assemblyOnly) return
     let active = true
-    getLogo3DImages().then(({ off }) => { if (active) setLogoSrc(off) }).catch(() => {
-      // O renderizador procedural mantém a biblioteca utilizável sem o GLB.
+    setCoverSrc(null)
+    const request = hasGlb ? getComponentCoverImage(type) : getCad3DImage(type)
+    request.then((image) => { if (active) setCoverSrc(image) }).catch(() => {
+      // Sem GLB (rede/PWA fria): fica a forma procedimental.
+      if (active) setCoverSrc(getComponentThumbnail(type))
     })
     return () => { active = false }
-  }, [type])
-  useEffect(() => {
-    if (type !== 'powerSupplyProauto24A') return
-    let active = true
-    getProauto3DImage().then((image) => { if (active) setProautoSrc(image) }).catch(() => { /* reserva procedural */ })
-    return () => { active = false }
-  }, [type])
-  useEffect(() => {
-    if (type !== 'contactorWegCWC09') return
-    let active = true
-    getWeg3DImage().then((image) => { if (active) setWegSrc(image) }).catch(() => { /* reserva procedural */ })
-    return () => { active = false }
-  }, [type])
-  useEffect(() => {
-    if ((!getComponentModelSpec(type) && !isTerminalAssemblyComponent(type)) || ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)) return
-    let active = true
-    setCadSrc(null)
-    getCad3DImage(type).then((image) => { if (active) setCadSrc(image) }).catch(() => { /* reserva procedural */ })
-    return () => { active = false }
-  }, [type])
-  const src = type === 'plcSiemensLogo1224RC' ? logoSrc ?? fallback
-    : type === 'powerSupplyProauto24A' ? proautoSrc ?? fallback
-      : type === 'contactorWegCWC09' ? wegSrc ?? fallback
-        : isTerminalAssemblyComponent(type) ? cadSrc
-          : getComponentModelSpec(type) ? cadSrc ?? fallback
-          : fallback
-  if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken" />
+  }, [assemblyOnly, hasGlb, type])
+  const src = hasGlb || assemblyOnly ? coverSrc : fallback
+  if (!src) return <div style={{ width: size, height: size }} className="shrink-0 rounded-[4px] bg-surface-sunken dc-thumb-loading" role="img" aria-label="A preparar a capa" />
   return (
     <img
       src={src}

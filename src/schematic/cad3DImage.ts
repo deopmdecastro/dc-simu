@@ -5,6 +5,8 @@ import { createGltfLoader } from '../three/gltfLoader'
 import { getComponentModelSpec, MODEL_PATHS, PANEL_UNITS_PER_MM } from '../three/modelPaths'
 import { isTerminalAssemblyComponent, terminalAssemblyLayout, tintTerminalBodyMaterials } from '../three/terminalAssembly'
 import { captureOrthographicModelImage, captureOrthographicObjectImage } from './orthographicModelImage'
+import { finishCadMaterial } from '../three/catalogMaterials'
+import { applyCadSurfaceTextures } from '../three/cadSurface'
 
 const imagePromises = new Map<ComponentType, Promise<string>>()
 let terminalSource: Promise<THREE.Object3D> | undefined
@@ -30,12 +32,13 @@ async function captureTerminalAssemblyImage(type: ComponentType): Promise<string
     module.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh || !mesh.material) return
-      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => material.clone()) : mesh.material.clone()
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material)) : finishCadMaterial(mesh.material)
       mesh.castShadow = mesh.receiveShadow = true
     })
     tintTerminalBodyMaterials(module, color)
     assembly.add(module)
   })
+  await applyCadSurfaceTextures(assembly)
   return captureOrthographicObjectImage(assembly, [-0.12, Math.PI / 12, 0])
 }
 

@@ -1,6 +1,7 @@
 import { boundsWithoutGlow } from '../../three/glow'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import { getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from '../../three/studioEnvironment'
 import { Html, OrbitControls, TransformControls, useCursor } from '@react-three/drei'
 import * as THREE from 'three'
 import { buildDefinitionObject, resolveState } from '../../catalog/definition'
@@ -530,7 +531,8 @@ function Scene() {
   }
 
   return <>
-    <hemisphereLight args={['#ffffff', view.dark ? '#1f2937' : '#9aa7ba', 0.9]} />
+    <EditorStudio />
+    <hemisphereLight args={['#ffffff', view.dark ? '#1f2937' : '#9aa7ba', 0.45]} />
     <directionalLight position={[160, 260, 200]} intensity={1.4} castShadow shadow-bias={-0.0004} shadow-normalBias={0.6} shadow-mapSize={[1024, 1024]} shadow-camera-left={-220} shadow-camera-right={220} shadow-camera-top={220} shadow-camera-bottom={-220} shadow-camera-near={10} shadow-camera-far={900} />
     <directionalLight position={[-180, 120, -160]} intensity={0.5} />
     {view.floor && <gridHelper args={[400, 400 / EDITOR_THEME.step, view.dark ? '#475569' : '#b4c0d2', view.dark ? '#273244' : '#d5dce8']} position={[0, -0.05, 0]} />}
@@ -645,6 +647,24 @@ function NodeHighlights({ root }: { root: THREE.Object3D }) {
   }, [def.controls, def.lights, def.displays, selection, hoverNode, mode, root])
   useFrame(() => { for (const { helper, nodes } of entries.current) { helper.box.makeEmpty(); nodes().forEach((node) => node && helper.box.expandByObject(node, true)) } })
   return <primitive object={group} />
+}
+
+/** O editor mostra o elemento com o mesmo estúdio e tone mapping do Painel 3D (o que se vê é o que se publica). */
+function EditorStudio() {
+  const { gl, scene, invalidate } = useThree()
+  useEffect(() => {
+    const previous = { environment: scene.environment, toneMapping: gl.toneMapping, exposure: gl.toneMappingExposure }
+    scene.environment = getStudioEnvironment(gl)
+    gl.toneMapping = STUDIO_TONE_MAPPING
+    gl.toneMappingExposure = STUDIO_EXPOSURE
+    invalidate()
+    return () => {
+      scene.environment = previous.environment
+      gl.toneMapping = previous.toneMapping
+      gl.toneMappingExposure = previous.exposure
+    }
+  }, [gl, scene, invalidate])
+  return null
 }
 
 function BoundsBox({ root }: { root: THREE.Object3D }) {

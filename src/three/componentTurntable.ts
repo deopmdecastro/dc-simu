@@ -1,10 +1,11 @@
 import * as THREE from 'three'
 import { createGltfLoader } from './gltfLoader'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { ComponentType } from '../types'
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
-import { applyEditorMotorTextures } from './motorEditorTextures'
+import { applyEditorMotorTextures, waitMotorTextures } from './motorEditorTextures'
+import { applyCadSurfaceTextures } from './cadSurface'
+import { addStudioLights, getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from './studioEnvironment'
 import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
 
 export interface ComponentTurntableFrames {
@@ -48,31 +49,17 @@ function getSharedStudio() {
   renderer.setSize(192, 192, false)
   renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 1.25), 1.75))
   renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.02
+  renderer.toneMapping = STUDIO_TONE_MAPPING
+  renderer.toneMappingExposure = STUDIO_EXPOSURE
   renderer.setClearColor(0x000000, 0)
 
-  const pmrem = new THREE.PMREMGenerator(renderer)
-  const room = new RoomEnvironment()
-  const environment = pmrem.fromScene(room, 0.04).texture
-  room.dispose()
-  pmrem.dispose()
-
+  // Mesmo estúdio de produto do Painel 3D: capa, miniatura e cena coincidem.
+  const environment = getStudioEnvironment(renderer)
   const scene = new THREE.Scene()
   scene.environment = environment
   const turntable = new THREE.Group()
   scene.add(turntable)
-
-  scene.add(new THREE.HemisphereLight('#f8fbff', '#334155', 1.15))
-  const key = new THREE.DirectionalLight('#fff8ed', 2.6)
-  key.position.set(3.8, 5.2, 6)
-  scene.add(key)
-  const fill = new THREE.DirectionalLight('#bfd6ff', 1.1)
-  fill.position.set(-4.5, 2.5, 2.2)
-  scene.add(fill)
-  const rim = new THREE.DirectionalLight('#ffffff', 0.85)
-  rim.position.set(1, 1, -5)
-  scene.add(rim)
+  addStudioLights(scene, 4)
 
   const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 50)
   camera.position.set(0, 0.05, 4.2)
@@ -148,39 +135,30 @@ function normalizeObject(root: THREE.Object3D) {
   root.scale.multiplyScalar(scale)
   root.position.copy(center).multiplyScalar(-scale)
   root.updateMatrixWorld(true)
+  return scale
 }
 
-function enhanceTurntableMaterials(root: THREE.Object3D, type: ComponentType) {
+/** Acabamento igual ao do Painel 3D; resolve quando os mapas reais estão aplicados. */
+async function enhanceTurntableMaterials(root: THREE.Object3D, type: ComponentType, renderUnitsPerMm: number): Promise<void> {
   if (type === 'motor3ph') {
     applyEditorMotorTextures(root)
+    // A capa só é tirada com a pintura e o aço já carregados (antes saía cinzenta).
+    await waitMotorTextures()
     return
   }
   if (type === 'emergencyButton' || type === 'emergencyButtonKeyP20ACR') {
     applyEmergencyButtonFinish(root, type)
-    return
+  } else {
+    root.traverse((child) => {
+      const mesh = child as THREE.Mesh
+      if (!mesh.isMesh) return
+      const source = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      const enhanced = source.map((entry) => finishCadMaterial(entry, { envMapIntensity: 1.2 }))
+      mesh.material = Array.isArray(mesh.material) ? enhanced : enhanced[0]
+    })
   }
-  const meshes: THREE.Mesh[] = []
-  root.traverse((child) => {
-    const mesh = child as THREE.Mesh
-    if (!mesh.isMesh) return
-    meshes.push(mesh)
-    const source = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    const triCount = (mesh.geometry?.index ? mesh.geometry.index.count : mesh.geometry?.attributes?.position?.count ?? 0) / 3
-    mesh.userData.turntableNeedsOutline = triCount > 0 && triCount <= 4500 && source.some((entry) => entry instanceof THREE.MeshStandardMaterial
-      && !entry.map && entry.metalness < 0.5 && entry.color.getHSL({ h: 0, s: 0, l: 0 }).l > 0.72)
-    const enhanced = source.map((entry) => finishCadMaterial(entry, { envMapIntensity: 1.2 }))
-    mesh.material = Array.isArray(mesh.material) ? enhanced : enhanced[0]
-  })
-  for (const mesh of meshes) {
-    if (!mesh.userData.turntableNeedsOutline) continue
-    const outline = new THREE.LineSegments(
-      new THREE.EdgesGeometry(mesh.geometry, 34),
-      new THREE.LineBasicMaterial({ color: '#53657b', transparent: true, opacity: 0.18, depthWrite: false, toneMapped: false }),
-    )
-    outline.userData.turntableOutline = true
-    outline.renderOrder = 4
-    mesh.add(outline)
-  }
+  // O modelo foi ajustado a 1 unidade/mm (fitComponentModel(…, 1)).
+  await applyCadSurfaceTextures(root, { unitsPerMm: 1, renderUnitsPerMm })
 }
 
 function cleanupPreparedObject(turntable: THREE.Group, object: THREE.Object3D) {
@@ -197,51 +175,84 @@ function cleanupPreparedObject(turntable: THREE.Group, object: THREE.Object3D) {
   turntable.remove(object)
 }
 
-async function renderHeroFrame(type: ComponentType, pitchIndex: number): Promise<string> {
+/** Ângulo de repouso (capa e 1.º fotograma): 3/4 de cima, lado direito à vista. */
+function restPose(type: ComponentType, pitchIndex = DEFAULT_PITCH_INDEX): [number, number] {
+  if (type === 'motor3ph') return [0.34, -0.58]
+  const placement = getComponentGlbSpec(type)?.placement
+  // Botoneiras e sinaleiros vivem na porta: a face de comando tem de ficar bem de frente.
+  if (placement === 'panel-front') return [pitchIndex === DEFAULT_PITCH_INDEX ? 0.2 : PITCH_ANGLES[pitchIndex] ?? 0, -0.42]
+  return [pitchIndex === DEFAULT_PITCH_INDEX ? 0.26 : PITCH_ANGLES[pitchIndex] ?? 0, -0.5]
+}
+
+/** Calha DIN: 1 m não cabe numa capa — mostra-se um troço real de ~18 cm (sem esmagar a furação). */
+const RAIL_SECTION_MM = 180
+
+async function prepareObject(type: ComponentType): Promise<THREE.Object3D> {
   const spec = getComponentGlbSpec(type)
   if (!spec) throw new Error('Modelo GLB indisponível')
   const source = await loadSource(spec.path)
   await nextIdle()
-  const { renderer, scene, turntable, camera } = getSharedStudio()
   const object = fitComponentModel(cloneModelScene(source), spec, 1)
-  normalizeObject(object)
-  enhanceTurntableMaterials(object, type)
-  turntable.add(object)
-  try {
-    // Ângulo ligeiramente isométrico quando em repouso para dar volume técnico imediato.
-    const restYaw = type === 'motor3ph' ? -0.58 : -0.32
-    const restPitch = type === 'motor3ph' ? 0.34 : (PITCH_ANGLES[pitchIndex] ?? 0)
-    turntable.rotation.set(restPitch, restYaw, 0)
-    renderer.render(scene, camera)
-    return await canvasToImageUrl(renderer.domElement)
-  } finally {
-    cleanupPreparedObject(turntable, object)
+  let scale: number
+  if (spec.placement === 'rail') {
+    object.updateMatrixWorld(true)
+    const center = new THREE.Box3().setFromObject(object, true).getCenter(new THREE.Vector3())
+    scale = 2.42 / RAIL_SECTION_MM
+    object.scale.multiplyScalar(scale)
+    object.position.copy(center).multiplyScalar(-scale)
+    object.updateMatrixWorld(true)
+  } else {
+    scale = normalizeObject(object)
   }
+  await enhanceTurntableMaterials(object, type, scale)
+  return object
 }
 
-async function renderRow(type: ComponentType, pitchIndex: number): Promise<ComponentTurntableFrames> {
-  const spec = getComponentGlbSpec(type)
-  if (!spec) throw new Error('Modelo GLB indisponível')
-  const source = await loadSource(spec.path)
+async function renderPose(type: ComponentType, poses: Array<[number, number]>): Promise<string[]> {
+  const object = await prepareObject(type)
   const { renderer, scene, turntable, camera } = getSharedStudio()
-  const object = fitComponentModel(cloneModelScene(source), spec, 1)
-  normalizeObject(object)
-  enhanceTurntableMaterials(object, type)
   turntable.add(object)
-
   const frames: string[] = []
   try {
-    for (let yaw = 0; yaw < YAW_STEPS; yaw += 1) {
-      turntable.rotation.set(PITCH_ANGLES[pitchIndex] ?? 0, (yaw / YAW_STEPS) * Math.PI * 2, 0)
+    for (let index = 0; index < poses.length; index += 1) {
+      turntable.rotation.set(poses[index][0], poses[index][1], 0)
       renderer.render(scene, camera)
       frames.push(await canvasToImageUrl(renderer.domElement))
-      if (yaw < YAW_STEPS - 1) await nextIdle()
+      if (index < poses.length - 1) await nextIdle()
     }
   } finally {
     cleanupPreparedObject(turntable, object)
   }
+  return frames
+}
 
+async function renderHeroFrame(type: ComponentType, pitchIndex: number): Promise<string> {
+  const [frame] = await renderPose(type, [restPose(type, pitchIndex)])
+  return frame
+}
+
+async function renderRow(type: ComponentType, pitchIndex: number): Promise<ComponentTurntableFrames> {
+  // A faixa começa no ângulo de repouso: arrastar não salta para outra vista.
+  const [pitch, yaw0] = restPose(type, pitchIndex)
+  const poses = Array.from({ length: YAW_STEPS }, (_, yaw) => [pitch, yaw0 + (yaw / YAW_STEPS) * Math.PI * 2] as [number, number])
+  const frames = await renderPose(type, poses)
   return { frames, yawSteps: YAW_STEPS, pitchIndex, pitchSteps: PITCH_ANGLES.length }
+}
+
+const coverCache = new Map<string, Promise<string>>()
+
+/**
+ * Capa do elemento (biblioteca, inspetor, objetos, administração): fotografia de
+ * produto a 3/4, com o mesmo acabamento e estúdio do Painel 3D.
+ */
+export function getComponentCoverImage(type: ComponentType): Promise<string> {
+  const cached = coverCache.get(type)
+  if (cached) return cached
+  const pending = renderQueue.then(async () => (await renderPose(type, [restPose(type)]))[0])
+  renderQueue = pending.then(() => undefined, () => undefined)
+  coverCache.set(type, pending)
+  pending.catch(() => coverCache.delete(type))
+  return pending
 }
 
 /**
@@ -282,6 +293,7 @@ export function defaultComponentTurntablePitch() {
 export function clearComponentTurntableCache() {
   rowCache.clear()
   heroCache.clear()
+  coverCache.clear()
   for (const url of blobUrls) URL.revokeObjectURL(url)
   blobUrls.clear()
   for (const pending of sourceCache.values()) {

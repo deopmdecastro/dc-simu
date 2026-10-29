@@ -1,0 +1,49 @@
+<!doctype html><html lang="pt"><meta charset="utf-8"><title>Auditoria de capas e vistas dos componentes</title>
+<style>
+body{margin:0;font:13px system-ui;background:#eef2f7;color:#17213a}
+header{padding:10px 14px;background:#fff;position:sticky;top:0;z-index:1;border-bottom:1px solid #d3dbe5}
+main{display:grid;grid-template-columns:repeat(auto-fill,minmax(560px,1fr));gap:10px;padding:10px}
+article{background:#fff;border:1px solid #d3dbe5;border-radius:10px;padding:8px}
+h2{margin:0 0 6px;font-size:13px}
+.row{display:flex;gap:6px;align-items:flex-end}
+figure{margin:0;text-align:center;font-size:10px;color:#64748b}
+figure img{display:block;width:128px;height:128px;object-fit:contain;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px}
+</style>
+<header><b>Capas e vistas por omissão</b> — cada linha: capa do elemento (3/4), miniatura interativa (1.º fotograma), imagem do esquema (frente ortográfica), topo e lado direito do modelo ajustado (+Z = frente, +Y = topo).</header>
+<main id="out"></main>
+<script type="module">
+/* Ferramenta de verificação visual (não faz parte da aplicação): `npx vite` e abrir
+   /scripts/component-cover-audit.html. Os testes de UI usam `window.coverAudit`. */
+import * as THREE from '/node_modules/.vite/deps/three.js';
+import {RoomEnvironment} from '/node_modules/three/examples/jsm/environments/RoomEnvironment.js';
+import {getComponentModelSpec} from '/src/three/modelPaths.ts';
+import {cloneModelScene,fitComponentModel} from '/src/three/modelFit.ts';
+import {createGltfLoader} from '/src/three/gltfLoader.ts';
+import {getCad3DImage} from '/src/schematic/cad3DImage.ts';
+import {getComponentTurntableHero, getComponentCoverImage} from '/src/three/componentTurntable.ts';
+import {finishCadMaterial, applyEmergencyButtonFinish} from '/src/three/catalogMaterials.ts';
+import {applyCadSurfaceTextures} from '/src/three/cadSurface.ts';
+import {getStudioEnvironment, addStudioLights, STUDIO_TONE_MAPPING, STUDIO_EXPOSURE} from '/src/three/studioEnvironment.ts';
+import {applyEditorMotorTextures} from '/src/three/motorEditorTextures.ts';
+const ALL=['plcSiemensLogo1224RC','powerSupplyProauto24A','contactorWegCWC09','breaker1p','breaker2p','breaker3p','breakerSteckSdC25','motorBreakerPkzmC10','phoenixEcb3000760','emergencyButton','emergencyButtonKeyP20ACR','dualPushButtonNpb22D11','safetyRelay','plcLsXbmDn32s','siemensTsAdapterIeBasic','terminalPhoenixPti6','terminalSet1ph','terminalSet3ph','powerSource1ph','powerSource3ph','terminalPE','dinRail15x55','motor3ph','pilotLightAd22','multimeterDm20'];
+const TYPES=new URLSearchParams(location.search).get('types')?.split(',')??ALL;
+const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:true});r.setSize(256,256);r.setPixelRatio(1);r.outputColorSpace=THREE.SRGBColorSpace;r.toneMapping=THREE.ACESFilmicToneMapping;
+const pm=new THREE.PMREMGenerator(r);const env=pm.fromScene(new RoomEnvironment(),0.04).texture;
+const loader=createGltfLoader();const src=new Map();
+const studio=getStudioEnvironment(r);
+async function views(type){const spec=getComponentModelSpec(type);if(!src.has(spec.path))src.set(spec.path,(await loader.loadAsync(spec.path)).scene);
+ const root=fitComponentModel(cloneModelScene(src.get(spec.path)),spec);
+ const scene=new THREE.Scene();scene.environment=studio;r.toneMapping=STUDIO_TONE_MAPPING;r.toneMappingExposure=STUDIO_EXPOSURE;addStudioLights(scene);scene.add(root);
+ const box=new THREE.Box3().setFromObject(root,true),size=box.getSize(new THREE.Vector3());const span=Math.max(size.x,size.y,size.z)*1.1;const out={};
+ for(const [k,d] of Object.entries({topo:[0,1,0],direita:[1,0,0]})){const cam=new THREE.OrthographicCamera(-span/2,span/2,span/2,-span/2,.0001,span*20);cam.position.copy(new THREE.Vector3(...d).multiplyScalar(span*4));if(k==='topo')cam.up.set(0,0,-1);cam.lookAt(0,0,0);r.render(scene,cam);out[k]=r.domElement.toDataURL('image/png')}
+ return out}
+const results={};
+for(const type of TYPES){const art=document.createElement('article');art.innerHTML=`<h2>${type}</h2><div class="row"></div>`;document.querySelector('#out').append(art);const row=art.querySelector('.row');const fig=(label,url)=>{const f=document.createElement('figure');f.innerHTML=`<img src="${url||''}" alt=""><span>${label}</span>`;row.append(f)};
+ const entry=results[type]={};
+ try{entry.capa=await getComponentCoverImage(type)}catch(e){entry.capaErro=String(e)}
+ try{entry.esquema=await getCad3DImage(type)}catch(e){entry.esquemaErro=String(e)}
+ try{entry.miniatura=await getComponentTurntableHero(type)}catch(e){entry.miniaturaErro=String(e)}
+ try{Object.assign(entry,await views(type))}catch(e){entry.vistasErro=String(e)}
+ fig('capa',entry.capa);fig('miniatura',entry.miniatura);fig('esquema (frente)',entry.esquema);fig('topo',entry.topo);fig('direita',entry.direita)}
+window.coverAudit=results;window.ready=true;
+</script></html>

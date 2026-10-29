@@ -3,6 +3,11 @@ import { cloneModelScene, fitComponentModel } from '../three/modelFit'
 import type { ComponentModelSpec } from '../three/modelPaths'
 import { createGltfLoader } from '../three/gltfLoader'
 import { CAPTURE_FRAME_PADDING as FRAME_PADDING } from '../three/captureFrame'
+import { MODEL_PATHS } from '../three/modelPaths'
+import { applyEmergencyButtonFinish, finishCadMaterial } from '../three/catalogMaterials'
+import { applyEditorMotorTextures, waitMotorTextures } from '../three/motorEditorTextures'
+import { applyCadSurfaceTextures } from '../three/cadSurface'
+import { addStudioLights, getStudioEnvironment, STUDIO_EXPOSURE, STUDIO_TONE_MAPPING } from '../three/studioEnvironment'
 
 export interface OrthographicModelImageOptions {
   path: string
@@ -50,8 +55,8 @@ function getRenderer(): THREE.WebGLRenderer {
   sharedRenderer.setPixelRatio(1)
   sharedRenderer.setClearColor(0x000000, 0)
   sharedRenderer.outputColorSpace = THREE.SRGBColorSpace
-  sharedRenderer.toneMapping = THREE.ACESFilmicToneMapping
-  sharedRenderer.toneMappingExposure = 1.05
+  sharedRenderer.toneMapping = STUDIO_TONE_MAPPING
+  sharedRenderer.toneMappingExposure = STUDIO_EXPOSURE
   return sharedRenderer
 }
 
@@ -86,11 +91,17 @@ async function capture(options: OrthographicModelImageOptions): Promise<string> 
   const source = await loadSource(options.path)
   const inner = cloneModelScene(source)
 
-  inner.traverse((node) => {
+  // Mesmo acabamento do Painel 3D (antes: materiais em bruto do CAD, rugosidade 1 = gesso).
+  const motor = options.path === MODEL_PATHS.motorSewDrn80Mk4B3
+  const emergency = options.path === MODEL_PATHS.emergencyButtonP20AKR ? 'emergencyButton'
+    : options.path === MODEL_PATHS.emergencyButtonKeyP20ACR ? 'emergencyButtonKeyP20ACR' : null
+  if (motor) applyEditorMotorTextures(inner)
+  else if (emergency) applyEmergencyButtonFinish(inner, emergency)
+  else inner.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh) return
     const originals = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    const materials = originals.map((material) => material.clone())
+    const materials = originals.map((material) => finishCadMaterial(material, { envMapIntensity: 1.15 }))
     mesh.material = Array.isArray(mesh.material) ? materials : materials[0]
   })
   options.configureObject?.(inner)
@@ -102,15 +113,17 @@ async function capture(options: OrthographicModelImageOptions): Promise<string> 
     inner.rotation.set(...options.rotation)
     if (options.flipDepth) inner.scale.z = -1
   }
+  if (motor) await waitMotorTextures()
+  else await applyCadSurfaceTextures(fitted, { unitsPerMm: 1 })
   const model = new THREE.Group()
   model.add(fitted)
   if (options.viewRotation) model.rotation.set(...options.viewRotation)
   model.updateMatrixWorld(true)
 
-  return renderModelImage(model)
+  return renderModelImage(model, { motor, emergency: !!emergency })
 }
 
-function renderModelImage(model: THREE.Group): string {
+function renderModelImage(model: THREE.Group, _shared: { motor?: boolean; emergency?: boolean } = {}): string {
   const initialBounds = new THREE.Box3().setFromObject(model, true)
   if (initialBounds.isEmpty()) throw new Error('Modelo sem geometria.')
   model.position.sub(initialBounds.getCenter(new THREE.Vector3()))
@@ -130,14 +143,13 @@ function renderModelImage(model: THREE.Group): string {
 
   const scene = new THREE.Scene()
   scene.add(model)
-  scene.add(new THREE.HemisphereLight('#ffffff', '#94a3b8', 1.65))
+  // Estúdio de produto comum (reflexos reais); uma luz frontal suave porque a vista é de frente.
+  scene.environment = getStudioEnvironment(renderer)
   const radius = Math.max(size.length(), 1)
-  const key = new THREE.DirectionalLight('#ffffff', 2.2)
-  key.position.set(radius * 0.8, radius * 1.1, radius * 2.2)
-  scene.add(key)
-  const fill = new THREE.DirectionalLight('#dbeafe', 0.75)
-  fill.position.set(-radius * 1.4, radius * 0.25, radius * 1.2)
-  scene.add(fill)
+  addStudioLights(scene, radius)
+  const front = new THREE.DirectionalLight('#ffffff', 0.3)
+  front.position.set(-radius * 0.3, radius * 0.6, radius * 3)
+  scene.add(front)
 
   const halfWidth = width * FRAME_PADDING / 2
   const halfHeight = height * FRAME_PADDING / 2
@@ -155,7 +167,8 @@ function renderModelImage(model: THREE.Group): string {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh) return
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-    materials.forEach((material) => material.dispose())
+    // Os materiais do motor estão em cache partilhado (texturas já carregadas).
+    materials.forEach((material) => { if (!material.userData?.__dcMotorTextured) material.dispose() })
     if (mesh.userData.generatedTerminalSocket) mesh.geometry.dispose()
   })
   return image

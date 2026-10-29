@@ -478,9 +478,23 @@ export function SymbolGlyph({ c, selected }: { c: ElectricalComponent; selected:
       }
 
       // -------------------------------------------------------- controladores
-      case 'plcLogo':
-      case 'plcCompact':
       case 'plcLsXbmDn32s': {
+        // Corpo slim (30 mm): LED de estado e bornes nos sítios reais do componente.
+        return (
+          <g>
+            <rect x={2} y={4} width={w - 4} height={h - 8} rx={3} fill="#3f4650" stroke={s} strokeWidth={1.5} />
+            <rect x={6} y={10} width={w - 12} height={16} rx={2} fill="#0b1220" />
+            <circle cx={w / 2 - 6} cy={18} r={2.4} fill={c.state.powered ? '#22c55e' : '#334155'} />
+            <circle cx={w / 2 + 6} cy={18} r={2.4} fill="#334155" />
+            {c.terminals.filter((t) => /^[IQ]/.test(t.label)).map((t) => (
+              <rect key={t.id} x={t.x * w - (t.x < 0.5 ? 0 : 7)} y={t.y * h - 3} width={7} height={6} rx={1} fill={t.energized ? (t.label.startsWith('I') ? '#22c55e' : '#f59e0b') : '#1f2937'} />
+            ))}
+            {label(4, h / 2 + 3, c.ref, 8, '#cbd5e1')}
+          </g>
+        )
+      }
+      case 'plcLogo':
+      case 'plcCompact': {
         return (
           <g>
             <rect x={4} y={10} width={w - 8} height={h - 20} rx={5} fill="#0b1220" stroke={s} strokeWidth={2} />
