@@ -5,9 +5,10 @@ import * as THREE from 'three'
 import type { ComponentType } from '../types'
 import { createComponent } from '../electrical/factory'
 import { getComponentModelSpec } from './modelPaths'
-import { preparedModel, cloneMaterials, applyModelState } from './LandingShowcase'
+import { preparedModel } from './LandingShowcase'
 import { MOTOR_FAN, MOTOR_SIZE, MOTOR_CAD } from './motorTerminalLayout'
 import MotorShaftFan3D from './MotorShaftFan3D'
+import { applyEditorMotorTextures } from './motorEditorTextures'
 
 /**
  * Motor trifásico SEW (DRN80MK4-B3) isolado, sem cartão nem HUD: a peça e a pá
@@ -24,6 +25,7 @@ import MotorShaftFan3D from './MotorShaftFan3D'
 const ISO_DIR = new THREE.Vector3(1, 0.82, 1).normalize()
 /** Fração da altura útil que o motor ocupa (bounding sphere); o resto é respiro. */
 const FILL = 0.74
+
 
 function FitIsoCamera({ box }: { box: THREE.Box3 }) {
   const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera
@@ -57,8 +59,8 @@ function MotorRunning() {
   const gltf = useGLTF(spec.path)
   const prepared = useMemo(() => {
     const result = preparedModel(type, gltf.scene)
-    cloneMaterials(result.scene)
-    applyModelState(result.scene, true, type)
+    // Texturas reais da biblioteca do editor (não o CAD plano só com baseColorFactor).
+    applyEditorMotorTextures(result.scene)
     return result
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gltf.scene, type])
@@ -102,12 +104,13 @@ function MotorRunning() {
 /** Luz de estúdio gerada localmente: evita descarregar um HDR de um CDN externo. */
 function StudioEnvironment() {
   return (
-    <Environment resolution={64} frames={1}>
+    <Environment resolution={128} frames={1}>
       <color attach="background" args={['#e8edf5']} />
-      <Lightformer form="rect" intensity={2.2} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[10, 10, 1]} />
-      <Lightformer form="rect" intensity={1.6} position={[-5, 2, 3]} rotation-y={Math.PI / 2.4} scale={[8, 4, 1]} />
-      <Lightformer form="rect" intensity={1.2} position={[5, 1.5, -3]} rotation-y={-Math.PI / 2.4} scale={[8, 4, 1]} />
-      <Lightformer form="ring" intensity={0.8} position={[0, 1, -6]} scale={6} />
+      <Lightformer form="rect" intensity={2.6} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[10, 10, 1]} />
+      <Lightformer form="rect" intensity={1.9} position={[-5, 2, 3]} rotation-y={Math.PI / 2.4} scale={[8, 4, 1]} />
+      <Lightformer form="rect" intensity={1.5} position={[5, 1.5, -3]} rotation-y={-Math.PI / 2.4} scale={[8, 4, 1]} />
+      <Lightformer form="rect" intensity={1.1} position={[2, 2, 5]} scale={[6, 3, 1]} />
+      <Lightformer form="ring" intensity={1.0} position={[0, 1, -6]} scale={6} />
     </Environment>
   )
 }

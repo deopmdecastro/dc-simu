@@ -21,6 +21,7 @@ import * as THREE from 'three'
 import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoScreen'
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { finishCadMaterial } from './catalogMaterials'
+import { applyEditorMotorTextures } from './motorEditorTextures'
 import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
 import { buildDinRailGroup, clampRailLengthMm, createGalvanizedMaterial, DIN_RAIL_15X55 } from './dinRailGeometry'
@@ -1348,13 +1349,7 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
   const shaftIndicator = useRef<THREE.Group>(null)
   const model = useMemo(() => {
     const object = cloneModelScene(scene)
-    object.traverse((node) => {
-      const mesh = node as THREE.Mesh
-      if (!mesh.isMesh) return
-      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
-      mesh.castShadow = true
-      mesh.receiveShadow = true
-    })
+    applyEditorMotorTextures(object)
     return fitComponentModel(object, spec, PANEL_UNITS_PER_MM, 'bottom')
   }, [scene, spec])
   const running = !!c.state.running
