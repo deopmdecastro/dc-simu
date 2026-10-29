@@ -2440,6 +2440,24 @@ html:has(.dx-landing) {
 .dc-demo-root .dc-seg { gap: 3px; padding: 4px; }
 .dc-demo-root .dc-tool-btn { height: 30px; }
 .dc-demo-root .dc-statusbar { height: 30px; }
+/* Separadores Main / OB100 / FC na demo da landing */
+.dc-demo-root .ladder-project-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.dc-demo-root .ladder-project-tabs::-webkit-scrollbar { display: none; }
+.dc-demo-root .ladder-demo-block-label {
+  max-width: 9.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .dc-demo-root .ladder-demo-block-label { max-width: 7.2rem; }
+}
+
 .dc-demo-root .dx-input { font-size: 12.5px; }
 
 /* Hero: motor 3D solto, sem cartão/moldura — só a peça contra o fundo. */

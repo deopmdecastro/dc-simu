@@ -1601,6 +1601,16 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
   const fcTitleOf = (fid: 'fc1' | 'fc2') => `${fcNames[fid]?.trim() || (fid === 'fc1' ? 'FC1' : 'FC2')} [${fid === 'fc1' ? 'FC1' : 'FC2'}]`
   const activeTitle = selectedFile?.name ?? (activeProjectNode === 'plc' ? activePlc?.ref ?? 'Programa geral' : (activeProjectNode === 'fc1' || activeProjectNode === 'fc2') ? fcTitleOf(activeProjectNode) : folderLabels[activeProjectNode as ProjectFolder]?.trim() || NODE_TITLES[activeProjectNode as Exclude<ProjectNodeId, `file:${string}`>])
 
+  /** Na landing (demo) o painel Projeto fica oculto — mostra separadores para Main, OB100 e FCs. */
+  const demoProgramBlocks = useMemo(() => {
+    if (!demoMode) return [] as Array<{ id: ProjectNodeId; label: string }>
+    const blocks: Array<{ id: ProjectNodeId; label: string }> = [{ id: 'main', label: 'Main [OB1]' }]
+    for (const file of files.filter((f) => f.folder === 'programBlocks')) {
+      blocks.push({ id: `file:${file.id}` as ProjectNodeId, label: file.name })
+    }
+    return blocks
+  }, [demoMode, files])
+
   const focusRung = useCallback((id: string | undefined) => {
     if (!id) return
     setActiveRungId(id)
@@ -1938,9 +1948,24 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
         </div>
         {section !== 'Projeto' ? <LadderSections section={section} groups={PALETTE_GROUPS} renderGlyph={(kind) => <LadderGlyph kind={kind} size={30} />} onAdd={(kind) => { quickAdd(kind); setSection('Projeto') }} onOpenSchematic={onOpenSchematic} /> : <>
         <div className="ladder-project-tabs">
-          <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}>
-            {isFcOpen ? <IconFunction size={13} /> : <IconSchematic size={13} />} {activeTitle} <span>×</span>
-          </button>
+          {demoMode && demoProgramBlocks.length > 0 ? (
+            demoProgramBlocks.map((block) => (
+              <button
+                key={block.id}
+                type="button"
+                className={`ladder-project-tab ${programTab === 'program' && activeProjectNode === block.id ? 'is-active' : ''}`}
+                onClick={() => { setProgramTab('program'); setActiveProjectNode(block.id) }}
+                title={block.label}
+              >
+                {block.id === 'main' ? <IconSchematic size={13} /> : <IconFunction size={13} />}
+                <span className="ladder-demo-block-label">{block.label}</span>
+              </button>
+            ))
+          ) : (
+            <button className={`ladder-project-tab ${programTab === 'program' ? 'is-active' : ''}`} onClick={() => setProgramTab('program')}>
+              {isFcOpen ? <IconFunction size={13} /> : <IconSchematic size={13} />} {activeTitle} <span>×</span>
+            </button>
+          )}
           <button className={`ladder-project-tab ${programTab === 'tags' ? 'is-active' : ''}`} onClick={() => { setProgramTab('tags'); setActiveProjectNode('plcVariables') }}><IconTag size={13} />Tabela de Tags</button>
           <span className="ml-auto flex items-center gap-2 text-[10px] text-slate-400">
             <span className={`ladder-connection-dot ${running ? 'is-live' : ''}`} /> {running ? 'Simulação ativa' : paused ? 'Em pausa' : 'Parado'}
