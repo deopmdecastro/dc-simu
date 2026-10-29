@@ -4,6 +4,7 @@ import { uiAlert, uiConfirm } from './ui/dialogs'
 import { useCatalogStore } from './catalog/registry'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Logo from './ui/Brand'
+import RouteLoading from './ui/RouteLoading'
 import { IconSchematic, IconLadder, IconCube, IconProjects, IconLock, IconArrowRight } from './ui/icons'
 import type { User, Project, Invite } from './dashboard/Dashboard'
 import { setViewer } from './auth/viewer'
@@ -417,24 +418,6 @@ function pageLoadingLabel(page: AppPage): string {
     case 'account': return 'A carregar a sua conta…'
     case 'dashboard': return 'A preparar os seus projetos…'
   }
-}
-
-function RouteLoading({ label }: { label: string }) {
-  return (
-    <div className="dx dx-route-loading" role="status" aria-live="polite" aria-busy="true">
-      <div className="dx-route-loading-card">
-        {/* Mesmo Logo da navbar (mark + wordmark + tagline). */}
-        <Logo size={32} tagline />
-        <div className="dx-route-loading-bar" aria-hidden>
-          <span className="dx-route-loading-bar-fill" />
-        </div>
-        <p className="dx-route-loading-label">
-          <span className="dx-spin" aria-hidden />
-          {label}
-        </p>
-      </div>
-    </div>
-  )
 }
 
 function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHome }: {
