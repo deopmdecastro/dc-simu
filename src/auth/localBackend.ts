@@ -279,13 +279,20 @@ function previewFor(project: StoredProject): ProjectPreviewData {
   let preview = previewCache.get(key)
   if (!preview) {
     let content = project.content
-    // Nativo sem geometria guardada: usar a semente embutida para a capa
-    // mostrar o projeto real (como nos restantes cartões).
-    if (project.id === NATIVE_PARTIDA_ID && !contentHasComponents(content)) {
+    // Nativo: se não há geometria útil para a capa, usar sempre a semente embutida
+    // (evita cartão vazio quando o conteúdo guardado está incompleto ou legado).
+    if (project.id === NATIVE_PARTIDA_ID) {
       const seed = nativeProjectSeeds().find((item) => item.id === project.id)
-      if (seed) content = seed.content
+      if (seed) {
+        const fromStored = contentHasComponents(content) ? buildProjectPreview(content) : null
+        if (!fromStored || fromStored.components.length === 0) {
+          content = seed.content
+        } else {
+          preview = fromStored
+        }
+      }
     }
-    preview = buildProjectPreview(content)
+    if (!preview) preview = buildProjectPreview(content)
     previewCache.set(key, preview)
     if (previewCache.size > 200) previewCache.delete(previewCache.keys().next().value as string)
   }

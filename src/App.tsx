@@ -61,9 +61,9 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
       return saved && ['Projeto', 'Biblioteca', 'Dispositivos', 'Diagnóstico', 'Configurações'].includes(saved) ? saved : 'Projeto'
     } catch { return 'Projeto' }
   })
-  // Os dois painéis laterais precisam de pelo menos ~1080 px para deixar
-  // espaço útil ao canvas; abaixo de 1200 px (tablets, portáteis pequenos) passam a gavetas sobrepostas.
-  const compactWorkspace = () => !isTabletDesktop() && (window.innerWidth < 1200 || window.matchMedia('(pointer: coarse) and (max-height: 700px)').matches)
+  // Paridade tablet↔desktop: tablets (≥900 px ou landscape ≥768) usam painéis
+  // laterais fixos como no desktop. Só telemóveis / ecrãs estreitos usam gavetas.
+  const compactWorkspace = () => !isTabletDesktop() && (window.innerWidth < 768 || window.matchMedia('(pointer: coarse) and (max-height: 560px)').matches)
   const [showLadder, setShowLadder] = useState(() => useSimUi.getState().schematic || !compactWorkspace())
   const [rightTab, setRightTab] = useState<'grafcet' | 'signals' | 'objects'>(() => useSimUi.getState().schematic ? 'signals' : 'grafcet')
   const [showLibrary, setShowLibrary] = useState(() => !compactWorkspace())

@@ -1471,7 +1471,7 @@ function EditableWireWaypoint3D({ point, index, active, onSelect, onLive, onComm
 }
 
 /** Pega numa ponta do cabo: arrasta-se (ligada ou livre) e encaixa no borne mais próximo ao largar; Religar/Soltar continuam no editor. */
-function EditableWireEnd3D({ side, point, free, active, label, onSelect, onLive, onCommit, snap }: {
+function EditableWireEnd3D({ side, point, free, active, label, onSelect, onLive, onCommit, snap, probe = false }: {
   side: 'from' | 'to'
   point: V3
   free: boolean
@@ -1481,10 +1481,13 @@ function EditableWireEnd3D({ side, point, free, active, label, onSelect, onLive,
   onLive: (side: 'from' | 'to', point: V3 | null) => void
   onCommit: (side: 'from' | 'to', point: V3) => void
   snap: (point: V3) => V3
+  /** Pinça/sonda do multímetro: pega maior e mais visível para arrastar. */
+  probe?: boolean
 }) {
+  const size = probe ? (active ? 0.12 : 0.095) : (active ? 0.085 : 0.065)
   return <DragHandle3D position={point} onPress={() => onSelect(side)} onLive={(next) => onLive(side, next)} onCommit={(next) => onCommit(side, next)} snap={snap}>
-    <mesh renderOrder={33}><octahedronGeometry args={[active ? 0.085 : 0.065, 0]} /><meshStandardMaterial color={active ? '#f59e0b' : free ? '#16a34a' : '#ffffff'} emissive={active ? '#b45309' : free ? '#15803d' : '#475569'} emissiveIntensity={active ? 0.7 : 0.3} depthTest={false} /></mesh>
-    <Text position={[0, 0.12, 0]} fontSize={0.055} color="#7c2d12" anchorX="center" anchorY="bottom" depthOffset={-4} raycast={() => null}>{label}</Text>
+    <mesh renderOrder={33}><octahedronGeometry args={[size, 0]} /><meshStandardMaterial color={active ? '#f59e0b' : free ? '#16a34a' : probe ? '#38bdf8' : '#ffffff'} emissive={active ? '#b45309' : free ? '#15803d' : probe ? '#0284c7' : '#475569'} emissiveIntensity={active ? 0.7 : probe ? 0.45 : 0.3} depthTest={false} /></mesh>
+    <Text position={[0, probe ? 0.14 : 0.12, 0]} fontSize={probe ? 0.06 : 0.055} color="#7c2d12" anchorX="center" anchorY="bottom" depthOffset={-4} raycast={() => null}>{label}</Text>
   </DragHandle3D>
 }
 
@@ -1695,11 +1698,15 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
         onLive={(waypointIndex, next) => setDrag(next ? { wireId: wire.id, kind: 'waypoint', index: waypointIndex, point: next } : null)}
         onCommit={(waypointIndex, next) => handlers.onMoveWaypoint(wire.id, waypointIndex, toSpatial(next))}
         onRemove={(waypointIndex) => handlers.onRemoveWaypoint(wire.id, waypointIndex)} />)}
-      {editing && !handlers.moveAll && (['from', 'to'] as const).map((side) => <EditableWireEnd3D key={`${wire.id}-${side}`} side={side} point={side === 'from' ? from.position : to.position} free={side === 'from' ? from.free : to.free} active={handlers.activeEnd === side} label={label(side)}
-        onSelect={handlers.onSelectEnd}
-        snap={nearestTerminalPoint(side, storedWire)}
-        onLive={(endSide, next) => setDrag(next ? { wireId: wire.id, kind: 'end', side: endSide, point: next } : null)}
-        onCommit={(endSide, next) => handlers.onMoveEnd(wire.id, endSide, toSpatial(next))} />)}
+      {editing && !handlers.moveAll && (['from', 'to'] as const).map((side) => {
+        const endKind = (side === 'from' ? wire.fromEndType : wire.toEndType) ?? wire.endType ?? 'none'
+        return <EditableWireEnd3D key={`${wire.id}-${side}`} side={side} point={side === 'from' ? from.position : to.position} free={side === 'from' ? from.free : to.free} active={handlers.activeEnd === side} label={label(side)}
+          probe={endKind === 'probe'}
+          onSelect={handlers.onSelectEnd}
+          snap={nearestTerminalPoint(side, storedWire)}
+          onLive={(endSide, next) => setDrag(next ? { wireId: wire.id, kind: 'end', side: endSide, point: next } : null)}
+          onCommit={(endSide, next) => handlers.onMoveEnd(wire.id, endSide, toSpatial(next))} />
+      })}
       {editing && handlers.moveAll && <WireMoveHandle3D origin={centroid}
         onLive={(next) => setDrag(next ? { wireId: wire.id, kind: 'all', point: next, origin: baseCentroid } : null)}
         onCommit={(next) => handlers.onMoveAll(wire.id, { x: next[0] - baseCentroid[0], y: next[1] - baseCentroid[1], z: next[2] - baseCentroid[2] })} />}
@@ -1791,7 +1798,7 @@ function SoftwareRunInvalidator({ active }: { active: boolean }) {
 }
 
 /** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
-function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMode = false }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void; frontEdit?: boolean; panMode?: boolean }) {
+function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMode = false, viewLocked = false }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void; frontEdit?: boolean; panMode?: boolean; viewLocked?: boolean }) {
   const { camera, size } = useThree()
   const controlsRef = useRef<any>(null)
   // Enquadramento usa os valores mais recentes sem reiniciar a câmara quando o conteúdo/tamanho muda.
@@ -1931,7 +1938,7 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMod
   const touches = panMode
     ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN }
     : frontEdit ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : undefined
-  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} enablePan enableRotate enableZoom rotateSpeed={0.82} panSpeed={0.72} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning autoRotate={false} />
+  return <OrbitControls ref={controlsRef} minDistance={0.6} maxDistance={60} minPolarAngle={0.08} maxPolarAngle={Math.PI - 0.08} enablePan={!viewLocked} enableRotate={!viewLocked} enableZoom={!viewLocked} rotateSpeed={0.82} panSpeed={0.72} makeDefault onChange={report} mouseButtons={buttons} touches={touches} screenSpacePanning autoRotate={false} />
 }
 
 /** Textura repetível da grelha. Mipmaps e filtragem anisotrópica evitam o
@@ -2137,6 +2144,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const tool = useSimStore((s) => s.tool)
   const runState = useSimStore((s) => s.sim.runState)
   const demoMode = useSimStore((s) => s.demoMode)
+  const viewLocked = useSimStore((s) => s.viewLocked)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = demoMode ? 'navigate' : tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
   // Atuar botões, disjuntores e seletores apenas quando a simulação está ativa (RUN ou PAUSA).
@@ -3031,7 +3039,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           onReconnectPick={pickConnectionTerminal}
         />
 
-        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} />
+        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} viewLocked={viewLocked} />
       </Canvas>
 
       {!demoMode && selectedText && <div className="canvas-textbar-slot">

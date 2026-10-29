@@ -27,7 +27,7 @@ import { IconCheck, IconWarning,
   IconUndo, IconRedo, IconOrganize, IconTag, IconAlignLeft, IconAlignCenterH, IconAlignRight,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
-  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
+  IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconUnlock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
   IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconRotate, IconMore, IconText, IconNote,
 } from '../ui/icons'
 
@@ -153,6 +153,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   } = useSimStore()
   const grafcet = useSimStore((state) => state.grafcet)
   const projectKind = useSimStore((state) => state.projectKind)
+  const viewLocked = useSimStore((state) => state.viewLocked)
   const ladderRungs = useSimStore((state) => state.ladder.rungs)
   const ladderTags = useSimStore((state) => state.tags)
   const projectFiles = useSimStore((state) => state.projectFiles)
@@ -889,6 +890,20 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           {isCanvas && sel > 0 && (
             <button type="button" className="dc-btn" onClick={() => requestCanvasAction('focusSelection')} title="Enquadrar a vista na seleção (F)" aria-label="Enquadrar a vista na seleção">
               <IconFocus size={13} /> <span className="hidden lg:inline">Enquadrar</span>
+            </button>
+          )}
+
+          {isCanvas && !demo && (
+            <button
+              type="button"
+              className={`dc-tool-btn !gap-1.5 ${viewLocked ? 'is-on' : ''}`}
+              aria-pressed={viewLocked}
+              onClick={() => useSimStore.getState().toggleViewLocked()}
+              title={viewLocked ? 'Desbloquear vista (orbit/pan/zoom)' : 'Bloquear vista (impede orbit/pan/zoom)'}
+              aria-label={viewLocked ? 'Desbloquear vista' : 'Bloquear vista'}
+            >
+              {viewLocked ? <IconLock size={13} /> : <IconUnlock size={13} />}
+              <span className="hidden xl:inline">{viewLocked ? 'Vista bloqueada' : 'Bloquear vista'}</span>
             </button>
           )}
 

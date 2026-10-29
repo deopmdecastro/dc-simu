@@ -241,6 +241,10 @@ interface Store extends CircuitState {
    *  publicado/nativo, só com controlos de simulação e sem persistência. */
   demoMode: boolean
   setDemoMode: (on: boolean) => void
+  /** Bloqueia a câmara 3D (orbit/pan/zoom). Independente do lock de edição. */
+  viewLocked: boolean
+  setViewLocked: (on: boolean) => void
+  toggleViewLocked: () => void
   /** Guarda o projeto atual no navegador (localStorage) sob este nome, criando
    *  ou sobrescrevendo. Usado pelo Ctrl+S e pelo painel "Projetos". */
   saveProjectAs: (name: string) => boolean
@@ -2887,6 +2891,9 @@ export const useSimStore = create<Store>((set, get) => {
   setCurrentProjectName: (name) => set({ currentProjectName: name }),
   demoMode: false,
   setDemoMode: (on) => { syncDemoMode(on); set({ demoMode: on }) },
+  viewLocked: false,
+  setViewLocked: (on) => set({ viewLocked: !!on }),
+  toggleViewLocked: () => set((s) => ({ viewLocked: !s.viewLocked })),
 
   saveProjectAs: (name) => {
     const trimmed = name.trim()

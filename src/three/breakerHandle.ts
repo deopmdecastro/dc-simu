@@ -289,29 +289,36 @@ export function extractKeyBarrel(model: THREE.Object3D, frame: THREE.Object3D): 
   if (radius <= 0) return null
 
   // O canhão fica junto ao centro, mas a palheta da chave sai radialmente para
-  // fora. Capturá-la só pelo raio central fazia o canhão rodar sem a chave.
-  // A palheta é estreita, está na face frontal e usa material neutro; o aro
-  // vermelho e a caixa são largos/vermelhos e ficam fixos.
-  const zCut = total.max.z - radius * 0.7
+  // fora. Capturá-la só pelo raio central fazia o canhão rodar sem a chave
+  // (efeito visual de «partir» a chave). Incluímos:
+  //  1) peças centradas (canhão/cilindro do mecanismo)
+  //  2) a lâmina metálica estreita que parte do canhão
+  // Excluímos o aro/tampa exterior (largo e/ou vermelho) e a caixa traseira.
+  const zCut = total.max.z - radius * 0.85
   const selected = parts.filter((part) => {
     if (part.box.max.z <= zCut) return false
     const dx = part.box.max.x - part.box.min.x
     const dy = part.box.max.y - part.box.min.y
+    const partCenter = part.box.getCenter(new THREE.Vector3())
     const radialExtent = Math.max(
       Math.hypot(part.box.max.x - center.x, part.box.max.y - center.y),
       Math.hypot(part.box.min.x - center.x, part.box.min.y - center.y),
     )
-    if (radialExtent <= radius * 0.7) return true
+    const distFromAxis = Math.hypot(partCenter.x - center.x, partCenter.y - center.y)
+    // Canhão / cilindro do mecanismo: centrado no eixo do botão.
+    if (distFromAxis <= radius * 0.55 && radialExtent <= radius * 1.15) return true
+    // Peças muito centrais na face frontal (mesmo que um pouco mais largas).
+    if (radialExtent <= radius * 0.85) return true
 
     // A lâmina metálica é uma peça estreita que parte do canhão. Evita incluir
     // o aro/tampa exterior, que ocupa uma área larga e pode ter a mesma frente.
-    const narrow = Math.min(dx, dy) <= radius * 0.5 && Math.max(dx, dy) <= radius * 2.2
+    const narrow = Math.min(dx, dy) <= radius * 0.55 && Math.max(dx, dy) <= radius * 2.4
     const materials = Array.isArray(part.mesh.material) ? part.mesh.material : [part.mesh.material]
     const isRed = materials.some((material) => {
       const color = (material as THREE.Material & { color?: THREE.Color }).color
       return !!color && color.r > color.g * 1.25 && color.r > color.b * 1.2 && color.r > 0.35
     })
-    return narrow && !isRed && radialExtent <= radius * 1.9
+    return narrow && !isRed && radialExtent <= radius * 2.1
   })
   if (selected.length === 0) return null
 

@@ -21,7 +21,8 @@
   --pn-drawer-radius: 0;
 }
 
-@media (max-width: 1199px) {
+/* Gavetas só em ecrãs estreitos (telemóvel). Tablets (≥768) mantêm painéis de desktop. */
+@media (max-width: 767px) {
   /* gavetas da esquerda */
   .dc-workspace .mobile-library-panel,
   .grafcet-designer.grafcet-full .grafcet-toolbox,
