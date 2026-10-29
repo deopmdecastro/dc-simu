@@ -17,8 +17,8 @@ import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
 
 /** Identificador estável — não muda entre deploys. */
-export const NATIVE_PARTIDA_ID = 'native-partida-direta-v1'
-export const NATIVE_PARTIDA_NAME = 'Partida direta (nativo)'
+export const NATIVE_PARTIDA_ID = 'native-partida-direta-v2'
+export const NATIVE_PARTIDA_NAME = 'Partida direta com emergência (nativo)'
 
 const ADMIN_OWNER = 'dcsimu-admin'
 
@@ -70,7 +70,7 @@ export function buildNativeGrafcet(): GrafcetProgram {
       stepType: 'initial',
       action: '',
       condition: '',
-      description: 'Inicial',
+      description: 'Parado / reset completo',
       actions: [
         { id: nanoid(6), address: 'Q0.2', variable: 'H2', description: 'H2 PARADO', condition: '1', kind: 'N', displayDescription: true },
       ],
@@ -89,13 +89,29 @@ export function buildNativeGrafcet(): GrafcetProgram {
       ],
     },
   ]
+  // Modo complete reset: emergência (I0.0) ou STOP (I0.2) devolve sempre a X0;
+  // arranque só com emergência e STOP libertados + START.
   const transitions: GrafcetTransition[] = [
-    { id: 'native-t1', name: 'T1', from: [s0], to: [s1], condition: 'I0.0*I0.1', description: 'STOP fechado e START' },
-    { id: 'native-t2', name: 'T2', from: [s1], to: [s0], condition: '!I0.0', description: 'STOP' },
+    {
+      id: 'native-t1',
+      name: 'T1',
+      from: [s0],
+      to: [s1],
+      condition: 'I0.0*I0.2*I0.1',
+      description: 'Emergência OK · STOP OK · START',
+    },
+    {
+      id: 'native-t2',
+      name: 'T2',
+      from: [s1],
+      to: [s0],
+      condition: '!I0.0+!I0.2',
+      description: 'Emergência ou STOP (reset completo)',
+    },
   ]
   const pos = autoLayout(steps, transitions)
   return {
-    name: 'Partida direta com selo',
+    name: 'Partida direta com emergência',
     steps: steps.map((step) => {
       const at = pos.get(step.id)
       return at ? { ...step, x: at.x, y: at.y, pinned: true } : step
@@ -106,7 +122,14 @@ export function buildNativeGrafcet(): GrafcetProgram {
       y: index === 0 ? START_Y + STEP_H + 28 : START_Y + STEP_H + 28 + 140,
     })),
     comments: [
-      { id: nanoid(6), text: 'Partida direta com selo — projeto nativo', x: 40, y: 24, fontSize: 14, fontWeight: '700' },
+      {
+        id: nanoid(6),
+        text: 'Partida direta com selo + cogumelo (B0) — reset completo',
+        x: 40,
+        y: 24,
+        fontSize: 14,
+        fontWeight: '700',
+      },
     ],
   }
 }
@@ -116,15 +139,31 @@ export function buildNativeLadder(): LadderRung[] {
     ({ kind: 'contact' as const, id, address, contactType })
   const coil = (id: string, address: string) =>
     ({ kind: 'coil' as const, id, address, coilType: 'COIL' as const })
+  // Lógica do esquema: B0 (emergência NF) · B1 (START NA) // K1 (selo) · bobina K1
+  // + STOP da botoeira em série. Entradas: I0.0=EMERG (1 em repouso), I0.1=START, I0.2=STOP (1 em repouso).
   return [
     {
       id: 'native-n1',
-      name: 'Partida direta com selo',
-      comment: 'STOP + START + retenção de KM1',
+      name: 'Partida com selo e emergência',
+      comment: 'EMERG · STOP · (START // KM1) → KM1',
       enabled: true,
       branches: [
-        { id: 'n1a', elements: [contact('c1', 'I0.0', 'NO'), contact('c2', 'I0.1', 'NO')] },
-        { id: 'n1b', elements: [contact('c1b', 'I0.0', 'NO'), contact('c3', 'Q0.0', 'NO')] },
+        {
+          id: 'n1a',
+          elements: [
+            contact('c-em', 'I0.0', 'NO'),
+            contact('c-stop', 'I0.2', 'NO'),
+            contact('c-start', 'I0.1', 'NO'),
+          ],
+        },
+        {
+          id: 'n1b',
+          elements: [
+            contact('c-em2', 'I0.0', 'NO'),
+            contact('c-stop2', 'I0.2', 'NO'),
+            contact('c-seal', 'Q0.0', 'NO'),
+          ],
+        },
       ],
       coils: [coil('k1', 'Q0.0')],
     },
@@ -169,10 +208,12 @@ export function buildNativePartidaDireta(): Built {
   qm.state.closed = true
   const km = place('contactorWegCWC09', 'native-km1', 'KM1', 'Contactor KM1', 0.85, 0.35)
   const control = place('breaker2p', 'native-q0', 'Q0', 'Proteção do comando', 1.4, 0.35)
-  const push = place('dualPushButtonNpb22D11', 'native-push', 'S1', 'START/STOP', -1.3, 1.7)
-  const green = place('pilotLightAd22', 'native-h1', 'H1', 'MARCHA', -0.5, 1.7)
+  // B0 — botão cogumelo de emergência (NF 21–22), à esquerda da botoeira START/STOP
+  const emerg = place('emergencyButton', 'native-emerg', 'B0', 'Emergência', -2.0, 1.7)
+  const push = place('dualPushButtonNpb22D11', 'native-push', 'B1', 'START/STOP', -1.1, 1.7)
+  const green = place('pilotLightAd22', 'native-h1', 'H1', 'MARCHA', -0.3, 1.7)
   green.state.color = '#22c55e'
-  const red = place('pilotLightAd22', 'native-h2', 'H2', 'PARADO', 0.1, 1.7)
+  const red = place('pilotLightAd22', 'native-h2', 'H2', 'PARADO', 0.3, 1.7)
   red.state.color = '#ef4444'
   const motor = place('motor3ph', 'native-m1', 'M1', 'Motor SEW 3~', 3.5, -1.25)
   const wires: Wire[] = []
@@ -200,10 +241,13 @@ export function buildNativePartidaDireta(): Built {
   add(source, 'PE', motor, 'PE', 'green-yellow', true)
   add(psu, '+V1', plc, 'L+', 'red')
   add(psu, '-V1', plc, 'M', 'blue')
-  add(psu, '+V2', push, '21', 'red')
-  add(push, '22', plc, 'I0.0', 'violet')
+  // Entradas: B0 emergência → I0.0 · B1 START → I0.1 · B1 STOP → I0.2
+  add(psu, '+V2', emerg, '21', 'red')
+  add(emerg, '22', plc, 'I0.0', 'violet')
   add(psu, '+V2', push, '13', 'red')
   add(push, '14', plc, 'I0.1', 'violet')
+  add(psu, '+V2', push, '21', 'red')
+  add(push, '22', plc, 'I0.2', 'violet')
   for (const [output, target, positive, negative] of [
     ['Q0.0', km, 'A1', 'A2'], ['Q0.1', green, 'X1', 'X2'], ['Q0.2', red, 'X1', 'X2'],
   ] as const) {
@@ -211,18 +255,19 @@ export function buildNativePartidaDireta(): Built {
     add(plc, `${output}·2`, target, positive, 'orange')
     add(target, negative, psu, '-V2', 'blue')
   }
-  const components = [rail, source, main, psu, plc, qm, km, control, push, green, red, motor]
+  const components = [rail, source, main, psu, plc, qm, km, control, emerg, push, green, red, motor]
   return {
     components,
     // Traçado cozido na semente: cada cabo contorna os equipamentos e partilha
     // faixas com afastamento (ver `nativeRouting`). O editor mantém os pontos editáveis.
     wires: bakeNativeRouting(components, wires), ladder: { rungs: buildNativeLadder() }, grafcet: buildNativeGrafcet(),
     tags: [
-      { id:'t1',address:'I0.0',name:'STOP',dataType:'Bool',comment:'Contacto NF fechado em repouso' },
-      { id:'t2',address:'I0.1',name:'START',dataType:'Bool',comment:'Botão START (NA)' },
-      { id:'t3',address:'Q0.0',name:'KM1',dataType:'Bool',comment:'Contactor' },
-      { id:'t4',address:'Q0.1',name:'H1',dataType:'Bool',comment:'Lâmpada marcha' },
-      { id:'t5',address:'Q0.2',name:'H2',dataType:'Bool',comment:'Lâmpada parado' },
+      { id: 't1', address: 'I0.0', name: 'EMERG', dataType: 'Bool', comment: 'B0 cogumelo NF — 1 em repouso, 0 premido' },
+      { id: 't2', address: 'I0.1', name: 'START', dataType: 'Bool', comment: 'B1 START (NA)' },
+      { id: 't3', address: 'I0.2', name: 'STOP', dataType: 'Bool', comment: 'B1 STOP (NF) — 1 em repouso' },
+      { id: 't4', address: 'Q0.0', name: 'KM1', dataType: 'Bool', comment: 'Contactor / bobina K1' },
+      { id: 't5', address: 'Q0.1', name: 'H1', dataType: 'Bool', comment: 'Lâmpada marcha' },
+      { id: 't6', address: 'Q0.2', name: 'H2', dataType: 'Bool', comment: 'Lâmpada parado' },
     ],
     projectKind: 'all',
   }
@@ -275,8 +320,9 @@ export type NativeProjectSeed = {
 
 /** Nomes simbólicos alinhados com as tags do projeto nativo (para a landing). */
 export const NATIVE_DEMO_NAMES: Record<string, string> = {
-  'I0.0': 'STOP',
+  'I0.0': 'EMERG',
   'I0.1': 'START',
+  'I0.2': 'STOP',
   'Q0.0': 'KM1',
   'Q0.1': 'H1',
   'Q0.2': 'H2',
@@ -287,8 +333,10 @@ export function nativeDemoTable(plcRunning: boolean, motorOn: boolean): Record<s
   const powered = plcRunning && motorOn
   const stopped = plcRunning && !motorOn
   return {
-    'I0.0': false,
+    // Entradas em repouso: emergência e STOP libertados (1), START solto (0)
+    'I0.0': true,
     'I0.1': false,
+    'I0.2': true,
     'Q0.0': powered,
     'Q0.1': powered,
     'Q0.2': stopped,

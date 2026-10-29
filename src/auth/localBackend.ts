@@ -157,6 +157,11 @@ function contentHasComponents(content: unknown): boolean {
 function ensureNativeProjects(data: LocalData): LocalData {
   const seeds = nativeProjectSeeds()
   let changed = false
+  // Remove semente antiga (v1) quando existe a v2 com emergência.
+  const legacyIds = ['native-partida-direta-v1']
+  const before = data.projects.length
+  data.projects = data.projects.filter((project) => !legacyIds.includes(project.id))
+  if (data.projects.length !== before) changed = true
   for (const seed of seeds) {
     const index = data.projects.findIndex((project) => project.id === seed.id)
     if (index < 0) {
@@ -175,10 +180,12 @@ function ensureNativeProjects(data: LocalData): LocalData {
       changed = true
       continue
     }
-    // Projeto nativo antigo sem componentes (capa vazia): repõe o conteúdo real
-    // da semente para a capa mostrar o esquema como nos restantes projetos.
+    // Sem componentes OU nativeId desatualizado: repõe a semente (capa + lógica).
     const current = data.projects[index]
-    if (!contentHasComponents(current.content)) {
+    const storedNativeId = current.content && typeof current.content === 'object'
+      ? (current.content as { nativeId?: string }).nativeId
+      : undefined
+    if (!contentHasComponents(current.content) || storedNativeId !== seed.nativeId) {
       data.projects[index] = {
         ...current,
         name: seed.name,

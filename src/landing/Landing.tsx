@@ -409,7 +409,7 @@ export default function Landing({ onAccess, onLogin }: { onAccess: () => void; o
           <div className="dx-head" data-rv>
             <span className="dx-over">Demonstração Ladder interativa</span>
             <h2>Execute uma partida direta sem sair desta página.</h2>
-            <p>Clique em RUN e START, depois alterne entre Ladder e a Visualização 3D: o LOGO! Siemens, a botoeira START/STOP, KM1, o motor SEW, H1 verde de marcha e H2 vermelho de motor parado partilham o mesmo estado. Use STOP para desligar o motor.</p>
+            <p>Clique em RUN e START, depois alterne entre Ladder e a Visualização 3D: o LOGO! Siemens, o cogumelo de emergência, a botoeira START/STOP, KM1, o motor SEW, H1 verde de marcha e H2 vermelho de motor parado partilham o mesmo estado. Use STOP ou o cogumelo para desligar o motor (reset completo).</p>
           </div>
           <div className="dx-studio-grid">
             <div data-rv>
