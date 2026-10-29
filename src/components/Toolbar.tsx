@@ -28,7 +28,7 @@ import { IconCheck, IconWarning,
   IconAlignTop, IconAlignCenterV, IconAlignBottom, IconDistH, IconDistV, IconPlay, IconPause,
   IconStop, IconStep, IconReset, IconGrid, IconHand, IconMagnet, IconZoomIn, IconZoomOut,
   IconSchematic, IconLadder, IconCube, IconMonitor, IconDownload, IconLock, IconChevronDown, IconProjects, IconShield, IconLayers, IconFocus, IconHelp, IconTools, IconPlus,
-  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconRotate, IconMore, IconText,
+  IconTemplates, IconImport, IconLink, IconPdf, IconGrafcet, IconRotate, IconMore, IconText, IconNote,
 } from '../ui/icons'
 
 /** jsPDF e html2canvas (centenas de KB) só são descarregados quando o utilizador abre «Exportar PDF». */
@@ -309,6 +309,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const singleSelection = useSimStore((state) => (state.selectedComponentIds.length === 1 ? state.components.find((c) => c.id === state.selectedComponentIds[0]) : undefined))
   const hintsOn = useSimUi((state) => state.hints)
   const canvasHint = useSimUi((state) => state.canvasHint)
+  const textPlacement = useSimUi((state) => state.textPlacement)
 
   // As ações que não cabem passam para menus com nome e atalho. O transporte
   // e a abertura das E/S continuam sempre visíveis, sem deslocar a barra.
@@ -343,7 +344,6 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     { id: 'variables', label: 'Tabela de variáveis', icon: <IconTag size={15} />, onSelect: () => { setLadderSection('Projeto'); useLadderUi.getState().emit('openVariables') } },
     ...(ladderGrafcetStatus !== 'none' ? [{ id: 'open-grafcet', label: 'Abrir GRAFCET', icon: <IconGrafcet size={15} />, onSelect: () => setMode('grafcet') }] : []),
   ] }] : mode === 'grafcet' ? [{ title: 'Ferramentas GRAFCET', items: GRAFCET_TOOLS.map(({ id, label, icon: Icon, key, title }) => ({ id, label, hint: title, icon: <Icon size={15} />, kbd: key, pressed: grafcetTool === id, onSelect: () => useGrafcetUi.getState().setTool(id) })) }, { title: 'Sequência', items: [
-    { id: 'add-text', label: 'Texto livre', hint: 'Clique no diagrama para colocar texto', icon: <IconText size={15} />, onSelect: () => useGrafcetUi.getState().emit('addText') },
     { id: 'templates', label: 'Modelos GRAFCET', icon: <IconTemplates size={15} />, onSelect: () => useGrafcetUi.getState().emit('openTemplates') },
     { id: 'auto-layout', label: 'Organizar diagrama', icon: <IconOrganize size={15} />, onSelect: () => useGrafcetUi.getState().emit('autoLayout') },
     { id: 'restart-sequence', label: 'Reiniciar sequência', hint: 'Volta às etapas iniciais', icon: <IconRotate size={15} />, onSelect: () => useGrafcetUi.getState().emit('restart') },
@@ -353,6 +353,16 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
     { id: 'export-grafcet', label: 'Exportar GRAFCET JSON', icon: <IconDownload size={15} />, onSelect: () => useGrafcetUi.getState().emit('exportJson') },
     { id: 'import-grafcet', label: 'Importar GRAFCET', hint: 'FluidSIM 4 (.ct), JSON ou .grafcet', icon: <IconImport size={15} />, onSelect: () => useGrafcetUi.getState().emit('importJson') },
   ] }] : []
+  const annotationItems = [
+    { id: 'add-note', label: 'Comentário', hint: 'Criar uma nota com conversa no desenho', icon: <IconNote size={13} />, onSelect: () => mode === 'grafcet' ? useGrafcetUi.getState().emit('addNote') : requestCanvasAction('addNote') },
+    { id: 'add-text', label: 'Texto livre', hint: 'Clique no desenho para colocar texto · Esc cancela', icon: <IconText size={13} />, pressed: textPlacement, onSelect: () => mode === 'grafcet' ? useGrafcetUi.getState().emit('addText') : requestCanvasAction('addText') },
+  ]
+  if (mode === 'schematic' || mode === 'grafcet') toolSections.push({ id: 'annotations', title: 'Anotações', items: annotationItems })
+  const annotationTools = <div className="dc-seg" role="group" aria-label="Anotações">
+    {annotationItems.map(item => <TbButton key={item.id} aria-label={item.label} title={item.hint} onClick={item.onSelect} pressed={item.pressed} className={`dc-tool-btn !gap-1.5${item.pressed ? ' dc-tool-active' : ''}`}>
+      {item.icon}<span>{item.id === 'add-text' ? 'Texto' : item.label}</span>
+    </TbButton>)}
+  </div>
   const compactMoreSections: ToolMenuSection[] = [
     ...fileSections,
     { title: 'Execução', items: [
@@ -587,8 +597,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
 
             {!demo && <span className="tb-sep" />}
             {!demo && <button type="button" className="dc-tool-btn grafcet-signals-tool !gap-1.5" aria-label="Tabela de entradas, saídas e memórias" onClick={() => useGrafcetUi.getState().emit('openSignals')} title="Declarar e organizar os sinais usados nas sugestões"><IconTag size={13} /><span>Variáveis</span></button>}
-            {!demo && <button type="button" className="dc-tool-btn grafcet-text-tool !gap-1.5" aria-label="Texto livre" onClick={() => useGrafcetUi.getState().emit('addText')} title="Texto livre: clique no diagrama para o colocar; arrasta-se e formata-se (tipo de letra, tamanho, cor)"><IconText size={13} /><span>Texto</span></button>}
-            {!demo && desktopGrafcetMenu && <ToolMenu label="Mais GRAFCET" title="Sequência, modelos e ficheiros GRAFCET" icon={<IconMore size={14} />} sections={toolSections.slice(1)} className="dc-grafcet-tools-menu" />}
+            {!demo && annotationTools}
+            {!demo && desktopGrafcetMenu && <ToolMenu label="Mais GRAFCET" title="Sequência, modelos e ficheiros GRAFCET" icon={<IconMore size={14} />} sections={toolSections.slice(1).filter(section => section.id !== 'annotations')} className="dc-grafcet-tools-menu" />}
             {!demo && !desktopGrafcetMenu && <button type="button" className="grafcet-toolbar-more dc-tool-btn" aria-expanded={grafcetMoreOpen} onClick={() => setGrafcetMoreOpen((value) => !value)} title="Ficheiros, disposição, modelos e mais ferramentas">
               {grafcetMoreOpen ? 'Menos' : 'Mais'} <IconChevronDown size={12} className={grafcetMoreOpen ? 'rotate-180' : ''} />
             </button>}
@@ -740,6 +750,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   )
                 })}
               </div>
+              {annotationTools}
               {mode === 'schematic' && <button
                 type="button"
                 className={`dc-tool-btn !gap-1.5 ${gridDragEnabled ? 'dc-tool-active' : ''}`}

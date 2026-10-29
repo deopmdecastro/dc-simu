@@ -39,6 +39,8 @@ interface SimUiState {
   /** Dica da ferramenta ou do estado atual do canvas, escrita pelo editor montado. */
   canvasHint: string
   setCanvasHint: (text: string) => void
+  /** Colocação de texto no editor ativo, espelhada na barra. */
+  textPlacement: boolean
 }
 
 export const useSimUi = create<SimUiState>((set, get) => ({
@@ -54,6 +56,7 @@ export const useSimUi = create<SimUiState>((set, get) => ({
   },
   toggleHints: () => get().setHints(!get().hints),
   canvasHint: '',
+  textPlacement: false,
   setCanvasHint: (text) => { if (get().canvasHint !== text) set({ canvasHint: text }) },
 }))
 
@@ -81,7 +84,7 @@ export function useShortcutsRequest(view: ShortcutView, open: () => void) {
    Enquadrar a vista e a seleção viviam em botões flutuantes sobre o canvas.
    Passaram para a barra: a barra pede, o editor montado executa.
 */
-export type CanvasAction = 'fit' | 'focusSelection'
+export type CanvasAction = 'fit' | 'focusSelection' | 'addNote' | 'addText'
 
 const CANVAS_EVENT = 'dcsimu:canvas-action'
 

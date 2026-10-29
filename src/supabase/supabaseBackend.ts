@@ -654,7 +654,18 @@ export async function supabaseAdminUpdateUser(id: string, body: Record<string, u
   return row
 }
 
-const commentOut = (r: any): ProjectComment => ({ id: r.id, projectId: r.project_id, authorId: r.author_id, authorName: r.profiles?.name || 'Conta removida', body: r.body, anchor: r.anchor, resolved: !!r.resolved, createdAt: r.created_at, editedAt: r.edited_at || null })
+/** author_id referencia auth.users, não profiles: o PostgREST não pode inferir esse join. */
+async function commentsOut(rows: any[]): Promise<ProjectComment[]> {
+  const names = new Map<string, string>()
+  const ids = [...new Set(rows.map(row => row.author_id as string))]
+  if (ids.length) {
+    try {
+      const { data, error } = await clientOrThrow().from('profiles').select('id, name').in('id', ids)
+      if (!error) for (const profile of data ?? []) names.set(profile.id, profile.name)
+    } catch { /* O comentário já foi guardado; falhar um nome não deve induzir novo envio. */ }
+  }
+  return rows.map((r): ProjectComment => ({ id: r.id, projectId: r.project_id, authorId: r.author_id, authorName: names.get(r.author_id) || 'Utilizador', body: r.body, anchor: r.anchor, resolved: !!r.resolved, createdAt: r.created_at, editedAt: r.edited_at || null }))
+}
 
 async function commentContext(projectId: string) {
   const client = clientOrThrow()
@@ -670,17 +681,17 @@ async function commentContext(projectId: string) {
 
 export async function supabaseListComments(projectId: string) {
   const { client, pricing, canWrite } = await commentContext(projectId)
-  const { data, error } = await client.from('project_comments').select('*, profiles:author_id(name)').eq('project_id', projectId).order('created_at')
+  const { data, error } = await client.from('project_comments').select('*').eq('project_id', projectId).order('created_at')
   if (error) throw new Error(error.message)
-  return { comments: (data ?? []).map(commentOut), canWrite, reason: canWrite ? null : upgradeMessage(pricing, 'comments') }
+  return { comments: await commentsOut(data ?? []), canWrite, reason: canWrite ? null : upgradeMessage(pricing, 'comments') }
 }
 
 export async function supabaseAddComment(projectId: string, body: { body?: unknown; anchor?: unknown }) {
   const { client, me, pricing, canWrite } = await commentContext(projectId)
   if (!canWrite) throw new Error(upgradeMessage(pricing, 'comments'))
-  const { data, error } = await client.from('project_comments').insert({ project_id: projectId, author_id: me.id, body: sanitizeCommentBody(body.body), anchor: sanitizeCommentAnchor(body.anchor) }).select('*, profiles:author_id(name)').single()
+  const { data, error } = await client.from('project_comments').insert({ project_id: projectId, author_id: me.id, body: sanitizeCommentBody(body.body), anchor: sanitizeCommentAnchor(body.anchor) }).select('*').single()
   if (error) throw new Error(error.message)
-  return commentOut(data)
+  return (await commentsOut([data]))[0]
 }
 
 export async function supabaseUpdateComment(projectId: string, commentId: string, body: { body?: unknown; resolved?: unknown }) {
@@ -691,9 +702,9 @@ export async function supabaseUpdateComment(projectId: string, commentId: string
   const patch: Record<string, unknown> = {}
   if (body.body !== undefined) { if (!perms.edit) throw new Error('Só o autor pode editar o comentário.'); patch.body = sanitizeCommentBody(body.body); patch.edited_at = new Date().toISOString() }
   if (body.resolved !== undefined) { if (!perms.resolve) throw new Error('Só o autor ou o proprietário do projeto podem resolver o comentário.'); patch.resolved = !!body.resolved }
-  const { data, error } = await client.from('project_comments').update(patch).eq('id', commentId).select('*, profiles:author_id(name)').single()
+  const { data, error } = await client.from('project_comments').update(patch).eq('id', commentId).eq('project_id', projectId).select('*').single()
   if (error) throw new Error(error.message)
-  return commentOut(data)
+  return (await commentsOut([data]))[0]
 }
 
 export async function supabaseDeleteComment(projectId: string, commentId: string) {

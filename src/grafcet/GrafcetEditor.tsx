@@ -6,6 +6,8 @@ import { uiConfirm } from '../ui/dialogs'
 import { allowedViews } from '../project/kind'
 import { isSmallScreen } from '../ui/cleanMode'
 import { useSimStore } from '../store/useSimStore'
+import { GrafcetNotes } from './GrafcetNotes'
+import { useSimUi } from '../ui/simUi'
 import {
   ACTION_KINDS,
   normalizeActionVariable,
@@ -293,6 +295,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const allTransitions = transitionsOf(program)
   const allFree = program.freeActions ?? []
   const allComments = program.comments ?? []
+  const canvasNotes = useSimStore(state => state.canvasNotes)
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null)
   const steps = firstChartId ? allSteps.filter(inPage) : allSteps
   const transitions = firstChartId ? allTransitions.filter(inPage) : allTransitions
   const freeActions = firstChartId ? allFree.filter(inPage) : allFree
@@ -669,6 +673,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null)
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [placingText, setPlacingText] = useState(false)
+  useEffect(() => {
+    if (!full) return
+    useSimUi.setState({ textPlacement: placingText })
+    return () => { useSimUi.setState({ textPlacement: false }) }
+  }, [full, placingText])
   const addComment = (at?: { x: number; y: number }) => {
     const pos = at ?? { x: SPINE_X + 260, y: START_Y }
     const style = DEFAULT_TEXT_STYLE_GRAFCET
@@ -2890,6 +2899,15 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           setPlacingText((value) => !value)
           notify('Clique no diagrama para colocar o texto · Esc cancela')
           break
+        case 'addNote': {
+          if (demoMode) break
+          const store = useSimStore.getState()
+          store.addCanvasNote({ text: '', view: 'grafcet', chart: activeChart, x: (viewport.width / 2 - position.x) / scale, y: (viewport.height * 0.7 - position.y) / scale, messages: [] })
+          const notes = useSimStore.getState().canvasNotes
+          setOpenNoteId(notes[notes.length - 1].id)
+          setPlacingText(false)
+          break
+        }
         case 'addConnectedStep':
           addConnectedStep()
           break
@@ -3264,6 +3282,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           )}
 
           {/* SVG DO DIAGRAMA GRAFCET COM ESTILO NORMALIZADO IEC E DUPLA LINHA AND */}
+          <GrafcetNotes notes={canvasNotes.filter(note => note.view === 'grafcet' && inPage(note))}
+            position={position} scale={scale} openId={openNoteId} setOpenId={setOpenNoteId}
+            toWorld={clientToWorld} readOnly={!full || demoMode} />
           {!!steps.length && (
             <div
               className="grafcet-pan-layer"

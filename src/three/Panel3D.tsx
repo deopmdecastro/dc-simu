@@ -15,7 +15,7 @@ import { SCHEMATIC_TOOL_SHORTCUTS, VIEW_SHORTCUTS } from '../ui/shortcutLists'
 import { useCanvasAction, useShortcutsRequest, useSimUi } from '../ui/simUi'
 import { ContextLossGuard, ContextLossNotice } from './ContextLossGuard'
 import { EDITOR_THEME, editorPalette } from '../ui/editorTheme'
-import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconNote, IconPlus, IconText, IconSave, IconUnlock } from '../ui/icons'
+import { IconClose, IconFocus, IconDelete, IconHelp, IconKeyboard, IconLink, IconMove, IconPlus, IconSave, IconUnlock } from '../ui/icons'
 import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '../types'
 import * as THREE from 'three'
 import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoScreen'
@@ -2158,6 +2158,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [placingText, setPlacingText] = useState(false)
+  useEffect(() => {
+    useSimUi.setState({ textPlacement: placingText })
+    return () => { useSimUi.setState({ textPlacement: false }) }
+  }, [placingText])
   const annotationView = frontEdit ? 'schematic' as const : '3d' as const
   const textPlaneZ = PLATE_Z + PLATE_THICKNESS / 2 + 0.004
   const addNote = () => {
@@ -2243,6 +2247,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
    * mostra-a) e executa os pedidos de enquadramento que ela envia. */
   const setCanvasHint = useSimUi((state) => state.setCanvasHint)
   const canvasHint = useMemo(() => {
+    if (placingText) return 'Clique no desenho para colocar o texto · Esc cancela'
     const base = tool === 'wire' ? 'Cabo: clique nos bornes para ligar · Esc termina'
       : tool === 'erase' ? 'Apagar: clique num componente ou cabo · Ctrl+Z desfaz'
       : tool === 'probe' ? (probeA ? 'Sonda: escolha o segundo borne' : 'Sonda: escolha o primeiro borne')
@@ -2251,11 +2256,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       : selectedIds.length ? `${selectedIds.length} selecionado${selectedIds.length > 1 ? 's' : ''} · F enquadra`
       : 'Selecionar: clique para escolher · arraste para mover'
     return probeResult ? `${base} · ${probeResult.note}${probeResult.b ? ` · ${probeResult.voltage}` : ''}` : base
-  }, [tool, probeA, probeResult, interactive, selectedIds.length])
+  }, [tool, probeA, probeResult, interactive, selectedIds.length, placingText])
   useEffect(() => { setCanvasHint(canvasHint) }, [canvasHint, setCanvasHint])
   useCanvasAction((action) => {
+    if (demoMode && (action === 'addNote' || action === 'addText')) return
     if (action === 'fit') moveCamera('fit')
     else if (action === 'focusSelection' && selectedTarget) focusSelection()
+    else if (action === 'addNote') addNote()
+    else if (action === 'addText') { setPlacingText(value => !value); setSelectedTextId(null) }
   })
 
   // ao trocar de ferramenta na barra principal, larga qualquer ligação/edição a meio
@@ -2957,15 +2965,6 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} />
       </Canvas>
 
-      {!demoMode && !selectedText && <div className="canvas-annotate" role="toolbar" aria-label="Anotar o desenho">
-        <button type="button" className="canvas-annotate-btn is-note" onClick={addNote} title="Novo comentário: nota com título e conversa, que se arrasta no desenho">
-          <IconNote size={13} /><span>Comentário</span>
-        </button>
-        <button type="button" className={`canvas-annotate-btn is-text${placingText ? ' is-on' : ''}`} aria-pressed={placingText} onClick={() => { setPlacingText((value) => !value); setSelectedTextId(null) }} title="Texto livre: clique no desenho para o colocar (Esc cancela)">
-          <IconText size={13} /><span>Texto</span>
-        </button>
-        {placingText && <span className="canvas-annotate-hint" role="status">Clique no desenho para colocar o texto · Esc cancela</span>}
-      </div>}
       {!demoMode && selectedText && <div className="canvas-textbar-slot">
         <TextStyleBar style={selectedText} unit="mm"
           onChange={(patch) => updateCanvasText(selectedText.id, patch)}

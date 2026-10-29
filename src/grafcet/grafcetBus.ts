@@ -20,6 +20,7 @@ const writeFlag = (key: string, value: boolean) => {
 }
 
 export type GrafcetBusAction =
+  | 'addNote'
   | 'addText'
   | 'addConnectedStep'
   | 'addStep'
