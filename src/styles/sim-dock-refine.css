@@ -1,0 +1,278 @@
+/* ===========================================================================
+   v6.0 · Refinamento de painéis de simulação, inspetor GRAFCET e E/S
+   ---------------------------------------------------------------------------
+   Carrega por último. Só tokens --pn-* / --dx-*; sem barras laterais de destaque.
+   1. GRAFCET: coluna do canvas + painel de simulação no fundo (.gdock), igual ao Ladder
+   2. Inspetor GRAFCET: separadores com ícone, linhas com ícones, Sinais sem corte
+   3. E/S virtuais e sinais do PLC: chips de tipo/estado dentro da célula
+   4. Ladder: separadores e ações em zonas separadas (sem sobreposição)
+   5. Painel do projeto (Esquema): separadores com ícone e barra de simulação compacta
+   6. Barra de estado e cabeçalho
+   =========================================================================== */
+
+/* ---------- 1. GRAFCET: coluna do canvas + painel de simulação ---------- */
+.grafcet-canvas-col { position: relative; display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; min-height: 0; }
+.grafcet-canvas-col > .grafcet-canvas { flex: 1 1 0; min-height: 0; }
+@media (max-width: 800px) {
+  .grafcet-full .grafcet-canvas-col { flex: 1 1 0; width: 100%; min-height: 220px; }
+  .grafcet-full .grafcet-canvas-col > .grafcet-canvas { min-height: 160px; }
+}
+
+.gdock {
+  display: flex; flex-direction: column; flex: 0 0 auto; min-height: 0;
+  border-top: 1px solid var(--pn-line); background: var(--pn-bg);
+  box-shadow: 0 -6px 14px -12px rgba(15, 23, 42, .28);
+}
+.gdock.is-open { flex-basis: clamp(200px, 34%, 340px); }
+.gdock-bar {
+  display: flex; align-items: center; gap: 8px; flex: none; min-height: 42px; padding: 0 8px 0 4px;
+  background: var(--pn-bg-2); border-bottom: 1px solid var(--pn-line-soft);
+}
+.gdock.is-collapsed .gdock-bar { border-bottom: 0; }
+.gdock-tabs { display: flex; align-items: stretch; gap: 2px; flex: 1 1 auto; min-width: 0; align-self: stretch; overflow-x: auto; scrollbar-width: none; }
+.gdock-tabs::-webkit-scrollbar { display: none; }
+.gdock-tabs button {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 0 12px;
+  border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--pn-ink-3);
+  font-size: 11.5px; font-weight: 600; white-space: nowrap; cursor: pointer;
+  transition: color .12s ease, background-color .12s ease, border-color .12s ease;
+}
+.gdock-tabs button:hover { color: var(--pn-ink-2); background: var(--pn-bg); }
+.gdock-tabs button.is-active { color: var(--pn-brand-ink); border-bottom-color: var(--pn-brand); background: var(--pn-bg); font-weight: 700; }
+.gdock-tabs button:focus-visible { outline: none; box-shadow: inset var(--pn-focus); }
+.gdock-tabs em {
+  min-width: 18px; height: 17px; padding: 0 5px; border-radius: 999px; background: #e8edf5; color: var(--pn-ink-3);
+  font: 700 10px/17px ui-sans-serif, system-ui, sans-serif; font-style: normal; text-align: center;
+}
+.gdock-tabs em.is-live { background: #dcfce7; color: #166534; }
+.gdock-tab-short { display: none; }
+.gdock-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+/* Estado da simulação: rótulo + forma + cor (a cor nunca é a única pista). */
+.gdock-state {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px;
+  border: 1px solid var(--pn-line); background: var(--pn-bg); color: var(--pn-ink-3);
+  font: 700 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; white-space: nowrap;
+}
+.gdock-state i { width: 8px; height: 8px; border-radius: 2px; background: #94a3b8; flex: none; }
+.gdock-state.is-running { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.gdock-state.is-running i { border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
+.gdock-state.is-paused { border-color: #fcd34d; background: #fffbeb; color: #92400e; }
+.gdock-state.is-paused i { width: 8px; background: linear-gradient(90deg, #d97706 0 35%, transparent 35% 65%, #d97706 65%); border-radius: 0; }
+.gdock-state-steps { display: inline-flex; align-items: center; gap: 4px; padding-left: 7px; margin-left: 1px; border-left: 1px solid currentColor; color: inherit; font-weight: 700; letter-spacing: .02em; }
+.gdock-state-steps svg { opacity: .8; }
+
+/* Transporte compacto (Run/Pausa/Passo/Stop/Reiniciar), alvo ≥ 32 px. */
+.gdock-transport.sim-transport { gap: 2px; padding: 2px; border: 1px solid var(--pn-line); border-radius: 9px; background: var(--pn-bg); }
+.gdock-transport.sim-transport button {
+  width: 32px; height: 30px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--pn-ink-2); cursor: pointer;
+  transition: background-color .12s ease, color .12s ease;
+}
+.gdock-transport.sim-transport button:hover:not(:disabled) { background: var(--pn-bg-2); color: var(--pn-ink); }
+.gdock-transport.sim-transport button:focus-visible { outline: none; box-shadow: var(--pn-focus); }
+.gdock-transport.sim-transport button:disabled { opacity: .38; cursor: default; }
+.gdock-transport.sim-transport button.is-run:not(:disabled) { color: #15803d; }
+.gdock-transport.sim-transport button.is-run:not(:disabled):hover { background: #ecfdf3; }
+.gdock-transport.sim-transport button.is-pause:not(:disabled) { color: #b45309; }
+.gdock-transport.sim-transport button.is-step { color: var(--pn-brand); }
+.gdock-toggle {
+  display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--pn-line); border-radius: 8px;
+  background: var(--pn-bg); color: var(--pn-ink-3); cursor: pointer;
+}
+.gdock-toggle:hover { color: var(--pn-brand); border-color: #b8c9e8; background: var(--pn-brand-soft); }
+.gdock-toggle:focus-visible { outline: none; box-shadow: var(--pn-focus); }
+.gdock-toggle svg { transition: transform .16s ease; }
+.gdock-toggle svg.is-flipped { transform: rotate(180deg); }
+.gdock-body { flex: 1 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 12px 14px 16px; }
+.gdock-body > .vio-panel { padding: 0; border: 0; background: transparent; }
+
+@media (max-width: 1100px) {
+  .gdock-state-steps { display: none; }
+  .gdock-tab-label { display: none; }
+  .gdock-tab-short { display: inline; }
+  .gdock-tabs button { padding: 0 9px; }
+  .gdock-transport.sim-transport button.is-reset { display: none; }
+  .grafcet-full .grafcet-properties > .grafcet-tabs .grafcet-tab-label { font-size: 10px; letter-spacing: -.02em; }
+}
+@media (max-width: 800px) {
+  .gdock.is-open { flex-basis: auto; max-height: 46dvh; }
+  .gdock-bar { min-height: 46px; gap: 6px; padding: 0 6px 0 2px; }
+  .gdock-tabs button { padding: 0 10px; }
+  .gdock-tabs button { min-width: 44px; justify-content: center; }
+  .gdock-tabs button svg { width: 15px !important; height: 15px !important; }
+  .gdock-state { height: 30px; padding: 0 8px; }
+  /* No telemóvel o transporte já está na barra de ferramentas (sempre visível): o painel
+     mostra só o estado, para os separadores terem nome e alvo de toque. */
+  .gdock-transport.sim-transport { display: none; }
+  .gdock-body { padding: 10px 12px 14px; }
+}
+@media (max-width: 380px) {
+  .gdock-state-label { display: none; }
+  .gdock-state { padding: 0 9px; }
+}
+@media (max-width: 520px) { .gdock-tab-label { display: none !important; } .gdock-tab-short { display: inline; } }
+@media (prefers-reduced-motion: reduce) { .gdock-tabs button, .gdock-toggle svg, .gdock-transport.sim-transport button { transition: none; } }
+
+/* ---------- 2. Inspetor GRAFCET ---------- */
+/* Separadores: quatro mosaicos iguais (ícone + contagem, nome por baixo) — cabem a 360 px. */
+.grafcet-properties > .grafcet-tabs {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px;
+  padding: 0 0 8px; overflow: visible; border-bottom: 1px solid var(--pn-line-soft);
+}
+.grafcet-properties > .grafcet-tabs button {
+  grid-column: auto; position: relative;
+  display: grid; grid-template-columns: auto auto; grid-template-rows: 18px auto; justify-content: center; align-items: center;
+  column-gap: 5px; row-gap: 3px; min-width: 0; min-height: 50px; padding: 6px 2px;
+  border: 1px solid var(--pn-line-soft); border-radius: 9px; background: var(--pn-bg-2); color: var(--pn-ink-3);
+  font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease;
+}
+.grafcet-properties > .grafcet-tabs button:hover:not(.is-active) { background: #eef3fb; color: var(--pn-ink-2); }
+.grafcet-properties > .grafcet-tabs button.is-active { border-color: #bfd2fb; background: var(--pn-brand-soft); color: var(--pn-brand-ink); font-weight: 700; }
+.grafcet-properties > .grafcet-tabs button:focus-visible { outline: none; box-shadow: var(--pn-focus); }
+.grafcet-properties > .grafcet-tabs .grafcet-tab-icon { grid-row: 1; grid-column: 1; justify-self: end; opacity: .9; }
+.grafcet-properties > .grafcet-tabs button > em { grid-row: 1; grid-column: 2; justify-self: start; min-width: 18px; height: 16px; padding: 0 5px; border-radius: 999px; font: 700 9.5px/16px ui-sans-serif, system-ui, sans-serif; font-style: normal; text-align: center; }
+.grafcet-properties > .grafcet-tabs .grafcet-tab-label { font-size: 10.5px; letter-spacing: -.01em; grid-row: 2; grid-column: 1 / -1; justify-self: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.grafcet-properties > .grafcet-tabs button.is-valid .grafcet-tab-icon { color: #16a34a; }
+.grafcet-properties > .grafcet-tabs button.has-warning .grafcet-tab-icon { color: #d97706; }
+.grafcet-properties > .grafcet-tabs button.has-warning em { background: #fff0cf; color: #9a5b07; }
+.grafcet-properties > .grafcet-tabs .grafcet-tab-dot { position: absolute; top: 6px; right: 7px; }
+
+/* Lista de etapas: símbolo de etapa desenhado (quadrado; duplo na inicial) e setas de ordem. */
+.grafcet-step-row .grafcet-step-glyph {
+  display: inline-grid; place-items: center; flex: none; min-width: 24px; height: 22px; padding: 0 4px; box-sizing: border-box;
+  border: 1.5px solid var(--pn-ink-3); border-radius: 2px; background: var(--pn-bg); color: var(--pn-ink);
+  font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.grafcet-step-row .grafcet-step-glyph.is-initial { border-style: double; border-width: 4px; padding: 0 2px; }
+.grafcet-step-row.is-active .grafcet-step-glyph { border-color: var(--pn-brand); color: var(--pn-brand-ink); }
+.grafcet-step-row > button:first-child { gap: 9px; }
+.grafcet-step-row > button:not(:first-child),
+.grafcet-transition-row > button:not(:first-child) { display: inline-grid; place-items: center; }
+.grafcet-step-row > button:not(:first-child) svg,
+.grafcet-transition-row > button:not(:first-child) svg { display: block; }
+
+/* Sinais: o separador deixa de ser esmagado na folha do telemóvel (era a folha que rolava). */
+.grafcet-properties > .grafcet-signals { flex: 1 0 auto; min-height: 0; overflow: visible; }
+/* Ações de criação logo a seguir ao contexto (antes: barra fixa no fundo que tapava a pesquisa). */
+.grafcet-signals > .grafcet-signals-context { order: 0; }
+.grafcet-signals > .grafcet-signals-actions { order: 1; }
+.grafcet-signals > .grafcet-signals-toolbar { order: 2; }
+.grafcet-signals > .grafcet-signals-banner { order: 3; }
+.grafcet-signals > .grafcet-signals-list { order: 4; }
+.grafcet-signals .grafcet-signals-actions {
+  position: static; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;
+  padding: 0; background: none;
+}
+.grafcet-signals-actions .dc-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 34px; padding: 0 6px; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grafcet-signals-actions .dc-btn:last-child { grid-column: 1 / -1; }
+.grafcet-signals-context { line-height: 1.45; }
+
+@media (max-width: 800px) {
+  .grafcet-full .grafcet-properties.is-open { max-height: 58%; }
+  .grafcet-full .grafcet-properties.is-open > * { flex-shrink: 0; }
+  .grafcet-full .grafcet-properties.is-open .grafcet-entity-list { max-height: none; }
+  .grafcet-properties > .grafcet-tabs button { min-height: 52px; font-size: 10.5px; }
+  .grafcet-full .grafcet-selection-actions button { width: 36px; height: 36px; }
+  .grafcet-signals-actions .dc-btn { min-height: 40px; }
+  .grafcet-step-row > button:not(:first-child),
+  .grafcet-transition-row > button:not(:first-child) { min-width: 40px; min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .grafcet-properties > .grafcet-tabs button { transition: none; } }
+
+/* ---------- 3. E/S virtuais e sinais do PLC ---------- */
+/* A célula passa a ser um cartão com rodapé: o tipo (INT/NO/NC) e o estado (0/1 · cabo)
+   ficam dentro da célula em vez de flutuarem por cima das vizinhas. */
+.vio-panel .vio-inputs { padding-top: 0; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); }
+.vio-panel.is-compact .vio-inputs { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+.vio-panel .vio-cell {
+  display: flex; flex-direction: column; gap: 0; min-width: 0;
+  border: 1px solid var(--pn-line); border-radius: 10px; background: var(--pn-bg); overflow: hidden;
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+.vio-panel .vio-cell:hover { border-color: #a9bfe9; }
+.vio-panel .vio-cell:has(.vio-switch.is-on) { border-color: #86d6a2; box-shadow: 0 0 0 1px #16a34a22; }
+.vio-panel .vio-cell > .vio-switch,
+.vio-panel.is-compact .vio-cell > .vio-switch {
+  width: 100%; min-height: 50px; margin: 0; padding: 9px 10px 7px; border: 0; border-radius: 0; box-shadow: none;
+}
+.vio-panel .vio-cell > .vio-switch.is-nc:not(.is-on) { background: #fef2f2; }
+.vio-cell-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 5px 8px; border-top: 1px solid var(--pn-line-soft); background: var(--pn-bg-2);
+}
+.vio-panel .vio-cell .vio-mode,
+.vio-panel.is-compact .vio-cell .vio-mode {
+  position: static; inset: auto; height: 22px; min-width: 40px; margin: 0; padding: 0 8px;
+  border: 1px solid var(--pn-line); border-radius: 6px; background: var(--pn-bg); color: var(--pn-ink-2);
+  font: 700 10px/20px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; cursor: pointer;
+}
+.vio-panel .vio-cell .vio-mode.is-push { border-color: #93b4f5; color: #1d4ed8; background: #eff4ff; }
+.vio-panel .vio-cell .vio-mode.is-nc { border-color: #fca5a5; color: #b91c1c; background: #fef2f2; }
+.vio-panel .vio-cell .plc-sim-state {
+  position: static; inset: auto; display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px;
+  border-radius: 6px; background: #e8edf5; color: var(--pn-ink-3); font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; flex: none;
+}
+.vio-panel .vio-cell .plc-sim-state b { font-weight: 800; }
+.vio-panel .vio-cell .plc-sim-state small { font-size: 9.5px; font-weight: 600; opacity: .85; }
+.vio-panel .vio-cell .plc-sim-state small::before { content: '· '; }
+.vio-panel .vio-cell .plc-sim-state.is-on { background: #16a34a; color: #fff; }
+.vio-panel .vio-head { align-items: center; }
+.vio-panel .vio-head strong { line-height: 1.3; }
+.vio-panel .vio-note { line-height: 1.5; border-radius: 9px; padding: 9px 11px; }
+@media (max-width: 800px) {
+  .vio-panel .vio-inputs, .vio-panel.is-compact .vio-inputs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .vio-panel .vio-cell .vio-mode, .vio-panel .vio-cell .plc-sim-state { height: 26px; }
+  .vio-panel .vio-cell .vio-mode { min-width: 48px; }
+  .vio-panel .vio-actions .vio-clear { min-height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) { .vio-panel .vio-cell { transition: none; } }
+
+/* ---------- 4. Ladder: separadores e ações sem sobreposição ---------- */
+.ladder-bottom-tabs { display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; overflow: hidden; }
+.ladder-bottom-tablist {
+  display: flex; align-items: stretch; gap: 2px; flex: 1 1 auto; min-width: 0; align-self: stretch;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
+          mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
+}
+.ladder-bottom-tablist::-webkit-scrollbar { display: none; }
+.ladder-bottom-tablist > button { flex: none; white-space: nowrap; }
+.ladder-bottom-tabs > .ladder-bottom-actions { position: static; flex: none; padding-left: 0; background: none; }
+@media (max-width: 800px) {
+  .ladder-bottom-tablist > button { min-height: 40px; }
+  .ladder-run-pill-label { display: none; }
+  .ladder-run-pill { min-width: 30px; justify-content: center; }
+  .ladder-run-pill:not(.is-running):not(.is-paused) { display: none; }
+}
+@media (max-width: 600px) {
+  /* Separadores inativos só com ícone (o nome continua no texto acessível); o ativo mostra o nome. */
+  .ladder-bottom-tablist > button:not(.is-active) { font-size: 0 !important; gap: 4px; min-width: 42px; justify-content: center; }
+  .ladder-bottom-tablist > button:not(.is-active) em { font-size: 10px; }
+  .ladder-bottom-tablist > button svg { width: 14px !important; height: 14px !important; }
+  .ladder-bottom-tablist { -webkit-mask-image: none; mask-image: none; }
+}
+
+/* ---------- 5. Painel do projeto no Esquema ---------- */
+.dc-dock-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.dc-dock-tabs button svg { flex: none; opacity: .85; }
+.sim-embed-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  padding: 10px var(--pn-pad); background: var(--pn-bg-2); border-bottom: 1px solid var(--pn-line-soft);
+}
+.sim-embed-cycle { margin-left: 2px; font-weight: 600; letter-spacing: 0; opacity: .75; }
+.schematic-sim-dock.is-embedded .schematic-sim-dock-body { padding-top: 12px; }
+@media (max-width: 420px) {
+  .dc-dock-tabs button span { overflow: hidden; text-overflow: ellipsis; }
+  .sim-embed-cycle { display: none; }
+}
+
+/* ---------- 6. Barra de estado e cabeçalho ---------- */
+.dc-install-btn { display: inline-flex; align-items: center; gap: 5px; }
+.dc-install-btn svg { flex: none; }
+.dc-grafcet-status svg { flex: none; }
+@media (max-width: 640px) {
+  .dc-statusbar { gap: 8px; height: 30px !important; }
+  .dc-install-btn { width: 28px; height: 24px; justify-content: center; border-radius: 6px; }
+  .dc-install-btn:hover { background: var(--pn-brand-soft); text-decoration: none; }
+}

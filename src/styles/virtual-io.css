@@ -65,7 +65,7 @@
 .ladder-bottom-panel:hover .ladder-bottom-resizer::after, .ladder-bottom-resizer:focus-visible::after, .ladder-bottom-panel.is-resizing .ladder-bottom-resizer::after { opacity: 1; }
 .ladder-bottom-resizer:hover::after, .ladder-bottom-panel.is-resizing .ladder-bottom-resizer::after { background: var(--ladder-blue, #2f6fe4); }
 .ladder-bottom-resizer:focus-visible { outline: 2px solid var(--ladder-blue, #2f6fe4); outline-offset: -2px; }
-.ladder-bottom-tabs > button:not(.ladder-bottom-toggle):not(.ladder-status-reset) { height: 34px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; }
+.ladder-bottom-tablist > button:not(.ladder-bottom-toggle):not(.ladder-status-reset) { height: 34px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; }
 .ladder-tab-badge { font-style: normal; min-width: 17px; padding: 0 5px; height: 16px; border-radius: 999px; background: #e8edf5; color: #52627a; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
 .ladder-tab-badge.is-live { background: #dcfce7; color: #166534; }
 .ladder-bottom-actions { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
@@ -82,7 +82,7 @@
 .ladder-bottom-panel .ladder-status-title { position: static; margin: 0 0 6px; padding: 0; background: none; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
 .ladder-bottom-panel .ladder-status-row { height: 26px; grid-template-columns: 52px minmax(0, 1fr) 12px; gap: 8px; padding: 0 6px; border-radius: 6px; font-size: 12px; }
 .ladder-bottom-panel .ladder-status-row:hover { background: #f4f7fb; }
-.ladder-bottom-tabs > button:focus-visible, .ladder-bottom-actions button:focus-visible { outline: 3px solid rgba(47,111,228,.22); outline-offset: 1px; }
+.ladder-bottom-tablist > button:focus-visible, .ladder-bottom-actions button:focus-visible { outline: 3px solid rgba(47,111,228,.22); outline-offset: 1px; }
 .ladder-bottom-panel .ladder-status-row { transition: background .15s ease, border-color .15s ease; }
 @media (prefers-reduced-motion: reduce) { .ladder-bottom-panel .ladder-status-row { transition: none; } }
 .ladder-bottom-panel .ladder-status-row:has(.ladder-status-detail) { height: 34px; }

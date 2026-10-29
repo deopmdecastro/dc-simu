@@ -2090,7 +2090,8 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
             onDoubleClick={() => setStatusH(240)}
             onKeyDown={(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); setStatusH((h) => clampStatusH(h + 24)) } else if (e.key === 'ArrowDown') { e.preventDefault(); setStatusH((h) => clampStatusH(h - 24)) } }}
           />}
-          <div className="ladder-bottom-tabs" role="tablist" aria-label="Estado do PLC">
+          <div className="ladder-bottom-tabs">
+            <div className="ladder-bottom-tablist" role="tablist" aria-label="Estado do PLC">
             {(() => {
               const activeBits = Object.entries(table).filter(([key, value]) => value && /^[IQM]\d+\.\d$/.test(key)).length
               const badge: Record<string, number> = { io: activeBits, timers: Object.keys(timers).length, counters: Object.keys(counters).length }
@@ -2110,6 +2111,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
                 </button>
               ))
             })()}
+            </div>
             <div className="ladder-bottom-actions">
               {(() => {
                 // Valores vivos das palavras MW (ex.: o G0 de uma máquina de estados) — sem abrir a aba «Memórias».
@@ -2127,7 +2129,7 @@ function FullLadderEditor({ section, setSection, onOpenSchematic }: { section: L
                 ) : null
               })()}
               {(running || paused) && <span className="ladder-scan-count" title="Ciclos de scan executados desde que a simulação arrancou">{scanCount.toLocaleString('pt-PT')} ciclos</span>}
-              <span className={`ladder-run-pill ${running ? 'is-running' : paused ? 'is-paused' : ''}`} role="status" title={running ? 'A simulação está a correr' : paused ? 'A simulação está em pausa' : 'Simulação parada — carregue em Run para arrancar'}><i /> {running ? 'Simulação ativa' : paused ? 'Em pausa' : 'Pronto'}</span>
+              <span className={`ladder-run-pill ${running ? 'is-running' : paused ? 'is-paused' : ''}`} role="status" title={running ? 'A simulação está a correr' : paused ? 'A simulação está em pausa' : 'Simulação parada — carregue em Run para arrancar'}><i /> <span className="ladder-run-pill-label">{running ? 'Simulação ativa' : paused ? 'Em pausa' : 'Pronto'}</span></span>
               <span className="ladder-actions-sep" aria-hidden="true" />
               <button type="button" className="ladder-status-reset" onClick={resetMemory} title="Repor saídas, memórias (M/MW), temporizadores e contadores a 0 — sem parar a simulação (MRES)"><IconReset size={11} /> <span className="ladder-btn-label">Repor memórias</span></button>
               <button

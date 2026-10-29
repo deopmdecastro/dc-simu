@@ -102,7 +102,7 @@ export default function SignalsPanel({ tags, live, running, usage, undeclared, c
             </li>
           )
         })}
-        {!visible.length && <li className="grafcet-signals-empty">{rows.length ? 'Nenhum sinal corresponde à pesquisa.' : 'A tabela ainda não tem entradas, saídas ou memórias. Adicione abaixo ou use «Tabela completa» para as detetar do GRAFCET.'}</li>}
+        {!visible.length && <li className="grafcet-signals-empty">{rows.length ? 'Nenhum sinal corresponde à pesquisa.' : 'A tabela ainda não tem entradas, saídas ou memórias. Adicione acima ou use «Tabela completa» para as detetar do GRAFCET.'}</li>}
       </ul>
 
       <div className="grafcet-signals-actions">

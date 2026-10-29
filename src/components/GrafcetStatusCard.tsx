@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { stepNumberOf } from '../grafcet/engine'
-import { IconStep } from '../ui/icons'
+import { IconGrafcet } from '../ui/icons'
 
 /**
  * Cartão da barra de estado (ao lado do ciclo): GRAFCET em execução e etapa(s) ativa(s).
@@ -42,7 +42,7 @@ export default function GrafcetStatusCard({ onOpen }: { onOpen?: () => void }) {
   return (
     <button type="button" className={`dc-grafcet-status ${running ? 'is-running' : ''} ${info.list.length ? 'has-active' : ''}`} onClick={onOpen} title={title}
       aria-label={`GRAFCET ${info.name}: ${info.list.length ? `etapa ativa X${first.number}` : 'sem etapa ativa'}`} data-grafcet-status>
-      <IconStep size={11} />
+      <IconGrafcet size={12} />
       <span className="dc-grafcet-status-name">{info.name}</span>
       {page && <span className="dc-grafcet-status-page">{page}</span>}
       <span className="dc-grafcet-status-sep" aria-hidden="true">·</span>

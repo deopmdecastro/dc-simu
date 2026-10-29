@@ -70,7 +70,7 @@
     mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
   }
   .ladder-bottom-tabs::-webkit-scrollbar { display: none; }
-  .ladder-bottom-tabs > button { flex: 0 0 auto; min-height: 38px; padding-inline: 10px; white-space: nowrap; }
+  .ladder-bottom-tablist > button { flex: 0 0 auto; min-height: 38px; padding-inline: 10px; white-space: nowrap; }
   /* Ações do painel: só o essencial, em ícone (o texto fica no nome acessível/title). */
   .ladder-bottom-actions { flex: 0 0 auto; position: sticky; right: 0; gap: 4px; padding-left: 6px; background: var(--pn-bg-2, #f6f8fb); }
   .ladder-bottom-actions .ladder-live-words,

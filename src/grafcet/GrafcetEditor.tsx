@@ -35,7 +35,7 @@ import SignalsPanel, { type SignalsContext } from './SignalsPanel'
 import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
 import { renderConditionTspans } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
-import GrafcetSimBar from './GrafcetSimBar'
+import GrafcetSimDock from './GrafcetSimDock'
 import GrafcetTemplatesDialog from './GrafcetTemplatesDialog'
 import { applyLadderFromGrafcet, describeLadderDiff, diffGeneratedLadder, hasGeneratedLadder, ladderSyncStatus, previewLadder } from './ladderSync'
 import {
@@ -64,7 +64,14 @@ import {
   IconReset,
   IconGrid,
   IconTools,
-  IconLayers
+  IconLayers,
+  IconArrowUp,
+  IconArrowDown,
+  IconGrafcet,
+  IconBranch,
+  IconTag,
+  IconWarning,
+  IconCheckCircle,
 } from '../ui/icons'
 import CollapsedPanelRail from '../components/CollapsedPanelRail'
 import { useNarrowMenu } from '../ui/toolbarKit'
@@ -350,7 +357,6 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   // Arrastamento livre de etapas dentro da grelha (posição guardada em step.x/y + pinned)
   const gridOn = useGrafcetUi((state) => state.gridOn)
   const snapOn = useGrafcetUi((state) => state.snapOn)
-  const simVisible = useGrafcetUi((state) => state.simVisible)
   const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null })
   const dragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
@@ -482,8 +488,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (full) useGrafcetUi.getState().setPaletteOpen(showPalette)
   }, [showPalette, full])
   useEffect(() => {
-    if (!simVisible && tab === 'io') setTab('steps')
-  }, [simVisible, tab])
+    // O simulador saiu do inspetor para o painel inferior (GrafcetSimDock).
+    if (tab === 'io') setTab('steps')
+  }, [tab])
 
   useEffect(() => () => { window.clearTimeout(toastTimer.current); window.clearTimeout(openLadderTimer.current) }, [])
 
@@ -3086,7 +3093,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
             <CollapsedPanelRail className="grafcet-toolbox-restore" label="Componentes" side="left" icon={<IconLayers size={15} />} onExpand={() => setShowPalette(true)} />
           ))}
 
-        {/* CANVAS CENTRAL COM O DIAGRAMA VERTICAL ROBUSTO */}
+        {/* CANVAS CENTRAL COM O DIAGRAMA VERTICAL ROBUSTO + painel de simulação por baixo (como no Ladder) */}
+        <div className={full ? 'grafcet-canvas-col' : 'grafcet-canvas-col is-preview'}>
         <div
           ref={viewportRef}
           className={`grafcet-canvas ${sharedGridStyle === 'lines' ? 'grid-lines' : ''} ${activeTool === 'pan' ? 'is-pan-mode' : activeTool === 'connect' ? 'is-connect-mode' : 'is-select-mode'} ${isSpacePan ? 'is-space-pan' : ''} ${dropActive ? 'is-palette-drop' : ''} ${isDragging ? 'is-dragging' : ''} ${wireDraft ? 'is-wiring' : ''}`}
@@ -4993,10 +5001,53 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           )}
 
         </div>
+        {full && (
+          <GrafcetSimDock
+            extraBits={liveBitsAll}
+            activeLabels={runtime.active.map((value) => {
+              const index = steps.findIndex((step) => step.id === value)
+              return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber
+            })}
+            sequence={
+              <GrafcetSimPanel
+                program={program}
+                runtime={runtime}
+                stepLabel={(stepId) => {
+                  const index = steps.findIndex((step) => step.id === stepId)
+                  return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber
+                }}
+                extraBits={liveBitsAll}
+                stepDescription={(stepId) => {
+                  const index = steps.findIndex((step) => step.id === stepId)
+                  const step = steps[index]
+                  return step ? getStepDisplayInfo(step, index).comment || step.name || '' : ''
+                }}
+                onOpenStep={(stepId) => {
+                  setSelected(stepId)
+                  setTab('steps')
+                  setPropsOpen(true)
+                }}
+                onRenameTransition={(transitionId, name) =>
+                  updateTransition(transitionId, { name }, 'auto', `grafcet:transition:${transitionId}:name`)
+                }
+                onRenameAllTransitions={(names) => {
+                  save({ transitions: transitions.map((t) => (names[t.id] ? { ...t, name: names[t.id] } : t)) }, 'force')
+                  notify(`${Object.keys(names).length} transição(ões) nomeada(s)`)
+                }}
+                onOpenTransition={(transitionId) => {
+                  setSelected(transitionId)
+                  setTab('transitions')
+                  setPropsOpen(true)
+                }}
+              />
+            }
+          />
+        )}
+        </div>
 
         {/* PAINEL DE PROPRIEDADES À DIREITA (Estrutura e Abas Clássicas: Etapas, Transições, Simulador, Diagnóstico) */}
         {full && (
-          <aside className={`grafcet-properties ${propsOpen ? 'is-open' : ''} ${propsTall ? 'is-tall' : ''} ${tab === 'io' && simVisible ? 'is-simulator' : ''}`}>
+          <aside className={`grafcet-properties ${propsOpen ? 'is-open' : ''} ${propsTall ? 'is-tall' : ''} `}>
             <SidePanelHeader
               className="grafcet-properties-summary"
               eyebrow="GRAFCET"
@@ -5007,7 +5058,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 : selectedTransition
                 ? `Transição T${transitions.indexOf(selectedTransition) + 1}`
                 : 'Propriedades'}
-              detail={simVisible ? `${running ? '● Simulação ativa' : '○ Simulação parada'}${runtime.active.length ? ` · Etapas ativas: ${runtime.active.map((value) => { const index = steps.findIndex((step) => step.id === value); return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber }).join(', ')}` : ''}` : undefined}
+              detail={running || runtime.active.length ? `${running ? 'RUN' : 'STOP'}${runtime.active.length ? ` · ativa${runtime.active.length > 1 ? 's' : ''}: ${runtime.active.map((value) => { const index = steps.findIndex((step) => step.id === value); return index < 0 ? '?' : `X${getStepDisplayInfo(steps[index], index).stepNumber}` }).join(', ')}` : ''}` : undefined}
               side={propsAtBottom ? 'bottom' : 'right'}
               expanded={propsOpen}
               onToggle={() => setPropsOpen((value) => !value)}
@@ -5028,15 +5079,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
             <div className="grafcet-tabs" role="tablist" aria-label="Painel GRAFCET">
               <button role="tab" aria-selected={tab === 'steps'} className={tab === 'steps' ? 'is-active' : ''} onClick={() => setTab('steps')}>
-                Etapas <em>{steps.length}</em>
+                <IconGrafcet size={14} className="grafcet-tab-icon" /><span className="grafcet-tab-label">Etapas</span> <em>{steps.length}</em>
               </button>
-              <button
-                role="tab"
-                aria-selected={tab === 'transitions'}
-                className={tab === 'transitions' ? 'is-active' : ''}
-                onClick={() => setTab('transitions')}
-              >
-                Transições <em>{transitions.length}</em>
+              <button role="tab" aria-selected={tab === 'transitions'} className={tab === 'transitions' ? 'is-active' : ''} onClick={() => setTab('transitions')}>
+                <IconBranch size={14} className="grafcet-tab-icon" /><span className="grafcet-tab-label">Transições</span> <em>{transitions.length}</em>
               </button>
               <button
                 role="tab"
@@ -5045,22 +5091,17 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 onClick={() => setTab('signals')}
                 title={undeclared.length ? `${signalSuggestions.length} declarados · ${undeclared.length} usados no GRAFCET sem estarem na tabela` : `${signalSuggestions.length} sinais declarados (I, Q, M)`}
               >
-                Sinais <em>{signalSuggestions.length}</em>
+                <IconTag size={14} className="grafcet-tab-icon" /><span className="grafcet-tab-label">Sinais</span> <em>{signalSuggestions.length}</em>
                 {undeclared.length > 0 && <span className="grafcet-tab-dot" aria-label={`${undeclared.length} por declarar`} />}
               </button>
-              {simVisible && (
-                <button role="tab" aria-selected={tab === 'io'} className={tab === 'io' ? 'is-active' : ''} onClick={() => setTab('io')}>
-                  Simulador
-                  <i className={`grafcet-tab-live ${running ? 'is-running' : ''}`} aria-hidden="true" />
-                </button>
-              )}
               <button
                 role="tab"
                 aria-selected={tab === 'diagnostics'}
-                className={tab === 'diagnostics' ? `is-active ${issues.length ? 'has-warning' : ''}` : ''}
+                className={`${tab === 'diagnostics' ? 'is-active' : ''} ${issues.length ? 'has-warning' : 'is-valid'}`.trim()}
                 onClick={() => setTab('diagnostics')}
               >
-                Diagnóstico <em>{issues.length}</em>
+                {issues.length ? <IconWarning size={14} className="grafcet-tab-icon" /> : <IconCheckCircle size={14} className="grafcet-tab-icon" />}
+                <span className="grafcet-tab-label">Diagnóstico</span> <em>{issues.length}</em>
               </button>
             </div>
 
@@ -5092,12 +5133,12 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     return (
                       <div className={`grafcet-step-row ${selected === step.id ? 'is-active' : ''}`} key={step.id}>
                         <button onClick={() => setSelected(step.id)}>
-                          {step.initial || step.stepType === 'initial' ? '◎' : '□'} <b>{stepNumber}</b>
+                          <b className={`grafcet-step-glyph${step.initial || step.stepType === 'initial' ? ' is-initial' : ''}`} title={step.initial || step.stepType === 'initial' ? 'Etapa inicial' : 'Etapa'}>{stepNumber}</b>
                           <span>{comment || (step.name !== stepNumber ? step.name : `Etapa ${stepNumber}`)}</span>
                           {runtime.active.includes(step.id) && <i title="Etapa ativa" />}
                         </button>
                         <button aria-label={`Subir etapa ${stepNumber}`} title="Mover para cima" disabled={index === 0} onClick={() => moveStep(step.id, -1)}>
-                          ↑
+                          <IconArrowUp size={13} />
                         </button>
                         <button
                           aria-label={`Descer etapa ${stepNumber}`}
@@ -5105,7 +5146,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           disabled={index === steps.length - 1}
                           onClick={() => moveStep(step.id, 1)}
                         >
-                          ↓
+                          <IconArrowDown size={13} />
                         </button>
                       </div>
                     )
@@ -5512,7 +5553,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           disabled={index === 0}
                           onClick={() => moveTransition(transition.id, -1)}
                         >
-                          ↑
+                          <IconArrowUp size={13} />
                         </button>
                         <button
                           title="Diminuir prioridade"
@@ -5520,7 +5561,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           disabled={index === transitions.length - 1}
                           onClick={() => moveTransition(transition.id, 1)}
                         >
-                          ↓
+                          <IconArrowDown size={13} />
                         </button>
                       </div>
                     )
@@ -5647,41 +5688,6 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
               />
             )}
 
-            {tab === 'io' && simVisible && (
-              <div className="grafcet-io">
-                <GrafcetSimBar />
-                <GrafcetSimPanel
-                  program={program}
-                  runtime={runtime}
-                  stepLabel={(stepId) => {
-                    const index = steps.findIndex((step) => step.id === stepId)
-                    return index < 0 ? '?' : getStepDisplayInfo(steps[index], index).stepNumber
-                  }}
-                  extraBits={liveBitsAll}
-                  stepDescription={(stepId) => {
-                    const index = steps.findIndex((step) => step.id === stepId)
-                    const step = steps[index]
-                    return step ? getStepDisplayInfo(step, index).comment || step.name || '' : ''
-                  }}
-                  onOpenStep={(stepId) => {
-                    setSelected(stepId)
-                    setTab('steps')
-                  }}
-                  onRenameTransition={(transitionId, name) =>
-                    updateTransition(transitionId, { name }, 'auto', `grafcet:transition:${transitionId}:name`)
-                  }
-                  onRenameAllTransitions={(names) => {
-                    save({ transitions: transitions.map((t) => (names[t.id] ? { ...t, name: names[t.id] } : t)) }, 'force')
-                    notify(`${Object.keys(names).length} transição(ões) nomeada(s)`)
-                  }}
-                  onOpenTransition={(transitionId) => {
-                    setSelected(transitionId)
-                    setTab('transitions')
-                  }}
-                />
-              </div>
-            )}
-
             {/* ABA DIAGNÓSTICO */}
             {tab === 'diagnostics' && (
               <div className="grafcet-diagnostics">
@@ -5718,13 +5724,6 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
               </div>
             )}
 
-            <div className="grafcet-live-status" hidden={!simVisible}>
-              <span className={running ? 'is-running' : ''}>
-                <i />
-                {running ? 'Simulação ativa' : 'Parado'}
-              </span>
-              <small>Saídas ativas: {liveBits.join(', ') || 'nenhuma'}</small>
-            </div>
           </aside>
         )}
       </div>

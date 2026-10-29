@@ -120,9 +120,9 @@
 .ladder-bottom-panel { display:flex; flex-direction:column; flex:0 0 240px; min-height:0; overflow:hidden; transition:flex-basis .18s ease; }
 .ladder-bottom-panel.is-collapsed { flex-basis:32px; }
 .ladder-bottom-tabs { flex-shrink:0; }
-.ladder-bottom-tabs > button:not(.ladder-bottom-toggle) { height:31px; border-bottom:2px solid transparent; color:inherit; font-size:10px; }
-.ladder-bottom-tabs > button:not(.ladder-bottom-toggle):hover { color:var(--ladder-blue); }
-.ladder-bottom-tabs > button.is-active { border-bottom-color:var(--ladder-blue); color:var(--ladder-blue); font-weight:700; }
+.ladder-bottom-tablist > button:not(.ladder-bottom-toggle) { height:31px; border-bottom:2px solid transparent; color:inherit; font-size:10px; }
+.ladder-bottom-tablist > button:not(.ladder-bottom-toggle):hover { color:var(--ladder-blue); }
+.ladder-bottom-tablist > button.is-active { border-bottom-color:var(--ladder-blue); color:var(--ladder-blue); font-weight:700; }
 .ladder-bottom-toggle { display:inline-flex; align-items:center; gap:4px; margin-left:auto; height:22px; padding:0 8px; border-radius:5px; color:#617089; font-size:10px; font-weight:600; }
 .ladder-bottom-toggle:hover { background:var(--ladder-blue-soft); color:var(--ladder-blue); }
 .ladder-bottom-toggle svg { transition:transform .15s; } .ladder-bottom-toggle svg.is-flipped { transform:rotate(180deg); }

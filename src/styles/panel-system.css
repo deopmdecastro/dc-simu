@@ -111,16 +111,16 @@
 
 /* ===== Separadores ===== */
 .ce-tabs, .ladder-bottom-tabs { gap: 2px; padding: 0 8px; background: var(--pn-bg-2); border-bottom: 1px solid var(--pn-line-soft); }
-.ce-tabs button, .ladder-bottom-tabs > button:not(.ladder-bottom-toggle):not(.ladder-status-reset) {
+.ce-tabs button, .ladder-bottom-tablist > button:not(.ladder-bottom-toggle):not(.ladder-status-reset) {
   min-height: var(--pn-tab-h); padding: 0 11px; font-size: 12px; font-weight: 600; color: var(--pn-ink-3);
   border-radius: 6px 6px 0 0; border-bottom: 2px solid transparent; transition: background .12s, color .12s;
 }
-.ce-tabs button:not(.is-on):hover, .ladder-bottom-tabs > button:not(.is-active):not(.ladder-bottom-toggle):not(.ladder-status-reset):hover { background: var(--pn-bg); color: var(--pn-ink-2); }
-.ce-tabs button.is-on, .ladder-bottom-tabs > button.is-active { background: var(--pn-bg); color: var(--pn-brand-ink); border-bottom-color: var(--pn-brand); font-weight: 700; }
-.ce-tabs button:focus-visible, .ladder-bottom-tabs > button:focus-visible { outline: none; box-shadow: inset var(--pn-focus); }
+.ce-tabs button:not(.is-on):hover, .ladder-bottom-tablist > button:not(.is-active):not(.ladder-bottom-toggle):not(.ladder-status-reset):hover { background: var(--pn-bg); color: var(--pn-ink-2); }
+.ce-tabs button.is-on, .ladder-bottom-tablist > button.is-active { background: var(--pn-bg); color: var(--pn-brand-ink); border-bottom-color: var(--pn-brand); font-weight: 700; }
+.ce-tabs button:focus-visible, .ladder-bottom-tablist > button:focus-visible { outline: none; box-shadow: inset var(--pn-focus); }
 /* Ladder: muitos separadores → uma só linha com deslocamento, ações fixas à direita */
 .ladder-bottom-tabs { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
-.ladder-bottom-tabs > button { flex: none; white-space: nowrap; }
+.ladder-bottom-tablist > button { flex: none; white-space: nowrap; }
 .ladder-bottom-actions { flex: none; flex-wrap: nowrap; position: sticky; right: 0; padding-left: 20px; background: linear-gradient(90deg, transparent, var(--pn-bg-2) 16px); }
 
 /* ===== Corpo ===== */
@@ -151,7 +151,7 @@
   .grafcet-inspector-group:last-child { border-bottom: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ce-hierarchy-scroll .ce-row, .grafcet-toolbox-item, .ce-tabs button, .ladder-bottom-tabs > button { transition: none; }
+  .ce-hierarchy-scroll .ce-row, .grafcet-toolbox-item, .ce-tabs button, .ladder-bottom-tablist > button { transition: none; }
 }
 
 /* ===== Biblioteca do Esquema (Sidebar) e Monitor: mesmas regras, marcadas com pn-* ===== */

@@ -59,8 +59,11 @@ export default function VirtualIoPanel({ compact = false, extraBits = [] }: { co
       <VirtualInputButton address={address} className="vio-switch" title={`${address}${name ? ` · ${name}` : ''}`}>
         <i /><b>{address}</b><small className={name ? 'vio-name' : 'vio-name-empty'}>{name ?? '—'}</small>
       </VirtualInputButton>
-      <button type="button" className={`vio-mode is-${mode}`} onClick={() => setMode(address, MODE_NEXT[mode])}
-        title={`${address}: ${MODE_NAME[mode]} — clique para mudar o tipo`} aria-label={`Tipo de ${address}: ${MODE_NAME[mode]}. Mudar tipo`}>{MODE_LABEL[mode]}</button>
+      <div className="vio-cell-foot">
+        <button type="button" className={`vio-mode is-${mode}`} onClick={() => setMode(address, MODE_NEXT[mode])}
+          title={`${address}: ${MODE_NAME[mode]} — clique para mudar o tipo`} aria-label={`Tipo de ${address}: ${MODE_NAME[mode]}. Mudar tipo`}>{MODE_LABEL[mode]}</button>
+        <span className={`plc-sim-state ${table[address] ? 'is-on' : ''}`} aria-hidden="true"><b>{table[address] ? '1' : '0'}</b></span>
+      </div>
     </div>
   }
 

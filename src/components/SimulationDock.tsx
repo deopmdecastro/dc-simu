@@ -35,10 +35,19 @@ export default function SimulationDock({ onClose, embedded = false }: { onClose?
 
   return (
     <section className={`schematic-sim-dock${embedded ? ' is-embedded' : ''}`} aria-label="Entradas e saídas" data-sim-signals-panel>
+      {embedded ? (
+        <div className="sim-embed-bar">
+          <span className={`gdock-state ${running ? 'is-running' : stopped ? '' : 'is-paused'}`} role="status" title={`Ciclo #${sim.scanCount}`}>
+            <i aria-hidden="true" /><span className="gdock-state-label">{running ? 'RUN' : stopped ? 'STOP' : 'PAUSA'}</span>
+            <small className="sim-embed-cycle">ciclo #{sim.scanCount}</small>
+          </span>
+          <SimTransportControls running={running} stopped={stopped} onPlay={play} onPause={pause} onStep={step} onStop={stop} onReset={reset} variant="dock" className="gdock-transport" />
+        </div>
+      ) : (<>
       <SidePanelHeader
         className="schematic-sim-dock-head"
-        eyebrow={embedded ? 'SIMULAÇÃO' : 'ESQUEMA'}
-        title={embedded ? 'Entradas e saídas' : 'Simulação'}
+        eyebrow="ESQUEMA"
+        title="Simulação"
         icon={<IconPlay size={16} />}
         side="right"
         detail={<span className={`schematic-sim-dock-state ${running ? 'is-running' : stopped ? '' : 'is-paused'}`}>{running ? 'RUN' : stopped ? 'STOP' : 'PAUSA'} · ciclo #{sim.scanCount}</span>}
@@ -55,6 +64,7 @@ export default function SimulationDock({ onClose, embedded = false }: { onClose?
         variant="dock"
         className="schematic-sim-dock-controls"
       />
+      </>)}
       <div className="schematic-sim-dock-body">
         {plc ? <>
           {plcs.length > 1 && (

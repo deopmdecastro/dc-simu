@@ -95,7 +95,8 @@ export const useGrafcetUi = create<GrafcetUiState>((set, get) => ({
   setMinimapOn: (minimapOn) => { writeFlag('dcsimu:grafcet:minimap', minimapOn); set({ minimapOn }) },
   stats: '',
   setStats: (stats) => { if (get().stats !== stats) set({ stats }) },
-  simVisible: readFlag('dcsimu:grafcet:simvisible', true),
+  // Painel de simulação (fundo do GRAFCET): aberto no computador, recolhido no telemóvel (só a barra).
+  simVisible: readFlag('dcsimu:grafcet:simvisible', (() => { try { return !window.matchMedia('(max-width: 800px)').matches } catch { return true } })()),
   toggleSim: () =>
     set((state) => {
       writeFlag('dcsimu:grafcet:simvisible', !state.simVisible)

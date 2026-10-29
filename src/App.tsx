@@ -1,6 +1,6 @@
 import GrafcetStatusCard from './components/GrafcetStatusCard'
 import { isTabletDesktop } from './ui/device'
-import { IconLayers } from './ui/icons'
+import { IconGrafcet, IconLayers, IconSchematic } from './ui/icons'
 import CollapsedPanelRail from './components/CollapsedPanelRail'
 import { useEffect, useMemo, useState } from 'react'
 import { uiConfirm } from './ui/dialogs'
@@ -249,9 +249,9 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
               <>
                 <SheetHeader title="GRAFCET, sinais e objetos" side="right" onClose={() => setShowLadder(false)} />
                 <div className="dc-dock-tabs" role="tablist" aria-label="Painel direito">
-                  <button role="tab" aria-selected={rightTab === 'grafcet'} className={rightTab === 'grafcet' ? 'is-on' : ''} onClick={() => setRightTab('grafcet')}>GRAFCET</button>
-                  <button role="tab" aria-selected={rightTab === 'signals'} className={rightTab === 'signals' ? 'is-on' : ''} onClick={() => setRightTab('signals')}>Entradas/Saídas</button>
-                  <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')}>Objetos</button>
+                  <button role="tab" aria-selected={rightTab === 'grafcet'} className={rightTab === 'grafcet' ? 'is-on' : ''} onClick={() => setRightTab('grafcet')}><IconGrafcet size={13} /><span>GRAFCET</span></button>
+                  <button role="tab" aria-selected={rightTab === 'signals'} className={rightTab === 'signals' ? 'is-on' : ''} onClick={() => setRightTab('signals')}><IconSchematic size={13} /><span>Entradas/Saídas</span></button>
+                  <button role="tab" aria-selected={rightTab === 'objects'} className={rightTab === 'objects' ? 'is-on' : ''} onClick={() => setRightTab('objects')}><IconLayers size={13} /><span>Objetos</span></button>
                 </div>
                 {rightTab === 'grafcet' ? <GrafcetEditor onOpenEditor={() => setMode('grafcet')} /> : rightTab === 'signals' ? <SimulationDock embedded /> : <ProjectObjects />}
               </>

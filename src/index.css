@@ -3006,11 +3006,11 @@ input[list]:focus::-webkit-calendar-picker-indicator {
 
 /* v8 — barra de estado: tabs com ritmo igual e cluster direito perfeitamente alinhado */
 .ladder-bottom-tabs { gap: 4px; margin-right: 0; align-items: center; height: 38px; padding: 4px 10px 0; }
-.ladder-bottom-tabs > button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; font-size: 11px; letter-spacing: .04em; line-height: 1; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; transition: background .15s, color .15s, border-color .15s; }
-.ladder-bottom-tabs > button:hover { background: #f3f6fb; color: #33415e; }
-.ladder-bottom-tabs > button.is-active { margin-bottom: 0; border-bottom-color: #2455d8; background: #eef3fc; }
+.ladder-bottom-tablist > button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; font-size: 11px; letter-spacing: .04em; line-height: 1; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; transition: background .15s, color .15s, border-color .15s; }
+.ladder-bottom-tablist > button:hover { background: #f3f6fb; color: #33415e; }
+.ladder-bottom-tablist > button.is-active { margin-bottom: 0; border-bottom-color: #2455d8; background: #eef3fc; }
 .ladder-bottom-tabs .ladder-tab-badge { margin-left: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 15px; padding: 0 5px; font-size: 8.5px; line-height: 1; }
-.ladder-bottom-tabs > button .ui-ck { margin-right: 0; }
+.ladder-bottom-tablist > button .ui-ck { margin-right: 0; }
 
 .ladder-bottom-actions { gap: 8px; }
 .ladder-bottom-actions .ladder-actions-sep { margin: 0 2px; height: 18px; }

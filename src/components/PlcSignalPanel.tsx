@@ -58,13 +58,15 @@ export default function PlcSignalPanel({ plcId, compact = false }: { plcId: stri
                 title={`${row.address}${row.name ? ` · ${row.name}` : ''}`}>
                 <i /><b>{row.address}</b><small className={row.name ? 'vio-name' : 'vio-name-empty'}>{row.name || '—'}</small>
               </VirtualInputButton>
-              <select className={`vio-mode plc-sim-mode is-${mode}`} value={mode} aria-label={`Tipo de contacto de ${row.address}`}
-                title={`${row.address}: ${MODE_NAME[mode]}`} onChange={(event) => setMode(plc.id, row.address, event.target.value as VirtualInputMode)}>
-                {(Object.keys(MODE_LABEL) as VirtualInputMode[]).map((key) => <option key={key} value={key} title={MODE_NAME[key]}>{MODE_LABEL[key]}</option>)}
-              </select>
-              <span className={`plc-sim-state ${row.on ? 'is-on' : ''}`} title={wired ? `Cabo: ${row.destinations.join(', ')}` : 'Sem cabo neste borne — só o sinal simulado'}>
-                {row.on ? '1' : '0'}{wired ? ' · cabo' : ''}
-              </span>
+              <div className="vio-cell-foot">
+                <select className={`vio-mode plc-sim-mode is-${mode}`} value={mode} aria-label={`Tipo de contacto de ${row.address}`}
+                  title={`${row.address}: ${MODE_NAME[mode]}`} onChange={(event) => setMode(plc.id, row.address, event.target.value as VirtualInputMode)}>
+                  {(Object.keys(MODE_LABEL) as VirtualInputMode[]).map((key) => <option key={key} value={key} title={MODE_NAME[key]}>{MODE_LABEL[key]}</option>)}
+                </select>
+                <span className={`plc-sim-state ${row.on ? 'is-on' : ''}`} title={wired ? `Cabo: ${row.destinations.join(', ')}` : 'Sem cabo neste borne — só o sinal simulado'}>
+                  <b>{row.on ? '1' : '0'}</b>{wired && <small>cabo</small>}
+                </span>
+              </div>
             </div>
           })}
           {!inputs.length && <small className="vio-empty">Este PLC não tem entradas digitais.</small>}
