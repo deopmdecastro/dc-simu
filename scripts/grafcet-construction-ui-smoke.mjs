@@ -28,7 +28,13 @@ const read = () => page.evaluate(async () => {
   return JSON.parse(JSON.stringify(useSimStore.getState().grafcet))
 })
 const chooseImportFile = async (file) => {
-  await page.getByRole('button', { name: /^Importar GRAFCET: FluidSIM 4/ }).click()
+  const direct = page.getByRole('button', { name: /^Importar GRAFCET: FluidSIM 4/ })
+  if (await direct.isVisible()) {
+    await direct.click()
+  } else {
+    await page.getByRole('button', { name: /Mais GRAFCET/ }).click()
+    await page.locator('[data-tm-item="import-grafcet"]').click()
+  }
   const input = page.locator('input[type="file"][accept*=".ct"]').first()
   await input.waitFor({ state: 'attached' })
   await input.setInputFiles(file)
