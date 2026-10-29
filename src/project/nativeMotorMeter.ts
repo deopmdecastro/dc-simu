@@ -2,7 +2,7 @@ import { createComponent, terminalByLabel } from '../electrical/factory'
 import type { ElectricalComponent, Wire } from '../types'
 import { componentPanelXY, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 
-export const NATIVE_PARTIDA_ID = 'native-partida-direta-v3'
+export const NATIVE_PARTIDA_ID = 'native-partida-direta-v4'
 export const NATIVE_MOTOR_METER_FEATURE = 'motor-voltage-meter-v1'
 export const NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE = 'motor-meter-double-ferrule-v1'
 

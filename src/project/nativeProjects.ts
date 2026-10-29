@@ -263,73 +263,102 @@ export function buildNativePartidaDireta(): Built {
     c.terminals = c.terminals.map(t => ({ ...t, componentId: id, id: `${id}-${t.label}` }))
     return c
   }
-  const rail = place('dinRail15x55', 'native-rail', 'TR1', 'Calha DIN', -0.65, 0.35)
-  rail.state.lengthMm = 500
-  rail.w = 750
-  rail.schematicX = Math.round(panelToSchematicX(-0.65) - rail.w / 2)
-  const source = place('powerSource3ph', 'native-source', 'XG', 'Entrada L1/L2/L3/N/PE', -2.75, 0.35)
-  const main = place('breaker3p', 'native-qg', 'QG', 'Disjuntor geral', -2.15, 0.35)
-  const psu = place('powerSupplyProauto24A', 'native-psu', 'PS1', 'Fonte 24 V', -1.4, 0.35)
-  const plc = place('plcSiemensLogo1224RC', 'native-plc', 'PLC1', 'LOGO! 12/24RC', -0.5, 0.35)
-  const qm = place('motorBreakerPkzmC10', 'native-qm1', 'QM1', 'Disjuntor-motor PKZM', 0.25, 0.35)
+  /*
+   * Layout por grupos (revisão organização cabos/elementos):
+   *  · FORÇA (esquerda da calha): XG → QG → QM1 → KM1  — potência trifásica
+   *  · COMANDO (direita da calha): Q0 → PS1 → PLC       — alimentação 24 V e lógica
+   *  · OPERADORES (fila superior): B0 · B1 · H1 · H2    — botoeira e sinalização
+   *  · MOTOR + multímetro à direita, fora da calha
+   * Cabos de força 2,5 mm²; comando 1,5 mm². Camadas back para preferir traçado por trás.
+   */
+  const RAIL_Y = 0.35
+  const OPS_Y = 1.95
+  // —— Grupo força (espaçamento generoso para cabos não cruzarem faces) ——
+  const source = place('powerSource3ph', 'native-source', 'XG', 'Entrada L1/L2/L3/N/PE', -3.05, RAIL_Y)
+  const main = place('breaker3p', 'native-qg', 'QG', 'Disjuntor geral', -2.25, RAIL_Y)
+  const qm = place('motorBreakerPkzmC10', 'native-qm1', 'QM1', 'Disjuntor-motor PKZM', -1.35, RAIL_Y)
   qm.state.closed = true
-  const km = place('contactorWegCWC09', 'native-km1', 'KM1', 'Contactor KM1', 0.85, 0.35)
-  const control = place('breaker2p', 'native-q0', 'Q0', 'Proteção do comando', 1.4, 0.35)
-  // B0 — botão cogumelo de emergência (NF 21–22), à esquerda da botoeira START/STOP
-  const emerg = place('emergencyButton', 'native-emerg', 'B0', 'Emergência', -2.0, 1.7)
-  const push = place('dualPushButtonNpb22D11', 'native-push', 'B1', 'START/STOP', -1.1, 1.7)
-  const green = place('pilotLightAd22', 'native-h1', 'H1', 'MARCHA', -0.3, 1.7)
+  const km = place('contactorWegCWC09', 'native-km1', 'KM1', 'Contactor KM1', -0.45, RAIL_Y)
+  // —— Grupo comando (à direita, separado da força) ——
+  const control = place('breaker2p', 'native-q0', 'Q0', 'Proteção do comando', 0.55, RAIL_Y)
+  const psu = place('powerSupplyProauto24A', 'native-psu', 'PS1', 'Fonte 24 V', 1.25, RAIL_Y)
+  const plc = place('plcSiemensLogo1224RC', 'native-plc', 'PLC1', 'LOGO! 12/24RC', 2.15, RAIL_Y)
+  // Calha cobre força + comando
+  const rail = place('dinRail15x55', 'native-rail', 'TR1', 'Calha DIN', -0.4, RAIL_Y)
+  rail.state.lengthMm = 620
+  rail.w = 930
+  rail.schematicX = Math.round(panelToSchematicX(-0.4) - rail.w / 2)
+  // —— Operadores (fila superior, alinhados e espaçados) ——
+  const emerg = place('emergencyButton', 'native-emerg', 'B0', 'Emergência', -2.55, OPS_Y)
+  const push = place('dualPushButtonNpb22D11', 'native-push', 'B1', 'START/STOP', -1.45, OPS_Y)
+  const green = place('pilotLightAd22', 'native-h1', 'H1', 'MARCHA', -0.45, OPS_Y)
   green.state.color = '#22c55e'
-  const red = place('pilotLightAd22', 'native-h2', 'H2', 'PARADO', 0.3, 1.7)
+  const red = place('pilotLightAd22', 'native-h2', 'H2', 'PARADO', 0.35, OPS_Y)
   red.state.color = '#ef4444'
-  const motor = place('motor3ph', 'native-m1', 'M1', 'Motor SEW 3~', 3.5, -1.25)
+  // —— Motor + multímetro ——
+  const motor = place('motor3ph', 'native-m1', 'M1', 'Motor SEW 3~', 3.7, -1.35)
   let wires: Wire[] = []
   const add = (a: ElectricalComponent, al: string, b: ElectricalComponent, bl: string, color: WireColor, power = false) => {
     const next = wire(term(a, al), term(b, bl), color, `W${wires.length + 1}`)
     next.id = `native-wire-${wires.length + 1}`
-    if (power) { next.kind = 'power'; next.gauge = '2.5mm²' }
+    if (power) {
+      next.kind = 'power'
+      next.gauge = '2.5mm²'
+      next.flexibility = 'rigid'
+    } else {
+      next.kind = 'control'
+      next.gauge = '1.5mm²'
+      next.flexibility = 'rigid'
+    }
+    // Preferir saída/chegada pela face traseira (calha / canaletas) para não cobrir a frente dos aparelhos.
+    next.fromEndLayer = 'back'
+    next.toEndLayer = 'back'
     wires.push(next)
   }
+  // Cadeia de força L1/L2/L3 (2,5 mm²)
   for (const [phase, input, output, poleIn, poleOut, motorIn, color] of [
-    ['L1','1','2','1L1','2T1','U1','black'],
-    ['L2','3','4','3L2','4T2','V1','brown'],
-    ['L3','5','6','5L3','6T3','W1','grey'],
+    ['L1', '1', '2', '1L1', '2T1', 'U1', 'black'],
+    ['L2', '3', '4', '3L2', '4T2', 'V1', 'brown'],
+    ['L3', '5', '6', '5L3', '6T3', 'W1', 'grey'],
   ] as const) {
     add(source, phase, main, input, color, true)
     add(main, output, qm, input, color, true)
     add(qm, output, km, poleIn, color, true)
     add(km, poleOut, motor, motorIn, color, true)
   }
+  // Alimentação do comando a partir de QG (1,5 mm²)
   add(main, '2', control, '1', 'black')
   add(source, 'N', control, '3', 'blue')
   add(control, '2', psu, 'L', 'black')
   add(control, '4', psu, 'N', 'blue')
   add(source, 'PE', psu, 'PE', 'green-yellow')
   add(source, 'PE', motor, 'PE', 'green-yellow', true)
+  // 24 V PLC e comando
   add(psu, '+V1', plc, 'L+', 'red')
   add(psu, '-V1', plc, 'M', 'blue')
-  // +24 V comando em ponte local com ponteira dupla: PS1.+V2 → B0.21 → B1.13 → B1.21
+  // +24 V comando em ponte local: PS1.+V2 → B0.21 → B1.13 → B1.21
   add(psu, '+V2', emerg, '21', 'red')
   add(emerg, '21', push, '13', 'red')
   add(push, '13', push, '21', 'red')
-  // Entradas: B0 emergência → I0.0 · B1 START → I0.1 · B1 STOP → I0.2
+  // Entradas PLC
   add(emerg, '22', plc, 'I0.0', 'violet')
   add(push, '14', plc, 'I0.1', 'violet')
   add(push, '22', plc, 'I0.2', 'violet')
-  // Alimentação +24 V das saídas de relé em ponte local com ponteira dupla: PS1.+V1 → Q0.0 → Q0.1 → Q0.2
+  // +24 V nas saídas de relé em ponte: PS1.+V1 → Q0.0 → Q0.1 → Q0.2
   add(psu, '+V1', plc, 'Q0.0', 'red')
   add(plc, 'Q0.0', plc, 'Q0.1', 'red')
   add(plc, 'Q0.1', plc, 'Q0.2', 'red')
   add(plc, 'Q0.0·2', km, 'A1', 'orange')
   add(plc, 'Q0.1·2', green, 'X1', 'orange')
   add(plc, 'Q0.2·2', red, 'X1', 'orange')
-  // Retorno 0 V DC organizado: H2.X2 → H1.X2 → PS1.-V2 e KM1.A2 → PS1.-V2
+  // Retorno 0 V: H2 → H1 → PS1 e KM1.A2 → PS1
   add(km, 'A2', psu, '-V2', 'blue')
   add(red, 'X2', green, 'X2', 'blue')
   add(green, 'X2', psu, '-V2', 'blue')
   const { meter, leads } = buildNativeMotorMeter(motor)
   wires.push(...leads)
-  const components = [rail, source, main, psu, plc, qm, km, control, emerg, push, green, red, motor, meter]
+  // Ordem visual: calha → força → comando → operadores → motor → multímetro
+  const components = [rail, source, main, qm, km, control, psu, plc, emerg, push, green, red, motor, meter]
   const baseTags: Built['tags'] = [
     { id: 't1', address: 'I0.0', name: 'EMERG', dataType: 'Bool', comment: 'B0 cogumelo NF — 1 em repouso, 0 premido' },
     { id: 't2', address: 'I0.1', name: 'START', dataType: 'Bool', comment: 'B1 START (NA)' },

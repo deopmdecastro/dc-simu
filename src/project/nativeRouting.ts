@@ -163,11 +163,20 @@ export function planNativeWirePaths(components: ElectricalComponent[], wires: Wi
 
     const ok = cands.filter((c) => c.hits === 0 && c.laneKey.split(':')[1] !== undefined)
     const pool = (ok.length ? ok : cands)
-    // Preferir faixa menos usada (separação de cabos paralelos), depois menos hits, depois mais curta.
+    // Preferir: 1) zero atravessamentos 2) faixa menos usada 3) traçado que sobe/desce
+    // nos corredores entre grupos (menos «pela frente» dos aparelhos) 4) mais curto.
+    // Penaliza caminhos cujo primeiro/último segmento horizontal corta a caixa dos extremos
+    // pelo meio (efeito visual de cabo a tapar a face do componente).
+    const frontPenalty = (pts: Pt[]) => {
+      let p = 0
+      if (pts.length >= 2 && Math.abs(pts[0].y - pts[1].y) < 1 && Math.abs(pts[0].x - pts[1].x) > 8) p += 12
+      if (pts.length >= 2 && Math.abs(pts[pts.length - 1].y - pts[pts.length - 2].y) < 1 && Math.abs(pts[pts.length - 1].x - pts[pts.length - 2].x) > 8) p += 12
+      return p
+    }
     pool.sort((c1, c2) =>
-      (laneUse.get(c1.laneKey) ?? 0) - (laneUse.get(c2.laneKey) ?? 0) ||
       c1.hits - c2.hits ||
-      c1.len - c2.len,
+      (laneUse.get(c1.laneKey) ?? 0) - (laneUse.get(c2.laneKey) ?? 0) ||
+      (c1.len + frontPenalty(c1.pts)) - (c2.len + frontPenalty(c2.pts)),
     )
     const chosen = pool[0]
     laneUse.set(chosen.laneKey, (laneUse.get(chosen.laneKey) ?? 0) + 1)
