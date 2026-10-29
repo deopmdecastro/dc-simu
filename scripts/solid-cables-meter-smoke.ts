@@ -8,7 +8,7 @@ import { nativePartidaDiretaContent } from '../src/project/nativeProjects'
 import { upgradeNativeMotorMeter, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE } from '../src/project/nativeMotorMeter'
 import { useSimStore } from '../src/store/useSimStore'
 import { buildWirePath3D, componentObstacles, wireEndpoint3D, cableOuterDiameterMm, type WireObstacle } from '../src/three/wireGeometry3D'
-import { pathEntersBoxes, segmentEntersBox, keepWireOutsideSolids } from '../src/three/solidWireRouting'
+import { pathEntersBoxes, segmentEntersBox, keepWireOutsideSolids, OrientedWireBox } from '../src/three/solidWireRouting'
 import { component3DDimensions } from '../src/three/terminal3D'
 import { orientationRadians } from '../src/three/componentOrientation'
 import type { Wire } from '../src/types'
@@ -135,3 +135,10 @@ assert.ok(segmentEntersBox([-10,0,0.5],[10,0,0.5],thin),'interseção exata dete
 const out = keepWireOutsideSolids([[-2,0,0.5],[0,0,0.5],[2,0,0.5]],3,[thin],[{axis:[1,0,0]},{axis:[-1,0,0]}],-0.18)
 assert.ok(out.length>=2&&!pathEntersBoxes(out,[thin.clone().expandByScalar(cableOuterDiameterMm('1.5mm²')*0.005)]),'waypoint dentro de outro aparelho é contornado')
 console.log('PASS — Corpo sólido: três tipos de traçado, três orientações, pontos manuais e elemento fino')
+
+const rotated = new OrientedWireBox(new THREE.Box3(new THREE.Vector3(-1,-0.1,-0.1), new THREE.Vector3(1,0.1,0.1)), new THREE.Matrix4().makeRotationZ(Math.PI / 4))
+assert.equal(segmentEntersBox([-0.7,0.6,0],[0.7,0.6,0],rotated), true, 'segmento que atravessa o corpo orientado é bloqueado')
+assert.equal(segmentEntersBox([-0.7,0.6,0],[-0.5,0.6,0],rotated), false, 'canto vazio da caixa mundial não bloqueia um cabo')
+assert.equal(rotated.containsPoint(new THREE.Vector3(-0.6,0.6,0)), false)
+assert.equal(segmentEntersBox([-0.7,0.6,0],[-0.5,0.6,0],rotated.clone().expandByScalar(0.02)), false, 'clone e margem conservam o referencial físico')
+console.log('PASS — Obstáculos orientados: corpo protegido sem bloquear cantos vazios')

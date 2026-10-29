@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { PANEL_UNITS_PER_MM } from './modelPaths'
 import type { WireEndGeometry } from './wireGeometry3D'
-import { DOUBLE_FERRULE_PORT_MM } from './wireGeometry3D'
+import { DOUBLE_FERRULE_COLLAR_MM, FERRULE_COLLAR_MM, ferrulePortOffsetMm } from './wireGeometry3D'
 
 const U = PANEL_UNITS_PER_MM
 const METAL = '#cfd6e0'
@@ -44,7 +44,7 @@ function Cyl({ y, length, radius, color, metalness = 0.15, roughness = 0.5, scal
  * ponteira dupla, pino, olhal, forquilha, faston, ponta estanhada ou ponta nua.
  * Referencial local: +Y = eixo (da ponta para o cabo), +Z = espessura dos terminais planos.
  */
-export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGeometry; wireRadius: number; color: string }) {
+export function WireEnd3D({ geometry, wireRadius, color, side }: { geometry: WireEndGeometry; wireRadius: number; color: string; side?: 'from' | 'to' }) {
   const quaternion = useMemo(() => {
     const y = new THREE.Vector3(...geometry.axis).normalize()
     const z = new THREE.Vector3(...geometry.normal)
@@ -90,7 +90,7 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
         // Ponteira tubular isolada REDONDA (comando e força): manga metálica +
         // colar cilíndrico proporcional ao cabo — nunca um bloco quadrado.
         const sleeve = Math.min(embed || 6 * U, 8 * U)
-        const collar = 6 * U
+        const collar = FERRULE_COLLAR_MM * U
         return <>
           <Cyl y={-sleeve / 2} length={sleeve} radius={sleeveR} color={METAL} metalness={0.88} roughness={0.22} />
           <Cyl y={collar / 2} length={collar} radius={collarR} color={color} roughness={0.6} />
@@ -101,11 +101,10 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
       case 'ferruleDouble': {
         // Colar duplo: corpo oval/cilíndrico compacto com bocas redondas.
         const sleeve = Math.min(embed || 6 * U, 8 * U)
-        const collar = 7 * U
+        const collar = DOUBLE_FERRULE_COLLAR_MM * U
         const nPorts = Math.min(4, Math.max(2, geometry.portCount ?? 2))
-        const step = DOUBLE_FERRULE_PORT_MM * 1.55 * U
-        const halfSpan = ((nPorts - 1) * step) / 2
-        const ports = Array.from({ length: nPorts }, (_, idx) => (idx - (nPorts - 1) / 2) * step)
+        const ports = Array.from({ length: nPorts }, (_, idx) => ferrulePortOffsetMm(idx, nPorts) * U)
+        const halfSpan = Math.abs(ports[0])
         const bodyR = collarR * 0.95
         const scaleX = (halfSpan + bodyR) / bodyR
         return <group>
@@ -162,5 +161,5 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
     }
   })()
 
-  return <group position={geometry.origin} quaternion={quaternion} userData={{ noPick: true, wireEndType: geometry.type }}>{body}</group>
+  return <group position={geometry.origin} quaternion={quaternion} userData={{ noPick: true, wireEndType: geometry.type, wireEndSide: side }}>{body}</group>
 }

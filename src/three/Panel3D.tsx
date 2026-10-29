@@ -39,6 +39,7 @@ import ViewCube, { cameraFacingFace, type ViewCubeFace, type ViewCubeRequest } f
 import { floorGridVisible, wireEnergyEffectVisible } from './panel3DEditing'
 import { registerCoverCapture } from './coverCapture'
 import { WireEnd3D } from './WireEnd3D'
+import { OrientedWireBox } from './solidWireRouting'
 import { GlowHalo } from './GlowHalo'
 import { stepSpring, type SpringState } from '../catalog/controlMotion'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
@@ -1529,7 +1530,7 @@ function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D
     from.position.map(round).join(','), to.position.map(round).join(','),
     (wire.waypoints3D ?? []).map((p) => `${round(p.x)},${round(p.y)},${round(p.z)}`).join(';'),
     pathSig,
-    ...(prebuiltPath ? [] : obstacles.map(box => `${box.min.toArray().map(round)}:${box.max.toArray().map(round)}`)),
+    ...(prebuiltPath ? [] : obstacles.map(box => `${box.min.toArray().map(round)}:${box.max.toArray().map(round)}:${box instanceof OrientedWireBox ? box.localToWorld.elements.map(round).join(',') : ''}`)),
   ].join('|')
   const hit = wireGeomCache.get(key)
   if (hit) return hit
@@ -1668,7 +1669,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     }
     const baseCentroid = drag?.kind === 'all' && drag.wireId === wire.id && drag.origin ? drag.origin : centroidOf(storedWire.waypoints3D ?? [], baseFrom, baseTo)
     const centroid = centroidOf(manual, from, to)
-    return <group key={wire.id} userData={{ noPick: true }}>
+    return <group key={wire.id} userData={{ noPick: true, wireId: wire.id }}>
       {selected && <mesh renderOrder={18} raycast={() => null} userData={{ noSnapshot: true }}>
         <tubeGeometry args={[curve, segments, radius + 0.014, 10, false]} />
         <meshBasicMaterial color="#60a5fa" transparent opacity={0.34} depthWrite={false} />
@@ -1690,8 +1691,8 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
         <tubeGeometry args={[curve, Math.min(96, segments), Math.max(0.04, radius * 2.5), 8, false]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      {!from.sharedFollower && <WireEnd3D geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} />}
-      {!to.sharedFollower && <WireEnd3D geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} />}
+      {!from.sharedFollower && <WireEnd3D side="from" geometry={path.starts[0]} wireRadius={radius} color={wireEndColor(wire, 'from', from.terminalColor)} />}
+      {!to.sharedFollower && <WireEnd3D side="to" geometry={path.starts[1]} wireRadius={radius} color={wireEndColor(wire, 'to', to.terminalColor)} />}
       {flowing && <NeonCurrent3D curve={curve} segments={segments} radius={radius} color={wireColor} />}
       {editing && !handlers.moveAll && manual.map((point, index) => <EditableWireWaypoint3D key={`${wire.id}-${index}`} point={fromSpatial(point)} index={index} active={handlers.activeWaypointIndex === index}
         onSelect={handlers.onSelectWaypoint}

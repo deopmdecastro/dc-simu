@@ -8,7 +8,7 @@ import { componentPanelXY } from '../src/three/panelLayout'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from '../src/three/panelBounds'
 import { DIN_RAIL_15X55 } from '../src/three/dinRailGeometry'
 import { PANEL_UNITS_PER_MM, isMountingRail } from '../src/three/modelPaths'
-import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, keepInFrontOfPlate, wireEndpoint3D, worldToMotorCad } from '../src/three/wireGeometry3D'
+import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, keepInFrontOfPlate, wireEndpoint3D, worldToMotorCad, DOUBLE_FERRULE_COLLAR_MM, PROBE_EMBED_MM, ferrulePortOffsetMm } from '../src/three/wireGeometry3D'
 import { MOTOR_BOX, MOTOR_FLOOR_Y, MOTOR_GLAND } from '../src/three/motorTerminalLayout'
 import { componentOrientationOf, MOTOR_ISOMETRIC_ORIENTATION } from '../src/three/componentOrientation'
 import { segmentEntersBox } from '../src/three/solidWireRouting'
@@ -51,8 +51,8 @@ for (const lead of built.wires.filter(w => w.id.startsWith('native-meter-'))) {
   const ferrule = coordinated.get(feed.id)!.starts[1]
   const axis = new THREE.Vector3(...ferrule.axis)
   const offset = new THREE.Vector3(...path.starts[1].origin).sub(new THREE.Vector3(...ferrule.origin))
-  check(`${lead.number}: sonda na segunda entrada da ponteira dupla`, ferrule.type === 'ferruleDouble' && Math.abs(offset.dot(axis) - 0.1) < 1e-8 && Math.abs(offset.clone().cross(axis).length() - 0.024) < 1e-8)
-  check(`${lead.number}: alimentação separada da sonda`, new THREE.Vector3(...coordinated.get(feed.id)!.points.at(-1)!).distanceTo(new THREE.Vector3(...path.starts[1].origin)) > 0.048)
+  check(`${lead.number}: sonda na segunda entrada da ponteira dupla`, ferrule.type === 'ferruleDouble' && Math.abs(offset.dot(axis) - (DOUBLE_FERRULE_COLLAR_MM + PROBE_EMBED_MM) * PANEL_UNITS_PER_MM) < 1e-8 && Math.abs(offset.clone().cross(axis).length() - Math.abs(ferrulePortOffsetMm(1, 2)) * PANEL_UNITS_PER_MM) < 1e-8)
+  check(`${lead.number}: alimentação separada da sonda`, new THREE.Vector3(...coordinated.get(feed.id)!.points.at(-1)!).distanceTo(new THREE.Vector3(...path.starts[1].origin)) > 0.037)
 }
 for (const wire of built.wires) {
   const from = wireEndpoint3D(wire, 'from', built.components, pivots, built.wires)
@@ -103,7 +103,7 @@ for (const wire of built.wires) {
       const a = new THREE.Vector3(...points[i]); const b = new THREE.Vector3(...points[i + 1])
       for (let s = 0; s <= 40; s++) {
         const p = a.clone().lerp(b, s / 40)
-        if (p.x > motorBox.min.x + 0.02 && p.x < motorBox.max.x - 0.02 && p.y > motorBox.min.y + 0.02 && p.y < motorBox.max.y - 0.02) {
+        if (segmentEntersBox([p.x, p.y, motorBox.min.z - 1], [p.x, p.y, p.z], inner)) {
           hit = true; break
         }
       }
@@ -119,6 +119,16 @@ const feedersThroughGland = motorFeeders.every((w) => {
     return cadPt.z >= 54 && cadPt.z <= 75 && Math.hypot(cadPt.x - MOTOR_GLAND.x, cadPt.y - MOTOR_GLAND.y) <= 6.5
   })
 })
+for (const wire of motorFeeders) {
+  const path = coordinated.get(wire.id)!
+  const end = path.starts[1]
+  const last = new THREE.Vector3(...path.points[path.points.length - 2]).sub(new THREE.Vector3(...path.points[path.points.length - 1])).normalize()
+  check(`${wire.number}: chegada axial ao borne do motor`, last.dot(new THREE.Vector3(...end.axis)) > 0.995)
+  const fixed = path.motorRoute?.points ?? []
+  check(`${wire.number}: passagem no motor preservada após separar cabos`, fixed.length > 2 && path.points.slice(-fixed.length).every((p, i) => p.every((n, axis) => Math.abs(n - fixed[i][axis]) < 1e-8)))
+  const cadPoints = fixed.map(p => worldToMotorCad(motor, pivots[motor.id], new THREE.Vector3(...p)))
+  check(`${wire.number}: sem voltas acima ou abaixo da caixa`, cadPoints.every(p => p.y >= MOTOR_FLOOR_Y + 3 && p.y <= MOTOR_BOX.top + 15))
+}
 check('Nenhum cabo 3D passa pela carcaça do motor (nem cabos alheios à frente dele)', crossing === 0, crossing ? `${crossing}: ${offenders.slice(0, 6).join(' | ')}` : '')
 check('Todos os 4 cabos de força/PE entram no motor pelo bucim M20 (MOTOR_GLAND)', motorFeeders.length === 4 && feedersThroughGland)
 check('Nenhum cabo 3D atravessa a chapa do painel (z ≥ face frontal)', behindPlate === 0, behindPlate ? `${behindPlate}: ${plateOffenders.slice(0, 6).join(' | ')}` : `z mínimo ${minZ.toFixed(3)} ≥ ${plateFront.toFixed(3)}`)
@@ -190,5 +200,21 @@ const nonMotorsFront = built.components
     return o.x === 0 && o.y === 0 && o.z === 0
   })
 check('Apenas o motor usa vista isométrica; restantes aparelhos mantêm vista frontal', motorOrient.x === MOTOR_ISOMETRIC_ORIENTATION.x && motorOrient.y === MOTOR_ISOMETRIC_ORIENTATION.y && nonMotorsFront)
+for (const pose of [
+  { orientation: { x: 0, y: 0, z: 0 }, mirrored: false },
+  { orientation: { x: 16, y: 35, z: 0 }, mirrored: false },
+  { orientation: { x: 16, y: -35, z: 0 }, mirrored: true },
+  { orientation: { x: 16, y: -35, z: 0 }, mirrored: false, scale: { x: 1.2, y: 0.9, z: 1.1 } },
+]) {
+  motor.viewOrientation = pose.orientation; motor.mirrored = pose.mirrored; motor.view3DScale = pose.scale
+  const boxes = componentObstacles(built.components, pivots), own = boxes.find(b => b.componentId === motor.id)!
+  const paths = buildAllWirePaths3D(built.wires, built.components, pivots, boxes)
+  const exteriorClear = motorFeeders.every(wire => {
+    const path = paths.get(wire.id)!, fixed = path.motorRoute?.points.length ?? 0
+    const outer = path.points.slice(0, path.points.length - fixed + 1)
+    return fixed > 2 && !outer.some((p, i) => i > 0 && segmentEntersBox(outer[i - 1], p, own))
+  })
+  check(`Motor ${JSON.stringify(pose)}: cabos visíveis e aproximação fora da carcaça`, built.wires.every(w => (paths.get(w.id)?.points.length ?? 0) > 1) && exteriorClear)
+}
 if (failed) { console.log(`\n❌ ${failed} falha(s)`); process.exit(1) }
 console.log('\n✅ TODOS OS TESTES PASSARAM')

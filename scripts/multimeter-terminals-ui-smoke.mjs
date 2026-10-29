@@ -112,7 +112,15 @@ try {
       const {useSimStore}=await import('/src/store/useSimStore.ts')
       useSimStore.setState(s=>({components:s.components.map(c=>({...c,viewOrientation:orientation}))}))
     },orientation)
-    await page.waitForTimeout(150)
+    await page.waitForFunction(async()=> {
+      const source=await(await fetch('/src/three/Panel3D.tsx')).text()
+      const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
+      return [..._roots.values()].some(root=> {
+        const scene=root.store.getState().scene
+        let connected=false;scene.traverse(node=>{if(node.userData.wireEndType)connected=true})
+        return connected&&!!scene.getObjectByName('occurrence_of_Cube002_Material008_0')
+      })
+    },null,{timeout:30000})
     const report=await alignment()
     check(report.errorMm<0.01,`Orientação ${index+1}: CAD e bornes coincidem (desvio ${report.errorMm.toFixed(4)} mm)`)
     check(report.connections.length===4&&report.wires===4,'As quatro tomadas mantêm os cabos ligados')
@@ -136,6 +144,45 @@ try {
     return probes===2&&bananas===2&&doubles===11&&ports===22
   },null,{timeout:30000})
   check(true,'Nativo renderiza duas fichas banana, duas sondas e onze ponteiras duplas com vinte e duas entradas')
+  const seating = await page.evaluate(async()=> {
+    const source=await(await fetch('/src/three/Panel3D.tsx')).text()
+    const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
+    const THREE=await import('/node_modules/.vite/deps/three.js')
+    const {useSimStore}=await import('/src/store/useSimStore.ts')
+    const state=[..._roots.values()].map(root=>root.store.getState()).find(s=>{let found=false;s.scene.traverse(n=>{if(n.userData.wireId)found=true});return found})
+    state.scene.updateMatrixWorld(true)
+    const groups=new Map();state.scene.traverse(n=>{if(n.userData.wireId)groups.set(n.userData.wireId,n)})
+    const wires=useSimStore.getState().wires
+    let contacts=0,maxRadial=0,maxDepth=0
+    for(const wire of wires) for(const side of ['from','to']) {
+      const group=groups.get(wire.id),end=group?.children.find(n=>n.userData.wireEndSide===side&&n.userData.wireEndType==='ferruleDouble')
+      if(!end)continue
+      const ports=[];end.traverse(n=>{if(n.userData.ferrulePort)ports.push(n.getWorldPosition(new THREE.Vector3()))})
+      const axis=new THREE.Vector3(0,1,0).applyQuaternion(end.getWorldQuaternion(new THREE.Quaternion()))
+      const terminal=wire[side+'TerminalId']
+      for(const member of wires) for(const memberSide of ['from','to']) {
+        if(member[memberSide+'TerminalId']!==terminal||member[memberSide+'Point'])continue
+        const type=member[memberSide+'EndType']??member.endType
+        const body=groups.get(member.id)
+        if(!body)continue
+        let point
+        if(type==='probe') {
+          const probe=body.children.find(n=>n.userData.wireEndSide===memberSide&&n.userData.wireEndType==='probe')
+          if(probe)point=new THREE.Vector3(0,-0.02,0).applyMatrix4(probe.matrixWorld)
+        } else if(type==='ferruleDouble') {
+          const tube=body.children.find(n=>n.isMesh&&n.geometry?.type==='TubeGeometry'&&n.material?.type==='MeshPhysicalMaterial')
+          if(tube)point=tube.geometry.parameters.path.getPoint(memberSide==='from'?0:1).applyMatrix4(tube.matrixWorld)
+        }
+        if(!point)continue
+        const nearest=ports.map(port=>point.clone().sub(port)).sort((a,b)=>a.lengthSq()-b.lengthSq())[0]
+        maxDepth=Math.max(maxDepth,Math.abs(nearest.dot(axis))*100)
+        maxRadial=Math.max(maxRadial,nearest.clone().addScaledVector(axis,-nearest.dot(axis)).length()*100)
+        contacts++
+      }
+    }
+    return {contacts,maxRadial,maxDepth}
+  })
+  check(seating.contacts===22&&seating.maxRadial<0.01&&seating.maxDepth<1,`22 cabos/pontas alinhados com as bocas 3D (desvio lateral ${seating.maxRadial.toFixed(4)} mm)`)
   const stopClean=await state(store=>{
     const s=store.getState()
     return s.sim.runState==='stopped' && s.grafcetRuntime.active.length===0 && s.components.every(c=>!c.state.lit&&!c.state.energized&&!c.state.running)
@@ -179,6 +226,31 @@ try {
   await page.waitForTimeout(200)
   await capture('native-motor-double-ferrule-detail')
   await state(store=>store.getState().stop())
+  for (const component of ['native-psu', 'native-plc']) {
+    await page.evaluate(async(component)=> {
+      const source=await(await fetch('/src/three/Panel3D.tsx')).text()
+      const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
+      const {useSimStore}=await import('/src/store/useSimStore.ts')
+      const wires=useSimStore.getState().wires
+      const state=[..._roots.values()].map(root=>root.store.getState()).find(s=>{let found=false;s.scene.traverse(n=>{if(n.userData.wireId)found=true});return found})
+      const points=[];state.scene.updateMatrixWorld(true)
+      state.scene.traverse(group=> {
+        const wire=wires.find(w=>w.id===group.userData.wireId)
+        if(!wire)return
+        for(const end of group.children) {
+          const side=end.userData.wireEndSide
+          if(side&&wire[side+'TerminalId'].startsWith(component+'-'))points.push(end.getWorldPosition(state.camera.position.clone()))
+        }
+      })
+      const top=component==='native-psu'
+      const y=(top?Math.max:Math.min)(...points.map(p=>p.y))
+      const row=points.filter(p=>Math.abs(p.y-y)<0.15)
+      const center=row.reduce((sum,p)=>sum.add(p),row[0].clone().set(0,0,0)).multiplyScalar(1/row.length)
+      state.controls.target.copy(center);state.camera.position.copy(center).add({x:0.8,y:top?0.8:-0.8,z:1.3});state.camera.zoom=1.4;state.camera.updateProjectionMatrix();state.controls.update();state.invalidate()
+    },component)
+    await page.waitForTimeout(150)
+    await capture(component==='native-psu'?'power-supply-ferrule-seating':'plc-ferrule-seating')
+  }
   check(errors.length===0,'Sem erros JavaScript')
 } catch(error) {
   console.error('Erros da página:',errors)

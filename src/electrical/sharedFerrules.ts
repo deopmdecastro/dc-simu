@@ -103,28 +103,29 @@ export function sharedFerrulePort(
   const terminalId = side === 'from' ? target.fromTerminalId : target.toTerminalId
   const free = Boolean(side === 'from' ? target.fromPoint : target.toPoint)
   const end = wireSideEndType(target, side)
-  if (!terminalId || free || end !== 'ferruleDouble') {
+  if (!terminalId || free || (end !== 'ferruleDouble' && end !== 'probe')) {
     return { shared: false, portIndex: 0, portCount: 2, isLeader: true }
   }
 
   const ferruleMembers: Array<{ wireId: string; side: 'from' | 'to' }> = []
-  let hasProbe = false
+  const probes: Array<{ wireId: string; side: 'from' | 'to' }> = []
   for (const w of wires) {
     if (w.fromTerminalId === terminalId && !w.fromPoint) {
       const fEnd = wireSideEndType(w, 'from')
-      if (fEnd === 'probe') hasProbe = true
+      if (fEnd === 'probe') probes.push({ wireId: w.id, side: 'from' })
       else if (fEnd === 'ferruleDouble') ferruleMembers.push({ wireId: w.id, side: 'from' })
     }
     if (w.toTerminalId === terminalId && !w.toPoint) {
       const tEnd = wireSideEndType(w, 'to')
-      if (tEnd === 'probe') hasProbe = true
+      if (tEnd === 'probe') probes.push({ wireId: w.id, side: 'to' })
       else if (tEnd === 'ferruleDouble') ferruleMembers.push({ wireId: w.id, side: 'to' })
     }
   }
 
-  const idx = ferruleMembers.findIndex((m) => m.wireId === wireId && m.side === side)
+  if (end === 'probe' && !ferruleMembers.length) return { shared: false, portIndex: 0, portCount: 2, isLeader: true }
+  const idx = [...ferruleMembers, ...probes].findIndex((m) => m.wireId === wireId && m.side === side)
   const portIndex = idx >= 0 ? idx : 0
-  const portCount = Math.max(2, ferruleMembers.length + (hasProbe ? 1 : 0))
+  const portCount = Math.max(2, ferruleMembers.length + probes.length)
   return {
     shared: ferruleMembers.length >= 2,
     portIndex,

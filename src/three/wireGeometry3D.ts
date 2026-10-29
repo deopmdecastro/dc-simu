@@ -8,7 +8,7 @@ import { componentOrientationOf, orientationRadians } from './componentOrientati
 import { MOTOR_CAD, MOTOR_GLAND, MOTOR_SIZE } from './motorTerminalLayout'
 import { REAL_TERMINALS } from '../electrical/realInterfaces'
 import { sharedFerrulePort } from '../electrical/sharedFerrules'
-import { keepWireOutsideSolids, segmentEntersBox } from './solidWireRouting'
+import { keepWireOutsideSolids, segmentEntersBox, OrientedWireBox } from './solidWireRouting'
 
 /**
  * Geometria física dos cabos no Painel 3D: extremidades (bornes ou pontas livres),
@@ -42,6 +42,10 @@ const arr = (p: THREE.Vector3): V3 => [p.x, p.y, p.z]
 const U = PANEL_UNITS_PER_MM
 
 export const DOUBLE_FERRULE_PORT_MM = 2.4
+export const FERRULE_COLLAR_MM = 6
+export const DOUBLE_FERRULE_COLLAR_MM = 7
+export const PROBE_EMBED_MM = 2
+export const ferrulePortOffsetMm = (index: number, count: number) => (index - (count - 1) / 2) * DOUBLE_FERRULE_PORT_MM * 1.55
 /** Eixo lateral comum ao desenho do colar e às suas duas entradas. */
 function doubleFerruleSide(axis: THREE.Vector3): THREE.Vector3 {
   const normal = new THREE.Vector3(0, 0, 1).addScaledVector(axis, -axis.z)
@@ -153,13 +157,13 @@ export function wireEndpoint3D(
     const position = terminalWorld3D(component, terminal, pivot)
     const normal = terminalNormalWorld3D(component, terminal)
     const endKind = endTypeOf(wire, side)
-    // A sonda toca a segunda entrada do colar, acima da manga comum no borne.
-    const sharedProbe = endKind === 'probe' && wires.some(other => other.id !== wire.id &&
-      (['from', 'to'] as const).some(s => !(s === 'from' ? other.fromPoint : other.toPoint) && (s === 'from' ? other.fromTerminalId : other.toTerminalId) === terminalId && endTypeOf(other, s) === 'ferruleDouble'))
-    if (sharedProbe) position.addScaledVector(normal, 10 * U).addScaledVector(doubleFerruleSide(normal), DOUBLE_FERRULE_PORT_MM * U)
-    const portInfo = endKind === 'ferruleDouble' && wires.length > 0
+    const portInfo = (endKind === 'ferruleDouble' || endKind === 'probe') && wires.length > 0
       ? sharedFerrulePort(wires, wire.id, side)
       : { shared: false, portIndex: 0, portCount: 2, isLeader: true }
+    // O pino da sonda toca a boca livre do mesmo colar que recebe a alimentação.
+    if (endKind === 'probe' && portInfo.portIndex > 0) position
+      .addScaledVector(normal, (DOUBLE_FERRULE_COLLAR_MM + PROBE_EMBED_MM) * U)
+      .addScaledVector(doubleFerruleSide(normal), ferrulePortOffsetMm(portInfo.portIndex, portInfo.portCount) * U)
     return {
       position: arr(position),
       normal: arr(normal),
@@ -174,7 +178,7 @@ export function wireEndpoint3D(
       terminalLabel: terminal.label,
       portIndex: portInfo.portIndex,
       portCount: portInfo.portCount,
-      sharedFollower: portInfo.shared && !portInfo.isLeader,
+      sharedFollower: endKind === 'ferruleDouble' && portInfo.shared && !portInfo.isLeader,
       motorContext: component.type === 'motor3ph' ? { component, pivot: arr(pivot), terminalLabel: terminal.label } : undefined,
     }
   }
@@ -187,8 +191,8 @@ export const FLAT_LUG_TYPES: WireEndType[] = ['ring', 'fork', 'faston']
 /** Comprimento físico de cada terminação (mm), da ponta ao início do cabo isolado. */
 export function wireEndLengthMm(type: WireEndType): number {
   switch (type) {
-    case 'ferrule': return 12
-    case 'ferruleDouble': return 14
+    case 'ferrule': return 5 + FERRULE_COLLAR_MM
+    case 'ferruleDouble': return 5 + DOUBLE_FERRULE_COLLAR_MM
     case 'pin': return 14
     case 'ring':
     case 'fork':
@@ -219,7 +223,7 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
   const flat = FLAT_LUG_TYPES.includes(type)
   // Probe: embed curto para a ponta assentar no borne; ferrules mais curtas
   // para não «saltar» fora do furo em bornes pequenos.
-  const embedMm = normal && type === 'banana' ? 4 : normal && type === 'probe' ? 3
+  const embedMm = normal && type === 'banana' ? 4 : normal && type === 'probe' ? PROBE_EMBED_MM
     : normal && !flat && (type === 'ferrule' || type === 'ferruleDouble' || type === 'pin') ? 5 : 0
   const length = Math.max(0.01, (wireEndLengthMm(type) - embedMm) * U)
   const plateSafeZ = PLATE_Z + PLATE_THICKNESS / 2 + (outerMm / 2) * U + 0.016
@@ -248,9 +252,8 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
     const pIdx = Math.min(nPorts - 1, endpoint.portIndex ?? 0)
     // Mesmo passo lateral do modelo 3D da ponteira (WireEnd3D) para o cabo
     // alinhar com a boca certa e não empilhar no centro.
-    const lateral = (pIdx - (nPorts - 1) / 2) * (DOUBLE_FERRULE_PORT_MM * 1.55 * U)
+    const lateral = ferrulePortOffsetMm(pIdx, nPorts) * U
     const side = doubleFerruleSide(axis)
-    origin.addScaledVector(side, lateral)
     head.addScaledVector(side, lateral)
   }
   if (head.z < plateSafeZ) head.z = plateSafeZ
@@ -270,10 +273,19 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
     const pivot = pivots[component.id]
     if (!pivot) continue
     const half = componentHalfExtents(component)
-    const box: WireObstacle = new THREE.Box3(
+    let box: WireObstacle = new THREE.Box3(
       new THREE.Vector3(pivot.x - half.x, pivot.y - half.y, pivot.z - half.z),
       new THREE.Vector3(pivot.x + half.x, pivot.y + half.y, pivot.z + half.z),
     )
+    if (component.type === 'motor3ph') {
+      const origin = motorCadToWorld(component, pivot, 0, 0, 0)
+      const transform = new THREE.Matrix4().makeBasis(
+        motorCadToWorld(component, pivot, 1, 0, 0).sub(origin),
+        motorCadToWorld(component, pivot, 0, 1, 0).sub(origin),
+        motorCadToWorld(component, pivot, 0, 0, 1).sub(origin),
+      ).setPosition(origin)
+      box = new OrientedWireBox(new THREE.Box3(new THREE.Vector3(MOTOR_CAD.minX, MOTOR_CAD.minY, MOTOR_CAD.minZ), new THREE.Vector3(MOTOR_CAD.maxX, MOTOR_CAD.maxY, MOTOR_CAD.maxZ)), transform)
+    }
     box.componentId = component.id
     if (isMountingRail(component.type)) box.rail = true
     if (!isPanelBound(component)) box.hard = true
@@ -765,6 +777,8 @@ export function keepInFrontOfPlate(points: V3[], outerMm: number, _manual = fals
 export type WirePath3D = {
   points: V3[]
   starts: [WireEndGeometry, WireEndGeometry]
+  /** Aproximação validada ao bucim e aos bornes: não deformar nem atalhar. */
+  motorRoute?: { side: 'from' | 'to'; points: V3[] }
 }
 
 const endTypeOf = (wire: Wire, side: 'from' | 'to'): WireEndType =>
@@ -814,7 +828,7 @@ function buildMotorGlandBody3D(
   motorHead: V3,
   outerMm: number,
   obstacles: WireObstacle[],
-): V3[] {
+): { points: V3[]; entry: V3 } {
   const ctx = motorEnd.motorContext!
   const mPivot = v(ctx.pivot)
   const label = ctx.terminalLabel.toUpperCase()
@@ -889,23 +903,23 @@ function buildMotorGlandBody3D(
   }
 
   // Entrada pelo bucim M20: caminho axial limpo (boca → cúpula → interior).
-  const entryLeft = cad(-38 + idx * 6, MOTOR_GLAND.y + dy * 1.6, 92 + idx * 3.5)
-  const frontSweep = cad(MOTOR_GLAND.x + dx * 1.2, MOTOR_GLAND.y + dy * 1.2, 96 + idx * 3.0)
-  const glandMouth = cad(MOTOR_GLAND.x + dx * 0.6, MOTOR_GLAND.y + dy * 0.6, 86)
-  const glandCap = cad(MOTOR_GLAND.x + dx * 0.4, MOTOR_GLAND.y + dy * 0.4, 72)
-  const glandInner = cad(MOTOR_GLAND.x + dx * 0.3, MOTOR_GLAND.y + dy * 0.3, 52)
+  const entryLeft = cad(-38, MOTOR_GLAND.y + dy, 100 + idx * 6)
+  const frontSweep = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 100 + idx * 6)
+  const glandMouth = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 86)
+  const glandCap = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 72)
+  const glandInner = cad(MOTOR_GLAND.x + dx, MOTOR_GLAND.y + dy, 52)
 
   // Dentro da caixa: curva suave do bucim até ao borne (evita ziguezagues e
   // sobreposições nas ponteiras). Um ponto intermédio + aproximação axial.
-  const approachZ = Math.max(headCad.z + 6, 28)
+  const approach = cad(headCad.x, headCad.y + 7, headCad.z)
   const midY = (MOTOR_GLAND.y + headCad.y) * 0.5
   const innerBoxPoints: V3[] = label === 'PE'
-    ? [cad(headCad.x * 0.55 + MOTOR_GLAND.x * 0.45, midY + 4, 42), cad(headCad.x, headCad.y + 1.2, approachZ)]
+    ? [cad(headCad.x * 0.55 + MOTOR_GLAND.x * 0.45, midY, 50), approach]
     : label === 'U1' || label === 'W2'
-      ? [cad(headCad.x * 0.5 + MOTOR_GLAND.x * 0.5, midY + 2, 36), cad(headCad.x, headCad.y + 1.5, approachZ)]
+      ? [cad(headCad.x * 0.5 + MOTOR_GLAND.x * 0.5, midY + 6, 36), approach]
       : label === 'V1' || label === 'U2'
-        ? [cad(headCad.x * 0.55 + MOTOR_GLAND.x * 0.45, midY + 1, 34), cad(headCad.x, headCad.y + 1.2, approachZ)]
-        : [cad(headCad.x * 0.5 + MOTOR_GLAND.x * 0.5, midY, 32), cad(headCad.x, headCad.y + 1.2, approachZ)]
+        ? [cad(headCad.x * 0.55 + MOTOR_GLAND.x * 0.45, midY + 3, 34), approach]
+        : [cad(headCad.x * 0.5 + MOTOR_GLAND.x * 0.5, midY, 32), approach]
 
   const rawControls: V3[] = [
     ...panelChain,
@@ -920,7 +934,21 @@ function buildMotorGlandBody3D(
     motorHead,
   ]
   const deduped = rawControls.filter((pt, i) => i === 0 || v(pt).distanceTo(v(rawControls[i - 1])) > 1e-4)
-  return keepInFrontOfPlate(roundCorners(deduped, outerMm, 3.6), outerMm)
+  return { points: keepInFrontOfPlate(roundCorners(deduped, outerMm, 3.6), outerMm), entry: entryLeft }
+}
+
+/** Corrige os sólidos só no troço exterior; a passagem física no motor é fixa. */
+function clearPathSolids(points: V3[], outerMm: number, obstacles: WireObstacle[], exits: Parameters<typeof keepWireOutsideSolids>[3], minZ: number, track: number, motorRoute?: WirePath3D['motorRoute']): V3[] {
+  if (!motorRoute) return keepWireOutsideSolids(points, outerMm, obstacles, exits, minZ, track)
+  const fixed = motorRoute.points
+  const tail = motorRoute.side === 'to'
+  const outer = tail ? points.slice(0, points.length - fixed.length + 1) : points.slice(fixed.length - 1)
+  // O troço exterior contorna também o motor. Só a cauda física já validada
+  // pode passar pelo seu bucim, incluindo quando se roda ou espelha o motor.
+  const outerExits = exits.map(exit => ({ ...exit, glandBypass: false })) as typeof exits
+  const safe = keepWireOutsideSolids(outer, outerMm, obstacles, outerExits, minZ, track)
+  if (safe === outer) return points
+  return !safe.length ? [] : tail ? [...safe.slice(0, -1), ...fixed] : [...fixed, ...safe.slice(1)]
 }
 
 /** Traçado individual de um cabo (compatível com chamadas isoladas e edição ao vivo). */
@@ -944,20 +972,18 @@ export function buildWirePath3D(
     const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles, trunkHint, effectivePlan)
     const a = endHead(from, fromType, preliminary[Math.min(1, preliminary.length - 1)], outerMm)
     const b = endHead(to, toType, preliminary[Math.max(0, preliminary.length - 2)], outerMm)
-    const glandBody = toMotorGland
+    const gland = toMotorGland
       ? buildMotorGlandBody3D(from, a.head, a.geometry.axis, to, b.head, outerMm, obstacles)
-      : buildMotorGlandBody3D(to, b.head, b.geometry.axis, from, a.head, outerMm, obstacles).slice().reverse()
-    const safe = finishWireBody(
-      glandBody,
-      wire,
-      outerMm,
-      obstacles,
-      [
+      : buildMotorGlandBody3D(to, b.head, b.geometry.axis, from, a.head, outerMm, obstacles)
+    let entryIndex = 0
+    for (let i = 1; i < gland.points.length; i++) if (v(gland.points[i]).distanceToSquared(v(gland.entry)) < v(gland.points[entryIndex]).distanceToSquared(v(gland.entry))) entryIndex = i
+    const motorRoute: NonNullable<WirePath3D['motorRoute']> = { side: toMotorGland ? 'to' : 'from', points: toMotorGland ? gland.points.slice(entryIndex) : gland.points.slice(entryIndex).reverse() }
+    const glandBody = toMotorGland ? gland.points : gland.points.slice().reverse()
+    const safe = clearPathSolids(glandBody, outerMm, obstacles, [
         { componentId: from.componentId, axis: a.geometry.axis, glandBypass: fromMotorGland },
         { componentId: to.componentId, axis: b.geometry.axis, glandBypass: toMotorGland },
-      ],
-    )
-    return { points: safe, starts: [a.geometry, b.geometry] }
+      ], wireFrontLimit(outerMm), wireHash(wire), motorRoute)
+    return { points: safe, starts: [a.geometry, b.geometry], motorRoute }
   }
 
   const { trunkHint, plan } = computeBasePlan(wire, from, to, outerMm, obstacles)
@@ -1169,23 +1195,22 @@ export function buildAllWirePaths3D(
     const fromGland = !manual && isMotorGlandEligible(e.from, endTypeOf(e.wire, 'from')) && !e.to.motorContext
     const toGland = !manual && isMotorGlandEligible(e.to, endTypeOf(e.wire, 'to')) && !e.from.motorContext
     const pts = path.points.map((p) => new THREE.Vector3(p[0], p[1], p[2]))
-    const pinned = pts.map((pt, idx) => {
-      if (idx <= 1 || idx >= pts.length - 2) return true
-      if (toGland && e.to.motorContext) {
-        const cadPt = worldToMotorCad(e.to.motorContext.component, v(e.to.motorContext.pivot), pt)
-        if (cadPt.z < 78 && cadPt.x > 46) return true
-      }
-      if (fromGland && e.from.motorContext) {
-        const cadPt = worldToMotorCad(e.from.motorContext.component, v(e.from.motorContext.pivot), pt)
-        if (cadPt.z < 78 && cadPt.x > 46) return true
-      }
-      return false
-    })
+    const fixedCount = path.motorRoute?.points.length ?? 0
+    const pinPoints = (chain: THREE.Vector3[]) => {
+      const count = chain.length, guard = Math.max(0.08, e.outerMm * 3 * U)
+      const distances = [0]
+      for (let i = 1; i < count; i++) distances.push(distances[i - 1] + chain[i].distanceTo(chain[i - 1]))
+      const total = distances[count - 1] ?? 0
+      return chain.map((_, idx) => idx <= 1 || idx >= count - 2 || distances[idx] <= guard || total - distances[idx] <= guard || (fromGland && idx < fixedCount) || (toGland && idx >= count - fixedCount))
+    }
+    const pinned = pinPoints(pts)
     return {
       entry: e,
       starts: path.starts,
       pts,
       pinned,
+      pinPoints,
+      motorRoute: path.motorRoute,
       exits: [
         { componentId: e.from.componentId, axis: path.starts[0].axis, glandBypass: fromGland },
         { componentId: e.to.componentId, axis: path.starts[1].axis, glandBypass: toGland },
@@ -1281,10 +1306,10 @@ export function buildAllWirePaths3D(
     }
     for (const item of builtPaths) {
       const current = item.pts.map(arr)
-      const safe = keepWireOutsideSolids(current, item.entry.outerMm, obstacles, item.exits, item.minZ, wireHash(item.entry.wire))
+      const safe = clearPathSolids(current, item.entry.outerMm, obstacles, item.exits, item.minZ, wireHash(item.entry.wire), item.motorRoute)
       if (safe !== current) {
         item.pts = safe.map(v)
-        item.pinned = item.pts.map((_, idx) => idx <= 1 || idx >= item.pts.length - 2)
+        item.pinned = item.pinPoints(item.pts)
         anyCollision = true
       }
     }
@@ -1292,8 +1317,8 @@ export function buildAllWirePaths3D(
   }
 
   for (const item of builtPaths) {
-    const cleanPoints = keepWireOutsideSolids(keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm), item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire))
-    result.set(item.entry.wire.id, { points: cleanPoints, starts: item.starts })
+    const cleanPoints = clearPathSolids(keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm), item.entry.outerMm, obstacles, item.exits, wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire), item.motorRoute)
+    result.set(item.entry.wire.id, { points: cleanPoints, starts: item.starts, motorRoute: item.motorRoute })
   }
   return result
 }

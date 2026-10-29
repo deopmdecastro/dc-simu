@@ -6,8 +6,44 @@ export type SocketExit = { componentId?: string; axis: Point; glandBypass?: bool
 const vec = (p: Point) => new THREE.Vector3(...p)
 const tuple = (p: THREE.Vector3): Point => [p.x, p.y, p.z]
 
+/** Volume orientado: a caixa mundial serve a pesquisa; as colisões usam o referencial físico. */
+export class OrientedWireBox extends THREE.Box3 {
+  componentId?: string
+  rail?: boolean
+  hard?: boolean
+  readonly localBounds: THREE.Box3
+  readonly worldToLocal: THREE.Matrix4
+  readonly localToWorld: THREE.Matrix4
+
+  constructor(bounds: THREE.Box3, localToWorld: THREE.Matrix4) {
+    super()
+    this.localBounds = bounds.clone()
+    this.localToWorld = localToWorld.clone()
+    this.worldToLocal = localToWorld.clone().invert()
+    super.copy(bounds.clone().applyMatrix4(localToWorld))
+  }
+
+  override containsPoint(point: THREE.Vector3): boolean {
+    return this.localBounds.containsPoint(point.clone().applyMatrix4(this.worldToLocal))
+  }
+
+  override clone(): this {
+    const box = new OrientedWireBox(this.localBounds, this.localToWorld)
+    box.componentId = this.componentId; box.rail = this.rail; box.hard = this.hard
+    return box as this
+  }
+
+  override expandByScalar(pad: number): this {
+    const e = this.worldToLocal.elements
+    this.localBounds.expandByVector(new THREE.Vector3(Math.hypot(e[0], e[4], e[8]), Math.hypot(e[1], e[5], e[9]), Math.hypot(e[2], e[6], e[10])).multiplyScalar(pad))
+    super.copy(this.localBounds.clone().applyMatrix4(this.localToWorld))
+    return this
+  }
+}
+
 /** Interseção exata segmento/volume, sem saltar corpos finos entre amostras. */
 export function segmentEntersBox(a: Point, b: Point, box: THREE.Box3): boolean {
+  if (box instanceof OrientedWireBox) return segmentEntersBox(tuple(vec(a).applyMatrix4(box.worldToLocal)), tuple(vec(b).applyMatrix4(box.worldToLocal)), box.localBounds)
   let lo = 0, hi = 1
   for (let axis = 0; axis < 3; axis++) {
     const min = box.min.getComponent(axis) + 1e-7, max = box.max.getComponent(axis) - 1e-7
