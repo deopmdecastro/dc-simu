@@ -29,12 +29,20 @@ const motorBox = obstacles[mi].clone()
 console.log('motor box', motorBox.min.toArray().map((n) => +n.toFixed(2)), motorBox.max.toArray().map((n) => +n.toFixed(2)))
 
 let crossing = 0
+let behindPlate = 0
+let minZ = Infinity
+const plateFront = PLATE_Z + PLATE_THICKNESS / 2
+const plateOffenders: string[] = []
 const offenders: string[] = []
 for (const wire of built.wires) {
   const from = wireEndpoint3D(wire, 'from', built.components, pivots)
   const to = wireEndpoint3D(wire, 'to', built.components, pivots)
   if (!from || !to) continue
   const { points } = buildWirePath3D(wire, from, to, obstacles)
+  // o cabo nunca pode ficar atrás da face frontal da chapa (atravessar o painel)
+  const wireMinZ = Math.min(...points.map((q) => q[2]))
+  minZ = Math.min(minZ, wireMinZ)
+  if (wireMinZ < plateFront - 1e-6) { behindPlate++; plateOffenders.push(`${wire.number} z=${wireMinZ.toFixed(3)}`) }
   const endsOnMotor = [wire.fromTerminalId, wire.toTerminalId].some((id) => id.startsWith(motor.id))
   // zona de chegada ao borne do motor: 0,25 u (25 mm) à volta da ponta que lá está
   const motorEnds = [from, to].filter((_, i) => (i === 0 ? wire.fromTerminalId : wire.toTerminalId).startsWith(motor.id)).map((e) => new THREE.Vector3(...e.position))
@@ -66,5 +74,6 @@ for (const wire of built.wires) {
   if (hit) { crossing++; offenders.push(`${wire.number} ${wire.fromTerminalId}->${wire.toTerminalId}`) }
 }
 check('Nenhum cabo 3D passa pelo motor (nem à frente dele)', crossing === 0, crossing ? `${crossing}: ${offenders.slice(0, 6).join(' | ')}` : '')
+check('Nenhum cabo 3D atravessa a chapa do painel (z ≥ face frontal)', behindPlate === 0, behindPlate ? `${behindPlate}: ${plateOffenders.slice(0, 6).join(' | ')}` : `z mínimo ${minZ.toFixed(3)} ≥ ${plateFront.toFixed(3)}`)
 if (failed) { console.log(`\n❌ ${failed} falha(s)`); process.exit(1) }
 console.log('\n✅ TODOS OS TESTES PASSARAM')

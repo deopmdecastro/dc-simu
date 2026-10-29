@@ -3,6 +3,7 @@
  * três pás com rotação e biblioteca de texturas reais do editor de elementos.
  * Corre sem rede: os GLB e as texturas vêm de `public/`.
  */
+import './node-env'
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import path from 'node:path'

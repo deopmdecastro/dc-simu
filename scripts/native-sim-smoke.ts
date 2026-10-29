@@ -21,14 +21,14 @@ check('PLC1 alimentado (L+/M)', comp('PLC1').state.powered === true)
 check('Repouso: H2 (parado) acesa, H1 e KM1 apagados', comp('H2').state.on === true && comp('H1').state.on === false && comp('KM1').state.energized === false)
 check('Repouso: motor parado', comp('M1').state.running === false)
 
-comp('S1').state.startPressed = true; run(3)
-comp('S1').state.startPressed = false; run(10)
+comp('B1').state.startPressed = true; run(3)
+comp('B1').state.startPressed = false; run(10)
 check('START: KM1 fecha (retenção após largar)', comp('KM1').state.energized === true)
 check('START: H1 (marcha) acesa e H2 apagada', comp('H1').state.on === true && comp('H2').state.on === false)
 check('START: motor roda em sentido horário', comp('M1').state.running === true && comp('M1').state.direction === 'cw' && comp('M1').state.rpmVisual > 0.9)
 
-comp('S1').state.stopPressed = true; run(3)
-comp('S1').state.stopPressed = false; run(10)
+comp('B1').state.stopPressed = true; run(3)
+comp('B1').state.stopPressed = false; run(10)
 check('STOP: KM1 abre, H2 acende, H1 apaga', comp('KM1').state.energized === false && comp('H2').state.on === true && comp('H1').state.on === false)
 check('STOP: motor pára', comp('M1').state.running === false && comp('M1').state.rpmVisual < 0.05)
 

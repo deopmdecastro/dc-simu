@@ -1,3 +1,4 @@
+import './node-env'
 /**
  * Varre cada GLB da biblioteca à procura das interfaces reais do aparelho:
  * furos/encaixes de bornes (por face) e objetos candidatos a peça móvel

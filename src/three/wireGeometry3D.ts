@@ -519,6 +519,19 @@ export function roundCorners(points: V3[], outerMm: number): V3[] {
   return out
 }
 
+/**
+ * Bornes «traseiros» (botões, lâmpadas) mandam a aproximação para -Z, isto é, para dentro da
+ * chapa, e o cabo mergulha atrás dela antes de voltar à ponta. Os pontos intermédios ficam
+ * sempre à frente da chapa; as duas pontas (bornes) nunca se mexem. Pontos manuais do
+ * utilizador são respeitados.
+ */
+export function keepInFrontOfPlate(points: V3[], outerMm: number, manual = false): V3[] {
+  if (manual || points.length < 3) return points
+  const limit = wireFrontLimit(outerMm)
+  const last = points.length - 1
+  return points.map((point, i) => (i === 0 || i === last || point[2] >= limit ? point : ([point[0], point[1], limit] as V3)))
+}
+
 export type WirePath3D = {
   points: V3[]
   starts: [WireEndGeometry, WireEndGeometry]
@@ -571,8 +584,8 @@ export function buildWirePath3D(wire: Wire, from: WireEndpoint3D, to: WireEndpoi
   const preliminary = wireBodyPoints3D(wire, from.position, to.position, outerMm, {}, obstacles, trunkHint, plan)
   const a = endHead(from, endTypeOf(wire, 'from'), preliminary[Math.min(1, preliminary.length - 1)])
   const b = endHead(to, endTypeOf(wire, 'to'), preliminary[Math.max(0, preliminary.length - 2)])
-  const points = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles, trunkHint, plan)
-  return { points, starts: [a.geometry, b.geometry] }
+  const body = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles, trunkHint, plan)
+  return { points: keepInFrontOfPlate(body, outerMm, !!wire.waypoints3D?.length), starts: [a.geometry, b.geometry] }
 }
 
 /* ------------------------------------------------------------------- medidas */

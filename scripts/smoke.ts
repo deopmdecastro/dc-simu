@@ -1,3 +1,4 @@
+import './node-env'
 import fs from 'node:fs'
 import { lintLadder } from '../src/ladder/ladderLint'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
