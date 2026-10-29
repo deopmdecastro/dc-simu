@@ -1249,7 +1249,18 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
       <g
         key={c.id}
         transform={`translate(${c.schematicX},${c.schematicY}) rotate(${c.rotation},${c.w / 2},${c.h / 2}) ${c.mirrored ? `translate(${c.w},0) scale(-1,1)` : ''}`}
-        onMouseDown={(e) => startDrag(e, c)}
+        onMouseDown={(e) => {
+          // Em RUN/PAUSA: clique único atua disjuntor, cogumelo e botões simples
+          // (a botoeira dupla usa as zonas START/STOP dedicadas).
+          if (simLocked && tool === 'select' && e.button === 0) {
+            if (isToggleBreaker(c) || (isPressable(c) && c.type !== 'dualPushButtonNpb22D11')) {
+              e.stopPropagation()
+              toggleField(c, true)
+              return
+            }
+          }
+          startDrag(e, c)
+        }}
         onDoubleClick={(e) => {
           e.stopPropagation()
           toggleField(c, true)

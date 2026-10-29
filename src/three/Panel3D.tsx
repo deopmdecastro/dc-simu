@@ -607,7 +607,13 @@ function LogoFrontPanel({ c, interactive = true, screen = LOGO_SCREEN_FALLBACK }
     const [px, py] = LOGO_KEYS[id] as readonly [number, number]
     return <mesh key={id} name={`logo-tecla-${id}`} position={[px, py, LOGO_KEYS.z + 0.002]}
       onPointerDown={(event) => { if (interactive) event.stopPropagation() }}
-      onPointerUp={(event) => { if (!interactive) return; event.stopPropagation(); useSimStore.getState().selectComponents([c.id]); action() }}>
+      onPointerUp={(event) => {
+        if (!interactive) return
+        event.stopPropagation()
+        const locked = useSimStore.getState().sim.runState === 'running' || useSimStore.getState().sim.runState === 'paused'
+        if (!locked) useSimStore.getState().selectComponents([c.id])
+        action()
+      }}>
       <circleGeometry args={[radius, 18]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} />
     </mesh>
   }
@@ -2067,8 +2073,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const runState = useSimStore((s) => s.sim.runState)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
   const editMode: Panel3DEditMode = tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
-  const interactive = runState === 'running' && tool === 'select' && !viewOrientationEditor
+  // Atuar botões/disjuntores: sempre com ferramenta Selecionar (STOP ou RUN).
+  // Bloquear só seleção/arrasto/edição durante RUN/PAUSA.
+  const canActuate = tool === 'select' && !viewOrientationEditor
+  const interactive = canActuate
   const simLocked = (runState === 'running' || runState === 'paused') && !viewOrientationEditor
+
   const probeA = useSimStore((state) => state.probeA)
   const probeResult = useSimStore((state) => state.probeResult)
   const [reconnect, setReconnect] = useState<{ wireId: string; end: 'from' | 'to' } | null>(null)
@@ -2350,11 +2360,15 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     const currentTool = useSimStore.getState().tool
     if (currentTool === 'erase') { removePanelComponent(component.id); return }
     if (currentTool !== 'select') return
-    if (interactive && !component.locked) {
-      // Em RUN: só intervenções (botões / liga-desliga). Não alterar a seleção.
+    if (component.locked) return
+    if (canActuate) {
+      // Botões, cogumelo, START/STOP: atuam em STOP e em RUN.
       action()
+      // Em RUN/PAUSA não mexer na seleção; em STOP o dispositivo fica no Inspetor.
+      if (!simLocked) selectComponents([component.id])
+    } else if (!simLocked) {
+      selectComponents([component.id])
     }
-    else if (!interactive) selectComponents([component.id])
   }
   const wrapOriented = (component: ElectricalComponent, content: ReactNode) => {
     const source = basePivots[component.id]
@@ -2780,11 +2794,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           else content = <Breaker3D c={c} x={x} />
           const isBreaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breaker4p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'motorBreaker', 'residualBreaker'].includes(c.type)
           if (isBreaker) content = <group onClick={(event) => {
-            if (!interactive || c.locked) return
+            if (!canActuate || c.locked) return
             event.stopPropagation()
-            // Atuar e selecionar: em RUN um clique no disjuntor liga/desliga E
-            // traz o componente para o Inspetor (como fora da simulação).
-            useSimStore.getState().selectComponents([c.id])
+            // Liga/desliga em STOP e em RUN; seleção só fora da simulação.
+            if (!simLocked) useSimStore.getState().selectComponents([c.id])
             const closed = !!c.state.closed && !c.state.tripped
             useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })
           }}>{content}</group>
