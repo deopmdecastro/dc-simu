@@ -21,9 +21,9 @@ type Pt = { x: number; y: number }
 type Rect = { x0: number; y0: number; x1: number; y1: number }
 
 /** Margem de segurança em volta de cada dispositivo (px do esquema 2D). */
-const MARGIN = 14
+const MARGIN = 22
 /** Afastamento entre cabos que partilham a mesma faixa (px). */
-const LANE_SPREAD = 10
+const LANE_SPREAD = 14
 /** Número de faixas candidatas em cada direção. */
 const LANE_TRIES = 7
 

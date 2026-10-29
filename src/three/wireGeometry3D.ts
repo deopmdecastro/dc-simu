@@ -202,7 +202,7 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
 export const wireFrontLimit = (outerMm: number) => PLATE_Z + PLATE_THICKNESS / 2 + (outerMm / 2) * U + 0.01
 
 const segmentHitsBox = (from: THREE.Vector3, to: THREE.Vector3, box: THREE.Box3): boolean => {
-  const steps = 14
+  const steps = 28
   const point = new THREE.Vector3()
   for (let step = 0; step <= steps; step += 1) {
     point.lerpVectors(from, to, step / steps)
@@ -217,35 +217,54 @@ const segmentHitsBox = (from: THREE.Vector3, to: THREE.Vector3, box: THREE.Box3)
  * As pontas (bornes) nunca se mexem; só os pontos intermédios ganham profundidade.
  */
 export function clearObstacles(controls: V3[], outerMm: number, obstacles: WireObstacle[]): V3[] {
-  if (controls.length < 3) return controls
+  if (controls.length < 2) return controls
   const out = controls.map((point) => [...point] as V3)
   const frontZ = wireFrontLimit(outerMm)
-  // Nunca atravessar a chapa de montagem: todos os pontos intermédios ficam
-  // à frente do plano da chapa (mais a meia espessura do cabo).
+  // Nunca atravessar a chapa de montagem: pontos intermédios ficam à frente do plano
+  // da chapa (meia espessura do cabo + folga). As pontas (bornes) não se mexem.
   for (let index = 1; index < out.length - 1; index += 1) out[index][2] = Math.max(out[index][2], frontZ)
-  // Clamp final de segurança em todos os controlos (exceto pontas nos bornes).
-  for (let index = 1; index < out.length - 1; index += 1) {
-    if (out[index][2] < frontZ) out[index][2] = frontZ
-  }
   if (obstacles.length === 0) return out
-  const pad = (outerMm / 2) * U + 0.02
+  const pad = (outerMm / 2) * U + 0.045
   const grown = obstacles.map((box) => box.clone().expandByScalar(pad))
-  for (let pass = 0; pass < 3; pass += 1) {
+  for (let pass = 0; pass < 6; pass += 1) {
     let changed = false
     for (let index = 0; index < out.length - 1; index += 1) {
       const from = v(out[index])
       const to = v(out[index + 1])
       for (const box of grown) {
-        // caixa onde a própria ponta está presa (o borne fica na face): não conta
+        // O segmento que sai/chega ao borne do próprio equipamento não conta.
         if (box.containsPoint(from) && index === 0) continue
         if (box.containsPoint(to) && index + 1 === out.length - 1) continue
         if (!segmentHitsBox(from, to, box)) continue
-        const front = box.max.z
+        // 1) Passar à frente do volume (como cabo real na face da peça).
+        const front = box.max.z + pad * 0.35
         if (index > 0 && out[index][2] < front) { out[index][2] = front; changed = true }
         if (index + 1 < out.length - 1 && out[index + 1][2] < front) { out[index + 1][2] = front; changed = true }
+        // 2) Se ainda atravessa o volume (peça alta / por dentro), empurrar em X/Y
+        //    para a face livre mais próxima — nunca cortar o corpo do elemento.
+        for (const idx of [index, index + 1]) {
+          if (idx <= 0 || idx >= out.length - 1) continue
+          const p = v(out[idx])
+          // Reavalia o segmento após o empurrão em Z.
+          if (!box.containsPoint(p) && !segmentHitsBox(v(out[index]), v(out[index + 1]), box)) continue
+          const cx = (box.min.x + box.max.x) * 0.5
+          const cy = (box.min.y + box.max.y) * 0.5
+          const targetX = p.x < cx ? box.min.x - pad * 0.5 : box.max.x + pad * 0.5
+          const targetY = p.y < cy ? box.min.y - pad * 0.5 : box.max.y + pad * 0.5
+          if (Math.abs(targetX - p.x) <= Math.abs(targetY - p.y)) {
+            if (Math.abs(out[idx][0] - targetX) > 1e-4) { out[idx][0] = targetX; changed = true }
+          } else {
+            if (Math.abs(out[idx][1] - targetY) > 1e-4) { out[idx][1] = targetY; changed = true }
+          }
+          out[idx][2] = Math.max(out[idx][2], Math.max(frontZ, front))
+        }
       }
     }
     if (!changed) break
+  }
+  // Clamp final: intermédios sempre à frente da chapa.
+  for (let index = 1; index < out.length - 1; index += 1) {
+    out[index][2] = Math.max(out[index][2], frontZ)
   }
   return out
 }

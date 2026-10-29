@@ -885,11 +885,17 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
         const material = finishCadMaterial(source, { envMapIntensity: 1.1 })
         if (!(material instanceof THREE.MeshStandardMaterial)) return material
         const color = material.color
-        const redPolymer = color.r > color.g * 1.35 && color.r > color.b * 1.25
+        const name = (material.name || '').toLowerCase()
+        const redPolymer = color.r > color.g * 1.2 && color.r > color.b * 1.15
+          || name.includes('cogumelo') || name.includes('vermelho')
         const darkPolymer = color.getHSL({ h: 0, s: 0, l: 0 }).l < 0.42 && !redPolymer
         if (redPolymer) {
-          material.roughness = 0.34
-          material.metalness = 0.025
+          // Cabeça do cogumelo: vermelho vivo RAL-like (não cinza/metal).
+          material.color.set('#e11d48')
+          material.emissive.set('#7f1d1d')
+          material.emissiveIntensity = 0.06
+          material.roughness = 0.38
+          material.metalness = 0.02
           material.roughnessMap = polymerGrain
           material.bumpMap = polymerGrain
           material.bumpScale = 0.00018
