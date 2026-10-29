@@ -198,8 +198,9 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
   return boxes
 }
 
-/** Z mínimo (à frente da chapa de montagem) em que um cabo com este diâmetro pode passar. */
-export const wireFrontLimit = (outerMm: number) => PLATE_Z + PLATE_THICKNESS / 2 + (outerMm / 2) * U + 0.01
+/** Z mínimo (à frente da chapa de montagem) em que um cabo com este diâmetro pode passar.
+ * Folga extra de 4 mm para o isolamento não “entrar” na chapa em vistas laterais. */
+export const wireFrontLimit = (outerMm: number) => PLATE_Z + PLATE_THICKNESS / 2 + (outerMm / 2) * U + 0.04
 
 const segmentHitsBox = (from: THREE.Vector3, to: THREE.Vector3, box: THREE.Box3): boolean => {
   const steps = 28
@@ -224,9 +225,14 @@ export function clearObstacles(controls: V3[], outerMm: number, obstacles: WireO
   // da chapa (meia espessura do cabo + folga). As pontas (bornes) não se mexem.
   for (let index = 1; index < out.length - 1; index += 1) out[index][2] = Math.max(out[index][2], frontZ)
   if (obstacles.length === 0) return out
-  const pad = (outerMm / 2) * U + 0.045
-  const grown = obstacles.map((box) => box.clone().expandByScalar(pad))
-  for (let pass = 0; pass < 6; pass += 1) {
+  // Pad um pouco maior para equipamentos «hard» (motor, etc.) e para a chapa.
+  const pad = (outerMm / 2) * U + 0.055
+  const grown = obstacles.map((box) => {
+    const expanded = box.clone().expandByScalar(pad)
+    if (box.hard) expanded.expandByScalar(0.02)
+    return expanded
+  })
+  for (let pass = 0; pass < 8; pass += 1) {
     let changed = false
     for (let index = 0; index < out.length - 1; index += 1) {
       const from = v(out[index])

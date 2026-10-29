@@ -1812,33 +1812,37 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMod
     const fromPosition = camera.position.clone()
     const fromTarget = controls.target.clone()
     camera.up.set(0, 1, 0)
+    // Distância: se veio de um foco (radius), enquadra o objeto; senão usa a largura da cena.
+    const limitingFov = Math.min(verticalFov, horizontalFov)
+    const framedDistance = command.radius != null
+      ? Math.max(0.5, command.radius / Math.sin(limitingFov / 2) * 1.18)
+      : fitDistance
     if (command.view === 'focus') {
       const direction = camera.position.clone().sub(controls.target).normalize()
       if (!Number.isFinite(direction.x) || direction.lengthSq() < 0.1) direction.set(0.25, 0.35, 1)
-      const limitingFov = Math.min(verticalFov, horizontalFov)
-      const distance = Math.max(0.5, (command.radius ?? 0.6) / Math.sin(limitingFov / 2) * 1.18)
-      position = target.clone().add(direction.multiplyScalar(distance))
+      position = target.clone().add(direction.multiplyScalar(framedDistance))
     } else if (command.view === 'front') {
-      position = target.clone().add(new THREE.Vector3(0, 0.02, fitDistance))
+      position = target.clone().add(new THREE.Vector3(0, 0.02, framedDistance))
     } else if (command.view === 'back') {
-      position = target.clone().add(new THREE.Vector3(0, 0.02, -fitDistance))
+      position = target.clone().add(new THREE.Vector3(0, 0.02, -framedDistance))
     } else if (command.view === 'right') {
-      position = target.clone().add(new THREE.Vector3(fitDistance, 0.02, 0))
+      position = target.clone().add(new THREE.Vector3(framedDistance, 0.02, 0))
     } else if (command.view === 'left') {
-      position = target.clone().add(new THREE.Vector3(-fitDistance, 0.02, 0))
+      position = target.clone().add(new THREE.Vector3(-framedDistance, 0.02, 0))
     } else if (command.view === 'angles') {
       // Ângulos livres (cantos do cubo / vista vinda do Esquema 2D): yaw 0° = frente, pitch > 0 = por cima.
       const yaw = THREE.MathUtils.degToRad(command.yaw ?? 0)
       const pitch = THREE.MathUtils.degToRad(Math.max(-89, Math.min(89, command.pitch ?? 0)))
-      position = target.clone().add(new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch) + 0.02, Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(fitDistance))
+      position = target.clone().add(new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch) + 0.02, Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(framedDistance))
     } else if (command.view === 'top') {
       camera.up.set(0, 0, -1)
-      position = target.clone().add(new THREE.Vector3(0, fitDistance, 0.01))
+      position = target.clone().add(new THREE.Vector3(0, framedDistance, 0.01))
     } else if (command.view === 'bottom') {
       camera.up.set(0, 0, 1)
-      position = target.clone().add(new THREE.Vector3(0, -fitDistance, 0.01))
+      position = target.clone().add(new THREE.Vector3(0, -framedDistance, 0.01))
     } else {
-      position = target.clone().add(new THREE.Vector3(fitDistance * 0.68, fitDistance * 0.48, fitDistance * 0.78))
+      // Isométrica: motor e equipamento isolado usam framedDistance; cena completa usa fit.
+      position = target.clone().add(new THREE.Vector3(framedDistance * 0.68, framedDistance * 0.48, framedDistance * 0.78))
     }
     const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     const fromOffset = fromPosition.clone().sub(fromTarget)
@@ -2421,8 +2425,19 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
   const selectionSphere = selectionBox.isEmpty() ? null : selectionBox.getBoundingSphere(new THREE.Sphere())
   const selectedTarget = selectionSphere ? selectionSphere.center.toArray() as [number, number, number] : null
+  /** Motor fora do painel: isométrica; equipamento no painel: frontal. */
   const focusSelection = () => {
-    if (selectedTarget && selectionSphere) setCameraCommand((current) => ({ id: current.id + 1, view: 'focus', target: selectedTarget, radius: selectionSphere.radius }))
+    if (!selectedTarget || !selectionSphere) return
+    const selected = components.filter((item) => selectedIds.includes(item.id))
+    const onlyMotor = selected.length > 0 && selected.every((c) => c.type === 'motor3ph' || !isPanelBound(c))
+    const hasMotor = selected.some((c) => c.type === 'motor3ph')
+    const view: PanelCameraView = hasMotor && (onlyMotor || selected.length === 1) ? 'isometric' : 'front'
+    setCameraCommand((current) => ({
+      id: current.id + 1,
+      view,
+      target: selectedTarget,
+      radius: selectionSphere.radius,
+    }))
   }
   const beginWireEdit = (wire: Wire) => {
     const store = useSimStore.getState()

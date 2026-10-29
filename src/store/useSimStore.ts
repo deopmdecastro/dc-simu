@@ -1787,8 +1787,10 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   moveComponent: (id, x, y, movingIds) => {
-    // Demonstração da landing: arrastar componentes edita a obra — bloqueado.
+    // Demonstração e simulação em curso: utilizadores não movem componentes.
     if (get().demoMode) return
+    const run = get().sim.runState
+    if (run === 'running' || run === 'paused') return
     set((s) => {
       const moved = s.components.find((component) => component.id === id)
       if (!moved) return {}
@@ -1900,6 +1902,13 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   deleteComponents: (ids) => {
+    // Demonstração e simulação em curso: utilizadores não apagam componentes.
+    if (get().demoMode) return
+    const run = get().sim.runState
+    if (run === 'running' || run === 'paused') {
+      get().pushEvent('warning', 'Não é possível apagar componentes enquanto a simulação está a correr ou em pausa.')
+      return
+    }
     get().commitHistory()
     set((s) => {
       const remaining = s.components.filter((c) => !ids.includes(c.id))
@@ -1926,6 +1935,9 @@ export const useSimStore = create<Store>((set, get) => ({
 
 
   rotateComponents: (ids, deltaDeg) => {
+    if (get().demoMode) return
+    const run = get().sim.runState
+    if (run === 'running' || run === 'paused') return
     const movable = ids.filter((id) => !get().components.find((item) => item.id === id)?.locked)
     if (!movable.length) return
     get().commitHistory()
@@ -2157,6 +2169,12 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   deleteWire: (id) => {
+    if (get().demoMode) return
+    const run = get().sim.runState
+    if (run === 'running' || run === 'paused') {
+      get().pushEvent('warning', 'Não é possível apagar cabos enquanto a simulação está a correr ou em pausa.')
+      return
+    }
     get().commitHistory()
     set((s) => ({ wires: s.wires.filter((w) => w.id !== id), selectedWireId: null, dirty: true }))
     get().step()
