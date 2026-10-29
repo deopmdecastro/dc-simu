@@ -17,7 +17,7 @@ import { getWeg3DImage } from '../schematic/weg3DImage'
 import { getCad3DImage } from '../schematic/cad3DImage'
 import { getComponentModelSpec } from './modelPaths'
 import { isTerminalAssemblyComponent } from './terminalAssembly'
-import { defaultComponentTurntablePitch, getComponentTurntableFrames } from './componentTurntable'
+import { defaultComponentTurntablePitch, getComponentTurntableFrames, getComponentTurntableHero } from './componentTurntable'
 import * as THREE from 'three'
 import { TEMPLATES } from '../electrical/factory'
 import type { ComponentType } from '../types'
@@ -416,7 +416,9 @@ export function ComponentThumb({ type, size = 26 }: { type: ComponentType; size?
  */
 export function InteractiveComponentThumb({ type, size = 112 }: { type: ComponentType; size?: number }) {
   const defaultPitch = defaultComponentTurntablePitch()
+  const [heroSrc, setHeroSrc] = useState<string | null>(null)
   const [frames, setFrames] = useState<string[] | null>(null)
+  const [interactiveLoaded, setInteractiveLoaded] = useState(false)
   const [yawSteps, setYawSteps] = useState(12)
   const [pitchSteps, setPitchSteps] = useState(5)
   const [yaw, setYaw] = useState(0)
@@ -428,7 +430,25 @@ export function InteractiveComponentThumb({ type, size = 112 }: { type: Componen
   const requestRef = useRef(0)
   const pointer = useRef({ id: -1, x: 0, y: 0, yaw: 0, pitch: defaultPitch })
 
+  // 1.º fotograma leve: 1 render único por cartão (sem bloquear a página com 12 capturas).
   useEffect(() => {
+    let alive = true
+    setFailed(false)
+    void getComponentTurntableHero(type, defaultPitch)
+      .then((src) => {
+        if (!alive) return
+        setHeroSrc(src)
+      })
+      .catch(() => {
+        if (!alive) return
+        setFailed(true)
+      })
+    return () => { alive = false }
+  }, [defaultPitch, type])
+
+  // Faixa de rotação completa: gerada apenas quando o utilizador interage (arrasto/teclado).
+  useEffect(() => {
+    if (!interactiveLoaded && pitch === defaultPitch) return
     const request = ++requestRef.current
     setPending(true)
     setFailed(false)
@@ -447,17 +467,22 @@ export function InteractiveComponentThumb({ type, size = 112 }: { type: Componen
         setPending(false)
       })
     return () => { requestRef.current += 1 }
-  }, [pitch, type])
+  }, [defaultPitch, interactiveLoaded, pitch, type])
 
   useEffect(() => {
+    setHeroSrc(null)
     setFrames(null)
+    setInteractiveLoaded(false)
     setYaw(0)
     setPitch(defaultPitch)
     setDisplayPitch(defaultPitch)
   }, [defaultPitch, type])
 
   const normalizedYaw = (value: number) => (value % yawSteps + yawSteps) % yawSteps
-  const movePitch = (delta: number) => setPitch((value) => Math.max(0, Math.min(pitchSteps - 1, value + delta)))
+  const movePitch = (delta: number) => {
+    setInteractiveLoaded(true)
+    setPitch((value) => Math.max(0, Math.min(pitchSteps - 1, value + delta)))
+  }
   const finishPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (pointer.current.id !== event.pointerId) return
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
@@ -467,6 +492,7 @@ export function InteractiveComponentThumb({ type, size = 112 }: { type: Componen
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault()
+      setInteractiveLoaded(true)
       setYaw((value) => normalizedYaw(value + (event.key === 'ArrowLeft' ? -1 : 1)))
     } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
       event.preventDefault()
@@ -478,8 +504,8 @@ export function InteractiveComponentThumb({ type, size = 112 }: { type: Componen
     }
   }
 
-  if (!frames) return <div className={`dc-real-glb-loading${failed ? ' is-error' : ''}`} style={{ width: size, height: size }} role="status" aria-label={failed ? 'Modelo 3D indisponível' : 'A carregar modelo 3D'} />
-  const src = frames[normalizedYaw(yaw)]
+  const src = frames ? frames[normalizedYaw(yaw)] : heroSrc
+  if (!src) return <div className={`dc-real-glb-loading${failed ? ' is-error' : ''}`} style={{ width: size, height: size }} role="status" aria-label={failed ? 'Modelo 3D indisponível' : 'A carregar modelo 3D'} />
   return <div
     className={`dc-turntable-control${dragging ? ' is-dragging' : ''}${pending || displayPitch !== pitch ? ' is-rendering' : ''}`}
     style={{ width: size, height: size }}
@@ -489,6 +515,7 @@ export function InteractiveComponentThumb({ type, size = 112 }: { type: Componen
     aria-busy={pending}
     onPointerDown={(event) => {
       event.preventDefault()
+      setInteractiveLoaded(true)
       pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY, yaw, pitch }
       event.currentTarget.setPointerCapture(event.pointerId)
       setDragging(true)

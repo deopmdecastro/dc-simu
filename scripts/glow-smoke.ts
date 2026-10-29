@@ -77,4 +77,40 @@ const defaults = glowSettings({ kind: 'led' })
 ok(defaults.enabled && defaults.size === 1 && defaults.riseMs < glowSettings({ kind: 'lamp' }).riseMs, 'predefinições: LED mais rápido que lâmpada')
 const custom = glowSettings({ kind: 'lamp', glow: { enabled: false, size: 99, riseMs: -5, fallMs: Number.NaN } })
 ok(!custom.enabled && custom.size === 3 && custom.riseMs === 0 && custom.fallMs === 280, 'valores fora de limites são corrigidos')
+
+// --- posicionamento do halo colado à lente de vidro (mesmo com pai deslocado na cena)
+import { StateAnimator } from '../src/catalog/stateAnimator'
+import { defaultDefinition } from '../src/catalog/definition'
+if (typeof globalThis.document === 'undefined') {
+  ;(globalThis as unknown as { document: unknown }).document = {
+    createElement: () => ({
+      width: 0, height: 0,
+      getContext: () => ({
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        fillStyle: '',
+        fillRect: () => {},
+      }),
+    }),
+  }
+}
+const lampRoot = new THREE.Group()
+lampRoot.position.set(1.2, 1.7, 0.25) // simula pivô no painel antes do 1.º frame
+const lensGeom = new THREE.CylinderGeometry(11, 11, 6, 16)
+lensGeom.rotateX(Math.PI / 2)
+const lensMesh = new THREE.Mesh(lensGeom, new THREE.MeshStandardMaterial({ color: '#22c55e', transparent: true, opacity: 0.7 }))
+lensMesh.name = 'lens'
+lensMesh.position.set(0, 0, 22) // lente frontal a z = +22 mm no espaço local do sinalizador
+lampRoot.add(lensMesh)
+const lampDef = defaultDefinition()
+lampDef.parts = [{ id: 'lens', name: 'Lente', kind: 'box', size: [22, 22, 6], parentId: null, position: [0, 0, 22], rotation: [0, 0, 0], scale: [1, 1, 1], visible: true, materialId: null }]
+lampDef.lights = [{ id: 'main', name: 'Lente', partId: 'lens', color: '#22c55e', intensity: 2.5, kind: 'lamp', when: { var: 'lit', op: 'eq', value: true } }]
+lampDef.variables = [{ id: 'lit', name: 'Aceso', type: 'bool', initial: true }]
+const anim = new StateAnimator(lampDef, lampRoot)
+anim.setVars({ lit: true })
+anim.update(0.25)
+const mountedHalo = lampRoot.children.find((ch) => ch.userData[GLOW_HALO_FLAG])
+ok(Boolean(mountedHalo), 'halo montado na raiz do sinalizador sem inflacionar a malha da lente')
+ok(Math.abs(mountedHalo!.position.x) < 1e-4 && Math.abs(mountedHalo!.position.y) < 1e-4, 'halo centrado exatamente no eixo da lente (imune ao pivô do painel)')
+ok(mountedHalo!.position.z >= 25.0 && mountedHalo!.position.z <= 25.8, 'halo encostado à face frontal do vidro da lente (z = 22 + 3 + ~0.33 mm)')
+
 console.log(`${checks} verificações de brilho passaram.`)

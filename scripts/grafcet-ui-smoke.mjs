@@ -18,7 +18,10 @@ await context.route('**/*', (route) => {
   const font = ['fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)
   return local || font ? route.continue() : route.abort()
 })
-await context.addInitScript(() => localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin'))
+await context.addInitScript(() => {
+  localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-user')
+  localStorage.setItem('dcsimu:saas:plans:v1', JSON.stringify({ 'dcsimu-user': { plan: 'pro', planExpiresAt: null } }))
+})
 const page = await context.newPage()
 page.on('pageerror', (error) => errors.push(error.message))
 const check = (condition, message) => { assert.ok(condition, message); console.log(`PASS — ${message}`) }
@@ -492,7 +495,7 @@ try {
   // A paleta pode já estar aberta; abri-la outra vez fechá-la-ia. O botão da barra fica sob o
   // véu da própria paleta a este tamanho, por isso é acionado pelo elemento (posição já verificada).
   if (!(await toolbox.isVisible())) {
-    await page.locator('.dc-grafcet-toolbar').getByRole('button', { name: 'Componentes', exact: true }).first().evaluate((el) => el.click())
+    await page.locator('.grafcet-palette-tool').first().evaluate((el) => el.click())
     await page.waitForTimeout(500)
   }
   const lastTool = toolbox.getByRole('button', { name: /Convergência AND/ })

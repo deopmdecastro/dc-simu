@@ -25,7 +25,7 @@ assert('Pá montada no sítio real do veio (MOTOR_FAN.hubX do editor)', hero.inc
 assert('Usa o GLB real do motor3ph (catálogo)', hero.includes("'motor3ph'") && hero.includes('getComponentModelSpec') && hero.includes('useGLTF(spec.path)'))
 assert('Mesmo acabamento CAD do showcase (helpers partilhados)', /preparedModel, cloneMaterials, applyModelState[\s\S]*from '\.\/LandingShowcase'/.test(hero))
 assert('Pás do veio sempre em marcha e em sentido horário', hero.includes('MotorShaftFan3D') && /rpmVisual:\s*0\.9/.test(hero) && hero.includes("direction: 'cw'"))
-assert('Hero maior: FILL 0,74 da altura útil', /const FILL = 0\.74/.test(hero))
+assert('Hero maior: FILL 0,90 da área útil por projeção real', /const FILL = 0\.90/.test(hero))
 assert('Sombra de contacto estática (frames={1}), não re-renderizada por frame', /<ContactShadows[^>]*frames=\{1\}/.test(hero))
 assert('Resolução adaptativa (PerformanceMonitor) e GPU por omissão', hero.includes('PerformanceMonitor') && hero.includes("powerPreference: 'default'") && !hero.includes("'low-power'"))
 assert('Vista isométrica por omissão (FitIsoCamera, direção 1,0.82,1)', hero.includes('FitIsoCamera') && /ISO_DIR\s*=\s*new THREE\.Vector3\(1,\s*0\.82,\s*1\)/.test(hero))

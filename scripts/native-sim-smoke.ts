@@ -33,7 +33,10 @@ check('STOP: KM1 abre, H2 acende, H1 apaga', comp('KM1').state.energized === fal
 check('STOP: motor pára', comp('M1').state.running === false && comp('M1').state.rpmVisual < 0.05)
 
 const panel = readFileSync(new URL('../src/three/Panel3D.tsx', import.meta.url), 'utf8')
-check('Projeto nativo abre o 3D em isométrica (isoFirst)', panel.includes('s.demoMode || !!s.nativeId') && panel.includes("frontEdit && !isoFirst ? 'front' : 'isometric'"))
+check('Simulador abre em vista frontal e apenas M1 usa orientação isométrica',
+  panel.includes("view: 'front'") && !panel.includes('isoFirst')
+  && comp('M1').viewOrientation?.y === -35
+  && comp('KM1').viewOrientation?.x === 0 && comp('KM1').viewOrientation?.y === 0)
 
 if (failed) { console.log(`\n❌ ${failed} falha(s)`); process.exit(1) }
 console.log('\n✅ TODOS OS TESTES PASSARAM')

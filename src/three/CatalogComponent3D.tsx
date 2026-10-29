@@ -76,6 +76,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     const cx = origin ? origin[0] * PANEL_UNITS_PER_MM : (box.min.x + box.max.x) / 2
     const cz = origin ? origin[2] * PANEL_UNITS_PER_MM : (box.min.z + box.max.z) / 2
     object.position.set(-cx, anchor === 'bottom' ? -box.min.y : -box.min.y - height / 2, -cz)
+    object.updateMatrixWorld(true)
     return { model: object, topY: anchor === 'bottom' ? height : height / 2 }
   }, [scene, origin, anchor])
 
@@ -134,9 +135,9 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     const control = id ? rig.current?.controlById(id) : undefined
     if (!id || !control || !version) return false
     event.stopPropagation()
-    // Atuar o controlo também seleciona o componente: em RUN, premir um botão
-    // continua a mostrar o dispositivo no Inspetor (o stopPropagation engolia o clique).
-    useSimStore.getState().selectComponents([c.id])
+    // Atuar o controlo também seleciona o componente fora da demonstração: em RUN, premir um botão
+    // continua a mostrar o dispositivo no Inspetor (na demonstração os componentes não são editáveis).
+    if (!useSimStore.getState().demoMode) useSimStore.getState().selectComponents([c.id])
     if (control.kind === 'selector') { triggerControl(version.definition, c.id, control, { step: event.shiftKey ? -1 : 1 }); return true }
     pressed.current = { id, at: performance.now() }
     rig.current?.hold(id, true); invalidate()

@@ -257,8 +257,10 @@ export const nextFreeStepNumber = (steps: readonly GrafcetStep[]): number => {
 /** Zoom máximo do diagrama (roda do rato, botões e pinça): suficiente para ler os textos num telemóvel. */
 const GRAFCET_ZOOM_MAX = 5
 
-export default function GrafcetEditor({ full = false, onOpenEditor, onOpenLadder }: { full?: boolean; onOpenEditor?: () => void; onOpenLadder?: () => void }) {
+export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, onOpenLadder }: { full?: boolean; onOpenEditor?: () => void; onOpenLadder?: () => void }) {
   const demoMode = useSimStore((state) => state.demoMode)
+  // Na demonstração da landing o GRAFCET funciona exclusivamente em modo visualização/simulação (sem edição nem eliminação).
+  const full = fullProp && !demoMode
   const program = useSimStore((state) => state.grafcet)
   const runtime = useSimStore((state) => state.grafcetRuntime)
   const table = useSimStore((state) => state.runtime.table)

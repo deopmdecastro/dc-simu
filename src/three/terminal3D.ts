@@ -1,6 +1,6 @@
 import type { Component3DScale, ElectricalComponent, Terminal } from '../types'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
-import { orientationRadians } from './componentOrientation'
+import { componentOrientationOf, orientationRadians } from './componentOrientation'
 import * as THREE from 'three'
 import { REAL_TERMINALS, realTerminalPosition, terminalInsetMm } from '../electrical/realInterfaces'
 import { editorTerminalRadiusMm } from '../catalog/terminalGeometry'
@@ -131,7 +131,7 @@ export function terminalPositionFromLocal3D(component: ElectricalComponent, loca
 export function terminalWorld3D(component: ElectricalComponent, terminal: Terminal, pivot: THREE.Vector3): THREE.Vector3 {
   const scale = component3DScaleOf(component)
   const local = terminalLocal3D(component, terminal).multiply(new THREE.Vector3(scale.x, scale.y, scale.z))
-  const [x, y, z] = orientationRadians(component.viewOrientation)
+  const [x, y, z] = orientationRadians(componentOrientationOf(component))
   local.applyEuler(new THREE.Euler(x, y, z, 'XYZ'))
   // Rotação/espelho do esquema (mesma ordem do Esquema 2D: espelha, depois roda).
   if (component.mirrored) local.x *= -1
@@ -160,7 +160,7 @@ export function terminalNormalWorld3D(component: ElectricalComponent, terminal: 
   const atCatalogSocket = socket && Math.hypot(p.x - socket.position.x, p.y - socket.position.y, p.z - socket.position.z) <= 1e-3
   const normal = atCatalogSocket ? new THREE.Vector3(...socket.normal).normalize()
     : atMeasuredSocket && spot ? new THREE.Vector3(...normals[spot.face]) : faces.sort((a, b) => a[0] - b[0])[0][1].clone()
-  const [x, y, z] = orientationRadians(component.viewOrientation)
+  const [x, y, z] = orientationRadians(componentOrientationOf(component))
   normal.applyEuler(new THREE.Euler(x, y, z, 'XYZ'))
   if (component.mirrored) normal.x *= -1
   return normal.applyEuler(new THREE.Euler(0, 0, schematicRotationRadians(component), 'XYZ')).normalize()

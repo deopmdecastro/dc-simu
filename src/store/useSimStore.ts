@@ -57,7 +57,7 @@ import type { PlannedComponent } from '../excel/componentSheet'
 import { SCHEMATIC_ORIGIN, panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { isDinRail, isRailMountable, railSpanMm, reflowRailChildren, resizeRailGeometry, snapToRail } from '../three/railMount'
 import { clampRailLengthMm } from '../three/dinRailGeometry'
-import { componentOrientationOf, componentTerminalViewKey, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions } from '../three/componentOrientation'
+import { componentOrientationOf, componentTerminalViewKey, isIsometricMotorType, MOTOR_ISOMETRIC_ORIENTATION, normalizeComponentOrientation, saveDefaultComponent3DPresentation, saveDefaultComponentOrientation, saveDefaultComponentTerminalViewPositions, ZERO_COMPONENT_ORIENTATION } from '../three/componentOrientation'
 import { automaticTerminalViewPositions, componentTerminalLocal, terminal3DFromProjectedLocal } from '../schematic/componentTerminalViews'
 import { componentPositionIsFree, nearestFreeComponentPosition, resolveComponentMove, stackOnTopPosition } from '../schematic/componentCollision'
 import { component3DScaleOf, normalizeComponent3DScale, normalizeTerminal3DPosition, terminal3DPositionOf, type Terminal3DPosition } from '../three/terminal3D'
@@ -1292,6 +1292,7 @@ export const useSimStore = create<Store>((set, get) => ({
   setDragType: (t) => set({ dragType: t && canInsertComponent3D(t) ? t : null }),
   viewOrientationEditor: null,
   openViewOrientationEditor: (componentId, section = 'orientation') => {
+    if (get().demoMode) return
     const component = get().components.find((item) => item.id === componentId)
     if (!component) return
     set({
@@ -1600,6 +1601,7 @@ export const useSimStore = create<Store>((set, get) => ({
   setWireDefaults: (patch) => set((s) => ({ wireDefaults: { ...s.wireDefaults, ...patch } })),
 
   addComponent: (type, x, y) => {
+    if (get().demoMode) return null
     if (!canInsertComponent3D(type)) {
       get().pushEvent('warning', `Componente bloqueado: não existe representação 3D disponível para ${TEMPLATES[type]?.paletteName ?? type}.`)
       return null
@@ -1681,6 +1683,7 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   duplicateComponents: (ids) => {
+    if (get().demoMode) return
     const allowedIds = ids.filter((id) => {
       const source = get().components.find((component) => component.id === id)
       return source ? canInsertComponent3D(source.type) : false
@@ -1897,6 +1900,7 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   toggleLock: (id) => {
+    if (get().demoMode) return
     get().commitHistory()
     set((s) => ({ components: s.components.map((c) => (c.id === id ? { ...c, locked: !c.locked } : c)), dirty: true }))
   },
@@ -2037,6 +2041,7 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   addWire: (fromTerminalId, toTerminalId, color, waypoints) => {
+    if (get().demoMode) return
     if (fromTerminalId === toTerminalId) return
     // Esquema com várias folhas: um fio só liga bornes da mesma folha.
     // Entre folhas usa-se uma etiqueta de rede (menu do fio, ponta solta).
@@ -2126,6 +2131,7 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   addWire3D: (from, to, waypoints3D) => {
+    if (get().demoMode) return null
     const fromId = 'terminalId' in from ? from.terminalId : ''
     const toId = 'terminalId' in to ? to.terminalId : ''
     const path = waypoints3D && waypoints3D.length ? waypoints3D : undefined
@@ -2165,6 +2171,7 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   updateWire: (id, patch) => {
+    if (get().demoMode) return
     set((s) => ({ wires: s.wires.map((w) => (w.id === id ? { ...w, ...patch } : w)), dirty: true }))
   },
 
@@ -2366,6 +2373,7 @@ export const useSimStore = create<Store>((set, get) => ({
   sendSelectionBackward: () => reorderSelection(get, set, 'backward'),
 
   deleteSelection: () => {
+    if (get().demoMode) return
     const { selectedComponentIds, selectedWireId, selectedTerminalId } = get()
     if (selectedTerminalId) return get().deleteTerminal(selectedTerminalId)
     if (selectedWireId) return get().deleteWire(selectedWireId)
@@ -2455,6 +2463,7 @@ export const useSimStore = create<Store>((set, get) => ({
 
   // ------------------------------------------------------------------- ladder
   addRung: () => {
+    if (get().demoMode) return ''
     get().commitHistory()
     const rungId = nanoid(6)
     resetGroupedEdit()
@@ -2484,12 +2493,14 @@ export const useSimStore = create<Store>((set, get) => ({
   },
 
   deleteRung: (rungId) => {
+    if (get().demoMode) return
     get().commitHistory()
     set((s) => ({ ladder: { rungs: s.ladder.rungs.filter((r) => r.id !== rungId) }, dirty: true }))
     get().step()
   },
 
   duplicateRung: (rungId) => {
+    if (get().demoMode) return
     get().commitHistory()
     set((s) => {
       const idx = s.ladder.rungs.findIndex((r) => r.id === rungId)
@@ -2647,7 +2658,13 @@ export const useSimStore = create<Store>((set, get) => ({
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
       const loadedComponents = sourceComponents.map(upgradeLogoTerminals).map(upgradeProauto24A).map(upgradeTerminalAssemblyPositions).map(upgradeRealInterfacePositions).map(upgradeProtectionTerminalPositions).map(upgradePhysicalFootprint)
-        .map((component) => upgradeComponentEditorMetadata(component, parsed.savedAt)) as ElectricalComponent[]
+        .map((component) => upgradeComponentEditorMetadata(component, parsed.savedAt))
+        .map((component) => ({
+          ...component,
+          viewOrientation: isIsometricMotorType(component.type)
+            ? { ...MOTOR_ISOMETRIC_ORIENTATION }
+            : { ...ZERO_COMPONENT_ORIENTATION },
+        })) as ElectricalComponent[]
       const componentMetadataUpgraded = loadedComponents.some((component, index) => component.editorVersion !== sourceComponents[index]?.editorVersion
         || component.editorUpdatedAt !== sourceComponents[index]?.editorUpdatedAt || component.editorLastChange !== sourceComponents[index]?.editorLastChange)
       const footprintUpgraded = loadedComponents.some((component, index) => component.w !== sourceComponents[index]?.w || component.h !== sourceComponents[index]?.h)

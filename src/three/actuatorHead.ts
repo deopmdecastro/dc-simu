@@ -99,26 +99,34 @@ export function extractActuatorHead(model: THREE.Object3D, frame: THREE.Object3D
     }
   }
   let widest = 0
-  for (let bin = 0; bin < bins; bin += 1) widest = Math.max(widest, radius[bin])
+  const searchFrom = Math.floor(bins * 0.2)
+  for (let bin = searchFrom; bin < bins; bin += 1) widest = Math.max(widest, radius[bin])
   if (widest <= 0) return null
 
-  // Fatias do aro (≥ 92 % do raio máximo), agrupadas; fica o anel mais central.
+  // Fatias mais largas na zona frontal/central (≥ 92 % do raio máximo fora do bloco traseiro).
   const ring: boolean[] = []
-  for (let bin = 0; bin < bins; bin += 1) ring.push(radius[bin] >= widest * 0.92)
-  let best = -1, bestScore = Infinity
-  for (let bin = 0; bin < bins; bin += 1) {
+  for (let bin = 0; bin < bins; bin += 1) ring.push(bin >= searchFrom && radius[bin] >= widest * 0.92)
+  let bestStart = -1, bestEnd = -1, bestScore = Infinity
+  for (let bin = searchFrom; bin < bins; bin += 1) {
     if (!ring[bin]) continue
     let end = bin
     while (end + 1 < bins && ring[end + 1]) end += 1
     const middle = (bin + end) / 2
     const score = Math.abs(middle - bins / 2)
-    if (score < bestScore) { bestScore = score; best = end }
+    if (score < bestScore) { bestScore = score; bestStart = bin; bestEnd = end }
     bin = end
   }
-  if (best < 0) return null
+  if (bestEnd < 0) return null
 
+  let afterWidest = 0
+  for (let bin = bestEnd + 1; bin < bins; bin += 1) afterWidest = Math.max(afterWidest, radius[bin])
   const slice = depth / bins
-  const cutZ = total.min.z + (best + 1) * slice + slice * 0.25
+  // Se à frente da banda mais larga ainda há cogumelo largo (ex.: aro/gola do P20AKR), corta logo à frente do aro.
+  // Se a própria banda mais larga já é o cogumelo (ex.: P20ACR com chave estreita à frente e aro mais estreito atrás),
+  // corta exatamente no início do cogumelo, preservando o aro fixo no painel.
+  const cutZ = afterWidest >= widest * 0.65
+    ? total.min.z + (bestEnd + 1) * slice + slice * 0.25
+    : total.min.z + bestStart * slice - slice * 0.15
   const headDepth = total.max.z - cutZ
   if (headDepth <= slice) return null
 

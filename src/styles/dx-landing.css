@@ -2456,6 +2456,8 @@ html:has(.dx-landing) {
 }
 @media (max-width: 480px) {
   .dc-demo-root .ladder-demo-block-label { max-width: 7.2rem; }
+  .dc-demo-root .dc-run-badge { display: none !important; }
+  .dc-demo-root .dc-toolbar-main { padding-left: 8px; padding-right: 8px; gap: 6px; }
 }
 
 .dc-demo-root .dx-input { font-size: 12.5px; }
@@ -2467,10 +2469,11 @@ html:has(.dx-landing) {
   width: 100%;
   align-self: stretch;
   min-width: 0;
-  height: clamp(340px, 38vw, 620px);
-  border-radius: 18px;
-  overflow: hidden;
-  contain: layout paint;
+  height: clamp(390px, 44vw, 660px);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
 }
 
 /* Demo landing: só simular — esconder chrome secundário */
@@ -2481,6 +2484,7 @@ html:has(.dx-landing) {
 .dc-demo-root .grafcet-bottom-dock,
 .dc-demo-root .grafcet-selection-bar,
 .dc-demo-root .grafcet-selbar,
+.dc-demo-root .grafcet-node-quickbar,
 .dc-demo-root .grafcet-properties,
 .dc-demo-root .grafcet-live-status,
 .dc-demo-root .grafcet-preview-status,

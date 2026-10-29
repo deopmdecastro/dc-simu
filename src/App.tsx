@@ -235,11 +235,11 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
           {mode === 'ladder' && !canLadder && !demo && <PlanLocked feature="ladder" />}
           {mode === 'grafcet' && !canGrafcet && !demo && <PlanLocked feature="grafcet" />}
           {mode === 'ladder' && (canLadder || demo) && <LadderEditor section={ladderSection} setSection={setLadderSection} onOpenSchematic={views.includes('schematic') ? () => { setShowLibrary(true); setMode('schematic') } : undefined} />}
-          {mode === 'grafcet' && (canGrafcet || demo) && <GrafcetEditor full onOpenLadder={() => setMode('ladder')} />}
+          {mode === 'grafcet' && (canGrafcet || demo) && <GrafcetEditor full={!demo} onOpenLadder={() => setMode('ladder')} />}
           {mode === 'monitor' && <MonitorPanel />}
         </div>
-        {mode === 'schematic' && <ComponentEditorDock />}
-        {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
+        {mode === 'schematic' && !demo && <ComponentEditorDock />}
+        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && (
           <div
             className={`${showLadder ? 'min-w-[320px]' : 'w-12'} mobile-grafcet-panel ${showLadder ? 'mobile-grafcet-open' : 'mobile-grafcet-closed'} shrink-0 border-l border-line bg-surface-panel flex flex-col transition-all`}
             style={showLadder && !compact ? { width: panelSizes.ladder } : undefined}
@@ -259,7 +259,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
             )}
           </div>
         )}
-        {mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && showLadder && (
+        {!demo && mode !== 'monitor' && mode !== 'ladder' && mode !== 'grafcet' && !(mode === 'schematic' && editingComponent) && showLadder && (
           <div
             className="dc-resize-handle dc-resize-handle-left"
             onPointerDown={(e) => {

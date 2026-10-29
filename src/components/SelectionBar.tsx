@@ -6,6 +6,7 @@ import { IconChevronDown, IconChevronUp, IconClose, IconCopy, IconDelete, IconLo
  * direto (toque ou rato) a apagar, rodar, duplicar, bloquear e limpar a seleção.
  */
 export default function SelectionBar() {
+  const demoMode = useSimStore((s) => s.demoMode)
   const ids = useSimStore((s) => s.selectedComponentIds)
   const wireId = useSimStore((s) => s.selectedWireId)
   const terminalId = useSimStore((s) => s.selectedTerminalId)
@@ -22,7 +23,7 @@ export default function SelectionBar() {
   const first = useSimStore((s) => s.components.find((c) => c.id === ids[0]))
 
   const hasComponents = ids.length > 0
-  if (!hasComponents && !wireId && !terminalId) return null
+  if (demoMode || (!hasComponents && !wireId && !terminalId)) return null
 
   // Mostra a referência real do componente em vez de «Objeto».
   const label = hasComponents

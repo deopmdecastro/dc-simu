@@ -154,7 +154,7 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
         >
           {collapsed ? <IconChevronRight size={11} /> : <IconChevronDown size={11} />}
         </button>
-        {isMain && <button
+        {isMain && !demoMode && <button
           type="button"
           className={`ladder-bp-btn ${breakMode ? 'is-set' : ''}`}
           aria-pressed={!!breakMode}
@@ -170,7 +170,8 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
           className="ladder-network-title"
           value={rung.name}
           placeholder="Título da network…"
-          onChange={(e) => renameRung(rung.id, e.target.value)}
+          readOnly={demoMode}
+          onChange={(e) => { if (!demoMode) renameRung(rung.id, e.target.value) }}
           onDoubleClick={(e) => e.stopPropagation()}
         />
         <span className={`ladder-rung-live ${powered && running ? 'is-on' : ''}`}>
@@ -218,11 +219,12 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
         <div className="lnet-scroll">
           <NetworkDiagram
             rung={rung}
-            selection={selection}
-            onSelect={setSelection}
-            onEdit={(next) => { setSelection(next); setDialogSelection(next) }}
+            selection={demoMode ? null : selection}
+            onSelect={demoMode ? undefined : setSelection}
+            onEdit={demoMode ? undefined : (next) => { setSelection(next); setDialogSelection(next) }}
+            readonly={demoMode}
             minWidth={minWidth}
-            updateRung={ops?.updateRung}
+            updateRung={demoMode ? undefined : ops?.updateRung}
             siblingRungs={ops?.rungs}
           />
         </div>
@@ -231,13 +233,13 @@ function RungRow({ rung, index, total = 1, minWidth = 640, active = false, colla
 
       </>
       )}
-      <LadderElementDialog
+      {!demoMode && <LadderElementDialog
         updateRung={ops?.updateRung}
         rung={rung}
         selection={dialogSelection}
         functionFiles={fcFiles}
         onClose={() => setDialogSelection(null)}
-      />
+      />}
     </div>
   )
 }

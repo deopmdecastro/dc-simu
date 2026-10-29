@@ -337,7 +337,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               </span>
               {onEnterEditor && (
                 <button type="button" className="dc-tool-btn !gap-1.5 !bg-brand-600 !text-white hover:!bg-brand-700" onClick={onEnterEditor} title="Criar conta gratuita e abrir este projeto no editor completo">
-                  <IconPlus size={13} /><span className="hidden md:inline">Abrir no editor</span>
+                  <IconOpen size={13} /><span className="hidden md:inline">Abrir no editor</span><span className="md:hidden">Editor</span>
                 </button>
               )}
             </>
@@ -433,9 +433,9 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           </Select>
             </>
           )}
-          <span className="tb-sep" />
+          <span className={`tb-sep ${demo ? 'hidden sm:inline-block' : ''}`} />
           <span
-            className={`inline-flex items-center gap-1.5 h-[24px] px-2.5 rounded-[5px] font-mono text-[11px] font-bold tracking-[0.08em] text-white whitespace-nowrap ${runBadge.cls}`}
+            className={`dc-run-badge inline-flex items-center gap-1.5 h-[24px] px-2.5 rounded-[5px] font-mono text-[11px] font-bold tracking-[0.08em] text-white whitespace-nowrap ${runBadge.cls}`}
             title={`Estado do simulador: ${runBadge.text} · scan #${sim.scanCount}`}
           >
             {sim.runState === 'running' ? (

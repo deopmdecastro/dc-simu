@@ -16,15 +16,20 @@ const App = lazy(() => import('../App'))
  * carrega-se o projeto da demonstração e ativa-se `demoMode`; ao desmontar,
  * tudo regressa ao estado anterior.
  */
-/** Na demonstração os cabos sem traçado 3D manual seguem as calhas (rígidos): os
- *  flexíveis pendiam em laço à frente dos equipamentos e tornavam o quadro confuso. */
+/** Na demonstração todos os cabos seguem as calhas ortogonais (rígidos, sem
+ *  laços flexíveis diagonais nem waypoints 3D antigos atrás da chapa). */
 function tidyDemoWires(content: unknown): unknown {
   if (!content || typeof content !== 'object') return content
   const data = content as { wires?: Array<Record<string, unknown>> }
   if (!Array.isArray(data.wires)) return content
   return {
     ...data,
-    wires: data.wires.map((w) => (Array.isArray(w.waypoints3D) && w.waypoints3D.length > 0 ? w : { ...w, flexibility: 'rigid', route: w.route === 'arc' || w.route === 'direct' ? 'orthogonal' : w.route })),
+    wires: data.wires.map((w) => ({
+      ...w,
+      flexibility: 'rigid',
+      route: 'orthogonal',
+      waypoints3D: undefined,
+    })),
   }
 }
 

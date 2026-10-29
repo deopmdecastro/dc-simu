@@ -235,6 +235,14 @@ async function supabaseApi<T>(url: string, verb: string, body?: unknown): Promis
   throw new Error(`A operação ${verb} ${url} ainda não está disponível no backend Supabase.`)
 }
 
+const isLoopbackOfflineHost = () => {
+  if (typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__) return false
+  if (isSupabaseConfigured()) return false
+  if (typeof window === 'undefined') return false
+  const host = window.location.hostname
+  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1'
+}
+
 /**
  * Usa a base de dados Supabase quando configurada, o servidor SQLite em ambiente Docker
  * e cai no backend local offline quando estático.
@@ -395,7 +403,9 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
         mode = 'server'
         throw error
       }
-      if (getLocalSession()?.role === 'admin') throw new Error('A sessão Admin exige uma ligação ativa à base de dados. Confirme que o servidor Docker está disponível.')
+      if (getLocalSession()?.role === 'admin' && !isLoopbackOfflineHost()) {
+        throw new Error('A sessão Admin exige uma ligação ativa à base de dados. Confirme que o servidor Docker está disponível.')
+      }
       mode = 'local'
       return localApi<T>(url, verb)
     }
@@ -448,7 +458,7 @@ export async function accountApi<T>(url: string, method = 'GET', body?: unknown)
   if (typeof __APP_STATIC_DEPLOY__ !== 'undefined' && __APP_STATIC_DEPLOY__) {
     throw new Error('Supabase é obrigatório em produção. Confirme VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY e inicie sessão novamente.')
   }
-  if (mode === 'local' && getLocalSession()?.role === 'admin') {
+  if (mode === 'local' && getLocalSession()?.role === 'admin' && !isLoopbackOfflineHost()) {
     throw new Error('A conta Admin não pode usar o modo local. Inicie sessão através da base de dados.')
   }
   mode = 'local'

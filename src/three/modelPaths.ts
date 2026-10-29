@@ -144,9 +144,9 @@ const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
    * virado para trás (era o que aparecia no editor como «pose base»).
    */
   emergencyButton: spec('emergencyButton', MODEL_PATHS.emergencyButtonP20AKR, [0, 0, 0], 'panel-front'),
-  // No GLB do P20ACR o eixo do botão está em Y; roda-se para Z antes de aplicar as dimensões físicas.
-  // Sem esta base, o ajuste por eixo comprime a altura e estica a profundidade do conjunto.
-  emergencyButtonKeyP20ACR: spec('emergencyButtonKeyP20ACR', MODEL_PATHS.emergencyButtonKeyP20ACR, [-Math.PI / 2, 0, 0], 'panel-front'),
+  // No GLB do P20ACR o eixo do botão está em −Y (cogumelo/chave em −Y, contactos em +Y);
+  // +90° em X traz o cogumelo e a chave para +Z (frente) e os bornes 21/22 para −Z (trás).
+  emergencyButtonKeyP20ACR: spec('emergencyButtonKeyP20ACR', MODEL_PATHS.emergencyButtonKeyP20ACR, [Math.PI / 2, 0, 0], 'panel-front'),
   dualPushButtonNpb22D11: spec('dualPushButtonNpb22D11', MODEL_PATHS.dualPushButtonNpb22D11, [0, 0, 0], 'panel-front', true),
 
   safetyRelay: spec('safetyRelay', MODEL_PATHS.safetyRelayMsr127Tp, [0, 0, Math.PI / 2], 'din-rail', true),

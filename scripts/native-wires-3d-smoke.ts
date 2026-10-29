@@ -8,7 +8,8 @@ import { componentPanelXY } from '../src/three/panelLayout'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from '../src/three/panelBounds'
 import { DIN_RAIL_15X55 } from '../src/three/dinRailGeometry'
 import { PANEL_UNITS_PER_MM, isMountingRail } from '../src/three/modelPaths'
-import { buildWirePath3D, componentObstacles, wireEndpoint3D } from '../src/three/wireGeometry3D'
+import { buildWirePath3D, componentObstacles, keepInFrontOfPlate, wireEndpoint3D } from '../src/three/wireGeometry3D'
+import { componentOrientationOf, MOTOR_ISOMETRIC_ORIENTATION } from '../src/three/componentOrientation'
 
 let failed = 0
 const check = (name: string, ok: boolean, extra = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} — ${name}${extra ? ` (${extra})` : ''}`); if (!ok) failed++ }
@@ -30,6 +31,7 @@ console.log('motor box', motorBox.min.toArray().map((n) => +n.toFixed(2)), motor
 
 let crossing = 0
 let behindPlate = 0
+let ferruleBehindPlate = 0
 let minZ = Infinity
 const plateFront = PLATE_Z + PLATE_THICKNESS / 2
 const plateOffenders: string[] = []
@@ -38,11 +40,15 @@ for (const wire of built.wires) {
   const from = wireEndpoint3D(wire, 'from', built.components, pivots)
   const to = wireEndpoint3D(wire, 'to', built.components, pivots)
   if (!from || !to) continue
-  const { points } = buildWirePath3D(wire, from, to, obstacles)
-  // o cabo nunca pode ficar atrás da face frontal da chapa (atravessar o painel)
+  const { points, starts } = buildWirePath3D(wire, from, to, obstacles)
+  // o cabo e as ponteiras nunca podem ficar atrás da face frontal da chapa (atravessar o painel)
   const wireMinZ = Math.min(...points.map((q) => q[2]))
   minZ = Math.min(minZ, wireMinZ)
   if (wireMinZ < plateFront - 1e-6) { behindPlate++; plateOffenders.push(`${wire.number} z=${wireMinZ.toFixed(3)}`) }
+  for (const s of starts) {
+    const tipZ = s.origin[2] + s.axis[2] * s.length
+    if (s.origin[2] < plateFront - 1e-6 || tipZ < plateFront - 1e-6) ferruleBehindPlate++
+  }
   const endsOnMotor = [wire.fromTerminalId, wire.toTerminalId].some((id) => id.startsWith(motor.id))
   // zona de chegada ao borne do motor: 0,25 u (25 mm) à volta da ponta que lá está
   const motorEnds = [from, to].filter((_, i) => (i === 0 ? wire.fromTerminalId : wire.toTerminalId).startsWith(motor.id)).map((e) => new THREE.Vector3(...e.position))
@@ -75,5 +81,16 @@ for (const wire of built.wires) {
 }
 check('Nenhum cabo 3D passa pelo motor (nem à frente dele)', crossing === 0, crossing ? `${crossing}: ${offenders.slice(0, 6).join(' | ')}` : '')
 check('Nenhum cabo 3D atravessa a chapa do painel (z ≥ face frontal)', behindPlate === 0, behindPlate ? `${behindPlate}: ${plateOffenders.slice(0, 6).join(' | ')}` : `z mínimo ${minZ.toFixed(3)} ≥ ${plateFront.toFixed(3)}`)
+check('Nenhuma ponteira/terminal atravessa a chapa do painel', ferruleBehindPlate === 0)
+const clampedManual = keepInFrontOfPlate([[0, 0, -0.5], [1, -1, -0.8], [2, 0, -0.4]], 3.2, true)
+check('Waypoints manuais também respeitam a face frontal da chapa', clampedManual.every((p) => p[2] > plateFront))
+const motorOrient = componentOrientationOf(motor)
+const nonMotorsFront = built.components
+  .filter((c) => c.type !== 'motor3ph' && c.type !== 'motor1ph')
+  .every((c) => {
+    const o = componentOrientationOf(c)
+    return o.x === 0 && o.y === 0 && o.z === 0
+  })
+check('Apenas o motor usa vista isométrica; restantes aparelhos mantêm vista frontal', motorOrient.x === MOTOR_ISOMETRIC_ORIENTATION.x && motorOrient.y === MOTOR_ISOMETRIC_ORIENTATION.y && nonMotorsFront)
 if (failed) { console.log(`\n❌ ${failed} falha(s)`); process.exit(1) }
 console.log('\n✅ TODOS OS TESTES PASSARAM')

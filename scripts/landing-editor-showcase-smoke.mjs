@@ -68,7 +68,7 @@ assert('Botão Clean fora da demo', tb.includes("{!demo && <button type=\"button
 assert('Atalhos fora da demo (esquema e grafcet)', tb.includes("{mode !== 'grafcet' && !demo && (") && tb.includes("{!demo && <ShortcutsButton scope=\"grafcet\""))
 
 const store2 = read('src/store/useSimStore.ts')
-assert('Arrastar componentes bloqueado na demo (moveComponent)', store2.includes('Demonstração da landing: arrastar componentes edita a obra — bloqueado') && store2.includes('moveComponent: (id, x, y, movingIds) => {'))
+assert('Arrastar componentes bloqueado na demo (moveComponent)', store2.includes('moveComponent: (id, x, y, movingIds) => {\n    // Demonstração e simulação em curso: utilizadores não movem componentes.\n    if (get().demoMode) return'))
 assert('setGrafcet: edição estrutural bloqueada; navegação de páginas permitida', store2.includes("demoMode && !historyKey.startsWith('grafcet:pages')"))
 
 const ladder2 = read('src/ladder/LadderEditor.tsx')
@@ -92,12 +92,14 @@ assert('Ladder: undo/redo e mutações por teclado travados na demo', ladder2.in
 assert('Toolbar demo: viewControls só com zoom (sem grelha/ímã/passo)', tb.includes('Demonstração (landing): vista limpa') && tb.includes('const viewControls: ViewControlsProps | null = demo ? ('))
 
 const sv = read('src/schematic/SchematicView.tsx')
-assert('Esquema demo abre em vista isométrica', sv.includes("(demoMode ? { yaw: -45, pitch: 35 }"))
+assert('Esquema abre em vista frontal (apenas motor isométrico)', sv.includes('const [tilt, setTilt] = useState<Tilt2D>(() => ({ yaw: 0, pitch: 0 }))'))
+const orient = read('src/three/componentOrientation.ts')
+assert('Apenas o motor usa orientação isométrica por omissão no simulador', orient.includes('MOTOR_ISOMETRIC_ORIENTATION') && orient.includes("type === 'motor3ph' || type === 'motor1ph'") && orient.includes('if (isIsometricMotorType(type)) return { ...MOTOR_ISOMETRIC_ORIENTATION }'))
 
 const panel = read('src/three/Panel3D.tsx')
 assert('Painel 3D: botão «+ Comentário» fora da demo', panel.includes('{!demoMode && <button type="button" onClick={addNote}'))
-assert('Painel 3D: demo e projeto nativo abrem em isométrica (motor fora do painel não fica gigante)', panel.includes("moveCamera(frontEdit && !isoFirst ? 'front' : 'isometric')") && panel.includes("frontEdit && !isoFirst && !initialCameraRef.current") && panel.includes('s.demoMode || !!s.nativeId'))
-assert('Painel 3D: DPR limitado (render mais leve)', panel.includes('dpr={[1, 1.5]}'))
+assert('Painel 3D: abre em vista frontal por omissão (apenas o motor é isométrico)', panel.includes("view: 'front'") && panel.includes("moveCamera('front')") && !panel.includes('isoFirst'))
+assert('Painel 3D: DPR limitado e pausa offscreen / demand em repouso', panel.includes('dpr={[1, 1.5]}') && panel.includes("frameloop={!stageVisible ? 'never'"))
 
 const wg3d = read('src/three/wireGeometry3D.ts')
 assert('Cabos 3D correm em calhas entre as filas de equipamentos', wg3d.includes('export function trunkLaneHints') && wg3d.includes('trunkY !== undefined'))
@@ -122,9 +124,11 @@ assert('Painel 3D: sem amortecimento nem rotação automática', panel.includes(
 assert('Painel 3D: shadow map sob pedido (não por frame)', panel.includes('gl.shadowMap.autoUpdate = false') && panel.includes('function ShadowsOnDemand') && panel.includes('<ShadowsOnDemand watch={shadowWatch} />'))
 assert('Painel 3D: geometria dos cabos em cache (não reconstrói por scan)', panel.includes('cachedWireGeometry(wire, from, to, obstacles)') && panel.includes('wireGeomCache.set(key, geom)'))
 assert('Painel 3D: caixas de obstáculos estáveis durante o RUN', panel.includes('const obstaclesKey = useMemo'))
-assert('RUN: atuar um dispositivo também o seleciona', panel.includes('selectComponents([component.id])\n      action()') && panel.includes('useSimStore.getState().selectComponents([c.id])'))
+assert('Demo: simLocked inclui demoMode e barra de seleção/edição fica oculta', panel.includes('const simLocked = demoMode ||') && read('src/components/SelectionBar.tsx').includes('if (demoMode || (!hasComponents && !wireId && !terminalId)) return null'))
 const cat3d = read('src/three/CatalogComponent3D.tsx')
-assert('RUN: premir botão de catálogo também seleciona', cat3d.includes('useSimStore.getState().selectComponents([c.id])'))
+assert('Catálogo 3D: premir botão na demo atua sem abrir barra de edição/seleção', cat3d.includes('if (!useSimStore.getState().demoMode) useSimStore.getState().selectComponents([c.id])'))
+assert('Toolbar mobile: botão para abrir o editor usa ícone «Abrir» (sem «+» ambíguo)', tb.includes('<IconOpen size={13} /><span className="hidden md:inline">Abrir no editor</span><span className="md:hidden">Editor</span>'))
+assert('GRAFCET e Ladder bloqueiam edição/eliminação na demo', grafed.includes('const full = fullProp && !demoMode') && ladder2.includes('readonly={demoMode}'))
 
 if (failures) {
   console.error(`\n❌ ${failures} falha(s) no contrato editor-real na landing`)

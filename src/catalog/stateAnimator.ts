@@ -130,32 +130,67 @@ export class StateAnimator {
     return resolveLightLook(light, this.target.lights[light.id], this.vars)
   }
 
-  /** Halo aditivo («brilho real») sobre cada zona luminosa, com subida/descida suaves e pisca. Devolve true enquanto muda. */
+  /** Halo aditivo («brilho real») encostado à face frontal da lente, com subida/descida suaves e pisca. Devolve true enquanto muda. */
   private updateHalos(dt: number): boolean {
     const texture = glowTexture(THREE)
     if (!texture) return false
     let busy = false
-    const rootScale = Math.max(1e-6, this.root.getWorldScale(new THREE.Vector3()).x)
+    let matricesUpdated = false
     for (const light of this.def.lights) {
       const lightNodes = this.lightNodes(light)
       if (!lightNodes.length) continue
       let halo = this.halos.get(light.id)
       if (!halo) {
-        const box = new THREE.Box3()
-        for (const node of lightNodes) box.expandByObject(node)
-        if (box.isEmpty()) continue
-        const size = box.getSize(new THREE.Vector3())
-        const center = this.root.worldToLocal(box.getCenter(new THREE.Vector3()))
+        if (!matricesUpdated) {
+          this.root.updateMatrixWorld(true)
+          matricesUpdated = true
+        }
+        const invRoot = new THREE.Matrix4().copy(this.root.matrixWorld).invert()
+        const localBox = new THREE.Box3()
+        const meshMat = new THREE.Matrix4()
+        const corner = new THREE.Vector3()
+        for (const node of lightNodes) {
+          node.updateWorldMatrix(true, true)
+          node.traverse((child) => {
+            const mesh = child as THREE.Mesh
+            if (!mesh.isMesh || !mesh.geometry) return
+            if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
+            const gbox = mesh.geometry.boundingBox
+            if (!gbox || gbox.isEmpty()) return
+            meshMat.multiplyMatrices(invRoot, mesh.matrixWorld)
+            for (let ix = 0; ix < 2; ix++) {
+              for (let iy = 0; iy < 2; iy++) {
+                for (let iz = 0; iz < 2; iz++) {
+                  corner.set(
+                    ix ? gbox.max.x : gbox.min.x,
+                    iy ? gbox.max.y : gbox.min.y,
+                    iz ? gbox.max.z : gbox.min.z,
+                  ).applyMatrix4(meshMat)
+                  localBox.expandByPoint(corner)
+                }
+              }
+            }
+          })
+        }
+        if (localBox.isEmpty()) continue
+        const localSize = localBox.getSize(new THREE.Vector3())
+        const lensRadius = Math.max(localSize.x, localSize.y, localSize.z * 0.5) / 2
+        // Encostado diretamente à superfície frontal do vidro da lente (+Z local).
+        const lensFront = new THREE.Vector3(
+          (localBox.min.x + localBox.max.x) / 2,
+          (localBox.min.y + localBox.max.y) / 2,
+          localBox.max.z + lensRadius * 0.03,
+        )
         const material = new THREE.SpriteMaterial({ map: texture, color: light.color, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })
         const sprite = new THREE.Sprite(material)
-        sprite.position.copy(center)
+        sprite.position.copy(lensFront)
         sprite.renderOrder = 40
         sprite.visible = false
         sprite.userData.noPick = true
         sprite.userData[GLOW_HALO_FLAG] = true
         sprite.raycast = () => undefined
         this.root.add(sprite)
-        halo = { sprite, level: 0, radius: Math.max(size.x, size.y, size.z) / 2 / rootScale }
+        halo = { sprite, level: 0, radius: lensRadius }
         this.halos.set(light.id, halo)
       }
       const status = this.lightStatus(light)

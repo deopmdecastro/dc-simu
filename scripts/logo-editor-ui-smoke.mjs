@@ -5,7 +5,10 @@ import { chromium } from 'playwright'
 
 const baseURL = process.env.LOGO_EDITOR_TEST_URL || 'http://127.0.0.1:5173'
 const output = process.env.LOGO_EDITOR_TEST_OUTPUT
-const browser = await chromium.launch(process.env.LOGO_EDITOR_TEST_CHANNEL ? { channel: process.env.LOGO_EDITOR_TEST_CHANNEL } : {})
+const browser = await chromium.launch({
+  ...(process.env.LOGO_EDITOR_TEST_CHANNEL ? { channel: process.env.LOGO_EDITOR_TEST_CHANNEL } : {}),
+  args: ['--use-gl=angle', '--use-angle=swiftshader'],
+})
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' })
 await context.route('**/*', (route) => {
   const url = new URL(route.request().url())
@@ -101,8 +104,9 @@ try {
   check(await page.locator('.ce-body').evaluate((element) => element.classList.contains('is-left-collapsed')), 'Hierarquia pode ser recolhida para dar espaço ao canvas')
   check((await page.locator('.ce-stage').boundingBox()).width > stageWidthBeforeCollapse, 'Recolher a hierarquia aumenta a largura do canvas')
   check(await hierarchy.getByRole('button', { name: 'Expandir hierarquia' }).isVisible(), 'Hierarquia recolhida mantém controlo visível para reabrir')
-  check(await hierarchy.locator('.ce-collapsed-label').isVisible() && (await hierarchy.locator('.ce-collapsed-label').innerText()).includes('Elementos'), 'Calha recolhida identifica a hierarquia como Elementos')
-  check(await hierarchy.locator('.ce-collapsed-label > span').evaluate((element) => getComputedStyle(element).writingMode === 'vertical-rl'), 'Rótulo Elementos cabe na calha estreita sem ser cortado')
+  const collapsedLabel = hierarchy.locator('.dc-side-panel-collapsed-label, .ce-collapsed-label').first()
+  check(await collapsedLabel.isVisible() && (await collapsedLabel.innerText()).includes('Elementos'), 'Calha recolhida identifica a hierarquia como Elementos')
+  check(await collapsedLabel.evaluate((element) => getComputedStyle(element).writingMode === 'vertical-rl'), 'Rótulo Elementos cabe na calha estreita sem ser cortado')
   await capture('hierarchy-collapsed')
   await hierarchy.getByRole('button', { name: 'Expandir hierarquia' }).focus()
   await page.keyboard.press('Enter')
@@ -131,7 +135,10 @@ try {
   const width = Number(await separator.getAttribute('aria-valuenow'))
   await separator.focus(); await separator.press('ArrowRight')
   check(Number(await separator.getAttribute('aria-valuenow')) > width, 'Largura da hierarquia ajustável por teclado')
-  await page.getByRole('button', { name: 'Vista frente', exact: true }).click({ force: true })
+  await page.evaluate(async () => {
+    const { useEditorStore } = await import('/src/admin/editor3d/editorStore.ts')
+    useEditorStore.getState().cameraTo('front')
+  })
   await page.waitForTimeout(500)
   await pickCanvas('display', 'LCD LOGO!')
   check((await read()).selection?.kind === 'display', 'LCD selecionável com um clique real no modelo')
@@ -151,10 +158,10 @@ try {
   for (let index = 0; index < 15; index++) await separator.press('ArrowRight')
   const inspectorSeparator = page.getByRole('separator', { name: 'Largura do inspetor' })
   for (let index = 0; index < 15; index++) await inspectorSeparator.press('ArrowLeft')
-  await page.locator('.ce-viewbar.is-compact').waitFor()
-  const viewbar = page.getByRole('toolbar', { name: 'Vista 3D', exact: true })
-  await viewbar.getByRole('button', { name: /^Vista/ }).click()
-  const viewMenu = page.getByRole('dialog', { name: 'Opções da vista' })
+  const narrowMenuBtn = page.getByRole('button', { name: /^(Organizar|Mais)$/ }).first()
+  await narrowMenuBtn.click()
+  const viewMenu = page.locator('[role="dialog"][aria-label="Organizar"], [role="menu"][aria-label="Ferramentas e opções"]').first()
+  await viewMenu.waitFor()
   check(await viewMenu.evaluate((element) => { const r = element.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 }), 'Canvas estreito em desktop usa menu compacto sem cortar as opções')
   await capture('logo-1025-narrow-canvas')
   await page.keyboard.press('Escape')

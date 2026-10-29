@@ -1,7 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState, type CSSProperties } from 'react'
 import Logo, { LogoMark } from '../ui/Brand'
 import LandingPricing, { PLAN_INTENT_KEY, landingPlans, usePublicPricing } from './LandingPricing'
-import { InteractiveComponentThumb } from '../three/componentThumbnails'
 import { hasComponent3DModel } from '../three/modelPaths'
 import type { ComponentType } from '../types'
 import {
@@ -13,9 +12,10 @@ import type { LadderRung } from '../types'
 import type { GrafcetProgram } from '../grafcet/engine'
 import { IconCube, IconSchematic, IconLadder, IconPlay, IconFile, IconProjects, IconArrowRight, IconChevronDown, IconZoomIn, IconZoomOut, IconUndo, IconRedo } from '../ui/icons'
 
-/** Viewport 3D real do produto — carregado só quando entra em vista (performance). */
+/** Viewport 3D real do produto e vitrine de modelos — carregados sob pedido (performance no 1.º paint). */
 const LandingMotorHero = lazy(() => import('../three/LandingMotorHero'))
 const LandingEditorShowcase = lazy(() => import('./LandingEditorShowcase'))
+const InteractiveComponentThumb = lazy(() => import('../three/componentThumbnails').then((m) => ({ default: m.InteractiveComponentThumb })))
 
 /* ============================================================ conteúdo */
 
@@ -98,7 +98,8 @@ const stagger = (i: number) => ({ ['--i' as string]: i }) as CSSProperties
 
 /* ====================================================== símbolos técnicos */
 
-/** Só descarrega/renderiza o GLB quando o respetivo cartão se aproxima do viewport. */
+/** Só descarrega/renderiza o GLB quando o respetivo cartão se aproxima do viewport;
+ *  uma vez visível, conserva a imagem em memória sem desmontar ao fazer scroll. */
 function LandingGlbThumb({ type }: { type: ComponentType }) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -107,14 +108,23 @@ function LandingGlbThumb({ type }: { type: ComponentType }) {
     if (!node) return
     if (!('IntersectionObserver' in window)) return setVisible(true)
     const io = new IntersectionObserver((entries) => {
-      setVisible(entries[0]?.isIntersecting ?? false)
-    }, { rootMargin: '100px' })
+      if (entries[0]?.isIntersecting) {
+        setVisible(true)
+        io.disconnect()
+      }
+    }, { rootMargin: '120px' })
     io.observe(node)
     return () => io.disconnect()
   }, [])
   return (
     <div ref={ref} className="dx-lib-model-slot">
-      {visible ? <InteractiveComponentThumb type={type} size={148} /> : <div className="dc-real-glb-loading" aria-hidden />}
+      {visible ? (
+        <Suspense fallback={<div className="dc-real-glb-loading" aria-hidden />}>
+          <InteractiveComponentThumb type={type} size={148} />
+        </Suspense>
+      ) : (
+        <div className="dc-real-glb-loading" aria-hidden />
+      )}
     </div>
   )
 }
@@ -196,7 +206,7 @@ function DeferredEditorShowcase({ onAccess }: { onAccess: () => void }) {
           io.disconnect()
         }
       },
-      { rootMargin: '400px 0px' },
+      { rootMargin: '150px 0px' },
     )
     io.observe(node)
     return () => io.disconnect()

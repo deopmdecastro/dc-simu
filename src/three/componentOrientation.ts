@@ -1,6 +1,10 @@
 import type { Component3DRenderMode, Component3DScale, ComponentTerminalViewPositions, ComponentType, ComponentViewOrientation, ElectricalComponent } from '../types'
 
 export const ZERO_COMPONENT_ORIENTATION: ComponentViewOrientation = Object.freeze({ x: 0, y: 0, z: 0 })
+/** No simulador apenas o motor usa vista isométrica por omissão (caixa de bornes, alhetas e veio visíveis);
+ *  todos os restantes equipamentos mantêm a vista frontal. */
+export const MOTOR_ISOMETRIC_ORIENTATION: ComponentViewOrientation = Object.freeze({ x: 14, y: -35, z: 0 })
+export const isIsometricMotorType = (type: ComponentType): boolean => type === 'motor3ph' || type === 'motor1ph'
 export const COMPONENT_VIEW_DEFAULTS_KEY = 'dc-simu:component-view-defaults:v1'
 export const COMPONENT_TERMINAL_VIEW_DEFAULTS_KEY = 'dc-simu:component-terminal-view-defaults:v1'
 export const COMPONENT_3D_PRESENTATION_DEFAULTS_KEY = 'dc-simu:component-3d-presentation-defaults:v1'
@@ -33,6 +37,9 @@ export function normalizeComponentOrientation(value?: Partial<ComponentViewOrien
 }
 
 export function componentOrientationOf(component: ElectricalComponent): ComponentViewOrientation {
+  if (component.viewOrientation == null) {
+    return getDefaultComponentOrientation(component.type)
+  }
   return normalizeComponentOrientation(component.viewOrientation)
 }
 
@@ -73,7 +80,10 @@ function readDefaults(): Partial<Record<ComponentType, ComponentViewOrientation>
 }
 
 export function getDefaultComponentOrientation(type: ComponentType): ComponentViewOrientation {
-  return normalizeComponentOrientation(readDefaults()[type])
+  const saved = readDefaults()[type]
+  if (saved) return normalizeComponentOrientation(saved)
+  if (isIsometricMotorType(type)) return { ...MOTOR_ISOMETRIC_ORIENTATION }
+  return { ...ZERO_COMPONENT_ORIENTATION }
 }
 
 export function saveDefaultComponentOrientation(type: ComponentType, value: ComponentViewOrientation): void {

@@ -1,20 +1,22 @@
 import * as THREE from 'three'
+import { boxProjectUv } from '../catalog/definition'
 import { finishCadMaterial } from './catalogMaterials'
 import { textureLibraryEntry } from './textureLibrary'
 
 const textureLoader = new THREE.TextureLoader()
 const mapCache = new Map<string, THREE.Texture>()
+const pendingMaterials = new Set<THREE.Material>()
 
-function libraryMap(url: string, srgb: boolean): THREE.Texture {
-  const key = `${url}:${srgb ? 'srgb' : 'linear'}`
+function libraryMap(url: string, srgb: boolean, repeat: number): THREE.Texture {
+  const key = `${url}:${srgb ? 'srgb' : 'linear'}:${repeat.toFixed(3)}`
   let texture = mapCache.get(key)
   if (!texture) {
     texture = textureLoader.load(
       url,
       (loaded) => {
         loaded.needsUpdate = true
-        // Clones partilham a imagem — marcar todos os materiais quando carregar.
         loaded.userData.ready = true
+        for (const mat of pendingMaterials) mat.needsUpdate = true
       },
       undefined,
       () => {
@@ -22,6 +24,7 @@ function libraryMap(url: string, srgb: boolean): THREE.Texture {
       },
     )
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(repeat, repeat)
     texture.anisotropy = 8
     texture.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
     texture.userData.ready = false
@@ -32,6 +35,7 @@ function libraryMap(url: string, srgb: boolean): THREE.Texture {
 
 function classifyMaterial(material: THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial): {
   entryId: string
+  role: 'sew-paint' | 'dark-iron' | 'cast-iron' | 'machined-steel' | 'brass'
   keepColor: THREE.Color | null
 } {
   const color = material.color
@@ -40,92 +44,138 @@ function classifyMaterial(material: THREE.MeshStandardMaterial | THREE.MeshPhysi
   const b = color.b
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
-  // Vermelho SEW (RAL-like): carcaça pintada
+  // Vermelho SEW-Eurodrive (carcaça aletada pintada em esmalte industrial metálico)
   const isRedPaint = r > 0.4 && r > g * 1.35 && r > b * 1.35
-  const isDark = max < 0.22
-  const isMetalGray = !isRedPaint && max - min < 0.14 && max > 0.22 && max < 0.8
-  if (isRedPaint) return { entryId: 'pintura-texturada', keepColor: color.clone() }
-  if (isDark) return { entryId: 'plastico-preto', keepColor: null }
-  if (isMetalGray) return { entryId: 'ferro-fundido', keepColor: null }
-  return { entryId: 'aco-escovado', keepColor: null }
+  // Latão / bronze de pernos ou chapa
+  const isBrass = !isRedPaint && r > 0.55 && g > 0.42 && b < 0.32 && r > b * 1.6
+  const isDark = max < 0.24
+  const isMetalGray = !isRedPaint && max - min < 0.14 && max >= 0.24 && max < 0.76
+  if (isRedPaint) return { entryId: 'pintura-industrial', role: 'sew-paint', keepColor: color.clone() }
+  if (isBrass) return { entryId: 'latao', role: 'brass', keepColor: null }
+  if (isDark) return { entryId: 'ferro-fundido', role: 'dark-iron', keepColor: null }
+  if (isMetalGray) return { entryId: 'ferro-fundido', role: 'cast-iron', keepColor: null }
+  return { entryId: 'aco-escovado', role: 'machined-steel', keepColor: null }
+}
+
+/**
+ * Garante coordenadas UV em escala física real (mm) nas malhas CAD do motor.
+ * O GLB DRN80MK4-B3 traz UVs brutos em milímetros (-233..233), o que esbatia
+ * os mapas PBR em mipmaps cinzentos uniformes e tirava todo o relevo metálico.
+ */
+function ensurePhysicalUv(geometry: THREE.BufferGeometry, tileMm = 85): void {
+  if (!geometry || geometry.userData.__dcMotorUvReady) return
+  const uv = geometry.getAttribute('uv')
+  let needsProjection = !uv
+  if (uv) {
+    let minU = Infinity
+    let maxU = -Infinity
+    const step = Math.max(1, Math.floor(uv.count / 120))
+    for (let i = 0; i < uv.count; i += step) {
+      const u = uv.getX(i)
+      if (u < minU) minU = u
+      if (u > maxU) maxU = u
+    }
+    if (!Number.isFinite(maxU - minU) || maxU - minU > 8 || maxU - minU < 1e-4) {
+      needsProjection = true
+    }
+  }
+  if (needsProjection) {
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox
+    const span = box ? Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z) : 200
+    // Se a geometria está em unidades de cena (~2.6) em vez de mm (~264), ajusta o azulejo proporcionalmente.
+    const effectiveTile = span > 20 ? tileMm : tileMm * 0.01
+    boxProjectUv(geometry, Math.max(effectiveTile, 0.05))
+  }
+  geometry.userData.__dcMotorUvReady = true
 }
 
 /**
  * O GLB do motor SEW só traz cores planas (sem imagens embutidas). Aplica os
- * mapas PBR da biblioteca do editor de elementos — a mesma usada nas peças
- * publicadas — para a carcaça pintada e os metais/plásticos técnicos.
+ * mapas PBR da biblioteca do editor de elementos — com projeção UV física,
+ * esmalte metálico SEW e aço maquinado de alto contraste — reutilizando
+ * texturas em cache sem clonar centenas de mapas.
  */
 export function applyEditorMotorTextures(root: THREE.Object3D) {
+  const materialCache = new Map<string, THREE.Material>()
   root.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh || !mesh.material) return
     mesh.castShadow = true
     mesh.receiveShadow = true
+    ensurePhysicalUv(mesh.geometry, 82)
     const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     const next = list.map((source) => {
-      const material = finishCadMaterial(source)
-      if (!(material instanceof THREE.MeshStandardMaterial) && !(material instanceof THREE.MeshPhysicalMaterial)) {
-        return material
+      if ((source as THREE.Material).userData?.__dcMotorTextured) return source
+      const cacheKey = source.uuid
+      const cached = materialCache.get(cacheKey)
+      if (cached) return cached
+
+      const base = finishCadMaterial(source)
+      if (!(base instanceof THREE.MeshStandardMaterial) && !(base instanceof THREE.MeshPhysicalMaterial)) {
+        return base
       }
-      const { entryId, keepColor } = classifyMaterial(material)
-      const entry = textureLibraryEntry(entryId)
-      if (!entry) return material
+      const { entryId, role } = classifyMaterial(base)
+      const entry = textureLibraryEntry(entryId) ?? textureLibraryEntry('ferro-fundido')
+      if (!entry) return base
 
-      // Azulejo um pouco mais apertado → detalhe visível no hero da landing.
-      const tile = Math.max(0.55, 55 / entry.tileMm)
+      const material = role === 'sew-paint'
+        ? new THREE.MeshPhysicalMaterial({
+            name: base.name,
+            color: new THREE.Color('#b0181d'),
+            metalness: 0.46,
+            roughness: 0.29,
+            clearcoat: 0.42,
+            clearcoatRoughness: 0.22,
+            reflectivity: 0.78,
+          })
+        : base
 
-      const colorMap = libraryMap(entry.maps.color, true).clone()
-      colorMap.wrapS = colorMap.wrapT = THREE.RepeatWrapping
-      colorMap.repeat.set(tile, tile)
-      colorMap.colorSpace = THREE.SRGBColorSpace
-      material.map = colorMap
-
-      const normalMap = libraryMap(entry.maps.normal, false).clone()
-      normalMap.wrapS = normalMap.wrapT = THREE.RepeatWrapping
-      normalMap.repeat.set(tile, tile)
-      normalMap.colorSpace = THREE.NoColorSpace
-      material.normalMap = normalMap
-      // Normal um pouco mais marcado para o relevo da tinta se notar no telemóvel.
-      const nScale = Math.max(entry.normalScale, entryId.startsWith('pintura') ? 1.15 : entry.normalScale)
+      const repeat = role === 'machined-steel' ? 1.35 : 1.0
+      material.map = libraryMap(entry.maps.color, true, repeat)
+      material.normalMap = libraryMap(entry.maps.normal, false, repeat)
+      const nScale = role === 'sew-paint' ? 0.52 : role === 'machined-steel' ? 0.38 : Math.max(entry.normalScale, 0.65)
       material.normalScale.set(nScale, nScale)
-
-      const roughMap = libraryMap(entry.maps.roughness, false).clone()
-      roughMap.wrapS = roughMap.wrapT = THREE.RepeatWrapping
-      roughMap.repeat.set(tile, tile)
-      roughMap.colorSpace = THREE.NoColorSpace
-      material.roughnessMap = roughMap
-
+      material.roughnessMap = libraryMap(entry.maps.roughness, false, repeat)
       if (entry.maps.metalness) {
-        const metalMap = libraryMap(entry.maps.metalness, false).clone()
-        metalMap.wrapS = metalMap.wrapT = THREE.RepeatWrapping
-        metalMap.repeat.set(tile, tile)
-        metalMap.colorSpace = THREE.NoColorSpace
-        material.metalnessMap = metalMap
+        material.metalnessMap = libraryMap(entry.maps.metalness, false, repeat)
       }
 
-      material.roughness = entry.roughness
-      // Metais (categoria ou mapa de metalness): aspeto real metálico no hero.
-      const isMetal = entry.category === 'Metais' || !!entry.maps.metalness || entry.metalness >= 0.7
-      if (isMetal) {
-        material.metalness = Math.max(entry.metalness ?? 0.85, 0.92)
-        material.roughness = Math.min(entry.roughness ?? 0.35, 0.28)
+      if (role === 'sew-paint') {
+        // Vermelho industrial SEW-Eurodrive rico (RAL 3001/3002) com reflexo metálico nas alhetas
+        material.color.set('#b3191e')
+        material.metalness = 0.46
+        material.roughness = 0.29
+        material.envMapIntensity = 1.65
+      } else if (role === 'machined-steel') {
+        // Veio, chaveta, flange e parafusos em aço torneado/escovado brilhante
+        material.color.set('#e4eaf2')
+        material.metalness = 0.95
+        material.roughness = 0.19
+        material.envMapIntensity = 1.85
+      } else if (role === 'brass') {
+        material.color.set('#d8a63a')
+        material.metalness = 0.93
+        material.roughness = 0.22
+        material.envMapIntensity = 1.75
+      } else if (role === 'dark-iron') {
+        // Tampa defletora traseira / caixa de ligações / detalhes em ferro fundido grafite
+        material.color.set('#282e37')
+        material.metalness = 0.68
+        material.roughness = 0.34
+        material.envMapIntensity = 1.55
       } else {
-        material.metalness = entry.metalness
+        // Tampas de rolamento e pés em ferro fundido maquinado
+        material.color.set('#687280')
+        material.metalness = 0.82
+        material.roughness = 0.28
+        material.envMapIntensity = 1.65
       }
-      if (entry.tint) {
-        if (keepColor) material.color.copy(keepColor)
-        else material.color.set(entry.color)
-      }
-      // Carcaça SEW: garantir vermelho industrial se o CAD trouxe vermelho puro.
-      if (entryId.startsWith('pintura') && keepColor) {
-        material.color.setRGB(
-          Math.max(keepColor.r, 0.72),
-          Math.min(keepColor.g, 0.12),
-          Math.min(keepColor.b, 0.1),
-        )
-      }
-      material.envMapIntensity = Math.max(material.envMapIntensity ?? 1, isMetal ? 1.6 : 1.35)
+
+      material.userData.__dcMotorTextured = true
       material.needsUpdate = true
+      pendingMaterials.add(material)
+      materialCache.set(cacheKey, material)
       return material
     })
     mesh.material = Array.isArray(mesh.material) ? next : next[0]

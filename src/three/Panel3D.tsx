@@ -3,6 +3,7 @@ import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Text, TransformControls, Edges, useGLTF } from '@react-three/drei'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
@@ -611,8 +612,9 @@ function LogoFrontPanel({ c, interactive = true, screen = LOGO_SCREEN_FALLBACK }
       onPointerUp={(event) => {
         if (!interactive) return
         event.stopPropagation()
-        const locked = useSimStore.getState().sim.runState === 'running' || useSimStore.getState().sim.runState === 'paused'
-        if (!locked) useSimStore.getState().selectComponents([c.id])
+        const state = useSimStore.getState()
+        const locked = state.demoMode || state.sim.runState === 'running' || state.sim.runState === 'paused'
+        if (!locked) state.selectComponents([c.id])
         action()
       }}>
       <circleGeometry args={[radius, 18]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -751,11 +753,12 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
     : safety
       ? [{ c: '#22c55e', on: powered && !error }, { c: '#ef4444', on: error }]
       : []
-  return <group position={[0.24, height * 0.64, 0.34]}>{lights.map((light, index) => <group key={index} position={[0, -index * 0.055, 0]}>
+  const halfDepth = ((getComponentModelSpec(c.type)?.physicalSizeMm.depth ?? 68) * PANEL_UNITS_PER_MM) / 2
+  return <group position={[0.24, height * 0.64, halfDepth + 0.002]}>{lights.map((light, index) => <group key={index} position={[0, -index * 0.055, 0]}>
     <mesh raycast={() => null}>
       <circleGeometry args={[0.018, 14]} /><meshStandardMaterial color={light.on ? light.c : '#334155'} emissive={light.on ? light.c : '#000'} emissiveIntensity={light.on ? 2.4 : 0} toneMapped={!light.on} />
     </mesh>
-    <GlowHalo color={light.c} on={light.on} radius={0.018} kind="led" position={[0, 0, 0.012]} />
+    <GlowHalo color={light.c} on={light.on} radius={0.018} kind="led" position={[0, 0, 0.002]} />
   </group>)}</group>
 }
 
@@ -1166,8 +1169,8 @@ function Lamp3D({ c, x }: { c: ElectricalComponent; x: number }) {
         <cylinderGeometry args={[0.115, 0.115, 0.14, 24]} />
         <meshStandardMaterial color={on ? color : '#374151'} emissive={on ? color : '#000000'} emissiveIntensity={on ? 2.2 : 0} roughness={on ? 0.25 : 0.5} toneMapped={!on} />
       </mesh>
-      {/* Halo encostado ao vidro/lente superior do cilindro */}
-      <GlowHalo color={color} on={on} radius={0.115} kind="lamp" position={[0, 0.08, 0.02]} />
+      {/* Halo encostado diretamente à superfície frontal do cilindro/lente */}
+      <GlowHalo color={color} on={on} radius={0.115} kind="lamp" position={[0, 0, 0.116]} />
       <Label text={c.ref} position={[0, 0.22, 0]} />
     </group>
   )
@@ -1210,8 +1213,8 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
   }, [color, model, on])
   return <group position={[x, RAIL_Y + 1.05, 0.4]}>
     <primitive object={model} />
-    {/* Halo encostado à lente frontal (vidro) — z ~0.06–0.09 em unidades de painel */}
-    <GlowHalo color={color} on={on} radius={0.11} kind="lamp" position={[0, 0, 0.075]} />
+    {/* Halo encostado diretamente ao vidro exterior da lente frontal (z = +0,2575 no AD22 centrado) */}
+    <GlowHalo color={color} on={on} radius={0.11} kind="lamp" position={[0, 0, 0.258]} />
     <Label text={`${c.ref} · AD22`} position={[0, 0.3, 0.08]} color="#334155" />
   </group>
 }
@@ -1396,8 +1399,18 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
 type Panel3DEditMode = 'navigate' | 'connect' | 'erase' | 'probe' | 'pan'
 
 function cableCurve3D(points: Array<[number, number, number]>, smooth: boolean): THREE.Curve<THREE.Vector3> {
-  const vectors = points.map((point) => new THREE.Vector3(...point))
-  if (smooth && vectors.length > 2) return new THREE.CatmullRomCurve3(vectors, false, 'centripetal', 0.45)
+  const plateSafeZ = PLATE_Z + PLATE_THICKNESS / 2 + 0.015
+  const vectors = points.map((point) => new THREE.Vector3(point[0], point[1], Math.max(point[2], plateSafeZ)))
+  if (smooth && vectors.length > 2) {
+    const spline = new THREE.CatmullRomCurve3(vectors, false, 'centripetal', 0.45)
+    const sampled = spline.getPoints(Math.max(24, vectors.length * 8)).map((pt) => {
+      if (pt.z < plateSafeZ) pt.z = plateSafeZ
+      return pt
+    })
+    const clampedPath = new THREE.CurvePath<THREE.Vector3>()
+    for (let index = 1; index < sampled.length; index += 1) clampedPath.add(new THREE.LineCurve3(sampled[index - 1], sampled[index]))
+    return clampedPath
+  }
   const path = new THREE.CurvePath<THREE.Vector3>()
   for (let index = 1; index < vectors.length; index += 1) path.add(new THREE.LineCurve3(vectors[index - 1], vectors[index]))
   return path
@@ -1565,7 +1578,7 @@ function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D
   if (hit) return hit
   const path = buildWirePath3D(wire, from, to, obstacles)
   const points = path.points
-  const curve = cableCurve3D(points, wire.flexibility === 'flexible' || wire.route === 'arc')
+  const curve = cableCurve3D(points, wire.route === 'arc')
   const geom: WireGeom = { path, curve, segments: Math.max(18, points.length * 10), points }
   if (wireGeomCache.size > 400) wireGeomCache.clear()
   wireGeomCache.set(key, geom)
@@ -1723,6 +1736,26 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
 type PanelCameraView = 'fit' | 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'isometric' | 'focus' | 'orbit' | 'angles'
 type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, number, number]; dx?: number; dy?: number; yaw?: number; pitch?: number; radius?: number }
 
+/** Iluminação PBR de estúdio gerada uma só vez (sem rede) para reflexos metálicos realistas no motor e na calha. */
+function StudioEnvironment() {
+  const { gl, scene } = useThree()
+  useEffect(() => {
+    const pmrem = new THREE.PMREMGenerator(gl)
+    const room = new RoomEnvironment()
+    const rt = pmrem.fromScene(room, 0.04)
+    const prevEnv = scene.environment
+    scene.environment = rt.texture
+    if ('environmentIntensity' in scene) (scene as THREE.Scene & { environmentIntensity: number }).environmentIntensity = 0.85
+    room.dispose()
+    pmrem.dispose()
+    return () => {
+      if (scene.environment === rt.texture) scene.environment = prevEnv
+      rt.dispose()
+    }
+  }, [gl, scene])
+  return null
+}
+
 /** Sombras sob pedido: o shadow map só é recalculado quando a cena muda e nos
  * primeiros segundos após o mount (os GLBs entram via Suspense já depois). */
 function ShadowsOnDemand({ watch }: { watch: string }) {
@@ -1806,7 +1839,9 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMod
     const verticalFov = THREE.MathUtils.degToRad((camera as THREE.PerspectiveCamera).fov || 44)
     const fit = fitRef.current
     const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * Math.max(0.55, fit.width / Math.max(1, fit.height)))
-    const fitDistance = Math.max(3.2, Math.min(40, (Math.max(3.5, fit.railWidth) * 0.62) / Math.max(0.2, Math.tan(horizontalFov / 2))))
+    const fitDistanceH = (Math.max(3.5, fit.railWidth) * 0.62) / Math.max(0.2, Math.tan(horizontalFov / 2))
+    const fitDistanceV = (Math.max(5.0, fit.railWidth * 0.62) * 0.60) / Math.max(0.2, Math.tan(verticalFov / 2))
+    const fitDistance = Math.max(3.6, Math.min(40, Math.max(fitDistanceH, fitDistanceV)))
     let position: THREE.Vector3
     const fromUp = camera.up.clone()
     const fromPosition = camera.position.clone()
@@ -2078,13 +2113,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   const viewOrientationEditor = useSimStore((s) => s.viewOrientationEditor)
   const tool = useSimStore((s) => s.tool)
   const runState = useSimStore((s) => s.sim.runState)
+  const demoMode = useSimStore((s) => s.demoMode)
   const gridDragEnabled = useSimStore((s) => s.gridDragEnabled)
-  const editMode: Panel3DEditMode = tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
-  // Atuar botões/disjuntores: sempre com ferramenta Selecionar (STOP ou RUN).
-  // Bloquear só seleção/arrasto/edição durante RUN/PAUSA.
-  const canActuate = tool === 'select' && !viewOrientationEditor
+  const editMode: Panel3DEditMode = demoMode ? 'navigate' : tool === 'wire' ? 'connect' : tool === 'select' ? 'navigate' : tool
+  // Atuar botões/disjuntores: sempre com ferramenta Selecionar (STOP ou RUN, inclusive na demonstração).
+  // Bloquear seleção/arrasto/edição durante RUN/PAUSA e sempre em modo demonstração.
+  const canActuate = (demoMode || tool === 'select') && !viewOrientationEditor
   const interactive = canActuate
-  const simLocked = (runState === 'running' || runState === 'paused') && !viewOrientationEditor
+  const simLocked = demoMode || ((runState === 'running' || runState === 'paused') && !viewOrientationEditor)
 
   const probeA = useSimStore((state) => state.probeA)
   const probeResult = useSimStore((state) => state.probeResult)
@@ -2113,10 +2149,28 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     bodyColor: viewOrientationEditor.bodyColor3D,
   } : component), [storedComponents, viewOrientationEditor])
   const sceneCenterRef = useRef<[number, number, number]>([0, 0, 0.3])
-  const [cameraCommand, setCameraCommand] = useState<PanelCameraCommand>({ id: 0, view: 'isometric', target: [0, 0, 0.3] })
-  const demoMode = useSimStore((s) => s.demoMode)
-  // O projeto nativo (motor fora do painel) abre sempre em isométrica; a frontal deixa o motor enorme junto da câmara.
-  const isoFirst = useSimStore((s) => s.demoMode || !!s.nativeId)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const [stageVisible, setStageVisible] = useState(true)
+  const [burstActive, setBurstActive] = useState(true)
+  // No simulador a câmara abre sempre em vista frontal; apenas o motor tem orientação isométrica.
+  const [cameraCommand, setCameraCommand] = useState<PanelCameraCommand>({ id: 0, view: 'front', target: [0, 0, 0.3] })
+  useEffect(() => {
+    setBurstActive(true)
+    const timer = window.setTimeout(() => setBurstActive(false), 950)
+    return () => window.clearTimeout(timer)
+  }, [cameraCommand.id, storedComponents])
+  useEffect(() => {
+    const node = stageRef.current
+    if (!node || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(([entry]) => setStageVisible(entry.isIntersecting), { threshold: 0.01 })
+    io.observe(node)
+    const onVis = () => setStageVisible(!document.hidden)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      io.disconnect()
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
   const [showGrid, setShowGrid] = useState(() => {
     try { return localStorage.getItem('dc-simu:panel3d:grid') !== '0' } catch { return true }
   })
@@ -2157,11 +2211,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   }
   const orbitCamera = (dx: number, dy: number) =>
     setCameraCommand((current) => ({ id: current.id + 1, view: 'orbit', target: current.target, dx, dy }))
-  // Primeira vez que o projeto tem equipamento: enquadra-o em isométrica.
+  // Primeira vez que o projeto tem equipamento: enquadra-o em vista frontal (apenas o motor é isométrico).
   const fittedRef = useRef(false)
   const initialCameraRef = useRef(initialCamera)
   useEffect(() => {
-    if (frontEdit && !isoFirst && !initialCameraRef.current) moveCamera('front')
+    if (!initialCameraRef.current) moveCamera('front')
     if (!initialCameraRef.current) return
     onInitialCameraUsed?.()
     // Sem equipamento ainda, aplica já a vista para o cubo refletir o pedido.
@@ -2173,10 +2227,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     if (!hasComponents) { fittedRef.current = false; return }
     if (!fittedRef.current) {
       fittedRef.current = true
-      // Vista pedida no cubo do Esquema 2D (frontal por omissão) tem prioridade sobre a isométrica.
-      if (initialCameraRef.current && !isoFirst) applyCubeRequest(initialCameraRef.current)
-      // Demonstração e projeto nativo: isométrica; a frontal deixa o motor, fora do painel, enorme junto da câmara.
-      else moveCamera(frontEdit && !isoFirst ? 'front' : 'isometric')
+      if (initialCameraRef.current) applyCubeRequest(initialCameraRef.current)
+      else moveCamera('front')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasComponents])
@@ -2706,10 +2758,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
     copy: () => useSimStore.getState().copySelection(),
     paste: () => useSimStore.getState().pasteClipboard(),
     help: () => setShortcutHelpOpen((open) => !open),
-  }, { enabled: !shortcutHelpOpen })
+  }, { enabled: !shortcutHelpOpen && !demoMode })
 
    return (
      <div
+       ref={stageRef}
        className={`panel3d-stage relative w-full h-full ${stageBackground}`}
        style={stageStyle}
        data-embedded-in-schematic="true"
@@ -2719,10 +2772,12 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
        data-component-editing={viewOrientationEditor ? 'true' : 'false'}
        aria-label="Visualização 3D do Esquema"
        onDragOver={(e) => {
+         if (demoMode) return
          e.preventDefault()
          e.dataTransfer.dropEffect = 'copy'
        }}
        onDrop={(e) => {
+         if (demoMode) return
          e.preventDefault()
          const compType = e.dataTransfer.getData('text/plain') as ComponentType
          if (!compType || !canInsertComponent3D(compType)) return
@@ -2741,7 +2796,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           note={cubeNote}
           placement="top"
         />
-      {selectedWire && wireActionSlot && createPortal(<div className="panel3d-wire-actions-panel" role="region" aria-label="Traçado do cabo no esquema 3D">
+      {selectedWire && !demoMode && wireActionSlot && createPortal(<div className="panel3d-wire-actions-panel" role="region" aria-label="Traçado do cabo no esquema 3D">
         <div className="panel3d-wire-actions-head">
           <strong>{selectedWire.number || 'Cabo'}</strong>
           <small>{selectedWire.gauge} · Ø {cableOuterDiameterMm(selectedWire.gauge).toFixed(1)} mm{selectedWirePath ? ` · ≈ ${wireLengthMm(selectedWirePath)} mm` : ''}</small>
@@ -2765,13 +2820,14 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       </div>, wireActionSlot)}
       {!hasComponents && <div className="panel3d-empty"><strong>{frontEdit ? 'O esquema está vazio' : 'O esquema 3D está vazio'}</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
       <ContextLossNotice lost={glLost} />
-      <Canvas shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (editMode !== 'connect') selectComponents([]) }}
+      <Canvas frameloop={!stageVisible ? 'never' : (runState === 'running' || burstActive) ? 'always' : 'demand'} shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (!demoMode && editMode !== 'connect') selectComponents([]) }}
         onCreated={({ gl }) => {
           // Sombras calculadas só quando a cena muda (não a cada frame): durante o
           // RUN a re-sombra contínua era a maior fatia do custo de renderização.
           gl.shadowMap.autoUpdate = false
           gl.shadowMap.needsUpdate = true
         }}>
+        <StudioEnvironment />
         <ShadowsOnDemand watch={shadowWatch} />
         <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
@@ -2791,7 +2847,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }} />}
 
         {plateBounds && <MountingPlate bounds={plateBounds} />}
-        <CanvasNoteLayer notes={canvasNotes} view={frontEdit ? 'schematic' : '3d'} onEdit={editNote} onRemove={removeNote} />
+        <CanvasNoteLayer notes={canvasNotes} view={frontEdit ? 'schematic' : '3d'} onEdit={demoMode ? () => {} : editNote} onRemove={demoMode ? () => {} : removeNote} />
         {railComponents.map((c) => {
           const x = positions[c.id].x
           let content: ReactNode
@@ -2858,11 +2914,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <Wires3D
           pivots={panelPivots}
           editMode={editMode}
-          selectedWireId={selectedWireId}
-          activeWaypointIndex={activeWaypointIndex}
-          activeEnd={activeEnd}
-          moveAll={moveAllWire}
-          onSelectWire={(wireId) => { if (tool === 'erase') { deleteWire(wireId); return }; if (tool !== 'select' && tool !== 'wire') return; if (draftRef.current || reconnect) return; selectWire(wireId); setActiveWaypointIndex(null); setActiveEnd(null); setMoveAllWire(false) }}
+          selectedWireId={demoMode ? null : selectedWireId}
+          activeWaypointIndex={demoMode ? null : activeWaypointIndex}
+          activeEnd={demoMode ? null : activeEnd}
+          moveAll={demoMode ? false : moveAllWire}
+          onSelectWire={(wireId) => { if (demoMode) return; if (tool === 'erase') { deleteWire(wireId); return }; if (tool !== 'select' && tool !== 'wire') return; if (draftRef.current || reconnect) return; selectWire(wireId); setActiveWaypointIndex(null); setActiveEnd(null); setMoveAllWire(false) }}
           onSelectWaypoint={(index) => { setActiveWaypointIndex(index); setActiveEnd(null) }}
           onMoveWaypoint={moveWireWaypoint}
           onRemoveWaypoint={removeWireWaypointAt}
@@ -2873,7 +2929,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           terminals={drawTerminals}
         />
         <WireDrawController
-          active={editMode === 'connect' || reconnect !== null}
+          active={!demoMode && (editMode === 'connect' || reconnect !== null)}
           draft={draft}
           getDraft={() => draftRef.current}
           terminals={drawTerminals}

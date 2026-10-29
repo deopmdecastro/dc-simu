@@ -439,9 +439,9 @@ function PilotLightWithGlow({ position, active, color }: { position: Point3; act
   return (
     <group ref={group} position={[0, 0, 0]}>
       <ComponentModel type="pilotLightAd22" position={position} active={active} lightColor={color} />
-      {/* Halo encostado ao vidro da lente (não deslocado para a frente) */}
-      <group position={[position[0], position[1] + 0.02, position[2] + 0.06]}>
-        <GlowHalo color={color} on={active} radius={0.09} kind="lamp" castLight />
+      {/* Halo encostado diretamente ao vidro exterior da lente (ancoragem bottom: y +0,1465, z +0,258) */}
+      <group position={[position[0], position[1] + 0.1465, position[2] + 0.258]}>
+        <GlowHalo color={color} on={active} radius={0.095} kind="lamp" castLight />
       </group>
     </group>
   )
