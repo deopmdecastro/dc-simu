@@ -19,9 +19,9 @@ export const WIRE_KIND_LABEL: Record<WireKind, string> = { power: 'Força', cont
 export const WIRE_KIND_COLOR: Record<WireKind, WireColor> = { power: 'black', control: 'red', signal: 'orange', neutral: 'lightblue', earth: 'green-yellow', bus: 'violet' }
 export const WIRE_GAUGES = ['0.5mm²', '0.75mm²', '1mm²', '1.5mm²', '2.5mm²', '4mm²', '6mm²', '10mm²', '16mm²']
 
-export const WIRE_END_LABEL: Record<WireEndType, string> = { none: 'Nu', ferrule: 'Ponteira', ferruleDouble: 'Ponteira dupla', ring: 'Olhal', fork: 'Forquilha', pin: 'Pino', faston: 'Faston', tinned: 'Estanhado' }
+export const WIRE_END_LABEL: Record<WireEndType, string> = { none: 'Nu', ferrule: 'Ponteira', ferruleDouble: 'Ponteira dupla', ring: 'Olhal', fork: 'Forquilha', pin: 'Pino', faston: 'Faston', tinned: 'Estanhado', banana: 'Ficha banana 4 mm', probe: 'Ponteira de teste' }
 export const FLAT_LUGS: WireEndType[] = ['ring', 'fork', 'faston']
-const ROUND_ENDS: WireEndType[] = ['ferrule', 'ferruleDouble', 'pin']
+const ROUND_ENDS: WireEndType[] = ['ferrule', 'ferruleDouble', 'pin', 'banana', 'probe']
 
 export interface WireStyle {
   color: WireColor
@@ -77,6 +77,8 @@ export function wireEndLengthMm(type: WireEndType): number {
     case 'pin': return 15
     case 'ring': case 'fork': case 'faston': return 20
     case 'tinned': return 8
+    case 'banana': return 24
+    case 'probe': return 110
     default: return 7
   }
 }

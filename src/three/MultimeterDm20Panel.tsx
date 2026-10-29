@@ -87,13 +87,13 @@ export default function MultimeterDm20Panel({ component, model, interactive = tr
     }
   })
   const act = (control: ControlDef, gesture: 'press' | { step: 1 | -1 }) => triggerControl(DM20_DEFINITION, component.id, control, gesture)
-  const hit = (id: string, x: number, y: number, control: ControlDef) => <mesh position={[x, y, 0.18]}
+  const hit = (id: string, x: number, y: number, control: ControlDef) => <mesh position={[x, y, 0.18]} userData={{ presentationOverlay: true }}
     onPointerDown={(e) => { if (!interactive) return; e.stopPropagation(); setPressed(id) }} onPointerUp={(e) => { if (!interactive) return; e.stopPropagation(); setPressed(''); act(control, 'press') }} onPointerOut={() => setPressed('')}>
     <circleGeometry args={[0.075, 20]} /><meshStandardMaterial transparent opacity={pressed === id ? 0.35 : 0.03} color="#94a3b8" /></mesh>
   return <group>
     {/* Tamanho e posição vêm diretamente da caixa do vidro LCD no próprio GLB. */}
     <mesh position={lcdFit.position} renderOrder={4}><planeGeometry args={lcdFit.size} /><meshBasicMaterial map={texture} toneMapped={false} polygonOffset polygonOffsetFactor={-4} polygonOffsetUnits={-4} /></mesh>
-    <mesh position={[0, 0.67, 0.18]} onPointerDown={(e) => { if (!interactive) return; e.stopPropagation(); act(selector, { step: e.shiftKey ? -1 : 1 }) }}>
+    <mesh position={[0, 0.67, 0.18]} userData={{ presentationOverlay: true }} onPointerDown={(e) => { if (!interactive) return; e.stopPropagation(); act(selector, { step: e.shiftKey ? -1 : 1 }) }}>
       <circleGeometry args={[0.21, 28]} /><meshBasicMaterial transparent opacity={0.025} depthWrite={false} />
     </mesh>
     {hit('sel', -0.22, 1.14, selectButton)}{hit('off', 0, 1.14, powerButton)}{hit('hold', 0.22, 1.14, holdButton)}

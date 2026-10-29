@@ -7,6 +7,8 @@ export const WIRE_END_OPTIONS: Array<{ id: WireEndType; label: string; hint: str
   { id: 'ring', label: 'Olhal', hint: 'Terminal de olhal (anel) para parafuso' },
   { id: 'fork', label: 'Forquilha', hint: 'Terminal em U / garfo' },
   { id: 'pin', label: 'Pino', hint: 'Terminal tipo pino' },
+  { id: 'banana', label: 'Ficha banana 4 mm', hint: 'Ficha isolada para as tomadas do multímetro' },
+  { id: 'probe', label: 'Ponteira de teste', hint: 'Ponta metálica com guarda de dedos e punho isolado' },
   { id: 'faston', label: 'Faston', hint: 'Terminal de encaixe rápido (faston)' },
   { id: 'tinned', label: 'Estanhado', hint: 'Ponta estanhada, sem terminal' },
   { id: 'none', label: 'Nu', hint: 'Ponta nua (sem terminação)' },
@@ -19,6 +21,12 @@ export function WireEndIcon({ type, color = '#ef4444', size = 34 }: { type: Wire
   const wire = <line x1={22} y1={8} x2={40} y2={8} stroke={color} strokeWidth={3} strokeLinecap="round" />
   let end: JSX.Element | null = null
   switch (type) {
+    case 'banana':
+      end = <><rect x={4} y={6.5} width={8} height={3} fill={metal} /><rect x={12} y={3} width={10} height={10} rx={3} fill={color} /></>
+      break
+    case 'probe':
+      end = <><path d="M2 8H10" stroke={metal} strokeWidth={1.8} /><path d="M10 6L14 4H22V12H14L10 10Z" fill={color} /><path d="M14 2V14" stroke={color} strokeWidth={3} /></>
+      break
     case 'ferrule':
       end = (<><rect x={4} y={5.5} width={11} height={5} rx={1} fill={metal} stroke={edge} strokeWidth={0.7} /><rect x={15} y={4} width={7} height={8} rx={1.5} fill={color} stroke={edge} strokeWidth={0.6} /></>)
       break

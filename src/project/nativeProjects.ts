@@ -23,6 +23,7 @@ import type { ProjectFile } from '../ladder/projectFiles'
 import { nanoid } from 'nanoid'
 import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
+import { buildNativeMotorMeter, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE } from './nativeMotorMeter'
 
 /** Blocos de programa do método «registo de etapa» (FC + OB100 + CALL na Main). */
 const NATIVE_PLC_ID = 'native-plc'
@@ -31,7 +32,7 @@ const NATIVE_FC_OUTPUTS_ID = 'native-fc-outputs'
 const NATIVE_OB100_ID = 'native-ob100'
 
 /** Identificador estável — não muda entre deploys. */
-export const NATIVE_PARTIDA_ID = 'native-partida-direta-v3'
+export { NATIVE_PARTIDA_ID } from './nativeMotorMeter'
 export const NATIVE_PARTIDA_NAME = 'Partida direta com emergência (nativo)'
 
 const ADMIN_OWNER = 'dcsimu-admin'
@@ -320,7 +321,9 @@ export function buildNativePartidaDireta(): Built {
     add(plc, `${output}·2`, target, positive, 'orange')
     add(target, negative, psu, '-V2', 'blue')
   }
-  const components = [rail, source, main, psu, plc, qm, km, control, emerg, push, green, red, motor]
+  const { meter, leads } = buildNativeMotorMeter(motor)
+  wires.push(...leads)
+  const components = [rail, source, main, psu, plc, qm, km, control, emerg, push, green, red, motor, meter]
   const baseTags: Built['tags'] = [
     { id: 't1', address: 'I0.0', name: 'EMERG', dataType: 'Bool', comment: 'B0 cogumelo NF — 1 em repouso, 0 premido' },
     { id: 't2', address: 'I0.1', name: 'START', dataType: 'Bool', comment: 'B1 START (NA)' },
@@ -353,6 +356,7 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     version: 6,
     projectKind: built.projectKind,
     nativeId: NATIVE_PARTIDA_ID,
+    nativeFeatures: [NATIVE_MOTOR_METER_FEATURE],
     savedAt: new Date().toISOString(),
     components: built.components,
     wires: built.wires,

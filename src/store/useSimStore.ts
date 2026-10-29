@@ -3,6 +3,7 @@ import { EDITOR_THEME } from '../ui/editorTheme'
 import { nextDeclaredTagAddress } from '../grafcet/signals'
 import { normalizeBitAddress } from '../ladder/addresses'
 import { migrateLegacyAddresses } from './migrations'
+import { upgradeNativeMotorMeter } from '../project/nativeMotorMeter'
 import { normalizeKind, type ProjectKind } from '../project/kind'
 import { syncDemoMode } from './demoMode'
 import { readOperand } from '../ladder/compare'
@@ -170,6 +171,7 @@ interface Store extends CircuitState {
    *  Persiste no conteúdo do ficheiro («nativeId») para que os backends possam
    *  reimplantar a semente só quando não existir nenhuma cópia materializada. */
   nativeId: string | null
+  nativeFeatures: string[]
   /** Ephemeral document identity; prevents drafts from writing into a newly loaded project. */
   projectRevision: number
   projectKind: ProjectKind
@@ -939,6 +941,7 @@ export const useSimStore = create<Store>((set, get) => ({
   clipboard: null,
   currentProjectName: null,
   nativeId: null,
+  nativeFeatures: [],
   projectRevision: 0,
   projectKind: 'all' as ProjectKind,
   virtualInputs: {},
@@ -2633,6 +2636,7 @@ export const useSimStore = create<Store>((set, get) => ({
         projectKind: s.projectKind,
         savedAt: new Date().toISOString(),
         ...(s.nativeId ? { nativeId: s.nativeId } : {}),
+        ...(s.nativeId ? { nativeFeatures: s.nativeFeatures } : {}),
         components: s.components,
         wires: s.wires,
         ladder: s.ladder,
@@ -2667,7 +2671,8 @@ export const useSimStore = create<Store>((set, get) => ({
   loadJSON: (json) => {
     try {
       // Migração silenciosa: bits antigos «I1»/«Q2»/«M3» passam a «I0.0»/«Q0.1»/«M0.2».
-      const parsed = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
+      const original = migrateLegacyAddresses(JSON.parse(json)) as Record<string, any>
+      const parsed = upgradeNativeMotorMeter(original)
       setStoredCover(parsed?.cover)
       get().stop()
       const sourceComponents = (parsed.components ?? []) as ElectricalComponent[]
@@ -2692,6 +2697,7 @@ export const useSimStore = create<Store>((set, get) => ({
         projectRevision: get().projectRevision + 1,
         projectKind: normalizeKind(parsed.projectKind),
         nativeId: typeof parsed.nativeId === 'string' ? parsed.nativeId : null,
+        nativeFeatures: Array.isArray(parsed.nativeFeatures) ? parsed.nativeFeatures.filter((v: unknown) => typeof v === 'string') : [],
         // Estado das entradas virtuais guardado no ficheiro (já migrado para byte.bit):
         // restitui-o para o projeto continuar a simular exatamente onde ficou.
         virtualInputs: (() => {
@@ -2732,9 +2738,10 @@ export const useSimStore = create<Store>((set, get) => ({
         viewOrientationEditor: null,
         history: [],
         future: [],
-        dirty: footprintUpgraded || componentMetadataUpgraded || alignedWires.some((wire, i) => wire !== loadedWires[i]),
+        dirty: parsed !== original || footprintUpgraded || componentMetadataUpgraded || alignedWires.some((wire, i) => wire !== loadedWires[i]),
       })
       get().pushEvent('info', 'Projeto carregado de arquivo JSON.')
+      if (parsed !== original) get().pushEvent('info', 'Nativo atualizado com multímetro e ponteiras na entrada do motor. Guarde o projeto para conservar a atualização.')
       get().step()
     } catch (e) {
       get().pushEvent('error', 'Falha ao carregar o JSON: arquivo inválido.')
@@ -2777,6 +2784,7 @@ export const useSimStore = create<Store>((set, get) => ({
       dirty: false,
       currentProjectName: null,
       nativeId: null,
+      nativeFeatures: [],
       virtualInputs: {},
       virtualInputModes: {},
       projectKind: normalizeKind(kind),

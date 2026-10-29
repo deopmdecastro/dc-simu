@@ -10,6 +10,7 @@ import { DIN_RAIL_15X55 } from '../src/three/dinRailGeometry'
 import { PANEL_UNITS_PER_MM, isMountingRail } from '../src/three/modelPaths'
 import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, keepInFrontOfPlate, wireEndpoint3D } from '../src/three/wireGeometry3D'
 import { componentOrientationOf, MOTOR_ISOMETRIC_ORIENTATION } from '../src/three/componentOrientation'
+import { segmentEntersBox } from '../src/three/solidWireRouting'
 
 let failed = 0
 const check = (name: string, ok: boolean, extra = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} — ${name}${extra ? ` (${extra})` : ''}`); if (!ok) failed++ }
@@ -20,7 +21,7 @@ const pivots: Record<string, THREE.Vector3> = {}
 for (const c of built.components) {
   const { x, y } = componentPanelXY(c)
   if (isMountingRail(c.type)) pivots[c.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z)
-  else if (!isPanelBound(c)) pivots[c.id] = new THREE.Vector3(x, y, 0.7)
+  else if (!isPanelBound(c)) pivots[c.id] = new THREE.Vector3(x, y, c.type === 'motor3ph' || c.type === 'motor1ph' ? 0.7 : 0.4)
   else pivots[c.id] = new THREE.Vector3(x, y, RAIL_FLUSH_Z + (DIN_RAIL_15X55.height / 2) * PANEL_UNITS_PER_MM + componentHalfExtents(c).z)
 }
 const obstacles = componentObstacles(built.components, pivots)
@@ -33,15 +34,22 @@ let crossing = 0
 let behindPlate = 0
 let ferruleBehindPlate = 0
 let minZ = Infinity
+const solidOffenders: string[] = []
 const plateFront = PLATE_Z + PLATE_THICKNESS / 2
 const plateOffenders: string[] = []
 const offenders: string[] = []
 const coordinated = buildAllWirePaths3D(built.wires, built.components, pivots, obstacles)
+check('Todos os cabos têm traçado visível', built.wires.every(w => (coordinated.get(w.id)?.points.length ?? 0) >= 2), built.wires.filter(w => (coordinated.get(w.id)?.points.length ?? 0) < 2).map(w => w.number).join(', '))
 for (const wire of built.wires) {
   const from = wireEndpoint3D(wire, 'from', built.components, pivots)
   const to = wireEndpoint3D(wire, 'to', built.components, pivots)
   if (!from || !to) continue
   const { points, starts } = coordinated.get(wire.id) ?? buildWirePath3D(wire, from, to, obstacles)
+  for (const obstacle of obstacles) {
+    if (obstacle.componentId === from.componentId || obstacle.componentId === to.componentId) continue
+    const solid = obstacle.clone().expandByScalar(cableOuterDiameterMm(wire.gauge) * PANEL_UNITS_PER_MM * 0.49)
+    if (points.some((p,i)=>i>0&&segmentEntersBox(points[i-1],p,solid))) solidOffenders.push(`${wire.number}/${obstacle.componentId}`)
+  }
   // o cabo e as ponteiras nunca podem ficar atrás da face frontal da chapa (atravessar o painel)
   const wireMinZ = Math.min(...points.map((q) => q[2]))
   minZ = Math.min(minZ, wireMinZ)
@@ -83,6 +91,7 @@ for (const wire of built.wires) {
 check('Nenhum cabo 3D passa pelo motor (nem à frente dele)', crossing === 0, crossing ? `${crossing}: ${offenders.slice(0, 6).join(' | ')}` : '')
 check('Nenhum cabo 3D atravessa a chapa do painel (z ≥ face frontal)', behindPlate === 0, behindPlate ? `${behindPlate}: ${plateOffenders.slice(0, 6).join(' | ')}` : `z mínimo ${minZ.toFixed(3)} ≥ ${plateFront.toFixed(3)}`)
 check('Nenhuma ponteira/terminal atravessa a chapa do painel', ferruleBehindPlate === 0)
+check('Todos os cabos contornam os outros aparelhos e a calha com a sua espessura física', solidOffenders.length === 0, solidOffenders.join(', '))
 
 function segDist3D(p1: THREE.Vector3, q1: THREE.Vector3, p2: THREE.Vector3, q2: THREE.Vector3) {
   const u = new THREE.Vector3().subVectors(q1, p1)
@@ -110,6 +119,7 @@ const wireCapsules = built.wires.map((w) => {
   return { w, r: (outer * PANEL_UNITS_PER_MM) / 2, pts: path.points.map((p) => new THREE.Vector3(p[0], p[1], p[2])) }
 })
 let wireInsideWire = 0
+const wireCollisions: string[] = []
 for (let i = 0; i < wireCapsules.length; i++) {
   for (let j = i + 1; j < wireCapsules.length; j++) {
     const A = wireCapsules[i]; const B = wireCapsules[j]
@@ -124,10 +134,10 @@ for (let i = 0; i < wireCapsules.length; i++) {
         if (h.dist < minD) minD = h.dist
       }
     }
-    if (minD < (A.r + B.r) * 0.98) wireInsideWire++
+    if (minD < (A.r + B.r) * 0.98) { wireInsideWire++; wireCollisions.push(`${A.w.number}/${B.w.number}: ${minD.toFixed(4)}`) }
   }
 }
-check('Nenhum cabo 3D atravessa dentro de outro cabo (0 colisões nos 35 cabos)', wireInsideWire === 0, `colisões=${wireInsideWire}`)
+check(`Nenhum cabo 3D atravessa dentro de outro cabo (${built.wires.length} cabos)`, wireInsideWire === 0, `colisões=${wireInsideWire}: ${wireCollisions.join(', ')}`)
 
 const xg = built.components.find((c) => c.type === 'powerSource3ph')!
 const xgIds = new Set(xg.terminals.map((t) => t.id))

@@ -206,7 +206,7 @@ function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['v
   if (!group) return
   group.traverse((node) => {
     const mesh = node as THREE.Mesh
-    if (!mesh.isMesh) return
+    if (!mesh.isMesh || mesh.userData.presentationOverlay) return
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     materials.forEach((material) => {
       const visual = material as THREE.Material & { wireframe?: boolean; opacity: number; transparent: boolean; depthWrite: boolean }
@@ -219,10 +219,12 @@ function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['v
         color: colorMaterial.color?.getHexString(),
       }
       const base = visual.userData.dcSimuPresentationBase as { wireframe: boolean; opacity: number; transparent: boolean; depthWrite: boolean; color?: string }
+      const physicalSurface = material instanceof THREE.MeshStandardMaterial
       visual.wireframe = mode === 'wireframe' ? true : base.wireframe
-      visual.opacity = mode === 'xray' ? Math.min(0.34, base.opacity) : base.opacity
-      visual.transparent = mode === 'xray' ? true : base.transparent
-      visual.depthWrite = mode === 'xray' ? false : base.depthWrite
+      visual.opacity = mode === 'xray' ? Math.min(0.34, base.opacity) : physicalSurface ? 1 : base.opacity
+      visual.transparent = mode === 'xray' ? true : physicalSurface ? false : base.transparent
+      visual.depthWrite = mode === 'xray' ? false : physicalSurface ? true : base.depthWrite
+      if (physicalSurface) visual.depthTest = true
       if (colorMaterial.color && base.color) {
         colorMaterial.color.set(`#${base.color}`)
         if (bodyColor) colorMaterial.color.lerp(new THREE.Color(bodyColor), 0.34)
@@ -1356,7 +1358,7 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
 /** O modo vem da barra de ferramentas principal: ferramenta Cabo = ligar (e clicar num cabo para o editar); restantes = navegar/mover componentes. */
 type Panel3DEditMode = 'navigate' | 'connect' | 'erase' | 'probe' | 'pan'
 
-function cableCurve3D(points: Array<[number, number, number]>, smooth: boolean): THREE.Curve<THREE.Vector3> {
+function cableCurve3D(points: Array<[number, number, number]>, _smooth: boolean): THREE.Curve<THREE.Vector3> {
   const plateSafeZ = PLATE_Z + PLATE_THICKNESS / 2 + 0.015
   const vectors: THREE.Vector3[] = []
   for (const point of points) {
@@ -1368,9 +1370,11 @@ function cableCurve3D(points: Array<[number, number, number]>, smooth: boolean):
     for (let index = 1; index < vectors.length; index += 1) path.add(new THREE.LineCurve3(vectors[index - 1], vectors[index]))
     return path
   }
-  // Spline centrípeta C¹ sobre os arcos suavizados: elimina quebras de frame Frenet (quinas nos tubos).
-  const spline = new THREE.CatmullRomCurve3(vectors, false, 'centripetal', smooth ? 0.45 : 0.22)
-  return spline
+  // O caminho já contém os arcos. Uma segunda spline pode voltar a entrar nos
+  // sólidos depois da verificação de colisões; desenhar exatamente o traçado validado.
+  const path = new THREE.CurvePath<THREE.Vector3>()
+  for (let i = 1; i < vectors.length; i++) path.add(new THREE.LineCurve3(vectors[i - 1], vectors[i]))
+  return path
 }
 
 /** Pega genérica para editar cabos: arrasta-se diretamente (sem gizmo) num plano virado para a câmara, com resposta em tempo real. */
@@ -1507,7 +1511,7 @@ const wireGeomCache = new Map<string, WireGeom>()
 function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D, obstacles: WireObstacle[], prebuiltPath?: WirePath3D): WireGeom {
   const round = (n: number) => n.toFixed(4)
   const pathSig = prebuiltPath
-    ? `${prebuiltPath.points.length}:${prebuiltPath.points.slice(0, 4).map((p) => p.map(round).join(',')).join(';')}:${prebuiltPath.points.slice(-3).map((p) => p.map(round).join(',')).join(';')}`
+    ? prebuiltPath.points.map(p => p.map(round).join(',')).join(';')
     : 'solo'
   const key = [
     wire.id, wire.route, wire.bend, wire.curveOffset, wire.gauge, wire.flexibility,
@@ -1515,6 +1519,7 @@ function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D
     from.position.map(round).join(','), to.position.map(round).join(','),
     (wire.waypoints3D ?? []).map((p) => `${round(p.x)},${round(p.y)},${round(p.z)}`).join(';'),
     pathSig,
+    ...(prebuiltPath ? [] : obstacles.map(box => `${box.min.toArray().map(round)}:${box.max.toArray().map(round)}`)),
   ].join('|')
   const hit = wireGeomCache.get(key)
   if (hit) return hit
@@ -1548,7 +1553,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
   // (RUN muda c.state, não as posições): sem isto, cada scan re-gerava as caixas.
   const obstaclesKey = useMemo(() => components.map((c) => {
     const p = pivots[c.id]
-    return p ? `${c.id}:${p.x.toFixed(4)},${p.y.toFixed(4)},${p.z.toFixed(4)}:${c.state.lengthMm ?? 0}:${c.rotation ?? 0}` : ''
+    return p ? `${c.id}:${p.x.toFixed(4)},${p.y.toFixed(4)},${p.z.toFixed(4)}:${c.state.lengthMm ?? 0}:${c.rotation ?? 0}:${c.mirrored}:${JSON.stringify([componentOrientationOf(c), component3DScaleOf(c), c.terminals.map(t=>[t.id,t.position3D,t.socket3D])])}` : ''
   }).join('|'), [components, pivots])
   const obstacles = useMemo(() => componentObstacles(components, pivots), [obstaclesKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1567,6 +1572,14 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [wiresGeoKey, obstaclesKey, obstacles],
   )
+  const blockedNotice = useRef('')
+  useEffect(() => {
+    const blocked = wires.filter(w => coordinatedPaths.has(w.id) && coordinatedPaths.get(w.id)!.points.length < 2)
+    const key = blocked.map(w => w.id).sort().join('|')
+    if (key && key !== blockedNotice.current) useSimStore.getState().pushEvent('warning',
+      `Não foi possível traçar ${blocked.map(w => w.number || w.id).join(', ')} sem atravessar um aparelho. Mova a ponta livre para fora do corpo ou afaste os aparelhos sobrepostos.`)
+    blockedNotice.current = key
+  }, [coordinatedPaths, wires])
 
   type LiveDrag = { wireId: string; kind: 'waypoint' | 'end' | 'all'; index?: number; side?: 'from' | 'to'; point: V3; origin?: V3 }
   const [drag, setDrag] = useState<LiveDrag | null>(null)
@@ -1619,6 +1632,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     // curva e os 3-4 TubeGeometry (centenas de segmentos) por cabo. Era o peso.
     const prebuilt = drag?.wireId === wire.id ? undefined : coordinatedPaths.get(storedWire.id)
     const { path, curve, segments, points } = cachedWireGeometry(wire, from, to, obstacles, prebuilt)
+    if (points.length < 2) return null
     const selected = wire.id === selectedWireId
     const outerDiameterMm = cableOuterDiameterMm(wire.gauge)
     const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2

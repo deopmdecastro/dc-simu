@@ -114,6 +114,12 @@ function WireEnd({ p, dir, type, color, scale = 1 }: { p: Pt; dir: Pt; type: Wir
   const edge = '#6b7a90'
   let body: JSX.Element
   switch (type) {
+    case 'banana':
+      body = <><rect x={0} y={-1.5} width={5} height={3} fill={metal} /><rect x={5} y={-4} width={10} height={8} rx={2} fill={color} stroke={edge} strokeWidth={0.5} /></>
+      break
+    case 'probe':
+      body = <><path d="M0 0H8" stroke={metal} strokeWidth={1.5} /><path d="M8 -2L12 -4H24V4H12L8 2Z" fill={color} /><path d="M12 -6V6" stroke={color} strokeWidth={3} /></>
+      break
     case 'ferrule':
       body = (
         <>

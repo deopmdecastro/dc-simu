@@ -103,7 +103,8 @@ function fitEnd(tip: THREE.Vector3, normal: THREE.Vector3 | null, type: WireEndT
   const thick = normal && flat ? normal.clone() : new THREE.Vector3(0, 0, 1).addScaledVector(axis, -axis.z)
   if (thick.lengthSq() < 1e-6) thick.set(0, 1, 0).addScaledVector(axis, -axis.y)
   thick.normalize()
-  const embedMm = normal && !flat && isRoundEnd(type) ? 3 : 0
+  const embedMm = normal && type === 'banana' ? 4 : normal && type === 'probe' ? 2
+    : normal && !flat && isRoundEnd(type) ? 3 : 0
   const lengthMm = Math.max(0.1, wireEndLengthMm(type) - embedMm)
   const origin = tip.clone().addScaledVector(normal && flat ? normal : new THREE.Vector3(), 0.4)
   const head = origin.clone().addScaledVector(axis, lengthMm)

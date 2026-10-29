@@ -63,6 +63,24 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
   // As ponteiras entram `embed` no borne: o referencial começa nesse recuo.
   const body = (() => {
     switch (geometry.type) {
+      case 'banana':
+        return <>
+          <Cyl y={-2 * U} length={4 * U} radius={2 * U} color={METAL} metalness={0.85} />
+          <Cyl y={5 * U} length={10 * U} radius={4.4 * U} color={color} />
+          <Cyl y={14 * U} length={8 * U} radius={3.5 * U} color={color} roughness={0.8} />
+          <Cyl y={19 * U} length={2 * U} radius={2 * U} color={color} />
+        </>
+      case 'probe':
+        return <>
+          <Cyl y={5 * U} length={14 * U} radius={0.8 * U} color={METAL} metalness={0.9} roughness={0.24} />
+          <mesh position={[0, 18 * U, 0]} raycast={() => null}>
+            <cylinderGeometry args={[4.5 * U, 1.6 * U, 12 * U, 20]} /><meshStandardMaterial color={color} roughness={0.66} />
+          </mesh>
+          <Cyl y={26 * U} length={4 * U} radius={8 * U} color={color} roughness={0.8} />
+          <Cyl y={60 * U} length={64 * U} radius={4.8 * U} color={color} roughness={0.75} />
+          {[38, 46, 54, 62, 70, 78].map(y => <Cyl key={y} y={y * U} length={1.4 * U} radius={5.1 * U} color={color} roughness={0.9} />)}
+          <Cyl y={100 * U} length={16 * U} radius={2.7 * U} color={color} roughness={0.8} />
+        </>
       case 'ferrule': {
         // Ponteira tubular isolada: manga metálica + colarinho plástico
         // aproximadamente quadrado (como as ponteiras isoladas comerciais).
@@ -133,5 +151,5 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
     }
   })()
 
-  return <group position={geometry.origin} quaternion={quaternion} userData={{ noPick: true }}>{body}</group>
+  return <group position={geometry.origin} quaternion={quaternion} userData={{ noPick: true, wireEndType: geometry.type }}>{body}</group>
 }

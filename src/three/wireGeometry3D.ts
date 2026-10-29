@@ -5,6 +5,7 @@ import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from './
 import { panelToSchematicX, panelToSchematicY, schematicToPanelX, schematicToPanelY } from './panelLayout'
 import { terminalNormalWorld3D, terminalWorld3D } from './terminal3D'
 import { REAL_TERMINALS } from '../electrical/realInterfaces'
+import { keepWireOutsideSolids, segmentEntersBox } from './solidWireRouting'
 
 /**
  * Geometria física dos cabos no Painel 3D: extremidades (bornes ou pontas livres),
@@ -110,6 +111,8 @@ export function wireEndLengthMm(type: WireEndType): number {
     case 'fork':
     case 'faston': return 20
     case 'tinned': return 8
+    case 'banana': return 24
+    case 'probe': return 110
     default: return 7
   }
 }
@@ -130,7 +133,8 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
   const dir = toWire.lengthSq() > 1e-8 ? toWire.clone().normalize() : new THREE.Vector3(0, -1, 0)
   const normal = endpoint.normal ? v(endpoint.normal) : null
   const flat = FLAT_LUG_TYPES.includes(type)
-  const embedMm = normal && !flat && (type === 'ferrule' || type === 'ferruleDouble' || type === 'pin') ? 8 : 0
+  const embedMm = normal && type === 'banana' ? 4 : normal && type === 'probe' ? 2
+    : normal && !flat && (type === 'ferrule' || type === 'ferruleDouble' || type === 'pin') ? 8 : 0
   const length = Math.max(0.01, (wireEndLengthMm(type) - embedMm) * U)
   const plateSafeZ = PLATE_Z + PLATE_THICKNESS / 2 + (outerMm / 2) * U + 0.016
   let axis = dir.clone()
@@ -143,7 +147,7 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
       // Borne traseiro junto à chapa (botoneiras/sinalizadores): saída ortogonal limpa sem furar a chapa.
       axis = Math.abs(dir.x) > Math.abs(dir.y) * 1.8 && Math.abs(dir.x) > 0.1
         ? new THREE.Vector3(Math.sign(dir.x), 0, 0)
-        : new THREE.Vector3(0, dir.y > 0.25 ? 1 : -1, 0)
+        : new THREE.Vector3(0, endpoint.localY !== undefined ? (endpoint.localY >= 0.5 ? 1 : -1) : (dir.y > 0.25 ? 1 : -1), 0)
     } else axis = normal.clone()
   }
   const thick = normal && flat ? normal.clone() : new THREE.Vector3(0, 0, 1).addScaledVector(axis, -axis.z)
@@ -162,7 +166,7 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
 
 /* ----------------------------------------------- obstáculos (chapa e corpos) */
 
-export type WireObstacle = THREE.Box3 & { hard?: boolean; rail?: boolean }
+export type WireObstacle = THREE.Box3 & { hard?: boolean; rail?: boolean; componentId?: string }
 
 export function componentObstacles(components: ElectricalComponent[], pivots: Record<string, THREE.Vector3>): WireObstacle[] {
   const boxes: WireObstacle[] = []
@@ -174,6 +178,7 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
       new THREE.Vector3(pivot.x - half.x, pivot.y - half.y, pivot.z - half.z),
       new THREE.Vector3(pivot.x + half.x, pivot.y + half.y, pivot.z + half.z),
     )
+    box.componentId = component.id
     if (isMountingRail(component.type)) box.rail = true
     if (!isPanelBound(component)) box.hard = true
     boxes.push(box)
@@ -185,13 +190,7 @@ export function componentObstacles(components: ElectricalComponent[], pivots: Re
 export const wireFrontLimit = (outerMm: number) => PLATE_Z + PLATE_THICKNESS / 2 + (outerMm / 2) * U + 0.04
 
 const segmentHitsBox = (from: THREE.Vector3, to: THREE.Vector3, box: THREE.Box3): boolean => {
-  const steps = 28
-  const point = new THREE.Vector3()
-  for (let step = 0; step <= steps; step += 1) {
-    point.lerpVectors(from, to, step / steps)
-    if (box.containsPoint(point)) return true
-  }
-  return false
+  return segmentEntersBox(arr(from), arr(to), box)
 }
 
 export function clearObstacles(controls: V3[], outerMm: number, obstacles: WireObstacle[]): V3[] {
@@ -685,7 +684,9 @@ export function buildWirePath3D(
   const a = endHead(from, endTypeOf(wire, 'from'), preliminary[Math.min(1, preliminary.length - 1)], outerMm)
   const b = endHead(to, endTypeOf(wire, 'to'), preliminary[Math.max(0, preliminary.length - 2)], outerMm)
   const body = wireBodyPoints3D(wire, a.head, b.head, outerMm, { a: a.geometry.axis, b: b.geometry.axis }, obstacles, trunkHint, effectivePlan)
-  return { points: keepInFrontOfPlate(body, outerMm), starts: [a.geometry, b.geometry] }
+  const safe = keepWireOutsideSolids(keepInFrontOfPlate(body, outerMm), outerMm, obstacles,
+    [{ componentId: from.componentId, axis: a.geometry.axis }, { componentId: to.componentId, axis: b.geometry.axis }], wireFrontLimit(outerMm), wireHash(wire))
+  return { points: safe, starts: [a.geometry, b.geometry] }
 }
 
 /* --------------------- separação 3D coordenada (zero cabo dentro de cabo) */
@@ -904,7 +905,7 @@ export function buildAllWirePaths3D(
   // 5) Relaxação geométrica 3D cápsula-a-cápsula: garante zero penetrações cabo-dentro-de-cabo.
   const kernel = [0.22, 0.52, 0.82, 1.0, 0.82, 0.52, 0.22]
   const kHalf = 3
-  const maxPasses = 16
+  const maxPasses = 32
   for (let pass = 0; pass < maxPasses; pass += 1) {
     let anyCollision = false
     for (let i = 0; i < builtPaths.length; i += 1) {
@@ -977,14 +978,21 @@ export function buildAllWirePaths3D(
         }
       }
     }
-    if (!anyCollision) break
     if (pass < maxPasses - 4) {
       for (const item of builtPaths) laplacianSmoothInterior(item.pts, item.minZ, 0.18)
     }
+    for (const item of builtPaths) {
+      const current = item.pts.map(arr)
+      const safe = keepWireOutsideSolids(current, item.entry.outerMm, obstacles,
+        [{componentId:item.entry.from.componentId,axis:item.starts[0].axis},{componentId:item.entry.to.componentId,axis:item.starts[1].axis}], item.minZ, wireHash(item.entry.wire))
+      if (safe !== current) { item.pts = safe.map(v); anyCollision = true }
+    }
+    if (!anyCollision) break
   }
 
   for (const item of builtPaths) {
-    const cleanPoints = keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm)
+    const cleanPoints = keepWireOutsideSolids(keepInFrontOfPlate(item.pts.map(arr), item.entry.outerMm), item.entry.outerMm, obstacles,
+      [{ componentId: item.entry.from.componentId, axis: item.starts[0].axis }, { componentId: item.entry.to.componentId, axis: item.starts[1].axis }], wireFrontLimit(item.entry.outerMm), wireHash(item.entry.wire))
     result.set(item.entry.wire.id, { points: cleanPoints, starts: item.starts })
   }
   return result

@@ -120,6 +120,47 @@ try {
   const after=await state(store=>({terminals:store.getState().components[0].terminals.map(t=>t.id),wires:store.getState().wires.map(w=>[w.fromTerminalId,w.toTerminalId])}))
   assert.deepEqual(after,before,'Guardar/reabrir preserva os bornes e as ligações')
   console.log('PASS — Guardar/reabrir preserva os bornes e as ligações')
+  await page.evaluate(async()=> {
+    const {useSimStore}=await import('/src/store/useSimStore.ts')
+    const {nativePartidaDiretaContent}=await import('/src/project/nativeProjects.ts')
+    useSimStore.getState().loadJSON(JSON.stringify(nativePartidaDiretaContent()))
+  })
+  await page.waitForFunction(async()=> {
+    const source=await(await fetch('/src/three/Panel3D.tsx')).text()
+    const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
+    const scene=[..._roots.values()][0]?.store.getState().scene
+    let probes=0,bananas=0
+    scene?.traverse(node=>{if(node.userData.wireEndType==='probe')probes++;if(node.userData.wireEndType==='banana')bananas++})
+    return probes===2&&bananas===2
+  },null,{timeout:30000})
+  check(true,'Nativo renderiza duas fichas banana e duas ponteiras de teste')
+  await page.keyboard.press('Home')
+  await page.waitForTimeout(200)
+  await page.evaluate(async()=> {
+    const {useSimStore}=await import('/src/store/useSimStore.ts')
+    useSimStore.getState().play()
+    useSimStore.getState().setComponentState('native-push',{startPressed:true})
+  })
+  await page.waitForFunction(async()=> {
+    const {useSimStore}=await import('/src/store/useSimStore.ts')
+    const s=useSimStore.getState(),meter=s.components.find(c=>c.id==='native-mm1')
+    const {meterInputFor}=await import('/src/electrical/meterModel.ts')
+    const {DM20_DEFINITION}=await import('/src/three/MultimeterDm20Panel.tsx')
+    return Math.abs(meterInputFor(DM20_DEFINITION,meter,s.components,s.wires,s.runtime.energizedTerminals,meter.state.catalogVars).vac-400)<0.01
+  },null,{timeout:30000})
+  check(true,'Multímetro renderizado mede 400 V na entrada do motor em RUN')
+  await page.waitForTimeout(300)
+  await capture('native-motor-meter-run')
+  await page.evaluate(async()=> {
+    const source=await(await fetch('/src/three/Panel3D.tsx')).text()
+    const {_roots}=await import(source.match(/from "([^"]*\/\@react-three_fiber\.js\?v=[^"]+)"/)[1])
+    const state=[..._roots.values()][0].store.getState(),controls=state.controls
+    state.camera.position.copy(controls.target).add({x:9,y:1,z:0.8})
+    state.camera.lookAt(controls.target);controls.update();state.invalidate()
+  })
+  await page.waitForTimeout(150)
+  await capture('native-motor-meter-side')
+  await state(store=>store.getState().stop())
   check(errors.length===0,'Sem erros JavaScript')
 } catch(error) {
   console.error('Erros da página:',errors)
