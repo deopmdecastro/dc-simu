@@ -65,6 +65,23 @@ function MotorRunning() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gltf.scene, type])
 
+  // Reaplica mapas quando as imagens terminam de carregar (evita hero “plano” no 1.º frame).
+  useLayoutEffect(() => {
+    let cancelled = false
+    const tick = () => {
+      if (cancelled) return
+      applyEditorMotorTextures(prepared.scene)
+    }
+    tick()
+    const id = window.setTimeout(tick, 120)
+    const id2 = window.setTimeout(tick, 500)
+    return () => {
+      cancelled = true
+      window.clearTimeout(id)
+      window.clearTimeout(id2)
+    }
+  }, [prepared])
+
   const fanComponent = useMemo(() => {
     const component = createComponent('motor3ph', 'M1')
     component.state = { ...component.state, rpmVisual: 0.9, direction: 'cw' }
@@ -139,8 +156,9 @@ export default function LandingMotorHero() {
         camera={{ position: [2, 1.6, 2], fov: 30, near: 0.05, far: 40 }}
       >
         <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(1.5)} flipflops={2} onFallback={() => setDpr(1)} />
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[3.5, 5, 3.5]} intensity={0.9} />
+        <ambientLight intensity={0.42} />
+        <directionalLight position={[3.5, 5, 3.5]} intensity={1.25} />
+        <directionalLight position={[-3, 2.5, -2]} intensity={0.45} />
         <Suspense fallback={null}>
           <MotorRunning />
           <StudioEnvironment />

@@ -9,13 +9,45 @@ function libraryMap(url: string, srgb: boolean): THREE.Texture {
   const key = `${url}:${srgb ? 'srgb' : 'linear'}`
   let texture = mapCache.get(key)
   if (!texture) {
-    texture = textureLoader.load(url)
+    texture = textureLoader.load(
+      url,
+      (loaded) => {
+        loaded.needsUpdate = true
+        // Clones partilham a imagem — marcar todos os materiais quando carregar.
+        loaded.userData.ready = true
+      },
+      undefined,
+      () => {
+        console.warn(`[motor-textures] falhou o mapa ${url}`)
+      },
+    )
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping
     texture.anisotropy = 8
-    if (srgb) texture.colorSpace = THREE.SRGBColorSpace
+    texture.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
+    texture.userData.ready = false
     mapCache.set(key, texture)
   }
   return texture
+}
+
+function classifyMaterial(material: THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial): {
+  entryId: string
+  keepColor: THREE.Color | null
+} {
+  const color = material.color
+  const r = color.r
+  const g = color.g
+  const b = color.b
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  // Vermelho SEW (RAL-like): carcaça pintada
+  const isRedPaint = r > 0.4 && r > g * 1.35 && r > b * 1.35
+  const isDark = max < 0.22
+  const isMetalGray = !isRedPaint && max - min < 0.14 && max > 0.22 && max < 0.8
+  if (isRedPaint) return { entryId: 'pintura-texturada', keepColor: color.clone() }
+  if (isDark) return { entryId: 'plastico-preto', keepColor: null }
+  if (isMetalGray) return { entryId: 'ferro-fundido', keepColor: null }
+  return { entryId: 'aco-escovado', keepColor: null }
 }
 
 /**
@@ -35,41 +67,57 @@ export function applyEditorMotorTextures(root: THREE.Object3D) {
       if (!(material instanceof THREE.MeshStandardMaterial) && !(material instanceof THREE.MeshPhysicalMaterial)) {
         return material
       }
-      const color = material.color
-      const r = color.r
-      const g = color.g
-      const b = color.b
-      const max = Math.max(r, g, b)
-      const min = Math.min(r, g, b)
-      const isRedPaint = r > 0.45 && r > g * 1.6 && r > b * 1.6
-      const isDark = max < 0.22
-      const isMetalGray = !isRedPaint && max - min < 0.12 && max > 0.25 && max < 0.75
-      const entryId = isRedPaint ? 'pintura-industrial' : isDark ? 'plastico-preto' : isMetalGray ? 'ferro-fundido' : 'aco-escovado'
+      const { entryId, keepColor } = classifyMaterial(material)
       const entry = textureLibraryEntry(entryId)
       if (!entry) return material
-      const tile = Math.max(0.35, 80 / entry.tileMm)
+
+      // Azulejo um pouco mais apertado → detalhe visível no hero da landing.
+      const tile = Math.max(0.55, 55 / entry.tileMm)
+
       const colorMap = libraryMap(entry.maps.color, true).clone()
+      colorMap.wrapS = colorMap.wrapT = THREE.RepeatWrapping
       colorMap.repeat.set(tile, tile)
+      colorMap.colorSpace = THREE.SRGBColorSpace
       material.map = colorMap
+
       const normalMap = libraryMap(entry.maps.normal, false).clone()
+      normalMap.wrapS = normalMap.wrapT = THREE.RepeatWrapping
       normalMap.repeat.set(tile, tile)
+      normalMap.colorSpace = THREE.NoColorSpace
       material.normalMap = normalMap
-      material.normalScale.set(entry.normalScale, entry.normalScale)
+      // Normal um pouco mais marcado para o relevo da tinta se notar no telemóvel.
+      const nScale = Math.max(entry.normalScale, entryId.startsWith('pintura') ? 1.15 : entry.normalScale)
+      material.normalScale.set(nScale, nScale)
+
       const roughMap = libraryMap(entry.maps.roughness, false).clone()
+      roughMap.wrapS = roughMap.wrapT = THREE.RepeatWrapping
       roughMap.repeat.set(tile, tile)
+      roughMap.colorSpace = THREE.NoColorSpace
       material.roughnessMap = roughMap
+
       if (entry.maps.metalness) {
         const metalMap = libraryMap(entry.maps.metalness, false).clone()
+        metalMap.wrapS = metalMap.wrapT = THREE.RepeatWrapping
         metalMap.repeat.set(tile, tile)
+        metalMap.colorSpace = THREE.NoColorSpace
         material.metalnessMap = metalMap
       }
+
       material.roughness = entry.roughness
       material.metalness = entry.metalness
       if (entry.tint) {
-        if (isRedPaint) material.color.setRGB(r, g, b)
+        if (keepColor) material.color.copy(keepColor)
         else material.color.set(entry.color)
       }
-      material.envMapIntensity = Math.max(material.envMapIntensity ?? 1, 1.15)
+      // Carcaça SEW: garantir vermelho industrial se o CAD trouxe vermelho puro.
+      if (entryId.startsWith('pintura') && keepColor) {
+        material.color.setRGB(
+          Math.max(keepColor.r, 0.72),
+          Math.min(keepColor.g, 0.12),
+          Math.min(keepColor.b, 0.1),
+        )
+      }
+      material.envMapIntensity = Math.max(material.envMapIntensity ?? 1, 1.35)
       material.needsUpdate = true
       return material
     })
