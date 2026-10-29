@@ -420,14 +420,23 @@ function pageLoadingLabel(page: AppPage): string {
 }
 
 function RouteLoading({ label }: { label: string }) {
-  return <div className="dx" style={{ minHeight: '100%', display: 'grid', placeItems: 'center', background: 'var(--dx-bg)' }}>
-    <div style={{ textAlign: 'center', display: 'grid', gap: 12, justifyItems: 'center' }}>
-      <Logo size={34} />
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--dx-ink-3)' }}>
-        <span className="dx-spin" aria-hidden />{label}
-      </span>
+  return (
+    <div className="dx dx-route-loading" role="status" aria-live="polite" aria-busy="true">
+      <div className="dx-route-loading-card">
+        <div className="dx-route-loading-brand">
+          <Logo size={40} />
+          <span className="dx-route-loading-tag">Electrical Panel Studio</span>
+        </div>
+        <div className="dx-route-loading-bar" aria-hidden>
+          <span className="dx-route-loading-bar-fill" />
+        </div>
+        <p className="dx-route-loading-label">
+          <span className="dx-spin" aria-hidden />
+          {label}
+        </p>
+      </div>
     </div>
-  </div>
+  )
 }
 
 function AuthScreen({ form, setForm, busy, message, clearMessage, onSubmit, onHome }: {

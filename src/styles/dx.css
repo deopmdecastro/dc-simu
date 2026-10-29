@@ -229,6 +229,77 @@
   border-right-color: transparent;
   animation: dx-spin 640ms linear infinite;
 }
+
+/* Ecrã de carregamento de rotas (editor, dashboard, admin…) */
+.dx-route-loading {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background:
+    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--dx-brand) 12%, transparent), transparent 55%),
+    var(--dx-bg, #f4f6fa);
+}
+.dx-route-loading-card {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  width: min(320px, 100%);
+  padding: 28px 24px 22px;
+  border: 1px solid var(--dx-line-soft, #e2e8f0);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--dx-surface, #fff) 92%, transparent);
+  box-shadow: 0 12px 40px -18px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(8px);
+  animation: dx-fade 320ms var(--dx-ease-out, ease-out) both;
+}
+.dx-route-loading-brand {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  text-align: center;
+}
+.dx-route-loading-tag {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dx-ink-3, #64748b);
+}
+.dx-route-loading-bar {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--dx-line-soft, #e2e8f0);
+  overflow: hidden;
+}
+.dx-route-loading-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--dx-brand, #2655e5), color-mix(in srgb, var(--dx-brand, #2655e5) 55%, #7c3aed));
+  animation: dx-route-loading-slide 1.15s var(--dx-ease-out, ease-out) infinite;
+}
+@keyframes dx-route-loading-slide {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(280%); }
+}
+.dx-route-loading-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dx-ink-2, #3d4b5e);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dx-route-loading-bar-fill { animation: none; }
+  .dx-route-loading-card { animation: none; }
+}
+
 .dx :focus-visible {
   outline: none;
   box-shadow: var(--dx-focus);

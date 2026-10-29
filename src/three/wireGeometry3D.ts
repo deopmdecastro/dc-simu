@@ -241,11 +241,15 @@ function endHead(endpoint: WireEndpoint3D, type: WireEndType, toward: V3, outerM
   const origin = tip.clone().add(lift)
   if (origin.z < plateSafeZ) origin.z = plateSafeZ
   const head = origin.clone().addScaledVector(axis, length)
-  const nPorts = Math.max(2, endpoint.portCount ?? 2)
+  const nPorts = Math.min(4, Math.max(2, endpoint.portCount ?? 2))
   if (type === 'ferruleDouble') {
-    const pIdx = endpoint.portIndex ?? 0
-    const lateral = (pIdx - (nPorts - 1) / 2) * (DOUBLE_FERRULE_PORT_MM * 2 * U)
-    head.addScaledVector(doubleFerruleSide(axis), lateral)
+    const pIdx = Math.min(nPorts - 1, endpoint.portIndex ?? 0)
+    // Mesmo passo lateral do modelo 3D da ponteira (WireEnd3D) para o cabo
+    // alinhar com a boca certa e não empilhar no centro.
+    const lateral = (pIdx - (nPorts - 1) / 2) * (DOUBLE_FERRULE_PORT_MM * 1.85 * U)
+    const side = doubleFerruleSide(axis)
+    origin.addScaledVector(side, lateral)
+    head.addScaledVector(side, lateral)
   }
   if (head.z < plateSafeZ) head.z = plateSafeZ
   return {

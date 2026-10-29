@@ -83,35 +83,52 @@ export function WireEnd3D({ geometry, wireRadius, color }: { geometry: WireEndGe
           <Cyl y={100 * U} length={16 * U} radius={2.7 * U} color={color} roughness={0.8} />
         </>
       case 'ferrule': {
-        // Ponteira tubular isolada: manga metálica + colarinho plástico
-        // aproximadamente quadrado (como as ponteiras isoladas comerciais).
-        const sleeve = embed || 8 * U
-        const collar = 6.5 * U
-        const side = collarR * 1.9
+        // Ponteira tubular isolada DIN 46228-4: manga metálica + colarinho
+        // plástico com secção quase quadrada (como as comerciais).
+        const sleeve = embed || 7.5 * U
+        const collar = 7 * U
+        const side = Math.max(collarR * 1.85, R * 2.2)
         return <>
-          <Cyl y={-sleeve / 2} length={sleeve} radius={socketR * 0.98} color={METAL} metalness={0.85} roughness={0.25} />
+          <Cyl y={-sleeve / 2} length={sleeve} radius={socketR * 0.96} color={METAL} metalness={0.88} roughness={0.22} />
           <mesh position={[0, collar / 2, 0]} userData={{ noPick: true }} raycast={() => null}>
             <boxGeometry args={[side, collar, side]} />
-            <meshStandardMaterial color={color} roughness={0.72} metalness={0.05} />
+            <meshStandardMaterial color={color} roughness={0.62} metalness={0.04} />
           </mesh>
-          {/* Arredondamento visual: cilindro fino no topo do colar */}
-          <Cyl y={collar - 0.6 * U} length={1.2 * U} radius={collarR * 0.95} color={color} roughness={0.7} />
+          {/* Chanfro superior do colar + boca do cabo */}
+          <Cyl y={collar - 0.55 * U} length={1.1 * U} radius={collarR * 0.92} color={color} roughness={0.66} />
+          <Cyl y={collar + 0.15 * U} length={0.5 * U} radius={R * 1.05} color="#1e2430" roughness={0.9} />
         </>
       }
       case 'ferruleDouble': {
-        const sleeve = embed || 8 * U
-        const collar = 8 * U
-        const nPorts = Math.max(2, geometry.portCount ?? 2)
-        const step = DOUBLE_FERRULE_PORT_MM * 2 * U
+        // Colar duplo/múltiplo: corpo retangular único + mangas metálicas partilhadas
+        // e entradas bem separadas (evita o «bolo» de cabos empilhados no borne).
+        const sleeve = embed || 7.5 * U
+        const collar = 8.5 * U
+        const nPorts = Math.min(4, Math.max(2, geometry.portCount ?? 2))
+        const step = DOUBLE_FERRULE_PORT_MM * 1.85 * U
         const halfSpan = ((nPorts - 1) * step) / 2
-        const radius = Math.max(collarR, R + 0.5 * U)
+        const bodyW = halfSpan * 2 + collarR * 2.1
+        const bodyD = collarR * 1.95
         const ports = Array.from({ length: nPorts }, (_, idx) => (idx - (nPorts - 1) / 2) * step)
         return <group>
-          <Cyl y={-sleeve / 2} length={sleeve} radius={socketR * 0.98} color={METAL} metalness={0.85} roughness={0.25} />
-          <Cyl y={collar / 2} length={collar} radius={radius} scaleX={(halfSpan + radius) / radius} color={color} roughness={0.68} />
-          {ports.map((x, idx) => <group key={idx} position={[x, collar, 0]} userData={{ ferrulePort: true }}>
-            <Cyl y={0} length={0.2 * U} radius={R * 1.08} color="#20252c" roughness={0.9} />
-          </group>)}
+          {/* Manga metálica única no borne */}
+          <Cyl y={-sleeve / 2} length={sleeve} radius={socketR * 0.96} color={METAL} metalness={0.88} roughness={0.22} />
+          {/* Corpo isolante retangular (não elipse esticada) */}
+          <mesh position={[0, collar / 2, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <boxGeometry args={[bodyW, collar, bodyD]} />
+            <meshStandardMaterial color={color} roughness={0.58} metalness={0.04} />
+          </mesh>
+          {/* Filete superior + entradas dos condutores */}
+          <mesh position={[0, collar - 0.4 * U, 0]} userData={{ noPick: true }} raycast={() => null}>
+            <boxGeometry args={[bodyW * 0.96, 0.9 * U, bodyD * 0.96]} />
+            <meshStandardMaterial color={color} roughness={0.64} metalness={0.03} />
+          </mesh>
+          {ports.map((x, idx) => (
+            <group key={idx} position={[x, collar + 0.1 * U, 0]} userData={{ ferrulePort: true }}>
+              <Cyl y={0} length={0.55 * U} radius={R * 1.12} color="#1a1f28" roughness={0.92} />
+              <Cyl y={0.35 * U} length={0.35 * U} radius={R * 0.95} color="#2a3140" roughness={0.88} />
+            </group>
+          ))}
         </group>
       }
       case 'pin': {
