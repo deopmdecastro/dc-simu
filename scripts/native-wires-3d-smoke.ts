@@ -8,7 +8,7 @@ import { componentPanelXY } from '../src/three/panelLayout'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z } from '../src/three/panelBounds'
 import { DIN_RAIL_15X55 } from '../src/three/dinRailGeometry'
 import { PANEL_UNITS_PER_MM, isMountingRail } from '../src/three/modelPaths'
-import { buildWirePath3D, componentObstacles, keepInFrontOfPlate, wireEndpoint3D } from '../src/three/wireGeometry3D'
+import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, keepInFrontOfPlate, wireEndpoint3D } from '../src/three/wireGeometry3D'
 import { componentOrientationOf, MOTOR_ISOMETRIC_ORIENTATION } from '../src/three/componentOrientation'
 
 let failed = 0
@@ -36,11 +36,12 @@ let minZ = Infinity
 const plateFront = PLATE_Z + PLATE_THICKNESS / 2
 const plateOffenders: string[] = []
 const offenders: string[] = []
+const coordinated = buildAllWirePaths3D(built.wires, built.components, pivots, obstacles)
 for (const wire of built.wires) {
   const from = wireEndpoint3D(wire, 'from', built.components, pivots)
   const to = wireEndpoint3D(wire, 'to', built.components, pivots)
   if (!from || !to) continue
-  const { points, starts } = buildWirePath3D(wire, from, to, obstacles)
+  const { points, starts } = coordinated.get(wire.id) ?? buildWirePath3D(wire, from, to, obstacles)
   // o cabo e as ponteiras nunca podem ficar atrás da face frontal da chapa (atravessar o painel)
   const wireMinZ = Math.min(...points.map((q) => q[2]))
   minZ = Math.min(minZ, wireMinZ)
@@ -82,6 +83,61 @@ for (const wire of built.wires) {
 check('Nenhum cabo 3D passa pelo motor (nem à frente dele)', crossing === 0, crossing ? `${crossing}: ${offenders.slice(0, 6).join(' | ')}` : '')
 check('Nenhum cabo 3D atravessa a chapa do painel (z ≥ face frontal)', behindPlate === 0, behindPlate ? `${behindPlate}: ${plateOffenders.slice(0, 6).join(' | ')}` : `z mínimo ${minZ.toFixed(3)} ≥ ${plateFront.toFixed(3)}`)
 check('Nenhuma ponteira/terminal atravessa a chapa do painel', ferruleBehindPlate === 0)
+
+function segDist3D(p1: THREE.Vector3, q1: THREE.Vector3, p2: THREE.Vector3, q2: THREE.Vector3) {
+  const u = new THREE.Vector3().subVectors(q1, p1)
+  const v = new THREE.Vector3().subVectors(q2, p2)
+  const w = new THREE.Vector3().subVectors(p1, p2)
+  const a = u.dot(u); const b = u.dot(v); const c = v.dot(v); const d = u.dot(w); const e = v.dot(w)
+  const D = a * c - b * b
+  let sN: number; let sD = D; let tN: number; let tD = D
+  if (D < 1e-10) { sN = 0; sD = 1; tN = e; tD = c } else {
+    sN = b * e - c * d; tN = a * e - b * d
+    if (sN < 0) { sN = 0; tN = e; tD = c } else if (sN > sD) { sN = sD; tN = e + b; tD = c }
+  }
+  if (tN < 0) { tN = 0; if (-d < 0) sN = 0; else if (-d > a) sN = sD; else { sN = -d; sD = a } }
+  else if (tN > tD) { tN = tD; if (-d + b < 0) sN = 0; else if (-d + b > a) sN = sD; else { sN = -d + b; sD = a } }
+  const s = Math.abs(sN) < 1e-10 ? 0 : sN / sD
+  const t = Math.abs(tN) < 1e-10 ? 0 : tN / tD
+  const c1 = p1.clone().addScaledVector(u, s)
+  const c2 = p2.clone().addScaledVector(v, t)
+  return { dist: c1.distanceTo(c2), c1, c2 }
+}
+
+const wireCapsules = built.wires.map((w) => {
+  const path = coordinated.get(w.id)!
+  const outer = cableOuterDiameterMm(w.gauge)
+  return { w, r: (outer * PANEL_UNITS_PER_MM) / 2, pts: path.points.map((p) => new THREE.Vector3(p[0], p[1], p[2])) }
+})
+let wireInsideWire = 0
+for (let i = 0; i < wireCapsules.length; i++) {
+  for (let j = i + 1; j < wireCapsules.length; j++) {
+    const A = wireCapsules[i]; const B = wireCapsules[j]
+    const shared: THREE.Vector3[] = []
+    if (A.w.fromTerminalId && (A.w.fromTerminalId === B.w.fromTerminalId || A.w.fromTerminalId === B.w.toTerminalId)) shared.push(A.pts[0])
+    if (A.w.toTerminalId && (A.w.toTerminalId === B.w.fromTerminalId || A.w.toTerminalId === B.w.toTerminalId)) shared.push(A.pts[A.pts.length - 1])
+    let minD = Infinity
+    for (let s1 = 0; s1 < A.pts.length - 1; s1++) {
+      for (let s2 = 0; s2 < B.pts.length - 1; s2++) {
+        const h = segDist3D(A.pts[s1], A.pts[s1 + 1], B.pts[s2], B.pts[s2 + 1])
+        if (shared.some((sp) => sp.distanceTo(h.c1) < 0.22 || sp.distanceTo(h.c2) < 0.22)) continue
+        if (h.dist < minD) minD = h.dist
+      }
+    }
+    if (minD < (A.r + B.r) * 0.98) wireInsideWire++
+  }
+}
+check('Nenhum cabo 3D atravessa dentro de outro cabo (0 colisões nos 35 cabos)', wireInsideWire === 0, `colisões=${wireInsideWire}`)
+
+const xg = built.components.find((c) => c.type === 'powerSource3ph')!
+const xgIds = new Set(xg.terminals.map((t) => t.id))
+const xgCleanExit = wireCapsules
+  .filter((item) => xgIds.has(item.w.fromTerminalId) || xgIds.has(item.w.toTerminalId))
+  .every((item) => {
+    const startY = item.pts[0].y
+    return item.pts.slice(0, 10).every((p) => p.y >= startY - 0.02)
+  })
+check('Bornes superiores de XG saem para cima sem dobrar pela frente do bloco', xgCleanExit)
 const clampedManual = keepInFrontOfPlate([[0, 0, -0.5], [1, -1, -0.8], [2, 0, -0.4]], 3.2, true)
 check('Waypoints manuais também respeitam a face frontal da chapa', clampedManual.every((p) => p[2] > plateFront))
 const motorOrient = componentOrientationOf(motor)

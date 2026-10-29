@@ -21,7 +21,7 @@ import type { ElectricalComponent, ComponentType, SpatialPoint3D, Wire } from '.
 import * as THREE from 'three'
 import { LOGO_SCREEN_FALLBACK, logoScreenRect, type LogoFaceRect } from './logoScreen'
 import { cloneModelScene, fitComponentModel } from './modelFit'
-import { finishCadMaterial } from './catalogMaterials'
+import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
 import { applyEditorMotorTextures } from './motorEditorTextures'
 import { canInsertComponent3D, getCommandModelSpec, getComponentModelSpec, hasDinRailModel, isMountingRail, PANEL_UNITS_PER_MM, BREAKER_HANDLE_RIG } from './modelPaths'
 import { componentHalfExtents, isPanelBound, PLATE_THICKNESS, PLATE_Z, RAIL_Y } from './panelBounds'
@@ -44,7 +44,7 @@ import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
 import { extractActuatorHead } from './actuatorHead'
 import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
-import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
+import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
 
 const PANEL_FLOOR_Y = -2.6
 /** Margem (1 = 100 mm) da chapa à volta do equipamento. */
@@ -94,8 +94,8 @@ function MountingPlate({ bounds }: { bounds: PlateBounds }) {
   return (
     <mesh position={[(bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2, PLATE_Z]} receiveShadow userData={{ wireSurface: true }}>
       <boxGeometry args={[width, height, PLATE_THICKNESS]} />
-      <meshStandardMaterial color="#eef1f4" emissive="#dde3ea" emissiveIntensity={0.4} metalness={0.1} roughness={0.8} />
-      <Edges color="#9aa7b8" threshold={15} />
+      <meshPhysicalMaterial color="#eef2f6" emissive="#e2e8f0" emissiveIntensity={0.14} metalness={0.2} roughness={0.38} clearcoat={0.2} clearcoatRoughness={0.42} envMapIntensity={0.95} />
+      <Edges color="#8b9bb0" threshold={15} />
     </mesh>
   )
 }
@@ -864,71 +864,10 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
   const spec = getCommandModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
-    const obj = cloneModelScene(scene)
-    const grainSize = 64
-    const grain = new Uint8Array(grainSize * grainSize * 4)
-    let seed = 2048
-    for (let i = 0; i < grainSize * grainSize; i += 1) {
-      seed = (seed * 1664525 + 1013904223) >>> 0
-      const shade = 224 + (seed >>> 24) % 32
-      grain.set([shade, shade, shade, 255], i * 4)
-    }
-    const polymerGrain = new THREE.DataTexture(grain, grainSize, grainSize, THREE.RGBAFormat)
-    polymerGrain.wrapS = polymerGrain.wrapT = THREE.RepeatWrapping
-    polymerGrain.repeat.set(8, 8)
-    polymerGrain.generateMipmaps = true
-    polymerGrain.minFilter = THREE.LinearMipmapLinearFilter
-    polymerGrain.magFilter = THREE.LinearFilter
-    polymerGrain.needsUpdate = true
-    obj.userData.polymerGrain = polymerGrain
-    obj.traverse((node) => {
-      const mesh = node as THREE.Mesh
-      if (!mesh.isMesh) return
-      const finish = (source: THREE.Material) => {
-        const material = finishCadMaterial(source, { envMapIntensity: 1.1 })
-        if (!(material instanceof THREE.MeshStandardMaterial)) return material
-        const color = material.color
-        const name = (material.name || '').toLowerCase()
-        const redPolymer = color.r > color.g * 1.2 && color.r > color.b * 1.15
-          || name.includes('cogumelo') || name.includes('vermelho')
-        const darkPolymer = color.getHSL({ h: 0, s: 0, l: 0 }).l < 0.42 && !redPolymer
-        if (redPolymer) {
-          // Cabeça do cogumelo: vermelho vivo RAL-like (não cinza/metal).
-          material.color.set('#e11d48')
-          material.emissive.set('#7f1d1d')
-          material.emissiveIntensity = 0.06
-          material.roughness = 0.38
-          material.metalness = 0.02
-          material.roughnessMap = polymerGrain
-          material.bumpMap = polymerGrain
-          material.bumpScale = 0.00018
-        } else if (darkPolymer) {
-          material.roughness = 0.72
-          material.metalness = 0.035
-          material.roughnessMap = polymerGrain
-          material.bumpMap = polymerGrain
-          material.bumpScale = 0.00024
-        } else if (color.r > color.g * 1.02 && color.g > color.b * 1.08) {
-          // Terminais e ferragens em latão: brilho metálico discreto, sem mudar a cor CAD.
-          material.roughness = 0.32
-          material.metalness = 0.62
-        } else {
-          const hsl = color.getHSL({ h: 0, s: 0, l: 0 })
-          if (hsl.s < 0.12 && hsl.l > 0.4) {
-            // Acabamento acetinado nas partes metálicas claras, sem alterar o tom CAD.
-            material.roughness = 0.4
-            material.metalness = 0.34
-          }
-        }
-        return material
-      }
-      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(finish) : finish(mesh.material)
-    })
-    const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, 'center')
-    fitted.userData.polymerGrain = polymerGrain
+    const fitted = fitComponentModel(cloneModelScene(scene), spec, PANEL_UNITS_PER_MM, 'center')
+    applyEmergencyButtonFinish(fitted, c.type)
     return fitted
-  }, [scene, spec])
-  useEffect(() => () => { (model.userData.polymerGrain as THREE.Texture | undefined)?.dispose() }, [model])
+  }, [scene, spec, c.type])
   const pressed = !!c.state.pressed
   const keyOperated = c.type === 'emergencyButtonKeyP20ACR'
 
@@ -1087,7 +1026,14 @@ function TerminalAssembly3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const { scene } = useGLTF(spec.path)
   const model = useMemo(() => {
     const object = fitComponentModel(cloneModelScene(scene), spec, PANEL_UNITS_PER_MM, 'bottom')
-    object.traverse((node) => { const mesh = node as THREE.Mesh; if (mesh.isMesh) mesh.castShadow = mesh.receiveShadow = true })
+    object.traverse((node) => {
+      const mesh = node as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material)
+        ? mesh.material.map((mat) => finishCadMaterial(mat, { envMapIntensity: 1.3 }))
+        : finishCadMaterial(mesh.material, { envMapIntensity: 1.3 })
+      mesh.castShadow = mesh.receiveShadow = true
+    })
     return object
   }, [scene, spec])
   return <group position={[x, RAIL_Y + 0.48, 0.12]}><primitive object={model} /></group>
@@ -1400,20 +1346,19 @@ type Panel3DEditMode = 'navigate' | 'connect' | 'erase' | 'probe' | 'pan'
 
 function cableCurve3D(points: Array<[number, number, number]>, smooth: boolean): THREE.Curve<THREE.Vector3> {
   const plateSafeZ = PLATE_Z + PLATE_THICKNESS / 2 + 0.015
-  const vectors = points.map((point) => new THREE.Vector3(point[0], point[1], Math.max(point[2], plateSafeZ)))
-  if (smooth && vectors.length > 2) {
-    const spline = new THREE.CatmullRomCurve3(vectors, false, 'centripetal', 0.45)
-    const sampled = spline.getPoints(Math.max(24, vectors.length * 8)).map((pt) => {
-      if (pt.z < plateSafeZ) pt.z = plateSafeZ
-      return pt
-    })
-    const clampedPath = new THREE.CurvePath<THREE.Vector3>()
-    for (let index = 1; index < sampled.length; index += 1) clampedPath.add(new THREE.LineCurve3(sampled[index - 1], sampled[index]))
-    return clampedPath
+  const vectors: THREE.Vector3[] = []
+  for (const point of points) {
+    const next = new THREE.Vector3(point[0], point[1], Math.max(point[2], plateSafeZ))
+    if (vectors.length === 0 || vectors[vectors.length - 1].distanceToSquared(next) > 1e-8) vectors.push(next)
   }
-  const path = new THREE.CurvePath<THREE.Vector3>()
-  for (let index = 1; index < vectors.length; index += 1) path.add(new THREE.LineCurve3(vectors[index - 1], vectors[index]))
-  return path
+  if (vectors.length <= 2) {
+    const path = new THREE.CurvePath<THREE.Vector3>()
+    for (let index = 1; index < vectors.length; index += 1) path.add(new THREE.LineCurve3(vectors[index - 1], vectors[index]))
+    return path
+  }
+  // Spline centrípeta C¹ sobre os arcos suavizados: elimina quebras de frame Frenet (quinas nos tubos).
+  const spline = new THREE.CatmullRomCurve3(vectors, false, 'centripetal', smooth ? 0.45 : 0.22)
+  return spline
 }
 
 function EnergyFlow3D({ points, cableRadius, color = '#fde047' }: { points: Array<[number, number, number]>; cableRadius: number; color?: string }) {
@@ -1566,20 +1511,24 @@ type WireEditHandlers = {
  * a simulação muda apenas bandeiras energéticas e não entra na chave. */
 type WireGeom = { path: WirePath3D; curve: THREE.Curve<THREE.Vector3>; segments: number; points: V3[] }
 const wireGeomCache = new Map<string, WireGeom>()
-function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D, obstacles: WireObstacle[]): WireGeom {
+function cachedWireGeometry(wire: Wire, from: WireEndpoint3D, to: WireEndpoint3D, obstacles: WireObstacle[], prebuiltPath?: WirePath3D): WireGeom {
   const round = (n: number) => n.toFixed(4)
+  const pathSig = prebuiltPath
+    ? `${prebuiltPath.points.length}:${prebuiltPath.points.slice(0, 4).map((p) => p.map(round).join(',')).join(';')}:${prebuiltPath.points.slice(-3).map((p) => p.map(round).join(',')).join(';')}`
+    : 'solo'
   const key = [
     wire.id, wire.route, wire.bend, wire.curveOffset, wire.gauge, wire.flexibility,
     wire.fromEndType, wire.toEndType, wire.endType,
     from.position.map(round).join(','), to.position.map(round).join(','),
     (wire.waypoints3D ?? []).map((p) => `${round(p.x)},${round(p.y)},${round(p.z)}`).join(';'),
+    pathSig,
   ].join('|')
   const hit = wireGeomCache.get(key)
   if (hit) return hit
-  const path = buildWirePath3D(wire, from, to, obstacles)
+  const path = prebuiltPath ?? buildWirePath3D(wire, from, to, obstacles)
   const points = path.points
   const curve = cableCurve3D(points, wire.route === 'arc')
-  const geom: WireGeom = { path, curve, segments: Math.max(18, points.length * 10), points }
+  const geom: WireGeom = { path, curve, segments: Math.max(28, points.length * 4), points }
   if (wireGeomCache.size > 400) wireGeomCache.clear()
   wireGeomCache.set(key, geom)
   return geom
@@ -1609,6 +1558,22 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     return p ? `${c.id}:${p.x.toFixed(4)},${p.y.toFixed(4)},${p.z.toFixed(4)}:${c.state.lengthMm ?? 0}:${c.rotation ?? 0}` : ''
   }).join('|'), [components, pivots])
   const obstacles = useMemo(() => componentObstacles(components, pivots), [obstaclesKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Encaminhamento coordenado de todos os cabos: recalcula apenas quando mudam traçados/posições (nunca nos ticks de RUN).
+  const wiresGeoKey = useMemo(() => wires.map((w) => [
+    w.id, w.fromTerminalId, w.toTerminalId, w.route, w.bend, w.curveOffset, w.gauge, w.flexibility,
+    w.fromEndType, w.toEndType, w.endType,
+    w.fromPoint ? `${w.fromPoint.x},${w.fromPoint.y}` : '',
+    w.toPoint ? `${w.toPoint.x},${w.toPoint.y}` : '',
+    w.fromPoint3D ? `${w.fromPoint3D.x},${w.fromPoint3D.y},${w.fromPoint3D.z}` : '',
+    w.toPoint ? `${w.toPoint3D?.x ?? ''},${w.toPoint3D?.y ?? ''},${w.toPoint3D?.z ?? ''}` : '',
+    (w.waypoints3D ?? []).map((p) => `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}`).join(';'),
+  ].join(':')).join('||'), [wires])
+  const coordinatedPaths = useMemo(
+    () => buildAllWirePaths3D(wires, components, pivots, obstacles),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [wiresGeoKey, obstaclesKey, obstacles],
+  )
 
   type LiveDrag = { wireId: string; kind: 'waypoint' | 'end' | 'all'; index?: number; side?: 'from' | 'to'; point: V3; origin?: V3 }
   const [drag, setDrag] = useState<LiveDrag | null>(null)
@@ -1659,7 +1624,8 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     // Geometria do cabo em cache: durante RUN as bandeiras energizadas mudam em
     // cada scan, mas posições/traçado não — sem cache, cada tick reconstruía a
     // curva e os 3-4 TubeGeometry (centenas de segmentos) por cabo. Era o peso.
-    const { path, curve, segments, points } = cachedWireGeometry(wire, from, to, obstacles)
+    const prebuilt = drag?.wireId === wire.id ? undefined : coordinatedPaths.get(storedWire.id)
+    const { path, curve, segments, points } = cachedWireGeometry(wire, from, to, obstacles, prebuilt)
     const selected = wire.id === selectedWireId
     const outerDiameterMm = cableOuterDiameterMm(wire.gauge)
     const radius = (outerDiameterMm * PANEL_UNITS_PER_MM) / 2
@@ -1695,8 +1661,8 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
         <meshBasicMaterial color="#fbbf24" transparent opacity={0.28} depthWrite={false} />
       </mesh>}
       <mesh castShadow receiveShadow renderOrder={19} raycast={() => null}>
-        <tubeGeometry args={[curve, segments, radius, 12, false]} />
-        <meshPhysicalMaterial color={wireColor} roughness={0.46} metalness={0.02} clearcoat={0.4} clearcoatRoughness={0.38} emissive={flowing ? '#7c5b05' : '#000000'} emissiveIntensity={flowing ? 0.28 : 0} />
+        <tubeGeometry args={[curve, segments, radius, 14, false]} />
+        <meshPhysicalMaterial color={wireColor} roughness={0.32} metalness={0.03} clearcoat={0.55} clearcoatRoughness={0.24} envMapIntensity={1.15} emissive={flowing ? '#7c5b05' : '#000000'} emissiveIntensity={flowing ? 0.28 : 0} />
       </mesh>
       {/* Volume transparente maior: seleção fiável (clique) e curvas novas (duplo clique) sem falsificar a secção visível. */}
       <mesh userData={{ wireHit: true }}
@@ -1738,21 +1704,22 @@ type PanelCameraCommand = { id: number; view: PanelCameraView; target: [number, 
 
 /** Iluminação PBR de estúdio gerada uma só vez (sem rede) para reflexos metálicos realistas no motor e na calha. */
 function StudioEnvironment() {
-  const { gl, scene } = useThree()
+  const { gl, scene, invalidate } = useThree()
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl)
     const room = new RoomEnvironment()
     const rt = pmrem.fromScene(room, 0.04)
     const prevEnv = scene.environment
     scene.environment = rt.texture
-    if ('environmentIntensity' in scene) (scene as THREE.Scene & { environmentIntensity: number }).environmentIntensity = 0.85
+    if ('environmentIntensity' in scene) (scene as THREE.Scene & { environmentIntensity: number }).environmentIntensity = 1.18
     room.dispose()
     pmrem.dispose()
+    invalidate()
     return () => {
       if (scene.environment === rt.texture) scene.environment = prevEnv
       rt.dispose()
     }
-  }, [gl, scene])
+  }, [gl, scene, invalidate])
   return null
 }
 
@@ -2822,6 +2789,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       <ContextLossNotice lost={glLost} />
       <Canvas frameloop={!stageVisible ? 'never' : (runState === 'running' || burstActive) ? 'always' : 'demand'} shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (!demoMode && editMode !== 'connect') selectComponents([]) }}
         onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping
+          gl.toneMappingExposure = 1.06
           // Sombras calculadas só quando a cena muda (não a cada frame): durante o
           // RUN a re-sombra contínua era a maior fatia do custo de renderização.
           gl.shadowMap.autoUpdate = false
@@ -2831,9 +2800,9 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         <ShadowsOnDemand watch={shadowWatch} />
         <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[4, 7, 5]} intensity={1.15} castShadow />
-        <directionalLight position={[-5, 3, -4]} intensity={0.35} />
+        <hemisphereLight args={['#f8fafc', '#cbd5e1', 0.52]} />
+        <directionalLight position={[4.2, 7.5, 6.2]} intensity={1.36} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003} />
+        <directionalLight position={[-5.2, 3.8, 3.6]} intensity={0.5} />
         {/* A grelha de edição partilhada permanece montada em todas as vistas 3D.
             A grelha de piso acrescenta profundidade nas vistas livres sem substituir a escala X/Y. */}
         {backgroundMode !== 'white' && <WorldBackdrop center={sceneCenter} floorY={floorY} dark={backgroundMode === 'dark'} showFloor={floorGridVisible(cameraStats.pitch)} />}

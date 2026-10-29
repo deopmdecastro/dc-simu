@@ -2,7 +2,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ContactShadows, Environment, OrbitControls, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
-import { finishCadMaterial } from './catalogMaterials'
+import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { createComponent } from '../electrical/factory'
 import type { ComponentType, ElectricalComponent, Terminal } from '../types'
@@ -126,6 +126,7 @@ export function preparedModel(type: ComponentType, source: THREE.Object3D) {
   const spec = getComponentModelSpec(type)
   if (!spec) throw new Error(`Modelo 3D em falta para ${type}`)
   const scene = fitComponentModel(skeletonClone(source), spec)
+  if (type === 'emergencyButton' || type === 'emergencyButtonKeyP20ACR') applyEmergencyButtonFinish(scene, type)
   const finalBox = new THREE.Box3().setFromObject(scene)
   return { scene, targetHeight: spec.targetHeight, depth: finalBox.getSize(new THREE.Vector3()).z }
 }

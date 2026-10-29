@@ -133,7 +133,8 @@ function Dropdown({ label, icon, children, title, disabled = false, align = 'lef
   )
 }
 
-export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder', 'grafcet', 'monitor'], ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects, schematicSimPanelOn = false, onToggleSchematicSim, demo = false, onEnterEditor }: { mode: ViewMode; setMode: (m: ViewMode) => void; views?: ViewMode[]; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void; schematicSimPanelOn?: boolean; onToggleSchematicSim?: () => void; /** Modo demonstração (landing): só vistas + controlos de simulação; sem ações de ficheiro nem de edição. */ demo?: boolean; /** CTA da demonstração para abrir o editor completo (autenticação). */ onEnterEditor?: () => void }) {
+export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder', 'grafcet', 'monitor'], ladderSection, setLadderSection, onBack, onOpenLibrary, onOpenGrafcet, onOpenObjects, schematicSimPanelOn = false, onToggleSchematicSim, demo = false, onEnterEditor: _onEnterEditor }: { mode: ViewMode; setMode: (m: ViewMode) => void; views?: ViewMode[]; ladderSection: LadderSection; setLadderSection: (section: LadderSection) => void; onBack: () => void; onOpenLibrary?: () => void; onOpenGrafcet?: () => void; onOpenObjects?: () => void; schematicSimPanelOn?: boolean; onToggleSchematicSim?: () => void; /** Modo demonstração (landing): só vistas + controlos de simulação; sem ações de ficheiro nem de edição. */ demo?: boolean; /** CTA da demonstração para abrir o editor completo (autenticação). */ onEnterEditor?: () => void }) {
+  void _onEnterEditor
   const [clean, setClean] = useCleanMode()
   const [grafcetMoreOpen, setGrafcetMoreOpen] = useState(false)
   const [monitorHelp, setMonitorHelp] = useState(false)
@@ -272,26 +273,8 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   const runBadge = RUN_LABEL[sim.runState] ?? RUN_LABEL.stopped
   const ladderZoom = useLadderZoom((state) => state.zoom)
   const setLadderZoom = useLadderZoom((state) => state.setZoom)
-  // Demonstração (landing): vista limpa — só zoom; grelha/encaixe/passo ficam no editor completo.
-  const viewControls: ViewControlsProps | null = demo ? (
-    mode === 'schematic' ? {
-      zoom: {
-        percent: Math.round(zoom * 100), onOut: () => setZoom(zoom * 0.9), onIn: () => setZoom(zoom * 1.1), onReset: () => { setZoom(1); useSimStore.getState().setPan(0, 0) },
-        onFit: () => requestCanvasAction('fit'), fitTitle: 'Enquadrar tudo o que está no canvas (Home)',
-      },
-    } : mode === 'ladder' ? {
-      zoom: {
-        percent: Math.round(ladderZoom * 100),
-        onOut: () => setLadderZoom((z) => z - LADDER_ZOOM_STEP),
-        onIn: () => setLadderZoom((z) => z + LADDER_ZOOM_STEP),
-        onReset: () => setLadderZoom(1),
-        onFit: () => window.dispatchEvent(new CustomEvent('ladder-fit')),
-        fitTitle: 'Ajustar à largura',
-        canOut: ladderZoom > LADDER_ZOOM_MIN,
-        canIn: ladderZoom < LADDER_ZOOM_MAX,
-      },
-    } : null
-  ) : mode === 'schematic' ? {
+  // Demonstração (landing): barra minimalista — apenas Play, Pause e troca de ambiente (3D / Ladder / GRAFCET).
+  const viewControls: ViewControlsProps | null = demo ? null : mode === 'schematic' ? {
       grid: { on: grid.enabled, toggle: () => setGrid({ enabled: !grid.enabled }) },
       snap: { on: grid.snap, toggle: () => setGrid({ snap: !grid.snap }) },
       step: { value: grid.size, options: [5, 10, 20, 25, 50], onChange: (size) => setGrid({ size }) },
@@ -327,22 +310,11 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
   return (
     <div className="shrink-0 bg-surface-rail border-b border-line shadow-xs relative z-20">
       {/* ============================ linha 1 — projeto · vistas · simulação */}
-      <div ref={mainBarRef} className="flex items-center gap-2 px-3 min-h-[46px] border-b border-line-soft dc-toolbar-main">
-        {/* arquivo — ações frequentes; conta/projeto permanecem na barra superior única */}
+      <div ref={mainBarRef} className={`flex items-center gap-2 px-3 min-h-[46px] ${demo ? 'justify-between' : 'border-b border-line-soft'} dc-toolbar-main`}>
+        {/* arquivo — ações frequentes; na demonstração a barra fica só com Play/Pause + 3D/Ladder/GRAFCET */}
+        {!demo && (
         <div className="flex items-center gap-1.5 shrink-0">
-          {demo && (
-            <>
-              <span className="dc-demo-pill inline-flex items-center gap-1.5 h-[28px] px-2.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-[11px] font-semibold whitespace-nowrap" title="Demonstração interativa da landing: o editor real com apenas os controlos de simulação. As alterações não são guardadas.">
-                Demonstração
-              </span>
-              {onEnterEditor && (
-                <button type="button" className="dc-tool-btn !gap-1.5 !bg-brand-600 !text-white hover:!bg-brand-700" onClick={onEnterEditor} title="Criar conta gratuita e abrir este projeto no editor completo">
-                  <IconOpen size={13} /><span className="hidden md:inline">Abrir no editor</span><span className="md:hidden">Editor</span>
-                </button>
-              )}
-            </>
-          )}
-          {!demo && (narrowBar
+          {narrowBar
             ? <ToolMenu label="Ficheiro" title="Ficheiro e exportação" icon={<IconOpen size={14} />} sections={fileSections} className="dc-file-menu" badge={dirty ? 1 : undefined} />
             : (
           <div className="flex items-center gap-1.5 bg-surface-sunken border border-line rounded-lg p-1">
@@ -363,28 +335,33 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               <IconPdf size={14} /> <span className="hidden xl:inline text-[11px] font-medium">PDF</span>
             </button>
           </div>
-            ))}
+            )}
           <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={upload} />
         </div>
+        )}
 
-        {/* vistas — centralizadas */}
-        <div className="flex-1 flex justify-center min-w-0 dc-views-container">
-          <div className="flex items-center rounded-lg p-1 gap-1.5 bg-surface-sunken border border-line shadow-inner" role="tablist" aria-label="Vistas">
-            {visibleViews.map(({ id, label, icon: Icon, key }) => (
-              <button
-                key={id}
-                role="tab"
-                aria-selected={mode === id}
-                onClick={() => setMode(id)}
-                className={`inline-flex items-center gap-1.5 h-[30px] px-4 rounded-[6px] text-xs font-semibold transition-all ${
-                  mode === id ? 'bg-brand-600 text-white shadow-md' : 'text-ink-500 hover:text-ink-900 hover:bg-white'
-                }`}
-                title={`${label} [${key} · Ctrl+${visibleViews.findIndex((v) => v.id === id) + 1}]`}
-              >
-                <Icon size={14} />
-                <span className="hidden md:inline">{label}</span>
-              </button>
-            ))}
+        {/* vistas — ambientes (3D · Ladder · GRAFCET na demonstração) */}
+        <div className={`${demo ? 'min-w-0 flex items-center' : 'flex-1 flex justify-center min-w-0'} dc-views-container`}>
+          <div className="flex items-center rounded-lg p-1 gap-1 bg-surface-sunken border border-line shadow-inner" role="tablist" aria-label="Vistas">
+            {visibleViews.map(({ id, label, icon: DefaultIcon, key }) => {
+              const displayLabel = demo && id === 'schematic' ? '3D' : label
+              const Icon = demo && id === 'schematic' ? IconCube : DefaultIcon
+              return (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={mode === id}
+                  onClick={() => setMode(id)}
+                  className={`inline-flex items-center gap-1.5 h-[30px] ${demo ? 'px-2.5 sm:px-3.5' : 'px-4'} rounded-[6px] text-xs font-semibold transition-all ${
+                    mode === id ? 'bg-brand-600 text-white shadow-md' : 'text-ink-500 hover:text-ink-900 hover:bg-white'
+                  }`}
+                  title={`${displayLabel} [${key} · Ctrl+${visibleViews.findIndex((v) => v.id === id) + 1}]`}
+                >
+                  <Icon size={14} />
+                  <span className={demo ? 'inline' : 'hidden md:inline'}>{displayLabel}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -398,11 +375,18 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               disabled={sim.runState === 'running'}
               className={`dc-tool-btn !font-semibold ${sim.runState === 'running' ? '' : '!text-state-run'}`}
               title="Iniciar simulação (RUN)"
+              aria-label="Play"
             >
-              <IconPlay size={13} /> <span className="hidden lg:inline">Run</span>
+              <IconPlay size={13} /> <span className={demo ? 'hidden sm:inline' : 'hidden lg:inline'}>{demo ? 'Play' : 'Run'}</span>
             </button>
-            <button onClick={pause} disabled={sim.runState !== 'running'} className={`${segBtn(false)} !px-2 !text-state-pause`} title="Pausar">
-              <IconPause size={13} />
+            <button
+              onClick={pause}
+              disabled={sim.runState !== 'running'}
+              className={`${segBtn(false)} ${demo ? '!font-semibold !px-2.5' : '!px-2'} !text-state-pause`}
+              title="Pausar"
+              aria-label="Pause"
+            >
+              <IconPause size={13} /> {demo && <span className="hidden sm:inline">Pause</span>}
             </button>
             {!demo && <button onClick={stop} disabled={sim.runState === 'stopped'} className={`${segBtn(false)} !px-2 !text-ink-700`} title="Parar (STOP)">
               <IconStop size={13} />
@@ -431,9 +415,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
               <option key={v} value={v}>{v}×</option>
             ))}
           </Select>
-            </>
-          )}
-          <span className={`tb-sep ${demo ? 'hidden sm:inline-block' : ''}`} />
+          <span className="tb-sep" />
           <span
             className={`dc-run-badge inline-flex items-center gap-1.5 h-[24px] px-2.5 rounded-[5px] font-mono text-[11px] font-bold tracking-[0.08em] text-white whitespace-nowrap ${runBadge.cls}`}
             title={`Estado do simulador: ${runBadge.text} · scan #${sim.scanCount}`}
@@ -450,12 +432,14 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           </span>
             </>
           )}
+            </>
+          )}
           {!demo && <button type="button" className={`dc-tool-btn dc-clean-toggle ${clean ? 'is-on' : ''}`} aria-pressed={clean} onClick={() => setClean(!clean)} title={clean ? 'Sair do modo clean (mostrar todas as barras)' : 'Modo clean: esconde barras e painéis secundários'}><IconFocus size={13} /><span className="hidden lg:inline">Clean</span></button>}
         </div>
       </div>
 
-      {/* ============================ linha 2 — contextual à vista ativa */}
-      <div ref={row2BarRef} className={`dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
+      {/* ============================ linha 2 — contextual à vista ativa (oculta na demonstração) */}
+      {!demo && <div ref={row2BarRef} className={`dc-toolbar-row2 flex items-center gap-1.5 px-3 h-[40px] overflow-x-auto flex-nowrap toolbar-scroll ${mode === 'grafcet' ? `dc-grafcet-toolbar ${grafcetMoreOpen ? 'is-expanded' : ''}` : ''}`}>
         {/* desfazer / refazer — comum a todas as vistas (fora da demonstração) */}
         {!demo && <HistoryGroup onUndo={undo} onRedo={redo} canUndo={history.length > 0} canRedo={future.length > 0} />}
 
@@ -873,7 +857,7 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
           >
             <IconLock size={13} /> <span className="hidden xl:inline">{sim.blackBox ? 'Caixa-preta ON' : 'Caixa-preta'}</span>
           </button>}
-        </div>
+        </div>}
       {componentTableOpen && <ComponentTableDialog onClose={() => setComponentTableOpen(false)} />}
       {monitorHelp && <ShortcutHelp open editor="Monitor" onClose={() => setMonitorHelp(false)} extra={[VIEW_SHORTCUTS]} />}
       {pdfOpen && (

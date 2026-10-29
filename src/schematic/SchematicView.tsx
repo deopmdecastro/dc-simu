@@ -40,6 +40,7 @@ const MAX_SCHEMATIC_ZOOM = 5
 
 export default function SchematicView({ libraryCollapsed = false }: { libraryCollapsed?: boolean }) {
   const placingType = useSimStore((state) => state.placingType)
+  const demoMode = useSimStore((state) => state.demoMode)
   // Editor SVG antigo, mantido como alternativa (localStorage 'dc-simu:classic2d' = '1' ou ?classic2d na URL).
   const classic2D = useMemo(() => {
     try { return localStorage.getItem('dc-simu:classic2d') === '1' || new URLSearchParams(window.location.search).has('classic2d') } catch { return false }
@@ -47,6 +48,7 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   const [canvasMode, setCanvasMode] = useState<SchematicCanvasMode>(() => {
     try { return localStorage.getItem(SCHEMATIC_CANVAS_MODE_KEY) === '3d' ? '3d' : '2d' } catch { return '2d' }
   })
+  const effectiveCanvasMode: SchematicCanvasMode = demoMode ? '3d' : canvasMode
   // Vista pedida no cubo do Esquema 2D: abre a Visualização 3D já nessa orientação.
   const [pendingCamera, setPendingCamera] = useState<ViewCubeRequest | null>(null)
   const open3DView = useCallback((request: ViewCubeRequest) => {
@@ -67,25 +69,27 @@ export default function SchematicView({ libraryCollapsed = false }: { libraryCol
   }, [placingType, canvasMode, chooseMode])
 
   const can3D = useCan('view3d')
-  return <div className="schematic-view-shell" data-canvas-mode={canvasMode}>
+  return <div className="schematic-view-shell" data-canvas-mode={effectiveCanvasMode}>
     <div className="schematic-canvas-area">
-    {canvasMode === '3d' && !can3D
+    {effectiveCanvasMode === '3d' && !can3D && !demoMode
       ? <PlanLocked feature="view3d" />
-      : canvasMode === '3d'
+      : effectiveCanvasMode === '3d'
       ? <Panel3D initialCamera={pendingCamera} onInitialCameraUsed={() => setPendingCamera(null)} />
       : classic2D
         ? <Schematic2DView libraryCollapsed={libraryCollapsed} onOpen3DView={open3DView} />
         : <Panel3D key="front-edit" frontEdit />}
-    <SelectionBar />
-    <div className="schematic-dimension-switch" role="group" aria-label="Dimensão de visualização do Canvas do Esquema">
-      <button type="button" className={canvasMode === '2d' ? 'is-active' : ''} aria-pressed={canvasMode === '2d'} onClick={() => chooseMode('2d')} title="Editar o esquema, bornes e traçados em 2D">
-        <IconSchematic size={13} />Esquema 2D
-      </button>
-      <button type="button" className={canvasMode === '3d' ? 'is-active' : ''} aria-pressed={canvasMode === '3d'} onClick={() => chooseMode('3d')} title="Visualizar os mesmos componentes, bornes e cabos em 3D">
-        <IconCube size={13} />Visualização 3D
-      </button>
-      {canvasMode === '3d' && <span><i />Sincronizado</span>}
-    </div>
+    {!demoMode && <SelectionBar />}
+    {!demoMode && (
+      <div className="schematic-dimension-switch" role="group" aria-label="Dimensão de visualização do Canvas do Esquema">
+        <button type="button" className={canvasMode === '2d' ? 'is-active' : ''} aria-pressed={canvasMode === '2d'} onClick={() => chooseMode('2d')} title="Editar o esquema, bornes e traçados em 2D">
+          <IconSchematic size={13} />Esquema 2D
+        </button>
+        <button type="button" className={canvasMode === '3d' ? 'is-active' : ''} aria-pressed={canvasMode === '3d'} onClick={() => chooseMode('3d')} title="Visualizar os mesmos componentes, bornes e cabos em 3D">
+          <IconCube size={13} />Visualização 3D
+        </button>
+        {canvasMode === '3d' && <span><i />Sincronizado</span>}
+      </div>
+    )}
     </div>
   </div>
 }

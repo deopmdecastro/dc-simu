@@ -15,7 +15,8 @@ import { isSpringReturn } from '../catalog/behavior'
 import { setBeep } from '../catalog/beep'
 import { cloneModelScene } from './modelFit'
 import { normalizeDefinition } from '../catalog/definition'
-import { finishCadMaterial } from './catalogMaterials'
+import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
+import { applyEditorMotorTextures } from './motorEditorTextures'
 import { getComponentModelSpec, PANEL_UNITS_PER_MM } from './modelPaths'
 import MultimeterDm20Panel from './MultimeterDm20Panel'
 import MotorTerminalBoard3D from './MotorTerminalBoard3D'
@@ -63,12 +64,19 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
   const [prepared, setPrepared] = useState<{ definition: ComponentDefinition; model: THREE.Object3D | null }>({ definition: version?.definition ?? EMPTY_DEFINITION, model: null })
   const { model, topY } = useMemo(() => {
     const object = cloneModelScene(scene)
-    object.traverse((node) => {
-      const mesh = node as THREE.Mesh
-      if (!mesh.isMesh) return
-      mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
-      mesh.castShadow = mesh.receiveShadow = true
-    })
+    if (builtin === 'motor3ph') {
+      applyEditorMotorTextures(object)
+      object.traverse((node) => { const mesh = node as THREE.Mesh; if (mesh.isMesh) mesh.castShadow = mesh.receiveShadow = true })
+    } else if (builtin === 'emergencyButton' || builtin === 'emergencyButtonKeyP20ACR') {
+      applyEmergencyButtonFinish(object, builtin)
+    } else {
+      object.traverse((node) => {
+        const mesh = node as THREE.Mesh
+        if (!mesh.isMesh) return
+        mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.25 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.25 })
+        mesh.castShadow = mesh.receiveShadow = true
+      })
+    }
     object.scale.setScalar(PANEL_UNITS_PER_MM)
     object.updateMatrixWorld(true)
     const box = new THREE.Box3().setFromObject(object, true)
@@ -78,7 +86,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     object.position.set(-cx, anchor === 'bottom' ? -box.min.y : -box.min.y - height / 2, -cz)
     object.updateMatrixWorld(true)
     return { model: object, topY: anchor === 'bottom' ? height : height / 2 }
-  }, [scene, origin, anchor])
+  }, [scene, origin, anchor, builtin])
 
   // Cabeça móvel do botão de emergência (só nos tipos que a têm): o controlo
   // `dcsimu_head` só existe depois de separar a peça do corpo.

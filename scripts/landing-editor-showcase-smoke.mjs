@@ -41,8 +41,8 @@ assert('GRAFCET demo: «Ligar» inibido', bus.includes("isDemoMode() && tool ===
 // ── Toolbar ─────────────────────────────────────────────────────────────────
 const tb = read('src/components/Toolbar.tsx')
 assert('Toolbar aceita prop demo', tb.includes('demo?: boolean'))
-assert('Pill «Demonstração» + CTA «Abrir no editor»', tb.includes('Demonstração') && tb.includes('onEnterEditor'))
-assert('Ações de ficheiro fora da demo', /\{!demo && \(narrowBar/.test(tb))
+assert('Barra da demo minimalista: apenas Play/Pause + 3D/Ladder/GRAFCET (sem linha 2 nem pill)', tb.includes("demo && id === 'schematic' ? '3D' : label") && tb.includes('aria-label="Play"') && tb.includes('aria-label="Pause"') && tb.includes('{!demo && <div ref={row2BarRef}'))
+assert('Ações de ficheiro fora da demo', tb.includes('{!demo && (\n        <div className="flex items-center gap-1.5 shrink-0">') || tb.includes('{!demo && <HistoryGroup'))
 assert('Histórico undo/redo fora da demo', /\{!demo && <HistoryGroup/.test(tb))
 assert('Nova network/bloco só no editor', tb.includes("{mode === 'ladder' && !demo && ("))
 assert('GRAFCET sem «connect»/edição na demo', tb.includes("GRAFCET_TOOLS.filter((t) => t.id !== 'connect')") && tb.includes('{!demo && <button type="button" className="grafcet-toolbar-more'))
@@ -88,10 +88,11 @@ assert('CSS de respiro da demo: barras mais altas e ar entre grupos', css.includ
 
 assert('Ladder: undo/redo e mutações por teclado travados na demo', ladder2.includes("!demoMode && mod && !event.altKey && lower === 'z'") && ladder2.includes('if (demoMode) return'))
 
-// Vista limpa da demonstração (revisão: «ambiente de visualização, sem muitas ferramentas»)
-assert('Toolbar demo: viewControls só com zoom (sem grelha/ímã/passo)', tb.includes('Demonstração (landing): vista limpa') && tb.includes('const viewControls: ViewControlsProps | null = demo ? ('))
+// Vista limpa da demonstração (revisão: apenas Play, Pause e 3D/Ladder/GRAFCET)
+assert('Toolbar demo: viewControls desligado e linha 2 oculta na demo', tb.includes('const viewControls: ViewControlsProps | null = demo ? null :'))
 
 const sv = read('src/schematic/SchematicView.tsx')
+assert('Esquema na demo abre diretamente em 3D sem seletor 2D/3D', sv.includes("const effectiveCanvasMode: SchematicCanvasMode = demoMode ? '3d' : canvasMode") && sv.includes('{!demoMode && ('))
 assert('Esquema abre em vista frontal (apenas motor isométrico)', sv.includes('const [tilt, setTilt] = useState<Tilt2D>(() => ({ yaw: 0, pitch: 0 }))'))
 const orient = read('src/three/componentOrientation.ts')
 assert('Apenas o motor usa orientação isométrica por omissão no simulador', orient.includes('MOTOR_ISOMETRIC_ORIENTATION') && orient.includes("type === 'motor3ph' || type === 'motor1ph'") && orient.includes('if (isIsometricMotorType(type)) return { ...MOTOR_ISOMETRIC_ORIENTATION }'))
@@ -122,12 +123,13 @@ assert('Toolbar GRAFCET demo: Modelos/Ladder, Organizar e Ficheiro fora', tb.inc
 // Revisão: render leve, sem rotação automática e seleção possível durante o RUN
 assert('Painel 3D: sem amortecimento nem rotação automática', panel.includes('screenSpacePanning autoRotate={false} />') && !panel.includes('enableDamping dampingFactor'))
 assert('Painel 3D: shadow map sob pedido (não por frame)', panel.includes('gl.shadowMap.autoUpdate = false') && panel.includes('function ShadowsOnDemand') && panel.includes('<ShadowsOnDemand watch={shadowWatch} />'))
-assert('Painel 3D: geometria dos cabos em cache (não reconstrói por scan)', panel.includes('cachedWireGeometry(wire, from, to, obstacles)') && panel.includes('wireGeomCache.set(key, geom)'))
+assert('Painel 3D: geometria dos cabos em cache e coordenada entre todos os cabos', panel.includes('cachedWireGeometry(wire, from, to, obstacles, prebuilt)') && panel.includes('buildAllWirePaths3D(wires, components, pivots, obstacles)') && panel.includes('wireGeomCache.set(key, geom)'))
+assert('Botão de emergência 3D: acabamento vermelho/preto/latão fiel aplicado no painel e catálogo', read('src/three/catalogMaterials.ts').includes('export function applyEmergencyButtonFinish') && panel.includes('applyEmergencyButtonFinish(fitted, c.type)') && read('src/three/CatalogComponent3D.tsx').includes('applyEmergencyButtonFinish(object, builtin)'))
 assert('Painel 3D: caixas de obstáculos estáveis durante o RUN', panel.includes('const obstaclesKey = useMemo'))
 assert('Demo: simLocked inclui demoMode e barra de seleção/edição fica oculta', panel.includes('const simLocked = demoMode ||') && read('src/components/SelectionBar.tsx').includes('if (demoMode || (!hasComponents && !wireId && !terminalId)) return null'))
 const cat3d = read('src/three/CatalogComponent3D.tsx')
 assert('Catálogo 3D: premir botão na demo atua sem abrir barra de edição/seleção', cat3d.includes('if (!useSimStore.getState().demoMode) useSimStore.getState().selectComponents([c.id])'))
-assert('Toolbar mobile: botão para abrir o editor usa ícone «Abrir» (sem «+» ambíguo)', tb.includes('<IconOpen size={13} /><span className="hidden md:inline">Abrir no editor</span><span className="md:hidden">Editor</span>'))
+assert('Toolbar mobile e desktop na demo: rótulos 3D/Ladder/GRAFCET e Play/Pause sempre visíveis sem botão Editor extra', !tb.includes('Abrir no editor') && tb.includes("className={demo ? 'inline' : 'hidden md:inline'}"))
 assert('GRAFCET e Ladder bloqueiam edição/eliminação na demo', grafed.includes('const full = fullProp && !demoMode') && ladder2.includes('readonly={demoMode}'))
 
 if (failures) {

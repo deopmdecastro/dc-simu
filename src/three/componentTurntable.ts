@@ -5,7 +5,7 @@ import type { ComponentType } from '../types'
 import { cloneModelScene, fitComponentModel } from './modelFit'
 import { getComponentGlbSpec } from './modelPaths'
 import { applyEditorMotorTextures } from './motorEditorTextures'
-import { finishCadMaterial } from './catalogMaterials'
+import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
 
 export interface ComponentTurntableFrames {
   frames: string[]
@@ -153,6 +153,10 @@ function normalizeObject(root: THREE.Object3D) {
 function enhanceTurntableMaterials(root: THREE.Object3D, type: ComponentType) {
   if (type === 'motor3ph') {
     applyEditorMotorTextures(root)
+    return
+  }
+  if (type === 'emergencyButton' || type === 'emergencyButtonKeyP20ACR') {
+    applyEmergencyButtonFinish(root, type)
     return
   }
   const meshes: THREE.Mesh[] = []

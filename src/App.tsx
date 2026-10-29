@@ -43,6 +43,7 @@ export default function App({ onBack, demo = false, onEnterEditor }: { onBack: (
   const [mode, setModeRaw] = useState<ViewMode>(() => {
     const kind = useSimStore.getState().projectKind
     const hasLadder = hasGeneratedLadder()
+    if (demo) return coerceView('schematic', kind, hasLadder)
     try {
       const saved = localStorage.getItem('dcsimu:workspace:view') as ViewMode | 'panel3d' | null
       // O antigo "Painel 3D" passou a ser a Visualização 3D do Esquema.
