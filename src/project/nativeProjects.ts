@@ -12,12 +12,26 @@ import type { ElectricalComponent, Wire, WireColor } from '../types'
 import type { LadderRung } from '../types'
 import type { GrafcetProgram, GrafcetStep, GrafcetTransition } from '../grafcet/engine'
 import { autoLayout, SPINE_X, START_Y, STEP_H } from '../grafcet/layout'
+import {
+  grafcetToLadderWord,
+  WORD_FC_GRAFCET,
+  WORD_FC_OUTPUTS,
+  WORD_REGISTER_COMMENT,
+  WORD_REGISTER_NAME,
+} from '../grafcet/toLadderWord'
+import type { ProjectFile } from '../ladder/projectFiles'
 import { nanoid } from 'nanoid'
 import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
 
+/** Blocos de programa do método «registo de etapa» (FC + OB100 + CALL na Main). */
+const NATIVE_PLC_ID = 'native-plc'
+const NATIVE_FC_GRAFCET_ID = 'native-fc-grafcet'
+const NATIVE_FC_OUTPUTS_ID = 'native-fc-outputs'
+const NATIVE_OB100_ID = 'native-ob100'
+
 /** Identificador estável — não muda entre deploys. */
-export const NATIVE_PARTIDA_ID = 'native-partida-direta-v2'
+export const NATIVE_PARTIDA_ID = 'native-partida-direta-v3'
 export const NATIVE_PARTIDA_NAME = 'Partida direta com emergência (nativo)'
 
 const ADMIN_OWNER = 'dcsimu-admin'
@@ -29,6 +43,8 @@ type Built = {
   grafcet: GrafcetProgram
   tags: Array<{ id: string; address: string; name: string; dataType: string; comment: string }>
   projectKind: 'all'
+  projectFiles: Record<string, ProjectFile[]>
+  activePlcId: string
 }
 
 function term(comp: ElectricalComponent, label: string): string {
@@ -134,56 +150,90 @@ export function buildNativeGrafcet(): GrafcetProgram {
   }
 }
 
-export function buildNativeLadder(): LadderRung[] {
-  const contact = (id: string, address: string, contactType: 'NO' | 'NC') =>
-    ({ kind: 'contact' as const, id, address, contactType })
-  const coil = (id: string, address: string) =>
-    ({ kind: 'coil' as const, id, address, coilType: 'COIL' as const })
-  // Lógica do esquema: B0 (emergência NF) · B1 (START NA) // K1 (selo) · bobina K1
-  // + STOP da botoeira em série. Entradas: I0.0=EMERG (1 em repouso), I0.1=START, I0.2=STOP (1 em repouso).
-  return [
+/**
+ * Ladder no método «registo de etapa» (complete restart + MOVE):
+ *   OB100 Complete restart → MOVE etapa inicial → G0
+ *   FC Grafcet             → transições com MOVE destino → G0
+ *   FC Outputs             → comparações G0 == etapa → bobinas
+ *   Main [OB1]             → CALL Grafcet; CALL Outputs
+ */
+export function buildNativeWordProgram(grafcet: GrafcetProgram, baseTags: Built['tags']) {
+  const word = grafcetToLadderWord(grafcet, {
+    tags: baseTags.map((t) => ({ address: t.address, name: t.name })),
+    name: grafcet.name,
+  })
+  const mainRungs: LadderRung[] = [
     {
-      id: 'native-n1',
-      name: 'Partida com selo e emergência',
-      comment: 'EMERG · STOP · (START // KM1) → KM1',
+      id: 'native-main-call-grafcet',
+      name: 'GRAFCET · Chamar Grafcet',
+      comment: 'CALL FC Grafcet — avalia transições e MOVE em G0',
       enabled: true,
-      branches: [
-        {
-          id: 'n1a',
-          elements: [
-            contact('c-em', 'I0.0', 'NO'),
-            contact('c-stop', 'I0.2', 'NO'),
-            contact('c-start', 'I0.1', 'NO'),
-          ],
-        },
-        {
-          id: 'n1b',
-          elements: [
-            contact('c-em2', 'I0.0', 'NO'),
-            contact('c-stop2', 'I0.2', 'NO'),
-            contact('c-seal', 'Q0.0', 'NO'),
-          ],
-        },
-      ],
-      coils: [coil('k1', 'Q0.0')],
+      branches: [{ id: 'native-main-b1', elements: [] }],
+      coils: [],
+      call: { targetId: NATIVE_FC_GRAFCET_ID },
     },
     {
-      id: 'native-n2',
-      name: 'Sinalização de marcha',
-      comment: 'Contacto NA de KM1 comanda H1',
+      id: 'native-main-call-outputs',
+      name: 'GRAFCET · Chamar Outputs',
+      comment: 'CALL FC Outputs — comanda KM1, H1 e H2',
       enabled: true,
-      branches: [{ id: 'n2a', elements: [contact('c4', 'Q0.0', 'NO')] }],
-      coils: [coil('k2', 'Q0.1')],
-    },
-    {
-      id: 'native-n3',
-      name: 'Sinalização de motor parado',
-      comment: 'Contacto NF de KM1 comanda H2',
-      enabled: true,
-      branches: [{ id: 'n3a', elements: [contact('c5', 'Q0.0', 'NC')] }],
-      coils: [coil('k3', 'Q0.2')],
+      branches: [{ id: 'native-main-b2', elements: [] }],
+      coils: [],
+      call: { targetId: NATIVE_FC_OUTPUTS_ID },
     },
   ]
+  const now = new Date().toISOString()
+  const files: ProjectFile[] = [
+    {
+      id: NATIVE_FC_GRAFCET_ID,
+      folder: 'programBlocks',
+      name: `FC1 [${WORD_FC_GRAFCET}]`,
+      content: '',
+      rungs: word.grafcetRungs,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: NATIVE_FC_OUTPUTS_ID,
+      folder: 'programBlocks',
+      name: `FC2 [${WORD_FC_OUTPUTS}]`,
+      content: '',
+      rungs: word.outputRungs,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: NATIVE_OB100_ID,
+      folder: 'programBlocks',
+      name: 'OB100 [Complete restart]',
+      content: '',
+      rungs: word.startupRungs,
+      exec: 'obStartup',
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]
+  const tags = [...baseTags]
+  if (!tags.some((t) => t.address === word.word || t.name === WORD_REGISTER_NAME)) {
+    tags.push({
+      id: 't-g0',
+      address: word.word.startsWith('%') || /^[IMQ]W/i.test(word.word) ? word.word : 'MW0',
+      name: WORD_REGISTER_NAME,
+      dataType: 'Int',
+      comment: WORD_REGISTER_COMMENT,
+    })
+  }
+  for (const t of word.tags) {
+    if (tags.some((x) => x.address === t.address || x.name === t.name)) continue
+    tags.push({
+      id: `t-${t.address}`,
+      address: t.address,
+      name: t.name,
+      dataType: /^[IMQ]W|MW/i.test(t.address) ? 'Int' : 'Bool',
+      comment: t.comment || '',
+    })
+  }
+  return { mainRungs, files, tags, warnings: word.warnings }
 }
 
 /** Monta o conteúdo completo do projeto nativo (esquema + 3D + Ladder + GRAFCET). */
@@ -256,20 +306,27 @@ export function buildNativePartidaDireta(): Built {
     add(target, negative, psu, '-V2', 'blue')
   }
   const components = [rail, source, main, psu, plc, qm, km, control, emerg, push, green, red, motor]
+  const baseTags: Built['tags'] = [
+    { id: 't1', address: 'I0.0', name: 'EMERG', dataType: 'Bool', comment: 'B0 cogumelo NF — 1 em repouso, 0 premido' },
+    { id: 't2', address: 'I0.1', name: 'START', dataType: 'Bool', comment: 'B1 START (NA)' },
+    { id: 't3', address: 'I0.2', name: 'STOP', dataType: 'Bool', comment: 'B1 STOP (NF) — 1 em repouso' },
+    { id: 't4', address: 'Q0.0', name: 'KM1', dataType: 'Bool', comment: 'Contactor / bobina K1' },
+    { id: 't5', address: 'Q0.1', name: 'H1', dataType: 'Bool', comment: 'Lâmpada marcha' },
+    { id: 't6', address: 'Q0.2', name: 'H2', dataType: 'Bool', comment: 'Lâmpada parado' },
+  ]
+  const grafcet = buildNativeGrafcet()
+  const wordProgram = buildNativeWordProgram(grafcet, baseTags)
   return {
     components,
     // Traçado cozido na semente: cada cabo contorna os equipamentos e partilha
     // faixas com afastamento (ver `nativeRouting`). O editor mantém os pontos editáveis.
-    wires: bakeNativeRouting(components, wires), ladder: { rungs: buildNativeLadder() }, grafcet: buildNativeGrafcet(),
-    tags: [
-      { id: 't1', address: 'I0.0', name: 'EMERG', dataType: 'Bool', comment: 'B0 cogumelo NF — 1 em repouso, 0 premido' },
-      { id: 't2', address: 'I0.1', name: 'START', dataType: 'Bool', comment: 'B1 START (NA)' },
-      { id: 't3', address: 'I0.2', name: 'STOP', dataType: 'Bool', comment: 'B1 STOP (NF) — 1 em repouso' },
-      { id: 't4', address: 'Q0.0', name: 'KM1', dataType: 'Bool', comment: 'Contactor / bobina K1' },
-      { id: 't5', address: 'Q0.1', name: 'H1', dataType: 'Bool', comment: 'Lâmpada marcha' },
-      { id: 't6', address: 'Q0.2', name: 'H2', dataType: 'Bool', comment: 'Lâmpada parado' },
-    ],
+    wires: bakeNativeRouting(components, wires),
+    ladder: { rungs: wordProgram.mainRungs },
+    grafcet,
+    tags: wordProgram.tags,
     projectKind: 'all',
+    projectFiles: { [NATIVE_PLC_ID]: wordProgram.files },
+    activePlcId: NATIVE_PLC_ID,
   }
 }
 
@@ -287,13 +344,16 @@ export function nativePartidaDiretaContent(): Record<string, unknown> {
     ladder: built.ladder,
     fcBlocks: { fc1: [], fc2: [] },
     fcAdded: { fc1: false, fc2: false },
-    activePlcId: null,
+    activePlcId: built.activePlcId,
     plcPrograms: {},
     plcTags: {},
-    projectFiles: {},
+    projectFiles: built.projectFiles,
     hiddenProjectFolders: {},
     projectFolderLabels: {},
-    fcNames: {},
+    fcNames: {
+      fc1: WORD_FC_GRAFCET,
+      fc2: WORD_FC_OUTPUTS,
+    },
     grafcet: built.grafcet,
     tags: built.tags,
     virtualInputs: {},
