@@ -60,14 +60,9 @@
 .dx-admin .cb-component-main > .cb-component-note { grid-column: 1 / -1; }
 
 /* ---------- cabeçalho: ação principal e voltar ---------- */
-.adm-head-actions { display: flex; align-items: stretch; gap: 10px; }
-.adm-head-actions .adm-cta, .adm-head-actions .adm-back { height: 44px; border-radius: 12px; }
-.adm-cta { display: inline-flex; align-items: center; gap: 10px; padding: 0 18px 0 8px; text-align: left; transition: transform var(--dx-fast), background var(--dx-fast); }
-.adm-cta:active:not(:disabled) { transform: translateY(1px); }
-.adm-cta-icon { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 9px; background: rgb(255 255 255 / .2); }
-.adm-cta-text { display: grid; line-height: 1.15; }
-.adm-cta-text strong { font-size: 13.5px; font-weight: 700; }
-.adm-cta-text small { font-size: 11px; font-weight: 500; opacity: .82; }
+/* «Novo componente 3D» é um botão azul normal (dx-btn-primary), como «Guardar» e «Publicar». */
+.adm-head-actions { display: flex; align-items: center; gap: 10px; }
+.adm-cta { display: inline-flex; align-items: center; gap: 8px; }
 .adm-back { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; font-weight: 650; }
 .adm-back:hover:not(:disabled) > svg:first-child { transform: translateX(-2px); }
 .adm-back > svg { transition: transform var(--dx-fast); }
@@ -91,7 +86,7 @@
 @media (max-width: 720px) {
   .dx-admin-head-actions.adm-head-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
   .adm-head-actions .adm-cta, .adm-head-actions .adm-back { height: 48px; }
-  .adm-head-actions .adm-cta { justify-content: flex-start; padding: 0 14px 0 8px; font-size: 13px; }
+  .adm-head-actions .adm-cta { justify-content: center; }
   .adm-head-actions .adm-back { padding: 0 14px; }
 
   /* tabela de projetos → cartões com capa */
@@ -117,9 +112,6 @@
   /* Biblioteca 3D: a ação principal já está no cabeçalho */
   .ce-list-actions .ce-list-create { display: none; }
   .ce-list-secondary-actions .dx-btn { height: 44px; }
-}
-@media (max-width: 380px) {
-  .adm-cta-text small { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .adm-cta, .adm-back > svg { transition: none; }

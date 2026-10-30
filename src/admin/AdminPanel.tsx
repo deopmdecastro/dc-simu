@@ -270,8 +270,7 @@ export default function AdminPanel({ onBack, currentUser, initialTab = 'overview
         <span className={`adm-env ${databaseMode ? 'is-server' : 'is-local'}`} title={serverMode ? 'Os dados estão guardados no servidor (SQLite).' : backendMode === 'supabase' ? 'Os dados estão guardados no Supabase (PostgreSQL).' : 'Os dados estão guardados apenas neste navegador.'}><i aria-hidden />{serverMode ? 'Servidor · SQLite' : backendMode === 'supabase' ? 'Supabase · PostgreSQL' : 'Modo local · só neste navegador'}</span>
         <div className="dx-admin-head-actions adm-head-actions">
           <button className="dx-btn dx-btn-primary adm-cta" onClick={() => setCreating3D(true)} title="Criar um componente no editor 3D">
-            <span className="adm-cta-icon" aria-hidden><IconPlus size={13} /></span>
-            <span className="adm-cta-text"><strong>Novo componente 3D</strong><small>Abrir o assistente</small></span>
+            <IconPlus size={14} aria-hidden /><span>Novo componente 3D</span>
           </button>
           <button className="dx-btn dx-btn-secondary adm-back" onClick={onBack} title="Voltar à lista de projetos" aria-label="Voltar aos projetos"><IconArrowLeft size={13} /><span>Projetos</span></button>
         </div>
