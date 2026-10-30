@@ -1,3 +1,7 @@
+import { flowCoverSvg } from './flowCover'
+import type { GrafcetProgram } from '../grafcet/engine'
+import type { LadderRung } from '../types'
+
 /** Resumo leve de um projeto guardado: geometria do esquema (componentes + fios)
  *  e contagens. Usado pelo cover do dashboard — no backend local e no servidor. */
 export type PreviewComponent = {
@@ -24,6 +28,8 @@ export type ProjectPreviewData = {
   stats?: { components: number; wires: number; rungs: number }
   /** miniatura real do painel 3D (JPEG data URL) capturada pelo editor ao guardar */
   cover?: string
+  /** diagrama GRAFCET/Ladder real (SVG) quando ainda não há cover guardado */
+  flow?: string
   /** tipo de projeto: all | ladder | grafcet */
   kind?: 'all' | 'ladder' | 'grafcet'
 }
@@ -43,7 +49,7 @@ export function isNativeProjectMeta(id: string, name?: string): boolean {
 /** True quando o preview não tem geometria útil para a capa. */
 export function isEmptyPreview(preview?: ProjectPreviewData | null): boolean {
   if (!preview) return true
-  if (preview.cover) return false
+  if (preview.cover || preview.flow) return false
   if ((preview.components?.length ?? 0) > 0) return false
   if ((preview.stats?.components ?? 0) > 0) return false
   return true
@@ -129,6 +135,20 @@ export function buildProjectPreview(content: unknown): ProjectPreviewData {
     })
   }
 
-  const ladder = isObj(data.ladder) && Array.isArray(data.ladder.rungs) ? data.ladder.rungs.length : 0
-  return { components, wires, cover: previewCoverOf(data), kind: data.projectKind === 'ladder' || data.projectKind === 'grafcet' ? data.projectKind : 'all', stats: { components: rawList.length, wires: rawWires.length, rungs: ladder } }
+  const rungs = isObj(data.ladder) && Array.isArray(data.ladder.rungs) ? (data.ladder.rungs as LadderRung[]) : []
+  const kind = data.projectKind === 'ladder' || data.projectKind === 'grafcet' ? data.projectKind : 'all'
+  const cover = previewCoverOf(data)
+  return { components, wires, cover, flow: cover || kind === 'all' ? undefined : flowPreviewOf(kind, rungs, data.grafcet), kind, stats: { components: rawList.length, wires: rawWires.length, rungs: rungs.length } }
+}
+
+/** Projetos GRAFCET/Ladder sem cover guardado (ex.: exemplos semeados, nunca abertos):
+ *  desenha o próprio diagrama do conteúdo, em vez de um cartão vazio. */
+function flowPreviewOf(kind: 'ladder' | 'grafcet', rungs: LadderRung[], grafcet: unknown): string | undefined {
+  const program = isObj(grafcet) && Array.isArray(grafcet.steps) ? (grafcet as unknown as GrafcetProgram) : { steps: [], transitions: [] } as unknown as GrafcetProgram
+  try {
+    const svg = flowCoverSvg({ kind, rungs, grafcet: program })
+    return svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : undefined
+  } catch {
+    return undefined
+  }
 }

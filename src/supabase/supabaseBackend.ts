@@ -240,12 +240,15 @@ export async function supabaseGetProjects(): Promise<Project[]> {
     }
   }
 
+  // Capa do cartão a partir do conteúdo real (cover 3D guardado, diagrama ou esquema),
+  // como nos backends local e servidor; sem isto o dashboard via sempre «Projeto vazio».
+  const { buildProjectPreview } = await import('../dashboard/projectPreview')
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
     revision: row.revision ?? 0,
     updated_at: row.updated_at,
-    content: typeof row.content === 'string' ? JSON.parse(row.content) : row.content,
+    preview: buildProjectPreview(row.content),
     owner: row.owner_id === user.id ? 'Você' : 'Colaborador',
     role: row.owner_id === user.id ? 'owner' : 'editor',
   }))

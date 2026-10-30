@@ -82,10 +82,11 @@ export default function ProjectCover({ preview, large = false }: { preview?: Pro
     return { minX, minY, maxX, maxY, span, pad }
   }, [comps])
 
-  if (preview?.cover) {
+  const photo = preview?.cover ?? preview?.flow
+  if (photo) {
     return (
       <div className={`dx-cover dx-cover-real${large ? ' is-large' : ''}`} ref={hostRef} aria-hidden="true">
-        <img src={preview.cover} alt="" className="dx-cover-photo" draggable={false} />
+        <img src={photo} alt="" className="dx-cover-photo" draggable={false} />
       </div>
     )
   }
