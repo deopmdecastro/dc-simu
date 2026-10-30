@@ -4,6 +4,8 @@ import { plcIoRows } from '../ladder/plcIo'
 import VirtualInputButton, { readPlcSim } from './VirtualInputButton'
 
 const MODE_LABEL: Record<VirtualInputMode, string> = { latch: 'INT', push: 'NO', nc: 'NC' }
+/** Cada clique na etiqueta avança o tipo: INT → NO → NC → INT (sem lista). */
+const MODE_NEXT: Record<VirtualInputMode, VirtualInputMode> = { latch: 'push', push: 'nc', nc: 'latch' }
 const MODE_NAME: Record<VirtualInputMode, string> = {
   latch: 'Interruptor (liga/desliga, mantém)',
   push: 'Botão de pressão NO (1 só enquanto premido)',
@@ -61,10 +63,9 @@ export default function PlcSignalPanel({ plcId, compact = false }: { plcId: stri
                 <i /><b>{row.address}</b><small className={row.name ? 'vio-name' : 'vio-name-empty'}>{row.name || '—'}</small>
               </VirtualInputButton>
               <div className="vio-cell-foot">
-                <select className={`vio-mode plc-sim-mode is-${mode}`} value={mode} aria-label={`Tipo de contacto de ${row.address}`}
-                  title={`${row.address}: ${MODE_NAME[mode]}`} onChange={(event) => setMode(plc.id, row.address, event.target.value as VirtualInputMode)}>
-                  {(Object.keys(MODE_LABEL) as VirtualInputMode[]).map((key) => <option key={key} value={key} title={MODE_NAME[key]}>{MODE_LABEL[key]}</option>)}
-                </select>
+                <button type="button" className={`vio-mode plc-sim-mode is-${mode}`} onClick={() => setMode(plc.id, row.address, MODE_NEXT[mode])}
+                  title={`${row.address}: ${MODE_NAME[mode]} — clique para mudar para ${MODE_LABEL[MODE_NEXT[mode]]}`}
+                  aria-label={`Tipo de contacto de ${row.address}: ${MODE_NAME[mode]}. Mudar para ${MODE_LABEL[MODE_NEXT[mode]]}`}>{MODE_LABEL[mode]}</button>
                 <span className={`plc-sim-state ${row.on ? 'is-on' : ''}`} title={wired ? `Cabo: ${row.destinations.join(', ')}` : 'Sem cabo neste borne — só o sinal simulado'}>
                   <b>{row.on ? '1' : '0'}</b>{wired && <small>cabo</small>}
                 </span>
@@ -73,7 +74,7 @@ export default function PlcSignalPanel({ plcId, compact = false }: { plcId: stri
           })}
           {!inputs.length && <small className="vio-empty">Este PLC não tem entradas digitais.</small>}
         </div>
-        <p className="vio-hint"><kbd>Clique</kbd> injeta o sinal · o seletor <b>INT</b>/<b>NO</b>/<b>NC</b> escolhe o tipo de contacto · o sinal soma-se ao dos cabos</p>
+        <p className="vio-hint"><kbd>Clique</kbd> injeta o sinal · clique na etiqueta <b>INT</b>/<b>NO</b>/<b>NC</b> para mudar o tipo de contacto · o sinal soma-se ao dos cabos</p>
       </div>
       <div className="vio-col">
         <div className="vio-head"><strong>Saídas (Q) <em className={outputs.some((row) => row.on) ? 'is-live' : ''}>{outputs.filter((row) => row.on && powered).length} ativa(s)</em></strong></div>
