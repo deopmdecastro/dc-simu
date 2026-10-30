@@ -5,7 +5,7 @@ import { importedComponentInfo, importedActuationPatch } from '../electrical/imp
 import { animateImportedRig, paintImportedModel, rigImportedModel } from './importedFinish'
 import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { OrbitControls, PerformanceMonitor, TransformControls, Edges, useGLTF } from '@react-three/drei'
+import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, useGLTF } from '@react-three/drei'
 import { Text } from './SceneText'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import { createPortal } from 'react-dom'
@@ -54,7 +54,9 @@ import { extractBreakerHandle, extractKeyBarrel } from './breakerHandle'
 import { extractActuatorHead } from './actuatorHead'
 import { WireDrawController, type DrawTerminal, type WireDraft } from './WireDraw3D'
 import { wireEndColor } from '../schematic/wireEndColor'
-import { buildAllWirePaths3D, buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
+import { buildWirePath3D, cableOuterDiameterMm, componentObstacles, closestPointOnPolyline, fromSpatial, toSpatial, waypointInsertIndex, wireEndpoint3D, wireLengthMm, WIRE_3D_COLORS, type V3, type WireEndpoint3D, type WirePath3D, type WireObstacle } from './wireGeometry3D'
+import { useWireRouting } from './useWireRouting'
+import { createWireRoutingJob } from './wireRoutingJob'
 
 const PANEL_FLOOR_Y = -2.6
 /** Margem (1 = 100 mm) da chapa à volta do equipamento. */
@@ -1675,7 +1677,7 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
   // (RUN muda c.state, não as posições): sem isto, cada scan re-gerava as caixas.
   const obstaclesKey = useMemo(() => components.map((c) => {
     const p = pivots[c.id]
-    return p ? `${c.id}:${p.x.toFixed(4)},${p.y.toFixed(4)},${p.z.toFixed(4)}:${c.state.lengthMm ?? 0}:${c.rotation ?? 0}:${c.mirrored}:${JSON.stringify([componentOrientationOf(c), component3DScaleOf(c), c.terminals.map(t=>[t.id,t.position3D,t.socket3D])])}` : ''
+    return p ? `${c.id}:${p.x},${p.y},${p.z}:${c.state.lengthMm ?? 0}:${c.rotation ?? 0}:${c.mirrored}:${JSON.stringify([c.type, c.w, c.h, getComponentModelSpec(c.type)?.physicalSizeMm, componentOrientationOf(c), component3DScaleOf(c), c.terminals.map(t=>[t.id,t.label,t.x,t.y,t.diameter,t.position3D,t.socket3D])])}` : ''
   }).join('|'), [components, pivots])
   const obstacles = useMemo(() => componentObstacles(components, pivots), [obstaclesKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1686,16 +1688,16 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     w.fromPoint ? `${w.fromPoint.x},${w.fromPoint.y}` : '',
     w.toPoint ? `${w.toPoint.x},${w.toPoint.y}` : '',
     w.fromPoint3D ? `${w.fromPoint3D.x},${w.fromPoint3D.y},${w.fromPoint3D.z}` : '',
-    w.toPoint ? `${w.toPoint3D?.x ?? ''},${w.toPoint3D?.y ?? ''},${w.toPoint3D?.z ?? ''}` : '',
-    (w.waypoints3D ?? []).map((p) => `${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)}`).join(';'),
+    w.toPoint3D ? `${w.toPoint3D.x},${w.toPoint3D.y},${w.toPoint3D.z}` : '',
+    (w.waypoints3D ?? []).map((p) => `${p.x},${p.y},${p.z}`).join(';'),
   ].join(':')).join('||'), [wires])
-  const coordinatedPaths = useMemo(
-    () => buildAllWirePaths3D(wires, components, pivots, obstacles),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [wiresGeoKey, obstaclesKey, obstacles],
+  const { paths: coordinatedPaths, error: routingError, retry: retryRouting } = useWireRouting(
+    `${wiresGeoKey}#${obstaclesKey}`,
+    () => createWireRoutingJob(wires, components, pivots),
   )
   const blockedNotice = useRef('')
   useEffect(() => {
+    if (!coordinatedPaths) return
     const blocked = wires.filter(w => coordinatedPaths.has(w.id) && coordinatedPaths.get(w.id)!.points.length < 2)
     const key = blocked.map(w => w.id).sort().join('|')
     if (key && key !== blockedNotice.current) useSimStore.getState().pushEvent('warning',
@@ -1742,7 +1744,13 @@ function Wires3D({ pivots, editMode, selectedWireId, ...handlers }: {
     return wire
   }
 
-  return <group userData={{ noPick: true }}>{wires.map((storedWire) => {
+  return <group userData={{ noPick: true }}>
+    {!coordinatedPaths && <Html center><div role={routingError ? 'alert' : 'status'} className="rounded border border-line-soft bg-white px-3 py-2 text-xs text-slate-700 whitespace-nowrap">
+      {routingError ? <>Não foi possível calcular os cabos. <button type="button" className="underline" onClick={retryRouting}>Tentar novamente</button></> : 'A calcular os cabos…'}
+    </div></Html>}
+    {wires.map((storedWire) => {
+    // Sem traçado confirmado, não fazer o cálculo síncrono de cada cabo como fallback.
+    if (!coordinatedPaths?.has(storedWire.id)) return null
     const baseFrom = wireEndpoint3D(storedWire, 'from', components, pivots, wires)
     const baseTo = wireEndpoint3D(storedWire, 'to', components, pivots, wires)
     if (!baseFrom || !baseTo) return null

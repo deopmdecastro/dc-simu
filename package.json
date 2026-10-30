@@ -21,6 +21,7 @@
     "test:landing-ui": "node scripts/landing-ui-smoke.mjs",
     "test:native-sim": "tsx scripts/native-sim-smoke.ts",
     "test:native-wires-3d": "tsx scripts/native-wires-3d-smoke.ts",
+    "test:wire-routing-ui": "node scripts/wire-routing-ui-smoke.mjs",
     "test:ladder-math": "tsx scripts/ladder-math-smoke.ts",
     "test:ladder-force": "tsx scripts/ladder-force-smoke.ts",
     "test:component-validate": "tsx scripts/component-validate-smoke.ts",
