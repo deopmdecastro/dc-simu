@@ -1,0 +1,192 @@
+{
+  "fuseHolderSchneiderDf101v": [
+    {
+      "label": "1",
+      "face": "top",
+      "x": 0.472093,
+      "y": 2.5e-05,
+      "z": 0.347256,
+      "diameterMm": 7.9,
+      "holeDepthMm": 2.5
+    },
+    {
+      "label": "2",
+      "face": "bottom",
+      "x": 0.472093,
+      "y": 0.963913,
+      "z": 0.347256,
+      "diameterMm": 7.9,
+      "holeDepthMm": 4.2
+    }
+  ],
+  "fuseHolderSchneiderDf103nv": [
+    {
+      "label": "1",
+      "face": "top",
+      "x": 0.118077,
+      "y": 7.6e-05,
+      "z": 0.347222,
+      "diameterMm": 8.6,
+      "holeDepthMm": 2.5
+    },
+    {
+      "label": "3",
+      "face": "top",
+      "x": 0.368006,
+      "y": 7.6e-05,
+      "z": 0.347222,
+      "diameterMm": 8.6,
+      "holeDepthMm": 2.5
+    },
+    {
+      "label": "5",
+      "face": "top",
+      "x": 0.618077,
+      "y": -5e-05,
+      "z": 0.347222,
+      "diameterMm": 8.6,
+      "holeDepthMm": 2.5
+    },
+    {
+      "label": "N1",
+      "face": "top",
+      "x": 0.868006,
+      "y": -5e-05,
+      "z": 0.347222,
+      "diameterMm": 8.6,
+      "holeDepthMm": 2.5
+    },
+    {
+      "label": "2",
+      "face": "bottom",
+      "x": 0.118077,
+      "y": 0.963914,
+      "z": 0.347222,
+      "diameterMm": 8.6,
+      "holeDepthMm": 4.2
+    },
+    {
+      "label": "4",
+      "face": "bottom",
+      "x": 0.368006,
+      "y": 0.963914,
+      "z": 0.347222,
+      "diameterMm": 8.6,
+      "holeDepthMm": 4.2
+    },
+    {
+      "label": "6",
+      "face": "bottom",
+      "x": 0.618077,
+      "y": 0.963914,
+      "z": 0.347222,
+      "diameterMm": 8.6,
+      "holeDepthMm": 4.2
+    },
+    {
+      "label": "N2",
+      "face": "bottom",
+      "x": 0.868006,
+      "y": 0.963914,
+      "z": 0.347222,
+      "diameterMm": 8.6,
+      "holeDepthMm": 4.2
+    }
+  ],
+  "fuseHolderSchneiderDf81n": [
+    {
+      "label": "1",
+      "face": "top",
+      "x": 0.236023,
+      "y": 2.5e-05,
+      "z": 0.347256,
+      "diameterMm": 8.2,
+      "holeDepthMm": 2.5
+    },
+    {
+      "label": "N1",
+      "face": "top",
+      "x": 0.736023,
+      "y": 2.5e-05,
+      "z": 0.347256,
+      "diameterMm": 8.2,
+      "holeDepthMm": 2.5
+    },
+    {
+      "label": "2",
+      "face": "bottom",
+      "x": 0.236023,
+      "y": 0.963913,
+      "z": 0.347256,
+      "diameterMm": 8.2,
+      "holeDepthMm": 4.2
+    },
+    {
+      "label": "N2",
+      "face": "bottom",
+      "x": 0.736023,
+      "y": 0.963913,
+      "z": 0.347256,
+      "diameterMm": 8.2,
+      "holeDepthMm": 4.2
+    }
+  ],
+  "residualBreakerHagerCfc225p": [
+    {
+      "label": "1",
+      "face": "top",
+      "x": 0.263944,
+      "y": 0.043478,
+      "z": 0.222166,
+      "diameterMm": 9.1,
+      "holeDepthMm": 10.3
+    },
+    {
+      "label": "N1",
+      "face": "top",
+      "x": 0.736056,
+      "y": 0.043478,
+      "z": 0.222166,
+      "diameterMm": 9.1,
+      "holeDepthMm": 10.3
+    },
+    {
+      "label": "2",
+      "face": "bottom",
+      "x": 0.263944,
+      "y": 1.0,
+      "z": 0.222166,
+      "diameterMm": 9.1,
+      "holeDepthMm": 10.6
+    },
+    {
+      "label": "N2",
+      "face": "bottom",
+      "x": 0.736056,
+      "y": 1.0,
+      "z": 0.222166,
+      "diameterMm": 9.1,
+      "holeDepthMm": 10.6
+    }
+  ],
+  "surgeProtectorWegSpw02": [
+    {
+      "label": "L",
+      "face": "top",
+      "x": 0.5,
+      "y": 0.006786,
+      "z": 0.722287,
+      "diameterMm": 11.1,
+      "holeDepthMm": 16.2
+    },
+    {
+      "label": "PE",
+      "face": "bottom",
+      "x": 0.5,
+      "y": 0.993831,
+      "z": 0.722287,
+      "diameterMm": 11.1,
+      "holeDepthMm": 13.6
+    }
+  ]
+}

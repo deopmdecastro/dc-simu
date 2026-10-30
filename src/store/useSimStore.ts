@@ -40,6 +40,7 @@ import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
+import { importedComponentInfo, updateImportedPower } from '../electrical/importedComponents'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
 import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBreakMode } from '../ladder/ladderDebug'
 import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
@@ -587,6 +588,7 @@ function runOneTick(state: Store, dtMs: number) {
 
   // 1) Primeira passagem — apenas chaves físicas (botões, disjuntores, sensores)
   const pass1 = computeContinuity(components, wires, srcs)
+  for (const c of components) updateImportedPower(c, pass1.energizedTerminals, pass1.reachable)
 
   // 2–4) Cada PLC lê os seus bornes, executa o seu OB1 e escreve as suas
   // saídas num espaço I/Q/M/T/C independente. O programa ativo é só a vista.
@@ -668,10 +670,11 @@ function runOneTick(state: Store, dtMs: number) {
 
   // 5) Segunda passagem — agora com as saídas do CLP ativas
   const pass2 = computeContinuity(components, wires, srcs)
+  for (const c of components) updateImportedPower(c, pass2.energizedTerminals, pass2.reachable)
 
   // 6) Coils (contator / relé / temporizador / soft-starter)
   for (const c of components) {
-    if (c.type === 'contactor' || c.type === 'contactorWegCWC09' || c.type === 'contactor4p' || c.type === 'auxRelay' || c.type === 'auxRelay4' || c.type === 'timerRelayTON' || c.type === 'timerRelayTOF' || c.type === 'counterRelay' || c.type === 'safetyRelay' || c.type === 'softStarter') {
+    if (importedComponentInfo(c.type)?.behavior === 'contactor' || c.type === 'contactor' || c.type === 'contactorWegCWC09' || c.type === 'contactor4p' || c.type === 'auxRelay' || c.type === 'auxRelay4' || c.type === 'timerRelayTON' || c.type === 'timerRelayTOF' || c.type === 'counterRelay' || c.type === 'safetyRelay' || c.type === 'softStarter') {
       const wants = isCoilPowered(c, pass2.energizedTerminals)
       let finalEnergized = wants
       if (wants && c.state.interlockWith) {

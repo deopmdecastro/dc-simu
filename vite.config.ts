@@ -1,8 +1,28 @@
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, type Plugin, type ResolvedConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, cpSync } from 'node:fs'
+import path from 'node:path'
+
+/** Os ZIP de entrada permanecem locais: só os recursos prontos seguem no build. */
+function copyPublicAssets(): Plugin {
+  let config: ResolvedConfig
+  return {
+    name: 'dcsimu-copy-public-assets',
+    apply: 'build',
+    configResolved(resolved) { config = resolved },
+    writeBundle() {
+      if (!config.publicDir) return
+      const staging = path.resolve(config.publicDir, 'models', 'componentes novos')
+      const output = path.resolve(config.root, config.build.outDir)
+      cpSync(config.publicDir, output, {
+        recursive: true,
+        filter: source => source !== staging && !source.startsWith(staging + path.sep),
+      })
+    },
+  }
+}
 
 function gitCommit() {
   if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA
@@ -47,6 +67,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    copyPublicAssets(),
     buildVersionFile(),
     VitePWA({
       // A aplicação aceita a atualização automaticamente, mas apenas depois de
@@ -112,6 +133,7 @@ export default defineConfig({
     }),
   ],
   build: {
+    copyPublicDir: false,
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {

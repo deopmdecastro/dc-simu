@@ -1,6 +1,7 @@
 import { isTabletDesktop } from '../ui/device'
 import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
+import { importedComponentInfo, importedActuationPatch } from '../electrical/importedComponents'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, TransformControls, Edges, useGLTF } from '@react-three/drei'
 import { Text } from './SceneText'
@@ -772,7 +773,7 @@ function EquipmentStatusLights({ c, height }: { c: ElectricalComponent; height: 
 }
 
 /** CAD genérico de calha DIN, normalizado a partir da especificação partilhada. */
-function CadComponentReal3D({ c, x, position, interactive = true }: { c: ElectricalComponent; x: number; position?: [number, number, number]; interactive?: boolean }) {
+function CadComponentReal3D({ c, x, position, interactive = true, labelColor, labelText }: { c: ElectricalComponent; x: number; position?: [number, number, number]; interactive?: boolean; labelColor?: string; labelText?: string }) {
   const spec = getComponentModelSpec(c.type)!
   const centered = !!position
   const { scene } = useGLTF(spec.path)
@@ -867,12 +868,34 @@ function CadComponentReal3D({ c, x, position, interactive = true }: { c: Electri
     <primitive object={model} castShadow receiveShadow />
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
-    {active && !breaker && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
-    <Label text={c.ref} position={[0, spec.targetHeight * (centered ? 0.5 : 1) + 0.1, 0.22]} color={active ? '#4ade80' : '#e2e8f0'} />
+    {active && !breaker && !importedComponentInfo(c.type) && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
+    <Label text={labelText ?? c.ref} position={[0, spec.targetHeight * (centered ? 0.5 : 1) + 0.1, 0.22]} color={labelColor ?? (active ? '#4ade80' : '#e2e8f0')} />
   </group>
 }
 
-/** Botão de emergência Metaltex com modelo CAD real e acionamento equivalente ao modelo procedural. */
+/** Manobra funcional dos novos CAD, partilhada com o Esquema. */
+function ImportedCadDevice({ c, x, position, interactive, labelColor }: { c: ElectricalComponent; x: number; position?: [number,number,number]; interactive: boolean; labelColor: string }) {
+  const info = importedComponentInfo(c.type)!
+  const simActive = useSimStore(s => s.sim.runState !== 'stopped')
+  const status = info.behavior === 'breaker' || info.behavior === 'fuse'
+    ? c.state.tripped ? 'Disparado' : c.state.closed ? 'Fechado' : 'Aberto'
+    : info.behavior === 'selector' ? c.state.position === -1 ? 'Esq.' : c.state.position === 1 ? 'Dir.' : '0'
+    : info.behavior === 'thermal' ? c.state.tripped ? 'Disparado' : 'Armado' : ''
+  const apply = (pressed: boolean) => {
+    if (!interactive || !simActive || useSimStore.getState().tool !== 'select') return
+    const patch = importedActuationPatch(c, pressed)
+    if (patch) useSimStore.getState().setComponentState(c.id, patch)
+  }
+  return <group onPointerDown={event => {
+    if (!interactive || !simActive || event.button !== 0) return
+    event.stopPropagation()
+    ;(event.target as Element | null)?.setPointerCapture?.(event.pointerId)
+    apply(true)
+  }} onPointerUp={event => { apply(false); (event.target as Element | null)?.releasePointerCapture?.(event.pointerId) }} onPointerCancel={() => apply(false)}>
+    <CadComponentReal3D c={c} x={x} position={position} interactive={interactive} labelColor={labelColor} labelText={status ? `${c.ref} · ${status}` : c.ref} />
+  </group>
+}
+
 function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: number; onPress: (pressed: boolean) => void }) {
   const spec = getCommandModelSpec(c.type)!
   const { scene } = useGLTF(spec.path)
@@ -2939,6 +2962,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           const x = positions[c.id].x
           let content: ReactNode
           if (isCatalogType(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={<Breaker3D c={c} x={x} />}><CatalogComponent3D c={c} interactive={interactive && !c.locked} position={[x, RAIL_Y, 0]} anchor="bottom">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.22]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
+          else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) content = <Model3DErrorBoundary fallback={<Breaker3D c={c} x={x} />}><Suspense fallback={<Breaker3D c={c} x={x} />}><ImportedCadDevice c={c} x={x} interactive={interactive && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'plcSiemensLogo1224RC') content = <Model3DErrorBoundary fallback={<PLC3D c={c} x={x} interactive={interactive && !c.locked} />}><Suspense fallback={<PLC3D c={c} x={x} interactive={interactive && !c.locked} />}><LogoSiemens1224RCMesh c={c} x={x} interactive={interactive && !c.locked} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'powerSupplyProauto24A') content = <Model3DErrorBoundary fallback={<PowerSupply3D c={c} x={x} />}><Suspense fallback={<PowerSupply3D c={c} x={x} />}><ProautoReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
           else if (c.type === 'contactorWegCWC09') content = <Model3DErrorBoundary fallback={<Contactor3D c={c} x={x} />}><Suspense fallback={<Contactor3D c={c} x={x} />}><WegContactorReal3D c={c} x={x} /></Suspense></Model3DErrorBoundary>
@@ -2983,6 +3007,10 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
             const fallback = <PushButton3D c={c} x={x} onPress={(pressed) => activateComponent(c, () => pressButton(c.id, pressed))} />
             const [px, py, pz] = frontPivot(c)
             content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><CatalogComponent3D c={c} interactive={interactive && !c.locked} position={[x + px, py, pz]} anchor="center">{(top) => <Label text={c.ref} position={[0, top + 0.1, 0.1]} />}</CatalogComponent3D></Suspense></Model3DErrorBoundary>
+          } else if (importedComponentInfo(c.type) && getComponentModelSpec(c.type)) {
+            const [px,py,pz] = frontPivot(c)
+            const fallback = <Sensor3D c={c} x={x} onToggle={() => {}} />
+            content = <Model3DErrorBoundary fallback={fallback}><Suspense fallback={fallback}><ImportedCadDevice c={c} x={x} position={[x+px,py,pz]} interactive={interactive && !c.locked} labelColor={backgroundMode === 'dark' ? '#e2e8f0' : '#334155'} /></Suspense></Model3DErrorBoundary>
           } else if (c.type === 'multimeterDm20') {
             // O CAD e os bornes usam o mesmo pivô central também fora da calha.
             // A antiga montagem pela base deslocava o corpo 40 mm em profundidade.

@@ -4,9 +4,12 @@ import type { ComponentType } from '../types'
 import { getDatasheet, removeDatasheet, saveDatasheet, type Datasheet } from '../utils/datasheets'
 import { contribApi, downloadContribution } from '../contrib/contribApi'
 import type { Contribution } from '../contrib/types'
+import { importedComponentInfo } from '../electrical/importedComponents'
+import { REAL_TERMINALS } from '../electrical/realInterfaces'
 
 /** A ficha é comum a todos os exemplares de um tipo, não é guardada no projeto. */
 export default function DatasheetPanel({ type }: { type: ComponentType }) {
+  const importedInfo = importedComponentInfo(type)
   const [entry, setEntry] = useState<Datasheet | undefined>()
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
@@ -88,6 +91,12 @@ export default function DatasheetPanel({ type }: { type: ComponentType }) {
 
   return <details className="dc-inspector-group"><summary>Ficha técnica {(entry || builtin) && <span className="dc-inspector-count">PDF</span>}</summary>
     <div className="dc-inspector-group-body">
+      {importedInfo && <div className="text-[11px] text-ink-500 leading-relaxed">
+        <strong>{importedInfo.manufacturer} · {importedInfo.reference}</strong>
+        <p>{importedInfo.scope}</p>
+        {importedInfo.terminals.length > 0 && !REAL_TERMINALS[type] && <p>Bornes funcionais: a posição no CAD aguarda calibração completa.</p>}
+        {importedInfo.source && <a className="dc-btn" href={importedInfo.source} target="_blank" rel="noopener noreferrer">Documentação do fabricante ↗</a>}
+      </div>}
       <p className="text-[10px] text-ink-500 leading-relaxed">PDFs pessoais associados ao tipo de componente ficam apenas neste navegador. Manuais incluídos na aplicação são identificados à parte.</p>
       {builtin && <div className="rounded border border-amber-200 bg-amber-50 p-2 text-[10px] leading-relaxed text-amber-900">
         {type === 'phoenixEcb3000760' ? <><strong>Phoenix Contact EC 1 12DC/1A S-R · artigo 3000760.</strong> Disjuntor eletrónico CC de 1 canal, 12 V DC / 1 A, montagem em calha DIN 35 mm, 12,5 × 80 mm, operação de −20 °C a 60 °C. Terminais funcionais Line+ / LOAD+ / 0V, entrada de reset e saída de status. Nota de aplicação do fabricante: o reset atua por borda descendente e aceita até 30 V DC. A ficha não especifica aqui a polaridade/comportamento do status nem o limiar de disparo.</> : type === 'terminalPhoenixPti6' ? <><strong>Phoenix Contact PTI 6 · artigo 3213972.</strong> Borne de passagem Push-in, duas ligações num potencial, 6 mm² nominais (0,5–10 mm²), 41 A, 800 V e montagem em calha NS 35.</> : type === 'emergencyButton' || type === 'emergencyButtonKeyP20ACR' ? <><strong>Ficha de botão de emergência recebida com o projeto.</strong> O simulador mantém o contacto 1NF 21–22 e distingue o rearme por giro (P20AKR) do rearme por chave (P20ACR).</> : type === 'powerSupplyProauto24A' ? <><strong>Ficha Chinfa DRAN120, variante 24A (parafusos).</strong> O PDF descreve a série Chinfa; a correspondência exata com «Proauto» deve ser confirmada na etiqueta do aparelho.</> : type === 'contactorWegCWC09' ? <><strong>Datasheet WEG CWC09 · código 12679840 (42 V 50 Hz / 48 V 60 Hz).</strong> O modelo 3D é o CWC07 10E da mesma família, usado como referência geométrica; a ficha confirma a série e os valores elétricos do código selecionado.</> : type === 'motor3ph' ? <><strong>SEW-EURODRIVE DRN80MK4/B3 · motor trifásico com montagem de pés B3.</strong> A ficha CAD recebida especifica 0,55 kW, 1435 rpm, 400 V / 1,29 A, cos φ 0,75, binário nominal de 3,65 Nm, carcaça 80 e massa de 11 kg.</> : type === 'pilotLightAd22' ? <><strong>Sinaleiro LED AD22-22DS · 24 V AC/DC · montagem de 22 mm.</strong> O extrato da ficha da série indica lente de 29 mm, corrente máxima de 20 mA, vida útil mínima de 30 000 h e cores vermelha, amarela, verde, azul e branca. A proteção IP40 é da série e deve ser confirmada na variante adquirida.</> : <><strong>Manual Siemens LOGO! 0BA4 (inglês).</strong> O modelo 3D mostra 0BA2; este documento descreve uma versão posterior e não confirma funções exclusivas do 0BA2.</>}

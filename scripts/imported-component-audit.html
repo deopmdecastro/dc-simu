@@ -1,0 +1,33 @@
+<!doctype html><html lang="pt"><meta charset="utf-8"><title>Verificação CAD importado</title>
+<style>body{font:12px system-ui;margin:12px;background:#eef2f7;color:#17213a}main{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:12px}article{padding:10px;background:white}h2{font-size:12px;margin:0 0 8px}.views{display:flex;gap:5px}.views img{width:23%;background:#f6f8fb}p{margin:4px 0}</style>
+<h1>CAD importado — frente, topo, lado direito e isométrica</h1><main></main>
+<script type="module">
+import * as THREE from '/node_modules/.vite/deps/three.js'
+import {GLTFLoader} from '/node_modules/three/examples/jsm/loaders/GLTFLoader.js'
+import models from '/src/data/imported-component-models.json'
+const requested=new URLSearchParams(location.search).get('types')?.split(',')
+const selected=models.filter(model=>!requested||requested.includes(model.type))
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:true})
+renderer.setSize(224,224); renderer.setPixelRatio(1); renderer.outputColorSpace=THREE.SRGBColorSpace
+const loader=new GLTFLoader()
+window.auditState={ready:0,errors:[]}
+for(const model of selected){
+ const article=document.createElement('article');article.innerHTML=`<h2>${model.type}</h2><p>${Object.values(model.physicalSizeMm).map(n=>n.toFixed(2)).join(' × ')} mm</p><div class="views"></div>`;document.querySelector('main').append(article)
+ try{
+  const root=(await loader.loadAsync(model.path)).scene
+  const box=new THREE.Box3().setFromObject(root,true),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3())
+  root.position.sub(center)
+  const scene=new THREE.Scene();scene.add(root);scene.add(new THREE.HemisphereLight(0xffffff,0x4c5c72,2))
+  for(const pos of [[2,4,5],[-3,1,-2]]){const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(...pos);scene.add(light)}
+  const span=Math.max(size.x,size.y,size.z)*1.2
+  for(const [label,dir] of Object.entries({frente:[0,0,1],topo:[0,1,0],direita:[1,0,0],iso:[1,.7,1]})){
+   const camera=new THREE.OrthographicCamera(-span/2,span/2,span/2,-span/2,span*.001,span*20)
+   camera.position.copy(new THREE.Vector3(...dir).normalize().multiplyScalar(span*4));if(label==='topo')camera.up.set(0,0,-1);camera.lookAt(0,0,0)
+   renderer.render(scene,camera);const image=new Image();image.src=renderer.domElement.toDataURL();image.title=label;image.alt=label;article.querySelector('.views').append(image)
+  }
+  root.traverse(object=>{if(object.isMesh){object.geometry.dispose();for(const material of Array.isArray(object.material)?object.material:[object.material])material.dispose()}})
+ }catch(error){window.auditState.errors.push({type:model.type,message:String(error)});article.append(String(error))}
+ window.auditState.ready++
+}
+window.auditState.done=true;renderer.dispose()
+</script></html>

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { importedComponentInfo } from '../../electrical/importedComponents'
 import { inferBreakerAxes, tiltControlPatch } from '../../catalog/controlMotion'
 import { TEMPLATES, type ComponentTemplate, type TerminalTemplate } from '../../electrical/factory'
 import { boundsMm, buildDefinitionObject, defaultDefinition, defaultMaterial, defaultPart, loadGlbAssets, newId, type GlbCache } from '../../catalog/definition'
@@ -643,6 +644,14 @@ export async function buildBuiltinDraft(type: ComponentType): Promise<{ meta: Ca
     name: tpl.paletteName, description: `Componente integrado da plataforma, importado como ponto de partida editável${usedModel ? '' : usedComposite ? ' (bornes reais; corpo sem CAD)' : ' (sem modelo CAD: volume com as dimensões físicas)'}.`,
     category: tpl.category, group: tpl.group, tag: tpl.tag.replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase() || 'X', tags: [],
     properties: [{ key: 'Origem', value: `${BUILTIN_ORIGIN_PREFIX}${type}` }],
+  }
+  const imported = importedComponentInfo(type)
+  if (imported) {
+    meta.manufacturer = imported.manufacturer
+    meta.reference = imported.reference
+    meta.description = `${imported.name}. ${imported.scope}`
+    meta.properties.push({ key:'Âmbito da simulação', value:imported.scope })
+    if (imported.source) meta.datasheet = { status:'have', url:imported.source }
   }
   return { meta, def, usedModel, usedComposite }
 }

@@ -1,4 +1,5 @@
 import { uiConfirm } from '../ui/dialogs'
+import { importedComponentInfo } from '../electrical/importedComponents'
 import Select from '../ui/Select'
 import CatalogInspector from '../catalog/CatalogInspector'
 import SidePanelHeader from './SidePanelHeader'
@@ -33,6 +34,7 @@ import { setWireActionSlot } from '../ui/wireActionSlot'
 
 const label = 'dc-field-label'
 const STATE_LABELS: Record<string, string> = {
+  resetRequested: 'Pedir rearme', position: 'Posição (−1 / 0 / 1)', no: 'Saída normalmente aberta', type: 'Tipo de saída', rangeA: 'Gama de corrente', code: 'Referência', sensmA: 'Corrente diferencial (mA)', failed: 'Falha', blown: 'Fusível fundido',
   closed: 'Fechado', tripped: 'Disparado', poles: 'Polos', curve: 'Curva', inA: 'Corrente nominal (A)',
   powered: 'Alimentado', powerReady: 'Saída pronta (RDY)', watt: 'Potência (W)', energized: 'Energizado', pressed: 'Premido', running: 'Em funcionamento', presetMs: 'Tempo definido (ms)',
   elapsedMs: 'Tempo decorrido (ms)', triggered: 'Ativado', on: 'Ligado', enabled: 'Ativo',
@@ -589,7 +591,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                         <input
                           type="checkbox"
                           checked={v}
-                          disabled={(['plcSiemensLogo1224RC', 'plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(selectedComponent.type) || selectedComponent.type === 'powerSupplyProauto24A') && (k === 'powered' || k === 'powerReady')}
+                          disabled={!!importedComponentInfo(selectedComponent.type) && (k === 'powered' || k === 'energized') || (['plcSiemensLogo1224RC', 'plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(selectedComponent.type) || selectedComponent.type === 'powerSupplyProauto24A') && (k === 'powered' || k === 'powerReady')}
                           title={['plcSiemensLogo1224RC', 'plcLsXbmDn32s', 'siemensTsAdapterIeBasic'].includes(selectedComponent.type) && k === 'powered' ? 'Derivado das ligações L+ e M' : selectedComponent.type === 'powerSupplyProauto24A' && (k === 'powered' || k === 'powerReady') ? 'Derivado das ligações AC L e N' : undefined}
                           onChange={(e) => useSimStore.getState().setComponentState(selectedComponent.id, { [k]: e.target.checked })}
                         />

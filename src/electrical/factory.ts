@@ -12,6 +12,7 @@
 // ============================================================================
 
 import { hiddenCatalogTypes } from '../catalog/hidden'
+import { importedTemplates } from './importedComponents'
 import { FACE_INWARD, terminalInsetMm, realTerminalPosition, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
 import { LEGACY_REAL_TERMINALS } from './legacyRealInterfaces'
 import { parseCatalogType } from '../catalog/types'
@@ -196,6 +197,7 @@ function plcLsXbmDn32sTerminals(): TerminalTemplate[] {
 }
 
 export const TEMPLATES: Record<ComponentType, ComponentTemplate> = {
+  ...importedTemplates(),
   // ---------------- Proteção ----------------
   breaker1p: {
     category: 'protection', paletteName: 'Disjuntor Schneider Easy9 EZ9 · 1P', group: 'Proteção', tag: 'QF', w: 60, h: 110,

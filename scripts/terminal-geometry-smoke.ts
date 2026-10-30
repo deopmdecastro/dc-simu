@@ -58,5 +58,5 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
   }
   console.log(`PASS — ${type}: ${component.terminals.length} ligações no interior dos encaixes`)
 }
-assert.equal(count, 142, 'Cobertura incompleta dos modelos integrados')
-console.log(`PASS — 20 modelos, ${count} ligações: cavidades, profundidade, marcadores e escala física`)
+assert.equal(count, 162, 'Cobertura incompleta dos modelos integrados (142 anteriores + 20 novos encaixes)')
+console.log(`PASS — 25 modelos, ${count} ligações: cavidades, profundidade, marcadores e escala física`)

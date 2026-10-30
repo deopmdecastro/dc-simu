@@ -1,5 +1,6 @@
 import type { ComponentType } from '../types'
 import { isTerminalAssemblyComponent } from './terminalAssembly'
+import importedModels from '../data/imported-component-models.json'
 
 export const MODEL_PATHS = {
   plcSiemensLogo1224RC: '/models/controladores/logo-siemens-1224rc.glb',
@@ -51,6 +52,7 @@ export const SCHEMATIC_PX_PER_MM = 1.5
 export const MIN_SCHEMATIC_HIT_WIDTH = 24
 
 export const COMPONENT_PHYSICAL_SIZE_MM: Partial<Record<ComponentType, PhysicalSizeMm>> = {
+  ...Object.fromEntries(importedModels.map(model => [model.type, model.physicalSizeMm])),
   plcSiemensLogo1224RC: { width: 72, height: 90, depth: 55 },
   powerSupplyProauto24A: { width: 64, height: 124.5, depth: 123.6 },
   contactorWegCWC09: { width: 45.48, height: 58, depth: 52.01 },
@@ -122,6 +124,7 @@ function spec(
  * cada instância é aplicada por cima desta base e, portanto, continua isolada.
  */
 const MODEL_SPECS: Partial<Record<ComponentType, ComponentModelSpec>> = {
+  ...Object.fromEntries(importedModels.map(model => [model.type, spec(model.type as ComponentType, model.path, [0,0,0], model.placement as ComponentPlacement)])),
   plcSiemensLogo1224RC: spec('plcSiemensLogo1224RC', MODEL_PATHS.plcSiemensLogo1224RC, [Math.PI / 2, 0, 0], 'din-rail'),
   powerSupplyProauto24A: spec('powerSupplyProauto24A', MODEL_PATHS.powerSupplyProauto24A, [0, 0, 0], 'din-rail'),
   contactorWegCWC09: spec('contactorWegCWC09', MODEL_PATHS.wegContactorCWC09, [Math.PI / 2, 0, 0], 'din-rail'),

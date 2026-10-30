@@ -1,4 +1,5 @@
 import { useCanvasAction, useSimUi } from '../ui/simUi'
+import { importedComponentInfo, importedActuationPatch } from '../electrical/importedComponents'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
@@ -915,6 +916,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
   }
 
   const isPressable = (c: ElectricalComponent) =>
+    !!importedComponentInfo(c.type) ||
     ['buttonNO', 'buttonNC', 'dualPushButtonNpb22D11', 'emergencyButton', 'emergencyButtonKeyP20ACR', 'selector2', 'selector3', 'keySwitch', 'footSwitch', 'limitSwitch', 'proximitySensor', 'photoSensor', 'pressureSwitch', 'thermostat'].includes(c.type)
 
   /** Disjuntores: duplo clique no corpo arma/desarma (e rearma um disparo), como o clique no Painel 3D. */
@@ -923,6 +925,11 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
 
   const toggleField = (c: ElectricalComponent, down: boolean) => {
     if (useSimStore.getState().sim.runState === 'stopped') return
+    if (importedComponentInfo(c.type)) {
+      const patch = importedActuationPatch(c, down)
+      if (patch) useSimStore.getState().setComponentState(c.id, patch)
+      return
+    }
     if (isToggleBreaker(c)) {
       const closed = !!c.state.closed && !c.state.tripped
       useSimStore.getState().setComponentState(c.id, { closed: !closed, tripped: false })

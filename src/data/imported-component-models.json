@@ -1,0 +1,450 @@
+[
+  {
+    "type": "fuseHolderSchneiderDf103nv",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      90,
+      90,
+      0
+    ],
+    "path": "/models/importados/fuseHolderSchneiderDf103nv.glb",
+    "physicalSizeMm": {
+      "width": 69.7,
+      "height": 79.256,
+      "depth": 61.056
+    },
+    "source": {
+      "type": "fuseHolderSchneiderDf103nv",
+      "archive": "194514205-659-654627.zip",
+      "archiveSha256": "af7cd49aff38495fe1ba4219193ee3a6bac567103d22ec18d00b767684181bc8",
+      "member": "654627.stp",
+      "sourceSha256": "1a79a045e273cfd4cb83574c722e80b7a057bf6321a6ce5a5fb18a2c362742ef",
+      "format": "STEP"
+    },
+    "meshes": 20,
+    "triangles": 9792,
+    "bytes": 405344,
+    "glbSha256": "e381bfdf4ae1275ec5d8f774c351f73acf298d1e5c979decc381104ef657a4da"
+  },
+  {
+    "type": "fuseHolderSchneiderDf101v",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      90,
+      90,
+      0
+    ],
+    "path": "/models/importados/fuseHolderSchneiderDf101v.glb",
+    "physicalSizeMm": {
+      "width": 17.2,
+      "height": 79.252,
+      "depth": 61.05
+    },
+    "source": {
+      "type": "fuseHolderSchneiderDf101v",
+      "archive": "194514331-659-759152.zip",
+      "archiveSha256": "bd61008f4e99fc1730b746339b19755efa11a43a9a31a592766ae18bb551771d",
+      "member": "759152.stp",
+      "sourceSha256": "9db2533c619c26aeeb176ff5e3cae3454ec88d8f19ed5b938daad869564370c1",
+      "format": "STEP"
+    },
+    "meshes": 5,
+    "triangles": 2514,
+    "bytes": 103880,
+    "glbSha256": "d194fc1adbc63151b6c2edf798db380cbb219fd707a2973533f73fe499a68e78"
+  },
+  {
+    "type": "fuseHolderSchneiderDf81n",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      90,
+      90,
+      0
+    ],
+    "path": "/models/importados/fuseHolderSchneiderDf81n.glb",
+    "physicalSizeMm": {
+      "width": 34.7,
+      "height": 79.252,
+      "depth": 61.05
+    },
+    "source": {
+      "type": "fuseHolderSchneiderDf81n",
+      "archive": "194514351-659-482847.zip",
+      "archiveSha256": "9b49d37f69ae91cdded2f80668e7b0705c074c2c2899ef10d27b5ce178605968",
+      "member": "482847.stp",
+      "sourceSha256": "9c5e186e3190dbde099607694f27e8b7da1fba434c33cb4418855ae051657931",
+      "format": "STEP"
+    },
+    "meshes": 10,
+    "triangles": 4764,
+    "bytes": 197940,
+    "glbSha256": "9bc5421df8e1ba09f8fa714c7f0ffbfcdf720f32b62d1832048c4efee16129b4"
+  },
+  {
+    "type": "keyActuatorEao61",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "panel-front",
+    "sourceRotationDeg": [
+      -90,
+      0,
+      0
+    ],
+    "path": "/models/importados/keyActuatorEao61.glb",
+    "physicalSizeMm": {
+      "width": 40,
+      "height": 40,
+      "depth": 75.05
+    },
+    "source": {
+      "type": "keyActuatorEao61",
+      "archive": "194515169-659-61-2101_0_d_p0006_359.zip",
+      "archiveSha256": "d33b96d93290444924565c9a06de95a6afb7509b61878e7109db6e63fd9e37df",
+      "member": "61-2101_0_d_p0006_359.stp",
+      "sourceSha256": "e6c3bcc637b1ce8738e1024f284e13291d2e5ba5e0397178fecf470f9210a4d8",
+      "format": "STEP"
+    },
+    "meshes": 18,
+    "triangles": 19474,
+    "bytes": 1000636,
+    "glbSha256": "1269a7c6f7fe26a72bc7a1ded4b5209896af1753b84f2d8653f98cc4472dbf21"
+  },
+  {
+    "type": "thermalRelaySiemens3ru1116",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      0,
+      0,
+      0
+    ],
+    "path": "/models/importados/thermalRelaySiemens3ru1116.glb",
+    "physicalSizeMm": {
+      "width": 44.821,
+      "height": 74.91,
+      "depth": 72.27
+    },
+    "source": {
+      "type": "thermalRelaySiemens3ru1116",
+      "archive": "3ru1116-1ab0-siemens-1.snapshot.2.zip",
+      "archiveSha256": "c1cd62cecdbdce8fcea1be5e59dee6a63b44fd80576335eac5b11c0500973e1e",
+      "member": "3RU1116-1AB0 - Siemens.STEP",
+      "sourceSha256": "825c2d2f7a400424e379847baac4093d1529fefdb1d435f8a753808ef9a17fac",
+      "format": "STEP"
+    },
+    "meshes": 32,
+    "triangles": 175145,
+    "bytes": 9328660,
+    "glbSha256": "38674485436bf783473f1898610e4af2c2a248cd34855ddc3599947e071d284d"
+  },
+  {
+    "type": "residualBreakerHagerCfc225p",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      0,
+      0,
+      0
+    ],
+    "path": "/models/importados/residualBreakerHagerCfc225p.glb",
+    "physicalSizeMm": {
+      "width": 35.5,
+      "height": 86.25,
+      "depth": 74.809
+    },
+    "source": {
+      "type": "residualBreakerHagerCfc225p",
+      "archive": "cfc225p-differential-switch-1.snapshot.3 (1).zip",
+      "archiveSha256": "85cacc5b9291d5c3a8937c234937a4d9bb89149fe47563d61697dbe5db2ad0e3",
+      "member": "CFC 225P/CFC 225P v16.step",
+      "sourceSha256": "aa237a95e71051c2b15a402c17f66c168a10780465ed7d86d6b0f1a332db409f",
+      "format": "STEP"
+    },
+    "meshes": 23,
+    "triangles": 70200,
+    "bytes": 2477752,
+    "glbSha256": "6b4a5cf2aaa51309e6544af86aa513636c24ff1de4ad90cdfef12db3f1618561"
+  },
+  {
+    "type": "selectorSchneiderXa2ed33",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "panel-front",
+    "sourceRotationDeg": [
+      0,
+      0,
+      0
+    ],
+    "path": "/models/importados/selectorSchneiderXa2ed33.glb",
+    "physicalSizeMm": {
+      "width": 30,
+      "height": 41.993,
+      "depth": 68.25
+    },
+    "source": {
+      "type": "selectorSchneiderXa2ed33",
+      "archive": "comutador-chave-seletora-rotativa-1.snapshot.3.zip",
+      "archiveSha256": "3a6f604fcae9db5190e9a97937cbbed8f5788a83c407e6dfb42e0339c9ebb533",
+      "member": "Chave Seletora Rotativa/Schneider/3D CAD/MCADID0005447_3D-STP.stp",
+      "sourceSha256": "7adbf17798ade9b0c2efc172200248bfca579031cbb62be6281dd27b87cd8153",
+      "format": "STEP"
+    },
+    "meshes": 2,
+    "triangles": 75309,
+    "bytes": 2563800,
+    "glbSha256": "f00f594a08b29375e631d68cdef40ccc14e8a1f5a189ac5c572ce0c66b4f0b5d"
+  },
+  {
+    "type": "contactorWegCwbc65",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      0,
+      -90,
+      0
+    ],
+    "path": "/models/importados/contactorWegCwbc65.glb",
+    "physicalSizeMm": {
+      "width": 57.61,
+      "height": 159.4,
+      "depth": 115
+    },
+    "source": {
+      "type": "contactorWegCwbc65",
+      "archive": "contactor-cwbc65-weg-1.snapshot.1.zip",
+      "archiveSha256": "2b873f8ada3ea8f7a06c29973bbce0d6e254c8b9ade567212822e0a902f39bc2",
+      "member": "Contactor -CWBC65/CWBC65.STEP",
+      "sourceSha256": "597d8ec4e4c9dc56b98e1c2bc940f6f86eb1d382515c9f0922a73d9d9187b062",
+      "format": "STEP"
+    },
+    "meshes": 88,
+    "triangles": 167370,
+    "bytes": 5476392,
+    "glbSha256": "95f15d36a0921c494e2f1b7828ffadda0dfacfa087e19f1ba7c0e4ae3cac3f93"
+  },
+  {
+    "type": "surgeProtectorWegSpw02",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      0,
+      0,
+      90
+    ],
+    "path": "/models/importados/surgeProtectorWegSpw02.glb",
+    "physicalSizeMm": {
+      "width": 18,
+      "height": 81.05,
+      "depth": 69.1
+    },
+    "source": {
+      "type": "surgeProtectorWegSpw02",
+      "archive": "protector-contra-sobretensiones-surge-protectors-weg-spw02-275-10-40-1.snapshot.1.zip",
+      "archiveSha256": "97df30c6a8ea154c6874b09b23f6b7c9457902f6540338c875eeef48e9705178",
+      "member": "SPW02-275-10...40/Otros/SPW02-275-10...40.STEP",
+      "sourceSha256": "1c250b1cc8411767b5152046a901717b03a8807e666bc580fa14f87c2090eb5f",
+      "format": "STEP"
+    },
+    "meshes": 32,
+    "triangles": 98676,
+    "bytes": 3145752,
+    "glbSha256": "2c070efa2721c7fd561b07bdafa30716be1caf284efdd930a3242aa23615eb59"
+  },
+  {
+    "type": "surgeProtectorWegSpw12",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      0,
+      0,
+      90
+    ],
+    "path": "/models/importados/surgeProtectorWegSpw12.glb",
+    "physicalSizeMm": {
+      "width": 54.05,
+      "height": 81.05,
+      "depth": 69.3
+    },
+    "source": {
+      "type": "surgeProtectorWegSpw12",
+      "archive": "protector-contra-sobretensiones-surge-protectors-weg-spw12-600-1100-1.snapshot.1.zip",
+      "archiveSha256": "c7f1ff0dfc25c3fde99f0f3c2f225d555b4c7511be429a07ee602621159a159f",
+      "member": "SPW12-600...1100/Otros/SPW12-600...1000.STEP",
+      "sourceSha256": "19ddac432543c53158fbda25c643cef622bf3220be33e28ed3e7a0ba59e17a2e",
+      "format": "STEP"
+    },
+    "meshes": 36,
+    "triangles": 106576,
+    "bytes": 3723328,
+    "glbSha256": "4e22941d0a10428000ab4bb950f94af58e89809e04043f054dc022fb043f5355"
+  },
+  {
+    "type": "safetyRelaySiemens3tk2840",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      0,
+      0,
+      0
+    ],
+    "path": "/models/importados/safetyRelaySiemens3tk2840.glb",
+    "physicalSizeMm": {
+      "width": 22.1,
+      "height": 100,
+      "depth": 90.5
+    },
+    "source": {
+      "type": "safetyRelaySiemens3tk2840",
+      "archive": "safetyrelay_siemens_sirius_3tk2840-1.snapshot.4.zip",
+      "archiveSha256": "2b1aaf727835ef095dcbcd6326a492eb4d6a18337a3bbcf03e56aa39c16d0ccc",
+      "member": "SafetyRelay_SIRIUS_3TK2840/Relé_Emergência_SIRIUS_3TK2840_STEP.step",
+      "sourceSha256": "8e5ca9f80e5e3f5736beac54d372650c72a6a6de7392b861f6899c67c051216d",
+      "format": "STEP"
+    },
+    "meshes": 46,
+    "triangles": 90900,
+    "bytes": 3299056,
+    "glbSha256": "a816877ffd32e92de80bf3fd2dcd6c78482442a19eb8e6447ea9506917237208"
+  },
+  {
+    "type": "motorBreakerSchneiderGv2me",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail",
+    "sourceRotationDeg": [
+      0,
+      90,
+      0
+    ],
+    "path": "/models/importados/motorBreakerSchneiderGv2me.glb",
+    "physicalSizeMm": {
+      "width": 44.5,
+      "height": 89.2,
+      "depth": 76.864
+    },
+    "source": {
+      "type": "motorBreakerSchneiderGv2me",
+      "archive": "schneidereletricmotorcircuitbreaker_gv2me-1.snapshot.5.zip",
+      "archiveSha256": "906365774ea99bc37e32ac9d5cb548416af521fa3e4d635416f9a889aa601fde",
+      "member": "MotorCircuitBreakerGV2ME_SchneiderEletric®.stp",
+      "sourceSha256": "846ebde235472cbb1397c6912049d070ea98770e5318439661f42bde1641983e",
+      "format": "STEP"
+    },
+    "meshes": 6,
+    "triangles": 9624,
+    "bytes": 553788,
+    "glbSha256": "1f8bd2b5d5ad204de2757662b99fdf0ff3e24edc48ec827ed323a81905148340"
+  },
+  {
+    "type": "towerLightSb23011",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "machine",
+    "sourceRotationDeg": [
+      0,
+      0,
+      0
+    ],
+    "path": "/models/importados/towerLightSb23011.glb",
+    "physicalSizeMm": {
+      "width": 70,
+      "height": 326.975,
+      "depth": 70.976
+    },
+    "source": {
+      "type": "towerLightSb23011",
+      "archive": "torre-de-sinalizacao-sb2-3011-1.snapshot.5.zip",
+      "archiveSha256": "ec1a95d08c5c2364ea90b5270019b66b164a02de031e61e78f5ac5c8ed626baf",
+      "member": "GrabCad/TORRE - SB2-3011.STEP",
+      "sourceSha256": "99192877a0cdbe076ee204f55248d7435b78196f18ccb5cb7f30ec4baa577157",
+      "format": "STEP"
+    },
+    "meshes": 14,
+    "triangles": 14344,
+    "bytes": 474820,
+    "glbSha256": "dc07ecec9ca121b9882d5cad907918a3f12137b127e5189d717a9e504994fa64"
+  },
+  {
+    "type": "photoSensorXukt1ksml2",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "machine",
+    "sourceRotationDeg": [
+      0,
+      -90,
+      0
+    ],
+    "path": "/models/importados/photoSensorXukt1ksml2.glb",
+    "physicalSizeMm": {
+      "width": 33.814,
+      "height": 69.609,
+      "depth": 69.609
+    },
+    "source": {
+      "type": "photoSensorXukt1ksml2",
+      "archive": "xukt1ksml2_photoelectricsensor-1.snapshot.1.zip",
+      "archiveSha256": "3fd1ef542f6b88736c29b9b13cbd1b3a0634443a5e158f3f2ca3135ce25485e7",
+      "member": "photoelectric_Sensor/PhotoelectricSensor_1.step",
+      "sourceSha256": "f2d90134e30cc7733456c24eb114eb110fc91ab32a8f0d73f56a5221f858c36d",
+      "format": "STEP"
+    },
+    "meshes": 17,
+    "triangles": 7004,
+    "bytes": 288752,
+    "glbSha256": "03f4920252ef9d6fb38c8809e1616542676802046cf80e335a90f765b93d4dda"
+  }
+]

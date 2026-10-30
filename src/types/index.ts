@@ -11,6 +11,8 @@
 // falhas e medições de multímetro.
 // ============================================================================
 
+import type { ImportedComponentType } from './imported'
+
 export type ComponentCategory =
   | 'protection'
   | 'command'
@@ -26,6 +28,7 @@ export type ComponentCategory =
   | 'power'
 
 export type ComponentType =
+  | ImportedComponentType
   // --- Catálogo oficial (Editor 3D do Admin): cat:<id>:v<versão> ---------
   | `cat:${string}`
   // --- Proteção ---------------------------------------------------------

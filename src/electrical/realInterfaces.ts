@@ -1,4 +1,5 @@
 import type { ComponentType } from '../types'
+import importedTerminals from '../data/imported-component-terminals.json'
 import { MOTOR_SOCKET_DEPTH, MOTOR_STUD, MOTOR_TERMINAL_ORDER, motorTerminalFraction } from '../three/motorTerminalLayout'
 import { getComponentPhysicalSizeMm } from '../three/modelPaths'
 
@@ -79,6 +80,7 @@ export interface RealControlSpot {
 }
 
 export const REAL_TERMINALS: Partial<Record<ComponentType, RealTerminalSpot[]>> = {
+  ...importedTerminals as Partial<Record<ComponentType, RealTerminalSpot[]>>,
   breakerSteckSdC25: [
     {"label":"1","face":"top","x":0.501124,"y":0.011678,"z":0.367237,"diameterMm":11.3,"holeDepthMm":13.494},
     {"label":"2","face":"bottom","x":0.501124,"y":0.978464,"z":0.368237,"diameterMm":11.3,"holeDepthMm":13.494},

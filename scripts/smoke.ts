@@ -950,7 +950,7 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 /* A Biblioteca só liberta componentes associados a um GLB real. */
 {
   const availableTypes = (Object.keys(TEMPLATES) as import('../src/types').ComponentType[]).filter(hasComponent3DModel)
-  check('disponibilidade 3D reconhece os 25 componentes com GLB real (inclui os conjuntos nativos de bornes e fontes)', availableTypes.length === 25 && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
+  check('disponibilidade 3D reconhece os 39 componentes com GLB real (25 anteriores e 14 novos) (inclui os conjuntos nativos de bornes e fontes)', availableTypes.length === 39 && availableTypes.includes('terminalSet1ph') && availableTypes.includes('terminalSet3ph') && availableTypes.includes('powerSource1ph') && availableTypes.includes('powerSource3ph') && availableTypes.includes('breaker3p') && availableTypes.includes('motorBreakerPkzmC10') && availableTypes.includes('multimeterDm20'), `tipos: ${availableTypes.join(', ')}`)
   check('renderizadores CAD dedicados também ficam disponíveis', ['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].every((type) => hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('componentes sem GLB permanecem bloqueados', ['motor1ph', 'contactor', 'buttonNO', 'lamp'].every((type) => !hasComponent3DModel(type as import('../src/types').ComponentType)))
   check('todos os tipos da tabela CAD genérica ficam disponíveis', availableTypes.filter((type) => !['plcSiemensLogo1224RC', 'powerSupplyProauto24A', 'contactorWegCWC09'].includes(type)).every((type) => !!getComponentModelSpec(type)))
@@ -2466,7 +2466,7 @@ console.log('\n— Tabela de sinais dinâmica —')
     })))
   check('Migração: todas as interfaces migradas são idempotentes', migratedComponents.every(({ migrated }) => upgradeRealInterfacePositions(migrated) === migrated))
 
-  const historical = measuredComponents.filter((component) => component.type !== 'multimeterDm20').map((current) => {
+  const historical = measuredComponents.filter((component) => component.type !== 'multimeterDm20' && !!LEGACY_REAL_TERMINALS[component.type]).map((current) => {
     const old = { ...current, terminals: current.terminals.map((terminal) => {
       const spot = LEGACY_REAL_TERMINALS[current.type]!.find((spot) => spot.label === terminal.label)!
       return { ...terminal, position3D: realTerminalPosition(current.type, spot) }

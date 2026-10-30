@@ -23,3 +23,6 @@ dist
 
 # capturas dos testes de interface (Playwright)
 /runtime/
+
+# CAD recebidos: preservar localmente; versionar apenas os GLB e a proveniência.
+/public/models/componentes novos/

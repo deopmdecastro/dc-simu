@@ -1,0 +1,155 @@
+[
+  {
+    "type": "fuseHolderSchneiderDf103nv",
+    "rotation": [
+      90,
+      90,
+      0
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "fuseHolderSchneiderDf101v",
+    "rotation": [
+      90,
+      90,
+      0
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "fuseHolderSchneiderDf81n",
+    "rotation": [
+      90,
+      90,
+      0
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "keyActuatorEao61",
+    "rotation": [
+      -90,
+      0,
+      0
+    ],
+    "placement": "panel-front"
+  },
+  {
+    "type": "thermalRelaySiemens3ru1116",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "residualBreakerHagerCfc225p",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "limitSwitchLongRoller",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "machine"
+  },
+  {
+    "type": "selectorSchneiderXa2ed33",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "panel-front"
+  },
+  {
+    "type": "contactorWegCwbc65",
+    "rotation": [
+      0,
+      -90,
+      0
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "surgeProtectorWegSpw02",
+    "rotation": [
+      0,
+      0,
+      90
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "surgeProtectorWegSpw12",
+    "rotation": [
+      0,
+      0,
+      90
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "safetyRelaySiemens3tk2840",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "motorBreakerSchneiderGv2me",
+    "rotation": [
+      0,
+      90,
+      0
+    ],
+    "placement": "din-rail"
+  },
+  {
+    "type": "buttonStart22",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "panel-front"
+  },
+  {
+    "type": "buttonStop22",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "panel-front"
+  },
+  {
+    "type": "towerLightSb23011",
+    "rotation": [
+      0,
+      0,
+      0
+    ],
+    "placement": "machine"
+  },
+  {
+    "type": "photoSensorXukt1ksml2",
+    "rotation": [
+      0,
+      -90,
+      0
+    ],
+    "placement": "machine"
+  }
+]

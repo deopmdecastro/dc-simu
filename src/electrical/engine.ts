@@ -16,6 +16,7 @@
 // ============================================================================
 
 import type { ElectricalComponent, Wire, FaultState, ProbeResult } from '../types'
+import { importedBridges } from './importedComponents'
 
 export interface ContinuityResult {
   energizedTerminals: Set<string>
@@ -45,6 +46,8 @@ function t(c: ElectricalComponent, label: string) {
 
 /** Pontes condutivas internas de um componente, dado o estado atual. */
 export function internalBridges(c: ElectricalComponent): Array<[string, string]> {
+  const imported = importedBridges(c)
+  if (imported) return imported
   const bridges: Array<[string, string]> = []
   const pair = (a?: string, b?: string) => {
     if (a && b) bridges.push([a, b])

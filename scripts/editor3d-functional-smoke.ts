@@ -115,7 +115,7 @@ try {
       }
     })
   }
-  assert.equal(terminals, 142)
+  assert.equal(terminals, 162)
   const fresh = (await buildBuiltinDraft('terminalPhoenixPti6')).def
   const assetId = fresh.parts[0].asset!, old = structuredClone(fresh)
   delete old.assets[assetId].builtinType
@@ -142,4 +142,4 @@ try {
   const repeatedUpgrade = await upgradeBuiltinDraft('terminalPhoenixPti6', updated!)
   check('Atualização do rascunho é idempotente', () => assert.equal(repeatedUpgrade, null))
 } finally { globalThis.fetch = originalFetch }
-console.log(`PASS — ${checks} verificações funcionais; 20 modelos e 142 bornes importados sem rede externa`)
+console.log(`PASS — ${checks} verificações funcionais; 25 modelos e 162 bornes importados sem rede externa`)
