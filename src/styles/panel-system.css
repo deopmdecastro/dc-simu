@@ -194,10 +194,7 @@
 /* Lista Admin (Biblioteca 3D) no idioma dos painéis */
 .ce-catalog .ce-list-tools { gap: var(--pn-gap); }
 .ce-catalog .ce-list-filters { gap: 8px; }
-.ce-catalog .pn-segment.ce-list-state { width: 100%; }
-@container ce-catalog (min-width: 621px) {
-  .ce-catalog .pn-segment.ce-list-state { width: auto; flex-wrap: nowrap; }
-}
+.ce-catalog .pn-segment.ce-list-state { flex: 1 1 auto; width: auto; max-width: 100%; flex-wrap: wrap; }
 .ce-catalog .ce-cards { gap: var(--pn-gap); }
 .ce-catalog .ce-card {
   border-color: var(--pn-line); border-radius: calc(var(--pn-radius) + 2px);

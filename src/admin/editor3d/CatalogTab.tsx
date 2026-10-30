@@ -159,11 +159,17 @@ export default function CatalogTab({ onNotice, onError, onCreate, openId, onOpen
   }
 
   return <div className="ce-catalog">
-    <div className="dx-admin-section"><h2>Biblioteca de componentes 3D</h2><span>{entries ? `${visible.length + builtinVisible.length}/${entries.length + builtins.length - imported.size}` : '…'}</span></div>
-    <p className="cb-note">Crie componentes oficiais no editor 3D, publique versões e deixe os utilizadores atualizarem quando quiserem. Os projetos existentes nunca são alterados sem confirmação. Os componentes que já vêm com a plataforma aparecem no fim da lista: «Editar no 3D» cria uma cópia editável (modelo + bornes) sem alterar o original.</p>
+    <div className="dx-admin-section ce-catalog-title"><h2>Biblioteca de componentes 3D</h2><span aria-label="Componentes apresentados e total">{entries ? `${visible.length + builtinVisible.length}/${entries.length + builtins.length - imported.size}` : '…'}</span></div>
+    <div className="ce-catalog-intro">
+      <p className="cb-note">Crie e publique componentes 3D. Os projetos só são atualizados com confirmação.</p>
+      <details className="ce-catalog-help">
+        <summary>Como funciona a biblioteca</summary>
+        <p>Os utilizadores escolhem quando atualizar os componentes. Os componentes integrados aparecem no fim da lista: «Editar no 3D» cria uma cópia editável, com modelo e bornes, sem alterar o original.</p>
+      </details>
+    </div>
     <div className="ce-list-tools">
       <div className="ce-list-filters">
-        <input className="dx-input cb-search" type="search" placeholder="Pesquisar por nome, grupo ou referência…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar componentes 3D" />
+        <input className="dx-input cb-search" type="search" placeholder="Nome, grupo ou referência…" value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Pesquisar componentes 3D por nome, grupo ou referência" />
         <div className="pn-segment ce-list-state" role="tablist" aria-label="Filtrar por estado">
           {([
             ['all', 'Todos'],
