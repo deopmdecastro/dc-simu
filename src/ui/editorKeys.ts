@@ -6,7 +6,7 @@
  * que nenhum atalho dispara enquanto o utilizador escreve num campo.
  */
 
-const TYPING_SELECTOR = 'input,textarea,select,[contenteditable="true"]'
+const TYPING_SELECTOR = 'input,textarea,select,[contenteditable="true"],[role="scrollbar"]'
 
 /** Há uma caixa de diálogo modal aberta (confirmação, propriedades…): é ela que recebe Enter/Esc. */
 export function isModalOpen(): boolean {

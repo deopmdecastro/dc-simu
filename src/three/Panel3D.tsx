@@ -7,7 +7,7 @@ import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, PerformanceMonitor, TransformControls, Edges, Html, useGLTF } from '@react-three/drei'
 import { Text } from './SceneText'
-import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
+import { useRef, useMemo, useState, useEffect, useId, Suspense, Component } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useSimStore } from '../store/useSimStore'
@@ -27,6 +27,8 @@ import { cloneModelScene, fitComponentModel } from './modelFit'
 import { applyEmergencyButtonFinish, finishCadMaterial } from './catalogMaterials'
 import { applyCadSurfaceTextures, onCadTexturesReady } from './cadSurface'
 import CanvasAnnotations3D from './CanvasAnnotations3D'
+import PanelCanvasScrollbars, { type PanelScrollBridge } from './PanelCanvasScrollbars'
+import { cameraScrollMetrics, panCameraToScroll, type CameraScrollBounds } from './cameraScroll'
 import NeonCurrent3D from './NeonCurrent3D'
 import TextStyleBar from '../ui/TextStyleBar'
 import { DEFAULT_TEXT_STYLE_3D, NOTE_COLORS } from '../ui/textStyle'
@@ -1962,12 +1964,14 @@ function SoftwareRunInvalidator({ active }: { active: boolean }) {
 }
 
 /** Câmara previsível: presets e foco não alteram qualquer posição do projeto. */
-function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMode = false, viewLocked = false }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void; frontEdit?: boolean; panMode?: boolean; viewLocked?: boolean }) {
-  const { camera, size } = useThree()
+function PanelCameraRig({ command, railWidth, onStats, scrollBridge, scrollBounds, frontEdit = false, panMode = false, viewLocked = false }: { command: PanelCameraCommand; railWidth: number; onStats: (stats: { yaw: number; pitch: number; zoom: number }) => void; scrollBridge: React.MutableRefObject<PanelScrollBridge>; scrollBounds: CameraScrollBounds; frontEdit?: boolean; panMode?: boolean; viewLocked?: boolean }) {
+  const { camera, size, invalidate } = useThree()
   const controlsRef = useRef<any>(null)
   // Enquadramento usa os valores mais recentes sem reiniciar a câmara quando o conteúdo/tamanho muda.
   const fitRef = useRef({ railWidth, width: size.width, height: size.height })
   fitRef.current = { railWidth, width: size.width, height: size.height }
+  const scrollState = useRef({ bounds: scrollBounds, size, viewLocked })
+  scrollState.current = { bounds: scrollBounds, size, viewLocked }
   const report = () => {
     const controls = controlsRef.current
     if (!controls) return
@@ -1978,10 +1982,25 @@ function PanelCameraRig({ command, railWidth, onStats, frontEdit = false, panMod
       pitch: THREE.MathUtils.radToDeg(Math.asin(Math.max(-1, Math.min(1, offset.y / distance)))),
       zoom: Math.round(Math.max(25, Math.min(400, 620 / distance))),
     })
+    const metrics = cameraScrollMetrics(camera, controls.target, scrollState.current.size, scrollState.current.bounds)
+    scrollBridge.current.metrics = metrics
+    scrollBridge.current.report?.(metrics)
   }
   // Transição suave entre vistas (cubo, botões, atalhos): a câmara desliza em arco em ~0,4 s.
   const firstCommandRef = useRef(true)
   const animRef = useRef<{ start: number; duration: number; fromDir: THREE.Vector3; toDir: THREE.Vector3; fromDist: number; toDist: number; fromTarget: THREE.Vector3; toTarget: THREE.Vector3; fromUp: THREE.Vector3; toUp: THREE.Vector3 } | null>(null)
+  useEffect(() => {
+    scrollBridge.current.pan = position => {
+      const controls = controlsRef.current
+      if (!controls || scrollState.current.viewLocked) return
+      animRef.current = null
+      const metrics = cameraScrollMetrics(camera, controls.target, scrollState.current.size, scrollState.current.bounds)
+      panCameraToScroll(camera, controls.target, metrics.view, position)
+      controls.update(); report(); invalidate()
+    }
+    return () => { scrollBridge.current.pan = undefined }
+  }, [camera, invalidate, scrollBridge])
+  useEffect(() => { report() }, [size.width, size.height, scrollBounds.minX, scrollBounds.minY, scrollBounds.minZ, scrollBounds.maxX, scrollBounds.maxY, scrollBounds.maxZ])
   useEffect(() => {
     const controls = controlsRef.current
     if (!controls) return
@@ -2348,6 +2367,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   } : component), [storedComponents, viewOrientationEditor])
   const sceneCenterRef = useRef<[number, number, number]>([0, 0, 0.3])
   const stageRef = useRef<HTMLDivElement>(null)
+  const stageId = useId()
+  const cameraScrollBridge = useRef<PanelScrollBridge>({})
   const [stageVisible, setStageVisible] = useState(true)
   const [burstActive, setBurstActive] = useState(true)
   // No simulador a câmara abre sempre em vista frontal; apenas o motor tem orientação isométrica.
@@ -2408,7 +2429,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   useEffect(() => {
     if (!placingText && !selectedTextId) return
     const onKey = (event: KeyboardEvent) => {
-      if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
+      if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"],[role="scrollbar"]')) return
       if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); setPlacingText(false); setSelectedTextId(null); return }
       if (selectedTextId && (event.key === 'Delete' || event.key === 'Backspace')) {
         event.preventDefault(); event.stopImmediatePropagation()
@@ -2584,10 +2605,11 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
   // Chapa e enquadramento derivados do conteúdo real.
   const sceneBounds = (() => {
     const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
-    const all = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }
+    const all = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity }
     for (const component of components) {
       const pivot = panelPivots[component.id]
       const half = componentHalfExtents(component, orientationFor(component))
+      all.minZ = Math.min(all.minZ, pivot.z - half.z); all.maxZ = Math.max(all.maxZ, pivot.z + half.z)
       const target = isPanelBound(component) ? [box, all] : [all]
       for (const b of target) {
         b.minX = Math.min(b.minX, pivot.x - half.x); b.maxX = Math.max(b.maxX, pivot.x + half.x)
@@ -2997,7 +3019,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
    return (
      <div
        ref={stageRef}
-       className={`panel3d-stage relative w-full h-full ${stageBackground}`}
+       id={stageId}
+       className={`panel3d-stage has-canvas-scrollbars relative w-full h-full ${stageBackground}`}
        style={stageStyle}
        data-embedded-in-schematic="true"
        data-front-edit={frontEdit ? 'true' : 'false'}
@@ -3213,8 +3236,13 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
           onReconnectPick={pickConnectionTerminal}
         />
 
-        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth} onStats={setCameraStats} frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} viewLocked={viewLocked} />
+        <PanelCameraRig command={cameraCommand} railWidth={sceneWidth}
+          onStats={stats => setCameraStats(previous => previous.zoom === stats.zoom && Math.abs(previous.yaw - stats.yaw) < 0.001 && Math.abs(previous.pitch - stats.pitch) < 0.001 ? previous : stats)}
+          scrollBridge={cameraScrollBridge} scrollBounds={contentBounds ?? { minX: -2, maxX: 2, minY: -2, maxY: 2, minZ: -0.2, maxZ: 0.6 }}
+          frontEdit={frontEdit} panMode={gridDragEnabled || tool === 'pan'} viewLocked={viewLocked} />
       </Canvas>
+
+      <PanelCanvasScrollbars bridge={cameraScrollBridge} controlsId={stageId} disabled={viewLocked} label={frontEdit ? 'Esquema 3D frontal' : 'Visualização 3D'} />
 
       {!demoMode && selectedText && <div className="canvas-textbar-slot">
         <TextStyleBar style={selectedText} unit="mm"

@@ -2,7 +2,8 @@ import { nanoid } from 'nanoid'
 import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
 import { attachedActionBoxes, cloneActions, type ActionBox } from './actionLayout'
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent } from 'react'
+import CanvasPanScrollbars from '../ui/CanvasPanScrollbars'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
 import { uiChoose, uiConfirm } from '../ui/dialogs'
 import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
@@ -41,7 +42,7 @@ import { GRAFCET_TEMPLATES, type GrafcetTemplateInfo } from './templates'
 import { renderConditionTspans } from './grafcetRender'
 import GrafcetSimPanel from './GrafcetSimPanel'
 import GrafcetSimDock from './GrafcetSimDock'
-import GrafcetFreeText from './GrafcetFreeText'
+import GrafcetFreeText, { freeTextBox } from './GrafcetFreeText'
 import TextStyleBar from '../ui/TextStyleBar'
 import { DEFAULT_TEXT_STYLE_GRAFCET } from '../ui/textStyle'
 import type { CanvasTextStyle } from '../types'
@@ -1628,6 +1629,19 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   }))
   const width = maxRight
   const height = Math.max(280, maxBottom)
+  const scrollBounds = { minX: 0, minY: 0, maxX: width, maxY: height }
+  const includeScrollPoint = (x: number, y: number) => {
+    scrollBounds.minX = Math.min(scrollBounds.minX, x)
+    scrollBounds.minY = Math.min(scrollBounds.minY, y)
+  }
+  steps.forEach(step => {
+    includeScrollPoint(stepX(step.id) - stepSizeOf(step.id).w / 2, stepY(step.id))
+    attachedBoxes(step).forEach(box => includeScrollPoint(box.x, box.y))
+  })
+  freeActions.forEach(action => { const at = actionXY(action); includeScrollPoint(at.x, at.y) })
+  transitions.filter(isFreeTransition).forEach(transition => { const at = transXY(transition); includeScrollPoint(at.x - 30, at.y - 30) })
+  comments.forEach(comment => { const box = freeTextBox(comment); includeScrollPoint(box.left, box.top) })
+  Object.values(program.linkBends ?? {}).forEach(points => points.forEach(point => includeScrollPoint(point.x, point.y)))
 
   /** Coordenadas do diagrama a partir de um ponto do cliente (rato/toque). */
   const clientToWorld = (cx: number, cy: number) => {
@@ -2440,6 +2454,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   // Viewport / Zoom / Pan
   const viewportRef = useRef<HTMLDivElement>(null)
+  const canvasId = useId()
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const [viewport, setViewport] = useState({ width: 440, height: 500 })
   const [zoom, setZoom] = useState<number | null>(null)
@@ -2473,6 +2488,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const pinchStartRef = useRef<{ zoom: number; pos: { x: number; y: number } } | null>(null)
   usePinchZoom(viewportRef, {
     swallowPointers: true,
+    ignoreSelector: '[role="scrollbar"]',
     enabled: steps.length > 0,
     onStart: () => { pinchStartRef.current = { zoom: scale, pos: position } },
     onChange: ({ ratio, center, startCenter }) => {
@@ -3557,6 +3573,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         <div className={full ? 'grafcet-canvas-col' : 'grafcet-canvas-col is-preview'}>
         <div
           ref={viewportRef}
+          id={canvasId}
           className={`grafcet-canvas ${placingText ? 'is-text-placing' : ''} ${sharedGridStyle === 'lines' ? 'grid-lines' : ''} ${activeTool === 'pan' ? 'is-pan-mode' : activeTool === 'connect' ? 'is-connect-mode' : 'is-select-mode'} ${isSpacePan ? 'is-space-pan' : ''} ${dropActive ? 'is-palette-drop' : ''} ${isDragging ? 'is-dragging' : ''} ${wireDraft ? 'is-wiring' : ''}`}
           aria-label="Diagrama GRAFCET"
           style={
@@ -5511,6 +5528,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
               <button type="button" onClick={() => { setMulti([]); setSelected(null) }} aria-label="Limpar seleção" title="Limpar seleção (Esc)"><IconClose size={12} /></button>
             </div>
           )}
+
+          {full && <CanvasPanScrollbars label="GRAFCET" controlsId={canvasId}
+            view={{ x: -position.x / scale, y: -position.y / scale, width: viewport.width / scale, height: viewport.height / scale }}
+            bounds={scrollBounds}
+            onChange={({ x, y }) => { setZoom(scale); setPan({ x: -x * scale, y: -y * scale }) }} />}
 
           {/* Minimapa: visão geral clicável/arrastável do diagrama */}
           {full && minimapOn && steps.length > 0 && !wireDraft && !diagramFitsView && (

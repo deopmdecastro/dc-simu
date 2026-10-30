@@ -20,6 +20,8 @@ export interface PinchOptions {
    */
   swallowPointers?: boolean
   enabled?: boolean
+  /** Controlos sobrepostos que tratam os seus próprios gestos (por exemplo barras de deslocamento). */
+  ignoreSelector?: string
 }
 
 type Point = { x: number; y: number }
@@ -41,7 +43,8 @@ export function bindPinchZoom(el: HTMLElement, getOptions: () => PinchOptions): 
     const rect = el.getBoundingClientRect()
     return { x: clientX - rect.left, y: clientY - rect.top }
   }
-  const swallowing = (e: PointerEvent) => e.pointerType === 'touch' && !!getOptions().swallowPointers && !dispatching
+  const ignored = (target: EventTarget | null) => target instanceof Element && !!getOptions().ignoreSelector && !!target.closest(getOptions().ignoreSelector!)
+  const swallowing = (e: PointerEvent) => e.pointerType === 'touch' && !!getOptions().swallowPointers && !dispatching && !ignored(e.target)
 
   // ---- ponteiros: só quando o elemento trata gestos de um dedo por ponteiro ----
   const onPointerDown = (e: PointerEvent) => {
@@ -71,6 +74,7 @@ export function bindPinchZoom(el: HTMLElement, getOptions: () => PinchOptions): 
 
   // ---- toque: o gesto em si ----
   const begin = (e: TouchEvent) => {
+    if (ignored(e.target)) return
     if (e.touches.length !== 2) return
     const [a, b] = [e.touches[0], e.touches[1]]
     start = { distance: Math.max(1, distance(a, b)), center: local((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2) }
@@ -78,6 +82,7 @@ export function bindPinchZoom(el: HTMLElement, getOptions: () => PinchOptions): 
     if (e.cancelable) e.preventDefault()
   }
   const move = (e: TouchEvent) => {
+    if (ignored(e.target)) return
     if (e.touches.length !== 2) return
     if (!start) begin(e)
     if (!start) return

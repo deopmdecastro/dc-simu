@@ -1,0 +1,12 @@
+.canvas-pan-scrollbars { position:absolute; inset:0; z-index:22; pointer-events:none; }
+.canvas-pan-scrollbar { position:absolute; pointer-events:auto; touch-action:none; user-select:none; border-radius:5px; cursor:default; background:#f8fafccc; }
+.canvas-pan-scrollbar.is-x { left:4px; right:18px; bottom:2px; height:12px; }
+.canvas-pan-scrollbar.is-y { top:4px; right:2px; bottom:18px; width:12px; }
+.canvas-pan-scrollbar-thumb { position:absolute; border:3px solid transparent; background:#cbd5e1; background-clip:padding-box; border-radius:7px; }
+.canvas-pan-scrollbar.is-x .canvas-pan-scrollbar-thumb { top:0; left:0; height:12px; }
+.canvas-pan-scrollbar.is-y .canvas-pan-scrollbar-thumb { top:0; left:0; width:12px; }
+.canvas-pan-scrollbar:hover .canvas-pan-scrollbar-thumb, .canvas-pan-scrollbar.is-dragging .canvas-pan-scrollbar-thumb { background-color:#94a3b8; }
+.canvas-pan-scrollbar:focus-visible { outline:2px solid var(--dx-brand,#2655e5); outline-offset:-2px; }
+.canvas-pan-scrollbar[aria-disabled="true"] { opacity:.45; }
+.grafcet-full .grafcet-canvas .grafcet-minimap { bottom:22px; }
+.panel3d-stage.has-canvas-scrollbars .panel3d-axis-hud { right:24px !important; bottom:24px !important; }
