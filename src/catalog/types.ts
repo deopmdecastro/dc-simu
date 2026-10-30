@@ -133,6 +133,13 @@ export interface LightZoneDef {
   userPalette?: string[]
   /** A cor escolhida pinta também o material (botão/lente), mesmo quando a luz está apagada. */
   tintMaterial?: boolean
+  /**
+   * Cor do vidro/lente (o material visto com a luz apagada e acesa). `color` é a cor do brilho (luz emitida).
+   * Omisso = mantém o material do modelo (ou, com paleta, a própria cor do brilho — comportamento antigo).
+   */
+  glassColor?: string
+  /** Cor do vidro de cada cor da paleta (chave: cor do brilho em minúsculas). */
+  glassColors?: Record<string, string>
   /** 'led' = pequeno indicador; 'lamp' = sinaleiro/lâmpada. Só informativo. */
   kind?: 'led' | 'lamp'
   /** A zona acende quando a condição se verifica (além do que o estado definir). */

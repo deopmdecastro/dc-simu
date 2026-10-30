@@ -124,7 +124,7 @@ export default function CatalogComponent3D({ c, position, anchor, children, inte
     rig.current.snap()
     animator.current.update(0)
     invalidate()
-    return () => { timers.current.forEach((id) => window.clearTimeout(id)); timers.current = []; rig.current?.dispose(); rig.current = null }
+    return () => { timers.current.forEach((id) => window.clearTimeout(id)); timers.current = []; rig.current?.dispose(); rig.current = null; animator.current?.dispose(); animator.current = null }
   }, [version, model, effective])
   useEffect(() => { rig.current?.setVars(displayVars, reading); animator.current?.update(0); invalidate() }, [displayVars, reading])
   useEffect(() => { setBeep(!!reading?.beep); return () => setBeep(false) }, [reading?.beep])

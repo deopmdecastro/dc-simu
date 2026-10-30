@@ -3,10 +3,11 @@ import { transitionsOf } from './engine'
 import type { GrafcetTemplateInfo } from './templates'
 import { foldText } from '../utils/text'
 
-type CategoryId = 'basico' | 'motores' | 'paralelo' | 'sistema'
+type CategoryId = 'exemplos' | 'basico' | 'motores' | 'paralelo' | 'sistema'
 type Level = 1 | 2 | 3
 
 const CATEGORIES: Array<{ id: CategoryId; label: string; hint: string }> = [
+  { id: 'exemplos', label: 'Exemplos completos', hint: 'Funcionais, com sinais, textos e comentários' },
   { id: 'basico', label: 'Primeiros passos', hint: 'Sequências curtas para aprender a estrutura' },
   { id: 'motores', label: 'Motores e arranques', hint: 'Partidas industriais com temporização' },
   { id: 'paralelo', label: 'Ramos paralelos (AND)', hint: 'Divergência, convergência e sincronização' },
@@ -17,6 +18,9 @@ const LEVELS: Record<Level, string> = { 1: 'Básico', 2: 'Intermédio', 3: 'Avan
 
 /** Organização dos modelos: categoria, nível e ordem de apresentação (do mais simples ao mais completo). */
 const META: Record<string, { category: CategoryId; level: Level; order: number; tag?: string }> = {
+  'grafcet-exemplo-basico': { category: 'exemplos', level: 1, order: 1, tag: 'Temporização' },
+  'grafcet-exemplo-normal': { category: 'exemplos', level: 2, order: 2, tag: 'Seleção OU' },
+  'grafcet-exemplo-avancado': { category: 'exemplos', level: 3, order: 3, tag: 'AND · S/R · segurança' },
   'exemplo-didatico': { category: 'basico', level: 1, order: 1 },
   'iec-sequencia-simples': { category: 'basico', level: 1, order: 2, tag: 'IEC 60848' },
   'partida-direta': { category: 'motores', level: 1, order: 1 },

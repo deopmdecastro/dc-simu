@@ -8,10 +8,19 @@
 
 const TYPING_SELECTOR = 'input,textarea,select,[contenteditable="true"]'
 
-/** Verdadeiro quando o evento vem de um campo de texto: os atalhos ficam suspensos. */
+/** Há uma caixa de diálogo modal aberta (confirmação, propriedades…): é ela que recebe Enter/Esc. */
+export function isModalOpen(): boolean {
+  return typeof document !== 'undefined' && !!document.querySelector('[aria-modal="true"]')
+}
+
+/**
+ * Verdadeiro quando os atalhos do editor devem ficar suspensos: o evento vem de um
+ * campo de texto ou há um diálogo modal aberto. Sem a segunda regra, Enter numa
+ * confirmação «Eliminar…?» chegava ao editor e abria as propriedades do elemento.
+ */
 export function isTypingTarget(target: EventTarget | null): boolean {
   const element = target as HTMLElement | null
-  return !!element?.closest?.(TYPING_SELECTOR)
+  return !!element?.closest?.(TYPING_SELECTOR) || isModalOpen()
 }
 
 /**

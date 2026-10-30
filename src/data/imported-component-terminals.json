@@ -188,5 +188,511 @@
       "diameterMm": 11.1,
       "holeDepthMm": 13.6
     }
+  ],
+  "thermalRelaySiemens3ru1116": [
+    {
+      "label": "1L1",
+      "face": "top",
+      "x": 0.158642,
+      "y": 0.000133,
+      "z": 0.124533,
+      "diameterMm": 2.0,
+      "holeDepthMm": 2.0,
+      "contact": "pin"
+    },
+    {
+      "label": "3L2",
+      "face": "top",
+      "x": 0.352748,
+      "y": 0.000133,
+      "z": 0.124533,
+      "diameterMm": 2.0,
+      "holeDepthMm": 2.0,
+      "contact": "pin"
+    },
+    {
+      "label": "5L3",
+      "face": "top",
+      "x": 0.533466,
+      "y": 0.000133,
+      "z": 0.124533,
+      "diameterMm": 2.0,
+      "holeDepthMm": 2.0,
+      "contact": "pin"
+    },
+    {
+      "label": "95",
+      "face": "front",
+      "x": 0.111789,
+      "y": 0.658257,
+      "z": 0.927079,
+      "diameterMm": 6.5,
+      "holeDepthMm": 12.7
+    },
+    {
+      "label": "96",
+      "face": "front",
+      "x": 0.305895,
+      "y": 0.658257,
+      "z": 0.927079,
+      "diameterMm": 6.5,
+      "holeDepthMm": 12.7
+    },
+    {
+      "label": "97",
+      "face": "front",
+      "x": 0.5,
+      "y": 0.658257,
+      "z": 0.927079,
+      "diameterMm": 6.5,
+      "holeDepthMm": 12.7
+    },
+    {
+      "label": "98",
+      "face": "front",
+      "x": 0.694105,
+      "y": 0.658257,
+      "z": 0.927079,
+      "diameterMm": 6.5,
+      "holeDepthMm": 12.7
+    },
+    {
+      "label": "2T1",
+      "face": "front",
+      "x": 0.131869,
+      "y": 0.835803,
+      "z": 0.651723,
+      "diameterMm": 6.5,
+      "holeDepthMm": 9.3
+    },
+    {
+      "label": "4T2",
+      "face": "front",
+      "x": 0.404063,
+      "y": 0.835803,
+      "z": 0.651723,
+      "diameterMm": 6.5,
+      "holeDepthMm": 9.3
+    },
+    {
+      "label": "6T3",
+      "face": "front",
+      "x": 0.674026,
+      "y": 0.835803,
+      "z": 0.651723,
+      "diameterMm": 6.5,
+      "holeDepthMm": 9.3
+    }
+  ],
+  "selectorSchneiderXa2ed33": [
+    {
+      "label": "13",
+      "face": "back",
+      "x": 0.186667,
+      "y": 0.285595,
+      "z": 0.0,
+      "diameterMm": 5.0,
+      "holeDepthMm": 4.6
+    },
+    {
+      "label": "14",
+      "face": "back",
+      "x": 0.186667,
+      "y": 0.761865,
+      "z": 0.0,
+      "diameterMm": 5.0,
+      "holeDepthMm": 3.0
+    },
+    {
+      "label": "23",
+      "face": "back",
+      "x": 0.82,
+      "y": 0.285595,
+      "z": 0.0,
+      "diameterMm": 5.0,
+      "holeDepthMm": 3.0
+    },
+    {
+      "label": "24",
+      "face": "back",
+      "x": 0.82,
+      "y": 0.761865,
+      "z": 0.0,
+      "diameterMm": 5.0,
+      "holeDepthMm": 3.0
+    }
+  ],
+  "contactorWegCwbc65": [
+    {
+      "label": "1L1",
+      "face": "top",
+      "x": 0.227478,
+      "y": 0.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 9.0
+    },
+    {
+      "label": "3L2",
+      "face": "top",
+      "x": 0.40453,
+      "y": 0.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 8.3
+    },
+    {
+      "label": "5L3",
+      "face": "top",
+      "x": 0.581583,
+      "y": 0.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 8.3
+    },
+    {
+      "label": "A1",
+      "face": "top",
+      "x": 0.751692,
+      "y": 0.0,
+      "z": 0.391304,
+      "diameterMm": 6.4,
+      "holeDepthMm": 8.1
+    },
+    {
+      "label": "2T1",
+      "face": "bottom",
+      "x": 0.227478,
+      "y": 1.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 3.0,
+      "contact": "surface"
+    },
+    {
+      "label": "4T2",
+      "face": "bottom",
+      "x": 0.40453,
+      "y": 1.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 3.0,
+      "contact": "surface"
+    },
+    {
+      "label": "6T3",
+      "face": "bottom",
+      "x": 0.581583,
+      "y": 1.0,
+      "z": 0.391304,
+      "diameterMm": 6.6,
+      "holeDepthMm": 3.0,
+      "contact": "surface"
+    },
+    {
+      "label": "A2",
+      "face": "bottom",
+      "x": 0.751692,
+      "y": 1.0,
+      "z": 0.391304,
+      "diameterMm": 6.4,
+      "holeDepthMm": 3.0,
+      "contact": "surface"
+    }
+  ],
+  "surgeProtectorWegSpw12": [
+    {
+      "label": "+",
+      "face": "bottom",
+      "x": 0.166975,
+      "y": 1.0,
+      "z": 0.721501,
+      "diameterMm": 11.3,
+      "holeDepthMm": 18.7
+    },
+    {
+      "label": "-",
+      "face": "bottom",
+      "x": 0.5,
+      "y": 1.0,
+      "z": 0.721501,
+      "diameterMm": 11.3,
+      "holeDepthMm": 18.7
+    },
+    {
+      "label": "PE",
+      "face": "bottom",
+      "x": 0.833025,
+      "y": 1.0,
+      "z": 0.721501,
+      "diameterMm": 11.3,
+      "holeDepthMm": 18.7
+    }
+  ],
+  "safetyRelaySiemens3tk2840": [
+    {
+      "label": "A1",
+      "face": "top",
+      "x": 0.183258,
+      "y": 0.014,
+      "z": 0.464088,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    },
+    {
+      "label": "Y11",
+      "face": "top",
+      "x": 0.5,
+      "y": 0.014,
+      "z": 0.464088,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    },
+    {
+      "label": "Y12",
+      "face": "top",
+      "x": 0.816742,
+      "y": 0.014,
+      "z": 0.464088,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    },
+    {
+      "label": "Y21",
+      "face": "top",
+      "x": 0.183258,
+      "y": 0.104,
+      "z": 0.773481,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    },
+    {
+      "label": "Y22",
+      "face": "top",
+      "x": 0.5,
+      "y": 0.104,
+      "z": 0.773481,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    },
+    {
+      "label": "Y20",
+      "face": "top",
+      "x": 0.816742,
+      "y": 0.104,
+      "z": 0.773481,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    },
+    {
+      "label": "Y33",
+      "face": "bottom",
+      "x": 0.183258,
+      "y": 0.896,
+      "z": 0.773481,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    },
+    {
+      "label": "Y34",
+      "face": "bottom",
+      "x": 0.5,
+      "y": 0.896,
+      "z": 0.773481,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    },
+    {
+      "label": "14",
+      "face": "bottom",
+      "x": 0.816742,
+      "y": 0.896,
+      "z": 0.773481,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    },
+    {
+      "label": "24",
+      "face": "bottom",
+      "x": 0.183258,
+      "y": 0.986,
+      "z": 0.464088,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    },
+    {
+      "label": "A2",
+      "face": "bottom",
+      "x": 0.5,
+      "y": 0.986,
+      "z": 0.464088,
+      "diameterMm": 5.9,
+      "holeDepthMm": 12.6
+    }
+  ],
+  "motorBreakerSchneiderGv2me": [
+    {
+      "label": "1",
+      "face": "top",
+      "x": 0.17191,
+      "y": 0.0,
+      "z": 0.500885,
+      "diameterMm": 12.9,
+      "holeDepthMm": 6.2
+    },
+    {
+      "label": "3",
+      "face": "top",
+      "x": 0.5,
+      "y": 0.0,
+      "z": 0.500885,
+      "diameterMm": 12.9,
+      "holeDepthMm": 6.2
+    },
+    {
+      "label": "5",
+      "face": "top",
+      "x": 0.82809,
+      "y": 0.0,
+      "z": 0.500885,
+      "diameterMm": 12.9,
+      "holeDepthMm": 6.2
+    },
+    {
+      "label": "2",
+      "face": "bottom",
+      "x": 0.17191,
+      "y": 1.0,
+      "z": 0.500885,
+      "diameterMm": 11.0,
+      "holeDepthMm": 11.0,
+      "contact": "surface"
+    },
+    {
+      "label": "4",
+      "face": "bottom",
+      "x": 0.5,
+      "y": 1.0,
+      "z": 0.500885,
+      "diameterMm": 11.0,
+      "holeDepthMm": 11.0,
+      "contact": "surface"
+    },
+    {
+      "label": "6",
+      "face": "bottom",
+      "x": 0.82809,
+      "y": 1.0,
+      "z": 0.500885,
+      "diameterMm": 11.0,
+      "holeDepthMm": 11.0,
+      "contact": "surface"
+    }
+  ],
+  "photoSensorXukt1ksml2": [
+    {
+      "label": "V+",
+      "face": "left",
+      "x": 0.000207,
+      "y": 0.935353,
+      "z": 0.209743,
+      "diameterMm": 1.5,
+      "holeDepthMm": 1.0,
+      "contact": "lead"
+    },
+    {
+      "label": "0V",
+      "face": "left",
+      "x": 0.000207,
+      "y": 0.964085,
+      "z": 0.181011,
+      "diameterMm": 1.5,
+      "holeDepthMm": 1.0,
+      "contact": "lead"
+    },
+    {
+      "label": "OUT",
+      "face": "left",
+      "x": 0.000207,
+      "y": 0.935353,
+      "z": 0.152279,
+      "diameterMm": 1.5,
+      "holeDepthMm": 1.0,
+      "contact": "lead"
+    }
+  ],
+  "keyActuatorEao61": [
+    {
+      "label": "11",
+      "face": "back",
+      "x": 0.5,
+      "y": 0.4375,
+      "z": 0.0,
+      "diameterMm": 2.0,
+      "holeDepthMm": 1.5,
+      "contact": "pin"
+    },
+    {
+      "label": "12",
+      "face": "back",
+      "x": 0.69,
+      "y": 0.4375,
+      "z": 0.0,
+      "diameterMm": 2.0,
+      "holeDepthMm": 1.5,
+      "contact": "pin"
+    },
+    {
+      "label": "14",
+      "face": "back",
+      "x": 0.31,
+      "y": 0.4375,
+      "z": 0.0,
+      "diameterMm": 2.0,
+      "holeDepthMm": 1.5,
+      "contact": "pin"
+    }
+  ],
+  "towerLightSb23011": [
+    {
+      "label": "R",
+      "face": "bottom",
+      "x": 0.328571,
+      "y": 1.0,
+      "z": 0.500169,
+      "diameterMm": 2.0,
+      "holeDepthMm": 1.0,
+      "contact": "lead"
+    },
+    {
+      "label": "Y",
+      "face": "bottom",
+      "x": 0.442857,
+      "y": 1.0,
+      "z": 0.500169,
+      "diameterMm": 2.0,
+      "holeDepthMm": 1.0,
+      "contact": "lead"
+    },
+    {
+      "label": "G",
+      "face": "bottom",
+      "x": 0.557143,
+      "y": 1.0,
+      "z": 0.500169,
+      "diameterMm": 2.0,
+      "holeDepthMm": 1.0,
+      "contact": "lead"
+    },
+    {
+      "label": "COM",
+      "face": "bottom",
+      "x": 0.671429,
+      "y": 1.0,
+      "z": 0.500169,
+      "diameterMm": 2.0,
+      "holeDepthMm": 1.0,
+      "contact": "lead"
+    }
   ]
 }

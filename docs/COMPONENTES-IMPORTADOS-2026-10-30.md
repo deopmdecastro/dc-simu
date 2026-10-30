@@ -5,6 +5,9 @@ os originais. Catorze contêm STEP utilizável; os restantes três só contêm C
 nativo SolidWorks/Inventor. Os recursos de execução são os GLB convertidos em
 `public/models/importados/`: 33 039 900 bytes no total, carregados a pedido.
 
+> Seguimento: textura real, animação, luzes e bornes de todos os modelos em
+> [COMPONENTES-IMPORTADOS-ACABAMENTO](COMPONENTES-IMPORTADOS-ACABAMENTO.md).
+
 ## Integração e limites
 
 | Referência | Integração | Bornes / comportamento |

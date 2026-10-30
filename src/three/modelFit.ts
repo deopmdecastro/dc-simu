@@ -1,3 +1,4 @@
+import { markCadNodes } from './staticMerge'
 import * as THREE from 'three'
 import type { ComponentModelSpec } from './modelPaths'
 import { addTerminalSocketBlocks } from './terminalSocketGeometry'
@@ -21,10 +22,52 @@ export function fixGeometryBounds(root: THREE.Object3D) {
   })
 }
 
+/** Assinatura visual de um material (dois materiais iguais desenham-se da mesma maneira). */
+function materialSignature(material: THREE.Material): string | null {
+  if (!(material instanceof THREE.MeshStandardMaterial)) return null
+  const m = material as THREE.MeshPhysicalMaterial
+  const tex = (t: THREE.Texture | null | undefined) => t?.uuid ?? ''
+  return [m.type, m.name, m.color.getHex(), m.emissive.getHex(), m.emissiveIntensity, m.roughness, m.metalness, m.opacity, m.transparent, m.side, m.alphaTest,
+    m.depthWrite, m.vertexColors, m.flatShading, m.envMapIntensity, m.wireframe, tex(m.map), tex(m.normalMap), tex(m.roughnessMap), tex(m.metalnessMap),
+    tex(m.aoMap), tex(m.emissiveMap), tex(m.alphaMap), tex(m.bumpMap), m.isMeshPhysicalMaterial ? [m.clearcoat, m.clearcoatRoughness, m.transmission, m.ior, m.sheen].join('/') : ''].join('|')
+}
+
+/**
+ * Cada clone recebe os SEUS materiais (as instâncias podem mudar cores à vontade — lente do sinaleiro,
+ * tinta do corpo) e, dentro do clone, materiais visualmente iguais passam a ser um só: os CAD exportam
+ * centenas de materiais repetidos (um por face/peça), o que impedia juntar malhas e trocava de estado
+ * de render a cada chamada. `finishCadMaterial` reaproveita o acabamento destes materiais próprios.
+ */
+function shareCloneMaterials(root: THREE.Object3D) {
+  const bySignature = new Map<string, THREE.Material>()
+  const byReference = new Map<THREE.Material, THREE.Material>()
+  const own = (material: THREE.Material) => {
+    let out = byReference.get(material)
+    if (out) return out
+    const signature = materialSignature(material)
+    out = signature ? bySignature.get(signature) : undefined
+    if (!out) {
+      out = material.clone()
+      out.userData.__dcCloneOwned = true
+      if (signature) bySignature.set(signature, out)
+    }
+    byReference.set(material, out)
+    return out
+  }
+  root.traverse((node) => {
+    const mesh = node as THREE.Mesh
+    if (!mesh.isMesh || !mesh.material) return
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(own) : own(mesh.material)
+  })
+}
+
 /** Clona a cena do cache do GLTF garantindo caixas exatas. */
 export function cloneModelScene<T extends THREE.Object3D>(scene: T): T {
   fixGeometryBounds(scene)
-  return scene.clone(true) as T
+  const clone = scene.clone(true) as T
+  shareCloneMaterials(clone)
+  markCadNodes(clone)
+  return clone
 }
 
 /** Referencial físico comum ao modelo, às medições e aos pontos dos cabos.

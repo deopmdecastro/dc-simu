@@ -194,3 +194,69 @@ export function autoLayout(
   })
   return result
 }
+
+// ---------------------------------------------------------------- tamanhos
+/** Caixa da etapa por omissão (IEC 60848 no editor). */
+export const STEP_W = 64
+export const STEP_SIZE_LIMITS = { minW: 40, maxW: 260, minH: 36, maxH: 220 } as const
+/** Caixa da ação por omissão. */
+export const ACTION_SIZE = { w: 140, h: 30 } as const
+export const ACTION_SIZE_LIMITS = { minW: 70, maxW: 420, minH: 22, maxH: 180 } as const
+
+const clampTo = (value: number | undefined, fallback: number, min: number, max: number) =>
+  Number.isFinite(value) ? Math.min(max, Math.max(min, value as number)) : fallback
+
+export const stepSize = (step: { w?: number; h?: number } | undefined) => ({
+  w: clampTo(step?.w, STEP_W, STEP_SIZE_LIMITS.minW, STEP_SIZE_LIMITS.maxW),
+  h: clampTo(step?.h, STEP_H, STEP_SIZE_LIMITS.minH, STEP_SIZE_LIMITS.maxH),
+})
+export const actionSize = (action: { w?: number; h?: number } | undefined) => ({
+  w: clampTo(action?.w, ACTION_SIZE.w, ACTION_SIZE_LIMITS.minW, ACTION_SIZE_LIMITS.maxW),
+  h: clampTo(action?.h, ACTION_SIZE.h, ACTION_SIZE_LIMITS.minH, ACTION_SIZE_LIMITS.maxH),
+})
+
+export type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+export type Box = { x: number; y: number; w: number; h: number }
+
+/**
+ * Redimensionamento por puxador. As faces mudam uma só dimensão; os cantos mudam as duas na mesma
+ * proporção. `centered` (etapas): a largura cresce para os dois lados do eixo, por isso a face
+ * este/oeste conta a dobrar e `x` é o eixo central; nas ações `x` é a esquerda.
+ * `dx/dy` é o deslocamento do ponteiro em unidades do diagrama.
+ */
+export function resizeBox(start: Box, handle: ResizeHandle, dx: number, dy: number, limits: { minW: number; maxW: number; minH: number; maxH: number }, centered: boolean): Box {
+  const east = handle.includes('e'), west = handle.includes('w'), south = handle.includes('s'), north = handle.includes('n')
+  const horizontal = east ? dx : west ? -dx : 0
+  const vertical = south ? dy : north ? -dy : 0
+  let w = start.w + (centered ? 2 * horizontal : horizontal)
+  let h = start.h + vertical
+  if (handle.length === 2) {
+    // Canto: escala proporcional pelo maior dos dois pedidos (o canto segue o ponteiro).
+    const factor = Math.max(w / start.w, h / start.h)
+    const minFactor = Math.max(limits.minW / start.w, limits.minH / start.h)
+    const maxFactor = Math.min(limits.maxW / start.w, limits.maxH / start.h)
+    const f = Math.min(maxFactor, Math.max(minFactor, factor))
+    w = start.w * f
+    h = start.h * f
+  } else {
+    w = Math.min(limits.maxW, Math.max(limits.minW, w))
+    h = Math.min(limits.maxH, Math.max(limits.minH, h))
+  }
+  w = Math.round(w)
+  h = Math.round(h)
+  const x = centered ? start.x : west ? start.x + (start.w - w) : start.x
+  const y = north ? start.y + (start.h - h) : start.y
+  return { x, y, w, h }
+}
+
+/**
+ * Deslocamento que devolve ao quadro um diagrama arrastado para lá da borda esquerda/de cima.
+ * Recebe os limites (esquerda/topo) já calculados de todos os elementos da página; devolve
+ * `{ dx: 0, dy: 0 }` quando nada saiu do quadro (diagramas existentes nunca mudam por acaso).
+ */
+export function originShift(minLeft: number, minTop: number, margin = { left: 40, top: MIN_Y }) {
+  return {
+    dx: minLeft < 0 ? Math.ceil(margin.left - minLeft) : 0,
+    dy: minTop < 0 ? Math.ceil(margin.top - minTop) : 0,
+  }
+}

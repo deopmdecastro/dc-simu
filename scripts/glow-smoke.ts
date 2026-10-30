@@ -113,4 +113,49 @@ ok(Boolean(mountedHalo), 'halo montado na raiz do sinalizador sem inflacionar a 
 ok(Math.abs(mountedHalo!.position.x) < 1e-4 && Math.abs(mountedHalo!.position.y) < 1e-4, 'halo centrado exatamente no eixo da lente (imune ao pivô do painel)')
 ok(mountedHalo!.position.z >= 25.0 && mountedHalo!.position.z <= 25.8, 'halo encostado à face frontal do vidro da lente (z = 22 + 3 + ~0.33 mm)')
 
+
+// --- cores de luzes: vidro (lente) + brilho (luz emitida), paleta do utilizador e biblioteca
+import { chosenGlass, glassFor } from '../src/catalog/lightLook'
+import { BUILTIN_LIGHT_SWATCHES, swatchName } from '../src/catalog/lightColorLibrary'
+{
+  const hex = (c: THREE.Color) => '#' + c.getHexString()
+  const root = new THREE.Group()
+  const mat = new THREE.MeshStandardMaterial({ color: '#383838' })
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 4), mat)
+  mesh.name = 'lens2'
+  root.add(mesh)
+  const def = defaultDefinition()
+  def.parts = [{ id: 'lens2', name: 'Lente', kind: 'box', size: [10, 10, 4], parentId: null, position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1], visible: true, materialId: null }]
+  const zone: LightZoneDef = { id: 'z', name: 'Sinaleiro', partId: 'lens2', color: '#ff2a1a', glassColor: '#c72424', intensity: 2, kind: 'lamp', when: { var: 'lit', op: 'eq', value: true },
+    userPalette: ['#ff2a1a', '#2bff6a', '#4d8dff'], glassColors: { '#2bff6a': '#1c9a46' }, tintMaterial: true }
+  def.lights = [zone]
+  def.variables = [{ id: 'lit', name: 'Aceso', type: 'bool', initial: false }]
+  ok(chosenGlass(zone, {}) === '#c72424', 'vidro da cor base')
+  ok(chosenGlass(zone, { 'color.z': '#2bff6a' }) === '#1c9a46', 'vidro da cor escolhida na paleta')
+  ok(chosenGlass(zone, { 'color.z': '#4d8dff' }) === '#4d8dff', 'paleta antiga sem vidro: o vidro usa a cor do brilho')
+  ok(chosenGlass(zone, { 'color.z': '#123456' }) === '#c72424', 'cor fora da paleta é ignorada')
+  ok(chosenGlass({ ...zone, tintMaterial: false }, {}) === undefined, '«não pintar» mantém o material do modelo')
+  ok(chosenGlass({ id: 'x', name: 'x', partId: 'p', color: '#22c55e', intensity: 1 }, {}) === undefined, 'zona sem vidro nem paleta não pinta')
+  ok(glassFor(zone, '#2BFF6A') === '#1c9a46', 'vidro da paleta não depende de maiúsculas')
+  const anim2 = new StateAnimator(def, root)
+  anim2.setVars({ lit: false, 'color.z': '#2bff6a' })
+  anim2.update(0.016)
+  ok(hex(mat.color) === '#1c9a46' && hex(mat.emissive) === '#000000', 'apagada: lente com a cor do vidro, sem emissão')
+  anim2.setVars({ lit: true, 'color.z': '#2bff6a' })
+  anim2.update(0.3)
+  const halo = root.children.find((ch) => ch.userData[GLOW_HALO_FLAG]) as THREE.Sprite | undefined
+  ok(hex(mat.emissive) === '#2bff6a' && mat.emissiveIntensity >= 1.6, 'acesa: emite a cor do brilho')
+  ok(!!halo && hex((halo.material as THREE.SpriteMaterial).color) === '#2bff6a' && halo.visible, 'halo com a cor do brilho')
+  anim2.setVars({ lit: true, 'color.z': '#ff2a1a' })
+  anim2.update(0.3)
+  ok(hex(mat.color) === '#c72424' && hex(mat.emissive) === '#ff2a1a', 'trocar a cor no inspetor muda vidro e brilho')
+  anim2.setVars({ lit: false, $test_dummy: 1, ['$test.z']: true })
+  anim2.update(0.3)
+  ok(hex(mat.emissive) === '#ff2a1a', '«Ver acesa» do editor acende a zona sem variáveis')
+  anim2.dispose()
+  ok(hex(mat.color) === '#383838' && !root.children.some((ch) => ch.userData[GLOW_HALO_FLAG]), 'dispose devolve a cor original e retira o halo')
+  ok(BUILTIN_LIGHT_SWATCHES.every((item) => /^#[0-9a-f]{6}$/.test(item.glass) && /^#[0-9a-f]{6}$/.test(item.glow) && item.glass !== item.glow), 'biblioteca: pares vidro/brilho válidos e distintos')
+  ok(swatchName('#2BFF6A') === 'Verde' && swatchName('#1c9a46') === undefined, 'biblioteca: nome pela cor do brilho')
+}
+
 console.log(`${checks} verificações de brilho passaram.`)

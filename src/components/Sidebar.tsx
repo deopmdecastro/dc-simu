@@ -31,6 +31,7 @@ import { componentEditorVersionOf, formatComponentUpdateDate } from '../three/co
 import { IconSearch, IconLayers, IconPlus, IconCopy, IconLock, IconRotate, IconDelete, IconChevronDown, IconProjects, IconCube, IconClose, IconCheck, IconEye, IconEyeOff } from '../ui/icons'
 import { WireOptionsFields } from '../ui/WireOptions'
 import { setWireActionSlot } from '../ui/wireActionSlot'
+import { allLightSwatches, swatchBackground, useLightColorLibrary } from '../catalog/lightColorLibrary'
 
 const label = 'dc-field-label'
 const STATE_LABELS: Record<string, string> = {
@@ -46,11 +47,32 @@ const STATE_LABELS: Record<string, string> = {
   currentMa: 'Corrente máxima (mA)', serviceLifeHours: 'Vida útil (h)', protection: 'Proteção',
   operatingTemperature: 'Temperatura de serviço', motorConnection: 'Pontes da caixa de bornes',
 }
-const PILOT_LIGHT_COLORS = [
-  { name: 'Vermelho', value: '#ef4444' }, { name: 'Verde', value: '#22c55e' },
-  { name: 'Amarelo', value: '#eab308' }, { name: 'Azul', value: '#3b82f6' },
-  { name: 'Branco', value: '#f8fafc' }, { name: 'Laranja', value: '#f97316' },
-] as const
+/** Sinaleiros nativos: a cor escolhe-se na biblioteca de cores de luzes (vidro + brilho). */
+const SIGNAL_LAMP_TYPES = new Set(['pilotLightAd22', 'ledGreen', 'ledRed', 'ledYellow', 'ledWhite'])
+
+/** Cor de um sinaleiro: pares da biblioteca (anel = vidro, centro = brilho) + brilho e vidro à medida. */
+function LightColorStateField({ color, glass, onChange }: { color: string; glass?: string; onChange: (patch: { color: string; glassColor?: string }) => void }) {
+  const custom = useLightColorLibrary((s) => s.custom)
+  const library = allLightSwatches(custom)
+  const valid = (hex: string) => /^#[\da-f]{6}$/i.test(hex)
+  const current = library.find((item) => item.glow === color.toLowerCase() && (!glass || item.glass === glass.toLowerCase()))
+  return <div className="dc-color-field" data-light-color-field>
+    <div className="dc-color-field-heading"><span>Cor da luz</span><span className="dc-color-field-current" title={`vidro ${glass ?? 'automático'} · brilho ${color}`}>{current?.name ?? color.toUpperCase()}</span></div>
+    <div className="dc-color-swatches" role="group" aria-label="Biblioteca de cores de luzes">
+      {library.map((item) => {
+        const selected = item.glow === color.toLowerCase() && (glass ?? '').toLowerCase() === item.glass
+        return <button key={item.id} type="button" className={`dc-color-swatch${selected ? ' is-selected' : ''}`} style={{ background: swatchBackground(item.glass, item.glow) }}
+          title={`${item.name} · vidro ${item.glass} · brilho ${item.glow}`} aria-label={item.name} aria-pressed={selected} onClick={() => onChange({ color: item.glow, glassColor: item.glass })} />
+      })}
+    </div>
+    <label className="dc-color-hex-row"><span>Brilho</span><span className="dc-color-hex-input-wrap">
+      <input type="color" className="dc-color-native" value={valid(color) ? color : '#ff0000'} aria-label="Cor do brilho" onChange={(event) => onChange({ color: event.target.value, glassColor: glass })} />
+      <code>{color}</code></span></label>
+    <label className="dc-color-hex-row"><span>Vidro</span><span className="dc-color-hex-input-wrap">
+      <input type="color" className="dc-color-native" value={glass && valid(glass) ? glass : '#666666'} aria-label="Cor do vidro" onChange={(event) => onChange({ color, glassColor: event.target.value })} />
+      <code>{glass ?? 'automático'}</code></span></label>
+  </div>
+}
 const EXTRA_STATE_LABELS: Record<string, string> = {
   pressed: 'Premido', latched: 'Encravamento', resetMethod: 'Método de rearme',
   mountingMm: 'Diâmetro de montagem (mm)', ithA: 'Corrente térmica Ith (A)',
@@ -611,9 +633,14 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                       </label>
                     )
                   }
+                  if (k === 'glassColor') return null
+                  if (k === 'color' && typeof v === 'string' && SIGNAL_LAMP_TYPES.has(selectedComponent.type)) {
+                    return <LightColorStateField key={k} color={v} glass={typeof selectedComponent.state.glassColor === 'string' ? selectedComponent.state.glassColor : undefined}
+                      onChange={(patch) => useSimStore.getState().setComponentState(selectedComponent.id, patch)} />
+                  }
                   if (k === 'color' && typeof v === 'string') {
                     return <ColorPaletteField key={k} value={v}
-                      options={selectedComponent.type === 'pilotLightAd22' ? PILOT_LIGHT_COLORS : BODY_COLOR_OPTIONS}
+                      options={BODY_COLOR_OPTIONS}
                       ariaLabel={stateLabel(k).toLowerCase()} fieldLabel={stateLabel(k)}
                       onChange={(value) => useSimStore.getState().setComponentState(selectedComponent.id, { color: value })} />
                   }

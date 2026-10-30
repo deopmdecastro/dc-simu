@@ -72,11 +72,20 @@ export default function MultimeterDm20Panel({ component, model, interactive = tr
     // Quatro milésimos à frente do vidro: visualmente colado, sem z-fighting.
     return { position: [center.x, center.y, box.max.z + 0.004] as [number, number, number], size: [size.x, size.y] as [number, number] }
   }, [model])
-  const physicalButtons = useMemo(() => ({
-    sel: model?.getObjectByName('occurrence_of_Plane004_Material003_0'),
-    off: model?.getObjectByName('occurrence_of_Plane002_Material002_0'),
-    hold: model?.getObjectByName('occurrence_of_Plane003_Material007_0'),
-  }), [model])
+  const physicalButtons = useMemo(() => {
+    const buttons = {
+      sel: model?.getObjectByName('occurrence_of_Plane004_Material003_0'),
+      off: model?.getObjectByName('occurrence_of_Plane002_Material002_0'),
+      hold: model?.getObjectByName('occurrence_of_Plane003_Material007_0'),
+    }
+    // Teclas e seletor movem-se: ficam fora da junção estática de malhas (procuram-se pelo nome).
+    for (const part of Object.values(buttons)) if (part) part.userData.dcNoMerge = true
+    for (const name of ['occurrence_of_Plane008_Material004_0', 'occurrence_of_Plane010_Material003_0', 'occurrence_of_Cube002_Material008_0']) {
+      const part = model?.getObjectByName(name)
+      if (part) part.userData.dcNoMerge = true
+    }
+    return buttons
+  }, [model])
   useFrame((_, delta) => {
     for (const [id, part] of Object.entries(physicalButtons)) {
       if (!part) continue

@@ -10,6 +10,7 @@ import { deleteSelection } from './partActions'
 import { ancestorsOf, isPartLocked, normalizeText, rangeBetween, visibleRows } from './selectionOps'
 import { areaThumbnail, partThumbnail } from './partThumb'
 import { partWorldMatrix, reparentPartPreservingWorld } from './partTransforms'
+import { swatchBackground } from '../../catalog/lightColorLibrary'
 
 /** Miniatura 3D da peça (cai para o ícone da forma quando não há imagem). */
 function PartThumb({ partId, kind, size }: { partId: string; kind: PartDef['kind']; size: number }) {
@@ -305,7 +306,7 @@ export default function Hierarchy({ collapsed: panelCollapsed = false, onToggle,
       </ElementSection>
       <ElementSection id="lights" title="Luzes" count={matchingLights.length} visible={show('lights') && (category !== 'all' || counts.lights > 0)} searching={filtering} active={selection?.kind === 'light' && selection.id}>
       {matchingLights.map((light) => <button key={light.id} aria-pressed={selection?.kind === 'light' && selection.id === light.id} className={`ce-row ce-row-btn${selection?.kind === 'light' && selection.id === light.id ? ' is-active' : ''}`}
-        onClick={() => { useEditorStore.getState().set({ selection: { kind: 'light', id: light.id }, tab: 'lights' }); openProperties() }}><i className="ce-dot" style={{ background: light.color }} /><span className="ce-row-name">{light.name}</span></button>)}
+        onClick={() => { useEditorStore.getState().set({ selection: { kind: 'light', id: light.id }, tab: 'lights' }); openProperties() }}><i className="ce-dot" style={{ background: swatchBackground(light.glassColor, light.color) }} /><span className="ce-row-name">{light.name}</span></button>)}
       {matchingLights.length === 0 && <p className="ce-empty">{filtering ? 'Nenhuma luz corresponde à pesquisa.' : 'Sem zonas luminosas. Crie uma no separador Luzes do inspetor.'}</p>}
       </ElementSection>
     </div>

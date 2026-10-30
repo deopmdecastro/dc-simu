@@ -12,7 +12,7 @@
 // ============================================================================
 
 import { hiddenCatalogTypes } from '../catalog/hidden'
-import { importedTemplates } from './importedComponents'
+import { importedTemplates, upgradeImportedTerminals } from './importedComponents'
 import { FACE_INWARD, terminalInsetMm, realTerminalPosition, REAL_TERMINALS, type RealTerminalSpot } from './realInterfaces'
 import { LEGACY_REAL_TERMINALS } from './legacyRealInterfaces'
 import { parseCatalogType } from '../catalog/types'
@@ -855,7 +855,8 @@ function surfacePosition(spot: RealTerminalSpot): { x: number; y: number; z: num
 
 /** Migra posições automáticas antigas (Y invertido ou ponto na superfície).
  *  Preserva bornes movidos à mão e a identidade dos componentes já atualizados. */
-export function upgradeRealInterfacePositions(c: ElectricalComponent): ElectricalComponent {
+export function upgradeRealInterfacePositions(input: ElectricalComponent): ElectricalComponent {
+  const c = upgradeImportedTerminals(input, createTerminal)
   const spots = REAL_TERMINALS[c.type]
   if (!spots?.length) return c
   let changed = false

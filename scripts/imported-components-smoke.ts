@@ -5,9 +5,10 @@ import { createHash } from 'node:crypto'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { ComponentType } from '../src/types'
-import { createComponent, TEMPLATES } from '../src/electrical/factory'
+import { createComponent, TEMPLATES, upgradeRealInterfacePositions } from '../src/electrical/factory'
+import { REAL_TERMINALS, realTerminalPosition } from '../src/electrical/realInterfaces'
 import { internalBridges } from '../src/electrical/engine'
-import { importedActuationPatch, updateImportedPower } from '../src/electrical/importedComponents'
+import { importedActuationPatch, updateImportedLoads, updateImportedPower } from '../src/electrical/importedComponents'
 import { IMPORTED_COMPONENT_TYPES } from '../src/types/imported'
 import { canInsertComponent3D, getComponentGlbSpec } from '../src/three/modelPaths'
 import { useSimStore } from '../src/store/useSimStore'
@@ -61,7 +62,33 @@ safety.state.resetRequested=true;updateImportedPower(safety,live,graph)
 check(safety.state.energized && labels(safety).includes('14:A1') && labels(safety).includes('24:A1'),'rearme com os dois canais e retorno fechados alimenta as duas saídas estáticas')
 updateImportedPower(safety,new Set(),graph)
 check(!safety.state.energized && labels(safety).length===0,'perda de alimentação desabilita imediatamente o relé e as saídas')
-for(const id of ['keyActuatorEao61','towerLightSb23011'] as const)check(createComponent(id).terminals.length===0,`${id}: nenhum contacto/pino inventado sem identificação`)
+const key=createComponent('keyActuatorEao61')
+assert.deepEqual(labels(key),['11:12']);checks++
+key.state.pressed=true
+check(labels(key).join()==='11:14','chave EAO: repouso 11–12, chave rodada 11–14 (comutador do elemento desenhado no CAD)')
+check(Object.assign(key,{state:{...key.state,...importedActuationPatch(key,false)}}).state.pressed===false,'chave EAO volta ao repouso quando se larga (retorno por mola)')
+const tower=createComponent('towerLightSb23011')
+const towerId=(label:string)=>tower.terminals.find(t=>t.label===label)!.id
+check(['R','Y','G','COM'].every(label=>tower.terminals.some(t=>t.label===label)),'torre: um fio por cor e o comum')
+updateImportedLoads(tower,new Set([towerId('R')]))
+check(!tower.state.red,'torre: a cor não acende sem o comum')
+updateImportedLoads(tower,new Set([towerId('R'),towerId('G'),towerId('COM')]))
+check(tower.state.red&&tower.state.green&&!tower.state.yellow&&tower.state.on,'torre: cada cor acende com o seu fio e o comum')
+for(const id of IMPORTED_COMPONENT_TYPES){
+ const spots=REAL_TERMINALS[id as ComponentType]
+ const c=createComponent(id as ComponentType)
+ if(!c.terminals.length)continue
+ check(!!spots&&c.terminals.every(t=>spots.some(s=>s.label===t.label)),`${id}: todos os bornes têm posição medida no CAD`)
+ const spot=(label:string)=>spots!.find(s=>s.label===label)!
+ check(c.terminals.every(t=>{const p=realTerminalPosition(id as ComponentType,spot(t.label));return Math.hypot(p.x-t.position3D!.x,p.y-t.position3D!.y,p.z-t.position3D!.z)<1e-9}),`${id}: borne criado no sítio medido`)
+}
+// Projetos gravados com a fila genérica migram para o sítio medido; a torre antiga ganha os fios.
+const legacyThermal=createComponent('thermalRelaySiemens3ru1116')
+legacyThermal.terminals=legacyThermal.terminals.map(t=>t.label==='95'?{...t,position3D:{x:.7,y:1,z:.5}}:t)
+const upgradedThermal=upgradeRealInterfacePositions(legacyThermal)
+check(upgradedThermal.terminals.find(t=>t.label==='95')!.position3D!.z>.85,'projeto antigo: 95 passa da fila genérica do topo para a frente do relé')
+const legacyTower=createComponent('towerLightSb23011');legacyTower.terminals=[]
+check(upgradeRealInterfacePositions(legacyTower).terminals.length===4,'projeto antigo: torre sem fios recebe R/Y/G/COM')
 
 for(const id of IMPORTED_COMPONENT_TYPES){
  check(!!TEMPLATES[id],`${id}: referência disponível no catálogo`)

@@ -1,0 +1,51 @@
+<!doctype html><html lang="pt"><meta charset="utf-8"><title>Acabamento e mecânica dos CAD importados</title>
+<style>body{font:12px system-ui;margin:12px;background:#eef2f7;color:#17213a}main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}article{padding:10px;background:#fff}h2{font-size:13px;margin:0 0 6px}.views{display:flex;gap:6px}.views figure{margin:0;flex:1}.views img{width:100%;display:block;background:#1e2430}figcaption{font-size:10px;color:#64748b}</style>
+<h1>CAD importados — repouso e estado ativo (materiais, peças móveis, LED e lâmpadas)</h1><main></main>
+<script type="module">
+// Revisão visual de `src/three/importedFinish.ts`: mesmo pipeline do Painel 3D
+// (pintura → acabamento PBR → mecânica), duas poses por modelo. Uso: ?types=a,b
+import * as THREE from 'three'
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
+import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment.js'
+import models from '/src/data/imported-component-models.json'
+const {paintImportedModel,rigImportedModel,animateImportedRig}=await import('/src/three/importedFinish.ts')
+const {finishCadMaterial}=await import('/src/three/catalogMaterials.ts')
+const ACTIVE={
+ fuseHolderSchneiderDf103nv:{closed:false,blown:true},fuseHolderSchneiderDf101v:{closed:false,blown:true},fuseHolderSchneiderDf81n:{closed:false,blown:true},
+ thermalRelaySiemens3ru1116:{tripped:true},selectorSchneiderXa2ed33:{position:-1},keyActuatorEao61:{pressed:true},
+ towerLightSb23011:{red:true,yellow:true,green:true},safetyRelaySiemens3tk2840:{powered:true,energized:true},
+ photoSensorXukt1ksml2:{powered:true,triggered:true,no:true},motorBreakerSchneiderGv2me:{closed:true},
+ residualBreakerHagerCfc225p:{closed:true},contactorWegCwbc65:{energized:true},surgeProtectorWegSpw02:{},surgeProtectorWegSpw12:{}}
+const REST={selectorSchneiderXa2ed33:{position:0},motorBreakerSchneiderGv2me:{closed:false}}
+const requested=new URLSearchParams(location.search).get('types')?.split(',')
+const S=360
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true})
+renderer.setSize(S,S);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping
+const env=new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(),.04).texture
+const loader=new GLTFLoader()
+window.auditState={ready:0,errors:[],report:{}}
+for(const model of models.filter(m=>!requested||requested.includes(m.type))){
+ const article=document.createElement('article');article.innerHTML=`<h2>${model.type}</h2><div class="views"></div><p class="r"></p>`;document.querySelector('main').append(article)
+ try{
+  const root=(await loader.loadAsync(model.path)).scene
+  const parts=paintImportedModel(model.type,root)
+  const finish=()=>root.traverse(n=>{if(n.isMesh&&!n.userData.cadFinished){n.userData.cadFinished=true;n.material=finishCadMaterial(n.material,{envMapIntensity:1.1})}})
+  finish();const rig=rigImportedModel(model.type,root,parts);finish()
+  root.scale.setScalar(1000)
+  const scene=new THREE.Scene();scene.environment=env;scene.background=new THREE.Color('#1e2430');scene.add(root)
+  const key=new THREE.DirectionalLight(0xffffff,1.4);key.position.set(150,300,400);scene.add(key)
+  const box=new THREE.Box3().setFromObject(root),c=box.getCenter(new THREE.Vector3()),sz=box.getSize(new THREE.Vector3()),span=Math.max(sz.x,sz.y,sz.z)*1.25
+  const cam=new THREE.OrthographicCamera(-span/2,span/2,span/2,-span/2,.1,span*20)
+  cam.position.copy(c).add(new THREE.Vector3(.9,.55,1.6).normalize().multiplyScalar(span*4));cam.lookAt(c)
+  const shot=(label,state)=>{for(let i=0;i<90;i++)animateImportedRig(rig,model.type,state,true,1/30);renderer.render(scene,cam);const f=document.createElement('figure');f.innerHTML=`<img src="${renderer.domElement.toDataURL()}"><figcaption>${label}</figcaption>`;article.querySelector('.views').append(f)}
+  shot('repouso',{closed:true,...REST[model.type]})
+  // GV2ME: o botão mergulha na mudança de estado — fotografa a meio do impulso
+  if(model.type==='motorBreakerSchneiderGv2me'){animateImportedRig(rig,model.type,{closed:true},true,1/60);for(let i=0;i<4;i++)animateImportedRig(rig,model.type,{closed:true},true,1/60);renderer.render(scene,cam);const f=document.createElement('figure');f.innerHTML=`<img src="${renderer.domElement.toDataURL()}"><figcaption>ligar (botão I)</figcaption>`;article.querySelector('.views').append(f)}
+  else shot('ativo: '+JSON.stringify(ACTIVE[model.type]),ACTIVE[model.type]??{})
+  const r={pivots:rig.pivots.map(p=>p.role),lamps:rig.lamps.map(l=>l.role),materials:[...new Set(parts.map(p=>{const m=Array.isArray(p.mesh.material)?p.mesh.material[0]:p.mesh.material;return m.name}))]}
+  window.auditState.report[model.type]=r;article.querySelector('.r').textContent=JSON.stringify(r)
+ }catch(e){window.auditState.errors.push({type:model.type,message:String(e&&e.stack||e)});article.append(String(e))}
+ window.auditState.ready++
+}
+window.auditState.done=true
+</script></html>

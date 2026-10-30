@@ -73,7 +73,8 @@ ok('cadeia sã não produz erros', !validateGrafcet(chain).some((issue) => issue
 ok('«5» e «Etapa 5» mostram o mesmo identificador → dupnum', validateGrafcet({ steps: [step('a', '0', true), step('b', '5'), step('c', 'Etapa 5'), step('d', '8')], transitions: [] }).some((issue) => issue.id.endsWith(':dupnum')))
 ok('identificadores distintos sem dupnum', !validateGrafcet(chain).some((issue) => issue.id.endsWith(':dupnum')))
 
-ok('duas etapas iniciais avisam', validateGrafcet({ steps: [step('a', '0', true), step('b', '5', true)], transitions: [] }).some((issue) => issue.id === 'initial:several'))
+ok('duas etapas iniciais no mesmo GRAFCET avisam', validateGrafcet({ steps: [step('a', '0', true), step('b', '5', true)], transitions: [{ id: 'tx', from: ['a'], to: ['b'], condition: 'I1' }, { id: 'ty', from: ['b'], to: ['a'], condition: 'I2' }] }).some((issue) => issue.id === 'initial:several'))
+ok('GRAFCET parciais independentes (produção + segurança) podem ter cada um a sua inicial', !validateGrafcet({ steps: [step('a', '0', true), step('b', '1'), step('s', '10', true), step('e', '11')], transitions: [{ id: 'tx', from: ['a'], to: ['b'], condition: 'I1' }, { id: 'ty', from: ['b'], to: ['a'], condition: 'I2' }, { id: 'tz', from: ['s'], to: ['e'], condition: 'I3' }, { id: 'tw', from: ['e'], to: ['s'], condition: 'I4' }] }).some((issue) => issue.id === 'initial:several'))
 ok('uma só inicial não avisa', !validateGrafcet(chain).some((issue) => issue.id === 'initial:several'))
 
 const conflict: GrafcetProgram = {

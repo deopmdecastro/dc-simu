@@ -1323,3 +1323,12 @@
   .ce-inspector .ce-pointrow { grid-template-columns:22px repeat(3,minmax(0,1fr)) 36px; gap: 6px; }
   .ce-inspector .ce-pointrow .ce-icon { min-width:36px; min-height:36px; }
 }
+
+/* Cores de luzes: pares vidro (anel) + brilho (centro), biblioteca e paleta */
+.ce-light-swatch { flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08); transition: transform 0.1s ease; }
+.ce-light-swatch:hover { transform: scale(1.08); }
+.ce-light-lib-item { display: inline-flex; align-items: center; gap: 1px; }
+.ce-light-palette-rows { display: grid; gap: 4px; margin: 2px 0 8px; }
+.ce-light-palette-row { display: grid; grid-template-columns: 20px minmax(0, 64px) minmax(0, 1fr) auto; align-items: center; gap: 6px; font-size: 11px; }
+.ce-light-palette-row code { font-size: 10.5px; color: #475569; overflow: hidden; text-overflow: ellipsis; }
+.ce-light-palette-glass .ce-color code { display: none; }

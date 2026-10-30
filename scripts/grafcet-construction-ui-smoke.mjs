@@ -4,7 +4,7 @@ import path from 'node:path'
 import { chromium } from 'playwright'
 
 // Fresh browser + blocked API/network: no account/project data leaves this test.
-const baseURL = process.env.GRAFCET_TEST_URL || 'http://127.0.0.1:5175'
+const baseURL = process.env.GRAFCET_TEST_URL || 'http://127.0.0.1:5173'
 const output = process.env.GRAFCET_TEST_OUTPUT
 if (output) await mkdir(output, { recursive: true })
 const browser = await chromium.launch(process.env.GRAFCET_TEST_EXECUTABLE
@@ -15,7 +15,18 @@ await context.route('**/*', (route) => {
   const url = new URL(route.request().url())
   return url.origin === new URL(baseURL).origin && !url.pathname.startsWith('/api/') ? route.continue() : route.abort()
 })
-await context.addInitScript(() => localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin'))
+await context.addInitScript(() => {
+  performance.setResourceTimingBufferSize(10000)
+  localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin')
+// O Vite (com HMR) serve módulos alterados com «?t=…»: um import('/src/…') sem esse sufixo criava
+// OUTRA instância da store e os dados de teste iam para uma store que a página não usa. Importa o módulo
+// exatamente com o URL que a aplicação carregou.
+globalThis.__dcAppImport = (path) => {
+  const hit = performance.getEntriesByType('resource').map((entry) => entry.name)
+    .filter((url) => { try { return new URL(url).pathname === path } catch { return false } }).pop()
+  return import(hit || path)
+}
+})
 const page = await context.newPage()
 const errors = []
 page.on('pageerror', (error) => errors.push(error.message))
@@ -24,7 +35,7 @@ const check = (value, message) => { assert.ok(value, message); console.log(`PASS
 const step = (id, name, x, y, initial = false) => ({ id, name, x, y, pinned: true, initial, action: '', condition: '', actions: [] })
 const fixture = () => ({ steps: [step('a', '1', 180, 100, true), step('b', '2', 180, 400), step('c', '3', 500, 400)], transitions: [{ id: 't1', name: 'T1', from: ['a'], to: ['b'], condition: 'I1' }], comments: [], freeActions: [] })
 const read = () => page.evaluate(async () => {
-  const { useSimStore } = await import('/src/store/useSimStore.ts')
+  const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
   return JSON.parse(JSON.stringify(useSimStore.getState().grafcet))
 })
 const chooseImportFile = async (file) => {
@@ -32,16 +43,23 @@ const chooseImportFile = async (file) => {
   if (await direct.isVisible()) {
     await direct.click()
   } else {
-    await page.getByRole('button', { name: /Mais GRAFCET/ }).click()
-    await page.locator('[data-tm-item="import-grafcet"]').click()
+    // A barra compacta (larguras em que nem tudo cabe) guarda a importação em «Mais GRAFCET» ou em «Mais».
+    const grafcetMenu = page.getByRole('button', { name: /Mais GRAFCET/ })
+    if (await grafcetMenu.isVisible()) {
+      await grafcetMenu.click()
+      await page.locator('[data-tm-item="import-grafcet"]').click()
+    } else {
+      // Mesmo pedido que o item de menu emite (o menu compacto varia com a largura da barra).
+      await page.evaluate(async () => { const { useGrafcetUi } = await globalThis.__dcAppImport('/src/grafcet/grafcetBus.ts'); useGrafcetUi.getState().emit('importJson') })
+    }
   }
   const input = page.locator('input[type="file"][accept*=".ct"]').first()
   await input.waitFor({ state: 'attached' })
   await input.setInputFiles(file)
 }
 const set = (program = fixture()) => page.evaluate(async (program) => {
-  const { useSimStore } = await import('/src/store/useSimStore.ts')
-  const { useGrafcetUi } = await import('/src/grafcet/grafcetBus.ts')
+  const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
+  const { useGrafcetUi } = await globalThis.__dcAppImport('/src/grafcet/grafcetBus.ts')
   useSimStore.getState().setGrafcet(program, 'force')
   useGrafcetUi.getState().setTool('connect')
 }, program)
@@ -94,7 +112,7 @@ try {
   check((await read()).transitions.length === 1 && await page.locator('.grafcet-wire-draft').count() === 0, 'Escape cancela o arrasto sem alterar o diagrama')
 
   await set()
-  await page.evaluate(async () => { const { useGrafcetUi } = await import('/src/grafcet/grafcetBus.ts'); useGrafcetUi.getState().setTool('select') })
+  await page.evaluate(async () => { const { useGrafcetUi } = await globalThis.__dcAppImport('/src/grafcet/grafcetBus.ts'); useGrafcetUi.getState().setTool('select') })
   const segment = page.locator('.grafcet-editable-segment').first()
   const bounds = await segment.boundingBox(); assert.ok(bounds)
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 4)
@@ -108,7 +126,7 @@ try {
   cycle.steps.find((item) => item.id === 'c').x = 180
   cycle.transitions.push({ id: 't3', name: 'T3', from: ['c'], to: ['a'], condition: 'I3' })
   await set(cycle)
-  await page.evaluate(async () => { const { useGrafcetUi } = await import('/src/grafcet/grafcetBus.ts'); useGrafcetUi.getState().setTool('select') })
+  await page.evaluate(async () => { const { useGrafcetUi } = await globalThis.__dcAppImport('/src/grafcet/grafcetBus.ts'); useGrafcetUi.getState().setTool('select') })
   const returnSegment = page.locator('.grafcet-editable-segment').nth(1)
   const returnPoint = await returnSegment.evaluate((element) => {
     const path = element

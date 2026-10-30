@@ -2,7 +2,7 @@ import './node-env'
 import fs from 'node:fs'
 import { lintLadder } from '../src/ladder/ladderLint'
 import { grafcetToLadder } from '../src/grafcet/toLadder'
-import { SPINE_X, START_Y, GRID, COLUMN_WIDTH, snapToGrid, clampPosition, alignToOthers, findFreeSlot, autoLayout, stepPitch } from '../src/grafcet/layout'
+import { SPINE_X, START_Y, GRID, COLUMN_WIDTH, snapToGrid, clampPosition, alignToOthers, findFreeSlot, autoLayout, stepPitch, resizeBox, originShift, stepSize, actionSize, STEP_SIZE_LIMITS, ACTION_SIZE_LIMITS } from '../src/grafcet/layout'
 import { detectGrafcetIo, inputsInCondition, symbolsInCondition } from '../src/grafcet/inputDetect'
 import { rectFromPoints, stepsInRect, unionIds, toggleId, clampGroupDelta, alignPositions, distributePositions, cloneSubDiagram, boundsOf, fitView } from '../src/grafcet/selection'
 import { signalUsage, undeclaredSignals, tagsToDeclare, tokenAtCursor, matchSignals, insertCondition } from '../src/grafcet/signals'
@@ -2166,6 +2166,26 @@ console.log('\n— Cenário 4: partida sequencial + contagem —')
 
   check('grelha: encaixe arredonda ao múltiplo mais próximo da origem', snapToGrid(SPINE_X + 29, SPINE_X) === SPINE_X + GRID * 1 && snapToGrid(SPINE_X + 31, SPINE_X) === SPINE_X + GRID * 2)
   check('grelha: o eixo central é sempre um ponto da grelha', snapToGrid(SPINE_X + 3, SPINE_X) === SPINE_X && snapToGrid(START_Y - 4, START_Y) === START_Y)
+  // Redimensionar etapas/ações e arrastar para qualquer lado
+  const sz = stepSize(undefined)
+  check('tamanho: etapa sem medidas usa 64×54', sz.w === 64 && sz.h === 54)
+  check('tamanho: medidas guardadas respeitam limites', stepSize({ w: 9999, h: 1 } as never).w === STEP_SIZE_LIMITS.maxW && stepSize({ w: 9999, h: 1 } as never).h === STEP_SIZE_LIMITS.minH)
+  check('tamanho: ação sem medidas usa 140×30', actionSize(undefined).w === 140 && actionSize(undefined).h === 30)
+  const face = resizeBox({ x: 100, y: 50, w: 140, h: 30 }, 'e', 40, 25, ACTION_SIZE_LIMITS, false)
+  check('redimensionar: face este muda só a largura', face.w === 180 && face.h === 30 && face.x === 100 && face.y === 50)
+  const west = resizeBox({ x: 100, y: 50, w: 140, h: 30 }, 'w', -20, 0, ACTION_SIZE_LIMITS, false)
+  check('redimensionar: face oeste move a esquerda e alarga', west.w === 160 && west.x === 80)
+  const north = resizeBox({ x: 151, y: 100, w: 64, h: 54 }, 'n', 0, -20, STEP_SIZE_LIMITS, true)
+  check('redimensionar: face norte sobe o topo e mantém o eixo', north.h === 74 && north.y === 80 && north.x === 151)
+  const eStep = resizeBox({ x: 151, y: 100, w: 64, h: 54 }, 'e', 10, 0, STEP_SIZE_LIMITS, true)
+  check('redimensionar: etapa cresce para os dois lados do eixo', eStep.w === 84 && eStep.x === 151)
+  const corner = resizeBox({ x: 0, y: 0, w: 140, h: 30 }, 'se', 70, 0, ACTION_SIZE_LIMITS, false)
+  check('redimensionar: canto mantém a proporção', corner.w === 210 && corner.h === 45)
+  const tiny = resizeBox({ x: 0, y: 0, w: 140, h: 30 }, 'se', -500, -500, ACTION_SIZE_LIMITS, false)
+  check('redimensionar: canto não desce abaixo do mínimo', tiny.w >= ACTION_SIZE_LIMITS.minW && tiny.h >= ACTION_SIZE_LIMITS.minH && Math.abs(tiny.w / tiny.h - 140 / 30) < 0.1)
+  check('origem: diagrama dentro do quadro não muda', originShift(10, 5).dx === 0 && originShift(10, 5).dy === 0)
+  const shift = originShift(-120, -30)
+  check('origem: arrastar para lá da borda desloca a página', shift.dx === 160 && shift.dy > 30)
   check('grelha: limites impedem posições negativas', clampPosition(-50, -50).x >= 100 && clampPosition(-50, -50).y > 0 && clampPosition(300, 400).x === 300)
 
   const guide = alignToOthers(203, 118, [{ x: 200, y: 400 }, { x: 600, y: 120 }], 6)

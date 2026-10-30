@@ -7,10 +7,13 @@ import { useCatalogStore } from './registry'
 import { triggerControl, useCatalogMeter } from './runtimeControls'
 import { selectorValue } from './behavior'
 import { catalogUpdateInfo, duplicateAsIndependent, updateCatalogComponent } from './update'
+import { glassFor } from './lightLook'
+import { swatchBackground, swatchName, useLightColorLibrary } from './lightColorLibrary'
 
 /** Secção do inspetor para componentes do catálogo oficial 3D: versão instalada, atualizações, estados e cópia independente. */
 export default function CatalogInspector({ component }: { component: ElectricalComponent }) {
   const entries = useCatalogStore((s) => s.entries)
+  const customSwatches = useLightColorLibrary((s) => s.custom)
   const [showChanges, setShowChanges] = useState(false)
   const link = component.catalog
   const entry = useMemo(() => entries.find((item) => item.id === link?.id), [entries, link?.id])
@@ -69,9 +72,12 @@ export default function CatalogInspector({ component }: { component: ElectricalC
           <div className="text-[11px] text-ink-600 mb-1">{zone.name}</div>
           <div className="flex gap-1 flex-wrap">{zone.userPalette!.map((color) => {
             const selected = (selectedColors[zone.id] ?? zone.color).toLowerCase() === color.toLowerCase()
-            return <button key={color} type="button" aria-label={`${zone.name}: ${color}`} aria-pressed={selected} title={color}
+            const glass = zone.tintMaterial === false ? undefined : glassFor(zone, color)
+            const name = swatchName(color, glass, customSwatches)
+            const title = `${name ? `${name} · ` : ''}${glass ? `vidro ${glass} · ` : ''}brilho ${color}`
+            return <button key={color} type="button" aria-label={`${zone.name}: ${name ?? color}`} aria-pressed={selected} title={title}
               className={`h-7 w-7 rounded-full border-2 ${selected ? 'border-brand-600 ring-2 ring-brand-200' : 'border-slate-300'}`}
-              style={{ backgroundColor: color }} onClick={() => useSimStore.getState().setComponentState(component.id, { catalogColors: { ...selectedColors, [zone.id]: color } })} />
+              style={{ background: swatchBackground(glass, color) }} onClick={() => useSimStore.getState().setComponentState(component.id, { catalogColors: { ...selectedColors, [zone.id]: color } })} />
           })}</div>
         </div>)}
       </div>}

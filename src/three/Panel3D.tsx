@@ -2,8 +2,10 @@ import { isTabletDesktop } from '../ui/device'
 import CatalogComponent3D from './CatalogComponent3D'
 import { isCatalogType } from '../catalog/types'
 import { importedComponentInfo, importedActuationPatch } from '../electrical/importedComponents'
+import { animateImportedRig, paintImportedModel, rigImportedModel } from './importedFinish'
+import { markCadNodes, mergeStaticMeshes } from './staticMerge'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { OrbitControls, TransformControls, Edges, useGLTF } from '@react-three/drei'
+import { OrbitControls, PerformanceMonitor, TransformControls, Edges, useGLTF } from '@react-three/drei'
 import { Text } from './SceneText'
 import { useRef, useMemo, useState, useEffect, Suspense, Component } from 'react'
 import { createPortal } from 'react-dom'
@@ -206,14 +208,22 @@ const LOGO_1224RC_SPEC = getComponentModelSpec('plcSiemensLogo1224RC')!
 const LOGO_1224RC_MODEL_URL = LOGO_1224RC_SPEC.path
 const LOGO_1224RC_TARGET_HEIGHT = LOGO_1224RC_SPEC.targetHeight
 
+const BODY_TINT = new THREE.Color()
+/**
+ * Modo de apresentação (sólido/arames/raio-X) e tinta do corpo. Só toca no que mudou: a cor do material
+ * fica com quem a gere (lentes, LEDs, estados) exceto quando há tinta do corpo — antes cada render repunha
+ * a cor original (apagando a cor do vidro dos sinaleiros) e marcava `needsUpdate` em todos os materiais.
+ */
 function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['view3DRenderMode'], bodyColor?: string) {
   if (!group) return
+  const key = `${mode ?? 'solid'}|${bodyColor ?? ''}`
   group.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh || mesh.userData.presentationOverlay) return
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     materials.forEach((material) => {
       const visual = material as THREE.Material & { wireframe?: boolean; opacity: number; transparent: boolean; depthWrite: boolean }
+      if (visual.userData.dcSimuRenderKey === key) return
       const colorMaterial = visual as typeof visual & { color?: THREE.Color }
       if (!visual.userData.dcSimuPresentationBase) visual.userData.dcSimuPresentationBase = {
         wireframe: !!visual.wireframe,
@@ -224,16 +234,27 @@ function applyRenderMode(group: THREE.Group | null, mode: ElectricalComponent['v
       }
       const base = visual.userData.dcSimuPresentationBase as { wireframe: boolean; opacity: number; transparent: boolean; depthWrite: boolean; color?: string }
       const physicalSurface = material instanceof THREE.MeshStandardMaterial
-      visual.wireframe = mode === 'wireframe' ? true : base.wireframe
+      const wireframe = mode === 'wireframe' ? true : base.wireframe
+      const transparent = mode === 'xray' ? true : physicalSurface ? false : base.transparent
+      const depthWrite = mode === 'xray' ? false : physicalSurface ? true : base.depthWrite
+      // Recompilar só quando muda algo que altera o programa/estado de render.
+      const programChange = visual.wireframe !== wireframe || visual.transparent !== transparent || visual.depthWrite !== depthWrite
+      visual.wireframe = wireframe
       visual.opacity = mode === 'xray' ? Math.min(0.34, base.opacity) : physicalSurface ? 1 : base.opacity
-      visual.transparent = mode === 'xray' ? true : physicalSurface ? false : base.transparent
-      visual.depthWrite = mode === 'xray' ? false : physicalSurface ? true : base.depthWrite
+      visual.transparent = transparent
+      visual.depthWrite = depthWrite
       if (physicalSurface) visual.depthTest = true
       if (colorMaterial.color && base.color) {
-        colorMaterial.color.set(`#${base.color}`)
-        if (bodyColor) colorMaterial.color.lerp(new THREE.Color(bodyColor), 0.34)
+        if (bodyColor) {
+          colorMaterial.color.set(`#${base.color}`).lerp(BODY_TINT.set(bodyColor), 0.34)
+          visual.userData.dcSimuBodyTinted = true
+        } else if (visual.userData.dcSimuBodyTinted) {
+          colorMaterial.color.set(`#${base.color}`)
+          delete visual.userData.dcSimuBodyTinted
+        }
       }
-      visual.needsUpdate = true
+      visual.userData.dcSimuRenderKey = key
+      if (programChange) visual.needsUpdate = true
     })
   })
 }
@@ -426,7 +447,41 @@ function OrientedInstance({ c, pivot, sourcePivot, orientation, selected, editin
   const scale = component3DScaleOf(c)
   const renderMode = c.view3DRenderMode ?? 'solid'
   useEffect(() => applyRenderMode(modelRef.current, renderMode, c.bodyColor), [renderMode, c.bodyColor, children])
-  useFrame(() => { if (renderMode !== 'solid' || c.bodyColor) applyRenderMode(modelRef.current, renderMode, c.bodyColor) })
+  // Modelos que carregam depois (Suspense/GLB) recebem o modo numa verificação leve, ~3× por segundo
+  // (materiais já tratados saltam pela chave) — antes corria a cada frame com `needsUpdate` em todos.
+  // Junta as malhas estáticas do CAD por material (menos chamadas de desenho). Corre depois de os efeitos
+  // de montagem extraírem pivôs/cabeças/teclas e de o 1.º frame anotar as malhas que se movem; repete
+  // algumas vezes para os GLB que chegam mais tarde (Suspense). Catálogo: os nós são procurados pelo nome.
+  const invalidateMerge = useThree((three) => three.invalidate)
+  const framesSeen = useRef(0)
+  useFrame(() => { if (framesSeen.current < 3) framesSeen.current += 1 })
+  useEffect(() => {
+    if (isCatalogType(c.type)) return
+    let cancelled = false
+    let runs = 0
+    let timer = 0
+    const run = () => {
+      if (cancelled) return
+      // Só depois de pelo menos um frame desenhado: os useFrame anotam as malhas que movem (tampas, botões).
+      if (!framesSeen.current) { timer = window.setTimeout(run, 1000); return }
+      runs += 1
+      if (modelRef.current) {
+        const { before, after } = mergeStaticMeshes(modelRef.current)
+        if (after < before) invalidateMerge()
+      }
+      if (runs < 5) timer = window.setTimeout(run, 2500)
+    }
+    timer = window.setTimeout(run, 1400)
+    return () => { cancelled = true; window.clearTimeout(timer) }
+  }, [c.type, c.id, invalidateMerge])
+  const renderModeTick = useRef(0)
+  useFrame((_, delta) => {
+    if (renderMode === 'solid' && !c.bodyColor) return
+    renderModeTick.current += delta
+    if (renderModeTick.current < 0.33) return
+    renderModeTick.current = 0
+    applyRenderMode(modelRef.current, renderMode, c.bodyColor)
+  })
   useEffect(() => () => dragRef.current?.cleanup(), [])
 
   const startDrag = (event: ThreeEvent<PointerEvent>) => {
@@ -725,7 +780,12 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   }, [scene, spec])
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const en = simActive && !!c.state.energized
-  const armature = useMemo(() => model.getObjectByName('Node10'), [model])
+  const armature = useMemo(() => {
+    const node = model.getObjectByName('Node10')
+    // Anotar já: a armadura move-se sozinha, por isso nunca entra na junção estática de malhas.
+    if (node) node.userData.contactorBaseZ ??= node.position.z
+    return node
+  }, [model])
   useFrame((_, delta) => {
     if (!armature) return
     armature.userData.contactorBaseZ ??= armature.position.z
@@ -737,7 +797,6 @@ function WegContactorReal3D({ c, x }: { c: ElectricalComponent; x: number }) {
   })
   return <group position={[x, RAIL_Y, 0]}>
     <primitive object={model} castShadow receiveShadow />
-    {en && <pointLight color="#22c55e" intensity={0.22} distance={1.3} position={[0, spec.targetHeight * 0.5, 0.35]} />}
     <Label text={c.ref} position={[0, spec.targetHeight + 0.12, 0.24]} color={en ? '#4ade80' : '#e2e8f0'} />
   </group>
 }
@@ -777,20 +836,35 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
   const spec = getComponentModelSpec(c.type)!
   const centered = !!position
   const { scene } = useGLTF(spec.path)
-  const model = useMemo(() => {
+  const importedType = importedComponentInfo(c.type) ? c.type : null
+  const { model, importedRig } = useMemo(() => {
     const obj = cloneModelScene(scene)
-    obj.traverse((node) => {
+    // CAD importados: cores reais por peça antes do acabamento PBR comum.
+    const parts = importedType ? paintImportedModel(importedType, obj) : null
+    const finish = (root: THREE.Object3D) => root.traverse((node) => {
       const mesh = node as THREE.Mesh
-      if (!mesh.isMesh) return
+      if (!mesh.isMesh || mesh.userData.cadFinished) return
+      mesh.userData.cadFinished = true
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map((material) => finishCadMaterial(material, { envMapIntensity: 1.1 })) : finishCadMaterial(mesh.material, { envMapIntensity: 1.1 })
     })
+    finish(obj)
+    // Tudo o que existe até aqui é estático; os pivôs e lentes do rig criados a seguir ficam de fora da junção de malhas.
+    markCadNodes(obj)
+    // Peças móveis e indicadores (antes do ajuste: charneiras em mm do GLB); peças novas também levam o acabamento.
+    const rigged = importedType && parts ? rigImportedModel(importedType, obj, parts) : null
+    if (rigged) finish(obj)
     const fitted = fitComponentModel(obj, spec, PANEL_UNITS_PER_MM, centered ? 'center' : 'bottom')
     void applyCadSurfaceTextures(fitted)
-    return fitted
-  }, [scene, spec, centered])
+    return { model: fitted, importedRig: rigged }
+  }, [scene, spec, centered, importedType])
+  const invalidateFrame = useThree((three) => three.invalidate)
+  useFrame((_, delta) => {
+    if (!importedRig || !importedType) return
+    if (animateImportedRig(importedRig, importedType, c.state, useSimStore.getState().sim.runState !== 'stopped', Math.min(delta, 1 / 20))) invalidateFrame()
+  })
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const active = simActive && !!(c.state.energized || c.state.powered)
-  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760'].includes(c.type)
+  const breaker = ['breaker1p', 'breaker2p', 'breaker3p', 'breakerSteckSdC25', 'motorBreakerPkzmC10', 'phoenixEcb3000760', 'residualBreakerHagerCfc225p'].includes(c.type)
   /** Manípulo marcado no GLB (`dcsimu_handle_*`): charneira e curso medidos no CAD. */
   const rig = BREAKER_HANDLE_RIG[c.type]
   const breakerClosed = !!c.state.closed && !c.state.tripped
@@ -868,7 +942,8 @@ function CadComponentReal3D({ c, x, position, interactive = true, labelColor, la
     <primitive object={model} castShadow receiveShadow />
     {c.type === 'multimeterDm20' && <MultimeterDm20Panel component={c} model={model} interactive={interactive && !c.locked} />}
     <EquipmentStatusLights c={c} height={spec.targetHeight} />
-    {active && !breaker && !importedComponentInfo(c.type) && <pointLight color="#22c55e" intensity={0.18} distance={1.1} position={[0, spec.targetHeight * 0.55, 0.32]} />}
+    {/* Sem luz de ponto «energizado»: montar/desmontar luzes recompilava os shaders de toda a cena a cada
+        comutação; o estado vê-se no rótulo, nos LEDs e na pose do aparelho. */}
     <Label text={labelText ?? c.ref} position={[0, spec.targetHeight * (centered ? 0.5 : 1) + 0.1, 0.22]} color={labelColor ?? (active ? '#4ade80' : '#e2e8f0')} />
   </group>
 }
@@ -903,6 +978,7 @@ function EmergencyButtonReal3D({ c, x, onPress }: { c: ElectricalComponent; x: n
     const fitted = fitComponentModel(cloneModelScene(scene), spec, PANEL_UNITS_PER_MM, 'center')
     applyEmergencyButtonFinish(fitted, c.type)
     void applyCadSurfaceTextures(fitted)
+    markCadNodes(fitted)
     return fitted
   }, [scene, spec, c.type])
   const pressed = !!c.state.pressed
@@ -996,8 +1072,9 @@ function DualPushButtonReal3D({ c, x, onStart, onStop }: {
         const color = (material as THREE.MeshStandardMaterial).color
         if (!color) continue
         const { r, g, b } = color
-        if (g > 0.35 && g > r * 2.2 && g > b * 2.2) { found.start.push(mesh); return }
-        if (r > 0.35 && r > g * 2.2 && r > b * 2.2) { found.stop.push(mesh); return }
+        // As tampas movem-se uma a uma: ficam fora da junção estática de malhas.
+        if (g > 0.35 && g > r * 2.2 && g > b * 2.2) { mesh.userData.dcNoMerge = true; found.start.push(mesh); return }
+        if (r > 0.35 && r > g * 2.2 && r > b * 2.2) { mesh.userData.dcNoMerge = true; found.stop.push(mesh); return }
       }
     })
     return found
@@ -1150,12 +1227,14 @@ function Drive3D({ c, x }: { c: ElectricalComponent; x: number }) {
 function Lamp3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const color = c.state.color ?? (c.type === 'ledGreen' ? '#22c55e' : c.type === 'ledRed' ? '#ef4444' : '#eab308')
+  // Vidro (biblioteca de cores de luzes): a lente tem a sua cor mesmo apagada; sem vidro escolhido fica o cinzento antigo.
+  const glass = typeof c.state.glassColor === 'string' ? c.state.glassColor : null
   const on = simActive && !!c.state.on
   return (
     <group position={[x, RAIL_Y + 1.15, 0.12]}>
       <mesh castShadow>
         <cylinderGeometry args={[0.115, 0.115, 0.14, 24]} />
-        <meshStandardMaterial color={on ? color : '#374151'} emissive={on ? color : '#000000'} emissiveIntensity={on ? 2.2 : 0} roughness={on ? 0.25 : 0.5} toneMapped={!on} />
+        <meshStandardMaterial color={glass ?? (on ? color : '#374151')} emissive={on ? color : '#000000'} emissiveIntensity={on ? 2.2 : 0} roughness={on ? 0.25 : 0.5} toneMapped={!on} />
       </mesh>
       {/* Halo encostado diretamente à superfície frontal do cilindro/lente */}
       <GlowHalo color={color} on={on} radius={0.115} kind="lamp" position={[0, 0, 0.116]} />
@@ -1184,8 +1263,11 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
   const simActive = useSimStore((s) => s.sim.runState !== 'stopped')
   const on = simActive && !!c.state.on
   const color = typeof c.state.color === 'string' ? c.state.color : '#ef4444'
+  const glass = typeof c.state.glassColor === 'string' ? c.state.glassColor : null
+  const invalidateFrame = useThree((three) => three.invalidate)
   useEffect(() => {
     const selected = new THREE.Color(color)
+    const lens = glass ? new THREE.Color(glass) : null
     model.traverse((node) => {
       const mesh = node as THREE.Mesh
       if (!mesh.isMesh) return
@@ -1194,14 +1276,17 @@ function PilotLightAd22Real3D({ c, x }: { c: ElectricalComponent; x: number }) {
         const standard = material as THREE.MeshStandardMaterial
         // Material FF0000FF = lente frontal (z 42,5…51,5 mm) no GLB recebido.
         if (standard.name.toUpperCase() !== 'FF0000FF') return
-        standard.color.copy(selected).multiplyScalar(on ? 1 : 0.42)
+        // Vidro: cor própria da lente (biblioteca de cores); sem vidro, deriva do brilho como antes.
+        if (lens) standard.color.copy(lens)
+        else standard.color.copy(selected).multiplyScalar(on ? 1 : 0.42)
         standard.emissive.copy(selected)
         standard.emissiveIntensity = on ? 1.8 : 0.05
-        standard.toneMapped = !on
-        standard.needsUpdate = true
+        const toneMapped = !on
+        if (standard.toneMapped !== toneMapped) { standard.toneMapped = toneMapped; standard.needsUpdate = true }
       })
     })
-  }, [color, model, on])
+    invalidateFrame()
+  }, [color, glass, model, on, invalidateFrame])
   return <group position={[x, RAIL_Y + 1.05, 0.4]}>
     <primitive object={model} />
     {/* Halo encostado diretamente ao vidro exterior da lente frontal (z = +0,2575 no AD22 centrado) */}
@@ -1377,7 +1462,6 @@ function MotorSewDrn80Mk4B3Real3D({ c, x, interactive = true }: { c: ElectricalC
       <group ref={shaftIndicator} position={[0.67 * MOTOR_SCALE_RATIO, 0.4 * MOTOR_SCALE_RATIO, 0]}>
         <mesh><boxGeometry args={[0.018, 0.1, 0.02]} /><meshStandardMaterial color={markerColor} emissive={running ? markerColor : '#000000'} emissiveIntensity={running ? 0.65 : 0} /></mesh>
       </group>
-      {running && <pointLight color="#22c55e" intensity={0.22} distance={1.2} position={[0.58, 0.4, 0.2]} />}
     </group>
     <Text position={[0, MOTOR_TARGET_HEIGHT / 2 + 0.17, 0]} fontSize={0.105} color="#24324a" anchorX="center">
       {`${c.ref} · DRN80MK4/B3 ${running ? (direction === 'cw' ? '↻' : '↺') : '· parado'}`}
@@ -1796,6 +1880,50 @@ const IS_SOFTWARE_WEBGL = (() => {
 })()
 
 /** Em rasterizadores WebGL por software (SwiftShader / llvmpipe em CI), reduz DPR e cadencia frames em RUN sem bloquear o compositor. */
+/**
+ * Orçamento de frames em RUN (GPU real). Antes a vista corria em `frameloop="always"`: 60–144 frames/s
+ * mesmo com a cena parada. Agora pede frames só quando fazem falta: ritmo total durante 1,2 s depois de
+ * qualquer mudança de estado da simulação, de um toque/rato ou do arranque (`burst`), e ~30 frames/s no
+ * resto do RUN (motores a rodar, pisca, corrente a fluir continuam fluidos; animações usam o `delta`).
+ */
+function RunFrameBudget({ active, burst }: { active: boolean; burst: boolean }) {
+  const invalidate = useThree((state) => state.invalidate)
+  const domElement = useThree((state) => state.gl.domElement)
+  useEffect(() => {
+    if (!active && !burst) return
+    let raf = 0
+    let last = 0
+    let fullUntil = performance.now() + 1200
+    const boost = () => { fullUntil = performance.now() + 1200 }
+    const unsubscribe = useSimStore.subscribe((state, previous) => { if (state.components !== previous.components || state.wires !== previous.wires) boost() })
+    domElement.addEventListener('pointermove', boost, { passive: true })
+    domElement.addEventListener('pointerdown', boost, { passive: true })
+    domElement.addEventListener('wheel', boost, { passive: true })
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick)
+      const full = burst || now < fullUntil
+      if (full || now - last >= 1000 / 30 - 2) { last = now; invalidate() }
+    }
+    raf = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(raf)
+      unsubscribe()
+      domElement.removeEventListener('pointermove', boost)
+      domElement.removeEventListener('pointerdown', boost)
+      domElement.removeEventListener('wheel', boost)
+    }
+  }, [active, burst, invalidate, domElement])
+  return null
+}
+
+/** Resolução adaptativa: se os frames ficam lentos baixa para 1×, e volta a subir quando há folga. */
+function AdaptiveResolution({ enabled }: { enabled: boolean }) {
+  const setDpr = useThree((state) => state.setDpr)
+  const max = Math.min(1.5, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
+  if (!enabled) return null
+  return <PerformanceMonitor flipflops={3} onDecline={() => setDpr(1)} onIncline={() => setDpr(max)} onFallback={() => setDpr(1)} />
+}
+
 function SoftwareRunInvalidator({ active }: { active: boolean }) {
   const invalidate = useThree((state) => state.invalidate)
   const setDpr = useThree((state) => state.setDpr)
@@ -2912,7 +3040,7 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
       </div>, wireActionSlot)}
       {!hasComponents && <div className="panel3d-empty"><strong>{frontEdit ? 'O esquema está vazio' : 'O esquema 3D está vazio'}</strong><span>Adicione equipamento na biblioteca ou arraste um componente para esta vista.</span></div>}
       <ContextLossNotice lost={glLost} />
-      <Canvas frameloop={!stageVisible ? 'never' : (!softwareGl && (runState === 'running' || burstActive)) ? 'always' : 'demand'} shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: !IS_SOFTWARE_WEBGL, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (!demoMode && editMode !== 'connect') selectComponents([]) }}
+      <Canvas frameloop={!stageVisible ? 'never' : 'demand'} shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: !IS_SOFTWARE_WEBGL, powerPreference: 'high-performance' }} camera={{ position: [0.6, 2.4, 6.4], fov: 44 }} onPointerMissed={() => { if (!demoMode && editMode !== 'connect') selectComponents([]) }}
         onCreated={({ gl }) => {
           gl.toneMapping = STUDIO_TONE_MAPPING
           gl.toneMappingExposure = STUDIO_EXPOSURE
@@ -2934,6 +3062,8 @@ export default function Panel3D({ initialCamera = null, onInitialCameraUsed, fro
         }}>
         <StudioEnvironment />
         <SoftwareRunInvalidator active={softwareGl && stageVisible && (runState === 'running' || burstActive)} />
+        <RunFrameBudget active={!softwareGl && stageVisible && runState === 'running'} burst={!softwareGl && stageVisible && burstActive} />
+        <AdaptiveResolution enabled={!softwareGl && stageVisible} />
         <ShadowsOnDemand watch={shadowWatch} />
         <ContextLossGuard onChange={setGlLost} />
         <CoverSnapshotBridge bounds={plateBounds} background={sceneBackground} />

@@ -3,6 +3,7 @@ import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
 import { uiConfirm } from '../ui/dialogs'
+import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
 import { allowedViews } from '../project/kind'
 import { isSmallScreen } from '../ui/cleanMode'
 import { useSimStore } from '../store/useSimStore'
@@ -100,6 +101,14 @@ import {
   clampPosition,
   snapToGrid,
   stepPitch,
+  stepSize,
+  actionSize,
+  resizeBox,
+  originShift,
+  STEP_SIZE_LIMITS,
+  ACTION_SIZE_LIMITS,
+  type ResizeHandle,
+  type Box,
 } from './layout'
 
 import { applySegmentDrag, beginSegmentDrag, bendInsertIndex, expandPolyline, findClearSpot, interiorBends, moveBendOrthogonal, nearestLeg, polylineMidpoint, routeThrough, routeVertical, simplifyOrthogonal, type Point, type SegmentDrag } from './links'
@@ -203,6 +212,64 @@ const PALETTE: Array<{ group: string; items: Array<{ kind: PaletteItem; icon: st
 
 /** Símbolos IEC compactos para a paleta: consistentes com os elementos do canvas,
  * sem depender de caracteres de fonte que variam entre sistemas operativos. */
+const RESIZE_CURSOR: Record<ResizeHandle, string> = { n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize', ne: 'nesw-resize', sw: 'nesw-resize', nw: 'nwse-resize', se: 'nwse-resize' }
+const ALL_RESIZE_HANDLES: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
+
+/**
+ * Puxadores de tamanho: as faces (faixas invisíveis ao longo de cada lado) mudam uma dimensão;
+ * os cantos (quadrados visíveis) mudam as duas na mesma proporção.
+ */
+function ResizeHandles({ x, y, w, h, handles, onStart }: { x: number; y: number; w: number; h: number; handles: ResizeHandle[]; onStart: (handle: ResizeHandle, e: React.PointerEvent) => void }) {
+  const t = 6
+  const c = 8
+  const rectFor = (hd: ResizeHandle) => {
+    if (hd === 'n') return { x: x + c / 2, y: y - t / 2, width: Math.max(0, w - c), height: t }
+    if (hd === 's') return { x: x + c / 2, y: y + h - t / 2, width: Math.max(0, w - c), height: t }
+    if (hd === 'w') return { x: x - t / 2, y: y + c / 2, width: t, height: Math.max(0, h - c) }
+    if (hd === 'e') return { x: x + w - t / 2, y: y + c / 2, width: t, height: Math.max(0, h - c) }
+    const cx = hd.includes('w') ? x : x + w
+    const cy = hd.includes('n') ? y : y + h
+    return { x: cx - c / 2, y: cy - c / 2, width: c, height: c }
+  }
+  // As faces abrem uma folga ao centro: é lá que vivem os portos de ligação (entrada, saída, ação).
+  const gap = 9
+  const pieces = (hd: ResizeHandle) => {
+    const r = rectFor(hd)
+    if (hd.length === 2) return [r]
+    if (hd === 'n' || hd === 's') {
+      const mid = r.x + r.width / 2
+      return [{ ...r, width: Math.max(0, mid - gap - r.x) }, { ...r, x: mid + gap, width: Math.max(0, r.x + r.width - mid - gap) }]
+    }
+    const mid = r.y + r.height / 2
+    return [{ ...r, height: Math.max(0, mid - gap - r.y) }, { ...r, y: mid + gap, height: Math.max(0, r.y + r.height - mid - gap) }]
+  }
+  return (
+    <g className="grafcet-resize-handles">
+      {handles.flatMap((hd) => pieces(hd).map((piece, index) => ({ hd, piece, index }))).map(({ hd, piece, index }) => {
+        const corner = hd.length === 2
+        return (
+          <rect
+            key={`${hd}-${index}`}
+            {...piece}
+            className={`grafcet-node-handle grafcet-resize-handle ${corner ? 'is-corner' : 'is-face'}`}
+            data-resize={hd}
+            rx={corner ? 1.5 : 0}
+            fill={corner ? '#ffffff' : 'transparent'}
+            stroke={corner ? '#2563eb' : 'none'}
+            strokeWidth={corner ? 1.4 : 0}
+            style={{ cursor: RESIZE_CURSOR[hd], touchAction: 'none' }}
+            onPointerDown={(e) => onStart(hd, e)}
+            onClick={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+          >
+            <title>{corner ? 'Arraste o canto para redimensionar na proporção' : 'Arraste a face para aumentar ou reduzir'}</title>
+          </rect>
+        )
+      })}
+    </g>
+  )
+}
+
 function GrafcetPaletteGlyph({ kind }: { kind: PaletteItem }) {
   const props = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
   if (kind === 'initial') return <svg viewBox="0 0 36 30" aria-hidden="true"><rect x="8" y="5" width="20" height="20" rx="2" {...props} /><rect x="11" y="8" width="14" height="14" rx="1" {...props} /></svg>
@@ -412,6 +479,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     origY: number
     moved: boolean
   } | null>(null)
+  const [resizeLive, setResizeLive] = useState<{ kind: 'step' | 'action'; id: string; w: number; h: number; x: number; y: number } | null>(null)
   const [actionDragPos, setActionDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
   const actionDragPosRef = useRef<{ id: string; x: number; y: number } | null>(null)
   /** Etapa candidata a receber a ação que está a ser arrastada. */
@@ -523,8 +591,53 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     toastTimer.current = window.setTimeout(() => setToast(null), 1500)
   }
 
+  /**
+   * Arrastar para qualquer lado: se algum elemento da página ficou à esquerda/acima da origem,
+   * desloca a página toda (etapas ficam fixadas na posição atual) e compensa a vista — nada salta no ecrã.
+   */
+  const normalizeOrigin = (p: Partial<GrafcetProgram>) => {
+    if (!p.steps && !p.transitions && !p.freeActions && !p.comments) return
+    const pageSteps = p.steps ?? steps
+    const pageTrans = p.transitions ?? transitions
+    const pageFree = p.freeActions ?? freeActions
+    const pageComments = p.comments ?? comments
+    const baseX = (s: GrafcetStep) => (isPinned(s) ? s.x! : SPINE_X)
+    const baseY = (s: GrafcetStep) => (isPinned(s) ? s.y! : stepPositions.get(s.id) ?? START_Y)
+    let minLeft = Infinity
+    let minTop = Infinity
+    const see = (x: number, y: number) => {
+      if (Number.isFinite(x)) minLeft = Math.min(minLeft, x)
+      if (Number.isFinite(y)) minTop = Math.min(minTop, y)
+    }
+    pageSteps.forEach((s) => {
+      const size = stepSize(s)
+      see(baseX(s) - size.w / 2, baseY(s))
+      ;(s.actions ?? []).forEach((a) => {
+        if (Number.isFinite(a.dx) && Number.isFinite(a.dy)) see(baseX(s) + a.dx!, baseY(s) + a.dy!)
+      })
+    })
+    pageTrans.forEach((t) => { if (isFreeTransition(t) && Number.isFinite(t.x)) see(t.x! - 40, (t.y ?? START_Y) - 30) })
+    pageFree.forEach((a) => see(a.x ?? Infinity, a.y ?? Infinity))
+    pageComments.forEach((c) => see(c.x, c.y))
+    if (!Number.isFinite(minLeft) && !Number.isFinite(minTop)) return
+    const shift = originShift(Number.isFinite(minLeft) ? minLeft : 0, Number.isFinite(minTop) ? minTop : 0)
+    if (!shift.dx && !shift.dy) return
+    const { dx, dy } = shift
+    p.steps = pageSteps.map((s) => ({ ...s, x: baseX(s) + dx, y: baseY(s) + dy, pinned: true }))
+    p.transitions = pageTrans.map((t) => (Number.isFinite(t.x) || Number.isFinite(t.y) ? { ...t, x: t.x === undefined ? t.x : t.x + dx, y: t.y === undefined ? t.y : t.y + dy } : t))
+    p.freeActions = pageFree.map((a) => ({ ...a, x: a.x === undefined ? a.x : a.x + dx, y: a.y === undefined ? a.y : a.y + dy }))
+    p.comments = pageComments.map((c) => ({ ...c, x: c.x + dx, y: c.y + dy }))
+    const pageIds = new Set(pageTrans.map((t) => t.id))
+    const bends = p.linkBends ?? program.linkBends
+    if (bends) {
+      p.linkBends = Object.fromEntries(Object.entries(bends).map(([tid, pts]) => [tid, pageIds.has(tid) ? pts.map((pt) => ({ x: pt.x + dx, y: pt.y + dy })) : pts]))
+    }
+    if (pan) setPan({ x: pan.x - dx * scale, y: pan.y - dy * scale })
+  }
+
   const save = (patch: Partial<GrafcetProgram>, mode: HistoryMode = 'force', historyKey = 'grafcet') => {
     const p = { ...patch }
+    normalizeOrigin(p)
     if (firstChartId) {
       const stamp = <T extends { id: string; chart?: string }>(all: T[], edited: T[]): T[] => {
         const known = new Set(all.map((x) => x.id))
@@ -711,7 +824,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   useEffect(() => {
     if (!placingText && !selectedCommentId) return
     const onKey = (event: KeyboardEvent) => {
-      if ((event.target as HTMLElement)?.closest('input,textarea,select,[contenteditable="true"]')) return
+      if (isTypingTarget(event.target)) return
       if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); setPlacingText(false); setSelectedCommentId(null); setEditingCommentId(null); return }
       if (!selectedCommentId) return
       if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); event.stopImmediatePropagation(); removeComment(selectedCommentId); return }
@@ -752,7 +865,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const action = freeActions.find((value) => value.id === actionId)
     const step = stepById.get(stepId)
     if (!action || !step) return
-    const { x: _x, y: _y, ...clean } = action
+    const { x: _x, y: _y, dx: _dx, dy: _dy, ...clean } = action
     save({
       steps: steps.map((value) => (value.id === stepId ? { ...value, actions: [...(value.actions ?? []), clean as GrafcetAction] } : value)),
       freeActions: freeActions.filter((value) => value.id !== actionId),
@@ -772,7 +885,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (!action || action.id.startsWith('legacy-')) return
     save({
       steps: steps.map((value) => (value.id === stepId ? { ...value, actions: (value.actions ?? []).filter((a) => a.id !== actionId) } : value)),
-      freeActions: [...freeActions, { ...action, x: pos.x, y: pos.y }],
+      freeActions: [...freeActions, { ...action, x: pos.x, y: pos.y, dx: undefined, dy: undefined }],
     })
     setSelected(null)
     setSelectedActionId(actionId)
@@ -791,7 +904,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     save({
       steps: steps.map((value) => {
         if (value.id === fromStepId) return { ...value, actions: (value.actions ?? []).filter((a) => a.id !== actionId) }
-        if (value.id === targetStepId) return { ...value, actions: [...(value.actions ?? []), action] }
+        if (value.id === targetStepId) return { ...value, actions: [...(value.actions ?? []), { ...action, dx: undefined, dy: undefined }] }
         return value
       }),
     })
@@ -1258,6 +1371,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     notify(type === 'or' ? 'Seleção OU criada — edite as condições das transições e adicione ações aos ramos' : 'Paralelismo ET criado — edite as condições das transições e adicione ações aos ramos')
   }
 
+  /** «Exemplo de 3 etapas»: o esboço mínimo para experimentar (os exemplos completos estão nos Modelos). */
   const loadExample = () => {
     const a = id(),
       b = id(),
@@ -1277,11 +1391,22 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     setSelected(a)
     setTab('steps')
     resetView()
-    notify('Exemplo carregado')
+    notify('Exemplo carregado — os exemplos completos (básico, normal, avançado) estão em Modelos')
   }
 
   const loadTemplate = (tmpl: GrafcetTemplateInfo) => {
     save(tmpl.program, 'force')
+    // Exemplos completos: junta os nomes dos sinais (sem substituir os que já existem) e os comentários.
+    const store = useSimStore.getState()
+    if (tmpl.tags?.length) {
+      const known = new Set(store.tags.map((item) => item.address.toUpperCase()))
+      const added = tmpl.tags.filter((item) => !known.has(item.address.toUpperCase()))
+      if (added.length) store.setTags([...store.tags, ...added])
+    }
+    for (const note of tmpl.notes ?? []) {
+      const { id: _id, ...rest } = note
+      store.addCanvasNote({ ...rest, chart: firstChartId ? activeChart : undefined })
+    }
     setTemplatesOpen(false)
     resetView()
     notify(`Modelo carregado: ${tmpl.name}`)
@@ -1344,10 +1469,18 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   /** Topo da etapa: posição manual (ou a do arrasto em curso) ou a do layout automático. */
   const stepY = (stepId: string) => {
     if (dragPos?.id === stepId) return dragPos.y
+    if (resizeLive?.kind === 'step' && resizeLive.id === stepId) return resizeLive.y
     const step = stepById.get(stepId)
     const base = isPinned(step) ? step!.y! : stepPositions.get(stepId) ?? START_Y
     return groupOffset && multi.includes(stepId) ? base + groupOffset.dy : base
   }
+  /** Tamanho da caixa da etapa (o redimensionamento em curso tem prioridade). */
+  const stepSizeOf = (stepId: string) => {
+    if (resizeLive?.kind === 'step' && resizeLive.id === stepId) return { w: resizeLive.w, h: resizeLive.h }
+    return stepSize(stepById.get(stepId))
+  }
+  /** Altura da caixa da etapa: base da etapa = stepY + stepHOf. */
+  const stepHOf = (stepId: string) => stepSizeOf(stepId).h
   /** Eixo central da etapa. */
   const stepX = (stepId: string) => {
     if (dragPos?.id === stepId) return dragPos.x
@@ -1357,11 +1490,71 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   }
   let maxRight = full ? 440 : 400
   let maxBottom = 280
-  steps.forEach((step) => {
-    const count = actionsOf(step).length
+  /** Tamanho de uma ação (o redimensionamento em curso tem prioridade). */
+  const actionSizeOf = (a: GrafcetAction) =>
+    resizeLive?.kind === 'action' && resizeLive.id === a.id ? { w: resizeLive.w, h: resizeLive.h } : actionSize(a)
+  /** Ação anexada que o utilizador afastou da coluna: mantém a ligação mas tem posição própria (dx/dy relativos à etapa). */
+  const isOffsetAction = (a: GrafcetAction) => Number.isFinite(a.dx) && Number.isFinite(a.dy)
+  type ActionBox = { x: number; y: number; w: number; h: number; offset: boolean; flowIndex: number }
+  const actionBoxCache = new Map<string, Map<string, ActionBox>>()
+  /**
+   * Caixas das ações anexadas a uma etapa: as da coluna/linha empilham-se a partir da face direita
+   * da etapa (respeitando o tamanho de cada uma); as afastadas usam a posição guardada.
+   */
+  const attachedBoxes = (step: GrafcetStep): Map<string, ActionBox> => {
+    const cached = actionBoxCache.get(step.id)
+    if (cached) return cached
+    const out = new Map<string, ActionBox>()
+    const cx = stepX(step.id)
+    const top = stepY(step.id)
+    const { w: SW, h: SH } = stepSizeOf(step.id)
     const layout = stepActionLayout(step)
-    maxRight = Math.max(maxRight, stepX(step.id) + (count ? actionsExtentX(layout, count) : 220) + 130)
-    maxBottom = Math.max(maxBottom, stepY(step.id) + Math.max(STEP_H + 84, layout === 'row' ? STEP_H + 84 : ACTION_TOP_OFFSET + count * ACTION_PITCH + 28))
+    const baseX = cx + SW / 2 + (ACTION_OFFSET_X - 32)
+    let rowX = baseX
+    let colY: number | null = null
+    let flow = 0
+    actionsOf(step).forEach((a) => {
+      const { w, h } = actionSizeOf(a)
+      if (isOffsetAction(a)) {
+        const live = resizeLive?.kind === 'action' && resizeLive.id === a.id ? resizeLive : null
+        out.set(a.id, { x: live ? live.x : cx + a.dx!, y: live ? live.y : top + a.dy!, w, h, offset: true, flowIndex: -1 })
+        return
+      }
+      if (layout === 'row') {
+        out.set(a.id, { x: rowX, y: top + (SH - h) / 2, w, h, offset: false, flowIndex: flow })
+        rowX += w
+      } else {
+        if (colY === null) colY = top + (SH - h) / 2
+        out.set(a.id, { x: baseX, y: colY, w, h, offset: false, flowIndex: flow })
+        colY += h + (ACTION_PITCH - ACTION_H)
+      }
+      flow += 1
+    })
+    actionBoxCache.set(step.id, out)
+    return out
+  }
+  /** Onde nasce a próxima ação da etapa (à direita da linha ou por baixo da coluna). */
+  const nextActionSlot = (step: GrafcetStep): { x: number; y: number } => {
+    const boxes = [...attachedBoxes(step).values()].filter((b) => !b.offset)
+    const { w: SW, h: SH } = stepSizeOf(step.id)
+    const baseX = stepX(step.id) + SW / 2 + (ACTION_OFFSET_X - 32)
+    const top = stepY(step.id)
+    if (!boxes.length) return { x: baseX, y: top + (SH - ACTION_H) / 2 }
+    const last = boxes[boxes.length - 1]
+    return stepActionLayout(step) === 'row'
+      ? { x: last.x + last.w, y: top + (SH - ACTION_H) / 2 }
+      : { x: baseX, y: last.y + last.h + (ACTION_PITCH - ACTION_H) }
+  }
+  steps.forEach((step) => {
+    const { w: SW, h: SH } = stepSizeOf(step.id)
+    let right = stepX(step.id) + SW / 2 + 220
+    let bottom = stepY(step.id) + SH + 84
+    attachedBoxes(step).forEach((b) => {
+      right = Math.max(right, b.x + b.w + 130)
+      bottom = Math.max(bottom, b.y + b.h + 28)
+    })
+    maxRight = Math.max(maxRight, right)
+    maxBottom = Math.max(maxBottom, bottom)
   })
 
   // ------------------------------------------------------------------
@@ -1385,6 +1578,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   /** Posição do canto superior esquerdo de uma ação solta (guardada ou em arrasto). */
   const actionXY = (a: GrafcetAction): { x: number; y: number } => {
     if (actionDragPos?.id === a.id) return { x: actionDragPos.x, y: actionDragPos.y }
+    if (resizeLive?.kind === 'action' && resizeLive.id === a.id) return { x: resizeLive.x, y: resizeLive.y }
     return { x: a.x ?? ACTION_X + 46, y: a.y ?? cursorY + 46 }
   }
 
@@ -1393,15 +1587,15 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const step = stepById.get(stepId)
     if (!step) return { x: ACTION_X, y: cursorY + 46 }
     if (actionDragPos?.id === actionId) return { x: actionDragPos.x, y: actionDragPos.y }
-    const index = actionsOf(step).findIndex((a) => a.id === actionId)
-    const slot = actionSlotOffset(stepActionLayout(step), Math.max(index, 0))
-    return { x: stepX(stepId) + slot.dx, y: stepY(stepId) + slot.dy }
+    const box = attachedBoxes(step).get(actionId)
+    return box ? { x: box.x, y: box.y } : nextActionSlot(step)
   }
 
   freeActions.forEach((a) => {
     const p = actionXY(a)
-    maxRight = Math.max(maxRight, p.x + ACTION_W + 46)
-    maxBottom = Math.max(maxBottom, p.y + ACTION_H + 36)
+    const size = actionSizeOf(a)
+    maxRight = Math.max(maxRight, p.x + size.w + 46)
+    maxBottom = Math.max(maxBottom, p.y + size.h + 36)
   })
   comments.forEach((c) => {
     maxRight = Math.max(maxRight, c.x + c.text.length * (c.fontSize ?? 13) * 0.7 + 20)
@@ -1576,7 +1770,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   /** Etapa cuja caixa contém o ponto (com folga vertical para largar barras por cima/por baixo). */
   const hitStepAt = (wx: number, wy: number) =>
-    steps.find((s) => Math.abs(wx - stepX(s.id)) < 60 && wy >= stepY(s.id) - 30 && wy <= stepY(s.id) + STEP_H + 50)
+    steps.find((s) => Math.abs(wx - stepX(s.id)) < Math.max(60, stepSizeOf(s.id).w / 2 + 28) && wy >= stepY(s.id) - 30 && wy <= stepY(s.id) + stepHOf(s.id) + 50)
 
   /** Deteta etapa para largada de ação: inclui o corpo da etapa E toda a área de ligação de ações à sua direita. */
   const hitStepForActionDrop = (wx: number, wy: number, ax?: number, ay?: number) => {
@@ -1586,11 +1780,16 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     return steps.find((s) => {
       const sx = stepX(s.id)
       const sy = stepY(s.id)
-      const actionsCount = actionsOf(s).length
       const slotMinY = sy - 30
-      const rowLayout = stepActionLayout(s) === 'row'
-      const slotMaxY = sy + STEP_H + (rowLayout ? 0 : Math.max(actionsCount, 1) * ACTION_PITCH) + 30
-      const slotMaxX = rowLayout ? sx + actionsExtentX('row', actionsCount + 1) + 40 : sx + 420
+      // Zona da coluna/linha de ações (as afastadas não alargam a zona) mais o lugar da próxima ação.
+      const next = nextActionSlot(s)
+      let slotMaxX = Math.max(sx + 260, next.x + ACTION_W + 40)
+      let slotMaxY = Math.max(sy + stepHOf(s.id) + 30, next.y + ACTION_H + 30)
+      attachedBoxes(s).forEach((b) => {
+        if (b.offset) return
+        slotMaxX = Math.max(slotMaxX, b.x + b.w + 40)
+        slotMaxY = Math.max(slotMaxY, b.y + b.h + 30)
+      })
 
       const inZone = (px: number, py: number) =>
         px >= sx - 40 && px <= slotMaxX && py >= slotMinY && py <= slotMaxY
@@ -1606,26 +1805,26 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const branchPointOf = (tid: string): Point => {
     const transition = transitions.find((item) => item.id === tid)
     const source = transition?.from.find(existsStep)
-    return source ? { x: stepX(source), y: stepY(source) + STEP_H + 24 } : { x: SPINE_X, y: cursorY }
+    return source ? { x: stepX(source), y: stepY(source) + stepHOf(source) + 24 } : { x: SPINE_X, y: cursorY }
   }
   /** Posição de cada face (esquerda, direita, topo, base) de uma ação solta onde nasce/termina um fio. */
-  const actionPortAt = (pos: { x: number; y: number }, side: 'l' | 'r' | 't' | 'b'): { x: number; y: number } => {
-    if (side === 'r') return { x: pos.x + ACTION_FREE_W + 14, y: pos.y + ACTION_FREE_H / 2 }
-    if (side === 't') return { x: pos.x + ACTION_FREE_W / 2, y: pos.y - 14 }
-    if (side === 'b') return { x: pos.x + ACTION_FREE_W / 2, y: pos.y + ACTION_FREE_H + 14 }
-    return { x: pos.x - 14, y: pos.y + ACTION_FREE_H / 2 }
+  const actionPortAt = (pos: { x: number; y: number }, side: 'l' | 'r' | 't' | 'b', size: { w: number; h: number } = { w: ACTION_FREE_W, h: ACTION_FREE_H }): { x: number; y: number } => {
+    if (side === 'r') return { x: pos.x + size.w + 14, y: pos.y + size.h / 2 }
+    if (side === 't') return { x: pos.x + size.w / 2, y: pos.y - 14 }
+    if (side === 'b') return { x: pos.x + size.w / 2, y: pos.y + size.h + 14 }
+    return { x: pos.x - 14, y: pos.y + size.h / 2 }
   }
   /** Posição mundo de um porto. */
   const portPosOf = (p: PortRef): { x: number; y: number } => {
     if (p.kind === 'branch-out') return branchPointOf(p.id)
-    if (p.kind === 'step-out') return { x: stepX(p.id), y: stepY(p.id) + STEP_H }
+    if (p.kind === 'step-out') return { x: stepX(p.id), y: stepY(p.id) + stepHOf(p.id) }
     if (p.kind === 'step-in') return { x: stepX(p.id), y: stepY(p.id) }
-    if (p.kind === 'step-action' || p.kind === 'step-attach') return { x: stepX(p.id) + 32, y: stepY(p.id) + 27 }
+    if (p.kind === 'step-action' || p.kind === 'step-attach') return { x: stepX(p.id) + stepSizeOf(p.id).w / 2, y: stepY(p.id) + stepHOf(p.id) / 2 }
     if (p.kind === 'action-in') {
       const a = freeActions.find((value) => value.id === p.id)
       if (!a) return { x: ACTION_X, y: cursorY }
       const pos = actionXY(a)
-      return actionPortAt(pos, p.side ?? 'l')
+      return actionPortAt(pos, p.side ?? 'l', actionSizeOf(a))
     }
     const t = transitions.find((tr) => tr.id === p.id)
     if (!t) return { x: SPINE_X, y: cursorY }
@@ -1650,14 +1849,15 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       const margin = 18
       const hit = freeActions.find((action) => {
         const pos = actionXY(action)
-        return wx >= pos.x - margin && wx <= pos.x + ACTION_FREE_W + margin && wy >= pos.y - margin && wy <= pos.y + ACTION_FREE_H + margin
+        const size = actionSizeOf(action)
+        return wx >= pos.x - margin && wx <= pos.x + size.w + margin && wy >= pos.y - margin && wy <= pos.y + size.h + margin
       })
       if (hit) return { kind: 'action-in', id: hit.id }
     }
     const distance = (p: PortRef) => { const at = portPosOf(p); return Math.hypot(wx - at.x, wy - at.y) }
     const target = compatible.filter((p) => p.kind !== start.kind || p.id !== start.id).sort((a, b) => distance(a) - distance(b))[0]
     if (target && distance(target) <= Math.max(14, Math.min(32, 22 / scale))) return target
-    const step = steps.find((item) => Math.abs(wx - stepX(item.id)) <= 34 && wy >= stepY(item.id) && wy <= stepY(item.id) + STEP_H)
+    const step = steps.find((item) => Math.abs(wx - stepX(item.id)) <= stepSizeOf(item.id).w / 2 + 2 && wy >= stepY(item.id) && wy <= stepY(item.id) + stepHOf(item.id))
     if (step) {
       // Um fio vindo de uma ação solta liga a ação à etapa; saída-ação da etapa só fala com ações.
       if (start.kind === 'action-in') return { kind: 'step-attach', id: step.id }
@@ -1871,7 +2071,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const sX = stepTop?.x ?? stepX(stepId)
     const sY = stepTop?.y ?? stepY(stepId)
     const by = barY ?? transXY(trans).y
-    const asSource = sY + STEP_H / 2 < by // etapa acima da barra → origem
+    const asSource = sY + stepHOf(stepId) / 2 < by // etapa acima da barra → origem
     if (asSource) {
       if (trans.from.includes(stepId)) return notify(`A Etapa ${stepNumber} já é origem desta transição`)
       const stillFree = !trans.to.filter(existsStep).length
@@ -1879,7 +2079,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         trans.id,
         {
           from: [...trans.from, stepId],
-          ...(stillFree ? { x: sX, y: sY + STEP_H + 30 } : {}),
+          ...(stillFree ? { x: sX, y: sY + stepHOf(stepId) + 30 } : {}),
         },
         'force'
       )
@@ -1940,8 +2140,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       x = snapToGrid(x, SPINE_X)
       y = snapToGrid(y, START_Y)
     }
-    const clamped = clampPosition(x, y)
-    const next = { id: t.id, x: Math.round(clamped.x), y: Math.round(clamped.y) }
+    // Sem limite à esquerda/em cima: a origem da página reajusta-se ao largar.
+    const next = { id: t.id, x: Math.round(x), y: Math.round(y) }
     transDragPosRef.current = next
     setTransDragPos(next)
     // Deteta a etapa sob a barra para pré-visualizar a ligação (drop): primeiro o cursor, depois o centro da barra.
@@ -2032,14 +2232,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       x = Math.round(x / GRID) * GRID
       y = Math.round(y / GRID) * GRID
     }
-    x = Math.max(24, Math.min(x, width - 220))
-    y = Math.max(24, Math.min(y, height - 44))
+    // Sem limites: a ação pode ir para qualquer lado do canvas (a origem reajusta-se ao largar).
     const next = { id: action.id, x: Math.round(x), y: Math.round(y) }
     actionDragPosRef.current = next
     setActionDragPos(next)
     // Pré-visualização: deteta etapa sob o cursor ou sob a zona de encaixe da ação.
     const w = clientToWorld(e.clientX, e.clientY)
-    const center = { x: next.x + ACTION_FREE_W / 2, y: next.y + ACTION_FREE_H / 2 }
+    const size = actionSizeOf(action)
+    const center = { x: next.x + size.w / 2, y: next.y + size.h / 2 }
     const dropTarget = hitStepForActionDrop(w.x, w.y, next.x, next.y) ?? hitStepForActionDrop(center.x, center.y)
     setActionDropStep(dropTarget?.id ?? null)
   }
@@ -2055,34 +2255,124 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const final = actionDragPosRef.current
     let dropStepId = actionDropStep
     if (!dropStepId && final) {
-      dropStepId = (hitStepForActionDrop(final.x, final.y) ?? hitStepForActionDrop(final.x + ACTION_FREE_W / 2, final.y + ACTION_FREE_H / 2))?.id ?? null
+      const size = actionSizeOf(action)
+      dropStepId = (hitStepForActionDrop(final.x, final.y) ?? hitStepForActionDrop(final.x + size.w / 2, final.y + size.h / 2))?.id ?? null
     }
+    // Ctrl/⌘ ao largar: desanexa de propósito (sem Ctrl a ação nunca se solta da etapa).
+    const forceDetach = e.ctrlKey || e.metaKey
     const { fromStepId, moved } = drag
     resetActionDrag()
     if (!moved || !final) return
+    if (fromStepId && forceDetach) {
+      detachAction(fromStepId, action.id, { x: final.x, y: final.y })
+      return
+    }
     if (dropStepId && stepById.has(dropStepId)) {
       if (fromStepId) {
         if (dropStepId !== fromStepId) moveActionToStep(fromStepId, action.id, dropStepId)
-        // Largada na mesma etapa: volta ao lugar (não faz nada).
-        else resetActionDrag()
+        else {
+          // Largada junto à própria etapa: volta à coluna/linha de ações.
+          const step = stepById.get(fromStepId)!
+          if (isOffsetAction(action)) patchAction(step, action, { dx: undefined, dy: undefined }, 'force')
+        }
       } else {
         attachFreeAction(action.id, dropStepId)
       }
       return
     }
-    // Largada em espaço vazio: fica solta (ou passa a solta) na posição final.
-    if (fromStepId) detachAction(fromStepId, action.id, { x: final.x, y: final.y })
-    else patchFreeAction(action, { x: final.x, y: final.y }, 'force')
+    // Largada em espaço vazio: a ação anexada fica onde foi largada MAS continua ligada à etapa
+    // (posição relativa dx/dy); a solta muda simplesmente de lugar.
+    if (fromStepId) {
+      const step = stepById.get(fromStepId)
+      if (step) patchAction(step, action, { dx: Math.round(final.x - stepX(fromStepId)), dy: Math.round(final.y - stepY(fromStepId)) }, 'force')
+      notify('Ação reposicionada — continua ligada à etapa (Ctrl ao largar desanexa)')
+    } else patchFreeAction(action, { x: final.x, y: final.y }, 'force')
+  }
+
+  // ------------------------------------------------------------------
+  // Redimensionar etapas e ações (faces: uma dimensão; cantos: proporcional)
+  // ------------------------------------------------------------------
+  const resizeRef = useRef<{ kind: 'step' | 'action'; id: string; stepId: string | null; handle: ResizeHandle; start: Box; cx: number; cy: number; box: Box } | null>(null)
+  const startResize = (kind: 'step' | 'action', id: string, stepId: string | null, handle: ResizeHandle, start: Box, e: React.PointerEvent) => {
+    if (!full || e.button !== 0) return
+    e.stopPropagation()
+    e.preventDefault()
+    if (zoom === null) setZoom(scale)
+    if (pan === null) setPan(position)
+    // Captura o ponteiro no puxador: o clique final cai nele (e não no canvas, que limparia a seleção).
+    try {
+      ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+    } catch {
+      /* noop */
+    }
+    resizeRef.current = { kind, id, stepId, handle, start, cx: e.clientX, cy: e.clientY, box: start }
+    setResizeLive({ kind, id, ...start })
+    const limits = kind === 'step' ? STEP_SIZE_LIMITS : ACTION_SIZE_LIMITS
+    const onMove = (ev: globalThis.PointerEvent) => {
+      const r = resizeRef.current
+      if (!r) return
+      const box = resizeBox(r.start, r.handle, (ev.clientX - r.cx) / scale, (ev.clientY - r.cy) / scale, limits, r.kind === 'step')
+      if (snapOn && !ev.altKey && r.handle.length === 1) {
+        // Íman: medidas em passos de meia grelha (as faces); os cantos mantêm a proporção exata.
+        const step = GRID / 2
+        const w = Math.min(limits.maxW, Math.max(limits.minW, Math.round(box.w / step) * step))
+        const h = Math.min(limits.maxH, Math.max(limits.minH, Math.round(box.h / step) * step))
+        if (r.kind !== 'step' && r.handle === 'w') box.x = r.start.x + r.start.w - w
+        if (r.handle === 'n') box.y = r.start.y + r.start.h - h
+        box.w = w
+        box.h = h
+      }
+      r.box = box
+      setResizeLive({ kind: r.kind, id: r.id, ...box })
+    }
+    const onEnd = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onEnd)
+      window.removeEventListener('pointercancel', onEnd)
+      const r = resizeRef.current
+      resizeRef.current = null
+      setResizeLive(null)
+      suppressClickRef.current = true
+      window.setTimeout(() => {
+        suppressClickRef.current = false
+      }, 0)
+      if (!r) return
+      const { box, start } = r
+      if (box.w === start.w && box.h === start.h && box.x === start.x && box.y === start.y) return
+      if (r.kind === 'step') {
+        const patch: Partial<GrafcetStep> = { w: box.w, h: box.h }
+        if (box.y !== start.y) Object.assign(patch, { x: start.x, y: box.y, pinned: true })
+        updateStep(r.id, patch, 'force')
+        notify(`Etapa redimensionada · ${box.w}×${box.h}`)
+        return
+      }
+      const owner = r.stepId ? stepById.get(r.stepId) : null
+      if (owner) {
+        const action = actionsOf(owner).find((a) => a.id === r.id)
+        if (!action) return
+        const patch: Partial<GrafcetAction> = { w: box.w, h: box.h }
+        if (isOffsetAction(action)) Object.assign(patch, { dx: Math.round(box.x - stepX(owner.id)), dy: Math.round(box.y - stepY(owner.id)) })
+        patchAction(owner, action, patch, 'force')
+      } else {
+        const action = freeActions.find((a) => a.id === r.id)
+        if (!action) return
+        patchFreeAction(action, { w: box.w, h: box.h, x: box.x, y: box.y }, 'force')
+      }
+      notify(`Ação redimensionada · ${box.w}×${box.h}`)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onEnd)
+    window.addEventListener('pointercancel', onEnd)
   }
 
   /** true se o troço direto entre duas etapas não atravessa nenhuma outra etapa. */
   const clearPath = (a: GrafcetStep, b: GrafcetStep) => {
     const left = Math.min(stepX(a.id), stepX(b.id)) - 36
     const right = Math.max(stepX(a.id), stepX(b.id)) + 36
-    const top = stepY(a.id) + STEP_H
+    const top = stepY(a.id) + stepHOf(a.id)
     const bottom = stepY(b.id)
     return !steps.some(
-      (o) => o.id !== a.id && o.id !== b.id && stepX(o.id) + 32 > left && stepX(o.id) - 32 < right && stepY(o.id) + STEP_H > top && stepY(o.id) < bottom
+      (o) => o.id !== a.id && o.id !== b.id && stepX(o.id) + 32 > left && stepX(o.id) - 32 < right && stepY(o.id) + stepHOf(o.id) > top && stepY(o.id) < bottom
     )
   }
 
@@ -2327,15 +2617,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       guideX = aligned.guideX
       guideY = aligned.guideY
     }
-    const clamped = clampPosition(x, y)
-    const next = { id: step.id, x: Math.round(clamped.x), y: Math.round(clamped.y) }
-    if (drag.group) {
-      // Arrasto em grupo: o deslocamento é limitado para o grupo manter a forma junto às bordas.
-      const delta = clampGroupDelta(drag.group, next.x - drag.origX, next.y - drag.origY)
-      next.x = drag.origX + delta.dx
-      next.y = drag.origY + delta.dy
-      setGroupOffset(delta)
-    }
+    // Sem limites: pode arrastar-se para qualquer lado; ao largar, a origem da página reajusta-se.
+    const next = { id: step.id, x: Math.round(x), y: Math.round(y) }
+    if (drag.group) setGroupOffset({ dx: next.x - drag.origX, dy: next.y - drag.origY })
     dragPosRef.current = next
     setDragPos(next)
     setGuides({ x: guideX, y: guideY })
@@ -2367,7 +2651,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       return
     }
     // Largar a etapa junto a uma barra de transição solta liga-a (aproximação).
-    const stepCenter = { x: final.x, y: final.y + STEP_H / 2 }
+    const stepCenter = { x: final.x, y: final.y + stepHOf(step.id) / 2 }
     const near = transitions.find((t) => {
       if (!isFreeTransition(t)) return false
       const p = transXY(t)
@@ -2413,8 +2697,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const amount = (snapOn ? GRID : 4) * (big ? 5 : 1)
     if (groupIds.length >= 2) {
       const items = groupIds.map((sid) => ({ id: sid, x: stepX(sid), y: stepY(sid) }))
-      const delta = clampGroupDelta(items, dx * amount, dy * amount)
-      if (!delta.dx && !delta.dy) return
+      const delta = { dx: dx * amount, dy: dy * amount }
       const moved = new Map(items.map((p) => [p.id, p]))
       save({ steps: steps.map((s) => (moved.has(s.id) ? { ...s, x: moved.get(s.id)!.x + delta.dx, y: moved.get(s.id)!.y + delta.dy, pinned: true } : s)) }, 'auto', 'grafcet:nudge:group')
       return
@@ -2425,7 +2708,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       x = snapToGrid(x, SPINE_X)
       y = snapToGrid(y, START_Y)
     }
-    const next = clampPosition(x, y)
+    const next = { x, y }
     if (next.x === stepX(selectedStep.id) && next.y === stepY(selectedStep.id) && isPinned(selectedStep)) return
     updateStep(selectedStep.id, { x: Math.round(next.x), y: Math.round(next.y), pinned: true }, 'auto', `grafcet:nudge:${selectedStep.id}`)
   }
@@ -2496,10 +2779,16 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (!box) return
     items.forEach((item) => {
       const itemStep = stepById.get(item.id)!
-      const count = actionsOf(itemStep).length
-      const layout = stepActionLayout(itemStep)
-      box.x1 = Math.max(box.x1, item.x + (count ? actionsExtentX(layout, count) : 220) + 20)
-      box.y1 = Math.max(box.y1, item.y + (layout === 'row' ? STEP_H : ACTION_TOP_OFFSET + Math.max(0, count - 1) * ACTION_PITCH + ACTION_H) + 20)
+      const size = stepSizeOf(item.id)
+      box.x0 = Math.min(box.x0, item.x - size.w / 2 - 20)
+      box.x1 = Math.max(box.x1, item.x + size.w / 2 + 160)
+      box.y1 = Math.max(box.y1, item.y + size.h + 20)
+      attachedBoxes(itemStep).forEach((b) => {
+        box.x0 = Math.min(box.x0, b.x - 20)
+        box.y0 = Math.min(box.y0, b.y - 20)
+        box.x1 = Math.max(box.x1, b.x + b.w + 20)
+        box.y1 = Math.max(box.y1, b.y + b.h + 20)
+      })
     })
     const view = fitView(box, viewport.width, viewport.height, 0.15, 1.6)
     setZoom(view.scale)
@@ -2672,6 +2961,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   useEffect(() => {
     if (!full) return
     const onKey = (event: KeyboardEvent) => {
+      // Com uma confirmação ou propriedades abertas, Enter/Delete pertencem ao diálogo, não à tela.
+      if (isModalOpen()) return
       const target = event.target as HTMLElement | null
       const typing = !!target?.closest('input,textarea,select,[contenteditable="true"]')
       const mod = event.ctrlKey || event.metaKey
@@ -3328,7 +3619,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     // Fios reais dos lados já ligados (curvas suaves até à barra).
                     const srcWires = sources.map((sid) => {
                       const sx = stepX(sid)
-                      const sy = stepY(sid) + STEP_H
+                      const sy = stepY(sid) + stepHOf(sid)
                       const my = (sy + fty) / 2
                       return (
                         <path
@@ -3517,7 +3808,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   const targetX = targetStep ? stepX(targetStep.id) : SPINE_X
                   // Com etapas movidas à mão, a ligação segue a geometria (e não só a ordem da lista).
                   const manualLink = isPinned(sourceStep ?? undefined) || isPinned(targetStep ?? undefined) || dragPos?.id === sourceStep?.id || dragPos?.id === targetStep?.id
-                  const isForward = !!sourceStep && !!targetStep && stepY(targetStep.id) >= stepY(sourceStep.id) + STEP_H + 24
+                  const isForward = !!sourceStep && !!targetStep && stepY(targetStep.id) >= stepY(sourceStep.id) + stepHOf(sourceStep.id) + 24
                   const isConsecutive =
                     isSingleSource && isSingleTarget && sourceStep && targetStep && !selfLoop && (manualLink ? isForward && clearPath(sourceStep, targetStep) : targetIdx === sourceIdx + 1)
                   const isReturning =
@@ -3551,7 +3842,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   // 1. Auto-loopback (etapa para si mesma)
                   if (selfLoop) {
                     const y = stepY(sources[0])
-                    const path = `M 151 ${y + 54} V ${y + 92} H 62 V ${y - 22} H 151 V ${y}`
+                    const loopH = stepHOf(sources[0])
+                    const path = `M 151 ${y + loopH} V ${y + loopH + 38} H 62 V ${y - 22} H 151 V ${y}`
                     const loopShift = stepX(sources[0]) - SPINE_X
                     transitionAnchors.set(transition.id, { x: 62 + loopShift, y: y + 83 })
                     return (
@@ -3600,7 +3892,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       return target ? `X${getStepDisplayInfo(target, steps.indexOf(target)).stepNumber}` : 'X?'
                     }
                     const refX = stepX(sources[0])
-                    const refTop = stepY(sources[0]) + 54
+                    const refTop = stepY(sources[0]) + stepHOf(sources[0])
                     const refBarY = refTop + 34
                     transitionAnchors.set(transition.id, { x: refX, y: refBarY })
                     const outRefs = targets.map(refOf).join(' ')
@@ -3634,7 +3926,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         {/* Origens adicionais: seta curta com a referência dos destinos */}
                         {sources.slice(1).map((sid) => {
                           const x = stepX(sid)
-                          const y = stepY(sid) + 54
+                          const y = stepY(sid) + stepHOf(sid)
                           return (
                             <g key={`ref-src-${sid}`}>
                               <path d={`M ${x} ${y} V ${y + 24}`} fill="none" stroke={linkColor} strokeWidth="1.5" markerEnd="url(#grafcet-arrow)" />
@@ -3694,7 +3986,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   if (isConsecutive && sourceStep && targetStep) {
                     const sY = stepY(sourceStep.id)
                     const tY = stepY(targetStep.id)
-                    const sBottom = sY + 54
+                    const sBottom = sY + stepHOf(sourceStep.id)
                     const tTop = tY
                     const bent = sourceX !== targetX
                     // Seleção OU (IEC 60848): vários ramos alternativos partilham uma só linha horizontal;
@@ -3860,7 +4152,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   if (isReturning && sourceStep && targetStep) {
                     const sY = stepY(sourceStep.id)
                     const tY = stepY(targetStep.id)
-                    const sBottom = sY + 54
+                    const sBottom = sY + stepHOf(sourceStep.id)
                     const tTop = tY
                     const trackX = Math.min(sourceX, targetX) - 97 - (transitionIndex % 3) * 16
                     // Pontos de quebra (duplo clique na linha): o percurso passa por eles, com ângulos retos.
@@ -4008,18 +4300,18 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   const hasAndDivergence = targets.length > 1
                   // IEC 60848: divergência/convergência AND = barra dupla horizontal sobre os ramos
                   // (a transição fica na linha única: acima da barra na divergência, abaixo na convergência).
-                  const STEP_BOTTOM = 54
-                  const iecFork = !returning && sources.length === 1 && targets.length > 1 && Math.min(...targets.map(stepY)) >= stepY(sources[0]) + STEP_BOTTOM + 44
-                  const iecJoin = !returning && targets.length === 1 && sources.length > 1 && stepY(targets[0]) >= Math.max(...sources.map(stepY)) + STEP_BOTTOM + 44
+                  const bottomOf = (sid: string) => stepY(sid) + stepHOf(sid)
+                  const iecFork = !returning && sources.length === 1 && targets.length > 1 && Math.min(...targets.map(stepY)) >= bottomOf(sources[0]) + 44
+                  const iecJoin = !returning && targets.length === 1 && sources.length > 1 && stepY(targets[0]) >= Math.max(...sources.map(bottomOf)) + 44
                   const iec = iecFork || iecJoin
                   const iecBarY = iecFork
                     ? Math.round(Math.min(...targets.map(stepY)) - 26)
-                    : Math.round(Math.max(...sources.map(stepY)) + STEP_BOTTOM + 26)
+                    : Math.round(Math.max(...sources.map(bottomOf)) + 26)
                   const iecBarX1 = Math.min(...allX) - 24
                   const iecBarX2 = Math.max(...allX) + 24
                   const ty = iec
                     ? (iecFork
-                      ? Math.round((stepY(sources[0]) + STEP_BOTTOM + iecBarY) / 2)
+                      ? Math.round((bottomOf(sources[0]) + iecBarY) / 2)
                       : Math.round((iecBarY + 4 + stepY(targets[0])) / 2))
                     : Math.max(42, Math.min(height - 45, (avgSourceY + avgTargetY) / 2))
                   const tx = iec
@@ -4043,7 +4335,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         <>
                           {/* Origens descem até à barra dupla (na divergência, é uma só linha com a transição) */}
                           {sources.map((value) => (
-                            <path key={`f-${value}`} d={`M ${stepX(value)} ${stepY(value) + STEP_BOTTOM} V ${iecBarY}`} fill="none" stroke={linkColor} strokeWidth={enabled ? 2 : 1.5} />
+                            <path key={`f-${value}`} d={`M ${stepX(value)} ${bottomOf(value)} V ${iecBarY}`} fill="none" stroke={linkColor} strokeWidth={enabled ? 2 : 1.5} />
                           ))}
                           {/* Da barra dupla descem os destinos (na convergência, é uma só linha com a transição) */}
                           {targets.map((value) => (
@@ -4255,6 +4547,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   const { stepNumber, comment } = getStepDisplayInfo(step, index)
                   const isStepBeingDragged = dragPos?.id === step.id
                   const stepShiftX = stepX(step.id) - SPINE_X
+                  // Tamanho da caixa (redimensionável): o eixo central fica em SPINE_X dentro do grupo deslocado.
+                  const { w: SW, h: SH } = stepSizeOf(step.id)
+                  const SL = SPINE_X - SW / 2
+                  const SR = SPINE_X + SW / 2
 
                   return (
                     <g
@@ -4311,7 +4607,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                                   to: [],
                                   condition: '1',
                                   x: stepX(step.id),
-                                  y: stepY(step.id) + STEP_H + 30,
+                                  y: stepY(step.id) + stepHOf(step.id) + 30,
                                 }
                                 save({ transitions: [...transitions, t] })
                                 setSelected(t.id)
@@ -4335,27 +4631,27 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       {full && (
                         <rect
                           className="grafcet-step-hover-zone"
-                          x="100"
+                          x={SL - 19}
                           y={y - 16}
-                          width="112"
-                          height={hasOutgoingTransition ? 54 + 16 : active ? 114 : 98}
+                          width={SW + 48}
+                          height={hasOutgoingTransition ? SH + 16 : active ? SH + 60 : SH + 44}
                           fill="transparent"
                           onPointerEnter={() => hoverElement('step', step.id)}
                         />
                       )}
                       {full && wireDraft && wireHover?.kind === 'step-in' && wireHover.id === step.id && (
-                        <rect x="113" y={y - 6} width="76" height="66" rx="6" fill="rgba(34,197,94,0.10)" stroke="#16a34a" strokeWidth="2.5" strokeDasharray="6 4" pointerEvents="none" />
+                        <rect x={SL - 6} y={y - 6} width={SW + 12} height={SH + 12} rx="6" fill="rgba(34,197,94,0.10)" stroke="#16a34a" strokeWidth="2.5" strokeDasharray="6 4" pointerEvents="none" />
                       )}
                       <title>{`Etapa ${stepNumber}${comment ? ` · ${comment}` : ''}${isStepUnlinked ? ' · por ligar — arraste uma transição ou use Ligar [L]' : ''}${active ? ` · ativa há ${fmtSeconds(runtime.elapsed?.[step.id] ?? 0)}` : ''}`}</title>
 
                       {full && isStepUnlinked && (
                         <>
                           <g className="grafcet-detached-status grafcet-step-detached-status" pointerEvents="none">
-                            <rect x="119" y={y - 18} width="64" height="14" rx="4" />
+                            <rect x={SL} y={y - 18} width={SW} height="14" rx="4" />
                             <text x="151" y={y - 8} textAnchor="middle">POR LIGAR</text>
                           </g>
                           {(isStepHovered || isThisStepSelected || focusedStepId === step.id) && (
-                            <text className="grafcet-detached-hint" x="151" y={y + 69} textAnchor="middle" pointerEvents="none">
+                            <text className="grafcet-detached-hint" x={SPINE_X} y={y + SH + 15} textAnchor="middle" pointerEvents="none">
                               arraste uma transição · Ligar [L]
                             </text>
                           )}
@@ -4364,20 +4660,20 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
                       {/* Captions occupy the right lane, clear of the incoming flow. */}
                       {comment && (
-                        <text className="grafcet-step-caption" x={SPINE_X + 44} y={y - 9} fill="#475569" fontSize="11" fontWeight="600" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="5" strokeLinejoin="round">
+                        <text className="grafcet-step-caption" x={SR + 12} y={y - 9} fill="#475569" fontSize="11" fontWeight="600" paintOrder="stroke" stroke="#fbfcfe" strokeWidth="5" strokeLinejoin="round">
                           {diagramLabel(comment, 25)}
                         </text>
                       )}
 
                       {/* Halo de hover/seleção: só um traço translúcido (sem filtros), controlado por CSS — não repinta o grupo nem pisca */}
-                      {full && <rect className="grafcet-hover-halo" x="119" y={y} width="64" height="54" rx="4" pointerEvents="none" />}
+                      {full && <rect className="grafcet-hover-halo" x={SL} y={y} width={SW} height={SH} rx="4" pointerEvents="none" />}
                       {/* Caixa externa da etapa */}
                       <rect
                         className="grafcet-step-box"
-                        x="119"
+                        x={SL}
                         y={y}
-                        width="64"
-                        height="54"
+                        width={SW}
+                        height={SH}
                         rx="2"
                         fill={active ? '#edf9f1' : isThisStepSelected ? '#eff6ff' : '#ffffff'}
                         stroke={isThisStepSelected ? '#2563eb' : active ? '#16a34a' : '#334155'}
@@ -4389,10 +4685,10 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       {(transDropStep === step.id || actionDropStep === step.id) && (
                         <g>
                           <rect
-                            x="111"
+                            x={SL - 8}
                             y={y - 8}
-                            width="80"
-                            height="70"
+                            width={SW + 16}
+                            height={SH + 16}
                             rx="9"
                             fill="none"
                             stroke={actionDropStep === step.id ? '#2563eb' : '#d97706'}
@@ -4404,11 +4700,11 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                             <>
                               <path
                                 d={actionLinkPath(
-                                  SPINE_X + 32,
-                                  y + STEP_H / 2,
-                                  ACTION_X - ACTION_BUS_GAP,
-                                  y + ACTION_TOP_OFFSET + (stepActionLayout(step) === 'row' ? 0 : actionsOf(step).length * ACTION_PITCH) + ACTION_H / 2,
-                                  ACTION_X + (stepActionLayout(step) === 'row' ? actionsOf(step).length * ACTION_W : 0)
+                                  SR,
+                                  y + SH / 2,
+                                  SR + (ACTION_OFFSET_X - 32) - ACTION_BUS_GAP,
+                                  nextActionSlot(step).y + ACTION_H / 2,
+                                  (nextActionSlot(step).x - stepX(step.id) + SPINE_X)
                                 )}
                                 fill="none"
                                 stroke="#2563eb"
@@ -4417,8 +4713,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                                 strokeLinecap="round"
                               />
                               <rect
-                                x={ACTION_X + (stepActionLayout(step) === 'row' ? actionsOf(step).length * ACTION_W : 0)}
-                                y={y + ACTION_TOP_OFFSET + (stepActionLayout(step) === 'row' ? 0 : actionsOf(step).length * ACTION_PITCH)}
+                                x={(nextActionSlot(step).x - stepX(step.id) + SPINE_X)}
+                                y={nextActionSlot(step).y}
                                 width={ACTION_W}
                                 height={ACTION_H}
                                 rx="3"
@@ -4428,8 +4724,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                                 strokeDasharray="5 3"
                               />
                               <text
-                                x={ACTION_X + ACTION_W / 2 + (stepActionLayout(step) === 'row' ? actionsOf(step).length * ACTION_W : 0)}
-                                y={y + ACTION_TOP_OFFSET + (stepActionLayout(step) === 'row' ? 0 : actionsOf(step).length * ACTION_PITCH) + 19}
+                                x={(nextActionSlot(step).x - stepX(step.id) + SPINE_X) + ACTION_W / 2}
+                                y={nextActionSlot(step).y + 19}
                                 textAnchor="middle"
                                 fill="#1d4ed8"
                                 fontSize="11"
@@ -4445,17 +4741,17 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       {/* Portos diretos nas faces (topo, base, direita): sempre visíveis em edição, realçados ao selecionar, passar ou ligar. */}
                       {full && activeTool !== 'pan' && !running && <g className={`grafcet-step-ports ${activeTool === 'connect' || isThisStepSelected || hoveredStepId === step.id || focusedStepId === step.id || wireDraft ? 'is-emphasized' : 'is-idle'}`}>
                         {renderWirePort({ kind: 'step-in', id: step.id }, { x: SPINE_X, y }, `Entrada da etapa ${stepNumber}`)}
-                        {renderWirePort({ kind: 'step-out', id: step.id }, { x: SPINE_X, y: y + STEP_H }, `Saída da etapa ${stepNumber}: arraste um fio para uma etapa ou transição`)}
-                        {renderWirePort({ kind: 'step-action', id: step.id }, { x: SPINE_X + 32, y: y + STEP_H / 2 }, `Porto de ação da etapa ${stepNumber}: arraste um fio para uma ação solta`)}
+                        {renderWirePort({ kind: 'step-out', id: step.id }, { x: SPINE_X, y: y + SH }, `Saída da etapa ${stepNumber}: arraste um fio para uma etapa ou transição`)}
+                        {renderWirePort({ kind: 'step-action', id: step.id }, { x: SR, y: y + SH / 2 }, `Porto de ação da etapa ${stepNumber}: arraste um fio para uma ação solta`)}
                       </g>}
 
                       {/* Caixa interna de etapa inicial normalizada IEC */}
                       {isInitial && (
                         <rect
-                          x="124"
+                          x={SL + 5}
                           y={y + 5}
-                          width="54"
-                          height="44"
+                          width={SW - 10}
+                          height={SH - 10}
                           fill="none"
                           stroke={isThisStepSelected ? '#2563eb' : active ? '#16a34a' : '#263d59'}
                           strokeWidth="1.5"
@@ -4465,31 +4761,31 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       {/* Macro etapa */}
                       {isMacro && (
                         <>
-                          <line x1="119" y1={y + 10} x2="183" y2={y + 10} stroke="#263d59" strokeWidth="1.5" />
-                          <line x1="119" y1={y + 44} x2="183" y2={y + 44} stroke="#263d59" strokeWidth="1.5" />
-                          <text x="151" y={y + 8} textAnchor="middle" fontSize="8" fontWeight="bold" fill="#64748b">
+                          <line x1={SL} y1={y + 10} x2={SR} y2={y + 10} stroke="#263d59" strokeWidth="1.5" />
+                          <line x1={SL} y1={y + SH - 10} x2={SR} y2={y + SH - 10} stroke="#263d59" strokeWidth="1.5" />
+                          <text x={SPINE_X} y={y + 8} textAnchor="middle" fontSize="8" fontWeight="bold" fill="#64748b">
                             M
                           </text>
                         </>
                       )}
 
-                      {isMacroInput && <text x="130" y={y + 17} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b">E</text>}
-                      {isMacroOutput && <text x="172" y={y + 45} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b">S</text>}
+                      {isMacroInput && <text x={SL + 11} y={y + 17} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b">E</text>}
+                      {isMacroOutput && <text x={SR - 11} y={y + SH - 9} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#64748b">S</text>}
 
                       {/* Etapa encapsulante */}
                       {isEnclosing && (
                         <>
-                          <line x1="119" y1={y + 10} x2="129" y2={y} stroke="#263d59" strokeWidth="2" />
-                          <line x1="173" y1={y} x2="183" y2={y + 10} stroke="#263d59" strokeWidth="2" />
-                          <line x1="119" y1={y + 44} x2="129" y2={y + 54} stroke="#263d59" strokeWidth="2" />
-                          <line x1="173" y1={y + 54} x2="183" y2={y + 44} stroke="#263d59" strokeWidth="2" />
+                          <line x1={SL} y1={y + 10} x2={SL + 10} y2={y} stroke="#263d59" strokeWidth="2" />
+                          <line x1={SR - 10} y1={y} x2={SR} y2={y + 10} stroke="#263d59" strokeWidth="2" />
+                          <line x1={SL} y1={y + SH - 10} x2={SL + 10} y2={y + SH} stroke="#263d59" strokeWidth="2" />
+                          <line x1={SR - 10} y1={y + SH} x2={SR} y2={y + SH - 10} stroke="#263d59" strokeWidth="2" />
                         </>
                       )}
 
                       {/* Número da etapa centralizado e nítido dentro da caixa da etapa */}
                       <text
-                        x="151"
-                        y={y + (active ? 28 : 34)}
+                        x={SPINE_X}
+                        y={y + SH / 2 + (active ? 1 : 7)}
                         textAnchor="middle"
                         fill="#1e293b"
                         fontWeight="700"
@@ -4502,7 +4798,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       {/* Elapsed time stays inside the symbol, clear of flow and action lanes. */}
                       {active && (
                         <g className="grafcet-step-elapsed" pointerEvents="none">
-                          <text x="151" y={y + 40} textAnchor="middle" fill="#187442" fontSize="9" fontWeight="600" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          <text x={SPINE_X} y={y + SH / 2 + 13} textAnchor="middle" fill="#187442" fontSize="9" fontWeight="600" style={{ fontVariantNumeric: 'tabular-nums' }}>
                             {fmtSeconds(runtime.elapsed?.[step.id] ?? 0)}
                           </text>
                         </g>
@@ -4520,8 +4816,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                               aria-label="Arrastar até outra etapa para criar uma transição"
                             >
                               <title>Arrastar até outra etapa para criar uma transição</title>
-                              <circle cx={196} cy={y + 48} r="8" fill="#16a34a" stroke="#ffffff" strokeWidth="1.5" />
-                              <path d={`M ${196 - 4} ${y + 48} H ${196 + 3} M ${196} ${y + 48 - 3.5} L ${196 + 3.5} ${y + 48} L ${196} ${y + 48 + 3.5}`} fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              <circle cx={SR + 13} cy={y + SH - 6} r="8" fill="#16a34a" stroke="#ffffff" strokeWidth="1.5" />
+                              <path d={`M ${SR + 9} ${y + SH - 6} H ${SR + 16} M ${SR + 13} ${y + SH - 9.5} L ${SR + 16.5} ${y + SH - 6} L ${SR + 13} ${y + SH - 2.5}`} fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                             </g>
                           {/* Botão + abaixo da etapa: Adicionar etapa seguinte e transição */}
                           {!hasOutgoingTransition && <g
@@ -4534,8 +4830,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                             role="button"
                             aria-label="Adicionar etapa seguinte e transição"
                           >
-                            <circle cx="151" cy={active ? y + 84 : y + 68} r="10" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
-                            <path d={`M 151 ${active ? y + 79 : y + 63} V ${active ? y + 89 : y + 73} M 146 ${active ? y + 84 : y + 68} H 156`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                            <circle cx={SPINE_X} cy={active ? y + SH + 30 : y + SH + 14} r="10" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
+                            <path d={`M ${SPINE_X} ${active ? y + SH + 25 : y + SH + 9} V ${active ? y + SH + 35 : y + SH + 19} M ${SPINE_X - 5} ${active ? y + SH + 30 : y + SH + 14} H ${SPINE_X + 5}`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
                           </g>}
 
                           {/* Botão + à direita da etapa: adicionar ação a esta etapa */}
@@ -4549,8 +4845,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                             role="button"
                             aria-label="Adicionar ação a esta etapa"
                           >
-                            <circle cx="196" cy={y + 27} r="9" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
-                            <path d={`M 196 ${y + 23} V ${y + 31} M 192 ${y + 27} H 200`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                            <circle cx={SR + 13} cy={y + SH / 2} r="9" fill="#0284c7" stroke="#ffffff" strokeWidth="2" />
+                            <path d={`M ${SR + 13} ${y + SH / 2 - 4} V ${y + SH / 2 + 4} M ${SR + 9} ${y + SH / 2} H ${SR + 17}`} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
                           </g>
 
                           {/* Botão ✎ no canto superior direito: Editar etapa no diálogo FluidSIM */}
@@ -4564,8 +4860,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                             role="button"
                             aria-label="Configurar etapa"
                           >
-                            <circle cx="196" cy={y + 6} r="8" fill="#2563eb" stroke="#ffffff" strokeWidth="1.8" filter="drop-shadow(0 1px 3px rgba(0,0,0,0.25))" />
-                            <path d={`M 194 ${y + 8} L 198 ${y + 4}`} stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" />
+                            <circle cx={SR + 13} cy={y + 6} r="8" fill="#2563eb" stroke="#ffffff" strokeWidth="1.8" filter="drop-shadow(0 1px 3px rgba(0,0,0,0.25))" />
+                            <path d={`M ${SR + 11} ${y + 8} L ${SR + 15} ${y + 4}`} stroke="#ffffff" strokeWidth="1.6" strokeLinecap="round" />
                           </g>
 
                           {/* Botão ✕ no canto superior esquerdo: Eliminar etapa com folga externa */}
@@ -4580,11 +4876,22 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                               role="button"
                               aria-label="Eliminar etapa"
                             >
-                              <circle cx="106" cy={y + 6} r="8" fill="#ef4444" stroke="#ffffff" strokeWidth="1.8" filter="drop-shadow(0 1px 3px rgba(0,0,0,0.25))" />
-                              <path d={`M 103.5 ${y + 3.5} L 108.5 ${y + 8.5} M 108.5 ${y + 3.5} L 103.5 ${y + 8.5}`} stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+                              <circle cx={SL - 13} cy={y + 6} r="8" fill="#ef4444" stroke="#ffffff" strokeWidth="1.8" filter="drop-shadow(0 1px 3px rgba(0,0,0,0.25))" />
+                              <path d={`M ${SL - 15.5} ${y + 3.5} L ${SL - 10.5} ${y + 8.5} M ${SL - 10.5} ${y + 3.5} L ${SL - 15.5} ${y + 8.5}`} stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
                             </g>
                           )}
                         </>
+                      )}
+                      {/* Redimensionar: faces mudam uma dimensão, cantos mudam na proporção */}
+                      {full && isThisStepSelected && !selectedActionId && groupIds.length < 2 && activeTool === 'select' && (
+                        <ResizeHandles
+                          x={SL}
+                          y={y}
+                          w={SW}
+                          h={SH}
+                          handles={ALL_RESIZE_HANDLES}
+                          onStart={(handle, e) => startResize('step', step.id, null, handle, { x: stepX(step.id), y, w: SW, h: SH }, e)}
+                        />
                       )}
                     </g>
                   )
@@ -4599,36 +4906,49 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
                   // A coluna de ações acompanha o eixo real da etapa (etapas movidas/fixadas ou em colunas paralelas).
                   const stepCx = stepX(step.id)
-                  const actionX = stepCx + ACTION_OFFSET_X
-                  const actionW = ACTION_W
-                  const actionH = ACTION_H
+                  const { w: stepW } = stepSizeOf(step.id)
+                  const boxes = attachedBoxes(step)
+                  const actionX = stepCx + stepW / 2 + (ACTION_OFFSET_X - 32)
                   const qualifierW = ACTION_QUALIFIER_W
-                  const linkX = stepCx + 32
-                  const linkY = y + STEP_H / 2
+                  const linkX = stepCx + stepW / 2
+                  const linkLeftX = stepCx - stepW / 2
+                  const linkY = y + stepHOf(step.id) / 2
                   const busX = actionX - ACTION_BUS_GAP
                   const layout = stepActionLayout(step)
-                  const slotTop = (index: number) => y + actionSlotOffset(layout, index).dy
-                  const slotLeft = (index: number) => stepCx + actionSlotOffset(layout, index).dx
+                  const boxOf = (action: GrafcetAction): ActionBox =>
+                    boxes.get(action.id) ?? { x: actionX, y, w: ACTION_W, h: ACTION_H, offset: false, flowIndex: 0 }
 
                   // Ligações etapa → ação: camada própria (as realçadas por cima das neutras, sem mistura de cores).
                   const linkLayer = actions
-                    .map((action, index) => {
-                      // Em linha, só a 1.ª ação liga à etapa: as restantes encostam-se à anterior.
-                      if (layout === 'row' && index > 0) return null
-                      const dragging = full && actionDragPos?.id === action.id
-                      if (dragging) return null
+                    .map((action) => {
+                      const box = boxOf(action)
+                      // Em linha, só a 1.ª ação da linha liga à etapa: as restantes encostam-se à anterior.
+                      if (layout === 'row' && !box.offset && box.flowIndex > 0) return null
                       const selected = isActionSelected(action.id)
                       const on = !!table[action.address]
-                      return {
-                        key: action.id,
-                        d: actionLinkPath(linkX, linkY, busX, slotTop(index) + actionH / 2, actionX),
-                        rank: selected ? 2 : on ? 1 : 0,
+                      const dragging = full && actionDragPos?.id === action.id
+                      // Durante o arrasto a ligação acompanha a ação (não se solta da etapa).
+                      const bx = dragging ? actionDragPos!.x : box.x
+                      const by = dragging ? actionDragPos!.y : box.y
+                      const midY = by + box.h / 2
+                      let d: string
+                      if (!box.offset && !dragging) d = actionLinkPath(linkX, linkY, busX, midY, bx)
+                      else if (bx >= linkX) d = actionLinkPath(linkX, linkY, (linkX + bx) / 2, midY, bx)
+                      else if (bx + box.w <= linkLeftX) d = actionLinkPath(linkLeftX, linkY, (linkLeftX + bx + box.w) / 2, midY, bx + box.w)
+                      else {
+                        // Ação por cima/por baixo da etapa: liga na vertical à face mais próxima.
+                        const cx = bx + box.w / 2
+                        const below = by > y
+                        const fromY = below ? y + stepHOf(step.id) : y
+                        const toY = below ? by : by + box.h
+                        d = `M ${stepCx} ${fromY} V ${(fromY + toY) / 2} H ${cx} V ${toY}`
                       }
+                      return { key: action.id, d, rank: dragging ? 3 : selected ? 2 : on ? 1 : 0 }
                     })
                     .filter((link): link is { key: string; d: string; rank: number } => link !== null)
                     .sort((a, b) => a.rank - b.rank)
                   const anchorRank = linkLayer.reduce((max, link) => Math.max(max, link.rank), 0)
-                  const linkColor = (rank: number) => (rank === 2 ? '#2563eb' : rank === 1 ? '#16a34a' : '#263d59')
+                  const linkColor = (rank: number) => (rank === 3 ? '#d97706' : rank === 2 ? '#2563eb' : rank === 1 ? '#16a34a' : '#263d59')
 
                   return (
                     <g key={`step-actions-${step.id}`}>
@@ -4648,10 +4968,13 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         {/* Ponto de ancoragem na etapa */}
                         <circle cx={linkX} cy={linkY} r="3" fill={linkColor(anchorRank)} />
                       </g>
-                      {actions.map((action, actionIndex) => {
+                      {actions.map((action) => {
                         const dragOverride = full && actionDragPos?.id === action.id ? actionDragPos : null
-                        const actionY = dragOverride ? dragOverride.y : slotTop(actionIndex)
-                        const renderX = dragOverride ? dragOverride.x : slotLeft(actionIndex)
+                        const box = boxOf(action)
+                        const actionW = box.w
+                        const actionH = box.h
+                        const actionY = dragOverride ? dragOverride.y : box.y
+                        const renderX = dragOverride ? dragOverride.x : box.x
                         const actionOn = !dragOverride && !!table[action.address]
                         const isThisActionSelected = isActionSelected(action.id)
                         const isThisActionHovered = hoveredActionId === action.id
@@ -4720,10 +5043,20 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                               strokeWidth={isThisActionSelected || actionOn ? 2 : 1.5}
                               fill={actionOn ? '#edf9f1' : isThisActionSelected ? '#eff6ff' : 'white'}
                               textColor={isThisActionSelected ? '#1d4ed8' : actionOn ? '#15803d' : '#1e293b'}
-                              label={diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : actionShape(action).qualifier ? 12 : 16)}
-                              subLabel={action.displayDescription && action.description && action.variable && action.description !== action.variable ? diagramLabel(action.variable, isThisActionSelected || isThisActionHovered ? 10 : 16) : undefined}
+                              label={diagramLabel(actionLabel(action), Math.round((isThisActionSelected || isThisActionHovered ? 8 : actionShape(action).qualifier ? 12 : 16) * actionW / ACTION_W))}
+                              subLabel={action.displayDescription && action.description && action.variable && action.description !== action.variable ? diagramLabel(action.variable, Math.round((isThisActionSelected || isThisActionHovered ? 10 : 16) * actionW / ACTION_W)) : undefined}
                             />
 
+                            {full && isThisActionSelected && !dragOverride && activeTool === 'select' && !action.id.startsWith('legacy-') && (
+                              <ResizeHandles
+                                x={renderX}
+                                y={actionY}
+                                w={actionW}
+                                h={actionH}
+                                handles={box.offset ? ALL_RESIZE_HANDLES : ['e', 's', 'se']}
+                                onStart={(handle, e) => startResize('action', action.id, step.id, handle, { x: renderX, y: actionY, w: actionW, h: actionH }, e)}
+                              />
+                            )}
                             {/* Manipuladores rápidos na ação: ✎ editar e ✕ eliminar */}
                             {full && (isThisActionSelected || isThisActionHovered) && (
                               <>
@@ -4778,8 +5111,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                           aria-label="Adicionar ação"
                         >
                           <rect
-                            x={layout === 'row' ? actionX + actions.length * actionW + 16 : actionX}
-                            y={layout === 'row' ? slotTop(0) + (actionH - 22) / 2 : slotTop(actions.length) + 4}
+                            x={nextActionSlot(step).x + (layout === 'row' ? 16 : 0)}
+                            y={nextActionSlot(step).y + (layout === 'row' ? (ACTION_H - 22) / 2 : 4)}
                             width="90"
                             height="22"
                             rx="4"
@@ -4789,8 +5122,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                             strokeDasharray="3 2"
                           />
                           <text
-                            x={layout === 'row' ? actionX + actions.length * actionW + 16 + 45 : actionX + 45}
-                            y={layout === 'row' ? slotTop(0) + actionH / 2 + 3.5 : slotTop(actions.length) + 19}
+                            x={nextActionSlot(step).x + (layout === 'row' ? 16 : 0) + 45}
+                            y={nextActionSlot(step).y + (layout === 'row' ? ACTION_H / 2 + 3.5 : 19)}
                             textAnchor="middle"
                             fill="#1d4ed8"
                             fontSize="10.5"
@@ -4807,6 +5140,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 {/* AÇÕES SOLTAS: caixas IEC livres no grid — arrastam-se e ligam-se por aproximação ou por linha */}
                 {freeActions.map((action) => {
                   const pos = actionXY(action)
+                  const { w: FAW, h: FAH } = actionSizeOf(action)
                   const x = pos.x
                   const y = pos.y
                   const kind = action.kind ?? 'N'
@@ -4814,7 +5148,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   const isThisActionHovered = hoveredActionId === action.id
                   const isConditional = !!(action.condition && action.condition !== '1')
                   const strokeColor = isThisActionSelected ? '#2563eb' : '#d97706'
-                  const midY = y + ACTION_FREE_H / 2
+                  const midY = y + FAH / 2
                   const kindLabel = kind === 'N' ? 'N' : kind
                   return (
                     <g
@@ -4860,24 +5194,24 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                     >
                       <title>{`${kind} · ${actionLabel(action)}${action.variable ? ` · ${action.variable}` : ''}${isConditional ? ` · condição: ${action.condition}` : ''} · ação por ligar · arraste sobre uma etapa ou use Ligar [L]`}</title>
                       {/* Halo transparente para agarrar com facilidade (rato e toque) */}
-                      <rect x={x - 36} y={y - 18} width={ACTION_FREE_W + 72} height={ACTION_FREE_H + 36} fill="transparent" />
+                      <rect x={x - 36} y={y - 18} width={FAW + 72} height={FAH + 36} fill="transparent" />
 
                       {/* Stubs tracejados nas quatro faces — os círculos de ligação ficam abaixo, depois do símbolo */}
                       <line x1={x - 14} y1={midY} x2={x} y2={midY} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
                       {full && activeTool !== 'pan' && !running && <>
-                        <line x1={x + ACTION_FREE_W} y1={midY} x2={x + ACTION_FREE_W + 14} y2={midY} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
-                        <line x1={x + ACTION_FREE_W / 2} y1={y - 14} x2={x + ACTION_FREE_W / 2} y2={y} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
-                        <line x1={x + ACTION_FREE_W / 2} y1={y + ACTION_FREE_H} x2={x + ACTION_FREE_W / 2} y2={y + ACTION_FREE_H + 14} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
+                        <line x1={x + FAW} y1={midY} x2={x + FAW + 14} y2={midY} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
+                        <line x1={x + FAW / 2} y1={y - 14} x2={x + FAW / 2} y2={y} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
+                        <line x1={x + FAW / 2} y1={y + FAH} x2={x + FAW / 2} y2={y + FAH + 14} stroke="#d97706" strokeWidth="1.6" strokeDasharray="3 2" className="grafcet-free-stub" />
                       </>}
 
                       {/* Halo de hover/seleção (ver .grafcet-hover-halo) */}
-                      {full && <rect className="grafcet-hover-halo" x={x} y={y} width={ACTION_FREE_W} height={ACTION_FREE_H} rx="2" pointerEvents="none" />}
+                      {full && <rect className="grafcet-hover-halo" x={x} y={y} width={FAW} height={FAH} rx="2" pointerEvents="none" />}
                       {/* Símbolo IEC 60848 (âmbar tracejado enquanto solta) */}
                       <ActionSymbol
                         x={x}
                         y={y}
-                        w={ACTION_FREE_W}
-                        h={ACTION_FREE_H}
+                        w={FAW}
+                        h={FAH}
                         shape={actionShape(action)}
                         condition={action.condition}
                         timeSeconds={(action.timeMs ?? 2000) / 1000}
@@ -4887,14 +5221,24 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         fill={isThisActionSelected ? '#eff6ff' : '#fffbeb'}
                         textColor={isThisActionSelected ? '#1d4ed8' : '#1e293b'}
                         dashed={!isThisActionSelected}
-                        label={diagramLabel(actionLabel(action), isThisActionSelected || isThisActionHovered ? 8 : 13)}
+                        label={diagramLabel(actionLabel(action), Math.round((isThisActionSelected || isThisActionHovered ? 8 : 13) * FAW / ACTION_W))}
                       />
+                      {full && isThisActionSelected && activeTool === 'select' && actionDragPos?.id !== action.id && (
+                        <ResizeHandles
+                          x={x}
+                          y={y}
+                          w={FAW}
+                          h={FAH}
+                          handles={ALL_RESIZE_HANDLES}
+                          onStart={(handle, e) => startResize('action', action.id, null, handle, { x, y, w: FAW, h: FAH }, e)}
+                        />
+                      )}
 
                       {/* Círculos de ligação em cada face da ação: arraste de qualquer um até uma etapa (ou largue o fio da etapa sobre a ação) */}
                       {full && activeTool !== 'pan' && !running && <g className={`grafcet-action-ports grafcet-step-ports ${activeTool === 'connect' || isThisActionSelected || isThisActionHovered || focusedActionId === action.id || wireDraft ? 'is-emphasized' : 'is-idle'}`}>
                         {(['l', 'r', 't', 'b'] as const).map((side) => renderWirePort(
                           { kind: 'action-in', id: action.id, side },
-                          actionPortAt({ x, y }, side),
+                          actionPortAt({ x, y }, side, { w: FAW, h: FAH }),
                           `Porto ${side === 'l' ? 'esquerdo' : side === 'r' ? 'direito' : side === 't' ? 'superior' : 'inferior'} da ação solta ${action.variable || action.address || ''}: arraste um fio até uma etapa`,
                         ))}
                       </g>}
@@ -4907,7 +5251,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
                       {/* Dica contextual */}
                       {full && (isThisActionHovered || isThisActionSelected || focusedActionId === action.id) && (
-                        <text className="grafcet-detached-hint" x={x + ACTION_FREE_W / 2} y={y + ACTION_FREE_H + 36} textAnchor="middle" pointerEvents="none">
+                        <text className="grafcet-detached-hint" x={x + FAW / 2} y={y + FAH + 36} textAnchor="middle" pointerEvents="none">
                           arraste para etapa · Ligar [L]
                         </text>
                       )}
@@ -4943,8 +5287,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                             role="button"
                             aria-label="Configurar ação solta"
                           >
-                            <circle cx={x + ACTION_FREE_W - 22} cy={midY} r="7.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                            <path d={`M ${x + ACTION_FREE_W - 24} ${midY + 2} L ${x + ACTION_FREE_W - 20} ${midY - 2}`} stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
+                            <circle cx={x + FAW - 22} cy={midY} r="7.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
+                            <path d={`M ${x + FAW - 24} ${midY + 2} L ${x + FAW - 20} ${midY - 2}`} stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" />
                           </g>
                           <g
                             className="grafcet-node-handle is-delete"
@@ -4956,9 +5300,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                             role="button"
                             aria-label="Eliminar ação solta"
                           >
-                            <circle cx={x + ACTION_FREE_W - 7} cy={midY} r="7.5" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
+                            <circle cx={x + FAW - 7} cy={midY} r="7.5" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
                             <path
-                              d={`M ${x + ACTION_FREE_W - 9.5} ${midY - 2.5} L ${x + ACTION_FREE_W - 4.5} ${midY + 2.5} M ${x + ACTION_FREE_W - 4.5} ${midY - 2.5} L ${x + ACTION_FREE_W - 9.5} ${midY + 2.5}`}
+                              d={`M ${x + FAW - 9.5} ${midY - 2.5} L ${x + FAW - 4.5} ${midY + 2.5} M ${x + FAW - 4.5} ${midY - 2.5} L ${x + FAW - 9.5} ${midY + 2.5}`}
                               stroke="#ffffff"
                               strokeWidth="1.4"
                               strokeLinecap="round"

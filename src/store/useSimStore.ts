@@ -40,7 +40,7 @@ import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
 import { terminalClassesCompatible, terminalElectricalClassOf, TERMINAL_ELECTRICAL_CLASS_LABEL } from '../electrical/terminalClassification'
 import { proautoInputPowered } from '../electrical/proautoPower'
 import { computeContinuity, isCoilPowered, isLoadPowered, probe, sourceTerminalIds } from '../electrical/engine'
-import { importedComponentInfo, updateImportedPower } from '../electrical/importedComponents'
+import { importedComponentInfo, updateImportedLoads, updateImportedPower } from '../electrical/importedComponents'
 import { computePhaseLabels, motorDirectionFromPhases } from '../electrical/phases'
 import { findBreakpointHit, describeBreakHit, type LadderBreakHit, type LadderBreakMode } from '../ladder/ladderDebug'
 import { runScan, type RungTraceEntry, type AddressTable, type TimerTable, type CounterTable, type EdgeTable, emptyTable, nextAddress, collectUsedAddresses, isDeclarableAddress, defaultDataTypeFor } from '../ladder/ladderEngine'
@@ -724,6 +724,7 @@ function runOneTick(state: Store, dtMs: number) {
       c.state.green = pass3.energizedTerminals.has(terminalByLabel(c, 'G')?.id ?? '')
       c.state.on = c.state.red || c.state.yellow || c.state.green
     }
+    updateImportedLoads(c, pass3.energizedTerminals)
     if (c.type === 'hmi') c.state.on = isLoadPowered(c, pass3.energizedTerminals, 'L', 'N')
     if (c.type === 'analogAmmeter') {
       const live = isLoadPowered(c, pass3.energizedTerminals, '1', '2')

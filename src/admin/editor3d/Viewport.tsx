@@ -170,8 +170,10 @@ function Scene() {
 
   const activeState = mode === 'simulate' ? previewState : editState
   useEffect(() => {
-    animator.current = new StateAnimator(def, root, activeState)
+    const created = new StateAnimator(def, root, activeState)
+    animator.current = created
     invalidate()
+    return () => { created.dispose(); if (animator.current === created) animator.current = null }
   }, [root, def.states, def.lights, def.initialState])
   useEffect(() => {
     animator.current?.setState(activeState, mode === 'edit')

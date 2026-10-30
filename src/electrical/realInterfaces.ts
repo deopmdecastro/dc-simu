@@ -23,6 +23,12 @@ export interface RealTerminalSpot {
   label: string
   /** Face onde está o encaixe (define a direção de saída do cabo). */
   face: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'
+  /**
+   * Tipo de contacto. Por omissão `socket` (furo/parafuso com cavidade medida). `pin`: pino ou lâmina
+   * saliente (encaixe no contactor, elemento de comutação); `lead`: ponta de fio/cabo; `surface`: ponto
+   * na face onde o CAD não desenha o borne. Só os `socket` têm cavidade verificável.
+   */
+  contact?: 'socket' | 'pin' | 'lead' | 'surface'
   x: number
   y: number
   z: number

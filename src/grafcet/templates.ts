@@ -1,5 +1,7 @@
 import type { GrafcetAction, GrafcetProgram, GrafcetStep, GrafcetTransition, GrafcetComment } from './engine'
 import { autoLayout, SPINE_X, START_Y } from './layout'
+import { grafcetExamples, type ExampleTag } from '../project/grafcetExamples'
+import type { CanvasNote } from '../types'
 
 const uid = () => crypto.randomUUID()
 
@@ -9,6 +11,9 @@ export interface GrafcetTemplateInfo {
   title: string
   description: string
   program: GrafcetProgram
+  /** Exemplos completos: nomes da tabela de sinais e comentários (notas) que acompanham o diagrama. */
+  tags?: ExampleTag[]
+  notes?: Array<Omit<CanvasNote, 'createdAt'>>
 }
 
 
@@ -621,6 +626,12 @@ export const GRAFCET_TEMPLATES: GrafcetTemplateInfo[] = [
   },
   ...IEC_TEMPLATES,
 ]
+
+// Exemplos completos e funcionais (básico, normal, avançado) à cabeça da lista.
+GRAFCET_TEMPLATES.unshift(...grafcetExamples().map((example): GrafcetTemplateInfo => ({
+  id: example.id, name: example.name.replace(/^Exemplo GRAFCET \d · /, ''), title: example.title, description: example.description,
+  program: example.program, tags: example.tags, notes: example.notes,
+})))
 
 /** Os modelos foram desenhados com as ações empilhadas: mantém essa disposição nas etapas com várias ações
  *  (as etapas novas criadas no editor usam ações em linha, lado a lado). */

@@ -103,7 +103,9 @@ try {
         const p = TEMPLATES[type].terminals.find((item) => item.label === terminal.label)!.position3D!
         assert.ok(new THREE.Vector3(...terminal.position).distanceTo(new THREE.Vector3((p.x-.5)*size.x,p.y*size.y,(p.z-.5)*size.z)) < .001)
         const spot = REAL_TERMINALS[type]!.find((spot) => spot.label === terminal.label)!
-        assert.ok(editorTerminalRadiusMm(terminal) * 1.32 < Math.min(spot.diameterMm! / 2, terminal.socketInsetMm!, terminal.socketDepthMm! - terminal.socketInsetMm!))
+        // Pinos e pontas de fio (`contact` ≠ socket) não têm cavidade onde o marcador tenha de caber.
+        const socketRoom = Math.min(spot.diameterMm! * .5, terminal.socketInsetMm!, terminal.socketDepthMm! - terminal.socketInsetMm!)
+        if (!spot.contact || spot.contact === 'socket') assert.ok(editorTerminalRadiusMm(terminal) * 1.32 < socketRoom, `${type}.${terminal.label}: marcador maior do que o encaixe`)
         const exported = runtime.terminals.find((item) => item.id === terminal.id)!
         const q = exported.position3D
         assert.ok(new THREE.Vector3(...terminal.position).distanceTo(new THREE.Vector3(box.min.x + q.x * volume.x, box.min.y + q.y * volume.y, box.min.z + q.z * volume.z)) < .001, 'Exportação conserva a posição dentro do furo')
@@ -115,7 +117,7 @@ try {
       }
     })
   }
-  assert.equal(terminals, 162)
+  assert.equal(terminals, Object.values(REAL_TERMINALS).reduce((sum, spots) => sum + (spots?.length ?? 0), 0), 'Todos os bornes medidos passam pelo editor')
   const fresh = (await buildBuiltinDraft('terminalPhoenixPti6')).def
   const assetId = fresh.parts[0].asset!, old = structuredClone(fresh)
   delete old.assets[assetId].builtinType

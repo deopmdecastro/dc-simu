@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { loadModelMm } from './detect-interfaces'
 import { REAL_TERMINALS } from '../src/electrical/realInterfaces'
+import { importedComponentInfo } from '../src/electrical/importedComponents'
 import { createComponent, terminalByLabel } from '../src/electrical/factory'
 import { detectHoles } from '../src/catalog/holeDetect'
 import { FACE_NORMAL } from '../src/catalog/terminalProfiles'
@@ -21,7 +22,10 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
   const { root, box } = model
   const size = box.getSize(new THREE.Vector3())
   const component = createComponent(type)
-  const defs: TerminalDef[] = REAL_TERMINALS[type]!.map((spot) => {
+  // Só os encaixes com cavidade (`contact` socket) assentam num furo; pinos e pontas de fio ficam de fora.
+  const sockets = REAL_TERMINALS[type]!.filter((spot) => !spot.contact || spot.contact === 'socket')
+  if (!sockets.length) { console.log(`PASS — ${type}: só pinos/fios, sem cavidades a verificar`); continue }
+  const defs: TerminalDef[] = sockets.map((spot) => {
     const live = terminalByLabel(component, spot.label)!
     const at = live.position3D!
     const position: Vec3 = [(at.x - .5) * size.x, (at.y - .5) * size.y, (at.z - .5) * size.z]
@@ -47,7 +51,10 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
   fixed++
   // Bornes criados a partir de furos detetados ficam no interior da cavidade.
   const holes = detectHoles(root, face, { minDiameterMm: 2, maxDiameterMm: 16, limit: 6 })
-  for (const hole of holes.filter((item) => !item.through && item.depthMm > 1)) {
+  // CAD importados: só os furos que são bornes declarados (poços de botões, rearme e ventilação não são ligações).
+  const imported = !!importedComponentInfo(type)
+  const nearSocket = (position: number[]) => defs.some((def) => Math.hypot(def.position[0] - position[0], def.position[1] - position[1], def.position[2] - position[2]) < Math.max(3, def.diameterMm / 2))
+  for (const hole of holes.filter((item) => !item.through && item.depthMm > 1 && (!imported || nearSocket(item.position)))) {
     const socket = socketForHole(root, hole)
     const status = measureSeat(root, socket.position, socket.normal, socket.diameterMm).status
     // Cavidade cilíndrica → dentro; aperto com cabeça de parafuso ao centro → à boca, nunca enterrado nem a flutuar.
@@ -65,5 +72,5 @@ assert.equal(measureSeat(plain, [0, 0, 10], [0, 0, 1], 4).status, 'surface', 'fa
 assert.equal(measureSeat(plain, [0, 0, 6], [0, 0, 1], 4).status, 'buried', 'ponto atrás da face devia dar «buried»')
 assert.equal(measureSeat(plain, [80, 80, 10], [0, 0, 1], 4).status, 'floating', 'fora do modelo devia dar «floating»')
 
-assert.equal(seated, 162, 'Cobertura incompleta: 142 bornes anteriores e 20 encaixes novos')
+assert.equal(seated, 194, 'Cobertura incompleta: 142 bornes anteriores, 20 encaixes calibrados e 32 parafusos medidos nos CAD importados')
 console.log(`PASS — ${seated} bornes integrados confirmados dentro das cavidades; ${fixed} correções «boca → cavidade»; ${holesTested} bornes criados a partir de furos ficaram na cavidade`)

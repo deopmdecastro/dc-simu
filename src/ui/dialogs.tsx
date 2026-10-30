@@ -74,6 +74,23 @@ export default function DialogHost() {
     return () => { push = null }
   }, [])
 
+  // Teclado do diálogo em captura: Enter confirma e Esc cancela antes de qualquer atalho do editor.
+  const keysRef = useRef<{ accept: () => void; cancel: () => void } | null>(null)
+  useEffect(() => {
+    if (!current) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' && event.key !== 'Escape') return
+      const target = event.target as HTMLElement | null
+      if (event.key === 'Enter' && target?.closest('.dcx-dialog-actions button')) return // o botão focado decide (Cancelar ou Confirmar)
+      event.preventDefault(); event.stopImmediatePropagation()
+      if (event.key === 'Enter') keysRef.current?.accept()
+      else if (current.kind !== 'alert') keysRef.current?.cancel()
+      else keysRef.current?.accept()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [current])
+
   useEffect(() => {
     if (!current) return
     setText(current.defaultValue ?? '')
@@ -89,6 +106,7 @@ export default function DialogHost() {
   }
   const accept = () => close(current.kind === 'prompt' ? text : true)
   const cancel = () => close(current.kind === 'prompt' ? null : false)
+  keysRef.current = { accept, cancel }
 
   return (
     <div className="dcx-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && current.kind !== 'alert') cancel() }}>
@@ -101,7 +119,6 @@ export default function DialogHost() {
           value={text}
           autoFocus
           onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => { if (event.key === 'Enter') accept(); if (event.key === 'Escape') cancel() }}
         />}
         <div className="dcx-dialog-actions">
           {current.kind !== 'alert' && <button type="button" className="dcx-dialog-btn" onClick={cancel}>{current.cancelLabel ?? 'Cancelar'}</button>}

@@ -25,6 +25,7 @@ import { panelToSchematicX, panelToSchematicY } from '../three/panelLayout'
 import { bakeNativeRouting } from './nativeRouting'
 import { buildNativeMotorMeter, withMotorMeterFerrules, NATIVE_PARTIDA_ID, NATIVE_MOTOR_METER_FEATURE, NATIVE_MOTOR_DOUBLE_FERRULE_FEATURE } from './nativeMotorMeter'
 import { syncSharedTerminalFerrules } from '../electrical/sharedFerrules'
+import { grafcetExampleContent, grafcetExamples } from './grafcetExamples'
 
 /** Blocos de programa do método «registo de etapa» (FC + OB100 + CALL na Main). */
 const NATIVE_PLC_ID = 'native-plc'
@@ -462,6 +463,17 @@ export function nativeDemoTable(plcRunning: boolean, motorOn: boolean): Record<s
 }
 
 export function nativeProjectSeeds(): NativeProjectSeed[] {
+  // Exemplos GRAFCET (básico, normal, avançado): projetos só GRAFCET, funcionais, com sinais, textos e comentários.
+  const examples: NativeProjectSeed[] = grafcetExamples().map((example) => ({
+    id: example.id,
+    name: example.name,
+    ownerId: ADMIN_OWNER,
+    memberIds: [],
+    content: grafcetExampleContent(example),
+    revision: 0,
+    updatedAt: new Date().toISOString(),
+    nativeId: example.nativeId,
+  }))
   return [
     {
       id: NATIVE_PARTIDA_ID,
@@ -473,5 +485,6 @@ export function nativeProjectSeeds(): NativeProjectSeed[] {
       updatedAt: new Date().toISOString(),
       nativeId: NATIVE_PARTIDA_ID,
     },
+    ...examples,
   ]
 }

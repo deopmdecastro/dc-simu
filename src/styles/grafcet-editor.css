@@ -2106,3 +2106,10 @@ button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-off
    exatamente onde abre a gaveta de propriedades: ficava tapada. Passa para o topo. */
 @media (max-width: 800px) {
 }
+
+/* Redimensionar etapas/ações: faces invisíveis que se acendem ao passar; cantos sempre visíveis */
+.grafcet-resize-handle.is-face { fill: transparent; transition: fill 0.12s ease; }
+.grafcet-resize-handle.is-face:hover,
+.grafcet-resize-handle.is-face:active { fill: rgba(37, 99, 235, 0.28); }
+.grafcet-resize-handle.is-corner { vector-effect: non-scaling-stroke; }
+.grafcet-resize-handle.is-corner:hover { fill: #dbeafe; }

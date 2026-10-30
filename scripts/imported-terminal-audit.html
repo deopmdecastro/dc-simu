@@ -1,0 +1,51 @@
+<!doctype html><html lang="pt"><meta charset="utf-8"><title>Bornes dos CAD importados</title>
+<style>body{font:12px system-ui;margin:12px;background:#eef2f7;color:#17213a}main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}article{padding:10px;background:#fff}h2{font-size:13px;margin:0 0 6px}.views{display:flex;gap:6px}.views figure{margin:0;position:relative;flex:1}.views img{width:100%;background:#f6f8fb;display:block}figcaption{font-size:10px;color:#64748b}p{margin:3px 0}</style>
+<h1>Bornes dos CAD importados — vermelho: borne em uso · azul: encaixe detetado</h1><main></main>
+<script type="module">
+// Página de revisão: sobrepõe aos GLB os bornes que o simulador usa e os encaixes
+// encontrados pelo detetor (window.auditHoles, opcional). Uso: ?types=a,b
+import * as THREE from 'three'
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
+import models from '/src/data/imported-component-models.json'
+const {REAL_TERMINALS}=await import('/src/electrical/realInterfaces.ts')
+const {TEMPLATES}=await import('/src/electrical/factory.ts')
+const requested=new URLSearchParams(location.search).get('types')?.split(',')
+const selected=models.filter(model=>!requested||requested.includes(model.type))
+const S=420
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:true})
+renderer.setSize(S,S);renderer.setPixelRatio(1);renderer.outputColorSpace=THREE.SRGBColorSpace
+const loader=new GLTFLoader()
+window.auditState={ready:0,errors:[],terminals:{}}
+const dot=(pos,color,r)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,16,12),new THREE.MeshBasicMaterial({color,depthTest:false}));m.renderOrder=10;m.position.copy(pos);return m}
+for(const model of selected){
+ const article=document.createElement('article');document.querySelector('main').append(article)
+ const {width:W,height:H,depth:D}=model.physicalSizeMm
+ article.innerHTML=`<h2>${model.type}</h2><p>${W} × ${H} × ${D} mm</p><div class="views"></div><p class="legend"></p>`
+ try{
+  const root=(await loader.loadAsync(model.path)).scene
+  root.scale.setScalar(1000);root.updateMatrixWorld(true)
+  const box=new THREE.Box3().setFromObject(root,true)
+  const scene=new THREE.Scene();scene.add(root);scene.add(new THREE.HemisphereLight(0xffffff,0x4c5c72,2.2))
+  for(const pos of [[200,400,500],[-300,100,-200]]){const l=new THREE.DirectionalLight(0xffffff,2);l.position.set(...pos);scene.add(l)}
+  // bornes em uso: calibrados (y desde o topo) ou do modelo funcional (x/y/z em fração)
+  const real=REAL_TERMINALS[model.type]
+  const tpl=TEMPLATES[model.type]?.terminals??[]
+  const used=(real??tpl.map(t=>({label:t.label,x:t.x,y:t.y,z:t.position3D?.z??.5})))
+  const toMm=s=>new THREE.Vector3(box.min.x+s.x*(box.max.x-box.min.x),box.max.y-s.y*(box.max.y-box.min.y),box.min.z+s.z*(box.max.z-box.min.z))
+  const r=Math.max(W,H,D)*0.018
+  for(const s of used)scene.add(dot(toMm(s),0xe11d48,r))
+  for(const [face,holes] of Object.entries(window.auditHoles?.[model.type]??{}))for(const h of holes)scene.add(dot(new THREE.Vector3(h.position[0],h.position[1],h.position[2]),0x2563eb,r*.7))
+  window.auditState.terminals[model.type]={calibrated:!!real,used:used.map(s=>s.label)}
+  article.querySelector('.legend').textContent=`${real?'calibrados':'posição genérica'}: ${used.map(s=>s.label).join(' ')}`
+  const size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3()),span=Math.max(size.x,size.y,size.z)*1.25
+  for(const [label,dir] of Object.entries({frente:[0,0,1],topo:[0,1,0],iso:[1,.8,1.4]})){
+   const cam=new THREE.OrthographicCamera(-span/2,span/2,span/2,-span/2,span*.001,span*20)
+   cam.position.copy(center).add(new THREE.Vector3(...dir).normalize().multiplyScalar(span*4));if(label==='topo')cam.up.set(0,0,-1);cam.lookAt(center)
+   renderer.render(scene,cam)
+   const fig=document.createElement('figure');fig.innerHTML=`<img alt="${label}" src="${renderer.domElement.toDataURL()}"><figcaption>${label}</figcaption>`;article.querySelector('.views').append(fig)
+  }
+ }catch(error){window.auditState.errors.push({type:model.type,message:String(error)});article.append(String(error))}
+ window.auditState.ready++
+}
+window.auditState.done=true
+</script></html>

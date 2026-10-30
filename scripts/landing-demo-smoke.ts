@@ -38,9 +38,12 @@ const assert = (note: string, cond: boolean, detalhe = '') => {
 }
 
 // ── 1. Projeto nativo íntegro ────────────────────────────────────────────────
-const seeds = nativeProjectSeeds()
+const allSeeds = nativeProjectSeeds()
+// Além do projeto nativo, o painel semeia os três exemplos GRAFCET (projetos só GRAFCET).
+const seeds = allSeeds.filter((seed) => !seed.id.startsWith('grafcet-exemplo-'))
 assert('Seed único nativo com ID estável', seeds.length === 1 && seeds[0].id === NATIVE_PARTIDA_ID, seeds[0]?.id)
 assert('Nome apresenta (nativo)', seeds[0].name === NATIVE_PARTIDA_NAME, seeds[0]?.name)
+assert('Exemplos GRAFCET semeados (básico, normal, avançado)', allSeeds.filter((seed) => seed.id.startsWith('grafcet-exemplo-')).length === 3)
 
 const built = buildNativePartidaDireta()
 const terminalIds = new Set(built.components.flatMap((c) => c.terminals.map((t) => t.id)))

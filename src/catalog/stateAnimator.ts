@@ -3,7 +3,7 @@ import { applyEasing, posedPart, resolveState } from './definition'
 import { evalWhen, type Vars } from './behavior'
 import type { ComponentDefinition, LightZoneDef, StateDef, Vec3 } from './types'
 import { GLOW_HALO_FLAG, GLOW_SPECS, glowFrame, glowTexture, stepGlow } from '../three/glow'
-import { chosenColor as chosenColorOf, glowSettings, resolveLightLook } from './lightLook'
+import { chosenColor as chosenColorOf, chosenGlass, glowSettings, resolveLightLook } from './lightLook'
 
 const DEG = Math.PI / 180
 /** Estado sintético: a pose base das peças, sem diferenças. */
@@ -40,6 +40,25 @@ export class StateAnimator {
   }
 
   get stateId() { return this.target.id }
+
+  /** Retira os halos e devolve às lentes a cor original (o editor recria o animador a cada alteração das luzes). */
+  dispose() {
+    for (const halo of this.halos.values()) {
+      halo.sprite.removeFromParent()
+      ;(halo.sprite.material as THREE.SpriteMaterial).dispose()
+    }
+    this.halos.clear()
+    for (const light of this.def.lights) {
+      for (const mesh of this.lightNodes(light).flatMap((node) => this.meshesOf(node))) {
+        for (const item of (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) as THREE.MeshStandardMaterial[]) {
+          if (item.isMeshStandardMaterial && item.userData.dcGlassBase !== undefined) {
+            item.color.setHex(item.userData.dcGlassBase as number)
+            delete item.userData.dcGlassBase
+          }
+        }
+      }
+    }
+  }
 
   private snap() {
     for (const [id, node] of this.nodes) {
@@ -78,6 +97,7 @@ export class StateAnimator {
       for (const item of list as THREE.MeshStandardMaterial[]) {
         if (!item.isMeshStandardMaterial) continue
         item.color.set(material.color); item.roughness = material.roughness; item.metalness = material.metalness
+        delete item.userData.dcGlassBase
         item.emissive.set(material.emissive); item.emissiveIntensity = material.emissiveIntensity
         item.opacity = material.opacity; item.transparent = material.opacity < 1
       }
@@ -238,12 +258,19 @@ export class StateAnimator {
       const part = this.def.parts.find((item) => item.id === light.partId)
       const material = this.def.materials.find((item) => item.id === (this.materialOf.get(light.partId) ?? part?.materialId))
       const pulse = look.blink ? (Math.sin(this.clock * 6) > 0 ? 1 : 0.1) : 1
-      const chosenColor = chosenColorOf(light, this.vars)
+      // Cor do vidro: pinta a lente (apagada e acesa); sem vidro definido volta à cor original do material.
+      const glass = chosenGlass(light, this.vars)
       for (const mesh of lightNodes.flatMap((node) => this.meshesOf(node))) {
         const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
         for (const item of list as THREE.MeshStandardMaterial[]) {
           if (!item.isMeshStandardMaterial) continue
-          if (light.tintMaterial && light.userPalette?.length) item.color.set(chosenColor)
+          if (glass) {
+            if (item.userData.dcGlassBase === undefined) item.userData.dcGlassBase = item.color.getHex()
+            item.color.set(glass)
+          } else if (item.userData.dcGlassBase !== undefined) {
+            item.color.setHex(item.userData.dcGlassBase as number)
+            delete item.userData.dcGlassBase
+          }
           item.toneMapped = !isOn
           if (isOn) { item.emissive.set(look.color); item.emissiveIntensity = Math.max(1.6, look.intensity) * pulse }
           else { item.emissive.set(light.nodes?.length ? '#000000' : material?.emissive ?? '#000000'); item.emissiveIntensity = light.nodes?.length ? 0 : material?.emissiveIntensity ?? 0 }

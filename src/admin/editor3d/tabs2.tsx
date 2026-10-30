@@ -3,7 +3,8 @@ import { useMemo, useRef, useState } from 'react'
 import { newId, resolveState } from '../../catalog/definition'
 import type { ActionDef, InteractionDef, LightColorRule, LightZoneDef, StateDef, TerminalDef, TriggerName, Vec3 } from '../../catalog/types'
 import { varDefsOf } from '../../catalog/behavior'
-import { glowSettings, lightColors } from '../../catalog/lightLook'
+import { glassFor, glowSettings, lightColors } from '../../catalog/lightLook'
+import { BUILTIN_LIGHT_SWATCHES, allLightSwatches, swatchBackground, useLightColorLibrary, type LightSwatch } from '../../catalog/lightColorLibrary'
 import type { ComponentCategory } from '../../types'
 import { BASE_STATE, newTerminal, patchTerminal, useEditorStore } from './editorStore'
 import { validateDefinition } from './validate'
@@ -212,10 +213,106 @@ export function TerminalsTab() {
   </>
 }
 
-const USER_COLOR_PALETTE = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ffffff', '#111827']
-
 type ComponentDefLike = Parameters<typeof varDefsOf>[0]
 type LightPatch = (value: Partial<LightZoneDef>, key: string) => void
+
+const lower = (value: string) => value.toLowerCase()
+
+/** Bolinha que mostra o par vidro (anel) + brilho (centro). */
+function SwatchDot({ glass, glow, size = 24, active, title, onClick, label }: { glass?: string; glow: string; size?: number; active?: boolean; title: string; onClick?: () => void; label?: string }) {
+  return <button type="button" className={`ce-light-swatch${active ? ' is-on' : ''}`} aria-pressed={onClick ? !!active : undefined} aria-label={label ?? title} title={title} onClick={onClick}
+    style={{ width: size, height: size, borderRadius: 999, background: swatchBackground(glass, glow), border: active ? '3px solid #2563eb' : '1px solid #94a3b8', padding: 0, cursor: onClick ? 'pointer' : 'default' }} />
+}
+
+/**
+ * Cores da zona: cor do **vidro** (lente, vista apagada e acesa) e cor do **brilho** (luz emitida),
+ * biblioteca de cores (de fábrica + criadas pelo Admin), criação de cores e paleta do utilizador com pares.
+ */
+function LightColorFields({ light, patch }: { light: LightZoneDef; patch: LightPatch }) {
+  const custom = useLightColorLibrary((s) => s.custom)
+  const addSwatch = useLightColorLibrary((s) => s.add)
+  const removeSwatch = useLightColorLibrary((s) => s.remove)
+  const previewVars = useEditorStore((s) => s.previewVars)
+  const setStore = useEditorStore((s) => s.set)
+  const library = allLightSwatches(custom)
+  const [draft, setDraft] = useState<{ name: string; glass: string; glow: string } | null>(null)
+  const palette = light.userPalette ?? []
+  const inPalette = (glow: string) => palette.some((item) => lower(item) === lower(glow))
+  const previewKey = `color.${light.id}`
+  const previewing = typeof previewVars[previewKey] === 'string' ? String(previewVars[previewKey]) : light.color
+  const preview = (glow: string) => setStore({ previewVars: { ...previewVars, [previewKey]: glow } })
+  const describe = (item: { name?: string; glass?: string; glow: string }) => `${item.name ? `${item.name} · ` : ''}vidro ${item.glass ?? 'do modelo'} · brilho ${item.glow}`
+  /** Aplica um par à cor base da zona (e à paleta, se a cor base fizer parte dela). */
+  const applyBase = (swatch: Pick<LightSwatch, 'glass' | 'glow'>) => {
+    const glassColors = light.glassColors && inPalette(swatch.glow) ? { ...light.glassColors, [lower(swatch.glow)]: swatch.glass } : light.glassColors
+    patch({ color: swatch.glow, glassColor: swatch.glass, ...(glassColors ? { glassColors } : {}) }, 'swatch')
+  }
+  const togglePalette = (swatch: Pick<LightSwatch, 'glass' | 'glow'>) => {
+    const key = lower(swatch.glow)
+    if (inPalette(swatch.glow)) {
+      const { [key]: _removed, ...rest } = light.glassColors ?? {}
+      patch({ userPalette: palette.filter((item) => lower(item) !== key), glassColors: Object.keys(rest).length ? rest : undefined }, 'palette')
+    } else {
+      patch({ userPalette: [...palette, swatch.glow], glassColors: { ...light.glassColors, [key]: swatch.glass } }, 'palette')
+    }
+  }
+  const setPaletteGlass = (glow: string, glass: string) => patch({ glassColors: { ...light.glassColors, [lower(glow)]: glass } }, `palette-glass:${lower(glow)}`)
+  const enablePalette = (enabled: boolean) => {
+    if (!enabled) { patch({ userPalette: undefined, glassColors: undefined }, 'userPalette'); return }
+    if (palette.length) { patch({ tintMaterial: true }, 'userPalette'); return }
+    const base: Pick<LightSwatch, 'glass' | 'glow'> = { glow: light.color, glass: light.glassColor ?? light.color }
+    const picks = BUILTIN_LIGHT_SWATCHES.slice(0, 7).filter((item) => lower(item.glow) !== lower(base.glow))
+    const all = [base, ...picks]
+    patch({ userPalette: all.map((item) => item.glow), glassColors: Object.fromEntries(all.map((item) => [lower(item.glow), item.glass])), tintMaterial: true }, 'userPalette')
+  }
+  const legacy = palette.filter((glow) => !library.some((item) => lower(item.glow) === lower(glow)))
+
+  return <>
+    <Field label="Cor do brilho" hint="Luz emitida: lente acesa, halo e luz projetada nos vizinhos."><Color value={light.color} onChange={(color) => patch({ color }, 'color')} /></Field>
+    <Field label="Cor do vidro" hint="Lente/difusor — vê-se apagada e acesa. Sem cor = mantém o material do modelo.">
+      <span className="ce-actions-inline">
+        <Color value={light.glassColor ?? ''} onChange={(glassColor) => patch({ glassColor }, 'glass')} />
+        {light.glassColor && <button type="button" className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => patch({ glassColor: undefined }, 'glass')}>Cor do modelo</button>}
+      </span>
+    </Field>
+    <Field label="Biblioteca de cores" hint="Clique para aplicar o par vidro + brilho a esta zona. Anel = vidro, centro = brilho.">
+      <span className="ce-actions-inline" role="group" aria-label="Biblioteca de cores de luzes">
+        {library.map((item) => <span key={item.id} className="ce-light-lib-item">
+          <SwatchDot glass={item.glass} glow={item.glow} active={lower(item.glow) === lower(light.color) && lower(item.glass) === lower(light.glassColor ?? '')} title={describe(item)} label={`Aplicar ${item.name}`} onClick={() => applyBase(item)} />
+          {!item.builtin && <button type="button" className="ce-linkbtn" aria-label={`Remover ${item.name} da biblioteca`} title="Remover da biblioteca" onClick={() => removeSwatch(item.id)}><IconClose size={9} /></button>}
+        </span>)}
+        <button type="button" className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => setDraft(draft ? null : { name: '', glass: light.glassColor ?? light.color, glow: light.color })}>{draft ? 'Cancelar' : '+ Criar cor'}</button>
+      </span>
+    </Field>
+    {draft && <div className="ce-action-card" role="group" aria-label="Criar cor de luz">
+      <div className="ce-action-head"><b>Nova cor de luz</b><SwatchDot glass={draft.glass} glow={draft.glow} size={22} title={describe(draft)} /></div>
+      <Field label="Nome"><Text value={draft.name} onChange={(name) => setDraft({ ...draft, name })} /></Field>
+      <Field label="Vidro"><Color value={draft.glass} onChange={(glass) => setDraft({ ...draft, glass })} /></Field>
+      <Field label="Brilho"><Color value={draft.glow} onChange={(glow) => setDraft({ ...draft, glow })} /></Field>
+      <div className="ce-actions">
+        <button type="button" className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => { const created = addSwatch(draft); if (created) { applyBase(created); setDraft(null) } }}>Guardar e aplicar</button>
+        {!!palette.length && <button type="button" className="dx-btn dx-btn-secondary dx-btn-sm" onClick={() => { const created = addSwatch(draft); if (created) { if (!inPalette(created.glow)) togglePalette(created); setDraft(null) } }}>Guardar e juntar à paleta</button>}
+      </div>
+      <p className="ce-hint">A cor fica na biblioteca deste navegador para usar noutros componentes; o componente guarda o par, por isso a simulação não depende da biblioteca.</p>
+    </div>}
+    <Check checked={!!palette.length} label="Utilizador pode escolher a cor desta zona" onChange={enablePalette} />
+    {!!palette.length && <Field label="Paleta do utilizador" hint="Clique numa cor da biblioteca para a permitir ou remover. Cada cor leva o seu vidro.">
+      <span className="ce-actions-inline" role="group" aria-label="Cores permitidas ao utilizador">
+        {library.map((item) => <SwatchDot key={item.id} glass={item.glass} glow={item.glow} active={inPalette(item.glow)} title={`${inPalette(item.glow) ? 'Remover' : 'Permitir'} · ${describe(item)}`} label={`${inPalette(item.glow) ? 'Remover' : 'Permitir'} ${item.name}`} onClick={() => togglePalette(inPalette(item.glow) ? { glow: item.glow, glass: glassFor(light, item.glow) ?? item.glass } : item)} />)}
+        {legacy.map((glow) => <SwatchDot key={glow} glass={glassFor(light, glow)} glow={glow} active title={`Remover · ${describe({ glow, glass: glassFor(light, glow) })}`} onClick={() => togglePalette({ glow, glass: glassFor(light, glow) ?? glow })} />)}
+      </span>
+    </Field>}
+    {!!palette.length && <div className="ce-light-palette-rows" aria-label="Vidro de cada cor da paleta">
+      {palette.map((glow) => <div key={glow} className="ce-light-palette-row">
+        <SwatchDot glass={glassFor(light, glow)} glow={glow} size={20} title={describe({ glow, glass: glassFor(light, glow) })} />
+        <code>{glow}</code>
+        <span className="ce-light-palette-glass" title="Cor do vidro desta cor"><Color value={glassFor(light, glow) ?? glow} onChange={(glass) => setPaletteGlass(glow, glass)} /></span>
+        <button type="button" className={`dx-btn dx-btn-sm ${lower(previewing) === lower(glow) ? 'dx-btn-primary' : 'dx-btn-secondary'}`} onClick={() => preview(glow)} aria-label={`Pré-visualizar ${glow} no modelo`}>Ver</button>
+      </div>)}
+    </div>}
+    {!!palette.length && <Check checked={light.tintMaterial !== false} label="Pintar o vidro com a cor escolhida" onChange={(tintMaterial) => patch({ tintMaterial }, 'tint')} />}
+  </>
+}
 
 /** Várias cores para a mesma luz: a primeira regra cuja condição se verifica manda. */
 function LightColorRules({ def, light, patch }: { def: ComponentDefLike; light: LightZoneDef; patch: LightPatch }) {
@@ -299,20 +396,17 @@ export function LightsTab() {
       <Field label="Peça"><Select value={light.partId} onChange={(partId) => patch({ partId }, 'part')} options={candidates.map((item): [string, string] => [item.id, item.name])} /></Field>
       <Field label="Tipo"><Select value={light.kind ?? 'lamp'} onChange={(kind) => patch({ kind }, 'kind')} options={[['led', 'LED'], ['lamp', 'Lâmpada / sinaleiro']]} /></Field>
       <NodePicker partId={light.partId} nodes={light.nodes} pickKind="light" id={light.id} onChange={(nodes) => patch({ nodes: nodes.length ? nodes : undefined }, 'nodes')} />
-      <Field label="Cor"><Color value={light.color} onChange={(color) => patch({ color }, 'color')} /></Field>
-      <Check checked={!!light.userPalette?.length} label="Utilizador pode escolher a cor desta zona" onChange={(enabled) => patch({ userPalette: enabled ? (light.userPalette?.length ? light.userPalette : USER_COLOR_PALETTE.slice(0, 7)) : undefined, tintMaterial: enabled || light.tintMaterial }, 'userPalette')} />
-      {!!light.userPalette?.length && <Field label="Paleta do utilizador" hint="Clique para permitir ou remover uma cor. Use «+ cor» para juntar qualquer cor."><span className="ce-actions-inline">{[...USER_COLOR_PALETTE, ...light.userPalette.filter((color) => !USER_COLOR_PALETTE.includes(color))].map((color) => {
-        const active = light.userPalette!.includes(color)
-        return <button key={color} type="button" aria-pressed={active} title={active ? 'Remover cor' : 'Permitir cor'} onClick={() => patch({ userPalette: active ? light.userPalette!.filter((item) => item !== color) : [...light.userPalette!, color] }, 'palette')} style={{ width: 24, height: 24, borderRadius: 999, background: color, border: active ? '3px solid #2563eb' : '1px solid #94a3b8' }} />
-      })}<label className="dx-btn dx-btn-secondary dx-btn-sm" style={{ cursor: 'pointer' }}>+ cor<input type="color" aria-label="Juntar cor à paleta" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} onChange={(event) => { const color = event.target.value; if (!light.userPalette!.some((item) => item.toLowerCase() === color.toLowerCase())) patch({ userPalette: [...light.userPalette!, color] }, 'palette-add') }} /></label></span></Field>}
-      {!!light.userPalette?.length && <Check checked={light.tintMaterial !== false} label="Pintar botão/lente e a luz emitida" onChange={(tintMaterial) => patch({ tintMaterial }, 'tint')} />}
+      <LightColorFields light={light} patch={patch} />
       <Field label="Intensidade"><Slider value={light.intensity} max={6} step={0.1} onChange={(intensity) => patch({ intensity }, 'int')} /></Field>
       {whenFields(def, light.when, (when) => patch({ when }, 'when'))}
       <Check checked={!!light.blink} label="Pisca quando acende por variável" onChange={(blink) => patch({ blink }, 'blink')} />
       <LightColorRules def={def} light={light} patch={patch} />
       <LightGlowFields light={light} patch={patch} />
+      <div className="ce-actions"><button type="button" className={`dx-btn dx-btn-sm ${previewVars[`$test.${light.id}`] === true ? 'dx-btn-primary' : 'dx-btn-secondary'}`} aria-pressed={previewVars[`$test.${light.id}`] === true}
+        onClick={() => set({ previewVars: { ...previewVars, [`$test.${light.id}`]: previewVars[`$test.${light.id}`] !== true } })}>{previewVars[`$test.${light.id}`] === true ? 'Ver apagada' : 'Ver acesa'}</button>
+        <span className="ce-hint">Mostra o vidro e o brilho no modelo, sem mudar a lógica.</span></div>
       {mode === 'simulate' && light.when?.var && <div className="ce-actions"><button className="dx-btn dx-btn-primary dx-btn-sm" onClick={() => set({ previewVars: { ...previewVars, [light.when!.var]: !previewVars[light.when!.var] } })}>{previewVars[light.when.var] ? 'Apagar no teste' : 'Acender no teste'}</button></div>}
-      {mode === 'simulate' && !light.when?.var && <p className="ce-hint">Esta luz não tem condição: permanece acesa na simulação.</p>}
+      {mode === 'simulate' && !light.when?.var && !light.colorRules?.length && <p className="ce-hint">Esta luz não tem condição: acende pelos Estados (separador Estados). Use «Ver acesa» para a ver neste teste.</p>}
       <Confirm label="Eliminar zona" className="dx-btn dx-btn-danger dx-btn-sm" onConfirm={() => { edit((state) => ({ ...state, lights: state.lights.filter((item) => item.id !== light.id), states: state.states.map((s) => ({ ...s, lights: Object.fromEntries(Object.entries(s.lights).filter(([id]) => id !== light.id)) })) })); set({ selection: null }) }} />
     </Section>}
   </>

@@ -39,7 +39,24 @@ function getPolymerMicroGrain(): THREE.DataTexture {
  * policarbonato com verniz, lentes translúcidas e metais maquinados (aço, latão, cobre) —
  * preservando sempre as cores originais do modelo para deteção de ecrãs/lentes/botões.
  */
+const FINISHED = new WeakMap<THREE.Material, Map<string, THREE.Material>>()
+
 export function finishCadMaterial(source: THREE.Material, options: FinishOptions = {}): THREE.Material {
+  // Materiais próprios de um clone (`cloneModelScene`): o mesmo material dá o mesmo acabamento — as malhas
+  // continuam a partilhá-lo (menos estados de render, e podem ser juntadas). Materiais do cache GLTF
+  // continuam a receber uma cópia por chamada, como antes.
+  if (source.userData.__dcCloneOwned) {
+    let cache = FINISHED.get(source)
+    if (!cache) { cache = new Map(); FINISHED.set(source, cache) }
+    const key = JSON.stringify(options)
+    let finished = cache.get(key)
+    if (!finished) { finished = finishCadMaterialUncached(source, options); cache.set(key, finished) }
+    return finished
+  }
+  return finishCadMaterialUncached(source, options)
+}
+
+function finishCadMaterialUncached(source: THREE.Material, options: FinishOptions): THREE.Material {
   if (!(source instanceof THREE.MeshStandardMaterial)) return source.clone()
 
   const envIntensity = options.envMapIntensity ?? 1.25

@@ -4,7 +4,7 @@ import path from 'node:path'
 import { chromium } from 'playwright'
 
 // Dados sintéticos num navegador descartável. Não consulta contas, APIs ou projetos reais.
-const baseURL = process.env.GRAFCET_TEST_URL || 'http://127.0.0.1:5181'
+const baseURL = process.env.GRAFCET_TEST_URL || 'http://127.0.0.1:5173'
 const output = process.env.GRAFCET_TEST_OUTPUT || path.resolve('runtime/grafcet-ux-modals')
 await mkdir(output, { recursive: true })
 const browser = await chromium.launch(process.env.GRAFCET_TEST_CHANNEL ? { channel: process.env.GRAFCET_TEST_CHANNEL } : {})
@@ -13,7 +13,18 @@ await context.route('**/*', (route) => {
   const url = new URL(route.request().url())
   return url.origin === new URL(baseURL).origin && !url.pathname.startsWith('/api/') ? route.continue() : route.abort()
 })
-await context.addInitScript(() => localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin'))
+await context.addInitScript(() => {
+  performance.setResourceTimingBufferSize(10000)
+  localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-admin')
+// O Vite (com HMR) serve módulos alterados com «?t=…»: um import('/src/…') sem esse sufixo criava
+// OUTRA instância da store e os dados de teste iam para uma store que a página não usa. Importa o módulo
+// exatamente com o URL que a aplicação carregou.
+globalThis.__dcAppImport = (path) => {
+  const hit = performance.getEntriesByType('resource').map((entry) => entry.name)
+    .filter((url) => { try { return new URL(url).pathname === path } catch { return false } }).pop()
+  return import(hit || path)
+}
+})
 const page = await context.newPage()
 const errors = []
 page.on('pageerror', (error) => errors.push(error.message))
@@ -23,7 +34,7 @@ const dialog = () => page.getByRole('dialog')
 const save = () => dialog().getByRole('button', { name: 'Guardar alterações', exact: true }).click()
 const close = async () => { await page.keyboard.press('Escape'); await dialog().waitFor({ state: 'hidden' }) }
 const readProgram = () => page.evaluate(async () => {
-  const { useSimStore } = await import('/src/store/useSimStore.ts')
+  const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
   return JSON.parse(JSON.stringify(useSimStore.getState().grafcet))
 })
 const openStep = () => page.locator('[data-step-id="ux-step-1"]').dblclick()
@@ -31,8 +42,9 @@ const openTransition = () => page.getByRole('button', { name: /^Transição T1:/
 const openAction = () => page.locator('.grafcet-graph-action:not(.grafcet-action-free)').first().dblclick()
 const capture = (name) => page.screenshot({ path: path.join(output, name + '.png') })
 const closeToolboxIfOpen = async () => {
-  const closeButton = page.locator('.grafcet-toolbox-head button')
-  if (await closeButton.count()) await closeButton.click()
+  // O cabeçalho da paleta passou a ser o SidePanelHeader comum («Recolher ferramentas»).
+  const closeButton = page.getByRole('button', { name: /^Recolher ferramentas/ })
+  if (await closeButton.count() && await closeButton.first().isVisible()) await closeButton.first().click()
   await page.getByRole('button', { name: 'Fechar componentes' }).waitFor({ state: 'hidden' })
 }
 const fitsViewport = async () => dialog().evaluate((element) => {
@@ -49,7 +61,7 @@ try {
   await dialog().getByRole('button', { name: 'Criar projeto', exact: true }).click()
   await page.locator('.grafcet-canvas').waitFor()
   await page.evaluate(async () => {
-    const { useSimStore } = await import('/src/store/useSimStore.ts')
+    const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
     const positions = [[151, 80], [151, 270], [151, 460], [451, 270], [451, 460]]
     const steps = ['1', '5', '6', '3', '7'].map((name, index) => ({
       id: 'ux-step-' + name, name, initial: index === 0, stepType: index === 0 ? 'initial' : 'simple',
@@ -122,7 +134,10 @@ try {
   await close()
 
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole('button', { name: 'Ajustar', exact: true }).click()
+  // Botão «ajustar vista» (rótulo atual «Ajustar à largura»); sem ele à vista, Ctrl+0 faz o mesmo.
+  const fitButton = page.getByRole('button', { name: /^Ajustar/ }).first()
+  if (await fitButton.isVisible().catch(() => false)) await fitButton.click()
+  else { await page.locator('.grafcet-canvas').click({ position: { x: 5, y: 5 } }); await page.keyboard.press('Control+0') }
   await closeToolboxIfOpen()
   for (const [name, open] of [['step', openStep], ['transition', openTransition], ['action', openAction]]) {
     await open()

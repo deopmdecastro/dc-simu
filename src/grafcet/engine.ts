@@ -40,6 +40,12 @@ export interface GrafcetAction {
   y?: number
   /** Página (chart) a que a ação solta pertence; undefined = primeira página. */
   chart?: string
+  /** Tamanho da caixa no diagrama (por omissão 140 × 30). */
+  w?: number
+  h?: number
+  /** Ação anexada: deslocamento livre da caixa em relação ao seu lugar junto à etapa (a ligação acompanha). */
+  dx?: number
+  dy?: number
 }
 
 export interface GrafcetStep {
@@ -61,6 +67,9 @@ export interface GrafcetStep {
   /** true quando o utilizador arrastou a etapa (ou usou "Organizar"); caso contrário o layout é automático. */
   pinned?: boolean
   chart?: string
+  /** Tamanho da caixa da etapa no diagrama (por omissão 64 × 54); cresce a partir do eixo central. */
+  w?: number
+  h?: number
 }
 
 export type GrafcetBranchType =
@@ -794,8 +803,19 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
   }
 
   const initialSteps = steps.filter((step) => step.initial || step.stepType === 'initial' || step.stepType === 'initial-enclosing')
-  if (initialSteps.length > 1) {
-    issues.push({ id: 'initial:several', level: 'warning', message: `Existem ${initialSteps.length} etapas iniciais (${initialSteps.map((step) => label(step.id)).join(', ')}); no arranque ficam todas ativas em simultâneo.`, entityId: initialSteps[1].id, tab: 'steps' })
+  // Várias etapas iniciais são normais quando pertencem a GRAFCET parciais independentes (produção + segurança,
+  // por exemplo). Só se avisa quando duas iniciais estão no MESMO grafo ligado por transições.
+  const root = new Map(steps.map((step) => [step.id, step.id]))
+  const find = (id: string): string => { let r = id; while (root.get(r) !== r) r = root.get(r)!; root.set(id, r); return r }
+  for (const t of transitions) {
+    const ids = [...t.from, ...t.to].filter((id) => root.has(id))
+    for (let i = 1; i < ids.length; i += 1) root.set(find(ids[i]), find(ids[0]))
+  }
+  const byGraph = new Map<string, GrafcetStep[]>()
+  for (const step of initialSteps) { const key = find(step.id); byGraph.set(key, [...(byGraph.get(key) ?? []), step]) }
+  const crowded = [...byGraph.values()].find((group) => group.length > 1)
+  if (crowded) {
+    issues.push({ id: 'initial:several', level: 'warning', message: `Existem ${crowded.length} etapas iniciais no mesmo GRAFCET (${crowded.map((step) => label(step.id)).join(', ')}); no arranque ficam todas ativas em simultâneo.`, entityId: crowded[1].id, tab: 'steps' })
   }
 
   steps.forEach((step, index) => {

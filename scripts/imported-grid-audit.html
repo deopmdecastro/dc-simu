@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0;background:#fff">
+<!-- Vista ortográfica com grelha de 5 mm de um GLB importado, para medir bornes e peças. Uso: ?type=<tipo>&view=front|back|top|bottom|left|right -->
+<script type="module">
+import * as THREE from 'three'
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
+const q=new URLSearchParams(location.search), type=q.get('type'), view=q.get('view')||'front', S=900
+const r=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});r.setSize(S,S);document.body.append(r.domElement);r.outputColorSpace=THREE.SRGBColorSpace
+const root=(await new GLTFLoader().loadAsync(`/models/importados/${type}.glb`)).scene;root.scale.setScalar(1000);root.updateMatrixWorld(true)
+const box=new THREE.Box3().setFromObject(root,true),c=box.getCenter(new THREE.Vector3()),sz=box.getSize(new THREE.Vector3())
+const sc=new THREE.Scene();sc.background=new THREE.Color('#fff');sc.add(root,new THREE.HemisphereLight(0xffffff,0x667788,2.4));const d=new THREE.DirectionalLight(0xffffff,1.6);d.position.set(100,200,300);sc.add(d)
+const dirs={front:[0,0,1],back:[0,0,-1],top:[0,1,0],bottom:[0,-1,0],left:[-1,0,0],right:[1,0,0]}
+const span=Math.max(sz.x,sz.y,sz.z)*1.1
+const cam=new THREE.OrthographicCamera(-span/2,span/2,span/2,-span/2,.1,span*20)
+cam.position.copy(c).add(new THREE.Vector3(...dirs[view]).multiplyScalar(span*3));if(view==='top')cam.up.set(0,0,-1);if(view==='bottom')cam.up.set(0,0,1);cam.lookAt(c)
+// grelha de 5 mm no plano da vista, com rótulos a cada 10 mm
+const g=new THREE.Group();const m=new THREE.LineBasicMaterial({color:0xff0044,transparent:true,opacity:.35,depthTest:false})
+const ax=view==='front'||view==='back'?['x','y']:view==='top'||view==='bottom'?['x','z']:['z','y']
+const lo=box.min,hi=box.max
+for(let a=Math.ceil(lo[ax[0]]/5)*5;a<=hi[ax[0]];a+=5){const p1=new THREE.Vector3().copy(c),p2=new THREE.Vector3().copy(c);p1[ax[0]]=a;p2[ax[0]]=a;p1[ax[1]]=lo[ax[1]];p2[ax[1]]=hi[ax[1]];g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p1,p2]),m))}
+for(let a=Math.ceil(lo[ax[1]]/5)*5;a<=hi[ax[1]];a+=5){const p1=new THREE.Vector3().copy(c),p2=new THREE.Vector3().copy(c);p1[ax[1]]=a;p2[ax[1]]=a;p1[ax[0]]=lo[ax[0]];p2[ax[0]]=hi[ax[0]];g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p1,p2]),m))}
+g.children.forEach(l=>l.renderOrder=5);sc.add(g)
+r.render(sc,cam)
+// rótulos em HTML
+const toPx=v=>{const p=v.clone().project(cam);return[(p.x+1)/2*S,(1-p.y)/2*S]}
+for(const [i,key] of ax.entries()){for(let a=Math.ceil(lo[key]/10)*10;a<=hi[key];a+=10){const v=new THREE.Vector3().copy(c);v[key]=a;if(i===0)v[ax[1]]=lo[ax[1]];else v[ax[0]]=lo[ax[0]];const [x,y]=toPx(v);const s=document.createElement('span');s.textContent=`${key}${a}`;s.style.cssText=`position:absolute;left:${x}px;top:${y}px;font:10px monospace;color:#c00;background:#fff8`;document.body.append(s)}}
+window.done=true
+</script>

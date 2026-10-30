@@ -9,6 +9,7 @@ import '../src/catalog/holeDetect'
 
 // Mede o CAD realmente renderizado; não compara o resultado com a própria tabela.
 let count = 0
+let contacts = 0
 for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
   const model = await loadModelMm(type)
   assert.ok(model, `${type}: GLB em falta`)
@@ -50,6 +51,12 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
     const prefix = `${type}.${spot.label}`
     const normal = terminalNormalWorld3D({ ...component, viewOrientation: { x: 0, y: 0, z: 0 } }, terminal)
     assert.ok(normal.distanceTo(new THREE.Vector3().setComponent(axis, sign)) < 1e-6, `${prefix}: cabo sai pela face errada`)
+    // Pinos, lâminas e pontas de fio não têm cavidade: basta a face e o ponto dentro do volume do modelo.
+    if (spot.contact && spot.contact !== 'socket') {
+      assert.ok(box.clone().expandByScalar(.5).containsPoint(p), `${prefix}: ${spot.contact} fora do volume do modelo`)
+      contacts++
+      continue
+    }
     assert.ok(finite.length >= 6 && Number.isFinite(floor) && floor - lip > .7, `${prefix}: não está centrado numa cavidade`)
     assert.ok(target > lip + .1 && target < floor - .1, `${prefix}: centro fora do furo ou dentro do material`)
     const marker = terminalMarkerRadius(component, terminal) * 100 * 1.1 * 1.2
@@ -58,5 +65,7 @@ for (const type of Object.keys(REAL_TERMINALS) as ComponentType[]) {
   }
   console.log(`PASS — ${type}: ${component.terminals.length} ligações no interior dos encaixes`)
 }
-assert.equal(count, 162, 'Cobertura incompleta dos modelos integrados (142 anteriores + 20 novos encaixes)')
-console.log(`PASS — 25 modelos, ${count} ligações: cavidades, profundidade, marcadores e escala física`)
+const total = Object.values(REAL_TERMINALS).reduce((sum, spots) => sum + (spots?.length ?? 0), 0)
+assert.equal(count + contacts, total, 'Cobertura incompleta: todas as ligações medidas têm de ser verificadas')
+assert.ok(count >= 162 + 20, 'Encaixes com cavidade: os 162 anteriores e os novos parafusos dos CAD importados')
+console.log(`PASS — ${Object.keys(REAL_TERMINALS).length} modelos, ${count} encaixes com cavidade e ${contacts} pinos/fios: profundidade, marcadores e escala física`)

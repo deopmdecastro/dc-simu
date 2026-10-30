@@ -151,7 +151,10 @@ function newId() {
 function contentHasComponents(content: unknown): boolean {
   if (!content || typeof content !== 'object') return false
   const list = (content as { components?: unknown }).components
-  return Array.isArray(list) && list.length > 0
+  if (Array.isArray(list) && list.length > 0) return true
+  // Projetos só GRAFCET (exemplos): o conteúdo é o diagrama, não componentes.
+  const grafcet = (content as { projectKind?: unknown; grafcet?: { steps?: unknown } }).grafcet
+  return (content as { projectKind?: unknown }).projectKind === 'grafcet' && Array.isArray(grafcet?.steps) && grafcet!.steps.length > 0
 }
 
 function ensureNativeProjects(data: LocalData): LocalData {

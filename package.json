@@ -61,7 +61,7 @@
     "test:server": "node scripts/server-e2e.mjs",
     "test:n8n-client": "tsx scripts/n8n-client-smoke.ts",
     "test:pinch": "tsx scripts/pinch-zoom-smoke.ts && tsx scripts/pinch-dom-smoke.ts",
-    "test:ci": "npm test && npm run -s test:editors-sweep && npm run -s test:ladder-blocks && npm run -s test:pinch && npm run -s test:ladder-compare && npm run -s test:ladder-math && npm run -s test:ladder-force && npm run -s test:component-validate && npm run -s test:diagnostics && npm run -s test:grafcet-signals && npm run -s test:grafcet-ladder-sync && npm run -s test:grafcet-ladder-word && npm run -s test:grafcet-links && npm run -s test:grafcet-dialogs && npm run -s test:fluidsim && npm run -s test:ladder-rename && npm run -s test:project-names && npm run -s test:style && npm run -s test:interactables && npm run -s test:auto-detect-models && npm run -s test:terminal-geometry && npm run -s test:cad-surface && npm run -s test:canvas-annotations && npm run -s test:terminal-seat && npm run -s test:motor && npm run -s test:builtin-sync && npm run -s test:emergency-actuator && npm run -s test:plc-signals && npm run -s test:ladder-auto-network && npm run -s test:editor3d-functional && npm run -s test:logo-editor && npm run -s test:n8n-client && npm run -s test:motion && npm run -s test:glow && npm run -s test:native-sim && npm run -s test:native-wires-3d && npm run -s test:solid-cables-meter && npm run -s test:landing-hero && npm run -s test:landing-editor && npm run -s test:landing-demo && npm run -s test:excel && npm run -s test:ladder-integration && npm run -s test:flow-cover && npm run -s test:pdf-export && npm run -s test:sheets && npm run -s test:saas && npm run -s test:supabase-comments && npm run -s test:imported-components",
+    "test:ci": "npm test && npm run -s test:editors-sweep && npm run -s test:ladder-blocks && npm run -s test:pinch && npm run -s test:ladder-compare && npm run -s test:ladder-math && npm run -s test:ladder-force && npm run -s test:component-validate && npm run -s test:diagnostics && npm run -s test:grafcet-signals && npm run -s test:grafcet-ladder-sync && npm run -s test:grafcet-ladder-word && npm run -s test:grafcet-links && npm run -s test:grafcet-examples && npm run -s test:grafcet-dialogs && npm run -s test:fluidsim && npm run -s test:ladder-rename && npm run -s test:project-names && npm run -s test:style && npm run -s test:interactables && npm run -s test:auto-detect-models && npm run -s test:terminal-geometry && npm run -s test:cad-surface && npm run -s test:canvas-annotations && npm run -s test:terminal-seat && npm run -s test:motor && npm run -s test:builtin-sync && npm run -s test:emergency-actuator && npm run -s test:plc-signals && npm run -s test:ladder-auto-network && npm run -s test:editor3d-functional && npm run -s test:logo-editor && npm run -s test:n8n-client && npm run -s test:motion && npm run -s test:glow && npm run -s test:native-sim && npm run -s test:native-wires-3d && npm run -s test:solid-cables-meter && npm run -s test:landing-hero && npm run -s test:landing-editor && npm run -s test:landing-demo && npm run -s test:excel && npm run -s test:ladder-integration && npm run -s test:flow-cover && npm run -s test:pdf-export && npm run -s test:sheets && npm run -s test:saas && npm run -s test:supabase-comments && npm run -s test:imported-components",
     "typecheck": "tsc -b",
     "start": "node server/index.mjs",
     "test:motor": "tsx scripts/motor-fan-textures-smoke.ts",
@@ -76,6 +76,7 @@
     "test:motor-ui": "node scripts/motor-fan-textures-ui-smoke.mjs",
     "test:motion": "tsx scripts/motion-smoke.ts",
     "test:glow": "tsx scripts/glow-smoke.ts",
+    "test:grafcet-examples": "tsx scripts/grafcet-examples-smoke.ts",
     "test:excel": "tsx scripts/excel-smoke.ts",
     "test:ladder-integration": "tsx scripts/ladder-integration-smoke.ts",
     "test:flow-cover": "tsx scripts/flow-cover-smoke.ts",
@@ -90,6 +91,8 @@
     "test:landing-hero": "node scripts/landing-hero-motor-smoke.mjs",
     "test:imported-components": "tsx scripts/imported-components-smoke.ts",
     "test:imported-components-ui": "node scripts/imported-components-ui-smoke.mjs",
+    "test:imported-finish-ui": "node scripts/imported-finish-ui-smoke.mjs",
+    "place:imported-terminals": "python3 scripts/place-imported-terminals.py",
     "audit:imported-terminals": "tsx scripts/audit-imported-terminals.ts"
   },
   "dependencies": {

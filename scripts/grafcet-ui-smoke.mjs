@@ -19,6 +19,15 @@ await context.route('**/*', (route) => {
   return local || font ? route.continue() : route.abort()
 })
 await context.addInitScript(() => {
+  performance.setResourceTimingBufferSize(10000)
+// O Vite (com HMR) serve módulos alterados com «?t=…»: um import('/src/…') sem esse sufixo criava
+// OUTRA instância da store e os dados de teste iam para uma store que a página não usa. Importa o módulo
+// exatamente com o URL que a aplicação carregou.
+globalThis.__dcAppImport = (path) => {
+  const hit = performance.getEntriesByType('resource').map((entry) => entry.name)
+    .filter((url) => { try { return new URL(url).pathname === path } catch { return false } }).pop()
+  return import(hit || path)
+}
   localStorage.setItem('dcsimu:account:session:v1', 'dcsimu-user')
   localStorage.setItem('dcsimu:saas:plans:v1', JSON.stringify({ 'dcsimu-user': { plan: 'pro', planExpiresAt: null } }))
 })
@@ -38,11 +47,11 @@ const openTransition = async () => {
   await dialog().waitFor()
 }
 const readProgram = () => page.evaluate(async () => {
-  const { useSimStore } = await import('/src/store/useSimStore.ts')
+  const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
   return JSON.parse(JSON.stringify(useSimStore.getState().grafcet))
 })
 const readTags = () => page.evaluate(async () => {
-  const { useSimStore } = await import('/src/store/useSimStore.ts')
+  const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
   return JSON.parse(JSON.stringify(useSimStore.getState().tags))
 })
 const openSignals = async () => {
@@ -56,7 +65,7 @@ const openSignals = async () => {
 }
 // Fixtures mutate only this disposable browser store, never an API/project account.
 const setProgramFixture = (program) => page.evaluate(async (fixture) => {
-  const { useSimStore } = await import('/src/store/useSimStore.ts')
+  const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
   useSimStore.getState().setGrafcet(fixture, 'force')
 }, program)
 const focusInside = () => page.evaluate(() => !!document.activeElement?.closest('.grafcet-property-dialog'))
@@ -172,7 +181,7 @@ try {
   await waitClosed()
   check((await readTags()).length === 6, 'cancelar descarta alterações inválidas do rascunho')
   await page.getByRole('button', { name: 'Guardar projeto', exact: true }).click()
-  await page.waitForFunction(async () => !(await import('/src/store/useSimStore.ts')).useSimStore.getState().dirty)
+  await page.waitForFunction(async () => !(await globalThis.__dcAppImport('/src/store/useSimStore.ts')).useSimStore.getState().dirty)
   await page.reload()
   await page.locator('.grafcet-graph-node').nth(2).waitFor()
   check((await readTags()).find((tag) => tag.address === 'M0.0')?.name === 'Permissão de ciclo', 'guardar e reabrir o projeto conserva a tabela I/Q/M')

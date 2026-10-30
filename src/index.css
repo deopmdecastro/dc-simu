@@ -3021,3 +3021,9 @@ input[list]:focus::-webkit-calendar-picker-indicator {
 .ladder-bottom-actions .ladder-live-word-sub { height: 100%; }
 .ladder-bottom-actions .ladder-live-word-value { height: 100%; }
 .ladder-bottom-actions .ladder-live-words { min-height: 26px; height: auto; padding: 0; align-items: center; }
+
+/* Sinaleiros: brilho e vidro à medida (input nativo compacto) */
+.dc-color-native { width: 26px; height: 22px; padding: 0; border: 1px solid #cbd5e1; border-radius: 6px; background: none; cursor: pointer; }
+.dc-color-native::-webkit-color-swatch-wrapper { padding: 2px; }
+.dc-color-native::-webkit-color-swatch { border: none; border-radius: 4px; }
+[data-light-color-field] .dc-color-hex-input-wrap code { font-size: 11px; color: #475569; }

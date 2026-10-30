@@ -14,11 +14,27 @@ export function chosenColor(light: LightZoneDef, vars: Vars): string {
 }
 
 /**
+ * Cor do vidro/lente para a cor escolhida: o par da paleta, o vidro da cor base, ou — paletas antigas sem
+ * vidro definido — a própria cor do brilho. `undefined` = não pintar (fica o material do modelo).
+ */
+export function chosenGlass(light: LightZoneDef, vars: Vars): string | undefined {
+  if (light.tintMaterial === false) return undefined
+  const glow = chosenColor(light, vars)
+  const mapped = light.glassColors?.[glow.toLowerCase()]
+  if (isHexColor(mapped)) return mapped
+  if (glow.toLowerCase() === light.color.toLowerCase() && isHexColor(light.glassColor)) return light.glassColor
+  if (light.userPalette?.length) return glow
+  return undefined
+}
+
+/**
  * Prioridade: 1) o estado do componente (cor/intensidade próprias do estado) · 2) a primeira regra de cor cuja
  * condição se verifica · 3) a condição simples `when` · 4) apagada. Uma regra com cor inválida usa a cor base.
  */
 export function resolveLightLook(light: LightZoneDef, state: LightState | undefined, vars: Vars): LightLook {
   const base = chosenColor(light, vars)
+  // Teste do editor («Ver acesa»): acende a zona com a cor escolhida, sem depender de estados/variáveis.
+  if (vars[`$test.${light.id}`] === true) return { on: true, blink: false, color: base, intensity: light.intensity }
   if (state?.on) return { on: true, blink: !!state.blink, color: isHexColor(state.color) ? state.color : base, intensity: state.intensity ?? light.intensity }
   const rule = light.colorRules?.find((item) => evalWhen(item.when, vars))
   if (rule) return { on: true, blink: !!rule.blink || !!state?.blink, color: isHexColor(rule.color) ? rule.color : base, intensity: light.intensity, rule: rule.id }
@@ -42,6 +58,14 @@ export function glowSettings(light: Pick<LightZoneDef, 'kind' | 'glow'>): GlowSe
 }
 
 /** Cores que a zona pode mostrar (base + regras + paleta do utilizador), sem repetições — para o editor e a legenda. */
+/** Vidro associado a uma cor de brilho da zona (para mostrar o par na paleta). */
+export function glassFor(light: LightZoneDef, glow: string): string | undefined {
+  const mapped = light.glassColors?.[glow.toLowerCase()]
+  if (isHexColor(mapped)) return mapped
+  if (glow.toLowerCase() === light.color.toLowerCase() && isHexColor(light.glassColor)) return light.glassColor
+  return undefined
+}
+
 export function lightColors(light: LightZoneDef): string[] {
   const all = [light.color, ...(light.colorRules ?? []).map((rule) => rule.color), ...(light.userPalette ?? [])].filter(isHexColor)
   return [...new Set(all.map((color) => color.toLowerCase()))]
