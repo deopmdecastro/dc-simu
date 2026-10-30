@@ -124,6 +124,8 @@ export interface GrafcetChart {
 }
 
 export interface GrafcetProgram {
+  /** Desenho importado para revisão: editável, sem execução nem conversão automática. */
+  importReview?: { source: 'fluidsim4'; warnings: string[] }
   /** Nome do GRAFCET (aparece no editor e nas networks geradas). */
   name?: string
   steps: GrafcetStep[]
@@ -535,6 +537,10 @@ function sourceElapsed(transition: GrafcetTransition, elapsed: Record<string, nu
  * `dtMs` é o tempo simulado desde o scan anterior (para T(…) e ações D/L).
  */
 export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, table: Record<string, boolean>, dtMs = 100): GrafcetRuntime {
+  if (program.importReview) {
+    for (const address of runtime.owned) table[address] = false
+    return emptyGrafcetRuntime()
+  }
   const steps = program.steps
   const ids = new Set(steps.map((step) => step.id))
   const indexOf = new Map(steps.map((step, index) => [step.id, index]))
@@ -668,6 +674,7 @@ export function scanGrafcet(program: GrafcetProgram, runtime: GrafcetRuntime, ta
  * (flancos ↑/↓, X<n>, T(…), temporizações por etapa). A UI deve usar esta função
  * em vez de `evalCondition(cond, table)` para nunca contradizer a simulação. */
 export function transitionReceptivity(program: GrafcetProgram, runtime: GrafcetRuntime, table: Record<string, boolean>, transition: GrafcetTransition): boolean {
+  if (program.importReview) return false
   if (!validCondition(transition.condition)) return false
   const steps = program.steps
   const active = new Set(runtime.active.filter((id) => steps.some((step) => step.id === id)))
@@ -696,12 +703,14 @@ export function transitionReceptivity(program: GrafcetProgram, runtime: GrafcetR
 
 /** Força as etapas ativas (forçagem GRAFCET): útil para testar uma secção da sequência. */
 export function forceSteps(program: GrafcetProgram, runtime: GrafcetRuntime, stepIds: string[]): GrafcetRuntime {
+  if (program.importReview) return emptyGrafcetRuntime()
   const valid = stepIds.filter((id) => program.steps.some((step) => step.id === id))
   return { ...runtime, active: valid, elapsed: Object.fromEntries(valid.map((id) => [id, 0])), lastFired: [] }
 }
 
 /** Dispara manualmente uma transição (ignora a receptividade) se todas as origens estiverem ativas. */
 export function fireTransition(program: GrafcetProgram, runtime: GrafcetRuntime, transitionId: string): GrafcetRuntime | null {
+  if (program.importReview) return null
   const transition = transitionsOf(program).find((t) => t.id === transitionId)
   if (!transition || !transition.from.every((id) => runtime.active.includes(id))) return null
   const active = new Set(runtime.active)
@@ -722,6 +731,7 @@ export function validateGrafcet(program: GrafcetProgram): GrafcetIssue[] {
   const steps = program.steps
   const transitions = transitionsOf(program)
   const issues: GrafcetIssue[] = []
+  if (program.importReview) issues.push({ id: 'import-review', level: 'error', message: 'Desenho importado para revisão. Conclua a revisão antes de simular ou gerar Ladder.', tab: 'steps' })
   if (!steps.length) return issues
   const stepIds = new Set(steps.map((step) => step.id))
   const label = (stepId: string) => { const i = steps.findIndex((s) => s.id === stepId); return i < 0 ? '? «?»' : `${stepNumberOf(steps[i], i)} «${steps[i].name}»` }

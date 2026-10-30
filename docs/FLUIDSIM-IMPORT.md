@@ -2,6 +2,57 @@
 
 Na barra do editor GRAFCET, **Importar** abre o seletor de ficheiros para `.ct` do FluidSIM 4 e os formatos `.json` e `.grafcet` do DC-Simu; também pode arrastar o ficheiro para a zona indicada. Reveja a contagem e os avisos antes de substituir o diagrama. A importação pode ser desfeita. O ficheiro é lido localmente no navegador; não é enviado a serviços externos.
 
+## Programa e desenho editável
+
+Para CT do FluidSIM 4, o diálogo permite escolher:
+
+- **Programa**: mantém a validação estrita e a separação dos gráficos em páginas.
+- **Desenho editável**: mantém os gráficos lado a lado numa página e recupera
+  todos os registos de texto como textos livres do GRAFCET, incluindo notas
+  afastadas. Conserva os números originais, os nomes das ações, as posições e
+  os tamanhos das etapas e ações. Ligações incompletas e destinos por referência
+  inexistentes ficam por completar, acompanhados de avisos.
+
+Os textos importados usam a mesma ferramenta **Texto** do editor: podem ser
+arrastados, editados por duplo clique e formatados; desfazer e guardar/reabrir
+preservam o conteúdo. Texto normal e negrito são distinguidos pelos estilos
+nativos observados. No formato interno, estes textos vivem em `comments` e são
+elementos `GrafcetComment`, sem conversão para ações ou condições.
+
+O desenho entra com `importReview` persistente: a execução GRAFCET, a forçagem e
+os dois geradores de Ladder ficam bloqueados durante a revisão. Abra a faixa
+**Desenho importado para revisão** e use **Concluir revisão** depois de corrigir
+os erros de validação e os números repetidos. É pedida confirmação da revisão
+das referências e dos qualificadores das ações. A condição de rascunho mantém-se
+ao exportar/importar JSON ou `.grafcet` e ao guardar/reabrir o projeto.
+
+O modo desenho não aceita contentores corrompidos, portas inválidas ou tipos
+geométricos desconhecidos. Qualificadores de ação sem correspondência confirmada
+são apresentados para revisão e permanecem sem execução. O ficheiro TIFF é
+uma referência visual; este importador recupera os elementos do CT e não faz OCR.
+
+### Amostra ATEC — 2026-10-30
+
+O CT acompanhado de TIFF fornecido pelo utilizador foi recuperado em modo desenho:
+**34 etapas, 40 transições, 30 ações e 16 textos livres**. Os três gráficos
+ficam lado a lado. Permanecem para revisão as transições sem origem, o destino
+por referência `51` inexistente, duas etapas `135`, `G0 <> X5`, as referências
+entre gráficos e qualificadores ainda não mapeados. Não foram inventadas etapas
+nem corrigidos os números de origem.
+
+Os originais e o `.grafcet` convertido são mantidos fora do código versionado.
+O ficheiro convertido destina-se à versão atualizada que reconhece `importReview`;
+a importação visual não demonstra equivalência da simulação.
+
+```powershell
+$env:FLUIDSIM_ATEC_SAMPLE = 'caminho/para/Grafcet ATEC.ct'
+npm run test:fluidsim
+```
+
+O teste de interface `test:grafcet-construction-ui` aceita
+`GRAFCET_FLUIDSIM_MODE=drawing` e `GRAFCET_EXPECT_TEXTS=16`, em conjunto com as
+variáveis de amostra, contagens e URL documentadas abaixo.
+
 ## Âmbito implementado
 
 - Etapas simples e iniciais, com números originais e posição relativa.

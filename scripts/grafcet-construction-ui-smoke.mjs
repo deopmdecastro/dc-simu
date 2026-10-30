@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, readFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
 
@@ -38,7 +38,7 @@ const read = () => page.evaluate(async () => {
   const { useSimStore } = await globalThis.__dcAppImport('/src/store/useSimStore.ts')
   return JSON.parse(JSON.stringify(useSimStore.getState().grafcet))
 })
-const chooseImportFile = async (file) => {
+const chooseImportFile = async (file, mode = 'strict') => {
   const direct = page.getByRole('button', { name: /^Importar GRAFCET: FluidSIM 4/ })
   if (await direct.isVisible()) {
     await direct.click()
@@ -55,6 +55,7 @@ const chooseImportFile = async (file) => {
   }
   const input = page.locator('input[type="file"][accept*=".ct"]').first()
   await input.waitFor({ state: 'attached' })
+  if (mode === 'drawing') await page.locator('input[name="fluidsim-import-mode"][value="drawing"]').check()
   await input.setInputFiles(file)
 }
 const set = (program = fixture()) => page.evaluate(async (program) => {
@@ -179,18 +180,51 @@ try {
     const expectedSteps = Number(process.env.GRAFCET_EXPECT_STEPS) || 5
     const expectedTransitions = Number(process.env.GRAFCET_EXPECT_TRANSITIONS) || 7
     const sample = await readFile(process.env.GRAFCET_FLUIDSIM_SAMPLE)
-    await chooseImportFile({ name: path.basename(process.env.GRAFCET_FLUIDSIM_SAMPLE), mimeType: 'application/octet-stream', buffer: sample })
+    const drawing = process.env.GRAFCET_FLUIDSIM_MODE === 'drawing'
+    await chooseImportFile({ name: path.basename(process.env.GRAFCET_FLUIDSIM_SAMPLE), mimeType: 'application/octet-stream', buffer: sample }, drawing ? 'drawing' : 'strict')
     await page.getByRole('alertdialog', { name: 'Importar GRAFCET' }).waitFor()
     check((await page.getByRole('alertdialog').textContent()).includes(`${expectedSteps} etapas`), 'a confirmação do CT real apresenta as etapas recuperadas')
     await page.getByRole('button', { name: 'Importar', exact: true }).click()
     await page.waitForFunction((count) => document.querySelectorAll('.grafcet-graph-node').length === count, expectedSteps)
     program = await read()
     check(program.steps.length === expectedSteps && program.transitions.length === expectedTransitions, 'o exemplo FluidSIM fornecido importa através do seletor real')
+    if (drawing) {
+      const expectedTexts = Number(process.env.GRAFCET_EXPECT_TEXTS)
+      check(!!program.importReview && program.comments.length === expectedTexts && await page.locator('.grafcet-pan-layer > svg [data-grafcet-text]').count() === expectedTexts, 'os textos do CT são elementos de texto livres e o desenho mantém a revisão pendente')
+      await page.evaluate(async () => { const { useGrafcetUi } = await globalThis.__dcAppImport('/src/grafcet/grafcetBus.ts'); useGrafcetUi.getState().setTool('select') })
+      if (output) await page.screenshot({ path: path.join(output, 'atec-before-text-edit.png') })
+      const first = program.comments[0]
+      const text = page.locator(`.grafcet-pan-layer > svg [data-grafcet-text="${first.id}"]`)
+      await text.locator('rect').dblclick({ force: true })
+      const editor = page.getByRole('textbox', { name: 'Editar texto do GRAFCET' })
+      await editor.fill(first.text + ' (revisto)')
+      await editor.press('Control+Enter')
+      check((await read()).comments.find(c => c.id === first.id).text === first.text + ' (revisto)', 'o texto importado pode ser editado no próprio GRAFCET')
+      await undo()
+      check((await read()).comments.find(c => c.id === first.id).text === first.text, 'Desfazer repõe o texto original')
+      await page.locator('summary').filter({ hasText: 'Desenho importado para revisão' }).click()
+      await page.getByRole('button', { name: 'Concluir revisão', exact: true }).click()
+      const review = page.getByRole('alertdialog', { name: 'Revisão da importação' })
+      await review.waitFor()
+      check((await review.textContent()).includes('Corrija os pontos indicados'), 'a conclusão da revisão identifica os pontos ainda por corrigir')
+      await review.getByRole('button', { name: 'Voltar ao desenho', exact: true }).click()
+      check(!!(await read()).importReview, 'o exemplo incompleto mantém-se como rascunho após a revisão')
+      program = await read()
+      if (output) await writeFile(path.join(output, 'Grafcet-ATEC.grafcet'), JSON.stringify(program, null, 2))
+      await chooseImportFile({ name: 'desenho.grafcet', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(program)) })
+      await page.getByRole('alertdialog', { name: 'Importar GRAFCET' }).waitFor()
+      await page.getByRole('button', { name: 'Importar', exact: true }).click()
+      await page.waitForFunction(count => document.querySelectorAll('.grafcet-pan-layer > svg [data-grafcet-text]').length === count, expectedTexts)
+      const reopened = await read()
+      check(JSON.stringify(reopened.comments) === JSON.stringify(program.comments) && !!reopened.importReview, 'reabrir o .grafcet mantém todos os textos e a revisão pendente')
+      await page.locator('summary').filter({ hasText: 'Desenho importado para revisão' }).click()
+    }
     if (output) await page.screenshot({ path: path.join(output, 'fluidsim-import-canvas.png') })
   }
   check(errors.length === 0, `sem erros JavaScript: ${errors.join('; ')}`)
   console.log(`${checks} verificações de construção/importação passaram`)
 } finally {
+  if (output) await page.screenshot({ path: path.join(output, 'construction-final-state.png') }).catch(() => {})
   if (output && errors.length) await page.screenshot({ path: path.join(output, 'construction-error.png') })
   await context.close(); await browser.close()
 }

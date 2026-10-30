@@ -115,6 +115,7 @@ import {
 import { applySegmentDrag, beginSegmentDrag, bendInsertIndex, expandPolyline, findClearSpot, interiorBends, moveBendOrthogonal, nearestLeg, polylineMidpoint, routeThrough, routeVertical, simplifyOrthogonal, type Point, type SegmentDrag } from './links'
 import { foldText } from '../utils/text'
 import { readGrafcetFile } from './importFile'
+import type { FluidSimImportMode } from './fluidSim4'
 import GrafcetImportDialog from './GrafcetImportDialog'
 import { requireFeature } from '../saas/usePlan'
 import '../styles/grafcet-construction.css'
@@ -2953,18 +2954,18 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     notify('Projeto GRAFCET exportado')
   }
 
-  const importGrafcet = async (file: File) => {
+  const importGrafcet = async (file: File, mode: FluidSimImportMode = 'strict') => {
     const request = ++importRequestRef.current
     const projectPath = window.location.pathname
     const previousProgram = useSimStore.getState().grafcet
     const stillCurrent = () => importRequestRef.current === request && window.location.pathname === projectPath && useSimStore.getState().grafcet === previousProgram
     try {
-      const result = await readGrafcetFile(file)
+      const result = await readGrafcetFile(file, mode)
       if (!stillCurrent()) return
       if (result.source === 'fluidsim4' && !requireFeature('fluidsimImport', notify)) return
       const imported = result.program
       const actionCount = imported.steps.reduce((total, step) => total + (step.actions?.length ?? 0), 0) + (imported.freeActions?.length ?? 0)
-      const summary = `${file.name}\n${imported.steps.length} etapas · ${imported.transitions?.length ?? 0} transições · ${actionCount} ações`
+      const summary = `${file.name}\n${imported.steps.length} etapas · ${imported.transitions?.length ?? 0} transições · ${actionCount} ações · ${imported.comments?.length ?? 0} textos${imported.importReview ? '\nDesenho editável para revisão; simulação e geração de Ladder bloqueadas até concluir a revisão.' : ''}`
       const warnings = result.warnings.length ? `\n\n${result.warnings.join('\n')}` : ''
       if (!await uiConfirm(`${summary}${warnings}\n\nSubstituir o GRAFCET atual, incluindo as suas páginas? Pode desfazer a importação.`, { title: 'Importar GRAFCET', confirmLabel: 'Importar', cancelLabel: 'Cancelar' })) return
       if (!stillCurrent()) return
@@ -2978,6 +2979,19 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       notify(result.source === 'fluidsim4' ? 'GRAFCET FluidSIM 4 importado' : 'Projeto GRAFCET importado')
     } catch (error) {
       if (importRequestRef.current === request) notify(error instanceof Error ? error.message : 'Não foi possível ler o ficheiro GRAFCET')
+    }
+  }
+
+  const finishImportReview = async () => {
+    const previous = useSimStore.getState().grafcet
+    const candidate = { ...previous, importReview: undefined }
+    const pending = validateGrafcet(candidate).filter(issue => issue.level === 'error' || issue.id.endsWith(':dup'))
+    if (pending.length) {
+      await uiConfirm(`Corrija os pontos indicados antes de concluir a revisão:\n\n${pending.map(issue => issue.message).join('\n')}`, { title: 'Revisão da importação', confirmLabel: 'Voltar ao desenho', cancelLabel: 'Fechar' })
+      return
+    }
+    if (await uiConfirm('Confirma que reviu as referências entre gráficos, as condições e os qualificadores das ações? O GRAFCET passa a poder ser simulado e convertido em Ladder.', { title: 'Concluir revisão', confirmLabel: 'Concluir revisão', cancelLabel: 'Continuar a rever' }) && useSimStore.getState().grafcet === previous) {
+      setGrafcet(candidate, 'force', 'grafcet:import-review')
     }
   }
 
@@ -3357,6 +3371,12 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   return (
     <div className={`grafcet-editor grafcet-designer ${full ? 'grafcet-full' : 'grafcet-preview'}`}>
+      {program.importReview && full && <details className="shrink-0 border-b border-line-soft bg-surface px-3 py-2 text-xs">
+        <summary className="cursor-pointer font-semibold">Desenho importado para revisão · simulação e Ladder bloqueados</summary>
+        <p className="my-2">As etapas, transições e textos são editáveis. Complete as ligações e reveja as referências antes de concluir.</p>
+        <ul className="list-disc pl-5 max-h-32 overflow-auto">{program.importReview.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
+        <button type="button" className="dc-btn mt-2" onClick={() => { void finishImportReview() }}>Concluir revisão</button>
+      </details>}
       <datalist id="grafcet-action-addresses">{actionSignals.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
       <datalist id="grafcet-condition-signals">{signalSuggestions.map((signal) => <option key={signal.address} value={signal.address}>{signal.name} {signal.comment}</option>)}</datalist>
 
@@ -6269,7 +6289,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       <GrafcetImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        onChoose={(file) => { void importGrafcet(file) }}
+        onChoose={(file, mode) => { void importGrafcet(file, mode) }}
       />
 
       {menu && <GrafcetContextMenu x={menu.x} y={menu.y} items={menuItems()} onClose={closeMenu} />}

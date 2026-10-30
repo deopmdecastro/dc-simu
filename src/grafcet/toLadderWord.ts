@@ -156,6 +156,7 @@ export function wordMethodBlocker(program: GrafcetProgram): string | null {
 }
 
 export function grafcetToLadderWord(program: GrafcetProgram, options: WordLadderOptions = {}): WordLadder {
+  if (program.importReview) throw new Error('Conclua a revisão do desenho importado antes de gerar Ladder.')
   const warnings: string[] = []
   const label = (options.name ?? program.name ?? '').trim()
   const withName = (text: string) => (label ? `${label}: ${text}` : text)

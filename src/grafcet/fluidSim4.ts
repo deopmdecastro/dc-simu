@@ -124,10 +124,14 @@ export function normalizeFluidSimVariable(value: string): string {
 type NativeObject = { kind: string; box: number[]; props: Map<string, string> }
 type Gate = { number: number; owner: number; port: number }
 export interface FluidSimImport { program: GrafcetProgram; warnings: string[] }
+export type FluidSimImportMode = 'strict' | 'drawing'
 
 /** Parse the semantic CT records. O<n> labels can be stale after deletion:
  * gate/CON references address the ordered record table, not those labels. */
-export function parseFluidSim4Text(text: string): FluidSimImport {
+export function parseFluidSim4Text(text: string, mode: FluidSimImportMode = 'strict'): FluidSimImport {
+  const drawing = mode === 'drawing'
+  const warnings: string[] = []
+  const review = (message: string) => { if (!drawing) fail(message); warnings.push(message) }
   const previewEnd = text.indexOf('END_FSPREVIEW\n')
   if (previewEnd >= 0) text = text.slice(previewEnd + 'END_FSPREVIEW\n'.length)
   text = text.replace(/^\n*ENDPREVIEW\n/, '')
@@ -251,17 +255,23 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
   for (const link of links) {
     if (link.link) {
       const candidates = nativeSteps.filter(s => nameOfStep(s.index) === link.link)
-      if (!candidates.length) fail(`destino por referência inválido: ${link.link}.`)
+      if (!candidates.length || (drawing && candidates.length > 1 && !link.to.length)) {
+        review(`Destino por referência ${link.link} ${candidates.length ? 'ambíguo' : 'inexistente'}; ligação por completar.`)
+        continue
+      }
       const x = (link.o.box[0] + link.o.box[2]) / 2
       const target = candidates.sort((a, b) => Math.abs((a.o.box[0] + a.o.box[2]) / 2 - x) - Math.abs((b.o.box[0] + b.o.box[2]) / 2 - x))[0]
-      if (link.to.length && !link.to.some(s => s.index === target.index)) fail(`destino por referência inválido: ${link.link}.`)
+      if (link.to.length && !link.to.some(s => s.index === target.index)) {
+        review(`Destino por referência inválido: ${link.link}. A ligação explícita foi preservada.`)
+        continue
+      }
       link.to = [target]
     }
-    if (link.from.length !== 1 || link.to.length !== 1) fail(`a transição ${links.indexOf(link) + 1} tem ligações incompletas ou uma sincronização ainda não suportada.`)
-    joinSteps(link.from[0].index, link.to[0].index)
+    if (link.from.length !== 1 || link.to.length !== 1) review(`a transição ${links.indexOf(link) + 1} tem ligações incompletas ou uma sincronização ainda não suportada.`)
+    if (link.from.length === 1 && link.to.length === 1) joinSteps(link.from[0].index, link.to[0].index)
   }
-  const chartGroups = [...new Set(nativeSteps.map(({ index }) => stepRoot(index)))].map(root => {
-    const steps = nativeSteps.filter(s => stepRoot(s.index) === root)
+  const chartGroups = (drawing ? [0] : [...new Set(nativeSteps.map(({ index }) => stepRoot(index)))]).map(root => {
+    const steps = drawing ? nativeSteps : nativeSteps.filter(s => stepRoot(s.index) === root)
     return { steps, minX: Math.min(...steps.map(s => (s.o.box[0] + s.o.box[2]) / 2)), minY: Math.min(...steps.map(s => s.o.box[1])) }
   }).sort((a, b) => a.minX - b.minX)
   const multiChart = chartGroups.length > 1
@@ -273,7 +283,6 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
     const group = chartGroups[groupIndex >= 0 ? groupIndex : 0]
     return { x: 200 + ((o.box[0] + o.box[2]) / 2 - group.minX) * 1.5 / 1024, y: 80 + (o.box[1] - group.minY) * 1.5 / 1024 }
   }
-  const warnings: string[] = []
   chartGroups.forEach((group, i) => {
     const initialCount = group.steps.filter(({ index }) => [1, 17].includes(Number(objects[index].props.get('mod_flag') || 0))).length
     if (!initialCount)
@@ -290,10 +299,11 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
     if (!stepType) fail(`a etapa ${name} usa uma notação ainda não suportada (0x${flags.toString(16)}).`)
     const chart = chartForStep.get(index)!
     const scopedName = `${chart}:${name}`
-    if (stepNamesByChart.has(scopedName)) fail(`identificador de etapa repetido no mesmo GRAFCET: ${name}.`)
+    if (stepNamesByChart.has(scopedName)) review(`identificador de etapa repetido no mesmo GRAFCET: ${name}.`)
     stepNamesByChart.add(scopedName)
     const initial = stepType === 'initial' || stepType === 'initial-enclosing'
     const step: GrafcetStep = { id: `fs4-step-${index}`, name, initial, stepType, action: '', condition: '', actions: [], pinned: true, ...(multiChart ? { chart } : {}), ...point(o, chart) }
+    if (drawing) { step.w = (o.box[2] - o.box[0]) * 1.5 / 1024; step.h = (o.box[3] - o.box[1]) * 1.5 / 1024 }
     stepByIndex.set(index, step)
   }
   const external = new Set<string>()
@@ -302,18 +312,20 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
     // current engine a trailing '+' can also be part of a pneumatic variable;
     // separating the boolean operator removes that lexical ambiguity.
     const result = normalizeFluidSimCondition(value)
-    if (!validCondition(result)) fail(`condição não suportada em ${context}: ${result}.`)
+    if (!validCondition(result)) review(`condição não suportada em ${context}: ${result}.`)
     for (const match of result.matchAll(/\bG\d+\s*(?:<=>\s*)?X\d+\b/gi)) external.add(match[0])
     return result
   }
   const transitionOrdinals = new Map<string, number>()
   const transitions = links.map(({ o, index, from, to, link }) => {
-    const fromStep = stepByIndex.get(from[0].index)!, toStep = stepByIndex.get(to[0].index)!
-    const chart = chartForStep.get(from[0].index)!
-    if (chart !== chartForStep.get(to[0].index)) fail('uma ligação entre GRAFCETs diferentes não pode ser importada como transição local.')
+    const owner = from[0] ?? to[0]
+    const chart = (owner ? chartForStep.get(owner.index) : undefined) ?? charts[0].id
+    if (!drawing && chart !== chartForStep.get(to[0].index)) fail('uma ligação entre GRAFCETs diferentes não pode ser importada como transição local.')
     const ordinal = (transitionOrdinals.get(chart) ?? 0) + 1
     transitionOrdinals.set(chart, ordinal)
-    return { id: `fs4-transition-${index}`, name: `T${ordinal}`, from: [fromStep.id], to: [toStep.id], condition: condition(o.props.get('COND'), `T${ordinal}`), wireless: !!link, ...(multiChart ? { chart } : {}), ...point(o, chart) }
+    const position = point(o, chart)
+    if (drawing) position.y += (o.box[3] - o.box[1]) * 0.75 / 1024
+    return { id: `fs4-transition-${index}`, name: `T${ordinal}`, from: from.map(s => stepByIndex.get(s.index)!.id), to: to.map(s => stepByIndex.get(s.index)!.id), condition: condition(o.props.get('COND'), `T${ordinal}`), wireless: !!link, ...(link ? { targetInfo: link } : {}), ...(multiChart ? { chart } : {}), ...position }
   })
   // Percurso desenhado no FluidSIM para os retornos (etapa de destino acima da origem):
   // os registos L de cada ligação dão os cotovelos, que passam a pontos de quebra.
@@ -360,7 +372,7 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
   const linkBends: Record<string, Array<{ x: number; y: number }>> = {}
   links.forEach((link, i) => {
     const source = link.from[0], target = link.to[0]
-    if (link.link || target.o.box[1] > source.o.box[1]) return
+    if (!source || !target || link.link || target.o.box[1] > source.o.box[1]) return
     const legA = legBetween(outputOf(source.index), inputOf(link.index))
     const legB = legBetween(outputOf(link.index), inputOf(target.index))
     if (!legA || !legB) return
@@ -383,19 +395,29 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
   for (const { o, index } of rects.filter(r => typeOf(r.index) === 2)) {
     const flags = Number(o.props.get('mod_flag') || 0)
     const actionFlags = [0x800, 0x840, 0x2800, 0x2840, 0x2008, 0x2004, 0x2001]
-    if (!actionFlags.includes(flags)) fail('ação memorizada, de evento ou de forçagem ainda não suportada.')
-    if (o.props.get('ACTION')?.trim() || o.props.get('ACTION_SUB_GRAPH')?.trim() || o.props.get('ACTION_STEPS')?.trim()) fail('ação memorizada, de evento ou de forçagem ainda não suportada.')
+    if (!actionFlags.includes(flags)) review('ação memorizada, de evento ou de forçagem ainda não suportada.')
+    if (o.props.get('ACTION')?.trim() || o.props.get('ACTION_SUB_GRAPH')?.trim() || o.props.get('ACTION_STEPS')?.trim()) review('ação memorizada, de evento ou de forçagem ainda não suportada.')
     const original = (o.props.get('VAR') || o.props.get('ACTION_DESCR') || '').trim()
-    const variable = normalizeFluidSimVariable(original)
-    if (!validGrafcetVariable(variable)) fail(`variável de ação inválida: ${original || '(vazia)'}.`)
+    const variable = drawing ? original : normalizeFluidSimVariable(original)
+    if (!validGrafcetVariable(variable)) review(`variável de ação inválida: ${original || '(vazia)'}.`)
     if (variable !== original.replace(/^%/, '')) warnings.push(`A variável de ação «${original}» foi convertida para «${variable}» (formato aceite pelo simulador).`)
     const conditional = !!(flags & 0x40)
     const group = find(port(index, 4))
     const owners = nativeSteps.filter(s => find(port(s.index, 3)) === group)
-    if (owners.length > 1) fail(`a ação ${variable} está ligada a várias etapas.`)
+    if (owners.length > 1) review(`a ação ${variable} está ligada a várias etapas.`)
     const chart = owners.length ? chartForStep.get(owners[0].index) : undefined
     if (![0x800, 0x840, 0x2800, 0x2840].includes(flags)) warnings.push(`A ação ${variable} foi importada como contínua; o qualificador original (0x${flags.toString(16)}) precisa de revisão.`)
     const action: GrafcetAction = { id: `fs4-action-${index}`, address: variable, variable, description: o.props.get('VAR')?.trim() ? o.props.get('ACTION_DESCR')?.trim() || '' : '', kind: 'N', allocation: 'continuous', type: conditional ? 'conditional' : 'simple', condition: conditional ? condition(o.props.get('COND'), variable) : '1', ...point(o, chart) }
+    if (drawing) {
+      action.w = (o.box[2] - o.box[0]) * 1.5 / 1024
+      action.h = (o.box[3] - o.box[1]) * 1.5 / 1024
+      action.x! -= action.w / 2
+      if (owners.length) {
+        const step = stepByIndex.get(owners[0].index)!
+        action.dx = action.x! - step.x!
+        action.dy = action.y! - step.y!
+      }
+    }
     if (owners.length) stepByIndex.get(owners[0].index)!.actions!.push(action)
     else { freeActions.push(action); warnings.push(`A ação ${variable} ficou solta: não tem ligação a uma etapa.`) }
   }
@@ -414,11 +436,11 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
     const value = o.props.get('text')?.trim()
     if (!value) return
     const [x0, y0, x1, y1] = o.box
-    if (x1 < area.x0 || x0 > area.x1 || y1 < area.y0 || y0 > area.y1) { ignored.set('text', (ignored.get('text') ?? 0) + 1); return }
+    if (!drawing && (x1 < area.x0 || x0 > area.x1 || y1 < area.y0 || y0 > area.y1)) { ignored.set('text', (ignored.get('text') ?? 0) + 1); return }
     const at = point(o, multiChart ? charts[0].id : undefined)
     const height = Number(o.props.get('height') || 0)
-    const bold = /black|bold/i.test(o.props.get('font_name') || '') || (Number(o.props.get('style') || 0) & 1) === 1
-    comments.push({ id: `fs4-text-${index}`, text: value, x: Math.round(200 + (x0 - chartGroups[0].minX) * 1.5 / 1024), y: Math.round(at.y), ...(height > 0 ? { fontSize: Math.min(32, Math.max(10, Math.round(height))) } : {}), ...(bold ? { fontWeight: '700' } : {}), ...(multiChart ? { chart: charts[0].id } : {}) })
+    const bold = /black|bold/i.test(o.props.get('font_name') || '') || (Number(o.props.get('style') || 0) & 2) === 2
+    comments.push({ id: `fs4-text-${index}`, text: value, x: Math.round(200 + (x0 - chartGroups[0].minX) * 1.5 / 1024), y: Math.round(at.y), ...(height > 0 ? { fontSize: Math.min(32, Math.max(10, Math.round(height))) } : {}), fontWeight: bold ? '700' : '400', ...(multiChart ? { chart: charts[0].id } : {}) })
   })
   // O texto acima da etapa inicial (título) não pode ficar com y negativo: desce o desenho todo.
   const top = Math.min(...comments.map(c => c.y))
@@ -435,10 +457,11 @@ export function parseFluidSim4Text(text: string): FluidSimImport {
     warnings.push(`O ficheiro também tem ${total} elemento(s) que não são GRAFCET (${[...ignored.keys()].sort().join(', ')}): circuito elétrico/pneumático e EasyPort/OPC. Só o GRAFCET foi importado; desenhe esse circuito no Esquema.`)
   }
   const program: GrafcetProgram = { steps: [...stepByIndex.values()], transitions, freeActions, comments, ...(Object.keys(linkBends).length ? { linkBends } : {}), ...(multiChart ? { charts, activeChart: charts[0].id } : {}) }
+  if (drawing) program.importReview = { source: 'fluidsim4', warnings: [...warnings] }
   return { program, warnings }
 }
 
-export function importFluidSim4(input: Uint8Array): FluidSimImport {
+export function importFluidSim4(input: Uint8Array, mode: FluidSimImportMode = 'strict'): FluidSimImport {
   let expanded = expandFluidSim4(input)
   // Algumas gravações começam por «PREVIEW <n>» seguido de 4 bytes de tamanho e do
   // metaficheiro WMF binário. Esse bloco é saltado pelo tamanho, sem ser interpretado.
@@ -454,5 +477,5 @@ export function importFluidSim4(input: Uint8Array): FluidSimImport {
   // Windows-1252 is the native text encoding; the WMF preview is skipped before
   // any records are interpreted. It is never rendered or executed.
   const text = new TextDecoder('windows-1252').decode(expanded).replace(/\r\n?/g, '\n')
-  return parseFluidSim4Text(text)
+  return parseFluidSim4Text(text, mode)
 }

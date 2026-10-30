@@ -158,6 +158,7 @@ const symbolName = (text: string): string => {
  *  As receptividades são calculadas todas antes de alterar os bits das etapas, por isso há
  *  no máximo uma evolução por scan e a prioridade das transições (ordem da lista) é respeitada. */
 export function grafcetToLadder(program: GrafcetProgram, reserved: Iterable<string> = [], options: GrafcetToLadderOptions = {}): LadderFromGrafcet {
+  if (program.importReview) throw new Error('Conclua a revisão do desenho importado antes de gerar Ladder.')
   const warnings: string[] = []
   const label = (options.name ?? program.name ?? '').trim()
   const withName = (text: string) => (label ? `${label}: ${text}` : text)

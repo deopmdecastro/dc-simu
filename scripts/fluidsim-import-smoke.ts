@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { emptyGrafcetRuntime, scanGrafcet, forceSteps, fireTransition, validateGrafcet } from '../src/grafcet/engine'
+import { grafcetToLadder } from '../src/grafcet/toLadder'
+import { grafcetToLadderWord } from '../src/grafcet/toLadderWord'
 import { expandFluidSim4, importFluidSim4, normalizeFluidSimCondition, normalizeFluidSimVariable, parseFluidSim4Text } from '../src/grafcet/fluidSim4'
 import { validCondition } from '../src/grafcet/engine'
 import { readGrafcetFile, MAX_GRAFCET_IMPORT_BYTES } from '../src/grafcet/importFile'
@@ -162,12 +165,61 @@ check('o retorno segue o percurso desenhado no FluidSIM (pontos de quebra)', () 
   assert.equal(Object.keys(result.program.linkBends ?? {}).length, 1, 'ligações diretas não recebem pontos de quebra')
 })
 const fakeFile = (name: string, content: Uint8Array) => ({ name, size: content.length, arrayBuffer: async () => Uint8Array.from(content).buffer })
+check('desenho editável preserva ligações incompletas e referências inexistentes', () => {
+  const incomplete = fixture.replace('CON GLine 2 5\n', '')
+  const result = parseFluidSim4Text(incomplete, 'drawing')
+  assert.equal(result.program.transitions![0].from.length, 0)
+  assert.equal(result.program.transitions![0].to.length, 1)
+  assert.ok(result.program.importReview)
+  const missing = parseFluidSim4Text(fixture.replace(' S COND S I1', ' S LINK S 999\n S COND S I1').replace('CON GLine 6 8\n', ''), 'drawing')
+  assert.equal(missing.program.transitions![0].targetInfo, '999')
+  assert.deepEqual(missing.program.transitions![0].to, [])
+  assert.match(missing.warnings.join(), /999/)
+})
+check('desenho editável mantém os gráficos lado a lado e os números originais', () => {
+  const body = fixture.slice('BEGIN_FSPREVIEW\nEND_FSPREVIEW\n'.length, fixture.indexOf('ENDCT\n'))
+  const twice = body + offsetDiagram(body, 400000) + 'ENDCT\n'
+  const result = parseFluidSim4Text(twice, 'drawing')
+  assert.equal(result.program.steps.length, 4)
+  assert.ok(!result.program.charts?.length)
+  assert.equal(result.program.steps.filter(s => s.name === '0').length, 2)
+  assert.ok(result.program.steps[2].x! > result.program.steps[0].x! + 500)
+  assert.match(result.warnings.join(), /repetido/)
+})
+check('todos os textos soltos viram texto livre editável, incluindo notas afastadas', () => {
+  const texts = record('text', 200, 3000000, 60000) + ' S text S Nota afastada\n S font_name S Arial\n S height I 16\n S style I 1\n' + record('text', 201, 3000000, 90000) + ' S text S Titulo\n S font_name S Arial\n S height I 21\n S style I 3\n'
+  const source = fixture.replace('0 0 0 #', texts + '0 0 0 #')
+  assert.equal(parseFluidSim4Text(source).program.comments!.length, 0)
+  const result = parseFluidSim4Text(source, 'drawing')
+  assert.deepEqual(result.program.comments!.map(c => [c.text, c.fontWeight, c.fontSize]), [['Nota afastada', '400', 16], ['Titulo', '700', 21]])
+  assert.ok(result.program.comments![0].x > 4000)
+})
+check('rascunho bloqueia execução, forçagem e geração de Ladder até concluir a revisão', () => {
+  const result = parseFluidSim4Text(fixture, 'drawing')
+  const runtime = { ...emptyGrafcetRuntime(), active: [result.program.steps[0].id], owned: ['Q1'] }
+  const table = { Q1: true, I1: true }
+  assert.deepEqual(scanGrafcet(result.program, runtime, table).active, [])
+  assert.equal(table.Q1, false)
+  assert.deepEqual(forceSteps(result.program, runtime, [result.program.steps[0].id]).active, [])
+  assert.equal(fireTransition(result.program, runtime, result.program.transitions![0].id), null)
+  assert.ok(validateGrafcet(result.program).some(i => i.id === 'import-review' && i.level === 'error'))
+  assert.throws(() => grafcetToLadder(result.program), /revisão/)
+  assert.throws(() => grafcetToLadderWord(result.program), /revisão/)
+  const reviewed = { ...result.program, importReview: undefined }
+  assert.ok(!validateGrafcet(reviewed).some(i => i.id === 'import-review'))
+  assert.deepEqual(scanGrafcet(reviewed, emptyGrafcetRuntime(), { I1: true }).active, [reviewed.steps[1].id])
+  assert.throws(() => parseFluidSim4Text(fixture.replace('gate1 # 0 1', 'gate1 # 999 1'), 'drawing'), /porta inválida/)
+})
 await assert.rejects(() => readGrafcetFile({ name: 'large.ct', size: MAX_GRAFCET_IMPORT_BYTES + 1, arrayBuffer: async () => { throw new Error('must not read') } }), /5 MB/)
 await assert.rejects(() => readGrafcetFile(fakeFile('bad.json', Buffer.from('{"steps":[null]}'))), /estrutura das etapas/)
 const native = await readGrafcetFile(fakeFile('teste.ct', literalCt(fixture)))
 assert.equal(native.source, 'fluidsim4'); assert.equal(native.program.name, 'teste')
 const json = await readGrafcetFile(fakeFile('teste.json', Buffer.from(JSON.stringify(native.program))))
 assert.deepEqual(json.program, native.program)
+const draft = await readGrafcetFile(fakeFile('desenho.ct', literalCt(fixture)), 'drawing')
+const draftJson = await readGrafcetFile(fakeFile('desenho.grafcet', Buffer.from(JSON.stringify(draft.program))))
+assert.deepEqual(draftJson.program, draft.program, 'exportar/reabrir mantém a revisão pendente')
+await assert.rejects(() => readGrafcetFile(fakeFile('bad-review.json', Buffer.from(JSON.stringify({ ...draft.program, importReview: { source: 'fluidsim4', warnings: [42] } })))), /revisão da importação/)
 checks += 4
 
 if (process.argv[2]) {
@@ -197,6 +249,23 @@ if (process.env.FLUIDSIM_MONTA_CARGA) {
   assert.deepEqual(result.program.comments?.map(c => c.text), ['Q1'])
   assert.match(result.warnings.join('\n'), /não são GRAFCET/)
   console.log('PASS — Monta-Carga: 1→5→10→15→1, ações Q_Monter/Q_Descendre, retorno desenhado e título Q1')
+  checks++
+}
+if (process.env.FLUIDSIM_ATEC_SAMPLE) {
+  const result = importFluidSim4(readFileSync(process.env.FLUIDSIM_ATEC_SAMPLE), 'drawing')
+  assert.equal(result.program.steps.length, 34)
+  assert.equal(result.program.transitions!.length, 40)
+  assert.equal(result.program.steps.flatMap(s => s.actions ?? []).length + result.program.freeActions!.length, 30)
+  assert.equal(result.program.comments!.length, 16)
+  assert.equal(result.program.steps.filter(s => s.name === '135').length, 2)
+  assert.ok(result.program.transitions!.some(t => t.targetInfo === '51' && !t.to.length))
+  assert.ok(result.program.comments!.some(c => c.text === 'G0 - Grafcet Controlo'))
+  assert.ok(result.program.comments!.some(c => c.text === 'G1 - Grafcet Funcionamento'))
+  assert.ok(result.program.comments!.some(c => c.text === 'G2 - Grafcet Reset'))
+  assert.ok(result.program.comments!.some(c => c.text === '"Fim do Reset"'))
+  assert.ok(result.program.steps.flatMap(s => s.actions ?? []).some(a => a.variable === 'Y7_E+_Vacuo_On'))
+  assert.ok(result.program.importReview)
+  console.log('PASS — ATEC: 34 etapas, 40 transições, 30 ações e 16 textos; números e referências por completar preservados')
   checks++
 }
 if (process.env.FLUIDSIM_EXTRA_SAMPLE) {
