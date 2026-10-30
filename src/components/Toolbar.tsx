@@ -747,20 +747,16 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
                   ? 'Abrir o GRAFCET — corrige os erros para atualizar o Ladder gerado.'
                   : 'Abrir o GRAFCET — a sequência mudou; atualiza o Ladder na barra do GRAFCET.'
               const Icon = synced ? IconCheck : IconWarning
-              const statusStyle = synced
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : blocked
-                  ? 'border-state-error/40 bg-state-errorbg text-state-error'
-                  : 'border-amber-300 bg-amber-50 text-amber-800'
+              const tone = synced ? 'is-ok' : blocked ? 'is-error' : 'is-warn'
               return (
                 <button
                   type="button"
-                  className={`dc-tool-btn !gap-1.5 ${statusStyle}`}
+                  className={`dc-status-chip ${tone}`}
                   onClick={() => setMode('grafcet')}
                   title={title}
                   aria-label={label + '. ' + title}
                 >
-                  <Icon size={13} />
+                  <Icon size={12} />
                   <span>{label}</span>
                 </button>
               )
@@ -945,15 +941,15 @@ export default function Toolbar({ mode, setMode, views = ['schematic', 'ladder',
             <div className="flex items-center gap-1.5 shrink-0 grafcet-toolbar-secondary">
               <button
                 type="button"
-                className={`grafcet-validation ${grafcetIssues.length ? 'has-issues' : 'is-valid'}`}
+                className={`dc-status-chip grafcet-validation ${grafcetErrorCount ? 'is-error' : grafcetIssues.length ? 'is-warn' : 'is-ok'}`}
                 title={grafcetIssues.length ? 'Abrir diagnóstico do programa' : 'Estrutura GRAFCET válida'}
                 onClick={() => useGrafcetUi.getState().emit('openDiagnostics')}
               >
                 {grafcetErrorCount
-                  ? <><IconWarning size={11} />{grafcetErrorCount} erro{grafcetErrorCount === 1 ? '' : 's'}</>
+                  ? <><IconWarning size={12} /><span>{grafcetErrorCount} erro{grafcetErrorCount === 1 ? '' : 's'}</span></>
                   : grafcetIssues.length
-                  ? <><IconWarning size={11} />{grafcetIssues.length} aviso{grafcetIssues.length === 1 ? '' : 's'}</>
-                  : <><IconCheck size={11} className="ui-ck" />Validado</>}
+                  ? <><IconWarning size={12} /><span>{grafcetIssues.length} aviso{grafcetIssues.length === 1 ? '' : 's'}</span></>
+                  : <><IconCheck size={12} /><span>GRAFCET validado</span></>}
               </button>
 
               <span className="tb-sep" />

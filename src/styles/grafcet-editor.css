@@ -4,9 +4,6 @@
 .grafcet-header { display:flex; align-items:center; justify-content:space-between; padding:12px; background:white; border-bottom:1px solid #dce4ef; }
 .grafcet-header strong { display:block; color:#2455d8; font-size:14px; letter-spacing:.05em; }
 .grafcet-header small { color:#68778d; }
-.grafcet-validation { display:inline-flex; min-height:22px; align-items:center; padding:2px 7px; border:1px solid; border-radius:999px; font-size:9px; font-weight:750; white-space:nowrap; }
-.grafcet-validation.is-valid { border-color:#b7e4c8; color:#137a47; background:#effaf4; }
-.grafcet-validation.has-issues { border-color:#f2cf91; color:#9a5b07; background:#fff8e8; }
 .grafcet-help { margin:0; padding:10px 12px; line-height:1.5; background:#edf3ff; border-bottom:1px solid #dce4ef; }
 .grafcet-list { flex:1; min-height:0; overflow:auto; padding:16px 14px; }
 .grafcet-empty { border:1px dashed #a9b9d6; border-radius:8px; padding:24px; text-align:center; color:#68778d; }
@@ -339,10 +336,6 @@
 .grafcet-title { min-width:150px; }
 .grafcet-title strong { display:block; }
 .grafcet-title small { display:block; margin-top:2px; }
-.grafcet-validation { transition:border-color .14s,box-shadow .14s,transform .14s; }
-button.grafcet-validation { cursor:pointer; }
-button.grafcet-validation:hover { transform:translateY(-1px); box-shadow:0 3px 9px rgba(31,43,74,.10); }
-button.grafcet-validation:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
 .grafcet-header-actions { align-items:center; }
 .grafcet-header-separator { width:1px; height:22px; margin:0 2px; background:#dce4ef; }
 .grafcet-icon-button { width:29px; height:29px; display:inline-grid; place-items:center; border:1px solid #d5deeb; border-radius:7px; background:#fff; color:#4a5a75; }

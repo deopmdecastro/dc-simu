@@ -475,3 +475,23 @@ html[data-clean="true"] .grafcet-live-status small { display: none; }
 .grafcet-title-edit > .dc-inline-name-input { font-size:12.5px; font-weight:700; }
 .grafcet-page-chip.is-active > .dc-inline-name, .schematic-sheet-chip.is-active > .dc-inline-name { cursor:text; }
 .grafcet-page-chip > .dc-inline-name-input, .schematic-sheet-chip > .dc-inline-name-input { border-radius:7px; margin:1px; }
+
+/* Indicador de estado da barra (GRAFCET validado/avisos/erros · Ladder ↔ GRAFCET sincronizado):
+   o mesmo formato nos dois editores — pílula com ícone, cor pelo estado, clicável. */
+.dc-status-chip {
+  display: inline-flex; flex: none; align-items: center; gap: 6px;
+  height: 28px; padding: 0 11px 0 9px;
+  border: 1px solid; border-radius: 999px;
+  font: inherit; font-size: 11.5px; font-weight: 650; line-height: 1; white-space: nowrap;
+  cursor: pointer; transition: background-color .14s, border-color .14s, box-shadow .14s;
+}
+.dc-status-chip svg { flex: none; }
+.dc-status-chip.is-ok { border-color: #b7e4c8; background: #effaf4; color: #137a47; }
+.dc-status-chip.is-warn { border-color: #f2cf91; background: #fff8e8; color: #9a5b07; }
+.dc-status-chip.is-error { border-color: #f5b5b5; background: #fef2f2; color: #b42318; }
+.dc-status-chip:hover { box-shadow: 0 2px 8px rgba(31, 43, 74, .10); }
+.dc-status-chip.is-ok:hover { border-color: #86d0a6; }
+.dc-status-chip.is-warn:hover { border-color: #e9b45a; }
+.dc-status-chip.is-error:hover { border-color: #ee8d8d; }
+.dc-status-chip:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .dc-status-chip { transition: none; } }
