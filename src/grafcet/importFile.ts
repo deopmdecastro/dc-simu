@@ -9,7 +9,7 @@ function validAction(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false
   const a = value as Record<string, unknown>
   return typeof a.id === 'string' && typeof a.address === 'string' && typeof a.condition === 'string' &&
-    strings(a, ['variable', 'description', 'chart']) && numbers(a, ['timeMs', 'x', 'y', 'w', 'h', 'dx', 'dy']) &&
+    strings(a, ['variable', 'description', 'chart', 'afterActionId']) && numbers(a, ['timeMs', 'x', 'y', 'w', 'h', 'dx', 'dy']) &&
     (a.kind === undefined || ['N','S','R','D','L','A','DA','EV','C'].includes(a.kind as string)) &&
     (a.type === undefined || ['simple','conditional'].includes(a.type as string)) &&
     (a.allocation === undefined || ['continuous','activation','deactivation','event','compulsory'].includes(a.allocation as string)) &&

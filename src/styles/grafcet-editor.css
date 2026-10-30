@@ -247,7 +247,7 @@
 .grafcet-preview-status .is-running { color:#15803d; font-weight:700; }
 .grafcet-preview .grafcet-canvas { position:relative; padding:0; overflow:hidden; min-height:0; cursor:grab; touch-action:none; }
 .grafcet-preview .grafcet-canvas:active { cursor:grabbing; }
-.grafcet-preview .grafcet-pan-layer { position:absolute; left:0; top:0; transform-origin:top left; will-change:transform; }
+.grafcet-preview .grafcet-pan-layer { position:absolute; left:0; top:0; transform-origin:top left; }
 .grafcet-preview .grafcet-pan-layer svg { width:560px; height:auto; max-width:none; margin:0; }
 .grafcet-viewport-tools { position:absolute; top:10px; right:10px; z-index:3; display:flex; align-items:center; gap:3px; border:1px solid #d5e0f2; border-radius:8px; padding:3px; background:#fff; box-shadow:0 3px 12px #1e3a5f1c; cursor:default; }
 .grafcet-viewport-tools button { min-width:24px; height:24px; padding:0 5px; border-radius:5px; font-weight:650; color:#1d4ed8; }
@@ -260,7 +260,7 @@
 .grafcet-full .grafcet-header-actions { display:flex; flex-wrap:wrap; gap:7px; }
 .grafcet-full .grafcet-canvas { position:relative; overflow:hidden; padding:0; cursor:grab; touch-action:none; }
 .grafcet-full .grafcet-canvas:active { cursor:grabbing; }
-.grafcet-full .grafcet-pan-layer { position:absolute; left:0; top:0; transform-origin:top left; will-change:transform; }
+.grafcet-full .grafcet-pan-layer { position:absolute; left:0; top:0; transform-origin:top left; }
 .grafcet-full .grafcet-pan-layer svg { width:760px; max-width:none; margin:0; }
 .grafcet-full .grafcet-properties { width:min(370px,35vw); padding:18px; gap:14px; }
 .grafcet-full .grafcet-viewport-tools { top:16px; right:16px; }

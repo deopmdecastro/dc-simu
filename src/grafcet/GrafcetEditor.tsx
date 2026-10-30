@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid'
 import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
+import { attachedActionBoxes, cloneActions, type ActionBox } from './actionLayout'
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useNonPassiveListener } from '../ui/useNonPassiveListener'
 import { uiChoose, uiConfirm } from '../ui/dialogs'
@@ -443,7 +444,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
    * Porta de ligação por linha: saída/entrada de etapa (transições), saída-ação da etapa
    * (ligar ações), entrada de transição solta, entrada de ação solta e "etapa como destino de ação".
    */
-  type PortRef = { kind: 'step-out' | 'step-in' | 'trans-out' | 'trans-in' | 'step-action' | 'action-in' | 'step-attach' | 'branch-out'; id: string; side?: 'l' | 'r' | 't' | 'b' }
+  type PortRef = { kind: 'step-out' | 'step-in' | 'trans-out' | 'trans-in' | 'step-action' | 'action-in' | 'action-out' | 'step-attach' | 'branch-out'; id: string; side?: 'l' | 'r' | 't' | 'b' }
   const [wireDraft, setWireDraft] = useState<{ start: PortRef; x: number; y: number; moved: boolean } | null>(null)
   const [wireHover, setWireHover] = useState<PortRef | null>(null)
   const wireDraftRef = useRef<typeof wireDraft>(null)
@@ -861,21 +862,42 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       `grafcet:free-action:${action.id}:${Object.keys(patch).sort().join(',')}`
     )
 
-  /** Liga uma ação solta a uma etapa (remove-a da lista de soltas). */
-  const attachFreeAction = (actionId: string, stepId: string) => {
-    const action = freeActions.find((value) => value.id === actionId)
+  /** Encaixa após a ação escolhida, incluindo caixas importadas e redimensionadas. */
+  const actionsWithAttachment = (step: GrafcetStep, action: GrafcetAction, afterActionId?: string): GrafcetAction[] => {
+    const remaining = (step.actions ?? []).filter(a => a.id !== action.id)
+    const boxes = [...attachedBoxes(step)].filter(([aid]) => aid !== action.id)
+    const hasCustomLayout = boxes.some(([, box]) => box.offset || box.afterActionId)
+    const previous = afterActionId ?? (stepActionLayout(step) === 'row' && hasCustomLayout ? boxes.sort((a, b) => (b[1].x + b[1].w) - (a[1].x + a[1].w))[0]?.[0] : undefined)
+    const { x: _x, y: _y, dx: _dx, dy: _dy, afterActionId: _after, chart: _chart, ...clean } = action
+    const placed: GrafcetAction = { ...clean, ...(previous ? { afterActionId: previous } : {}) }
+    return [...remaining.map(a => a.afterActionId === previous && previous ? { ...a, afterActionId: action.id } : a), placed]
+  }
+
+  /** Liga uma ação solta ou transfere uma ação anexada, numa única operação de histórico. */
+  const attachFreeAction = (actionId: string, stepId: string, afterActionId?: string) => {
+    const owner = steps.find(s => (s.actions ?? []).some(a => a.id === actionId))
+    const action = freeActions.find(value => value.id === actionId) ?? owner?.actions?.find(a => a.id === actionId)
     const step = stepById.get(stepId)
-    if (!action || !step) return
-    const { x: _x, y: _y, dx: _dx, dy: _dy, ...clean } = action
+    if (!action || !step || action.id === afterActionId || action.id.startsWith('legacy-')) return
+    let parent = (step.actions ?? []).find(a => a.id === afterActionId)
+    const seen = new Set<string>()
+    while (parent && !seen.has(parent.id)) {
+      if (parent.id === actionId) { notify('Esta ligação criaria um ciclo entre ações'); return }
+      seen.add(parent.id)
+      parent = (step.actions ?? []).find(a => a.id === parent?.afterActionId)
+    }
+    const targetActions = actionsWithAttachment(step, action, afterActionId)
     save({
-      steps: steps.map((value) => (value.id === stepId ? { ...value, actions: [...(value.actions ?? []), clean as GrafcetAction] } : value)),
+      steps: steps.map(value => value.id === stepId ? { ...value, actions: targetActions } : value.id === owner?.id ? {
+        ...value, actions: (value.actions ?? []).filter(a => a.id !== actionId).map(a => a.afterActionId === actionId ? { ...a, afterActionId: action.afterActionId } : a),
+      } : value),
       freeActions: freeActions.filter((value) => value.id !== actionId),
-    })
+    }, 'force')
     setSelected(stepId)
     setSelectedActionId(actionId)
     setTab('steps')
     const { stepNumber } = getStepDisplayInfo(step, steps.indexOf(step))
-    notify(`Ação ligada à Etapa ${stepNumber}`)
+    notify(afterActionId ? `Ação ligada após outra ação da Etapa ${stepNumber}` : `Ação ligada à Etapa ${stepNumber}`)
   }
 
   /** Desanexa uma ação de uma etapa: passa a solta na posição indicada. */
@@ -885,8 +907,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const action = actionsOf(step).find((value) => value.id === actionId)
     if (!action || action.id.startsWith('legacy-')) return
     save({
-      steps: steps.map((value) => (value.id === stepId ? { ...value, actions: (value.actions ?? []).filter((a) => a.id !== actionId) } : value)),
-      freeActions: [...freeActions, { ...action, x: pos.x, y: pos.y, dx: undefined, dy: undefined }],
+      steps: steps.map((value) => (value.id === stepId ? { ...value, actions: (value.actions ?? []).filter((a) => a.id !== actionId).map(a => a.afterActionId === actionId ? { ...a, afterActionId: action.afterActionId } : a) } : value)),
+      freeActions: [...freeActions, { ...action, x: pos.x, y: pos.y, dx: undefined, dy: undefined, afterActionId: undefined }],
     })
     setSelected(null)
     setSelectedActionId(actionId)
@@ -904,8 +926,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (!action || action.id.startsWith('legacy-')) return
     save({
       steps: steps.map((value) => {
-        if (value.id === fromStepId) return { ...value, actions: (value.actions ?? []).filter((a) => a.id !== actionId) }
-        if (value.id === targetStepId) return { ...value, actions: [...(value.actions ?? []), { ...action, dx: undefined, dy: undefined }] }
+        if (value.id === fromStepId) return { ...value, actions: (value.actions ?? []).filter((a) => a.id !== actionId).map(a => a.afterActionId === actionId ? { ...a, afterActionId: action.afterActionId } : a) }
+        if (value.id === targetStepId) return { ...value, actions: actionsWithAttachment(value, action) }
         return value
       }),
     })
@@ -1068,7 +1090,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     while (used.has(`Q${n}`)) n++
     updateStep(
       target.id,
-      { actions: [...(target.actions ?? []), { id: id(), address: `Q${Math.floor((n - 1) / 8)}.${(n - 1) % 8}`, variable: `Q${n}`, condition: conditional ? 'I0.0' : '1', kind: 'N' }] },
+      { actions: actionsWithAttachment(target, { id: id(), address: `Q${Math.floor((n - 1) / 8)}.${(n - 1) % 8}`, variable: `Q${n}`, condition: conditional ? 'I0.0' : '1', kind: 'N' }) },
       'force'
     )
     setSelected(target.id)
@@ -1104,7 +1126,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const removeAction = (step: GrafcetStep, actionId: string) => {
     const currentActions = actionsOf(step)
     const targetAction = currentActions.find((a) => a.id === actionId)
-    const remaining = currentActions.filter((a) => a.id !== actionId)
+    const remaining = currentActions.filter((a) => a.id !== actionId).map(a => a.afterActionId === actionId ? { ...a, afterActionId: targetAction?.afterActionId } : a)
     updateStep(
       step.id,
       { actions: remaining, action: remaining.length === 0 ? '' : step.action },
@@ -1204,7 +1226,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         name: `${selectedStep.name} (cópia)`,
         initial: false,
         action: selectedStep.action,
-        actions: (selectedStep.actions ?? []).map((action) => ({ ...action, id: id() })),
+        actions: cloneActions(selectedStep.actions ?? [], id),
         ...(isPinned(selectedStep) ? { x: stepX(selectedStep.id) + GRID * 4, y: stepY(selectedStep.id) + GRID * 2, pinned: true } : {}),
       }
       const index = steps.indexOf(selectedStep)
@@ -1249,6 +1271,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
 
   const selectAction = (step: GrafcetStep, action: GrafcetAction, e: React.MouseEvent) => {
     e.stopPropagation()
+    if (full && activeTool === 'connect') { activatePort({ kind: 'action-out', id: action.id, side: stepActionLayout(step) === 'row' ? 'b' : 'r' }); return }
     if (full) {
       setSelected(step.id)
       setSelectedActionId(action.id)
@@ -1516,7 +1539,6 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     resizeLive?.kind === 'action' && resizeLive.id === a.id ? { w: resizeLive.w, h: resizeLive.h } : actionSize(a)
   /** Ação anexada que o utilizador afastou da coluna: mantém a ligação mas tem posição própria (dx/dy relativos à etapa). */
   const isOffsetAction = (a: GrafcetAction) => Number.isFinite(a.dx) && Number.isFinite(a.dy)
-  type ActionBox = { x: number; y: number; w: number; h: number; offset: boolean; flowIndex: number }
   const actionBoxCache = new Map<string, Map<string, ActionBox>>()
   /**
    * Caixas das ações anexadas a uma etapa: as da coluna/linha empilham-se a partir da face direita
@@ -1525,43 +1547,20 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   const attachedBoxes = (step: GrafcetStep): Map<string, ActionBox> => {
     const cached = actionBoxCache.get(step.id)
     if (cached) return cached
-    const out = new Map<string, ActionBox>()
-    const cx = stepX(step.id)
-    const top = stepY(step.id)
     const { w: SW, h: SH } = stepSizeOf(step.id)
-    const layout = stepActionLayout(step)
-    const baseX = cx + SW / 2 + (ACTION_OFFSET_X - 32)
-    let rowX = baseX
-    let colY: number | null = null
-    let flow = 0
-    actionsOf(step).forEach((a) => {
-      const { w, h } = actionSizeOf(a)
-      if (isOffsetAction(a)) {
-        const live = resizeLive?.kind === 'action' && resizeLive.id === a.id ? resizeLive : null
-        out.set(a.id, { x: live ? live.x : cx + a.dx!, y: live ? live.y : top + a.dy!, w, h, offset: true, flowIndex: -1 })
-        return
-      }
-      if (layout === 'row') {
-        out.set(a.id, { x: rowX, y: top + (SH - h) / 2, w, h, offset: false, flowIndex: flow })
-        rowX += w
-      } else {
-        if (colY === null) colY = top + (SH - h) / 2
-        out.set(a.id, { x: baseX, y: colY, w, h, offset: false, flowIndex: flow })
-        colY += h + (ACTION_PITCH - ACTION_H)
-      }
-      flow += 1
-    })
+    const out = attachedActionBoxes(actionsOf(step), { x: stepX(step.id), y: stepY(step.id), w: SW, h: SH }, stepActionLayout(step), actionSizeOf,
+      a => actionDragPos?.id === a.id ? actionDragPos : resizeLive?.kind === 'action' && resizeLive.id === a.id ? resizeLive : undefined)
     actionBoxCache.set(step.id, out)
     return out
   }
   /** Onde nasce a próxima ação da etapa (à direita da linha ou por baixo da coluna). */
   const nextActionSlot = (step: GrafcetStep): { x: number; y: number } => {
-    const boxes = [...attachedBoxes(step).values()].filter((b) => !b.offset)
+    const boxes = [...attachedBoxes(step).values()]
     const { w: SW, h: SH } = stepSizeOf(step.id)
     const baseX = stepX(step.id) + SW / 2 + (ACTION_OFFSET_X - 32)
     const top = stepY(step.id)
     if (!boxes.length) return { x: baseX, y: top + (SH - ACTION_H) / 2 }
-    const last = boxes[boxes.length - 1]
+    const last = boxes.reduce((last, b) => stepActionLayout(step) === 'row' ? b.x + b.w > last.x + last.w ? b : last : b.y + b.h > last.y + last.h ? b : last)
     return stepActionLayout(step) === 'row'
       ? { x: last.x + last.w, y: top + (SH - ACTION_H) / 2 }
       : { x: baseX, y: last.y + last.h + (ACTION_PITCH - ACTION_H) }
@@ -1835,12 +1834,26 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (side === 'b') return { x: pos.x + size.w / 2, y: pos.y + size.h + 14 }
     return { x: pos.x - 14, y: pos.y + size.h / 2 }
   }
+  const hitAttachedAction = (wx: number, wy: number, excludeId?: string, margin = 0): { step: GrafcetStep; action: GrafcetAction } | undefined => {
+    for (const step of steps) {
+      for (const action of actionsOf(step)) {
+        if (action.id === excludeId || action.id.startsWith('legacy-')) continue
+        const box = attachedBoxes(step).get(action.id)
+        if (box && wx >= box.x - margin && wx <= box.x + box.w + margin && wy >= box.y - margin && wy <= box.y + box.h + margin) return { step, action }
+      }
+    }
+  }
   /** Posição mundo de um porto. */
   const portPosOf = (p: PortRef): { x: number; y: number } => {
     if (p.kind === 'branch-out') return branchPointOf(p.id)
     if (p.kind === 'step-out') return { x: stepX(p.id), y: stepY(p.id) + stepHOf(p.id) }
     if (p.kind === 'step-in') return { x: stepX(p.id), y: stepY(p.id) }
     if (p.kind === 'step-action' || p.kind === 'step-attach') return { x: stepX(p.id) + stepSizeOf(p.id).w / 2, y: stepY(p.id) + stepHOf(p.id) / 2 }
+    if (p.kind === 'action-out') {
+      const owner = steps.find(s => actionsOf(s).some(a => a.id === p.id))
+      const box = owner ? attachedBoxes(owner).get(p.id) : undefined
+      return box ? actionPortAt(box, p.side ?? (stepActionLayout(owner) === 'row' ? 'b' : 'r'), box) : { x: ACTION_X, y: cursorY }
+    }
     if (p.kind === 'action-in') {
       const a = freeActions.find((value) => value.id === p.id)
       if (!a) return { x: ACTION_X, y: cursorY }
@@ -1857,15 +1870,25 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
   /** Porto de destino (entrada) válido sob um ponto, para completar um fio. */
   const hitWireTarget = (wx: number, wy: number, start: PortRef): PortRef | null => {
     const compatible: PortRef[] = []
+    if (start.kind === 'action-in' || start.kind === 'action-out') {
+      for (const step of steps) for (const action of actionsOf(step)) {
+        if (action.id !== start.id && !action.id.startsWith('legacy-')) compatible.push({ kind: 'action-out', id: action.id, side: stepActionLayout(step) === 'row' ? 'b' : 'r' })
+      }
+      const distance = (p: PortRef) => { const at = portPosOf(p); return Math.hypot(wx - at.x, wy - at.y) }
+      const nearest = [...compatible].sort((a, b) => distance(a) - distance(b))[0]
+      if (nearest && distance(nearest) <= Math.max(8, 14 / scale)) return nearest
+      const action = hitAttachedAction(wx, wy, start.id)
+      if (action) return { kind: 'action-out', id: action.action.id }
+    }
     const upstream = start.kind === 'trans-in' || start.kind === 'step-in'
     for (const step of steps) {
       if (start.kind === 'action-in') compatible.push({ kind: 'step-attach', id: step.id })
-      else if (start.kind !== 'step-action') compatible.push({ kind: upstream ? 'step-out' : 'step-in', id: step.id })
+      else if (start.kind !== 'step-action' && start.kind !== 'action-out') compatible.push({ kind: upstream ? 'step-out' : 'step-in', id: step.id })
     }
     if (start.kind === 'step-out') for (const t of transitions) compatible.push({ kind: 'trans-in', id: t.id })
     if (start.kind === 'step-in') for (const t of transitions) compatible.push({ kind: 'trans-out', id: t.id })
-    if (start.kind === 'step-action') for (const action of freeActions) compatible.push({ kind: 'action-in', id: action.id })
-    if (start.kind === 'step-action') {
+    if (start.kind === 'step-action' || start.kind === 'action-out') for (const action of freeActions) compatible.push({ kind: 'action-in', id: action.id })
+    if (start.kind === 'step-action' || start.kind === 'action-out') {
       // Largar sobre qualquer face (ou sobre o corpo) de uma ação solta liga-a à etapa.
       const margin = 18
       const hit = freeActions.find((action) => {
@@ -1882,7 +1905,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (step) {
       // Um fio vindo de uma ação solta liga a ação à etapa; saída-ação da etapa só fala com ações.
       if (start.kind === 'action-in') return { kind: 'step-attach', id: step.id }
-      if (start.kind === 'step-action') return null
+      if (start.kind === 'step-action' || start.kind === 'action-out') return null
       return { kind: upstream ? 'step-out' : 'step-in', id: step.id }
     }
     return null
@@ -1904,7 +1927,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (draft) {
       if (draft.start.id === start.id && draft.start.kind === start.kind) { cancelWire(); return }
       const point = clientToWorld(event.clientX, event.clientY)
-      const target = hitWireTarget(point.x, point.y, draft.start)
+      const actionPair = (draft.start.kind === 'action-in' && start.kind === 'action-out') || (draft.start.kind === 'action-out' && (start.kind === 'action-in' || start.kind === 'action-out'))
+      const target = actionPair ? start : hitWireTarget(point.x, point.y, draft.start)
       if (target) { completeWire(draft.start, target); cancelWire(); return }
     }
     quickWireRef.current = true
@@ -1934,6 +1958,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       notify('Ramo alternativo criado — cada transição mantém a sua condição')
       return
     }
+    // Uma ação anexada pode receber uma ação solta ou iniciar uma cadeia na mesma etapa.
+    if ((start.kind === 'action-out' && (end.kind === 'action-in' || end.kind === 'action-out')) || (start.kind === 'action-in' && end.kind === 'action-out')) {
+      const anchorId = start.kind === 'action-in' ? end.id : start.id
+      const actionId = start.kind === 'action-in' ? start.id : end.id
+      const owner = steps.find(s => (s.actions ?? []).some(a => a.id === anchorId))
+      if (owner) attachFreeAction(actionId, owner.id, anchorId)
+      return
+    }
     // Porto de ação da etapa ↔ ação solta (bidirecional): liga a ação à etapa.
     if (
       (start.kind === 'step-action' && end.kind === 'action-in') ||
@@ -1949,8 +1981,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       notify('O fio de ação liga-se a uma ação solta — largue-o sobre a caixa âmbar')
       return
     }
-    if (start.kind === 'action-in' || end.kind === 'action-in') {
-      notify('Ligue o fio da ação solta a uma etapa para anexá-la')
+    if (start.kind === 'action-in' || end.kind === 'action-in' || start.kind === 'action-out' || end.kind === 'action-out') {
+      notify('Ligue a ação a uma etapa ou a outra ação já anexada')
       return
     }
     if (start.kind === 'step-out' && end.kind === 'step-in') {
@@ -1995,7 +2027,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     const draft = wireDraftRef.current
     if (draft?.start.id === port.id && draft.start.kind === port.kind) { cancelWire(); return }
     const at = portPosOf(port)
-    const target = draft ? hitWireTarget(at.x, at.y, draft.start) : null
+    const actionPair = draft && ((draft.start.kind === 'action-in' && port.kind === 'action-out') || (draft.start.kind === 'action-out' && (port.kind === 'action-in' || port.kind === 'action-out')))
+    const target = draft ? actionPair ? port : hitWireTarget(at.x, at.y, draft.start) : null
     if (draft && target) { completeWire(draft.start, target); cancelWire(); return }
     quickWireRef.current = true
     setWireDraft({ start: port, ...at, moved: false })
@@ -2011,7 +2044,9 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
       (['step-in', 'trans-in'].includes(origin) && port.kind === 'step-out') ||
       (origin === 'step-in' && port.kind === 'trans-out') ||
       (origin === 'action-in' && port.kind === 'step-action') ||
-      (origin === 'step-action' && port.kind === 'action-in')
+      (origin === 'step-action' && port.kind === 'action-in') ||
+      (origin === 'action-in' && port.kind === 'action-out') ||
+      (origin === 'action-out' && (port.kind === 'action-in' || port.kind === 'action-out') && port.id !== wireDraft?.start.id)
     )
     return <g key={`${port.kind}-${port.id}-${port.side ?? ''}`} className={`grafcet-construction-port ${armed ? 'is-armed' : ''} ${compatible ? 'is-compatible' : ''} ${target ? 'is-target' : ''}`}
       role="button" tabIndex={0} aria-label={label} data-port-kind={port.kind} data-port-id={port.id} data-port-side={port.side}
@@ -2282,10 +2317,16 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     // Ctrl/⌘ ao largar: desanexa de propósito (sem Ctrl a ação nunca se solta da etapa).
     const forceDetach = e.ctrlKey || e.metaKey
     const { fromStepId, moved } = drag
+    const pointer = clientToWorld(e.clientX, e.clientY)
+    const dropAction = hitAttachedAction(pointer.x, pointer.y, action.id)
     resetActionDrag()
     if (!moved || !final) return
     if (fromStepId && forceDetach) {
       detachAction(fromStepId, action.id, { x: final.x, y: final.y })
+      return
+    }
+    if (dropAction) {
+      attachFreeAction(action.id, dropAction.step.id, dropAction.action.id)
       return
     }
     if (dropStepId && stepById.has(dropStepId)) {
@@ -2294,7 +2335,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
         else {
           // Largada junto à própria etapa: volta à coluna/linha de ações.
           const step = stepById.get(fromStepId)!
-          if (isOffsetAction(action)) patchAction(step, action, { dx: undefined, dy: undefined }, 'force')
+          if (isOffsetAction(action) || action.afterActionId) patchAction(step, action, { dx: undefined, dy: undefined, afterActionId: undefined }, 'force')
         }
       } else {
         attachFreeAction(action.id, dropStepId)
@@ -2305,7 +2346,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     // (posição relativa dx/dy); a solta muda simplesmente de lugar.
     if (fromStepId) {
       const step = stepById.get(fromStepId)
-      if (step) patchAction(step, action, { dx: Math.round(final.x - stepX(fromStepId)), dy: Math.round(final.y - stepY(fromStepId)) }, 'force')
+      if (step) patchAction(step, action, { dx: Math.round(final.x - stepX(fromStepId)), dy: Math.round(final.y - stepY(fromStepId)), afterActionId: undefined }, 'force')
       notify('Ação reposicionada — continua ligada à etapa (Ctrl ao largar desanexa)')
     } else patchFreeAction(action, { x: final.x, y: final.y }, 'force')
   }
@@ -2929,6 +2970,8 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     if (!svgRef.current) return
     const clone = svgRef.current.cloneNode(true) as SVGSVGElement
     clone.removeAttribute('style')
+    clone.setAttribute('width', String(width))
+    clone.setAttribute('height', String(height))
     const serializer = new XMLSerializer()
     const svgStr = serializer.serializeToString(clone)
     const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
@@ -3621,13 +3664,13 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
           {!!steps.length && (
             <div
               className="grafcet-pan-layer"
-              style={{ width, height, transform: `translate(${position.x}px, ${position.y}px) scale(${scale})` }}
+              style={{ width: width * scale, height: height * scale, transform: `translate(${position.x}px, ${position.y}px)` }}
             >
               <svg
                 ref={svgRef}
-                width={width}
-                height={height}
-                style={{ width, height, overflow: 'visible' }}
+                width={width * scale}
+                height={height * scale}
+                style={{ width: width * scale, height: height * scale, overflow: 'visible' }}
                 viewBox={`0 0 ${width} ${height}`}
                 fontFamily="Inter, Segoe UI, system-ui, -apple-system, sans-serif"
                 role="img"
@@ -4964,8 +5007,6 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   const linkLayer = actions
                     .map((action) => {
                       const box = boxOf(action)
-                      // Em linha, só a 1.ª ação da linha liga à etapa: as restantes encostam-se à anterior.
-                      if (layout === 'row' && !box.offset && box.flowIndex > 0) return null
                       const selected = isActionSelected(action.id)
                       const on = !!table[action.address]
                       const dragging = full && actionDragPos?.id === action.id
@@ -4974,7 +5015,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       const by = dragging ? actionDragPos!.y : box.y
                       const midY = by + box.h / 2
                       let d: string
-                      if (!box.offset && !dragging) d = actionLinkPath(linkX, linkY, busX, midY, bx)
+                      const previous = box.afterActionId ? boxes.get(box.afterActionId) : layout === 'row' && !box.offset && box.flowIndex > 0
+                        ? [...boxes.values()].filter(b => b !== box && b.x + b.w <= bx + 0.01 && Math.abs(b.y + b.h / 2 - midY) < 0.01).sort((a, b) => b.x + b.w - a.x - a.w)[0]
+                        : undefined
+                      if (previous) {
+                        const fromX = previous.x + previous.w, fromY = previous.y + previous.h / 2
+                        d = actionLinkPath(fromX, fromY, (fromX + bx) / 2, midY, bx)
+                      }
+                      else if (!box.offset && !dragging) d = actionLinkPath(linkX, linkY, busX, midY, bx)
                       else if (bx >= linkX) d = actionLinkPath(linkX, linkY, (linkX + bx) / 2, midY, bx)
                       else if (bx + box.w <= linkLeftX) d = actionLinkPath(linkLeftX, linkY, (linkLeftX + bx + box.w) / 2, midY, bx + box.w)
                       else {
@@ -5043,6 +5091,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         return (
                           <g
                             key={action.id}
+                            data-action-id={action.id}
                             className={`grafcet-graph-action ${isThisActionSelected ? 'is-selected' : ''} ${dragOverride ? 'is-dragging-action' : ''}`}
                             onClick={onActionClick}
                             onDoubleClick={onActionDoubleClick}
@@ -5088,6 +5137,14 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                               label={diagramLabel(actionLabel(action), Math.round((isThisActionSelected || isThisActionHovered ? 8 : actionShape(action).qualifier ? 12 : 16) * actionW / ACTION_W))}
                               subLabel={action.displayDescription && action.description && action.variable && action.description !== action.variable ? diagramLabel(action.variable, Math.round((isThisActionSelected || isThisActionHovered ? 10 : 16) * actionW / ACTION_W)) : undefined}
                             />
+
+                            {full && activeTool !== 'pan' && !running && !action.id.startsWith('legacy-') && <g className={`grafcet-action-ports grafcet-step-ports ${activeTool === 'connect' || isThisActionSelected || isThisActionHovered || focusedActionId === action.id || wireDraft ? 'is-emphasized' : 'is-idle'}`}>
+                              {renderWirePort(
+                                { kind: 'action-out', id: action.id, side: layout === 'row' ? 'b' : 'r' },
+                                actionPortAt({ x: renderX, y: actionY }, layout === 'row' ? 'b' : 'r', { w: actionW, h: actionH }),
+                                `Porto da ação ${action.variable || action.address || ''}: ligar outra ação`,
+                              )}
+                            </g>}
 
                             {full && isThisActionSelected && !dragOverride && activeTool === 'select' && !action.id.startsWith('legacy-') && (
                               <ResizeHandles
@@ -5195,11 +5252,13 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                   return (
                     <g
                       key={`free-action-${action.id}`}
+                      data-action-id={action.id}
                       className={`grafcet-graph-action grafcet-action-free ${isThisActionSelected ? 'is-selected' : ''}`}
                       onClick={
                         full
                           ? (e) => {
                               e.stopPropagation()
+                              if (activeTool === 'connect') { activatePort({ kind: 'action-in', id: action.id }); return }
                               setSelected(null)
                               setSelectedActionId(action.id)
                               setTab('steps')
@@ -5232,7 +5291,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       role="button"
                       tabIndex={0}
                       aria-keyshortcuts="L"
-                      aria-label={`Ação solta ${action.variable || action.address || ''} — arraste sobre uma etapa ou use Ligar, tecla L`}
+                      aria-label={`Ação solta ${action.variable || action.address || ''} — arraste sobre uma etapa ou ação, ou use Ligar, tecla L`}
                     >
                       <title>{`${kind} · ${actionLabel(action)}${action.variable ? ` · ${action.variable}` : ''}${isConditional ? ` · condição: ${action.condition}` : ''} · ação por ligar · arraste sobre uma etapa ou use Ligar [L]`}</title>
                       {/* Halo transparente para agarrar com facilidade (rato e toque) */}
@@ -5281,7 +5340,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                         {(['l', 'r', 't', 'b'] as const).map((side) => renderWirePort(
                           { kind: 'action-in', id: action.id, side },
                           actionPortAt({ x, y }, side, { w: FAW, h: FAH }),
-                          `Porto ${side === 'l' ? 'esquerdo' : side === 'r' ? 'direito' : side === 't' ? 'superior' : 'inferior'} da ação solta ${action.variable || action.address || ''}: arraste um fio até uma etapa`,
+                          `Porto ${side === 'l' ? 'esquerdo' : side === 'r' ? 'direito' : side === 't' ? 'superior' : 'inferior'} da ação solta ${action.variable || action.address || ''}: arraste um fio até uma etapa ou ação`,
                         ))}
                       </g>}
 
@@ -5294,7 +5353,7 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                       {/* Dica contextual */}
                       {full && (isThisActionHovered || isThisActionSelected || focusedActionId === action.id) && (
                         <text className="grafcet-detached-hint" x={x + FAW / 2} y={y + FAH + 36} textAnchor="middle" pointerEvents="none">
-                          arraste para etapa · Ligar [L]
+                          arraste para etapa ou ação · Ligar [L]
                         </text>
                       )}
 

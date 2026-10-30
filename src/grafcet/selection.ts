@@ -1,4 +1,5 @@
-import type { GrafcetAction, GrafcetStep, GrafcetTransition } from './engine'
+import type { GrafcetStep, GrafcetTransition } from './engine'
+import { cloneActions } from './actionLayout'
 import { GRID, MIN_X, MIN_Y, SPINE_X, START_Y, STEP_H, snapToGrid } from './layout'
 
 /**
@@ -124,7 +125,7 @@ export function cloneSubDiagram(
       id: remap.get(step.id)!,
       name: `${step.name}${suffix}`,
       initial: false,
-      actions: (step.actions ?? []).map((action: GrafcetAction) => ({ ...action, id: newId() })),
+      actions: cloneActions(step.actions ?? [], newId),
       x: Math.max(MIN_X, Math.round(at.x + offset.dx)),
       y: Math.max(MIN_Y, Math.round(at.y + offset.dy)),
       pinned: true,

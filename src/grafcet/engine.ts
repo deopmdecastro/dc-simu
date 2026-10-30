@@ -46,6 +46,8 @@ export interface GrafcetAction {
   /** Ação anexada: deslocamento livre da caixa em relação ao seu lugar junto à etapa (a ligação acompanha). */
   dx?: number
   dy?: number
+  /** Ligação gráfica após outra ação da mesma etapa; acompanha a sua posição e tamanho. */
+  afterActionId?: string
 }
 
 export interface GrafcetStep {
