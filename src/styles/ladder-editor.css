@@ -223,6 +223,8 @@
 .ladder-data-folder .ladder-data-grid > .ladder-folder-empty { grid-column:1 / -1; min-height:clamp(220px,38vh,320px); }
 .ladder-data-folder .ladder-data-row { grid-template-columns:minmax(0,1fr) auto; min-height:44px; gap:12px; padding:10px 12px; border-radius:9px; }
 .ladder-palette-search-wrap { position:relative; margin-bottom:8px; }
+/* Cabeçalho «Elementos» e pesquisa não se tocam (o cabeçalho não tem margem inferior). */
+.ladder-palette > .dc-side-panel-head + .ladder-palette-search-wrap { margin-top:12px; }
 .ladder-palette-search { height:34px; padding-right:32px; border-radius:8px; font-size:11px; }
 .ladder-palette-search:focus { border-color:var(--ladder-blue); box-shadow:0 0 0 3px rgba(38,85,229,.12); }
 .ladder-search-icon { top:10px; display:inline-flex; align-items:center; justify-content:center; }

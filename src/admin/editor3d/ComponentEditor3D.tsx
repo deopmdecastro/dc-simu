@@ -10,6 +10,7 @@ import type { ComponentType } from '../../types'
 import { catalogApi } from '../../catalog/catalogApi'
 import { useCatalogStore } from '../../catalog/registry'
 import TerminalLibrary, { DND_PROFILE, DND_TERMINAL } from '../../components/TerminalLibrary'
+import ViewCube, { type ViewCubeFace } from '../../components/ViewCube'
 import { BUILTIN_PROFILES, defaultParams, FACES, specsFromTerminals, type TerminalSpec } from '../../catalog/terminalProfiles'
 import { allProfiles, useProfileStore } from '../../catalog/profileStore'
 import { applyProfile, faceCounts } from './terminalOps'
@@ -344,6 +345,17 @@ function useCompactView(): boolean {
     return () => query.removeEventListener('change', update)
   }, [])
   return compact
+}
+
+/** Cubo de vista igual ao do simulador: arrastar orbita, clicar numa face ou canto enquadra-a. */
+function CubeOverlay() {
+  const angles = useEditorStore((s) => s.camAngles)
+  const set = useEditorStore((s) => s.set)
+  const cameraTo = useEditorStore((s) => s.cameraTo)
+  return <ViewCube yaw={angles.yaw} pitch={angles.pitch} placement="top"
+    onPick={(view: ViewCubeFace) => cameraTo(view === 'isometric' ? 'iso' : view)}
+    onAngles={(yaw, pitch) => set({ viewCommand: { kind: 'angles', n: Date.now(), yaw, pitch } })}
+    onOrbit={(dx, dy) => set({ viewCommand: { kind: 'orbit', n: Date.now(), dx, dy } })} />
 }
 
 /** Barra compacta «Bornes por vista» sobre o viewport (a versão com miniaturas está no separador Bornes). */
@@ -743,6 +755,7 @@ export default function ComponentEditor3D({ id, onClose, account }: { id: string
         {mode === 'edit' && tab !== 'terminals' && (placing || faceLock) && <FaceBar />}
         {libraryOpen && mode === 'edit' && <LibraryPanel />}
         <div className="ce-canvas"><Suspense fallback={<div className="ce-loading">A carregar o motor 3D…</div>}><Viewport /></Suspense></div>
+        <CubeOverlay />
         <div className="ce-stage-info">
           <span>{dims}</span>
           {mode === 'edit' && <span className="ce-pill">{editState === BASE_STATE ? 'A editar: pose base' : `A editar estado: ${stateName}`}</span>}

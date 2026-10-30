@@ -230,150 +230,65 @@
   animation: dx-spin 640ms linear infinite;
 }
 
-/* Espera de rotas: sinal indeterminado num circuito, com a identidade da app. */
+/* Espera de rotas: só a marca, uma barra de progresso indeterminada e o texto por baixo (sem cartão). */
 .dx-route-loading {
-  position: relative;
-  isolation: isolate;
   min-height: 100%;
   display: grid;
   place-items: center;
   padding: 40px 20px;
   background: var(--dx-bg, #edf0f5);
 }
-.dx-route-loading::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: radial-gradient(var(--dx-line-strong, #c2ccda) .7px, transparent .7px);
-  background-size: 24px 24px;
-  mask-image: radial-gradient(ellipse 480px 340px at center, #000 15%, transparent 100%);
-  opacity: .52;
-}
-.dx-route-loading-card {
-  position: relative;
+.dx-route-loading-stack {
   display: flex;
   flex-direction: column;
-  width: min(456px, 100%);
-  min-width: 0;
-  padding: 30px 32px 32px;
-  border: 1px solid var(--dx-line, #d3dbe5);
-  border-radius: 16px;
-  background: var(--dx-surface, #fff);
-  box-shadow: 0 2px 4px rgba(23, 32, 46, .02), 0 20px 48px -24px rgba(23, 32, 46, .22);
-}
-.dx-route-loading-brand {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 22px;
-  border-bottom: 1px solid var(--dx-line-soft, #e2e8f0);
+  gap: 22px;
+  width: min(240px, 100%);
 }
-.dx-route-loading-brand > .dx-logo {
-  margin: 0;
-  gap: 9px;
-}
-.dx-route-loading-brand > span:last-child {
-  color: var(--dx-ink-3, #64748b);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.dx-route-loading-diagram {
-  margin: 18px 0 16px;
-  border-radius: 8px;
-  background: var(--dx-surface-2, #f6f8fb);
-}
-.dx-route-loading-diagram svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.dx-route-loading-wire {
-  stroke: var(--dx-line-strong, #c2ccda);
-  stroke-width: 2;
-}
-.dx-route-loading-signal {
-  stroke: var(--dx-brand, #2655e5);
-  stroke-width: 2.5;
-  stroke-dasharray: 38 240;
-  animation: dx-route-loading-signal 2.4s linear infinite;
-}
-.dx-route-loading-relay {
-  fill: var(--dx-surface, #fff);
-  stroke: var(--dx-brand-line, #c0d4fc);
-  stroke-width: 1.5;
-}
-.dx-route-loading-contact {
-  stroke: var(--dx-brand, #2655e5);
-  stroke-width: 2.5;
-}
-.dx-route-loading-terminal {
-  fill: var(--dx-surface, #fff);
-  stroke: var(--dx-line-strong, #c2ccda);
-  stroke-width: 2;
-}
-.dx-route-loading-junction {
-  fill: var(--dx-brand, #2655e5);
-}
-.dx-route-loading-copy {
-  padding: 4px 0 24px;
-}
-.dx-route-loading-label {
-  margin: 0;
-  color: var(--dx-ink, #17202e);
-  font-size: 23px;
-  font-weight: 650;
-  line-height: 1.3;
-  letter-spacing: -.5px;
-  overflow-wrap: anywhere;
-}
-.dx-route-loading-copy p {
-  margin: 9px 0 0;
-  color: var(--dx-ink-3, #64748b);
-  font-size: 13px;
-  line-height: 1.6;
+.dx-route-loading-mark {
+  display: grid;
+  filter: drop-shadow(0 14px 26px rgba(25, 68, 191, .28));
+  animation: dx-route-loading-breathe 2.4s ease-in-out infinite;
 }
 .dx-route-loading-bar {
   position: relative;
   width: 100%;
-  height: 3px;
+  height: 4px;
   border-radius: 99px;
-  background: var(--dx-line-soft, #e2e8f0);
+  background: var(--dx-line, #d3dbe5);
   overflow: hidden;
 }
 .dx-route-loading-bar-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 40%;
+  width: 38%;
   border-radius: inherit;
-  background: var(--dx-brand, #2655e5);
-  animation: dx-route-loading-slide 1.8s var(--dx-ease, ease) infinite;
+  background: linear-gradient(90deg, #3869fa, #1944bf);
+  animation: dx-route-loading-slide 1.5s cubic-bezier(.65, 0, .35, 1) infinite;
+}
+.dx-route-loading-label {
+  margin: -6px 0 0;
+  color: var(--dx-ink-3, #64748b);
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: .01em;
+  text-align: center;
 }
 @keyframes dx-route-loading-slide {
-  0% { transform: translateX(-120%); }
-  100% { transform: translateX(280%); }
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(270%); }
 }
-@keyframes dx-route-loading-signal {
-  to { stroke-dashoffset: -278; }
+@keyframes dx-route-loading-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
 }
 @media (max-width: 480px) {
-  .dx-route-loading { padding: 28px 16px; }
-  .dx-route-loading-card { padding: 24px; border-radius: 12px; }
-  .dx-route-loading-brand { gap: 12px; padding-bottom: 20px; }
-  .dx-route-loading-brand > span:last-child { font-size: 11px; }
-  .dx-route-loading-label { font-size: 21px; }
-}
-@media (max-width: 340px) {
-  .dx-route-loading-brand { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .dx-route-loading-stack { gap: 18px; width: min(200px, 100%); }
+  .dx-route-loading-mark svg { width: 72px; height: 72px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dx-route-loading-signal { animation: none; stroke-dasharray: none; }
-  .dx-route-loading-bar-fill { animation: none; left: 30%; }
+  .dx-route-loading-mark { animation: none; }
+  .dx-route-loading-bar-fill { animation: none; left: 31%; }
 }
 
 .dx :focus-visible {
