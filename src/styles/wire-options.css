@@ -43,3 +43,24 @@
   .wo-gauges { grid-template-columns:repeat(3,minmax(0,1fr)); }
   .wo-swatch { width:22px; height:22px; }
 }
+
+/* Legibilidade: nomes dos terminais em duas linhas (sem «…» em painéis estreitos) e letra maior. */
+.wo-label { font-size:10px; }
+.wo-note { font-size:10.5px; color:var(--dx-ink-3,#64748b); }
+.wo-choice small { font-size:9.5px; color:var(--dx-ink-3,#64748b); }
+.wo-gauge { min-height:28px; font-size:11px; }
+.wo-gauge i { font-size:8.5px; }
+.wo-end { min-height:36px; padding:4px 7px; font-size:11px; line-height:1.2; }
+.wo-end span { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+.wo-end svg { width:30px; height:auto; }
+
+/* Inspetor do cabo · cor da ponteira: cores rápidas e cor normalizada DIN 46228-4 pela secção. */
+.dc-ferrule-swatches { display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
+.dc-ferrule-swatch { width:18px; height:18px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px rgba(15,23,42,.22); cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
+.dc-ferrule-swatch:hover { transform:scale(1.12); }
+.dc-ferrule-swatch.is-on { box-shadow:0 0 0 2px var(--dx-brand,#2f6bff); }
+.dc-ferrule-din { display:inline-flex; align-items:center; gap:4px; height:22px; padding:0 8px 0 4px; border:1px solid var(--dx-line,#dbe4ef); border-radius:999px; background:var(--dx-surface,#fff); color:var(--dx-ink-2,#334155); font:700 10px ui-sans-serif,sans-serif; cursor:pointer; }
+.dc-ferrule-din i { width:13px; height:13px; border-radius:50%; box-shadow:0 0 0 1px rgba(15,23,42,.25); }
+.dc-ferrule-din:hover { border-color:#7da2f5; }
+.dc-ferrule-din.is-on { border-color:var(--dx-brand,#2f6bff); background:var(--dx-brand-soft,#eff5ff); color:var(--dx-brand-700,#1f55e0); }
+.dc-ferrule-swatch:focus-visible, .dc-ferrule-din:focus-visible { outline:2px solid var(--dx-brand,#2f6bff); outline-offset:2px; }

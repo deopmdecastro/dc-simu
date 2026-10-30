@@ -285,7 +285,7 @@ function ToolRibbon({ onHelp }: { onHelp: () => void }) {
       {groupTools}
       {!compact && <><span className="tb-sep" />{groupGizmo}{shapes}</>}
       <div className="ce-ribbon-end">
-        {compact ? moreMenu : <><EditorActionMenu label="Organizar" icon={<IconLayers size={13} />}>{groupEdit}{groupPosition}</EditorActionMenu>{groupClear}</>}
+        {compact ? moreMenu : <>{/* Em Simular não há ações de organização: sem botão, em vez de um menu vazio. */}{editing && <EditorActionMenu label="Organizar" icon={<IconLayers size={13} />}>{groupEdit}{groupPosition}</EditorActionMenu>}{groupClear}</>}
       </div>
       {fileInput}
     </div>

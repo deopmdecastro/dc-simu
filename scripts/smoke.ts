@@ -78,6 +78,7 @@ import { meterInputFor } from '../src/electrical/meterModel'
 import { EMPTY_METER_INPUT, formatDigits, multimeterEvent, multimeterReading, runControlActions, selectorStep, setSelector, evalWhen } from '../src/catalog/behavior'
 import type { ControlDef } from '../src/catalog/types'
 import { componentBounds2D, componentsOverlap2D, nearestFreeComponentPosition, resolveComponentMove } from '../src/schematic/componentCollision'
+import { dinFerruleColor, FERRULE_SWATCHES } from '../src/schematic/wireEndColor'
 
 let failures = 0
 function check(name: string, cond: boolean, extra = '') {
@@ -2522,6 +2523,10 @@ console.log('\n— Tabela de sinais dinâmica —')
   check('Carregamento completo: recupera quatro tomadas sem perder as ligações antigas', useSimStore.getState().components[0].terminals.length === 4 && oldMeter.terminals.every((terminal) => useSimStore.getState().components[0].terminals.some((next) => next.id === terminal.id)))
   useSimStore.getState().loadJSON(JSON.stringify(fixture))
 }
+
+// Ponteiras: código de cores DIN 46228-4 pela secção do cabo.
+check('Ponteiras DIN 46228-4: 0,5 branco · 1 vermelho · 1,5 preto · 2,5 azul · 6 amarelo', dinFerruleColor('0.5mm²')?.name === 'branco' && dinFerruleColor('1mm²')?.name === 'vermelho' && dinFerruleColor('1.5mm²')?.hex === '#111827' && dinFerruleColor('2,5 mm²')?.name === 'azul' && dinFerruleColor(6)?.name === 'amarelo')
+check('Ponteiras DIN 46228-4: secção fora da tabela não inventa cor; cores rápidas sem repetidos', dinFerruleColor('0.3mm²') === null && new Set(FERRULE_SWATCHES.map((swatch) => swatch.hex)).size === FERRULE_SWATCHES.length)
 
 console.log(`\n${failures === 0 ? '✅ TODOS OS TESTES PASSARAM' : '❌ ' + failures + ' TESTE(S) FALHARAM'}`)
 process.exit(failures === 0 ? 0 : 1)

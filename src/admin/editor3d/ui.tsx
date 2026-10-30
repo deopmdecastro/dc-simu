@@ -68,8 +68,11 @@ export function Select<T extends string>({ value, onChange, options, disabled }:
   </DcxSelect>
 }
 
-/** Cor: amostra (seletor do sistema) + HEX editável; um HEX inválido não é aplicado e repõe-se ao sair. */
-export function Color({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+/** Cores rápidas dos materiais: plásticos claros/escuros, metal, preto e as cores de sinalização. */
+export const COLOR_SWATCHES: Array<[string, string]> = [['#f8fafc', 'Branco'], ['#cbd5e1', 'Cinzento claro'], ['#94a3b8', 'Cinzento'], ['#475569', 'Grafite'], ['#111827', 'Preto'], ['#dc2626', 'Vermelho'], ['#f59e0b', 'Âmbar'], ['#facc15', 'Amarelo'], ['#16a34a', 'Verde'], ['#2563eb', 'Azul']]
+
+/** Cor: amostra (seletor do sistema) + HEX editável + cores rápidas; um HEX inválido não é aplicado e repõe-se ao sair. */
+export function Color({ value, onChange, swatches = COLOR_SWATCHES }: { value: string; onChange: (value: string) => void; swatches?: Array<[string, string]> | false }) {
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
   const valid = (hex: string) => /^#[0-9a-f]{6}$/i.test(hex)
@@ -78,6 +81,9 @@ export function Color({ value, onChange }: { value: string; onChange: (value: st
     <input className="dx-input ce-color-hex" value={draft} maxLength={7} spellCheck={false} aria-label="Cor em HEX" aria-invalid={!valid(draft)}
       onChange={(event) => { const next = event.target.value.trim(); setDraft(next); if (valid(next)) onChange(next.toLowerCase()) }}
       onBlur={() => { if (!valid(draft)) setDraft(value) }} />
+    {swatches && <span className="ce-color-swatches" role="group" aria-label="Cores rápidas">
+      {swatches.map(([hex, name]) => <button key={hex} type="button" className={`ce-color-swatch${value.toLowerCase() === hex ? ' is-on' : ''}`} style={{ background: hex }} title={`${name} (${hex})`} aria-label={name} aria-pressed={value.toLowerCase() === hex} onClick={() => onChange(hex)} />)}
+    </span>}
   </span>
 }
 

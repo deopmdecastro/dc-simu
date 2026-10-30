@@ -278,3 +278,7 @@
 /* force-rebuild 20261028152457 */
 
 .dc-side-panel-head { --force-rebuild: 1; }
+
+/* Inspetor do simulador · cabeçalho fixo do cabo: o painel tem 12 px de padding, por isso o
+ * cabeçalho prende 12 px abaixo do topo; a sombra sólida tapa essa faixa (e os lados) durante o scroll. */
+.dc-inspector-scroll .dc-wire-inspector-head { box-shadow: 0 -12px 0 12px #fff; }

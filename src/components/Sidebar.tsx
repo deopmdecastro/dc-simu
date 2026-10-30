@@ -20,7 +20,7 @@ import { terminalClassesCompatible, terminalDatasheetGuidance, terminalElectrica
 import LabelLibrary from './LabelLibrary'
 import DatasheetPanel from './DatasheetPanel'
 import { terminalConnections } from '../schematic/terminalConnections'
-import { wireEndColor } from '../schematic/wireEndColor'
+import { dinFerruleColor, FERRULE_SWATCHES, wireEndColor } from '../schematic/wireEndColor'
 import { WIRE_END_OPTIONS, WireEndIcon, ConductorIcon } from '../schematic/wireEnds'
 import { WIRE_KIND_COLOR } from '../store/useSimStore'
 import { ComponentThumb } from '../three/componentThumbnails'
@@ -763,7 +763,7 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
           {/* ------------------------------------------------------ cabo */}
           {selectedWire && (
             <section className="dc-wire-inspector space-y-2.5">
-              <header className="flex items-center justify-between sticky top-0 bg-surface-panel py-1 z-10 border-b border-line">
+              <header className="dc-wire-inspector-head flex items-center justify-between sticky top-0 bg-surface-panel py-1 z-10 border-b border-line">
                 <span className="font-semibold text-ink-900">Cabo {selectedWire.number ?? selectedWire.id}</span>
                 <span className={`dc-chip ${selectedWire.energized ? '!border-amber-300 !bg-amber-50 !text-energy-deep' : ''}`}>
                   <span className={`inline-block h-1.5 w-1.5 rounded-full ${selectedWire.energized ? 'bg-energy' : 'bg-ink-300'}`} />
@@ -956,11 +956,18 @@ export default function Sidebar({ width = 300, quickAddOnPick = false, onCompone
                       <span className="font-mono">{endColor}</span>
                       {selectedWire[colorKey] && <button type="button" className="ml-auto text-brand-600 hover:underline" title="Voltar a seguir a cor do borne" onClick={() => patchSelectedWire({ [colorKey]: undefined })}>Repor</button>}
                     </div>
+                    {(() => {
+                      const din = dinFerruleColor(selectedWire.gauge)
+                      return <div className="dc-ferrule-swatches" role="group" aria-label={`Cores rápidas da ${title}`}>
+                        {din && <button type="button" className={`dc-ferrule-din${endColor.toLowerCase() === din.hex ? ' is-on' : ''}`} onClick={() => patchSelectedWire({ [colorKey]: din.hex })} title={`Cor normalizada DIN 46228-4 para ${selectedWire.gauge}: ${din.name}`} aria-label={`Aplicar cor DIN 46228-4 (${din.name})`}><i style={{ background: din.hex }} />DIN</button>}
+                        {FERRULE_SWATCHES.map((swatch) => <button key={swatch.hex} type="button" className={`dc-ferrule-swatch${endColor.toLowerCase() === swatch.hex ? ' is-on' : ''}`} style={{ background: swatch.hex }} title={`Ponteira ${swatch.name}`} aria-label={`Ponteira ${swatch.name}`} aria-pressed={endColor.toLowerCase() === swatch.hex} onClick={() => patchSelectedWire({ [colorKey]: swatch.hex })} />)}
+                      </div>
+                    })()}
                     <div className="grid grid-cols-2 gap-1">
                       {WIRE_END_OPTIONS.map((o) => <button key={o.id} type="button" title={o.hint} aria-pressed={chosen === o.id}
                         onClick={() => patchSelectedWire({ [typeKey]: o.id })}
                         className={`flex items-center gap-1.5 rounded-[5px] border px-1.5 py-1 text-left text-[10.5px] transition-colors ${chosen === o.id ? 'border-brand-500 bg-brand-50 text-brand-700 font-semibold' : 'border-line bg-white text-ink-700 hover:border-line-strong hover:bg-slate-50'}`}>
-                        <WireEndIcon type={o.id} color={endColor} size={30} /><span className="truncate">{o.label}</span>
+                        <WireEndIcon type={o.id} color={endColor} size={30} /><span className="min-w-0 leading-tight [overflow-wrap:anywhere]">{o.label}</span>
                       </button>)}
                     </div>
                   </div>

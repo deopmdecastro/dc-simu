@@ -1392,3 +1392,9 @@
 .ce-section-actions { flex:0 1 max-content; max-width:100%; margin-left:auto; flex-wrap:wrap; gap:6px; }
 .ce-section-actions .ce-actions-inline { gap:6px; }
 .ce-section-actions .dx-btn { white-space:nowrap; }
+.ce-color { flex-wrap:wrap; row-gap:6px; }
+.ce-color-swatches { flex-basis:100%; display:flex; flex-wrap:wrap; gap:4px; }
+.ce-color-swatch { width:15px; height:15px; padding:0; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 1px rgba(15,23,42,.22); cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
+.ce-color-swatch:hover { transform:scale(1.12); }
+.ce-color-swatch.is-on { box-shadow:0 0 0 2px var(--dx-brand,#2655e5); }
+.ce-color-swatch:focus-visible { outline:2px solid var(--dx-brand,#2655e5); outline-offset:2px; }
