@@ -21,6 +21,20 @@ function contributionOut(row: any): Contribution {
   }
 }
 
+/** author_id referencia auth.users, não profiles: o PostgREST não infere o join profiles:author_id(...)
+ *  («Could not find a relationship…»). Os nomes e emails vêm numa segunda consulta a profiles. */
+async function withAuthors(rows: any[]): Promise<any[]> {
+  const ids = [...new Set(rows.map((row) => row.author_id).filter(Boolean))]
+  const authors = new Map<string, { name?: string; email?: string }>()
+  if (ids.length) {
+    try {
+      const { data, error } = await clientOrThrow().from('profiles').select('id, name, email').in('id', ids)
+      if (!error) for (const profile of data ?? []) authors.set(profile.id, profile)
+    } catch { /* sem o nome do autor a contribuição continua visível */ }
+  }
+  return rows.map((row) => ({ ...row, profiles: authors.get(row.author_id) ?? null }))
+}
+
 async function currentUser() {
   const { data: { user }, error } = await clientOrThrow().auth.getUser()
   if (error || !user) throw new Error('Inicie sessão no Supabase.')
@@ -35,23 +49,23 @@ async function fileInfo(kind: Contribution['kind'], file: File) {
 
 async function getRow(id: string) {
   const { data, error } = await clientOrThrow().from('contributions')
-    .select('*, profiles:author_id(name,email)').eq('id', id).maybeSingle()
+    .select('*').eq('id', id).maybeSingle()
   if (error) throw new Error(error.message)
   if (!data) throw new Error('Contribuição não encontrada.')
-  return data
+  return (await withAuthors([data]))[0]
 }
 
 export const supabaseContrib: ContribBackend = {
   async list(filter?: ContributionFilter) {
     const client = clientOrThrow()
-    let query = client.from('contributions').select('*, profiles:author_id(name,email)').order('created_at', { ascending: false })
+    let query = client.from('contributions').select('*').order('created_at', { ascending: false })
     if (filter?.status) query = query.eq('status', filter.status)
     if (filter?.kind) query = query.eq('kind', filter.kind)
     if (filter?.componentType) query = query.eq('component_type', filter.componentType)
     if (filter?.mine) query = query.eq('author_id', (await currentUser()).id)
     const { data, error } = await query
     if (error) throw new Error(error.message)
-    return (data ?? []).map(contributionOut)
+    return (await withAuthors(data ?? [])).map(contributionOut)
   },
 
   async submit(input: ContributionInput, file: File) {
@@ -68,7 +82,7 @@ export const supabaseContrib: ContribBackend = {
       custom_name: input.customName?.trim() || null, description: input.description.trim(),
       file_name: safeFileName(file.name), size: file.size, author_id: user.id, status: 'pending',
       file_ready: false, glb: info ? JSON.stringify(info) : null, storage_path: storagePath, created_at: now, updated_at: now,
-    }).select('*, profiles:author_id(name,email)').single()
+    }).select('*').single()
     if (error || !data) throw new Error(error?.message || 'Não foi possível criar a contribuição.')
     const uploaded = await client.storage.from('contribution-files').upload(storagePath, file, { contentType: file.type || 'application/octet-stream', upsert: false })
     if (uploaded.error) {
@@ -81,7 +95,7 @@ export const supabaseContrib: ContribBackend = {
       await client.from('contributions').delete().eq('id', id)
       throw new Error(readyError.message)
     }
-    return contributionOut({ ...data, file_ready: true })
+    return contributionOut((await withAuthors([{ ...data, file_ready: true }]))[0])
   },
 
   async update(id, patch, file) {

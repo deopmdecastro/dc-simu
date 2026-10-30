@@ -1,6 +1,7 @@
 import { useCanvasAction, useSimUi } from '../ui/simUi'
 import { importedComponentInfo, importedActuationPatch } from '../electrical/importedComponents'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNonPassiveListener } from '../ui/useNonPassiveListener'
 import { useShallow } from 'zustand/react/shallow'
 import { useSimStore } from '../store/useSimStore'
 import { SymbolGlyph, ComponentTerminals, TerminalGlyph, WIRE_COLORS, terminalGlyphRadius, terminalHitRadius, terminalPos } from './symbols'
@@ -866,7 +867,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     setPanning(null)
   }
 
-  const onTouchStart = (e: React.TouchEvent<SVGSVGElement>) => {
+  const onTouchStart = (e: TouchEvent) => {
     if (e.touches.length !== 2) return
     e.preventDefault()
     const [a, b] = [e.touches[0], e.touches[1]]
@@ -875,7 +876,7 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     const world = toCanvas(centerX, centerY)
     pinchRef.current = { distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), zoom, worldX: world.x, worldY: world.y }
   }
-  const onTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+  const onTouchMove = (e: TouchEvent) => {
     if (e.touches.length !== 2 || !pinchRef.current || !svgRef.current) return
     e.preventDefault()
     const [a, b] = [e.touches[0], e.touches[1]]
@@ -900,12 +901,17 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
     useSimStore.getState().addComponent(compType, snap(p.x - g.w / 2), snap(p.y - g.h / 2))
   }
 
-  const onWheel = (e: React.WheelEvent) => {
+  const onWheel = (e: WheelEvent) => {
     e.preventDefault()
     const factor = e.deltaY < 0 ? 1.1 : 0.9
     if (e.ctrlKey) setZoom(zoom * factor)
     else setPan(panX - e.deltaX, panY - e.deltaY)
   }
+
+  // Nativos e não passivos: o preventDefault trava o scroll/zoom da página (no React seriam passivos).
+  useNonPassiveListener<WheelEvent>(svgRef, 'wheel', onWheel)
+  useNonPassiveListener<TouchEvent>(svgRef, 'touchstart', onTouchStart)
+  useNonPassiveListener<TouchEvent>(svgRef, 'touchmove', onTouchMove)
 
   const simLocked = simRunState === 'running' || simRunState === 'paused'
   const startDrag = (e: React.MouseEvent, c: ElectricalComponent) => {
@@ -1410,9 +1416,6 @@ function Schematic2DView({ libraryCollapsed = false, onOpen3DView }: { libraryCo
          onMouseMove={onMouseMove}
          onMouseUp={onMouseUp}
          onMouseLeave={onMouseUp}
-         onWheel={onWheel}
-         onTouchStart={onTouchStart}
-         onTouchMove={onTouchMove}
          onTouchEnd={(e) => { if (e.touches.length < 2) pinchRef.current = null }}
          onContextMenu={(e) => e.preventDefault()}
          onDragOver={(e) => {

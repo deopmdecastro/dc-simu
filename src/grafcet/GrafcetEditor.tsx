@@ -1,7 +1,8 @@
 import { nanoid } from 'nanoid'
 import type { LadderTag } from '../types'
 import ActionSymbol, { actionShape } from './ActionSymbol'
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useNonPassiveListener } from '../ui/useNonPassiveListener'
 import { uiChoose, uiConfirm } from '../ui/dialogs'
 import { isModalOpen, isTypingTarget } from '../ui/editorKeys'
 import { allowedViews } from '../project/kind'
@@ -2448,12 +2449,15 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
     setPan(null)
   }
 
-  const onPreviewWheel = (event: WheelEvent<HTMLDivElement>) => {
+  const onPreviewWheel = (event: WheelEvent) => {
     if (!steps.length) return
     event.preventDefault()
-    const rect = event.currentTarget.getBoundingClientRect()
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     zoomAt(scale * (event.deltaY < 0 ? 1.12 : 1 / 1.12), { x: event.clientX - rect.left, y: event.clientY - rect.top })
   }
+
+  // Nativo e não passivo: o preventDefault trava o scroll da página (no onWheel do React seria passivo).
+  useNonPassiveListener<WheelEvent>(viewportRef, 'wheel', onPreviewWheel)
 
   const clickStartRef = useRef<{ x: number; y: number } | null>(null)
 
@@ -3560,7 +3564,6 @@ export default function GrafcetEditor({ full: fullProp = false, onOpenEditor, on
                 }
               : undefined
           }
-          onWheel={onPreviewWheel}
           onContextMenu={onCanvasContextMenu}
           onPointerDown={onPreviewDown}
           onPointerMove={onPreviewMove}

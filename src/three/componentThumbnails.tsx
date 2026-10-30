@@ -66,7 +66,8 @@ function mat(color: string, opts: { metalness?: number; roughness?: number; emis
     color,
     metalness: opts.metalness ?? 0.15,
     roughness: opts.roughness ?? 0.55,
-    emissive: opts.emissive ? new THREE.Color(opts.emissive) : undefined,
+    // Só quando existe: `emissive: undefined` faz o three avisar «parameter 'emissive' has value of undefined».
+    ...(opts.emissive ? { emissive: new THREE.Color(opts.emissive) } : {}),
     emissiveIntensity: opts.emissiveIntensity ?? 0,
     transparent: opts.opacity !== undefined,
     opacity: opts.opacity ?? 1,

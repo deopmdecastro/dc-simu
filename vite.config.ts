@@ -73,6 +73,10 @@ export default defineConfig({
       // A aplicação aceita a atualização automaticamente, mas apenas depois de
       // persistir o trabalho sujo (src/utils/appUpdates.ts).
       registerType: 'prompt',
+      // <link rel="manifest" crossorigin="use-credentials">: nos deployments protegidos do Vercel
+      // o manifest só passa com o cookie de autenticação; sem ele o pedido é redirecionado para o
+      // SSO do Vercel e bloqueado por CORS.
+      useCredentials: true,
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'DC-SIMU — Simulador de Comandos Elétricos',
